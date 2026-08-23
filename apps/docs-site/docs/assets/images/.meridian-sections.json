@@ -1,0 +1,14 @@
+{
+  "roomId": "room_d1cb32bf-d3dc-46d2-a3c2-83cf8ee23124",
+  "taken": [
+    "orchestrator-rooms-overview",
+    "orchestrator-rooms-brief-tab",
+    "orchestrator-rooms-work",
+    "orchestrator-rooms-claims-tab",
+    "orchestrator-rooms-artifacts",
+    "orchestrator-rooms-changes",
+    "orchestrator-rooms-watch",
+    "orchestrator-rooms-member",
+    "orchestrator-rooms-member-info"
+  ]
+}

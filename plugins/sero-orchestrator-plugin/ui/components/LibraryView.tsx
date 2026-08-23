@@ -21,10 +21,12 @@ interface LibraryViewProps {
   onOpenLoop: (loopId: string) => void;
   dispatch: (params: Record<string, unknown>) => Promise<Record<string, unknown> | null>;
   onClose: () => void;
+  /** The shell tab that opened this surface (Library vs Catalog). */
+  initialTab?: Tab;
 }
 
-export function LibraryView({ libraryDir, libraryIndex, busy, onLoad, onOpenLoop, dispatch, onClose }: LibraryViewProps) {
-  const [tab, setTab] = useState<Tab>(() => (libraryIndex.entries.length === 0 ? 'catalog' : 'mine'));
+export function LibraryView({ libraryDir, libraryIndex, busy, onLoad, onOpenLoop, dispatch, onClose, initialTab }: LibraryViewProps) {
+  const [tab, setTab] = useState<Tab>(() => initialTab ?? (libraryIndex.entries.length === 0 ? 'catalog' : 'mine'));
   const [librarySearch, setLibrarySearch] = useState('');
 
   const showInLibrary = (entryName: string) => {
@@ -38,7 +40,7 @@ export function LibraryView({ libraryDir, libraryIndex, busy, onLoad, onOpenLoop
         <Button size="icon-sm" variant="ghost" onClick={onClose} title="Back">
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h1 className="text-lg font-semibold">Loop Library</h1>
+        <h1 className="text-lg font-semibold">Workflow Library</h1>
         <div className="ml-3 flex items-center gap-1">
           <Button size="sm" variant={tab === 'mine' ? 'secondary' : 'ghost'} onClick={() => setTab('mine')}>
             My Library
@@ -48,7 +50,7 @@ export function LibraryView({ libraryDir, libraryIndex, busy, onLoad, onOpenLoop
           </Button>
         </div>
         {tab === 'mine' && (
-          <span className="ml-auto text-xs text-muted-foreground">{libraryIndex.entries.length} saved loop(s)</span>
+          <span className="ml-auto text-xs text-muted-foreground">{libraryIndex.entries.length} saved workflow(s)</span>
         )}
       </header>
 

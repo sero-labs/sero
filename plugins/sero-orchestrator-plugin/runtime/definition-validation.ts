@@ -11,7 +11,7 @@
  */
 
 import type { LoopPlan } from '../shared/types';
-import { isDeliveryDestinationId } from '../shared/delivery-types';
+import { isLoopDeliveryDestinationId } from '../shared/delivery-types';
 import { isValidCron } from './cron';
 import { approvalGateProblems, validateDeliverySettings, validateEventTriggerFields, validateLoopPlan } from './schema';
 import { isRecord } from './structured-call';
@@ -69,7 +69,7 @@ export function validateSharedDefinition(def: unknown): string[] {
   // The gate rule needs a sound plan and a known destination to inspect (it
   // only reads the destination, so params need not be threaded through).
   const gateErrors =
-    isRecord(def.delivery) && isDeliveryDestinationId(def.delivery.destination) && planErrors.length === 0 && deliveryErrors.length === 0
+    isRecord(def.delivery) && isLoopDeliveryDestinationId(def.delivery.destination) && planErrors.length === 0 && deliveryErrors.length === 0
       ? approvalGateProblems(def.plan as unknown as LoopPlan, { destination: def.delivery.destination })
       : [];
 

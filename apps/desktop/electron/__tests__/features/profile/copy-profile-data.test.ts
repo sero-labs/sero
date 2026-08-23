@@ -120,4 +120,46 @@ describe('profile copy helpers', () => {
     });
     expect(existsSync(path.join(dest.agentDir, 'auth.json'))).toBe(true);
   });
+
+  it('carries an app\'s declared preferences into a copied profile, and nothing else', async () => {
+    const source = await createProfileDir('sero-profile-copy-source-');
+    const dest = await createProfileDir('sero-profile-copy-dest-');
+
+    const appStateDir = path.join(source.profileHome, 'apps', 'graphify');
+    await mkdir(appStateDir, { recursive: true });
+    await writeFile(
+      path.join(appStateDir, 'state.json'),
+      JSON.stringify({
+        settings: { model: { backend: 'openai', modelId: 'gpt-5.6-luna', chosenAt: 'now' } },
+        // Facts about THIS machine. Carrying them into a new profile would
+        // hand the indexer a list of workspaces that do not exist there —
+        // and, for an app that indexes workspaces, queue paid work on arrival.
+        workspaces: { ws1: { workspaceId: 'ws1', enabled: true, lastBuiltAt: 'yesterday' } },
+        spend: { day: '2026-08-20', usd: 4.2, runs: [{ usd: 4.2 }] },
+      }),
+      'utf8',
+    );
+
+    copyProfileDataSync(source.profileHome, dest.profileHome, [{ id: 'graphify', portableState: ['settings'] }]);
+
+    const copied = JSON.parse(
+      await readFile(path.join(dest.profileHome, 'apps', 'graphify', 'state.json'), 'utf8'),
+    ) as Record<string, unknown>;
+    expect(copied.settings).toMatchObject({ model: { modelId: 'gpt-5.6-luna' } });
+    expect(copied.workspaces).toBeUndefined();
+    expect(copied.spend).toBeUndefined();
+  });
+
+  it('copies no app state when the app declares none', async () => {
+    const source = await createProfileDir('sero-profile-copy-source-');
+    const dest = await createProfileDir('sero-profile-copy-dest-');
+
+    const appStateDir = path.join(source.profileHome, 'apps', 'todo');
+    await mkdir(appStateDir, { recursive: true });
+    await writeFile(path.join(appStateDir, 'state.json'), JSON.stringify({ settings: { a: 1 } }), 'utf8');
+
+    copyProfileDataSync(source.profileHome, dest.profileHome, [{ id: 'todo', portableState: [] }]);
+
+    expect(existsSync(path.join(dest.profileHome, 'apps', 'todo', 'state.json'))).toBe(false);
+  });
 });

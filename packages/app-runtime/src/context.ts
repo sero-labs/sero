@@ -32,6 +32,15 @@ export interface AppContextValue {
    * render code or diffs use it so their syntax colours match the host editor.
    */
   editorThemeId?: string;
+  /** Browser-style navigation supplied by the host for full app surfaces. */
+  navigation?: AppNavigationValue;
+}
+
+export interface AppNavigationValue {
+  /** The sub-view selected by the current host history entry. */
+  viewId?: string;
+  /** Record a user navigation to another sub-view of this app. */
+  navigate: (viewId: string, options?: { replace?: boolean }) => void;
 }
 
 declare global {

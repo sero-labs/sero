@@ -7,13 +7,14 @@
  *   /orchestrator show <loopId>
  *   /orchestrator activate|disable|enable|run_next|run_again|retry|reflect|delete <loopId>
  *   /orchestrator reflect_workspace
+ *   /orchestrator extract_skill|discard_skill_draft <loopId>
  *   /orchestrator answer <loopId> <your answer...>
  *   /orchestrator revise <loopId> [request...]
  */
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import type { Loop } from '../shared/types';
-import { DELIVERY_DESTINATION_IDS, isDeliveryDestinationId } from '../shared/delivery-types';
+import { LOOP_DELIVERY_DESTINATION_IDS, isLoopDeliveryDestinationId } from '../shared/delivery-types';
 import { executeOrchestratorTool, ORCHESTRATOR_ACTIONS, type OrchestratorToolParamsShape } from './tools';
 
 const HELP = `Usage:
@@ -25,6 +26,8 @@ const HELP = `Usage:
   /orchestrator set_delivery <loopId> <destination>
   /orchestrator set_schedule <loopId> <triggerId> <cron schedule (UTC)>
   /orchestrator reflect_workspace
+  /orchestrator extract_skill <loopId>
+  /orchestrator discard_skill_draft <loopId>
   /orchestrator answer <loopId> <your answer>
   /orchestrator revise <loopId> [request]
   /orchestrator library_list
@@ -88,13 +91,13 @@ export function parseCommand(args: string): ParsedCommand {
       // Optional leading destination flag; the prompt is everything after it.
       const flagged = remainder.match(/^--deliver\s+(\S+)\s+([\s\S]+)$/);
       if (!flagged) return { action, prompt: remainder };
-      if (!isDeliveryDestinationId(flagged[1])) return { error: `Unknown destination "${flagged[1]}". Destinations: ${DELIVERY_DESTINATION_IDS.join(', ')}` };
+      if (!isLoopDeliveryDestinationId(flagged[1])) return { error: `Unknown destination "${flagged[1]}". Destinations: ${LOOP_DELIVERY_DESTINATION_IDS.join(', ')}` };
       return { action, prompt: flagged[2], deliveryDestination: flagged[1] };
     }
     case 'set_delivery': {
       const [loopId, destination] = rest;
       if (!loopId || !destination) return { error: 'set_delivery requires a loopId and a destination' };
-      if (!isDeliveryDestinationId(destination)) return { error: `Unknown destination "${destination}". Destinations: ${DELIVERY_DESTINATION_IDS.join(', ')}` };
+      if (!isLoopDeliveryDestinationId(destination)) return { error: `Unknown destination "${destination}". Destinations: ${LOOP_DELIVERY_DESTINATION_IDS.join(', ')}` };
       return { action, loopId, deliveryDestination: destination };
     }
     case 'set_schedule': {
@@ -139,6 +142,10 @@ export function parseCommand(args: string): ParsedCommand {
       if (!loopId || !stepId) return { error: 'retry_step requires a loopId and a stepId' };
       return { action, loopId, stepId };
     }
+    case 'save_skill':
+      // A SKILL.md body cannot be typed as a command argument. Extract, then
+      // review and save it in the Orchestrator app (or through the tool).
+      return { error: 'save_skill is not available as a command — review and save the draft in the Orchestrator app.' };
     default: {
       const loopId = rest[0];
       if (!loopId) return { error: `${action} requires a loopId` };
@@ -164,7 +171,7 @@ async function answerViaText(cwd: string | undefined, loopId: string, text: stri
 
 export function registerOrchestratorCommand(pi: ExtensionAPI): void {
   pi.registerCommand('orchestrator', {
-    description: 'Manage Orchestrator loops: list, create, show, activate, disable, enable, run_next, run_again, retry, revise, reflect, reflect_workspace, answer, delete, the Loop Library (library_list/save/load/set_version/unlink/delete), and the Loop Catalog (catalog_list/refresh/install/add_repo/remove_repo)',
+    description: 'Manage Orchestrator loops: list, create, show, activate, disable, enable, run_next, run_again, retry, revise, reflect, reflect_workspace, extract_skill (draft a reusable skill from a proven workflow), save_skill, discard_skill_draft, answer, delete, the Loop Library (library_list/save/load/set_version/unlink/delete), and the Loop Catalog (catalog_list/refresh/install/add_repo/remove_repo)',
     handler: async (args, ctx) => {
       const parsed = parseCommand(args ?? '');
       if ('error' in parsed) {

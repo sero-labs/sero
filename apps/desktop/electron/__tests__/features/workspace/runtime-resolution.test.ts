@@ -126,7 +126,7 @@ describe('resolveWorkspaceRuntime', () => {
   });
 
   it.each(['stopped', 'error'] as const)(
-    'returns host fallback details when runtime health is %s',
+    'returns unavailable container details without host fallback when runtime health is %s',
     async (status) => {
       mocks.runtimeManager.getHealth.mockResolvedValue({
         backend: 'docker',

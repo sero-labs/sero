@@ -7,9 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   ensurePluginPackageReadyForInstall,
-  findUnsupportedDependencySpec,
   pluginNeedsBuild,
-  stripInstalledOnlyManifestFields,
 } from '@electron/features/plugins/package-build';
 import { NativeBuildToolsRequiredError } from '@electron/features/workspace/runtime/native-build/types';
 
@@ -28,30 +26,12 @@ const desktopRoot = path.resolve(__dirname, '../../../..');
 const repoRoot = path.resolve(desktopRoot, '..', '..');
 const buildPluginScript = path.join(repoRoot, 'scripts', 'build-plugin.mjs');
 const exportPluginSourceScript = path.join(repoRoot, 'scripts', 'export-plugin-source.mjs');
-const stagedWebPluginRoot = path.join(desktopRoot, 'dist/electron/builtin/plugins/sero-web-plugin');
-
 describe('plugin package build helpers', () => {
   const tempDirs: string[] = [];
 
   afterEach(async () => {
     vi.restoreAllMocks();
     await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
-  });
-
-  it('detects workspace and catalog dependency specs', () => {
-    expect(findUnsupportedDependencySpec({
-      dependencies: { react: '^19.1.1' },
-      devDependencies: { '@sero-ai/app-runtime': 'workspace:*' },
-    })).toBe('devDependencies.@sero-ai/app-runtime=workspace:*');
-
-    expect(findUnsupportedDependencySpec({
-      dependencies: { 'typebox': 'catalog:' },
-    })).toBe('dependencies.typebox=catalog:');
-
-    expect(findUnsupportedDependencySpec({
-      dependencies: { react: '^19.1.1' },
-      devDependencies: { vite: '^6.4.1' },
-    })).toBeNull();
   });
 
   it('detects when a plugin UI needs a local build', async () => {
@@ -84,22 +64,6 @@ describe('plugin package build helpers', () => {
         },
       },
     }, dir)).toBe(false);
-  });
-
-  it('removes devPort from installed plugin manifests', () => {
-    const result = stripInstalledOnlyManifestFields({
-      sero: {
-        app: {
-          ui: './dist/ui/remoteEntry.js',
-          runtime: './runtime/index.ts',
-          devPort: 5174,
-        },
-      },
-    });
-
-    expect(result.sero?.app?.ui).toBe('./dist/ui/remoteEntry.js');
-    expect(result.sero?.app?.runtime).toBe('./runtime/index.ts');
-    expect(result.sero?.app).not.toHaveProperty('devPort');
   });
 
   it('builds pre-built plugin packages with compiled runtime entries', async () => {
@@ -502,20 +466,4 @@ describe('plugin package build helpers', () => {
     );
   });
 
-  it('stages built-in web plugin runtime dependencies into the packaged artifact tree', async () => {
-    // This test verifies the full packaging pipeline output including the
-    // web plugin's Vite-built UI bundle. The UI build depends on native
-    // modules (better-sqlite3) which may not compile on all CI runners.
-    // Skip gracefully when the staged remoteEntry.js is absent.
-    try {
-      await stat(path.join(stagedWebPluginRoot, 'dist/ui/remoteEntry.js'));
-    } catch {
-      return; // web plugin UI build artifacts not present — skip
-    }
-
-    await expect(stat(path.join(stagedWebPluginRoot, 'package.json'))).resolves.toBeDefined();
-    await expect(stat(path.join(stagedWebPluginRoot, 'extension/index.ts'))).resolves.toBeDefined();
-    await expect(stat(path.join(stagedWebPluginRoot, 'node_modules/better-sqlite3'))).resolves.toBeDefined();
-    await expect(stat(path.join(stagedWebPluginRoot, 'node_modules/@mozilla/readability'))).resolves.toBeDefined();
-  });
 });

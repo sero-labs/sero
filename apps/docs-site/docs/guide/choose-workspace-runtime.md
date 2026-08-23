@@ -2,7 +2,7 @@
 
 A workspace runtime is where Sero runs commands for one project. Choose the runtime per workspace, so different projects can use different execution environments.
 
-- **Host** runs commands directly in your real project folder on your computer. It uses your installed tools and normal `localhost` URLs.
+- **Host** runs commands directly in your project folder. It uses compatible tools on your computer and `127.0.0.1` preview URLs.
 - **Apple Container** runs commands inside a Sero-managed container on supported Apple Silicon Macs.
 - **Docker / Podman** runs commands inside a Sero-managed Linux container using Docker-compatible tooling.
 
@@ -26,10 +26,10 @@ Use Host when you want the simplest local workflow:
 
 - run commands in the real workspace folder
 - use tools already installed on your computer
-- preview dev servers through normal URLs such as `http://localhost:3000`
+- preview dev servers through URLs such as `http://127.0.0.1:3000`
 - avoid container setup while you are getting started
 
-Host does not provide container isolation, container-provided tools, or Linux/container networking behavior. Host browser automation also needs an available browser pack and a passing Environment Doctor launch check.
+Host does not provide container isolation, container-provided tools, or Linux/container networking behavior. Browser-agent tools on Host also need an installed browser pack that passes its launch check.
 
 Host path rule: use relative paths or real paths from your computer. `/workspace` is for container runtimes, except for Sero compatibility aliases; do not rely on `/workspace` as a Host shell path.
 
@@ -63,7 +63,7 @@ If you select a container runtime and it is unavailable, Sero reports diagnostic
 Use this quick decision path:
 
 - **Not sure?** Keep Host.
-- **Need normal local development and localhost?** Use Host.
+- **Need normal local development and a loopback preview URL?** Use Host.
 - **Need container-provided tools or browser automation from the image?** Choose Apple Container or Docker / Podman.
 - **Need Docker-compatible behavior across platforms?** Choose Docker / Podman.
 - **On Apple Silicon and want Apple-native containers?** Choose Apple Container.

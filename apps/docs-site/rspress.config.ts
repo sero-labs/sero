@@ -1,13 +1,14 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'rspress/config';
+import mermaid from 'rspress-plugin-mermaid';
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
 const startSetup = [
-  { text: 'Start Here', link: '/guide/overview' },
+  { text: 'How Sero Works', link: '/guide/overview' },
   { text: 'Get Sero Running', link: '/guide/getting-started' },
-  { text: 'Installation / Requirements', link: '/guide/installation-requirements' },
+  { text: 'Install Sero', link: '/guide/installation-requirements' },
   { text: 'Choose a Workspace Runtime', link: '/guide/choose-workspace-runtime' },
   { text: 'Profiles and Onboarding', link: '/guide/profiles-and-onboarding' },
   { text: 'Models and Providers', link: '/guide/models-and-providers' },
@@ -26,10 +27,14 @@ const workspaceRuntime = [
 
 const agentsAutomation = [
   { text: 'Agent Sessions and Context', link: '/guide/agent-sessions-and-context' },
-  { text: 'Subagents and Collaboration', link: '/guide/subagents' },
+  { text: 'Subagents', link: '/guide/subagents' },
   { text: 'Memory', link: '/guide/memory' },
   { text: 'Scheduler and Reminders', link: '/guide/scheduler-reminders' },
   { text: 'Orchestrator', link: '/guide/orchestrator' },
+  { text: 'Workflows', link: '/guide/workflows' },
+  { text: 'Manage Workflows', link: '/guide/workflows-advanced' },
+  { text: 'Rooms', link: '/guide/rooms' },
+  { text: 'Manage a Room', link: '/guide/rooms-advanced' },
   { text: 'Running Evals', link: '/guide/running-evals' }
 ];
 
@@ -55,7 +60,9 @@ const referenceRuntime = [
   { text: 'models.json', link: '/reference/models-json' },
   { text: 'Agent Definitions', link: '/reference/agent-definitions' },
   { text: 'Agent Plugins', link: '/reference/agent-plugins' },
-  { text: 'Orchestrator', link: '/reference/orchestrator' }
+  { text: 'Orchestrator', link: '/reference/orchestrator' },
+  { text: 'Workflows', link: '/reference/workflows' },
+  { text: 'Rooms', link: '/reference/rooms' }
 ];
 
 const referenceAuthors = [
@@ -98,13 +105,14 @@ const selectedPlugins = [
 export default defineConfig({
   globalStyles: path.resolve(currentDir, 'docs/styles.css'),
   globalUIComponents: [path.resolve(currentDir, 'src/NativeImageSize.ts')],
+  plugins: [mermaid()],
   root: 'docs',
   outDir: 'dist',
   base: '/',
   logo: '/assets/logo.svg',
   logoText: '',
   title: 'Sero',
-  description: 'Local-first, agent-first desktop workspace for macOS, Linux, and Windows.',
+  description: 'Grow your own Agent with workspaces, memory, skills, and plugins.',
   lang: 'en-US',
   themeConfig: {
     nav: [
@@ -112,7 +120,7 @@ export default defineConfig({
       // sero-ai.dev). Rspress 1.47's `logo` config doesn't support a custom
       // link target, so this nav item is the canonical "go home" affordance.
       { text: '← sero-ai.dev', link: 'https://sero-ai.dev' },
-      { text: 'Start Here', link: '/guide/overview' },
+      { text: 'How Sero Works', link: '/guide/overview' },
       { text: 'Guides', link: '/guide/' },
       { text: 'Workspace', link: '/guide/workspace-and-chat' },
       { text: 'Agents', link: '/guide/agent-sessions-and-context' },

@@ -23,8 +23,11 @@ import { useEditorDocumentState } from './useEditorDocumentState';
 import { useEditorMonacoState } from './useEditorMonacoState';
 import { useEditorRuntimeSync } from './useEditorRuntimeSync';
 import { useMonacoNavigation } from './useMonacoNavigation';
+import { useStreamingEditorChange } from './useStreamingEditorChange';
+import { useStreamingWriteHandoff } from './useStreamingWriteHandoff';
 import { useLsp } from '@/lsp/use-lsp';
 import { useAppStore } from '@/stores/app';
+import { useStreamingWriteContent } from '@/stores/streaming-writes';
 import { useThemeStore } from '@/stores/theme';
 
 // monaco-setup points the loader at our bundled Monaco; it must run before the
@@ -117,6 +120,25 @@ export function EditorPanel({
     setDirtyPaths: documentState.setDirtyPaths,
   });
 
+  // A file the agent is writing right now streams into its own tab. Unsaved
+  // edits win — the user's buffer is not something to overwrite for a preview.
+  const streamingWrite = useStreamingWriteContent(workspaceId, activeTab);
+  const streamingContent = useStreamingWriteHandoff({
+    workspaceId,
+    editorPath: activeTab,
+    liveContent: streamingWrite,
+    dirty: activeTab ? documentState.dirtyPaths.has(activeTab) : false,
+    contentMapRef: documentState.contentMapRef,
+    savedContentRef: documentState.savedContentRef,
+    setContent: documentState.setContent,
+  });
+  const isStreamingTab = streamingContent !== null;
+  const displayedContent = streamingContent ?? documentState.content;
+  const handleEditorChange = useStreamingEditorChange(
+    isStreamingTab,
+    documentState.handleChange,
+  );
+
   const effectiveMode = useThemeStore((state) => state.effectiveMode);
   const editorThemeId = useAppStore((state) => state.editorThemeId);
   const monacoThemeName = resolveMonacoThemeName(editorThemeId, effectiveMode);
@@ -129,6 +151,7 @@ export function EditorPanel({
   const tabDescriptors: EditorTab[] = tabs.map((path) => ({
     path,
     dirty: documentState.dirtyPaths.has(path),
+    streaming: isStreamingTab && path === activeTab,
   }));
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -170,8 +193,9 @@ export function EditorPanel({
             <FilePreviewPane
               workspaceId={workspaceId}
               filePath={activeTab}
-              content={documentState.content}
+              content={displayedContent}
               spec={previewSpec}
+              streaming={isStreamingTab}
             />
           ) : (
             <EditorSuspense>
@@ -179,12 +203,16 @@ export function EditorPanel({
                 height="100%"
                 language={documentState.language}
                 path={activeTab}
-                value={documentState.content}
-                onChange={documentState.handleChange}
+                value={displayedContent}
+                onChange={handleEditorChange}
                 beforeMount={monacoState.handleBeforeMount}
                 onMount={monacoState.handleEditorMount}
                 theme={monacoThemeName}
                 options={{
+                  // A streaming buffer is replaced wholesale on every frame, so
+                  // typing into it would be lost. It reopens editable when the
+                  // write lands.
+                  readOnly: isStreamingTab,
                   fontSize: 13,
                   fontFamily: "var(--font-mono, 'JetBrains Mono', 'SF Mono', monospace)",
                   minimap: { enabled: false },

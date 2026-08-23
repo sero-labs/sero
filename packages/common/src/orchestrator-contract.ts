@@ -65,7 +65,7 @@ export interface OrchestratorSetScheduleParams {
   scheduleDisabled?: boolean;
 }
 
-// ── Agent Board view (cross-workspace board, docs/features/agent-board/plan.md) ──
+// Agent Board view shared by the cross-workspace board and Orchestrator.
 //
 // The board reads every workspace's watched index and renders loop cards without
 // importing plugin internals. `LoopSummary` in the Orchestrator plugin extends
@@ -164,6 +164,56 @@ export interface OrchestratorBoardLoopView extends OrchestratorScheduledLoopView
 /** The watched index as the board consumes it. */
 export interface OrchestratorBoardIndexView {
   loops: OrchestratorBoardLoopView[];
+}
+
+// ── Rooms (AD-028) ─────────────────────────────────────────
+//
+// A Room is the Orchestrator's other mode: a team of agents on one problem,
+// rather than a plan of steps. It keeps its own watched index beside the loop
+// index, so a surface that wants both reads two files and never has to know how
+// either mode works.
+
+/** The Orchestrator's watched Room index, relative to the workspace root. */
+export const ORCHESTRATOR_ROOM_INDEX_FILE = '.sero/apps/orchestrator/rooms/index.json';
+
+export type OrchestratorRoomStatus =
+  | 'draft'
+  | 'adjusting'
+  | 'starting'
+  | 'ready'
+  | 'running'
+  | 'pausing'
+  | 'paused'
+  | 'completing'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
+/**
+ * The per-Room slice of the watched index the Agent Board renders.
+ *
+ * Deliberately smaller than the panel's own view: a board card says what the
+ * Room is, how it is going against its limits, and whether it needs the user.
+ * Everything else is a reason to open the Room.
+ */
+export interface OrchestratorBoardRoomView {
+  id: string;
+  title: string;
+  status: OrchestratorRoomStatus;
+  memberCount: number;
+  /** Members holding an execution slot right now. */
+  activeMemberCount: number;
+  costUsd: number;
+  maxCostUsd: number;
+  startedAt: string | null;
+  updatedAt: string;
+  /** Open approvals plus a Room stopped waiting for one. */
+  attentionCount: number;
+}
+
+/** The watched Room index as the board consumes it. */
+export interface OrchestratorBoardRoomIndexView {
+  rooms: OrchestratorBoardRoomView[];
 }
 
 // ── Board actions (shell → per-workspace coordinator) ──

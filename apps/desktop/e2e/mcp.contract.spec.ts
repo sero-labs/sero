@@ -86,6 +86,33 @@ test.describe.serial('MCP app and proxy contracts', () => {
     expect(status.text).toContain('MCP status: 0 server(s) configured');
   });
 
+  test('excludes the bridged MCP proxy from a new session agent tool list', async () => {
+    const session = await page.evaluate(async (id) => {
+      const created = await window.sero.sessions.create(id);
+      await window.sero.agent.open(created.id, created.path, id);
+      return created;
+    }, workspaceId);
+    const context = await page.evaluate((id) => window.sero.agent.getContext(id), session.id);
+    const manifest = await page.evaluate(() => window.sero.apps.discover()
+      .then((apps: SeroAppManifest[]) => apps.find((candidate: SeroAppManifest) => candidate.id === 'mcp') ?? null));
+    const settingsPath = path.join(home.path, 'agent', 'settings.json');
+    const settings = fs.existsSync(settingsPath)
+      ? JSON.parse(fs.readFileSync(settingsPath, 'utf8')) as { packages?: unknown[] }
+      : null;
+    const diagnostics = JSON.stringify({
+      manifest,
+      packages: settings?.packages ?? `missing ${settingsPath}`,
+      tools: context?.tools.map((tool) => tool.name),
+    }, null, 2);
+
+    const toolNames = context?.tools.map((tool) => tool.name);
+    expect(toolNames, diagnostics).toEqual(expect.arrayContaining([
+      'sero-cli',
+      'mcp_manager',
+    ]));
+    expect(toolNames, diagnostics).not.toContain('mcp');
+  });
+
   test('saves and reads raw MCP config for a local stdio fixture', async () => {
     const saved = await invokeMcp('mcp_manager', { action: 'save_raw_config', rawConfig: fixtureConfig() });
     expect(saved.text).toContain('Saved MCP config with 1 configured server');

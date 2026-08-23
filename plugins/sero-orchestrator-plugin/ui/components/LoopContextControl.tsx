@@ -18,9 +18,9 @@ import type { Loop, OrchestratorAction } from '../../shared/types';
 const LOOP_PROMPT_COPY = {
   title: 'System Prompt',
   defaultHint: 'Using the default Sero system prompt',
-  emptyHint: 'Base system prompt excluded for this loop',
-  customHint: 'Using a custom system prompt for this loop',
-  placeholder: 'Type to replace the default Sero system prompt for this loop…',
+  emptyHint: 'Base system prompt excluded for this Workflow',
+  customHint: 'Using a custom system prompt for this Workflow',
+  placeholder: 'Type to replace the default Sero system prompt for this Workflow…',
   footnote:
     "Leave blank to use the default, empty to exclude it, or type to replace it. The orchestrator's step rules always still apply.",
 };
@@ -55,8 +55,8 @@ function LoopContextDialog({
         void save([...presets, next]);
       }}
       onDeletePreset={(id) => void save(presets.filter((p) => p.id !== id))}
-      title="Loop context"
-      description="System prompt and skills for this loop's background subagents. Tools are chosen per step in the plan."
+      title="Workflow context"
+      description="System prompt and skills for this Workflow's background agents. Tools are chosen per step in the plan."
       systemPromptCopy={LOOP_PROMPT_COPY}
       applyLabel="Save context"
       hideTools
@@ -76,7 +76,7 @@ export function LoopContextControl({
 
   return (
     <>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)} title="Custom system prompt and skills for this loop">
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)} title="Custom system prompt and skills for this Workflow">
         <Settings2 className="mr-1 h-3.5 w-3.5" />
         Context
         {active && <span className="ml-1 size-1.5 rounded-full bg-primary" />}

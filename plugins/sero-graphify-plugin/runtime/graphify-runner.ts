@@ -1,8 +1,10 @@
-import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { access, copyFile, cp, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { WORKSPACE_COMMON_IGNORES } from '@sero-ai/common';
 import type { ExecFn } from './bounded-exec';
-import type { GraphifyBackend, WorkspaceIndexStats } from '../shared/types';
+import { BUILD_MAX_OUTPUT_BYTES } from './bounded-exec';
+import type { WorkspaceIndexStats } from '../shared/types';
 
 export interface RunnerDeps {
   exec: ExecFn;
@@ -10,53 +12,114 @@ export interface RunnerDeps {
   env: NodeJS.ProcessEnv;
 }
 
+/** What a local code-only extraction needs. It never calls a model. */
 export interface BuildOptions {
   /** Sero-managed per-workspace store dir — graphify-out/ lands here, never in the workspace. */
   workspaceDir: string;
   /** Workspace root host path (graphify input). */
   inputPath: string;
-  backend: GraphifyBackend;
-  /** Model override; empty string = the backend's default model. */
-  model?: string;
-  tokenBudget: number;
-  exclude: string[];
+  /** Recovery area outside graphs/, which the workspace artifact sweep owns. */
+  rebuildsDir: string;
   /** Receives graphify's progress lines as they stream. */
   onProgress?: (message: string) => void;
+  exclude: string[];
+  /** Ignore an existing Graphify baseline and extract the code corpus again. */
+  force?: boolean;
 }
 
 const BUILD_TIMEOUT_MS = 60 * 60_000;
+const STALE_REBUILD_MS = 24 * 60 * 60_000;
 
 function tail(text: string, max = 2000): string {
   return text.length > max ? `…${text.slice(-max)}` : text;
 }
 
 /**
+ * What a graphify run reported.
+ *
+ * `usageMeasured` records whether Graphify printed a token line. Code-only
+ * builds normally omit it. The field also gives the smoke test a direct check
+ * that this path did not enter semantic extraction.
+ */
+export interface ParsedBuildStats {
+  stats: WorkspaceIndexStats;
+  usageMeasured: boolean;
+}
+
+export interface BuildOutcome extends ParsedBuildStats {
+  /** False when Graphify reports that every indexed file is unchanged. */
+  changed: boolean;
+}
+
+/**
  * Parse stats from graphify stdout. Matches both shapes seen in the spike:
  *   "[graphify extract] wrote …: 1,234 nodes, 5,678 edges, 12 communities"
- *   "[graphify watch] Rebuilt: 35 nodes, 42 edges, 5 communities"
  *   "[graphify extract] tokens: 45,000 in / 9,000 out, est. cost (~claude): $0.51"
  */
-export function parseBuildStats(stdout: string): WorkspaceIndexStats {
+export function parseBuildStats(stdout: string): ParsedBuildStats {
   const summary = stdout.match(/(\d[\d,]*)\s+nodes?,\s*(\d[\d,]*)\s+edges?,\s*(\d[\d,]*)\s+communities/i);
   const parse = (value: string | undefined) => (value ? Number.parseInt(value.replace(/,/g, ''), 10) : 0);
   const tokens = stdout.match(/(\d[\d,]*)\s+in\s*\/\s*(\d[\d,]*)\s+out/i);
   return {
-    nodes: parse(summary?.[1] ?? stdout.match(/(\d[\d,]*)\s+nodes?/i)?.[1]),
-    edges: parse(summary?.[2] ?? stdout.match(/(\d[\d,]*)\s+edges?/i)?.[1]),
-    communities: parse(summary?.[3]),
-    inputTokens: parse(tokens?.[1]),
-    outputTokens: parse(tokens?.[2]),
+    usageMeasured: tokens !== null,
+    stats: {
+      nodes: parse(summary?.[1] ?? stdout.match(/(\d[\d,]*)\s+nodes?/i)?.[1]),
+      edges: parse(summary?.[2] ?? stdout.match(/(\d[\d,]*)\s+edges?/i)?.[1]),
+      communities: parse(summary?.[3]),
+      inputTokens: parse(tokens?.[1]),
+      outputTokens: parse(tokens?.[2]),
+    },
   };
 }
 
 function buildArgs(options: BuildOptions): string[] {
   // --out redirects graphify-out/ into the store dir (verified in the spike:
   // default output is input-path-relative, which would pollute the workspace).
-  const args = ['extract', options.inputPath, '--backend', options.backend, '--out', options.workspaceDir];
-  if (options.model) args.push('--model', options.model);
-  if (options.tokenBudget > 0) args.push('--token-budget', String(options.tokenBudget));
+  const args = [
+    'extract', options.inputPath,
+    ...(options.force ? ['--force'] : []),
+    // Code extraction is deterministic Tree-sitter work. This also prevents
+    // Graphify from sending workspace documents to a model.
+    '--code-only',
+    // Defer clustering until we know extraction changed the raw graph. This
+    // lets a warm refresh keep the existing clustered output untouched.
+    '--no-cluster',
+    '--out', options.workspaceDir,
+  ];
   for (const pattern of options.exclude) args.push('--exclude', pattern);
   return args;
+}
+
+async function pathExists(target: string): Promise<boolean> {
+  return access(target).then(() => true).catch(() => false);
+}
+
+/** Remove rebuilds left by killed processes without touching active work. */
+export async function cleanupStaleRebuilds(
+  rebuildsDir: string,
+  graphsDir: string,
+  now = Date.now(),
+): Promise<void> {
+  const entries = await readdir(rebuildsDir, { withFileTypes: true }).catch(() => []);
+  await Promise.all(entries.filter((entry) => entry.isDirectory()).map(async (entry) => {
+    const target = path.join(rebuildsDir, entry.name);
+    const info = await stat(target).catch(() => null);
+    if (!info || now - info.mtimeMs < STALE_REBUILD_MS) return;
+    if (entry.name.includes('.rebuild-')) {
+      await rm(target, { recursive: true, force: true });
+      return;
+    }
+    const backupMarker = entry.name.lastIndexOf('.backup-');
+    if (backupMarker < 1) return;
+    const activeGraph = path.join(graphsDir, entry.name.slice(0, backupMarker));
+    if (await pathExists(activeGraph)) {
+      await rm(target, { recursive: true, force: true });
+      return;
+    }
+    await mkdir(graphsDir, { recursive: true });
+    // Keep the backup if recovery still fails. A later rebuild can retry.
+    await rename(target, activeGraph).catch(() => undefined);
+  }));
 }
 
 /** Python block-buffers stdout when piped; unbuffered keeps progress lines live. */
@@ -70,8 +133,8 @@ const SERO_IGNORE_HEADER = '# Added by Sero Graphify: keep Sero workspace intern
  * Graphify honors .gitignore/.graphifyignore but cannot know about Sero's
  * workspace internals (`.sero/`, `.pnpm-store/`, …) or be trusted with
  * secrets (`.env`). The canonical list lives in @sero-ai/common
- * (WORKSPACE_COMMON_IGNORES). CLI --exclude only applies to `extract`, not
- * `update`, so an ignore file is the one mechanism covering both.
+ * (WORKSPACE_COMMON_IGNORES). The ignore file also protects any direct
+ * Graphify command a user runs in the workspace.
  * Idempotent and best-effort: never fails the build, never duplicates lines.
  */
 export async function ensureGraphifyIgnore(inputPath: string): Promise<void> {
@@ -89,10 +152,10 @@ export async function ensureGraphifyIgnore(inputPath: string): Promise<void> {
   }
 }
 
-export async function buildWorkspaceGraph(deps: RunnerDeps, options: BuildOptions): Promise<WorkspaceIndexStats> {
+export async function buildWorkspaceGraph(deps: RunnerDeps, options: BuildOptions): Promise<BuildOutcome> {
   await mkdir(options.workspaceDir, { recursive: true });
   await ensureGraphifyIgnore(options.inputPath);
-  // `--out` only redirects the graph; the AST/semantic extraction cache
+  // `--out` only redirects the graph; the AST extraction cache
   // resolves from the GRAPHIFY_OUT env var and would otherwise land inside
   // the workspace as <inputPath>/graphify-out/cache (observed live).
   const storeOutEnv = { ...liveEnv(deps.env), GRAPHIFY_OUT: path.join(options.workspaceDir, 'graphify-out') };
@@ -100,37 +163,106 @@ export async function buildWorkspaceGraph(deps: RunnerDeps, options: BuildOption
     cwd: options.workspaceDir,
     env: storeOutEnv,
     timeoutMs: BUILD_TIMEOUT_MS,
+    // Keep a large local build alive when progress output is verbose.
+    maxOutputBytes: BUILD_MAX_OUTPUT_BYTES,
+    onOutputLimit: 'truncate',
     onLine: options.onProgress,
   });
   if (result.exitCode !== 0) {
     throw new Error(`graphify extract failed (exit ${result.exitCode}): ${tail(result.stderr || result.stdout)}`);
   }
-  // Report generation (GRAPH_REPORT.md + community names) — non-fatal if it fails.
-  // cluster-only resolves the graph at <path>/graphify-out/, so it gets the store dir.
-  options.onProgress?.('Generating GRAPH_REPORT.md and naming communities…');
-  await deps.exec(deps.graphifyPath, ['cluster-only', options.workspaceDir, '--no-viz'], {
-    cwd: options.workspaceDir,
-    env: storeOutEnv,
-    timeoutMs: BUILD_TIMEOUT_MS,
-    onLine: options.onProgress,
-  });
-  return parseBuildStats(result.stdout);
+
+  const extraction = parseBuildStats(result.stdout);
+  const changed = !result.stdout.includes('no incremental changes detected (--no-cluster); outputs left untouched.');
+  if (!changed) return { ...extraction, changed: false };
+
+  let cluster: WorkspaceIndexStats;
+  try {
+    cluster = await clusterGraph(deps, options, storeOutEnv);
+  } catch (error) {
+    // The raw graph was written but was not clustered. Remove the manifest so
+    // the next user retry re-extracts the corpus instead of accepting it as
+    // unchanged.
+    await rm(path.join(options.workspaceDir, 'graphify-out', 'manifest.json'), { force: true });
+    throw error;
+  }
+  return {
+    changed: true,
+    usageMeasured: extraction.usageMeasured,
+    stats: {
+      ...extraction.stats,
+      communities: cluster.communities || extraction.stats.communities,
+    },
+  };
 }
 
-export async function updateWorkspaceGraph(deps: RunnerDeps, options: BuildOptions): Promise<WorkspaceIndexStats> {
-  await ensureGraphifyIgnore(options.inputPath);
-  // `update` writes to <inputPath>/$GRAPHIFY_OUT; an absolute GRAPHIFY_OUT
-  // redirects everything into the store dir (verified live in the spike).
-  const result = await deps.exec(deps.graphifyPath, ['update', options.inputPath], {
+/**
+ * Build in a sibling directory and replace the active graph only after both
+ * extraction and clustering finish. A failed clean rebuild leaves the graph
+ * used by the profile merge unchanged.
+ */
+export async function rebuildWorkspaceGraph(deps: RunnerDeps, options: BuildOptions): Promise<BuildOutcome> {
+  // Keep recovery directories outside graphs/. Workspace artifact sweeps treat
+  // every directory under graphs/ as a workspace id and can run in another
+  // runtime process while this rebuild is active.
+  const workspaceName = path.basename(options.workspaceDir);
+  const stagingDir = path.join(options.rebuildsDir, `${workspaceName}.rebuild-${randomUUID()}`);
+  const backupDir = path.join(options.rebuildsDir, `${workspaceName}.backup-${randomUUID()}`);
+  let movedCurrent = false;
+  try {
+    await cleanupStaleRebuilds(options.rebuildsDir, path.dirname(options.workspaceDir));
+    const outcome = await buildWorkspaceGraph(deps, {
+      ...options,
+      workspaceDir: stagingDir,
+      force: true,
+    });
+    if (await pathExists(options.workspaceDir)) {
+      await rename(options.workspaceDir, backupDir);
+      movedCurrent = true;
+    }
+    try {
+      await rename(stagingDir, options.workspaceDir);
+    } catch (error) {
+      if (movedCurrent && !(await pathExists(options.workspaceDir))) {
+        await rename(backupDir, options.workspaceDir).catch(async () => {
+          // A second rename failure must not strand the only valid graph in
+          // recovery storage. Copying is slower but keeps the documented path.
+          await cp(backupDir, options.workspaceDir, { recursive: true, force: false, errorOnExist: true });
+        });
+      }
+      throw error;
+    }
+    if (movedCurrent) await rm(backupDir, { recursive: true, force: true });
+    return outcome;
+  } finally {
+    await rm(stagingDir, { recursive: true, force: true });
+  }
+}
+
+/** Clustering, deterministic hub labels, and the report are always local. */
+async function clusterGraph(
+  deps: RunnerDeps,
+  options: BuildOptions,
+  env: NodeJS.ProcessEnv,
+): Promise<WorkspaceIndexStats> {
+  options.onProgress?.('Generating GRAPH_REPORT.md…');
+  // This child receives no provider credentials. Graphify therefore keeps its
+  // deterministic hub labels instead of making an LLM call. `--no-label`
+  // would explicitly replace those labels with "Community N" placeholders.
+  const args = ['cluster-only', options.workspaceDir, '--no-viz'];
+
+  const result = await deps.exec(deps.graphifyPath, args, {
     cwd: options.workspaceDir,
-    env: { ...liveEnv(deps.env), GRAPHIFY_OUT: path.join(options.workspaceDir, 'graphify-out') },
+    env,
     timeoutMs: BUILD_TIMEOUT_MS,
+    maxOutputBytes: BUILD_MAX_OUTPUT_BYTES,
+    onOutputLimit: 'truncate',
     onLine: options.onProgress,
   });
   if (result.exitCode !== 0) {
-    throw new Error(`graphify update failed (exit ${result.exitCode}): ${tail(result.stderr || result.stdout)}`);
+    throw new Error(`graphify cluster-only failed (exit ${result.exitCode}): ${tail(result.stderr || result.stdout)}`);
   }
-  return parseBuildStats(result.stdout);
+  return parseBuildStats(result.stdout).stats;
 }
 
 export async function mergeProfileGraph(deps: RunnerDeps, graphPaths: string[], outPath: string): Promise<void> {

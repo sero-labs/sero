@@ -2,7 +2,7 @@
  * Per-file scan cache: parsing is the expensive part of a refresh, so
  * files whose { mtimeMs, size } fingerprint is unchanged reuse their
  * previously parsed compact records. Aggregation always re-runs globally
- * because dedup is cross-file (docs/specs/sero-usage-plugin-spec.md §3.4).
+ * because dedup is cross-file.
  */
 
 import { promises as fs } from 'node:fs';

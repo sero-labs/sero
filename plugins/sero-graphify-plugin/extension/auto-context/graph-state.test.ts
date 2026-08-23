@@ -4,8 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { detectGraphArtifacts } from './graph-state';
 import { graphifyPathsFromHome } from '../../shared/paths';
-import { writeStateFile } from '../../shared/state-io';
-import { DEFAULT_STATE, type GraphifyState } from '../../shared/types';
+import { readStateFile, writeStateFile } from '../../shared/state-io';
+import { CURRENT_INDEX_MODE_VERSION, DEFAULT_STATE, type GraphifyState } from '../../shared/types';
 
 const FIXTURE = path.join(__dirname, '..', '..', 'shared', 'query-engine', 'fixtures', 'small-graph.json');
 
@@ -15,7 +15,10 @@ async function makeHome(options: { workspaceGraph?: boolean; report?: boolean; p
   const state: GraphifyState = {
     ...structuredClone(DEFAULT_STATE),
     workspaces: {
-      ws1: { workspaceId: 'ws1', name: 'One', path: options.cwd, enabled: true, status: 'idle' },
+      ws1: {
+        workspaceId: 'ws1', name: 'One', path: options.cwd, enabled: true,
+        status: 'idle', indexModeVersion: CURRENT_INDEX_MODE_VERSION,
+      },
     },
   };
   await writeStateFile(paths.stateFile, state);
@@ -51,6 +54,23 @@ describe('detectGraphArtifacts', () => {
     const paths = await makeHome({ profileGraph: true, cwd });
     const info = await detectGraphArtifacts(paths, cwd);
     expect(info.graphExists).toBe(false);
+  });
+
+  it('stays absent while the workspace needs a clean rebuild', async () => {
+    const cwd = await mkdtemp(path.join(os.tmpdir(), 'graphify-ws-'));
+    const paths = await makeHome({ workspaceGraph: true, report: true, cwd });
+    const current = await readStateFile(paths.stateFile);
+    await writeStateFile(paths.stateFile, {
+      ...current!,
+      workspaces: {
+        ...current!.workspaces,
+        ws1: { ...current!.workspaces.ws1, indexModeVersion: undefined },
+      },
+    });
+
+    const info = await detectGraphArtifacts(paths, cwd);
+    expect(info.graphExists).toBe(false);
+    expect(info.reportExists).toBe(false);
   });
 
   it('stays absent for cwds that resolve to no workspace at all', async () => {

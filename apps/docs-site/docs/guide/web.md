@@ -7,8 +7,8 @@ code-oriented web lookups, and keep workspace-scoped bookmarks and activity for
 later review. See the
 [Plugin Catalog](/plugins/catalog) for the built-in plugin inventory.
 
-Sero is in **public beta**. Web access depends on configured
-providers, local runtime support from [Support Scope](/reference/support-scope),
+Web access depends on configured providers, local runtime support from
+[Support Scope](/reference/support-scope),
 signed-in browser/profile state for some paths, and third-party services that
 can change outside Sero.
 
@@ -125,8 +125,7 @@ Use code_search to find examples of Rspress defineConfig sidebar setup.
 Use code_search for current TanStack Query mutation examples and summarize the API shape.
 ```
 
-Provider behavior for code search should still be treated as beta and subject to change. Verify any
-code examples against the upstream project before applying them.
+Verify code examples against the upstream project before you apply them.
 
 ## Bookmarks and history
 
@@ -153,8 +152,8 @@ the current session, so use it intentionally.
 
 ## Web app and Web Activity widget
 
-The Web app provides a visual place to revisit Web plugin state. The current
-beta-supported surfaces are:
+The Web app provides a visual place to revisit Web plugin state. It has these
+surfaces:
 
 - **History** — recent searches and fetches
 - **Bookmarks** — saved Web plugin bookmarks
@@ -164,8 +163,7 @@ The Web Activity widget is a compact dashboard summary. It can show counts for
 searches, fetches, bookmarks, and downloads, provider availability dots, and a
 small list of recent activity.
 
-Exact app layout and widget placement may change during beta. Treat the app and
-widget as browsing surfaces for Web plugin state, while the tools remain the
+Treat the app and widget as browsing surfaces for Web plugin state. The tools remain the
 agent-facing way to perform search, fetch, code search, and bookmark actions.
 
 ## Provider prerequisites

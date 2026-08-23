@@ -16,9 +16,9 @@ An Agent Plugin can provide:
 ## Preview before you install
 
 Open **Admin > Plugins > Agent Plugins**. Enter an npm source, Git URL, or
-absolute local directory, then select **Preview**. Npm sources accept registry
-package names with an optional version or tag. Git sources accept HTTPS, SSH,
-and Git URLs.
+absolute local directory, then select **Preview**. Prefix an npm package with
+`npm:`, for example `npm:@scope/package@latest`. The package can include an
+optional version or tag. Git sources accept HTTPS, SSH, and Git URLs.
 
 ![Preview of an Agent Plugin before installation](../assets/plugins/agent-plugins-preview.png)
 
@@ -67,6 +67,6 @@ that data.
 
 ![Remove dialog with the data choice](../assets/plugins/agent-plugins-remove.png)
 
-Container workspaces mount installed Agent Plugin packages read-only at the
-same absolute path. Restart an existing workspace container after the first
-Agent Plugin installation so this mount is present.
+Sero mounts the Agent Plugin package directory read-only in each container.
+Installs, updates, and removals change content under that mounted directory, so
+you do not have to restart an existing container for these changes.

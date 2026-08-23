@@ -15,7 +15,6 @@ import { debugBridge, lspBridge } from './editor/debug-lsp';
 import { subagentBridge } from './agent/subagent';
 import { skillsBridge } from './agent/skills';
 import { promptsBridge } from './agent/prompts';
-import { collaborationBridge } from './collaboration';
 import { modelsBridge } from './agent/models';
 import { subagentContextBridge } from './agent/subagent-context';
 import { localModelsBridge } from './agent/local-models';
@@ -88,7 +87,6 @@ export const seroPreloadApi = {
   gateway: gatewayBridge,
   clipboard: clipboardBridge,
   feedback: feedbackBridge,
-  collaboration: collaborationBridge,
   subagent: subagentBridge,
   skills: skillsBridge,
   prompts: promptsBridge,

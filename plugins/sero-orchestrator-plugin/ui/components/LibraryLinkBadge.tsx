@@ -36,7 +36,7 @@ export function LibraryLinkBadge({ loop, status, busy, onAction }: LibraryLinkBa
         className="h-5 px-1 text-muted-foreground"
         disabled={busy}
         onClick={() => onAction({ kind: 'library_unlink', loopId: loop.id })}
-        title="Detach this loop from the Library (keeps the current plan)"
+        title="Detach this Workflow from the Library (keeps the current plan)"
         aria-label="Unlink from Library"
       >
         <Link2Off className="h-3.5 w-3.5" />

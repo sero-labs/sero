@@ -11,9 +11,10 @@
  * and setupExtProtocol() AFTER app.whenReady().
  */
 
-import { protocol, net } from 'electron';
+import { protocol } from 'electron';
 import path from 'path';
-import { realpathSync, readFileSync } from 'fs';
+import { realpathSync } from 'fs';
+import { readFile } from 'fs/promises';
 import type { SeroAppManifest } from '@/types/ipc';
 
 // ── App registry (populated by discovery) ────────────────────
@@ -61,6 +62,32 @@ function rewriteFederationManifest(raw: string, appId: string): string {
       error,
     });
     return raw;
+  }
+}
+
+function getAssetContentType(filePath: string): string {
+  switch (path.extname(filePath)) {
+    case '.css': return 'text/css; charset=utf-8';
+    case '.html': return 'text/html; charset=utf-8';
+    case '.js':
+    case '.mjs': return 'text/javascript; charset=utf-8';
+    case '.json':
+    case '.map': return 'application/json; charset=utf-8';
+    case '.wasm': return 'application/wasm';
+    case '.svg': return 'image/svg+xml';
+    case '.png': return 'image/png';
+    case '.jpg':
+    case '.jpeg': return 'image/jpeg';
+    case '.gif': return 'image/gif';
+    case '.webp': return 'image/webp';
+    case '.avif': return 'image/avif';
+    case '.ico': return 'image/x-icon';
+    case '.ttf': return 'font/ttf';
+    case '.otf': return 'font/otf';
+    case '.woff': return 'font/woff';
+    case '.woff2': return 'font/woff2';
+    case '.txt': return 'text/plain; charset=utf-8';
+    default: return 'application/octet-stream';
   }
 }
 
@@ -124,18 +151,20 @@ export function setupExtProtocol(): void {
         return new Response('Forbidden', { status: 403 });
       }
     } catch {
-      // File doesn't exist — let net.fetch handle the 404 below
+      // File doesn't exist — the read below returns the 404
     }
 
     try {
       if (filePath === 'mf-manifest.json') {
-        const rawManifest = readFileSync(fullPath, 'utf8');
+        const rawManifest = await readFile(fullPath, 'utf8');
         return new Response(rewriteFederationManifest(rawManifest, appId), {
           headers: { 'content-type': 'application/json; charset=utf-8' },
         });
       }
 
-      return await net.fetch(`file://${fullPath}`);
+      return new Response(await readFile(fullPath), {
+        headers: { 'content-type': getAssetContentType(fullPath) },
+      });
     } catch {
       return new Response(`Not found: ${filePath}`, { status: 404 });
     }

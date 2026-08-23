@@ -1,4 +1,6 @@
 import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   closeApp,
   createTempSeroHome,
@@ -42,7 +44,7 @@ async function relaunchCalls(): Promise<string[]> {
 test('creates a second profile from the profile switcher and requests restart on switch', async () => {
   await page.getByRole('button', { name: /Primary/ }).click();
   await page.getByText('New Profile').click();
-  await page.getByLabel('Profile Name').fill('Secondary');
+  await page.getByPlaceholder('e.g. Personal, Work, Research...').fill('Secondary');
   await page.getByRole('button', { name: 'Create Profile' }).click();
   await expect(page.getByText('Profile Created')).toBeVisible({ timeout: 10_000 });
 
@@ -57,16 +59,25 @@ test('creates a second profile from the profile switcher and requests restart on
 
 test('removes an inactive profile from the registry without deleting files', async () => {
   const inactive = await page.evaluate(() => window.sero.profiles.create('Remove Me'));
+  const retainedFile = path.join(inactive.path, 'retained.txt');
+  fs.writeFileSync(retainedFile, 'profile data');
+
   await page.evaluate((id) => window.sero.profiles.remove(id, 'remove'), inactive.id);
   const profiles = await page.evaluate(() => window.sero.profiles.list());
   expect(profiles.some((profile) => profile.id === inactive.id)).toBe(false);
+  expect(fs.existsSync(inactive.path)).toBe(true);
+  expect(fs.readFileSync(retainedFile, 'utf8')).toBe('profile data');
 });
 
 test('shows a clear two-step profile removal dialog', async () => {
+  const primary = await page.evaluate(() => window.sero.profiles.list()
+    .then((profiles) => profiles.find((profile) => profile.name === 'Primary')));
+  expect(primary).toBeTruthy();
+  await page.evaluate((id) => window.sero.profiles.switch(id), primary!.id);
   await page.evaluate(() => window.sero.profiles.create('Research'));
   await page.reload();
   await waitForShell(page);
-  await page.getByRole('button', { name: /Primary/ }).click();
+  await page.getByRole('button', { name: 'Primary', exact: true }).click();
   await page.getByRole('button', { name: 'Manage Research' }).click();
 
   const dialog = page.getByRole('dialog');

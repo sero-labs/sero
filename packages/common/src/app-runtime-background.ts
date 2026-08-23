@@ -9,9 +9,10 @@
 import type { WorkspaceAccessRootsResult } from './workspace-access-roots';
 import type { ExtensionRuntimeContent, ExtensionRuntimeMessage } from './session-runtime';
 import type { SharedAvailableModelGroup } from './model-selection/types';
-import type { ContextAgentInfo, ContextToolInfo } from './context-editor';
+import type { ContextAgentInfo, ContextSkillInfo, ContextToolInfo } from './context-editor';
 import type { AppRuntimeGitApi } from './app-runtime-git';
 import type { AppRuntimeNotificationsApi } from './app-runtime-notifications';
+import type { PersistentSessionsApi } from './app-runtime-persistent-sessions';
 
 // The git surface lives in ./app-runtime-git; re-exported here so existing
 // imports from '@sero-ai/common' (via this module) keep resolving unchanged.
@@ -91,11 +92,7 @@ export interface AppRuntimeSubagentRunParams {
   cwd?: string;
   isolated?: boolean;
   customTools?: unknown[];
-  /**
-   * Allowlist of tool names this run may use. When set, the session activates
-   * only these tools (and the SDK ignores any name it doesn't recognise), which
-   * also trims the per-tool prompt guidance. Omitted = the full platform surface.
-   */
+  /** Allowlist of active tool names. Omitted means the full platform surface. */
   tools?: string[];
   /** Tool names to remove from this run's tool surface (user context override). */
   disabledTools?: string[];
@@ -111,13 +108,6 @@ export interface AppRuntimeSubagentRunParams {
    *   allowlist, which also excludes extension-registered tools)
    */
   platformTools?: 'all' | 'readOnly' | 'none';
-  /**
-   * Optional external cancellation. Aborting resolves the run (never
-   * throws) with an `error` beginning with 'Aborted' — 'Aborted' for an
-   * in-flight run, 'Aborted before start' for one that never started.
-   * Aborting a run still queued for a concurrency slot resolves it
-   * promptly without consuming a slot.
-   */
   signal?: AbortSignal;
 }
 
@@ -155,6 +145,8 @@ export interface AppRuntimeSubagentsApi {
    * tools from the actual catalog rather than a hardcoded list.
    */
   listToolCatalog(workspaceId: string): Promise<ContextToolInfo[]>;
+  /** Skills resolved from the same workspace context used to build sessions. */
+  listSkillCatalog(workspaceId: string): Promise<ContextSkillInfo[]>;
   /**
    * The named agent roles available in this workspace, so callers (e.g. the
    * Orchestrator planner and its per-step agent picker) can choose a role from
@@ -462,6 +454,64 @@ export interface AppRuntimeSessionHost {
   onTurnComplete(sessionId: string, cb: (result: AppRuntimeTurnResult) => void): () => void;
 }
 
+/** A user skill in the active profile. */
+export interface AppRuntimeSkillSummary {
+  name: string;
+  description: string;
+  /** Absolute path to the SKILL.md file. */
+  filePath: string;
+}
+
+/**
+ * A skill a runtime asks the host to write.
+ *
+ * A caller supplies a NAME, never a path: the host derives the target from it,
+ * so a traversal is impossible by construction rather than by check.
+ */
+export interface AppRuntimeSkillWrite {
+  /** Must match ^[a-z0-9][a-z0-9-]*$ — it is also the directory name. */
+  name: string;
+  /** Frontmatter description. This is the skill's trigger text. */
+  description: string;
+  /** Markdown body after the frontmatter. */
+  body: string;
+  /** Optional provenance, written as a flat `origin` frontmatter key. */
+  origin?: string;
+  /** An existing skill of this name is refused unless this is true. */
+  overwrite?: boolean;
+  /**
+   * The renderer-issued approval that permits this write, naming what the user
+   * reviewed (`<loopId>:<draftId>`). The host matches it against a hash of the
+   * content and consumes it once. A runtime action is reachable by a model, so
+   * without this a write no person approved would be indistinguishable from one
+   * they did.
+   */
+  approval: { scope: string };
+}
+
+export interface AppRuntimeSkillWriteResult {
+  filePath: string;
+  /** False when an existing skill was replaced. */
+  created: boolean;
+}
+
+/**
+ * Read/write access to the profile's user skills.
+ *
+ * A skill file is prompt content loaded into every agent session, so this is a
+ * real privilege: the host installs it only for a bundled plugin that passes
+ * the built-in gate (the same rule `persistentSessions` follows). Declaring
+ * `appRuntime.skills` in a manifest does not produce it.
+ */
+export interface AppRuntimeSkillsApi {
+  list(): Promise<AppRuntimeSkillSummary[]>;
+  /**
+   * Writes `<SERO_AGENT_DIR>/skills/<name>/SKILL.md` atomically and hot-reloads
+   * active sessions, exactly as the Admin skill editor's write does.
+   */
+  write(skill: AppRuntimeSkillWrite): Promise<AppRuntimeSkillWriteResult>;
+}
+
 export interface AppRuntimeHost {
   appState: AppRuntimeStateApi;
   subagents: AppRuntimeSubagentsApi;
@@ -473,13 +523,27 @@ export interface AppRuntimeHost {
   credentials: AppRuntimeCredentialsApi;
   toolchains: AppRuntimeToolchainsApi;
   models: AppRuntimeModelsApi;
-  /**
-   * Optional so a runtime built against this type still compiles — and runs —
-   * against a host that predates the capability. Call it with `?.` and fall
-   * back; declare `appRuntime.media` only if you truly cannot.
-   */
+  /** Optional for compatibility with hosts that predate media support. */
   media?: AppRuntimeMediaApi;
   session: AppRuntimeSessionHost;
+  /**
+   * Host-managed persistent Pi sessions (AD-029).
+   *
+   * Optional and normally ABSENT: the host installs it only for a bundled
+   * first-party plugin that passes the built-in gate. Declaring
+   * `appRuntime.persistentSessions` in a manifest does not produce it — that
+   * list is a compatibility declaration, not an authorisation. Always check for
+   * the property before use.
+   */
+  persistentSessions?: PersistentSessionsApi;
+  /**
+   * User-skill read/write (spec 18 — skill extraction).
+   *
+   * Optional and normally ABSENT, on the same rule as `persistentSessions`: the
+   * host installs it only for a bundled plugin that passes the built-in gate.
+   * Always check for the property before use.
+   */
+  skills?: AppRuntimeSkillsApi;
 }
 
 export interface AppRuntimeContext {

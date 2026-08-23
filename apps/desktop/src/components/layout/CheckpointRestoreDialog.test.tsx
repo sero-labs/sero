@@ -52,6 +52,7 @@ describe('CheckpointRestoreDialog', () => {
   });
 
   it('uses undo-focused wording in the title and confirmation button', async () => {
+    const onConfirm = vi.fn();
     await act(async () => {
       root?.render(
         <CheckpointRestoreDialog
@@ -63,7 +64,7 @@ describe('CheckpointRestoreDialog', () => {
           error={null}
           isRestoring={false}
           onOpenChange={vi.fn()}
-          onConfirm={vi.fn()}
+          onConfirm={onConfirm}
         />,
       );
     });
@@ -73,5 +74,16 @@ describe('CheckpointRestoreDialog', () => {
     expect(container.textContent).toContain('Undo summary: Update joke.txt');
     expect(container.textContent).toContain('Undo this turn');
     expect(container.textContent).toContain('Undo snapshot: snap-1');
+
+    const confirmButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.trim() === 'Undo this turn',
+    );
+    expect(confirmButton).toBeDefined();
+
+    await act(async () => {
+      confirmButton?.click();
+    });
+
+    expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 });

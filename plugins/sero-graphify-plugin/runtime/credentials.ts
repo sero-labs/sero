@@ -1,35 +1,24 @@
-import type { GraphifyBackend } from '../shared/types';
+/**
+ * Variables a local Graphify child needs to find its interpreter, write files,
+ * and render non-ASCII paths. Provider credentials and backend selectors are
+ * intentionally absent.
+ */
+const ALLOWED_ENV_KEYS = [
+  'PATH', 'HOME', 'USER', 'LOGNAME', 'SHELL',
+  'TMPDIR', 'TEMP', 'TMP',
+  'LANG', 'LC_ALL', 'LC_CTYPE',
+  'SystemRoot', 'SYSTEMROOT', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA',
+  'ProgramData', 'ProgramFiles', 'ComSpec', 'PATHEXT', 'NUMBER_OF_PROCESSORS',
+  'HTTP_PROXY', 'HTTPS_PROXY', 'NO_PROXY', 'http_proxy', 'https_proxy', 'no_proxy',
+  'SSL_CERT_FILE', 'SSL_CERT_DIR', 'REQUESTS_CA_BUNDLE', 'CURL_CA_BUNDLE',
+] as const;
 
-export interface ProviderKey {
-  envVar: string;
-  key: string;
-}
-
-export type GetProviderApiKey = (providerId: string) => Promise<ProviderKey | null>;
-
-export const BACKEND_PROVIDERS: Record<GraphifyBackend, { providerId: string | null; displayName: string }> = {
-  claude: { providerId: 'anthropic', displayName: 'Anthropic' },
-  openai: { providerId: 'openai', displayName: 'OpenAI' },
-  gemini: { providerId: 'google', displayName: 'Google (Gemini)' },
-  deepseek: { providerId: 'deepseek', displayName: 'DeepSeek' },
-  kimi: { providerId: 'moonshotai', displayName: 'Moonshot (Kimi)' },
-  ollama: { providerId: null, displayName: 'Ollama (local)' },
-};
-
-/** Build the child-process env for graphify extraction. Throws when the backend needs a key the user hasn't configured. */
-export async function extractionEnv(
-  backend: GraphifyBackend,
-  getProviderApiKey: GetProviderApiKey,
-  baseEnv: NodeJS.ProcessEnv = process.env,
-): Promise<NodeJS.ProcessEnv> {
-  const mapping = BACKEND_PROVIDERS[backend];
-  const env = { ...baseEnv };
-  if (mapping.providerId) {
-    const provider = await getProviderApiKey(mapping.providerId);
-    if (!provider) {
-      throw new Error(`No API key configured for ${mapping.displayName}. Add one in Sero settings or choose another backend.`);
-    }
-    env[provider.envVar] = provider.key;
+/** Environment for Graphify work that must not discover a model backend. */
+export function cleanEnv(baseEnv: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {};
+  for (const key of ALLOWED_ENV_KEYS) {
+    const value = baseEnv[key];
+    if (value !== undefined) env[key] = value;
   }
   return env;
 }

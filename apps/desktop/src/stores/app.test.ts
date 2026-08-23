@@ -35,8 +35,8 @@ import {
   handlePluginChange,
   listenForNewApps,
   useAppStore,
-  type AppEntry,
 } from './app';
+import { useNavigationStore } from './navigation';
 
 function createManifest(
   id: string,
@@ -69,6 +69,7 @@ function createManifest(
 
 describe('discoverAndRegisterApps', () => {
   const initialState = useAppStore.getState();
+  const initialNavigationState = useNavigationStore.getState();
   const discover = vi.fn<() => Promise<SeroAppManifest[]>>();
 
   beforeEach(() => {
@@ -99,11 +100,13 @@ describe('discoverAndRegisterApps', () => {
       appsReady: false,
       pendingApp: null,
     }, true);
+    useNavigationStore.setState(initialNavigationState, true);
   });
 
   afterEach(() => {
     federationMocks.preloadFederatedModule.mockReset();
     useAppStore.setState(initialState, true);
+    useNavigationStore.setState(initialNavigationState, true);
   });
 
   it('preloads only the hydrated active app and favourites', async () => {
@@ -190,6 +193,46 @@ describe('discoverAndRegisterApps', () => {
 
     expect(useAppStore.getState().activeApp).toBe('dashboard');
     expect(useAppStore.getState().favouriteApps).toEqual(['notes']);
+  });
+
+  it('does not replace an app entry while another app is opening', async () => {
+    discover.mockResolvedValue([
+      createManifest('research', 'ResearchApp', 4103),
+      createManifest('todo', 'TodoApp', 4101),
+    ]);
+    useAppStore.setState({
+      ...useAppStore.getState(),
+      activeApp: 'research',
+      pendingApp: 'todo',
+    });
+    useNavigationStore.setState({
+      entries: [{ appId: 'research' }, { appId: 'todo', viewId: 'list' }],
+      index: 1,
+    });
+
+    await discoverAndRegisterApps();
+
+    expect(useNavigationStore.getState().entries[1]).toEqual({ appId: 'todo', viewId: 'list' });
+  });
+
+  it('keeps the removed app entry before recording the dashboard fallback', async () => {
+    discover.mockResolvedValue([createManifest('notes', 'NotesApp', 4102)]);
+    useAppStore.setState({
+      ...useAppStore.getState(),
+      activeApp: 'research',
+      pendingApp: null,
+    });
+    useNavigationStore.setState({
+      entries: [{ appId: 'research', viewId: 'results' }],
+      index: 0,
+    });
+
+    await discoverAndRegisterApps();
+
+    expect(useNavigationStore.getState()).toMatchObject({
+      entries: [{ appId: 'research', viewId: 'results' }, { appId: 'dashboard' }],
+      index: 1,
+    });
   });
 
   it('ignores attempts to activate an unknown app id', () => {
@@ -453,36 +496,5 @@ describe('discoverAndRegisterApps', () => {
     });
 
     expect(federationMocks.setIncompatibleApps).toHaveBeenLastCalledWith([]);
-  });
-});
-
-describe('toggleChromeShortcut', () => {
-  const initialState = useAppStore.getState();
-
-  function entry(id: string, builtin = false): AppEntry {
-    return { id, label: id, icon: 'Box', builtin, manifest: null };
-  }
-
-  beforeEach(() => {
-    (window as Window & { sero: any }).sero = {
-      layout: { save: vi.fn().mockResolvedValue(undefined) },
-    };
-  });
-
-  afterEach(() => {
-    useAppStore.setState(initialState, true);
-  });
-
-  it('preserves pins whose app is not loaded yet when toggling', () => {
-    // 'notes' is pinned but not yet in `apps` (startup discovery window).
-    useAppStore.setState({
-      ...initialState,
-      apps: [entry('dashboard', true), entry('todo')],
-      chromeShortcuts: ['notes'],
-    }, true);
-
-    useAppStore.getState().toggleChromeShortcut('todo');
-
-    expect(useAppStore.getState().chromeShortcuts).toEqual(['notes', 'todo']);
   });
 });

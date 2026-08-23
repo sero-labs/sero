@@ -1,137 +1,147 @@
 /**
- * The cross-loop "Needs you" queue (specs/09-ui-redesign.md, A2 hybrid). Renders
- * every loop's pending questions and suggestions from the watched index's
- * attention payload, side by side, so the user resolves them inline — answering a
- * question or approving/rejecting a suggestion — without opening each loop. All
- * actions reuse the existing coordinator actions (answer_input / choose_suggestion).
+ * The cross-mode "Needs you" band (prototype screen 1). Every pending item —
+ * Room approvals, member questions, stopped Rooms, Workflow questions and
+ * suggestions — is one row: dot, the ask, the source dimmed, the action
+ * right. The action expands the item's full card inline, so the user still
+ * resolves everything here without opening each Room or Workflow.
+ *
+ * Room approvals join the SAME queue (agent-rooms spec §22, FR-026); only the
+ * user answers them — no Room member, not even the Conductor — which the
+ * runtime enforces independently.
  */
 
-import { useMemo, useState } from 'react';
-import { Button, Card, Textarea } from '@sero-ai/ui';
-import { ArrowRight, Sparkles } from 'lucide-react';
-import type { LoopAttentionInput, LoopAttentionSuggestion, LoopSummary, OrchestratorAction } from '../../shared/types';
-import { allAnswered, buildAnswers, withChoice, withText, type AnswerDraft } from '../lib/answer-draft';
+import { useState } from 'react';
+import type { ReactNode } from 'react';
+import { Button } from '@sero-ai/ui';
+import type { LoopSummary, OrchestratorAction } from '../../shared/types';
+import type { RoomSummary } from '../../shared/room-types';
+import { AttentionInputCard, AttentionSuggestionCard } from './AttentionLoopCards';
+import { NeedsBand, NeedsRow, type MemberStatus } from './room-kit';
+import { RoomApprovalCard, type RoomApprovalDecision } from './RoomApprovalCard';
+import { RoomPauseCard, RoomRequestCard } from './RoomAttentionCards';
+
+export type { RoomApprovalDecision };
 
 interface AttentionQueueProps {
   loops: LoopSummary[];
   busy: boolean;
   onAction: (action: OrchestratorAction) => void;
   onOpenLoop: (loopId: string) => void;
+  /** Rooms from the watched Room index. Absent until Room mode is mounted. */
+  rooms?: RoomSummary[];
+  onRoomApproval?: (roomId: string, approvalId: string, decision: RoomApprovalDecision) => void;
+  /** Answers a member that stopped to ask the user something. */
+  onRoomAnswer?: (roomId: string, memberId: string, body: string) => void;
+  /** Starts a Room that stopped and cannot start itself. */
+  onRoomResume?: (roomId: string) => void;
+  onOpenRoom?: (roomId: string) => void;
 }
 
-export function AttentionQueue({ loops, busy, onAction, onOpenLoop }: AttentionQueueProps) {
-  const inputs = loops.flatMap((l) => (l.attention?.input ? [{ loop: l, input: l.attention.input }] : []));
-  const suggestions = loops.flatMap((l) => (l.attention?.suggestions ?? []).map((s) => ({ loop: l, suggestion: s })));
-
-  if (inputs.length === 0 && suggestions.length === 0) {
-    return <p className="text-base text-muted-foreground">Nothing needs you right now.</p>;
-  }
-
-  return (
-    <div className="grid gap-3 md:grid-cols-2">
-      {inputs.map(({ loop, input }) => (
-        <AttentionInputCard key={`${loop.id}:${input.requestId}`} loop={loop} input={input} busy={busy} onAction={onAction} onOpenLoop={onOpenLoop} />
-      ))}
-      {suggestions.map(({ loop, suggestion }) => (
-        <AttentionSuggestionCard key={`${loop.id}:${suggestion.id}`} loop={loop} suggestion={suggestion} busy={busy} onAction={onAction} onOpenLoop={onOpenLoop} />
-      ))}
-    </div>
-  );
+interface QueueItem {
+  key: string;
+  status: MemberStatus;
+  label: ReactNode;
+  source: string;
+  actionLabel: string;
+  detail: ReactNode;
 }
 
-function OpenLink({ title, onClick }: { title: string; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-      {title} <ArrowRight className="h-3.5 w-3.5" />
-    </button>
-  );
-}
+export function AttentionQueue({
+  loops,
+  busy,
+  onAction,
+  onOpenLoop,
+  rooms = [],
+  onRoomApproval,
+  onRoomAnswer,
+  onRoomResume,
+  onOpenRoom,
+}: AttentionQueueProps) {
+  const [openKey, setOpenKey] = useState<string | null>(null);
 
-function AttentionInputCard({ loop, input, busy, onAction, onOpenLoop }: { loop: LoopSummary; input: LoopAttentionInput; busy: boolean; onAction: AttentionQueueProps['onAction']; onOpenLoop: (id: string) => void }) {
-  const [draft, setDraft] = useState<AnswerDraft>({});
-  const ready = useMemo(() => allAnswered(input.questions, draft), [input.questions, draft]);
-  const fromPlanner = input.source === 'planner';
+  const items: QueueItem[] = [
+    ...rooms.flatMap((room): QueueItem[] => {
+      const pause = room.attention?.pause;
+      return pause
+        ? [{
+            key: `${room.id}:pause`,
+            status: 'blocked',
+            label: <>This Room stopped — {pause.detail}</>,
+            source: `Room · ${room.title}`,
+            actionLabel: 'Review',
+            detail: <RoomPauseCard room={room} pause={pause} busy={busy} onResume={onRoomResume} onOpenRoom={onOpenRoom} />,
+          }]
+        : [];
+    }),
+    ...rooms.flatMap((room): QueueItem[] =>
+      (room.attention?.approvals ?? []).map((approval) => ({
+        key: `${room.id}:${approval.approvalId}`,
+        status: 'waiting',
+        label: approval.title,
+        source: `Room · ${room.title} · ${approval.memberName}`,
+        actionLabel: 'Review',
+        detail: <RoomApprovalCard room={room} approval={approval} busy={busy} onDecide={onRoomApproval} onOpenRoom={onOpenRoom} />,
+      }))),
+    ...rooms.flatMap((room): QueueItem[] =>
+      (room.attention?.requests ?? []).map((request) => ({
+        key: `${room.id}:${request.memberId}`,
+        status: 'waiting',
+        label: request.question,
+        source: `Room · ${room.title} · ${request.memberName}`,
+        actionLabel: 'Answer',
+        detail: <RoomRequestCard room={room} request={request} busy={busy} onAnswer={onRoomAnswer} onOpenRoom={onOpenRoom} />,
+      }))),
+    ...loops.flatMap((loop): QueueItem[] => {
+      const input = loop.attention?.input;
+      return input
+        ? [{
+            key: `${loop.id}:${input.requestId}`,
+            status: 'waiting',
+            label: input.questions.length === 1
+              ? input.questions[0].prompt
+              : `Answer ${input.questions.length} ${input.source === 'planner' ? 'planner ' : ''}questions`,
+            source: `Workflow · ${loop.title}`,
+            actionLabel: 'Answer',
+            detail: <AttentionInputCard loop={loop} input={input} busy={busy} onAction={onAction} onOpenLoop={onOpenLoop} />,
+          }]
+        : [];
+    }),
+    ...loops.flatMap((loop): QueueItem[] =>
+      (loop.attention?.suggestions ?? []).map((suggestion) => ({
+        key: `${loop.id}:${suggestion.id}`,
+        status: 'idle',
+        label: `Suggested improvement — changes ${suggestion.changedStepCount} step(s)`,
+        source: `Workflow · ${loop.title}`,
+        actionLabel: 'Review',
+        detail: <AttentionSuggestionCard loop={loop} suggestion={suggestion} busy={busy} onAction={onAction} onOpenLoop={onOpenLoop} />,
+      }))),
+  ];
+
+  if (items.length === 0) return null;
 
   return (
-    <Card className="flex flex-col gap-2 border-amber-500/30 bg-amber-500/[0.06] p-3">
-      <div className="flex items-center gap-2">
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-amber-500/20 text-sm font-bold text-amber-400">?</span>
-        <span className="text-base font-semibold text-amber-400">{fromPlanner ? 'Planner needs answers' : 'Waiting on your answer'}</span>
-        <span className="ml-auto"><OpenLink title="Open" onClick={() => onOpenLoop(loop.id)} /></span>
-      </div>
-      <span className="text-base font-medium">{loop.title}</span>
-      {input.questions.map((q) => (
-        <div key={q.id} className="flex flex-col gap-2">
-          <p className="text-base text-muted-foreground">{q.prompt}</p>
-          {q.attachment && (
-            <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-muted/40 p-2 text-xs">
-              {q.attachment}
-            </pre>
-          )}
-          {q.choices && q.choices.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {q.choices.map((c) => (
-                <Button key={c.id} size="sm" variant={draft[q.id]?.choiceId === c.id ? 'default' : 'outline'} disabled={busy} onClick={() => setDraft((d) => withChoice(d, q.id, c.id))}>
-                  {c.label}
-                </Button>
-              ))}
-            </div>
-          )}
-          <Textarea
-            value={draft[q.id]?.text ?? ''}
-            onChange={(e) => setDraft((d) => withText(d, q.id, e.target.value))}
-            placeholder={q.choices?.length ? 'Or type your own answer…' : 'Type your answer…'}
-            className="min-h-12 text-base"
-          />
+    <NeedsBand count={`${items.length} item${items.length === 1 ? '' : 's'}`}>
+      {items.map((item) => (
+        <div key={item.key}>
+          <NeedsRow
+            status={item.status}
+            source={item.source}
+            action={
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-[26px] px-2.5 text-[11px]"
+                onClick={() => setOpenKey((k) => (k === item.key ? null : item.key))}
+              >
+                {openKey === item.key ? 'Close' : item.actionLabel}
+              </Button>
+            }
+          >
+            {item.label}
+          </NeedsRow>
+          {openKey === item.key && <div className="mt-2">{item.detail}</div>}
         </div>
       ))}
-      <Button
-        size="sm"
-        className="self-end"
-        disabled={busy || !ready}
-        onClick={() => onAction({ kind: 'answer_input', loopId: loop.id, requestId: input.requestId, answers: buildAnswers(input.questions, draft) })}
-      >
-        {fromPlanner ? 'Submit & build plan' : 'Send answer'}
-      </Button>
-    </Card>
-  );
-}
-
-const CONFIDENCE_LABEL = { low: 'low', medium: 'med', high: 'high' } as const;
-
-function AttentionSuggestionCard({ loop, suggestion, busy, onAction, onOpenLoop }: { loop: LoopSummary; suggestion: LoopAttentionSuggestion; busy: boolean; onAction: AttentionQueueProps['onAction']; onOpenLoop: (id: string) => void }) {
-  const [rejecting, setRejecting] = useState(false);
-  const [reason, setReason] = useState('');
-
-  return (
-    <Card className="flex flex-col gap-2 border-sky-500/30 bg-sky-500/[0.06] p-3">
-      <div className="flex items-center gap-2">
-        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-sky-500/20 text-sky-400"><Sparkles className="h-3 w-3" /></span>
-        <span className="text-base font-semibold text-sky-400">Suggested improvement</span>
-        <span className="ml-auto text-sm uppercase tracking-wide text-muted-foreground">conf. {CONFIDENCE_LABEL[suggestion.confidence]}</span>
-      </div>
-      <span className="text-base font-medium">{loop.title}</span>
-      <p className="text-base text-muted-foreground">{suggestion.rationale}</p>
-      <span className="text-xs text-muted-foreground">Changes {suggestion.changedStepCount} step(s).</span>
-      {rejecting ? (
-        <div className="flex flex-col gap-2">
-          <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why reject? (helps future suggestions)" className="min-h-11 text-base" />
-          <div className="flex justify-end gap-2">
-            <Button size="sm" variant="ghost" disabled={busy} onClick={() => setRejecting(false)}>Cancel</Button>
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => onAction({ kind: 'choose_suggestion', loopId: loop.id, suggestionId: suggestion.id, decision: 'reject', rejectionReason: reason.trim() || undefined })}>
-              Reject
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="mt-auto flex items-center gap-2">
-          <Button size="sm" disabled={busy} onClick={() => onAction({ kind: 'choose_suggestion', loopId: loop.id, suggestionId: suggestion.id, decision: 'approve' })}>
-            Approve
-          </Button>
-          <Button size="sm" variant="ghost" disabled={busy} onClick={() => setRejecting(true)}>Reject</Button>
-          <span className="ml-auto"><OpenLink title="Review" onClick={() => onOpenLoop(loop.id)} /></span>
-        </div>
-      )}
-    </Card>
+    </NeedsBand>
   );
 }

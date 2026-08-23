@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Workflow → skill extraction — prototype</title>
+<style>
+:root {
+  color-scheme: dark;
+  font-size: 13px;
+  --bg-base:#0a0a0b;
+  --bg-surface:#111113;
+  --bg-elevated:#18181b;
+  --bg-overlay:#1f1f23;
+  --border-subtle:#27272a;
+  --border-default:#3f3f46;
+  --text-primary:#fafafa;
+  --text-secondary:#a1a1aa;
+  --text-muted:#71717a;
+  --primary:#34d399;
+  --primary-fg:#052e1c;
+  --status-error:#ef4444;
+  --status-warn:#f59e0b;
+  --status-warn-muted:rgba(245,158,11,.10);
+  --sans:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:48px;background:#050506;color:var(--text-primary);font-family:var(--sans)}
+h1{font-size:1.6rem;letter-spacing:-.03em;margin:0 0 6px}
+h2{font-size:.95rem;margin:40px 0 12px;font-weight:600}
+.lede{color:var(--text-secondary);font-size:.95rem;margin:0 0 8px;max-width:70ch}
+.caption{font-size:.8rem;color:var(--text-muted);margin:8px 0 0;max-width:52ch}
+.row{display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap}
+.panel{width:600px;background:var(--bg-surface);border:1px solid var(--border-subtle);
+  border-radius:.5rem;padding:1rem;display:flex;flex-direction:column;gap:.75rem}
+.hdr{display:flex;align-items:center;justify-content:space-between}
+.left{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.title{font-size:1rem;font-weight:600}
+.badge{font-size:.7rem;padding:.1rem .4rem;border-radius:.25rem;border:1px solid var(--border-default);color:var(--text-secondary)}
+.badge.ok{color:var(--primary);border-color:var(--primary)}
+.muted{font-size:.75rem;color:var(--text-muted)}
+.btn{height:1.85rem;padding:0 .7rem;font-size:.78rem;border-radius:.375rem;border:1px solid var(--border-default);
+  background:transparent;color:var(--text-primary);cursor:pointer;display:inline-flex;align-items:center;gap:.35rem}
+.btn.primary{background:var(--primary);color:var(--primary-fg);border-color:transparent;font-weight:600}
+.btn.danger{background:var(--status-error);color:#fff;border-color:transparent;font-weight:600}
+.btn.ghost{border-color:transparent;color:var(--text-secondary)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.lbl{display:block;font-size:.75rem;color:var(--text-muted);margin-bottom:.25rem}
+.ctl{display:flex;align-items:center;width:100%;min-height:2rem;padding:.35rem .625rem;font-size:.8rem;
+  border:1px solid var(--border-subtle);border-radius:.375rem;background:rgba(39,39,42,.3);color:var(--text-primary)}
+.ctl.area{display:block;white-space:pre-wrap;font-family:var(--mono);font-size:.72rem;line-height:1.5;color:var(--text-secondary)}
+.dialog{width:620px;background:var(--bg-elevated);border:1px solid var(--border-default);border-radius:.5rem;
+  padding:1rem;box-shadow:0 10px 30px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:.6rem}
+.dialog h3{margin:0;font-size:.95rem}
+.dialog .line{font-size:.8rem;color:var(--text-secondary)}
+.dialog .actions{display:flex;gap:.5rem;justify-content:flex-end;margin-top:.25rem}
+.warn{font-size:.75rem;color:var(--status-warn);border:1px solid var(--status-warn);background:var(--status-warn-muted);
+  border-radius:.375rem;padding:.4rem .55rem}
+</style>
+</head>
+<body>
+
+<h1>Workflow → skill extraction</h1>
+<p class="lede">
+  Static prototype for <code>docs/features/orchestration/sero-orchestrator/specs/18-skill-extraction.md</code>.
+  One rule drives every screen: the pass writes a <em>draft</em>, and only what the user reviewed
+  is written to the profile. A pass that finds nothing to teach is an ordinary result, not an error.
+</p>
+
+<h2>1 — The control row, after a run completed</h2>
+<div class="row">
+  <div class="panel">
+    <div class="hdr">
+      <div class="left"><span class="title">Weekly dependency review</span><span class="badge ok">completed</span></div>
+    </div>
+    <p class="muted">Reviews new dependency versions, opens a PR, and asks before it merges.</p>
+    <div class="left">
+      <button class="btn">▶ Run next</button>
+      <button class="btn">✦ Reflect</button>
+      <button class="btn">🔖 Library <span style="font-weight:600">v3</span></button>
+      <button class="btn">🎓 Skill</button>
+    </div>
+  </div>
+  <p class="caption">
+    <strong>Skill</strong> sits with the other things you do to a Workflow, not inside the run
+    controls. It appears only after a run completed — a skill comes from what worked.
+  </p>
+</div>
+
+<h2>2 — The review, which is the whole approval</h2>
+<div class="row">
+  <div class="dialog">
+    <h3>Save as a skill</h3>
+    <div class="line">Every run retried the lockfile step for the same reason (from run 4, 6).</div>
+    <div>
+      <span class="lbl">Name</span>
+      <div class="ctl">dependency-bump-review</div>
+    </div>
+    <div>
+      <span class="lbl">Description — what it does and when to use it</span>
+      <div class="ctl">Review a dependency bump before it merges. Use when a PR only changes lockfiles or package versions, or when asked to check an update for breakage.</div>
+    </div>
+    <div>
+      <span class="lbl">SKILL.md</span>
+      <div class="ctl area"># Dependency bump review
+
+1. Read the diff. A bump that touches only the lockfile still needs the changelog.
+2. Run `pnpm typecheck` from the repo root before anything else — a bumped type
+   package fails here and nowhere else.
+3. Run the changed package's own tests, not the full suite.
+4. Report: what moved, what broke, what you fixed.
+
+**Trap:** `pnpm install --frozen-lockfile` fails after a bump until the lockfile
+is regenerated. Regenerate it with the repo's own tooling, never by hand.</div>
+    </div>
+    <div class="actions">
+      <button class="btn ghost">Discard</button>
+      <button class="btn primary">Save skill</button>
+    </div>
+  </div>
+  <p class="caption">
+    Every field is editable, because what is saved is the user's version. The line under the
+    title is the model's reason plus the runs it read — the provenance, in one line, with no
+    separate panel.
+  </p>
+</div>
+
+<h2>3 — The name is taken</h2>
+<div class="row">
+  <div class="dialog" style="width:520px">
+    <h3>Save as a skill</h3>
+    <div>
+      <span class="lbl">Name</span>
+      <div class="ctl">dependency-bump-review</div>
+    </div>
+    <div class="warn">A skill named “dependency-bump-review” already exists. Rename it above, or replace it.</div>
+    <div class="actions">
+      <button class="btn ghost">Discard</button>
+      <button class="btn danger">Replace dependency-bump-review</button>
+    </div>
+  </div>
+  <p class="caption">
+    Replacing is never the default. The Save button becomes Replace only after the host has
+    refused the write, so a collision cannot be passed by accident.
+  </p>
+</div>
+
+<h2>4 — Nothing to teach</h2>
+<div class="row">
+  <div class="panel">
+    <div class="left">
+      <button class="btn">✦ Reflect</button>
+      <button class="btn">🎓 Skill</button>
+      <span class="muted">Nothing durable to teach yet — this workflow moves one file and ends.</span>
+    </div>
+  </div>
+  <p class="caption">
+    A refusal is a line next to the button, not a dialog and not an error colour. The pass ran,
+    judged, and declined — the same guarantee reflection makes when it proposes no change.
+  </p>
+</div>
+
+<h2>5 — After saving</h2>
+<div class="row">
+  <div class="panel">
+    <div class="left">
+      <button class="btn">✦ Reflect</button>
+      <button class="btn">🔖 Library <span style="font-weight:600">v3</span></button>
+      <button class="btn">🎓 Skill <span style="font-weight:500">dependency-bump-review</span></button>
+    </div>
+    <p class="muted">Edit or delete it in Admin → Skills. Extracting again defaults to updating the same skill.</p>
+  </div>
+  <p class="caption">
+    The button carries the saved name the way the Library button carries its version, so the
+    Workflow shows what it has produced without a second badge.
+  </p>
+</div>
+
+</body>
+</html>

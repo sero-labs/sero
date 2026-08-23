@@ -2,6 +2,7 @@ import { existsSync, statSync } from 'node:fs';
 import type { GraphifyPaths } from '../../shared/paths';
 import { workspaceGraphJson, workspaceGraphReport } from '../../shared/paths';
 import { readStateFile } from '../../shared/state-io';
+import { CURRENT_INDEX_MODE_VERSION } from '../../shared/types';
 import { resolveCurrentWorkspace } from '../current-workspace';
 import type { GraphContextState } from './state';
 
@@ -24,7 +25,7 @@ export interface GraphArtifactInfo {
 export async function detectGraphArtifacts(paths: GraphifyPaths, cwd: string): Promise<GraphArtifactInfo> {
   const state = await readStateFile(paths.stateFile);
   const entry = state ? resolveCurrentWorkspace(state, cwd) : null;
-  if (!entry) {
+  if (!entry || entry.indexModeVersion !== CURRENT_INDEX_MODE_VERSION) {
     return { graphPath: '', reportPath: '', graphExists: false, reportExists: false, graphSize: 0, reportSize: 0 };
   }
 

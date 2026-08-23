@@ -28,7 +28,6 @@ describe('handleAgentStreamEvent', () => {
       focusedSessionId: null,
       showThinkingBlocks: true,
       showMemoryBlocks: true,
-      collaborations: {},
       openSession: vi.fn(),
       closeSession: vi.fn(),
       sendPrompt: vi.fn(),
@@ -44,13 +43,7 @@ describe('handleAgentStreamEvent', () => {
       toggleMemoryBlocks: vi.fn(),
       setComposerPrefill: vi.fn(),
       clearComposerPrefill: vi.fn(),
-      toggleCollaborationMode: vi.fn(),
-      setCollaborationStrategy: vi.fn(),
-      setDebateConfig: vi.fn(),
-      sendCollaborationPrompt: vi.fn(),
-      hydrateCollaborationState: vi.fn(),
       initEventListener: vi.fn(),
-      initCollaborationListener: vi.fn(),
     };
 
     const set = (updater: (current: AgentState) => AgentState | Partial<AgentState>) => {
@@ -98,7 +91,6 @@ describe('handleAgentStreamEvent', () => {
       focusedSessionId: 'session-1',
       showThinkingBlocks: true,
       showMemoryBlocks: true,
-      collaborations: {},
       openSession: vi.fn(),
       closeSession: vi.fn(),
       sendPrompt: vi.fn(),
@@ -114,13 +106,7 @@ describe('handleAgentStreamEvent', () => {
       toggleMemoryBlocks: vi.fn(),
       setComposerPrefill: vi.fn(),
       clearComposerPrefill: vi.fn(),
-      toggleCollaborationMode: vi.fn(),
-      setCollaborationStrategy: vi.fn(),
-      setDebateConfig: vi.fn(),
-      sendCollaborationPrompt: vi.fn(),
-      hydrateCollaborationState: vi.fn(),
       initEventListener: vi.fn(),
-      initCollaborationListener: vi.fn(),
     };
 
     const set = (updater: (current: AgentState) => AgentState | Partial<AgentState>) => {
@@ -167,7 +153,6 @@ describe('handleAgentStreamEvent', () => {
       focusedSessionId: 'session-1',
       showThinkingBlocks: true,
       showMemoryBlocks: true,
-      collaborations: {},
       openSession: vi.fn(),
       closeSession: vi.fn(),
       sendPrompt: vi.fn(),
@@ -183,13 +168,7 @@ describe('handleAgentStreamEvent', () => {
       toggleMemoryBlocks: vi.fn(),
       setComposerPrefill: vi.fn(),
       clearComposerPrefill: vi.fn(),
-      toggleCollaborationMode: vi.fn(),
-      setCollaborationStrategy: vi.fn(),
-      setDebateConfig: vi.fn(),
-      sendCollaborationPrompt: vi.fn(),
-      hydrateCollaborationState: vi.fn(),
       initEventListener: vi.fn(),
-      initCollaborationListener: vi.fn(),
     };
     const set = (updater: (current: AgentState) => AgentState | Partial<AgentState>) => {
       state = { ...state, ...updater(state) };
@@ -218,5 +197,68 @@ describe('handleAgentStreamEvent', () => {
       { name: 'migrate-agent-plugin', source: 'skill' },
     ]);
     expect(state.agents['session-1']?.modelState?.model.name).toBe('Model');
+  });
+
+  it('clears live input state when an in-flight tool is cancelled', () => {
+    let state: AgentState = {
+      agents: {
+        'session-1': {
+          sessionId: 'session-1',
+          sessionPath: '/tmp/session-1.json',
+          workspaceId: 'ws-1',
+          messages: [{
+            type: 'tool' as const,
+            id: 'tool-1',
+            toolCallId: 'call-1',
+            toolName: 'write',
+            input: { path: 'a.ts', content: 'partial' },
+            output: null,
+            details: null,
+            isError: false,
+            state: 'pending' as const,
+            isStreamingInput: true,
+          }],
+          isStreaming: true,
+          error: null,
+          commands: [],
+          modelState: null,
+        },
+      },
+      composerPrefills: {},
+      focusedSessionId: 'session-1',
+      showThinkingBlocks: true,
+      showMemoryBlocks: true,
+      openSession: vi.fn(),
+      closeSession: vi.fn(),
+      sendPrompt: vi.fn(),
+      steerAgent: vi.fn(),
+      abort: vi.fn(),
+      focusSession: vi.fn(),
+      clearFocus: vi.fn(),
+      reloadResources: vi.fn(),
+      setModel: vi.fn(),
+      setThinkingLevel: vi.fn(),
+      fetchModelState: vi.fn(),
+      toggleThinkingBlocks: vi.fn(),
+      toggleMemoryBlocks: vi.fn(),
+      setComposerPrefill: vi.fn(),
+      clearComposerPrefill: vi.fn(),
+      initEventListener: vi.fn(),
+    };
+    const set = (updater: (current: AgentState) => AgentState | Partial<AgentState>) => {
+      state = { ...state, ...updater(state) };
+    };
+
+    handleAgentStreamEvent(
+      { type: 'agent_end', sessionId: 'session-1' },
+      set,
+      () => state,
+      vi.fn(),
+    );
+
+    expect(state.agents['session-1']?.messages[0]).toMatchObject({
+      state: 'cancelled',
+      isStreamingInput: false,
+    });
   });
 });

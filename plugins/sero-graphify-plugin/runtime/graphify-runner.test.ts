@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import os from 'node:os';
 import path from 'node:path';
-import { buildWorkspaceGraph, updateWorkspaceGraph, mergeProfileGraph, parseBuildStats, ensureGraphifyIgnore } from './graphify-runner';
+import { mkdir, mkdtemp, readFile, readdir, utimes, writeFile } from 'node:fs/promises';
+import { buildWorkspaceGraph, cleanupStaleRebuilds, mergeProfileGraph, parseBuildStats, ensureGraphifyIgnore, rebuildWorkspaceGraph } from './graphify-runner';
+import type { BuildOptions } from './graphify-runner';
 import type { ExecResult } from './bounded-exec';
 
 const STORE = path.join(os.tmpdir(), 'graphify-runner-test', 'ws1');
@@ -13,44 +15,59 @@ const EXTRACT_STDOUT = [
   'processed 87 files',
 ].join('\n');
 
-const UPDATE_STDOUT = '[graphify watch] Rebuilt: 35 nodes, 42 edges, 5 communities';
+const ok = (stdout = ''): ExecResult => ({ stdout, stderr: '', exitCode: 0, truncated: false });
 
-const ok = (stdout = ''): ExecResult => ({ stdout, stderr: '', exitCode: 0 });
+function buildOpts(overrides: Partial<BuildOptions> = {}): BuildOptions {
+  return {
+    workspaceDir: STORE,
+    rebuildsDir: path.join(os.tmpdir(), 'graphify-runner-test', 'graph-rebuilds'),
+    inputPath: '/p',
+    exclude: [],
+    ...overrides,
+  };
+}
 
 describe('parseBuildStats', () => {
   it('parses comma-formatted stats and tokens', () => {
     expect(parseBuildStats(EXTRACT_STDOUT)).toEqual({
-      nodes: 1234, edges: 5678, communities: 12, inputTokens: 45000, outputTokens: 9000,
-    });
-  });
-  it('parses graphify update output', () => {
-    expect(parseBuildStats(UPDATE_STDOUT)).toEqual({
-      nodes: 35, edges: 42, communities: 5, inputTokens: 0, outputTokens: 0,
+      usageMeasured: true,
+      stats: { nodes: 1234, edges: 5678, communities: 12, inputTokens: 45000, outputTokens: 9000 },
     });
   });
   it('defaults to zeros on unparseable output', () => {
-    expect(parseBuildStats('done')).toEqual({ nodes: 0, edges: 0, communities: 0, inputTokens: 0, outputTokens: 0 });
+    expect(parseBuildStats('done')).toEqual({
+      usageMeasured: false,
+      stats: { nodes: 0, edges: 0, communities: 0, inputTokens: 0, outputTokens: 0 },
+    });
   });
 });
 
 describe('buildWorkspaceGraph', () => {
-  it('runs extract with backend/budget/excludes and --out at the workspace store dir', async () => {
+  it('runs local code-only extraction and writes to the workspace store', async () => {
     const exec = vi.fn().mockResolvedValue(ok(EXTRACT_STDOUT));
     const stats = await buildWorkspaceGraph(
       { exec, graphifyPath: '/tools/bin/graphify', env: {} },
-      { workspaceDir: STORE, inputPath: '/home/me/proj', backend: 'claude', tokenBudget: 4096, exclude: ['node_modules'] },
+      buildOpts({ inputPath: '/home/me/proj', exclude: ['node_modules'] }),
     );
-    expect(stats.nodes).toBe(1234);
+    expect(stats.stats.nodes).toBe(1234);
     const [cmd, args, opts] = exec.mock.calls[0];
     expect(cmd).toBe('/tools/bin/graphify');
     expect(args).toEqual([
-      'extract', '/home/me/proj', '--backend', 'claude', '--out', STORE,
-      '--token-budget', '4096', '--exclude', 'node_modules',
+      'extract', '/home/me/proj', '--code-only', '--no-cluster', '--out', STORE,
+      '--exclude', 'node_modules',
     ]);
+    expect(stats.changed).toBe(true);
     expect(opts.cwd).toBe(STORE);
     // Report generation runs against the store dir (where graphify-out/ lives).
     const [, reportArgs] = exec.mock.calls[1];
     expect(reportArgs).toEqual(['cluster-only', STORE, '--no-viz']);
+  });
+
+  it('keeps incremental refresh arguments free of --force', async () => {
+    const exec = vi.fn().mockResolvedValue(ok(EXTRACT_STDOUT));
+    await buildWorkspaceGraph({ exec, graphifyPath: 'g', env: {} }, buildOpts());
+
+    expect(exec.mock.calls[0][1]).not.toContain('--force');
   });
 
   it('redirects the extraction cache into the store dir via GRAPHIFY_OUT', async () => {
@@ -60,7 +77,7 @@ describe('buildWorkspaceGraph', () => {
     const exec = vi.fn().mockResolvedValue(ok(EXTRACT_STDOUT));
     await buildWorkspaceGraph(
       { exec, graphifyPath: 'g', env: { PATH: '/bin' } },
-      { workspaceDir: STORE, inputPath: '/home/me/proj', backend: 'claude', tokenBudget: 0, exclude: [] },
+      buildOpts({ inputPath: '/home/me/proj' }),
     );
     for (const call of exec.mock.calls) {
       expect(call[2].env.GRAPHIFY_OUT).toBe(path.join(STORE, 'graphify-out'));
@@ -68,22 +85,51 @@ describe('buildWorkspaceGraph', () => {
   });
 
   it('throws with stderr tail on failure', async () => {
-    const exec = vi.fn().mockResolvedValue({ stdout: '', stderr: 'boom', exitCode: 1 });
+    const exec = vi.fn().mockResolvedValue({ stdout: '', stderr: 'boom', exitCode: 1, truncated: false });
     await expect(buildWorkspaceGraph(
       { exec, graphifyPath: 'g', env: {} },
-      { workspaceDir: STORE, inputPath: '/p', backend: 'claude', tokenBudget: 0, exclude: [] },
+      buildOpts({}),
     )).rejects.toThrow(/boom/);
   });
 
-  it('passes --model when a model override is set', async () => {
+  it('does not pass a model backend or credential selector', async () => {
     const exec = vi.fn().mockResolvedValue(ok(EXTRACT_STDOUT));
-    await buildWorkspaceGraph(
-      { exec, graphifyPath: 'g', env: {} },
-      { workspaceDir: STORE, inputPath: '/p', backend: 'claude', model: 'claude-haiku-4-5-20251001', tokenBudget: 0, exclude: [] },
-    );
+    await buildWorkspaceGraph({ exec, graphifyPath: 'g', env: {} }, buildOpts());
     const [, args] = exec.mock.calls[0];
-    expect(args).toContain('--model');
-    expect(args[args.indexOf('--model') + 1]).toBe('claude-haiku-4-5-20251001');
+    expect(args).not.toContain('--model');
+    expect(args).not.toContain('--backend');
+  });
+
+  it('allows Graphify to create deterministic community labels', async () => {
+    const exec = vi.fn().mockResolvedValue(ok(EXTRACT_STDOUT));
+    await buildWorkspaceGraph({ exec, graphifyPath: 'g', env: {} }, buildOpts({}));
+    const [, reportArgs] = exec.mock.calls[1];
+    expect(reportArgs).not.toContain('--no-label');
+  });
+
+  it('fails when clustering fails so a raw graph is not accepted as complete', async () => {
+    const exec = vi.fn()
+      .mockResolvedValueOnce(ok(EXTRACT_STDOUT))
+      .mockResolvedValueOnce({ stdout: '', stderr: 'cluster boom', exitCode: 1, truncated: false });
+    await expect(buildWorkspaceGraph(
+      { exec, graphifyPath: 'g', env: {} },
+      buildOpts({}),
+    )).rejects.toThrow(/cluster boom/);
+  });
+
+  it('skips clustering when the incremental scan finds no changes', async () => {
+    const stdout = '[graphify extract] no incremental changes detected (--no-cluster); outputs left untouched.';
+    const exec = vi.fn().mockResolvedValue(ok(stdout));
+    const outcome = await buildWorkspaceGraph({ exec, graphifyPath: 'g', env: {} }, buildOpts({}));
+
+    expect(outcome.changed).toBe(false);
+    expect(exec).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not let a chatty build be killed for its output', async () => {
+    const exec = vi.fn().mockResolvedValue(ok(EXTRACT_STDOUT));
+    await buildWorkspaceGraph({ exec, graphifyPath: 'g', env: {} }, buildOpts({}));
+    expect(exec.mock.calls[0][2].onOutputLimit).toBe('truncate');
   });
 
   it('streams progress lines with unbuffered python output', async () => {
@@ -94,31 +140,88 @@ describe('buildWorkspaceGraph', () => {
     const progress: string[] = [];
     await buildWorkspaceGraph(
       { exec, graphifyPath: 'g', env: { PATH: '/bin' } },
-      { workspaceDir: STORE, inputPath: '/p', backend: 'claude', tokenBudget: 0, exclude: [], onProgress: (m) => progress.push(m) },
+      buildOpts({ onProgress: (m: string) => progress.push(m) }),
     );
     expect(progress).toContain('[graphify extract] scanning /p');
     expect(exec.mock.calls[0][2].env.PYTHONUNBUFFERED).toBe('1');
   });
 });
 
-describe('updateWorkspaceGraph', () => {
-  it('redirects output into the store dir via GRAPHIFY_OUT', async () => {
-    const exec = vi.fn().mockResolvedValue(ok(UPDATE_STDOUT));
-    const stats = await updateWorkspaceGraph(
-      { exec, graphifyPath: 'g', env: { PATH: '/bin' } },
-      { workspaceDir: STORE, inputPath: '/home/me/proj', backend: 'claude', tokenBudget: 0, exclude: [] },
+describe('rebuildWorkspaceGraph', () => {
+  it('passes --force and replaces the active graph after clustering succeeds', async () => {
+    const parent = await mkdtemp(path.join(os.tmpdir(), 'graphify-rebuild-'));
+    const workspaceDir = path.join(parent, 'graphs', 'ws1');
+    await mkdir(path.join(workspaceDir, 'graphify-out'), { recursive: true });
+    await writeFile(path.join(workspaceDir, 'graphify-out', 'graph.json'), 'old');
+    const exec = vi.fn().mockImplementation(async (_cmd, args, options) => {
+      if (args[0] === 'extract') {
+        await mkdir(path.join(options.cwd, 'graphify-out'), { recursive: true });
+        await writeFile(path.join(options.cwd, 'graphify-out', 'graph.json'), 'clean-code-only');
+      }
+      return ok(EXTRACT_STDOUT);
+    });
+
+    await rebuildWorkspaceGraph(
+      { exec, graphifyPath: 'g', env: {} },
+      buildOpts({ workspaceDir, rebuildsDir: path.join(parent, 'graph-rebuilds') }),
     );
-    expect(stats.nodes).toBe(35);
-    const [, args, opts] = exec.mock.calls[0];
-    expect(args).toEqual(['update', '/home/me/proj']);
-    expect(opts.env.GRAPHIFY_OUT).toBe(path.join(STORE, 'graphify-out'));
-    expect(opts.env.PATH).toBe('/bin');
+
+    expect(exec.mock.calls[0][1]).toEqual([
+      'extract', '/p', '--force', '--code-only', '--no-cluster', '--out', expect.stringContaining('.rebuild-'),
+    ]);
+    expect(await readFile(path.join(workspaceDir, 'graphify-out', 'graph.json'), 'utf8')).toBe('clean-code-only');
+    expect(await readdir(path.join(parent, 'graph-rebuilds'))).toEqual([]);
+  });
+
+  it('keeps the active graph when clean extraction fails', async () => {
+    const parent = await mkdtemp(path.join(os.tmpdir(), 'graphify-rebuild-fail-'));
+    const workspaceDir = path.join(parent, 'graphs', 'ws1');
+    await mkdir(path.join(workspaceDir, 'graphify-out'), { recursive: true });
+    await writeFile(path.join(workspaceDir, 'graphify-out', 'graph.json'), 'valid-profile-source');
+    const exec = vi.fn().mockResolvedValue({ stdout: '', stderr: 'extract failed', exitCode: 1, truncated: false });
+
+    await expect(rebuildWorkspaceGraph(
+      { exec, graphifyPath: 'g', env: {} },
+      buildOpts({ workspaceDir, rebuildsDir: path.join(parent, 'graph-rebuilds') }),
+    )).rejects.toThrow(/extract failed/);
+
+    expect(await readFile(path.join(workspaceDir, 'graphify-out', 'graph.json'), 'utf8')).toBe('valid-profile-source');
+    expect(await readdir(path.join(parent, 'graph-rebuilds'))).toEqual([]);
+  });
+
+  it('removes old recovery directories but keeps recent ones', async () => {
+    const parent = await mkdtemp(path.join(os.tmpdir(), 'graphify-rebuild-cleanup-'));
+    const graphsDir = path.join(parent, 'graphs');
+    const oldDir = path.join(parent, 'ws1.rebuild-old');
+    const recentDir = path.join(parent, 'ws1.rebuild-recent');
+    await Promise.all([mkdir(oldDir), mkdir(recentDir)]);
+    const now = Date.now();
+    await utimes(oldDir, new Date(now - 25 * 60 * 60_000), new Date(now - 25 * 60 * 60_000));
+
+    await cleanupStaleRebuilds(parent, graphsDir, now);
+
+    expect(await readdir(parent)).toEqual(['ws1.rebuild-recent']);
+  });
+
+  it('restores a stale backup when the active workspace graph is missing', async () => {
+    const parent = await mkdtemp(path.join(os.tmpdir(), 'graphify-backup-recovery-'));
+    const rebuildsDir = path.join(parent, 'graph-rebuilds');
+    const graphsDir = path.join(parent, 'graphs');
+    const backupDir = path.join(rebuildsDir, 'ws1.backup-old');
+    await mkdir(backupDir, { recursive: true });
+    await writeFile(path.join(backupDir, 'valid'), 'graph');
+    const now = Date.now();
+    await utimes(backupDir, new Date(now - 25 * 60 * 60_000), new Date(now - 25 * 60 * 60_000));
+
+    await cleanupStaleRebuilds(rebuildsDir, graphsDir, now);
+
+    expect(await readFile(path.join(graphsDir, 'ws1', 'valid'), 'utf8')).toBe('graph');
+    expect(await readdir(rebuildsDir)).toEqual([]);
   });
 });
 
 describe('ensureGraphifyIgnore', () => {
   it('creates .graphifyignore with all Sero internals in the workspace', async () => {
-    const { mkdtemp, readFile } = await import('node:fs/promises');
     const ws = await mkdtemp(path.join(os.tmpdir(), 'graphify-ws-'));
     await ensureGraphifyIgnore(ws);
     const content = await readFile(path.join(ws, '.graphifyignore'), 'utf8');
@@ -127,7 +230,6 @@ describe('ensureGraphifyIgnore', () => {
   });
 
   it('appends to an existing ignore file without clobbering it', async () => {
-    const { mkdtemp, readFile, writeFile } = await import('node:fs/promises');
     const ws = await mkdtemp(path.join(os.tmpdir(), 'graphify-ws-'));
     await writeFile(path.join(ws, '.graphifyignore'), 'custom-dir/\n');
     await ensureGraphifyIgnore(ws);
@@ -138,7 +240,6 @@ describe('ensureGraphifyIgnore', () => {
   });
 
   it('tops up files written by older versions with newly required entries', async () => {
-    const { mkdtemp, readFile, writeFile } = await import('node:fs/promises');
     const ws = await mkdtemp(path.join(os.tmpdir(), 'graphify-ws-'));
     await writeFile(path.join(ws, '.graphifyignore'), '# Added by Sero Graphify: keep Sero workspace internals out of the knowledge graph\n.sero/\n');
     await ensureGraphifyIgnore(ws);
@@ -148,7 +249,6 @@ describe('ensureGraphifyIgnore', () => {
   });
 
   it('is idempotent and never throws on bad paths', async () => {
-    const { mkdtemp, readFile } = await import('node:fs/promises');
     const ws = await mkdtemp(path.join(os.tmpdir(), 'graphify-ws-'));
     await ensureGraphifyIgnore(ws);
     const first = await readFile(path.join(ws, '.graphifyignore'), 'utf8');
@@ -166,7 +266,6 @@ describe('mergeProfileGraph', () => {
   });
 
   it('copies the single graph when only one workspace is indexed (merge-graphs needs two)', async () => {
-    const { mkdtemp, mkdir, writeFile, readFile } = await import('node:fs/promises');
     const dir = await mkdtemp(path.join(os.tmpdir(), 'graphify-merge-'));
     const source = path.join(dir, 'ws1', 'graph.json');
     await mkdir(path.dirname(source), { recursive: true });

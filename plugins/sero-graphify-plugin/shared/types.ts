@@ -1,5 +1,3 @@
-export type GraphifyBackend = 'claude' | 'openai' | 'gemini' | 'deepseek' | 'kimi' | 'ollama';
-
 export interface AutoContextSettings {
   sessionSummary: boolean;
   augmentSearchResults: boolean;
@@ -9,13 +7,10 @@ export interface AutoContextSettings {
 }
 
 export interface GraphifySettings {
-  backend: GraphifyBackend;
-  /** Model override passed as --model; '' = the backend's default model. */
-  model: string;
-  /** Per-build LLM token cap passed as --token-budget; 0 = graphify default. */
-  tokenBudget: number;
   /** Glob patterns passed as repeated --exclude flags. */
   exclude: string[];
+  /** Stops queued and new indexing work. */
+  paused: boolean;
   autoContext: AutoContextSettings;
 }
 
@@ -23,11 +18,19 @@ export interface WorkspaceIndexStats {
   nodes: number;
   edges: number;
   communities: number;
+  /** Code-only builds must keep both token counts at zero. */
   inputTokens: number;
   outputTokens: number;
+  graphifyVersion?: string;
 }
 
-export type WorkspaceIndexStatus = 'idle' | 'queued' | 'building' | 'updating' | 'error';
+export type WorkspaceIndexStatus =
+  | 'idle'
+  | 'queued'
+  | 'building'
+  | 'updating'
+  | 'error'
+  | 'needs-build';
 
 export interface WorkspaceIndexEntry {
   workspaceId: string;
@@ -38,20 +41,36 @@ export interface WorkspaceIndexEntry {
   lastBuiltAt?: string;
   lastError?: string;
   stats?: WorkspaceIndexStats;
-  /** Latest build progress line; only set while building/updating. */
   progress?: string;
-  /** Host-supplied entry removed if the next discovery sync still cannot find it. */
-  pendingHostDiscovery?: boolean;
+  lastAttemptAt?: string;
+  failureCount?: number;
+  /** Version of Sero's extraction rules used to create this workspace graph. */
+  indexModeVersion?: number;
 }
 
-export type IndexAction = 'enable' | 'disable' | 'rebuild' | 'refresh' | 'enable-all' | 'sync';
+/** Increment when a graph needs a clean rebuild rather than an incremental refresh. */
+export const CURRENT_INDEX_MODE_VERSION = 1;
+
+export interface RemovedWorkspaceRecord {
+  workspaceId: string;
+  name: string;
+  removedAt: string;
+  stats?: WorkspaceIndexStats;
+}
+
+export type IndexAction = 'enable' | 'disable' | 'rebuild' | 'refresh' | 'enable-all' | 'sync' | 'upgrade' | 'settings';
+
+export interface SettingsPatch {
+  paused?: boolean;
+  exclude?: string[];
+  clearNotice?: boolean;
+}
 
 export interface IndexRequest {
   id: number;
   action: IndexAction;
   workspaceId?: string;
-  workspaceName?: string;
-  workspacePath?: string;
+  settings?: SettingsPatch;
   requestedAt: string;
 }
 
@@ -64,6 +83,7 @@ export interface ProvisioningState {
   version?: string;
   error?: string;
   updatedAt?: string;
+  availableVersion?: string;
 }
 
 export interface ProfileGraphState {
@@ -75,23 +95,28 @@ export interface ProfileGraphState {
   error?: string;
 }
 
+export interface GraphifyNotice {
+  message: string;
+  at: string;
+  kind: 'refused' | 'info';
+}
+
 export interface GraphifyState {
   settings: GraphifySettings;
   provisioning: ProvisioningState;
-  /** Keyed by workspaceId. */
   workspaces: Record<string, WorkspaceIndexEntry>;
-  /** Appended by extension/UI, drained by the host runtime. */
   requests: IndexRequest[];
   nextRequestId: number;
+  lastAppliedRequestId: number;
   profileGraph: ProfileGraphState;
+  removedWorkspaces: RemovedWorkspaceRecord[];
+  notice: GraphifyNotice | null;
 }
 
 export const DEFAULT_STATE: GraphifyState = Object.freeze({
   settings: {
-    backend: 'claude',
-    model: '',
-    tokenBudget: 0,
     exclude: ['node_modules', 'dist', 'build', 'out', '.git', '*.lock', '*.min.js', '*.map'],
+    paused: false,
     autoContext: {
       sessionSummary: true,
       augmentSearchResults: true,
@@ -104,5 +129,41 @@ export const DEFAULT_STATE: GraphifyState = Object.freeze({
   workspaces: {},
   requests: [],
   nextRequestId: 1,
+  lastAppliedRequestId: 0,
   profileGraph: { status: 'absent' },
-}) as GraphifyState;
+  removedWorkspaces: [],
+  notice: null,
+} satisfies GraphifyState);
+
+/** The global workspace contains profile memory, not a source repository. */
+export function isIndexableWorkspace(workspaceId: string): boolean {
+  return workspaceId !== 'global';
+}
+
+/** Read current and legacy state files into the free code-indexing shape. */
+export function withStateDefaults(raw: GraphifyState | null | undefined): GraphifyState {
+  const defaults = structuredClone(DEFAULT_STATE);
+  if (!raw) return defaults;
+  return {
+    // Keep unknown fields from the paid-build design so migration does not
+    // erase historical records. Current code does not read or change them.
+    ...raw,
+    settings: {
+      ...raw.settings,
+      exclude: raw.settings?.exclude ?? defaults.settings.exclude,
+      paused: raw.settings?.paused ?? defaults.settings.paused,
+      autoContext: {
+        ...defaults.settings.autoContext,
+        ...raw.settings?.autoContext,
+      },
+    },
+    provisioning: { ...defaults.provisioning, ...raw.provisioning },
+    workspaces: raw.workspaces ?? {},
+    requests: raw.requests ?? [],
+    nextRequestId: raw.nextRequestId ?? 1,
+    lastAppliedRequestId: raw.lastAppliedRequestId ?? 0,
+    profileGraph: { ...defaults.profileGraph, ...raw.profileGraph },
+    removedWorkspaces: raw.removedWorkspaces ?? [],
+    notice: raw.notice ?? null,
+  };
+}

@@ -8,6 +8,8 @@
  * each file within the 500-LOC limit; re-exported from types.ts.
  */
 
+import type { MemberPermissionLevel } from './room-blueprint-types';
+
 export const DELIVERY_DESTINATION_IDS = [
   'pr',
   'workspace-files',
@@ -16,6 +18,7 @@ export const DELIVERY_DESTINATION_IDS = [
   'email-send',
   'chat-post',
   'webhook-post',
+  'invoking-chat',
 ] as const;
 
 export type DeliveryDestinationId = (typeof DELIVERY_DESTINATION_IDS)[number];
@@ -55,6 +58,11 @@ export interface DeliveryDestinationInfo {
    * never on shared definitions, whose values are the user's to supply.
    */
   paramHints: { key: string; placeholder: string; required?: boolean }[];
+  /**
+   * Rooms only. A Workflow loop has no invoking session to answer, so offering
+   * this destination to a loop would buy a delivery nobody can prove happened.
+   */
+  roomOnly?: boolean;
 }
 
 export const DELIVERY_DESTINATIONS: DeliveryDestinationInfo[] = [
@@ -81,7 +89,44 @@ export const DELIVERY_DESTINATIONS: DeliveryDestinationInfo[] = [
   },
   { id: 'chat-post', label: 'Chat post', external: true, paramHints: [{ key: 'channel', placeholder: '#channel' }] },
   { id: 'webhook-post', label: 'Webhook POST', external: true, paramHints: [{ key: 'url', placeholder: 'https://…', required: true }] },
+  /**
+   * The Room result goes back to the Sero chat that started it (spec §23).
+   * `external: false` — and therefore no approval token — because the content
+   * never leaves Sero: it lands in the user's own session, which is where the
+   * request came from. `chat-post` is a third-party chat service and stays
+   * external.
+   */
+  { id: 'invoking-chat', label: 'Invoking chat', external: false, roomOnly: true, paramHints: [] },
 ];
+
+/**
+ * Where a Room's result goes when the user does not say.
+ *
+ * It follows the access they chose, because that is what the result IS: a
+ * read-only team produces a document, a team that edits produces changed files,
+ * a team that may push produces a pull request. `invoking-chat` is never a
+ * default — it only works for a Room a chat started, and a Room that cannot
+ * reach its destination finishes having delivered nothing.
+ */
+const DEFAULT_DELIVERY: Record<MemberPermissionLevel, DeliveryDestinationId> = {
+  'read-only': 'saved-artifact',
+  'edit-workspace': 'workspace-files',
+  'edit-and-push': 'pr',
+};
+
+export function defaultDeliveryFor(access: MemberPermissionLevel): DeliveryDestinationId {
+  return DEFAULT_DELIVERY[access];
+}
+
+/** Destinations a Workflow loop may choose — everything that is not Rooms-only. */
+export const LOOP_DELIVERY_DESTINATIONS: DeliveryDestinationInfo[] = DELIVERY_DESTINATIONS.filter((d) => !d.roomOnly);
+
+export const LOOP_DELIVERY_DESTINATION_IDS: DeliveryDestinationId[] = LOOP_DELIVERY_DESTINATIONS.map((d) => d.id);
+
+/** True when a Workflow loop may declare this destination. */
+export function isLoopDeliveryDestinationId(value: unknown): value is DeliveryDestinationId {
+  return isDeliveryDestinationId(value) && !deliveryDestinationInfo(value).roomOnly;
+}
 
 export function isDeliveryDestinationId(value: unknown): value is DeliveryDestinationId {
   return typeof value === 'string' && (DELIVERY_DESTINATION_IDS as readonly string[]).includes(value);

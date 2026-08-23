@@ -13,7 +13,7 @@ import {
   getCollapsedToolSummary,
   toolStatusDot,
 } from '../ToolCallState';
-import { ToolDetail } from './ToolDetail';
+import { ToolDetailBody } from './ToolDetailBody';
 import { ToolImages } from './ToolImages';
 import { ToolFileLinks } from './ToolFileLinks';
 import { ToolSummaryText } from './ToolSummaryText';
@@ -27,17 +27,13 @@ export function SingleToolCall({
 }) {
   const status = deriveGroupStatus([tool]);
   const isRunning = status === 'running';
-  const isComplete = tool.state === 'completed' || tool.state === 'error';
-  const isCancelled = tool.state === 'cancelled';
-  const hasImages = !!tool.images?.length;
   const hasFileLinks = Array.isArray(tool.details?.imagePaths) && tool.details.imagePaths.length > 0;
   const progressModel = buildToolProgressModel(tool);
+  const isStreamingInput = !!tool.isStreamingInput;
   const [expanded, setExpanded] = useState(() => isRunning);
-  const [showDetails, setShowDetails] = useState(false);
 
   const summary = useMemo(() => getCollapsedToolSummary(tool), [tool]);
   const effectiveToolName = useMemo(() => getEffectiveToolName(tool), [tool]);
-  const hasSummaryContent = !!progressModel || (isComplete && (hasImages || hasFileLinks)) || isCancelled;
 
   return (
     <motion.div
@@ -46,7 +42,7 @@ export function SingleToolCall({
       transition={{ duration: 0.2 }}
       className={cn(
         'group/tg overflow-hidden rounded-lg border transition-colors duration-200',
-        isRunning
+        isRunning || isStreamingInput
           ? 'border-status-info-border bg-status-info-faint'
           : status === 'error'
             ? 'border-status-error-border bg-status-error-faint'
@@ -79,10 +75,13 @@ export function SingleToolCall({
             hasLiveProgress={!!progressModel}
           />
         ) : null}
-        {progressModel ? (
+        {progressModel || isStreamingInput ? (
           <span className="rounded-full bg-status-info-subtle px-1.5 py-0.5 text-sm font-medium uppercase tracking-wide text-status-info">
             Live
           </span>
+        ) : null}
+        {tool.state === 'cancelled' ? (
+          <span className="ml-auto shrink-0 text-sm text-status-warning">cancelled</span>
         ) : null}
       </button>
 
@@ -92,9 +91,9 @@ export function SingleToolCall({
         </div>
       ) : null}
 
-      {hasImages && !expanded ? (
+      {tool.images?.length && !expanded ? (
         <div className="border-t border-[var(--border-subtle)] px-3 py-2">
-          <ToolImages images={tool.images!} workspaceId={workspaceId} />
+          <ToolImages images={tool.images} workspaceId={workspaceId} />
         </div>
       ) : null}
 
@@ -113,60 +112,8 @@ export function SingleToolCall({
             transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
             className="overflow-hidden"
           >
-            <div className="border-t border-[var(--border-subtle)]">
-              {!showDetails ? (
-                <>
-                  {hasSummaryContent ? (
-                    <div className="space-y-4 p-3">
-                      {progressModel ? <ToolCallProgress tool={tool} /> : null}
-                      {!progressModel && isComplete && hasImages ? (
-                        <ToolImages images={tool.images!} workspaceId={workspaceId} />
-                      ) : null}
-                      {!progressModel && isComplete ? (
-                        <ToolFileLinks details={tool.details} workspaceId={workspaceId} />
-                      ) : null}
-                      {isCancelled ? (
-                        <div className="text-xs italic text-status-warning">
-                          Cancelled, agent was stopped before this tool completed.
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  <div
-                    className={cn(
-                      'px-3 py-1.5',
-                      hasSummaryContent && 'border-t border-[var(--border-subtle)]/60',
-                    )}
-                  >
-                    <button type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setShowDetails(true);
-                      }}
-                      className="text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
-                    >
-                      Show full details
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="space-y-0 p-2">
-                    <ToolDetail tool={tool} workspaceId={workspaceId} />
-                  </div>
-                  <div className="border-t border-[var(--border-subtle)]/60 px-3 py-1.5">
-                    <button type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setShowDetails(false);
-                      }}
-                      className="text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
-                    >
-                      Collapse details
-                    </button>
-                  </div>
-                </>
-              )}
+            <div className="border-t border-[var(--border-subtle)] px-3 py-2.5">
+              <ToolDetailBody tool={tool} workspaceId={workspaceId} />
             </div>
           </motion.div>
         ) : null}

@@ -68,8 +68,29 @@ export function refreshAgentPluginCliCommands(): void {
   registry.refreshAgentPluginCommands();
 }
 
-export function createWorkspaceCliTool(workspaceId: string, sessionId: string) {
-  return createSeroCliTool(getCliRegistry(), workspaceId, sessionId);
+/**
+ * The `sero-cli` tool for a session.
+ *
+ * `registry` names the command surface the session may reach. Omitting it means
+ * the shared one — every Sero command, which is right for a chat the user is
+ * sitting in front of. A background session that was approved for one job is
+ * given its OWN registry instead, so it can only run the commands that were put
+ * in it. Without that, "approved to read files" also buys the app control
+ * commands, and a background agent can drive the desktop.
+ */
+export function createWorkspaceCliTool(
+  workspaceId: string,
+  sessionId: string,
+  registry?: CliRegistry,
+) {
+  return createSeroCliTool(registry ?? getCliRegistry(), workspaceId, sessionId);
+}
+
+/** An empty registry — only the help command, plus whatever the caller bridges into it. */
+export function createPrivateCliRegistry(): CliRegistry {
+  const own = new CliRegistry();
+  registerHelpCliCommand(own);
+  return own;
 }
 
 // ── Extension tool → CLI bridge ─────────────────────────────
@@ -169,6 +190,7 @@ export function clearBridgedExtensionSessionStateForSession(sessionId: string): 
 
 export {
   clearPluginBridgePolicyCache,
+  CliRegistry,
 };
 
 /**
@@ -196,9 +218,9 @@ const BUILTIN_COMMANDS = new Set([
  */
 export function bridgeExtensionTools(
   base: LoadExtensionsResult,
-  options?: { sessionId?: string },
+  options?: { sessionId?: string; registry?: CliRegistry },
 ): LoadExtensionsResult {
-  const reg = getCliRegistry();
+  const reg = options?.registry ?? getCliRegistry();
   const sessionCommands: CliCommand[] = [];
 
   if (options?.sessionId) {
@@ -223,7 +245,12 @@ export function bridgeExtensionTools(
       const cliBridge = getCustomToolCliBridge(registered.definition);
       const canOverrideBuiltin = existing?.source === 'builtin' && cliBridge?.overrideBuiltin === true;
 
-      if (existing && existing.source !== 'app' && !canOverrideBuiltin) {
+      if (
+        existing
+        && existing.source !== 'app'
+        && existing.source !== 'agent-plugin'
+        && !canOverrideBuiltin
+      ) {
         ext.tools.delete(name);
         continue;
       }

@@ -16,9 +16,12 @@ import type {
   AppRuntimeSubagentRepair,
   AppRuntimeWorktreeRemoveOptions,
   ContextAgentInfo,
+  ContextSkillInfo,
   ContextToolInfo,
   ExtensionRuntimeContent,
   ExtensionRuntimeMessage,
+  AppRuntimeSkillsApi,
+  PersistentSessionsApi,
   SharedAvailableModelGroup,
 } from '@sero-ai/common';
 import type {
@@ -200,6 +203,8 @@ export interface OrchestratorHost {
    * list). Published once at startup and refreshed from real runs.
    */
   listToolCatalog(): Promise<ContextToolInfo[]>;
+  /** The canonical workspace skills that persistent-session approval also uses. */
+  listSkillCatalog(): Promise<ContextSkillInfo[]>;
   /**
    * The named agent roles available in this workspace, so the planner and the
    * per-step agent picker choose from the real catalog. Background steps may run
@@ -225,6 +230,15 @@ export interface OrchestratorHost {
     loopId: string,
     options?: AppRuntimeWorktreeRemoveOptions,
   ): Promise<void>;
+  /**
+   * Commits everything uncommitted in a worktree onto its own branch and returns
+   * the commit, or null when there was nothing to commit. The unified Git
+   * service does the work (AD-024) — this is the seam Room mode uses to make a
+   * member's in-progress edits durable before anything can remove its checkout.
+   */
+  createCheckpoint(worktreePath: string, message: string): Promise<string | null>;
+  /** `git diff --name-status <base>...HEAD` for a worktree: what its branch changed. */
+  getDiffSummary(worktreePath: string): Promise<string>;
   /** Workspace-root dirty preflight (workspace-root mode only). */
   getWorkspaceStatus(): Promise<WorkspaceStatus>;
   /** Stashes current workspace changes after an explicit user choice. */
@@ -243,12 +257,41 @@ export interface OrchestratorHost {
   runCommand(command: string, timeoutMs?: number): Promise<AppRuntimeCommandResult>;
 
   // ── Notifications ─────────────────────────────────────────
-  notify(message: string, type?: 'info' | 'warning' | 'error'): void;
+  /**
+   * A desktop notification. Keep `message` short — the desktop cuts long text
+   * off, so the detail belongs in the app, not in the notification.
+   *
+   * `openApp` makes a click open this plugin's app. Use it whenever the
+   * notification asks the user to do something, so they can reach it.
+   */
+  notify(
+    message: string,
+    type?: 'info' | 'warning' | 'error',
+    options?: { subtitle?: string; openApp?: boolean },
+  ): void;
   /** Visible choice notification with timeout fallback. */
   requestChoice(request: ChoiceRequest): Promise<ChoiceResult>;
 
   // ── Active-session control ────────────────────────────────
   session: SessionHost;
+
+  /**
+   * Host-managed persistent Pi sessions (AD-029). Room members run on this and
+   * nothing else — plugin code never constructs a Pi session.
+   *
+   * Absent unless this host build installed the capability for the Orchestrator,
+   * so every caller must check for it. Room mode is unavailable without it.
+   */
+  persistentSessions?: PersistentSessionsApi;
+
+  /**
+   * User-skill read/write (spec 18 — skill extraction).
+   *
+   * Absent unless this host build installed the gated capability for the
+   * Orchestrator, so every caller must check for it. Saving a drafted skill is
+   * unavailable without it; extraction itself still works.
+   */
+  skills?: AppRuntimeSkillsApi;
 
   // ── Loop Library (profile-global versioned definition store) ──
   library: LibraryStore;

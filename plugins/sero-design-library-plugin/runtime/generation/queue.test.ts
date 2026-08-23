@@ -12,6 +12,7 @@ import { appendRequest, readStateWithIndexes } from '../../shared/state-io';
 import { PREVIEW_CSP } from '../preview/harness';
 import {
   BASELINE_STYLE,
+  FAST_POLL,
   STUB_PAGE,
   isGenerationRun,
   nameDesign,
@@ -61,7 +62,7 @@ async function settled(designId: string, timeout = 5_000) {
   await vi.waitFor(async () => {
     const design = await readDesign(harness.paths, designId);
     expect(design?.variants.every((variant) => variant.status !== 'pending' && variant.status !== 'running')).toBe(true);
-  }, { timeout });
+  }, { ...FAST_POLL, timeout });
   return (await readDesign(harness.paths, designId))!;
 }
 
@@ -142,12 +143,12 @@ describe('generating a variant', () => {
         .find(isGenerationRun);
       expect(found).toBeDefined();
       return found!;
-    });
+    }, FAST_POLL);
     try {
       await vi.waitFor(async () => {
         const state = await readStateWithIndexes(harness.paths);
         expect(state.designs[0]?.variants[0]?.progress).toBe('Writing the design files…');
-      });
+      }, FAST_POLL);
     } finally {
       finish?.();
     }

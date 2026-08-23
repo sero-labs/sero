@@ -1,18 +1,16 @@
 import { useState } from 'react';
 import { Button, Checkbox, Label } from '@sero-ai/ui';
-import { Power, PowerOff, RotateCcw, Sparkles, StepForward, Trash2, Zap } from 'lucide-react';
+import { Power, PowerOff, RotateCcw, StepForward, Trash2, Zap } from 'lucide-react';
 import type { Loop, OrchestratorAction } from '../../shared/types';
 
 interface LoopControlsProps {
   loop: Loop;
   busy: boolean;
-  /** True once the loop has run at least once — reflection needs history to read. */
-  canReflect: boolean;
   onAction: (action: OrchestratorAction) => void;
 }
 
 /** Lifecycle controls. Each button maps to exactly one coordinator action. */
-export function LoopControls({ loop, busy, canReflect, onAction }: LoopControlsProps) {
+export function LoopControls({ loop, busy, onAction }: LoopControlsProps) {
   const { id, status } = loop;
   // While parked on a human question, nothing can run until it is answered — so
   // Activate / Run next are suppressed (the question card is the action). Per-step
@@ -67,11 +65,6 @@ export function LoopControls({ loop, busy, canReflect, onAction }: LoopControlsP
           <RotateCcw className="mr-1 h-3.5 w-3.5" /> Restart
         </Button>
       )}
-      {canReflect && (
-        <Button size="sm" variant="outline" disabled={busy} onClick={() => onAction({ kind: 'reflect', loopId: id })} title="Learn from past runs and suggest improvements">
-          <Sparkles className="mr-1 h-3.5 w-3.5" /> Reflect
-        </Button>
-      )}
       {(status === 'active' || status === 'blocked') && (
         // Not gated by `busy`: Disable is the interrupt — it must work WHILE a
         // run is in flight (which is exactly when `busy` is true), since that is
@@ -84,7 +77,7 @@ export function LoopControls({ loop, busy, canReflect, onAction }: LoopControlsP
       <div className="ml-auto flex flex-wrap items-center gap-2">
         {confirmingDelete ? (
           <>
-            <span className="text-xs text-muted-foreground">Delete this loop and its config?</span>
+            <span className="text-xs text-muted-foreground">Delete this Workflow and its settings?</span>
             {hasBranch && (
               <div className="flex items-center gap-1.5">
                 <Checkbox

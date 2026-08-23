@@ -1,37 +1,21 @@
 # Research Plugin
 
-> Status: **external/local plugin**. It is not bundled with Sero unless installed or activated as a local plugin development session.
+Research splits a question into parallel agent workstreams and then synthesizes their results. Use public, low-risk material for your first run.
 
-## Overview
+## Plan and approve research
 
-Multi-agent research orchestrator with app UI and README-documented `/research`, `/analyze`, and `research` tool flows.
+Run `/research <question>` or ask the agent to use the `research` tool with the `plan` action. The plugin creates a plan before it launches agents. Review the question, workstreams, and expected sources. Use `approve` only when the scope is suitable.
 
-## Try it first
+`/analyze` creates a structured analysis plan for article URLs. It also waits for approval before launch.
 
-1. Install or activate the plugin from a trusted source. For local development, use **Admin → Plugins → Local Plugin Development** rather than treating an attached folder as an installed plugin.
-2. Open the app from the sidebar/App Store if the manifest exposes a UI.
-3. Use fake/demo data for the first run.
-4. Ask Sero for a small, reversible action before relying on the plugin in real work.
+After approval, use the `status` action to check workstreams and finalize the synthesis. Use `cancel` to stop active research. Cancellation stops the plugin workflow, but provider requests that already started can still complete and incur cost.
 
-Use a public, low-risk question, approve a small plan, watch progress, and review the synthesis.
+Parallel work can use several model calls and network requests. Cost and duration depend on the selected models, the plan, and the sources. Verify important claims in the original sources. Model output is not evidence by itself.
 
-## Surfaces from the manifest/source
-
-| Surface | Source-checked detail |
-| --- | --- |
-| Package | `@sero-ai/plugin-research` |
-| Status | external/local |
-| App state | Manifest declares plugin-owned state under `.sero/apps/<app-id>/...` when an app is present. |
-
-## Privacy, secrets, and recovery
-
-Research output is model-generated and should be verified. Avoid private customer/company research prompts in screenshots.
-
-If setup fails, confirm the plugin is active in the current profile, check required host capabilities, restart Sero, and collect redacted logs only. Do not include tokens, account identifiers, email content, banking data, health data, or private workspace paths in support reports.
+Research state is workspace-scoped at `<workspace>/.sero/apps/research/state.json`. If a run appears stuck, check status before you approve or start another run. Cancel the active run before you replace its plan.
 
 ## Related docs
 
+- [Models and Providers](/guide/models-and-providers)
 - [Plugin Catalog](/plugins/catalog)
-- [Plugins and Apps](/guide/plugins-and-apps)
-- [App Store, Favorites, and Installed Plugins](/guide/app-store-favorites)
 - [Security / Privacy](/reference/security-privacy)

@@ -130,24 +130,52 @@ describe('ErrorBoundary', () => {
 
     expect(reloadSpy).not.toHaveBeenCalled();
     expect(container.textContent).toContain('Stale module');
-    expect(container.textContent).toContain('Reload');
+    const reloadButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.trim() === 'Reload',
+    );
+    expect(reloadButton).toBeDefined();
     expect(container.textContent).not.toContain('Retry');
+
+    await act(async () => {
+      reloadButton?.click();
+      await Promise.resolve();
+    });
+
+    expect(replaceSpy).toHaveBeenCalledTimes(1);
+    expect(replaceSpy.mock.calls[0]?.[0]).toContain(RELOAD_MARKER);
+    expect(reloadSpy).not.toHaveBeenCalled();
   });
 
   it('keeps the regular Retry UI for non-chunk errors', async () => {
+    let shouldThrow = true;
+    const onError = vi.fn(() => {
+      shouldThrow = false;
+    });
+    function RecoveringPanel() {
+      return <CrashyPanel shouldThrow={shouldThrow} />;
+    }
+
     await act(async () => {
       root?.render(
-        <ErrorBoundary region="Plugin" compact>
-          <CrashyPanel shouldThrow />
+        <ErrorBoundary region="Plugin" compact onError={onError}>
+          <RecoveringPanel />
         </ErrorBoundary>,
       );
-    });
-    await act(async () => {
-      vi.runAllTimers();
     });
 
     expect(reloadSpy).not.toHaveBeenCalled();
     expect(container.textContent).toContain('Plugin crashed');
-    expect(container.textContent).toContain('Retry');
+    const retryButton = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.trim() === 'Retry',
+    );
+    expect(retryButton).toBeDefined();
+
+    await act(async () => {
+      retryButton?.click();
+    });
+
+    expect(onError).toHaveBeenCalled();
+    expect(container.textContent).toContain('healthy panel');
+    expect(container.textContent).not.toContain('Plugin crashed');
   });
 });

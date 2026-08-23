@@ -39,12 +39,12 @@ export function BoardCardActions({ card }: BoardCardActionsProps) {
       } else if (action.kind === 'fire_event') {
         if (result.deduped) {
           setSent(true);
-          setNotice('Already sent — a loop is on it');
+          setNotice('A workflow is already working on it');
         } else if (result.delivered) {
           setSent(true);
-          setNotice(`Sent to ${result.delivered} loop${result.delivered === 1 ? '' : 's'}`);
+          setNotice(`Sent to ${result.delivered} workflow${result.delivered === 1 ? '' : 's'}`);
         } else {
-          setNotice('No loop is listening — install the issue-implementer loop in Orchestrator');
+          setNotice('No workflow is listening — install the issue implementer workflow in Orchestrator');
         }
       }
     } catch (err) {

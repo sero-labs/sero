@@ -16,7 +16,9 @@ Use reference pages when you need exact facts: support boundaries, runtime behav
 - [Container Isolation](/reference/container-isolation) — container lifecycle, mounts, networking, and dev-server registry behavior.
 - [State and Folders](/reference/state-and-folders) — profile paths, workspace state, app state, memory storage, and redaction guidance.
 - [Sero CLI](/reference/sero-cli) — command syntax, namespaces, output, side effects, batch behavior, and plugin bridging.
-- [Orchestrator](/reference/orchestrator) — loop actions, commands, plan rules, recovery, triggers, limits, library, and on-disk state.
+- [Orchestrator](/reference/orchestrator) — mode comparison, compatibility terms, and permission boundary.
+- [Workflows](/reference/workflows) — commands, plan rules, recovery, triggers, limits, library, and storage.
+- [Rooms](/reference/rooms) — statuses, member access, limits, actions, recovery, and storage.
 
 ## Configuration facts
 
@@ -28,7 +30,7 @@ Use reference pages when you need exact facts: support boundaries, runtime behav
 ## Plugin author facts
 
 - [Agent Plugins](/reference/agent-plugins) — portable Agent Skills, managed MCP servers, permissions, storage, and CLI exposure.
-- [Plugins](/reference/plugins) — distribution modes, local development, and beta guidance.
+- [Plugins](/reference/plugins) — distribution modes, local development, and compatibility guidance.
 - [App Runtime](/reference/app-runtime) — `@sero-ai/app-runtime` hooks, bridge APIs, and widget registry.
 - [Plugin Author Quick Path](/reference/plugin-author-quick-path) — practical path from package shape to extension, UI, runtime, and widgets.
 - [Plugin Quickstart](/reference/plugin-quickstart) — canonical starter example and success criteria.

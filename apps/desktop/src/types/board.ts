@@ -1,12 +1,13 @@
 /**
- * Agent Board types — persisted preferences and the per-workspace state slices
- * the board store aggregates (docs/features/agent-board/plan.md).
+ * Agent Board types - persisted preferences and the per-workspace state slices
+ * the board store aggregates.
  */
 
 import type {
   AppRuntimeIssueSummary,
   AppRuntimePullRequestSummary,
   OrchestratorBoardIndexView,
+  OrchestratorBoardRoomIndexView,
 } from '@sero-ai/common';
 
 export type BoardColumnId = 'backlog' | 'active' | 'attention' | 'done';
@@ -22,6 +23,11 @@ export interface BoardLayoutState {
 export interface WorkspaceBoardSlice {
   /** Watched orchestrator loop index (null until first read / when absent). */
   index: OrchestratorBoardIndexView | null;
+  /**
+   * Watched Room index. Null in a workspace where Room mode has never run —
+   * the file only exists once a Room does.
+   */
+  rooms: OrchestratorBoardRoomIndexView | null;
   /** Open GitHub issues (fetched on mount/refresh, fail-soft []). */
   issues: AppRuntimeIssueSummary[];
   /** Open GitHub PRs — powers the unclaimed-issue filter and issue↔loop links. */

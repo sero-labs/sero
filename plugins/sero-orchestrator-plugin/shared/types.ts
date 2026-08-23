@@ -1,7 +1,6 @@
 /**
  * Persisted data model for Sero Orchestrator.
  *
- * Mirrors docs/features/orchestration/sero-orchestrator/specs/01-data-model.md.
  * The model stores LLM-authored step plans, user-selected workspace settings,
  * and generic runtime history. It encodes no fixed workflow and adds no
  * Orchestrator-specific execution restrictions.
@@ -15,6 +14,11 @@ import type { LoopLibraryLink, StepOverride } from './library-types';
 import type { LogPolicy, UsageSummary } from './usage-types';
 import type { LoopWorkspaceRuntime, LoopWorkspaceSettings, ResolvedWorkspaceContext } from './workspace-types';
 import type { LoopInsight, LoopSuggestion } from './reflection-types';
+
+// Skill extraction and loop warnings are split out the same way.
+export type { SkillDraft, SkillDraftStatus, LoopSkillLink } from './skill-types';
+import type { LoopSkillLink, SkillDraft } from './skill-types';
+import type { LoopWarning } from './warning-types';
 import type { AnsweredInput, HumanQuestion, PendingInput } from './human-input-types';
 import type { CompletionSignal, RecoveryDecision, RecoveryDecisionKind, StepCompletion } from './recovery-types';
 import type { Observation } from './observation-types';
@@ -22,6 +26,7 @@ import type { LoopRunStatus } from './run-status-types';
 import type { FeedbackRuntimeState, StepActivation, StepFeedbackTransition } from './activation-types';
 import type { FanOutDefinition, FanOutRuntimeState } from './fanout-types';
 import type { StepExecutionTarget } from './execution-types';
+import type { OrchestratorUiState } from './ui-types';
 
 export type { AppRuntimePullRequestSummary, ContextOverrides };
 export type { FeedbackContext, FeedbackRuntimeState, StepActivation, StepActivationStatus, StepFeedbackTransition } from './activation-types';
@@ -71,17 +76,16 @@ export type {
   ClarifyingResponse,
 } from './human-input-types';
 
-// Index attention payload (home inbox) lives in attention-types.ts (see
-// specs/09-ui-redesign.md); re-exported here so './types' imports keep resolving.
+// Index attention payload (home inbox) lives in attention-types.ts and is
+// re-exported here so './types' imports keep resolving.
 export type {
   LoopAttention,
   LoopAttentionInput,
   LoopAttentionSuggestion,
 } from './attention-types';
 
-// Delivery destination types live in delivery-types.ts (see
-// specs/13-pluggable-delivery.md); re-exported here so './types' imports keep
-// resolving.
+// Delivery destination types live in delivery-types.ts and are re-exported
+// here so './types' imports keep resolving.
 export type {
   DeliveryDestinationId,
   LoopDeliverySettings,
@@ -89,8 +93,8 @@ export type {
   DeliveryDestinationInfo,
 } from './delivery-types';
 
-// Loop Library types live in library-types.ts (see specs/08-loop-library.md);
-// re-exported here so existing imports from './types' keep resolving.
+// Loop Library types live in library-types.ts and are re-exported here so
+// existing imports from './types' keep resolving.
 export type {
   SharedTriggerConfig,
   SharedLoopDefinition,
@@ -107,6 +111,7 @@ export type {
 export interface OrchestratorState {
   version: 1;
   loops: Loop[];
+  ui?: OrchestratorUiState;
   /**
    * Ring of recently delivered event keys (`source#dedupeKey`), so a source
    * adapter restart never re-fires an event it already delivered. Only events
@@ -160,28 +165,17 @@ export interface Loop {
   answeredInputs?: AnsweredInput[];
   /** Set when the loop was loaded from / saved to the library (see specs/08-loop-library.md). Absent ⇒ standalone. */
   libraryLink?: LoopLibraryLink;
+  /** The pending or last-decided skill-extraction draft (see specs/18-skill-extraction.md). */
+  skillDraft?: SkillDraft;
+  /** Set once a draft was saved as a skill; drives the badge and the overwrite default. */
+  skillLink?: LoopSkillLink;
   /** Local per-step overrides, replayed after a library version switch so they survive the plan being replaced. */
   stepOverrides?: Record<string, StepOverride>;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface LoopWarning {
-  id: string;
-  code:
-    | 'mixed-workspace-targets'
-    | 'model-unavailable'
-    | 'agent-unavailable'
-    | 'event-chain-depth'
-    | 'event-dropped'
-    | 'event-queue-overflow'
-    | 'delivery-tool-missing'
-    | 'catalog-tool-missing';
-  message: string;
-  /** The step a runtime warning refers to (model/agent-unavailable), for de-duplication. */
-  stepId?: string;
-  createdAt: string;
-}
+export type { LoopWarning } from './warning-types';
 
 // ── Planning response & plan ────────────────────────────────
 

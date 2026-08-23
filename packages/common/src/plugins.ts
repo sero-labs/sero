@@ -35,6 +35,23 @@ export const SERO_HOST_CAPABILITIES = [
   'ui.titlebar',
   /** Federated UI can persist an image as the host dashboard background. */
   'ui.dashboardBackground',
+  /**
+   * Host-managed persistent Pi sessions for a background runtime (AD-029).
+   *
+   * Declaring this here does NOT authorise anyone — this list is a
+   * COMPATIBILITY manifest that tells a plugin whether the host build supports
+   * a capability. Authorisation is a separate host check: the app's resolved
+   * package path must equal its canonical bundled-plugin path, and its app id
+   * must be on the host's built-in allowlist.
+   */
+  'appRuntime.persistentSessions',
+  /**
+   * User-skill read/write for a background runtime (spec 18 — skill
+   * extraction). Gated exactly like `appRuntime.persistentSessions`: this list
+   * declares host support, and the host installs `host.skills` only for a
+   * bundled plugin that passes the built-in gate.
+   */
+  'appRuntime.skills',
 ] as const;
 
 /**

@@ -11,9 +11,10 @@ import { StringEnum } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
-import { resolveGraphifyPaths, workspaceGraphJson } from '../shared/paths';
-import { readStateFile, appendIndexRequest, appendIndexRequests } from '../shared/state-io';
-import { loadGraphResult, queryGraph, searchGraph, findPath, explainNode, type GraphLoadFailure } from '../shared/query-engine';
+import { resolveGraphifyPaths, workspaceGraphJson, type GraphifyPaths } from '../shared/paths';
+import { readStateFile, appendIndexRequest, appendSettingsRequest } from '../shared/state-io';
+import { loadGraphResult, queryGraph, searchGraph, findPath, explainNode, type GraphLoadFailure, type GraphLoadResult } from '../shared/query-engine';
+import { CURRENT_INDEX_MODE_VERSION, type GraphifyState, type SettingsPatch } from '../shared/types';
 import { resolveCurrentWorkspace } from './current-workspace';
 import { registerAutoContext } from './auto-context';
 import { registerRefreshOnEdit } from './refresh-on-edit';
@@ -41,6 +42,19 @@ function unavailableMessage(failure: GraphLoadFailure, detail?: string): string 
   }
 }
 
+function profileUsesCurrentIndexMode(state: GraphifyState | null): boolean {
+  const ids = state?.profileGraph.workspaceIds;
+  return state?.profileGraph.status === 'ready'
+    && Array.isArray(ids)
+    && ids.every((id) => state.workspaces[id]?.indexModeVersion === CURRENT_INDEX_MODE_VERSION);
+}
+
+async function loadCurrentProfileGraph(paths: GraphifyPaths): Promise<GraphLoadResult> {
+  const state = await readStateFile(paths.stateFile);
+  if (!profileUsesCurrentIndexMode(state)) return { failure: 'absent' };
+  return loadGraphResult(paths.profileGraph);
+}
+
 export default function graphifyExtension(pi: ExtensionAPI): void {
   const paths = resolveGraphifyPaths();
 
@@ -54,7 +68,7 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
       budget: Type.Optional(Type.Number({ description: 'Max answer tokens (default 1200)' })),
     }),
     async execute(_toolCallId, params) {
-      const result = await loadGraphResult(paths.profileGraph);
+      const result = await loadCurrentProfileGraph(paths);
       if (!('graph' in result)) return text(unavailableMessage(result.failure, result.detail));
       const { text: answer, files } = searchGraph(result.graph, params.question, { mode: params.mode, budget: params.budget });
       // `files` rides on `details` (UI-only) so the search panel can open them;
@@ -74,9 +88,10 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const state = await readStateFile(paths.stateFile);
-      const entry = state && ctx ? resolveCurrentWorkspace(state, ctx.cwd) : null;
+      const resolved = state && ctx ? resolveCurrentWorkspace(state, ctx.cwd) : null;
+      const entry = resolved?.indexModeVersion === CURRENT_INDEX_MODE_VERSION ? resolved : null;
       const graphPath = entry ? workspaceGraphJson(paths, entry.workspaceId) : paths.profileGraph;
-      const primary = await loadGraphResult(graphPath);
+      const primary = entry ? await loadGraphResult(graphPath) : await loadCurrentProfileGraph(paths);
       if ('graph' in primary) return text(queryGraph(primary.graph, params.question, { mode: params.mode, budget: params.budget }));
       // Fall back to the profile graph only when the workspace simply has no graph
       // of its own. A built-but-unreadable workspace graph (too-large/invalid)
@@ -84,7 +99,7 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
       if (primary.failure !== 'absent' || graphPath === paths.profileGraph) {
         return text(unavailableMessage(primary.failure, primary.detail));
       }
-      const fallback = await loadGraphResult(paths.profileGraph);
+      const fallback = await loadCurrentProfileGraph(paths);
       if ('graph' in fallback) return text(queryGraph(fallback.graph, params.question, { mode: params.mode, budget: params.budget }));
       return text(unavailableMessage(fallback.failure, fallback.detail));
     },
@@ -99,7 +114,7 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
       to: Type.String({ description: 'Target concept name or node id' }),
     }),
     async execute(_toolCallId, params) {
-      const result = await loadGraphResult(paths.profileGraph);
+      const result = await loadCurrentProfileGraph(paths);
       if (!('graph' in result)) return text(unavailableMessage(result.failure, result.detail));
       return text(findPath(result.graph, params.from, params.to));
     },
@@ -113,7 +128,7 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
       concept: Type.String({ description: 'Concept name or node id to explain' }),
     }),
     async execute(_toolCallId, params) {
-      const result = await loadGraphResult(paths.profileGraph);
+      const result = await loadCurrentProfileGraph(paths);
       if (!('graph' in result)) return text(unavailableMessage(result.failure, result.detail));
       return text(explainNode(result.graph, params.concept));
     },
@@ -140,55 +155,61 @@ export default function graphifyExtension(pi: ExtensionAPI): void {
   pi.registerTool({
     name: 'graphify_index',
     label: 'Graphify Index',
-    description: 'Manage workspace indexing: enable, disable, rebuild, refresh a workspace, enable-all, or sync the workspace list. Builds run in the background; check progress with graphify_status.',
+    description: 'Manage local workspace indexing: enable, disable, rebuild, refresh a workspace, enable-all, or sync the workspace list. Track progress with graphify_status.',
     parameters: Type.Object({
-      action: StringEnum(['enable', 'disable', 'rebuild', 'refresh', 'enable-all', 'sync'] as const),
+      action: StringEnum(['enable', 'disable', 'rebuild', 'refresh', 'enable-all', 'sync', 'upgrade'] as const),
       workspace: Type.Optional(Type.String({ description: 'Workspace id or name (omit for enable-all/sync, or to target the current workspace)' })),
       workspaceId: Type.Optional(Type.String({ description: 'Exact workspace id supplied by a host contribution' })),
-      workspaceName: Type.Optional(Type.String({ description: 'Workspace name supplied by a host contribution' })),
-      workspacePath: Type.Optional(Type.String({ description: 'Workspace path supplied by a host contribution' })),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       try {
         const state = await readStateFile(paths.stateFile);
         let workspaceId: string | undefined;
-        if (params.action !== 'enable-all' && params.action !== 'sync') {
+        if (params.action !== 'enable-all' && params.action !== 'sync' && params.action !== 'upgrade') {
           const entries = Object.values(state?.workspaces ?? {});
           const entry = params.workspaceId
             ? entries.find((candidate) => candidate.workspaceId === params.workspaceId)
             : params.workspace
             ? entries.find((e) => e.workspaceId === params.workspace || e.name === params.workspace)
             : state && ctx ? resolveCurrentWorkspace(state, ctx.cwd) : null;
-          if (!entry) {
-            // A workspace-creation contribution runs immediately after the host
-            // creates the workspace. Queue sync first so the following enable
-            // request can target its new registry entry.
-            if (
-              params.action === 'enable'
-              && params.workspaceId
-              && params.workspaceName
-              && params.workspacePath
-            ) {
-              const [syncId, enableId] = await appendIndexRequests(paths.stateFile, [
-                { action: 'sync' },
-                {
-                  action: 'enable',
-                  workspaceId: params.workspaceId,
-                  workspaceName: params.workspaceName,
-                  workspacePath: params.workspacePath,
-                },
-              ]);
-              return text(`Queued workspace sync (request #${syncId}) and enable for ${params.workspaceId} (request #${enableId}). Track with graphify_status.`);
-            }
+          // A host contribution names a workspace Sero has just created, which
+          // discovery may not have seen yet; the runtime syncs and re-checks it
+          // against the workspace registry. There is deliberately no way to
+          // pass a path: indexing remains limited to host-owned workspaces.
+          workspaceId = entry?.workspaceId ?? params.workspaceId;
+          if (!workspaceId) {
             return text(`Error: Could not resolve workspace${params.workspace ? ` "${params.workspace}"` : ' from cwd'}. Known: ${entries.map((e) => e.workspaceId).join(', ') || '(none — runtime not started yet)'}`);
           }
-          workspaceId = entry.workspaceId;
         }
         const id = await appendIndexRequest(paths.stateFile, params.action, workspaceId);
         return text(`Queued ${params.action}${workspaceId ? ` for ${workspaceId}` : ''} (request #${id}). Track with graphify_status.`);
       } catch (error) {
         // Container sessions may have the profile home mounted read-only.
         return text(`Error: Could not queue the request (state file not writable from this session): ${error instanceof Error ? error.message : String(error)}. Use the Graphify panel instead.`);
+      }
+    },
+  });
+
+  pi.registerTool({
+    name: 'graphify_configure',
+    label: 'Graphify Settings',
+    description: 'Pause local Graphify indexing, change exclude patterns, or clear the current notice.',
+    parameters: Type.Object({
+      paused: Type.Optional(Type.Boolean({ description: 'Blocks indexing and empties the queue' })),
+      exclude: Type.Optional(Type.Array(Type.String())),
+      clearNotice: Type.Optional(Type.Boolean()),
+    }),
+    async execute(_toolCallId, params) {
+      const patch: SettingsPatch = {};
+      if (params.paused !== undefined) patch.paused = params.paused;
+      if (params.exclude) patch.exclude = params.exclude;
+      if (params.clearNotice) patch.clearNotice = true;
+
+      try {
+        const id = await appendSettingsRequest(paths.stateFile, patch);
+        return text(`Queued settings change (request #${id}).`);
+      } catch (error) {
+        return text(`Error: Could not queue the settings change: ${error instanceof Error ? error.message : String(error)}`);
       }
     },
   });

@@ -1,37 +1,31 @@
 # Kanban Plugin
 
-> Status: **external/local plugin**. It is not bundled with Sero unless installed or activated as a local plugin development session.
+Kanban runs an agent-assisted development board for a Git workspace. A card can move through **Backlog**, **Planning**, **In Progress**, **Review**, and **Done**.
 
-## Overview
+## Before you start a card
 
-Development Kanban board with app UI, background runtime, board overview widget, and bridged `kanban` tool support.
+Open a Git-backed workspace and select a model. Install and authenticate GitHub CLI if you want the plugin to create, close, or merge pull requests:
 
-## Try it first
+```bash
+gh auth login
+```
 
-1. Install or activate the plugin from a trusted source. For local development, use **Admin → Plugins → Local Plugin Development** rather than treating an attached folder as an installed plugin.
-2. Open the app from the sidebar/App Store if the manifest exposes a UI.
-3. Use fake/demo data for the first run.
-4. Ask Sero for a small, reversible action before relying on the plugin in real work.
+Create a small card in **Backlog**, then start it. Starting a card launches automated planning agents. Approval advances an accepted plan to implementation. The workflow can create a Git worktree and branch, run implementation and review agents, and create a pull request. Review the plan and repository changes before approval.
 
-Activate the plugin in a disposable git-backed workspace, open Kanban, create a demo card, and ask Sero to plan next steps for that card.
+## Control automation
 
-## Surfaces from the manifest/source
+**YOLO Mode** can auto-start, auto-approve, and auto-complete work. **PR Auto-Merge** is available only with YOLO Mode and can queue GitHub auto-merge for new review pull requests. Enable these settings only when the repository and its branch protections can safely accept unattended changes.
 
-| Surface | Source-checked detail |
-| --- | --- |
-| Package | `@sero-ai/plugin-kanban` |
-| Status | external/local |
-| App state | Manifest declares plugin-owned state under `.sero/apps/<app-id>/...` when an app is present. |
+Use **Request revisions** to return a review card to implementation. **Cancel PR** closes its GitHub pull request, requests branch deletion, removes local review artifacts and its worktree, and returns the card to Backlog. Cleanup can report warnings if Git cannot remove a worktree.
 
-## Privacy, secrets, and recovery
+The `kanban` tool manages cards and workflow actions. `/kanban` opens the chat workflow. Use `sero help kanban` for the current terminal command syntax.
 
-The README describes git-backed workflows and recommends `gh` for PR flows. Use demo cards; do not assume every non-git workspace supports the same behavior.
+## State and recovery
 
-If setup fails, confirm the plugin is active in the current profile, check required host capabilities, restart Sero, and collect redacted logs only. Do not include tokens, account identifiers, email content, banking data, health data, or private workspace paths in support reports.
+The board is workspace-scoped at `<workspace>/.sero/apps/kanban/state.json`. Do not copy this file between repositories. If a phase fails, inspect the card error and error log before you use retry. Confirm the selected model, Git status, and `gh auth status` before you restart PR work.
 
 ## Related docs
 
+- [Git Integration](/guide/git-integration)
 - [Plugin Catalog](/plugins/catalog)
-- [Plugins and Apps](/guide/plugins-and-apps)
-- [App Store, Favorites, and Installed Plugins](/guide/app-store-favorites)
 - [Security / Privacy](/reference/security-privacy)

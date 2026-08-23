@@ -75,6 +75,15 @@ const RULES: Record<DeliveryDestinationId, Pick<DeliveryDestinationSpec, 'requir
     plannerRules: `The result must be delivered by an HTTP POST to the webhook URL in the declared delivery params (curl from a background-agent step is fine); the step must capture the response status. ${EXTERNAL_STAGING}`,
     receiptHint: 'the webhook URL plus the HTTP response status (e.g. "POST https://… → 200")',
   },
+  // Rooms only (roomOnly in the shared table): the runtime returns the result
+  // to the invoking Sero chat itself, so no agent sends anything and no
+  // approval token is involved — the content never leaves Sero.
+  'invoking-chat': {
+    requiredTools: [],
+    plannerRules:
+      'The result goes back to the Sero chat that started this work, and the runtime returns it — no delivery step, no send, no external service. Finish by writing the complete final answer, the artifacts it produced and anything still unresolved, because that text is what the invoking chat receives.',
+    receiptHint: 'the invoking session the result was returned to (the runtime records it)',
+  },
 };
 
 export function deliverySpec(id: DeliveryDestinationId): DeliveryDestinationSpec {

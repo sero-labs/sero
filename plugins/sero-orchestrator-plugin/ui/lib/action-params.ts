@@ -16,6 +16,13 @@ export function actionToParams(action: OrchestratorAction): Record<string, unkno
       params.decision = action.decision;
       if (action.rejectionReason !== undefined) params.rejectionReason = action.rejectionReason;
       break;
+    case 'save_skill':
+      params.skillDraftId = action.draftId;
+      params.skillName = action.name;
+      params.skillDescription = action.description;
+      params.skillBody = action.body;
+      if (action.overwrite !== undefined) params.skillOverwrite = action.overwrite;
+      break;
     case 'answer_input':
       params.requestId = action.requestId;
       params.answersJson = JSON.stringify(action.answers);

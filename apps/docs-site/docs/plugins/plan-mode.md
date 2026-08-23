@@ -1,37 +1,24 @@
 # Plan Mode Plugin
 
-> Status: **external/local plugin**. It is not bundled with Sero unless installed or activated as a local plugin development session.
+Plan Mode separates read-only investigation from implementation. Use it when you want to inspect a task and approve a saved plan before the agent changes files.
 
-## Overview
+## Create and run a plan
 
-Read-only exploration and execution-tracking plugin with `/plan`, `/plan-execute`, and `/plan-todos` workflows.
+Run `/plan` and describe the task. During this phase, the agent can inspect the workspace but must not implement the task. It saves an ordered plan when the investigation is complete.
 
-## Try it first
+Review the plan in **Plan Mode**. Then use `/plan-execute` to start implementation. During execution, the agent marks each saved step complete. Use `/plan-todos` to view progress.
 
-1. Install or activate the plugin from a trusted source. For local development, use **Admin → Plugins → Local Plugin Development** rather than treating an attached folder as an installed plugin.
-2. Open the app from the sidebar/App Store if the manifest exposes a UI.
-3. Use fake/demo data for the first run.
-4. Ask Sero for a small, reversible action before relying on the plugin in real work.
+Use `/plan-stop` to stop plan execution and return to the normal session mode. Stopping does not undo changes that execution already made.
 
-Run `/plan` on a toy repository or fake task, review the generated plan, then only execute after checking the steps.
+The underlying `plan_todos` tool supports `set_plan`, `complete_step`, and `list`. Plans are workspace-scoped at `<workspace>/.sero/apps/planmode/state.json`.
 
-## Surfaces from the manifest/source
+Read-only mode limits the planning agent's tools. It does not prove that the final plan is correct or safe. Check file paths, commands, tests, and destructive steps before execution.
 
-| Surface | Source-checked detail |
-| --- | --- |
-| Package | `@sero-ai/plugin-plan-mode` |
-| Status | external/local |
-| App state | Manifest declares plugin-owned state under `.sero/apps/<app-id>/...` when an app is present. |
+## Recovery
 
-## Privacy, secrets, and recovery
-
-README install URL details may lag the manifest; trust the local checkout source. Read-only planning should still be reviewed before execution.
-
-If setup fails, confirm the plugin is active in the current profile, check required host capabilities, restart Sero, and collect redacted logs only. Do not include tokens, account identifiers, email content, banking data, health data, or private workspace paths in support reports.
+If execution has no plan, run `/plan` again and confirm that the plan was saved. If progress is wrong, stop execution before you create a new plan. Use Git or Sero checkpoints to review or restore file changes; Plan Mode does not provide its own undo operation.
 
 ## Related docs
 
+- [Checkpoints and Undo](/guide/checkpoints-and-undo)
 - [Plugin Catalog](/plugins/catalog)
-- [Plugins and Apps](/guide/plugins-and-apps)
-- [App Store, Favorites, and Installed Plugins](/guide/app-store-favorites)
-- [Security / Privacy](/reference/security-privacy)

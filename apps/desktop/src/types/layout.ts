@@ -32,6 +32,9 @@ export interface PersistedBrowserTab {
 /** Bookmarks persist whole (favicons are optional and small). */
 export type PersistedBrowserBookmark = BrowserBookmark;
 
+/** How an expanded tool call group renders its detail. */
+export type ToolCallLayout = 'rows' | 'rail';
+
 /** Full layout state persisted to ~/.sero-ui/layout.json. */
 export interface LayoutState {
   mainSidebarOpen: boolean;
@@ -40,7 +43,6 @@ export interface LayoutState {
   /** Persisted panel size percentages (0–100). */
   mainSidebarSizePct?: number;
   chatPanelSizePct?: number;
-  chatCollaborationSizePct?: number;
   /** UI theme mode preference ('light' | 'dark' | 'system'). Backward compat: also accepts legacy 'dark'/'light'. */
   theme?: string;
   /** Active theme preset ID. */
@@ -49,10 +51,14 @@ export interface LayoutState {
   themeEditorAutoSave?: boolean;
   /** Selected Monaco editor theme ID (defaults to 'auto' which follows the UI mode). */
   editorThemeId?: string;
+  /** Expanded tool call layout: inline rows (default) or rail with one detail pane. */
+  toolCallLayout?: ToolCallLayout;
   /** Last active workspace ID. */
   activeWorkspaceId?: string | null;
   /** Last active app tab. */
   activeApp?: string;
+  /** Last internal view published by each app and workspace scope. */
+  appViewIds?: Record<string, Record<string, string>>;
   /** App ids pinned as shortcut chips in the title bar. */
   chromeShortcuts?: string[];
   /** Page zoom factor (chrome bars counter-scale and stay constant). */

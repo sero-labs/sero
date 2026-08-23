@@ -11,7 +11,7 @@ as environment-backed and are not overwritten when you change a saved key.
 ## Quick path
 
 1. Create or open a profile.
-2. Connect at least one provider during onboarding or in Settings/Admin → Models.
+2. Connect at least one provider during onboarding or in Admin.
 3. Confirm provider health shows usable models.
 4. Pick LOW, MED, and HIGH defaults.
 5. Use the chat model selector only when you need a session-specific override. For the broader composer/context workflow, see [Agent Sessions and Context](/guide/agent-sessions-and-context).
@@ -27,7 +27,7 @@ as environment-backed and are not overwritten when you change a saved key.
 | Plugin-defined provider | Installed/built-in package manifest exposes `sero.providers` metadata. | Same as API-key providers when auth type is `apiKey` |
 | Local/custom provider | Configure `<SERO_HOME>/agent/models.json` through Local models or by editing the file. | `local`, `healthy`, `missing`, or `unknown` depending on registry results |
 
-## Supported API-key providers
+## Provider inventory
 
 | Provider | Provider ID | Auth mode | Notes |
 | --- | --- | --- | --- |
@@ -45,6 +45,10 @@ as environment-backed and are not overwritten when you change a saved key.
 | ZAI | `zai` | API key or env-backed key | Hosted ZAI provider. |
 | OpenCode | `opencode` | API key or env-backed key | OpenCode provider. |
 | Kimi | `kimi-coding` | API key or env-backed key | Kimi coding provider. |
+
+The active Pi SDK catalog also contains other API-key and OAuth providers. The
+provider list in Sero is the current inventory because the catalog can change
+when the Pi SDK changes.
 
 Environment-backed keys are detected through Pi's provider auth handling. They
 are not copied into the UI as plain Sero-owned credentials. A failed remote
@@ -90,7 +94,7 @@ Tiers are profile-level defaults:
 
 Each tier stores both a model and a thinking level. Thinking is tier-based: LOW, MED, and HIGH can each use different thinking levels, and Sero only offers levels supported by the selected model.
 
-Use Admin → Model to change long-term defaults. Use the chat model selector for a one-off session override; see [Agent Sessions and Context](/guide/agent-sessions-and-context) for where that selector fits in the composer.
+Use Admin to change profile defaults. The model selector changes the model for the current session. Its gear icon opens **Model Manager**, where you can manage favourites, hidden models, and local providers.
 
 ## Thinking levels
 
@@ -110,7 +114,7 @@ Local/custom providers are stored in:
 <SERO_HOME>/agent/models.json
 ```
 
-Use the Local models UI for common presets such as LM Studio, Ollama, vLLM, and custom OpenAI-compatible servers. Advanced fields are preserved by the UI but may need direct file editing.
+Open **Model Manager**, then select **Local**. The quick setup options include LM Studio, Ollama, vLLM, and a custom OpenAI-compatible server.
 
 For a task guide, see [Local LLMs with LM Studio](/guide/local-llms-lm-studio). For exact supported fields, see [`models.json` Reference](/reference/models-json).
 

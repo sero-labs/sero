@@ -4,8 +4,7 @@ Explorer is Sero's project workspace editor. It brings together files, editor
 previews, browser/preview tabs, source-control views, and workspace terminals
 around the active workspace and agent session.
 
-Explorer is useful today, but it is not a promise of full IDE parity during the
-beta. For runtime expectations, see [Containers and Host Mode](/reference/containers-host-mode); for dev-server setup, see [Containers and Dev Servers](/guide/containers-dev-servers).
+For runtime behavior, see [Containers and Host Mode](/reference/containers-host-mode). For dev-server setup, see [Containers and Dev Servers](/guide/containers-dev-servers).
 
 ![Explorer workspace surfaces](../assets/generated/img15.jpg)
 
@@ -58,15 +57,15 @@ they are not the primary root.
 Typical file-tree actions include opening files and using context-menu actions
 such as rename or delete where available.
 
-Keep these beta caveats in mind:
+Keep these file-operation limits in mind:
 
-- The primary root and attached roots are runtime/workspace concepts, not a
-  stable public plugin API.
+- The primary root and attached roots are workspace concepts. They are not a
+  public plugin API.
 - File operations can depend on the selected runtime. Host is the default on
   supported platforms; choose Apple Container or Docker / Podman explicitly when
   you need container-provided tools, isolation, or container path behavior.
-- Avoid using Explorer as the only copy of important work until you are
-  comfortable with the current beta behavior.
+- Rename and delete actions change the files in the selected workspace. Keep
+  important work in Git or another backup before you delete files.
 
 Workspace references make attached roots and related project context visible
 without requiring every path to be part of the primary root.
@@ -99,6 +98,13 @@ product.
 
 The editor view is the normal path for reading and changing text files in the
 active workspace.
+
+When the agent writes a file you already have open, the tab shows the content
+appearing line by line while the agent writes, marked with a pulsing dot. The
+tab is read-only for those few seconds and becomes editable again once the write
+finishes. A tab with unsaved changes is never taken over — your edits stay on
+screen. Explorer does not open tabs on the agent's behalf; open the file (for
+example by ctrl+clicking its path in a tool card) and it streams from then on.
 
 ![Explorer editor](../assets/images/explorer-editor.jpg)
 
@@ -180,12 +186,10 @@ sero app preview <registered-url>
 
 ![Explorer Dev Servers](../assets/images/explorer-dev-servers.jpg)
 
-## Runtime caveats
+## Runtime limits
 
-For the current beta:
+Current runtime facts:
 
-- Packaged beta installers are available for macOS Apple Silicon, Linux x64/arm64, and Windows x64; developers and contributors can still build from source.
-- macOS Apple Silicon is the maintainer-validated baseline.
 - Host is the default runtime on supported platforms, including Windows x64.
 - Choose Apple Container or Docker / Podman explicitly when you want container-provided tools, container isolation, browser automation from the runtime image, or container networking behavior.
 - Host supports core chat, file browsing/editing, terminals, and general host-shell workflows, but it is not feature-equivalent to container runtimes.

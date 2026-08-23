@@ -116,6 +116,32 @@ function mapAgentEvent(
     case 'thinking_delta':
       return { type: 'thinking_delta', sessionId, delta: event.delta as string };
 
+    case 'tool_input_start':
+      return {
+        type: 'tool_input_start',
+        sessionId,
+        streamKey: event.streamKey as string,
+        toolName: event.toolName as string,
+      };
+
+    case 'tool_input_delta':
+      return {
+        type: 'tool_input_delta',
+        sessionId,
+        streamKey: event.streamKey as string,
+        delta: event.delta as string,
+        replace: event.replace as boolean,
+        path: (event.path as string | null) ?? null,
+      };
+
+    case 'tool_input_end':
+      return {
+        type: 'tool_input_end',
+        sessionId,
+        streamKey: event.streamKey as string,
+        toolCallId: event.toolCallId as string,
+      };
+
     case 'tool_start': {
       const tool = event.tool as Record<string, unknown> | undefined;
       return {

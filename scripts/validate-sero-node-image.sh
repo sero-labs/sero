@@ -2,7 +2,7 @@
 set -euo pipefail
 
 IMAGE_REF="${1:-ghcr.io/sero-labs/sero-node:latest}"
-OUT_DIR="${2:-docs/security/scans/sero-node-current}"
+OUT_DIR="${2:-/tmp/sero-security-scans/sero-node-current}"
 TRIVY_IMAGE="${TRIVY_IMAGE:-aquasec/trivy:latest}"
 
 mkdir -p "$OUT_DIR"

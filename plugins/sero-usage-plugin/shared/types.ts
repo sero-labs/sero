@@ -1,6 +1,4 @@
-// Single source of truth for state shared across extension and UI.
-// JSON-serialisable only — no Date, Map, Set, or functions.
-// Shape is specified in docs/specs/sero-usage-plugin-spec.md §3.5.
+// Single source of truth for JSON-serialisable state shared by extension and UI.
 
 export const PERIOD_KEYS = ['today', 'thisWeek', 'lastWeek', 'allTime'] as const;
 export type PeriodKey = (typeof PERIOD_KEYS)[number];
@@ -43,6 +41,22 @@ export interface ProviderStats {
   models: ModelStats[];
 }
 
+/**
+ * An Agent Rooms group. Derived from the session path and Pi session name only;
+ * the Usage plugin never reads
+ * the Orchestrator store.
+ */
+export interface RoomGroup {
+  /** From the `rooms/<roomId>/` path segment; null when the path has none. */
+  roomId: string | null;
+  /** From the session name `Room <title> — <role>`; null when it is malformed. */
+  title: string | null;
+  /** Optional published deep link. Attribution never depends on it. */
+  link?: string;
+  /** One row per member session, cost desc. Labels are member roles. */
+  members: SessionStats[];
+}
+
 export interface SessionStats {
   id: string;
   /** session_info name, else first user message (truncated), else id. */
@@ -56,6 +70,8 @@ export interface SessionStats {
   tokens: TokenBreakdown;
   firstActivity: number;
   lastActivity: number;
+  /** Set on a grouped Room row only. Ordinary chats never carry it. */
+  room?: RoomGroup;
 }
 
 export interface PeriodStats {

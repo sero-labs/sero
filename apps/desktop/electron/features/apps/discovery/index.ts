@@ -37,6 +37,7 @@ const SERO_PLUGINS_DIR = path.join(SERO_AGENT_DIR, 'plugins');
 interface PkgSeroApp extends ContributionManifestSource {
   id: string;
   styleIsolation?: 'scope';
+  portableState?: string[];
   name: string;
   icon: string;
   stateFile: string;
@@ -113,6 +114,12 @@ function normalizeRuntimeExternals(runtimeExternals: string[] | undefined): stri
   )].sort((a, b) => a.localeCompare(b));
 }
 
+/** Only plain, non-empty key names travel; anything else is ignored. */
+function normalizePortableState(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((key): key is string => typeof key === 'string' && key.trim().length > 0);
+}
+
 function buildManifest(
   pkgJson: PkgJson,
   packagePath: string,
@@ -166,6 +173,7 @@ function buildManifest(
         : getManifestDevPort(app.id, packagePath, normalizeDeclaredDevPort(app.devPort)),
     remoteEntryOverride: suppressUi ? null : options.remoteEntryOverride ?? null,
     runtimeExternals: normalizeRuntimeExternals(app.runtimeExternals),
+    portableState: normalizePortableState(app.portableState),
     packagePath,
     isPlugin: pluginDeclared,
     plugin: parsedPlugin.meta,

@@ -24,6 +24,7 @@ import {
   writeSettings,
 } from '@electron/shared/settings/settings-helpers';
 import { copyProfileDataSync, profileHasTransferableData } from '@electron/features/profile/copy-profile-data';
+import { discoverApps } from '@electron/features/apps/discovery';
 
 import type { ProfileInfo, ProfileRemovalMode } from '@/types/profile';
 import type { GlobalModelConfigInput, GlobalModelConfigState } from '@/types/ipc';
@@ -77,7 +78,8 @@ export function registerProfileHandlers(): void {
       if (copyAuthFromId) {
         const source = profileManager.findById(copyAuthFromId);
         if (source) {
-          copyProfileDataSync(source.path, entry.path);
+          const apps = await discoverApps().catch(() => []);
+          copyProfileDataSync(source.path, entry.path, apps.map(({ id, portableState }) => ({ id, portableState: portableState ?? [] })));
         }
       }
 

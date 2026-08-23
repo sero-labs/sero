@@ -1,4 +1,14 @@
-name: Trusted auto-merge
+name: Dependabot auto-merge
+
+# Maintainer PRs are merged by hand, on purpose. A merge made with
+# GITHUB_TOKEN starts no further workflows (GitHub's loop guard), so
+# auto-merging our own PRs silently skipped Deploy and Test on main —
+# that is how the Rooms docs sat unpublished from 17 Aug.
+#
+# Dependabot keeps auto-merge: those PRs must pass the required PR Gate
+# before it fires, and the filter below admits only security updates and
+# minor/patch bumps. Their merges skip post-merge workflows too, which is
+# acceptable because nothing they change ships to users on its own.
 
 on:
   pull_request_target:
@@ -9,16 +19,6 @@ permissions:
   pull-requests: write
 
 jobs:
-  maintainer:
-    if: github.event.pull_request.user.login == 'monobyte' && !github.event.pull_request.draft
-    runs-on: ubuntu-latest
-    steps:
-      - name: Enable squash auto-merge
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-        run: gh pr merge "$PR_URL" --squash --auto
-
   dependabot:
     if: github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest

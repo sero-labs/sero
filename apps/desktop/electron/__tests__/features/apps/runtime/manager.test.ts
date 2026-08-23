@@ -1,6 +1,5 @@
 import path from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { SeroAppManifest } from '@/types/ipc';
 import {
   AppRuntimeManager,
 } from '@electron/features/apps/runtime/manager';
@@ -8,43 +7,7 @@ import type {
   AppRuntimeContext,
   AppRuntimeModule,
 } from '@electron/features/apps/runtime/types';
-
-function createManifest(
-  id: string,
-  overrides: Partial<SeroAppManifest> = {},
-): SeroAppManifest {
-  return {
-    id,
-    name: id,
-    description: null,
-    version: '1.0.0',
-    packageName: `@sero/${id}`,
-    icon: 'box',
-    stateFile: `.sero/apps/${id}/state.json`,
-    scope: 'workspace',
-    globalStatePath: null,
-    uiEntry: null,
-    runtimeEntry: `/tmp/${id}/runtime/index.js`,
-    component: null,
-    devPort: undefined,
-    remoteEntryOverride: null,
-    packagePath: `/tmp/${id}`,
-    isPlugin: true,
-    plugin: {
-      category: 'utilities',
-      tags: [id],
-      requiredHostCapabilities: ['appRuntime.background'],
-    },
-    hostCompatibility: {
-      supported: true,
-      hostVersion: '0.1.0',
-      issues: [],
-    },
-    contributions: { components: [], controls: [] },
-    contributionDiagnostics: [],
-    ...overrides,
-  };
-}
+import { createManifest } from './manager.fixtures';
 
 function createHostStub(
   watch: (filePath: string) => void,
@@ -62,6 +25,7 @@ function createHostStub(
       runStructured: vi.fn(async () => ({ response: '' })),
       onLiveOutput: vi.fn(() => () => {}),
       listToolCatalog: vi.fn(async () => []),
+      listSkillCatalog: vi.fn(async () => []),
       listAgentCatalog: vi.fn(async () => []),
     },
     workspace: {

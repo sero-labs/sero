@@ -5,7 +5,7 @@
  */
 
 import type { LoopDeliverySettings, LoopPlan } from '../../shared/types';
-import { DELIVERY_DESTINATION_IDS, isDeliveryDestinationId, isExternalDestination } from '../../shared/delivery-types';
+import { LOOP_DELIVERY_DESTINATION_IDS, isExternalDestination, isLoopDeliveryDestinationId } from '../../shared/delivery-types';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -19,8 +19,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function validateDeliverySettings(value: unknown): string[] {
   const errors: string[] = [];
   if (!isRecord(value)) return ['delivery must be an object { destination, params? }'];
-  if (!isDeliveryDestinationId(value.destination)) {
-    errors.push(`delivery.destination must be one of: ${DELIVERY_DESTINATION_IDS.join(', ')} — got ${JSON.stringify(value.destination)}`);
+  if (!isLoopDeliveryDestinationId(value.destination)) {
+    errors.push(`delivery.destination must be one of: ${LOOP_DELIVERY_DESTINATION_IDS.join(', ')} — got ${JSON.stringify(value.destination)}`);
   }
   if (value.params !== undefined) {
     const flat =

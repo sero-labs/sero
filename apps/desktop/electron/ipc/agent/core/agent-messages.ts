@@ -9,7 +9,6 @@ import type {
 } from '@/types/ipc';
 import type { ChatTurnUndoRef } from '@/types/ipc';
 import { prepareToolImage } from '@electron/shared/media/image-resize';
-import { extractOriginalCollaborationQuery } from '@electron/ipc/collaboration/collaboration-message';
 import { extractImageFilePath, tryParseImageJson } from './tool-result-images';
 import { nextId } from './agent-ids';
 
@@ -134,14 +133,13 @@ export function convertSessionMessages(
   for (const message of messages) {
     if (message.role === 'user') {
       userTurn += 1;
-      const rawText =
+      const text =
         typeof message.content === 'string'
           ? message.content
           : message.content
               .filter((content): content is { type: 'text'; text: string } => content.type === 'text')
               .map((content) => content.text)
               .join('\n');
-      const text = extractOriginalCollaborationQuery(rawText);
 
       let attachments: ChatAttachment[] | undefined;
       if (typeof message.content !== 'string') {

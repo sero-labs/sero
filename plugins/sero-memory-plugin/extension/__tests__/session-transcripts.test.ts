@@ -2,12 +2,13 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   exportTranscriptForSession,
   type SessionTranscriptExportResult,
 } from '../session-transcripts';
+import * as logger from '../logger';
 import { getSessionTranscriptPath } from '../memory-manager';
 
 type ExportSessionManager = Parameters<typeof exportTranscriptForSession>[0];
@@ -72,6 +73,7 @@ describe('session transcript export', () => {
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     process.env.SERO_HOME = originalEnv.SERO_HOME;
     process.env.PI_CODING_AGENT_DIR = originalEnv.PI_CODING_AGENT_DIR;
     await rm(seroHome, { recursive: true, force: true });
@@ -104,5 +106,31 @@ describe('session transcript export', () => {
     });
 
     await expect(readFile(transcriptPath, 'utf8')).resolves.toBe(transcript);
+    await expect(readFile(logger.getMemoryLogPath(), 'utf8')).resolves.toContain(
+      'session_transcript_skipped',
+    );
+  });
+
+  it('waits for its log write before the export resolves', async () => {
+    let finishLogWrite: () => void = () => undefined;
+    const logWrite = new Promise<void>((resolve) => {
+      finishLogWrite = resolve;
+    });
+    const infoSpy = vi.spyOn(logger, 'info').mockReturnValueOnce(logWrite);
+    let exportCompleted = false;
+
+    const exportPromise = exportTranscriptForSession(
+      createSessionManager(),
+      'session_start',
+    ).then((result) => {
+      exportCompleted = true;
+      return result;
+    });
+
+    await vi.waitFor(() => expect(infoSpy).toHaveBeenCalledOnce());
+    expect(exportCompleted).toBe(false);
+
+    finishLogWrite();
+    await expect(exportPromise).resolves.toMatchObject({ changed: true });
   });
 });

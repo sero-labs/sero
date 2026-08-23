@@ -2,8 +2,8 @@
 
 ## Start from the repo root
 
-Use Node.js 22.19.0 or newer. Pi SDK 0.83 does not support older Node 22
-releases.
+Install Git, Node.js 22.19.0 or newer, and pnpm 10.33.4. The root manifest is
+the authority for the current versions.
 
 ```bash
 pnpm install
@@ -11,7 +11,8 @@ pnpm build
 pnpm dev
 ```
 
-`pnpm dev` will start Sero desktop
+`pnpm dev` starts the desktop development process. Keep it running while you
+use the source build. Press `Ctrl+C` to stop it.
 
 ## Common contributor checks
 
@@ -27,8 +28,8 @@ pnpm eval:snapshot
 
 - `pnpm typecheck` — workspace typecheck across packages and desktop Electron TS
 - `pnpm build` — workspace build
-- `pnpm test` — desktop Vitest suite
-- `pnpm test:ci` — current beta PR-gate shape: typecheck, build, desktop tests, desktop CI e2e (`pnpm --filter @sero/desktop test:e2e:ci`)
+- `pnpm test` — workspace test tasks
+- `pnpm test:ci` — typecheck, build, workspace tests, and the desktop contract E2E project
 - `pnpm eval:snapshot` — fast prompt assembly/cache drift check
 
 For live provider evals, use `pnpm eval` only when credentials and budget are

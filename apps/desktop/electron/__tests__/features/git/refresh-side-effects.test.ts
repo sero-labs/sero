@@ -11,30 +11,28 @@
  * itself a moment after appearing.
  */
 
-import { afterEach, describe, expect, it } from 'vitest';
-import { readFile, stat, writeFile, rm } from 'node:fs/promises';
+import { afterAll, describe, expect, it } from 'vitest';
+import { readFile, stat, rm } from 'node:fs/promises';
 import path from 'node:path';
 
 import { refreshGitState } from '@electron/features/git/git-service/git-service';
 import { runGitAction } from '@electron/features/git/git-service/git-service';
 import { resolveStatePath } from '@electron/features/git/git-service/state-io';
-import { createGitRepo, runGit } from './git-service/git-test-helpers';
+import { createSeededRepo, runGit } from './git-service/git-test-helpers';
 
 const repos: string[] = [];
 
 async function repoWithACommit(): Promise<string> {
-  const repoPath = await createGitRepo('refresh-side-effects-');
+  const repoPath = await createSeededRepo(
+    { 'README.md': '# Project\n', 'src.ts': 'export const x = 1;\n' },
+    { message: 'initial commit', prefix: 'refresh-side-effects-' },
+  );
   repos.push(repoPath);
-
-  await writeFile(path.join(repoPath, 'README.md'), '# Project\n', 'utf8');
-  await writeFile(path.join(repoPath, 'src.ts'), 'export const x = 1;\n', 'utf8');
-  runGit(['add', '.'], repoPath);
-  runGit(['commit', '-m', 'initial commit'], repoPath);
-
   return repoPath;
 }
 
-afterEach(async () => {
+// Each test owns its own repository copy, so one cleanup at the end is enough.
+afterAll(async () => {
   await Promise.all(repos.splice(0).map((repoPath) => rm(repoPath, { recursive: true, force: true })));
 });
 

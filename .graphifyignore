@@ -1,0 +1,21 @@
+# Added by Sero Graphify: keep Sero workspace internals out of the knowledge graph
+node_modules/
+dist/
+build/
+out/
+.DS_Store
+*.log
+.env
+.env.local
+coverage/
+.sero/
+.sero-workspace.json
+graphify-out/
+.graphifyignore
+__pycache__/
+*.pyc
+target/
+.next/
+.nuxt/
+.turbo/
+.pnpm-store/

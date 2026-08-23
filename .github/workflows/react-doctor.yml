@@ -10,9 +10,45 @@ on:
   # Scans the PR's changed files and posts a sticky summary comment listing only the new issues introduced relative to the merge base of the target branch.
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-  # Scans `main` on every push to track the health-score trend and catch regressions that slipped past PR review.
+    paths:
+      - 'apps/desktop/src/**'
+      - 'apps/desktop/package.json'
+      - 'apps/desktop/tsconfig*.json'
+      - 'apps/desktop/vite.config.*'
+      - 'apps/desktop/vitest.config.*'
+      - 'apps/homepage/**'
+      - 'apps/styleguide/**'
+      - 'apps/web-remote/**'
+      - 'packages/app-runtime/**'
+      - 'packages/ui/**'
+      - 'plugins/*/ui/**'
+      - 'plugins/*/package.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/react-doctor.yml'
+  # Scans React changes on `main` to track the health-score trend.
   push:
     branches: ["main"]
+    paths:
+      - 'apps/desktop/src/**'
+      - 'apps/desktop/package.json'
+      - 'apps/desktop/tsconfig*.json'
+      - 'apps/desktop/vite.config.*'
+      - 'apps/desktop/vitest.config.*'
+      - 'apps/homepage/**'
+      - 'apps/styleguide/**'
+      - 'apps/web-remote/**'
+      - 'packages/app-runtime/**'
+      - 'packages/ui/**'
+      - 'plugins/*/ui/**'
+      - 'plugins/*/package.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/react-doctor.yml'
+  schedule:
+    - cron: '30 5 * * 1'
 
 permissions:
   contents: read
@@ -22,11 +58,12 @@ permissions:
 
 # Cancels any in-flight scan for the same PR (or branch, on push) the moment a new commit arrives, so reviewers only ever see the latest run.
 concurrency:
-  group: react-doctor-${{ github.event.pull_request.number || github.ref }}
+  group: react-doctor-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   react-doctor:
+    # Scheduled runs deliberately bypass path filters and scan the full tree.
     runs-on: ubuntu-latest
     steps:
       # fetch-depth: 0 gives React Doctor the full git history it needs to find the merge base with the target branch. Without it a shallow checkout has no merge base, so PR runs can't compare against the base and fall back to reporting every issue in the changed files (pre-existing ones included) instead of only the ones the PR introduced.
@@ -35,6 +72,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - uses: millionco/react-doctor@01820bb4fd4d0a4aebcd8df2b2a143a098649cb2 # v2
         # Advisory by default: React Doctor reports findings on every PR — a

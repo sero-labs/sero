@@ -61,6 +61,17 @@ export interface SeroAppManifest {
   plugin?: PluginMeta | null;
   /** Host/plugin compatibility status derived from the current Sero runtime. */
   hostCompatibility?: PluginCompatibilityStatus | null;
+  /**
+   * Top-level state keys that may travel into a copied profile.
+   *
+   * A new profile created with "Copy credentials and model preferences" should
+   * inherit an app's *preferences* — the model it was told to use, the limits
+   * it was given — without inheriting anything machine-specific. Copying a
+   * whole state file would carry a workspace list and its build history into a
+   * profile where neither exists, which for Graphify would queue paid builds
+   * for workspaces that are not there.
+   */
+  portableState?: string[];
   /** Validated component and control contributions. */
   contributions: AppContributions;
   /** Non-fatal problems found while parsing contribution declarations. */

@@ -116,7 +116,12 @@ describe('the asset tool streams an original in slices', () => {
     }
 
     expect(total).toBe(CONTENT.byteLength);
-    expect(Buffer.concat(parts)).toEqual(CONTENT);
+    // Byte-for-byte, through `Buffer.equals` rather than `toEqual`: the deep
+    // comparator walks half a megabyte one element at a time and costs about
+    // half a second, while `equals` proves the same thing by memcmp.
+    const rebuilt = Buffer.concat(parts);
+    expect(rebuilt.byteLength).toBe(CONTENT.byteLength);
+    expect(rebuilt.equals(CONTENT)).toBe(true);
 
     // The identity is what stops slices being stitched across two files, and
     // it has to actually come back: the caller rejects a slice without one, so
@@ -124,7 +129,7 @@ describe('the asset tool streams an original in slices', () => {
     // protection. Every slice of one unchanged file says the same thing.
     expect(identities.every((entry) => typeof entry === 'string' && entry !== '')).toBe(true);
     expect(new Set(identities).size).toBe(1);
-  });
+  }, 10_000);
 
   it('says nothing is left rather than failing, past the end', async () => {
     const id = await seedClip();

@@ -27,7 +27,7 @@ export function CatalogEntryCard({ entry, official, state, busy, onInstall, onSh
   const hasDetail = !!(meta.limitations || meta.requiredTools?.length || entry.exampleOutput);
 
   return (
-    <Card className="flex flex-col gap-2 p-3" data-catalog-entry={`${entry.repoKey}/${meta.slug}`}>
+    <Card className="flex flex-col gap-2 border-border/75 p-3" data-catalog-entry={`${entry.repoKey}/${meta.slug}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
@@ -67,7 +67,7 @@ export function CatalogEntryCard({ entry, official, state, busy, onInstall, onSh
               >
                 In your library ✓
               </button>
-              <Button size="xs" variant="ghost" disabled={busy} onClick={onInstall} title="Create another draft loop from the installed version">
+              <Button size="xs" variant="ghost" disabled={busy} onClick={onInstall} title="Create another draft Workflow from the installed version">
                 New draft
               </Button>
             </>

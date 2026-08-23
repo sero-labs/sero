@@ -59,7 +59,7 @@ export function deriveLibraryLink(
   return {
     entryId: link.entryId,
     version: link.version,
-    entryName: entry?.name ?? 'Saved loop',
+    entryName: entry?.name ?? 'Saved workflow',
     latest,
     updateAvailable,
     diverged,

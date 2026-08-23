@@ -23,7 +23,7 @@ import { registerAgentPluginHostCapability } from '@electron/features/agent-plug
 import { buildContainerPromptBlock, buildHostPromptBlock } from '@electron/features/container/tools/system-prompt';
 import { listWorkspaceAccessRoots } from '@electron/features/workspace/access-roots';
 import { registerSeroBuiltinCommands } from './commands';
-import { buildCliPromptBlock } from '@electron/cli';
+import { buildCliPromptBlock, type CliRegistry } from '@electron/cli';
 import { registerGitCheckpointFeatures } from './git-checkpoints';
 import { showNotification, type NotificationType } from '@electron/platform/desktop/notifications';
 import { logProviderRequest } from '@electron/ipc/editor/debug';
@@ -41,6 +41,8 @@ import type { SubagentManager } from '@electron/features/subagent';
 export interface SeroExtensionOptions {
   subagentManager?: SubagentManager;
   enableAgentManagementTools?: boolean;
+  /** The command surface this session can reach. Omitted means the shared one. */
+  cliRegistry?: CliRegistry;
   hostRuntime?: {
     workspacePath: string;
     platform?: NodeJS.Platform;
@@ -63,12 +65,14 @@ export function createSeroExtensionFactory(
     pi.on('before_agent_start', async (event) => {
       let systemPrompt = event.systemPrompt;
       systemPrompt += buildCliPromptBlock(
-        undefined,
+        // The session's own registry, when it has one. Listing the shared
+        // commands to a session that cannot run them teaches it to try.
+        options?.cliRegistry,
         {
           workspaceId: currentWorkspaceId,
           sessionId: _sessionId,
         },
-        { includeSessionTitleInstruction: true },
+        { includeSessionTitleInstruction: !options?.cliRegistry },
       );
 
       // Inject container environment context if workspace is containerised
@@ -258,7 +262,9 @@ export function createSeroExtensionFactory(
 
     // Re-implement PI CLI built-ins for SDK mode and register Git checkpoint hooks.
     registerSeroBuiltinCommands(pi, currentWorkspaceId);
-    registerGitCheckpointFeatures(pi, currentWorkspaceId);
+    // A private registry means this session holds only its own app's commands,
+    // so the shared `sero git` commands are not among them.
+    registerGitCheckpointFeatures(pi, currentWorkspaceId, !options?.cliRegistry);
 
     // ── Subagent tools (main sessions only) ──────────────────
     if (options?.enableAgentManagementTools && options.subagentManager) {

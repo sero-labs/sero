@@ -81,6 +81,11 @@ export interface ChatToolCallMessage {
   details?: Record<string, unknown> | null;
   /** True when output is an in-progress partial update rather than the final tool result. */
   isPartialOutput?: boolean;
+  /**
+   * True while the model is still streaming this call's arguments, before the
+   * tool has run. `input` is a partial parse and grows delta by delta.
+   */
+  isStreamingInput?: boolean;
   /** Images returned by this tool call (e.g. screenshots). */
   images?: ToolResultImage[];
 }
@@ -100,6 +105,9 @@ export type AgentStreamEvent =
   | { type: 'thinking_delta'; sessionId: string; messageId: string; delta: string }
   | { type: 'message_start'; sessionId: string; message: ChatMessage }
   | { type: 'message_end'; sessionId: string; messageId: string; text: string; thinking?: string }
+  | { type: 'tool_input_start'; sessionId: string; streamKey: string; toolName: string }
+  | { type: 'tool_input_delta'; sessionId: string; streamKey: string; delta: string; replace: boolean; path: string | null }
+  | { type: 'tool_input_end'; sessionId: string; streamKey: string; toolCallId: string }
   | { type: 'tool_start'; sessionId: string; tool: ChatToolCallMessage }
   | { type: 'tool_update'; sessionId: string; toolCallId: string; output: string | null; details?: Record<string, unknown> | null; images?: ToolResultImage[] }
   | { type: 'tool_end'; sessionId: string; toolCallId: string; output: string | null; details?: Record<string, unknown> | null; isError: boolean; images?: ToolResultImage[] }

@@ -63,8 +63,8 @@ See [Containers and Dev Servers](/guide/containers-dev-servers).
 | Command | Output / side effects |
 |---|---|
 | `sero devserver list` | Lists registered servers for current workspace as `id [status] name — url (port n)`. |
-| `sero devserver register --name <name> --port <port> --command <cmd> [--framework <name>]` | Adds in-memory registry entry; URL uses detected port/container IP when available. |
-| `sero devserver stop <id>` | Kills the listening port/process tree inside the container and marks stopped. |
+| `sero devserver register --name <name> --port <port> --command <cmd> [--framework <name>]` | Adds an in-memory registry entry and returns a host-reachable URL. |
+| `sero devserver stop <id>` | Stops the listener in a container runtime. On Host, it terminates a server started by Sero, but it does not kill a process that was only registered. |
 
 ## `app`
 

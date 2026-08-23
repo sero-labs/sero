@@ -54,7 +54,7 @@ export function appendRotatingLogLine(options: {
   warningKey: string;
   warningMessage: string;
   beforeAppend?: () => Promise<void>;
-}): void {
+}): Promise<void> {
   const previous = writeQueues.get(options.filePath) ?? Promise.resolve();
   const next = previous
     .catch(() => undefined)
@@ -74,4 +74,5 @@ export function appendRotatingLogLine(options: {
   });
 
   writeQueues.set(options.filePath, tracked);
+  return tracked;
 }

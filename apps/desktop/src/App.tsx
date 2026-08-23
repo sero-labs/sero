@@ -11,7 +11,7 @@ import { TitleBar } from '@/components/layout/shell/TitleBar';
 import { MainSidebar } from '@/components/layout/shell/MainSidebar';
 import { StatusBar } from '@/components/layout/shell/StatusBar';
 import { ChatPanel } from '@/components/layout/shell/ChatPanel';
-import { useAppStore, listenForNewApps } from '@/stores/app';
+import { useAppStore, listenForAppNavigationWorkspace, listenForNewApps } from '@/stores/app';
 import { listenForSystemThemeChanges, listenForTitleBarOverlaySync } from '@/stores/theme';
 import { listenForZoomCommands } from '@/stores/zoom';
 import { useProfileStore, loadProfiles } from '@/stores/profiles';
@@ -88,7 +88,6 @@ export function App() {
   const profileReady = useProfileStore((s) => s.ready);
   const hasActiveProfile = useProfileStore((s) => s.hasActiveProfile);
   const initAgentEventListener = useAgentStore((s) => s.initEventListener);
-  const initCollaborationListener = useAgentStore((s) => s.initCollaborationListener);
 
   // Bridge: session selection → agent lifecycle
   useSessionAgent();
@@ -117,10 +116,11 @@ export function App() {
     void loadProfiles();
     void hydrateShellState();
     const unsub = listenForNewApps();
+    const unsubNavigationWorkspace = listenForAppNavigationWorkspace();
     const unsubTheme = listenForSystemThemeChanges();
     const unsubZoom = listenForZoomCommands();
     const unsubOverlay = listenForTitleBarOverlaySync();
-    return () => { unsub(); unsubTheme(); unsubZoom(); unsubOverlay(); };
+    return () => { unsub(); unsubNavigationWorkspace(); unsubTheme(); unsubZoom(); unsubOverlay(); };
   }, []);
 
   // Subscribe to dev server events from main process
@@ -138,11 +138,6 @@ export function App() {
     const unsub = initAgentEventListener();
     return unsub;
   }, [initAgentEventListener]);
-
-  useEffect(() => {
-    const unsub = initCollaborationListener();
-    return unsub;
-  }, [initCollaborationListener]);
 
   useEffect(() => {
     return window.sero.auth.onEvent((event) => {

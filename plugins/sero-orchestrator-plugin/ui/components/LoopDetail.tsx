@@ -1,6 +1,6 @@
 import { memo } from 'react';
-import { Card } from '@sero-ai/ui';
-import { AlertTriangle } from 'lucide-react';
+import { Button, Card } from '@sero-ai/ui';
+import { AlertTriangle, Sparkles } from 'lucide-react';
 import type {
   GithubSourceHealth,
   LibraryIndex,
@@ -18,6 +18,7 @@ import { LoopContextControl } from './LoopContextControl';
 import { LoopDeliveryControl } from './LoopDeliveryControl';
 import { LoopMetaStrip } from './LoopMetaStrip';
 import { LibrarySaveControl } from './LibrarySaveControl';
+import { SkillDraftControl } from './SkillDraftControl';
 import { LibraryLinkBadge } from './LibraryLinkBadge';
 import { LibraryLinkSection } from './LibraryLinkSection';
 import { LiveActivityStrip } from './LiveActivityStrip';
@@ -35,6 +36,8 @@ interface LoopDetailProps {
   loop: Loop;
   busy: boolean;
   onAction: (action: OrchestratorAction) => void;
+  /** Tool dispatch that returns the action's result — the skill draft review needs it. */
+  onDispatch: (params: Record<string, unknown>) => Promise<Record<string, unknown> | null>;
   /** State directory, used to watch this loop's runs/index.json for run history. */
   stateDir: string;
   /** Profile-global library dir, for a linked loop's status + update controls. */
@@ -49,7 +52,7 @@ interface LoopDetailProps {
  * strip shows while running; plan and history collapse for progressive
  * disclosure. The Library link + save controls are folded in.
  */
-export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, libraryIndex }: LoopDetailProps) {
+export function LoopDetail({ loop, busy, onAction, onDispatch, stateDir, libraryDir, libraryIndex }: LoopDetailProps) {
   const { runtime } = loop;
   const runIndex = useWatchedJson<RunIndex>(`${stateDir}/loops/${loop.id}/runs/index.json`, DEFAULT_RUN_INDEX);
   // Source health for the meta strip: the event adapters persist these small
@@ -59,6 +62,10 @@ export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, library
   const linkStatus = useLibraryLink(loop, libraryDir, libraryIndex);
   const pendingInput = runtime.pendingInput?.questions.length ?? 0;
   const pendingSuggestions = (loop.suggestions ?? []).filter((s) => s.status === 'pending').length;
+  // A skill is extracted from what worked, so the control appears only once a run
+  // has actually completed (or while a draft from one is still under review).
+  const canExtractSkill = loop.skillDraft?.status === 'pending'
+    || runIndex.runs.some((run) => run.completionStatus === 'complete');
 
   return (
     <div className="flex h-full flex-1 flex-col gap-4 overflow-auto p-4">
@@ -75,10 +82,22 @@ export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, library
         <p className="text-base text-muted-foreground">{loop.summary || loop.prompt}</p>
         <LoopMetaStrip loop={loop} runs={runIndex.runs} githubHealth={githubHealth} webhookHealth={webhookHealth} />
         <div className="flex flex-wrap items-center gap-2 pt-1">
-          <LoopControls loop={loop} busy={busy} canReflect={runIndex.runs.length > 0} onAction={onAction} />
+          <LoopControls loop={loop} busy={busy} onAction={onAction} />
           <LoopContextControl loop={loop} onAction={onAction} />
           <LoopDeliveryControl loop={loop} busy={busy} onAction={onAction} />
           <LibrarySaveControl loop={loop} busy={busy} onAction={onAction} />
+          {runIndex.runs.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() => onAction({ kind: 'reflect', loopId: loop.id })}
+              title="Learn from past runs and suggest improvements"
+            >
+              <Sparkles className="mr-1 h-3.5 w-3.5" /> Reflect
+            </Button>
+          )}
+          {canExtractSkill && <SkillDraftControl loop={loop} busy={busy} onDispatch={onDispatch} />}
         </div>
       </header>
 
@@ -86,7 +105,7 @@ export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, library
 
       {runtime.snoozedUntil && (
         <Card className="border-blue-500/30 bg-blue-500/[0.05] p-3 text-base">
-          Snoozed until {new Date(runtime.snoozedUntil).toLocaleString()}. The workspace will be checked again before the loop runs.
+          Snoozed until {new Date(runtime.snoozedUntil).toLocaleString()}. The workspace will be checked again before the Workflow runs.
         </Card>
       )}
 
@@ -126,7 +145,7 @@ export function LoopDetail({ loop, busy, onAction, stateDir, libraryDir, library
           onAction={onAction}
         />
         {REFINABLE.has(loop.status) && (
-          <RefinePlan key={loop.id} busy={busy} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} />
+          <RefinePlan key={loop.id} busy={busy} planRevision={loop.plan.revision} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} />
         )}
       </CollapsibleSection>
 
@@ -151,12 +170,12 @@ function BlockNotice({ loop }: { loop: Loop }) {
       {blockedStep ? (
         <span>
           <span className="font-medium text-destructive">Blocked at “{blockedStep.title}”. </span>
-          Fix the cause, then <span className="font-medium">Retry step</span> on it in the plan below — or <span className="font-medium">Restart</span> the loop.
+          Fix the cause, then <span className="font-medium">Retry step</span> on it in the plan below — or <span className="font-medium">Restart</span> the Workflow.
         </span>
       ) : (
         <span>
           <span className="font-medium text-destructive">Blocked ({block.kind}): </span>
-          {block.reason} — <span className="font-medium">Restart</span> the loop or <span className="font-medium">Refine</span> the plan.
+          {block.reason} — <span className="font-medium">Restart</span> the Workflow or <span className="font-medium">Refine</span> the plan.
         </span>
       )}
     </Card>

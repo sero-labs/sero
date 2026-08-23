@@ -14,9 +14,10 @@ on:
       provider:
         description: LLM provider
         required: true
-        default: anthropic
+        default: openrouter
         type: choice
         options:
+          - openrouter
           - anthropic
           - openai
           - google
@@ -26,6 +27,18 @@ on:
         type: string
       alternate-model:
         description: Optional explicit alternate model for model-switch coverage
+        required: false
+        type: string
+      spec:
+        description: Optional spec file to run instead of the full agent project (e.g. e2e/agent-realism.agent.spec.ts)
+        required: false
+        type: string
+      grep:
+        description: Optional title filter for a single test
+        required: false
+        type: string
+      retries:
+        description: Optional retry count override (use 0 to make a flake fail)
         required: false
         type: string
   schedule:
@@ -42,13 +55,15 @@ env:
   CI: true
   TURBO_TELEMETRY_DISABLED: 1
   SERO_E2E_LLM_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'cheap' }}
-  SERO_E2E_LLM_PROVIDER: ${{ github.event_name == 'workflow_dispatch' && inputs.provider || 'anthropic' }}
+  SERO_E2E_LLM_PROVIDER: ${{ github.event_name == 'workflow_dispatch' && inputs.provider || 'openrouter' }}
   SERO_E2E_LLM_MODEL: ${{ github.event_name == 'workflow_dispatch' && inputs.model || '' }}
   SERO_E2E_LLM_ALT_MODEL: ${{ github.event_name == 'workflow_dispatch' && inputs.alternate-model || '' }}
+  SERO_E2E_PREBUILT_PLUGINS: 1
   ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
   GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
   GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+  OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
 
 jobs:
   agent:
@@ -73,6 +88,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build E2E plugin remotes
+        run: |
+          pnpm --filter @sero-ai/plugin-orchestrator... --filter @sero-ai/plugin-mcp... build
+          node scripts/build-plugin.mjs plugins/sero-orchestrator-plugin --quiet
+          node scripts/build-plugin.mjs plugins/sero-mcp-plugin --quiet
+
       - name: Install Playwright Chromium
         run: pnpm --filter @sero/desktop exec playwright install chromium
 
@@ -80,6 +101,9 @@ jobs:
         shell: bash
         run: |
           case "$SERO_E2E_LLM_PROVIDER" in
+            openrouter)
+              test -n "$OPENROUTER_API_KEY" || { echo "::error::Missing OPENROUTER_API_KEY secret for agent e2e"; exit 1; }
+              ;;
             anthropic)
               test -n "$ANTHROPIC_API_KEY" || { echo "::error::Missing ANTHROPIC_API_KEY secret for agent e2e"; exit 1; }
               ;;
@@ -95,11 +119,33 @@ jobs:
               ;;
           esac
 
+      - name: Build desktop
+        run: pnpm --filter @sero/desktop build
+
+      - name: Run agent infrastructure checks
+        run: |
+          pnpm --filter @sero/desktop exec vitest run electron/__tests__/features/plugins/plugin-cli-bridge.test.ts
+          xvfb-run -a pnpm --filter @sero/desktop exec playwright test \
+            e2e/plugins.workflow.spec.ts e2e/mcp.contract.spec.ts \
+            --grep 'opens orchestrator|bridges the MCP proxy' \
+            --retries=0
+
       - name: Run agent e2e
-        run: xvfb-run -a pnpm --filter @sero/desktop e2e:agent
+        shell: bash
+        env:
+          E2E_SPEC: ${{ inputs.spec }}
+          E2E_GREP: ${{ inputs.grep }}
+          E2E_RETRIES: ${{ inputs.retries }}
+        run: |
+          # No --pass-with-no-tests: a typo'd spec/grep must fail, not go green.
+          args=(--project=agent)
+          if [ -n "$E2E_SPEC" ]; then args+=("$E2E_SPEC"); fi
+          if [ -n "$E2E_GREP" ]; then args+=(--grep "$E2E_GREP"); fi
+          if [ -n "$E2E_RETRIES" ]; then args+=("--retries=$E2E_RETRIES"); fi
+          xvfb-run -a pnpm --filter @sero/desktop exec playwright test "${args[@]}"
 
       - name: Upload Playwright artifacts
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: playwright-agent-${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'cheap' }}

@@ -3,6 +3,8 @@ import { discoverApps } from '@electron/features/apps/discovery';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { loadAppRuntimeModule } from './loader';
 import { createAppRuntimeHost } from './capabilities/create-host';
+import { installPersistentSessions } from './capabilities/persistent-sessions/wiring';
+import { installSkills } from './capabilities/skills';
 import type {
   AppRuntimeContext,
   AppRuntimeInstance,
@@ -38,6 +40,8 @@ function createDefaultDeps(): AppRuntimeManagerDeps {
     getOpenWorkspaces: () => workspaceManager.getOpenWorkspaces(),
     loadRuntimeModule: loadAppRuntimeModule,
     createHost: createAppRuntimeHost,
+    installPersistentSessions,
+    installSkills,
   };
 }
 
@@ -199,6 +203,17 @@ export class AppRuntimeManager {
     if (!target.manifest.runtimeEntry) return;
 
     const host = this.deps.createHost(target);
+    // Install the gated persistent-session capability BEFORE the runtime is
+    // constructed, so a runtime never observes it appearing mid-life. The gate
+    // runs against the FINAL discovered manifest, which is what makes
+    // discoverApps()'s last-write-wins de-duplication irrelevant to authority.
+    const persistentSessions = await this.deps.installPersistentSessions?.(target);
+    if (persistentSessions) host.persistentSessions = persistentSessions;
+    // Same rule, same moment: a gated capability is present from the runtime's
+    // first breath or not at all.
+    const skills = await this.deps.installSkills?.(target);
+    if (skills) host.skills = skills;
+
     host.appState.watch(target.stateFilePath);
 
     try {

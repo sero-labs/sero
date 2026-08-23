@@ -1,9 +1,11 @@
 import { useUserFeedbackStore } from '@/stores/user-feedback-store';
 import { useAppStore } from '@/stores/app';
+import { useWorkspaceStore } from '@/stores/workspace';
 import { isAppEntrySupported } from '@/stores/app/shared';
 import {
   findNavigationTarget,
   useNavigationStore,
+  type NavEntry,
   type NavigationDirection,
 } from '@/stores/navigation';
 
@@ -21,22 +23,47 @@ export function openApp(appId: string): void {
   useAppStore.getState().setActiveApp(appId);
 }
 
-function canActivate(appId: string): boolean {
-  const entry = useAppStore.getState().apps.find((app) => app.id === appId);
-  return entry !== undefined && isAppEntrySupported(entry);
+function canActivate(
+  target: NavEntry,
+  appIds: Set<string>,
+  workspaceIds: Set<string>,
+): boolean {
+  return appIds.has(target.appId) && (!target.workspaceId || workspaceIds.has(target.workspaceId));
 }
 
 function navigate(direction: NavigationDirection): void {
   const { entries, index } = useNavigationStore.getState();
+  const appIds = new Set<string>();
+  for (const app of useAppStore.getState().apps) {
+    if (isAppEntrySupported(app)) appIds.add(app.id);
+  }
+  const workspaceIds = new Set(
+    useWorkspaceStore.getState().workspaces.map((workspace) => workspace.id),
+  );
   const target = findNavigationTarget(
     entries,
     index,
     direction,
-    (entry) => canActivate(entry.appId),
+    (entry) => canActivate(entry, appIds, workspaceIds),
   );
   if (!target) return;
 
   useNavigationStore.setState({ index: target.index });
+  if (target.entry.workspaceId
+    && target.entry.workspaceId !== useWorkspaceStore.getState().activeWorkspaceId) {
+    useWorkspaceStore.getState().setActiveWorkspace(target.entry.workspaceId);
+    // Sidebar workspace sync uses the latest route; history must keep its
+    // exact older route instead.
+    useNavigationStore.getState().replaceCurrent(target.entry);
+  }
+  if (target.entry.viewId) {
+    useAppStore.getState().setAppView(
+      target.entry.appId,
+      target.entry.workspaceId ?? 'global',
+      target.entry.viewId,
+      { skipHistory: true, workspaceId: target.entry.workspaceId },
+    );
+  }
   useAppStore.getState().setActiveApp(target.entry.appId, { skipHistory: true });
 }
 

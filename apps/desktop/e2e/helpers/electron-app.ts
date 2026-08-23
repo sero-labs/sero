@@ -63,7 +63,6 @@ export async function launchSeroApp(
   options: LaunchOptions = {},
 ): Promise<{ app: ElectronApplication; page: Page }> {
   const desktopRoot = path.resolve(__dirname, '../..');
-  const mainEntry = path.join(desktopRoot, 'dist/electron/main.mjs');
 
   const runtime: RuntimeBackend =
     options.runtime ?? (options.containers ? 'apple-container' : currentRuntimeFromEnv() ?? 'host');
@@ -107,7 +106,7 @@ export async function launchSeroApp(
   let app: ElectronApplication;
   try {
     app = await electron.launch({
-      args: [mainEntry],
+      args: [desktopRoot],
       cwd: desktopRoot,
       env,
     });

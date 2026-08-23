@@ -1,9 +1,8 @@
 /**
  * Memory tool handler integration tests.
  *
- * These test the same scenarios as the manual testing guide
- * (docs/testing/memory-v2-manual-testing.md) but against the actual
- * handler functions with a real temp filesystem. No LLM needed.
+ * The suite covers the former manual checks against the actual handler
+ * functions with a real temporary filesystem. No LLM is needed.
  *
  * Covers: Tests 1, 2, 3, 4, 5, 6, 10 from the manual guide.
  */
@@ -112,8 +111,7 @@ describe('Test 1 — Basic read/write', () => {
 
   it('lists files from an empty root', async () => {
     const result = await handleList(root);
-    // Either "No memory files found" or shows the empty structure
-    expect(resultText(result)).toBeTruthy();
+    expect(resultText(result)).toBe('No memory files found.');
   });
 });
 
@@ -201,10 +199,15 @@ describe('Test 4 — Duplicate detection', () => {
     const result = await handleWrite(root, 'memory', 'We deploy to fly.io with Docker containers');
 
     const text = resultText(result);
-    // Either warns and writes, or blocks — both are valid
-    const isWarning = text.includes('Warning') && text.includes('Appended');
-    const isBlocked = text.includes('already exists');
-    expect(isWarning || isBlocked).toBe(true);
+    expect(text).toContain('Warning: Similar content exists in MEMORY.md');
+    expect(text).toContain('Appended to MEMORY.md');
+
+    const entries = parseMemoryEntries(await readMemory());
+    expect(entries).toHaveLength(2);
+    expect(entries.map((entry) => entry.text)).toEqual(expect.arrayContaining([
+      'We deploy to fly.io with Docker containers for production',
+      'We deploy to fly.io with Docker containers',
+    ]));
   });
 });
 
@@ -252,17 +255,17 @@ describe('Test 6 — Capacity enforcement', () => {
     const content = `<!-- v2 format -->\n# Memory\n\n${entries}`;
 
     const usage = getTargetUsage('memory', content);
-    if (usage.chars > usage.max) {
-      const err = capacityError('MEMORY.md', 'memory', content);
-      expect(err).toContain('would exceed capacity');
-      expect(err).toContain('%');
-    }
+    expect(usage.chars).toBeGreaterThan(usage.max);
+    const err = capacityError('MEMORY.md', 'memory', content);
+    expect(err).toBe(
+      `Error: MEMORY.md would exceed capacity (${usage.chars}/${usage.max} chars). Current usage: ${usage.percent}%. Replace, remove, or consolidate content before adding more.`,
+    );
   });
 
   it('rejects write when memory is at capacity', async () => {
     // Seed memory close to capacity
     const bigEntries = Array.from({ length: 50 }, (_, i) => ({
-      id: `mem-cap${String(i).padStart(3, '0')}`,
+      id: `mem-${String(i).padStart(6, '0')}`,
       type: 'fact',
       text: `Capacity test entry number ${i} with padding to fill up space quickly ${'x'.repeat(40)}`,
     }));
@@ -271,11 +274,11 @@ describe('Test 6 — Capacity enforcement', () => {
     // Verify we're near/over capacity
     const content = await readMemory();
     const usage = getTargetUsage('memory', content);
+    expect(usage.chars).toBeGreaterThanOrEqual(usage.max * 0.95);
 
-    if (usage.chars >= usage.max * 0.95) {
-      const result = await handleWrite(root, 'memory', 'This should be rejected because memory is full');
-      expect(resultText(result)).toContain('capacity');
-    }
+    const result = await handleWrite(root, 'memory', 'This should be rejected because memory is full');
+    expect(resultText(result)).toContain('capacity');
+    expect(await readMemory()).toBe(content);
   });
 });
 

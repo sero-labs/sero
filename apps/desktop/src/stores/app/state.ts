@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persistLayout } from '@/lib/persist-layout';
+import type { ToolCallLayout } from '@/types/layout';
 import {
   hasTransientRemote,
   preloadFederatedModule,
@@ -7,6 +8,7 @@ import {
 } from '@/lib/federation-registry';
 import { useThemeStore } from '@/stores/theme';
 import { useNavigationStore } from '@/stores/navigation';
+import { useWorkspaceStore } from '@/stores/workspace';
 import {
   BUILTIN_APP_IDS,
   BUILTIN_APPS,
@@ -48,8 +50,6 @@ export interface AppState {
   setMainSidebarSizePct: (pct: number) => void;
   chatPanelSizePct: number;
   setChatPanelSizePct: (pct: number) => void;
-  chatCollaborationSizePct: number;
-  setChatCollaborationSizePct: (pct: number) => void;
 
   // Favourites (sidebar-visible discovered apps)
   favouriteApps: string[];
@@ -63,10 +63,19 @@ export interface AppState {
 
   // Active app
   activeApp: string;
+  /** Last internal view published by each app. */
+  appViewIds: Record<string, Record<string, string>>;
   /** The app currently being preloaded before activation. */
   pendingApp: string | null;
   /** Pass `skipHistory` when re-activating an app from navigation history. */
   setActiveApp: (app: string, options?: { skipHistory?: boolean }) => void;
+  /** Publish or restore one app's internal view. */
+  setAppView: (
+    appId: string,
+    scopeId: string,
+    viewId: string,
+    options?: { skipHistory?: boolean; workspaceId?: string; replaceHistory?: boolean },
+  ) => void;
   reloadApp: (appId: string) => void;
 
   // Theme
@@ -79,6 +88,10 @@ export interface AppState {
   // Monaco editor theme (separate from UI theme)
   editorThemeId: string;
   setEditorThemeId: (id: string) => void;
+
+  // Expanded tool call rendering
+  toolCallLayout: ToolCallLayout;
+  setToolCallLayout: (layout: ToolCallLayout) => void;
 }
 
 function preloadAndActivateApp(
@@ -145,11 +158,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ chatPanelSizePct: pct });
     persistLayout({ chatPanelSizePct: pct });
   },
-  chatCollaborationSizePct: 35,
-  setChatCollaborationSizePct: (pct) => {
-    set({ chatCollaborationSizePct: pct });
-    persistLayout({ chatCollaborationSizePct: pct });
-  },
 
   favouriteApps: [...DEFAULT_FAVOURITE_APP_IDS],
   toggleFavourite: (appId) => {
@@ -190,6 +198,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Active app (hydrated from layout file on startup)
   activeApp: 'dashboard',
+  appViewIds: {},
   pendingApp: null,
   setActiveApp: (app, options) => {
     const { activeApp, pendingApp, apps } = get();
@@ -228,7 +237,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
 
     if (!options?.skipHistory) {
-      useNavigationStore.getState().push({ appId: app });
+      const workspaceId = entry.builtin || entry.manifest?.scope === 'global'
+        ? undefined
+        : useWorkspaceStore.getState().activeWorkspaceId ?? undefined;
+      const scopeId = workspaceId ?? 'global';
+      useNavigationStore.getState().push({
+        appId: app,
+        viewId: get().appViewIds[app]?.[scopeId],
+        workspaceId,
+      });
     }
 
     if (entry.manifest?.component) {
@@ -245,6 +262,24 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     set({ activeApp: app, pendingApp: null });
     persistLayout({ activeApp: app });
+  },
+  setAppView: (appId, scopeId, viewId, options) => {
+    const current = get();
+    if ((!options?.skipHistory && current.activeApp !== appId)
+      || current.appViewIds[appId]?.[scopeId] === viewId) return;
+
+    const appViewIds = {
+      ...current.appViewIds,
+      [appId]: { ...current.appViewIds[appId], [scopeId]: viewId },
+    };
+    set({ appViewIds });
+    if (!options?.skipHistory) {
+      useNavigationStore.getState().publishView(
+        { appId, viewId, workspaceId: options?.workspaceId },
+        options?.replaceHistory,
+      );
+    }
+    persistLayout({ appViewIds });
   },
   reloadApp: (appId) => {
     const entry = get().apps.find((candidate) => candidate.id === appId);
@@ -284,5 +319,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   setEditorThemeId: (id) => {
     set({ editorThemeId: id });
     persistLayout({ editorThemeId: id });
+  },
+
+  toolCallLayout: 'rows',
+  setToolCallLayout: (layout) => {
+    set({ toolCallLayout: layout });
+    persistLayout({ toolCallLayout: layout });
   },
 }));

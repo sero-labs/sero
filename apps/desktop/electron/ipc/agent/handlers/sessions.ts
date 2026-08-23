@@ -18,7 +18,6 @@ import { IpcChannels } from '@/types/ipc-channels';
 import type { SeroSessionInfo } from '@/types/ipc';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { SERO_SESSION_DIR } from '@electron/shared/infra/shared-infra';
-import { extractOriginalCollaborationQuery } from '@electron/ipc/collaboration/collaboration-message';
 import { listSessionMetadata, type SessionMetadata } from '@electron/ipc/agent/core/session-metadata';
 
 /**
@@ -94,7 +93,7 @@ async function toSeroSessionInfo(info: SessionMetadata): Promise<SeroSessionInfo
     created: info.created.toISOString(),
     modified: info.modified.toISOString(),
     messageCount: info.messageCount,
-    firstMessage: extractOriginalCollaborationQuery(info.firstMessage),
+    firstMessage: info.firstMessage,
   };
 }
 

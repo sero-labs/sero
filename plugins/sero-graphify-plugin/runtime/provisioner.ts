@@ -3,16 +3,27 @@ import path from 'node:path';
 import type { ExecFn } from './bounded-exec';
 import { JSON_MAX_OUTPUT_BYTES } from './bounded-exec';
 
-/** Pinned graphifyy version — from the Task 1 spike notes. Upgrades are deliberate version bumps here. */
-export const GRAPHIFY_VERSION = '0.8.36';
-
 /**
- * Backend SDKs are optional extras of graphifyy; the bare package can only do
- * AST extraction ("the 'anthropic' package is required for this backend").
- * Install every supported backend's extra so switching backends in settings
- * never needs a reinstall (deepseek rides on the openai client).
+ * Pinned graphifyy version. Upgrades are deliberate bumps here, never a range.
+ *
+ * Raised from 0.8.36, which predates six upstream fixes for work that was
+ * billed twice because the semantic cache, the stat index, or the manifest
+ * failed to record it: 0.9.17 (manifest dropped fresh documents, breaking the
+ * incremental baseline), 0.9.18 (a truncated chunk entered the cache as
+ * complete), 0.9.27 (absolute stat-index keys re-extracted a moved corpus),
+ * 0.9.28 (non-ASCII paths re-extracted everything), 0.9.41 (a warm cache hit
+ * re-anchored paths when cwd differed from the graph root — which Sero always
+ * does), 0.9.42 (a corrupt cache entry silently re-billed every run).
  */
-export const GRAPHIFY_INSTALL_SPEC = `graphifyy[anthropic,openai,gemini,kimi,ollama]==${GRAPHIFY_VERSION}`;
+export const GRAPHIFY_VERSION = '0.9.47';
+
+export function installSpecFor(version: string): string {
+  // The bare package contains Tree-sitter extraction and clustering. Provider
+  // extras would install model SDKs that this code-only integration cannot use.
+  return `graphifyy==${version}`;
+}
+
+export const GRAPHIFY_INSTALL_SPEC = installSpecFor(GRAPHIFY_VERSION);
 
 export interface ProvisionDeps {
   /** Resolve the uv executable (host.toolchains.ensure('uv')). */
@@ -20,6 +31,10 @@ export interface ProvisionDeps {
   exec: ExecFn;
   /** <graphify home>/tools — everything uv-related is isolated here. */
   toolsDir: string;
+  /** Environment the uv/graphify processes run in (already allow-listed). */
+  baseEnv: NodeJS.ProcessEnv;
+  /** Install this instead of the pin — a user-approved upgrade. */
+  version?: string;
 }
 
 export interface ProvisionResult {
@@ -37,9 +52,9 @@ export function installSpecMarkerPath(toolsDir: string): string {
   return path.join(toolsDir, '.install-spec');
 }
 
-export function uvEnv(toolsDir: string): NodeJS.ProcessEnv {
+export function uvEnv(toolsDir: string, baseEnv: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   return {
-    ...process.env,
+    ...baseEnv,
     UV_TOOL_DIR: path.join(toolsDir, 'uv-tools'),
     UV_TOOL_BIN_DIR: path.join(toolsDir, 'bin'),
     UV_PYTHON_INSTALL_DIR: path.join(toolsDir, 'python'),
@@ -47,27 +62,29 @@ export function uvEnv(toolsDir: string): NodeJS.ProcessEnv {
 }
 
 /**
- * Idempotent: skips the install when the pinned version is runnable AND the
+ * Idempotent: skips the install when the wanted version is runnable AND the
  * recorded install spec matches (the version probe alone cannot tell a bare
  * install from one with backend extras).
  */
 export async function provisionGraphify(deps: ProvisionDeps): Promise<ProvisionResult> {
+  const version = deps.version ?? GRAPHIFY_VERSION;
+  const spec = installSpecFor(version);
   const graphifyPath = graphifyBinPath(deps.toolsDir);
-  const env = uvEnv(deps.toolsDir);
+  const env = uvEnv(deps.toolsDir, deps.baseEnv);
   const markerPath = installSpecMarkerPath(deps.toolsDir);
 
   const recordedSpec = await readFile(markerPath, 'utf8').then((s) => s.trim()).catch(() => null);
-  if (recordedSpec === GRAPHIFY_INSTALL_SPEC) {
+  if (recordedSpec === spec) {
     const probe = await deps.exec(graphifyPath, ['--version'], { env, timeoutMs: 30_000 });
-    if (probe.exitCode === 0 && probe.stdout.includes(GRAPHIFY_VERSION)) {
-      return { uvPath: '', graphifyPath, version: GRAPHIFY_VERSION };
+    if (probe.exitCode === 0 && probe.stdout.includes(version)) {
+      return { uvPath: '', graphifyPath, version };
     }
   }
 
   const uvPath = await deps.ensureUv();
   const install = await deps.exec(
     uvPath,
-    ['tool', 'install', '--force', GRAPHIFY_INSTALL_SPEC],
+    ['tool', 'install', '--force', spec],
     { env, timeoutMs: 15 * 60_000, maxOutputBytes: JSON_MAX_OUTPUT_BYTES },
   );
   if (install.exitCode !== 0) {
@@ -80,6 +97,23 @@ export async function provisionGraphify(deps: ProvisionDeps): Promise<ProvisionR
   }
 
   await mkdir(deps.toolsDir, { recursive: true });
-  await writeFile(markerPath, GRAPHIFY_INSTALL_SPEC, 'utf8');
-  return { uvPath, graphifyPath, version: GRAPHIFY_VERSION };
+  await writeFile(markerPath, spec, 'utf8');
+  return { uvPath, graphifyPath, version };
+}
+
+/**
+ * Latest graphifyy on PyPI, or null when the check fails.
+ *
+ * Best-effort and never blocking: this only ever *offers* an upgrade. Installing
+ * a new extractor invalidates the semantic cache, so applying one re-extracts
+ * the corpus, so an automatic upgrade would create unexpected local work.
+ */
+export async function latestPublishedVersion(): Promise<string | null> {
+  const response = await fetch('https://pypi.org/pypi/graphifyy/json', {
+    signal: AbortSignal.timeout(10_000),
+  }).catch(() => null);
+  if (!response?.ok) return null;
+  const body = await response.json().catch(() => null) as { info?: { version?: unknown } } | null;
+  const version = body?.info?.version;
+  return typeof version === 'string' && version ? version : null;
 }

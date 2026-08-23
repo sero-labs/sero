@@ -6,7 +6,7 @@ project notes, identity/profile details, and daily work logs
 that help future conversations start with less repeated setup. See the [Plugin Catalog](/plugins/catalog)
 for the built-in plugin inventory.
 
-Sero is in **public beta**. Treat memory as helpful local context, not perfect recall or a complete audit log, and expect behavior to evolve during beta.
+Treat memory as helpful context, not as perfect recall or a complete audit log.
 
 ## What memory stores
 
@@ -121,8 +121,7 @@ Examples:
 /memory-log
 ```
 
-Slash commands route through the agent/session flow. Exact UI presentation may
-change during beta.
+Slash commands run through the current agent session.
 
 ![Slash Commands](../assets/images/slash-commands.jpg)
 
@@ -183,11 +182,41 @@ sero memory search --query "demo project"
 sero memory read --target memory
 ```
 
-### Consolidation is not a contract
+### Choose live or frozen snapshots
 
-The plugin has hooks for daily logs, session handoff, transcript backfill, and
-memory consolidation. During beta, do not depend on a precise
-consolidation cadence, exact generated summaries, or complete transcript recall.
+Live mode reads the managed memory files again for each turn. Frozen mode takes
+one long-term memory snapshot for the session. Changes to those files do not
+enter the frozen context until you start another session.
+
+```bash
+sero memory config --snapshot live
+sero memory config --snapshot frozen
+```
+
+### Session transcripts are searchable local files
+
+Memory exports transcripts before a session switch, before a fork, and at
+shutdown. It also backfills earlier sessions in the background. The exports can
+contain user messages, assistant messages, and tool activity. They are stored
+under the active agent directory and can be returned by `memory_search`.
+
+Use `--scope sessions` to search only transcript exports. Treat these files as
+private. They do not provide a complete or immutable audit log.
+
+### Consolidation uses a model
+
+Consolidation extracts durable entries from daily logs and writes them to
+`MEMORY.md`. It requires an active model. You can run it now or set a schedule:
+
+```bash
+sero memory consolidate
+sero memory consolidate --schedule daily
+sero memory consolidate --schedule weekly
+sero memory consolidate --schedule off
+```
+
+Scheduled consolidation uses Scheduler state. Sero does not overwrite an
+unreadable Scheduler state file. Repair that file before you enable the job.
 
 ### Memory context may not be visible
 
@@ -207,8 +236,7 @@ Update memory: this demo project now uses npm instead of pnpm.
 
 ## More detail
 
-This guide is the user-facing overview. For implementation details, context
-budgets, QMD integration, lifecycle hooks, and exact file behavior, see the
-source reference
-[`docs/features/memory.md`](https://github.com/sero-labs/sero/blob/main/docs/features/memory.md)
-on GitHub.
+This guide is the user-facing overview. The
+[`sero-memory-plugin`](https://github.com/sero-labs/sero/tree/main/plugins/sero-memory-plugin)
+source contains implementation details for context budgets, QMD integration,
+lifecycle hooks, and file behaviour.

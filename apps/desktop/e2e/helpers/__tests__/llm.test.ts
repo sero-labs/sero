@@ -29,6 +29,7 @@ describe('llm helper', () => {
     delete process.env.OPENAI_API_KEY;
     delete process.env.GEMINI_API_KEY;
     delete process.env.GOOGLE_API_KEY;
+    delete process.env.OPENROUTER_API_KEY;
   });
 
   afterEach(() => {
@@ -79,12 +80,21 @@ describe('llm helper', () => {
       expect(getLlmConfig()).toBeNull();
     });
 
-    it('uses Anthropic cheap defaults', () => {
+    it('uses OpenRouter cheap defaults', () => {
       process.env.SERO_E2E_LLM_MODE = 'cheap';
       expect(getLlmConfig()).toEqual({
         mode: 'cheap',
-        provider: 'anthropic',
-        modelId: 'claude-haiku-4-5',
+        provider: 'openrouter',
+        modelId: 'openai/gpt-5.6-luna',
+      });
+    });
+
+    it('uses the OpenRouter full default', () => {
+      process.env.SERO_E2E_LLM_MODE = 'full';
+      expect(getLlmConfig()).toEqual({
+        mode: 'full',
+        provider: 'openrouter',
+        modelId: 'minimax/minimax-m3',
       });
     });
 
@@ -128,6 +138,7 @@ describe('llm helper', () => {
         'OPENAI_API_KEY',
         'GEMINI_API_KEY',
         'GOOGLE_API_KEY',
+        'OPENROUTER_API_KEY',
       ]);
     });
 
@@ -136,12 +147,13 @@ describe('llm helper', () => {
       expect(hasLlmCredentials('anthropic')).toBe(false);
       process.env.ANTHROPIC_API_KEY = 'test-key';
       expect(hasLlmCredentials('anthropic')).toBe(true);
+      expect(getLlmCredentialEnvVars('openrouter')).toEqual(['OPENROUTER_API_KEY']);
     });
 
     it('requires credentials for ready checks', () => {
       process.env.SERO_E2E_LLM_MODE = 'cheap';
       expect(requireLlmReady()).toEqual(expect.objectContaining({ skip: true }));
-      process.env.ANTHROPIC_API_KEY = 'test-key';
+      process.env.OPENROUTER_API_KEY = 'test-key';
       expect(requireLlmReady()).toEqual({ skip: false });
     });
 
@@ -153,15 +165,15 @@ describe('llm helper', () => {
 
     it('returns only non-empty selected-provider launch env values', () => {
       process.env.SERO_E2E_LLM_MODE = 'cheap';
-      process.env.ANTHROPIC_API_KEY = 'secret';
+      process.env.OPENROUTER_API_KEY = 'secret';
       process.env.OPENAI_API_KEY = 'other-secret';
       process.env.SERO_E2E_LLM_ALT_MODEL = 'claude-alt-test';
       expect(getLlmLaunchEnv()).toEqual({
         SERO_E2E_LLM_MODE: 'cheap',
-        SERO_E2E_LLM_PROVIDER: 'anthropic',
-        SERO_E2E_LLM_MODEL: 'claude-haiku-4-5',
+        SERO_E2E_LLM_PROVIDER: 'openrouter',
+        SERO_E2E_LLM_MODEL: 'openai/gpt-5.6-luna',
         SERO_E2E_LLM_ALT_MODEL: 'claude-alt-test',
-        ANTHROPIC_API_KEY: 'secret',
+        OPENROUTER_API_KEY: 'secret',
       });
     });
   });

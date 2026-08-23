@@ -1,72 +1,54 @@
 # Plugin End-to-End Example
 
-If you want the smallest public example that shows **UI + extension + runtime**
-together, use the in-repo **Notes** reference plugin.
+The maintained Notes example shows all three plugin surfaces in one package.
+It uses monorepo `workspace:` and `catalog:` dependencies. Use it inside the
+Sero monorepo unless you port its complete manifest to published dependencies:
 
-## Canonical example
+- [source folder](https://github.com/sero-labs/sero/tree/main/packages/templates/skills/sero-plugin/example/sero-notes-plugin)
+- [file map and copy instructions](https://github.com/sero-labs/sero/blob/main/packages/templates/skills/sero-plugin/example/README.md)
 
-- example folder:
-  [`packages/templates/skills/sero-plugin/example/sero-notes-plugin/`](https://github.com/sero-labs/sero/tree/main/packages/templates/skills/sero-plugin/example/sero-notes-plugin)
-- walkthrough:
-  [`packages/templates/skills/sero-plugin/example/README.md`](https://github.com/sero-labs/sero/blob/main/packages/templates/skills/sero-plugin/example/README.md)
+Use this index to find the smallest relevant example.
 
-This is the best reference when you need to understand how a Sero plugin can
-ship all of these together:
-- a React UI
-- a Pi extension
-- a plugin-owned background runtime
-- a static dashboard widget component contribution
-- shared state types across surfaces
+For an external repository, use the maintained
+[Kanban starter](https://github.com/sero-labs/sero-kanban-plugin) and its
+[setup guide](https://github.com/sero-labs/sero-kanban-plugin/blob/main/README.md).
 
-## What it demonstrates
+| Task | File |
+| --- | --- |
+| Define the Pi, app, and plugin manifests | `package.json` |
+| Set runtime ABI 2 and required host capabilities | `package.json` |
+| Define JSON-serialisable state and defaults | `shared/types.ts` |
+| Register a tool, command, and CLI metadata | `extension/index.ts` |
+| Read and write state from the React UI | `ui/NotesApp.tsx` |
+| Call a plugin tool from the UI | `ui/NotesApp.tsx` |
+| Create and clean up long-running behavior | `runtime/index.ts` |
+| Contribute a static Dashboard widget | `package.json` and `ui/widgets/NotesWidget.tsx` |
+| Register a widget for the renderer session | `ui/NotesApp.tsx` |
+| Expose the app and widget through Module Federation | `vite.config.ts` |
+| Isolate plugin CSS | `ui/styles.css` and `vite.config.ts` |
 
-The Notes example includes:
-- `package.json` with `pi.extensions`, `sero.app.runtime`, a
-  `ui.dashboard.widget` contribution, and
-  `requiredHostCapabilities`
-- `shared/types.ts` as the shared state contract
-- `extension/index.ts` for tools, commands, and CLI-bridged behavior
-- `runtime/index.ts` for long-lived background orchestration
-- `ui/NotesApp.tsx` plus a widget component and Module Federation config
+## Module Federation checks
 
-## File shape
+The manifest uses component names without `./`. The Vite `exposes` map uses
+keys with `./`:
 
 ```text
-sero-notes-plugin/
-├── package.json
-├── extension/
-├── runtime/
-├── shared/
-├── ui/
-└── vite.config.ts
+manifest component: NotesApp
+Vite exposed key:  ./NotesApp
 ```
 
-## Which example to start from
+`NotesApp.tsx` and `NotesWidget.tsx` each have a default React component export.
+Each directly exposed entry also imports `styles.css`. The Vite configuration
+uses `base: './'` for production and `seroPluginCssScope()` after Tailwind.
 
-### Start from Daily Quote when you want:
-- the fastest starter path
-- UI + extension only
-- the simplest structure to copy first
+## Select only the parts that you need
 
-See [Plugin Quickstart](/reference/plugin-quickstart).
+For UI and extension only, remove `runtime/`, the runtime manifest field, the
+`appRuntime.background` capability, and runtime typecheck entries. For an
+extension-only plugin, also remove `ui/`, `vite.config.ts`, app UI fields,
+widgets and other contributions, Module Federation exposes, and UI build or
+typecheck entries.
 
-### Start from Notes when you want:
-- UI + extension + runtime together
-- a runtime-enabled example
-- a reference for widgets and background behavior
-
-The Notes widget uses `sero.app.contributes.components`. This static manifest
-path is separate from `useWidgetRegistration()`, which registers a widget only
-for the current renderer lifecycle. See
-[Plugin Extension Points](/reference/plugin-extension-points).
-
-## Source-material version
-
-For the deeper repo-side writeup, see:
-- [`docs/plugins/end-to-end-example.md`](https://github.com/sero-labs/sero/blob/main/docs/plugins/end-to-end-example.md)
-
-## See also
-
-- [Plugins](/reference/plugins)
-- [Plugin Quickstart](/reference/plugin-quickstart)
-- [Plugin Extension Points](/reference/plugin-extension-points)
+Follow [Plugin Quickstart](/reference/plugin-quickstart) for the complete first
+journey. Use [Plugin Extension Points](/reference/plugin-extension-points) for
+the contribution schema and lifecycle rules.

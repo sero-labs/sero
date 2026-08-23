@@ -148,10 +148,40 @@ function findLatestUserTurn(
   return null;
 }
 
+/**
+ * What to tell an agent that tried to commit by hand.
+ *
+ * The `sero git` commands live on the shared CLI. A session with its own private
+ * registry — a Room member — does not have them, and telling it to run one sends
+ * it round a loop of `Unknown command: git` until it gives up. In one live Room
+ * that cost eight blocked calls across three members, and stopped two of them
+ * dead: they asked the user how to commit, which is not a question a user can
+ * answer. Nothing was ever at risk, because a mutating turn is checkpointed when
+ * it ends — the member just never knew that.
+ */
+function blockedGitReason(hasGitCommands: boolean): string {
+  if (!hasGitCommands) {
+    return 'Mutating git commands are managed by Sero, and this session has no git command of its own.\n'
+      + 'You do not need to commit: everything you change is committed for you when your turn ends.\n'
+      + 'Read-only git commands (status, log, diff, show, blame, remote -v, branch) are still allowed.';
+  }
+  return 'Mutating git commands are managed by Sero — use the sero-cli tool instead:\n'
+    + '  sero git status              Working tree status\n'
+    + '  sero git checkpoint [msg]    Commit all changes\n'
+    + '  sero git push [branch]       Push to remote\n'
+    + '  sero git remote              List remotes\n'
+    + '  sero git remote add <n> <u>  Add a remote\n'
+    + '  sero git log                 Recent commits\n'
+    + '  sero git fetch               Fetch from remote\n'
+    + 'Read-only bash git commands (status, log, diff, show, blame, remote -v, branch) are still allowed.';
+}
+
 export function registerGitTurnUndoCapture(
   pi: ExtensionAPI,
   workspaceId: string,
   entries: GitCheckpointSessionEntries,
+  /** False for a session with a private CLI registry, which has no `sero git`. */
+  hasGitCommands = true,
 ): void {
   let agentRunHasMutatingToolCalls = false;
   let hadWorkingCopyChangesAtAgentStart = false;
@@ -221,19 +251,7 @@ export function registerGitTurnUndoCapture(
 
     // Block mutating git commands — VCS operations are handled by the sero-cli tool
     if (hasMutatingGit(command)) {
-      return {
-        block: true,
-        reason:
-          'Mutating git commands are managed by Sero — use the sero-cli tool instead:\n' +
-          '  sero git status              Working tree status\n' +
-          '  sero git checkpoint [msg]    Commit all changes\n' +
-          '  sero git push [branch]       Push to remote\n' +
-          '  sero git remote              List remotes\n' +
-          '  sero git remote add <n> <u>  Add a remote\n' +
-          '  sero git log                 Recent commits\n' +
-          '  sero git fetch               Fetch from remote\n' +
-          'Read-only bash git commands (status, log, diff, show, blame, remote -v, branch) are still allowed.',
-      };
+      return { block: true, reason: blockedGitReason(hasGitCommands) };
     }
 
     if (!isLikelyReadOnlyBash(command)) {

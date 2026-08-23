@@ -17,8 +17,11 @@
     "build:electron": "node scripts/build-electron.mjs",
     "build": "pnpm run build:electron && vite build",
     "start": "electron .",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
+    "typecheck": "pnpm run typecheck:source && pnpm run typecheck:tests",
+    "typecheck:source": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit",
+    "typecheck:tests": "tsc -p tsconfig.renderer-tests.json --noEmit && tsc -p tsconfig.electron-tests.json --noEmit",
     "test": "vitest run",
+    "test:packaging": "SERO_REQUIRE_PACKAGED_PLUGINS=1 vitest run electron/__tests__/features/plugins/web-plugin-packaging.test.ts",
     "test:watch": "vitest",
     "e2e": "pnpm run build && pnpm exec playwright test",
     "e2e:contract": "pnpm run build && pnpm exec playwright test --project=contract",
@@ -67,7 +70,8 @@
     "qrcode": "^1.5.4",
     "supports-color": "7.2.0",
     "typebox": "catalog:",
-    "ws": "^8.21.3"
+    "ws": "^8.21.3",
+    "yaml": "2.9.0"
   },
   "devDependencies": {
     "@discordjs/rest": "^2.6.3",

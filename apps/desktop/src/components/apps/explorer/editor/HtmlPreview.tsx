@@ -12,10 +12,11 @@
  * is fine for self-contained HTML files (inline CSS/JS, data: images).
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FileCode2, Loader2 } from 'lucide-react';
 
 const HTML_EXTENSIONS = new Set(['html', 'htm']);
+const HTML_REFRESH_INTERVAL_MS = 5_000;
 
 /** Check if a file path is an HTML file based on its extension. */
 function isHtmlFile(filePath: string): boolean {
@@ -26,27 +27,43 @@ function isHtmlFile(filePath: string): boolean {
 interface Props {
   content: string;
   filePath: string;
+  streaming?: boolean;
 }
 
-export function HtmlPreview({ content, filePath }: Props) {
+export function HtmlPreview({ content, filePath, streaming = false }: Props) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const currentUrlRef = useRef<string | null>(null);
+  const currentFileRef = useRef<string | null>(null);
+  const lastRefreshRef = useRef<number | null>(null);
 
-  // Create / recreate blob URL whenever content changes, and revoke the
-  // previous one to avoid memory leaks.
+  // Rebuilding the blob reloads the iframe and reruns its scripts. Limit live
+  // writes to one reload every five seconds. The completed write always lands.
   useEffect(() => {
+    const now = Date.now();
+    const fileChanged = currentFileRef.current !== filePath;
+    const refreshDue = lastRefreshRef.current === null
+      || now - lastRefreshRef.current >= HTML_REFRESH_INTERVAL_MS;
+    if (streaming && !fileChanged && !refreshDue) return;
+
+    currentFileRef.current = filePath;
+    lastRefreshRef.current = now;
+    if (currentUrlRef.current) URL.revokeObjectURL(currentUrlRef.current);
+
     if (!content) {
+      currentUrlRef.current = null;
       setBlobUrl(null);
       return;
     }
 
     const blob = new Blob([content], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
+    currentUrlRef.current = url;
     setBlobUrl(url);
+  }, [content, filePath, streaming]);
 
-    return () => {
-      URL.revokeObjectURL(url);
-    };
-  }, [content]);
+  useEffect(() => () => {
+    if (currentUrlRef.current) URL.revokeObjectURL(currentUrlRef.current);
+  }, []);
 
   const fileName = filePath.split('/').pop() ?? filePath;
 

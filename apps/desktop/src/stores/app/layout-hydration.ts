@@ -14,6 +14,11 @@ import { useAppStore } from './state';
 
 let unsubscribeDashboardBackground: (() => void) | null = null;
 
+function isGlobalApp(state: AppState, appId: string): boolean {
+  const entry = state.apps.find((candidate) => candidate.id === appId);
+  return entry?.builtin === true || entry?.manifest?.scope === 'global';
+}
+
 /** Load layout state from disk and hydrate all stores. */
 export async function loadLayout(): Promise<void> {
   try {
@@ -54,12 +59,6 @@ export async function loadLayout(): Promise<void> {
       if (typeof state.chatPanelSizePct === 'number' && state.chatPanelSizePct > 0) {
         update.chatPanelSizePct = state.chatPanelSizePct;
       }
-      if (
-        typeof state.chatCollaborationSizePct === 'number' &&
-        state.chatCollaborationSizePct > 0
-      ) {
-        update.chatCollaborationSizePct = state.chatCollaborationSizePct;
-      }
 
       // Hydrate theme via theme store (handles presets + mode)
       await hydrateThemeStore(state.theme, state.activeThemeId);
@@ -72,14 +71,29 @@ export async function loadLayout(): Promise<void> {
       if (typeof state.themeEditorAutoSave === 'boolean') {
         update.themeEditorAutoSave = state.themeEditorAutoSave;
       }
+      if (state.toolCallLayout === 'rows' || state.toolCallLayout === 'rail') {
+        update.toolCallLayout = state.toolCallLayout;
+      }
 
       // Hydrate active app
       if (state.activeApp && typeof state.activeApp === 'string') {
         update.activeApp = state.activeApp;
       }
+      if (state.appViewIds && typeof state.appViewIds === 'object') {
+        update.appViewIds = state.appViewIds;
+      }
 
       useAppStore.setState(update);
-      seedNavigationHistory(update.activeApp ?? useAppStore.getState().activeApp);
+      const hydratedApp = update.activeApp ?? useAppStore.getState().activeApp;
+      const app = useAppStore.getState();
+      const workspaceId = state.activeWorkspaceId ?? undefined;
+      const scopedViews = update.appViewIds?.[hydratedApp];
+      const globalApp = isGlobalApp(app, hydratedApp);
+      seedNavigationHistory(
+        hydratedApp,
+        globalApp ? scopedViews?.global : workspaceId ? scopedViews?.[workspaceId] : undefined,
+        globalApp ? undefined : workspaceId,
+      );
       hydrateZoom(state.zoomFactor);
 
       // Hydrate active workspace into workspace store
@@ -124,5 +138,13 @@ export async function loadLayout(): Promise<void> {
   }
 
   useAppStore.setState({ layoutReady: true });
-  seedNavigationHistory(useAppStore.getState().activeApp);
+  const app = useAppStore.getState();
+  const workspaceId = useWorkspaceStore.getState().activeWorkspaceId ?? undefined;
+  const scopedViews = app.appViewIds[app.activeApp];
+  const globalApp = isGlobalApp(app, app.activeApp);
+  seedNavigationHistory(
+    app.activeApp,
+    globalApp ? scopedViews?.global : workspaceId ? scopedViews?.[workspaceId] : undefined,
+    globalApp ? undefined : workspaceId,
+  );
 }

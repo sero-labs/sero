@@ -20,7 +20,7 @@ export function isExternalApiKeyConfigured(
     && status.source !== 'runtime';
 }
 
-// Mirrors Pi API-key auth.json keys from docs/providers.md and
+// Mirrors Pi API-key auth.json keys from the Pi provider contracts and
 // env-api-keys.ts. Sero still stores credentials in ~/.sero-ui/agent/auth.json.
 const BUILTIN_API_KEY_PROVIDERS: NamedProvider[] = [
   { id: 'anthropic', name: 'Anthropic' }, // ANTHROPIC_OAUTH_TOKEN or ANTHROPIC_API_KEY

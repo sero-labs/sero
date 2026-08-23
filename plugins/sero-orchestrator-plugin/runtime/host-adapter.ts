@@ -66,6 +66,8 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
 
     listToolCatalog: () => ctx.host.subagents.listToolCatalog(ctx.workspaceId),
 
+    listSkillCatalog: () => ctx.host.subagents.listSkillCatalog(ctx.workspaceId),
+
     listAgentCatalog: () => ctx.host.subagents.listAgentCatalog(ctx.workspaceId),
 
     writeArtifact: async (relativePath, content) => {
@@ -97,15 +99,28 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
       return { worktreePath: result.worktreePath, branchName: result.branchName };
     },
     removeWorktree: (loopId, options) => ctx.host.git.removeWorktree(ctx.workspacePath, loopId, options),
+    createCheckpoint: (worktreePath, message) => ctx.host.git.createCheckpoint(worktreePath, message),
+    getDiffSummary: (worktreePath) => ctx.host.git.getDiffSummary(worktreePath),
     getWorkspaceStatus: () => ctx.host.git.getWorkspaceStatus(ctx.workspacePath),
     stashWorkspaceChanges: (message) => ctx.host.git.stashWorkspaceChanges(ctx.workspacePath, message),
     listPullRequests: () => ctx.host.git.listPullRequests(ctx.workspacePath),
     runCommand: (command, timeoutMs) => ctx.host.workspace.runCommand(ctx.workspaceId, ctx.workspacePath, command, timeoutMs),
 
-    notify: (message, type) => ctx.host.notifications.notify({ message, type }),
+    notify: (message, type, options) =>
+      ctx.host.notifications.notify({
+        message,
+        type,
+        subtitle: options?.subtitle,
+        openTarget: options?.openApp ? { appId: ctx.appId } : undefined,
+      }),
     requestChoice: (request) => ctx.host.notifications.requestChoice(request),
 
     session: ctx.host.session,
+
+    // Absent unless this host build installed the capability for this plugin.
+    persistentSessions: ctx.host.persistentSessions,
+
+    skills: ctx.host.skills,
 
     library,
 

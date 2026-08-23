@@ -1,9 +1,8 @@
 # Dashboard Components
 
-`@sero-ai/ui` ships a set of shared **dashboard components** for building compact
-dashboard widgets and data-dense plugin views. They give widgets one visual
-foundation — consistent spacing, typography, semantic status colours and
-overflow behaviour — without every plugin re-declaring layout and colours.
+`@sero-ai/ui` provides shared dashboard components for compact widgets and
+plugin views. Use them for consistent spacing, text, status colours, and
+overflow behaviour.
 
 Import everything from the package root:
 
@@ -47,8 +46,8 @@ preview, or copy one as a starting point:
 import { StarterExample, SchedulerExample } from '@sero-ai/ui/reference';
 ```
 
-`kind`: _primitive_ = existing `@sero-ai/ui` primitive recommended for widgets;
-_composite_ = a dashboard component. All are **stable** unless noted.
+In the tables, _primitive_ means an existing `@sero-ai/ui` primitive that is
+suitable for widgets. _Composite_ means a dashboard component.
 
 ## Layout
 
@@ -121,11 +120,8 @@ the plugin owns fetching and retry.
 
 ## Glass styling
 
-The dashboard is a frosted glass board. `WidgetContent` applies the glass token
-scope automatically, so these components render as translucent surfaces — raised
-cards, flat rows — that read as part of the tile. You write nothing extra; there
-are no glass classes to add and no `backdrop-filter` to set (the host tile
-provides the single blur).
+`WidgetContent` applies the dashboard glass token scope. Do not add glass
+classes or `backdrop-filter`. The host tile provides the blur.
 
 For a full plugin view that should stay solid rather than glass, opt out with
 `<WidgetContent glass={false}>`. Form controls and portalled menus stay solid
@@ -145,9 +141,12 @@ its own files:
 emitted for you. Import `../styles.css` from every directly-exposed Module
 Federation entry.
 
+Sero wraps contributed components in `PluginStyleScope`. Use the shared
+stylesheet and the `seroPluginCssScope` Vite helper so document-level Tailwind
+selectors stay inside this scope. Sero's design tokens inherit from the host.
+
 ## Contributing a reusable component
 
-When a pattern proves useful in more than one widget or plugin, add it under
-`packages/ui/src/components/dashboard/`, build it from existing primitives and
-design tokens, export it from the package root, add a `catalog.ts` entry, and
-keep this page and the `sero-dashboard-ui` skill catalogue in step.
+For an in-repository contribution, add a reused pattern under
+`packages/ui/src/components/dashboard/`. Build it from existing primitives and
+design tokens. Export it from the package root, and add it to the catalogue.
