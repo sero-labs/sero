@@ -107,14 +107,14 @@ describe('buildWorkspaceContainerConfig', () => {
 
   it('normalises relative-looking inputs before deduplication', async () => {
     const mgr = makeFakeManager({
-      mounts: ['/host/data/'],
-      roots: [{ id: 'data', name: 'data', path: '/host/data', kind: 'folder' }],
+      mounts: ['./host/data/'],
+      roots: [{ id: 'data', name: 'data', path: './host/data', kind: 'folder' }],
     });
 
     const cfg = await buildWorkspaceContainerConfig(mgr, 'ws-1', '/host/ws');
 
     expect(cfg.writableMounts).toHaveLength(1);
-    expect(cfg.writableMounts?.[0]).toBe(path.resolve('/host/data'));
+    expect(cfg.writableMounts?.[0]).toBe(path.resolve('./host/data'));
   });
 
   it('skips all reference / mount / root work when isolated=true', async () => {
