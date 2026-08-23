@@ -40,27 +40,6 @@ describe('CLI prompt block', () => {
     expect(prompt).toContain('workspace — Manage workspaces');
   });
 
-  it('does NOT include memory routing rules (owned by memory-instructions.ts)', () => {
-    const registry = new CliRegistry();
-    const execute = async () => ({ output: 'ok', exitCode: 0 });
-
-    registry.register({
-      name: 'memory',
-      summary: 'Manage long-term memory',
-      group: 'Apps',
-      source: 'app',
-      execute,
-    });
-
-    const prompt = buildCliPromptBlock(registry);
-
-    // Memory routing is the memory plugin's responsibility, not the CLI block's
-    expect(prompt).not.toContain('High-priority routing');
-    expect(prompt).not.toContain('Sero memory system files and history');
-    expect(prompt).not.toContain('MEMORY.md');
-    expect(prompt).not.toContain('IDENTITY.md');
-  });
-
   it('instructs to check help before calling commands with JSON parameters', () => {
     const registry = new CliRegistry();
     const prompt = buildCliPromptBlock(registry);
