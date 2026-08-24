@@ -42,12 +42,14 @@ things. Each round must move towards a verdict, never away from one.
 - Do the same for every fix on a re-review. A fix can leave the identical gap in the path beside it, and can add a new fault.
 - Re-read changed logic in full. A green test suite does not clear a concurrency or ordering change.
 
-## 3. One review, one comment
+## 3. Post each review round
 
 - Post to the PR yourself as part of the job. Do not ask first.
-- Keep **one** comment per PR. Update it with
-  `gh pr comment <pr> --edit-last --create-if-none --body-file <file>`.
-  Never stack a comment per round — the PR holds one current review, not a pile of rounds and corrections. `--edit-last` on its own fails when you have not commented on that PR yet, and it edits *your* last comment only, so a reply from someone else in between does not break it.
+- Post each completed review round as a new comment with
+  `gh pr comment <pr> --body-file <file>`. Separate comments preserve the review
+  history and notify agents that watch the PR.
+- Use `--edit-last` only to correct the comment for the current round. Do not
+  edit an earlier comment to publish a later review round.
 - A delta re-review opens with the status of every previous finding (fixed / not
   fixed / changed), then the new ones.
 - Lead with the verdict, then the blocking findings, then the non-blocking notes.
