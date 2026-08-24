@@ -71,8 +71,8 @@ async function buildImage(
     throw new Error(`Dockerfile not found: ${dockerfilePath}`);
   }
 
-  const contextDir = path.dirname(dockerfilePath);
-  const filename = path.basename(dockerfilePath);
+  const contextDir = path.dirname(path.dirname(path.dirname(path.dirname(dockerfilePath))));
+  const filename = path.relative(contextDir, dockerfilePath);
 
   console.log(`[container] Building image ${imageName} from ${dockerfilePath}...`);
 

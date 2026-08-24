@@ -60,9 +60,11 @@ async function main() {
   await fs.mkdir(packRoot, { recursive: true });
   await fs.mkdir(archiveDir, { recursive: true });
 
-  installPlaywrightBrowsers(packRoot);
+  const lockedToolsRoot = path.join(workRoot, 'locked-tools');
+  await installLockedRuntimeTools(lockedToolsRoot);
+  installPlaywrightBrowsers(packRoot, lockedToolsRoot);
   await removePlaywrightInstallLinks(packRoot);
-  installAgentBrowser(packRoot, target.platform);
+  await installAgentBrowser(packRoot, target.platform, lockedToolsRoot);
   await validateAgentBrowserShims({ packRoot, artifact: target });
   await validateBrowserPack({ packRoot, artifact: target });
   await createTarGz(packRoot, archivePath);
@@ -117,8 +119,17 @@ function assertCanBuildOnHost(target) {
   }
 }
 
-function installPlaywrightBrowsers(packRoot) {
-  run('npx', ['-y', `playwright@${pins.playwrightVersion}`, 'install', 'chromium', 'ffmpeg'], {
+async function installLockedRuntimeTools(lockedToolsRoot) {
+  const lockRoot = path.join(desktopRoot, 'runtime-tools');
+  await fs.mkdir(lockedToolsRoot, { recursive: true });
+  await Promise.all(['package.json', 'package-lock.json'].map((name) => (
+    fs.copyFile(path.join(lockRoot, name), path.join(lockedToolsRoot, name))
+  )));
+  run('npm', ['ci', '--ignore-scripts', '--workspaces=false'], { cwd: lockedToolsRoot });
+}
+
+function installPlaywrightBrowsers(packRoot, lockedToolsRoot) {
+  run(process.execPath, [path.join(lockedToolsRoot, 'node_modules/playwright/cli.js'), 'install', 'chromium', 'ffmpeg'], {
     env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: packRoot },
   });
 }
@@ -127,15 +138,50 @@ async function removePlaywrightInstallLinks(packRoot) {
   await fs.rm(path.join(packRoot, '.links'), { recursive: true, force: true });
 }
 
-function installAgentBrowser(packRoot, platform) {
+async function installAgentBrowser(packRoot, platform, lockedToolsRoot) {
   const agentRoot = path.join(packRoot, 'agent-browser');
-  run('npm', ['install', '--prefix', agentRoot, `agent-browser@${pins.agentBrowserVersion}`]);
+  await fs.mkdir(agentRoot, { recursive: true });
+  const lock = parseJson(await fs.readFile(path.join(lockedToolsRoot, 'package-lock.json'), 'utf8'), 'runtime package lock');
+  for (const packagePath of lockedPackageClosure(lock.packages, 'node_modules/agent-browser')) {
+    const destination = path.join(agentRoot, packagePath);
+    await fs.mkdir(path.dirname(destination), { recursive: true });
+    await fs.cp(path.join(lockedToolsRoot, packagePath), destination, { recursive: true });
+  }
   materializeAgentBrowserBinSync(agentRoot, platform);
+}
+
+export function lockedPackageClosure(packages, rootPackagePath) {
+  const selected = new Set();
+  const pending = [rootPackagePath];
+  while (pending.length > 0) {
+    const packagePath = pending.pop();
+    if (selected.has(packagePath)) continue;
+    const metadata = packages[packagePath];
+    if (!metadata) throw new Error(`Runtime lock is missing ${packagePath}`);
+    selected.add(packagePath);
+    for (const dependency of Object.keys({ ...metadata.dependencies, ...metadata.optionalDependencies })) {
+      pending.push(resolveLockedDependency(packages, packagePath, dependency));
+    }
+  }
+  return [...selected].sort();
+}
+
+function resolveLockedDependency(packages, parentPath, dependency) {
+  let scope = parentPath;
+  while (scope) {
+    const nested = `${scope}/node_modules/${dependency}`;
+    if (packages[nested]) return nested;
+    const separator = scope.lastIndexOf('/node_modules/');
+    scope = separator === -1 ? '' : scope.slice(0, separator);
+  }
+  const hoisted = `node_modules/${dependency}`;
+  if (packages[hoisted]) return hoisted;
+  throw new Error(`Runtime lock cannot resolve ${dependency} from ${parentPath}`);
 }
 
 function materializeAgentBrowserBinSync(agentRoot, platform) {
   const packageJsonPath = path.join(agentRoot, 'node_modules/agent-browser/package.json');
-  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+  const packageJson = parseJson(readFileSync(packageJsonPath, 'utf8'), 'agent-browser package');
   const binValue = typeof packageJson.bin === 'string' ? packageJson.bin : packageJson.bin?.['agent-browser'];
   if (!binValue) throw new Error('agent-browser package does not declare an agent-browser bin');
 
@@ -250,18 +296,26 @@ function currentBuiltMetadata(existingArtifact, slug, urlBase) {
 
 async function readExistingMetadata() {
   if (!existsSync(metadataPath)) return null;
-  return JSON.parse(await fs.readFile(metadataPath, 'utf8'));
+  return parseJson(await fs.readFile(metadataPath, 'utf8'), 'browser-pack metadata');
+}
+
+function parseJson(contents, label) {
+  try {
+    return JSON.parse(contents);
+  } catch (error) {
+    throw new Error(`Invalid ${label}: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 function run(command, args, options = {}) {
   const invocation = resolveRunCommand(command);
   console.log(`$ ${[command, ...args].join(' ')}`);
-  const result = spawnSync(invocation.command, args, {
-    cwd: desktopRoot,
+  const result = spawnSync(invocation.command, [...invocation.prefixArgs, ...args], {
+    cwd: options.cwd ?? desktopRoot,
     env: options.env ?? process.env,
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
-    shell: invocation.shell,
+    shell: false,
     stdio: options.capture ? ['ignore', 'pipe', 'pipe'] : 'inherit',
   });
   if (result.error) throw result.error;
@@ -275,8 +329,8 @@ function run(command, args, options = {}) {
 export function resolveRunCommand(command, platform = process.platform) {
   const usesWindowsCommandShim = platform === 'win32' && WINDOWS_CMD_SHIMS.has(command);
   return {
-    command: usesWindowsCommandShim ? `${command}.cmd` : command,
-    shell: usesWindowsCommandShim,
+    command: usesWindowsCommandShim ? (process.env.ComSpec ?? 'cmd.exe') : command,
+    prefixArgs: usesWindowsCommandShim ? ['/d', '/s', '/c', `${command}.cmd`] : [],
   };
 }
 
@@ -287,4 +341,3 @@ export function tarPathArgs(platform = process.platform) {
 function isMainModule() {
   return process.argv[1] ? path.resolve(process.argv[1]) === fileURLToPath(import.meta.url) : false;
 }
-

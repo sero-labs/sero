@@ -1,0 +1,11 @@
+{
+  "name": "@sero/runtime-tools-lock",
+  "private": true,
+  "version": "0.0.0",
+  "dependencies": {
+    "agent-browser": "0.27.3",
+    "npm": "11.19.0",
+    "pnpm": "10.34.5",
+    "playwright": "1.62.1"
+  }
+}

@@ -11,6 +11,7 @@ import {
   findBrowserArtifactAvailability,
   getBrowserPackManifest,
 } from '@electron/features/workspace/runtime/browser-pack/manifest';
+import { BROWSER_PACK_VERSION } from '../../../../../../scripts/browser-pack/browser-pack-config.mjs';
 
 type GeneratedArtifact = (typeof generatedArtifacts.artifacts)[keyof typeof generatedArtifacts.artifacts];
 type BuiltGeneratedArtifact = GeneratedArtifact & {
@@ -105,7 +106,7 @@ describe('browser pack manifest', () => {
 
     expect(Object.values(manifest.artifacts)).toHaveLength(builtArtifacts.length);
     for (const artifact of Object.values(manifest.artifacts)) {
-      expect(artifact.url).toMatch(/^https:\/\/github\.com\/sero-labs\/sero\/releases\/download\/browser-pack-2026-05-16\//);
+      expect(artifact.url.startsWith(`https://github.com/sero-labs/sero/releases/download/${BROWSER_PACK_VERSION}/`)).toBe(true);
       expect(artifact.sha256).toMatch(/^[a-f0-9]{64}$/);
     }
     for (const artifact of builtArtifacts) {

@@ -18,8 +18,8 @@ permissions:
 env:
   CI: true
   TURBO_TELEMETRY_DISABLED: 1
-  BROWSER_PACK_RELEASE: browser-pack-2026-05-16
-  BROWSER_PACK_DIR: apps/desktop/dist/browser-pack/2026-05-16
+  BROWSER_PACK_RELEASE: browser-pack-2026-08-24-r1234-f1011-mf1011-agent-0.27.3
+  BROWSER_PACK_DIR: apps/desktop/dist/browser-pack/2026-08-24
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -42,7 +42,7 @@ jobs:
           fi
           gh release create "$BROWSER_PACK_RELEASE" \
             --repo "$GITHUB_REPOSITORY" \
-            --title "Sero Browser Pack 2026-05-16" \
+            --title "Sero Browser Pack 2026-08-24" \
             --notes "Pinned host browser automation packs for Sero. Integrity is enforced by generated-artifacts.json SHA-256 metadata." \
             --prerelease
 
@@ -125,7 +125,7 @@ jobs:
       - name: Build browser pack
         run: |
           pnpm --filter @sero/desktop browser-pack:build -- \
-            --metadata-out dist/browser-pack/2026-05-16
+            --metadata-out dist/browser-pack/2026-08-24
 
       - name: Verify expected files
         run: |
@@ -197,7 +197,7 @@ jobs:
       - name: Merge committed metadata
         run: |
           pnpm --filter @sero/desktop browser-pack:merge-metadata -- \
-            --sidecar-dir dist/browser-pack/2026-05-16
+            --sidecar-dir dist/browser-pack/2026-08-24
 
       - name: Verify published artifacts
         run: pnpm --filter @sero/desktop browser-pack:verify-published

@@ -6,8 +6,11 @@ import { promisify } from 'node:util';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import runtimePins from '../../../../runtime-tools/pins.json';
+
 const execFileAsync = promisify(execFile);
 const scriptPath = path.join(process.cwd(), 'scripts/browser-pack/smoke-browser-pack.mjs');
+const chromiumRoot = `chromium-${runtimePins.browser.chromiumRevision}`;
 
 let tempRoot: string;
 
@@ -31,14 +34,14 @@ describe('smoke-browser-pack', () => {
 
   it('accepts the current Linux x64 Chromium archive layout', async () => {
     await createLinuxPack({
-      chromiumPath: 'chromium-1200/chrome-linux64/chrome',
+      chromiumPath: `${chromiumRoot}/chrome-linux64/chrome`,
       includePackageBin: true,
       executablePackageBin: true,
     });
 
     const result = await runSmoke(['--pack-root', tempRoot, '--platform', 'linux', '--arch', 'x64']);
 
-    expect(result.stdout).toContain('Chromium: chromium-1200/chrome-linux64/chrome');
+    expect(result.stdout).toContain(`Chromium: ${chromiumRoot}/chrome-linux64/chrome`);
     expect(result.stdout).toContain('Browser pack smoke passed for browser-linux-x64');
   });
 
@@ -88,7 +91,7 @@ async function runCustomShimValidation({ platform, candidate }: { platform: stri
 }
 
 async function createLinuxPack({
-  chromiumPath = 'chromium-1200/chrome-linux/chrome',
+  chromiumPath = `${chromiumRoot}/chrome-linux/chrome`,
   includePackageBin,
   executablePackageBin,
 }: {
@@ -109,7 +112,7 @@ async function createLinuxPack({
 
 async function createWindowsPack({ candidate, clean = true }: { candidate: string; clean?: boolean }) {
   if (clean) await fs.rm(tempRoot, { recursive: true, force: true });
-  await writeFile('chromium-1200/chrome-win/chrome.exe', '', 0o644);
+  await writeFile(`${chromiumRoot}/chrome-win/chrome.exe`, '', 0o644);
   await writeFile('ffmpeg-1011/ffmpeg-win64.exe', '', 0o644);
   await writeFile(candidate, '@echo off\r\nnode "%~dp0..\\node_modules\\agent-browser\\dist\\cli.js" %*\r\n', 0o644);
   await writeFile('agent-browser/node_modules/agent-browser/dist/cli.js', '', 0o644);

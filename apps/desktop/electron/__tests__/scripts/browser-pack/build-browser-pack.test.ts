@@ -9,10 +9,11 @@ describe('build-browser-pack', () => {
   it('runs npm command shims through cmd on Windows', async () => {
     const { resolveRunCommand } = await import(scriptUrl);
 
-    expect(resolveRunCommand('npx', 'win32')).toEqual({ command: 'npx.cmd', shell: true });
-    expect(resolveRunCommand('npm', 'win32')).toEqual({ command: 'npm.cmd', shell: true });
-    expect(resolveRunCommand('tar', 'win32')).toEqual({ command: 'tar', shell: false });
-    expect(resolveRunCommand('npx', 'linux')).toEqual({ command: 'npx', shell: false });
+    const command = process.env.ComSpec ?? 'cmd.exe';
+    expect(resolveRunCommand('npx', 'win32')).toEqual({ command, prefixArgs: ['/d', '/s', '/c', 'npx.cmd'] });
+    expect(resolveRunCommand('npm', 'win32')).toEqual({ command, prefixArgs: ['/d', '/s', '/c', 'npm.cmd'] });
+    expect(resolveRunCommand('tar', 'win32')).toEqual({ command: 'tar', prefixArgs: [] });
+    expect(resolveRunCommand('npx', 'linux')).toEqual({ command: 'npx', prefixArgs: [] });
   });
 
   it('forces local tar paths on Windows drive-letter paths', async () => {
@@ -20,5 +21,21 @@ describe('build-browser-pack', () => {
 
     expect(tarPathArgs('win32')).toEqual(['--force-local']);
     expect(tarPathArgs('linux')).toEqual([]);
+  });
+
+  it('copies only agent-browser and its locked dependency closure', async () => {
+    const { lockedPackageClosure } = await import(scriptUrl);
+    const packages = {
+      'node_modules/agent-browser': { dependencies: { helper: '1.0.0' } },
+      'node_modules/helper': {},
+      'node_modules/npm': {},
+      'node_modules/playwright': {},
+      'node_modules/pnpm': {},
+    };
+
+    expect(lockedPackageClosure(packages, 'node_modules/agent-browser')).toEqual([
+      'node_modules/agent-browser',
+      'node_modules/helper',
+    ]);
   });
 });

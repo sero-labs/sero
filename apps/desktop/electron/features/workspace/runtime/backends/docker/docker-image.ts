@@ -61,8 +61,9 @@ export async function ensureDockerImage(options: DockerImageOptions = {}): Promi
     throw new Error(`Docker image ${imageRef} is unavailable or missing the Sero runtime toolchain; pull failed and Dockerfile was not found at ${dockerfilePath}. ${pull.stderr}`.trim());
   }
 
-  const build = await run(['build', '-t', imageRef, '--build-arg', `SERO_NODE_VERSION=${seroNodeImageVersionFromRef(imageRef)}`, '-f', 'Dockerfile.sero-node', '.'], {
-    cwd: imagesDir,
+  const contextDir = path.dirname(path.dirname(path.dirname(imagesDir)));
+  const build = await run(['build', '-t', imageRef, '--build-arg', `SERO_NODE_VERSION=${seroNodeImageVersionFromRef(imageRef)}`, '-f', path.relative(contextDir, dockerfilePath), '.'], {
+    cwd: contextDir,
     timeoutMs: 300_000,
   });
   if (build.exitCode !== 0) {
