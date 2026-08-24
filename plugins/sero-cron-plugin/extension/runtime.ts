@@ -217,7 +217,8 @@ export function createCronRuntime(): CronRuntime {
   }
 
   async function stopScheduler(): Promise<string> {
-    if (!scheduler?.isRunning()) {
+    const activeScheduler = scheduler;
+    if (!activeScheduler?.isRunning()) {
       warn('scheduler:stop-skipped', { reason: 'not running' });
       return 'Scheduler is not running.';
     }
@@ -226,11 +227,11 @@ export function createCronRuntime(): CronRuntime {
     stateWatcher = null;
     await withStateLock(statePath, async () => {
       const state = await readState(statePath);
-      state.lastTickMinute = scheduler!.getLastTickMinute();
+      state.lastTickMinute = activeScheduler.getLastTickMinute();
       state.lastSchedulerShutdown = new Date().toISOString();
       state.schedulerActive = false;
-      scheduler!.stop();
-      scheduler = null;
+      activeScheduler.stop();
+      if (scheduler === activeScheduler) scheduler = null;
       await writeState(statePath, state);
     });
     return '✓ Scheduler stopped';
@@ -395,12 +396,13 @@ export function createCronRuntime(): CronRuntime {
 
     stateWatcher?.stop();
     stateWatcher = null;
-    if (scheduler?.isRunning()) {
+    const activeScheduler = scheduler;
+    if (activeScheduler?.isRunning()) {
       if (statePath) {
         try {
           await withStateLock(statePath, async () => {
             const state = await readState(statePath);
-            state.lastTickMinute = scheduler!.getLastTickMinute();
+            state.lastTickMinute = activeScheduler.getLastTickMinute();
             state.lastSchedulerShutdown = new Date().toISOString();
             await writeState(statePath, state);
           });
@@ -411,8 +413,8 @@ export function createCronRuntime(): CronRuntime {
           });
         }
       }
-      scheduler.stop();
-      scheduler = null;
+      activeScheduler.stop();
+      if (scheduler === activeScheduler) scheduler = null;
     }
     initialized = false;
   }

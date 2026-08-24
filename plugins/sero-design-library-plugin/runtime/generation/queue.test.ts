@@ -179,8 +179,12 @@ describe('generating a variant', () => {
       expect(await readFile(path.join(directory, 'index.html'), 'utf8')).toBe(STUB_PAGE);
     }
 
-    const summary = (await readStateWithIndexes(harness.paths)).designs.find((entry) => entry.id === designId);
-    expect(summary?.variants.every((variant) => variant.previewPath !== undefined)).toBe(true);
+    await vi.waitFor(async () => {
+      const summary = (await readStateWithIndexes(harness.paths)).designs.find(
+        (entry) => entry.id === designId,
+      );
+      expect(summary?.variants.every((variant) => variant.previewPath !== undefined)).toBe(true);
+    }, FAST_POLL);
   });
 
   it('gives the run no platform tools and keeps imported reference pixels out', async () => {

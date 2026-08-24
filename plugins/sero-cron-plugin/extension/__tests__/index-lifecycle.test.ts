@@ -231,4 +231,27 @@ describe('cron extension lifecycle', () => {
     expect(schedulerInstances[1].start.mock.calls[0]?.[3]).toBeUndefined();
     expect(stateStore.get(statePathB)?.lastTickMinute).toBe('');
   }, LIFECYCLE_TEST_TIMEOUT_MS);
+
+  it('stops one scheduler safely when stop commands overlap', async () => {
+    const cwd = '/workspace-a';
+    const notify = vi.fn();
+    stateStore.set(statePathFor(cwd), defaultState({ jobs: [makeJob()] }));
+
+    const registerExtension = await loadExtension();
+    const { pi, handlers, commands } = createFakePi();
+    registerExtension(pi as never);
+
+    await handlers.session_start({}, { cwd });
+    await commands.get('cron')?.handler('on', { cwd, ui: { notify } });
+    expect(schedulerInstances).toHaveLength(1);
+
+    notify.mockClear();
+    await Promise.all([
+      commands.get('cron')?.handler('off', { cwd, ui: { notify } }),
+      commands.get('cron')?.handler('off', { cwd, ui: { notify } }),
+    ]);
+
+    expect(notify).toHaveBeenCalledTimes(2);
+    expect(notify.mock.calls.every(([message]) => message === '✓ Scheduler stopped')).toBe(true);
+  }, LIFECYCLE_TEST_TIMEOUT_MS);
 });

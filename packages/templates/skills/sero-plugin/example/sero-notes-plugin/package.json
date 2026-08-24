@@ -49,7 +49,7 @@
     }
   },
   "dependencies": {
-    "@sero-ai/extension-runtime": "^0.2.2",
+    "@sero-ai/extension-runtime": "^0.2.4",
     "typebox": "catalog:"
   },
   "peerDependencies": {

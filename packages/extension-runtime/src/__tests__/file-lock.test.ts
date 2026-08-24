@@ -84,6 +84,30 @@ describe('withLock', () => {
     await release();
   });
 
+  it('shares same-process ownership across bundled module copies', async () => {
+    const lockDir = path.join(dir, 'state.json.lock');
+    const token = 'host-copy-token';
+    const heldTokensKey = Symbol.for('@sero-ai/extension-runtime/file-lock/held-tokens');
+    type FileLockGlobals = typeof globalThis & { [heldTokensKey]?: Set<string> };
+    const fileLockGlobals = globalThis as FileLockGlobals;
+    const bundledCopyTokens = fileLockGlobals[heldTokensKey] ??= new Set<string>();
+    bundledCopyTokens.add(token);
+
+    await mkdir(lockDir);
+    await writeFile(path.join(lockDir, 'owner.json'), JSON.stringify({
+      pid: process.pid,
+      acquiredAt: Date.now(),
+      token,
+    }), 'utf8');
+
+    try {
+      await expect(withLock(lockDir, async () => 'ran', { timeoutMs: 200 }))
+        .rejects.toThrow(/Timed out/);
+    } finally {
+      bundledCopyTokens.delete(token);
+    }
+  });
+
   it('never reclaims an ownerless legacy reservation', async () => {
     const lockDir = path.join(dir, 'state.json.lock');
     // A paused legacy publisher and a crashed one have the same empty shape.

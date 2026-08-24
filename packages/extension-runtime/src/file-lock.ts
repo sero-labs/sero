@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { link, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { link, mkdir, readdir, readFile, rename, rm, rmdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { stateLockPath } from './state-lock-path';
@@ -64,8 +64,12 @@ interface LockOwner {
   token?: string;
 }
 
-/** Tokens this process currently holds; distinguishes our live locks from our leftovers. */
-const heldTokens = new Set<string>();
+const HELD_TOKENS_KEY = Symbol.for('@sero-ai/extension-runtime/file-lock/held-tokens');
+type FileLockGlobals = typeof globalThis & { [HELD_TOKENS_KEY]?: Set<string> };
+const fileLockGlobals = globalThis as FileLockGlobals;
+
+/** Tokens this process currently holds, shared by every bundled copy of this module. */
+const heldTokens = fileLockGlobals[HELD_TOKENS_KEY] ??= new Set<string>();
 
 async function readOwnerFile(file: string): Promise<LockOwner | null> {
   const raw = await readFile(file, 'utf8').catch(() => null);
@@ -122,6 +126,15 @@ async function disposeLockDir(lockDir: string): Promise<void> {
     throw error;
   }
   await rm(disposal, { recursive: true, force: true });
+}
+
+async function removeEmptyLockDir(lockDir: string): Promise<void> {
+  try {
+    await rmdir(lockDir);
+  } catch (error) {
+    if (hasCode(error, 'ENOENT', 'ENOTDIR', 'ENOTEMPTY', 'EEXIST')) return;
+    throw error;
+  }
 }
 
 async function listSiblings(lockDir: string): Promise<string[]> {
@@ -192,6 +205,7 @@ async function tryPublish(lockDir: string, token: string): Promise<boolean> {
   } catch (error) {
     await rm(staging, { recursive: true, force: true });
     if (hasCode(error, 'ENOENT', 'EEXIST', 'ENOTDIR', 'EINVAL')) return false;
+    await removeEmptyLockDir(lockDir);
     throw error;
   }
 

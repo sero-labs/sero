@@ -81,7 +81,7 @@ If the plugin ships **prompt templates** or **skills**, add `prompts/` and/or
     }
   },
   "dependencies": {
-    "@sero-ai/extension-runtime": "^0.2.2",
+    "@sero-ai/extension-runtime": "^0.2.4",
     "typebox": "catalog:"
   },
   "peerDependencies": {
