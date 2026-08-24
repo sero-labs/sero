@@ -21,6 +21,11 @@
       ],
       "outputs": ["dist/**"]
     },
+    "@sero/web-remote#build": {
+      "outputs": [
+        "$TURBO_ROOT$/apps/desktop/electron/features/gateway/web-dist/**"
+      ]
+    },
     "dev": {
       "cache": false,
       "persistent": true
