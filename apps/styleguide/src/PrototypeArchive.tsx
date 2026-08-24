@@ -37,7 +37,7 @@ const agentRoomScreens = [
   ],
   [
     '6 · Why this team? — optional supporting detail',
-    'agent-rooms/6 · Why this team? — optional supporting detail.jpg',
+    'agent-rooms/6 · Why this team — optional supporting detail.jpg',
   ],
   [
     '7 · Advanced settings — the complete blueprint',
