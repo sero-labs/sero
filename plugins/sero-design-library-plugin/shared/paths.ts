@@ -1,5 +1,8 @@
 import os from 'node:os';
 import path from 'node:path';
+// The dependency-free subpath: the full package pulls Node-only code that
+// cannot enter the browser UI bundle this file is part of.
+import { stateLockPath } from '@sero-ai/extension-runtime/state-lock-path';
 
 import { isSafeId } from './safe-id';
 export { isSafeId } from './safe-id';
@@ -59,11 +62,8 @@ export function designLibraryPathsFromHome(home: string): DesignLibraryPaths {
     stateFile: path.join(home, 'state.json'),
     // The host's AppStateManager locks `<stateFile>.lock` around every state
     // mutation; this runtime's own updateState must hold the SAME mutex, or
-    // the two writers exclude nothing (#428). The name rule is inlined —
-    // importing `stateLockPath` here would pull the Node-only
-    // extension-runtime package into the browser UI bundle; state-io.test.ts
-    // pins this string to the real helper.
-    lockDir: `${path.join(home, 'state.json')}.lock`,
+    // the two writers exclude nothing (#428).
+    lockDir: stateLockPath(path.join(home, 'state.json')),
     recordLocksDir: path.join(home, '.record-locks'),
     indexRepairsDir: path.join(home, '.index-repairs'),
     repairRequestFile: path.join(home, '.repair-indexes.json'),

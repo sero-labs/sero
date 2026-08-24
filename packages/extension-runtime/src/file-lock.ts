@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
+import { stateLockPath } from './state-lock-path.ts';
+
 /**
  * Cross-process exclusive lock for app state files.
  *
@@ -54,10 +56,7 @@ export interface FileLockOptions {
 
 const DEFAULTS = { timeoutMs: 10_000, staleMs: 30_000, pollMs: 25 };
 
-/** The one shared lock-directory name for a state file: `<stateFile>.lock`. */
-export function stateLockPath(stateFile: string): string {
-  return `${stateFile}.lock`;
-}
+export { stateLockPath };
 
 interface LockOwner {
   pid: number;
