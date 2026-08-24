@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -68,16 +68,37 @@ describe('withLock', () => {
     await expect(withLock(lockDir, async () => 'ran', { timeoutMs: 300, staleMs: 100 })).rejects.toThrow(/Timed out/);
   });
 
-  it('reclaims an ownerless lock directory after the stale window', async () => {
+  it('never reclaims a live tokenless legacy owner', async () => {
     const lockDir = path.join(dir, 'state.json.lock');
-    // A crash between mkdir and the owner write leaves exactly this.
+    await mkdir(lockDir);
+    await writeFile(path.join(lockDir, 'owner.json'), JSON.stringify({
+      pid: process.pid,
+      acquiredAt: Date.now() - 60_000,
+    }), 'utf8');
+
+    await expect(withLock(lockDir, async () => 'ran', { timeoutMs: 300, staleMs: 100 })).rejects.toThrow(/Timed out/);
+
+    // Version 0.2.1 released unconditionally after its critical section.
+    await rm(lockDir, { recursive: true, force: true });
+    const release = await acquireLock(lockDir, { timeoutMs: 2000 });
+    await release();
+  });
+
+  it('never reclaims an ownerless legacy reservation', async () => {
+    const lockDir = path.join(dir, 'state.json.lock');
+    // A paused legacy publisher and a crashed one have the same empty shape.
     await mkdir(lockDir);
 
-    // Fresh ownerless dir: still treated as mid-acquisition.
-    await expect(withLock(lockDir, async () => 'ran', { timeoutMs: 200, staleMs: 60_000 })).rejects.toThrow(/Timed out/);
-    // Past the stale window (measured by directory age): reclaimed.
+    const contender = withLock(lockDir, async () => 'ran', { timeoutMs: 300, staleMs: 100 });
     await new Promise((resolve) => setTimeout(resolve, 120));
-    await expect(withLock(lockDir, async () => 'ran', { timeoutMs: 2000, staleMs: 100 })).resolves.toBe('ran');
+    await writeFile(path.join(lockDir, 'owner.json'), JSON.stringify({
+      pid: process.pid,
+      acquiredAt: Date.now(),
+    }), 'utf8');
+    await expect(contender).rejects.toThrow(/Timed out/);
+
+    await rm(lockDir, { recursive: true, force: true });
+    await expect(withLock(lockDir, async () => 'ran', { timeoutMs: 2000 })).resolves.toBe('ran');
   });
 
   it('does not release a lock it no longer owns', async () => {
@@ -92,6 +113,36 @@ describe('withLock', () => {
     await release();
     const owner = JSON.parse(await readFile(path.join(lockDir, 'owner.json'), 'utf8')) as { token: string };
     expect(owner.token).toBe('successor');
+  });
+
+  it('restores a live owner record left by an interrupted reclaim', async () => {
+    const lockDir = path.join(dir, 'state.json.lock');
+    const release = await acquireLock(lockDir);
+    const claim = path.join(lockDir, '.owner-claim-interrupted.json');
+    await rename(path.join(lockDir, 'owner.json'), claim);
+
+    await expect(withLock(lockDir, async () => 'ran', { timeoutMs: 200 })).rejects.toThrow(/Timed out/);
+    await expect(readFile(path.join(lockDir, 'owner.json'), 'utf8')).resolves.toContain(`"pid":${process.pid}`);
+
+    await release();
+    await expect(withLock(lockDir, async () => 'ran', { timeoutMs: 2000 })).resolves.toBe('ran');
+  });
+
+  it('removes an interrupted reclaim whose owner is gone', async () => {
+    const lockDir = path.join(dir, 'state.json.lock');
+    await mkdir(lockDir);
+    const gonePid = await new Promise<number>((resolve, reject) => {
+      const child = spawn(process.execPath, ['-e', ''], { stdio: 'ignore' });
+      child.on('exit', () => resolve(child.pid!));
+      child.on('error', reject);
+    });
+    await writeFile(path.join(lockDir, '.owner-claim-interrupted.json'), JSON.stringify({
+      pid: gonePid,
+      acquiredAt: Date.now(),
+      token: 'gone-claim',
+    }), 'utf8');
+
+    await expect(withLock(lockDir, async () => 'ran', { timeoutMs: 2000 })).resolves.toBe('ran');
   });
 
   it('throws on timeout while another holder is alive', async () => {
@@ -157,10 +208,10 @@ describe('cross-process exclusion', () => {
     expect(final.status).toBe(`status-${count - 1}`);
   }, 30_000);
 
-  // The abandoned-lock races: many processes observe the same dead holder and
-  // reclaim concurrently, while more holders crash mid-storm. A reclaim that
-  // deletes from a stale observation admits two holders here — each worker
-  // proves exclusion with a marker file inside its critical section.
+  // The abandoned-lock races: current and legacy publishers contend while
+  // many processes observe the same dead holder and more holders crash
+  // mid-storm. Each worker proves exclusion with a marker file inside its
+  // critical section.
   // LOCK_STRESS_WORKERS / LOCK_STRESS_SECTIONS scale it up for manual runs.
   it('keeps exclusion while holders crash and many contenders reclaim at once', async () => {
     const lockDir = path.join(dir, 'state.json.lock');
@@ -182,7 +233,7 @@ describe('cross-process exclusion', () => {
     const fixture = fileURLToPath(new URL('./fixtures/contender-worker.ts', import.meta.url));
     const ids: string[] = [];
     const runs = [] as Promise<void>[];
-    const start = (id: string, mode: 'normal' | 'crash') => {
+    const start = (id: string, mode: 'normal' | 'legacy' | 'crash') => {
       ids.push(id);
       const child = spawn(process.execPath, ['--import', 'tsx', fixture, lockDir, logFile, id, String(sections), mode], { stdio: ['ignore', 'inherit', 'inherit'] });
       runs.push(new Promise<void>((resolve, reject) => {
@@ -191,6 +242,8 @@ describe('cross-process exclusion', () => {
       }));
     };
     for (let w = 0; w < workers; w += 1) start(`w${w}`, 'normal');
+    const legacyWorkers = 2;
+    for (let w = 0; w < legacyWorkers; w += 1) start(`legacy-${w}`, 'legacy');
     start('crash-a', 'crash');
     start('crash-b', 'crash');
 
@@ -202,6 +255,6 @@ describe('cross-process exclusion', () => {
 
     const log = await readFile(logFile, 'utf8');
     expect(log).not.toContain('OVERLAP');
-    expect(log.split('\n').filter((line) => line.startsWith('OK ')).length).toBe(workers * sections);
+    expect(log.split('\n').filter((line) => line.startsWith('OK ')).length).toBe((workers + legacyWorkers) * sections);
   }, 120_000);
 });

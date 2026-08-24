@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { link, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { stateLockPath } from './state-lock-path';
@@ -10,35 +10,35 @@ import { stateLockPath } from './state-lock-path';
  * Atomic file replacement is not sufficient concurrency control: a plugin
  * extension runs in a different process from the host, so two writers can
  * each read, modify and rename without ever observing the other. The lock is
- * a directory, because directory creation and rename are the atomic
- * primitives POSIX gives us without a daemon or native code.
+ * a directory, because directory creation, hard links and rename are the
+ * atomic primitives POSIX gives us without a daemon or native code.
  *
- * The protocol is built so that no step ever removes a lock based on a
- * possibly-stale observation:
+ * The protocol keeps the lock path present while it verifies ownership:
  *
- * - **Acquire** stages a directory that already contains `owner.json` and
- *   publishes it with one atomic `rename` onto the lock path. The lock can
- *   therefore never exist without its owner file, so there is no window in
- *   which a half-made lock can be reclaimed and then resurrected by a late
- *   owner write.
- * - **Reclaim** of an abandoned lock (owner process dead, or an ownerless
- *   legacy directory past `staleMs`) starts with an atomic `rename` of the
- *   lock to a unique grave path. Only one contender can win that rename. The
- *   winner then re-reads the grave: if it holds the incarnation that was
- *   judged abandoned it is removed; if a live successor was moved by mistake
- *   (the judgement was stale) it is renamed back, never deleted.
- * - **Acquirers verify after publishing**: if any grave holds a live owner, a
- *   displaced holder may still be inside its critical section, so the new
- *   acquirer withdraws and waits. Every waiter also restores live graves and
- *   clears dead ones, so a crashed reclaimer cannot strand the lock.
+ * - **Acquire** stages a complete owner record, reserves the shared path with
+ *   atomic `mkdir`, then hard-links the record into that directory without
+ *   replacement. Current and legacy clients therefore compete through the
+ *   same no-replace operation. A current publisher also leaves its staged
+ *   owner visible until publication completes, so current reclaimers do not
+ *   mistake its short ownerless phase for a crashed legacy client.
+ * - **Reclaim** first moves `owner.json` to a claim file inside the lock
+ *   directory. The lock path never disappears during verification, so a
+ *   contender cannot acquire it. The reclaimer removes the directory only if
+ *   the claimed token is the abandoned incarnation it observed. A stale
+ *   claim is restored without replacing a newer owner record.
+ * - **Waiters recover claims** left by a crashed reclaimer. A live owner is
+ *   restored, while a dead owner is removed with its lock directory.
+ * - An ownerless shared lock path is never reclaimed. A pre-0.2.2 publisher
+ *   can be paused between `mkdir` and its owner write, and that state has no
+ *   PID or token that can distinguish it from a crash. Waiting and timing out
+ *   preserves exclusion; deleting it could admit two live holders.
  * - An ALIVE owner is never reclaimed, however long it holds the lock — a
  *   wedged holder surfaces as acquire timeouts, which is the declared
  *   failure mode. The one exception is an owner record with our own pid
  *   whose token no code in this process holds: that is a leftover of a
  *   resolved steal, and only its own process can safely say so.
- * - **Release** verifies the ownership token before removing anything, and
- *   also looks for its own lock in a grave, so a holder that was briefly
- *   moved aside still cleans up after itself.
+ * - **Release** uses the same in-directory claim before removal, so it cannot
+ *   remove a successor from a stale token observation.
  *
  * Every writer of one file must use the same lock directory, or they hold
  * two mutexes and exclude nothing. `stateLockPath` is that one name rule:
@@ -49,7 +49,7 @@ import { stateLockPath } from './state-lock-path';
 export interface FileLockOptions {
   /** How long to keep trying before giving up. */
   timeoutMs?: number;
-  /** An ownerless lock directory older than this is treated as abandoned. */
+  /** Age threshold for corrupt staging and interrupted-claim cleanup. */
   staleMs?: number;
   pollMs?: number;
 }
@@ -61,14 +61,14 @@ export { stateLockPath };
 interface LockOwner {
   pid: number;
   acquiredAt: number;
-  token: string;
+  token?: string;
 }
 
 /** Tokens this process currently holds; distinguishes our live locks from our leftovers. */
 const heldTokens = new Set<string>();
 
-async function readOwner(dir: string): Promise<LockOwner | null> {
-  const raw = await readFile(path.join(dir, 'owner.json'), 'utf8').catch(() => null);
+async function readOwnerFile(file: string): Promise<LockOwner | null> {
+  const raw = await readFile(file, 'utf8').catch(() => null);
   if (raw === null) return null;
   let parsed: unknown;
   try {
@@ -78,8 +78,12 @@ async function readOwner(dir: string): Promise<LockOwner | null> {
   }
   if (typeof parsed !== 'object' || parsed === null) return null;
   const owner = parsed as Record<string, unknown>;
-  if (typeof owner.pid !== 'number' || typeof owner.token !== 'string') return null;
+  if (typeof owner.pid !== 'number' || (owner.token !== undefined && typeof owner.token !== 'string')) return null;
   return { pid: owner.pid, acquiredAt: typeof owner.acquiredAt === 'number' ? owner.acquiredAt : 0, token: owner.token };
+}
+
+function readOwner(dir: string): Promise<LockOwner | null> {
+  return readOwnerFile(path.join(dir, 'owner.json'));
 }
 
 /** True when the lock's owning process no longer exists. */
@@ -95,132 +99,185 @@ function processIsGone(pid: number): boolean {
 }
 
 function ownerIsAbandoned(owner: LockOwner): boolean {
-  if (owner.pid === process.pid) return !heldTokens.has(owner.token);
+  if (owner.pid === process.pid) return owner.token !== undefined && !heldTokens.has(owner.token);
   return processIsGone(owner.pid);
 }
 
-function isTakenCode(code: string | undefined): boolean {
-  // rename onto a non-empty directory: ENOTEMPTY on most platforms, EEXIST on some.
-  return code === 'ENOTEMPTY' || code === 'EEXIST';
+function sameOwner(left: LockOwner, right: LockOwner): boolean {
+  return left.pid === right.pid
+    && left.acquiredAt === right.acquiredAt
+    && left.token === right.token;
 }
 
-/**
- * Rename that refuses to replace an existing target. `rename` silently
- * replaces an EMPTY target directory, and the lock path can hold an empty
- * directory while a legacy (pre-0.2.2) client is between its `mkdir` and its
- * owner write — that incarnation must be waited out, not clobbered.
- */
-async function renameIfAbsent(src: string, dst: string): Promise<boolean> {
-  const existing = await stat(dst).catch(() => null);
-  if (existing) return false;
+function hasCode(error: unknown, ...codes: string[]): boolean {
+  return codes.includes((error as NodeJS.ErrnoException).code ?? '');
+}
+
+async function disposeLockDir(lockDir: string): Promise<void> {
+  const disposal = `${lockDir}.remove-${randomUUID()}`;
   try {
-    await rename(src, dst);
-    return true;
+    await rename(lockDir, disposal);
   } catch (error) {
-    // ENOENT: the source vanished under a concurrent resolver — equally "no".
-    const code = (error as NodeJS.ErrnoException).code;
-    if (isTakenCode(code) || code === 'ENOENT') return false;
+    if (hasCode(error, 'ENOENT', 'ENOTDIR')) return;
     throw error;
   }
+  await rm(disposal, { recursive: true, force: true });
 }
 
-/** Stage a fully-populated lock directory, then publish it atomically. */
-async function tryPublish(lockDir: string, token: string): Promise<boolean> {
-  const staging = `${lockDir}.tmp-${token}`;
-  await mkdir(path.dirname(lockDir), { recursive: true });
-  await mkdir(staging);
-  const owner: LockOwner = { pid: process.pid, acquiredAt: Date.now(), token };
-  await writeFile(path.join(staging, 'owner.json'), JSON.stringify(owner), 'utf8');
-  const published = await renameIfAbsent(staging, lockDir);
-  if (!published) await rm(staging, { recursive: true, force: true });
-  return published;
-}
-
-async function listSiblings(lockDir: string, kind: 'grave' | 'tmp'): Promise<string[]> {
+async function listSiblings(lockDir: string): Promise<string[]> {
   const parent = path.dirname(lockDir);
-  const prefix = `${path.basename(lockDir)}.${kind}-`;
+  const prefix = `${path.basename(lockDir)}.tmp-`;
   const entries = await readdir(parent).catch(() => [] as string[]);
-  return entries.filter((name) => name.startsWith(prefix)).map((name) => path.join(parent, name));
+  return entries.flatMap((name) => (name.startsWith(prefix) ? path.join(parent, name) : []));
+}
+
+async function listClaims(lockDir: string): Promise<string[]> {
+  const entries = await readdir(lockDir).catch(() => [] as string[]);
+  return entries.flatMap((name) => (
+    name.startsWith('.owner-claim-') ? path.join(lockDir, name) : []
+  ));
+}
+
+function claimProcessIsGone(claim: string): boolean {
+  const match = path.basename(claim).match(/^\.owner-claim-(\d+)-/);
+  return match ? processIsGone(Number(match[1])) : true;
 }
 
 /**
- * Restore or clear graves and abandoned staging dirs. Returns true while any
- * grave holds a live owner — an acquirer must not enter until it is restored.
+ * Remove dead staging directories and report whether a current publisher is
+ * still alive. A live publisher protects the brief ownerless interval after
+ * its successful mkdir.
  */
-async function resolveGraves(lockDir: string, staleMs: number): Promise<boolean> {
-  let liveGrave = false;
-  for (const grave of await listSiblings(lockDir, 'grave')) {
-    const owner = await readOwner(grave);
+async function resolveStaging(lockDir: string, staleMs: number): Promise<boolean> {
+  let livePublisher = false;
+  for (const staging of await listSiblings(lockDir)) {
+    const owner = await readOwner(staging);
     if (owner && !ownerIsAbandoned(owner)) {
-      liveGrave = true;
-      // A live holder was moved aside by a stale reclaim: put it back. The
-      // rename is atomic, so concurrent restorers cannot duplicate it, and a
-      // failure (lock path occupied) just leaves the grave for the next pass.
-      await renameIfAbsent(grave, lockDir);
+      livePublisher = true;
       continue;
     }
     if (owner === null) {
-      // Graves are created fully-populated, so an ownerless one is corrupt;
-      // give it the stale window before clearing it.
-      const stats = await stat(grave).catch(() => null);
-      if (stats && Date.now() - stats.mtimeMs < staleMs) continue;
+      const stats = await stat(staging).catch(() => null);
+      if (stats && Date.now() - stats.mtimeMs < staleMs) {
+        livePublisher = true;
+        continue;
+      }
     }
-    await rm(grave, { recursive: true, force: true });
+    await rm(staging, { recursive: true, force: true });
   }
-  for (const staging of await listSiblings(lockDir, 'tmp')) {
-    // A staging dir belongs to one live acquire attempt; clear it once its
-    // process is gone or, lacking an owner record, once it is stale.
-    const owner = await readOwner(staging);
-    const abandoned = owner
-      ? ownerIsAbandoned(owner)
-      : await stat(staging).then((s) => Date.now() - s.mtimeMs >= staleMs, () => false);
-    if (abandoned) await rm(staging, { recursive: true, force: true });
+  return livePublisher;
+}
+
+/** Stage a complete owner, reserve with mkdir, then publish without overwrite. */
+async function tryPublish(lockDir: string, token: string): Promise<boolean> {
+  const staging = `${lockDir}.tmp-${token}`;
+  const stagedOwner = path.join(staging, 'owner.json');
+  await mkdir(path.dirname(lockDir), { recursive: true });
+  await mkdir(staging);
+  const owner: LockOwner = { pid: process.pid, acquiredAt: Date.now(), token };
+  await writeFile(stagedOwner, JSON.stringify(owner), 'utf8');
+
+  try {
+    await mkdir(lockDir);
+  } catch (error) {
+    await rm(staging, { recursive: true, force: true });
+    if (hasCode(error, 'EEXIST')) return false;
+    throw error;
   }
-  return liveGrave;
+
+  try {
+    // A hard link publishes the fully-written record and never replaces a
+    // successor's owner file if this reservation moved while we were paused.
+    await link(stagedOwner, path.join(lockDir, 'owner.json'));
+  } catch (error) {
+    await rm(staging, { recursive: true, force: true });
+    if (hasCode(error, 'ENOENT', 'EEXIST', 'ENOTDIR', 'EINVAL')) return false;
+    throw error;
+  }
+
+  await rm(staging, { recursive: true, force: true });
+  return (await readOwner(lockDir))?.token === token;
+}
+
+async function restoreClaim(lockDir: string, claim: string): Promise<boolean> {
+  const raw = await readFile(claim, 'utf8').catch(() => null);
+  if (raw === null) return false;
+  try {
+    await writeFile(path.join(lockDir, 'owner.json'), raw, { encoding: 'utf8', flag: 'wx' });
+  } catch (error) {
+    if (!hasCode(error, 'EEXIST', 'ENOENT', 'ENOTDIR', 'EINVAL')) throw error;
+    const claimedOwner = await readOwnerFile(claim);
+    const currentOwner = await readOwner(lockDir);
+    if (!claimedOwner || !currentOwner || !sameOwner(claimedOwner, currentOwner)) return false;
+  }
+  await rm(claim, { force: true });
+  return true;
 }
 
 /**
- * Reclaim what was observed as an abandoned lock. The rename decides a single
- * winner; the verify afterwards guarantees a live successor moved by a stale
- * observation is restored, never deleted.
+ * Claim one owner record without removing the lock path. A matching claim can
+ * then remove the directory without touching a successor incarnation.
  */
-async function reclaimViaGrave(lockDir: string, observedToken: string | null): Promise<void> {
-  const grave = `${lockDir}.grave-${randomUUID()}`;
+async function removeIfOwned(lockDir: string, expectedOwner: LockOwner | string): Promise<boolean> {
+  const claim = path.join(lockDir, `.owner-claim-${process.pid}-${randomUUID()}.json`);
   try {
-    await rename(lockDir, grave);
-  } catch {
-    return; // Someone else already reclaimed this incarnation.
+    await rename(path.join(lockDir, 'owner.json'), claim);
+  } catch (error) {
+    if (hasCode(error, 'ENOENT', 'ENOTDIR')) return false;
+    throw error;
   }
-  const owner = await readOwner(grave);
-  const sameIncarnation = observedToken === null ? owner === null : owner?.token === observedToken;
-  if (sameIncarnation) {
-    await rm(grave, { recursive: true, force: true });
-    return;
+
+  const claimedOwner = await readOwnerFile(claim);
+  const matches = typeof expectedOwner === 'string'
+    ? claimedOwner?.token === expectedOwner
+    : claimedOwner !== null && sameOwner(claimedOwner, expectedOwner);
+  if (!matches) {
+    await restoreClaim(lockDir, claim);
+    return false;
   }
-  // The observation was stale and we moved a different incarnation. Restore
-  // it; if the lock path is already occupied again, resolveGraves finishes
-  // the restore on a later pass.
-  await renameIfAbsent(grave, lockDir);
+
+  await disposeLockDir(lockDir);
+  return true;
+}
+
+/** Restore live claims and remove locks whose claimant process has exited. */
+async function resolveClaims(lockDir: string, staleMs: number): Promise<boolean> {
+  for (const claim of await listClaims(lockDir)) {
+    // Only the process that moved owner.json can remove this incarnation.
+    // Wait while it is alive so a second resolver cannot later act on a
+    // successor through the same lock path.
+    if (!claimProcessIsGone(claim)) return true;
+    const owner = await readOwnerFile(claim);
+    const currentOwner = await readOwner(lockDir);
+    if (currentOwner) {
+      await rm(claim, { force: true });
+      continue;
+    }
+    if (owner && !ownerIsAbandoned(owner)) {
+      await restoreClaim(lockDir, claim);
+      return true;
+    }
+    if (owner === null) {
+      const stats = await stat(claim).catch(() => null);
+      if (stats && Date.now() - stats.mtimeMs < staleMs) return true;
+    }
+    await disposeLockDir(lockDir);
+    return false;
+  }
+  return false;
 }
 
 async function releaseByToken(lockDir: string, token: string, pollMs: number): Promise<void> {
   try {
-    // A steal-and-restore can move our lock through a grave while we release,
-    // so check both places and try again briefly if it is mid-flight.
     for (let attempt = 0; attempt < 40; attempt++) {
-      const owner = await readOwner(lockDir);
-      if (owner?.token === token) {
-        await rm(lockDir, { recursive: true, force: true });
-        return;
-      }
-      let foundOurs = false;
-      for (const grave of await listSiblings(lockDir, 'grave')) {
-        if ((await readOwner(grave))?.token === token) {
-          foundOurs = true;
-          await rm(grave, { recursive: true, force: true });
-        }
-      }
-      if (!foundOurs) return; // Nothing of ours anywhere: legitimately reclaimed.
+      if (await removeIfOwned(lockDir, token)) return;
+      const ownsClaim = await Promise.all(
+        (await listClaims(lockDir)).map(async (claim) => {
+          const owner = await readOwnerFile(claim);
+          return owner?.token === token;
+        }),
+      ).then((matches) => matches.some(Boolean));
+      if (!ownsClaim) return;
       await new Promise((resolve) => setTimeout(resolve, pollMs));
     }
   } finally {
@@ -233,8 +290,8 @@ export async function acquireLock(lockDir: string, options: FileLockOptions = {}
   const deadline = Date.now() + timeoutMs;
 
   for (;;) {
-    const liveGrave = await resolveGraves(lockDir, staleMs);
-    if (!liveGrave) {
+    const liveClaim = await resolveClaims(lockDir, staleMs);
+    if (!liveClaim) {
       const token = randomUUID();
       heldTokens.add(token);
       let published = false;
@@ -244,24 +301,15 @@ export async function acquireLock(lockDir: string, options: FileLockOptions = {}
         if (!published) heldTokens.delete(token);
       }
       if (published) {
-        // Verify: a displaced live holder may still be running inside a
-        // grave. Withdraw and wait for it to be restored.
-        if (!(await resolveGraves(lockDir, staleMs))) {
-          return () => releaseByToken(lockDir, token, pollMs);
-        }
-        await releaseByToken(lockDir, token, pollMs);
-      } else {
-        const owner = await readOwner(lockDir);
-        if (owner === null) {
-          // No owner record: either a rename is mid-flight or a legacy client
-          // crashed between mkdir and its owner write. Judge by age.
-          const stats = await stat(lockDir).catch(() => null);
-          if (stats && Date.now() - stats.mtimeMs >= staleMs) {
-            await reclaimViaGrave(lockDir, null);
-          }
-        } else if (ownerIsAbandoned(owner)) {
-          await reclaimViaGrave(lockDir, owner.token);
-        }
+        return () => releaseByToken(lockDir, token, pollMs);
+      }
+      const owner = await readOwner(lockDir);
+      if (owner === null) {
+        // Clean only identified staging artifacts. The shared path itself can
+        // be a paused legacy publisher and must remain until its owner appears.
+        await resolveStaging(lockDir, staleMs);
+      } else if (ownerIsAbandoned(owner)) {
+        await removeIfOwned(lockDir, owner);
       }
     }
     if (Date.now() >= deadline) {
