@@ -6,9 +6,11 @@ import { promisify } from 'node:util';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { BROWSER_PACK_VERSION } from '../../../../scripts/browser-pack/browser-pack-config.mjs';
+
 const execFileAsync = promisify(execFile);
 const scriptPath = path.join(process.cwd(), 'scripts/browser-pack/merge-browser-pack-metadata.mjs');
-const productionUrlBase = 'https://github.com/sero-labs/sero/releases/download/browser-pack-2026-05-16';
+const productionUrlBase = `https://github.com/sero-labs/sero/releases/download/${BROWSER_PACK_VERSION}`;
 
 let tempRoot: string;
 let sidecarDir: string;
@@ -32,7 +34,7 @@ describe('merge-browser-pack-metadata', () => {
     await runMerge();
 
     const metadata = JSON.parse(await fs.readFile(outputPath, 'utf8')) as GeneratedMetadata;
-    expect(metadata.version).toBe('browser-pack-2026-05-16');
+    expect(metadata.version).toBe(BROWSER_PACK_VERSION);
     expect(Object.keys(metadata.artifacts)).toEqual([
       'browser-darwin-arm64',
       'browser-linux-x64',

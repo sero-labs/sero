@@ -1,12 +1,14 @@
-FROM golang:1.26.3-bookworm AS gh-builder
+FROM golang:1.26.3-bookworm@sha256:386d475a660466863d9f8c766fec64d7fdad3edac2c6a05020c09534d71edb4b AS gh-builder
 
 ARG GH_VERSION=2.92.0
 RUN CGO_ENABLED=0 GOBIN=/out /usr/local/go/bin/go install github.com/cli/cli/v2/cmd/gh@v${GH_VERSION}
 
-FROM ubuntu:24.04
+FROM ubuntu:24.04@sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517
 
 ARG SERO_NODE_VERSION=dev
 ARG NODE_VERSION=24.15.0
+ARG NODE_SHA256_ARM64=f3d5a797b5d210ce8e2cb265544c8e482eaedcb8aa409a8b46da7e8595d0dda0
+ARG NODE_SHA256_X64=472655581fb851559730c48763e0c9d3bc25975c59d518003fc0849d3e4ba0f6
 LABEL org.opencontainers.image.title="Sero Node Runtime" \
       org.opencontainers.image.version="$SERO_NODE_VERSION"
 
@@ -36,22 +38,25 @@ COPY --from=gh-builder /out/gh /usr/local/bin/gh
 RUN set -eux; \
     arch="$(dpkg --print-architecture)"; \
     case "$arch" in \
-      arm64) node_arch="arm64" ;; \
-      amd64) node_arch="x64" ;; \
+      arm64) node_arch="arm64"; node_sha256="$NODE_SHA256_ARM64" ;; \
+      amd64) node_arch="x64"; node_sha256="$NODE_SHA256_X64" ;; \
       *) echo "Unsupported architecture: $arch" >&2; exit 1 ;; \
     esac; \
     node_version="v${NODE_VERSION}"; \
     curl -fsSLO "https://nodejs.org/dist/${node_version}/node-${node_version}-linux-${node_arch}.tar.xz"; \
-    curl -fsSLO "https://nodejs.org/dist/${node_version}/SHASUMS256.txt"; \
-    grep " node-${node_version}-linux-${node_arch}.tar.xz$" SHASUMS256.txt | sha256sum -c -; \
+    echo "${node_sha256}  node-${node_version}-linux-${node_arch}.tar.xz" | sha256sum -c -; \
     tar -xJf "node-${node_version}-linux-${node_arch}.tar.xz" -C /usr/local --strip-components=1 --no-same-owner; \
-    rm "node-${node_version}-linux-${node_arch}.tar.xz" SHASUMS256.txt; \
-    npm install -g npm@11.14.1; \
+    rm "node-${node_version}-linux-${node_arch}.tar.xz"; \
     node --version; \
     npm --version
 
-# Pin the package manager declared by the monorepo.
-RUN corepack enable && corepack prepare pnpm@10.33.4 --activate
+# Install npm runtime tools from a lockfile with exact package integrities.
+COPY apps/desktop/runtime-tools/package.json apps/desktop/runtime-tools/package-lock.json /tmp/runtime-tools/
+RUN cd /tmp/runtime-tools && npm ci --ignore-scripts --omit=dev --workspaces=false && \
+    mv /tmp/runtime-tools /opt/sero-runtime && \
+    ln -sf /opt/sero-runtime/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
+    ln -sf /opt/sero-runtime/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx && \
+    ln -sf /opt/sero-runtime/node_modules/pnpm/bin/pnpm.cjs /usr/local/bin/pnpm
 
 # Configure Git defaults for non-interactive agent use.
 RUN git config --global user.name "Sero" && \
@@ -62,8 +67,8 @@ RUN git config --global user.name "Sero" && \
 # chromium_headless_shell path for default headless launch; replace the large
 # downloaded shell with a tiny symlink shim to the regular Chromium binary.
 RUN mkdir -p /ms-playwright && \
-    npm install -g agent-browser && \
-    npx -y playwright@1.57.0 install --with-deps chromium ffmpeg && \
+    ln -sf /opt/sero-runtime/node_modules/agent-browser/bin/agent-browser.js /usr/local/bin/agent-browser && \
+    node /opt/sero-runtime/node_modules/playwright/cli.js install --with-deps chromium ffmpeg && \
     rm -rf /ms-playwright/firefox-* /ms-playwright/webkit-* /ms-playwright/chromium_headless_shell-* && \
     chromium_dir="$(find /ms-playwright -maxdepth 1 -type d -name 'chromium-*' -print -quit)" && \
     chromium_build="${chromium_dir##*-}" && \

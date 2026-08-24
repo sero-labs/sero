@@ -1,0 +1,97 @@
+{
+  "policy": {
+    "minimumReleaseAgeDays": 7
+  },
+  "browser": {
+    "chromiumRevision": "1234",
+    "chromiumVersion": "151.0.7922.34",
+    "ffmpegRevision": "1011",
+    "macFfmpegRevision": "1011"
+  },
+  "npm": {
+    "agent-browser": {
+      "version": "0.27.3",
+      "releasedAt": "2026-06-12T23:22:02.092Z",
+      "integrity": "sha512-isQ1xWoYOnfR8BigYRlYmkFOrqw71tKEmUEMmFJGStQFOyCrLSsKoOAZEu8TjPZdmjD1nPQ/hLLYlxTwdHnA0Q==",
+      "routineUpdates": "patch",
+      "usedBy": [
+        "browser-pack",
+        "sero-node"
+      ]
+    },
+    "playwright": {
+      "version": "1.62.1",
+      "releasedAt": "2026-07-30T16:38:49.134Z",
+      "integrity": "sha512-0M+L3LAD8/nm554LOla9Ayx0j0tmFZ0FBcoQ7F1VuVHpM/XpiC8RcDzBQB8W5+hA8L22THxELzeF+2WcUzvcLg==",
+      "routineUpdates": "minor",
+      "usedBy": [
+        "browser-pack",
+        "sero-node"
+      ]
+    },
+    "npm": {
+      "version": "11.19.0",
+      "releasedAt": "2026-07-29T20:24:07.500Z",
+      "integrity": "sha512-SDd/hHg3KqHE5Ht2NHWxNYNtqCQ2pXAPLl6OtQhPyED5PHsRfrOtO199MZTIG2cQoQ1ZRI9t28shrD+2cr3AAw==",
+      "routineUpdates": "minor",
+      "usedBy": [
+        "sero-node",
+        "host-toolchains"
+      ]
+    },
+    "pnpm": {
+      "version": "10.34.5",
+      "releasedAt": "2026-07-10T11:32:36.014Z",
+      "integrity": "sha512-pO4F8vc2WCVb1qiYWcBlpFwopX2u+uLIk6Fo7itzFow3uR6D5X6mdlStA/AwMXRkMOi84442LgQmBfuKvIAZLg==",
+      "routineUpdates": "minor",
+      "usedBy": [
+        "sero-node",
+        "host-toolchains"
+      ]
+    }
+  },
+  "container": {
+    "golangImage": "golang:1.26.3-bookworm@sha256:386d475a660466863d9f8c766fec64d7fdad3edac2c6a05020c09534d71edb4b",
+    "ubuntuImage": "ubuntu:24.04@sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517",
+    "nodeVersion": "24.15.0",
+    "nodeSha256": {
+      "arm64": "f3d5a797b5d210ce8e2cb265544c8e482eaedcb8aa409a8b46da7e8595d0dda0",
+      "x64": "472655581fb851559730c48763e0c9d3bc25975c59d518003fc0849d3e4ba0f6"
+    },
+    "githubCliVersion": "2.92.0"
+  },
+  "containerPolicy": {
+    "golang": {
+      "version": "1.26.3",
+      "variant": "bookworm",
+      "routineUpdates": "patch"
+    },
+    "ubuntu": {
+      "tag": "24.04"
+    }
+  },
+  "containerReleasedAt": {
+    "golangImage": "2026-05-20T01:15:02.000Z",
+    "ubuntuImage": "2026-08-10T00:00:00.000Z",
+    "nodeVersion": "2026-04-15T00:00:00.000Z",
+    "githubCliVersion": "2026-04-28T11:42:05.000Z"
+  },
+  "hostTools": {
+    "uv": {
+      "version": "0.7.3",
+      "releasedAt": "2025-05-07T20:02:53.000Z",
+      "routineUpdates": "patch"
+    }
+  },
+  "legacyArtifactGaps": [
+    {
+      "tools": "Managed Git, OpenSSH, and Bash bundles",
+      "reason": "Published toolchain metadata does not record exact component versions or reproducible source recipes. A new baseline build is required before safe updates can be proposed."
+    },
+    {
+      "tools": "Ubuntu packages installed in sero-node",
+      "reason": "The official Ubuntu snapshot service is not reachable from the supported local container builder. These packages still come from signed current repositories and are not covered by the seven-day wait."
+    }
+  ],
+  "securityOverrides": []
+}

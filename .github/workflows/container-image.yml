@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'apps/desktop/images/Dockerfile.sero-node'
+      - 'apps/desktop/runtime-tools/**'
       - '.github/workflows/container-image.yml'
   workflow_dispatch:
     inputs:

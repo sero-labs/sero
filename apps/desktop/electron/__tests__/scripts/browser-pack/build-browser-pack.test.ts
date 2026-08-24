@@ -9,10 +9,11 @@ describe('build-browser-pack', () => {
   it('runs npm command shims through cmd on Windows', async () => {
     const { resolveRunCommand } = await import(scriptUrl);
 
-    expect(resolveRunCommand('npx', 'win32')).toEqual({ command: 'npx.cmd', shell: true });
-    expect(resolveRunCommand('npm', 'win32')).toEqual({ command: 'npm.cmd', shell: true });
-    expect(resolveRunCommand('tar', 'win32')).toEqual({ command: 'tar', shell: false });
-    expect(resolveRunCommand('npx', 'linux')).toEqual({ command: 'npx', shell: false });
+    const command = process.env.ComSpec ?? 'cmd.exe';
+    expect(resolveRunCommand('npx', 'win32')).toEqual({ command, prefixArgs: ['/d', '/s', '/c', 'npx.cmd'] });
+    expect(resolveRunCommand('npm', 'win32')).toEqual({ command, prefixArgs: ['/d', '/s', '/c', 'npm.cmd'] });
+    expect(resolveRunCommand('tar', 'win32')).toEqual({ command: 'tar', prefixArgs: [] });
+    expect(resolveRunCommand('npx', 'linux')).toEqual({ command: 'npx', prefixArgs: [] });
   });
 
   it('forces local tar paths on Windows drive-letter paths', async () => {

@@ -60,9 +60,11 @@ async function main() {
   await fs.mkdir(packRoot, { recursive: true });
   await fs.mkdir(archiveDir, { recursive: true });
 
-  installPlaywrightBrowsers(packRoot);
+  const lockedToolsRoot = path.join(workRoot, 'locked-tools');
+  await installLockedRuntimeTools(lockedToolsRoot);
+  installPlaywrightBrowsers(packRoot, lockedToolsRoot);
   await removePlaywrightInstallLinks(packRoot);
-  installAgentBrowser(packRoot, target.platform);
+  await installAgentBrowser(packRoot, target.platform, lockedToolsRoot);
   await validateAgentBrowserShims({ packRoot, artifact: target });
   await validateBrowserPack({ packRoot, artifact: target });
   await createTarGz(packRoot, archivePath);
@@ -117,8 +119,17 @@ function assertCanBuildOnHost(target) {
   }
 }
 
-function installPlaywrightBrowsers(packRoot) {
-  run('npx', ['-y', `playwright@${pins.playwrightVersion}`, 'install', 'chromium', 'ffmpeg'], {
+async function installLockedRuntimeTools(lockedToolsRoot) {
+  const lockRoot = path.join(desktopRoot, 'runtime-tools');
+  await fs.mkdir(lockedToolsRoot, { recursive: true });
+  await Promise.all(['package.json', 'package-lock.json'].map((name) => (
+    fs.copyFile(path.join(lockRoot, name), path.join(lockedToolsRoot, name))
+  )));
+  run('npm', ['ci', '--ignore-scripts', '--workspaces=false'], { cwd: lockedToolsRoot });
+}
+
+function installPlaywrightBrowsers(packRoot, lockedToolsRoot) {
+  run(process.execPath, [path.join(lockedToolsRoot, 'node_modules/playwright/cli.js'), 'install', 'chromium', 'ffmpeg'], {
     env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: packRoot },
   });
 }
@@ -127,9 +138,10 @@ async function removePlaywrightInstallLinks(packRoot) {
   await fs.rm(path.join(packRoot, '.links'), { recursive: true, force: true });
 }
 
-function installAgentBrowser(packRoot, platform) {
+async function installAgentBrowser(packRoot, platform, lockedToolsRoot) {
   const agentRoot = path.join(packRoot, 'agent-browser');
-  run('npm', ['install', '--prefix', agentRoot, `agent-browser@${pins.agentBrowserVersion}`]);
+  await fs.mkdir(agentRoot, { recursive: true });
+  await fs.cp(path.join(lockedToolsRoot, 'node_modules'), path.join(agentRoot, 'node_modules'), { recursive: true });
   materializeAgentBrowserBinSync(agentRoot, platform);
 }
 
@@ -256,12 +268,12 @@ async function readExistingMetadata() {
 function run(command, args, options = {}) {
   const invocation = resolveRunCommand(command);
   console.log(`$ ${[command, ...args].join(' ')}`);
-  const result = spawnSync(invocation.command, args, {
-    cwd: desktopRoot,
+  const result = spawnSync(invocation.command, [...invocation.prefixArgs, ...args], {
+    cwd: options.cwd ?? desktopRoot,
     env: options.env ?? process.env,
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
-    shell: invocation.shell,
+    shell: false,
     stdio: options.capture ? ['ignore', 'pipe', 'pipe'] : 'inherit',
   });
   if (result.error) throw result.error;
@@ -275,8 +287,8 @@ function run(command, args, options = {}) {
 export function resolveRunCommand(command, platform = process.platform) {
   const usesWindowsCommandShim = platform === 'win32' && WINDOWS_CMD_SHIMS.has(command);
   return {
-    command: usesWindowsCommandShim ? `${command}.cmd` : command,
-    shell: usesWindowsCommandShim,
+    command: usesWindowsCommandShim ? (process.env.ComSpec ?? 'cmd.exe') : command,
+    prefixArgs: usesWindowsCommandShim ? ['/d', '/s', '/c', `${command}.cmd`] : [],
   };
 }
 
@@ -287,4 +299,3 @@ export function tarPathArgs(platform = process.platform) {
 function isMainModule() {
   return process.argv[1] ? path.resolve(process.argv[1]) === fileURLToPath(import.meta.url) : false;
 }
-

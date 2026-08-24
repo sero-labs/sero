@@ -4,9 +4,10 @@ import { describe, expect, it } from 'vitest';
 
 import { HOST_RELEASE_TARGETS } from '@electron/features/workspace/runtime/host-support-matrix';
 
+import { BROWSER_PACK_VERSION } from '../../../../scripts/browser-pack/browser-pack-config.mjs';
 import { verifyBrowserPackPublication } from '../../../../scripts/browser-pack/verify-browser-pack-publication.mjs';
 
-const productionUrlBase = 'https://github.com/sero-labs/sero/releases/download/browser-pack-2026-05-16';
+const productionUrlBase = `https://github.com/sero-labs/sero/releases/download/${BROWSER_PACK_VERSION}`;
 const fixtureBytes = new TextEncoder().encode('published browser pack fixture');
 const fixtureSha = createHash('sha256').update(fixtureBytes).digest('hex');
 
@@ -37,7 +38,7 @@ describe('verify-browser-pack-publication', () => {
     const metadata = createBuiltMetadata();
     metadata.artifacts['browser-linux-x64'].url = 'https://downloads.example.test/linux-x64.tar.gz';
 
-    await expect(verify(metadata)).rejects.toThrow('browser-linux-x64 must use the browser-pack-2026-05-16 GitHub Release asset URL');
+    await expect(verify(metadata)).rejects.toThrow(`browser-linux-x64 must use the ${BROWSER_PACK_VERSION} GitHub Release asset URL`);
   });
 
   it('fails when a required artifact has an invalid sha256', async () => {

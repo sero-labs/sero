@@ -1,14 +1,16 @@
-export const BROWSER_PACK_VERSION = 'browser-pack-2026-05-16';
-export const BROWSER_PACK_DATE = '2026-05-16';
+import runtimePins from '../../runtime-tools/pins.json' with { type: 'json' };
+
+export const BROWSER_PACK_VERSION = 'browser-pack-2026-08-24-r1234-agent-0.27.3';
+export const BROWSER_PACK_DATE = '2026-08-24';
 export const DEFAULT_BROWSER_PACK_URL_BASE = `https://github.com/sero-labs/sero/releases/download/${BROWSER_PACK_VERSION}`;
 
 export const pins = {
-  playwrightVersion: '1.57.0',
-  chromiumRevision: '1200',
-  chromiumVersion: '143.0.7499.4',
-  ffmpegRevision: '1011',
-  macFfmpegRevision: '1010',
-  agentBrowserVersion: '0.27.0',
+  playwrightVersion: runtimePins.npm.playwright.version,
+  chromiumRevision: runtimePins.browser.chromiumRevision,
+  chromiumVersion: runtimePins.browser.chromiumVersion,
+  ffmpegRevision: runtimePins.browser.ffmpegRevision,
+  macFfmpegRevision: runtimePins.browser.macFfmpegRevision,
+  agentBrowserVersion: runtimePins.npm['agent-browser'].version,
 };
 
 const chromiumCandidates = {

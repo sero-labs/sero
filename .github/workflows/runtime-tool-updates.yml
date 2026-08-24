@@ -1,0 +1,291 @@
+name: Runtime Tool Updates
+
+on:
+  push:
+    branches:
+      - feat/runtime-dependency-updates
+  schedule:
+    - cron: '23 7 * * 1'
+  workflow_dispatch:
+    inputs:
+      urgent_security_tool:
+        description: Exact tool key for an urgent update, such as agent-browser or node
+        required: false
+        type: string
+      urgent_security_reason:
+        description: Recorded reason to bypass the seven-day wait for that tool
+        required: false
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: runtime-tool-updates
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    outputs:
+      observations: ${{ steps.state.outputs.observations }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24.15.0
+
+      - name: Load prior observations
+        id: prior
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="Packaged runtime dependency status"
+          issue_number=$(gh issue list --state open --search "\"$title\" in:title" --json number,title --jq \
+            ".[] | select(.title == \"$title\") | .number" | head -1)
+          echo "issue_number=$issue_number" >> "$GITHUB_OUTPUT"
+          if [[ -n "$issue_number" ]]; then
+            gh issue view "$issue_number" --json body --jq .body > "$RUNNER_TEMP/prior-runtime-tool-report.md"
+          else
+            : > "$RUNNER_TEMP/prior-runtime-tool-report.md"
+          fi
+          node - "$RUNNER_TEMP/prior-runtime-tool-report.md" "$RUNNER_TEMP/runtime-tool-observations.json" <<'NODE'
+          const fs = require('node:fs');
+          const body = fs.readFileSync(process.argv[2], 'utf8');
+          const encoded = body.match(/<!-- runtime-tool-observations:([A-Za-z0-9+/=]+) -->/)?.[1];
+          fs.writeFileSync(process.argv[3], encoded ? Buffer.from(encoded, 'base64') : '{}\n');
+          NODE
+
+      - name: Check all packaged runtime dependencies
+        id: state
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          node apps/desktop/scripts/runtime-tools/update-runtime-tools.mjs \
+            --report "$RUNNER_TEMP/runtime-tool-report.md" \
+            --candidates "$RUNNER_TEMP/runtime-tool-candidates.json" \
+            --observations-in "$RUNNER_TEMP/runtime-tool-observations.json" \
+            --observations-out "$RUNNER_TEMP/next-runtime-tool-observations.json"
+          cd apps/desktop/runtime-tools
+          npm audit --package-lock-only --ignore-scripts --workspaces=false --json \
+            > "$RUNNER_TEMP/runtime-tool-audit.json" || true
+          cd "$GITHUB_WORKSPACE"
+          node - "$RUNNER_TEMP/runtime-tool-audit.json" "$RUNNER_TEMP/runtime-tool-report.md" <<'NODE'
+          const fs = require('node:fs');
+          const audit = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          const counts = audit.metadata?.vulnerabilities ?? {};
+          const summary = `\n\n## Current npm security audit\n\nCritical: ${counts.critical ?? 0}; high: ${counts.high ?? 0}; moderate: ${counts.moderate ?? 0}; low: ${counts.low ?? 0}.\n`;
+          fs.appendFileSync(process.argv[3], summary);
+          NODE
+          {
+            printf '\n## Automation\n\n'
+            printf '[Latest workflow run](%s/actions/runs/%s)\n\n' "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "$GITHUB_RUN_ID"
+            printf 'Open draft PRs:\n'
+            gh pr list --state open --json title,url,headRefName --jq \
+              '.[] | select(.headRefName | startswith("automation/runtime-tools-")) | "- [\(.title)](\(.url))"'
+          } >> "$RUNNER_TEMP/runtime-tool-report.md"
+          observations=$(base64 < "$RUNNER_TEMP/next-runtime-tool-observations.json" | tr -d '\n')
+          printf '\n<!-- runtime-tool-observations:%s -->\n' "$observations" >> "$RUNNER_TEMP/runtime-tool-report.md"
+          echo "observations=$observations" >> "$GITHUB_OUTPUT"
+
+      - name: Update dependency status issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ steps.prior.outputs.issue_number }}
+        run: |
+          title="Packaged runtime dependency status"
+          if [[ -n "$ISSUE_NUMBER" ]]; then
+            gh issue edit "$ISSUE_NUMBER" --body-file "$RUNNER_TEMP/runtime-tool-report.md"
+          else
+            gh issue create --title "$title" --body-file "$RUNNER_TEMP/runtime-tool-report.md"
+          fi
+
+  update:
+    needs: report
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mode: routine
+            branch: automation/runtime-tools-routine
+            title: "chore(runtime): update packaged tools"
+          - mode: breaking
+            branch: automation/runtime-tools-breaking
+            title: "chore(runtime): evaluate breaking tool updates"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24.15.0
+
+      - name: Check urgent-security input
+        env:
+          SECURITY_TOOL: ${{ inputs.urgent_security_tool }}
+          SECURITY_REASON: ${{ inputs.urgent_security_reason }}
+        run: |
+          if [[ -n "$SECURITY_TOOL" || -n "$SECURITY_REASON" ]]; then
+            test -n "$SECURITY_TOOL" && test -n "$SECURITY_REASON" || {
+              echo "The urgent tool and reason must be supplied together." >&2
+              exit 1
+            }
+          fi
+
+      - name: Record current vulnerability counts
+        run: |
+          cd apps/desktop/runtime-tools
+          npm audit --package-lock-only --ignore-scripts --workspaces=false --json \
+            > "$RUNNER_TEMP/runtime-audit-before.json" || true
+          test -s "$RUNNER_TEMP/runtime-audit-before.json"
+
+      - name: Restore candidate observations
+        env:
+          OBSERVATIONS: ${{ needs.report.outputs.observations }}
+        run: |
+          printf '%s' "$OBSERVATIONS" | base64 --decode > "$RUNNER_TEMP/runtime-tool-observations.json"
+
+      - name: Update eligible exact pins
+        id: update
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MODE: ${{ matrix.mode }}
+          SECURITY_TOOL: ${{ inputs.urgent_security_tool }}
+          SECURITY_REASON: ${{ inputs.urgent_security_reason }}
+          TEST_BRANCH_RUN: ${{ github.event_name == 'push' }}
+        run: |
+          args=(--write)
+          if [[ "$TEST_BRANCH_RUN" == "true" ]]; then
+            SECURITY_TOOL="node"
+            SECURITY_REASON="One-time branch workflow validation"
+          fi
+          if [[ "$MODE" == "breaking" ]]; then args+=(--breaking); fi
+          if [[ -n "$SECURITY_REASON" ]]; then
+            args+=(--only "$SECURITY_TOOL" --security-override-reason "$SECURITY_REASON")
+          fi
+          args+=(
+            --observations-in "$RUNNER_TEMP/runtime-tool-observations.json"
+            --observations-out "$RUNNER_TEMP/next-runtime-tool-observations.json"
+          )
+          node apps/desktop/scripts/runtime-tools/update-runtime-tools.mjs "${args[@]}"
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Push draft pull request
+        if: steps.update.outputs.changed == 'true'
+        id: pull_request
+        env:
+          BRANCH: ${{ matrix.branch }}
+          GH_TOKEN: ${{ github.token }}
+          MODE: ${{ matrix.mode }}
+          TITLE: ${{ matrix.title }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch origin "$BRANCH:refs/remotes/origin/$BRANCH" || true
+          git checkout -B "$BRANCH"
+          git add \
+            .github/workflows/browser-pack-artifacts.yml \
+            apps/desktop/images/Dockerfile.sero-node \
+            apps/desktop/runtime-tools \
+            apps/desktop/scripts/browser-pack/browser-pack-config.mjs
+          git commit -m "$TITLE"
+          git push --force-with-lease origin HEAD:"$BRANCH"
+          pr_url=$(gh pr list --state open --head "$BRANCH" --json url --jq '.[0].url')
+          if [[ -z "$pr_url" ]]; then
+            pr_url=$(gh pr create --draft \
+              --base "$GITHUB_REF_NAME" \
+              --head "$BRANCH" \
+              --title "$TITLE" \
+              --body "Automated $MODE update for dependencies packaged with Sero. Releases waited at least seven days unless pins.json records an urgent security reason. This PR does not merge or publish artifacts.")
+          fi
+          echo "url=$pr_url" >> "$GITHUB_OUTPUT"
+
+      - name: Validate changed pins
+        if: steps.update.outputs.changed == 'true'
+        id: validate
+        continue-on-error: true
+        run: node apps/desktop/scripts/runtime-tools/update-runtime-tools.mjs
+
+      - name: Smoke-test locked CLIs
+        if: steps.update.outputs.changed == 'true'
+        id: cli_test
+        continue-on-error: true
+        run: |
+          cd apps/desktop/runtime-tools
+          npm ci --ignore-scripts --workspaces=false
+          npm audit --package-lock-only --ignore-scripts --workspaces=false --json \
+            > "$RUNNER_TEMP/runtime-audit-after.json" || true
+          node "$GITHUB_WORKSPACE/apps/desktop/scripts/runtime-tools/update-runtime-tools.mjs" \
+            --audit-baseline "$RUNNER_TEMP/runtime-audit-before.json" \
+            --audit-candidate "$RUNNER_TEMP/runtime-audit-after.json"
+          runtime_root="$GITHUB_WORKSPACE/apps/desktop/runtime-tools/node_modules"
+          cd /tmp
+          node "$runtime_root/agent-browser/bin/agent-browser.js" --version
+          node "$runtime_root/playwright/cli.js" --version
+          node "$runtime_root/npm/bin/npm-cli.js" --version
+          node "$runtime_root/pnpm/bin/pnpm.cjs" --version
+
+      - name: Build Linux browser pack
+        if: steps.update.outputs.changed == 'true'
+        id: browser_pack
+        continue-on-error: true
+        run: |
+          node apps/desktop/scripts/browser-pack/build-browser-pack.mjs \
+            --out-dir "$RUNNER_TEMP/browser-pack" \
+            --metadata-out "$RUNNER_TEMP/browser-pack-metadata"
+
+      - name: Build and launch container runtime
+        if: steps.update.outputs.changed == 'true'
+        id: container
+        continue-on-error: true
+        run: |
+          docker build -t sero-node:runtime-update -f apps/desktop/images/Dockerfile.sero-node .
+          docker run --rm sero-node:runtime-update bash -lc '
+            node --version
+            npm --version
+            pnpm --version
+            agent-browser --version
+            chromium_path=$(find /ms-playwright -path "*/chrome-linux/chrome" -type f -print -quit)
+            agent-browser --session runtime-update --executable-path "$chromium_path" open about:blank --json
+            agent-browser --session runtime-update snapshot --json
+            agent-browser --session runtime-update close --json
+          '
+
+      - name: Report validation result
+        if: always() && steps.update.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ steps.pull_request.outputs.url }}
+          VALIDATE: ${{ steps.validate.outcome }}
+          CLI_TEST: ${{ steps.cli_test.outcome }}
+          BROWSER_PACK: ${{ steps.browser_pack.outcome }}
+          CONTAINER: ${{ steps.container.outcome }}
+        run: |
+          body=$(printf 'Automated validation: pins **%s**, CLI smoke **%s**, browser pack **%s**, container **%s**. [Workflow run](%s/actions/runs/%s).' \
+            "$VALIDATE" "$CLI_TEST" "$BROWSER_PACK" "$CONTAINER" "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "$GITHUB_RUN_ID")
+          gh pr comment "$PR_URL" --body "$body"
+          issue_number=$(gh issue list --state open --search '"Packaged runtime dependency status" in:title' --json number,title --jq \
+            '.[] | select(.title == "Packaged runtime dependency status") | .number' | head -1)
+          if [[ -n "$issue_number" ]]; then
+            gh issue comment "$issue_number" --body "$PR_URL — $body"
+          fi
+          if [[ "$VALIDATE" != "success" || "$CLI_TEST" != "success" || "$BROWSER_PACK" != "success" || "$CONTAINER" != "success" ]]; then
+            exit 1
+          fi

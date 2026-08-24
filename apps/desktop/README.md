@@ -55,11 +55,36 @@ Release metadata is in:
 - `electron/features/workspace/runtime/browser-pack/generated-artifacts.json`
 - `electron/features/workspace/runtime/host-support-matrix.json`
 
+Exact upstream runtime pins are in `runtime-tools/pins.json`. The adjacent npm
+lockfile supplies exact transitive packages for the host browser pack and the
+`sero-node` image. Container base images use OCI digests, and Node downloads
+use committed SHA-256 values. `sero-node` installs Ubuntu packages from Ubuntu's
+signed current repositories.
+
+The weekly `Runtime Tool Updates` workflow checks npm runtime tools, Node.js,
+GitHub CLI, the Go and Ubuntu container images, and the `uv` host tool. It
+maintains one GitHub issue with current, waiting, and
+ready updates. Routine updates use one draft PR. Breaking updates use a separate
+draft PR. An upstream release must be at least seven days old. A manual urgent
+security run can bypass the wait for one named tool only when its reason is
+stored in `securityOverrides`. Review and merge remain manual. Updating pins
+does not publish browser packs, toolchains, container images, or Sero releases.
+
+The Node.js, npm, pnpm, and `uv` pins are inputs for the next managed-toolchain
+publication. The existing generated toolchain metadata remains immutable until
+those artifacts are built, verified, and published.
+
+The status issue also reports legacy managed Git, OpenSSH, and Bash bundles as
+blocked. Their published metadata does not contain exact component versions or
+reproducible source recipes. Do not claim that these tools are current until a
+new baseline build records that information.
+
 Before a release, run the relevant publication checks:
 
 ```bash
 pnpm --filter @sero/desktop toolchain:verify-published
 pnpm --filter @sero/desktop browser-pack:verify-published
+pnpm --filter @sero/desktop runtime-tools:validate
 ```
 
 `SERO_TOOLCHAIN_BASE_URL` is for a byte-identical local diagnostic mirror only.
