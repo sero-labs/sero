@@ -53,10 +53,10 @@
   "container": {
     "golangImage": "golang:1.26.3-bookworm@sha256:386d475a660466863d9f8c766fec64d7fdad3edac2c6a05020c09534d71edb4b",
     "ubuntuImage": "ubuntu:24.04@sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517",
-    "nodeVersion": "24.15.0",
+    "nodeVersion": "24.19.0",
     "nodeSha256": {
-      "arm64": "f3d5a797b5d210ce8e2cb265544c8e482eaedcb8aa409a8b46da7e8595d0dda0",
-      "x64": "472655581fb851559730c48763e0c9d3bc25975c59d518003fc0849d3e4ba0f6"
+      "arm64": "01443c1e1a29e531ccad5a46fefa6df490d2189c49f7955904aecdbb0fe86fdc",
+      "x64": "14b342e71204f811bde6153be8e04b62aef63c236fef92b55f9c83154b409647"
     },
     "githubCliVersion": "2.92.0"
   },
@@ -73,7 +73,7 @@
   "containerReleasedAt": {
     "golangImage": "2026-05-20T01:15:02.000Z",
     "ubuntuImage": "2026-08-10T00:00:00.000Z",
-    "nodeVersion": "2026-04-15T00:00:00.000Z",
+    "nodeVersion": "2026-08-03T23:59:59.999Z",
     "githubCliVersion": "2026-04-28T11:42:05.000Z"
   },
   "hostTools": {
@@ -93,5 +93,11 @@
       "reason": "The official Ubuntu snapshot service is not reachable from the supported local container builder. These packages still come from signed current repositories and are not covered by the seven-day wait."
     }
   ],
-  "securityOverrides": []
+  "securityOverrides": [
+    {
+      "tool": "node",
+      "version": "24.19.0",
+      "reason": "One-time branch workflow validation"
+    }
+  ]
 }
