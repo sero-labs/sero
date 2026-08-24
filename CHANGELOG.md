@@ -6,6 +6,47 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 and beta release tags use a SemVer prerelease form.
 
 
+## [0.7.0-beta.0](https://github.com/sero-labs/sero/compare/v0.6.0-beta.0...v0.7.0-beta.0) (2026-08-24)
+
+### Features
+
+* **agent-rooms:** Agent Rooms — a team per problem (phases 0-9) ([#373](https://github.com/sero-labs/sero/issues/373)) ([8c25462](https://github.com/sero-labs/sero/commit/8c25462607750ea744348d8a59fdbc7fe2aca82b))
+* **agent:** stream file writes as the model produces them ([#381](https://github.com/sero-labs/sero/issues/381)) ([8fdc270](https://github.com/sero-labs/sero/commit/8fdc27069044c29bfdf71781b4247d641be167f5))
+* **apps:** one lock for every app-state writer, an etag for the renderer ([#430](https://github.com/sero-labs/sero/issues/430)) ([3c4e2e9](https://github.com/sero-labs/sero/commit/3c4e2e9a43b320e0e70e8699d05995c174da57eb)), closes [#428](https://github.com/sero-labs/sero/issues/428) [#428](https://github.com/sero-labs/sero/issues/428)
+* **chat:** rebuild expanded tool call groups ([#396](https://github.com/sero-labs/sero/issues/396)) ([5b7caee](https://github.com/sero-labs/sero/commit/5b7caee6177d746cdcfff395e791b256dab61b06))
+* **dashboard:** let plugins set background images ([#360](https://github.com/sero-labs/sero/issues/360)) ([5923abc](https://github.com/sero-labs/sero/commit/5923abca49fb693267641479af94bebfdb6289a1))
+* **orchestrator:** turn a proven Workflow into a reusable skill ([#389](https://github.com/sero-labs/sero/issues/389)) ([c32df9c](https://github.com/sero-labs/sero/commit/c32df9cd76782c08774870b79cf570319a158c7c))
+* **plugins:** add generic extension-point framework ([#358](https://github.com/sero-labs/sero/issues/358)) ([ddfd9d9](https://github.com/sero-labs/sero/commit/ddfd9d9aacf80ff8b15c3a7701f492418dc3062f))
+* reduce test suite feedback time ([#401](https://github.com/sero-labs/sero/issues/401)) ([9eb5d3b](https://github.com/sero-labs/sero/commit/9eb5d3ba9bcfda46e58f4082281f8df2ddfb100b))
+* **workspace:** add plugin creation options ([#356](https://github.com/sero-labs/sero/issues/356)) ([077743f](https://github.com/sero-labs/sero/commit/077743fe0b97400e7bbcf5a8e4fea921b80d89f4))
+
+### Bug Fixes
+
+* **desktop:** clean up workspace containers ([#369](https://github.com/sero-labs/sero/issues/369)) ([12e3ac5](https://github.com/sero-labs/sero/commit/12e3ac55a9a2de648b5163359683ef5361776c49))
+* **desktop:** handle invalid GitHub auth tokens ([217ed1e](https://github.com/sero-labs/sero/commit/217ed1e0038a7d4cb44bede4e0078e1e1577e341))
+* **desktop:** remove stale duplicate plugin paths ([965e339](https://github.com/sero-labs/sero/commit/965e33945e45d312d250517ab65bb25cbebffa5e))
+* **desktop:** scope contribution id dedupe to each extension point ([#364](https://github.com/sero-labs/sero/issues/364)) ([2d02f85](https://github.com/sero-labs/sero/commit/2d02f858683e685c48cd0e80ad47a817d88b1937)), closes [#363](https://github.com/sero-labs/sero/issues/363)
+* **graphify:** force clean code-only rebuilds ([#393](https://github.com/sero-labs/sero/issues/393)) ([4d708e5](https://github.com/sero-labs/sero/commit/4d708e523b909fe6207dc2d1164c5bb0447d797d))
+* **graphify:** make code indexing local and free ([#391](https://github.com/sero-labs/sero/issues/391)) ([7b62dbb](https://github.com/sero-labs/sero/commit/7b62dbb9df909125c1914a9e4b7151f678c025b0))
+* **graphify:** stop the repeat spend, require an explicit model ([#384](https://github.com/sero-labs/sero/issues/384)) ([f724fe0](https://github.com/sero-labs/sero/commit/f724fe0fa14e609ab2e0f29d3b130f625375bcd6)), closes [#2861](https://github.com/sero-labs/sero/issues/2861) [#2880](https://github.com/sero-labs/sero/issues/2880) [sero-labs/sero#385](https://github.com/sero-labs/sero/issues/385)
+* **memory:** await transcript log writes ([#426](https://github.com/sero-labs/sero/issues/426)) ([2073fb4](https://github.com/sero-labs/sero/commit/2073fb484a7d005bcaf6d9a8a5b81cafb3befdcd))
+* **release:** repair cross-platform desktop builds ([56069ed](https://github.com/sero-labs/sero/commit/56069ed44d160d0c2e4f3755ac45c12e0141c81f))
+* **release:** use safe Linux executable name ([952148a](https://github.com/sero-labs/sero/commit/952148aa5b1fc312dc99691220d6e9f83a22395c))
+* **test:** match icon-only buttons by aria-label in AddWorkspaceMenu tests ([#367](https://github.com/sero-labs/sero/issues/367)) ([4b777d1](https://github.com/sero-labs/sero/commit/4b777d1f2c9f189080c4f955b43efa4207bc8d1a))
+* **ui:** remove text input focus glow and tidy Add Workspace menu ([ebd326a](https://github.com/sero-labs/sero/commit/ebd326ad30ba56a224d5a7a2a54886cf1a63c5c9))
+
+### Performance
+
+* **tests:** remove real waiting and repeated setup from the slowest tests ([#403](https://github.com/sero-labs/sero/issues/403)) ([c1c51fb](https://github.com/sero-labs/sero/commit/c1c51fb514adfe309c221998847aeecca09e13ed)), closes [#400](https://github.com/sero-labs/sero/issues/400)
+* **ui:** replace plugin barrel imports ([#427](https://github.com/sero-labs/sero/issues/427)) ([f52d2b8](https://github.com/sero-labs/sero/commit/f52d2b8a2dd4bdf94f11029a38b69bc685aeaa22))
+
+### Documentation
+
+* **plugins:** design generic extension-point framework ([#357](https://github.com/sero-labs/sero/issues/357)) ([5441d04](https://github.com/sero-labs/sero/commit/5441d04b1fa87e8ef1a78749c18f4c70177b3a4b))
+* review and revise the docs site ([#382](https://github.com/sero-labs/sero/issues/382)) ([2b129ab](https://github.com/sero-labs/sero/commit/2b129abfb273cda3c1bf9befe1ab95fa33a5ba38))
+* salvage critical knowledge and remove legacy docs ([#397](https://github.com/sero-labs/sero/issues/397)) ([62c40d7](https://github.com/sero-labs/sero/commit/62c40d766243920c284f84c510b5c3110dd15968))
+* update skill ([1176964](https://github.com/sero-labs/sero/commit/1176964db4730d6128b6ee300c65de43131597af))
+
 ## [0.6.0-beta.0](https://github.com/sero-labs/sero/compare/v0.5.0-beta.0...v0.6.0-beta.0) (2026-08-07)
 
 ### Features
