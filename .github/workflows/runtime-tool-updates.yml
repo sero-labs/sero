@@ -1,9 +1,6 @@
 name: Runtime Tool Updates
 
 on:
-  push:
-    branches:
-      - feat/runtime-dependency-updates
   schedule:
     - cron: '23 7 * * 1'
   workflow_dispatch:
@@ -173,13 +170,8 @@ jobs:
           MODE: ${{ matrix.mode }}
           SECURITY_TOOL: ${{ inputs.urgent_security_tool }}
           SECURITY_REASON: ${{ inputs.urgent_security_reason }}
-          TEST_BRANCH_RUN: ${{ github.event_name == 'push' }}
         run: |
           args=(--write)
-          if [[ "$TEST_BRANCH_RUN" == "true" ]]; then
-            SECURITY_TOOL="node"
-            SECURITY_REASON="One-time branch workflow validation"
-          fi
           if [[ "$MODE" == "breaking" ]]; then args+=(--breaking); fi
           if [[ -n "$SECURITY_REASON" ]]; then
             args+=(--only "$SECURITY_TOOL" --security-override-reason "$SECURITY_REASON")
