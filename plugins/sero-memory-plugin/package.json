@@ -16,7 +16,7 @@
     ]
   },
   "dependencies": {
-    "@tobilu/qmd": "^2.5.3",
+    "@tobilu/qmd": "^2.8.3",
     "date-fns": "^4.4.0",
     "typebox": "catalog:"
   },
