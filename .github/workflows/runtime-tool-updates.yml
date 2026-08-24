@@ -132,6 +132,15 @@ jobs:
         with:
           node-version: 24.15.0
 
+      - name: Create runtime-updater app token
+        id: app_token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ secrets.RUNTIME_UPDATER_APP_ID }}
+          private-key: ${{ secrets.RUNTIME_UPDATER_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
       - name: Check urgent-security input
         env:
           SECURITY_TOOL: ${{ inputs.urgent_security_tool }}
@@ -191,7 +200,7 @@ jobs:
         id: pull_request
         env:
           BRANCH: ${{ matrix.branch }}
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
           MODE: ${{ matrix.mode }}
           TITLE: ${{ matrix.title }}
         run: |
