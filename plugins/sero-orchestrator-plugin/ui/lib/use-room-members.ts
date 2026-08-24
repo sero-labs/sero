@@ -44,7 +44,7 @@ export function useRoomMembers(roomId: string | null, memberIds: string[]): Map<
       remember(memberId, value);
     });
     for (const [path, memberId] of byPath) {
-      void api.watch<RoomMember | null>(path).then((current) => {
+      void api.watch<RoomMember | null>(path).then(({ data: current }) => {
         if (active && current) remember(memberId, current);
       });
     }

@@ -72,11 +72,11 @@ describe('app-runtime shared seams', () => {
   it('reports when the initial app-state read is complete', async () => {
     let ready = false;
     let updateState: ((updater: (prev: { count: number }) => { count: number }) => void) | null = null;
-    let finishWatch: ((value: { count: number } | null) => void) | null = null;
+    let finishWatch: ((value: { data: { count: number } | null; etag: string | null }) => void) | null = null;
     const appState = {
       read: vi.fn(async () => null),
-      write: vi.fn(async () => undefined),
-      watch: vi.fn(() => new Promise<{ count: number } | null>((resolve) => {
+      write: vi.fn(async () => ({ ok: true as const, etag: 'e1' })),
+      watch: vi.fn(() => new Promise<{ data: { count: number } | null; etag: string | null }>((resolve) => {
         finishWatch = resolve;
       })),
       unwatch: vi.fn(async () => undefined),
@@ -101,13 +101,13 @@ describe('app-runtime shared seams', () => {
     expect(ready).toBe(false);
 
     await act(async () => {
-      finishWatch?.(null);
+      finishWatch?.({ data: null, etag: null });
       await Promise.resolve();
     });
     expect(ready).toBe(true);
 
     await act(async () => updateState?.((previous) => ({ count: previous.count + 1 })));
-    expect(appState.write).toHaveBeenCalledWith('/tmp/state.json', { count: 1 });
+    expect(appState.write).toHaveBeenCalledWith('/tmp/state.json', { count: 1 }, null);
   });
 
   it('reconciles optimistic app-state writes back to disk on write failure', async () => {
@@ -118,10 +118,10 @@ describe('app-runtime shared seams', () => {
 
     const appState = {
       read: vi.fn(async () => ({ count: 0 })),
-      write: vi.fn(() => new Promise<void>((_resolve, reject) => {
+      write: vi.fn(() => new Promise<never>((_resolve, reject) => {
         rejectWrite = reject;
       })),
-      watch: vi.fn(async () => ({ count: 0 })),
+      watch: vi.fn(async () => ({ data: { count: 0 }, etag: 'e0' })),
       unwatch: vi.fn(async () => undefined),
       onChange: vi.fn(() => () => undefined),
     };
@@ -154,7 +154,7 @@ describe('app-runtime shared seams', () => {
       updateState?.((prev) => ({ count: prev.count + 1 }));
     });
 
-    expect(appState.write).toHaveBeenCalledWith('/tmp/state.json', { count: 1 });
+    expect(appState.write).toHaveBeenCalledWith('/tmp/state.json', { count: 1 }, 'e0');
     expect(latestState).toBe(1);
 
     await act(async () => {
@@ -175,7 +175,7 @@ describe('app-runtime shared seams', () => {
     const appState = {
       read: vi.fn(async () => null),
       write: vi.fn(async () => undefined),
-      watch: vi.fn(async () => ({ display: 42, history: null, meta: {}, extra: 'kept' })),
+      watch: vi.fn(async () => ({ data: { display: 42, history: null, meta: {}, extra: 'kept' }, etag: 'e0' })),
       unwatch: vi.fn(async () => undefined),
       onChange: vi.fn(() => () => undefined),
     };

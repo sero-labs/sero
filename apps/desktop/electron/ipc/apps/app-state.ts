@@ -7,6 +7,7 @@
 
 import path from 'path';
 import { ipcMain } from 'electron';
+import type { AppStateReadResult, AppStateWriteResult } from '@/types/ipc';
 import { IpcChannels } from '@/types/ipc-channels';
 import { appStateManager } from '@electron/features/apps/state/manager';
 import { SERO_HOME } from '@electron/platform/env';
@@ -124,26 +125,30 @@ export function registerAppStateHandlers(): void {
     },
   );
 
-  // Write state file (atomic + serialised)
+  // Write state file (atomic + serialised + cross-process locked).
+  // `expectedEtag` rejects a write based on state that is no longer current.
   ipcMain.handle(
     IpcChannels.appState.write,
-    async (_event, filePath: string, data: unknown): Promise<void> => {
-      await appStateManager.write(filePath, data);
-      // Immediate notification for IPC-originated writes (no file watcher delay)
-      notifyAppRuntimeManager(filePath, data);
-      await refreshRuntimeSettingsIfNeeded(filePath);
+    async (_event, filePath: string, data: unknown, expectedEtag?: string | null): Promise<AppStateWriteResult> => {
+      const result = await appStateManager.write(filePath, data, expectedEtag);
+      if (result.ok) {
+        // Immediate notification for IPC-originated writes (no file watcher delay)
+        notifyAppRuntimeManager(filePath, data);
+        await refreshRuntimeSettingsIfNeeded(filePath);
+      }
+      return result;
     },
   );
 
-  // Start watching a state file (returns current state)
+  // Start watching a state file (returns current state plus its etag)
   ipcMain.handle(
     IpcChannels.appState.watch,
-    async (_event, filePath: string): Promise<unknown> => {
+    async (_event, filePath: string): Promise<AppStateReadResult> => {
       appStateManager.watch(filePath);
       if (gitWorkspaceStateManager.isGitStateFile(filePath)) {
         gitWorkspaceStateManager.watchStateFile(filePath);
       }
-      return appStateManager.read(filePath);
+      return appStateManager.readWithEtag(filePath);
     },
   );
 

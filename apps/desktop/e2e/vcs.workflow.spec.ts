@@ -163,7 +163,7 @@ test.describe('VCS - Repo State Subscription', () => {
       }
     }, testWorkspaceId);
 
-    expect(result.initial).toBeNull();
+    expect((result.initial as { data: unknown }).data).toBeNull();
     expect(result.changesAfterWrite).toBeGreaterThan(0);
     expect(result.changesAfterUnwatch).toBe(result.changesAfterWrite);
   });

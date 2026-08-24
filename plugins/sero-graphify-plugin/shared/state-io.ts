@@ -1,5 +1,6 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { withStateLock } from '@sero-ai/extension-runtime';
 import { withStateDefaults, type GraphifyState, type IndexAction, type IndexRequest, type SettingsPatch } from './types';
 
 /** Distinguishes "no state yet" from "state exists but could not be read". */
@@ -52,53 +53,24 @@ export async function appendSettingsRequest(stateFile: string, settings: Setting
   return (await appendIndexRequests(stateFile, [{ action: 'settings', settings }]))[0];
 }
 
-/** How many times to retry when the runtime wrote the file mid-append. */
-const MAX_APPEND_ATTEMPTS = 8;
-
-/**
- * Write `next` only if the file still holds exactly `expected`.
- *
- * Returns false when it changed, so the caller can re-read and rebuild its
- * update on top of the newer content instead of reverting it.
- *
- * This narrows the window; it is not a lock. The runtime writes this file from
- * the main process through its own serialised queue and takes nothing this
- * process holds, so a write landing between the check and the rename is still
- * possible in principle — the gap is now a single rename rather than a read,
- * parse and rebuild. Closing it completely needs one shared write path for both
- * processes.
- */
-export async function writeIfUnchanged(
-  stateFile: string,
-  expected: string | null,
-  next: GraphifyState,
-): Promise<boolean> {
-  if ((await readRaw(stateFile)) !== expected) return false;
-  await writeStateFile(stateFile, next);
-  return true;
-}
-
 /**
  * Append related requests in one state write so the runtime observes them
  * together.
  *
  * This runs in the extension process, while the runtime writes the same file
- * through the host's serialised queue — the two share no lock. A plain
- * read-modify-write would therefore revert everything the runtime wrote since
- * this read, such as a `lastBuiltAt` or the applied-request watermark. Builds
- * write progress every 750ms, so that window is hit routinely.
- *
- * Instead the file is re-read and compared byte-for-byte immediately before the
- * write, and the whole append is retried when it changed. Writes are atomic
- * renames, so a match means nothing landed in between.
+ * from the main process — builds write progress every 750ms, so a plain
+ * read-modify-write would routinely revert what the runtime wrote since the
+ * read (a `lastBuiltAt`, the applied-request watermark). The read and the
+ * write therefore happen under the cross-process lock the host's
+ * AppStateManager takes for every mutation of this file.
  */
 export async function appendIndexRequests(
   stateFile: string,
   requests: Array<Omit<IndexRequest, 'id' | 'requestedAt'>>,
 ): Promise<number[]> {
-  for (let attempt = 0; attempt < MAX_APPEND_ATTEMPTS; attempt += 1) {
-    const before = await readRaw(stateFile);
-    const current = before === null ? withStateDefaults(null) : parseOrThrow(before, stateFile);
+  return withStateLock(stateFile, async () => {
+    const raw = await readRaw(stateFile);
+    const current = raw === null ? withStateDefaults(null) : parseOrThrow(raw, stateFile);
     const requestedAt = new Date().toISOString();
     const queued = requests.map((request, index) => ({
       id: current.nextRequestId + index,
@@ -110,9 +82,7 @@ export async function appendIndexRequests(
       nextRequestId: current.nextRequestId + queued.length,
       requests: [...current.requests, ...queued],
     };
-
-    if (!(await writeIfUnchanged(stateFile, before, next))) continue;
+    await writeStateFile(stateFile, next);
     return queued.map((request) => request.id);
-  }
-  throw new Error('Graphify state is being written too often to queue this request. Try again in a moment.');
+  });
 }

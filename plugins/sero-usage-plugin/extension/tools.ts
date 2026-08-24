@@ -12,7 +12,7 @@ import { formatCost, formatCount, formatRelativeTime, formatTokens } from '../sh
 import type { PeriodKey, UsageState } from '../shared/types';
 import { PERIOD_LABELS, REFRESH_INTERVAL_OPTIONS } from '../shared/types';
 import { runRefresh, summarizeRefresh } from './refresh';
-import { readState, resolveStatePath, writeJsonFile } from './state-io';
+import { readState, resolveStatePath, updateState } from './state-io';
 
 const ACTIONS = ['refresh', 'summary', 'sessions', 'config'] as const;
 const PERIODS = ['today', 'thisWeek', 'lastWeek', 'allTime'] as const;
@@ -105,8 +105,7 @@ async function actionConfig(refreshIntervalMinutes?: number): Promise<string> {
   if (!(REFRESH_INTERVAL_OPTIONS as readonly number[]).includes(refreshIntervalMinutes)) {
     return `Error: refreshIntervalMinutes must be one of ${REFRESH_INTERVAL_OPTIONS.join(', ')} (0 = manual).`;
   }
-  const next: UsageState = { ...state, settings: { refreshIntervalMinutes } };
-  await writeJsonFile(statePath, next);
+  await updateState(statePath, (current) => ({ ...current, settings: { refreshIntervalMinutes } }));
   return `Auto-refresh interval set to ${describeInterval(refreshIntervalMinutes)}.`;
 }
 

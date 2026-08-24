@@ -170,9 +170,9 @@ export class GitWorkspaceStateManager {
       .then(() => {
         gitRefreshInvalidationCoordinator.markRefreshed(entry.stateFilePath);
       })
-      .catch((error) => {
+      .catch(async (error) => {
         console.error('[git-app] Failed to refresh git state:', error);
-        return appStateManager.write(entry.stateFilePath, {
+        await appStateManager.write(entry.stateFilePath, {
           repoPath: entry.workspacePath,
           repoName: path.basename(entry.workspacePath),
           currentBranch: '',

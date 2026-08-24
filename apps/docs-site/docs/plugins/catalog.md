@@ -42,8 +42,8 @@ Built-in plugins can appear in app discovery or favorites. External plugins do n
 | Spotify | `@sero-ai/plugin-spotify` | Deprecated; current runtime path unsupported | None recommended | [Docs](/plugins/spotify) | The repository marks it deprecated. Current stock Electron does not provide its former DRM path. |
 | ImageGen | `@sero-ai/plugin-imagegen` | External | `git:https://github.com/sero-labs/sero-imagegen-plugin.git` | [Docs](/plugins/imagegen) | Gemini credentials and network access. |
 | Loom | `@sero-ai/plugin-loom` | External | `git:https://github.com/sero-labs/sero-loom-plugin.git` | [Docs](/plugins/loom) | GLSL art studio and wallpaper capture. |
-| Starling Bank | `@sero-ai/plugin-starling` | External | `git:https://github.com/monobyte/sero-starling-plugin.git` | [Docs](/plugins/starling) | Sero 0.1.0+, runtime ABI 2, Sero desktop bridges, Starling token, and network access. |
-| Weight | `@sero-ai/plugin-weight-tracker` | External | `git:https://github.com/monobyte/sero-weight-tracker.git` | [Docs](/plugins/weight-tracker) | Sero 0.1.0+ and runtime ABI 2; stores health data as plain JSON. |
+| Starling Bank | `@sero-ai/plugin-starling` | External | `git:https://github.com/monobyte/sero-starling-plugin.git` | [Docs](/plugins/starling) | Sero 0.1.0+, runtime ABI 3, Sero desktop bridges, Starling token, and network access. |
+| Weight | `@sero-ai/plugin-weight-tracker` | External | `git:https://github.com/monobyte/sero-weight-tracker.git` | [Docs](/plugins/weight-tracker) | Sero 0.1.0+ and runtime ABI 3; stores health data as plain JSON. |
 
 ## External catalog-only plugins
 

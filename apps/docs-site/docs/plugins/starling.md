@@ -25,7 +25,7 @@ The PIN is an app lock. It is not an encryption key, and the source does not set
 
 ## Platform requirements
 
-The package manifest requires Sero 0.1.0 or later and runtime ABI 2. The safe-storage bridge and host network bridge require the Sero desktop app. The repository also documents Pi CLI installation, but its dashboard security and network behavior depend on Sero host bridges.
+The package manifest requires Sero 0.1.0 or later and runtime ABI 3. The safe-storage bridge and host network bridge require the Sero desktop app. The repository also documents Pi CLI installation, but its dashboard security and network behavior depend on Sero host bridges.
 
 Do not include tokens, account identifiers, balances, or transactions in screenshots and public support reports.
 

@@ -179,7 +179,7 @@ export const useVcsStore = create<VcsStore>((set, get) => ({
     } else {
       gitStateSubs.set(wsId, { filePath, refCount: 1 });
       wsIdByFilePath.set(filePath, wsId);
-      void appState.watch(filePath).then((data: unknown) => {
+      void appState.watch(filePath).then(({ data }) => {
         if (data !== undefined && data !== null) applyGitAppState(set, get, wsId, data);
       });
     }

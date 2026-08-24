@@ -16,7 +16,7 @@ For an external repository, use the maintained
 | Task | File |
 | --- | --- |
 | Define the Pi, app, and plugin manifests | `package.json` |
-| Set runtime ABI 2 and required host capabilities | `package.json` |
+| Set runtime ABI 3 and required host capabilities | `package.json` |
 | Define JSON-serialisable state and defaults | `shared/types.ts` |
 | Register a tool, command, and CLI metadata | `extension/index.ts` |
 | Read and write state from the React UI | `ui/NotesApp.tsx` |

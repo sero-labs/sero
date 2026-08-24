@@ -24,7 +24,7 @@ Use made-up values in screenshots and public support reports. Weight records and
 
 ## Other runtimes
 
-The package manifest requires Sero 0.1.0 or later and runtime ABI 2. When the package runs in Pi CLI without Sero, it uses `workspace-root/.sero/apps/weight-tracker/state.json` instead of the global Sero path.
+The package manifest requires Sero 0.1.0 or later and runtime ABI 3. When the package runs in Pi CLI without Sero, it uses `workspace-root/.sero/apps/weight-tracker/state.json` instead of the global Sero path.
 
 ## Related docs
 

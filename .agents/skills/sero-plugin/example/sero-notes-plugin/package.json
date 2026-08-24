@@ -22,23 +22,24 @@
       "component": "NotesApp",
       "runtime": "./runtime/index.ts",
       "devPort": 5199,
-      "widgets": [
-        {
+      "contributes": {
+        "components": [{
           "id": "notes-summary",
+          "extensionPoint": "ui.dashboard.widget",
           "name": "Notes Summary",
           "component": "NotesWidget",
           "description": "Quick overview of open notes",
           "defaultSize": { "w": 2, "h": 2 },
           "minSize": { "w": 1, "h": 1 },
           "maxSize": { "w": 4, "h": 3 }
-        }
-      ]
+        }]
+      }
     },
     "plugin": {
       "category": "productivity",
       "tags": ["notes", "example", "reference"],
       "minSeroVersion": "0.1.0",
-      "runtimeAbi": 2,
+      "runtimeAbi": 3,
       "requiredHostCapabilities": [
         "appAgent.invokeTool",
         "tool.cli",
@@ -48,6 +49,7 @@
     }
   },
   "dependencies": {
+    "@sero-ai/extension-runtime": "^0.2.4",
     "typebox": "catalog:"
   },
   "peerDependencies": {
@@ -68,6 +70,7 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "lucide-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "tailwindcss": "catalog:",

@@ -77,10 +77,11 @@ If the plugin ships **prompt templates** or **skills**, add `prompts/` and/or
       "category": "productivity",
       "tags": ["myapp", "example"],
       "minSeroVersion": "0.1.0",
-      "runtimeAbi": 2
+      "runtimeAbi": 3
     }
   },
   "dependencies": {
+    "@sero-ai/extension-runtime": "^0.2.4",
     "typebox": "catalog:"
   },
   "peerDependencies": {
@@ -387,6 +388,7 @@ export const DEFAULT_STATE: MyAppState = {
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { withStateLock } from '@sero-ai/extension-runtime';
 import { StringEnum } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Text } from '@earendil-works/pi-tui';
@@ -422,6 +424,20 @@ async function writeState(filePath: string, state: MyAppState): Promise<void> {
   const tmpPath = `${filePath}.tmp.${Date.now()}`;
   await fs.writeFile(tmpPath, JSON.stringify(state, null, 2), 'utf8');
   await fs.rename(tmpPath, filePath);
+}
+
+// Locked read-modify-write. The Sero host writes this file for the UI under
+// the same `<stateFile>.lock` mutex, so a tool call cannot interleave with a
+// panel edit and revert it. Never write the state file without this.
+async function updateState(
+  filePath: string,
+  updater: (state: MyAppState) => MyAppState,
+): Promise<MyAppState> {
+  return withStateLock(filePath, async () => {
+    const next = updater(await readState(filePath));
+    await writeState(filePath, next);
+    return next;
+  });
 }
 
 // -- Tool parameters --
@@ -477,14 +493,14 @@ export default function (pi: ExtensionAPI) {
               details: {},
             };
           }
-          const item: MyItem = {
-            id: state.nextId,
-            title: params.title,
-            createdAt: new Date().toISOString(),
-          };
-          state.items.push(item);
-          state.nextId++;
-          await writeState(statePath, state);
+          const title = params.title;
+          let item!: MyItem;
+          await updateState(statePath, (current) => {
+            item = { id: current.nextId, title, createdAt: new Date().toISOString() };
+            current.items.push(item);
+            current.nextId++;
+            return current;
+          });
           return {
             content: [{ type: 'text', text: `Added #${item.id}: ${item.title}` }],
             details: {},
@@ -498,8 +514,10 @@ export default function (pi: ExtensionAPI) {
               details: {},
             };
           }
-          state.items = state.items.filter((i) => i.id !== params.id);
-          await writeState(statePath, state);
+          await updateState(statePath, (current) => ({
+            ...current,
+            items: current.items.filter((i) => i.id !== params.id),
+          }));
           return {
             content: [{ type: 'text', text: `Removed #${params.id}` }],
             details: {},

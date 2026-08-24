@@ -65,8 +65,12 @@ export const SERO_HOST_CAPABILITIES = [
  *
  * - 1 — @module-federation/vite 1.11.x (runtime negotiation)
  * - 2 — @module-federation/vite 1.19.x (`__mf_module_cache__` share cache)
+ * - 3 — etag app-state protocol (#428): `watch` returns `{ data, etag }`,
+ *   change events carry an etag, and `useAppState` echoes it on write. A
+ *   bundle built on ABI 2 blind-writes whole state files from stale renderer
+ *   snapshots, which the host now rejects.
  */
-export const SERO_PLUGIN_RUNTIME_ABI = 2;
+export const SERO_PLUGIN_RUNTIME_ABI = 3;
 
 export type SeroHostCapability = (typeof SERO_HOST_CAPABILITIES)[number];
 

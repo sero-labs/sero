@@ -15,7 +15,7 @@ vi.mock('@sero-ai/app-runtime', () => ({
   getSeroApi: () => ({
     appState: {
       onChange: () => () => {},
-      watch: async () => ({ body: '# From the artifact\n' }),
+      watch: async () => ({ data: { body: '# From the artifact\n' }, etag: 'e1' }),
       unwatch: async () => {},
     },
   }),

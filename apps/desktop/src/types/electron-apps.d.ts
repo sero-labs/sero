@@ -5,6 +5,8 @@
  */
 
 import type {
+  AppStateReadResult,
+  AppStateWriteResult,
   SeroAppManifest,
   AppControlEntry,
   AppInteractionParams,
@@ -24,16 +26,20 @@ interface SeroAppStateAPI {
   read(filePath: string): Promise<unknown>;
   /** Read a file as raw UTF-8 text (no JSON parsing). Returns null if missing. */
   readText(filePath: string): Promise<string | null>;
-  /** Write an app state JSON file (atomic + serialised). */
-  write(filePath: string, data: unknown): Promise<void>;
+  /**
+   * Write an app state JSON file (atomic, serialised, cross-process locked).
+   * Pass the etag the caller's state is based on to reject stale writes;
+   * omit it only for whole-file owners that never hold state between reads.
+   */
+  write(filePath: string, data: unknown, expectedEtag?: string | null): Promise<AppStateWriteResult>;
   /** Delete an app state / data file. */
   remove(filePath: string): Promise<void>;
-  /** Start watching a state file. Returns current state. */
-  watch(filePath: string): Promise<unknown>;
+  /** Start watching a state file. Returns current state plus its etag. */
+  watch(filePath: string): Promise<AppStateReadResult>;
   /** Stop watching a state file. */
   unwatch(filePath: string): Promise<void>;
   /** Subscribe to state file change events. Returns unsubscribe. */
-  onChange(callback: (filePath: string, data: unknown) => void): () => void;
+  onChange(callback: (filePath: string, data: unknown, etag: string | null) => void): () => void;
 }
 
 interface SeroAppsAPI {

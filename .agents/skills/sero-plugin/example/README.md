@@ -15,7 +15,7 @@ plugin that exercises **every** surface a Sero plugin can ship.
 
 | Surface | File | What it demonstrates |
 |---------|------|----------------------|
-| Manifest | `sero-notes-plugin/package.json` | Full `pi` + `sero.app` + `sero.plugin` manifest, `bridgeTools`, `requiredHostCapabilities`, static widget, runtime entry |
+| Manifest | `sero-notes-plugin/package.json` | Full `pi` + `sero.app` + `sero.plugin` manifest, `bridgeTools`, `requiredHostCapabilities`, canonical static widget contribution, runtime entry |
 | Shared types | `sero-notes-plugin/shared/types.ts` | JSON-serialisable state + `DEFAULT_STATE` |
 | Pi extension | `sero-notes-plugin/extension/index.ts` | `pi.registerTool` with `StringEnum`, atomic state writes, custom TUI render, bridged CLI metadata (`cli`), `pi.registerCommand`, `session_start` warm fallback |
 | Background runtime | `sero-notes-plugin/runtime/index.ts` | `AppRuntime` implementation against `@sero-ai/common` — startup reconcile, `handleStateChange`, `dispose` |
@@ -35,7 +35,7 @@ plugin that exercises **every** surface a Sero plugin can ship.
    `devPort` (keep it unique — grep existing plugins first).
 3. Delete the surfaces you don't need:
    - No UI? Remove `vite.config.ts`, `ui/`, and the `sero.app.ui` /
-     `component` / `devPort` / `widgets` fields, and collapse
+     `component` / `devPort` / `contributes` fields, and collapse
      `scripts.typecheck` to just `extension/tsconfig.json`.
    - No background runtime? Remove `runtime/`, `sero.app.runtime`, the
      `appRuntime.background` capability, and the runtime tsconfig from

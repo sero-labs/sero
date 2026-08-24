@@ -27,8 +27,8 @@ export function useJsonIndex<T>(
         setEntries(normalize(value));
       }
     });
-    void api.watch<unknown>(filePath).then((value) => {
-      if (active && !changedWhileWatching) setEntries(normalize(value));
+    void api.watch<unknown>(filePath).then(({ data }) => {
+      if (active && !changedWhileWatching) setEntries(normalize(data));
     });
     return () => {
       active = false;

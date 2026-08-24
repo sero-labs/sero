@@ -51,7 +51,7 @@
         "analytics"
       ],
       "minSeroVersion": "0.1.0",
-      "runtimeAbi": 2,
+      "runtimeAbi": 3,
       "requiredHostCapabilities": [
         "appAgent.invokeTool",
         "tool.cli"
@@ -62,6 +62,7 @@
     }
   },
   "dependencies": {
+    "@sero-ai/extension-runtime": "workspace:*",
     "typebox": "catalog:"
   },
   "peerDependencies": {

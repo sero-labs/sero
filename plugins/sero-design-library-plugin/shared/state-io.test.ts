@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { withLock } from './file-lock';
+import { withLock } from '@sero-ai/extension-runtime';
 import { designLibraryPathsFromHome, type DesignLibraryPaths } from './paths';
 import {
   StaleStateError,
@@ -156,7 +156,7 @@ describe('withLock', () => {
     // pid 1 exists but is not us; use an implausible pid that is certainly free.
     await writeFile(
       path.join(paths.lockDir, 'owner.json'),
-      JSON.stringify({ pid: 0x7ffffff, acquiredAt: Date.now() }),
+      JSON.stringify({ pid: 0x7ffffff, acquiredAt: Date.now(), token: 'gone' }),
       'utf8',
     );
     await expect(withLock(paths.lockDir, async () => 'ran', { timeoutMs: 2000 })).resolves.toBe('ran');

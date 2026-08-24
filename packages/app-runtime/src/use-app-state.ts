@@ -8,7 +8,7 @@
 
 import { useState, useEffect, useCallback, use, useRef } from 'react';
 import { AppContext } from './context';
-import { getSeroApi, type SeroWindowAppStateBridge } from './sero-bridge';
+import { getSeroApi, type AppStateWriteResult, type SeroWindowAppStateBridge } from './sero-bridge';
 
 /**
  * File-backed reactive state hook.
@@ -59,6 +59,43 @@ export function applyDefaultState<T>(defaultState: T, current: unknown): T {
   return normalizeStateValue(defaultState, current) as T;
 }
 
+/** How often a rejected write is re-applied before the update is dropped. */
+const MAX_WRITE_ATTEMPTS = 5;
+
+/**
+ * Write state, re-applying the updater on top of newer file content whenever
+ * the host rejects the etag. The caller's change lands on top of what another
+ * writer (extension, runtime) wrote instead of replacing it.
+ *
+ * Returns the state that reached disk, or `null` when the file kept changing
+ * for `MAX_WRITE_ATTEMPTS` rounds. Assumes the updater is a pure function of
+ * `prev` — an updater closing over values derived from an earlier `prev`
+ * re-applies those stale values.
+ *
+ * Exported for its tests, not from the package entry point.
+ */
+export async function writeStateWithRebase<T>(
+  write: (data: T, expectedEtag: string | null) => Promise<AppStateWriteResult>,
+  updater: (prev: T) => T,
+  first: { state: T; etag: string | null },
+  rebase: (fileData: unknown) => T,
+): Promise<{ state: T; etag: string | null } | null> {
+  let candidate = first.state;
+  let etag = first.etag;
+
+  for (let attempt = 0; attempt < MAX_WRITE_ATTEMPTS; attempt += 1) {
+    const result = await write(candidate, etag);
+    if (result.ok) return { state: candidate, etag: result.etag };
+
+    const base = rebase(result.data);
+    etag = result.etag;
+    candidate = updater(base);
+    // The newer content already satisfies the update — nothing left to write.
+    if (Object.is(candidate, base)) return { state: base, etag };
+  }
+  return null;
+}
+
 export function useAppState<T>(defaultState: T): [T, (updater: (prev: T) => T) => void, boolean] {
   const ctx = use(AppContext);
   if (!ctx) {
@@ -75,6 +112,9 @@ export function useAppState<T>(defaultState: T): [T, (updater: (prev: T) => T) =
   const defaultStateRef = useRef<T>(defaultState);
   const stateRef = useRef<T>(defaultState);
   const latestWriteIdRef = useRef(0);
+  /** Etag of the last file content this hook observed; `null` before the
+   * first watch result, which makes any earlier write rebase onto disk. */
+  const etagRef = useRef<string | null>(null);
 
   defaultStateRef.current = defaultState;
   stateRef.current = state;
@@ -109,15 +149,18 @@ export function useAppState<T>(defaultState: T): [T, (updater: (prev: T) => T) =
       applyState(nextState);
     };
 
-    const unsubscribe = api.appState.onChange<T | null>((filePath, data) => {
-      if (!isActive || filePath !== stateFilePath || data == null) return;
+    const unsubscribe = api.appState.onChange<T | null>((filePath, data, etag) => {
+      if (!isActive || filePath !== stateFilePath) return;
+      etagRef.current = etag;
+      if (data == null) return;
       applyIfActive(applyDefaultState(defaultStateRef.current, data));
     });
 
     void api.appState.watch<T | null>(stateFilePath).then(
-      (current) => {
-        if (current != null) {
-          applyIfActive(applyDefaultState(defaultStateRef.current, current));
+      ({ data, etag }) => {
+        if (isActive) etagRef.current = etag;
+        if (data != null) {
+          applyIfActive(applyDefaultState(defaultStateRef.current, data));
         }
         if (isActive) setReadyPath(stateFilePath);
       },
@@ -143,7 +186,24 @@ export function useAppState<T>(defaultState: T): [T, (updater: (prev: T) => T) =
       applyState(next);
 
       const api = getSeroApi();
-      void api.appState.write(stateFilePath, next).catch((error: unknown) => {
+      void writeStateWithRebase(
+        (data, expectedEtag) => api.appState.write(stateFilePath, data, expectedEtag),
+        updater,
+        { state: next, etag: etagRef.current },
+        (fileData) => applyDefaultState(defaultStateRef.current, fileData),
+      ).then((result) => {
+        if (result === null) {
+          console.error(`[app-runtime] Dropped app state update for ${stateFilePath}: the file kept changing under this writer`);
+          void recoverFromWriteFailure(api.appState, writeId, previous);
+          return;
+        }
+        etagRef.current = result.etag;
+        // A rebase produced a different state than the optimistic one — show
+        // what actually reached disk, unless a newer update superseded this.
+        if (writeId === latestWriteIdRef.current && !Object.is(result.state, next)) {
+          applyState(result.state);
+        }
+      }, (error: unknown) => {
         if (writeId !== latestWriteIdRef.current) return;
         console.warn(`[app-runtime] Failed to persist app state for ${stateFilePath}`, error);
         void recoverFromWriteFailure(api.appState, writeId, previous);

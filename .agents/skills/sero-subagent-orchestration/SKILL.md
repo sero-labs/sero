@@ -106,10 +106,10 @@ Reconcile all reports in the parent. If a real blocker remains, use one fix work
 
 ## 6. Report and update the PR
 
-Follow the `sero-code-review` skill. Give a green or red code verdict, list the status of every earlier finding, state exact validation, and separate non-code merge blockers. Update one existing PR review comment with:
+Follow the `sero-code-review` skill. Give a green or red code verdict, list the status of every earlier finding, state exact validation, and separate non-code merge blockers. Post the result as a new PR review comment with:
 
 ```bash
-gh pr comment <pr> --edit-last --create-if-none --body-file <file>
+gh pr comment <pr> --body-file <file>
 ```
 
-Push the validated integrated commits before posting so the PR head matches the reviewed SHA. Confirm the remote head, draft checks, and clean local status. Never stack review comments. Keep the PR a draft unless the user explicitly asks otherwise.
+Post a new comment for each review round so PR watchers receive the update and the review history stays visible. Use `--edit-last` only to correct the current round's comment. Push the validated integrated commits before posting so the PR head matches the reviewed SHA. Confirm the remote head, draft checks, and clean local status. Keep the PR a draft unless the user explicitly asks otherwise.

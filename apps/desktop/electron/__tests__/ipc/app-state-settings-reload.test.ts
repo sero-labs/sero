@@ -19,7 +19,7 @@ const mocks = vi.hoisted(() => {
       read: vi.fn(),
       readText: vi.fn(),
       remove: vi.fn(),
-      write: vi.fn(),
+      write: vi.fn().mockResolvedValue({ ok: true, etag: 'etag' }),
     },
   };
 

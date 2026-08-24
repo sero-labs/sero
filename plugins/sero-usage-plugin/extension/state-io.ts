@@ -9,6 +9,8 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
+import { withStateLock } from '@sero-ai/extension-runtime';
+
 import type { UsageState } from '../shared/types';
 import { normalizeUsageState } from '../shared/types';
 
@@ -68,4 +70,21 @@ export async function writeJsonFile(filePath: string, value: unknown): Promise<v
   } finally {
     if (writeQueues.get(filePath) === next) writeQueues.delete(filePath);
   }
+}
+
+/**
+ * Locked read-modify-write for state.json. The UI writes this file through the
+ * host's AppStateManager, which takes the same `<stateFile>.lock` mutex, so a
+ * settings change from the panel cannot interleave with a refresh writing its
+ * scan results (#428).
+ */
+export async function updateState(
+  filePath: string,
+  updater: (current: UsageState) => UsageState,
+): Promise<UsageState> {
+  return withStateLock(filePath, async () => {
+    const next = updater(await readState(filePath));
+    await writeJsonFile(filePath, next);
+    return next;
+  });
 }

@@ -9,7 +9,7 @@ const bridge = vi.hoisted(() => {
   const listeners = new Set<(filePath: string, value: unknown) => void>();
   return {
     listeners,
-    watch: vi.fn<(filePath: string) => Promise<unknown>>(),
+    watch: vi.fn<(filePath: string) => Promise<{ data: unknown; etag: string }>>(),
     unwatch: vi.fn<(filePath: string) => Promise<void>>(),
     onChange: vi.fn((listener: (filePath: string, value: unknown) => void) => {
       listeners.add(listener);
@@ -47,7 +47,7 @@ function Probe({ relativePath = 'items/index.json' }: { relativePath?: string })
 
 beforeEach(() => {
   bridge.listeners.clear();
-  bridge.watch.mockReset().mockResolvedValue([{ id: 'initial' }]);
+  bridge.watch.mockReset().mockResolvedValue({ data: [{ id: 'initial' }], etag: 'initial-etag' });
   bridge.unwatch.mockReset().mockResolvedValue(undefined);
   bridge.onChange.mockClear();
 });
@@ -69,7 +69,7 @@ describe('useJsonIndex', () => {
   });
 
   it('keeps a newer change event when the initial watch finishes later', async () => {
-    let resolveWatch: (value: unknown) => void = () => undefined;
+    let resolveWatch: (value: { data: unknown; etag: string }) => void = () => undefined;
     bridge.watch.mockReturnValue(new Promise((resolve) => { resolveWatch = resolve; }));
     render(<AppContext.Provider value={context}><Probe /></AppContext.Provider>);
 
@@ -80,7 +80,7 @@ describe('useJsonIndex', () => {
     });
     expect(screen.getByTestId('ids').textContent).toBe('newer');
 
-    await act(async () => resolveWatch([{ id: 'stale-initial' }]));
+    await act(async () => resolveWatch({ data: [{ id: 'stale-initial' }], etag: 'stale-etag' }));
     expect(screen.getByTestId('ids').textContent).toBe('newer');
   });
 
