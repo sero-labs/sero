@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { stateLockPath } from './state-lock-path.ts';
+import { stateLockPath } from './state-lock-path';
 
 /**
  * Cross-process exclusive lock for app state files.

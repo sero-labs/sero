@@ -1,7 +1,7 @@
 {
   "name": "@sero-ai/extension-runtime",
   "version": "0.2.3",
-  "description": "Shared runtime helpers for isolated background agent work in Sero — plugin extensions and the desktop host (isolated model completions, file locks, etc.)",
+  "description": "Shared runtime helpers for isolated background agent work in Sero \u2014 plugin extensions and the desktop host (isolated model completions, file locks, etc.)",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -32,7 +32,8 @@
     "@earendil-works/pi-coding-agent": "catalog:",
     "@types/node": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "tsx": "^4.23.12"
   },
   "peerDependenciesMeta": {
     "@earendil-works/pi-agent-core": {

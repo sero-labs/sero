@@ -127,7 +127,9 @@ describe('cross-process exclusion', () => {
     await writeFile(stateFile, JSON.stringify({ status: 'start', items: [] }), 'utf8');
 
     const worker = fileURLToPath(new URL('./fixtures/append-worker.ts', import.meta.url));
-    const child = spawn(process.execPath, [worker, stateFile, String(count)], { stdio: ['ignore', 'inherit', 'inherit'] });
+    // --import tsx: the fixture and file-lock use extensionless TS imports,
+    // which plain Node type-stripping cannot resolve.
+    const child = spawn(process.execPath, ['--import', 'tsx', worker, stateFile, String(count)], { stdio: ['ignore', 'inherit', 'inherit'] });
     const childDone = new Promise<void>((resolve, reject) => {
       child.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`worker exited ${code}`))));
       child.on('error', reject);
@@ -182,7 +184,7 @@ describe('cross-process exclusion', () => {
     const runs = [] as Promise<void>[];
     const start = (id: string, mode: 'normal' | 'crash') => {
       ids.push(id);
-      const child = spawn(process.execPath, [fixture, lockDir, logFile, id, String(sections), mode], { stdio: ['ignore', 'inherit', 'inherit'] });
+      const child = spawn(process.execPath, ['--import', 'tsx', fixture, lockDir, logFile, id, String(sections), mode], { stdio: ['ignore', 'inherit', 'inherit'] });
       runs.push(new Promise<void>((resolve, reject) => {
         child.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`${id} exited ${code}`))));
         child.on('error', reject);
