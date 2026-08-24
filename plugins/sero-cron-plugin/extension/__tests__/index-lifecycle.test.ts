@@ -92,6 +92,13 @@ const readStateMock = vi.fn(async (filePath: string) =>
 const writeStateMock = vi.fn(async (filePath: string, state: CronState) => {
   stateStore.set(filePath, cloneState(state));
 });
+let stateLockQueue: Promise<unknown> = Promise.resolve();
+
+function withStateLockMock<T>(_statePath: string, fn: () => Promise<T>): Promise<T> {
+  const run = stateLockQueue.then(fn, fn);
+  stateLockQueue = run.then(() => undefined, () => undefined);
+  return run;
+}
 
 vi.mock('../scheduler', () => ({
   CronScheduler: MockCronScheduler,
@@ -99,7 +106,7 @@ vi.mock('../scheduler', () => ({
 
 vi.mock('../state-io', () => ({
   resolveStatePath: (cwd: string) => statePathFor(cwd),
-  withStateLock: async <T>(_statePath: string, fn: () => Promise<T>) => fn(),
+  withStateLock: withStateLockMock,
   readState: (filePath: string) => readStateMock(filePath),
   writeState: (filePath: string, state: CronState) => writeStateMock(filePath, state),
 }));
@@ -161,6 +168,7 @@ beforeEach(() => {
   stateStore.clear();
   readStateMock.mockClear();
   writeStateMock.mockClear();
+  stateLockQueue = Promise.resolve();
   delete process.env.SERO_HOME;
   delete process.env.SERO_CRON_SUBPROCESS;
 });
@@ -253,5 +261,31 @@ describe('cron extension lifecycle', () => {
 
     expect(notify).toHaveBeenCalledTimes(2);
     expect(notify.mock.calls.every(([message]) => message === '✓ Scheduler stopped')).toBe(true);
+  }, LIFECYCLE_TEST_TIMEOUT_MS);
+
+  it('starts only one scheduler when start commands overlap', async () => {
+    const cwd = '/workspace-a';
+    const notify = vi.fn();
+    stateStore.set(statePathFor(cwd), defaultState({ jobs: [makeJob()] }));
+
+    const registerExtension = await loadExtension();
+    const { pi, handlers, commands } = createFakePi();
+    registerExtension(pi as never);
+    await handlers.session_start({}, { cwd });
+
+    await Promise.all([
+      commands.get('cron')?.handler('on', { cwd, ui: { notify } }),
+      commands.get('cron')?.handler('on', { cwd, ui: { notify } }),
+    ]);
+
+    expect(schedulerInstances).toHaveLength(1);
+    expect(schedulerInstances[0].isRunning()).toBe(true);
+    expect(notify.mock.calls.map(([message]) => message)).toEqual(expect.arrayContaining([
+      expect.stringMatching(/^✓ Scheduler started/),
+      'Scheduler is already running.',
+    ]));
+
+    await commands.get('cron')?.handler('off', { cwd, ui: { notify } });
+    expect(schedulerInstances[0].isRunning()).toBe(false);
   }, LIFECYCLE_TEST_TIMEOUT_MS);
 });

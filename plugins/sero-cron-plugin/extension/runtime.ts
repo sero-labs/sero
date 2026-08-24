@@ -199,11 +199,16 @@ export function createCronRuntime(): CronRuntime {
     }
 
     const state = await withStateLock(statePath, async () => {
+      if (scheduler?.isRunning()) return null;
       const started = createAndStartScheduler(await readState(statePath));
       started.schedulerActive = true;
       await writeState(statePath, started);
       return started;
     });
+    if (!state) {
+      warn('scheduler:start-skipped', { reason: 'already running' });
+      return 'Scheduler is already running.';
+    }
     startStateWatcher();
 
     const activeReminders = state.reminders.filter(
