@@ -5,6 +5,10 @@ updates:
   # one update source so concurrent PRs do not compete to rewrite the lockfile.
   - package-ecosystem: npm
     directory: "/"
+    # This lock is controlled by Runtime Tool Updates. Dependabot alerts stay
+    # enabled, but Dependabot must not bypass the waiting and validation policy.
+    exclude-paths:
+      - "apps/desktop/runtime-tools/**"
     schedule:
       interval: weekly
       day: monday

@@ -8,6 +8,14 @@ export function assertNoAuditRegression(
   baseline: AuditReport,
   candidate: AuditReport,
 ): void;
+export function renderNpmAuditReport(audit: {
+  metadata?: { vulnerabilities?: Record<string, number> };
+  vulnerabilities?: Record<string, {
+    severity: string;
+    isDirect: boolean;
+    fixAvailable: boolean | { name: string; version: string; isSemVerMajor?: boolean };
+  }>;
+}): string;
 
 interface AuditReport {
   metadata?: {

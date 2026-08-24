@@ -8,6 +8,7 @@ import {
   isReleaseEligible,
   macArm64FfmpegRevision,
   recordSecurityOverrides,
+  renderNpmAuditReport,
   validateRuntimePins,
 } from '../../../../scripts/runtime-tools/update-runtime-tools.mjs';
 import {
@@ -41,6 +42,20 @@ describe('runtime tool update policy', () => {
       baseline,
       auditReport({ critical: 0, high: 4, moderate: 2, low: 0, info: 0 }),
     )).toThrow('regressed at moderate: 5 -> 6');
+  });
+
+  it('lists unresolved runtime vulnerabilities in the status report', () => {
+    const report = renderNpmAuditReport({
+      metadata: { vulnerabilities: { critical: 0, high: 1, moderate: 1, low: 0 } },
+      vulnerabilities: {
+        tar: { severity: 'high', isDirect: false, fixAvailable: { name: 'npm', version: '10.9.9', isSemVerMajor: true } },
+        undici: { severity: 'moderate', isDirect: false, fixAvailable: true },
+      },
+    });
+
+    expect(report).toContain('| tar | high | transitive | npm@10.9.9 (breaking change) |');
+    expect(report).toContain('| undici | moderate | transitive | Upstream fix reported; managed lock update required |');
+    expect(report).toContain('GitHub security alerts remain enabled');
   });
 
   it('selects only newer stable routine and breaking releases', () => {

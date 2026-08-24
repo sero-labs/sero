@@ -73,12 +73,11 @@ jobs:
           npm audit --package-lock-only --ignore-scripts --workspaces=false --json \
             > "$RUNNER_TEMP/runtime-tool-audit.json" || true
           cd "$GITHUB_WORKSPACE"
-          node - "$RUNNER_TEMP/runtime-tool-audit.json" "$RUNNER_TEMP/runtime-tool-report.md" <<'NODE'
-          const fs = require('node:fs');
+          node --input-type=module - "$RUNNER_TEMP/runtime-tool-audit.json" "$RUNNER_TEMP/runtime-tool-report.md" <<'NODE'
+          import fs from 'node:fs';
+          import { renderNpmAuditReport } from './apps/desktop/scripts/runtime-tools/update-runtime-tools.mjs';
           const audit = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
-          const counts = audit.metadata?.vulnerabilities ?? {};
-          const summary = `\n\n## Current npm security audit\n\nCritical: ${counts.critical ?? 0}; high: ${counts.high ?? 0}; moderate: ${counts.moderate ?? 0}; low: ${counts.low ?? 0}.\n`;
-          fs.appendFileSync(process.argv[3], summary);
+          fs.appendFileSync(process.argv[3], `\n\n${renderNpmAuditReport(audit)}\n`);
           NODE
           {
             printf '\n## Automation\n\n'

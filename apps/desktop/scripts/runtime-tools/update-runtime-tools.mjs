@@ -122,6 +122,35 @@ export function assertNoAuditRegression(baseline, candidate) {
   }
 }
 
+export function renderNpmAuditReport(audit) {
+  const counts = audit.metadata?.vulnerabilities ?? {};
+  const vulnerabilities = Object.entries(audit.vulnerabilities ?? {})
+    .sort(([left], [right]) => left.localeCompare(right));
+  const rows = vulnerabilities.map(([name, finding]) => (
+    `| ${name} | ${finding.severity} | ${finding.isDirect ? 'direct' : 'transitive'} | ${auditFixStatus(finding.fixAvailable)} |`
+  ));
+  return [
+    '## Current npm security audit',
+    '',
+    `Critical: ${counts.critical ?? 0}; high: ${counts.high ?? 0}; moderate: ${counts.moderate ?? 0}; low: ${counts.low ?? 0}.`,
+    '',
+    'GitHub security alerts remain enabled. The managed runtime updater, not Dependabot, owns changes to this lock.',
+    '',
+    ...(rows.length > 0 ? [
+      '| Package | Severity | Dependency | Available action |',
+      '| --- | --- | --- | --- |',
+      ...rows,
+    ] : ['No npm audit findings.']),
+  ].join('\n');
+}
+
+function auditFixStatus(fixAvailable) {
+  if (!fixAvailable) return 'No upstream fix reported';
+  if (fixAvailable === true) return 'Upstream fix reported; managed lock update required';
+  const change = `${fixAvailable.name}@${fixAvailable.version}`;
+  return fixAvailable.isSemVerMajor ? `${change} (breaking change)` : change;
+}
+
 function auditCounts(report) {
   const counts = report.metadata?.vulnerabilities;
   if (!counts) throw new Error('Runtime dependency audit report has no vulnerability counts');
