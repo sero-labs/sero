@@ -114,7 +114,9 @@ describe('cross-process lock', () => {
     await manager.write(file, { status: 'start', items: [] });
 
     const worker = path.resolve(__dirname, 'fixtures/state-append-worker.mjs');
-    const child = spawn(process.execPath, [worker, file, String(count)], { stdio: ['ignore', 'inherit', 'inherit'] });
+    const child = spawn(process.execPath, ['--import', 'tsx', worker, file, String(count)], {
+      stdio: ['ignore', 'inherit', 'inherit'],
+    });
     const childDone = new Promise<void>((resolve, reject) => {
       child.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`worker exited ${code}`))));
       child.on('error', reject);

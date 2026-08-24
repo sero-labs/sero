@@ -7,8 +7,8 @@
  * `<stateFile>.ready` and waits for `<stateFile>.go` so both processes
  * provably write concurrently.
  *
- * Plain .mjs (not .ts): Node runs it directly, and its `.ts`-extension import
- * of the lock helper stays out of the electron typecheck.
+ * Plain .mjs keeps the fixture out of the electron typecheck. The parent loads
+ * tsx so the lock helper can use its extensionless TypeScript import.
  */
 import { existsSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
