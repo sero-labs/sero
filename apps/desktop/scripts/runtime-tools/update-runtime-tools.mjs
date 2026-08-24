@@ -6,10 +6,7 @@ import { spawnSync } from 'node:child_process';
 
 import {
   applyObservationWindow,
-  compareVersions,
   discoverRuntimeUpdates,
-  isRoutineUpdate,
-  isStableVersion,
   renderRuntimeUpdateReport,
 } from './runtime-tool-sources.mjs';
 
@@ -21,6 +18,7 @@ const lockPath = path.join(desktopRoot, 'runtime-tools/package-lock.json');
 const dockerfilePath = path.join(desktopRoot, 'images/Dockerfile.sero-node');
 const browserConfigPath = path.join(desktopRoot, 'scripts/browser-pack/browser-pack-config.mjs');
 const browserWorkflowPath = path.resolve(desktopRoot, '../../.github/workflows/browser-pack-artifacts.yml');
+const rootPackagePath = path.resolve(desktopRoot, '../../package.json');
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   main().catch((error) => {
@@ -135,6 +133,7 @@ function auditCounts(report) {
 export async function validateRuntimePins({ pins, now = new Date(), allowYoungPins = false }) {
   if (pins.policy?.minimumReleaseAgeDays !== 7) throw new Error('Runtime tools must wait exactly seven days');
   const packageJson = await readJson(packagePath);
+  const rootPackageJson = await readJson(rootPackagePath);
   const lock = await readJson(lockPath);
   for (const [name, pin] of Object.entries(pins.npm ?? {})) {
     if (packageJson.dependencies?.[name] !== pin.version) throw new Error(`${name} package input is not exactly ${pin.version}`);
@@ -145,6 +144,9 @@ export async function validateRuntimePins({ pins, now = new Date(), allowYoungPi
     if (!allowYoungPins && !isReleaseEligible(pin.releasedAt, now, 7) && !hasRecordedOverride(pins, name, pin.version)) {
       throw new Error(`${name}@${pin.version} is younger than seven days and has no recorded security override`);
     }
+  }
+  if (rootPackageJson.packageManager !== `pnpm@${pins.npm.pnpm.version}`) {
+    throw new Error(`Root packageManager does not match packaged pnpm ${pins.npm.pnpm.version}`);
   }
   for (const [name, releasedAt] of Object.entries(pins.containerReleasedAt ?? {})) {
     const override = containerOverrideIdentity(pins, name);
@@ -179,37 +181,12 @@ function containerOverrideIdentity(pins, name) {
   return identities[name] ?? { tool: name, version: pins.container[name] };
 }
 
-export function selectEligibleNpmRelease({
-  metadata,
-  currentVersion,
-  now,
-  minimumReleaseAgeDays,
-  allowYoung = false,
-  routineUpdates = 'minor',
-  updateMode = 'routine',
-}) {
-  return Object.keys(metadata.versions ?? {})
-    .filter((version) => isStableVersion(version) && compareVersions(version, currentVersion) > 0)
-    .filter((version) => isRoutineUpdate(currentVersion, version, routineUpdates) === (updateMode === 'routine'))
-    .filter((version) => !metadata.versions[version]?.deprecated)
-    .filter((version) => {
-      const releasedAt = metadata.time?.[version];
-      return releasedAt && (allowYoung || isReleaseEligible(releasedAt, now, minimumReleaseAgeDays));
-    })
-    .sort(compareVersions)
-    .at(-1);
-}
-
 async function applyRuntimeUpdates(pins, updates, securityOverrideReason) {
   const npmUpdates = updates.filter(({ source }) => source === 'npm');
   const externalUpdates = updates.filter(({ source }) => source !== 'npm');
   if (npmUpdates.length) await applyNpmUpdates(pins, npmUpdates);
   if (externalUpdates.length) await applyExternalUpdates(pins, externalUpdates);
-  for (const update of updates) {
-    if (securityOverrideReason) {
-      pins.securityOverrides.push({ tool: update.key, version: update.version, reason: securityOverrideReason });
-    }
-  }
+  recordSecurityOverrides(pins, updates, securityOverrideReason);
   await updatePlaywrightBrowserPins(pins);
   await writeJson(pinsPath, pins);
   if (updates.some(({ key }) => pins.npm[key]?.usedBy.includes('browser-pack'))) {
@@ -218,8 +195,16 @@ async function applyRuntimeUpdates(pins, updates, securityOverrideReason) {
   await validateRuntimePins({ pins, now: new Date() });
 }
 
+export function recordSecurityOverrides(pins, updates, reason) {
+  if (!reason) return;
+  for (const update of updates.filter(({ eligible }) => !eligible)) {
+    pins.securityOverrides.push({ tool: update.key, version: update.version, reason });
+  }
+}
+
 async function applyNpmUpdates(pins, updates) {
   const packageJson = await readJson(packagePath);
+  const rootPackageJson = await readJson(rootPackagePath);
   for (const update of updates) {
     packageJson.dependencies[update.key] = update.version;
     pins.npm[update.key] = {
@@ -228,6 +213,11 @@ async function applyNpmUpdates(pins, updates) {
       releasedAt: update.releasedAt,
       integrity: update.details.integrity,
     };
+  }
+  const pnpmUpdate = updates.find(({ key }) => key === 'pnpm');
+  if (pnpmUpdate) {
+    rootPackageJson.packageManager = `pnpm@${pnpmUpdate.version}`;
+    await writeJson(rootPackagePath, rootPackageJson);
   }
   await writeJson(packagePath, packageJson);
   run('npm', ['install', '--package-lock-only', '--ignore-scripts', '--workspaces=false'], path.dirname(packagePath));
@@ -284,10 +274,11 @@ async function bumpBrowserPackRelease(pins, now) {
   if (!currentVersion || !currentDate) throw new Error('Browser-pack release constants are missing');
 
   const nextDate = now.toISOString().slice(0, 10);
-  const nextVersion = `browser-pack-${nextDate}-r${pins.browser.chromiumRevision}-agent-${pins.npm['agent-browser'].version}`;
+  const nextVersion = `browser-pack-${nextDate}-r${pins.browser.chromiumRevision}-f${pins.browser.ffmpegRevision}-mf${pins.browser.macFfmpegRevision}-agent-${pins.npm['agent-browser'].version}`;
   const nextConfig = config
     .replace(`BROWSER_PACK_VERSION = '${currentVersion}'`, `BROWSER_PACK_VERSION = '${nextVersion}'`)
     .replace(`BROWSER_PACK_DATE = '${currentDate}'`, `BROWSER_PACK_DATE = '${nextDate}'`);
+  if (nextConfig === config) return;
   await fs.writeFile(browserConfigPath, nextConfig);
 
   const workflow = await fs.readFile(browserWorkflowPath, 'utf8');
@@ -308,11 +299,22 @@ async function updatePlaywrightBrowserPins(pins) {
       chromiumRevision: chromium.revision,
       chromiumVersion: chromium.browserVersion,
       ffmpegRevision: ffmpeg.revision,
-      macFfmpegRevision: ffmpeg.revisionOverrides?.['mac12-arm64'] ?? ffmpeg.revision,
+      macFfmpegRevision: macArm64FfmpegRevision(ffmpeg),
     };
   } finally {
     await fs.rm(path.join(runtimeToolsRoot, 'node_modules'), { recursive: true, force: true });
   }
+}
+
+export function macArm64FfmpegRevision(ffmpeg) {
+  const overrides = Object.entries(ffmpeg.revisionOverrides ?? {})
+    .filter(([platform]) => platform.startsWith('mac') && platform.endsWith('-arm64'))
+    .map(([, revision]) => revision);
+  if (Object.keys(ffmpeg.revisionOverrides ?? {}).length === 0) return ffmpeg.revision;
+  if (overrides.length === 0) throw new Error('Playwright ffmpeg metadata has overrides but no macOS arm64 revision');
+  const revisions = [...new Set(overrides)];
+  if (revisions.length !== 1) throw new Error('Playwright ffmpeg metadata has conflicting macOS arm64 revisions');
+  return revisions[0];
 }
 
 function hasRecordedOverride(pins, tool, version) {
@@ -338,7 +340,12 @@ function parseArgs(args) {
 }
 
 async function readJson(filePath) {
-  return JSON.parse(await fs.readFile(filePath, 'utf8'));
+  const contents = await fs.readFile(filePath, 'utf8');
+  try {
+    return JSON.parse(contents);
+  } catch (error) {
+    throw new Error(`Invalid JSON in ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 async function writeJson(filePath, value) {

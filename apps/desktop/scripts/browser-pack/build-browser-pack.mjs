@@ -141,13 +141,47 @@ async function removePlaywrightInstallLinks(packRoot) {
 async function installAgentBrowser(packRoot, platform, lockedToolsRoot) {
   const agentRoot = path.join(packRoot, 'agent-browser');
   await fs.mkdir(agentRoot, { recursive: true });
-  await fs.cp(path.join(lockedToolsRoot, 'node_modules'), path.join(agentRoot, 'node_modules'), { recursive: true });
+  const lock = parseJson(await fs.readFile(path.join(lockedToolsRoot, 'package-lock.json'), 'utf8'), 'runtime package lock');
+  for (const packagePath of lockedPackageClosure(lock.packages, 'node_modules/agent-browser')) {
+    const destination = path.join(agentRoot, packagePath);
+    await fs.mkdir(path.dirname(destination), { recursive: true });
+    await fs.cp(path.join(lockedToolsRoot, packagePath), destination, { recursive: true });
+  }
   materializeAgentBrowserBinSync(agentRoot, platform);
+}
+
+export function lockedPackageClosure(packages, rootPackagePath) {
+  const selected = new Set();
+  const pending = [rootPackagePath];
+  while (pending.length > 0) {
+    const packagePath = pending.pop();
+    if (selected.has(packagePath)) continue;
+    const metadata = packages[packagePath];
+    if (!metadata) throw new Error(`Runtime lock is missing ${packagePath}`);
+    selected.add(packagePath);
+    for (const dependency of Object.keys({ ...metadata.dependencies, ...metadata.optionalDependencies })) {
+      pending.push(resolveLockedDependency(packages, packagePath, dependency));
+    }
+  }
+  return [...selected].sort();
+}
+
+function resolveLockedDependency(packages, parentPath, dependency) {
+  let scope = parentPath;
+  while (scope) {
+    const nested = `${scope}/node_modules/${dependency}`;
+    if (packages[nested]) return nested;
+    const separator = scope.lastIndexOf('/node_modules/');
+    scope = separator === -1 ? '' : scope.slice(0, separator);
+  }
+  const hoisted = `node_modules/${dependency}`;
+  if (packages[hoisted]) return hoisted;
+  throw new Error(`Runtime lock cannot resolve ${dependency} from ${parentPath}`);
 }
 
 function materializeAgentBrowserBinSync(agentRoot, platform) {
   const packageJsonPath = path.join(agentRoot, 'node_modules/agent-browser/package.json');
-  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+  const packageJson = parseJson(readFileSync(packageJsonPath, 'utf8'), 'agent-browser package');
   const binValue = typeof packageJson.bin === 'string' ? packageJson.bin : packageJson.bin?.['agent-browser'];
   if (!binValue) throw new Error('agent-browser package does not declare an agent-browser bin');
 
@@ -262,7 +296,15 @@ function currentBuiltMetadata(existingArtifact, slug, urlBase) {
 
 async function readExistingMetadata() {
   if (!existsSync(metadataPath)) return null;
-  return JSON.parse(await fs.readFile(metadataPath, 'utf8'));
+  return parseJson(await fs.readFile(metadataPath, 'utf8'), 'browser-pack metadata');
+}
+
+function parseJson(contents, label) {
+  try {
+    return JSON.parse(contents);
+  } catch (error) {
+    throw new Error(`Invalid ${label}: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 function run(command, args, options = {}) {

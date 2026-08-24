@@ -22,4 +22,20 @@ describe('build-browser-pack', () => {
     expect(tarPathArgs('win32')).toEqual(['--force-local']);
     expect(tarPathArgs('linux')).toEqual([]);
   });
+
+  it('copies only agent-browser and its locked dependency closure', async () => {
+    const { lockedPackageClosure } = await import(scriptUrl);
+    const packages = {
+      'node_modules/agent-browser': { dependencies: { helper: '1.0.0' } },
+      'node_modules/helper': {},
+      'node_modules/npm': {},
+      'node_modules/playwright': {},
+      'node_modules/pnpm': {},
+    };
+
+    expect(lockedPackageClosure(packages, 'node_modules/agent-browser')).toEqual([
+      'node_modules/agent-browser',
+      'node_modules/helper',
+    ]);
+  });
 });

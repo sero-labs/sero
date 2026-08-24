@@ -15,18 +15,15 @@ interface AuditReport {
   };
 }
 
-export function selectEligibleNpmRelease(options: {
-  metadata: {
-    versions?: Record<string, { deprecated?: string; [key: string]: unknown }>;
-    time?: Record<string, string>;
-  };
-  currentVersion: string;
-  now: Date;
-  minimumReleaseAgeDays: number;
-  allowYoung?: boolean;
-  routineUpdates?: 'patch' | 'minor';
-  updateMode?: 'routine' | 'breaking';
-}): string | undefined;
+export function macArm64FfmpegRevision(ffmpeg: {
+  revision: string;
+  revisionOverrides?: Record<string, string>;
+}): string;
+export function recordSecurityOverrides(
+  pins: { securityOverrides: Array<{ tool: string; version: string; reason: string }> },
+  updates: Array<{ key: string; version: string; eligible: boolean }>,
+  reason?: string,
+): void;
 
 export function validateRuntimePins(options: {
   pins: {

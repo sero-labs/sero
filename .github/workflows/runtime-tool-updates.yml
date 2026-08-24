@@ -281,11 +281,13 @@ jobs:
         run: |
           body=$(printf 'Automated validation: pins **%s**, CLI smoke **%s**, browser pack **%s**, container **%s**. [Workflow run](%s/actions/runs/%s).' \
             "$VALIDATE" "$CLI_TEST" "$BROWSER_PACK" "$CONTAINER" "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "$GITHUB_RUN_ID")
-          gh pr comment "$PR_URL" --body "$body"
+          if [[ -n "$PR_URL" ]]; then
+            gh pr comment "$PR_URL" --body "$body"
+          fi
           issue_number=$(gh issue list --state open --search '"Packaged runtime dependency status" in:title' --json number,title --jq \
             '.[] | select(.title == "Packaged runtime dependency status") | .number' | head -1)
           if [[ -n "$issue_number" ]]; then
-            gh issue comment "$issue_number" --body "$PR_URL — $body"
+            gh issue comment "$issue_number" --body "${PR_URL:-Update PR was not created} — $body"
           fi
           if [[ "$VALIDATE" != "success" || "$CLI_TEST" != "success" || "$BROWSER_PACK" != "success" || "$CONTAINER" != "success" ]]; then
             exit 1

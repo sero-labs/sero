@@ -17,7 +17,7 @@ export async function discoverRuntimeUpdates(pins, now = new Date()) {
 async function discoverNpm(pins, now, candidates) {
   await Promise.all(Object.entries(pins.npm).map(async ([name, current]) => {
     const metadata = await fetchJson(`https://registry.npmjs.org/${encodeURIComponent(name)}`);
-    addVersionCandidates({
+    return addVersionCandidates({
       candidates,
       key: name,
       label: name,
@@ -58,6 +58,7 @@ async function discoverNode(pins, now, candidates) {
       arm64Sha256: checksumFor(checksums, `node-v${item.version}-linux-arm64.tar.xz`),
       x64Sha256: checksumFor(checksums, `node-v${item.version}-linux-x64.tar.xz`),
     };
+    return item;
   }));
 }
 
@@ -130,7 +131,7 @@ async function discoverContainerImages(pins, now, candidates) {
       version: tag.name.replace(/-bookworm$/, ''),
       releasedAt: tag.tag_last_pushed ?? tag.last_updated,
     }));
-  const selected = selectReleases(
+  const selected = selectVersionUpdates(
     releases,
     pins.containerPolicy.golang.version,
     pins.containerPolicy.golang.routineUpdates,
@@ -154,19 +155,19 @@ async function discoverContainerImages(pins, now, candidates) {
 }
 
 function addVersionCandidates(options) {
-  const releases = options.releases.filter(({ version, releasedAt, deprecated }) => (
-    isStableVersion(version) && releasedAt && !deprecated && compareVersions(version, options.currentVersion) > 0
-  ));
-  const selected = selectReleases(releases, options.currentVersion, options.routineUpdates);
+  const selected = selectVersionUpdates(options.releases, options.currentVersion, options.routineUpdates);
   for (const [mode, release] of Object.entries(selected)) {
     if (!release) continue;
     options.candidates.push(candidate({ ...options, ...release, mode }));
   }
 }
 
-function selectReleases(releases, currentVersion, routineUpdates) {
+export function selectVersionUpdates(releases, currentVersion, routineUpdates) {
   const selected = { routine: undefined, breaking: undefined };
-  for (const release of releases.sort((left, right) => compareVersions(left.version, right.version))) {
+  const newerStableReleases = releases.filter(({ version, releasedAt, deprecated }) => (
+    isStableVersion(version) && releasedAt && !deprecated && compareVersions(version, currentVersion) > 0
+  ));
+  for (const release of newerStableReleases.sort((left, right) => compareVersions(left.version, right.version))) {
     const mode = isRoutineUpdate(currentVersion, release.version, routineUpdates) ? 'routine' : 'breaking';
     selected[mode] = release;
   }
@@ -266,10 +267,8 @@ async function fetchAllGitHubReleases(repository) {
 }
 
 async function resolveDockerDigest(repository, reference) {
-  const tokenUrl = new URL('https://auth.docker.io/token');
-  tokenUrl.searchParams.set('service', 'registry.docker.io');
-  tokenUrl.searchParams.set('scope', `repository:${repository}:pull`);
-  const { token } = await fetchJson(tokenUrl.toString());
+  const query = new URLSearchParams({ service: 'registry.docker.io', scope: `repository:${repository}:pull` });
+  const { token } = await fetchJson(`https://auth.docker.io/token?${query}`);
   const response = await fetch(`https://registry-1.docker.io/v2/${repository}/manifests/${reference}`, {
     headers: {
       accept: [
@@ -291,7 +290,7 @@ async function resolveDockerDigest(repository, reference) {
 
 async function fetchJson(url) {
   const headers = { accept: 'application/json', 'user-agent': 'sero-runtime-tool-updater' };
-  if (process.env.GITHUB_TOKEN && new URL(url).hostname === 'api.github.com') {
+  if (process.env.GITHUB_TOKEN && url.startsWith('https://api.github.com/')) {
     headers.authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
     headers['x-github-api-version'] = '2022-11-28';
   }

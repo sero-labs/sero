@@ -6,13 +6,15 @@ import { describe, expect, it } from 'vitest';
 import {
   assertNoAuditRegression,
   isReleaseEligible,
-  selectEligibleNpmRelease,
+  macArm64FfmpegRevision,
+  recordSecurityOverrides,
   validateRuntimePins,
 } from '../../../../scripts/runtime-tools/update-runtime-tools.mjs';
 import {
   applyObservationWindow,
   isRoutineUpdate,
   renderRuntimeUpdateReport,
+  selectVersionUpdates,
   type RuntimeUpdateCandidate,
 } from '../../../../scripts/runtime-tools/runtime-tool-sources.mjs';
 
@@ -41,69 +43,33 @@ describe('runtime tool update policy', () => {
     )).toThrow('regressed at moderate: 5 -> 6');
   });
 
-  it('selects the newest stable release that completed the waiting period', () => {
-    const metadata = {
-      versions: {
-        '1.1.0': { dist: { integrity: 'old' } },
-        '1.2.0': { dist: { integrity: 'eligible' } },
-        '1.3.0': { dist: { integrity: 'young' } },
-        '2.0.0-beta.1': { dist: { integrity: 'prerelease' } },
-      },
-      time: {
-        '1.1.0': '2026-08-01T00:00:00.000Z',
-        '1.2.0': '2026-08-10T00:00:00.000Z',
-        '1.3.0': '2026-08-20T00:00:00.000Z',
-        '2.0.0-beta.1': '2026-08-01T00:00:00.000Z',
-      },
-    };
+  it('selects only newer stable routine and breaking releases', () => {
+    const releases = [
+      { version: '1.0.0', releasedAt: '2026-08-01T00:00:00.000Z' },
+      { version: '1.2.0', releasedAt: '2026-08-10T00:00:00.000Z' },
+      { version: '2.0.0-beta.1', releasedAt: '2026-08-10T00:00:00.000Z' },
+      { version: '2.0.0', releasedAt: '2026-08-10T00:00:00.000Z' },
+    ];
 
-    expect(selectEligibleNpmRelease({
-      metadata,
-      currentVersion: '1.1.0',
-      now: new Date('2026-08-24T00:00:00.000Z'),
-      minimumReleaseAgeDays: 7,
-    })).toBe('1.2.0');
-  });
-
-  it('holds major releases for the separate breaking-update run', () => {
-    const metadata = {
-      versions: { '1.2.0': {}, '2.0.0': {} },
-      time: {
-        '1.2.0': '2026-08-01T00:00:00.000Z',
-        '2.0.0': '2026-08-01T00:00:00.000Z',
-      },
-    };
-    const options = {
-      metadata,
-      currentVersion: '1.1.0',
-      now: new Date('2026-08-24T00:00:00.000Z'),
-      minimumReleaseAgeDays: 7,
-      routineUpdates: 'minor' as const,
-    };
-
-    expect(selectEligibleNpmRelease(options)).toBe('1.2.0');
-    expect(selectEligibleNpmRelease({ ...options, updateMode: 'breaking' })).toBe('2.0.0');
+    expect(selectVersionUpdates(releases, '1.1.0', 'minor')).toEqual({
+      routine: releases[1],
+      breaking: releases[3],
+    });
+    expect(selectVersionUpdates(releases, '2.0.0', 'minor')).toEqual({
+      routine: undefined,
+      breaking: undefined,
+    });
   });
 
   it('treats a minor update for a zero-major package as breaking when configured for patches', () => {
-    const metadata = {
-      versions: { '0.27.3': {}, '0.28.0': {}, '0.34.0': {} },
-      time: {
-        '0.27.3': '2026-08-01T00:00:00.000Z',
-        '0.28.0': '2026-08-01T00:00:00.000Z',
-        '0.34.0': '2026-08-01T00:00:00.000Z',
-      },
-    };
-    const options = {
-      metadata,
-      currentVersion: '0.27.0',
-      now: new Date('2026-08-24T00:00:00.000Z'),
-      minimumReleaseAgeDays: 7,
-      routineUpdates: 'patch' as const,
-    };
+    const releases = ['0.27.3', '0.28.0', '0.34.0'].map((version) => ({
+      version,
+      releasedAt: '2026-08-01T00:00:00.000Z',
+    }));
+    const selected = selectVersionUpdates(releases, '0.27.0', 'patch');
 
-    expect(selectEligibleNpmRelease(options)).toBe('0.27.3');
-    expect(selectEligibleNpmRelease({ ...options, updateMode: 'breaking' })).toBe('0.34.0');
+    expect(selected.routine?.version).toBe('0.27.3');
+    expect(selected.breaking?.version).toBe('0.34.0');
     expect(isRoutineUpdate('0.27.3', '0.28.0', 'patch')).toBe(false);
   });
 
@@ -144,7 +110,31 @@ describe('runtime tool update policy', () => {
 
   it('validates exact package integrities and consumed container digests', async () => {
     const pins = JSON.parse(await fs.readFile(path.join(desktopRoot, 'runtime-tools/pins.json'), 'utf8'));
-    await expect(validateRuntimePins({ pins, now: new Date('2026-08-24T12:00:00.000Z') })).resolves.toBeUndefined();
+    await expect(validateRuntimePins({ pins })).resolves.toBeUndefined();
+  });
+
+  it('uses explicit macOS arm64 ffmpeg overrides and rejects ambiguous metadata', () => {
+    expect(macArm64FfmpegRevision({ revision: '1000' })).toBe('1000');
+    expect(macArm64FfmpegRevision({
+      revision: '1000',
+      revisionOverrides: { 'mac13-arm64': '1001', 'mac14-arm64': '1001' },
+    })).toBe('1001');
+    expect(() => macArm64FfmpegRevision({
+      revision: '1000',
+      revisionOverrides: { 'mac13-x64': '1002' },
+    })).toThrow('no macOS arm64 revision');
+  });
+
+  it('records a security override only when it bypasses the wait', () => {
+    const pins = { securityOverrides: [] as Array<{ tool: string; version: string; reason: string }> };
+    recordSecurityOverrides(pins, [
+      { key: 'ready', version: '2.0.0', eligible: true },
+      { key: 'young', version: '3.0.0', eligible: false },
+    ], 'Urgent security correction');
+
+    expect(pins.securityOverrides).toEqual([
+      { tool: 'young', version: '3.0.0', reason: 'Urgent security correction' },
+    ]);
   });
 
   it('rejects a young pin without a recorded urgent-security reason', async () => {

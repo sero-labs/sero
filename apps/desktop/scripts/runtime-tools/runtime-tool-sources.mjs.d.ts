@@ -37,3 +37,12 @@ export function isRoutineUpdate(
   candidateVersion: string,
   routineUpdates: 'patch' | 'minor',
 ): boolean;
+export function selectVersionUpdates<T extends {
+  version: string;
+  releasedAt?: string;
+  deprecated?: boolean;
+}>(
+  releases: T[],
+  currentVersion: string,
+  routineUpdates: 'patch' | 'minor',
+): { routine?: T; breaking?: T };

@@ -18,7 +18,7 @@ permissions:
 env:
   CI: true
   TURBO_TELEMETRY_DISABLED: 1
-  BROWSER_PACK_RELEASE: browser-pack-2026-08-24-r1234-agent-0.27.3
+  BROWSER_PACK_RELEASE: browser-pack-2026-08-24-r1234-f1011-mf1011-agent-0.27.3
   BROWSER_PACK_DIR: apps/desktop/dist/browser-pack/2026-08-24
 
 concurrency:
