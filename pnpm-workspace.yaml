@@ -4,6 +4,7 @@ packages:
   - "plugins/*"
 
 onlyBuiltDependencies:
+  - bun
   - electron
   - esbuild
   - node-pty
@@ -22,6 +23,8 @@ catalog:
   react-dom: "^19.2.8"
 
   # Build tooling
+  bun: "1.2.18"
+  "@types/bun": "1.2.18"
   tailwindcss: "4.3.3"
   "@tailwindcss/vite": "4.3.3"
   # Tailwind's browser build, inlined into Design Library previews (no network

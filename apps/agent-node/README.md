@@ -25,14 +25,16 @@ pnpm --filter @sero/agent-node build:linux:x64
 pnpm --filter @sero/agent-node build:linux:arm64
 ```
 
-The targets are pinned to glibc `bun-linux-x64-baseline` and `bun-linux-arm64`. No container,
-browser, plugin, preview, dev-server, or interactive-terminal tooling is included.
+The workspace pins Bun 1.2.18 and the glibc targets `bun-linux-x64-baseline` and
+`bun-linux-arm64`. No container, browser, plugin, preview, dev-server, or interactive-terminal
+tooling is included.
 
 ## Operate
 
-Create the system account from `systemd/sero-node.sysusers`, install the binary at
-`/usr/local/bin/sero-node`, and install `systemd/sero-node.service`. The service creates its exact
-state layout on first start. OpenSSL must be available to issue the local identity and TLS leaf.
+The system service is `sero-node.service` and runs under the account defined in
+`systemd/sero-node.sysusers`. The service creates its exact state layout on first start. OpenSSL
+must be available to issue the local identity and TLS leaf. The delivery and update format is not
+selected yet.
 
 Run the first enrolment ceremony over SSH:
 
@@ -44,8 +46,9 @@ Carry both the single-use code and SHA-256 SPKI fingerprint to Desktop. The code
 minutes. Desktop must pin the fingerprint before first contact. Later controllers can mint a code
 through the authenticated control API.
 
-Rotate only the TLS leaf with `sero-node rotate-tls`. The identity pin does not change. There is no
-identity-key backup; re-enrolment is the recovery path.
+Rotate only the TLS leaf with the operator CLI command `sero-node rotate-tls`. TLS rotation is not
+a control-plane or Desktop operation. The identity pin does not change. Never back up
+`identity.key`; re-enrolment is the recovery path.
 
 Session workspaces must be children of `/var/lib/sero-node/workspaces`. Active task streams may be
 disconnected without cancelling work. Session replay uses Pi-style eight-character entry IDs as

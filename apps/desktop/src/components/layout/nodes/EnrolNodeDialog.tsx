@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@sero-ai/ui/components/ui/dialog';
 import { Input } from '@sero-ai/ui/components/ui/input';
@@ -50,5 +50,6 @@ export function EnrolNodeDialog({ open, onOpenChange }: { open: boolean; onOpenC
 }
 
 function Field({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string }) {
-  return <div className="grid gap-1.5"><Label>{label}</Label><Input value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} /></div>;
+  const id = useId();
+  return <div className="grid gap-1.5"><Label htmlFor={id}>{label}</Label><Input id={id} value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} /></div>;
 }

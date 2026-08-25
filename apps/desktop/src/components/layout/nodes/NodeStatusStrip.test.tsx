@@ -4,7 +4,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AgentNodeInfo, AgentNodeConnectionState } from '@/types/agent-node';
 import { NodeStatusStrip } from './NodeStatusStrip';
-import { NODE_SAFETY_WARNING } from './EnrolNodeDialog';
+import { EnrolNodeDialog, NODE_SAFETY_WARNING } from './EnrolNodeDialog';
 
 const expected: Record<Exclude<AgentNodeConnectionState, 'connected'>, string> = {
   reconnecting: 'Your task is still running on the node. Nothing is lost.',
@@ -32,5 +32,17 @@ describe('NodeStatusStrip', () => {
 
   it('keeps the enrolment confirmation warning exact', () => {
     expect(NODE_SAFETY_WARNING).toBe("Work you send this node runs with the node's credentials. A task that reads untrusted text can reach them.");
+  });
+
+  it('associates every enrolment label with its input before first contact', async () => {
+    await act(async () => root.render(<EnrolNodeDialog open onOpenChange={vi.fn()} />));
+    const labels = [...document.querySelectorAll<HTMLLabelElement>('label')];
+    expect(labels.map((label) => label.textContent)).toEqual(['Address', 'Single-use code', 'Key fingerprint']);
+    for (const label of labels) {
+      expect(label.htmlFor).not.toBe('');
+      expect(document.getElementById(label.htmlFor)?.tagName).toBe('INPUT');
+    }
+    const addNode = [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Add node');
+    expect(addNode?.disabled).toBe(true);
   });
 });

@@ -23,9 +23,10 @@ TLS warning.
 
 1. In Sero Desktop, open **Agent Nodes**.
 2. Select **Add node**.
-3. Enter the node address and the one-time code.
-4. Compare the shown identity fingerprint with the operator's fingerprint.
-5. Confirm the enrolment only when the two values match.
+3. Enter the node address, one-time code, and operator-provided identity
+   fingerprint.
+4. Select **Add node**. Desktop pins the entered fingerprint before it makes
+   first contact.
 
 Enrolment pins the node identity. The node sends only its public identity key.
 Its private identity key does not leave the node. If the identity changes, Sero
@@ -38,11 +39,11 @@ provider settings in Desktop. You can enter an API key or start a provider
 login. For a browser login, Desktop opens the provider page and shows any
 device code or manual code. The node does not need a browser.
 
-Only one provider login can run at a time. Desktop shows masked provider status.
-It does not receive a provider key or token from the node. An OAuth login can
-expire or be revoked. If refresh fails, the current turn stops. The session and
-completed tool results remain. Reconnect the provider, then start the turn
-again.
+Only one provider login can run at a time. Any active controller can answer or
+cancel that login. Desktop shows masked provider status. It does not receive a
+provider key or token from the node. An OAuth login can expire or be revoked.
+If refresh fails, the current turn stops. The session and completed tool results
+remain. Reconnect the provider, then start the turn again.
 
 OpenAI ChatGPT device login is beta. The account owner or workspace
 administrator must enable device-code authentication. Provider terms can limit
@@ -57,9 +58,7 @@ subscribes to new A2A events. A2A alone does not replay missed stream events.
 Do not use a task state change as approval for a new action. Sero keeps control
 approval and A2A task state separate.
 
-Agent Node does not install or update itself, Sero Desktop, or other node
-software through this connection. The node operator owns installation and
-updates.
+The Agent Node delivery and update format is not selected yet.
 
 For service and security procedures, see
 [Agent Node Operations](/reference/agent-node-operations).

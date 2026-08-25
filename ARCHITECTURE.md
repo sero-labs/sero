@@ -85,22 +85,24 @@ The node supports Linux x64 and Linux arm64. NVIDIA DGX Spark is an arm64 target
 
 A2A carries agent work. It carries messages, task state, streams, cancellation,
 and artifacts. A Sero control plane carries enrolment, client revocation,
-provider authentication, persistent-session discovery, reconnect registration,
-and TLS rotation. These surfaces stay separate. A task state change never gives
-new authority. AWS Bedrock is not in the Agent Node provider surface.
+provider authentication, persistent-session discovery, and replay. TLS leaf
+rotation is available only through the node CLI. These surfaces stay separate.
+A task state change never gives new authority. AWS Bedrock is not in the Agent
+Node provider surface.
 
-One A2A context maps to one persistent Sero session, but Sero owns that mapping
-and its durability. A2A cannot list contexts. `SubscribeToTask` supplies a task
+An A2A `contextId` is the Pi session UUID. The Pi JSONL file is the durable
+ordered log. A2A cannot list contexts. `SubscribeToTask` supplies a task
 snapshot and new events. It does not replay missed events. Sero replay uses a
-declared extension with sequence positions. A reconnect first gets the durable
-session and task state, then requests extension replay, then subscribes to new
-events. A terminal task uses `GetTask`, not `SubscribeToTask`.
+control-plane session stream with Pi entry IDs as cursors. A reconnect first
+gets committed entries after its cursor, then one partial assistant snapshot
+when a turn is active, then live deltas. A terminal task uses `GetTask`, not
+`SubscribeToTask`.
 
 Enrolment pins the node identity public key. The identity private key never
 leaves the node. The TLS key is separate and can rotate without changing the
-pinned identity. A controller address is entered by the user. Agent Node does
-not use automatic local-network discovery. The control plane does not install
-or update Agent Node or Sero Desktop.
+pinned identity. A controller address, single-use code, and identity
+fingerprint are entered by the user before Desktop makes first contact. Agent
+Node does not use automatic local-network discovery.
 
 The system service uses a fixed `sero-node` account and a `0700` state
 directory. Identity and provider credential files use mode `0600`. Do not use
