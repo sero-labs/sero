@@ -8,9 +8,7 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["bun", "node"],
-    "baseUrl": ".",
-    "paths": { "@sero/a2a": ["src/a2a-contract.ts"] }
+    "types": ["bun", "node"]
   },
   "include": ["src/**/*.ts", "test/**/*.ts"]
 }

@@ -9,11 +9,93 @@ import type {
   AgentNodeSession,
 } from '@/types/agent-node';
 import type { SeroAgentNodeAPI } from '@/types/agent-node';
+import type {
+  AgentNodeInfo as IpcAgentNodeInfo,
+  AgentNodeSession as IpcAgentNodeSession,
+} from '@/types/ipc-agent-node';
 
 export function agentNodeApi(): SeroAgentNodeAPI {
-  const api = window.sero.agentNode;
-  if (!api) throw new Error('Agent Node support is not available in this build');
-  return api;
+  const api = window.sero.agentNodes;
+  return {
+    listNodes: async () => (await api.list()).map(toRendererNode),
+    enrolNode: async (input) => toRendererNode(await api.enrol({ ...input, name: input.address })),
+    removeNode: api.remove,
+    listSessions: async (nodeId) => {
+      const result = await api.control(nodeId, { operation: 'listSessions', params: {} });
+      return result.sessions.map(toRendererSession);
+    },
+    createSession: async (nodeId, input) => {
+      const result = await api.control(nodeId, {
+        operation: 'createSession',
+        params: { workspace: input.workspaceId, model: modelReference(input.model) },
+      });
+      return toRendererSession(result.session);
+    },
+    deleteSession: async (nodeId, sessionId) => {
+      await api.control(nodeId, { operation: 'deleteSession', params: { contextId: sessionId } });
+    },
+    sendMessage: (nodeId, sessionId, text) => api.send({ nodeId, contextId: sessionId, text }),
+    cancelTask: api.cancelTask,
+    getProviders: async (nodeId) => {
+      const result = await api.control(nodeId, { operation: 'getProviders', params: {} });
+      return [
+        ...result.oauth.map((provider) => ({ id: provider.id, name: provider.name, status: provider.isLoggedIn ? 'connected' : 'not connected' })),
+        ...result.apiKey.map((provider) => ({ id: provider.id, name: provider.name, status: provider.hasKey || provider.fromEnv ? 'connected' : 'not connected' })),
+      ];
+    },
+    login: async (nodeId, providerId) => { await api.control(nodeId, { operation: 'login', params: { providerId } }); },
+    logout: async (nodeId, providerId) => { await api.control(nodeId, { operation: 'logout', params: { providerId } }); },
+    setApiKey: async (nodeId, providerId, key) => { await api.control(nodeId, { operation: 'setApiKey', params: { providerId, key } }); },
+    removeApiKey: async (nodeId, providerId) => { await api.control(nodeId, { operation: 'removeApiKey', params: { providerId } }); },
+    setSessionModel: async (nodeId, sessionId, model) => {
+      await api.control(nodeId, { operation: 'setSessionModel', params: { contextId: sessionId, model: modelReference(model) } });
+    },
+    listControllers: async (nodeId) => (await api.control(nodeId, { operation: 'listControllers', params: {} })).controllers,
+    mintEnrolmentCode: async (nodeId) => {
+      const result = await api.control(nodeId, { operation: 'mintEnrolmentCode', params: {} });
+      const node = (await api.list()).find((item) => item.id === nodeId);
+      if (!node) throw new Error('Agent Node is not registered');
+      return { ...result, fingerprint: node.fingerprint };
+    },
+    revokeController: async (nodeId, controllerId) => { await api.control(nodeId, { operation: 'revokeController', params: { controllerId } }); },
+    retryNode: async (nodeId) => { await api.connect(nodeId); },
+    subscribe: (listener) => api.onEvent((event) => {
+      if (event.type !== 'connection') return;
+      void api.list().then((nodes) => listener({ type: 'nodes-changed', nodes: nodes.map(toRendererNode) }));
+    }),
+  };
+}
+
+function toRendererNode(node: IpcAgentNodeInfo): AgentNodeInfo {
+  const connectionState = node.state === 'disconnected' ? 'unreachable' : node.state;
+  return {
+    id: node.id,
+    name: node.name,
+    address: node.address,
+    fingerprint: node.fingerprint,
+    connectionState,
+    lastSeen: node.lastSeenAt ?? undefined,
+    tools: node.tools,
+    workspaces: [],
+  };
+}
+
+function toRendererSession(session: IpcAgentNodeSession): AgentNodeSession {
+  return {
+    id: session.contextId,
+    workspaceId: session.workspace,
+    name: session.name,
+    modified: session.updatedAt,
+    engine: 'Pi',
+    model: `${session.model.providerId}/${session.model.modelId}`,
+    taskId: session.runningTaskId ?? undefined,
+  };
+}
+
+function modelReference(model: string): IpcAgentNodeSession['model'] {
+  const separator = model.indexOf('/');
+  if (separator < 1 || separator === model.length - 1) throw new Error('Select a provider and model');
+  return { providerId: model.slice(0, separator), modelId: model.slice(separator + 1) };
 }
 
 export type SessionLocation =

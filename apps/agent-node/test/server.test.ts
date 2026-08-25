@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { CONTROL_OPERATIONS, SERO_AGENT_EXTENSION_URI } from "../src/a2a-contract.ts";
+import { CONTROL_OPERATION_NAMES, SERO_EXTENSION_URI } from "@sero-ai/a2a";
 import { BlobStore, INLINE_ARTIFACT_LIMIT } from "../src/blobs.ts";
 import { ControllerStore } from "../src/controllers.ts";
 import { EventHub } from "../src/events.ts";
@@ -21,12 +21,12 @@ async function fixture() {
 
 describe("wire contracts", () => {
   test("declares exactly 18 control operations and the limited tool surface", async () => {
-    expect(CONTROL_OPERATIONS).toHaveLength(18);
+    expect(CONTROL_OPERATION_NAMES).toHaveLength(18);
     const current = await fixture();
     try {
       const response = await route(new Request("https://node/.well-known/agent-card.json"), current.services, "https://node");
       const card = await response.json();
-      expect(JSON.stringify(card)).toContain(SERO_AGENT_EXTENSION_URI);
+      expect(JSON.stringify(card)).toContain(SERO_EXTENSION_URI);
       expect(JSON.stringify(card)).not.toContain("bedrock");
       expect(JSON.stringify(card)).not.toContain("browser");
     } finally { await current.temp.cleanup(); }

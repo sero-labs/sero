@@ -124,15 +124,15 @@ export interface AgentNodeControlResponseMap {
 }
 
 export type AgentNodeRendererControlOperation = Exclude<AgentNodeControlOperation, 'enrol'>;
-export type AgentNodeControlArgs = {
-  [Name in AgentNodeRendererControlOperation]: {
-    operation: Name;
-    params: AgentNodeControlRequestMap[Name];
+export type AgentNodeControlArgs<Name extends AgentNodeRendererControlOperation = AgentNodeRendererControlOperation> = {
+  [Operation in AgentNodeRendererControlOperation]: {
+    operation: Operation;
+    params: AgentNodeControlRequestMap[Operation];
   }
-}[AgentNodeRendererControlOperation];
+}[Name];
 
-export type AgentNodeControlResponse =
-  AgentNodeControlResponseMap[AgentNodeRendererControlOperation];
+export type AgentNodeControlResponse<Name extends AgentNodeRendererControlOperation = AgentNodeRendererControlOperation> =
+  AgentNodeControlResponseMap[Name];
 
 export interface AgentNodeMessageInput {
   nodeId: string;
@@ -160,7 +160,10 @@ export interface SeroAgentNodesAPI {
   enrol(input: AgentNodeEnrolInput): Promise<AgentNodeInfo>;
   remove(nodeId: string): Promise<void>;
   connect(nodeId: string): Promise<AgentNodeInfo>;
-  control(nodeId: string, args: AgentNodeControlArgs): Promise<AgentNodeControlResponse>;
+  control<Name extends AgentNodeRendererControlOperation>(
+    nodeId: string,
+    args: { operation: Name; params: AgentNodeControlRequestMap[Name] },
+  ): Promise<AgentNodeControlResponse<Name>>;
   send(input: AgentNodeMessageInput): Promise<void>;
   getTask(nodeId: string, taskId: string): Promise<unknown>;
   cancelTask(nodeId: string, taskId: string): Promise<void>;

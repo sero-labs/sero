@@ -1,4 +1,10 @@
-import { A2A_VERSION, CONTROL_OPERATIONS, SERO_AGENT_EXTENSION_URI, SERO_CONTROL_VERSION, type ControlOperation } from "@sero/a2a";
+import {
+  A2A_VERSION,
+  CONTROL_OPERATION_NAMES,
+  SERO_CONTROL_VERSION,
+  SERO_EXTENSION_URI,
+  type ControlOperationName,
+} from "@sero-ai/a2a";
 import type { Server } from "bun";
 import type { ControllerStore } from "./controllers.ts";
 import type { EventHub, NodeEvent } from "./events.ts";
@@ -11,7 +17,7 @@ import type { AuthenticatedController, ControlError, TaskTransition } from "./ty
 import { safeMessage } from "./redact.ts";
 import type { BlobStore } from "./blobs.ts";
 
-const CONTROL_SET = new Set<string>(CONTROL_OPERATIONS);
+const CONTROL_SET = new Set<string>(CONTROL_OPERATION_NAMES);
 const TOOLS = ["read", "write", "edit", "bash", "grep", "find"];
 type ProviderService = Pick<ProviderAuth, "providers" | "models" | "login" | "logout" | "setApiKey" | "removeApiKey" | "respond" | "cancel">;
 interface NodeServices { paths: StatePaths; controllers: ControllerStore; sessions: SessionStore; providers: ProviderService; events: EventHub; blobs: BlobStore; fingerprint: string; providersAdvertised: string[] }
@@ -46,7 +52,7 @@ function agentCard(publicUrl: string): Record<string, unknown> {
   return {
     name: "Sero Agent Node", description: "Persistent remote Sero sessions", version: "1",
     supportedInterfaces: [{ url: `${publicUrl}/`, protocolBinding: "JSONRPC", protocolVersion: A2A_VERSION, tenant: "sero" }],
-    capabilities: { streaming: true, extensions: [{ uri: SERO_AGENT_EXTENSION_URI, required: false, params: { url: `${publicUrl}/sero/v1`, tools: TOOLS } }] },
+    capabilities: { streaming: true, extensions: [{ uri: SERO_EXTENSION_URI, required: false, params: { url: `${publicUrl}/sero/v1`, tools: TOOLS } }] },
     securitySchemes: { bearer: { httpAuthSecurityScheme: { scheme: "bearer", bearerFormat: "Sero controller token" } } },
     security: [{ schemes: { bearer: [] } }], defaultInputModes: ["text/plain", "application/json"], defaultOutputModes: ["text/plain", "application/json"], skills: [],
   };
@@ -66,7 +72,7 @@ async function controlRoute(request: Request, url: URL, services: NodeServices):
   if (request.method !== "POST" || !CONTROL_SET.has(operation)) return failure("not_found", "Not found", 404);
   const body = await readJson(request);
   try {
-    const result = await dispatchControl(operation as ControlOperation, body, controller, services);
+    const result = await dispatchControl(operation as ControlOperationName, body, controller, services);
     return json(result, 200, true);
   } catch (error) {
     const code = safeMessage(error);
@@ -96,7 +102,7 @@ async function controlGet(request: Request, url: URL, operation: string, control
   return failure("not_found", "Not found", 404);
 }
 
-async function dispatchControl(operation: ControlOperation, body: Record<string, unknown>, controller: AuthenticatedController | undefined, services: NodeServices): Promise<unknown> {
+async function dispatchControl(operation: ControlOperationName, body: Record<string, unknown>, controller: AuthenticatedController | undefined, services: NodeServices): Promise<unknown> {
   switch (operation) {
     case "enrol": return services.controllers.enrol(requiredString(body, "code"), requiredString(body, "profileId"));
     case "mintEnrolmentCode": return services.controllers.mintCode();

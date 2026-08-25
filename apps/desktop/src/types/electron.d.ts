@@ -82,7 +82,6 @@ import type { SeroDoctorAPI } from './electron-doctor';
 import type { SeroUpdaterAPI } from './electron-updater';
 import type { SeroWindowAPI } from './window-chrome';
 import type { SeroAgentNodesAPI } from './ipc-agent-node';
-import type { SeroAgentNodeAPI } from './agent-node';
 
 interface SeroSessionsAPI {
   /** List sessions. Optionally filter by workspace ID. */
@@ -468,8 +467,6 @@ export interface SeroAPI {
   pluginConfig: SeroPluginConfigAPI;
   doctor: SeroDoctorAPI;
   updater: SeroUpdaterAPI;
-  /** Agent Node bridge. Optional until the preload lane is present in a partial build. */
-  agentNode?: SeroAgentNodeAPI;
 }
 
 declare global {

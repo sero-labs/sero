@@ -59,7 +59,9 @@ export class SessionStore {
     const record = await this.required(contextId);
     const active = this.#active.get(contextId);
     if (active) {
-      await active.runner.run(text, behavior, (delta) => this.#delta(contextId, active, delta));
+      void active.runner
+        .run(text, behavior, (delta) => this.#delta(contextId, active, delta))
+        .catch((error: unknown) => this.#failQueuedTurn(active, error));
       return active.task;
     }
     const first = await this.#appendEntry(contextId, { type: "message", role: "user", text });
@@ -70,6 +72,11 @@ export class SessionStore {
     this.#active.set(contextId, turn);
     turn.promise = this.#execute(record, turn, text);
     return task;
+  }
+
+  async #failQueuedTurn(turn: ActiveTurn, error: unknown): Promise<void> {
+    if (TERMINAL.has(turn.task.status)) return;
+    await this.#transition(turn.task, "failed", safeMessage(error));
   }
 
   async #execute(record: SessionRecord, turn: ActiveTurn, text: string): Promise<void> {

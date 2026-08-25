@@ -8,16 +8,24 @@ const node = {
   connectionState: 'connected' as const, tools: ['read'], workspaces: [{ id: 'repo', name: 'Repo' }],
 };
 const session = { id: 'session:one', workspaceId: 'repo', modified: '2026-01-01T00:00:00Z', engine: 'Pi', model: 'opus' };
+const ipcNode = {
+  id: node.id, name: node.name, address: node.address, fingerprint: node.fingerprint,
+  state: 'connected', lastSeenAt: null, tools: node.tools,
+};
+const ipcSession = {
+  contextId: session.id, name: session.id, workspace: session.workspaceId,
+  model: { providerId: 'test', modelId: 'opus' }, updatedAt: session.modified, runningTaskId: null,
+};
 
 describe('nodes store', () => {
   beforeEach(() => {
     useNodesStore.setState({ nodes: [], sessions: {}, messages: {}, providers: {}, controllers: {}, activeLocationKey: null, expandedNodeIds: new Set(), loading: false, error: null });
-    Object.defineProperty(window, 'sero', { configurable: true, value: { agentNode: {
-      listNodes: vi.fn().mockResolvedValue([node]), listSessions: vi.fn().mockResolvedValue([session]),
-      enrolNode: vi.fn(), removeNode: vi.fn(), retryNode: vi.fn(), subscribe: vi.fn(),
-      createSession: vi.fn(), deleteSession: vi.fn(), sendMessage: vi.fn(), cancelTask: vi.fn(),
-      getProviders: vi.fn(), login: vi.fn(), logout: vi.fn(), setApiKey: vi.fn(), removeApiKey: vi.fn(),
-      setSessionModel: vi.fn(), listControllers: vi.fn(), mintEnrolmentCode: vi.fn(), revokeController: vi.fn(),
+    Object.defineProperty(window, 'sero', { configurable: true, value: { agentNodes: {
+      list: vi.fn().mockResolvedValue([ipcNode]),
+      control: vi.fn().mockImplementation((_nodeId, args) => args.operation === 'listSessions'
+        ? Promise.resolve({ sessions: [ipcSession] })
+        : Promise.resolve({ ok: true })),
+      enrol: vi.fn(), remove: vi.fn(), connect: vi.fn(), send: vi.fn(), cancelTask: vi.fn(), onEvent: vi.fn(),
     } } });
   });
 
@@ -30,8 +38,10 @@ describe('nodes store', () => {
 
   it('loads each node and its authoritative sessions', async () => {
     await useNodesStore.getState().load();
-    expect(useNodesStore.getState().nodes).toEqual([node]);
-    expect(useNodesStore.getState().sessions['spark:west']).toEqual([session]);
+    expect(useNodesStore.getState().nodes).toEqual([{ ...node, workspaces: [] }]);
+    expect(useNodesStore.getState().sessions['spark:west']).toEqual([{
+      ...session, name: session.id, model: 'test/opus', taskId: undefined,
+    }]);
   });
 
   it('updates only the node named by a session event', () => {

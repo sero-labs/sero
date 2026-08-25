@@ -160,6 +160,9 @@ importers:
       '@earendil-works/pi-coding-agent':
         specifier: 'catalog:'
         version: 0.84.2(@modelcontextprotocol/sdk@1.30.0(@cfworker/json-schema@4.1.1)(supports-color@7.2.0)(zod@4.4.3))(supports-color@7.2.0)(ws@8.21.3)(zod@4.4.3)
+      '@sero-ai/a2a':
+        specifier: workspace:*
+        version: link:../../packages/a2a
     devDependencies:
       '@types/bun':
         specifier: ^1.2.18

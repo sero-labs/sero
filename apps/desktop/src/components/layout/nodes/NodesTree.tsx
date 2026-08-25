@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, CirclePlus, Cpu, MessageSquare, Settings, Trash2 } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { cn } from '@sero-ai/ui/lib/utils';
-import { useNodesStore, sessionLocationKey } from '@/stores/nodes';
+import { agentNodeApi, useNodesStore, sessionLocationKey } from '@/stores/nodes';
 import type { AgentNodeInfo, AgentNodeSession } from '@/types/agent-node';
 import { EnrolNodeDialog } from './EnrolNodeDialog';
 import { NodeSettingsDialog } from './NodeSettingsDialog';
@@ -14,8 +14,7 @@ export function NodesTree() {
   const handleEvent = useNodesStore((state) => state.handleEvent);
   const [enrolOpen, setEnrolOpen] = useState(false);
   useEffect(() => {
-    const api = window.sero.agentNode;
-    if (!api) return;
+    const api = agentNodeApi();
     void load();
     return api.subscribe(handleEvent);
   }, [handleEvent, load]);
