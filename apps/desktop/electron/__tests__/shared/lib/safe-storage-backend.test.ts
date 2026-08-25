@@ -15,6 +15,8 @@ async function loadWith(options: {
   platform: NodeJS.Platform;
   available: boolean;
   backend?: string | (() => string);
+  /** Omit to leave the opt-in API absent, as on older Electron builds. */
+  setPlainText?: (use: boolean) => void;
 }) {
   vi.resetModules();
   setPlatform(options.platform);
@@ -22,6 +24,9 @@ async function loadWith(options: {
   const safeStorage: Record<string, unknown> = {
     isEncryptionAvailable: () => options.available,
   };
+  if (options.setPlainText !== undefined) {
+    safeStorage.setUsePlainTextEncryption = options.setPlainText;
+  }
   if (options.backend !== undefined) {
     safeStorage.getSelectedStorageBackend = typeof options.backend === 'function'
       ? options.backend
@@ -121,5 +126,52 @@ describe('describeStorageRemedy', () => {
 
     const win = await loadWith({ platform: 'win32', available: true });
     expect(win.describeStorageRemedy()).toBeNull();
+  });
+});
+
+describe('enablePlainTextFallback', () => {
+  it('accepts the weak backend when Linux cannot encrypt at all', async () => {
+    const setPlainText = vi.fn();
+    const mod = await loadWith({
+      platform: 'linux', available: false, backend: 'basic_text', setPlainText,
+    });
+
+    expect(mod.enablePlainTextFallback()).toBe(true);
+    expect(setPlainText).toHaveBeenCalledWith(true);
+  });
+
+  it('never downgrades a working keyring', async () => {
+    const setPlainText = vi.fn();
+    const mod = await loadWith({
+      platform: 'linux', available: true, backend: 'gnome_libsecret', setPlainText,
+    });
+
+    expect(mod.enablePlainTextFallback()).toBe(false);
+    expect(setPlainText).not.toHaveBeenCalled();
+  });
+
+  it('does nothing on macOS or Windows', async () => {
+    const setPlainText = vi.fn();
+    const mac = await loadWith({ platform: 'darwin', available: false, setPlainText });
+    expect(mac.enablePlainTextFallback()).toBe(false);
+
+    const win = await loadWith({ platform: 'win32', available: false, setPlainText });
+    expect(win.enablePlainTextFallback()).toBe(false);
+    expect(setPlainText).not.toHaveBeenCalled();
+  });
+
+  it('reports failure when the opt-in API is absent', async () => {
+    const mod = await loadWith({ platform: 'linux', available: false, backend: 'basic_text' });
+    expect(mod.enablePlainTextFallback()).toBe(false);
+  });
+
+  it('reports failure when the opt-in throws, rather than crashing startup', async () => {
+    const mod = await loadWith({
+      platform: 'linux',
+      available: false,
+      backend: 'basic_text',
+      setPlainText: () => { throw new Error('nope'); },
+    });
+    expect(mod.enablePlainTextFallback()).toBe(false);
   });
 });

@@ -80,6 +80,7 @@ import {
 } from './shared/infra/shared-infra';
 import { startGateway, stopGateway } from './ipc/gateway/gateway';
 import { setupContentSecurityPolicy } from './platform/security/csp';
+import { enablePlainTextFallback } from './shared/lib/safe-storage-backend';
 import { setupMainWindowSecurity } from './platform/security/window-security';
 import { browserViewManager } from './features/browser/view-manager';
 import { discoverBuiltinPackagePaths, discoverBuiltinPluginPaths } from './platform/protocols/builtin-resources';
@@ -282,6 +283,11 @@ app.whenReady().then(async () => {
     app.exit(0);
     return;
   }
+
+  // Linux with no keyring cannot encrypt at all, which blocks every credential
+  // write. Accept the weak backend so sign-in works, and let the storage warning
+  // surfaces tell the user their credentials are not protected.
+  enablePlainTextFallback();
 
   // Bootstrap Sero's agent directory (creates settings.json on first run)
   bootstrapAgentDir();
