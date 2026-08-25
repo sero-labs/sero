@@ -122,14 +122,19 @@ export class RemoteConversationBoundary {
     const id = typeof message.messageId === 'string'
       ? message.messageId
       : typeof message.id === 'string' ? message.id : entryId;
+    const durableTools = id ? this.acceptDurableTools(message, id) : null;
+    if (durableTools) return durableTools;
     if ((role === 'user' || role === 'assistant') && id) {
       const text = typeof message.text === 'string'
         ? message.text
         : textFromContent(message.content) || textFromParts(message.parts);
       const chat: ChatMessage = role === 'user'
         ? { type: 'user', id, text }
-        : { type: 'assistant', id, text, isStreaming: message.partial === true };
-      const existing = this.messages.findIndex((candidate) => candidate.id === id);
+        : {
+            type: 'assistant', id, text, isStreaming: message.partial === true,
+            thinking: thinkingFromContent(message.content) || undefined,
+          };
+      const existing = this.messageIndex(chat);
       if (role === 'assistant' && message.partial === true) this.streamingMessageId = id;
       if (existing === -1) this.messages.push(chat);
       else this.messages[existing] = chat;
@@ -166,6 +171,58 @@ export class RemoteConversationBoundary {
       return [{ type: 'agent_end', sessionId: this.sessionKey }];
     }
     return [];
+  }
+
+  private acceptDurableTools(message: Record<string, unknown>, entryId: string): AgentStreamEvent[] | null {
+    const content = Array.isArray(message.content) ? message.content.filter(isRecord) : [];
+    const toolCalls = content.filter((part) => part.type === 'toolCall' && typeof part.id === 'string' && typeof part.name === 'string');
+    if (message.role === 'assistant' && toolCalls.length > 0) {
+      const events: AgentStreamEvent[] = [];
+      const text = textFromContent(content);
+      const thinking = thinkingFromContent(content) || undefined;
+      if (text || thinking) {
+        const assistant: ChatMessage = { type: 'assistant', id: entryId, text, thinking, isStreaming: false };
+        const existing = this.messageIndex(assistant);
+        if (existing === -1) this.messages.push(assistant);
+        else this.messages[existing] = assistant;
+        events.push({ type: 'message_start', sessionId: this.sessionKey, message: assistant });
+      }
+      for (const call of toolCalls) {
+        const toolCallId = String(call.id);
+        const tool: ChatMessage = {
+          type: 'tool', id: `tool:${toolCallId}`, toolCallId, toolName: String(call.name),
+          input: isRecord(call.arguments) ? call.arguments : {}, output: null, isError: false, state: 'running',
+        };
+        const existing = this.messageIndex(tool);
+        if (existing === -1) this.messages.push(tool);
+        else this.messages[existing] = { ...tool, id: this.messages[existing].id };
+        events.push({ type: 'tool_start', sessionId: this.sessionKey, tool });
+      }
+      return events;
+    }
+    if (message.role === 'toolResult' && typeof message.toolCallId === 'string') {
+      const toolCallId = message.toolCallId;
+      const output = textFromContent(message.content) || null;
+      const isError = message.isError === true;
+      const existing = this.messages.findIndex((item) => item.type === 'tool' && item.toolCallId === toolCallId);
+      if (existing >= 0 && this.messages[existing].type === 'tool') {
+        this.messages[existing] = { ...this.messages[existing], output, isError, state: isError ? 'error' : 'completed' };
+      }
+      return [{ type: 'tool_end', sessionId: this.sessionKey, toolCallId, output, isError }];
+    }
+    return null;
+  }
+
+  private messageIndex(message: ChatMessage): number {
+    const exact = this.messages.findIndex((candidate) => candidate.id === message.id);
+    if (exact >= 0) return exact;
+    if (message.type === 'assistant' && !message.id.startsWith('live:')) {
+      return this.messages.findIndex((candidate) => candidate.type === 'assistant' && candidate.id.startsWith('live:'));
+    }
+    if (message.type === 'tool') {
+      return this.messages.findIndex((candidate) => candidate.type === 'tool' && candidate.toolCallId === message.toolCallId);
+    }
+    return -1;
   }
 
   private acceptLive(item: Record<string, unknown>): AgentStreamEvent[] | null {
@@ -216,4 +273,9 @@ export class RemoteConversationBoundary {
     }
     return null;
   }
+}
+
+function thinkingFromContent(content: unknown): string {
+  if (!Array.isArray(content)) return '';
+  return content.flatMap((part) => isRecord(part) && part.type === 'thinking' && typeof part.thinking === 'string' ? [part.thinking] : []).join('');
 }

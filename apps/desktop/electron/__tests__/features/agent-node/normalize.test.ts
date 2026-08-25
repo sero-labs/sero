@@ -64,6 +64,30 @@ describe('remote conversation normalization', () => {
       .toMatchObject({ type: 'tool_end', output: 'done', isError: false });
   });
 
+  it('restores durable tool calls and results with the shared tool renderer shape', () => {
+    const boundary = new RemoteConversationBoundary(remoteSessionKey('n', 's'));
+    expect(boundary.accept({
+      type: 'entry', entry: { id: 'assistant-1', parentId: null, data: { message: {
+        role: 'assistant', content: [
+          { type: 'text', text: 'Pulling now.' },
+          { type: 'toolCall', id: 'tool-1', name: 'bash', arguments: { command: 'docker pull image' } },
+        ],
+      } } },
+    })).toMatchObject([
+      { type: 'message_start', message: { type: 'assistant', text: 'Pulling now.' } },
+      { type: 'tool_start', tool: { type: 'tool', toolCallId: 'tool-1', state: 'running' } },
+    ]);
+    expect(boundary.accept({
+      type: 'entry', entry: { id: 'result-1', parentId: 'assistant-1', data: { message: {
+        role: 'toolResult', toolCallId: 'tool-1', toolName: 'bash', content: [{ type: 'text', text: 'Done' }], isError: false,
+      } } },
+    })[0]).toMatchObject({ type: 'tool_end', toolCallId: 'tool-1', output: 'Done', isError: false });
+    expect(boundary.snapshot().messages).toMatchObject([
+      { type: 'assistant', text: 'Pulling now.' },
+      { type: 'tool', toolCallId: 'tool-1', output: 'Done', state: 'completed' },
+    ]);
+  });
+
   it('unwraps canonical SDK response and stream payloads', () => {
     const boundary = new RemoteConversationBoundary(remoteSessionKey('n', 's'));
     expect(boundary.accept({ result: { task: { status: { state: 'TASK_STATE_WORKING' } } } })[0])

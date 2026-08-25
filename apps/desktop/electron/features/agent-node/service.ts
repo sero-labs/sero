@@ -142,13 +142,16 @@ export class AgentNodeService {
       type: 'conversation', nodeId: input.nodeId,
       event: { type: 'message_start', sessionId: remoteSessionKey(input.nodeId, input.contextId), message: { type: 'user', id: messageId, text: input.text } },
     });
-    const reconnect = () => {
+    const reconcile = () => {
+      if (!this.connections.has(input.nodeId)) return;
+      void taskIdReady.then((taskId) => this.reconcileTask(input.nodeId, taskId));
+    };
+    const recover = () => {
       if (!this.connections.has(input.nodeId)) return;
       this.setState(input.nodeId, 'reconnecting');
-      void taskIdReady.then((taskId) => this.reconcileTask(input.nodeId, taskId))
-        .finally(() => this.startConversationReplay(input.nodeId, input.contextId, connection, boundary));
+      reconcile();
     };
-    void a2aStream.done.then(reconnect, reconnect);
+    void a2aStream.done.then(reconcile, recover);
     return { taskId: await taskIdReady };
   }
 
@@ -255,26 +258,6 @@ export class AgentNodeService {
       connection.streams.add(stream);
       void stream.start().catch((error: unknown) => this.handleStreamFailure(nodeId, error));
     }
-  }
-
-  private startConversationReplay(
-    nodeId: string,
-    contextId: string,
-    connection: Connection,
-    boundary: RemoteConversationBoundary,
-  ): void {
-    const stream = new RetryingStream(
-      (cursor, onMessage) => connection.control.sessionEvents(contextId, cursor, onMessage),
-      (message) => {
-        this.setState(nodeId, 'connected');
-        for (const event of boundary.accept(sessionWireEvent(message.event, message.data), message.id)) {
-          this.emit({ type: 'conversation', nodeId, event });
-        }
-      },
-      boundary.snapshot().cursor ?? undefined,
-    );
-    connection.streams.add(stream);
-    void stream.start().catch((error: unknown) => this.handleStreamFailure(nodeId, error));
   }
 
   private handleStreamFailure(nodeId: string, error: unknown): void {

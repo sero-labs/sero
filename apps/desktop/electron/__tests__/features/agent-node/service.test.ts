@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   getTask: vi.fn(),
   cancelTask: vi.fn(),
   controlCall: vi.fn(),
+  sessionEvents: vi.fn(),
   retryMessages: [] as Array<{ id: string | null; event: string; data: unknown }>,
 }));
 
@@ -42,7 +43,7 @@ vi.mock('@electron/features/agent-node/control-client', () => ({
   ControlClient: class {
     call = mocks.controlCall;
     stream = vi.fn();
-    sessionEvents = vi.fn();
+    sessionEvents = mocks.sessionEvents;
   },
 }));
 vi.mock('@electron/features/agent-node/retrying-stream', () => ({
@@ -86,6 +87,19 @@ describe('AgentNodeService task lifecycle', () => {
     expect(mocks.cancelTask).toHaveBeenCalledWith('task-1');
   });
 
+  it('does not open a second replay stream when a task stream completes', async () => {
+    mocks.streamMessage.mockImplementationOnce(async (_params, onEvent) => {
+      onEvent({ id: null, event: 'message', data: {
+        result: { task: { id: 'task-1', contextId: 'session-1', status: { state: 'TASK_STATE_COMPLETED' } } },
+      } });
+      return { close: vi.fn(), done: Promise.resolve() };
+    });
+    const service = new AgentNodeService('/profile');
+    await service.send({ nodeId: 'node-1', contextId: 'session-1', text: 'Hello' });
+    await Promise.resolve();
+    expect(mocks.sessionEvents).not.toHaveBeenCalled();
+  });
+
   it('calls GetTask on attach and reports a node restart', async () => {
     mocks.getTask.mockResolvedValue({
       id: 'task-1', status: { state: 'TASK_STATE_FAILED', message: { parts: [{ text: 'the node restarted' }] } },
@@ -111,7 +125,7 @@ describe('AgentNodeService task lifecycle', () => {
     expect(attached.messages[0]).toMatchObject({ type: 'user', text: 'Hello from replay' });
   });
 
-  it('reconciles the active task with GetTask when its stream reconnects', async () => {
+  it('reconciles a completed task stream without resetting the connection', async () => {
     mocks.getTask.mockResolvedValue({ id: 'task-1', status: { state: 'TASK_STATE_WORKING' } });
     mocks.streamMessage.mockImplementation(async (_params, onEvent) => {
       onEvent({ id: null, event: 'message', data: {
@@ -124,7 +138,7 @@ describe('AgentNodeService task lifecycle', () => {
     service.subscribe((event) => events.push(event));
     await service.send({ nodeId: 'node-1', contextId: 'session-1', text: 'Hello' });
     await vi.waitFor(() => expect(mocks.getTask).toHaveBeenCalledWith('task-1'));
-    expect(events).toContainEqual({ type: 'connection', nodeId: 'node-1', state: 'reconnecting' });
+    expect(events).not.toContainEqual({ type: 'connection', nodeId: 'node-1', state: 'reconnecting' });
     expect(events).toContainEqual({ type: 'connection', nodeId: 'node-1', state: 'connected' });
   });
 
