@@ -1,8 +1,7 @@
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
-import type { AuthPrompt, AuthType } from "@earendil-works/pi-ai";
+import type { AuthEvent as PiAuthEvent, AuthPrompt, AuthType } from "@earendil-works/pi-ai";
 import type { EventHub } from "./events.ts";
 import type { StatePaths } from "./state.ts";
-import type { ProviderStatus } from "./types.ts";
 import { safeMessage } from "./redact.ts";
 
 interface PendingPrompt { id: string; resolve: (value: string) => void; reject: (error: Error) => void }
@@ -15,13 +14,18 @@ export class ProviderAuth {
     this.#runtime = ModelRuntime.create({ authPath: `${paths.root}/auth.json`, modelsStorePath: `${paths.root}/models.json`, refreshOnCreate: false });
   }
 
-  async providers(): Promise<ProviderStatus[]> {
+  async providers(): Promise<{ oauth: Array<{ id: string; name: string; isLoggedIn: boolean }>; apiKey: Array<{ id: string; name: string; hasKey: boolean; fromEnv: boolean }> }> {
     const runtime = await this.#runtime;
-    return Promise.all(this.advertised.filter((id) => id !== "bedrock").map(async (id) => {
+    const statuses = await Promise.all(this.advertised.filter((id) => id !== "bedrock").map(async (id) => {
+      const provider = runtime.getProvider(id);
       const check = await runtime.checkAuth(id);
       const env = Object.keys(process.env).some((key) => key.startsWith(id.toUpperCase().replaceAll("-", "_")) && key.endsWith("_API_KEY"));
-      return { id, configured: Boolean(check) || env, source: env ? "environment" : check ? "stored" : "none" } as ProviderStatus;
+      return { id, name: provider?.name ?? id, check, env, oauth: Boolean(provider?.auth.oauth), apiKey: Boolean(provider?.auth.apiKey) };
     }));
+    return {
+      oauth: statuses.filter((item) => item.oauth).map(({ id, name, check }) => ({ id, name, isLoggedIn: check?.type === "oauth" })),
+      apiKey: statuses.filter((item) => item.apiKey).map(({ id, name, check, env }) => ({ id, name, hasKey: check?.type === "api_key" || env, fromEnv: env })),
+    };
   }
 
   async models(): Promise<Array<{ provider: string; id: string; name: string }>> {
@@ -29,7 +33,7 @@ export class ProviderAuth {
     return runtime.getModels().filter((model) => this.advertised.includes(model.provider)).map(({ provider, id, name }) => ({ provider, id, name }));
   }
 
-  async login(controllerId: string, providerId: string, type: AuthType = "oauth"): Promise<{ started: true }> {
+  async login(controllerId: string, providerId: string, type: AuthType = "oauth"): Promise<{ ok: true }> {
     if (this.#attempt) throw new Error("login_in_progress");
     if (!this.advertised.includes(providerId) || providerId === "bedrock") throw new Error("provider_not_available");
     const abort = new AbortController();
@@ -37,26 +41,39 @@ export class ProviderAuth {
     this.#attempt = attempt;
     void (await this.#runtime).login(providerId, type, {
       signal: abort.signal,
-      notify: (event) => this.events.emit("auth", { type: event.type, data: event }),
+      notify: (event) => this.#notify(event),
       prompt: (prompt) => this.#prompt(attempt, prompt),
     }).then(
-      () => this.events.emit("auth", { type: "complete", data: { providerId } }),
-      (error: unknown) => this.events.emit("auth", { type: "error", data: { providerId, message: safeMessage(error) } }),
+      () => this.events.emit("auth", { type: "success", data: { type: "success", provider: providerId, message: "Login complete" } }),
+      (error: unknown) => abort.signal.aborted
+        ? this.events.emit("auth", { type: "cancelled", data: { type: "cancelled" } })
+        : this.events.emit("auth", { type: "error", data: { type: "error", provider: providerId, message: safeMessage(error) } }),
     ).finally(() => { if (this.#attempt === attempt) this.#attempt = undefined; });
-    return { started: true };
+    return { ok: true };
+  }
+
+  #notify(event: PiAuthEvent): void {
+    if (event.type === "auth_url") this.events.emit("auth", { type: "auth", data: { type: "auth", url: event.url, ...(event.instructions ? { instructions: event.instructions } : {}) } });
+    else if (event.type === "device_code") this.events.emit("auth", { type: event.type, data: { type: event.type, verificationUri: event.verificationUri, userCode: event.userCode, expiresInSeconds: event.expiresInSeconds ?? 600 } });
+    else this.events.emit("auth", { type: event.type === "info" ? "waiting" : "progress", data: { type: event.type === "info" ? "waiting" : "progress", message: event.message } });
   }
 
   #prompt(attempt: LoginAttempt, prompt: AuthPrompt): Promise<string> {
     return new Promise((resolve, reject) => {
       const id = crypto.randomUUID();
       attempt.prompt = { id, resolve, reject };
-      this.events.emit("auth", { type: prompt.type, data: { ...prompt, id, signal: undefined } });
+      const data = prompt.type === "select"
+        ? { type: "select" as const, message: prompt.message, options: prompt.options.map(({ id: optionId, label }) => ({ id: optionId, label })) }
+        : prompt.type === "manual_code"
+          ? { type: "manual_input" as const, prompt: prompt.message }
+          : { type: "prompt" as const, message: prompt.message, ...(prompt.placeholder ? { placeholder: prompt.placeholder } : {}) };
+      this.events.emit("auth", { type: data.type, data });
     });
   }
 
-  respond(id: string, value: string): void {
+  respond(value: string): void {
     const pending = this.#attempt?.prompt;
-    if (!pending || pending.id !== id) throw new Error("prompt_not_found");
+    if (!pending) throw new Error("prompt_not_found");
     this.#attempt!.prompt = undefined;
     pending.resolve(value);
   }

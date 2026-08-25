@@ -16,6 +16,7 @@ export class DeferredRunner implements SessionRunner {
   behaviors: Array<"followUp" | "steer"> = [];
   canceled = false;
   release?: (value: string) => void;
+  emit?: (value: string) => void;
   readonly sessionPath: string;
   readonly #entries: SessionEntry[];
 
@@ -34,6 +35,7 @@ export class DeferredRunner implements SessionRunner {
     this.calls.push(text);
     this.behaviors.push(behavior);
     this.#append("user", text);
+    this.emit = onDelta;
     if (this.calls.length > 1) return Promise.resolve("");
     return new Promise((resolve) => {
       this.release = (value) => {

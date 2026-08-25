@@ -10,6 +10,7 @@ function digest(value: string, salt = ""): string {
 }
 
 export class ControllerStore {
+  #enrolQueue: Promise<void> = Promise.resolve();
   constructor(readonly paths: StatePaths, readonly now: () => number = Date.now) {}
 
   async mintCode(): Promise<{ code: string; expiresAt: string }> {
@@ -21,20 +22,28 @@ export class ControllerStore {
   }
 
   async enrol(code: string, profileId: string): Promise<{ controllerId: string; token: string }> {
-    const key = digest(code);
-    const codes = await this.#enrolments();
-    const pending = codes.find((item) => item.digest === key);
-    if (!pending || pending.expiresAt <= this.now()) {
-      throw new Error("invalid_enrolment_code");
+    const previous = this.#enrolQueue;
+    let release = () => {};
+    this.#enrolQueue = new Promise<void>((resolve) => { release = resolve; });
+    await previous;
+    try {
+      const key = digest(code);
+      const codes = await this.#enrolments();
+      const pending = codes.find((item) => item.digest === key);
+      if (!pending || pending.expiresAt <= this.now()) {
+        throw new Error("invalid_enrolment_code");
+      }
+      await secureWrite(this.paths.enrolments, `${JSON.stringify(codes.filter((item) => item.digest !== key && item.expiresAt > this.now()))}\n`);
+      const records = await this.listAll();
+      const token = randomBytes(32).toString("base64url");
+      const salt = randomBytes(16).toString("hex");
+      const id = randomUUID();
+      records.push({ id, profileId, salt, tokenDigest: digest(token, salt), createdAt: new Date(this.now()).toISOString() });
+      await this.#save(records);
+      return { controllerId: id, token };
+    } finally {
+      release();
     }
-    await secureWrite(this.paths.enrolments, `${JSON.stringify(codes.filter((item) => item.digest !== key && item.expiresAt > this.now()))}\n`);
-    const records = await this.listAll();
-    const token = randomBytes(32).toString("base64url");
-    const salt = randomBytes(16).toString("hex");
-    const id = randomUUID();
-    records.push({ id, profileId, salt, tokenDigest: digest(token, salt), createdAt: new Date(this.now()).toISOString() });
-    await this.#save(records);
-    return { controllerId: id, token };
   }
 
   async authenticate(token: string): Promise<AuthenticatedController | undefined> {
