@@ -18,6 +18,7 @@ import { EventHub } from "../src/events.ts";
 import { SessionStore } from "../src/sessions.ts";
 import { route } from "../src/server.ts";
 import { ensureState, identityFingerprint } from "../src/state.ts";
+import type { TaskTransition } from "../src/types.ts";
 import { DeferredRunner, runnerFactory, temporaryState } from "./helpers.ts";
 
 async function fixture() {
@@ -204,6 +205,28 @@ describe("wire contracts", () => {
       expect(messages.map((item) => item.event)).toEqual(["entry", "snapshot", "delta"]);
       expect(messages[0].id).toBe((messages[0].data as { entry: { id: string } }).entry.id);
       for (const message of messages) expect(SessionEventSchema.safeParse(message.data).success).toBe(true);
+    } finally { await current.temp.cleanup(); }
+  });
+
+  test("closes a stream whose initial task is AUTH_REQUIRED", async () => {
+    const current = await fixture();
+    try {
+      const session = await current.services.sessions.create({ model: "test/model", workspace: "auth" });
+      const task: TaskTransition = {
+        taskId: crypto.randomUUID(), contextId: session.id, status: "auth-required",
+        controllerId: current.enrolled.controllerId, updatedAt: new Date().toISOString(),
+        message: "Authentication required",
+      };
+      current.services.sessions.send = async () => task;
+      const response = await route(new Request("https://node/", {
+        method: "POST", headers: current.headers,
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "SendStreamingMessage", params: { message: {
+          role: "ROLE_USER", messageId: crypto.randomUUID(), contextId: session.id, parts: [{ text: "hello" }],
+        } } }),
+      }), current.services, "https://node");
+      const reader = response.body!.getReader();
+      expect((await reader.read()).done).toBe(false);
+      expect((await reader.read()).done).toBe(true);
     } finally { await current.temp.cleanup(); }
   });
 

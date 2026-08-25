@@ -219,6 +219,10 @@ function taskResponse(task: TaskTransition, id: unknown, services: NodeServices,
       const cleanup = () => { if (closed) return; closed = true; unsubscribe(); };
       const close = () => { if (closed) return; cleanup(); controller.close(); };
       send(task);
+      if (terminal.has(task.status)) {
+        close();
+        return;
+      }
       unsubscribe = services.events.subscribe(`task:${task.taskId}`, (event) => {
         if (closed) return;
         const value = event.data as TaskTransition; send(value);
