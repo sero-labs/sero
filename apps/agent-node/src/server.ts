@@ -209,7 +209,7 @@ async function a2aRoute(request: Request, services: NodeServices): Promise<Respo
 
 function taskResponse(task: TaskTransition, id: unknown, services: NodeServices, signal: AbortSignal, controllerId: string): Response {
   const encoder = new TextEncoder();
-  const terminal = new Set(["completed", "failed", "canceled", "rejected"]);
+  const terminal = new Set(["completed", "failed", "canceled", "rejected", "auth-required", "input-required"]);
   let closeStream = () => {};
   const body = new ReadableStream<Uint8Array>({
     start(controller) {

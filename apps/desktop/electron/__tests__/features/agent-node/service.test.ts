@@ -57,7 +57,7 @@ describe('AgentNodeService task lifecycle', () => {
     vi.clearAllMocks();
     mocks.streamMessage.mockImplementation(async (_params, onEvent) => {
       onEvent({ id: null, event: 'message', data: {
-        result: { id: 'task-1', contextId: 'session-1', status: { state: 'TASK_STATE_WORKING' } },
+        result: { task: { id: 'task-1', contextId: 'session-1', status: { state: 'TASK_STATE_WORKING' } } },
       } });
       return { close: vi.fn(), done: new Promise<void>(() => {}) };
     });
@@ -87,7 +87,7 @@ describe('AgentNodeService task lifecycle', () => {
     mocks.getTask.mockResolvedValue({ id: 'task-1', status: { state: 'TASK_STATE_WORKING' } });
     mocks.streamMessage.mockImplementation(async (_params, onEvent) => {
       onEvent({ id: null, event: 'message', data: {
-        result: { id: 'task-1', contextId: 'session-1', status: { state: 'TASK_STATE_WORKING' } },
+        result: { task: { id: 'task-1', contextId: 'session-1', status: { state: 'TASK_STATE_WORKING' } } },
       } });
       return { close: vi.fn(), done: Promise.resolve() };
     });
@@ -102,12 +102,12 @@ describe('AgentNodeService task lifecycle', () => {
 
   it('emits an approval request carried by INPUT_REQUIRED data', async () => {
     mocks.streamMessage.mockImplementation(async (_params, onEvent) => {
-      onEvent({ id: null, event: 'message', data: { result: {
+      onEvent({ id: null, event: 'message', data: { result: { task: {
         id: 'task-1', contextId: 'session-1', status: {
           state: 'TASK_STATE_INPUT_REQUIRED',
-          message: { parts: [{ data: { id: 'permission-1', title: 'Run command', description: 'pnpm test' } }] },
+          message: { parts: [{ data: { approvalId: 'permission-1', toolName: 'bash', input: { command: 'pnpm test' } } }] },
         },
-      } } });
+      } } } });
       return { close: vi.fn(), done: new Promise<void>(() => {}) };
     });
     const service = new AgentNodeService('/profile');
@@ -116,7 +116,7 @@ describe('AgentNodeService task lifecycle', () => {
     await service.send({ nodeId: 'node-1', contextId: 'session-1', text: 'Test' });
     expect(events).toContainEqual({
       type: 'approval', nodeId: 'node-1', sessionKey: 'node:node-1:session-1',
-      approval: { id: 'permission-1', taskId: 'task-1', contextId: 'session-1', title: 'Run command', description: 'pnpm test' },
+      approval: { id: 'permission-1', taskId: 'task-1', contextId: 'session-1', title: 'Allow bash', description: '{"command":"pnpm test"}' },
     });
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RemoteConversationBoundary, remoteA2aMessage, remoteArtifact, remoteSessionKey } from '@electron/features/agent-node/normalize';
+import { RemoteConversationBoundary, remoteA2aMessage, remoteArtifact, remoteArtifacts, remoteSessionKey } from '@electron/features/agent-node/normalize';
 
 describe('remote conversation normalization', () => {
   it('delivers replay entries, a partial snapshot, and live deltas to one remote session key', () => {
@@ -32,6 +32,23 @@ describe('remote conversation normalization', () => {
     });
   });
 
+  it('serializes node-owned approval replies as A2A data parts', () => {
+    expect(remoteA2aMessage({
+      nodeId: 'n', contextId: 's', text: '', approval: { id: 'approval-1', approved: true },
+    }, 'm')).toMatchObject({
+      parts: expect.arrayContaining([{ data: { type: 'approval_response', approvalId: 'approval-1', approved: true } }]),
+    });
+  });
+
+  it('renders Pi message content and starts the first live assistant delta', () => {
+    const boundary = new RemoteConversationBoundary(remoteSessionKey('n', 's'));
+    expect(boundary.accept({
+      type: 'entry', entry: { id: 'entry-1', parentId: null, data: { message: { role: 'user', content: 'Hello' } } },
+    })[0]).toMatchObject({ type: 'message_start', message: { text: 'Hello' } });
+    expect(boundary.accept({ type: 'delta', delta: { messageId: 'task-1', delta: 'Working' } })[0])
+      .toMatchObject({ type: 'message_start', message: { id: 'task-1', text: 'Working' } });
+  });
+
   it('unwraps canonical SDK response and stream payloads', () => {
     const boundary = new RemoteConversationBoundary(remoteSessionKey('n', 's'));
     expect(boundary.accept({ result: { task: { status: { state: 'TASK_STATE_WORKING' } } } })[0])
@@ -47,5 +64,8 @@ describe('remote conversation normalization', () => {
     expect(remoteArtifact({ artifact: { artifactId: 'a2', name: 'Small', parts: [{
       mediaType: 'text/plain', content: { $case: 'raw', value: 'aGVsbG8=' },
     }] } })).toEqual({ id: 'a2', name: 'Small', mediaType: 'text/plain', inlineBase64: 'aGVsbG8=' });
+    expect(remoteArtifacts({ result: { task: { artifacts: [{ artifactId: 'a3', name: 'Task output', parts: [{
+      mediaType: 'text/plain', raw: 'dGFzaw==',
+    }] }] } } })).toEqual([{ id: 'a3', name: 'Task output', mediaType: 'text/plain', inlineBase64: 'dGFzaw==' }]);
   });
 });

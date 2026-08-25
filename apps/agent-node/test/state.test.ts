@@ -60,4 +60,20 @@ describe("state and authority", () => {
       await expect(store.enrol(code, "profile")).rejects.toThrow("invalid_enrolment_code");
     } finally { await temp.cleanup(); }
   });
+
+  test("serializes concurrent controller revocations", async () => {
+    const temp = await temporaryState();
+    try {
+      const paths = await ensureState(temp.root);
+      const store = new ControllerStore(paths);
+      const firstCode = await store.mintCode();
+      const secondCode = await store.mintCode();
+      const first = await store.enrol(firstCode.code, "first");
+      const second = await store.enrol(secondCode.code, "second");
+      expect(await Promise.all([store.revoke(first.controllerId), store.revoke(second.controllerId)]))
+        .toEqual([true, true]);
+      expect(await store.authenticate(first.token)).toBeUndefined();
+      expect(await store.authenticate(second.token)).toBeUndefined();
+    } finally { await temp.cleanup(); }
+  });
 });

@@ -18,7 +18,7 @@ import { PinnedTransport } from './pinned-transport';
 import { activateAgentCard } from './agent-card';
 import { A2aClient } from './a2a-client';
 import { ControlAuthorizationError, ControlClient, ControlVersionError } from './control-client';
-import { RemoteConversationBoundary, remoteA2aMessage, remoteArtifact, remoteSessionKey } from './normalize';
+import { RemoteConversationBoundary, remoteA2aMessage, remoteArtifacts, remoteSessionKey } from './normalize';
 import { RetryingStream } from './retrying-stream';
 import { isRecord, rendererNode, type EnrolWireResult, type RuntimeNode, type StoredAgentNode } from './types';
 
@@ -129,8 +129,9 @@ export class AgentNodeService {
         type: 'approval', nodeId: input.nodeId,
         sessionKey: remoteSessionKey(input.nodeId, input.contextId), approval,
       });
-      const artifact = remoteArtifact(event.data);
-      if (artifact) this.emit({ type: 'artifact', nodeId: input.nodeId, sessionKey: remoteSessionKey(input.nodeId, input.contextId), artifact });
+      for (const artifact of remoteArtifacts(event.data)) {
+        this.emit({ type: 'artifact', nodeId: input.nodeId, sessionKey: remoteSessionKey(input.nodeId, input.contextId), artifact });
+      }
       for (const normalized of boundary.accept(event.data, event.id)) {
         this.emit({ type: 'conversation', nodeId: input.nodeId, event: normalized });
       }
@@ -315,14 +316,14 @@ function sessionWireEvent(type: string, data: unknown): unknown {
 }
 
 function taskIdFromWire(value: unknown): string | null {
-  if (!isRecord(value)) return null;
-  const task = isRecord(value.result) ? value.result : value;
+  const task = taskFromWire(value);
+  if (!task) return null;
   return typeof task.id === 'string' ? task.id : typeof task.taskId === 'string' ? task.taskId : null;
 }
 
 function approvalFromWire(value: unknown, contextId: string): AgentNodeApproval | null {
-  if (!isRecord(value)) return null;
-  const task = isRecord(value.result) ? value.result : value;
+  const task = taskFromWire(value);
+  if (!task) return null;
   const state = isRecord(task.status) && typeof task.status.state === 'string' ? task.status.state : '';
   if (!state.endsWith('INPUT_REQUIRED')) return null;
   const taskId = taskIdFromWire(task);
@@ -330,11 +331,21 @@ function approvalFromWire(value: unknown, contextId: string): AgentNodeApproval 
   const parts = message && Array.isArray(message.parts) ? message.parts : [];
   const part = parts.find((candidate) => isRecord(candidate) && isRecord(candidate.data));
   const data = isRecord(part) && isRecord(part.data) ? part.data : null;
-  const id = data && typeof data.id === 'string' ? data.id : null;
+  const id = data && typeof data.approvalId === 'string' ? data.approvalId : null;
   if (!taskId || !id || !data) return null;
   return {
     id, taskId, contextId,
-    title: typeof data.title === 'string' ? data.title : 'Permission required',
-    ...(typeof data.description === 'string' ? { description: data.description } : {}),
+    title: typeof data.title === 'string'
+      ? data.title
+      : typeof data.toolName === 'string' ? `Allow ${data.toolName}` : 'Permission required',
+    ...(typeof data.description === 'string'
+      ? { description: data.description }
+      : isRecord(data.input) ? { description: JSON.stringify(data.input) } : {}),
   };
+}
+
+function taskFromWire(value: unknown): Record<string, unknown> | null {
+  if (!isRecord(value)) return null;
+  const result = isRecord(value.result) ? value.result : value;
+  return isRecord(result.task) ? result.task : result;
 }

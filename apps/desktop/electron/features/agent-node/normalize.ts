@@ -9,6 +9,9 @@ export function remoteSessionKey(nodeId: string, contextId: string): string {
 
 export function remoteA2aMessage(input: AgentNodeMessageInput, messageId: string): Record<string, unknown> {
   const parts: Array<Record<string, unknown>> = [{ text: input.text }];
+  if (input.approval) {
+    parts.push({ data: { type: 'approval_response', approvalId: input.approval.id, approved: input.approval.approved } });
+  }
   for (const attachment of input.attachments ?? []) {
     parts.push({ url: attachment.url, filename: attachment.filename, mediaType: attachment.mediaType });
   }
@@ -22,23 +25,33 @@ export function remoteA2aMessage(input: AgentNodeMessageInput, messageId: string
   };
 }
 
-export function remoteArtifact(value: unknown): AgentNodeArtifact | null {
+export function remoteArtifacts(value: unknown): AgentNodeArtifact[] {
   const wire = unwrap(value);
-  if (!wire) return null;
-  const artifact = isRecord(wire.artifact) ? wire.artifact : null;
-  if (!artifact || typeof artifact.artifactId !== 'string') return null;
+  if (!wire) return [];
+  const artifacts = Array.isArray(wire.artifacts)
+    ? wire.artifacts.filter(isRecord)
+    : isRecord(wire.artifact) ? [wire.artifact] : [];
+  return artifacts.flatMap(parseArtifact);
+}
+
+export function remoteArtifact(value: unknown): AgentNodeArtifact | null {
+  return remoteArtifacts(value)[0] ?? null;
+}
+
+function parseArtifact(artifact: Record<string, unknown>): AgentNodeArtifact[] {
+  if (typeof artifact.artifactId !== 'string') return [];
   const part = Array.isArray(artifact.parts) ? artifact.parts.find(isRecord) : undefined;
-  if (!part) return null;
+  if (!part) return [];
   const content = isRecord(part.content) ? part.content : part;
   const mediaType = typeof part.mediaType === 'string' ? part.mediaType : 'application/octet-stream';
   const name = typeof artifact.name === 'string' && artifact.name ? artifact.name
     : typeof part.filename === 'string' ? part.filename : 'Artifact';
   const raw = content.$case === 'raw' ? content.value : part.raw;
-  if (typeof raw === 'string') return { id: artifact.artifactId, name, mediaType, inlineBase64: raw };
+  if (typeof raw === 'string') return [{ id: artifact.artifactId, name, mediaType, inlineBase64: raw }];
   const url = content.$case === 'url' ? content.value : part.url;
-  if (typeof url !== 'string') return null;
+  if (typeof url !== 'string') return [];
   const match = new URL(url).pathname.match(/\/blob\/([^/]+)$/);
-  return match ? { id: artifact.artifactId, name, mediaType, blobId: decodeURIComponent(match[1]) } : null;
+  return match ? [{ id: artifact.artifactId, name, mediaType, blobId: decodeURIComponent(match[1]) }] : [];
 }
 
 function textFromParts(parts: unknown): string {
@@ -49,6 +62,10 @@ function textFromParts(parts: unknown): string {
     if (isRecord(part.data)) return JSON.stringify(part.data);
     return '';
   }).filter(Boolean).join('\n');
+}
+
+function textFromContent(content: unknown): string {
+  return typeof content === 'string' ? content : textFromParts(content);
 }
 
 function unwrap(value: unknown): Record<string, unknown> | null {
@@ -96,7 +113,9 @@ export class RemoteConversationBoundary {
       ? message.messageId
       : typeof message.id === 'string' ? message.id : entryId;
     if ((role === 'user' || role === 'assistant') && id) {
-      const text = typeof message.text === 'string' ? message.text : textFromParts(message.parts);
+      const text = typeof message.text === 'string'
+        ? message.text
+        : textFromContent(message.content) || textFromParts(message.parts);
       const chat: ChatMessage = role === 'user'
         ? { type: 'user', id, text }
         : { type: 'assistant', id, text, isStreaming: message.partial === true };
@@ -118,13 +137,21 @@ export class RemoteConversationBoundary {
       this.messages.push(chat);
       return [{ type: 'message_start', sessionId: this.sessionKey, message: chat }];
     }
+    if (delta && messageId && !this.messages.some((message) => message.id === messageId)) {
+      this.streamingMessageId = messageId;
+      const chat: ChatMessage = { type: 'assistant', id: messageId, text: delta, isStreaming: true };
+      this.messages.push(chat);
+      return [{ type: 'message_start', sessionId: this.sessionKey, message: chat }];
+    }
     if (delta && messageId) {
+      const current = this.messages.find((message) => message.id === messageId);
+      if (current?.type === 'assistant') current.text += delta;
       return [{ type: item.kind === 'thinking' ? 'thinking_delta' : 'text_delta', sessionId: this.sessionKey, messageId, delta }];
     }
     const stateValue = isRecord(item.status) && typeof item.status.state === 'string' ? item.status.state : null;
     const state = stateValue?.replace(/^TASK_STATE_/, '').toLowerCase();
     if (state === 'working' || state === 'submitted') return [{ type: 'agent_start', sessionId: this.sessionKey }];
-    if (state === 'completed' || state === 'canceled' || state === 'failed') {
+    if (state === 'completed' || state === 'canceled' || state === 'failed' || state === 'auth_required') {
       this.streamingMessageId = null;
       return [{ type: 'agent_end', sessionId: this.sessionKey }];
     }

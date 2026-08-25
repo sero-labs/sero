@@ -58,12 +58,14 @@ export class ControllerStore {
   }
 
   async revoke(id: string): Promise<boolean> {
-    const records = await this.listAll();
-    const record = records.find((item) => item.id === id && !item.revokedAt);
-    if (!record) return false;
-    record.revokedAt = new Date(this.now()).toISOString();
-    await this.#save(records);
-    return true;
+    return this.#mutate(async () => {
+      const records = await this.listAll();
+      const record = records.find((item) => item.id === id && !item.revokedAt);
+      if (!record) return false;
+      record.revokedAt = new Date(this.now()).toISOString();
+      await this.#save(records);
+      return true;
+    });
   }
 
   async listAll(): Promise<ControllerRecord[]> {
