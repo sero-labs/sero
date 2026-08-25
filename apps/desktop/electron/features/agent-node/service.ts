@@ -162,9 +162,19 @@ export class AgentNodeService {
     if (taskId) await this.reconcileTask(nodeId, taskId);
     const sessionKey = remoteSessionKey(nodeId, contextId);
     const boundary = new RemoteConversationBoundary(sessionKey);
+    let resolveInitialSync!: () => void;
+    let rejectInitialSync!: (error: unknown) => void;
+    const initialSync = new Promise<void>((resolve, reject) => {
+      resolveInitialSync = resolve;
+      rejectInitialSync = reject;
+    });
     const stream = new RetryingStream(
       (nextCursor, onMessage) => connection.control.sessionEvents(contextId, nextCursor, onMessage),
       (message) => {
+        if (message.event === 'synced') {
+          resolveInitialSync();
+          return;
+        }
         const wire = sessionWireEvent(message.event, message.data);
         if (JSON.stringify(wire).includes('the node restarted')) this.setState(nodeId, 'restarted');
         for (const event of boundary.accept(wire, message.id)) {
@@ -174,7 +184,11 @@ export class AgentNodeService {
       cursor,
     );
     connection.streams.add(stream);
-    void stream.start().catch((error: unknown) => this.handleStreamFailure(nodeId, error));
+    void stream.start().catch((error: unknown) => {
+      rejectInitialSync(error);
+      this.handleStreamFailure(nodeId, error);
+    });
+    await initialSync;
     const snapshot = boundary.snapshot();
     return { sessionKey, messages: snapshot.messages, cursor: stream.getCursor() };
   }

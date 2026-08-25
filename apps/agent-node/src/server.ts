@@ -44,6 +44,7 @@ export async function startServer(services: NodeServices, options: ServerOptions
   const tls = options.tls === false ? undefined : await tlsFiles(services.paths);
   return Bun.serve({
     hostname: options.host, port: options.port, ...(tls ? { tls } : {}),
+    idleTimeout: 0,
     fetch: (request) => route(request, services, options.publicUrl),
     error: (error) => json({ error: { code: "internal_error", message: safeMessage(error) } }, 500),
   });
@@ -121,6 +122,7 @@ async function controlGet(request: Request, url: URL, operation: string, control
         ...(replay.resync ? [{ type: "resync", data: SessionEventSchema.parse({ type: "resync" }) }] : []),
         ...replay.events.map((entry) => ({ type: "entry", id: entry.id, data: SessionEventSchema.parse({ type: "entry", entry: { id: entry.id, parentId: entry.parentId, data: entry } }) })),
         ...(replay.partial && task ? [{ type: "snapshot", data: SessionEventSchema.parse({ type: "snapshot", taskId: task.taskId, message: { role: "assistant", text: replay.partial, partial: true } }) }] : []),
+        { type: "synced", data: SessionEventSchema.parse({ type: "synced" }) },
       ];
       services.events.emit("node", { type: "presence", data: NodeEventSchema.parse({ type: "presence", contextId: match[1], controllerIds: [controller.id] }) });
       return new Response(sseStream(initial, (send, close) => buffered.activate((event) => {

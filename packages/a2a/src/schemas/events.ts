@@ -32,6 +32,7 @@ export const SessionEventSchema = z.discriminatedUnion('type', [
     delta: JsonObjectSchema,
   }).strict(),
   z.object({ type: z.literal('resync') }).strict(),
+  z.object({ type: z.literal('synced') }).strict(),
 ]);
 
 export const AuthEventSchema = z.discriminatedUnion('type', [

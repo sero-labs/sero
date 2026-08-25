@@ -109,6 +109,7 @@ describe('control-plane boundary contract', () => {
       contextId: 'session-1', cursor: 'deadbeef',
     })).toEqual({ contextId: 'session-1', cursor: 'deadbeef' });
     expect(SessionEventSchema.parse({ type: 'resync' })).toEqual({ type: 'resync' });
+    expect(SessionEventSchema.parse({ type: 'synced' })).toEqual({ type: 'synced' });
   });
 
   it('uses one strict common error envelope', () => {

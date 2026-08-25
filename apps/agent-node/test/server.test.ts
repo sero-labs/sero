@@ -201,8 +201,8 @@ describe("wire contracts", () => {
       };
       const request = new Request(`https://node/sero/v1/sessions/${session.id}/events`, { headers: current.headers });
       const response = await route(request, current.services, "https://node");
-      const messages = await sseMessages(response, 3);
-      expect(messages.map((item) => item.event)).toEqual(["entry", "snapshot", "delta"]);
+      const messages = await sseMessages(response, 4);
+      expect(messages.map((item) => item.event)).toEqual(["entry", "snapshot", "synced", "delta"]);
       expect(messages[0].id).toBe((messages[0].data as { entry: { id: string } }).entry.id);
       for (const message of messages) expect(SessionEventSchema.safeParse(message.data).success).toBe(true);
     } finally { await current.temp.cleanup(); }

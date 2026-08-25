@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   getTask: vi.fn(),
   cancelTask: vi.fn(),
   controlCall: vi.fn(),
+  retryMessages: [] as Array<{ id: string | null; event: string; data: unknown }>,
 }));
 
 vi.mock('electron', () => ({ safeStorage: {}, shell: { openExternal: vi.fn() } }));
@@ -46,7 +47,14 @@ vi.mock('@electron/features/agent-node/control-client', () => ({
 }));
 vi.mock('@electron/features/agent-node/retrying-stream', () => ({
   RetryingStream: class {
-    start = vi.fn().mockResolvedValue(undefined);
+    constructor(
+      _open: unknown,
+      private readonly onMessage: (message: { id: string | null; event: string; data: unknown }) => void,
+    ) {}
+    start = vi.fn(async () => {
+      for (const message of mocks.retryMessages) this.onMessage(message);
+      return new Promise<void>(() => {});
+    });
     stop = vi.fn();
     getCursor = vi.fn().mockReturnValue(null);
   },
@@ -55,6 +63,7 @@ vi.mock('@electron/features/agent-node/retrying-stream', () => ({
 describe('AgentNodeService task lifecycle', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.retryMessages.splice(0, mocks.retryMessages.length, { id: null, event: 'synced', data: { type: 'synced' } });
     mocks.streamMessage.mockImplementation(async (_params, onEvent) => {
       onEvent({ id: null, event: 'message', data: {
         result: { task: { id: 'task-1', contextId: 'session-1', status: { state: 'TASK_STATE_WORKING' } } },
@@ -81,6 +90,19 @@ describe('AgentNodeService task lifecycle', () => {
     await service.attach('node-1', 'session-1', undefined, 'task-1');
     expect(mocks.getTask).toHaveBeenCalledWith('task-1');
     expect(events).toContainEqual({ type: 'connection', nodeId: 'node-1', state: 'restarted' });
+  });
+
+  it('waits for the initial replay batch before returning messages', async () => {
+    mocks.retryMessages.splice(0, mocks.retryMessages.length,
+      { id: '1234abcd', event: 'entry', data: {
+        type: 'entry', entry: { id: '1234abcd', parentId: null, data: { role: 'user', text: 'Hello from replay' } },
+      } },
+      { id: null, event: 'synced', data: { type: 'synced' } },
+    );
+    const service = new AgentNodeService('/profile');
+    const attached = await service.attach('node-1', 'session-1');
+    expect(attached.messages).toHaveLength(1);
+    expect(attached.messages[0]).toMatchObject({ type: 'user', text: 'Hello from replay' });
   });
 
   it('reconciles the active task with GetTask when its stream reconnects', async () => {
