@@ -17,11 +17,12 @@ export async function createApp(stateRoot: string, publicUrl: string, runnerFact
   const paths = await ensureState(stateRoot);
   process.env.SERO_AGENT_DIR = paths.root;
   const events = new EventHub();
-  const sessions = new SessionStore(paths, events, runnerFactory ?? createPiRunnerFactory(paths));
+  const blobs = new BlobStore(paths, publicUrl);
+  const sessions = new SessionStore(paths, events, runnerFactory ?? createPiRunnerFactory(paths), blobs);
   await sessions.recover();
   return {
     paths, events, sessions, controllers: new ControllerStore(paths),
-    providers: new ProviderAuth(paths, events, boot.providers), blobs: new BlobStore(paths, publicUrl),
+    providers: new ProviderAuth(paths, events, boot.providers), blobs,
     fingerprint: await identityFingerprint(paths), providersAdvertised: boot.providers,
   };
 }

@@ -4,10 +4,11 @@ import { randomUUID } from "node:crypto";
 import { parseSessionEntries } from "@earendil-works/pi-coding-agent";
 import type { StatePaths } from "./state.ts";
 import { confinedWorkspace, secureWrite } from "./state.ts";
-import type { SessionRunner, SessionRunnerFactory } from "./pi-host.ts";
-import type { SessionEntry, SessionRecord, TaskStatus, TaskTransition } from "./types.ts";
+import { ProviderAuthRequiredError, type RunnerHooks, type SessionRunner, type SessionRunnerFactory } from "./pi-host.ts";
+import type { ApprovalRequest, SessionEntry, SessionRecord, TaskArtifact, TaskStatus, TaskTransition } from "./types.ts";
 import { EventHub } from "./events.ts";
 import { safeMessage } from "./redact.ts";
+import type { BlobStore } from "./blobs.ts";
 
 const TERMINAL = new Set<TaskStatus>(["completed", "failed", "canceled", "rejected"]);
 interface QueuedMessage { text: string; behavior: "followUp" | "steer" }
@@ -18,11 +19,14 @@ interface ActiveTurn {
   promise: Promise<void>;
   queued: QueuedMessage[];
   publishedEntryIds: Set<string>;
+  approvalChain: Promise<void>;
 }
+interface PendingApproval { request: ApprovalRequest; resolve: (approved: boolean) => void }
 
 export class SessionStore {
   readonly #active = new Map<string, ActiveTurn>();
-  constructor(readonly paths: StatePaths, readonly events: EventHub, readonly runnerFactory: SessionRunnerFactory) {}
+  readonly #approvals = new Map<string, PendingApproval>();
+  constructor(readonly paths: StatePaths, readonly events: EventHub, readonly runnerFactory: SessionRunnerFactory, readonly blobs?: BlobStore) {}
 
   async create(input: { name?: string; model: string; workspace: string }): Promise<SessionRecord> {
     const id = randomUUID();
@@ -74,12 +78,13 @@ export class SessionStore {
     }
     const task: TaskTransition = { taskId: randomUUID(), contextId, status: "submitted", controllerId, updatedAt: new Date().toISOString() };
     const turn: ActiveTurn = {
-      task, partial: "", promise: Promise.resolve(), queued: [], publishedEntryIds: new Set(),
+      task, partial: "", promise: Promise.resolve(), queued: [], publishedEntryIds: new Set(), approvalChain: Promise.resolve(),
     };
     this.#active.set(contextId, turn);
     try {
       await this.#transition(task, "submitted");
-      const runner = await this.runnerFactory(contextId, record.workspace, record.model, record.piSessionPath);
+      const hooks = this.#runnerHooks(contextId, turn);
+      const runner = await this.runnerFactory(contextId, record.workspace, record.model, record.piSessionPath, hooks);
       turn.runner = runner;
       turn.publishedEntryIds = new Set(runner.entries().map((entry) => entry.id));
       if (record.piSessionPath !== runner.sessionPath) {
@@ -97,7 +102,7 @@ export class SessionStore {
     } catch (error) {
       const detail = safeMessage(error);
       const message = detail.includes(record.model) ? detail : `${detail}: ${record.model}`;
-      await this.#transition(task, "failed", message);
+      await this.#transition(task, error instanceof ProviderAuthRequiredError ? "auth-required" : "failed", message);
       this.#active.delete(contextId);
     }
     return task;
@@ -108,23 +113,19 @@ export class SessionStore {
       turn.queued.push(queued);
       return;
     }
-    void turn.runner.run(queued.text, queued.behavior, (delta) => this.#delta(contextId, turn, delta))
+    void turn.runner.run(queued.text, queued.behavior, this.#runnerHooks(contextId, turn))
       .catch((error: unknown) => this.#failQueuedTurn(turn, error));
   }
 
   async #failQueuedTurn(turn: ActiveTurn, error: unknown): Promise<void> {
     if (TERMINAL.has(turn.task.status)) return;
-    await this.#transition(turn.task, "failed", safeMessage(error));
+    await this.#transition(turn.task, error instanceof ProviderAuthRequiredError ? "auth-required" : "failed", safeMessage(error));
   }
 
   async #execute(record: SessionRecord, turn: ActiveTurn, text: string): Promise<void> {
     const runner = turn.runner;
     if (!runner) throw new Error("session_runner_unavailable");
-    const answerPromise = runner.run(
-      text,
-      "followUp",
-      (delta) => this.#delta(record.id, turn, delta),
-    );
+    const answerPromise = runner.run(text, "followUp", this.#runnerHooks(record.id, turn));
     await this.#transition(turn.task, "working");
     try {
       await answerPromise;
@@ -134,10 +135,48 @@ export class SessionStore {
     } catch (error) {
       if (turn.task.status === "canceled") return;
       const message = safeMessage(error);
-      await this.#transition(turn.task, /auth|credential|api key/i.test(message) ? "auth-required" : "failed", message);
+      await this.#transition(turn.task, error instanceof ProviderAuthRequiredError ? "auth-required" : "failed", message);
     } finally {
       this.#active.delete(record.id);
     }
+  }
+
+  async respondApproval(contextId: string, approvalId: string, approved: boolean): Promise<TaskTransition> {
+    const turn = this.#active.get(contextId);
+    const pending = this.#approvals.get(approvalId);
+    if (!turn || !pending || pending.request.approvalId !== approvalId || turn.task.input?.approvalId !== approvalId) {
+      throw new Error("approval_not_found");
+    }
+    this.#approvals.delete(approvalId);
+    turn.task.input = undefined;
+    await this.#transition(turn.task, "working");
+    pending.resolve(approved);
+    return turn.task;
+  }
+
+  #runnerHooks(contextId: string, turn: ActiveTurn): RunnerHooks {
+    return {
+      onDelta: (delta) => this.#delta(contextId, turn, delta),
+      approve: async (toolName, input) => {
+        const previous = turn.approvalChain;
+        let releaseQueue = () => {};
+        turn.approvalChain = new Promise<void>((resolve) => { releaseQueue = resolve; });
+        await previous;
+        if (TERMINAL.has(turn.task.status)) { releaseQueue(); return false; }
+        try {
+          const request: ApprovalRequest = { approvalId: randomUUID(), toolName, input: structuredClone(input) };
+          turn.task.input = request;
+          await this.#transition(turn.task, "input-required", `Approval required for ${toolName}`);
+          return await new Promise<boolean>((resolve) => this.#approvals.set(request.approvalId, { request, resolve }));
+        } finally { releaseQueue(); }
+      },
+      artifact: async (name, data, mediaType) => {
+        if (!this.blobs) return;
+        const artifact: TaskArtifact = await this.blobs.artifact(contextId, data, mediaType, name);
+        turn.task.artifacts = [...(turn.task.artifacts ?? []), artifact];
+        await this.#transition(turn.task, turn.task.status);
+      },
+    };
   }
 
   #delta(contextId: string, turn: ActiveTurn, delta: string): void {
@@ -159,6 +198,11 @@ export class SessionStore {
     const active = [...this.#active.values()].find((item) => item.task.taskId === taskId);
     if (!active) throw new Error("task_not_found");
     await this.#transition(active.task, "canceled");
+    const approvalId = active.task.input?.approvalId;
+    if (approvalId) {
+      this.#approvals.get(approvalId)?.resolve(false);
+      this.#approvals.delete(approvalId);
+    }
     await active.runner?.cancel();
     await active.promise;
     return active.task;

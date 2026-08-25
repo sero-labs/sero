@@ -4,6 +4,7 @@ import { EventHub } from "../src/events.ts";
 import { SessionStore } from "../src/sessions.ts";
 import { ensureState } from "../src/state.ts";
 import { DeferredRunner, runnerFactory, temporaryState } from "./helpers.ts";
+import { ProviderAuthRequiredError } from "../src/pi-host.ts";
 
 describe("persistent sessions and tasks", () => {
   test("refuses absent and unknown contexts", async () => {
@@ -146,6 +147,63 @@ describe("persistent sessions and tasks", () => {
       expect(await restarted.getTask(task.taskId)).toMatchObject({ status: "failed", message: "the node restarted" });
       expect(await readFile(`${paths.tasks}/${session.id}.jsonl`, "utf8")).toContain("the node restarted");
       runners.get(session.id)?.release?.("");
+    } finally { await temp.cleanup(); }
+  });
+
+  test("accepts only the node-owned approval id and enforces controller refusal", async () => {
+    const temp = await temporaryState(); const runners = new Map<string, DeferredRunner>();
+    try {
+      const paths = await ensureState(temp.root); const store = new SessionStore(paths, new EventHub(), runnerFactory(runners));
+      const session = await store.create({ model: "test/model", workspace: "approval" });
+      const task = await store.send(session.id, "change it", "controller");
+      const runner = runners.get(session.id)!;
+      const decision = runner.hooks!.approve("bash", { command: "rm -rf target" });
+      while ((await store.getTask(task.taskId))?.status !== "input-required") await Bun.sleep(1);
+      const required = await store.getTask(task.taskId);
+      expect(required?.input).toMatchObject({ toolName: "bash", input: { command: "rm -rf target" } });
+      await expect(store.respondApproval(session.id, crypto.randomUUID(), true)).rejects.toThrow("approval_not_found");
+      expect((await store.getTask(task.taskId))?.status).toBe("input-required");
+      await store.respondApproval(session.id, required!.input!.approvalId, false);
+      expect(await decision).toBe(false);
+      runner.release?.("done");
+      while ((await store.getTask(task.taskId))?.status !== "completed") await Bun.sleep(1);
+    } finally { await temp.cleanup(); }
+  });
+
+  test("uses typed provider state for AUTH_REQUIRED instead of error text", async () => {
+    const temp = await temporaryState();
+    try {
+      const paths = await ensureState(temp.root);
+      const generic = new SessionStore(paths, new EventHub(), async () => { throw new Error("auth shaped words are not provider state"); });
+      const first = await generic.create({ model: "test/model", workspace: "generic-auth" });
+      expect((await generic.send(first.id, "go", "controller")).status).toBe("failed");
+
+      const typed = new SessionStore(paths, new EventHub(), async () => { throw new ProviderAuthRequiredError("anthropic"); });
+      const second = await typed.create({ model: "anthropic/model", workspace: "typed-auth" });
+      expect((await typed.send(second.id, "go", "controller")).status).toBe("auth-required");
+    } finally { await temp.cleanup(); }
+  });
+
+  test("serializes parallel Pi permission requests without replacing approval records", async () => {
+    const temp = await temporaryState(); const runners = new Map<string, DeferredRunner>();
+    try {
+      const paths = await ensureState(temp.root); const store = new SessionStore(paths, new EventHub(), runnerFactory(runners));
+      const session = await store.create({ model: "test/model", workspace: "parallel-approval" });
+      const task = await store.send(session.id, "two writes", "controller");
+      const hooks = runners.get(session.id)!.hooks!;
+      const first = hooks.approve("write", { path: "one" });
+      const second = hooks.approve("edit", { path: "two" });
+      while (!(await store.getTask(task.taskId))?.input) await Bun.sleep(1);
+      const firstId = (await store.getTask(task.taskId))!.input!.approvalId;
+      await store.respondApproval(session.id, firstId, true);
+      expect(await first).toBe(true);
+      while (!(await store.getTask(task.taskId))?.input) await Bun.sleep(1);
+      const secondId = (await store.getTask(task.taskId))!.input!.approvalId;
+      expect(secondId).not.toBe(firstId);
+      await store.respondApproval(session.id, secondId, false);
+      expect(await second).toBe(false);
+      runners.get(session.id)?.release?.("done");
+      while ((await store.getTask(task.taskId))?.status !== "completed") await Bun.sleep(1);
     } finally { await temp.cleanup(); }
   });
 });

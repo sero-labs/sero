@@ -194,8 +194,12 @@ async function a2aRoute(request: Request, services: NodeServices): Promise<Respo
     if (method === "SendMessage" || method === "SendStreamingMessage") {
       const message = objectValue(params.message ?? params); const rawContextId = optionalString(message, "contextId") ?? optionalString(params, "contextId");
       const contextId = rawContextId ? requireUuid(rawContextId, "contextId") : undefined;
-      const text = extractText(message); const behavior = objectValue(message.metadata)[SERO_QUEUE_MODE_METADATA_KEY] === "steer" ? "steer" : "followUp";
-      const task = await services.sessions.send(contextId, text, controller.id, behavior);
+      const approval = extractApproval(message);
+      const text = extractText(message);
+      const behavior = objectValue(message.metadata)[SERO_QUEUE_MODE_METADATA_KEY] === "steer" ? "steer" : "followUp";
+      const task = approval && contextId
+        ? await services.sessions.respondApproval(contextId, requireUuid(approval.approvalId, "approvalId"), approval.approved)
+        : await services.sessions.send(contextId, text, controller.id, behavior);
       if (method === "SendStreamingMessage") return taskResponse(task, id, services, request.signal, controller.id);
       await waitTerminal(services.sessions, task.taskId); return json({ jsonrpc: "2.0", id, result: { task: taskWire((await services.sessions.getTask(task.taskId))!) } });
     }
@@ -206,19 +210,24 @@ async function a2aRoute(request: Request, services: NodeServices): Promise<Respo
 function taskResponse(task: TaskTransition, id: unknown, services: NodeServices, signal: AbortSignal, controllerId: string): Response {
   const encoder = new TextEncoder();
   const terminal = new Set(["completed", "failed", "canceled", "rejected"]);
+  let closeStream = () => {};
   const body = new ReadableStream<Uint8Array>({
     start(controller) {
       let closed = false;
+      let unsubscribe = () => {};
       const send = (value: TaskTransition) => controller.enqueue(encoder.encode(`data: ${JSON.stringify({ jsonrpc: "2.0", id, result: { task: taskWire(value) } })}\n\n`));
-      const close = () => { if (closed) return; closed = true; unsubscribe(); controller.close(); };
+      const cleanup = () => { if (closed) return; closed = true; unsubscribe(); };
+      const close = () => { if (closed) return; cleanup(); controller.close(); };
       send(task);
-      const unsubscribe = services.events.subscribe(`task:${task.taskId}`, (event) => {
+      unsubscribe = services.events.subscribe(`task:${task.taskId}`, (event) => {
         if (closed) return;
         const value = event.data as TaskTransition; send(value);
         if (terminal.has(value.status)) close();
       }, controllerId, close);
+      closeStream = cleanup;
       signal.addEventListener("abort", close, { once: true });
     },
+    cancel() { closeStream(); },
   });
   return new Response(body, { headers: { "content-type": "text/event-stream", "A2A-Version": A2A_VERSION } });
 }
@@ -226,7 +235,27 @@ function taskResponse(task: TaskTransition, id: unknown, services: NodeServices,
 async function waitTerminal(sessions: SessionStore, taskId: string): Promise<void> {
   while (true) { const task = await sessions.getTask(taskId); if (!task || ["completed", "failed", "canceled", "rejected", "auth-required", "input-required"].includes(task.status)) return; await Bun.sleep(10); }
 }
-function taskWire(task: TaskTransition): Record<string, unknown> { return { id: task.taskId, contextId: task.contextId, status: { state: `TASK_STATE_${task.status.replaceAll("-", "_").toUpperCase()}`, message: task.message ? { role: "ROLE_AGENT", messageId: `${task.taskId}:status`, contextId: task.contextId, taskId: task.taskId, parts: [{ text: task.message }] } : undefined, timestamp: task.updatedAt }, artifacts: [], history: [] }; }
+function taskWire(task: TaskTransition): Record<string, unknown> {
+  const parts = task.input
+    ? [{ data: { type: "approval", approvalId: task.input.approvalId, toolName: task.input.toolName, input: task.input.input } }]
+    : task.message ? [{ text: task.message }] : undefined;
+  return {
+    id: task.taskId, contextId: task.contextId,
+    status: {
+      state: `TASK_STATE_${task.status.replaceAll("-", "_").toUpperCase()}`,
+      message: parts ? {
+        role: "ROLE_AGENT",
+        messageId: `${task.taskId}:status`,
+        contextId: task.contextId,
+        taskId: task.taskId,
+        parts,
+      } : undefined,
+      timestamp: task.updatedAt,
+    },
+    artifacts: task.artifacts ?? [],
+    history: [],
+  };
+}
 function rpcError(id: unknown, code: number, message: string): Record<string, unknown> { return { jsonrpc: "2.0", id, error: { code, message } }; }
 async function readJson(request: Request): Promise<Record<string, unknown>> { const value: unknown = await request.json(); return objectValue(value); }
 function objectValue(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
@@ -234,6 +263,16 @@ function requiredString(value: Record<string, unknown>, key: string): string { c
 function optionalString(value: Record<string, unknown>, key: string): string | undefined { return typeof value[key] === "string" ? value[key] : undefined; }
 function stringFrom(value: Record<string, unknown>, keys: string[]): string | undefined { return keys.map((key) => optionalString(value, key)).find(Boolean); }
 function extractText(message: Record<string, unknown>): string { const direct = optionalString(message, "text"); if (direct) return direct; const parts = Array.isArray(message.parts) ? message.parts : []; return parts.map((part) => optionalString(objectValue(part), "text") ?? "").join(""); }
+function extractApproval(message: Record<string, unknown>): { approvalId: string; approved: boolean } | undefined {
+  const parts = Array.isArray(message.parts) ? message.parts : [];
+  for (const part of parts) {
+    const data = objectValue(objectValue(part).data);
+    if (data.type === "approval_response" && typeof data.approvalId === "string" && typeof data.approved === "boolean") {
+      return { approvalId: data.approvalId, approved: data.approved };
+    }
+  }
+  return undefined;
+}
 
 function requireUuid(value: string, name: string): string {
   if (!UUID_PATTERN.test(value)) throw new Error(`invalid_${name}`);

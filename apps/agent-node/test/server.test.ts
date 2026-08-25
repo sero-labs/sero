@@ -28,7 +28,8 @@ async function fixture() {
   const enrolled = await controllers.enrol(code, "Desktop");
   const events = new EventHub();
   const runners = new Map<string, DeferredRunner>();
-  const sessions = new SessionStore(paths, events, runnerFactory(runners));
+  const blobs = new BlobStore(paths, "https://node");
+  const sessions = new SessionStore(paths, events, runnerFactory(runners), blobs);
   const disconnected: string[] = [];
   const providers = {
     providers: async () => ({
@@ -40,7 +41,7 @@ async function fixture() {
     removeApiKey: async () => {}, respond: () => {}, cancel: () => {},
     disconnect: (id: string) => { disconnected.push(id); },
   };
-  const services = { paths, controllers, sessions, providers, events, blobs: new BlobStore(paths, "https://node"), fingerprint: await identityFingerprint(paths), providersAdvertised: ["anthropic"] };
+  const services = { paths, controllers, sessions, providers, events, blobs, fingerprint: await identityFingerprint(paths), providersAdvertised: ["anthropic"] };
   const headers = { authorization: `Bearer ${enrolled.token}`, "Sero-Control-Version": "1", "A2A-Version": "1.0", "content-type": "application/json" };
   return { temp, services, headers, runners, enrolled, disconnected };
 }
@@ -240,6 +241,49 @@ describe("wire contracts", () => {
       const small = await current.services.blobs.artifact("session", new Uint8Array(INLINE_ARTIFACT_LIMIT - 1), "application/octet-stream", "small");
       const large = await current.services.blobs.artifact("session", new Uint8Array(INLINE_ARTIFACT_LIMIT), "application/octet-stream", "large");
       expect(JSON.stringify(small)).toContain("raw"); expect(JSON.stringify(large)).toContain("https://node/sero/v1/blob/");
+    } finally { await current.temp.cleanup(); }
+  });
+
+  test("carries node-owned approvals as data parts and rejects forged ids", async () => {
+    const current = await fixture();
+    try {
+      const session = await current.services.sessions.create({ model: "test/model", workspace: "approval-wire" });
+      const task = await current.services.sessions.send(session.id, "run", current.enrolled.controllerId);
+      const runner = current.runners.get(session.id)!;
+      const decision = runner.hooks!.approve("write", { path: "safe.txt", content: "ok" });
+      while ((await current.services.sessions.getTask(task.taskId))?.status !== "input-required") await Bun.sleep(1);
+      const required = await (await rpc(current, "GetTask", { id: task.taskId })).json();
+      expect(required.result.status.message.parts[0].data).toMatchObject({ type: "approval", toolName: "write" });
+
+      const forged = await rpc(current, "SendMessage", { message: { contextId: session.id, parts: [{ data: { type: "approval_response", approvalId: crypto.randomUUID(), approved: true } }] } });
+      expect(await forged.json()).toMatchObject({ error: { message: "approval_not_found" } });
+      const approvalId = required.result.status.message.parts[0].data.approvalId as string;
+      const accepted = await rpc(current, "SendStreamingMessage", { message: { contextId: session.id, parts: [{ data: { type: "approval_response", approvalId, approved: true } }] } });
+      await accepted.body?.cancel();
+      expect(await decision).toBe(true);
+      runner.release?.("done");
+      while ((await current.services.sessions.getTask(task.taskId))?.status !== "completed") await Bun.sleep(1);
+    } finally { await current.temp.cleanup(); }
+  });
+
+  test("publishes Pi tool outputs as inline and authenticated large task artifacts", async () => {
+    const current = await fixture();
+    try {
+      const session = await current.services.sessions.create({ model: "test/model", workspace: "tool-artifacts" });
+      const task = await current.services.sessions.send(session.id, "run", current.enrolled.controllerId);
+      const hooks = current.runners.get(session.id)!.hooks!;
+      await hooks.artifact("small.txt", new TextEncoder().encode("small"), "text/plain");
+      await hooks.artifact("large.bin", new Uint8Array(INLINE_ARTIFACT_LIMIT), "application/octet-stream");
+      const wire = await (await rpc(current, "GetTask", { id: task.taskId })).json();
+      expect(wire.result.artifacts[0].parts[0].raw).toBeTruthy();
+      const url = wire.result.artifacts[1].parts[0].url as string;
+      expect(url).toStartWith("https://node/sero/v1/blob/");
+      expect((await route(new Request(url, { headers: { "Sero-Control-Version": "1" } }), current.services, "https://node")).status).toBe(401);
+      const download = await route(new Request(url, { headers: current.headers }), current.services, "https://node");
+      expect(download.status).toBe(200);
+      expect((await download.arrayBuffer()).byteLength).toBe(INLINE_ARTIFACT_LIMIT);
+      current.runners.get(session.id)?.release?.("done");
+      while ((await current.services.sessions.getTask(task.taskId))?.status !== "completed") await Bun.sleep(1);
     } finally { await current.temp.cleanup(); }
   });
 });

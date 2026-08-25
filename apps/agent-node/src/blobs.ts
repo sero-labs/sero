@@ -2,12 +2,13 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { StatePaths } from "./state.ts";
+import type { TaskArtifact } from "./types.ts";
 
 export const INLINE_ARTIFACT_LIMIT = 1_000_000;
 
 export class BlobStore {
   constructor(readonly paths: StatePaths, readonly publicBaseUrl: string) {}
-  async artifact(contextId: string, data: Uint8Array, mediaType: string, name: string): Promise<Record<string, unknown>> {
+  async artifact(contextId: string, data: Uint8Array, mediaType: string, name: string): Promise<TaskArtifact> {
     const id = randomUUID();
     if (data.byteLength < INLINE_ARTIFACT_LIMIT) {
       return { artifactId: id, name, parts: [{ raw: Buffer.from(data).toString("base64"), mediaType }] };

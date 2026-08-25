@@ -4,6 +4,13 @@ export type TaskStatus = "submitted" | "working" | "input-required" | "auth-requ
 export interface TaskTransition {
   taskId: string; contextId: string; status: TaskStatus; controllerId: string;
   firstEntryId?: string; lastEntryId?: string; updatedAt: string; message?: string;
+  input?: ApprovalRequest; artifacts?: TaskArtifact[];
+}
+export interface ApprovalRequest {
+  approvalId: string; toolName: "write" | "edit" | "bash"; input: Record<string, unknown>;
+}
+export interface TaskArtifact {
+  artifactId: string; name: string; parts: Array<{ raw?: string; url?: string; mediaType: string }>;
 }
 export interface SessionRecord {
   id: string; name: string; model: string; workspace: string; piSessionPath?: string; createdAt: string; updatedAt: string;

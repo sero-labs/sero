@@ -90,7 +90,12 @@ export class ProviderAuth {
   async logout(providerId: string): Promise<void> { await (await this.#runtime).logout(providerId); }
   async setApiKey(providerId: string, apiKey: string): Promise<void> {
     if (!this.advertised.includes(providerId) || providerId === "bedrock") throw new Error("provider_not_available");
-    await (await this.#runtime).setRuntimeApiKey(providerId, apiKey);
+    const abort = new AbortController();
+    await (await this.#runtime).login(providerId, "api_key", {
+      signal: abort.signal,
+      notify: () => {},
+      prompt: async () => apiKey,
+    });
   }
-  async removeApiKey(providerId: string): Promise<void> { await (await this.#runtime).removeRuntimeApiKey(providerId); }
+  async removeApiKey(providerId: string): Promise<void> { await (await this.#runtime).logout(providerId); }
 }

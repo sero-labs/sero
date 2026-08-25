@@ -3,7 +3,7 @@ import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import type { SessionRunner, SessionRunnerFactory } from "../src/pi-host.ts";
+import type { RunnerHooks, SessionRunner, SessionRunnerFactory } from "../src/pi-host.ts";
 import type { SessionEntry } from "../src/types.ts";
 
 export async function temporaryState(): Promise<{ root: string; cleanup: () => Promise<void> }> {
@@ -17,6 +17,7 @@ export class DeferredRunner implements SessionRunner {
   canceled = false;
   release?: (value: string) => void;
   emit?: (value: string) => void;
+  hooks?: RunnerHooks;
   readonly sessionPath: string;
   readonly #entries: SessionEntry[];
 
@@ -31,15 +32,16 @@ export class DeferredRunner implements SessionRunner {
     }
   }
 
-  run(text: string, behavior: "followUp" | "steer", onDelta: (text: string) => void): Promise<string> {
+  run(text: string, behavior: "followUp" | "steer", hooks: RunnerHooks): Promise<string> {
     this.calls.push(text);
     this.behaviors.push(behavior);
     this.#append("user", text);
-    this.emit = onDelta;
+    this.hooks = hooks;
+    this.emit = hooks.onDelta;
     if (this.calls.length > 1) return Promise.resolve("");
     return new Promise((resolve) => {
       this.release = (value) => {
-        onDelta(value);
+        hooks.onDelta(value);
         this.#append("assistant", value);
         resolve(value);
       };
@@ -63,8 +65,9 @@ export class DeferredRunner implements SessionRunner {
 }
 
 export function runnerFactory(runners: Map<string, DeferredRunner>): SessionRunnerFactory {
-  return async (id, cwd, _model, sessionPath) => {
+  return async (id, cwd, _model, sessionPath, hooks) => {
     const runner = new DeferredRunner(sessionPath ?? join(cwd, `.pi-${id}.jsonl`));
+    runner.hooks = hooks;
     runners.set(id, runner);
     return runner;
   };
