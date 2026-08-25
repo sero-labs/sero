@@ -2,13 +2,16 @@ import { useState } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@sero-ai/ui/components/ui/dialog';
 import { Input } from '@sero-ai/ui/components/ui/input';
-import type { AgentNodeInfo } from '@/types/agent-node';
+import type { AgentNodeController, AgentNodeInfo, AgentNodeProvider } from '@/types/agent-node';
 import { useNodesStore } from '@/stores/nodes';
 import { NodeAuthInteraction } from './NodeAuthInteraction';
 
+const EMPTY_PROVIDERS: AgentNodeProvider[] = [];
+const EMPTY_CONTROLLERS: AgentNodeController[] = [];
+
 export function NodeSettingsDialog({ node, open, onOpenChange }: { node: AgentNodeInfo; open: boolean; onOpenChange: (open: boolean) => void }) {
-  const providers = useNodesStore((state) => state.providers[node.id] ?? []);
-  const controllers = useNodesStore((state) => state.controllers[node.id] ?? []);
+  const providers = useNodesStore((state) => state.providers[node.id] ?? EMPTY_PROVIDERS);
+  const controllers = useNodesStore((state) => state.controllers[node.id] ?? EMPTY_CONTROLLERS);
   const { loadSettings, login, logout, setApiKey, removeApiKey, revokeController, mintEnrolmentCode, remove } = useNodesStore.getState();
   const [keys, setKeys] = useState<Record<string, string>>({});
   const [enrolmentCode, setEnrolmentCode] = useState<string | null>(null);

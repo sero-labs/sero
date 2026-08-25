@@ -12,4 +12,13 @@ describe('Agent Node IPC security', () => {
       providers: [{ id: 'anthropic', configured: true }],
     });
   });
+
+  it('preserves only the masked API-key provider catalogue shape', () => {
+    expect(protectAgentNodeReply({ apiKey: [
+      { id: 'anthropic', name: 'Anthropic', hasKey: true, fromEnv: false },
+    ] })).toEqual({ apiKey: [
+      { id: 'anthropic', name: 'Anthropic', hasKey: true, fromEnv: false },
+    ] });
+    expect(protectAgentNodeReply({ apiKey: ['secret'] })).toEqual({});
+  });
 });

@@ -8,6 +8,8 @@ import { EnrolNodeDialog } from './EnrolNodeDialog';
 import { NodeSettingsDialog } from './NodeSettingsDialog';
 import { NewNodeSessionDialog } from './NewNodeSessionDialog';
 
+const EMPTY_SESSIONS: AgentNodeSession[] = [];
+
 export function NodesTree() {
   const nodes = useNodesStore((state) => state.nodes);
   const load = useNodesStore((state) => state.load);
@@ -33,7 +35,7 @@ export function NodesTree() {
 }
 
 function NodeRow({ node }: { node: AgentNodeInfo }) {
-  const sessions = useNodesStore((state) => state.sessions[node.id] ?? []);
+  const sessions = useNodesStore((state) => state.sessions[node.id] ?? EMPTY_SESSIONS);
   const expanded = useNodesStore((state) => state.expandedNodeIds.has(node.id));
   const toggle = useNodesStore((state) => state.toggleNode);
   const [settingsOpen, setSettingsOpen] = useState(false);
