@@ -1,0 +1,27 @@
+[Unit]
+Description=Sero Agent Node
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sero-node
+Group=sero-node
+ExecStart=/usr/local/bin/sero-node serve
+Restart=on-failure
+StateDirectory=sero-node
+StateDirectoryMode=0700
+ReadWritePaths=/var/lib/sero-node
+ProtectSystem=strict
+ProtectProc=invisible
+ProcSubset=pid
+ProtectHome=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHostname=yes
+# Do not set MemoryDenyWriteExecute: the Bun JIT needs executable-memory transitions.
+
+[Install]
+WantedBy=multi-user.target

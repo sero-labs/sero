@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "lib": ["ESNext", "DOM"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["bun", "node"],
+    "baseUrl": ".",
+    "paths": { "@sero/a2a": ["src/a2a-contract.ts"] }
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}
