@@ -87,6 +87,32 @@ describe('GitHubAuthManager', () => {
     expect(existsSync(tokenFile)).toBe(true);
   });
 
+  it('retries a cached token after secure storage becomes available', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'github-auth-retry-'));
+
+    const encrypted = Buffer.from('enc:token-123').toString('base64');
+    const agentDir = path.join(tmpDir, 'agent');
+    await fs.mkdir(agentDir, { recursive: true });
+    await fs.writeFile(
+      path.join(agentDir, 'github-auth.json'),
+      JSON.stringify({ encrypted, username: 'octocat', scopes: 'repo', createdAt: '2026-01-01T00:00:00.000Z' }),
+      'utf8',
+    );
+
+    const storage = { available: false };
+    const { GitHubAuthManager } = await importManager(storage);
+    const manager = new GitHubAuthManager() as InstanceType<typeof GitHubAuthManager> & {
+      reloadStoredToken: () => void;
+    };
+    expect(manager.getToken()).toBeNull();
+
+    storage.available = true;
+    manager.reloadStoredToken();
+
+    expect(manager.getToken()).toBe('token-123');
+    expect(manager.getStatus()).toEqual({ authenticated: true, username: 'octocat' });
+  });
+
   it('clears a corrupt cached token file on startup', async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'github-auth-corrupt-'));
 

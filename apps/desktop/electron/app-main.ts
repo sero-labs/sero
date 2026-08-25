@@ -1,8 +1,5 @@
-// Heavy app entry. Reachable only via dynamic import from `main.ts` once
-// the doctor short-circuit has been ruled out, so safe mode never triggers
-// any of the static-import side effects below (in particular, the top-level
-// `resolveStartupEnv()` inside `./platform/env`, which reads profiles.json
-// and may run profile migration / repair logic).
+// Loaded dynamically after the doctor short-circuit, so safe mode does not
+// trigger static side effects such as profile migration and repair.
 
 // Load .env BEFORE any SDK imports (they read process.env at module level)
 import {
@@ -19,23 +16,12 @@ import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
 import path from 'path';
 import type { SettingsPackageSource } from '../src/types/ipc';
 
-// electron-builder's `productName: Sero` only names the packaged macOS app
-// bundle. In dev mode (`electron .`), the process name — and so the macOS
-// menu bar app name — falls back to package.json's `name` field
-// (`@sero/desktop`), which Electron then mangles to "Electron". Setting it
-// explicitly here fixes the menu bar in both dev and packaged builds, and
-// must run before `app.whenReady()`.
+// Keep the macOS menu bar name correct in development and packaged builds.
 app.setName('Sero');
 
 // ── Per-profile Chromium userData isolation ──────────────────
-// Set userData path BEFORE app.whenReady() so Chromium initialises with the
-// correct directory. This isolates cookies, localStorage, caches, and
-// session data between profiles.
-//
-// userData always lives under SERO_HOME so it tracks the active profile.
-// When there is no active profile yet (fresh install / pre-onboarding) there
-// is no legacy data worth preserving, so migration is intentionally skipped
-// and Chromium simply starts fresh in the SERO_HOME location.
+// Set userData before app.whenReady() to isolate Chromium data by profile.
+// A fresh install has no legacy profile data to migrate.
 const profileUserData = profileUserDataPath(SERO_HOME);
 if (ACTIVE_PROFILE_ID) {
   const defaultUserDataPath = app.getPath('userData');
@@ -73,6 +59,7 @@ import {
   ensureInfra,
   fileWatcherManager,
   gatewayServer,
+  githubAuth,
   lspManager,
   pluginDevSessionManager,
   runtimeManager,
@@ -284,10 +271,9 @@ app.whenReady().then(async () => {
     return;
   }
 
-  // Linux with no keyring cannot encrypt at all, which blocks every credential
-  // write. Accept the weak backend so sign-in works, and let the storage warning
-  // surfaces tell the user their credentials are not protected.
+  // Accept the weak Linux backend, then retry reads that ran before app ready.
   enablePlainTextFallback();
+  githubAuth.reloadStoredToken();
 
   // Bootstrap Sero's agent directory (creates settings.json on first run)
   bootstrapAgentDir();

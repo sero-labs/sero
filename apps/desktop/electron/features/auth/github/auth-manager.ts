@@ -120,6 +120,12 @@ export class GitHubAuthManager {
   private cachedUsername: string | null = null;
 
   constructor() {
+    this.reloadStoredToken();
+  }
+
+  /** Retry loading a token after Electron's storage backend becomes ready. */
+  reloadStoredToken(): void {
+    if (this.cachedToken) return;
     this.loadCachedToken();
   }
 

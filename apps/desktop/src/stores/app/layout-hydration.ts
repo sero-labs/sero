@@ -22,6 +22,7 @@ function isGlobalApp(state: AppState, appId: string): boolean {
 
 /** Load layout state from disk and hydrate all stores. */
 export async function loadLayout(): Promise<void> {
+  let storageWarningDismissed = false;
   try {
     const dashboardApi = window.sero.dashboard;
     let backgroundChangedDuringLoad = false;
@@ -44,6 +45,7 @@ export async function loadLayout(): Promise<void> {
     if (!backgroundChangedDuringLoad) {
       useDashboardStore.getState().setBackgroundImage(backgroundImage);
     }
+    storageWarningDismissed = state?.storageWarningDismissed === true;
     if (state) {
       const favouriteApps = normaliseFavouriteApps(state.favouriteApps);
       const update: Partial<AppState> & { layoutReady: true } = {
@@ -97,11 +99,6 @@ export async function loadLayout(): Promise<void> {
       );
       hydrateZoom(state.zoomFactor);
 
-      // Storage security: apply the persisted dismissal, then ask the host.
-      // The keyring backend cannot change while Sero runs, so one check is enough.
-      useStorageSecurityStore.getState().hydrateDismissed(state.storageWarningDismissed === true);
-      void useStorageSecurityStore.getState().check();
-
       // Hydrate active workspace into workspace store
       if (state.activeWorkspaceId !== undefined) {
         useWorkspaceStore.setState({ activeWorkspaceId: state.activeWorkspaceId ?? null });
@@ -141,6 +138,10 @@ export async function loadLayout(): Promise<void> {
     }
   } catch (err) {
     console.warn('[app-store] Failed to load layout:', err);
+  } finally {
+    const storageSecurity = useStorageSecurityStore.getState();
+    storageSecurity.hydrateDismissed(storageWarningDismissed);
+    void storageSecurity.check();
   }
 
   useAppStore.setState({ layoutReady: true });
