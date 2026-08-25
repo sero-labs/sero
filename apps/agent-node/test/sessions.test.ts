@@ -101,11 +101,13 @@ describe("persistent sessions and tasks", () => {
       while ((await firstStore.getTask(firstTask.taskId))?.status !== "completed") await Bun.sleep(1);
       const persisted = await firstStore.required(session.id);
       expect(persisted.piSessionPath).toBeTruthy();
+      const piSessionPath = persisted.piSessionPath;
+      if (!piSessionPath) throw new Error("Pi session path was not persisted");
 
       const secondRunners = new Map<string, DeferredRunner>();
       const restarted = new SessionStore(paths, new EventHub(), runnerFactory(secondRunners));
       const secondTask = await restarted.send(session.id, "second", "controller");
-      expect(secondRunners.get(session.id)?.sessionPath).toBe(persisted.piSessionPath);
+      expect(secondRunners.get(session.id)?.sessionPath).toBe(piSessionPath);
       secondRunners.get(session.id)?.release?.("two");
       while ((await restarted.getTask(secondTask.taskId))?.status !== "completed") await Bun.sleep(1);
       const replay = await restarted.replay(session.id);

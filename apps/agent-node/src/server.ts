@@ -39,7 +39,7 @@ function json(value: unknown, status = 200, control = false): Response {
 function failure(code: ControlErrorCode, message: string = code, status = 400): Response { return json({ error: { code, message } } satisfies ControlError, status, true); }
 function bearer(request: Request): string { return request.headers.get("authorization")?.match(/^Bearer (.+)$/i)?.[1] ?? ""; }
 
-export async function startServer(services: NodeServices, options: ServerOptions): Promise<Server<unknown>> {
+export async function startServer(services: NodeServices, options: ServerOptions): Promise<Server> {
   const tls = options.tls === false ? undefined : await tlsFiles(services.paths);
   return Bun.serve({
     hostname: options.host, port: options.port, ...(tls ? { tls } : {}),
