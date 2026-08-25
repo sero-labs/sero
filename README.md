@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <strong>Escape the Terminal</strong><br />
+  <strong>Grow your own Agent</strong><br />
   A local-first, agent-first desktop workspace for macOS, Linux, and Windows.
 </p>
 
