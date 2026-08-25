@@ -1,0 +1,43 @@
+import { describe, expect, it } from 'vitest';
+import { RemoteConversationBoundary, remoteA2aMessage, remoteArtifact, remoteSessionKey } from '@electron/features/agent-node/normalize';
+
+describe('remote conversation normalization', () => {
+  it('delivers replay entries, a partial snapshot, and live deltas to one remote session key', () => {
+    const key = remoteSessionKey('spark:west', 'session:one');
+    const boundary = new RemoteConversationBoundary(key);
+    expect(key).toBe('node:spark%3Awest:session%3Aone');
+    expect(boundary.accept({ type: 'entry', entry: { id: '1234abcd', parentId: null, data: { role: 'user', text: 'Hello' } } })[0]).toMatchObject({
+      type: 'message_start', sessionId: key,
+    });
+    expect(boundary.accept({ type: 'snapshot', message: { id: 'assistant:partial', role: 'assistant', text: 'Work', partial: true } })[0]).toMatchObject({
+      type: 'message_start', sessionId: key,
+    });
+    expect(boundary.accept({ type: 'delta', text: 'ing' })[0]).toEqual({
+      type: 'text_delta', sessionId: key, messageId: 'assistant:partial', delta: 'ing',
+    });
+  });
+
+  it('normalizes A2A 1.0 role and task-state enum names', () => {
+    const boundary = new RemoteConversationBoundary(remoteSessionKey('n', 's'));
+    expect(boundary.accept({ role: 'ROLE_AGENT', id: 'a', text: 'Done' })[0]).toMatchObject({ type: 'message_start' });
+    expect(boundary.accept({ status: { state: 'TASK_STATE_COMPLETED' } })[0]).toMatchObject({ type: 'agent_end' });
+  });
+
+  it('puts mid-turn queue behavior in the node-owned metadata field', () => {
+    expect(remoteA2aMessage({ nodeId: 'n', contextId: 's', text: 'Change it', mode: 'steer' }, 'm')).toMatchObject({
+      contextId: 's', metadata: { behavior: 'steer' },
+    });
+    expect(remoteA2aMessage({ nodeId: 'n', contextId: 's', text: 'Next', mode: 'followUp' }, 'm')).toMatchObject({
+      metadata: { behavior: 'followUp' },
+    });
+  });
+
+  it('keeps authenticated artifact URLs and credentials out of renderer data', () => {
+    expect(remoteArtifact({ artifact: { artifactId: 'a1', name: 'Report', parts: [{
+      mediaType: 'text/plain', content: { $case: 'url', value: 'https://spark/sero/v1/blob/blob-1' },
+    }] } })).toEqual({ id: 'a1', name: 'Report', mediaType: 'text/plain', blobId: 'blob-1' });
+    expect(remoteArtifact({ artifact: { artifactId: 'a2', name: 'Small', parts: [{
+      mediaType: 'text/plain', content: { $case: 'raw', value: 'aGVsbG8=' },
+    }] } })).toEqual({ id: 'a2', name: 'Small', mediaType: 'text/plain', inlineBase64: 'aGVsbG8=' });
+  });
+});

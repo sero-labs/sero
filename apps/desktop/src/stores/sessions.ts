@@ -91,11 +91,15 @@ export const useSessionStore = create<SessionsState>((set, get) => ({
 
   createSession: async (workspaceId?: string) => {
     const session = await window.sero.sessions.create(workspaceId);
+    useNodesStore.getState().clearRemoteSelection();
     set((s) => ({
       sessions: [session, ...s.sessions],
       activeSessionId: session.id,
     }));
-    persistLayout({ activeSessionId: session.id });
+    persistLayout({
+      activeSessionId: session.id,
+      activeSessionLocationKey: sessionLocationKey({ kind: 'local', sessionId: session.id }),
+    });
     return session;
   },
 

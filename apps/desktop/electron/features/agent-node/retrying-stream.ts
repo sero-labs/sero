@@ -34,7 +34,8 @@ export class RetryingStream {
         if (this.stopped) return;
         const delay = deterministicRetryDelay(this.attempt++);
         await new Promise((resolve) => setTimeout(resolve, delay));
-        if (error instanceof Error && error.name === 'ControlVersionError') throw error;
+        if (error instanceof Error
+          && (error.name === 'ControlVersionError' || error.name === 'ControlAuthorizationError')) throw error;
       }
     }
   }

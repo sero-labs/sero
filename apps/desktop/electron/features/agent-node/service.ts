@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
-import { safeStorage } from 'electron';
+import { safeStorage, shell } from 'electron';
+import { AuthEventSchema, type AuthEvent } from '@sero-ai/a2a';
 import { SERO_HOME } from '@electron/platform/env';
 import type {
   AgentNodeAttachResult,
@@ -14,8 +15,8 @@ import { AgentNodeCredentials } from './credentials';
 import { PinnedTransport } from './pinned-transport';
 import { activateAgentCard } from './agent-card';
 import { A2aClient } from './a2a-client';
-import { ControlClient, ControlVersionError } from './control-client';
-import { RemoteConversationBoundary, remoteSessionKey } from './normalize';
+import { ControlAuthorizationError, ControlClient, ControlVersionError } from './control-client';
+import { RemoteConversationBoundary, remoteA2aMessage, remoteArtifact, remoteSessionKey } from './normalize';
 import { RetryingStream } from './retrying-stream';
 import { isRecord, rendererNode, type EnrolWireResult, type RuntimeNode, type StoredAgentNode } from './types';
 
@@ -107,6 +108,7 @@ export class AgentNodeService {
       return await connection.control.call(args.operation, args.params);
     } catch (error) {
       if (error instanceof ControlVersionError) this.setState(nodeId, 'version-skew');
+      if (error instanceof ControlAuthorizationError) this.setState(nodeId, 'revoked');
       throw error;
     }
   }
@@ -114,20 +116,10 @@ export class AgentNodeService {
   async send(input: AgentNodeMessageInput): Promise<void> {
     const connection = await this.requireConnection(input.nodeId);
     const boundary = new RemoteConversationBoundary(remoteSessionKey(input.nodeId, input.contextId));
-    const parts: Array<Record<string, unknown>> = [{ kind: 'text', text: input.text }];
-    for (const attachment of input.attachments ?? []) {
-      parts.push({ kind: 'file', file: { name: attachment.filename, mimeType: attachment.mediaType, uri: attachment.url } });
-    }
-    const message: Record<string, unknown> = {
-      kind: 'message',
-      role: 'user',
-      messageId: randomUUID(),
-      contextId: input.contextId,
-      parts,
-      ...(input.taskId ? { taskId: input.taskId } : {}),
-      ...(input.mode ? { metadata: { 'sero:queue-mode': input.mode } } : {}),
-    };
+    const message = remoteA2aMessage(input, randomUUID());
     const a2aStream = await connection.a2a.streamMessage({ message }, (event) => {
+      const artifact = remoteArtifact(event.data);
+      if (artifact) this.emit({ type: 'artifact', nodeId: input.nodeId, sessionKey: remoteSessionKey(input.nodeId, input.contextId), artifact });
       for (const normalized of boundary.accept(event.data, event.id)) {
         this.emit({ type: 'conversation', nodeId: input.nodeId, event: normalized });
       }
@@ -145,7 +137,9 @@ export class AgentNodeService {
   }
 
   async getTask(nodeId: string, taskId: string): Promise<unknown> {
-    return (await this.requireConnection(nodeId)).a2a.getTask(taskId);
+    const task = await (await this.requireConnection(nodeId)).a2a.getTask(taskId);
+    if (JSON.stringify(task).includes('the node restarted')) this.setState(nodeId, 'restarted');
+    return task;
   }
 
   async cancelTask(nodeId: string, taskId: string): Promise<void> {
@@ -159,16 +153,16 @@ export class AgentNodeService {
     const stream = new RetryingStream(
       (nextCursor, onMessage) => connection.control.sessionEvents(contextId, nextCursor, onMessage),
       (message) => {
-        for (const event of boundary.accept(message.data, message.id)) {
+        const wire = sessionWireEvent(message.event, message.data);
+        if (JSON.stringify(wire).includes('the node restarted')) this.setState(nodeId, 'restarted');
+        for (const event of boundary.accept(wire, message.id)) {
           this.emit({ type: 'conversation', nodeId, event });
         }
       },
       cursor,
     );
     connection.streams.add(stream);
-    void stream.start().catch((error: unknown) => {
-      if (error instanceof ControlVersionError) this.setState(nodeId, 'version-skew');
-    });
+    void stream.start().catch((error: unknown) => this.handleStreamFailure(nodeId, error));
     const snapshot = boundary.snapshot();
     return { sessionKey, messages: snapshot.messages, cursor: stream.getCursor() };
   }
@@ -214,12 +208,21 @@ export class AgentNodeService {
     for (const [path, type] of [['events', 'node'], ['auth/events', 'auth']] as const) {
       const stream = new RetryingStream(
         (cursor, onMessage) => connection.control.stream(path, onMessage, cursor),
-        (message) => this.emit({ type, nodeId, event: message.data }),
+        (message) => {
+          if (type === 'node') {
+            this.emit({ type, nodeId, event: message.data });
+            return;
+          }
+          const event = normalizeAuthEvent(message.event, message.data);
+          if (!event) return;
+          const url = event.type === 'auth' ? event.url
+            : event.type === 'device_code' ? event.verificationUri : null;
+          if (url) void shell.openExternal(url).catch(() => {});
+          this.emit({ type, nodeId, event });
+        },
       );
       connection.streams.add(stream);
-      void stream.start().catch((error: unknown) => {
-        if (error instanceof ControlVersionError) this.setState(nodeId, 'version-skew');
-      });
+      void stream.start().catch((error: unknown) => this.handleStreamFailure(nodeId, error));
     }
   }
 
@@ -233,16 +236,19 @@ export class AgentNodeService {
       (cursor, onMessage) => connection.control.sessionEvents(contextId, cursor, onMessage),
       (message) => {
         this.setState(nodeId, 'connected');
-        for (const event of boundary.accept(message.data, message.id)) {
+        for (const event of boundary.accept(sessionWireEvent(message.event, message.data), message.id)) {
           this.emit({ type: 'conversation', nodeId, event });
         }
       },
       boundary.snapshot().cursor ?? undefined,
     );
     connection.streams.add(stream);
-    void stream.start().catch((error: unknown) => {
-      if (error instanceof ControlVersionError) this.setState(nodeId, 'version-skew');
-    });
+    void stream.start().catch((error: unknown) => this.handleStreamFailure(nodeId, error));
+  }
+
+  private handleStreamFailure(nodeId: string, error: unknown): void {
+    if (error instanceof ControlVersionError) this.setState(nodeId, 'version-skew');
+    if (error instanceof ControlAuthorizationError) this.setState(nodeId, 'revoked');
   }
 
   private closeConnection(nodeId: string): void {
@@ -264,4 +270,26 @@ export class AgentNodeService {
   private emit(event: AgentNodeEvent): void {
     for (const sink of this.sinks) sink(event);
   }
+}
+
+function normalizeAuthEvent(type: string, data: unknown): AuthEvent | null {
+  const value = isRecord(data) ? data : {};
+  let candidate: unknown;
+  if (type === 'auth_url' || type === 'auth') candidate = { type: 'auth', url: value.url, instructions: value.instructions };
+  else if (type === 'device_code') candidate = { type, verificationUri: value.verificationUri, userCode: value.userCode, expiresInSeconds: value.expiresInSeconds };
+  else if (type === 'prompt') candidate = { type, message: value.message, placeholder: value.placeholder };
+  else if (type === 'select') candidate = { type, message: value.message, options: value.options };
+  else if (type === 'manual_code' || type === 'manual_input') candidate = { type: 'manual_input', prompt: value.message ?? value.prompt };
+  else if (type === 'complete' || type === 'success') candidate = { type: 'success', provider: value.providerId ?? value.provider, message: value.message ?? 'Authentication complete' };
+  else if (type === 'error') candidate = { type, provider: value.providerId ?? value.provider, message: value.message };
+  else if (type === 'cancelled') candidate = { type };
+  else candidate = { type, message: value.message };
+  const parsed = AuthEventSchema.safeParse(candidate);
+  return parsed.success ? parsed.data : null;
+}
+
+function sessionWireEvent(type: string, data: unknown): unknown {
+  if (type === 'message') return data;
+  if (type === 'partial') return { type: 'snapshot', message: { ...(isRecord(data) ? data : {}), role: 'assistant', partial: true, id: 'assistant:partial' } };
+  return { type, ...(isRecord(data) ? data : {}) };
 }

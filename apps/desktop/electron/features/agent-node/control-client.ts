@@ -1,5 +1,10 @@
-import type { AgentNodeControlOperation } from '@/types/ipc-agent-node';
-import { SERO_CONTROL_VERSION } from '@sero-ai/a2a';
+import {
+  ControlOperationSchemas,
+  SERO_CONTROL_VERSION,
+  type ControlOperationName,
+  type ControlRequest,
+  type ControlResponse,
+} from '@sero-ai/a2a';
 import type { PinnedTransport } from './pinned-transport';
 import { JsonHttpError, parseJson, postJson } from './http-json';
 import { isRecord } from './types';
@@ -12,6 +17,13 @@ export class ControlVersionError extends Error {
   }
 }
 
+export class ControlAuthorizationError extends Error {
+  constructor() {
+    super('Agent node controller has been revoked');
+    this.name = 'ControlAuthorizationError';
+  }
+}
+
 export class ControlClient {
   constructor(
     private readonly transport: PinnedTransport,
@@ -19,19 +31,26 @@ export class ControlClient {
     private readonly token: string | null,
   ) {}
 
-  async call(operation: AgentNodeControlOperation, params: Record<string, unknown>): Promise<unknown> {
+  async call<Name extends ControlOperationName>(
+    operation: Name,
+    params: ControlRequest<Name>,
+  ): Promise<ControlResponse<Name>> {
+    const request = ControlOperationSchemas[operation].request.parse(params) as ControlRequest<Name>;
     try {
       const { value, headers } = await postJson(
         this.transport,
         this.path(operation),
-        params,
+        request,
         this.headers(operation !== 'enrol'),
       );
       this.checkVersion(headers['sero-control-version']);
-      return value;
+      return ControlOperationSchemas[operation].response.parse(value) as ControlResponse<Name>;
     } catch (error) {
       if (error instanceof JsonHttpError && error.code === 'version_mismatch') {
         throw new ControlVersionError();
+      }
+      if (error instanceof JsonHttpError && error.code === 'unauthorized') {
+        throw new ControlAuthorizationError();
       }
       throw error;
     }
@@ -80,8 +99,10 @@ export class ControlClient {
     const response = await this.transport.open('GET', path, headers);
     this.checkVersion(response.headers['sero-control-version']);
     if (response.statusCode !== 200) {
+      const status = response.statusCode;
       response.destroy();
-      throw new Error(`Agent node stream returned HTTP ${response.statusCode ?? 0}`);
+      if (status === 401 || status === 403) throw new ControlAuthorizationError();
+      throw new Error(`Agent node stream returned HTTP ${status ?? 0}`);
     }
     return { close: () => response.destroy(), done: consumeSse(response, onEvent) };
   }

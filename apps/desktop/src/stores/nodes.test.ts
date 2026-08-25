@@ -19,13 +19,15 @@ const ipcSession = {
 
 describe('nodes store', () => {
   beforeEach(() => {
-    useNodesStore.setState({ nodes: [], sessions: {}, messages: {}, providers: {}, controllers: {}, activeLocationKey: null, expandedNodeIds: new Set(), loading: false, error: null });
+    useNodesStore.setState({ nodes: [], sessions: {}, messages: {}, providers: {}, controllers: {}, authEvents: {}, activeLocationKey: null, expandedNodeIds: new Set(), loading: false, error: null });
     Object.defineProperty(window, 'sero', { configurable: true, value: { agentNodes: {
       list: vi.fn().mockResolvedValue([ipcNode]),
       control: vi.fn().mockImplementation((_nodeId, args) => args.operation === 'listSessions'
         ? Promise.resolve({ sessions: [ipcSession] })
         : Promise.resolve({ ok: true })),
-      enrol: vi.fn(), remove: vi.fn(), connect: vi.fn(), send: vi.fn(), cancelTask: vi.fn(), onEvent: vi.fn(),
+      enrol: vi.fn(), remove: vi.fn(), connect: vi.fn(), send: vi.fn(), cancelTask: vi.fn(),
+      attach: vi.fn().mockResolvedValue({ sessionKey: 'node:spark%3Awest:session%3Aone', messages: [], cursor: null }),
+      onEvent: vi.fn(),
     } } });
   });
 
@@ -38,10 +40,25 @@ describe('nodes store', () => {
 
   it('loads each node and its authoritative sessions', async () => {
     await useNodesStore.getState().load();
-    expect(useNodesStore.getState().nodes).toEqual([{ ...node, workspaces: [] }]);
+    expect(useNodesStore.getState().nodes).toEqual([{ ...node, lastSeen: undefined, workspaces: [{ id: 'repo', name: 'repo' }] }]);
     expect(useNodesStore.getState().sessions['spark:west']).toEqual([{
       ...session, name: session.id, model: 'test/opus', taskId: undefined,
     }]);
+  });
+
+  it('attaches when a remote session is selected and applies live conversation events', async () => {
+    await useNodesStore.getState().selectRemoteSession(node.id, session.id);
+    expect(window.sero.agentNodes.attach).toHaveBeenCalledWith(node.id, session.id);
+    const key = sessionLocationKey({ kind: 'node', nodeId: node.id, sessionId: session.id });
+    useNodesStore.getState().handleEvent({
+      type: 'conversation', nodeId: node.id,
+      event: { type: 'message_start', sessionId: key, message: { type: 'assistant', id: 'a1', text: 'Hello', isStreaming: true } },
+    });
+    useNodesStore.getState().handleEvent({
+      type: 'conversation', nodeId: node.id,
+      event: { type: 'text_delta', sessionId: key, messageId: 'a1', delta: ' world' },
+    });
+    expect(useNodesStore.getState().messages[key]).toEqual([{ type: 'assistant', id: 'a1', text: 'Hello world', isStreaming: true }]);
   });
 
   it('updates only the node named by a session event', () => {

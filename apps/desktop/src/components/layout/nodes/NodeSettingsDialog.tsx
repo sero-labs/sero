@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@sero-ai/ui/co
 import { Input } from '@sero-ai/ui/components/ui/input';
 import type { AgentNodeInfo } from '@/types/agent-node';
 import { useNodesStore } from '@/stores/nodes';
+import { NodeAuthInteraction } from './NodeAuthInteraction';
 
 export function NodeSettingsDialog({ node, open, onOpenChange }: { node: AgentNodeInfo; open: boolean; onOpenChange: (open: boolean) => void }) {
   const providers = useNodesStore((state) => state.providers[node.id] ?? []);
@@ -18,6 +19,7 @@ export function NodeSettingsDialog({ node, open, onOpenChange }: { node: AgentNo
       <DialogContent className="max-h-[80vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{node.name} settings</DialogTitle></DialogHeader>
         {!controlAvailable ? <p className="text-sm text-status-warning">Settings need a compatible, authorised node.</p> : null}
+        <NodeAuthInteraction nodeId={node.id} />
         <section className="grid gap-2"><h3 className="text-sm font-semibold">Providers</h3>
           {providers.map((provider) => <div className="rounded-md border p-2" key={provider.id}>
             <div className="flex items-center justify-between gap-2"><span className="text-sm">{provider.name} · {provider.status}</span><div className="flex gap-1"><Button size="sm" variant="ghost" disabled={!controlAvailable} onClick={() => void login(node.id, provider.id)}>Sign in</Button><Button size="sm" variant="ghost" disabled={!controlAvailable} onClick={() => void logout(node.id, provider.id)}>Sign out</Button></div></div>

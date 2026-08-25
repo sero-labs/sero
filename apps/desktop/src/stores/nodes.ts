@@ -10,9 +10,12 @@ import type {
 } from '@/types/agent-node';
 import type { SeroAgentNodeAPI } from '@/types/agent-node';
 import type {
+  AgentNodeArtifact,
   AgentNodeInfo as IpcAgentNodeInfo,
   AgentNodeSession as IpcAgentNodeSession,
 } from '@/types/ipc-agent-node';
+import type { AgentStreamEvent } from '@/types/agent';
+import type { AuthEvent } from '@sero-ai/a2a';
 
 export function agentNodeApi(): SeroAgentNodeAPI {
   const api = window.sero.agentNodes;
@@ -35,7 +38,9 @@ export function agentNodeApi(): SeroAgentNodeAPI {
       await api.control(nodeId, { operation: 'deleteSession', params: { contextId: sessionId } });
     },
     sendMessage: (nodeId, sessionId, text) => api.send({ nodeId, contextId: sessionId, text }),
+    attachSession: async (nodeId, sessionId) => api.attach(nodeId, sessionId),
     cancelTask: api.cancelTask,
+    readArtifact: api.readBlob,
     getProviders: async (nodeId) => {
       const result = await api.control(nodeId, { operation: 'getProviders', params: {} });
       return [
@@ -47,6 +52,10 @@ export function agentNodeApi(): SeroAgentNodeAPI {
     logout: async (nodeId, providerId) => { await api.control(nodeId, { operation: 'logout', params: { providerId } }); },
     setApiKey: async (nodeId, providerId, key) => { await api.control(nodeId, { operation: 'setApiKey', params: { providerId, key } }); },
     removeApiKey: async (nodeId, providerId) => { await api.control(nodeId, { operation: 'removeApiKey', params: { providerId } }); },
+    respondPrompt: async (nodeId, value) => { await api.control(nodeId, { operation: 'respondPrompt', params: { value } }); },
+    respondSelect: async (nodeId, value) => { await api.control(nodeId, { operation: 'respondSelect', params: { value } }); },
+    respondManualCode: async (nodeId, value) => { await api.control(nodeId, { operation: 'respondManualCode', params: { value } }); },
+    cancelLogin: async (nodeId) => { await api.control(nodeId, { operation: 'cancel', params: {} }); },
     setSessionModel: async (nodeId, sessionId, model) => {
       await api.control(nodeId, { operation: 'setSessionModel', params: { contextId: sessionId, model: modelReference(model) } });
     },
@@ -60,8 +69,11 @@ export function agentNodeApi(): SeroAgentNodeAPI {
     revokeController: async (nodeId, controllerId) => { await api.control(nodeId, { operation: 'revokeController', params: { controllerId } }); },
     retryNode: async (nodeId) => { await api.connect(nodeId); },
     subscribe: (listener) => api.onEvent((event) => {
-      if (event.type !== 'connection') return;
-      void api.list().then((nodes) => listener({ type: 'nodes-changed', nodes: nodes.map(toRendererNode) }));
+      if (event.type === 'connection') {
+        listener({ type: 'connection', nodeId: event.nodeId, state: event.state === 'disconnected' ? 'unreachable' : event.state });
+      } else if (event.type === 'conversation' || event.type === 'auth') {
+        listener(event);
+      }
     }),
   };
 }
@@ -126,6 +138,8 @@ interface NodesState {
   messages: Record<string, AgentNodeMessage[]>;
   providers: Record<string, AgentNodeProvider[]>;
   controllers: Record<string, AgentNodeController[]>;
+  authEvents: Record<string, AuthEvent | null>;
+  artifacts: Record<string, AgentNodeArtifact[]>;
   activeLocationKey: string | null;
   expandedNodeIds: Set<string>;
   loading: boolean;
@@ -137,7 +151,7 @@ interface NodesState {
   remove: (nodeId: string) => Promise<void>;
   retry: (nodeId: string) => Promise<void>;
   toggleNode: (nodeId: string) => void;
-  selectRemoteSession: (nodeId: string, sessionId: string) => void;
+  selectRemoteSession: (nodeId: string, sessionId: string) => Promise<void>;
   clearRemoteSelection: () => void;
   loadSessions: (nodeId: string) => Promise<void>;
   createSession: (nodeId: string, workspaceId: string, model: string) => Promise<void>;
@@ -150,6 +164,9 @@ interface NodesState {
   logout: (nodeId: string, providerId: string) => Promise<void>;
   setApiKey: (nodeId: string, providerId: string, apiKey: string) => Promise<void>;
   removeApiKey: (nodeId: string, providerId: string) => Promise<void>;
+  respondAuth: (nodeId: string, value: string) => Promise<void>;
+  cancelLogin: (nodeId: string) => Promise<void>;
+  readArtifact: (nodeId: string, artifact: AgentNodeArtifact) => Promise<string>;
   revokeController: (nodeId: string, controllerId: string) => Promise<void>;
   mintEnrolmentCode: (nodeId: string) => Promise<{ code: string; fingerprint: string; expiresAt: string }>;
 }
@@ -157,8 +174,32 @@ interface NodesState {
 const messageKey = (nodeId: string, sessionId: string) => sessionLocationKey({ kind: 'node', nodeId, sessionId });
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'Agent Node request failed';
 
+function applyConversationEvent(messages: AgentNodeMessage[], event: AgentStreamEvent): AgentNodeMessage[] {
+  if (event.type === 'messages_loaded') return event.messages;
+  if (event.type === 'message_start') return [...messages.filter((item) => item.id !== event.message.id), event.message];
+  if (event.type === 'message_end') return messages.map((item) => item.id === event.messageId && item.type === 'assistant'
+    ? { ...item, text: event.text, isStreaming: false } : item);
+  if (event.type === 'text_delta' || event.type === 'thinking_delta') {
+    return messages.map((item) => item.id === event.messageId && item.type === 'assistant'
+      ? event.type === 'text_delta'
+        ? { ...item, text: item.text + event.delta }
+        : { ...item, thinking: (item.thinking ?? '') + event.delta }
+      : item);
+  }
+  return messages;
+}
+
+function artifactDataUrl(bytes: Uint8Array, mediaType: string): string {
+  let binary = '';
+  const chunkSize = 32_768;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  return `data:${mediaType};base64,${btoa(binary)}`;
+}
+
 export const useNodesStore = create<NodesState>((set, get) => ({
-  nodes: [], sessions: {}, messages: {}, providers: {}, controllers: {},
+  nodes: [], sessions: {}, messages: {}, providers: {}, controllers: {}, authEvents: {}, artifacts: {},
   activeLocationKey: null, expandedNodeIds: new Set(), loading: false, error: null,
 
   load: async () => {
@@ -173,6 +214,16 @@ export const useNodesStore = create<NodesState>((set, get) => ({
     if (event.type === 'nodes-changed') set({ nodes: event.nodes });
     if (event.type === 'sessions-changed') set((state) => ({ sessions: { ...state.sessions, [event.nodeId]: event.sessions } }));
     if (event.type === 'messages-changed') set((state) => ({ messages: { ...state.messages, [messageKey(event.nodeId, event.sessionId)]: event.messages } }));
+    if (event.type === 'connection') set((state) => ({ nodes: state.nodes.map((node) => node.id === event.nodeId ? { ...node, connectionState: event.state } : node) }));
+    if (event.type === 'conversation') set((state) => ({ messages: {
+      ...state.messages,
+      [event.event.sessionId]: applyConversationEvent(state.messages[event.event.sessionId] ?? [], event.event),
+    } }));
+    if (event.type === 'auth') set((state) => ({ authEvents: { ...state.authEvents, [event.nodeId]: event.event } }));
+    if (event.type === 'artifact') set((state) => ({ artifacts: {
+      ...state.artifacts,
+      [event.sessionKey]: [...(state.artifacts[event.sessionKey] ?? []).filter((item) => item.id !== event.artifact.id), event.artifact],
+    } }));
   },
   hydrateLocation: (key) => set({ activeLocationKey: parseSessionLocationKey(key ?? null)?.kind === 'node' ? key ?? null : null }),
   enrol: async (input) => {
@@ -196,20 +247,31 @@ export const useNodesStore = create<NodesState>((set, get) => ({
     expandedNodeIds.has(nodeId) ? expandedNodeIds.delete(nodeId) : expandedNodeIds.add(nodeId);
     set({ expandedNodeIds });
   },
-  selectRemoteSession: (nodeId, sessionId) => {
+  selectRemoteSession: async (nodeId, sessionId) => {
     const activeLocationKey = sessionLocationKey({ kind: 'node', nodeId, sessionId });
     set({ activeLocationKey });
     persistLayout({ activeSessionLocationKey: activeLocationKey });
+    try {
+      const attached = await agentNodeApi().attachSession(nodeId, sessionId);
+      set((state) => ({ messages: { ...state.messages, [activeLocationKey]: attached.messages } }));
+    } catch (error) {
+      set({ error: errorText(error) });
+    }
   },
   clearRemoteSelection: () => set({ activeLocationKey: null }),
   loadSessions: async (nodeId) => {
     const items = await agentNodeApi().listSessions(nodeId);
-    set((state) => ({ sessions: { ...state.sessions, [nodeId]: items } }));
+    const workspaces = [...new Set(items.map((item) => item.workspaceId))]
+      .map((id) => ({ id, name: id.split('/').filter(Boolean).at(-1) ?? id }));
+    set((state) => ({
+      sessions: { ...state.sessions, [nodeId]: items },
+      nodes: state.nodes.map((node) => node.id === nodeId ? { ...node, workspaces } : node),
+    }));
   },
   createSession: async (nodeId, workspaceId, model) => {
     const session = await agentNodeApi().createSession(nodeId, { workspaceId, model });
     set((state) => ({ sessions: { ...state.sessions, [nodeId]: [session, ...(state.sessions[nodeId] ?? [])] } }));
-    get().selectRemoteSession(nodeId, session.id);
+    await get().selectRemoteSession(nodeId, session.id);
   },
   deleteSession: async (nodeId, sessionId) => {
     await agentNodeApi().deleteSession(nodeId, sessionId);
@@ -237,6 +299,23 @@ export const useNodesStore = create<NodesState>((set, get) => ({
   logout: async (nodeId, providerId) => { await agentNodeApi().logout(nodeId, providerId); await get().loadSettings(nodeId); },
   setApiKey: async (nodeId, providerId, apiKey) => { await agentNodeApi().setApiKey(nodeId, providerId, apiKey); await get().loadSettings(nodeId); },
   removeApiKey: async (nodeId, providerId) => { await agentNodeApi().removeApiKey(nodeId, providerId); await get().loadSettings(nodeId); },
+  respondAuth: async (nodeId, value) => {
+    const event = get().authEvents[nodeId];
+    if (event?.type === 'prompt') await agentNodeApi().respondPrompt(nodeId, value);
+    else if (event?.type === 'select') await agentNodeApi().respondSelect(nodeId, value);
+    else if (event?.type === 'manual_input') await agentNodeApi().respondManualCode(nodeId, value);
+    set((state) => ({ authEvents: { ...state.authEvents, [nodeId]: null } }));
+  },
+  cancelLogin: async (nodeId) => {
+    await agentNodeApi().cancelLogin(nodeId);
+    set((state) => ({ authEvents: { ...state.authEvents, [nodeId]: null } }));
+  },
+  readArtifact: async (nodeId, artifact) => {
+    if (artifact.inlineBase64) return `data:${artifact.mediaType};base64,${artifact.inlineBase64}`;
+    if (!artifact.blobId) throw new Error('Artifact has no readable content');
+    const bytes = await agentNodeApi().readArtifact(nodeId, artifact.blobId);
+    return artifactDataUrl(bytes, artifact.mediaType);
+  },
   revokeController: async (nodeId, controllerId) => { await agentNodeApi().revokeController(nodeId, controllerId); await get().loadSettings(nodeId); },
   mintEnrolmentCode: (nodeId) => agentNodeApi().mintEnrolmentCode(nodeId),
 }));

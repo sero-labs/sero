@@ -1,33 +1,25 @@
 import type { AgentStreamEvent, ChatAttachment, ChatMessage } from './agent';
+import {
+  CONTROL_OPERATION_NAMES,
+  type AuthEvent,
+  type ControlOperationName,
+  type ControlRequest,
+  type ControlResponse,
+  type Controller,
+  type NodeHealth,
+  type Session,
+} from '@sero-ai/a2a';
 
-export const AGENT_NODE_CONTROL_OPERATIONS = [
-  'enrol',
-  'mintEnrolmentCode',
-  'listControllers',
-  'revokeController',
-  'listSessions',
-  'createSession',
-  'deleteSession',
-  'setSessionModel',
-  'getNodeHealth',
-  'getProviders',
-  'login',
-  'logout',
-  'setApiKey',
-  'removeApiKey',
-  'respondPrompt',
-  'respondSelect',
-  'respondManualCode',
-  'cancel',
-] as const;
+export const AGENT_NODE_CONTROL_OPERATIONS = CONTROL_OPERATION_NAMES;
 
-export type AgentNodeControlOperation = typeof AGENT_NODE_CONTROL_OPERATIONS[number];
+export type AgentNodeControlOperation = ControlOperationName;
 
 export type AgentNodeConnectionState =
   | 'disconnected'
   | 'connected'
   | 'reconnecting'
   | 'unreachable'
+  | 'restarted'
   | 'revoked'
   | 'version-skew';
 
@@ -49,78 +41,50 @@ export interface AgentNodeEnrolInput {
   fingerprint: string;
 }
 
-export interface AgentNodeSession {
-  contextId: string;
-  name: string;
-  workspace: string;
-  model: { providerId: string; modelId: string };
-  updatedAt: string;
-  runningTaskId: string | null;
-}
-
-export interface AgentNodeController {
-  id: string;
-  name: string;
-  createdAt: string;
-  lastSeenAt: string | null;
-}
-
-export interface AgentNodeHealth {
-  status: 'healthy' | 'degraded';
-  nodeId: string;
-  nodeName: string;
-  version: string;
-  startedAt: string;
-}
-
-type EmptyRequest = Record<string, never>;
-type ProviderRequest = { providerId: string };
-type ResponseRequest = { value: string };
-type OkResponse = { ok: true };
+export type AgentNodeSession = Session;
+export type AgentNodeController = Controller;
+export type AgentNodeHealth = NodeHealth;
 
 export interface AgentNodeControlRequestMap {
-  enrol: { code: string; controllerName: string };
-  mintEnrolmentCode: EmptyRequest;
-  listControllers: EmptyRequest;
-  revokeController: { controllerId: string };
-  listSessions: EmptyRequest;
-  createSession: { workspace: string; model: AgentNodeSession['model']; name?: string };
-  deleteSession: { contextId: string };
-  setSessionModel: { contextId: string; model: AgentNodeSession['model'] };
-  getNodeHealth: EmptyRequest;
-  getProviders: EmptyRequest;
-  login: ProviderRequest;
-  logout: ProviderRequest;
-  setApiKey: ProviderRequest & { key: string };
-  removeApiKey: ProviderRequest;
-  respondPrompt: ResponseRequest;
-  respondSelect: ResponseRequest;
-  respondManualCode: ResponseRequest;
-  cancel: EmptyRequest;
+  enrol: ControlRequest<'enrol'>;
+  mintEnrolmentCode: ControlRequest<'mintEnrolmentCode'>;
+  listControllers: ControlRequest<'listControllers'>;
+  revokeController: ControlRequest<'revokeController'>;
+  listSessions: ControlRequest<'listSessions'>;
+  createSession: ControlRequest<'createSession'>;
+  deleteSession: ControlRequest<'deleteSession'>;
+  setSessionModel: ControlRequest<'setSessionModel'>;
+  getNodeHealth: ControlRequest<'getNodeHealth'>;
+  getProviders: ControlRequest<'getProviders'>;
+  login: ControlRequest<'login'>;
+  logout: ControlRequest<'logout'>;
+  setApiKey: ControlRequest<'setApiKey'>;
+  removeApiKey: ControlRequest<'removeApiKey'>;
+  respondPrompt: ControlRequest<'respondPrompt'>;
+  respondSelect: ControlRequest<'respondSelect'>;
+  respondManualCode: ControlRequest<'respondManualCode'>;
+  cancel: ControlRequest<'cancel'>;
 }
 
 export interface AgentNodeControlResponseMap {
-  enrol: { controllerId: string; token: string };
-  mintEnrolmentCode: { code: string; expiresAt: string };
-  listControllers: { controllers: AgentNodeController[] };
-  revokeController: OkResponse;
-  listSessions: { sessions: AgentNodeSession[] };
-  createSession: { session: AgentNodeSession };
-  deleteSession: OkResponse;
-  setSessionModel: { session: AgentNodeSession };
-  getNodeHealth: { health: AgentNodeHealth };
-  getProviders: {
-    oauth: Array<{ id: string; name: string; isLoggedIn: boolean }>;
-    apiKey: Array<{ id: string; name: string; hasKey: boolean; fromEnv: boolean }>;
-  };
-  login: OkResponse;
-  logout: OkResponse;
-  setApiKey: OkResponse;
-  removeApiKey: OkResponse;
-  respondPrompt: { accepted: boolean };
-  respondSelect: { accepted: boolean };
-  respondManualCode: { accepted: boolean };
-  cancel: OkResponse;
+  enrol: ControlResponse<'enrol'>;
+  mintEnrolmentCode: ControlResponse<'mintEnrolmentCode'>;
+  listControllers: ControlResponse<'listControllers'>;
+  revokeController: ControlResponse<'revokeController'>;
+  listSessions: ControlResponse<'listSessions'>;
+  createSession: ControlResponse<'createSession'>;
+  deleteSession: ControlResponse<'deleteSession'>;
+  setSessionModel: ControlResponse<'setSessionModel'>;
+  getNodeHealth: ControlResponse<'getNodeHealth'>;
+  getProviders: ControlResponse<'getProviders'>;
+  login: ControlResponse<'login'>;
+  logout: ControlResponse<'logout'>;
+  setApiKey: ControlResponse<'setApiKey'>;
+  removeApiKey: ControlResponse<'removeApiKey'>;
+  respondPrompt: ControlResponse<'respondPrompt'>;
+  respondSelect: ControlResponse<'respondSelect'>;
+  respondManualCode: ControlResponse<'respondManualCode'>;
+  cancel: ControlResponse<'cancel'>;
 }
 
 export type AgentNodeRendererControlOperation = Exclude<AgentNodeControlOperation, 'enrol'>;
@@ -146,13 +110,22 @@ export interface AgentNodeMessageInput {
 export type AgentNodeEvent =
   | { type: 'connection'; nodeId: string; state: AgentNodeConnectionState }
   | { type: 'conversation'; nodeId: string; event: AgentStreamEvent }
+  | { type: 'artifact'; nodeId: string; sessionKey: string; artifact: AgentNodeArtifact }
   | { type: 'node'; nodeId: string; event: unknown }
-  | { type: 'auth'; nodeId: string; event: unknown };
+  | { type: 'auth'; nodeId: string; event: AuthEvent };
 
 export interface AgentNodeAttachResult {
   sessionKey: string;
   messages: ChatMessage[];
   cursor: string | null;
+}
+
+export interface AgentNodeArtifact {
+  id: string;
+  name: string;
+  mediaType: string;
+  inlineBase64?: string;
+  blobId?: string;
 }
 
 export interface SeroAgentNodesAPI {

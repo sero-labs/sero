@@ -5,7 +5,7 @@ import { SERO_A2A_VERSION } from '@sero-ai/a2a';
 import { type JsonRpcResponse, isRecord } from './types';
 import { consumeSse, type SseConnection, type SseMessage } from './sse';
 
-type A2aMethod = 'message/send' | 'message/stream' | 'tasks/get' | 'tasks/cancel' | 'tasks/resubscribe';
+type A2aMethod = 'SendMessage' | 'SendStreamingMessage' | 'GetTask' | 'CancelTask' | 'SubscribeToTask';
 
 export class A2aClient {
   constructor(
@@ -15,23 +15,23 @@ export class A2aClient {
   ) {}
 
   sendMessage(params: Record<string, unknown>): Promise<unknown> {
-    return this.call('message/send', params);
+    return this.call('SendMessage', params);
   }
 
   async streamMessage(params: Record<string, unknown>, onEvent: (message: SseMessage) => void): Promise<SseConnection> {
-    return this.stream('message/stream', params, onEvent);
+    return this.stream('SendStreamingMessage', params, onEvent);
   }
 
   getTask(taskId: string): Promise<unknown> {
-    return this.call('tasks/get', { id: taskId });
+    return this.call('GetTask', { id: taskId });
   }
 
   async cancelTask(taskId: string): Promise<void> {
-    await this.call('tasks/cancel', { id: taskId });
+    await this.call('CancelTask', { id: taskId });
   }
 
   async subscribeTask(taskId: string, onEvent: (message: SseMessage) => void): Promise<SseConnection> {
-    return this.stream('tasks/resubscribe', { id: taskId }, onEvent);
+    return this.stream('SubscribeToTask', { id: taskId }, onEvent);
   }
 
   private headers(): Record<string, string> {
