@@ -5,6 +5,7 @@
  * Each domain gets a channel prefix and typed payloads.
  */
 
+export type * from './ipc-agent-node';
 // ── Profiles ───────────────────────────────────────────────────
 
 export type { ProfileInfo } from './profile';

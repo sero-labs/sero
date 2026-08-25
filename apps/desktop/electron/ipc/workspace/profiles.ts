@@ -25,6 +25,7 @@ import {
 } from '@electron/shared/settings/settings-helpers';
 import { copyProfileDataSync, profileHasTransferableData } from '@electron/features/profile/copy-profile-data';
 import { discoverApps } from '@electron/features/apps/discovery';
+import { disposeAgentNodeService } from '@electron/ipc/agent-node';
 
 import type { ProfileInfo, ProfileRemovalMode } from '@/types/profile';
 import type { GlobalModelConfigInput, GlobalModelConfigState } from '@/types/ipc';
@@ -96,6 +97,7 @@ export function registerProfileHandlers(): void {
   ipcMain.handle(
     IpcChannels.profiles.switch,
     async (_e, id: string): Promise<void> => {
+      disposeAgentNodeService();
       await profileManager.setActive(id);
 
       // Relaunch the app so env.ts picks up the new active profile.

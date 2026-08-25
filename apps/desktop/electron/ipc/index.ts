@@ -51,8 +51,10 @@ import { registerPluginConfigHandlers } from './apps/plugin-config';
 import { registerThemeHandlers } from './platform/ui/themes';
 import { registerDoctorHandlers } from './doctor/doctor';
 import { registerUpdaterHandlers } from './updater';
+import { registerAgentNodeHandlers } from './agent-node';
 
 export function registerAllIpcHandlers(): void {
+  registerAgentNodeHandlers();
   registerProfileHandlers();
   registerWorkspaceHandlers();
   registerOnboardingHandlers();
