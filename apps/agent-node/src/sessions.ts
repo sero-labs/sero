@@ -80,9 +80,14 @@ export class SessionStore {
   }
 
   async #execute(record: SessionRecord, turn: ActiveTurn, text: string): Promise<void> {
+    const answerPromise = turn.runner.run(
+      text,
+      "followUp",
+      (delta) => this.#delta(record.id, turn, delta),
+    );
     await this.#transition(turn.task, "working");
     try {
-      const answer = await turn.runner.run(text, "followUp", (delta) => this.#delta(record.id, turn, delta));
+      const answer = await answerPromise;
       if (turn.task.status === "canceled") return;
       const entry = await this.#appendEntry(record.id, { type: "message", role: "assistant", text: answer || turn.partial });
       turn.task.lastEntryId = entry.id;

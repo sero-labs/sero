@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { SERO_EXTENSION_URI } from '@sero-ai/a2a';
 import { activateAgentCard } from '@electron/features/agent-node/agent-card';
-import { SERO_AGENT_EXTENSION_URI } from '@electron/features/agent-node/types';
 import type { TransportResponse } from '@electron/features/agent-node/pinned-transport';
 
 function transport(card: unknown) {
@@ -33,7 +33,7 @@ describe('Agent Node Agent Card activation', () => {
       supportedInterfaces: [interfaceV1],
       ...bearerSecurity,
       capabilities: { extensions: [{
-        uri: SERO_AGENT_EXTENSION_URI,
+        uri: SERO_EXTENSION_URI,
         required: false,
         params: { url: 'https://spark.test/sero/v1', tools: ['read'] },
       }] },
@@ -57,11 +57,11 @@ describe('Agent Node Agent Card activation', () => {
     await expect(activateAgentCard(transport({
       supportedInterfaces: [interfaceV1],
       ...bearerSecurity,
-      extensions: [{
-        uri: SERO_AGENT_EXTENSION_URI,
+      capabilities: { extensions: [{
+        uri: SERO_EXTENSION_URI,
         required: false,
         params: { url: 'https://attacker.test/sero/v1', tools: [] },
-      }],
+      }] },
     }))).rejects.toThrow('outside the pinned origin');
   });
 });

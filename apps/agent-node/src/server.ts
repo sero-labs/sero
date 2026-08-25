@@ -2,7 +2,7 @@ import {
   A2A_VERSION,
   CONTROL_OPERATION_NAMES,
   SERO_CONTROL_VERSION,
-  SERO_EXTENSION_URI,
+  createSeroAgentCard,
   type ControlOperationName,
 } from "@sero-ai/a2a";
 import type { Server } from "bun";
@@ -48,14 +48,23 @@ export async function route(request: Request, services: NodeServices, publicUrl:
   return json({ error: "not_found" }, 404);
 }
 
-function agentCard(publicUrl: string): Record<string, unknown> {
-  return {
-    name: "Sero Agent Node", description: "Persistent remote Sero sessions", version: "1",
-    supportedInterfaces: [{ url: `${publicUrl}/`, protocolBinding: "JSONRPC", protocolVersion: A2A_VERSION, tenant: "sero" }],
-    capabilities: { streaming: true, extensions: [{ uri: SERO_EXTENSION_URI, required: false, params: { url: `${publicUrl}/sero/v1`, tools: TOOLS } }] },
-    securitySchemes: { bearer: { httpAuthSecurityScheme: { scheme: "bearer", bearerFormat: "Sero controller token" } } },
-    security: [{ schemes: { bearer: [] } }], defaultInputModes: ["text/plain", "application/json"], defaultOutputModes: ["text/plain", "application/json"], skills: [],
-  };
+function agentCard(publicUrl: string) {
+  return createSeroAgentCard({
+    card: {
+      name: "Sero Agent Node",
+      description: "Persistent remote Sero sessions",
+      provider: undefined,
+      version: "1",
+      defaultInputModes: ["text/plain", "application/json"],
+      defaultOutputModes: ["text/plain", "application/json"],
+      skills: [],
+      signatures: [],
+    },
+    a2aUrl: `${publicUrl}/`,
+    controlUrl: `${publicUrl}/sero/v1`,
+    tenant: "sero",
+    tools: TOOLS,
+  });
 }
 
 async function authorized(request: Request, services: NodeServices): Promise<AuthenticatedController | undefined> {

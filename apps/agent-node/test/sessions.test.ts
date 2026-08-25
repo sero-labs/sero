@@ -25,8 +25,12 @@ describe("persistent sessions and tasks", () => {
       expect(second.taskId).toBe(first.taskId);
       expect(runners.get(session.id)?.calls).toEqual(["first", "second"]);
       runners.get(session.id)?.release?.("done");
-      await Bun.sleep(10);
-      expect((await store.getTask(first.taskId))?.status).toBe("completed");
+      let task = await store.getTask(first.taskId);
+      for (let attempt = 0; task?.status !== "completed" && attempt < 100; attempt++) {
+        await Bun.sleep(5);
+        task = await store.getTask(first.taskId);
+      }
+      expect(task?.status).toBe("completed");
     } finally { await temp.cleanup(); }
   });
 

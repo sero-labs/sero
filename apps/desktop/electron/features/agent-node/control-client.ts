@@ -1,7 +1,8 @@
 import type { AgentNodeControlOperation } from '@/types/ipc-agent-node';
+import { SERO_CONTROL_VERSION } from '@sero-ai/a2a';
 import type { PinnedTransport } from './pinned-transport';
 import { JsonHttpError, parseJson, postJson } from './http-json';
-import { CONTROL_VERSION, isRecord } from './types';
+import { isRecord } from './types';
 import { consumeSse, type SseConnection, type SseMessage } from './sse';
 
 export class ControlVersionError extends Error {
@@ -92,13 +93,13 @@ export class ControlClient {
   private headers(authenticated: boolean): Record<string, string> {
     if (authenticated && !this.token) throw new Error('Agent node is not enrolled for this profile');
     return {
-      'Sero-Control-Version': CONTROL_VERSION,
+      'Sero-Control-Version': SERO_CONTROL_VERSION,
       ...(authenticated ? { Authorization: `Bearer ${this.token}` } : {}),
     };
   }
 
   private checkVersion(header: string | string[] | undefined): void {
     const value = Array.isArray(header) ? header[0] : header;
-    if (value !== CONTROL_VERSION) throw new ControlVersionError();
+    if (value !== SERO_CONTROL_VERSION) throw new ControlVersionError();
   }
 }

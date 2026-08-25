@@ -1,9 +1,5 @@
 import type { AgentNodeConnectionState, AgentNodeInfo } from '@/types/ipc-agent-node';
 
-export const A2A_VERSION = '1.0';
-export const CONTROL_VERSION = '1';
-export const SERO_AGENT_EXTENSION_URI = 'https://sero.dev/a2a/control-plane/v1';
-
 export interface StoredAgentNode {
   id: string;
   name: string;
@@ -17,25 +13,6 @@ export interface StoredAgentNode {
 export interface AgentNodeRegistryFile {
   version: 1;
   nodes: StoredAgentNode[];
-}
-
-export interface AgentCard {
-  supportedInterfaces?: Array<{
-    url: string;
-    protocolBinding: string;
-    protocolVersion: string;
-    tenant?: string;
-  }>;
-  capabilities?: { extensions?: AgentExtension[] };
-  extensions?: AgentExtension[];
-  securitySchemes?: Record<string, unknown>;
-  securityRequirements?: unknown[];
-}
-
-export interface AgentExtension {
-  uri: string;
-  required?: boolean;
-  params?: { url?: string; tools?: string[] };
 }
 
 export interface RuntimeNode {

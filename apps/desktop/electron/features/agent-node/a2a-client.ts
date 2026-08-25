@@ -1,7 +1,8 @@
 import { randomUUID } from 'crypto';
 import type { PinnedTransport } from './pinned-transport';
 import { postJson } from './http-json';
-import { A2A_VERSION, type JsonRpcResponse, isRecord } from './types';
+import { SERO_A2A_VERSION } from '@sero-ai/a2a';
+import { type JsonRpcResponse, isRecord } from './types';
 import { consumeSse, type SseConnection, type SseMessage } from './sse';
 
 type A2aMethod = 'message/send' | 'message/stream' | 'tasks/get' | 'tasks/cancel' | 'tasks/resubscribe';
@@ -34,7 +35,7 @@ export class A2aClient {
   }
 
   private headers(): Record<string, string> {
-    return { Authorization: `Bearer ${this.token}`, 'A2A-Version': A2A_VERSION };
+    return { Authorization: `Bearer ${this.token}`, 'A2A-Version': SERO_A2A_VERSION };
   }
 
   private async call(method: A2aMethod, params: Record<string, unknown>): Promise<unknown> {
