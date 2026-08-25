@@ -40,8 +40,8 @@ export function agentNodeApi(): SeroAgentNodeAPI {
       await api.control(nodeId, { operation: 'deleteSession', params: { contextId: sessionId } });
     },
     sendMessage: (nodeId, sessionId, text) => api.send({ nodeId, contextId: sessionId, text }),
-    respondApproval: (nodeId, sessionId, taskId, approvalId, approved) => api.send({
-      nodeId, contextId: sessionId, taskId, text: '', approval: { id: approvalId, approved },
+    respondApproval: (nodeId, sessionId, taskId, approvalId, approved, scope) => api.send({
+      nodeId, contextId: sessionId, taskId, text: '', approval: { id: approvalId, approved, scope },
     }),
     attachSession: async (nodeId, sessionId, taskId) => api.attach(nodeId, sessionId, undefined, taskId),
     cancelTask: api.cancelTask,
@@ -68,6 +68,9 @@ export function agentNodeApi(): SeroAgentNodeAPI {
     setSessionModel: async (nodeId, sessionId, model) => {
       await api.control(nodeId, { operation: 'setSessionModel', params: { contextId: sessionId, model: modelReference(model) } });
     },
+    setSessionApprovalMode: async (nodeId, sessionId, approvalMode) => toRendererSession((await api.control<'setSessionApprovalMode'>(nodeId, {
+      operation: 'setSessionApprovalMode', params: { contextId: sessionId, approvalMode },
+    })).session),
     listControllers: async (nodeId) => (await api.control(nodeId, { operation: 'listControllers', params: {} })).controllers,
     mintEnrolmentCode: async (nodeId) => {
       const result = await api.control(nodeId, { operation: 'mintEnrolmentCode', params: {} });
@@ -110,6 +113,7 @@ function toRendererSession(session: IpcAgentNodeSession): AgentNodeSession {
     modified: session.updatedAt,
     engine: 'Pi',
     model: `${session.model.providerId}/${session.model.modelId}`,
+    approvalMode: session.approvalMode,
     taskId: session.runningTaskId ?? undefined,
   };
 }
@@ -185,7 +189,9 @@ interface NodesState {
   cancelTask: (nodeId: string, taskId: string) => Promise<void>;
   setSessionModel: (nodeId: string, sessionId: string, model: string) => Promise<void>;
   loadModels: (nodeId: string) => Promise<void>;
-  respondApproval: (nodeId: string, sessionId: string, approved: boolean) => Promise<void>;
+  respondApproval: (nodeId: string, sessionId: string, approved: boolean, scope?: 'once' | 'task' | 'session') => Promise<void>;
+  setSessionApprovalMode: (nodeId: string, sessionId: string, approvalMode: 'ask' | 'allow') => Promise<void>;
+  clearArtifacts: (sessionKey: string) => void;
   loadSettings: (nodeId: string) => Promise<void>;
   login: (nodeId: string, providerId: string) => Promise<void>;
   logout: (nodeId: string, providerId: string) => Promise<void>;
@@ -334,13 +340,21 @@ export const useNodesStore = create<NodesState>((set, get) => ({
     const models = await agentNodeApi().getModels(nodeId);
     set((state) => ({ models: { ...state.models, [nodeId]: models } }));
   },
-  respondApproval: async (nodeId, sessionId, approved) => {
+  respondApproval: async (nodeId, sessionId, approved, scope = 'once') => {
     const key = messageKey(nodeId, sessionId);
     const approval = get().approvals[key];
     if (!approval) return;
-    await agentNodeApi().respondApproval(nodeId, sessionId, approval.taskId, approval.id, approved);
-    set((state) => ({ approvals: { ...state.approvals, [key]: null } }));
+    await agentNodeApi().respondApproval(nodeId, sessionId, approval.taskId, approval.id, approved, scope);
+    set((state) => ({
+      approvals: { ...state.approvals, [key]: null },
+      sessions: approved && scope === 'session' ? { ...state.sessions, [nodeId]: (state.sessions[nodeId] ?? []).map((item) => item.id === sessionId ? { ...item, approvalMode: 'allow' } : item) } : state.sessions,
+    }));
   },
+  setSessionApprovalMode: async (nodeId, sessionId, approvalMode) => {
+    const updated = await agentNodeApi().setSessionApprovalMode(nodeId, sessionId, approvalMode);
+    set((state) => ({ sessions: { ...state.sessions, [nodeId]: (state.sessions[nodeId] ?? []).map((item) => item.id === sessionId ? updated : item) } }));
+  },
+  clearArtifacts: (sessionKey) => set((state) => ({ artifacts: { ...state.artifacts, [sessionKey]: [] } })),
   loadSettings: async (nodeId) => {
     const [providers, controllers] = await Promise.all([
       agentNodeApi().getProviders(nodeId), agentNodeApi().listControllers(nodeId),

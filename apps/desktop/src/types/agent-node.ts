@@ -23,6 +23,7 @@ export interface AgentNodeSession {
   modified: string;
   engine: string;
   model: string;
+  approvalMode: 'ask' | 'allow';
   taskId?: string;
 }
 
@@ -75,7 +76,8 @@ export interface SeroAgentNodeAPI {
   createSession(nodeId: string, input: { workspaceId: string; model: string }): Promise<AgentNodeSession>;
   deleteSession(nodeId: string, sessionId: string): Promise<void>;
   sendMessage(nodeId: string, sessionId: string, text: string): Promise<{ taskId: string }>;
-  respondApproval(nodeId: string, sessionId: string, taskId: string, approvalId: string, approved: boolean): Promise<{ taskId: string }>;
+  respondApproval(nodeId: string, sessionId: string, taskId: string, approvalId: string, approved: boolean, scope?: 'once' | 'task' | 'session'): Promise<{ taskId: string }>;
+  setSessionApprovalMode(nodeId: string, sessionId: string, approvalMode: 'ask' | 'allow'): Promise<AgentNodeSession>;
   attachSession(nodeId: string, sessionId: string, taskId?: string): Promise<{ messages: ChatMessage[] }>;
   cancelTask(nodeId: string, taskId: string): Promise<void>;
   readArtifact(nodeId: string, blobId: string): Promise<Uint8Array>;

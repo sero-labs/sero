@@ -32,6 +32,11 @@ The agent has shell tools and runs as the service account. A successful prompt
 injection can therefore read these files. File permissions do not contain code
 that runs as `sero-node`.
 
+Each session stores an approval mode. `ask` requires controller approval for
+`bash`, `write`, and `edit`. `allow` permits those tools for later turns without
+another prompt. Desktop can change the mode at any time. Keep `ask` as the
+default, especially when the service account can use Docker.
+
 ## systemd operation
 
 Use `Type=exec`, `Restart=always`, and a restart delay. Keep the default

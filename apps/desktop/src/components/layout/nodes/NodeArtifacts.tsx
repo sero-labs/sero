@@ -23,8 +23,10 @@ function NodeArtifact({ nodeId, artifact }: { nodeId: string; artifact: AgentNod
 
 export function NodeArtifacts({ nodeId, sessionKey }: { nodeId: string; sessionKey: string }) {
   const artifacts = useNodesStore((state) => state.artifacts[sessionKey] ?? EMPTY_ARTIFACTS);
+  const clearArtifacts = useNodesStore((state) => state.clearArtifacts);
   if (artifacts.length === 0) return null;
-  return <div className="grid gap-2 px-3 pb-2">{artifacts.map((artifact) => (
-    <NodeArtifact key={artifact.id} nodeId={nodeId} artifact={artifact} />
-  ))}</div>;
+  return <section className="grid gap-2 px-3 pb-2" aria-label="Remote artifacts">
+    <div className="flex items-center justify-between"><span className="text-xs text-(--text-muted)">Artifacts</span><Button size="sm" variant="ghost" onClick={() => clearArtifacts(sessionKey)}>Clear</Button></div>
+    {artifacts.map((artifact) => <NodeArtifact key={artifact.id} nodeId={nodeId} artifact={artifact} />)}
+  </section>;
 }

@@ -206,4 +206,48 @@ describe("persistent sessions and tasks", () => {
       while ((await store.getTask(task.taskId))?.status !== "completed") await Bun.sleep(1);
     } finally { await temp.cleanup(); }
   });
+
+  test("can approve the remaining tool calls in one task", async () => {
+    const temp = await temporaryState(); const runners = new Map<string, DeferredRunner>();
+    try {
+      const paths = await ensureState(temp.root); const store = new SessionStore(paths, new EventHub(), runnerFactory(runners));
+      const session = await store.create({ model: "test/model", workspace: "task-approval" });
+      const task = await store.send(session.id, "run", "controller");
+      const runner = runners.get(session.id)!;
+      const first = runner.hooks!.approve("bash", { command: "one" });
+      const second = runner.hooks!.approve("write", { path: "two" });
+      while (!(await store.getTask(task.taskId))?.input) await Bun.sleep(1);
+      const approvalId = (await store.getTask(task.taskId))!.input!.approvalId;
+      await store.respondApproval(session.id, approvalId, true, "task");
+      expect(await first).toBe(true);
+      expect(await second).toBe(true);
+      expect((await store.getTask(task.taskId))?.status).toBe("working");
+      runner.release?.("done");
+    } finally { await temp.cleanup(); }
+  });
+
+  test("can allow tool calls for later tasks in one session", async () => {
+    const temp = await temporaryState(); const runners = new Map<string, DeferredRunner>();
+    try {
+      const paths = await ensureState(temp.root); const store = new SessionStore(paths, new EventHub(), runnerFactory(runners));
+      const session = await store.create({ model: "test/model", workspace: "session-approval" });
+      const firstTask = await store.send(session.id, "first", "controller");
+      const firstRunner = runners.get(session.id)!;
+      const first = firstRunner.hooks!.approve("bash", { command: "one" });
+      while (!(await store.getTask(firstTask.taskId))?.input) await Bun.sleep(1);
+      const approvalId = (await store.getTask(firstTask.taskId))!.input!.approvalId;
+      await store.respondApproval(session.id, approvalId, true, "session");
+      expect(await first).toBe(true);
+      firstRunner.release?.("done");
+      while ((await store.getTask(firstTask.taskId))?.status !== "completed") await Bun.sleep(1);
+
+      const secondTask = await store.send(session.id, "second", "controller");
+      expect(await runners.get(session.id)!.hooks!.approve("write", { path: "two" })).toBe(true);
+      expect((await store.getTask(secondTask.taskId))?.status).toBe("working");
+      expect((await store.get(session.id))?.approvalMode).toBe("allow");
+      await store.setApprovalMode(session.id, "ask");
+      expect((await store.get(session.id))?.approvalMode).toBe("ask");
+      runners.get(session.id)?.release?.("done");
+    } finally { await temp.cleanup(); }
+  });
 });

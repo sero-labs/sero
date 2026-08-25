@@ -58,6 +58,7 @@ export const SessionSchema = z.object({
   name: z.string(),
   workspace: IdSchema,
   model: ModelRefSchema,
+  approvalMode: z.enum(['ask', 'allow']),
   updatedAt: TimestampSchema,
   runningTaskId: IdSchema.nullable(),
 }).strict();

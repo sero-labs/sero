@@ -51,6 +51,10 @@ export const ControlOperationSchemas = {
     request: z.object({ contextId: IdSchema, model: ModelRefSchema }).strict(),
     response: z.object({ session: SessionSchema }).strict(),
   },
+  setSessionApprovalMode: {
+    request: z.object({ contextId: IdSchema, approvalMode: z.enum(['ask', 'allow']) }).strict(),
+    response: z.object({ session: SessionSchema }).strict(),
+  },
   getNodeHealth: {
     request: EmptySchema,
     response: z.object({ health: NodeHealthSchema }).strict(),
@@ -101,6 +105,8 @@ export const DeleteSessionRequestSchema = ControlOperationSchemas.deleteSession.
 export const DeleteSessionResponseSchema = ControlOperationSchemas.deleteSession.response;
 export const SetSessionModelRequestSchema = ControlOperationSchemas.setSessionModel.request;
 export const SetSessionModelResponseSchema = ControlOperationSchemas.setSessionModel.response;
+export const SetSessionApprovalModeRequestSchema = ControlOperationSchemas.setSessionApprovalMode.request;
+export const SetSessionApprovalModeResponseSchema = ControlOperationSchemas.setSessionApprovalMode.response;
 export const GetNodeHealthRequestSchema = ControlOperationSchemas.getNodeHealth.request;
 export const GetNodeHealthResponseSchema = ControlOperationSchemas.getNodeHealth.response;
 export const GetProvidersRequestSchema = ControlOperationSchemas.getProviders.request;
@@ -138,6 +144,8 @@ export type DeleteSessionRequest = ControlRequest<'deleteSession'>;
 export type DeleteSessionResponse = ControlResponse<'deleteSession'>;
 export type SetSessionModelRequest = ControlRequest<'setSessionModel'>;
 export type SetSessionModelResponse = ControlResponse<'setSessionModel'>;
+export type SetSessionApprovalModeRequest = ControlRequest<'setSessionApprovalMode'>;
+export type SetSessionApprovalModeResponse = ControlResponse<'setSessionApprovalMode'>;
 export type GetNodeHealthRequest = ControlRequest<'getNodeHealth'>;
 export type GetNodeHealthResponse = ControlResponse<'getNodeHealth'>;
 export type GetProvidersRequest = ControlRequest<'getProviders'>;

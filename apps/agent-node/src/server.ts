@@ -168,6 +168,12 @@ async function dispatchControl(operation: ControlOperationName, body: Record<str
       const record = await services.sessions.setModel(requireUuid(requiredString(body, "contextId"), "contextId"), modelString(objectValue(body.model)));
       return { session: sessionWire(record, services.sessions.activeTask(record.id)?.taskId ?? null) };
     }
+    case "setSessionApprovalMode": {
+      const mode = body.approvalMode === "allow" ? "allow" : body.approvalMode === "ask" ? "ask" : undefined;
+      if (!mode) throw new Error("invalid_approvalMode");
+      const record = await services.sessions.setApprovalMode(requireUuid(requiredString(body, "contextId"), "contextId"), mode);
+      return { session: sessionWire(record, services.sessions.activeTask(record.id)?.taskId ?? null) };
+    }
     case "getNodeHealth": return { health: nodeHealth(services) };
     case "getProviders": return { ...(await services.providers.providers()), models: (await services.providers.models()).map((model) => ({ providerId: model.provider, modelId: model.id, name: model.name })) };
     case "login": return services.providers.login(controller!.id, requiredString(body, "providerId"));
@@ -200,7 +206,7 @@ async function a2aRoute(request: Request, services: NodeServices): Promise<Respo
       const text = extractText(message);
       const behavior = objectValue(message.metadata)[SERO_QUEUE_MODE_METADATA_KEY] === "steer" ? "steer" : "followUp";
       const task = approval && contextId
-        ? await services.sessions.respondApproval(contextId, requireUuid(approval.approvalId, "approvalId"), approval.approved)
+        ? await services.sessions.respondApproval(contextId, requireUuid(approval.approvalId, "approvalId"), approval.approved, approval.scope)
         : await services.sessions.send(contextId, text, controller.id, behavior);
       if (method === "SendStreamingMessage") return taskResponse(task, id, services, request.signal, controller.id);
       await waitTerminal(services.sessions, task.taskId); return json({ jsonrpc: "2.0", id, result: { task: taskWire((await services.sessions.getTask(task.taskId))!) } });
@@ -269,12 +275,13 @@ function requiredString(value: Record<string, unknown>, key: string): string { c
 function optionalString(value: Record<string, unknown>, key: string): string | undefined { return typeof value[key] === "string" ? value[key] : undefined; }
 function stringFrom(value: Record<string, unknown>, keys: string[]): string | undefined { return keys.map((key) => optionalString(value, key)).find(Boolean); }
 function extractText(message: Record<string, unknown>): string { const direct = optionalString(message, "text"); if (direct) return direct; const parts = Array.isArray(message.parts) ? message.parts : []; return parts.map((part) => optionalString(objectValue(part), "text") ?? "").join(""); }
-function extractApproval(message: Record<string, unknown>): { approvalId: string; approved: boolean } | undefined {
+function extractApproval(message: Record<string, unknown>): { approvalId: string; approved: boolean; scope: "once" | "task" | "session" } | undefined {
   const parts = Array.isArray(message.parts) ? message.parts : [];
   for (const part of parts) {
     const data = objectValue(objectValue(part).data);
     if (data.type === "approval_response" && typeof data.approvalId === "string" && typeof data.approved === "boolean") {
-      return { approvalId: data.approvalId, approved: data.approved };
+      const scope = data.scope === "session" ? "session" : data.scope === "task" ? "task" : "once";
+      return { approvalId: data.approvalId, approved: data.approved, scope };
     }
   }
   return undefined;
@@ -298,8 +305,8 @@ function modelWire(model: string): { providerId: string; modelId: string } {
   return separator > 0 ? { providerId: model.slice(0, separator), modelId: model.slice(separator + 1) } : { providerId: "custom", modelId: model };
 }
 
-function sessionWire(record: { id: string; name: string; workspace: string; model: string; updatedAt: string }, runningTaskId: string | null): Record<string, unknown> {
-  return { contextId: record.id, name: record.name, workspace: record.workspace, model: modelWire(record.model), updatedAt: record.updatedAt, runningTaskId };
+function sessionWire(record: { id: string; name: string; workspace: string; model: string; approvalMode: "ask" | "allow"; updatedAt: string }, runningTaskId: string | null): Record<string, unknown> {
+  return { contextId: record.id, name: record.name, workspace: record.workspace, model: modelWire(record.model), approvalMode: record.approvalMode, updatedAt: record.updatedAt, runningTaskId };
 }
 
 function nodeHealth(services: NodeServices): Record<string, unknown> {

@@ -54,6 +54,7 @@ export interface AgentNodeControlRequestMap {
   createSession: ControlRequest<'createSession'>;
   deleteSession: ControlRequest<'deleteSession'>;
   setSessionModel: ControlRequest<'setSessionModel'>;
+  setSessionApprovalMode: ControlRequest<'setSessionApprovalMode'>;
   getNodeHealth: ControlRequest<'getNodeHealth'>;
   getProviders: ControlRequest<'getProviders'>;
   login: ControlRequest<'login'>;
@@ -75,6 +76,7 @@ export interface AgentNodeControlResponseMap {
   createSession: ControlResponse<'createSession'>;
   deleteSession: ControlResponse<'deleteSession'>;
   setSessionModel: ControlResponse<'setSessionModel'>;
+  setSessionApprovalMode: ControlResponse<'setSessionApprovalMode'>;
   getNodeHealth: ControlResponse<'getNodeHealth'>;
   getProviders: ControlResponse<'getProviders'>;
   login: ControlResponse<'login'>;
@@ -108,6 +110,7 @@ export interface AgentNodeMessageInput {
   approval?: {
     id: string;
     approved: boolean;
+    scope?: 'once' | 'task' | 'session';
   };
 }
 

@@ -22,6 +22,7 @@ export const CONTROL_OPERATION_NAMES = [
   'createSession',
   'deleteSession',
   'setSessionModel',
+  'setSessionApprovalMode',
   'getNodeHealth',
   'getProviders',
   'login',

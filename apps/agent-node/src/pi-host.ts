@@ -7,7 +7,6 @@ import {
   type InlineExtension,
   type SessionEntry,
   type ToolCallEvent,
-  type ToolResultEvent,
 } from "@earendil-works/pi-coding-agent";
 import { ModelsError } from "@earendil-works/pi-ai";
 import type { StatePaths } from "./state.ts";
@@ -64,7 +63,6 @@ export function createPiRunnerFactory(paths: StatePaths): SessionRunnerFactory {
     let providerRejectedAuth = false;
     const extension: InlineExtension = (pi) => {
       pi.on("tool_call", (event) => gateToolPermission(event, hooks));
-      pi.on("tool_result", (event) => captureArtifact(event, hooks));
       pi.on("after_provider_response", (event) => { if (event.status === 401 || event.status === 403) providerRejectedAuth = true; });
     };
     const services = await createAgentSessionServices({
@@ -85,12 +83,6 @@ export async function gateToolPermission(event: ToolCallEvent, hooks?: RunnerHoo
   if (!hooks || !GATED_TOOLS.has(event.toolName)) return {};
   const approved = await hooks.approve(event.toolName as "write" | "edit" | "bash", event.input);
   return approved ? {} : { block: true, reason: "Controller refused tool permission", terminate: true };
-}
-
-async function captureArtifact(event: ToolResultEvent, hooks?: RunnerHooks): Promise<void> {
-  if (!hooks) return;
-  const payload = JSON.stringify({ toolName: event.toolName, toolCallId: event.toolCallId, content: event.content, details: event.details });
-  await hooks.artifact(`${event.toolName}-${event.toolCallId}.json`, new TextEncoder().encode(payload), "application/json");
 }
 
 class PiRunner implements SessionRunner {

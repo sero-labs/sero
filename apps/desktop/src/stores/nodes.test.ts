@@ -7,14 +7,14 @@ const node = {
   id: 'spark:west', name: 'Spark', address: 'https://spark', fingerprint: 'sha256',
   connectionState: 'connected' as const, tools: ['read'], workspaces: [{ id: 'repo', name: 'Repo' }],
 };
-const session = { id: 'session:one', workspaceId: 'repo', modified: '2026-01-01T00:00:00Z', engine: 'Pi', model: 'opus' };
+const session = { id: 'session:one', workspaceId: 'repo', modified: '2026-01-01T00:00:00Z', engine: 'Pi', model: 'opus', approvalMode: 'ask' as const };
 const ipcNode = {
   id: node.id, name: node.name, address: node.address, fingerprint: node.fingerprint,
   state: 'connected', lastSeenAt: null, tools: node.tools,
 };
 const ipcSession = {
   contextId: session.id, name: session.id, workspace: session.workspaceId,
-  model: { providerId: 'test', modelId: 'opus' }, updatedAt: session.modified, runningTaskId: null,
+  model: { providerId: 'test', modelId: 'opus' }, approvalMode: 'ask' as const, updatedAt: session.modified, runningTaskId: null,
 };
 
 describe('nodes store', () => {
@@ -25,6 +25,7 @@ describe('nodes store', () => {
       control: vi.fn().mockImplementation((_nodeId, args) => args.operation === 'listSessions'
         ? Promise.resolve({ sessions: [ipcSession] })
         : args.operation === 'createSession' ? Promise.resolve({ session: ipcSession })
+          : args.operation === 'setSessionApprovalMode' ? Promise.resolve({ session: { ...ipcSession, approvalMode: args.params.approvalMode } })
       : args.operation === 'getProviders' ? Promise.resolve({ oauth: [], apiKey: [], models: [{ providerId: 'anthropic', modelId: 'claude', name: 'Claude' }] })
             : Promise.resolve({ ok: true })),
       enrol: vi.fn(), remove: vi.fn(), connect: vi.fn(), send: vi.fn().mockResolvedValue({ taskId: 'task-1' }), cancelTask: vi.fn(), readBlob: vi.fn().mockResolvedValue(new Uint8Array([65])),
@@ -88,15 +89,25 @@ describe('nodes store', () => {
 
   it('sends and clears an approval decision through the active task', async () => {
     const key = sessionLocationKey({ kind: 'node', nodeId: node.id, sessionId: session.id });
-    useNodesStore.setState({ approvals: { [key]: {
+    useNodesStore.setState({ sessions: { [node.id]: [session] }, approvals: { [key]: {
       id: 'permission-1', taskId: 'task-1', contextId: session.id, title: 'Run command',
     } } });
-    await useNodesStore.getState().respondApproval(node.id, session.id, true);
+    await useNodesStore.getState().respondApproval(node.id, session.id, true, 'session');
     expect(window.sero.agentNodes.send).toHaveBeenCalledWith({
       nodeId: node.id, contextId: session.id, taskId: 'task-1', text: '',
-      approval: { id: 'permission-1', approved: true },
+      approval: { id: 'permission-1', approved: true, scope: 'session' },
     });
     expect(useNodesStore.getState().approvals[key]).toBeNull();
+    expect(useNodesStore.getState().sessions[node.id]?.[0]?.approvalMode).toBe('allow');
+  });
+
+  it('can restore approval prompts for a trusted session', async () => {
+    useNodesStore.setState({ sessions: { [node.id]: [{ ...session, approvalMode: 'allow' }] } });
+    await useNodesStore.getState().setSessionApprovalMode(node.id, session.id, 'ask');
+    expect(window.sero.agentNodes.control).toHaveBeenCalledWith(node.id, {
+      operation: 'setSessionApprovalMode', params: { contextId: session.id, approvalMode: 'ask' },
+    });
+    expect(useNodesStore.getState().sessions[node.id]?.[0]?.approvalMode).toBe('ask');
   });
 
   it('reads remote artifacts through authenticated IPC before rendering them', async () => {
@@ -105,6 +116,12 @@ describe('nodes store', () => {
     });
     expect(window.sero.agentNodes.readBlob).toHaveBeenCalledWith(node.id, 'blob-1');
     expect(url).toBe('data:text/plain;base64,QQ==');
+  });
+
+  it('clears displayed artifacts for one remote session', () => {
+    useNodesStore.setState({ artifacts: { one: [{ id: 'a', name: 'a.txt', mediaType: 'text/plain' }], two: [{ id: 'b', name: 'b.txt', mediaType: 'text/plain' }] } });
+    useNodesStore.getState().clearArtifacts('one');
+    expect(useNodesStore.getState().artifacts).toEqual({ one: [], two: [{ id: 'b', name: 'b.txt', mediaType: 'text/plain' }] });
   });
 
   it('forwards approval and artifact IPC events to the renderer store boundary', () => {

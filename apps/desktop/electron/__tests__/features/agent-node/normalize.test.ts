@@ -34,9 +34,9 @@ describe('remote conversation normalization', () => {
 
   it('serializes node-owned approval replies as A2A data parts', () => {
     expect(remoteA2aMessage({
-      nodeId: 'n', contextId: 's', text: '', approval: { id: 'approval-1', approved: true },
+      nodeId: 'n', contextId: 's', text: '', approval: { id: 'approval-1', approved: true, scope: 'task' },
     }, 'm')).toMatchObject({
-      parts: expect.arrayContaining([{ data: { type: 'approval_response', approvalId: 'approval-1', approved: true } }]),
+      parts: expect.arrayContaining([{ data: { type: 'approval_response', approvalId: 'approval-1', approved: true, scope: 'task' } }]),
     });
   });
 
@@ -67,5 +67,8 @@ describe('remote conversation normalization', () => {
     expect(remoteArtifacts({ result: { task: { artifacts: [{ artifactId: 'a3', name: 'Task output', parts: [{
       mediaType: 'text/plain', raw: 'dGFzaw==',
     }] }] } } })).toEqual([{ id: 'a3', name: 'Task output', mediaType: 'text/plain', inlineBase64: 'dGFzaw==' }]);
+    expect(remoteArtifacts({ result: { task: { artifacts: [{ artifactId: 'a4', name: 'bash-call_123.json', parts: [{
+      mediaType: 'application/json', raw: 'e30=',
+    }] }] } } })).toEqual([]);
   });
 });

@@ -20,6 +20,7 @@ interface ActiveTurn {
   queued: QueuedMessage[];
   publishedEntryIds: Set<string>;
   approvalChain: Promise<void>;
+  approveRemaining: boolean;
 }
 interface PendingApproval { request: ApprovalRequest; resolve: (approved: boolean) => void }
 
@@ -32,7 +33,7 @@ export class SessionStore {
     const id = randomUUID();
     const workspace = await confinedWorkspace(this.paths, input.workspace);
     const now = new Date().toISOString();
-    const record = { id, name: input.name?.trim() || id.slice(0, 8), model: input.model, workspace, createdAt: now, updatedAt: now };
+    const record: SessionRecord = { id, name: input.name?.trim() || id.slice(0, 8), model: input.model, workspace, approvalMode: "ask", createdAt: now, updatedAt: now };
     await secureWrite(this.#sessionPath(id), `${JSON.stringify(record)}\n`);
     return record;
   }
@@ -46,12 +47,21 @@ export class SessionStore {
   async get(id: string): Promise<SessionRecord | undefined> {
     const file = Bun.file(this.#sessionPath(id));
     if (!(await file.exists())) return undefined;
-    return file.json() as Promise<SessionRecord>;
+    const record = await file.json() as Omit<SessionRecord, "approvalMode"> & Partial<Pick<SessionRecord, "approvalMode">>;
+    return { ...record, approvalMode: record.approvalMode ?? "ask" };
   }
 
   async setModel(id: string, model: string): Promise<SessionRecord> {
     const record = await this.required(id);
     record.model = model;
+    record.updatedAt = new Date().toISOString();
+    await secureWrite(this.#sessionPath(id), `${JSON.stringify(record)}\n`);
+    return record;
+  }
+
+  async setApprovalMode(id: string, approvalMode: "ask" | "allow"): Promise<SessionRecord> {
+    const record = await this.required(id);
+    record.approvalMode = approvalMode;
     record.updatedAt = new Date().toISOString();
     await secureWrite(this.#sessionPath(id), `${JSON.stringify(record)}\n`);
     return record;
@@ -79,6 +89,7 @@ export class SessionStore {
     const task: TaskTransition = { taskId: randomUUID(), contextId, status: "submitted", controllerId, updatedAt: new Date().toISOString() };
     const turn: ActiveTurn = {
       task, partial: "", promise: Promise.resolve(), queued: [], publishedEntryIds: new Set(), approvalChain: Promise.resolve(),
+      approveRemaining: false,
     };
     this.#active.set(contextId, turn);
     try {
@@ -141,13 +152,15 @@ export class SessionStore {
     }
   }
 
-  async respondApproval(contextId: string, approvalId: string, approved: boolean): Promise<TaskTransition> {
+  async respondApproval(contextId: string, approvalId: string, approved: boolean, scope: "once" | "task" | "session" = "once"): Promise<TaskTransition> {
     const turn = this.#active.get(contextId);
     const pending = this.#approvals.get(approvalId);
     if (!turn || !pending || pending.request.approvalId !== approvalId || turn.task.input?.approvalId !== approvalId) {
       throw new Error("approval_not_found");
     }
     this.#approvals.delete(approvalId);
+    if (approved && scope === "task") turn.approveRemaining = true;
+    if (approved && scope === "session") await this.setApprovalMode(contextId, "allow");
     turn.task.input = undefined;
     await this.#transition(turn.task, "working");
     pending.resolve(approved);
@@ -158,10 +171,13 @@ export class SessionStore {
     return {
       onDelta: (delta) => this.#delta(contextId, turn, delta),
       approve: async (toolName, input) => {
+        if ((await this.required(contextId)).approvalMode === "allow") return true;
+        if (turn.approveRemaining) return true;
         const previous = turn.approvalChain;
         let releaseQueue = () => {};
         turn.approvalChain = new Promise<void>((resolve) => { releaseQueue = resolve; });
         await previous;
+        if (turn.approveRemaining) { releaseQueue(); return true; }
         if (TERMINAL.has(turn.task.status)) { releaseQueue(); return false; }
         try {
           const request: ApprovalRequest = { approvalId: randomUUID(), toolName, input: structuredClone(input) };

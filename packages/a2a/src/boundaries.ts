@@ -18,6 +18,7 @@ export const CONTROL_OPERATION_BOUNDARIES = {
   createSession: { boundary: 'control-plane', gap: SESSION_GAP },
   deleteSession: { boundary: 'control-plane', gap: SESSION_GAP },
   setSessionModel: { boundary: 'control-plane', gap: 'A2A carries no model selection.' },
+  setSessionApprovalMode: { boundary: 'control-plane', gap: 'A2A carries no persistent tool approval policy.' },
   getNodeHealth: {
     boundary: 'control-plane',
     gap: 'The Agent Card is static; health is not present on it.',

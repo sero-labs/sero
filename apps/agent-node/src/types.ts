@@ -13,7 +13,8 @@ export interface TaskArtifact {
   artifactId: string; name: string; parts: Array<{ raw?: string; url?: string; mediaType: string }>;
 }
 export interface SessionRecord {
-  id: string; name: string; model: string; workspace: string; piSessionPath?: string; createdAt: string; updatedAt: string;
+  id: string; name: string; model: string; workspace: string; approvalMode: "ask" | "allow";
+  piSessionPath?: string; createdAt: string; updatedAt: string;
 }
 export type SessionEntry = PiSessionEntry;
 export interface ControllerRecord {

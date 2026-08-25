@@ -10,7 +10,10 @@ export function remoteSessionKey(nodeId: string, contextId: string): string {
 export function remoteA2aMessage(input: AgentNodeMessageInput, messageId: string): Record<string, unknown> {
   const parts: Array<Record<string, unknown>> = [{ text: input.text }];
   if (input.approval) {
-    parts.push({ data: { type: 'approval_response', approvalId: input.approval.id, approved: input.approval.approved } });
+    parts.push({ data: {
+      type: 'approval_response', approvalId: input.approval.id,
+      approved: input.approval.approved, scope: input.approval.scope ?? 'once',
+    } });
   }
   for (const attachment of input.attachments ?? []) {
     parts.push({ url: attachment.url, filename: attachment.filename, mediaType: attachment.mediaType });
@@ -31,7 +34,12 @@ export function remoteArtifacts(value: unknown): AgentNodeArtifact[] {
   const artifacts = Array.isArray(wire.artifacts)
     ? wire.artifacts.filter(isRecord)
     : isRecord(wire.artifact) ? [wire.artifact] : [];
-  return artifacts.flatMap(parseArtifact);
+  return artifacts.flatMap(parseArtifact).filter((artifact) => !isInternalToolArtifact(artifact));
+}
+
+function isInternalToolArtifact(artifact: AgentNodeArtifact): boolean {
+  return artifact.mediaType === 'application/json'
+    && /^(?:bash|edit|find|grep|read|write)-call_.*\.json$/u.test(artifact.name);
 }
 
 export function remoteArtifact(value: unknown): AgentNodeArtifact | null {

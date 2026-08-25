@@ -58,6 +58,17 @@ subscribes to new A2A events. A2A alone does not replay missed stream events.
 Do not use a task state change as approval for a new action. Sero keeps control
 approval and A2A task state separate.
 
+## Choose an approval policy
+
+Remote sessions ask before `bash`, `write`, and `edit` tool calls by default.
+Select **Approve once** for one call. Select **Allow for session** when you trust
+the node, its controllers, and the work assigned to that session. This setting
+also applies to later turns and survives a node restart.
+
+Select **Require approvals** in the session toolbar to restore prompts. Treat an
+allowed session as code running with the `sero-node` account. Docker access can
+make that code effectively root on the node.
+
 The Agent Node delivery and update format is not selected yet.
 
 For service and security procedures, see

@@ -81,7 +81,7 @@ describe('A2A 1.0 card contract', () => {
 });
 
 describe('control-plane boundary contract', () => {
-  it('records all 18 operation gaps and all three stream gaps', () => {
+  it('records every operation gap and all three stream gaps', () => {
     expect(Object.keys(CONTROL_OPERATION_BOUNDARIES)).toEqual(CONTROL_OPERATION_NAMES);
     expect(Object.keys(CONTROL_STREAM_BOUNDARIES)).toEqual(CONTROL_STREAM_NAMES);
     expect(Object.values(CONTROL_OPERATION_BOUNDARIES)).toSatisfy(

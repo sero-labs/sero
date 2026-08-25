@@ -68,8 +68,8 @@ async function sseMessages(response: Response, count: number): Promise<Array<{ e
 }
 
 describe("wire contracts", () => {
-  test("declares exactly 18 control operations and the limited tool surface", async () => {
-    expect(CONTROL_OPERATION_NAMES).toHaveLength(18);
+  test("declares the control operations and the limited tool surface", async () => {
+    expect(CONTROL_OPERATION_NAMES).toHaveLength(19);
     const current = await fixture();
     try {
       const response = await route(new Request("https://node/.well-known/agent-card.json"), current.services, "https://node");
@@ -80,7 +80,7 @@ describe("wire contracts", () => {
     } finally { await current.temp.cleanup(); }
   });
 
-  test("serves requests and replies accepted by all 18 shared operation schemas", async () => {
+  test("serves requests and replies accepted by every shared operation schema", async () => {
     const current = await fixture();
     try {
       const session = await current.services.sessions.create({ model: "anthropic/claude", workspace: "contract" });
@@ -90,6 +90,7 @@ describe("wire contracts", () => {
         revokeController: { controllerId: current.enrolled.controllerId }, listSessions: {},
         createSession: { workspace: "created", model: { providerId: "anthropic", modelId: "claude" }, name: "Created" },
         deleteSession: { contextId: session.id }, setSessionModel: { contextId: session.id, model: { providerId: "anthropic", modelId: "opus" } },
+        setSessionApprovalMode: { contextId: session.id, approvalMode: "allow" },
         getNodeHealth: {}, getProviders: {}, login: { providerId: "anthropic" }, logout: { providerId: "anthropic" },
         setApiKey: { providerId: "anthropic", key: "secret" }, removeApiKey: { providerId: "anthropic" },
         respondPrompt: { value: "yes" }, respondSelect: { value: "one" }, respondManualCode: { value: "code" }, cancel: {},
@@ -281,15 +282,16 @@ describe("wire contracts", () => {
       const forged = await rpc(current, "SendMessage", { message: { contextId: session.id, parts: [{ data: { type: "approval_response", approvalId: crypto.randomUUID(), approved: true } }] } });
       expect(await forged.json()).toMatchObject({ error: { message: "approval_not_found" } });
       const approvalId = required.result.status.message.parts[0].data.approvalId as string;
-      const accepted = await rpc(current, "SendStreamingMessage", { message: { contextId: session.id, parts: [{ data: { type: "approval_response", approvalId, approved: true } }] } });
+      const accepted = await rpc(current, "SendStreamingMessage", { message: { contextId: session.id, parts: [{ data: { type: "approval_response", approvalId, approved: true, scope: "task" } }] } });
       await accepted.body?.cancel();
       expect(await decision).toBe(true);
+      expect(await runner.hooks!.approve("bash", { command: "next" })).toBe(true);
       runner.release?.("done");
       while ((await current.services.sessions.getTask(task.taskId))?.status !== "completed") await Bun.sleep(1);
     } finally { await current.temp.cleanup(); }
   });
 
-  test("publishes Pi tool outputs as inline and authenticated large task artifacts", async () => {
+  test("publishes explicit outputs as inline and authenticated large task artifacts", async () => {
     const current = await fixture();
     try {
       const session = await current.services.sessions.create({ model: "test/model", workspace: "tool-artifacts" });
