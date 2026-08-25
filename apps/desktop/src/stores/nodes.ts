@@ -18,6 +18,7 @@ import type {
 } from '@/types/ipc-agent-node';
 import type { AgentStreamEvent } from '@/types/agent';
 import type { AuthEvent } from '@sero-ai/a2a';
+import { applyToolStart } from '@/stores/agent-tool-input';
 
 export function agentNodeApi(): SeroAgentNodeAPI {
   const api = window.sero.agentNodes;
@@ -209,7 +210,18 @@ const errorText = (error: unknown) => error instanceof Error ? error.message : '
 
 function applyConversationEvent(messages: AgentNodeMessage[], event: AgentStreamEvent): AgentNodeMessage[] {
   if (event.type === 'messages_loaded') return event.messages;
-  if (event.type === 'message_start') return [...messages.filter((item) => item.id !== event.message.id), event.message];
+  if (event.type === 'message_start') {
+    const userText = event.message.type === 'user' ? event.message.text : null;
+    const optimistic = userText !== null && !event.message.id.startsWith('remote:')
+      ? messages.findIndex((item) => item.type === 'user' && item.id.startsWith('remote:') && item.text === userText)
+      : -1;
+    if (optimistic >= 0) return messages.map((item, index) => index === optimistic ? event.message : item);
+    const liveAssistant = event.message.type === 'assistant' && !event.message.id.startsWith('live:')
+      ? messages.findIndex((item) => item.type === 'assistant' && item.id.startsWith('live:'))
+      : -1;
+    if (liveAssistant >= 0) return messages.map((item, index) => index === liveAssistant ? event.message : item);
+    return [...messages.filter((item) => item.id !== event.message.id), event.message];
+  }
   if (event.type === 'message_end') return messages.map((item) => item.id === event.messageId && item.type === 'assistant'
     ? { ...item, text: event.text, isStreaming: false } : item);
   if (event.type === 'text_delta' || event.type === 'thinking_delta') {
@@ -218,6 +230,20 @@ function applyConversationEvent(messages: AgentNodeMessage[], event: AgentStream
         ? { ...item, text: item.text + event.delta }
         : { ...item, thinking: (item.thinking ?? '') + event.delta }
       : item);
+  }
+  if (event.type === 'tool_start') return applyToolStart(messages, event.tool);
+  if (event.type === 'tool_update' || event.type === 'tool_end') {
+    return messages.map((message) => message.type === 'tool' && message.toolCallId === event.toolCallId
+      ? {
+          ...message,
+          output: event.output,
+          details: event.details ?? message.details,
+          images: event.images ?? message.images,
+          isError: event.type === 'tool_end' ? event.isError : message.isError,
+          state: event.type === 'tool_update' ? 'running' : event.isError ? 'error' : 'completed',
+          isPartialOutput: event.type === 'tool_update',
+        }
+      : message);
   }
   return messages;
 }

@@ -78,6 +78,46 @@ describe('nodes store', () => {
     expect(useNodesStore.getState().messages[key]).toEqual([{ type: 'assistant', id: 'a1', text: 'Hello world', isStreaming: true }]);
   });
 
+  it('shows queued user messages immediately and renders live remote tools', () => {
+    const key = sessionLocationKey({ kind: 'node', nodeId: node.id, sessionId: session.id });
+    useNodesStore.getState().handleEvent({
+      type: 'conversation', nodeId: node.id,
+      event: { type: 'message_start', sessionId: key, message: { type: 'user', id: 'remote:1', text: 'Keep going' } },
+    });
+    useNodesStore.getState().handleEvent({
+      type: 'conversation', nodeId: node.id,
+      event: { type: 'tool_start', sessionId: key, tool: {
+        type: 'tool', id: 'tool:1', toolCallId: 'tool-1', toolName: 'bash', input: { command: 'docker pull image' },
+        output: null, isError: false, state: 'running',
+      } },
+    });
+    useNodesStore.getState().handleEvent({
+      type: 'conversation', nodeId: node.id,
+      event: { type: 'tool_update', sessionId: key, toolCallId: 'tool-1', output: '50%' },
+    });
+    expect(useNodesStore.getState().messages[key]).toMatchObject([
+      { type: 'user', text: 'Keep going' },
+      { type: 'tool', toolCallId: 'tool-1', output: '50%', state: 'running', isPartialOutput: true },
+    ]);
+  });
+
+  it('replaces optimistic messages with authoritative replay entries', () => {
+    const key = sessionLocationKey({ kind: 'node', nodeId: node.id, sessionId: session.id });
+    useNodesStore.setState({ messages: { [key]: [
+      { type: 'user', id: 'remote:user', text: 'Start it' },
+      { type: 'assistant', id: 'live:assistant', text: 'Starting', isStreaming: false },
+    ] } });
+    useNodesStore.getState().handleEvent({
+      type: 'conversation', nodeId: node.id,
+      event: { type: 'message_start', sessionId: key, message: { type: 'user', id: 'entry-user', text: 'Start it' } },
+    });
+    useNodesStore.getState().handleEvent({
+      type: 'conversation', nodeId: node.id,
+      event: { type: 'message_start', sessionId: key, message: { type: 'assistant', id: 'entry-assistant', text: 'Starting', isStreaming: false } },
+    });
+    expect(useNodesStore.getState().messages[key]?.map((message) => message.id)).toEqual(['entry-user', 'entry-assistant']);
+  });
+
   it('keeps the returned task active so send can be cancelled', async () => {
     useNodesStore.setState({ sessions: { [node.id]: [session] } });
     await useNodesStore.getState().sendMessage(node.id, session.id, 'Hello');

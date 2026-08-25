@@ -49,6 +49,21 @@ describe('remote conversation normalization', () => {
       .toMatchObject({ type: 'message_start', message: { id: 'task-1', text: 'Working' } });
   });
 
+  it('forwards remote thinking and live tool output through the shared chat event contract', () => {
+    const boundary = new RemoteConversationBoundary(remoteSessionKey('n', 's'));
+    expect(boundary.accept({ type: 'delta', delta: { kind: 'assistant_start', messageId: 'a1' } })[0])
+      .toMatchObject({ type: 'message_start', message: { id: 'a1', isStreaming: true } });
+    expect(boundary.accept({ type: 'delta', delta: { kind: 'thinking', messageId: 'a1', delta: 'Checking' } })[0])
+      .toMatchObject({ type: 'thinking_delta', messageId: 'a1', delta: 'Checking' });
+    expect(boundary.accept({ type: 'delta', delta: {
+      kind: 'tool_start', toolCallId: 'tool-1', toolName: 'bash', input: { command: 'docker pull image' },
+    } })[0]).toMatchObject({ type: 'tool_start', tool: { toolCallId: 'tool-1', state: 'running' } });
+    expect(boundary.accept({ type: 'delta', delta: { kind: 'tool_update', toolCallId: 'tool-1', output: '50%' } })[0])
+      .toMatchObject({ type: 'tool_update', output: '50%' });
+    expect(boundary.accept({ type: 'delta', delta: { kind: 'tool_end', toolCallId: 'tool-1', output: 'done', isError: false } })[0])
+      .toMatchObject({ type: 'tool_end', output: 'done', isError: false });
+  });
+
   it('unwraps canonical SDK response and stream payloads', () => {
     const boundary = new RemoteConversationBoundary(remoteSessionKey('n', 's'));
     expect(boundary.accept({ result: { task: { status: { state: 'TASK_STATE_WORKING' } } } })[0])

@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { gateToolPermission, type RunnerHooks } from "../src/pi-host.ts";
+import type { ToolCallEvent } from "@earendil-works/pi-coding-agent";
+import { gateToolPermission, prepareToolCall, type RunnerHooks } from "../src/pi-host.ts";
 
 function hooks(approved: boolean, calls: string[]): RunnerHooks {
   return {
-    onDelta: () => {}, artifact: async () => {},
+    onEvent: () => {}, artifact: async () => {},
     approve: async (toolName) => { calls.push(toolName); return approved; },
   };
 }
@@ -23,5 +24,11 @@ describe("Pi tool permission gate", () => {
     const calls: string[] = [];
     expect(await gateToolPermission({ type: "tool_call", toolCallId: crypto.randomUUID(), toolName: "read", input: { path: "x" } }, hooks(false, calls))).toEqual({});
     expect(calls).toEqual([]);
+  });
+
+  test("keeps remote shell commands alive until completion or cancellation", async () => {
+    const event: ToolCallEvent = { type: "tool_call", toolCallId: crypto.randomUUID(), toolName: "bash", input: { command: "docker pull image", timeout: 1800 } };
+    await prepareToolCall(event, hooks(true, []));
+    expect(event.input).toEqual({ command: "docker pull image" });
   });
 });

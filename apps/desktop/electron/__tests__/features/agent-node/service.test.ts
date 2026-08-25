@@ -74,9 +74,15 @@ describe('AgentNodeService task lifecycle', () => {
 
   it('returns the active task id from the first streaming task event and cancels it', async () => {
     const service = new AgentNodeService('/profile');
+    const events: unknown[] = [];
+    service.subscribe((event) => events.push(event));
     const result = await service.send({ nodeId: 'node-1', contextId: 'session-1', text: 'Hello' });
     await service.cancelTask('node-1', result.taskId);
     expect(result).toEqual({ taskId: 'task-1' });
+    expect(events).toContainEqual(expect.objectContaining({
+      type: 'conversation', nodeId: 'node-1',
+      event: expect.objectContaining({ type: 'message_start', message: expect.objectContaining({ type: 'user', text: 'Hello' }) }),
+    }));
     expect(mocks.cancelTask).toHaveBeenCalledWith('task-1');
   });
 

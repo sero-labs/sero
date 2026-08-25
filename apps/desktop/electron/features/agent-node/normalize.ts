@@ -114,6 +114,8 @@ export class RemoteConversationBoundary {
       : wire.type === 'snapshot' && isRecord(wire.message)
         ? { ...wire.message, partial: true }
         : wire.type === 'delta' && isRecord(wire.delta) ? wire.delta : wire;
+    const live = this.acceptLive(item);
+    if (live) return live;
     const message = isRecord(item.message) ? item.message : item;
     const role = message.role === 'ROLE_USER' ? 'user'
       : message.role === 'ROLE_AGENT' ? 'assistant' : message.role;
@@ -164,5 +166,54 @@ export class RemoteConversationBoundary {
       return [{ type: 'agent_end', sessionId: this.sessionKey }];
     }
     return [];
+  }
+
+  private acceptLive(item: Record<string, unknown>): AgentStreamEvent[] | null {
+    const kind = typeof item.kind === 'string' ? item.kind : null;
+    const messageId = typeof item.messageId === 'string' ? item.messageId : null;
+    if (kind === 'assistant_start' && messageId) {
+      this.streamingMessageId = messageId;
+      const message: ChatMessage = { type: 'assistant', id: messageId, text: '', isStreaming: true };
+      this.messages.push(message);
+      return [{ type: 'message_start', sessionId: this.sessionKey, message }];
+    }
+    if (kind === 'assistant_end' && messageId) {
+      const text = typeof item.text === 'string' ? item.text : '';
+      const thinking = typeof item.thinking === 'string' ? item.thinking : undefined;
+      const current = this.messages.find((message) => message.id === messageId);
+      if (current?.type === 'assistant') Object.assign(current, { text, thinking, isStreaming: false });
+      this.streamingMessageId = null;
+      return [{ type: 'message_end', sessionId: this.sessionKey, messageId, text, thinking }];
+    }
+    const delta = typeof item.delta === 'string' ? item.delta : null;
+    if ((kind === 'text' || kind === 'thinking') && messageId && delta !== null) {
+      const current = this.messages.find((message) => message.id === messageId);
+      if (current?.type === 'assistant') {
+        if (kind === 'text') current.text += delta;
+        else current.thinking = (current.thinking ?? '') + delta;
+      }
+      return [{ type: kind === 'text' ? 'text_delta' : 'thinking_delta', sessionId: this.sessionKey, messageId, delta }];
+    }
+    const toolCallId = typeof item.toolCallId === 'string' ? item.toolCallId : null;
+    if (kind === 'tool_start' && toolCallId && typeof item.toolName === 'string') {
+      const tool: ChatMessage = {
+        type: 'tool', id: `tool:${toolCallId}`, toolCallId, toolName: item.toolName,
+        input: isRecord(item.input) ? item.input : {}, output: null, isError: false, state: 'running',
+      };
+      this.messages.push(tool);
+      return [{ type: 'tool_start', sessionId: this.sessionKey, tool }];
+    }
+    if ((kind === 'tool_update' || kind === 'tool_end') && toolCallId) {
+      const output = typeof item.output === 'string' ? item.output : null;
+      const tool = this.messages.find((message) => message.type === 'tool' && message.toolCallId === toolCallId);
+      if (tool?.type === 'tool') Object.assign(tool, {
+        output, isError: item.isError === true,
+        state: kind === 'tool_update' ? 'running' : item.isError === true ? 'error' : 'completed',
+      });
+      return kind === 'tool_update'
+        ? [{ type: 'tool_update', sessionId: this.sessionKey, toolCallId, output }]
+        : [{ type: 'tool_end', sessionId: this.sessionKey, toolCallId, output, isError: item.isError === true }];
+    }
+    return null;
   }
 }

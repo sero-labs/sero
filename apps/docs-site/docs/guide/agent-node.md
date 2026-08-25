@@ -58,6 +58,17 @@ subscribes to new A2A events. A2A alone does not replay missed stream events.
 Do not use a task state change as approval for a new action. Sero keeps control
 approval and A2A task state separate.
 
+## Follow long-running work
+
+Remote chat uses the same conversation, thinking, and tool components as local
+chat. It shows queued messages immediately and streams tool output while a
+command runs. Agent Node does not apply a command timeout. Use **Stop** to cancel
+the active task and its process tree.
+
+Live progress is transient. After a reconnect, Sero restores the durable Pi
+transcript and task state, but it cannot replay output that existed only as a
+live tool update.
+
 ## Choose an approval policy
 
 Remote sessions ask before `bash`, `write`, and `edit` tool calls by default.

@@ -37,11 +37,11 @@ export class DeferredRunner implements SessionRunner {
     this.behaviors.push(behavior);
     this.#append("user", text);
     this.hooks = hooks;
-    this.emit = hooks.onDelta;
+    this.emit = (value) => hooks.onEvent({ kind: "text", messageId: "test-assistant", delta: value });
     if (this.calls.length > 1) return Promise.resolve("");
     return new Promise((resolve) => {
       this.release = (value) => {
-        hooks.onDelta(value);
+        hooks.onEvent({ kind: "text", messageId: "test-assistant", delta: value });
         this.#append("assistant", value);
         resolve(value);
       };

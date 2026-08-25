@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { parseSessionEntries } from "@earendil-works/pi-coding-agent";
 import type { StatePaths } from "./state.ts";
 import { confinedWorkspace, secureWrite } from "./state.ts";
-import { ProviderAuthRequiredError, type RunnerHooks, type SessionRunner, type SessionRunnerFactory } from "./pi-host.ts";
+import { ProviderAuthRequiredError, type RunnerHooks, type RunnerStreamEvent, type SessionRunner, type SessionRunnerFactory } from "./pi-host.ts";
 import type { ApprovalRequest, SessionEntry, SessionRecord, TaskArtifact, TaskStatus, TaskTransition } from "./types.ts";
 import { EventHub } from "./events.ts";
 import { safeMessage } from "./redact.ts";
@@ -169,17 +169,15 @@ export class SessionStore {
 
   #runnerHooks(contextId: string, turn: ActiveTurn): RunnerHooks {
     return {
-      onDelta: (delta) => this.#delta(contextId, turn, delta),
+      onEvent: (event) => this.#stream(contextId, turn, event),
       approve: async (toolName, input) => {
-        if ((await this.required(contextId)).approvalMode === "allow") return true;
-        if (turn.approveRemaining) return true;
         const previous = turn.approvalChain;
         let releaseQueue = () => {};
         turn.approvalChain = new Promise<void>((resolve) => { releaseQueue = resolve; });
         await previous;
-        if (turn.approveRemaining) { releaseQueue(); return true; }
-        if (TERMINAL.has(turn.task.status)) { releaseQueue(); return false; }
         try {
+          if ((await this.required(contextId)).approvalMode === "allow" || turn.approveRemaining) return true;
+          if (TERMINAL.has(turn.task.status)) return false;
           const request: ApprovalRequest = { approvalId: randomUUID(), toolName, input: structuredClone(input) };
           turn.task.input = request;
           await this.#transition(turn.task, "input-required", `Approval required for ${toolName}`);
@@ -195,9 +193,9 @@ export class SessionStore {
     };
   }
 
-  #delta(contextId: string, turn: ActiveTurn, delta: string): void {
-    turn.partial += delta;
-    this.events.emit(`session:${contextId}`, { type: "delta", data: { text: delta } });
+  #stream(contextId: string, turn: ActiveTurn, event: RunnerStreamEvent): void {
+    if (event.kind === "text") turn.partial += event.delta;
+    this.events.emit(`session:${contextId}`, { type: "stream", data: event });
   }
 
   #publishEntries(contextId: string, turn: ActiveTurn): void {

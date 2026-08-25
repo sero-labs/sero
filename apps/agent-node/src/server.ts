@@ -320,9 +320,8 @@ function sessionEvent(event: NodeEvent, taskId?: string): NodeEvent | undefined 
     if (!id) return undefined;
     return { type: "entry", id, data: SessionEventSchema.parse({ type: "entry", entry: { id, parentId: optionalString(entry, "parentId") ?? null, data: entry } }) };
   }
-  if (event.type === "delta" && taskId) {
-    const delta = objectValue(event.data);
-    return { type: "delta", data: SessionEventSchema.parse({ type: "delta", taskId, delta: { delta: optionalString(delta, "text") ?? "", messageId: taskId } }) };
+  if (event.type === "stream" && taskId) {
+    return { type: "delta", data: SessionEventSchema.parse({ type: "delta", taskId, delta: objectValue(event.data) }) };
   }
   return undefined;
 }

@@ -118,7 +118,8 @@ export class AgentNodeService {
   async send(input: AgentNodeMessageInput): Promise<AgentNodeSendResult> {
     const connection = await this.requireConnection(input.nodeId);
     const boundary = new RemoteConversationBoundary(remoteSessionKey(input.nodeId, input.contextId));
-    const message = remoteA2aMessage(input, randomUUID());
+    const messageId = `remote:${randomUUID()}`;
+    const message = remoteA2aMessage(input, messageId);
     let resolveTaskId!: (taskId: string) => void;
     const taskIdReady = new Promise<string>((resolve) => { resolveTaskId = resolve; });
     const a2aStream = await connection.a2a.streamMessage({ message }, (event) => {
@@ -137,6 +138,10 @@ export class AgentNodeService {
       }
     });
     connection.streams.add({ stop: a2aStream.close });
+    if (input.text) this.emit({
+      type: 'conversation', nodeId: input.nodeId,
+      event: { type: 'message_start', sessionId: remoteSessionKey(input.nodeId, input.contextId), message: { type: 'user', id: messageId, text: input.text } },
+    });
     const reconnect = () => {
       if (!this.connections.has(input.nodeId)) return;
       this.setState(input.nodeId, 'reconnecting');

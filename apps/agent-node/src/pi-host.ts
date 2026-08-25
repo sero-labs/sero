@@ -4,6 +4,7 @@ import {
   ModelRuntime,
   SessionManager,
   type AgentSession,
+  type AgentSessionEvent,
   type InlineExtension,
   type SessionEntry,
   type ToolCallEvent,
@@ -19,10 +20,18 @@ export interface SessionRunner {
 }
 
 export interface RunnerHooks {
-  onDelta(text: string): void;
+  onEvent(event: RunnerStreamEvent): void;
   approve(toolName: "write" | "edit" | "bash", input: Record<string, unknown>): Promise<boolean>;
   artifact(name: string, data: Uint8Array, mediaType: string): Promise<void>;
 }
+
+export type RunnerStreamEvent =
+  | { kind: "assistant_start"; messageId: string }
+  | { kind: "assistant_end"; messageId: string; text: string; thinking?: string }
+  | { kind: "text" | "thinking"; messageId: string; delta: string }
+  | { kind: "tool_start"; toolCallId: string; toolName: string; input: Record<string, unknown> }
+  | { kind: "tool_update"; toolCallId: string; output: string | null }
+  | { kind: "tool_end"; toolCallId: string; output: string | null; isError: boolean };
 
 export type SessionRunnerFactory = (
   sessionId: string,
@@ -62,7 +71,7 @@ export function createPiRunnerFactory(paths: StatePaths): SessionRunnerFactory {
       : SessionManager.create(cwd, paths.sessions, { id: sessionId });
     let providerRejectedAuth = false;
     const extension: InlineExtension = (pi) => {
-      pi.on("tool_call", (event) => gateToolPermission(event, hooks));
+      pi.on("tool_call", (event) => prepareToolCall(event, hooks));
       pi.on("after_provider_response", (event) => { if (event.status === 401 || event.status === 403) providerRejectedAuth = true; });
     };
     const services = await createAgentSessionServices({
@@ -74,11 +83,17 @@ export function createPiRunnerFactory(paths: StatePaths): SessionRunnerFactory {
     });
     const authoritativePath = manager.getSessionFile();
     if (!authoritativePath) throw new Error(`session_persistence_unavailable: ${sessionId}`);
-    return new PiRunner(created.session, manager, authoritativePath, provider, () => providerRejectedAuth);
+    if (!hooks) throw new Error(`runner_hooks_unavailable: ${sessionId}`);
+    return new PiRunner(created.session, manager, authoritativePath, provider, () => providerRejectedAuth, hooks);
   };
 }
 
 const GATED_TOOLS = new Set(["write", "edit", "bash"]);
+export function prepareToolCall(event: ToolCallEvent, hooks?: RunnerHooks): Promise<{ block?: boolean; reason?: string; terminate?: boolean }> {
+  if (event.toolName === "bash") delete event.input.timeout;
+  return gateToolPermission(event, hooks);
+}
+
 export async function gateToolPermission(event: ToolCallEvent, hooks?: RunnerHooks): Promise<{ block?: boolean; reason?: string; terminate?: boolean }> {
   if (!hooks || !GATED_TOOLS.has(event.toolName)) return {};
   const approved = await hooks.approve(event.toolName as "write" | "edit" | "bash", event.input);
@@ -86,33 +101,81 @@ export async function gateToolPermission(event: ToolCallEvent, hooks?: RunnerHoo
 }
 
 class PiRunner implements SessionRunner {
+  private activeRuns = 0;
+  private currentAssistantId: string | null = null;
+  private unsubscribe?: () => void;
+
   constructor(
     readonly session: AgentSession,
     readonly manager: SessionManager,
     readonly sessionPath: string,
     readonly providerId: string,
     readonly providerRejectedAuth: () => boolean,
+    readonly hooks: RunnerHooks,
   ) {}
 
-  async run(text: string, behavior: "followUp" | "steer", hooks: RunnerHooks): Promise<string> {
+  async run(text: string, behavior: "followUp" | "steer", _hooks: RunnerHooks): Promise<string> {
     let result = "";
-    const unsubscribe = this.session.subscribe((event) => {
-      if (event.type !== "message_update") return;
-      const update = event.assistantMessageEvent;
-      if (update.type === "text_delta") {
-        result += update.delta;
-        hooks.onDelta(update.delta);
-      }
+    this.activeRuns++;
+    this.unsubscribe ??= this.session.subscribe((event) => {
+      const delta = this.#forward(event);
+      if (delta) result += delta;
     });
     try {
       await this.session.prompt(text, { streamingBehavior: this.session.isStreaming ? behavior : undefined });
       if (this.providerRejectedAuth()) throw new ProviderAuthRequiredError(this.providerId);
       return result;
     } finally {
-      unsubscribe();
+      this.activeRuns--;
+      if (this.activeRuns === 0) {
+        this.unsubscribe?.();
+        this.unsubscribe = undefined;
+      }
     }
+  }
+
+  #forward(event: AgentSessionEvent): string {
+    if (event.type === "message_start" && event.message.role === "assistant") {
+      this.currentAssistantId = `live:${crypto.randomUUID()}`;
+      this.hooks.onEvent({ kind: "assistant_start", messageId: this.currentAssistantId });
+      return "";
+    }
+    if (event.type === "message_update" && this.currentAssistantId) {
+      const update = event.assistantMessageEvent;
+      if (update.type === "text_delta" || update.type === "thinking_delta") {
+        this.hooks.onEvent({ kind: update.type === "text_delta" ? "text" : "thinking", messageId: this.currentAssistantId, delta: update.delta });
+        return update.type === "text_delta" ? update.delta : "";
+      }
+    }
+    if (event.type === "message_end" && event.message.role === "assistant" && this.currentAssistantId) {
+      const messageId = this.currentAssistantId;
+      this.currentAssistantId = null;
+      this.hooks.onEvent({ kind: "assistant_end", messageId, ...assistantText(event.message.content) });
+    }
+    if (event.type === "tool_execution_start") {
+      const input: Record<string, unknown> = { ...event.args };
+      if (event.toolName === "bash") delete input.timeout;
+      this.hooks.onEvent({ kind: "tool_start", toolCallId: event.toolCallId, toolName: event.toolName, input });
+    }
+    if (event.type === "tool_execution_update") {
+      this.hooks.onEvent({ kind: "tool_update", toolCallId: event.toolCallId, output: toolText(event.partialResult) });
+    }
+    if (event.type === "tool_execution_end") {
+      this.hooks.onEvent({ kind: "tool_end", toolCallId: event.toolCallId, output: toolText(event.result), isError: event.isError });
+    }
+    return "";
   }
 
   cancel(): Promise<void> { return this.session.abort(); }
   entries(): SessionEntry[] { return this.manager.getEntries(); }
+}
+
+function assistantText(content: Array<{ type: string; text?: string; thinking?: string }>): { text: string; thinking?: string } {
+  const text = content.flatMap((part) => part.type === "text" && part.text ? [part.text] : []).join("");
+  const thinking = content.flatMap((part) => part.type === "thinking" && part.thinking ? [part.thinking] : []).join("");
+  return thinking ? { text, thinking } : { text };
+}
+
+function toolText(result: { content?: Array<{ type: string; text?: string }> } | undefined): string | null {
+  return result?.content?.flatMap((part) => part.type === "text" && part.text ? [part.text] : []).join("\n") || null;
 }
