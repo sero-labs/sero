@@ -271,7 +271,13 @@ export class SessionStore {
   async #readLines<T>(path: string): Promise<T[]> {
     if (!(await Bun.file(path).exists())) return [];
     const text = await readFile(path, "utf8");
-    return text.split("\n").filter(Boolean).map((line) => JSON.parse(line) as T);
+    return text.split("\n").filter(Boolean).map((line) => {
+      try {
+        return JSON.parse(line) as T;
+      } catch {
+        throw new Error(`invalid durable record: ${basename(path)}`);
+      }
+    });
   }
   #sessionPath(id: string): string { return join(this.paths.sessions, `${id}.json`); }
   #taskPath(id: string): string { return join(this.paths.tasks, `${id}.jsonl`); }
