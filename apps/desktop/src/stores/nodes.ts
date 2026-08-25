@@ -55,14 +55,7 @@ export function agentNodeApi(): SeroAgentNodeAPI {
     },
     getModels: async (nodeId) => {
       const result = await api.control(nodeId, { operation: 'getProviders', params: {} });
-      if (!('models' in result) || !Array.isArray(result.models)) return [];
-      return result.models.flatMap((model): AgentNodeModel[] => {
-        if (!model || typeof model !== 'object') return [];
-        const providerId = 'providerId' in model ? model.providerId : 'provider' in model ? model.provider : undefined;
-        const modelId = 'modelId' in model ? model.modelId : 'id' in model ? model.id : undefined;
-        if (typeof providerId !== 'string' || typeof modelId !== 'string') return [];
-        return [{ providerId, modelId, name: 'name' in model && typeof model.name === 'string' ? model.name : modelId }];
-      });
+      return result.models.map((model): AgentNodeModel => ({ ...model }));
     },
     login: async (nodeId, providerId) => { await api.control(nodeId, { operation: 'login', params: { providerId } }); },
     logout: async (nodeId, providerId) => { await api.control(nodeId, { operation: 'logout', params: { providerId } }); },

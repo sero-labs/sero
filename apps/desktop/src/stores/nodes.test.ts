@@ -25,7 +25,7 @@ describe('nodes store', () => {
       control: vi.fn().mockImplementation((_nodeId, args) => args.operation === 'listSessions'
         ? Promise.resolve({ sessions: [ipcSession] })
         : args.operation === 'createSession' ? Promise.resolve({ session: ipcSession })
-          : args.operation === 'getProviders' ? Promise.resolve({ oauth: [], apiKey: [], models: [{ provider: 'anthropic', id: 'claude', name: 'Claude' }] })
+      : args.operation === 'getProviders' ? Promise.resolve({ oauth: [], apiKey: [], models: [{ providerId: 'anthropic', modelId: 'claude', name: 'Claude' }] })
             : Promise.resolve({ ok: true })),
       enrol: vi.fn(), remove: vi.fn(), connect: vi.fn(), send: vi.fn().mockResolvedValue({ taskId: 'task-1' }), cancelTask: vi.fn(), readBlob: vi.fn().mockResolvedValue(new Uint8Array([65])),
       attach: vi.fn().mockResolvedValue({ sessionKey: 'node:spark%3Awest:session%3Aone', messages: [], cursor: null }),
