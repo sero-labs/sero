@@ -1,5 +1,6 @@
 import type { AgentStreamEvent, ChatMessage } from '@/types/agent';
 import type { AgentNodeArtifact, AgentNodeMessageInput } from '@/types/ipc-agent-node';
+import { SERO_QUEUE_MODE_METADATA_KEY } from '@sero-ai/a2a';
 import { isRecord } from './types';
 
 export function remoteSessionKey(nodeId: string, contextId: string): string {
@@ -7,18 +8,17 @@ export function remoteSessionKey(nodeId: string, contextId: string): string {
 }
 
 export function remoteA2aMessage(input: AgentNodeMessageInput, messageId: string): Record<string, unknown> {
-  const parts: Array<Record<string, unknown>> = [{ kind: 'text', text: input.text }];
+  const parts: Array<Record<string, unknown>> = [{ text: input.text }];
   for (const attachment of input.attachments ?? []) {
-    parts.push({ kind: 'file', file: { name: attachment.filename, mimeType: attachment.mediaType, uri: attachment.url } });
+    parts.push({ url: attachment.url, filename: attachment.filename, mediaType: attachment.mediaType });
   }
   return {
-    kind: 'message',
-    role: 'user',
+    role: 'ROLE_USER',
     messageId,
     contextId: input.contextId,
     parts,
     ...(input.taskId ? { taskId: input.taskId } : {}),
-    ...(input.mode ? { metadata: { behavior: input.mode } } : {}),
+    ...(input.mode ? { metadata: { [SERO_QUEUE_MODE_METADATA_KEY]: input.mode } } : {}),
   };
 }
 
@@ -53,7 +53,10 @@ function textFromParts(parts: unknown): string {
 
 function unwrap(value: unknown): Record<string, unknown> | null {
   if (!isRecord(value)) return null;
-  if (isRecord(value.result)) return value.result;
+  if (isRecord(value.result)) return unwrap(value.result);
+  for (const key of ['task', 'message', 'statusUpdate', 'artifactUpdate']) {
+    if (isRecord(value[key])) return value[key];
+  }
   return value;
 }
 

@@ -6,6 +6,7 @@ import {
   NodeEventSchema,
   SessionEventSchema,
   SERO_CONTROL_VERSION,
+  SERO_QUEUE_MODE_METADATA_KEY,
   createSeroAgentCard,
   type ControlError,
   type ControlErrorCode,
@@ -25,7 +26,7 @@ import type { BlobStore } from "./blobs.ts";
 
 const CONTROL_SET = new Set<string>(CONTROL_OPERATION_NAMES);
 const TOOLS = ["read", "write", "edit", "bash", "grep", "find"];
-type ProviderService = Pick<ProviderAuth, "providers" | "login" | "logout" | "setApiKey" | "removeApiKey" | "respond" | "cancel" | "disconnect">;
+type ProviderService = Pick<ProviderAuth, "providers" | "models" | "login" | "logout" | "setApiKey" | "removeApiKey" | "respond" | "cancel" | "disconnect">;
 interface NodeServices { paths: StatePaths; controllers: ControllerStore; sessions: SessionStore; providers: ProviderService; events: EventHub; blobs: BlobStore; fingerprint: string; providersAdvertised: string[] }
 interface ServerOptions { host: string; port: number; publicUrl: string; tls?: boolean }
 const STARTED_AT = new Date().toISOString();
@@ -111,6 +112,7 @@ async function controlGet(request: Request, url: URL, operation: string, control
   if (operation === "auth/events") return new Response(sseStream([], (send, close) => services.events.subscribe("auth", (event) => send({ type: event.type, data: AuthEventSchema.parse(event.data) }), controller.id, close), request.signal, () => services.providers.disconnect(controller.id)), { headers: streamHeaders });
   const match = operation.match(/^sessions\/([^/]+)\/events$/);
   if (match) {
+    const buffered = services.events.subscribeBuffered(`session:${match[1]}`, controller.id);
     try {
       requireUuid(match[1], "contextId");
       const replay = await services.sessions.replay(match[1], url.searchParams.get("cursor") ?? undefined);
@@ -121,11 +123,14 @@ async function controlGet(request: Request, url: URL, operation: string, control
         ...(replay.partial && task ? [{ type: "snapshot", data: SessionEventSchema.parse({ type: "snapshot", taskId: task.taskId, message: { role: "assistant", text: replay.partial, partial: true } }) }] : []),
       ];
       services.events.emit("node", { type: "presence", data: NodeEventSchema.parse({ type: "presence", contextId: match[1], controllerIds: [controller.id] }) });
-      return new Response(sseStream(initial, (send, close) => services.events.subscribe(`session:${match[1]}`, (event) => {
+      return new Response(sseStream(initial, (send, close) => buffered.activate((event) => {
         const normalized = sessionEvent(event, services.sessions.activeTask(match[1])?.taskId);
         if (normalized) send(normalized);
-      }, controller.id, close), request.signal), { headers: streamHeaders });
-    } catch { return failure("not_found", "Session not found", 404); }
+      }, close), request.signal), { headers: streamHeaders });
+    } catch {
+      buffered.unsubscribe();
+      return failure("not_found", "Session not found", 404);
+    }
   }
   const blob = operation.match(/^blob\/([^/]+)$/);
   if (blob) {
@@ -162,7 +167,7 @@ async function dispatchControl(operation: ControlOperationName, body: Record<str
       return { session: sessionWire(record, services.sessions.activeTask(record.id)?.taskId ?? null) };
     }
     case "getNodeHealth": return { health: nodeHealth(services) };
-    case "getProviders": return services.providers.providers();
+    case "getProviders": return { ...(await services.providers.providers()), models: (await services.providers.models()).map((model) => ({ providerId: model.provider, modelId: model.id, name: model.name })) };
     case "login": return services.providers.login(controller!.id, requiredString(body, "providerId"));
     case "logout": await services.providers.logout(requiredString(body, "providerId")); return { ok: true };
     case "setApiKey": await services.providers.setApiKey(requiredString(body, "providerId"), requiredString(body, "key")); return { ok: true };
@@ -189,10 +194,10 @@ async function a2aRoute(request: Request, services: NodeServices): Promise<Respo
     if (method === "SendMessage" || method === "SendStreamingMessage") {
       const message = objectValue(params.message ?? params); const rawContextId = optionalString(message, "contextId") ?? optionalString(params, "contextId");
       const contextId = rawContextId ? requireUuid(rawContextId, "contextId") : undefined;
-      const text = extractText(message); const behavior = objectValue(message.metadata)["sero:queue-mode"] === "steer" ? "steer" : "followUp";
+      const text = extractText(message); const behavior = objectValue(message.metadata)[SERO_QUEUE_MODE_METADATA_KEY] === "steer" ? "steer" : "followUp";
       const task = await services.sessions.send(contextId, text, controller.id, behavior);
       if (method === "SendStreamingMessage") return taskResponse(task, id, services, request.signal, controller.id);
-      await waitTerminal(services.sessions, task.taskId); return json({ jsonrpc: "2.0", id, result: taskWire((await services.sessions.getTask(task.taskId))!) });
+      await waitTerminal(services.sessions, task.taskId); return json({ jsonrpc: "2.0", id, result: { task: taskWire((await services.sessions.getTask(task.taskId))!) } });
     }
     throw new Error("MethodNotFound");
   } catch (error) { return json(rpcError(id, -32000, safeMessage(error)), 400); }
@@ -204,7 +209,7 @@ function taskResponse(task: TaskTransition, id: unknown, services: NodeServices,
   const body = new ReadableStream<Uint8Array>({
     start(controller) {
       let closed = false;
-      const send = (value: TaskTransition) => controller.enqueue(encoder.encode(`data: ${JSON.stringify({ jsonrpc: "2.0", id, result: taskWire(value) })}\n\n`));
+      const send = (value: TaskTransition) => controller.enqueue(encoder.encode(`data: ${JSON.stringify({ jsonrpc: "2.0", id, result: { task: taskWire(value) } })}\n\n`));
       const close = () => { if (closed) return; closed = true; unsubscribe(); controller.close(); };
       send(task);
       const unsubscribe = services.events.subscribe(`task:${task.taskId}`, (event) => {
@@ -221,7 +226,7 @@ function taskResponse(task: TaskTransition, id: unknown, services: NodeServices,
 async function waitTerminal(sessions: SessionStore, taskId: string): Promise<void> {
   while (true) { const task = await sessions.getTask(taskId); if (!task || ["completed", "failed", "canceled", "rejected", "auth-required", "input-required"].includes(task.status)) return; await Bun.sleep(10); }
 }
-function taskWire(task: TaskTransition): Record<string, unknown> { return { id: task.taskId, contextId: task.contextId, status: { state: `TASK_STATE_${task.status.replaceAll("-", "_").toUpperCase()}`, message: task.message ? { role: "ROLE_AGENT", parts: [{ text: task.message }] } : undefined, timestamp: task.updatedAt } }; }
+function taskWire(task: TaskTransition): Record<string, unknown> { return { id: task.taskId, contextId: task.contextId, status: { state: `TASK_STATE_${task.status.replaceAll("-", "_").toUpperCase()}`, message: task.message ? { role: "ROLE_AGENT", messageId: `${task.taskId}:status`, contextId: task.contextId, taskId: task.taskId, parts: [{ text: task.message }] } : undefined, timestamp: task.updatedAt }, artifacts: [], history: [] }; }
 function rpcError(id: unknown, code: number, message: string): Record<string, unknown> { return { jsonrpc: "2.0", id, error: { code, message } }; }
 async function readJson(request: Request): Promise<Record<string, unknown>> { const value: unknown = await request.json(); return objectValue(value); }
 function objectValue(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }

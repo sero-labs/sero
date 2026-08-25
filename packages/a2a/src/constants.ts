@@ -6,6 +6,7 @@ export const SERO_CONTROL_VERSION_HEADER = 'Sero-Control-Version' as const;
 export const SERO_EXTENSION_URI = 'https://sero.dev/a2a/control-plane/v1' as const;
 export const SERO_CONTROL_PATH = '/sero/v1' as const;
 export const SERO_BEARER_SCHEME = 'seroBearer' as const;
+export const SERO_QUEUE_MODE_METADATA_KEY = 'sero:queue-mode' as const;
 
 // Keep the local posture tied to the canonical SDK constant at compile time.
 const sdkVersion: typeof SERO_A2A_VERSION = A2A_PROTOCOL_VERSION;

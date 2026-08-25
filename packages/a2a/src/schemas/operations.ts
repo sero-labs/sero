@@ -6,6 +6,7 @@ import {
   EmptySchema,
   IdSchema,
   ModelRefSchema,
+  ModelSchema,
   NodeHealthSchema,
   OAuthProviderSchema,
   SessionSchema,
@@ -59,6 +60,7 @@ export const ControlOperationSchemas = {
     response: z.object({
       oauth: z.array(OAuthProviderSchema),
       apiKey: z.array(ApiKeyProviderSchema),
+      models: z.array(ModelSchema),
     }).strict(),
   },
   login: { request: ProviderRequestSchema, response: OkSchema },

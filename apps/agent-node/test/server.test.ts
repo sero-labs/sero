@@ -6,6 +6,10 @@ import {
   NodeEventSchema,
   SessionEventSchema,
   SERO_EXTENSION_URI,
+  ClientFactory,
+  JsonRpcTransportFactory,
+  Role,
+  TaskState,
   type ControlOperationName,
 } from "@sero-ai/a2a";
 import { BlobStore, INLINE_ARTIFACT_LIMIT } from "../src/blobs.ts";
@@ -31,6 +35,7 @@ async function fixture() {
       oauth: [{ id: "anthropic", name: "Anthropic", isLoggedIn: false }],
       apiKey: [{ id: "anthropic", name: "Anthropic", hasKey: false, fromEnv: false }],
     }),
+    models: async () => [{ provider: "anthropic", id: "claude", name: "Claude" }],
     login: async () => ({ ok: true as const }), logout: async () => {}, setApiKey: async () => {},
     removeApiKey: async () => {}, respond: () => {}, cancel: () => {},
     disconnect: (id: string) => { disconnected.push(id); },
@@ -128,6 +133,49 @@ describe("wire contracts", () => {
     } finally { await current.temp.cleanup(); }
   });
 
+  test("passes all five operations through the canonical SDK ClientFactory", async () => {
+    const current = await fixture();
+    try {
+      const session = await current.services.sessions.create({ model: "test/model", workspace: "sdk" });
+      const sdkFetch = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+        const headers = new Headers(init?.headers);
+        headers.set("authorization", current.headers.authorization);
+        headers.set("A2A-Version", "1.0");
+        const url = input instanceof Request ? input.url : input.toString();
+        return route(new Request(url, { ...init, headers }), current.services, "https://node");
+      };
+      const fetchImpl: typeof fetch = Object.assign(sdkFetch, { preconnect: fetch.preconnect });
+      const card = await (await route(new Request("https://node/.well-known/agent-card.json"), current.services, "https://node")).json();
+      const client = await new ClientFactory({ transports: [new JsonRpcTransportFactory({ fetchImpl })] }).createFromAgentCard(card);
+      const request = {
+        tenant: "sero",
+        message: {
+          messageId: crypto.randomUUID(), contextId: session.id, taskId: "", role: Role.ROLE_USER,
+          parts: [{ content: { $case: "text" as const, value: "run" }, metadata: undefined, filename: "", mediaType: "text/plain" }],
+          metadata: undefined, extensions: [], referenceTaskIds: [],
+        },
+        configuration: undefined,
+        metadata: undefined,
+      };
+      const stream = client.sendMessageStream(request);
+      const first = await stream.next();
+      const firstPayload = first.value?.payload;
+      expect(firstPayload?.$case).toBe("task");
+      if (!firstPayload || firstPayload.$case !== "task") throw new Error("SDK did not receive a task stream payload");
+      const taskId = firstPayload.value.id;
+      expect((await client.getTask({ tenant: "sero", id: taskId })).id).toBe(taskId);
+      const subscription = client.resubscribeTask({ tenant: "sero", id: taskId });
+      expect((await subscription.next()).value?.payload?.$case).toBe("task");
+      expect((await client.cancelTask({ tenant: "sero", id: taskId, metadata: undefined })).status?.state).toBe(TaskState.TASK_STATE_CANCELED);
+      const other = await current.services.sessions.create({ model: "test/model", workspace: "sdk-send" });
+      setTimeout(() => current.runners.get(other.id)?.release?.("done"), 10);
+      const sent = await client.sendMessage({ ...request, message: { ...request.message, messageId: crypto.randomUUID(), contextId: other.id } });
+      expect("status" in sent && sent.status?.state).toBe(3);
+      await stream.return();
+      await subscription.return();
+    } finally { await current.temp.cleanup(); }
+  });
+
   test("rejects traversal and malformed filesystem-facing identifiers", async () => {
     const current = await fixture();
     try {
@@ -143,9 +191,14 @@ describe("wire contracts", () => {
       const session = await current.services.sessions.create({ model: "test/model", workspace: "replay" });
       await current.services.sessions.send(session.id, "hello", current.enrolled.controllerId);
       current.runners.get(session.id)?.emit?.("partial");
+      const replay = current.services.sessions.replay.bind(current.services.sessions);
+      current.services.sessions.replay = async (contextId, cursor) => {
+        const result = await replay(contextId, cursor);
+        current.runners.get(session.id)?.emit?.("during-snapshot");
+        return result;
+      };
       const request = new Request(`https://node/sero/v1/sessions/${session.id}/events`, { headers: current.headers });
       const response = await route(request, current.services, "https://node");
-      current.runners.get(session.id)?.emit?.("live");
       const messages = await sseMessages(response, 3);
       expect(messages.map((item) => item.event)).toEqual(["entry", "snapshot", "delta"]);
       expect(messages[0].id).toBe((messages[0].data as { entry: { id: string } }).entry.id);
@@ -192,6 +245,17 @@ describe("wire contracts", () => {
 });
 
 describe("enrolment", () => {
+  test("preserves every code minted concurrently", async () => {
+    const temp = await temporaryState();
+    try {
+      const store = new ControllerStore(await ensureState(temp.root));
+      const codes = await Promise.all(Array.from({ length: 12 }, () => store.mintCode()));
+      const results = await Promise.all(codes.map(({ code }, index) => store.enrol(code, `profile-${index}`)));
+      expect(results).toHaveLength(12);
+      expect(await store.list()).toHaveLength(12);
+    } finally { await temp.cleanup(); }
+  });
+
   test("serializes concurrent use of a single-use code", async () => {
     const temp = await temporaryState();
     try {

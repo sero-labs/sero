@@ -36,6 +36,15 @@ The system service is `sero-node.service` and runs under the account defined in
 must be available to issue the local identity and TLS leaf. The delivery and update format is not
 selected yet.
 
+Before the service starts, create `/etc/sero-node/sero-node.conf` with the public HTTPS origin.
+The node uses this value for its Agent Card, control extension, and authenticated blob URLs:
+
+```sh
+SERO_NODE_URL=https://spark.example:7443
+```
+
+The service refuses to start if this value is absent or is not an HTTPS origin.
+
 Run the first enrolment ceremony over SSH:
 
 ```sh

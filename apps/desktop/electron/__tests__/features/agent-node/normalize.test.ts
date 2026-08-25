@@ -25,11 +25,19 @@ describe('remote conversation normalization', () => {
 
   it('puts mid-turn queue behavior in the node-owned metadata field', () => {
     expect(remoteA2aMessage({ nodeId: 'n', contextId: 's', text: 'Change it', mode: 'steer' }, 'm')).toMatchObject({
-      contextId: 's', metadata: { behavior: 'steer' },
+      contextId: 's', role: 'ROLE_USER', parts: [{ text: 'Change it' }], metadata: { 'sero:queue-mode': 'steer' },
     });
     expect(remoteA2aMessage({ nodeId: 'n', contextId: 's', text: 'Next', mode: 'followUp' }, 'm')).toMatchObject({
-      metadata: { behavior: 'followUp' },
+      metadata: { 'sero:queue-mode': 'followUp' },
     });
+  });
+
+  it('unwraps canonical SDK response and stream payloads', () => {
+    const boundary = new RemoteConversationBoundary(remoteSessionKey('n', 's'));
+    expect(boundary.accept({ result: { task: { status: { state: 'TASK_STATE_WORKING' } } } })[0])
+      .toMatchObject({ type: 'agent_start' });
+    expect(boundary.accept({ result: { statusUpdate: { status: { state: 'TASK_STATE_COMPLETED' } } } })[0])
+      .toMatchObject({ type: 'agent_end' });
   });
 
   it('keeps authenticated artifact URLs and credentials out of renderer data', () => {

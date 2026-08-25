@@ -10,23 +10,21 @@ function digest(value: string, salt = ""): string {
 }
 
 export class ControllerStore {
-  #enrolQueue: Promise<void> = Promise.resolve();
+  #mutationQueue: Promise<void> = Promise.resolve();
   constructor(readonly paths: StatePaths, readonly now: () => number = Date.now) {}
 
   async mintCode(): Promise<{ code: string; expiresAt: string }> {
-    const code = randomBytes(18).toString("base64url");
-    const records = (await this.#enrolments()).filter((item) => item.expiresAt > this.now());
-    records.push({ digest: digest(code), expiresAt: this.now() + CODE_TTL_MS });
-    await secureWrite(this.paths.enrolments, `${JSON.stringify(records)}\n`);
-    return { code, expiresAt: new Date(this.now() + CODE_TTL_MS).toISOString() };
+    return this.#mutate(async () => {
+      const code = randomBytes(18).toString("base64url");
+      const records = (await this.#enrolments()).filter((item) => item.expiresAt > this.now());
+      records.push({ digest: digest(code), expiresAt: this.now() + CODE_TTL_MS });
+      await secureWrite(this.paths.enrolments, `${JSON.stringify(records)}\n`);
+      return { code, expiresAt: new Date(this.now() + CODE_TTL_MS).toISOString() };
+    });
   }
 
   async enrol(code: string, profileId: string): Promise<{ controllerId: string; token: string }> {
-    const previous = this.#enrolQueue;
-    let release = () => {};
-    this.#enrolQueue = new Promise<void>((resolve) => { release = resolve; });
-    await previous;
-    try {
+    return this.#mutate(async () => {
       const key = digest(code);
       const codes = await this.#enrolments();
       const pending = codes.find((item) => item.digest === key);
@@ -41,9 +39,7 @@ export class ControllerStore {
       records.push({ id, profileId, salt, tokenDigest: digest(token, salt), createdAt: new Date(this.now()).toISOString() });
       await this.#save(records);
       return { controllerId: id, token };
-    } finally {
-      release();
-    }
+    });
   }
 
   async authenticate(token: string): Promise<AuthenticatedController | undefined> {
@@ -77,6 +73,13 @@ export class ControllerStore {
 
   async #save(records: ControllerRecord[]): Promise<void> {
     await secureWrite(this.paths.clients, `${JSON.stringify(records, null, 2)}\n`);
+  }
+  async #mutate<Result>(operation: () => Promise<Result>): Promise<Result> {
+    const previous = this.#mutationQueue;
+    let release = () => {};
+    this.#mutationQueue = new Promise<void>((resolve) => { release = resolve; });
+    await previous;
+    try { return await operation(); } finally { release(); }
   }
   async #enrolments(): Promise<EnrolmentRecord[]> {
     const value: unknown = await Bun.file(this.paths.enrolments).json();

@@ -6,6 +6,11 @@ interface Subscription {
   close?: () => void;
 }
 
+export interface BufferedSubscription {
+  activate(listener: (event: NodeEvent) => void, close?: () => void): () => void;
+  unsubscribe(): void;
+}
+
 export class EventHub {
   readonly #listeners = new Map<string, Set<Subscription>>();
 
@@ -21,6 +26,26 @@ export class EventHub {
     return () => {
       listeners.delete(subscription);
       if (listeners.size === 0) this.#listeners.delete(channel);
+    };
+  }
+
+  subscribeBuffered(channel: string, controllerId?: string, close?: () => void): BufferedSubscription {
+    const pending: NodeEvent[] = [];
+    let listener: ((event: NodeEvent) => void) | undefined;
+    let activeClose = close;
+    const unsubscribe = this.subscribe(channel, (event) => {
+      if (listener) listener(event);
+      else pending.push(event);
+    }, controllerId, () => activeClose?.());
+    return {
+      activate(next, onClose) {
+        for (const event of pending) next(event);
+        pending.length = 0;
+        listener = next;
+        activeClose = onClose ?? close;
+        return unsubscribe;
+      },
+      unsubscribe,
     };
   }
 

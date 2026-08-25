@@ -40,6 +40,12 @@ export const ModelRefSchema = z.object({
   modelId: IdSchema,
 }).strict();
 
+export const ModelSchema = z.object({
+  providerId: IdSchema,
+  modelId: IdSchema,
+  name: IdSchema,
+}).strict();
+
 export const ControllerSchema = z.object({
   id: IdSchema,
   name: IdSchema,
@@ -78,6 +84,7 @@ export const ApiKeyProviderSchema = z.object({
 }).strict();
 
 export type ModelRef = z.infer<typeof ModelRefSchema>;
+export type Model = z.infer<typeof ModelSchema>;
 export type Controller = z.infer<typeof ControllerSchema>;
 export type Session = z.infer<typeof SessionSchema>;
 export type NodeHealth = z.infer<typeof NodeHealthSchema>;

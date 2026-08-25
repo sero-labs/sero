@@ -33,9 +33,14 @@ async function main(): Promise<void> {
   if (command !== "serve") throw new Error(`unknown command: ${command}`);
   const host = option("--host", process.env.SERO_NODE_HOST ?? "0.0.0.0");
   const port = Number(option("--port", process.env.SERO_NODE_PORT ?? "7443"));
-  const publicUrl = option("--public-url", process.env.SERO_NODE_URL ?? `https://${host}:${port}`);
-  const services = await createApp(root, publicUrl);
-  const server = await startServer(services, { host, port, publicUrl, tls: process.env.SERO_NODE_INSECURE !== "1" });
+  const publicUrl = option("--public-url", process.env.SERO_NODE_URL ?? "");
+  if (!publicUrl) throw new Error("SERO_NODE_URL or --public-url is required");
+  const parsedPublicUrl = URL.parse(publicUrl);
+  if (!parsedPublicUrl || parsedPublicUrl.protocol !== "https:" || parsedPublicUrl.pathname !== "/" || parsedPublicUrl.search || parsedPublicUrl.hash) {
+    throw new Error("public URL must be an HTTPS origin");
+  }
+  const services = await createApp(root, parsedPublicUrl.origin);
+  const server = await startServer(services, { host, port, publicUrl: parsedPublicUrl.origin, tls: process.env.SERO_NODE_INSECURE !== "1" });
   console.log(`sero-node ready on ${server.url.origin}`);
 }
 
