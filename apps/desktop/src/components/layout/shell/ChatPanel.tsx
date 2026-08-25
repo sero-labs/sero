@@ -26,6 +26,8 @@ import { QuestionnaireNotice, getFeedbackToolGroupDisposition } from '@/componen
 import { EmptyState, ThinkingIndicator } from '@/components/layout/ChatPanelHelpers';
 import { ChatPromptArea } from '@/components/layout/ChatPromptArea';
 import { ImageLightbox } from '@/components/layout/ImageLightbox';
+import { parseSessionLocationKey, useNodesStore } from '@/stores/nodes';
+import { RemoteConversation } from '@/components/layout/nodes/RemoteConversation';
 
 const EMPTY_MESSAGES: NonNullable<ReturnType<typeof useFocusedAgent>>['messages'] = [];
 
@@ -36,6 +38,13 @@ const EMPTY_MESSAGES: NonNullable<ReturnType<typeof useFocusedAgent>>['messages'
  * Reads from the focused agent instance in the multi-session pool.
  */
 export function ChatPanel() {
+  const remoteLocationKey = useNodesStore((state) => state.activeLocationKey);
+  const remoteLocation = parseSessionLocationKey(remoteLocationKey);
+  if (remoteLocation?.kind === 'node') return <RemoteConversation location={remoteLocation} />;
+  return <LocalChatPanel />;
+}
+
+function LocalChatPanel() {
   const focused = useFocusedAgent();
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
 

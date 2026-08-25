@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { SeroSessionInfo } from '@/types/ipc';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { persistLayout } from '@/lib/persist-layout';
+import { sessionLocationKey, useNodesStore } from '@/stores/nodes';
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -113,7 +114,11 @@ export const useSessionStore = create<SessionsState>((set, get) => ({
 
   setActiveSession: (id) => {
     set({ activeSessionId: id });
-    persistLayout({ activeSessionId: id });
+    useNodesStore.getState().clearRemoteSelection();
+    persistLayout({
+      activeSessionId: id,
+      activeSessionLocationKey: id ? sessionLocationKey({ kind: 'local', sessionId: id }) : null,
+    });
     // Also activate the parent workspace so the title bar updates
     if (id) {
       const session = get().sessions.find((s) => s.id === id);

@@ -15,6 +15,7 @@ const interactivePrototypes = [
   ['Workflow skill extraction', 'sero-workflow-skill-extraction.html'],
   ['Streaming file writes', 'streaming-file-writes.html'],
   ['Expanded tool call group', 'tool-call-group-expanded.html'],
+  ['Agent Node desktop', 'agent-node-desktop.html'],
 ] as const;
 
 const agentRoomScreens = [
