@@ -103,3 +103,23 @@ describe('describeStorageWeakness', () => {
     expect(mod.describeStorageWeakness()).toContain('unavailable');
   });
 });
+
+describe('describeStorageRemedy', () => {
+  it('names the Linux fix when the backend is weak', async () => {
+    const mod = await loadWith({ platform: 'linux', available: true, backend: 'basic_text' });
+    expect(mod.describeStorageRemedy()).toContain('gnome-keyring');
+  });
+
+  it('offers nothing when protection is already real', async () => {
+    const mod = await loadWith({ platform: 'linux', available: true, backend: 'kwallet6' });
+    expect(mod.describeStorageRemedy()).toBeNull();
+  });
+
+  it('offers nothing on macOS or Windows, where there is nothing to install', async () => {
+    const mac = await loadWith({ platform: 'darwin', available: true });
+    expect(mac.describeStorageRemedy()).toBeNull();
+
+    const win = await loadWith({ platform: 'win32', available: true });
+    expect(win.describeStorageRemedy()).toBeNull();
+  });
+});

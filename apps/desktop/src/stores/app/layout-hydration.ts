@@ -8,6 +8,7 @@ import { useExplorerStore } from '@/stores/explorer';
 import { useAgentBoardStore } from '@/stores/agent-board';
 import { seedNavigationHistory } from '@/stores/navigation';
 import { hydrateZoom } from '@/stores/zoom';
+import { useStorageSecurityStore } from '@/stores/storage-security';
 import { normaliseChromeShortcuts, normaliseFavouriteApps } from './shared';
 import type { AppState } from './state';
 import { useAppStore } from './state';
@@ -95,6 +96,11 @@ export async function loadLayout(): Promise<void> {
         globalApp ? undefined : workspaceId,
       );
       hydrateZoom(state.zoomFactor);
+
+      // Storage security: apply the persisted dismissal, then ask the host.
+      // The keyring backend cannot change while Sero runs, so one check is enough.
+      useStorageSecurityStore.getState().hydrateDismissed(state.storageWarningDismissed === true);
+      void useStorageSecurityStore.getState().check();
 
       // Hydrate active workspace into workspace store
       if (state.activeWorkspaceId !== undefined) {

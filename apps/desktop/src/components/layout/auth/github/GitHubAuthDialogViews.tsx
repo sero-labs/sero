@@ -1,8 +1,34 @@
 import type { ReactNode } from 'react';
-import { AlertCircle, Check, Copy, ExternalLink, GitFork, Loader2 } from 'lucide-react';
+import { AlertCircle, Check, Copy, ExternalLink, GitFork, Loader2, TriangleAlert } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { GitHubAuthSource } from '@/stores/github-auth';
+import { useStorageSecurityStore } from '@/stores/storage-security';
+
+/**
+ * Shown at the moment the user is about to hand Sero a token to keep.
+ *
+ * The banner and status bar cover the same condition app-wide; this one exists
+ * because signing in is the point where the trade-off is actually being made,
+ * and a general banner is easy to have dismissed weeks earlier.
+ */
+function StorageWarningInline() {
+  const status = useStorageSecurityStore((s) => s.status);
+  if (!status || status.secure) return null;
+
+  return (
+    <div className="flex gap-2.5 rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-muted)] px-3 py-2.5 text-xs leading-relaxed">
+      <TriangleAlert className="mt-0.5 size-3.5 shrink-0 text-[var(--status-warning)]" />
+      <div className="min-w-0">
+        <p className="text-[var(--text-primary)]">This token will not be stored securely.</p>
+        <p className="text-[var(--text-secondary)]">
+          {status.reason}
+          {status.remedy ? ` ${status.remedy}` : ''}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 function GitHubAuthStateFrame({
   icon,
@@ -90,6 +116,8 @@ export function GitHubAuthReadyView({
       <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-muted)]/30 px-3 py-2 text-xs leading-relaxed text-[var(--text-secondary)]">
         We&apos;ll open GitHub in your browser and give you a one-time device code. When you finish, Sero returns you to {sourceSummary(source)}
       </div>
+
+      <StorageWarningInline />
 
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>

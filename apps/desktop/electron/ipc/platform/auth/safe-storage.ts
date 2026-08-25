@@ -10,33 +10,37 @@
  * Used by Sero apps (e.g. Starling Bank) to securely store API tokens.
  *
  * Security note: the reported capability is deliberately stricter than the
- * mechanism used. `available` reports false whenever storage does not really
- * protect the data — including the Linux `basic_text` backend, where Chromium
- * encrypts with a published constant key. Encrypt and decrypt still call
- * safeStorage whenever Electron can, so blobs written before this check keep
- * round-tripping. See shared/lib/safe-storage-backend.ts.
+ * mechanism used. `available` and `status` report insecure whenever storage
+ * does not really protect the data — including the Linux `basic_text` backend,
+ * where Chromium encrypts with a published constant key. Encrypt and decrypt
+ * still call safeStorage whenever Electron can, so blobs written before this
+ * check keep round-tripping. See shared/lib/safe-storage-backend.ts.
  */
 
 import { ipcMain, safeStorage } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
-import { describeStorageWeakness, hasRealEncryption } from '@electron/shared/lib/safe-storage-backend';
-import { broadcastToWindows } from '../../lib/window-broadcast';
+import type { SafeStorageStatus } from '@/types/ipc';
+import {
+  describeStorageRemedy,
+  describeStorageWeakness,
+  hasRealEncryption,
+} from '@electron/shared/lib/safe-storage-backend';
 
 let weakStorageWarned = false;
 
-/** Log and broadcast a warning when storage does not really protect credentials. */
+/** Log once when storage does not really protect credentials. */
 function warnWeakStorage(): void {
   const reason = describeStorageWeakness();
   if (!reason || weakStorageWarned) return;
   weakStorageWarned = true;
-
   console.warn(`[security] WARNING: credentials are not stored securely. ${reason}`);
+}
 
-  // Notify all renderer windows so the UI can show a persistent warning
-  broadcastToWindows('sero:security-warning', {
-    type: 'encryption-unavailable',
-    message: `Credentials are not stored securely. ${reason}`,
-  });
+/** Current protection state, for the renderer to surface to the user. */
+export function getSafeStorageStatus(): SafeStorageStatus {
+  const reason = describeStorageWeakness();
+  if (!reason) return { secure: true, reason: null, remedy: null };
+  return { secure: false, reason, remedy: describeStorageRemedy() };
 }
 
 export function registerSafeStorageHandlers(): void {
@@ -44,6 +48,11 @@ export function registerSafeStorageHandlers(): void {
     const available = hasRealEncryption();
     if (!available) warnWeakStorage();
     return available;
+  });
+
+  ipcMain.handle(IpcChannels.safeStorage.status, (): SafeStorageStatus => {
+    warnWeakStorage();
+    return getSafeStorageStatus();
   });
 
   ipcMain.handle(

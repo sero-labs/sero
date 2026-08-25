@@ -49,6 +49,18 @@ export function hasRealEncryption(): boolean {
   return safeStorage.isEncryptionAvailable() && !isUnprotectedBackend();
 }
 
+/**
+ * What the user can actually do about it, or null when there is nothing to fix.
+ *
+ * Kept separate from the reason so the UI can show the explanation and the fix
+ * with different weight, and so the reason stays true if the remedy changes.
+ */
+export function describeStorageRemedy(): string | null {
+  if (process.platform !== 'linux') return null;
+  if (hasRealEncryption()) return null;
+  return 'Install gnome-keyring or KWallet, then restart Sero.';
+}
+
 /** Human-readable reason for a downgraded claim, or null when protection is real. */
 export function describeStorageWeakness(): string | null {
   if (!safeStorage.isEncryptionAvailable()) {
