@@ -62,3 +62,5 @@ The Agent Node delivery and update format is not selected yet.
 
 For service and security procedures, see
 [Agent Node Operations](/reference/agent-node-operations).
+For connection, enrolment, GPU, and Docker failures, see
+[Agent Node Troubleshooting](/reference/agent-node-troubleshooting).

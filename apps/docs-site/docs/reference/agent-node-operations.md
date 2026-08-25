@@ -58,6 +58,12 @@ Bun uses a JIT and cannot start with that setting. Keep `ProtectHome=yes` so the
 node cannot read operator home directories. Node workspaces stay under
 `/var/lib/sero-node/workspaces`.
 
+The baseline unit also uses `PrivateDevices=yes`. Grant hardware access only
+when the node needs it. Use a closed device policy and allow the required
+device groups. Do not use `DevicePolicy=auto` as a permanent configuration.
+See [Agent Node Troubleshooting](/reference/agent-node-troubleshooting) for the
+NVIDIA procedure and Docker trust boundary.
+
 Use these standard commands:
 
 ```sh
@@ -117,6 +123,9 @@ without replacing `identity.key`. Rotation is a CLI-only operator action. It is
 not a control-plane operation or a Desktop action.
 
 If `identity.key` changes, stop. This is re-enrolment, not TLS rotation.
+
+For service failures and host capability checks, see
+[Agent Node Troubleshooting](/reference/agent-node-troubleshooting).
 
 ## Release validation
 

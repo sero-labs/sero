@@ -61,6 +61,7 @@ const referenceRuntime = [
   { text: 'models.json', link: '/reference/models-json' },
   { text: 'Agent Definitions', link: '/reference/agent-definitions' },
   { text: 'Agent Node Operations', link: '/reference/agent-node-operations' },
+  { text: 'Agent Node Troubleshooting', link: '/reference/agent-node-troubleshooting' },
   { text: 'Agent Plugins', link: '/reference/agent-plugins' },
   { text: 'Orchestrator', link: '/reference/orchestrator' },
   { text: 'Workflows', link: '/reference/workflows' },

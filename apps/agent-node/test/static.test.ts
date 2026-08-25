@@ -15,6 +15,14 @@ test("systemd unit has the required account and hardening without W^X denial", a
   expect(unit).not.toContain("DynamicUser=");
 });
 
+test("optional NVIDIA access keeps the device policy closed", async () => {
+  const override = await readFile(new URL("../systemd/sero-node-nvidia.conf", import.meta.url), "utf8");
+  expect(override).toContain("PrivateDevices=no");
+  expect(override).toContain("DevicePolicy=closed");
+  expect(override).toContain("DeviceAllow=char-nvidia* rw");
+  expect(override).not.toContain("DevicePolicy=auto");
+});
+
 test("package pins Bun and produces the declared binary", async () => {
   const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
   const workspace = await readFile(new URL("../../../pnpm-workspace.yaml", import.meta.url), "utf8");
@@ -30,6 +38,7 @@ test("package pins Bun and produces the declared binary", async () => {
 
 test("operator documentation follows the fixed trust and control boundaries", async () => {
   const docs = await readFile(new URL("../../docs-site/docs/reference/agent-node-operations.md", import.meta.url), "utf8");
+  const troubleshooting = await readFile(new URL("../../docs-site/docs/reference/agent-node-troubleshooting.md", import.meta.url), "utf8");
   expect(docs).toContain("sero-node.service");
   expect(docs).toContain("Never back up `identity.key`");
   expect(docs).toContain("Any active controller can answer or cancel");
@@ -38,6 +47,9 @@ test("operator documentation follows the fixed trust and control boundaries", as
   expect(docs).toContain("CLI-only operator action");
   expect(docs).toContain("Keep `ProtectHome=yes`");
   expect(docs).not.toContain("sero-agent-node.service");
+  expect(troubleshooting).toContain("DevicePolicy=closed");
+  expect(troubleshooting).toContain("Do not set `DevicePolicy=auto`");
+  expect(troubleshooting).toContain("Docker access gives the agent effective root access");
 });
 
 test("hover-only node actions are also visible to keyboard focus", async () => {

@@ -48,7 +48,7 @@ The service refuses to start if this value is absent or is not an HTTPS origin.
 Run the first enrolment ceremony over SSH:
 
 ```sh
-sudo -u sero-node sero-node enrol
+sudo -u sero-node sh -c 'cd /var/lib/sero-node && sero-node enrol'
 ```
 
 Carry both the single-use code and SHA-256 SPKI fingerprint to Desktop. The code expires after ten
@@ -65,3 +65,8 @@ cursors. On process restart, non-terminal durable tasks become failed with `the 
 
 Installation and update packaging, discovery, cross-node scheduling, worktree isolation, and
 inbound third-party A2A support remain deferred.
+
+The default systemd unit blocks host devices. Apply `systemd/sero-node-nvidia.conf` when the node
+must use an NVIDIA GPU. Keep Docker access as a separate operator choice because the Docker socket
+gives the agent effective root access to the host. See the
+[Agent Node troubleshooting guide](../docs-site/docs/reference/agent-node-troubleshooting.md).

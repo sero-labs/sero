@@ -39,7 +39,10 @@ export async function assertIdentityPermissions(path: string): Promise<void> {
 
 function openssl(args: string[]): void {
   const result = spawnSync("openssl", args, { encoding: "utf8" });
-  if (result.status !== 0) throw new Error(`openssl failed: ${result.stderr.trim()}`);
+  if (result.status !== 0) {
+    const detail = result.stderr?.trim() || result.error?.message || "unknown error";
+    throw new Error(`openssl failed: ${detail}`);
+  }
 }
 
 async function ensureIdentity(paths: StatePaths): Promise<void> {
