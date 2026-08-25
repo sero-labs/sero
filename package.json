@@ -15,6 +15,7 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:advisory": "node scripts/test-advisory.mjs",
+    "test:agent-node-evidence": "node --test scripts/__tests__/validate-agent-node-evidence.test.mjs",
     "check:repository-layout": "node scripts/check-repository-layout.mjs",
     "theme:audit": "node scripts/audit-theme-colors.mjs",
     "theme:audit:strict": "node scripts/audit-theme-colors.mjs --strict",

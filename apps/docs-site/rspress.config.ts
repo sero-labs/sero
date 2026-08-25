@@ -27,6 +27,7 @@ const workspaceRuntime = [
 
 const agentsAutomation = [
   { text: 'Agent Sessions and Context', link: '/guide/agent-sessions-and-context' },
+  { text: 'Connect to an Agent Node', link: '/guide/agent-node' },
   { text: 'Subagents', link: '/guide/subagents' },
   { text: 'Memory', link: '/guide/memory' },
   { text: 'Scheduler and Reminders', link: '/guide/scheduler-reminders' },
@@ -59,6 +60,7 @@ const referenceRuntime = [
   { text: 'State and Folders', link: '/reference/state-and-folders' },
   { text: 'models.json', link: '/reference/models-json' },
   { text: 'Agent Definitions', link: '/reference/agent-definitions' },
+  { text: 'Agent Node Operations', link: '/reference/agent-node-operations' },
   { text: 'Agent Plugins', link: '/reference/agent-plugins' },
   { text: 'Orchestrator', link: '/reference/orchestrator' },
   { text: 'Workflows', link: '/reference/workflows' },

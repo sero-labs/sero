@@ -77,6 +77,37 @@ separate domain records. A Room member uses a standard persistent Pi session;
 Orchestrator does not own a second transcript store or model runtime. The
 Conductor can coordinate only inside the approved operating envelope.
 
+## Agent Node
+
+Agent Node is a headless Linux host for persistent Pi sessions. Sero Desktop is
+the controller. The node is an A2A 1.0 server. Desktop is an A2A 1.0 client.
+The node supports Linux x64 and Linux arm64. NVIDIA DGX Spark is an arm64 target.
+
+A2A carries agent work. It carries messages, task state, streams, cancellation,
+and artifacts. A Sero control plane carries enrolment, client revocation,
+provider authentication, persistent-session discovery, reconnect registration,
+and TLS rotation. These surfaces stay separate. A task state change never gives
+new authority. AWS Bedrock is not in the Agent Node provider surface.
+
+One A2A context maps to one persistent Sero session, but Sero owns that mapping
+and its durability. A2A cannot list contexts. `SubscribeToTask` supplies a task
+snapshot and new events. It does not replay missed events. Sero replay uses a
+declared extension with sequence positions. A reconnect first gets the durable
+session and task state, then requests extension replay, then subscribes to new
+events. A terminal task uses `GetTask`, not `SubscribeToTask`.
+
+Enrolment pins the node identity public key. The identity private key never
+leaves the node. The TLS key is separate and can rotate without changing the
+pinned identity. A controller address is entered by the user. Agent Node does
+not use automatic local-network discovery. The control plane does not install
+or update Agent Node or Sero Desktop.
+
+The system service uses a fixed `sero-node` account and a `0700` state
+directory. Identity and provider credential files use mode `0600`. Do not use
+`DynamicUser=` or `MemoryDenyWriteExecute=yes`. The service and its agent tools
+run in one operating-system trust boundary. User and operator procedures, and
+the exact credential warning, are in the Agent Node documentation.
+
 ## Security posture
 
 Sero is a powerful local automation environment, not a hardened multi-tenant

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "targets": [
+    {
+      "id": "linux-x64",
+      "platform": "linux",
+      "arch": "x64",
+      "binary": { "status": "not-run", "command": "", "output": "" },
+      "systemdSecurity": { "status": "not-run", "command": "", "output": "" },
+      "tck": { "status": "not-run", "command": "", "output": "" },
+      "itk": { "status": "not-run", "command": "", "output": "" }
+    },
+    {
+      "id": "linux-arm64-spark",
+      "platform": "linux",
+      "arch": "arm64",
+      "binary": { "status": "not-run", "command": "", "output": "" },
+      "systemdSecurity": { "status": "not-run", "command": "", "output": "" },
+      "hardware": {
+        "status": "not-run",
+        "verifiedOnHardware": false,
+        "model": "",
+        "command": "",
+        "output": ""
+      },
+      "tck": { "status": "not-run", "command": "", "output": "" },
+      "itk": { "status": "not-run", "command": "", "output": "" }
+    }
+  ]
+}
