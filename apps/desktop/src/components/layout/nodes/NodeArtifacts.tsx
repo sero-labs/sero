@@ -4,6 +4,8 @@ import { Button } from '@sero-ai/ui/components/ui/button';
 import type { AgentNodeArtifact } from '@/types/ipc-agent-node';
 import { useNodesStore } from '@/stores/nodes';
 
+const EMPTY_ARTIFACTS: AgentNodeArtifact[] = [];
+
 function NodeArtifact({ nodeId, artifact }: { nodeId: string; artifact: AgentNodeArtifact }) {
   const readArtifact = useNodesStore((state) => state.readArtifact);
   const [url, setUrl] = useState(artifact.inlineBase64
@@ -20,7 +22,7 @@ function NodeArtifact({ nodeId, artifact }: { nodeId: string; artifact: AgentNod
 }
 
 export function NodeArtifacts({ nodeId, sessionKey }: { nodeId: string; sessionKey: string }) {
-  const artifacts = useNodesStore((state) => state.artifacts[sessionKey] ?? []);
+  const artifacts = useNodesStore((state) => state.artifacts[sessionKey] ?? EMPTY_ARTIFACTS);
   if (artifacts.length === 0) return null;
   return <div className="grid gap-2 px-3 pb-2">{artifacts.map((artifact) => (
     <NodeArtifact key={artifact.id} nodeId={nodeId} artifact={artifact} />

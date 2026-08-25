@@ -11,7 +11,7 @@ export const agentNodesBridge: SeroAgentNodesAPI = {
   send: (input) => ipcRenderer.invoke(IpcChannels.agentNode.send, input),
   getTask: (nodeId, taskId) => ipcRenderer.invoke(IpcChannels.agentNode.getTask, nodeId, taskId),
   cancelTask: (nodeId, taskId) => ipcRenderer.invoke(IpcChannels.agentNode.cancelTask, nodeId, taskId),
-  attach: (nodeId, contextId, cursor) => ipcRenderer.invoke(IpcChannels.agentNode.attach, nodeId, contextId, cursor),
+  attach: (nodeId, contextId, cursor, taskId) => ipcRenderer.invoke(IpcChannels.agentNode.attach, nodeId, contextId, cursor, taskId),
   readBlob: (nodeId, blobId) => ipcRenderer.invoke(IpcChannels.agentNode.readBlob, nodeId, blobId),
   onEvent: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, value: Parameters<typeof callback>[0]) => callback(value);

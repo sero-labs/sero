@@ -1,5 +1,6 @@
 import type { AuthEvent } from '@sero-ai/a2a';
 import type { AgentStreamEvent, ChatMessage } from './agent';
+import type { AgentNodeApproval } from './ipc-agent-node';
 
 export type AgentNodeConnectionState =
   | 'connected'
@@ -44,6 +45,12 @@ export interface AgentNodeProvider {
   status: string;
 }
 
+export interface AgentNodeModel {
+  providerId: string;
+  modelId: string;
+  name: string;
+}
+
 export interface AgentNodeController {
   id: string;
   name: string;
@@ -56,6 +63,7 @@ export type AgentNodeEvent =
   | { type: 'messages-changed'; nodeId: string; sessionId: string; messages: AgentNodeMessage[] }
   | { type: 'conversation'; nodeId: string; event: AgentStreamEvent }
   | { type: 'artifact'; nodeId: string; sessionKey: string; artifact: import('./ipc-agent-node').AgentNodeArtifact }
+  | { type: 'approval'; nodeId: string; sessionKey: string; approval: AgentNodeApproval }
   | { type: 'connection'; nodeId: string; state: AgentNodeConnectionState }
   | { type: 'auth'; nodeId: string; event: AuthEvent };
 
@@ -66,11 +74,13 @@ export interface SeroAgentNodeAPI {
   listSessions(nodeId: string): Promise<AgentNodeSession[]>;
   createSession(nodeId: string, input: { workspaceId: string; model: string }): Promise<AgentNodeSession>;
   deleteSession(nodeId: string, sessionId: string): Promise<void>;
-  sendMessage(nodeId: string, sessionId: string, text: string): Promise<void>;
-  attachSession(nodeId: string, sessionId: string): Promise<{ messages: ChatMessage[] }>;
+  sendMessage(nodeId: string, sessionId: string, text: string): Promise<{ taskId: string }>;
+  respondApproval(nodeId: string, sessionId: string, taskId: string, approvalId: string, approved: boolean): Promise<{ taskId: string }>;
+  attachSession(nodeId: string, sessionId: string, taskId?: string): Promise<{ messages: ChatMessage[] }>;
   cancelTask(nodeId: string, taskId: string): Promise<void>;
   readArtifact(nodeId: string, blobId: string): Promise<Uint8Array>;
   getProviders(nodeId: string): Promise<AgentNodeProvider[]>;
+  getModels(nodeId: string): Promise<AgentNodeModel[]>;
   login(nodeId: string, providerId: string): Promise<void>;
   logout(nodeId: string, providerId: string): Promise<void>;
   setApiKey(nodeId: string, providerId: string, apiKey: string): Promise<void>;

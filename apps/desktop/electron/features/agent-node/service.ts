@@ -4,11 +4,13 @@ import { AuthEventSchema, type AuthEvent } from '@sero-ai/a2a';
 import { SERO_HOME } from '@electron/platform/env';
 import type {
   AgentNodeAttachResult,
+  AgentNodeApproval,
   AgentNodeControlArgs,
   AgentNodeEnrolInput,
   AgentNodeEvent,
   AgentNodeInfo,
   AgentNodeMessageInput,
+  AgentNodeSendResult,
 } from '@/types/ipc-agent-node';
 import { AgentNodeRegistry } from './registry';
 import { AgentNodeCredentials } from './credentials';
@@ -113,11 +115,20 @@ export class AgentNodeService {
     }
   }
 
-  async send(input: AgentNodeMessageInput): Promise<void> {
+  async send(input: AgentNodeMessageInput): Promise<AgentNodeSendResult> {
     const connection = await this.requireConnection(input.nodeId);
     const boundary = new RemoteConversationBoundary(remoteSessionKey(input.nodeId, input.contextId));
     const message = remoteA2aMessage(input, randomUUID());
+    let resolveTaskId!: (taskId: string) => void;
+    const taskIdReady = new Promise<string>((resolve) => { resolveTaskId = resolve; });
     const a2aStream = await connection.a2a.streamMessage({ message }, (event) => {
+      const taskId = taskIdFromWire(event.data);
+      if (taskId) resolveTaskId(taskId);
+      const approval = approvalFromWire(event.data, input.contextId);
+      if (approval) this.emit({
+        type: 'approval', nodeId: input.nodeId,
+        sessionKey: remoteSessionKey(input.nodeId, input.contextId), approval,
+      });
       const artifact = remoteArtifact(event.data);
       if (artifact) this.emit({ type: 'artifact', nodeId: input.nodeId, sessionKey: remoteSessionKey(input.nodeId, input.contextId), artifact });
       for (const normalized of boundary.accept(event.data, event.id)) {
@@ -125,15 +136,14 @@ export class AgentNodeService {
       }
     });
     connection.streams.add({ stop: a2aStream.close });
-    void a2aStream.done.then(() => {
+    const reconnect = () => {
       if (!this.connections.has(input.nodeId)) return;
       this.setState(input.nodeId, 'reconnecting');
-      this.startConversationReplay(input.nodeId, input.contextId, connection, boundary);
-    }).catch(() => {
-      if (!this.connections.has(input.nodeId)) return;
-      this.setState(input.nodeId, 'reconnecting');
-      this.startConversationReplay(input.nodeId, input.contextId, connection, boundary);
-    });
+      void taskIdReady.then((taskId) => this.reconcileTask(input.nodeId, taskId))
+        .finally(() => this.startConversationReplay(input.nodeId, input.contextId, connection, boundary));
+    };
+    void a2aStream.done.then(reconnect, reconnect);
+    return { taskId: await taskIdReady };
   }
 
   async getTask(nodeId: string, taskId: string): Promise<unknown> {
@@ -146,8 +156,9 @@ export class AgentNodeService {
     await (await this.requireConnection(nodeId)).a2a.cancelTask(taskId);
   }
 
-  async attach(nodeId: string, contextId: string, cursor?: string): Promise<AgentNodeAttachResult> {
+  async attach(nodeId: string, contextId: string, cursor?: string, taskId?: string): Promise<AgentNodeAttachResult> {
     const connection = await this.requireConnection(nodeId);
+    if (taskId) await this.reconcileTask(nodeId, taskId);
     const sessionKey = remoteSessionKey(nodeId, contextId);
     const boundary = new RemoteConversationBoundary(sessionKey);
     const stream = new RetryingStream(
@@ -251,6 +262,15 @@ export class AgentNodeService {
     if (error instanceof ControlAuthorizationError) this.setState(nodeId, 'revoked');
   }
 
+  private async reconcileTask(nodeId: string, taskId: string): Promise<void> {
+    try {
+      await this.getTask(nodeId, taskId);
+      if (this.runtime.get(nodeId)?.state === 'reconnecting') this.setState(nodeId, 'connected');
+    } catch (error) {
+      this.handleStreamFailure(nodeId, error);
+    }
+  }
+
   private closeConnection(nodeId: string): void {
     const connection = this.connections.get(nodeId);
     if (!connection) return;
@@ -292,4 +312,29 @@ function sessionWireEvent(type: string, data: unknown): unknown {
   if (type === 'message') return data;
   if (type === 'partial') return { type: 'snapshot', message: { ...(isRecord(data) ? data : {}), role: 'assistant', partial: true, id: 'assistant:partial' } };
   return { type, ...(isRecord(data) ? data : {}) };
+}
+
+function taskIdFromWire(value: unknown): string | null {
+  if (!isRecord(value)) return null;
+  const task = isRecord(value.result) ? value.result : value;
+  return typeof task.id === 'string' ? task.id : typeof task.taskId === 'string' ? task.taskId : null;
+}
+
+function approvalFromWire(value: unknown, contextId: string): AgentNodeApproval | null {
+  if (!isRecord(value)) return null;
+  const task = isRecord(value.result) ? value.result : value;
+  const state = isRecord(task.status) && typeof task.status.state === 'string' ? task.status.state : '';
+  if (!state.endsWith('INPUT_REQUIRED')) return null;
+  const taskId = taskIdFromWire(task);
+  const message = isRecord(task.status) && isRecord(task.status.message) ? task.status.message : null;
+  const parts = message && Array.isArray(message.parts) ? message.parts : [];
+  const part = parts.find((candidate) => isRecord(candidate) && isRecord(candidate.data));
+  const data = isRecord(part) && isRecord(part.data) ? part.data : null;
+  const id = data && typeof data.id === 'string' ? data.id : null;
+  if (!taskId || !id || !data) return null;
+  return {
+    id, taskId, contextId,
+    title: typeof data.title === 'string' ? data.title : 'Permission required',
+    ...(typeof data.description === 'string' ? { description: data.description } : {}),
+  };
 }

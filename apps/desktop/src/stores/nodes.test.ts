@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { parseSessionLocationKey, sessionLocationKey, useNodesStore } from './nodes';
+import { agentNodeApi, parseSessionLocationKey, relativeWorkspaceId, sessionLocationKey, useNodesStore } from './nodes';
 
 vi.mock('@/lib/persist-layout', () => ({ persistLayout: vi.fn() }));
 
@@ -19,13 +19,15 @@ const ipcSession = {
 
 describe('nodes store', () => {
   beforeEach(() => {
-    useNodesStore.setState({ nodes: [], sessions: {}, messages: {}, providers: {}, controllers: {}, authEvents: {}, activeLocationKey: null, expandedNodeIds: new Set(), loading: false, error: null });
+    useNodesStore.setState({ nodes: [], sessions: {}, messages: {}, providers: {}, models: {}, controllers: {}, authEvents: {}, artifacts: {}, approvals: {}, activeLocationKey: null, expandedNodeIds: new Set(), loading: false, error: null });
     Object.defineProperty(window, 'sero', { configurable: true, value: { agentNodes: {
       list: vi.fn().mockResolvedValue([ipcNode]),
       control: vi.fn().mockImplementation((_nodeId, args) => args.operation === 'listSessions'
         ? Promise.resolve({ sessions: [ipcSession] })
-        : Promise.resolve({ ok: true })),
-      enrol: vi.fn(), remove: vi.fn(), connect: vi.fn(), send: vi.fn(), cancelTask: vi.fn(),
+        : args.operation === 'createSession' ? Promise.resolve({ session: ipcSession })
+          : args.operation === 'getProviders' ? Promise.resolve({ oauth: [], apiKey: [], models: [{ provider: 'anthropic', id: 'claude', name: 'Claude' }] })
+            : Promise.resolve({ ok: true })),
+      enrol: vi.fn(), remove: vi.fn(), connect: vi.fn(), send: vi.fn().mockResolvedValue({ taskId: 'task-1' }), cancelTask: vi.fn(), readBlob: vi.fn().mockResolvedValue(new Uint8Array([65])),
       attach: vi.fn().mockResolvedValue({ sessionKey: 'node:spark%3Awest:session%3Aone', messages: [], cursor: null }),
       onEvent: vi.fn(),
     } } });
@@ -46,9 +48,23 @@ describe('nodes store', () => {
     }]);
   });
 
+  it('creates a first workspace from a relative path and consumes the model catalogue', async () => {
+    useNodesStore.setState({ nodes: [node] });
+    await useNodesStore.getState().loadModels(node.id);
+    await useNodesStore.getState().createSession(node.id, 'projects/agent-node', 'anthropic/claude');
+    expect(useNodesStore.getState().models[node.id]).toEqual([{ providerId: 'anthropic', modelId: 'claude', name: 'Claude' }]);
+    expect(window.sero.agentNodes.control).toHaveBeenCalledWith(node.id, {
+      operation: 'createSession',
+      params: { workspace: 'projects/agent-node', model: { providerId: 'anthropic', modelId: 'claude' } },
+    });
+    expect(() => relativeWorkspaceId('/Users/person/repo')).toThrow('relative path');
+    expect(relativeWorkspaceId('/var/lib/sero-node/workspaces/projects/agent-node')).toBe('projects/agent-node');
+  });
+
   it('attaches when a remote session is selected and applies live conversation events', async () => {
+    useNodesStore.setState({ sessions: { [node.id]: [{ ...session, taskId: 'task-1' }] } });
     await useNodesStore.getState().selectRemoteSession(node.id, session.id);
-    expect(window.sero.agentNodes.attach).toHaveBeenCalledWith(node.id, session.id);
+    expect(window.sero.agentNodes.attach).toHaveBeenCalledWith(node.id, session.id, undefined, 'task-1');
     const key = sessionLocationKey({ kind: 'node', nodeId: node.id, sessionId: session.id });
     useNodesStore.getState().handleEvent({
       type: 'conversation', nodeId: node.id,
@@ -59,6 +75,48 @@ describe('nodes store', () => {
       event: { type: 'text_delta', sessionId: key, messageId: 'a1', delta: ' world' },
     });
     expect(useNodesStore.getState().messages[key]).toEqual([{ type: 'assistant', id: 'a1', text: 'Hello world', isStreaming: true }]);
+  });
+
+  it('keeps the returned task active so send can be cancelled', async () => {
+    useNodesStore.setState({ sessions: { [node.id]: [session] } });
+    await useNodesStore.getState().sendMessage(node.id, session.id, 'Hello');
+    expect(useNodesStore.getState().sessions[node.id]?.[0]?.taskId).toBe('task-1');
+    await useNodesStore.getState().cancelTask(node.id, 'task-1');
+    expect(window.sero.agentNodes.cancelTask).toHaveBeenCalledWith(node.id, 'task-1');
+    expect(useNodesStore.getState().sessions[node.id]?.[0]?.taskId).toBeUndefined();
+  });
+
+  it('sends and clears an approval decision through the active task', async () => {
+    const key = sessionLocationKey({ kind: 'node', nodeId: node.id, sessionId: session.id });
+    useNodesStore.setState({ approvals: { [key]: {
+      id: 'permission-1', taskId: 'task-1', contextId: session.id, title: 'Run command',
+    } } });
+    await useNodesStore.getState().respondApproval(node.id, session.id, true);
+    expect(window.sero.agentNodes.send).toHaveBeenCalledWith({
+      nodeId: node.id, contextId: session.id, taskId: 'task-1', text: '',
+      approval: { id: 'permission-1', approved: true },
+    });
+    expect(useNodesStore.getState().approvals[key]).toBeNull();
+  });
+
+  it('reads remote artifacts through authenticated IPC before rendering them', async () => {
+    const url = await useNodesStore.getState().readArtifact(node.id, {
+      id: 'artifact-1', name: 'result.txt', mediaType: 'text/plain', blobId: 'blob-1',
+    });
+    expect(window.sero.agentNodes.readBlob).toHaveBeenCalledWith(node.id, 'blob-1');
+    expect(url).toBe('data:text/plain;base64,QQ==');
+  });
+
+  it('forwards approval and artifact IPC events to the renderer store boundary', () => {
+    const listener = vi.fn();
+    agentNodeApi().subscribe(listener);
+    const onEvent = vi.mocked(window.sero.agentNodes.onEvent);
+    const callback = onEvent.mock.calls[0]?.[0];
+    const approval = { type: 'approval', nodeId: node.id, sessionKey: 'node:key', approval: {
+      id: 'permission-1', taskId: 'task-1', contextId: session.id, title: 'Approve',
+    } } as const;
+    callback?.(approval);
+    expect(listener).toHaveBeenCalledWith(approval);
   });
 
   it('updates only the node named by a session event', () => {

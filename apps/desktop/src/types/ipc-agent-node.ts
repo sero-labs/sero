@@ -105,12 +105,29 @@ export interface AgentNodeMessageInput {
   attachments?: ChatAttachment[];
   taskId?: string;
   mode?: 'steer' | 'followUp';
+  approval?: {
+    id: string;
+    approved: boolean;
+  };
+}
+
+export interface AgentNodeSendResult {
+  taskId: string;
+}
+
+export interface AgentNodeApproval {
+  id: string;
+  taskId: string;
+  contextId: string;
+  title: string;
+  description?: string;
 }
 
 export type AgentNodeEvent =
   | { type: 'connection'; nodeId: string; state: AgentNodeConnectionState }
   | { type: 'conversation'; nodeId: string; event: AgentStreamEvent }
   | { type: 'artifact'; nodeId: string; sessionKey: string; artifact: AgentNodeArtifact }
+  | { type: 'approval'; nodeId: string; sessionKey: string; approval: AgentNodeApproval }
   | { type: 'node'; nodeId: string; event: unknown }
   | { type: 'auth'; nodeId: string; event: AuthEvent };
 
@@ -137,10 +154,10 @@ export interface SeroAgentNodesAPI {
     nodeId: string,
     args: { operation: Name; params: AgentNodeControlRequestMap[Name] },
   ): Promise<AgentNodeControlResponse<Name>>;
-  send(input: AgentNodeMessageInput): Promise<void>;
+  send(input: AgentNodeMessageInput): Promise<AgentNodeSendResult>;
   getTask(nodeId: string, taskId: string): Promise<unknown>;
   cancelTask(nodeId: string, taskId: string): Promise<void>;
-  attach(nodeId: string, contextId: string, cursor?: string): Promise<AgentNodeAttachResult>;
+  attach(nodeId: string, contextId: string, cursor?: string, taskId?: string): Promise<AgentNodeAttachResult>;
   readBlob(nodeId: string, blobId: string): Promise<Uint8Array>;
   onEvent(callback: (event: AgentNodeEvent) => void): () => void;
 }

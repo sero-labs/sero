@@ -37,6 +37,8 @@ function NodeRow({ node }: { node: AgentNodeInfo }) {
   const expanded = useNodesStore((state) => state.expandedNodeIds.has(node.id));
   const toggle = useNodesStore((state) => state.toggleNode);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [newSessionOpen, setNewSessionOpen] = useState(false);
+  const loadModels = useNodesStore((state) => state.loadModels);
   const byWorkspace = useMemo(() => sessions.reduce<Record<string, AgentNodeSession[]>>((groups, session) => {
     (groups[session.workspaceId] ??= []).push(session);
     return groups;
@@ -46,17 +48,20 @@ function NodeRow({ node }: { node: AgentNodeInfo }) {
       <button type="button" className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-sm" onClick={() => toggle(node.id)}>
         {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}<Cpu className="size-3.5 text-(--text-muted)" /><span className="truncate font-medium">{node.name}</span><span aria-label={node.connectionState} className={cn('ml-auto size-2 rounded-full', node.connectionState === 'connected' ? 'bg-status-success' : node.connectionState === 'reconnecting' ? 'bg-status-warning' : 'bg-status-error')} />
       </button>
+      <Button size="icon-xs" variant="ghost" aria-label={`New session on ${node.name}`} className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100" disabled={node.connectionState === 'version-skew' || node.connectionState === 'revoked'} onClick={() => { void loadModels(node.id); setNewSessionOpen(true); }}><CirclePlus className="size-3" /></Button>
       <Button size="icon-xs" variant="ghost" aria-label={`${node.name} settings`} className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100" onClick={() => setSettingsOpen(true)}><Settings className="size-3" /></Button>
     </div>
     {expanded ? <div className="pl-4">{node.workspaces.map((workspace) => <WorkspaceSessions key={workspace.id} node={node} workspace={workspace} sessions={byWorkspace[workspace.id] ?? []} />)}</div> : null}
     <NodeSettingsDialog node={node} open={settingsOpen} onOpenChange={setSettingsOpen} />
+    <NewNodeSessionDialog nodeId={node.id} open={newSessionOpen} onOpenChange={setNewSessionOpen} />
   </div>;
 }
 
 function WorkspaceSessions({ node, workspace, sessions }: { node: AgentNodeInfo; workspace: { id: string; name: string }; sessions: AgentNodeSession[] }) {
   const [newSessionOpen, setNewSessionOpen] = useState(false);
   const controlAvailable = node.connectionState !== 'version-skew' && node.connectionState !== 'revoked';
-  return <div><div className="group flex items-center px-2 py-1"><p className="min-w-0 flex-1 truncate text-xs font-medium text-(--text-secondary)">{workspace.name}</p><Button size="icon-xs" variant="ghost" aria-label={`New session in ${workspace.name}`} className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100" disabled={!controlAvailable} onClick={() => setNewSessionOpen(true)}><CirclePlus className="size-3" /></Button></div>{sessions.map((session) => <RemoteSessionRow key={session.id} node={node} session={session} />)}<NewNodeSessionDialog nodeId={node.id} workspaceId={workspace.id} open={newSessionOpen} onOpenChange={setNewSessionOpen} /></div>;
+  const loadModels = useNodesStore((state) => state.loadModels);
+  return <div><div className="group flex items-center px-2 py-1"><p className="min-w-0 flex-1 truncate text-xs font-medium text-(--text-secondary)">{workspace.name}</p><Button size="icon-xs" variant="ghost" aria-label={`New session in ${workspace.name}`} className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100" disabled={!controlAvailable} onClick={() => { void loadModels(node.id); setNewSessionOpen(true); }}><CirclePlus className="size-3" /></Button></div>{sessions.map((session) => <RemoteSessionRow key={session.id} node={node} session={session} />)}<NewNodeSessionDialog nodeId={node.id} workspaceId={workspace.id} open={newSessionOpen} onOpenChange={setNewSessionOpen} /></div>;
 }
 
 function RemoteSessionRow({ node, session }: { node: AgentNodeInfo; session: AgentNodeSession }) {

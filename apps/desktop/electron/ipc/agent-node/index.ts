@@ -42,7 +42,7 @@ export function registerAgentNodeHandlers(): void {
   ipcMain.handle(IpcChannels.agentNode.send, (_event, input: AgentNodeMessageInput) => nodes.send(input));
   ipcMain.handle(IpcChannels.agentNode.getTask, (_event, nodeId: string, taskId: string) => nodes.getTask(nodeId, taskId));
   ipcMain.handle(IpcChannels.agentNode.cancelTask, (_event, nodeId: string, taskId: string) => nodes.cancelTask(nodeId, taskId));
-  ipcMain.handle(IpcChannels.agentNode.attach, (_event, nodeId: string, contextId: string, cursor?: string) => nodes.attach(nodeId, contextId, cursor));
+  ipcMain.handle(IpcChannels.agentNode.attach, (_event, nodeId: string, contextId: string, cursor?: string, taskId?: string) => nodes.attach(nodeId, contextId, cursor, taskId));
   ipcMain.handle(IpcChannels.agentNode.readBlob, (_event, nodeId: string, blobId: string) => nodes.readBlob(nodeId, blobId));
   app.once('before-quit', () => {
     service?.dispose();

@@ -5,12 +5,14 @@ import type {
   AgentNodeEvent,
   AgentNodeInfo,
   AgentNodeMessage,
+  AgentNodeModel,
   AgentNodeProvider,
   AgentNodeSession,
 } from '@/types/agent-node';
 import type { SeroAgentNodeAPI } from '@/types/agent-node';
 import type {
   AgentNodeArtifact,
+  AgentNodeApproval,
   AgentNodeInfo as IpcAgentNodeInfo,
   AgentNodeSession as IpcAgentNodeSession,
 } from '@/types/ipc-agent-node';
@@ -30,7 +32,7 @@ export function agentNodeApi(): SeroAgentNodeAPI {
     createSession: async (nodeId, input) => {
       const result = await api.control(nodeId, {
         operation: 'createSession',
-        params: { workspace: input.workspaceId, model: modelReference(input.model) },
+        params: { workspace: relativeWorkspaceId(input.workspaceId), model: modelReference(input.model) },
       });
       return toRendererSession(result.session);
     },
@@ -38,7 +40,10 @@ export function agentNodeApi(): SeroAgentNodeAPI {
       await api.control(nodeId, { operation: 'deleteSession', params: { contextId: sessionId } });
     },
     sendMessage: (nodeId, sessionId, text) => api.send({ nodeId, contextId: sessionId, text }),
-    attachSession: async (nodeId, sessionId) => api.attach(nodeId, sessionId),
+    respondApproval: (nodeId, sessionId, taskId, approvalId, approved) => api.send({
+      nodeId, contextId: sessionId, taskId, text: '', approval: { id: approvalId, approved },
+    }),
+    attachSession: async (nodeId, sessionId, taskId) => api.attach(nodeId, sessionId, undefined, taskId),
     cancelTask: api.cancelTask,
     readArtifact: api.readBlob,
     getProviders: async (nodeId) => {
@@ -47,6 +52,17 @@ export function agentNodeApi(): SeroAgentNodeAPI {
         ...result.oauth.map((provider) => ({ id: provider.id, name: provider.name, status: provider.isLoggedIn ? 'connected' : 'not connected' })),
         ...result.apiKey.map((provider) => ({ id: provider.id, name: provider.name, status: provider.hasKey || provider.fromEnv ? 'connected' : 'not connected' })),
       ];
+    },
+    getModels: async (nodeId) => {
+      const result = await api.control(nodeId, { operation: 'getProviders', params: {} });
+      if (!('models' in result) || !Array.isArray(result.models)) return [];
+      return result.models.flatMap((model): AgentNodeModel[] => {
+        if (!model || typeof model !== 'object') return [];
+        const providerId = 'providerId' in model ? model.providerId : 'provider' in model ? model.provider : undefined;
+        const modelId = 'modelId' in model ? model.modelId : 'id' in model ? model.id : undefined;
+        if (typeof providerId !== 'string' || typeof modelId !== 'string') return [];
+        return [{ providerId, modelId, name: 'name' in model && typeof model.name === 'string' ? model.name : modelId }];
+      });
     },
     login: async (nodeId, providerId) => { await api.control(nodeId, { operation: 'login', params: { providerId } }); },
     logout: async (nodeId, providerId) => { await api.control(nodeId, { operation: 'logout', params: { providerId } }); },
@@ -71,7 +87,8 @@ export function agentNodeApi(): SeroAgentNodeAPI {
     subscribe: (listener) => api.onEvent((event) => {
       if (event.type === 'connection') {
         listener({ type: 'connection', nodeId: event.nodeId, state: event.state === 'disconnected' ? 'unreachable' : event.state });
-      } else if (event.type === 'conversation' || event.type === 'auth') {
+      } else if (event.type === 'conversation' || event.type === 'auth'
+        || event.type === 'artifact' || event.type === 'approval') {
         listener(event);
       }
     }),
@@ -95,13 +112,26 @@ function toRendererNode(node: IpcAgentNodeInfo): AgentNodeInfo {
 function toRendererSession(session: IpcAgentNodeSession): AgentNodeSession {
   return {
     id: session.contextId,
-    workspaceId: session.workspace,
+    workspaceId: relativeWorkspaceId(session.workspace),
     name: session.name,
     modified: session.updatedAt,
     engine: 'Pi',
     model: `${session.model.providerId}/${session.model.modelId}`,
     taskId: session.runningTaskId ?? undefined,
   };
+}
+
+export function relativeWorkspaceId(workspace: string): string {
+  const normalized = workspace.trim().replaceAll('\\', '/');
+  const marker = '/workspaces/';
+  const candidate = normalized.startsWith('/') && normalized.includes(marker)
+    ? normalized.slice(normalized.lastIndexOf(marker) + marker.length) : normalized;
+  const parts = candidate.split('/');
+  if (!candidate || candidate.startsWith('/') || /^[A-Za-z]:/u.test(candidate)
+    || parts.some((part) => !part || part === '.' || part === '..')) {
+    throw new Error('Workspace must be a relative path inside the node workspace root');
+  }
+  return parts.join('/');
 }
 
 function modelReference(model: string): IpcAgentNodeSession['model'] {
@@ -137,9 +167,11 @@ interface NodesState {
   sessions: Record<string, AgentNodeSession[]>;
   messages: Record<string, AgentNodeMessage[]>;
   providers: Record<string, AgentNodeProvider[]>;
+  models: Record<string, AgentNodeModel[]>;
   controllers: Record<string, AgentNodeController[]>;
   authEvents: Record<string, AuthEvent | null>;
   artifacts: Record<string, AgentNodeArtifact[]>;
+  approvals: Record<string, AgentNodeApproval | null>;
   activeLocationKey: string | null;
   expandedNodeIds: Set<string>;
   loading: boolean;
@@ -159,6 +191,8 @@ interface NodesState {
   sendMessage: (nodeId: string, sessionId: string, text: string) => Promise<void>;
   cancelTask: (nodeId: string, taskId: string) => Promise<void>;
   setSessionModel: (nodeId: string, sessionId: string, model: string) => Promise<void>;
+  loadModels: (nodeId: string) => Promise<void>;
+  respondApproval: (nodeId: string, sessionId: string, approved: boolean) => Promise<void>;
   loadSettings: (nodeId: string) => Promise<void>;
   login: (nodeId: string, providerId: string) => Promise<void>;
   logout: (nodeId: string, providerId: string) => Promise<void>;
@@ -199,7 +233,7 @@ function artifactDataUrl(bytes: Uint8Array, mediaType: string): string {
 }
 
 export const useNodesStore = create<NodesState>((set, get) => ({
-  nodes: [], sessions: {}, messages: {}, providers: {}, controllers: {}, authEvents: {}, artifacts: {},
+  nodes: [], sessions: {}, messages: {}, providers: {}, models: {}, controllers: {}, authEvents: {}, artifacts: {}, approvals: {},
   activeLocationKey: null, expandedNodeIds: new Set(), loading: false, error: null,
 
   load: async () => {
@@ -218,12 +252,17 @@ export const useNodesStore = create<NodesState>((set, get) => ({
     if (event.type === 'conversation') set((state) => ({ messages: {
       ...state.messages,
       [event.event.sessionId]: applyConversationEvent(state.messages[event.event.sessionId] ?? [], event.event),
-    } }));
+    }, sessions: event.event.type === 'agent_end' ? {
+      ...state.sessions,
+      [event.nodeId]: (state.sessions[event.nodeId] ?? []).map((session) => messageKey(event.nodeId, session.id) === event.event.sessionId
+        ? { ...session, taskId: undefined } : session),
+    } : state.sessions }));
     if (event.type === 'auth') set((state) => ({ authEvents: { ...state.authEvents, [event.nodeId]: event.event } }));
     if (event.type === 'artifact') set((state) => ({ artifacts: {
       ...state.artifacts,
       [event.sessionKey]: [...(state.artifacts[event.sessionKey] ?? []).filter((item) => item.id !== event.artifact.id), event.artifact],
     } }));
+    if (event.type === 'approval') set((state) => ({ approvals: { ...state.approvals, [event.sessionKey]: event.approval } }));
   },
   hydrateLocation: (key) => set({ activeLocationKey: parseSessionLocationKey(key ?? null)?.kind === 'node' ? key ?? null : null }),
   enrol: async (input) => {
@@ -252,7 +291,8 @@ export const useNodesStore = create<NodesState>((set, get) => ({
     set({ activeLocationKey });
     persistLayout({ activeSessionLocationKey: activeLocationKey });
     try {
-      const attached = await agentNodeApi().attachSession(nodeId, sessionId);
+      const session = (get().sessions[nodeId] ?? []).find((item) => item.id === sessionId);
+      const attached = await agentNodeApi().attachSession(nodeId, sessionId, session?.taskId);
       set((state) => ({ messages: { ...state.messages, [activeLocationKey]: attached.messages } }));
     } catch (error) {
       set({ error: errorText(error) });
@@ -283,11 +323,30 @@ export const useNodesStore = create<NodesState>((set, get) => ({
     }));
     if (clearActive) persistLayout({ activeSessionLocationKey: null });
   },
-  sendMessage: (nodeId, sessionId, text) => agentNodeApi().sendMessage(nodeId, sessionId, text),
-  cancelTask: (nodeId, taskId) => agentNodeApi().cancelTask(nodeId, taskId),
+  sendMessage: async (nodeId, sessionId, text) => {
+    const result = await agentNodeApi().sendMessage(nodeId, sessionId, text);
+    set((state) => ({ sessions: { ...state.sessions, [nodeId]: (state.sessions[nodeId] ?? []).map((item) => item.id === sessionId
+      ? { ...item, taskId: result.taskId } : item) } }));
+  },
+  cancelTask: async (nodeId, taskId) => {
+    await agentNodeApi().cancelTask(nodeId, taskId);
+    set((state) => ({ sessions: { ...state.sessions, [nodeId]: (state.sessions[nodeId] ?? []).map((item) => item.taskId === taskId
+      ? { ...item, taskId: undefined } : item) } }));
+  },
   setSessionModel: async (nodeId, sessionId, model) => {
     await agentNodeApi().setSessionModel(nodeId, sessionId, model);
     set((state) => ({ sessions: { ...state.sessions, [nodeId]: (state.sessions[nodeId] ?? []).map((item) => item.id === sessionId ? { ...item, model } : item) } }));
+  },
+  loadModels: async (nodeId) => {
+    const models = await agentNodeApi().getModels(nodeId);
+    set((state) => ({ models: { ...state.models, [nodeId]: models } }));
+  },
+  respondApproval: async (nodeId, sessionId, approved) => {
+    const key = messageKey(nodeId, sessionId);
+    const approval = get().approvals[key];
+    if (!approval) return;
+    await agentNodeApi().respondApproval(nodeId, sessionId, approval.taskId, approval.id, approved);
+    set((state) => ({ approvals: { ...state.approvals, [key]: null } }));
   },
   loadSettings: async (nodeId) => {
     const [providers, controllers] = await Promise.all([
