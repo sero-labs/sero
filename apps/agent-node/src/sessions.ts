@@ -1,6 +1,7 @@
-import { randomBytes, randomUUID } from "node:crypto";
 import { appendFile, readdir, readFile, rm } from "node:fs/promises";
 import { basename, join } from "node:path";
+import { randomUUID } from "node:crypto";
+import { parseSessionEntries } from "@earendil-works/pi-coding-agent";
 import type { StatePaths } from "./state.ts";
 import { confinedWorkspace, secureWrite } from "./state.ts";
 import type { SessionRunner, SessionRunnerFactory } from "./pi-host.ts";
@@ -9,7 +10,15 @@ import { EventHub } from "./events.ts";
 import { safeMessage } from "./redact.ts";
 
 const TERMINAL = new Set<TaskStatus>(["completed", "failed", "canceled", "rejected"]);
-interface ActiveTurn { task: TaskTransition; runner: SessionRunner; partial: string; promise: Promise<void> }
+interface QueuedMessage { text: string; behavior: "followUp" | "steer" }
+interface ActiveTurn {
+  task: TaskTransition;
+  runner?: SessionRunner;
+  partial: string;
+  promise: Promise<void>;
+  queued: QueuedMessage[];
+  publishedEntryIds: Set<string>;
+}
 
 export class SessionStore {
   readonly #active = new Map<string, ActiveTurn>();
@@ -21,7 +30,6 @@ export class SessionStore {
     const now = new Date().toISOString();
     const record = { id, name: input.name?.trim() || id.slice(0, 8), model: input.model, workspace, createdAt: now, updatedAt: now };
     await secureWrite(this.#sessionPath(id), `${JSON.stringify(record)}\n`);
-    await secureWrite(this.#entryPath(id), "");
     return record;
   }
 
@@ -48,8 +56,10 @@ export class SessionStore {
   async delete(id: string): Promise<void> {
     if (!(await this.get(id))) throw new Error("session_not_found");
     await this.cancelByContext(id);
+    const record = await this.required(id);
     await Promise.all([
-      rm(this.#sessionPath(id), { force: true }), rm(this.#entryPath(id), { force: true }),
+      rm(this.#sessionPath(id), { force: true }),
+      ...(record.piSessionPath ? [rm(record.piSessionPath, { force: true })] : []),
       rm(this.#taskPath(id), { force: true }), rm(join(this.paths.blobs, id), { force: true, recursive: true }),
     ]);
   }
@@ -59,19 +69,47 @@ export class SessionStore {
     const record = await this.required(contextId);
     const active = this.#active.get(contextId);
     if (active) {
-      void active.runner
-        .run(text, behavior, (delta) => this.#delta(contextId, active, delta))
-        .catch((error: unknown) => this.#failQueuedTurn(active, error));
+      this.#join(contextId, active, { text, behavior });
       return active.task;
     }
-    const first = await this.#appendEntry(contextId, { type: "message", role: "user", text });
-    const task: TaskTransition = { taskId: randomUUID(), contextId, status: "submitted", controllerId, firstEntryId: first.id, lastEntryId: first.id, updatedAt: new Date().toISOString() };
-    await this.#transition(task, "submitted");
-    const runner = await this.runnerFactory(contextId, record.workspace, record.model);
-    const turn: ActiveTurn = { task, runner, partial: "", promise: Promise.resolve() };
+    const task: TaskTransition = { taskId: randomUUID(), contextId, status: "submitted", controllerId, updatedAt: new Date().toISOString() };
+    const turn: ActiveTurn = {
+      task, partial: "", promise: Promise.resolve(), queued: [], publishedEntryIds: new Set(),
+    };
     this.#active.set(contextId, turn);
-    turn.promise = this.#execute(record, turn, text);
+    try {
+      await this.#transition(task, "submitted");
+      const runner = await this.runnerFactory(contextId, record.workspace, record.model, record.piSessionPath);
+      turn.runner = runner;
+      turn.publishedEntryIds = new Set(runner.entries().map((entry) => entry.id));
+      if (record.piSessionPath !== runner.sessionPath) {
+        record.piSessionPath = runner.sessionPath;
+        record.updatedAt = new Date().toISOString();
+        await secureWrite(this.#sessionPath(contextId), `${JSON.stringify(record)}\n`);
+      }
+      if (TERMINAL.has(task.status)) {
+        await runner.cancel();
+        this.#active.delete(contextId);
+        return task;
+      }
+      turn.promise = this.#execute(record, turn, text);
+      for (const queued of turn.queued.splice(0)) this.#join(contextId, turn, queued);
+    } catch (error) {
+      const detail = safeMessage(error);
+      const message = detail.includes(record.model) ? detail : `${detail}: ${record.model}`;
+      await this.#transition(task, "failed", message);
+      this.#active.delete(contextId);
+    }
     return task;
+  }
+
+  #join(contextId: string, turn: ActiveTurn, queued: QueuedMessage): void {
+    if (!turn.runner) {
+      turn.queued.push(queued);
+      return;
+    }
+    void turn.runner.run(queued.text, queued.behavior, (delta) => this.#delta(contextId, turn, delta))
+      .catch((error: unknown) => this.#failQueuedTurn(turn, error));
   }
 
   async #failQueuedTurn(turn: ActiveTurn, error: unknown): Promise<void> {
@@ -80,17 +118,18 @@ export class SessionStore {
   }
 
   async #execute(record: SessionRecord, turn: ActiveTurn, text: string): Promise<void> {
-    const answerPromise = turn.runner.run(
+    const runner = turn.runner;
+    if (!runner) throw new Error("session_runner_unavailable");
+    const answerPromise = runner.run(
       text,
       "followUp",
       (delta) => this.#delta(record.id, turn, delta),
     );
     await this.#transition(turn.task, "working");
     try {
-      const answer = await answerPromise;
-      if (turn.task.status === "canceled") return;
-      const entry = await this.#appendEntry(record.id, { type: "message", role: "assistant", text: answer || turn.partial });
-      turn.task.lastEntryId = entry.id;
+      await answerPromise;
+      if (TERMINAL.has(turn.task.status)) return;
+      this.#publishEntries(record.id, turn);
       await this.#transition(turn.task, "completed");
     } catch (error) {
       if (turn.task.status === "canceled") return;
@@ -106,11 +145,21 @@ export class SessionStore {
     this.events.emit(`session:${contextId}`, { type: "delta", data: { text: delta } });
   }
 
+  #publishEntries(contextId: string, turn: ActiveTurn): void {
+    for (const entry of turn.runner?.entries() ?? []) {
+      if (turn.publishedEntryIds.has(entry.id)) continue;
+      turn.publishedEntryIds.add(entry.id);
+      turn.task.firstEntryId ??= entry.id;
+      turn.task.lastEntryId = entry.id;
+      this.events.emit(`session:${contextId}`, { type: "entry", data: entry });
+    }
+  }
+
   async cancel(taskId: string): Promise<TaskTransition> {
     const active = [...this.#active.values()].find((item) => item.task.taskId === taskId);
     if (!active) throw new Error("task_not_found");
     await this.#transition(active.task, "canceled");
-    await active.runner.cancel();
+    await active.runner?.cancel();
     await active.promise;
     return active.task;
   }
@@ -145,7 +194,8 @@ export class SessionStore {
 
   async replay(contextId: string, cursor?: string): Promise<{ events: SessionEntry[]; resync: boolean; partial?: string }> {
     await this.required(contextId);
-    const entries = await this.#readLines<SessionEntry>(this.#entryPath(contextId));
+    const record = await this.required(contextId);
+    const entries = await this.#sessionEntries(record);
     const index = cursor ? entries.findIndex((entry) => entry.id === cursor) : -1;
     const resync = Boolean(cursor) && index < 0;
     const active = this.#active.get(contextId);
@@ -160,12 +210,12 @@ export class SessionStore {
     return record;
   }
 
-  async #appendEntry(contextId: string, entry: Omit<SessionEntry, "id" | "parentId" | "createdAt">): Promise<SessionEntry> {
-    const entries = await this.#readLines<SessionEntry>(this.#entryPath(contextId));
-    const value = { ...entry, id: randomBytes(4).toString("hex"), parentId: entries.at(-1)?.id ?? null, createdAt: new Date().toISOString() };
-    await appendFile(this.#entryPath(contextId), `${JSON.stringify(value)}\n`, { mode: 0o600 });
-    this.events.emit(`session:${contextId}`, { type: "entry", data: value });
-    return value;
+  async #sessionEntries(record: SessionRecord): Promise<SessionEntry[]> {
+    const active = this.#active.get(record.id);
+    if (active?.runner) return active.runner.entries();
+    if (!record.piSessionPath) return [];
+    const text = await readFile(record.piSessionPath, "utf8");
+    return parseSessionEntries(text).filter((entry): entry is SessionEntry => entry.type !== "session");
   }
 
   async #transition(task: TaskTransition, status: TaskStatus, message?: string): Promise<void> {
@@ -180,6 +230,5 @@ export class SessionStore {
     return text.split("\n").filter(Boolean).map((line) => JSON.parse(line) as T);
   }
   #sessionPath(id: string): string { return join(this.paths.sessions, `${id}.json`); }
-  #entryPath(id: string): string { return join(this.paths.sessions, `${id}.jsonl`); }
   #taskPath(id: string): string { return join(this.paths.tasks, `${id}.jsonl`); }
 }

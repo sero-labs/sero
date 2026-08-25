@@ -1,12 +1,25 @@
-import { createAgentSession, ModelRuntime, SessionManager, type AgentSession } from "@earendil-works/pi-coding-agent";
+import {
+  createAgentSession,
+  ModelRuntime,
+  SessionManager,
+  type AgentSession,
+  type SessionEntry,
+} from "@earendil-works/pi-coding-agent";
 import type { StatePaths } from "./state.ts";
 
 export interface SessionRunner {
+  readonly sessionPath: string;
   run(text: string, behavior: "followUp" | "steer", onDelta: (text: string) => void): Promise<string>;
   cancel(): Promise<void>;
+  entries(): SessionEntry[];
 }
 
-export type SessionRunnerFactory = (sessionId: string, cwd: string, model: string) => Promise<SessionRunner>;
+export type SessionRunnerFactory = (
+  sessionId: string,
+  cwd: string,
+  model: string,
+  sessionPath?: string,
+) => Promise<SessionRunner>;
 
 function modelParts(value: string): [string, string] {
   const slash = value.indexOf("/");
@@ -15,22 +28,30 @@ function modelParts(value: string): [string, string] {
 }
 
 export function createPiRunnerFactory(paths: StatePaths): SessionRunnerFactory {
-  return async (sessionId, cwd, modelName) => {
+  return async (sessionId, cwd, modelName, sessionPath) => {
     const runtime = await ModelRuntime.create({ authPath: `${paths.root}/auth.json`, modelsStorePath: `${paths.root}/models.json`, refreshOnCreate: false });
     const [provider, id] = modelParts(modelName);
     const model = runtime.getModel(provider, id);
     if (!model) throw new Error(`model_unavailable: ${modelName}`);
-    const manager = SessionManager.create(cwd, paths.sessions, { id: sessionId });
+    const manager = sessionPath
+      ? SessionManager.open(sessionPath, paths.sessions, cwd)
+      : SessionManager.create(cwd, paths.sessions, { id: sessionId });
     const created = await createAgentSession({
       cwd, agentDir: paths.root, modelRuntime: runtime, model, sessionManager: manager,
       tools: ["read", "write", "edit", "bash", "grep", "find"],
     });
-    return new PiRunner(created.session);
+    const authoritativePath = manager.getSessionFile();
+    if (!authoritativePath) throw new Error(`session_persistence_unavailable: ${sessionId}`);
+    return new PiRunner(created.session, manager, authoritativePath);
   };
 }
 
 class PiRunner implements SessionRunner {
-  constructor(readonly session: AgentSession) {}
+  constructor(
+    readonly session: AgentSession,
+    readonly manager: SessionManager,
+    readonly sessionPath: string,
+  ) {}
 
   async run(text: string, behavior: "followUp" | "steer", onDelta: (text: string) => void): Promise<string> {
     let result = "";
@@ -42,10 +63,14 @@ class PiRunner implements SessionRunner {
         onDelta(update.delta);
       }
     });
-    await this.session.prompt(text, { streamingBehavior: this.session.isStreaming ? behavior : undefined });
-    unsubscribe();
-    return result;
+    try {
+      await this.session.prompt(text, { streamingBehavior: this.session.isStreaming ? behavior : undefined });
+      return result;
+    } finally {
+      unsubscribe();
+    }
   }
 
   cancel(): Promise<void> { return this.session.abort(); }
+  entries(): SessionEntry[] { return this.manager.getEntries(); }
 }
