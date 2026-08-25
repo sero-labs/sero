@@ -6,6 +6,9 @@ settings:
 
 catalogs:
   default:
+    '@a2a-js/sdk':
+      specifier: 1.0.1
+      version: 1.0.1
     '@earendil-works/pi-agent-core':
       specifier: 0.84.2
       version: 0.84.2
@@ -470,6 +473,22 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(jsdom@26.1.0(supports-color@7.2.0))(msw@2.12.10(@types/node@22.20.1)(typescript@5.9.3))(vite@6.4.3(@types/node@22.20.1)(jiti@2.7.0)(lightningcss@1.33.0)(sass-embedded@1.100.0)(sass@1.100.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0))
+
+  packages/a2a:
+    dependencies:
+      '@a2a-js/sdk':
+        specifier: 'catalog:'
+        version: 1.0.1(@bufbuild/protobuf@2.13.0)(express@5.2.1)
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(jsdom@26.1.0)(msw@2.12.10(@types/node@26.2.0)(typescript@5.9.3))(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(sass-embedded@1.100.0)(sass@1.100.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0))
 
   packages/app-runtime:
     devDependencies:
@@ -1581,6 +1600,21 @@ importers:
         version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(jsdom@26.1.0(supports-color@7.2.0))(msw@2.12.10(@types/node@22.20.1)(typescript@5.9.3))(vite@6.4.3(@types/node@22.20.1)(jiti@2.7.0)(lightningcss@1.33.0)(sass-embedded@1.100.0)(sass@1.100.0)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0))
 
 packages:
+
+  '@a2a-js/sdk@1.0.1':
+    resolution: {integrity: sha512-CJQdh3Wzwo8qIx5UUkSJ7+7BEI16PB+MXMHHNSmx8JQsQed2HlQgvx1ENOiKUfYA3PlcEvxIwv14dBblhDuPmw==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@bufbuild/protobuf': ^2.10.2
+      '@grpc/grpc-js': ^1.11.0
+      express: ^4.21.2 || ^5.1.0
+    peerDependenciesMeta:
+      '@bufbuild/protobuf':
+        optional: true
+      '@grpc/grpc-js':
+        optional: true
+      express:
+        optional: true
 
   '@ai-sdk/gateway@3.0.174':
     resolution: {integrity: sha512-RXDYc+FGEuy1Y/HlM4MThtQAzG99AIs8ki4tIoVnVweOlW5HDSfaNGNLw556ZR4TifTRuPfBc6QljX4UkuGG6A==}
@@ -10361,6 +10395,9 @@ packages:
   jose@6.2.1:
     resolution: {integrity: sha512-jUaKr1yrbfaImV7R2TN/b3IcZzsw38/chqMpo2XJ7i2F8AfM/lA4G1goC3JVEwg0H7UldTmSt3P68nt31W7/mw==}
 
+  jose@6.2.10:
+    resolution: {integrity: sha512-iiW7J9qRFlGxvCOIBDBDxFePQSn7ZMAnrYGhrrOo6siO/MIqwfyilLR27pkfDgUk+raLuzADS8A3S/KLBisc0g==}
+
   joycon@3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
     engines: {node: '>=10'}
@@ -14798,6 +14835,14 @@ packages:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
 
 snapshots:
+
+  '@a2a-js/sdk@1.0.1(@bufbuild/protobuf@2.13.0)(express@5.2.1)':
+    dependencies:
+      jose: 6.2.10
+      uuid: 11.1.1
+    optionalDependencies:
+      '@bufbuild/protobuf': 2.13.0
+      express: 5.2.1(supports-color@7.2.0)
 
   '@ai-sdk/gateway@3.0.174(zod@4.4.3)':
     dependencies:
@@ -24163,6 +24208,8 @@ snapshots:
     optional: true
 
   jose@6.2.1: {}
+
+  jose@6.2.10: {}
 
   joycon@3.1.1: {}
 

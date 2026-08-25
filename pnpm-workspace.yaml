@@ -51,6 +51,7 @@ catalog:
   zod: "^4.4.3"
 
   # Shared libraries
+  "@a2a-js/sdk": "1.0.1"
   "@sinclair/typebox": "^0.34.52"
   typebox: "^1.3.14"
   lucide-react: "^1.28.0"
