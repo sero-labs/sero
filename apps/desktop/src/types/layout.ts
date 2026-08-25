@@ -67,6 +67,13 @@ export interface LayoutState {
   activeSessionId?: string | null;
   /** Favourite model keys ("provider/modelId"). */
   favouriteModels?: string[];
+  /**
+   * Whether the insecure-credential-storage banner has been dismissed.
+   *
+   * Dismissing hides the banner only. The status-bar indicator stays, so the
+   * condition never becomes invisible.
+   */
+  storageWarningDismissed?: boolean;
   /** Hidden model keys ("provider/modelId"). */
   hiddenModels?: string[];
   /** Provider IDs entirely hidden from the model selector. */

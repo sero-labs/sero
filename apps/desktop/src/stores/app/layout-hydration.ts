@@ -8,6 +8,7 @@ import { useExplorerStore } from '@/stores/explorer';
 import { useAgentBoardStore } from '@/stores/agent-board';
 import { seedNavigationHistory } from '@/stores/navigation';
 import { hydrateZoom } from '@/stores/zoom';
+import { useStorageSecurityStore } from '@/stores/storage-security';
 import { normaliseChromeShortcuts, normaliseFavouriteApps } from './shared';
 import type { AppState } from './state';
 import { useAppStore } from './state';
@@ -21,6 +22,7 @@ function isGlobalApp(state: AppState, appId: string): boolean {
 
 /** Load layout state from disk and hydrate all stores. */
 export async function loadLayout(): Promise<void> {
+  let storageWarningDismissed = false;
   try {
     const dashboardApi = window.sero.dashboard;
     let backgroundChangedDuringLoad = false;
@@ -43,6 +45,7 @@ export async function loadLayout(): Promise<void> {
     if (!backgroundChangedDuringLoad) {
       useDashboardStore.getState().setBackgroundImage(backgroundImage);
     }
+    storageWarningDismissed = state?.storageWarningDismissed === true;
     if (state) {
       const favouriteApps = normaliseFavouriteApps(state.favouriteApps);
       const update: Partial<AppState> & { layoutReady: true } = {
@@ -135,6 +138,10 @@ export async function loadLayout(): Promise<void> {
     }
   } catch (err) {
     console.warn('[app-store] Failed to load layout:', err);
+  } finally {
+    const storageSecurity = useStorageSecurityStore.getState();
+    storageSecurity.hydrateDismissed(storageWarningDismissed);
+    void storageSecurity.check();
   }
 
   useAppStore.setState({ layoutReady: true });

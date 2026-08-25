@@ -24,6 +24,7 @@ import type { ThemePreset, ThemePresetMeta } from './theme';
 import type { SeroAgentPluginsBridge, SeroUserFeedbackBridge } from '@sero-ai/common';
 import type {
   ProfileInfo,
+  SafeStorageStatus,
   SeroSessionInfo,
   ChatMessage,
   ChatAttachment,
@@ -279,6 +280,13 @@ interface SeroSafeStorageAPI {
   decrypt(encryptedBase64: string): Promise<string>;
   /** Check if OS-level encryption is available. */
   available(): Promise<boolean>;
+  /**
+   * Whether stored credentials are really protected, and why not.
+   *
+   * Stricter than `available()` on Linux: a machine with no keyring reports
+   * encryption as available while encrypting under a published constant key.
+   */
+  status(): Promise<SafeStorageStatus>;
 }
 
 interface SeroClipboardAPI { writeText(text: string): Promise<boolean>; }

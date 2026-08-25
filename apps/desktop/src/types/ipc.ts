@@ -466,3 +466,19 @@ export interface AppStateReadResult {
 export type AppStateWriteResult =
   | { ok: true; etag: string }
   | { ok: false; data: unknown; etag: string | null };
+
+/**
+ * Whether stored credentials are really protected on this machine.
+ *
+ * `secure: false` with a `reason` is the case that matters: on Linux with no
+ * keyring, Electron reports encryption as available while Chromium encrypts
+ * under a published constant key. See electron/shared/lib/safe-storage-backend.
+ */
+export interface SafeStorageStatus {
+  /** True only when the backend genuinely protects the data. */
+  secure: boolean;
+  /** Plain-English explanation when `secure` is false; null when it is true. */
+  reason: string | null;
+  /** Actionable fix for this platform, when one exists. */
+  remedy: string | null;
+}

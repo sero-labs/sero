@@ -7,6 +7,7 @@ import type {
   QrLoginData,
   ResponseFeedbackEntry,
   ResponseFeedbackState,
+  SafeStorageStatus,
 } from '@/types/ipc';
 import type { LayoutState, LoadedLayoutState } from '@/types/layout';
 import type { ThemePreset, ThemePresetMeta } from '@/types/theme';
@@ -66,6 +67,8 @@ export const safeStorageBridge = {
     ipcRenderer.invoke(IpcChannels.safeStorage.decrypt, encryptedBase64),
   available: (): Promise<boolean> =>
     ipcRenderer.invoke(IpcChannels.safeStorage.available),
+  status: (): Promise<SafeStorageStatus> =>
+    ipcRenderer.invoke(IpcChannels.safeStorage.status),
 };
 
 export const gatewayBridge = {

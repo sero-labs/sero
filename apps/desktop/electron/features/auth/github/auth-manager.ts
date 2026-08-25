@@ -16,6 +16,7 @@ import { safeStorage, shell } from 'electron';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync } from 'fs';
 import path from 'path';
 import { SERO_AGENT_DIR, SERO_HOME } from '@electron/platform/env';
+import { describeStorageWeakness } from '@electron/shared/lib/safe-storage-backend';
 
 // ── GitHub OAuth App ─────────────────────────────────────────
 // Client ID for "Sero Desktop" GitHub OAuth App (public, no secret needed for device flow).
@@ -33,11 +34,33 @@ const TOKEN_FILE = path.join(SERO_AGENT_DIR, 'github-auth.json');
 const LEGACY_TOKEN_FILE = path.join(SERO_HOME, 'github-auth.json');
 const POLL_INTERVAL_MIN_MS = 5_000;
 
+let weakStorageWarned = false;
+
+/**
+ * Whether the GitHub token can be encrypted at all.
+ *
+ * Deliberately still gated on `isEncryptionAvailable()` rather than on
+ * `hasRealEncryption()`. Under the Linux `basic_text` backend the token is
+ * encrypted with a published constant key, which is weak — but tightening this
+ * gate would make `storeToken()` throw and break GitHub auth outright on every
+ * keyring-less Linux machine. That trade-off is a product decision, tracked in
+ * the safeStorage issue; until it is made, warn loudly and keep working.
+ */
 function canUseSafeStorage(): boolean {
-  return typeof safeStorage?.isEncryptionAvailable === 'function'
+  const usable = typeof safeStorage?.isEncryptionAvailable === 'function'
     && typeof safeStorage?.encryptString === 'function'
     && typeof safeStorage?.decryptString === 'function'
     && safeStorage.isEncryptionAvailable();
+
+  if (usable && !weakStorageWarned) {
+    const reason = describeStorageWeakness();
+    if (reason) {
+      weakStorageWarned = true;
+      console.warn(`[github-auth] WARNING: the stored GitHub token is not protected. ${reason}`);
+    }
+  }
+
+  return usable;
 }
 
 function getExistingTokenFile(): string | null {
@@ -97,6 +120,12 @@ export class GitHubAuthManager {
   private cachedUsername: string | null = null;
 
   constructor() {
+    this.reloadStoredToken();
+  }
+
+  /** Retry loading a token after Electron's storage backend becomes ready. */
+  reloadStoredToken(): void {
+    if (this.cachedToken) return;
     this.loadCachedToken();
   }
 

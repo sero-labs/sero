@@ -29,6 +29,8 @@ export const safeStorageIpcChannels = {
   decrypt: 'sero:safe-storage:decrypt',
   /** Check if OS-level encryption is available. */
   available: 'sero:safe-storage:available',
+  /** Report whether stored credentials are really protected, and why not. */
+  status: 'sero:safe-storage:status',
 } as const;
 
 export const feedbackIpcChannels = {

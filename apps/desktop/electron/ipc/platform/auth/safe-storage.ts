@@ -9,50 +9,62 @@
  *
  * Used by Sero apps (e.g. Starling Bank) to securely store API tokens.
  *
- * Security note: when OS encryption is unavailable (e.g., Linux without
- * libsecret), falls back to base64 encoding which is NOT secure. A
- * warning is logged and broadcast to the renderer via IPC.
+ * Security note: the reported capability is deliberately stricter than the
+ * mechanism used. `available` and `status` report insecure whenever storage
+ * does not really protect the data — including the Linux `basic_text` backend,
+ * where Chromium encrypts with a published constant key. Encrypt and decrypt
+ * still call safeStorage whenever Electron can, so blobs written before this
+ * check keep round-tripping. See shared/lib/safe-storage-backend.ts.
  */
 
 import { ipcMain, safeStorage } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
-import { broadcastToWindows } from '../../lib/window-broadcast';
+import type { SafeStorageStatus } from '@/types/ipc';
+import {
+  describeStorageRemedy,
+  describeStorageWeakness,
+  hasRealEncryption,
+} from '@electron/shared/lib/safe-storage-backend';
 
-let base64FallbackWarned = false;
+let weakStorageWarned = false;
 
-/** Log and broadcast a warning when encryption is unavailable. */
-function warnBase64Fallback(): void {
-  if (base64FallbackWarned) return;
-  base64FallbackWarned = true;
+/** Log once when storage does not really protect credentials. */
+function warnWeakStorage(): void {
+  const reason = describeStorageWeakness();
+  if (!reason || weakStorageWarned) return;
+  weakStorageWarned = true;
+  console.warn(`[security] WARNING: credentials are not stored securely. ${reason}`);
+}
 
-  console.warn(
-    '[security] WARNING: OS encryption (safeStorage) is unavailable. ' +
-    'Credentials will be stored with base64 encoding only, which is NOT secure. ' +
-    'On Linux, install libsecret (gnome-keyring or KWallet) to enable encryption.',
-  );
-
-  // Notify all renderer windows so the UI can show a persistent warning
-  broadcastToWindows('sero:security-warning', {
-    type: 'encryption-unavailable',
-    message: 'OS keychain encryption is unavailable. Credentials are stored insecurely.',
-  });
+/** Current protection state, for the renderer to surface to the user. */
+export function getSafeStorageStatus(): SafeStorageStatus {
+  const reason = describeStorageWeakness();
+  if (!reason) return { secure: true, reason: null, remedy: null };
+  return { secure: false, reason, remedy: describeStorageRemedy() };
 }
 
 export function registerSafeStorageHandlers(): void {
   ipcMain.handle(IpcChannels.safeStorage.available, (): boolean => {
-    const available = safeStorage.isEncryptionAvailable();
-    if (!available) warnBase64Fallback();
+    const available = hasRealEncryption();
+    if (!available) warnWeakStorage();
     return available;
+  });
+
+  ipcMain.handle(IpcChannels.safeStorage.status, (): SafeStorageStatus => {
+    warnWeakStorage();
+    return getSafeStorageStatus();
   });
 
   ipcMain.handle(
     IpcChannels.safeStorage.encrypt,
     (_event, plaintext: string): string => {
+      warnWeakStorage();
       if (!safeStorage.isEncryptionAvailable()) {
-        warnBase64Fallback();
         // Fallback: base64 only (not secure, but doesn't crash)
         return Buffer.from(plaintext, 'utf8').toString('base64');
       }
+      // Still encrypt under a weak backend. It is no less secure than the base64
+      // fallback, and switching mechanisms would strand already-stored blobs.
       return safeStorage.encryptString(plaintext).toString('base64');
     },
   );
@@ -61,8 +73,8 @@ export function registerSafeStorageHandlers(): void {
     IpcChannels.safeStorage.decrypt,
     (_event, encryptedBase64: string): string => {
       const buffer = Buffer.from(encryptedBase64, 'base64');
+      warnWeakStorage();
       if (!safeStorage.isEncryptionAvailable()) {
-        warnBase64Fallback();
         // Fallback: base64 only
         return buffer.toString('utf8');
       }

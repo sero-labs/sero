@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FolderOpen, Bug, Sun, Moon, Monitor } from 'lucide-react';
+import { FolderOpen, Bug, Sun, Moon, Monitor, TriangleAlert } from 'lucide-react';
 import { useThemeStore } from '@/stores/theme';
 import { MAX_ZOOM, MIN_ZOOM, useZoomStore } from '@/stores/zoom';
 import { useActiveWorkspace } from '@/stores/workspace';
 import { DevServerIndicator } from '@/components/layout/DevServerPanel';
+import { useStorageSecurityStore } from '@/stores/storage-security';
 
 /**
  * StatusBar, bottom bar showing workspace info (à la VSCode).
@@ -42,6 +43,7 @@ export function StatusBar() {
 
       {/* ── Right ─────────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
+        <StorageSecurityIndicator />
         <DebugLogToggle />
         <DevServerIndicator />
         <ZoomControl />
@@ -56,6 +58,32 @@ export function StatusBar() {
         </button>
       </div>
     </footer>
+  );
+}
+
+// ── Storage security ──────────────────────────────────────────
+
+/**
+ * Permanent marker shown while saved credentials are not really protected.
+ *
+ * Deliberately ignores the banner's dismissed flag. Dismissing the banner
+ * silences the interruption, not the condition — otherwise a one-click dismiss
+ * would hide a live security weakness forever.
+ */
+function StorageSecurityIndicator() {
+  const status = useStorageSecurityStore((s) => s.status);
+  if (!status || status.secure) return null;
+
+  const detail = status.remedy ? `${status.reason} ${status.remedy}` : status.reason;
+
+  return (
+    <span
+      className="flex items-center gap-1 text-[var(--status-warning)]"
+      title={detail ?? undefined}
+    >
+      <TriangleAlert className="size-3" />
+      storage not secure
+    </span>
   );
 }
 
