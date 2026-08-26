@@ -72,6 +72,7 @@
     "qrcode": "^1.5.4",
     "supports-color": "7.2.0",
     "typebox": "catalog:",
+    "undici": "8.9.0",
     "ws": "^8.21.3",
     "yaml": "2.9.0"
   },

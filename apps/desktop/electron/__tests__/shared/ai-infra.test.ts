@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => {
   const createSettings = vi.fn();
   const pickFirstAvailableModel = vi.fn();
   const registerPackageProviderAuth = vi.fn();
+  const configureElectronFetch = vi.fn();
   const ModelRegistry = vi.fn(function ModelRegistry(runtime: unknown) {
     return { runtime };
   });
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => {
     createSettings,
     pickFirstAvailableModel,
     registerPackageProviderAuth,
+    configureElectronFetch,
     ModelRegistry,
   };
 });
@@ -31,6 +33,10 @@ vi.mock('@electron/shared/infra/model-selection', () => ({
   pickFirstAvailableModel: mocks.pickFirstAvailableModel,
 }));
 
+vi.mock('@electron/shared/infra/electron-fetch', () => ({
+  configureElectronFetch: mocks.configureElectronFetch,
+}));
+
 vi.mock('@electron/shared/providers/package-provider-manifests', () => ({
   registerPackageProviderAuth: mocks.registerPackageProviderAuth,
 }));
@@ -46,6 +52,7 @@ describe('AI infrastructure', () => {
     mocks.createSettings.mockReset();
     mocks.pickFirstAvailableModel.mockReset();
     mocks.registerPackageProviderAuth.mockReset();
+    mocks.configureElectronFetch.mockReset();
     mocks.ModelRegistry.mockClear();
   });
 
@@ -53,6 +60,7 @@ describe('AI infrastructure', () => {
     const runtime = { id: 'shared-runtime' };
     const settingsManager = {
       getDefaultThinkingLevel: vi.fn(() => undefined),
+      getHttpIdleTimeoutMs: vi.fn(() => 300000),
       setDefaultThinkingLevel: vi.fn(),
     };
     const selectedModel = { provider: 'test', id: 'model' };
@@ -74,6 +82,7 @@ describe('AI infrastructure', () => {
       allowModelNetwork: false,
     });
     expect(mocks.registerPackageProviderAuth).toHaveBeenCalledWith(runtime);
+    expect(mocks.configureElectronFetch).toHaveBeenCalledWith(300000);
     expect(settingsManager.setDefaultThinkingLevel).toHaveBeenCalledWith('high');
   });
 
@@ -81,6 +90,7 @@ describe('AI infrastructure', () => {
     const runtime = { id: 'retry-runtime' };
     const settingsManager = {
       getDefaultThinkingLevel: vi.fn(() => 'medium'),
+      getHttpIdleTimeoutMs: vi.fn(() => 0),
       setDefaultThinkingLevel: vi.fn(),
     };
     mocks.createRuntime
