@@ -17,6 +17,8 @@ const mocks = vi.hoisted(() => ({
   ensureSessionHasAvailableModel: vi.fn(),
   syncAppSessionPoolModels: vi.fn(),
   buildModelState: vi.fn(),
+  syncQwenChatTemplateReasoning: vi.fn(),
+  removeQwenChatTemplateReasoning: vi.fn(),
 }));
 
 vi.mock('@electron/shared/infra/shared-infra', () => ({
@@ -50,6 +52,11 @@ vi.mock('@electron/ipc/agent/core/agent-helpers', () => ({
   buildModelState: mocks.buildModelState,
 }));
 
+vi.mock('@electron/shared/providers/qwen-chat-template-reasoning', () => ({
+  syncQwenChatTemplateReasoning: mocks.syncQwenChatTemplateReasoning,
+  removeQwenChatTemplateReasoning: mocks.removeQwenChatTemplateReasoning,
+}));
+
 import { refreshModelAvailability } from '@electron/ipc/agent/core/model-availability-refresh';
 
 function createModel(provider: string, id: string): Model<Api> {
@@ -78,6 +85,8 @@ describe('refreshModelAvailability', () => {
     mocks.ensureSessionHasAvailableModel.mockReset();
     mocks.syncAppSessionPoolModels.mockReset();
     mocks.buildModelState.mockReset();
+    mocks.syncQwenChatTemplateReasoning.mockReset().mockResolvedValue(undefined);
+    mocks.removeQwenChatTemplateReasoning.mockReset();
   });
 
   it('reconciles shared state, live chat sessions, and reused app-agent sessions in one flow', async () => {
