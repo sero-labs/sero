@@ -1,5 +1,5 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const AGENT_DIR = '/tmp/sero-local-models-test-agent';
 const MODELS_PATH = `${AGENT_DIR}/models.json`;
@@ -40,6 +40,11 @@ describe('local models IPC', () => {
 
   afterAll(() => rmSync(AGENT_DIR, { recursive: true, force: true }));
 
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
   it('reads models.json without unrelated runtime errors blocking the editor', async () => {
     const config = { providers: { local: { baseUrl: 'http://localhost:11434' } } };
     writeFileSync(MODELS_PATH, JSON.stringify(config));
@@ -73,5 +78,56 @@ describe('local models IPC', () => {
     await expect(saveConfig({}, { providers: {} })).resolves.toEqual({
       warning: 'Availability refresh: network unavailable',
     });
+  });
+
+  it('writes Pi configured auth for keyless providers', async () => {
+    mocks.refreshModelAvailability.mockResolvedValue({});
+    const saveConfig = mocks.handlers.get(IpcChannels.localModels.saveConfig);
+    if (!saveConfig) throw new Error('Local models saveConfig handler was not registered');
+
+    await saveConfig({}, {
+      providers: {
+        local: {
+          baseUrl: 'http://localhost:11434/v1',
+          models: [{ id: 'llama3' }],
+        },
+      },
+    });
+
+    expect(JSON.parse(readFileSync(MODELS_PATH, 'utf8'))).toEqual({
+      providers: {
+        local: {
+          baseUrl: 'http://localhost:11434/v1',
+          apiKey: 'none',
+          models: [{ id: 'llama3' }],
+        },
+      },
+    });
+  });
+
+  it('resolves environment-backed auth for connection tests', async () => {
+    vi.stubEnv('LOCAL_MODEL_KEY', 'secret');
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const testConnection = mocks.handlers.get(IpcChannels.localModels.testConnection);
+    if (!testConnection) {
+      throw new Error('Local models testConnection handler was not registered');
+    }
+
+    await expect(testConnection({}, {
+      baseUrl: 'http://localhost:30000/v1',
+      api: 'openai-completions',
+      apiKey: '$LOCAL_MODEL_KEY',
+    })).resolves.toEqual({ ok: true });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:30000/v1/models',
+      expect.objectContaining({
+        headers: { Authorization: 'Bearer secret' },
+      }),
+    );
   });
 });

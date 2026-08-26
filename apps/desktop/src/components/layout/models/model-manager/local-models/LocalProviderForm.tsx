@@ -3,6 +3,7 @@
  * Shows preset buttons for quick setup, connection test, and model fetching.
  */
 
+import { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import type {
   LocalProviderConfig,
@@ -13,6 +14,7 @@ import { LocalProviderCompatSection } from './LocalProviderCompatSection';
 import { LocalProviderConnectionSection } from './LocalProviderConnectionSection';
 import { LocalProviderFooter } from './LocalProviderFooter';
 import { LocalProviderModelsSection } from './LocalProviderModelsSection';
+import { LocalModelEditor } from './LocalModelEditor';
 import { LocalProviderPresetSection } from './LocalProviderPresetSection';
 import { useLocalProviderFormState } from './useLocalProviderFormState';
 
@@ -21,6 +23,7 @@ interface LocalProviderFormProps {
   existing?: { name: string; config: LocalProviderConfig } | null;
   /** Provider names already in use (for validation). */
   existingNames: string[];
+  initialEditingModelId?: string | null;
   onSave: (name: string, config: LocalProviderConfig) => Promise<void>;
   onCancel: () => void;
   onTestConnection: (request: LocalModelsConnectionRequest) => Promise<{ ok: boolean; error?: string }>;
@@ -30,6 +33,7 @@ interface LocalProviderFormProps {
 export function LocalProviderForm({
   existing,
   existingNames,
+  initialEditingModelId,
   onSave,
   onCancel,
   onTestConnection,
@@ -42,6 +46,24 @@ export function LocalProviderForm({
     onTestConnection,
     onFetchModels,
   });
+  const [editingModelId, setEditingModelId] = useState<string | null>(
+    initialEditingModelId ?? null,
+  );
+  const editingModel = state.models.find((model) => model.id === editingModelId) ?? null;
+
+  if (editingModel) {
+    return (
+      <LocalModelEditor
+        model={editingModel}
+        thinkingFormat={state.thinkingFormat}
+        onCancel={() => setEditingModelId(null)}
+        onSave={(model) => {
+          state.handleUpdateModel(editingModel.id, model);
+          setEditingModelId(null);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -77,6 +99,10 @@ export function LocalProviderForm({
         onApiChange={state.handleApiChange}
         apiKey={state.apiKey}
         onApiKeyChange={state.handleApiKeyChange}
+        apiKeySource={state.apiKeySource}
+        onApiKeySourceChange={state.handleApiKeySourceChange}
+        authentication={state.authentication}
+        onAuthenticationChange={state.handleAuthenticationChange}
         connectionStatus={state.connectionStatus}
         connectionError={state.connectionError}
         onTestConnection={state.handleTestConnection}
@@ -87,6 +113,8 @@ export function LocalProviderForm({
         onSupportsDeveloperRoleChange={state.handleSupportsDeveloperRoleChange}
         supportsReasoningEffort={state.supportsReasoningEffort}
         onSupportsReasoningEffortChange={state.handleSupportsReasoningEffortChange}
+        thinkingFormat={state.thinkingFormat}
+        onThinkingFormatChange={state.handleThinkingFormatChange}
       />
 
       <LocalProviderModelsSection
@@ -97,6 +125,7 @@ export function LocalProviderForm({
         onFetchModels={state.handleFetchModels}
         onNewModelIdChange={state.handleNewModelIdChange}
         onAddModel={state.handleAddModel}
+        onEditModel={setEditingModelId}
         onRemoveModel={state.handleRemoveModel}
       />
 

@@ -5,22 +5,28 @@
  * Shared by Electron main process and renderer.
  */
 
-import type { OpenAICompletionsCompat, ThinkingLevelMap } from '@earendil-works/pi-ai';
+import type {
+  KnownApi,
+  ModelCost,
+  OpenAICompletionsCompat,
+  ThinkingLevelMap,
+} from '@earendil-works/pi-ai';
 
-/** Supported API types for local model providers. */
-export type LocalModelApi =
+export type LocalProviderAuthentication = 'none' | 'api-key';
+export type LocalProviderApiKeySource = 'literal' | 'environment' | 'command';
+export type LocalThinkingFormat = NonNullable<OpenAICompletionsCompat['thinkingFormat']>;
+
+/** Pi API types exposed by Sero's local-provider editor. */
+type SupportedLocalModelApi =
   | 'openai-completions'
   | 'openai-responses'
   | 'anthropic-messages'
   | 'google-generative-ai';
 
-/** Cost configuration per million tokens. */
-export interface LocalModelCost {
-  input: number;
-  output: number;
-  cacheRead: number;
-  cacheWrite: number;
-}
+export type LocalModelApi = Extract<KnownApi, SupportedLocalModelApi>;
+
+/** Pi's canonical per-million-token cost configuration. */
+export type LocalModelCost = ModelCost;
 
 /** OpenAI compatibility overrides supported by models.json. */
 export type LocalModelCompat = OpenAICompletionsCompat;
@@ -36,6 +42,7 @@ export interface LocalModelEntry {
   input?: ('text' | 'image')[];
   contextWindow?: number;
   maxTokens?: number;
+  samplingParams?: Record<string, unknown>;
   cost?: LocalModelCost;
   headers?: Record<string, string>;
   compat?: LocalModelCompat;
@@ -50,6 +57,7 @@ export interface LocalModelOverride {
   cost?: Partial<LocalModelCost>;
   contextWindow?: number;
   maxTokens?: number;
+  samplingParams?: Record<string, unknown>;
   headers?: Record<string, string>;
   compat?: LocalModelCompat;
 }
@@ -92,7 +100,7 @@ export interface LocalRemoteModelInfo {
 }
 
 /** Provider preset templates for quick setup. */
-export type LocalProviderPreset = 'ollama' | 'lm-studio' | 'vllm' | 'custom';
+export type LocalProviderPreset = 'ollama' | 'lm-studio' | 'vllm' | 'sglang' | 'custom';
 
 /** Preset configuration for common local LLM servers. */
 export interface LocalProviderPresetConfig {

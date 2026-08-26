@@ -82,7 +82,8 @@ describe('useLocalProviderFormState', () => {
 
     expect(latestState?.name).toBe('vllm');
     expect(latestState?.baseUrl).toBe('http://localhost:8000/v1');
-    expect(latestState?.apiKey).toBe('vllm');
+    expect(latestState?.authentication).toBe('none');
+    expect(latestState?.apiKey).toBe('');
     expect(latestState?.supportsDeveloperRole).toBe(false);
     expect(latestState?.supportsReasoningEffort).toBe(false);
     expect(latestState?.connectionStatus).toBe('idle');
@@ -226,5 +227,133 @@ describe('useLocalProviderFormState', () => {
       },
       models: [{ id: 'qwen3' }],
     });
+  });
+
+  it('maps keyless and command authentication without exposing placeholders', async () => {
+    await act(async () => {
+      root?.render(<Harness />);
+    });
+
+    act(() => {
+      latestState?.handleNameChange('local');
+      latestState?.handleBaseUrlChange('http://localhost:30000/v1');
+    });
+
+    await act(async () => {
+      await latestState?.handleTestConnection();
+      await latestState?.handleSave();
+    });
+
+    expect(onTestConnectionSpy).toHaveBeenCalledWith(expect.objectContaining({
+      apiKey: undefined,
+    }));
+    expect(onSaveSpy).toHaveBeenCalledWith('local', expect.objectContaining({
+      apiKey: 'none',
+    }));
+
+    act(() => {
+      latestState?.handleAuthenticationChange('api-key');
+    });
+    expect(latestState?.isValid).toBe(false);
+
+    act(() => {
+      latestState?.handleApiKeySourceChange('command');
+      latestState?.handleApiKeyChange('get-local-key');
+    });
+
+    await act(async () => {
+      await latestState?.handleTestConnection();
+    });
+
+    expect(onTestConnectionSpy).toHaveBeenLastCalledWith(expect.objectContaining({
+      apiKey: '!get-local-key',
+    }));
+
+    act(() => {
+      latestState?.handleApiKeySourceChange('environment');
+      latestState?.handleApiKeyChange('LOCAL_MODEL_KEY');
+    });
+    await act(async () => {
+      await latestState?.handleSave();
+    });
+    expect(onSaveSpy).toHaveBeenLastCalledWith('local', expect.objectContaining({
+      apiKey: '$LOCAL_MODEL_KEY',
+    }));
+  });
+
+  it('applies the SGLang thinking format and updates one model', async () => {
+    await act(async () => {
+      root?.render(<Harness />);
+    });
+
+    act(() => {
+      latestState?.applyPreset('sglang');
+      latestState?.handleNewModelIdChange('Qwen/Qwen3-32B');
+    });
+    act(() => {
+      latestState?.handleAddModel();
+    });
+    act(() => {
+      latestState?.handleNewModelIdChange('Qwen/Qwen3-8B');
+    });
+    act(() => {
+      latestState?.handleAddModel();
+    });
+    act(() => {
+      latestState?.handleUpdateModel('Qwen/Qwen3-32B', {
+        id: 'Qwen/Qwen3-32B',
+        reasoning: true,
+        thinkingLevelMap: { low: 'low', medium: 'medium', max: null },
+      });
+    });
+
+    await act(async () => {
+      await latestState?.handleSave();
+    });
+
+    expect(onSaveSpy).toHaveBeenCalledWith('sglang', expect.objectContaining({
+      apiKey: 'none',
+      compat: expect.objectContaining({
+        thinkingFormat: 'qwen-chat-template',
+      }),
+      models: [
+        {
+          id: 'Qwen/Qwen3-32B',
+          reasoning: true,
+          thinkingLevelMap: { low: 'low', medium: 'medium', max: null },
+        },
+        { id: 'Qwen/Qwen3-8B' },
+      ],
+    }));
+  });
+
+  it('preserves escaped literal authentication values', async () => {
+    hookOptions = {
+      ...hookOptions,
+      existing: {
+        name: 'escaped-key',
+        config: {
+          baseUrl: 'http://localhost:8080/v1',
+          api: 'openai-completions',
+          apiKey: '$$literal-key',
+          models: [{ id: 'local-model' }],
+        },
+      },
+    };
+
+    await act(async () => {
+      root?.render(<Harness />);
+    });
+
+    expect(latestState?.apiKeySource).toBe('literal');
+    expect(latestState?.apiKey).toBe('$$literal-key');
+
+    await act(async () => {
+      await latestState?.handleSave();
+    });
+
+    expect(onSaveSpy).toHaveBeenCalledWith('escaped-key', expect.objectContaining({
+      apiKey: '$$literal-key',
+    }));
   });
 });

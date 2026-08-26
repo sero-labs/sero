@@ -26,7 +26,7 @@ export function ThinkingPicker({
   className
 }: ThinkingPickerProps) {
   const levels = disabled
-    ? THINKING_LEVELS
+    ? THINKING_LEVELS.filter((level) => level === 'off')
     : THINKING_LEVELS.filter((level) => level === 'off' || available.includes(level));
   const activeIndex = Math.max(
     0,

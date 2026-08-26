@@ -1,5 +1,5 @@
 import type { KeyboardEvent } from 'react';
-import { Download, Loader2, Plus } from 'lucide-react';
+import { Download, Loader2, Pencil, Plus } from 'lucide-react';
 import type { LocalModelEntry } from '@/types/local-models';
 import { LocalProviderField } from './LocalProviderField';
 
@@ -11,6 +11,7 @@ interface LocalProviderModelsSectionProps {
   onFetchModels: () => Promise<void>;
   onNewModelIdChange: (value: string) => void;
   onAddModel: () => void;
+  onEditModel: (id: string) => void;
   onRemoveModel: (id: string) => void;
 }
 
@@ -22,6 +23,7 @@ export function LocalProviderModelsSection({
   onFetchModels,
   onNewModelIdChange,
   onAddModel,
+  onEditModel,
   onRemoveModel,
 }: LocalProviderModelsSectionProps) {
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -65,13 +67,26 @@ export function LocalProviderModelsSection({
                     <span className="ml-1.5 text-[var(--text-muted)]">{model.id}</span>
                   )}
                 </span>
-                <button type="button"
-                  onClick={() => onRemoveModel(model.id)}
-                  className="text-sm text-[var(--text-muted)] opacity-0
-                    transition-opacity group-hover:opacity-100 hover:text-status-error"
+                <div className="flex items-center gap-1 opacity-0 transition-opacity
+                  group-hover:opacity-100"
                 >
-                  Remove
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => onEditModel(model.id)}
+                    title="Edit model"
+                    className="rounded p-1 text-[var(--text-muted)]
+                      hover:bg-[var(--bg-base)] hover:text-[var(--text-secondary)]"
+                  >
+                    <Pencil className="size-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onRemoveModel(model.id)}
+                    className="text-sm text-[var(--text-muted)] hover:text-status-error"
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
             ))}
           </div>

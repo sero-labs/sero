@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@sero
 import { ExternalLink, FileCode2, Image, type LucideIcon } from 'lucide-react';
 
 const interactivePrototypes = [
+  ['Local model setup and thinking controls', 'local-models.html'],
   ['Add workspace menu', 'add-workspace-menu.html'],
   ['Graphify free code indexing', 'graphify-free-code-indexing.html'],
   ['Profile removal', 'profile-removal.html'],

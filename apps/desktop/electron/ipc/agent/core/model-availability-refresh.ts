@@ -10,6 +10,10 @@ import {
   applyRuntimeSettings,
 } from '@electron/shared/infra/shared-infra';
 import { cleanupUnavailableModelSelections } from '@electron/shared/settings/cleanup-unavailable-model-selections';
+import {
+  removeQwenChatTemplateReasoning,
+  syncQwenChatTemplateReasoning,
+} from '@electron/shared/providers/qwen-chat-template-reasoning';
 import { buildModelState } from './agent-helpers';
 import { ensureSessionHasAvailableModel } from './agent-session-model-sync';
 import { syncAppSessionPoolModels } from './app-agent-session-model-sync';
@@ -59,7 +63,9 @@ export async function refreshModelAvailability(
 ): Promise<ModelAvailabilityRefreshResult> {
   const infra = await ensureInfra();
 
+  removeQwenChatTemplateReasoning(infra.modelRuntime);
   const refreshResult = await infra.modelRuntime.refresh(refreshOptions);
+  await syncQwenChatTemplateReasoning(infra.modelRuntime);
   const refreshWarnings: string[] = [];
   if (refreshResult.aborted) refreshWarnings.push('Model refresh was cancelled');
   if (refreshResult.errors.size > 0) {

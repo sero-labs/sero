@@ -1,5 +1,9 @@
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
-import type { LocalModelApi } from '@/types/local-models';
+import type {
+  LocalModelApi,
+  LocalProviderApiKeySource,
+  LocalProviderAuthentication,
+} from '@/types/local-models';
 import { API_OPTIONS } from './shared';
 import { LocalProviderField } from './LocalProviderField';
 
@@ -13,6 +17,10 @@ interface LocalProviderConnectionSectionProps {
   onApiChange: (value: LocalModelApi) => void;
   apiKey: string;
   onApiKeyChange: (value: string) => void;
+  apiKeySource: LocalProviderApiKeySource;
+  onApiKeySourceChange: (value: LocalProviderApiKeySource) => void;
+  authentication: LocalProviderAuthentication;
+  onAuthenticationChange: (value: LocalProviderAuthentication) => void;
   connectionStatus: 'idle' | 'testing' | 'ok' | 'error';
   connectionError: string | null;
   onTestConnection: () => Promise<void>;
@@ -28,6 +36,10 @@ export function LocalProviderConnectionSection({
   onApiChange,
   apiKey,
   onApiKeyChange,
+  apiKeySource,
+  onApiKeySourceChange,
+  authentication,
+  onAuthenticationChange,
   connectionStatus,
   connectionError,
   onTestConnection,
@@ -93,15 +105,58 @@ export function LocalProviderConnectionSection({
         </select>
       </LocalProviderField>
 
-      <LocalProviderField label="API Key" hint="Literal value, env var name, or !command">
-        <input aria-label="API key"
-          value={apiKey}
-          onChange={(event) => onApiKeyChange(event.target.value)}
-          placeholder="ollama"
-          className="h-8 w-full rounded-md border border-[var(--border-subtle)] bg-[var(--bg-base)]
-            px-2.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]
-            outline-none focus:border-[var(--border-focus)]"
-        />
+      <LocalProviderField label="Authentication">
+        <div className="grid grid-cols-2 gap-1 rounded-lg bg-[var(--bg-base)] p-1">
+          {(['none', 'api-key'] as const).map((option) => (
+            <button
+              type="button"
+              key={option}
+              onClick={() => onAuthenticationChange(option)}
+              className={`h-7 rounded-md text-xs font-medium transition-colors ${
+                authentication === option
+                  ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+              }`}
+            >
+              {option === 'none' ? 'None' : 'API key'}
+            </button>
+          ))}
+        </div>
+        {authentication === 'none' ? (
+          <p className="text-sm text-[var(--text-muted)]">
+            Use this for an endpoint that does not require credentials.
+          </p>
+        ) : (
+          <div className="grid grid-cols-[140px_1fr] gap-2">
+            <select
+              aria-label="API key source"
+              value={apiKeySource}
+              onChange={(event) => onApiKeySourceChange(
+                event.target.value as LocalProviderApiKeySource,
+              )}
+              className="h-8 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-base)]
+                px-2 text-xs text-[var(--text-primary)] outline-none
+                focus:border-[var(--border-focus)]"
+            >
+              <option value="literal">Literal value</option>
+              <option value="environment">Environment variable</option>
+              <option value="command">Command</option>
+            </select>
+            <input
+              aria-label="API key"
+              value={apiKey}
+              onChange={(event) => onApiKeyChange(event.target.value)}
+              placeholder={apiKeySource === 'environment'
+                ? 'API_KEY'
+                : apiKeySource === 'command'
+                  ? 'security find-generic-password …'
+                  : 'Enter API key'}
+              className="h-8 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-base)]
+                px-2.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)]
+                outline-none focus:border-[var(--border-focus)]"
+            />
+          </div>
+        )}
       </LocalProviderField>
     </>
   );

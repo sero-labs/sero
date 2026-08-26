@@ -6,6 +6,7 @@ import {
 import type { Api, Model } from '@earendil-works/pi-ai';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { registerPackageProviderAuth } from '@electron/shared/providers/package-provider-manifests';
+import { syncQwenChatTemplateReasoning } from '@electron/shared/providers/qwen-chat-template-reasoning';
 import { pickFirstAvailableModel } from './model-selection';
 
 let infra: SharedInfra | null = null;
@@ -30,6 +31,7 @@ export async function ensureAiInfra(): Promise<SharedInfra> {
       allowModelNetwork: false,
     });
     registerPackageProviderAuth(modelRuntime);
+  await syncQwenChatTemplateReasoning(modelRuntime);
     const modelRegistry = new ModelRegistry(modelRuntime);
     const settingsManager = SettingsManager.create(SERO_AGENT_DIR, SERO_AGENT_DIR);
     if (!settingsManager.getDefaultThinkingLevel()) {

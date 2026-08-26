@@ -16,7 +16,7 @@ For the default profile, that is usually `~/.sero-ui/agent/models.json`. Sero re
     "lm-studio": {
       "baseUrl": "http://localhost:1234/v1",
       "api": "openai-completions",
-      "apiKey": "lm-studio",
+      "apiKey": "none",
       "compat": {
         "supportsDeveloperRole": false,
         "supportsReasoningEffort": false
@@ -40,9 +40,9 @@ For the default profile, that is usually `~/.sero-ui/agent/models.json`. Sero re
 | --- | --- | --- |
 | `baseUrl` | string | Base URL for the provider API, such as `http://localhost:1234/v1`. |
 | `api` | string | Supported values: `openai-completions`, `openai-responses`, `anthropic-messages`, `google-generative-ai`. |
-| `apiKey` | string | Literal key, `$NAME` or `${NAME}` environment template, or a command that starts with `!`. Use `none` for a local server that does not need a key. |
+| `apiKey` | string | Literal key, `$NAME` or `${NAME}` environment template, or a command that starts with `!`. The **None** authentication choice writes `none` for a keyless server. |
 | `headers` | object | Extra request headers. Values use the same resolver behavior as `apiKey`. |
-| `compat` | object | OpenAI-compatibility flags from the Pi SDK type used by Sero. The UI currently exposes `supportsDeveloperRole` and `supportsReasoningEffort`. |
+| `compat` | object | OpenAI-compatibility flags from the Pi SDK type used by Sero. The local provider editor includes the thinking request format and common compatibility controls. |
 | `authHeader` | boolean | For OpenAI-compatible APIs, controls whether Sero attaches `Authorization: Bearer <apiKey>`. Defaults to true when an API key is present and not `none`. |
 | `models` | array | Explicit local/custom model entries. |
 | `modelOverrides` | object | Per-model overrides for built-in provider models. |
@@ -112,6 +112,73 @@ For example:
 ```
 
 Treat command-based and environment-backed values as sensitive. Do not commit private `models.json` files.
+
+## Keyless local servers
+
+Choose **None** under **Authentication** for a server that does not require a
+key. Sero stores the Pi-compatible `none` value in `models.json`. You do not
+need to enter this value in the UI.
+
+Common keyless provider settings are:
+
+| Server | Base URL | API |
+| --- | --- | --- |
+| Ollama | `http://localhost:11434/v1` | `openai-completions` |
+| LM Studio | `http://localhost:1234/v1` | `openai-completions` |
+| vLLM | `http://localhost:8000/v1` | `openai-completions` |
+| SGLang | `http://localhost:30000/v1` | `openai-completions` |
+
+Use **API key** when the endpoint requires authentication. Select a literal
+value, environment variable, or command. Sero stores environment references
+with a `$` prefix and commands with a `!` prefix.
+
+## Qwen thinking on SGLang
+
+Set the provider thinking request format to **Qwen chat template (SGLang)**.
+Then edit the local model, turn on **Thinking support**, and map each supported
+Sero level to the value that SGLang expects.
+
+```json
+{
+  "providers": {
+    "sglang": {
+      "baseUrl": "http://localhost:30000/v1",
+      "api": "openai-completions",
+      "apiKey": "none",
+      "compat": {
+        "supportsDeveloperRole": false,
+        "supportsReasoningEffort": true,
+        "thinkingFormat": "qwen-chat-template"
+      },
+      "models": [
+        {
+          "id": "Qwen/Qwen3-32B",
+          "name": "Qwen3 32B",
+          "reasoning": true,
+          "thinkingLevelMap": {
+            "off": "off",
+            "minimal": "low",
+            "low": "low",
+            "medium": "medium",
+            "high": "xhigh",
+            "xhigh": "xhigh",
+            "max": null
+          },
+          "input": ["text"],
+          "contextWindow": 32768,
+          "maxTokens": 8192
+        }
+      ]
+    }
+  }
+}
+```
+
+Sero hides levels mapped to `null` from the ChatPanel. **Off** remains
+available. Pi handles the level map and request format for supported providers.
+For `qwen-chat-template`, Pi sends the chat-template switch but not SGLang's
+top-level `reasoning_effort`. Sero adds only that missing field and leaves Pi's
+request and stream handling unchanged.
 
 ## Model overrides
 

@@ -32,4 +32,31 @@ describe('buildOnboardingAvailableModelGroups', () => {
       supportsXhigh: true,
     });
   });
+
+  it('omits disabled thinking levels from local model metadata', () => {
+    const groups = buildAvailableModelGroups([{
+      provider: 'sglang',
+      id: 'Qwen/Qwen3-32B',
+      name: 'Qwen3 32B',
+      reasoning: true,
+      thinkingLevelMap: {
+        off: 'off',
+        minimal: 'low',
+        low: 'low',
+        medium: 'medium',
+        high: 'xhigh',
+        xhigh: 'xhigh',
+        max: null,
+      },
+    }]);
+
+    expect(groups[0]?.models[0]?.availableThinkingLevels).toEqual([
+      'off',
+      'minimal',
+      'low',
+      'medium',
+      'high',
+      'xhigh',
+    ]);
+  });
 });
