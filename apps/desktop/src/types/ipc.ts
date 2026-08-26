@@ -177,6 +177,7 @@ export type {
   ChatUserMessage,
   ChatAssistantMessage,
   ChatToolCallMessage,
+  AgentSettlement,
   AgentStreamEvent,
   SeroSlashCommandInfo,
 } from './agent';

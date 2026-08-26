@@ -12,7 +12,14 @@ import type {
   Usage,
   UserMessage,
 } from '@earendil-works/pi-ai';
-import type { ChatAttachment, ChatMessage, ChatToolCallMessage, AgentStreamEvent, ToolResultImage } from '@/types/ipc';
+import type {
+  AgentSettlement,
+  AgentStreamEvent,
+  ChatAttachment,
+  ChatMessage,
+  ChatToolCallMessage,
+  ToolResultImage,
+} from '@/types/ipc';
 import { getCliRegistry } from '@electron/cli';
 import type { CliContentBlock } from '@electron/cli/core';
 import { createSeroCliTool, prepareCliImageContent, splitCommandLines } from '@electron/cli/core';
@@ -221,6 +228,7 @@ export async function executeDirectCliPrompt({
   sendEvent({ type: 'tool_start', sessionId, tool: toolMessage });
 
   const runTool = executeTool ?? createDirectCliToolExecutor(entry, sessionId);
+  let outcome: AgentSettlement = 'completed';
 
   try {
     const result = await runTool({
@@ -255,6 +263,7 @@ export async function executeDirectCliPrompt({
       images: finalView.images,
     });
   } catch (error) {
+    outcome = 'error';
     const message = error instanceof Error ? error.message : String(error);
     const errorContent: TextContent[] = [{ type: 'text', text: `ERROR: ${message}` }];
     const errorDetails = { exitCode: 1 };
@@ -269,7 +278,7 @@ export async function executeDirectCliPrompt({
       isError: true,
     });
   } finally {
-    sendEvent({ type: 'agent_end', sessionId });
+    sendEvent({ type: 'agent_end', sessionId, outcome });
   }
 }
 

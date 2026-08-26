@@ -111,3 +111,51 @@ describe('agent turn-undo message mapping', () => {
     expect((messages[0] as { turnUndo?: unknown }).turnUndo).toBeUndefined();
   });
 });
+
+describe('incomplete tool history', () => {
+  it('reopens a tool call without a result as failed', () => {
+    const messages = convertSessionMessages([{
+      role: 'assistant',
+      content: [{
+        type: 'toolCall',
+        id: 'call-incomplete',
+        name: 'write',
+        arguments: { path: 'unfinished.txt' },
+      }],
+    }] as never);
+
+    expect(messages).toEqual([
+      expect.objectContaining({
+        type: 'tool',
+        toolCallId: 'call-incomplete',
+        state: 'error',
+        isError: true,
+      }),
+    ]);
+  });
+
+  it('keeps a successful empty tool result completed', () => {
+    const messages = convertSessionMessages([
+      {
+        role: 'assistant',
+        content: [{ type: 'toolCall', id: 'call-empty', name: 'write', arguments: {} }],
+      },
+      {
+        role: 'toolResult',
+        toolCallId: 'call-empty',
+        toolName: 'write',
+        content: [],
+        isError: false,
+      },
+    ] as never);
+
+    expect(messages).toEqual([
+      expect.objectContaining({
+        type: 'tool',
+        toolCallId: 'call-empty',
+        state: 'completed',
+        isError: false,
+      }),
+    ]);
+  });
+});

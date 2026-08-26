@@ -32,6 +32,7 @@ describe('agent selectors', () => {
           workspaceId: 'workspace-1',
           messages: [],
           isStreaming: false,
+          retry: null,
           error: null,
           commands: [],
           modelState: null,

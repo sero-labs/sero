@@ -97,6 +97,11 @@ describe('direct CLI chat prompts', () => {
       'tool_end',
       'agent_end',
     ]);
+    expect(sendEvent).toHaveBeenLastCalledWith({
+      type: 'agent_end',
+      sessionId: 'session-1',
+      outcome: 'completed',
+    });
   });
 
   it('uses the session cwd for direct sero prompts instead of the workspace root', async () => {

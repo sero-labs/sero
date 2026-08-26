@@ -138,6 +138,7 @@ describe('useSessionAgent', () => {
           runtimeBackend: 'host',
           messages: [],
           isStreaming: true,
+          retry: null,
           error: null,
           commands: [],
           modelState: null,

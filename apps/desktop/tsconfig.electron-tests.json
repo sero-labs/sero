@@ -1,7 +1,10 @@
 {
   "extends": "./tsconfig.electron.json",
   "compilerOptions": {
-    "noEmit": true
+    "noEmit": true,
+    // The response-parity tests drive renderer store reducers directly, so
+    // this test program compiles renderer DOM code too.
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
   "include": [
     "electron/**/*.d.ts",

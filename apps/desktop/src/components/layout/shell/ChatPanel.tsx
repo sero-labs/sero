@@ -23,7 +23,7 @@ import { useUserFeedbackInit } from '@/hooks/useUserFeedbackInit';
 import { createFilePathClickHandler } from '@/components/layout/ClickableFilePath';
 import { PendingQuestionCard } from '@/components/layout/PendingQuestionCard';
 import { QuestionnaireNotice, getFeedbackToolGroupDisposition } from '@/components/layout/QuestionnaireNotice';
-import { EmptyState, ThinkingIndicator } from '@/components/layout/ChatPanelHelpers';
+import { EmptyState, RetryIndicator, ThinkingIndicator } from '@/components/layout/ChatPanelHelpers';
 import { ChatPromptArea } from '@/components/layout/ChatPromptArea';
 import { ImageLightbox } from '@/components/layout/ImageLightbox';
 import { parseSessionLocationKey, useNodesStore } from '@/stores/nodes';
@@ -59,6 +59,7 @@ function LocalChatPanel() {
 
   const messages = focused?.messages ?? EMPTY_MESSAGES;
   const isStreaming = focused?.isStreaming ?? false;
+  const retry = focused?.retry ?? null;
   const error = focused?.error ?? null;
   const sessionId = focused?.sessionId ?? null;
   const focusedWorkspaceId = focused?.workspaceId ?? null;
@@ -202,7 +203,7 @@ function LocalChatPanel() {
           </>
         )}
 
-        {showThinking ? <ThinkingIndicator /> : null}
+        {retry ? <RetryIndicator retry={retry} /> : showThinking ? <ThinkingIndicator /> : null}
 
         {error && <ChatError error={error} />}
       </ConversationContent>
