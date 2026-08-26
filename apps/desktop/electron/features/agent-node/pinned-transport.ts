@@ -76,6 +76,7 @@ export class PinnedTransport {
     target: string,
     headers: Record<string, string> = {},
     body?: string,
+    idleTimeoutMs = 30_000,
   ): Promise<import('http').IncomingMessage> {
     const identityCa = this.identityCa ?? await this.preflight();
     this.identityCa = identityCa;
@@ -93,7 +94,9 @@ export class PinnedTransport {
     return new Promise((resolve, reject) => {
       const request = https.request(url, requestOptions, resolve);
       request.once('error', reject);
-      request.setTimeout(30_000, () => request.destroy(new Error('Agent node request timed out')));
+      if (idleTimeoutMs > 0) {
+        request.setTimeout(idleTimeoutMs, () => request.destroy(new Error('Agent node request timed out')));
+      }
       if (body !== undefined) request.write(body);
       request.end();
     });

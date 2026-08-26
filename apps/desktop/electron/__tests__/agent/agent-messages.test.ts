@@ -113,7 +113,7 @@ describe('agent turn-undo message mapping', () => {
 });
 
 describe('incomplete tool history', () => {
-  it('reopens a tool call without a result as failed', () => {
+  it('reopens a tool call without a result as running', () => {
     const messages = convertSessionMessages([{
       role: 'assistant',
       content: [{
@@ -128,8 +128,8 @@ describe('incomplete tool history', () => {
       expect.objectContaining({
         type: 'tool',
         toolCallId: 'call-incomplete',
-        state: 'error',
-        isError: true,
+        state: 'running',
+        isError: false,
       }),
     ]);
   });

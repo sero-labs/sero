@@ -235,9 +235,9 @@ export function convertSessionMessages(
           toolName: toolCall.name,
           input: toolCall.arguments,
           output,
-          isError: hasToolResult ? isError : true,
+          isError: hasToolResult ? isError : false,
           details,
-          state: hasToolResult ? (isError ? 'error' : 'completed') : 'error',
+          state: hasToolResult ? (isError ? 'error' : 'completed') : 'running',
           images,
         } satisfies ChatToolCallMessage);
       }

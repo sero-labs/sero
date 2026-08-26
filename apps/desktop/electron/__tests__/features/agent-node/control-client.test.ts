@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ControlClient, ControlVersionError } from '@electron/features/agent-node/control-client';
+import {
+  ControlClient,
+  ControlNotFoundError,
+  ControlVersionError,
+} from '@electron/features/agent-node/control-client';
 import { PinnedTransport } from '@electron/features/agent-node/pinned-transport';
 
 describe('Agent Node control client', () => {
@@ -53,5 +57,19 @@ describe('Agent Node control client', () => {
     });
     const control = new ControlClient(transport, 'https://spark.test/sero/v1', 'secret');
     await expect(control.call('listSessions', {})).rejects.toBeInstanceOf(ControlVersionError);
+  });
+
+  it('returns missing session streams without retrying and disables the SSE idle timeout', async () => {
+    const transport = new PinnedTransport('https://spark.test', 'ab'.repeat(32));
+    const open = vi.spyOn(transport, 'open').mockResolvedValue({
+      statusCode: 404,
+      headers: { 'sero-control-version': '1' },
+      destroy: vi.fn(),
+    } as never);
+    const control = new ControlClient(transport, 'https://spark.test/sero/v1', 'secret');
+
+    await expect(control.sessionEvents('deleted', undefined, vi.fn()))
+      .rejects.toBeInstanceOf(ControlNotFoundError);
+    expect(open.mock.calls[0]?.[4]).toBe(0);
   });
 });

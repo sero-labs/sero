@@ -1,5 +1,11 @@
 import { deterministicRetryDelay, type SseConnection, type SseMessage } from './sse';
 
+const TERMINAL_ERROR_NAMES = new Set([
+  'ControlAuthorizationError',
+  'ControlNotFoundError',
+  'ControlVersionError',
+]);
+
 export type StreamOpener = (
   cursor: string | undefined,
   onMessage: (message: SseMessage) => void,
@@ -32,10 +38,9 @@ export class RetryingStream {
         if (!this.stopped) throw new Error('Agent node stream closed');
       } catch (error) {
         if (this.stopped) return;
+        if (error instanceof Error && TERMINAL_ERROR_NAMES.has(error.name)) throw error;
         const delay = deterministicRetryDelay(this.attempt++);
         await new Promise((resolve) => setTimeout(resolve, delay));
-        if (error instanceof Error
-          && (error.name === 'ControlVersionError' || error.name === 'ControlAuthorizationError')) throw error;
       }
     }
   }

@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   cancelTask: vi.fn(),
   controlCall: vi.fn(),
   sessionEvents: vi.fn(),
+  streamClose: vi.fn(),
+  retryError: undefined as Error | undefined,
   retryMessages: [] as Array<{ id: string | null; event: string; data: unknown }>,
 }));
 
@@ -39,6 +41,7 @@ vi.mock('@electron/features/agent-node/a2a-client', () => ({
 }));
 vi.mock('@electron/features/agent-node/control-client', () => ({
   ControlAuthorizationError: class extends Error {},
+  ControlNotFoundError: class extends Error {},
   ControlVersionError: class extends Error {},
   ControlClient: class {
     call = mocks.controlCall;
@@ -53,6 +56,7 @@ vi.mock('@electron/features/agent-node/retrying-stream', () => ({
       private readonly onMessage: (message: { id: string | null; event: string; data: unknown }) => void,
     ) {}
     start = vi.fn(async () => {
+      if (mocks.retryError) throw mocks.retryError;
       for (const message of mocks.retryMessages) this.onMessage(message);
       return new Promise<void>(() => {});
     });
@@ -64,12 +68,13 @@ vi.mock('@electron/features/agent-node/retrying-stream', () => ({
 describe('AgentNodeService task lifecycle', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.retryError = undefined;
     mocks.retryMessages.splice(0, mocks.retryMessages.length, { id: null, event: 'synced', data: { type: 'synced' } });
     mocks.streamMessage.mockImplementation(async (_params, onEvent) => {
       onEvent({ id: null, event: 'message', data: {
         result: { task: { id: 'task-1', contextId: 'session-1', status: { state: 'TASK_STATE_WORKING' } } },
       } });
-      return { close: vi.fn(), done: new Promise<void>(() => {}) };
+      return { close: mocks.streamClose, done: new Promise<void>(() => {}) };
     });
   });
 
@@ -100,6 +105,30 @@ describe('AgentNodeService task lifecycle', () => {
     expect(mocks.sessionEvents).not.toHaveBeenCalled();
   });
 
+  it('rejects send when the task stream closes before returning a task id', async () => {
+    mocks.streamMessage.mockResolvedValueOnce({ close: mocks.streamClose, done: Promise.resolve() });
+    const service = new AgentNodeService('/profile');
+
+    await expect(service.send({ nodeId: 'node-1', contextId: 'session-1', text: 'Hello' }))
+      .rejects.toThrow('closed before it returned a task');
+  });
+
+  it('removes completed task streams from the connection', async () => {
+    mocks.streamMessage.mockImplementationOnce(async (_params, onEvent) => {
+      onEvent({ id: null, event: 'message', data: {
+        result: { task: { id: 'task-1', contextId: 'session-1', status: { state: 'TASK_STATE_COMPLETED' } } },
+      } });
+      return { close: mocks.streamClose, done: Promise.resolve() };
+    });
+    const service = new AgentNodeService('/profile');
+
+    await service.send({ nodeId: 'node-1', contextId: 'session-1', text: 'Hello' });
+    await Promise.resolve();
+    service.dispose();
+
+    expect(mocks.streamClose).not.toHaveBeenCalled();
+  });
+
   it('calls GetTask on attach and reports a node restart', async () => {
     mocks.getTask.mockResolvedValue({
       id: 'task-1', status: { state: 'TASK_STATE_FAILED', message: { parts: [{ text: 'the node restarted' }] } },
@@ -123,6 +152,13 @@ describe('AgentNodeService task lifecycle', () => {
     const attached = await service.attach('node-1', 'session-1');
     expect(attached.messages).toHaveLength(1);
     expect(attached.messages[0]).toMatchObject({ type: 'user', text: 'Hello from replay' });
+  });
+
+  it('rejects attach when the session replay cannot be opened', async () => {
+    mocks.retryError = new Error('Session not found');
+    const service = new AgentNodeService('/profile');
+
+    await expect(service.attach('node-1', 'deleted-session')).rejects.toThrow('Session not found');
   });
 
   it('reconciles a completed task stream without resetting the connection', async () => {

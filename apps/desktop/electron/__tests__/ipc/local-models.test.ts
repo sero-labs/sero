@@ -130,4 +130,39 @@ describe('local models IPC', () => {
       }),
     );
   });
+
+  it('keeps bare environment variable names compatible', async () => {
+    vi.stubEnv('LOCAL_MODEL_KEY', 'secret');
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: [] }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const testConnection = mocks.handlers.get(IpcChannels.localModels.testConnection);
+    if (!testConnection) throw new Error('Local models testConnection handler was not registered');
+
+    await expect(testConnection({}, {
+      baseUrl: 'http://localhost:30000/v1',
+      api: 'openai-completions',
+      apiKey: 'LOCAL_MODEL_KEY',
+    })).resolves.toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:30000/v1/models',
+      expect.objectContaining({ headers: { Authorization: 'Bearer secret' } }),
+    );
+  });
+
+  it('keeps a literal dollar sign in an API key', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: [] }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const testConnection = mocks.handlers.get(IpcChannels.localModels.testConnection);
+    if (!testConnection) throw new Error('Local models testConnection handler was not registered');
+
+    await expect(testConnection({}, {
+      baseUrl: 'http://localhost:30000/v1',
+      api: 'openai-completions',
+      apiKey: 'sk-local$literal',
+    })).resolves.toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:30000/v1/models',
+      expect.objectContaining({ headers: { Authorization: 'Bearer sk-local$literal' } }),
+    );
+  });
 });

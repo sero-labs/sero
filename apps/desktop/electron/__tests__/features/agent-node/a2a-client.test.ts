@@ -38,6 +38,7 @@ describe('Agent Node A2A 1.0 client', () => {
     expect(open.mock.calls.map((call) => JSON.parse(call[3] ?? '{}').method)).toEqual([
       'SendStreamingMessage', 'SubscribeToTask',
     ]);
+    expect(open.mock.calls.map((call) => call[4])).toEqual([0, 0]);
   });
 
   it('exposes only the five specified A2A operations', () => {

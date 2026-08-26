@@ -18,7 +18,6 @@ const mocks = vi.hoisted(() => ({
   syncAppSessionPoolModels: vi.fn(),
   buildModelState: vi.fn(),
   syncQwenChatTemplateReasoning: vi.fn(),
-  removeQwenChatTemplateReasoning: vi.fn(),
 }));
 
 vi.mock('@electron/shared/infra/shared-infra', () => ({
@@ -54,7 +53,6 @@ vi.mock('@electron/ipc/agent/core/agent-helpers', () => ({
 
 vi.mock('@electron/shared/providers/qwen-chat-template-reasoning', () => ({
   syncQwenChatTemplateReasoning: mocks.syncQwenChatTemplateReasoning,
-  removeQwenChatTemplateReasoning: mocks.removeQwenChatTemplateReasoning,
 }));
 
 import { refreshModelAvailability } from '@electron/ipc/agent/core/model-availability-refresh';
@@ -86,7 +84,6 @@ describe('refreshModelAvailability', () => {
     mocks.syncAppSessionPoolModels.mockReset();
     mocks.buildModelState.mockReset();
     mocks.syncQwenChatTemplateReasoning.mockReset().mockResolvedValue(undefined);
-    mocks.removeQwenChatTemplateReasoning.mockReset();
   });
 
   it('reconciles shared state, live chat sessions, and reused app-agent sessions in one flow', async () => {
@@ -130,6 +127,8 @@ describe('refreshModelAvailability', () => {
     const result = await refreshModelAvailability();
 
     expect(mocks.modelRuntimeRefresh).toHaveBeenCalledOnce();
+    expect(mocks.modelRuntimeRefresh.mock.invocationCallOrder[0])
+      .toBeLessThan(mocks.syncQwenChatTemplateReasoning.mock.invocationCallOrder[0]);
     expect(mocks.cleanupUnavailableModelSelections).toHaveBeenCalledWith([
       { provider: 'openai', modelId: 'gpt-5.4-mini' },
       { provider: 'anthropic', modelId: 'claude-sonnet-4-6' },

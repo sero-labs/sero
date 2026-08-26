@@ -119,8 +119,11 @@ describe('Qwen chat-template reasoning effort', () => {
       allowModelNetwork: false,
     });
 
+    const registerProvider = vi.spyOn(runtime, 'registerProvider');
+    await expect(syncQwenChatTemplateReasoning(runtime)).resolves.toBeUndefined();
     await expect(syncQwenChatTemplateReasoning(runtime)).resolves.toBeUndefined();
     expect(runtime.getProvider('sglang')?.streamSimple).toBeTypeOf('function');
+    expect(registerProvider).toHaveBeenCalledOnce();
 
     removeQwenChatTemplateReasoning(runtime);
   });

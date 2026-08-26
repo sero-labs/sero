@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { chmod, readFile, realpath, stat } from "node:fs/promises";
+import { chmod, readFile, readdir, realpath, stat } from "node:fs/promises";
 import { ControllerStore } from "../src/controllers.ts";
-import { assertIdentityPermissions, confinedWorkspace, ensureState, identityFingerprint, rotateTls } from "../src/state.ts";
+import { assertIdentityPermissions, confinedWorkspace, ensureState, identityFingerprint, rotateTls, secureWrite } from "../src/state.ts";
 import { temporaryState } from "./helpers.ts";
 
 describe("state and authority", () => {
@@ -35,6 +35,17 @@ describe("state and authority", () => {
       expect(await confinedWorkspace(paths, "project")).toStartWith(await realpath(paths.workspaces));
       await expect(confinedWorkspace(paths, "../outside")).rejects.toThrow("workspace_outside_root");
       await expect(confinedWorkspace(paths, ".")).rejects.toThrow("workspace_outside_root");
+    } finally { await temp.cleanup(); }
+  });
+
+  test("replaces secure state files without leaving partial writes", async () => {
+    const temp = await temporaryState();
+    try {
+      const paths = await ensureState(temp.root);
+      await secureWrite(paths.clients, "[\"updated\"]\n");
+      expect(await readFile(paths.clients, "utf8")).toBe("[\"updated\"]\n");
+      expect((await readdir(paths.root)).filter((name) => name.startsWith("clients.json.") && name.endsWith(".tmp"))).toEqual([]);
+      expect((await stat(paths.clients)).mode & 0o777).toBe(0o600);
     } finally { await temp.cleanup(); }
   });
 

@@ -136,6 +136,42 @@ describe("wire contracts", () => {
     } finally { await current.temp.cleanup(); }
   });
 
+  test("waits for non-streaming tasks through task events without reading task logs", async () => {
+    const current = await fixture();
+    try {
+      const session = await current.services.sessions.create({ model: "test/model", workspace: "event-wait" });
+      let taskReads = 0;
+      const getTask = current.services.sessions.getTask.bind(current.services.sessions);
+      current.services.sessions.getTask = async (taskId) => { taskReads += 1; return getTask(taskId); };
+      setTimeout(() => current.runners.get(session.id)?.release?.("done"), 10);
+
+      const response = await rpc(current, "SendMessage", { message: { contextId: session.id, parts: [{ text: "hello" }] } });
+
+      expect(JSON.stringify(await response.json())).toContain("TASK_STATE_COMPLETED");
+      expect(taskReads).toBe(0);
+    } finally { await current.temp.cleanup(); }
+  });
+
+  test("separates invalid enrolment codes from internal control failures", async () => {
+    const current = await fixture();
+    try {
+      const enrol = await post(current, "enrol", { code: "expired", controllerName: "Desktop" }, {
+        "Sero-Control-Version": "1", "content-type": "application/json",
+      });
+      expect(enrol.status).toBe(401);
+      expect(await enrol.json()).toMatchObject({ error: { code: "unauthorized", message: "Invalid or expired enrolment code" } });
+
+      const invalid = await post(current, "listControllers", { unexpected: true });
+      expect(invalid.status).toBe(400);
+      expect(await invalid.json()).toMatchObject({ error: { code: "invalid_request" } });
+
+      current.services.controllers.list = async () => { throw new Error("disk failed"); };
+      const internal = await post(current, "listControllers", {});
+      expect(internal.status).toBe(500);
+      expect(await internal.json()).toMatchObject({ error: { code: "internal_error", message: "Internal error" } });
+    } finally { await current.temp.cleanup(); }
+  });
+
   test("passes all five operations through the canonical SDK ClientFactory", async () => {
     const current = await fixture();
     try {

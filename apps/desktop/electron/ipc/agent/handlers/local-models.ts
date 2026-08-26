@@ -46,6 +46,10 @@ function resolveConfigValue(config?: string): string | undefined {
       return undefined;
     }
   }
+  const bareEnvironmentValue = process.env[config];
+  if (bareEnvironmentValue) return bareEnvironmentValue;
+  const exactReference = config.match(/^\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))$/);
+  if (exactReference) return process.env[exactReference[1] ?? exactReference[2] ?? ''];
   let missingEnvironmentValue = false;
   const resolved = config.replace(
     /\$\$|\$!|\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)/g,
@@ -53,8 +57,9 @@ function resolveConfigValue(config?: string): string | undefined {
       if (match === '$$') return '$';
       if (match === '$!') return '!';
       const value = process.env[bracedName ?? plainName ?? ''];
-      if (value === undefined) missingEnvironmentValue = true;
-      return value ?? '';
+      if (value !== undefined) return value;
+      if (bracedName) missingEnvironmentValue = true;
+      return bracedName ? '' : match;
     },
   );
   return missingEnvironmentValue ? undefined : resolved;

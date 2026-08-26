@@ -12,7 +12,7 @@ import type { LocalModelsConfig, LocalProviderConfig } from '@/types/local-model
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 
 const MODELS_JSON_PATH = path.join(SERO_AGENT_DIR, 'models.json');
-const registeredProviderIds = new Set<string>();
+const registeredProviders = new WeakMap<ModelRuntime, Set<string>>();
 
 // Pi handles thinkingLevelMap for its native request formats. Pi 0.84.2's
 // qwen-chat-template branch is the exception: it sends the chat-template
@@ -76,6 +76,8 @@ async function readLocalModelsConfig(): Promise<LocalModelsConfig> {
 export async function syncQwenChatTemplateReasoning(
   modelRuntime: ModelRuntime,
 ): Promise<void> {
+  const registeredProviderIds = registeredProviders.get(modelRuntime) ?? new Set<string>();
+  registeredProviders.set(modelRuntime, registeredProviderIds);
   const config = await readLocalModelsConfig();
   const nextProviderIds = new Set(
     Object.entries(config.providers ?? {})
@@ -84,6 +86,7 @@ export async function syncQwenChatTemplateReasoning(
   );
 
   for (const providerId of nextProviderIds) {
+    if (registeredProviderIds.has(providerId)) continue;
     const baseStreamSimple = modelRuntime.getProvider(providerId)?.streamSimple;
     if (!baseStreamSimple) continue;
     modelRuntime.registerProvider(providerId, {
@@ -92,11 +95,18 @@ export async function syncQwenChatTemplateReasoning(
     });
     registeredProviderIds.add(providerId);
   }
+  for (const providerId of registeredProviderIds) {
+    if (nextProviderIds.has(providerId)) continue;
+    modelRuntime.unregisterProvider(providerId);
+    registeredProviderIds.delete(providerId);
+  }
 }
 
 export function removeQwenChatTemplateReasoning(modelRuntime: ModelRuntime): void {
+  const registeredProviderIds = registeredProviders.get(modelRuntime);
+  if (!registeredProviderIds) return;
   for (const providerId of registeredProviderIds) {
     modelRuntime.unregisterProvider(providerId);
   }
-  registeredProviderIds.clear();
+  registeredProviders.delete(modelRuntime);
 }

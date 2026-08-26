@@ -120,11 +120,19 @@ export class AgentNodeService {
     const boundary = new RemoteConversationBoundary(remoteSessionKey(input.nodeId, input.contextId));
     const messageId = `remote:${randomUUID()}`;
     const message = remoteA2aMessage(input, messageId);
+    let taskId: string | undefined;
     let resolveTaskId!: (taskId: string) => void;
-    const taskIdReady = new Promise<string>((resolve) => { resolveTaskId = resolve; });
+    let rejectTaskId!: (error: unknown) => void;
+    const taskIdReady = new Promise<string>((resolve, reject) => {
+      resolveTaskId = resolve;
+      rejectTaskId = reject;
+    });
     const a2aStream = await connection.a2a.streamMessage({ message }, (event) => {
-      const taskId = taskIdFromWire(event.data);
-      if (taskId) resolveTaskId(taskId);
+      const nextTaskId = taskIdFromWire(event.data);
+      if (nextTaskId && !taskId) {
+        taskId = nextTaskId;
+        resolveTaskId(nextTaskId);
+      }
       const approval = approvalFromWire(event.data, input.contextId);
       if (approval) this.emit({
         type: 'approval', nodeId: input.nodeId,
@@ -137,21 +145,23 @@ export class AgentNodeService {
         this.emit({ type: 'conversation', nodeId: input.nodeId, event: normalized });
       }
     });
-    connection.streams.add({ stop: a2aStream.close });
+    const streamHandle = { stop: a2aStream.close };
+    connection.streams.add(streamHandle);
     if (input.text) this.emit({
       type: 'conversation', nodeId: input.nodeId,
       event: { type: 'message_start', sessionId: remoteSessionKey(input.nodeId, input.contextId), message: { type: 'user', id: messageId, text: input.text } },
     });
-    const reconcile = () => {
+    const finish = (error?: unknown) => {
+      connection.streams.delete(streamHandle);
+      if (!taskId) {
+        rejectTaskId(error ?? new Error('Agent node task stream closed before it returned a task'));
+        return;
+      }
       if (!this.connections.has(input.nodeId)) return;
-      void taskIdReady.then((taskId) => this.reconcileTask(input.nodeId, taskId));
+      if (error !== undefined) this.setState(input.nodeId, 'reconnecting');
+      void this.reconcileTask(input.nodeId, taskId);
     };
-    const recover = () => {
-      if (!this.connections.has(input.nodeId)) return;
-      this.setState(input.nodeId, 'reconnecting');
-      reconcile();
-    };
-    void a2aStream.done.then(reconcile, recover);
+    void a2aStream.done.then(() => finish(), finish);
     return { taskId: await taskIdReady };
   }
 
@@ -193,6 +203,7 @@ export class AgentNodeService {
     );
     connection.streams.add(stream);
     void stream.start().catch((error: unknown) => {
+      connection.streams.delete(stream);
       rejectInitialSync(error);
       this.handleStreamFailure(nodeId, error);
     });

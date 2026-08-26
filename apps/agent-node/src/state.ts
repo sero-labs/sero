@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { chmod, mkdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -98,8 +98,14 @@ export async function confinedWorkspace(paths: StatePaths, requested: string): P
 }
 
 export async function secureWrite(path: string, content: string): Promise<void> {
-  await writeFile(path, content, { mode: 0o600 });
-  await chmod(path, 0o600);
+  const temporary = `${path}.${process.pid}.${randomBytes(8).toString("hex")}.tmp`;
+  try {
+    await writeFile(temporary, content, { mode: 0o600, flag: "wx" });
+    await chmod(temporary, 0o600);
+    await rename(temporary, path);
+  } finally {
+    await rm(temporary, { force: true });
+  }
 }
 
 export async function tlsFiles(paths: StatePaths): Promise<{ key: string; cert: string }> {

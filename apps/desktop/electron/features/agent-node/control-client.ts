@@ -24,6 +24,13 @@ export class ControlAuthorizationError extends Error {
   }
 }
 
+export class ControlNotFoundError extends Error {
+  constructor() {
+    super('Agent node resource was not found');
+    this.name = 'ControlNotFoundError';
+  }
+}
+
 export class ControlClient {
   constructor(
     private readonly transport: PinnedTransport,
@@ -96,12 +103,13 @@ export class ControlClient {
     const headers = this.headers(true);
     headers.Accept = 'text/event-stream';
     if (lastEventId) headers['Last-Event-ID'] = lastEventId;
-    const response = await this.transport.open('GET', path, headers);
+    const response = await this.transport.open('GET', path, headers, undefined, 0);
     this.checkVersion(response.headers['sero-control-version']);
     if (response.statusCode !== 200) {
       const status = response.statusCode;
       response.destroy();
       if (status === 401 || status === 403) throw new ControlAuthorizationError();
+      if (status === 404) throw new ControlNotFoundError();
       throw new Error(`Agent node stream returned HTTP ${status ?? 0}`);
     }
     return { close: () => response.destroy(), done: consumeSse(response, onEvent) };

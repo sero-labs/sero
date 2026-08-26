@@ -57,7 +57,7 @@ export class A2aClient {
       ...this.headers(),
       'Content-Type': 'application/json',
       Accept: 'text/event-stream',
-    }, body);
+    }, body, 0);
     if (response.statusCode !== 200) {
       response.destroy();
       throw new Error(`Agent node A2A stream returned HTTP ${response.statusCode ?? 0}`);

@@ -31,6 +31,7 @@ interface NodeServices { paths: StatePaths; controllers: ControllerStore; sessio
 interface ServerOptions { host: string; port: number; publicUrl: string; tls?: boolean }
 const STARTED_AT = new Date().toISOString();
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+const TERMINAL_TASK_STATUSES = new Set<TaskTransition["status"]>(["completed", "failed", "canceled", "rejected", "auth-required", "input-required"]);
 
 function json(value: unknown, status = 200, control = false): Response {
   const headers: HeadersInit = { "content-type": "application/json" };
@@ -39,6 +40,16 @@ function json(value: unknown, status = 200, control = false): Response {
 }
 function failure(code: ControlErrorCode, message: string = code, status = 400): Response { return json({ error: { code, message } } satisfies ControlError, status, true); }
 function bearer(request: Request): string { return request.headers.get("authorization")?.match(/^Bearer (.+)$/i)?.[1] ?? ""; }
+
+function controlFailure(error: unknown): Response {
+  const message = safeMessage(error);
+  if (message === "invalid_enrolment_code") return failure("unauthorized", "Invalid or expired enrolment code", 401);
+  if (["not_found", "session_not_found", "provider_not_available", "prompt_not_found"].includes(message)) return failure("not_found", "Not found", 404);
+  if (message === "login_in_progress") return failure("conflict", "Login already in progress", 409);
+  if (message.startsWith("invalid_")) return failure("invalid_request", "Invalid request", 400);
+  console.error("Agent node control operation failed", safeMessage(error));
+  return failure("internal_error", "Internal error", 500);
+}
 
 export async function startServer(services: NodeServices, options: ServerOptions): Promise<Server> {
   const tls = options.tls === false ? undefined : await tlsFiles(services.paths);
@@ -91,16 +102,14 @@ async function controlRoute(request: Request, url: URL, services: NodeServices):
   if (request.method === "GET") return controlGet(request, url, operation, controller!, services);
   if (request.method !== "POST" || !CONTROL_SET.has(operation)) return failure("not_found", "Not found", 404);
   const body = await readJson(request);
+  const name = operation as ControlOperationName;
+  const input = ControlOperationSchemas[name].request.safeParse(body);
+  if (!input.success) return failure("invalid_request", "Invalid request", 400);
   try {
-    const name = operation as ControlOperationName;
-    const input = ControlOperationSchemas[name].request.parse(body);
-    const result = await dispatchControl(name, input, controller, services);
+    const result = await dispatchControl(name, input.data, controller, services);
     return json(ControlOperationSchemas[name].response.parse(result), 200, true);
   } catch (error) {
-    const message = safeMessage(error);
-    if (message.includes("session_not_found") || message === "not_found") return failure("not_found", message.includes("session") ? "Session not found" : "Not found", 404);
-    if (message === "login_in_progress") return failure("conflict", "Login already in progress", 409);
-    return failure("invalid_request", "Invalid request", 400);
+    return controlFailure(error);
   }
 }
 
@@ -209,7 +218,8 @@ async function a2aRoute(request: Request, services: NodeServices): Promise<Respo
         ? await services.sessions.respondApproval(contextId, requireUuid(approval.approvalId, "approvalId"), approval.approved, approval.scope)
         : await services.sessions.send(contextId, text, controller.id, behavior);
       if (method === "SendStreamingMessage") return taskResponse(task, id, services, request.signal, controller.id);
-      await waitTerminal(services.sessions, task.taskId); return json({ jsonrpc: "2.0", id, result: { task: taskWire((await services.sessions.getTask(task.taskId))!) } });
+      const terminalTask = await waitTerminal(services.events, task);
+      return json({ jsonrpc: "2.0", id, result: { task: taskWire(terminalTask) } });
     }
     throw new Error("MethodNotFound");
   } catch (error) { return json(rpcError(id, -32000, safeMessage(error)), 400); }
@@ -217,7 +227,6 @@ async function a2aRoute(request: Request, services: NodeServices): Promise<Respo
 
 function taskResponse(task: TaskTransition, id: unknown, services: NodeServices, signal: AbortSignal, controllerId: string): Response {
   const encoder = new TextEncoder();
-  const terminal = new Set(["completed", "failed", "canceled", "rejected", "auth-required", "input-required"]);
   let closeStream = () => {};
   const body = new ReadableStream<Uint8Array>({
     start(controller) {
@@ -227,14 +236,14 @@ function taskResponse(task: TaskTransition, id: unknown, services: NodeServices,
       const cleanup = () => { if (closed) return; closed = true; unsubscribe(); };
       const close = () => { if (closed) return; cleanup(); controller.close(); };
       send(task);
-      if (terminal.has(task.status)) {
+      if (TERMINAL_TASK_STATUSES.has(task.status)) {
         close();
         return;
       }
       unsubscribe = services.events.subscribe(`task:${task.taskId}`, (event) => {
         if (closed) return;
         const value = event.data as TaskTransition; send(value);
-        if (terminal.has(value.status)) close();
+        if (TERMINAL_TASK_STATUSES.has(value.status)) close();
       }, controllerId, close);
       closeStream = cleanup;
       signal.addEventListener("abort", close, { once: true });
@@ -244,8 +253,18 @@ function taskResponse(task: TaskTransition, id: unknown, services: NodeServices,
   return new Response(body, { headers: { "content-type": "text/event-stream", "A2A-Version": A2A_VERSION } });
 }
 
-async function waitTerminal(sessions: SessionStore, taskId: string): Promise<void> {
-  while (true) { const task = await sessions.getTask(taskId); if (!task || ["completed", "failed", "canceled", "rejected", "auth-required", "input-required"].includes(task.status)) return; await Bun.sleep(10); }
+function waitTerminal(events: EventHub, task: TaskTransition): Promise<TaskTransition> {
+  if (TERMINAL_TASK_STATUSES.has(task.status)) return Promise.resolve(task);
+  return new Promise((resolve) => {
+    let unsubscribe = () => {};
+    const finish = (value: TaskTransition) => {
+      if (!TERMINAL_TASK_STATUSES.has(value.status)) return;
+      unsubscribe();
+      resolve(value);
+    };
+    unsubscribe = events.subscribe(`task:${task.taskId}`, (event) => finish(event.data as TaskTransition));
+    finish(task);
+  });
 }
 function taskWire(task: TaskTransition): Record<string, unknown> {
   const parts = task.input
