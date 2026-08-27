@@ -68,7 +68,10 @@ async function runElectronProbe(baseUrl: string): Promise<Record<string, unknown
   if (typeof electronPath !== 'string') throw new Error('Electron executable path is unavailable');
 
   const output = await new Promise<string>((resolveOutput, rejectOutput) => {
-    const child = spawn(electronPath, [scriptPath], {
+    const electronArgs = process.platform === 'linux'
+      ? ['--no-sandbox', scriptPath]
+      : [scriptPath];
+    const child = spawn(electronPath, electronArgs, {
       env: {
         ...process.env,
         SERO_IDLE_TEST_URL: baseUrl,
