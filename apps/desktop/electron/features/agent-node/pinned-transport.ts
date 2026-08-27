@@ -1,5 +1,8 @@
 import { createHash, X509Certificate } from 'crypto';
+import type { LookupAddress } from 'dns';
+import { lookup } from 'dns/promises';
 import https, { type RequestOptions } from 'https';
+import type { LookupFunction } from 'net';
 import tls from 'tls';
 import { normalizeAddress, normalizeFingerprint } from './registry';
 
@@ -14,10 +17,22 @@ function certificatePem(certificate: X509Certificate): string {
   return `-----BEGIN CERTIFICATE-----\n${base64}\n-----END CERTIFICATE-----\n`;
 }
 
+function transportUrl(value: string, base?: string): URL {
+  try {
+    return new URL(value, base);
+  } catch {
+    throw new Error('Agent node URL is invalid');
+  }
+}
+
 /** Verify the exact two-certificate chain required by the Agent Node spec. */
 export interface PinnedPeerChain {
   raw: Buffer;
   issuerCertificate?: { raw: Buffer };
+}
+
+interface PinnedEndpoint extends LookupAddress {
+  identityCa: string;
 }
 
 export function verifyPinnedPeer(peer: PinnedPeerChain, expectedFingerprint: string): string {
@@ -43,7 +58,7 @@ export function verifyPinnedPeer(peer: PinnedPeerChain, expectedFingerprint: str
 
 export class PinnedTransport {
   readonly baseUrl: string;
-  private identityCa: string | null = null;
+  private endpoint: PinnedEndpoint | null = null;
 
   constructor(address: string, private readonly fingerprint: string) {
     this.baseUrl = normalizeAddress(address);
@@ -78,55 +93,84 @@ export class PinnedTransport {
     body?: string,
     idleTimeoutMs = 30_000,
   ): Promise<import('http').IncomingMessage> {
-    const identityCa = this.identityCa ?? await this.preflight();
-    this.identityCa = identityCa;
-    const url = new URL(target, `${this.baseUrl}/`);
-    if (url.origin !== new URL(this.baseUrl).origin) {
+    const endpoint = this.endpoint ?? await this.preflight();
+    this.endpoint = endpoint;
+    const url = transportUrl(target, `${this.baseUrl}/`);
+    if (url.origin !== transportUrl(this.baseUrl).origin) {
       throw new Error('Agent node request cannot leave the pinned origin');
     }
     const requestOptions: RequestOptions = {
       method,
-      ca: identityCa,
+      ca: endpoint.identityCa,
       rejectUnauthorized: true,
       checkServerIdentity: () => undefined,
+      lookup: pinnedLookup(endpoint),
       headers: { ...headers, ...(body === undefined ? {} : { 'Content-Length': Buffer.byteLength(body) }) },
     };
     return new Promise((resolve, reject) => {
-      const request = https.request(url, requestOptions, resolve);
-      request.once('error', reject);
-      if (idleTimeoutMs > 0) {
-        request.setTimeout(idleTimeoutMs, () => request.destroy(new Error('Agent node request timed out')));
-      }
+      const request = https.request(url, requestOptions, (response) => {
+        request.setTimeout(idleTimeoutMs);
+        resolve(response);
+      });
+      request.once('error', (error) => {
+        if (this.endpoint === endpoint) this.endpoint = null;
+        reject(error);
+      });
+      request.setTimeout(30_000, () => request.destroy(new Error('Agent node request timed out')));
       if (body !== undefined) request.write(body);
       request.end();
     });
   }
 
   dispose(): void {
-    this.identityCa = null;
+    this.endpoint = null;
   }
 
-  private preflight(): Promise<string> {
-    const url = new URL(this.baseUrl);
-    return new Promise((resolve, reject) => {
-      const socket = tls.connect({
-        host: url.hostname,
-        port: Number(url.port || 443),
-        servername: undefined,
-        rejectUnauthorized: false,
-      });
-      socket.setTimeout(15_000, () => socket.destroy(new Error('Agent node TLS preflight timed out')));
-      socket.once('error', reject);
-      socket.once('secureConnect', () => {
-        try {
-          const identity = verifyPinnedPeer(socket.getPeerCertificate(true), this.fingerprint);
-          socket.end();
-          resolve(identity);
-        } catch (error) {
-          socket.destroy();
-          reject(error);
-        }
-      });
-    });
+  private async preflight(): Promise<PinnedEndpoint> {
+    const url = transportUrl(this.baseUrl);
+    // A multi-homed .local host can retain an unreachable address. Race all
+    // records, then keep HTTP on the address whose pinned TLS chain passed.
+    const addresses = await lookup(url.hostname, { all: true });
+    const sockets = new Set<tls.TLSSocket>();
+    try {
+      return await Promise.any(addresses.map(({ address, family }) => new Promise<PinnedEndpoint>((resolve, reject) => {
+        const socket = tls.connect({
+          host: address,
+          port: Number(url.port || 443),
+          servername: undefined,
+          rejectUnauthorized: false,
+        });
+        sockets.add(socket);
+        socket.setTimeout(15_000, () => socket.destroy(new Error('Agent node TLS preflight timed out')));
+        socket.once('error', reject);
+        socket.once('close', () => reject(new Error('Agent node TLS preflight closed')));
+        socket.once('secureConnect', () => {
+          try {
+            const identityCa = verifyPinnedPeer(socket.getPeerCertificate(true), this.fingerprint);
+            resolve({ address, family, identityCa });
+          } catch (error) {
+            reject(error);
+          }
+        });
+      })));
+    } catch (error) {
+      if (error instanceof AggregateError) {
+        const firstError = error.errors.find((item): item is Error => item instanceof Error);
+        if (firstError) throw firstError;
+      }
+      throw error;
+    } finally {
+      for (const socket of sockets) socket.destroy();
+    }
   }
+}
+
+function pinnedLookup(endpoint: LookupAddress): LookupFunction {
+  return (_hostname, options, callback) => {
+    if (options.all) {
+      callback(null, [{ address: endpoint.address, family: endpoint.family }]);
+      return;
+    }
+    callback(null, endpoint.address, endpoint.family);
+  };
 }
