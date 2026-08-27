@@ -21,20 +21,14 @@ export function ThinkingBlock({
   // Manual toggle, null means follow automatic behaviour.
   const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
   const contentRef = useRef<HTMLPreElement>(null);
+  const followOutput = useRef(true);
 
   // Auto: expand while streaming, collapse when done.
   const expanded = manualExpanded ?? isStreaming;
 
-  // Reset manual override when streaming state changes (auto-collapse on finish).
-  const prevStreaming = useRef(isStreaming);
+  // Follow new output until the reader scrolls away from the bottom.
   useEffect(() => {
-    if (prevStreaming.current && !isStreaming) setManualExpanded(null);
-    prevStreaming.current = isStreaming;
-  }, [isStreaming]);
-
-  // Auto-scroll the thinking content while streaming
-  useEffect(() => {
-    if (isStreaming && expanded && contentRef.current) {
+    if (isStreaming && expanded && followOutput.current && contentRef.current) {
       contentRef.current.scrollTop = contentRef.current.scrollHeight;
     }
   }, [thinking, isStreaming, expanded]);
@@ -125,6 +119,10 @@ export function ThinkingBlock({
             <div className="border-t border-[var(--border-subtle)]">
               <pre
                 ref={contentRef}
+                onScroll={(event) => {
+                  const element = event.currentTarget;
+                  followOutput.current = element.scrollHeight - element.scrollTop - element.clientHeight <= 8;
+                }}
                 className={cn(
                   'max-h-[300px] overflow-y-auto whitespace-pre-wrap px-3 py-2',
                   'font-mono text-sm leading-relaxed text-[var(--text-muted)]',

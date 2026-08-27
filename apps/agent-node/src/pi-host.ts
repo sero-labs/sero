@@ -11,6 +11,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { ModelsError } from "@earendil-works/pi-ai";
 import type { StatePaths } from "./state.ts";
+import { ToolInputStreams } from "./tool-input-stream.ts";
 
 export interface SessionRunner {
   readonly sessionPath: string;
@@ -29,6 +30,9 @@ export type RunnerStreamEvent =
   | { kind: "assistant_start"; messageId: string }
   | { kind: "assistant_end"; messageId: string; text: string; thinking?: string }
   | { kind: "text" | "thinking"; messageId: string; delta: string }
+  | { kind: "tool_input_start"; streamKey: string; toolName: string }
+  | { kind: "tool_input_delta"; streamKey: string; delta: string; replace: boolean; path: string | null }
+  | { kind: "tool_input_end"; streamKey: string; toolCallId: string }
   | { kind: "tool_start"; toolCallId: string; toolName: string; input: Record<string, unknown> }
   | { kind: "tool_update"; toolCallId: string; output: string | null }
   | { kind: "tool_end"; toolCallId: string; output: string | null; isError: boolean };
@@ -103,6 +107,7 @@ export async function gateToolPermission(event: ToolCallEvent, hooks?: RunnerHoo
 class PiRunner implements SessionRunner {
   private activeRuns = 0;
   private currentAssistantId: string | null = null;
+  private readonly toolInputStreams = new ToolInputStreams();
   private unsubscribe?: () => void;
 
   constructor(
@@ -136,6 +141,7 @@ class PiRunner implements SessionRunner {
 
   #forward(event: AgentSessionEvent): string {
     if (event.type === "message_start" && event.message.role === "assistant") {
+      this.toolInputStreams.reset();
       this.currentAssistantId = `live:${crypto.randomUUID()}`;
       this.hooks.onEvent({ kind: "assistant_start", messageId: this.currentAssistantId });
       return "";
@@ -146,8 +152,22 @@ class PiRunner implements SessionRunner {
         this.hooks.onEvent({ kind: update.type === "text_delta" ? "text" : "thinking", messageId: this.currentAssistantId, delta: update.delta });
         return update.type === "text_delta" ? update.delta : "";
       }
+      if (update.type === "toolcall_start") {
+        const started = this.toolInputStreams.start(update.partial, update.contentIndex);
+        if (started) this.hooks.onEvent({ kind: "tool_input_start", ...started });
+      } else if (update.type === "toolcall_delta") {
+        const chunk = this.toolInputStreams.advance(update.partial, update.contentIndex);
+        if (chunk) this.hooks.onEvent({ kind: "tool_input_delta", ...chunk });
+      } else if (update.type === "toolcall_end") {
+        const finished = this.toolInputStreams.end(update.toolCall, update.contentIndex);
+        if (finished) {
+          this.hooks.onEvent({ kind: "tool_input_delta", streamKey: finished.streamKey, ...finished.final });
+          this.hooks.onEvent({ kind: "tool_input_end", streamKey: finished.streamKey, toolCallId: finished.toolCallId });
+        }
+      }
     }
     if (event.type === "message_end" && event.message.role === "assistant" && this.currentAssistantId) {
+      this.toolInputStreams.reset();
       const messageId = this.currentAssistantId;
       this.currentAssistantId = null;
       this.hooks.onEvent({ kind: "assistant_end", messageId, ...assistantText(event.message.content) });

@@ -58,7 +58,7 @@ function parseArtifact(artifact: Record<string, unknown>): AgentNodeArtifact[] {
   if (typeof raw === 'string') return [{ id: artifact.artifactId, name, mediaType, inlineBase64: raw }];
   const url = content.$case === 'url' ? content.value : part.url;
   if (typeof url !== 'string') return [];
-  const match = new URL(url).pathname.match(/\/blob\/([^/]+)$/);
+  const match = URL.parse(url)?.pathname.match(/\/blob\/([^/]+)$/);
   return match ? [{ id: artifact.artifactId, name, mediaType, blobId: decodeURIComponent(match[1]) }] : [];
 }
 
@@ -251,13 +251,47 @@ export class RemoteConversationBoundary {
       }
       return [{ type: kind === 'text' ? 'text_delta' : 'thinking_delta', sessionId: this.sessionKey, messageId, delta }];
     }
+    const streamKey = typeof item.streamKey === 'string' ? item.streamKey : null;
+    if (kind === 'tool_input_start' && streamKey && typeof item.toolName === 'string') {
+      const tool: ChatMessage = {
+        type: 'tool', id: `tin-${streamKey}`, toolCallId: streamKey, toolName: item.toolName,
+        input: {}, output: null, isError: false, state: 'pending', isStreamingInput: true,
+      };
+      this.messages.push(tool);
+      return [{ type: 'tool_input_start', sessionId: this.sessionKey, streamKey, toolName: item.toolName }];
+    }
+    if (kind === 'tool_input_delta' && streamKey && delta !== null) {
+      const tool = this.messages.find((message) => message.type === 'tool' && message.toolCallId === streamKey);
+      const path = typeof item.path === 'string' ? item.path : null;
+      if (tool?.type === 'tool') {
+        const previous = typeof tool.input.content === 'string' ? tool.input.content : '';
+        tool.input = {
+          ...tool.input,
+          ...(path ? { path } : {}),
+          content: item.replace === true ? delta : previous + delta,
+        };
+      }
+      return [{
+        type: 'tool_input_delta', sessionId: this.sessionKey, streamKey,
+        delta, replace: item.replace === true, path,
+      }];
+    }
     const toolCallId = typeof item.toolCallId === 'string' ? item.toolCallId : null;
+    if (kind === 'tool_input_end' && streamKey && toolCallId) {
+      const tool = this.messages.find((message) => message.type === 'tool' && message.toolCallId === streamKey);
+      if (tool?.type === 'tool') Object.assign(tool, { toolCallId, isStreamingInput: false });
+      return [{ type: 'tool_input_end', sessionId: this.sessionKey, streamKey, toolCallId }];
+    }
     if (kind === 'tool_start' && toolCallId && typeof item.toolName === 'string') {
       const tool: ChatMessage = {
         type: 'tool', id: `tool:${toolCallId}`, toolCallId, toolName: item.toolName,
         input: isRecord(item.input) ? item.input : {}, output: null, isError: false, state: 'running',
       };
-      this.messages.push(tool);
+      const existing = this.messages.find((message) => message.type === 'tool' && message.toolCallId === toolCallId);
+      if (existing?.type === 'tool') {
+        const id = existing.id;
+        Object.assign(existing, tool, { id });
+      } else this.messages.push(tool);
       return [{ type: 'tool_start', sessionId: this.sessionKey, tool }];
     }
     if ((kind === 'tool_update' || kind === 'tool_end') && toolCallId) {

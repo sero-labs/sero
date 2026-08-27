@@ -167,7 +167,7 @@ describe('ToolCallGroup image previews', () => {
     expect(container.textContent).toContain('READ_OUTPUT');
   });
 
-  it('keeps an automatically opened live row open when the tool completes', async () => {
+  it('collapses a completed row when the next tool becomes live', async () => {
     const runningTool = makeTool({
       id: 'tool-b',
       toolCallId: 'call-b',
@@ -197,6 +197,10 @@ describe('ToolCallGroup image previews', () => {
           tools={[
             makeTool({ id: 'tool-a', toolCallId: 'call-a', toolName: 'read' }),
             { ...runningTool, state: 'completed', output: 'FINAL_OUTPUT', isPartialOutput: false },
+            makeTool({
+              id: 'tool-c', toolCallId: 'call-c', toolName: 'write',
+              state: 'running', output: 'CURRENT_OUTPUT', isPartialOutput: true,
+            }),
           ]}
           workspaceId="ws-1"
           isFinalized={false}
@@ -204,7 +208,40 @@ describe('ToolCallGroup image previews', () => {
       );
     });
 
+    expect(container.textContent).not.toContain('FINAL_OUTPUT');
+    expect(container.textContent).toContain('CURRENT_OUTPUT');
+  });
+
+  it('collapses one completed tool unless the reader opened it', async () => {
+    const running = makeTool({
+      toolName: 'bash', state: 'running', output: 'RUNNING_OUTPUT', isPartialOutput: true,
+    });
+    await act(async () => {
+      root?.render(<ToolCallGroup tools={[running]} workspaceId="ws-1" isFinalized={false} />);
+    });
+    expect(container.textContent).toContain('RUNNING_OUTPUT');
+
+    const completed = { ...running, state: 'completed' as const, output: 'FINAL_OUTPUT', isPartialOutput: false };
+    await act(async () => {
+      root?.render(<ToolCallGroup tools={[completed]} workspaceId="ws-1" isFinalized />);
+    });
+    expect(container.textContent).not.toContain('FINAL_OUTPUT');
+
+    await act(async () => {
+      clickButtonByText(container, 'bash');
+    });
     expect(container.textContent).toContain('FINAL_OUTPUT');
+
+    await act(async () => {
+      root?.render(
+        <ToolCallGroup
+          tools={[{ ...completed, output: 'UPDATED_FINAL_OUTPUT' }]}
+          workspaceId="ws-1"
+          isFinalized
+        />,
+      );
+    });
+    expect(container.textContent).toContain('UPDATED_FINAL_OUTPUT');
   });
 
   it('lets the reader switch to the rail layout', async () => {

@@ -64,6 +64,29 @@ describe('remote conversation normalization', () => {
       .toMatchObject({ type: 'tool_end', output: 'done', isError: false });
   });
 
+  it('streams remote write arguments before the tool starts', () => {
+    const boundary = new RemoteConversationBoundary(remoteSessionKey('n', 's'));
+    expect(boundary.accept({ type: 'delta', delta: {
+      kind: 'tool_input_start', streamKey: 'stream-1', toolName: 'write',
+    } })[0]).toMatchObject({ type: 'tool_input_start', streamKey: 'stream-1' });
+    expect(boundary.accept({ type: 'delta', delta: {
+      kind: 'tool_input_delta', streamKey: 'stream-1', delta: 'first\n',
+      replace: false, path: '/src/app.ts',
+    } })[0]).toMatchObject({ type: 'tool_input_delta', delta: 'first\n' });
+    expect(boundary.accept({ type: 'delta', delta: {
+      kind: 'tool_input_end', streamKey: 'stream-1', toolCallId: 'call-1',
+    } })[0]).toMatchObject({ type: 'tool_input_end', toolCallId: 'call-1' });
+    boundary.accept({ type: 'delta', delta: {
+      kind: 'tool_start', toolCallId: 'call-1', toolName: 'write',
+      input: { path: '/src/app.ts', content: 'first\n' },
+    } });
+
+    expect(boundary.snapshot().messages).toMatchObject([{
+      type: 'tool', id: 'tin-stream-1', toolCallId: 'call-1',
+      input: { path: '/src/app.ts', content: 'first\n' }, state: 'running',
+    }]);
+  });
+
   it('restores durable tool calls and results with the shared tool renderer shape', () => {
     const boundary = new RemoteConversationBoundary(remoteSessionKey('n', 's'));
     expect(boundary.accept({

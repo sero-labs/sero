@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, memo } from 'react';
+import { useState, useMemo, useRef, memo } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ChevronRight, Columns2, List, WrenchIcon } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
@@ -172,9 +172,6 @@ export const ToolCallGroup = memo(function ToolCallGroup({
 
   const toolCallLayout = useAppStore((state) => state.toolCallLayout);
   const setToolCallLayout = useAppStore((state) => state.setToolCallLayout);
-  // Reading a tool detail pins the group open, so the end of the turn does not
-  // collapse the group under the reader.
-  const [detailPinned, setDetailPinned] = useState(false);
 
   // Track whether the group was ever running (live) vs loaded from history.
   const wasEverRunning = useRef(isRunning);
@@ -188,23 +185,7 @@ export const ToolCallGroup = memo(function ToolCallGroup({
   //  - Live group, finalized + all done: collapse
   //  - Loaded group (never ran): stay collapsed
   const autoExpanded = wasEverRunning.current ? (!isFinalized || isRunning) : false;
-  const expanded = detailPinned || (manualExpanded ?? autoExpanded);
-
-  // Clear manual override when the group becomes finalized (final collapse)
-  // or when new tools start running (re-expand).
-  const prevFinalized = useRef(isFinalized);
-  useEffect(() => {
-    if (!detailPinned && isFinalized && !prevFinalized.current) {
-      setManualExpanded(null);
-    }
-    prevFinalized.current = isFinalized;
-  }, [detailPinned, isFinalized]);
-
-  useEffect(() => {
-    if (!detailPinned && isRunning) {
-      setManualExpanded(null);
-    }
-  }, [detailPinned, isRunning]);
+  const expanded = manualExpanded ?? autoExpanded;
 
   // Single tool: render with matching group-style wrapper
   if (tools.length === 1) {
@@ -228,12 +209,7 @@ export const ToolCallGroup = memo(function ToolCallGroup({
         <button
           type="button"
           aria-expanded={expanded}
-          onClick={() => {
-            // Collapsing the group ends the reading session, so automatic
-            // expand and collapse takes over again.
-            if (expanded) setDetailPinned(false);
-            setManualExpanded(!expanded);
-          }}
+          onClick={() => setManualExpanded(!expanded)}
           className={cn(
             'flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2 text-left transition-colors duration-150',
             'hover:bg-[var(--bg-elevated)]/80',
@@ -315,13 +291,13 @@ export const ToolCallGroup = memo(function ToolCallGroup({
                 <ToolRailPane
                   tools={visibleTools}
                   workspaceId={workspaceId}
-                  onDetailOpen={() => setDetailPinned(true)}
+                  onDetailOpen={() => setManualExpanded(true)}
                 />
               ) : (
                 <ToolRows
                   tools={visibleTools}
                   workspaceId={workspaceId}
-                  onDetailOpen={() => setDetailPinned(true)}
+                  onDetailOpen={() => setManualExpanded(true)}
                 />
               )}
             </div>

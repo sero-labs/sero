@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { AgentStreamEvent } from '@/types/agent';
 import { agentNodeApi, parseSessionLocationKey, relativeWorkspaceId, sessionLocationKey, useNodesStore } from './nodes';
 
 vi.mock('@/lib/persist-layout', () => ({ persistLayout: vi.fn() }));
@@ -99,6 +100,33 @@ describe('nodes store', () => {
       { type: 'user', text: 'Keep going' },
       { type: 'tool', toolCallId: 'tool-1', output: '50%', state: 'running', isPartialOutput: true },
     ]);
+  });
+
+  it('streams remote write content before tool execution starts', () => {
+    const key = sessionLocationKey({ kind: 'node', nodeId: node.id, sessionId: session.id });
+    const conversation = (event: AgentStreamEvent) => useNodesStore.getState().handleEvent({
+      type: 'conversation', nodeId: node.id, event,
+    });
+    conversation({ type: 'tool_input_start', sessionId: key, streamKey: 'stream-1', toolName: 'write' });
+    conversation({
+      type: 'tool_input_delta', sessionId: key, streamKey: 'stream-1',
+      delta: 'first\n', replace: false, path: '/src/app.ts',
+    });
+    conversation({
+      type: 'tool_input_delta', sessionId: key, streamKey: 'stream-1',
+      delta: 'second\n', replace: false, path: '/src/app.ts',
+    });
+    conversation({ type: 'tool_input_end', sessionId: key, streamKey: 'stream-1', toolCallId: 'call-1' });
+    conversation({ type: 'tool_start', sessionId: key, tool: {
+      type: 'tool', id: 'tool:call-1', toolCallId: 'call-1', toolName: 'write',
+      input: { path: '/src/app.ts', content: 'first\nsecond\n' },
+      output: null, isError: false, state: 'running',
+    } });
+
+    expect(useNodesStore.getState().messages[key]).toMatchObject([{
+      id: 'tin-stream-1', toolCallId: 'call-1', isStreamingInput: false,
+      input: { path: '/src/app.ts', content: 'first\nsecond\n' }, state: 'running',
+    }]);
   });
 
   it('replaces optimistic messages with authoritative replay entries', () => {

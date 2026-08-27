@@ -18,7 +18,12 @@ import type {
 } from '@/types/ipc-agent-node';
 import type { AgentStreamEvent } from '@/types/agent';
 import type { AuthEvent } from '@sero-ai/a2a';
-import { applyToolStart } from '@/stores/agent-tool-input';
+import {
+  applyToolInputDelta,
+  applyToolInputEnd,
+  applyToolStart,
+  createStreamingToolMessage,
+} from '@/stores/agent-tool-input';
 
 export function agentNodeApi(): SeroAgentNodeAPI {
   const api = window.sero.agentNodes;
@@ -230,6 +235,19 @@ function applyConversationEvent(messages: AgentNodeMessage[], event: AgentStream
         ? { ...item, text: item.text + event.delta }
         : { ...item, thinking: (item.thinking ?? '') + event.delta }
       : item);
+  }
+  if (event.type === 'tool_input_start') {
+    return [...messages, createStreamingToolMessage(event.streamKey, event.toolName)];
+  }
+  if (event.type === 'tool_input_delta') {
+    return applyToolInputDelta(messages, event.streamKey, {
+      text: event.delta,
+      replace: event.replace,
+      path: event.path,
+    });
+  }
+  if (event.type === 'tool_input_end') {
+    return applyToolInputEnd(messages, event.streamKey, event.toolCallId);
   }
   if (event.type === 'tool_start') return applyToolStart(messages, event.tool);
   if (event.type === 'tool_update' || event.type === 'tool_end') {
