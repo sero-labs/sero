@@ -1,4 +1,5 @@
 import type { SessionEntry as PiSessionEntry } from "@earendil-works/pi-coding-agent";
+import type { ThinkingLevel } from "@sero-ai/a2a";
 
 export type TaskStatus = "submitted" | "working" | "input-required" | "auth-required" | "completed" | "failed" | "canceled" | "rejected";
 export interface TaskTransition {
@@ -14,7 +15,7 @@ export interface TaskArtifact {
 }
 export interface SessionRecord {
   id: string; name: string; model: string; workspace: string; approvalMode: "ask" | "allow";
-  piSessionPath?: string; createdAt: string; updatedAt: string;
+  thinkingLevel: ThinkingLevel; piSessionPath?: string; createdAt: string; updatedAt: string;
 }
 export type SessionEntry = PiSessionEntry;
 export interface ControllerRecord {

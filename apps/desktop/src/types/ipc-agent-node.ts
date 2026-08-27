@@ -54,6 +54,7 @@ export interface AgentNodeControlRequestMap {
   createSession: ControlRequest<'createSession'>;
   deleteSession: ControlRequest<'deleteSession'>;
   setSessionModel: ControlRequest<'setSessionModel'>;
+  setSessionThinkingLevel: ControlRequest<'setSessionThinkingLevel'>;
   setSessionApprovalMode: ControlRequest<'setSessionApprovalMode'>;
   getNodeHealth: ControlRequest<'getNodeHealth'>;
   getProviders: ControlRequest<'getProviders'>;
@@ -76,6 +77,7 @@ export interface AgentNodeControlResponseMap {
   createSession: ControlResponse<'createSession'>;
   deleteSession: ControlResponse<'deleteSession'>;
   setSessionModel: ControlResponse<'setSessionModel'>;
+  setSessionThinkingLevel: ControlResponse<'setSessionThinkingLevel'>;
   setSessionApprovalMode: ControlResponse<'setSessionApprovalMode'>;
   getNodeHealth: ControlResponse<'getNodeHealth'>;
   getProviders: ControlResponse<'getProviders'>;

@@ -18,6 +18,7 @@ import type {
 } from '@/types/ipc-agent-node';
 import type { AgentStreamEvent } from '@/types/agent';
 import type { AuthEvent } from '@sero-ai/a2a';
+import type { ThinkingLevel } from '@sero-ai/common';
 import {
   applyToolInputDelta,
   applyToolInputEnd,
@@ -29,7 +30,7 @@ export function agentNodeApi(): SeroAgentNodeAPI {
   const api = window.sero.agentNodes;
   return {
     listNodes: async () => (await api.list()).map(toRendererNode),
-    enrolNode: async (input) => toRendererNode(await api.enrol({ ...input, name: input.address })),
+    enrolNode: async (input) => toRendererNode(await api.enrol(input)),
     removeNode: api.remove,
     listSessions: async (nodeId) => {
       const result = await api.control(nodeId, { operation: 'listSessions', params: {} });
@@ -38,7 +39,10 @@ export function agentNodeApi(): SeroAgentNodeAPI {
     createSession: async (nodeId, input) => {
       const result = await api.control(nodeId, {
         operation: 'createSession',
-        params: { workspace: relativeWorkspaceId(input.workspaceId), model: modelReference(input.model) },
+        params: {
+          workspace: relativeWorkspaceId(input.workspaceId),
+          model: modelReference(input.model),
+        },
       });
       return toRendererSession(result.session);
     },
@@ -73,6 +77,11 @@ export function agentNodeApi(): SeroAgentNodeAPI {
     cancelLogin: async (nodeId) => { await api.control(nodeId, { operation: 'cancel', params: {} }); },
     setSessionModel: async (nodeId, sessionId, model) => {
       await api.control(nodeId, { operation: 'setSessionModel', params: { contextId: sessionId, model: modelReference(model) } });
+    },
+    setSessionThinkingLevel: async (nodeId, sessionId, thinkingLevel) => {
+      await api.control(nodeId, {
+        operation: 'setSessionThinkingLevel', params: { contextId: sessionId, thinkingLevel },
+      });
     },
     setSessionApprovalMode: async (nodeId, sessionId, approvalMode) => toRendererSession((await api.control<'setSessionApprovalMode'>(nodeId, {
       operation: 'setSessionApprovalMode', params: { contextId: sessionId, approvalMode },
@@ -119,6 +128,7 @@ function toRendererSession(session: IpcAgentNodeSession): AgentNodeSession {
     modified: session.updatedAt,
     engine: 'Pi',
     model: `${session.model.providerId}/${session.model.modelId}`,
+    thinkingLevel: session.thinkingLevel,
     approvalMode: session.approvalMode,
     taskId: session.runningTaskId ?? undefined,
   };
@@ -175,6 +185,7 @@ interface NodesState {
   authEvents: Record<string, AuthEvent | null>;
   artifacts: Record<string, AgentNodeArtifact[]>;
   approvals: Record<string, AgentNodeApproval | null>;
+  preferredModels: Record<string, string>;
   activeLocationKey: string | null;
   expandedNodeIds: Set<string>;
   loading: boolean;
@@ -182,18 +193,19 @@ interface NodesState {
   load: () => Promise<void>;
   handleEvent: (event: AgentNodeEvent) => void;
   hydrateLocation: (key: string | null | undefined) => void;
-  enrol: (input: { address: string; code: string; fingerprint: string }) => Promise<AgentNodeInfo>;
+  enrol: (input: { name: string; address: string; code: string; fingerprint: string }) => Promise<AgentNodeInfo>;
   remove: (nodeId: string) => Promise<void>;
   retry: (nodeId: string) => Promise<void>;
   toggleNode: (nodeId: string) => void;
   selectRemoteSession: (nodeId: string, sessionId: string) => Promise<void>;
   clearRemoteSelection: () => void;
   loadSessions: (nodeId: string) => Promise<void>;
-  createSession: (nodeId: string, workspaceId: string, model: string) => Promise<void>;
+  createSession: (nodeId: string, workspaceId: string) => Promise<void>;
   deleteSession: (nodeId: string, sessionId: string) => Promise<void>;
   sendMessage: (nodeId: string, sessionId: string, text: string) => Promise<void>;
   cancelTask: (nodeId: string, taskId: string) => Promise<void>;
   setSessionModel: (nodeId: string, sessionId: string, model: string) => Promise<void>;
+  setSessionThinkingLevel: (nodeId: string, sessionId: string, thinkingLevel: ThinkingLevel) => Promise<void>;
   loadModels: (nodeId: string) => Promise<void>;
   respondApproval: (nodeId: string, sessionId: string, approved: boolean, scope?: 'once' | 'task' | 'session') => Promise<void>;
   setSessionApprovalMode: (nodeId: string, sessionId: string, approvalMode: 'ask' | 'allow') => Promise<void>;
@@ -276,7 +288,7 @@ function artifactDataUrl(bytes: Uint8Array, mediaType: string): string {
 }
 
 export const useNodesStore = create<NodesState>((set, get) => ({
-  nodes: [], sessions: {}, messages: {}, providers: {}, models: {}, controllers: {}, authEvents: {}, artifacts: {}, approvals: {},
+  nodes: [], sessions: {}, messages: {}, providers: {}, models: {}, controllers: {}, authEvents: {}, artifacts: {}, approvals: {}, preferredModels: {},
   activeLocationKey: null, expandedNodeIds: new Set(), loading: false, error: null,
 
   load: async () => {
@@ -348,13 +360,31 @@ export const useNodesStore = create<NodesState>((set, get) => ({
       .map((id) => ({ id, name: id.split('/').filter(Boolean).at(-1) ?? id }));
     set((state) => ({
       sessions: { ...state.sessions, [nodeId]: items },
+      preferredModels: state.preferredModels[nodeId] || !items[0]
+        ? state.preferredModels
+        : { ...state.preferredModels, [nodeId]: items[0].model },
       nodes: state.nodes.map((node) => node.id === nodeId ? { ...node, workspaces } : node),
     }));
   },
-  createSession: async (nodeId, workspaceId, model) => {
-    const session = await agentNodeApi().createSession(nodeId, { workspaceId, model });
-    set((state) => ({ sessions: { ...state.sessions, [nodeId]: [session, ...(state.sessions[nodeId] ?? [])] } }));
-    await get().selectRemoteSession(nodeId, session.id);
+  createSession: async (nodeId, workspaceId) => {
+    set({ error: null });
+    try {
+      if ((get().models[nodeId] ?? []).length === 0) await get().loadModels(nodeId);
+      const models = get().models[nodeId] ?? [];
+      const model = get().preferredModels[nodeId]
+        ?? get().sessions[nodeId]?.[0]?.model
+        ?? (models[0] ? `${models[0].providerId}/${models[0].modelId}` : null);
+      if (!model) throw new Error('No models are available. Configure a provider in Node settings.');
+      const session = await agentNodeApi().createSession(nodeId, { workspaceId, model });
+      set((state) => ({
+        sessions: { ...state.sessions, [nodeId]: [session, ...(state.sessions[nodeId] ?? [])] },
+        preferredModels: { ...state.preferredModels, [nodeId]: model },
+      }));
+      await get().selectRemoteSession(nodeId, session.id);
+    } catch (error) {
+      set({ error: errorText(error) });
+      throw error;
+    }
   },
   deleteSession: async (nodeId, sessionId) => {
     await agentNodeApi().deleteSession(nodeId, sessionId);
@@ -378,7 +408,28 @@ export const useNodesStore = create<NodesState>((set, get) => ({
   },
   setSessionModel: async (nodeId, sessionId, model) => {
     await agentNodeApi().setSessionModel(nodeId, sessionId, model);
-    set((state) => ({ sessions: { ...state.sessions, [nodeId]: (state.sessions[nodeId] ?? []).map((item) => item.id === sessionId ? { ...item, model } : item) } }));
+    set((state) => {
+      const sessions = state.sessions[nodeId] ?? [];
+      const selected = sessions.find((item) => item.id === sessionId);
+      const updated = selected ? { ...selected, model, modified: new Date().toISOString() } : null;
+      return {
+        sessions: { ...state.sessions, [nodeId]: updated
+          ? [updated, ...sessions.filter((item) => item.id !== sessionId)]
+          : sessions },
+        preferredModels: { ...state.preferredModels, [nodeId]: model },
+      };
+    });
+  },
+  setSessionThinkingLevel: async (nodeId, sessionId, thinkingLevel) => {
+    await agentNodeApi().setSessionThinkingLevel(nodeId, sessionId, thinkingLevel);
+    set((state) => {
+      const sessions = state.sessions[nodeId] ?? [];
+      const selected = sessions.find((item) => item.id === sessionId);
+      const updated = selected ? { ...selected, thinkingLevel, modified: new Date().toISOString() } : null;
+      return { sessions: { ...state.sessions, [nodeId]: updated
+        ? [updated, ...sessions.filter((item) => item.id !== sessionId)]
+        : sessions } };
+    });
   },
   loadModels: async (nodeId) => {
     const models = await agentNodeApi().getModels(nodeId);

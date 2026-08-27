@@ -25,8 +25,8 @@ export function NodeArtifacts({ nodeId, sessionKey }: { nodeId: string; sessionK
   const artifacts = useNodesStore((state) => state.artifacts[sessionKey] ?? EMPTY_ARTIFACTS);
   const clearArtifacts = useNodesStore((state) => state.clearArtifacts);
   if (artifacts.length === 0) return null;
-  return <section className="grid gap-2 px-3 pb-2" aria-label="Remote artifacts">
-    <div className="flex items-center justify-between"><span className="text-xs text-(--text-muted)">Artifacts</span><Button size="sm" variant="ghost" onClick={() => clearArtifacts(sessionKey)}>Clear</Button></div>
+  return <section className="grid max-w-xl gap-2 rounded-md border border-(--border-subtle) bg-(--bg-elevated)/50 p-2" aria-label="Remote artifacts">
+    <div className="flex items-center justify-between"><span className="text-xs font-medium text-(--text-secondary)">Files</span><Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => clearArtifacts(sessionKey)}>Clear</Button></div>
     {artifacts.map((artifact) => <NodeArtifact key={artifact.id} nodeId={nodeId} artifact={artifact} />)}
   </section>;
 }

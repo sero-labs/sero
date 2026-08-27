@@ -5,6 +5,7 @@ import {
   AuthEventSchema,
   NodeEventSchema,
   SessionEventSchema,
+  ThinkingLevelSchema,
   SERO_CONTROL_VERSION,
   SERO_QUEUE_MODE_METADATA_KEY,
   createSeroAgentCard,
@@ -169,12 +170,24 @@ async function dispatchControl(operation: ControlOperationName, body: Record<str
     case "createSession": {
       const workspace = requiredString(body, "workspace");
       requireWorkspace(workspace);
-      const record = await services.sessions.create({ name: optionalString(body, "name"), model: modelString(objectValue(body.model)), workspace });
+      const record = await services.sessions.create({
+        name: optionalString(body, "name"),
+        model: modelString(objectValue(body.model)),
+        thinkingLevel: body.thinkingLevel === undefined ? 'off' : ThinkingLevelSchema.parse(body.thinkingLevel),
+        workspace,
+      });
       return { session: sessionWire(record, null) };
     }
     case "deleteSession": await services.sessions.delete(requireUuid(requiredString(body, "contextId"), "contextId")); return { ok: true };
     case "setSessionModel": {
       const record = await services.sessions.setModel(requireUuid(requiredString(body, "contextId"), "contextId"), modelString(objectValue(body.model)));
+      return { session: sessionWire(record, services.sessions.activeTask(record.id)?.taskId ?? null) };
+    }
+    case "setSessionThinkingLevel": {
+      const record = await services.sessions.setThinkingLevel(
+        requireUuid(requiredString(body, "contextId"), "contextId"),
+        ThinkingLevelSchema.parse(body.thinkingLevel),
+      );
       return { session: sessionWire(record, services.sessions.activeTask(record.id)?.taskId ?? null) };
     }
     case "setSessionApprovalMode": {
@@ -184,7 +197,16 @@ async function dispatchControl(operation: ControlOperationName, body: Record<str
       return { session: sessionWire(record, services.sessions.activeTask(record.id)?.taskId ?? null) };
     }
     case "getNodeHealth": return { health: nodeHealth(services) };
-    case "getProviders": return { ...(await services.providers.providers()), models: (await services.providers.models()).map((model) => ({ providerId: model.provider, modelId: model.id, name: model.name })) };
+    case "getProviders": return {
+      ...(await services.providers.providers()),
+      models: (await services.providers.models()).map((model) => ({
+        providerId: model.provider,
+        modelId: model.id,
+        name: model.name,
+        reasoning: model.reasoning,
+        availableThinkingLevels: model.availableThinkingLevels,
+      })),
+    };
     case "login": return services.providers.login(controller!.id, requiredString(body, "providerId"));
     case "logout": await services.providers.logout(requiredString(body, "providerId")); return { ok: true };
     case "setApiKey": await services.providers.setApiKey(requiredString(body, "providerId"), requiredString(body, "key")); return { ok: true };
@@ -324,8 +346,8 @@ function modelWire(model: string): { providerId: string; modelId: string } {
   return separator > 0 ? { providerId: model.slice(0, separator), modelId: model.slice(separator + 1) } : { providerId: "custom", modelId: model };
 }
 
-function sessionWire(record: { id: string; name: string; workspace: string; model: string; approvalMode: "ask" | "allow"; updatedAt: string }, runningTaskId: string | null): Record<string, unknown> {
-  return { contextId: record.id, name: record.name, workspace: record.workspace, model: modelWire(record.model), approvalMode: record.approvalMode, updatedAt: record.updatedAt, runningTaskId };
+function sessionWire(record: { id: string; name: string; workspace: string; model: string; thinkingLevel: string; approvalMode: "ask" | "allow"; updatedAt: string }, runningTaskId: string | null): Record<string, unknown> {
+  return { contextId: record.id, name: record.name, workspace: record.workspace, model: modelWire(record.model), thinkingLevel: record.thinkingLevel, approvalMode: record.approvalMode, updatedAt: record.updatedAt, runningTaskId };
 }
 
 function nodeHealth(services: NodeServices): Record<string, unknown> {

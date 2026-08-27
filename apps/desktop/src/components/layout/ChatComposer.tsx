@@ -33,6 +33,7 @@ interface ChatComposerProps {
   inputChildren?: ReactNode;
   header?: ReactNode;
   tools?: ReactNode;
+  toolsClassName?: string;
   multiple?: boolean;
   globalDrop?: boolean;
   maxFiles?: number;
@@ -55,6 +56,7 @@ export function ChatComposer({
   inputChildren,
   header,
   tools,
+  toolsClassName,
   multiple,
   globalDrop,
   maxFiles,
@@ -91,7 +93,7 @@ export function ChatComposer({
           />
         </PromptInputBody>
         <PromptInputFooter>
-          <PromptInputTools>{tools}</PromptInputTools>
+          <PromptInputTools className={toolsClassName}>{tools}</PromptInputTools>
           {isStreaming ? (
             <div className="flex items-center gap-1.5">
               {submit}

@@ -10,6 +10,7 @@ import {
   NodeHealthSchema,
   OAuthProviderSchema,
   SessionSchema,
+  ThinkingLevelSchema,
   TimestampSchema,
 } from './common';
 
@@ -40,7 +41,12 @@ export const ControlOperationSchemas = {
     response: z.object({ sessions: z.array(SessionSchema) }).strict(),
   },
   createSession: {
-    request: z.object({ workspace: IdSchema, model: ModelRefSchema, name: z.string().optional() }).strict(),
+    request: z.object({
+      workspace: IdSchema,
+      model: ModelRefSchema,
+      thinkingLevel: ThinkingLevelSchema.optional(),
+      name: z.string().optional(),
+    }).strict(),
     response: z.object({ session: SessionSchema }).strict(),
   },
   deleteSession: {
@@ -49,6 +55,10 @@ export const ControlOperationSchemas = {
   },
   setSessionModel: {
     request: z.object({ contextId: IdSchema, model: ModelRefSchema }).strict(),
+    response: z.object({ session: SessionSchema }).strict(),
+  },
+  setSessionThinkingLevel: {
+    request: z.object({ contextId: IdSchema, thinkingLevel: ThinkingLevelSchema }).strict(),
     response: z.object({ session: SessionSchema }).strict(),
   },
   setSessionApprovalMode: {
@@ -105,6 +115,8 @@ export const DeleteSessionRequestSchema = ControlOperationSchemas.deleteSession.
 export const DeleteSessionResponseSchema = ControlOperationSchemas.deleteSession.response;
 export const SetSessionModelRequestSchema = ControlOperationSchemas.setSessionModel.request;
 export const SetSessionModelResponseSchema = ControlOperationSchemas.setSessionModel.response;
+export const SetSessionThinkingLevelRequestSchema = ControlOperationSchemas.setSessionThinkingLevel.request;
+export const SetSessionThinkingLevelResponseSchema = ControlOperationSchemas.setSessionThinkingLevel.response;
 export const SetSessionApprovalModeRequestSchema = ControlOperationSchemas.setSessionApprovalMode.request;
 export const SetSessionApprovalModeResponseSchema = ControlOperationSchemas.setSessionApprovalMode.response;
 export const GetNodeHealthRequestSchema = ControlOperationSchemas.getNodeHealth.request;
@@ -144,6 +156,8 @@ export type DeleteSessionRequest = ControlRequest<'deleteSession'>;
 export type DeleteSessionResponse = ControlResponse<'deleteSession'>;
 export type SetSessionModelRequest = ControlRequest<'setSessionModel'>;
 export type SetSessionModelResponse = ControlResponse<'setSessionModel'>;
+export type SetSessionThinkingLevelRequest = ControlRequest<'setSessionThinkingLevel'>;
+export type SetSessionThinkingLevelResponse = ControlResponse<'setSessionThinkingLevel'>;
 export type SetSessionApprovalModeRequest = ControlRequest<'setSessionApprovalMode'>;
 export type SetSessionApprovalModeResponse = ControlResponse<'setSessionApprovalMode'>;
 export type GetNodeHealthRequest = ControlRequest<'getNodeHealth'>;

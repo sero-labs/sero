@@ -1,5 +1,6 @@
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
-import type { AuthEvent as PiAuthEvent, AuthPrompt, AuthType } from "@earendil-works/pi-ai";
+import { getSupportedThinkingLevels, type AuthEvent as PiAuthEvent, type AuthPrompt, type AuthType } from "@earendil-works/pi-ai";
+import { THINKING_LEVELS, type ThinkingLevel } from "@sero-ai/a2a";
 import type { EventHub } from "./events.ts";
 import type { StatePaths } from "./state.ts";
 import { safeMessage } from "./redact.ts";
@@ -28,9 +29,24 @@ export class ProviderAuth {
     };
   }
 
-  async models(): Promise<Array<{ provider: string; id: string; name: string }>> {
+  async models(): Promise<Array<{
+    provider: string;
+    id: string;
+    name: string;
+    reasoning: boolean;
+    availableThinkingLevels: ThinkingLevel[];
+  }>> {
     const runtime = await this.#runtime;
-    return runtime.getModels().filter((model) => this.advertised.includes(model.provider)).map(({ provider, id, name }) => ({ provider, id, name }));
+    return runtime.getModels().filter((model) => this.advertised.includes(model.provider)).map((model) => {
+      const supported = getSupportedThinkingLevels(model);
+      return {
+        provider: model.provider,
+        id: model.id,
+        name: model.name,
+        reasoning: model.reasoning,
+        availableThinkingLevels: THINKING_LEVELS.filter((level) => supported.includes(level)),
+      };
+    });
   }
 
   async login(controllerId: string, providerId: string, type: AuthType = "oauth"): Promise<{ ok: true }> {

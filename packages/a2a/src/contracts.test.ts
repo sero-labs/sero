@@ -16,6 +16,8 @@ import {
   SERO_CONTROL_VERSION_HEADER,
   SERO_EXTENSION_URI,
   SessionEventSchema,
+  SessionSchema,
+  ModelSchema,
   VersionMismatchError,
   a2aVersionHeaders,
   controlVersionHeaders,
@@ -101,6 +103,20 @@ describe('control-plane boundary contract', () => {
       expect(request.safeParse({ unexpected: true }).success).toBe(false);
       expect(response.safeParse({ unexpected: true }).success).toBe(false);
     }
+  });
+
+  it('defaults thinking fields from older Agent Node responses', () => {
+    expect(ModelSchema.parse({ providerId: 'anthropic', modelId: 'claude', name: 'Claude' }))
+      .toMatchObject({ reasoning: false, availableThinkingLevels: ['off'] });
+    expect(SessionSchema.parse({
+      contextId: 'session-1',
+      name: 'Session',
+      workspace: 'repo',
+      model: { providerId: 'anthropic', modelId: 'claude' },
+      approvalMode: 'ask',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      runningTaskId: null,
+    })).toMatchObject({ thinkingLevel: 'off' });
   });
 
   it('has request and event schemas for every stream', () => {

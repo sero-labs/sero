@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, type ReactNode } from 'react';
 import { Check, Sparkles, Star } from 'lucide-react';
 import { modelKey } from '@/stores/model-preferences';
 import type { ModelInfo, AvailableModelGroup } from '@/types/ipc';
@@ -49,17 +49,21 @@ const ProviderSection = memo(function ProviderSection({
   onSelect,
   selectedModelId,
   selectedProvider,
+  showProviderLogos,
 }: {
   favouriteKeys: Set<string>;
   group: AvailableModelGroup;
   onSelect: (model: ModelInfo) => void;
   selectedModelId: string | null;
   selectedProvider: string | null;
+  showProviderLogos: boolean;
 }) {
   return (
     <div className="py-1">
       <div className="flex items-center gap-2 px-3 pb-1 pt-2">
-        <img src={group.logo} alt={group.displayName} className="size-3.5 rounded-sm dark:invert" />
+        {showProviderLogos ? (
+          <img src={group.logo} alt={group.displayName} className="size-3.5 rounded-sm dark:invert" />
+        ) : null}
         <span className="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
           {group.displayName}
         </span>
@@ -88,7 +92,9 @@ export function ModelSelectorList({
   onSelect,
   selectedModelId,
   selectedProvider,
+  showProviderLogos = true,
   totalFiltered,
+  emptyContent,
 }: {
   allGroups: AvailableModelGroup[];
   favouriteKeys: Set<string>;
@@ -98,14 +104,18 @@ export function ModelSelectorList({
   onSelect: (model: ModelInfo) => void;
   selectedModelId: string | null;
   selectedProvider: string | null;
+  showProviderLogos?: boolean;
   totalFiltered: number;
+  emptyContent?: ReactNode;
 }) {
   if (allGroups.length === 0) {
     return (
       <div className="px-3 py-4 text-center text-sm text-[var(--text-muted)]">
-        No models available. Run{' '}
-        <code className="rounded bg-[var(--bg-muted)] px-1 font-mono">pi auth</code> to add a
-        provider.
+        {emptyContent ?? <>
+          No models available. Run{' '}
+          <code className="rounded bg-[var(--bg-muted)] px-1 font-mono">pi auth</code> to add a
+          provider.
+        </>}
       </div>
     );
   }
@@ -152,6 +162,7 @@ export function ModelSelectorList({
             onSelect={onSelect}
             selectedModelId={selectedModelId}
             selectedProvider={selectedProvider}
+            showProviderLogos={showProviderLogos}
           />
         </div>
       ))}

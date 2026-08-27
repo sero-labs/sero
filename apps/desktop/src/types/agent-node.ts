@@ -1,5 +1,6 @@
 import type { AuthEvent } from '@sero-ai/a2a';
 import type { AgentStreamEvent, ChatMessage } from './agent';
+import type { ThinkingLevel } from '@sero-ai/common';
 import type { AgentNodeApproval } from './ipc-agent-node';
 
 export type AgentNodeConnectionState =
@@ -23,6 +24,7 @@ export interface AgentNodeSession {
   modified: string;
   engine: string;
   model: string;
+  thinkingLevel: ThinkingLevel;
   approvalMode: 'ask' | 'allow';
   taskId?: string;
 }
@@ -50,6 +52,8 @@ export interface AgentNodeModel {
   providerId: string;
   modelId: string;
   name: string;
+  reasoning: boolean;
+  availableThinkingLevels: ThinkingLevel[];
 }
 
 export interface AgentNodeController {
@@ -70,7 +74,7 @@ export type AgentNodeEvent =
 
 export interface SeroAgentNodeAPI {
   listNodes(): Promise<AgentNodeInfo[]>;
-  enrolNode(input: { address: string; code: string; fingerprint: string }): Promise<AgentNodeInfo>;
+  enrolNode(input: { name: string; address: string; code: string; fingerprint: string }): Promise<AgentNodeInfo>;
   removeNode(nodeId: string): Promise<void>;
   listSessions(nodeId: string): Promise<AgentNodeSession[]>;
   createSession(nodeId: string, input: { workspaceId: string; model: string }): Promise<AgentNodeSession>;
@@ -92,6 +96,7 @@ export interface SeroAgentNodeAPI {
   respondManualCode(nodeId: string, value: string): Promise<void>;
   cancelLogin(nodeId: string): Promise<void>;
   setSessionModel(nodeId: string, sessionId: string, model: string): Promise<void>;
+  setSessionThinkingLevel(nodeId: string, sessionId: string, thinkingLevel: ThinkingLevel): Promise<void>;
   listControllers(nodeId: string): Promise<AgentNodeController[]>;
   mintEnrolmentCode(nodeId: string): Promise<{ code: string; fingerprint: string; expiresAt: string }>;
   revokeController(nodeId: string, controllerId: string): Promise<void>;

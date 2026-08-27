@@ -37,7 +37,7 @@ describe('NodeStatusStrip', () => {
   it('associates every enrolment label with its input before first contact', async () => {
     await act(async () => root.render(<EnrolNodeDialog open onOpenChange={vi.fn()} />));
     const labels = [...document.querySelectorAll<HTMLLabelElement>('label')];
-    expect(labels.map((label) => label.textContent)).toEqual(['Address', 'Single-use code', 'Key fingerprint']);
+    expect(labels.map((label) => label.textContent)).toEqual(['Name (optional)', 'Address', 'Single-use code', 'Key fingerprint']);
     for (const label of labels) {
       expect(label.htmlFor).not.toBe('');
       expect(document.getElementById(label.htmlFor)?.tagName).toBe('INPUT');

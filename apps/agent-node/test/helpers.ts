@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { RunnerHooks, SessionRunner, SessionRunnerFactory } from "../src/pi-host.ts";
 import type { SessionEntry } from "../src/types.ts";
+import type { ThinkingLevel } from "@sero-ai/a2a";
 
 export async function temporaryState(): Promise<{ root: string; cleanup: () => Promise<void> }> {
   const root = await mkdtemp(join(tmpdir(), "sero-node-test-"));
@@ -15,6 +16,7 @@ export class DeferredRunner implements SessionRunner {
   calls: string[] = [];
   behaviors: Array<"followUp" | "steer"> = [];
   canceled = false;
+  thinkingLevel: ThinkingLevel = "off";
   release?: (value: string) => void;
   emit?: (value: string) => void;
   hooks?: RunnerHooks;
@@ -48,6 +50,7 @@ export class DeferredRunner implements SessionRunner {
     });
   }
   async cancel(): Promise<void> { this.canceled = true; this.release?.(""); }
+  setThinkingLevel(level: ThinkingLevel): void { this.thinkingLevel = level; }
   entries(): SessionEntry[] { return [...this.#entries]; }
 
   #append(role: string, text: string): void {
@@ -65,8 +68,9 @@ export class DeferredRunner implements SessionRunner {
 }
 
 export function runnerFactory(runners: Map<string, DeferredRunner>): SessionRunnerFactory {
-  return async (id, cwd, _model, sessionPath, hooks) => {
+  return async (id, cwd, _model, thinkingLevel, sessionPath, hooks) => {
     const runner = new DeferredRunner(sessionPath ?? join(cwd, `.pi-${id}.jsonl`));
+    runner.thinkingLevel = thinkingLevel;
     runner.hooks = hooks;
     runners.set(id, runner);
     return runner;

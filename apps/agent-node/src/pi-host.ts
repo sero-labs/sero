@@ -10,6 +10,7 @@ import {
   type ToolCallEvent,
 } from "@earendil-works/pi-coding-agent";
 import { ModelsError } from "@earendil-works/pi-ai";
+import type { ThinkingLevel } from "@sero-ai/a2a";
 import type { StatePaths } from "./state.ts";
 import { ToolInputStreams } from "./tool-input-stream.ts";
 
@@ -17,6 +18,7 @@ export interface SessionRunner {
   readonly sessionPath: string;
   run(text: string, behavior: "followUp" | "steer", hooks: RunnerHooks): Promise<string>;
   cancel(): Promise<void>;
+  setThinkingLevel(level: ThinkingLevel): void;
   entries(): SessionEntry[];
 }
 
@@ -41,6 +43,7 @@ export type SessionRunnerFactory = (
   sessionId: string,
   cwd: string,
   model: string,
+  thinkingLevel: ThinkingLevel,
   sessionPath?: string,
   hooks?: RunnerHooks,
 ) => Promise<SessionRunner>;
@@ -56,7 +59,7 @@ function modelParts(value: string): [string, string] {
 }
 
 export function createPiRunnerFactory(paths: StatePaths): SessionRunnerFactory {
-  return async (sessionId, cwd, modelName, sessionPath, hooks) => {
+  return async (sessionId, cwd, modelName, thinkingLevel, sessionPath, hooks) => {
     const runtime = await ModelRuntime.create({ authPath: `${paths.root}/auth.json`, modelsStorePath: `${paths.root}/models.json`, refreshOnCreate: false });
     const [provider, id] = modelParts(modelName);
     const model = runtime.getModel(provider, id);
@@ -83,7 +86,7 @@ export function createPiRunnerFactory(paths: StatePaths): SessionRunnerFactory {
       resourceLoaderOptions: { extensionFactories: [{ name: "sero-node", hidden: true, factory: extension }] },
     });
     const created = await createAgentSessionFromServices({
-      services, model, sessionManager: manager, tools: ["read", "write", "edit", "bash", "grep", "find"],
+      services, model, thinkingLevel, sessionManager: manager, tools: ["read", "write", "edit", "bash", "grep", "find"],
     });
     const authoritativePath = manager.getSessionFile();
     if (!authoritativePath) throw new Error(`session_persistence_unavailable: ${sessionId}`);
@@ -187,6 +190,7 @@ class PiRunner implements SessionRunner {
   }
 
   cancel(): Promise<void> { return this.session.abort(); }
+  setThinkingLevel(level: ThinkingLevel): void { this.session.setThinkingLevel(level); }
   entries(): SessionEntry[] { return this.manager.getEntries(); }
 }
 

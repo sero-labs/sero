@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, CirclePlus, Cpu, MessageSquare, Settings, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, CirclePlus, Cpu, Settings } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
-import { cn } from '@sero-ai/ui/lib/utils';
-import { agentNodeApi, useNodesStore, sessionLocationKey } from '@/stores/nodes';
+import { IconAction } from '@/components/ui/IconAction';
+import { agentNodeApi, useNodesStore } from '@/stores/nodes';
+import { useSessionStore } from '@/stores/sessions';
 import type { AgentNodeInfo, AgentNodeSession } from '@/types/agent-node';
 import { EnrolNodeDialog } from './EnrolNodeDialog';
 import { NodeSettingsDialog } from './NodeSettingsDialog';
-import { NewNodeSessionDialog } from './NewNodeSessionDialog';
+import { NodeConnectionIndicator } from './NodeConnectionIndicator';
+import { nodeDisplayName } from './node-display';
+import { RemoteWorkspaceNode } from './RemoteWorkspaceNode';
 
 const EMPTY_SESSIONS: AgentNodeSession[] = [];
 
@@ -22,8 +25,8 @@ export function NodesTree() {
   }, [handleEvent, load]);
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between px-2 pb-1 pt-2">
+    <div className="flex flex-col gap-1 pt-2">
+      <div className="flex items-center justify-between pb-1 pl-2 pr-0 pt-2">
         <span className="text-sm font-semibold uppercase tracking-[0.18em] text-(--text-secondary)">Nodes</span>
         <Button type="button" size="icon-xs" variant="ghost" aria-label="Add Agent Node" onClick={() => setEnrolOpen(true)}><CirclePlus className="size-3.5" /></Button>
       </div>
@@ -38,40 +41,63 @@ function NodeRow({ node }: { node: AgentNodeInfo }) {
   const sessions = useNodesStore((state) => state.sessions[node.id] ?? EMPTY_SESSIONS);
   const expanded = useNodesStore((state) => state.expandedNodeIds.has(node.id));
   const toggle = useNodesStore((state) => state.toggleNode);
+  const activeLocationKey = useNodesStore((state) => state.activeLocationKey);
+  const searchQuery = useSessionStore((state) => state.searchQuery.trim().toLowerCase());
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [newSessionOpen, setNewSessionOpen] = useState(false);
-  const loadModels = useNodesStore((state) => state.loadModels);
   const byWorkspace = useMemo(() => sessions.reduce<Record<string, AgentNodeSession[]>>((groups, session) => {
-    (groups[session.workspaceId] ??= []).push(session);
+    const workspace = node.workspaces.find((item) => item.id === session.workspaceId);
+    if (!searchQuery || session.name?.toLowerCase().includes(searchQuery)
+      || session.firstMessage?.toLowerCase().includes(searchQuery)
+      || workspace?.name.toLowerCase().includes(searchQuery)) {
+      (groups[session.workspaceId] ??= []).push(session);
+    }
     return groups;
-  }, {}), [sessions]);
-  return <div className="rounded-md">
-    <div className="group flex items-center gap-1 px-1 py-1">
-      <button type="button" className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-sm" onClick={() => toggle(node.id)}>
-        {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}<Cpu className="size-3.5 text-(--text-muted)" /><span className="truncate font-medium">{node.name}</span><span aria-label={node.connectionState} className={cn('ml-auto size-2 rounded-full', node.connectionState === 'connected' ? 'bg-status-success' : node.connectionState === 'reconnecting' ? 'bg-status-warning' : 'bg-status-error')} />
+  }, {}), [node.workspaces, searchQuery, sessions]);
+  const displayName = nodeDisplayName(node);
+
+  return (
+    <div className="py-1.5">
+      <button
+        type="button"
+        onClick={() => toggle(node.id)}
+        className="group relative mb-1 flex w-full items-center gap-1 rounded-md px-1.5 py-1 text-left text-[var(--text-secondary)]"
+      >
+        {expanded ? <ChevronDown className="size-3 shrink-0 text-[var(--text-muted)]" /> : <ChevronRight className="size-3 shrink-0 text-[var(--text-muted)]" />}
+        <Cpu className="size-4 shrink-0 text-[var(--text-muted)]" />
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold">{displayName}</span>
+        <IconAction
+          as="span"
+          role="button"
+          tabIndex={-1}
+          title="Node settings"
+          aria-label={`${displayName} settings`}
+          className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+          onClick={(event) => { event.stopPropagation(); setSettingsOpen(true); }}
+          onKeyDown={(event) => { if (event.key === 'Enter') { event.stopPropagation(); setSettingsOpen(true); } }}
+        >
+          <Settings className="size-3" />
+        </IconAction>
+        <NodeConnectionIndicator state={node.connectionState} />
       </button>
-      <Button size="icon-xs" variant="ghost" aria-label={`New session on ${node.name}`} className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100" disabled={node.connectionState === 'version-skew' || node.connectionState === 'revoked'} onClick={() => { void loadModels(node.id); setNewSessionOpen(true); }}><CirclePlus className="size-3" /></Button>
-      <Button size="icon-xs" variant="ghost" aria-label={`${node.name} settings`} className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100" onClick={() => setSettingsOpen(true)}><Settings className="size-3" /></Button>
+      {expanded ? (
+        <div className="ml-2 flex flex-col divide-y divide-(--border-subtle)/50 pl-2">
+          {node.workspaces.map((workspace) => (
+            <RemoteWorkspaceNode
+              key={workspace.id}
+              node={node}
+              workspace={workspace}
+              sessions={byWorkspace[workspace.id] ?? []}
+              workspaceActive={sessions.some((session) => (
+                session.workspaceId === workspace.id
+                && activeLocationKey?.endsWith(`:${encodeURIComponent(session.id)}`)
+              ))}
+              totalSessionCount={sessions.filter((session) => session.workspaceId === workspace.id).length}
+            />
+          ))}
+          {node.workspaces.length === 0 ? <span className="px-2 py-2 text-xs text-[var(--text-muted)]">No workspaces available</span> : null}
+        </div>
+      ) : null}
+      <NodeSettingsDialog node={node} open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
-    {expanded ? <div className="pl-4">{node.workspaces.map((workspace) => <WorkspaceSessions key={workspace.id} node={node} workspace={workspace} sessions={byWorkspace[workspace.id] ?? []} />)}</div> : null}
-    <NodeSettingsDialog node={node} open={settingsOpen} onOpenChange={setSettingsOpen} />
-    <NewNodeSessionDialog nodeId={node.id} open={newSessionOpen} onOpenChange={setNewSessionOpen} />
-  </div>;
-}
-
-function WorkspaceSessions({ node, workspace, sessions }: { node: AgentNodeInfo; workspace: { id: string; name: string }; sessions: AgentNodeSession[] }) {
-  const [newSessionOpen, setNewSessionOpen] = useState(false);
-  const controlAvailable = node.connectionState !== 'version-skew' && node.connectionState !== 'revoked';
-  const loadModels = useNodesStore((state) => state.loadModels);
-  return <div><div className="group flex items-center px-2 py-1"><p className="min-w-0 flex-1 truncate text-xs font-medium text-(--text-secondary)">{workspace.name}</p><Button size="icon-xs" variant="ghost" aria-label={`New session in ${workspace.name}`} className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100" disabled={!controlAvailable} onClick={() => { void loadModels(node.id); setNewSessionOpen(true); }}><CirclePlus className="size-3" /></Button></div>{sessions.map((session) => <RemoteSessionRow key={session.id} node={node} session={session} />)}<NewNodeSessionDialog nodeId={node.id} workspaceId={workspace.id} open={newSessionOpen} onOpenChange={setNewSessionOpen} /></div>;
-}
-
-function RemoteSessionRow({ node, session }: { node: AgentNodeInfo; session: AgentNodeSession }) {
-  const activeKey = useNodesStore((state) => state.activeLocationKey);
-  const select = useNodesStore((state) => state.selectRemoteSession);
-  const deleteSession = useNodesStore((state) => state.deleteSession);
-  const key = sessionLocationKey({ kind: 'node', nodeId: node.id, sessionId: session.id });
-  const title = session.name || session.firstMessage || 'New chat';
-  const minutes = Math.max(0, Math.floor((Date.now() - new Date(session.modified).getTime()) / 60_000));
-  return <div className={cn('group flex rounded-md hover:bg-(--bg-elevated)', activeKey === key && 'bg-(--bg-elevated)')}><button type="button" className="flex min-w-0 flex-1 items-start gap-2 px-2 py-1.5 text-left" onClick={() => select(node.id, session.id)}><MessageSquare className="mt-0.5 size-3.5 shrink-0 text-(--text-muted)" /><span className="min-w-0"><span className="block truncate text-sm font-medium">{title}</span><span className="flex items-center gap-1 truncate text-xs text-(--text-muted)"><span className="rounded bg-(--bg-elevated) px-1">{node.name}</span><span>{session.engine} · {session.model} · {minutes}m ago</span></span></span></button><Button size="icon-xs" variant="ghost" aria-label={`Delete ${title}`} className="mt-1 opacity-0 group-hover:opacity-100 focus-visible:opacity-100" disabled={node.connectionState === 'version-skew' || node.connectionState === 'revoked'} onClick={() => void deleteSession(node.id, session.id)}><Trash2 className="size-3" /></Button></div>;
+  );
 }

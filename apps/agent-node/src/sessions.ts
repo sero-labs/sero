@@ -9,6 +9,7 @@ import type { ApprovalRequest, SessionEntry, SessionRecord, TaskArtifact, TaskSt
 import { EventHub } from "./events.ts";
 import { safeMessage } from "./redact.ts";
 import type { BlobStore } from "./blobs.ts";
+import type { ThinkingLevel } from "@sero-ai/a2a";
 
 const TERMINAL = new Set<TaskStatus>(["completed", "failed", "canceled", "rejected"]);
 interface QueuedMessage { text: string; behavior: "followUp" | "steer" }
@@ -29,11 +30,14 @@ export class SessionStore {
   readonly #approvals = new Map<string, PendingApproval>();
   constructor(readonly paths: StatePaths, readonly events: EventHub, readonly runnerFactory: SessionRunnerFactory, readonly blobs?: BlobStore) {}
 
-  async create(input: { name?: string; model: string; workspace: string }): Promise<SessionRecord> {
+  async create(input: { name?: string; model: string; thinkingLevel?: ThinkingLevel; workspace: string }): Promise<SessionRecord> {
     const id = randomUUID();
     const workspace = await confinedWorkspace(this.paths, input.workspace);
     const now = new Date().toISOString();
-    const record: SessionRecord = { id, name: input.name?.trim() || id.slice(0, 8), model: input.model, workspace, approvalMode: "ask", createdAt: now, updatedAt: now };
+    const record: SessionRecord = {
+      id, name: input.name?.trim() || id.slice(0, 8), model: input.model,
+      thinkingLevel: input.thinkingLevel ?? "off", workspace, approvalMode: "ask", createdAt: now, updatedAt: now,
+    };
     await secureWrite(this.#sessionPath(id), `${JSON.stringify(record)}\n`);
     return record;
   }
@@ -47,8 +51,9 @@ export class SessionStore {
   async get(id: string): Promise<SessionRecord | undefined> {
     const file = Bun.file(this.#sessionPath(id));
     if (!(await file.exists())) return undefined;
-    const record = await file.json() as Omit<SessionRecord, "approvalMode"> & Partial<Pick<SessionRecord, "approvalMode">>;
-    return { ...record, approvalMode: record.approvalMode ?? "ask" };
+    const record = await file.json() as Omit<SessionRecord, "approvalMode" | "thinkingLevel">
+      & Partial<Pick<SessionRecord, "approvalMode" | "thinkingLevel">>;
+    return { ...record, approvalMode: record.approvalMode ?? "ask", thinkingLevel: record.thinkingLevel ?? "off" };
   }
 
   async setModel(id: string, model: string): Promise<SessionRecord> {
@@ -56,6 +61,15 @@ export class SessionStore {
     record.model = model;
     record.updatedAt = new Date().toISOString();
     await secureWrite(this.#sessionPath(id), `${JSON.stringify(record)}\n`);
+    return record;
+  }
+
+  async setThinkingLevel(id: string, thinkingLevel: ThinkingLevel): Promise<SessionRecord> {
+    const record = await this.required(id);
+    record.thinkingLevel = thinkingLevel;
+    record.updatedAt = new Date().toISOString();
+    await secureWrite(this.#sessionPath(id), `${JSON.stringify(record)}\n`);
+    this.#active.get(id)?.runner?.setThinkingLevel(thinkingLevel);
     return record;
   }
 
@@ -95,7 +109,9 @@ export class SessionStore {
     try {
       await this.#transition(task, "submitted");
       const hooks = this.#runnerHooks(contextId, turn);
-      const runner = await this.runnerFactory(contextId, record.workspace, record.model, record.piSessionPath, hooks);
+      const runner = await this.runnerFactory(
+        contextId, record.workspace, record.model, record.thinkingLevel, record.piSessionPath, hooks,
+      );
       turn.runner = runner;
       turn.publishedEntryIds = new Set(runner.entries().map((entry) => entry.id));
       if (record.piSessionPath !== runner.sessionPath) {

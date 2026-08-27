@@ -7,6 +7,21 @@ import { DeferredRunner, runnerFactory, temporaryState } from "./helpers.ts";
 import { ProviderAuthRequiredError } from "../src/pi-host.ts";
 
 describe("persistent sessions and tasks", () => {
+  test("persists thinking level and applies changes to the active runner", async () => {
+    const temp = await temporaryState(); const runners = new Map<string, DeferredRunner>();
+    try {
+      const paths = await ensureState(temp.root);
+      const store = new SessionStore(paths, new EventHub(), runnerFactory(runners));
+      const session = await store.create({ model: "test/model", thinkingLevel: "high", workspace: "thinking" });
+      await store.send(session.id, "hello", "controller");
+      expect(runners.get(session.id)?.thinkingLevel).toBe("high");
+      await store.setThinkingLevel(session.id, "medium");
+      expect(runners.get(session.id)?.thinkingLevel).toBe("medium");
+      expect((await store.get(session.id))?.thinkingLevel).toBe("medium");
+      runners.get(session.id)?.release?.("done");
+    } finally { await temp.cleanup(); }
+  });
+
   test("refuses absent and unknown contexts", async () => {
     const temp = await temporaryState();
     try {

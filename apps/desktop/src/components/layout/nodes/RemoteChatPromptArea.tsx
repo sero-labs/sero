@@ -1,18 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
-import {
-  PromptInputSelect,
-  PromptInputSelectContent,
-  PromptInputSelectItem,
-  PromptInputSelectTrigger,
-  PromptInputSelectValue,
-} from '@sero-ai/ui/ai-elements/prompt-input';
+import { useState } from 'react';
 import { ChatComposer } from '@/components/layout/ChatComposer';
 import { useNodesStore } from '@/stores/nodes';
-import type { AgentNodeInfo, AgentNodeModel, AgentNodeSession } from '@/types/agent-node';
-
-function modelReference(model: AgentNodeModel): string {
-  return `${model.providerId}/${model.modelId}`;
-}
+import type { AgentNodeInfo, AgentNodeSession } from '@/types/agent-node';
+import { canSendToNode } from './node-display';
+import { RemoteApprovalControl } from './RemoteApprovalControl';
+import { RemoteModelSelector } from './RemoteModelSelector';
 
 export function RemoteChatPromptArea({
   node,
@@ -22,23 +14,9 @@ export function RemoteChatPromptArea({
   session: AgentNodeSession;
 }) {
   const [draft, setDraft] = useState('');
-  const [selectedModel, setSelectedModel] = useState(session.model);
-  const models = useNodesStore((state) => state.models[node.id] ?? []);
   const sendMessage = useNodesStore((state) => state.sendMessage);
   const cancelTask = useNodesStore((state) => state.cancelTask);
-  const loadModels = useNodesStore((state) => state.loadModels);
-  const setSessionModel = useNodesStore((state) => state.setSessionModel);
-  const modelOptions = useMemo(
-    () => models.some((model) => modelReference(model) === selectedModel)
-      ? models
-      : [{ providerId: '', modelId: selectedModel, name: selectedModel }, ...models],
-    [models, selectedModel],
-  );
-  const disabled = node.connectionState === 'revoked' || node.connectionState === 'version-skew';
-
-  useEffect(() => {
-    if (models.length === 0 && !disabled) void loadModels(node.id);
-  }, [disabled, loadModels, models.length, node.id]);
+  const disabled = !canSendToNode(node);
 
   return (
     <ChatComposer
@@ -58,33 +36,12 @@ export function RemoteChatPromptArea({
       }}
       maxFiles={0}
       tools={(
-        <PromptInputSelect
-          value={selectedModel}
-          onValueChange={(value) => {
-            setSelectedModel(value);
-            void setSessionModel(node.id, session.id, value);
-          }}
-          disabled={disabled}
-        >
-          <PromptInputSelectTrigger
-            aria-label="Remote session model"
-            className="h-7 max-w-56 border-0 bg-transparent px-2 text-sm shadow-none"
-            title="Model changes apply on the next turn"
-          >
-            <PromptInputSelectValue />
-          </PromptInputSelectTrigger>
-          <PromptInputSelectContent>
-            {modelOptions.map((model) => {
-              const value = model.providerId ? modelReference(model) : model.modelId;
-              return (
-                <PromptInputSelectItem key={value} value={value}>
-                  {model.name}
-                </PromptInputSelectItem>
-              );
-            })}
-          </PromptInputSelectContent>
-        </PromptInputSelect>
+        <>
+          <RemoteApprovalControl node={node} session={session} />
+          <RemoteModelSelector node={node} session={session} />
+        </>
       )}
+      toolsClassName="flex-1"
     />
   );
 }

@@ -34,10 +34,10 @@ describe('RemoteConversation approval', () => {
       }],
       sessions: { 'node-1': [{
         id: 'session-1', workspaceId: 'repo', name: 'Test', modified: '2026-01-01T00:00:00Z',
-        engine: 'Pi', model: 'anthropic/claude', approvalMode: 'ask', taskId: 'task-1',
+        engine: 'Pi', model: 'anthropic/claude', thinkingLevel: 'high', approvalMode: 'ask', taskId: 'task-1',
       }] },
       messages: { [key]: [] },
-      models: { 'node-1': [{ providerId: 'anthropic', modelId: 'claude', name: 'Claude' }] },
+      models: { 'node-1': [{ providerId: 'anthropic', modelId: 'claude', name: 'Claude', reasoning: true, availableThinkingLevels: ['off', 'high'] }] },
       approvals: { [key]: {
         id: 'permission-1', taskId: 'task-1', contextId: 'session-1',
         title: 'Run command', description: 'pnpm test',
@@ -61,10 +61,10 @@ describe('RemoteConversation approval', () => {
       }],
       sessions: { 'node-1': [{
         id: 'session-1', workspaceId: 'repo', name: 'Test', modified: '2026-01-01T00:00:00Z',
-        engine: 'Pi', model: 'anthropic/claude', approvalMode: 'ask',
+        engine: 'Pi', model: 'anthropic/claude', thinkingLevel: 'off', approvalMode: 'ask',
       }] },
       messages: { [key]: [] }, approvals: { [key]: null },
-      models: { 'node-1': [{ providerId: 'anthropic', modelId: 'claude', name: 'Claude' }] },
+      models: { 'node-1': [{ providerId: 'anthropic', modelId: 'claude', name: 'Claude', reasoning: true, availableThinkingLevels: ['off', 'high'] }] },
       artifacts: { [key]: [{ id: 'artifact-1', name: 'report.txt', mediaType: 'text/plain', inlineBase64: 'b2s=' }] },
       activeLocationKey: key,
     });
@@ -78,6 +78,9 @@ describe('RemoteConversation approval', () => {
     const key = sessionLocationKey({ kind: 'node', nodeId: 'node-1', sessionId: 'session-1' });
     const sendMessage = vi.fn().mockResolvedValue(undefined);
     const cancelTask = vi.fn().mockResolvedValue(undefined);
+    const setSessionModel = vi.fn().mockResolvedValue(undefined);
+    const setSessionThinkingLevel = vi.fn().mockResolvedValue(undefined);
+    const loadModels = vi.fn().mockResolvedValue(undefined);
     useNodesStore.setState({
       nodes: [{
         id: 'node-1', name: 'Spark', address: 'https://spark', fingerprint: 'pin',
@@ -85,12 +88,18 @@ describe('RemoteConversation approval', () => {
       }],
       sessions: { 'node-1': [{
         id: 'session-1', workspaceId: 'repo', name: 'Test', modified: '2026-01-01T00:00:00Z',
-        engine: 'Pi', model: 'anthropic/claude', approvalMode: 'ask',
+        engine: 'Pi', model: 'anthropic/claude', thinkingLevel: 'high', approvalMode: 'ask',
       }] },
       messages: { [key]: [] }, approvals: { [key]: null }, activeLocationKey: key,
-      models: { 'node-1': [{ providerId: 'anthropic', modelId: 'claude', name: 'Claude' }] },
+      models: { 'node-1': [
+        { providerId: 'anthropic', modelId: 'claude', name: 'Claude', reasoning: true, availableThinkingLevels: ['off', 'medium', 'high'] },
+        { providerId: 'openai', modelId: 'gpt-5', name: 'GPT-5', reasoning: true, availableThinkingLevels: ['off', 'medium', 'high'] },
+      ] },
       sendMessage,
       cancelTask,
+      setSessionModel,
+      setSessionThinkingLevel,
+      loadModels,
     });
     await act(async () => root.render(
       <RemoteConversation location={{ kind: 'node', nodeId: 'node-1', sessionId: 'session-1' }} />,
@@ -99,6 +108,21 @@ describe('RemoteConversation approval', () => {
     const textarea = container.querySelector<HTMLTextAreaElement>('textarea[placeholder="Message the agent…"]');
     expect(textarea).not.toBeNull();
     expect(container.querySelector('[aria-label="Remote session model"]')?.textContent).toContain('Claude');
+    expect(container.querySelector('[aria-label="Command approval"]')).not.toBeNull();
+    expect(container.textContent).not.toContain('1 tools');
+    const modelTrigger = container.querySelector<HTMLElement>('[aria-label="Remote session model"]');
+    expect(modelTrigger?.className).toContain('flex-1');
+    expect(modelTrigger?.className).toContain('text-left');
+    expect(modelTrigger?.querySelector('.max-w-none')).not.toBeNull();
+    await act(async () => modelTrigger?.click());
+    expect(document.body.textContent).toContain('Thinking');
+    const mediumThinking = [...document.querySelectorAll('button')]
+      .find((button) => button.textContent === 'Med');
+    await act(async () => mediumThinking?.click());
+    expect(setSessionThinkingLevel).toHaveBeenCalledWith('node-1', 'session-1', 'medium');
+    const nextModel = [...document.querySelectorAll('button')].find((button) => button.textContent?.includes('GPT-5'));
+    await act(async () => nextModel?.click());
+    expect(setSessionModel).toHaveBeenCalledWith('node-1', 'session-1', 'openai/gpt-5');
     await act(async () => {
       if (textarea) {
         const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;

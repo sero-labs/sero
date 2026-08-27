@@ -4,6 +4,8 @@ export const EmptySchema = z.object({}).strict();
 export const IdSchema = z.string().min(1);
 export const TimestampSchema = z.string().datetime({ offset: true });
 export const JsonObjectSchema = z.record(z.string(), z.unknown());
+export const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
+export const ThinkingLevelSchema = z.enum(THINKING_LEVELS);
 
 export const CONTROL_ERROR_CODES = [
   'invalid_request',
@@ -44,6 +46,8 @@ export const ModelSchema = z.object({
   providerId: IdSchema,
   modelId: IdSchema,
   name: IdSchema,
+  reasoning: z.boolean().default(false),
+  availableThinkingLevels: z.array(ThinkingLevelSchema).default(['off']),
 }).strict();
 
 export const ControllerSchema = z.object({
@@ -58,6 +62,7 @@ export const SessionSchema = z.object({
   name: z.string(),
   workspace: IdSchema,
   model: ModelRefSchema,
+  thinkingLevel: ThinkingLevelSchema.default('off'),
   approvalMode: z.enum(['ask', 'allow']),
   updatedAt: TimestampSchema,
   runningTaskId: IdSchema.nullable(),
@@ -86,6 +91,7 @@ export const ApiKeyProviderSchema = z.object({
 
 export type ModelRef = z.infer<typeof ModelRefSchema>;
 export type Model = z.infer<typeof ModelSchema>;
+export type ThinkingLevel = z.infer<typeof ThinkingLevelSchema>;
 export type Controller = z.infer<typeof ControllerSchema>;
 export type Session = z.infer<typeof SessionSchema>;
 export type NodeHealth = z.infer<typeof NodeHealthSchema>;

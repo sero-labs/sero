@@ -5,6 +5,7 @@ import { Input } from '@sero-ai/ui/components/ui/input';
 import type { AgentNodeController, AgentNodeInfo, AgentNodeProvider } from '@/types/agent-node';
 import { useNodesStore } from '@/stores/nodes';
 import { NodeAuthInteraction } from './NodeAuthInteraction';
+import { canManageNode, nodeDisplayName } from './node-display';
 
 const EMPTY_PROVIDERS: AgentNodeProvider[] = [];
 const EMPTY_CONTROLLERS: AgentNodeController[] = [];
@@ -15,12 +16,13 @@ export function NodeSettingsDialog({ node, open, onOpenChange }: { node: AgentNo
   const { loadSettings, login, logout, setApiKey, removeApiKey, revokeController, mintEnrolmentCode, remove } = useNodesStore.getState();
   const [keys, setKeys] = useState<Record<string, string>>({});
   const [enrolmentCode, setEnrolmentCode] = useState<string | null>(null);
-  const controlAvailable = node.connectionState !== 'version-skew' && node.connectionState !== 'revoked';
+  const controlAvailable = canManageNode(node);
 
   return (
     <Dialog open={open} onOpenChange={(next) => { onOpenChange(next); if (next && controlAvailable) void loadSettings(node.id); }}>
       <DialogContent className="max-h-[80vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>{node.name} settings</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{nodeDisplayName(node)} settings</DialogTitle></DialogHeader>
+        <p className="text-xs text-(--text-muted)">{node.address}</p>
         {!controlAvailable ? <p className="text-sm text-status-warning">Settings need a compatible, authorised node.</p> : null}
         <NodeAuthInteraction nodeId={node.id} />
         <section className="grid gap-2"><h3 className="text-sm font-semibold">Providers</h3>

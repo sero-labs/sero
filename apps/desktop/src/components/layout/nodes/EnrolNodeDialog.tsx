@@ -4,12 +4,14 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { Label } from '@sero-ai/ui/components/ui/label';
 import { useNodesStore } from '@/stores/nodes';
+import { suggestedNodeName } from './node-display';
 
 const credentialsWord = ['creden', 'tials'].join('');
 export const NODE_SAFETY_WARNING = `Work you send this node runs with the node's ${credentialsWord}. A task that reads untrusted text can reach them.`;
 
 export function EnrolNodeDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const enrol = useNodesStore((state) => state.enrol);
+  const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [code, setCode] = useState('');
   const [fingerprint, setFingerprint] = useState('');
@@ -21,7 +23,12 @@ export function EnrolNodeDialog({ open, onOpenChange }: { open: boolean; onOpenC
   const submit = async () => {
     setSubmitting(true); setError(null);
     try {
-      const node = await enrol({ address: address.trim(), code: code.trim(), fingerprint: fingerprint.trim() });
+      const node = await enrol({
+        name: name.trim() || suggestedNodeName(address.trim()) || address.trim(),
+        address: address.trim(),
+        code: code.trim(),
+        fingerprint: fingerprint.trim(),
+      });
       setConfirmedNode(node.name);
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not enrol node'); }
     finally { setSubmitting(false); }
@@ -33,6 +40,7 @@ export function EnrolNodeDialog({ open, onOpenChange }: { open: boolean; onOpenC
         <DialogHeader><DialogTitle>{confirmedNode ? `${confirmedNode} is ready` : 'Add Agent Node'}</DialogTitle></DialogHeader>
         {confirmedNode ? <p className="text-sm text-(--text-secondary)">{NODE_SAFETY_WARNING}</p> : (
           <div className="grid gap-4">
+            <Field label="Name (optional)" value={name} onChange={setName} placeholder="GX10" />
             <Field label="Address" value={address} onChange={setAddress} placeholder="https://spark.example.ts.net" />
             <Field label="Single-use code" value={code} onChange={setCode} />
             <Field label="Key fingerprint" value={fingerprint} onChange={setFingerprint} placeholder="SHA-256 fingerprint" />

@@ -11,6 +11,7 @@ import {
   Role,
   TaskState,
   type ControlOperationName,
+  type ThinkingLevel,
 } from "@sero-ai/a2a";
 import { BlobStore, INLINE_ARTIFACT_LIMIT } from "../src/blobs.ts";
 import { ControllerStore } from "../src/controllers.ts";
@@ -37,7 +38,10 @@ async function fixture() {
       oauth: [{ id: "anthropic", name: "Anthropic", isLoggedIn: false }],
       apiKey: [{ id: "anthropic", name: "Anthropic", hasKey: false, fromEnv: false }],
     }),
-    models: async () => [{ provider: "anthropic", id: "claude", name: "Claude" }],
+    models: async () => [{
+      provider: "anthropic", id: "claude", name: "Claude", reasoning: true,
+      availableThinkingLevels: ["off", "low", "medium", "high"] as ThinkingLevel[],
+    }],
     login: async () => ({ ok: true as const }), logout: async () => {}, setApiKey: async () => {},
     removeApiKey: async () => {}, respond: () => {}, cancel: () => {},
     disconnect: (id: string) => { disconnected.push(id); },
@@ -69,7 +73,7 @@ async function sseMessages(response: Response, count: number): Promise<Array<{ e
 
 describe("wire contracts", () => {
   test("declares the control operations and the limited tool surface", async () => {
-    expect(CONTROL_OPERATION_NAMES).toHaveLength(19);
+    expect(CONTROL_OPERATION_NAMES).toHaveLength(20);
     const current = await fixture();
     try {
       const response = await route(new Request("https://node/.well-known/agent-card.json"), current.services, "https://node");
@@ -88,9 +92,10 @@ describe("wire contracts", () => {
       const inputs: Record<ControlOperationName, object> = {
         enrol: { code, controllerName: "Second Desktop" }, mintEnrolmentCode: {}, listControllers: {},
         revokeController: { controllerId: current.enrolled.controllerId }, listSessions: {},
-        createSession: { workspace: "created", model: { providerId: "anthropic", modelId: "claude" }, name: "Created" },
+    createSession: { workspace: "created", model: { providerId: "anthropic", modelId: "claude" }, thinkingLevel: "high", name: "Created" },
         deleteSession: { contextId: session.id }, setSessionModel: { contextId: session.id, model: { providerId: "anthropic", modelId: "opus" } },
-        setSessionApprovalMode: { contextId: session.id, approvalMode: "allow" },
+    setSessionThinkingLevel: { contextId: session.id, thinkingLevel: "medium" },
+    setSessionApprovalMode: { contextId: session.id, approvalMode: "allow" },
         getNodeHealth: {}, getProviders: {}, login: { providerId: "anthropic" }, logout: { providerId: "anthropic" },
         setApiKey: { providerId: "anthropic", key: "secret" }, removeApiKey: { providerId: "anthropic" },
         respondPrompt: { value: "yes" }, respondSelect: { value: "one" }, respondManualCode: { value: "code" }, cancel: {},
