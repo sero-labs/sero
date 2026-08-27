@@ -13,12 +13,13 @@ describe("persistent sessions and tasks", () => {
       const paths = await ensureState(temp.root);
       const store = new SessionStore(paths, new EventHub(), runnerFactory(runners));
       const session = await store.create({ model: "test/model", thinkingLevel: "high", workspace: "thinking" });
-      await store.send(session.id, "hello", "controller");
+      const task = await store.send(session.id, "hello", "controller");
       expect(runners.get(session.id)?.thinkingLevel).toBe("high");
       await store.setThinkingLevel(session.id, "medium");
       expect(runners.get(session.id)?.thinkingLevel).toBe("medium");
       expect((await store.get(session.id))?.thinkingLevel).toBe("medium");
       runners.get(session.id)?.release?.("done");
+      while ((await store.getTask(task.taskId))?.status !== "completed") await Bun.sleep(1);
     } finally { await temp.cleanup(); }
   });
 
