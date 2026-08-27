@@ -11,6 +11,10 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { ModelsError } from "@earendil-works/pi-ai";
 import type { ThinkingLevel } from "@sero-ai/a2a";
+import { realpath } from "node:fs/promises";
+import { homedir } from "node:os";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { StatePaths } from "./state.ts";
 import { ToolInputStreams } from "./tool-input-stream.ts";
 
@@ -78,7 +82,7 @@ export function createPiRunnerFactory(paths: StatePaths): SessionRunnerFactory {
       : SessionManager.create(cwd, paths.sessions, { id: sessionId });
     let providerRejectedAuth = false;
     const extension: InlineExtension = (pi) => {
-      pi.on("tool_call", (event) => prepareToolCall(event, hooks));
+      pi.on("tool_call", (event) => prepareToolCall(event, hooks, cwd));
       pi.on("after_provider_response", (event) => { if (event.status === 401 || event.status === 403) providerRejectedAuth = true; });
     };
     const services = await createAgentSessionServices({
@@ -96,15 +100,51 @@ export function createPiRunnerFactory(paths: StatePaths): SessionRunnerFactory {
 }
 
 const GATED_TOOLS = new Set(["write", "edit", "bash"]);
-export function prepareToolCall(event: ToolCallEvent, hooks?: RunnerHooks): Promise<{ block?: boolean; reason?: string; terminate?: boolean }> {
+const WORKSPACE_TOOLS = new Set(["read", "grep", "find"]);
+
+export function prepareToolCall(event: ToolCallEvent, hooks?: RunnerHooks, workspace?: string): Promise<{ block?: boolean; reason?: string; terminate?: boolean }> {
   if (event.toolName === "bash") delete event.input.timeout;
-  return gateToolPermission(event, hooks);
+  return gateToolPermission(event, hooks, workspace);
 }
 
-export async function gateToolPermission(event: ToolCallEvent, hooks?: RunnerHooks): Promise<{ block?: boolean; reason?: string; terminate?: boolean }> {
+export async function gateToolPermission(event: ToolCallEvent, hooks?: RunnerHooks, workspace?: string): Promise<{ block?: boolean; reason?: string; terminate?: boolean }> {
+  const inputPath = "path" in event.input ? event.input.path : undefined;
+  if (WORKSPACE_TOOLS.has(event.toolName) && !(await confinedToolPath(inputPath, workspace))) {
+    return { block: true, reason: "Read-only tools are confined to the session workspace", terminate: true };
+  }
   if (!hooks || !GATED_TOOLS.has(event.toolName)) return {};
   const approved = await hooks.approve(event.toolName as "write" | "edit" | "bash", event.input);
   return approved ? {} : { block: true, reason: "Controller refused tool permission", terminate: true };
+}
+
+async function confinedToolPath(inputPath: unknown, workspace?: string): Promise<boolean> {
+  if (!workspace) return false;
+  const requested = inputPath === undefined ? "." : inputPath;
+  if (typeof requested !== "string") return false;
+  const normalized = normalizeToolPath(requested);
+  if (normalized === null) return false;
+  const root = await realpath(workspace);
+  const target = resolve(root, normalized);
+  const actual = await realpath(target).catch(() => null);
+  return pathInside(root, actual ?? target);
+}
+
+function normalizeToolPath(input: string): string | null {
+  let normalized = input.replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000]/gu, " ");
+  if (normalized.startsWith("@")) normalized = normalized.slice(1);
+  if (normalized === "~") return homedir();
+  if (normalized.startsWith("~/")) return join(homedir(), normalized.slice(2));
+  if (!normalized.startsWith("file://")) return normalized;
+  try {
+    return fileURLToPath(normalized);
+  } catch {
+    return null;
+  }
+}
+
+function pathInside(root: string, target: string): boolean {
+  const pathFromRoot = relative(root, target);
+  return pathFromRoot === "" || (pathFromRoot !== ".." && !pathFromRoot.startsWith(`..${sep}`) && !isAbsolute(pathFromRoot));
 }
 
 class PiRunner implements SessionRunner {

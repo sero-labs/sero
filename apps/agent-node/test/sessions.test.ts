@@ -76,6 +76,54 @@ describe("persistent sessions and tasks", () => {
     } finally { await temp.cleanup(); }
   });
 
+  test("keeps approval changes made while the runner starts", async () => {
+    const temp = await temporaryState(); const runners = new Map<string, DeferredRunner>();
+    try {
+      const paths = await ensureState(temp.root);
+      let start: (() => void) | undefined;
+      const gate = new Promise<void>((resolve) => { start = resolve; });
+      const factory = runnerFactory(runners);
+      const store = new SessionStore(paths, new EventHub(), async (...args) => {
+        await gate;
+        return factory(...args);
+      });
+      const session = await store.create({ model: "test/model", workspace: "approval-race" });
+      await store.setApprovalMode(session.id, "allow");
+      const send = store.send(session.id, "hello", "controller");
+      while (!store.activeTask(session.id)) await Bun.sleep(1);
+      const approval = store.setApprovalMode(session.id, "ask");
+
+      start?.();
+      await Promise.all([send, approval]);
+
+      expect((await store.required(session.id)).approvalMode).toBe("ask");
+      runners.get(session.id)?.release?.("done");
+    } finally { await temp.cleanup(); }
+  });
+
+  test("does not recreate a session deleted while the runner starts", async () => {
+    const temp = await temporaryState(); const runners = new Map<string, DeferredRunner>();
+    try {
+      const paths = await ensureState(temp.root);
+      let start: (() => void) | undefined;
+      const gate = new Promise<void>((resolve) => { start = resolve; });
+      const factory = runnerFactory(runners);
+      const store = new SessionStore(paths, new EventHub(), async (...args) => {
+        await gate;
+        return factory(...args);
+      });
+      const session = await store.create({ model: "test/model", workspace: "delete-race" });
+      const send = store.send(session.id, "hello", "controller");
+      while (!store.activeTask(session.id)) await Bun.sleep(1);
+      const deletion = store.delete(session.id);
+
+      start?.();
+      await Promise.all([send, deletion]);
+
+      expect(await store.get(session.id)).toBeUndefined();
+    } finally { await temp.cleanup(); }
+  });
+
   test("records runner startup failures as durable failed tasks with the model name", async () => {
     const temp = await temporaryState();
     try {

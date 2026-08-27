@@ -13,8 +13,9 @@ export class ControllerStore {
   #mutationQueue: Promise<void> = Promise.resolve();
   constructor(readonly paths: StatePaths, readonly now: () => number = Date.now) {}
 
-  async mintCode(): Promise<{ code: string; expiresAt: string }> {
+  async mintCode(authorizedBy?: string): Promise<{ code: string; expiresAt: string }> {
     return this.#mutate(async () => {
+      if (authorizedBy) await this.#requireActive(authorizedBy);
       const code = randomBytes(18).toString("base64url");
       const records = (await this.#enrolments()).filter((item) => item.expiresAt > this.now());
       records.push({ digest: digest(code), expiresAt: this.now() + CODE_TTL_MS });
@@ -57,9 +58,19 @@ export class ControllerStore {
     return (await this.listAll()).map(({ salt: _salt, tokenDigest: _digest, ...record }) => record);
   }
 
-  async revoke(id: string): Promise<boolean> {
+  async runAuthorized<Result>(id: string, operation: () => Promise<Result>): Promise<Result> {
+    return this.#mutate(async () => {
+      await this.#requireActive(id);
+      return operation();
+    });
+  }
+
+  async revoke(id: string, authorizedBy?: string): Promise<boolean> {
     return this.#mutate(async () => {
       const records = await this.listAll();
+      if (authorizedBy && !records.some((item) => item.id === authorizedBy && !item.revokedAt)) {
+        throw new Error("unauthorized");
+      }
       const record = records.find((item) => item.id === id && !item.revokedAt);
       if (!record) return false;
       record.revokedAt = new Date(this.now()).toISOString();
@@ -75,6 +86,11 @@ export class ControllerStore {
 
   async #save(records: ControllerRecord[]): Promise<void> {
     await secureWrite(this.paths.clients, `${JSON.stringify(records, null, 2)}\n`);
+  }
+  async #requireActive(id: string): Promise<void> {
+    if (!(await this.listAll()).some((item) => item.id === id && !item.revokedAt)) {
+      throw new Error("unauthorized");
+    }
   }
   async #mutate<Result>(operation: () => Promise<Result>): Promise<Result> {
     const previous = this.#mutationQueue;

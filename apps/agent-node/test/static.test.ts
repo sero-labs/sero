@@ -15,6 +15,13 @@ test("systemd unit has the required account and hardening without W^X denial", a
   expect(unit).not.toContain("DynamicUser=");
 });
 
+test("HTTP server bounds request bodies and non-streaming idle time", async () => {
+  const server = await readFile(new URL("../src/server.ts", import.meta.url), "utf8");
+  expect(server).toContain("maxRequestBodySize: MAX_REQUEST_BODY_SIZE");
+  expect(server).toContain("idleTimeout: 30");
+  expect(server).toContain('server.timeout(request, 0)');
+});
+
 test("optional NVIDIA access keeps the device policy closed", async () => {
   const override = await readFile(new URL("../systemd/sero-node-nvidia.conf", import.meta.url), "utf8");
   expect(override).toContain("PrivateDevices=no");

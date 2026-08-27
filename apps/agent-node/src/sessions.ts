@@ -28,6 +28,7 @@ interface PendingApproval { request: ApprovalRequest; resolve: (approved: boolea
 export class SessionStore {
   readonly #active = new Map<string, ActiveTurn>();
   readonly #approvals = new Map<string, PendingApproval>();
+  readonly #mutationQueues = new Map<string, Promise<void>>();
   constructor(readonly paths: StatePaths, readonly events: EventHub, readonly runnerFactory: SessionRunnerFactory, readonly blobs?: BlobStore) {}
 
   async create(input: { name?: string; model: string; thinkingLevel?: ThinkingLevel; workspace: string }): Promise<SessionRecord> {
@@ -57,31 +58,41 @@ export class SessionStore {
   }
 
   async setModel(id: string, model: string): Promise<SessionRecord> {
-    const record = await this.required(id);
-    record.model = model;
-    record.updatedAt = new Date().toISOString();
-    await secureWrite(this.#sessionPath(id), `${JSON.stringify(record)}\n`);
-    return record;
+    return this.#mutateSession(id, async () => {
+      const record = await this.required(id);
+      record.model = model;
+      record.updatedAt = new Date().toISOString();
+      await secureWrite(this.#sessionPath(id), `${JSON.stringify(record)}\n`);
+      return record;
+    });
   }
 
   async setThinkingLevel(id: string, thinkingLevel: ThinkingLevel): Promise<SessionRecord> {
-    const record = await this.required(id);
-    record.thinkingLevel = thinkingLevel;
-    record.updatedAt = new Date().toISOString();
-    await secureWrite(this.#sessionPath(id), `${JSON.stringify(record)}\n`);
-    this.#active.get(id)?.runner?.setThinkingLevel(thinkingLevel);
-    return record;
+    return this.#mutateSession(id, async () => {
+      const record = await this.required(id);
+      record.thinkingLevel = thinkingLevel;
+      record.updatedAt = new Date().toISOString();
+      await secureWrite(this.#sessionPath(id), `${JSON.stringify(record)}\n`);
+      this.#active.get(id)?.runner?.setThinkingLevel(thinkingLevel);
+      return record;
+    });
   }
 
   async setApprovalMode(id: string, approvalMode: "ask" | "allow"): Promise<SessionRecord> {
-    const record = await this.required(id);
-    record.approvalMode = approvalMode;
-    record.updatedAt = new Date().toISOString();
-    await secureWrite(this.#sessionPath(id), `${JSON.stringify(record)}\n`);
-    return record;
+    return this.#mutateSession(id, async () => {
+      const record = await this.required(id);
+      record.approvalMode = approvalMode;
+      record.updatedAt = new Date().toISOString();
+      await secureWrite(this.#sessionPath(id), `${JSON.stringify(record)}\n`);
+      return record;
+    });
   }
 
   async delete(id: string): Promise<void> {
+    return this.#mutateSession(id, () => this.#delete(id));
+  }
+
+  async #delete(id: string): Promise<void> {
     if (!(await this.get(id))) throw new Error("session_not_found");
     await this.cancelByContext(id);
     const record = await this.required(id);
@@ -94,6 +105,10 @@ export class SessionStore {
 
   async send(contextId: string | undefined, text: string, controllerId: string, behavior: "followUp" | "steer" = "followUp"): Promise<TaskTransition> {
     if (!contextId) throw new Error("session_not_found");
+    return this.#mutateSession(contextId, () => this.#send(contextId, text, controllerId, behavior));
+  }
+
+  async #send(contextId: string, text: string, controllerId: string, behavior: "followUp" | "steer"): Promise<TaskTransition> {
     const record = await this.required(contextId);
     const active = this.#active.get(contextId);
     if (active) {
@@ -308,6 +323,19 @@ export class SessionStore {
         throw new Error(`invalid durable record: ${basename(path)}`);
       }
     });
+  }
+  async #mutateSession<Result>(id: string, operation: () => Promise<Result>): Promise<Result> {
+    const previous = this.#mutationQueues.get(id) ?? Promise.resolve();
+    let release = () => {};
+    const current = new Promise<void>((resolve) => { release = resolve; });
+    this.#mutationQueues.set(id, current);
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release();
+      if (this.#mutationQueues.get(id) === current) this.#mutationQueues.delete(id);
+    }
   }
   #sessionPath(id: string): string { return join(this.paths.sessions, `${id}.json`); }
   #taskPath(id: string): string { return join(this.paths.tasks, `${id}.jsonl`); }

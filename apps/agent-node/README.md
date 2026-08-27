@@ -11,6 +11,9 @@ not a secret vault: **work you send this node runs with the node's credentials. 
 untrusted text can reach them.** The node can read its provider tokens, identity key, TLS leaf key,
 controller digests, and its workspaces.
 
+Pi's read, grep, and find tools are confined to the session workspace. Approved shell commands
+still run as `sero-node`, so review their input before you allow them.
+
 The public Agent Card is the only unauthenticated node read. All A2A calls use
 `A2A-Version: 1.0` and bearer authentication. Control calls use the same bearer token and
 `Sero-Control-Version: 1`. The `enrol` operation uses a single-use code instead of a bearer token.

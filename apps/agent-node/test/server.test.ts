@@ -55,8 +55,23 @@ function post(current: Awaited<ReturnType<typeof fixture>>, operation: string, b
   return route(new Request(`https://node/sero/v1/${operation}`, { method: "POST", headers, body: JSON.stringify(body) }), current.services, "https://node");
 }
 
-function rpc(current: Awaited<ReturnType<typeof fixture>>, method: string, params: object): Promise<Response> {
-  return route(new Request("https://node/", { method: "POST", headers: current.headers, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) }), current.services, "https://node");
+function rpc(current: Awaited<ReturnType<typeof fixture>>, method: string, params: object, allowIdle?: () => void): Promise<Response> {
+  return route(new Request("https://node/", { method: "POST", headers: current.headers, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }) }), current.services, "https://node", allowIdle);
+}
+
+function delayedRequest(url: string, headers: HeadersInit, value: object) {
+  let release = () => {};
+  let markRead = () => {};
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const read = new Promise<void>((resolve) => { markRead = resolve; });
+  class DelayedRequest extends Request {
+    override async json(): Promise<unknown> {
+      markRead();
+      await gate;
+      return value;
+    }
+  }
+  return { request: new DelayedRequest(url, { method: "POST", headers }), read, release };
 }
 
 async function sseMessages(response: Response, count: number): Promise<Array<{ event: string; id?: string; data: unknown }>> {
@@ -146,14 +161,16 @@ describe("wire contracts", () => {
     try {
       const session = await current.services.sessions.create({ model: "test/model", workspace: "event-wait" });
       let taskReads = 0;
+      let idleAllowed = false;
       const getTask = current.services.sessions.getTask.bind(current.services.sessions);
       current.services.sessions.getTask = async (taskId) => { taskReads += 1; return getTask(taskId); };
       setTimeout(() => current.runners.get(session.id)?.release?.("done"), 10);
 
-      const response = await rpc(current, "SendMessage", { message: { contextId: session.id, parts: [{ text: "hello" }] } });
+      const response = await rpc(current, "SendMessage", { message: { contextId: session.id, parts: [{ text: "hello" }] } }, () => { idleAllowed = true; });
 
       expect(JSON.stringify(await response.json())).toContain("TASK_STATE_COMPLETED");
       expect(taskReads).toBe(0);
+      expect(idleAllowed).toBe(true);
     } finally { await current.temp.cleanup(); }
   });
 
@@ -285,6 +302,41 @@ describe("wire contracts", () => {
       await reader.read();
       await post(current, "revokeController", { controllerId: current.enrolled.controllerId });
       expect((await reader.read()).done).toBe(true);
+    } finally { await current.temp.cleanup(); }
+  });
+
+  test("rejects an A2A request revoked while its body is pending", async () => {
+    const current = await fixture();
+    try {
+      const session = await current.services.sessions.create({ model: "test/model", workspace: "revoked-a2a" });
+      const delayed = delayedRequest("https://node/", current.headers, {
+        jsonrpc: "2.0", id: 1, method: "SendStreamingMessage",
+        params: { message: { contextId: session.id, parts: [{ text: "run" }] } },
+      });
+      const response = route(delayed.request, current.services, "https://node");
+      await delayed.read;
+      await current.services.controllers.revoke(current.enrolled.controllerId);
+      delayed.release();
+
+      expect((await response).status).toBe(401);
+      expect(current.services.sessions.activeTask(session.id)).toBeUndefined();
+    } finally { await current.temp.cleanup(); }
+  });
+
+  test("rejects a control mutation revoked while its body is pending", async () => {
+    const current = await fixture();
+    try {
+      const session = await current.services.sessions.create({ model: "test/model", workspace: "revoked-control" });
+      const delayed = delayedRequest("https://node/sero/v1/setSessionApprovalMode", current.headers, {
+        contextId: session.id, approvalMode: "allow",
+      });
+      const response = route(delayed.request, current.services, "https://node");
+      await delayed.read;
+      await current.services.controllers.revoke(current.enrolled.controllerId);
+      delayed.release();
+
+      expect((await response).status).toBe(401);
+      expect((await current.services.sessions.required(session.id)).approvalMode).toBe("ask");
     } finally { await current.temp.cleanup(); }
   });
 

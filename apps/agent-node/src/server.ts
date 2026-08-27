@@ -33,6 +33,7 @@ interface ServerOptions { host: string; port: number; publicUrl: string; tls?: b
 const STARTED_AT = new Date().toISOString();
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const TERMINAL_TASK_STATUSES = new Set<TaskTransition["status"]>(["completed", "failed", "canceled", "rejected", "auth-required", "input-required"]);
+const MAX_REQUEST_BODY_SIZE = 1024 * 1024;
 
 function json(value: unknown, status = 200, control = false): Response {
   const headers: HeadersInit = { "content-type": "application/json" };
@@ -45,6 +46,7 @@ function bearer(request: Request): string { return request.headers.get("authoriz
 function controlFailure(error: unknown): Response {
   const message = safeMessage(error);
   if (message === "invalid_enrolment_code") return failure("unauthorized", "Invalid or expired enrolment code", 401);
+  if (message === "unauthorized") return failure("unauthorized", "Unauthorized", 401);
   if (["not_found", "session_not_found", "provider_not_available", "prompt_not_found"].includes(message)) return failure("not_found", "Not found", 404);
   if (message === "login_in_progress") return failure("conflict", "Login already in progress", 409);
   if (message.startsWith("invalid_")) return failure("invalid_request", "Invalid request", 400);
@@ -56,18 +58,23 @@ export async function startServer(services: NodeServices, options: ServerOptions
   const tls = options.tls === false ? undefined : await tlsFiles(services.paths);
   return Bun.serve({
     hostname: options.host, port: options.port, ...(tls ? { tls } : {}),
-    idleTimeout: 0,
-    fetch: (request) => route(request, services, options.publicUrl),
+    idleTimeout: 30,
+    maxRequestBodySize: MAX_REQUEST_BODY_SIZE,
+    fetch: async (request, server) => {
+      const response = await route(request, services, options.publicUrl, () => server.timeout(request, 0));
+      if (response.headers.get("content-type")?.startsWith("text/event-stream")) server.timeout(request, 0);
+      return response;
+    },
     error: (error) => json({ error: { code: "internal_error", message: safeMessage(error) } }, 500),
   });
 }
 
-export async function route(request: Request, services: NodeServices, publicUrl: string): Promise<Response> {
+export async function route(request: Request, services: NodeServices, publicUrl: string, allowIdle = () => {}): Promise<Response> {
   const url = URL.parse(request.url);
   if (!url) return json({ error: "invalid_url" }, 400);
   if (request.method === "GET" && url.pathname === "/.well-known/agent-card.json") return json(agentCard(publicUrl));
   if (url.pathname.startsWith("/sero/v1")) return controlRoute(request, url, services);
-  if (url.pathname === "/" && request.method === "POST") return a2aRoute(request, services);
+  if (url.pathname === "/" && request.method === "POST") return a2aRoute(request, services, allowIdle);
   return json({ error: "not_found" }, 404);
 }
 
@@ -100,14 +107,19 @@ async function controlRoute(request: Request, url: URL, services: NodeServices):
   if (request.headers.get("Sero-Control-Version") !== SERO_CONTROL_VERSION) return failure("version_mismatch", "Unsupported Sero control version", 400);
   const controller = isEnrol ? undefined : await authorized(request, services);
   if (!isEnrol && !controller) return failure("unauthorized", "Unauthorized", 401);
-  if (request.method === "GET") return controlGet(request, url, operation, controller!, services);
-  if (request.method !== "POST" || !CONTROL_SET.has(operation)) return failure("not_found", "Not found", 404);
-  const body = await readJson(request);
-  const name = operation as ControlOperationName;
-  const input = ControlOperationSchemas[name].request.safeParse(body);
-  if (!input.success) return failure("invalid_request", "Invalid request", 400);
   try {
-    const result = await dispatchControl(name, input.data, controller, services);
+    if (request.method === "GET") {
+      return await services.controllers.runAuthorized(controller!.id, () => controlGet(request, url, operation, controller!, services));
+    }
+    if (request.method !== "POST" || !CONTROL_SET.has(operation)) return failure("not_found", "Not found", 404);
+    const body = await readJson(request);
+    const name = operation as ControlOperationName;
+    const input = ControlOperationSchemas[name].request.safeParse(body);
+    if (!input.success) return failure("invalid_request", "Invalid request", 400);
+    const dispatch = () => dispatchControl(name, input.data, controller, services);
+    const result = isEnrol || name === "mintEnrolmentCode" || name === "revokeController"
+      ? await dispatch()
+      : await services.controllers.runAuthorized(controller!.id, dispatch);
     return json(ControlOperationSchemas[name].response.parse(result), 200, true);
   } catch (error) {
     return controlFailure(error);
@@ -156,11 +168,11 @@ async function controlGet(request: Request, url: URL, operation: string, control
 async function dispatchControl(operation: ControlOperationName, body: Record<string, unknown>, controller: AuthenticatedController | undefined, services: NodeServices): Promise<unknown> {
   switch (operation) {
     case "enrol": return services.controllers.enrol(requiredString(body, "code"), requiredString(body, "controllerName"));
-    case "mintEnrolmentCode": return services.controllers.mintCode();
+    case "mintEnrolmentCode": return services.controllers.mintCode(controller!.id);
     case "listControllers": return { controllers: (await services.controllers.list()).map((item) => ({ id: item.id, name: item.profileId, createdAt: item.createdAt, lastSeenAt: null })) };
     case "revokeController": {
       const id = requireUuid(requiredString(body, "controllerId"), "controllerId");
-      if (!(await services.controllers.revoke(id))) throw new Error("not_found");
+      if (!(await services.controllers.revoke(id, controller!.id))) throw new Error("not_found");
       await services.sessions.cancelByController(id);
       services.providers.disconnect(id);
       services.events.disconnectController(id);
@@ -216,7 +228,7 @@ async function dispatchControl(operation: ControlOperationName, body: Record<str
   }
 }
 
-async function a2aRoute(request: Request, services: NodeServices): Promise<Response> {
+async function a2aRoute(request: Request, services: NodeServices, allowIdle: () => void): Promise<Response> {
   if (request.headers.get("A2A-Version") !== A2A_VERSION) return json(rpcError(null, -32009, "VersionNotSupportedError"), 400);
   const controller = await authorized(request, services);
   if (!controller) return json(rpcError(null, -32001, "Unauthorized"), 401);
@@ -224,11 +236,23 @@ async function a2aRoute(request: Request, services: NodeServices): Promise<Respo
   try {
     if (!method) throw new Error("MethodNotFound");
     const params = objectValue(rpc.params); const rawTaskId = stringFrom(params, ["id", "taskId"]); const taskId = rawTaskId ? requireUuid(rawTaskId, "taskId") : undefined;
-    if (method === "GetTask") { const task = taskId && await services.sessions.getTask(taskId); if (!task) throw new Error("task_not_found"); return json({ jsonrpc: "2.0", id, result: taskWire(task) }); }
-    if (method === "CancelTask") { if (!taskId) throw new Error("task_not_found"); return json({ jsonrpc: "2.0", id, result: taskWire(await services.sessions.cancel(taskId)) }); }
+    if (method === "GetTask") {
+      const task = await services.controllers.runAuthorized(controller.id, async () => taskId && services.sessions.getTask(taskId));
+      if (!task) throw new Error("task_not_found");
+      return json({ jsonrpc: "2.0", id, result: taskWire(task) });
+    }
+    if (method === "CancelTask") {
+      if (!taskId) throw new Error("task_not_found");
+      const task = await services.controllers.runAuthorized(controller.id, () => services.sessions.cancel(taskId));
+      return json({ jsonrpc: "2.0", id, result: taskWire(task) });
+    }
     if (method === "SubscribeToTask") {
-      if (!taskId) throw new Error("task_not_found"); const task = await services.sessions.getTask(taskId); if (!task || ["completed", "failed", "canceled", "rejected"].includes(task.status)) throw new Error("unsupported_operation");
-      return taskResponse(task, id, services, request.signal, controller.id);
+      if (!taskId) throw new Error("task_not_found");
+      return await services.controllers.runAuthorized(controller.id, async () => {
+        const task = await services.sessions.getTask(taskId);
+        if (!task || ["completed", "failed", "canceled", "rejected"].includes(task.status)) throw new Error("unsupported_operation");
+        return taskResponse(task, id, services, request.signal, controller.id);
+      });
     }
     if (method === "SendMessage" || method === "SendStreamingMessage") {
       const message = objectValue(params.message ?? params); const rawContextId = optionalString(message, "contextId") ?? optionalString(params, "contextId");
@@ -236,15 +260,27 @@ async function a2aRoute(request: Request, services: NodeServices): Promise<Respo
       const approval = extractApproval(message);
       const text = extractText(message);
       const behavior = objectValue(message.metadata)[SERO_QUEUE_MODE_METADATA_KEY] === "steer" ? "steer" : "followUp";
-      const task = approval && contextId
-        ? await services.sessions.respondApproval(contextId, requireUuid(approval.approvalId, "approvalId"), approval.approved, approval.scope)
-        : await services.sessions.send(contextId, text, controller.id, behavior);
-      if (method === "SendStreamingMessage") return taskResponse(task, id, services, request.signal, controller.id);
+      const startTask = () => approval && contextId
+        ? services.sessions.respondApproval(contextId, requireUuid(approval.approvalId, "approvalId"), approval.approved, approval.scope)
+        : services.sessions.send(contextId, text, controller.id, behavior);
+      if (method === "SendStreamingMessage") {
+        return await services.controllers.runAuthorized(controller.id, async () => {
+          const task = await startTask();
+          return taskResponse(task, id, services, request.signal, controller.id);
+        });
+      }
+      const task = await services.controllers.runAuthorized(controller.id, startTask);
+      allowIdle();
       const terminalTask = await waitTerminal(services.events, task);
       return json({ jsonrpc: "2.0", id, result: { task: taskWire(terminalTask) } });
     }
     throw new Error("MethodNotFound");
-  } catch (error) { return json(rpcError(id, -32000, safeMessage(error)), 400); }
+  } catch (error) {
+    const message = safeMessage(error);
+    return message === "unauthorized"
+      ? json(rpcError(id, -32001, "Unauthorized"), 401)
+      : json(rpcError(id, -32000, message), 400);
+  }
 }
 
 function taskResponse(task: TaskTransition, id: unknown, services: NodeServices, signal: AbortSignal, controllerId: string): Response {

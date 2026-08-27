@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { safeStorage, shell } from 'electron';
 import { AuthEventSchema, type AuthEvent } from '@sero-ai/a2a';
 import { SERO_HOME } from '@electron/platform/env';
+import { isAllowedExternalUrl } from '@electron/platform/security/window-security';
 import type {
   AgentNodeAttachResult,
   AgentNodeApproval,
@@ -262,7 +263,7 @@ export class AgentNodeService {
           if (!event) return;
           const url = event.type === 'auth' ? event.url
             : event.type === 'device_code' ? event.verificationUri : null;
-          if (url) void shell.openExternal(url).catch(() => {});
+          if (isAllowedExternalUrl(url)) void shell.openExternal(url).catch(() => {});
           this.emit({ type, nodeId, event });
         },
       );

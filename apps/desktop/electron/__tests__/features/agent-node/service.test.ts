@@ -8,11 +8,12 @@ const mocks = vi.hoisted(() => ({
   controlCall: vi.fn(),
   sessionEvents: vi.fn(),
   streamClose: vi.fn(),
+  openExternal: vi.fn(),
   retryError: undefined as Error | undefined,
   retryMessages: [] as Array<{ id: string | null; event: string; data: unknown }>,
 }));
 
-vi.mock('electron', () => ({ safeStorage: {}, shell: { openExternal: vi.fn() } }));
+vi.mock('electron', () => ({ safeStorage: {}, shell: { openExternal: mocks.openExternal } }));
 vi.mock('@electron/features/agent-node/registry', () => ({
   AgentNodeRegistry: class {
     list = vi.fn().mockResolvedValue([{
@@ -127,6 +128,19 @@ describe('AgentNodeService task lifecycle', () => {
     service.dispose();
 
     expect(mocks.streamClose).not.toHaveBeenCalled();
+  });
+
+  it('opens only HTTP provider authentication URLs', async () => {
+    mocks.retryMessages.splice(0, mocks.retryMessages.length,
+      { id: null, event: 'auth', data: { type: 'auth', url: 'file:///etc/passwd' } },
+      { id: null, event: 'auth', data: { type: 'auth', url: 'https://provider.test/login' } },
+    );
+    const service = new AgentNodeService('/profile');
+
+    await service.send({ nodeId: 'node-1', contextId: 'session-1', text: 'Hello' });
+    await vi.waitFor(() => expect(mocks.openExternal).toHaveBeenCalledTimes(1));
+
+    expect(mocks.openExternal).toHaveBeenCalledWith('https://provider.test/login');
   });
 
   it('calls GetTask on attach and reports a node restart', async () => {
