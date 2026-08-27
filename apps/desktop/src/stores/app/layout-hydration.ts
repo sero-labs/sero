@@ -9,6 +9,7 @@ import { useAgentBoardStore } from '@/stores/agent-board';
 import { seedNavigationHistory } from '@/stores/navigation';
 import { hydrateZoom } from '@/stores/zoom';
 import { useStorageSecurityStore } from '@/stores/storage-security';
+import { useNodesStore } from '@/stores/nodes';
 import { normaliseChromeShortcuts, normaliseFavouriteApps } from './shared';
 import type { AppState } from './state';
 import { useAppStore } from './state';
@@ -108,6 +109,7 @@ export async function loadLayout(): Promise<void> {
       if (state.activeSessionId !== undefined) {
         useSessionStore.setState({ activeSessionId: state.activeSessionId ?? null });
       }
+      useNodesStore.getState().hydrateLocation(state.activeSessionLocationKey);
 
       // Hydrate dashboard layout
       useDashboardStore.getState().hydrate(state.dashboardLayout);

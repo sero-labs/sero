@@ -6,6 +6,9 @@ import type {
   LocalModelsConnectionRequest,
   LocalProviderPreset,
   LocalRemoteModelInfo,
+  LocalProviderApiKeySource,
+  LocalProviderAuthentication,
+  LocalThinkingFormat,
 } from '@/types/local-models';
 import { PROVIDER_PRESETS } from './presets';
 import {
@@ -19,6 +22,26 @@ import {
 interface ExistingLocalProvider {
   name: string;
   config: LocalProviderConfig;
+}
+
+function initialAuthentication(apiKey?: string): LocalProviderAuthentication {
+  return !apiKey || apiKey === 'none' ? 'none' : 'api-key';
+}
+
+function initialApiKeySource(apiKey?: string): LocalProviderApiKeySource {
+  if (apiKey?.startsWith('!')) return 'command';
+  return apiKey && /^\$(?:[A-Za-z_][A-Za-z0-9_]*|\{[A-Za-z_][A-Za-z0-9_]*\})$/.test(apiKey)
+    ? 'environment'
+    : 'literal';
+}
+
+function displayApiKey(apiKey?: string): string {
+  if (!apiKey || apiKey === 'none') return '';
+  if (apiKey.startsWith('!')) return apiKey.slice(1);
+  const bracedEnvironment = apiKey.match(/^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/);
+  if (bracedEnvironment) return bracedEnvironment[1];
+  const plainEnvironment = apiKey.match(/^\$([A-Za-z_][A-Za-z0-9_]*)$/);
+  return plainEnvironment?.[1] ?? apiKey;
 }
 
 export interface UseLocalProviderFormStateOptions {
@@ -43,12 +66,21 @@ export function useLocalProviderFormState({
   const [name, setName] = useState(existing?.name ?? '');
   const [baseUrl, setBaseUrlState] = useState(existingConfig?.baseUrl ?? '');
   const [api, setApi] = useState<LocalModelApi>(existingConfig?.api ?? 'openai-completions');
-  const [apiKey, setApiKey] = useState(existingConfig?.apiKey ?? '');
+  const [authentication, setAuthentication] = useState<LocalProviderAuthentication>(
+    () => initialAuthentication(existingConfig?.apiKey),
+  );
+  const [apiKeySource, setApiKeySource] = useState<LocalProviderApiKeySource>(
+    () => initialApiKeySource(existingConfig?.apiKey),
+  );
+  const [apiKey, setApiKey] = useState(() => displayApiKey(existingConfig?.apiKey));
   const [supportsDeveloperRole, setSupportsDeveloperRole] = useState(
     existingConfig?.compat?.supportsDeveloperRole ?? true,
   );
   const [supportsReasoningEffort, setSupportsReasoningEffort] = useState(
     existingConfig?.compat?.supportsReasoningEffort ?? true,
+  );
+  const [thinkingFormat, setThinkingFormat] = useState<LocalThinkingFormat>(
+    existingConfig?.compat?.thinkingFormat ?? 'openai',
   );
   const [models, setModels] = useState<LocalModelEntry[]>(existingConfig?.models ?? []);
   const [newModelId, setNewModelId] = useState('');
@@ -63,15 +95,25 @@ export function useLocalProviderFormState({
     setConnectionError(null);
   }, []);
 
+  const normalizedApiKey = useMemo(() => {
+    if (authentication === 'none') return 'none';
+    const value = apiKey.trim();
+    if (apiKeySource === 'command' && value) return `!${value.replace(/^!/, '')}`;
+    if (apiKeySource === 'environment' && value) {
+      return value.startsWith('$') ? value : `$${value}`;
+    }
+    return value;
+  }, [apiKey, apiKeySource, authentication]);
+
   const buildConnectionRequest = useCallback(
     (): LocalModelsConnectionRequest => ({
       baseUrl: baseUrl.trim(),
       api,
-      apiKey: apiKey.trim() || undefined,
+      apiKey: authentication === 'none' ? undefined : normalizedApiKey || undefined,
       headers: existingConfig?.headers,
       authHeader: existingConfig?.authHeader,
     }),
-    [api, apiKey, baseUrl, existingConfig],
+    [api, authentication, baseUrl, existingConfig, normalizedApiKey],
   );
 
   const handleNameChange = useCallback((value: string) => {
@@ -94,12 +136,27 @@ export function useLocalProviderFormState({
     setApiKey(value);
   }, []);
 
+  const handleAuthenticationChange = useCallback((value: LocalProviderAuthentication) => {
+    setAuthentication(value);
+    resetConnectionState();
+  }, [resetConnectionState]);
+
+  const handleApiKeySourceChange = useCallback((value: LocalProviderApiKeySource) => {
+    setApiKeySource(value);
+    resetConnectionState();
+  }, [resetConnectionState]);
+
   const handleSupportsDeveloperRoleChange = useCallback((checked: boolean) => {
     setSupportsDeveloperRole(checked);
   }, []);
 
   const handleSupportsReasoningEffortChange = useCallback((checked: boolean) => {
     setSupportsReasoningEffort(checked);
+  }, []);
+
+  const handleThinkingFormatChange = useCallback((value: LocalThinkingFormat) => {
+    setThinkingFormat(value);
+    if (value === 'qwen-chat-template') setSupportsReasoningEffort(true);
   }, []);
 
   const handleNewModelIdChange = useCallback((value: string) => {
@@ -114,9 +171,12 @@ export function useLocalProviderFormState({
       }
       setBaseUrlState(presetConfig.baseUrl);
       setApi(presetConfig.api);
-      setApiKey(presetConfig.apiKey);
+      setAuthentication(initialAuthentication(presetConfig.apiKey));
+      setApiKeySource(initialApiKeySource(presetConfig.apiKey));
+      setApiKey(displayApiKey(presetConfig.apiKey));
       setSupportsDeveloperRole(presetConfig.compat?.supportsDeveloperRole ?? true);
       setSupportsReasoningEffort(presetConfig.compat?.supportsReasoningEffort ?? true);
+      setThinkingFormat(presetConfig.compat?.thinkingFormat ?? 'openai');
       resetConnectionState();
     },
     [name, resetConnectionState],
@@ -169,6 +229,10 @@ export function useLocalProviderFormState({
     setModels((previous) => previous.filter((model) => model.id !== id));
   }, []);
 
+  const handleUpdateModel = useCallback((id: string, model: LocalModelEntry) => {
+    setModels((previous) => previous.map((entry) => entry.id === id ? model : entry));
+  }, []);
+
   const handleSave = useCallback(async () => {
     const trimmedName = normalizeProviderName(name);
     if (!trimmedName) return;
@@ -181,13 +245,14 @@ export function useLocalProviderFormState({
       existingConfig?.compat,
       supportsDeveloperRole,
       supportsReasoningEffort,
+      thinkingFormat,
     );
 
     const config: LocalProviderConfig = {
       ...existingConfig,
       baseUrl: baseUrl.trim() || undefined,
       api,
-      apiKey: apiKey.trim() || undefined,
+      apiKey: normalizedApiKey,
       compat,
       models,
     };
@@ -202,7 +267,7 @@ export function useLocalProviderFormState({
     }
   }, [
     api,
-    apiKey,
+    normalizedApiKey,
     baseUrl,
     existingConfig,
     existingNames,
@@ -212,14 +277,24 @@ export function useLocalProviderFormState({
     onSave,
     supportsDeveloperRole,
     supportsReasoningEffort,
+    thinkingFormat,
   ]);
 
-  const isValid = useMemo(() => Boolean(name.trim() && baseUrl.trim()), [baseUrl, name]);
+  const isValid = useMemo(
+    () => Boolean(
+      name.trim()
+      && baseUrl.trim()
+      && (authentication === 'none' || normalizedApiKey),
+    ),
+    [authentication, baseUrl, name, normalizedApiKey],
+  );
 
   return {
     api,
     apiKey,
+    apiKeySource,
     applyPreset,
+    authentication,
     baseUrl,
     connectionError,
     connectionStatus,
@@ -227,14 +302,18 @@ export function useLocalProviderFormState({
     handleAddModel,
     handleApiChange,
     handleApiKeyChange,
+    handleApiKeySourceChange,
+    handleAuthenticationChange,
     handleBaseUrlChange,
     handleFetchModels,
     handleNameChange,
     handleNewModelIdChange,
     handleRemoveModel,
+    handleUpdateModel,
     handleSave,
     handleSupportsDeveloperRoleChange,
     handleSupportsReasoningEffortChange,
+    handleThinkingFormatChange,
     handleTestConnection,
     isEditing,
     isValid,
@@ -246,5 +325,6 @@ export function useLocalProviderFormState({
     showsAdvancedNotice,
     supportsDeveloperRole,
     supportsReasoningEffort,
+    thinkingFormat,
   };
 }

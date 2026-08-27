@@ -15,6 +15,11 @@ export function filterGroups(
   const normalizedQuery = query.toLowerCase();
   const filtered: AvailableModelGroup[] = [];
   for (const group of groups) {
+    if (group.provider.toLowerCase().includes(normalizedQuery)
+      || group.displayName.toLowerCase().includes(normalizedQuery)) {
+      filtered.push(group);
+      continue;
+    }
     const matches = group.models.filter(
       (model) =>
         model.name.toLowerCase().includes(normalizedQuery) ||

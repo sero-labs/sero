@@ -9,11 +9,11 @@ import { useAgentStore } from '@/stores/agent';
 import { useFocusedAgent } from '@/stores/agent-selectors';
 import { useSessionStore } from '@/stores/sessions';
 import { SessionBadge } from '@/components/layout/SessionBadge';
+import { ToolCallGroup } from '@/components/layout/ToolCallGroup';
 import {
   groupMessages,
   isToolGroupFinalized,
-  ToolCallGroup,
-} from '@/components/layout/ToolCallGroup';
+} from '@/components/layout/tool-call-helpers/group-messages';
 import { ChatMessageItem } from '@/components/layout/ChatMessageItem';
 import { CheckpointRestoreDialog } from '@/components/layout/workspace/CheckpointRestoreDialog';
 import { useFeedbackStore } from '@/stores/feedback';
@@ -23,9 +23,11 @@ import { useUserFeedbackInit } from '@/hooks/useUserFeedbackInit';
 import { createFilePathClickHandler } from '@/components/layout/ClickableFilePath';
 import { PendingQuestionCard } from '@/components/layout/PendingQuestionCard';
 import { QuestionnaireNotice, getFeedbackToolGroupDisposition } from '@/components/layout/QuestionnaireNotice';
-import { EmptyState, ThinkingIndicator } from '@/components/layout/ChatPanelHelpers';
+import { EmptyState, RetryIndicator, ThinkingIndicator } from '@/components/layout/ChatPanelHelpers';
 import { ChatPromptArea } from '@/components/layout/ChatPromptArea';
 import { ImageLightbox } from '@/components/layout/ImageLightbox';
+import { parseSessionLocationKey, useNodesStore } from '@/stores/nodes';
+import { RemoteConversation } from '@/components/layout/nodes/RemoteConversation';
 
 const EMPTY_MESSAGES: NonNullable<ReturnType<typeof useFocusedAgent>>['messages'] = [];
 
@@ -36,6 +38,13 @@ const EMPTY_MESSAGES: NonNullable<ReturnType<typeof useFocusedAgent>>['messages'
  * Reads from the focused agent instance in the multi-session pool.
  */
 export function ChatPanel() {
+  const remoteLocationKey = useNodesStore((state) => state.activeLocationKey);
+  const remoteLocation = parseSessionLocationKey(remoteLocationKey);
+  if (remoteLocation?.kind === 'node') return <RemoteConversation location={remoteLocation} />;
+  return <LocalChatPanel />;
+}
+
+function LocalChatPanel() {
   const focused = useFocusedAgent();
   const activeSessionId = useSessionStore((s) => s.activeSessionId);
 
@@ -50,6 +59,7 @@ export function ChatPanel() {
 
   const messages = focused?.messages ?? EMPTY_MESSAGES;
   const isStreaming = focused?.isStreaming ?? false;
+  const retry = focused?.retry ?? null;
   const error = focused?.error ?? null;
   const sessionId = focused?.sessionId ?? null;
   const focusedWorkspaceId = focused?.workspaceId ?? null;
@@ -193,7 +203,7 @@ export function ChatPanel() {
           </>
         )}
 
-        {showThinking ? <ThinkingIndicator /> : null}
+        {retry ? <RetryIndicator retry={retry} /> : showThinking ? <ThinkingIndicator /> : null}
 
         {error && <ChatError error={error} />}
       </ConversationContent>

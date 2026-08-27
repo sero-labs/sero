@@ -81,6 +81,7 @@ import type {
 import type { SeroDoctorAPI } from './electron-doctor';
 import type { SeroUpdaterAPI } from './electron-updater';
 import type { SeroWindowAPI } from './window-chrome';
+import type { SeroAgentNodesAPI } from './ipc-agent-node';
 
 interface SeroSessionsAPI {
   /** List sessions. Optionally filter by workspace ID. */
@@ -425,6 +426,7 @@ export interface SeroAPI {
   workspace: SeroWorkspaceAPI;
   sessions: SeroSessionsAPI;
   agent: SeroAgentAPI;
+  agentNodes: SeroAgentNodesAPI;
   appState: SeroAppStateAPI;
   apps: SeroAppsAPI;
   appControl: SeroAppControlAPI;

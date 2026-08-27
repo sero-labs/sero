@@ -90,6 +90,8 @@ export interface ChatToolCallMessage {
   images?: ToolResultImage[];
 }
 
+export type AgentSettlement = 'completed' | 'error' | 'cancelled';
+
 /**
  * Events pushed from main → renderer during agent streaming.
  * Kept deliberately slim — only what the UI needs to render.
@@ -99,7 +101,9 @@ export interface ChatToolCallMessage {
  */
 export type AgentStreamEvent =
   | { type: 'agent_start'; sessionId: string }
-  | { type: 'agent_end'; sessionId: string }
+  | { type: 'agent_end'; sessionId: string; outcome?: AgentSettlement }
+  | { type: 'retry_start'; sessionId: string; attempt: number; maxAttempts: number; delayMs: number; errorMessage: string }
+  | { type: 'retry_end'; sessionId: string; success: boolean; attempt: number; finalError?: string }
   | { type: 'messages_loaded'; sessionId: string; messages: ChatMessage[] }
   | { type: 'text_delta'; sessionId: string; messageId: string; delta: string }
   | { type: 'thinking_delta'; sessionId: string; messageId: string; delta: string }

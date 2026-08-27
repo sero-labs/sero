@@ -30,7 +30,8 @@ export function SingleToolCall({
   const hasFileLinks = Array.isArray(tool.details?.imagePaths) && tool.details.imagePaths.length > 0;
   const progressModel = buildToolProgressModel(tool);
   const isStreamingInput = !!tool.isStreamingInput;
-  const [expanded, setExpanded] = useState(() => isRunning);
+  const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
+  const expanded = manualExpanded ?? (isRunning || isStreamingInput);
 
   const summary = useMemo(() => getCollapsedToolSummary(tool), [tool]);
   const effectiveToolName = useMemo(() => getEffectiveToolName(tool), [tool]);
@@ -50,7 +51,7 @@ export function SingleToolCall({
       )}
     >
       <button type="button"
-        onClick={() => setExpanded((previous) => !previous)}
+        onClick={() => setManualExpanded(!expanded)}
         className={cn(
           'flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors duration-150',
           'hover:bg-[var(--bg-elevated)]/80',

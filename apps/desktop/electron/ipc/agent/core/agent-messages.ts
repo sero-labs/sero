@@ -227,6 +227,7 @@ export function convertSessionMessages(
           }
         }
 
+        const hasToolResult = toolResult?.role === 'toolResult';
         result.push({
           type: 'tool',
           id: nextId(),
@@ -234,9 +235,9 @@ export function convertSessionMessages(
           toolName: toolCall.name,
           input: toolCall.arguments,
           output,
-          isError,
+          isError: hasToolResult ? isError : false,
           details,
-          state: output !== null || images ? (isError ? 'error' : 'completed') : 'completed',
+          state: hasToolResult ? (isError ? 'error' : 'completed') : 'running',
           images,
         } satisfies ChatToolCallMessage);
       }

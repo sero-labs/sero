@@ -26,11 +26,13 @@ const ProviderRow = memo(function ProviderRow({
   name,
   config,
   onEdit,
+  onEditModel,
   onRemove,
 }: {
   name: string;
   config: LocalProviderConfig;
   onEdit: (name: string) => void;
+  onEditModel: (name: string, modelId: string) => void;
   onRemove: (name: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -91,13 +93,20 @@ const ProviderRow = memo(function ProviderRow({
           >
             <div className="px-3 py-1.5">
               {models.map((m) => (
-                <div key={m.id} className="flex items-center gap-2 py-1">
+                <button
+                  type="button"
+                  key={m.id}
+                  onClick={() => onEditModel(name, m.id)}
+                  className="flex w-full items-center gap-2 rounded-md py-1 text-left
+                    hover:bg-[var(--bg-elevated)]"
+                >
                   <div className="size-1.5 rounded-full bg-[var(--border-default)]" />
                   <span className="text-xs text-[var(--text-secondary)]">{m.name ?? m.id}</span>
                   {m.reasoning && (
                     <span className="text-sm text-status-warning">reasoning</span>
                   )}
-                </div>
+                  <span className="ml-auto text-sm text-[var(--text-muted)]">Edit</span>
+                </button>
               ))}
             </div>
           </motion.div>
@@ -111,6 +120,7 @@ export function LocalModelsPanel({ localModels }: LocalModelsPanelProps) {
   const { config, loading, error, warning } = localModels;
   const [view, setView] = useState<'list' | 'add' | 'edit'>('list');
   const [editingProvider, setEditingProvider] = useState<string | null>(null);
+  const [editingModelId, setEditingModelId] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
 
   const clearConfirmRemove = useDebouncedCallback((name: string) => {
@@ -122,6 +132,13 @@ export function LocalModelsPanel({ localModels }: LocalModelsPanelProps) {
 
   const handleEdit = useCallback((name: string) => {
     setEditingProvider(name);
+    setEditingModelId(null);
+    setView('edit');
+  }, []);
+
+  const handleEditModel = useCallback((name: string, modelId: string) => {
+    setEditingProvider(name);
+    setEditingModelId(modelId);
     setView('edit');
   }, []);
 
@@ -146,11 +163,13 @@ export function LocalModelsPanel({ localModels }: LocalModelsPanelProps) {
     }
     setView('list');
     setEditingProvider(null);
+    setEditingModelId(null);
   }, [editingProvider, localModels, view]);
 
   const handleCancel = useCallback(() => {
     setView('list');
     setEditingProvider(null);
+    setEditingModelId(null);
   }, []);
 
   if (error) {
@@ -167,6 +186,7 @@ export function LocalModelsPanel({ localModels }: LocalModelsPanelProps) {
       <LocalProviderForm
         existing={existing}
         existingNames={providerNames}
+        initialEditingModelId={editingModelId}
         onSave={handleSaveProvider}
         onCancel={handleCancel}
         onTestConnection={localModels.testConnection}
@@ -218,6 +238,7 @@ export function LocalModelsPanel({ localModels }: LocalModelsPanelProps) {
                 name={name}
                 config={providers[name]}
                 onEdit={handleEdit}
+                onEditModel={handleEditModel}
                 onRemove={handleRemove}
               />
               {confirmRemove === name && (

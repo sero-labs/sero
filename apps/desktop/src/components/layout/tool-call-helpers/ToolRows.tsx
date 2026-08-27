@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'motion/react';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
@@ -23,15 +23,11 @@ export function ToolRows({
   onDetailOpen?: () => void;
 }) {
   const [overrides, setOverrides] = useState<Record<string, boolean>>({});
-  const autoOpenedIds = useRef(new Set<string>());
-  for (const tool of tools) {
-    if (isToolLive(tool)) autoOpenedIds.current.add(tool.id);
-  }
 
   return (
     <div className="min-w-0">
       {tools.map((tool, index) => {
-        const isOpen = overrides[tool.id] ?? autoOpenedIds.current.has(tool.id);
+        const isOpen = overrides[tool.id] ?? isToolLive(tool);
 
         return (
           <motion.div

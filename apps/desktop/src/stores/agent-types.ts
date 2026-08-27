@@ -7,6 +7,13 @@ import type {
 } from '@/types/ipc';
 import type { WorkspaceRuntimeBackend } from '@/types/workspace-runtime';
 
+export interface AgentRetryState {
+  attempt: number;
+  maxAttempts: number;
+  delayMs: number;
+  errorMessage: string;
+}
+
 /** State for a single agent session in the pool. */
 export interface AgentInstance {
   sessionId: string;
@@ -15,6 +22,7 @@ export interface AgentInstance {
   runtimeBackend?: WorkspaceRuntimeBackend;
   messages: ChatMessage[];
   isStreaming: boolean;
+  retry: AgentRetryState | null;
   error: string | null;
   /** Available slash commands for this session (fetched on open). */
   commands: SeroSlashCommandInfo[];

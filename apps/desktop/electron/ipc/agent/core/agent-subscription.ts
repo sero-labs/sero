@@ -6,6 +6,7 @@
  */
 
 import type { AgentSession } from '@earendil-works/pi-coding-agent';
+import type { AssistantMessage } from '@earendil-works/pi-ai';
 import type {
   ChatAssistantMessage,
   ChatToolCallMessage,
@@ -48,6 +49,7 @@ export function subscribeToSession(
   // Argument streams are scoped to one assistant message, so this tracker is
   // reset at every message boundary.
   const toolInputStreams = new ToolInputStreams();
+  let finalAssistant: Pick<AssistantMessage, 'stopReason' | 'errorMessage'> | null = null;
 
   return session.subscribe((event) => {
     const entry = getEntry();
@@ -62,14 +64,56 @@ export function subscribeToSession(
 
     switch (event.type) {
       case 'agent_start':
+        finalAssistant = null;
         sendEvent({ type: 'agent_start', sessionId });
         break;
 
-      case 'agent_end': {
+      case 'agent_end':
+        break;
+
+      case 'auto_retry_start':
+        sendEvent({
+          type: 'retry_start',
+          sessionId,
+          attempt: event.attempt,
+          maxAttempts: event.maxAttempts,
+          delayMs: event.delayMs,
+          errorMessage: event.errorMessage,
+        });
+        break;
+
+      case 'auto_retry_end':
+        sendEvent({
+          type: 'retry_end',
+          sessionId,
+          success: event.success,
+          attempt: event.attempt,
+          finalError: event.finalError,
+        });
+        break;
+
+      case 'agent_settled': {
+        const outcome = finalAssistant?.stopReason === 'aborted'
+          ? 'cancelled'
+          : finalAssistant?.stopReason === 'error'
+            ? 'error'
+            : 'completed';
         const completedTurnId = getCliActiveTurnId(sessionId);
         noteCliTurnEnd(sessionId);
-        if (completedTurnId) emitTurnComplete(sessionId, { turnId: completedTurnId, status: 'completed' });
-        sendEvent({ type: 'agent_end', sessionId });
+        if (completedTurnId) {
+          emitTurnComplete(sessionId, {
+            turnId: completedTurnId,
+            status: outcome === 'cancelled' ? 'aborted' : outcome,
+          });
+        }
+        if (outcome === 'error') {
+          sendEvent({
+            type: 'error',
+            sessionId,
+            error: finalAssistant?.errorMessage ?? 'The model response failed.',
+          });
+        }
+        sendEvent({ type: 'agent_end', sessionId, outcome });
         {
           const pendingUserMessageId = entry.pendingTurnUndoUserMessageId;
           entry.pendingTurnUndoUserMessageId = null;
@@ -173,6 +217,10 @@ export function subscribeToSession(
       case 'message_end': {
         toolInputStreams.reset();
         if (event.message.role === 'assistant' && entry.currentAssistantId) {
+          finalAssistant = {
+            stopReason: event.message.stopReason,
+            errorMessage: event.message.errorMessage,
+          };
           const textParts = event.message.content.filter(
             (c): c is { type: 'text'; text: string } => c.type === 'text',
           );

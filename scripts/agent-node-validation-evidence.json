@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "targets": [
+    {
+      "id": "linux-x64",
+      "platform": "linux",
+      "arch": "x64",
+      "binary": { "status": "not-run", "command": "", "output": "" },
+      "systemdSecurity": { "status": "not-run", "command": "", "output": "" },
+      "tck": { "status": "not-run", "command": "", "output": "" },
+      "itk": { "status": "not-run", "command": "", "output": "" }
+    },
+    {
+      "id": "linux-arm64-spark",
+      "platform": "linux",
+      "arch": "arm64",
+      "binary": {
+        "status": "passed",
+        "command": "file /usr/local/bin/sero-node && sha256sum /usr/local/bin/sero-node",
+        "output": "ELF 64-bit LSB executable, ARM aarch64, GNU/Linux 3.7.0; sha256 b5c59713e688959a413f1c0923c358d313569418f9afdee1921111125adadbd4"
+      },
+      "systemdSecurity": {
+        "status": "passed",
+        "command": "systemd-analyze security sero-node.service --no-pager",
+        "output": "Overall exposure level for sero-node.service: 5.3 MEDIUM; User=sero-node, NoNewPrivileges=yes, ProtectSystem=strict, ProtectProc=invisible, ProtectHome=yes, PrivateTmp=yes, PrivateDevices=yes, CapabilityBoundingSet=empty"
+      },
+      "hardware": {
+        "status": "passed",
+        "verifiedOnHardware": true,
+        "model": "NVIDIA DGX Spark (ASUS GX10)",
+        "command": "uname -m && hostname && cat /sys/devices/virtual/dmi/id/product_name && cat /sys/devices/virtual/dmi/id/sys_vendor",
+        "output": "aarch64; gx10-a3ee; GX10; ASUSTeK COMPUTER INC. Hardware smoke, TLS enrolment, OpenAI Codex login, persistent Pi replay, service restart, and two live model turns passed."
+      },
+      "tck": { "status": "not-run", "command": "", "output": "" },
+      "itk": { "status": "not-run", "command": "", "output": "" }
+    }
+  ]
+}

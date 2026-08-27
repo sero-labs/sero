@@ -1,5 +1,6 @@
 import { type SettingsManager } from '@earendil-works/pi-coding-agent';
 import { subagentManager } from './singletons';
+import { configureElectronFetch } from './electron-fetch';
 
 export { pickFirstAvailableModel } from './model-selection';
 
@@ -7,6 +8,7 @@ export { pickFirstAvailableModel } from './model-selection';
 export function applyRuntimeSettings(
   settingsManager: ReturnType<typeof SettingsManager.create>,
 ): void {
+  configureElectronFetch(settingsManager.getHttpIdleTimeoutMs());
   const raw = (settingsManager.getGlobalSettings() as Record<string, unknown>)?.subagent as Record<string, unknown> | undefined;
 
   subagentManager.updateSettings({

@@ -9,7 +9,7 @@ interface LocalProviderPresetSectionProps {
 export function LocalProviderPresetSection({ onSelect }: LocalProviderPresetSectionProps) {
   return (
     <LocalProviderField label="Quick Setup">
-      <div className="grid grid-cols-4 gap-1.5">
+      <div className="grid grid-cols-5 gap-1.5">
         {PRESET_ORDER.map((preset) => {
           const cfg = PROVIDER_PRESETS[preset];
           return (

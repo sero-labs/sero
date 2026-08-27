@@ -8,20 +8,14 @@
  */
 
 import { memo, useState, useCallback } from 'react';
-import { Loader2, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import {
-  PromptInput,
-  PromptInputBody,
-  PromptInputTextarea,
-  PromptInputHeader,
-  PromptInputFooter,
-  PromptInputTools,
-  PromptInputSubmit,
   PromptInputActionMenu,
   PromptInputActionMenuTrigger,
   PromptInputActionMenuContent,
   PromptInputActionAddAttachments,
 } from '@sero-ai/ui/ai-elements/prompt-input';
+import { ChatComposer } from './ChatComposer';
 import { useAgentStore } from '@/stores/agent';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { FileReferenceMenu } from './FileReferenceMenu';
@@ -98,32 +92,47 @@ export const ChatPromptArea = memo(function ChatPromptArea({
 
   return (
     <>
-      <div className="relative shrink-0 p-2">
-        <SlashCommandMenu
-          commands={prompt.allCommands}
-          filter={prompt.slashFilter}
-          onSelect={prompt.handleSlashSelect}
-          onClose={prompt.handleSlashClose}
-          open={prompt.slashMenuOpen}
-        />
-
-        <FileReferenceMenu
-          files={prompt.workspaceFiles}
-          filter={prompt.fileFilter}
-          onSelect={prompt.handleFileSelect}
-          onClose={prompt.handleFileMenuClose}
-          open={prompt.fileMenuOpen}
-        />
-
-        <PromptInput
-          onSubmit={prompt.handleSubmit}
-          className="w-full"
-          multiple
-          globalDrop={hasSession}
-        >
-          {/* Pulls files pushed to useComposerAttachmentQueue (screenshots, etc.). */}
-          <ComposerAttachmentBridge />
-          <PromptInputHeader>
+      <ChatComposer
+        value={prompt.input}
+        onChange={(event) => prompt.setInput(event.target.value)}
+        onKeyDown={prompt.handleKeyDown}
+        onSubmit={prompt.handleSubmit}
+        textareaRef={prompt.textareaRef}
+        placeholder={hasSession
+          ? 'Ask Sero anything... (/ for commands, @ for files)'
+          : 'Select a chat first...'}
+        disabled={!hasSession}
+        isStreaming={isStreaming}
+        onStop={() => {
+          if (sessionId) abort(sessionId);
+        }}
+        onSubmitClick={(event) => {
+          prompt.modifierRef.current = event.ctrlKey || event.metaKey;
+        }}
+        submitTitle={isStreaming
+          ? 'Send to steer agent (⌘+click to queue as follow-up)'
+          : undefined}
+        overlays={(
+          <>
+            <SlashCommandMenu
+              commands={prompt.allCommands}
+              filter={prompt.slashFilter}
+              onSelect={prompt.handleSlashSelect}
+              onClose={prompt.handleSlashClose}
+              open={prompt.slashMenuOpen}
+            />
+            <FileReferenceMenu
+              files={prompt.workspaceFiles}
+              filter={prompt.fileFilter}
+              onSelect={prompt.handleFileSelect}
+              onClose={prompt.handleFileMenuClose}
+              open={prompt.fileMenuOpen}
+            />
+          </>
+        )}
+        inputChildren={<ComposerAttachmentBridge />}
+        header={(
+          <>
             <PromptAttachmentsBar />
             {messageQueue.hasQueued && (
               <div className="flex flex-wrap gap-1 px-1">
@@ -144,71 +153,33 @@ export const ChatPromptArea = memo(function ChatPromptArea({
                 ))}
               </div>
             )}
-          </PromptInputHeader>
-
-          <PromptInputBody>
-            <PromptInputTextarea
-              ref={prompt.textareaRef}
-              value={prompt.input}
-              onChange={(e) => prompt.setInput(e.target.value)}
-              onKeyDown={prompt.handleKeyDown}
-              placeholder={
-                hasSession
-                  ? 'Ask Sero anything... (/ for commands, @ for files)'
-                  : 'Select a chat first...'
-              }
-              disabled={!hasSession}
+          </>
+        )}
+        tools={(
+          <>
+            <PromptInputActionMenu>
+              <PromptInputActionMenuTrigger
+                tooltip={{ content: 'Actions', shortcut: '' }}
+                disabled={!hasSession}
+              />
+              <PromptInputActionMenuContent>
+                <PromptInputActionAddAttachments />
+                <WorkspaceSnapshotMenuItem disabled={isStreaming || !hasSession} />
+                <ContextEditorMenuItem sessionId={sessionId} disabled={isStreaming} />
+              </PromptInputActionMenuContent>
+            </PromptInputActionMenu>
+            <VoiceTranscriptionControl
+              disabled={!hasSession || isStreaming}
+              onTranscript={handleTranscript}
             />
-          </PromptInputBody>
-
-          <PromptInputFooter>
-            <PromptInputTools>
-              <PromptInputActionMenu>
-                <PromptInputActionMenuTrigger
-                  tooltip={{ content: 'Actions', shortcut: '' }}
-                  disabled={!hasSession}
-                />
-                <PromptInputActionMenuContent>
-                  <PromptInputActionAddAttachments />
-                  <WorkspaceSnapshotMenuItem disabled={isStreaming || !hasSession} />
-                  <ContextEditorMenuItem sessionId={sessionId} disabled={isStreaming} />
-                </PromptInputActionMenuContent>
-              </PromptInputActionMenu>
-              <VoiceTranscriptionControl
-                disabled={!hasSession || isStreaming}
-                onTranscript={handleTranscript}
-              />
-              <MemoryBlocksToggle disabled={!hasSession} />
-              <ThinkingBlocksToggle disabled={!hasSession} />
-              <ModelSelector disabled={!hasSession} />
-            </PromptInputTools>
-
-            {isStreaming ? (
-              <div className="flex items-center gap-1.5">
-                <PromptInputSubmit
-                  disabled={!prompt.input.trim() || !hasSession}
-                  onClick={(e) => { prompt.modifierRef.current = e.ctrlKey || e.metaKey; }}
-                  title="Send to steer agent (⌘+click to queue as follow-up)"
-                  className="bg-status-success text-white hover:bg-status-success/90"
-                />
-                <button
-                  type="button"
-                  onClick={() => sessionId && abort(sessionId)}
-                  className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1 font-medium text-base text-destructive hover:bg-destructive/20 transition-colors"
-                >
-                  <Loader2 className="size-3.5 animate-spin" />
-                  Stop
-                </button>
-              </div>
-            ) : (
-              <PromptInputSubmit
-                disabled={!prompt.input.trim() || !hasSession}
-                className="bg-status-success text-white hover:bg-status-success/90"
-              />
-            )}
-          </PromptInputFooter>
-        </PromptInput>
-      </div>
+            <MemoryBlocksToggle disabled={!hasSession} />
+            <ThinkingBlocksToggle disabled={!hasSession} />
+            <ModelSelector disabled={!hasSession} />
+          </>
+        )}
+        multiple
+        globalDrop={hasSession}
+      />
 
       <AuthLoginDialog
         open={loginDialogOpen}

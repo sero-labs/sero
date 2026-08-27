@@ -10,7 +10,7 @@ export const PROVIDER_PRESETS: Record<LocalProviderPreset, LocalProviderPresetCo
     description: 'Local LLM server with model management',
     baseUrl: 'http://localhost:11434/v1',
     api: 'openai-completions',
-    apiKey: 'ollama',
+    apiKey: 'none',
     compat: {
       supportsDeveloperRole: false,
       supportsReasoningEffort: false,
@@ -21,7 +21,7 @@ export const PROVIDER_PRESETS: Record<LocalProviderPreset, LocalProviderPresetCo
     description: 'Local model server with GUI',
     baseUrl: 'http://localhost:1234/v1',
     api: 'openai-completions',
-    apiKey: 'lm-studio',
+    apiKey: 'none',
     compat: {
       supportsDeveloperRole: false,
       supportsReasoningEffort: false,
@@ -32,10 +32,22 @@ export const PROVIDER_PRESETS: Record<LocalProviderPreset, LocalProviderPresetCo
     description: 'High-throughput inference server',
     baseUrl: 'http://localhost:8000/v1',
     api: 'openai-completions',
-    apiKey: 'vllm',
+    apiKey: 'none',
     compat: {
       supportsDeveloperRole: false,
       supportsReasoningEffort: false,
+    },
+  },
+  sglang: {
+    label: 'SGLang',
+    description: 'High-throughput server for Qwen and other models',
+    baseUrl: 'http://localhost:30000/v1',
+    api: 'openai-completions',
+    apiKey: 'none',
+    compat: {
+      supportsDeveloperRole: false,
+      supportsReasoningEffort: true,
+      thinkingFormat: 'qwen-chat-template',
     },
   },
   custom: {
@@ -47,4 +59,10 @@ export const PROVIDER_PRESETS: Record<LocalProviderPreset, LocalProviderPresetCo
   },
 };
 
-export const PRESET_ORDER: LocalProviderPreset[] = ['ollama', 'lm-studio', 'vllm', 'custom'];
+export const PRESET_ORDER: LocalProviderPreset[] = [
+  'ollama',
+  'lm-studio',
+  'vllm',
+  'sglang',
+  'custom',
+];

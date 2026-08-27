@@ -2,6 +2,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@sero
 import { ExternalLink, FileCode2, Image, type LucideIcon } from 'lucide-react';
 
 const interactivePrototypes = [
+  ['Agent Node workspace alignment', 'agent-node-aligned/index.html'],
+  ['Local model setup and thinking controls', 'local-models.html'],
   ['Add workspace menu', 'add-workspace-menu.html'],
   ['Graphify free code indexing', 'graphify-free-code-indexing.html'],
   ['Profile removal', 'profile-removal.html'],
@@ -15,6 +17,7 @@ const interactivePrototypes = [
   ['Workflow skill extraction', 'sero-workflow-skill-extraction.html'],
   ['Streaming file writes', 'streaming-file-writes.html'],
   ['Expanded tool call group', 'tool-call-group-expanded.html'],
+  ['Agent Node desktop', 'agent-node-desktop.html'],
 ] as const;
 
 const agentRoomScreens = [

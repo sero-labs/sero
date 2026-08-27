@@ -16,6 +16,7 @@ import {
 } from '@/stores/agent-tool-input';
 import { useContainerStore } from '@/stores/container';
 import { useSessionStore } from '@/stores/sessions';
+import { applyAgentLifecycle } from '@/stores/agent-lifecycle';
 
 export function patchAssistant(
   agents: Record<string, AgentInstance>,
@@ -211,25 +212,11 @@ export function handleAgentStreamEvent(
 
   switch (event.type) {
     case 'agent_start':
-      set((state) => ({
-        agents: { ...state.agents, [sid]: { ...state.agents[sid], isStreaming: true } },
-      }));
-      break;
-
+    case 'retry_start':
+    case 'retry_end':
     case 'agent_end':
-      clearAgentSessionBuffers(sid);
-      set((state) => {
-        const agent = state.agents[sid];
-        if (!agent) return state;
-        const messages = agent.messages.map((message) =>
-          message.type === 'tool' && (message.state === 'pending' || message.state === 'running')
-            ? { ...message, state: 'cancelled' as const, isStreamingInput: false }
-            : message,
-        );
-        return {
-          agents: { ...state.agents, [sid]: { ...agent, isStreaming: false, messages } },
-        };
-      });
+      if (event.type === 'agent_end') clearAgentSessionBuffers(sid);
+      set((state) => ({ agents: applyAgentLifecycle(state.agents, sid, event) }));
       break;
 
     case 'messages_loaded':
@@ -293,6 +280,7 @@ export function handleAgentStreamEvent(
       break;
 
     case 'message_end':
+      flushDeltas();
       set((state) => ({
         agents: patchAssistant(state.agents, sid, event.messageId, (message) => ({
           ...message,
@@ -456,7 +444,7 @@ export function handleAgentStreamEvent(
       set((state) => ({
         agents: {
           ...state.agents,
-          [sid]: { ...state.agents[sid], error: event.error, isStreaming: false },
+          [sid]: { ...state.agents[sid], error: event.error, isStreaming: false, retry: null },
         },
       }));
       break;

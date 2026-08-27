@@ -42,6 +42,8 @@ repeated smoke tests for removed behavior.
 
 - Use Tailwind size utilities such as `text-sm` and `text-base`. Do not use
   arbitrary font sizes.
+- Use the `sero-prototype` skill for prototype, mockup, and pre-implementation
+  UX review work.
 - Store UX prototypes in `apps/styleguide/public/prototypes/` and link them from
   `apps/styleguide/src/PrototypeArchive.tsx`.
 

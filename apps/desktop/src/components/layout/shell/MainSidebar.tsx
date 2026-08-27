@@ -18,6 +18,7 @@ import { WorkspaceTree } from '@/components/layout/workspace/WorkspaceTree';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { AppStoreDialog } from '@/components/layout/AppStoreDialog';
 import { IconAction } from '@/components/ui/IconAction';
+import { NodesTree } from '@/components/layout/nodes/NodesTree';
 
 /**
  * MainSidebar, the primary navigation sidebar.
@@ -79,6 +80,8 @@ export const MainSidebar = memo(function MainSidebar() {
         {/* ── Workspace → Session tree ──────────────────────────── */}
         <div className="flex min-h-0 flex-1 flex-col gap-1 p-2">
           <WorkspaceTree />
+          <Separator />
+          <NodesTree />
         </div>
       </aside>
 

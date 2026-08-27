@@ -54,6 +54,7 @@
     "toolchain:merge-metadata": "node scripts/toolchains/merge-toolchain-metadata.mjs"
   },
   "dependencies": {
+    "@sero-ai/a2a": "workspace:*",
     "@earendil-works/pi-agent-core": "catalog:",
     "@earendil-works/pi-ai": "catalog:",
     "@earendil-works/pi-coding-agent": "catalog:",
@@ -71,6 +72,7 @@
     "qrcode": "^1.5.4",
     "supports-color": "7.2.0",
     "typebox": "catalog:",
+    "undici": "8.9.0",
     "ws": "^8.21.3",
     "yaml": "2.9.0"
   },

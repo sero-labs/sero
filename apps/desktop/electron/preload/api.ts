@@ -46,6 +46,7 @@ import {
 import { editorBridge, filetreeBridge, terminalBridge, vcsBridge } from './api/workbench';
 import { doctorBridge } from './diagnostics';
 import { updaterBridge } from './updater';
+import { agentNodesBridge } from './agent-node';
 
 export const seroPreloadApi = {
   platform: process.platform,
@@ -56,6 +57,7 @@ export const seroPreloadApi = {
   workspace: workspaceBridge,
   sessions: sessionsBridge,
   agent: agentBridge,
+  agentNodes: agentNodesBridge,
   contextPresets: contextPresetsBridge,
   appState: appStateBridge,
   apps: appsBridge,

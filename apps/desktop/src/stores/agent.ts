@@ -62,6 +62,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
               runtimeBackend,
               messages: partial?.messages ?? [],
               isStreaming: partial?.isStreaming ?? false,
+              retry: partial?.retry ?? null,
               error: partial?.error ?? null,
               commands: partial?.commands ?? [],
               modelState: partial?.modelState ?? null,
@@ -130,7 +131,12 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       set((s) => {
         const current = s.agents[sessionId];
         if (!current) return {};
-        return { agents: { ...s.agents, [sessionId]: { ...current, error: message, isStreaming: false } } };
+        return {
+          agents: {
+            ...s.agents,
+            [sessionId]: { ...current, error: message, isStreaming: false, retry: null },
+          },
+        };
       });
       return;
     }
@@ -169,6 +175,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
             ...s.agents[sessionId],
             error: message,
             isStreaming: false,
+            retry: null,
           },
         },
       }));

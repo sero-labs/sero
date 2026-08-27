@@ -5,6 +5,7 @@
  * - ThinkingBlocksToggle, toggle visibility of thinking blocks
  * - EmptyState, placeholder when no session / no messages
  * - ThinkingIndicator, shared inline streaming indicator
+ * - RetryIndicator, provider retry status
  */
 
 import { Settings2, Brain, Database, MessageSquare, Loader2 } from 'lucide-react';
@@ -15,6 +16,7 @@ import { useAgentStore } from '@/stores/agent';
 import { useFocusedModelState } from '@/stores/agent-selectors';
 import { useContextEditorStore, useHasOverrides } from '@/stores/context-editor';
 import { cn } from '@sero-ai/ui/lib/utils';
+import type { AgentRetryState } from '@/stores/agent-types';
 
 // ── Context editor menu item ───────────────────────────────────
 
@@ -108,6 +110,23 @@ export function ThinkingIndicator({ className }: { className?: string }) {
     <div className={cn('flex items-center gap-2 px-2 py-1', className)}>
       <Loader2 className="size-3.5 animate-spin text-[var(--text-muted)]" />
       <span className="text-xs text-[var(--text-muted)]">Thinking…</span>
+    </div>
+  );
+}
+
+export function RetryIndicator({ retry }: { retry: AgentRetryState }) {
+  const delaySeconds = Math.max(1, Math.ceil(retry.delayMs / 1000));
+  return (
+    <div
+      className="flex items-center gap-2 px-2 py-1 text-status-warning"
+      role="status"
+      aria-live="polite"
+      title={retry.errorMessage}
+    >
+      <Loader2 className="size-3.5 animate-spin" />
+      <span className="text-xs">
+        Retrying {retry.attempt} of {retry.maxAttempts} in {delaySeconds}s…
+      </span>
     </div>
   );
 }

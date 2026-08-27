@@ -27,6 +27,7 @@ import { useBrowserStore } from '@/stores/browser';
 import { useExplorerStore } from '@/stores/explorer';
 import { useZoomStore } from '@/stores/zoom';
 import { useAgentBoardStore } from '@/stores/agent-board';
+import { useNodesStore } from '@/stores/nodes';
 
 // Re-export the canonical type so callers don't need a second import.
 export type { LayoutState };
@@ -59,6 +60,9 @@ function buildLayoutState(partial: Partial<LayoutState>): LayoutState {
     activeSessionId: partial.activeSessionId !== undefined
       ? partial.activeSessionId
       : sess.activeSessionId,
+    activeSessionLocationKey: partial.activeSessionLocationKey !== undefined
+      ? partial.activeSessionLocationKey
+      : useNodesStore.getState().activeLocationKey,
     favouriteModels: partial.favouriteModels ?? useModelPreferences.getState().favouriteModels,
     hiddenModels: partial.hiddenModels ?? useModelPreferences.getState().hiddenModels,
     hiddenProviders: partial.hiddenProviders ?? useModelPreferences.getState().hiddenProviders,

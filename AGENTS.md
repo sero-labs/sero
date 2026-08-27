@@ -13,7 +13,7 @@ copy, TypeScript, tests, UI, packages, and documentation.
   Electron main-process types must pass with no errors.
 - Do not use `@ts-ignore`, `@ts-expect-error`, or `any` casts unless no typed
   solution exists. Explain an unavoidable exception in a comment.
-- Keep every source file at or below 500 LOC. Docs and CSS are exempt. Split a
+- Keep every source file at or below 500 LOC. Tests, docs and CSS are exempt. Split a
   source file before completion if your change takes it over the limit.
 
 ## Runtime boundaries

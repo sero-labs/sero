@@ -1,0 +1,26 @@
+{
+  "name": "@sero/agent-node",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": { "sero-node": "dist/sero-node" },
+  "scripts": {
+    "dev": "bun run src/cli.ts serve",
+    "build": "pnpm run build:linux:x64",
+    "build:linux:x64": "bun build --compile --target=bun-linux-x64-baseline --no-compile-autoload-bunfig --no-compile-autoload-dotenv src/cli.ts --outfile=dist/sero-node",
+    "build:linux:arm64": "bun build --compile --target=bun-linux-arm64 --no-compile-autoload-bunfig --no-compile-autoload-dotenv src/cli.ts --outfile=dist/sero-node-linux-arm64",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@sero-ai/a2a": "workspace:*",
+    "@earendil-works/pi-ai": "catalog:",
+    "@earendil-works/pi-coding-agent": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "bun": "catalog:",
+    "typescript": "catalog:"
+  }
+}

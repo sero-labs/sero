@@ -22,6 +22,7 @@ import { SERO_AGENT_DIR } from '@electron/platform/env';
 
 const MODELS_JSON_PATH = path.join(SERO_AGENT_DIR, 'models.json');
 const ANTHROPIC_VERSION = '2023-06-01';
+const KEYLESS_PROVIDER_AUTH = 'none';
 
 function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -45,7 +46,23 @@ function resolveConfigValue(config?: string): string | undefined {
       return undefined;
     }
   }
-  return process.env[config] || config;
+  const bareEnvironmentValue = process.env[config];
+  if (bareEnvironmentValue) return bareEnvironmentValue;
+  const exactReference = config.match(/^\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))$/);
+  if (exactReference) return process.env[exactReference[1] ?? exactReference[2] ?? ''];
+  let missingEnvironmentValue = false;
+  const resolved = config.replace(
+    /\$\$|\$!|\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)/g,
+    (match, bracedName: string | undefined, plainName: string | undefined) => {
+      if (match === '$$') return '$';
+      if (match === '$!') return '!';
+      const value = process.env[bracedName ?? plainName ?? ''];
+      if (value !== undefined) return value;
+      if (bracedName) missingEnvironmentValue = true;
+      return bracedName ? '' : match;
+    },
+  );
+  return missingEnvironmentValue ? undefined : resolved;
 }
 
 function resolveHeaders(headers?: Record<string, string>): Record<string, string> | undefined {
@@ -244,10 +261,26 @@ async function readModelsConfig(): Promise<LocalModelsConfig> {
   return JSON.parse(raw) as LocalModelsConfig;
 }
 
+function normalizeModelsConfigForPi(config: LocalModelsConfig): LocalModelsConfig {
+  return {
+    ...config,
+    providers: Object.fromEntries(
+      Object.entries(config.providers).map(([name, provider]) => [
+        name,
+        {
+          ...provider,
+          apiKey: provider.apiKey?.trim() || KEYLESS_PROVIDER_AUTH,
+        },
+      ]),
+    ),
+  };
+}
+
 /** Write models.json to disk. The shared refresh flow validates and reloads it. */
 async function writeModelsConfig(config: LocalModelsConfig): Promise<void> {
   await mkdir(path.dirname(MODELS_JSON_PATH), { recursive: true });
-  await writeFile(MODELS_JSON_PATH, JSON.stringify(config, null, 2) + '\n', 'utf8');
+  const normalizedConfig = normalizeModelsConfigForPi(config);
+  await writeFile(MODELS_JSON_PATH, JSON.stringify(normalizedConfig, null, 2) + '\n', 'utf8');
 }
 
 /** Test connectivity using the selected API and auth settings. */

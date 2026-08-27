@@ -82,6 +82,7 @@ describe('handleAgentStreamEvent', () => {
           workspaceId: 'ws-1',
           messages: [],
           isStreaming: false,
+          retry: null,
           error: null,
           commands: [],
           modelState: null,
@@ -144,6 +145,7 @@ describe('handleAgentStreamEvent', () => {
           workspaceId: 'ws-1',
           messages: [],
           isStreaming: false,
+          retry: null,
           error: null,
           commands: [],
           modelState: null,
@@ -199,7 +201,7 @@ describe('handleAgentStreamEvent', () => {
     expect(state.agents['session-1']?.modelState?.model.name).toBe('Model');
   });
 
-  it('clears live input state when an in-flight tool is cancelled', () => {
+  it('clears live input state when a user abort cancels an in-flight tool', () => {
     let state: AgentState = {
       agents: {
         'session-1': {
@@ -219,6 +221,7 @@ describe('handleAgentStreamEvent', () => {
             isStreamingInput: true,
           }],
           isStreaming: true,
+          retry: null,
           error: null,
           commands: [],
           modelState: null,
@@ -250,7 +253,7 @@ describe('handleAgentStreamEvent', () => {
     };
 
     handleAgentStreamEvent(
-      { type: 'agent_end', sessionId: 'session-1' },
+      { type: 'agent_end', sessionId: 'session-1', outcome: 'cancelled' },
       set,
       () => state,
       vi.fn(),

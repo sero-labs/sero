@@ -65,6 +65,8 @@ export interface LayoutState {
   zoomFactor?: number;
   /** Last active session ID. */
   activeSessionId?: string | null;
+  /** Collision-proof location key for a local or Agent Node session. */
+  activeSessionLocationKey?: string | null;
   /** Favourite model keys ("provider/modelId"). */
   favouriteModels?: string[];
   /**

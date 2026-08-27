@@ -12,7 +12,7 @@ Local models still need enough memory and GPU/CPU capacity on your machine. They
 4. Open the model selector. Select its gear icon to open **Model Manager**.
 5. Select **Local**, select **Add Provider**, and choose **LM Studio**.
 6. Confirm the base URL is `http://localhost:1234/v1`.
-7. Use API key `lm-studio` or `none` unless your server requires a specific key.
+7. Keep **Authentication** set to **None** unless your server requires a key.
 8. Select **Test**, **Fetch from server**, and **Add Provider**. Then assign the profile model tiers.
 
 ## Set up LM Studio
@@ -33,7 +33,7 @@ The Sero preset expects:
 | Provider name | `lm-studio` |
 | Base URL | `http://localhost:1234/v1` |
 | API shape | `openai-completions` |
-| API key | `lm-studio` |
+| Authentication | **None** |
 | Compatibility | developer role off, reasoning effort off |
 
 If your LM Studio server uses a different port, update the base URL before testing.
@@ -64,6 +64,16 @@ A practical local setup is:
 
 Thinking levels only appear when Sero believes the selected model supports them. Many OpenAI-compatible local servers do not support reasoning-effort controls, so the LM Studio preset disables that compatibility flag.
 
+If the model and server support thinking:
+
+1. Edit the provider and select its thinking request format.
+2. Expand the provider in **Local** and edit the model.
+3. Turn on **Thinking support**.
+4. Map each supported Sero thinking level to the provider value.
+
+Sero hides levels that you set to **Disabled** from the ChatPanel. Sero does
+not infer thinking support from the model name.
+
 ## Host and container reachability
 
 `localhost` means “this process's machine or network namespace.” That is usually fine for Sero desktop talking to LM Studio on your host machine. If a tool inside a workspace container must call the same local server directly, `localhost` from inside the container may point at the container, not the host.
@@ -84,7 +94,7 @@ For most model selection and chat usage, configure the provider through Sero and
 | Test connection fails | LM Studio server is running, base URL includes `/v1`, port is correct, firewall is not blocking loopback. |
 | Fetch returns no models | A model is loaded in LM Studio and the server's `/models` endpoint returns data. |
 | `HTTP 404` | Base URL may be missing `/v1` or using the wrong port. |
-| Auth error | Use `lm-studio` or `none` unless your server requires a real API key. |
+| Auth error | Use **None** for a keyless server. Use **API key** only when the server requires it. |
 | Model appears but tier save warns | The model may have been unloaded, renamed, or removed from the local server. Fetch again or choose another model. |
 | Container tool cannot reach the server | See the host/container reachability caveat above. |
 

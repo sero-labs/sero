@@ -6,6 +6,7 @@
  */
 
 import { appAgentIpcChannels } from './ipc-channels-app-agent';
+import { agentNodeIpcChannels } from './ipc-channels-agent-node';
 import { workspaceIpcChannels } from './ipc-channels-workspace';
 import { browserIpcChannels } from './ipc-channels-browser';
 import { localModelsIpcChannels } from './ipc-channels-local-models';
@@ -20,6 +21,7 @@ import {
 } from './ipc-channels-platform';
 
 export const IpcChannels = {
+  agentNode: agentNodeIpcChannels,
   workspace: workspaceIpcChannels,
   sessions: {
     list: 'sero:sessions:list',
