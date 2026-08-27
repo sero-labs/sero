@@ -262,7 +262,11 @@ jobs:
           set -euo pipefail
           start=$SECONDS
           # Each suite starts its own workers, so package-level concurrency can overload the CI runner.
-          if [[ "$FULL_RUN" == "true" ]]; then pnpm turbo run test --concurrency=1 --summarize; else pnpm turbo run test --affected --concurrency=1 --summarize; fi
+          if [[ "$FULL_RUN" == "true" ]]; then
+            xvfb-run --auto-servernum pnpm turbo run test --concurrency=1 --summarize
+          else
+            xvfb-run --auto-servernum pnpm turbo run test --affected --concurrency=1 --summarize
+          fi
           echo "Tests took $((SECONDS - start))s"
       - name: Advisory test report
         if: always()
