@@ -6,6 +6,8 @@ import { sessionLocationKey, useNodesStore } from '@/stores/nodes';
 import { RemoteConversation } from './RemoteConversation';
 
 vi.mock('@/lib/persist-layout', () => ({ persistLayout: vi.fn() }));
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+Object.defineProperty(window, 'scrollTo', { configurable: true, value: vi.fn() });
 
 describe('RemoteConversation approval', () => {
   let container: HTMLDivElement;
@@ -35,6 +37,7 @@ describe('RemoteConversation approval', () => {
         engine: 'Pi', model: 'anthropic/claude', approvalMode: 'ask', taskId: 'task-1',
       }] },
       messages: { [key]: [] },
+      models: { 'node-1': [{ providerId: 'anthropic', modelId: 'claude', name: 'Claude' }] },
       approvals: { [key]: {
         id: 'permission-1', taskId: 'task-1', contextId: 'session-1',
         title: 'Run command', description: 'pnpm test',
@@ -61,6 +64,7 @@ describe('RemoteConversation approval', () => {
         engine: 'Pi', model: 'anthropic/claude', approvalMode: 'ask',
       }] },
       messages: { [key]: [] }, approvals: { [key]: null },
+      models: { 'node-1': [{ providerId: 'anthropic', modelId: 'claude', name: 'Claude' }] },
       artifacts: { [key]: [{ id: 'artifact-1', name: 'report.txt', mediaType: 'text/plain', inlineBase64: 'b2s=' }] },
       activeLocationKey: key,
     });
@@ -68,5 +72,52 @@ describe('RemoteConversation approval', () => {
     const clear = [...container.querySelectorAll('button')].find((button) => button.textContent === 'Clear');
     await act(async () => clear?.click());
     expect(useNodesStore.getState().artifacts[key]).toEqual([]);
+  });
+
+  it('uses the shared composer shell for remote send, model, and stop controls', async () => {
+    const key = sessionLocationKey({ kind: 'node', nodeId: 'node-1', sessionId: 'session-1' });
+    const sendMessage = vi.fn().mockResolvedValue(undefined);
+    const cancelTask = vi.fn().mockResolvedValue(undefined);
+    useNodesStore.setState({
+      nodes: [{
+        id: 'node-1', name: 'Spark', address: 'https://spark', fingerprint: 'pin',
+        connectionState: 'connected', tools: ['write'], workspaces: [{ id: 'repo', name: 'repo' }],
+      }],
+      sessions: { 'node-1': [{
+        id: 'session-1', workspaceId: 'repo', name: 'Test', modified: '2026-01-01T00:00:00Z',
+        engine: 'Pi', model: 'anthropic/claude', approvalMode: 'ask',
+      }] },
+      messages: { [key]: [] }, approvals: { [key]: null }, activeLocationKey: key,
+      models: { 'node-1': [{ providerId: 'anthropic', modelId: 'claude', name: 'Claude' }] },
+      sendMessage,
+      cancelTask,
+    });
+    await act(async () => root.render(
+      <RemoteConversation location={{ kind: 'node', nodeId: 'node-1', sessionId: 'session-1' }} />,
+    ));
+
+    const textarea = container.querySelector<HTMLTextAreaElement>('textarea[placeholder="Message the agent…"]');
+    expect(textarea).not.toBeNull();
+    expect(container.querySelector('[aria-label="Remote session model"]')?.textContent).toContain('Claude');
+    await act(async () => {
+      if (textarea) {
+        const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+        setValue?.call(textarea, 'Run the task');
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+    const submit = container.querySelector<HTMLButtonElement>('button[aria-label="Submit"]');
+    await act(async () => submit?.click());
+    expect(sendMessage).toHaveBeenCalledWith('node-1', 'session-1', 'Run the task');
+
+    await act(async () => useNodesStore.setState((state) => ({
+      sessions: {
+        ...state.sessions,
+        'node-1': state.sessions['node-1'].map((item) => ({ ...item, taskId: 'task-1' })),
+      },
+    })));
+    const stop = [...container.querySelectorAll('button')].find((button) => button.textContent === 'Stop');
+    await act(async () => stop?.click());
+    expect(cancelTask).toHaveBeenCalledWith('node-1', 'task-1');
   });
 });
