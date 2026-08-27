@@ -10,13 +10,11 @@ import { RemoteSessionNode } from './RemoteSessionNode';
 export function RemoteWorkspaceNode({
   node,
   sessions,
-  totalSessionCount,
   workspace,
   workspaceActive,
 }: {
   node: AgentNodeInfo;
   sessions: AgentNodeSession[];
-  totalSessionCount: number;
   workspace: AgentNodeWorkspace;
   workspaceActive: boolean;
 }) {
@@ -79,7 +77,7 @@ export function RemoteWorkspaceNode({
       {createError ? <p role="alert" className="px-2 py-1 text-xs text-status-error">{createError}</p> : null}
       {expanded ? (
         <div className="ml-2 flex flex-col gap-1 pl-2">
-          {totalSessionCount === 0 ? <span className="px-2 py-1 text-xs text-[var(--text-muted)]">No sessions</span> : null}
+          {sessions.length === 0 ? <span className="px-2 py-1 text-xs text-[var(--text-muted)]">No sessions</span> : null}
           {sessions.map((session) => <RemoteSessionNode key={session.id} node={node} session={session} />)}
         </div>
       ) : null}

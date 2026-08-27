@@ -79,5 +79,8 @@ describe('NodesTree', () => {
     await act(async () => root.render(<NodesTree />));
     expect(container.textContent).toContain('Visible task');
     expect(container.textContent).not.toContain('Hidden task');
+
+    await act(async () => useSessionStore.setState({ searchQuery: 'missing' }));
+    expect(container.textContent).toContain('No sessions');
   });
 });

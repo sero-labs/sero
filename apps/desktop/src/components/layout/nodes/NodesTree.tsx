@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, CirclePlus, Cpu, Settings } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { IconAction } from '@/components/ui/IconAction';
-import { agentNodeApi, useNodesStore } from '@/stores/nodes';
+import { agentNodeApi, sessionLocationKey, useNodesStore } from '@/stores/nodes';
 import { useSessionStore } from '@/stores/sessions';
 import type { AgentNodeInfo, AgentNodeSession } from '@/types/agent-node';
 import { EnrolNodeDialog } from './EnrolNodeDialog';
@@ -89,9 +89,12 @@ function NodeRow({ node }: { node: AgentNodeInfo }) {
               sessions={byWorkspace[workspace.id] ?? []}
               workspaceActive={sessions.some((session) => (
                 session.workspaceId === workspace.id
-                && activeLocationKey?.endsWith(`:${encodeURIComponent(session.id)}`)
+                && activeLocationKey === sessionLocationKey({
+                  kind: 'node',
+                  nodeId: node.id,
+                  sessionId: session.id,
+                })
               ))}
-              totalSessionCount={sessions.filter((session) => session.workspaceId === workspace.id).length}
             />
           ))}
           {node.workspaces.length === 0 ? <span className="px-2 py-2 text-xs text-[var(--text-muted)]">No workspaces available</span> : null}
