@@ -28,7 +28,8 @@ vi.mock('@/components/layout/ImageLightbox', () => ({
   ImageLightbox: () => null,
 }));
 
-import { groupMessages, ToolCallGroup } from './ToolCallGroup';
+import { ToolCallGroup } from './ToolCallGroup';
+import { groupMessages } from './tool-call-helpers/group-messages';
 import type { ChatAssistantMessage, ChatToolCallMessage } from '@/types/ipc';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

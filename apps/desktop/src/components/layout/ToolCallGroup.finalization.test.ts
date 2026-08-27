@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ChatAssistantMessage, ChatToolCallMessage } from '@/types/ipc';
-import { groupMessages, isToolGroupFinalized } from './ToolCallGroup';
+import { groupMessages, isToolGroupFinalized } from './tool-call-helpers/group-messages';
 
 function makeTool(overrides: Partial<ChatToolCallMessage>): ChatToolCallMessage {
   return {

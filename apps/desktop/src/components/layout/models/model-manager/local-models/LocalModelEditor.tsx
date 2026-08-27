@@ -69,11 +69,11 @@ export function LocalModelEditor({
     },
   );
   const [contextWindow, setContextWindow] = useState(
-    model.contextWindow?.toString() ?? '',
+    () => model.contextWindow?.toString() ?? '',
   );
-  const [maxTokens, setMaxTokens] = useState(model.maxTokens?.toString() ?? '');
-  const [supportsText, setSupportsText] = useState(model.input?.includes('text') ?? true);
-  const [supportsImage, setSupportsImage] = useState(model.input?.includes('image') ?? false);
+  const [maxTokens, setMaxTokens] = useState(() => model.maxTokens?.toString() ?? '');
+  const [supportsText, setSupportsText] = useState(() => model.input?.includes('text') ?? true);
+  const [supportsImage, setSupportsImage] = useState(() => model.input?.includes('image') ?? false);
 
   const requestFormatLabel = useMemo(() => {
     if (thinkingFormat === 'qwen-chat-template') return 'Qwen chat template';
@@ -110,6 +110,7 @@ export function LocalModelEditor({
       <div className="flex items-center gap-2">
         <button
           type="button"
+          aria-label="Back to local models"
           onClick={onCancel}
           className="rounded-md p-1 text-[var(--text-muted)] hover:bg-[var(--bg-elevated)]
             hover:text-[var(--text-secondary)]"

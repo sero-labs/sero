@@ -9,11 +9,11 @@ import { useAgentStore } from '@/stores/agent';
 import { useFocusedAgent } from '@/stores/agent-selectors';
 import { useSessionStore } from '@/stores/sessions';
 import { SessionBadge } from '@/components/layout/SessionBadge';
+import { ToolCallGroup } from '@/components/layout/ToolCallGroup';
 import {
   groupMessages,
   isToolGroupFinalized,
-  ToolCallGroup,
-} from '@/components/layout/ToolCallGroup';
+} from '@/components/layout/tool-call-helpers/group-messages';
 import { ChatMessageItem } from '@/components/layout/ChatMessageItem';
 import { CheckpointRestoreDialog } from '@/components/layout/workspace/CheckpointRestoreDialog';
 import { useFeedbackStore } from '@/stores/feedback';

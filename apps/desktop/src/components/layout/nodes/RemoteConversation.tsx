@@ -4,7 +4,8 @@ import { Conversation, ConversationContent, ConversationScrollButton } from '@se
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { ChatMessageItem } from '@/components/layout/ChatMessageItem';
 import { EmptyState, ThinkingIndicator } from '@/components/layout/ChatPanelHelpers';
-import { groupMessages, isToolGroupFinalized, ToolCallGroup } from '@/components/layout/ToolCallGroup';
+import { ToolCallGroup } from '@/components/layout/ToolCallGroup';
+import { groupMessages, isToolGroupFinalized } from '@/components/layout/tool-call-helpers/group-messages';
 import { useAgentStore } from '@/stores/agent';
 import { useNodesStore, type SessionLocation } from '@/stores/nodes';
 import { NodeStatusStrip } from './NodeStatusStrip';

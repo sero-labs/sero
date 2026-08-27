@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, memo } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ChevronRight, Columns2, List, WrenchIcon } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
-import type { ChatMessage, ChatToolCallMessage } from '@/types/ipc';
+import type { ChatToolCallMessage } from '@/types/ipc';
 import { useAppStore } from '@/stores/app';
 import {
   deriveGroupStatus,
@@ -14,114 +14,6 @@ import { getImagePaths, ToolFileLinks } from './tool-call-helpers/ToolFileLinks'
 import { ToolImages } from './tool-call-helpers/ToolImages';
 import { ToolRailPane } from './tool-call-helpers/ToolRailPane';
 import { ToolRows } from './tool-call-helpers/ToolRows';
-
-// ── Types ───────────────────────────────────────────────────────
-
-export type GroupedChatItem =
-  | { kind: 'message'; message: ChatMessage }
-  | { kind: 'tool-group'; tools: ChatToolCallMessage[]; id: string };
-
-function isStreamingThinkingOnlyAssistantMessage(message: ChatMessage): boolean {
-  return (
-    message.type === 'assistant'
-    && !message.text?.trim()
-    && Boolean(message.thinking)
-    && message.isStreaming
-  );
-}
-
-function isSessionTitleToolCall(tool: ChatToolCallMessage): boolean {
-  if (tool.toolName === 'set_session_title') return true;
-  if (tool.toolName !== 'sero-cli' || typeof tool.input.command !== 'string') return false;
-
-  const commands = tool.input.command
-    .split('\n')
-    .map((command) => command.trim())
-    .filter(Boolean);
-  if (commands.length !== 1) return false;
-
-  const command = commands[0];
-  if (!/^(?:sero\s+)?set-title(?:\s|$)/.test(command)) return false;
-
-  // Only the automatic first-turn title carries --if-unnamed. An explicit
-  // user-requested rename omits it and stays visible so the user sees it land.
-  return /(?:^|\s)--if-unnamed(?:\s|$)/.test(command);
-}
-
-// ── Grouping utility ────────────────────────────────────────────
-
-/**
- * Groups consecutive tool messages into collapsed blocks.
- * Non-empty text messages (user / assistant with content) break the grouping.
- *
- * Assistant messages that have no visible response text are treated as
- * ephemeral UI state rather than durable turn boundaries:
- * - empty assistant placeholders are dropped
- * - thinking-only assistant messages are only kept while they are the live,
- *   trailing streaming message
- *
- * This lets a single turn reuse one ToolCallGroup even when the model emits
- * intermediate reasoning-only assistant messages between tool-use blocks.
- */
-export function groupMessages(
-  messages: ChatMessage[],
-): GroupedChatItem[] {
-  const result: GroupedChatItem[] = [];
-  let toolBuffer: ChatToolCallMessage[] = [];
-
-  const flushTools = () => {
-    if (toolBuffer.length === 0) return;
-    result.push({
-      kind: 'tool-group',
-      tools: [...toolBuffer],
-      id: `tg-${toolBuffer[0].id}`,
-    });
-    toolBuffer = [];
-  };
-
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
-
-    if (msg.type === 'tool') {
-      // Session titles are background chat metadata, not meaningful agent work.
-      if (isSessionTitleToolCall(msg)) continue;
-      toolBuffer.push(msg);
-      continue;
-    }
-
-    if (msg.type === 'assistant' && !msg.text?.trim()) {
-      const isLastMessage = i === messages.length - 1;
-      const keepTrailingThinking = isLastMessage && isStreamingThinkingOnlyAssistantMessage(msg);
-      if (!keepTrailingThinking) {
-        continue;
-      }
-    }
-
-    flushTools();
-    result.push({ kind: 'message', message: msg });
-  }
-  flushTools();
-
-  return result;
-}
-
-/**
- * A tool group is only finalized once a durable message follows it.
- * Trailing streaming thinking is visible UI state, not a real turn boundary.
- */
-export function isToolGroupFinalized(
-  items: GroupedChatItem[],
-  index: number,
-): boolean {
-  for (let i = index + 1; i < items.length; i++) {
-    const item = items[i];
-    if (item.kind === 'message' && isStreamingThinkingOnlyAssistantMessage(item.message)) {
-      continue;
-    }
-    return true;
-  }
-  return false;
-}
 
 // ── Main ToolCallGroup component ────────────────────────────────
 
