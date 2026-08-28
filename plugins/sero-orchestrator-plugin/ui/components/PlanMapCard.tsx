@@ -3,24 +3,16 @@
  * `prototypes/plan-view-layouts/serpentine.html`).
  *
  * Each line holds one kind of thing: what the step is (number, title, state),
- * how it runs (agent and marks), and what it produced (outcome and elapsed
- * time). The state sits at the end of the title line, and the left edge repeats
+ * what it produced (outcome and elapsed time), and how it runs (agent and
+ * marks). The state sits at the end of the title line, and the left edge repeats
  * it as a colour, so a scan down a column reads the states first.
- *
- * A row that holds one stage uses the wide variant: every step becomes a
- * full-width row on the same fixed columns, inside a parallel or branch stage as
- * well, so the whole map aligns.
  */
 
-import { Bot, GitBranch, MessageSquare, Repeat, ShieldCheck, Sparkles, Users } from 'lucide-react';
+import { Bot, Circle, GitBranch, MessageSquare, Repeat, ShieldCheck, Sparkles, Users } from 'lucide-react';
 import type { Loop, LoopStepDefinition, StepStatus } from '../../shared/types';
-import { mapRouteState } from '../lib/plan-map-state';
-import { stepElapsedLabel } from '../lib/plan-map-state';
+import { guardLabel } from '../lib/guard-label';
+import { mapRouteState, stepElapsedLabel } from '../lib/plan-map-state';
 import { STEP_STATUS_STYLE } from '../lib/status-style';
-
-/** The wide row's columns: number, title, state, run, outcome, time. */
-export const PLAN_MAP_WIDE_COLUMNS =
-  'grid grid-cols-[24px_minmax(0,1.1fr)_84px_13rem_minmax(0,1.4fr)_64px] items-center gap-2.5';
 
 const CARD_STATUS_CLASS: Record<StepStatus, string> = {
   pending: 'border-border/75 border-l-border bg-card',
@@ -43,8 +35,6 @@ interface PlanMapCardProps {
   loop: Loop;
   step: LoopStepDefinition;
   number: number;
-  /** Full-width row, on the shared columns. */
-  wide: boolean;
   /** A step inside a parallel or branch stage: one line less tall. */
   grouped?: boolean;
   /** Title lines the card's fixed height reserves. */
@@ -54,37 +44,20 @@ interface PlanMapCardProps {
   style?: React.CSSProperties;
 }
 
-export function PlanMapCard({ loop, step, number, wide, grouped, titleLines, selected, onSelect, style }: PlanMapCardProps) {
+export function PlanMapCard({ loop, step, number, grouped, titleLines, selected, onSelect, style }: PlanMapCardProps) {
   const status = loop.runtime.stepStates[step.id]?.status ?? 'pending';
   const dimmed = mapRouteState(loop, step) === 'not-taken';
   const shell = [
-    grouped ? 'flex rounded-sm px-2 py-1.5' : 'absolute rounded-md p-2',
-    'border border-l-[3px] text-left transition-colors hover:border-foreground/30',
+    grouped ? 'rounded-sm' : 'absolute rounded-md',
+    'flex flex-col gap-1.5 overflow-hidden border border-l-[3px] px-2 py-1.5 text-left transition-colors hover:border-foreground/30',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
     CARD_STATUS_CLASS[status],
-    dimmed ? 'opacity-70' : '',
-    selected ? 'ring-2 ring-sky-500/60' : '',
-    wide ? PLAN_MAP_WIDE_COLUMNS : 'flex-col gap-1 overflow-hidden',
+    dimmed ? 'opacity-80' : '',
+    selected ? 'ring-1 ring-inset ring-sky-400/80' : '',
   ].join(' ');
 
   const elapsed = stepElapsedLabel(loop, step.id);
   const detail = detailText(loop, step);
-
-  if (wide) {
-    return (
-      <button type="button" className={shell} style={style} onClick={onSelect} aria-pressed={selected} title={step.title}>
-        <StepNumber number={number} />
-        <span className="truncate text-base font-medium">{step.title}</span>
-        <StepState status={status} />
-        <span className="flex items-center gap-1.5 overflow-hidden">
-          <ExecutionChip step={step} />
-          <StepMarks step={step} />
-        </span>
-        <span className="truncate text-xs text-muted-foreground">{detail}</span>
-        <span className="text-right text-xs tabular-nums text-muted-foreground">{elapsed}</span>
-      </button>
-    );
-  }
 
   return (
     <button type="button" className={shell} style={style} onClick={onSelect} aria-pressed={selected} title={step.title}>
@@ -95,17 +68,14 @@ export function PlanMapCard({ loop, step, number, wide, grouped, titleLines, sel
         </span>
         <StepState status={status} />
       </span>
-      <span className="flex items-center gap-1.5 overflow-hidden">
-        <ExecutionChip step={step} shrink={!grouped} />
-        <StepMarks step={step} />
-        {grouped && <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{detail}</span>}
+      <span className="flex min-h-4 items-center gap-2">
+        <span className="min-w-0 flex-1 truncate text-xs text-foreground/70" title={detail || undefined}>{detail}</span>
+        {elapsed && <span className="shrink-0 text-xs tabular-nums text-foreground/70">{elapsed}</span>}
       </span>
-      {!grouped && (
-        <span className="flex items-center gap-2">
-          <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{detail}</span>
-          {elapsed && <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{elapsed}</span>}
-        </span>
-      )}
+      <span className="mt-auto flex items-center gap-1.5 overflow-hidden">
+        <ExecutionChip step={step} />
+        <StepMarks step={step} />
+      </span>
     </button>
   );
 }
@@ -114,7 +84,7 @@ export function PlanMapCard({ loop, step, number, wide, grouped, titleLines, sel
 export function PlanMapStageFrame({
   kind, branchVar, loop, steps, wide, children, style,
 }: {
-  kind: 'parallel' | 'branch';
+  kind: 'parallel' | 'branch' | 'mixed';
   branchVar?: string;
   loop: Loop;
   /** How many steps the stage holds, for the parallel label. */
@@ -125,17 +95,20 @@ export function PlanMapStageFrame({
   style?: React.CSSProperties;
 }) {
   const chosen = branchVar ? loop.runtime.variables[branchVar] : undefined;
-  const label = kind === 'branch'
-    ? `Branch · ${branchVar}${chosen === undefined ? ' (not decided yet)' : ` = ${routeText(chosen)}`}`
-    : `Run together · ${steps} steps`;
+  let label = `Run together · ${steps} steps`;
+  if (kind === 'branch') {
+    label = `Branch · ${branchVar}${chosen === undefined ? ' (not decided yet)' : ` = ${routeText(chosen)}`}`;
+  } else if (kind === 'mixed') {
+    label = `Same stage · ${steps} steps`;
+  }
 
   return (
     <div
       className={`absolute flex flex-col gap-1.5 overflow-hidden rounded-md border border-dashed border-border bg-background/40 ${wide ? 'py-1.5' : 'p-1.5'}`}
       style={style}
     >
-      <span className={`flex items-center gap-1.5 text-xs text-muted-foreground ${wide ? 'px-3' : 'px-1'}`}>
-        {kind === 'branch' ? <GitBranch className="h-3.5 w-3.5" /> : <Users className="h-3.5 w-3.5" />}
+      <span className={`flex items-center gap-1.5 text-xs text-foreground/70 ${wide ? 'px-3' : 'px-1'}`}>
+        {kind === 'parallel' ? <Users className="h-3.5 w-3.5" /> : <GitBranch className="h-3.5 w-3.5" />}
         {label}
       </span>
       <div className="flex flex-col gap-1.5">{children}</div>
@@ -144,7 +117,7 @@ export function PlanMapStageFrame({
 }
 
 function StepNumber({ number }: { number: number }) {
-  return <span className="pt-0.5 text-xs tabular-nums text-muted-foreground">{number}</span>;
+  return <span className="pt-0.5 text-xs tabular-nums text-foreground/70">{number}</span>;
 }
 
 function StepState({ status }: { status: StepStatus }) {
@@ -157,11 +130,11 @@ function StepState({ status }: { status: StepStatus }) {
   );
 }
 
-function ExecutionChip({ step, shrink }: { step: LoopStepDefinition; shrink?: boolean }) {
+function ExecutionChip({ step }: { step: LoopStepDefinition }) {
   const Icon = EXECUTION_ICON[step.execution.type];
   const role = step.execution.type === 'background-agent' ? step.execution.agent : undefined;
   return (
-    <span className={`flex items-center gap-1 rounded-sm border border-border px-1.5 py-0.5 text-xs text-muted-foreground ${shrink ? 'min-w-0 shrink' : 'shrink-0'}`}>
+    <span className="flex min-w-0 shrink items-center gap-1 rounded-sm border border-border px-1.5 py-0.5 text-xs text-foreground/70">
       <Icon className="h-3 w-3 shrink-0" />
       <span className="truncate">{role ? `agent · ${role}` : step.execution.type}</span>
     </span>
@@ -187,6 +160,13 @@ function StepMarks({ step }: { step: LoopStepDefinition }) {
       </Mark>,
     );
   }
+  if (step.when) {
+    marks.push(
+      <Mark key="when" label={guardLabel(step.when)}>
+        <Circle className="h-3 w-3" />{step.when.var}
+      </Mark>,
+    );
+  }
   if (step.feedback) {
     marks.push(<Mark key="feedback" label="Loops back" className="text-violet-400"><Repeat className="h-3 w-3" /></Mark>);
   }
@@ -196,7 +176,7 @@ function StepMarks({ step }: { step: LoopStepDefinition }) {
 function Mark({ children, label, className = '' }: { children: React.ReactNode; label: string; className?: string }) {
   return (
     <span
-      className={`flex shrink-0 items-center gap-1 rounded-sm border border-border px-1.5 py-0.5 text-xs text-muted-foreground ${className}`}
+      className={`flex shrink-0 items-center gap-1 rounded-sm border border-border px-1.5 py-0.5 text-xs text-foreground/70 ${className}`}
       title={label}
       aria-label={label}
     >
@@ -211,7 +191,7 @@ function statusTextClass(status: StepStatus): string {
   if (status === 'failed') return 'text-rose-400';
   if (status === 'blocked' || status === 'needs-revision') return 'text-amber-400';
   if (status === 'running' || status === 'succeeded' || status === 'ready') return 'text-emerald-400';
-  return 'text-muted-foreground';
+  return 'text-foreground/70';
 }
 
 /** What the step produced, or what it is expected to produce before it runs. */

@@ -112,6 +112,15 @@ describe('stepElapsedLabel', () => {
     expect(stepElapsedLabel(loop, 'build')).toBeUndefined();
   });
 
+  it('does not fall back to an older duration while a retry is running', () => {
+    const loop = loopWith([step('build')]);
+    loop.runs = [
+      runWith([attempt('build', 0, 1)]),
+      { ...runWith([attempt('build', 2, 3), attempt('build', 4)]), id: 'run-2', runNumber: 2 },
+    ];
+    expect(stepElapsedLabel(loop, 'build')).toBeUndefined();
+  });
+
   it('reports nothing for a step that never ran', () => {
     const loop = loopWith([step('build')]);
     expect(stepElapsedLabel(loop, 'build')).toBeUndefined();

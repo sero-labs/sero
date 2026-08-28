@@ -68,6 +68,17 @@ describe('computePlanMapLayout', () => {
     expect(layout.cells[1]).toMatchObject({ kind: 'parallel', branchVar: undefined });
   });
 
+  it('does not label mixed guards and unconditional work as one branch', () => {
+    const mixed = [
+      step('start', undefined, { produces: ['routeA', 'routeB'] }),
+      step('a', ['start'], { when: { var: 'routeA', in: ['a'] } }),
+      step('b', ['start'], { when: { var: 'routeB', in: ['b'] } }),
+      step('audit', ['start']),
+    ];
+    const layout = computePlanMapLayout(mixed, { stepsPerRow: 4, width: WIDE_PANEL });
+    expect(layout.cells[1]).toMatchObject({ kind: 'mixed', branchVar: undefined });
+  });
+
   it('fills a row left to right, then wraps to the next row', () => {
     const layout = computePlanMapLayout(chain(6), { stepsPerRow: 4, width: WIDE_PANEL });
     expect(layout.cells.map((cell) => [cell.row, cell.column])).toEqual([
@@ -137,6 +148,13 @@ describe('computePlanMapLayout', () => {
     expect(wide.stepsPerRow).toBe(4);
     expect(narrow.stepsPerRow).toBeLessThan(4);
     expect(narrow.columnWidth).toBeGreaterThanOrEqual(200);
+  });
+
+  it('keeps a readable single-column canvas inside a very narrow panel', () => {
+    const layout = computePlanMapLayout(chain(4), { stepsPerRow: 4, width: 320 });
+    expect(layout.stepsPerRow).toBe(1);
+    expect(layout.width).toBeGreaterThan(320);
+    expect(layout.columnWidth).toBeGreaterThanOrEqual(560);
   });
 
   it('returns an empty layout for a plan with no steps', () => {

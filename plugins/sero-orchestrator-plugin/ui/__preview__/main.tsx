@@ -29,7 +29,7 @@ function Harness() {
         <header className="mb-6 flex items-center justify-between gap-4">
           <div>
             <h1 className="text-base font-semibold">Orchestrator component previews</h1>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-foreground/70">
               The host supplies the theme in the real app. Add <code>?preview=&lt;id&gt;</code> to show one.
             </p>
           </div>
@@ -46,7 +46,7 @@ function Harness() {
           {previews.map((preview) => (
             <section key={preview.id} id={preview.id} className="flex flex-col gap-2">
               <h2 className="text-base font-medium">{preview.title}</h2>
-              <p className="text-xs text-muted-foreground">{preview.note}</p>
+              <p className="text-xs text-foreground/70">{preview.note}</p>
               <div style={{ width: preview.width }}>{preview.render()}</div>
             </section>
           ))}

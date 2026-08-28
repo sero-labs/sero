@@ -147,3 +147,25 @@ up between rows.
    settings.
 4. Does every wrap need its label, or only the first one?
 Decided: the state goes beside the title (position A).
+
+---
+
+# Pass 3 — production review
+
+The static page above keeps the Pass 2 comparison. Review with real Workflow
+data changed the production card in four ways:
+
+- The outcome and elapsed time now sit between the title and the execution
+  marks. The marks stay on the bottom line.
+- Cards use more space between lines and less vertical padding. Single cards
+  are 82 pixels high, or 100 pixels when a narrow card reserves two title
+  lines. A step in a grouped stage is 76 pixels high.
+- One-stage rows use the same three-line card as the other settings. A panel
+  narrower than 640 pixels scrolls the map instead of collapsing text columns.
+- Selection uses one inset border. It does not add a second border outside the
+  card.
+
+The production layout also labels a dependency level as a branch only when all
+steps use the same routing variable. A level with unrelated guarded or
+unguarded work uses the neutral "Same stage" label, and each guarded card names
+its own routing variable.

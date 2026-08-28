@@ -38,9 +38,10 @@ export function mapEdgeState(loop: Loop, fromStepId: string, toStepId: string): 
 export function stepElapsedLabel(loop: Loop, stepId: string): string | undefined {
   for (let index = loop.runs.length - 1; index >= 0; index -= 1) {
     const attempt = loop.runs[index].stepAttempts
-      .filter((candidate) => candidate.stepId === stepId && !candidate.synthetic && candidate.endedAt)
+      .filter((candidate) => candidate.stepId === stepId && !candidate.synthetic)
       .at(-1);
-    if (!attempt?.endedAt) continue;
+    if (!attempt) continue;
+    if (!attempt.endedAt) return undefined;
     const elapsed = new Date(attempt.endedAt).getTime() - new Date(attempt.startedAt).getTime();
     return Number.isFinite(elapsed) && elapsed >= 0 ? formatDuration(elapsed) : undefined;
   }

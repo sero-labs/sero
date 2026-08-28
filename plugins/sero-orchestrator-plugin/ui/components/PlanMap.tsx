@@ -119,7 +119,6 @@ function MapCell({ cell, loop, wide, titleLines, selectedId, onSelect }: MapCell
         loop={loop}
         step={step}
         number={number}
-        wide={wide}
         titleLines={titleLines}
         selected={selectedId === step.id}
         onSelect={() => onSelect(step.id)}
@@ -143,7 +142,6 @@ function MapCell({ cell, loop, wide, titleLines, selectedId, onSelect }: MapCell
           loop={loop}
           step={step}
           number={number}
-          wide={wide}
           grouped
           titleLines={titleLines}
           selected={selectedId === step.id}
@@ -208,7 +206,7 @@ function SelectedStep({ loop, step }: { loop: Loop; step: LoopStepDefinition }) 
         {state?.status === 'succeeded' ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : executionIcon}
         {step.title}
       </div>
-      <p className="min-w-0 flex-1 text-muted-foreground">{step.instructions}</p>
+      <p className="min-w-0 flex-1 text-foreground/70">{step.instructions}</p>
       <div className="flex flex-wrap gap-1">
         <Badge variant="outline" className="text-xs font-normal">{step.execution.type}</Badge>
         {state && <Badge variant="outline" className="text-xs font-normal">{STEP_STATUS_STYLE[state.status].label}</Badge>}

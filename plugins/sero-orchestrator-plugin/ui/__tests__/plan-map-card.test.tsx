@@ -93,15 +93,19 @@ describe('PlanMapCard', () => {
     container.remove();
   });
 
-  const render = async (loop: Loop, target: LoopStepDefinition, wide = false) => {
+  const render = async (
+    loop: Loop,
+    target: LoopStepDefinition,
+    options: { grouped?: boolean; selected?: boolean } = {},
+  ) => {
     await act(async () => root.render(
       <PlanMapCard
         loop={loop}
         step={target}
         number={2}
-        wide={wide}
+        grouped={options.grouped}
         titleLines={2}
-        selected={false}
+        selected={options.selected ?? false}
         onSelect={() => {}}
       />,
     ));
@@ -140,12 +144,31 @@ describe('PlanMapCard', () => {
     expect(labels).toContain('Approval gate');
   });
 
-  it('keeps the same information in the wide row', async () => {
+  it('keeps the elapsed time in a grouped stage card', async () => {
     const target = step();
-    const text = await render(loopWith(target, 'succeeded', 'All levels checked.'), target, true);
+    const text = await render(
+      loopWith(target, 'succeeded', 'All levels checked.'),
+      target,
+      { grouped: true },
+    );
     expect(text).toContain('Check each level independently');
     expect(text).toContain('done');
     expect(text).toContain('All levels checked.');
     expect(text).toContain('6m');
+  });
+
+  it('puts the outcome before the execution marks', async () => {
+    const target = step();
+    await render(loopWith(target, 'succeeded', 'All levels checked.'), target);
+    const rows = [...container.querySelector('button')!.children].map((node) => node.textContent ?? '');
+    expect(rows[1]).toContain('All levels checked.');
+    expect(rows[2]).toContain('background-agent');
+  });
+
+  it('uses an inset selection border', async () => {
+    const target = step();
+    await render(loopWith(target, 'pending'), target, { selected: true });
+    expect(container.querySelector('button')?.className).toContain('ring-inset');
+    expect(container.querySelector('button')?.className).not.toContain('ring-2 ring-sky');
   });
 });

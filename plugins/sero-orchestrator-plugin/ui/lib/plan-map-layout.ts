@@ -37,7 +37,7 @@ export interface PlanMapCellStep {
 
 export interface PlanMapCell {
   id: string;
-  kind: 'single' | 'parallel' | 'branch';
+  kind: 'single' | 'parallel' | 'branch' | 'mixed';
   /** Routing variable the steps of a branch stage are guarded on. */
   branchVar?: string;
   steps: PlanMapCellStep[];
@@ -95,10 +95,12 @@ const LOOP_RAIL = 26;
 /** Below this a column cannot hold a readable card, so a row holds fewer. */
 const MIN_COLUMN_WIDTH = 216;
 export const PLAN_MAP_MIN_WIDTH = 320;
+/** A single-column card keeps a readable canvas and scrolls inside a narrower panel. */
+export const PLAN_MAP_SINGLE_COLUMN_MIN_WIDTH = 640;
 
 const ROW_GAP: Record<PlanMapStepsPerRow, number> = { 1: 18, 2: 24, 3: 26, 4: 40 };
-const CARD_HEIGHT: Record<PlanMapStepsPerRow, number> = { 1: 38, 2: 76, 3: 76, 4: 92 };
-const GROUPED_STEP_HEIGHT: Record<PlanMapStepsPerRow, number> = { 1: 36, 2: 58, 3: 58, 4: 58 };
+const CARD_HEIGHT: Record<PlanMapStepsPerRow, number> = { 1: 82, 2: 82, 3: 82, 4: 100 };
+const GROUPED_STEP_HEIGHT: Record<PlanMapStepsPerRow, number> = { 1: 76, 2: 76, 3: 76, 4: 76 };
 /** Narrow columns need two title lines; a wide column fits a title on one. */
 const TITLE_LINES: Record<PlanMapStepsPerRow, 1 | 2> = { 1: 1, 2: 1, 3: 1, 4: 2 };
 const GROUP_LABEL_HEIGHT = 22;
@@ -114,10 +116,18 @@ interface StageGroup {
 function toStages(steps: LoopStepDefinition[]): StageGroup[] {
   const numberById = new Map(steps.map((step, index) => [step.id, index + 1]));
   return groupStepsByLevel(steps).map((level) => {
-    const branchVar = level.length > 1 ? level.find((step) => step.when)?.when?.var : undefined;
+    const guarded = level.filter((step) => step.when);
+    const branchVars = new Set(guarded.flatMap((step) => step.when ? [step.when.var] : []));
+    const oneBranch = guarded.length === level.length && branchVars.size === 1;
+    let kind: PlanMapCell['kind'] = 'single';
+    if (level.length > 1) {
+      if (oneBranch) kind = 'branch';
+      else if (guarded.length === 0) kind = 'parallel';
+      else kind = 'mixed';
+    }
     return {
-      kind: level.length === 1 ? 'single' : branchVar ? 'branch' : 'parallel',
-      branchVar,
+      kind,
+      branchVar: oneBranch ? guarded[0].when?.var : undefined,
       steps: level.map((step) => ({ step, number: numberById.get(step.id)! })),
     };
   });
@@ -142,9 +152,12 @@ export function computePlanMapLayout(
   };
   if (steps.length === 0) return empty;
 
-  const width = Math.max(PLAN_MAP_MIN_WIDTH, options.width);
+  const panelWidth = Math.max(PLAN_MAP_MIN_WIDTH, options.width);
   const stages = toStages(steps);
-  const stepsPerRow = fitStepsPerRow(options.stepsPerRow, width);
+  const stepsPerRow = fitStepsPerRow(options.stepsPerRow, panelWidth);
+  const width = stepsPerRow === 1
+    ? Math.max(PLAN_MAP_SINGLE_COLUMN_MIN_WIDTH, panelWidth)
+    : panelWidth;
   const rowOf = (stage: number) => Math.floor(stage / stepsPerRow);
   const rail = usesLoopRail(steps, stages, rowOf) ? LOOP_RAIL : 0;
   const left = PADDING_X + rail;
