@@ -59,3 +59,60 @@ prototype does not demonstrate it.
 2. Is the loop back common enough to need an arc, or is a label enough?
 3. Does the layout stay a user setting, like the direction toggle now, or does
    the plan size choose it?
+
+---
+
+# Pass 2 — the serpentine map (`serpentine.html`)
+
+Route: `http://127.0.0.1:5176/prototypes/plan-view-layouts/serpentine.html`
+
+Option B won the first review. This page answers two follow-up questions with
+the same plan and the same panel.
+
+## 1. A tighter card
+
+Same width, same information, 20 pixels less height (112 → 92 at 4 per row,
+74 at 3 per row or wider).
+
+- The title is the first line. The stage number moves to the right corner.
+- The state was a dot in the header and a word in a chip. It is now one state
+  chip on the meta line, with the agent, the marks, and the time.
+- The elapsed time moves to the end of the outcome line, so it aligns down the
+  column instead of floating in the meta line.
+- A colour bar on the left edge carries the state.
+- The outcome is one line with an ellipsis. The old card reserved a second line
+  that most steps did not use, which made the empty space at the card foot.
+
+## 2. Steps per row, 1 to 4
+
+The control replaces the Auto, Horizontal, and Vertical buttons. Each setting is
+drawn on its own, because the prototype is static.
+
+| Setting | Card width | Rows | Result |
+| --- | --- | --- | --- |
+| 4 | 258 px | 3 | 12 of 12 stages, no scroll. Titles wrap to 2 lines. |
+| 3 | 345 px | 4 | 12 of 12 stages, no scroll. Titles fit on 1 line. |
+| 2 | 532 px | 6 | 8 of 12 stages, then it scrolls. |
+| 1 | 1094 px | 12 | 7 of 12 stages, then it scrolls. The card becomes one line. |
+
+Two behaviours follow the setting:
+
+- **The wrap line.** A dashed, labelled line leaves the row on the right and
+  enters the next row on the left. At 1 per row there is no wrap, so a straight
+  arrow joins each card to the next.
+- **The loop back.** When both ends sit in one row (4 per row), it draws as an
+  arc under that row. When the loop crosses a row boundary (3 per row or fewer),
+  it runs down a rail in the left margin and returns to the target stage from
+  below.
+
+Cards are centred in their row, so a single stage next to a parallel stage keeps
+its arrow on the flow line.
+
+## Product decisions still open
+
+1. Is the default 4 (most plans fit) or 3 (titles stop wrapping)?
+2. "Steps per row" is the user's word. A column holds one stage, and a parallel
+   stage puts two steps in one column, so the exact word is "stages per row".
+3. The setting must persist in `~/.sero-ui/layout.json`, like the other view
+   settings.
+4. Does every wrap need its label, or only the first one?
