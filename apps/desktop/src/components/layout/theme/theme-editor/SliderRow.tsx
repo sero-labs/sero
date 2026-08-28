@@ -55,6 +55,7 @@ export function SliderRow({
         {label}
       </span>
       <Slider
+        aria-label={label}
         min={min}
         max={max}
         step={step}

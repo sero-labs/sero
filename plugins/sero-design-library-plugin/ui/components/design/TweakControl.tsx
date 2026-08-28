@@ -32,7 +32,11 @@ export function TweakControl({ definition, value, edited, onChange, onReset }: T
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5">
-        <label className="text-sm" htmlFor={controlId(definition)}>
+        <label
+          id={`${controlId(definition)}-label`}
+          className="text-sm"
+          htmlFor={controlId(definition)}
+        >
           {definition.label}
         </label>
         {!isFont && (
@@ -76,7 +80,7 @@ function Input({
     case 'range':
       return (
         <Slider
-          id={controlId(definition)}
+          aria-labelledby={`${controlId(definition)}-label`}
           min={control.min}
           max={control.max}
           step={control.step}

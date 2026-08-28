@@ -29,7 +29,19 @@ export function createDocsCapture(page: Page, shotsDir: string): DocsCapture {
     await page.waitForTimeout(400);
     const box = await panelFrame().boundingBox();
     if (!box) throw new Error(`the Orchestrator panel had no box when capturing ${name}`);
-    await page.screenshot({ path: path.join(shotsDir, `${name}.jpg`), quality: 92, clip: box });
+    const chromeTop = await page.evaluate(
+      () => document.querySelector('footer.chrome-zoom-invariant')?.getBoundingClientRect().top ?? window.innerHeight,
+    );
+    await page.screenshot({
+      path: path.join(shotsDir, `${name}.jpg`),
+      quality: 92,
+      clip: {
+        x: box.x,
+        y: box.y,
+        width: box.width,
+        height: Math.floor(Math.min(box.y + box.height, chromeTop - 2) - box.y),
+      },
+    });
   }
 
   async function shotPlan(name: string, { withToolbar = true, wholeCard = false } = {}): Promise<void> {
@@ -41,7 +53,7 @@ export function createDocsCapture(page: Page, shotsDir: string): DocsCapture {
     const region = await page.evaluate(() => {
       const nodes = Array.from(document.querySelectorAll('[data-app="orchestrator"] button[aria-pressed]'));
       if (nodes.length === 0) return null;
-      const viewport = nodes[0].closest('[class*="overflow-auto"]');
+      const viewport = nodes[0].closest('[class*="overflow-auto"], [class*="overflow-y-auto"]');
       const card = viewport?.parentElement;
       if (!viewport || !card) return null;
       const rects = nodes.map((node) => node.getBoundingClientRect());
@@ -49,7 +61,7 @@ export function createDocsCapture(page: Page, shotsDir: string): DocsCapture {
       // frame, and clamping to the scroll viewport alone did not keep it out:
       // the nearest `overflow-auto` ancestor is sometimes the page, whose bottom
       // is the window bottom.
-      const statusBar = document.querySelector('footer')?.getBoundingClientRect();
+      const statusBar = document.querySelector('footer.chrome-zoom-invariant')?.getBoundingClientRect();
       return {
         chromeTop: statusBar ? statusBar.top : window.innerHeight,
         nodes: {
@@ -116,7 +128,7 @@ export function createDocsCapture(page: Page, shotsDir: string): DocsCapture {
     // The shell's status bar carries the workspace path. A pane that fills the
     // window ends level with it, so the padded clip reaches into it.
     const chromeTop = await page.evaluate(
-      () => document.querySelector('footer')?.getBoundingClientRect().top ?? window.innerHeight,
+      () => document.querySelector('footer.chrome-zoom-invariant')?.getBoundingClientRect().top ?? window.innerHeight,
     );
     const top = Math.max(0, box.y - pad);
     const bottom = Math.min(chromeTop - 2, box.y + box.height + pad);

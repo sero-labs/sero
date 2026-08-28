@@ -1,0 +1,11 @@
+/**
+ * Host-owned tokens, for the harness only.
+ *
+ * `plugin.css` deliberately leaves the Sero design tokens to the host: a
+ * federated plugin inherits `--background`, `--brand-*`, and the light/dark
+ * blocks from the document root of the app that mounts it. The harness has no
+ * host, so it imports the host stylesheet to supply them. Never import this
+ * from the plugin's own `styles.css`.
+ */
+
+@import "@sero-ai/ui/styles/globals.css";

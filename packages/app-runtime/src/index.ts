@@ -5,9 +5,17 @@
  * Hooks communicate with the Electron main process via window.sero IPC.
  */
 
-export { AppContext, AppProvider, type AppContextValue, type AppNavigationValue } from './context';
+export {
+  AppContext,
+  AppProvider,
+  type AppContextValue,
+  type AppNavigationValue,
+  type AppProfilePreferencesValue,
+  type AppProfilePreferenceValue,
+} from './context';
 export { useAppState } from './use-app-state';
 export { useAppNavigation } from './use-app-navigation';
+export { useAppPreferences } from './use-app-preferences';
 export { useAppInfo } from './use-app-info';
 export { useAgentPrompt } from './use-agent-prompt';
 export { useAI, type AppAI } from './use-ai';

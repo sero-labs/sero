@@ -59,6 +59,8 @@ export interface LayoutState {
   activeApp?: string;
   /** Last internal view published by each app and workspace scope. */
   appViewIds?: Record<string, Record<string, string>>;
+  /** Small profile-wide UI preferences, keyed by app id and preference name. */
+  appPreferences?: Record<string, Record<string, string | number | boolean | null>>;
   /** App ids pinned as shortcut chips in the title bar. */
   chromeShortcuts?: string[];
   /** Page zoom factor (chrome bars counter-scale and stay constant). */

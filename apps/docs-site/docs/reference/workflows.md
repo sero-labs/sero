@@ -84,26 +84,27 @@ Catalog commands:
 ## Reading a plan
 
 Use the **Map / Details** control to change the plan view. **Map** is the default
-for a draft Workflow. **Details** is the default for an active Workflow.
+for a draft Workflow. **Details** is the default for an active Workflow. After
+you select a view, Sero uses it for all Workflows and workspaces in the current
+profile.
 
 ### Map controls
 
 | Control | Values | Behaviour |
 | --- | --- | --- |
-| Direction | `Auto`, `Horizontal`, `Vertical` | `Auto` draws top-to-bottom when the panel is narrower than 760 px, and left-to-right otherwise. The current direction is named in the map's top-left corner. |
-| Zoom out / Zoom in | — | Each press changes the scale by 15 percentage points. The percentage between them is the current scale. |
-| Fit map | — | Returns to the fitted scale. Disabled when already fitted. |
+| Steps per row | `1` to `4` | Sets how many dependency stages the map puts in one row. A narrow panel can use fewer stages than the selected value. |
 
-The map opens at the scale that fits the whole plan into the panel. That fitted
-scale is never above 100% and never below 25%. Zooming out stops at 70% of the
-fitted scale; zooming in stops at 190%.
+Stages fill each row from left to right, then continue on the next row. Cards
+stay at a readable size. A single-column map uses the available panel width.
 
-Select a node to show its execution type, instructions, route condition, and
-fan-out maximum below the map. Select the node again to close the details.
+Each card shows the step state, latest outcome or expected outcome, elapsed
+time, execution target, and routing marks. Select a card to show its full
+instructions and route condition below the map. Select it again to close the
+details.
 
-### Node badges
+### Card marks
 
-Each node shows the badges for its routing fields.
+Each card shows marks for its routing fields.
 
 | Badge | Field | Meaning |
 | --- | --- | --- |

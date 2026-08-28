@@ -98,6 +98,9 @@ describe('layout hydration', () => {
           appViewIds: {
             orchestrator: { 'workspace-1': 'rooms/room-7?view=timeline' },
           },
+          appPreferences: {
+            orchestrator: { planPresentationMode: 'map' },
+          },
         })),
       },
       dashboard: {
@@ -109,6 +112,7 @@ describe('layout hydration', () => {
     await loadLayout();
 
     expect(useAppStore.getState().activeApp).toBe('orchestrator');
+    expect(useAppStore.getState().appPreferences.orchestrator?.planPresentationMode).toBe('map');
     expect(useWorkspaceStore.getState().activeWorkspaceId).toBe('workspace-1');
     expect(useNavigationStore.getState()).toMatchObject({
       entries: [{
@@ -118,6 +122,21 @@ describe('layout hydration', () => {
       }],
       index: 0,
     });
+  });
+
+  it('persists an app preference outside the workspace scope', async () => {
+    const save = vi.fn(async () => undefined);
+    Reflect.set(window, 'sero', { layout: { save } });
+
+    useAppStore.getState().setAppPreference('orchestrator', 'planPresentationMode', 'details');
+
+    await vi.waitFor(() => expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appPreferences: {
+          orchestrator: { planPresentationMode: 'details' },
+        },
+      }),
+    ));
   });
 
   it('does not apply a global fallback to a workspace-scoped app', async () => {

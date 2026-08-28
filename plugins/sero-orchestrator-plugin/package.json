@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "preview": "SERO_PREVIEW=true vite --port 5199 --strictPort",
     "test": "pnpm exec vitest run --root .",
     "typecheck": "tsc --noEmit -p ui/tsconfig.json && tsc --noEmit -p extension/tsconfig.json && tsc --noEmit -p runtime/tsconfig.json"
   },
