@@ -104,7 +104,7 @@ export function PlanMapStageFrame({
 
   return (
     <div
-      className={`absolute flex flex-col gap-1.5 overflow-hidden rounded-md border border-dashed border-border bg-background/40 ${wide ? 'py-1.5' : 'p-1.5'}`}
+      className={`absolute flex flex-col gap-1.5 overflow-hidden rounded-md border border-dashed border-border bg-(--bg-elevated) ${wide ? 'py-1.5' : 'p-1.5'}`}
       style={style}
     >
       <span className={`flex items-center gap-1.5 text-xs text-foreground/70 ${wide ? 'px-3' : 'px-1'}`}>
