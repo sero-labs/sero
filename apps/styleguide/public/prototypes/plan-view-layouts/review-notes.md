@@ -71,17 +71,33 @@ the same plan and the same panel.
 
 ## 1. A tighter card
 
-Same width, same information, 20 pixels less height (112 → 92 at 4 per row,
-74 at 3 per row or wider).
+Same width, same information, 38 pixels less height (112 → 74; 88 at 4 per row
+when the title wraps). Each line holds one kind of thing: what the step is, how
+it runs, and what it produced.
 
-- The title is the first line. The stage number moves to the right corner.
-- The state was a dot in the header and a word in a chip. It is now one state
-  chip on the meta line, with the agent, the marks, and the time.
+- The title is the first line, with the state at its end.
+- The meta line held the state, the agent, the marks, and the time. It now holds
+  the agent and the marks only, so the chips stop touching.
 - The elapsed time moves to the end of the outcome line, so it aligns down the
   column instead of floating in the meta line.
-- A colour bar on the left edge carries the state.
+- A colour bar on the left edge carries the state as well.
 - The outcome is one line with an ellipsis. The old card reserved a second line
   that most steps did not use, which made the empty space at the card foot.
+
+### Where the state goes
+
+The state position is still open, so the page shows four, each with a done step,
+a running step, and a blocked step:
+
+| | Position | Cost |
+| --- | --- | --- |
+| A | At the end of the title line (applied to the maps) | Takes about 70 px from the title, so more titles wrap at 4 per row |
+| B | On the left colour bar only, with the word for running, blocked, or failed | The word is absent on a done step |
+| C | On its own line above the title, with the stage tag | The card grows by one line |
+| D | In front of the outcome | Shortens the outcome text |
+
+Position A drops the stage tag from a step card. A parallel or branch box keeps
+its tag, because the box labels the stage.
 
 ## 2. Steps per row, 1 to 4
 
@@ -108,6 +124,12 @@ Two behaviours follow the setting:
 Cards are centred in their row, so a single stage next to a parallel stage keeps
 its arrow on the flow line.
 
+At 1 step in a row, every step is a full-width row on the same fixed columns —
+number, title, state, agent and marks, outcome, time, stage. A parallel or
+branch box holds full-width rows too, so the columns align down the whole map.
+Before this, each card sized its own columns from its content, and nothing lined
+up between rows.
+
 ## Product decisions still open
 
 1. Is the default 4 (most plans fit) or 3 (titles stop wrapping)?
@@ -116,3 +138,4 @@ its arrow on the flow line.
 3. The setting must persist in `~/.sero-ui/layout.json`, like the other view
    settings.
 4. Does every wrap need its label, or only the first one?
+5. Which state position (A to D)? A is applied to the maps.

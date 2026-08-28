@@ -49,9 +49,106 @@
     </div>
 
     <section class="opt">
+      <div class="opt-head"><span class="tag">State</span><h2>Where the state goes</h2></div>
+      <p>The meta line held the state, the agent, the marks, and the time. The time moved to the outcome
+      line. This is the same card, at the 4-per-row width, with the state in four positions. Each column
+      shows a done step, a running step, and a blocked step, so you can compare a scan down a column.</p>
+      <div class="study">
+        <div class="col">
+          <h3>A · Beside the title</h3>
+          <span class="pick">Applied below</span>
+          <p>The state sits at the end of the title line, where the eye stops. The meta line keeps the agent and the marks. The stage tag goes. Cost: the state takes about 70 pixels from the title, so more titles wrap at 4 per row.</p>
+          <div class="stack">
+        <div class="scard st st-done" style="">
+          <div class="top"><span class="snum">2</span><span class="sname">Check each level independently</span><span class="state"><span class="dot"></span>done</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip" title="One run for each item"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg>×10</span></div>
+          <div class="foot"><span class="out">3 of 10 levels are outside their band.</span><span class="stime">6m 12s</span></div>
+        </div>
+        <div class="scard st st-running" style="">
+          <div class="top"><span class="snum">8</span><span class="sname">Update the level tests</span><span class="state"><span class="dot pulse"></span>running</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></div>
+          <div class="foot"><span class="out">Expects · Tests match the new difficulty band.</span><span class="stime">1m 08s</span></div>
+        </div>
+        <div class="scard st st-blocked" style="">
+          <div class="top"><span class="snum">9</span><span class="sname">Refresh the level index</span><span class="state"><span class="dot"></span>blocked</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span></div>
+          <div class="foot"><span class="out">Waits for you: 2 titles conflict.</span><span class="stime"></span></div>
+        </div>
+          </div>
+        </div>
+        <div class="col">
+          <h3>B · On the edge only</h3>
+          <p>The colour bar is the state. The word appears only when a step needs attention: running, blocked, or failed. The calmest card.</p>
+          <div class="stack">
+        <div class="scard st st-done" style="">
+          <div class="top"><span class="snum">2</span><span class="sname">Check each level independently</span><span class="stag">S2</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip" title="One run for each item"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg>×10</span></div>
+          <div class="foot"><span class="out">3 of 10 levels are outside their band.</span><span class="stime">6m 12s</span></div>
+        </div>
+        <div class="scard st st-running" style="">
+          <div class="top"><span class="snum">8</span><span class="sname">Update the level tests</span><span class="stag">S7</span></div>
+          <div class="meta"><span class="state"><span class="dot pulse"></span>running</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></div>
+          <div class="foot"><span class="out">Expects · Tests match the new difficulty band.</span><span class="stime">1m 08s</span></div>
+        </div>
+        <div class="scard st st-blocked" style="">
+          <div class="top"><span class="snum">9</span><span class="sname">Refresh the level index</span><span class="stag">S7</span></div>
+          <div class="meta"><span class="state"><span class="dot"></span>blocked</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span></div>
+          <div class="foot"><span class="out">Waits for you: 2 titles conflict.</span><span class="stime"></span></div>
+        </div>
+          </div>
+        </div>
+        <div class="col">
+          <h3>C · On its own line</h3>
+          <p>A state line above the title, with the stage tag. Nothing shares the line, but the card grows by one line.</p>
+          <div class="stack">
+        <div class="scard st st-done" style="">
+          <div class="stateline"><span class="state"><span class="dot"></span>done</span><span class="stag">S2</span></div>
+          <div class="top"><span class="snum">2</span><span class="sname">Check each level independently</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip" title="One run for each item"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg>×10</span></div>
+          <div class="foot"><span class="out">3 of 10 levels are outside their band.</span><span class="stime">6m 12s</span></div>
+        </div>
+        <div class="scard st st-running" style="">
+          <div class="stateline"><span class="state"><span class="dot pulse"></span>running</span><span class="stag">S7</span></div>
+          <div class="top"><span class="snum">8</span><span class="sname">Update the level tests</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></div>
+          <div class="foot"><span class="out">Expects · Tests match the new difficulty band.</span><span class="stime">1m 08s</span></div>
+        </div>
+        <div class="scard st st-blocked" style="">
+          <div class="stateline"><span class="state"><span class="dot"></span>blocked</span><span class="stag">S7</span></div>
+          <div class="top"><span class="snum">9</span><span class="sname">Refresh the level index</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span></div>
+          <div class="foot"><span class="out">Waits for you: 2 titles conflict.</span><span class="stime"></span></div>
+        </div>
+          </div>
+        </div>
+        <div class="col">
+          <h3>D · With the outcome</h3>
+          <p>The state leads the outcome, because the two read together: "done · 3 of 10 levels are outside their band".</p>
+          <div class="stack">
+        <div class="scard st st-done" style="">
+          <div class="top"><span class="snum">2</span><span class="sname">Check each level independently</span><span class="stag">S2</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip" title="One run for each item"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg>×10</span></div>
+          <div class="foot"><span class="state"><span class="dot"></span>done</span><span class="sep">·</span><span class="out">3 of 10 levels are outside their band.</span><span class="stime">6m 12s</span></div>
+        </div>
+        <div class="scard st st-running" style="">
+          <div class="top"><span class="snum">8</span><span class="sname">Update the level tests</span><span class="stag">S7</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></div>
+          <div class="foot"><span class="state"><span class="dot pulse"></span>running</span><span class="sep">·</span><span class="out">Expects · Tests match the new difficulty band.</span><span class="stime">1m 08s</span></div>
+        </div>
+        <div class="scard st st-blocked" style="">
+          <div class="top"><span class="snum">9</span><span class="sname">Refresh the level index</span><span class="stag">S7</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span></div>
+          <div class="foot"><span class="state"><span class="dot"></span>blocked</span><span class="sep">·</span><span class="out">Waits for you: 2 titles conflict.</span><span class="stime"></span></div>
+        </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="opt">
       <div class="opt-head"><span class="tag">Card</span><h2>What changed in the card</h2></div>
-      <p>Same width (258 pixels), same information, 20 pixels less height. The state moves out of the
-      header into the one meta line, so the header carries only the number and the title.</p>
+      <p>Same width (258 pixels) and the same information, in 38 fewer pixels. Each line now holds one
+      kind of thing: what the step is, how it runs, and what it produced.</p>
       <div class="anatomy">
         <figure>
           <figcaption>Before · 112 pixels</figcaption>
@@ -65,11 +162,11 @@
           </div>
         </figure>
         <figure>
-          <figcaption>After · 92 pixels</figcaption>
+          <figcaption>After · 74 pixels</figcaption>
           <div class="holder">
-        <div class="scard st st-done" style="height:92px">
-          <div class="top"><span class="snum">2</span><span class="sname">Check each level independently</span><span class="stag">S2</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>done</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip" title="One run for each item"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg>×10</span></div>
+        <div class="scard st st-done" style="height:74px">
+          <div class="top"><span class="snum">2</span><span class="sname">Check each level independently</span><span class="state"><span class="dot"></span>done</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip" title="One run for each item"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg>×10</span></div>
           <div class="foot"><span class="out">3 of 10 levels are outside their band.</span><span class="stime">6m 12s</span></div>
         </div>
           </div>
@@ -77,10 +174,11 @@
         <ul>
           <li>The title is the first line. The stage number moves to the right corner, where it does not
             compete with the title.</li>
-          <li>The state word and its dot were on two elements in the header. Now one state chip sits with
-            the agent, the marks, and the time on one meta line.</li>
-          <li>The time was pushed to the far right of the meta line by the space between. Now it sits at
-            the end of the same line, and it aligns down the column.</li>
+          <li>The state was a dot in the header and a word in a chip. It is now one state mark at the end
+            of the title line, away from the colour bar that repeats it.</li>
+          <li>The meta line held the state, the agent, the marks, and the time. It now holds the agent and
+            the marks only, so the chips stop touching.</li>
+          <li>The time moved to the end of the outcome line, where it aligns down the column.</li>
           <li>A colour bar on the left edge carries the state, so a scan down a column reads the states
             before it reads the words.</li>
           <li class="dead">The old card kept 25 pixels of empty space below the outcome, because one node
@@ -103,40 +201,40 @@
       <div class="serp">
         <svg class="serp-svg" viewBox="0 0 1160 529" aria-hidden="true"><path d="M 277.5 64 C 292.5 64, 292.5 64, 304.5 64" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 565 64 C 580 64, 580 64, 592 64" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 852.5 64 C 867.5 64, 867.5 64, 879.5 64" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 1140 64 H 1142 Q 1150 64 1150 72 V 134 Q 1150 142 1142 142 H 16 Q 8 142 8 150 V 211 Q 8 219 16 219 H 17" fill="none" stroke="#3f3f46" stroke-width="1.25" stroke-dasharray="3 4" opacity=".65" marker-end="url(#arrow)"/><text x="1136" y="137" fill="#a1a1aa" font-size="10" text-anchor="end" font-family="Inter, sans-serif" opacity=".8">wraps to the next row</text><path d="M 277.5 219 C 292.5 219, 292.5 219, 304.5 219" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 565 219 C 580 219, 580 219, 592 219" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 852.5 219 C 867.5 219, 867.5 219, 879.5 219" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 1140 219 H 1142 Q 1150 219 1150 227 V 316 Q 1150 324 1142 324 H 16 Q 8 324 8 332 V 393 Q 8 401 16 401 H 17" fill="none" stroke="#3f3f46" stroke-width="1.25" stroke-dasharray="3 4" opacity=".65" marker-end="url(#arrow)"/><text x="1136" y="319" fill="#a1a1aa" font-size="10" text-anchor="end" font-family="Inter, sans-serif" opacity=".8">wraps to the next row</text><path d="M 277.5 401 C 292.5 401, 292.5 401, 304.5 401" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 565 401 C 580 401, 580 401, 592 401" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 852.5 401 C 867.5 401, 867.5 401, 879.5 401" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 1011.25 263 C 1011.25 304, 436.25 304, 436.25 293" fill="none" stroke="#c4b5fd" stroke-width="1.5" stroke-dasharray="5 4" opacity=".85" marker-end="url(#arrow-loop)"/><text x="723.75" y="316" fill="#c4b5fd" font-size="10.5" text-anchor="middle" font-family="Inter, sans-serif">loop back to 6 · 1 of 3 used</text></svg>
         <div class="scard st st-done" style="left:20px;top:20px;width:257.5px;height:88px">
-          <div class="top"><span class="snum">1</span><span class="sname">Discover levels and validate the checker</span><span class="stag">S1</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>done</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">agent · explorer</span></span></div>
+          <div class="top"><span class="snum">1</span><span class="sname">Discover levels and validate the checker</span><span class="state"><span class="dot"></span>done</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">agent · explorer</span></span></div>
           <div class="foot"><span class="out">10 levels found. Checker runs clean.</span><span class="stime">1m 40s</span></div>
         </div>
         <div class="scard st st-done" style="left:307.5px;top:20px;width:257.5px;height:88px">
-          <div class="top"><span class="snum">2</span><span class="sname">Check each level independently</span><span class="stag">S2</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>done</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip" title="One run for each item"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg>×10</span></div>
+          <div class="top"><span class="snum">2</span><span class="sname">Check each level independently</span><span class="state"><span class="dot"></span>done</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip" title="One run for each item"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg>×10</span></div>
           <div class="foot"><span class="out">3 of 10 levels are outside their band.</span><span class="stime">6m 12s</span></div>
         </div>
         <div class="scard st st-done" style="left:595px;top:20px;width:257.5px;height:88px">
-          <div class="top"><span class="snum">3</span><span class="sname">Diagnose failures and rank them</span><span class="stag">S3</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>done</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></div>
+          <div class="top"><span class="snum">3</span><span class="sname">Diagnose failures and rank them</span><span class="state"><span class="dot"></span>done</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></div>
           <div class="foot"><span class="out">2 too easy, 1 unsolvable. Ranked by cost.</span><span class="stime">2m 05s</span></div>
         </div>
         <div class="scard st st-done" style="left:882.5px;top:20px;width:257.5px;height:88px">
-          <div class="top"><span class="snum">4</span><span class="sname">Obtain protected solutions</span><span class="stag">S4</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>done</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip gate" title="Approval gate"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg></span></div>
+          <div class="top"><span class="snum">4</span><span class="sname">Obtain protected solutions</span><span class="state"><span class="dot"></span>done</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip gate" title="Approval gate"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg></span></div>
           <div class="foot"><span class="out">You approved. 3 solutions read.</span><span class="stime">0m 46s</span></div>
         </div>
         <div class="scard st st-done" style="left:20px;top:175px;width:257.5px;height:88px">
-          <div class="top"><span class="snum">5</span><span class="sname">Choose a repair strategy</span><span class="stag">S5</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>done</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="chip branch" title="Records a routing variable"><svg class="i" aria-hidden="true"><use href="#i-branch"/></svg>strategy</span></div>
+          <div class="top"><span class="snum">5</span><span class="sname">Choose a repair strategy</span><span class="state"><span class="dot"></span>done</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="chip branch" title="Records a routing variable"><svg class="i" aria-hidden="true"><use href="#i-branch"/></svg>strategy</span></div>
           <div class="foot"><span class="out">strategy = patch</span><span class="stime">0m 12s</span></div>
         </div>
         <div class="sgroup" style="left:307.5px;top:148px;width:257.5px;height:142px">
           <div class="glabel"><svg class="i" aria-hidden="true"><use href="#i-branch"/></svg>Branch · strategy = patch<span class="stag">S6</span></div>
           <div class="pair">
           <div class="smini st st-done">
-            <div class="top"><span class="snum">6</span><span class="sname">Patch the level content</span></div>
-            <div class="meta"><span class="state"><span class="dot"></span>done</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">agent · builder</span></span><span class="chip loop" title="Target of the loop back"><svg class="i" aria-hidden="true"><use href="#i-loop"/></svg></span><span class="out">3 levels edited. Attempt 2 passed.</span></div>
+            <div class="top"><span class="snum">6</span><span class="sname">Patch the level content</span><span class="state"><span class="dot"></span>done</span></div>
+            <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">agent · builder</span></span><span class="chip loop" title="Target of the loop back"><svg class="i" aria-hidden="true"><use href="#i-loop"/></svg></span><span class="out">3 levels edited. Attempt 2 passed.</span></div>
           </div>
           <div class="smini st st-skipped skip">
-            <div class="top"><span class="snum">7</span><span class="sname">Regenerate the level from its spec</span></div>
-            <div class="meta"><span class="state"><span class="dot"></span>skipped</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="out">Path not taken.</span></div>
+            <div class="top"><span class="snum">7</span><span class="sname">Regenerate the level from its spec</span><span class="state"><span class="dot"></span>skipped</span></div>
+            <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="out">Path not taken.</span></div>
           </div>
           </div>
         </div>
@@ -144,46 +242,46 @@
           <div class="glabel"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg>Run together · 2 steps<span class="stag">S7</span></div>
           <div class="pair">
           <div class="smini st st-running">
-            <div class="top"><span class="snum">8</span><span class="sname">Update the level tests</span></div>
-            <div class="meta"><span class="state"><span class="dot pulse"></span>running</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="out">Expects · Tests match the new difficulty band.</span></div>
+            <div class="top"><span class="snum">8</span><span class="sname">Update the level tests</span><span class="state"><span class="dot pulse"></span>running</span></div>
+            <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="out">Expects · Tests match the new difficulty band.</span></div>
           </div>
           <div class="smini st st-blocked">
-            <div class="top"><span class="snum">9</span><span class="sname">Refresh the level index</span></div>
-            <div class="meta"><span class="state"><span class="dot"></span>blocked</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="out">Waits for you: 2 titles conflict.</span></div>
+            <div class="top"><span class="snum">9</span><span class="sname">Refresh the level index</span><span class="state"><span class="dot"></span>blocked</span></div>
+            <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="out">Waits for you: 2 titles conflict.</span></div>
           </div>
           </div>
         </div>
         <div class="scard st st-pending" style="left:882.5px;top:175px;width:257.5px;height:88px">
-          <div class="top"><span class="snum">10</span><span class="sname">Re-check all levels</span><span class="stag">S8</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>pending</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip loop" title="Loops back"><svg class="i" aria-hidden="true"><use href="#i-loop"/></svg>6 · 1/3</span></div>
+          <div class="top"><span class="snum">10</span><span class="sname">Re-check all levels</span><span class="state"><span class="dot"></span>pending</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip loop" title="Loops back"><svg class="i" aria-hidden="true"><use href="#i-loop"/></svg>6 · 1/3</span></div>
           <div class="foot"><span class="out">Expects · Every level inside its band.</span><span class="stime"></span></div>
         </div>
         <div class="sgroup" style="left:20px;top:330px;width:257.5px;height:142px">
           <div class="glabel"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg>Run together · 2 steps<span class="stag">S9</span></div>
           <div class="pair">
           <div class="smini st st-pending">
-            <div class="top"><span class="snum">11</span><span class="sname">Update the difficulty table</span></div>
-            <div class="meta"><span class="state"><span class="dot"></span>pending</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="out">Expects · One row for each level.</span></div>
+            <div class="top"><span class="snum">11</span><span class="sname">Update the difficulty table</span><span class="state"><span class="dot"></span>pending</span></div>
+            <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="out">Expects · One row for each level.</span></div>
           </div>
           <div class="smini st st-pending">
-            <div class="top"><span class="snum">12</span><span class="sname">Write the migration note</span></div>
-            <div class="meta"><span class="state"><span class="dot"></span>pending</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="out">Expects · A short note for the release.</span></div>
+            <div class="top"><span class="snum">12</span><span class="sname">Write the migration note</span><span class="state"><span class="dot"></span>pending</span></div>
+            <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="out">Expects · A short note for the release.</span></div>
           </div>
           </div>
         </div>
         <div class="scard st st-pending" style="left:307.5px;top:357px;width:257.5px;height:88px">
-          <div class="top"><span class="snum">13</span><span class="sname">Review the diff</span><span class="stag">S10</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>pending</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-message"/></svg><span class="t">active-session</span></span><span class="chip gate" title="Approval gate"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg></span></div>
+          <div class="top"><span class="snum">13</span><span class="sname">Review the diff</span><span class="state"><span class="dot"></span>pending</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-message"/></svg><span class="t">active-session</span></span><span class="chip gate" title="Approval gate"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg></span></div>
           <div class="foot"><span class="out">Expects · You approve, or you ask for a change.</span><span class="stime"></span></div>
         </div>
         <div class="scard st st-pending" style="left:595px;top:357px;width:257.5px;height:88px">
-          <div class="top"><span class="snum">14</span><span class="sname">Commit and open the pull request</span><span class="stag">S11</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>pending</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></div>
+          <div class="top"><span class="snum">14</span><span class="sname">Commit and open the pull request</span><span class="state"><span class="dot"></span>pending</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></div>
           <div class="foot"><span class="out">Expects · One pull request for all repairs.</span><span class="stime"></span></div>
         </div>
         <div class="scard st st-pending" style="left:882.5px;top:357px;width:257.5px;height:88px">
-          <div class="top"><span class="snum">15</span><span class="sname">Report the result to the room</span><span class="stag">S12</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>pending</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></div>
+          <div class="top"><span class="snum">15</span><span class="sname">Report the result to the room</span><span class="state"><span class="dot"></span>pending</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></div>
           <div class="foot"><span class="out">Expects · A summary in the team room.</span><span class="stime"></span></div>
         </div>
       </div>
@@ -205,40 +303,40 @@
       <div class="serp">
         <svg class="serp-svg" viewBox="0 0 1160 556" aria-hidden="true"><path d="M 390.6666666666667 53 C 405.6666666666667 53, 405.6666666666667 53, 417.6666666666667 53" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 765.3333333333334 53 C 780.3333333333334 53, 780.3333333333334 53, 792.3333333333334 53" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 1140 53 H 1142 Q 1150 53 1150 61 V 102 Q 1150 110 1142 110 H 42 Q 34 110 34 118 V 179 Q 34 187 42 187 H 43" fill="none" stroke="#3f3f46" stroke-width="1.25" stroke-dasharray="3 4" opacity=".65" marker-end="url(#arrow)"/><text x="1136" y="105" fill="#a1a1aa" font-size="10" text-anchor="end" font-family="Inter, sans-serif" opacity=".8">wraps to the next row</text><path d="M 390.6666666666667 187 C 405.6666666666667 187, 405.6666666666667 187, 417.6666666666667 187" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 765.3333333333334 187 C 780.3333333333334 187, 780.3333333333334 187, 792.3333333333334 187" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 1140 187 H 1142 Q 1150 187 1150 195 V 270 Q 1150 278 1142 278 H 42 Q 34 278 34 286 V 347 Q 34 355 42 355 H 43" fill="none" stroke="#3f3f46" stroke-width="1.25" stroke-dasharray="3 4" opacity=".65" marker-end="url(#arrow)"/><text x="1136" y="273" fill="#a1a1aa" font-size="10" text-anchor="end" font-family="Inter, sans-serif" opacity=".8">wraps to the next row</text><path d="M 390.6666666666667 355 C 405.6666666666667 355, 405.6666666666667 355, 417.6666666666667 355" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 765.3333333333334 355 C 780.3333333333334 355, 780.3333333333334 355, 792.3333333333334 355" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 1140 355 H 1142 Q 1150 355 1150 363 V 438 Q 1150 446 1142 446 H 42 Q 34 446 34 454 V 481 Q 34 489 42 489 H 43" fill="none" stroke="#3f3f46" stroke-width="1.25" stroke-dasharray="3 4" opacity=".65" marker-end="url(#arrow)"/><text x="1136" y="441" fill="#a1a1aa" font-size="10" text-anchor="end" font-family="Inter, sans-serif" opacity=".8">wraps to the next row</text><path d="M 390.6666666666667 489 C 405.6666666666667 489, 405.6666666666667 489, 417.6666666666667 489" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 765.3333333333334 489 C 780.3333333333334 489, 780.3333333333334 489, 792.3333333333334 489" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 417.6666666666667 355 H 36 Q 28 355 28 347 V 278 Q 28 270 36 270 H 813.3333333333334 Q 821.3333333333334 270 821.3333333333334 262 V 261" fill="none" stroke="#c4b5fd" stroke-width="1.5" stroke-dasharray="5 4" opacity=".85" marker-end="url(#arrow-loop)"/><text x="829.3333333333334" y="274" fill="#c4b5fd" font-size="10.5" font-family="Inter, sans-serif">loop back to 6 · 1 of 3 used</text></svg>
         <div class="scard st st-done" style="left:46px;top:16px;width:344.6666666666667px;height:74px">
-          <div class="top"><span class="snum">1</span><span class="sname">Discover levels and validate the checker</span><span class="stag">S1</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>done</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">agent · explorer</span></span></div>
+          <div class="top"><span class="snum">1</span><span class="sname">Discover levels and validate the checker</span><span class="state"><span class="dot"></span>done</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">agent · explorer</span></span></div>
           <div class="foot"><span class="out">10 levels found. Checker runs clean.</span><span class="stime">1m 40s</span></div>
         </div>
         <div class="scard st st-done" style="left:420.6666666666667px;top:16px;width:344.6666666666667px;height:74px">
-          <div class="top"><span class="snum">2</span><span class="sname">Check each level independently</span><span class="stag">S2</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>done</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip" title="One run for each item"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg>×10</span></div>
+          <div class="top"><span class="snum">2</span><span class="sname">Check each level independently</span><span class="state"><span class="dot"></span>done</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip" title="One run for each item"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg>×10</span></div>
           <div class="foot"><span class="out">3 of 10 levels are outside their band.</span><span class="stime">6m 12s</span></div>
         </div>
         <div class="scard st st-done" style="left:795.3333333333334px;top:16px;width:344.6666666666667px;height:74px">
-          <div class="top"><span class="snum">3</span><span class="sname">Diagnose failures and rank them</span><span class="stag">S3</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>done</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></div>
+          <div class="top"><span class="snum">3</span><span class="sname">Diagnose failures and rank them</span><span class="state"><span class="dot"></span>done</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></div>
           <div class="foot"><span class="out">2 too easy, 1 unsolvable. Ranked by cost.</span><span class="stime">2m 05s</span></div>
         </div>
         <div class="scard st st-done" style="left:46px;top:150px;width:344.6666666666667px;height:74px">
-          <div class="top"><span class="snum">4</span><span class="sname">Obtain protected solutions</span><span class="stag">S4</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>done</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip gate" title="Approval gate"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg></span></div>
+          <div class="top"><span class="snum">4</span><span class="sname">Obtain protected solutions</span><span class="state"><span class="dot"></span>done</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip gate" title="Approval gate"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg></span></div>
           <div class="foot"><span class="out">You approved. 3 solutions read.</span><span class="stime">0m 46s</span></div>
         </div>
         <div class="scard st st-done" style="left:420.6666666666667px;top:150px;width:344.6666666666667px;height:74px">
-          <div class="top"><span class="snum">5</span><span class="sname">Choose a repair strategy</span><span class="stag">S5</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>done</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="chip branch" title="Records a routing variable"><svg class="i" aria-hidden="true"><use href="#i-branch"/></svg>strategy</span></div>
+          <div class="top"><span class="snum">5</span><span class="sname">Choose a repair strategy</span><span class="state"><span class="dot"></span>done</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="chip branch" title="Records a routing variable"><svg class="i" aria-hidden="true"><use href="#i-branch"/></svg>strategy</span></div>
           <div class="foot"><span class="out">strategy = patch</span><span class="stime">0m 12s</span></div>
         </div>
         <div class="sgroup" style="left:795.3333333333334px;top:116px;width:344.6666666666667px;height:142px">
           <div class="glabel"><svg class="i" aria-hidden="true"><use href="#i-branch"/></svg>Branch · strategy = patch<span class="stag">S6</span></div>
           <div class="pair">
           <div class="smini st st-done">
-            <div class="top"><span class="snum">6</span><span class="sname">Patch the level content</span></div>
-            <div class="meta"><span class="state"><span class="dot"></span>done</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">agent · builder</span></span><span class="chip loop" title="Target of the loop back"><svg class="i" aria-hidden="true"><use href="#i-loop"/></svg></span><span class="out">3 levels edited. Attempt 2 passed.</span></div>
+            <div class="top"><span class="snum">6</span><span class="sname">Patch the level content</span><span class="state"><span class="dot"></span>done</span></div>
+            <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">agent · builder</span></span><span class="chip loop" title="Target of the loop back"><svg class="i" aria-hidden="true"><use href="#i-loop"/></svg></span><span class="out">3 levels edited. Attempt 2 passed.</span></div>
           </div>
           <div class="smini st st-skipped skip">
-            <div class="top"><span class="snum">7</span><span class="sname">Regenerate the level from its spec</span></div>
-            <div class="meta"><span class="state"><span class="dot"></span>skipped</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="out">Path not taken.</span></div>
+            <div class="top"><span class="snum">7</span><span class="sname">Regenerate the level from its spec</span><span class="state"><span class="dot"></span>skipped</span></div>
+            <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="out">Path not taken.</span></div>
           </div>
           </div>
         </div>
@@ -246,46 +344,46 @@
           <div class="glabel"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg>Run together · 2 steps<span class="stag">S7</span></div>
           <div class="pair">
           <div class="smini st st-running">
-            <div class="top"><span class="snum">8</span><span class="sname">Update the level tests</span></div>
-            <div class="meta"><span class="state"><span class="dot pulse"></span>running</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="out">Expects · Tests match the new difficulty band.</span></div>
+            <div class="top"><span class="snum">8</span><span class="sname">Update the level tests</span><span class="state"><span class="dot pulse"></span>running</span></div>
+            <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="out">Expects · Tests match the new difficulty band.</span></div>
           </div>
           <div class="smini st st-blocked">
-            <div class="top"><span class="snum">9</span><span class="sname">Refresh the level index</span></div>
-            <div class="meta"><span class="state"><span class="dot"></span>blocked</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="out">Waits for you: 2 titles conflict.</span></div>
+            <div class="top"><span class="snum">9</span><span class="sname">Refresh the level index</span><span class="state"><span class="dot"></span>blocked</span></div>
+            <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="out">Waits for you: 2 titles conflict.</span></div>
           </div>
           </div>
         </div>
         <div class="scard st st-pending" style="left:420.6666666666667px;top:318px;width:344.6666666666667px;height:74px">
-          <div class="top"><span class="snum">10</span><span class="sname">Re-check all levels</span><span class="stag">S8</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>pending</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip loop" title="Loops back"><svg class="i" aria-hidden="true"><use href="#i-loop"/></svg>6 · 1/3</span></div>
+          <div class="top"><span class="snum">10</span><span class="sname">Re-check all levels</span><span class="state"><span class="dot"></span>pending</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip loop" title="Loops back"><svg class="i" aria-hidden="true"><use href="#i-loop"/></svg>6 · 1/3</span></div>
           <div class="foot"><span class="out">Expects · Every level inside its band.</span><span class="stime"></span></div>
         </div>
         <div class="sgroup" style="left:795.3333333333334px;top:284px;width:344.6666666666667px;height:142px">
           <div class="glabel"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg>Run together · 2 steps<span class="stag">S9</span></div>
           <div class="pair">
           <div class="smini st st-pending">
-            <div class="top"><span class="snum">11</span><span class="sname">Update the difficulty table</span></div>
-            <div class="meta"><span class="state"><span class="dot"></span>pending</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="out">Expects · One row for each level.</span></div>
+            <div class="top"><span class="snum">11</span><span class="sname">Update the difficulty table</span><span class="state"><span class="dot"></span>pending</span></div>
+            <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="out">Expects · One row for each level.</span></div>
           </div>
           <div class="smini st st-pending">
-            <div class="top"><span class="snum">12</span><span class="sname">Write the migration note</span></div>
-            <div class="meta"><span class="state"><span class="dot"></span>pending</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="out">Expects · A short note for the release.</span></div>
+            <div class="top"><span class="snum">12</span><span class="sname">Write the migration note</span><span class="state"><span class="dot"></span>pending</span></div>
+            <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="out">Expects · A short note for the release.</span></div>
           </div>
           </div>
         </div>
         <div class="scard st st-pending" style="left:46px;top:452px;width:344.6666666666667px;height:74px">
-          <div class="top"><span class="snum">13</span><span class="sname">Review the diff</span><span class="stag">S10</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>pending</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-message"/></svg><span class="t">active-session</span></span><span class="chip gate" title="Approval gate"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg></span></div>
+          <div class="top"><span class="snum">13</span><span class="sname">Review the diff</span><span class="state"><span class="dot"></span>pending</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-message"/></svg><span class="t">active-session</span></span><span class="chip gate" title="Approval gate"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg></span></div>
           <div class="foot"><span class="out">Expects · You approve, or you ask for a change.</span><span class="stime"></span></div>
         </div>
         <div class="scard st st-pending" style="left:420.6666666666667px;top:452px;width:344.6666666666667px;height:74px">
-          <div class="top"><span class="snum">14</span><span class="sname">Commit and open the pull request</span><span class="stag">S11</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>pending</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></div>
+          <div class="top"><span class="snum">14</span><span class="sname">Commit and open the pull request</span><span class="state"><span class="dot"></span>pending</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></div>
           <div class="foot"><span class="out">Expects · One pull request for all repairs.</span><span class="stime"></span></div>
         </div>
         <div class="scard st st-pending" style="left:795.3333333333334px;top:452px;width:344.6666666666667px;height:74px">
-          <div class="top"><span class="snum">15</span><span class="sname">Report the result to the room</span><span class="stag">S12</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>pending</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></div>
+          <div class="top"><span class="snum">15</span><span class="sname">Report the result to the room</span><span class="state"><span class="dot"></span>pending</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></div>
           <div class="foot"><span class="out">Expects · A summary in the team room.</span><span class="stime"></span></div>
         </div>
       </div>
@@ -307,40 +405,40 @@
       <div class="serp">
         <svg class="serp-svg" viewBox="0 0 1160 814" aria-hidden="true"><path d="M 578 53 C 593 53, 593 53, 605 53" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 1140 53 H 1142 Q 1150 53 1150 61 V 100 Q 1150 108 1142 108 H 42 Q 34 108 34 116 V 143 Q 34 151 42 151 H 43" fill="none" stroke="#3f3f46" stroke-width="1.25" stroke-dasharray="3 4" opacity=".65" marker-end="url(#arrow)"/><text x="1136" y="103" fill="#a1a1aa" font-size="10" text-anchor="end" font-family="Inter, sans-serif" opacity=".8">wraps to the next row</text><path d="M 578 151 C 593 151, 593 151, 605 151" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 1140 151 H 1142 Q 1150 151 1150 159 V 198 Q 1150 206 1142 206 H 42 Q 34 206 34 214 V 275 Q 34 283 42 283 H 43" fill="none" stroke="#3f3f46" stroke-width="1.25" stroke-dasharray="3 4" opacity=".65" marker-end="url(#arrow)"/><text x="1136" y="201" fill="#a1a1aa" font-size="10" text-anchor="end" font-family="Inter, sans-serif" opacity=".8">wraps to the next row</text><path d="M 578 283 C 593 283, 593 283, 605 283" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 1140 283 H 1142 Q 1150 283 1150 291 V 364 Q 1150 372 1142 372 H 42 Q 34 372 34 380 V 441 Q 34 449 42 449 H 43" fill="none" stroke="#3f3f46" stroke-width="1.25" stroke-dasharray="3 4" opacity=".65" marker-end="url(#arrow)"/><text x="1136" y="367" fill="#a1a1aa" font-size="10" text-anchor="end" font-family="Inter, sans-serif" opacity=".8">wraps to the next row</text><path d="M 578 449 C 593 449, 593 449, 605 449" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 1140 449 H 1142 Q 1150 449 1150 457 V 530 Q 1150 538 1142 538 H 42 Q 34 538 34 546 V 607 Q 34 615 42 615 H 43" fill="none" stroke="#3f3f46" stroke-width="1.25" stroke-dasharray="3 4" opacity=".65" marker-end="url(#arrow)"/><text x="1136" y="533" fill="#a1a1aa" font-size="10" text-anchor="end" font-family="Inter, sans-serif" opacity=".8">wraps to the next row</text><path d="M 578 615 C 593 615, 593 615, 605 615" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 1140 615 H 1142 Q 1150 615 1150 623 V 696 Q 1150 704 1142 704 H 42 Q 34 704 34 712 V 739 Q 34 747 42 747 H 43" fill="none" stroke="#3f3f46" stroke-width="1.25" stroke-dasharray="3 4" opacity=".65" marker-end="url(#arrow)"/><text x="1136" y="699" fill="#a1a1aa" font-size="10" text-anchor="end" font-family="Inter, sans-serif" opacity=".8">wraps to the next row</text><path d="M 578 747 C 593 747, 593 747, 605 747" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 605 449 H 36 Q 28 449 28 441 V 374 Q 28 366 36 366 H 626 Q 634 366 634 358 V 357" fill="none" stroke="#c4b5fd" stroke-width="1.5" stroke-dasharray="5 4" opacity=".85" marker-end="url(#arrow-loop)"/><text x="642" y="370" fill="#c4b5fd" font-size="10.5" font-family="Inter, sans-serif">loop back to 6 · 1 of 3 used</text></svg>
         <div class="scard st st-done" style="left:46px;top:16px;width:532px;height:74px">
-          <div class="top"><span class="snum">1</span><span class="sname">Discover levels and validate the checker</span><span class="stag">S1</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>done</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">agent · explorer</span></span></div>
+          <div class="top"><span class="snum">1</span><span class="sname">Discover levels and validate the checker</span><span class="state"><span class="dot"></span>done</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">agent · explorer</span></span></div>
           <div class="foot"><span class="out">10 levels found. Checker runs clean.</span><span class="stime">1m 40s</span></div>
         </div>
         <div class="scard st st-done" style="left:608px;top:16px;width:532px;height:74px">
-          <div class="top"><span class="snum">2</span><span class="sname">Check each level independently</span><span class="stag">S2</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>done</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip" title="One run for each item"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg>×10</span></div>
+          <div class="top"><span class="snum">2</span><span class="sname">Check each level independently</span><span class="state"><span class="dot"></span>done</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip" title="One run for each item"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg>×10</span></div>
           <div class="foot"><span class="out">3 of 10 levels are outside their band.</span><span class="stime">6m 12s</span></div>
         </div>
         <div class="scard st st-done" style="left:46px;top:114px;width:532px;height:74px">
-          <div class="top"><span class="snum">3</span><span class="sname">Diagnose failures and rank them</span><span class="stag">S3</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>done</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></div>
+          <div class="top"><span class="snum">3</span><span class="sname">Diagnose failures and rank them</span><span class="state"><span class="dot"></span>done</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></div>
           <div class="foot"><span class="out">2 too easy, 1 unsolvable. Ranked by cost.</span><span class="stime">2m 05s</span></div>
         </div>
         <div class="scard st st-done" style="left:608px;top:114px;width:532px;height:74px">
-          <div class="top"><span class="snum">4</span><span class="sname">Obtain protected solutions</span><span class="stag">S4</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>done</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip gate" title="Approval gate"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg></span></div>
+          <div class="top"><span class="snum">4</span><span class="sname">Obtain protected solutions</span><span class="state"><span class="dot"></span>done</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip gate" title="Approval gate"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg></span></div>
           <div class="foot"><span class="out">You approved. 3 solutions read.</span><span class="stime">0m 46s</span></div>
         </div>
         <div class="scard st st-done" style="left:46px;top:246px;width:532px;height:74px">
-          <div class="top"><span class="snum">5</span><span class="sname">Choose a repair strategy</span><span class="stag">S5</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>done</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="chip branch" title="Records a routing variable"><svg class="i" aria-hidden="true"><use href="#i-branch"/></svg>strategy</span></div>
+          <div class="top"><span class="snum">5</span><span class="sname">Choose a repair strategy</span><span class="state"><span class="dot"></span>done</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="chip branch" title="Records a routing variable"><svg class="i" aria-hidden="true"><use href="#i-branch"/></svg>strategy</span></div>
           <div class="foot"><span class="out">strategy = patch</span><span class="stime">0m 12s</span></div>
         </div>
         <div class="sgroup" style="left:608px;top:212px;width:532px;height:142px">
           <div class="glabel"><svg class="i" aria-hidden="true"><use href="#i-branch"/></svg>Branch · strategy = patch<span class="stag">S6</span></div>
           <div class="pair">
           <div class="smini st st-done">
-            <div class="top"><span class="snum">6</span><span class="sname">Patch the level content</span></div>
-            <div class="meta"><span class="state"><span class="dot"></span>done</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">agent · builder</span></span><span class="chip loop" title="Target of the loop back"><svg class="i" aria-hidden="true"><use href="#i-loop"/></svg></span><span class="out">3 levels edited. Attempt 2 passed.</span></div>
+            <div class="top"><span class="snum">6</span><span class="sname">Patch the level content</span><span class="state"><span class="dot"></span>done</span></div>
+            <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">agent · builder</span></span><span class="chip loop" title="Target of the loop back"><svg class="i" aria-hidden="true"><use href="#i-loop"/></svg></span><span class="out">3 levels edited. Attempt 2 passed.</span></div>
           </div>
           <div class="smini st st-skipped skip">
-            <div class="top"><span class="snum">7</span><span class="sname">Regenerate the level from its spec</span></div>
-            <div class="meta"><span class="state"><span class="dot"></span>skipped</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="out">Path not taken.</span></div>
+            <div class="top"><span class="snum">7</span><span class="sname">Regenerate the level from its spec</span><span class="state"><span class="dot"></span>skipped</span></div>
+            <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="out">Path not taken.</span></div>
           </div>
           </div>
         </div>
@@ -348,46 +446,46 @@
           <div class="glabel"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg>Run together · 2 steps<span class="stag">S7</span></div>
           <div class="pair">
           <div class="smini st st-running">
-            <div class="top"><span class="snum">8</span><span class="sname">Update the level tests</span></div>
-            <div class="meta"><span class="state"><span class="dot pulse"></span>running</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="out">Expects · Tests match the new difficulty band.</span></div>
+            <div class="top"><span class="snum">8</span><span class="sname">Update the level tests</span><span class="state"><span class="dot pulse"></span>running</span></div>
+            <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="out">Expects · Tests match the new difficulty band.</span></div>
           </div>
           <div class="smini st st-blocked">
-            <div class="top"><span class="snum">9</span><span class="sname">Refresh the level index</span></div>
-            <div class="meta"><span class="state"><span class="dot"></span>blocked</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="out">Waits for you: 2 titles conflict.</span></div>
+            <div class="top"><span class="snum">9</span><span class="sname">Refresh the level index</span><span class="state"><span class="dot"></span>blocked</span></div>
+            <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="out">Waits for you: 2 titles conflict.</span></div>
           </div>
           </div>
         </div>
         <div class="scard st st-pending" style="left:608px;top:412px;width:532px;height:74px">
-          <div class="top"><span class="snum">10</span><span class="sname">Re-check all levels</span><span class="stag">S8</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>pending</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip loop" title="Loops back"><svg class="i" aria-hidden="true"><use href="#i-loop"/></svg>6 · 1/3</span></div>
+          <div class="top"><span class="snum">10</span><span class="sname">Re-check all levels</span><span class="state"><span class="dot"></span>pending</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="chip loop" title="Loops back"><svg class="i" aria-hidden="true"><use href="#i-loop"/></svg>6 · 1/3</span></div>
           <div class="foot"><span class="out">Expects · Every level inside its band.</span><span class="stime"></span></div>
         </div>
         <div class="sgroup" style="left:46px;top:544px;width:532px;height:142px">
           <div class="glabel"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg>Run together · 2 steps<span class="stag">S9</span></div>
           <div class="pair">
           <div class="smini st st-pending">
-            <div class="top"><span class="snum">11</span><span class="sname">Update the difficulty table</span></div>
-            <div class="meta"><span class="state"><span class="dot"></span>pending</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="out">Expects · One row for each level.</span></div>
+            <div class="top"><span class="snum">11</span><span class="sname">Update the difficulty table</span><span class="state"><span class="dot"></span>pending</span></div>
+            <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="out">Expects · One row for each level.</span></div>
           </div>
           <div class="smini st st-pending">
-            <div class="top"><span class="snum">12</span><span class="sname">Write the migration note</span></div>
-            <div class="meta"><span class="state"><span class="dot"></span>pending</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="out">Expects · A short note for the release.</span></div>
+            <div class="top"><span class="snum">12</span><span class="sname">Write the migration note</span><span class="state"><span class="dot"></span>pending</span></div>
+            <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="out">Expects · A short note for the release.</span></div>
           </div>
           </div>
         </div>
         <div class="scard st st-pending" style="left:608px;top:578px;width:532px;height:74px">
-          <div class="top"><span class="snum">13</span><span class="sname">Review the diff</span><span class="stag">S10</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>pending</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-message"/></svg><span class="t">active-session</span></span><span class="chip gate" title="Approval gate"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg></span></div>
+          <div class="top"><span class="snum">13</span><span class="sname">Review the diff</span><span class="state"><span class="dot"></span>pending</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-message"/></svg><span class="t">active-session</span></span><span class="chip gate" title="Approval gate"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg></span></div>
           <div class="foot"><span class="out">Expects · You approve, or you ask for a change.</span><span class="stime"></span></div>
         </div>
         <div class="scard st st-pending" style="left:46px;top:710px;width:532px;height:74px">
-          <div class="top"><span class="snum">14</span><span class="sname">Commit and open the pull request</span><span class="stag">S11</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>pending</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></div>
+          <div class="top"><span class="snum">14</span><span class="sname">Commit and open the pull request</span><span class="state"><span class="dot"></span>pending</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></div>
           <div class="foot"><span class="out">Expects · One pull request for all repairs.</span><span class="stime"></span></div>
         </div>
         <div class="scard st st-pending" style="left:608px;top:710px;width:532px;height:74px">
-          <div class="top"><span class="snum">15</span><span class="sname">Report the result to the room</span><span class="stag">S12</span></div>
-          <div class="meta"><span class="state"><span class="dot"></span>pending</span><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></div>
+          <div class="top"><span class="snum">15</span><span class="sname">Report the result to the room</span><span class="state"><span class="dot"></span>pending</span></div>
+          <div class="meta"><span class="chip exec"><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></div>
           <div class="foot"><span class="out">Expects · A summary in the team room.</span><span class="stime"></span></div>
         </div>
       </div>
@@ -398,7 +496,7 @@
 
     <section class="opt">
       <div class="opt-head"><span class="tag">1 per row</span><h2>One step in each row</h2></div>
-      <p>One stage in a row. The card becomes one line: number, title, state, agent, marks, outcome, and time, each in its own column. A parallel stage keeps its two steps side by side.</p>
+      <p>One stage in a row. The card becomes one line: number, title, state, agent, marks, outcome, time, and stage, each in a column of fixed width. Every row uses the same columns, inside a parallel or branch box as well, so the whole map aligns.</p>
       <div class="viewport">
         <div class="vp-bar"><span class="stepper" role="img" aria-label="Steps per row, set to 1 of 4">
           <span class="stepper-label">Steps per row</span>
@@ -407,7 +505,7 @@
         </span><span class="fit">7 of 12 stages · scrolls</span></div>
         <div class="vp-body clipped">
       <div class="serp">
-        <svg class="serp-svg" viewBox="0 0 1160 826" aria-hidden="true"><path d="M 593 52 V 67" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 593 106 V 121" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 593 160 V 175" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 593 214 V 229" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 593 268 V 283" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 593 372 V 387" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 593 476 V 491" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 593 530 V 545" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 593 634 V 649" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 593 688 V 703" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 593 742 V 757" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 43 512 H 36 Q 28 512 28 504 V 392 Q 28 384 36 384 H 64 Q 72 384 72 376 V 375" fill="none" stroke="#c4b5fd" stroke-width="1.5" stroke-dasharray="5 4" opacity=".85" marker-end="url(#arrow-loop)"/><text x="80" y="388" fill="#c4b5fd" font-size="10.5" font-family="Inter, sans-serif">loop back to 6 · 1 of 3 used</text></svg>
+        <svg class="serp-svg" viewBox="0 0 1160 898" aria-hidden="true"><path d="M 593 52 V 67" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 593 106 V 121" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 593 160 V 175" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 593 214 V 229" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 593 268 V 283" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 593 396 V 411" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 593 524 V 539" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 593 578 V 593" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 593 706 V 721" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 593 760 V 775" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 593 814 V 829" fill="none" stroke="#3f3f46" stroke-width="1.5" marker-end="url(#arrow)"/><path d="M 43 560 H 36 Q 28 560 28 552 V 416 Q 28 408 36 408 H 64 Q 72 408 72 400 V 399" fill="none" stroke="#c4b5fd" stroke-width="1.5" stroke-dasharray="5 4" opacity=".85" marker-end="url(#arrow-loop)"/><text x="80" y="412" fill="#c4b5fd" font-size="10.5" font-family="Inter, sans-serif">loop back to 6 · 1 of 3 used</text></svg>
         <div class="scard st st-done wide" style="left:46px;top:16px;width:1094px;height:36px">
           <span class="snum">1</span>
           <span class="sname">Discover levels and validate the checker</span>
@@ -453,33 +551,53 @@
           <span class="stime">0m 12s</span>
           <span class="stag">S5</span>
         </div>
-        <div class="sgroup wide" style="left:46px;top:286px;width:1094px;height:86px">
+        <div class="sgroup wide" style="left:46px;top:286px;width:1094px;height:110px">
           <div class="glabel"><svg class="i" aria-hidden="true"><use href="#i-branch"/></svg>Branch · strategy = patch<span class="stag">S6</span></div>
           <div class="pair">
-          <div class="smini st st-done">
-            <div class="top"><span class="snum">6</span><span class="sname">Patch the level content</span></div>
-            <div class="meta"><span class="state"><span class="dot"></span>done</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">agent · builder</span></span><span class="chip loop" title="Target of the loop back"><svg class="i" aria-hidden="true"><use href="#i-loop"/></svg></span><span class="out">3 levels edited. Attempt 2 passed.</span></div>
+          <div class="smini wide st st-done">
+            <span class="snum">6</span>
+            <span class="sname">Patch the level content</span>
+            <span class="state"><span class="dot"></span>done</span>
+            <span class="marks"><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">agent · builder</span></span><span class="chip loop" title="Target of the loop back"><svg class="i" aria-hidden="true"><use href="#i-loop"/></svg></span></span>
+            <span class="out">3 levels edited. Attempt 2 passed.</span>
+            <span class="stime">3m 21s</span>
+            <span class="stag"></span>
           </div>
-          <div class="smini st st-skipped skip">
-            <div class="top"><span class="snum">7</span><span class="sname">Regenerate the level from its spec</span></div>
-            <div class="meta"><span class="state"><span class="dot"></span>skipped</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="out">Path not taken.</span></div>
+          <div class="smini wide st st-skipped skip">
+            <span class="snum">7</span>
+            <span class="sname">Regenerate the level from its spec</span>
+            <span class="state"><span class="dot"></span>skipped</span>
+            <span class="marks"><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></span>
+            <span class="out">Path not taken.</span>
+            <span class="stime"></span>
+            <span class="stag"></span>
           </div>
           </div>
         </div>
-        <div class="sgroup wide" style="left:46px;top:390px;width:1094px;height:86px">
+        <div class="sgroup wide" style="left:46px;top:414px;width:1094px;height:110px">
           <div class="glabel"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg>Run together · 2 steps<span class="stag">S7</span></div>
           <div class="pair">
-          <div class="smini st st-running">
-            <div class="top"><span class="snum">8</span><span class="sname">Update the level tests</span></div>
-            <div class="meta"><span class="state"><span class="dot pulse"></span>running</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span><span class="out">Expects · Tests match the new difficulty band.</span></div>
+          <div class="smini wide st st-running">
+            <span class="snum">8</span>
+            <span class="sname">Update the level tests</span>
+            <span class="state"><span class="dot pulse"></span>running</span>
+            <span class="marks"><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-bot"/></svg><span class="t">background-agent</span></span></span>
+            <span class="out">Expects · Tests match the new difficulty band.</span>
+            <span class="stime">1m 08s</span>
+            <span class="stag"></span>
           </div>
-          <div class="smini st st-blocked">
-            <div class="top"><span class="snum">9</span><span class="sname">Refresh the level index</span></div>
-            <div class="meta"><span class="state"><span class="dot"></span>blocked</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="out">Waits for you: 2 titles conflict.</span></div>
+          <div class="smini wide st st-blocked">
+            <span class="snum">9</span>
+            <span class="sname">Refresh the level index</span>
+            <span class="state"><span class="dot"></span>blocked</span>
+            <span class="marks"><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span></span>
+            <span class="out">Waits for you: 2 titles conflict.</span>
+            <span class="stime"></span>
+            <span class="stag"></span>
           </div>
           </div>
         </div>
-        <div class="scard st st-pending wide" style="left:46px;top:494px;width:1094px;height:36px">
+        <div class="scard st st-pending wide" style="left:46px;top:542px;width:1094px;height:36px">
           <span class="snum">10</span>
           <span class="sname">Re-check all levels</span>
           <span class="state"><span class="dot"></span>pending</span>
@@ -488,20 +606,30 @@
           <span class="stime"></span>
           <span class="stag">S8</span>
         </div>
-        <div class="sgroup wide" style="left:46px;top:548px;width:1094px;height:86px">
+        <div class="sgroup wide" style="left:46px;top:596px;width:1094px;height:110px">
           <div class="glabel"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg>Run together · 2 steps<span class="stag">S9</span></div>
           <div class="pair">
-          <div class="smini st st-pending">
-            <div class="top"><span class="snum">11</span><span class="sname">Update the difficulty table</span></div>
-            <div class="meta"><span class="state"><span class="dot"></span>pending</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="out">Expects · One row for each level.</span></div>
+          <div class="smini wide st st-pending">
+            <span class="snum">11</span>
+            <span class="sname">Update the difficulty table</span>
+            <span class="state"><span class="dot"></span>pending</span>
+            <span class="marks"><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span></span>
+            <span class="out">Expects · One row for each level.</span>
+            <span class="stime"></span>
+            <span class="stag"></span>
           </div>
-          <div class="smini st st-pending">
-            <div class="top"><span class="snum">12</span><span class="sname">Write the migration note</span></div>
-            <div class="meta"><span class="state"><span class="dot"></span>pending</span><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span><span class="out">Expects · A short note for the release.</span></div>
+          <div class="smini wide st st-pending">
+            <span class="snum">12</span>
+            <span class="sname">Write the migration note</span>
+            <span class="state"><span class="dot"></span>pending</span>
+            <span class="marks"><span class="chip "><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="t">model</span></span></span>
+            <span class="out">Expects · A short note for the release.</span>
+            <span class="stime"></span>
+            <span class="stag"></span>
           </div>
           </div>
         </div>
-        <div class="scard st st-pending wide" style="left:46px;top:652px;width:1094px;height:36px">
+        <div class="scard st st-pending wide" style="left:46px;top:724px;width:1094px;height:36px">
           <span class="snum">13</span>
           <span class="sname">Review the diff</span>
           <span class="state"><span class="dot"></span>pending</span>
@@ -510,7 +638,7 @@
           <span class="stime"></span>
           <span class="stag">S10</span>
         </div>
-        <div class="scard st st-pending wide" style="left:46px;top:706px;width:1094px;height:36px">
+        <div class="scard st st-pending wide" style="left:46px;top:778px;width:1094px;height:36px">
           <span class="snum">14</span>
           <span class="sname">Commit and open the pull request</span>
           <span class="state"><span class="dot"></span>pending</span>
@@ -519,7 +647,7 @@
           <span class="stime"></span>
           <span class="stag">S11</span>
         </div>
-        <div class="scard st st-pending wide" style="left:46px;top:760px;width:1094px;height:36px">
+        <div class="scard st st-pending wide" style="left:46px;top:832px;width:1094px;height:36px">
           <span class="snum">15</span>
           <span class="sname">Report the result to the room</span>
           <span class="state"><span class="dot"></span>pending</span>
@@ -540,6 +668,7 @@
         <li><b>Default</b><span>4 per row fits the most plans without a scroll. 3 per row reads better because titles stop wrapping. Which is the default?</span></li>
         <li><b>Where the setting lives</b><span>The control replaces the Auto, Horizontal, and Vertical buttons. It must persist in the layout file, like the other view settings.</span></li>
         <li><b>The label</b><span>A column holds one stage. A parallel stage puts two steps in one column, so "steps per row" is not exact. "Stages per row" is exact, but the user counts steps.</span></li>
+        <li><b>The state position</b><span>Position A is applied above. B is the calmest and keeps the full title, but it shows the word only when a step needs attention.</span></li>
         <li><b>Wrap and loop marks</b><span>The wrap line is dashed and labelled. The loop rail is violet. Is a label needed at each wrap, or only at the first?</span></li>
       </ul>
     </section>
