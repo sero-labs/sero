@@ -287,6 +287,7 @@ describe("persistent sessions and tasks", () => {
       expect(await second).toBe(true);
       expect((await store.getTask(task.taskId))?.status).toBe("working");
       runner.release?.("done");
+      while ((await store.getTask(task.taskId))?.status !== "completed") await Bun.sleep(1);
     } finally { await temp.cleanup(); }
   });
 
@@ -312,6 +313,7 @@ describe("persistent sessions and tasks", () => {
       await store.setApprovalMode(session.id, "ask");
       expect((await store.get(session.id))?.approvalMode).toBe("ask");
       runners.get(session.id)?.release?.("done");
+      while ((await store.getTask(secondTask.taskId))?.status !== "completed") await Bun.sleep(1);
     } finally { await temp.cleanup(); }
   });
 });
