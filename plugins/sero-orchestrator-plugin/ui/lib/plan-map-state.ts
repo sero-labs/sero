@@ -1,4 +1,5 @@
 import type { Loop, LoopStepDefinition, StepStatus } from '../../shared/types';
+import { formatDuration } from './format';
 
 export type MapRouteState = 'undecided' | 'taken' | 'not-taken';
 
@@ -27,4 +28,21 @@ export function mapEdgeState(loop: Loop, fromStepId: string, toStepId: string): 
   if (target === 'running' || source === 'running') return 'running';
   if (target === 'succeeded') return 'succeeded';
   return target ?? source ?? 'pending';
+}
+
+/**
+ * How long a step's newest finished attempt took, for the plan map card. A step
+ * that is still running has no elapsed time yet, so the card shows none rather
+ * than a number that goes stale between renders.
+ */
+export function stepElapsedLabel(loop: Loop, stepId: string): string | undefined {
+  for (let index = loop.runs.length - 1; index >= 0; index -= 1) {
+    const attempt = loop.runs[index].stepAttempts
+      .filter((candidate) => candidate.stepId === stepId && !candidate.synthetic && candidate.endedAt)
+      .at(-1);
+    if (!attempt?.endedAt) continue;
+    const elapsed = new Date(attempt.endedAt).getTime() - new Date(attempt.startedAt).getTime();
+    return Number.isFinite(elapsed) && elapsed >= 0 ? formatDuration(elapsed) : undefined;
+  }
+  return undefined;
 }

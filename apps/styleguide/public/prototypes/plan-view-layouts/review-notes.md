@@ -64,6 +64,14 @@ prototype does not demonstrate it.
 
 # Pass 2 — the serpentine map (`serpentine.html`)
 
+**Built.** The Orchestrator plan map now uses this design:
+`plugins/sero-orchestrator-plugin/ui/lib/plan-map-layout.ts`,
+`ui/components/PlanMap.tsx`, and `ui/components/PlanMapCard.tsx`. The
+steps-per-row setting is stored in `OrchestratorUiState.planStepsPerRow`. Two
+differences from the prototype: a card holds one title line at 1 to 3 steps per
+row and two at 4, so a long title never pushes the outcome out of a fixed-height
+card; and connectors join consecutive stages, not every `dependsOn` pair.
+
 Route: `http://127.0.0.1:5176/prototypes/plan-view-layouts/serpentine.html`
 
 Option B won the first review. This page answers two follow-up questions with

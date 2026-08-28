@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Loop, LoopStepDefinition, StepStatus } from '../../shared/types';
-import { mapEdgeState, mapRouteState } from '../lib/plan-map-state';
+import { mapEdgeState, mapRouteState, stepElapsedLabel } from '../lib/plan-map-state';
 import { DEFAULT_LIMITS, DEFAULT_LOG_POLICY, DEFAULT_WORKSPACE_SETTINGS } from '../../shared/defaults';
 
 const step = (
@@ -73,5 +73,47 @@ describe('plan map runtime state', () => {
     expect(mapEdgeState(loop, 'a', 'b')).toBe('running');
     loop.runtime.stepStates.b.status = 'skipped';
     expect(mapEdgeState(loop, 'a', 'b')).toBe('skipped');
+  });
+});
+
+describe('stepElapsedLabel', () => {
+  const attempt = (stepId: string, startMinute: number, endMinute?: number) => ({
+    id: `${stepId}-${startMinute}`,
+    stepId,
+    attemptNumber: 1,
+    parentSessionId: 'parent',
+    executionType: 'background-agent' as const,
+    status: 'completed' as const,
+    observations: [],
+    startedAt: `2026-07-27T00:0${startMinute}:00.000Z`,
+    endedAt: endMinute === undefined ? undefined : `2026-07-27T00:0${endMinute}:00.000Z`,
+  });
+
+  const runWith = (attempts: ReturnType<typeof attempt>[]) => ({
+    id: 'run-1',
+    runNumber: 1,
+    status: 'running' as const,
+    startedStepIds: [],
+    stepAttempts: attempts,
+    recoveryDecisions: [],
+    observations: [],
+    startedAt: '2026-07-27T00:00:00.000Z',
+  });
+
+  it('reports how long the newest finished attempt took', () => {
+    const loop = loopWith([step('build')]);
+    loop.runs = [runWith([attempt('build', 0, 1), attempt('build', 2, 5)])];
+    expect(stepElapsedLabel(loop, 'build')).toBe('3m');
+  });
+
+  it('reports nothing while the step is still running', () => {
+    const loop = loopWith([step('build')]);
+    loop.runs = [runWith([attempt('build', 0)])];
+    expect(stepElapsedLabel(loop, 'build')).toBeUndefined();
+  });
+
+  it('reports nothing for a step that never ran', () => {
+    const loop = loopWith([step('build')]);
+    expect(stepElapsedLabel(loop, 'build')).toBeUndefined();
   });
 });
