@@ -9,9 +9,9 @@ import { federation } from '@module-federation/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { seroPluginCssScope } from '@sero-ai/plugin-vite';
 
-// Unit tests do not exercise module-federation wiring, and the MF plugin
-// interferes with direct TSX imports under Vitest.
-const isTest = process.env.VITEST === 'true';
+// Unit tests and the component preview harness (ui/__preview__) do not exercise
+// module-federation wiring, and the MF plugin interferes with direct TSX imports.
+const skipFederation = process.env.VITEST === 'true' || process.env.SERO_PREVIEW === 'true';
 
 export default defineConfig({
   base: process.env.NODE_ENV === 'production' ? './' : '/',
@@ -19,7 +19,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     seroPluginCssScope({ pluginId: 'orchestrator' }),
-    ...(isTest ? [] : [
+    ...(skipFederation ? [] : [
       federation({
         name: 'sero_orchestrator',
         filename: 'remoteEntry.js',
