@@ -84,14 +84,14 @@ it runs, and what it produced.
 - The outcome is one line with an ellipsis. The old card reserved a second line
   that most steps did not use, which made the empty space at the card foot.
 
-### Where the state goes
+### Where the state goes — decided: A
 
-The state position is still open, so the page shows four, each with a done step,
-a running step, and a blocked step:
+The page keeps all four positions as the record of the comparison. Each shows a
+done step, a running step, and a blocked step:
 
 | | Position | Cost |
 | --- | --- | --- |
-| A | At the end of the title line (applied to the maps) | Takes about 70 px from the title, so more titles wrap at 4 per row |
+| A | At the end of the title line — **chosen, and used by every map on the page** | Takes about 70 px from the title, so more titles wrap at 4 per row |
 | B | On the left colour bar only, with the word for running, blocked, or failed | The word is absent on a done step |
 | C | On its own line above the title, with the stage tag | The card grows by one line |
 | D | In front of the outcome | Shortens the outcome text |
@@ -138,4 +138,4 @@ up between rows.
 3. The setting must persist in `~/.sero-ui/layout.json`, like the other view
    settings.
 4. Does every wrap need its label, or only the first one?
-5. Which state position (A to D)? A is applied to the maps.
+Decided: the state goes beside the title (position A).

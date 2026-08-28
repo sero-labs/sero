@@ -51,12 +51,12 @@
     <section class="opt">
       <div class="opt-head"><span class="tag">State</span><h2>Where the state goes</h2></div>
       <p>The meta line held the state, the agent, the marks, and the time. The time moved to the outcome
-      line. This is the same card, at the 4-per-row width, with the state in four positions. Each column
-      shows a done step, a running step, and a blocked step, so you can compare a scan down a column.</p>
+      line, and the state moved to the title line. Position A is the decision. The other three stay here
+      as the record of the comparison. Each column shows a done step, a running step, and a blocked step.</p>
       <div class="study">
         <div class="col">
           <h3>A · Beside the title</h3>
-          <span class="pick">Applied below</span>
+          <span class="pick">Chosen</span>
           <p>The state sits at the end of the title line, where the eye stops. The meta line keeps the agent and the marks. The stage tag goes. Cost: the state takes about 70 pixels from the title, so more titles wrap at 4 per row.</p>
           <div class="stack">
         <div class="scard st st-done" style="">
@@ -668,7 +668,7 @@
         <li><b>Default</b><span>4 per row fits the most plans without a scroll. 3 per row reads better because titles stop wrapping. Which is the default?</span></li>
         <li><b>Where the setting lives</b><span>The control replaces the Auto, Horizontal, and Vertical buttons. It must persist in the layout file, like the other view settings.</span></li>
         <li><b>The label</b><span>A column holds one stage. A parallel stage puts two steps in one column, so "steps per row" is not exact. "Stages per row" is exact, but the user counts steps.</span></li>
-        <li><b>The state position</b><span>Position A is applied above. B is the calmest and keeps the full title, but it shows the word only when a step needs attention.</span></li>
+        <li><b>The state position · decided</b><span>Position A, beside the title. The maps above use it.</span></li>
         <li><b>Wrap and loop marks</b><span>The wrap line is dashed and labelled. The loop rail is violet. Is a label needed at each wrap, or only at the first?</span></li>
       </ul>
     </section>
