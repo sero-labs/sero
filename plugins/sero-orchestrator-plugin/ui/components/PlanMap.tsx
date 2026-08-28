@@ -69,7 +69,7 @@ export function PlanMap({ loop, stepsPerRow }: PlanMapProps) {
     <Card className="overflow-hidden border-border/80 bg-background/30">
       <div
         ref={setContainerRef}
-        className="max-h-[560px] min-h-52 overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable]"
+        className="max-h-[560px] min-h-52 overflow-x-auto overflow-y-auto [scrollbar-gutter:stable]"
       >
         <div className="relative" style={{ width: layout.width, height: layout.height }}>
           <svg className="absolute inset-0 overflow-visible" width={layout.width} height={layout.height} aria-hidden>
@@ -96,6 +96,11 @@ export function PlanMap({ loop, stepsPerRow }: PlanMapProps) {
               onSelect={toggle}
             />
           ))}
+          <ul className="sr-only" aria-label="Plan connections">
+            {layout.edges.map((edge) => edge.label
+              ? <li key={`${edge.kind}:${edge.id}`}>{mapEdgeLabel(edge, loop)}</li>
+              : null)}
+          </ul>
         </div>
       </div>
 
@@ -158,16 +163,11 @@ function MapCell({ cell, loop, wide, titleLines, selectedId, onSelect }: MapCell
 
 function MapEdge({ edge, loop, markerPrefix }: { edge: PlanMapEdge; loop: Loop; markerPrefix: string }) {
   const feedback = edge.kind === 'feedback';
-  const traversals = feedback ? loop.runtime.feedbackStates?.[edge.id]?.traversals ?? 0 : 0;
-  const maxTraversals = feedback
-    ? loop.plan.steps.find((step) => step.feedback?.id === edge.id)?.feedback?.maxTraversalsPerRun
-    : undefined;
+  const traversals = loop.runtime.feedbackStates?.[edge.id]?.traversals ?? 0;
   const statusClass = feedback
     ? traversals > 0 ? 'text-violet-400' : 'text-violet-500/55'
     : edge.kind === 'wrap' ? 'text-border' : EDGE_STATUS_CLASS[mapEdgeState(loop, edge.fromStepId, edge.toStepId)];
-  const label = edge.label && (feedback && maxTraversals !== undefined
-    ? `${edge.label.text} · ${traversals} of ${maxTraversals} used`
-    : edge.label.text);
+  const label = mapEdgeLabel(edge, loop);
 
   return (
     <g className={`transition-colors ${statusClass}`}>
@@ -193,6 +193,17 @@ function MapEdge({ edge, loop, markerPrefix }: { edge: PlanMapEdge; loop: Loop; 
       )}
     </g>
   );
+}
+
+function mapEdgeLabel(edge: PlanMapEdge, loop: Loop): string | undefined {
+  if (!edge.label) return undefined;
+  if (edge.kind !== 'feedback') return edge.label.text;
+  const traversals = loop.runtime.feedbackStates?.[edge.id]?.traversals ?? 0;
+  const maxTraversals = loop.plan.steps
+    .find((step) => step.feedback?.id === edge.id)?.feedback?.maxTraversalsPerRun;
+  return maxTraversals === undefined
+    ? edge.label.text
+    : `${edge.label.text} · ${traversals} of ${maxTraversals} used`;
 }
 
 function SelectedStep({ loop, step }: { loop: Loop; step: LoopStepDefinition }) {

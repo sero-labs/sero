@@ -142,6 +142,39 @@ describe('computePlanMapLayout', () => {
     expect(acrossRows.columnWidth).toBeLessThan(sameRow.columnWidth);
   });
 
+  it.each(PER_ROW)('routes a cross-row loop towards its target at %i per row', (stepsPerRow) => {
+    const steps = [
+      ...chain(5),
+      step('s5', ['s4'], {
+        feedback: { id: 'again', toStepId: 's1', when: { var: 'ok', in: [false] }, maxTraversalsPerRun: 2 },
+      }),
+    ];
+    const layout = computePlanMapLayout(steps, { stepsPerRow, width: WIDE_PANEL });
+    const source = layout.cells.at(-1)!;
+    const target = layout.cells.find((cell) => cell.steps.some(({ step: entry }) => entry.id === 's1'))!;
+    const feedback = layout.edges.find((edge) => edge.kind === 'feedback')!;
+    const targetRowBottom = Math.max(...layout.cells
+      .filter((cell) => cell.row === target.row)
+      .map((cell) => cell.y + cell.height));
+    const nextRowTop = Math.min(...layout.cells
+      .filter((cell) => cell.row === target.row + 1)
+      .map((cell) => cell.y));
+
+    expect(feedback.path).toMatch(new RegExp(`^M ${source.x + 26} ${source.y + source.height + 3} V`));
+    expect(feedback.label!.y - 4).toBeGreaterThan(targetRowBottom);
+    expect(feedback.label!.y - 4).toBeLessThan(nextRowTop);
+    const finalSegment = feedback.path.match(/Q \S+ \S+ \S+ (\S+) V (\S+)$/);
+    expect(finalSegment).not.toBeNull();
+    expect(Number(finalSegment![2])).toBeLessThan(Number(finalSegment![1]));
+  });
+
+  it('reserves all rendered chrome around grouped steps', () => {
+    const layout = computePlanMapLayout(branched, { stepsPerRow: 4, width: WIDE_PANEL });
+    const group = layout.cells[1];
+    const contentHeight = group.steps.length * group.stepHeight + (group.steps.length - 1) * 6;
+    expect(group.height - contentHeight).toBe(36);
+  });
+
   it('holds fewer stages in a row than asked when the panel is narrow', () => {
     const wide = computePlanMapLayout(chain(4), { stepsPerRow: 4, width: WIDE_PANEL });
     const narrow = computePlanMapLayout(chain(4), { stepsPerRow: 4, width: 620 });
@@ -165,6 +198,7 @@ describe('computePlanMapLayout', () => {
 describe('clampStepsPerRow', () => {
   it('defaults when the stored value is missing or not a number', () => {
     expect(clampStepsPerRow(undefined)).toBe(DEFAULT_PLAN_MAP_STEPS_PER_ROW);
+    expect(clampStepsPerRow(null)).toBe(DEFAULT_PLAN_MAP_STEPS_PER_ROW);
     expect(clampStepsPerRow('three')).toBe(DEFAULT_PLAN_MAP_STEPS_PER_ROW);
   });
 

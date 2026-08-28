@@ -9,7 +9,6 @@ import {
   PLAN_MAP_STEPS_PER_ROW_MAX,
   PLAN_MAP_STEPS_PER_ROW_MIN,
 } from '../lib/plan-map-layout';
-import { useOrchestratorState } from '../lib/orchestrator-state';
 import { PlanMap } from './PlanMap';
 import { PlanView } from './PlanView';
 
@@ -27,19 +26,15 @@ function resolveMode(value: unknown, loop: Loop): PlanPresentationMode {
 
 export function PlanPresentation({ loop, onAction }: PlanPresentationProps) {
   const { values: profilePreferences, set: setProfilePreference } = useAppPreferences();
-  const { state, updateState } = useOrchestratorState();
-  const sliderId = useId();
-  const stepsPerRow = clampStepsPerRow(state.ui?.planStepsPerRow);
+  const sliderLabelId = useId();
+  const stepsPerRow = clampStepsPerRow(profilePreferences.planStepsPerRow);
   const mode = resolveMode(profilePreferences.planPresentationMode, loop);
 
   const setMode = (next: PlanPresentationMode) =>
     setProfilePreference('planPresentationMode', next);
 
   const setStepsPerRow = (next: number) =>
-    updateState((current) => ({
-      ...current,
-      ui: { ...current.ui, planStepsPerRow: clampStepsPerRow(next) },
-    }));
+    setProfilePreference('planStepsPerRow', clampStepsPerRow(next));
 
   return (
     <div className="flex flex-col gap-3">
@@ -58,9 +53,9 @@ export function PlanPresentation({ loop, onAction }: PlanPresentationProps) {
 
         {mode === 'map' && (
           <div className="flex items-center gap-2.5">
-            <label htmlFor={sliderId} className="text-xs text-muted-foreground">Steps per row</label>
+            <span id={sliderLabelId} className="text-xs text-muted-foreground">Steps per row</span>
             <Slider
-              id={sliderId}
+              aria-labelledby={sliderLabelId}
               className="w-28"
               min={PLAN_MAP_STEPS_PER_ROW_MIN}
               max={PLAN_MAP_STEPS_PER_ROW_MAX}

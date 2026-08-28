@@ -24,6 +24,7 @@ export const DEFAULT_PLAN_MAP_STEPS_PER_ROW: PlanMapStepsPerRow = 4;
 
 /** A stored or user-set value, held inside the supported range. */
 export function clampStepsPerRow(value: unknown): PlanMapStepsPerRow {
+  if (value === null || value === undefined) return DEFAULT_PLAN_MAP_STEPS_PER_ROW;
   const rounded = Math.round(Number(value));
   if (!Number.isFinite(rounded)) return DEFAULT_PLAN_MAP_STEPS_PER_ROW;
   const bounded = Math.min(PLAN_MAP_STEPS_PER_ROW_MAX, Math.max(PLAN_MAP_STEPS_PER_ROW_MIN, rounded));
@@ -102,7 +103,7 @@ const GROUPED_STEP_HEIGHT: Record<PlanMapStepsPerRow, number> = { 1: 98, 2: 98, 
 /** Narrow columns need two title lines; a wide column fits a title on one. */
 const TITLE_LINES: Record<PlanMapStepsPerRow, 1 | 2> = { 1: 1, 2: 1, 3: 1, 4: 2 };
 const GROUP_LABEL_HEIGHT = 22;
-const GROUP_PADDING = 10;
+const GROUP_PADDING = 14;
 const GROUP_GAP = 6;
 
 interface StageGroup {
@@ -283,6 +284,11 @@ function feedbackEdges(
   for (const cell of cells) for (const entry of cell.steps) numberOf.set(entry.step.id, entry.number);
 
   const edges: PlanMapEdge[] = [];
+  const laneBelow = (row: number) => {
+    const bottom = rowTops[row] + rowHeights[row];
+    const nextTop = rowTops[row + 1];
+    return nextTop === undefined ? bottom + PADDING_BOTTOM / 2 : (bottom + nextTop) / 2;
+  };
   for (const cell of cells) {
     for (const { step } of cell.steps) {
       const feedback = step.feedback;
@@ -302,15 +308,21 @@ function feedbackEdges(
         continue;
       }
 
+      const exitX = cell.x + 26;
       const entryX = target.x + 26;
-      const returnY = target.y + target.height + 12;
+      const sourceLane = laneBelow(cell.row);
+      const targetLane = Math.max(
+        laneBelow(target.row),
+        target.y + target.height + 12,
+      );
       edges.push({
         ...shared,
-        path: `M ${cell.x - 3} ${centreY(cell)} H ${railX + 8} Q ${railX} ${centreY(cell)} ${railX} ${centreY(cell) - 8}`
-          + ` V ${returnY + 8} Q ${railX} ${returnY} ${railX + 8} ${returnY}`
-          + ` H ${entryX - 8} Q ${entryX} ${returnY} ${entryX} ${returnY - 8}`
+        path: `M ${exitX} ${cell.y + cell.height + 3} V ${sourceLane}`
+          + ` H ${railX + 8} Q ${railX} ${sourceLane} ${railX} ${sourceLane - 8}`
+          + ` V ${targetLane + 8} Q ${railX} ${targetLane} ${railX + 8} ${targetLane}`
+          + ` H ${entryX - 8} Q ${entryX} ${targetLane} ${entryX} ${targetLane - 8}`
           + ` V ${target.y + target.height + 3}`,
-        label: { text, x: entryX + 8, y: returnY + 4, anchor: 'start' },
+        label: { text, x: entryX + 8, y: targetLane + 4, anchor: 'start' },
       });
     }
   }
