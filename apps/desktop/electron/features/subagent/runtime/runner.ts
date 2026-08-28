@@ -19,6 +19,7 @@ import type { RunnerConfig, RunResult, SubagentUsage, SubagentToolActivity, Plat
 import type { SharedInfra } from '@electron/shared/infra/shared-infra';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { createRuntimeTools } from '@electron/features/container/tools';
+import { SEARCH_TOOL_NAMES } from '@electron/features/apps/extensions/search-plugin';
 import { WORKSPACE_DIR } from '@electron/features/container/tools/tool-schemas';
 import { createSubagentResourceLoader } from './resource-loader';
 import { recordRunToolCatalog } from './tool-catalog';
@@ -125,7 +126,15 @@ export function sessionToolOptions(
   // it doesn't recognise). This also trims the per-tool prompt guidance.
   if (allowlist && allowlist.length > 0) return { noTools: 'builtin', tools: allowlist };
   if (policy === 'all') return { noTools: 'builtin' };
-  return { noTools: 'builtin', tools: sessionTools.map((tool) => tool.name) };
+
+  const names = sessionTools.map((tool) => tool.name);
+  // A read-only subagent keeps the read-only search tools. Without them it can
+  // read a file it is told about but cannot find one, and its only alternative
+  // is the shell this policy exists to withhold. 'none' stays exactly none.
+  const searchTools = policy === 'readOnly'
+    ? SEARCH_TOOL_NAMES.filter((name) => !names.includes(name))
+    : [];
+  return { noTools: 'builtin', tools: [...names, ...searchTools] };
 }
 
 export interface RunnerDeps {

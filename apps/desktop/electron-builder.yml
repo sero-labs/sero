@@ -48,6 +48,11 @@ asarUnpack:
   - node_modules/node-pty/**/*
   - node_modules/better-sqlite3/**/*
   - dist/electron/builtin/plugins/sero-web-plugin/node_modules/better-sqlite3/**/*
+  # FFF search: the engine is a Rust cdylib loaded through ffi-rs, so both the
+  # loader's own native addon and the platform binary package must be unpacked.
+  - dist/electron/builtin/plugins/sero-fff-plugin/node_modules/ffi-rs/**/*
+  - dist/electron/builtin/plugins/sero-fff-plugin/node_modules/@yuuang/**/*
+  - dist/electron/builtin/plugins/sero-fff-plugin/node_modules/@ff-labs/**/*
 
 # ── macOS ─────────────────────────────────────────────────────
 mac:

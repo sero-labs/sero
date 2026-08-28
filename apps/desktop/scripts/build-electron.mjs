@@ -5,6 +5,7 @@ import { createRequire } from 'module';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import builtinPackageDetection from '../electron/platform/protocols/builtin-package-detection.js';
+import { resolvePluginStagingEntries } from './stage-plugin-dependencies.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -98,8 +99,12 @@ function stagePluginRuntimeDependencies(srcDir, destDir, manifestDir = srcDir) {
   fs.mkdirSync(destNodeModules, { recursive: true });
   copyIfExists(path.join(srcDir, 'package-lock.json'), path.join(destDir, 'package-lock.json'));
 
-  for (const dep of runtimeDeps) {
-    copyIfExists(path.join(pluginNodeModules, dep), path.join(destNodeModules, dep));
+  // Optional dependencies carry the per-platform native binaries; only the ones
+  // installed for this build's platform resolve, and the rest are skipped.
+  const optionalDeps = Object.keys(pkg.optionalDependencies ?? {});
+  const entries = resolvePluginStagingEntries(pluginNodeModules, [...runtimeDeps, ...optionalDeps]);
+  for (const entry of entries) {
+    copyIfExists(entry.source, path.join(destNodeModules, entry.name));
   }
 }
 

@@ -18,6 +18,7 @@ import { ensureAiInfra } from '@electron/shared/infra/ai-infra';
 import { requestChoice } from '@electron/platform/desktop/request-choice';
 import { bridgeExtensionTools, createPrivateCliRegistry, createWorkspaceCliTool } from '@electron/cli';
 import { createSeroExtensionFactory } from '@electron/features/apps/extensions/create-sero-extension';
+import { searchPluginPackages } from '@electron/features/apps/extensions/search-plugin';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { getSubagentToolCatalog, warmSubagentToolCatalog } from '@electron/features/subagent/runtime/tool-catalog';
 import { getRoomSkillCatalog } from '@electron/ipc/agent/handlers/subagent-context';
@@ -157,8 +158,11 @@ export async function installPersistentSessions(
           allowedSkills: input.skills.filter((skill) => input.policy.allowedSkills.includes(skill)),
           appendSystemPrompt: input.systemPromptAdditions,
           settingsManager: infra.settingsManager,
-          // The app that holds the grant, and only it.
-          packages: [target.manifest.packagePath],
+          // The app that holds the grant, plus the built-in search plugin. The
+          // search tools are read-only and the permission profile still gates
+          // them, so a member approved for `filesystem: 'read'` can find a file
+          // instead of guessing its path; a member approved for none cannot.
+          packages: [target.manifest.packagePath, ...searchPluginPackages()],
           extensionFactories: [
             createSeroExtensionFactory(workspaceManager, target.workspace.id, cliScopeId, undefined, {
               // No agent-management tools: a Room member must not be able to

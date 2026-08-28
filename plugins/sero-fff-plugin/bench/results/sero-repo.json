@@ -1,0 +1,153 @@
+{
+  "summary": {
+    "repo": "/home/user/sero",
+    "indexedFiles": 3621,
+    "initialIndexingMs": 57,
+    "rssBeforeIndexMb": 59,
+    "rssAfterIndexMb": 73,
+    "peakRssMb": 85,
+    "tasks": 8,
+    "rg": {
+      "resultTokens": 4655,
+      "wallMs": 132,
+      "found": 8,
+      "topOne": 1
+    },
+    "fff": {
+      "resultTokens": 3157,
+      "wallMs": 21,
+      "found": 8,
+      "topOne": 1
+    }
+  },
+  "results": [
+    {
+      "id": "locate-ipc-contract",
+      "question": "Where is the renderer/main IPC contract defined?",
+      "rg": {
+        "elapsedMs": 12.077232,
+        "resultTokens": 1656,
+        "resultLines": 124,
+        "rank": 30
+      },
+      "fff": {
+        "elapsedMs": 3.609162,
+        "resultTokens": 248,
+        "resultLines": 20,
+        "rank": 13
+      }
+    },
+    {
+      "id": "plugin-bridge-policy",
+      "question": "Where is a plugin tool decided to be CLI-bridged?",
+      "rg": {
+        "elapsedMs": 16.534994,
+        "resultTokens": 106,
+        "resultLines": 4,
+        "rank": 2
+      },
+      "fff": {
+        "elapsedMs": 1.811512,
+        "resultTokens": 101,
+        "resultLines": 4,
+        "rank": 2
+      }
+    },
+    {
+      "id": "workspace-roots",
+      "question": "How are multi-root workspaces stored?",
+      "rg": {
+        "elapsedMs": 17.480406,
+        "resultTokens": 648,
+        "resultLines": 22,
+        "rank": 5
+      },
+      "fff": {
+        "elapsedMs": 1.749391,
+        "resultTokens": 570,
+        "resultLines": 20,
+        "rank": 3
+      }
+    },
+    {
+      "id": "permission-profile",
+      "question": "Where is a persistent session tool list filtered by its profile?",
+      "rg": {
+        "elapsedMs": 17.767498,
+        "resultTokens": 558,
+        "resultLines": 14,
+        "rank": 2
+      },
+      "fff": {
+        "elapsedMs": 2.2891,
+        "resultTokens": 544,
+        "resultLines": 14,
+        "rank": 3
+      }
+    },
+    {
+      "id": "builtin-plugin-discovery",
+      "question": "How does the host discover bundled plugins?",
+      "rg": {
+        "elapsedMs": 17.513747,
+        "resultTokens": 587,
+        "resultLines": 18,
+        "rank": 7
+      },
+      "fff": {
+        "elapsedMs": 1.822848,
+        "resultTokens": 574,
+        "resultLines": 18,
+        "rank": 9
+      }
+    },
+    {
+      "id": "naming-variants",
+      "question": "Where is the workspace id container label defined, in any spelling?",
+      "rg": {
+        "elapsedMs": 17.060143,
+        "resultTokens": 1008,
+        "resultLines": 28,
+        "rank": 2
+      },
+      "fff": {
+        "elapsedMs": 4.114302,
+        "resultTokens": 752,
+        "resultLines": 22,
+        "rank": 6
+      }
+    },
+    {
+      "id": "asar-unpack",
+      "question": "Which files are unpacked from the asar?",
+      "rg": {
+        "elapsedMs": 16.352024,
+        "resultTokens": 61,
+        "resultLines": 3,
+        "rank": 2
+      },
+      "fff": {
+        "elapsedMs": 2.286941,
+        "resultTokens": 58,
+        "resultLines": 3,
+        "rank": 2
+      }
+    },
+    {
+      "id": "subagent-tool-policy",
+      "question": "Which file implements the subagent platform-tool policy?",
+      "rg": {
+        "elapsedMs": 17.464089,
+        "resultTokens": 31,
+        "resultLines": 2,
+        "rank": 1
+      },
+      "fff": {
+        "elapsedMs": 3.263947,
+        "resultTokens": 310,
+        "resultLines": 20,
+        "rank": 1
+      }
+    }
+  ]
+}
