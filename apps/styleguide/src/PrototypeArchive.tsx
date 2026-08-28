@@ -18,6 +18,7 @@ const interactivePrototypes = [
   ['Streaming file writes', 'streaming-file-writes.html'],
   ['Expanded tool call group', 'tool-call-group-expanded.html'],
   ['Agent Node desktop', 'agent-node-desktop.html'],
+  ['Workflow plan view — four denser layouts', 'plan-view-layouts/index.html'],
 ] as const;
 
 const agentRoomScreens = [
