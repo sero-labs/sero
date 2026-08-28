@@ -54,6 +54,7 @@ export function PlanMap({ loop, stepsPerRow }: PlanMapProps) {
     [loop.plan.steps, stepsPerRow, containerWidth],
   );
   const selected = loop.plan.steps.find((step) => step.id === selectedId);
+  const horizontalOverflow = layout.stepsPerRow === 1 ? 'overflow-x-hidden' : 'overflow-x-auto';
   const toggle = (stepId: string) =>
     setSelectedId((current) => (current === stepId ? undefined : stepId));
 
@@ -67,7 +68,10 @@ export function PlanMap({ loop, stepsPerRow }: PlanMapProps) {
 
   return (
     <Card className="overflow-hidden border-border/80 bg-background/30">
-      <div ref={setContainerRef} className="max-h-[560px] min-h-52 overflow-auto [scrollbar-gutter:stable]">
+      <div
+        ref={setContainerRef}
+        className={`max-h-[560px] min-h-52 overflow-y-auto [scrollbar-gutter:stable] ${horizontalOverflow}`}
+      >
         <div className="relative" style={{ width: layout.width, height: layout.height }}>
           <svg className="absolute inset-0 overflow-visible" width={layout.width} height={layout.height} aria-hidden>
             <defs>
