@@ -84,14 +84,14 @@ Select **Generate plan →**.
 
 ## 2. Review the plan
 
-Sero shows the proposed steps as a map. No work has started yet.
+Sero shows the proposed steps as a map. No work has started yet. The example
+below shows Issue Implementer, a longer Workflow with several branches. Each
+box is one step. An arrow means that the next step waits for the previous one.
+A step with the `pending` status has not started.
 
-![The generated plan as a map of seven connected steps](../assets/images/orchestrator-plan-map-draft.jpg)
+![A complex Workflow map with eleven steps and two branches](../assets/images/orchestrator-plan-map-branches.jpg)
 
-Each box is one step. An arrow means that the next step waits for the previous
-one. A step with the `pending` status has not started.
-
-Check that the plan will:
+For the Lattice plan that you generated, check that the plan will:
 
 1. find the puzzle files;
 2. check each puzzle;
@@ -104,51 +104,35 @@ Check that the plan will:
 The summary above the map shows where the work will happen, where Sero will send
 the result, what starts the Workflow, and the time and token limits.
 
-### Understand the icons
+### Read branches and step labels
 
-Icons on each step show how the Workflow can use its results.
+A branch groups steps that run only when an earlier step records a matching
+result. In the example, one branch releases an issue that another worker has
+claimed. Another branch chooses whether to ask a question, request a product
+decision, write a plan, or implement the issue.
 
-![The first steps of the plan, zoomed in, showing the branch and multiple-item icons](../assets/images/orchestrator-plan-map-badges.jpg)
+Labels at the bottom of a step show its agent and the values that it reads or
+records. The status at the top right shows whether the step is pending, running,
+complete, or blocked.
 
-- The **branch icon** means that a step records information for later steps. In
-  this plan, the first step records which puzzle files it found.
-- **×10** means that the step runs once for each item, with a maximum of ten. In
-  this plan, Sero runs one check for each puzzle file.
+The map places one or more steps on each row. Use **Steps per row** to make the
+cards wider or to see more of the plan at once. Sero reduces the number when the
+available width is too small.
 
-![Step 4, Obtain protected solver approval, carrying the shield icon](../assets/images/orchestrator-plan-map-badges-gate.jpg)
-
-- The **shield icon** means that Sero waits for your approval before it runs the
-  step. Here, Sero must ask before it changes `src/solver.js`.
-
-![The last steps, with the violet dashed route returning from the test to the repair](../assets/images/orchestrator-plan-map-badges-end.jpg)
-
-- The **violet dashed arrow** means that the Workflow can return to an earlier
-  step. Here, a failed test returns the puzzle to the repair step. The limit of
-  three attempts prevents the Workflow from repeating without end.
-
-See the [Workflows reference](/reference/workflows#node-badges) for all plan
-icons.
+See the [Workflows reference](/reference/workflows#node-badges) for all step
+labels and plan rules.
 
 ### Change the plan view
 
-Use **Auto**, **Horizontal**, or **Vertical** to change the direction of the map.
-Use **Vertical** for a narrow screen or a long plan.
+Select a step to read its full instructions and expected result.
 
-![The same plan drawn as a single vertical column](../assets/images/orchestrator-plan-map-vertical.jpg)
-
-Use the zoom controls to change the map size. Select **Fit** to show the full
-plan in the available space.
-
-![The zoom control with the plan enlarged past its fitted size](../assets/images/orchestrator-plan-map-zoom.jpg)
-
-Select a step to read its instructions and expected result.
-
-![A selected step, with its detail open below the map](../assets/images/orchestrator-plan-map-selected.jpg)
+![A selected step with its full instructions below the map](../assets/images/orchestrator-plan-map-selected.jpg)
 
 Select **Details** to read the complete plan as a list. Select **Map** to return
-to the diagram.
+Sero keeps this choice for your profile, including when you open another
+workspace.
 
-![The same plan as a detailed list of steps](../assets/images/orchestrator-plan-details.jpg)
+![The Issue Implementer plan shown in Details view](../assets/images/orchestrator-plan-details.jpg)
 
 ## 3. Change the plan
 
