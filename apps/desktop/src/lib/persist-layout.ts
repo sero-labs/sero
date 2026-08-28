@@ -53,6 +53,7 @@ function buildLayoutState(partial: Partial<LayoutState>): LayoutState {
       : ws.activeWorkspaceId,
     activeApp: partial.activeApp ?? app.activeApp,
     appViewIds: partial.appViewIds ?? app.appViewIds,
+    appPreferences: partial.appPreferences ?? app.appPreferences,
     chromeShortcuts: partial.chromeShortcuts ?? app.chromeShortcuts,
     zoomFactor: partial.zoomFactor ?? useZoomStore.getState().factor,
     storageWarningDismissed: partial.storageWarningDismissed

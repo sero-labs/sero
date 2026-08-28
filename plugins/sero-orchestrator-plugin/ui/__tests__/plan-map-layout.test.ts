@@ -150,11 +150,11 @@ describe('computePlanMapLayout', () => {
     expect(narrow.columnWidth).toBeGreaterThanOrEqual(200);
   });
 
-  it('keeps a readable single-column canvas inside a very narrow panel', () => {
+  it('does not force horizontal scrolling in single-column mode', () => {
     const layout = computePlanMapLayout(chain(4), { stepsPerRow: 4, width: 320 });
     expect(layout.stepsPerRow).toBe(1);
-    expect(layout.width).toBeGreaterThan(320);
-    expect(layout.columnWidth).toBeGreaterThanOrEqual(560);
+    expect(layout.width).toBe(320);
+    expect(layout.columnWidth).toBe(280);
   });
 
   it('returns an empty layout for a plan with no steps', () => {

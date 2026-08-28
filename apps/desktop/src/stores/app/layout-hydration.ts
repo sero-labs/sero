@@ -86,6 +86,9 @@ export async function loadLayout(): Promise<void> {
       if (state.appViewIds && typeof state.appViewIds === 'object') {
         update.appViewIds = state.appViewIds;
       }
+      if (state.appPreferences && typeof state.appPreferences === 'object') {
+        update.appPreferences = state.appPreferences;
+      }
 
       useAppStore.setState(update);
       const hydratedApp = update.activeApp ?? useAppStore.getState().activeApp;

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { AppProfilePreferenceValue } from '@sero-ai/app-runtime';
 import { persistLayout } from '@/lib/persist-layout';
 import type { ToolCallLayout } from '@/types/layout';
 import {
@@ -65,6 +66,8 @@ export interface AppState {
   activeApp: string;
   /** Last internal view published by each app. */
   appViewIds: Record<string, Record<string, string>>;
+  /** Profile-wide preferences keyed by app id. */
+  appPreferences: Record<string, Record<string, AppProfilePreferenceValue>>;
   /** The app currently being preloaded before activation. */
   pendingApp: string | null;
   /** Pass `skipHistory` when re-activating an app from navigation history. */
@@ -76,6 +79,7 @@ export interface AppState {
     viewId: string,
     options?: { skipHistory?: boolean; workspaceId?: string; replaceHistory?: boolean },
   ) => void;
+  setAppPreference: (appId: string, key: string, value: AppProfilePreferenceValue) => void;
   reloadApp: (appId: string) => void;
 
   // Theme
@@ -199,6 +203,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Active app (hydrated from layout file on startup)
   activeApp: 'dashboard',
   appViewIds: {},
+  appPreferences: {},
   pendingApp: null,
   setActiveApp: (app, options) => {
     const { activeApp, pendingApp, apps } = get();
@@ -280,6 +285,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       );
     }
     persistLayout({ appViewIds });
+  },
+  setAppPreference: (appId, key, value) => {
+    const current = get();
+    if (current.appPreferences[appId]?.[key] === value) return;
+    const appPreferences = {
+      ...current.appPreferences,
+      [appId]: { ...current.appPreferences[appId], [key]: value },
+    };
+    set({ appPreferences });
+    persistLayout({ appPreferences });
   },
   reloadApp: (appId) => {
     const entry = get().apps.find((candidate) => candidate.id === appId);

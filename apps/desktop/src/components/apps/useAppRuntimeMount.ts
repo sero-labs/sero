@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import type { AppContextValue } from '@sero-ai/app-runtime';
+import type { AppContextValue, AppProfilePreferenceValue } from '@sero-ai/app-runtime';
 import type { SeroAppManifest } from '@/types/ipc';
 import { useAgentStore } from '@/stores/agent';
 import { useAppStore } from '@/stores/app';
@@ -9,6 +9,8 @@ import { useThemeStore } from '@/stores/theme';
 import { useWorkspaceStore } from '@/stores/workspace';
 
 export type AppRuntimeMountStatus = 'ready' | 'loading-workspace' | 'missing-workspace';
+
+const EMPTY_APP_PREFERENCES: Readonly<Record<string, AppProfilePreferenceValue>> = {};
 
 function findTargetSession(targetWorkspaceId: string) {
   const sessionStore = useSessionStore.getState();
@@ -94,6 +96,9 @@ export function useAppRuntimeMount(manifest: SeroAppManifest): AppRuntimeMountRe
   const effectiveMode = useThemeStore((state) => state.effectiveMode);
   const activePresetId = useThemeStore((state) => state.activePresetId);
   const editorThemeId = useAppStore((state) => state.editorThemeId);
+  const appPreferenceValues = useAppStore(
+    (state) => state.appPreferences[manifest.id] ?? EMPTY_APP_PREFERENCES,
+  );
   const isGlobal = manifest.scope === 'global';
   const navigationWorkspaceId = isGlobal ? undefined : activeWorkspaceId ?? undefined;
   const navigationScopeId = navigationWorkspaceId ?? 'global';
@@ -123,6 +128,15 @@ export function useAppRuntimeMount(manifest: SeroAppManifest): AppRuntimeMountRe
     navigate,
   }), [navigationViewId, savedViewId, navigate]);
 
+  const setProfilePreference = useCallback((key: string, value: AppProfilePreferenceValue) => {
+    useAppStore.getState().setAppPreference(manifest.id, key, value);
+  }, [manifest.id]);
+
+  const profilePreferences = useMemo(() => ({
+    values: appPreferenceValues,
+    set: setProfilePreference,
+  }), [appPreferenceValues, setProfilePreference]);
+
   // Resolve state file path based on scope.
   const stateFilePath = isGlobal
     ? manifest.globalStatePath ?? ''
@@ -147,8 +161,9 @@ export function useAppRuntimeMount(manifest: SeroAppManifest): AppRuntimeMountRe
       themePresetId: activePresetId,
       editorThemeId,
       navigation,
+      profilePreferences,
     }),
-    [manifest.id, isGlobal, activeWorkspaceId, workspacePath, stateFilePath, promptAgent, effectiveMode, activePresetId, editorThemeId, navigation],
+    [manifest.id, isGlobal, activeWorkspaceId, workspacePath, stateFilePath, promptAgent, effectiveMode, activePresetId, editorThemeId, navigation, profilePreferences],
   );
 
   return { contextValue, status };

@@ -84,7 +84,9 @@ Catalog commands:
 ## Reading a plan
 
 Use the **Map / Details** control to change the plan view. **Map** is the default
-for a draft Workflow. **Details** is the default for an active Workflow.
+for a draft Workflow. **Details** is the default for an active Workflow. After
+you select a view, Sero uses it for all Workflows and workspaces in the current
+profile.
 
 ### Map controls
 
@@ -93,7 +95,7 @@ for a draft Workflow. **Details** is the default for an active Workflow.
 | Steps per row | `1` to `4` | Sets how many dependency stages the map puts in one row. A narrow panel can use fewer stages than the selected value. |
 
 Stages fill each row from left to right, then continue on the next row. Cards
-stay at a readable size. A narrow panel can scroll a single-column map.
+stay at a readable size. A single-column map uses the available panel width.
 
 Each card shows the step state, latest outcome or expected outcome, elapsed
 time, execution target, and routing marks. Select a card to show its full

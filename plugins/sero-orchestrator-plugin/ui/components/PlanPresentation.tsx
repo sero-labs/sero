@@ -1,4 +1,5 @@
-import { useId, useState } from 'react';
+import { useId } from 'react';
+import { useAppPreferences } from '@sero-ai/app-runtime';
 import { Slider } from '@sero-ai/ui/components/ui/slider';
 import { ToggleGroup, ToggleGroupItem } from '@sero-ai/ui/components/ui/toggle-group';
 import { ListTree, Map } from 'lucide-react';
@@ -19,11 +20,20 @@ interface PlanPresentationProps {
   onAction: (action: OrchestratorAction) => void;
 }
 
+function resolveMode(value: unknown, loop: Loop): PlanPresentationMode {
+  if (value === 'map' || value === 'details') return value;
+  return loop.status === 'draft' ? 'map' : 'details';
+}
+
 export function PlanPresentation({ loop, onAction }: PlanPresentationProps) {
-  const [mode, setMode] = useState<PlanPresentationMode>(loop.status === 'draft' ? 'map' : 'details');
+  const { values: profilePreferences, set: setProfilePreference } = useAppPreferences();
   const { state, updateState } = useOrchestratorState();
   const sliderId = useId();
   const stepsPerRow = clampStepsPerRow(state.ui?.planStepsPerRow);
+  const mode = resolveMode(profilePreferences.planPresentationMode, loop);
+
+  const setMode = (next: PlanPresentationMode) =>
+    setProfilePreference('planPresentationMode', next);
 
   const setStepsPerRow = (next: number) =>
     updateState((current) => ({

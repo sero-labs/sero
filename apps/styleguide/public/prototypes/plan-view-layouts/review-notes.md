@@ -161,10 +161,12 @@ data changed the production card in four ways:
   wrap to two lines. Single cards are 100 pixels high, or 118 pixels when a
   narrow card reserves two title lines. A step in a grouped stage is 98 pixels
   high.
-- One-stage rows use the same three-line card as the other settings. A panel
-  narrower than 640 pixels scrolls the map instead of collapsing text columns.
+- One-stage rows use the same three-line card as the other settings and use the
+  available panel width without adding a horizontal scrollbar.
 - Selection uses one inset border. It does not add a second border outside the
   card.
+- The Map/Details selection is a profile preference. It follows the user across
+  Workflows and workspaces.
 
 The production layout also labels a dependency level as a branch only when all
 steps use the same routing variable. A level with unrelated guarded or

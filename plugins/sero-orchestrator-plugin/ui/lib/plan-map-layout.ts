@@ -95,8 +95,6 @@ const LOOP_RAIL = 26;
 /** Below this a column cannot hold a readable card, so a row holds fewer. */
 const MIN_COLUMN_WIDTH = 216;
 export const PLAN_MAP_MIN_WIDTH = 320;
-/** A single-column card keeps a readable canvas and scrolls inside a narrower panel. */
-export const PLAN_MAP_SINGLE_COLUMN_MIN_WIDTH = 640;
 
 const ROW_GAP: Record<PlanMapStepsPerRow, number> = { 1: 18, 2: 24, 3: 26, 4: 40 };
 const CARD_HEIGHT: Record<PlanMapStepsPerRow, number> = { 1: 100, 2: 100, 3: 100, 4: 118 };
@@ -155,9 +153,7 @@ export function computePlanMapLayout(
   const panelWidth = Math.max(PLAN_MAP_MIN_WIDTH, options.width);
   const stages = toStages(steps);
   const stepsPerRow = fitStepsPerRow(options.stepsPerRow, panelWidth);
-  const width = stepsPerRow === 1
-    ? Math.max(PLAN_MAP_SINGLE_COLUMN_MIN_WIDTH, panelWidth)
-    : panelWidth;
+  const width = panelWidth;
   const rowOf = (stage: number) => Math.floor(stage / stepsPerRow);
   const rail = usesLoopRail(steps, stages, rowOf) ? LOOP_RAIL : 0;
   const left = PADDING_X + rail;

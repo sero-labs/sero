@@ -6,6 +6,7 @@ This package provides the React hooks and context used by Sero apps:
 
 - `useAppState`
 - `useAppNavigation`
+- `useAppPreferences`
 - `useAppInfo`
 - `useAgentPrompt`
 - `useAI`
@@ -19,6 +20,10 @@ derived from static app data, such as `rooms/<room-id>?view=timeline`.
 
 `useAppState` also returns `ready`. Use it when an initial write must wait until
 the state file has been read.
+
+`useAppPreferences` stores small profile-wide UI choices in the host layout.
+Use it for settings that must follow the profile across workspaces. Use
+`useAppState` for workspace or app data.
 
 ## Development
 
