@@ -157,9 +157,10 @@ data changed the production card in four ways:
 
 - The outcome and elapsed time now sit between the title and the execution
   marks. The marks stay on the bottom line.
-- Cards use more space between lines and less vertical padding. Single cards
-  are 82 pixels high, or 100 pixels when a narrow card reserves two title
-  lines. A step in a grouped stage is 76 pixels high.
+- Cards use more space between lines and less vertical padding. Outcomes can
+  wrap to two lines. Single cards are 100 pixels high, or 118 pixels when a
+  narrow card reserves two title lines. A step in a grouped stage is 98 pixels
+  high.
 - One-stage rows use the same three-line card as the other settings. A panel
   narrower than 640 pixels scrolls the map instead of collapsing text columns.
 - Selection uses one inset border. It does not add a second border outside the

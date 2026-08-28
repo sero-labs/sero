@@ -165,6 +165,14 @@ describe('PlanMapCard', () => {
     expect(rows[2]).toContain('background-agent');
   });
 
+  it('allows a long outcome to wrap onto a second line', async () => {
+    const target = step();
+    await render(loopWith(target, 'succeeded', 'A long outcome that can use the available card height.'), target);
+    const outcome = container.querySelector('button')?.children[1].firstElementChild;
+    expect(outcome?.className).toContain('line-clamp-2');
+    expect(outcome?.className).not.toContain('truncate');
+  });
+
   it('uses an inset selection border', async () => {
     const target = step();
     await render(loopWith(target, 'pending'), target, { selected: true });

@@ -68,8 +68,8 @@ export function PlanMapCard({ loop, step, number, grouped, titleLines, selected,
         </span>
         <StepState status={status} />
       </span>
-      <span className="flex min-h-4 items-center gap-2">
-        <span className="min-w-0 flex-1 truncate text-xs text-foreground/70" title={detail || undefined}>{detail}</span>
+      <span className="flex min-h-4 items-end gap-2">
+        <span className="min-w-0 flex-1 line-clamp-2 text-xs leading-snug text-foreground/70" title={detail || undefined}>{detail}</span>
         {elapsed && <span className="shrink-0 text-xs tabular-nums text-foreground/70">{elapsed}</span>}
       </span>
       <span className="mt-auto flex items-center gap-1.5 overflow-hidden">
