@@ -1,0 +1,72 @@
+{
+  "summary": {
+    "repo": "/Users/danielcarter/Documents/Dev/projects/sero/sero",
+    "iterations": 10,
+    "outputLimit": 20,
+    "indexedFiles": 3566,
+    "initialIndexReadyMs": 66.02,
+    "rssBeforeIndexMb": 149,
+    "processMaxRssMb": 207,
+    "tasks": 8,
+    "rg": {
+      "medianTaskWallMs": 317.83,
+      "medianResultTokensEstimate": 2862,
+      "foundRuns": 78
+    },
+    "fff": {
+      "medianTaskWallMs": 12.37,
+      "medianResultTokensEstimate": 2107,
+      "foundRuns": 70
+    }
+  },
+  "results": [
+    {
+      "id": "locate-ipc-contract",
+      "question": "Where is the renderer/main IPC contract defined?",
+      "rg": { "medianMs": 12.57, "p95Ms": 13.8, "medianResultTokensEstimate": 231, "found": 8, "runs": 10 },
+      "fff": { "medianMs": 1.7, "p95Ms": 3.71, "medianResultTokensEstimate": 268, "found": 10, "runs": 10 }
+    },
+    {
+      "id": "plugin-bridge-policy",
+      "question": "Where is a plugin tool decided to be CLI-bridged?",
+      "rg": { "medianMs": 48.62, "p95Ms": 53.53, "medianResultTokensEstimate": 106, "found": 10, "runs": 10 },
+      "fff": { "medianMs": 0.62, "p95Ms": 1.43, "medianResultTokensEstimate": 84, "found": 10, "runs": 10 }
+    },
+    {
+      "id": "workspace-roots",
+      "question": "How are multi-root workspaces stored?",
+      "rg": { "medianMs": 47.32, "p95Ms": 54.86, "medianResultTokensEstimate": 576, "found": 10, "runs": 10 },
+      "fff": { "medianMs": 1.04, "p95Ms": 1.24, "medianResultTokensEstimate": 384, "found": 10, "runs": 10 }
+    },
+    {
+      "id": "permission-profile",
+      "question": "Where is a persistent session tool list filtered by its profile?",
+      "rg": { "medianMs": 47.26, "p95Ms": 61.42, "medianResultTokensEstimate": 558, "found": 10, "runs": 10 },
+      "fff": { "medianMs": 1.69, "p95Ms": 4.08, "medianResultTokensEstimate": 328, "found": 10, "runs": 10 }
+    },
+    {
+      "id": "builtin-plugin-discovery",
+      "question": "How does the host discover bundled plugins?",
+      "rg": { "medianMs": 47.96, "p95Ms": 52.39, "medianResultTokensEstimate": 587, "found": 10, "runs": 10 },
+      "fff": { "medianMs": 0.99, "p95Ms": 1.31, "medianResultTokensEstimate": 471, "found": 10, "runs": 10 }
+    },
+    {
+      "id": "naming-variants",
+      "question": "Where is the workspace id container label defined, in any spelling?",
+      "rg": { "medianMs": 50.09, "p95Ms": 56.52, "medianResultTokensEstimate": 687, "found": 10, "runs": 10 },
+      "fff": { "medianMs": 1.85, "p95Ms": 7.06, "medianResultTokensEstimate": 401, "found": 0, "runs": 10 }
+    },
+    {
+      "id": "asar-unpack",
+      "question": "Which files are unpacked from the asar?",
+      "rg": { "medianMs": 51.46, "p95Ms": 55.12, "medianResultTokensEstimate": 86, "found": 10, "runs": 10 },
+      "fff": { "medianMs": 2.7, "p95Ms": 5.51, "medianResultTokensEstimate": 74, "found": 10, "runs": 10 }
+    },
+    {
+      "id": "subagent-tool-policy",
+      "question": "Which file implements the subagent platform-tool policy?",
+      "rg": { "medianMs": 12.55, "p95Ms": 13.33, "medianResultTokensEstimate": 31, "found": 10, "runs": 10 },
+      "fff": { "medianMs": 1.78, "p95Ms": 2.17, "medianResultTokensEstimate": 97, "found": 10, "runs": 10 }
+    }
+  ]
+}

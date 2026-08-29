@@ -41,11 +41,27 @@ describe('sessionToolOptions', () => {
     });
   });
 
-  it("allowlists read plus custom tools for 'readOnly'", () => {
+  it("allowlists read, custom tools, and the read-only search tools for 'readOnly'", () => {
     const combined = [tool('read'), tool('factory_submit_artefact')];
     expect(sessionToolOptions('readOnly', combined)).toEqual({
       noTools: 'builtin',
-      tools: ['read', 'factory_submit_artefact'],
+      tools: ['read', 'factory_submit_artefact', 'find', 'grep', 'multi_grep'],
     });
+  });
+
+  it("does not add search tools for 'none'", () => {
+    expect(sessionToolOptions('none', [tool('factory_read_file')]).tools)
+      .toEqual(['factory_read_file']);
+  });
+
+  it('never lists a search tool twice', () => {
+    const combined = [tool('read'), tool('grep')];
+    expect(sessionToolOptions('readOnly', combined).tools)
+      .toEqual(['read', 'grep', 'find', 'multi_grep']);
+  });
+
+  it('leaves an explicit per-step allowlist untouched', () => {
+    expect(sessionToolOptions('readOnly', [tool('read')], ['read']))
+      .toEqual({ noTools: 'builtin', tools: ['read'] });
   });
 });

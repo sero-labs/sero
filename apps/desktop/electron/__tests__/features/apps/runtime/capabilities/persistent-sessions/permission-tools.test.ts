@@ -40,6 +40,24 @@ describe('persistent-session permission tools', () => {
     expect(result.removed).toEqual(['bash', 'shell', 'mystery_tool']);
   });
 
+  it('classifies the search plugin tools as reads a filesystem-read subject keeps', () => {
+    const result = applyPermissionProfile(
+      ['find', 'grep', 'multi_grep'],
+      { filesystem: 'read', commands: 'readOnly', network: 'none', vcs: 'read' },
+    );
+
+    expect(result).toEqual({ allowed: ['find', 'grep', 'multi_grep'], removed: [] });
+  });
+
+  it('withholds the search plugin tools from a subject with no filesystem access', () => {
+    const result = applyPermissionProfile(
+      ['find', 'grep', 'multi_grep'],
+      { filesystem: 'none', commands: 'readOnly', network: 'none', vcs: 'read' },
+    );
+
+    expect(result.allowed).toEqual([]);
+  });
+
   it('keeps an approved shell only for a profile that discloses full commands', () => {
     const result = applyPermissionProfile(
       ['read', 'bash', 'write'],

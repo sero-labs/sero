@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { buildGraphifyAugmentContext, buildSessionOrientation, extractAugmentCacheKey, extractRelevantReportSnippet } from './augment';
+import {
+  buildGraphifyAugmentContext,
+  buildGraphifySystemPrompt,
+  buildSessionOrientation,
+  extractAugmentCacheKey,
+  extractRelevantReportSnippet,
+} from './augment';
 import { createGraphContextState } from './state';
 
 describe('extractRelevantReportSnippet', () => {
@@ -38,7 +44,18 @@ describe('buildGraphifyAugmentContext', () => {
   it('includes the suggested question when graph exists', () => {
     const state = createGraphContextState();
     state.graphExists = true;
-    expect(buildGraphifyAugmentContext(state, 'How does auth work?')).toContain('How does auth work?');
+    const text = buildGraphifyAugmentContext(state, 'How does auth work?');
+    expect(text).toContain('How does auth work?');
+    expect(text).toContain('`sero-cli` model tool');
+    expect(text).toContain('Do not run `sero-cli` through Bash');
+  });
+});
+
+describe('buildGraphifySystemPrompt', () => {
+  it('names the bridged model tool instead of a Bash executable', () => {
+    const text = buildGraphifySystemPrompt();
+    expect(text).toContain('`sero-cli` model tool');
+    expect(text).toContain('Do not run a `sero-cli` executable in Bash');
   });
 });
 
@@ -50,6 +67,7 @@ describe('buildSessionOrientation', () => {
     expect(text).toContain('[Graphify active]');
     expect(text).toContain('graphify_query');
     expect(text).toContain('graphify_search');
+    expect(text).toContain('`sero-cli` tool input');
     expect(text).toContain('Report snippet here');
     expect(text).toContain('12 nodes / 20 edges');
   });

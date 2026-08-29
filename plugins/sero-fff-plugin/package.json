@@ -1,0 +1,55 @@
+{
+  "name": "@sero-ai/plugin-fff",
+  "version": "0.1.0",
+  "description": "FFF-powered ranked file and content search tools for Sero agents",
+  "type": "module",
+  "keywords": [
+    "pi-package"
+  ],
+  "scripts": {
+    "test": "pnpm exec vitest run",
+    "test:watch": "pnpm exec vitest",
+    "bench": "node bench/run-benchmark.mjs",
+    "typecheck": "tsc --noEmit -p extension/tsconfig.json"
+  },
+  "pi": {
+    "extensions": [
+      "./extension/index.ts"
+    ]
+  },
+  "sero": {
+    "plugin": {
+      "category": "developer-tools",
+      "tags": [
+        "search",
+        "grep",
+        "find",
+        "fuzzy",
+        "fff"
+      ],
+      "minSeroVersion": "0.1.0",
+      "bundleExtensions": true,
+      "extensionExternals": [
+        "@ff-labs/fff-node"
+      ],
+      "bridgeTools": false,
+      "preBuilt": false
+    }
+  },
+  "dependencies": {
+    "@ff-labs/fff-node": "0.10.5",
+    "typebox": "catalog:"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-agent-core": "catalog:peer",
+    "@earendil-works/pi-ai": "catalog:peer",
+    "@earendil-works/pi-coding-agent": "catalog:peer",
+    "@earendil-works/pi-tui": "catalog:peer",
+    "zod": "catalog:peer"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

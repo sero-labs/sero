@@ -5,6 +5,7 @@ import { createRequire } from 'module';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import builtinPackageDetection from '../electron/platform/protocols/builtin-package-detection.js';
+import { resolvePluginStagingEntries } from './stage-plugin-dependencies.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
@@ -44,6 +45,19 @@ fs.rmSync(electronOutDir, { recursive: true, force: true });
 function copyIfExists(src, dest) {
   if (!fs.existsSync(src)) return;
   fs.cpSync(src, dest, { recursive: true, dereference: true });
+}
+
+function copyDependencyPackage(src, dest) {
+  if (!fs.existsSync(src)) return;
+  const sourceNodeModules = path.join(path.resolve(src), 'node_modules');
+  fs.cpSync(src, dest, {
+    recursive: true,
+    dereference: true,
+    filter: (current) => {
+      const resolved = path.resolve(current);
+      return resolved !== sourceNodeModules && !resolved.startsWith(`${sourceNodeModules}${path.sep}`);
+    },
+  });
 }
 
 function runCommand(command, args, cwd) {
@@ -98,8 +112,12 @@ function stagePluginRuntimeDependencies(srcDir, destDir, manifestDir = srcDir) {
   fs.mkdirSync(destNodeModules, { recursive: true });
   copyIfExists(path.join(srcDir, 'package-lock.json'), path.join(destDir, 'package-lock.json'));
 
-  for (const dep of runtimeDeps) {
-    copyIfExists(path.join(pluginNodeModules, dep), path.join(destNodeModules, dep));
+  // Optional dependencies carry the per-platform native binaries; only the ones
+  // installed for this build's platform resolve, and the rest are skipped.
+  const optionalDeps = Object.keys(pkg.optionalDependencies ?? {});
+  const entries = resolvePluginStagingEntries(pluginNodeModules, [...runtimeDeps, ...optionalDeps]);
+  for (const entry of entries) {
+    copyDependencyPackage(entry.source, path.join(destNodeModules, entry.destination));
   }
 }
 

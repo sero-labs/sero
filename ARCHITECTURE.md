@@ -60,6 +60,13 @@ Extension tools register through Pi. Sero can expose them through the generic
 CLI bridge, which resolves the current session's extension instance at execution
 time. Core coding tools and the subagent tool remain explicit exceptions.
 
+Agent search is a built-in plugin, not a host service. The host contributes only
+two things to it: the read-only search tool names, which a read-only subagent
+keeps and a permission profile classifies as reads, and the plugin's package
+path, which a managed persistent session loads alongside the app that holds its
+grant. The search index, its lifecycle, and its workspace confinement stay
+inside the plugin, and no host capability is specific to it.
+
 Portable Agent Plugins are a separate host-owned package format. They are not
 Sero plugins, Pi packages, or sidebar apps. Installed package content is
 immutable; writable package data has a separate persistent location.

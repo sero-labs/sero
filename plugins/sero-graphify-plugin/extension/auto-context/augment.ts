@@ -6,9 +6,9 @@ import { QUERY_BUDGET } from './settings';
 export function buildGraphifySystemPrompt(): string {
   return (
     '[Graphify active] This profile has a Graphify knowledge graph for this workspace. ' +
-    'Prefer graphify_query, graphify_path, and graphify_explain for architecture and ' +
-    'cross-module questions, and graphify_search for cross-workspace questions, ' +
-    'before broad codebase exploration.'
+    'For architecture and cross-module questions, call the `sero-cli` model tool with ' +
+    '`graphify_query`, `graphify_path`, or `graphify_explain`. For cross-workspace ' +
+    'questions, call it with `graphify_search`. Do not run a `sero-cli` executable in Bash.'
   );
 }
 
@@ -19,7 +19,7 @@ export function buildSessionOrientation(
   profileSummary?: string,
 ): string {
   const parts: string[] = [
-    '[Graphify active] This workspace has a knowledge graph. Use Graphify for architecture, concept, and cross-file questions.',
+    '[Graphify active] This workspace has a knowledge graph. Use the `sero-cli` model tool for Graphify architecture, concept, and cross-file commands. Do not run `sero-cli` through Bash.',
   ];
 
   const available: string[] = [];
@@ -30,9 +30,9 @@ export function buildSessionOrientation(
 
   parts.push(
     'Good follow-ups:',
-    '- graphify_query({ question: "What are the main communities in this codebase?" })',
-    '- graphify_search({ question: "Which workspace owns <concept>?" })',
-    '- graphify_explain({ concept: "<node name>" })',
+    '- `sero-cli` tool input: `{ "command": "graphify_query --question \\"What are the main communities in this codebase?\\"" }`',
+    '- `sero-cli` tool input: `{ "command": "graphify_search --question \\"Which workspace owns <concept>?\\"" }`',
+    '- `sero-cli` tool input: `{ "command": "graphify_explain --concept \\"<node name>\\"" }`',
   );
 
   if (reportSnippet) {
@@ -131,11 +131,12 @@ export function buildGraphifyAugmentContext(
   if (!state.graphExists) return undefined;
 
   const question = suggestedQuestion
-    ? `Suggested query: "${suggestedQuestion}"`
-    : 'For architecture context, use graphify_query for the full BFS view.';
+    ? `Suggested question: "${suggestedQuestion}"`
+    : 'Use graphify_query for the full BFS view.';
 
   return (
-    `[Graphify] This result spans multiple concepts/files. ${question} ` +
+    '[Graphify] This result spans multiple concepts/files. Call the `sero-cli` model tool with ' +
+    `\`graphify_query --question "<question>"\`. Do not run \`sero-cli\` through Bash. ${question} ` +
     `Budget: ${QUERY_BUDGET}.`
   );
 }

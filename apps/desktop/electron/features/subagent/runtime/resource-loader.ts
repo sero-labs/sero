@@ -18,6 +18,7 @@ import {
   filterCompatiblePluginPrompts,
   filterCompatiblePluginThemes,
 } from '@electron/features/plugins/resource-compatibility';
+import { restrictSearchToolOrigins } from '@electron/features/apps/extensions/search-plugin';
 import { createSubagentSkillOverride } from './skill-pipeline';
 
 export interface SubagentResourceLoaderOptions {
@@ -41,6 +42,8 @@ export interface SubagentResourceLoaderOptions {
   appendSystemPrompt?: string[];
   /** User context override: skill names to hide from model invocation. */
   disabledSkills?: string[];
+  /** Keep conventional search names only when the built-in FFF plugin registered them. */
+  restrictSearchTools?: boolean;
 }
 
 /**
@@ -83,7 +86,10 @@ export function createSubagentResourceLoader(
     appendSystemPrompt: options.appendSystemPrompt,
     promptsOverride: filterCompatiblePluginPrompts,
     themesOverride: filterCompatiblePluginThemes,
-    extensionsOverride: filterCompatiblePluginExtensions,
+    extensionsOverride: (base) => {
+      const compatible = filterCompatiblePluginExtensions(base);
+      return options.restrictSearchTools ? restrictSearchToolOrigins(compatible) : compatible;
+    },
     agentsFilesOverride: filterCompatiblePluginAgentsFiles,
   });
 }

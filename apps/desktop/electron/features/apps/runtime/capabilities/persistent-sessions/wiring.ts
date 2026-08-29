@@ -18,6 +18,10 @@ import { ensureAiInfra } from '@electron/shared/infra/ai-infra';
 import { requestChoice } from '@electron/platform/desktop/request-choice';
 import { bridgeExtensionTools, createPrivateCliRegistry, createWorkspaceCliTool } from '@electron/cli';
 import { createSeroExtensionFactory } from '@electron/features/apps/extensions/create-sero-extension';
+import {
+  restrictSearchToolOrigins,
+  searchPluginPackages,
+} from '@electron/features/apps/extensions/search-plugin';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { getSubagentToolCatalog, warmSubagentToolCatalog } from '@electron/features/subagent/runtime/tool-catalog';
 import { getRoomSkillCatalog } from '@electron/ipc/agent/handlers/subagent-context';
@@ -157,8 +161,11 @@ export async function installPersistentSessions(
           allowedSkills: input.skills.filter((skill) => input.policy.allowedSkills.includes(skill)),
           appendSystemPrompt: input.systemPromptAdditions,
           settingsManager: infra.settingsManager,
-          // The app that holds the grant, and only it.
-          packages: [target.manifest.packagePath],
+          // The app that holds the grant, plus the built-in search plugin. The
+          // search tools are read-only and the permission profile still gates
+          // them, so a member approved for `filesystem: 'read'` can find a file
+          // instead of guessing its path; a member approved for none cannot.
+          packages: [target.manifest.packagePath, ...searchPluginPackages()],
           extensionFactories: [
             createSeroExtensionFactory(workspaceManager, target.workspace.id, cliScopeId, undefined, {
               // No agent-management tools: a Room member must not be able to
@@ -168,7 +175,11 @@ export async function installPersistentSessions(
             }),
           ],
           bridgeExtensions: (base) => {
-            const bridged = bridgeExtensionTools(base, { sessionId: cliScopeId, registry: cliRegistry });
+            // Apply this to every member. The grant-owning app is loaded beside
+            // FFF and could otherwise replace an approved search name with a
+            // different implementation, regardless of its permission profile.
+            const restricted = restrictSearchToolOrigins(base);
+            const bridged = bridgeExtensionTools(restricted, { sessionId: cliScopeId, registry: cliRegistry });
             // The one line that says whether the member can talk at all. A Room
             // whose members hold no `room` command looks like a Room that has
             // nothing to say, so the commands and any extension that failed to

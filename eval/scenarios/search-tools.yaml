@@ -1,0 +1,71 @@
+- description: "Find the session archive helper"
+  vars:
+    scenario_prompt: >
+      Find the file that defines locateSessionArchive. Read enough to verify it,
+      then answer with the exact workspace-relative path and function name.
+    expected_paths: '["src/session/find-session.ts"]'
+    task_kind: ranked
+  assert:
+    - type: javascript
+      value: file://./assertions/searchEvaluation.ts
+
+- description: "Find a workspace label in either spelling"
+  vars:
+    scenario_prompt: >
+      Search for SERO_WORKSPACE_LABEL or ai.sero.workspaceId. Read the matching
+      file, then answer with its exact workspace-relative path and value.
+    expected_paths: '["src/search/workspace-labels.ts"]'
+    task_kind: ranked
+  assert:
+    - type: javascript
+      value: file://./assertions/searchEvaluation.ts
+
+- description: "Use exhaustive search when completeness matters"
+  vars:
+    scenario_prompt: >
+      List every workspace-relative file that contains SEARCH_AUDIT_MARKER.
+      Completeness is required, so use exhaustive shell search rather than a
+      ranked search result.
+    expected_paths: '["src/audit/first.ts", "src/audit/second.ts"]'
+    task_kind: exhaustive
+  assert:
+    - type: javascript
+      value: file://./assertions/searchEvaluation.ts
+
+- description: "Trace workspace creation to container startup"
+  vars:
+    scenario_prompt: >
+      Trace the relationship from createWorkspace to startWorkspaceContainer.
+      Use the knowledge graph when it is available. Otherwise inspect the
+      source. Name both endpoints and the intermediate function.
+    expected_terms: '["createWorkspace", "persistWorkspaceRecord", "startWorkspaceContainer"]'
+    task_kind: graph
+  assert:
+    - type: javascript
+      value: file://./assertions/searchEvaluation.ts
+
+- description: "Explain the workspace startup architecture"
+  vars:
+    scenario_prompt: >
+      Explain how workspace creation reaches container startup. Use the
+      knowledge graph when it is available. Name the three implementation
+      files and the function in each file.
+    expected_terms: '["src/workspace/create-workspace.ts", "src/workspace/registry.ts", "src/container/start-container.ts", "createWorkspace", "persistWorkspaceRecord", "startWorkspaceContainer"]'
+    task_kind: graph
+  assert:
+    - type: javascript
+      value: file://./assertions/searchEvaluation.ts
+
+- description: "Find a concept in another workspace"
+  vars:
+    scenario_prompt: >
+      If the system prompt says Graphify is active, use the sero-cli model tool
+      with graphify_search to find which workspace owns BillingGateway and give
+      its exact workspace-relative file path. If Graphify is not active, do not
+      search outside the current workspace. Answer exactly UNAVAILABLE_PROFILE_SEARCH.
+    expected_terms: '["billing-service", "src/billing/gateway.ts"]'
+    unsupported_answer: UNAVAILABLE_PROFILE_SEARCH
+    task_kind: cross_workspace
+  assert:
+    - type: javascript
+      value: file://./assertions/searchEvaluation.ts

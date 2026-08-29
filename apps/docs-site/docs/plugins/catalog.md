@@ -23,6 +23,7 @@ Built-in plugins can appear in app discovery or favorites. External plugins do n
 | Graphify | `@sero-ai/plugin-graphify` | [Docs](/plugins/graphify) | Local workspace and profile knowledge graphs. |
 | MCP | `@sero-ai/plugin-mcp` | [Guide](/guide/mcp) | MCP manager app; manifest bridges selected `mcp` tool behavior. |
 | Memory | `@sero-ai/plugin-memory` | [Guide](/guide/memory) | Persistent memory, identity/profile facts, and daily logs. |
+| Search | `@sero-ai/plugin-fff` | [Docs](/plugins/search) | Indexed `find`/`grep`/`multi_grep` for agent sessions; extension only, `bridgeTools: false`. |
 | Orchestrator | `@sero-ai/plugin-orchestrator` | [Guide](/guide/orchestrator) | Workflows and Rooms. |
 | Usage | `@sero-ai/plugin-usage` | Catalog | Model usage and cost views. |
 | User Feedback | `@sero-ai/plugin-user-feedback` | [Guide](/plugins/user-feedback) | Pending questions/questionnaires; `bridgeTools: false`. |

@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { Type } from '@sinclair/typebox';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
@@ -54,19 +54,36 @@ interface EvalCliState {
   nextNoteId: number;
 }
 
-interface EvalCliResult {
+export interface EvalCliResult {
   output: string;
   exitCode: number;
 }
 
-export function createEvalPromptExtensionFactory() {
+interface EvalPromptOptions {
+  graphify?: boolean;
+}
+
+interface EvalCliOptions {
+  extraHelp?: string;
+  runExtensionCommand?: (tokens: string[]) => Promise<EvalCliResult | null>;
+}
+
+export function createEvalPromptExtensionFactory(options: EvalPromptOptions = {}) {
   return (pi: ExtensionAPI) => {
     pi.on('before_agent_start', async (event) => {
       if (event.systemPrompt.includes('## Sero CLI')) {
         return { systemPrompt: event.systemPrompt };
       }
+      const graphifyPrompt = options.graphify
+        ? `\nGraphify commands are available through the \`sero-cli\` model tool. `
+          + 'Call that tool with a `command` value. Do not run a `sero-cli` executable in Bash.\n'
+          + '- `graphify_query --question "<question>"` for current-workspace relationships\n'
+          + '- `graphify_search --question "<question>"` for profile-wide and cross-workspace search\n'
+          + '- `graphify_path --from "<concept>" --to "<concept>"` for the shortest relationship\n'
+          + '- `graphify_explain --concept "<concept>"` for one concept\n'
+        : '';
       return {
-        systemPrompt: `${event.systemPrompt}${EVAL_CLI_PROMPT_BLOCK}`,
+        systemPrompt: `${event.systemPrompt}${EVAL_CLI_PROMPT_BLOCK}${graphifyPrompt}`,
       };
     });
   };
@@ -84,13 +101,18 @@ export function stripExtensionTools(base: any): any {
   return base;
 }
 
-export async function seedEvalWorkspace(tmpDir: string): Promise<void> {
+export async function seedEvalWorkspace(
+  tmpDir: string,
+  options: { includeSearchFixtures?: boolean } = {},
+): Promise<{ id: string; name: string; path: string }> {
+  const workspaceId = `eval-${randomUUID().slice(0, 8)}`;
+  const workspaceName = 'Eval Workspace';
   await writeFile(
     `${tmpDir}/.sero-workspace.json`,
     `${JSON.stringify(
       {
-        id: `eval-${randomUUID().slice(0, 8)}`,
-        name: 'Eval Workspace',
+        id: workspaceId,
+        name: workspaceName,
         container: false,
       },
       null,
@@ -99,13 +121,54 @@ export async function seedEvalWorkspace(tmpDir: string): Promise<void> {
     'utf8',
   );
 
+  const fixtures = options.includeSearchFixtures ? [
+    ['src/session/find-session.ts', "export function locateSessionArchive(id: string): string {\n  return `sessions/${id}.jsonl`;\n}\n"],
+    ['src/search/workspace-labels.ts', "export const SERO_WORKSPACE_LABEL = 'ai.sero.workspaceId';\n"],
+    ['config/release-manifest.json', '{\n  "artifactGlobs": ["dist/**", "plugins/**"]\n}\n'],
+    ['src/audit/first.ts', "export const firstAudit = 'SEARCH_AUDIT_MARKER';\n"],
+    ['src/audit/second.ts', "export const secondAudit = 'SEARCH_AUDIT_MARKER';\n"],
+    [
+      'src/workspace/create-workspace.ts',
+      "import { persistWorkspaceRecord } from './registry';\n\n"
+        + 'export async function createWorkspace(spec: WorkspaceSpec): Promise<void> {\n'
+        + '  validateWorkspaceSpec(spec);\n'
+        + '  await persistWorkspaceRecord(spec);\n'
+        + '}\n',
+    ],
+    [
+      'src/workspace/registry.ts',
+      "import { startWorkspaceContainer } from '../container/start-container';\n\n"
+        + 'export async function persistWorkspaceRecord(spec: WorkspaceSpec): Promise<void> {\n'
+        + '  await saveWorkspace(spec);\n'
+        + '  await startWorkspaceContainer(spec.id);\n'
+        + '}\n',
+    ],
+    [
+      'src/container/start-container.ts',
+      'export async function startWorkspaceContainer(workspaceId: string): Promise<void> {\n'
+        + '  await containerRuntime.start(workspaceId);\n'
+        + '}\n',
+    ],
+    [
+      'src/checkout/client.ts',
+      "export const CheckoutClient = { transport: '@sero/billing-client' };\n",
+    ],
+  ] as const : [];
+  for (const [relativePath, contents] of fixtures) {
+    const absolutePath = `${tmpDir}/${relativePath}`;
+    await mkdir(absolutePath.slice(0, absolutePath.lastIndexOf('/')), { recursive: true });
+    await writeFile(absolutePath, contents, 'utf8');
+  }
+
   await execFileAsync('git', ['init', '-q'], { cwd: tmpDir });
   await execFileAsync('git', ['config', 'user.email', 'eval@sero.local'], { cwd: tmpDir });
   await execFileAsync('git', ['config', 'user.name', 'Sero Eval'], { cwd: tmpDir });
-  await execFileAsync('git', ['add', '.sero-workspace.json'], { cwd: tmpDir });
+  await execFileAsync('git', ['add', '.'], { cwd: tmpDir });
   await execFileAsync('git', ['commit', '-qm', 'chore: initialise eval workspace'], {
     cwd: tmpDir,
   });
+
+  return { id: workspaceId, name: workspaceName, path: tmpDir };
 }
 
 function tokenizeCliInput(input: string): string[] {
@@ -196,6 +259,7 @@ async function runEvalCliLine(
   line: string,
   state: EvalCliState,
   tmpDir: string,
+  options: EvalCliOptions,
 ): Promise<EvalCliResult> {
   const tokens = tokenizeCliInput(line);
   if (tokens[0] === 'sero') tokens.shift();
@@ -206,7 +270,13 @@ async function runEvalCliLine(
   const [root, action = ''] = tokens;
 
   if (root === 'help') {
-    return { exitCode: 0, output: buildHelpText(tokens[1]) };
+    const baseHelp = buildHelpText(tokens[1]);
+    return {
+      exitCode: 0,
+      output: options.extraHelp && !tokens[1]
+        ? `${baseHelp}\n${options.extraHelp}`
+        : baseHelp,
+    };
   }
   if (root === 'current_time' || root === 'current-time') {
     const now = new Date();
@@ -280,13 +350,16 @@ async function runEvalCliLine(
     return { exitCode: 1, output: 'ERROR: Usage: vcs status' };
   }
 
+  const extensionResult = await options.runExtensionCommand?.(tokens);
+  if (extensionResult) return extensionResult;
+
   return {
     exitCode: 1,
     output: `ERROR: Unknown command: ${tokens.join(' ')}`,
   };
 }
 
-export function createEvalSeroCliTool(tmpDir: string) {
+export function createEvalSeroCliTool(tmpDir: string, options: EvalCliOptions = {}) {
   const state: EvalCliState = {
     todos: [],
     notes: [],
@@ -320,7 +393,7 @@ export function createEvalSeroCliTool(tmpDir: string) {
       let finalExitCode = 0;
 
       for (const line of lines) {
-        const result = await runEvalCliLine(line, state, tmpDir);
+        const result = await runEvalCliLine(line, state, tmpDir, options);
         finalExitCode = result.exitCode;
         sections.push(lines.length === 1 ? result.output : `$ ${line}\n${result.output}`);
         if (result.exitCode !== 0) break;
