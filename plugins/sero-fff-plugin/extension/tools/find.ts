@@ -90,7 +90,7 @@ export function registerFindTool(pi: ExtensionAPI, search: SearchContext): void 
         && result.totalMatched > shownSoFar;
 
       const notices: string[] = [];
-      if (formatted.weak && formatted.shownCount > 0) {
+      if (formatted.weak && formatted.shownCount > 0 && pageIndex === 0) {
         notices.push(
           `"${pattern}" produced only weak scattered matches, so output is capped at `
           + `${formatted.shownCount}/${result.totalMatched}`,

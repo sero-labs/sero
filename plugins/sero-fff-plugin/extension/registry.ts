@@ -181,7 +181,12 @@ export class FinderRegistry {
     try {
       const scan = await finder.waitForScan(this.options.scanTimeoutMs ?? SCAN_TIMEOUT_MS);
       if (!scan.ok) throw new FinderUnavailableError(`Failed to scan ${root}: ${scan.error}`);
-      return { root, finder, consumers: new Set<string>() };
+      const entry = { root, finder, consumers: new Set<string>() };
+      // Publish before the pending promise settles. Its `finally` clears the
+      // pending slot before acquire waiters resume, and another acquire in that
+      // microtask gap must see this finder instead of starting a second scan.
+      this.entries.set(root, entry);
+      return entry;
     } catch (error) {
       if (!finder.isDestroyed) finder.destroy();
       if (error instanceof FinderUnavailableError) throw error;

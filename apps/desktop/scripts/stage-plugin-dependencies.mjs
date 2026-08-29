@@ -28,9 +28,12 @@ function runtimeDependencyNames(packageDir) {
   const manifestPath = path.join(packageDir, 'package.json');
   if (!fs.existsSync(manifestPath)) return [];
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  const requiredPeers = Object.keys(manifest.peerDependencies ?? {})
+    .filter((name) => manifest.peerDependenciesMeta?.[name]?.optional !== true);
   return [...new Set([
     ...Object.keys(manifest.dependencies ?? {}),
     ...Object.keys(manifest.optionalDependencies ?? {}),
+    ...requiredPeers,
   ])];
 }
 

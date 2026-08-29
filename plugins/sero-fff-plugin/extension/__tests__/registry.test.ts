@@ -105,6 +105,29 @@ describe('FinderRegistry', () => {
     expect(registry.refCount('/repo')).toBe(3);
   });
 
+  it('publishes a completed cold scan before clearing its pending creation', async () => {
+    const sdk = createFakeSdk();
+    setFinderSdkForTesting({ ok: true, FileFinder: sdk.FileFinder });
+    const registry = new FinderRegistry({ dbPaths: DB_PATHS });
+    const pending = Reflect.get(registry, 'pending') as Map<string, Promise<unknown>>;
+    const deletePending = pending.delete.bind(pending);
+    let interloper: ReturnType<FinderRegistry['acquire']> | undefined;
+    vi.spyOn(pending, 'delete').mockImplementation((root) => {
+      const deleted = deletePending(root);
+      if (root === '/repo' && !interloper) {
+        interloper = registry.acquire({ root: '/repo', consumerId: 'subagent' });
+      }
+      return deleted;
+    });
+
+    const first = registry.acquire({ root: '/repo', consumerId: 'chat' });
+    await first;
+    await vi.waitFor(() => expect(interloper).toBeDefined());
+    await interloper;
+    expect(sdk.created).toHaveLength(1);
+    expect(registry.refCount('/repo')).toBe(2);
+  });
+
   it('does not retain a consumer released during a cold scan', async () => {
     let finishScan: ((result: { ok: true; value: true }) => void) | undefined;
     const sdk = createFakeSdk({

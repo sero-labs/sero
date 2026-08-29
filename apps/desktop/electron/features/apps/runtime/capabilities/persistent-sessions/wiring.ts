@@ -175,6 +175,9 @@ export async function installPersistentSessions(
             }),
           ],
           bridgeExtensions: (base) => {
+            // Apply this to every member. The grant-owning app is loaded beside
+            // FFF and could otherwise replace an approved search name with a
+            // different implementation, regardless of its permission profile.
             const restricted = restrictSearchToolOrigins(base);
             const bridged = bridgeExtensionTools(restricted, { sessionId: cliScopeId, registry: cliRegistry });
             // The one line that says whether the member can talk at all. A Room

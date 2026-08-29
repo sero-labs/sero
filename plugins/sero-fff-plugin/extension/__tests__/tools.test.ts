@@ -327,6 +327,7 @@ describe('find', () => {
     expect(first.details.hasMore).toBe(true);
     expect(second.text).toContain('file-5.ts');
     expect(second.text).toContain('file-9.ts');
+    expect(second.text).not.toContain('output is capped');
     expect((sdk.created[0].calls[1].args[1] as { pageIndex: number; pageSize: number }))
       .toMatchObject({ pageIndex: 1, pageSize: 5 });
   });

@@ -54,6 +54,26 @@ describe('resolveDependencyStagingEntries', () => {
     expect(names).toEqual(['@scope/engine', 'loader']);
   });
 
+  it('stages installed required peers but skips optional peers', () => {
+    const engine = storePackage('@scope/engine', '@scope+engine@1.0.0', {
+      peerDependencies: { runtime: '1.0.0', optional: '1.0.0' },
+      peerDependenciesMeta: { optional: { optional: true } },
+    });
+    const runtime = storePackage('runtime', 'runtime@1.0.0');
+    const optional = storePackage('optional', 'optional@1.0.0');
+    const engineStore = path.join(root, 'node_modules/.pnpm/@scope+engine@1.0.0/node_modules');
+    link(engineStore, 'runtime', runtime);
+    link(engineStore, 'optional', optional);
+    const pluginNodeModules = path.join(root, 'plugin/node_modules');
+    link(pluginNodeModules, '@scope/engine', engine);
+
+    const names = resolveDependencyStagingEntries(pluginNodeModules, '@scope/engine')
+      .map((entry) => entry.name)
+      .sort();
+
+    expect(names).toEqual(['@scope/engine', 'runtime']);
+  });
+
   it('follows the store graph so a peer brings its own dependencies', () => {
     const engine = storePackage('@scope/engine', '@scope+engine@1.0.0', {
       dependencies: { loader: '2.0.0' },
