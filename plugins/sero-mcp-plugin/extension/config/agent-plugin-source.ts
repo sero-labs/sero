@@ -1,5 +1,6 @@
 import type { EventBus } from '@earendil-works/pi-coding-agent';
 import {
+  AGENT_PLUGIN_CLI_REFRESH_EVENT,
   AGENT_PLUGIN_MCP_SOURCES_EVENT,
   type AgentPluginMcpSource,
   type AgentPluginMcpSourcesRequest,
@@ -8,6 +9,18 @@ import type { McpConfigDocument, McpServerConfig } from './types';
 import { readAgentPluginClientState } from './agent-plugin-client-state';
 
 const sourceEvents = new Set<EventBus>();
+
+function emitToActiveSessions(channel: string, data: unknown): void {
+  for (const events of [...sourceEvents]) {
+    try {
+      events.emit(channel, data);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes('stale after session replacement or reload')) throw error;
+      sourceEvents.delete(events);
+    }
+  }
+}
 
 export function configureAgentPluginMcpSource(events: EventBus | null): () => void {
   if (!events) {
@@ -31,9 +44,7 @@ async function requestAgentPluginMcpSources(): Promise<AgentPluginMcpSource[]> {
         resolve(sources);
       },
     } satisfies AgentPluginMcpSourcesRequest;
-    for (const events of sourceEvents) {
-      events.emit(AGENT_PLUGIN_MCP_SOURCES_EVENT, request);
-    }
+    emitToActiveSessions(AGENT_PLUGIN_MCP_SOURCES_EVENT, request);
     queueMicrotask(() => {
       if (!accepted && !settled) {
         settled = true;
@@ -41,6 +52,14 @@ async function requestAgentPluginMcpSources(): Promise<AgentPluginMcpSource[]> {
       }
     });
   });
+}
+
+export function emitAgentPluginCliRefresh(): void {
+  emitToActiveSessions(AGENT_PLUGIN_CLI_REFRESH_EVENT, undefined);
+}
+
+export function hasAgentPluginMcpSourceEvents(): boolean {
+  return sourceEvents.size > 0;
 }
 
 function toServerConfig(source: AgentPluginMcpSource, enabled: boolean): McpServerConfig {

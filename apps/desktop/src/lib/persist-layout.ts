@@ -23,6 +23,7 @@ import { useSessionStore } from '@/stores/sessions';
 import { useModelPreferences } from '@/stores/model-preferences';
 import { useDashboardStore } from '@/stores/dashboard';
 import { useStorageSecurityStore } from '@/stores/storage-security';
+import { useBrowserPackNoticeStore } from '@/stores/browser-pack-notice';
 import { useBrowserStore } from '@/stores/browser';
 import { useExplorerStore } from '@/stores/explorer';
 import { useZoomStore } from '@/stores/zoom';
@@ -53,10 +54,14 @@ function buildLayoutState(partial: Partial<LayoutState>): LayoutState {
       : ws.activeWorkspaceId,
     activeApp: partial.activeApp ?? app.activeApp,
     appViewIds: partial.appViewIds ?? app.appViewIds,
+    appPreferences: partial.appPreferences ?? app.appPreferences,
     chromeShortcuts: partial.chromeShortcuts ?? app.chromeShortcuts,
     zoomFactor: partial.zoomFactor ?? useZoomStore.getState().factor,
     storageWarningDismissed: partial.storageWarningDismissed
       ?? useStorageSecurityStore.getState().bannerDismissed,
+    browserPackNoticeVersion: partial.browserPackNoticeVersion
+      ?? useBrowserPackNoticeStore.getState().notifiedVersion
+      ?? undefined,
     activeSessionId: partial.activeSessionId !== undefined
       ? partial.activeSessionId
       : sess.activeSessionId,

@@ -15,6 +15,7 @@ concurrency:
 env:
   CI: true
   TURBO_TELEMETRY_DISABLED: 1
+  NODE_OPTIONS: --max-old-space-size=4096
 
 jobs:
   contract:
@@ -43,6 +44,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Build plugin Vite helpers
+        run: pnpm --filter @sero-ai/plugin-vite build
 
       - name: Run contract e2e
         if: runner.os != 'Linux'

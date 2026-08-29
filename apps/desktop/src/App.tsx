@@ -20,6 +20,7 @@ import { OnboardingWizard } from '@/components/profiles/OnboardingWizard';
 import { subscribeDevServerEvents } from '@/stores/dev-server';
 import { NewAppBanner } from '@/components/layout/shell/NewAppBanner';
 import { StorageSecurityBanner } from '@/components/layout/shell/StorageSecurityBanner';
+import { BrowserPackUpdateNotice } from '@/components/layout/shell/BrowserPackUpdateNotice';
 import { useSessionAgent } from '@/hooks/useSessionAgent';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { CommandMenu } from '@/components/layout/shell/CommandMenu';
@@ -332,6 +333,7 @@ export function App() {
         <GlobalSearchDialog />
         <GitHubAuthDialog />
         <NewAppBanner />
+        <BrowserPackUpdateNotice />
         <StorageSecurityBanner />
         <OnboardingWizard />
         <GlobalQuestionPrompt />

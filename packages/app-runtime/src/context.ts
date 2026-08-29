@@ -8,6 +8,14 @@
 
 import { createContext, type Context } from 'react';
 
+export type AppProfilePreferenceValue = string | number | boolean | null;
+
+/** Profile-wide preferences for one app, persisted by the host. */
+export interface AppProfilePreferencesValue {
+  values: Readonly<Record<string, AppProfilePreferenceValue>>;
+  set: (key: string, value: AppProfilePreferenceValue) => void;
+}
+
 export interface AppContextValue {
   /** App identifier (e.g. "todo"). */
   appId: string;
@@ -34,6 +42,8 @@ export interface AppContextValue {
   editorThemeId?: string;
   /** Browser-style navigation supplied by the host for full app surfaces. */
   navigation?: AppNavigationValue;
+  /** Preferences shared by this app across every workspace in the profile. */
+  profilePreferences?: AppProfilePreferencesValue;
 }
 
 export interface AppNavigationValue {

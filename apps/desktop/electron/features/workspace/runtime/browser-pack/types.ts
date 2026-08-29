@@ -64,6 +64,7 @@ export interface BrowserPackError {
 export interface BrowserPackStatus {
   state: BrowserPackState;
   manifestVersion: string;
+  previousManifestVersion?: string;
   artifactKey?: string;
   browsersPath?: string;
   error?: BrowserPackError;

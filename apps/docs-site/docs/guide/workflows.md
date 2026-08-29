@@ -1,225 +1,141 @@
 # Workflows
 
-A Workflow gives Sero a plan to follow. You describe the result, review the
-steps that Sero creates, and approve the plan before work starts.
+A Workflow turns a requirement into a plan that Sero can run more than once.
+Describe the result in plain language. Sero chooses the steps, their order, and
+the routes through the work.
 
-Use a [Room](/guide/rooms) instead when several agents need to work as a team.
-[Orchestrator](/guide/orchestrator) explains the difference.
+The plan is not a fixed template. A research Workflow might collect sources in
+parallel and then write a report. A maintenance Workflow might stop when there
+is nothing to fix. A coding Workflow can inspect an issue, choose an approach,
+run checks, and open a pull request.
+
+Use a [Room](/guide/rooms) when several agents need to work as a team. See
+[Orchestrator](/guide/orchestrator) for a comparison.
 
 ## Before you start
 
-This tutorial uses [Lattice](https://github.com/monobyte/lattice-levels-demo), a
-small puzzle project with six files to check. Three contain valid puzzles and
-three need repairs. A valid puzzle must have a route from its start to its exit
-that takes between 8 and 40 moves.
-
-Before you continue:
-
 1. [Install and open Sero](/guide/getting-started).
 2. [Configure a model](/guide/models-and-providers).
-3. Make sure Git, Node.js, and the GitHub CLI (`gh`) are available.
-4. Sign in to the GitHub CLI, then confirm the sign-in:
+3. Open the project that the Workflow will use.
+4. Install or sign in to any tool required by the result. For example, a
+   Workflow that opens pull requests needs Git and an authenticated GitHub CLI.
 
-   ```bash
-   gh auth status
-   ```
+This guide uses an issue-handling Workflow as an example. Your requirement can
+describe a different job, trigger, result, or set of constraints.
 
-Set up the project:
+## Describe the requirement
 
-1. [Fork the Lattice repository](https://github.com/monobyte/lattice-levels-demo/fork)
-   to your GitHub account.
-2. Clone your fork. Replace `<your-name>` with your GitHub user name:
+Open Orchestrator, select **Workflows**, then select **New**.
 
-   ```bash
-   git clone https://github.com/<your-name>/lattice-levels-demo.git
-   ```
+![A requirement for an issue-handling Workflow entered in plain language](../assets/images/orchestrator-issues-describe.jpg)
 
-3. Open the cloned `lattice-levels-demo` folder as a workspace in Sero.
-4. Open a terminal in the workspace and run:
+The example asks Sero to:
 
-   ```bash
-   npm run check
-   ```
+- check for work every two hours and when an issue opens;
+- choose one suitable issue;
+- ask questions, plan, or implement as the issue requires;
+- run the relevant checks and open a pull request;
+- handle one issue per run and never merge it.
 
-The check reports three failed puzzles. This is the expected starting state.
-Make sure the Git working tree has no changes before you continue.
+Describe the result and the important constraints. You do not need to design the
+steps yourself. Sero uses the requirement and the workspace context to write the
+plan.
 
-This tutorial creates a Workflow that checks every puzzle, repairs the failed
-ones, tests the repairs, and opens a pull request. It also asks for your approval
-before it changes the shared solver in `src/solver.js`.
+Select **Generate plan**.
 
-## 1. Create the Workflow
+## Review the generated plan
 
-Open Orchestrator from the app bar, select **Workflows**, then select **New**.
+Sero shows the proposed Workflow before it starts any work.
 
-![The New workflow screen, with the goal typed into the description box](../assets/images/orchestrator-lattice-describe.jpg)
+![A generated Workflow map with eleven steps and several conditional routes](../assets/images/orchestrator-plan-map-branches.jpg)
 
-Enter this description:
+Each card is one step. Arrows show which result a later step waits for. A framed
+group contains steps that can run together or steps for different routes.
 
-> Check each puzzle file in `levels/` separately, with a maximum of ten files.
-> Record whether each puzzle has a solution and whether its shortest route is
-> between 8 and 40 moves. Repair only the puzzles that fail. Do not change
-> `src/solver.js` without asking for my approval first. Test each repair. If a
-> repaired puzzle still fails, repair and test it again, up to three times. Open
-> a pull request when all puzzles pass. Use no more than seven steps, 2 million
-> tokens, or 60 minutes.
+This example can finish after the first step when there is no suitable issue. If
+it selects an issue, later results decide whether the Workflow releases a claim,
+asks a question, records a plan, implements a change, or opens a pull request.
+Another requirement produces a different plan.
 
-This description tells Sero to:
+Check that the plan can reach the result you asked for. Also check that it stops
+or asks for input in the cases where it must not continue by itself.
 
-- check each puzzle separately;
-- leave passing puzzles unchanged;
-- ask before it changes `src/solver.js`;
-- test each repair up to three times;
-- stop after 60 minutes or 2 million tokens;
-- open a pull request when all checks pass.
+The summary above the plan shows the workspace, delivery method, triggers, time
+limit, token limit, and concurrency limit. A managed worktree keeps code changes
+on a separate branch. These controls apply even when the generated plan changes.
 
-Keep **Run in a managed worktree** selected. A managed worktree is a separate
-copy of the repository on its own branch. The Workflow changes that copy, not
-the files in your open workspace.
+## Change how the plan is displayed
 
-Keep **Deliver results to** set to **Automatic**. For a Workflow that uses a
-managed worktree, Automatic delivery opens a pull request.
+Use **Steps per row** to trade width for overview. Sero can place one to four
+dependency stages on each row. It uses fewer when the panel is too narrow.
 
-Select **Generate plan →**.
+![The same generated plan displayed as one full-width step per row](../assets/images/orchestrator-plan-map-single-column.jpg)
 
-## 2. Review the plan
+Select a card to read its complete instructions, expected result, route, and
+execution settings.
 
-Sero shows the proposed steps as a map. No work has started yet.
-
-![The generated plan as a map of seven connected steps](../assets/images/orchestrator-plan-map-draft.jpg)
-
-Each box is one step. An arrow means that the next step waits for the previous
-one. A step with the `pending` status has not started.
-
-Check that the plan will:
-
-1. find the puzzle files;
-2. check each puzzle;
-3. identify the failed puzzles;
-4. ask before changing the solver;
-5. repair the failed puzzles;
-6. test the repairs;
-7. commit the changes and open a pull request.
-
-The summary above the map shows where the work will happen, where Sero will send
-the result, what starts the Workflow, and the time and token limits.
-
-### Understand the icons
-
-Icons on each step show how the Workflow can use its results.
-
-![The first steps of the plan, zoomed in, showing the branch and multiple-item icons](../assets/images/orchestrator-plan-map-badges.jpg)
-
-- The **branch icon** means that a step records information for later steps. In
-  this plan, the first step records which puzzle files it found.
-- **×10** means that the step runs once for each item, with a maximum of ten. In
-  this plan, Sero runs one check for each puzzle file.
-
-![Step 4, Obtain protected solver approval, carrying the shield icon](../assets/images/orchestrator-plan-map-badges-gate.jpg)
-
-- The **shield icon** means that Sero waits for your approval before it runs the
-  step. Here, Sero must ask before it changes `src/solver.js`.
-
-![The last steps, with the violet dashed route returning from the test to the repair](../assets/images/orchestrator-plan-map-badges-end.jpg)
-
-- The **violet dashed arrow** means that the Workflow can return to an earlier
-  step. Here, a failed test returns the puzzle to the repair step. The limit of
-  three attempts prevents the Workflow from repeating without end.
-
-See the [Workflows reference](/reference/workflows#node-badges) for all plan
-icons.
-
-### Change the plan view
-
-Use **Auto**, **Horizontal**, or **Vertical** to change the direction of the map.
-Use **Vertical** for a narrow screen or a long plan.
-
-![The same plan drawn as a single vertical column](../assets/images/orchestrator-plan-map-vertical.jpg)
-
-Use the zoom controls to change the map size. Select **Fit** to show the full
-plan in the available space.
-
-![The zoom control with the plan enlarged past its fitted size](../assets/images/orchestrator-plan-map-zoom.jpg)
-
-Select a step to read its instructions and expected result.
-
-![A selected step, with its detail open below the map](../assets/images/orchestrator-plan-map-selected.jpg)
+![A selected step with its complete instructions below the map](../assets/images/orchestrator-plan-map-selected.jpg)
 
 Select **Details** to read the complete plan as a list. Select **Map** to return
-to the diagram.
+to the diagram. Sero keeps this choice for all Workflows and workspaces in the
+current profile.
 
-![The same plan as a detailed list of steps](../assets/images/orchestrator-plan-details.jpg)
+![The generated Workflow shown in the Details view](../assets/images/orchestrator-plan-details.jpg)
 
-## 3. Change the plan
+See the [Workflows reference](/reference/workflows#reading-a-plan) for the map
+labels, route fields, and per-step settings.
 
-Use **Refine** to request any change before you start the Workflow. Describe the
-change in plain language. Sero creates a revised plan for you to review.
+## Refine the plan
 
-![The Refine box, with a change described in plain English](../assets/images/orchestrator-refine.jpg)
+If the plan needs a change, describe it in the box below the map. You can change
+the sequence, add a route, set a limit, require approval, or change what a step
+must produce.
 
-For example:
+![A request to add approval for one route without changing the rest of the Workflow](../assets/images/orchestrator-refine.jpg)
 
-> Ask for my approval before changing the solver.
+Select **Update plan**, then review the complete plan again. Sero can change the
+plan structure to satisfy the new requirement. It does not start the Workflow
+while you refine it.
 
-Or:
+## Start and reuse the Workflow
 
-> If a repaired puzzle still fails, return it to the repair step. Try no more
-> than three times.
+Select **Activate** when the plan is correct. A Workflow can run:
 
-You can also use **Refine** to change instructions, limits, schedules, events, or
-the order of the steps. Review the complete plan again after each change.
+- when you select **Run next**;
+- on a schedule;
+- when a configured event occurs.
 
-## 4. Start the Workflow
+The example combines a two-hour schedule with an issue-opened event. Each run
+uses the same reviewed plan, but follows only the routes that match that run's
+results.
 
-When the plan is correct, select **Activate workflow →**.
+Disable a Workflow to stop new scheduled or event-driven runs. A disabled
+Workflow keeps its plan and attempt history.
 
-![The workflow running, with one step active and the others waiting](../assets/images/orchestrator-lattice-running.jpg)
+## Check each run
 
-The active step is highlighted. The summary above the plan shows the time and
-tokens used. Steps that do not depend on each other can run at the same time.
+Open a Workflow to see the latest outcome for every step. A route that the run
+did not need stays pending or is marked as skipped. This example found no
+suitable issue, so it stopped after the backlog scan instead of making a
+meaningless change.
 
-You can close Orchestrator while the Workflow runs. Sero notifies you when it
-finishes, needs your input, or cannot continue.
+![An issue-handling Workflow after a run found no suitable issue](../assets/images/orchestrator-issues-complete.jpg)
 
-## 5. Approve or reject a change
+When a run does implement an issue, inspect the changed files, check results,
+and delivery link before you accept the pull request. If a step needs a decision
+or approval, Sero pauses the affected route and shows the request on **Home**.
 
-The Workflow pauses before it can change `src/solver.js`.
+**Attempt history** records each run, its result, duration, token use, and cost.
+Use it to compare runs or investigate a failure.
 
-![The approval request for a change to the solver](../assets/images/orchestrator-gate-waiting.jpg)
+**Home** shows active Workflows, recent outcomes, and requests that need your
+input.
 
-Read the proposed change. Select an available answer or enter your own response,
-then select **Send answer**. The Workflow continues from the same point after
-you answer. There is no time limit for your response.
-
-The request also appears in the **Needs you** list on **Home**. This list shows
-all Workflows that need your input.
-
-![The Needs you list on Home, with the waiting question](../assets/images/orchestrator-needs-you.jpg)
-
-## 6. Check the result
-
-When all steps finish, the Workflow has the **Complete** status. Open each step
-to read what it changed and the result of its checks.
-
-![The finished workflow, with each step's outcome and the run history](../assets/images/orchestrator-lattice-complete.jpg)
-
-Before you accept the result:
-
-1. Open the pull request from the link in the Workflow result.
-2. Confirm that only the failed puzzle files changed.
-3. Confirm that `src/solver.js` did not change unless you approved it.
-4. Review the check output and run `npm run check` yourself.
-
-**Attempt history** shows each run, its duration and cost, and the steps that it
-used. Use it to compare runs or investigate a failure.
-
-**Home** groups all Workflows by their current status.
-
-![The Home overview, with workflows grouped by status](../assets/images/orchestrator-home-overview.jpg)
+![The Orchestrator Home view with several Workflows and their current states](../assets/images/orchestrator-home-overview.jpg)
 
 ## Next steps
 
-- [Manage Workflows](/guide/workflows-advanced) — schedules and events,
-  recovery, saved Workflows, and the Catalog.
-- [Workflows reference](/reference/workflows) — controls, commands, limits, and
-  storage paths.
+- [Manage Workflows](/guide/workflows-advanced) for schedules, events, recovery,
+  saved Workflows, and the Catalog.
+- [Workflows reference](/reference/workflows) for controls, commands, limits,
+  and storage paths.

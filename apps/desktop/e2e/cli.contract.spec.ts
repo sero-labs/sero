@@ -62,6 +62,8 @@ const { runCli } = cliHelper;
 
 const workspaceParent = process.env.CLI_CONTRACT_WORKSPACE_PARENT;
 if (!workspaceParent) throw new Error('CLI_CONTRACT_WORKSPACE_PARENT is required');
+const resultPath = process.env.CLI_CONTRACT_RESULT_PATH;
+if (!resultPath) throw new Error('CLI_CONTRACT_RESULT_PATH is required');
 
 async function main() {
   await workspaceManager.init();
@@ -131,7 +133,7 @@ async function main() {
     const editorList = await run(['editor', 'list', 'notes']);
     const vcsStatus = await run(['vcs', 'status']);
 
-    console.log('__CLI_CONTRACT_RESULT__' + JSON.stringify({
+    fs.writeFileSync(resultPath, JSON.stringify({
       commandNames,
       help,
       workspaceHelp,
@@ -148,7 +150,7 @@ async function main() {
       workspaceId,
       workspacePath,
       workspaceParent,
-    }));
+    }), 'utf8');
   } finally {
     if (createdWorkspaceRecord) await workspaceManager.remove(createdWorkspaceRecord.id);
     await workspaceManager.remove(workspaceId);
@@ -175,13 +177,14 @@ function runPnpmVitest(runnerPath: string, env: NodeJS.ProcessEnv): string {
   });
 }
 
-function cliContractEnv(workspaceParent: string): NodeJS.ProcessEnv {
+function cliContractEnv(workspaceParent: string, resultPath: string): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     SERO_HOME_OVERRIDE: home.path,
     SERO_HOME: home.path,
     PI_CODING_AGENT_DIR: path.join(home.path, 'agent'),
     CLI_CONTRACT_WORKSPACE_PARENT: workspaceParent,
+    CLI_CONTRACT_RESULT_PATH: resultPath,
   };
   if (process.platform !== 'win32') {
     env.HOME = home.path;
@@ -192,16 +195,15 @@ function cliContractEnv(workspaceParent: string): NodeJS.ProcessEnv {
 
 function runCliContract(): CliContractResult {
   const workspaceParent = path.join(home.path, 'cli contract workspaces');
+  const resultPath = path.join(home.path, 'cli-contract-result.json');
   fs.mkdirSync(workspaceParent, { recursive: true });
 
   const runnerPath = path.join(process.cwd(), 'e2e', 'helpers', '__tests__', '.cli-contract-runner.tmp.test.ts');
   fs.writeFileSync(runnerPath, runnerSource(), 'utf8');
 
   try {
-    const stdout = runPnpmVitest(runnerPath, cliContractEnv(workspaceParent));
-    const line = stdout.split('\n').find((entry) => entry.includes('__CLI_CONTRACT_RESULT__'));
-    if (!line) throw new Error(`CLI contract runner did not emit a result. Output:\n${stdout}`);
-    return JSON.parse(line.slice(line.indexOf('__CLI_CONTRACT_RESULT__') + '__CLI_CONTRACT_RESULT__'.length)) as CliContractResult;
+    runPnpmVitest(runnerPath, cliContractEnv(workspaceParent, resultPath));
+    return JSON.parse(fs.readFileSync(resultPath, 'utf8')) as CliContractResult;
   } finally {
     fs.rmSync(runnerPath, { force: true });
   }

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { buildGatewayOps } from '@electron/ipc/gateway/gateway-ops';
 
 const mocks = vi.hoisted(() => ({
   workspaceManager: {
@@ -42,8 +43,6 @@ describe('buildGatewayOps', () => {
   });
 
   it('reuses an existing on-disk session when opening by session ID', async () => {
-    const { buildGatewayOps } = await import('@electron/ipc/gateway/gateway-ops');
-
     mocks.workspaceManager.getPath.mockReturnValue('/workspace-a');
     mocks.sessionManager.list.mockResolvedValue([
       { id: 'session-123', cwd: '/workspace-a', path: '/sessions/session-123.jsonl' },
@@ -67,8 +66,6 @@ describe('buildGatewayOps', () => {
   });
 
   it('rejects pooled sessions whose workspace does not match the requested workspace', async () => {
-    const { buildGatewayOps } = await import('@electron/ipc/gateway/gateway-ops');
-
     const pool = {
       has: vi.fn(),
       get: vi.fn().mockReturnValue({

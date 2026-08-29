@@ -324,6 +324,7 @@ export interface BrowserPackProgressIPC {
 export interface BrowserPackStatusIPC {
   state: 'ready' | 'missing' | 'installable' | 'installing' | 'failed';
   manifestVersion: string;
+  previousManifestVersion?: string;
   artifactKey?: string;
   browsersPath?: string;
   progress?: BrowserPackProgressIPC;

@@ -150,13 +150,13 @@ export function BriefFields({
 
       <section className="space-y-1.5">
         <div className="flex items-baseline justify-between">
-          <Label htmlFor="design-strength">Inspiration strength</Label>
+          <Label id="design-strength-label">Inspiration strength</Label>
           <span className="text-muted-foreground text-sm capitalize">
             {STRENGTHS[brief.strengthIndex]}
           </span>
         </div>
         <Slider
-          id="design-strength"
+          aria-labelledby="design-strength-label"
           min={0}
           max={STRENGTHS.length - 1}
           step={1}

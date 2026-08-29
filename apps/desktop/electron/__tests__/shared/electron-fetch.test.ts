@@ -71,11 +71,13 @@ async function runElectronProbe(baseUrl: string): Promise<Record<string, unknown
     const electronArgs = process.platform === 'linux'
       ? ['--no-sandbox', scriptPath]
       : [scriptPath];
+    const childEnv: NodeJS.ProcessEnv = {
+      ...process.env,
+      SERO_IDLE_TEST_URL: baseUrl,
+    };
+    delete childEnv.ELECTRON_RUN_AS_NODE;
     const child = spawn(electronPath, electronArgs, {
-      env: {
-        ...process.env,
-        SERO_IDLE_TEST_URL: baseUrl,
-      },
+      env: childEnv,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stdout = '';

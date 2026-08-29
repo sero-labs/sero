@@ -122,7 +122,7 @@ Common Doctor results and next actions:
 | --- | --- |
 | Host core tools missing | Use onboarding or Runtime settings to install Sero-managed core tools, or confirm Node, pnpm, Git/SSH, and your shell are available on `PATH`. |
 | Managed tools still installing | Wait for the install to finish, then rerun Doctor. |
-| Browser pack missing but installable | Use the in-app install action if offered, then rerun Doctor. |
+| Browser pack missing but installable | Open **Admin → Settings → Settings**, then install or update the browser pack under **Runtime diagnostics**. Rerun Doctor after the install finishes. |
 | Browser pack failed | Check disk space and network access, then rerun Doctor. Include the report if it still fails. |
 | Browser pack unavailable for your platform | Use a container runtime for browser automation, or move to a supported platform. |
 | Native build tools missing | Install your platform compiler stack, or use a container runtime when you need image-provided tools. |

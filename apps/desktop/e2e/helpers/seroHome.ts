@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import os from 'node:os';
 
 export interface TempSeroHome {
   path: string;
@@ -9,7 +10,9 @@ export interface TempSeroHome {
 }
 
 const DESKTOP_ROOT = path.resolve(__dirname, '../..');
-export const E2E_DATA_ROOT = path.join(DESKTOP_ROOT, '.sero-e2e');
+export const E2E_DATA_ROOT = process.platform === 'win32'
+  ? path.join(os.homedir(), '.sero-e2e')
+  : path.join(DESKTOP_ROOT, '.sero-e2e');
 const LEGACY_E2E_DATA_ROOTS = [
   path.join(DESKTOP_ROOT, '.sero-test-data'),
   path.join(DESKTOP_ROOT, '.sero-layout-test'),
