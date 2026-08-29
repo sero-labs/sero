@@ -6,6 +6,26 @@ The format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 and beta release tags use a SemVer prerelease form.
 
 
+## [0.8.0-beta.0](https://github.com/sero-labs/sero/compare/v0.7.1-beta.0...v0.8.0-beta.0) (2026-08-29)
+
+### Features
+
+* **agent-node:** add persistent remote Pi sessions ([#462](https://github.com/sero-labs/sero/issues/462)) ([95e9a47](https://github.com/sero-labs/sero/commit/95e9a47c53141743913caab6de99bcc119a643a6))
+* **orchestrator:** plan map ux improvements ([#463](https://github.com/sero-labs/sero/issues/463)) ([39df74c](https://github.com/sero-labs/sero/commit/39df74c033df54830111deed0638bfdc921d90b8))
+* **runtime:** automate packaged dependency updates ([#441](https://github.com/sero-labs/sero/issues/441)) ([7526f46](https://github.com/sero-labs/sero/commit/7526f46d81ea4da18dbc9e6000be4dcb9830e0df))
+
+### Bug Fixes
+
+* **ci:** repair scheduled e2e failures ([6f50b94](https://github.com/sero-labs/sero/commit/6f50b9417f8279036ff110e2983093745adc8bc4))
+* **ci:** stabilize scheduled e2e workflows ([23d208d](https://github.com/sero-labs/sero/commit/23d208d6ea099a6d0a870f698fa76c82abd23999))
+* **desktop:** detect safeStorage backends that do not protect data ([#460](https://github.com/sero-labs/sero/issues/460)) ([4aa2a32](https://github.com/sero-labs/sero/commit/4aa2a3211d8e1ef9175f808d29bf7019167329c1)), closes [#459](https://github.com/sero-labs/sero/issues/459)
+* **runtime:** keep Dependabot out of managed lock ([5bff7db](https://github.com/sero-labs/sero/commit/5bff7db9d7bbd6e1f16fef2334d4174235b4c516))
+* **test:** stabilize desktop suite locally ([1ee266e](https://github.com/sero-labs/sero/commit/1ee266e949cf4504250b0d843360ef021f7f8216))
+
+### Documentation
+
+* refinements to AGENTS.md ([e31c074](https://github.com/sero-labs/sero/commit/e31c074151879a4e52ecd3843847b61991b3387d))
+
 ## [0.7.1-beta.0](https://github.com/sero-labs/sero/compare/v0.7.0-beta.0...v0.7.1-beta.0) (2026-08-24)
 
 ### Bug Fixes

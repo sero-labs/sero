@@ -1,6 +1,6 @@
 {
   "name": "sero-monorepo",
-  "version": "0.7.1-beta.0",
+  "version": "0.8.0-beta.0",
   "private": true,
   "packageManager": "pnpm@10.34.5",
   "engines": {
