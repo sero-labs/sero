@@ -18,6 +18,7 @@ const updateStatus = {
 describe('browser pack update notice', () => {
   afterEach(() => {
     useBrowserPackNoticeStore.setState({
+      hydrated: false,
       notifiedVersion: null,
       status: null,
       visible: false,
@@ -30,6 +31,7 @@ describe('browser pack update notice', () => {
     Reflect.set(window, 'sero', {
       workspace: { getBrowserPackStatus: vi.fn(async () => updateStatus) },
     });
+    useBrowserPackNoticeStore.getState().hydrate(undefined);
 
     await useBrowserPackNoticeStore.getState().check();
 
@@ -55,10 +57,22 @@ describe('browser pack update notice', () => {
         })),
       },
     });
+    useBrowserPackNoticeStore.getState().hydrate(undefined);
 
     await useBrowserPackNoticeStore.getState().check();
 
     expect(useBrowserPackNoticeStore.getState().visible).toBe(false);
     expect(persistLayout).not.toHaveBeenCalled();
+  });
+
+  it('does not check or persist before layout hydration', async () => {
+    const getBrowserPackStatus = vi.fn(async () => updateStatus);
+    Reflect.set(window, 'sero', { workspace: { getBrowserPackStatus } });
+
+    await useBrowserPackNoticeStore.getState().check();
+
+    expect(getBrowserPackStatus).not.toHaveBeenCalled();
+    expect(persistLayout).not.toHaveBeenCalled();
+    expect(useBrowserPackNoticeStore.getState().visible).toBe(false);
   });
 });

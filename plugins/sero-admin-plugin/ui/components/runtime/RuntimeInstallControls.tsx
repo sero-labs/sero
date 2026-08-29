@@ -168,7 +168,7 @@ export function RuntimeInstallControls({ disabled = false, onChanged }: RuntimeI
   );
 }
 
-function InstallDetail(props: {
+export function InstallDetail(props: {
   coreStatus: ToolchainStatusIPC | null;
   browserStatus: BrowserPackStatusIPC | null;
   coreProgress?: ToolchainProgressIPC;
@@ -188,13 +188,6 @@ function InstallDetail(props: {
       </p>
     );
   }
-  if (failure) {
-    return (
-      <p className="border-t border-border/40 px-3 py-2 text-destructive">
-        {failure.message} {failure.retryable && failure.installable ? 'Retry is available.' : 'Manual setup may be required.'}
-      </p>
-    );
-  }
   if (props.browserStatus?.state === 'installable' && props.browserStatus.previousManifestVersion) {
     return (
       <p className="border-t border-border/40 px-3 py-2 text-muted-foreground/70">
@@ -202,16 +195,23 @@ function InstallDetail(props: {
       </p>
     );
   }
-  if (props.browserStatus?.state === 'ready') {
+  if (failure) {
     return (
-      <p className="border-t border-border/40 px-3 py-2 text-muted-foreground/70">
-        {props.browserStatus.manifestVersion} is installed.
+      <p className="border-t border-border/40 px-3 py-2 text-destructive">
+        {failure.message} {failure.retryable && failure.installable ? 'Retry is available.' : 'Manual setup may be required.'}
       </p>
     );
   }
   if (progress && progress.phase !== 'ready') {
     const bytes = progress.bytesTotal ? ` (${progress.bytesReceived ?? 0}/${progress.bytesTotal} bytes)` : '';
     return <p className="border-t border-border/40 px-3 py-2 text-muted-foreground/70">Install progress: {progress.phase}{bytes}</p>;
+  }
+  if (props.browserStatus?.state === 'ready') {
+    return (
+      <p className="border-t border-border/40 px-3 py-2 text-muted-foreground/70">
+        {props.browserStatus.manifestVersion} is installed.
+      </p>
+    );
   }
   return null;
 }

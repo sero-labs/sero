@@ -21,6 +21,7 @@ import { createBrowserRuntimeAdapter, firstExistingCandidate } from '@electron/f
 import { BrowserPackInstaller } from '@electron/features/workspace/runtime/browser-pack/installer';
 import {
   browserPackDownloadPath,
+  findPreviousBrowserPackVersion,
   browserPackInstallRoot,
   browserPackInstalledMarker,
   browserPackManifestPath,
@@ -77,19 +78,19 @@ describe('BrowserPackInstaller', () => {
     await assertInstalledArtifactShape(harness);
   });
 
-  it('reports the previous installed pack when an update is available', async () => {
-    const previousVersion = `browser-test-previous-${process.pid}-${Date.now()}`;
-    cleanupVersions.push(previousVersion);
-    await fs.promises.mkdir(browserPackInstallRoot(previousVersion), { recursive: true });
-    await fs.promises.writeFile(browserPackInstalledMarker(previousVersion), 'installed\n');
-    const harness = await createHarness();
-    const installer = installerWithArchive(harness);
+  it('selects the latest older installed browser pack', async () => {
+    const currentVersion = 'browser-pack-2026-08-24-r1234-f1011-mf1011-agent-0.27.3';
+    const previousVersion = 'browser-pack-2026-08-23-r1233-f1011-mf1011-agent-0.27.2';
+    const oldestVersion = 'browser-pack-2026-08-22-r999-f999-mf999-agent-0.9.0';
+    const newerVersion = 'browser-pack-2026-08-25-r1235-f1012-mf1012-agent-0.28.0';
+    const installedVersions = [previousVersion, oldestVersion, newerVersion];
+    cleanupVersions.push(...installedVersions);
+    await Promise.all(installedVersions.map(async (version) => {
+      await fs.promises.mkdir(browserPackInstallRoot(version), { recursive: true });
+      await fs.promises.writeFile(browserPackInstalledMarker(version), 'installed\n');
+    }));
 
-    await expect(installer.status()).resolves.toMatchObject({
-      state: 'installable',
-      manifestVersion: harness.manifest.version,
-      previousManifestVersion: previousVersion,
-    });
+    await expect(findPreviousBrowserPackVersion(currentVersion)).resolves.toBe(previousVersion);
   });
 
   it('creates adapter candidates that resolve to activated fixture paths from manifest metadata', async () => {

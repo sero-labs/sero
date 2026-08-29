@@ -3,6 +3,7 @@ import { persistLayout } from '@/lib/persist-layout';
 import type { BrowserPackStatusIPC } from '@sero-ai/common';
 
 interface BrowserPackNoticeState {
+  hydrated: boolean;
   notifiedVersion: string | null;
   status: BrowserPackStatusIPC | null;
   visible: boolean;
@@ -12,13 +13,18 @@ interface BrowserPackNoticeState {
 }
 
 export const useBrowserPackNoticeStore = create<BrowserPackNoticeState>((set, get) => ({
+  hydrated: false,
   notifiedVersion: null,
   status: null,
   visible: false,
 
-  hydrate: (notifiedVersion) => set({ notifiedVersion: notifiedVersion ?? null }),
+  hydrate: (notifiedVersion) => set({
+    hydrated: true,
+    notifiedVersion: notifiedVersion ?? null,
+  }),
 
   check: async () => {
+    if (!get().hydrated) return;
     try {
       const status = await window.sero.workspace.getBrowserPackStatus();
       const isUpdate = status.state === 'installable'

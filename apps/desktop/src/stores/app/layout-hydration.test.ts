@@ -145,7 +145,10 @@ describe('layout hydration', () => {
 
     await loadLayout();
 
-    expect(useBrowserPackNoticeStore.getState().notifiedVersion).toBe('browser-pack-2026-08-24');
+    expect(useBrowserPackNoticeStore.getState()).toMatchObject({
+      hydrated: true,
+      notifiedVersion: 'browser-pack-2026-08-24',
+    });
   });
 
   it('persists an app preference outside the workspace scope', async () => {
