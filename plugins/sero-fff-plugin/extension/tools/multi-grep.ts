@@ -8,10 +8,11 @@
  * single call instead of three.
  */
 
+import type { GrepCursor } from '@ff-labs/fff-node';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
-import { grepCursors } from '../cursors';
+import { BoundedCursorStore } from '../cursors';
 import { clampContext, formatGrepOutput, GREP_CONTEXT_MAX, withNotices } from '../format';
 import { EXHAUSTIVE_GUIDELINE, RANKED_VS_EXHAUSTIVE, WORKSPACE_GUIDELINE } from '../guidance';
 import { normalizeExcludes, normalizePathConstraint } from '../path-policy';
@@ -20,6 +21,11 @@ import { DEFAULT_GREP_LIMIT, GREP_PAGE_SIZE_MAX } from './grep';
 import { PATH_DESCRIPTION, EXCLUDE_DESCRIPTION, textResult } from './shared';
 
 export const MAX_PATTERNS = 32;
+
+interface StoredMultiGrepCursor {
+  root: string;
+  cursor: GrepCursor;
+}
 
 const MultiGrepParams = Type.Object({
   patterns: Type.Array(Type.String(), {
@@ -52,6 +58,8 @@ const MultiGrepParams = Type.Object({
 });
 
 export function registerMultiGrepTool(pi: ExtensionAPI, search: SearchContext): void {
+  const cursors = new BoundedCursorStore<StoredMultiGrepCursor>('m');
+
   pi.registerTool({
     name: 'multi_grep',
     label: 'Multi-pattern grep',
@@ -80,6 +88,10 @@ export function registerMultiGrepTool(pi: ExtensionAPI, search: SearchContext): 
       }
 
       const { finder, root } = await search.finderFor(ctx.cwd);
+      const resumed = params.cursor ? cursors.take(params.cursor) : undefined;
+      if (resumed && resumed.root !== root) {
+        throw new Error('This multi_grep cursor belongs to a different workspace. Start the search again.');
+      }
       const limit = Math.max(1, params.limit ?? DEFAULT_GREP_LIMIT);
       const pageSize = Math.min(limit, GREP_PAGE_SIZE_MAX);
 
@@ -98,7 +110,7 @@ export function registerMultiGrepTool(pi: ExtensionAPI, search: SearchContext): 
         maxMatchesPerFile: pageSize,
         pageSize,
         smartCase: params.caseSensitive !== true,
-        cursor: (params.cursor ? grepCursors.get(params.cursor) : null) ?? null,
+        cursor: resumed?.cursor ?? null,
         beforeContext: clampContext(params.context),
         afterContext: clampContext(params.context),
       });
@@ -106,8 +118,9 @@ export function registerMultiGrepTool(pi: ExtensionAPI, search: SearchContext): 
 
       const notices: string[] = [];
       if (result.value.nextCursor) {
+        const cursorId = cursors.put({ root, cursor: result.value.nextCursor });
         notices.push(
-          `More matches available; cursor="${grepCursors.put(result.value.nextCursor)}" to continue`,
+          `More matches available; cursor="${cursorId}" to continue`,
         );
       }
 

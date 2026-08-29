@@ -1,5 +1,5 @@
 /**
- * Resolving a built-in plugin's runtime dependencies to a flat, copyable set.
+ * Resolving a built-in plugin's runtime dependencies to a copyable tree.
  *
  * pnpm does not put a package's own dependencies inside it. `@ff-labs/fff-node`
  * lives at `.pnpm/@ff-labs+fff-node@x/node_modules/@ff-labs/fff-node`, and its
@@ -8,10 +8,9 @@
  * package that cannot resolve its own requires — which for a native dependency
  * means the packaged app fails at the first call, not at build time.
  *
- * So a dependency that resolves into the pnpm virtual store is staged together
- * with the peers in its store directory, producing the flat layout Node's
- * resolver expects. A dependency that is already a plain directory (an npm
- * install, or a release checkout) is staged as-is.
+ * The staging tree follows each package's installed runtime dependencies and
+ * nests them below that package. This preserves pnpm's resolved versions while
+ * producing a normal directory tree that Node can load after packaging.
  */
 
 import fs from 'fs';
@@ -25,26 +24,23 @@ function containingNodeModules(packageDir, dependencyName) {
   return path.basename(current) === 'node_modules' ? current : null;
 }
 
-function isVirtualStoreDir(nodeModulesDir) {
-  return path.basename(path.dirname(nodeModulesDir)).length > 0
-    && path.basename(path.dirname(path.dirname(nodeModulesDir))) === '.pnpm';
+function runtimeDependencyNames(packageDir) {
+  const manifestPath = path.join(packageDir, 'package.json');
+  if (!fs.existsSync(manifestPath)) return [];
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  return [...new Set([
+    ...Object.keys(manifest.dependencies ?? {}),
+    ...Object.keys(manifest.optionalDependencies ?? {}),
+  ])];
 }
 
-/** Every package directory inside a `node_modules`, with scopes expanded. */
-function listPackages(nodeModulesDir) {
-  const entries = [];
-  for (const entry of fs.readdirSync(nodeModulesDir)) {
-    if (entry.startsWith('.')) continue;
-    const entryPath = path.join(nodeModulesDir, entry);
-    if (!entry.startsWith('@')) {
-      entries.push({ name: entry, source: entryPath });
-      continue;
-    }
-    for (const scoped of fs.readdirSync(entryPath)) {
-      entries.push({ name: `${entry}/${scoped}`, source: path.join(entryPath, scoped) });
-    }
-  }
-  return entries;
+function resolveInstalledDependency(packageDir, packageName, dependencyName) {
+  const containing = containingNodeModules(packageDir, packageName);
+  const candidates = [
+    path.join(packageDir, 'node_modules', dependencyName),
+    containing ? path.join(containing, dependencyName) : null,
+  ];
+  return candidates.find((candidate) => candidate && fs.existsSync(candidate)) ?? null;
 }
 
 /**
@@ -52,51 +48,60 @@ function listPackages(nodeModulesDir) {
  * staged for it to run. Returns `[]` when the dependency is not installed —
  * an optional platform binary for another architecture, for instance.
  *
- * Expansion is transitive: `@ff-labs/fff-node` needs `ffi-rs`, and `ffi-rs`
- * needs its own platform binary package, which sits in a different store
- * directory again.
+ * Expansion is transitive. Each dependency is placed below the package that
+ * resolved it, so two packages can retain different versions of one name.
  */
 export function resolveDependencyStagingEntries(pluginNodeModules, dependencyName) {
   const linkPath = path.join(pluginNodeModules, dependencyName);
   if (!fs.existsSync(linkPath)) return [];
 
-  const real = fs.realpathSync(linkPath);
-  const nodeModulesDir = containingNodeModules(real, dependencyName);
-  if (!nodeModulesDir || !isVirtualStoreDir(nodeModulesDir)) {
-    return [{ name: dependencyName, source: linkPath }];
-  }
-
-  // A package appears in both its own store directory and in the store of
-  // everything that depends on it, so entries are keyed by name.
-  const entries = new Map();
-  const visitedStores = new Set();
-  const queue = [nodeModulesDir];
+  const rootSource = fs.realpathSync(linkPath);
+  const entries = [];
+  const visitedDestinations = new Set();
+  const queue = [{
+    name: dependencyName,
+    source: rootSource,
+    destination: dependencyName,
+    ancestors: new Set([rootSource]),
+  }];
   while (queue.length > 0) {
-    const store = queue.shift();
-    if (visitedStores.has(store)) continue;
-    visitedStores.add(store);
+    const current = queue.shift();
+    if (visitedDestinations.has(current.destination)) continue;
+    visitedDestinations.add(current.destination);
+    entries.push({
+      name: current.name,
+      source: current.source,
+      destination: current.destination,
+    });
 
-    for (const { name, source } of listPackages(store)) {
-      const resolved = fs.realpathSync(source);
-      if (!entries.has(name)) entries.set(name, { name, source: resolved });
-      const peerStore = containingNodeModules(resolved, name);
-      if (peerStore && isVirtualStoreDir(peerStore)) queue.push(peerStore);
+    for (const childName of runtimeDependencyNames(current.source)) {
+      const installed = resolveInstalledDependency(current.source, current.name, childName);
+      if (!installed) continue;
+      const childSource = fs.realpathSync(installed);
+      if (current.ancestors.has(childSource)) continue;
+      queue.push({
+        name: childName,
+        source: childSource,
+        destination: path.join(current.destination, 'node_modules', childName),
+        ancestors: new Set([...current.ancestors, childSource]),
+      });
     }
   }
-  return [...entries.values()];
+  return entries;
 }
 
 /**
- * Resolves every declared dependency, de-duplicated by package name. The first
- * resolution of a name wins, which keeps a directly declared dependency ahead
- * of the same package pulled in as somebody else's peer.
+ * Resolves every declared dependency. Destinations, not package names, are
+ * de-duplicated because different parents may require different versions.
  */
 export function resolvePluginStagingEntries(pluginNodeModules, dependencyNames) {
-  const byName = new Map();
+  const byDestination = new Map();
   for (const dependencyName of dependencyNames) {
     for (const entry of resolveDependencyStagingEntries(pluginNodeModules, dependencyName)) {
-      if (!byName.has(entry.name)) byName.set(entry.name, entry);
+      if (!byDestination.has(entry.destination)) {
+        byDestination.set(entry.destination, entry);
+      }
     }
   }
-  return [...byName.values()];
+  return [...byDestination.values()];
 }

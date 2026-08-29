@@ -18,7 +18,10 @@ import { ensureAiInfra } from '@electron/shared/infra/ai-infra';
 import { requestChoice } from '@electron/platform/desktop/request-choice';
 import { bridgeExtensionTools, createPrivateCliRegistry, createWorkspaceCliTool } from '@electron/cli';
 import { createSeroExtensionFactory } from '@electron/features/apps/extensions/create-sero-extension';
-import { searchPluginPackages } from '@electron/features/apps/extensions/search-plugin';
+import {
+  restrictSearchToolOrigins,
+  searchPluginPackages,
+} from '@electron/features/apps/extensions/search-plugin';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { getSubagentToolCatalog, warmSubagentToolCatalog } from '@electron/features/subagent/runtime/tool-catalog';
 import { getRoomSkillCatalog } from '@electron/ipc/agent/handlers/subagent-context';
@@ -172,7 +175,8 @@ export async function installPersistentSessions(
             }),
           ],
           bridgeExtensions: (base) => {
-            const bridged = bridgeExtensionTools(base, { sessionId: cliScopeId, registry: cliRegistry });
+            const restricted = restrictSearchToolOrigins(base);
+            const bridged = bridgeExtensionTools(restricted, { sessionId: cliScopeId, registry: cliRegistry });
             // The one line that says whether the member can talk at all. A Room
             // whose members hold no `room` command looks like a Room that has
             // nothing to say, so the commands and any extension that failed to

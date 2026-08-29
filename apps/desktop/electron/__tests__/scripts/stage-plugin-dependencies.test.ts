@@ -11,11 +11,15 @@ import {
 let root: string;
 
 /** Writes a package into a pnpm-style virtual store and returns its directory. */
-function storePackage(name: string, id: string): string {
+function storePackage(
+  name: string,
+  id: string,
+  manifest: Record<string, unknown> = {},
+): string {
   const storeNodeModules = path.join(root, 'node_modules/.pnpm', id, 'node_modules');
   const packageDir = path.join(storeNodeModules, name);
   fs.mkdirSync(packageDir, { recursive: true });
-  fs.writeFileSync(path.join(packageDir, 'package.json'), JSON.stringify({ name }));
+  fs.writeFileSync(path.join(packageDir, 'package.json'), JSON.stringify({ name, ...manifest }));
   return packageDir;
 }
 
@@ -35,8 +39,10 @@ afterEach(() => {
 });
 
 describe('resolveDependencyStagingEntries', () => {
-  it('stages a dependency together with the peers in its store directory', () => {
-    const engine = storePackage('@scope/engine', '@scope+engine@1.0.0');
+  it('stages a dependency together with its installed runtime dependencies', () => {
+    const engine = storePackage('@scope/engine', '@scope+engine@1.0.0', {
+      dependencies: { loader: '2.0.0' },
+    });
     storePackage('loader', '@scope+engine@1.0.0');
     const pluginNodeModules = path.join(root, 'plugin/node_modules');
     link(pluginNodeModules, '@scope/engine', engine);
@@ -49,8 +55,12 @@ describe('resolveDependencyStagingEntries', () => {
   });
 
   it('follows the store graph so a peer brings its own dependencies', () => {
-    const engine = storePackage('@scope/engine', '@scope+engine@1.0.0');
-    const loaderLink = storePackage('loader', 'loader@2.0.0');
+    const engine = storePackage('@scope/engine', '@scope+engine@1.0.0', {
+      dependencies: { loader: '2.0.0' },
+    });
+    const loaderLink = storePackage('loader', 'loader@2.0.0', {
+      optionalDependencies: { '@loader/native-linux-x64': '2.0.0' },
+    });
     storePackage('@loader/native-linux-x64', 'loader@2.0.0');
     link(path.join(root, 'node_modules/.pnpm/@scope+engine@1.0.0/node_modules'), 'loader', loaderLink);
 
@@ -70,7 +80,7 @@ describe('resolveDependencyStagingEntries', () => {
     fs.mkdirSync(packageDir, { recursive: true });
 
     expect(resolveDependencyStagingEntries(pluginNodeModules, 'plain')).toEqual([
-      { name: 'plain', source: packageDir },
+      { name: 'plain', source: packageDir, destination: 'plain' },
     ]);
   });
 
@@ -83,19 +93,34 @@ describe('resolveDependencyStagingEntries', () => {
 });
 
 describe('resolvePluginStagingEntries', () => {
-  it('de-duplicates a package two dependencies both pull in', () => {
-    const engine = storePackage('@scope/engine', '@scope+engine@1.0.0');
-    const shared = storePackage('shared', '@scope+engine@1.0.0');
-    const other = storePackage('other', 'other@1.0.0');
-    link(path.join(root, 'node_modules/.pnpm/other@1.0.0/node_modules'), 'shared', shared);
+  it('keeps different versions below the packages that resolved them', () => {
+    const engine = storePackage('@scope/engine', '@scope+engine@1.0.0', {
+      dependencies: { shared: '1.0.0' },
+    });
+    const sharedOne = storePackage('shared', 'shared@1.0.0', { version: '1.0.0' });
+    link(path.join(root, 'node_modules/.pnpm/@scope+engine@1.0.0/node_modules'), 'shared', sharedOne);
+    const other = storePackage('other', 'other@1.0.0', {
+      dependencies: { shared: '2.0.0' },
+    });
+    const sharedTwo = storePackage('shared', 'shared@2.0.0', { version: '2.0.0' });
+    link(path.join(root, 'node_modules/.pnpm/other@1.0.0/node_modules'), 'shared', sharedTwo);
 
     const pluginNodeModules = path.join(root, 'plugin/node_modules');
     link(pluginNodeModules, '@scope/engine', engine);
     link(pluginNodeModules, 'other', other);
 
-    const names = resolvePluginStagingEntries(pluginNodeModules, ['@scope/engine', 'other'])
-      .map((entry) => entry.name);
+    const shared = resolvePluginStagingEntries(pluginNodeModules, ['@scope/engine', 'other'])
+      .filter((entry) => entry.name === 'shared');
 
-    expect(names.filter((name) => name === 'shared')).toHaveLength(1);
+    expect(shared).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        source: sharedOne,
+        destination: path.join('@scope/engine', 'node_modules', 'shared'),
+      }),
+      expect.objectContaining({
+        source: sharedTwo,
+        destination: path.join('other', 'node_modules', 'shared'),
+      }),
+    ]));
   });
 });

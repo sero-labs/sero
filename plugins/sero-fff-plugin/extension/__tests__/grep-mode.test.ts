@@ -17,6 +17,12 @@ describe('detectGrepMode', () => {
     expect(detectGrepMode('foo(bar')).toBe('plain');
     expect(detectGrepMode('a{2,1}')).toBe('plain');
   });
+
+  it('keeps punctuation-only source searches literal', () => {
+    expect(detectGrepMode('...')).toBe('plain');
+    expect(detectGrepMode('$')).toBe('plain');
+    expect(detectGrepMode('^')).toBe('plain');
+  });
 });
 
 describe('isWildcardOnly', () => {
@@ -30,6 +36,9 @@ describe('isWildcardOnly', () => {
   it('leaves real patterns alone', () => {
     expect(isWildcardOnly('useState')).toBe(false);
     expect(isWildcardOnly('export .*Tool')).toBe(false);
+    expect(isWildcardOnly('...')).toBe(false);
+    expect(isWildcardOnly('$')).toBe(false);
+    expect(isWildcardOnly('^')).toBe(false);
   });
 });
 

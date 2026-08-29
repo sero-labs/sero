@@ -105,6 +105,30 @@ describe('FinderRegistry', () => {
     expect(registry.refCount('/repo')).toBe(3);
   });
 
+  it('does not retain a consumer released during a cold scan', async () => {
+    let finishScan: ((result: { ok: true; value: true }) => void) | undefined;
+    const sdk = createFakeSdk({
+      script: {
+        waitForScan: () => new Promise((resolve) => {
+          finishScan = resolve;
+        }),
+      },
+    });
+    setFinderSdkForTesting({ ok: true, FileFinder: sdk.FileFinder });
+    const registry = new FinderRegistry({ dbPaths: DB_PATHS });
+
+    const acquiring = registry.acquire({ root: '/repo', consumerId: 'chat' });
+    await vi.waitFor(() => expect(finishScan).toBeDefined());
+    registry.releaseAll('chat');
+    const rejected = expect(acquiring).rejects.toThrow(/session closed/);
+    finishScan?.({ ok: true, value: true });
+
+    await rejected;
+    expect(registry.refCount('/repo')).toBe(0);
+    expect(registry.size()).toBe(0);
+    expect(sdk.created[0].destroyed).toBe(true);
+  });
+
   it('re-indexes a root after its finder was destroyed', async () => {
     const sdk = createFakeSdk();
     setFinderSdkForTesting({ ok: true, FileFinder: sdk.FileFinder });

@@ -98,6 +98,7 @@ export function formatFindOutput(
   result: SearchResult,
   limit: number,
   pattern: string,
+  sampleWeak = true,
 ): FormattedFind {
   if (result.items.length === 0) {
     return { output: 'No files found matching pattern', weak: false, shownCount: 0 };
@@ -105,7 +106,10 @@ export function formatFindOutput(
 
   const topScore = result.scores[0]?.total ?? 0;
   const weak = topScore < weakScoreThreshold(pattern);
-  const shown = result.items.slice(0, weak ? Math.min(WEAK_SAMPLE_SIZE, limit) : limit);
+  const shown = result.items.slice(
+    0,
+    weak && sampleWeak ? Math.min(WEAK_SAMPLE_SIZE, limit) : limit,
+  );
 
   return {
     output: shown.map((item) => `${item.relativePath}${fileAnnotation(item)}`).join('\n'),

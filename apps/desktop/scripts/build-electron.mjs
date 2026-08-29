@@ -47,6 +47,19 @@ function copyIfExists(src, dest) {
   fs.cpSync(src, dest, { recursive: true, dereference: true });
 }
 
+function copyDependencyPackage(src, dest) {
+  if (!fs.existsSync(src)) return;
+  const sourceNodeModules = path.join(path.resolve(src), 'node_modules');
+  fs.cpSync(src, dest, {
+    recursive: true,
+    dereference: true,
+    filter: (current) => {
+      const resolved = path.resolve(current);
+      return resolved !== sourceNodeModules && !resolved.startsWith(`${sourceNodeModules}${path.sep}`);
+    },
+  });
+}
+
 function runCommand(command, args, cwd) {
   const result = spawnSync(command, args, {
     cwd,
@@ -104,7 +117,7 @@ function stagePluginRuntimeDependencies(srcDir, destDir, manifestDir = srcDir) {
   const optionalDeps = Object.keys(pkg.optionalDependencies ?? {});
   const entries = resolvePluginStagingEntries(pluginNodeModules, [...runtimeDeps, ...optionalDeps]);
   for (const entry of entries) {
-    copyIfExists(entry.source, path.join(destNodeModules, entry.name));
+    copyDependencyPackage(entry.source, path.join(destNodeModules, entry.destination));
   }
 }
 

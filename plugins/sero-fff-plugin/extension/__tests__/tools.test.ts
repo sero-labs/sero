@@ -155,6 +155,36 @@ describe('grep', () => {
     expect((sdk.created[0].calls[1].args[1] as { cursor: unknown }).cursor).toBe(cursor);
   });
 
+  it('rejects a grep cursor from another tool registration', async () => {
+    const cursor = fakeCursor(42);
+    const first = setup({
+      grep: () => ({ ok: true, value: grepResult([grepMatch({ relativePath: 'a.ts' })], cursor) }),
+    });
+    const token = (await first.host.tools.get('grep')!.call({ pattern: 'x' }, workspace))
+      .text.match(/cursor="([^"]+)"/)![1];
+    const second = setup();
+
+    await expect(second.host.tools.get('grep')!.call({ pattern: 'x', cursor: token }, workspace))
+      .rejects.toThrow(/does not belong to this search session/);
+  });
+
+  it('rejects a grep cursor after the session root changes', async () => {
+    const otherWorkspace = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'sero-fff-')));
+    const cursor = fakeCursor(42);
+    const { host } = setup({
+      grep: () => ({ ok: true, value: grepResult([grepMatch({ relativePath: 'a.ts' })], cursor) }),
+    });
+    try {
+      const first = await host.tools.get('grep')!.call({ pattern: 'x' }, workspace);
+      const token = first.text.match(/cursor="([^"]+)"/)![1];
+
+      await expect(host.tools.get('grep')!.call({ pattern: 'x', cursor: token }, otherWorkspace))
+        .rejects.toThrow(/different workspace/);
+    } finally {
+      fs.rmSync(otherWorkspace, { recursive: true, force: true });
+    }
+  });
+
   it('falls back to fuzzy matching when an exhausted first page found nothing', async () => {
     const { host, sdk } = setup({
       grep: (_query, options) => {
@@ -248,6 +278,22 @@ describe('find', () => {
     expect(result.details.hasMore).toBe(false);
   });
 
+  it('rejects a find cursor after the session root changes', async () => {
+    const otherWorkspace = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'sero-fff-')));
+    const { host } = setup({
+      fileSearch: () => ({ ok: true, value: searchResult(['a.ts', 'b.ts'], 10) }),
+    });
+    try {
+      const first = await host.tools.get('find')!.call({ pattern: 'ts', limit: 2 }, workspace);
+      const token = first.text.match(/cursor="([^"]+)"/)![1];
+
+      await expect(host.tools.get('find')!.call({ pattern: 'ts', cursor: token }, otherWorkspace))
+        .rejects.toThrow(/different workspace/);
+    } finally {
+      fs.rmSync(otherWorkspace, { recursive: true, force: true });
+    }
+  });
+
   it('caps and flags a page of weak fuzzy matches instead of dumping it', async () => {
     const paths = Array.from({ length: 30 }, (_, index) => `file-${index}.ts`);
     const { host } = setup({ fileSearch: () => ({ ok: true, value: searchResult(paths, 30, 1) }) });
@@ -256,6 +302,33 @@ describe('find', () => {
 
     expect(result.text).toMatch(/weak scattered matches/);
     expect(result.text.split('\n').filter((line) => line.startsWith('file-'))).toHaveLength(5);
+  });
+
+  it('continues weak matches without skipping the rest of the first engine page', async () => {
+    const paths = Array.from({ length: 100 }, (_, index) => `file-${index}.ts`);
+    const { host, sdk } = setup({
+      fileSearch: (_query, options) => {
+        const { pageIndex, pageSize } = options as { pageIndex: number; pageSize: number };
+        const start = pageIndex * pageSize;
+        return { ok: true, value: searchResult(paths.slice(start, start + pageSize), 100, 1) };
+      },
+    });
+
+    const first = await host.tools.get('find')!.call(
+      { pattern: 'ComponentRegistry', limit: 30 },
+      workspace,
+    );
+    const token = first.text.match(/cursor="([^"]+)"/)![1];
+    const second = await host.tools.get('find')!.call(
+      { pattern: 'ComponentRegistry', cursor: token },
+      workspace,
+    );
+
+    expect(first.details.hasMore).toBe(true);
+    expect(second.text).toContain('file-5.ts');
+    expect(second.text).toContain('file-9.ts');
+    expect((sdk.created[0].calls[1].args[1] as { pageIndex: number; pageSize: number }))
+      .toMatchObject({ pageIndex: 1, pageSize: 5 });
   });
 });
 
@@ -294,6 +367,18 @@ describe('multi_grep', () => {
 
     await expect(host.tools.get('multi_grep')!.call({ patterns }, workspace))
       .rejects.toThrow(/at most 32 patterns/);
+  });
+
+  it('rejects a cursor issued by grep', async () => {
+    const cursor = fakeCursor(42);
+    const { host } = setup({
+      grep: () => ({ ok: true, value: grepResult([grepMatch({ relativePath: 'a.ts' })], cursor) }),
+    });
+    const first = await host.tools.get('grep')!.call({ pattern: 'x' }, workspace);
+    const token = first.text.match(/cursor="([^"]+)"/)![1];
+
+    await expect(host.tools.get('multi_grep')!.call({ patterns: ['x'], cursor: token }, workspace))
+      .rejects.toThrow(/does not belong to this search session/);
   });
 });
 

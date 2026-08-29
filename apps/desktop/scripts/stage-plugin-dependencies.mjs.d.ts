@@ -3,6 +3,8 @@ export interface PluginStagingEntry {
   readonly name: string;
   /** Directory to copy from. */
   readonly source: string;
+  /** Path below the staged `node_modules`. */
+  readonly destination: string;
 }
 
 export function resolveDependencyStagingEntries(

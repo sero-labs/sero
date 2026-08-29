@@ -52,6 +52,8 @@ export class SearchContext {
 
   private root: string | null = null;
 
+  private released = false;
+
   constructor(private readonly registry: FinderRegistry = sharedRegistry) {
     this.consumerId = `sero-fff-${process.pid}-${randomUUID()}`;
   }
@@ -77,6 +79,7 @@ export class SearchContext {
 
   /** Acquires (creating if needed) the shared finder for `cwd`. */
   async finderFor(cwd: string): Promise<{ finder: FileFinderApi; root: string }> {
+    if (this.released) throw new SearchUnavailableError('search session is closed');
     const root = this.setRoot(cwd);
     if (!isIndexableRoot(root)) {
       throw new SearchUnavailableError(`${root} is not a workspace root, so it is not indexed`);
@@ -103,6 +106,7 @@ export class SearchContext {
   }
 
   release(): void {
+    this.released = true;
     this.registry.releaseAll(this.consumerId);
     this.root = null;
   }

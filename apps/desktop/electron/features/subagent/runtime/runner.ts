@@ -218,6 +218,7 @@ export async function runSubagent(
     systemPromptOverride: config.systemPromptOverride,
     appendSystemPrompt: appendSystemPrompt.length > 0 ? appendSystemPrompt : undefined,
     disabledSkills: config.disabledSkills,
+    restrictSearchTools: policy === 'readOnly',
   });
   await loader.reload();
 

@@ -13,7 +13,7 @@ const REGEX_METACHARACTERS = /[.*+?^${}()|[\]\\]/g;
  * chosen only when the pattern both looks like a regex and compiles as one.
  */
 export function detectGrepMode(pattern: string): GrepMode {
-  if (!hasRegexSyntax(pattern)) return 'plain';
+  if (!hasRegexSyntax(pattern) || /^[.^$]+$/.test(pattern)) return 'plain';
   try {
     new RegExp(pattern);
     return 'regex';
@@ -26,8 +26,18 @@ export function hasRegexSyntax(pattern: string): boolean {
   return pattern !== pattern.replace(REGEX_METACHARACTERS, '\\$&');
 }
 
-const WILDCARD_ONLY =
-  /^(?:[.^$]*(?:[.][*+?]|\*|\+)[.^$]*|[.^$\s]*|\.\*\??|\.\*[+?]?|\.\+\??|\.|\*|\?)$/;
+const WILDCARD_ONLY = new Set([
+  '*',
+  '?',
+  '.',
+  '.*',
+  '.+',
+  '.*?',
+  '.*+',
+  '.+?',
+  '^.*$',
+  '^.+$',
+]);
 
 /**
  * A pattern that matches every line is an attempt to read whole files with
@@ -35,7 +45,7 @@ const WILDCARD_ONLY =
  */
 export function isWildcardOnly(pattern: string): boolean {
   const trimmed = pattern.trim();
-  return hasRegexSyntax(trimmed) && WILDCARD_ONLY.test(trimmed);
+  return WILDCARD_ONLY.has(trimmed);
 }
 
 /**

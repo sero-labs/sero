@@ -14,6 +14,10 @@ const stagedPlugin = path.join(desktopRoot, 'dist/electron/builtin/plugins/sero-
 
 /** Native pieces that must reach the packaged app for the engine to load. */
 const NATIVE_PACKAGES = ['@ff-labs/fff-node', 'ffi-rs'] as const;
+const STAGED_PACKAGE_PATHS = {
+  '@ff-labs/fff-node': '@ff-labs/fff-node',
+  'ffi-rs': '@ff-labs/fff-node/node_modules/ffi-rs',
+} as const;
 
 interface StagedFinderModule {
   FileFinder: {
@@ -45,7 +49,7 @@ describe('built-in FFF search plugin packaging', () => {
     expect(plugin.bridgeTools).toBe(false);
   });
 
-  it('resolves the native engine and its loader into a flat staging set', () => {
+  it('resolves the native engine and its loader into the staging tree', () => {
     const pluginNodeModules = path.join(pluginSource, 'node_modules');
     if (!existsSync(path.join(pluginNodeModules, '@ff-labs/fff-node'))) return;
 
@@ -60,11 +64,9 @@ describe('built-in FFF search plugin packaging', () => {
   it('unpacks every native path the staged plugin can hold', async () => {
     const builderConfig = await readFile(path.join(desktopRoot, 'electron-builder.yml'), 'utf8');
 
-    for (const scope of ['@ff-labs', '@yuuang', 'ffi-rs']) {
-      expect(builderConfig).toContain(
-        `dist/electron/builtin/plugins/sero-fff-plugin/node_modules/${scope}/**/*`,
-      );
-    }
+    expect(builderConfig).toContain(
+      'dist/electron/builtin/plugins/sero-fff-plugin/node_modules/@ff-labs/**/*',
+    );
   });
 
   it('stages the plugin with its native dependencies', async () => {
@@ -81,7 +83,8 @@ describe('built-in FFF search plugin packaging', () => {
     expect(existsSync(path.join(stagedPlugin, 'extension/index.js'))).toBe(true);
 
     for (const packageName of NATIVE_PACKAGES) {
-      await expect(readJson(path.join(stagedPlugin, 'node_modules', packageName, 'package.json')))
+      const packagePath = STAGED_PACKAGE_PATHS[packageName];
+      await expect(readJson(path.join(stagedPlugin, 'node_modules', packagePath, 'package.json')))
         .resolves.toMatchObject(expect.objectContaining({ name: packageName }));
     }
   });

@@ -9,7 +9,7 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
-import { findCursors } from '../cursors';
+import { BoundedCursorStore, type FindCursor } from '../cursors';
 import { formatFindOutput, withNotices } from '../format';
 import { EXHAUSTIVE_GUIDELINE, RANKED_VS_EXHAUSTIVE, WORKSPACE_GUIDELINE } from '../guidance';
 import { buildQuery } from '../path-policy';
@@ -40,6 +40,8 @@ const FindParams = Type.Object({
 });
 
 export function registerFindTool(pi: ExtensionAPI, search: SearchContext): void {
+  const cursors = new BoundedCursorStore<FindCursor>('f');
+
   pi.registerTool({
     name: 'find',
     label: 'Find files',
@@ -60,8 +62,11 @@ export function registerFindTool(pi: ExtensionAPI, search: SearchContext): void 
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       if (signal?.aborted) throw new Error('Operation aborted');
 
-      const resumed = params.cursor ? findCursors.get(params.cursor) : undefined;
       const { finder, root } = await search.finderFor(ctx.cwd);
+      const resumed = params.cursor ? cursors.take(params.cursor) : undefined;
+      if (resumed && resumed.root !== root) {
+        throw new Error('This find cursor belongs to a different workspace. Start the search again.');
+      }
 
       const limit = resumed ? resumed.pageSize : Math.max(1, params.limit ?? DEFAULT_FIND_LIMIT);
       const pattern = resumed ? resumed.pattern : params.pattern;
@@ -74,12 +79,15 @@ export function registerFindTool(pi: ExtensionAPI, search: SearchContext): void 
       if (!searchResult.ok) throw new SearchUnavailableError(searchResult.error);
 
       const result = searchResult.value;
-      const formatted = formatFindOutput(result, limit, pattern);
+      const formatted = formatFindOutput(result, limit, pattern, pageIndex === 0);
 
       // The engine fills a page whenever more results exist, so a full page plus
       // an unexhausted total is the signal that another page is available.
-      const shownSoFar = pageIndex * limit + result.items.length;
-      const hasMore = result.items.length >= limit && result.totalMatched > shownSoFar;
+      const shownSoFar = pageIndex * limit + formatted.shownCount;
+      const continuationPageSize = formatted.weak ? formatted.shownCount : limit;
+      const hasMore = continuationPageSize > 0
+        && formatted.shownCount >= continuationPageSize
+        && result.totalMatched > shownSoFar;
 
       const notices: string[] = [];
       if (formatted.weak && formatted.shownCount > 0) {
@@ -88,13 +96,13 @@ export function registerFindTool(pi: ExtensionAPI, search: SearchContext): void 
           + `${formatted.shownCount}/${result.totalMatched}`,
         );
       }
-      if (!formatted.weak && hasMore) {
+      if (hasMore) {
         const remaining = result.totalMatched - shownSoFar;
-        const cursorId = findCursors.put({
+        const cursorId = cursors.put({
           root,
           query,
           pattern,
-          pageSize: limit,
+          pageSize: continuationPageSize,
           nextPageIndex: pageIndex + 1,
         });
         notices.push(

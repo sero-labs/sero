@@ -55,6 +55,14 @@ export class FinderRegistry {
   /** Which roots each consumer holds, so a shutdown releases all of them. */
   private readonly holdings = new Map<string, Set<string>>();
 
+  /** Acquires still waiting for a cold scan, keyed by root and consumer. */
+  private readonly pendingRoots = new Map<string, number>();
+
+  private readonly pendingConsumers = new Map<string, number>();
+
+  /** Consumers released while an acquire was still waiting. */
+  private readonly releasedConsumers = new Set<string>();
+
   /** Set once the databases could not be opened; later finders skip them. */
   private dbDisabled = false;
 
@@ -74,24 +82,32 @@ export class FinderRegistry {
   }
 
   async acquire({ root, consumerId }: AcquireOptions): Promise<FileFinderApi> {
-    const existing = this.entries.get(root);
-    if (existing && !existing.finder.isDestroyed) {
-      this.track(consumerId, root, existing);
-      return existing.finder;
-    }
+    this.incrementPending(root, consumerId);
+    let entry: RegistryEntry | undefined;
+    try {
+      const existing = this.entries.get(root);
+      if (existing && !existing.finder.isDestroyed) {
+        entry = existing;
+      } else {
+        const inflight = this.pending.get(root);
+        if (inflight) {
+          entry = await inflight;
+        } else {
+          const creation = this.create(root).finally(() => this.pending.delete(root));
+          this.pending.set(root, creation);
+          entry = await creation;
+        }
+      }
 
-    const inflight = this.pending.get(root);
-    if (inflight) {
-      const entry = await inflight;
+      if (this.releasedConsumers.has(consumerId)) {
+        throw new FinderUnavailableError('Search session closed before the index was ready');
+      }
       this.track(consumerId, root, entry);
       return entry.finder;
+    } finally {
+      this.decrementPending(root, consumerId);
+      if (entry) this.destroyIfUnused(root, entry);
     }
-
-    const creation = this.create(root).finally(() => this.pending.delete(root));
-    this.pending.set(root, creation);
-    const entry = await creation;
-    this.track(consumerId, root, entry);
-    return entry.finder;
   }
 
   /** Releases one root held by a consumer, destroying the finder when it is the last. */
@@ -113,9 +129,37 @@ export class FinderRegistry {
 
   /** Releases everything a session held. Called on `session_shutdown`. */
   releaseAll(consumerId: string): void {
+    if ((this.pendingConsumers.get(consumerId) ?? 0) > 0) {
+      this.releasedConsumers.add(consumerId);
+    }
     const held = this.holdings.get(consumerId);
     if (!held) return;
     for (const root of [...held]) this.release(consumerId, root);
+  }
+
+  private incrementPending(root: string, consumerId: string): void {
+    this.pendingRoots.set(root, (this.pendingRoots.get(root) ?? 0) + 1);
+    this.pendingConsumers.set(consumerId, (this.pendingConsumers.get(consumerId) ?? 0) + 1);
+  }
+
+  private decrementPending(root: string, consumerId: string): void {
+    const rootCount = (this.pendingRoots.get(root) ?? 1) - 1;
+    if (rootCount === 0) this.pendingRoots.delete(root);
+    else this.pendingRoots.set(root, rootCount);
+
+    const consumerCount = (this.pendingConsumers.get(consumerId) ?? 1) - 1;
+    if (consumerCount === 0) {
+      this.pendingConsumers.delete(consumerId);
+      this.releasedConsumers.delete(consumerId);
+    } else {
+      this.pendingConsumers.set(consumerId, consumerCount);
+    }
+  }
+
+  private destroyIfUnused(root: string, entry: RegistryEntry): void {
+    if ((this.pendingRoots.get(root) ?? 0) > 0 || entry.consumers.size > 0) return;
+    if (this.entries.get(root) === entry) this.entries.delete(root);
+    if (!entry.finder.isDestroyed) entry.finder.destroy();
   }
 
   private track(consumerId: string, root: string, entry: RegistryEntry): void {

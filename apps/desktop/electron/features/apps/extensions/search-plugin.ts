@@ -18,6 +18,8 @@
 
 import path from 'path';
 
+import type { LoadExtensionsResult } from '@earendil-works/pi-coding-agent';
+
 import { discoverBuiltinPluginPaths } from '@electron/platform/protocols/builtin-resources';
 
 /** Directory name of the bundled plugin, in both source and packaged layouts. */
@@ -45,4 +47,26 @@ export function resolveSearchPluginPackagePath(): string | null {
 export function searchPluginPackages(): string[] {
   const packagePath = resolveSearchPluginPackagePath();
   return packagePath ? [packagePath] : [];
+}
+
+function isInsidePackage(packagePath: string, resourcePath: string): boolean {
+  const relative = path.relative(path.resolve(packagePath), path.resolve(resourcePath));
+  return relative === '' || (!relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
+}
+
+/** Removes conventional search names registered outside the built-in package. */
+export function restrictSearchToolOrigins(base: LoadExtensionsResult): LoadExtensionsResult {
+  const packagePath = resolveSearchPluginPackagePath();
+  const searchNames = new Set<string>(SEARCH_TOOL_NAMES);
+
+  return {
+    ...base,
+    extensions: base.extensions.map((extension) => {
+      if (packagePath && isInsidePackage(packagePath, extension.resolvedPath)) return extension;
+      const tools = new Map(extension.tools);
+      let changed = false;
+      for (const name of searchNames) changed = tools.delete(name) || changed;
+      return changed ? { ...extension, tools } : extension;
+    }),
+  };
 }

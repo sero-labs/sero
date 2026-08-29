@@ -5,10 +5,11 @@
  * from `@ff-labs/pi-fff` (MIT, © Dmitry Kovalenko); see NOTICE.md.
  */
 
+import type { GrepCursor } from '@ff-labs/fff-node';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 
-import { grepCursors } from '../cursors';
+import { BoundedCursorStore } from '../cursors';
 import { clampContext, formatGrepOutput, GREP_CONTEXT_MAX, withNotices } from '../format';
 import { detectGrepMode, isWildcardOnly, pathTargetsFile } from '../grep-mode';
 import { EXHAUSTIVE_GUIDELINE, RANKED_VS_EXHAUSTIVE, WORKSPACE_GUIDELINE } from '../guidance';
@@ -18,6 +19,11 @@ import { PATH_DESCRIPTION, EXCLUDE_DESCRIPTION, textResult } from './shared';
 
 export const DEFAULT_GREP_LIMIT = 20;
 export const GREP_PAGE_SIZE_MAX = 50;
+
+interface StoredGrepCursor {
+  root: string;
+  cursor: GrepCursor;
+}
 
 /** Anything slower than this is not an indexed search any more. */
 const GREP_TIME_BUDGET_MS = 10_000;
@@ -49,6 +55,8 @@ const GrepParams = Type.Object({
 });
 
 export function registerGrepTool(pi: ExtensionAPI, search: SearchContext): void {
+  const cursors = new BoundedCursorStore<StoredGrepCursor>('g');
+
   pi.registerTool({
     name: 'grep',
     label: 'Grep contents',
@@ -80,6 +88,10 @@ export function registerGrepTool(pi: ExtensionAPI, search: SearchContext): void 
       }
 
       const { finder, root } = await search.finderFor(ctx.cwd);
+      const resumed = params.cursor ? cursors.take(params.cursor) : undefined;
+      if (resumed && resumed.root !== root) {
+        throw new Error('This grep cursor belongs to a different workspace. Start the search again.');
+      }
       const limit = Math.max(1, params.limit ?? DEFAULT_GREP_LIMIT);
       // pageSize caps total matches across files; maxMatchesPerFile alone would
       // still let one file fill an entire engine page.
@@ -94,7 +106,7 @@ export function registerGrepTool(pi: ExtensionAPI, search: SearchContext): void 
         smartCase,
         maxMatchesPerFile: pageSize,
         pageSize,
-        cursor: (params.cursor ? grepCursors.get(params.cursor) : null) ?? null,
+        cursor: resumed?.cursor ?? null,
         beforeContext: context,
         afterContext: context,
         classifyDefinitions: true,
@@ -137,7 +149,8 @@ export function registerGrepTool(pi: ExtensionAPI, search: SearchContext): void 
         notices.push(`Invalid regex (${result.regexFallbackError}); used literal matching`);
       }
       if (result.nextCursor) {
-        notices.push(`More matches available; cursor="${grepCursors.put(result.nextCursor)}" to continue`);
+        const cursorId = cursors.put({ root, cursor: result.nextCursor });
+        notices.push(`More matches available; cursor="${cursorId}" to continue`);
       }
 
       const body = withNotices(formatGrepOutput(result), notices);
