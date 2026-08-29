@@ -56,3 +56,9 @@ containers.
 - Put plans and task history in GitHub issues or pull request descriptions. Put
   user and plugin-author docs in `apps/docs-site/docs/`, subsystem guidance in
   the owning README, and current cross-cutting boundaries in `ARCHITECTURE.md`.
+
+## Coding Workflow
+- Use the minimum sufficient approach. Plan enough to remove material uncertainty, then execute the smallest coherent solution that satisfies the requested outcome.
+- Bound each task with the requested outcome, acceptance criteria, non-goals, and what must remain untouched.
+- Treat new abstractions, compatibility paths, infrastructure, or unrelated edits as signals to stop and recheck the plan against those bounds.
+- Run the closest existing checks first. Add only the smallest coverage needed for changed behavior that existing checks cannot prove, and tie each new test to an acceptance criterion.
