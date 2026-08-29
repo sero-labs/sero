@@ -108,6 +108,8 @@ export function RuntimeInstallControls({ disabled = false, onChanged }: RuntimeI
     && browserStatus.state !== 'missing'
     && browserStatus.state !== 'installing'
     && (browserStatus.state !== 'failed' || browserRetryable);
+  const browserUpdateAvailable = browserStatus?.state === 'installable'
+    && typeof browserStatus.previousManifestVersion === 'string';
 
   return (
     <div className="border-t border-border/40 text-sm">
@@ -138,7 +140,13 @@ export function RuntimeInstallControls({ disabled = false, onChanged }: RuntimeI
             </Badge>
             {showBrowserInstall ? (
               <Button size="sm" variant="outline" className="h-7 px-2 text-sm" disabled={disabled || busy !== null} onClick={installBrowser}>
-                {busy === 'browser' ? 'Installing…' : browserStatus.state === 'failed' ? 'Retry browser pack' : 'Install browser pack'}
+                {busy === 'browser'
+                  ? 'Installing…'
+                  : browserStatus.state === 'failed'
+                    ? 'Retry browser pack'
+                    : browserUpdateAvailable
+                      ? 'Update browser pack'
+                      : 'Install browser pack'}
               </Button>
             ) : null}
             {browserStatus?.state === 'ready' ? (
@@ -184,6 +192,20 @@ function InstallDetail(props: {
     return (
       <p className="border-t border-border/40 px-3 py-2 text-destructive">
         {failure.message} {failure.retryable && failure.installable ? 'Retry is available.' : 'Manual setup may be required.'}
+      </p>
+    );
+  }
+  if (props.browserStatus?.state === 'installable' && props.browserStatus.previousManifestVersion) {
+    return (
+      <p className="border-t border-border/40 px-3 py-2 text-muted-foreground/70">
+        Update available from {props.browserStatus.previousManifestVersion} to {props.browserStatus.manifestVersion}.
+      </p>
+    );
+  }
+  if (props.browserStatus?.state === 'ready') {
+    return (
+      <p className="border-t border-border/40 px-3 py-2 text-muted-foreground/70">
+        {props.browserStatus.manifestVersion} is installed.
       </p>
     );
   }

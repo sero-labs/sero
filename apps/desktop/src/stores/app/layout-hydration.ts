@@ -9,6 +9,7 @@ import { useAgentBoardStore } from '@/stores/agent-board';
 import { seedNavigationHistory } from '@/stores/navigation';
 import { hydrateZoom } from '@/stores/zoom';
 import { useStorageSecurityStore } from '@/stores/storage-security';
+import { useBrowserPackNoticeStore } from '@/stores/browser-pack-notice';
 import { useNodesStore } from '@/stores/nodes';
 import { normaliseChromeShortcuts, normaliseFavouriteApps } from './shared';
 import type { AppState } from './state';
@@ -24,6 +25,7 @@ function isGlobalApp(state: AppState, appId: string): boolean {
 /** Load layout state from disk and hydrate all stores. */
 export async function loadLayout(): Promise<void> {
   let storageWarningDismissed = false;
+  let browserPackNoticeVersion: string | undefined;
   try {
     const dashboardApi = window.sero.dashboard;
     let backgroundChangedDuringLoad = false;
@@ -47,6 +49,9 @@ export async function loadLayout(): Promise<void> {
       useDashboardStore.getState().setBackgroundImage(backgroundImage);
     }
     storageWarningDismissed = state?.storageWarningDismissed === true;
+    browserPackNoticeVersion = typeof state?.browserPackNoticeVersion === 'string'
+      ? state.browserPackNoticeVersion
+      : undefined;
     if (state) {
       const favouriteApps = normaliseFavouriteApps(state.favouriteApps);
       const update: Partial<AppState> & { layoutReady: true } = {
@@ -147,6 +152,7 @@ export async function loadLayout(): Promise<void> {
     const storageSecurity = useStorageSecurityStore.getState();
     storageSecurity.hydrateDismissed(storageWarningDismissed);
     void storageSecurity.check();
+    useBrowserPackNoticeStore.getState().hydrate(browserPackNoticeVersion);
   }
 
   useAppStore.setState({ layoutReady: true });

@@ -36,6 +36,26 @@ import { SkillEditor } from './components/SkillEditor';
 import { SkillList } from './components/SkillList';
 import './styles.css';
 
+interface AdminLaunchParams extends Record<string, unknown> {
+  agentPluginId?: unknown;
+  section?: unknown;
+  configKey?: unknown;
+}
+
+function readAdminLaunchParams(): {
+  agentPluginId: string | null;
+  section: AdminSection | null;
+  configKey: string | null;
+} {
+  const params = consumeAppLaunchParams<AdminLaunchParams>('admin');
+  const section = params?.section;
+  return {
+    agentPluginId: typeof params?.agentPluginId === 'string' ? params.agentPluginId : null,
+    section: section === 'settings' ? section : null,
+    configKey: typeof params?.configKey === 'string' ? params.configKey : null,
+  };
+}
+
 function normalizeSection(section: AdminState['lastSection'] | 'modelDefaults' | null | undefined): AdminSection {
   if (section === 'modelDefaults') return 'model';
   return section ?? 'agents';
@@ -43,10 +63,7 @@ function normalizeSection(section: AdminState['lastSection'] | 'modelDefaults' |
 
 export function AdminApp() {
   const [state, updateState] = useAppState<AdminState>(DEFAULT_STATE);
-  const [linkedAgentPluginId, setLinkedAgentPluginId] = useState<string | null>(() => {
-    const params = consumeAppLaunchParams<{ agentPluginId?: unknown }>('admin');
-    return typeof params?.agentPluginId === 'string' ? params.agentPluginId : null;
-  });
+  const [launchParams, setLaunchParams] = useState(readAdminLaunchParams);
   const { activeProfile, loading: profilesLoading } = useProfiles();
 
   const [resourceLoading, setResourceLoading] = useState(true);
@@ -69,16 +86,21 @@ export function AdminApp() {
 
   const profilePath = activeProfile?.path ?? null;
   const profileName = activeProfile?.name ?? null;
-  const activeSection = linkedAgentPluginId
+  const activeSection = launchParams.agentPluginId
     ? 'plugins'
-    : normalizeSection(state.lastSection as AdminState['lastSection'] | 'modelDefaults' | null | undefined);
-  const selectedConfigKey = state.lastConfigKey;
+    : launchParams.section
+      ?? normalizeSection(state.lastSection as AdminState['lastSection'] | 'modelDefaults' | null | undefined);
+  const selectedConfigKey = launchParams.configKey ?? state.lastConfigKey;
   const selectedSessionId = state.lastSessionFile;
   const skillVisibility = useSkillVisibility(profilePath);
 
   useEffect(() => {
-    return onAppLaunchParams<{ agentPluginId?: unknown }>('admin', (params) => {
-      if (typeof params.agentPluginId === 'string') setLinkedAgentPluginId(params.agentPluginId);
+    return onAppLaunchParams<AdminLaunchParams>('admin', (params) => {
+      setLaunchParams({
+        agentPluginId: typeof params.agentPluginId === 'string' ? params.agentPluginId : null,
+        section: params.section === 'settings' ? params.section : null,
+        configKey: typeof params.configKey === 'string' ? params.configKey : null,
+      });
     });
   }, []);
 
@@ -131,11 +153,12 @@ export function AdminApp() {
 
   const handleSectionChange = useCallback((section: AdminSection) => {
     setError(null);
-    setLinkedAgentPluginId(null);
+    setLaunchParams({ agentPluginId: null, section: null, configKey: null });
     updateState((prev) => ({ ...prev, lastSection: section }));
   }, [updateState]);
 
   const handleSelectConfig = useCallback((key: string) => {
+    setLaunchParams((current) => ({ ...current, configKey: null }));
     updateState((prev) => ({ ...prev, lastConfigKey: key }));
   }, [updateState]);
 
@@ -295,7 +318,7 @@ export function AdminApp() {
         return <ModelPanel />;
 
       case 'plugins':
-        return <PluginsPanel focusedAgentPluginId={linkedAgentPluginId} />;
+        return <PluginsPanel focusedAgentPluginId={launchParams.agentPluginId} />;
 
       case 'logs':
         return <LogViewer />;

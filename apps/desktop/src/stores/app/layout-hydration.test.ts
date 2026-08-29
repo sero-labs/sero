@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useDashboardStore } from '@/stores/dashboard';
 import { useNavigationStore } from '@/stores/navigation';
 import { useStorageSecurityStore } from '@/stores/storage-security';
+import { useBrowserPackNoticeStore } from '@/stores/browser-pack-notice';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useAppStore } from './state';
 import { loadLayout } from './layout-hydration';
@@ -27,6 +28,7 @@ describe('layout hydration', () => {
   const initialAppState = useAppStore.getState();
   const initialNavigationState = useNavigationStore.getState();
   const initialStorageSecurityState = useStorageSecurityStore.getState();
+  const initialBrowserPackNoticeState = useBrowserPackNoticeStore.getState();
   const initialWorkspaceState = useWorkspaceStore.getState();
 
   afterEach(() => {
@@ -34,6 +36,7 @@ describe('layout hydration', () => {
     useAppStore.setState(initialAppState, true);
     useNavigationStore.setState(initialNavigationState, true);
     useStorageSecurityStore.setState(initialStorageSecurityState, true);
+    useBrowserPackNoticeStore.setState(initialBrowserPackNoticeState, true);
     useWorkspaceStore.setState(initialWorkspaceState, true);
     Reflect.deleteProperty(window, 'sero');
   });
@@ -122,6 +125,27 @@ describe('layout hydration', () => {
       }],
       index: 0,
     });
+  });
+
+  it('restores the browser pack version that already showed an update notice', async () => {
+    Reflect.set(window, 'sero', {
+      layout: {
+        load: vi.fn(async () => ({
+          mainSidebarOpen: true,
+          chatPanelOpen: true,
+          favouriteApps: [],
+          browserPackNoticeVersion: 'browser-pack-2026-08-24',
+        })),
+      },
+      dashboard: {
+        getBackground: vi.fn(async () => null),
+        onBackgroundChanged: vi.fn(() => () => undefined),
+      },
+    });
+
+    await loadLayout();
+
+    expect(useBrowserPackNoticeStore.getState().notifiedVersion).toBe('browser-pack-2026-08-24');
   });
 
   it('persists an app preference outside the workspace scope', async () => {

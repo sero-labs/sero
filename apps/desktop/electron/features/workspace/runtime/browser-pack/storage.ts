@@ -1,9 +1,11 @@
+import fs from 'fs';
 import path from 'path';
 
 import {
   INSTALLED_MARKER,
   STAGING_SUFFIX,
   downloadedArtifactPath,
+  listToolchainVersions,
   toolchainStagingRoot,
   toolchainVersionRoot,
 } from '../toolchains/storage';
@@ -34,4 +36,19 @@ export function browserPackDownloadPath(version: string, artifactKey: string): s
 
 export function browserPackTempRoot(version: string): string {
   return path.join(browserPackInstallRoot(version), 'tmp');
+}
+
+export async function findPreviousBrowserPackVersion(currentVersion: string): Promise<string | undefined> {
+  const versions = (await listToolchainVersions())
+    .filter((version) => version !== currentVersion)
+    .sort((left, right) => right.localeCompare(left));
+
+  for (const version of versions) {
+    if (await exists(browserPackInstalledMarker(version))) return version;
+  }
+  return undefined;
+}
+
+async function exists(filePath: string): Promise<boolean> {
+  return fs.promises.access(filePath).then(() => true, () => false);
 }

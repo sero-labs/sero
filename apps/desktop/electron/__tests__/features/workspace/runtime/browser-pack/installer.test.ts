@@ -77,6 +77,21 @@ describe('BrowserPackInstaller', () => {
     await assertInstalledArtifactShape(harness);
   });
 
+  it('reports the previous installed pack when an update is available', async () => {
+    const previousVersion = `browser-test-previous-${process.pid}-${Date.now()}`;
+    cleanupVersions.push(previousVersion);
+    await fs.promises.mkdir(browserPackInstallRoot(previousVersion), { recursive: true });
+    await fs.promises.writeFile(browserPackInstalledMarker(previousVersion), 'installed\n');
+    const harness = await createHarness();
+    const installer = installerWithArchive(harness);
+
+    await expect(installer.status()).resolves.toMatchObject({
+      state: 'installable',
+      manifestVersion: harness.manifest.version,
+      previousManifestVersion: previousVersion,
+    });
+  });
+
   it('creates adapter candidates that resolve to activated fixture paths from manifest metadata', async () => {
     const harness = await createHarness();
     const installer = installerWithArchive(harness);

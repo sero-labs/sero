@@ -78,6 +78,8 @@ export interface LayoutState {
    * condition never becomes invisible.
    */
   storageWarningDismissed?: boolean;
+  /** Last browser pack version announced in the one-time update notice. */
+  browserPackNoticeVersion?: string;
   /** Hidden model keys ("provider/modelId"). */
   hiddenModels?: string[];
   /** Provider IDs entirely hidden from the model selector. */
