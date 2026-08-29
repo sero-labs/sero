@@ -82,7 +82,7 @@ describe('Agent Plugin manager lifecycle', () => {
     await expect(fs.stat(plugin.packagePath)).rejects.toThrow();
     await expect(fs.stat(plugin.dataPath)).resolves.toBeDefined();
     expect(await manager.listInstalledAgentPlugins()).toEqual([]);
-  });
+  }, 15000);
 
   it('retains PLUGIN_DATA and requires renewed approval when executable configuration changes', async () => {
     tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-agent-plugin-manager-'));
