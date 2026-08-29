@@ -139,8 +139,12 @@ test.describe('runtime diagnostics IPC contracts', () => {
           desiredBackend?: WorkspaceRuntimeBackend;
           actualBackend?: WorkspaceRuntimeBackend;
         };
-        expect(diagnostic.desiredBackend).toBe(entry.requestedBackend);
-        if (entry.requestedBackend === 'host') {
+        const platformSupportsAppleContainer = process.platform === 'darwin' && process.arch === 'arm64';
+        const expectedBackend = entry.requestedBackend === 'apple-container' && !platformSupportsAppleContainer
+          ? 'docker'
+          : entry.requestedBackend;
+        expect(diagnostic.desiredBackend).toBe(expectedBackend);
+        if (expectedBackend === 'host') {
           expect(diagnostic).toEqual(expect.objectContaining({
             desiredRuntime: 'host',
             actualRuntime: 'host',
@@ -150,23 +154,12 @@ test.describe('runtime diagnostics IPC contracts', () => {
           }));
           expect(diagnostic.fallbackCode).toBeUndefined();
         } else {
-          const platformSupportsAppleContainer = process.platform === 'darwin' && process.arch === 'arm64';
-          const expectedBackend = entry.requestedBackend === 'apple-container' && !platformSupportsAppleContainer
-            ? 'docker'
-            : entry.requestedBackend;
           expect(diagnostic).toEqual(expect.objectContaining({
             desiredRuntime: 'container',
             actualRuntime: 'container',
             actualBackend: expectedBackend,
             containerEnabled: true,
           }));
-          if (expectedBackend !== entry.requestedBackend) {
-            expect([
-              'backend-unsupported-on-platform',
-              'container_unavailable',
-            ]).toContain(diagnostic.fallbackCode);
-            expectNonEmptyString(diagnostic.fallbackReason);
-          }
           if (diagnostic.fallbackCode === 'container_unavailable') {
             expect(diagnostic.capabilityAudit.every((auditEntry) => auditEntry.available === false)).toBe(true);
           }

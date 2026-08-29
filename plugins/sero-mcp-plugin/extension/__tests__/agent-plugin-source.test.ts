@@ -115,6 +115,26 @@ describe('Agent Plugin MCP source adapter', () => {
     expect(effective.mcpServers['agent-plugin:ap-test:remote']).toBeDefined();
   });
 
+  it('drops a stale session bus and continues with an active session', async () => {
+    configureAgentPluginMcpSource({
+      emit() {
+        throw new Error('This extension ctx is stale after session replacement or reload.');
+      },
+    } as unknown as EventBus);
+    provide([{
+      pluginId: 'ap-test',
+      pluginName: 'portable-tools',
+      server: {
+        name: 'remote', runtimeName: 'agent-plugin:ap-test:remote', transport: 'streamable-http',
+        valid: true, approved: true, exposedToCli: false, url: 'https://example.com/mcp',
+      },
+    }]);
+
+    const effective = await withAgentPluginMcpSources(createDefaultMcpConfig());
+
+    expect(effective.mcpServers['agent-plugin:ap-test:remote']).toBeDefined();
+  });
+
   it('continues with user config when no session accepts the source request', async () => {
     configureAgentPluginMcpSource({ emit() {} } as unknown as EventBus);
     const userConfig = createDefaultMcpConfig();

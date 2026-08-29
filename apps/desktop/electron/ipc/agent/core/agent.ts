@@ -37,6 +37,7 @@ import { openSessionInPool, type PoolEntry } from './agent-session-open';
 
 export { emitAgentEvent } from './agent-event-broadcast';
 const pool = new Map<string, PoolEntry>();
+const pendingResourceReloads = new Map<string, Promise<void>>();
 
 function toErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
@@ -58,6 +59,30 @@ export async function reloadAllSessionResources(): Promise<void> {
   // the menu after every package edit.
   const hidden = await readHiddenCommands(SERO_CONFIG_PATH);
   await Promise.all([...pool.entries()].map(async ([sessionId, entry]) => {
+    if (!entry.session.isIdle) {
+      if (!pendingResourceReloads.has(sessionId)) {
+        const pending = entry.session.waitForIdle()
+          .then(async () => {
+            if (pool.get(sessionId) !== entry) return;
+            const currentHidden = await readHiddenCommands(SERO_CONFIG_PATH);
+            await entry.session.reload();
+            sendEvent({
+              type: 'resources_change',
+              sessionId,
+              commands: buildCommandList(entry, currentHidden),
+              state: buildModelState(entry),
+            });
+          })
+          .catch((error) => {
+            console.error(`[agent] Deferred resource reload failed for ${sessionId}:`, error);
+          })
+          .finally(() => {
+            pendingResourceReloads.delete(sessionId);
+          });
+        pendingResourceReloads.set(sessionId, pending);
+      }
+      return;
+    }
     await entry.session.reload();
     sendEvent({
       type: 'resources_change',
@@ -86,6 +111,7 @@ async function closePoolEntry(sessionId: string): Promise<void> {
   entry.unsubscribe();
   entry.session.dispose();
   pool.delete(sessionId);
+  pendingResourceReloads.delete(sessionId);
   clearBridgedExtensionSessionStateForSession(sessionId);
 }
 

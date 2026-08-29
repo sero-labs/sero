@@ -9,7 +9,6 @@ const runtime = getMcpRuntime();
 
 export default function mcpExtension(pi: ExtensionAPI) {
   const releaseAgentPluginSource = configureAgentPluginMcpSource(pi.events);
-  runtime.attachEvents(pi.events);
 
   pi.on('before_agent_start', async (event) => ({
     systemPrompt: event.systemPrompt + buildMcpPromptBlock(),
