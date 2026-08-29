@@ -162,6 +162,7 @@ function toBrowserPackStatusIPC(status: BrowserPackStatus): BrowserPackStatusIPC
   return {
     state: status.state,
     manifestVersion: status.manifestVersion,
+    previousManifestVersion: status.previousManifestVersion,
     artifactKey: status.artifactKey,
     browsersPath: status.browsersPath,
     progress: lastBrowserPackProgress,

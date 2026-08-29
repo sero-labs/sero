@@ -21,6 +21,7 @@ import { createBrowserRuntimeAdapter, firstExistingCandidate } from '@electron/f
 import { BrowserPackInstaller } from '@electron/features/workspace/runtime/browser-pack/installer';
 import {
   browserPackDownloadPath,
+  findPreviousBrowserPackVersion,
   browserPackInstallRoot,
   browserPackInstalledMarker,
   browserPackManifestPath,
@@ -75,6 +76,38 @@ describe('BrowserPackInstaller', () => {
     await expect(installer.status()).resolves.toMatchObject({ state: 'installable', artifactKey: 'browser-darwin-arm64' });
     await expect(installer.ensure(reason)).resolves.toMatchObject({ state: 'ready', browsersPath: browserPackInstallRoot(harness.manifest.version) });
     await assertInstalledArtifactShape(harness);
+  });
+
+  it('selects the latest older installed browser pack', async () => {
+    const currentVersion = 'browser-pack-2026-08-24-r1234-f1011-mf1011-agent-0.28.0-beta.2';
+    const previousVersion = 'browser-pack-2026-08-24-r1234-f1011-mf1011-agent-0.28.0-beta.1';
+    const oldestVersion = 'browser-pack-2026-08-22-r999-f999-mf999-agent-0.9.0';
+    const newerPrereleaseVersion = 'browser-pack-2026-08-24-r1234-f1011-mf1011-agent-0.28.0-beta.3';
+    const newerStableVersion = 'browser-pack-2026-08-24-r1234-f1011-mf1011-agent-0.28.0';
+    const installedVersions = [previousVersion, oldestVersion, newerPrereleaseVersion, newerStableVersion];
+    cleanupVersions.push(...installedVersions);
+    await Promise.all(installedVersions.map(async (version) => {
+      await fs.promises.mkdir(browserPackInstallRoot(version), { recursive: true });
+      await fs.promises.writeFile(browserPackInstalledMarker(version), 'installed\n');
+    }));
+
+    await expect(findPreviousBrowserPackVersion(currentVersion)).resolves.toBe(previousVersion);
+  });
+
+  it('reports the previous installed pack through status', async () => {
+    const currentVersion = 'browser-pack-2026-08-24-r1234-f1011-mf1011-agent-0.27.3';
+    const previousVersion = 'browser-pack-2026-08-23-r1233-f1011-mf1011-agent-0.27.2';
+    cleanupVersions.push(previousVersion);
+    await fs.promises.mkdir(browserPackInstallRoot(previousVersion), { recursive: true });
+    await fs.promises.writeFile(browserPackInstalledMarker(previousVersion), 'installed\n');
+    const harness = await createHarness(currentVersion);
+    const installer = installerWithArchive(harness);
+
+    await expect(installer.status()).resolves.toMatchObject({
+      state: 'installable',
+      manifestVersion: currentVersion,
+      previousManifestVersion: previousVersion,
+    });
   });
 
   it('creates adapter candidates that resolve to activated fixture paths from manifest metadata', async () => {
@@ -307,8 +340,8 @@ function createPendingManifest(): BrowserPackManifest {
   };
 }
 
-async function createHarness(): Promise<Harness> {
-  const version = `browser-test-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+async function createHarness(versionOverride?: string): Promise<Harness> {
+  const version = versionOverride ?? `browser-test-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   cleanupVersions.push(version);
   const archiveRoot = path.join(SERO_FIXED_ROOT, 'browser-pack-test-archives', version);
   await writeExecutable(path.join(archiveRoot, 'chromium/chrome-mac/Chromium.app/Contents/MacOS/Chromium'), 'Chromium');

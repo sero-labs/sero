@@ -8,6 +8,7 @@ import { validateInstalledBrowserPack } from './adapter';
 import { findBrowserArtifact, findBrowserArtifactAvailability, getBrowserPackManifest } from './manifest';
 import {
   browserPackDownloadPath,
+  findPreviousBrowserPackVersion,
   browserPackInstallRoot,
   browserPackInstalledMarker,
   browserPackManifestPath,
@@ -68,7 +69,15 @@ export class BrowserPackInstaller {
     if (availability.state === 'unsupported') return this.unsupportedStatus();
     const selection = this.selection();
     if (!selection) return this.unsupportedStatus();
-    if (this.inFlight) return { state: 'installing', manifestVersion: this.manifest.version, artifactKey: selection.key };
+    const previousManifestVersion = await findPreviousBrowserPackVersion(this.manifest.version);
+    if (this.inFlight) {
+      return {
+        state: 'installing',
+        manifestVersion: this.manifest.version,
+        previousManifestVersion,
+        artifactKey: selection.key,
+      };
+    }
     if (await exists(browserPackInstalledMarker(this.manifest.version))) {
       try {
         await validateInstalledBrowserPackManifest(this.manifest.version, this.manifest, selection.key);
@@ -76,6 +85,7 @@ export class BrowserPackInstaller {
         return {
           state: 'ready',
           manifestVersion: this.manifest.version,
+          previousManifestVersion,
           artifactKey: selection.key,
           browsersPath: browserPackInstallRoot(this.manifest.version),
         };
@@ -83,15 +93,25 @@ export class BrowserPackInstaller {
         return {
           state: 'failed',
           manifestVersion: this.manifest.version,
+          previousManifestVersion,
           artifactKey: selection.key,
           error: makeBrokenInstallError(error, this.manifest.version, selection.key),
         };
       }
     }
-    if (this.lastFailure) return { state: 'failed', manifestVersion: this.manifest.version, artifactKey: selection.key, error: this.lastFailure };
+    if (this.lastFailure) {
+      return {
+        state: 'failed',
+        manifestVersion: this.manifest.version,
+        previousManifestVersion,
+        artifactKey: selection.key,
+        error: this.lastFailure,
+      };
+    }
     return {
       state: 'installable',
       manifestVersion: this.manifest.version,
+      previousManifestVersion,
       artifactKey: selection.key,
       error: makeError('BROWSER_PACK_REQUIRED', 'Host browser automation pack is not installed.', this.manifest.version, selection.key, true, true),
     };
@@ -152,6 +172,7 @@ export class BrowserPackInstaller {
       const ready: BrowserPackStatus = {
         state: 'ready',
         manifestVersion: this.manifest.version,
+        previousManifestVersion: current.previousManifestVersion,
         artifactKey: selection.key,
         browsersPath: browserPackInstallRoot(this.manifest.version),
       };

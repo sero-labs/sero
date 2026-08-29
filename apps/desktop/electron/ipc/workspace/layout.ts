@@ -71,6 +71,7 @@ function isLayoutState(value: unknown): value is LoadedLayoutState {
   if (c.theme !== undefined && typeof c.theme !== 'string') return false;
   if (c.activeApp !== undefined && typeof c.activeApp !== 'string') return false;
   if (c.activeThemeId !== undefined && typeof c.activeThemeId !== 'string') return false;
+  if (c.browserPackNoticeVersion !== undefined && typeof c.browserPackNoticeVersion !== 'string') return false;
   // Nullable strings
   if (c.activeWorkspaceId !== undefined && c.activeWorkspaceId !== null && typeof c.activeWorkspaceId !== 'string') return false;
   if (c.activeSessionId !== undefined && c.activeSessionId !== null && typeof c.activeSessionId !== 'string') return false;
