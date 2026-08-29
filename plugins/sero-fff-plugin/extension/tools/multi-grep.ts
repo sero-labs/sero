@@ -15,7 +15,7 @@ import { grepCursors } from '../cursors';
 import { clampContext, formatGrepOutput, GREP_CONTEXT_MAX, withNotices } from '../format';
 import { EXHAUSTIVE_GUIDELINE, RANKED_VS_EXHAUSTIVE, WORKSPACE_GUIDELINE } from '../guidance';
 import { normalizeExcludes, normalizePathConstraint } from '../path-policy';
-import type { SearchContext } from '../search-context';
+import { SearchUnavailableError, type SearchContext } from '../search-context';
 import { DEFAULT_GREP_LIMIT, GREP_PAGE_SIZE_MAX } from './grep';
 import { PATH_DESCRIPTION, EXCLUDE_DESCRIPTION, textResult } from './shared';
 
@@ -102,7 +102,7 @@ export function registerMultiGrepTool(pi: ExtensionAPI, search: SearchContext): 
         beforeContext: clampContext(params.context),
         afterContext: clampContext(params.context),
       });
-      if (!result.ok) throw new Error(result.error);
+      if (!result.ok) throw new SearchUnavailableError(result.error);
 
       const notices: string[] = [];
       if (result.value.nextCursor) {

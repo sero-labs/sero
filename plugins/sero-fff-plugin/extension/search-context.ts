@@ -8,6 +8,8 @@
  * that silently returns nothing.
  */
 
+import { randomUUID } from 'node:crypto';
+
 import type { FileFinderApi } from '@ff-labs/fff-node';
 
 import { canonicalRoot, isIndexableRoot } from './path-policy';
@@ -23,10 +25,20 @@ export class SearchUnavailableError extends Error {
   }
 }
 
-let consumerCounter = 0;
+const SHARED_REGISTRY_KEY = Symbol.for('@sero-ai/plugin-fff/shared-finder-registry');
 
-/** The registry is module-scoped so every session in the process shares it. */
-export const sharedRegistry = new FinderRegistry({
+type FffGlobalState = typeof globalThis & {
+  [SHARED_REGISTRY_KEY]?: FinderRegistry;
+};
+
+const globalState = globalThis as FffGlobalState;
+
+/**
+ * Pi can re-evaluate this module when its single-cwd extension cache changes.
+ * Store the registry on the process global so those module instances still
+ * share one finder per canonical root.
+ */
+export const sharedRegistry = globalState[SHARED_REGISTRY_KEY] ??= new FinderRegistry({
   onDbFailure: (error) =>
     console.warn(
       `[sero-fff] frecency/history database unavailable (${error}); `
@@ -41,8 +53,7 @@ export class SearchContext {
   private root: string | null = null;
 
   constructor(private readonly registry: FinderRegistry = sharedRegistry) {
-    consumerCounter += 1;
-    this.consumerId = `sero-fff-${process.pid}-${consumerCounter}`;
+    this.consumerId = `sero-fff-${process.pid}-${randomUUID()}`;
   }
 
   /**

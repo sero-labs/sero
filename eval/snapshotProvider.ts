@@ -254,12 +254,11 @@ export default class SnapshotProvider implements ApiProvider {
       // ── 1. Get the SDK base prompt ─────────────────────────────
       const sdk = await import('@earendil-works/pi-coding-agent');
 
-      const authStorage = sdk.AuthStorage.create(`${agentDir}/auth.json`);
-      const modelRegistry = new sdk.ModelRegistry(
-        authStorage,
-        `${agentDir}/models.json`,
-      );
-      const settingsManager = sdk.SettingsManager.create(agentDir, agentDir);
+      const modelRuntime = await sdk.ModelRuntime.create({
+        authPath: `${agentDir}/auth.json`,
+        modelsPath: `${agentDir}/models.json`,
+      });
+      const settingsManager = sdk.SettingsManager.create(tmpDir, agentDir);
 
       const loader = new sdk.DefaultResourceLoader({
         cwd: tmpDir,
@@ -271,8 +270,7 @@ export default class SnapshotProvider implements ApiProvider {
       const { session } = await sdk.createAgentSession({
         cwd: tmpDir,
         agentDir,
-        authStorage,
-        modelRegistry,
+        modelRuntime,
         tools: [],
         customTools: [],
         resourceLoader: loader,

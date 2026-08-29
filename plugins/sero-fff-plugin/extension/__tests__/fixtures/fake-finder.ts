@@ -13,6 +13,7 @@ import type {
 import type { FileFinderStatic } from '../../sdk';
 
 export interface FakeFinderScript {
+  waitForScan?: () => Promise<Result<boolean>>;
   grep?: (query: string, options?: unknown) => Result<GrepResult>;
   multiGrep?: (options: unknown) => Result<GrepResult>;
   fileSearch?: (query: string, options?: unknown) => Result<SearchResult>;
@@ -37,7 +38,7 @@ export class FakeFinder {
   }
 
   async waitForScan(): Promise<Result<boolean>> {
-    return { ok: true, value: true };
+    return this.script.waitForScan?.() ?? { ok: true, value: true };
   }
 
   grep(query: string, options?: unknown): Result<GrepResult> {

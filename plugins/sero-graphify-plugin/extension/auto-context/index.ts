@@ -57,8 +57,9 @@ function buildIntentAugmentation(
 
   const question = intent.suggestedQuestion ?? 'How do these files relate in the system?';
   return (
-    `[Graphify] ${intent.reason}. For architecture context, use:\n` +
-    `graphify_query({ question: "${question}", budget: ${QUERY_BUDGET} })`
+    `[Graphify] ${intent.reason}. For architecture context, call the \`sero-cli\` model tool with:\n` +
+    `graphify_query --question "${question}" --budget ${QUERY_BUDGET}\n` +
+    'Do not run a `sero-cli` executable through Bash.'
   );
 }
 
@@ -103,7 +104,7 @@ export function registerAutoContext(
       let profileSummary: string | undefined;
       const state = await readStateFile(paths.stateFile);
       if (state?.profileGraph.status === 'ready') {
-        profileSummary = `${state.profileGraph.nodes ?? 0} nodes / ${state.profileGraph.edges ?? 0} edges across ${state.profileGraph.workspaceIds?.length ?? 0} workspaces (graphify_search).`;
+        profileSummary = `${state.profileGraph.nodes ?? 0} nodes / ${state.profileGraph.edges ?? 0} edges across ${state.profileGraph.workspaceIds?.length ?? 0} workspaces. Use the sero-cli model tool with graphify_search.`;
       }
 
       promptText = buildSessionOrientation(graphContextState, reportSnippet, profileSummary);

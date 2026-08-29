@@ -1,5 +1,7 @@
 import path from 'path';
-import { existsSync } from 'fs';
+import os from 'os';
+import { createRequire } from 'module';
+import { existsSync, mkdtempSync, rmSync } from 'fs';
 import { readFile } from 'fs/promises';
 import { describe, expect, it } from 'vitest';
 
@@ -12,6 +14,14 @@ const stagedPlugin = path.join(desktopRoot, 'dist/electron/builtin/plugins/sero-
 
 /** Native pieces that must reach the packaged app for the engine to load. */
 const NATIVE_PACKAGES = ['@ff-labs/fff-node', 'ffi-rs'] as const;
+
+interface StagedFinderModule {
+  FileFinder: {
+    create(options: { basePath: string; aiMode: boolean }):
+      | { ok: true; value: { destroy(): void } }
+      | { ok: false; error: string };
+  };
+}
 
 async function readJson(filePath: string): Promise<Record<string, unknown>> {
   return JSON.parse(await readFile(filePath, 'utf8')) as Record<string, unknown>;
@@ -73,6 +83,26 @@ describe('built-in FFF search plugin packaging', () => {
     for (const packageName of NATIVE_PACKAGES) {
       await expect(readJson(path.join(stagedPlugin, 'node_modules', packageName, 'package.json')))
         .resolves.toMatchObject(expect.objectContaining({ name: packageName }));
+    }
+  });
+
+  it('loads the staged native engine for this release platform', async () => {
+    if (!existsSync(path.join(stagedPlugin, 'package.json'))) {
+      if (process.env.SERO_REQUIRE_PACKAGED_PLUGINS === '1') {
+        throw new Error('The staged built-in FFF plugin is missing from the desktop build.');
+      }
+      return;
+    }
+
+    const requireFromPlugin = createRequire(path.join(stagedPlugin, 'package.json'));
+    const engine = requireFromPlugin('@ff-labs/fff-node') as StagedFinderModule;
+    const fixture = mkdtempSync(path.join(os.tmpdir(), 'sero-fff-packaging-'));
+    try {
+      const created = engine.FileFinder.create({ basePath: fixture, aiMode: true });
+      expect(created.ok).toBe(true);
+      if (created.ok) created.value.destroy();
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
     }
   });
 });

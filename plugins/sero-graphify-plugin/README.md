@@ -54,7 +54,9 @@ Sero does not have a paid community-label action.
 | `graphify_index` | Enable, disable, rebuild, refresh, synchronize, or update Graphify. |
 | `graphify_configure` | Pause indexing, change exclusions, or clear a notice. |
 
-All tools use the `sero` CLI bridge.
+All tools use the `sero` CLI bridge. Agents call them through the `sero-cli`
+model tool with a command such as `graphify_query ...`; they do not run a
+`sero-cli` executable through Bash.
 
 ## State
 

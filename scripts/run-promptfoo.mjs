@@ -34,7 +34,11 @@ if (!electronBinary) {
   process.exit(1);
 }
 
-const result = spawnSync(electronBinary, [RUNNER, ...process.argv.slice(2)], {
+const forwardedArgs = process.argv.slice(2);
+const separatorIndex = forwardedArgs.indexOf('--');
+if (separatorIndex !== -1) forwardedArgs.splice(separatorIndex, 1);
+
+const result = spawnSync(electronBinary, [RUNNER, ...forwardedArgs], {
   cwd: ROOT,
   env: {
     ...process.env,

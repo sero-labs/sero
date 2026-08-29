@@ -13,7 +13,7 @@ import { findCursors } from '../cursors';
 import { formatFindOutput, withNotices } from '../format';
 import { EXHAUSTIVE_GUIDELINE, RANKED_VS_EXHAUSTIVE, WORKSPACE_GUIDELINE } from '../guidance';
 import { buildQuery } from '../path-policy';
-import type { SearchContext } from '../search-context';
+import { SearchUnavailableError, type SearchContext } from '../search-context';
 import { PATH_DESCRIPTION, EXCLUDE_DESCRIPTION, textResult } from './shared';
 
 export const DEFAULT_FIND_LIMIT = 30;
@@ -71,7 +71,7 @@ export function registerFindTool(pi: ExtensionAPI, search: SearchContext): void 
       const pageIndex = resumed?.nextPageIndex ?? 0;
 
       const searchResult = finder.fileSearch(query, { pageIndex, pageSize: limit });
-      if (!searchResult.ok) throw new Error(searchResult.error);
+      if (!searchResult.ok) throw new SearchUnavailableError(searchResult.error);
 
       const result = searchResult.value;
       const formatted = formatFindOutput(result, limit, pattern);

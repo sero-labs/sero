@@ -314,6 +314,36 @@ describe('index failure', () => {
 
     await expect(search.warm(workspace)).resolves.toMatchObject({ ok: false });
   });
+
+  it.each([
+    ['find', { pattern: 'x' }, { fileSearch: () => ({ ok: false as const, error: 'search failed' }) }],
+    ['grep', { pattern: 'x' }, { grep: () => ({ ok: false as const, error: 'search failed' }) }],
+    [
+      'multi_grep',
+      { patterns: ['x'] },
+      { multiGrep: () => ({ ok: false as const, error: 'search failed' }) },
+    ],
+  ])('adds the rg fallback when %s fails after the index opens', async (name, params, script) => {
+    const { host } = setup(script);
+
+    await expect(host.tools.get(name)!.call(params, workspace))
+      .rejects.toThrow(/Fall back to `bash` with `rg`/);
+  });
+
+  it('adds the rg fallback when the fuzzy grep fallback fails', async () => {
+    let calls = 0;
+    const { host } = setup({
+      grep: () => {
+        calls += 1;
+        return calls === 1
+          ? { ok: true, value: grepResult([]) }
+          : { ok: false, error: 'fuzzy search failed' };
+      },
+    });
+
+    await expect(host.tools.get('grep')!.call({ pattern: 'x' }, workspace))
+      .rejects.toThrow(/Fall back to `bash` with `rg`/);
+  });
 });
 
 describe('session lifecycle', () => {

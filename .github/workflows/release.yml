@@ -155,6 +155,9 @@ jobs:
           APPLE_TEAM_ID: ${{ matrix.os == 'macos' && secrets.APPLE_TEAM_ID || '' }}
         run: pnpm --filter @sero/desktop ${{ matrix.dist }}
 
+      - name: Smoke test staged plugin runtimes
+        run: pnpm --filter @sero/desktop test:packaging
+
       - name: Verify macOS app bundle
         if: ${{ matrix.os == 'macos' }}
         run: |

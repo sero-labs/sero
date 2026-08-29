@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: "Sero search and graph-context evaluation"
+
+providers:
+  - id: file://./seroProvider.ts
+    label: "Bash search"
+    config:
+      searchMode: bash
+      timeout: 120000
+  - id: file://./seroProvider.ts
+    label: "FFF search"
+    config:
+      searchMode: fff
+      timeout: 120000
+  - id: file://./seroProvider.ts
+    label: "Graphify search"
+    config:
+      searchMode: graphify
+      timeout: 120000
+  - id: file://./seroProvider.ts
+    label: "FFF plus Graphify"
+    config:
+      searchMode: combined
+      timeout: 120000
+
+prompts:
+  - "{{scenario_prompt}}"
+
+tests:
+  - file://./scenarios/search-tools.yaml
+
+evaluateOptions:
+  maxConcurrency: 1
+  repeat: 5

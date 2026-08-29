@@ -13,7 +13,7 @@ import { clampContext, formatGrepOutput, GREP_CONTEXT_MAX, withNotices } from '.
 import { detectGrepMode, isWildcardOnly, pathTargetsFile } from '../grep-mode';
 import { EXHAUSTIVE_GUIDELINE, RANKED_VS_EXHAUSTIVE, WORKSPACE_GUIDELINE } from '../guidance';
 import { buildQuery } from '../path-policy';
-import type { SearchContext } from '../search-context';
+import { SearchUnavailableError, type SearchContext } from '../search-context';
 import { PATH_DESCRIPTION, EXCLUDE_DESCRIPTION, textResult } from './shared';
 
 export const DEFAULT_GREP_LIMIT = 20;
@@ -100,7 +100,7 @@ export function registerGrepTool(pi: ExtensionAPI, search: SearchContext): void 
         classifyDefinitions: true,
         timeBudgetMs: GREP_TIME_BUDGET_MS,
       });
-      if (!first.ok) throw new Error(first.error);
+      if (!first.ok) throw new SearchUnavailableError(first.error);
 
       let result = first.value;
       let fuzzyNotice: string | null = null;
@@ -125,7 +125,8 @@ export function registerGrepTool(pi: ExtensionAPI, search: SearchContext): void 
           classifyDefinitions: true,
           timeBudgetMs: GREP_TIME_BUDGET_MS,
         });
-        if (fuzzy.ok && fuzzy.value.items.length > 0) {
+        if (!fuzzy.ok) throw new SearchUnavailableError(fuzzy.error);
+        if (fuzzy.value.items.length > 0) {
           fuzzyNotice = '0 exact matches; showing close fuzzy matches instead';
           result = fuzzy.value;
         }

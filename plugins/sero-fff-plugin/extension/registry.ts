@@ -134,8 +134,17 @@ export class FinderRegistry {
     // `waitForScan` also resolves on timeout, so this bounds start-up rather
     // than guaranteeing a complete index. A partially scanned finder still
     // answers searches, and the watcher fills the rest in.
-    await finder.waitForScan(this.options.scanTimeoutMs ?? SCAN_TIMEOUT_MS);
-    return { root, finder, consumers: new Set<string>() };
+    try {
+      const scan = await finder.waitForScan(this.options.scanTimeoutMs ?? SCAN_TIMEOUT_MS);
+      if (!scan.ok) throw new FinderUnavailableError(`Failed to scan ${root}: ${scan.error}`);
+      return { root, finder, consumers: new Set<string>() };
+    } catch (error) {
+      if (!finder.isDestroyed) finder.destroy();
+      if (error instanceof FinderUnavailableError) throw error;
+      throw new FinderUnavailableError(
+        `Failed to scan ${root}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   private open(FileFinder: FileFinderStatic, root: string): FileFinderApi {

@@ -82,6 +82,7 @@ describe('session orientation', () => {
     expect(prompt).toContain('base prompt');
     expect(prompt).toContain('[Graphify active]');
     expect(prompt).toContain('graphify_query');
+    expect(prompt).toContain('`sero-cli` model tool');
     expect(prompt).toContain('Communities');
   });
 
@@ -129,6 +130,7 @@ describe('tool-result augmentation', () => {
     const content = (result as { content: Array<{ text?: string }> }).content;
     expect(content.at(-1)?.text).toContain('[Graphify]');
     expect(content.at(-1)?.text).toContain('graphify_query');
+    expect(content.at(-1)?.text).toContain('`sero-cli` model tool');
   });
 
   it('dedupes identical events', async () => {

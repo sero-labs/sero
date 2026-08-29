@@ -183,4 +183,18 @@ describe('FinderRegistry', () => {
     await expect(registry.acquire({ root: '/repo', consumerId: 'chat' }))
       .rejects.toThrow(/binary missing for linux-arm64/);
   });
+
+  it('rejects a failed initial scan and destroys the unusable finder', async () => {
+    const sdk = createFakeSdk({
+      script: { waitForScan: async () => ({ ok: false, error: 'watcher could not start' }) },
+    });
+    setFinderSdkForTesting({ ok: true, FileFinder: sdk.FileFinder });
+    const registry = new FinderRegistry({ dbPaths: DB_PATHS });
+
+    await expect(registry.acquire({ root: '/repo', consumerId: 'chat' }))
+      .rejects.toThrow(/Failed to scan \/repo: watcher could not start/);
+
+    expect(sdk.created[0].destroyed).toBe(true);
+    expect(registry.size()).toBe(0);
+  });
 });
