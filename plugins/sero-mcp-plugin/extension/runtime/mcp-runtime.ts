@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import type { EventBus } from '@earendil-works/pi-coding-agent';
 import { AGENT_PLUGIN_CLI_REFRESH_EVENT } from '@sero-ai/common';
 import type { McpServerEditorInput } from '../../shared/types';
 import { validateServerEditorInput } from '../../shared/types';
@@ -8,7 +8,7 @@ import { areMetadataCacheServersEqual, readMetadataCache, removeMetadataCacheEnt
 import { ensureConfigFile, getConfigUpdatedAt, writeConfig } from '../config/io';
 import { withAgentPluginMcpSources } from '../config/agent-plugin-source';
 import { setAgentPluginServerEnabled } from '../config/agent-plugin-client-state';
-import type { McpConfigDocument, McpServerConfig } from '../config/types';
+import type { McpConfigDocument } from '../config/types';
 import { McpServerManager } from '../manager/server-manager';
 import { buildSnapshot, type RuntimeServerStatus } from '../state/snapshot';
 import { getMcpConfigPath, getMcpStatePath } from '../state/paths';
@@ -38,7 +38,7 @@ import { McpUiSessionManager } from '../viewer/ui-session';
 import { UiResourceHandler } from '../viewer/ui-resource-handler';
 
 export interface McpRuntime {
-  attachPi(pi: ExtensionAPI): void;
+  attachEvents(events: EventBus): void;
   handleSessionStart(ctx: { cwd: string }): Promise<void>;
   handleSessionSwitch(ctx: { cwd: string }): Promise<void>;
   handleSessionShutdown(): Promise<void>;
@@ -54,7 +54,7 @@ export function getMcpRuntime(): McpRuntime {
   return runtimeSingleton;
 }
 function createMcpRuntime(): McpRuntime {
-  let attachedPi: ExtensionAPI | null = null;
+  let attachedEvents: EventBus | null = null;
   let lastKnownCwd = '';
   let sessionRefCount = 0;
   let lastState: SyncedRuntimeState | null = null;
@@ -76,7 +76,7 @@ function createMcpRuntime(): McpRuntime {
       });
     },
   });
-  function attachPi(pi: ExtensionAPI): void { attachedPi = pi; }
+  function attachEvents(events: EventBus): void { attachedEvents = events; }
   function runExclusive<T>(operation: () => Promise<T>): Promise<T> {
     const previous = operationQueue;
     let release!: () => void;
@@ -149,7 +149,7 @@ function createMcpRuntime(): McpRuntime {
       reconcileManagedServers,
       startKeepAliveScheduler: () => keepAliveScheduler.start(),
       sessionRefCount,
-      hasAttachedPi: !!attachedPi,
+      hasAttachedPi: !!attachedEvents,
     }));
   }
   function executeProxyAction(action: ProxyAction, options: { cwd?: string; query?: string; serverName?: string; toolName?: string; resourceUri?: string; toolArguments?: Record<string, unknown>; argumentsJson?: string; } = {}): Promise<ToolResult> {
@@ -481,14 +481,14 @@ function createMcpRuntime(): McpRuntime {
     });
     await writeMetadataCache(metadataCache);
     if (refreshAgentPluginCli) {
-      attachedPi?.events.emit(AGENT_PLUGIN_CLI_REFRESH_EVENT, undefined);
+      attachedEvents?.emit(AGENT_PLUGIN_CLI_REFRESH_EVENT, undefined);
     }
     await writeState(snapshot, statePath);
     lastState = { configPath, statePath, config, metadataCache, rawConfigUpdatedAt, snapshot };
     return lastState;
   }
   return {
-    attachPi,
+    attachEvents,
     handleSessionStart,
     handleSessionSwitch,
     handleSessionShutdown,

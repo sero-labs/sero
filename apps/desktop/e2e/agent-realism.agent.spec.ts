@@ -102,18 +102,24 @@ test('uses the host read tool when the prompt requires a workspace file', async 
     page,
     session.id,
     ['read'],
-    'You are an e2e test agent. When the user asks for file contents, you must use the available read tool before answering.',
+    'You are an e2e test agent. Call the read tool with {"path":"fixture.txt"} before answering. Keep the final answer concise.',
   );
   skipOrFailInCi(!tools.includes('read'), 'Host read tool is not available in this agent session.');
 
   const turn = await promptAndCollectEvents(
     page,
     session.id,
-    'Use the read tool to read fixture.txt in the current workspace. Then answer with the exact sentinel from the file.',
+    'Call read with path fixture.txt. Then answer with the exact sentinel from the file.',
   );
 
-  expect(toolStarts(turn.events, 'read')).not.toHaveLength(0);
-  expect(toolEnds(turn.events, 'read').some((event) => event.isError === false)).toBe(true);
+  const starts = toolStarts(turn.events, 'read');
+  const ends = toolEnds(turn.events, 'read');
+  const diagnostics = JSON.stringify({ starts, ends }, null, 2);
+  expect(starts, `read did not start. Events:\n${diagnostics}`).not.toHaveLength(0);
+  expect(
+    ends.some((event) => event.isError === false),
+    `read did not succeed. Events:\n${diagnostics}`,
+  ).toBe(true);
   expect(assistantTextFromEvents(turn.events)).toContain(sentinel);
 });
 

@@ -44,6 +44,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build plugin Vite helpers
+        run: pnpm --filter @sero-ai/plugin-vite build
+
       - name: Run contract e2e
         if: runner.os != 'Linux'
         run: pnpm --filter @sero/desktop e2e:contract

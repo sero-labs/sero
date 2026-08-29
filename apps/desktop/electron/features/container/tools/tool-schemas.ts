@@ -55,7 +55,9 @@ export const BashParams = Type.Object({
 });
 
 export const ReadParams = Type.Object({
-  path: Type.String({ description: 'Path to the file to read (relative or absolute)' }),
+  path: Type.String({
+    description: 'Path to the file to read. Relative paths resolve from the current workspace.',
+  }),
   offset: Type.Optional(
     Type.Number({ description: 'Line number to start reading from (1-indexed)' }),
   ),
