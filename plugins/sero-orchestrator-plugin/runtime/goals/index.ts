@@ -33,6 +33,7 @@ export function createGoalRuntime(
       read: (file) => ctx.host.appState.read(file),
       // Atomic write that also triggers the file watcher the UI subscribes to.
       write: (file, data) => ctx.host.appState.update(file, () => data),
+      remove: (file) => ctx.host.appState.remove(file),
     },
     path.dirname(ctx.stateFilePath),
   );

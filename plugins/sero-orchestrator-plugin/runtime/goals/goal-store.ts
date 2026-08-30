@@ -14,6 +14,7 @@ import { createGoalPaths, type GoalPaths } from './goal-paths';
 export interface GoalStoreIo {
   read<T>(file: string): Promise<T | null>;
   write<T>(file: string, data: T): Promise<void>;
+  remove(file: string): Promise<void>;
 }
 
 export interface GoalStore {
@@ -22,6 +23,7 @@ export interface GoalStore {
   /** The goal a session drives, if any. A session drives at most one goal. */
   forSession(sessionPath: string): Promise<Goal | null>;
   put(goal: Goal): Promise<void>;
+  remove(goalId: string): Promise<boolean>;
 }
 
 function summarize(goal: Goal): GoalIndexEntry {
@@ -113,6 +115,24 @@ export function createGoalStore(io: GoalStoreIo, stateDir: string, paths: GoalPa
         goals.set(goal.id, goal);
         await io.write(paths.goal(goal.id), goal);
         await writeIndex(goals);
+      });
+    },
+
+    async remove(goalId) {
+      const goals = await ensureLoaded();
+      return serialize(async () => {
+        const goal = goals.get(goalId);
+        if (!goal) return false;
+        await io.remove(paths.goal(goalId));
+        goals.delete(goalId);
+        try {
+          await writeIndex(goals);
+        } catch (error) {
+          goals.set(goalId, goal);
+          await io.write(paths.goal(goalId), goal);
+          throw error;
+        }
+        return true;
       });
     },
   };

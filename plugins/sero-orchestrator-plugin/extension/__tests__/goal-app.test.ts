@@ -32,6 +32,7 @@ function stubRuntime() {
     pause: outcome('pause'),
     resume: outcome('resume'),
     stop: outcome('stop'),
+    remove: outcome('remove'),
     setLimits: outcome('setLimits'),
   } as unknown as GoalRuntime;
   return { runtime, calls };
@@ -44,15 +45,17 @@ describe('the Goals management tool', () => {
     expect(result.details.goal).toEqual(goal);
   });
 
-  it('passes pause, resume, and stop to the existing Goal runtime', async () => {
+  it('passes pause, resume, stop, and delete to the existing Goal runtime', async () => {
     const { runtime, calls } = stubRuntime();
     await executeGoalApp({ action: 'pause', goalId: 'goal-1' }, '/repo', () => runtime);
     await executeGoalApp({ action: 'resume', goalId: 'goal-1' }, '/repo', () => runtime);
     await executeGoalApp({ action: 'stop', goalId: 'goal-1' }, '/repo', () => runtime);
+    await executeGoalApp({ action: 'delete', goalId: 'goal-1' }, '/repo', () => runtime);
     expect(calls).toEqual([
       { method: 'pause', args: ['goal-1', 'user', 'the user paused the goal in Orchestrator'] },
       { method: 'resume', args: ['goal-1'] },
       { method: 'stop', args: ['goal-1'] },
+      { method: 'remove', args: ['goal-1'] },
     ]);
   });
 

@@ -37,8 +37,17 @@ export function GoalMode({
     }
   }, [run]);
 
+  const deleteGoal = useCallback(async (targetGoalId: string) => {
+    const deleted = await dispatch({ action: 'delete', goalId: targetGoalId });
+    return deleted?.ok === true;
+  }, [dispatch]);
+
   const onAction = useCallback(async (action: GoalManageAction) => {
     if (!goal) return;
+    if (action === 'delete') {
+      if (await deleteGoal(goal.id)) onBack();
+      return;
+    }
     if (action === 'raise-limit') {
       const maxTurns = (goal.limits.maxAttemptsTotal ?? goal.usage.automaticTurns) + 25;
       const updated = await dispatch({ action: 'set_limits', goalId: goal.id, maxTurns });
@@ -46,12 +55,17 @@ export function GoalMode({
       return;
     }
     await dispatch({ action, goalId: goal.id });
-  }, [dispatch, goal]);
+  }, [deleteGoal, dispatch, goal, onBack]);
 
   if (!goalId) {
     return (
       <div className="flex h-full flex-1 flex-col overflow-auto px-6 py-5">
-        <GoalsOverview goals={goals} onOpenGoal={onOpenGoal} />
+        <GoalsOverview
+          goals={goals}
+          busy={busy}
+          onOpenGoal={onOpenGoal}
+          onDeleteGoal={(targetGoalId) => void deleteGoal(targetGoalId)}
+        />
       </div>
     );
   }

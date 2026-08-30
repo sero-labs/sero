@@ -37,6 +37,9 @@ beforeEach(() => {
         write: async <T,>(file: string, data: T) => {
           files.set(file, data);
         },
+        remove: async (file: string) => {
+          files.delete(file);
+        },
       },
       '/state',
     ),

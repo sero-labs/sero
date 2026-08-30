@@ -52,7 +52,7 @@ export function LoopList({ loops, libraryIndex = DEFAULT_LIBRARY_INDEX, selected
             placeholder="Search workflows…"
           />
         </div>
-        <Button size="icon" variant="outline" onClick={onNew} title="New workflow">
+        <Button size="icon" onClick={onNew} title="New workflow" aria-label="New workflow">
           <Plus className="h-4 w-4" />
         </Button>
       </div>

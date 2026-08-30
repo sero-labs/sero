@@ -1,42 +1,25 @@
 import { useMemo, useState } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import type { GoalIndexEntry, GoalStatus } from '../../shared/goal-types';
-import { ListRow } from './ListRow';
-import { SectionHead, type MemberStatus } from './room-kit';
+import { goalDot, goalHistorySubtitle } from '../lib/goal-presentation';
+import { GoalDeleteButton } from './GoalDeleteButton';
+import { Pill, SectionHead } from './room-kit/chrome';
+import { StatusDot } from './room-kit/identity';
 
 const PAGE = 8;
 const ORDER: GoalStatus[] = ['active', 'blocked', 'waiting', 'paused', 'limited', 'complete'];
 
-export function goalDot(goal: GoalIndexEntry): MemberStatus {
-  if (goal.closedAt) return 'idle';
-  if (goal.status === 'active') return 'working';
-  if (goal.status === 'complete') return 'done';
-  if (goal.status === 'blocked' || goal.status === 'limited') return 'blocked';
-  return 'waiting';
-}
-
-export function goalStateLabel(goal: GoalIndexEntry): string {
-  if (goal.closedAt) return 'Stopped';
-  if (goal.status === 'complete') return 'Reported complete';
-  if (goal.status === 'paused' && goal.pauseReason === 'no-progress') return 'Held for no progress';
-  return goal.status[0].toUpperCase() + goal.status.slice(1);
-}
-
-function sessionName(path: string): string {
-  const leaf = path.split(/[\\/]/).pop() ?? path;
-  return leaf.replace(/\.jsonl?$/, '') || 'Chat session';
-}
-
-function usage(goal: GoalIndexEntry): string {
-  const automaticTurns = goal.automaticTurns ?? 0;
-  const turns = goal.maxAutomaticTurns === undefined
-    ? `${automaticTurns} turns`
-    : `${automaticTurns}/${goal.maxAutomaticTurns}`;
-  const costUsd = goal.costUsd ?? 0;
-  return costUsd > 0 ? `${turns} · $${costUsd.toFixed(2)}` : turns;
-}
-
-export function GoalsOverview({ goals, onOpenGoal }: { goals: GoalIndexEntry[]; onOpenGoal: (goalId: string) => void }) {
+export function GoalsOverview({
+  goals,
+  busy = false,
+  onOpenGoal,
+  onDeleteGoal,
+}: {
+  goals: GoalIndexEntry[];
+  busy?: boolean;
+  onOpenGoal: (goalId: string) => void;
+  onDeleteGoal?: (goalId: string) => void;
+}) {
   const [shown, setShown] = useState(PAGE);
   const sorted = useMemo(() => goals.toSorted((a, b) => {
     const finishedA = a.closedAt || a.status === 'complete' ? 1 : 0;
@@ -53,17 +36,34 @@ export function GoalsOverview({ goals, onOpenGoal }: { goals: GoalIndexEntry[]; 
   return (
     <div className="flex flex-col">
       <SectionHead count={goals.length}>Goals</SectionHead>
-      {sorted.slice(0, shown).map((goal) => (
-        <ListRow
-          key={goal.id}
-          status={goalDot(goal)}
-          title={goal.objective}
-          sub={`${sessionName(goal.sessionPath)} · ${goalStateLabel(goal)}`}
-          needsCount={['blocked', 'waiting'].includes(goal.status) || goal.pauseReason === 'no-progress' ? 1 : 0}
-          meta={usage(goal)}
-          onClick={() => onOpenGoal(goal.id)}
-        />
-      ))}
+      {sorted.slice(0, shown).map((goal) => {
+        const needsAttention = ['blocked', 'waiting'].includes(goal.status) || goal.pauseReason === 'no-progress';
+        const finished = Boolean(goal.closedAt) || goal.status === 'complete';
+        return (
+          <div
+            key={goal.id}
+            className="mb-1 flex items-center rounded-lg border border-room-line bg-room-surface pr-2 last:mb-0 hover:bg-room-raised/60"
+          >
+            <button
+              type="button"
+              className="flex min-w-0 flex-1 items-start gap-2.5 px-3 py-2 text-left"
+              onClick={() => onOpenGoal(goal.id)}
+            >
+              <StatusDot status={goalDot(goal)} className="mt-1.5" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm text-room-text">{goal.objective}</span>
+                <span className="mt-0.5 block truncate text-xs text-room-text3" title={goalHistorySubtitle(goal)}>
+                  {goalHistorySubtitle(goal)}
+                </span>
+              </span>
+              {needsAttention ? <Pill tone="warn" className="mt-0.5 shrink-0">Needs you</Pill> : null}
+            </button>
+            {finished && onDeleteGoal ? (
+              <GoalDeleteButton busy={busy} onDelete={() => onDeleteGoal(goal.id)} />
+            ) : null}
+          </div>
+        );
+      })}
       {sorted.length > shown ? (
         <Button size="sm" variant="ghost" className="self-start text-xs text-room-text3" onClick={() => setShown((value) => value + PAGE)}>
           Show {sorted.length - shown} more

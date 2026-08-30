@@ -13,6 +13,24 @@ vi.mock('@sero-ai/ui/components/ui/button', () => ({
   ),
 }));
 
+vi.mock('@sero-ai/ui/components/ui/alert-dialog', () => {
+  const Wrap = ({ children }: { children: ReactNode }) => <div>{children}</div>;
+  const Action = ({ children, ...props }: { children: ReactNode } & React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button type="button" {...props}>{children}</button>
+  );
+  return {
+    AlertDialog: Wrap,
+    AlertDialogAction: Action,
+    AlertDialogCancel: Action,
+    AlertDialogContent: Wrap,
+    AlertDialogDescription: Wrap,
+    AlertDialogFooter: Wrap,
+    AlertDialogHeader: Wrap,
+    AlertDialogTitle: Wrap,
+    AlertDialogTrigger: Wrap,
+  };
+});
+
 const goal: Goal = {
   schemaVersion: 1,
   id: 'goal-1',
@@ -65,5 +83,22 @@ describe('Goal detail', () => {
     const raise = [...container.querySelectorAll('button')].find((button) => button.textContent?.includes('Raise turn budget'));
     await act(async () => raise?.click());
     expect(onAction).toHaveBeenCalledWith('raise-limit');
+  });
+
+  it('offers confirmed deletion for a completed Goal', async () => {
+    const onAction = vi.fn();
+    const completed: Goal = {
+      ...goal,
+      status: 'complete',
+      limitReached: undefined,
+      reportedComplete: { evidence: 'the installer is signed', reportedAt: goal.updatedAt },
+    };
+    await act(async () => root.render(<GoalDetail goal={completed} busy={false} onAction={onAction} onBack={vi.fn()} />));
+
+    expect(container.textContent).toContain('Delete this Goal?');
+    expect(container.querySelector('button[aria-label="Delete Goal"]')).not.toBeNull();
+    const confirm = [...container.querySelectorAll('button')].find((button) => button.textContent === 'Delete Goal');
+    await act(async () => confirm?.click());
+    expect(onAction).toHaveBeenCalledWith('delete');
   });
 });

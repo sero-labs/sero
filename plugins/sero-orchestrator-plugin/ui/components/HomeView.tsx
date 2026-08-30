@@ -35,6 +35,7 @@ interface HomeViewProps {
   onOpenRoom?: (roomId: string) => void;
   goals: GoalIndexEntry[];
   onOpenGoal: (goalId: string) => void;
+  onDeleteGoal: (goalId: string) => void;
 }
 
 // Show the search field once the overview is large enough that scanning it by
@@ -55,6 +56,7 @@ export function HomeView({
   onOpenRoom,
   goals,
   onOpenGoal,
+  onDeleteGoal,
 }: HomeViewProps) {
   const [query, setQuery] = useState('');
 
@@ -163,7 +165,7 @@ export function HomeView({
 
       {goals.length > 0 && (
         <div className="mb-4">
-          <GoalsOverview goals={goals} onOpenGoal={onOpenGoal} />
+          <GoalsOverview goals={goals} busy={busy} onOpenGoal={onOpenGoal} onDeleteGoal={onDeleteGoal} />
         </div>
       )}
 

@@ -17,6 +17,9 @@ function memoryIo(files = new Map<string, unknown>()): GoalStoreIo & { files: Ma
     async write<T>(file: string, data: T) {
       files.set(file, structuredClone(data));
     },
+    async remove(file: string) {
+      files.delete(file);
+    },
   };
 }
 
@@ -144,6 +147,19 @@ describe('the no-progress guard', () => {
 });
 
 describe('terminal reports', () => {
+  it('deletes only finished Goals from the record and watched index', async () => {
+    const { io, runtime } = createRuntime();
+    const goal = await startGoal(runtime);
+
+    expect((await runtime.remove(goal.id)).ok).toBe(false);
+    await runtime.reportComplete(goal.id, SESSION, 'the suite passes');
+    expect((await runtime.remove(goal.id)).ok).toBe(true);
+
+    expect(await runtime.list()).toEqual([]);
+    expect(io.files.get('/state/goals/index.json')).toEqual({ schemaVersion: 1, goals: [] });
+    expect(io.files.has(`/state/goals/${goal.id}.json`)).toBe(false);
+  });
+
   it('records a completion claim as reported, not verified', async () => {
     const { runtime } = createRuntime();
     const goal = await startGoal(runtime);

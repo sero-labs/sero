@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GoalIndexEntry } from '../../shared/goal-types';
 import { attentionCount, goalNeedsAttention } from '../lib/attention-count';
-import { goalDot, goalStateLabel } from '../components/GoalsOverview';
+import { goalDot, goalHistorySubtitle, goalStateLabel } from '../lib/goal-presentation';
 
 function summary(overrides: Partial<GoalIndexEntry> = {}): GoalIndexEntry {
   return {
@@ -25,6 +25,11 @@ describe('Goal list presentation', () => {
     expect(goalStateLabel(summary({ status: 'limited' }))).toBe('Limited');
     expect(goalStateLabel(summary({ status: 'paused', pauseReason: 'no-progress' }))).toBe('Held for no progress');
     expect(goalDot(summary({ status: 'limited' }))).toBe('blocked');
+  });
+
+  it('keeps session, state, and usage together on the second history line', () => {
+    expect(goalHistorySubtitle(summary({ status: 'complete' })))
+      .toBe('release · Reported complete · 4/25 · $0.20');
   });
 });
 

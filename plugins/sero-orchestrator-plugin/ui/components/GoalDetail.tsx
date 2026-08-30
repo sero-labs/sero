@@ -1,8 +1,9 @@
 import { Button } from '@sero-ai/ui/components/ui/button';
 import type { Goal } from '../../shared/goal-types';
 import { formatCost } from '../lib/format';
+import { GoalDeleteButton } from './GoalDeleteButton';
 
-export type GoalManageAction = 'pause' | 'resume' | 'stop' | 'raise-limit';
+export type GoalManageAction = 'pause' | 'resume' | 'stop' | 'delete' | 'raise-limit';
 
 function sessionName(path: string): string {
   return (path.split(/[\\/]/).pop() ?? path).replace(/\.jsonl?$/, '');
@@ -33,8 +34,8 @@ export function GoalDetail({ goal, busy, onAction, onBack }: {
   const finished = Boolean(goal.closedAt) || goal.status === 'complete';
   const canResume = !finished && ['paused', 'waiting', 'blocked'].includes(goal.status);
   return (
-    <div className="flex h-full flex-1 flex-col overflow-auto px-6 py-5">
-      <div className="mb-4 flex items-start justify-between gap-4">
+    <div className="flex h-full flex-1 flex-col overflow-auto px-5 py-4">
+      <div className="mb-3 flex items-start justify-between gap-4">
         <div>
           <button type="button" className="mb-2 text-xs text-room-text3 hover:text-room-text" onClick={onBack}>Back to Goals</button>
           <h2 className="text-xl font-semibold tracking-tight text-room-text">{goal.objective}</h2>
@@ -45,12 +46,13 @@ export function GoalDetail({ goal, busy, onAction, onBack }: {
           {canResume ? <Button size="sm" disabled={busy} onClick={() => onAction('resume')}>Resume</Button> : null}
           {goal.status === 'limited' && !finished ? <Button size="sm" disabled={busy} onClick={() => onAction('raise-limit')}>Raise turn budget and resume</Button> : null}
           {!finished ? <Button size="sm" variant="outline" disabled={busy} onClick={() => onAction('stop')}>Stop</Button> : null}
+          {finished ? <GoalDeleteButton busy={busy} onDelete={() => onAction('delete')} /> : null}
         </div>
       </div>
 
-      <div className="grid gap-4 @min-[900px]/panel:grid-cols-[minmax(0,1.4fr)_minmax(260px,0.6fr)]">
-        <div className="space-y-4">
-          <section className="rounded-[10px] border border-room-line bg-room-surface p-4">
+      <div className="grid gap-3 @min-[720px]/panel:grid-cols-[minmax(0,1.35fr)_minmax(260px,0.65fr)]">
+        <div className="space-y-3">
+          <section className="rounded-[10px] border border-room-line bg-room-surface p-3.5">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-room-text3">Criteria and evidence</h3>
             {goal.criteria.length > 0 ? (
               <ul className="mt-3 space-y-2 text-sm text-room-text2">
@@ -66,11 +68,11 @@ export function GoalDetail({ goal, busy, onAction, onBack }: {
             {goal.status === 'complete' ? <p className="mt-3 text-xs text-room-text4">This is the agent's claim. Phase 1 does not verify it.</p> : null}
           </section>
 
-          <section className="rounded-[10px] border border-room-line bg-room-surface p-4">
+          <section className="rounded-[10px] border border-room-line bg-room-surface p-3.5">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-room-text3">Transition history</h3>
             <ol className="mt-3 space-y-3">
-              {goal.history.toReversed().map((entry, index) => (
-                <li key={`${entry.at}:${index}`} className="grid grid-cols-[72px_1fr] gap-3 text-xs">
+              {goal.history.toReversed().map((entry) => (
+                <li key={`${entry.at}:${entry.from}:${entry.to}:${entry.reason}`} className="grid grid-cols-[72px_1fr] gap-3 text-xs">
                   <time className="room-tabular text-room-text4">{new Date(entry.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time>
                   <span className="text-room-text2"><b>{entry.to}</b> · {entry.reason}</span>
                 </li>
@@ -79,9 +81,9 @@ export function GoalDetail({ goal, busy, onAction, onBack }: {
           </section>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           {(goal.wait?.reason || goal.block?.reason || goal.limitReached || goal.pauseReason === 'no-progress') ? (
-            <section className="rounded-[10px] border border-status-warning/30 bg-status-warning-subtle p-4">
+            <section className="rounded-[10px] border border-status-warning/30 bg-status-warning-subtle p-3.5">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-status-warning">Why it stopped</h3>
               <p className="mt-2 text-sm text-room-text2">
                 {goal.block?.reason ?? goal.wait?.reason ?? (goal.pauseReason === 'no-progress'
@@ -90,7 +92,7 @@ export function GoalDetail({ goal, busy, onAction, onBack }: {
               </p>
             </section>
           ) : null}
-          <section className="rounded-[10px] border border-room-line bg-room-surface p-4">
+          <section className="rounded-[10px] border border-room-line bg-room-surface p-3.5">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-room-text3">Usage and limits</h3>
             <div className="mt-2">
               <UsageRow label="Automatic turns" used={String(goal.usage.automaticTurns)} limit={goal.limits.maxAttemptsTotal?.toLocaleString()} />

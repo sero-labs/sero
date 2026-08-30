@@ -1,7 +1,6 @@
 /**
  * The Orchestrator top bar (ux-refit-plan.md phase 3): brand mark, tab bar
- * with the emerald active underline, count badges, and the actions with
- * `+ New` as the one primary button.
+ * with the emerald active underline, count badges, and mode-specific actions.
  *
  * Width rules are container queries against the panel (`@container/panel`,
  * set on the app root): ≥900px full labels; below, tabs drop to icon + count
@@ -18,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from '@sero-ai/ui/components/ui/dropdown-menu';
 import { cn } from '@sero-ai/ui/lib/utils';
-import { BookOpen, Home, Library, MoreHorizontal, Plus, Target, Users, Workflow } from 'lucide-react';
+import { BookOpen, Home, Library, MoreHorizontal, Target, Users, Workflow } from 'lucide-react';
 import { WORKFLOWS_LABEL } from '../../shared/labels';
 
 export type ShellTab = 'home' | 'workflows' | 'rooms' | 'goals' | 'library' | 'catalog';
@@ -37,7 +36,6 @@ export interface ShellTopBarProps {
   /** Items waiting on the user — renders the alert-toned badge on Home. */
   needsCount: number;
   onSelect: (tab: ShellTab) => void;
-  onNew: () => void;
   /** Secondary actions; ghost buttons wide, one overflow menu narrow. */
   actions?: ShellAction[];
 }
@@ -85,7 +83,7 @@ function BrandMark() {
   );
 }
 
-export function ShellTopBar({ active, workflowCount, roomCount, goalCount, needsCount, onSelect, onNew, actions = [] }: ShellTopBarProps) {
+export function ShellTopBar({ active, workflowCount, roomCount, goalCount, needsCount, onSelect, actions = [] }: ShellTopBarProps) {
   const badgeFor = (tab: ShellTab): ReactNode => {
     if (tab === 'home' && needsCount > 0) return <TabBadge alert>{needsCount}</TabBadge>;
     if (tab === 'workflows' && workflowCount > 0) return <TabBadge>{workflowCount}</TabBadge>;
@@ -155,9 +153,6 @@ export function ShellTopBar({ active, workflowCount, roomCount, goalCount, needs
             </span>
           </>
         )}
-        <Button size="sm" onClick={onNew}>
-          <Plus className="size-3.5" /> New
-        </Button>
       </div>
     </header>
   );

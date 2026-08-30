@@ -95,6 +95,7 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
     appState: {
       read: async <T = unknown>(filePath: string) => appStateManager.read(filePath) as T | null,
       update: <T = unknown>(filePath: string, updater: (current: T | null) => T) => appStateManager.update(filePath, updater),
+      remove: (filePath) => appStateManager.remove(filePath),
       watch: (filePath) => appStateManager.watch(filePath),
       unwatch: (filePath) => appStateManager.unwatch(filePath),
       globalDir: async (namespace) => {

@@ -336,6 +336,17 @@ export class GoalRuntime {
     return { ok: true, text: `Goal ${goalId} is stopped.`, goal: stopped };
   }
 
+  /** Permanently removes a finished Goal record and its watched-index entry. */
+  async remove(goalId: string): Promise<GoalOutcome> {
+    const goal = await this.store.get(goalId);
+    if (!goal) return failure(`No goal ${goalId}.`);
+    if (goal.status !== 'complete' && !goal.closedAt) {
+      return failure(`Goal ${goalId} is still live. Stop it before deleting it.`);
+    }
+    await this.store.remove(goalId);
+    return { ok: true, text: `Goal ${goalId} was deleted.` };
+  }
+
   /** Raises or lowers a budget on a goal the user wants to keep going. */
   async setLimits(goalId: string, limits: GoalLimits): Promise<GoalOutcome> {
     const goal = await this.store.get(goalId);

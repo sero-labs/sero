@@ -22,6 +22,7 @@ import { useOrchestratorNavigation, type OrchestratorView } from './lib/orchestr
 import { OrchestratorStateContext } from './lib/orchestrator-state';
 import { GoalMode } from './components/GoalMode';
 import { useRoomActions } from './lib/use-room-actions';
+import { shellControlsFor } from './lib/shell-controls';
 import './styles.css';
 
 /** Which top-bar tab a view highlights. */
@@ -109,6 +110,19 @@ export function OrchestratorApp() {
 
   const room = useRoomActions({ run, setBusy, setError, navigate });
   const openGoal = useCallback((goalId: string) => navigate({ mode: 'goals', goalId: goalId || null }), [navigate]);
+  const deleteGoal = useCallback(async (goalId: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await run('goals', { action: 'delete', goalId });
+      const details = result?.details as { ok?: boolean; error?: string } | null;
+      if (details?.ok === false) setError(details.error ?? 'Goal deletion failed.');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  }, [run]);
 
   // The Catalog tab drives itself through tool calls; it only needs the details.
   const detailsDispatch = useCallback(
@@ -172,6 +186,9 @@ export function OrchestratorApp() {
   const openCreate = useCallback(() => navigate({ mode: 'create' }), [navigate]);
 
   const activeTab = tabOf(view);
+  const shellControls = shellControlsFor(activeTab, {
+    reflectAll: () => void reflectAll(),
+  }, busy || index.loops.length === 0);
   // The Home badge mirrors HomeView's "Needs you" count, row for row.
   const needsCount = attentionCount(index.loops, roomIndex.rooms, goalIndex.goals);
 
@@ -193,8 +210,7 @@ export function OrchestratorApp() {
         goalCount={goalIndex.goals.length}
         needsCount={needsCount}
         onSelect={onSelectTab}
-        onNew={activeTab === 'rooms' ? room.openCreate : openCreate}
-        actions={[{ label: 'Reflect all', onSelect: () => void reflectAll(), disabled: busy || index.loops.length === 0 }]}
+        actions={shellControls.actions}
       />
 
       {reflectSummary && (
@@ -227,6 +243,7 @@ export function OrchestratorApp() {
             onOpenRoom={room.open}
             goals={goalIndex.goals}
             onOpenGoal={openGoal}
+            onDeleteGoal={deleteGoal}
           />
         )}
         {view.mode === 'create' && (

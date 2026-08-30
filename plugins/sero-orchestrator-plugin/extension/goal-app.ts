@@ -8,7 +8,7 @@ import type { GoalRuntime } from '../runtime/goals/goal-runtime';
 import type { GoalLimits, GoalOutcome } from '../shared/goal-types';
 import { toolFailure, toolResult, type ToolResult } from './goal-session';
 
-const GOAL_APP_ACTIONS = ['show', 'pause', 'resume', 'stop', 'set_limits'] as const;
+const GOAL_APP_ACTIONS = ['show', 'pause', 'resume', 'stop', 'delete', 'set_limits'] as const;
 type GoalAppAction = (typeof GOAL_APP_ACTIONS)[number];
 
 export const GoalAppParams = Type.Object({
@@ -64,6 +64,9 @@ export async function executeGoalApp(
       break;
     case 'stop':
       outcome = await runtime.stop(params.goalId);
+      break;
+    case 'delete':
+      outcome = await runtime.remove(params.goalId);
       break;
     case 'set_limits':
       outcome = await runtime.setLimits(params.goalId, limitsOf(params));
