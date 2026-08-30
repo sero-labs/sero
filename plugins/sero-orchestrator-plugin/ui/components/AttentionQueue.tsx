@@ -15,6 +15,8 @@ import type { ReactNode } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import type { LoopSummary, OrchestratorAction } from '../../shared/types';
 import type { RoomSummary } from '../../shared/room-types';
+import type { GoalIndexEntry } from '../../shared/goal-types';
+import { goalNeedsAttention } from '../lib/attention-count';
 import { AttentionInputCard, AttentionSuggestionCard } from './AttentionLoopCards';
 import { NeedsBand, NeedsRow, type MemberStatus } from './room-kit';
 import { RoomApprovalCard, type RoomApprovalDecision } from './RoomApprovalCard';
@@ -35,6 +37,8 @@ interface AttentionQueueProps {
   /** Starts a Room that stopped and cannot start itself. */
   onRoomResume?: (roomId: string) => void;
   onOpenRoom?: (roomId: string) => void;
+  goals?: GoalIndexEntry[];
+  onOpenGoal?: (goalId: string) => void;
 }
 
 interface QueueItem {
@@ -56,10 +60,25 @@ export function AttentionQueue({
   onRoomAnswer,
   onRoomResume,
   onOpenRoom,
+  goals = [],
+  onOpenGoal,
 }: AttentionQueueProps) {
   const [openKey, setOpenKey] = useState<string | null>(null);
 
   const items: QueueItem[] = [
+    ...goals.flatMap((goal): QueueItem[] => goalNeedsAttention(goal) ? [{
+      key: `${goal.id}:goal-attention`,
+      status: goal.status === 'blocked' ? 'blocked' : 'waiting',
+      label: goal.blockReason ?? goal.waitReason ?? 'Held because three turns repeated with no tool call',
+      source: `Goal · ${goal.objective}`,
+      actionLabel: 'Open',
+      detail: (
+        <div className="rounded-lg border border-room-line bg-room-surface p-3 text-xs text-room-text2">
+          <p>{goal.status === 'waiting' ? 'This Goal waits for you to resume it.' : 'Review the Goal record and decide what happens next.'}</p>
+          <Button size="sm" className="mt-3 h-7 text-xs" onClick={() => onOpenGoal?.(goal.id)}>Open Goal</Button>
+        </div>
+      ),
+    }] : []),
     ...rooms.flatMap((room): QueueItem[] => {
       const pause = room.attention?.pause;
       return pause

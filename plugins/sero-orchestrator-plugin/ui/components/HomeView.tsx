@@ -10,10 +10,12 @@ import { Search } from 'lucide-react';
 import { WORKFLOW_LABEL, WORKFLOWS_LABEL } from '../../shared/labels';
 import type { LoopSummary, OrchestratorAction } from '../../shared/types';
 import type { RoomSummary } from '../../shared/room-types';
+import type { GoalIndexEntry } from '../../shared/goal-types';
 import { formatCost } from '../lib/format';
 import { AttentionQueue, type RoomApprovalDecision } from './AttentionQueue';
 import { LoopsOverview } from './LoopsOverview';
 import { RoomsOverview } from './RoomsOverview';
+import { GoalsOverview } from './GoalsOverview';
 import { ModeCard, Pill } from './room-kit';
 
 interface HomeViewProps {
@@ -31,6 +33,9 @@ interface HomeViewProps {
   onRoomAnswer?: (roomId: string, memberId: string, body: string) => void;
   onRoomResume?: (roomId: string) => void;
   onOpenRoom?: (roomId: string) => void;
+  goals: GoalIndexEntry[];
+  onOpenGoal: (goalId: string) => void;
+  onDeleteGoal: (goalId: string) => void;
 }
 
 // Show the search field once the overview is large enough that scanning it by
@@ -49,18 +54,28 @@ export function HomeView({
   onRoomAnswer,
   onRoomResume,
   onOpenRoom,
+  goals,
+  onOpenGoal,
+  onDeleteGoal,
 }: HomeViewProps) {
   const [query, setQuery] = useState('');
 
   const runningLoops = loops.filter((l) => l.progress?.running).length;
   const runningRooms = rooms.filter((r) => r.status === 'running').length;
-  const active = runningLoops + runningRooms;
+  const activeGoals = goals.filter((goal) => goal.status === 'active' && !goal.closedAt).length;
+  const active = runningLoops + runningRooms + activeGoals;
   const spent =
     rooms.reduce((n, r) => n + r.costUsd, 0)
-    + loops.reduce((n, l) => n + (l.usage?.costUsd ?? 0), 0);
+    + loops.reduce((n, l) => n + (l.usage?.costUsd ?? 0), 0)
+    + goals.reduce((n, goal) => n + (goal.costUsd ?? 0), 0);
   const hasAttention =
     loops.some((l) => l.attention?.input || l.attention?.suggestions?.length)
-    || rooms.some((r) => r.attention);
+    || rooms.some((r) => r.attention)
+    || goals.some((goal) => !goal.closedAt && (
+      goal.status === 'blocked'
+      || goal.status === 'waiting'
+      || (goal.status === 'paused' && goal.pauseReason === 'no-progress')
+    ));
 
   // Search filters only the Workflows overview by title/summary/prompt; the
   // "Needs you" queue always reflects every loop (it must never be hidden).
@@ -91,13 +106,15 @@ export function HomeView({
             onRoomAnswer={onRoomAnswer}
             onRoomResume={onRoomResume}
             onOpenRoom={onOpenRoom}
+            goals={goals}
+            onOpenGoal={onOpenGoal}
           />
         </div>
       ) : (
         <p className="mb-[18px] text-xs text-room-text4">Nothing needs you right now.</p>
       )}
 
-      <div className="mb-5 grid gap-3.5 @min-[1000px]/panel:grid-cols-2">
+      <div className="mb-5 grid gap-3.5 @min-[1000px]/panel:grid-cols-3">
         <ModeCard
           glyph="⟳"
           title={WORKFLOW_LABEL}
@@ -130,7 +147,27 @@ export function HomeView({
           Describe a problem. Sero builds a team for it — a Conductor plus the specialists the
           problem needs — and they work, talk and adapt until it is done.
         </ModeCard>
+        <ModeCard
+          glyph="◎"
+          title="Goal"
+          onClick={() => onOpenGoal('')}
+          meta={
+            <>
+              <Pill>{goals.length} {goals.length === 1 ? 'goal' : 'goals'}</Pill>
+              {activeGoals > 0 && <Pill tone="brand">{activeGoals} active</Pill>}
+              <Pill>One objective</Pill>
+            </>
+          }
+        >
+          One chat session works toward one objective. Start it with <code>/goal</code> when the outcome is clear and the route is not.
+        </ModeCard>
       </div>
+
+      {goals.length > 0 && (
+        <div className="mb-4">
+          <GoalsOverview goals={goals} busy={busy} onOpenGoal={onOpenGoal} onDeleteGoal={onDeleteGoal} />
+        </div>
+      )}
 
       {rooms.length > 0 && (
         <div className="mb-4">

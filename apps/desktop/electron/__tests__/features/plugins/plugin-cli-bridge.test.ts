@@ -181,6 +181,32 @@ describe('plugin CLI bridging', () => {
     expect(getCliRegistry().get('plugin_selective_skip')).toBeFalsy();
   });
 
+  it('keeps Orchestrator Goal terminal tools directly callable', () => {
+    const extensionPath = path.resolve(
+      process.cwd(),
+      '../../plugins/sero-orchestrator-plugin/extension/index.ts',
+    );
+    const base = createLoadExtensionsResult(extensionPath, [
+      'orchestrator',
+      'goal',
+      'room',
+      'rooms',
+      'goal_complete',
+      'goal_blocked',
+      'goal_wait',
+    ]);
+
+    bridgeExtensionTools(base);
+
+    expect([...base.extensions[0]!.tools.keys()]).toEqual([
+      'goal_complete',
+      'goal_blocked',
+      'goal_wait',
+    ]);
+    expect(getCliRegistry().get('goal')).toBeTruthy();
+    expect(getCliRegistry().get('goal_complete')).toBeFalsy();
+  });
+
   it('keeps mcp_manager private when the MCP plugin bridges only mcp', async () => {
     const pluginDir = path.join(tmpDir, 'plugin-mcp');
     const extensionPath = path.join(pluginDir, 'extension', 'index.js');

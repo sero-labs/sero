@@ -17,6 +17,8 @@ describe('Orchestrator navigation routes', () => {
     { mode: 'rooms', roomId: 'room-7', roomView: 'timeline' },
     { mode: 'rooms', roomId: 'room-7', roomView: 'result', memberId: 'member-3' },
     { mode: 'room-create' },
+    { mode: 'goals', goalId: null },
+    { mode: 'goals', goalId: 'goal-8f2' },
     { mode: 'library', tab: 'mine' },
     { mode: 'library', tab: 'catalog' },
   ];

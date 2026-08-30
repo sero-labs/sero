@@ -57,7 +57,8 @@
       "minSeroVersion": "0.1.0",
       "runtimeAbi": 3,
       "preBuilt": false,
-      "requiredHostCapabilities": ["appAgent.invokeTool", "tool.cli", "appRuntime.background"]
+      "requiredHostCapabilities": ["appAgent.invokeTool", "tool.cli", "appRuntime.background"],
+      "bridgeTools": ["orchestrator", "goal", "goals", "room", "rooms"]
     }
   },
   "dependencies": {
@@ -66,6 +67,7 @@
     "typebox": "catalog:"
   },
   "peerDependencies": {
+    "@earendil-works/pi-agent-core": "catalog:peer",
     "@earendil-works/pi-ai": "catalog:peer",
     "@earendil-works/pi-coding-agent": "catalog:peer",
     "@earendil-works/pi-tui": "catalog:peer",

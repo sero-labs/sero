@@ -9,10 +9,10 @@
 import type { WorkspaceAccessRootsResult } from './workspace-access-roots';
 import type { ExtensionRuntimeContent, ExtensionRuntimeMessage } from './session-runtime';
 import type { SharedAvailableModelGroup } from './model-selection/types';
-import type { ContextAgentInfo, ContextSkillInfo, ContextToolInfo } from './context-editor';
 import type { AppRuntimeGitApi } from './app-runtime-git';
 import type { AppRuntimeNotificationsApi } from './app-runtime-notifications';
 import type { PersistentSessionsApi } from './app-runtime-persistent-sessions';
+import type { AppRuntimeSubagentsApi } from './app-runtime-subagents';
 
 // The git surface lives in ./app-runtime-git; re-exported here so existing
 // imports from '@sero-ai/common' (via this module) keep resolving unchanged.
@@ -36,9 +36,18 @@ export type {
   AppRuntimeGitApi,
 } from './app-runtime-git';
 
+export type {
+  AppRuntimeSubagentRepair,
+  AppRuntimeSubagentRunParams,
+  AppRuntimeSubagentUsage,
+  AppRuntimeSubagentResult,
+  AppRuntimeSubagentsApi,
+} from './app-runtime-subagents';
+
 export interface AppRuntimeStateApi {
   read<T = unknown>(filePath: string): Promise<T | null>;
   update<T = unknown>(filePath: string, updater: (current: T | null) => T): Promise<void>;
+  remove(filePath: string): Promise<void>;
   watch(filePath: string): void;
   unwatch(filePath: string): void;
   /**
@@ -49,110 +58,6 @@ export interface AppRuntimeStateApi {
    * still operate on the concrete file paths under it.
    */
   globalDir(namespace: string): Promise<{ path: string }>;
-}
-
-/**
- * In-session structured-output repair. After the agent replies, `validate` is
- * called with the reply text: return null to accept it, or a follow-up message
- * to send IN THE SAME session (reusing its context and tools — no new subagent)
- * for another reply. Repeated up to `maxAttempts` times, then the last reply is
- * returned as-is. Callbacks run in-process, so this is for runtime (host.*)
- * callers, not serialized renderer/IPC callers.
- */
-export interface AppRuntimeSubagentRepair {
-  maxAttempts: number;
-  validate: (reply: string) => string | null;
-}
-
-export interface AppRuntimeSubagentRunParams {
-  agent?: string;
-  task: string;
-  model?: string;
-  thinking?: string;
-  repair?: AppRuntimeSubagentRepair;
-  timeoutMs?: number;
-  /** Appended after the base system prompt (e.g. an agent body / step contract). */
-  systemPrompt?: string;
-  /**
-   * Replaces the base system prompt for this run (user context override). An
-   * empty string excludes the base prompt entirely. The `systemPrompt` suffix
-   * (if any) still applies on top, so callers keep their non-negotiable rules.
-   */
-  systemPromptOverride?: string;
-  /**
-   * Extra system-prompt sections appended AFTER the resolved agent body — for a
-   * caller's non-negotiable rules (e.g. the Orchestrator's step-outcome contract)
-   * that must survive even when a named `agent` is used. Unlike `systemPrompt`
-   * (which the resolver treats as an ad-hoc agent body and is dropped once a named
-   * `agent` is set), these always ride on top of whatever agent is resolved.
-   */
-  appendSystemPrompt?: string[];
-  parentSessionId: string;
-  workspaceId: string;
-  cwd?: string;
-  isolated?: boolean;
-  customTools?: unknown[];
-  /** Allowlist of active tool names. Omitted means the full platform surface. */
-  tools?: string[];
-  /** Tool names to remove from this run's tool surface (user context override). */
-  disabledTools?: string[];
-  /** Skill names to hide from the model for this run (user context override). */
-  disabledSkills?: string[];
-  onUpdate?: (text: string) => void;
-  /**
-   * Platform tool surface for the subagent session.
-   * - 'all' (default): bash, read, write, edit, sero-cli, browser
-   * - 'readOnly': the platform read tool only
-   * - 'none': no platform tools and no workspace-runtime startup —
-   *   the session gets only customTools (enforced via a session tool
-   *   allowlist, which also excludes extension-registered tools)
-   */
-  platformTools?: 'all' | 'readOnly' | 'none';
-  signal?: AbortSignal;
-}
-
-export interface AppRuntimeSubagentUsage {
-  inputTokens: number;
-  outputTokens: number;
-  totalTokens: number;
-  /** Run cost in USD, when the provider/model has known pricing. */
-  costUsd?: number;
-}
-
-export interface AppRuntimeSubagentResult {
-  response: string;
-  error?: string;
-  /** Concrete model id the session ran with (when resolvable; best effort on failure paths). */
-  modelId?: string;
-  /** Provider id for modelId — model ids are not globally unique. */
-  providerId?: string;
-  /** Wall-clock duration of the run in milliseconds. */
-  durationMs?: number;
-  /** Token usage totals (when the provider reports them). */
-  usage?: AppRuntimeSubagentUsage;
-}
-
-export interface AppRuntimeSubagentsApi {
-  runStructured(params: AppRuntimeSubagentRunParams): Promise<AppRuntimeSubagentResult>;
-  onLiveOutput(
-    workspaceId: string,
-    parentSessionId: string,
-    cb: (agentName: string, text: string) => void,
-  ): () => void;
-  /**
-   * The real tool surface a background subagent loads in this workspace (name +
-   * description), so callers (e.g. the Orchestrator planner) can pick a step's
-   * tools from the actual catalog rather than a hardcoded list.
-   */
-  listToolCatalog(workspaceId: string): Promise<ContextToolInfo[]>;
-  /** Skills resolved from the same workspace context used to build sessions. */
-  listSkillCatalog(workspaceId: string): Promise<ContextSkillInfo[]>;
-  /**
-   * The named agent roles available in this workspace, so callers (e.g. the
-   * Orchestrator planner and its per-step agent picker) can choose a role from
-   * the real catalog rather than guessing names.
-   */
-  listAgentCatalog(workspaceId: string): Promise<ContextAgentInfo[]>;
 }
 
 export interface AppRuntimeNativeBuildFallbackAction {
@@ -418,6 +323,7 @@ export interface AppRuntimeMediaApi {
 export interface AppRuntimeActiveSession {
   sessionId: string;
   workspaceId: string;
+  sessionPath: string;
 }
 
 export interface AppRuntimeSessionState {
@@ -439,7 +345,7 @@ export interface AppRuntimeTurnResult {
  * session rules; Orchestrator only sends and observes.
  */
 export interface AppRuntimeSessionHost {
-  getActiveForWorkspace(workspaceId: string): Promise<AppRuntimeActiveSession | null>;
+  getActiveForWorkspace(workspaceId: string, sessionPath?: string): Promise<AppRuntimeActiveSession | null>;
   getState(sessionId: string): Promise<AppRuntimeSessionState>;
   sendUserSteer(
     sessionId: string,

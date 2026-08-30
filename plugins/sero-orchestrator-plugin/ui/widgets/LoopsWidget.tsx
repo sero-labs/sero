@@ -18,6 +18,9 @@ import { type Tone } from '@sero-ai/ui/components/dashboard/tone';
 import { Infinity as InfinityIcon, MessageCircleQuestion } from 'lucide-react';
 import type { LoopStatus, LoopSummary } from '../../shared/types';
 import { useOrchestratorIndex } from '../lib/use-orchestrator-index';
+import { useGoalIndex } from '../lib/use-goal-index';
+import type { GoalIndexEntry } from '../../shared/goal-types';
+import { goalNeedsAttention } from '../lib/attention-count';
 import '../styles.css';
 
 /** How many loops the list peeks before "+N more". */
@@ -63,22 +66,29 @@ function progressCell(loop: LoopSummary): ReactNode {
 
 export function LoopsWidget() {
   const { loops } = useOrchestratorIndex();
+  const { goals } = useGoalIndex();
 
   const running = loops.filter((l) => l.progress?.running).length;
-  const active = loops.filter((l) => l.status === 'active').length;
-  const blocked = loops.filter((l) => l.status === 'blocked').length;
-  const needsYou = loops.reduce(
+  const activeGoals = goals.filter((goal) => goal.status === 'active' && !goal.closedAt);
+  const active = loops.filter((l) => l.status === 'active').length + activeGoals.length;
+  const blocked = loops.filter((l) => l.status === 'blocked').length
+    + goals.filter((goal) => goal.status === 'blocked' && !goal.closedAt).length;
+  const needsYou = goals.filter(goalNeedsAttention).length + loops.reduce(
     (n, l) => n + (l.pendingInput ?? 0) + (l.pendingSuggestions ?? 0),
     0,
   );
   const sorted = [...loops].sort((a, b) => urgency(a) - urgency(b));
+  const activeItems: Array<{ kind: 'workflow'; value: LoopSummary } | { kind: 'goal'; value: GoalIndexEntry }> = [
+    ...sorted.map((value) => ({ kind: 'workflow' as const, value })),
+    ...activeGoals.map((value) => ({ kind: 'goal' as const, value })),
+  ];
 
   return (
     <WidgetContent>
       <Stack gap="sm" fill>
         <Inline justify="between" align="center">
-          <Status tone={running > 0 ? 'success' : 'neutral'} pulse={running > 0}>
-            {running > 0 ? `${running} running` : `${active} active`}
+          <Status tone={running + activeGoals.length > 0 ? 'success' : 'neutral'} pulse={running + activeGoals.length > 0}>
+            {running + activeGoals.length > 0 ? `${running + activeGoals.length} running · ${activeGoals.length} goal${activeGoals.length === 1 ? '' : 's'}` : `${active} active`}
           </Status>
           {blocked > 0 && (
             <Status tone="warning" variant="pill">
@@ -102,17 +112,20 @@ export function LoopsWidget() {
         </Inline>
 
         <DataBoundary
-          state={loops.length === 0 ? 'empty' : 'ready'}
-          empty={<EmptyState icon={InfinityIcon} title="No workflows yet" />}
+          state={activeItems.length === 0 ? 'empty' : 'ready'}
+          empty={<EmptyState icon={InfinityIcon} title="No active Orchestrator work" />}
         >
           <Stack gap="none" scroll>
-            <ActivityList overflowCount={Math.max(0, loops.length - SHOWN)}>
-              {sorted.slice(0, SHOWN).map((loop) => (
+            <ActivityList overflowCount={Math.max(0, activeItems.length - SHOWN)}>
+              {activeItems.slice(0, SHOWN).map((item) => item.kind === 'workflow' ? (
+                <ActivityListItem key={item.value.id} tone={loopTone(item.value.status)} label={<span title={item.value.summary}>{item.value.title}</span>} timestamp={progressCell(item.value)} />
+              ) : (
                 <ActivityListItem
-                  key={loop.id}
-                  tone={loopTone(loop.status)}
-                  label={<span title={loop.summary}>{loop.title}</span>}
-                  timestamp={progressCell(loop)}
+                  key={item.value.id}
+                  tone="success"
+                  label={<span title={item.value.objective}>{item.value.objective}</span>}
+                  detail="Goal"
+                  timestamp={`${item.value.automaticTurns ?? 0}/${item.value.maxAutomaticTurns ?? '∞'}`}
                 />
               ))}
             </ActivityList>

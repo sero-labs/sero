@@ -6,9 +6,9 @@ import { LoopList } from './components/LoopList';
 import { RoomsOverview } from './components/RoomsOverview';
 import { RoomCreateFlow } from './components/RoomCreateFlow';
 import { RoomDetail } from './components/RoomDetail';
-import type { RoomApprovalDecision } from './components/AttentionQueue';
 import { attentionCount } from './lib/attention-count';
 import { useRoomIndex } from './lib/use-room-index';
+import { useGoalIndex } from './lib/use-goal-index';
 import { LoopDetail } from './components/LoopDetail';
 import { LibraryView } from './components/LibraryView';
 import { HomeView } from './components/HomeView';
@@ -20,6 +20,9 @@ import { useOrchestratorIndex, useStateDir } from './lib/use-orchestrator-index'
 import { useWatchedJson } from './lib/use-watched-json';
 import { useOrchestratorNavigation, type OrchestratorView } from './lib/orchestrator-navigation';
 import { OrchestratorStateContext } from './lib/orchestrator-state';
+import { GoalMode } from './components/GoalMode';
+import { useRoomActions } from './lib/use-room-actions';
+import { shellControlsFor } from './lib/shell-controls';
 import './styles.css';
 
 /** Which top-bar tab a view highlights. */
@@ -28,6 +31,7 @@ function tabOf(view: OrchestratorView): ShellTab {
     case 'home': return 'home';
     case 'detail': case 'create': return 'workflows';
     case 'rooms': case 'room-create': return 'rooms';
+    case 'goals': return 'goals';
     case 'library': return view.tab === 'catalog' ? 'catalog' : 'library';
   }
 }
@@ -67,6 +71,7 @@ export function OrchestratorApp() {
 
   const index = useOrchestratorIndex();
   const roomIndex = useRoomIndex();
+  const goalIndex = useGoalIndex();
   const selectedId = view.mode === 'detail' ? view.loopId : null;
   const loopPath = selectedId && stateDir ? `${stateDir}/loops/${selectedId}/loop.json` : null;
   const selected = useWatchedJson<Loop | null>(loopPath, null);
@@ -103,58 +108,21 @@ export function OrchestratorApp() {
     [run],
   );
 
-  /**
-   * Room actions go to the `rooms` tool — the user's Room surface. It is a
-   * different tool from `orchestrator` because it is a different authority: the
-   * member surface (`room`) refuses a user, and this one refuses a member.
-   */
-  const roomDispatch = useCallback(
-    async (params: Record<string, unknown>) => {
-      setBusy(true);
-      setError(null);
-      try {
-        const res = await run('rooms', params);
-        const details = res?.details as { ok?: boolean; error?: string } | null;
-        if (details && details.ok === false && details.error) setError(details.error);
-        return details;
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
-        return null;
-      } finally {
-        setBusy(false);
-      }
-    },
-    [run],
-  );
-
-  const onRoomApproval = useCallback(
-    (roomId: string, approvalId: string, decision: RoomApprovalDecision) => {
-      void roomDispatch({ action: 'resolve_approval', roomId, approvalId, decision });
-    },
-    [roomDispatch],
-  );
-
-  /**
-   * Answering a member from the home inbox. The Room may be paused because it
-   * was waiting for exactly this, so the runtime resumes it on the answer —
-   * the user says one thing and the Room carries on.
-   */
-  const onRoomAnswer = useCallback(
-    (roomId: string, memberId: string, body: string) => {
-      void roomDispatch({ action: 'intervene', roomId, memberIds: memberId, body, deliver: 'now' });
-    },
-    [roomDispatch],
-  );
-
-  const onRoomResume = useCallback(
-    (roomId: string) => {
-      void roomDispatch({ action: 'resume', roomId });
-    },
-    [roomDispatch],
-  );
-
-  const openRoom = useCallback((roomId: string) => navigate({ mode: 'rooms', roomId }), [navigate]);
-  const openRoomCreate = useCallback(() => navigate({ mode: 'room-create' }), [navigate]);
+  const room = useRoomActions({ run, setBusy, setError, navigate });
+  const openGoal = useCallback((goalId: string) => navigate({ mode: 'goals', goalId: goalId || null }), [navigate]);
+  const deleteGoal = useCallback(async (goalId: string) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await run('goals', { action: 'delete', goalId });
+      const details = result?.details as { ok?: boolean; error?: string } | null;
+      if (details?.ok === false) setError(details.error ?? 'Goal deletion failed.');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  }, [run]);
 
   // The Catalog tab drives itself through tool calls; it only needs the details.
   const detailsDispatch = useCallback(
@@ -218,13 +186,17 @@ export function OrchestratorApp() {
   const openCreate = useCallback(() => navigate({ mode: 'create' }), [navigate]);
 
   const activeTab = tabOf(view);
+  const shellControls = shellControlsFor(activeTab, {
+    reflectAll: () => void reflectAll(),
+  }, busy || index.loops.length === 0);
   // The Home badge mirrors HomeView's "Needs you" count, row for row.
-  const needsCount = attentionCount(index.loops, roomIndex.rooms);
+  const needsCount = attentionCount(index.loops, roomIndex.rooms, goalIndex.goals);
 
   const onSelectTab = (tab: ShellTab) => {
     if (tab === 'home') navigate({ mode: 'home' });
     else if (tab === 'workflows') navigate({ mode: 'detail', loopId: null });
     else if (tab === 'rooms') navigate({ mode: 'rooms', roomId: null });
+    else if (tab === 'goals') navigate({ mode: 'goals', goalId: null });
     else void openLibrary(tab === 'catalog' ? 'catalog' : 'mine');
   };
 
@@ -235,10 +207,10 @@ export function OrchestratorApp() {
         active={activeTab}
         workflowCount={index.loops.length}
         roomCount={roomIndex.rooms.length}
+        goalCount={goalIndex.goals.length}
         needsCount={needsCount}
         onSelect={onSelectTab}
-        onNew={activeTab === 'rooms' ? openRoomCreate : openCreate}
-        actions={[{ label: 'Reflect all', onSelect: () => void reflectAll(), disabled: busy || index.loops.length === 0 }]}
+        actions={shellControls.actions}
       />
 
       {reflectSummary && (
@@ -263,12 +235,15 @@ export function OrchestratorApp() {
             onAction={onAction}
             onOpenLoop={openLoop}
             onNew={openCreate}
-            onNewRoom={openRoomCreate}
+            onNewRoom={room.openCreate}
             rooms={roomIndex.rooms}
-            onRoomApproval={onRoomApproval}
-            onRoomAnswer={onRoomAnswer}
-            onRoomResume={onRoomResume}
-            onOpenRoom={openRoom}
+            onRoomApproval={room.onApproval}
+            onRoomAnswer={room.onAnswer}
+            onRoomResume={room.onResume}
+            onOpenRoom={room.open}
+            goals={goalIndex.goals}
+            onOpenGoal={openGoal}
+            onDeleteGoal={deleteGoal}
           />
         )}
         {view.mode === 'create' && (
@@ -279,8 +254,8 @@ export function OrchestratorApp() {
             roomId={view.roomId}
             summary={roomIndex.rooms.find((room) => room.id === view.roomId)}
             busy={busy}
-            dispatch={roomDispatch}
-            onApproval={onRoomApproval}
+            dispatch={room.dispatch}
+            onApproval={room.onApproval}
             initialView={view.roomView}
             initialMemberId={view.memberId}
             onLocationChange={(roomView, memberId, options) => navigate(
@@ -297,15 +272,23 @@ export function OrchestratorApp() {
         )}
         {view.mode === 'rooms' && !view.roomId && (
           <div className="flex h-full flex-1 flex-col overflow-auto px-6 py-5">
-            <RoomsOverview rooms={roomIndex.rooms} onOpenRoom={openRoom} onNew={openRoomCreate} />
+            <RoomsOverview rooms={roomIndex.rooms} onOpenRoom={room.open} onNew={room.openCreate} />
           </div>
         )}
         {view.mode === 'room-create' && (
           <RoomCreateFlow
             busy={busy}
-            dispatch={roomDispatch}
-            onStarted={openRoom}
+            dispatch={room.dispatch}
+            onStarted={room.open}
             onCancel={() => navigate({ mode: 'rooms', roomId: null })}
+          />
+        )}
+        {view.mode === 'goals' && (
+          <GoalMode
+            goalId={view.goalId}
+            goals={goalIndex.goals}
+            onOpenGoal={openGoal}
+            onBack={() => navigate({ mode: 'goals', goalId: null })}
           />
         )}
         {view.mode === 'library' && (

@@ -170,7 +170,11 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     pullRequests: [],
     commandResults: [],
     commands: [],
-    activeSession: { sessionId: 'sess-1', workspaceId: options.workspaceId ?? 'ws-1' },
+    activeSession: {
+      sessionId: 'sess-1',
+      workspaceId: options.workspaceId ?? 'ws-1',
+      sessionPath: '/sessions/chat-1.jsonl',
+    },
     turnResult: { turnId: 'turn-1', status: 'completed' },
     sessionSends: [],
     contextMessages: [],
@@ -274,7 +278,8 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
       return this.choiceResult;
     },
     session: {
-      async getActiveForWorkspace() {
+      async getActiveForWorkspace(_workspaceId, sessionPath) {
+        if (sessionPath && host.activeSession?.sessionPath !== sessionPath) return null;
         return host.activeSession;
       },
       async getState() {

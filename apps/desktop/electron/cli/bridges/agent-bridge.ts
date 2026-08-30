@@ -51,6 +51,15 @@ export function installCliAgentBridge(options: InstallCliAgentBridgeOptions): vo
       };
     },
 
+    getSessionForPath(workspaceId, sessionPath) {
+      for (const [sessionId, entry] of options.listEntries()) {
+        if (entry.workspaceId !== workspaceId) continue;
+        if (entry.session.sessionManager.getSessionFile() !== sessionPath) continue;
+        return { sessionId, workspaceId, session: entry.session, lastSessionName: entry.lastSessionName };
+      }
+      return undefined;
+    },
+
     getActiveSessionForWorkspace(workspaceId) {
       for (const [sessionId, entry] of options.listEntries()) {
         if (entry.workspaceId !== workspaceId) continue;

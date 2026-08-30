@@ -14,12 +14,14 @@ export type OrchestratorView =
   | { mode: 'detail'; loopId: string | null }
   | { mode: 'create' }
   | { mode: 'rooms'; roomId: string | null; roomView?: RoomView; memberId?: string }
+  | { mode: 'goals'; goalId: string | null }
   | { mode: 'room-create' }
   | { mode: 'library'; tab: 'mine' | 'catalog' };
 
 interface OrchestratorLaunchParams extends Record<string, unknown> {
   loopId?: string;
   roomId?: string;
+  goalId?: string;
 }
 
 export function orchestratorViewId(view: OrchestratorView): string {
@@ -27,6 +29,7 @@ export function orchestratorViewId(view: OrchestratorView): string {
   if (view.mode === 'create') return 'workflows/new';
   if (view.mode === 'detail') return view.loopId ? `workflows/${view.loopId}` : 'workflows';
   if (view.mode === 'room-create') return 'rooms/new';
+  if (view.mode === 'goals') return view.goalId ? `goals/${view.goalId}` : 'goals';
   if (view.mode === 'library') return `library/${view.tab}`;
   if (!view.roomId) return 'rooms';
 
@@ -49,6 +52,7 @@ export function parseOrchestratorView(viewId: string | undefined): OrchestratorV
   if (section === 'library' && (id === 'mine' || id === 'catalog')) {
     return { mode: 'library', tab: id };
   }
+  if (section === 'goals') return { mode: 'goals', goalId: id || null };
   if (section !== 'rooms') return null;
   if (id === 'new') return { mode: 'room-create' };
   if (!id) return { mode: 'rooms', roomId: null };
@@ -71,6 +75,7 @@ export function parseOrchestratorView(viewId: string | undefined): OrchestratorV
 
 function launchView(params: OrchestratorLaunchParams | undefined): OrchestratorView | null {
   if (typeof params?.roomId === 'string') return { mode: 'rooms', roomId: params.roomId };
+  if (typeof params?.goalId === 'string') return { mode: 'goals', goalId: params.goalId };
   if (typeof params?.loopId === 'string') return { mode: 'detail', loopId: params.loopId };
   return null;
 }

@@ -23,7 +23,55 @@ export interface SeroSlashCommandInfo {
 export type ChatMessage =
   | ChatUserMessage
   | ChatAssistantMessage
-  | ChatToolCallMessage;
+  | ChatToolCallMessage
+  | ChatGoalStateMessage
+  | ChatGoalContinuationMessage
+  | ChatGoalStatusMessage;
+
+export type ChatGoalStatus = 'active' | 'waiting' | 'paused' | 'blocked' | 'limited' | 'complete';
+export type ChatGoalPauseReason = 'user' | 'abort' | 'no-progress' | 'restore' | 'tool-policy';
+
+export interface ChatGoalSnapshot {
+  id: string;
+  objective: string;
+  criteria: string[];
+  status: ChatGoalStatus;
+  limits: {
+    maxAttemptsTotal?: number;
+    maxWallClockMs?: number;
+    maxTotalTokens?: number;
+    maxCostUsd?: number;
+  };
+  usage: { automaticTurns: number; totalTokens: number; costUsd: number; activeMs: number };
+  progress: { repeats: number };
+  pauseReason?: ChatGoalPauseReason;
+  wait?: { reason: string };
+  block?: { reason: string; evidence?: string };
+  limitReached?: 'maxAttemptsTotal' | 'maxWallClockMs' | 'maxTotalTokens' | 'maxCostUsd';
+  reportedComplete?: { evidence: string; reportedAt: string };
+  closedAt?: string;
+}
+
+export interface ChatGoalStateMessage {
+  type: 'goal-state';
+  id: string;
+  goal: ChatGoalSnapshot;
+}
+
+export interface ChatGoalContinuationMessage {
+  type: 'goal-continuation';
+  id: string;
+  goalId: string;
+  automaticTurns: number;
+  maxAutomaticTurns?: number;
+}
+
+export interface ChatGoalStatusMessage {
+  type: 'goal-status';
+  id: string;
+  text: string;
+  goal?: ChatGoalSnapshot;
+}
 
 /** File attachment metadata for user messages. */
 export interface ChatAttachment {

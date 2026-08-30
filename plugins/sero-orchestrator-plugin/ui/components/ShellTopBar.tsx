@@ -1,7 +1,6 @@
 /**
  * The Orchestrator top bar (ux-refit-plan.md phase 3): brand mark, tab bar
- * with the emerald active underline, count badges, and the actions with
- * `+ New` as the one primary button.
+ * with the emerald active underline, count badges, and mode-specific actions.
  *
  * Width rules are container queries against the panel (`@container/panel`,
  * set on the app root): ≥900px full labels; below, tabs drop to icon + count
@@ -18,10 +17,10 @@ import {
   DropdownMenuTrigger,
 } from '@sero-ai/ui/components/ui/dropdown-menu';
 import { cn } from '@sero-ai/ui/lib/utils';
-import { BookOpen, Home, Library, MoreHorizontal, Plus, Users, Workflow } from 'lucide-react';
+import { BookOpen, Home, Library, MoreHorizontal, Target, Users, Workflow } from 'lucide-react';
 import { WORKFLOWS_LABEL } from '../../shared/labels';
 
-export type ShellTab = 'home' | 'workflows' | 'rooms' | 'library' | 'catalog';
+export type ShellTab = 'home' | 'workflows' | 'rooms' | 'goals' | 'library' | 'catalog';
 
 export interface ShellAction {
   label: string;
@@ -33,10 +32,10 @@ export interface ShellTopBarProps {
   active: ShellTab;
   workflowCount: number;
   roomCount: number;
+  goalCount: number;
   /** Items waiting on the user — renders the alert-toned badge on Home. */
   needsCount: number;
   onSelect: (tab: ShellTab) => void;
-  onNew: () => void;
   /** Secondary actions; ghost buttons wide, one overflow menu narrow. */
   actions?: ShellAction[];
 }
@@ -51,6 +50,7 @@ const TABS: TabSpec[] = [
   { tab: 'home', label: 'Home', icon: Home },
   { tab: 'workflows', label: WORKFLOWS_LABEL, icon: Workflow },
   { tab: 'rooms', label: 'Rooms', icon: Users },
+  { tab: 'goals', label: 'Goals', icon: Target },
   { tab: 'library', label: 'Library', icon: Library },
   { tab: 'catalog', label: 'Catalog', icon: BookOpen },
 ];
@@ -83,11 +83,12 @@ function BrandMark() {
   );
 }
 
-export function ShellTopBar({ active, workflowCount, roomCount, needsCount, onSelect, onNew, actions = [] }: ShellTopBarProps) {
+export function ShellTopBar({ active, workflowCount, roomCount, goalCount, needsCount, onSelect, actions = [] }: ShellTopBarProps) {
   const badgeFor = (tab: ShellTab): ReactNode => {
     if (tab === 'home' && needsCount > 0) return <TabBadge alert>{needsCount}</TabBadge>;
     if (tab === 'workflows' && workflowCount > 0) return <TabBadge>{workflowCount}</TabBadge>;
     if (tab === 'rooms' && roomCount > 0) return <TabBadge>{roomCount}</TabBadge>;
+    if (tab === 'goals' && goalCount > 0) return <TabBadge>{goalCount}</TabBadge>;
     return null;
   };
 
@@ -152,9 +153,6 @@ export function ShellTopBar({ active, workflowCount, roomCount, needsCount, onSe
             </span>
           </>
         )}
-        <Button size="sm" onClick={onNew}>
-          <Plus className="size-3.5" /> New
-        </Button>
       </div>
     </header>
   );

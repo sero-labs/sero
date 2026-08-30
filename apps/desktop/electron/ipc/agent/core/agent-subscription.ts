@@ -17,6 +17,7 @@ import type {
 import {
   nextId,
   formatCustomMessage,
+  projectCustomMessage,
   buildTurnUndoMapByTurn,
 } from './agent-helpers';
 import { extractImageFilePath, tryParseImageJson } from './tool-result-images';
@@ -155,6 +156,12 @@ export function subscribeToSession(
             if (context) {
               sendEvent({ type: 'memory_context', sessionId, context });
             }
+            break;
+          }
+
+          const projected = projectCustomMessage(event.message);
+          if (projected) {
+            sendEvent({ type: 'message_start', sessionId, message: projected });
             break;
           }
 

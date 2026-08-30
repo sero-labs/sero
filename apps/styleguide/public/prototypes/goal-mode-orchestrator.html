@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Goal mode — Orchestrator and dashboard</title>
+<style>
+:root{
+  /* Sero dark tokens (packages/ui/src/styles/globals.css) */
+  --bg:#09090b;--surface:#111113;--raised:#18181b;--overlay:#1f1f23;--muted:#27272a;
+  --line:#27272a;--line-strong:#3f3f46;
+  --text:#fafafa;--text-2:#a1a1aa;--text-3:#71717a;--text-4:#5a5a64;
+  --ok:#22c55e;--ok-wash:rgba(34,197,94,.12);--ok-line:rgba(34,197,94,.28);--ok-faint:rgba(34,197,94,.05);
+  --info:#3b82f6;--info-wash:rgba(59,130,246,.12);--info-line:rgba(59,130,246,.28);
+  --warn:#f59e0b;--warn-wash:rgba(245,158,11,.12);--warn-line:rgba(245,158,11,.28);--warn-faint:rgba(245,158,11,.05);
+  --err:#ef4444;--err-wash:rgba(239,68,68,.12);--err-line:rgba(239,68,68,.28);
+  --brand:#34d399;--violet:#c4b5fd;
+  --sans:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box}
+html{background:#050506;color-scheme:dark}
+body{margin:0;padding:60px 0 130px;background:#050506;color:var(--text);font-family:var(--sans)}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+h1,h2,h3,h4,p{margin:0}
+.doc{width:1240px;margin:0 auto}
+.intro{width:800px;margin-bottom:48px}
+h1{font-size:28px;line-height:1.15;letter-spacing:-.04em;font-weight:650}
+.lede{margin-top:13px;color:var(--text-2);font-size:15px;line-height:1.65}
+.lede b{color:var(--text);font-weight:560}
+h2{font-size:18px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
+h2 .num{color:var(--text-3);font-weight:500}
+.note{width:820px;margin:9px 0 18px;color:var(--text-3);font-size:13px;line-height:1.6}
+.note b{color:var(--text-2);font-weight:560}
+.state{margin-top:58px}
+.rules{margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.rule{border:1px solid var(--line);border-radius:8px;background:var(--raised);padding:11px 13px}
+.rule h3{font-size:11px;font-weight:650;letter-spacing:.07em;text-transform:uppercase;color:var(--brand)}
+.rule p{margin-top:5px;font-size:13px;line-height:1.5;color:var(--text-2)}
+
+/* app frame */
+.app{width:1240px;background:var(--bg);border:1px solid var(--line);border-radius:10px;box-shadow:0 30px 90px rgba(0,0,0,.46);overflow:hidden}
+.top{height:50px;display:flex;align-items:center;padding:0 16px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:9px;width:180px;font-size:13px;font-weight:650}
+.brand-mark{width:20px;height:20px;border:1px solid var(--line-strong);border-radius:5px;display:grid;place-items:center;color:var(--brand)}
+.tabs{display:flex;align-items:center;align-self:stretch;gap:2px}
+.tab{position:relative;display:flex;align-items:center;gap:7px;height:100%;padding:0 15px;color:var(--text-3);font-size:13px}
+.tab[aria-selected="true"]{color:var(--text)}
+.tab[aria-selected="true"]:after{content:"";position:absolute;left:13px;right:13px;bottom:-1px;height:2px;background:var(--brand)}
+.tab:hover{color:var(--text-2)}
+.tab:focus-visible,.btn:focus-visible,.row:focus-visible{outline:2px solid var(--brand);outline-offset:-2px}
+.count{display:inline-flex;min-width:17px;height:17px;align-items:center;justify-content:center;padding:0 5px;border-radius:10px;background:var(--muted);color:var(--text-2);font:10px/1 var(--mono)}
+.tab[aria-selected="true"] .count{background:var(--ok-wash);color:var(--ok)}
+.top-actions{margin-left:auto;display:flex;gap:8px}
+.btn{height:30px;padding:0 12px;border:1px solid var(--line-strong);border-radius:7px;background:var(--raised);color:var(--text-2);display:inline-flex;align-items:center;gap:7px;font-size:12px;white-space:nowrap}
+.btn:hover{color:var(--text);border-color:var(--text-3)}
+.btn.primary{border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.14);color:var(--brand)}
+.btn.small{height:26px;padding:0 10px;font-size:11px}
+.body{padding:18px 22px;min-height:520px}
+.app.fit .body{min-height:0}
+
+/* lists */
+.list-head{display:flex;align-items:center;height:26px;margin:0 0 9px;color:var(--text-3);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.list-head .line{flex:1;height:1px;margin:0 12px;background:var(--line)}
+.list-head span{font:10px var(--mono);letter-spacing:0;text-transform:none}
+.row{display:flex;align-items:center;gap:12px;width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:8px;background:var(--surface);margin-bottom:7px;text-align:left}
+.row:hover{border-color:var(--line-strong)}
+.row[aria-current="true"]{border-color:var(--ok-line);background:var(--ok-faint)}
+.dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
+.dot.active{background:var(--ok);box-shadow:0 0 0 3px rgba(34,197,94,.13)}
+.dot.hold{background:var(--warn)} .dot.block{background:var(--err)}
+.dot.done{background:var(--info)} .dot.idle{background:var(--text-4)}
+.rname{font-size:13px;color:var(--text);min-width:270px}
+.rsub{color:var(--text-3);font-size:12px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rmeta{color:var(--text-3);font:10px var(--mono);white-space:nowrap}
+.pill{height:20px;padding:0 8px;border-radius:11px;display:inline-flex;align-items:center;font-size:10px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--line)}
+.pill.active{border-color:var(--ok-line);background:var(--ok-wash);color:var(--ok)}
+.pill.hold{border-color:var(--warn-line);background:var(--warn-wash);color:var(--warn)}
+.pill.block{border-color:var(--err-line);background:var(--err-wash);color:var(--err)}
+.pill.done{border-color:var(--info-line);background:var(--info-wash);color:var(--info)}
+.pill.idle{color:var(--text-3)}
+
+/* mode cards, matching the Orchestrator home */
+.modes{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px}
+.mode{padding:15px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.mode[data-on="1"]{border-color:var(--ok-line);background:linear-gradient(160deg,rgba(34,197,94,.055),var(--surface))}
+.mode h4{font-size:14px;font-weight:600;letter-spacing:-.02em;display:flex;align-items:center;gap:9px}
+.mode p{margin-top:7px;color:var(--text-3);font-size:12px;line-height:1.55}
+.mode .glyph{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;background:var(--muted);color:var(--text-2)}
+.mode[data-on="1"] .glyph{background:var(--ok-wash);color:var(--ok)}
+.mode .n{margin-left:auto;font:11px var(--mono);color:var(--text-3)}
+
+/* detail */
+.split{display:grid;grid-template-columns:1fr 380px;gap:18px}
+.card{border:1px solid var(--line);border-radius:9px;background:var(--surface);padding:14px}
+.card h3{font-size:11px;font-weight:650;letter-spacing:.07em;text-transform:uppercase;color:var(--text-3);margin-bottom:10px}
+.obj{font-size:16px;line-height:1.45;color:var(--text);letter-spacing:-.01em}
+.crit{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:7px}
+.crit li{display:flex;gap:9px;align-items:flex-start;font-size:13px;color:var(--text-2);line-height:1.5}
+.crit .mark{flex:0 0 auto;margin-top:1px;font:11px var(--mono);color:var(--text-3)}
+.crit .mark.pass{color:var(--ok)}
+.bars{display:grid;gap:9px}
+.budget{display:grid;gap:5px}
+.budget .k{display:flex;font:10px var(--mono);letter-spacing:.07em;text-transform:uppercase;color:var(--text-3)}
+.budget .k b{margin-left:auto;font:11px var(--mono);color:var(--text-2);font-weight:400}
+.track{height:3px;border-radius:2px;background:var(--muted);overflow:hidden}
+.track i{display:block;height:100%;background:var(--ok)}
+.track.warn i{background:var(--warn)} .track.err i{background:var(--err)}
+.hint{margin-top:10px;font-size:12px;color:var(--text-3);line-height:1.5}
+.tl{list-style:none;padding:0;margin:0;display:grid;gap:0}
+.tl li{display:grid;grid-template-columns:74px 1fr;gap:11px;padding:7px 0;border-top:1px solid var(--line);font-size:12px;color:var(--text-2);line-height:1.5}
+.tl li:first-child{border-top:0}
+.tl .t{font:10px var(--mono);color:var(--text-3);padding-top:2px}
+.tl b{color:var(--text);font-weight:560}
+.evid{border:1px solid var(--line);border-radius:7px;background:var(--bg);padding:10px 11px;font:12px/1.6 var(--mono);color:var(--text-2);white-space:pre-wrap}
+.ctrls{display:flex;gap:7px;flex-wrap:wrap}
+
+/* dashboard widgets */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;width:840px;align-items:start}
+.widget{border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden}
+.wtop{display:flex;align-items:center;gap:8px;padding:11px 13px;border-bottom:1px solid var(--line);font-size:12px;font-weight:560;color:var(--text-2)}
+.wtop .n{margin-left:auto;font:10px var(--mono);color:var(--text-3)}
+.wbody{padding:9px 13px 13px;display:grid;gap:7px;align-content:start}
+.wrow{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--text-2)}
+.wrow .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wrow .m{font:10px var(--mono);color:var(--text-3)}
+.needs .wtop{color:var(--warn)}
+.needs .wrow{padding:8px 0;border-top:1px solid var(--line)}
+.needs .wrow:first-child{border-top:0}
+.needs .src{font-size:11px;color:var(--text-3)}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="doc">
+
+<div class="intro">
+  <h1>Goal mode — Orchestrator and dashboard</h1>
+  <p class="lede">
+    Goals are the third Orchestrator mode. This prototype answers one question:
+    <b>how goals sit beside Workflows and Rooms without reading as workflows</b>.
+    A goal has no plan and no steps. It has an objective, criteria, a budget and a history.
+  </p>
+  <div class="rules">
+    <div class="rule"><h3>Chat is the entry point</h3><p>Goals start with <code>/goal</code>. This view manages the ones the user left running.</p></div>
+    <div class="rule"><h3>No plan, no steps</h3><p>Nothing here shows a DAG, a step list or a retry count. That vocabulary belongs to Workflows.</p></div>
+    <div class="rule"><h3>A limit reads as a stop</h3><p>An exhausted budget is shown in the error treatment, never as a finished goal.</p></div>
+    <div class="rule"><h3>One inbox</h3><p>Blocked and waiting goals join the existing <b>Needs You</b> widget. No second queue.</p></div>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<section class="state">
+  <h2><span class="num">1 · </span>Orchestrator home — three modes, one list per mode</h2>
+  <p class="note">
+    The Goals tab sits beside Workflows and Rooms. Selecting a row opens the detail in state 2.
+    Try the tabs with the mouse or the keyboard.
+  </p>
+  <div class="app">
+    <div class="top">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 12c-2-2.7-4-4-6-4a4 4 0 0 0 0 8c2 0 4-1.3 6-4Zm0 0c2 2.7 4 4 6 4a4 4 0 0 0 0-8c-2 0-4 1.3-6 4Z"/></svg></span>Orchestrator</div>
+      <div class="tabs" role="tablist" aria-label="Orchestrator modes">
+        <button type="button" class="tab" role="tab" aria-selected="false" data-tab="workflows">Workflows <span class="count">4</span></button>
+        <button type="button" class="tab" role="tab" aria-selected="false" data-tab="rooms">Rooms <span class="count">1</span></button>
+        <button type="button" class="tab" role="tab" aria-selected="true" data-tab="goals">Goals <span class="count">3</span></button>
+      </div>
+      <div class="top-actions"><button type="button" class="btn">Library</button><button type="button" class="btn primary">New workflow</button></div>
+    </div>
+    <div class="body">
+      <div class="modes">
+        <div class="mode"><h4><span class="glyph" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 6h14"/><path d="M5 12h14"/><path d="M5 18h9"/></svg></span>Workflows<span class="n">4</span></h4><p>An authored plan of steps, run to completion. Use one when the shape of the work is known.</p></div>
+        <div class="mode"><h4><span class="glyph" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3 19a6 6 0 0 1 12 0"/></svg></span>Rooms<span class="n">1</span></h4><p>A persistent team with a conductor. Use one when several agents must divide the work.</p></div>
+        <div class="mode" data-on="1"><h4><span class="glyph" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span>Goals<span class="n">3</span></h4><p>One chat session working toward one objective. Use one when the outcome is clear and the route is not.</p></div>
+      </div>
+
+      <div data-panel="goals">
+        <div class="list-head">Goals<span class="line"></span><span>objective · state · turns · session</span></div>
+        <button type="button" class="row" aria-current="true">
+          <span class="dot active"></span>
+          <span class="rname">get the release build green</span>
+          <span class="rsub">fix-flaky-tests · started 14 min ago</span>
+          <span class="pill active">Active</span>
+          <span class="rmeta">12/25 · $0.41</span>
+        </button>
+        <button type="button" class="row">
+          <span class="dot block"></span>
+          <span class="rname">publish the signed installer</span>
+          <span class="rsub">release-0-9 · needs the signing key</span>
+          <span class="pill block">Blocked</span>
+          <span class="rmeta">9/25 · $0.22</span>
+        </button>
+        <button type="button" class="row">
+          <span class="dot done"></span>
+          <span class="rname">migrate the settings store</span>
+          <span class="rsub">settings-v2 · evidence recorded, not verified</span>
+          <span class="pill done">Reported</span>
+          <span class="rmeta">18/25 · $0.77</span>
+        </button>
+        <div class="list-head" style="margin-top:20px">Finished<span class="line"></span><span>kept for the history</span></div>
+        <button type="button" class="row">
+          <span class="dot idle"></span>
+          <span class="rname">tidy the changelog</span>
+          <span class="rsub">docs · you stopped it yesterday</span>
+          <span class="pill idle">Stopped</span>
+          <span class="rmeta">4/25 · $0.05</span>
+        </button>
+      </div>
+
+      <div data-panel="workflows" class="hidden">
+        <div class="list-head">Workflows<span class="line"></span><span>plan · steps · last run</span></div>
+        <button type="button" class="row"><span class="dot active"></span><span class="rname">Nightly dependency audit</span><span class="rsub">6 steps · step 3 of 6 running</span><span class="pill active">Running</span><span class="rmeta">03:00 UTC</span></button>
+        <button type="button" class="row"><span class="dot idle"></span><span class="rname">Release notes from merged PRs</span><span class="rsub">4 steps · ready</span><span class="pill idle">Idle</span><span class="rmeta">on tag</span></button>
+      </div>
+
+      <div data-panel="rooms" class="hidden">
+        <div class="list-head">Rooms<span class="line"></span><span>team · members · state</span></div>
+        <button type="button" class="row"><span class="dot active"></span><span class="rname">Container runtime review</span><span class="rsub">conductor + 3 members</span><span class="pill active">Running</span><span class="rmeta">1h 12m</span></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<section class="state">
+  <h2><span class="num">2 · </span>One goal — objective, evidence, usage, history</h2>
+  <p class="note">
+    Everything the user needs to judge a goal they were not watching: what it was asked to do,
+    what it says it did, what it spent, and every state change with its reason.
+  </p>
+  <div class="app">
+    <div class="top">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg></span>Orchestrator</div>
+      <div class="tabs"><span class="tab" aria-selected="true">Goals · get the release build green</span></div>
+      <div class="top-actions"><button type="button" class="btn">Open the session</button></div>
+    </div>
+    <div class="body">
+      <div class="split">
+        <div style="display:grid;gap:14px">
+          <div class="card">
+            <h3>Objective</h3>
+            <p class="obj">get the release build green</p>
+            <ul class="crit">
+              <li><span class="mark pass">✓</span><span><b>pnpm build exits zero</b> — reported: build succeeded in 96s.</span></li>
+              <li><span class="mark">—</span><span><b>no new lint errors</b> — not reported yet.</span></li>
+            </ul>
+            <p class="hint">Criteria are the agent's contract. Phase 1 records what it claims; nothing checks the claim yet.</p>
+          </div>
+          <div class="card">
+            <h3>History</h3>
+            <ul class="tl">
+              <li><span class="t">14:22</span><span><b>Active</b> — you started the goal from the chat session.</span></li>
+              <li><span class="t">14:29</span><span><b>Paused</b> — you cancelled a turn.</span></li>
+              <li><span class="t">14:31</span><span><b>Active</b> — you resumed the goal.</span></li>
+              <li><span class="t">14:36</span><span><b>Waiting</b> — the agent parked on "CI run 4821 finishes".</span></li>
+              <li><span class="t">14:44</span><span><b>Active</b> — you resumed the goal after the run finished.</span></li>
+            </ul>
+          </div>
+        </div>
+        <div style="display:grid;gap:14px;align-content:start">
+          <div class="card">
+            <h3>Controls</h3>
+            <div class="ctrls">
+              <button type="button" class="btn small primary">Pause</button>
+              <button type="button" class="btn small">Stop</button>
+              <button type="button" class="btn small">Revise the objective</button>
+              <button type="button" class="btn small">Raise a budget</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Usage</h3>
+            <div class="bars">
+              <div class="budget"><div class="k">Automatic turns<b>12 / 25</b></div><div class="track"><i style="width:48%"></i></div></div>
+              <div class="budget"><div class="k">Cost<b>$0.41 / $3.00</b></div><div class="track"><i style="width:14%"></i></div></div>
+              <div class="budget"><div class="k">Tokens<b>184k / 600k</b></div><div class="track"><i style="width:31%"></i></div></div>
+              <div class="budget"><div class="k">Active time<b>14 / 60 min</b></div><div class="track"><i style="width:23%"></i></div></div>
+            </div>
+            <p class="hint">Only turns the goal itself started are charged. Your own turns are free.</p>
+          </div>
+          <div class="card">
+            <h3>Session</h3>
+            <div class="wrow"><span class="dot active"></span><span class="name">fix-flaky-tests</span><span class="m">goal-8f2</span></div>
+            <p class="hint">One autonomous driver per session. While this goal runs, an active-session workflow step cannot steer the same session.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<section class="state">
+  <h2><span class="num">3 · </span>A goal that reached a limit</h2>
+  <p class="note">
+    The same detail view, in the one state that is easiest to misread. The heading says stopped,
+    the exhausted budget is red, and the only forward control raises the budget.
+  </p>
+  <div class="app fit" style="width:820px">
+    <div class="body">
+      <div class="card" style="border-color:var(--err-line)">
+        <h3 style="color:var(--err)">Stopped at a limit</h3>
+        <p class="obj">publish the signed installer</p>
+        <p class="hint" style="margin-top:8px">Used all 25 automatic turns. The objective is <b>not</b> met, and reaching a limit is not completion.</p>
+        <div class="bars" style="margin-top:14px">
+          <div class="budget"><div class="k">Automatic turns<b>25 / 25</b></div><div class="track err"><i style="width:100%"></i></div></div>
+          <div class="budget"><div class="k">Cost<b>$1.12 / $3.00</b></div><div class="track"><i style="width:37%"></i></div></div>
+        </div>
+        <div class="ctrls" style="margin-top:14px">
+          <button type="button" class="btn small primary">Raise the turn budget and resume</button>
+          <button type="button" class="btn small">Stop for good</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<section class="state">
+  <h2><span class="num">4 · </span>Dashboard — the existing two widgets</h2>
+  <p class="note">
+    Active goals join the Workflows widget, which becomes the one place running Orchestrator work
+    is counted. Blocked and waiting goals join <b>Needs You</b>. No goal-only widget is added.
+  </p>
+  <div class="grid">
+    <div class="widget">
+      <div class="wtop">
+        <span aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 12c-2-2.7-4-4-6-4a4 4 0 0 0 0 8c2 0 4-1.3 6-4Zm0 0c2 2.7 4 4 6 4a4 4 0 0 0 0-8c-2 0-4 1.3-6 4Z"/></svg></span>
+        Workflows<span class="n">2 running · 1 goal</span>
+      </div>
+      <div class="wbody">
+        <div class="wrow"><span class="dot active"></span><span class="name">Nightly dependency audit</span><span class="m">step 3/6</span></div>
+        <div class="wrow"><span class="dot active"></span><span class="name">Container runtime review</span><span class="m">room · 3</span></div>
+        <div class="wrow"><span class="dot active"></span><span class="name">get the release build green</span><span class="m">goal · 12/25</span></div>
+      </div>
+    </div>
+    <div class="widget needs">
+      <div class="wtop">
+        <span aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></span>
+        Needs You<span class="n">3</span>
+      </div>
+      <div class="wbody">
+        <div class="wrow"><span class="name">The signing key is not on this machine</span><span class="src">goal</span><button type="button" class="btn small">Answer</button></div>
+        <div class="wrow"><span class="name">Held — three turns repeated with no tool call</span><span class="src">goal</span><button type="button" class="btn small">Review</button></div>
+        <div class="wrow"><span class="name">Approve the release notes draft</span><span class="src">workflow</span><button type="button" class="btn small">Open</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<script>
+// Mode tabs. Each mode keeps its own list; nothing is shared between them,
+// which is the point the review has to check.
+const tabs = document.querySelectorAll('[data-tab]');
+const panels = document.querySelectorAll('[data-panel]');
+
+function select(name) {
+  tabs.forEach((tab) => tab.setAttribute('aria-selected', String(tab.dataset.tab === name)));
+  panels.forEach((panel) => panel.classList.toggle('hidden', panel.dataset.panel !== name));
+}
+tabs.forEach((tab) => tab.addEventListener('click', () => select(tab.dataset.tab)));
+
+// Selecting a goal row marks it current, so the detail view has an obvious source.
+document.querySelectorAll('[data-panel] .row').forEach((row) => {
+  row.addEventListener('click', () => {
+    row.parentElement.querySelectorAll('.row').forEach((other) => other.removeAttribute('aria-current'));
+    row.setAttribute('aria-current', 'true');
+  });
+});
+</script>
+</body>
+</html>

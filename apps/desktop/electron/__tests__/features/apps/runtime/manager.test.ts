@@ -17,6 +17,7 @@ function createHostStub(
     appState: {
       read: vi.fn(async () => null),
       update: vi.fn(async () => {}),
+      remove: vi.fn(async () => {}),
       watch: (filePath: string) => watch(filePath),
       unwatch: (filePath: string) => unwatch(filePath),
       globalDir: vi.fn(async (namespace: string) => ({ path: `/tmp/sero/apps/${namespace}` })),

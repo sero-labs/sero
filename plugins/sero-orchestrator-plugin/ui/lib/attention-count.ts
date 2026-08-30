@@ -1,8 +1,17 @@
 import type { RoomSummary } from '../../shared/room-types';
 import type { LoopSummary } from '../../shared/types';
+import type { GoalIndexEntry } from '../../shared/goal-types';
 
 /** Keep the Home badge equal to the items in the "Needs you" band. */
-export function attentionCount(loops: LoopSummary[], rooms: RoomSummary[]): number {
+export function goalNeedsAttention(goal: GoalIndexEntry): boolean {
+  return !goal.closedAt && (
+    goal.status === 'blocked'
+    || goal.status === 'waiting'
+    || (goal.status === 'paused' && goal.pauseReason === 'no-progress')
+  );
+}
+
+export function attentionCount(loops: LoopSummary[], rooms: RoomSummary[], goals: GoalIndexEntry[] = []): number {
   return (
     rooms.reduce(
       (count, room) =>
@@ -17,5 +26,6 @@ export function attentionCount(loops: LoopSummary[], rooms: RoomSummary[]): numb
         count + (loop.attention?.input ? 1 : 0) + (loop.attention?.suggestions?.length ?? 0),
       0,
     )
+    + goals.filter(goalNeedsAttention).length
   );
 }

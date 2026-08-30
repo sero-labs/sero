@@ -78,6 +78,14 @@ validates every request against a stored user-approved grant, controls session
 paths and resources, and returns a narrow handle. A plugin cannot use this
 capability to widen tools, models, workspace access, or delivery authority.
 
+Goal mode is a third mode of Sero Orchestrator. A goal drives one ordinary chat
+session toward one objective and shares Orchestrator persistence, limits and
+session arbitration. Only one autonomous driver may steer a chat session: an
+active-session Workflow step and a goal are arbitrated by the coordinator, and
+the second is refused with a reason. A goal grants no tool, approval or
+permission; a tool policy that hides its terminal tools stops it instead of
+being widened.
+
 Agent Rooms are a mode of Sero Orchestrator. Workflows and Rooms share
 scheduling, limits, Git, artifacts, and delivery infrastructure, but keep
 separate domain records. A Room member uses a standard persistent Pi session;
