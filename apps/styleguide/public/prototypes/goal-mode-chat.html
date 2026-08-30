@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Goal mode — chat surface</title>
+<style>
+:root{
+  /* Sero dark tokens (packages/ui/src/styles/globals.css) */
+  --bg:#0a0a0b; --surface:#111113; --raised:#18181b; --overlay:#1f1f23; --muted:#27272a;
+  --line:#27272a; --line-strong:#3f3f46;
+  --text:#fafafa; --text-2:#a1a1aa; --text-3:#71717a;
+  --info:#3b82f6; --info-faint:rgba(59,130,246,.05); --info-line:rgba(59,130,246,.28); --info-wash:rgba(59,130,246,.12);
+  --ok:#22c55e; --ok-faint:rgba(34,197,94,.05); --ok-line:rgba(34,197,94,.28); --ok-wash:rgba(34,197,94,.12);
+  --warn:#f59e0b; --warn-faint:rgba(245,158,11,.05); --warn-line:rgba(245,158,11,.28); --warn-wash:rgba(245,158,11,.12);
+  --err:#ef4444; --err-faint:rgba(239,68,68,.05); --err-line:rgba(239,68,68,.28); --err-wash:rgba(239,68,68,.12);
+  --accent:#c4b5fd; --brand:#34d399;
+  --sans:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box}
+html{background:#050506;color-scheme:dark}
+body{margin:0;padding:60px 0 140px;background:#050506;color:var(--text);font-family:var(--sans)}
+h1,h2,h3,h4,p,ol,ul{margin:0}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.doc{width:1080px;margin:0 auto}
+.intro{width:780px;margin-bottom:44px}
+h1{font-size:28px;line-height:1.15;letter-spacing:-.04em;font-weight:650}
+.lede{margin-top:13px;color:var(--text-2);font-size:15px;line-height:1.65}
+.lede b{color:var(--text);font-weight:560}
+h2{font-size:18px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
+h2 .num{color:var(--text-3);font-weight:500}
+.note{width:780px;margin:9px 0 16px;color:var(--text-3);font-size:13px;line-height:1.6}
+.note b{color:var(--text-2);font-weight:560}
+.state{margin-top:56px}
+.rules{margin-top:22px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.rule{border:1px solid var(--line);border-radius:8px;background:var(--raised);padding:11px 13px}
+.rule h3{font-size:11px;font-weight:650;letter-spacing:.07em;text-transform:uppercase;color:var(--brand)}
+.rule p{margin-top:5px;font-size:13px;line-height:1.5;color:var(--text-2)}
+
+/* chrome */
+.bar{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.bar .spacer{flex:1}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{padding:5px 11px;font-size:12px;color:var(--text-3);border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--raised);color:var(--text)}
+.seg button:hover{color:var(--text-2)}
+.seg button:focus-visible,.ib:focus-visible,.gb:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+
+.panel{background:var(--bg);border:1px solid var(--line);border-radius:10px;box-shadow:0 24px 70px rgba(0,0,0,.42);overflow:hidden}
+.panel-top{height:38px;display:flex;align-items:center;gap:9px;padding:0 14px;border-bottom:1px solid var(--line);color:var(--text-3);font-size:12px}
+.panel-top .badge{margin-left:auto;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:2px 9px;font:11px var(--mono);color:var(--text-3)}
+.panel-body{padding:16px;display:grid;gap:12px}
+
+/* transcript atoms, matching ChatPanel density */
+.you{display:grid;gap:5px}
+.who{font-size:11px;font-weight:650;letter-spacing:.07em;text-transform:uppercase;color:var(--text-3)}
+.turn{color:var(--text-2);font-size:14px;line-height:1.62}
+.turn b{color:var(--text);font-weight:560}
+.grp{border:1px solid var(--line);border-radius:8px;background:rgba(24,24,27,.5);padding:8px 12px;display:flex;align-items:center;gap:10px}
+.chev{width:10px;color:var(--text-3);font-size:12px}
+.tname{font-size:12px;font-weight:560;color:var(--text-2)}
+.tsum{font-size:12px;color:var(--text-3);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.meta{margin-left:auto;font:11px/1 var(--mono);color:var(--text-3)}
+.dot{width:6px;height:6px;border-radius:50%;flex:0 0 auto}
+.dot.ok{background:var(--ok)} .dot.run{background:var(--info);animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.dot.run{animation:none}}
+
+/* ── the goal banner: MemoryContextBlock treatment ───────── */
+.goal{border:1px solid var(--line);border-radius:8px;background:rgba(24,24,27,.5);overflow:hidden}
+.goal.active{border-color:var(--ok-line);background:var(--ok-faint)}
+.goal.hold{border-color:var(--warn-line);background:var(--warn-faint)}
+.goal.stop{border-color:var(--err-line);background:var(--err-faint)}
+.goal.done{border-color:var(--info-line);background:var(--info-faint)}
+.gb{display:flex;width:100%;align-items:center;gap:10px;padding:9px 12px;text-align:left}
+.gb:hover{background:rgba(24,24,27,.55)}
+.gicon{flex:0 0 auto;color:var(--text-3)}
+.goal.active .gicon{color:var(--ok)} .goal.hold .gicon{color:var(--warn)}
+.goal.stop .gicon{color:var(--err)} .goal.done .gicon{color:var(--info)}
+.gtitle{font-size:12px;font-weight:560;color:var(--text-2);flex:0 0 auto}
+.gobj{font-size:14px;color:var(--text-3);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gstate{flex:0 0 auto;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:650;letter-spacing:.07em;text-transform:uppercase}
+.gstate.active{background:var(--ok-wash);color:var(--ok)}
+.gstate.hold{background:var(--warn-wash);color:var(--warn)}
+.gstate.stop{background:var(--err-wash);color:var(--err)}
+.gstate.done{background:var(--info-wash);color:var(--info)}
+.gusage{flex:0 0 auto;font:11px/1 var(--mono);color:var(--text-3)}
+.gacts{display:flex;gap:6px;flex:0 0 auto;padding:0 10px 0 0}
+.ib{border:1px solid var(--line-strong);border-radius:6px;padding:3px 9px;font-size:11px;color:var(--text-2);background:var(--raised)}
+.ib:hover{border-color:var(--text-3);color:var(--text)}
+.ib.primary{border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.12);color:var(--brand)}
+.gbody{border-top:1px solid var(--line);padding:11px 12px;display:grid;gap:9px}
+.crit{display:grid;gap:5px}
+.crit li{display:flex;gap:8px;align-items:flex-start;font-size:13px;color:var(--text-2);line-height:1.5}
+.crit .mark{flex:0 0 auto;margin-top:2px;font:11px var(--mono);color:var(--text-3)}
+.crit .mark.pass{color:var(--ok)}
+.bars{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.budget{border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:var(--surface)}
+.budget .k{font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text-3)}
+.budget .v{margin-top:3px;font-size:14px;color:var(--text-2)}
+.track{margin-top:6px;height:3px;border-radius:2px;background:var(--muted);overflow:hidden}
+.track i{display:block;height:100%;background:var(--ok)}
+.track.warn i{background:var(--warn)}
+.track.err i{background:var(--err)}
+.hint{font-size:12px;color:var(--text-3);line-height:1.55}
+
+/* continuation markers, the three options under review */
+.cont-full{border-left:2px solid var(--line-strong);padding-left:12px;display:grid;gap:5px}
+.cont-mark{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--text-3)}
+.cont-mark .line{flex:1;height:1px;background:var(--line)}
+.cont-mark .n{font:11px var(--mono)}
+.cont-fold{border:1px dashed var(--line-strong);border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:9px;font-size:12px;color:var(--text-3)}
+.hidden{display:none}
+
+/* composer + slash menu */
+.composer{border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);padding:10px 12px;display:flex;align-items:center;gap:9px}
+.composer .caret{width:1px;height:15px;background:var(--brand)}
+.composer .typed{font-size:14px;color:var(--text-2)}
+.composer .ph{font-size:14px;color:var(--text-3)}
+.slash{border:1px solid var(--line-strong);border-radius:9px;background:var(--overlay);box-shadow:0 18px 44px rgba(0,0,0,.5);overflow:hidden;margin-bottom:8px}
+.slash .row{display:flex;align-items:center;gap:11px;padding:8px 12px;font-size:13px;color:var(--text-2)}
+.slash .row + .row{border-top:1px solid var(--line)}
+.slash .row[aria-selected="true"]{background:rgba(52,211,153,.1);color:var(--text)}
+.slash .cmd{font:12px var(--mono);color:var(--text);min-width:118px}
+.slash .row[aria-selected="true"] .cmd{color:var(--brand)}
+.slash .desc{color:var(--text-3);font-size:12px}
+
+/* the pending-question card */
+.ask{border:1px solid var(--warn-line);border-radius:9px;background:var(--warn-faint);overflow:hidden}
+.ask-head{display:flex;align-items:center;gap:9px;padding:9px 12px;border-bottom:1px solid rgba(245,158,11,.16);font-size:12px;font-weight:560;color:var(--warn)}
+.ask-body{padding:11px 12px;display:grid;gap:9px}
+.ask-q{font-size:14px;color:var(--text-2);line-height:1.55}
+.ask-opts{display:flex;gap:7px;flex-wrap:wrap}
+.opt{border:1px solid var(--line-strong);border-radius:7px;padding:6px 11px;font-size:12px;color:var(--text-2);background:var(--raised)}
+.opt:hover{border-color:var(--text-3);color:var(--text)}
+.reply{border:1px solid var(--line);border-radius:7px;background:var(--surface);padding:8px 11px;font-size:13px;color:var(--text-3)}
+</style>
+</head>
+<body>
+<div class="doc">
+
+<div class="intro">
+  <h1>Goal mode — chat surface</h1>
+  <p class="lede">
+    A goal keeps <b>one chat session</b> working toward one objective until a completion
+    contract is met. <code>/goal</code> starts it. This prototype answers two questions:
+    <b>where an active goal lives in the chat surface</b>, and <b>what an automatic
+    continuation looks like in the transcript</b>.
+  </p>
+  <div class="rules">
+    <div class="rule"><h3>The user always wins</h3><p>A queued message cancels the next continuation. Escape pauses the goal at once.</p></div>
+    <div class="rule"><h3>Silence is not a stop</h3><p>The agent stops with a tool call: complete, blocked or waiting. Each one changes the banner.</p></div>
+    <div class="rule"><h3>A limit is not completion</h3><p>Reaching a turn, token, cost or time budget reads as a stop, never as success.</p></div>
+    <div class="rule"><h3>Reported, not verified</h3><p>Phase 1 shows the agent's claim. The word "verified" is not available yet.</p></div>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<section class="state">
+  <h2><span class="num">0 · </span>The decision: how much of a 25-turn goal reaches the transcript</h2>
+  <p class="note">
+    A goal can take 25 automatic turns. Showing every one buries the work; hiding them all
+    removes the audit trail. Compare the three options on the same three continuations.
+    Use the buttons, or Tab to them and press Enter.
+  </p>
+  <div class="bar">
+    <div class="seg" role="group" aria-label="Transcript density">
+      <button type="button" data-density="full" aria-pressed="true">A · Full turns</button>
+      <button type="button" data-density="marker" aria-pressed="false">B · Compact marker</button>
+      <button type="button" data-density="fold" aria-pressed="false">C · One folded block</button>
+    </div>
+    <div class="spacer"></div>
+    <span class="note" style="margin:0;width:auto" id="density-note">Every continuation and every reply is a normal transcript turn.</span>
+  </div>
+
+  <div class="panel">
+    <div class="panel-top">
+      <span>Session · fix-flaky-tests</span>
+      <span class="badge">goal-8f2 · 12/25 turns · $0.41</span>
+    </div>
+    <div class="panel-body" id="density-demo">
+      <div class="you">
+        <span class="who">You</span>
+        <p class="turn">/goal get the release build green -- pnpm build exits zero; no new lint errors</p>
+      </div>
+
+      <div class="goal active">
+        <div class="gb" style="cursor:default">
+          <span class="gicon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span>
+          <span class="gtitle">Goal</span>
+          <span class="gobj">get the release build green</span>
+          <span class="gstate active">Active</span>
+          <span class="gusage">12/25 turns</span>
+        </div>
+      </div>
+
+      <!-- Option A: every continuation is a full turn -->
+      <div data-opt="full">
+        <div class="panel-body" style="padding:0;gap:12px">
+          <div class="cont-full"><span class="who">Goal · turn 10</span><p class="turn">Continue toward the objective in the goal contract. 9 of 25 automatic turns used.</p></div>
+          <div class="turn">I re-ran the build. Three type errors remain in <b>packages/ui</b>.</div>
+          <div class="grp"><span class="dot ok"></span><span class="tname">bash</span><span class="tsum">pnpm build</span><span class="meta">18.2s</span></div>
+          <div class="cont-full"><span class="who">Goal · turn 11</span><p class="turn">Continue toward the objective in the goal contract. 10 of 25 automatic turns used.</p></div>
+          <div class="turn">Fixed two of them. One is a missing export.</div>
+          <div class="grp"><span class="dot ok"></span><span class="tname">edit</span><span class="tsum">packages/ui/src/index.ts</span><span class="meta">+2 −0</span></div>
+          <div class="cont-full"><span class="who">Goal · turn 12</span><p class="turn">Continue toward the objective in the goal contract. 11 of 25 automatic turns used.</p></div>
+          <div class="turn">Build is green. Checking lint before I report.</div>
+          <div class="grp"><span class="dot run"></span><span class="tname">bash</span><span class="tsum">pnpm lint</span><span class="meta">running</span></div>
+        </div>
+      </div>
+
+      <!-- Option B: a one-line marker, the reply stays a normal turn -->
+      <div data-opt="marker" class="hidden">
+        <div class="panel-body" style="padding:0;gap:12px">
+          <div class="cont-mark"><span class="n">Goal turn 10</span><span class="line"></span></div>
+          <div class="turn">I re-ran the build. Three type errors remain in <b>packages/ui</b>.</div>
+          <div class="grp"><span class="dot ok"></span><span class="tname">bash</span><span class="tsum">pnpm build</span><span class="meta">18.2s</span></div>
+          <div class="cont-mark"><span class="n">Goal turn 11</span><span class="line"></span></div>
+          <div class="turn">Fixed two of them. One is a missing export.</div>
+          <div class="grp"><span class="dot ok"></span><span class="tname">edit</span><span class="tsum">packages/ui/src/index.ts</span><span class="meta">+2 −0</span></div>
+          <div class="cont-mark"><span class="n">Goal turn 12</span><span class="line"></span></div>
+          <div class="turn">Build is green. Checking lint before I report.</div>
+          <div class="grp"><span class="dot run"></span><span class="tname">bash</span><span class="tsum">pnpm lint</span><span class="meta">running</span></div>
+        </div>
+      </div>
+
+      <!-- Option C: continuations collapse into one block; only the newest turn is open -->
+      <div data-opt="fold" class="hidden">
+        <div class="panel-body" style="padding:0;gap:12px">
+          <div class="cont-fold"><span class="chev">›</span><span>3 goal turns · build re-run, 2 type errors fixed</span><span class="meta">turns 10–12 · 42s</span></div>
+          <div class="turn">Build is green. Checking lint before I report.</div>
+          <div class="grp"><span class="dot run"></span><span class="tname">bash</span><span class="tsum">pnpm lint</span><span class="meta">running</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="note">
+    <b>A</b> keeps every automatic turn auditable but repeats near-identical text 25 times.
+    <b>B</b> keeps the work and drops the repeated instruction; the marker still lets the user
+    count turns. <b>C</b> reads best but hides which turn did what until the block is opened.
+  </p>
+</section>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<section class="state">
+  <h2><span class="num">1 · </span>No goal — <code>/goal</code> in the slash menu</h2>
+  <p class="note">The chat surface is unchanged until a goal exists. No banner, no extra control.</p>
+  <div class="panel">
+    <div class="panel-top"><span>Session · fix-flaky-tests</span><span class="badge">18% · $0.09</span></div>
+    <div class="panel-body">
+      <div class="you"><span class="who">You</span><p class="turn">The release build has been red since Tuesday.</p></div>
+      <div class="turn">I can look at it. Do you want me to keep working until it is green?</div>
+      <div class="slash" role="listbox" aria-label="Slash commands">
+        <div class="row" role="option" aria-selected="true"><span class="cmd">/goal</span><span class="desc">Keep this session working toward one objective</span></div>
+        <div class="row" role="option" aria-selected="false"><span class="cmd">/orchestrator</span><span class="desc">Durable workflows with an authored plan</span></div>
+        <div class="row" role="option" aria-selected="false"><span class="cmd">/rooms</span><span class="desc">A persistent team led by a conductor</span></div>
+      </div>
+      <div class="composer"><span class="typed">/goal</span><span class="caret"></span><span class="ph">get the release build green -- pnpm build exits zero</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<section class="state">
+  <h2><span class="num">2 · </span>Active — the banner, collapsed and expanded</h2>
+  <p class="note">
+    The banner follows the <b>MemoryContextBlock</b> treatment: one compact bar that expands.
+    Collapsed it shows objective, state, turns used and the two controls. Click the bar to expand it.
+  </p>
+  <div class="panel">
+    <div class="panel-top"><span>Session · fix-flaky-tests</span><span class="badge">goal-8f2 · active</span></div>
+    <div class="panel-body">
+      <div class="goal active">
+        <button type="button" class="gb" aria-expanded="false" data-toggle="goal-detail">
+          <span class="chev" aria-hidden="true">›</span>
+          <span class="gicon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span>
+          <span class="gtitle">Goal</span>
+          <span class="gobj">get the release build green</span>
+          <span class="gstate active">Active</span>
+          <span class="gusage">12/25 turns · $0.41</span>
+        </button>
+        <div class="gbody hidden" id="goal-detail">
+          <ul class="crit" style="list-style:none;padding:0">
+            <li><span class="mark">—</span><span>pnpm build exits zero</span></li>
+            <li><span class="mark">—</span><span>no new lint errors</span></li>
+          </ul>
+          <div class="bars">
+            <div class="budget"><div class="k">Turns</div><div class="v">12 of 25</div><div class="track"><i style="width:48%"></i></div></div>
+            <div class="budget"><div class="k">Cost</div><div class="v">$0.41 of $3.00</div><div class="track"><i style="width:14%"></i></div></div>
+            <div class="budget"><div class="k">Active time</div><div class="v">14 of 60 min</div><div class="track"><i style="width:23%"></i></div></div>
+          </div>
+          <p class="hint">A cost budget bounds the goal's own turns. One turn can run a long tool loop, so it is not a hard spend cap.</p>
+        </div>
+      </div>
+      <div class="turn">Build is green. Checking lint before I report.</div>
+      <div class="composer"><span class="ph">Message, or press Escape to pause the goal</span><span class="caret"></span></div>
+    </div>
+  </div>
+  <p class="note">
+    The two controls sit in the bar itself, so pause and stop never need the Orchestrator app:
+  </p>
+  <div class="panel" style="box-shadow:none">
+    <div class="panel-body">
+      <div class="goal active">
+        <div class="gb" style="cursor:default">
+          <span class="chev" aria-hidden="true">›</span>
+          <span class="gicon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span>
+          <span class="gtitle">Goal</span>
+          <span class="gobj">get the release build green</span>
+          <span class="gstate active">Active</span>
+          <span class="gusage">12/25 turns</span>
+          <span class="gacts" style="margin-left:10px"><button type="button" class="ib">Pause</button><button type="button" class="ib">Stop</button></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<section class="state">
+  <h2><span class="num">3 · </span>Paused after Escape</h2>
+  <p class="note">Escape pauses at once and the goal is never poked again until the user resumes. The banner is the resume control.</p>
+  <div class="panel"><div class="panel-body">
+    <div class="turn">Fixed two of them. One is a missing export…</div>
+    <div class="goal hold">
+      <div class="gb" style="cursor:default">
+        <span class="gicon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></span>
+        <span class="gtitle">Goal</span>
+        <span class="gobj">Paused — you cancelled the turn</span>
+        <span class="gstate hold">Paused</span>
+        <span class="gusage">11/25 turns</span>
+        <span class="gacts" style="margin-left:10px"><button type="button" class="ib primary">Resume</button><button type="button" class="ib">Stop</button></span>
+      </div>
+    </div>
+    <div class="composer"><span class="ph">Message</span><span class="caret"></span></div>
+  </div></div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<section class="state">
+  <h2><span class="num">4 · </span>No-progress hold</h2>
+  <p class="note">
+    Three identical visible outcomes that attempted no tool hold the goal, so a turn cap is not
+    spent on an agent repeating itself. The banner says what it saw.
+  </p>
+  <div class="panel"><div class="panel-body">
+    <div class="turn">I am still waiting for the type errors to clear.</div>
+    <div class="turn">I am still waiting for the type errors to clear.</div>
+    <div class="goal hold">
+      <div class="gb" style="cursor:default">
+        <span class="gicon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></span>
+        <span class="gtitle">Goal</span>
+        <span class="gobj">Held — the last three turns repeated and attempted nothing</span>
+        <span class="gstate hold">Held</span>
+        <span class="gusage">14/25 turns</span>
+        <span class="gacts" style="margin-left:10px"><button type="button" class="ib primary">Resume</button><button type="button" class="ib">Revise</button></span>
+      </div>
+    </div>
+  </div></div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<section class="state">
+  <h2><span class="num">5 · </span>Limit reached — this is not completion</h2>
+  <p class="note">
+    The limit state uses the error treatment and says what was reached. It never uses the
+    completion words, and the only forward control raises the budget.
+  </p>
+  <div class="panel"><div class="panel-body">
+    <div class="goal stop">
+      <div class="gb" style="cursor:default">
+        <span class="gicon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6"/><path d="M9 9l6 6"/></svg></span>
+        <span class="gtitle">Goal</span>
+        <span class="gobj">Stopped — used all 25 automatic turns. The objective is not met.</span>
+        <span class="gstate stop">Limit</span>
+        <span class="gusage">25/25 turns · $1.12</span>
+        <span class="gacts" style="margin-left:10px"><button type="button" class="ib">Raise the limit</button><button type="button" class="ib">Stop</button></span>
+      </div>
+      <div class="gbody">
+        <ul class="crit" style="list-style:none;padding:0">
+          <li><span class="mark pass">✓</span><span>pnpm build exits zero</span></li>
+          <li><span class="mark">—</span><span>no new lint errors</span></li>
+        </ul>
+        <div class="bars">
+          <div class="budget"><div class="k">Turns</div><div class="v">25 of 25</div><div class="track err"><i style="width:100%"></i></div></div>
+          <div class="budget"><div class="k">Cost</div><div class="v">$1.12 of $3.00</div><div class="track"><i style="width:37%"></i></div></div>
+          <div class="budget"><div class="k">Active time</div><div class="v">41 of 60 min</div><div class="track"><i style="width:68%"></i></div></div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<section class="state">
+  <h2><span class="num">6 · </span>Reported complete</h2>
+  <p class="note">
+    Phase 1 has no verification gate, so the banner says <b>reported complete</b> and shows the
+    agent's evidence. The word "verified" is not used, and no green success treatment is given.
+  </p>
+  <div class="panel"><div class="panel-body">
+    <div class="grp"><span class="dot ok"></span><span class="tname">goal_complete</span><span class="tsum">goal-8f2 · evidence attached</span><span class="meta">ok</span></div>
+    <div class="goal done">
+      <div class="gb" style="cursor:default">
+        <span class="gicon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></span>
+        <span class="gtitle">Goal</span>
+        <span class="gobj">Reported complete — the agent says both criteria are met</span>
+        <span class="gstate done">Reported</span>
+        <span class="gusage">18/25 turns · $0.77</span>
+        <span class="gacts" style="margin-left:10px"><button type="button" class="ib">Review evidence</button><button type="button" class="ib">Reopen</button></span>
+      </div>
+      <div class="gbody">
+        <ul class="crit" style="list-style:none;padding:0">
+          <li><span class="mark pass">✓</span><span><b>pnpm build exits zero</b> — build succeeded in 96s, run at 14:22.</span></li>
+          <li><span class="mark pass">✓</span><span><b>no new lint errors</b> — pnpm lint clean, same 4 pre-existing warnings.</span></li>
+        </ul>
+        <p class="hint">This is the agent's claim, checked by nobody yet. A verification gate is the next phase.</p>
+      </div>
+    </div>
+  </div></div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────── -->
+<section class="state">
+  <h2><span class="num">7 · </span>Blocked — the existing question card</h2>
+  <p class="note">
+    A blocked goal raises the question card the chat surface already has. Goal mode adds no
+    second question surface.
+  </p>
+  <div class="panel"><div class="panel-body">
+    <div class="goal stop">
+      <div class="gb" style="cursor:default">
+        <span class="gicon" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></span>
+        <span class="gtitle">Goal</span>
+        <span class="gobj">Blocked — the release credentials are not on this machine</span>
+        <span class="gstate stop">Blocked</span>
+        <span class="gusage">9/25 turns</span>
+      </div>
+    </div>
+    <div class="ask">
+      <div class="ask-head">
+        <span aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.1 9a3 3 0 1 1 4 2.8c-.8.3-1.1 1-1.1 1.7v.5"/><path d="M12 17h.01"/><circle cx="12" cy="12" r="10"/></svg></span>
+        Goal needs you
+      </div>
+      <div class="ask-body">
+        <p class="ask-q">The build needs <b>SERO_SIGNING_KEY</b> and it is not set here. I tried the keychain and the workspace env. How do you want me to go on?</p>
+        <div class="ask-opts">
+          <button type="button" class="opt">Skip the signed build</button>
+          <button type="button" class="opt">I will set the key now</button>
+          <button type="button" class="opt">Stop the goal</button>
+        </div>
+        <div class="reply">Or answer in your own words…</div>
+      </div>
+    </div>
+  </div></div>
+</section>
+
+</div>
+
+<script>
+// Transcript-density comparison. The three options render the same three
+// continuations, so the reviewer compares the design and not the content.
+const NOTES = {
+  full: 'Every continuation and every reply is a normal transcript turn.',
+  marker: 'One line per continuation; the reply stays a normal turn.',
+  fold: 'Finished continuations collapse into one block; the newest turn stays open.',
+};
+const buttons = document.querySelectorAll('[data-density]');
+const panes = document.querySelectorAll('[data-opt]');
+const note = document.getElementById('density-note');
+
+function setDensity(kind) {
+  buttons.forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.density === kind)));
+  panes.forEach((pane) => pane.classList.toggle('hidden', pane.dataset.opt !== kind));
+  note.textContent = NOTES[kind];
+}
+buttons.forEach((button) => button.addEventListener('click', () => setDensity(button.dataset.density)));
+
+// The banner expands like MemoryContextBlock: one bar, one detail region.
+document.querySelectorAll('[data-toggle]').forEach((bar) => {
+  bar.addEventListener('click', () => {
+    const body = document.getElementById(bar.dataset.toggle);
+    const open = body.classList.toggle('hidden') === false;
+    bar.setAttribute('aria-expanded', String(open));
+    bar.querySelector('.chev').style.transform = open ? 'rotate(90deg)' : '';
+  });
+});
+</script>
+</body>
+</html>
