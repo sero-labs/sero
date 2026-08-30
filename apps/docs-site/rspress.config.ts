@@ -34,6 +34,7 @@ const agentsAutomation = [
   { text: 'Orchestrator', link: '/guide/orchestrator' },
   { text: 'Workflows', link: '/guide/workflows' },
   { text: 'Manage Workflows', link: '/guide/workflows-advanced' },
+  { text: 'Goals', link: '/guide/goals' },
   { text: 'Rooms', link: '/guide/rooms' },
   { text: 'Manage a Room', link: '/guide/rooms-advanced' },
   { text: 'Running Evals', link: '/guide/running-evals' }

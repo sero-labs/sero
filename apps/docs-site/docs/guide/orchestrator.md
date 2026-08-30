@@ -4,9 +4,11 @@ Orchestrator lets Sero's AI agents work on a task without you directing every
 step. You describe the result you want, review how Sero plans to do the work,
 and decide when it can start.
 
-Open Orchestrator from the app bar, then choose **Workflows** or **Rooms**.
+Open Orchestrator from the app bar, then choose **Workflows** or **Rooms**. A
+third mode, **[Goals](/guide/goals)**, starts in the chat session itself with
+`/goal`, and Orchestrator manages the ones you leave running.
 
-## Choose a Workflow or Room
+## Choose a Workflow, Room or Goal
 
 - Use a **[Workflow](/guide/workflows)** when Sero can plan the work before it
   starts. For example, a Workflow can collect the week's project notes, write a
@@ -18,15 +20,21 @@ Open Orchestrator from the app bar, then choose **Workflows** or **Rooms**.
   can review the schedule, and a third can check the risks. The team then
   combines its findings into one report.
 
-If you need a plan, choose a Workflow. If you need a team, choose a Room.
+- Use a **[Goal](/guide/goals)** when you want the session you are already in to
+  keep working until a result is reached. Sero plans nothing first. You say what
+  must be true at the end, and the session keeps going until it is.
 
-| | Workflow | Room |
-| --- | --- | --- |
-| Sero creates | A plan of steps | A team of agents |
-| Work happens | Step by step | Members work and share findings |
-| Use it for | A task with clear stages | A task that needs different roles or points of view |
+If you need a plan, choose a Workflow. If you need a team, choose a Room. If you
+need the current chat to keep going, choose a Goal.
 
-You do not need a Workflow before you start a Room. They are independent.
+| | Workflow | Room | Goal |
+| --- | --- | --- | --- |
+| Sero creates | A plan of steps | A team of agents | Nothing to review first |
+| Work happens | Step by step | Members work and share findings | In your chat session |
+| Use it for | A task with clear stages | A task that needs different roles or points of view | One result with an unknown route |
+
+You do not need a Workflow before you start a Room or a Goal. They are
+independent.
 
 ## What stays under your control
 
