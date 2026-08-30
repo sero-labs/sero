@@ -323,6 +323,7 @@ export interface AppRuntimeMediaApi {
 export interface AppRuntimeActiveSession {
   sessionId: string;
   workspaceId: string;
+  sessionPath: string;
 }
 
 export interface AppRuntimeSessionState {
@@ -344,7 +345,7 @@ export interface AppRuntimeTurnResult {
  * session rules; Orchestrator only sends and observes.
  */
 export interface AppRuntimeSessionHost {
-  getActiveForWorkspace(workspaceId: string): Promise<AppRuntimeActiveSession | null>;
+  getActiveForWorkspace(workspaceId: string, sessionPath?: string): Promise<AppRuntimeActiveSession | null>;
   getState(sessionId: string): Promise<AppRuntimeSessionState>;
   sendUserSteer(
     sessionId: string,

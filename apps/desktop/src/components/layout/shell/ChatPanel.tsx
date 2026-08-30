@@ -29,6 +29,7 @@ import { ImageLightbox } from '@/components/layout/ImageLightbox';
 import { parseSessionLocationKey, useNodesStore } from '@/stores/nodes';
 import { RemoteConversation } from '@/components/layout/nodes/RemoteConversation';
 import { GoalBanner } from '@/components/layout/GoalBanner';
+import { goalBannerCommands, type GoalBannerAction } from '@/components/layout/goal-banner-actions';
 
 const EMPTY_MESSAGES: NonNullable<ReturnType<typeof useFocusedAgent>>['messages'] = [];
 
@@ -112,12 +113,12 @@ function LocalChatPanel() {
     return null;
   }, [messages]);
 
-  const onGoalAction = useCallback((action: 'pause' | 'resume' | 'stop' | 'raise-limit') => {
+  const onGoalAction = useCallback((action: GoalBannerAction) => {
     if (!sessionId || !goal) return;
-    const command = action === 'raise-limit'
-      ? `/goal turns ${(goal.limits.maxAttemptsTotal ?? goal.usage.automaticTurns) + 25}`
-      : `/goal ${action}`;
-    void sendPrompt(sessionId, command);
+    void goalBannerCommands(goal, action).reduce(
+      (previous, command) => previous.then(() => sendPrompt(sessionId, command)),
+      Promise.resolve(),
+    );
   }, [goal, sendPrompt, sessionId]);
 
   // Group consecutive tool calls into collapsible blocks

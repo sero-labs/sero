@@ -203,6 +203,22 @@ describe('terminal reports', () => {
 });
 
 describe('one autonomous driver per session', () => {
+  it('does not claim a different active chat in the same workspace', async () => {
+    const host = createFakeHost();
+    host.activeSession = {
+      sessionId: 'sess-2',
+      workspaceId: host.workspaceId,
+      sessionPath: '/sessions/chat-2.jsonl',
+    };
+    const { drivers, runtime } = createRuntime(host);
+
+    const started = await runtime.start({ sessionPath: SESSION, objective: 'do the thing', criteria: [] });
+
+    expect(started.ok).toBe(true);
+    expect(started.goal?.sessionId).toBeNull();
+    expect(drivers.holderOf('sess-2')).toBeUndefined();
+  });
+
   it('refuses a goal on a session a workflow step already drives', async () => {
     const { drivers, runtime } = createRuntime();
     drivers.claim('sess-1', { kind: 'workflow-step', ownerId: 'loop-9' });

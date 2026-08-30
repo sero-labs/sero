@@ -147,6 +147,32 @@ async function settleTurn(
 }
 
 describe('the settled-boundary continuation', () => {
+  it('charges every sub-run before one settled boundary as one Goal turn', async () => {
+    const { pi, fire, sent } = fakePi();
+    const startTurn = registerGoalLoop(pi);
+    const started = await runtime.start({
+      sessionPath: SESSION,
+      objective: 'finish the migration',
+      criteria: [],
+      limits: { maxAttemptsTotal: 1 },
+    });
+    startTurn(started.goal!);
+    sent.length = 0;
+
+    await fire('agent_start');
+    await fire('agent_end', { messages: assistantTurn('first provider run') });
+    await fire('agent_start');
+    await fire('agent_end', { messages: assistantTurn('retry after compaction') });
+    await fire('agent_settled');
+
+    const goal = await runtime.forSession(SESSION);
+    expect(goal?.status).toBe('limited');
+    expect(goal?.usage.automaticTurns).toBe(1);
+    expect(goal?.usage.totalTokens).toBe(30);
+    expect(goal?.usage.costUsd).toBe(0.04);
+    expect(sent.some((message) => message.customType === GOAL_CONTINUATION_MESSAGE_TYPE)).toBe(false);
+  });
+
   it('continues the session when a goal is active and nothing is queued', async () => {
     const { pi, fire, sent } = fakePi();
     registerGoalLoop(pi);
@@ -211,6 +237,26 @@ describe('the settled-boundary continuation', () => {
     const goal = await runtime.forSession(SESSION);
     expect(goal?.status).toBe('paused');
     expect(goal?.pauseReason).toBe('abort');
+    expect(sent.some((message) => message.customType === GOAL_CONTINUATION_MESSAGE_TYPE)).toBe(false);
+  });
+
+  it('pauses an active Goal when its runtime cannot resolve at settlement', async () => {
+    const { pi, fire, sent } = fakePi();
+    const startTurn = registerGoalLoop(pi);
+    const started = await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
+    startTurn(started.goal!);
+    sent.length = 0;
+
+    await fire('agent_start');
+    await fire('agent_end', { messages: assistantTurn('work completed before detaching') });
+    await fire('agent_settled', undefined, { ...context(), cwd: '/detached/workspace' });
+
+    const goal = await runtime.forSession(SESSION);
+    expect(goal?.status).toBe('paused');
+    expect(goal?.pauseReason).toBe('restore');
+    expect(goal?.usage.automaticTurns).toBe(1);
+    expect(goal?.usage.totalTokens).toBe(15);
+    expect(goal?.history.at(-1)?.reason).toContain('runtime became unavailable');
     expect(sent.some((message) => message.customType === GOAL_CONTINUATION_MESSAGE_TYPE)).toBe(false);
   });
 

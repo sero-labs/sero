@@ -5,6 +5,16 @@ import { useGoal } from '../lib/use-goal-index';
 import { GoalDetail, type GoalManageAction } from './GoalDetail';
 import { GoalsOverview } from './GoalsOverview';
 
+function GoalError({ message, onDismiss }: { message: string | null; onDismiss: () => void }) {
+  if (!message) return null;
+  return (
+    <div className="flex items-center justify-between gap-2 border-b border-destructive/40 bg-destructive/10 px-4 py-2 text-xs text-destructive">
+      <span>{message}</span>
+      <button type="button" className="shrink-0 underline" onClick={onDismiss}>dismiss</button>
+    </div>
+  );
+}
+
 export function GoalMode({
   goalId,
   goals,
@@ -59,13 +69,16 @@ export function GoalMode({
 
   if (!goalId) {
     return (
-      <div className="flex h-full flex-1 flex-col overflow-auto px-6 py-5">
-        <GoalsOverview
-          goals={goals}
-          busy={busy}
-          onOpenGoal={onOpenGoal}
-          onDeleteGoal={(targetGoalId) => void deleteGoal(targetGoalId)}
-        />
+      <div className="flex h-full flex-1 flex-col overflow-hidden">
+        <GoalError message={error} onDismiss={() => setError(null)} />
+        <div className="flex flex-1 flex-col overflow-auto px-6 py-5">
+          <GoalsOverview
+            goals={goals}
+            busy={busy}
+            onOpenGoal={onOpenGoal}
+            onDeleteGoal={(targetGoalId) => void deleteGoal(targetGoalId)}
+          />
+        </div>
       </div>
     );
   }
@@ -74,12 +87,7 @@ export function GoalMode({
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
-      {error ? (
-        <div className="flex items-center justify-between gap-2 border-b border-destructive/40 bg-destructive/10 px-4 py-2 text-xs text-destructive">
-          <span>{error}</span>
-          <button type="button" className="shrink-0 underline" onClick={() => setError(null)}>dismiss</button>
-        </div>
-      ) : null}
+      <GoalError message={error} onDismiss={() => setError(null)} />
       <GoalDetail goal={goal} busy={busy} onAction={(action) => void onAction(action)} onBack={onBack} />
     </div>
   );

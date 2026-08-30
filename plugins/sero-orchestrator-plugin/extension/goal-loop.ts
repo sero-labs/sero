@@ -36,7 +36,7 @@ import {
 } from '../shared/goal-contract';
 import type { Goal, GoalVerdict } from '../shared/goal-types';
 import { normalizeTurnText } from '../shared/goal-fingerprint';
-import { resolveGoalCaller } from './goal-session';
+import { resolveGoalCaller, type GoalCaller } from './goal-session';
 
 /**
  * Starts a turn for a goal that is active but idle. `registerGoalLoop` owns the
@@ -121,6 +121,7 @@ export function hiddenTerminalTools(activeTools: string[]): string[] {
 
 export function registerGoalLoop(pi: ExtensionAPI): GoalTurnStarter {
   let turn = emptyTurn();
+  let boundaryOpen = false;
   // True while the turn now starting is one this loop asked for. Only such
   // turns are charged to the goal budget.
   let continuationQueued = false;
@@ -130,6 +131,14 @@ export function registerGoalLoop(pi: ExtensionAPI): GoalTurnStarter {
   // again at the settled boundary — it is remembered from when it was asked for.
   let queuedGoalId: string | null = null;
   let turnGoalId: string | null = null;
+  let lastCaller: GoalCaller | null = null;
+
+  const rememberCaller = (ctx: ExtensionContext): GoalCaller | null => {
+    const caller = resolveGoalCaller(ctx);
+    if ('error' in caller) return null;
+    lastCaller = caller;
+    return caller;
+  };
 
   /** Drives one turn for the goal, and books it to the goal's budget. */
   const startTurn: GoalTurnStarter = (goal) => {
@@ -158,12 +167,19 @@ export function registerGoalLoop(pi: ExtensionAPI): GoalTurnStarter {
     }
   });
 
-  pi.on('agent_start', () => {
-    automatic = continuationQueued;
-    turnGoalId = automatic ? queuedGoalId : null;
+  pi.on('agent_start', (_event, ctx) => {
+    // Pi may start the agent more than once before one settled boundary after
+    // provider retries, compaction, or queued messages. Those sub-runs are one
+    // Goal turn, so ownership and usage stay open until agent_settled.
+    if (!boundaryOpen) {
+      boundaryOpen = true;
+      automatic = continuationQueued;
+      turnGoalId = automatic ? queuedGoalId : null;
+      turn = emptyTurn();
+    }
     continuationQueued = false;
     queuedGoalId = null;
-    turn = emptyTurn();
+    rememberCaller(ctx);
   });
 
   // The event fires before the tool runs, so a refused or failed tool call
@@ -174,21 +190,27 @@ export function registerGoalLoop(pi: ExtensionAPI): GoalTurnStarter {
 
   pi.on('agent_end', (event) => {
     const summary = summarizeTurn(event.messages);
-    turn = { ...summary, toolAttempted: turn.toolAttempted || summary.toolAttempted };
+    turn = {
+      text: turn.text + summary.text,
+      toolAttempted: turn.toolAttempted || summary.toolAttempted,
+      totalTokens: turn.totalTokens + summary.totalTokens,
+      costUsd: turn.costUsd + summary.costUsd,
+      aborted: turn.aborted || summary.aborted,
+    };
   });
 
   // Compaction rewrites the conversation, so the hidden contract may be gone and
   // a continuation must not point back at a contract that no longer exists.
   pi.on('session_compact', async (_event, ctx) => {
-    const caller = resolveGoalCaller(ctx);
-    if ('error' in caller) return;
+    const caller = rememberCaller(ctx);
+    if (!caller) return;
     const goal = await caller.runtime.forSession(caller.sessionPath);
     if (goal) assertGoalContract(pi, goal);
   });
 
   pi.on('session_start', async (_event, ctx) => {
-    const caller = resolveGoalCaller(ctx);
-    if ('error' in caller) return;
+    const caller = rememberCaller(ctx);
+    if (!caller) return;
     const goal = await caller.runtime.reattach(caller.sessionPath);
     if (!goal) return;
     const hidden = hiddenTerminalTools(pi.getActiveTools());
@@ -208,23 +230,55 @@ export function registerGoalLoop(pi: ExtensionAPI): GoalTurnStarter {
   });
 
   pi.on('agent_settled', async (_event, ctx: ExtensionContext) => {
-    const caller = resolveGoalCaller(ctx);
-    if ('error' in caller) return;
+    const settledTurn = turn;
+    const settledAutomatic = automatic;
+    const settledGoalId = turnGoalId;
+    boundaryOpen = false;
+    automatic = false;
+    turnGoalId = null;
+    turn = emptyTurn();
+
+    const caller = rememberCaller(ctx);
+    if (!caller) {
+      const fallback = lastCaller;
+      if (!fallback) return;
+      const goal = await fallback.runtime.forSession(fallback.sessionPath);
+      if (!goal || goal.status !== 'active' || (settledGoalId && goal.id !== settledGoalId)) return;
+      await fallback.runtime.recordSettledTurn({
+        goalId: settledGoalId ?? goal.id,
+        sessionPath: fallback.sessionPath,
+        fingerprint: fingerprintTurn(settledTurn.text),
+        toolAttempted: settledTurn.toolAttempted,
+        automatic: settledAutomatic,
+        totalTokens: settledTurn.totalTokens,
+        costUsd: settledTurn.costUsd,
+      });
+      const paused = await fallback.runtime.pause(
+        goal.id,
+        'restore',
+        'the Goal runtime became unavailable at the settled boundary',
+      );
+      if (paused.goal) {
+        assertGoalContract(pi, paused.goal);
+        announce(pi, paused.goal, 'Goal paused because its runtime became unavailable. Reopen the workspace, then resume it.');
+      }
+      return;
+    }
     const goal = await caller.runtime.forSession(caller.sessionPath);
     // The goal that owned this turn, which is not always the live one: a
     // terminal tool inside the turn can have completed, blocked, parked,
     // paused or stopped it before it settled.
-    const ownerId = turnGoalId ?? goal?.id;
+    const ownerId = settledGoalId ?? goal?.id;
     if (!ownerId) return;
 
     const report = {
       goalId: ownerId,
       sessionPath: caller.sessionPath,
-      fingerprint: fingerprintTurn(turn.text),
-      toolAttempted: turn.toolAttempted,
-      automatic,
-      totalTokens: turn.totalTokens,
-      costUsd: turn.costUsd,
+      fingerprint: fingerprintTurn(settledTurn.text),
+      toolAttempted: settledTurn.toolAttempted,
+      automatic: settledAutomatic,
+      totalTokens: settledTurn.totalTokens,
+      costUsd: settledTurn.costUsd,
     };
 
     // The turn ran, so it is charged — but only a live, active goal that still
@@ -251,7 +305,7 @@ export function registerGoalLoop(pi: ExtensionAPI): GoalTurnStarter {
       return;
     }
 
-    if (turn.aborted) {
+    if (settledTurn.aborted) {
       // Escape or cancel. Pause immediately and never poke a paused goal.
       const paused = await caller.runtime.pause(goal.id, 'abort', 'the turn was cancelled');
       if (paused.goal) {

@@ -9,6 +9,7 @@ export interface CliSessionEntry {
 
 export interface CliSessionBridge {
   getSessionEntry(sessionId: string): CliSessionEntry | undefined;
+  getSessionForPath?(workspaceId: string, sessionPath: string): CliSessionEntry | undefined;
   getActiveSessionForWorkspace(workspaceId: string): CliSessionEntry | undefined;
   getActiveTurnId(sessionId: string): string | null;
   noteTurnStart(sessionId: string): void;

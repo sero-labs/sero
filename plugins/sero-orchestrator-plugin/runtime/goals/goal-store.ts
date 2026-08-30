@@ -72,8 +72,12 @@ export function createGoalStore(io: GoalStoreIo, stateDir: string, paths: GoalPa
   async function ensureLoaded(): Promise<Map<string, Goal>> {
     if (cache) return cache;
     loading ??= load();
-    cache = await loading;
-    return cache;
+    try {
+      cache = await loading;
+      return cache;
+    } finally {
+      loading = null;
+    }
   }
 
   /** Serializes writes; a failure does not poison the queue for later writes. */

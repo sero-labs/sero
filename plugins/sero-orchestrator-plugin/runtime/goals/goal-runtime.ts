@@ -98,8 +98,8 @@ export class GoalRuntime {
    * resolvable when the workspace has an active session, and it is used for
    * nothing but arbitration — the extension drives delivery itself.
    */
-  private async claimSession(goalId: string): Promise<{ sessionId: string | null } | { conflict: string }> {
-    const active = await this.host.session.getActiveForWorkspace(this.host.workspaceId);
+  private async claimSession(goalId: string, sessionPath: string): Promise<{ sessionId: string | null } | { conflict: string }> {
+    const active = await this.host.session.getActiveForWorkspace(this.host.workspaceId, sessionPath);
     if (!active) return { sessionId: null };
     const claim = this.drivers.claim(active.sessionId, { kind: 'goal', ownerId: goalId });
     if (!claim.ok) return { conflict: describeDriverConflict(claim.holder) };
@@ -131,7 +131,7 @@ export class GoalRuntime {
       );
     }
     const id = this.host.newId('goal');
-    const claimed = await this.claimSession(id);
+    const claimed = await this.claimSession(id, request.sessionPath);
     if ('conflict' in claimed) return failure(`Cannot start a goal here: ${claimed.conflict}.`);
     const now = this.host.now();
     const goal: Goal = {
@@ -168,7 +168,7 @@ export class GoalRuntime {
   async reattach(sessionPath: string): Promise<Goal | null> {
     const goal = await this.store.forSession(sessionPath);
     if (!goal || goal.sessionId) return goal;
-    const claimed = await this.claimSession(goal.id);
+    const claimed = await this.claimSession(goal.id, goal.sessionPath);
     if ('conflict' in claimed) {
       if (goal.status !== 'active') return goal;
       const held = pause(goal, 'restore', `${claimed.conflict}, so the goal is on hold`, this.ctx());
@@ -319,7 +319,7 @@ export class GoalRuntime {
       await this.store.put(next);
       return failure(`Goal ${goalId} cannot resume: it ${check.reason}. Raise that limit first.`);
     }
-    const claimed = await this.claimSession(goal.id);
+    const claimed = await this.claimSession(goal.id, goal.sessionPath);
     if ('conflict' in claimed) return failure(`Cannot resume the goal: ${claimed.conflict}.`);
     const next = activate({ ...goal, sessionId: claimed.sessionId }, 'the user resumed the goal', this.ctx());
     await this.store.put(next);

@@ -19,7 +19,15 @@ export interface ToolResult {
 
 export function toolResult(outcome: GoalOutcome): ToolResult {
   const text = outcome.ok ? outcome.text : `Error: ${outcome.text}`;
-  return { text, content: [{ type: 'text', text }], details: { ok: outcome.ok, goal: outcome.goal } };
+  return {
+    text,
+    content: [{ type: 'text', text }],
+    details: {
+      ok: outcome.ok,
+      goal: outcome.goal,
+      ...(outcome.ok ? {} : { error: outcome.text }),
+    },
+  };
 }
 
 export function toolFailure(message: string): ToolResult {

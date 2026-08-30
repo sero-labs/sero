@@ -25,9 +25,14 @@ function toPiContent(content: ExtensionRuntimeContent): string | Array<{ type: '
 
 export function createSessionHost(): AppRuntimeSessionHost {
   return {
-    async getActiveForWorkspace(workspaceId) {
-      const entry = getCliSessionBridge().getActiveSessionForWorkspace(workspaceId);
-      return entry ? { sessionId: entry.sessionId, workspaceId: entry.workspaceId } : null;
+    async getActiveForWorkspace(workspaceId, sessionPath) {
+      const bridge = getCliSessionBridge();
+      const entry = sessionPath
+        ? bridge.getSessionForPath?.(workspaceId, sessionPath)
+        : bridge.getActiveSessionForWorkspace(workspaceId);
+      if (!entry) return null;
+      const resolvedPath = entry.session.sessionManager.getSessionFile();
+      return resolvedPath ? { sessionId: entry.sessionId, workspaceId: entry.workspaceId, sessionPath: resolvedPath } : null;
     },
 
     async getState(sessionId) {

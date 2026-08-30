@@ -150,7 +150,7 @@ export function HomeView({
         <ModeCard
           glyph="◎"
           title="Goal"
-          onClick={() => onOpenGoal(goals[0]?.id ?? '')}
+          onClick={() => onOpenGoal('')}
           meta={
             <>
               <Pill>{goals.length} {goals.length === 1 ? 'goal' : 'goals'}</Pill>

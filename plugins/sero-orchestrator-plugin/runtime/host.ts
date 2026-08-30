@@ -35,6 +35,7 @@ import type { LibraryEntry, LibraryIndex, LibraryVersion, OrchestratorState } fr
 export interface ActiveSessionInfo {
   sessionId: string;
   workspaceId: string;
+  sessionPath: string;
 }
 
 export interface SessionState {
@@ -52,7 +53,7 @@ export interface TurnResult {
 
 /** Active-session control (Orchestrator active-session steps). */
 export interface SessionHost {
-  getActiveForWorkspace(workspaceId: string): Promise<ActiveSessionInfo | null>;
+  getActiveForWorkspace(workspaceId: string, sessionPath?: string): Promise<ActiveSessionInfo | null>;
   getState(sessionId: string): Promise<SessionState>;
   sendUserSteer(
     sessionId: string,

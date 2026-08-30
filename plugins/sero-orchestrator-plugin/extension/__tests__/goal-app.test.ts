@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { GoalRuntime } from '../../runtime/goals/goal-runtime';
 import type { Goal } from '../../shared/goal-types';
 import { executeGoalApp } from '../goal-app';
+import { toolResult } from '../goal-session';
 
 const goal: Goal = {
   schemaVersion: 1,
@@ -39,6 +40,15 @@ function stubRuntime() {
 }
 
 describe('the Goals management tool', () => {
+  it('returns the runtime refusal text in structured details', () => {
+    const result = toolResult({ ok: false, text: 'Stop this Goal before deleting it.' });
+
+    expect(result.details).toMatchObject({
+      ok: false,
+      error: 'Stop this Goal before deleting it.',
+    });
+  });
+
   it('reads one Goal and returns its full detail record', async () => {
     const { runtime } = stubRuntime();
     const result = await executeGoalApp({ action: 'show', goalId: 'goal-1' }, '/repo', () => runtime);

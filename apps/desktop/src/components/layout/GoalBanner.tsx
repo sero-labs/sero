@@ -3,8 +3,7 @@ import { ChevronRight, CircleStop, Pause, Play, Target } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { ChatGoalSnapshot } from '@/types/ipc';
-
-type GoalAction = 'pause' | 'resume' | 'stop' | 'raise-limit';
+import type { GoalBannerAction } from './goal-banner-actions';
 
 function displayStatus(goal: ChatGoalSnapshot): string {
   if (goal.closedAt) return 'Stopped';
@@ -52,7 +51,7 @@ export function GoalBanner({
   onAction,
 }: {
   goal: ChatGoalSnapshot;
-  onAction: (action: GoalAction) => void;
+  onAction: (action: GoalBannerAction) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const turns = goal.limits.maxAttemptsTotal === undefined
