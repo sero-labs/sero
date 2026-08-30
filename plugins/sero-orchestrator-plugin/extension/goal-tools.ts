@@ -12,6 +12,8 @@
 
 import { Type } from 'typebox';
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
+import type { Goal } from '../shared/goal-types';
+import { assertGoalContract } from './goal-loop';
 import { resolveGoalCaller, toolFailure, toolResult, type ToolResult } from './goal-session';
 
 const GoalIdParam = Type.String({ description: 'The goal id from the goal contract in this conversation' });
@@ -33,16 +35,12 @@ export const GoalBlockedParams = Type.Object({
 export const GoalWaitParams = Type.Object({
   goal_id: GoalIdParam,
   reason: Type.String({ description: 'What you are waiting for, in one line' }),
-  minutes: Type.Optional(
-    Type.Number({ description: 'Optional backstop: wake the goal after this many minutes if nothing else does' }),
-  ),
 });
 
 interface TerminalParams {
   goal_id: string;
   evidence?: string;
   reason?: string;
-  minutes?: number;
 }
 
 export async function executeGoalComplete(params: TerminalParams, ctx: ExtensionContext | undefined): Promise<ToolResult> {
@@ -62,8 +60,18 @@ export async function executeGoalBlocked(params: TerminalParams, ctx: ExtensionC
 export async function executeGoalWait(params: TerminalParams, ctx: ExtensionContext | undefined): Promise<ToolResult> {
   const caller = resolveGoalCaller(ctx);
   if ('error' in caller) return toolFailure(caller.error);
-  const untilMs = params.minutes === undefined ? undefined : Math.max(1, Math.round(params.minutes)) * 60_000;
-  return toolResult(await caller.runtime.reportWait(params.goal_id, caller.sessionPath, params.reason ?? '', untilMs));
+  return toolResult(await caller.runtime.reportWait(params.goal_id, caller.sessionPath, params.reason ?? ''));
+}
+
+/**
+ * Re-states the contract from the record the report just wrote. The workspace
+ * record is authoritative, so the last contract in the conversation must never
+ * still say "active" after the goal completed, blocked or parked.
+ */
+function reassert(pi: ExtensionAPI, result: ToolResult): ToolResult {
+  const goal = result.details.goal as Goal | undefined;
+  if (goal) assertGoalContract(pi, goal);
+  return result;
 }
 
 export function registerGoalTerminalTools(pi: ExtensionAPI): void {
@@ -74,7 +82,7 @@ export function registerGoalTerminalTools(pi: ExtensionAPI): void {
       'Report that every criterion in the goal contract is met. Give the evidence for each one. Use this only when the work is done, not when you have run out of ideas.',
     parameters: GoalCompleteParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      return executeGoalComplete(params as TerminalParams, ctx);
+      return reassert(pi, await executeGoalComplete(params as TerminalParams, ctx));
     },
   });
 
@@ -85,7 +93,7 @@ export function registerGoalTerminalTools(pi: ExtensionAPI): void {
       'Report that you cannot go further on the goal without the user. Say what stops you and what you need. The goal stops and the user is told.',
     parameters: GoalBlockedParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      return executeGoalBlocked(params as TerminalParams, ctx);
+      return reassert(pi, await executeGoalBlocked(params as TerminalParams, ctx));
     },
   });
 
@@ -93,10 +101,10 @@ export function registerGoalTerminalTools(pi: ExtensionAPI): void {
     name: 'goal_wait',
     label: 'Goal wait',
     description:
-      'Park the goal until something observable happens, such as a check finishing or a process exiting. Say what you wait for. Do not use this to sleep between attempts.',
+      'Park the goal until something observable happens, such as a check finishing or a process exiting. Say what you wait for. The user restarts a waiting goal, so use this only when you cannot make progress yourself, and never to sleep between attempts.',
     parameters: GoalWaitParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      return executeGoalWait(params as TerminalParams, ctx);
+      return reassert(pi, await executeGoalWait(params as TerminalParams, ctx));
     },
   });
 }

@@ -10,7 +10,7 @@ import { StringEnum } from '@earendil-works/pi-ai';
 import { Type } from 'typebox';
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
 import type { Goal, GoalLimits, GoalOutcome } from '../shared/goal-types';
-import { assertGoalContract, hiddenTerminalTools } from './goal-loop';
+import { assertGoalContract, hiddenTerminalTools, type GoalTurnStarter } from './goal-loop';
 import { resolveGoalCaller, toolFailure, toolResult, type ToolResult } from './goal-session';
 
 export const GOAL_ACTIONS = ['start', 'status', 'pause', 'resume', 'stop', 'list', 'set_limits'] as const;
@@ -74,7 +74,7 @@ function describeDetail(goal: Goal): string {
   const lines = [describeGoal(goal)];
   if (goal.criteria.length > 0) lines.push(`Criteria: ${goal.criteria.join('; ')}`);
   if (goal.usage.costUsd > 0) lines.push(`Cost so far: $${goal.usage.costUsd.toFixed(2)} over ${goal.usage.totalTokens} tokens.`);
-  if (goal.wait) lines.push(`Waiting for: ${goal.wait.reason}${goal.wait.until ? ` (until ${goal.wait.until})` : ''}`);
+  if (goal.wait) lines.push(`Waiting for: ${goal.wait.reason}. Resume it when that is met.`);
   if (goal.block) lines.push(`Blocked: ${goal.block.reason}`);
   if (goal.limitReached) lines.push(`Limit reached: ${goal.limitReached}. Reaching a limit is not completion.`);
   if (goal.reportedComplete) lines.push(`Reported complete with: ${goal.reportedComplete.evidence}`);
@@ -135,16 +135,26 @@ export async function executeGoalTool(
     case 'resume':
     case 'stop':
     case 'set_limits': {
-      const goalId = params.goalId ?? (await runtime.forSession(sessionPath))?.id;
-      if (!goalId) return toolFailure('This session has no goal, and no goalId was given.');
+      // Control never leaves the session that owns the goal. The runtime
+      // addresses goals by id because a future management view will need that,
+      // but this surface is reachable by the model, and one conversation must
+      // not be able to stop, restart or re-budget another one's goal. A given
+      // id is therefore a confirmation, not a target.
+      const own = await runtime.forSession(sessionPath);
+      if (!own) return toolFailure('This session has no goal.');
+      if (params.goalId !== undefined && params.goalId !== own.id) {
+        return toolFailure(
+          `Goal ${params.goalId} does not belong to this session. Only ${own.id} can be controlled from here.`,
+        );
+      }
       const outcome: GoalOutcome =
         params.action === 'pause'
-          ? await runtime.pause(goalId, 'user', 'the user paused the goal')
+          ? await runtime.pause(own.id, 'user', 'the user paused the goal')
           : params.action === 'resume'
-            ? await runtime.resume(goalId)
+            ? await runtime.resume(own.id)
             : params.action === 'stop'
-              ? await runtime.stop(goalId)
-              : await runtime.setLimits(goalId, parseLimits(params));
+              ? await runtime.stop(own.id)
+              : await runtime.setLimits(own.id, parseLimits(params));
       return toolResult(outcome);
     }
   }
@@ -168,7 +178,12 @@ export function parseGoalCommand(args: string): GoalToolParamsShape | { error: s
   return { action: 'start', objective, criteria };
 }
 
-export function registerGoalCommands(pi: ExtensionAPI): void {
+/** Only `start` and `resume` can leave a goal active with no turn running. */
+function needsKickoff(action: GoalAction): boolean {
+  return action === 'start' || action === 'resume';
+}
+
+export function registerGoalCommands(pi: ExtensionAPI, startTurn: GoalTurnStarter): void {
   pi.registerTool({
     name: 'goal',
     label: 'Goal',
@@ -180,6 +195,8 @@ export function registerGoalCommands(pi: ExtensionAPI): void {
       const result = await executeGoalTool(params as GoalToolParamsShape, ctx, () => pi.getActiveTools());
       const goal = result.details.goal as Goal | undefined;
       if (goal) assertGoalContract(pi, goal);
+      // No kickoff here: this call runs inside a turn, and the loop continues
+      // the goal from that turn's settled boundary.
       return result;
     },
   });
@@ -196,6 +213,10 @@ export function registerGoalCommands(pi: ExtensionAPI): void {
       const goal = result.details.goal as Goal | undefined;
       if (goal) assertGoalContract(pi, goal);
       ctx?.ui?.notify(result.text, result.details.ok === false ? 'error' : 'info');
+      // A command runs outside a turn. Pi consumes the command instead of
+      // sending it as a prompt, so a goal made active here would sit idle with
+      // no settled boundary to continue from: start its first turn.
+      if (goal?.status === 'active' && needsKickoff(parsed.action)) startTurn(goal);
     },
   });
 }

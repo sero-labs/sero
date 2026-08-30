@@ -53,7 +53,12 @@ the agent's access is reported to you, not obeyed.
 
 A session runs one Goal at a time. A Goal also cannot run in a session that a
 Workflow step is already driving, and the reverse is true. Sero refuses the
-second one and says which one holds the session.
+second one and says which one holds the session. A Goal holds the session only
+while it runs: pause or stop it and the session is free again.
+
+`/goal pause`, `/goal resume` and `/goal stop` control the Goal of the session
+you type them in. Use the Orchestrator to manage a Goal you left running in
+another session.
 
 ## Limits
 
@@ -88,7 +93,8 @@ The agent ends a Goal with an explicit report, never by going quiet:
 - **Blocked.** The agent cannot continue without you. Sero notifies you and the
   Goal waits for your answer.
 - **Waiting.** The agent must wait for something outside the session, such as a
-  check finishing. Resume the Goal when the condition is met.
+  check finishing. Nothing restarts a waiting Goal for you yet, so resume it
+  when the condition is met.
 
 A Goal survives a restart. Sero re-checks every budget before anything resumes,
 so a Goal that used its budget while Sero was closed comes back stopped.

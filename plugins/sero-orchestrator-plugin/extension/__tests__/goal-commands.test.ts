@@ -4,14 +4,47 @@
  * goal with no way to stop is worse than no goal (D07).
  */
 
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import type { ExtensionContext } from '@earendil-works/pi-coding-agent';
+import { Coordinator } from '../../runtime/coordinator';
+import { GoalRuntime } from '../../runtime/goals/goal-runtime';
+import { createGoalStore } from '../../runtime/goals/goal-store';
+import { registerCoordinator, registerGoalRuntime } from '../../runtime/registry';
+import { SessionDrivers } from '../../runtime/session-drivers';
+import { createFakeHost } from '../../runtime/__tests__/fake-host';
 import { executeGoalTool, parseCriteria, parseGoalCommand, parseLimits } from '../goal-commands';
 
 const context = {
   cwd: '/work/repo',
   sessionManager: { getSessionFile: () => '/sessions/chat-1.jsonl' },
 } as Pick<ExtensionContext, 'cwd' | 'sessionManager'> as ExtensionContext;
+
+const TOOLS = () => ['goal_complete', 'goal_blocked', 'goal_wait'];
+
+let runtime: GoalRuntime;
+
+beforeEach(() => {
+  const host = createFakeHost({ workspacePath: '/work/repo' });
+  // Two conversations, no host session id to arbitrate: exactly the case where
+  // only the session path can tell the goals apart.
+  host.activeSession = null;
+  const files = new Map<string, unknown>();
+  runtime = new GoalRuntime(
+    host,
+    createGoalStore(
+      {
+        read: async <T,>(file: string) => (files.get(file) as T) ?? null,
+        write: async <T,>(file: string, data: T) => {
+          files.set(file, data);
+        },
+      },
+      '/state',
+    ),
+    new SessionDrivers(),
+  );
+  registerCoordinator(host.workspaceId, '/work/repo', new Coordinator(host));
+  registerGoalRuntime(host.workspaceId, runtime);
+});
 
 describe('parsing /goal', () => {
   it('treats free text as the objective', () => {
@@ -69,5 +102,35 @@ describe('starting a goal', () => {
     expect(result.details.ok).toBe(false);
     expect(result.text).toContain('goal_blocked');
     expect(result.text).toContain('grants no extra tools');
+  });
+});
+
+describe('who may control a goal', () => {
+  /**
+   * The `goal` tool is model-callable and the runtime addresses goals by id.
+   * A conversation must not be able to reach past its own goal into another
+   * one, whichever id it names.
+   */
+  it('refuses an id that belongs to another session', async () => {
+    const other = await runtime.start({ sessionPath: '/sessions/chat-2.jsonl', objective: 'other work', criteria: [] });
+    await runtime.start({ sessionPath: '/sessions/chat-1.jsonl', objective: 'my work', criteria: [] });
+
+    const result = await executeGoalTool({ action: 'stop', goalId: other.goal!.id }, context, TOOLS);
+
+    expect(result.details.ok).toBe(false);
+    expect(result.text).toContain('does not belong to this session');
+    const untouched = (await runtime.list()).find((goal) => goal.id === other.goal!.id);
+    expect(untouched?.status).toBe('active');
+    expect(untouched?.closedAt).toBeUndefined();
+  });
+
+  it('acts on the calling session\'s own goal when no id is given', async () => {
+    const mine = await runtime.start({ sessionPath: '/sessions/chat-1.jsonl', objective: 'my work', criteria: [] });
+
+    const result = await executeGoalTool({ action: 'pause' }, context, TOOLS);
+
+    expect(result.details.ok).toBe(true);
+    expect((await runtime.forSession('/sessions/chat-1.jsonl'))?.id).toBe(mine.goal!.id);
+    expect((await runtime.forSession('/sessions/chat-1.jsonl'))?.status).toBe('paused');
   });
 });

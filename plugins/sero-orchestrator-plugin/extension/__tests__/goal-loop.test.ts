@@ -9,15 +9,17 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { AgentMessage } from '@earendil-works/pi-agent-core';
-import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from '@earendil-works/pi-coding-agent';
 import { Coordinator } from '../../runtime/coordinator';
 import { GoalRuntime } from '../../runtime/goals/goal-runtime';
 import { createGoalStore } from '../../runtime/goals/goal-store';
 import { registerCoordinator, registerGoalRuntime } from '../../runtime/registry';
 import { SessionDrivers } from '../../runtime/session-drivers';
 import { createFakeHost } from '../../runtime/__tests__/fake-host';
-import { GOAL_CONTINUATION_MESSAGE_TYPE } from '../../shared/goal-contract';
+import { GOAL_CONTINUATION_MESSAGE_TYPE, GOAL_CONTRACT_MESSAGE_TYPE } from '../../shared/goal-contract';
+import { registerGoalCommands } from '../goal-commands';
 import { fingerprintTurn, hiddenTerminalTools, registerGoalLoop, summarizeTurn } from '../goal-loop';
+import { registerGoalTerminalTools } from '../goal-tools';
 
 const WORKSPACE = '/work/repo';
 const SESSION = '/sessions/chat-1.jsonl';
@@ -29,8 +31,22 @@ interface SentMessage {
   triggerTurn: boolean;
 }
 
-function fakePi(): { pi: ExtensionAPI; fire: (event: string, payload?: unknown, ctx?: ExtensionContext) => Promise<void>; sent: SentMessage[] } {
+type RegisteredTool = Parameters<ExtensionAPI['registerTool']>[0];
+type RegisteredCommand = Parameters<ExtensionAPI['registerCommand']>[1];
+
+interface FakePi {
+  pi: ExtensionAPI;
+  fire: (event: string, payload?: unknown, ctx?: ExtensionContext) => Promise<void>;
+  /** Runs a registered slash command the way Pi does: it is never a prompt. */
+  runCommand: (name: string, args: string) => Promise<void>;
+  runTool: (name: string, params: unknown, ctx?: ExtensionContext) => Promise<void>;
+  sent: SentMessage[];
+}
+
+function fakePi(): FakePi {
   const handlers = new Map<string, Handler>();
+  const commands = new Map<string, RegisteredCommand>();
+  const tools = new Map<string, RegisteredTool>();
   const sent: SentMessage[] = [];
   const stub = {
     on: (event: string, handler: Handler) => handlers.set(event, handler),
@@ -38,12 +54,24 @@ function fakePi(): { pi: ExtensionAPI; fire: (event: string, payload?: unknown, 
       sent.push({ customType: message.customType, triggerTurn: options?.triggerTurn === true });
     },
     getActiveTools: () => ['goal_complete', 'goal_blocked', 'goal_wait'],
-  } as Pick<ExtensionAPI, 'on' | 'sendMessage' | 'getActiveTools'> as ExtensionAPI;
+    registerCommand: (name: string, command: RegisteredCommand) => commands.set(name, command),
+    registerTool: (tool: RegisteredTool) => tools.set(tool.name, tool),
+  } as Pick<
+    ExtensionAPI,
+    'on' | 'sendMessage' | 'getActiveTools' | 'registerCommand' | 'registerTool'
+  > as ExtensionAPI;
   return {
     pi: stub,
     sent,
     fire: async (event, payload, ctx) => {
       await handlers.get(event)?.(payload, ctx ?? context());
+    },
+    runCommand: async (name, args) => {
+      await commands.get(name)?.handler?.(args, commandContext());
+    },
+    runTool: async (name, params, ctx) => {
+      const tool = tools.get(name);
+      if (tool) await tool.execute('call-1', params, new AbortController().signal, () => {}, ctx ?? context());
     },
   };
 }
@@ -54,6 +82,14 @@ function context(pending = false): ExtensionContext {
     hasPendingMessages: () => pending,
     sessionManager: { getSessionFile: () => SESSION },
   } as Pick<ExtensionContext, 'cwd' | 'hasPendingMessages' | 'sessionManager'> as ExtensionContext;
+}
+
+/** A slash command is handed the wider command context, not the turn context. */
+function commandContext(): ExtensionCommandContext {
+  return {
+    cwd: WORKSPACE,
+    sessionManager: { getSessionFile: () => SESSION },
+  } as Pick<ExtensionCommandContext, 'cwd' | 'sessionManager'> as ExtensionCommandContext;
 }
 
 function assistantTurn(text: string, stopReason: 'stop' | 'aborted' = 'stop'): AgentMessage[] {
@@ -199,5 +235,119 @@ describe('the terminal-tool requirement', () => {
   it('names the terminal tools a restrictive policy hid', () => {
     expect(hiddenTerminalTools(['goal_complete', 'goal_wait'])).toEqual(['goal_blocked']);
     expect(hiddenTerminalTools(['goal_complete', 'goal_blocked', 'goal_wait'])).toEqual([]);
+  });
+});
+
+describe('starting the first turn', () => {
+  /**
+   * Pi consumes a slash command instead of submitting it as a prompt, so
+   * nothing settles after `/goal`. Without a kickoff the goal is active on
+   * paper and the session sits idle.
+   */
+  it('drives a turn when the slash command starts a goal in an idle session', async () => {
+    const { pi, runCommand, sent, fire } = fakePi();
+    registerGoalCommands(pi, registerGoalLoop(pi));
+
+    await runCommand('goal', 'finish the migration');
+
+    expect(sent.map((message) => [message.customType, message.triggerTurn])).toEqual([
+      [GOAL_CONTRACT_MESSAGE_TYPE, false],
+      [GOAL_CONTINUATION_MESSAGE_TYPE, true],
+    ]);
+
+    // The kickoff is the goal's own turn, so the goal pays for it.
+    await settleTurn(fire, 'first pass.');
+    expect((await runtime.forSession(SESSION))?.usage.automaticTurns).toBe(1);
+  });
+
+  it('drives a turn when the slash command resumes a paused goal', async () => {
+    const { pi, runCommand, sent } = fakePi();
+    registerGoalCommands(pi, registerGoalLoop(pi));
+    const started = await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
+    await runtime.pause(started.goal!.id, 'user', 'the user paused the goal');
+    sent.length = 0;
+
+    await runCommand('goal', 'resume');
+
+    expect(sent.some((message) => message.customType === GOAL_CONTINUATION_MESSAGE_TYPE && message.triggerTurn)).toBe(true);
+  });
+
+  it('does not drive a turn for a command that only reports', async () => {
+    const { pi, runCommand, sent } = fakePi();
+    registerGoalCommands(pi, registerGoalLoop(pi));
+    await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
+    sent.length = 0;
+
+    await runCommand('goal', 'status');
+
+    expect(sent.some((message) => message.triggerTurn)).toBe(false);
+  });
+
+  it('drives a turn for a goal that was still active when Sero restarted', async () => {
+    const { pi, fire, sent } = fakePi();
+    registerGoalLoop(pi);
+    await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
+    // The record outlives the process; the session id from it does not.
+    await runtime.reconcile();
+
+    await fire('session_start');
+
+    expect(sent.map((message) => [message.customType, message.triggerTurn])).toEqual([
+      [GOAL_CONTRACT_MESSAGE_TYPE, false],
+      [GOAL_CONTINUATION_MESSAGE_TYPE, true],
+    ]);
+  });
+
+  it('leaves a restored goal that is not active alone', async () => {
+    const { pi, fire, sent } = fakePi();
+    registerGoalLoop(pi);
+    const started = await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
+    await runtime.pause(started.goal!.id, 'user', 'the user paused the goal');
+
+    await fire('session_start');
+
+    expect(sent.some((message) => message.triggerTurn)).toBe(false);
+  });
+});
+
+describe('keeping the contract true', () => {
+  it('re-states the contract after compaction rewrote the conversation', async () => {
+    const { pi, fire, sent } = fakePi();
+    registerGoalLoop(pi);
+    await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
+
+    await settleTurn(fire, 'first pass.');
+    expect(sent.some((message) => message.customType === GOAL_CONTRACT_MESSAGE_TYPE)).toBe(false);
+
+    // Compaction may take the hidden contract with it, and the next
+    // continuation points back at "the goal contract above".
+    await fire('session_compact');
+
+    expect(sent.at(-1)?.customType).toBe(GOAL_CONTRACT_MESSAGE_TYPE);
+  });
+
+  it('re-states the paused contract when the turn was cancelled', async () => {
+    const { pi, fire, sent } = fakePi();
+    registerGoalLoop(pi);
+    await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
+
+    await settleTurn(fire, 'stopping there.', { aborted: true });
+
+    expect(sent.some((message) => message.customType === GOAL_CONTRACT_MESSAGE_TYPE)).toBe(true);
+  });
+
+  it('re-states the contract after a terminal report ends the goal', async () => {
+    const { pi, runTool, sent } = fakePi();
+    registerGoalLoop(pi);
+    registerGoalTerminalTools(pi);
+    const started = await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
+
+    await runTool('goal_complete', { goal_id: started.goal!.id, evidence: 'the suite passes' });
+
+    expect(sent.some((message) => message.customType === GOAL_CONTRACT_MESSAGE_TYPE)).toBe(true);
+    // A completed goal is no longer this session's live goal, so the record is
+    // read from the workspace list.
+    const recorded = (await runtime.list()).find((goal) => goal.id === started.goal!.id);
+    expect(recorded?.status).toBe('complete');
   });
 });

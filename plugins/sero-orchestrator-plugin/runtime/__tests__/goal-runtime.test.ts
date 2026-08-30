@@ -15,7 +15,7 @@ function memoryIo(files = new Map<string, unknown>()): GoalStoreIo & { files: Ma
       return (files.get(file) as T) ?? null;
     },
     async write<T>(file: string, data: T) {
-      files.set(file, JSON.parse(JSON.stringify(data)) as T);
+      files.set(file, structuredClone(data));
     },
   };
 }
@@ -208,5 +208,57 @@ describe('the goal a session owns', () => {
 
     await runtime.stop(goal.id);
     expect((await runtime.start({ sessionPath: SESSION, objective: 'another', criteria: [] })).ok).toBe(true);
+  });
+});
+
+describe('holding the session only while it is driving', () => {
+  /**
+   * The claim exists so two autonomous drivers cannot steer one session. A goal
+   * that is paused, waiting or out of budget steers nothing, so keeping the
+   * claim would refuse a Workflow step for no reason.
+   */
+  it('gives the session back when the goal pauses, and takes it again on resume', async () => {
+    const { drivers, runtime } = createRuntime();
+    const goal = await startGoal(runtime);
+    expect(drivers.holderOf('sess-1')).toEqual({ kind: 'goal', ownerId: goal.id });
+
+    await runtime.pause(goal.id, 'user', 'the user paused the goal');
+    expect(drivers.holderOf('sess-1')).toBeUndefined();
+
+    await runtime.resume(goal.id);
+    expect(drivers.holderOf('sess-1')).toEqual({ kind: 'goal', ownerId: goal.id });
+  });
+
+  it('gives the session back when a budget stops the goal', async () => {
+    const { drivers, runtime } = createRuntime();
+    const goal = await startGoal(runtime, { maxAttemptsTotal: 1 });
+
+    const verdict = await runtime.checkContinue(turn(goal.id));
+
+    expect(verdict.kind).toBe('limited');
+    expect(drivers.holderOf('sess-1')).toBeUndefined();
+  });
+
+  it('gives the session back when the goal parks itself', async () => {
+    const { drivers, runtime } = createRuntime();
+    const goal = await startGoal(runtime);
+
+    await runtime.reportWait(goal.id, SESSION, 'the release build is still running');
+
+    expect(drivers.holderOf('sess-1')).toBeUndefined();
+    const waiting = await runtime.forSession(SESSION);
+    expect(waiting?.status).toBe('waiting');
+  });
+
+  it('refuses to resume when something else took the session meanwhile', async () => {
+    const { drivers, runtime } = createRuntime();
+    const goal = await startGoal(runtime);
+    await runtime.pause(goal.id, 'user', 'the user paused the goal');
+    drivers.claim('sess-1', { kind: 'workflow-step', ownerId: 'loop-9' });
+
+    const resumed = await runtime.resume(goal.id);
+
+    expect(resumed.ok).toBe(false);
+    expect((await runtime.forSession(SESSION))?.status).toBe('paused');
   });
 });

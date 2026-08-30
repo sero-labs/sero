@@ -68,11 +68,12 @@ export interface GoalProgressLedger {
   repeats: number;
 }
 
-/** Why the goal is parked, and the backstop timer if one was set. */
+/**
+ * Why the goal is parked. Phase 1 has no waking infrastructure, so a waiting
+ * goal is restarted by the user and by nothing else.
+ */
 export interface GoalWait {
   reason: string;
-  /** ISO timestamp. A bounded backstop, never a polling interval. */
-  until?: string;
 }
 
 export interface GoalBlock {

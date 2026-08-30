@@ -48,7 +48,9 @@ export default function orchestratorExtension(pi: ExtensionAPI): void {
   registerOrchestratorCommand(pi);
   registerRoomCommands(pi);
   registerRoomAppTool(pi);
-  registerGoalCommands(pi);
+  // The loop owns turn accounting, so it hands the command surface the starter
+  // that books a kickoff turn to the goal.
+  const startGoalTurn = registerGoalLoop(pi);
+  registerGoalCommands(pi, startGoalTurn);
   registerGoalTerminalTools(pi);
-  registerGoalLoop(pi);
 }

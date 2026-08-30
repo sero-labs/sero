@@ -103,6 +103,12 @@ happened outside it.
   budget, and applies a no-progress hold. The extension applies that verdict; it
   does not decide it.
 
+A goal that is active but idle has no settled boundary to continue from. Pi
+consumes a slash command instead of sending it as a prompt, so `/goal`, `/goal
+resume` and a restored session all start the first turn through the starter
+`registerGoalLoop` returns. That turn is the goal's own, and the goal pays for
+it.
+
 ### Rules the loop keeps
 
 1. A queued user message cancels the continuation. The user always wins.
@@ -111,23 +117,36 @@ happened outside it.
    `goal_wait` — never silence. Each carries the current goal id, so a call
    from a replaced or cleared goal is refused.
 4. The contract message supersedes every earlier one, and the objective travels
-   as task data. Goal mode grants no tool, approval or permission.
-5. Turn, token, cost and active-time budgets are separate axes. Reaching one is
+   as task data. Goal mode grants no tool, approval or permission. The record is
+   authoritative, so the contract is re-stated after every transition and after
+   compaction: the last contract in the conversation never says `active` for a
+   goal that stopped.
+5. Goal control never leaves the session that owns the goal. The runtime
+   addresses goals by id, but the `/goal` command and the model-callable `goal`
+   tool act only on the calling session's goal; a foreign id is refused.
+6. Turn, token, cost and active-time budgets are separate axes. Reaching one is
    `limited`, never `complete`. A cost budget bounds the goal's own turns; it is
    not a guaranteed spend ceiling, because one turn can run a long tool loop.
-6. Three identical visible outcomes that attempted no tool hold the goal.
-7. One autonomous driver per session (`runtime/session-drivers.ts`). Starting a
+7. Three identical visible outcomes that attempted no tool hold the goal.
+8. One autonomous driver per session (`runtime/session-drivers.ts`). Starting a
    goal on a session an active-session Workflow step drives is refused with a
-   reason, and the reverse holds too. Ordinary user turns are never blocked.
-8. A tool policy that hides a terminal tool stops the goal from starting, and
+   reason, and the reverse holds too. The claim is held only while the goal is
+   active: paused, waiting, blocked, limited and stopped goals give the session
+   back, and `resume` takes it again. Ordinary user turns are never blocked.
+9. A tool policy that hides a terminal tool stops the goal from starting, and
    pauses an active one on restore. Goal mode never widens a restrictive policy
    to keep itself running.
 
 ### What is not built yet
 
 Phase 1 records the agent's completion claim and reports it as **reported
-complete**. The verification gate, deterministic criteria, wait conditions on
-the event queue and background-drain awareness are phase 2.
+complete**. The verification gate, deterministic criteria and background-drain
+awareness are phase 2.
+
+Nothing wakes a waiting goal in phase 1. Both a backstop timer and a condition
+registered on the event queue need that waiting infrastructure, so `goal_wait`
+records the reason and says plainly that the user restarts the goal, rather
+than promising a wake it cannot give.
 
 The chat banner and the Orchestrator Goals view are gated on the approved
 prototypes (`goal-mode-chat.html`, `goal-mode-orchestrator.html`). The runtime

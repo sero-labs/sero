@@ -6,6 +6,11 @@
  * `turn_end` fires inside the tool loop and would start overlapping
  * continuations.
  *
+ * A goal only runs if something starts the first turn. A slash command, a
+ * resume and a restored session all leave the agent idle, so `registerGoalLoop`
+ * returns the starter those surfaces call — and the turn it starts is charged
+ * to the goal, exactly like a continuation.
+ *
  * Four rules decide whether a continuation is sent at all:
  *   - a pending user message cancels it. The user always wins.
  *   - an aborted turn pauses the goal. Escape means stop, not retry.
@@ -27,6 +32,12 @@ import {
 import type { Goal, GoalVerdict } from '../shared/goal-types';
 import { normalizeTurnText } from '../shared/goal-fingerprint';
 import { resolveGoalCaller } from './goal-session';
+
+/**
+ * Starts a turn for a goal that is active but idle. `registerGoalLoop` owns the
+ * accounting flag, so only it can hand this out.
+ */
+export type GoalTurnStarter = (goal: Goal) => void;
 
 /** What the settled turn produced, gathered as the turn runs. */
 interface TurnRecord {
@@ -103,12 +114,26 @@ export function hiddenTerminalTools(activeTools: string[]): string[] {
   return GOAL_TERMINAL_TOOLS.filter((name) => !activeTools.includes(name));
 }
 
-export function registerGoalLoop(pi: ExtensionAPI): void {
+export function registerGoalLoop(pi: ExtensionAPI): GoalTurnStarter {
   let turn = emptyTurn();
   // True while the turn now starting is one this loop asked for. Only such
   // turns are charged to the goal budget.
   let continuationQueued = false;
   let automatic = false;
+
+  /** Drives one turn for the goal, and books it to the goal's budget. */
+  const startTurn: GoalTurnStarter = (goal) => {
+    continuationQueued = true;
+    pi.sendMessage(
+      {
+        customType: GOAL_CONTINUATION_MESSAGE_TYPE,
+        content: buildGoalContinuation(goal),
+        display: true,
+        details: { goalId: goal.id, automaticTurns: goal.usage.automaticTurns },
+      },
+      { triggerTurn: true },
+    );
+  };
 
   pi.on('before_agent_start', (event) => {
     // A real user prompt is never a goal continuation, whatever was queued.
@@ -132,6 +157,15 @@ export function registerGoalLoop(pi: ExtensionAPI): void {
     turn = { ...summary, toolAttempted: turn.toolAttempted || summary.toolAttempted };
   });
 
+  // Compaction rewrites the conversation, so the hidden contract may be gone and
+  // a continuation must not point back at a contract that no longer exists.
+  pi.on('session_compact', async (_event, ctx) => {
+    const caller = resolveGoalCaller(ctx);
+    if ('error' in caller) return;
+    const goal = await caller.runtime.forSession(caller.sessionPath);
+    if (goal) assertGoalContract(pi, goal);
+  });
+
   pi.on('session_start', async (_event, ctx) => {
     const caller = resolveGoalCaller(ctx);
     if ('error' in caller) return;
@@ -148,6 +182,9 @@ export function registerGoalLoop(pi: ExtensionAPI): void {
       return;
     }
     assertGoalContract(pi, goal);
+    // A restored goal that is still active and still inside its budget has no
+    // settled boundary to continue from: this is its first turn again.
+    if (goal.status === 'active') startTurn(goal);
   });
 
   pi.on('agent_settled', async (_event, ctx: ExtensionContext) => {
@@ -159,7 +196,10 @@ export function registerGoalLoop(pi: ExtensionAPI): void {
     if (turn.aborted) {
       // Escape or cancel. Pause immediately and never poke a paused goal.
       const paused = await caller.runtime.pause(goal.id, 'abort', 'the turn was cancelled');
-      if (paused.goal) announce(pi, paused.goal, 'Goal paused because the turn was cancelled. Resume it with /goal resume.');
+      if (paused.goal) {
+        assertGoalContract(pi, paused.goal);
+        announce(pi, paused.goal, 'Goal paused because the turn was cancelled. Resume it with /goal resume.');
+      }
       return;
     }
     // A queued user message cancels the continuation rather than racing it.
@@ -184,15 +224,8 @@ export function registerGoalLoop(pi: ExtensionAPI): void {
       return;
     }
 
-    continuationQueued = true;
-    pi.sendMessage(
-      {
-        customType: GOAL_CONTINUATION_MESSAGE_TYPE,
-        content: buildGoalContinuation(verdict.goal),
-        display: true,
-        details: { goalId: verdict.goal.id, automaticTurns: verdict.goal.usage.automaticTurns },
-      },
-      { triggerTurn: true },
-    );
+    startTurn(verdict.goal);
   });
+
+  return startTurn;
 }

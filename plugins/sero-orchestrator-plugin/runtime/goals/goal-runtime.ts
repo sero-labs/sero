@@ -110,6 +110,17 @@ export class GoalRuntime {
     if (goal.sessionId) this.drivers.release(goal.sessionId, goal.id);
   }
 
+  /**
+   * Gives the session back. Only an active goal may steer a session, so every
+   * state that leaves `active` drops the claim — otherwise a paused, waiting or
+   * limited goal keeps refusing a Workflow step it can no longer race. `resume`
+   * re-takes the claim, and fails if something else took the session meanwhile.
+   */
+  private leaveActive(goal: Goal): Goal {
+    this.releaseSession(goal);
+    return { ...goal, sessionId: null };
+  }
+
   async start(request: GoalStartRequest): Promise<GoalOutcome> {
     const objective = request.objective.trim();
     if (!objective) return failure('A goal needs an objective.');
@@ -177,14 +188,14 @@ export class GoalRuntime {
     const charged = recordTurn(goal, report, this.ctx());
     const check = checkGoalLimits(charged, Date.parse(this.host.now()));
     if (!check.ok) {
-      const next = limit(charged, check.limit, check.reason, this.ctx());
+      const next = limit(this.leaveActive(charged), check.limit, check.reason, this.ctx());
       await this.store.put(next);
       this.host.notify(`Goal reached a limit: ${check.reason}.`, 'warning', { openApp: true });
       return { kind: 'limited', goal: next, limit: check.limit, reason: check.reason };
     }
     if (report.automatic && !report.toolAttempted && isStalled(charged)) {
       const reason = 'the last turns produced the same result and attempted nothing';
-      const next = pause(charged, 'no-progress', reason, this.ctx());
+      const next = pause(this.leaveActive(charged), 'no-progress', reason, this.ctx());
       await this.store.put(next);
       this.host.notify('A goal is holding: it is repeating itself.', 'warning', { openApp: true });
       return { kind: 'hold-no-progress', goal: next, reason };
@@ -210,8 +221,7 @@ export class GoalRuntime {
   async reportComplete(goalId: string, sessionPath: string, evidence: string): Promise<GoalOutcome> {
     const found = await this.owned(goalId, sessionPath);
     if ('error' in found) return failure(found.error);
-    const next = reportComplete(found, evidence.trim(), this.ctx());
-    this.releaseSession(next);
+    const next = reportComplete(this.leaveActive(found), evidence.trim(), this.ctx());
     await this.store.put(next);
     return {
       ok: true,
@@ -225,29 +235,28 @@ export class GoalRuntime {
   async reportBlocked(goalId: string, sessionPath: string, reason: string, evidence?: string): Promise<GoalOutcome> {
     const found = await this.owned(goalId, sessionPath);
     if ('error' in found) return failure(found.error);
-    const next = block(found, { reason: reason.trim(), evidence: evidence?.trim() }, this.ctx());
-    this.releaseSession(next);
+    const next = block(this.leaveActive(found), { reason: reason.trim(), evidence: evidence?.trim() }, this.ctx());
     await this.store.put(next);
     this.host.notify(`A goal is blocked: ${reason}`, 'warning', { openApp: true });
     return { ok: true, text: `Goal ${goalId} is blocked. The user must decide what happens next.`, goal: next };
   }
 
   /**
-   * Parks the goal. Phase 1 supports a bounded backstop timer and a manual
-   * resume; conditions registered on the event queue are phase 2 (D04), so the
-   * reason is recorded rather than acted on.
+   * Parks the goal until the user resumes it.
+   *
+   * Nothing wakes a waiting goal on its own in phase 1: both a timer and a
+   * condition registered on the event queue need the waiting infrastructure of
+   * phase 2 (D04). The reason is therefore recorded, and the goal says plainly
+   * that it waits for the user, rather than promising a wake it cannot give.
    */
-  async reportWait(goalId: string, sessionPath: string, reason: string, untilMs?: number): Promise<GoalOutcome> {
+  async reportWait(goalId: string, sessionPath: string, reason: string): Promise<GoalOutcome> {
     const found = await this.owned(goalId, sessionPath);
     if ('error' in found) return failure(found.error);
-    const until = untilMs === undefined ? undefined : new Date(Date.parse(this.host.now()) + untilMs).toISOString();
-    const next = wait(found, { reason: reason.trim(), until }, this.ctx());
+    const next = wait(this.leaveActive(found), { reason: reason.trim() }, this.ctx());
     await this.store.put(next);
     return {
       ok: true,
-      text: until
-        ? `Goal ${goalId} is waiting until ${until}: ${reason}`
-        : `Goal ${goalId} is waiting: ${reason}. Resume it when the condition is met.`,
+      text: `Goal ${goalId} is waiting: ${reason}. Resume it with /goal resume when the condition is met.`,
       goal: next,
     };
   }
@@ -257,7 +266,7 @@ export class GoalRuntime {
     if (!goal) return failure(`No goal ${goalId}.`);
     if (goal.status === 'complete' || goal.closedAt) return failure(`Goal ${goalId} is finished.`);
     if (goal.status === 'paused') return { ok: true, text: `Goal ${goalId} is already paused.`, goal };
-    const next = pause(goal, pauseReason, reason, this.ctx());
+    const next = pause(this.leaveActive(goal), pauseReason, reason, this.ctx());
     await this.store.put(next);
     return { ok: true, text: `Goal ${goalId} is paused: ${reason}`, goal: next };
   }
@@ -290,8 +299,7 @@ export class GoalRuntime {
     const goal = await this.store.get(goalId);
     if (!goal) return failure(`No goal ${goalId}.`);
     if (goal.status === 'complete' || goal.closedAt) return { ok: true, text: `Goal ${goalId} is already finished.`, goal };
-    const stopped = { ...pause(goal, 'user', 'the user stopped the goal', this.ctx()), closedAt: this.host.now(), sessionId: null };
-    this.releaseSession(goal);
+    const stopped = { ...pause(this.leaveActive(goal), 'user', 'the user stopped the goal', this.ctx()), closedAt: this.host.now() };
     await this.store.put(stopped);
     return { ok: true, text: `Goal ${goalId} is stopped.`, goal: stopped };
   }
