@@ -17,7 +17,14 @@ import { createFsAdapter } from './events/fs-adapter';
 import { createGithubAdapter } from './events/github-adapter';
 import { createWebhookAdapter } from './events/webhook-adapter';
 import { createRoomRuntime } from './rooms/room-runtime';
-import { registerRoomCoordinator, unregisterRoomCoordinator } from './registry';
+import { createGoalRuntime } from './goals';
+import { SessionDrivers } from './session-drivers';
+import {
+  registerGoalRuntime,
+  registerRoomCoordinator,
+  unregisterGoalRuntime,
+  unregisterRoomCoordinator,
+} from './registry';
 
 /** Coarse scheduler tick — cron triggers are minute-resolution. */
 const TICK_INTERVAL_MS = 60_000;
@@ -31,24 +38,38 @@ export function createAppRuntime(ctx: AppRuntimeContext): AppRuntime {
   // Every persisted mutation pushes the new state into the manager, so adapter
   // demand follows loop state with no file watching and no timers.
   const host = attachDemandSync(createOrchestratorHost(ctx), manager);
-  const coordinator = new Coordinator(host, createEngineDeps(new LoopLocks(), { stopChecker: llmStopChecker }));
+  // One autonomous driver per chat session (D06). Active-session Workflow steps
+  // and Goal mode share this arbiter, so the second one is refused with a
+  // reason instead of interleaving steers with the first.
+  const drivers = new SessionDrivers();
+  const coordinator = new Coordinator(
+    host,
+    createEngineDeps(new LoopLocks(), { stopChecker: llmStopChecker, sessionDrivers: drivers }),
+  );
   const emit: EmitEvent = (event) => coordinator.fireEvent(event).then(() => undefined);
   adapters.push(createFsAdapter(host, emit), createWebhookAdapter(host, emit), createGithubAdapter(host, emit));
   // Room mode is inert without the AD-029 host capability, so this is null on a
   // build or a plugin that does not pass the built-in gate. Workflow mode is
   // unaffected either way.
   const rooms = createRoomRuntime(ctx, host);
+  // Goal mode is the third Orchestrator mode. It needs no host capability that
+  // Workflow mode does not, so it is null only when the kill switch is set.
+  const goals = createGoalRuntime(ctx, host, drivers);
   let tickTimer: ReturnType<typeof setInterval> | undefined;
 
   return {
     start: async () => {
       registerCoordinator(ctx.workspaceId, ctx.workspacePath, coordinator);
       if (rooms) registerRoomCoordinator(ctx.workspaceId, rooms.coordinator, rooms.commands, rooms.app);
+      if (goals) registerGoalRuntime(ctx.workspaceId, goals);
       // Restart recovery: reconcile orphaned runs/attempts before any scheduling.
       await coordinator.reconcile();
       // Rooms reconcile on the same rule — recover in-flight state before any
       // member is given a turn.
       if (rooms) await rooms.reconcile();
+      // Goals re-check their budgets before anything resumes, so a goal that
+      // exhausted one while Sero was closed comes back limited, not running.
+      if (goals) await goals.reconcile();
       // Adapters see the initial demand even if reconcile wrote nothing.
       const initial = await host.readState();
       if (initial) manager.notifyState(initial);
@@ -70,6 +91,7 @@ export function createAppRuntime(ctx: AppRuntimeContext): AppRuntime {
       manager.dispose();
       unregisterCoordinator(ctx.workspaceId);
       unregisterRoomCoordinator(ctx.workspaceId);
+      unregisterGoalRuntime(ctx.workspaceId);
     },
   };
 }

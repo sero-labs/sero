@@ -16,6 +16,7 @@ import type { Coordinator } from './coordinator';
 import type { RoomAppActions } from './rooms/room-app-actions';
 import type { RoomCallerSignals, RoomCommandRouter } from './rooms/room-command-router';
 import type { RoomCoordinator } from './rooms/room-coordinator';
+import type { GoalRuntime } from './goals/goal-runtime';
 
 interface RegistryEntry {
   workspaceId: string;
@@ -148,6 +149,44 @@ export async function resolveRoomRouterForCaller(
     if (await entry.router.owns(signals)) return entry.router;
   }
   return undefined;
+}
+
+/**
+ * Goal runtimes, in their own map for the same reason Rooms are: Goal mode is a
+ * third Orchestrator mode with its own records, and one map with two optional
+ * fields would give every caller a shape that cannot occur.
+ *
+ * On `globalThis` because the goal extension and the runtime entry are bundled
+ * by different loaders — a module-level Map would give the in-session goal loop
+ * a second, empty copy and it would never find the runtime.
+ */
+const GOAL_REGISTRY_KEY = `${ORCHESTRATOR_REGISTRY_GLOBAL_KEY}:goals`;
+
+function goalStore(): Map<string, GoalRuntime> {
+  const globalScope = globalThis as Record<string, unknown>;
+  const existing = globalScope[GOAL_REGISTRY_KEY] as Map<string, GoalRuntime> | undefined;
+  if (existing) return existing;
+  const created = new Map<string, GoalRuntime>();
+  globalScope[GOAL_REGISTRY_KEY] = created;
+  return created;
+}
+
+export function registerGoalRuntime(workspaceId: string, runtime: GoalRuntime): void {
+  goalStore().set(workspaceId, runtime);
+}
+
+export function unregisterGoalRuntime(workspaceId: string): void {
+  goalStore().delete(workspaceId);
+}
+
+/**
+ * The Goal runtime for the workspace that contains `cwd`. Goal runtimes are
+ * registered by workspace id and the Workflow registry is the only one that
+ * knows each workspace's path, so the lookup goes through it.
+ */
+export function resolveGoalRuntimeByCwd(cwd: string): GoalRuntime | undefined {
+  const workspaceId = entryByCwd(cwd)?.workspaceId;
+  return workspaceId ? goalStore().get(workspaceId) : undefined;
 }
 
 export function registeredWorkspaceIds(): string[] {

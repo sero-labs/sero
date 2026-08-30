@@ -9,9 +9,10 @@
 import type { EngineDeps, RecoveryDecider, StepExecutor } from '../engine-types';
 import type { StepAttempt } from '../../shared/types';
 import type { LoopLocks } from '../locks';
+import type { SessionDrivers } from '../session-drivers';
 import { backgroundAgentExecutor } from './background-agent';
 import { modelExecutor } from './model';
-import { activeSessionExecutor } from './active-session';
+import { activeSessionExecutor, createActiveSessionExecutor } from './active-session';
 import { workspaceResolver } from '../workspace';
 import { llmDecider, llmEvaluator } from '../llm-decisions';
 
@@ -49,11 +50,18 @@ export interface EngineDepsOverrides {
   decider?: RecoveryDecider;
   evaluator?: EngineDeps['evaluator'];
   stopChecker?: EngineDeps['stopChecker'];
+  /**
+   * The one autonomous-driver-per-session arbiter (D06). Passed by the real
+   * runtime so an active-session step and a Goal cannot drive the same session;
+   * unit tests leave it out and the step runs unarbitrated.
+   */
+  sessionDrivers?: SessionDrivers;
 }
 
 export function createEngineDeps(locks: LoopLocks, overrides: EngineDepsOverrides = {}): EngineDeps {
   return {
-    executor: overrides.executor ?? createDispatchExecutor(),
+    executor:
+      overrides.executor ?? createDispatchExecutor(createActiveSessionExecutor(overrides.sessionDrivers)),
     decider: overrides.decider ?? llmDecider,
     evaluator: overrides.evaluator ?? llmEvaluator,
     // Left unset by default so unit tests make no per-step model call; the real

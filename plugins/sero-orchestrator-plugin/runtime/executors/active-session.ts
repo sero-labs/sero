@@ -8,6 +8,7 @@
 
 import type { StepExecutor, StepRunInput } from '../engine-types';
 import type { ActiveSessionTarget, Observation, StepAttempt, StepOutcome } from '../../shared/types';
+import { describeDriverConflict, type SessionDrivers } from '../session-drivers';
 import { buildStepTask } from './prompt';
 
 /** Fallback per-step turn timeout when the loop sets no wall-clock budget. */
@@ -96,48 +97,82 @@ function awaitTurn(
   });
 }
 
-export const activeSessionExecutor: StepExecutor = {
-  async run(input): Promise<StepAttempt> {
-    const target = input.step.execution as ActiveSessionTarget;
-    const sessionId = await resolveSessionId(input, target);
-    if (!sessionId) return failedAttempt(input, 'no active session available for this workspace');
+/**
+ * The step executor, optionally arbitrated.
+ *
+ * `drivers` is the one autonomous-driver-per-session lock (D06). A step that
+ * finds a Goal already driving the session fails with that reason instead of
+ * interleaving its steer with the goal's continuations. Unit tests construct
+ * the executor without an arbiter; the real runtime always passes one.
+ */
+export function createActiveSessionExecutor(drivers?: SessionDrivers): StepExecutor {
+  return {
+    async run(input): Promise<StepAttempt> {
+      const target = input.step.execution as ActiveSessionTarget;
+      const sessionId = await resolveSessionId(input, target);
+      if (!sessionId) return failedAttempt(input, 'no active session available for this workspace');
 
-    const task = buildStepTask(input.loop, input.step, input.run);
-    const deliverAs = target.sessionTarget.deliverAs;
-    const startedAt = input.host.now();
+      const claim = drivers?.claim(sessionId, { kind: 'workflow-step', ownerId: input.loop.id });
+      if (claim && !claim.ok) {
+        return failedAttempt(input, `cannot steer this session: ${describeDriverConflict(claim.holder)}`);
+      }
+      try {
+        return await steerSession(input, target, sessionId);
+      } finally {
+        // The step holds the session only while its turn runs. Releasing here
+        // keeps a failed or timed-out step from locking the session for good.
+        drivers?.release(sessionId, input.loop.id);
+      }
+    },
+  };
+}
 
-    // `triggered` is decided here (not inferred from a turn id): a steer/follow-up
-    // always runs a turn; a context message runs one only when triggerTurn is set.
-    let turnId: string | null;
-    let triggered: boolean;
-    if (deliverAs === 'steer' || deliverAs === 'followUp') {
-      ({ turnId } = await input.host.session.sendUserSteer(sessionId, task, { deliverAs, source: 'orchestrator' }));
-      triggered = true;
-    } else {
-      ({ turnId } = await input.host.session.sendContextMessage(
-        sessionId,
-        { customType: 'orchestrator-context', content: task, display: true },
-        { deliverAs, triggerTurn: target.sessionTarget.triggerTurn, source: 'orchestrator' },
-      ));
-      triggered = target.sessionTarget.triggerTurn;
-    }
+/** The default executor, with no arbiter — the dispatch default and unit tests. */
+export const activeSessionExecutor: StepExecutor = createActiveSessionExecutor();
 
-    // No turn was triggered (e.g. queued next-turn context): nothing to observe.
-    if (!triggered) {
-      return finishAttempt(input, sessionId, undefined, startedAt, { status: 'succeeded', summary: 'context delivered to session (no turn triggered)' });
-    }
+async function steerSession(
+  input: StepRunInput,
+  target: ActiveSessionTarget,
+  sessionId: string,
+): Promise<StepAttempt> {
+  const task = buildStepTask(input.loop, input.step, input.run);
+  const deliverAs = target.sessionTarget.deliverAs;
+  const startedAt = input.host.now();
 
-    const timeoutMs = turnTimeoutMs(input);
-    const result = await awaitTurn(input, sessionId, turnId ?? undefined, timeoutMs);
-    const outcome: StepOutcome =
-      result.status === 'completed'
-        ? { status: 'succeeded', summary: `session turn ${result.turnId} completed` }
-        : result.status === 'timeout'
-          ? { status: 'failed', summary: `active-session step timed out after ${Math.round(timeoutMs / 1000)}s waiting for the live session to finish its turn` }
-          : { status: 'failed', summary: `session turn ${result.turnId} ${result.status}` };
-    return finishAttempt(input, sessionId, result.status === 'timeout' ? undefined : result.turnId, startedAt, outcome);
-  },
-};
+  // `triggered` is decided here (not inferred from a turn id): a steer/follow-up
+  // always runs a turn; a context message runs one only when triggerTurn is set.
+  let turnId: string | null;
+  let triggered: boolean;
+  if (deliverAs === 'steer' || deliverAs === 'followUp') {
+    ({ turnId } = await input.host.session.sendUserSteer(sessionId, task, { deliverAs, source: 'orchestrator' }));
+    triggered = true;
+  } else {
+    ({ turnId } = await input.host.session.sendContextMessage(
+      sessionId,
+      { customType: 'orchestrator-context', content: task, display: true },
+      { deliverAs, triggerTurn: target.sessionTarget.triggerTurn, source: 'orchestrator' },
+    ));
+    triggered = target.sessionTarget.triggerTurn;
+  }
+
+  // No turn was triggered (e.g. queued next-turn context): nothing to observe.
+  if (!triggered) {
+    return finishAttempt(input, sessionId, undefined, startedAt, {
+      status: 'succeeded',
+      summary: 'context delivered to session (no turn triggered)',
+    });
+  }
+
+  const timeoutMs = turnTimeoutMs(input);
+  const result = await awaitTurn(input, sessionId, turnId ?? undefined, timeoutMs);
+  const outcome: StepOutcome =
+    result.status === 'completed'
+      ? { status: 'succeeded', summary: `session turn ${result.turnId} completed` }
+      : result.status === 'timeout'
+        ? { status: 'failed', summary: `active-session step timed out after ${Math.round(timeoutMs / 1000)}s waiting for the live session to finish its turn` }
+        : { status: 'failed', summary: `session turn ${result.turnId} ${result.status}` };
+  return finishAttempt(input, sessionId, result.status === 'timeout' ? undefined : result.turnId, startedAt, outcome);
+}
 
 function finishAttempt(
   input: StepRunInput,

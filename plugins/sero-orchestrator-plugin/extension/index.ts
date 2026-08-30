@@ -1,8 +1,9 @@
 /**
  * Orchestrator extension — registers the `orchestrator` tool, the `/orchestrator`
- * slash command, the AD-020 `room` member surface and the `rooms` user surface.
- * All of them are bridged through the CLI registry and call the per-workspace
- * coordinator via the shared registry.
+ * slash command, the AD-020 `room` member surface, the `rooms` user surface and
+ * the Goal mode surface (`/goal`, the `goal` tool, the three terminal tools and
+ * the in-session goal loop). All of them are bridged through the CLI registry
+ * and call the per-workspace coordinator via the shared registry.
  */
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
@@ -11,6 +12,9 @@ import { executeOrchestratorTool, OrchestratorToolParams, type OrchestratorToolP
 import { registerOrchestratorCommand } from './commands';
 import { registerRoomCommands } from './room-commands';
 import { registerRoomAppTool } from './room-app';
+import { registerGoalCommands } from './goal-commands';
+import { registerGoalLoop } from './goal-loop';
+import { registerGoalTerminalTools } from './goal-tools';
 
 export default function orchestratorExtension(pi: ExtensionAPI): void {
   pi.registerTool({
@@ -44,4 +48,7 @@ export default function orchestratorExtension(pi: ExtensionAPI): void {
   registerOrchestratorCommand(pi);
   registerRoomCommands(pi);
   registerRoomAppTool(pi);
+  registerGoalCommands(pi);
+  registerGoalTerminalTools(pi);
+  registerGoalLoop(pi);
 }

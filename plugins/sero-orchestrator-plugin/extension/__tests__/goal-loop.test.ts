@@ -1,0 +1,203 @@
+/**
+ * The in-session goal loop.
+ *
+ * The rules under test are the ones that decide whether the session drives
+ * itself at all: a pending user message wins, an abort pauses, and a turn is
+ * only charged to the goal when the goal started it. The loop is exercised
+ * through the real registry so the extension-to-runtime path is covered too.
+ */
+
+import { beforeEach, describe, expect, it } from 'vitest';
+import type { AgentMessage } from '@earendil-works/pi-agent-core';
+import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
+import { Coordinator } from '../../runtime/coordinator';
+import { GoalRuntime } from '../../runtime/goals/goal-runtime';
+import { createGoalStore } from '../../runtime/goals/goal-store';
+import { registerCoordinator, registerGoalRuntime } from '../../runtime/registry';
+import { SessionDrivers } from '../../runtime/session-drivers';
+import { createFakeHost } from '../../runtime/__tests__/fake-host';
+import { GOAL_CONTINUATION_MESSAGE_TYPE } from '../../shared/goal-contract';
+import { fingerprintTurn, hiddenTerminalTools, registerGoalLoop, summarizeTurn } from '../goal-loop';
+
+const WORKSPACE = '/work/repo';
+const SESSION = '/sessions/chat-1.jsonl';
+
+type Handler = (event: unknown, ctx: ExtensionContext) => unknown;
+
+interface SentMessage {
+  customType: string;
+  triggerTurn: boolean;
+}
+
+function fakePi(): { pi: ExtensionAPI; fire: (event: string, payload?: unknown, ctx?: ExtensionContext) => Promise<void>; sent: SentMessage[] } {
+  const handlers = new Map<string, Handler>();
+  const sent: SentMessage[] = [];
+  const stub = {
+    on: (event: string, handler: Handler) => handlers.set(event, handler),
+    sendMessage: (message: { customType: string }, options?: { triggerTurn?: boolean }) => {
+      sent.push({ customType: message.customType, triggerTurn: options?.triggerTurn === true });
+    },
+    getActiveTools: () => ['goal_complete', 'goal_blocked', 'goal_wait'],
+  } as Pick<ExtensionAPI, 'on' | 'sendMessage' | 'getActiveTools'> as ExtensionAPI;
+  return {
+    pi: stub,
+    sent,
+    fire: async (event, payload, ctx) => {
+      await handlers.get(event)?.(payload, ctx ?? context());
+    },
+  };
+}
+
+function context(pending = false): ExtensionContext {
+  return {
+    cwd: WORKSPACE,
+    hasPendingMessages: () => pending,
+    sessionManager: { getSessionFile: () => SESSION },
+  } as Pick<ExtensionContext, 'cwd' | 'hasPendingMessages' | 'sessionManager'> as ExtensionContext;
+}
+
+function assistantTurn(text: string, stopReason: 'stop' | 'aborted' = 'stop'): AgentMessage[] {
+  return [
+    {
+      role: 'assistant',
+      content: [{ type: 'text', text }],
+      api: 'anthropic-messages',
+      provider: 'anthropic',
+      model: 'test',
+      usage: { input: 10, output: 5, cacheRead: 0, cacheWrite: 0, totalTokens: 15, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0.02 } },
+      stopReason,
+      timestamp: 0,
+    } as AgentMessage,
+  ];
+}
+
+let runtime: GoalRuntime;
+
+beforeEach(() => {
+  const host = createFakeHost({ workspacePath: WORKSPACE });
+  const files = new Map<string, unknown>();
+  const store = createGoalStore(
+    {
+      read: async <T,>(file: string) => (files.get(file) as T) ?? null,
+      write: async <T,>(file: string, data: T) => {
+        files.set(file, data);
+      },
+    },
+    '/state',
+  );
+  runtime = new GoalRuntime(host, store, new SessionDrivers());
+  registerCoordinator(host.workspaceId, WORKSPACE, new Coordinator(host));
+  registerGoalRuntime(host.workspaceId, runtime);
+});
+
+async function settleTurn(
+  fire: (event: string, payload?: unknown, ctx?: ExtensionContext) => Promise<void>,
+  text: string,
+  options: { pending?: boolean; aborted?: boolean } = {},
+): Promise<void> {
+  await fire('agent_start');
+  await fire('agent_end', { messages: assistantTurn(text, options.aborted ? 'aborted' : 'stop') });
+  await fire('agent_settled', undefined, context(options.pending === true));
+}
+
+describe('the settled-boundary continuation', () => {
+  it('continues the session when a goal is active and nothing is queued', async () => {
+    const { pi, fire, sent } = fakePi();
+    registerGoalLoop(pi);
+    await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
+
+    await settleTurn(fire, 'I made a start.');
+
+    expect(sent.filter((message) => message.customType === GOAL_CONTINUATION_MESSAGE_TYPE)).toEqual([
+      { customType: GOAL_CONTINUATION_MESSAGE_TYPE, triggerTurn: true },
+    ]);
+  });
+
+  it('cancels the continuation when the user has a message queued', async () => {
+    const { pi, fire, sent } = fakePi();
+    registerGoalLoop(pi);
+    await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
+
+    await settleTurn(fire, 'I made a start.', { pending: true });
+
+    expect(sent.some((message) => message.customType === GOAL_CONTINUATION_MESSAGE_TYPE)).toBe(false);
+    expect((await runtime.forSession(SESSION))?.usage.automaticTurns).toBe(0);
+  });
+
+  it('pauses the goal when the turn was cancelled', async () => {
+    const { pi, fire, sent } = fakePi();
+    registerGoalLoop(pi);
+    await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
+
+    await settleTurn(fire, 'stopping there.', { aborted: true });
+
+    const goal = await runtime.forSession(SESSION);
+    expect(goal?.status).toBe('paused');
+    expect(goal?.pauseReason).toBe('abort');
+    expect(sent.some((message) => message.customType === GOAL_CONTINUATION_MESSAGE_TYPE)).toBe(false);
+  });
+
+  it('charges the turn it started and not the user turn that opened the goal', async () => {
+    const { pi, fire } = fakePi();
+    registerGoalLoop(pi);
+    await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
+
+    // The user's own turn settles first: it is not the goal's.
+    await settleTurn(fire, 'first pass.');
+    expect((await runtime.forSession(SESSION))?.usage.automaticTurns).toBe(0);
+
+    // The turn that continuation started is.
+    await settleTurn(fire, 'second pass.');
+    expect((await runtime.forSession(SESSION))?.usage.automaticTurns).toBe(1);
+  });
+
+  it('does nothing in a session with no goal', async () => {
+    const { pi, fire, sent } = fakePi();
+    registerGoalLoop(pi);
+
+    await settleTurn(fire, 'just a normal answer.');
+
+    expect(sent).toEqual([]);
+  });
+});
+
+describe('turn summarising', () => {
+  it('keeps visible text, drops thinking, and notices a tool call', () => {
+    const messages = [
+      {
+        role: 'assistant',
+        content: [
+          { type: 'thinking', thinking: 'a long private plan' },
+          { type: 'text', text: 'Running the tests.' },
+          { type: 'toolCall', id: 't1', name: 'bash', arguments: {} },
+        ],
+        api: 'anthropic-messages',
+        provider: 'anthropic',
+        model: 'test',
+        usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0.5 } },
+        stopReason: 'toolUse',
+        timestamp: 0,
+      } as AgentMessage,
+    ];
+
+    const summary = summarizeTurn(messages);
+
+    expect(summary.text).toBe('Running the tests.');
+    expect(summary.toolAttempted).toBe(true);
+    expect(summary.costUsd).toBe(0.5);
+  });
+
+  it('gives the same fingerprint to outcomes that differ only in volatile detail', () => {
+    expect(fingerprintTurn('Still waiting, attempt 4, 12.3s elapsed')).toBe(
+      fingerprintTurn('Still waiting, attempt 5, 48.9s elapsed'),
+    );
+    expect(fingerprintTurn('Still waiting')).not.toBe(fingerprintTurn('Finished'));
+  });
+});
+
+describe('the terminal-tool requirement', () => {
+  it('names the terminal tools a restrictive policy hid', () => {
+    expect(hiddenTerminalTools(['goal_complete', 'goal_wait'])).toEqual(['goal_blocked']);
+    expect(hiddenTerminalTools(['goal_complete', 'goal_blocked', 'goal_wait'])).toEqual([]);
+  });
+});
