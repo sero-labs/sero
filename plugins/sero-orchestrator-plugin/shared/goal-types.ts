@@ -146,6 +146,15 @@ export interface GoalIndexEntry {
   objective: string;
   status: GoalStatus;
   sessionPath: string;
+  sessionId: string | null;
+  automaticTurns: number;
+  maxAutomaticTurns?: number;
+  costUsd: number;
+  pauseReason?: GoalPauseReason;
+  waitReason?: string;
+  blockReason?: string;
+  limitReached?: GoalLimitKey;
+  closedAt?: string;
   updatedAt: string;
 }
 

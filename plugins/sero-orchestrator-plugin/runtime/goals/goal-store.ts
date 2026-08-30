@@ -30,6 +30,15 @@ function summarize(goal: Goal): GoalIndexEntry {
     objective: goal.objective,
     status: goal.status,
     sessionPath: goal.sessionPath,
+    sessionId: goal.sessionId,
+    automaticTurns: goal.usage.automaticTurns,
+    maxAutomaticTurns: goal.limits.maxAttemptsTotal,
+    costUsd: goal.usage.costUsd,
+    pauseReason: goal.pauseReason,
+    waitReason: goal.wait?.reason,
+    blockReason: goal.block?.reason,
+    limitReached: goal.limitReached,
+    closedAt: goal.closedAt,
     updatedAt: goal.updatedAt,
   };
 }

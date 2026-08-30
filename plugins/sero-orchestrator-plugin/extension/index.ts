@@ -15,6 +15,7 @@ import { registerRoomAppTool } from './room-app';
 import { registerGoalCommands } from './goal-commands';
 import { registerGoalLoop } from './goal-loop';
 import { registerGoalTerminalTools } from './goal-tools';
+import { registerGoalAppTool } from './goal-app';
 
 export default function orchestratorExtension(pi: ExtensionAPI): void {
   pi.registerTool({
@@ -53,4 +54,5 @@ export default function orchestratorExtension(pi: ExtensionAPI): void {
   const startGoalTurn = registerGoalLoop(pi);
   registerGoalCommands(pi, startGoalTurn);
   registerGoalTerminalTools(pi);
+  registerGoalAppTool(pi);
 }

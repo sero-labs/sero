@@ -17,6 +17,8 @@ import { type Tone } from '@sero-ai/ui/components/dashboard/tone';
 import { CheckCircle2, MessageCircleQuestion, ShieldQuestion, Sparkles } from 'lucide-react';
 import type { LoopSummary } from '../../shared/types';
 import { useOrchestratorIndex } from '../lib/use-orchestrator-index';
+import { useGoalIndex } from '../lib/use-goal-index';
+import { goalNeedsAttention } from '../lib/attention-count';
 import '../styles.css';
 
 /** How many items the inbox peeks before "+N more". */
@@ -68,11 +70,19 @@ function rowsFor(loop: LoopSummary): AttentionRow[] {
 
 export function AttentionWidget() {
   const { loops } = useOrchestratorIndex();
-  const rows = loops.flatMap(rowsFor);
+  const { goals } = useGoalIndex();
+  const goalRows: AttentionRow[] = goals.flatMap((goal) => goalNeedsAttention(goal) ? [{
+    key: `${goal.id}:goal`,
+    icon: MessageCircleQuestion,
+    tone: 'warning' as const,
+    label: goal.blockReason ?? goal.waitReason ?? 'Held after repeated turns with no progress',
+    loopTitle: `Goal · ${goal.objective}`,
+  }] : []);
+  const rows = [...goalRows, ...loops.flatMap(rowsFor)];
   // Count the real pending items, not the displayed rows — multiple suggestions
   // on one loop collapse into a single row, so `rows.length` would undercount.
   // This matches LoopsWidget's "Needs you" metric (pendingInput + suggestions).
-  const pending = loops.reduce(
+  const pending = goalRows.length + loops.reduce(
     (n, l) => n + (l.attention?.input?.questions.length ?? 0) + (l.attention?.suggestions?.length ?? 0),
     0,
   );

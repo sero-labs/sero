@@ -21,6 +21,7 @@ export {
   convertSessionMessages,
   findLegacyTurnUndoEntryId,
   formatCustomMessage,
+  projectCustomMessage,
 } from './agent-messages';
 export {
   getBaseSystemPrompt,

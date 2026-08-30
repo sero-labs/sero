@@ -29,6 +29,7 @@ type Handler = (event: unknown, ctx: ExtensionContext) => unknown;
 interface SentMessage {
   customType: string;
   triggerTurn: boolean;
+  details?: unknown;
 }
 
 type RegisteredTool = Parameters<ExtensionAPI['registerTool']>[0];
@@ -50,8 +51,12 @@ function fakePi(): FakePi {
   const sent: SentMessage[] = [];
   const stub = {
     on: (event: string, handler: Handler) => handlers.set(event, handler),
-    sendMessage: (message: { customType: string }, options?: { triggerTurn?: boolean }) => {
-      sent.push({ customType: message.customType, triggerTurn: options?.triggerTurn === true });
+    sendMessage: (message: { customType: string; details?: unknown }, options?: { triggerTurn?: boolean }) => {
+      sent.push({
+        customType: message.customType,
+        triggerTurn: options?.triggerTurn === true,
+        ...(message.customType === GOAL_CONTRACT_MESSAGE_TYPE ? { details: message.details } : {}),
+      });
     },
     getActiveTools: () => ['goal_complete', 'goal_blocked', 'goal_wait'],
     registerCommand: (name: string, command: RegisteredCommand) => commands.set(name, command),
@@ -242,7 +247,7 @@ describe('the settled-boundary continuation', () => {
   });
 
   it('charges the automatic turn that reported the goal complete', async () => {
-    const { pi, runCommand, runTool, fire } = fakePi();
+    const { pi, runCommand, runTool, fire, sent } = fakePi();
     registerGoalCommands(pi, registerGoalLoop(pi));
     registerGoalTerminalTools(pi);
     await runCommand('goal', 'finish the migration');
@@ -258,6 +263,8 @@ describe('the settled-boundary continuation', () => {
     expect(recorded?.status).toBe('complete');
     expect(recorded?.usage.automaticTurns).toBe(1);
     expect(recorded?.usage.totalTokens).toBe(15);
+    const finalContract = sent.findLast((message) => message.customType === GOAL_CONTRACT_MESSAGE_TYPE);
+    expect(finalContract?.details).toMatchObject({ goal: { status: 'complete', usage: { automaticTurns: 1 } } });
   });
 
   it('does nothing in a session with no goal', async () => {

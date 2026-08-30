@@ -1,5 +1,5 @@
 import { memo, useCallback } from 'react';
-import { Bot, Check, Copy, RotateCcw, User } from 'lucide-react';
+import { Bot, Check, Copy, RotateCcw, Target, User } from 'lucide-react';
 import { useTransientFlag } from '@/components/apps/explorer/useTransientUiState';
 import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
 
@@ -90,6 +90,31 @@ export const ChatMessageItem = memo(function ChatMessageItem({
   previousUserText,
 }: ChatMessageItemProps) {
   switch (message.type) {
+    case 'goal-state':
+      return null;
+
+    case 'goal-continuation': {
+      const nextTurn = message.automaticTurns + 1;
+      const usage = message.maxAutomaticTurns === undefined
+        ? `${message.automaticTurns} automatic turns used`
+        : `${message.automaticTurns} of ${message.maxAutomaticTurns} automatic turns used`;
+      return (
+        <div className="flex items-center gap-2 py-1 text-xs text-[var(--text-muted)]" data-goal-continuation={message.goalId}>
+          <Target className="size-3.5 text-[var(--accent-primary)]" />
+          <span className="font-medium text-[var(--text-secondary)]">Goal · turn {nextTurn}</span>
+          <span>Continue toward the objective · {usage}</span>
+        </div>
+      );
+    }
+
+    case 'goal-status':
+      return (
+        <div className="flex items-center gap-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/40 px-2.5 py-2 text-xs text-[var(--text-secondary)]">
+          <Target className="size-3.5 shrink-0 text-[var(--accent-primary)]" />
+          <span>{message.text}</span>
+        </div>
+      );
+
     case 'user': {
       const turnUndo = message.turnUndo;
       const canRestore = !!turnUndo && !!onRestoreTurnUndo;

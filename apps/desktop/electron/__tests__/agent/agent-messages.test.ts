@@ -159,3 +159,54 @@ describe('incomplete tool history', () => {
     ]);
   });
 });
+
+describe('Goal custom-message projection', () => {
+  const goal = {
+    id: 'goal-1',
+    objective: 'Make the build green',
+    criteria: ['pnpm build exits zero'],
+    status: 'active',
+    limits: { maxAttemptsTotal: 25 },
+    usage: { automaticTurns: 4, totalTokens: 1200, costUsd: 0.12, activeMs: 5000 },
+    progress: { repeats: 0 },
+  };
+
+  it('turns hidden Goal contracts into banner state without exposing contract text', () => {
+    const messages = convertSessionMessages([{
+      role: 'custom',
+      customType: 'goal-contract',
+      content: 'private goal contract',
+      display: false,
+      details: { goal },
+    }] as never);
+
+    expect(messages).toEqual([expect.objectContaining({ type: 'goal-state', goal })]);
+    expect(JSON.stringify(messages)).not.toContain('private goal contract');
+  });
+
+  it('projects continuations and status updates without raw custom-type prefixes', () => {
+    const messages = convertSessionMessages([
+      {
+        role: 'custom',
+        customType: 'goal-continuation',
+        content: 'raw continuation instructions',
+        display: true,
+        details: { goalId: 'goal-1', automaticTurns: 4, maxAutomaticTurns: 25 },
+      },
+      {
+        role: 'custom',
+        customType: 'goal-status',
+        content: 'Goal paused because the turn was cancelled.',
+        display: true,
+        details: { goal: { ...goal, status: 'paused', pauseReason: 'abort' } },
+      },
+    ] as never);
+
+    expect(messages).toMatchObject([
+      { type: 'goal-continuation', goalId: 'goal-1', automaticTurns: 4, maxAutomaticTurns: 25 },
+      { type: 'goal-status', text: 'Goal paused because the turn was cancelled.' },
+    ]);
+    expect(JSON.stringify(messages)).not.toContain('[goal-continuation]');
+    expect(JSON.stringify(messages)).not.toContain('raw continuation instructions');
+  });
+});

@@ -58,7 +58,7 @@
       "runtimeAbi": 3,
       "preBuilt": false,
       "requiredHostCapabilities": ["appAgent.invokeTool", "tool.cli", "appRuntime.background"],
-      "bridgeTools": ["orchestrator", "goal", "room", "rooms"]
+      "bridgeTools": ["orchestrator", "goal", "goals", "room", "rooms"]
     }
   },
   "dependencies": {

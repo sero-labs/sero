@@ -42,6 +42,26 @@ async function startGoal(runtime: GoalRuntime, limits = {}) {
 }
 
 describe('goal budgets', () => {
+  it('writes list data to the watched Goal index', async () => {
+    const { io, runtime } = createRuntime();
+    const goal = await startGoal(runtime, { maxAttemptsTotal: 25 });
+    await runtime.checkContinue(turn(goal.id, { fingerprint: 'made-progress', toolAttempted: true }));
+
+    expect(io.files.get('/state/goals/index.json')).toMatchObject({
+      schemaVersion: 1,
+      goals: [{
+        id: goal.id,
+        objective: 'make the tests pass',
+        status: 'active',
+        sessionPath: SESSION,
+        sessionId: 'sess-1',
+        automaticTurns: 1,
+        maxAutomaticTurns: 25,
+        costUsd: 0.01,
+      }],
+    });
+  });
+
   it('charges a turn the goal started and not a turn the user started', async () => {
     const { runtime } = createRuntime();
     const goal = await startGoal(runtime);

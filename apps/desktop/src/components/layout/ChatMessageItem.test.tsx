@@ -19,6 +19,7 @@ vi.mock('lucide-react', () => ({
   Users: () => <svg data-icon="users" />,
   Swords: () => <svg data-icon="swords" />,
   ChevronDown: () => <svg data-icon="chevron-down" />,
+  Target: () => <svg data-icon="target" />,
 }));
 
 vi.mock('@sero-ai/ui/ai-elements/message', () => ({
@@ -175,5 +176,38 @@ describe('ChatMessageItem assistant chrome', () => {
     expect(container.querySelector('[data-icon="loader"]')).not.toBeNull();
     expect(container.querySelector('[data-icon="bot"]')).toBeNull();
     expect(container.textContent).toContain('Thinking…');
+  });
+
+  it('renders an auditable Goal turn without raw continuation text', async () => {
+    await act(async () => {
+      root?.render(
+        <ChatMessageItem
+          message={{
+            type: 'goal-continuation',
+            id: 'goal-turn-1',
+            goalId: 'goal-1',
+            automaticTurns: 4,
+            maxAutomaticTurns: 25,
+          }}
+        />,
+      );
+    });
+
+    expect(container.textContent).toContain('Goal · turn 5');
+    expect(container.textContent).toContain('4 of 25 automatic turns used');
+    expect(container.textContent).not.toContain('[goal-continuation]');
+  });
+
+  it('renders Goal state changes as compact transcript records', async () => {
+    await act(async () => {
+      root?.render(
+        <ChatMessageItem
+          message={{ type: 'goal-status', id: 'goal-status-1', text: 'Goal is waiting for CI.' }}
+        />,
+      );
+    });
+
+    expect(container.textContent).toContain('Goal is waiting for CI.');
+    expect(container.querySelector('[data-icon="target"]')).not.toBeNull();
   });
 });

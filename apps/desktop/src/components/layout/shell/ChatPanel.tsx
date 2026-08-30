@@ -28,6 +28,7 @@ import { ChatPromptArea } from '@/components/layout/ChatPromptArea';
 import { ImageLightbox } from '@/components/layout/ImageLightbox';
 import { parseSessionLocationKey, useNodesStore } from '@/stores/nodes';
 import { RemoteConversation } from '@/components/layout/nodes/RemoteConversation';
+import { GoalBanner } from '@/components/layout/GoalBanner';
 
 const EMPTY_MESSAGES: NonNullable<ReturnType<typeof useFocusedAgent>>['messages'] = [];
 
@@ -100,6 +101,24 @@ function LocalChatPanel() {
 
   const showThinkingBlocks = useAgentStore((s) => s.showThinkingBlocks);
   const showMemoryBlocks = useAgentStore((s) => s.showMemoryBlocks);
+  const sendPrompt = useAgentStore((s) => s.sendPrompt);
+
+  const goal = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (message.type === 'goal-state') return message.goal;
+      if (message.type === 'goal-status' && message.goal) return message.goal;
+    }
+    return null;
+  }, [messages]);
+
+  const onGoalAction = useCallback((action: 'pause' | 'resume' | 'stop' | 'raise-limit') => {
+    if (!sessionId || !goal) return;
+    const command = action === 'raise-limit'
+      ? `/goal turns ${(goal.limits.maxAttemptsTotal ?? goal.usage.automaticTurns) + 25}`
+      : `/goal ${action}`;
+    void sendPrompt(sessionId, command);
+  }, [goal, sendPrompt, sessionId]);
 
   // Group consecutive tool calls into collapsible blocks
   const groupedItems = useMemo(() => groupMessages(messages), [messages]);
@@ -229,6 +248,8 @@ function LocalChatPanel() {
         )}
         {sessionId && <SessionBadge sessionId={sessionId} />}
       </div>
+
+      {goal ? <GoalBanner goal={goal} onAction={onGoalAction} /> : null}
 
       {conversation}
 

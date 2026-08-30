@@ -84,7 +84,7 @@ export function fingerprintTurn(text: string): string {
 /** Sends the contract, which supersedes every earlier one in this conversation. */
 export function assertGoalContract(pi: ExtensionAPI, goal: Goal): void {
   pi.sendMessage(
-    { customType: GOAL_CONTRACT_MESSAGE_TYPE, content: buildGoalContract(goal), display: false, details: { goalId: goal.id } },
+    { customType: GOAL_CONTRACT_MESSAGE_TYPE, content: buildGoalContract(goal), display: false, details: { goal } },
     { triggerTurn: false },
   );
 }
@@ -92,7 +92,7 @@ export function assertGoalContract(pi: ExtensionAPI, goal: Goal): void {
 /** One line about what the goal just did, for the transcript and the banner. */
 function announce(pi: ExtensionAPI, goal: Goal, text: string): void {
   pi.sendMessage(
-    { customType: GOAL_STATUS_MESSAGE_TYPE, content: text, display: true, details: { goalId: goal.id, status: goal.status } },
+    { customType: GOAL_STATUS_MESSAGE_TYPE, content: text, display: true, details: { goal } },
     { triggerTurn: false },
   );
 }
@@ -140,7 +140,11 @@ export function registerGoalLoop(pi: ExtensionAPI): GoalTurnStarter {
         customType: GOAL_CONTINUATION_MESSAGE_TYPE,
         content: buildGoalContinuation(goal),
         display: true,
-        details: { goalId: goal.id, automaticTurns: goal.usage.automaticTurns },
+        details: {
+          goalId: goal.id,
+          automaticTurns: goal.usage.automaticTurns,
+          maxAutomaticTurns: goal.limits.maxAttemptsTotal,
+        },
       },
       { triggerTurn: true },
     );
@@ -226,7 +230,10 @@ export function registerGoalLoop(pi: ExtensionAPI): GoalTurnStarter {
     // The turn ran, so it is charged — but only a live, active goal that still
     // owns this session may be moved by what the turn produced.
     if (!goal || goal.id !== ownerId || goal.status !== 'active') {
-      await caller.runtime.recordSettledTurn(report);
+      const charged = await caller.runtime.recordSettledTurn(report);
+      // A terminal tool changes the status before the turn settles. Re-state
+      // the charged record so the session banner receives the final usage too.
+      if (charged) assertGoalContract(pi, charged);
       return;
     }
 

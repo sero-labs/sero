@@ -4,6 +4,7 @@ import type {
   ChatAttachment,
   ChatAssistantMessage,
   ChatMessage,
+  ChatGoalSnapshot,
   ChatToolCallMessage,
   ToolResultImage,
 } from '@/types/ipc';
@@ -19,6 +20,63 @@ interface DisplayableCustomMessage {
   display?: boolean;
   customType?: string;
   content?: unknown;
+  details?: unknown;
+}
+
+function asGoalSnapshot(value: unknown): ChatGoalSnapshot | null {
+  if (!value || typeof value !== 'object') return null;
+  const goal = value as Partial<ChatGoalSnapshot>;
+  if (
+    typeof goal.id !== 'string'
+    || typeof goal.objective !== 'string'
+    || !Array.isArray(goal.criteria)
+    || typeof goal.status !== 'string'
+    || !goal.limits
+    || !goal.usage
+    || !goal.progress
+  ) return null;
+  return goal as ChatGoalSnapshot;
+}
+
+function customText(content: unknown): string {
+  return typeof content === 'string'
+    ? content
+    : Array.isArray(content)
+      ? content
+          .filter((entry): entry is { type: 'text'; text: string } => entry?.type === 'text')
+          .map((entry) => entry.text)
+          .join('\n')
+      : '';
+}
+
+/** Maps host-owned custom messages to renderer-native chat records. */
+export function projectCustomMessage(message: unknown): ChatMessage | null {
+  if (!message || typeof message !== 'object') return null;
+  const msg = message as DisplayableCustomMessage;
+  const customType = String(msg.customType ?? '').trim();
+  const details = msg.details && typeof msg.details === 'object'
+    ? msg.details as Record<string, unknown>
+    : {};
+  const goal = asGoalSnapshot(details.goal);
+
+  if (customType === 'goal-contract') {
+    return goal ? { type: 'goal-state', id: nextId(), goal } : null;
+  }
+  if (customType === 'goal-continuation') {
+    const goalId = typeof details.goalId === 'string' ? details.goalId : '';
+    const automaticTurns = typeof details.automaticTurns === 'number' ? details.automaticTurns : 0;
+    const maxAutomaticTurns = typeof details.maxAutomaticTurns === 'number'
+      ? details.maxAutomaticTurns
+      : undefined;
+    return goalId
+      ? { type: 'goal-continuation', id: nextId(), goalId, automaticTurns, maxAutomaticTurns }
+      : null;
+  }
+  if (customType === 'goal-status') {
+    const text = customText(msg.content).trim();
+    return text ? { type: 'goal-status', id: nextId(), text, goal: goal ?? undefined } : null;
+  }
+  return null;
 }
 
 /**
@@ -34,15 +92,7 @@ export function formatCustomMessage(message: unknown): string | null {
 
   const customType = String(msg.customType ?? '').trim();
   const content = msg.content;
-  const text =
-    typeof content === 'string'
-      ? content
-      : Array.isArray(content)
-        ? content
-            .filter((entry): entry is { type: 'text'; text: string } => entry?.type === 'text')
-            .map((entry) => entry.text)
-            .join('\n')
-        : '';
+  const text = customText(content);
   const prefixed = customType ? `[${customType}] ${text}` : text;
   return prefixed.trim() ? prefixed : null;
 }
@@ -245,6 +295,11 @@ export function convertSessionMessages(
     }
 
     if (message.role === 'custom') {
+      const projected = projectCustomMessage(message);
+      if (projected) {
+        result.push(projected);
+        continue;
+      }
       const prefixed = formatCustomMessage(message);
       if (!prefixed) continue;
       result.push({ type: 'assistant', id: nextId(), text: prefixed, isStreaming: false } satisfies ChatAssistantMessage);
