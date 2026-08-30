@@ -294,3 +294,27 @@ describe('restoring a goal into a session', () => {
     expect(drivers.holderOf('sess-1')).toEqual({ kind: 'goal', ownerId: goal.id });
   });
 });
+
+describe('charging a turn a terminal tool already ended', () => {
+  it('charges the goal without moving it off the state its tool chose', async () => {
+    const { runtime } = createRuntime();
+    const goal = await startGoal(runtime);
+    await runtime.reportWait(goal.id, SESSION, 'the release build is still running');
+
+    const charged = await runtime.recordSettledTurn(turn(goal.id, { totalTokens: 400, costUsd: 0.04 }));
+
+    expect(charged?.status).toBe('waiting');
+    expect(charged?.usage.automaticTurns).toBe(1);
+    expect(charged?.usage.totalTokens).toBe(400);
+  });
+
+  it('refuses a turn reported from a session that does not own the goal', async () => {
+    const { runtime } = createRuntime();
+    const goal = await startGoal(runtime);
+
+    const charged = await runtime.recordSettledTurn(turn(goal.id, { sessionPath: '/sessions/chat-2.jsonl' }));
+
+    expect(charged).toBeNull();
+    expect((await runtime.forSession(SESSION))?.usage.automaticTurns).toBe(0);
+  });
+});

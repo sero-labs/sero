@@ -18,8 +18,9 @@
  *   - the goal must still be active when the boundary is reached.
  *
  * None of them is a reason to charge nothing. A turn the goal started is spent
- * whether it is cancelled, overtaken by the user, or continued, so the turn is
- * reported to the runtime BEFORE any of these rules decides against another.
+ * whether it is cancelled, overtaken by the user, continued, or ended by a
+ * terminal tool call inside it, so the turn is reported to the runtime BEFORE
+ * any of these rules decides against another.
  */
 
 import { createHash } from 'node:crypto';
@@ -124,10 +125,16 @@ export function registerGoalLoop(pi: ExtensionAPI): GoalTurnStarter {
   // turns are charged to the goal budget.
   let continuationQueued = false;
   let automatic = false;
+  // The goal this loop asked the turn for. A terminal tool can end that goal
+  // while its turn is still running, so the turn's owner cannot be looked up
+  // again at the settled boundary — it is remembered from when it was asked for.
+  let queuedGoalId: string | null = null;
+  let turnGoalId: string | null = null;
 
   /** Drives one turn for the goal, and books it to the goal's budget. */
   const startTurn: GoalTurnStarter = (goal) => {
     continuationQueued = true;
+    queuedGoalId = goal.id;
     pi.sendMessage(
       {
         customType: GOAL_CONTINUATION_MESSAGE_TYPE,
@@ -141,12 +148,17 @@ export function registerGoalLoop(pi: ExtensionAPI): GoalTurnStarter {
 
   pi.on('before_agent_start', (event) => {
     // A real user prompt is never a goal continuation, whatever was queued.
-    if (event.prompt.trim().length > 0) continuationQueued = false;
+    if (event.prompt.trim().length > 0) {
+      continuationQueued = false;
+      queuedGoalId = null;
+    }
   });
 
   pi.on('agent_start', () => {
     automatic = continuationQueued;
+    turnGoalId = automatic ? queuedGoalId : null;
     continuationQueued = false;
+    queuedGoalId = null;
     turn = emptyTurn();
   });
 
@@ -195,21 +207,32 @@ export function registerGoalLoop(pi: ExtensionAPI): GoalTurnStarter {
     const caller = resolveGoalCaller(ctx);
     if ('error' in caller) return;
     const goal = await caller.runtime.forSession(caller.sessionPath);
-    if (!goal) return;
-    // A goal that stopped during the turn has nothing left to charge or drive.
-    if (goal.status !== 'active') return;
+    // The goal that owned this turn, which is not always the live one: a
+    // terminal tool inside the turn can have completed, blocked, parked,
+    // paused or stopped it before it settled.
+    const ownerId = turnGoalId ?? goal?.id;
+    if (!ownerId) return;
 
-    // Report the turn first. It is charged only if the goal started it, and it
-    // is charged whether or not anything below allows another one.
-    const verdict = await caller.runtime.checkContinue({
-      goalId: goal.id,
+    const report = {
+      goalId: ownerId,
       sessionPath: caller.sessionPath,
       fingerprint: fingerprintTurn(turn.text),
       toolAttempted: turn.toolAttempted,
       automatic,
       totalTokens: turn.totalTokens,
       costUsd: turn.costUsd,
-    });
+    };
+
+    // The turn ran, so it is charged — but only a live, active goal that still
+    // owns this session may be moved by what the turn produced.
+    if (!goal || goal.id !== ownerId || goal.status !== 'active') {
+      await caller.runtime.recordSettledTurn(report);
+      return;
+    }
+
+    // Report the turn first. It is charged only if the goal started it, and it
+    // is charged whether or not anything below allows another one.
+    const verdict = await caller.runtime.checkContinue(report);
 
     // A budget or a no-progress hold outranks the two rules below: the goal has
     // already left `active`, with a reason worth more than "paused".

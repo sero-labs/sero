@@ -219,6 +219,24 @@ export class GoalRuntime {
   }
 
   /**
+   * Charges a settled turn to the goal that owned it, and moves nothing.
+   *
+   * A terminal tool changes the durable status DURING the turn, so by the time
+   * that turn settles the goal can already be complete, blocked, waiting,
+   * paused or stopped. The tokens were still spent. Charging them here keeps a
+   * goal that resumes later from coming back with a budget that forgot its own
+   * last turn. No transition and no limit check runs: the tool set the state,
+   * and nothing may move a goal off the state its own report chose.
+   */
+  async recordSettledTurn(report: GoalTurnReport): Promise<Goal | null> {
+    const goal = await this.store.get(report.goalId);
+    if (!goal || goal.sessionPath !== report.sessionPath) return null;
+    const charged = recordTurn(goal, report, this.ctx());
+    await this.store.put(charged);
+    return charged;
+  }
+
+  /**
    * Resolves a terminal report from the session that owns the goal. A call
    * carrying a stale goal id, or one made from a different session, is refused
    * instead of ending a goal it does not own.

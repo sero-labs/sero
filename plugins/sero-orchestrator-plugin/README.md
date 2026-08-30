@@ -113,9 +113,12 @@ it.
 
 1. A queued user message cancels the continuation. The user always wins.
 2. Escape or cancel pauses the goal. A paused goal is never poked.
-3. A turn the goal started is charged before either of those rules is applied.
-   Cancelling a turn or overtaking it with a message does not refund the tokens
-   it spent, so it does not hide them from the budget either.
+3. A turn the goal started is charged before either of those rules is applied,
+   and a turn that ended the goal from inside itself is charged too. Cancelling
+   a turn, overtaking it with a message, or finishing it with `goal_complete`
+   does not refund the tokens it spent, so none of them hides those tokens from
+   the budget. The turn's owner is remembered from when the loop asked for it,
+   because a terminal tool can end the goal before that turn settles.
 4. Stopping is an explicit tool call — `goal_complete`, `goal_blocked` or
    `goal_wait` — never silence. Each carries the current goal id, so a call
    from a replaced or cleared goal is refused.

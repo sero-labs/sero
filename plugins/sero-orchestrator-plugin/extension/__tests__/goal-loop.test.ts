@@ -220,6 +220,46 @@ describe('the settled-boundary continuation', () => {
     expect((await runtime.forSession(SESSION))?.usage.automaticTurns).toBe(1);
   });
 
+  it('charges the automatic turn that parked the goal with a terminal tool', async () => {
+    const { pi, runCommand, runTool, fire } = fakePi();
+    registerGoalCommands(pi, registerGoalLoop(pi));
+    registerGoalTerminalTools(pi);
+    await runCommand('goal', 'finish the migration');
+    const started = await runtime.forSession(SESSION);
+
+    // The tool runs INSIDE the automatic turn, so the goal is already waiting
+    // by the time that turn settles.
+    await fire('agent_start');
+    await runTool('goal_wait', { goal_id: started!.id, reason: 'the release build is still running' });
+    await fire('agent_end', { messages: assistantTurn('parking until the build finishes.') });
+    await fire('agent_settled');
+
+    const goal = await runtime.forSession(SESSION);
+    expect(goal?.status).toBe('waiting');
+    // The turn is not free just because it was the last one.
+    expect(goal?.usage.automaticTurns).toBe(1);
+    expect(goal?.usage.totalTokens).toBe(15);
+  });
+
+  it('charges the automatic turn that reported the goal complete', async () => {
+    const { pi, runCommand, runTool, fire } = fakePi();
+    registerGoalCommands(pi, registerGoalLoop(pi));
+    registerGoalTerminalTools(pi);
+    await runCommand('goal', 'finish the migration');
+    const started = await runtime.forSession(SESSION);
+
+    await fire('agent_start');
+    await runTool('goal_complete', { goal_id: started!.id, evidence: 'the suite passes' });
+    await fire('agent_end', { messages: assistantTurn('every criterion is met.') });
+    await fire('agent_settled');
+
+    // A completed goal is no longer live, so the record comes from the list.
+    const recorded = (await runtime.list()).find((entry) => entry.id === started!.id);
+    expect(recorded?.status).toBe('complete');
+    expect(recorded?.usage.automaticTurns).toBe(1);
+    expect(recorded?.usage.totalTokens).toBe(15);
+  });
+
   it('does nothing in a session with no goal', async () => {
     const { pi, fire, sent } = fakePi();
     registerGoalLoop(pi);
