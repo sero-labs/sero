@@ -16,6 +16,10 @@
  *   - an aborted turn pauses the goal. Escape means stop, not retry.
  *   - the runtime, not this file, decides limits and no-progress holds.
  *   - the goal must still be active when the boundary is reached.
+ *
+ * None of them is a reason to charge nothing. A turn the goal started is spent
+ * whether it is cancelled, overtaken by the user, or continued, so the turn is
+ * reported to the runtime BEFORE any of these rules decides against another.
  */
 
 import { createHash } from 'node:crypto';
@@ -192,20 +196,11 @@ export function registerGoalLoop(pi: ExtensionAPI): GoalTurnStarter {
     if ('error' in caller) return;
     const goal = await caller.runtime.forSession(caller.sessionPath);
     if (!goal) return;
-
-    if (turn.aborted) {
-      // Escape or cancel. Pause immediately and never poke a paused goal.
-      const paused = await caller.runtime.pause(goal.id, 'abort', 'the turn was cancelled');
-      if (paused.goal) {
-        assertGoalContract(pi, paused.goal);
-        announce(pi, paused.goal, 'Goal paused because the turn was cancelled. Resume it with /goal resume.');
-      }
-      return;
-    }
-    // A queued user message cancels the continuation rather than racing it.
-    if (ctx.hasPendingMessages()) return;
+    // A goal that stopped during the turn has nothing left to charge or drive.
     if (goal.status !== 'active') return;
 
+    // Report the turn first. It is charged only if the goal started it, and it
+    // is charged whether or not anything below allows another one.
     const verdict = await caller.runtime.checkContinue({
       goalId: goal.id,
       sessionPath: caller.sessionPath,
@@ -216,6 +211,8 @@ export function registerGoalLoop(pi: ExtensionAPI): GoalTurnStarter {
       costUsd: turn.costUsd,
     });
 
+    // A budget or a no-progress hold outranks the two rules below: the goal has
+    // already left `active`, with a reason worth more than "paused".
     if (verdict.kind !== 'continue') {
       if (verdict.goal) {
         assertGoalContract(pi, verdict.goal);
@@ -223,6 +220,20 @@ export function registerGoalLoop(pi: ExtensionAPI): GoalTurnStarter {
       }
       return;
     }
+
+    if (turn.aborted) {
+      // Escape or cancel. Pause immediately and never poke a paused goal.
+      const paused = await caller.runtime.pause(goal.id, 'abort', 'the turn was cancelled');
+      if (paused.goal) {
+        assertGoalContract(pi, paused.goal);
+        announce(pi, paused.goal, 'Goal paused because the turn was cancelled. Resume it with /goal resume.');
+      }
+      return;
+    }
+
+    // A queued user message cancels the continuation rather than racing it. The
+    // user's turn drives the session next, and the goal picks up when it settles.
+    if (ctx.hasPendingMessages()) return;
 
     startTurn(verdict.goal);
   });

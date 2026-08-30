@@ -108,6 +108,7 @@ function assistantTurn(text: string, stopReason: 'stop' | 'aborted' = 'stop'): A
 }
 
 let runtime: GoalRuntime;
+let drivers: SessionDrivers;
 
 beforeEach(() => {
   const host = createFakeHost({ workspacePath: WORKSPACE });
@@ -121,7 +122,8 @@ beforeEach(() => {
     },
     '/state',
   );
-  runtime = new GoalRuntime(host, store, new SessionDrivers());
+  drivers = new SessionDrivers();
+  runtime = new GoalRuntime(host, store, drivers);
   registerCoordinator(host.workspaceId, WORKSPACE, new Coordinator(host));
   registerGoalRuntime(host.workspaceId, runtime);
 });
@@ -158,6 +160,37 @@ describe('the settled-boundary continuation', () => {
 
     expect(sent.some((message) => message.customType === GOAL_CONTINUATION_MESSAGE_TYPE)).toBe(false);
     expect((await runtime.forSession(SESSION))?.usage.automaticTurns).toBe(0);
+  });
+
+  it('charges the automatic turn the user queued a message over', async () => {
+    const { pi, runCommand, fire, sent } = fakePi();
+    registerGoalCommands(pi, registerGoalLoop(pi));
+    // The command starts the first turn, so the turn that settles is the goal's.
+    await runCommand('goal', 'finish the migration');
+    sent.length = 0;
+
+    // It runs to the end, and only then does the user queue something.
+    await settleTurn(fire, 'first pass.', { pending: true });
+
+    // The tokens were spent, so the budget pays for them. Only the next
+    // continuation is suppressed.
+    const goal = await runtime.forSession(SESSION);
+    expect(goal?.usage.automaticTurns).toBe(1);
+    expect(goal?.usage.totalTokens).toBe(15);
+    expect(sent.some((message) => message.customType === GOAL_CONTINUATION_MESSAGE_TYPE)).toBe(false);
+  });
+
+  it('charges the automatic turn that was cancelled before pausing', async () => {
+    const { pi, runCommand, fire } = fakePi();
+    registerGoalCommands(pi, registerGoalLoop(pi));
+    await runCommand('goal', 'finish the migration');
+
+    await settleTurn(fire, 'stopping there.', { aborted: true });
+
+    const goal = await runtime.forSession(SESSION);
+    expect(goal?.status).toBe('paused');
+    expect(goal?.pauseReason).toBe('abort');
+    expect(goal?.usage.automaticTurns).toBe(1);
   });
 
   it('pauses the goal when the turn was cancelled', async () => {
@@ -281,6 +314,22 @@ describe('starting the first turn', () => {
     await runCommand('goal', 'status');
 
     expect(sent.some((message) => message.triggerTurn)).toBe(false);
+  });
+
+  it('does not drive a session another driver took while Sero was closed', async () => {
+    const { pi, fire, sent } = fakePi();
+    registerGoalLoop(pi);
+    const started = await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
+    // Sero restarts: the record survives, the claim it held does not.
+    await runtime.reconcile();
+    drivers.release('sess-1', started.goal!.id);
+    // A Workflow step got the session this goal used to drive.
+    drivers.claim('sess-1', { kind: 'workflow-step', ownerId: 'loop-9' });
+
+    await fire('session_start');
+
+    expect(sent.some((message) => message.triggerTurn)).toBe(false);
+    expect((await runtime.forSession(SESSION))?.status).toBe('paused');
   });
 
   it('drives a turn for a goal that was still active when Sero restarted', async () => {

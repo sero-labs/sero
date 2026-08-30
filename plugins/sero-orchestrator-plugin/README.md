@@ -58,13 +58,13 @@ by default when the host provides the capability. Set `SERO_ROOMS=0` or
 
 1. Record the Room ID and affected member ID.
 2. Check Sero logs for the Room ID and `room metric wake_latency_ms`.
-3. Check the Room timeline, provider availability, approvals, limits, active
+4. Check the Room timeline, provider availability, approvals, limits, active
    turn capacity, and member worktree.
-4. Restart Sero after an interrupted state write. The redo journal completes
+5. Restart Sero after an interrupted state write. The redo journal completes
    the accepted split-file transaction before Room state loads.
-5. Pause and resume a Room to reopen a stale member session from its standard Pi
+6. Pause and resume a Room to reopen a stale member session from its standard Pi
    session file.
-6. Keep member worktrees during recovery. Resolve or collect their commits
+7. Keep member worktrees during recovery. Resolve or collect their commits
    through the host Git service. Do not delete uncommitted work.
 
 If disk space is exhausted, stop new Rooms, restore space, and restart. Do not
@@ -113,29 +113,35 @@ it.
 
 1. A queued user message cancels the continuation. The user always wins.
 2. Escape or cancel pauses the goal. A paused goal is never poked.
-3. Stopping is an explicit tool call — `goal_complete`, `goal_blocked` or
+3. A turn the goal started is charged before either of those rules is applied.
+   Cancelling a turn or overtaking it with a message does not refund the tokens
+   it spent, so it does not hide them from the budget either.
+4. Stopping is an explicit tool call — `goal_complete`, `goal_blocked` or
    `goal_wait` — never silence. Each carries the current goal id, so a call
    from a replaced or cleared goal is refused.
-4. The contract message supersedes every earlier one, and the objective travels
+5. The contract message supersedes every earlier one, and the objective travels
    as task data. Goal mode grants no tool, approval or permission. The record is
    authoritative, so the contract is re-stated after every transition and after
-   compaction: the last contract in the conversation never says `active` for a
-   goal that stopped.
-5. Goal control never leaves the session that owns the goal. The runtime
+   compaction, and what it tells the model follows the status: only an active
+   contract says to keep working. Every other status withdraws that instruction
+   and names the way back.
+6. Goal control never leaves the session that owns the goal. The runtime
    addresses goals by id, but the `/goal` command and the model-callable `goal`
    tool act only on the calling session's goal; a foreign id is refused.
-6. Turn, token, cost and active-time budgets are separate axes. Reaching one is
+7. Turn, token, cost and active-time budgets are separate axes. Reaching one is
    `limited`, never `complete`. A cost budget bounds the goal's own turns; it is
    not a guaranteed spend ceiling, because one turn can run a long tool loop.
-7. Three identical visible outcomes that attempted no tool hold the goal.
-8. One autonomous driver per session (`runtime/session-drivers.ts`). Starting a
+8. Three identical visible outcomes that attempted no tool hold the goal.
+9. One autonomous driver per session (`runtime/session-drivers.ts`). Starting a
    goal on a session an active-session Workflow step drives is refused with a
    reason, and the reverse holds too. The claim is held only while the goal is
    active: paused, waiting, blocked, limited and stopped goals give the session
-   back, and `resume` takes it again. Ordinary user turns are never blocked.
-9. A tool policy that hides a terminal tool stops the goal from starting, and
-   pauses an active one on restore. Goal mode never widens a restrictive policy
-   to keep itself running.
+   back, and `resume` takes it again. A goal that cannot re-take its session on
+   restore is held rather than restored active, so it never drives a session a
+   Workflow step holds. Ordinary user turns are never blocked.
+10. A tool policy that hides a terminal tool stops the goal from starting, and
+    pauses an active one on restore. Goal mode never widens a restrictive policy
+    to keep itself running.
 
 ### What is not built yet
 

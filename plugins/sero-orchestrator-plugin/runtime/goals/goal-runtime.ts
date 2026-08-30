@@ -159,12 +159,26 @@ export class GoalRuntime {
    * Re-binds a restored goal to its session and re-takes the session lock. The
    * extension calls this at session start, after which the contract is
    * re-asserted from the record.
+   *
+   * A goal that cannot re-take the session is PAUSED here rather than returned
+   * as active. The caller decides whether to drive from the status it gets
+   * back, so a lost claim must change that status: otherwise a restored goal
+   * would start steering a session a Workflow step already holds.
    */
   async reattach(sessionPath: string): Promise<Goal | null> {
     const goal = await this.store.forSession(sessionPath);
     if (!goal || goal.sessionId) return goal;
     const claimed = await this.claimSession(goal.id);
-    if ('conflict' in claimed || claimed.sessionId === null) return goal;
+    if ('conflict' in claimed) {
+      if (goal.status !== 'active') return goal;
+      const held = pause(goal, 'restore', `${claimed.conflict}, so the goal is on hold`, this.ctx());
+      await this.store.put(held);
+      this.host.log(`goal ${goal.id} is held on restore: ${claimed.conflict}`);
+      return held;
+    }
+    // No active host session means no lock is available at all. The extension
+    // still drives its own session; this is the documented best-effort case.
+    if (claimed.sessionId === null) return goal;
     const next = { ...goal, sessionId: claimed.sessionId, updatedAt: this.host.now() };
     await this.store.put(next);
     return next;

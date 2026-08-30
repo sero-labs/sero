@@ -262,3 +262,35 @@ describe('holding the session only while it is driving', () => {
     expect((await runtime.forSession(SESSION))?.status).toBe('paused');
   });
 });
+
+describe('restoring a goal into a session', () => {
+  it('holds an active goal that cannot re-take its session', async () => {
+    const io = memoryIo();
+    const goal = await startGoal(createRuntime(createFakeHost(), io).runtime);
+    // Sero restarts: the records survive, the in-process claims do not.
+    const { drivers, runtime } = createRuntime(createFakeHost(), io);
+    await runtime.reconcile();
+    // A Workflow step got the session first.
+    drivers.claim('sess-1', { kind: 'workflow-step', ownerId: 'loop-9' });
+
+    const restored = await runtime.reattach(SESSION);
+
+    // The caller drives from the status, so a lost claim must change it.
+    expect(restored?.status).toBe('paused');
+    expect(restored?.pauseReason).toBe('restore');
+    expect(drivers.holderOf('sess-1')).toEqual({ kind: 'workflow-step', ownerId: 'loop-9' });
+    expect(restored?.id).toBe(goal.id);
+  });
+
+  it('takes the session back when nothing else holds it', async () => {
+    const io = memoryIo();
+    const goal = await startGoal(createRuntime(createFakeHost(), io).runtime);
+    const { drivers, runtime } = createRuntime(createFakeHost(), io);
+    await runtime.reconcile();
+
+    const restored = await runtime.reattach(SESSION);
+
+    expect(restored?.status).toBe('active');
+    expect(drivers.holderOf('sess-1')).toEqual({ kind: 'goal', ownerId: goal.id });
+  });
+});

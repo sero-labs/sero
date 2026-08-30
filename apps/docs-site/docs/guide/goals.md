@@ -70,7 +70,9 @@ Every Goal has budgets, counted separately:
 - active time.
 
 Only the turns the Goal itself starts are counted. Your own messages are free.
-Change the turn budget with `/goal turns 40`.
+A turn the Goal started still counts if you cancel it or send a message over
+it, because it has already used what it used. Change the turn budget with
+`/goal turns 40`.
 
 Reaching a budget stops the Goal. **It is not success.** Sero says which budget
 was reached, and the Goal stays stopped until you raise it and resume.

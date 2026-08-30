@@ -57,6 +57,57 @@ function criteriaBlock(goal: Goal): string {
 }
 
 /**
+ * What the session must do about this goal RIGHT NOW.
+ *
+ * Only an active goal is told to keep working. Every other status is a stop:
+ * the contract that replaces an active one must withdraw its instruction, or
+ * the newest contract in the conversation still says "keep going" about a goal
+ * that completed, was paused, or ran out of budget.
+ */
+function behaviourBlock(goal: Goal): string[] {
+  switch (goal.status) {
+    case 'active':
+      return [
+        'Keep working toward the objective. You stop only with a tool call — silence is not a stop:',
+        '- goal_complete — every criterion is met. Give the evidence for each one.',
+        '- goal_blocked — you cannot go further without the user.',
+        '- goal_wait — you must wait for something observable, such as a check or a process.',
+        '',
+        `Every one of those calls takes goal_id "${goal.id}". A call with any other id is refused.`,
+      ];
+    case 'paused':
+      return [
+        'This goal is PAUSED. Do not work on it on your own and do not call the goal tools for it.',
+        'Answer the user normally. Only the user restarts it, with /goal resume.',
+      ];
+    case 'waiting':
+      return [
+        `This goal is WAITING${goal.wait ? ` for: ${quote(goal.wait.reason)}` : ''}.`,
+        'Do not work on it on your own and do not call the goal tools for it. Nothing restarts it by itself.',
+        'Answer the user normally. The user restarts it with /goal resume once the condition is met.',
+      ];
+    case 'blocked':
+      return [
+        `This goal is BLOCKED${goal.block ? `: ${quote(goal.block.reason)}` : ''}.`,
+        'The user decides what happens next. Do not work on it on your own and do not call the goal tools for it.',
+        'Answer their questions about it. The user restarts it with /goal resume.',
+      ];
+    case 'limited':
+      return [
+        `This goal STOPPED at a budget limit${goal.limitReached ? ` (${goal.limitReached})` : ''}. Reaching a limit is not completion, and no criterion is proven by it.`,
+        'Do not work on it on your own and do not call the goal tools for it.',
+        'It stays stopped until the user raises that budget and resumes it.',
+      ];
+    case 'complete':
+      return [
+        'This goal is FINISHED: you already reported it complete, and that report is recorded.',
+        'Goal mode is over for it. Do not work on it on your own, do not report it again, and do not call the goal tools for it.',
+        'Answer the user normally. A new goal needs a new /goal command.',
+      ];
+  }
+}
+
+/**
  * The full contract. Sent when a goal starts, at session start, and after every
  * state change, so the record and the session never disagree.
  */
@@ -74,12 +125,7 @@ export function buildGoalContract(goal: Goal): string {
     criteriaBlock(goal),
     '</goal-criteria>',
     '',
-    'Keep working toward the objective. You stop only with a tool call — silence is not a stop:',
-    `- goal_complete — every criterion is met. Give the evidence for each one.`,
-    `- goal_blocked — you cannot go further without the user.`,
-    `- goal_wait — you must wait for something observable, such as a check or a process.`,
-    '',
-    `Every one of those calls takes goal_id "${goal.id}". A call with any other id is refused.`,
+    ...behaviourBlock(goal),
     '',
     budgetLine(goal),
   ].join('\n');

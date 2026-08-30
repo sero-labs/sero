@@ -62,6 +62,41 @@ describe('the goal contract', () => {
     expect(contract).toContain('Cost: $0.50 of $2.00.');
   });
 
+  it('tells an active goal to keep working, and how it may stop', () => {
+    const contract = buildGoalContract(goal());
+
+    expect(contract).toContain('Keep working toward the objective');
+    expect(contract).toContain('goal_complete');
+    expect(contract).toContain('silence is not a stop');
+  });
+
+  it('withdraws that instruction for every status that is not active', () => {
+    for (const status of ['paused', 'waiting', 'blocked', 'limited', 'complete'] as const) {
+      const contract = buildGoalContract(goal({ status }));
+
+      expect(contract, status).not.toContain('Keep working toward the objective');
+      expect(contract, status).toContain('do not call the goal tools for it');
+    }
+  });
+
+  it('says how each stopped goal gets back to work', () => {
+    expect(buildGoalContract(goal({ status: 'paused' }))).toContain('/goal resume');
+    expect(buildGoalContract(goal({ status: 'waiting', wait: { reason: 'CI run 4821 finishes' } }))).toContain(
+      'CI run 4821 finishes',
+    );
+    expect(buildGoalContract(goal({ status: 'limited', limitReached: 'maxAttemptsTotal' }))).toContain(
+      'Reaching a limit is not completion',
+    );
+  });
+
+  it('marks a finished goal as finished, not as work in hand', () => {
+    const contract = buildGoalContract(goal({ status: 'complete' }));
+
+    expect(contract).toContain('FINISHED');
+    expect(contract).toContain('do not report it again');
+    expect(contract).toContain('a new /goal command');
+  });
+
   it('keeps the continuation short and points back at the contract', () => {
     const continuation = buildGoalContinuation(goal());
 
