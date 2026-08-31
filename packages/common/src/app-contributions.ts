@@ -3,6 +3,7 @@ export type ComponentExtensionPointId =
   | 'ui.global-search.panel'
   | 'ui.explorer.view'
   | 'ui.titlebar.control'
+  | 'ui.chat.model-extension'
   | 'ui.admin.model-settings'
   | 'ui.dashboard.widget';
 
@@ -32,6 +33,11 @@ export interface TitleBarControlContribution extends ComponentContributionBase {
   extensionPoint: 'ui.titlebar.control';
 }
 
+export interface ChatModelExtensionContribution extends ComponentContributionBase {
+  extensionPoint: 'ui.chat.model-extension';
+  models: Array<{ provider: string; api: string; modelId: string }>;
+}
+
 export interface AdminModelSettingsContribution extends ComponentContributionBase {
   extensionPoint: 'ui.admin.model-settings';
   name: string;
@@ -52,6 +58,7 @@ export type ComponentContribution =
   | GlobalSearchPanelContribution
   | ExplorerViewContribution
   | TitleBarControlContribution
+  | ChatModelExtensionContribution
   | AdminModelSettingsContribution
   | DashboardWidgetContribution;
 

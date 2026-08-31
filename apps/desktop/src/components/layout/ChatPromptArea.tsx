@@ -25,6 +25,7 @@ import { ModelSelector } from './models/ModelSelector';
 import { AuthLoginDialog } from './auth/AuthLoginDialog';
 import { ContextEditor } from './ContextEditor';
 import { VoiceTranscriptionControl } from './VoiceTranscriptionControl';
+import { ModelExtensionActions } from './ModelExtensionActions';
 import { ContextEditorMenuItem, ThinkingBlocksToggle, MemoryBlocksToggle } from './ChatPanelHelpers';
 import { WorkspaceSnapshotMenuItem } from './WorkspaceSnapshotMenuItem';
 import { useMessageQueue } from '@/hooks/useMessageQueue';
@@ -174,6 +175,7 @@ export const ChatPromptArea = memo(function ChatPromptArea({
             />
             <MemoryBlocksToggle disabled={!hasSession} />
             <ThinkingBlocksToggle disabled={!hasSession} />
+            <ModelExtensionActions sessionId={sessionId} />
             <ModelSelector disabled={!hasSession} />
           </>
         )}

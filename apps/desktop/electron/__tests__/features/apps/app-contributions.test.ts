@@ -30,6 +30,43 @@ describe('app contribution parsing', () => {
     expect(parsed.diagnostics).toEqual([]);
   });
 
+  it('parses exact compatible models for ChatPanel extension shortcuts', () => {
+    const parsed = parseAppContributions({
+      contributes: {
+        components: [{
+          id: 'model-extension',
+          extensionPoint: 'ui.chat.model-extension',
+          component: 'ModelExtension',
+          models: [{ provider: 'openai-codex', api: 'openai-codex-responses', modelId: 'gpt-5.6-luna' }],
+        }],
+      },
+    });
+
+    expect(parsed.contributions.components).toEqual([{
+      id: 'model-extension',
+      extensionPoint: 'ui.chat.model-extension',
+      component: 'ModelExtension',
+      models: [{ provider: 'openai-codex', api: 'openai-codex-responses', modelId: 'gpt-5.6-luna' }],
+    }]);
+    expect(parsed.diagnostics).toEqual([]);
+  });
+
+  it('rejects ChatPanel extension shortcuts without exact model metadata', () => {
+    const parsed = parseAppContributions({
+      contributes: {
+        components: [{
+          id: 'model-extension',
+          extensionPoint: 'ui.chat.model-extension',
+          component: 'ModelExtension',
+          models: [{ provider: 'openai-codex', modelId: 'gpt-5.6-luna' }],
+        }],
+      },
+    });
+
+    expect(parsed.contributions.components).toEqual([]);
+    expect(parsed.diagnostics.map((entry) => entry.code)).toEqual(['invalid-contribution']);
+  });
+
   it.each([
     { id: 'provider-settings', extensionPoint: 'ui.admin.model-settings', component: 'ProviderSettings' },
     { id: 'provider-settings', extensionPoint: 'ui.admin.model-settings', name: 'Example provider' },

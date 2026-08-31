@@ -40,19 +40,22 @@ interface AdminLaunchParams extends Record<string, unknown> {
   agentPluginId?: unknown;
   section?: unknown;
   configKey?: unknown;
+  modelSettingsKey?: unknown;
 }
 
 function readAdminLaunchParams(): {
   agentPluginId: string | null;
   section: AdminSection | null;
   configKey: string | null;
+  modelSettingsKey: string | null;
 } {
   const params = consumeAppLaunchParams<AdminLaunchParams>('admin');
   const section = params?.section;
   return {
     agentPluginId: typeof params?.agentPluginId === 'string' ? params.agentPluginId : null,
-    section: section === 'settings' ? section : null,
+    section: section === 'settings' || section === 'model' ? section : null,
     configKey: typeof params?.configKey === 'string' ? params.configKey : null,
+    modelSettingsKey: typeof params?.modelSettingsKey === 'string' ? params.modelSettingsKey : null,
   };
 }
 
@@ -91,6 +94,7 @@ export function AdminApp() {
     : launchParams.section
       ?? normalizeSection(state.lastSection as AdminState['lastSection'] | 'modelDefaults' | null | undefined);
   const selectedConfigKey = launchParams.configKey ?? state.lastConfigKey;
+  const selectedModelSettingsKey = launchParams.modelSettingsKey ?? state.lastModelSettings;
   const selectedSessionId = state.lastSessionFile;
   const skillVisibility = useSkillVisibility(profilePath);
 
@@ -98,8 +102,9 @@ export function AdminApp() {
     return onAppLaunchParams<AdminLaunchParams>('admin', (params) => {
       setLaunchParams({
         agentPluginId: typeof params.agentPluginId === 'string' ? params.agentPluginId : null,
-        section: params.section === 'settings' ? params.section : null,
+        section: params.section === 'settings' || params.section === 'model' ? params.section : null,
         configKey: typeof params.configKey === 'string' ? params.configKey : null,
+        modelSettingsKey: typeof params.modelSettingsKey === 'string' ? params.modelSettingsKey : null,
       });
     });
   }, []);
@@ -153,7 +158,7 @@ export function AdminApp() {
 
   const handleSectionChange = useCallback((section: AdminSection) => {
     setError(null);
-    setLaunchParams({ agentPluginId: null, section: null, configKey: null });
+    setLaunchParams({ agentPluginId: null, section: null, configKey: null, modelSettingsKey: null });
     updateState((prev) => ({ ...prev, lastSection: section }));
   }, [updateState]);
 
@@ -167,6 +172,7 @@ export function AdminApp() {
   }, [updateState]);
 
   const handleSelectModelSettings = useCallback((key: string) => {
+    setLaunchParams((current) => ({ ...current, modelSettingsKey: null }));
     updateState((prev) => ({ ...prev, lastModelSettings: key }));
   }, [updateState]);
 
@@ -321,7 +327,7 @@ export function AdminApp() {
       case 'model':
         return (
           <ModelSettingsPanel
-            selectedKey={state.lastModelSettings}
+            selectedKey={selectedModelSettingsKey}
             onSelect={handleSelectModelSettings}
           />
         );

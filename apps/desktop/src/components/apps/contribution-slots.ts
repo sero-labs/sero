@@ -9,6 +9,7 @@ const COMPONENT_EXTENSION_POINTS = [
   'ui.global-search.panel',
   'ui.explorer.view',
   'ui.titlebar.control',
+  'ui.chat.model-extension',
   'ui.admin.model-settings',
   'ui.dashboard.widget',
 ] as const;

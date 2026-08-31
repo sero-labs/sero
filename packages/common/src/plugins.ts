@@ -33,6 +33,8 @@ export const SERO_HOST_CAPABILITIES = [
   'ui.explorerView',
   /** Host mounts `sero.app.titlebar` as a title-bar control. */
   'ui.titlebar',
+  /** Host mounts compatible model-extension shortcuts in the ChatPanel. */
+  'ui.chat.model-extension',
   /** Host mounts contributed provider-neutral settings in Admin's Model section. */
   'ui.admin.model-settings',
   /** Federated UI can persist an image as the host dashboard background. */

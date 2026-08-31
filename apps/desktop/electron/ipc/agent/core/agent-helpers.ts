@@ -81,6 +81,7 @@ export function buildModelState(entry: Pick<PoolEntryRef, 'session'>): SessionMo
   return {
     model: {
       provider: activeModel?.provider ?? 'unknown',
+      api: activeModel?.api ?? 'unknown',
       modelId: activeModel?.id ?? 'unknown',
       name: activeModel?.name ?? inactiveModelLabel,
       reasoning: activeModel?.reasoning ?? false,

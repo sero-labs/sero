@@ -69,6 +69,18 @@ function parseOptionalSize(value: unknown, fallback: { w: number; h: number }): 
   return value === undefined ? undefined : parseSize(value, fallback);
 }
 
+function parseModelMatches(value: unknown): Array<{ provider: string; api: string; modelId: string }> | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const matches = value.flatMap((entry) => {
+    if (!isObject(entry)) return [];
+    const provider = nonEmptyString(entry.provider);
+    const api = nonEmptyString(entry.api);
+    const modelId = nonEmptyString(entry.modelId);
+    return provider && api && modelId ? [{ provider, api, modelId }] : [];
+  });
+  return matches.length === value.length ? matches : null;
+}
+
 function diagnostic(
   code: AppContributionDiagnostic['code'],
   message: string,
@@ -120,6 +132,18 @@ function parseComponent(
       };
     case 'ui.titlebar.control':
       return { ...base, extensionPoint };
+    case 'ui.chat.model-extension': {
+      const models = parseModelMatches(value.models);
+      if (!models) {
+        diagnostics.push(diagnostic(
+          'invalid-contribution',
+          'Chat model extension contribution requires at least one valid model match.',
+          value,
+        ));
+        return null;
+      }
+      return { ...base, extensionPoint, models };
+    }
     case 'ui.admin.model-settings': {
       const name = nonEmptyString(value.name);
       if (!name) {
