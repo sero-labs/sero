@@ -40,6 +40,7 @@ describe('provider health', () => {
     const provider = apiKeyProvider('openai');
     const availableModel: RegistryModelLike = {
       provider: 'openai',
+      api: 'openai-responses',
       id: 'gpt-test',
       name: 'GPT Test',
       reasoning: false,

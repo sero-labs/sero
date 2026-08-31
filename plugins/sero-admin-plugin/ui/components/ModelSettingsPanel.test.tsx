@@ -77,7 +77,7 @@ describe('ModelSettingsPanel', () => {
     expect(slotMock.mount).toHaveBeenCalledTimes(1);
   });
 
-  it('returns to Sero defaults when the selected contribution disappears', async () => {
+  it('shows Sero defaults without replacing the saved selection when a contribution disappears', async () => {
     const onSelect = vi.fn();
     slotMock.contributions = [provider('alpha:settings', 'Alpha')];
     await act(async () => root.render(
@@ -88,7 +88,7 @@ describe('ModelSettingsPanel', () => {
       <ModelSettingsPanel selectedKey="alpha:settings" onSelect={onSelect} />,
     ));
 
-    expect(onSelect).toHaveBeenCalledWith('sero-defaults');
+    expect(onSelect).not.toHaveBeenCalled();
     expect(container.textContent).toBe('Sero tier editor');
   });
 

@@ -40,7 +40,7 @@ export const WidgetMount = memo(function WidgetMount({ widget, manifest, widgetM
         name: widgetMeta?.manifest.name ?? widget.widgetId,
         defaultSize: widgetMeta?.manifest.defaultSize ?? { w: 2, h: 2 },
       }}
-      contributionKey={`${manifest.id}:${widget.widgetId}`}
+      contributionKey={`${manifest.id}:ui.dashboard.widget:${widget.widgetId}`}
       loading={<WidgetLoading />}
       unavailable={<WidgetFallback message="Widget unavailable" />}
       missingWorkspace={<WidgetFallback message="No workspace selected" />}

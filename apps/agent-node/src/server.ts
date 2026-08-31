@@ -213,6 +213,7 @@ async function dispatchControl(operation: ControlOperationName, body: Record<str
       ...(await services.providers.providers()),
       models: (await services.providers.models()).map((model) => ({
         providerId: model.provider,
+        api: model.api,
         modelId: model.id,
         name: model.name,
         reasoning: model.reasoning,

@@ -75,8 +75,8 @@ describe('nodes store', () => {
       nodes: [node],
       sessions: { [node.id]: [{ ...session, model: 'anthropic/claude' }] },
       models: { [node.id]: [
-        { providerId: 'anthropic', modelId: 'claude', name: 'Claude', reasoning: true, availableThinkingLevels: ['off', 'high'] },
-        { providerId: 'openai', modelId: 'gpt-5', name: 'GPT-5', reasoning: true, availableThinkingLevels: ['off', 'medium', 'high'] },
+        { providerId: 'anthropic', api: 'anthropic-messages', modelId: 'claude', name: 'Claude', reasoning: true, availableThinkingLevels: ['off', 'high'] },
+        { providerId: 'openai', api: 'openai-responses', modelId: 'gpt-5', name: 'GPT-5', reasoning: true, availableThinkingLevels: ['off', 'medium', 'high'] },
       ] },
     });
     await useNodesStore.getState().setSessionModel(node.id, session.id, 'openai/gpt-5');

@@ -180,7 +180,7 @@ export type AgentStreamEvent =
 /** Serialisable model info for the renderer (no class instances). */
 export interface ModelInfo {
   provider: string;
-  api?: string;
+  api: string;
   modelId: string;
   name: string;
   reasoning: boolean;

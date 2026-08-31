@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import type { KeyboardEvent } from 'react';
 import {
   useAppContributionSlot,
@@ -30,12 +30,6 @@ export function ModelSettingsPanel({ selectedKey, onSelect }: ModelSettingsPanel
   );
   const selectedContribution = contributions.find((entry) => entry.key === selectedKey);
   const effectiveKey = selectedContribution ? selectedKey : SERO_MODEL_DEFAULTS_KEY;
-
-  // Discovery can remove a provider while Admin is open; persist the visible fallback.
-  useEffect(() => {
-    // react-doctor-disable-next-line react-doctor/no-pass-data-to-parent -- Discovery is external to Admin state, so this synchronizes the persisted selection after removal.
-    if (selectedKey !== effectiveKey) onSelect(effectiveKey);
-  }, [effectiveKey, onSelect, selectedKey]);
 
   if (contributions.length === 0) return <ModelPanel />;
 

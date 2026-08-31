@@ -15,12 +15,14 @@ const groups: AvailableModelGroup[] = [
     models: [
       {
         provider: 'anthropic',
+        api: 'anthropic-messages',
         modelId: 'claude-sonnet-4',
         name: 'Claude Sonnet 4',
         reasoning: true,
       },
       {
         provider: 'anthropic',
+        api: 'anthropic-messages',
         modelId: 'claude-haiku-4',
         name: 'Claude Haiku 4',
         reasoning: false,
@@ -34,6 +36,7 @@ const groups: AvailableModelGroup[] = [
     models: [
       {
         provider: 'openai',
+        api: 'openai-responses',
         modelId: 'gpt-4.1',
         name: 'GPT-4.1',
         reasoning: true,

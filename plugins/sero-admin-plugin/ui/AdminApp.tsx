@@ -41,6 +41,14 @@ interface AdminLaunchParams extends Record<string, unknown> {
   section?: unknown;
   configKey?: unknown;
   modelSettingsKey?: unknown;
+  modelSettingsAppId?: unknown;
+  modelSettingsContributionId?: unknown;
+}
+
+function modelSettingsKey(params: AdminLaunchParams | null | undefined): string | null {
+  if (typeof params?.modelSettingsKey === 'string') return params.modelSettingsKey;
+  if (typeof params?.modelSettingsAppId !== 'string' || typeof params.modelSettingsContributionId !== 'string') return null;
+  return `${params.modelSettingsAppId}:ui.admin.model-settings:${params.modelSettingsContributionId}`;
 }
 
 function readAdminLaunchParams(): {
@@ -55,7 +63,7 @@ function readAdminLaunchParams(): {
     agentPluginId: typeof params?.agentPluginId === 'string' ? params.agentPluginId : null,
     section: section === 'settings' || section === 'model' ? section : null,
     configKey: typeof params?.configKey === 'string' ? params.configKey : null,
-    modelSettingsKey: typeof params?.modelSettingsKey === 'string' ? params.modelSettingsKey : null,
+    modelSettingsKey: modelSettingsKey(params),
   };
 }
 
@@ -104,7 +112,7 @@ export function AdminApp() {
         agentPluginId: typeof params.agentPluginId === 'string' ? params.agentPluginId : null,
         section: params.section === 'settings' || params.section === 'model' ? params.section : null,
         configKey: typeof params.configKey === 'string' ? params.configKey : null,
-        modelSettingsKey: typeof params.modelSettingsKey === 'string' ? params.modelSettingsKey : null,
+        modelSettingsKey: modelSettingsKey(params),
       });
     });
   }, []);

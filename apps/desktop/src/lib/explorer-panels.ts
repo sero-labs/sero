@@ -28,9 +28,10 @@ export function isBuiltinExplorerPanel(value: unknown): value is BuiltinExplorer
 interface ExplorerContributionIdentity {
   key: string;
   appId: string;
+  contribution: { id: string };
 }
 
-/** Accept the legacy app id when that app contributes exactly one Explorer view. */
+/** Accept persisted ids from before contribution keys included the extension point. */
 export function resolveExplorerPanelId(
   panel: ExplorerPanel,
   contributions: ExplorerContributionIdentity[],
@@ -38,6 +39,7 @@ export function resolveExplorerPanelId(
   let legacyMatch: string | undefined;
   for (const contribution of contributions) {
     if (contribution.key === panel) return panel;
+    if (`${contribution.appId}:${contribution.contribution.id}` === panel) return contribution.key;
     if (contribution.appId !== panel) continue;
     if (legacyMatch) return panel;
     legacyMatch = contribution.key;

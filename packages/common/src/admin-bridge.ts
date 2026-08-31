@@ -109,6 +109,7 @@ export interface PromptTemplateFileDataIPC {
 
 export interface ModelInfoIPC {
   provider: string;
+  api: string;
   modelId: string;
   name: string;
   reasoning: boolean;
