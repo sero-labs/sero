@@ -27,6 +27,7 @@ contribution a distinct identity.
 | `ui.global-search.panel` | Component | `description?` | One panel or tabbed panels |
 | `ui.explorer.view` | Component | `label?`, `icon?` | Explorer activity item and main view |
 | `ui.titlebar.control` | Component | None | Inline title-bar controls |
+| `ui.chat.model-extension` | Component | `models` | Action beside the chat model selector |
 | `ui.admin.model-settings` | Component | `name`, `description?`, `icon?` | Admin Model subsection |
 | `ui.dashboard.widget` | Component | `name`, `defaultSize?`, `minSize?`, `maxSize?`, `description?` | Dashboard grid |
 | `workspace.create.option` | Control | `switch` control and `tool` action | Create New Workspace form |
@@ -41,9 +42,14 @@ An Admin model-settings contribution must also have a non-empty `name`. Admin
 uses this provider-neutral name in its Model subsection selector. The
 contributed component owns all provider labels, controls, and state.
 
+A chat model-extension contribution must list at least one model. Each model
+needs a non-empty `provider`, `api`, and `modelId`. Sero mounts the component
+only when all three values match the selected model. It does not infer support
+for other models from a provider or model name.
+
 ## Component example
 
-This app has one main component and contributes three additional components:
+This app has one main component and contributes four additional components:
 
 ```json
 {
@@ -78,6 +84,18 @@ This app has one main component and contributes three additional components:
             "component": "KnowledgeModelSettings",
             "name": "Knowledge provider",
             "description": "Knowledge model defaults"
+          },
+          {
+            "id": "chat-model-action",
+            "extensionPoint": "ui.chat.model-extension",
+            "component": "KnowledgeModelAction",
+            "models": [
+              {
+                "provider": "openai",
+                "api": "openai-responses",
+                "modelId": "gpt-5.4"
+              }
+            ]
           }
         ]
       }
@@ -138,8 +156,8 @@ An unknown or malformed optional entry is ignored and recorded as a diagnostic.
 It does not disable unrelated plugin features. Federated components are still
 subject to the plugin runtime ABI check.
 
-Extension points are optional by default. If the plugin cannot work without
-Admin model settings, declare `ui.admin.model-settings` in
+Extension points are optional by default. If the plugin cannot work without a
+point, such as `ui.admin.model-settings` or `ui.chat.model-extension`, add it to
 `sero.plugin.requiredHostCapabilities`. The host then rejects installation on
 builds that do not provide the point. Use `sero.plugin.minSeroVersion` for other
 release-level requirements.
