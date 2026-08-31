@@ -146,7 +146,7 @@ export function getContributions<P extends AppExtensionPointId>(
     for (const contribution of entries) {
       if (contribution.extensionPoint !== extensionPoint) continue;
       resolved.push({
-        key: `${app.id}:${contribution.id}`,
+        key: `${app.id}:${contribution.extensionPoint}:${contribution.id}`,
         appId: app.id,
         app,
         manifest,

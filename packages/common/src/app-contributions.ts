@@ -3,6 +3,7 @@ export type ComponentExtensionPointId =
   | 'ui.global-search.panel'
   | 'ui.explorer.view'
   | 'ui.titlebar.control'
+  | 'ui.admin.model-settings'
   | 'ui.dashboard.widget';
 
 /** Host-owned locations that accept host-rendered plugin controls. */
@@ -31,6 +32,13 @@ export interface TitleBarControlContribution extends ComponentContributionBase {
   extensionPoint: 'ui.titlebar.control';
 }
 
+export interface AdminModelSettingsContribution extends ComponentContributionBase {
+  extensionPoint: 'ui.admin.model-settings';
+  name: string;
+  description?: string;
+  icon?: string;
+}
+
 export interface DashboardWidgetContribution extends ComponentContributionBase {
   extensionPoint: 'ui.dashboard.widget';
   name: string;
@@ -44,6 +52,7 @@ export type ComponentContribution =
   | GlobalSearchPanelContribution
   | ExplorerViewContribution
   | TitleBarControlContribution
+  | AdminModelSettingsContribution
   | DashboardWidgetContribution;
 
 export interface SwitchControlDefinition {

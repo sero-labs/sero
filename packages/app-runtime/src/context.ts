@@ -6,7 +6,8 @@
  * multiple times (which happens in Vite dev mode with MF).
  */
 
-import { createContext, type Context } from 'react';
+import { createContext, type Context, type ReactNode } from 'react';
+import type { ComponentExtensionPointId } from '@sero-ai/common';
 
 export type AppProfilePreferenceValue = string | number | boolean | null;
 
@@ -14,6 +15,29 @@ export type AppProfilePreferenceValue = string | number | boolean | null;
 export interface AppProfilePreferencesValue {
   values: Readonly<Record<string, AppProfilePreferenceValue>>;
   set: (key: string, value: AppProfilePreferenceValue) => void;
+}
+
+/** Safe metadata for one federated component that a host surface can mount. */
+export interface ContributedComponentDescriptor {
+  key: string;
+  extensionPoint: ComponentExtensionPointId;
+  name: string;
+  description?: string;
+  icon?: string;
+  contributorAppId: string;
+  contributorAppName: string;
+}
+
+export interface ContributionMountOptions {
+  loading: ReactNode;
+  unavailable: ReactNode;
+  missingWorkspace?: ReactNode;
+}
+
+/** Host implementation behind contributed-component listing and mounting. */
+export interface AppContributionSlotsValue {
+  components: readonly ContributedComponentDescriptor[];
+  mount: (key: string, options: ContributionMountOptions) => ReactNode;
 }
 
 export interface AppContextValue {
@@ -44,6 +68,8 @@ export interface AppContextValue {
   navigation?: AppNavigationValue;
   /** Preferences shared by this app across every workspace in the profile. */
   profilePreferences?: AppProfilePreferencesValue;
+  /** Host-owned component slots available to this federated app. */
+  contributionSlots?: AppContributionSlotsValue;
 }
 
 export interface AppNavigationValue {

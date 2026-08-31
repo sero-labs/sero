@@ -480,9 +480,8 @@ export function getFederatedComponent(
   const LazyComp = lazy(async () => {
     const loaded = await loadRemoteModule(appId, component, devPort, remoteEntryOverride);
     if (!loaded) {
-      console.error(`[federation] Failed to load remote: ${toRemoteName(appId)}/${component}`);
       clearCacheKey(cacheKey);
-      return { default: () => null };
+      throw new Error(`Failed to load federated component ${toRemoteName(appId)}/${component}`);
     }
 
     resolvedModules.set(cacheKey, loaded.mod.default);

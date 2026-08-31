@@ -11,6 +11,7 @@ This package provides the React hooks and context used by Sero apps:
 - `useAgentPrompt`
 - `useAI`
 - `useAvailableModels`
+- `useAppContributionSlot`
 - `useTheme`
 - `AppProvider`
 
@@ -24,6 +25,11 @@ the state file has been read.
 `useAppPreferences` stores small profile-wide UI choices in the host layout.
 Use it for settings that must follow the profile across workspaces. Use
 `useAppState` for workspace or app data.
+
+`useAppContributionSlot(extensionPoint)` lists safe descriptors for components
+that other apps contribute to a host-owned surface. Check its explicit
+`status`, then use `mount(key, fallbacks)` to keep federation URLs, manifests,
+runtime context, style isolation, and error containment inside the host.
 
 ## Development
 

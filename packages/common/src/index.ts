@@ -47,6 +47,7 @@ export type {
   GlobalSearchPanelContribution,
   ExplorerViewContribution,
   TitleBarControlContribution,
+  AdminModelSettingsContribution,
   DashboardWidgetContribution,
   ComponentContribution,
   SwitchControlDefinition,

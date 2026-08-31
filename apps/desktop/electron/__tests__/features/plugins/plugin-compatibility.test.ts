@@ -1,7 +1,11 @@
 import { readFileSync } from 'fs';
 import path from 'path';
 import { describe, expect, it, vi } from 'vitest';
-import { SERO_PLUGIN_RUNTIME_ABI, type PluginMeta } from '@sero-ai/common';
+import {
+  SERO_HOST_CAPABILITIES,
+  SERO_PLUGIN_RUNTIME_ABI,
+  type PluginMeta,
+} from '@sero-ai/common';
 
 import {
   evaluatePluginCompatibility,
@@ -12,7 +16,7 @@ import { extractPluginCompatibilityRequirements } from '@electron/features/apps/
 function makeContext(overrides?: Partial<SeroHostCompatibilityContext>): SeroHostCompatibilityContext {
   return {
     hostVersion: overrides?.hostVersion ?? '0.1.0',
-    capabilities: overrides?.capabilities ?? new Set(['appAgent.invokeTool', 'tool.cli', 'appRuntime.background']),
+    capabilities: overrides?.capabilities ?? new Set(SERO_HOST_CAPABILITIES),
   };
 }
 
@@ -81,6 +85,19 @@ describe('plugin compatibility', () => {
     };
 
     expect(evaluatePluginCompatibility(plugin, makeContext())).toEqual({
+      supported: true,
+      hostVersion: '0.1.0',
+      issues: [],
+    });
+  });
+
+  it('accepts an external plugin that requires the Admin model-settings host point', () => {
+    const compatibility = evaluatePluginCompatibility({
+      requiredHostCapabilities: ['ui.admin.model-settings'],
+    }, makeContext());
+
+    expect(SERO_HOST_CAPABILITIES).toContain('ui.admin.model-settings');
+    expect(compatibility).toEqual({
       supported: true,
       hostVersion: '0.1.0',
       issues: [],

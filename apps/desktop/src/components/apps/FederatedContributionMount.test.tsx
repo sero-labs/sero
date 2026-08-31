@@ -8,15 +8,29 @@ import type { SeroAppManifest } from '@/types/ipc';
 const federationMocks = vi.hoisted(() => ({
   getFederatedComponent: vi.fn(),
 }));
+const runtimeMocks = vi.hoisted(() => ({
+  useAppRuntimeMount: vi.fn((manifest: SeroAppManifest) => ({
+    contextValue: {
+      appId: manifest.id,
+      stateFilePath: manifest.globalStatePath,
+      themeMode: 'dark',
+    },
+    status: 'ready',
+  })),
+}));
 
 vi.mock('@sero-ai/app-runtime', () => ({
-  AppProvider: ({ children }: { children: ReactNode }) => children,
+  AppProvider: ({ value, children }: { value: { appId: string; stateFilePath: string }; children: ReactNode }) => (
+    <div data-context-app={value.appId} data-context-state={value.stateFilePath}>{children}</div>
+  ),
 }));
 vi.mock('@sero-ai/ui/plugin-style-scope', () => ({
-  PluginStyleScope: ({ children }: { children: ReactNode }) => children,
+  PluginStyleScope: ({ pluginId, children }: { pluginId: string; children: ReactNode }) => (
+    <div data-style-scope={pluginId}>{children}</div>
+  ),
 }));
 vi.mock('@/components/apps/useAppRuntimeMount', () => ({
-  useAppRuntimeMount: () => ({ contextValue: {}, status: 'ready' }),
+  useAppRuntimeMount: runtimeMocks.useAppRuntimeMount,
 }));
 vi.mock('@/lib/federation-registry', () => ({
   getFederatedComponent: federationMocks.getFederatedComponent,
@@ -89,6 +103,9 @@ describe('FederatedContributionMount', () => {
     expect(surface?.getAttribute('data-sero-plugin')).toBe('notes');
     expect(surface?.getAttribute('data-sero-extension-point')).toBe('ui.global-search.panel');
     expect(container.textContent).toContain('Search ready');
+    expect(container.querySelector('[data-style-scope="notes"]')).not.toBeNull();
+    expect(container.querySelector('[data-context-app="notes"]')?.getAttribute('data-context-state'))
+      .toBe('/tmp/notes.json');
   });
 
   it('mounts a contribution whose federated UI comes only from a dev remote', async () => {

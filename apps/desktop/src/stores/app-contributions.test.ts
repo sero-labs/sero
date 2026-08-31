@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SeroAppManifest } from '@/types/ipc';
 import { getContributions, type AppEntry } from './app';
+import { getResolvedComponentSlots } from '@/components/apps/contribution-slots';
 
 function createManifest(
   id: string,
@@ -41,6 +42,45 @@ function createApp(manifest: SeroAppManifest): AppEntry {
 }
 
 describe('getContributions', () => {
+  it('builds sorted provider-neutral descriptors for supported Admin contributions', () => {
+    const apps = [
+      createApp(createManifest('zeta', [{
+        id: 'settings',
+        extensionPoint: 'ui.admin.model-settings',
+        component: 'Settings',
+        name: 'Zeta',
+        description: 'Zeta defaults',
+        icon: 'z',
+      }])),
+      createApp(createManifest('alpha', [{
+        id: 'settings',
+        extensionPoint: 'ui.admin.model-settings',
+        component: 'Settings',
+        name: 'Alpha',
+      }])),
+      createApp(createManifest('future', [{
+        id: 'settings',
+        extensionPoint: 'ui.admin.model-settings',
+        component: 'Settings',
+        name: 'Future',
+      }], { hostCompatibility: { supported: false, hostVersion: '0.1.0', issues: [] } })),
+    ];
+
+    const descriptors = getResolvedComponentSlots(apps)
+      .filter((slot) => slot.descriptor.extensionPoint === 'ui.admin.model-settings')
+      .map((slot) => slot.descriptor);
+
+    expect(descriptors.map((entry) => entry.key)).toEqual([
+      'alpha:ui.admin.model-settings:settings',
+      'zeta:ui.admin.model-settings:settings',
+    ]);
+    expect(descriptors[1]).toMatchObject({
+      description: 'Zeta defaults',
+      icon: 'z',
+      contributorAppId: 'zeta',
+    });
+  });
+
   it('returns multiple contributions in app and manifest order with stable keys', () => {
     const apps = [
       createApp(createManifest('first', [
@@ -53,9 +93,9 @@ describe('getContributions', () => {
     ];
 
     expect(getContributions(apps, 'ui.global-search.panel').map((entry) => entry.key)).toEqual([
-      'first:one',
-      'first:two',
-      'second:three',
+      'first:ui.global-search.panel:one',
+      'first:ui.global-search.panel:two',
+      'second:ui.global-search.panel:three',
     ]);
   });
 
@@ -76,7 +116,9 @@ describe('getContributions', () => {
 
     expect(panels.map((entry) => entry.contribution.component)).toEqual(['SearchPanel']);
     expect(widgets.map((entry) => entry.contribution.component)).toEqual(['SearchWidget']);
-    expect(panels[0].key).toBe(widgets[0].key);
+    expect(panels[0].key).toBe('notes:ui.global-search.panel:global-search');
+    expect(widgets[0].key).toBe('notes:ui.dashboard.widget:global-search');
+    expect(panels[0].key).not.toBe(widgets[0].key);
   });
 
   it('excludes host-incompatible apps', () => {

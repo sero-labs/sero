@@ -157,7 +157,7 @@ export function getAvailableWidgets(
   }
 
   for (const widget of runtimeWidgets) {
-    const key = `${widget.appId}:${widget.widgetId}`;
+    const key = `${widget.appId}:ui.dashboard.widget:${widget.widgetId}`;
     if (results.has(key)) continue;
 
     const manifest = manifestsById.get(widget.appId);

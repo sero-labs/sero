@@ -5,6 +5,57 @@ import {
 } from '@electron/features/apps/discovery/contributions';
 
 describe('app contribution parsing', () => {
+  it('parses Admin model settings metadata', () => {
+    const parsed = parseAppContributions({
+      contributes: {
+        components: [{
+          id: 'provider-settings',
+          extensionPoint: 'ui.admin.model-settings',
+          component: 'ProviderSettings',
+          name: 'Example provider',
+          description: 'Provider model defaults',
+          icon: 'sparkles',
+        }],
+      },
+    });
+
+    expect(parsed.contributions.components).toEqual([{
+      id: 'provider-settings',
+      extensionPoint: 'ui.admin.model-settings',
+      component: 'ProviderSettings',
+      name: 'Example provider',
+      description: 'Provider model defaults',
+      icon: 'sparkles',
+    }]);
+    expect(parsed.diagnostics).toEqual([]);
+  });
+
+  it.each([
+    { id: 'provider-settings', extensionPoint: 'ui.admin.model-settings', component: 'ProviderSettings' },
+    { id: 'provider-settings', extensionPoint: 'ui.admin.model-settings', name: 'Example provider' },
+  ])('rejects Admin model settings without required metadata', (component) => {
+    const parsed = parseAppContributions({ contributes: { components: [component] } });
+
+    expect(parsed.contributions.components).toEqual([]);
+    expect(parsed.diagnostics.map((entry) => entry.code)).toEqual(['invalid-contribution']);
+  });
+
+  it('keeps the first duplicate Admin model settings id', () => {
+    const parsed = parseAppContributions({
+      contributes: {
+        components: [
+          { id: 'settings', extensionPoint: 'ui.admin.model-settings', component: 'First', name: 'First' },
+          { id: 'settings', extensionPoint: 'ui.admin.model-settings', component: 'Second', name: 'Second' },
+        ],
+      },
+    });
+
+    expect(parsed.contributions.components).toEqual([
+      expect.objectContaining({ id: 'settings', component: 'First' }),
+    ]);
+    expect(parsed.diagnostics.map((entry) => entry.code)).toEqual(['duplicate-id']);
+  });
+
   it('parses multiple component and control contributions', () => {
     const parsed = parseAppContributions({
       contributes: {

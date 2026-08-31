@@ -120,6 +120,24 @@ function parseComponent(
       };
     case 'ui.titlebar.control':
       return { ...base, extensionPoint };
+    case 'ui.admin.model-settings': {
+      const name = nonEmptyString(value.name);
+      if (!name) {
+        diagnostics.push(diagnostic(
+          'invalid-contribution',
+          'Admin model settings contribution requires a non-empty name.',
+          value,
+        ));
+        return null;
+      }
+      return {
+        ...base,
+        extensionPoint,
+        name,
+        description: optionalString(value.description),
+        icon: optionalString(value.icon),
+      };
+    }
     case 'ui.dashboard.widget': {
       const name = nonEmptyString(value.name);
       if (!name) {

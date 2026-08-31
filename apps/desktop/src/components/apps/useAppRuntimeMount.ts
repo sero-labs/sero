@@ -1,5 +1,9 @@
-import { useCallback, useMemo } from 'react';
-import type { AppContextValue, AppProfilePreferenceValue } from '@sero-ai/app-runtime';
+import { createElement, useCallback, useMemo } from 'react';
+import type {
+  AppContextValue,
+  AppContributionSlotsValue,
+  AppProfilePreferenceValue,
+} from '@sero-ai/app-runtime';
 import type { SeroAppManifest } from '@/types/ipc';
 import { useAgentStore } from '@/stores/agent';
 import { useAppStore } from '@/stores/app';
@@ -7,6 +11,8 @@ import { useSessionStore } from '@/stores/sessions';
 import { useNavigationStore } from '@/stores/navigation';
 import { useThemeStore } from '@/stores/theme';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { FederatedContributionMount } from './FederatedContributionMount';
+import { getResolvedComponentSlots } from './contribution-slots';
 
 export type AppRuntimeMountStatus = 'ready' | 'loading-workspace' | 'missing-workspace';
 
@@ -85,6 +91,7 @@ interface AppRuntimeMountResult {
  * semantics so full apps and dashboard widgets behave the same way.
  */
 export function useAppRuntimeMount(manifest: SeroAppManifest): AppRuntimeMountResult {
+  const apps = useAppStore((state) => state.apps);
   const activeWorkspaceId = useWorkspaceStore((state) => state.activeWorkspaceId);
   const workspacesReady = useWorkspaceStore((state) => state.workspacesReady);
   // Select the resolved path (a string) rather than the workspaces array:
@@ -137,6 +144,24 @@ export function useAppRuntimeMount(manifest: SeroAppManifest): AppRuntimeMountRe
     set: setProfilePreference,
   }), [appPreferenceValues, setProfilePreference]);
 
+  const contributionSlots = useMemo<AppContributionSlotsValue>(() => {
+    const slots = getResolvedComponentSlots(apps);
+    const byKey = new Map(slots.map((slot) => [slot.descriptor.key, slot.resolved]));
+    return {
+      components: slots.map((slot) => slot.descriptor),
+      mount: (key, options) => {
+        const resolved = byKey.get(key);
+        if (!resolved || !('component' in resolved.contribution)) return options.unavailable;
+        return createElement(FederatedContributionMount, {
+          manifest: resolved.manifest,
+          contribution: resolved.contribution,
+          contributionKey: resolved.key,
+          ...options,
+        });
+      },
+    };
+  }, [apps]);
+
   // Resolve state file path based on scope.
   const stateFilePath = isGlobal
     ? manifest.globalStatePath ?? ''
@@ -162,8 +187,9 @@ export function useAppRuntimeMount(manifest: SeroAppManifest): AppRuntimeMountRe
       editorThemeId,
       navigation,
       profilePreferences,
+      contributionSlots,
     }),
-    [manifest.id, isGlobal, activeWorkspaceId, workspacePath, stateFilePath, promptAgent, effectiveMode, activePresetId, editorThemeId, navigation, profilePreferences],
+    [manifest.id, isGlobal, activeWorkspaceId, workspacePath, stateFilePath, promptAgent, effectiveMode, activePresetId, editorThemeId, navigation, profilePreferences, contributionSlots],
   );
 
   return { contextValue, status };

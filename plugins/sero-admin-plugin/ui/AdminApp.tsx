@@ -25,7 +25,7 @@ import { AgentList } from './components/AgentList';
 import { ConfigPanel } from './components/ConfigPanel';
 import { Header } from './components/Header';
 import { LogViewer } from './components/LogViewer';
-import { ModelPanel } from './components/ModelPanel';
+import { ModelSettingsPanel } from './components/ModelSettingsPanel';
 import { NavSidebar } from './components/NavSidebar';
 import { PluginsPanel } from './components/PluginsPanel';
 import { PromptEditor } from './components/PromptEditor';
@@ -164,6 +164,10 @@ export function AdminApp() {
 
   const handleSelectSession = useCallback((id: string | null) => {
     updateState((prev) => ({ ...prev, lastSessionFile: id }));
+  }, [updateState]);
+
+  const handleSelectModelSettings = useCallback((key: string) => {
+    updateState((prev) => ({ ...prev, lastModelSettings: key }));
   }, [updateState]);
 
   const handleAgentSelect = useCallback(async (name: string) => {
@@ -315,7 +319,12 @@ export function AdminApp() {
         );
 
       case 'model':
-        return <ModelPanel />;
+        return (
+          <ModelSettingsPanel
+            selectedKey={state.lastModelSettings}
+            onSelect={handleSelectModelSettings}
+          />
+        );
 
       case 'plugins':
         return <PluginsPanel focusedAgentPluginId={launchParams.agentPluginId} />;
