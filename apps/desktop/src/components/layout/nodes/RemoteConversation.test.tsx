@@ -37,7 +37,7 @@ describe('RemoteConversation approval', () => {
         engine: 'Pi', model: 'anthropic/claude', thinkingLevel: 'high', approvalMode: 'ask', taskId: 'task-1',
       }] },
       messages: { [key]: [] },
-      models: { 'node-1': [{ providerId: 'anthropic', modelId: 'claude', name: 'Claude', reasoning: true, availableThinkingLevels: ['off', 'high'] }] },
+      models: { 'node-1': [{ providerId: 'anthropic', api: 'anthropic-messages', modelId: 'claude', name: 'Claude', reasoning: true, availableThinkingLevels: ['off', 'high'] }] },
       approvals: { [key]: {
         id: 'permission-1', taskId: 'task-1', contextId: 'session-1',
         title: 'Run command', description: 'pnpm test',
@@ -64,7 +64,7 @@ describe('RemoteConversation approval', () => {
         engine: 'Pi', model: 'anthropic/claude', thinkingLevel: 'off', approvalMode: 'ask',
       }] },
       messages: { [key]: [] }, approvals: { [key]: null },
-      models: { 'node-1': [{ providerId: 'anthropic', modelId: 'claude', name: 'Claude', reasoning: true, availableThinkingLevels: ['off', 'high'] }] },
+      models: { 'node-1': [{ providerId: 'anthropic', api: 'anthropic-messages', modelId: 'claude', name: 'Claude', reasoning: true, availableThinkingLevels: ['off', 'high'] }] },
       artifacts: { [key]: [{ id: 'artifact-1', name: 'report.txt', mediaType: 'text/plain', inlineBase64: 'b2s=' }] },
       activeLocationKey: key,
     });
@@ -92,8 +92,8 @@ describe('RemoteConversation approval', () => {
       }] },
       messages: { [key]: [] }, approvals: { [key]: null }, activeLocationKey: key,
       models: { 'node-1': [
-        { providerId: 'anthropic', modelId: 'claude', name: 'Claude', reasoning: true, availableThinkingLevels: ['off', 'medium', 'high'] },
-        { providerId: 'openai', modelId: 'gpt-5', name: 'GPT-5', reasoning: true, availableThinkingLevels: ['off', 'medium', 'high'] },
+        { providerId: 'anthropic', api: 'anthropic-messages', modelId: 'claude', name: 'Claude', reasoning: true, availableThinkingLevels: ['off', 'medium', 'high'] },
+        { providerId: 'openai', api: 'openai-responses', modelId: 'gpt-5', name: 'GPT-5', reasoning: true, availableThinkingLevels: ['off', 'medium', 'high'] },
       ] },
       sendMessage,
       cancelTask,

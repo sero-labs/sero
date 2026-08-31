@@ -180,7 +180,7 @@ describe('AddWorkspaceMenu', () => {
 
     await openCreateView();
 
-    const switchId = 'workspace-create-option-graphify:workspace-indexing';
+    const switchId = 'workspace-create-option-graphify:workspace.create.option:workspace-indexing';
     const option = document.getElementById(switchId);
     if (!(option instanceof HTMLButtonElement)) throw new Error('Expected Graphify option');
     expect(option.getAttribute('aria-checked')).toBe('true');
@@ -357,7 +357,9 @@ describe('AddWorkspaceMenu', () => {
     await renderMenu();
     await openWorkspacePicker();
     await click(getButton('Clone Repository'));
-    expect(document.getElementById('workspace-create-option-graphify:workspace-indexing')).not.toBeNull();
+    expect(document.getElementById(
+      'workspace-create-option-graphify:workspace.create.option:workspace-indexing',
+    )).not.toBeNull();
     const cloneUrl = document.querySelector('#clone-url');
     if (!(cloneUrl instanceof HTMLInputElement)) throw new Error('Expected clone URL input');
     await setInputValue(cloneUrl, 'https://github.com/sero-labs/sero.git');
@@ -390,7 +392,9 @@ describe('AddWorkspaceMenu', () => {
     await renderMenu();
     await openWorkspacePicker();
     await click(getButton('Import Existing'));
-    expect(document.getElementById('workspace-create-option-graphify:workspace-indexing')).not.toBeNull();
+    expect(document.getElementById(
+      'workspace-create-option-graphify:workspace.create.option:workspace-indexing',
+    )).not.toBeNull();
     await click(getButton('Choose Folder'));
 
     expect(addFolder).toHaveBeenCalledWith(createdWorkspace.path);

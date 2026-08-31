@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
-import { Suspense, createElement } from 'react';
+import { Component, Suspense, createElement } from 'react';
+import type { ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -45,6 +46,21 @@ import {
   refreshTransientRemote,
   setIncompatibleApps,
 } from './federation-registry';
+
+class SuppliedFallbackBoundary extends Component<
+  { fallback: ReactNode; children?: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  render(): ReactNode {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
 
 describe('federation registry remote retry behaviour', () => {
   let container: HTMLDivElement;
@@ -320,7 +336,7 @@ describe('federation registry remote retry behaviour', () => {
     expect(runtimeMocks.loadRemote).toHaveBeenCalledTimes(2);
   });
 
-  it('retries a failed lazy remote load on the next access without restart', async () => {
+  it('renders the supplied unavailable fallback and retries on the next access', async () => {
     process.env.NODE_ENV = 'production';
     runtimeMocks.fetch.mockResolvedValue({ ok: true } as Response);
 
@@ -337,9 +353,13 @@ describe('federation registry remote retry behaviour', () => {
     await act(async () => {
       root?.render(
         createElement(
-          Suspense,
-          { fallback: createElement('div', null, 'Loading…') },
-          createElement(FailedComp),
+          SuppliedFallbackBoundary,
+          { fallback: createElement('div', null, 'Remote unavailable'), key: 'failed' },
+          createElement(
+            Suspense,
+            { fallback: createElement('div', null, 'Loading…') },
+            createElement(FailedComp),
+          ),
         ),
       );
     });
@@ -347,7 +367,9 @@ describe('federation registry remote retry behaviour', () => {
     await vi.waitFor(() => {
       expect(runtimeMocks.loadRemote).toHaveBeenCalledTimes(1);
     });
-    expect(container.textContent).toBe('');
+    await vi.waitFor(() => {
+      expect(container.textContent).toBe('Remote unavailable');
+    });
 
     const RetriedComp = getFederatedComponent('todo', 'TodoApp', undefined);
     if (!RetriedComp) {
@@ -357,9 +379,13 @@ describe('federation registry remote retry behaviour', () => {
     await act(async () => {
       root?.render(
         createElement(
-          Suspense,
-          { fallback: createElement('div', null, 'Loading…') },
-          createElement(RetriedComp),
+          SuppliedFallbackBoundary,
+          { fallback: createElement('div', null, 'Remote unavailable'), key: 'retried' },
+          createElement(
+            Suspense,
+            { fallback: createElement('div', null, 'Loading…') },
+            createElement(RetriedComp),
+          ),
         ),
       );
     });

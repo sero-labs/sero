@@ -15,6 +15,7 @@ function createSessionModelState(provider: string, modelId: string): SessionMode
   return {
     model: {
       provider,
+      api: `${provider}-api`,
       modelId,
       name: modelId,
       reasoning: true,
@@ -33,6 +34,7 @@ function createSessionModelState(provider: string, modelId: string): SessionMode
         models: [
           {
             provider,
+            api: `${provider}-api`,
             modelId,
             name: modelId,
             reasoning: true,

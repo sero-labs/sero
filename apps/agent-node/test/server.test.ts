@@ -39,7 +39,7 @@ async function fixture() {
       apiKey: [{ id: "anthropic", name: "Anthropic", hasKey: false, fromEnv: false }],
     }),
     models: async () => [{
-      provider: "anthropic", id: "claude", name: "Claude", reasoning: true,
+      provider: "anthropic", api: "anthropic-messages", id: "claude", name: "Claude", reasoning: true,
       availableThinkingLevels: ["off", "low", "medium", "high"] as ThinkingLevel[],
     }],
     login: async () => ({ ok: true as const }), logout: async () => {}, setApiKey: async () => {},

@@ -16,8 +16,9 @@ These manifest concepts are separate:
 
 Every contribution needs an `id` that is unique inside its extension point.
 The same ID can appear in two different extension points. Sero combines it
-with the app ID as `<app-id>:<contribution-id>`, which identifies the
-contribution inside one extension point only.
+with the app ID and extension point as
+`<app-id>:<extension-point>:<contribution-id>`, which gives every mounted
+contribution a distinct identity.
 
 ## Supported extension points
 
@@ -26,6 +27,8 @@ contribution inside one extension point only.
 | `ui.global-search.panel` | Component | `description?` | One panel or tabbed panels |
 | `ui.explorer.view` | Component | `label?`, `icon?` | Explorer activity item and main view |
 | `ui.titlebar.control` | Component | None | Inline title-bar controls |
+| `ui.chat.model-extension` | Component | `models` | Action beside the chat model selector |
+| `ui.admin.model-settings` | Component | `name`, `description?`, `icon?` | Admin Model subsection |
 | `ui.dashboard.widget` | Component | `name`, `defaultSize?`, `minSize?`, `maxSize?`, `description?` | Dashboard grid |
 | `workspace.create.option` | Control | `switch` control and `tool` action | Create New Workspace form |
 
@@ -35,9 +38,18 @@ example, `"KnowledgeSearch"` maps to the `"./KnowledgeSearch"` key in the
 plugin's `exposes` configuration. The source module must have a default React
 component export. Dashboard sizes default to `2 × 2` when omitted.
 
+An Admin model-settings contribution must also have a non-empty `name`. Admin
+uses this provider-neutral name in its Model subsection selector. The
+contributed component owns all provider labels, controls, and state.
+
+A chat model-extension contribution must list at least one model. Each model
+needs a non-empty `provider`, `api`, and `modelId`. Sero mounts the component
+only when all three values match the selected model. It does not infer support
+for other models from a provider or model name.
+
 ## Component example
 
-This app has one main component and contributes two additional components:
+This app has one main component and contributes four additional components:
 
 ```json
 {
@@ -65,6 +77,25 @@ This app has one main component and contributes two additional components:
             "defaultSize": { "w": 2, "h": 2 },
             "minSize": { "w": 1, "h": 1 },
             "maxSize": { "w": 4, "h": 3 }
+          },
+          {
+            "id": "model-settings",
+            "extensionPoint": "ui.admin.model-settings",
+            "component": "KnowledgeModelSettings",
+            "name": "Knowledge provider",
+            "description": "Knowledge model defaults"
+          },
+          {
+            "id": "chat-model-action",
+            "extensionPoint": "ui.chat.model-extension",
+            "component": "KnowledgeModelAction",
+            "models": [
+              {
+                "provider": "openai",
+                "api": "openai-responses",
+                "modelId": "gpt-5.4"
+              }
+            ]
           }
         ]
       }
@@ -126,8 +157,10 @@ It does not disable unrelated plugin features. Federated components are still
 subject to the plugin runtime ABI check.
 
 Extension points are optional by default. If the plugin cannot work without a
-point introduced by a newer Sero release, set an appropriate
-`sero.plugin.minSeroVersion`.
+point, such as `ui.admin.model-settings` or `ui.chat.model-extension`, add it to
+`sero.plugin.requiredHostCapabilities`. The host then rejects installation on
+builds that do not provide the point. Use `sero.plugin.minSeroVersion` for other
+release-level requirements.
 
 ## Legacy manifests
 

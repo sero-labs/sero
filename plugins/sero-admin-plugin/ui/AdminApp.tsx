@@ -25,7 +25,7 @@ import { AgentList } from './components/AgentList';
 import { ConfigPanel } from './components/ConfigPanel';
 import { Header } from './components/Header';
 import { LogViewer } from './components/LogViewer';
-import { ModelPanel } from './components/ModelPanel';
+import { ModelSettingsPanel } from './components/ModelSettingsPanel';
 import { NavSidebar } from './components/NavSidebar';
 import { PluginsPanel } from './components/PluginsPanel';
 import { PromptEditor } from './components/PromptEditor';
@@ -40,19 +40,30 @@ interface AdminLaunchParams extends Record<string, unknown> {
   agentPluginId?: unknown;
   section?: unknown;
   configKey?: unknown;
+  modelSettingsKey?: unknown;
+  modelSettingsAppId?: unknown;
+  modelSettingsContributionId?: unknown;
+}
+
+function modelSettingsKey(params: AdminLaunchParams | null | undefined): string | null {
+  if (typeof params?.modelSettingsKey === 'string') return params.modelSettingsKey;
+  if (typeof params?.modelSettingsAppId !== 'string' || typeof params.modelSettingsContributionId !== 'string') return null;
+  return `${params.modelSettingsAppId}:ui.admin.model-settings:${params.modelSettingsContributionId}`;
 }
 
 function readAdminLaunchParams(): {
   agentPluginId: string | null;
   section: AdminSection | null;
   configKey: string | null;
+  modelSettingsKey: string | null;
 } {
   const params = consumeAppLaunchParams<AdminLaunchParams>('admin');
   const section = params?.section;
   return {
     agentPluginId: typeof params?.agentPluginId === 'string' ? params.agentPluginId : null,
-    section: section === 'settings' ? section : null,
+    section: section === 'settings' || section === 'model' ? section : null,
     configKey: typeof params?.configKey === 'string' ? params.configKey : null,
+    modelSettingsKey: modelSettingsKey(params),
   };
 }
 
@@ -91,6 +102,7 @@ export function AdminApp() {
     : launchParams.section
       ?? normalizeSection(state.lastSection as AdminState['lastSection'] | 'modelDefaults' | null | undefined);
   const selectedConfigKey = launchParams.configKey ?? state.lastConfigKey;
+  const selectedModelSettingsKey = launchParams.modelSettingsKey ?? state.lastModelSettings;
   const selectedSessionId = state.lastSessionFile;
   const skillVisibility = useSkillVisibility(profilePath);
 
@@ -98,8 +110,9 @@ export function AdminApp() {
     return onAppLaunchParams<AdminLaunchParams>('admin', (params) => {
       setLaunchParams({
         agentPluginId: typeof params.agentPluginId === 'string' ? params.agentPluginId : null,
-        section: params.section === 'settings' ? params.section : null,
+        section: params.section === 'settings' || params.section === 'model' ? params.section : null,
         configKey: typeof params.configKey === 'string' ? params.configKey : null,
+        modelSettingsKey: modelSettingsKey(params),
       });
     });
   }, []);
@@ -153,7 +166,7 @@ export function AdminApp() {
 
   const handleSectionChange = useCallback((section: AdminSection) => {
     setError(null);
-    setLaunchParams({ agentPluginId: null, section: null, configKey: null });
+    setLaunchParams({ agentPluginId: null, section: null, configKey: null, modelSettingsKey: null });
     updateState((prev) => ({ ...prev, lastSection: section }));
   }, [updateState]);
 
@@ -164,6 +177,11 @@ export function AdminApp() {
 
   const handleSelectSession = useCallback((id: string | null) => {
     updateState((prev) => ({ ...prev, lastSessionFile: id }));
+  }, [updateState]);
+
+  const handleSelectModelSettings = useCallback((key: string) => {
+    setLaunchParams((current) => ({ ...current, modelSettingsKey: null }));
+    updateState((prev) => ({ ...prev, lastModelSettings: key }));
   }, [updateState]);
 
   const handleAgentSelect = useCallback(async (name: string) => {
@@ -315,7 +333,12 @@ export function AdminApp() {
         );
 
       case 'model':
-        return <ModelPanel />;
+        return (
+          <ModelSettingsPanel
+            selectedKey={selectedModelSettingsKey}
+            onSelect={handleSelectModelSettings}
+          />
+        );
 
       case 'plugins':
         return <PluginsPanel focusedAgentPluginId={launchParams.agentPluginId} />;

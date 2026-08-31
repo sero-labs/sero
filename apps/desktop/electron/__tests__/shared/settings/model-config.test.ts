@@ -16,12 +16,14 @@ const availableModelGroups: AvailableModelGroup[] = [
     models: [
       {
         provider: 'openai',
+        api: 'openai-responses',
         modelId: 'gpt-4.1-mini',
         name: 'GPT-4.1 Mini',
         reasoning: false,
       },
       {
         provider: 'openai',
+        api: 'openai-responses',
         modelId: 'gpt-5.4',
         name: 'GPT-5.4',
         reasoning: true,

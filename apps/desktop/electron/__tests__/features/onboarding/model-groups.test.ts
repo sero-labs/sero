@@ -7,6 +7,7 @@ describe('buildOnboardingAvailableModelGroups', () => {
     const available = [
       {
         provider: 'openai',
+        api: 'openai-responses',
         id: 'gpt-5.4',
         name: 'GPT-5.4',
         reasoning: true,
@@ -14,12 +15,14 @@ describe('buildOnboardingAvailableModelGroups', () => {
       },
       {
         provider: 'openai-codex',
+        api: 'openai-codex-responses',
         id: 'gpt-4.1-mini',
         name: 'GPT-4.1 Mini',
         reasoning: false,
       },
       {
         provider: 'google',
+        api: 'google-generative-ai',
         id: 'gemini-2.5-flash',
         name: 'Gemini 2.5 Flash',
         reasoning: false,
@@ -36,6 +39,7 @@ describe('buildOnboardingAvailableModelGroups', () => {
   it('omits disabled thinking levels from local model metadata', () => {
     const groups = buildAvailableModelGroups([{
       provider: 'sglang',
+      api: 'openai-completions',
       id: 'Qwen/Qwen3-32B',
       name: 'Qwen3 32B',
       reasoning: true,

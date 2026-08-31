@@ -12,7 +12,14 @@ export {
   type AppNavigationValue,
   type AppProfilePreferencesValue,
   type AppProfilePreferenceValue,
+  type AppContributionSlotsValue,
+  type ContributedComponentDescriptor,
+  type ContributionMountOptions,
 } from './context';
+export {
+  useAppContributionSlot,
+  type UseAppContributionSlotResult,
+} from './use-app-contribution-slot';
 export { useAppState } from './use-app-state';
 export { useAppNavigation } from './use-app-navigation';
 export { useAppPreferences } from './use-app-preferences';

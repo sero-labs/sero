@@ -50,6 +50,7 @@ export interface AgentNodeProvider {
 
 export interface AgentNodeModel {
   providerId: string;
+  api: string;
   modelId: string;
   name: string;
   reasoning: boolean;

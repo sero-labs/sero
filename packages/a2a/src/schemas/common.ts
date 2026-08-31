@@ -44,6 +44,7 @@ export const ModelRefSchema = z.object({
 
 export const ModelSchema = z.object({
   providerId: IdSchema,
+  api: IdSchema.default(''),
   modelId: IdSchema,
   name: IdSchema,
   reasoning: z.boolean().default(false),

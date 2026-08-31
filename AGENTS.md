@@ -60,5 +60,6 @@ containers.
 ## Coding Workflow
 - Use the minimum sufficient approach. Plan enough to remove material uncertainty, then execute the smallest coherent solution that satisfies the requested outcome.
 - Bound each task with the requested outcome, acceptance criteria, non-goals, and what must remain untouched.
+- Do not make product decisions without user consent. If feasibility findings would reduce supported workflows, change an approved experience, or remove a primary use case, stop and ask the user before implementation.
 - Treat new abstractions, compatibility paths, infrastructure, or unrelated edits as signals to stop and recheck the plan against those bounds.
 - Run the closest existing checks first. Add only the smallest coverage needed for changed behavior that existing checks cannot prove, and tie each new test to an acceptance criterion.

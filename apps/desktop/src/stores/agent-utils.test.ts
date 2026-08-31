@@ -182,7 +182,7 @@ describe('handleAgentStreamEvent', () => {
         sessionId: 'session-1',
         commands: [{ name: 'migrate-agent-plugin', source: 'skill' }],
         state: {
-          model: { provider: 'test', modelId: 'model', name: 'Model', reasoning: false },
+          model: { provider: 'test', api: 'test-api', modelId: 'model', name: 'Model', reasoning: false },
           thinkingLevel: 'off',
           availableThinkingLevels: [],
           supportsXhigh: false,

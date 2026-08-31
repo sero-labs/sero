@@ -22,8 +22,8 @@ const availableModelGroups: AvailableModelGroup[] = [
     displayName: 'OpenAI',
     logo: 'openai.svg',
     models: [
-      { provider: 'openai', modelId: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', reasoning: false },
-      { provider: 'openai', modelId: 'gpt-5.4', name: 'GPT-5.4', reasoning: true },
+      { provider: 'openai', api: 'openai-responses', modelId: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', reasoning: false },
+      { provider: 'openai', api: 'openai-responses', modelId: 'gpt-5.4', name: 'GPT-5.4', reasoning: true },
     ],
   },
   {
@@ -31,8 +31,8 @@ const availableModelGroups: AvailableModelGroup[] = [
     displayName: 'Google',
     logo: 'google.svg',
     models: [
-      { provider: 'google', modelId: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', reasoning: false },
-      { provider: 'google', modelId: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', reasoning: true },
+      { provider: 'google', api: 'google-generative-ai', modelId: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', reasoning: false },
+      { provider: 'google', api: 'google-generative-ai', modelId: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', reasoning: true },
     ],
   },
 ];

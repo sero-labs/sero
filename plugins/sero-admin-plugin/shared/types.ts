@@ -19,6 +19,7 @@ export interface AdminState {
   lastAgent: string | null;
   lastSkill: string | null;
   lastPrompt: string | null;
+  lastModelSettings: string;
 }
 
 export const DEFAULT_STATE: AdminState = {
@@ -28,6 +29,7 @@ export const DEFAULT_STATE: AdminState = {
   lastAgent: null,
   lastSkill: null,
   lastPrompt: null,
+  lastModelSettings: 'sero-defaults',
 };
 
 // ── Config file descriptors ────────────────────────────────
@@ -89,4 +91,3 @@ export const CONFIG_FILES: ConfigFile[] = [
     readOnly: true,
   },
 ];
-

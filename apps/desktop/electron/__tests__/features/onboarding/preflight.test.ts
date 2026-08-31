@@ -72,6 +72,7 @@ const availableModelGroups: AvailableModelGroup[] = [
     models: [
       {
         provider: 'openai',
+        api: 'openai-responses',
         modelId: 'gpt-5.4',
         name: 'GPT-5.4',
         reasoning: true,

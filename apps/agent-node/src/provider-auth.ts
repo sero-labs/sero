@@ -31,6 +31,7 @@ export class ProviderAuth {
 
   async models(): Promise<Array<{
     provider: string;
+    api: string;
     id: string;
     name: string;
     reasoning: boolean;
@@ -41,6 +42,7 @@ export class ProviderAuth {
       const supported = getSupportedThinkingLevels(model);
       return {
         provider: model.provider,
+        api: model.api,
         id: model.id,
         name: model.name,
         reasoning: model.reasoning,

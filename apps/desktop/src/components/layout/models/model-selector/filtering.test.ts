@@ -6,7 +6,7 @@ const groups: AvailableModelGroup[] = [{
   provider: 'openai-codex',
   displayName: 'OpenAI Codex',
   logo: '',
-  models: [{ provider: 'openai-codex', modelId: 'gpt-5', name: 'GPT-5', reasoning: true }],
+  models: [{ provider: 'openai-codex', api: 'openai-codex-responses', modelId: 'gpt-5', name: 'GPT-5', reasoning: true }],
 }];
 
 describe('filterGroups', () => {

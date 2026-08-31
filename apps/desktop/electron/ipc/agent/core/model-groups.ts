@@ -3,7 +3,7 @@ import { THINKING_LEVELS, type ThinkingLevel } from '@sero-ai/common';
 import type { AvailableModelGroup } from '@/types/ipc';
 import { providerDisplayName, providerLogo } from '@electron/ipc/platform/auth';
 
-type RegistryModelLike = Pick<Model<Api>, 'provider' | 'id' | 'name' | 'reasoning' | 'thinkingLevelMap'>;
+type RegistryModelLike = Pick<Model<Api>, 'provider' | 'api' | 'id' | 'name' | 'reasoning' | 'thinkingLevelMap'>;
 
 function toAvailableThinkingLevels(model: RegistryModelLike): ThinkingLevel[] {
   const supported = getSupportedThinkingLevels(model as Model<Api>);
@@ -29,6 +29,7 @@ export function buildAvailableModelGroups(
       const availableThinkingLevels = toAvailableThinkingLevels(model);
       return {
         provider: model.provider,
+        api: model.api,
         modelId: model.id,
         name: model.name,
         reasoning: model.reasoning,

@@ -50,6 +50,7 @@ function groupModels(models: AgentNodeModel[]): AvailableModelGroup[] {
     logo: '',
     models: providerModels.map((model) => ({
       provider: model.providerId,
+      api: model.api,
       modelId: model.modelId,
       name: model.name,
       reasoning: model.reasoning,
