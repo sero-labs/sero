@@ -285,8 +285,104 @@ information and must be respected rather than overridden.
 
 An `external-pr` branch is never deleted, whatever the caller asked for.
 
-## Scope boundary
+## Cleanup planning and confirmation
 
-The pool has no cleanup planning API, confirmation token, plan fingerprint,
-renderer-controlled destructive cleanup, admin UI, broad pruning, or arbitrary
-foreign-process termination. Those cleanup controls remain PR 3 work.
+Cleanup is a two-step host operation. `getWorktreePoolStatus` and
+`createWorktreeCleanupPlan` inspect validated pool state, exact Git worktree
+registration, the filesystem, branch and HEAD evidence, checkout cleanliness,
+and process evidence. Planning does not call `openPool`, because opening may
+reconcile state. It uses a read-only state-file mode and only read-only Git
+commands (`worktree list`, `rev-parse`, and `status`). Git has no exact-path
+dry-run for worktree removal, so planning never approximates one with a real
+remove, repair, prune, reset, clean, or branch command.
+
+Every slot receives one typed action and a reason:
+
+- `remove`: a canonical, pool-owned, unleased `available` slot whose exact
+  detached registration, prepared HEAD, filesystem, cleanliness, and clear
+  process evidence agree;
+- `repair/remove-missing-checkout-registration`: an unleased `orphaned` slot
+  whose directory is absent and whose exact Git registration remains;
+- `repair/drop-absent-slot-record`: an unleased `orphaned` slot for which both
+  Git registration and the directory are absent;
+- `preserve`: every leased, dirty, unmerged, in-use, damaged, transitional,
+  recovery-required, conflicting, or unverifiable case.
+
+Repairs are deliberately narrow. Registration recovery runs
+`git worktree remove --force <exact-host-path>` only when the checkout is
+already absent; it does not touch a branch or directory. Record recovery drops
+only the exact pool record after proving no registration or directory exists.
+There is no broad `git worktree prune`, automatic repair during acquisition,
+filesystem deletion fallback, or branch deletion in cleanup execution.
+
+### Plan identity and lifetime
+
+A plan contains a random `planId`, repository identity, pool revision,
+creation and expiry times, and the complete status shown to the caller. It is
+kept only in Electron main-process memory for five minutes. A new plan for one
+repository invalidates its older plan; at most 32 plans are held. Confirmation
+is one-shot: the host consumes the token before validation or execution, so a
+failed, stale, or successful confirmation cannot be replayed. Fabricated,
+expired, already-used, and restart-lost identifiers all fail closed and require
+a fresh plan.
+
+The renderer submits only a workspace identity and a host-issued `planId`. A
+plugin runtime is already bound by main to its registered workspace and submits
+only the token. Main resolves the canonical workspace and every slot path from
+host state. No caller supplies a filesystem path, replacement fingerprint, Git
+command, recovery kind, or branch deletion authority.
+
+### Fingerprint and TOCTOU fence
+
+Each slot fingerprint compares all of these fields exactly:
+
+- repository, slot, and lease identity;
+- slot state, canonical slot path, and owning canonical workspace path;
+- branch name and kind, checkout HEAD, prepared HEAD, and any recorded reset
+  target;
+- registration classification, HEAD, branch, detached and bare flags, and the
+  exact locked and prunable flags and reasons;
+- filesystem, cleanliness, process, and final cleanup classification.
+
+The plan revision proves which complete pool snapshot was reviewed. The slot
+fingerprint catches external Git, filesystem, process, HEAD, branch, path, and
+classification drift that can happen without a pool write. Execution first
+checks both. It then takes the state lock and atomically reserves an accepted
+slot with a new operation id before releasing the lock. No Git or process
+command runs under that lock. After owned-process shutdown, the host re-reads
+all external evidence and checks the reservation again immediately before the
+exact-path operation. Registration changes run through the Git-mutation gate.
+
+Each successful slot is committed before the next slot begins. The executor
+tracks revision increments caused by its own reservations and final commits;
+an unrelated revision change makes remaining actions stale. Results report one
+of `removed`, `repaired`, `skipped-stale`, `preserved`, `failed`, or
+`recovery-required` for every planned slot when execution completes.
+
+### Crash behaviour
+
+A crash after plan creation loses the in-memory token and changes nothing. A
+crash after confirmation but before reservation consumes the token and changes
+no slot. After reservation, process shutdown, or during Git work, the persisted
+`removing` operation prevents allocation. Reconciliation never turns an
+interrupted removal into `available`.
+
+If physical removal succeeds but the final pool write does not, the slot stays
+transitional and restart reconciliation marks it `recovery-required`; the host
+does not infer success from a missing directory alone. Manual recovery is
+acceptable for this ambiguous case. Earlier slots in a multi-slot plan remain
+committed even when a later action fails or the process crashes.
+
+### UI and schema decision
+
+PR 3 does not add an Admin/Git screen. Current evidence does not show cleanup
+or recovery occurring often enough to justify a permanent operational surface,
+and Admin is profile-global while the existing Git app is a concise
+workspace Git client. Adding UI now would enlarge both without proving the
+workflow. The typed app-runtime and renderer IPC boundary remains available
+for a later contribution-based surface if operational evidence changes.
+
+Plans are transient and cleanup uses existing slot states and operation
+records, so the persisted shape does not change. Schema version 3 remains
+current. Version 2 migration and unknown-version rejection keep their existing
+fail-closed behaviour.

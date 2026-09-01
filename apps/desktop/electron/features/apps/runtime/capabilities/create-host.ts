@@ -25,6 +25,9 @@ import {
 import { WorktreeManager } from '@electron/features/git/worktree/manager';
 import {
   acquireWorktree,
+  createWorktreeCleanupPlan,
+  executeWorktreeCleanupPlan,
+  getWorktreePoolStatus,
   reattachWorktree,
   releaseWorktree,
 } from '@electron/features/git/worktree/pool';
@@ -91,7 +94,7 @@ async function runtimeFromServerId(serverId: string) {
   return runtimeManager.getRuntime(workspaceId);
 }
 
-export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost {
+export function createAppRuntimeHost(target: AppRuntimeTarget): AppRuntimeHost {
   // `persistentSessions` is deliberately NOT set here. It is installed by the
   // manager after the built-in gate runs (AD-029), so a runtime that is not a
   // permitted bundled plugin simply has no such property — declaring the
@@ -178,6 +181,10 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
     },
     git: {
       acquireWorktree,
+      getWorktreePoolStatus: () => getWorktreePoolStatus(target.workspace.path),
+      createWorktreeCleanupPlan: () => createWorktreeCleanupPlan(target.workspace.path),
+      executeWorktreeCleanupPlan: (planId) =>
+        executeWorktreeCleanupPlan(target.workspace.path, planId),
       reattachWorktree,
       releaseWorktree,
       createWorktree: (workspacePath, cardId, cardTitle, options) =>

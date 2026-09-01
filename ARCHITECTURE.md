@@ -55,6 +55,18 @@ backend. Runtime-specific capability limits must remain visible to callers.
   checkout. The pool retains two proved-safe idle slots per repository, has no
   active-lease cap, and never evicts leased or unproved work. See
   `apps/desktop/electron/features/git/worktree/README.md`.
+- Worktree cleanup authority stays in Electron main. Status and planning read
+  pool, Git, filesystem, branch, HEAD, and process evidence without
+  reconciliation or mutation. Main issues a short-lived, one-shot plan token
+  bound to the pool revision and a complete per-slot fingerprint. Confirmation
+  resolves canonical paths from host state, reserves exact slots under the
+  state lock, revalidates external evidence, and runs only exact registration
+  changes through the Git-mutation gate. Renderers pass a workspace identity
+  and the host token; plugin runtimes are main-bound to one workspace and pass
+  only the token. Neither can pass paths, fingerprints, Git commands, holder
+  names, or recovery kinds. Interrupted cleanup remains
+  recovery-required. No broad prune or Admin/Git cleanup UI ships with this
+  boundary, and transient plans do not change pool schema version 3.
 - Managed tools install once per machine under the host-artifacts root. Tool
   resolution uses a verified system tool first, a verified managed tool second,
   and an approved first-use install last. Sero does not mutate the user's shell

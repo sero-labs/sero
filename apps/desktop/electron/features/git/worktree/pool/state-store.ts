@@ -35,7 +35,10 @@ async function preserveCorruptState(statePath: string, raw: string): Promise<voi
   }
 }
 
-export async function readPoolState(statePath: string): Promise<PoolStateRead> {
+export async function readPoolState(
+  statePath: string,
+  options: { preserveCorrupt?: boolean } = {},
+): Promise<PoolStateRead> {
   let raw: string;
   try {
     raw = await fs.readFile(statePath, 'utf8');
@@ -48,15 +51,25 @@ export async function readPoolState(statePath: string): Promise<PoolStateRead> {
   try {
     parsed = JSON.parse(raw);
   } catch {
-    await preserveCorruptState(statePath, raw);
-    return { status: 'unavailable', reason: 'Pool state is not valid JSON. It was preserved for diagnosis.' };
+    if (options.preserveCorrupt !== false) await preserveCorruptState(statePath, raw);
+    return {
+      status: 'unavailable',
+      reason: options.preserveCorrupt === false
+        ? 'Pool state is not valid JSON.'
+        : 'Pool state is not valid JSON. It was preserved for diagnosis.',
+    };
   }
 
   const migration = migratePoolState(parsed);
   const validated = validatePoolState(migration.value);
   if (validated.status === 'invalid') {
-    await preserveCorruptState(statePath, raw);
-    return { status: 'unavailable', reason: `${validated.reason} The file was preserved for diagnosis.` };
+    if (options.preserveCorrupt !== false) await preserveCorruptState(statePath, raw);
+    return {
+      status: 'unavailable',
+      reason: options.preserveCorrupt === false
+        ? validated.reason
+        : `${validated.reason} The file was preserved for diagnosis.`,
+    };
   }
   if (validated.state.version !== POOL_SCHEMA_VERSION) {
     return {

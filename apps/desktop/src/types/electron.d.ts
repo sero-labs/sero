@@ -10,6 +10,7 @@ import type {
   SeroDebugAPI,
   SeroVcsAPI,
   SeroOrchestratorAPI,
+  SeroWorktreePoolAPI,
 } from './electron-workspace';
 import type { LayoutState, LoadedLayoutState } from './layout';
 import type { ProfileRemovalMode } from './profile';
@@ -453,6 +454,7 @@ export interface SeroAPI {
   debug: SeroDebugAPI;
   vcs: SeroVcsAPI;
   orchestrator: SeroOrchestratorAPI;
+  worktreePool: SeroWorktreePoolAPI;
   subagent: SeroSubagentAPI;
   skills: SeroSkillsAPI;
   prompts: SeroPromptsAPI;

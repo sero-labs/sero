@@ -52,8 +52,10 @@ import { registerThemeHandlers } from './platform/ui/themes';
 import { registerDoctorHandlers } from './doctor/doctor';
 import { registerUpdaterHandlers } from './updater';
 import { registerAgentNodeHandlers } from './agent-node';
+import { registerWorktreePoolHandlers } from './integrations/worktree-pool';
 
 export function registerAllIpcHandlers(): void {
+  registerWorktreePoolHandlers();
   registerAgentNodeHandlers();
   registerProfileHandlers();
   registerWorkspaceHandlers();

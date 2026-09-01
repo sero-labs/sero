@@ -43,6 +43,9 @@ import type {
   GitManagerRequest,
   AppRuntimeIssueSummary,
   AppRuntimePullRequestSummary,
+  AppRuntimeCreateWorktreeCleanupPlanResult,
+  AppRuntimeExecuteWorktreeCleanupPlanResult,
+  AppRuntimeWorktreePoolStatusResult,
   OrchestratorBoardAction,
   OrchestratorBoardActionResult,
 } from '@sero-ai/common';
@@ -254,4 +257,13 @@ export interface SeroOrchestratorAPI {
     workspaceId: string,
     action: OrchestratorBoardAction,
   ): Promise<OrchestratorBoardActionResult>;
+}
+
+export interface SeroWorktreePoolAPI {
+  status(workspaceId: string): Promise<AppRuntimeWorktreePoolStatusResult>;
+  createCleanupPlan(workspaceId: string): Promise<AppRuntimeCreateWorktreeCleanupPlanResult>;
+  executeCleanupPlan(
+    workspaceId: string,
+    planId: string,
+  ): Promise<AppRuntimeExecuteWorktreeCleanupPlanResult>;
 }

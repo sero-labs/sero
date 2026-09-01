@@ -11,6 +11,7 @@ import { workspaceIpcChannels } from './ipc-channels-workspace';
 import { browserIpcChannels } from './ipc-channels-browser';
 import { localModelsIpcChannels } from './ipc-channels-local-models';
 import { agentPluginIpcChannels, pluginIpcChannels } from './ipc-channels-plugins';
+import { worktreePoolIpcChannels } from './ipc-channels-worktree-pool';
 import {
   feedbackIpcChannels,
   gatewayIpcChannels,
@@ -21,6 +22,7 @@ import {
 } from './ipc-channels-platform';
 
 export const IpcChannels = {
+  worktreePool: worktreePoolIpcChannels,
   agentNode: agentNodeIpcChannels,
   workspace: workspaceIpcChannels,
   sessions: {

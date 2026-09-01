@@ -96,6 +96,14 @@ describe('pool state persistence', () => {
     expect(read.status).toBe('unavailable');
   });
 
+  it('supports observably read-only rejection for status and planning', async () => {
+    const statePath = await tempStatePath();
+    await writeFile(statePath, '{broken', 'utf8');
+
+    expect((await readPoolState(statePath, { preserveCorrupt: false })).status).toBe('unavailable');
+    expect(await readdir(path.dirname(statePath))).toEqual(['pool.json']);
+  });
+
   it('migrates a version 2 leased slot by adding only null safety evidence', async () => {
     const statePath = await tempStatePath();
     const state = populatedState();

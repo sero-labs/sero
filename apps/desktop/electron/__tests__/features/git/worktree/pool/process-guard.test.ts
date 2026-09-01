@@ -16,6 +16,19 @@ function detector(
 }
 
 describe('worktree process guard', () => {
+  it('inspects Sero-owned processes without stopping them during planning', async () => {
+    const owned = new SeroOwnedProcessRegistry();
+    const stop = vi.fn(async () => undefined);
+    owned.register({ id: 'terminal-1', kind: 'terminal', cwd: '/repo/slot-1', stop });
+    const guard = new WorktreeProcessGuard({
+      owned,
+      detector: detector(async () => ({ status: 'clear' })),
+    });
+
+    await expect(guard.inspect('/repo/slot-1')).resolves.toMatchObject({ status: 'in-use', owned: 1 });
+    expect(stop).not.toHaveBeenCalled();
+  });
+
   it('confirms Sero-owned shutdown before platform detection starts', async () => {
     const events: string[] = [];
     const owned = new SeroOwnedProcessRegistry();

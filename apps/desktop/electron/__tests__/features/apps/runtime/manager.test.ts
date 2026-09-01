@@ -88,6 +88,19 @@ function createHostStub(
         reason: 'This stub host leases no worktrees.',
         checkout: 'unknown' as const,
       })),
+      getWorktreePoolStatus: vi.fn(async () => ({
+        status: 'unavailable' as const,
+        reason: 'This stub host has no pool status.',
+      })),
+      createWorktreeCleanupPlan: vi.fn(async () => ({
+        status: 'unavailable' as const,
+        reason: 'This stub host creates no cleanup plans.',
+      })),
+      executeWorktreeCleanupPlan: vi.fn(async (planId: string) => ({
+        status: 'rejected' as const,
+        planId,
+        reason: 'This stub host executes no cleanup plans.',
+      })),
       createWorktree: vi.fn(async () => ({ worktreePath: '', branchName: '', greenfield: false })),
       removeWorktree: vi.fn(async () => {}),
       getWorkspaceStatus: vi.fn(async () => ({ isGitRepository: true, hasUncommittedChanges: false, summary: 'Clean working tree' })),

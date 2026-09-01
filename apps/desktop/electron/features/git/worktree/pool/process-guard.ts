@@ -26,6 +26,11 @@ export type ProcessGuardResult =
   | { status: 'in-use'; reason: string }
   | { status: 'unverifiable'; reason: string };
 
+export type ProcessInspectionResult =
+  | { status: 'clear'; owned: number }
+  | { status: 'in-use'; owned: number; reason: string }
+  | { status: 'unverifiable'; owned: number; reason: string };
+
 interface ProcessGuardOptions {
   owned?: SeroOwnedProcessRegistry;
   detector?: SlotProcessDetector;
@@ -113,6 +118,22 @@ export class WorktreeProcessGuard {
     this.ownedShutdownTimeoutMs = options.ownedShutdownTimeoutMs ?? 10_000;
   }
 
+  /** Read-only evidence for status and planning. It never asks an owner to stop. */
+  async inspect(root: string): Promise<ProcessInspectionResult> {
+    const owned = this.owned.listRootedIn(root);
+    const detection = await this.detectSafely(root);
+    if (detection.status === 'unverifiable') return { ...detection, owned: owned.length };
+    if (owned.length > 0) {
+      return {
+        status: 'in-use',
+        owned: owned.length,
+        reason: `${owned.length} Sero-owned process(es) still use this checkout.`,
+      };
+    }
+    if (detection.status === 'clear') return { status: 'clear', owned: 0 };
+    return { status: 'in-use', owned: 0, reason: this.inUseReason(detection.processes) };
+  }
+
   async prepare(root: string): Promise<ProcessGuardResult> {
     const owned = this.owned.listRootedIn(root);
     const failures = await this.stopOwnedWithTimeout(root);
@@ -124,24 +145,28 @@ export class WorktreeProcessGuard {
       };
     }
 
-    let detection: ProcessDetectionResult;
+    const detection = await this.detectSafely(root);
+    if (detection.status === 'clear') return { status: 'safe', stoppedOwned: owned.length };
+    if (detection.status === 'unverifiable') return detection;
+    return { status: 'in-use', reason: this.inUseReason(detection.processes) };
+  }
+
+  private async detectSafely(root: string): Promise<ProcessDetectionResult> {
     try {
-      detection = await this.detector.detect(root);
+      return await this.detector.detect(root);
     } catch (error) {
       return {
         status: 'unverifiable',
         reason: `Process detection failed: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
-    if (detection.status === 'clear') return { status: 'safe', stoppedOwned: owned.length };
-    if (detection.status === 'unverifiable') return detection;
-    const sample = detection.processes.slice(0, 3)
+  }
+
+  private inUseReason(processes: DetectedSlotProcess[]): string {
+    const sample = processes.slice(0, 3)
       .map((entry) => `${entry.pid}${entry.command ? ` (${entry.command})` : ''}`)
       .join(', ');
-    return {
-      status: 'in-use',
-      reason: `The checkout is still used by process ${sample}. Foreign processes were not terminated.`,
-    };
+    return `The checkout is still used by process ${sample}. Foreign processes were not terminated.`;
   }
 
   private async stopOwnedWithTimeout(root: string): Promise<OwnedShutdownFailure[]> {

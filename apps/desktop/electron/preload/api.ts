@@ -35,6 +35,7 @@ import { browserBridge } from './apps/browser';
 import { pluginsBridge } from './integrations/plugins';
 import { agentPluginsBridge } from './integrations/agent-plugins';
 import { orchestratorBridge } from './integrations/orchestrator';
+import { worktreePoolBridge } from './integrations/worktree-pool';
 import {
   agentBridge,
   contextPresetsBridge,
@@ -77,6 +78,7 @@ export const seroPreloadApi = {
   devServer: devServerBridge,
   vcs: vcsBridge,
   orchestrator: orchestratorBridge,
+  worktreePool: worktreePoolBridge,
   github: githubBridge,
   plugins: pluginsBridge,
   agentPlugins: agentPluginsBridge,

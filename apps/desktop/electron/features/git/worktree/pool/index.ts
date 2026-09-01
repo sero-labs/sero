@@ -9,5 +9,8 @@
 export { acquireWorktree } from './acquire';
 export { reattachWorktree } from './reattach';
 export { releaseWorktree } from './release';
+export { getWorktreePoolStatus } from './cleanup-inspection';
+export { createWorktreeCleanupPlan } from './cleanup-plans';
+export { executeWorktreeCleanupPlan } from './cleanup-execute';
 export { openPool } from './session';
 export { POOL_SCHEMA_VERSION, type PoolSlot, type PoolState, type SlotState } from './types';

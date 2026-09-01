@@ -123,6 +123,116 @@ export interface AppRuntimeReleaseWorktreeResult {
   checkout: 'removed' | 'retained' | 'unknown';
 }
 
+export type AppRuntimeWorktreeRegistrationClassification =
+  | 'exact'
+  | 'missing'
+  | 'conflicting'
+  | 'unverifiable';
+export type AppRuntimeWorktreeFilesystemEvidence = 'directory' | 'missing' | 'other' | 'unverifiable';
+export type AppRuntimeWorktreeProcessEvidence = 'clear' | 'in-use' | 'unverifiable';
+export type AppRuntimeWorktreeCleanlinessEvidence = 'clean' | 'dirty' | 'not-applicable' | 'unverifiable';
+export type AppRuntimeWorktreePoolSlotState =
+  | 'available'
+  | 'leased'
+  | 'provisioning'
+  | 'recycling'
+  | 'removing'
+  | 'dirty'
+  | 'unmerged'
+  | 'in-use'
+  | 'damaged'
+  | 'orphaned'
+  | 'recovery-required';
+export type AppRuntimeWorktreeCleanupClassification =
+  | 'removable-idle'
+  | 'recoverable-registration'
+  | 'recoverable-record'
+  | 'preserved';
+
+/** Complete evidence a confirmation is fenced to. Every field compares exactly. */
+export interface AppRuntimeWorktreeCleanupFingerprint {
+  repositoryId: string;
+  slotId: string;
+  leaseId: string | null;
+  slotState: AppRuntimeWorktreePoolSlotState;
+  canonicalPath: string;
+  workspacePath: string;
+  branchName: string | null;
+  branchKind: AppRuntimeWorktreeBranchKind | null;
+  head: string | null;
+  preparedHead: string | null;
+  resetTarget: { ref: string; commit: string } | null;
+  registration: {
+    classification: AppRuntimeWorktreeRegistrationClassification;
+    head: string | null;
+    branchName: string | null;
+    detached: boolean;
+    bare: boolean;
+    locked: boolean;
+    lockedReason: string | null;
+    prunable: boolean;
+    prunableReason: string | null;
+  };
+  filesystem: AppRuntimeWorktreeFilesystemEvidence;
+  cleanliness: AppRuntimeWorktreeCleanlinessEvidence;
+  process: AppRuntimeWorktreeProcessEvidence;
+  classification: AppRuntimeWorktreeCleanupClassification;
+}
+
+export type AppRuntimeWorktreeCleanupAction =
+  | { kind: 'remove'; reason: string }
+  | {
+    kind: 'repair';
+    recovery: 'remove-missing-checkout-registration' | 'drop-absent-slot-record';
+    reason: string;
+  }
+  | { kind: 'preserve'; reason: string };
+
+export interface AppRuntimeWorktreePoolSlotStatus {
+  slotId: string;
+  state: AppRuntimeWorktreePoolSlotState;
+  holder: string | null;
+  branchName: string | null;
+  branchKind: AppRuntimeWorktreeBranchKind | null;
+  path: string;
+  reason: string;
+  action: AppRuntimeWorktreeCleanupAction;
+  fingerprint: AppRuntimeWorktreeCleanupFingerprint;
+}
+
+export interface AppRuntimeWorktreePoolStatus {
+  repositoryId: string;
+  revision: number;
+  observedAt: string;
+  slots: AppRuntimeWorktreePoolSlotStatus[];
+}
+
+export interface AppRuntimeWorktreeCleanupPlan {
+  planId: string;
+  repositoryId: string;
+  poolRevision: number;
+  createdAt: string;
+  expiresAt: string;
+  slots: AppRuntimeWorktreePoolSlotStatus[];
+}
+
+export type AppRuntimeWorktreePoolStatusResult =
+  | { status: 'ok'; pool: AppRuntimeWorktreePoolStatus }
+  | { status: 'unavailable'; reason: string };
+export type AppRuntimeCreateWorktreeCleanupPlanResult =
+  | { status: 'planned'; plan: AppRuntimeWorktreeCleanupPlan }
+  | { status: 'unavailable'; reason: string };
+export type AppRuntimeWorktreeCleanupSlotResult =
+  | { outcome: 'removed'; slotId: string; reason: string }
+  | { outcome: 'repaired'; slotId: string; reason: string }
+  | { outcome: 'skipped-stale'; slotId: string; reason: string }
+  | { outcome: 'preserved'; slotId: string; reason: string }
+  | { outcome: 'failed'; slotId: string; reason: string }
+  | { outcome: 'recovery-required'; slotId: string; reason: string };
+export type AppRuntimeExecuteWorktreeCleanupPlanResult =
+  | { status: 'executed'; planId: string; results: AppRuntimeWorktreeCleanupSlotResult[] }
+  | { status: 'rejected'; planId: string; reason: string };
+
 export interface AppRuntimeWorktreePoolApi {
   acquireWorktree(
     workspacePath: string,
@@ -136,4 +246,11 @@ export interface AppRuntimeWorktreePoolApi {
     workspacePath: string,
     request: AppRuntimeReleaseWorktreeRequest,
   ): Promise<AppRuntimeReleaseWorktreeResult>;
+  /** Reads the pool for the app runtime's host-bound workspace. */
+  getWorktreePoolStatus(): Promise<AppRuntimeWorktreePoolStatusResult>;
+  /** Creates a plan for the app runtime's host-bound workspace. */
+  createWorktreeCleanupPlan(): Promise<AppRuntimeCreateWorktreeCleanupPlanResult>;
+  executeWorktreeCleanupPlan(
+    planId: string,
+  ): Promise<AppRuntimeExecuteWorktreeCleanupPlanResult>;
 }
