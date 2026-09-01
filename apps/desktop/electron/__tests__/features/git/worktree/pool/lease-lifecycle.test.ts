@@ -127,7 +127,7 @@ describe('release fencing', () => {
       expectedLeaseId: first.leaseId,
       disposition: 'recycle',
     });
-    expect(retry.status).toBe('already-released');
+    expect(retry).toMatchObject({ status: 'already-released', checkout: 'removed' });
 
     // A second holder takes a slot, then the first holder's cleanup arrives late.
     const second = await acquireOrThrow(workspace, 'loop-2-r1');

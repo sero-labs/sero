@@ -38,7 +38,9 @@ export async function runAgain(
     return { ok: false, error: 'A run is already in progress — disable it first, then restart.' };
   }
   const now = host.now();
-  const carried = await cleanupAndCarry(host, loop);
+  const cleanup = await cleanupAndCarry(host, loop);
+  if (!cleanup.ok) return { ok: false, error: cleanup.error, loop: cleanup.loop };
+  const carried = cleanup.loop;
   const reactivated: Loop = {
     ...rearmLoop({ ...carried, triggers: reenableSchedule(carried, now) }, now),
     status: 'active',

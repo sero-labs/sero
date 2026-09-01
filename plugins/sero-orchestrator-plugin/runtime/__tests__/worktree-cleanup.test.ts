@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Loop, ResolvedWorkspaceContext } from '../../shared/types';
 import { rearmLoop } from '../scheduler';
 import {
+  cleanupAndCarry,
   cleanupPreviousWorktree,
   preservedWorktreeRecord,
   withPreservedWorktree,
@@ -115,6 +116,7 @@ describe('preserved checkouts survive re-arming', () => {
       status: 'preserved',
       slotId: managed.slotId ?? '',
       reason: 'The branch holds 3 commit(s) the base does not.',
+      checkout: 'retained',
     });
     const loop = seedLoop(host, managed);
 
@@ -158,6 +160,7 @@ describe('preserved checkouts survive re-arming', () => {
         status: 'recovery-required',
         slotId: context.slotId ?? '',
         reason: 'The checkout could not be verified.',
+        checkout: 'retained',
       });
     }
     let loop = seedLoop(host, first);
@@ -170,5 +173,65 @@ describe('preserved checkouts survive re-arming', () => {
     const preserved = loop.runtime.workspace.preservedWorktrees ?? [];
     expect(preserved.map((entry) => entry.worktreeKey)).toEqual(['loop-1-r4', 'loop-1-r5']);
     expect(preserved.every((entry) => entry.outcome === 'recovery-required')).toBe(true);
+  });
+
+  it('keeps every live preserved lease beyond the former display-sized cap', () => {
+    const host = createFakeHost();
+    let loop = seedLoop(host, {
+      id: 'root',
+      type: 'workspace-root',
+      workspaceRoot: '/root',
+      cwd: '/root',
+      resolvedBy: 'clean-workspace',
+      createdAt: 't',
+    });
+
+    for (let index = 0; index < 25; index += 1) {
+      loop = withPreservedWorktree(loop, {
+        slotId: `slot-${index}`,
+        leaseId: `lease-${index}`,
+        worktreeKey: `loop-1-r${index}`,
+        worktreePath: `/root/.sero/worktrees/slot-${index}`,
+        outcome: 'preserved',
+        reason: 'kept',
+        at: host.now(),
+      });
+    }
+
+    expect(loop.runtime.workspace.preservedWorktrees).toHaveLength(25);
+  });
+
+  it('does not turn a stale lease into a preserved checkout record', async () => {
+    const host = createFakeHost();
+    const managed = await leasedContext(host);
+    host.releaseOutcomes.set(managed.leaseId ?? '', {
+      status: 'stale-lease',
+      slotId: managed.slotId ?? '',
+      reason: 'The slot belongs to a newer lease.',
+      checkout: 'unknown',
+    });
+    const loop = seedLoop(host, managed);
+
+    const cleanup = await cleanupAndCarry(host, loop);
+
+    expect(cleanup.ok).toBe(false);
+    expect(cleanup.loop.runtime.workspace.resolved?.leaseId).toBe(managed.leaseId);
+    expect(cleanup.loop.runtime.workspace.preservedWorktrees).toBeUndefined();
+  });
+
+  it('uses the recorded checkout outcome when an already-released answer is retried', async () => {
+    const host = createFakeHost();
+    const managed = await leasedContext(host);
+    const loop = seedLoop(host, managed);
+    const removed = {
+      status: 'already-released' as const,
+      slotId: managed.slotId ?? '',
+      reason: 'The earlier release removed it.',
+      checkout: 'removed' as const,
+    };
+
+    expect(preservedWorktreeRecord(host, managed, removed)).toBeNull();
+    expect(withPreservedWorktree(loop, preservedWorktreeRecord(host, managed, removed))
+      .runtime.workspace.preservedWorktrees).toBeUndefined();
   });
 });

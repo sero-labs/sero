@@ -182,4 +182,26 @@ describe('a preserved checkout keeps its owner', () => {
     expect((await releaseWorktree(workspace, request)).status).toBe('preserved');
     expect((await releaseWorktree(workspace, request)).status).toBe('already-released');
   });
+
+  it('answers an identical recycle retry without mutating pool state', async () => {
+    const workspace = await newWorkspace();
+    const target = await lease(workspace, 'loop-3-r1');
+    await writeFile(path.join(target.worktreePath, 'feature.md'), 'done');
+    await git(target.worktreePath, 'add', '.');
+    await git(target.worktreePath, 'commit', '-m', 'feature');
+    const request = {
+      slotId: target.slotId,
+      expectedLeaseId: target.leaseId,
+      disposition: 'recycle' as const,
+    };
+
+    const first = await releaseWorktree(workspace, request);
+    expect(first).toMatchObject({ status: 'preserved', checkout: 'retained' });
+    const beforeRetry = await readFile(statePath(workspace), 'utf8');
+
+    const retry = await releaseWorktree(workspace, request);
+
+    expect(retry).toMatchObject({ status: 'already-released', checkout: 'retained' });
+    expect(await readFile(statePath(workspace), 'utf8')).toBe(beforeRetry);
+  });
 });

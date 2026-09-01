@@ -174,7 +174,7 @@ describe('pool state persistence', () => {
           ...state.slots[0],
           lastReleased: {
             slotId: 'slot-other', leaseId: 'lease-1', status: 'preserved',
-            at: '2026-01-01T00:00:00.000Z', reason: 'kept',
+            disposition: 'recycle', at: '2026-01-01T00:00:00.000Z', reason: 'kept',
           },
         }],
       }),

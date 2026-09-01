@@ -37,8 +37,13 @@ function result(
   status: AppRuntimeReleaseWorktreeResult['status'],
   slotId: string,
   reason: string,
+  checkout: AppRuntimeReleaseWorktreeResult['checkout'],
 ): AppRuntimeReleaseWorktreeResult {
-  return { status, slotId, reason };
+  return { status, slotId, reason, checkout };
+}
+
+function recordedCheckout(status: 'released' | 'preserved'): AppRuntimeReleaseWorktreeResult['checkout'] {
+  return status === 'released' ? 'removed' : 'retained';
 }
 
 /** Answers a release whose slot is no longer in the pool. */
@@ -46,14 +51,22 @@ function answerMissingSlot(
   state: PoolState,
   request: AppRuntimeReleaseWorktreeRequest,
 ): AppRuntimeReleaseWorktreeResult {
-  const known = state.released.find((entry) => entry.leaseId === request.expectedLeaseId);
+  const known = state.released.find((entry) =>
+    entry.slotId === request.slotId && entry.leaseId === request.expectedLeaseId,
+  );
   if (known) {
-    return result('already-released', request.slotId, `This lease was already released: ${known.reason}`);
+    return result(
+      'already-released',
+      request.slotId,
+      `This lease was already released: ${known.reason}`,
+      recordedCheckout(known.status),
+    );
   }
   return result(
     'stale-lease',
     request.slotId,
     `Slot ${request.slotId} holds no lease ${request.expectedLeaseId}, and no release of it is on record.`,
+    'unknown',
   );
 }
 
@@ -141,7 +154,12 @@ async function classify(
  * "preserve lease and checkout" outcome — with the classification recorded as
  * its reason. Only a completed removal ends ownership.
  */
-function preserveSlot(state: PoolState, slot: PoolSlot, classification: Classification): PoolState {
+function preserveSlot(
+  state: PoolState,
+  slot: PoolSlot,
+  classification: Classification,
+  disposition: AppRuntimeReleaseWorktreeRequest['disposition'],
+): PoolState {
   if (!slot.lease) return state;
   const now = new Date().toISOString();
   const reason = `Kept for "${slot.lease.leaseHolder}": ${classification.reason}`;
@@ -149,13 +167,21 @@ function preserveSlot(state: PoolState, slot: PoolSlot, classification: Classifi
     ...slot,
     state: 'leased',
     operation: null,
-    lastReleased: { slotId: slot.slotId, leaseId: slot.lease.leaseId, status: 'preserved', at: now, reason },
+    lastReleased: {
+      slotId: slot.slotId,
+      leaseId: slot.lease.leaseId,
+      disposition,
+      status: 'preserved',
+      at: now,
+      reason,
+    },
     reason,
     updatedAt: now,
   });
   return recordRelease(withSlot, {
     slotId: slot.slotId,
     leaseId: slot.lease.leaseId,
+    disposition,
     status: 'preserved',
     at: now,
     reason,
@@ -167,21 +193,31 @@ export async function releaseWorktree(
   request: AppRuntimeReleaseWorktreeRequest,
 ): Promise<AppRuntimeReleaseWorktreeResult> {
   const opened = await openPool(workspacePath);
-  if (opened.status !== 'ok') return result('recovery-required', request.slotId, opened.reason);
+  if (opened.status !== 'ok') return result('recovery-required', request.slotId, opened.reason, 'retained');
   const { identity } = opened.session;
 
   const slot = findSlot(opened.session.state, request.slotId);
   if (!slot) return answerMissingSlot(opened.session.state, request);
   if (!slot.lease) {
-    const known = opened.session.state.released.find((entry) => entry.leaseId === request.expectedLeaseId);
-    if (known) return result('already-released', slot.slotId, `This lease was already released: ${known.reason}`);
-    return result('recovery-required', slot.slotId, `Slot ${slot.slotId} holds no lease: ${slot.reason}`);
+    const known = opened.session.state.released.find((entry) =>
+      entry.slotId === request.slotId && entry.leaseId === request.expectedLeaseId,
+    );
+    if (known) {
+      return result(
+        'already-released',
+        slot.slotId,
+        `This lease was already released: ${known.reason}`,
+        recordedCheckout(known.status),
+      );
+    }
+    return result('recovery-required', slot.slotId, `Slot ${slot.slotId} holds no lease: ${slot.reason}`, 'retained');
   }
   if (slot.lease.leaseId !== request.expectedLeaseId) {
     return result(
       'stale-lease',
       slot.slotId,
       `Slot ${slot.slotId} now holds lease ${slot.lease.leaseId}, so an older release cannot act on it.`,
+      'unknown',
     );
   }
   // `openPool` has already weighed this slot against Git and the filesystem. A
@@ -189,13 +225,18 @@ export async function releaseWorktree(
   // changed branch, a missing or locked registration, or a directory Git has
   // forgotten is not disposable however sound the caller's identity is.
   if (slot.state !== 'leased') {
-    return result('recovery-required', slot.slotId, `Slot ${slot.slotId} is ${slot.state}: ${slot.reason}`);
+    return result('recovery-required', slot.slotId, `Slot ${slot.slotId} is ${slot.state}: ${slot.reason}`, 'retained');
   }
-  // A repeated `preserve` of a lease already preserved changes nothing, and
-  // re-running Git to say so is waste. An explicit `remove` or `recycle` is a
-  // NEW decision about the same checkout, so it is classified afresh.
-  if (request.disposition === 'preserve' && slot.lastReleased?.leaseId === request.expectedLeaseId) {
-    return result('already-released', slot.slotId, slot.lastReleased.reason);
+  // An identical retry changes nothing. A different disposition is a new
+  // decision about the same checkout and is classified afresh.
+  if (slot.lastReleased?.leaseId === request.expectedLeaseId
+    && slot.lastReleased.disposition === request.disposition) {
+    return result(
+      'already-released',
+      slot.slotId,
+      slot.lastReleased.reason,
+      recordedCheckout(slot.lastReleased.status),
+    );
   }
 
   const classification = await classify(slot, request.disposition);
@@ -205,14 +246,17 @@ export async function releaseWorktree(
     const committed = await commitPoolMutation(identity, (state) => {
       const current = findSlot(state, request.slotId);
       if (!current || current.lease?.leaseId !== request.expectedLeaseId) return { value: 'stale' as const };
-      return { state: preserveSlot(state, current, classification), value: 'preserved' as const };
+      return {
+        state: preserveSlot(state, current, classification, request.disposition),
+        value: 'preserved' as const,
+      };
     });
-    if (committed.status !== 'ok') return result('recovery-required', slot.slotId, committed.reason);
+    if (committed.status !== 'ok') return result('recovery-required', slot.slotId, committed.reason, 'retained');
     if (committed.value === 'stale') {
-      return result('stale-lease', slot.slotId, 'The slot was reassigned before this release was committed.');
+      return result('stale-lease', slot.slotId, 'The slot was reassigned before this release was committed.', 'unknown');
     }
     const status = classification.state === 'recovery-required' ? 'recovery-required' : 'preserved';
-    return result(status, slot.slotId, classification.reason);
+    return result(status, slot.slotId, classification.reason, 'retained');
   }
 
   return removeSlot(workspacePath, identity, slot, request);
@@ -245,9 +289,9 @@ async function removeSlot(
       value: 'reserved' as const,
     };
   });
-  if (reserved.status !== 'ok') return result('recovery-required', slot.slotId, reserved.reason);
+  if (reserved.status !== 'ok') return result('recovery-required', slot.slotId, reserved.reason, 'retained');
   if (reserved.value === 'stale') {
-    return result('stale-lease', slot.slotId, 'The slot was reassigned before this release was committed.');
+    return result('stale-lease', slot.slotId, 'The slot was reassigned before this release was committed.', 'unknown');
   }
 
   // No `--force`: cleanliness was proved above, so a Git refusal here is new
@@ -281,7 +325,7 @@ async function removeSlot(
         value: null,
       };
     });
-    return result('recovery-required', slot.slotId, reason);
+    return result('recovery-required', slot.slotId, reason, 'retained');
   }
 
   const reason = outcome.status === 'removed'
@@ -292,12 +336,13 @@ async function removeSlot(
     state: recordRelease(dropSlot(state, request.slotId), {
       slotId: request.slotId,
       leaseId: request.expectedLeaseId,
+      disposition: request.disposition,
       status: 'released',
       at: now,
       reason,
     }),
     value: null,
   }));
-  if (committed.status !== 'ok') return result('recovery-required', slot.slotId, committed.reason);
-  return result('released', slot.slotId, reason);
+  if (committed.status !== 'ok') return result('recovery-required', slot.slotId, committed.reason, 'removed');
+  return result('released', slot.slotId, reason, 'removed');
 }

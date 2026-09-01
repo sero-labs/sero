@@ -239,9 +239,109 @@ describe('Coordinator delete', () => {
       resolvedBy: 'create-option', createdAt: 't',
     };
     host.state = { ...host.state, loops: [loop] };
-    await new Coordinator(host).requestAction({ kind: 'delete', loopId: 'loop-1', deleteBranch: true });
+    const result = await new Coordinator(host).requestAction({ kind: 'delete', loopId: 'loop-1', deleteBranch: true });
     expect(host.worktreeRemovals).toEqual([]);
+    expect(result.ok).toBe(false);
+    expect(host.state.loops).toHaveLength(1);
+  });
+
+  it('releases every preserved checkout before deleting the loop', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    const first = await leaseManagedWorktree(host);
+    const second = await host.acquireWorktree({ holder: 'loop-1-r2', title: 'Task' });
+    if (second.status !== 'acquired') throw new Error(second.reason);
+    loop.runtime.workspace.resolved = first;
+    loop.runtime.workspace.preservedWorktrees = [{
+      slotId: second.lease.slotId,
+      leaseId: second.lease.leaseId,
+      worktreeKey: second.lease.leaseHolder,
+      worktreePath: second.lease.worktreePath,
+      branchName: second.lease.branchName,
+      outcome: 'preserved',
+      reason: 'The branch holds work.',
+      at: 't',
+    }];
+    host.state = { ...host.state, loops: [loop] };
+
+    const result = await new Coordinator(host).requestAction({ kind: 'delete', loopId: 'loop-1' });
+
+    expect(result.ok).toBe(true);
+    expect(host.worktreeRemovals.map((entry) => entry.leaseId)).toEqual([
+      first.leaseId,
+      second.lease.leaseId,
+    ]);
     expect(host.state.loops).toHaveLength(0);
+  });
+
+  it('keeps refused preserved leases recoverable when deletion is retried', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    const first = await leaseManagedWorktree(host);
+    const second = await host.acquireWorktree({ holder: 'loop-1-r2', title: 'Task' });
+    if (second.status !== 'acquired') throw new Error(second.reason);
+    loop.runtime.workspace.resolved = first;
+    loop.runtime.workspace.preservedWorktrees = [{
+      slotId: second.lease.slotId,
+      leaseId: second.lease.leaseId,
+      worktreeKey: second.lease.leaseHolder,
+      worktreePath: second.lease.worktreePath,
+      branchName: second.lease.branchName,
+      outcome: 'preserved',
+      reason: 'The branch holds work.',
+      at: 't',
+    }];
+    host.releaseOutcomes.set(second.lease.leaseId, {
+      status: 'preserved',
+      slotId: second.lease.slotId,
+      reason: 'The checkout has uncommitted work.',
+      checkout: 'retained',
+    });
+    host.state = { ...host.state, loops: [loop] };
+
+    const result = await new Coordinator(host).requestAction({ kind: 'delete', loopId: 'loop-1' });
+
+    expect(result.ok).toBe(false);
+    expect(host.state.loops).toHaveLength(1);
+    expect(host.state.loops[0].runtime.workspace.resolved).toBeUndefined();
+    expect(host.state.loops[0].runtime.workspace.preservedWorktrees?.map((entry) => entry.leaseId))
+      .toEqual([second.lease.leaseId]);
+
+    host.releaseOutcomes.delete(second.lease.leaseId);
+    const retry = await new Coordinator(host).requestAction({ kind: 'delete', loopId: 'loop-1' });
+    expect(retry.ok).toBe(true);
+    expect(host.state.loops).toHaveLength(0);
+  });
+
+  it('persists each successful deletion release before attempting the next lease', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    const first = await leaseManagedWorktree(host);
+    const second = await host.acquireWorktree({ holder: 'loop-1-r2', title: 'Task' });
+    if (second.status !== 'acquired') throw new Error(second.reason);
+    loop.runtime.workspace.resolved = first;
+    loop.runtime.workspace.preservedWorktrees = [{
+      slotId: second.lease.slotId,
+      leaseId: second.lease.leaseId,
+      worktreeKey: second.lease.leaseHolder,
+      worktreePath: second.lease.worktreePath,
+      outcome: 'preserved',
+      reason: 'The branch holds work.',
+      at: 't',
+    }];
+    host.state = { ...host.state, loops: [loop] };
+    const releaseWorktree = host.releaseWorktree.bind(host);
+    host.releaseWorktree = async (request) => {
+      if (request.expectedLeaseId === second.lease.leaseId) throw new Error('simulated interruption');
+      return releaseWorktree(request);
+    };
+
+    await expect(new Coordinator(host).requestAction({ kind: 'delete', loopId: 'loop-1' }))
+      .rejects.toThrow('simulated interruption');
+
+    expect(host.state.loops[0].runtime.workspace.resolved).toBeUndefined();
+    expect(host.state.loops[0].runtime.workspace.preservedWorktrees?.map((entry) => entry.leaseId))
+      .toEqual([second.lease.leaseId]);
   });
 
   it('touches no worktree when none was resolved', async () => {

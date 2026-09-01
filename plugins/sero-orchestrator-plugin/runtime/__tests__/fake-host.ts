@@ -321,13 +321,17 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
       if (scripted) return scripted;
       const lease = this.leases.get(request.slotId);
       if (!lease) {
-        return { status: 'stale-lease', slotId: request.slotId, reason: `No slot ${request.slotId}.` };
+        return {
+          status: 'stale-lease', slotId: request.slotId,
+          reason: `No slot ${request.slotId}.`, checkout: 'unknown',
+        };
       }
       if (lease.leaseId !== request.expectedLeaseId) {
         return {
           status: 'stale-lease',
           slotId: request.slotId,
           reason: `Slot ${request.slotId} now holds lease ${lease.leaseId}.`,
+          checkout: 'unknown',
         };
       }
       this.leases.delete(request.slotId);
@@ -340,7 +344,10 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
         deleteBranch: request.deleteBranch,
         deleteMergedBranch: request.deleteMergedBranch,
       });
-      return { status: 'released', slotId: request.slotId, reason: 'The checkout was released.' };
+      return {
+        status: 'released', slotId: request.slotId,
+        reason: 'The checkout was released.', checkout: 'removed',
+      };
     },
     async createWorktree(loopId, _title, options) {
       this.worktreesCreated.push(loopId);

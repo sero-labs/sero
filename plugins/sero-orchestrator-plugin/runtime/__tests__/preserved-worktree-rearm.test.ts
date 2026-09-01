@@ -42,6 +42,7 @@ async function settledLoopWithKeptCheckout(
     status: 'preserved',
     slotId: acquired.lease.slotId,
     reason: KEPT,
+    checkout: 'retained',
   });
 
   const loop: Loop = {
@@ -137,6 +138,26 @@ describe('a checkout the host kept is not forgotten by the next iteration', () =
     })]);
   });
 
+  it('keeps the original lease reference if persistence fails after event cleanup', async () => {
+    const host = createFakeHost();
+    host.frozenNow = NOW;
+    const lease = await settledLoopWithKeptCheckout(host, [eventTrigger()]);
+    host.releaseOutcomes.delete(lease.leaseId);
+    const updateState = host.updateState.bind(host);
+    let updates = 0;
+    host.updateState = async (updater) => {
+      updates += 1;
+      if (updates === 2) throw new Error('simulated state write interruption');
+      await updateState(updater);
+    };
+
+    await expect(coordinator(host, { executor: fakeExecutor({ 'step-1': SUCCESS }) })
+      .fireEvent(ciEvent())).rejects.toThrow('simulated state write interruption');
+
+    expect(host.state.loops[0].runtime.workspace.resolved?.leaseId).toBe(lease.leaseId);
+    expect(host.state.loops[0].runtime.pendingEvents).toHaveLength(1);
+  });
+
   it('survives a manual restart', async () => {
     const host = createFakeHost();
     host.frozenNow = NOW;
@@ -160,6 +181,7 @@ describe('a checkout the host kept is not forgotten by the next iteration', () =
       status: 'recovery-required',
       slotId: lease.slotId,
       reason: 'The checkout is on a detached HEAD.',
+      checkout: 'retained',
     });
 
     await coordinator(host, { executor: fakeExecutor({ 'step-1': SUCCESS }) })

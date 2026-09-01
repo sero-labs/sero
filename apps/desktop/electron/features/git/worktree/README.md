@@ -22,7 +22,7 @@ consequences for work on disk:
 | Situation | Answer | Effect |
 | --- | --- | --- |
 | First release of lease L1 | `released` / `preserved` | Acts |
-| Retry of L1 before reassignment | `already-released` | No change |
+| Identical retry of L1 before reassignment | `already-released` | No change |
 | Delayed L1 after the slot took L2 | `stale-lease` | No change; L2 untouched |
 
 The last completed releases are retained in `pool.json` (`released`, capped at
@@ -147,7 +147,9 @@ recorded, so no later acquisition can take it. Only a completed removal ends
 ownership. On the consumer's side, a Workflow run that is re-armed carries a
 `preservedWorktrees` record naming the slot, lease, path, branch and the
 host's own reason, so the loop keeps a reference to work it is no longer
-using.
+using. Live references are not capped. Deleting the Workflow releases the
+current lease and every preserved lease, and keeps the Workflow record when
+any release is refused so the remaining checkout stays recoverable.
 
 ## State file
 

@@ -44,7 +44,7 @@ import {
   type CoordinatorRunSeam,
   type EventBroadcast,
 } from './event-delivery';
-import { cleanupAndCarry, releaseDeletedLoopWorktree } from './worktree-cleanup';
+import { cleanupAndCarry, releaseDeletedLoopWorktrees } from './worktree-cleanup';
 import { retryLoop, retryStepAction, runAgain } from './restart-actions';
 import { buildLifecycleEvents } from './lifecycle-events';
 import { computeReadySteps, hasRunningSteps } from './readiness';
@@ -114,7 +114,9 @@ export class Coordinator {
    * whose previous pass already finished.
    */
   private async runFreshPass(loop: Loop, triggerId?: string): Promise<OrchestratorActionResult> {
-    const base = rearmLoop(await cleanupAndCarry(this.host, loop), this.host.now());
+    const cleanup = await cleanupAndCarry(this.host, loop);
+    if (!cleanup.ok) return { ok: false, error: cleanup.error, loop: cleanup.loop };
+    const base = rearmLoop(cleanup.loop, this.host.now());
     const rearmed = triggerId
       ? { ...base, runtime: { ...base.runtime, pendingTriggerId: triggerId } }
       : base;
@@ -289,15 +291,18 @@ export class Coordinator {
 
   /**
    * Permanently removes a loop and its config. If the loop resolved a managed
-   * worktree, that worktree is removed (best-effort and tolerant of an
-   * already-gone worktree). By default its branch is kept so any committed or
-   * PR'd work survives; pass `deleteBranch` to delete the local branch too. The
-   * loop is then dropped from state. Allowed from any status.
+   * worktree, every checkout still named by that loop is removed. By default
+   * branches are kept so committed or PR work survives; pass `deleteBranch`
+   * to delete eligible local branches too. A refused or uncertain release
+   * keeps the loop and its remaining references so deletion can be retried.
    */
   async delete(loopId: string, deleteBranch?: boolean): Promise<OrchestratorActionResult> {
     const loop = await this.findLoop(loopId);
     if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
-    await releaseDeletedLoopWorktree(this.host, loopId, loop.runtime.workspace.resolved, deleteBranch);
+    const cleanup = await releaseDeletedLoopWorktrees(this.host, loop, deleteBranch);
+    if (!cleanup.released) {
+      return { ok: false, error: cleanup.error, loop: cleanup.loop };
+    }
     await this.host.updateState((state) => ({
       ...state,
       loops: state.loops.filter((l) => l.id !== loopId),

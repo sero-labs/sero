@@ -94,9 +94,10 @@ export interface AppRuntimeReleaseWorktreeRequest {
 /**
  * - `released` — the checkout was removed and the slot left the pool.
  * - `preserved` — the checkout was kept; `reason` says what blocked removal.
- * - `already-released` — a retry of a release that already succeeded. No change.
+ * - `already-released` — an identical retry of a recorded release decision. No change.
  * - `stale-lease` — the slot now holds a different lease. No change.
- * - `recovery-required` — evidence disagreed; the checkout was preserved.
+ * - `recovery-required` — evidence disagreed, or a safe operation could not be
+ *   recorded. Consult `checkout` before deciding whether to retain a reference.
  */
 export type AppRuntimeReleaseWorktreeStatus =
   | 'released'
@@ -109,6 +110,8 @@ export interface AppRuntimeReleaseWorktreeResult {
   status: AppRuntimeReleaseWorktreeStatus;
   slotId: string;
   reason: string;
+  /** What this call established about the checkout named by the requested lease. */
+  checkout: 'removed' | 'retained' | 'unknown';
 }
 
 export interface AppRuntimeWorktreePoolApi {

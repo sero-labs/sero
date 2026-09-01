@@ -97,7 +97,7 @@ export interface PreservedWorktreeRecord {
   worktreeKey: string;
   worktreePath: string;
   branchName?: string;
-  outcome: 'preserved' | 'recovery-required' | 'stale-lease' | 'already-released';
+  outcome: 'preserved' | 'recovery-required' | 'already-released';
   reason: string;
   at: string;
 }

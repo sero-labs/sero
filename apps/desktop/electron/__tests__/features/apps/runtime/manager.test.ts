@@ -86,6 +86,7 @@ function createHostStub(
         status: 'stale-lease' as const,
         slotId: '',
         reason: 'This stub host leases no worktrees.',
+        checkout: 'unknown' as const,
       })),
       createWorktree: vi.fn(async () => ({ worktreePath: '', branchName: '', greenfield: false })),
       removeWorktree: vi.fn(async () => {}),

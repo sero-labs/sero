@@ -361,7 +361,7 @@ export function createRoomWorkspaces(ctx: RoomWorkspacesContext): RoomWorkspaces
       disposition: 'recycle',
       deleteMergedBranch: true,
     });
-    if (outcome.status !== 'released') {
+    if (outcome.checkout !== 'removed') {
       return {
         memberId: member.id,
         preserved,

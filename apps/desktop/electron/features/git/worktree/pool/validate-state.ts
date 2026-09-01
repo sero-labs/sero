@@ -108,10 +108,19 @@ function parseReleased(value: unknown): ReleasedLeaseRecord | null {
   const slotId = str(raw.slotId);
   const leaseId = str(raw.leaseId);
   const status = str(raw.status);
+  const disposition = str(raw.disposition);
   const at = str(raw.at);
   const reason = str(raw.reason);
   if (!slotId || !leaseId || !at || !reason || !status || !RELEASE_STATUSES.includes(status)) return null;
-  return { slotId, leaseId, status: status as ReleasedLeaseRecord['status'], at, reason };
+  if (!disposition || !['recycle', 'preserve', 'remove'].includes(disposition)) return null;
+  return {
+    slotId,
+    leaseId,
+    disposition: disposition as ReleasedLeaseRecord['disposition'],
+    status: status as ReleasedLeaseRecord['status'],
+    at,
+    reason,
+  };
 }
 
 function parseSlot(value: unknown): PoolSlot | null {

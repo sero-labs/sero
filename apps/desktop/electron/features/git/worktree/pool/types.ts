@@ -9,11 +9,12 @@
 
 import type {
   AppRuntimeWorktreeBranchKind,
+  AppRuntimeWorktreeDisposition,
   AppRuntimeWorktreeLease,
 } from '@sero-ai/common';
 
 /** Bumped whenever a persisted field changes. Unknown versions fail closed. */
-export const POOL_SCHEMA_VERSION = 1;
+export const POOL_SCHEMA_VERSION = 2;
 
 /**
  * Stable states describe what a slot is. Transitional states describe an
@@ -57,6 +58,7 @@ export interface PoolOperation {
 export interface ReleasedLeaseRecord {
   slotId: string;
   leaseId: string;
+  disposition: AppRuntimeWorktreeDisposition;
   status: 'released' | 'preserved';
   at: string;
   reason: string;

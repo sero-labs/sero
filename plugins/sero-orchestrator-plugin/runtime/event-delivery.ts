@@ -192,26 +192,27 @@ function isSnoozed(loop: Loop, now: string): boolean {
  * `event` observation.
  */
 async function runEventPass(host: OrchestratorHost, seam: CoordinatorRunSeam, loopId: string): Promise<void> {
+  const beforeCleanup = await seam.findLoop(loopId);
+  if (!beforeCleanup || beforeCleanup.status !== 'active') return;
+  const prior = beforeCleanup.runtime.workspace.resolved;
+  const released = await cleanupPreviousWorktree(host, loopId, prior);
+  if (prior?.type === 'managed-worktree' && (!released || released.checkout === 'unknown')) {
+    const reason = released?.reason ?? 'the checkout has no pool lease identity';
+    host.log(`Loop ${loopId} cannot start its event-fired pass because its previous checkout could not be released safely: ${reason}`);
+    return;
+  }
+  const record = preservedWorktreeRecord(host, prior, released);
   let rearmed: Loop | undefined;
-  let prior: Loop['runtime']['workspace']['resolved'];
   await host.updateState((state) => {
     const current = state.loops.find((l) => l.id === loopId);
     if (!current || current.status !== 'active') return state;
-    prior = current.runtime.workspace.resolved; // captured pre-rearm: rearmLoop clears workspace
-    rearmed = rearmLoop(current, host.now());
+    // Another event pass may have crossed this one while the host was doing
+    // Git work. Only the pass that still owns the same workspace may re-arm.
+    if (current.runtime.workspace.resolved?.leaseId !== prior?.leaseId
+      || current.runtime.workspace.resolved?.id !== prior?.id) return state;
+    rearmed = rearmLoop(withPreservedWorktree(current, record), host.now());
     return { ...state, loops: state.loops.map((l) => (l.id === loopId ? rearmed! : l)) };
   });
   if (!rearmed) return;
-  const released = await cleanupPreviousWorktree(host, loopId, prior);
-  // Re-armed already, so the record is written back afterwards rather than
-  // being lost with the workspace the re-arm cleared.
-  const record = preservedWorktreeRecord(host, prior, released);
-  if (record) {
-    await host.updateState((state) => ({
-      ...state,
-      loops: state.loops.map((l) => (l.id === loopId ? withPreservedWorktree(l, record) : l)),
-    }));
-    rearmed = withPreservedWorktree(rearmed, record);
-  }
   await seam.runNext(loopId, rearmed);
 }

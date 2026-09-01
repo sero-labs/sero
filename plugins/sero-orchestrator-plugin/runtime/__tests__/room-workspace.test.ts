@@ -475,6 +475,7 @@ describe('preserving uncommitted work', () => {
       status: 'preserved',
       slotId: member.worktreeSlotId ?? '',
       reason: 'The checkout has uncommitted work.',
+      checkout: 'retained',
     });
 
     const result = await workspaces.releaseMember(roomId, 'api', 'retired');
