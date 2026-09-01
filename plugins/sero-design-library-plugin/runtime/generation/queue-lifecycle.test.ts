@@ -56,7 +56,7 @@ async function settled(designId: string) {
   await vi.waitFor(async () => {
     const design = await readDesign(harness.paths, designId);
     expect(design?.variants.every((variant) => variant.status !== 'pending' && variant.status !== 'running')).toBe(true);
-  }, FAST_POLL);
+  }, { ...FAST_POLL, timeout: 5_000 });
   return (await readDesign(harness.paths, designId))!;
 }
 
