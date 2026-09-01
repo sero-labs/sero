@@ -1,361 +1,494 @@
-# Issue 473 — Reusable, lease-based worktree pool
+# Issue 473: Reusable, lease-based worktree pool
 
 Tracking issue: <https://github.com/sero-labs/sero/issues/473>
 
+## Delivery model
+
+Keep #473 as the umbrella issue. Deliver it through three independently safe
+PRs:
+
+1. Safety foundations and the lease-aware host contract, with no slot reuse.
+2. Reusable slots, process protection, reset, and capacity policy.
+3. Fenced cleanup planning and an optional Admin/Git UI.
+
+Each PR must be safe to merge and ship on its own. The pool must not reuse a
+physical checkout until PR 2 proves every reuse precondition.
+
 ## Goal
 
-Replace the one-directory-per-work-item worktree lifecycle with a pooled lease
-service. Logical consumers (Workflow runs, Room members) lease a physical slot.
-They do not own a fixed directory.
+Replace the one-directory-per-work-item lifecycle with a host-owned worktree
+lease service. Workflow runs and Room members own immutable lease identities;
+the host owns physical checkout allocation and recovery.
 
-Keep these Sero semantics unchanged:
+Keep these Sero semantics:
 
-- Conventional branch names from `buildBranchName()`.
-- Existing PR branch checkout (`options.existingBranch`).
-- Persistent workflow and Room ownership of a checkout.
+- Conventional fresh-task branch names from `buildBranchName()`.
+- Existing PR branch checkout through `options.existingBranch`.
+- Persistent Workflow and Room ownership while work is active or awaiting
+  review.
 - Greenfield repository bootstrap.
-- Branch-backed work. Detached HEAD is not the normal mode.
+- Branch-backed work. Detached HEAD is not the normal consumer mode.
+- Fail-closed recovery. Ambiguous work is preserved, never guessed disposable.
 
 ## Non-goals
 
 - Bundling the Treehouse binary. Treehouse is design inspiration only.
-- Jujutsu support, interactive subshells, user shell hooks.
+- Jujutsu support, interactive subshells, or user shell hooks.
 - Global cross-repository pruning.
-- Automatic termination of foreign processes.
+- Automatic termination of arbitrary foreign processes.
+- Making an Admin UI a prerequisite for the safe pool core.
 
-## Current state
+## Current integration points
 
 | File | Role |
 | --- | --- |
-| `apps/desktop/electron/features/git/worktree/manager.ts` | `WorktreeManager.create/remove/list/exists` (360 LOC) |
-| `apps/desktop/electron/features/git/worktree/exec.ts` | `execWorktreeGit` |
-| `apps/desktop/electron/features/git/worktree/workspace-sync.ts` | `resolvePreferredBaseRef` |
-| `apps/desktop/electron/features/apps/runtime/capabilities/create-host.ts` | Wires `git.createWorktree` / `git.removeWorktree` |
-| `packages/common/src/app-runtime-git.ts` | `AppRuntimeGit` contract |
-| `plugins/sero-orchestrator-plugin/runtime/host.ts` | `OrchestratorHost` worktree contract |
-| `plugins/sero-orchestrator-plugin/runtime/workspace.ts` | Fresh and PR checkout acquisition |
-| `plugins/sero-orchestrator-plugin/runtime/rooms/room-workspace.ts` | Room member checkouts |
-| `plugins/sero-orchestrator-plugin/runtime/worktree-cleanup.ts` | Release after an iteration |
+| `apps/desktop/electron/features/git/worktree/manager.ts` | Current create, remove, list, and directory-only existence check |
+| `apps/desktop/electron/features/git/worktree/exec.ts` | Git subprocess boundary |
+| `apps/desktop/electron/features/git/worktree/workspace-sync.ts` | Base-ref selection |
+| `apps/desktop/electron/features/apps/runtime/capabilities/create-host.ts` | Desktop Git capability wiring |
+| `packages/common/src/app-runtime-git.ts` | Shared host Git contract |
+| `plugins/sero-orchestrator-plugin/runtime/host.ts` | Orchestrator host seam |
+| `plugins/sero-orchestrator-plugin/runtime/host-adapter.ts` | Runtime host adapter |
+| `plugins/sero-orchestrator-plugin/runtime/workspace.ts` | Workflow acquisition and persisted workspace reuse |
+| `plugins/sero-orchestrator-plugin/runtime/rooms/room-workspace.ts` | Room member acquisition and persisted path reuse |
+| `plugins/sero-orchestrator-plugin/runtime/worktree-cleanup.ts` | Workflow release |
 | `packages/extension-runtime/src/file-lock.ts` | Existing cross-process lock protocol to reuse |
 
-Known defects to correct: directory-only `exists()`, recursive delete after a
-failed `git worktree remove`, no lifecycle lock, no lease identity, and no
-persisted pool state.
+## Core invariants
+
+1. Every acquisition creates a new random `leaseId`, including reacquisition by
+   the same holder in the same slot.
+2. A destructive or recycling action requires the current `slotId` and exact
+   `expectedLeaseId`.
+3. A logical holder name is not a release fence. No compatibility wrapper may
+   look up the holder's current lease and release it on behalf of an older call.
+4. Pool state, Git registration, and the physical directory are independent
+   evidence. Reuse requires all applicable evidence to agree.
+5. Caller disposition is an intent. The host performs the final safety
+   classification and may preserve instead.
+6. Dirty, active, unmerged, damaged, orphaned, or unverifiable work is preserved
+   by default.
+7. Process detection failure means unverifiable, not idle.
+8. A cleanup confirmation is fenced to the exact state that was shown to the
+   user and is revalidated immediately before execution.
+
+## Host-owned data model
+
+### Lease
+
+```ts
+interface WorktreeLease {
+  slotId: string;
+  leaseId: string;
+  leaseHolder: string;
+  worktreePath: string;
+  branchName: string;
+  branchKind: 'fresh-task' | 'external-pr';
+  baseRef: string;
+  baseCommit: string;
+  acquiredHead: string;
+  prNumber?: number;
+  acquiredAt: string;
+}
+```
+
+`baseCommit` and `acquiredHead` are immutable evidence. A moving branch name is
+not sufficient to prove disposability later.
+
+### Slot state
+
+Use explicit stable and transitional states:
+
+- `available`
+- `leased`
+- `provisioning`
+- `recycling`
+- `removing`
+- `dirty`
+- `unmerged`
+- `in-use`
+- `damaged`
+- `orphaned`
+- `recovery-required`
+
+Every transitional state records an operation ID, lease ID where applicable,
+PID, start time, and intended next state. A crash leaves evidence that
+reconciliation can classify rather than an anonymous reservation.
+
+### Lease API
+
+Add lease-aware operations to `AppRuntimeGitApi` and `OrchestratorHost`:
+
+```ts
+acquireWorktree(request): Promise<WorktreeLease>;
+reattachWorktree(identity): Promise<WorktreeLease>;
+releaseWorktree({
+  slotId,
+  expectedLeaseId,
+  disposition,
+}): Promise<ReleaseWorktreeResult>;
+```
+
+Dispositions are `recycle`, `preserve`, and `remove`. Results distinguish at
+least `released`, `preserved`, `already-released`, `stale-lease`, and
+`recovery-required`.
+
+Idempotency semantics are exact:
+
+- First release of lease L1 succeeds.
+- A retry of L1 before reassignment returns `already-released` without mutation.
+- After the slot is assigned lease L2, a delayed release of L1 returns
+  `stale-lease` and cannot affect L2.
+
+Retain the last released lease identity and outcome long enough to distinguish
+the first two cases. Older unknown identities fail closed as stale.
+
+The old key-based methods may remain temporarily for unmigrated legacy
+checkouts, but they must not recycle pooled slots. Remove or deprecate them once
+Workflow and Room consumers use the lease API.
+
+## Repository identity and storage
+
+- Derive repository identity from the canonical result of
+  `git rev-parse --git-common-dir`, resolved to an absolute real path after
+  greenfield bootstrap.
+- Two Sero workspace registrations that share a Git common directory must share
+  one pool authority and lock domain, or the second must be rejected with a
+  clear conflict. `workspacePath` alone is not a repository identity.
+- Store versioned pool state atomically. A profile-scoped repository index may
+  map the canonical repository identity to its selected physical pool root.
+- Physical slots remain under the selected workspace's `.sero/worktrees/`.
+- Write to a unique temporary file, flush it, replace `pool.json` using the
+  repository's existing platform-safe atomic replacement pattern, and clean up
+  abandoned temporary files conservatively.
+- Unknown schema versions, unreadable state, or failed Git enumeration make the
+  repository unavailable for automatic reuse. Never substitute an empty,
+  reusable pool.
+- Preserve corrupt state as `pool.json.corrupt-<timestamp>` for diagnosis.
+
+## Concurrency model
+
+Use two related lock domains rather than holding one lock across every command:
+
+1. A short pool-state lock, using `acquireLock`, guards every read-modify-write
+   of `pool.json`.
+2. A per-repository Git-mutation gate serialises registration-changing commands:
+   `git worktree add`, `remove`, `repair`, and `prune`.
+
+Acquisition and release follow a small transaction:
+
+1. Under the state lock, validate state, choose the slot, write a transitional
+   operation record, then unlock.
+2. Perform network work such as fetch outside both locks.
+3. Hold the Git-mutation gate only for the registration-changing command.
+   Independent fetches and preparation may overlap.
+4. Retake the state lock, confirm the operation ID and lease identity still
+   match, and commit the resulting stable state.
+5. If any command or final commit fails, preserve the checkout and leave enough
+   evidence for reconciliation.
+
+Reset commands that only touch one already registered checkout may run under
+that slot's transitional reservation. `prune` and `repair` must never overlap
+another registration mutation.
+
+Do not reclaim a live lock holder. A timeout is a named error. Resolve timeout
+values after the final critical sections are known.
+
+## Git evidence and recovery
+
+- Parse `git worktree list --porcelain -z`, not the newline-only format.
+- Model `locked`, `prunable`, `detached`, and `bare` records explicitly.
+- Canonicalise and containment-check every managed path.
+- Reconcile all three sources independently:
+  1. versioned pool state;
+  2. Git worktree registration;
+  3. physical `slot-*` and legacy `card-*` directories.
+- A Git-listing failure blocks automatic pool use for that repository.
+- Registration with no directory is `orphaned` unless a controlled repair can
+  prove the intended path.
+- Directory with no registration is `damaged` or `recovery-required`.
+- Any disagreement in repository, slot, path, lease, branch, or expected HEAD
+  is `recovery-required`.
+- Run `git worktree repair <exact-path>` only from a classified, explicit repair
+  action. Use `git worktree prune --dry-run` when planning stale-registration
+  cleanup; never run broad prune merely because provisioning failed.
+
+## Legacy migration
+
+- Discover existing `card-*` directories, but never import one as `available`
+  based on its name alone.
+- Reattach a legacy checkout only when persisted Workflow or Room state matches
+  its logical key, canonical path, Git registration, and branch.
+- Give a successfully matched legacy owner a new migration lease and persist
+  that identity back to the consumer before lease-aware cleanup is enabled.
+- Mark unmatched, conflicting, or partially migrated checkouts
+  `recovery-required` and surface them. No upgrade may delete or reassign them.
 
 ---
 
-## Phase 1 — Safety foundations
+## PR 1: Safety foundations and lease contract
 
-Make the current lifecycle safe. Do not change the pool shape yet.
+PR 1 makes the current one-checkout-per-holder lifecycle safe. It does not reuse
+a physical slot for a different lease holder.
 
-### 1.1 Lease identity and state model
+### 1.1 Immediate removal safety
 
-- [ ] Add `apps/desktop/electron/features/git/worktree/pool/types.ts` with
-      `WorktreeLease`, `SlotState`, and `SlotRecord`.
-- [ ] Define slot states: `available`, `leased`, `dirty`, `unmerged`,
-      `in-use`, `damaged`, `orphaned`, `recovery-required`.
-- [ ] Give each acquisition a new random `leaseId` from `randomUUID()`, also
-      when the same holder reuses the same slot.
-- [ ] Record `slotId`, `leaseId`, `leaseHolder`, `worktreePath`, `branchName`,
-      `baseRef`, and `acquiredAt` in the lease.
+- [ ] Remove the unconditional recursive `fs.rm()` fallback after failed
+      `git worktree remove`.
+- [ ] On failure, preserve the directory and return a classified result.
+- [ ] Never delete a branch after worktree removal failed.
 
-### 1.2 Atomic pool state
+### 1.2 Types, state, and locks
 
-- [ ] Add `pool/state-store.ts`. Store per-repository state at
-      `.sero/worktrees/pool.json`.
-- [ ] Write with temporary-file plus `rename()` replacement.
-- [ ] Version the state file. Reject an unknown version instead of guessing.
-- [ ] On truncated or unparsable state, keep the file as
-      `pool.json.corrupt-<timestamp>` and start an empty state.
-- [ ] Mark every slot rebuilt from Git alone as `recovery-required`. Do not
-      reuse or delete it.
+- [ ] Add `pool/types.ts`, `pool/state-store.ts`, repository identity, state
+      locking, the Git-mutation gate, and the transitional operation model.
+- [ ] Version and validate every persisted field. Reject unknown versions.
+- [ ] Implement platform-safe atomic replacement and conservative corrupt-state
+      handling.
 
-### 1.3 Cross-process lifecycle lock
+### 1.3 Registration and filesystem reconciliation
 
-Import `acquireLock` from `@sero-ai/extension-runtime`. The desktop app
-already depends on that package, and `features/apps/state/manager.ts`
-already locks with it. Write no second lock implementation.
+- [ ] Add the `--porcelain -z` parser and physical-directory enumeration.
+- [ ] Replace directory-only `exists()` with a classified validation result.
+- [ ] Reconcile on first use per repository and after interrupted transitions.
+- [ ] Fail the repository closed if Git evidence cannot be read.
 
-Hold the lock only for the short critical section that reads and writes
-`pool.json`. Do not hold it across Git work. A `git fetch` can take a
-minute, and a lock held that long serialises every Room member.
+### 1.4 Lease-aware host contract
 
-- [ ] Lock, read state, choose and reserve a slot, write state, unlock. Keep
-      this section free of subprocess calls.
-- [ ] Record the reserving `pid` and `leaseId` on the reservation. The
-      reservation, not the lock, excludes other holders during Git work.
-- [ ] Do the Git work with the lock released.
-- [ ] Re-take the lock to commit the result, and confirm the reservation is
-      still ours before the write. Treat a lost reservation as a failure,
-      not as a reason to overwrite.
-- [ ] Use one lock directory per repository pool, derived from the `pool.json`
-      path by the same `<file>.lock` rule as `stateLockPath`.
-- [ ] Report a lock timeout as an error. Never break a live holder's lock.
-      This matches the declared failure mode of the shared protocol.
-- [ ] Classify a reservation whose `pid` is gone as `recovery-required` during
-      reconciliation (1.6). A crash in the unlocked Git phase must not leave a
-      slot reserved forever.
-- [ ] Confirm the protocol works on Windows. It uses `mkdir`, hard links,
-      `rename`, and `process.kill(pid, 0)`. Add a test or accept a documented
-      limitation.
+- [ ] Add acquire, reattach, and conditional release to
+      `packages/common/src/app-runtime-git.ts`.
+- [ ] Wire the service in `create-host.ts` and preserve all lease fields through
+      `runtime/host-adapter.ts`.
+- [ ] Add `slotId` and `leaseId` to `ResolvedWorkspaceContext` with a persisted
+      migration.
+- [ ] Add the same lease identity to `RoomMember` with a Room schema migration.
+- [ ] Pass the exact lease identity from Workflow and Room cleanup paths.
+- [ ] Do not implement a holder-key wrapper that resolves and releases the
+      holder's current pooled lease.
 
-### 1.4 Real worktree validation
+### 1.5 Validated restart reattachment
 
-- [ ] Add `pool/git-registration.ts`. Parse `git worktree list --porcelain`.
-- [ ] Replace `WorktreeManager.exists()` with a check of the Git registration
-      and the directory together.
-- [ ] Classify a registered worktree with a missing directory as `orphaned`.
-- [ ] Classify a directory with no registration as `damaged`.
+- [ ] Make Workflow call `reattachWorktree()` before returning a persisted
+      managed workspace context.
+- [ ] Make Room call it before trusting a member's persisted worktree path.
+- [ ] Prove repository identity, slot, lease, holder, path, registration,
+      branch, and expected HEAD.
+- [ ] Block execution and surface recovery when proof fails.
 
-### 1.5 Conditional and safe release
+### 1.6 PR 1 tests and acceptance
 
-- [ ] Add `releaseWorktree({ slotId, expectedLeaseId, disposition })` with
-      dispositions `recycle`, `preserve`, and `remove`.
-- [ ] Ignore a release whose `expectedLeaseId` does not match the current
-      lease. Return an explicit `stale-lease` outcome.
-- [ ] Make release idempotent. A repeated release of the same lease succeeds.
-- [ ] Remove the `fs.rm(worktreePath, { recursive: true })` fallback in
-      `manager.remove()`. After a failed `git worktree remove`, mark the slot
-      `damaged` and preserve the directory.
+- [ ] Two acquisitions by the same holder produce different lease IDs.
+- [ ] L1 release, L1 retry, L2 acquisition, and delayed L1 release produce the
+      exact idempotency and ABA outcomes defined above.
+- [ ] Concurrent acquisitions never issue one slot twice.
+- [ ] Killing the process during every transitional state yields either valid
+      reattachment or `recovery-required`, never automatic reuse.
+- [ ] Truncating state at every byte offset never makes ambiguous work reusable
+      or removable.
+- [ ] Git-listing failure blocks the repository rather than creating empty
+      state.
+- [ ] Registered-only, directory-only, locked, prunable, detached, and unusual
+      path records are classified correctly.
+- [ ] Failed Git removal leaves the directory, its contents, registration
+      evidence, and branch intact.
+- [ ] A Workflow and a Room member both reattach only through host validation.
+- [ ] Legacy `card-*` work is either matched to its persisted owner or marked
+      recovery-required.
+- [ ] Existing fresh-branch, PR-branch, greenfield, Workflow, and Room behaviour
+      passes with the lease contract.
 
-### 1.6 Restart reconciliation
-
-- [ ] Add `pool/reconcile.ts`. Compare persisted state with
-      `git worktree list --porcelain` at first pool use per repository.
-- [ ] Reattach a persisted lease when the slot, path, and branch all agree.
-- [ ] Mark every disagreement as `recovery-required`.
-- [ ] Run controlled `git worktree prune` only for registrations the state
-      proves are ours and have no lease.
-
-### 1.7 Phase 1 tests
-
-- [ ] Unit: lease identity is new for each acquisition.
-- [ ] Unit: a stale `leaseId` cannot release a newer lease (ABA race).
-- [ ] Unit: a truncated state file gives `recovery-required`, not reuse or
-      deletion.
-- [ ] Unit: a failed `git worktree remove` never deletes the directory.
-- [ ] Integration: two concurrent acquisitions never get the same slot.
-- [ ] Integration: restart reattaches to the correct checkout.
-
-### 1.8 Phase 1 acceptance criteria
-
-Phase 1 is done when all of these hold, and each is proved by a test in 1.7.
-
-- [ ] Two acquisitions of the same holder produce two different `leaseId`
-      values.
-- [ ] `releaseWorktree` with an `expectedLeaseId` that does not match returns
-      `stale-lease` and changes no state on disk.
-- [ ] A repeated release of the same lease returns the same outcome and does
-      not fail.
-- [ ] A `pool.json` truncated at any byte offset loads without a throw. Every
-      slot it cannot prove becomes `recovery-required`.
-- [ ] A `recovery-required` slot is never leased and never deleted
-      automatically.
-- [ ] After a forced failure of `git worktree remove`, the worktree directory
-      and its contents still exist, and the slot is `damaged`.
-- [ ] `exists()` returns false for a directory with no Git registration, and
-      false for a registration with no directory.
-- [ ] Under 10 parallel acquisitions on one repository, no `slotId` is issued
-      twice.
-- [ ] No lock is held across a subprocess call. Ten parallel acquisitions
-      overlap their Git work rather than running one after another.
-- [ ] A process killed during the unlocked Git phase leaves a reservation that
-      reconciliation classifies `recovery-required`, not a permanently
-      reserved slot.
-- [ ] After a simulated restart, a persisted lease whose slot, path, and
-      branch agree is reattached with the same `leaseId`.
-- [ ] No existing worktree test in
-      `apps/desktop/electron/__tests__/features/git/worktree/` regresses.
+PR 1 is complete and shippable with slot reuse disabled.
 
 ---
 
-## Phase 2 — Reusable pool
+## PR 2: Reusable slots and process protection
 
-### 2.1 Slot allocation
+### 2.1 Allocation and capacity
 
-- [ ] Add `pool/lease-service.ts` with `acquireWorktree(request)` and
-      `releaseWorktree(...)`.
-- [ ] Name slots `slot-<n>`. Store them under `.sero/worktrees/`.
-- [ ] Keep the existing `card-<id>` directories readable for one release, so
-      an upgrade does not lose an in-flight checkout. Adopt each one as a slot.
-- [ ] Reserve a slot inside the lock before any Git work. A reserved slot is
-      not reusable.
-- [ ] Add a configurable per-repository pool limit. Default it to a small
-      number, for example 4. Create a new slot only below the limit.
-- [ ] Fail with a clear error when the pool is full and no slot is reusable.
+- [ ] Add reusable `slot-<n>` allocation beneath the lease service.
+- [ ] Prefer a proven-safe available slot; otherwise create a slot.
+- [ ] Configure retained idle capacity separately from active lease capacity.
+- [ ] Do not introduce a hard default of four active leases. That would regress
+      current concurrency and can block Rooms with larger editing rosters.
+- [ ] If a user configures a hard active limit, return named backpressure and
+      never evict a leased or unproved slot.
 
-### 2.2 Reuse safety proof
+### 2.2 Process shutdown and detection
 
-- [ ] Add `pool/reuse-safety.ts`. Prove every condition before reuse:
-      unleased, not reserved, no active process, clean including untracked
-      files, valid Git registration, and safely disposable against the exact
-      reset target.
-- [ ] Return a reason for each refusal. Fail closed and preserve the checkout
-      when a condition cannot be proved.
-- [ ] Treat an unmerged branch as not disposable.
+This is a prerequisite for first reuse, not a later cleanup enhancement.
 
-### 2.3 Slot reset that keeps caches
+- [ ] Ask Sero-owned terminals, agent sessions, commands, and managed dev
+      servers rooted in the slot to stop.
+- [ ] Wait for confirmed shutdown.
+- [ ] Add `pool/process-guard.ts` with a platform adapter for remaining-process
+      detection.
+- [ ] On an unsupported platform or detection error, classify the slot
+      unverifiable or `in-use` and preserve it.
+- [ ] Never kill an arbitrary foreign process without explicit authority.
+- [ ] Decide and document the supported host platforms before claiming Windows
+      support.
 
-- [ ] Add `pool/reset.ts`. Reset with `git checkout`, `git reset --hard`, and
-      `git clean -fd` limited to tracked and non-ignored paths.
-- [ ] Do not use `git clean -x`. Ignored `node_modules`, build output, and
-      caches must survive a reset.
-- [ ] Verify the reset result before the slot returns to `available`.
+### 2.3 Branch and checkout disposability
 
-### 2.4 Branch integration
+- [ ] Store branch provenance, base commit, acquisition HEAD, and PR identity.
+- [ ] Treat requested disposition as intent; recompute safety in the host.
+- [ ] Refuse reuse when tracked modifications or non-ignored untracked files
+      remain.
+- [ ] For a fresh local branch, prove its tip disposable against the exact
+      target using ancestry or authoritative PR merge state.
+- [ ] For squash or rebase merges, accept authoritative merged PR state because
+      the old branch tip may not be an ancestor of the base.
+- [ ] Never delete an external PR branch automatically.
+- [ ] Keep an open or otherwise unmerged PR checkout leased or preserved.
+- [ ] Separate branch retention from physical checkout retention. A merged PR
+      checkout may be recycled while its external branch remains untouched.
 
-- [ ] Route a fresh task through `resolvePreferredBaseRef()` plus
-      `buildBranchName()`, as today.
-- [ ] Route PR work through the existing fetch-and-checkout path of
-      `createAtExistingBranch()`. Keep its branch name validation.
-- [ ] Never delete a branch that came from an external PR.
+### 2.4 Cache-preserving reset
 
-### 2.5 Consumer migration
+- [ ] Resolve and record the exact reset target before the transition.
+- [ ] Switch away from the prior branch safely, reset tracked content, and use
+      `git clean -fd`, never `git clean -x`.
+- [ ] Preserve ignored `node_modules`, compiler output, and local caches.
+- [ ] Verify registration, branch, HEAD, clean status including untracked files,
+      and preserved ignored content before marking the slot available.
+- [ ] If any reset verification fails, mark recovery-required and preserve the
+      checkout.
 
-- [ ] Extend `AppRuntimeGit` in `packages/common/src/app-runtime-git.ts` with
-      the lease API. Keep `createWorktree` and `removeWorktree` as thin
-      wrappers over a lease, so plugins need no immediate change.
-- [ ] Update `create-host.ts` to construct the lease service per workspace.
-- [ ] Persist `slotId` and `leaseId` in the orchestrator workspace context in
-      `plugins/sero-orchestrator-plugin/runtime/workspace.ts`.
-- [ ] Persist the same identity for each Room member in
-      `rooms/room-workspace.ts`.
-- [ ] Pass `expectedLeaseId` from `worktree-cleanup.ts` and `coordinator.ts`.
-- [ ] Map each lifecycle outcome of the issue table to a disposition:
-      merged is `recycle`, unmerged is `preserve`, cancelled and clean is
-      `recycle`, cancelled and dirty is `preserve`.
+### 2.5 Fresh and existing branch integration
 
-### 2.6 Phase 2 tests
+- [ ] Fresh tasks still use `resolvePreferredBaseRef()` and
+      `buildBranchName()`.
+- [ ] Existing PR work still uses validated fetch and checkout of the external
+      branch.
+- [ ] A branch-name collision during fresh acquisition is reattachment or
+      recovery evidence. Do not blindly attach it to a new lease.
 
-- [ ] Unit: reuse refuses each unsafe condition and gives the reason.
-- [ ] Unit: reset keeps an ignored `node_modules` directory.
-- [ ] Integration: a fresh task branch and a PR branch both still work.
-- [ ] Integration: a completed and merged slot is reset and leased again.
+### 2.6 PR 2 tests and acceptance
 
-### 2.7 Phase 2 acceptance criteria
+- [ ] Every individual failed reuse precondition preserves the slot and reports
+      its reason.
+- [ ] A detected process and a process-detection failure both block reuse.
+- [ ] Sero-owned shutdown is confirmed before reset starts.
+- [ ] No foreign process is terminated automatically.
+- [ ] A reset preserves ignored dependencies and caches while producing a clean
+      checkout at the exact target.
+- [ ] Fresh branches retain their current conventional names.
+- [ ] External PR branches are never deleted.
+- [ ] Merge commits, squash merges, rebase merges, open PRs, and local unmerged
+      branches receive the intended classification.
+- [ ] Active leases can satisfy the configured Workflow and Room concurrency.
+- [ ] Concurrent fetches may overlap, while conflicting Git registration
+      mutations do not.
+- [ ] A completed safe slot is reused with a new lease ID.
 
-- [ ] A slot is reused only when every condition of 2.2 is proved. A single
-      unproved condition preserves the checkout and reports the reason.
-- [ ] A dirty slot, an untracked-file-only slot, and an unmerged-branch slot
-      are each refused for reuse.
-- [ ] A reset slot still contains its ignored `node_modules` and build-output
-      directories, and `git status --porcelain` is empty.
-- [ ] A fresh task gets the same conventional branch name that
-      `buildBranchName()` produces today, from the base that
-      `resolvePreferredBaseRef()` selects.
-- [ ] PR work checks out the existing branch, and release never deletes an
-      external PR branch.
-- [ ] An acquisition above the pool limit with no reusable slot fails with a
-      named error. It does not evict a leased or unproved slot.
-- [ ] An existing `card-<id>` directory from a previous version is adopted as
-      a slot. No in-flight checkout is lost by the upgrade.
-- [ ] `createWorktree` and `removeWorktree` keep their current signatures.
-      The orchestrator plugin runs unchanged against the wrappers.
-- [ ] Each lifecycle row of the issue table maps to one disposition, and the
-      mapping is covered by a test.
-
+PR 2 is complete only when reusable allocation is safe without relying on PR 3
+or a UI.
 
 ---
 
-## Phase 3 — Process lifecycle and cleanup
+## PR 3: Fenced cleanup and optional UI
 
-### 3.1 Sero-owned shutdown
+### 3.1 Classified cleanup plan
 
-- [ ] Before `recycle` or `remove`, stop Sero-owned terminals, agent sessions,
-      and managed dev servers rooted in the worktree. Use the runtime manager
-      in `apps/desktop/electron/features/workspace/runtime/`.
-- [ ] Wait for confirmation of shutdown. Do not assume success.
+- [ ] Add a read-only cleanup plan with a reason for every removable or skipped
+      slot.
+- [ ] Include `planId`, pool revision, creation time, and a per-slot fingerprint
+      containing expected state, lease identity, path, branch, and HEAD.
+- [ ] Use dry-run Git inspection where available. Planning changes no pool or
+      Git state.
 
-### 3.2 Remaining-process detection
+### 3.2 Confirmed execution without TOCTOU
 
-- [ ] Add `pool/process-guard.ts`. Detect processes whose working directory is
-      inside the worktree. Use `lsof` on POSIX and the equivalent on Windows.
-- [ ] Classify the slot as `in-use` and refuse the recycle when a process
-      remains, or when detection itself fails.
-- [ ] Never kill a foreign process automatically.
+- [ ] Execute only a previously returned `planId`; do not accept arbitrary slot
+      paths from the renderer.
+- [ ] Retake the state lock and revalidate every fingerprint immediately before
+      its destructive transition.
+- [ ] Skip and report any slot whose state changed after the plan was created.
+- [ ] Run removal or exact-path repair through the Git-mutation gate.
+- [ ] Never let an old plan remove a slot that has since been leased.
+- [ ] Return a result for every planned slot: removed, skipped-stale,
+      preserved, failed, or recovery-required.
 
-### 3.3 Cleanup planning
+### 3.3 Status and recovery API
 
-- [ ] Add `pool/cleanup-plan.ts`. Produce a classified plan. Give a reason per
-      slot for removable or skipped.
-- [ ] Make the plan read-only. Require a separate confirmed call to run a
-      destructive prune.
-- [ ] Run stale-registration repair before provisioning, under the lock.
+- [ ] Expose pool status, classifications, cleanup planning, confirmed
+      execution, and exact recovery actions through typed host and IPC APIs.
+- [ ] Keep destructive authority in the main process. Renderer and plugin
+      callers submit identities and confirmation tokens, not filesystem paths.
 
-### 3.4 Admin surface
+### 3.4 Optional Admin/Git surface
 
-- [ ] Add IPC channels for pool status, cleanup plan, and confirmed prune in
-      `apps/desktop/src/types/ipc-channels.ts` and `src/types/ipc.ts`.
-- [ ] Update all four layers together: React component and Zustand store,
-      preload IPC, main-process handler, and Pi SDK.
-- [ ] Show slot state, holder, branch, and the recovery action in the Git or
-      Admin view. Persist any view state through `persistLayout()`.
+- [ ] Decide whether the status and recovery frequency justifies UI after the
+      core API exists.
+- [ ] If it ships, update React/Zustand, preload IPC, main-process handlers, and
+      SDK types together.
+- [ ] Show slot state, holder, branch, reason, and safe recovery action.
+- [ ] Add user-facing docs only for surfaces that ship.
 
-### 3.5 Phase 3 tests
+### 3.5 PR 3 tests and acceptance
 
-- [ ] Unit: a detected process blocks the recycle.
-- [ ] Unit: a detection failure blocks the recycle.
-- [ ] Unit: the cleanup plan skips dirty, unmerged, leased, and damaged slots.
-- [ ] Integration: a confirmed prune removes only planned slots.
-
-### 3.6 Phase 3 acceptance criteria
-
-- [ ] A recycle stops Sero-owned terminals, agent sessions, and managed dev
-      servers rooted in the worktree, and waits for confirmation.
-- [ ] A remaining process inside the worktree classifies the slot `in-use` and
-      blocks the recycle.
-- [ ] A failure of the detection command itself also blocks the recycle. It
-      does not read as "no process".
-- [ ] No foreign process is terminated without explicit authority.
-- [ ] The cleanup plan is read-only. It changes no slot state.
-- [ ] The plan gives a reason for every slot, removable or skipped, and skips
-      dirty, unmerged, leased, in-use, damaged, and recovery-required slots.
-- [ ] A destructive prune runs only after a separate confirmed call, and
-      removes only the slots the confirmed plan named.
-- [ ] The Admin surface shows slot state, holder, and branch, and updates
-      after a lease change.
-
+- [ ] Cleanup planning mutates nothing and explains every slot.
+- [ ] A lease acquired after planning makes the old fingerprint stale and the
+      executor skips it.
+- [ ] Branch, HEAD, path, or classification drift also blocks execution.
+- [ ] Confirmed execution removes only slots that still pass the complete safety
+      proof.
+- [ ] Dirty, unmerged, leased, in-use, damaged, orphaned, and
+      recovery-required slots are preserved.
+- [ ] Renderer-supplied paths and fabricated plan IDs cannot trigger cleanup.
 
 ---
 
 ## Documentation
 
-- [ ] Add `apps/desktop/electron/features/git/worktree/README.md`. Describe
-      the lease protocol, the slot states, and the recovery rules.
-- [ ] Record the host-owned pool boundary in `ARCHITECTURE.md`.
-- [ ] Add user-facing pool and recovery help to `apps/docs-site/docs/` if the
-      Admin surface ships.
+- [ ] Add `apps/desktop/electron/features/git/worktree/README.md` in PR 1,
+      documenting repository identity, lease fencing, state transitions,
+      reconciliation, and failure rules.
+- [ ] Record the host-owned lease boundary in `ARCHITECTURE.md`.
+- [ ] Document capacity and process policy when PR 2 ships.
+- [ ] Add end-user recovery help only if PR 3 ships a user-facing surface.
 
-## Constraints
+## Cross-cutting constraints
 
-- [ ] Keep every new source file at or below 500 LOC. Split the lease service
-      by responsibility: types, state store, lock, safety, reset, cleanup.
+- [ ] Keep new source files at or below 500 LOC and split by responsibility.
 - [ ] Use no `any`, `@ts-ignore`, or `@ts-expect-error`.
-- [ ] Run `pnpm typecheck` from the monorepo root before every commit.
-- [ ] Use Conventional Commit messages. Open the pull request as a draft.
+- [ ] Use typed, discriminated outcomes rather than success booleans for
+      lifecycle operations.
+- [ ] Run root typecheck and the affected worktree, Orchestrator, Room, runtime,
+      and integration suites before each PR is marked ready.
+- [ ] Use Conventional Commits and open each implementation PR as a draft.
+- [ ] Include schema migration and rollback behaviour in the PR that changes a
+      persisted record.
 
-## Acceptance criteria from the issue
+## Issue acceptance mapping
 
-Each issue criterion below maps to the step that implements it and the check
-that proves it. The change is complete only when every row passes.
+| Issue criterion | Delivery |
+| --- | --- |
+| Concurrent acquisitions cannot receive the same slot | PR 1 transaction and concurrency tests |
+| Stale cleanup cannot release a newer lease | PR 1 end-to-end lease contract and ABA tests |
+| Crash or corrupt state never reuses ambiguous work | PR 1 reconciliation and transition fault tests |
+| Unsafe worktrees are preserved by default | PR 1 validation, PR 2 process and reuse proof, PR 3 fenced cleanup |
+| Reuse preserves ignored dependencies and caches | PR 2 verified reset |
+| Fresh and existing PR branch workflows continue | PR 1 contract migration and PR 2 branch integration |
+| Workflow and Room restarts reattach safely | PR 1 explicit host reattachment |
+| Failed Git removal never causes recursive deletion | PR 1 immediate removal safety |
+| Lifecycle and recovery are covered | Tests in every PR, including ABA, crash, process, merge, and TOCTOU cases |
 
-| # | Criterion | Implemented by | Proved by |
-| --- | --- | --- | --- |
-| 1 | Concurrent acquisitions cannot receive the same slot. | 1.3, 2.1 | 1.7 concurrency test, 1.8 |
-| 2 | A stale cleanup request cannot release a newer lease. | 1.1, 1.5 | 1.7 ABA test, 1.8 |
-| 3 | A crash or truncated state file never reuses or deletes an ambiguous checkout. | 1.2, 1.6 | 1.7 truncated-state test, 1.8 |
-| 4 | Dirty, unmerged, leased, active, damaged, and unverifiable worktrees are preserved by default. | 1.5, 2.2, 3.2 | 2.6, 2.7, 3.5, 3.6 |
-| 5 | A completed slot resets and reuses without deleting ignored dependency and build-cache directories. | 2.3 | 2.6 reset test, 2.7 |
-| 6 | Fresh Sero task branches and existing PR branches continue to work. | 2.4, 2.5 | 2.6 branch tests, 2.7 |
-| 7 | Workflow and Room restarts reattach to the correct checkout safely. | 1.6, 2.5 | 1.7 restart test, 1.8 |
-| 8 | Cleanup never deletes a directory only because `git worktree remove` failed. | 1.5 | 1.7 failed-removal test, 1.8 |
-| 9 | Lifecycle and recovery have unit and integration coverage, including concurrent allocation and ABA release races. | 1.7, 2.6, 3.5 | Test suite runs green |
+## Decisions required before implementation
+
+Resolve these in the PR where they first matter:
+
+1. Supported host platforms and the process-detection adapter for each.
+2. Canonical pool-state location when multiple workspace registrations share a
+   Git common directory.
+3. Default retained idle capacity and whether Sero exposes an optional hard
+   active limit.
+4. Whether operational evidence justifies an Admin/Git UI in PR 3.
 
 ## Definition of done
 
-- [ ] Every phase acceptance list (1.8, 2.7, 3.6) is complete.
-- [ ] Every row of the table above passes.
-- [ ] `pnpm typecheck` passes from the monorepo root.
-- [ ] The existing worktree, orchestrator, and Room test suites pass unchanged.
-- [ ] The documentation items are done.
-- [ ] The pull request is open as a draft and references issue #473.
+Issue #473 is complete when PRs 1 and 2 satisfy their acceptance lists and the
+issue-level criteria. PR 3's fenced cleanup API is required for automated
+destructive pruning; its visual Admin/Git surface remains optional.
+
+No phase may rely on a later phase for its own safety guarantees.
