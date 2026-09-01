@@ -118,6 +118,31 @@ Make the current lifecycle safe. Do not change the pool shape yet.
 - [ ] Integration: two concurrent acquisitions never get the same slot.
 - [ ] Integration: restart reattaches to the correct checkout.
 
+### 1.8 Phase 1 acceptance criteria
+
+Phase 1 is done when all of these hold, and each is proved by a test in 1.7.
+
+- [ ] Two acquisitions of the same holder produce two different `leaseId`
+      values.
+- [ ] `releaseWorktree` with an `expectedLeaseId` that does not match returns
+      `stale-lease` and changes no state on disk.
+- [ ] A repeated release of the same lease returns the same outcome and does
+      not fail.
+- [ ] A `pool.json` truncated at any byte offset loads without a throw. Every
+      slot it cannot prove becomes `recovery-required`.
+- [ ] A `recovery-required` slot is never leased and never deleted
+      automatically.
+- [ ] After a forced failure of `git worktree remove`, the worktree directory
+      and its contents still exist, and the slot is `damaged`.
+- [ ] `exists()` returns false for a directory with no Git registration, and
+      false for a registration with no directory.
+- [ ] Under 10 parallel acquisitions on one repository, no `slotId` is issued
+      twice.
+- [ ] After a simulated restart, a persisted lease whose slot, path, and
+      branch agree is reattached with the same `leaseId`.
+- [ ] No existing worktree test in
+      `apps/desktop/electron/__tests__/features/git/worktree/` regresses.
+
 ---
 
 ## Phase 2 — Reusable pool
@@ -183,6 +208,29 @@ Make the current lifecycle safe. Do not change the pool shape yet.
 - [ ] Integration: a fresh task branch and a PR branch both still work.
 - [ ] Integration: a completed and merged slot is reset and leased again.
 
+### 2.7 Phase 2 acceptance criteria
+
+- [ ] A slot is reused only when every condition of 2.2 is proved. A single
+      unproved condition preserves the checkout and reports the reason.
+- [ ] A dirty slot, an untracked-file-only slot, and an unmerged-branch slot
+      are each refused for reuse.
+- [ ] A reset slot still contains its ignored `node_modules` and build-output
+      directories, and `git status --porcelain` is empty.
+- [ ] A fresh task gets the same conventional branch name that
+      `buildBranchName()` produces today, from the base that
+      `resolvePreferredBaseRef()` selects.
+- [ ] PR work checks out the existing branch, and release never deletes an
+      external PR branch.
+- [ ] An acquisition above the pool limit with no reusable slot fails with a
+      named error. It does not evict a leased or unproved slot.
+- [ ] An existing `card-<id>` directory from a previous version is adopted as
+      a slot. No in-flight checkout is lost by the upgrade.
+- [ ] `createWorktree` and `removeWorktree` keep their current signatures.
+      The orchestrator plugin runs unchanged against the wrappers.
+- [ ] Each lifecycle row of the issue table maps to one disposition, and the
+      mapping is covered by a test.
+
+
 ---
 
 ## Phase 3 — Process lifecycle and cleanup
@@ -226,6 +274,24 @@ Make the current lifecycle safe. Do not change the pool shape yet.
 - [ ] Unit: the cleanup plan skips dirty, unmerged, leased, and damaged slots.
 - [ ] Integration: a confirmed prune removes only planned slots.
 
+### 3.6 Phase 3 acceptance criteria
+
+- [ ] A recycle stops Sero-owned terminals, agent sessions, and managed dev
+      servers rooted in the worktree, and waits for confirmation.
+- [ ] A remaining process inside the worktree classifies the slot `in-use` and
+      blocks the recycle.
+- [ ] A failure of the detection command itself also blocks the recycle. It
+      does not read as "no process".
+- [ ] No foreign process is terminated without explicit authority.
+- [ ] The cleanup plan is read-only. It changes no slot state.
+- [ ] The plan gives a reason for every slot, removable or skipped, and skips
+      dirty, unmerged, leased, in-use, damaged, and recovery-required slots.
+- [ ] A destructive prune runs only after a separate confirmed call, and
+      removes only the slots the confirmed plan named.
+- [ ] The Admin surface shows slot state, holder, and branch, and updates
+      after a lease change.
+
+
 ---
 
 ## Documentation
@@ -246,17 +312,26 @@ Make the current lifecycle safe. Do not change the pool shape yet.
 
 ## Acceptance criteria from the issue
 
-- [ ] Concurrent acquisitions cannot receive the same slot.
-- [ ] A stale cleanup request cannot release a newer lease.
-- [ ] A crash or truncated state file never reuses or deletes an ambiguous
-      checkout.
-- [ ] Dirty, unmerged, leased, active, damaged, and unverifiable worktrees are
-      preserved by default.
-- [ ] A completed slot resets and reuses without deleting ignored dependency
-      and build-cache directories.
-- [ ] Fresh Sero task branches and existing PR branches continue to work.
-- [ ] Workflow and Room restarts reattach to the correct checkout safely.
-- [ ] Cleanup never deletes a directory only because `git worktree remove`
-      failed.
-- [ ] Lifecycle and recovery have unit and integration coverage, including
-      concurrent allocation and ABA release races.
+Each issue criterion below maps to the step that implements it and the check
+that proves it. The change is complete only when every row passes.
+
+| # | Criterion | Implemented by | Proved by |
+| --- | --- | --- | --- |
+| 1 | Concurrent acquisitions cannot receive the same slot. | 1.3, 2.1 | 1.7 concurrency test, 1.8 |
+| 2 | A stale cleanup request cannot release a newer lease. | 1.1, 1.5 | 1.7 ABA test, 1.8 |
+| 3 | A crash or truncated state file never reuses or deletes an ambiguous checkout. | 1.2, 1.6 | 1.7 truncated-state test, 1.8 |
+| 4 | Dirty, unmerged, leased, active, damaged, and unverifiable worktrees are preserved by default. | 1.5, 2.2, 3.2 | 2.6, 2.7, 3.5, 3.6 |
+| 5 | A completed slot resets and reuses without deleting ignored dependency and build-cache directories. | 2.3 | 2.6 reset test, 2.7 |
+| 6 | Fresh Sero task branches and existing PR branches continue to work. | 2.4, 2.5 | 2.6 branch tests, 2.7 |
+| 7 | Workflow and Room restarts reattach to the correct checkout safely. | 1.6, 2.5 | 1.7 restart test, 1.8 |
+| 8 | Cleanup never deletes a directory only because `git worktree remove` failed. | 1.5 | 1.7 failed-removal test, 1.8 |
+| 9 | Lifecycle and recovery have unit and integration coverage, including concurrent allocation and ABA release races. | 1.7, 2.6, 3.5 | Test suite runs green |
+
+## Definition of done
+
+- [ ] Every phase acceptance list (1.8, 2.7, 3.6) is complete.
+- [ ] Every row of the table above passes.
+- [ ] `pnpm typecheck` passes from the monorepo root.
+- [ ] The existing worktree, orchestrator, and Room test suites pass unchanged.
+- [ ] The documentation items are done.
+- [ ] The pull request is open as a draft and references issue #473.
