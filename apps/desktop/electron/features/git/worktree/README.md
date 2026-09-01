@@ -29,6 +29,12 @@ The last completed releases are retained in `pool.json` (`released`, capped at
 64) so the first two can be told apart. An identity older than that history
 fails closed as `stale-lease`.
 
+`checkout: removed` means the released lease's branch checkout is gone. A
+successful recycle may keep the same physical directory as a detached warm
+slot; it does not keep the old lease's checkout. `retained` means the old lease
+still owns recoverable contents, and `unknown` means the final physical result
+could not be fenced or verified.
+
 ## One resolved spelling for every path
 
 A workspace can be opened through a symlink (`/tmp/link -> /tmp/real`). If a
@@ -98,7 +104,8 @@ deletes nothing, prunes nothing, and never promotes an ambiguous slot to
 - directory without registration → `damaged`
 - registration without directory → `orphaned`
 - Git reports the worktree prunable → `damaged`
-- detached HEAD → `recovery-required` (not a Sero work mode)
+- detached HEAD → `recovery-required`, except an `available` slot whose HEAD
+  exactly matches its recorded prepared commit
 - branch differs from the recorded branch → `recovery-required`
 - Git reports the worktree locked → `in-use`
 - an interrupted `provisioning` with full evidence → `leased`
@@ -112,8 +119,43 @@ cannot be read" have opposite consequences for work already on disk.
 `--porcelain -z` is the parsed format, because a path containing a newline
 splits the newline-only format into two records and could attribute a
 directory to the wrong branch. Git before 2.36 has no `-z` for this command,
-so an unknown-option failure falls back to the newline format; any other
-failure is unavailability.
+so an unknown-option failure falls back to the newline format for recovery
+classification. Reuse requires the path-exact NUL format and fails closed when
+only the fallback is available; any other failure is unavailability.
+
+## Allocation and retained capacity
+
+Slots are stable numbered directories (`slot-1`, `slot-2`, ...). Acquisition
+prefers the oldest `available` slot that passes every reuse proof, and creates
+the next numbered slot when none does. Reservation is committed before Git or
+process work starts. Every successful acquisition mints a new random lease id,
+including reuse by the same logical holder.
+
+Active leases and retained idle slots are different capacities. There is no
+hard active-lease limit, so concurrent Workflow runs and Room members are not
+capped at four or any other arbitrary number. The host retains at most **two**
+safely prepared idle slots per repository. Once that target is full, another
+proved-disposable release removes its checkout instead of evicting any leased,
+retained, or unproved slot. This is a host policy constant, not a new user
+setting, because the repository has no existing pool configuration surface.
+
+## Process guard
+
+Reuse and removal first ask the existing Sero owners of rooted terminals,
+agent sessions, commands, and managed development servers to stop. An owner
+resolves its stop request only after shutdown is confirmed. The host then runs
+the narrow adapter in `pool/process-guard.ts` to look for any remaining process
+whose working directory or open files are rooted in the slot. Remaining
+processes block the operation. They are evidence only: Sero never terminates a
+foreign process.
+
+The detector supports macOS and Linux through machine-readable `lsof -F`
+records. Missing `lsof`, permission errors, timeouts, failed detection, and all
+other unverifiable results preserve the checkout. Windows has no native
+detector in PR 2 and therefore fails closed as unverifiable; Windows checkouts
+are not automatically recycled or removed. OS-specific parsing stays in the
+adapter. Pool lifecycle code consumes typed `clear`, `in-use`, or
+`unverifiable` results.
 
 ## Releasing
 
@@ -130,14 +172,38 @@ Classification then decides disposal, and every unknown fails closed:
 | status unreadable | keep | keep | keep |
 | uncommitted work | keep | keep | keep |
 | branch comparison unreadable | keep | keep | keep |
-| branch holds work the base lacks | keep | dispose | keep |
-| pull-request branch | keep | dispose | keep |
-| clean, nothing added to the base | dispose | dispose | keep |
+| local tip outside target, no merged PR | keep | dispose | keep |
+| open or closed-unmerged PR | keep | dispose checkout only | keep |
+| exact target contains local tip | reset and retain | dispose | keep |
+| authoritative merged PR | reset and retain | dispose checkout only | keep |
 
-`recycle` is the routine end-of-run return. `remove` is explicitly authorised
+`recycle` is the routine end-of-run return. Caller disposition is intent, not
+proof. The host recomputes cleanliness, process state, branch provenance and
+disposability. A fresh branch is disposable when its current tip is an ancestor
+of the exact reset target, covering merge commits, or when the authoritative PR
+record says merged, covering squash and rebase merges. An external PR branch
+requires authoritative merged evidence; open, closed-unmerged, and unknown all
+preserve it. A safely merged external checkout may be recycled, but its branch
+is never deleted. A proved-disposable fresh local branch is deleted with an
+atomic expected-tip fence after the checkout leaves it.
+
+`remove` is explicitly authorised
 disposal — a user deleting the loop — so committed work no longer blocks the
 checkout's removal; the branch itself still survives unless the caller asked
 for its deletion, and a pull-request branch is never deleted at all.
+
+## Cache-preserving reset
+
+Before a recycling transition is persisted, the host resolves and records the
+preferred base ref and its exact commit. It then confirms owned shutdown and
+foreign-process absence, switches the checkout to that exact commit in detached
+mode, resets tracked content, and runs `git clean -fd`. It never runs
+`git clean -x`, so ignored dependencies, compiler output, and local caches stay
+on disk. The host verifies registration, detached branch state, exact HEAD,
+clean tracked and non-ignored-untracked state, and continued existence of every
+ignored path observed before reset. Only then can the slot become `available`.
+Any failed command or verification leaves the checkout and its lease evidence
+in `recovery-required`; a partly reset checkout is never allocatable.
 
 **A preserved checkout keeps its lease.** Clearing it would leave work on disk
 that no consumer names and no pool record owns, at exactly the moment the
@@ -173,6 +239,12 @@ rejects the whole file.
 
 Writes go to a unique temporary file in the same directory, are flushed, and
 replace the target by rename.
+
+PR 2 uses schema version 3. It records pull-request identity on the immutable
+lease, the exact reset target on a recycling operation, and the verified
+prepared HEAD on an available slot. Version 2 migrates only by adding null
+fields and never promotes a checkout to available. A shape that cannot satisfy
+the version 3 invariants, or any unknown version, remains unavailable.
 
 ## Reattachment
 
@@ -213,11 +285,8 @@ information and must be respected rather than overridden.
 
 An `external-pr` branch is never deleted, whatever the caller asked for.
 
-## What PR 1 does not do
+## Scope boundary
 
-Slot **reuse** is disabled. `chooseSlot` in `pool/acquire.ts` always allocates
-a new slot, and is the single place PR 2 changes. Reuse needs every
-precondition proved first — no live process in the checkout, clean including
-untracked files, valid registration, and disposability against the exact reset
-target — and none of that exists yet. Until it does, no checkout is reset under
-work that is still on disk.
+The pool has no cleanup planning API, confirmation token, plan fingerprint,
+renderer-controlled destructive cleanup, admin UI, broad pruning, or arbitrary
+foreign-process termination. Those cleanup controls remain PR 3 work.

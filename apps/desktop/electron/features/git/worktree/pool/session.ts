@@ -94,7 +94,7 @@ export async function openPool(workspacePath: string): Promise<OpenPoolResult> {
     if (reconciled.notes.length > 0) {
       console.log(`[worktree-pool] reconciled ${canonicalWorkspace}: ${reconciled.notes.join('; ')}`);
     }
-    const state = reconciled.changed || read.status === 'empty'
+    const state = reconciled.changed || read.status === 'empty' || (read.status === 'ok' && read.migrated)
       ? await writePoolState(identity.identity.statePath, reconciled.state)
       : reconciled.state;
     return { status: 'ok' as const, state };

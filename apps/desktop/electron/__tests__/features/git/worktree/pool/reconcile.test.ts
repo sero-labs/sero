@@ -83,6 +83,9 @@ async function interrupt(
           startedAt: '2026-01-01T00:00:00.000Z',
           intendedState: transition === 'provisioning' ? ('leased' as const) : ('available' as const),
           leaseId: slot.lease?.leaseId ?? null,
+          resetTarget: transition === 'recycling'
+            ? { ref: 'main', commit: slot.lease?.baseCommit ?? 'unknown-commit' }
+            : null,
         },
         updatedAt: '2026-01-01T00:00:00.000Z',
       }

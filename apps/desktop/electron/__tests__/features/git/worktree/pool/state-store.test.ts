@@ -37,12 +37,14 @@ function leasedSlot(): PoolSlot {
       baseRef: 'origin/main',
       baseCommit: 'aaaa',
       acquiredHead: 'bbbb',
+      pullRequestNumber: null,
       acquiredAt: '2026-01-01T00:00:00.000Z',
       greenfield: false,
     },
     operation: null,
     branchName: 'feat/thing-loop-1-r1',
     branchKind: 'fresh-task',
+    preparedHead: null,
     lastReleased: null,
     reason: 'Leased.',
     legacy: false,
@@ -92,6 +94,47 @@ describe('pool state persistence', () => {
     await writeFile(statePath, JSON.stringify(state), 'utf8');
     const read = await readPoolState(statePath);
     expect(read.status).toBe('unavailable');
+  });
+
+  it('migrates a version 2 leased slot by adding only null safety evidence', async () => {
+    const statePath = await tempStatePath();
+    const state = populatedState();
+    const slot = state.slots[0];
+    const { preparedHead: _preparedHead, ...legacySlot } = slot;
+    const { pullRequestNumber: _pullRequestNumber, ...legacyLease } = slot.lease!;
+    await writeFile(statePath, JSON.stringify({
+      ...state,
+      version: 2,
+      slots: [{ ...legacySlot, lease: legacyLease }],
+    }), 'utf8');
+
+    const read = await readPoolState(statePath);
+    expect(read.status).toBe('ok');
+    if (read.status !== 'ok') return;
+    expect(read.migrated).toBe(true);
+    expect(read.state.version).toBe(POOL_SCHEMA_VERSION);
+    expect(read.state.slots[0].preparedHead).toBeNull();
+    expect(read.state.slots[0].lease?.pullRequestNumber).toBeNull();
+  });
+
+  it('does not promote a version 2 slot that claims to be available', async () => {
+    const statePath = await tempStatePath();
+    const state = populatedState();
+    const slot = state.slots[0];
+    const { preparedHead: _preparedHead, ...legacySlot } = slot;
+    await writeFile(statePath, JSON.stringify({
+      ...state,
+      version: 2,
+      slots: [{
+        ...legacySlot,
+        state: 'available',
+        lease: null,
+        branchName: null,
+        branchKind: null,
+      }],
+    }), 'utf8');
+
+    expect((await readPoolState(statePath)).status).toBe('unavailable');
   });
 
   it('never reads a truncated state as usable, at any byte offset', async () => {
@@ -165,6 +208,7 @@ describe('pool state persistence', () => {
           operation: {
             operationId: 'op-1', pid: 1, startedAt: '2026-01-01T00:00:00.000Z',
             intendedState: 'leased', leaseId: 'lease-somewhere-else',
+            resetTarget: null,
           },
         }],
       }),

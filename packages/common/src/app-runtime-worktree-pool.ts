@@ -29,6 +29,8 @@ export interface AppRuntimeWorktreeLease {
   baseCommit: string | null;
   /** HEAD immediately after provisioning. Immutable evidence. */
   acquiredHead: string | null;
+  /** PR identity known at acquisition. Null for a fresh task or unknown PR. */
+  pullRequestNumber: number | null;
   acquiredAt: string;
   /** True when acquisition had to bootstrap a greenfield repository. */
   greenfield: boolean;
@@ -45,6 +47,8 @@ export interface AppRuntimeAcquireWorktreeRequest {
    * deleted by any release.
    */
   existingBranch?: string;
+  /** Authoritative PR identity for an existing branch, when the caller has it. */
+  pullRequestNumber?: number;
 }
 
 export type AppRuntimeAcquireWorktreeResult =
@@ -82,7 +86,11 @@ export interface AppRuntimeReleaseWorktreeRequest {
    * keeps the checkout whatever its state.
    */
   disposition: AppRuntimeWorktreeDisposition;
-  /** Delete the local branch only when Git confirms it is fully merged. */
+  /**
+   * Delete the local branch on explicit removal only when Git confirms it is
+   * fully merged. Safe recycling separately deletes a fresh local branch with
+   * an exact, proved tip fence.
+   */
   deleteMergedBranch?: boolean;
   /**
    * Force-delete the local branch after a successful removal. Explicit user
@@ -92,7 +100,8 @@ export interface AppRuntimeReleaseWorktreeRequest {
 }
 
 /**
- * - `released` — the checkout was removed and the slot left the pool.
+ * - `released` — the lease's checkout ended. The physical slot may remain as a
+ *   detached, reusable checkout when the host proves it safe.
  * - `preserved` — the checkout was kept; `reason` says what blocked removal.
  * - `already-released` — an identical retry of a recorded release decision. No change.
  * - `stale-lease` — the slot now holds a different lease. No change.

@@ -279,7 +279,11 @@ describe('event-pr branch resolution (spec 15, FR-P1)', () => {
     const host = createFakeHost();
     const loop = eventPrLoop(seedActiveLoop(host, oneStepPlan().plan));
     const result = await resolve(host, loop, eventRun({ branch: 'feat/broken-ci', prNumbers: [12] }));
-    expect(host.worktreeCreates).toEqual([{ loopId: worktreeKeyFor(loop), existingBranch: 'feat/broken-ci' }]);
+    expect(host.worktreeCreates).toEqual([{
+      loopId: worktreeKeyFor(loop),
+      existingBranch: 'feat/broken-ci',
+      pullRequestNumber: 12,
+    }]);
     expect(result.workspace?.branchName).toBe('feat/broken-ci');
     expect(result.workspace?.externalBranch).toBe(true);
     expect(result.blocked).toBeUndefined();
@@ -291,6 +295,7 @@ describe('event-pr branch resolution (spec 15, FR-P1)', () => {
     const loop = eventPrLoop(seedActiveLoop(host, oneStepPlan().plan));
     const result = await resolve(host, loop, eventRun({ prNumber: 12, author: 'ann' }));
     expect(result.workspace?.branchName).toBe('feat/from-pr-12');
+    expect(host.worktreeCreates[0]?.pullRequestNumber).toBe(12);
   });
 
   it('blocks visibly when the run was not event-fired — never a fresh-branch fallback', async () => {

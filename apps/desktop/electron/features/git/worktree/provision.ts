@@ -127,6 +127,7 @@ export async function addWorktreeOnNewBranch(
   worktreePath: string,
   branchName: string,
   baseRef: string | null,
+  options?: { reattachExisting?: boolean },
 ): Promise<void> {
   await fs.mkdir(path.dirname(worktreePath), { recursive: true });
   const addArgs = ['worktree', 'add', worktreePath, '-b', branchName, ...(baseRef ? [baseRef] : [])];
@@ -135,7 +136,7 @@ export async function addWorktreeOnNewBranch(
   } catch (error: unknown) {
     const detail = stderrOf(error);
     // A branch of that name already exists: attach to it rather than minting.
-    if (detail.includes('already exists')) {
+    if (detail.includes('already exists') && options?.reattachExisting !== false) {
       await execWorktreeGit(['worktree', 'add', worktreePath, branchName], {
         cwd: workspacePath,
         timeout: 30_000,

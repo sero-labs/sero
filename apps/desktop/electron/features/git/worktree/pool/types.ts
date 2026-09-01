@@ -14,7 +14,7 @@ import type {
 } from '@sero-ai/common';
 
 /** Bumped whenever a persisted field changes. Unknown versions fail closed. */
-export const POOL_SCHEMA_VERSION = 2;
+export const POOL_SCHEMA_VERSION = 3;
 
 /**
  * Stable states describe what a slot is. Transitional states describe an
@@ -48,6 +48,8 @@ export interface PoolOperation {
   startedAt: string;
   intendedState: SlotState;
   leaseId: string | null;
+  /** Exact checkout target resolved before a recycling transition starts. */
+  resetTarget: { ref: string; commit: string } | null;
 }
 
 /**
@@ -78,6 +80,8 @@ export interface PoolSlot {
   operation: PoolOperation | null;
   branchName: string | null;
   branchKind: AppRuntimeWorktreeBranchKind | null;
+  /** HEAD proved after the last cache-preserving reset. */
+  preparedHead: string | null;
   lastReleased: ReleasedLeaseRecord | null;
   /** Plain-English explanation of the current state. Never an empty string. */
   reason: string;

@@ -77,7 +77,12 @@ export class HostDevServerManager {
 
   async start(input: RuntimeDevServerStartInput): Promise<RuntimeDevServer> {
     const cwd = input.cwd || this.defaultCwd;
-    const process = await this.spawn({ command: input.command, cwd, stdio: 'pipe' });
+    const process = await this.spawn({
+      command: input.command,
+      cwd,
+      stdio: 'pipe',
+      ownerKind: 'managed-dev-server',
+    });
     const pid = process.pid;
     const detectionPid = process.executionPid ?? process.pid;
     const baseId = `${this.workspaceId}:${input.scope ?? 'workspace'}:${input.cardId ?? 'root'}`;

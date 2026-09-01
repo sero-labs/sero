@@ -23,6 +23,7 @@ import { SERO_SESSION_DIR } from '@electron/shared/infra/shared-infra';
 import { appStateManager } from '@electron/features/apps/state/manager';
 import { ensureAiInfra } from '@electron/shared/infra/ai-infra';
 import { SERO_HOME } from '@electron/platform/env';
+import { seroOwnedProcesses } from '@electron/features/git/worktree/pool/owned-processes';
 
 import { evaluateBuiltinGate } from './builtin-gate';
 import { GrantStore, type StoredGrant } from './grant-store';
@@ -137,6 +138,7 @@ export async function createPersistentSessionsApi(
     resolveModel: wiring.resolveModel,
     newId: (prefix) => `${prefix}_${Math.random().toString(36).slice(2, 10)}`,
     log: wiring.log,
+    ownedProcesses: seroOwnedProcesses,
   });
 }
 

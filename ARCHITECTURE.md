@@ -46,7 +46,14 @@ backend. Runtime-specific capability limits must remain visible to callers.
   disposition is intent: the host classifies the checkout and preserves work
   it cannot prove disposable. Repository identity is the canonical Git common
   directory, which is also where the pool state and its two lock domains live,
-  so every workspace registration of one repository shares one authority. See
+  so every workspace registration of one repository shares one authority.
+  Reusable slots are detached at an exact prepared commit and retain ignored
+  caches. Before reset or removal, process owners stop Sero terminals, sessions,
+  commands, and managed dev servers, then a platform adapter proves no process
+  remains rooted in the checkout. Detection supports macOS and Linux through
+  `lsof`; unsupported Windows hosts and all detection failures preserve the
+  checkout. The pool retains two proved-safe idle slots per repository, has no
+  active-lease cap, and never evicts leased or unproved work. See
   `apps/desktop/electron/features/git/worktree/README.md`.
 - Managed tools install once per machine under the host-artifacts root. Tool
   resolution uses a verified system tool first, a verified managed tool second,

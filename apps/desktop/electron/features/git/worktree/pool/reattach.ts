@@ -128,6 +128,7 @@ async function adoptLegacyCheckout(
     baseRef: null,
     baseCommit: null,
     acquiredHead: await resolveCommit(canonical, 'HEAD'),
+    pullRequestNumber: null,
     acquiredAt: new Date().toISOString(),
     greenfield: false,
   };
@@ -146,6 +147,7 @@ async function adoptLegacyCheckout(
         operation: null,
         branchName: branch,
         branchKind: lease.branchKind,
+        preparedHead: null,
         lastReleased: current?.lastReleased ?? null,
         reason: `A pre-pool checkout matched to "${request.holder}" and given a migration lease.`,
         legacy: true,

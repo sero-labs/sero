@@ -16,10 +16,10 @@ import path from 'node:path';
 
 import type { AppRuntimeWorktreeLease } from '@sero-ai/common';
 import { POOL_SCHEMA_VERSION, type PoolSlot, type PoolState } from './types';
-import { validatePoolState } from './validate-state';
+import { migratePoolState, validatePoolState } from './validate-state';
 
 export type PoolStateRead =
-  | { status: 'ok'; state: PoolState }
+  | { status: 'ok'; state: PoolState; migrated: boolean }
   /** No state file yet. A first-use pool for this repository is safe to create. */
   | { status: 'empty' }
   | { status: 'unavailable'; reason: string };
@@ -52,7 +52,8 @@ export async function readPoolState(statePath: string): Promise<PoolStateRead> {
     return { status: 'unavailable', reason: 'Pool state is not valid JSON. It was preserved for diagnosis.' };
   }
 
-  const validated = validatePoolState(parsed);
+  const migration = migratePoolState(parsed);
+  const validated = validatePoolState(migration.value);
   if (validated.status === 'invalid') {
     await preserveCorruptState(statePath, raw);
     return { status: 'unavailable', reason: `${validated.reason} The file was preserved for diagnosis.` };
@@ -64,7 +65,7 @@ export async function readPoolState(statePath: string): Promise<PoolStateRead> {
         + 'A newer Sero may own this repository.',
     };
   }
-  return { status: 'ok', state: validated.state };
+  return { status: 'ok', state: validated.state, migrated: migration.migrated };
 }
 
 /**

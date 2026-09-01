@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { startManagedDevServer } from '@electron/features/workspace/runtime/start-managed-dev-server';
+import { seroOwnedProcesses } from '@electron/features/git/worktree/pool/owned-processes';
 import type { RuntimeBackend, RuntimeCapabilities, RuntimeDevServer } from '@electron/features/workspace/runtime/types';
 import type { RuntimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 
@@ -101,5 +102,38 @@ describe('startManagedDevServer', () => {
       cwdPath: '/tmp/workspace',
       command: 'pnpm dev',
     }, { runtimeManager: malformedManager })).resolves.toEqual({ reason: 'Managed dev server failed to start.' });
+  });
+
+  it('registers a container dev server with the host path and stops it through its runtime owner', async () => {
+    const stopDevServer = vi.fn(async () => undefined);
+    const runtime = {
+      backend: 'docker',
+      capabilities,
+      startDevServer: vi.fn(async () => ({
+        id: 'container-server',
+        port: 5173,
+        url: 'http://127.0.0.1:5173',
+        command: 'pnpm dev',
+        cwd: '/workspace/.sero/worktrees/slot-1',
+        status: 'running' as const,
+      })),
+      stopDevServer,
+    } satisfies Pick<RuntimeBackend, 'backend' | 'capabilities' | 'startDevServer' | 'stopDevServer'>;
+    const manager = {
+      getRuntime: vi.fn(async () => runtime),
+      onDevServerChange: vi.fn(() => () => undefined),
+    } as unknown as RuntimeManager;
+    const cwdPath = '/tmp/workspace/.sero/worktrees/slot-1';
+
+    await startManagedDevServer({
+      workspaceId: 'workspace-a',
+      workspacePath: '/tmp/workspace',
+      cwdPath,
+      command: 'pnpm dev',
+    }, { runtimeManager: manager });
+    expect(seroOwnedProcesses.listRootedIn(cwdPath)).toHaveLength(1);
+    expect(await seroOwnedProcesses.stopRootedIn(cwdPath)).toEqual([]);
+    expect(stopDevServer).toHaveBeenCalledWith({ serverId: 'container-server' });
+    expect(seroOwnedProcesses.listRootedIn(cwdPath)).toHaveLength(0);
   });
 });

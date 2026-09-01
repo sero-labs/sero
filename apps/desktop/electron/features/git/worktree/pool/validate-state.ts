@@ -20,7 +20,7 @@ import type {
   AppRuntimeWorktreeLease,
 } from '@sero-ai/common';
 
-import type { PoolOperation, PoolSlot, PoolState, ReleasedLeaseRecord, SlotState } from './types';
+import { isTransitional, type PoolOperation, type PoolSlot, type PoolState, type ReleasedLeaseRecord, type SlotState } from './types';
 
 export type PoolStateValidation =
   | { status: 'valid'; state: PoolState }
@@ -51,6 +51,12 @@ function nullableStr(value: unknown): { ok: true; value: string | null } | { ok:
   return text === null ? { ok: false } : { ok: true, value: text };
 }
 
+function nullablePositiveInt(value: unknown): { ok: true; value: number | null } | { ok: false } {
+  if (value === null) return { ok: true, value: null };
+  if (typeof value === 'number' && Number.isInteger(value) && value > 0) return { ok: true, value };
+  return { ok: false };
+}
+
 function parseLease(value: unknown): AppRuntimeWorktreeLease | null {
   const raw = asRecord(value);
   if (!raw) return null;
@@ -66,7 +72,8 @@ function parseLease(value: unknown): AppRuntimeWorktreeLease | null {
   const baseRef = nullableStr(raw.baseRef);
   const baseCommit = nullableStr(raw.baseCommit);
   const acquiredHead = nullableStr(raw.acquiredHead);
-  if (!baseRef.ok || !baseCommit.ok || !acquiredHead.ok) return null;
+  const pullRequestNumber = nullablePositiveInt(raw.pullRequestNumber);
+  if (!baseRef.ok || !baseCommit.ok || !acquiredHead.ok || !pullRequestNumber.ok) return null;
   if (typeof raw.greenfield !== 'boolean') return null;
   return {
     slotId,
@@ -78,6 +85,7 @@ function parseLease(value: unknown): AppRuntimeWorktreeLease | null {
     baseRef: baseRef.value,
     baseCommit: baseCommit.value,
     acquiredHead: acquiredHead.value,
+    pullRequestNumber: pullRequestNumber.value,
     acquiredAt,
     greenfield: raw.greenfield,
   };
@@ -93,12 +101,18 @@ function parseOperation(value: unknown): PoolOperation | null {
   if (!operationId || !startedAt || !intendedState || !leaseId.ok) return null;
   if (!SLOT_STATES.includes(intendedState)) return null;
   if (typeof raw.pid !== 'number' || !Number.isInteger(raw.pid)) return null;
+  const resetRaw = raw.resetTarget === null ? null : asRecord(raw.resetTarget);
+  if (raw.resetTarget !== null && !resetRaw) return null;
+  const resetRef = resetRaw ? str(resetRaw.ref) : null;
+  const resetCommit = resetRaw ? str(resetRaw.commit) : null;
+  if (resetRaw && (!resetRef || !resetCommit)) return null;
   return {
     operationId,
     pid: raw.pid,
     startedAt,
     intendedState: intendedState as SlotState,
     leaseId: leaseId.value,
+    resetTarget: resetRaw ? { ref: resetRef as string, commit: resetCommit as string } : null,
   };
 }
 
@@ -142,6 +156,8 @@ function parseSlot(value: unknown): PoolSlot | null {
   const branchKindRaw = nullableStr(raw.branchKind);
   if (!branchKindRaw.ok) return null;
   if (branchKindRaw.value !== null && !BRANCH_KINDS.includes(branchKindRaw.value)) return null;
+  const preparedHead = nullableStr(raw.preparedHead);
+  if (!preparedHead.ok) return null;
 
   const lease = raw.lease === null ? null : parseLease(raw.lease);
   if (raw.lease !== null && lease === null) return null;
@@ -159,6 +175,7 @@ function parseSlot(value: unknown): PoolSlot | null {
     operation,
     branchName: branchName.value,
     branchKind: branchKindRaw.value as AppRuntimeWorktreeBranchKind | null,
+    preparedHead: preparedHead.value,
     lastReleased,
     reason,
     legacy: raw.legacy,
@@ -171,6 +188,22 @@ function parseSlot(value: unknown): PoolSlot | null {
 function slotDisagreement(slot: PoolSlot): string | null {
   const { lease } = slot;
   if (slot.state === 'leased' && !lease) return `slot ${slot.slotId} is leased but holds no lease`;
+  if (slot.state === 'available'
+    && (lease || !slot.preparedHead || slot.branchName !== null || slot.branchKind !== null)) {
+    return `slot ${slot.slotId} is available without one prepared HEAD, no lease, and no branch`;
+  }
+  if (slot.state === 'leased' && slot.preparedHead !== null) {
+    return `slot ${slot.slotId} is leased but still claims a prepared idle HEAD`;
+  }
+  if (isTransitional(slot.state) !== (slot.operation !== null)) {
+    return `slot ${slot.slotId} disagrees about whether its ${slot.state} state has an operation`;
+  }
+  if (slot.state === 'recycling' && !slot.operation?.resetTarget) {
+    return `slot ${slot.slotId} is recycling without an exact reset target`;
+  }
+  if (slot.state !== 'recycling' && slot.operation?.resetTarget) {
+    return `slot ${slot.slotId} has a reset target outside a recycling transition`;
+  }
   if (lease) {
     if (lease.slotId !== slot.slotId) return `lease ${lease.leaseId} names slot ${lease.slotId}, not ${slot.slotId}`;
     if (lease.worktreePath !== slot.path) return `lease ${lease.leaseId} names a different path from slot ${slot.slotId}`;
@@ -188,6 +221,34 @@ function slotDisagreement(slot: PoolSlot): string | null {
     return `slot ${slot.slotId} records a release belonging to slot ${slot.lastReleased.slotId}`;
   }
   return null;
+}
+
+/**
+ * Schema v2 never reused a checkout. Its slots can therefore be upgraded by
+ * adding only null provenance/reset fields; no v2 slot is promoted available.
+ */
+export function migratePoolState(value: unknown): { migrated: boolean; value: unknown } {
+  const raw = asRecord(value);
+  if (!raw || raw.version !== 2 || !Array.isArray(raw.slots)) return { migrated: false, value };
+  return {
+    migrated: true,
+    value: {
+      ...raw,
+      version: 3,
+      slots: raw.slots.map((entry) => {
+        const slot = asRecord(entry);
+        if (!slot) return entry;
+        const lease = slot.lease === null ? null : asRecord(slot.lease);
+        const operation = slot.operation === null ? null : asRecord(slot.operation);
+        return {
+          ...slot,
+          preparedHead: null,
+          lease: lease ? { ...lease, pullRequestNumber: null } : slot.lease,
+          operation: operation ? { ...operation, resetTarget: null } : slot.operation,
+        };
+      }),
+    },
+  };
 }
 
 /** Relationships that must hold ACROSS slots. */

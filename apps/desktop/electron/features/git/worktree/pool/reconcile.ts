@@ -129,16 +129,17 @@ function classifyStable(
   if (registration?.prunable) {
     return reclassify(slot, 'damaged', `Git reports this worktree prunable: ${registration.prunableReason ?? 'no reason given'}.`, now);
   }
+  if (registration?.locked) {
+    return reclassify(slot, 'in-use', `Git reports this worktree locked: ${registration.lockedReason ?? 'no reason given'}.`, now);
+  }
   if (registration?.detached) {
-    return reclassify(slot, 'recovery-required', 'The checkout is on a detached HEAD, which is not a Sero work mode.', now);
+    if (slot.state === 'available' && slot.preparedHead && registration.head === slot.preparedHead) return slot;
+    return reclassify(slot, 'recovery-required', 'The checkout is unexpectedly detached or differs from its prepared HEAD.', now);
   }
   const branch = registration ? registrationBranch(registration) : null;
   const expected = slot.lease?.branchName ?? slot.branchName;
   if (expected && branch !== expected) {
     return reclassify(slot, 'recovery-required', `The checkout is on "${branch ?? 'no branch'}", not the recorded "${expected}".`, now);
-  }
-  if (registration?.locked) {
-    return reclassify(slot, 'in-use', `Git reports this worktree locked: ${registration.lockedReason ?? 'no reason given'}.`, now);
   }
   return slot;
 }
@@ -175,6 +176,7 @@ async function adoptUnknownDirectories(
       operation: null,
       branchName: branch,
       branchKind: null,
+      preparedHead: null,
       lastReleased: null,
       reason: isLegacy
         ? 'A pre-pool checkout with no owner recorded in this pool. It is preserved until its owner is proved.'

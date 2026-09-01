@@ -187,7 +187,7 @@ describe('release fencing', () => {
     expect(await git(workspace, 'rev-parse', '--verify', `refs/heads/${lease.branchName}`)).toBeTruthy();
   });
 
-  it('removes a clean no-op checkout and deletes only its merged local branch', async () => {
+  it('recycles a clean no-op checkout and deletes only its proved-disposable local branch', async () => {
     const workspace = await newWorkspace();
     const lease = await acquireOrThrow(workspace, 'loop-5-r1');
 
@@ -199,7 +199,8 @@ describe('release fencing', () => {
     });
 
     expect(outcome.status).toBe('released');
-    expect(await exists(lease.worktreePath)).toBe(false);
+    expect(await exists(lease.worktreePath)).toBe(true);
+    expect(await git(lease.worktreePath, 'rev-parse', '--abbrev-ref', 'HEAD')).toBe('HEAD');
     await expect(git(workspace, 'rev-parse', '--verify', `refs/heads/${lease.branchName}`)).rejects.toThrow();
   });
 
@@ -368,6 +369,6 @@ describe('a workspace reached through a symlink', () => {
       disposition: 'recycle',
     });
     expect(released.status).toBe('released');
-    expect(await exists(acquired.lease.worktreePath)).toBe(false);
+    expect(await exists(acquired.lease.worktreePath)).toBe(true);
   });
 });

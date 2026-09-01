@@ -26,6 +26,7 @@ import type {
   PersistentSessionUsage,
   PersistentSessionsApi,
 } from '@sero-ai/common';
+import type { SeroOwnedProcessRegistry } from '@electron/features/git/worktree/pool/owned-processes';
 
 import { GrantStore } from './grant-store';
 import { LiveSessionRegistry } from './live-sessions';
@@ -82,10 +83,12 @@ export interface PersistentSessionHostDeps {
   resolveModel(modelId: string): Promise<CreateAgentSessionOptions['model']>;
   newId(prefix: string): string;
   log(message: string): void;
+  ownedProcesses?: Pick<SeroOwnedProcessRegistry, 'register'>;
 }
 
 export class PersistentSessionHost implements PersistentSessionsApi {
   private readonly live = new LiveSessionRegistry();
+  private readonly ownedUnregister = new Map<string, () => void>();
 
   constructor(private readonly deps: PersistentSessionHostDeps) {}
 
@@ -127,6 +130,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
       await entry.session.abort().catch(() => undefined);
       this.live.remove(entry.handleId);
       entry.session.dispose();
+      this.unregisterOwned(entry.handleId);
     }
     this.deps.grantStore.clearLive(grantId);
   }
@@ -170,6 +174,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
 
       const sessionId = sessionManager.getSessionId();
       this.live.add({ handleId, grantId: request.grantId, subject: request.subject, sessionId, sessionPath, session });
+      this.registerOwned(handleId, validation.cwd);
       return { handleId, subject: request.subject, sessionId, sessionPath };
     } catch (error) {
       await this.deps.grantStore.releaseReservation(request.grantId, reservation.reservationId);
@@ -214,6 +219,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
       }
       const sessionId = sessionManager.getSessionId();
       this.live.add({ handleId, grantId: request.grantId, subject: request.subject, sessionId, sessionPath, session });
+      this.registerOwned(handleId, validation.cwd);
       return { handleId, subject: request.subject, sessionId, sessionPath };
     } catch (error) {
       this.deps.grantStore.releaseLive(request.grantId, handleId);
@@ -283,6 +289,36 @@ export class PersistentSessionHost implements PersistentSessionsApi {
     // that is what lets a member be reopened, and its history stay readable.
     entry.session.dispose();
     this.deps.grantStore.releaseLive(entry.grantId, handleId);
+    this.unregisterOwned(handleId);
+  }
+
+  private registerOwned(handleId: string, cwd: string): void {
+    if (!this.deps.ownedProcesses) return;
+    const unregister = this.deps.ownedProcesses.register({
+      id: `agent-session:${handleId}`,
+      kind: 'agent-session',
+      cwd,
+      stop: async () => this.stopOwned(handleId),
+    });
+    this.ownedUnregister.set(handleId, unregister);
+  }
+
+  private unregisterOwned(handleId: string): void {
+    this.ownedUnregister.get(handleId)?.();
+    this.ownedUnregister.delete(handleId);
+  }
+
+  private async stopOwned(handleId: string): Promise<void> {
+    const entry = this.live.get(handleId);
+    if (!entry) {
+      this.unregisterOwned(handleId);
+      return;
+    }
+    await entry.session.abort();
+    this.live.remove(handleId);
+    entry.session.dispose();
+    this.deps.grantStore.releaseLive(entry.grantId, handleId);
+    this.unregisterOwned(handleId);
   }
 
   async readHistory(

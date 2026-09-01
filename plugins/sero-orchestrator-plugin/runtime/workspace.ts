@@ -72,10 +72,12 @@ const PR_NUMBER_SOURCES = new Set(['github:pr-approved', 'github:review-comment'
  * Deterministic field reads — the payload shapes are our own adapters'
  * (github-kinds.ts), never guessed.
  */
-async function eventPrBranch(host: OrchestratorHost, run: LoopRun | undefined): Promise<string | { error: string }> {
+type EventPrBranch = { branch: string; pullRequestNumber?: number } | { error: string };
+
+async function eventPrBranch(host: OrchestratorHost, run: LoopRun | undefined): Promise<EventPrBranch> {
   const source = run?.firedBy?.source;
   const payload = run?.observations.find((o) => o.source === 'event')?.data as
-    | { branch?: unknown; prNumber?: unknown; number?: unknown }
+    | { branch?: unknown; prNumber?: unknown; number?: unknown; prNumbers?: unknown }
     | undefined;
   if (!source || !payload) {
     return { error: 'This loop works on the PR branch named by its firing event, but this run was not started by an event.' };
@@ -84,7 +86,16 @@ async function eventPrBranch(host: OrchestratorHost, run: LoopRun | undefined): 
     return { error: `The firing event (${source}) is not scoped to a pull request, so there is no PR branch to work on.` };
   }
   if (PR_HEAD_BRANCH_SOURCES.has(source) && typeof payload.branch === 'string' && payload.branch.length > 0) {
-    return payload.branch;
+    const pullRequestNumber = typeof payload.prNumber === 'number'
+      ? payload.prNumber
+      : typeof payload.number === 'number'
+        ? payload.number
+        : Array.isArray(payload.prNumbers)
+          && payload.prNumbers.length === 1
+          && typeof payload.prNumbers[0] === 'number'
+          ? payload.prNumbers[0]
+          : undefined;
+    return { branch: payload.branch, pullRequestNumber };
   }
   const prNumber = typeof payload.prNumber === 'number' ? payload.prNumber : typeof payload.number === 'number' ? payload.number : undefined;
   if (prNumber === undefined) {
@@ -98,7 +109,7 @@ async function eventPrBranch(host: OrchestratorHost, run: LoopRun | undefined): 
   }
   const pr = open.find((candidate) => candidate.number === prNumber);
   if (!pr) return { error: `PR #${prNumber} from the firing event is not in the open-PR list — it may be closed or merged.` };
-  return pr.headRefName;
+  return { branch: pr.headRefName, pullRequestNumber: pr.number };
 }
 
 /**
@@ -131,16 +142,21 @@ function contextFromLease(
 /** Managed worktree checked out at the PR's own branch (spec 15, FR-P1). */
 async function resolveEventPrWorktree(host: OrchestratorHost, loop: Loop, run: LoopRun | undefined): Promise<ResolveResult> {
   const branch = await eventPrBranch(host, run);
-  if (typeof branch !== 'string') return { loop, blocked: branch.error };
+  if ('error' in branch) return { loop, blocked: branch.error };
   const worktreeKey = worktreeKeyFor(loop);
   const outcome = await host
-    .acquireWorktree({ holder: worktreeKey, title: loop.title, existingBranch: branch })
+    .acquireWorktree({
+      holder: worktreeKey,
+      title: loop.title,
+      existingBranch: branch.branch,
+      pullRequestNumber: branch.pullRequestNumber,
+    })
     .catch((error: unknown) => ({
       status: 'blocked' as const,
       reason: error instanceof Error ? error.message : String(error),
     }));
   if (outcome.status !== 'acquired') {
-    return { loop, blocked: `Could not check out branch "${branch}": ${outcome.reason}` };
+    return { loop, blocked: `Could not check out branch "${branch.branch}": ${outcome.reason}` };
   }
   const resolved = contextFromLease(host, outcome.lease, worktreeKey, 'create-option');
   return { loop: withResolved(loop, resolved), workspace: resolved };

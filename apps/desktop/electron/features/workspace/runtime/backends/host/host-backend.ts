@@ -1,8 +1,8 @@
-import { execFile, spawn as spawnProcess } from 'child_process';
+import { spawn as spawnProcess } from 'child_process';
 import path from 'path';
-import { promisify } from 'util';
 
 import { TerminalManager } from '@electron/features/container/terminal';
+import { seroOwnedProcesses } from '@electron/features/git/worktree/pool/owned-processes';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { getRuntimeCapabilities } from '../../capabilities';
 import { RUNTIME_WORKSPACE_PATH, isRuntimeWorkspacePath, toHostWorkspacePath, toRuntimeWorkspacePath } from '../../runtime-paths';
@@ -50,8 +50,7 @@ import { HostDevServerManager } from './host-dev-server-manager';
 import { runHostDoctorChecks } from './host-doctor';
 import { createHostProcessAdapter } from './process/factory';
 import { createHostProcessEnv } from './host-env';
-
-const execFileAsync = promisify(execFile);
+import { trackedExecFile } from './tracked-exec';
 
 function getSeroAgentRootPath(): string | null {
   const explicitAgentDir = process.env.PI_CODING_AGENT_DIR;
@@ -146,7 +145,7 @@ export class HostBackend implements RuntimeBackend {
       env: await createHostProcessEnv(this.workspaceId, input.env, this.substrate.platform),
     });
     try {
-      const { stdout, stderr } = await execFileAsync(rendered.program, rendered.args, {
+      const { stdout, stderr } = await trackedExecFile(this.workspaceId, cwd, rendered.program, rendered.args, {
         cwd: rendered.nativeCwd,
         env: rendered.env,
         timeout: input.timeoutMs ?? 120_000,
@@ -178,7 +177,7 @@ export class HostBackend implements RuntimeBackend {
       env: await createHostProcessEnv(this.workspaceId, input.env, this.substrate.platform),
     });
     try {
-      const { stdout, stderr } = await execFileAsync(rendered.program, rendered.args, {
+      const { stdout, stderr } = await trackedExecFile(this.workspaceId, cwd, rendered.program, rendered.args, {
         cwd: rendered.nativeCwd,
         env: rendered.env,
         timeout: input.timeoutMs ?? 120_000,
@@ -206,9 +205,10 @@ export class HostBackend implements RuntimeBackend {
   }
 
   async spawn(input: RuntimeProcessInput): Promise<RuntimeProcess> {
+    const cwd = (await this.resolveHostPath(input.cwd ?? this.runtimeWorkspacePath)).hostPath;
     const rendered = await this.substrate.shellCommand({
       command: input.command,
-      cwd: (await this.resolveHostPath(input.cwd ?? this.runtimeWorkspacePath)).hostPath,
+      cwd,
       env: await createHostProcessEnv(this.workspaceId, input.env, this.substrate.platform),
     });
     const child = spawnProcess(rendered.program, rendered.args, {
@@ -221,8 +221,23 @@ export class HostBackend implements RuntimeBackend {
 
     child.stdout?.on('data', (chunk: Buffer) => emitData(dataCallbacks, chunk));
     child.stderr?.on('data', (chunk: Buffer) => emitData(dataCallbacks, chunk));
+    let exited = false;
+    let unregister: () => void = () => undefined;
+    const closed = new Promise<void>((resolve) => child.once('close', () => resolve()));
     child.on('exit', (exitCode, signal) => {
+      exited = true;
+      unregister();
       for (const cb of exitCallbacks) cb({ exitCode, signal: signal ?? undefined });
+    });
+
+    unregister = seroOwnedProcesses.register({
+      id: `${input.ownerKind ?? 'command'}:${this.workspaceId}:${child.pid ?? 'pending'}`,
+      kind: input.ownerKind ?? 'command',
+      cwd,
+      stop: async () => {
+        if (!exited) await this.substrate.signalChild(child, rendered, 'SIGTERM');
+        await closed;
+      },
     });
 
     const executionPid = await this.substrate.resolveExecutionPid?.(child, rendered);
@@ -293,16 +308,33 @@ export class HostBackend implements RuntimeBackend {
   }
 
   async createTerminal(input: RuntimeTerminalInput): Promise<RuntimeTerminalSession> {
+    const cwd = (await this.resolveHostPath(input.cwd ?? this.runtimeWorkspacePath)).hostPath;
     const terminal = this.terminals.createHostTerminal(
       this.workspaceId,
       input.terminalId,
       await this.substrate.terminalCommand({
-        cwd: (await this.resolveHostPath(input.cwd ?? this.runtimeWorkspacePath)).hostPath,
+        cwd,
         env: await createHostProcessEnv(this.workspaceId, undefined, this.substrate.platform, { tokenMode: 'reusable' }),
       }),
       input.cols,
       input.rows,
     );
+    let exited = false;
+    let unregister: () => void = () => undefined;
+    const exitedPromise = new Promise<void>((resolve) => terminal.onExit(() => {
+      exited = true;
+      unregister();
+      resolve();
+    }));
+    unregister = seroOwnedProcesses.register({
+      id: `terminal:${this.workspaceId}:${input.terminalId}`,
+      kind: 'terminal',
+      cwd,
+      async stop() {
+        if (!exited) terminal.kill();
+        await exitedPromise;
+      },
+    });
     return {
       terminalId: input.terminalId,
       pid: terminal.pid,

@@ -72,7 +72,7 @@ export interface FakeHost extends OrchestratorHost {
   /** Holders that acquired a lease, in order. */
   worktreesCreated: string[];
   /** Full acquireWorktree calls, including the existing-branch option. */
-  worktreeCreates: { loopId: string; existingBranch?: string }[];
+  worktreeCreates: { loopId: string; existingBranch?: string; pullRequestNumber?: number }[];
   /** Holders whose lease was released (removed), in order. */
   worktreesRemoved: string[];
   /** Full releaseWorktree calls, resolved back to the holder that owned them. */
@@ -267,7 +267,11 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
         };
       }
       this.worktreesCreated.push(request.holder);
-      this.worktreeCreates.push({ loopId: request.holder, existingBranch: request.existingBranch });
+      this.worktreeCreates.push({
+        loopId: request.holder,
+        existingBranch: request.existingBranch,
+        ...(request.pullRequestNumber === undefined ? {} : { pullRequestNumber: request.pullRequestNumber }),
+      });
       const ordinal = this.leases.size + this.worktreesRemoved.length + 1;
       const lease: WorktreeLease = {
         slotId: `slot-${ordinal}`,
@@ -281,6 +285,7 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
         baseRef: 'origin/main',
         baseCommit: 'base0000',
         acquiredHead: 'head0000',
+        pullRequestNumber: request.pullRequestNumber ?? null,
         acquiredAt: this.now(),
         greenfield: false,
       };
@@ -310,6 +315,7 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
         baseRef: null,
         baseCommit: null,
         acquiredHead: null,
+        pullRequestNumber: null,
         acquiredAt: this.now(),
         greenfield: false,
       };

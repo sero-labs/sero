@@ -109,6 +109,8 @@ export interface RuntimeProcessInput extends RuntimeExecInput {
   stdio?: 'pipe' | 'inherit';
   cols?: number;
   rows?: number;
+  /** Host-internal ownership label used by safe worktree shutdown. */
+  ownerKind?: 'command' | 'managed-dev-server';
 }
 
 export interface RuntimeProcess {

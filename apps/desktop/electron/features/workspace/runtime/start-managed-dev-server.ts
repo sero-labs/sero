@@ -1,4 +1,5 @@
 import type { DevServer } from '@/types/ipc';
+import { seroOwnedProcesses } from '@electron/features/git/worktree/pool/owned-processes';
 import { runtimeManager, type RuntimeManager } from './runtime-manager';
 import { toRuntimeWorkspacePath } from './runtime-paths';
 
@@ -55,6 +56,27 @@ export async function startManagedDevServer(
     });
     if (server.status === 'failed' || !server.port || !server.url) {
       return { reason: server.diagnosticCode ?? 'Managed dev server failed to start.' };
+    }
+    if (runtime.backend !== 'host') {
+      let unregister: () => void = () => undefined;
+      let unsubscribe: () => void = () => undefined;
+      const cleanup = (): void => {
+        unregister();
+        unsubscribe();
+      };
+      unregister = seroOwnedProcesses.register({
+        id: `managed-dev-server:${options.workspaceId}:${server.id}`,
+        kind: 'managed-dev-server',
+        cwd: options.cwdPath,
+        stop: async () => {
+          await runtime.stopDevServer({ serverId: server.id });
+          cleanup();
+        },
+      });
+      unsubscribe = manager.onDevServerChange((event) => {
+        if (event.workspaceId !== options.workspaceId || event.serverId !== server.id) return;
+        if (event.type === 'unregistered' || event.status === 'stopped' || event.status === 'failed') cleanup();
+      });
     }
     return { serverId: server.id, url: server.url, port: server.port };
   } catch (err) {

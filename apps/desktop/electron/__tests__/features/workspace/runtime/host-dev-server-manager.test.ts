@@ -76,7 +76,12 @@ describe('HostDevServerManager', () => {
 
     const server = await manager.start({ command: 'pnpm dev', cwd: '/workspace' });
 
-    expect(spawn).toHaveBeenCalledWith({ command: 'pnpm dev', cwd: '/workspace', stdio: 'pipe' });
+    expect(spawn).toHaveBeenCalledWith({
+      command: 'pnpm dev',
+      cwd: '/workspace',
+      stdio: 'pipe',
+      ownerKind: 'managed-dev-server',
+    });
     expect(processAdapter.descendantPids).toHaveBeenCalledWith(1234);
     expect(processAdapter.listeningPort).toHaveBeenCalledWith([1234]);
     expect(server).toMatchObject({
@@ -152,7 +157,12 @@ describe('HostDevServerManager', () => {
     });
     const restarted = await manager.restart({ serverId: server.id });
 
-    expect(spawn).toHaveBeenNthCalledWith(2, { command: 'pnpm dev', cwd: '/workspace/app', stdio: 'pipe' });
+    expect(spawn).toHaveBeenNthCalledWith(2, {
+      command: 'pnpm dev',
+      cwd: '/workspace/app',
+      stdio: 'pipe',
+      ownerKind: 'managed-dev-server',
+    });
     expect(restarted).toMatchObject({
       id: 'workspace-a:card-preview:card-1:5173',
       name: 'Card Preview',
