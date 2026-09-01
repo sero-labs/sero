@@ -72,13 +72,32 @@ Make the current lifecycle safe. Do not change the pool shape yet.
 
 ### 1.3 Cross-process lifecycle lock
 
-- [ ] Extract the lock protocol of `packages/extension-runtime/src/file-lock.ts`
-      into a shared helper, or import it directly. Do not write a second
-      lock implementation.
-- [ ] Hold the lock across acquire, release, prune, and every destructive
-      transition.
-- [ ] Give the lock a timeout. Report a wedged holder as an error. Do not
-      break the lock.
+Import `acquireLock` from `@sero-ai/extension-runtime`. The desktop app
+already depends on that package, and `features/apps/state/manager.ts`
+already locks with it. Write no second lock implementation.
+
+Hold the lock only for the short critical section that reads and writes
+`pool.json`. Do not hold it across Git work. A `git fetch` can take a
+minute, and a lock held that long serialises every Room member.
+
+- [ ] Lock, read state, choose and reserve a slot, write state, unlock. Keep
+      this section free of subprocess calls.
+- [ ] Record the reserving `pid` and `leaseId` on the reservation. The
+      reservation, not the lock, excludes other holders during Git work.
+- [ ] Do the Git work with the lock released.
+- [ ] Re-take the lock to commit the result, and confirm the reservation is
+      still ours before the write. Treat a lost reservation as a failure,
+      not as a reason to overwrite.
+- [ ] Use one lock directory per repository pool, derived from the `pool.json`
+      path by the same `<file>.lock` rule as `stateLockPath`.
+- [ ] Report a lock timeout as an error. Never break a live holder's lock.
+      This matches the declared failure mode of the shared protocol.
+- [ ] Classify a reservation whose `pid` is gone as `recovery-required` during
+      reconciliation (1.6). A crash in the unlocked Git phase must not leave a
+      slot reserved forever.
+- [ ] Confirm the protocol works on Windows. It uses `mkdir`, hard links,
+      `rename`, and `process.kill(pid, 0)`. Add a test or accept a documented
+      limitation.
 
 ### 1.4 Real worktree validation
 
@@ -138,6 +157,11 @@ Phase 1 is done when all of these hold, and each is proved by a test in 1.7.
       false for a registration with no directory.
 - [ ] Under 10 parallel acquisitions on one repository, no `slotId` is issued
       twice.
+- [ ] No lock is held across a subprocess call. Ten parallel acquisitions
+      overlap their Git work rather than running one after another.
+- [ ] A process killed during the unlocked Git phase leaves a reservation that
+      reconciliation classifies `recovery-required`, not a permanently
+      reserved slot.
 - [ ] After a simulated restart, a persisted lease whose slot, path, and
       branch agree is reattached with the same `leaseId`.
 - [ ] No existing worktree test in
