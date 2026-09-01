@@ -46,6 +46,11 @@ beforeAll(async () => {
   await mkdir(bundled, { recursive: true });
   await mkdir(imposter, { recursive: true });
   discovery.paths = [bundled];
+
+  // Load the Pi SDK-backed skill store during suite setup. Under a concurrent
+  // monorepo run, charging this one-time module cost to the first gate test can
+  // exhaust that test's timeout before its assertion runs.
+  await Promise.all([importCapability(), importApprovals()]);
 });
 
 beforeEach(() => {

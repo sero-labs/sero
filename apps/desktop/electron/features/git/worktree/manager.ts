@@ -18,7 +18,14 @@ import { inferConventionalType, slugifyBranchLabel } from '@electron/features/gi
 import { ensureBootstrapGitignore } from '@electron/features/git/support/bootstrap-gitignore';
 import { resolvePreferredBaseRef } from './workspace-sync';
 import { isMissingPathError, warnCleanupFailure } from '@electron/features/git/support/cleanup-warnings';
-import { execWorktreeGit } from './exec';
+import { execWorktreeGit, execWorktreeGitCommit } from './exec';
+
+function hasErrorCode(error: unknown, ...codes: string[]): boolean {
+  return typeof error === 'object'
+    && error !== null
+    && 'code' in error
+    && codes.includes(String(error.code));
+}
 
 /**
  * Ensure a workspace directory is a git repo with at least one commit.
@@ -65,9 +72,10 @@ async function ensureGitReady(workspacePath: string): Promise<boolean> {
       await execWorktreeGit(['branch', '-M', 'main'], { cwd: workspacePath, timeout: 5_000 });
     } catch { /* branch may not exist yet — that's fine, init -b main handles it */ }
     await execWorktreeGit(['add', '--', '.gitignore'], { cwd: workspacePath, timeout: 10_000 });
-    await execWorktreeGit([
-      'commit', '--allow-empty', '-m', 'Initial commit',
-    ], { cwd: workspacePath, timeout: 10_000 });
+    await execWorktreeGitCommit(['--allow-empty', '-m', 'Initial commit'], {
+      cwd: workspacePath,
+      timeout: 10_000,
+    });
     bootstrapped = true;
   }
 
@@ -127,10 +135,7 @@ export class WorktreeManager {
     const branchName = this.buildBranchName(cardTitle, cardId);
     const baseRef = await resolvePreferredBaseRef(workspacePath);
 
-    // Ensure parent directory exists
     await fs.mkdir(path.dirname(worktreePath), { recursive: true });
-
-    // Create worktree with a new branch from the current HEAD
     const addArgs = [
       'worktree', 'add',
       worktreePath,
@@ -138,21 +143,13 @@ export class WorktreeManager {
       ...(baseRef ? [baseRef] : []),
     ];
     try {
-      await execWorktreeGit(addArgs, {
-        cwd: workspacePath,
-        timeout: 30_000,
-      });
+      await execWorktreeGit(addArgs, { cwd: workspacePath, timeout: 30_000 });
     } catch (err: unknown) {
       const stderr = err && typeof err === 'object' && 'stderr' in err
         ? String((err as { stderr: unknown }).stderr) : '';
       const message = err instanceof Error ? err.message : String(err);
-      // If branch already exists, try without -b
       if (stderr.includes('already exists')) {
-        await execWorktreeGit([
-          'worktree', 'add',
-          worktreePath,
-          branchName,
-        ], {
+        await execWorktreeGit(['worktree', 'add', worktreePath, branchName], {
           cwd: workspacePath,
           timeout: 30_000,
         });
@@ -231,66 +228,85 @@ export class WorktreeManager {
     opts?: AppRuntimeWorktreeRemoveOptions,
   ): Promise<void> {
     const worktreePath = this.getPath(workspacePath, cardId);
+    const workspaceExists = await fs.stat(workspacePath).then(
+      () => true,
+      (error: unknown) => {
+        if (isMissingPathError(error)) return false;
+        throw error;
+      },
+    );
+    if (!workspaceExists) {
+      console.log(`[worktree] Workspace is already gone; nothing to remove for card-${cardId}`);
+      return;
+    }
 
-    // Get branch name before removal
     let branchName: string | null = null;
     if (opts?.deleteBranch || opts?.deleteMergedBranch) {
       try {
-        const { stdout } = await execWorktreeGit([
-          'rev-parse', '--abbrev-ref', 'HEAD',
-        ], { cwd: worktreePath, timeout: 5_000 });
+        const { stdout } = await execWorktreeGit(['rev-parse', '--abbrev-ref', 'HEAD'], {
+          cwd: worktreePath,
+          timeout: 5_000,
+        });
         branchName = stdout.trim();
       } catch {
-        // Worktree may already be gone
+        // Worktree may already be gone.
       }
     }
 
-    // Remove worktree
     const args = ['worktree', 'remove', worktreePath];
-    if (opts?.force) args.push('--force');
-
+    if (opts?.force) args.push('--force', '--force');
     try {
-      await execWorktreeGit(args, {
-        cwd: workspacePath,
-        timeout: 15_000,
-      });
-      try {
-        await execWorktreeGit(['worktree', 'prune'], {
-          cwd: workspacePath,
-          timeout: 10_000,
-        });
-      } catch (error) {
-        warnCleanupFailure(`failed to prune worktrees in ${workspacePath}`, error);
-      }
-    } catch (err: unknown) {
-      const stderr = err && typeof err === 'object' && 'stderr' in err
-        ? String((err as { stderr: unknown }).stderr) : '';
-      const message = err instanceof Error ? err.message : String(err);
-      // If the directory is already gone, prune instead
-      if (stderr.includes('is not a working tree')) {
+      await execWorktreeGit(args, { cwd: workspacePath, timeout: 15_000 });
+    } catch (error: unknown) {
+      const stderr = error && typeof error === 'object' && 'stderr' in error
+        ? String((error as { stderr: unknown }).stderr) : '';
+      const message = error instanceof Error ? error.message : String(error);
+      const detail = stderr || message;
+      const missingRegistration = detail.includes('is not a working tree')
+        || detail.includes('No such file or directory')
+        || detail.includes('does not exist');
+      if (opts?.force) {
         try {
-          await execWorktreeGit(['worktree', 'prune'], {
-            cwd: workspacePath,
-            timeout: 10_000,
-          });
-        } catch (pruneError) {
-          warnCleanupFailure(`failed to prune missing worktree for card-${cardId} in ${workspacePath}`, pruneError);
+          await fs.rm(worktreePath, { recursive: true, force: true });
+        } catch (residueError) {
+          warnCleanupFailure(`failed to force-remove residue for card-${cardId}`, residueError);
         }
+        try {
+          await execWorktreeGit(['worktree', 'prune'], { cwd: workspacePath, timeout: 10_000 });
+        } catch (pruneError) {
+          warnCleanupFailure(`failed to prune forced removal for card-${cardId}`, pruneError);
+        }
+      } else if (!missingRegistration) {
+        throw new Error(`Could not remove card-${cardId}, so its checkout and branch were kept: ${detail}`);
       } else {
-        console.warn(`[worktree] Failed to remove card-${cardId}:`, stderr || message);
+        try {
+          await execWorktreeGit(['worktree', 'prune'], { cwd: workspacePath, timeout: 10_000 });
+        } catch (pruneError) {
+          warnCleanupFailure(`failed to prune missing worktree for card-${cardId}`, pruneError);
+        }
+        try {
+          await fs.rmdir(worktreePath);
+        } catch (residueError) {
+          if (!isMissingPathError(residueError)) {
+            if (hasErrorCode(residueError, 'ENOTEMPTY', 'EEXIST')) {
+              throw new Error(
+                `Could not remove card-${cardId}. Its unregistered directory contains files and was kept at ${worktreePath}.`,
+              );
+            }
+            throw residueError;
+          }
+        }
+        console.log(`[worktree] Removed empty residue for card-${cardId}`);
+        return;
       }
     }
 
-    // Clean up the directory if it still exists
     try {
-      await fs.rm(worktreePath, { recursive: true, force: true });
+      await execWorktreeGit(['worktree', 'prune'], { cwd: workspacePath, timeout: 10_000 });
     } catch (error) {
-      if (!isMissingPathError(error)) {
-        warnCleanupFailure(`failed to remove worktree directory ${worktreePath}`, error);
-      }
+      warnCleanupFailure(`failed to prune worktrees in ${workspacePath}`, error);
     }
 
-    // Delete branch if requested
     if (branchName && (opts?.deleteBranch || opts?.deleteMergedBranch)) {
       try {
         await execWorktreeGit(['branch', opts.deleteBranch ? '-D' : '-d', branchName], {

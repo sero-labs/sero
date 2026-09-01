@@ -97,6 +97,21 @@ export function execWorktreeGit(
   return execWithAuth('git', args, options);
 }
 
+/** Use the configured Git identity, with a Sero fallback for unmanaged hosts. */
+export async function execWorktreeGitCommit(
+  args: string[],
+  options: WorktreeExecOptions,
+): Promise<{ stdout: string; stderr: string }> {
+  const hasIdentity = await Promise.all([
+    execWorktreeGit(['var', 'GIT_AUTHOR_IDENT'], { cwd: options.cwd, timeout: 5_000 }),
+    execWorktreeGit(['var', 'GIT_COMMITTER_IDENT'], { cwd: options.cwd, timeout: 5_000 }),
+  ]).then(() => true, () => false);
+  const identityArgs = hasIdentity
+    ? []
+    : ['-c', 'user.name=Sero', '-c', 'user.email=sero@local'];
+  return execWorktreeGit([...identityArgs, 'commit', ...args], options);
+}
+
 export function execWorktreeGh(
   args: string[],
   options: WorktreeExecOptions,

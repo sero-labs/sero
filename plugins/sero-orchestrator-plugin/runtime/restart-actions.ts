@@ -38,7 +38,8 @@ export async function runAgain(
     return { ok: false, error: 'A run is already in progress — disable it first, then restart.' };
   }
   const now = host.now();
-  await cleanupPreviousWorktree(host, loopId, loop.runtime.workspace.resolved);
+  const cleanup = await cleanupPreviousWorktree(host, loopId, loop.runtime.workspace.resolved);
+  if (!cleanup.removed) return { ok: false, error: cleanup.error };
   const reactivated: Loop = {
     ...rearmLoop({ ...loop, triggers: reenableSchedule(loop, now) }, now),
     status: 'active',

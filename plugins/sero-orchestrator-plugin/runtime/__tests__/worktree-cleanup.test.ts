@@ -18,9 +18,11 @@ const managed: ResolvedWorkspaceContext = {
 describe('cleanupPreviousWorktree', () => {
   it('removes merged loop-owned branches safely', async () => {
     const host = createFakeHost();
-    await cleanupPreviousWorktree(host, 'loop-1', managed);
+    const result = await cleanupPreviousWorktree(host, 'loop-1', managed);
+    expect(result).toEqual({ removed: true });
+    expect(host.checkpoints).toEqual([]);
     expect(host.worktreeRemovals).toEqual([
-      { loopId: 'loop-1-r4', force: true, deleteMergedBranch: true, deleteBranch: undefined },
+      { loopId: 'loop-1-r4', force: undefined, deleteMergedBranch: true, deleteBranch: undefined },
     ]);
   });
 
@@ -28,5 +30,22 @@ describe('cleanupPreviousWorktree', () => {
     const host = createFakeHost();
     await cleanupPreviousWorktree(host, 'loop-1', { ...managed, externalBranch: true });
     expect(host.worktreeRemovals[0].deleteMergedBranch).toBeUndefined();
+    expect(host.checkpoints).toEqual([]);
+  });
+
+  it('reports a kept checkout without creating a commit', async () => {
+    const host = createFakeHost();
+    host.removeWorktree = async () => {
+      throw new Error('dirty checkout');
+    };
+
+    const result = await cleanupPreviousWorktree(host, 'loop-1', managed);
+
+    expect(result).toEqual({
+      removed: false,
+      error: expect.stringContaining(`checkout was kept at ${managed.worktreePath}`),
+    });
+    expect(host.checkpoints).toEqual([]);
+    expect(host.logs).toEqual([expect.stringContaining('dirty checkout')]);
   });
 });

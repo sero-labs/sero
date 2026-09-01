@@ -193,6 +193,22 @@ describe('Coordinator delete', () => {
     expect(host.state.loops).toHaveLength(0);
   });
 
+  it('deletes loop state when its checkout is already unavailable', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.runtime.workspace.resolved = managedWorktree;
+    host.state = { ...host.state, loops: [loop] };
+    host.removeWorktree = async () => {
+      throw new Error('workspace is gone');
+    };
+
+    const result = await new Coordinator(host).requestAction({ kind: 'delete', loopId: 'loop-1' });
+
+    expect(result.ok).toBe(true);
+    expect(host.state.loops).toHaveLength(0);
+    expect(host.logs.some((entry) => entry.includes('workspace is gone'))).toBe(true);
+  });
+
   it('deletes the local branch too when deleteBranch is set', async () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, oneStepPlan().plan);

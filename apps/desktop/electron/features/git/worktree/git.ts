@@ -4,7 +4,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { WORKSPACE_COMMON_IGNORES } from '@sero-ai/common';
 import { warnCleanupFailure } from '@electron/features/git/support/cleanup-warnings';
-import { execWorktreeGit } from './exec';
+import { execWorktreeGit, execWorktreeGitCommit } from './exec';
 import { ghError as execError } from '../github/helpers';
 export { ensureRemoteDefaultBranch, createPrFromWorktree } from './pull-request';
 
@@ -56,7 +56,7 @@ export async function createCheckpointInWorktree(
   });
 
   // Commit
-  await execWorktreeGit(['commit', '-m', message], {
+  await execWorktreeGitCommit(['-m', message], {
     cwd: worktreePath,
     timeout: 15_000,
   });
