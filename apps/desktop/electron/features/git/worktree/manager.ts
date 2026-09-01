@@ -29,6 +29,7 @@ import {
 } from './removal';
 import { listWorktreeRegistrations, registrationBranch } from './pool/registration';
 import { LEGACY_DIR_PREFIX, worktreesRoot } from './pool/paths';
+import { canonicalPath } from './pool/repository';
 
 export interface WorktreeInfo {
   cardId: string;
@@ -166,7 +167,14 @@ export class WorktreeManager {
     if (listing.status !== 'ok') {
       return { status: 'unavailable', reason: listing.reason };
     }
-    const record = listing.records.find((candidate) => path.resolve(candidate.path) === path.resolve(worktreePath));
+    const expectedPath = await canonicalPath(worktreePath);
+    let record: (typeof listing.records)[number] | undefined;
+    for (const candidate of listing.records) {
+      if (await canonicalPath(candidate.path) === expectedPath) {
+        record = candidate;
+        break;
+      }
+    }
     if (!record) return { status: 'not-registered', reason: `Git has no worktree registered at ${worktreePath}.` };
     if (record.prunable) {
       return { status: 'not-registered', reason: `Git reports ${worktreePath} prunable: ${record.prunableReason ?? 'no reason given'}.` };

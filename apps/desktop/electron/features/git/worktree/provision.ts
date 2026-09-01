@@ -57,7 +57,11 @@ export async function ensureGitReady(workspacePath: string): Promise<boolean> {
       await execWorktreeGit(['branch', '-M', 'main'], { cwd: workspacePath, timeout: 5_000 });
     } catch { /* branch may not exist yet — that's fine, init -b main handles it */ }
     await execWorktreeGit(['add', '--', '.gitignore'], { cwd: workspacePath, timeout: 10_000 });
-    await execWorktreeGit(['commit', '--allow-empty', '-m', 'Initial commit'], {
+    await execWorktreeGit([
+      '-c', 'user.name=Sero',
+      '-c', 'user.email=sero@local',
+      'commit', '--allow-empty', '-m', 'Initial commit',
+    ], {
       cwd: workspacePath,
       timeout: 10_000,
     });

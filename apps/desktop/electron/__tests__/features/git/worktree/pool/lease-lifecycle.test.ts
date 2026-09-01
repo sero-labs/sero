@@ -100,13 +100,24 @@ describe('acquisition', () => {
     expect(opened.session.state.slots.filter((slot) => slot.state === 'leased')).toHaveLength(holders.length);
   });
 
-  it('bootstraps a greenfield directory rather than refusing it', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'sero-pool-green-'));
-    roots.push(root);
-    const lease = await acquireOrThrow(root, 'loop-9-r1', 'Start something');
+  it('bootstraps a greenfield directory without a configured Git identity', async () => {
+    vi.stubEnv('GIT_CONFIG_COUNT', '2');
+    vi.stubEnv('GIT_CONFIG_KEY_0', 'user.name');
+    vi.stubEnv('GIT_CONFIG_VALUE_0', '');
+    vi.stubEnv('GIT_CONFIG_KEY_1', 'user.email');
+    vi.stubEnv('GIT_CONFIG_VALUE_1', '');
+    try {
+      const root = await mkdtemp(path.join(os.tmpdir(), 'sero-pool-green-'));
+      roots.push(root);
+      const lease = await acquireOrThrow(root, 'loop-9-r1', 'Start something');
 
-    expect(lease.greenfield).toBe(true);
-    expect(await git(lease.worktreePath, 'rev-parse', '--abbrev-ref', 'HEAD')).toBe(lease.branchName);
+      expect(lease.greenfield).toBe(true);
+      expect(await git(lease.worktreePath, 'rev-parse', '--abbrev-ref', 'HEAD')).toBe(lease.branchName);
+      expect(await git(lease.worktreePath, 'show', '-s', '--format=%an <%ae>', 'HEAD'))
+        .toBe('Sero <sero@local>');
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
 
