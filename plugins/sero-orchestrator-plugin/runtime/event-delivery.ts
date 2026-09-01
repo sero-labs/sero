@@ -184,24 +184,22 @@ function isSnoozed(loop: Loop, now: string): boolean {
 }
 
 /**
- * Starts the next event-fired iteration (cron semantics): drops the previous
- * iteration's worktree and re-arms the plan. The re-arm reads the CURRENT
- * on-disk loop inside updateState — never a caller-held copy — so an event
- * enqueued concurrently is never overwritten. The queued events survive the
- * re-arm; the engine consumes the head into the run's `firedBy` and an
- * `event` observation.
+ * Starts the next event-fired iteration after normal cleanup accepts the
+ * previous checkout. The second read keeps events that arrive during cleanup.
  */
 async function runEventPass(host: OrchestratorHost, seam: CoordinatorRunSeam, loopId: string): Promise<void> {
+  const loop = await seam.findLoop(loopId);
+  if (!loop || loop.status !== 'active') return;
+  const cleanup = await cleanupPreviousWorktree(host, loopId, loop.runtime.workspace.resolved);
+  if (!cleanup.removed) return;
+
   let rearmed: Loop | undefined;
-  let prior: Loop['runtime']['workspace']['resolved'];
   await host.updateState((state) => {
     const current = state.loops.find((l) => l.id === loopId);
     if (!current || current.status !== 'active') return state;
-    prior = current.runtime.workspace.resolved; // captured pre-rearm: rearmLoop clears workspace
     rearmed = rearmLoop(current, host.now());
     return { ...state, loops: state.loops.map((l) => (l.id === loopId ? rearmed! : l)) };
   });
   if (!rearmed) return;
-  await cleanupPreviousWorktree(host, loopId, prior);
   await seam.runNext(loopId, rearmed);
 }

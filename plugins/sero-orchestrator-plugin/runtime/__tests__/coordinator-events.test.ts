@@ -140,7 +140,7 @@ describe('fireEvent broadcast', () => {
     expect(task).toContain('"pr": 42');
   });
 
-  it('runs the event iteration when cleanup keeps the previous checkout', async () => {
+  it('keeps the prior checkout and queued event when cleanup refuses removal', async () => {
     const host = createFakeHost();
     host.frozenNow = NOW;
     const loop = seedActiveLoop(host, oneStepPlan().plan);
@@ -159,9 +159,10 @@ describe('fireEvent broadcast', () => {
     await coordinator(host, { executor: fakeExecutor({ 'step-1': SUCCESS }) }).fireEvent(ciEvent());
 
     const updated = host.state.loops[0];
-    expect(updated.runs).toHaveLength(1);
-    expect(updated.runtime.pendingEvents).toBeUndefined();
-    expect(host.checkpoints[0]?.worktreePath).toBe(previousPath);
+    expect(updated.runs).toHaveLength(0);
+    expect(updated.runtime.pendingEvents?.[0]?.id).toBe('evt-1');
+    expect(updated.runtime.workspace.resolved?.worktreePath).toBe(previousPath);
+    expect(host.checkpoints).toEqual([]);
     expect(host.logs.some((entry) => entry.includes(`checkout was kept at ${previousPath}`))).toBe(true);
   });
 

@@ -21,7 +21,7 @@ export interface AppRuntimeWorktreeRemoveOptions {
   deleteMergedBranch?: boolean;
   /**
    * Let Git discard uncommitted checkout contents.
-   * Use only after explicit user authorization.
+   * Also removes unregistered residue. Use only after explicit user authorization.
    */
   force?: boolean;
 }
@@ -118,6 +118,7 @@ export interface AppRuntimeGitApi {
     cardTitle: string,
     options?: AppRuntimeWorktreeCreateOptions,
   ): Promise<AppRuntimeWorktreeCreateResult>;
+  /** Rejects when normal removal must keep the checkout or its files. */
   removeWorktree(
     workspacePath: string,
     cardId: string,

@@ -18,7 +18,7 @@ import { inferConventionalType, slugifyBranchLabel } from '@electron/features/gi
 import { ensureBootstrapGitignore } from '@electron/features/git/support/bootstrap-gitignore';
 import { resolvePreferredBaseRef } from './workspace-sync';
 import { isMissingPathError, warnCleanupFailure } from '@electron/features/git/support/cleanup-warnings';
-import { execWorktreeGit } from './exec';
+import { execWorktreeGit, execWorktreeGitCommit } from './exec';
 
 function hasErrorCode(error: unknown, ...codes: string[]): boolean {
   return typeof error === 'object'
@@ -72,11 +72,10 @@ async function ensureGitReady(workspacePath: string): Promise<boolean> {
       await execWorktreeGit(['branch', '-M', 'main'], { cwd: workspacePath, timeout: 5_000 });
     } catch { /* branch may not exist yet — that's fine, init -b main handles it */ }
     await execWorktreeGit(['add', '--', '.gitignore'], { cwd: workspacePath, timeout: 10_000 });
-    await execWorktreeGit([
-      '-c', 'user.name=Sero',
-      '-c', 'user.email=sero@local',
-      'commit', '--allow-empty', '-m', 'Initial commit',
-    ], { cwd: workspacePath, timeout: 10_000 });
+    await execWorktreeGitCommit(['--allow-empty', '-m', 'Initial commit'], {
+      cwd: workspacePath,
+      timeout: 10_000,
+    });
     bootstrapped = true;
   }
 
@@ -255,7 +254,7 @@ export class WorktreeManager {
     }
 
     const args = ['worktree', 'remove', worktreePath];
-    if (opts?.force) args.push('--force');
+    if (opts?.force) args.push('--force', '--force');
     try {
       await execWorktreeGit(args, { cwd: workspacePath, timeout: 15_000 });
     } catch (error: unknown) {
@@ -266,28 +265,40 @@ export class WorktreeManager {
       const missingRegistration = detail.includes('is not a working tree')
         || detail.includes('No such file or directory')
         || detail.includes('does not exist');
-      if (!missingRegistration) {
-        throw new Error(`Could not remove card-${cardId}, so its checkout and branch were kept: ${detail}`);
-      }
-      try {
-        await execWorktreeGit(['worktree', 'prune'], { cwd: workspacePath, timeout: 10_000 });
-      } catch (pruneError) {
-        warnCleanupFailure(`failed to prune missing worktree for card-${cardId}`, pruneError);
-      }
-      try {
-        await fs.rmdir(worktreePath);
-      } catch (residueError) {
-        if (!isMissingPathError(residueError)) {
-          if (hasErrorCode(residueError, 'ENOTEMPTY', 'EEXIST')) {
-            throw new Error(
-              `Could not remove card-${cardId}. Its unregistered directory contains files and was kept at ${worktreePath}.`,
-            );
-          }
-          throw residueError;
+      if (opts?.force) {
+        try {
+          await fs.rm(worktreePath, { recursive: true, force: true });
+        } catch (residueError) {
+          warnCleanupFailure(`failed to force-remove residue for card-${cardId}`, residueError);
         }
+        try {
+          await execWorktreeGit(['worktree', 'prune'], { cwd: workspacePath, timeout: 10_000 });
+        } catch (pruneError) {
+          warnCleanupFailure(`failed to prune forced removal for card-${cardId}`, pruneError);
+        }
+      } else if (!missingRegistration) {
+        throw new Error(`Could not remove card-${cardId}, so its checkout and branch were kept: ${detail}`);
+      } else {
+        try {
+          await execWorktreeGit(['worktree', 'prune'], { cwd: workspacePath, timeout: 10_000 });
+        } catch (pruneError) {
+          warnCleanupFailure(`failed to prune missing worktree for card-${cardId}`, pruneError);
+        }
+        try {
+          await fs.rmdir(worktreePath);
+        } catch (residueError) {
+          if (!isMissingPathError(residueError)) {
+            if (hasErrorCode(residueError, 'ENOTEMPTY', 'EEXIST')) {
+              throw new Error(
+                `Could not remove card-${cardId}. Its unregistered directory contains files and was kept at ${worktreePath}.`,
+              );
+            }
+            throw residueError;
+          }
+        }
+        console.log(`[worktree] Removed empty residue for card-${cardId}`);
+        return;
       }
-      console.log(`[worktree] Removed empty residue for card-${cardId}`);
-      return;
     }
 
     try {

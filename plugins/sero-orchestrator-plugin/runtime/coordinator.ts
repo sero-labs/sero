@@ -111,7 +111,8 @@ export class Coordinator {
    * whose previous pass already finished.
    */
   private async runFreshPass(loop: Loop, triggerId?: string): Promise<OrchestratorActionResult> {
-    await cleanupPreviousWorktree(this.host, loop.id, loop.runtime.workspace.resolved);
+    const cleanup = await cleanupPreviousWorktree(this.host, loop.id, loop.runtime.workspace.resolved);
+    if (!cleanup.removed) return { ok: false, error: cleanup.error };
     const base = rearmLoop(loop, this.host.now());
     const rearmed = triggerId
       ? { ...base, runtime: { ...base.runtime, pendingTriggerId: triggerId } }

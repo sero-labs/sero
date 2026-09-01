@@ -54,7 +54,7 @@ describe('Coordinator scheduling (Phase 7)', () => {
     expect(host.state.loops[0].runs[0].triggerId).toBe('c');
   });
 
-  it('runs every due loop when one previous checkout cannot be removed', async () => {
+  it('keeps one blocked checkout and still runs the other due loop', async () => {
     const host = createFakeHost();
     host.frozenNow = NOW;
     const first = seedActiveLoop(host, oneStepPlan().plan, 'loop-1');
@@ -78,10 +78,10 @@ describe('Coordinator scheduling (Phase 7)', () => {
 
     await coordinator(host, { executor: fakeExecutor({ 'step-1': SUCCESS }) }).tick();
 
-    expect(host.state.loops.map((loop) => loop.runs)).toEqual([
-      [expect.objectContaining({ triggerId: 'c1' })],
-      [expect.objectContaining({ triggerId: 'c2' })],
-    ]);
+    expect(host.state.loops[0].runs).toEqual([]);
+    expect(host.state.loops[0].runtime.workspace.resolved).toEqual(priorWorktree('old-loop-1'));
+    expect(host.state.loops[1].runs).toEqual([expect.objectContaining({ triggerId: 'c2' })]);
+    expect(host.checkpoints).toEqual([]);
     expect(host.logs.some((entry) => entry.includes('dirty checkout'))).toBe(true);
   });
 
@@ -297,6 +297,31 @@ describe('Coordinator scheduling (Phase 7)', () => {
     expect(host.state.loops[0].triggers[0].disabled).toBeFalsy(); // schedule resumed
     expect(host.state.loops[0].triggers[0].nextFireAt).toBeDefined();
     expect(executor.calls).toEqual(['step-1']); // ran a fresh pass
+  });
+
+  it('run again keeps the previous loop state when cleanup refuses removal', async () => {
+    const host = createFakeHost();
+    host.frozenNow = NOW;
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.status = 'complete';
+    loop.runtime.workspace.resolved = priorWorktree('old-loop-1');
+    loop.runtime.stepStates['step-1'] = {
+      status: 'succeeded', attempts: 1,
+      outcome: { status: 'succeeded', summary: 'done' }, updatedAt: NOW,
+    };
+    host.state = { ...host.state, loops: [loop] };
+    host.removeWorktree = async () => {
+      throw new Error('dirty checkout');
+    };
+    const executor = fakeExecutor({ 'step-1': SUCCESS });
+
+    const result = await coordinator(host, { executor }).requestAction({ kind: 'run_again', loopId: 'loop-1' });
+
+    expect(result).toMatchObject({ ok: false, error: expect.stringContaining('dirty checkout') });
+    expect(host.state.loops[0].status).toBe('complete');
+    expect(host.state.loops[0].runtime.workspace.resolved).toEqual(priorWorktree('old-loop-1'));
+    expect(host.state.loops[0].runtime.stepStates['step-1'].status).toBe('succeeded');
+    expect(executor.calls).toEqual([]);
   });
 
   it('start over re-runs a BLOCKED loop from the first step (clears the block, re-arms every step)', async () => {

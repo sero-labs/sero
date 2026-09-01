@@ -12,6 +12,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 
+import { createCheckpointInWorktree } from '@electron/features/git/worktree/git';
 import { WorktreeManager } from '@electron/features/git/worktree/manager';
 import { createRepoFromTemplate } from '../git-service/git-test-helpers';
 
@@ -173,11 +174,34 @@ describe('WorktreeManager merged-branch cleanup', () => {
     await expect(stat(worktree.worktreePath)).rejects.toThrow();
   });
 
+  it('force removes a non-empty unregistered directory for stale recovery', async () => {
+    const { workspace } = await newWorkspace();
+    const worktree = await manager.create(workspace, 'loop-1-r6', 'Routine scan');
+    await git(workspace, 'worktree', 'remove', worktree.worktreePath);
+    await mkdir(worktree.worktreePath, { recursive: true });
+    await writeFile(path.join(worktree.worktreePath, 'stale.md'), 'stale');
+
+    await manager.remove(workspace, 'loop-1-r6', { force: true });
+
+    await expect(stat(worktree.worktreePath)).rejects.toThrow();
+  });
+
+  it('force removes a locked dirty worktree after explicit deletion', async () => {
+    const { workspace } = await newWorkspace();
+    const worktree = await manager.create(workspace, 'loop-1-r7', 'Routine scan');
+    await writeFile(path.join(worktree.worktreePath, 'unfinished.md'), 'discard me');
+    await git(workspace, 'worktree', 'lock', worktree.worktreePath);
+
+    await manager.remove(workspace, 'loop-1-r7', { force: true });
+
+    await expect(stat(worktree.worktreePath)).rejects.toThrow();
+  });
+
   it('accepts cleanup after the workspace directory is already gone', async () => {
     const { workspace } = await newWorkspace();
     await rm(workspace, { recursive: true });
 
-    await expect(manager.remove(workspace, 'loop-1-r6')).resolves.toBeUndefined();
+    await expect(manager.remove(workspace, 'loop-1-r8')).resolves.toBeUndefined();
   });
 });
 
@@ -194,8 +218,31 @@ describe('WorktreeManager greenfield bootstrap', () => {
     vi.stubEnv('GIT_CONFIG_KEY_1', 'user.email');
     vi.stubEnv('GIT_CONFIG_VALUE_1', '');
 
-    await manager.create(workspace, 'loop-greenfield', 'Start project');
+    const worktree = await manager.create(workspace, 'loop-greenfield', 'Start project');
 
     expect(await git(workspace, 'show', '-s', '--format=%an <%ae>', 'HEAD')).toBe('Sero <sero@local>');
+
+    await writeFile(path.join(worktree.worktreePath, 'checkpoint.md'), 'saved work');
+    await createCheckpointInWorktree(worktree.worktreePath, 'Save work');
+    expect(await git(worktree.worktreePath, 'show', '-s', '--format=%an <%ae>', 'HEAD')).toBe('Sero <sero@local>');
+  });
+
+  it('keeps a configured identity for the initial commit', async () => {
+    const { root } = await newWorkspace();
+    const workspace = path.join(root, 'configured-greenfield');
+    await mkdir(workspace);
+    await git(workspace, 'init', '-b', 'main');
+    await git(workspace, 'config', 'user.name', 'Project Author');
+    await git(workspace, 'config', 'user.email', 'author@example.com');
+
+    const worktree = await manager.create(workspace, 'loop-configured', 'Start project');
+
+    expect(await git(workspace, 'show', '-s', '--format=%an <%ae>', 'HEAD'))
+      .toBe('Project Author <author@example.com>');
+
+    await writeFile(path.join(worktree.worktreePath, 'checkpoint.md'), 'saved work');
+    await createCheckpointInWorktree(worktree.worktreePath, 'Save work');
+    expect(await git(worktree.worktreePath, 'show', '-s', '--format=%an <%ae>', 'HEAD'))
+      .toBe('Project Author <author@example.com>');
   });
 });
