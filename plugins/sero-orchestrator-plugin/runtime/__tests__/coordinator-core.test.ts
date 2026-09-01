@@ -168,11 +168,25 @@ describe('Coordinator set_delivery', () => {
 });
 
 describe('Coordinator delete', () => {
-  const managedWorktree: ResolvedWorkspaceContext = {
-    id: 'ws', type: 'managed-worktree', workspaceRoot: '/root',
-    cwd: '/root/.sero/worktrees/loop-1', worktreePath: '/root/.sero/worktrees/loop-1',
-    branchName: 'orchestrator/loop-1', resolvedBy: 'create-option', createdAt: 't',
-  };
+  /**
+   * A managed context carrying the lease its checkout is actually held under.
+   * `worktreeKey` alone is not a release fence, so a context without a lease
+   * identity is never released — see the pre-pool case below.
+   */
+  async function leaseManagedWorktree(
+    host: ReturnType<typeof createFakeHost>,
+    extra: Partial<ResolvedWorkspaceContext> = {},
+  ): Promise<ResolvedWorkspaceContext> {
+    const outcome = await host.acquireWorktree({ holder: 'loop-1', title: 'Task' });
+    if (outcome.status !== 'acquired') throw new Error(outcome.reason);
+    return {
+      id: 'ws', type: 'managed-worktree', workspaceRoot: '/root',
+      cwd: outcome.lease.worktreePath, worktreePath: outcome.lease.worktreePath,
+      branchName: outcome.lease.branchName, worktreeKey: 'loop-1',
+      slotId: outcome.lease.slotId, leaseId: outcome.lease.leaseId,
+      resolvedBy: 'create-option', createdAt: 't', ...extra,
+    };
+  }
 
   it('removes the loop from state', async () => {
     const host = createFakeHost();
@@ -182,21 +196,23 @@ describe('Coordinator delete', () => {
     expect(host.state.loops).toHaveLength(0);
   });
 
-  it('removes a resolved managed worktree on delete, keeping the branch by default', async () => {
+  it('releases a resolved managed worktree on delete, keeping the branch by default', async () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, oneStepPlan().plan);
-    loop.runtime.workspace.resolved = managedWorktree;
+    loop.runtime.workspace.resolved = await leaseManagedWorktree(host);
     host.state = { ...host.state, loops: [loop] };
     await new Coordinator(host).requestAction({ kind: 'delete', loopId: 'loop-1' });
     expect(host.worktreesRemoved).toContain('loop-1');
-    expect(host.worktreeRemovals[0]).toMatchObject({ loopId: 'loop-1', deleteBranch: undefined });
+    expect(host.worktreeRemovals[0]).toMatchObject({
+      loopId: 'loop-1', disposition: 'remove', deleteBranch: undefined,
+    });
     expect(host.state.loops).toHaveLength(0);
   });
 
   it('deletes the local branch too when deleteBranch is set', async () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, oneStepPlan().plan);
-    loop.runtime.workspace.resolved = managedWorktree;
+    loop.runtime.workspace.resolved = await leaseManagedWorktree(host);
     host.state = { ...host.state, loops: [loop] };
     await new Coordinator(host).requestAction({ kind: 'delete', loopId: 'loop-1', deleteBranch: true });
     expect(host.worktreeRemovals[0]).toMatchObject({ loopId: 'loop-1', deleteBranch: true });
@@ -205,10 +221,27 @@ describe('Coordinator delete', () => {
   it('never deletes an event-pr worktree branch — it belongs to the PR (spec 15)', async () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, oneStepPlan().plan);
-    loop.runtime.workspace.resolved = { ...managedWorktree, branchName: 'feat/someones-pr', externalBranch: true };
+    loop.runtime.workspace.resolved = await leaseManagedWorktree(host, {
+      branchName: 'feat/someones-pr', externalBranch: true,
+    });
     host.state = { ...host.state, loops: [loop] };
     await new Coordinator(host).requestAction({ kind: 'delete', loopId: 'loop-1', deleteBranch: true });
     expect(host.worktreeRemovals[0]).toMatchObject({ loopId: 'loop-1', deleteBranch: undefined });
+  });
+
+  it('leaves a pre-pool checkout alone: a logical key is not a release fence', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.runtime.workspace.resolved = {
+      id: 'ws', type: 'managed-worktree', workspaceRoot: '/root',
+      cwd: '/root/.sero/worktrees/card-loop-1', worktreePath: '/root/.sero/worktrees/card-loop-1',
+      branchName: 'orchestrator/loop-1', worktreeKey: 'loop-1',
+      resolvedBy: 'create-option', createdAt: 't',
+    };
+    host.state = { ...host.state, loops: [loop] };
+    await new Coordinator(host).requestAction({ kind: 'delete', loopId: 'loop-1', deleteBranch: true });
+    expect(host.worktreeRemovals).toEqual([]);
+    expect(host.state.loops).toHaveLength(0);
   });
 
   it('touches no worktree when none was resolved', async () => {

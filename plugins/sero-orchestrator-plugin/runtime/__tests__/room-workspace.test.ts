@@ -180,6 +180,61 @@ describe('workspace placement', () => {
     expect(host.worktreesCreated).toEqual([`room-${roomId}-api`, `room-${roomId}-ui`]);
   });
 
+  it('records the lease its checkout is held under, and proves it on the next prepare', async () => {
+    const roomId = await draftRoom();
+    await workspaces.prepare(roomId);
+    const first = await memberOf(roomId, 'api');
+    expect(first.worktreeSlotId).toBeTruthy();
+    expect(first.worktreeLeaseId).toBeTruthy();
+
+    await workspaces.prepare(roomId);
+    expect(host.worktreeReattaches).toContainEqual({
+      kind: 'lease',
+      holder: `room-${roomId}-api`,
+      slotId: first.worktreeSlotId,
+      leaseId: first.worktreeLeaseId,
+    });
+  });
+
+  it('refuses to place a member whose checkout cannot be proved, rather than moving it', async () => {
+    const roomId = await draftRoom();
+    await workspaces.prepare(roomId);
+    // The lease is gone from under the member — a restart into a repository
+    // whose evidence no longer matches.
+    host.leases.clear();
+
+    await expect(workspaces.prepare(roomId)).rejects.toThrow('could not be verified');
+    // Nothing was minted to route around it, and the path is still recorded.
+    expect(host.worktreesCreated).toEqual([`room-${roomId}-api`, `room-${roomId}-ui`]);
+    expect((await memberOf(roomId, 'api')).worktreePath).toBeTruthy();
+  });
+
+  it('adopts a pre-pool checkout through the host rather than trusting its path', async () => {
+    const roomId = await draftRoom();
+    await workspaces.prepare(roomId);
+    const legacyPath = `${host.workspacePath}/.sero/worktrees/card-room-api`;
+    await store.updateMember(roomId, 'api', (current) => ({
+      ...current,
+      worktreePath: legacyPath,
+      worktreeBranch: 'feat/legacy',
+      worktreeSlotId: null,
+      worktreeLeaseId: null,
+    }));
+    host.leases.clear();
+
+    const placement = await workspaces.prepareMember(roomId, 'api');
+
+    expect(placement?.cwd).toBe(legacyPath);
+    expect(host.worktreeReattaches).toContainEqual({
+      kind: 'legacy',
+      holder: `room-${roomId}-api`,
+      worktreePath: legacyPath,
+      branchName: 'feat/legacy',
+    });
+    // The adopted migration lease is persisted, so the next release is fenced.
+    expect((await memberOf(roomId, 'api')).worktreeLeaseId).toBeTruthy();
+  });
+
   it('refuses shared-tree editing until the user approves it', async () => {
     const roomId = await draftRoom(
       envelopeWith({ workspacePolicy: { mode: 'shared-working-tree', sharedTreeApproved: false, claimPolicy: 'warn' } }),
@@ -410,6 +465,39 @@ describe('preserving uncommitted work', () => {
     expect(host.worktreeRemovals[0]).toMatchObject({ deleteMergedBranch: true });
     expect(host.worktreeRemovals[0].deleteBranch).toBeUndefined();
     expect((await memberOf(roomId, 'api')).worktreePath).toBeNull();
+  });
+
+  it('keeps a checkout the host declined to release, and keeps naming it', async () => {
+    const roomId = await draftRoom();
+    await workspaces.prepare(roomId);
+    const member = await memberOf(roomId, 'api');
+    host.releaseOutcomes.set(member.worktreeLeaseId ?? '', {
+      status: 'preserved',
+      slotId: member.worktreeSlotId ?? '',
+      reason: 'The checkout has uncommitted work.',
+    });
+
+    const result = await workspaces.releaseMember(roomId, 'api', 'retired');
+
+    expect(result.removed).toBe(false);
+    expect(result.reason).toContain('uncommitted work');
+    expect((await memberOf(roomId, 'api')).worktreePath).toBe(member.worktreePath);
+  });
+
+  it('never releases a pre-pool checkout by its logical key', async () => {
+    const roomId = await draftRoom();
+    await workspaces.prepare(roomId);
+    await store.updateMember(roomId, 'api', (current) => ({
+      ...current,
+      worktreeSlotId: null,
+      worktreeLeaseId: null,
+    }));
+
+    const result = await workspaces.releaseMember(roomId, 'api', 'retired');
+
+    expect(result.removed).toBe(false);
+    expect(host.worktreeRemovals).toEqual([]);
+    expect((await memberOf(roomId, 'api')).worktreePath).toBeTruthy();
   });
 });
 

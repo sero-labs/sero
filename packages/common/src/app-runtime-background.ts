@@ -34,6 +34,17 @@ export type {
   AppRuntimeWorkspaceStatusResult,
   AppRuntimeDirtyWorkspaceStashResult,
   AppRuntimeGitApi,
+  AppRuntimeWorktreeBranchKind,
+  AppRuntimeWorktreeLease,
+  AppRuntimeAcquireWorktreeRequest,
+  AppRuntimeAcquireWorktreeResult,
+  AppRuntimeReattachWorktreeRequest,
+  AppRuntimeReattachWorktreeResult,
+  AppRuntimeWorktreeDisposition,
+  AppRuntimeReleaseWorktreeRequest,
+  AppRuntimeReleaseWorktreeStatus,
+  AppRuntimeReleaseWorktreeResult,
+  AppRuntimeWorktreePoolApi,
 } from './app-runtime-git';
 
 export type {

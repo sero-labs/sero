@@ -39,6 +39,14 @@ export interface ResolvedWorkspaceContext {
   branchName?: string;
   /** Key the worktree was created under (per-iteration for recurring loops); used for cleanup. */
   worktreeKey?: string;
+  /**
+   * The pool lease this run's checkout is held under. `worktreeKey` names the
+   * logical holder and is NOT a release fence; these two are. Absent on a
+   * context resolved before the pool existed, which the host must prove
+   * through legacy reattachment before the run may use it again.
+   */
+  slotId?: string;
+  leaseId?: string;
   /** The branch belongs to a PR, not this loop — cleanup must never delete it. */
   externalBranch?: boolean;
   resolvedBy:

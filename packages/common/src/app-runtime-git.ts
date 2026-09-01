@@ -8,6 +8,24 @@
  * against it without importing desktop-internal modules.
  */
 
+import type { AppRuntimeWorktreePoolApi } from './app-runtime-worktree-pool';
+
+// The lease-based worktree pool contract lives in ./app-runtime-worktree-pool;
+// re-exported here so existing '@sero-ai/common' imports keep resolving.
+export type {
+  AppRuntimeWorktreeBranchKind,
+  AppRuntimeWorktreeLease,
+  AppRuntimeAcquireWorktreeRequest,
+  AppRuntimeAcquireWorktreeResult,
+  AppRuntimeReattachWorktreeRequest,
+  AppRuntimeReattachWorktreeResult,
+  AppRuntimeWorktreeDisposition,
+  AppRuntimeReleaseWorktreeRequest,
+  AppRuntimeReleaseWorktreeStatus,
+  AppRuntimeReleaseWorktreeResult,
+  AppRuntimeWorktreePoolApi,
+} from './app-runtime-worktree-pool';
+
 export interface AppRuntimeWorktreeCreateResult {
   worktreePath: string;
   branchName: string;
@@ -107,13 +125,22 @@ export interface AppRuntimeWorktreeCreateOptions {
   existingBranch?: string;
 }
 
-export interface AppRuntimeGitApi {
+export interface AppRuntimeGitApi extends AppRuntimeWorktreePoolApi {
+  /**
+   * @deprecated Legacy key-addressed creation, kept only for `card-*`
+   * checkouts made before the lease pool. It allocates no pool slot; new work
+   * must use `acquireWorktree`.
+   */
   createWorktree(
     workspacePath: string,
     cardId: string,
     cardTitle: string,
     options?: AppRuntimeWorktreeCreateOptions,
   ): Promise<AppRuntimeWorktreeCreateResult>;
+  /**
+   * @deprecated Legacy key-addressed removal. A logical key is not a release
+   * fence, so this can never recycle a pooled slot — use `releaseWorktree`.
+   */
   removeWorktree(
     workspacePath: string,
     cardId: string,

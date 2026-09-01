@@ -20,6 +20,19 @@ const MIGRATIONS: RoomMigration[] = [
     ...record,
     members: record.members.map((member) => ({ ...member, statusAt: member.createdAt })),
   }),
+  // v3 -> v4: a member records the pool lease its checkout is held under. An
+  // existing member has no lease identity, and inventing one would authorise a
+  // release against a checkout nobody proved. Null means "prove it first": the
+  // host adopts the checkout through legacy reattachment, or reports
+  // recovery-required and the Room does not start.
+  (record) => ({
+    ...record,
+    members: record.members.map((member) => ({
+      ...member,
+      worktreeSlotId: null,
+      worktreeLeaseId: null,
+    })),
+  }),
 ];
 
 /** Applies backward-compatible upgrades when a persisted Room is loaded. */

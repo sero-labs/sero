@@ -21,14 +21,20 @@ import type { CatalogRepoContents, CatalogRepoRef } from '../../shared/catalog-t
 import { DEFAULT_LIBRARY_INDEX, DEFAULT_STATE } from '../../shared/defaults';
 import type { LibraryEntry, LibraryIndex, LibraryVersion, OrchestratorState } from '../../shared/types';
 import type {
+  AcquireWorktreeRequest,
+  AcquireWorktreeResult,
   ActiveSessionInfo,
   ChoiceRequest,
   ChoiceResult,
   ModelRunParams,
   ModelRunResult,
   OrchestratorHost,
+  ReattachWorktreeRequest,
+  ReleaseWorktreeRequest,
+  ReleaseWorktreeResult,
   TurnResult,
   WorkspaceStatus,
+  WorktreeLease,
 } from '../host';
 
 export interface FakeHostOptions {
@@ -63,13 +69,29 @@ export interface FakeHost extends OrchestratorHost {
   workspaceStatus: WorkspaceStatus;
   /** Configurable choice result for dirty-workspace prompt tests. */
   choiceResult: ChoiceResult;
-  /** Records created/removed worktrees and notifications/choices. */
+  /** Holders that acquired a lease, in order. */
   worktreesCreated: string[];
-  /** Full createWorktree calls, including the existing-branch option. */
+  /** Full acquireWorktree calls, including the existing-branch option. */
   worktreeCreates: { loopId: string; existingBranch?: string }[];
+  /** Holders whose lease was released (removed), in order. */
   worktreesRemoved: string[];
-  /** Full removeWorktree calls, including the options passed. */
-  worktreeRemovals: { loopId: string; deleteBranch?: boolean; deleteMergedBranch?: boolean; force?: boolean }[];
+  /** Full releaseWorktree calls, resolved back to the holder that owned them. */
+  worktreeRemovals: {
+    loopId: string;
+    slotId: string;
+    leaseId: string;
+    disposition: string;
+    deleteBranch?: boolean;
+    deleteMergedBranch?: boolean;
+  }[];
+  /** Every reattachWorktree call, in order. */
+  worktreeReattaches: ReattachWorktreeRequest[];
+  /** Live leases by slot id. A released slot is removed. */
+  leases: Map<string, WorktreeLease>;
+  /** Holders whose acquisition must be blocked, mapped to the reason. */
+  acquireBlocks: Map<string, string>;
+  /** Release outcomes that override the fenced default, keyed by lease id. */
+  releaseOutcomes: Map<string, ReleaseWorktreeResult>;
   /** Checkpoint commits taken, in order. A path in `checkpointFailures` throws instead. */
   checkpoints: { worktreePath: string; message: string }[];
   /** Worktree paths whose checkpoint must fail, mapped to the failure reason. */
@@ -160,6 +182,10 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     worktreeCreates: [],
     worktreesRemoved: [],
     worktreeRemovals: [],
+    worktreeReattaches: [],
+    leases: new Map<string, WorktreeLease>(),
+    acquireBlocks: new Map<string, string>(),
+    releaseOutcomes: new Map<string, ReleaseWorktreeResult>(),
     checkpoints: [],
     checkpointFailures: new Map<string, string>(),
     cleanWorktrees: new Set<string>(),
@@ -230,6 +256,92 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
       // Mirror the real host: accept the write ref OR a state-dir-relative path.
       return this.artifacts.get(ref) ?? this.artifacts.get(`artifact://${ref}`) ?? null;
     },
+    async acquireWorktree(request: AcquireWorktreeRequest): Promise<AcquireWorktreeResult> {
+      const blocked = this.acquireBlocks.get(request.holder);
+      if (blocked) return { status: 'blocked', reason: blocked };
+      const held = [...this.leases.values()].find((lease) => lease.leaseHolder === request.holder);
+      if (held) {
+        return {
+          status: 'blocked',
+          reason: `"${request.holder}" already holds slot ${held.slotId}. Reattach instead of acquiring a second checkout.`,
+        };
+      }
+      this.worktreesCreated.push(request.holder);
+      this.worktreeCreates.push({ loopId: request.holder, existingBranch: request.existingBranch });
+      const ordinal = this.leases.size + this.worktreesRemoved.length + 1;
+      const lease: WorktreeLease = {
+        slotId: `slot-${ordinal}`,
+        // A new identity on EVERY acquisition, including reacquisition by the
+        // same holder — the property the real pool guarantees.
+        leaseId: this.newId('lease'),
+        leaseHolder: request.holder,
+        worktreePath: `${this.workspacePath}/.sero/worktrees/${request.holder}`,
+        branchName: request.existingBranch ?? `orchestrator/${request.holder}`,
+        branchKind: request.existingBranch ? 'external-pr' : 'fresh-task',
+        baseRef: 'origin/main',
+        baseCommit: 'base0000',
+        acquiredHead: 'head0000',
+        acquiredAt: this.now(),
+        greenfield: false,
+      };
+      this.leases.set(lease.slotId, lease);
+      return { status: 'acquired', lease };
+    },
+    async reattachWorktree(request: ReattachWorktreeRequest) {
+      this.worktreeReattaches.push(request);
+      if (request.kind === 'lease') {
+        const lease = this.leases.get(request.slotId);
+        if (!lease) return { status: 'recovery-required', reason: `No slot ${request.slotId}.` };
+        if (lease.leaseId !== request.leaseId) {
+          return { status: 'recovery-required', reason: `Slot ${request.slotId} holds a different lease.` };
+        }
+        if (lease.leaseHolder !== request.holder) {
+          return { status: 'recovery-required', reason: `Slot ${request.slotId} belongs to another holder.` };
+        }
+        return { status: 'attached', lease };
+      }
+      const adopted: WorktreeLease = {
+        slotId: `legacy-${this.leases.size + 1}`,
+        leaseId: this.newId('lease'),
+        leaseHolder: request.holder,
+        worktreePath: request.worktreePath,
+        branchName: request.branchName ?? `orchestrator/${request.holder}`,
+        branchKind: 'external-pr',
+        baseRef: null,
+        baseCommit: null,
+        acquiredHead: null,
+        acquiredAt: this.now(),
+        greenfield: false,
+      };
+      this.leases.set(adopted.slotId, adopted);
+      return { status: 'attached', lease: adopted };
+    },
+    async releaseWorktree(request: ReleaseWorktreeRequest): Promise<ReleaseWorktreeResult> {
+      const scripted = this.releaseOutcomes.get(request.expectedLeaseId);
+      if (scripted) return scripted;
+      const lease = this.leases.get(request.slotId);
+      if (!lease) {
+        return { status: 'stale-lease', slotId: request.slotId, reason: `No slot ${request.slotId}.` };
+      }
+      if (lease.leaseId !== request.expectedLeaseId) {
+        return {
+          status: 'stale-lease',
+          slotId: request.slotId,
+          reason: `Slot ${request.slotId} now holds lease ${lease.leaseId}.`,
+        };
+      }
+      this.leases.delete(request.slotId);
+      this.worktreesRemoved.push(lease.leaseHolder);
+      this.worktreeRemovals.push({
+        loopId: lease.leaseHolder,
+        slotId: request.slotId,
+        leaseId: request.expectedLeaseId,
+        disposition: request.disposition,
+        deleteBranch: request.deleteBranch,
+        deleteMergedBranch: request.deleteMergedBranch,
+      });
+      return { status: 'released', slotId: request.slotId, reason: 'The checkout was released.' };
+    },
     async createWorktree(loopId, _title, options) {
       this.worktreesCreated.push(loopId);
       this.worktreeCreates.push({ loopId, existingBranch: options?.existingBranch });
@@ -238,14 +350,8 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
         branchName: options?.existingBranch ?? `orchestrator/${loopId}`,
       };
     },
-    async removeWorktree(loopId, options) {
+    async removeWorktree(loopId) {
       this.worktreesRemoved.push(loopId);
-      this.worktreeRemovals.push({
-        loopId,
-        deleteBranch: options?.deleteBranch,
-        deleteMergedBranch: options?.deleteMergedBranch,
-        force: options?.force,
-      });
     },
     async createCheckpoint(worktreePath, message) {
       const failure = this.checkpointFailures.get(worktreePath);

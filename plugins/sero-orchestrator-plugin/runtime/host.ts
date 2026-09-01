@@ -14,6 +14,14 @@ import type {
   AppRuntimeNotificationChoiceOptions,
   AppRuntimePullRequestSummary,
   AppRuntimeSubagentRepair,
+  AppRuntimeAcquireWorktreeRequest,
+  AppRuntimeAcquireWorktreeResult,
+  AppRuntimeReattachWorktreeRequest,
+  AppRuntimeReattachWorktreeResult,
+  AppRuntimeReleaseWorktreeRequest,
+  AppRuntimeReleaseWorktreeResult,
+  AppRuntimeWorktreeDisposition,
+  AppRuntimeWorktreeLease,
   AppRuntimeWorktreeRemoveOptions,
   ContextAgentInfo,
   ContextSkillInfo,
@@ -124,6 +132,19 @@ export interface WorktreeHandle {
   branchName: string;
 }
 
+/**
+ * The worktree lease surface, re-exported under plugin-local names so runtime
+ * code and its fakes do not each spell out the `AppRuntime*` prefix.
+ */
+export type WorktreeLease = AppRuntimeWorktreeLease;
+export type AcquireWorktreeRequest = AppRuntimeAcquireWorktreeRequest;
+export type AcquireWorktreeResult = AppRuntimeAcquireWorktreeResult;
+export type ReattachWorktreeRequest = AppRuntimeReattachWorktreeRequest;
+export type ReattachWorktreeResult = AppRuntimeReattachWorktreeResult;
+export type ReleaseWorktreeRequest = AppRuntimeReleaseWorktreeRequest;
+export type ReleaseWorktreeResult = AppRuntimeReleaseWorktreeResult;
+export type WorktreeDisposition = AppRuntimeWorktreeDisposition;
+
 export interface WorkspaceStatus {
   isGitRepository: boolean;
   hasUncommittedChanges: boolean;
@@ -221,12 +242,34 @@ export interface OrchestratorHost {
 
   // ── Workspace isolation (user-selected placement) ─────────
   /**
-   * Creates or reuses one managed worktree for a loop. With `existingBranch`
-   * the worktree checks out that branch (fetched from origin when only
-   * remote) instead of minting a new one — PR-lifecycle work lands on the
-   * PR's own branch, and removal never deletes it.
+   * Leases one physical checkout from the host's worktree pool. Every call
+   * mints a new immutable lease identity, including a second call by the same
+   * holder, so a delayed release from an earlier run can never act on it. With
+   * `existingBranch` the checkout is the PR's own branch, which no release
+   * deletes.
+   *
+   * A holder that already holds a lease is BLOCKED rather than given a second
+   * checkout: that is a restart, and the caller must reattach.
+   */
+  acquireWorktree(request: AcquireWorktreeRequest): Promise<AcquireWorktreeResult>;
+  /**
+   * Proves that a checkout persisted before a restart is still the one this
+   * holder owns. Returns `recovery-required` — never a usable path — when
+   * repository, slot, lease, holder, registration or branch disagree.
+   */
+  reattachWorktree(request: ReattachWorktreeRequest): Promise<ReattachWorktreeResult>;
+  /**
+   * Releases a lease, conditional on its exact identity. The disposition is
+   * intent: the host re-classifies the checkout and preserves it whenever
+   * removal cannot be proved safe.
+   */
+  releaseWorktree(request: ReleaseWorktreeRequest): Promise<ReleaseWorktreeResult>;
+  /**
+   * @deprecated Legacy key-addressed creation for pre-pool `card-*` checkouts.
+   * A logical key is not a release fence — new work uses `acquireWorktree`.
    */
   createWorktree(loopId: string, title: string, options?: { existingBranch?: string }): Promise<WorktreeHandle>;
+  /** @deprecated Legacy key-addressed removal. Use `releaseWorktree`. */
   removeWorktree(
     loopId: string,
     options?: AppRuntimeWorktreeRemoveOptions,

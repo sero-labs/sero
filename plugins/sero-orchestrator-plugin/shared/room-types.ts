@@ -159,6 +159,14 @@ export interface RoomMember {
   /** Managed worktree path when this member edits in isolation. */
   worktreePath: string | null;
   worktreeBranch: string | null;
+  /**
+   * The pool lease this member's checkout is held under. The path above is a
+   * memory of where the work was; these two are the identity the host proves a
+   * restart against and the only fence a release may act on. Null for a
+   * pre-pool checkout that has not been matched to its owner yet.
+   */
+  worktreeSlotId: string | null;
+  worktreeLeaseId: string | null;
   /** Set while `waiting`: the question id this member is blocked on. */
   waitingOnQuestionId: string | null;
   /** The member that replaced this one, when retired by replacement. */
@@ -355,4 +363,4 @@ export interface RoomIndex {
  * It lives with the shape it describes, so the renderer can state the version
  * of an empty index without importing runtime code.
  */
-export const ROOM_SCHEMA_VERSION = 3;
+export const ROOM_SCHEMA_VERSION = 4;

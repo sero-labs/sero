@@ -40,7 +40,7 @@
  */
 
 import type { RoomMember } from '../../shared/room-types';
-import type { OrchestratorHost } from '../host';
+import type { OrchestratorHost, WorktreeLease } from '../host';
 import { timelineEvent } from './room-actions';
 import type { RoomRecord } from './room-state';
 import type { RoomStore } from './room-store';
@@ -200,6 +200,39 @@ function summarizeCollection(branches: MemberBranch[], conflicts: BranchConflict
 export function createRoomWorkspaces(ctx: RoomWorkspacesContext): RoomWorkspaces {
   const { host, store } = ctx;
 
+  async function acquire(roomId: string, record: RoomRecord, member: RoomMember): Promise<WorktreeLease> {
+    const outcome = await host.acquireWorktree({
+      holder: worktreeKeyFor(roomId, member.id),
+      title: `${record.definition.title} — ${member.displayName}`,
+    });
+    if (outcome.status !== 'acquired') {
+      throw new Error(`${member.displayName} could not be given a worktree: ${outcome.reason}`);
+    }
+    return outcome.lease;
+  }
+
+  /**
+   * Proves a checkout the member already has. Failure THROWS rather than
+   * falling back: the alternatives are pinning the member to the shared tree —
+   * the exact reach a worktree exists to prevent — or minting a second branch
+   * and orphaning the work on the first. A Room that cannot prove one member's
+   * checkout does not start, and nothing on disk is touched.
+   */
+  async function proveExistingCheckout(roomId: string, member: RoomMember): Promise<WorktreeLease> {
+    const worktreePath = member.worktreePath;
+    if (!worktreePath) throw new Error(`${member.displayName} has no checkout to prove.`);
+    const holder = worktreeKeyFor(roomId, member.id);
+    const outcome = await host.reattachWorktree(
+      member.worktreeSlotId && member.worktreeLeaseId
+        ? { kind: 'lease', holder, slotId: member.worktreeSlotId, leaseId: member.worktreeLeaseId }
+        : { kind: 'legacy', holder, worktreePath, branchName: member.worktreeBranch },
+    );
+    if (outcome.status !== 'attached') {
+      throw new Error(`${member.displayName}'s worktree could not be verified, so it was left untouched: ${outcome.reason}`);
+    }
+    return outcome.lease;
+  }
+
   /** Places one member, creating its worktree when it needs one it does not have. */
   async function place(record: RoomRecord, member: RoomMember): Promise<MemberPlacement> {
     const roomId = record.definition.id;
@@ -225,21 +258,24 @@ export function createRoomWorkspaces(ctx: RoomWorkspacesContext): RoomWorkspaces
       };
     }
     // Reuse an existing checkout: a restart or a second prepare must not mint a
-    // second branch and orphan the work already on the first.
-    const handle = member.worktreePath
-      ? { worktreePath: member.worktreePath, branchName: member.worktreeBranch }
-      : await host.createWorktree(worktreeKeyFor(roomId, member.id), `${record.definition.title} — ${member.displayName}`);
+    // second branch and orphan the work already on the first. A persisted path
+    // is a memory, so the host proves it before the member is let back in.
+    const lease = member.worktreePath
+      ? await proveExistingCheckout(roomId, member)
+      : await acquire(roomId, record, member);
     await store.updateMember(roomId, member.id, (current) => ({
       ...current,
-      worktreePath: handle.worktreePath,
-      worktreeBranch: handle.branchName,
+      worktreePath: lease.worktreePath,
+      worktreeBranch: lease.branchName,
+      worktreeSlotId: lease.slotId,
+      worktreeLeaseId: lease.leaseId,
       configuration: { ...current.configuration, needsWorktree: true },
     }));
     return {
       memberId: member.id,
       kind,
-      cwd: handle.worktreePath,
-      branch: handle.branchName,
+      cwd: lease.worktreePath,
+      branch: lease.branchName,
       writable: true,
       reason,
     };
@@ -306,10 +342,39 @@ export function createRoomWorkspaces(ctx: RoomWorkspacesContext): RoomWorkspaces
         reason: `Its work could not be committed (${preserved.error}), so the worktree was kept.`,
       };
     }
-    // `deleteMergedBranch`, never `deleteBranch`: Git decides whether the branch
-    // is redundant, so a checkpoint that is not yet merged keeps its branch.
-    await host.removeWorktree(worktreeKeyFor(roomId, member.id), { force: true, deleteMergedBranch: true });
-    await store.updateMember(roomId, member.id, (current) => ({ ...current, worktreePath: null }));
+    // Fenced on the member's exact lease. A checkout with no lease identity
+    // predates the pool: it is kept, not removed, because nothing here can
+    // prove whose it is. `deleteMergedBranch`, never `deleteBranch`: Git
+    // decides whether the branch is redundant, so a checkpoint that is not yet
+    // merged keeps its branch.
+    if (!member.worktreeSlotId || !member.worktreeLeaseId) {
+      return {
+        memberId: member.id,
+        preserved,
+        removed: false,
+        reason: 'Its worktree predates the worktree pool, so it was kept rather than released.',
+      };
+    }
+    const outcome = await host.releaseWorktree({
+      slotId: member.worktreeSlotId,
+      expectedLeaseId: member.worktreeLeaseId,
+      disposition: 'recycle',
+      deleteMergedBranch: true,
+    });
+    if (outcome.status !== 'released') {
+      return {
+        memberId: member.id,
+        preserved,
+        removed: false,
+        reason: `Its worktree was kept (${outcome.status}): ${outcome.reason}`,
+      };
+    }
+    await store.updateMember(roomId, member.id, (current) => ({
+      ...current,
+      worktreePath: null,
+      worktreeSlotId: null,
+      worktreeLeaseId: null,
+    }));
     await store.appendTimeline(roomId, [
       timelineEvent(host, roomId, 'work', member.id, `${member.displayName}'s worktree was released: ${reason}.`, {
         branch: preserved.branch ?? '',

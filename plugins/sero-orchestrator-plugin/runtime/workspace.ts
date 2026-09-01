@@ -11,7 +11,7 @@
  */
 
 import type { DeferredRunResult, DirtyWorkspaceDecision, Loop, LoopRun, ResolvedWorkspaceContext } from '../shared/types';
-import type { OrchestratorHost } from './host';
+import type { OrchestratorHost, ReattachWorktreeRequest, WorktreeLease } from './host';
 import type { WorkspaceResolver } from './engine-types';
 
 /**
@@ -101,27 +101,48 @@ async function eventPrBranch(host: OrchestratorHost, run: LoopRun | undefined): 
   return pr.headRefName;
 }
 
+/**
+ * One acquisition, turned into the run's workspace context. The lease identity
+ * travels with the context because `worktreeKey` names only the logical holder:
+ * a release fenced on the key would reset whatever that key now points at.
+ */
+function contextFromLease(
+  host: OrchestratorHost,
+  lease: WorktreeLease,
+  worktreeKey: string,
+  resolvedBy: ResolvedWorkspaceContext['resolvedBy'],
+): ResolvedWorkspaceContext {
+  return {
+    id: host.newId('ws'),
+    type: 'managed-worktree',
+    workspaceRoot: host.workspacePath,
+    cwd: lease.worktreePath,
+    worktreePath: lease.worktreePath,
+    branchName: lease.branchName,
+    worktreeKey,
+    slotId: lease.slotId,
+    leaseId: lease.leaseId,
+    externalBranch: lease.branchKind === 'external-pr',
+    resolvedBy,
+    createdAt: host.now(),
+  };
+}
+
 /** Managed worktree checked out at the PR's own branch (spec 15, FR-P1). */
 async function resolveEventPrWorktree(host: OrchestratorHost, loop: Loop, run: LoopRun | undefined): Promise<ResolveResult> {
   const branch = await eventPrBranch(host, run);
   if (typeof branch !== 'string') return { loop, blocked: branch.error };
   const worktreeKey = worktreeKeyFor(loop);
-  const handle = await host
-    .createWorktree(worktreeKey, loop.title, { existingBranch: branch })
-    .catch((error: unknown) => ({ error: error instanceof Error ? error.message : String(error) }));
-  if ('error' in handle) return { loop, blocked: `Could not check out branch "${branch}": ${handle.error}` };
-  const resolved: ResolvedWorkspaceContext = {
-    id: host.newId('ws'),
-    type: 'managed-worktree',
-    workspaceRoot: host.workspacePath,
-    cwd: handle.worktreePath,
-    worktreePath: handle.worktreePath,
-    branchName: handle.branchName,
-    worktreeKey,
-    externalBranch: true,
-    resolvedBy: 'create-option',
-    createdAt: host.now(),
-  };
+  const outcome = await host
+    .acquireWorktree({ holder: worktreeKey, title: loop.title, existingBranch: branch })
+    .catch((error: unknown) => ({
+      status: 'blocked' as const,
+      reason: error instanceof Error ? error.message : String(error),
+    }));
+  if (outcome.status !== 'acquired') {
+    return { loop, blocked: `Could not check out branch "${branch}": ${outcome.reason}` };
+  }
+  const resolved = contextFromLease(host, outcome.lease, worktreeKey, 'create-option');
   return { loop: withResolved(loop, resolved), workspace: resolved };
 }
 
@@ -131,18 +152,48 @@ async function resolveManagedWorktree(
   resolvedBy: ResolvedWorkspaceContext['resolvedBy'],
 ): Promise<ResolvedWorkspaceContext> {
   const worktreeKey = worktreeKeyFor(loop);
-  const handle = await host.createWorktree(worktreeKey, loop.title);
-  return {
-    id: host.newId('ws'),
-    type: 'managed-worktree',
-    workspaceRoot: host.workspacePath,
-    cwd: handle.worktreePath,
-    worktreePath: handle.worktreePath,
-    branchName: handle.branchName,
-    worktreeKey,
-    resolvedBy,
-    createdAt: host.now(),
+  const outcome = await host.acquireWorktree({ holder: worktreeKey, title: loop.title });
+  if (outcome.status !== 'acquired') {
+    throw new Error(`Could not lease a worktree for "${loop.title}": ${outcome.reason}`);
+  }
+  return contextFromLease(host, outcome.lease, worktreeKey, resolvedBy);
+}
+
+/**
+ * Proves a persisted checkout still belongs to this run before the run is
+ * allowed back into it. A restart, a moved directory, or a checkout Git no
+ * longer registers all reach the same fail-closed answer: the run is blocked
+ * with the host's reason, and nothing on disk is touched.
+ */
+async function reattachResolved(
+  host: OrchestratorHost,
+  loop: Loop,
+  resolved: ResolvedWorkspaceContext,
+): Promise<ResolveResult> {
+  if (resolved.type !== 'managed-worktree' || !resolved.worktreePath) return { loop, workspace: resolved };
+  const holder = resolved.worktreeKey ?? worktreeKeyFor(loop);
+  const request: ReattachWorktreeRequest = resolved.slotId && resolved.leaseId
+    ? { kind: 'lease', holder, slotId: resolved.slotId, leaseId: resolved.leaseId }
+    : { kind: 'legacy', holder, worktreePath: resolved.worktreePath, branchName: resolved.branchName ?? null };
+  const outcome = await host.reattachWorktree(request).catch((error: unknown) => ({
+    status: 'recovery-required' as const,
+    reason: error instanceof Error ? error.message : String(error),
+  }));
+  if (outcome.status !== 'attached') {
+    return { loop, blocked: `This run's checkout could not be verified, so it was left untouched: ${outcome.reason}` };
+  }
+  // A legacy checkout is adopted under a new migration lease. Persist that
+  // identity now, so the next release is fenced rather than key-addressed.
+  const attached: ResolvedWorkspaceContext = {
+    ...resolved,
+    cwd: outcome.lease.worktreePath,
+    worktreePath: outcome.lease.worktreePath,
+    branchName: outcome.lease.branchName,
+    slotId: outcome.lease.slotId,
+    leaseId: outcome.lease.leaseId,
+    externalBranch: resolved.externalBranch || outcome.lease.branchKind === 'external-pr',
   };
+  return { loop: withResolved(loop, attached), workspace: attached };
 }
 
 function workspaceRootContext(host: OrchestratorHost, resolvedBy: ResolvedWorkspaceContext['resolvedBy']): ResolvedWorkspaceContext {
@@ -177,10 +228,10 @@ function withResolved(loop: Loop, resolved: ResolvedWorkspaceContext, decision?:
 export const workspaceResolver: WorkspaceResolver = { resolve };
 
 export async function resolve(host: OrchestratorHost, loop: Loop, run?: LoopRun): Promise<ResolveResult> {
-  // Reuse an already-resolved workspace for the loop's lifetime.
-  if (loop.runtime.workspace.resolved) {
-    return { loop, workspace: loop.runtime.workspace.resolved };
-  }
+  // Reuse an already-resolved workspace for the loop's lifetime — but a
+  // persisted path is a memory, not a proof, so the host validates it first.
+  const resolved = loop.runtime.workspace.resolved;
+  if (resolved) return reattachResolved(host, loop, resolved);
 
   if (loop.workspace.useManagedWorktree) {
     if (loop.workspace.worktreeBranchSource === 'event-pr') {

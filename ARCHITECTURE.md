@@ -39,6 +39,15 @@ backend. Runtime-specific capability limits must remain visible to callers.
 - `apps/desktop/electron/features/git/` owns repository execution, GitHub CLI
   authentication, worktrees, checkpoints, and repository state. Workspace and
   plugin code consumes that service instead of spawning a parallel Git helper.
+- The host owns every physical worktree. Workflow runs and Room members hold
+  worktree *leases* — immutable identities for one acquisition — and address
+  the host through `acquireWorktree`, `reattachWorktree` and
+  `releaseWorktree`. A logical key is never a release fence, and a caller's
+  disposition is intent: the host classifies the checkout and preserves work
+  it cannot prove disposable. Repository identity is the canonical Git common
+  directory, which is also where the pool state and its two lock domains live,
+  so every workspace registration of one repository shares one authority. See
+  `apps/desktop/electron/features/git/worktree/README.md`.
 - Managed tools install once per machine under the host-artifacts root. Tool
   resolution uses a verified system tool first, a verified managed tool second,
   and an approved first-use install last. Sero does not mutate the user's shell

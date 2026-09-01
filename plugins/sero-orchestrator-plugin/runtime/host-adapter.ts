@@ -94,6 +94,9 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
       }
     },
 
+    acquireWorktree: (request) => ctx.host.git.acquireWorktree(ctx.workspacePath, request),
+    reattachWorktree: (request) => ctx.host.git.reattachWorktree(ctx.workspacePath, request),
+    releaseWorktree: (request) => ctx.host.git.releaseWorktree(ctx.workspacePath, request),
     createWorktree: async (loopId, title, options) => {
       const result = await ctx.host.git.createWorktree(ctx.workspacePath, loopId, title, options);
       return { worktreePath: result.worktreePath, branchName: result.branchName };

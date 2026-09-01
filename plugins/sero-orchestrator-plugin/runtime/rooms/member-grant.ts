@@ -359,6 +359,8 @@ export function toMemberRecord(
     },
     worktreePath: null,
     worktreeBranch: null,
+    worktreeSlotId: null,
+    worktreeLeaseId: null,
     waitingOnQuestionId: null,
     replacedByMemberId: null,
     createdAt: now,

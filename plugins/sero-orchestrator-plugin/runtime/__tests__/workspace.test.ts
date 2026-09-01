@@ -47,6 +47,75 @@ describe('workspace resolution', () => {
     expect(second.workspace?.id).toBe(first.workspace?.id);
   });
 
+  it('records the lease its checkout is held under and proves it before reusing it', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    const first = await resolve(host, loop);
+    expect(first.workspace?.slotId).toBeTruthy();
+    expect(first.workspace?.leaseId).toBeTruthy();
+
+    await resolve(host, first.loop);
+    expect(host.worktreeReattaches).toEqual([{
+      kind: 'lease',
+      holder: first.workspace?.worktreeKey,
+      slotId: first.workspace?.slotId,
+      leaseId: first.workspace?.leaseId,
+    }]);
+  });
+
+  it('blocks the run when a persisted checkout cannot be proved, and mints nothing', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    const first = await resolve(host, loop);
+    // The lease is gone from under the run — a restart into a repository whose
+    // evidence no longer matches.
+    host.leases.clear();
+
+    const second = await resolve(host, first.loop);
+
+    expect(second.workspace).toBeUndefined();
+    expect(second.blocked).toContain('could not be verified');
+    expect(host.worktreesCreated).toHaveLength(1);
+  });
+
+  it('adopts a pre-pool checkout through the host and persists its migration lease', async () => {
+    const host = createFakeHost();
+    const seeded = seedActiveLoop(host, oneStepPlan().plan);
+    const legacyPath = `${host.workspacePath}/.sero/worktrees/card-loop-1-r1`;
+    const loop: Loop = {
+      ...seeded,
+      runtime: {
+        ...seeded.runtime,
+        workspace: {
+          ...seeded.runtime.workspace,
+          resolved: {
+            id: 'ws-legacy',
+            type: 'managed-worktree',
+            workspaceRoot: host.workspacePath,
+            cwd: legacyPath,
+            worktreePath: legacyPath,
+            branchName: 'fix/legacy-loop-1-r1',
+            worktreeKey: 'loop-1-r1',
+            resolvedBy: 'create-option',
+            createdAt: '2026-01-01T00:00:00.000Z',
+          },
+        },
+      },
+    };
+
+    const result = await resolve(host, loop);
+
+    expect(host.worktreeReattaches).toEqual([{
+      kind: 'legacy',
+      holder: 'loop-1-r1',
+      worktreePath: legacyPath,
+      branchName: 'fix/legacy-loop-1-r1',
+    }]);
+    expect(result.workspace?.leaseId).toBeTruthy();
+    expect(result.loop.runtime.workspace.resolved?.slotId).toBe(result.workspace?.slotId);
+    expect(host.worktreesCreated).toHaveLength(0);
+  });
+
   it('workspace-root loops run in the root when clean (no prompt)', async () => {
     const host = createFakeHost();
     const loop = workspaceRootLoop(seedActiveLoop(host, oneStepPlan().plan));
@@ -280,9 +349,10 @@ describe('event-pr branch resolution (spec 15, FR-P1)', () => {
 
   it('blocks with the checkout error when the branch cannot be checked out', async () => {
     const host = createFakeHost();
-    host.createWorktree = async () => {
-      throw new Error('Branch "gone" exists neither locally nor on origin');
-    };
+    host.acquireWorktree = async () => ({
+      status: 'blocked',
+      reason: 'Branch "gone" exists neither locally nor on origin',
+    });
     const loop = eventPrLoop(seedActiveLoop(host, oneStepPlan().plan));
     const result = await resolve(host, loop, eventRun({ branch: 'gone' }));
     expect(result.blocked).toContain('exists neither locally nor on origin');

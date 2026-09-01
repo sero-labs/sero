@@ -32,7 +32,8 @@ function member(status: MemberStatus, liveHandleId: string | null = 'h1'): RoomM
       liveHandleId, lastOpenedAt: 't', lastClosedAt: null, compactionCount: 1, lastCompactedAt: null,
     },
     usage: { costUsd: 1.5, inputTokens: 10, outputTokens: 5, cacheReadTokens: 0, cacheWriteTokens: 0, turns: 4, retries: 0, consecutiveFailures: 0 },
-    worktreePath: null, worktreeBranch: null, waitingOnQuestionId: null, replacedByMemberId: null,
+    worktreePath: null, worktreeBranch: null, worktreeSlotId: null, worktreeLeaseId: null,
+    waitingOnQuestionId: null, replacedByMemberId: null,
     createdAt: 't', retiredAt: null,
   };
 }

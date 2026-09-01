@@ -1,78 +1,34 @@
 /**
- * WorktreeManager — git worktree lifecycle management for isolated work items.
+ * WorktreeManager — LEGACY key-addressed worktree lifecycle.
  *
- * Each active work item gets its own git worktree at `.sero/worktrees/card-<id>/`,
- * giving it an isolated working directory and branch while sharing the
- * repo's `.git` object store. This enables true parallel card execution.
+ * Each work item got its own git worktree at `.sero/worktrees/card-<id>/`,
+ * named by a logical key. A logical key is not a release fence: a delayed
+ * cleanup naming the same key resets whatever that key now points at, which is
+ * why new work allocates through the lease pool (`./pool`) instead.
  *
- * Worktrees are created when a card enters the planning phase and kept
- * around through review so the branch can be revised or merged. They are
- * removed later during explicit cleanup (or cancellation).
+ * This manager stays for the `card-*` checkouts made before the pool existed.
+ * It allocates no pool slot, and its removal path no longer deletes a
+ * directory that Git refused to remove.
  */
 
-import { promises as fs } from 'fs';
 import path from 'path';
 import type { AppRuntimeWorktreeRemoveOptions } from '@sero-ai/common';
 
-import { inferConventionalType, slugifyBranchLabel } from '@electron/features/git/support/branch-naming';
-import { ensureBootstrapGitignore } from '@electron/features/git/support/bootstrap-gitignore';
 import { resolvePreferredBaseRef } from './workspace-sync';
-import { isMissingPathError, warnCleanupFailure } from '@electron/features/git/support/cleanup-warnings';
 import { execWorktreeGit } from './exec';
-
-/**
- * Ensure a workspace directory is a git repo with at least one commit.
- * Required before `git worktree add` can function.
- *
- * - No `.git` → runs `git init`
- * - No commits → creates an initial empty commit
- *
- * @returns true if the repo was bootstrapped (greenfield), false if already existed.
- */
-async function ensureGitReady(workspacePath: string): Promise<boolean> {
-  let bootstrapped = false;
-
-  // Check if it's a git repo
-  try {
-    await execWorktreeGit(['rev-parse', '--git-dir'], {
-      cwd: workspacePath,
-      timeout: 5_000,
-    });
-  } catch {
-    console.log(`[worktree] Initialising git repo in ${workspacePath}`);
-    await execWorktreeGit(['init'], { cwd: workspacePath, timeout: 10_000 });
-    bootstrapped = true;
-  }
-
-  // Ensure comprehensive .gitignore exists BEFORE the initial commit
-  // so node_modules, dist, .DS_Store, etc. are never tracked.
-  try {
-    await ensureBootstrapGitignore(workspacePath);
-  } catch {
-    // Best-effort.
-  }
-
-  // Check if there are any commits
-  try {
-    await execWorktreeGit(['rev-parse', 'HEAD'], {
-      cwd: workspacePath,
-      timeout: 5_000,
-    });
-  } catch {
-    console.log('[worktree] Creating initial commit (greenfield project)');
-    // Ensure default branch is 'main' (not 'master')
-    try {
-      await execWorktreeGit(['branch', '-M', 'main'], { cwd: workspacePath, timeout: 5_000 });
-    } catch { /* branch may not exist yet — that's fine, init -b main handles it */ }
-    await execWorktreeGit(['add', '--', '.gitignore'], { cwd: workspacePath, timeout: 10_000 });
-    await execWorktreeGit([
-      'commit', '--allow-empty', '-m', 'Initial commit',
-    ], { cwd: workspacePath, timeout: 10_000 });
-    bootstrapped = true;
-  }
-
-  return bootstrapped;
-}
+import {
+  addWorktreeOnExistingBranch,
+  addWorktreeOnNewBranch,
+  buildTaskBranchName,
+  ensureGitReady,
+} from './provision';
+import {
+  deleteWorktreeBranch,
+  pruneWorktreeRegistrations,
+  removeRegisteredWorktree,
+} from './removal';
+import { listWorktreeRegistrations, registrationBranch } from './pool/registration';
+import { LEGACY_DIR_PREFIX, worktreesRoot } from './pool/reconcile';
 
 export interface WorktreeInfo {
   cardId: string;
@@ -80,24 +36,25 @@ export interface WorktreeInfo {
   worktreePath: string;
 }
 
-export class WorktreeManager {
-  /** Directory within the workspace where worktrees are stored. */
-  private static readonly WORKTREES_DIR = path.join('.sero', 'worktrees');
+/** Why `exists()` answered as it did. Directory presence alone proves nothing. */
+export type WorktreeValidation =
+  | { status: 'registered'; worktreePath: string; branchName: string | null }
+  | { status: 'not-registered'; reason: string }
+  | { status: 'unavailable'; reason: string };
 
+export class WorktreeManager {
   /**
    * Generate the worktree directory path for a card.
    */
   getPath(workspacePath: string, cardId: string): string {
-    return path.join(workspacePath, WorktreeManager.WORKTREES_DIR, `card-${cardId}`);
+    return path.join(worktreesRoot(workspacePath), `${LEGACY_DIR_PREFIX}${cardId}`);
   }
 
   /**
    * Generate a branch name for a card based on its title.
    */
   buildBranchName(cardTitle: string, cardId: string): string {
-    const type = inferConventionalType(cardTitle);
-    const slug = slugifyBranchLabel(cardTitle);
-    return `${type}/${slug}-${cardId}`;
+    return buildTaskBranchName(cardTitle, cardId);
   }
 
   /**
@@ -117,113 +74,31 @@ export class WorktreeManager {
     cardTitle: string,
     options?: { existingBranch?: string },
   ): Promise<{ worktreePath: string; branchName: string; greenfield: boolean }> {
+    const worktreePath = this.getPath(workspacePath, cardId);
+
     if (options?.existingBranch) {
-      return this.createAtExistingBranch(workspacePath, cardId, options.existingBranch);
+      await addWorktreeOnExistingBranch(workspacePath, worktreePath, options.existingBranch);
+      console.log(`[worktree] Created worktree for card-${cardId} at ${worktreePath} (existing branch: ${options.existingBranch})`);
+      return { worktreePath, branchName: options.existingBranch, greenfield: false };
     }
+
     // Ensure the workspace is a valid git repo with at least one commit
     const greenfield = await ensureGitReady(workspacePath);
-
-    const worktreePath = this.getPath(workspacePath, cardId);
     const branchName = this.buildBranchName(cardTitle, cardId);
     const baseRef = await resolvePreferredBaseRef(workspacePath);
-
-    // Ensure parent directory exists
-    await fs.mkdir(path.dirname(worktreePath), { recursive: true });
-
-    // Create worktree with a new branch from the current HEAD
-    const addArgs = [
-      'worktree', 'add',
-      worktreePath,
-      '-b', branchName,
-      ...(baseRef ? [baseRef] : []),
-    ];
-    try {
-      await execWorktreeGit(addArgs, {
-        cwd: workspacePath,
-        timeout: 30_000,
-      });
-    } catch (err: unknown) {
-      const stderr = err && typeof err === 'object' && 'stderr' in err
-        ? String((err as { stderr: unknown }).stderr) : '';
-      const message = err instanceof Error ? err.message : String(err);
-      // If branch already exists, try without -b
-      if (stderr.includes('already exists')) {
-        await execWorktreeGit([
-          'worktree', 'add',
-          worktreePath,
-          branchName,
-        ], {
-          cwd: workspacePath,
-          timeout: 30_000,
-        });
-      } else {
-        throw new Error(
-          `Failed to create worktree for card ${cardId}: ${stderr || message || 'Unknown error'}`,
-        );
-      }
-    }
+    await addWorktreeOnNewBranch(workspacePath, worktreePath, branchName, baseRef);
 
     console.log(`[worktree] Created worktree for card-${cardId} at ${worktreePath} (branch: ${branchName})${greenfield ? ' [greenfield]' : ''}`);
     return { worktreePath, branchName, greenfield };
   }
 
   /**
-   * Check an EXISTING branch out into a worktree (PR-lifecycle work: commits
-   * must land on the PR's own branch). The branch is fetched from origin
-   * first so a PR pushed from elsewhere is present and current; a local-only
-   * branch (no remote) is used as-is.
-   */
-  private async createAtExistingBranch(
-    workspacePath: string,
-    cardId: string,
-    branchName: string,
-  ): Promise<{ worktreePath: string; branchName: string; greenfield: boolean }> {
-    // Branch names come from event payloads — refuse anything git itself
-    // would refuse rather than passing surprising tokens to the CLI.
-    if (branchName.startsWith('-') || !/^[^\s~^:?*[\\]+$/.test(branchName) || branchName.includes('..')) {
-      throw new Error(`Invalid branch name "${branchName}"`);
-    }
-    const worktreePath = this.getPath(workspacePath, cardId);
-    await fs.mkdir(path.dirname(worktreePath), { recursive: true });
-
-    // Best-effort: a local-only branch or an offline repo still resolves below.
-    try {
-      await execWorktreeGit(['fetch', 'origin', branchName], { cwd: workspacePath, timeout: 60_000 });
-    } catch {
-      console.log(`[worktree] fetch origin ${branchName} failed — trying local refs`);
-    }
-
-    const hasRef = async (ref: string): Promise<boolean> => {
-      try {
-        await execWorktreeGit(['rev-parse', '--verify', '--quiet', ref], { cwd: workspacePath, timeout: 5_000 });
-        return true;
-      } catch {
-        return false;
-      }
-    };
-
-    const addArgs = (await hasRef(`refs/heads/${branchName}`))
-      ? ['worktree', 'add', worktreePath, branchName]
-      : (await hasRef(`refs/remotes/origin/${branchName}`))
-        ? ['worktree', 'add', '--track', '-b', branchName, worktreePath, `origin/${branchName}`]
-        : null;
-    if (!addArgs) {
-      throw new Error(`Branch "${branchName}" exists neither locally nor on origin`);
-    }
-    try {
-      await execWorktreeGit(addArgs, { cwd: workspacePath, timeout: 30_000 });
-    } catch (err: unknown) {
-      const stderr = err && typeof err === 'object' && 'stderr' in err ? String((err as { stderr: unknown }).stderr) : '';
-      const message = err instanceof Error ? err.message : String(err);
-      throw new Error(`Failed to check out branch "${branchName}" for card ${cardId}: ${stderr || message}`);
-    }
-
-    console.log(`[worktree] Created worktree for card-${cardId} at ${worktreePath} (existing branch: ${branchName})`);
-    return { worktreePath, branchName, greenfield: false };
-  }
-
-  /**
    * Remove a worktree and optionally delete its branch.
+   *
+   * When Git refuses the removal, the directory, its contents and its branch
+   * are left exactly as they are. A failed removal is Git reporting that it
+   * cannot prove the checkout disposable, so deleting it anyway would destroy
+   * the work the refusal was protecting.
    */
   async remove(
     workspacePath: string,
@@ -232,129 +107,78 @@ export class WorktreeManager {
   ): Promise<void> {
     const worktreePath = this.getPath(workspacePath, cardId);
 
-    // Get branch name before removal
+    // Read the branch before removal — afterwards the checkout is gone.
     let branchName: string | null = null;
     if (opts?.deleteBranch || opts?.deleteMergedBranch) {
       try {
-        const { stdout } = await execWorktreeGit([
-          'rev-parse', '--abbrev-ref', 'HEAD',
-        ], { cwd: worktreePath, timeout: 5_000 });
+        const { stdout } = await execWorktreeGit(['rev-parse', '--abbrev-ref', 'HEAD'], {
+          cwd: worktreePath,
+          timeout: 5_000,
+        });
         branchName = stdout.trim();
       } catch {
-        // Worktree may already be gone
+        // Worktree may already be gone.
       }
     }
 
-    // Remove worktree
-    const args = ['worktree', 'remove', worktreePath];
-    if (opts?.force) args.push('--force');
+    const outcome = await removeRegisteredWorktree(workspacePath, worktreePath, { force: opts?.force });
+    if (outcome.status === 'preserved') {
+      console.warn(`[worktree] Kept card-${cardId}: ${outcome.detail}`);
+      return;
+    }
+    await pruneWorktreeRegistrations(workspacePath);
 
-    try {
-      await execWorktreeGit(args, {
-        cwd: workspacePath,
-        timeout: 15_000,
+    if (branchName) {
+      await deleteWorktreeBranch(workspacePath, branchName, {
+        deleteBranch: opts?.deleteBranch,
+        deleteMergedBranch: opts?.deleteMergedBranch,
       });
-      try {
-        await execWorktreeGit(['worktree', 'prune'], {
-          cwd: workspacePath,
-          timeout: 10_000,
-        });
-      } catch (error) {
-        warnCleanupFailure(`failed to prune worktrees in ${workspacePath}`, error);
-      }
-    } catch (err: unknown) {
-      const stderr = err && typeof err === 'object' && 'stderr' in err
-        ? String((err as { stderr: unknown }).stderr) : '';
-      const message = err instanceof Error ? err.message : String(err);
-      // If the directory is already gone, prune instead
-      if (stderr.includes('is not a working tree')) {
-        try {
-          await execWorktreeGit(['worktree', 'prune'], {
-            cwd: workspacePath,
-            timeout: 10_000,
-          });
-        } catch (pruneError) {
-          warnCleanupFailure(`failed to prune missing worktree for card-${cardId} in ${workspacePath}`, pruneError);
-        }
-      } else {
-        console.warn(`[worktree] Failed to remove card-${cardId}:`, stderr || message);
-      }
     }
-
-    // Clean up the directory if it still exists
-    try {
-      await fs.rm(worktreePath, { recursive: true, force: true });
-    } catch (error) {
-      if (!isMissingPathError(error)) {
-        warnCleanupFailure(`failed to remove worktree directory ${worktreePath}`, error);
-      }
-    }
-
-    // Delete branch if requested
-    if (branchName && (opts?.deleteBranch || opts?.deleteMergedBranch)) {
-      try {
-        await execWorktreeGit(['branch', opts.deleteBranch ? '-D' : '-d', branchName], {
-          cwd: workspacePath,
-          timeout: 10_000,
-        });
-      } catch (error) {
-        const detail = error instanceof Error ? error.message : String(error);
-        if (!opts.deleteMergedBranch || !detail.includes('not fully merged')) {
-          warnCleanupFailure(`failed to delete branch ${branchName} for card-${cardId}`, error);
-        }
-      }
-    }
-
     console.log(`[worktree] Removed worktree for card-${cardId}`);
   }
 
   /**
-   * List all active kanban worktrees in a workspace.
+   * List all active legacy worktrees in a workspace.
    */
   async list(workspacePath: string): Promise<WorktreeInfo[]> {
-    try {
-      const { stdout } = await execWorktreeGit([
-        'worktree', 'list', '--porcelain',
-      ], { cwd: workspacePath, timeout: 10_000 });
-
-      const results: WorktreeInfo[] = [];
-      const entries = stdout.split('\n\n').filter(Boolean);
-
-      for (const entry of entries) {
-        const lines = entry.split('\n');
-        const wtPath = lines.find((l) => l.startsWith('worktree '))?.replace('worktree ', '');
-        const branch = lines.find((l) => l.startsWith('branch '))?.replace('branch refs/heads/', '');
-
-        if (!wtPath || !branch) continue;
-
-        // Only include our kanban worktrees
-        const dirName = path.basename(wtPath);
-        if (!dirName.startsWith('card-')) continue;
-
-        const cardId = dirName.replace('card-', '');
-        results.push({
-          cardId,
-          branchName: branch,
-          worktreePath: wtPath,
-        });
-      }
-
-      return results;
-    } catch {
-      return [];
-    }
+    const listing = await listWorktreeRegistrations(workspacePath);
+    if (listing.status !== 'ok') return [];
+    return listing.records.flatMap((record) => {
+      const branchName = registrationBranch(record);
+      const dirName = path.basename(record.path);
+      if (!branchName || !dirName.startsWith(LEGACY_DIR_PREFIX)) return [];
+      return [{
+        cardId: dirName.slice(LEGACY_DIR_PREFIX.length),
+        branchName,
+        worktreePath: record.path,
+      }];
+    });
   }
 
   /**
-   * Check if a worktree exists for a card.
+   * Whether Git still registers a worktree for a card. The directory alone is
+   * not the question: a directory Git does not know about cannot be worked in,
+   * and a registration whose directory is gone is not a usable checkout either.
+   */
+  async validate(workspacePath: string, cardId: string): Promise<WorktreeValidation> {
+    const worktreePath = this.getPath(workspacePath, cardId);
+    const listing = await listWorktreeRegistrations(workspacePath);
+    if (listing.status !== 'ok') {
+      return { status: 'unavailable', reason: listing.reason };
+    }
+    const record = listing.records.find((candidate) => path.resolve(candidate.path) === path.resolve(worktreePath));
+    if (!record) return { status: 'not-registered', reason: `Git has no worktree registered at ${worktreePath}.` };
+    if (record.prunable) {
+      return { status: 'not-registered', reason: `Git reports ${worktreePath} prunable: ${record.prunableReason ?? 'no reason given'}.` };
+    }
+    return { status: 'registered', worktreePath: record.path, branchName: registrationBranch(record) };
+  }
+
+  /**
+   * Check if a worktree exists for a card, by Git registration rather than by
+   * directory presence.
    */
   async exists(workspacePath: string, cardId: string): Promise<boolean> {
-    const worktreePath = this.getPath(workspacePath, cardId);
-    try {
-      await fs.access(worktreePath);
-      return true;
-    } catch {
-      return false;
-    }
+    return (await this.validate(workspacePath, cardId)).status === 'registered';
   }
 }

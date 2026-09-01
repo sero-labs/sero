@@ -61,7 +61,8 @@ function member(id: string): RoomMember {
     configuration: { model: 'm', thinking: 'off', promptAdditions: [], tools: [], skills: [], permissions: 'read-only', needsWorktree: false, revision: 1 },
     session: { subject: id, grantedTools: null, sessionId: null, sessionPath: null, workspaceId: 'w', liveHandleId: null, lastOpenedAt: null, lastClosedAt: null, compactionCount: 0, lastCompactedAt: null },
     usage: { costUsd: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, turns: 0, retries: 0, consecutiveFailures: 0 },
-    worktreePath: null, worktreeBranch: null, waitingOnQuestionId: null, replacedByMemberId: null,
+    worktreePath: null, worktreeBranch: null, worktreeSlotId: null, worktreeLeaseId: null,
+    waitingOnQuestionId: null, replacedByMemberId: null,
     createdAt: 't', retiredAt: null,
   };
 }
@@ -158,7 +159,20 @@ describe('room store', () => {
     for (const m of v2Room.members) delete (m as Partial<RoomMember>).statusAt;
     const migrated = migrateRoomRecord(v2Room, 2);
     expect(migrated.members.map((m) => m.statusAt)).toEqual(v2Room.members.map((m) => m.createdAt));
-    expect(ROOM_SCHEMA_VERSION).toBe(3);
+    expect(ROOM_SCHEMA_VERSION).toBe(4);
+  });
+
+  it('migrates a v3 record: a member gets no lease identity it cannot prove', () => {
+    const v3Room = roomFixture('room-a');
+    for (const m of v3Room.members) {
+      delete (m as Partial<RoomMember>).worktreeSlotId;
+      delete (m as Partial<RoomMember>).worktreeLeaseId;
+    }
+    const migrated = migrateRoomRecord(v3Room, 3);
+    // Null, never invented: a fabricated lease would authorise a release
+    // against a checkout nobody proved.
+    expect(migrated.members.map((m) => m.worktreeSlotId)).toEqual([null, null]);
+    expect(migrated.members.map((m) => m.worktreeLeaseId)).toEqual([null, null]);
   });
 
   it('stamps statusAt when a member changes status, and only then', async () => {

@@ -24,6 +24,11 @@ import {
 } from '@electron/features/workspace/runtime/verification';
 import { WorktreeManager } from '@electron/features/git/worktree/manager';
 import {
+  acquireWorktree,
+  reattachWorktree,
+  releaseWorktree,
+} from '@electron/features/git/worktree/pool';
+import {
   createCheckpointInWorktree,
   getWorktreeDiff,
   getWorktreeDiffSummary,
@@ -172,6 +177,9 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
       summarizeFailure: summarizeVerificationFailure,
     },
     git: {
+      acquireWorktree,
+      reattachWorktree,
+      releaseWorktree,
       createWorktree: (workspacePath, cardId, cardTitle, options) =>
         worktreeManager.create(workspacePath, cardId, cardTitle, options),
       removeWorktree: (workspacePath, cardId, options) =>
