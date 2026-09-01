@@ -3,7 +3,7 @@ import { Coordinator } from '../coordinator';
 import { LoopLocks } from '../locks';
 import { createEngineDeps } from '../executors';
 import type { EngineDeps, StepExecutor } from '../engine-types';
-import type { Loop, LoopTrigger, StepOutcome } from '../../shared/types';
+import type { Loop, LoopTrigger, ResolvedWorkspaceContext, StepOutcome } from '../../shared/types';
 import { createFakeHost, type FakeHost } from './fake-host';
 import { oneStepPlan, seedActiveLoop, sequentialPlan } from './fixtures';
 import { fakeExecutor, gatedExecutor } from './engine-fakes';
@@ -26,6 +26,21 @@ function addTrigger(host: FakeHost, trigger: LoopTrigger): Loop {
   return loop;
 }
 
+function priorWorktree(key: string): ResolvedWorkspaceContext {
+  const worktreePath = `/workspaces/ws-1/.sero/worktrees/card-${key}`;
+  return {
+    id: `ws-${key}`,
+    type: 'managed-worktree',
+    workspaceRoot: '/workspaces/ws-1',
+    cwd: worktreePath,
+    worktreePath,
+    branchName: `chore/${key}`,
+    worktreeKey: key,
+    resolvedBy: 'create-option',
+    createdAt: NOW,
+  };
+}
+
 describe('Coordinator scheduling (Phase 7)', () => {
   it('runs a cron loop that came due while the workspace was closed', async () => {
     const host = createFakeHost();
@@ -37,6 +52,37 @@ describe('Coordinator scheduling (Phase 7)', () => {
     expect(host.state.loops[0].runtime.stepStates['step-1'].status).toBe('succeeded');
     expect(host.state.loops[0].triggers[0].fireCount).toBe(1); // collapsed to one fire
     expect(host.state.loops[0].runs[0].triggerId).toBe('c');
+  });
+
+  it('runs every due loop when one previous checkout cannot be removed', async () => {
+    const host = createFakeHost();
+    host.frozenNow = NOW;
+    const first = seedActiveLoop(host, oneStepPlan().plan, 'loop-1');
+    const second = seedActiveLoop(host, oneStepPlan().plan, 'loop-2');
+    first.runtime.workspace.resolved = priorWorktree('old-loop-1');
+    second.runtime.workspace.resolved = priorWorktree('old-loop-2');
+    first.triggers = [{
+      id: 'c1', loopId: first.id, workspaceId: 'ws-1', type: 'cron',
+      schedule: '* * * * *', nextFireAt: '2026-06-22T09:59:00.000Z', fireCount: 0,
+    }];
+    second.triggers = [{
+      id: 'c2', loopId: second.id, workspaceId: 'ws-1', type: 'cron',
+      schedule: '* * * * *', nextFireAt: '2026-06-22T09:59:00.000Z', fireCount: 0,
+    }];
+    host.state = { ...host.state, loops: [first, second] };
+    const removeWorktree = host.removeWorktree.bind(host);
+    host.removeWorktree = async (key, options) => {
+      if (key === 'old-loop-1') throw new Error('dirty checkout');
+      await removeWorktree(key, options);
+    };
+
+    await coordinator(host, { executor: fakeExecutor({ 'step-1': SUCCESS }) }).tick();
+
+    expect(host.state.loops.map((loop) => loop.runs)).toEqual([
+      [expect.objectContaining({ triggerId: 'c1' })],
+      [expect.objectContaining({ triggerId: 'c2' })],
+    ]);
+    expect(host.logs.some((entry) => entry.includes('dirty checkout'))).toBe(true);
   });
 
   it('holds a snoozed scheduled run and retries it once the snooze expires', async () => {

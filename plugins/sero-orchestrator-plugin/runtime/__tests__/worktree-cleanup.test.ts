@@ -19,6 +19,9 @@ describe('cleanupPreviousWorktree', () => {
   it('removes merged loop-owned branches safely', async () => {
     const host = createFakeHost();
     await cleanupPreviousWorktree(host, 'loop-1', managed);
+    expect(host.checkpoints).toEqual([
+      { worktreePath: managed.worktreePath, message: 'Loop checkpoint before cleanup: loop-1' },
+    ]);
     expect(host.worktreeRemovals).toEqual([
       { loopId: 'loop-1-r4', force: undefined, deleteMergedBranch: true, deleteBranch: undefined },
     ]);
@@ -28,5 +31,22 @@ describe('cleanupPreviousWorktree', () => {
     const host = createFakeHost();
     await cleanupPreviousWorktree(host, 'loop-1', { ...managed, externalBranch: true });
     expect(host.worktreeRemovals[0].deleteMergedBranch).toBeUndefined();
+  });
+
+  it('keeps cleanup failures inside the loop boundary', async () => {
+    const host = createFakeHost();
+    host.createCheckpoint = async () => {
+      throw new Error('checkpoint failed');
+    };
+    host.removeWorktree = async () => {
+      throw new Error('dirty checkout');
+    };
+
+    await expect(cleanupPreviousWorktree(host, 'loop-1', managed)).resolves.toBeUndefined();
+
+    expect(host.logs).toEqual(expect.arrayContaining([
+      expect.stringContaining('checkpoint failed'),
+      expect.stringContaining(`checkout was kept at ${managed.worktreePath}`),
+    ]));
   });
 });

@@ -140,6 +140,31 @@ describe('fireEvent broadcast', () => {
     expect(task).toContain('"pr": 42');
   });
 
+  it('runs the event iteration when cleanup keeps the previous checkout', async () => {
+    const host = createFakeHost();
+    host.frozenNow = NOW;
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    const previousPath = `${host.workspacePath}/.sero/worktrees/card-loop-1-r0`;
+    loop.runtime.workspace.resolved = {
+      id: 'ws-old', type: 'managed-worktree', workspaceRoot: host.workspacePath,
+      cwd: previousPath, worktreePath: previousPath, branchName: 'chore/old',
+      worktreeKey: 'loop-1-r0', resolvedBy: 'create-option', createdAt: NOW,
+    };
+    host.state = { ...host.state, loops: [loop] };
+    setTriggers(host, 'loop-1', [eventTrigger()]);
+    host.removeWorktree = async () => {
+      throw new Error('dirty checkout');
+    };
+
+    await coordinator(host, { executor: fakeExecutor({ 'step-1': SUCCESS }) }).fireEvent(ciEvent());
+
+    const updated = host.state.loops[0];
+    expect(updated.runs).toHaveLength(1);
+    expect(updated.runtime.pendingEvents).toBeUndefined();
+    expect(host.checkpoints[0]?.worktreePath).toBe(previousPath);
+    expect(host.logs.some((entry) => entry.includes(`checkout was kept at ${previousPath}`))).toBe(true);
+  });
+
   it('an event carrying a dedupeKey is delivered at most once', async () => {
     const host = createFakeHost();
     host.frozenNow = NOW;

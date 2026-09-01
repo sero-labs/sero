@@ -412,6 +412,27 @@ describe('preserving uncommitted work', () => {
     expect(host.worktreeRemovals[0].force).toBeUndefined();
     expect((await memberOf(roomId, 'api')).worktreePath).toBeNull();
   });
+
+  it('keeps one failed checkout and releases the remaining members', async () => {
+    const roomId = await draftRoom();
+    const placements = await workspaces.prepare(roomId);
+    const apiTree = placements.find((placement) => placement.memberId === 'api')?.cwd ?? '';
+    const removeWorktree = host.removeWorktree.bind(host);
+    host.removeWorktree = async (key, options) => {
+      if (key.endsWith('-api')) throw new Error('worktree is busy');
+      await removeWorktree(key, options);
+    };
+
+    const results = await workspaces.releaseRoom(roomId, 'completed');
+
+    expect(results).toEqual([
+      expect.objectContaining({ memberId: 'api', removed: false }),
+      expect.objectContaining({ memberId: 'ui', removed: true }),
+    ]);
+    expect((await memberOf(roomId, 'api')).worktreePath).toBe(apiTree);
+    expect((await memberOf(roomId, 'ui')).worktreePath).toBeNull();
+    expect((await store.readTimeline(roomId, 20)).some((event) => event.summary.includes('worktree was kept'))).toBe(true);
+  });
 });
 
 describe('collecting commits', () => {

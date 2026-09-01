@@ -4,9 +4,6 @@
  * UI, tools, and slash commands send `OrchestratorAction` envelopes through
  * `requestAction`. The coordinator owns lifecycle transitions and (from
  * Phase 3) coordinator runs. Nothing else mutates loop runtime state.
- *
- * This Phase 1 implementation wires every action and persists state. Planning
- * (Phase 2) and the run engine, locks, and recovery (Phase 3+) extend it.
  */
 
 import type {
@@ -305,7 +302,9 @@ export class Coordinator {
       await this.host.removeWorktree(resolved.worktreeKey ?? loopId, {
         force: true,
         deleteBranch: resolved.externalBranch ? undefined : deleteBranch,
-      });
+      }).catch((error: unknown) => this.host.log(
+        `Could not remove the checkout for deleted loop ${loopId}: ${String(error)}`,
+      ));
     }
     await this.host.updateState((state) => ({
       ...state,
@@ -368,11 +367,6 @@ export class Coordinator {
 
   // ── Run / revise / recovery (extended in later phases) ────
 
-  /**
-   * Requests one coordinator run for a loop. Phase 1 only validates that the
-   * loop is active; the run engine, locks, and step execution arrive in later
-   * phases. `known` lets callers pass a freshly-transitioned loop.
-   */
   /**
    * Manual "Run next". A whole pass runs in one `runNext`, so if the previous
    * pass already finished (no run in flight, nothing ready or running) on a

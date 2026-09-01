@@ -308,7 +308,27 @@ export function createRoomWorkspaces(ctx: RoomWorkspacesContext): RoomWorkspaces
     }
     // `deleteMergedBranch`, never `deleteBranch`: Git decides whether the branch
     // is redundant, so a checkpoint that is not yet merged keeps its branch.
-    await host.removeWorktree(worktreeKeyFor(roomId, member.id), { deleteMergedBranch: true });
+    const removalError = await host
+      .removeWorktree(worktreeKeyFor(roomId, member.id), { deleteMergedBranch: true })
+      .then(() => null, (error: unknown) => (error instanceof Error ? error.message : String(error)));
+    if (removalError) {
+      const failureReason = `The worktree could not be removed (${removalError}), so it was kept.`;
+      await store.appendTimeline(roomId, [
+        timelineEvent(host, roomId, 'work', member.id, `${member.displayName}'s worktree was kept: ${removalError}.`, {
+          branch: preserved.branch ?? '',
+          commit: preserved.commit ?? '',
+          error: removalError,
+        }),
+      ]);
+      return {
+        memberId: member.id,
+        preserved,
+        removed: false,
+        reason: preserved.commit
+          ? `Its work was committed to ${preserved.branch ?? 'its branch'}. ${failureReason}`
+          : failureReason,
+      };
+    }
     await store.updateMember(roomId, member.id, (current) => ({ ...current, worktreePath: null }));
     await store.appendTimeline(roomId, [
       timelineEvent(host, roomId, 'work', member.id, `${member.displayName}'s worktree was released: ${reason}.`, {

@@ -150,15 +150,34 @@ describe('WorktreeManager merged-branch cleanup', () => {
     expect(await manager.exists(workspace, 'loop-1-r3')).toBe(true);
   });
 
-  it('does not treat an unregistered directory as a worktree', async () => {
+  it('keeps a non-empty unregistered directory and reports that it remains', async () => {
     const { workspace } = await newWorkspace();
     const worktree = await manager.create(workspace, 'loop-1-r4', 'Routine scan');
     await git(workspace, 'worktree', 'remove', worktree.worktreePath);
     await mkdir(worktree.worktreePath, { recursive: true });
-    await writeFile(path.join(worktree.worktreePath, 'keep.md'), 'unregistered');
+    const residue = path.join(worktree.worktreePath, 'keep.md');
+    await writeFile(residue, 'unregistered');
 
-    expect(await stat(worktree.worktreePath)).toBeTruthy();
-    expect(await manager.exists(workspace, 'loop-1-r4')).toBe(false);
+    await expect(manager.remove(workspace, 'loop-1-r4')).rejects.toThrow('unregistered directory contains files');
+    expect(await readFile(residue, 'utf8')).toBe('unregistered');
+  });
+
+  it('removes an empty unregistered directory', async () => {
+    const { workspace } = await newWorkspace();
+    const worktree = await manager.create(workspace, 'loop-1-r5', 'Routine scan');
+    await git(workspace, 'worktree', 'remove', worktree.worktreePath);
+    await mkdir(worktree.worktreePath, { recursive: true });
+
+    await manager.remove(workspace, 'loop-1-r5');
+
+    await expect(stat(worktree.worktreePath)).rejects.toThrow();
+  });
+
+  it('accepts cleanup after the workspace directory is already gone', async () => {
+    const { workspace } = await newWorkspace();
+    await rm(workspace, { recursive: true });
+
+    await expect(manager.remove(workspace, 'loop-1-r6')).resolves.toBeUndefined();
   });
 });
 
