@@ -19,6 +19,10 @@ export interface AppRuntimeWorktreeRemoveOptions {
   deleteBranch?: boolean;
   /** Delete the local branch only when Git confirms it is fully merged. */
   deleteMergedBranch?: boolean;
+  /**
+   * Let Git discard uncommitted checkout contents.
+   * Use only after explicit user authorization.
+   */
   force?: boolean;
 }
 

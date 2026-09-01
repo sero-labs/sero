@@ -308,7 +308,7 @@ export function createRoomWorkspaces(ctx: RoomWorkspacesContext): RoomWorkspaces
     }
     // `deleteMergedBranch`, never `deleteBranch`: Git decides whether the branch
     // is redundant, so a checkpoint that is not yet merged keeps its branch.
-    await host.removeWorktree(worktreeKeyFor(roomId, member.id), { force: true, deleteMergedBranch: true });
+    await host.removeWorktree(worktreeKeyFor(roomId, member.id), { deleteMergedBranch: true });
     await store.updateMember(roomId, member.id, (current) => ({ ...current, worktreePath: null }));
     await store.appendTimeline(roomId, [
       timelineEvent(host, roomId, 'work', member.id, `${member.displayName}'s worktree was released: ${reason}.`, {

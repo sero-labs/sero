@@ -20,7 +20,7 @@ describe('cleanupPreviousWorktree', () => {
     const host = createFakeHost();
     await cleanupPreviousWorktree(host, 'loop-1', managed);
     expect(host.worktreeRemovals).toEqual([
-      { loopId: 'loop-1-r4', force: true, deleteMergedBranch: true, deleteBranch: undefined },
+      { loopId: 'loop-1-r4', force: undefined, deleteMergedBranch: true, deleteBranch: undefined },
     ]);
   });
 

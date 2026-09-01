@@ -7,10 +7,10 @@
  */
 
 import { execFile } from 'node:child_process';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 
 import { WorktreeManager } from '@electron/features/git/worktree/manager';
 import { createRepoFromTemplate } from '../git-service/git-test-helpers';
@@ -56,6 +56,8 @@ async function newWorkspace(): Promise<{ root: string; workspace: string }> {
 afterAll(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
+
+afterEach(() => vi.unstubAllEnvs());
 
 describe('WorktreeManager.create with existingBranch', () => {
   const manager = new WorktreeManager();
@@ -131,5 +133,50 @@ describe('WorktreeManager merged-branch cleanup', () => {
     await manager.remove(workspace, 'loop-1-r2', { force: true, deleteMergedBranch: true });
 
     expect(await git(workspace, 'rev-parse', '--verify', `refs/heads/${worktree.branchName}`)).toBeTruthy();
+  });
+
+  it('preserves uncommitted work and its branch when routine removal is refused', async () => {
+    const { workspace } = await newWorkspace();
+    const worktree = await manager.create(workspace, 'loop-1-r3', 'Protect local work');
+    const workFile = path.join(worktree.worktreePath, 'unfinished.md');
+    await writeFile(workFile, 'not committed');
+
+    await expect(manager.remove(workspace, 'loop-1-r3', { deleteBranch: true })).rejects.toThrow(
+      'checkout and branch were kept',
+    );
+
+    expect(await readFile(workFile, 'utf8')).toBe('not committed');
+    expect(await git(workspace, 'rev-parse', '--verify', `refs/heads/${worktree.branchName}`)).toBeTruthy();
+    expect(await manager.exists(workspace, 'loop-1-r3')).toBe(true);
+  });
+
+  it('does not treat an unregistered directory as a worktree', async () => {
+    const { workspace } = await newWorkspace();
+    const worktree = await manager.create(workspace, 'loop-1-r4', 'Routine scan');
+    await git(workspace, 'worktree', 'remove', worktree.worktreePath);
+    await mkdir(worktree.worktreePath, { recursive: true });
+    await writeFile(path.join(worktree.worktreePath, 'keep.md'), 'unregistered');
+
+    expect(await stat(worktree.worktreePath)).toBeTruthy();
+    expect(await manager.exists(workspace, 'loop-1-r4')).toBe(false);
+  });
+});
+
+describe('WorktreeManager greenfield bootstrap', () => {
+  const manager = new WorktreeManager();
+
+  it('creates its initial commit without a configured Git identity', async () => {
+    const { root } = await newWorkspace();
+    const workspace = path.join(root, 'greenfield');
+    await mkdir(workspace);
+    vi.stubEnv('GIT_CONFIG_COUNT', '2');
+    vi.stubEnv('GIT_CONFIG_KEY_0', 'user.name');
+    vi.stubEnv('GIT_CONFIG_VALUE_0', '');
+    vi.stubEnv('GIT_CONFIG_KEY_1', 'user.email');
+    vi.stubEnv('GIT_CONFIG_VALUE_1', '');
+
+    await manager.create(workspace, 'loop-greenfield', 'Start project');
+
+    expect(await git(workspace, 'show', '-s', '--format=%an <%ae>', 'HEAD')).toBe('Sero <sero@local>');
   });
 });

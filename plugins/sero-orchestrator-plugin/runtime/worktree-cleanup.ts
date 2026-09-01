@@ -13,7 +13,6 @@ export async function cleanupPreviousWorktree(
 ): Promise<void> {
   if (workspace?.type !== 'managed-worktree') return;
   await host.removeWorktree(workspace.worktreeKey ?? loopId, {
-    force: true,
     deleteMergedBranch: workspace.externalBranch ? undefined : true,
   });
 }

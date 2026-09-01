@@ -409,6 +409,7 @@ describe('preserving uncommitted work', () => {
     expect(host.worktreesRemoved).toEqual([`room-${roomId}-api`]);
     expect(host.worktreeRemovals[0]).toMatchObject({ deleteMergedBranch: true });
     expect(host.worktreeRemovals[0].deleteBranch).toBeUndefined();
+    expect(host.worktreeRemovals[0].force).toBeUndefined();
     expect((await memberOf(roomId, 'api')).worktreePath).toBeNull();
   });
 });
