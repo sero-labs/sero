@@ -96,62 +96,70 @@ async function classify(
   }
 
   const external = slot.lease?.branchKind === 'external-pr';
-  const work = external
-    ? ({ status: 'no-work' } as const)
-    : await branchWorkSinceBase(slot.path, slot.lease?.baseCommit ?? null);
-  const removable = disposition === 'remove'
-    || (!external && work.status === 'no-work');
-
   if (external) {
+    // A pull-request checkout may be disposed of by an explicit `remove`; its
+    // branch is never deleted, whatever the caller asked for.
     return {
-      state: removable ? 'available' : 'unmerged',
+      state: disposition === 'remove' ? 'available' : 'unmerged',
       reason: 'The checkout is on a pull request branch, whose branch Sero never deletes.',
-      removable,
+      removable: disposition === 'remove',
+    };
+  }
+
+  const work = await branchWorkSinceBase(slot.path, slot.lease?.baseCommit ?? null);
+  if (work.status === 'unknown') {
+    // An answer Git could not give is not an answer that the branch is
+    // disposable. No disposition overrides it.
+    return {
+      state: 'recovery-required',
+      reason: `The branch could not be compared with its base: ${work.reason}`,
+      removable: false,
     };
   }
   if (work.status === 'has-work') {
     return {
       state: 'unmerged',
       reason: `The branch holds ${work.commits} commit(s) the base does not.`,
-      removable,
-    };
-  }
-  if (work.status === 'unknown') {
-    return {
-      state: 'recovery-required',
-      reason: `The branch could not be compared with its base: ${work.reason}`,
-      removable,
+      // `recycle` is the routine return and keeps committed work; `remove` is
+      // explicitly authorised disposal, and the branch itself still survives.
+      removable: disposition === 'remove',
     };
   }
   return {
     state: 'available',
     reason: 'The checkout is clean and its branch added nothing to the base.',
-    removable,
+    removable: true,
   };
 }
 
+/**
+ * A preserved checkout KEEPS its lease.
+ *
+ * Clearing it would leave work on disk that no logical consumer names and no
+ * pool record owns, at exactly the moment the consumer moves on to its next
+ * run. The slot therefore stays `leased` to the same holder — the issue's
+ * "preserve lease and checkout" outcome — with the classification recorded as
+ * its reason. Only a completed removal ends ownership.
+ */
 function preserveSlot(state: PoolState, slot: PoolSlot, classification: Classification): PoolState {
+  if (!slot.lease) return state;
   const now = new Date().toISOString();
+  const reason = `Kept for "${slot.lease.leaseHolder}": ${classification.reason}`;
   const withSlot = replaceSlot(state, {
     ...slot,
-    state: classification.state,
-    lease: null,
+    state: 'leased',
     operation: null,
-    lastReleased: slot.lease
-      ? { slotId: slot.slotId, leaseId: slot.lease.leaseId, status: 'preserved', at: now, reason: classification.reason }
-      : slot.lastReleased,
-    reason: classification.reason,
+    lastReleased: { slotId: slot.slotId, leaseId: slot.lease.leaseId, status: 'preserved', at: now, reason },
+    reason,
     updatedAt: now,
   });
-  return slot.lease
-    ? recordRelease(withSlot, {
-      slotId: slot.slotId,
-      leaseId: slot.lease.leaseId,
-      status: 'preserved',
-      at: now,
-      reason: classification.reason,
-    })
-    : withSlot;
+  return recordRelease(withSlot, {
+    slotId: slot.slotId,
+    leaseId: slot.lease.leaseId,
+    status: 'preserved',
+    at: now,
+    reason,
+  });
 }
 
 export async function releaseWorktree(
@@ -175,6 +183,19 @@ export async function releaseWorktree(
       slot.slotId,
       `Slot ${slot.slotId} now holds lease ${slot.lease.leaseId}, so an older release cannot act on it.`,
     );
+  }
+  // `openPool` has already weighed this slot against Git and the filesystem. A
+  // matching lease id does not overrule that verdict: a detached checkout, a
+  // changed branch, a missing or locked registration, or a directory Git has
+  // forgotten is not disposable however sound the caller's identity is.
+  if (slot.state !== 'leased') {
+    return result('recovery-required', slot.slotId, `Slot ${slot.slotId} is ${slot.state}: ${slot.reason}`);
+  }
+  // A repeated `preserve` of a lease already preserved changes nothing, and
+  // re-running Git to say so is waste. An explicit `remove` or `recycle` is a
+  // NEW decision about the same checkout, so it is classified afresh.
+  if (request.disposition === 'preserve' && slot.lastReleased?.leaseId === request.expectedLeaseId) {
+    return result('already-released', slot.slotId, slot.lastReleased.reason);
   }
 
   const classification = await classify(slot, request.disposition);

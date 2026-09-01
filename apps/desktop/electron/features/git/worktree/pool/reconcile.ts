@@ -13,22 +13,19 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
 import { canonicalPath, isContainedIn } from './repository';
+import { canonicalWorktreesRoot, LEGACY_DIR_PREFIX, SLOT_DIR_PREFIX } from './paths';
 import { registrationBranch, type WorktreeRegistration } from './registration';
 import { replaceSlot } from './state-store';
 import type { PoolSlot, PoolState } from './types';
 import { isTransitional } from './types';
 
-/** Directory within a workspace where physical checkouts live. */
-export const WORKTREES_DIR = path.join('.sero', 'worktrees');
-
-export const SLOT_DIR_PREFIX = 'slot-';
-export const LEGACY_DIR_PREFIX = 'card-';
-
 export interface ReconcileInput {
   state: PoolState;
   registrations: WorktreeRegistration[];
-  /** The workspace whose physical directories may be enumerated. */
+  /** The workspace whose physical directories may be enumerated (canonical). */
   workspacePath: string;
+  /** Canonical checkout root of that workspace. */
+  poolRoot: string;
   /**
    * When the Git and filesystem evidence was collected. A slot recorded after
    * that moment is newer than the evidence, so the evidence cannot classify
@@ -44,10 +41,6 @@ export interface ReconcileOutcome {
   changed: boolean;
   /** One line per re-classified slot, for the log and for later diagnosis. */
   notes: string[];
-}
-
-export function worktreesRoot(workspacePath: string): string {
-  return path.join(workspacePath, WORKTREES_DIR);
 }
 
 async function directoryExists(target: string): Promise<boolean> {
@@ -154,10 +147,10 @@ function classifyStable(
 async function adoptUnknownDirectories(
   state: PoolState,
   workspacePath: string,
+  root: string,
   registrations: Map<string, WorktreeRegistration>,
   now: string,
 ): Promise<{ state: PoolState; notes: string[] }> {
-  const root = worktreesRoot(workspacePath);
   const entries = await fs.readdir(root, { withFileTypes: true }).catch(() => []);
   const known = new Set(state.slots.map((slot) => slot.path));
   const notes: string[] = [];
@@ -196,10 +189,21 @@ async function adoptUnknownDirectories(
 }
 
 export async function reconcilePoolState(input: ReconcileInput): Promise<ReconcileOutcome> {
-  const { registrations, workspacePath, now } = input;
+  const { registrations, workspacePath, poolRoot, now } = input;
   const index = await canonicalRegistrationIndex(registrations);
   const notes: string[] = [];
   let state = input.state;
+
+  // A slot can belong to another workspace registration over the same
+  // repository. Each of those roots is resolved once, the same way this one is.
+  const roots = new Map<string, string>([[workspacePath, poolRoot]]);
+  const rootOf = async (owner: string): Promise<string> => {
+    const known = roots.get(owner);
+    if (known !== undefined) return known;
+    const resolved = await canonicalWorktreesRoot(owner);
+    roots.set(owner, resolved);
+    return resolved;
+  };
 
   for (const slot of input.state.slots) {
     // Evidence older than the record cannot classify the record.
@@ -208,9 +212,15 @@ export async function reconcilePoolState(input: ReconcileInput): Promise<Reconci
     const canonical = await canonicalPath(slot.path);
     const registration = index.get(canonical);
     const onDisk = await directoryExists(canonical);
-    const owned = isContainedIn(canonical, worktreesRoot(slot.workspacePath));
+    const owned = isContainedIn(canonical, await rootOf(slot.workspacePath));
 
-    let updated = { ...slot, path: canonical };
+    // The lease's own copy of the path moves with the slot's, or the two
+    // disagree and the next read of this file rejects it outright.
+    let updated: PoolSlot = {
+      ...slot,
+      path: canonical,
+      lease: slot.lease ? { ...slot.lease, worktreePath: canonical } : null,
+    };
     if (!owned) {
       updated = reclassify(updated, 'recovery-required', 'The recorded path is outside the workspace pool root.', now);
     } else if (isTransitional(slot.state)) {
@@ -219,13 +229,14 @@ export async function reconcilePoolState(input: ReconcileInput): Promise<Reconci
       updated = classifyStable(updated, registration, onDisk, now);
     }
 
-    if (updated.state !== slot.state || updated.path !== slot.path) {
+    if (updated.state !== slot.state || updated.path !== slot.path
+      || updated.lease?.worktreePath !== slot.lease?.worktreePath) {
       notes.push(`${slot.slotId}: ${slot.state} → ${updated.state} (${updated.reason})`);
       state = replaceSlot(state, updated);
     }
   }
 
-  const adopted = await adoptUnknownDirectories(state, workspacePath, index, now);
+  const adopted = await adoptUnknownDirectories(state, workspacePath, poolRoot, index, now);
   return {
     state: adopted.state,
     changed: notes.length > 0 || adopted.notes.length > 0,

@@ -28,7 +28,7 @@ import {
   removeRegisteredWorktree,
 } from './removal';
 import { listWorktreeRegistrations, registrationBranch } from './pool/registration';
-import { LEGACY_DIR_PREFIX, worktreesRoot } from './pool/reconcile';
+import { LEGACY_DIR_PREFIX, worktreesRoot } from './pool/paths';
 
 export interface WorktreeInfo {
   cardId: string;

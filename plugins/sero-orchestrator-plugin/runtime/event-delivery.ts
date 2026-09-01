@@ -19,7 +19,7 @@ import { applyEventFires, rearmLoop } from './scheduler';
 import { codeMatchEventTrigger, EVENT_CHAIN_DEPTH_LIMIT, RECENT_EVENT_KEYS_LIMIT } from './event-match';
 import { evaluateEventCondition } from './event-condition';
 import { enqueuePendingEvent } from './event-queue';
-import { cleanupPreviousWorktree } from './worktree-cleanup';
+import { cleanupPreviousWorktree, preservedWorktreeRecord, withPreservedWorktree } from './worktree-cleanup';
 
 /** The coordinator internals event delivery needs — nothing else mutates runs. */
 export interface CoordinatorRunSeam {
@@ -202,6 +202,16 @@ async function runEventPass(host: OrchestratorHost, seam: CoordinatorRunSeam, lo
     return { ...state, loops: state.loops.map((l) => (l.id === loopId ? rearmed! : l)) };
   });
   if (!rearmed) return;
-  await cleanupPreviousWorktree(host, loopId, prior);
+  const released = await cleanupPreviousWorktree(host, loopId, prior);
+  // Re-armed already, so the record is written back afterwards rather than
+  // being lost with the workspace the re-arm cleared.
+  const record = preservedWorktreeRecord(host, prior, released);
+  if (record) {
+    await host.updateState((state) => ({
+      ...state,
+      loops: state.loops.map((l) => (l.id === loopId ? withPreservedWorktree(l, record) : l)),
+    }));
+    rearmed = withPreservedWorktree(rearmed, record);
+  }
   await seam.runNext(loopId, rearmed);
 }

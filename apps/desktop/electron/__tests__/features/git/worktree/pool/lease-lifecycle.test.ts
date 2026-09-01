@@ -8,11 +8,17 @@
  */
 
 import { execFile } from 'node:child_process';
-import { mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdtemp, readdir, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
+
+// Real Git against real repositories: each case spawns a dozen subprocesses,
+// and the default 5s budget is a timing assertion nobody meant to write. It
+// fires under full-suite parallelism and passes in isolation, which is the
+// worst kind of failure to read.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 import { acquireWorktree } from '@electron/features/git/worktree/pool/acquire';
 import { releaseWorktree } from '@electron/features/git/worktree/pool/release';
@@ -333,5 +339,47 @@ describe('failed provisioning', () => {
     const opened = await openPool(workspace);
     if (opened.status !== 'ok') throw new Error(opened.reason);
     expect(opened.session.state.slots).toEqual([]);
+  });
+});
+
+describe('a workspace reached through a symlink', () => {
+  it('acquires, reattaches and releases through the link exactly as through the real path', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'sero-pool-link-'));
+    roots.push(root);
+    const real = path.join(root, 'real');
+    await execFileAsync('git', ['init', '-b', 'main', real]);
+    await git(real, 'config', 'user.email', 'test@example.com');
+    await git(real, 'config', 'user.name', 'Test');
+    await writeFile(path.join(real, 'readme.md'), 'hello');
+    await git(real, 'add', '.');
+    await git(real, 'commit', '-m', 'init');
+    const link = path.join(root, 'link');
+    await symlink(real, link, 'dir');
+
+    // Everything below addresses the workspace through the link, the way a
+    // user who opened `/tmp/.../link` would.
+    const acquired = await acquireWorktree(link, { holder: 'loop-1-r1', title: 'Fix the parser' });
+    expect(acquired.status).toBe('acquired');
+    if (acquired.status !== 'acquired') return;
+    // One spelling, resolved once: recording the link spelling here is what
+    // later made containment compare a resolved child with an unresolved root
+    // and refuse a perfectly healthy checkout.
+    expect(acquired.lease.worktreePath.startsWith(await realpath(real))).toBe(true);
+
+    const attached = await reattachWorktree(link, {
+      kind: 'lease',
+      holder: 'loop-1-r1',
+      slotId: acquired.lease.slotId,
+      leaseId: acquired.lease.leaseId,
+    });
+    expect(attached.status).toBe('attached');
+
+    const released = await releaseWorktree(link, {
+      slotId: acquired.lease.slotId,
+      expectedLeaseId: acquired.lease.leaseId,
+      disposition: 'recycle',
+    });
+    expect(released.status).toBe('released');
+    expect(await exists(acquired.lease.worktreePath)).toBe(false);
   });
 });

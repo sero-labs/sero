@@ -80,8 +80,32 @@ export interface DirtyWorkspaceDecision {
   contextId?: string;
 }
 
+/**
+ * A checkout a cleanup did not release, and the host's own words for why.
+ *
+ * Preserving is the normal outcome for a run that committed anything: the
+ * branch then holds work the base does not, and the issue's lifecycle keeps
+ * that checkout until an explicit cleanup. The next run re-arms with a fresh
+ * workspace, so without this record the loop would forget the checkout
+ * entirely. The pool still holds the lease — the physical owner — and this is
+ * the logical reference that names it from the loop's side.
+ */
+export interface PreservedWorktreeRecord {
+  slotId: string;
+  leaseId: string;
+  /** Logical holder the lease was taken under (the run key). */
+  worktreeKey: string;
+  worktreePath: string;
+  branchName?: string;
+  outcome: 'preserved' | 'recovery-required' | 'stale-lease' | 'already-released';
+  reason: string;
+  at: string;
+}
+
 export interface LoopWorkspaceRuntime {
   resolved?: ResolvedWorkspaceContext;
+  /** Checkouts previous runs left behind, newest first. Survives re-arming. */
+  preservedWorktrees?: PreservedWorktreeRecord[];
   dirtyPrompt?: DirtyWorkspacePrompt;
   lastDirtyCheckAt?: string;
   deferredReason?: string;

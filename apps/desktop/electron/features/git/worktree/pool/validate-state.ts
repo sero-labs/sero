@@ -5,6 +5,14 @@
  * valid document and a catastrophic lie about a repository that holds work.
  * Every field is therefore checked, and one wrong field rejects the whole
  * file rather than leaving a partly trusted record.
+ *
+ * Field shapes alone are not enough. A slot and the lease inside it each
+ * carry an id, a path and a branch, and a file where those disagree is
+ * syntactically perfect and semantically a lie: reattachment hands the
+ * consumer the LEASE's path, while reconciliation proved the SLOT's, so a
+ * doctored or half-written record could route work to a directory Git never
+ * vouched for. The relationships between records are therefore validated as
+ * strictly as the records themselves.
  */
 
 import type {
@@ -150,6 +158,43 @@ function parseSlot(value: unknown): PoolSlot | null {
   };
 }
 
+/** Relationships a slot must satisfy internally, beyond each field's own shape. */
+function slotDisagreement(slot: PoolSlot): string | null {
+  const { lease } = slot;
+  if (slot.state === 'leased' && !lease) return `slot ${slot.slotId} is leased but holds no lease`;
+  if (lease) {
+    if (lease.slotId !== slot.slotId) return `lease ${lease.leaseId} names slot ${lease.slotId}, not ${slot.slotId}`;
+    if (lease.worktreePath !== slot.path) return `lease ${lease.leaseId} names a different path from slot ${slot.slotId}`;
+    if (slot.branchName !== null && slot.branchName !== lease.branchName) {
+      return `slot ${slot.slotId} and its lease disagree about the branch`;
+    }
+    if (slot.branchKind !== null && slot.branchKind !== lease.branchKind) {
+      return `slot ${slot.slotId} and its lease disagree about the branch kind`;
+    }
+  }
+  if (slot.operation?.leaseId != null && slot.operation.leaseId !== lease?.leaseId) {
+    return `slot ${slot.slotId} records an operation for a lease it does not hold`;
+  }
+  if (slot.lastReleased && slot.lastReleased.slotId !== slot.slotId) {
+    return `slot ${slot.slotId} records a release belonging to slot ${slot.lastReleased.slotId}`;
+  }
+  return null;
+}
+
+/** Relationships that must hold ACROSS slots. */
+function poolDisagreement(slots: PoolSlot[]): string | null {
+  const paths = new Set<string>();
+  const leaseIds = new Set<string>();
+  for (const slot of slots) {
+    if (paths.has(slot.path)) return `two slots claim the path ${slot.path}`;
+    paths.add(slot.path);
+    if (!slot.lease) continue;
+    if (leaseIds.has(slot.lease.leaseId)) return `lease ${slot.lease.leaseId} is held by two slots`;
+    leaseIds.add(slot.lease.leaseId);
+  }
+  return null;
+}
+
 export function validatePoolState(value: unknown): PoolStateValidation {
   const raw = asRecord(value);
   if (!raw) return { status: 'invalid', reason: 'Pool state is not an object.' };
@@ -180,8 +225,12 @@ export function validatePoolState(value: unknown): PoolStateValidation {
     if (slots.some((existing) => existing.slotId === slot.slotId)) {
       return { status: 'invalid', reason: `Pool state repeats slot ${slot.slotId}.` };
     }
+    const disagreement = slotDisagreement(slot);
+    if (disagreement) return { status: 'invalid', reason: `Pool state disagrees with itself: ${disagreement}.` };
     slots.push(slot);
   }
+  const across = poolDisagreement(slots);
+  if (across) return { status: 'invalid', reason: `Pool state disagrees with itself: ${across}.` };
   return {
     status: 'valid',
     state: { version: raw.version, repositoryId, revision: raw.revision, slots, released, updatedAt },

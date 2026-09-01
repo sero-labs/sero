@@ -27,7 +27,6 @@ import type {
 } from '@sero-ai/common';
 
 import { listWorktreeRegistrations, registrationBranch } from './registration';
-import { worktreesRoot } from './reconcile';
 import { canonicalPath, isContainedIn, type RepositoryIdentity } from './repository';
 import { commitPoolMutation, openPool } from './session';
 import { findSlot, replaceSlot } from './state-store';
@@ -59,20 +58,31 @@ export async function reattachWorktree(
     if (slot.lease.leaseHolder !== request.holder) {
       return unproved(`Slot ${request.slotId} is leased to "${slot.lease.leaseHolder}", not "${request.holder}".`);
     }
-    return { status: 'attached', lease: slot.lease };
+    // The path handed back is the SLOT's — the one reconciliation proved
+    // against Git registration and containment. State validation already
+    // refuses a file where the lease's copy differs, so this restates the
+    // guarantee rather than repairing anything.
+    return { status: 'attached', lease: { ...slot.lease, worktreePath: slot.path } };
   }
 
-  return adoptLegacyCheckout(workspacePath, request, opened.session.identity, opened.session.state.slots);
+  return adoptLegacyCheckout(
+    opened.session.workspacePath,
+    opened.session.poolRoot,
+    request,
+    opened.session.identity,
+    opened.session.state.slots,
+  );
 }
 
 async function adoptLegacyCheckout(
   workspacePath: string,
+  poolRoot: string,
   request: Extract<AppRuntimeReattachWorktreeRequest, { kind: 'legacy' }>,
   identity: RepositoryIdentity,
   slots: PoolSlot[],
 ): Promise<AppRuntimeReattachWorktreeResult> {
   const canonical = await canonicalPath(request.worktreePath);
-  if (!isContainedIn(canonical, worktreesRoot(workspacePath))) {
+  if (!isContainedIn(canonical, poolRoot)) {
     return unproved(`${canonical} is not inside this workspace's managed worktree root.`);
   }
 

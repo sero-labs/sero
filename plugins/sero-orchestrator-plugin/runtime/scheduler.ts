@@ -97,7 +97,10 @@ export function rearmLoop(loop: Loop, now: string): Loop {
       pendingTriggerId: undefined,
       feedbackStates: undefined,
       fanOutStates: undefined,
-      workspace: {},
+      // The next run resolves its own workspace, but checkouts earlier runs
+      // left behind are not this run's to forget: the work is still on disk
+      // and still leased.
+      workspace: { preservedWorktrees: loop.runtime.workspace.preservedWorktrees },
     },
     updatedAt: now,
   };

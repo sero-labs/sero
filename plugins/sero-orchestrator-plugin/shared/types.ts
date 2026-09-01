@@ -47,6 +47,7 @@ export type {
 export type {
   LoopWorkspaceSettings,
   ResolvedWorkspaceContext,
+  PreservedWorktreeRecord,
   DirtyWorkspaceAction,
   DirtyWorkspacePrompt,
   DirtyWorkspaceDecision,

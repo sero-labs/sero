@@ -13,7 +13,13 @@ import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
+
+// Real Git against real repositories: each case spawns a dozen subprocesses,
+// and the default 5s budget is a timing assertion nobody meant to write. It
+// fires under full-suite parallelism and passes in isolation, which is the
+// worst kind of failure to read.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 import { WorktreeManager } from '@electron/features/git/worktree/manager';
 import { removeRegisteredWorktree } from '@electron/features/git/worktree/removal';

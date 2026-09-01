@@ -125,6 +125,80 @@ describe('pool state persistence', () => {
     expect((await readPoolState(statePath)).status).toBe('unavailable');
   });
 
+  it('rejects a state whose slot and lease disagree with each other', async () => {
+    // Each of these files is syntactically perfect. Every one of them would,
+    // if trusted, hand a consumer a path, a branch or an owner that Git and
+    // containment never proved.
+    const disagreements: Record<string, (state: PoolState) => unknown> = {
+      'the lease names another slot': (state) => ({
+        ...state,
+        slots: [{ ...state.slots[0], lease: { ...leasedSlot().lease!, slotId: 'slot-other' } }],
+      }),
+      'the lease names another path': (state) => ({
+        ...state,
+        slots: [{ ...state.slots[0], lease: { ...leasedSlot().lease!, worktreePath: '/elsewhere/slot-abc' } }],
+      }),
+      'the lease names another branch': (state) => ({
+        ...state,
+        slots: [{ ...state.slots[0], lease: { ...leasedSlot().lease!, branchName: 'feat/something-else' } }],
+      }),
+      'the lease names another branch kind': (state) => ({
+        ...state,
+        slots: [{ ...state.slots[0], lease: { ...leasedSlot().lease!, branchKind: 'external-pr' } }],
+      }),
+      'a leased slot holds no lease': (state) => ({
+        ...state,
+        slots: [{ ...state.slots[0], lease: null }],
+      }),
+      'the operation belongs to another lease': (state) => ({
+        ...state,
+        slots: [{
+          ...state.slots[0],
+          operation: {
+            operationId: 'op-1', pid: 1, startedAt: '2026-01-01T00:00:00.000Z',
+            intendedState: 'leased', leaseId: 'lease-somewhere-else',
+          },
+        }],
+      }),
+      'the last release belongs to another slot': (state) => ({
+        ...state,
+        slots: [{
+          ...state.slots[0],
+          lastReleased: {
+            slotId: 'slot-other', leaseId: 'lease-1', status: 'preserved',
+            at: '2026-01-01T00:00:00.000Z', reason: 'kept',
+          },
+        }],
+      }),
+      'two slots claim one path': (state) => ({
+        ...state,
+        slots: [state.slots[0], { ...leasedSlot(), slotId: 'slot-def', lease: null, state: 'damaged' }],
+      }),
+      'two slots hold one lease': (state) => ({
+        ...state,
+        slots: [
+          state.slots[0],
+          { ...leasedSlot(), slotId: 'slot-def', path: '/repo/.sero/worktrees/slot-def',
+            lease: { ...leasedSlot().lease!, slotId: 'slot-def', worktreePath: '/repo/.sero/worktrees/slot-def' } },
+        ],
+      }),
+    };
+
+    for (const [label, mutate] of Object.entries(disagreements)) {
+      const statePath = await tempStatePath();
+      await writeFile(statePath, JSON.stringify(mutate(populatedState())), 'utf8');
+      const read = await readPoolState(statePath);
+      expect(read.status, label).toBe('unavailable');
+      if (read.status === 'unavailable') expect(read.reason, label).toContain('disagrees with itself');
+    }
+  });
+
+  it('accepts the consistent state those cases were derived from', async () => {
+    const statePath = await tempStatePath();
+    await writeFile(statePath, JSON.stringify(populatedState()), 'utf8');
+    expect((await readPoolState(statePath)).status).toBe('ok');
+  });
+
   it('preserves corrupt bytes and keeps answering unavailable on re-read', async () => {
     const statePath = await tempStatePath();
     await writeFile(statePath, '{"version": 1, "slots": [', 'utf8');

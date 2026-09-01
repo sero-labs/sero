@@ -11,9 +11,11 @@
 
 import { promises as fs } from 'node:fs';
 
+import { canonicalWorktreesRoot } from './paths';
 import { listWorktreeRegistrations } from './registration';
 import { reconcilePoolState } from './reconcile';
 import {
+  canonicalPath,
   resolveRepositoryIdentity,
   type RepositoryIdentity,
 } from './repository';
@@ -23,7 +25,10 @@ import { emptyPoolState, type PoolState } from './types';
 
 export interface PoolSession {
   identity: RepositoryIdentity;
+  /** Canonical workspace path. The one spelling every later comparison uses. */
   workspacePath: string;
+  /** Canonical `.sero/worktrees` root of that workspace. */
+  poolRoot: string;
   /** State as reconciled when the session opened. Re-read before every write. */
   state: PoolState;
 }
@@ -59,6 +64,12 @@ export async function openPool(workspacePath: string): Promise<OpenPoolResult> {
   await fs.mkdir(identity.identity.poolDir, { recursive: true });
   await cleanAbandonedTempFiles(identity.identity.statePath);
 
+  // Resolved once, then reused everywhere. A workspace reached through a
+  // symlink must not look like two different workspaces to allocation and to
+  // containment.
+  const canonicalWorkspace = await canonicalPath(workspacePath);
+  const poolRoot = await canonicalWorktreesRoot(canonicalWorkspace);
+
   const opened = await withPoolStateLock(identity.identity.poolDir, async () => {
     const read = await readPoolState(identity.identity.statePath);
     if (read.status === 'unavailable') return { status: 'unavailable' as const, reason: read.reason };
@@ -75,12 +86,13 @@ export async function openPool(workspacePath: string): Promise<OpenPoolResult> {
     const reconciled = await reconcilePoolState({
       state: base,
       registrations: registrations.records,
-      workspacePath,
+      workspacePath: canonicalWorkspace,
+      poolRoot,
       evidenceAt,
       now,
     });
     if (reconciled.notes.length > 0) {
-      console.log(`[worktree-pool] reconciled ${workspacePath}: ${reconciled.notes.join('; ')}`);
+      console.log(`[worktree-pool] reconciled ${canonicalWorkspace}: ${reconciled.notes.join('; ')}`);
     }
     const state = reconciled.changed || read.status === 'empty'
       ? await writePoolState(identity.identity.statePath, reconciled.state)
@@ -89,7 +101,10 @@ export async function openPool(workspacePath: string): Promise<OpenPoolResult> {
   });
 
   if (opened.status === 'unavailable') return { status: 'unavailable', reason: opened.reason };
-  return { status: 'ok', session: { identity: identity.identity, workspacePath, state: opened.state } };
+  return {
+    status: 'ok',
+    session: { identity: identity.identity, workspacePath: canonicalWorkspace, poolRoot, state: opened.state },
+  };
 }
 
 export type CommitResult<T> =

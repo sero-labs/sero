@@ -44,7 +44,7 @@ import {
   type CoordinatorRunSeam,
   type EventBroadcast,
 } from './event-delivery';
-import { cleanupPreviousWorktree } from './worktree-cleanup';
+import { cleanupAndCarry, releaseDeletedLoopWorktree } from './worktree-cleanup';
 import { retryLoop, retryStepAction, runAgain } from './restart-actions';
 import { buildLifecycleEvents } from './lifecycle-events';
 import { computeReadySteps, hasRunningSteps } from './readiness';
@@ -114,8 +114,7 @@ export class Coordinator {
    * whose previous pass already finished.
    */
   private async runFreshPass(loop: Loop, triggerId?: string): Promise<OrchestratorActionResult> {
-    await cleanupPreviousWorktree(this.host, loop.id, loop.runtime.workspace.resolved);
-    const base = rearmLoop(loop, this.host.now());
+    const base = rearmLoop(await cleanupAndCarry(this.host, loop), this.host.now());
     const rearmed = triggerId
       ? { ...base, runtime: { ...base.runtime, pendingTriggerId: triggerId } }
       : base;
@@ -298,24 +297,7 @@ export class Coordinator {
   async delete(loopId: string, deleteBranch?: boolean): Promise<OrchestratorActionResult> {
     const loop = await this.findLoop(loopId);
     if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
-    const resolved = loop.runtime.workspace.resolved;
-    if (resolved?.type === 'managed-worktree' && resolved.slotId && resolved.leaseId) {
-      // `remove` is intent, not authority: the host preserves the checkout when
-      // it holds uncommitted work, an unmerged branch, or a pull-request
-      // branch. `deleteBranch` never reaches an event-pr branch, which belongs
-      // to the PR rather than to this loop (spec 15, FR-P2).
-      const outcome = await this.host.releaseWorktree({
-        slotId: resolved.slotId,
-        expectedLeaseId: resolved.leaseId,
-        disposition: 'remove',
-        deleteBranch: resolved.externalBranch ? undefined : deleteBranch,
-      });
-      if (outcome.status !== 'released') {
-        this.host.log(`Deleting loop ${loopId}: its checkout was kept (${outcome.status}) — ${outcome.reason}`);
-      }
-    } else if (resolved?.type === 'managed-worktree') {
-      this.host.log(`Deleting loop ${loopId}: its checkout predates the worktree pool and was left in place.`);
-    }
+    await releaseDeletedLoopWorktree(this.host, loopId, loop.runtime.workspace.resolved, deleteBranch);
     await this.host.updateState((state) => ({
       ...state,
       loops: state.loops.filter((l) => l.id !== loopId),

@@ -29,6 +29,20 @@ The last completed releases are retained in `pool.json` (`released`, capped at
 64) so the first two can be told apart. An identity older than that history
 fails closed as `stale-lease`.
 
+## One resolved spelling for every path
+
+A workspace can be opened through a symlink (`/tmp/link -> /tmp/real`). If a
+comparison resolves the child but not its parent, a perfectly healthy checkout
+looks like it lives outside the pool and reattachment is refused for a
+repository that is entirely fine.
+
+So the checkout root is created and resolved ONCE per workspace, at
+`openPool`, and the same resolved spelling is used for allocation,
+persistence, enumeration, legacy adoption and containment. Slot paths are
+built by joining that resolved root, never by resolving a directory that does
+not exist yet — a path resolved before creation necessarily falls back to the
+unresolved spelling, which is the inconsistency this avoids.
+
 ## Repository identity
 
 `workspacePath` is not a repository identity: two Sero workspace registrations
@@ -101,6 +115,40 @@ directory to the wrong branch. Git before 2.36 has no `-z` for this command,
 so an unknown-option failure falls back to the newline format; any other
 failure is unavailability.
 
+## Releasing
+
+A release is refused unless the slot is `leased` **after** reconciliation.
+`openPool` has already weighed the slot against Git and the filesystem, and a
+matching lease id does not overrule that verdict: a detached checkout, a
+changed branch, a locked or missing registration, or a directory Git has
+forgotten is not disposable however sound the caller's identity is.
+
+Classification then decides disposal, and every unknown fails closed:
+
+| Evidence | `recycle` | `remove` | `preserve` |
+| --- | --- | --- | --- |
+| status unreadable | keep | keep | keep |
+| uncommitted work | keep | keep | keep |
+| branch comparison unreadable | keep | keep | keep |
+| branch holds work the base lacks | keep | dispose | keep |
+| pull-request branch | keep | dispose | keep |
+| clean, nothing added to the base | dispose | dispose | keep |
+
+`recycle` is the routine end-of-run return. `remove` is explicitly authorised
+disposal — a user deleting the loop — so committed work no longer blocks the
+checkout's removal; the branch itself still survives unless the caller asked
+for its deletion, and a pull-request branch is never deleted at all.
+
+**A preserved checkout keeps its lease.** Clearing it would leave work on disk
+that no consumer names and no pool record owns, at exactly the moment the
+consumer moves on to its next run. The slot stays `leased` to the same holder
+— the issue's "preserve lease and checkout" outcome — with the reason
+recorded, so no later acquisition can take it. Only a completed removal ends
+ownership. On the consumer's side, a Workflow run that is re-armed carries a
+`preservedWorktrees` record naming the slot, lease, path, branch and the
+host's own reason, so the loop keeps a reference to work it is no longer
+using.
+
 ## State file
 
 `pool.json` is versioned (`POOL_SCHEMA_VERSION`) and every field is validated
@@ -110,6 +158,16 @@ or one failed field makes the repository unavailable; the bytes are copied
 aside as `pool.json.corrupt-<digest>` and the unreadable file is left in place,
 so later reads reach the same fail-closed answer instead of finding a
 conveniently empty directory.
+
+Field shapes alone are not enough. A slot and the lease inside it each carry
+an id, a path and a branch, and a file where those disagree is syntactically
+perfect and semantically a lie: reattachment hands back a path, while
+reconciliation proved a different one. Validation therefore also enforces the
+relationships — `lease.slotId` and `lease.worktreePath` match the slot's, the
+slot and its lease agree about branch and branch kind, a `leased` slot holds a
+lease, an operation record and a last-release record belong to the enclosing
+slot, and no two slots share a path or a live lease id. One disagreement
+rejects the whole file.
 
 Writes go to a unique temporary file in the same directory, are flushed, and
 replace the target by rename.

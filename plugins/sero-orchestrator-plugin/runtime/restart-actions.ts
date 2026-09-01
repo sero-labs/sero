@@ -8,7 +8,7 @@
 import type { Loop, OrchestratorActionResult } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import type { CoordinatorRunSeam } from './event-delivery';
-import { cleanupPreviousWorktree } from './worktree-cleanup';
+import { cleanupAndCarry } from './worktree-cleanup';
 import { rearmLoop, reenableSchedule } from './scheduler';
 import { hasRunningSteps } from './readiness';
 import { retryStep, retryStuckLoop } from './recovery-apply';
@@ -38,9 +38,9 @@ export async function runAgain(
     return { ok: false, error: 'A run is already in progress — disable it first, then restart.' };
   }
   const now = host.now();
-  await cleanupPreviousWorktree(host, loopId, loop.runtime.workspace.resolved);
+  const carried = await cleanupAndCarry(host, loop);
   const reactivated: Loop = {
-    ...rearmLoop({ ...loop, triggers: reenableSchedule(loop, now) }, now),
+    ...rearmLoop({ ...carried, triggers: reenableSchedule(carried, now) }, now),
     status: 'active',
   };
   await seam.replaceLoop(reactivated);

@@ -34,8 +34,7 @@ import {
   resolveCommit,
 } from '../provision';
 import { withGitMutationGate } from './locks';
-import { worktreesRoot } from './reconcile';
-import { canonicalPath, type RepositoryIdentity } from './repository';
+import { type RepositoryIdentity } from './repository';
 import { commitPoolMutation, openPool } from './session';
 import { dropSlot, findSlot, replaceSlot } from './state-store';
 import type { PoolSlot, PoolState } from './types';
@@ -144,7 +143,9 @@ export async function acquireWorktree(
   if (choice.status === 'blocked') return blocked(choice.reason);
 
   const slotId = `slot-${randomUUID().replace(/-/g, '').slice(0, 12)}`;
-  const slotPath = await canonicalPath(path.join(worktreesRoot(workspacePath), slotId));
+  // The pool root is already resolved, so the recorded path is the same
+  // spelling reconciliation and containment will later compute.
+  const slotPath = path.join(opened.session.poolRoot, slotId);
   const operationId = randomUUID();
 
   const reserved = await commitPoolMutation<SlotChoice>(identity, (state) => {
@@ -157,7 +158,7 @@ export async function acquireWorktree(
       return { value: { status: 'blocked', reason: `Slot path ${slotPath} is already recorded.` } };
     }
     return {
-      state: replaceSlot(state, newSlot(slotId, slotPath, workspacePath, operationId, now)),
+      state: replaceSlot(state, newSlot(slotId, slotPath, opened.session.workspacePath, operationId, now)),
       value: { status: 'new' },
     };
   });
@@ -165,7 +166,7 @@ export async function acquireWorktree(
   if (reserved.value.status === 'blocked') return blocked(reserved.value.reason);
 
   try {
-    return await provision(identity, workspacePath, request, {
+    return await provision(identity, opened.session.workspacePath, request, {
       slotId,
       slotPath,
       operationId,
