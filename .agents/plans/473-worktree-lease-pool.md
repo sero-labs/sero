@@ -8,6 +8,7 @@ Keep #473 as the umbrella issue. Deliver it through three independently safe
 PRs:
 
 1. Safety foundations and the lease-aware host contract, with no slot reuse.
+   **Delivered** — see the PR 1 section below.
 2. Reusable slots, process protection, reset, and capacity policy.
 3. Fenced cleanup planning and an optional Admin/Git UI.
 
@@ -226,75 +227,78 @@ values after the final critical sections are known.
 
 ---
 
-## PR 1: Safety foundations and lease contract
+## PR 1: Safety foundations and lease contract — DELIVERED
 
 PR 1 makes the current one-checkout-per-holder lifecycle safe. It does not reuse
 a physical slot for a different lease holder.
 
 ### 1.1 Immediate removal safety
 
-- [ ] Remove the unconditional recursive `fs.rm()` fallback after failed
+- [x] Remove the unconditional recursive `fs.rm()` fallback after failed
       `git worktree remove`.
-- [ ] On failure, preserve the directory and return a classified result.
-- [ ] Never delete a branch after worktree removal failed.
+- [x] On failure, preserve the directory and return a classified result.
+- [x] Never delete a branch after worktree removal failed.
 
 ### 1.2 Types, state, and locks
 
-- [ ] Add `pool/types.ts`, `pool/state-store.ts`, repository identity, state
+- [x] Add `pool/types.ts`, `pool/state-store.ts`, repository identity, state
       locking, the Git-mutation gate, and the transitional operation model.
-- [ ] Version and validate every persisted field. Reject unknown versions.
-- [ ] Implement platform-safe atomic replacement and conservative corrupt-state
+- [x] Version and validate every persisted field. Reject unknown versions.
+- [x] Implement platform-safe atomic replacement and conservative corrupt-state
       handling.
 
 ### 1.3 Registration and filesystem reconciliation
 
-- [ ] Add the `--porcelain -z` parser and physical-directory enumeration.
-- [ ] Replace directory-only `exists()` with a classified validation result.
-- [ ] Reconcile on first use per repository and after interrupted transitions.
-- [ ] Fail the repository closed if Git evidence cannot be read.
+- [x] Add the `--porcelain -z` parser and physical-directory enumeration.
+- [x] Replace directory-only `exists()` with a classified validation result.
+- [x] Reconcile on first use per repository and after interrupted transitions.
+- [x] Fail the repository closed if Git evidence cannot be read.
 
 ### 1.4 Lease-aware host contract
 
-- [ ] Add acquire, reattach, and conditional release to
+- [x] Add acquire, reattach, and conditional release to
       `packages/common/src/app-runtime-git.ts`.
-- [ ] Wire the service in `create-host.ts` and preserve all lease fields through
+- [x] Wire the service in `create-host.ts` and preserve all lease fields through
       `runtime/host-adapter.ts`.
-- [ ] Add `slotId` and `leaseId` to `ResolvedWorkspaceContext` with a persisted
+- [x] Add `slotId` and `leaseId` to `ResolvedWorkspaceContext` with a persisted
       migration.
-- [ ] Add the same lease identity to `RoomMember` with a Room schema migration.
-- [ ] Pass the exact lease identity from Workflow and Room cleanup paths.
-- [ ] Do not implement a holder-key wrapper that resolves and releases the
+- [x] Add the same lease identity to `RoomMember` with a Room schema migration.
+- [x] Pass the exact lease identity from Workflow and Room cleanup paths.
+- [x] Do not implement a holder-key wrapper that resolves and releases the
       holder's current pooled lease.
 
 ### 1.5 Validated restart reattachment
 
-- [ ] Make Workflow call `reattachWorktree()` before returning a persisted
+- [x] Make Workflow call `reattachWorktree()` before returning a persisted
       managed workspace context.
-- [ ] Make Room call it before trusting a member's persisted worktree path.
-- [ ] Prove repository identity, slot, lease, holder, path, registration,
-      branch, and expected HEAD.
-- [ ] Block execution and surface recovery when proof fails.
+- [x] Make Room call it before trusting a member's persisted worktree path.
+- [x] Prove repository identity, slot, lease, holder, path, registration,
+      and branch. HEAD is deliberately not a reattach fence: work advances it,
+      and amends and rebases move it without losing anything, so demanding the
+      acquisition HEAD would reject the healthy case. `acquiredHead` stays
+      immutable evidence for disposability at release. See the worktree README.
+- [x] Block execution and surface recovery when proof fails.
 
 ### 1.6 PR 1 tests and acceptance
 
-- [ ] Two acquisitions by the same holder produce different lease IDs.
-- [ ] L1 release, L1 retry, L2 acquisition, and delayed L1 release produce the
+- [x] Two acquisitions by the same holder produce different lease IDs.
+- [x] L1 release, L1 retry, L2 acquisition, and delayed L1 release produce the
       exact idempotency and ABA outcomes defined above.
-- [ ] Concurrent acquisitions never issue one slot twice.
-- [ ] Killing the process during every transitional state yields either valid
+- [x] Concurrent acquisitions never issue one slot twice.
+- [x] Killing the process during every transitional state yields either valid
       reattachment or `recovery-required`, never automatic reuse.
-- [ ] Truncating state at every byte offset never makes ambiguous work reusable
+- [x] Truncating state at every byte offset never makes ambiguous work reusable
       or removable.
-- [ ] Git-listing failure blocks the repository rather than creating empty
+- [x] Git-listing failure blocks the repository rather than creating empty
       state.
-- [ ] Registered-only, directory-only, locked, prunable, detached, and unusual
+- [x] Registered-only, directory-only, locked, prunable, detached, and unusual
       path records are classified correctly.
-- [ ] Failed Git removal leaves the directory, its contents, registration
+- [x] Failed Git removal leaves the directory, its contents, registration
       evidence, and branch intact.
-- [ ] A Workflow and a Room member both reattach only through host validation.
-- [ ] Legacy `card-*` work is either matched to its persisted owner or marked
+- [x] A Workflow and a Room member both reattach only through host validation.
+- [x] Legacy `card-*` work is either matched to its persisted owner or marked
       recovery-required.
-- [ ] Existing fresh-branch, PR-branch, greenfield, Workflow, and Room behaviour
+- [x] Existing fresh-branch, PR-branch, greenfield, Workflow, and Room behaviour
       passes with the lease contract.
 
 PR 1 is complete and shippable with slot reuse disabled.
@@ -441,18 +445,18 @@ or a UI.
 
 ## Documentation
 
-- [ ] Add `apps/desktop/electron/features/git/worktree/README.md` in PR 1,
+- [x] Add `apps/desktop/electron/features/git/worktree/README.md` in PR 1,
       documenting repository identity, lease fencing, state transitions,
       reconciliation, and failure rules.
-- [ ] Record the host-owned lease boundary in `ARCHITECTURE.md`.
+- [x] Record the host-owned lease boundary in `ARCHITECTURE.md`.
 - [ ] Document capacity and process policy when PR 2 ships.
 - [ ] Add end-user recovery help only if PR 3 ships a user-facing surface.
 
 ## Cross-cutting constraints
 
-- [ ] Keep new source files at or below 500 LOC and split by responsibility.
-- [ ] Use no `any`, `@ts-ignore`, or `@ts-expect-error`.
-- [ ] Use typed, discriminated outcomes rather than success booleans for
+- [x] Keep new source files at or below 500 LOC and split by responsibility.
+- [x] Use no `any`, `@ts-ignore`, or `@ts-expect-error`.
+- [x] Use typed, discriminated outcomes rather than success booleans for
       lifecycle operations.
 - [ ] Run root typecheck and the affected worktree, Orchestrator, Room, runtime,
       and integration suites before each PR is marked ready.

@@ -74,6 +74,19 @@ function createHostStub(
       summarizeFailure: vi.fn(() => 'failure'),
     },
     git: {
+      acquireWorktree: vi.fn(async () => ({
+        status: 'blocked' as const,
+        reason: 'This stub host leases no worktrees.',
+      })),
+      reattachWorktree: vi.fn(async () => ({
+        status: 'recovery-required' as const,
+        reason: 'This stub host leases no worktrees.',
+      })),
+      releaseWorktree: vi.fn(async () => ({
+        status: 'stale-lease' as const,
+        slotId: '',
+        reason: 'This stub host leases no worktrees.',
+      })),
       createWorktree: vi.fn(async () => ({ worktreePath: '', branchName: '', greenfield: false })),
       removeWorktree: vi.fn(async () => {}),
       getWorkspaceStatus: vi.fn(async () => ({ isGitRepository: true, hasUncommittedChanges: false, summary: 'Clean working tree' })),
