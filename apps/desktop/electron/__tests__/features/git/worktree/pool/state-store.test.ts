@@ -98,19 +98,27 @@ describe('pool state persistence', () => {
     const statePath = await tempStatePath();
     await writePoolState(statePath, populatedState());
     const whole = await readFile(statePath, 'utf8');
+    const dir = path.dirname(statePath);
 
-    for (let length = 0; length < whole.length; length += 1) {
-      await writeFile(statePath, whole.slice(0, length), 'utf8');
-      const read = await readPoolState(statePath);
-      // A prefix is either unreadable, or — for the one prefix that is not —
-      // it must still describe the same leased slot. It must never come back
-      // as a pool with no slots, which is what would authorise reuse.
-      if (read.status === 'ok') {
-        expect(read.state.slots).toHaveLength(1);
-        expect(read.state.slots[0].lease?.leaseId).toBe('lease-1');
-      } else {
-        expect(read.status).toBe('unavailable');
-      }
+    // Every offset is checked, but each gets its own file so the reads can run
+    // together: serially this is a few thousand round trips for one property.
+    const offsets = [...whole].map((_, length) => length);
+    for (let start = 0; start < offsets.length; start += 100) {
+      const batch = offsets.slice(start, start + 100);
+      await Promise.all(batch.map(async (length) => {
+        const prefix = path.join(dir, `truncated-${length}.json`);
+        await writeFile(prefix, whole.slice(0, length), 'utf8');
+        const read = await readPoolState(prefix);
+        // A prefix is either unreadable, or — for the one prefix that is not —
+        // it must still describe the same leased slot. It must never come back
+        // as a pool with no slots, which is what would authorise reuse.
+        if (read.status === 'ok') {
+          expect(read.state.slots, `offset ${length}`).toHaveLength(1);
+          expect(read.state.slots[0].lease?.leaseId, `offset ${length}`).toBe('lease-1');
+        } else {
+          expect(read.status, `offset ${length}`).toBe('unavailable');
+        }
+      }));
     }
   });
 

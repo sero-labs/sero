@@ -7,11 +7,9 @@
  * that cannot be proved disposable is preserved.
  */
 
-import { execFile } from 'node:child_process';
 import { mkdtemp, readdir, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 
 // Real Git against real repositories: each case spawns a dozen subprocesses,
@@ -24,27 +22,13 @@ import { acquireWorktree } from '@electron/features/git/worktree/pool/acquire';
 import { releaseWorktree } from '@electron/features/git/worktree/pool/release';
 import { reattachWorktree } from '@electron/features/git/worktree/pool/reattach';
 import { openPool } from '@electron/features/git/worktree/pool/session';
+import { git, newWorkspaceRepo, removeWorkspaceRepos } from '../worktree-test-helpers';
 
-const execFileAsync = promisify(execFile);
 const roots: string[] = [];
-
-async function git(cwd: string, ...args: string[]): Promise<string> {
-  const { stdout } = await execFileAsync('git', args, { cwd });
-  return stdout.trim();
-}
 
 /** A workspace repository with one commit on `main`, and no remote. */
 async function newWorkspace(): Promise<string> {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'sero-pool-'));
-  roots.push(root);
-  const workspace = path.join(root, 'workspace');
-  await execFileAsync('git', ['init', '-b', 'main', workspace]);
-  await git(workspace, 'config', 'user.email', 'test@example.com');
-  await git(workspace, 'config', 'user.name', 'Test');
-  await writeFile(path.join(workspace, 'readme.md'), 'hello');
-  await git(workspace, 'add', '.');
-  await git(workspace, 'commit', '-m', 'init');
-  return workspace;
+  return (await newWorkspaceRepo()).workspace;
 }
 
 async function acquireOrThrow(workspace: string, holder: string, title = 'Fix the parser') {
@@ -58,6 +42,7 @@ async function exists(target: string): Promise<boolean> {
 }
 
 afterAll(async () => {
+  await removeWorkspaceRepos();
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
@@ -282,7 +267,7 @@ describe('legacy card-* checkouts', () => {
   it('adopts one matched to its persisted owner, and marks an unmatched one recovery-required', async () => {
     const workspace = await newWorkspace();
     const legacyPath = path.join(workspace, '.sero', 'worktrees', 'card-loop-legacy-r1');
-    await execFileAsync('git', ['worktree', 'add', '-b', 'feat/legacy', legacyPath], { cwd: workspace });
+    await git(workspace, 'worktree', 'add', '-b', 'feat/legacy', legacyPath);
 
     // Before any owner is proved, reconciliation adopts it as recovery-required.
     const opened = await openPool(workspace);
@@ -316,7 +301,7 @@ describe('legacy card-* checkouts', () => {
   it('refuses to adopt a directory outside the workspace pool root', async () => {
     const workspace = await newWorkspace();
     const outside = path.join(path.dirname(workspace), 'elsewhere');
-    await execFileAsync('git', ['worktree', 'add', '-b', 'feat/outside', outside], { cwd: workspace });
+    await git(workspace, 'worktree', 'add', '-b', 'feat/outside', outside);
 
     const outcome = await reattachWorktree(workspace, {
       kind: 'legacy',
@@ -344,16 +329,8 @@ describe('failed provisioning', () => {
 
 describe('a workspace reached through a symlink', () => {
   it('acquires, reattaches and releases through the link exactly as through the real path', async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'sero-pool-link-'));
-    roots.push(root);
-    const real = path.join(root, 'real');
-    await execFileAsync('git', ['init', '-b', 'main', real]);
-    await git(real, 'config', 'user.email', 'test@example.com');
-    await git(real, 'config', 'user.name', 'Test');
-    await writeFile(path.join(real, 'readme.md'), 'hello');
-    await git(real, 'add', '.');
-    await git(real, 'commit', '-m', 'init');
-    const link = path.join(root, 'link');
+    const real = await newWorkspace();
+    const link = path.join(path.dirname(real), 'link');
     await symlink(real, link, 'dir');
 
     // Everything below addresses the workspace through the link, the way a

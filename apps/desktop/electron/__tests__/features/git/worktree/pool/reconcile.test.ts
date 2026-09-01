@@ -5,11 +5,8 @@
  * registration.
  */
 
-import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
-import os from 'node:os';
+import { readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 
 // Real Git against real repositories: each case spawns a dozen subprocesses,
@@ -21,24 +18,13 @@ vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 import { acquireWorktree } from '@electron/features/git/worktree/pool/acquire';
 import { openPool } from '@electron/features/git/worktree/pool/session';
 import type { PoolState } from '@electron/features/git/worktree/pool/types';
-
-const execFileAsync = promisify(execFile);
-const roots: string[] = [];
+import { git, newWorkspaceRepo, removeWorkspaceRepos } from '../worktree-test-helpers';
 
 /** A pid that cannot be running: reconciliation must read it as a crash. */
 const DEAD_PID = 2 ** 22;
 
 async function newWorkspace(): Promise<string> {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'sero-pool-rec-'));
-  roots.push(root);
-  const workspace = path.join(root, 'workspace');
-  await execFileAsync('git', ['init', '-b', 'main', workspace]);
-  await execFileAsync('git', ['config', 'user.email', 'test@example.com'], { cwd: workspace });
-  await execFileAsync('git', ['config', 'user.name', 'Test'], { cwd: workspace });
-  await writeFile(path.join(workspace, 'readme.md'), 'hello');
-  await execFileAsync('git', ['add', '.'], { cwd: workspace });
-  await execFileAsync('git', ['commit', '-m', 'init'], { cwd: workspace });
-  return workspace;
+  return (await newWorkspaceRepo('sero-pool-rec-')).workspace;
 }
 
 function statePath(workspace: string): string {
@@ -51,6 +37,13 @@ async function readState(workspace: string): Promise<PoolState> {
 
 async function writeState(workspace: string, state: PoolState): Promise<void> {
   await writeFile(statePath(workspace), JSON.stringify(state, null, 2), 'utf8');
+}
+
+/** One more checkout of an existing repository. Returns the new slot's id. */
+async function lease(workspace: string, holder: string): Promise<string> {
+  const outcome = await acquireWorktree(workspace, { holder, title: 'Fix the parser' });
+  if (outcome.status !== 'acquired') throw new Error(outcome.reason);
+  return outcome.lease.slotId;
 }
 
 async function leasedWorkspace(holder = 'loop-1-r1'): Promise<{ workspace: string; slotPath: string; slotId: string }> {
@@ -68,61 +61,59 @@ async function classify(workspace: string, slotId: string): Promise<{ state: str
   return { state: slot.state, reason: slot.reason };
 }
 
-afterAll(async () => {
-  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
-});
+afterAll(removeWorkspaceRepos);
+
+/** Rewrites one slot as a transition the process that owned it never finished. */
+async function interrupt(
+  workspace: string,
+  slotId: string,
+  transition: 'provisioning' | 'recycling' | 'removing',
+  pid: number,
+): Promise<void> {
+  const state = await readState(workspace);
+  await writeState(workspace, {
+    ...state,
+    slots: state.slots.map((slot) => (slot.slotId === slotId
+      ? {
+        ...slot,
+        state: transition,
+        operation: {
+          operationId: `op-${transition}`,
+          pid,
+          startedAt: '2026-01-01T00:00:00.000Z',
+          intendedState: transition === 'provisioning' ? ('leased' as const) : ('available' as const),
+          leaseId: slot.lease?.leaseId ?? null,
+        },
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      }
+      : slot)),
+  });
+}
 
 describe('crash reconciliation', () => {
   it('classifies every interrupted transition of a dead process, and reuses none of them', async () => {
-    for (const transition of ['provisioning', 'recycling', 'removing'] as const) {
-      const { workspace, slotId } = await leasedWorkspace();
-      const state = await readState(workspace);
-      await writeState(workspace, {
-        ...state,
-        slots: state.slots.map((slot) => (slot.slotId === slotId
-          ? {
-            ...slot,
-            state: transition,
-            operation: {
-              operationId: 'op-1',
-              pid: DEAD_PID,
-              startedAt: '2026-01-01T00:00:00.000Z',
-              intendedState: 'leased' as const,
-              leaseId: slot.lease?.leaseId ?? null,
-            },
-            updatedAt: '2026-01-01T00:00:00.000Z',
-          }
-          : slot)),
-      });
+    // Three independent checkouts of one repository: three repositories would
+    // buy nothing here but subprocesses.
+    const workspace = await newWorkspace();
+    const transitions = ['provisioning', 'recycling', 'removing'] as const;
+    const slotIds = await Promise.all(transitions.map((transition) => lease(workspace, `loop-${transition}-r1`)));
 
-      const classified = await classify(workspace, slotId);
+    for (const [index, transition] of transitions.entries()) {
+      await interrupt(workspace, slotIds[index], transition, DEAD_PID);
+    }
+
+    for (const [index, transition] of transitions.entries()) {
+      const classified = await classify(workspace, slotIds[index]);
       // Interrupted provisioning with complete evidence is a valid lease; the
       // destructive transitions are never resolved automatically.
-      expect(classified.state).toBe(transition === 'provisioning' ? 'leased' : 'recovery-required');
-      expect(classified.state).not.toBe('available');
+      expect(classified.state, transition).toBe(transition === 'provisioning' ? 'leased' : 'recovery-required');
+      expect(classified.state, transition).not.toBe('available');
     }
   });
 
   it('leaves an in-flight transition of a live process alone', async () => {
     const { workspace, slotId } = await leasedWorkspace();
-    const state = await readState(workspace);
-    await writeState(workspace, {
-      ...state,
-      slots: state.slots.map((slot) => (slot.slotId === slotId
-        ? {
-          ...slot,
-          state: 'recycling' as const,
-          operation: {
-            operationId: 'op-live',
-            pid: process.pid,
-            startedAt: '2026-01-01T00:00:00.000Z',
-            intendedState: 'available' as const,
-            leaseId: slot.lease?.leaseId ?? null,
-          },
-          updatedAt: '2026-01-01T00:00:00.000Z',
-        }
-        : slot)),
-    });
+    await interrupt(workspace, slotId, 'recycling', process.pid);
 
     expect((await classify(workspace, slotId)).state).toBe('recycling');
   });
@@ -146,7 +137,7 @@ describe('evidence disagreement', () => {
 
   it('refuses a checkout whose branch is not the one recorded', async () => {
     const { workspace, slotId, slotPath } = await leasedWorkspace();
-    await execFileAsync('git', ['checkout', '-b', 'feat/somewhere-else'], { cwd: slotPath });
+    await git(slotPath, 'checkout', '-b', 'feat/somewhere-else');
 
     const classified = await classify(workspace, slotId);
     expect(classified.state).toBe('recovery-required');
@@ -155,14 +146,14 @@ describe('evidence disagreement', () => {
 
   it('refuses a detached checkout, which is not a Sero work mode', async () => {
     const { workspace, slotId, slotPath } = await leasedWorkspace();
-    await execFileAsync('git', ['checkout', '--detach'], { cwd: slotPath });
+    await git(slotPath, 'checkout', '--detach');
 
     expect((await classify(workspace, slotId)).state).toBe('recovery-required');
   });
 
   it('reports a locked worktree as in use', async () => {
     const { workspace, slotId, slotPath } = await leasedWorkspace();
-    await execFileAsync('git', ['worktree', 'lock', '--reason', 'the installer is running', slotPath], { cwd: workspace });
+    await git(workspace, 'worktree', 'lock', '--reason', 'the installer is running', slotPath);
 
     const classified = await classify(workspace, slotId);
     expect(classified.state).toBe('in-use');
@@ -172,7 +163,7 @@ describe('evidence disagreement', () => {
   it('adopts an unknown slot directory rather than treating it as free space', async () => {
     const { workspace, slotPath } = await leasedWorkspace();
     const strayPath = path.join(path.dirname(slotPath), 'slot-strayaaaaaa');
-    await execFileAsync('git', ['worktree', 'add', '-b', 'feat/stray', strayPath], { cwd: workspace });
+    await git(workspace, 'worktree', 'add', '-b', 'feat/stray', strayPath);
 
     const opened = await openPool(workspace);
     if (opened.status !== 'ok') throw new Error(opened.reason);

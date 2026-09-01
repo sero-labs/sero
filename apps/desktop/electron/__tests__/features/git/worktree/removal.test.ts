@@ -8,11 +8,8 @@
  * a refusal keeps the directory, its contents, its registration and its branch.
  */
 
-import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
-import os from 'node:os';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 
 // Real Git against real repositories: each case spawns a dozen subprocesses,
@@ -23,31 +20,13 @@ vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 import { WorktreeManager } from '@electron/features/git/worktree/manager';
 import { removeRegisteredWorktree } from '@electron/features/git/worktree/removal';
-
-const execFileAsync = promisify(execFile);
-const roots: string[] = [];
-
-async function git(cwd: string, ...args: string[]): Promise<string> {
-  const { stdout } = await execFileAsync('git', args, { cwd });
-  return stdout.trim();
-}
+import { git, newWorkspaceRepo, removeWorkspaceRepos } from './worktree-test-helpers';
 
 async function newWorkspace(): Promise<string> {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'sero-worktree-removal-'));
-  roots.push(root);
-  const workspace = path.join(root, 'workspace');
-  await execFileAsync('git', ['init', '-b', 'main', workspace]);
-  await git(workspace, 'config', 'user.email', 'test@example.com');
-  await git(workspace, 'config', 'user.name', 'Test');
-  await writeFile(path.join(workspace, 'readme.md'), 'hello');
-  await git(workspace, 'add', '.');
-  await git(workspace, 'commit', '-m', 'init');
-  return workspace;
+  return (await newWorkspaceRepo('sero-worktree-removal-')).workspace;
 }
 
-afterAll(async () => {
-  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
-});
+afterAll(removeWorkspaceRepos);
 
 describe('removeRegisteredWorktree', () => {
   it('keeps a dirty checkout, its contents and its registration when Git refuses', async () => {
@@ -78,7 +57,7 @@ describe('removeRegisteredWorktree', () => {
   it('reports an unregistered path without deleting anything at it', async () => {
     const workspace = await newWorkspace();
     const stray = path.join(workspace, '.sero', 'worktrees', 'card-stray');
-    await execFileAsync('mkdir', ['-p', stray]);
+    await mkdir(stray, { recursive: true });
     await writeFile(path.join(stray, 'keep.md'), 'not git\'s to delete');
 
     const outcome = await removeRegisteredWorktree(workspace, stray);
