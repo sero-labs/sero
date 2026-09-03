@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   reloadResources: vi.fn(async () => {}),
   createRuntimeTools: vi.fn(async () => []),
   getRuntime: vi.fn(),
+  bindRunCode: vi.fn(),
   // Captures the last DefaultResourceLoader constructor options (e.g. skillsOverride).
   lastLoaderOptions: null as Record<string, unknown> | null,
 }));
@@ -26,6 +27,13 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
 
 vi.mock('@electron/features/container/tools', () => ({
   createRuntimeTools: mocks.createRuntimeTools,
+}));
+
+vi.mock('@electron/features/code-mode', () => ({
+  createRunCodeController: () => ({
+    tool: { name: 'run_code', label: 'run code', description: '', parameters: {}, execute: vi.fn() },
+    bind: mocks.bindRunCode,
+  }),
 }));
 
 vi.mock('@electron/features/subagent/runtime/loader', () => ({
@@ -77,7 +85,9 @@ import type { RunnerConfig } from '@electron/features/subagent/core/types';
 import type { RunnerDeps } from '@electron/features/subagent/runtime/runner';
 
 function createSession() {
+  const activeTools = [{ name: 'read' }];
   return {
+    agent: { state: { tools: activeTools } },
     model: { id: 'claude-test-1', provider: 'anthropic' },
     setThinkingLevel: vi.fn(),
     subscribe: vi.fn((_listener?: (event: Record<string, unknown>) => void) => vi.fn()),
@@ -249,6 +259,17 @@ describe('runSubagent abort handling', () => {
 });
 
 describe('runSubagent context overrides', () => {
+  it('binds run_code to the completed session active tools', async () => {
+    const session = createSession();
+    mocks.createAgentSession.mockResolvedValueOnce({ session });
+
+    await runSubagent(createConfig(new AbortController().signal), createDeps());
+
+    expect(mocks.bindRunCode).toHaveBeenCalledOnce();
+    const provider = mocks.bindRunCode.mock.calls[0][0] as () => unknown[];
+    expect(provider()).toBe(session.agent.state.tools);
+  });
+
   it('drops disabled tools from the session tool surface', async () => {
     mocks.createRuntimeTools.mockResolvedValueOnce([
       { name: 'bash', description: '', parameters: {}, execute: vi.fn() },
@@ -265,7 +286,19 @@ describe('runSubagent context overrides', () => {
     const options = mocks.createAgentSession.mock.calls[0][0] as { customTools: { name: string }[] };
     const names = options.customTools.map((t) => t.name);
     expect(names).toContain('read');
+    expect(names).toContain('run_code');
     expect(names).not.toContain('bash');
+  });
+
+  it('can disable run_code through the existing disabled-tools policy', async () => {
+    mocks.createAgentSession.mockResolvedValueOnce({ session: createSession() });
+    const config = createConfig(new AbortController().signal);
+    config.disabledTools = ['run_code'];
+
+    await runSubagent(config, createDeps());
+
+    const options = mocks.createAgentSession.mock.calls[0][0] as { customTools: { name: string }[] };
+    expect(options.customTools.map((tool) => tool.name)).not.toContain('run_code');
   });
 
   it('applies a per-step tool allowlist to the session', async () => {

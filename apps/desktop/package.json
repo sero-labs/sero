@@ -70,6 +70,7 @@
     "glob": "^11.0.3",
     "node-pty": "^1.1.0",
     "qrcode": "^1.5.4",
+    "run": "2.1.2",
     "supports-color": "7.2.0",
     "typebox": "catalog:",
     "undici": "8.9.0",
