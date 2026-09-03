@@ -203,6 +203,21 @@ async function invokeTool(
   }
 }
 
+function serializeBeforeToolCall(hooks?: NestedToolCallHooks): NestedToolCallHooks | undefined {
+  const beforeToolCall = hooks?.beforeToolCall;
+  if (!hooks || !beforeToolCall) return hooks;
+
+  let pending = Promise.resolve();
+  return {
+    ...hooks,
+    beforeToolCall(context, signal) {
+      const current = pending.then(() => beforeToolCall(context, signal));
+      pending = current.then(() => undefined, () => undefined);
+      return current;
+    },
+  };
+}
+
 function dispatcherArguments(input: unknown): { name: string; args: unknown } {
   if (!isRecord(input) || typeof input.name !== 'string' || !Object.hasOwn(input, 'args')) {
     throw new Error("tools.call expects { name: 'tool-name', args: { ... } }.");
@@ -215,18 +230,19 @@ export function createToolHostFunctions(
   trace: NestedCallTrace,
   hooks?: NestedToolCallHooks,
 ): Record<string, ToolHostFunction> {
+  const serializedHooks = serializeBeforeToolCall(hooks);
   const hostFunctions: Record<string, ToolHostFunction> = {
     call: async (input) => {
       const { name, args } = dispatcherArguments(input);
       const tool = tools.get(name);
       if (!tool) throw new Error(`Tool '${name}' is not active in this session.`);
-      return invokeTool(tool, args, trace, hooks);
+      return invokeTool(tool, args, trace, serializedHooks);
     },
   };
 
   for (const [name, tool] of tools) {
     if (canExposeDirectly(name)) {
-      hostFunctions[name] = async (input) => invokeTool(tool, input, trace, hooks);
+      hostFunctions[name] = async (input) => invokeTool(tool, input, trace, serializedHooks);
     }
   }
   return hostFunctions;

@@ -356,6 +356,46 @@ describe('run_code tool', () => {
     });
   });
 
+  it('serializes beforeToolCall hooks for concurrent nested calls', async () => {
+    const echo = createTool('echo', Type.Object({ value: Type.String() }), async () => ({
+      content: [{ type: 'text', text: 'ok' }],
+      details: undefined,
+    }));
+    let releaseFirst = (): void => undefined;
+    const firstGate = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    let markFirstStarted = (): void => undefined;
+    const firstStarted = new Promise<void>((resolve) => {
+      markFirstStarted = resolve;
+    });
+    let callCount = 0;
+    const beforeToolCall = vi.fn<NonNullable<RunCodeAgent['beforeToolCall']>>(async () => {
+      callCount += 1;
+      if (callCount === 1) {
+        markFirstStarted();
+        await firstGate;
+      }
+      return undefined;
+    });
+    const controller = createRunCodeController();
+    controller.bind(runCodeAgent([echo], { beforeToolCall }));
+
+    const result = invokeRunCode(controller, `
+      return await Promise.all([
+        tools.echo({ value: 'first' }),
+        tools.echo({ value: 'second' }),
+      ]);
+    `);
+    await firstStarted;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(beforeToolCall).toHaveBeenCalledOnce();
+    releaseFirst();
+    await expect(result).resolves.toBeDefined();
+    expect(beforeToolCall).toHaveBeenCalledTimes(2);
+  });
+
   it('reports nested tool and runtime failures through one tool failure', async () => {
     const fail = createTool('fail', Type.Object({}), async () => {
       throw new Error('fixture failed');
