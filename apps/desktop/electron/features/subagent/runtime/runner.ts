@@ -19,6 +19,7 @@ import type { RunnerConfig, RunResult, SubagentUsage, SubagentToolActivity, Plat
 import type { SharedInfra } from '@electron/shared/infra/shared-infra';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { createRuntimeTools } from '@electron/features/container/tools';
+import { createRunCodeController } from '@electron/features/code-mode';
 import { SEARCH_TOOL_NAMES } from '@electron/features/apps/extensions/search-plugin';
 import { WORKSPACE_DIR } from '@electron/features/container/tools/tool-schemas';
 import { createSubagentResourceLoader } from './resource-loader';
@@ -196,7 +197,8 @@ export async function runSubagent(
   }
   // User context override: drop disabled tools from the surface entirely.
   const disabledTools = new Set(config.disabledTools ?? []);
-  const customTools = [...platformTools, ...(config.customTools ?? [])].filter(
+  const runCode = createRunCodeController();
+  const customTools = [...platformTools, ...(config.customTools ?? []), runCode.tool].filter(
     (tool) => !disabledTools.has(tool.name),
   );
 
@@ -253,6 +255,7 @@ export async function runSubagent(
     };
     const result = await createAgentSession(sessionOptions);
     session = result.session;
+    runCode.bind(session.agent);
 
     let effectiveThinking = resolved.thinking;
 
