@@ -162,6 +162,14 @@ the requested deliverable.
 
 ### 8. Validate
 
+Keep validation proportional to the artifact. For a standalone HTML prototype
+plus its archive link, use the served browser review, the targeted styleguide
+build when its dependencies are already available, and `git diff --check`. Do
+not install the full monorepo, run repository-wide checks, or rebuild unrelated
+packages only to validate a design artifact. If a requested commit has a wider
+repository gate that would require substantial environment setup, pause and
+tell the user before expanding the work.
+
 Run:
 
 ```bash
