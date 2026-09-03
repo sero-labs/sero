@@ -266,8 +266,7 @@ describe('runSubagent context overrides', () => {
     await runSubagent(createConfig(new AbortController().signal), createDeps());
 
     expect(mocks.bindRunCode).toHaveBeenCalledOnce();
-    const provider = mocks.bindRunCode.mock.calls[0][0] as () => unknown[];
-    expect(provider()).toBe(session.agent.state.tools);
+    expect(mocks.bindRunCode).toHaveBeenCalledWith(session.agent);
   });
 
   it('drops disabled tools from the session tool surface', async () => {

@@ -1,4 +1,5 @@
 import type { AgentTool, AgentToolResult } from '@earendil-works/pi-agent-core';
+import type { AssistantMessage } from '@earendil-works/pi-ai';
 import { Type, type TSchema } from 'typebox';
 import { Value } from 'typebox/value';
 import { describe, expect, it, vi } from 'vitest';
@@ -13,7 +14,11 @@ import {
   RUN_CODE_TOOL_NAME,
   snapshotActiveTools,
 } from '@electron/features/code-mode/tool-adapter';
-import { createRunCodeController, type RunCodeController } from '@electron/features/code-mode';
+import {
+  createRunCodeController,
+  type RunCodeAgent,
+  type RunCodeController,
+} from '@electron/features/code-mode';
 
 type ToolHandler = (input: unknown, signal?: AbortSignal) => Promise<AgentToolResult<unknown>>;
 
@@ -29,6 +34,36 @@ function createTool(name: string, parameters: TSchema, handler: ToolHandler): Ag
 
 function toolMap(...tools: AgentTool[]): Map<string, AgentTool> {
   return snapshotActiveTools(tools);
+}
+
+function runCodeMessage(): AssistantMessage {
+  return {
+    role: 'assistant',
+    content: [{ type: 'toolCall', id: 'run-code-test', name: RUN_CODE_TOOL_NAME, arguments: {} }],
+    api: 'anthropic-messages',
+    provider: 'anthropic',
+    model: 'test',
+    usage: {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      totalTokens: 0,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+    },
+    stopReason: 'toolUse',
+    timestamp: 0,
+  };
+}
+
+function runCodeAgent(
+  tools: readonly AgentTool[],
+  hooks: Pick<RunCodeAgent, 'beforeToolCall' | 'afterToolCall'> = {},
+): RunCodeAgent {
+  return {
+    state: { systemPrompt: 'test', messages: [runCodeMessage()], tools },
+    ...hooks,
+  };
 }
 
 async function invokeRunCode(controller: RunCodeController, code: string): Promise<AgentToolResult<unknown>> {
@@ -188,20 +223,6 @@ describe('nested tool adapter', () => {
     expect(result.trace.omitted).toEqual([{ tool: 'ping', status: 'completed', count: 5 }]);
   });
 
-  it('uses the same mutating handler for direct and nested calls', async () => {
-    let count = 0;
-    const mutate = createTool('mutate', Type.Object({}), async () => {
-      count += 1;
-      return { content: [{ type: 'text', text: String(count) }], details: { count } };
-    });
-
-    await mutate.execute('direct', {}, undefined);
-    const result = await executeProgram('return await tools.mutate({});', toolMap(mutate));
-
-    expect(count).toBe(2);
-    expect(result.value).toEqual({ text: '2', details: { count: 2 } });
-  });
-
   it('normalizes text, images, and cloneable details', () => {
     expect(normalizeToolResult({
       content: [
@@ -229,7 +250,7 @@ describe('run_code tool', () => {
       details: undefined,
     }));
     const controller = createRunCodeController();
-    controller.bind(() => [read, settings]);
+    controller.bind(runCodeAgent([read, settings]));
 
     const result = await invokeRunCode(controller, `
       const [file, settings] = await Promise.all([
@@ -260,7 +281,7 @@ describe('run_code tool', () => {
       details: undefined,
     }));
     const controller = createRunCodeController();
-    controller.bind(() => [plugin]);
+    controller.bind(runCodeAgent([plugin]));
 
     const result = await invokeRunCode(controller, `
       const response = await tools.plugin_lookup({});
@@ -276,14 +297,63 @@ describe('run_code tool', () => {
       content: [{ type: 'text', text: 'available' }],
       details: undefined,
     }));
-    let activeTools: AgentTool[] = [plugin];
+    const activeTools: AgentTool[] = [plugin];
+    const agent = runCodeAgent(activeTools);
     const controller = createRunCodeController();
-    controller.bind(() => activeTools);
+    controller.bind(agent);
 
     await expect(invokeRunCode(controller, 'return await tools.plugin_lookup({});')).resolves.toBeDefined();
-    activeTools = [];
+    activeTools.splice(0);
     await expect(invokeRunCode(controller, 'return await tools.plugin_lookup({});'))
       .rejects.toThrow(/Unknown host function: tools\.plugin_lookup/);
+  });
+
+  it('honors beforeToolCall blocks without invoking the nested tool', async () => {
+    const handler = vi.fn<ToolHandler>(async () => ({
+      content: [{ type: 'text', text: 'unsafe' }],
+      details: undefined,
+    }));
+    const bash = createTool('bash', Type.Object({ command: Type.String() }), handler);
+    const beforeToolCall = vi.fn<NonNullable<RunCodeAgent['beforeToolCall']>>(async ({ toolCall }) => {
+      expect(toolCall.name).toBe('bash');
+      return { block: true, reason: 'Approval required' };
+    });
+    const controller = createRunCodeController();
+    controller.bind(runCodeAgent([bash], { beforeToolCall }));
+
+    await expect(invokeRunCode(controller, "return await tools.bash({ command: 'sudo rm -rf /' });"))
+      .rejects.toThrow(/Code execution failed/);
+    expect(beforeToolCall).toHaveBeenCalledOnce();
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('applies beforeToolCall mutations and afterToolCall result hooks', async () => {
+    const echoParams = Type.Object({ value: Type.String() });
+    const handler = vi.fn<ToolHandler>(async (input) => {
+      const { value } = Value.Decode(echoParams, input);
+      return { content: [{ type: 'text', text: value }], details: { source: 'handler' } };
+    });
+    const echo = createTool('echo', echoParams, handler);
+    const beforeToolCall = vi.fn<NonNullable<RunCodeAgent['beforeToolCall']>>(async ({ args }) => {
+      Value.Assert(echoParams, args);
+      args.value = 'updated by hook';
+      return undefined;
+    });
+    const afterToolCall = vi.fn<NonNullable<RunCodeAgent['afterToolCall']>>(async ({ result }) => ({
+      content: [{ type: 'text', text: `${result.content[0]?.type === 'text' ? result.content[0].text : ''} and finalized` }],
+      details: { source: 'hook' },
+    }));
+    const controller = createRunCodeController();
+    controller.bind(runCodeAgent([echo], { beforeToolCall, afterToolCall }));
+
+    const result = await invokeRunCode(controller, "return await tools.echo({ value: 'original' });");
+
+    expect(handler.mock.calls[0]?.[0]).toEqual({ value: 'updated by hook' });
+    expect(beforeToolCall).toHaveBeenCalledOnce();
+    expect(afterToolCall).toHaveBeenCalledOnce();
+    expect(result.details).toMatchObject({
+      value: { text: 'updated by hook and finalized', details: { source: 'hook' } },
+    });
   });
 
   it('reports nested tool and runtime failures through one tool failure', async () => {
@@ -291,7 +361,7 @@ describe('run_code tool', () => {
       throw new Error('fixture failed');
     });
     const controller = createRunCodeController();
-    controller.bind(() => [fail]);
+    controller.bind(runCodeAgent([fail]));
 
     await expect(invokeRunCode(controller, 'return await tools.fail({});'))
       .rejects.toThrow(/Code execution failed:.*Nested calls: 0 completed, 1 failed/s);

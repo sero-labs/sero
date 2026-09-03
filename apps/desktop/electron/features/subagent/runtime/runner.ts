@@ -255,7 +255,7 @@ export async function runSubagent(
     };
     const result = await createAgentSession(sessionOptions);
     session = result.session;
-    runCode.bind(() => session?.agent.state.tools ?? []);
+    runCode.bind(session.agent);
 
     let effectiveThinking = resolved.thinking;
 

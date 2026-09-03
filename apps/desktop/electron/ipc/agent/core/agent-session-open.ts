@@ -181,7 +181,7 @@ export async function openSessionInPool({
     sessionManager: SessionManager.open(sessionPath, SERO_SESSION_DIR),
     settingsManager: infra.settingsManager,
   });
-  runCode.bind(() => session.agent.state.tools);
+  runCode.bind(session.agent);
 
   session.extensionRunner?.setUIContext(createSeroUIContext());
 

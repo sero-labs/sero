@@ -1,4 +1,5 @@
-import type { AgentTool } from '@earendil-works/pi-agent-core';
+import type { Agent, AgentMessage, AgentTool } from '@earendil-works/pi-agent-core';
+import type { AssistantMessage } from '@earendil-works/pi-ai';
 import type { AgentToolResult, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { inspect } from 'node:util';
 import { Type } from 'typebox';
@@ -21,8 +22,16 @@ export interface RunCodeDetails {
 
 export interface RunCodeController {
   tool: ToolDefinition;
-  bind(getActiveTools: () => readonly AgentTool[]): void;
+  bind(agent: RunCodeAgent): void;
 }
+
+export type RunCodeAgent = {
+  readonly state: {
+    readonly systemPrompt: string;
+    readonly messages: readonly AgentMessage[];
+    readonly tools: readonly AgentTool[];
+  };
+} & Partial<Pick<Agent, 'beforeToolCall' | 'afterToolCall'>>;
 
 function formatValue(value: unknown): string {
   if (value === undefined) return 'undefined';
@@ -37,8 +46,18 @@ function formatTrace(trace: NestedCallTraceSummary): string {
   return `${completed} completed, ${failed} failed${omitted === 0 ? '' : `, ${omitted} omitted`}`;
 }
 
+function parentAssistantMessage(messages: readonly AgentMessage[], toolCallId: string): AssistantMessage | undefined {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role === 'assistant' && message.content.some(
+      (item) => item.type === 'toolCall' && item.id === toolCallId,
+    )) return message;
+  }
+  return undefined;
+}
+
 export function createRunCodeController(): RunCodeController {
-  let activeTools: (() => readonly AgentTool[]) | undefined;
+  let agent: RunCodeAgent | undefined;
   const tool: ToolDefinition = {
     name: RUN_CODE_TOOL_NAME,
     label: 'run code',
@@ -52,15 +71,30 @@ export function createRunCodeController(): RunCodeController {
       'No imports, Node.js, filesystem, environment, or network APIs are available except through tools.',
     parameters: RunCodeParams,
     async execute(
-      _toolCallId,
+      toolCallId,
       params,
       signal,
     ): Promise<AgentToolResult<RunCodeDetails>> {
-      if (!activeTools) throw new Error('run_code is not bound to an agent session.');
+      if (!agent) throw new Error('run_code is not bound to an agent session.');
       Value.Assert(RunCodeParams, params);
-      const tools = snapshotActiveTools(activeTools());
+      const tools = snapshotActiveTools(agent.state.tools);
+      const hasHooks = agent.beforeToolCall !== undefined || agent.afterToolCall !== undefined;
+      const assistantMessage = parentAssistantMessage(agent.state.messages, toolCallId);
+      if (hasHooks && !assistantMessage) {
+        throw new Error('run_code could not resolve its parent assistant message.');
+      }
+      const hooks = assistantMessage ? {
+        assistantMessage,
+        context: {
+          systemPrompt: agent.state.systemPrompt,
+          messages: [...agent.state.messages],
+          tools: [...agent.state.tools],
+        },
+        beforeToolCall: agent.beforeToolCall,
+        afterToolCall: agent.afterToolCall,
+      } : undefined;
       try {
-        const result = await executeProgram(params.code, tools, signal);
+        const result = await executeProgram(params.code, tools, signal, hooks);
         return {
           content: [{
             type: 'text',
@@ -79,8 +113,8 @@ export function createRunCodeController(): RunCodeController {
 
   return {
     tool,
-    bind(getActiveTools): void {
-      activeTools = getActiveTools;
+    bind(activeAgent): void {
+      agent = activeAgent;
     },
   };
 }

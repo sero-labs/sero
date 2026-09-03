@@ -1,6 +1,9 @@
 import { createRunner, type RunLimits } from 'run';
 
-import { createToolHostFunctions } from '@electron/features/code-mode/tool-adapter';
+import {
+  createToolHostFunctions,
+  type NestedToolCallHooks,
+} from '@electron/features/code-mode/tool-adapter';
 import { NestedCallTrace, type NestedCallTraceSummary } from '@electron/features/code-mode/trace';
 import type { AgentTool } from '@earendil-works/pi-agent-core';
 
@@ -45,13 +48,14 @@ export async function executeProgram(
   source: string,
   tools: ReadonlyMap<string, AgentTool>,
   abortSignal?: AbortSignal,
+  hooks?: NestedToolCallHooks,
 ): Promise<ProgramExecutionResult> {
   const trace = new NestedCallTrace();
   try {
     const result = await runner.run({
       source,
       abortSignal,
-      hostFunctions: { tools: createToolHostFunctions(tools, trace) },
+      hostFunctions: { tools: createToolHostFunctions(tools, trace, hooks) },
     });
     if (result.status !== 'completed') {
       throw new Error('Program interruption is not supported.');
