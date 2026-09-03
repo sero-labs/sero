@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sero Agent Studio — product options</title>
+<style>
+:root{
+  --bg-base:#0a0a0b;--bg-surface:#111113;--bg-elevated:#18181b;--bg-overlay:#1f1f23;--bg-muted:#27272a;
+  --border-subtle:#27272a;--border-default:#3f3f46;--border-focus:#34d399;
+  --text-primary:#fafafa;--text-secondary:#a1a1aa;--text-muted:#71717a;--text-inverse:#09090b;
+  --brand-primary:#34d399;--brand-primary-hover:#6ee7b7;--brand-primary-foreground:#052e1c;
+  --brand-primary-muted:rgba(52,211,153,.1);--brand-primary-subtle:rgba(52,211,153,.15);--brand-primary-border:rgba(52,211,153,.2);
+  --brand-secondary:#c4b5fd;--brand-secondary-muted:rgba(196,181,253,.1);--brand-secondary-border:rgba(196,181,253,.2);
+  --success:#22c55e;--success-muted:rgba(34,197,94,.1);--success-border:rgba(34,197,94,.2);
+  --warning:#f59e0b;--warning-muted:rgba(245,158,11,.1);--warning-border:rgba(245,158,11,.2);
+  --error:#ef4444;--error-muted:rgba(239,68,68,.1);--error-border:rgba(239,68,68,.2);
+  --info:#3b82f6;--info-muted:rgba(59,130,246,.1);--info-border:rgba(59,130,246,.2);
+  --font-sans:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --font-mono:"JetBrains Mono","SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{background:#070708;color-scheme:dark}
+body{margin:0;background:#070708;color:var(--text-primary);font:14px/1.5 var(--font-sans);-webkit-font-smoothing:antialiased}
+button,input,textarea{font:inherit}
+button{cursor:pointer}
+button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--border-focus);outline-offset:2px}
+.page{width:min(1240px,calc(100% - 40px));margin:0 auto;padding:48px 0 96px}
+.eyebrow{color:var(--brand-primary);font:600 11px/1 var(--font-mono);letter-spacing:.12em;text-transform:uppercase}
+h1,h2,h3,p{margin:0}
+h1{margin-top:10px;font-size:30px;line-height:1.2;letter-spacing:-.035em;font-weight:650}
+.intro{max-width:850px;color:var(--text-secondary);margin-top:12px;font-size:14px;line-height:1.65}
+.decision{display:flex;align-items:flex-start;gap:12px;margin-top:20px;padding:13px 14px;border:1px solid var(--brand-primary-border);border-radius:10px;background:var(--brand-primary-muted);max-width:850px}
+.decision svg{width:18px;height:18px;flex:0 0 auto;color:var(--brand-primary);margin-top:1px}
+.decision b{display:block;font-size:13px;font-weight:650}.decision span{display:block;color:var(--text-secondary);font-size:12px;margin-top:2px}
+.options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:32px}
+.option{min-height:190px;padding:16px;text-align:left;border:1px solid var(--border-subtle);border-radius:12px;background:var(--bg-surface);color:var(--text-primary);transition:border-color 120ms ease,background 120ms ease,transform 120ms ease}
+.option:hover{border-color:var(--border-default);transform:translateY(-1px)}
+.option[aria-selected="true"]{border-color:var(--brand-primary);background:linear-gradient(150deg,var(--brand-primary-muted),var(--bg-surface) 52%)}
+.option-top{display:flex;align-items:center;gap:10px}.option-icon{width:32px;height:32px;display:grid;place-items:center;border-radius:9px;background:var(--bg-elevated);color:var(--text-secondary)}
+.option-icon svg{width:16px;height:16px}.option[aria-selected="true"] .option-icon{background:var(--brand-primary-subtle);color:var(--brand-primary)}
+.tag{margin-left:auto;padding:3px 7px;border:1px solid var(--border-default);border-radius:999px;color:var(--text-muted);font:10px/1.2 var(--font-mono);text-transform:uppercase}
+.tag.good{border-color:var(--brand-primary-border);color:var(--brand-primary)}
+.option h2{margin-top:14px;font-size:16px;font-weight:630;letter-spacing:-.01em}.option p{margin-top:5px;color:var(--text-secondary);font-size:12px;line-height:1.55}
+.value{display:flex;gap:6px;margin-top:13px;color:var(--text-muted);font:11px var(--font-mono)}.value b{color:var(--text-secondary);font-weight:500}
+.review{margin-top:30px}.review-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:10px}.review-head h2{font-size:17px;font-weight:630}.review-head p{color:var(--text-muted);font-size:12px}
+.frame{height:720px;border:1px solid var(--border-subtle);border-radius:13px;background:var(--bg-base);overflow:hidden;box-shadow:0 28px 80px rgba(0,0,0,.28)}
+.appbar{height:50px;display:flex;align-items:center;gap:12px;padding:0 14px;border-bottom:1px solid var(--border-subtle);background:var(--bg-surface)}
+.brand{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:620}.mark{width:25px;height:25px;display:grid;place-items:center;border-radius:7px;background:var(--brand-primary-muted);color:var(--brand-primary)}.mark svg{width:14px;height:14px}
+.appbar .divider{height:20px;width:1px;background:var(--border-subtle)}.crumb{color:var(--text-secondary);font-size:12px}.spacer{flex:1}
+.btn{height:32px;display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:0 11px;border:1px solid var(--border-default);border-radius:7px;background:var(--bg-elevated);color:var(--text-secondary);font-size:12px;font-weight:530}
+.btn:hover{background:var(--bg-overlay);color:var(--text-primary)}.btn.primary{border-color:transparent;background:var(--brand-primary);color:var(--brand-primary-foreground);font-weight:650}.btn.ghost{border-color:transparent;background:transparent}.btn svg{width:14px;height:14px}.btn[disabled]{opacity:.42;cursor:not-allowed}
+.shell{display:grid;grid-template-columns:190px minmax(0,1fr);height:calc(100% - 50px)}
+.side{padding:14px 10px;border-right:1px solid var(--border-subtle);background:var(--bg-surface)}
+.side-label{padding:7px 9px;color:var(--text-muted);font:600 10px var(--font-mono);letter-spacing:.09em;text-transform:uppercase}
+.nav{width:100%;height:34px;display:flex;align-items:center;gap:9px;padding:0 9px;border:0;border-radius:7px;background:transparent;color:var(--text-secondary);text-align:left;font-size:12px}.nav svg{width:14px;height:14px}.nav.active{background:var(--bg-overlay);color:var(--text-primary)}.nav.active svg{color:var(--brand-primary)}
+.main{min-width:0;overflow:hidden}.main-head{height:64px;display:flex;align-items:center;gap:12px;padding:0 18px;border-bottom:1px solid var(--border-subtle)}.main-head h3{font-size:15px;font-weight:630}.main-head p{color:var(--text-muted);font-size:11px;margin-top:2px}
+.panel{display:none;height:calc(100% - 64px);overflow:auto}.panel.active{display:block}
+.callout{margin:16px;padding:12px 14px;border:1px solid var(--border-subtle);border-radius:9px;background:var(--bg-surface);display:flex;align-items:flex-start;gap:10px}.callout svg{width:16px;height:16px;flex:0 0 auto;margin-top:1px}.callout b{display:block;font-size:12px}.callout span{display:block;color:var(--text-muted);font-size:11px;margin-top:2px}.callout.warn{border-color:var(--warning-border);background:var(--warning-muted)}.callout.warn svg{color:var(--warning)}
+.builder{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(330px,.85fr);gap:0;height:100%}.builder>div{padding:18px}.builder>div+div{border-left:1px solid var(--border-subtle);background:var(--bg-surface)}
+.label{display:block;color:var(--text-secondary);font-size:11px;font-weight:600;margin-bottom:6px}.input,.area{width:100%;border:1px solid var(--border-default);border-radius:8px;background:var(--bg-base);color:var(--text-primary);padding:9px 10px;font-size:12px}.area{min-height:112px;resize:none;line-height:1.55}.field+.field{margin-top:14px}.hint{color:var(--text-muted);font-size:10px;margin-top:5px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{padding:5px 8px;border:1px solid var(--border-default);border-radius:999px;color:var(--text-secondary);font-size:10px}.chip.on{border-color:var(--brand-primary-border);background:var(--brand-primary-muted);color:var(--brand-primary)}
+.code{border:1px solid var(--border-subtle);border-radius:9px;background:var(--bg-base);overflow:hidden}.code-head{height:34px;display:flex;align-items:center;padding:0 10px;border-bottom:1px solid var(--border-subtle);color:var(--text-muted);font:10px var(--font-mono)}pre{margin:0;padding:12px;color:var(--text-secondary);font:11px/1.6 var(--font-mono);white-space:pre-wrap}.key{color:var(--brand-secondary)}.str{color:var(--brand-primary)}
+.footer-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:15px}
+.lab-layout{display:grid;grid-template-columns:250px minmax(0,1fr);height:100%}.cases{padding:12px;border-right:1px solid var(--border-subtle);background:var(--bg-surface)}.case{width:100%;padding:11px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--text-primary);text-align:left}.case+.case{margin-top:5px}.case.active{border-color:var(--brand-primary-border);background:var(--brand-primary-muted)}.case-title{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:580}.case p{color:var(--text-muted);font-size:10px;margin-top:4px}.dot{width:7px;height:7px;border-radius:50%;background:var(--text-muted)}.dot.pass{background:var(--success)}.dot.fail{background:var(--error)}.dot.run{background:var(--brand-primary);box-shadow:0 0 0 4px var(--brand-primary-muted)}
+.results{padding:16px;overflow:auto}.result-top{display:flex;align-items:flex-start;gap:10px}.result-top h3{font-size:14px}.result-top p{color:var(--text-muted);font-size:11px;margin-top:2px}.seg{display:flex;margin-left:auto;padding:3px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-surface)}.seg button{height:27px;padding:0 9px;border:0;border-radius:5px;background:transparent;color:var(--text-muted);font-size:10px}.seg button.active{background:var(--bg-overlay);color:var(--text-primary)}
+.scorecards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.score{border:1px solid var(--border-subtle);border-radius:10px;background:var(--bg-surface);padding:12px}.score.winner{border-color:var(--brand-primary-border)}.score-top{display:flex;align-items:center;gap:8px}.score-name{font-size:12px;font-weight:620}.badge{padding:3px 6px;border:1px solid var(--border-default);border-radius:999px;color:var(--text-muted);font:9px var(--font-mono);text-transform:uppercase}.badge.pass{border-color:var(--success-border);background:var(--success-muted);color:var(--success)}.badge.warn{border-color:var(--warning-border);background:var(--warning-muted);color:var(--warning)}.metric{display:grid;grid-template-columns:1fr auto;gap:6px;padding:8px 0;border-top:1px solid var(--border-subtle);font-size:10px}.metric:first-of-type{margin-top:10px}.metric span{color:var(--text-muted)}.metric b{font:500 10px var(--font-mono);color:var(--text-secondary)}
+.evidence{margin-top:12px;border:1px solid var(--border-subtle);border-radius:10px;background:var(--bg-surface);overflow:hidden}.evidence-head{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border-subtle);font-size:11px;font-weight:600}.evidence-row{display:grid;grid-template-columns:20px 150px 1fr;gap:8px;padding:9px 12px;border-top:1px solid var(--border-subtle);font-size:10px}.evidence-row:first-of-type{border-top:0}.check{color:var(--success)}.cross{color:var(--error)}.evidence-row span{color:var(--text-muted)}.evidence-row b{font-weight:500;color:var(--text-secondary)}
+.versions{display:grid;grid-template-columns:minmax(0,1fr) 310px;height:100%}.version-list{padding:16px}.version{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px;border:1px solid var(--border-subtle);border-radius:9px;background:var(--bg-surface)}.version+.version{margin-top:8px}.vnum{font:11px var(--font-mono);color:var(--text-muted)}.version h3{font-size:12px}.version p{color:var(--text-muted);font-size:10px;margin-top:3px}.version-side{padding:16px;border-left:1px solid var(--border-subtle);background:var(--bg-surface)}.stat{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border-subtle);font-size:11px}.stat span{color:var(--text-muted)}.stat b{font:500 11px var(--font-mono)}
+.coach{padding:16px}.health{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.health-card{padding:12px;border:1px solid var(--border-subtle);border-radius:9px;background:var(--bg-surface)}.health-card span{color:var(--text-muted);font-size:10px}.health-card b{display:block;margin-top:5px;font:600 18px var(--font-mono)}.health-card small{color:var(--text-muted);font-size:9px}.insight{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:11px;align-items:start;margin-top:12px;padding:13px;border:1px solid var(--warning-border);border-radius:10px;background:var(--warning-muted)}.insight-icon{width:30px;height:30px;display:grid;place-items:center;border-radius:8px;background:rgba(245,158,11,.12);color:var(--warning)}.insight-icon svg{width:15px}.insight h3{font-size:12px}.insight p{color:var(--text-secondary);font-size:10px;margin-top:4px;line-height:1.55}.insight small{display:block;color:var(--text-muted);font-size:9px;margin-top:6px}
+.not-now{display:flex;align-items:flex-start;gap:9px;margin-top:14px;padding:11px;border:1px dashed var(--border-default);border-radius:9px;color:var(--text-muted);font-size:10px}.not-now svg{width:14px;flex:0 0 auto}
+.screen-note{display:none}.screen-note.active{display:block}
+@media(max-width:900px){.options{grid-template-columns:1fr}.frame{height:auto;min-height:760px}.shell{grid-template-columns:1fr}.side{display:none}.builder,.lab-layout,.versions{grid-template-columns:1fr}.builder>div+div,.version-side{border-left:0;border-top:1px solid var(--border-subtle)}.cases{display:none}.health{grid-template-columns:1fr 1fr}.scorecards{grid-template-columns:1fr}.page{width:min(100% - 24px,720px)}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main class="page">
+  <div class="eyebrow">Product review · Agent definitions</div>
+  <h1>Three products hiding inside one plugin idea</h1>
+  <p class="intro">The review question is not how to make agent Markdown easier to edit. It is which product helps a user create a specialist, prove that it is useful, and improve it without guessing. Select an option to compare the workflows.</p>
+  <div class="decision">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+    <div><b>Recommended: build Agent Lab first.</b><span>Generate an unsaved candidate, run it against small trial tasks, compare the evidence, then promote it to the profile. Add Agent Coach only after Sero records definition versions on real subagent runs.</span></div>
+  </div>
+
+  <div class="options" role="tablist" aria-label="Product options">
+    <button class="option" role="tab" aria-selected="false" data-option="builder">
+      <div class="option-top"><span class="option-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span><span class="tag">Baseline</span></div>
+      <h2>A · Guided Builder</h2><p>Describe a role, generate the frontmatter and prompt, then edit and save it.</p>
+      <div class="value"><span>Value</span><b>Faster authoring</b><span>·</span><span>Risk</span><b>Alternate editor</b></div>
+    </button>
+    <button class="option" role="tab" aria-selected="true" data-option="lab">
+      <div class="option-top"><span class="option-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6"/><path d="M10 9V3h4v6l5 9a2 2 0 0 1-1.7 3H6.7A2 2 0 0 1 5 18Z"/><path d="M8 15h8"/></svg></span><span class="tag good">Recommended</span></div>
+      <h2>B · Agent Lab</h2><p>Create a candidate, test real tasks, compare variants and cost, then promote a proven version.</p>
+      <div class="value"><span>Value</span><b>Evidence before trust</b><span>·</span><span>Build</span><b>Moderate</b></div>
+    </button>
+    <button class="option" role="tab" aria-selected="false" data-option="coach">
+      <div class="option-top"><span class="option-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m7 16 4-5 3 3 5-7"/></svg></span><span class="tag">Later</span></div>
+      <h2>C · Agent Coach</h2><p>Use real run history to find weak instructions, propose a revision, and compare it with the active version.</p>
+      <div class="value"><span>Value</span><b>Compounding quality</b><span>·</span><span>Build</span><b>High</b></div>
+    </button>
+  </div>
+
+  <section class="review">
+    <div class="review-head"><div><div class="eyebrow">Selected workflow</div><h2 id="review-title">B · Agent Lab</h2></div><p id="review-note">Test before the definition becomes global.</p></div>
+    <div class="frame">
+      <div class="appbar">
+        <div class="brand"><span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6"/><path d="M10 9V3h4v6l5 9a2 2 0 0 1-1.7 3H6.7A2 2 0 0 1 5 18Z"/></svg></span>Agent Studio</div>
+        <div class="divider"></div><div class="crumb" id="crumb">Review agent · release-reviewer</div><div class="spacer"></div>
+        <button class="btn ghost" type="button">Open in Admin</button><button class="btn primary" type="button" id="primary-action">Promote version</button>
+      </div>
+      <div class="shell">
+        <nav class="side" aria-label="Agent Studio">
+          <div class="side-label">Agent</div>
+          <button class="nav" type="button" data-screen="define"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Define</button>
+          <button class="nav active" type="button" data-screen="evaluate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6"/><path d="M10 9V3h4v6l5 9a2 2 0 0 1-1.7 3H6.7A2 2 0 0 1 5 18Z"/></svg>Evaluate</button>
+          <button class="nav" type="button" data-screen="versions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg>Versions</button>
+          <div class="side-label" style="margin-top:12px">Profile agents</div>
+          <button class="nav" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>release-reviewer</button>
+          <button class="nav" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>scout</button>
+          <button class="nav" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>reviewer</button>
+        </nav>
+        <div class="main">
+          <div class="main-head"><div><h3 id="screen-title">Evaluate release-reviewer</h3><p id="screen-subtitle">Run the same trial tasks against the current and candidate versions.</p></div><div class="spacer"></div><button class="btn" id="secondary-action" type="button">Run all trials</button></div>
+
+          <section class="panel" data-panel="define">
+            <div class="builder">
+              <div>
+                <div class="field"><label class="label" for="outcome">What should this agent do well?</label><textarea class="area" id="outcome">Review a release pull request. Find only issues that should block the release. Use repository evidence and ignore style preferences.</textarea></div>
+                <div class="field"><span class="label">Where will you use it?</span><div class="chips"><span class="chip on">Subagent</span><span class="chip on">Workflow step</span><span class="chip">Room member</span></div></div>
+                <div class="field"><label class="label" for="success">What does a good result contain?</label><textarea class="area" id="success">Every finding cites a file and line. No finding is a minor style point. Return “green” when there is no release blocker.</textarea><div class="hint">These statements become trial criteria. They do not become prompt text automatically.</div></div>
+                <div class="footer-actions"><button class="btn" type="button">Use a past task</button><button class="btn primary" type="button">Generate candidate</button></div>
+              </div>
+              <div>
+                <span class="label">Candidate · not saved</span>
+                <div class="code"><div class="code-head">release-reviewer.md · generated from the brief</div><pre>{
+  <span class="key">"name"</span>: <span class="str">"release-reviewer"</span>,
+  <span class="key">"description"</span>: <span class="str">"Finds release-blocking PR issues"</span>,
+  <span class="key">"model"</span>: <span class="str">"MED"</span>,
+  <span class="key">"thinking"</span>: <span class="str">"medium"</span>
+}
+
+You review a release pull request for issues that can cause incorrect behaviour, data loss, security failures, or a failed release.
+
+Report only findings supported by repository evidence. Cite the file and line. Return “green” when no release blocker remains.</pre></div>
+                <div class="callout warn" style="margin:12px 0 0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg><div><b>Tool limits are not available for saved agents.</b><span>Sero ignores agent tools frontmatter today. Trial runs can use a restricted surface, but the saved definition cannot enforce it.</span></div></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel active" data-panel="evaluate">
+            <div class="lab-layout">
+              <div class="cases">
+                <div class="side-label">Trial set · 3 tasks</div>
+                <button class="case active" type="button"><div class="case-title"><span class="dot pass"></span>Real blocker</div><p>Fixture PR · unsafe migration</p></button>
+                <button class="case" type="button"><div class="case-title"><span class="dot pass"></span>Clean change</div><p>Fixture PR · docs only</p></button>
+                <button class="case" type="button"><div class="case-title"><span class="dot fail"></span>Style distraction</div><p>Fixture PR · lint cleanup</p></button>
+                <button class="btn" type="button" style="width:100%;margin-top:10px">Add trial task</button>
+                <div class="not-now"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg><span>A trial uses a workspace snapshot or a read-only task. It never edits the live workspace by default.</span></div>
+              </div>
+              <div class="results">
+                <div class="result-top"><div><h3>Real blocker</h3><p>Expected: report the unsafe migration and cite the changed file.</p></div><div class="seg"><button class="active" type="button">Evidence</button><button type="button">Outputs</button><button type="button">Trace</button></div></div>
+                <div class="scorecards">
+                  <div class="score"><div class="score-top"><span class="score-name">v2 · current</span><span class="badge warn">2 of 3 pass</span></div><div class="metric"><span>Task result</span><b>Pass</b></div><div class="metric"><span>Duration</span><b>38 s</b></div><div class="metric"><span>Cost</span><b>$0.11</b></div><div class="metric"><span>Model</span><b>MED</b></div></div>
+                  <div class="score winner"><div class="score-top"><span class="score-name">v3 · candidate</span><span class="badge pass">3 of 3 pass</span></div><div class="metric"><span>Task result</span><b>Pass</b></div><div class="metric"><span>Duration</span><b>31 s</b></div><div class="metric"><span>Cost</span><b>$0.08</b></div><div class="metric"><span>Model</span><b>MED</b></div></div>
+                </div>
+                <div class="evidence"><div class="evidence-head">Why this trial passed</div><div class="evidence-row"><b class="check">✓</b><span>Required finding</span><b>Reported the destructive migration before any suggestions.</b></div><div class="evidence-row"><b class="check">✓</b><span>Repository citation</span><b>packages/store/migrate.ts:48</b></div><div class="evidence-row"><b class="check">✓</b><span>No minor findings</span><b>No style or naming comments.</b></div><div class="evidence-row"><b class="cross">×</b><span>Current version delta</span><b>v2 also reported two non-blocking naming comments.</b></div></div>
+                <div class="footer-actions"><button class="btn" type="button">Edit criteria</button><button class="btn" type="button">Refine from failure</button><button class="btn primary" type="button">Promote v3</button></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel" data-panel="versions">
+            <div class="versions"><div class="version-list">
+              <div class="version"><span class="vnum">v3</span><div><h3>Candidate from trial failures</h3><p>Stops minor style findings · 3 of 3 trials passed · not global</p></div><span class="badge pass">Ready</span></div>
+              <div class="version"><span class="vnum">v2</span><div><h3>Active profile version</h3><p>Created 8 Aug · used in 14 subagent runs</p></div><span class="badge">Active</span></div>
+              <div class="version"><span class="vnum">v1</span><div><h3>Initial generated draft</h3><p>Created from “review release PRs” · retired</p></div><span class="badge">History</span></div>
+            </div><aside class="version-side"><span class="label">Promotion summary</span><div class="stat"><span>Trial pass rate</span><b>67% → 100%</b></div><div class="stat"><span>Median cost</span><b>$0.12 → $0.09</b></div><div class="stat"><span>Median duration</span><b>39 s → 32 s</b></div><div class="stat"><span>Prompt change</span><b>+14 / −8 lines</b></div><div class="callout" style="margin:14px 0 0"><div><b>Promotion replaces one Markdown file.</b><span>The prior content stays in Agent Studio history and can be restored.</span></div></div><button class="btn primary" type="button" style="width:100%;margin-top:10px">Promote v3 to profile</button></aside></div>
+          </section>
+
+          <section class="panel" data-panel="coach">
+            <div class="coach">
+              <div class="health"><div class="health-card"><span>Recent runs</span><b>14</b><small>across 3 workspaces</small></div><div class="health-card"><span>Accepted results</span><b>79%</b><small>11 of 14</small></div><div class="health-card"><span>Median cost</span><b>$0.12</b><small>MED tier</small></div><div class="health-card"><span>Interventions</span><b>3</b><small>user corrections</small></div></div>
+              <div class="insight"><span class="insight-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M8.5 14.5A7 7 0 1 1 15.5 14.5L14 16H10Z"/></svg></span><div><h3>The agent reports non-blocking style issues in 4 of 14 runs.</h3><p>Three user corrections and one rejected result ask it to remove minor findings. A candidate revision can make “release blocker” a strict output gate.</p><small>Evidence: runs 104, 109, 112, and 115 · current definition v2</small></div><button class="btn primary" type="button">Create candidate</button></div>
+              <div class="insight" style="border-color:var(--info-border);background:var(--info-muted)"><span class="insight-icon" style="background:var(--info-muted);color:var(--info)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m7 16 4-5 3 3 5-7"/></svg></span><div><h3>HIGH did not improve accepted results on the same task group.</h3><p>Five matched trials had the same pass result. MED used 41% less cost and finished 28% faster.</p><small>Evidence: 5 matched trials · model comparison is not automatic promotion</small></div><button class="btn" type="button">View comparison</button></div>
+              <div class="not-now"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg><span>Coach needs run-to-definition version attribution and an explicit accepted, rejected, or corrected result signal. Do not infer success from completion alone.</span></div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+<script>
+const optionCopy={
+  builder:{title:'A · Guided Builder',note:'Fast to build, but it does not prove the agent is useful.',crumb:'New agent · unsaved',screen:'define',action:'Save agent'},
+  lab:{title:'B · Agent Lab',note:'Test before the definition becomes global.',crumb:'Review agent · release-reviewer',screen:'evaluate',action:'Promote version'},
+  coach:{title:'C · Agent Coach',note:'Improve from real outcomes, not prompt guesses.',crumb:'Agent health · release-reviewer',screen:'coach',action:'Create candidate'}
+};
+const screenCopy={
+  define:['Define release-reviewer','Describe the outcome first. Edit Markdown only when needed.','Generate candidate'],
+  evaluate:['Evaluate release-reviewer','Run the same trial tasks against the current and candidate versions.','Run all trials'],
+  versions:['Versions','Promote, compare, or restore a tested definition.','Compare versions'],
+  coach:['Agent health','Use accepted, rejected, and corrected runs as evidence.','Review recent runs']
+};
+function showScreen(name){
+  document.querySelectorAll('[data-panel]').forEach(x=>x.classList.toggle('active',x.dataset.panel===name));
+  document.querySelectorAll('[data-screen]').forEach(x=>x.classList.toggle('active',x.dataset.screen===name));
+  const copy=screenCopy[name];document.getElementById('screen-title').textContent=copy[0];document.getElementById('screen-subtitle').textContent=copy[1];document.getElementById('secondary-action').textContent=copy[2];
+}
+document.querySelectorAll('.option').forEach(button=>button.addEventListener('click',()=>{
+  document.querySelectorAll('.option').forEach(x=>x.setAttribute('aria-selected',String(x===button)));
+  const copy=optionCopy[button.dataset.option];document.getElementById('review-title').textContent=copy.title;document.getElementById('review-note').textContent=copy.note;document.getElementById('crumb').textContent=copy.crumb;document.getElementById('primary-action').textContent=copy.action;showScreen(copy.screen);
+}));
+document.querySelectorAll('[data-screen]').forEach(button=>button.addEventListener('click',()=>showScreen(button.dataset.screen)));
+document.addEventListener('keydown',event=>{if(event.key==='Escape')document.activeElement?.blur()});
+</script>
+</body>
+</html>
