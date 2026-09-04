@@ -180,6 +180,15 @@ export interface GatewayGitCommitResult {
   fileCount: number;
 }
 
+/** Where an uploaded file landed. */
+export interface GatewayUploadResult {
+  /** The workspace-relative path actually written. */
+  path: string;
+  bytes: number;
+  /** True when the name was taken and a suffix was added. */
+  renamed: boolean;
+}
+
 /** Operations the gateway can delegate to the agent pool. */
 export interface GatewayAgentOps {
   /** Open or get an existing agent session. Returns session path. */
@@ -239,6 +248,17 @@ export interface GatewayAgentOps {
   listFiles(workspaceId: string, dirPath: string): Promise<GatewayFileEntry[]>;
   /** Read a file from a workspace. */
   readFile(workspaceId: string, filePath: string): Promise<GatewayFileContent>;
+  /**
+   * Write an uploaded file into a workspace.
+   *
+   * It lands in `uploads/` unless the caller names a directory, and it
+   * never overwrites: a taken name gets a numeric suffix.
+   */
+  uploadFile(
+    workspaceId: string,
+    filePath: string,
+    contentBase64: string,
+  ): Promise<GatewayUploadResult>;
   /** List artifacts for a session. */
   listArtifacts(sessionId: string): Promise<Array<{ id: string; type: string; title: string; timestamp: string; mimeType: string }>>;
   /** Get artifact data by ID. */

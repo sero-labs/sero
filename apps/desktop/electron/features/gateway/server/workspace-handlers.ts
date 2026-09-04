@@ -1,9 +1,14 @@
 /**
- * Git gateway handlers — read the working tree, and commit from it.
+ * Workspace-file gateway handlers — read the working tree, commit from
+ * it, and put a file into it.
  *
  * Reads need workspace access. The commit needs an owner token: it is the
  * only write in the gateway that changes a repository, so it is held to
  * the highest bar rather than to the workspace scope.
+ *
+ * An upload only needs workspace access. A token that can prompt a
+ * workspace can already have the agent write a file there, so refusing
+ * the direct path while allowing the indirect one would buy nothing.
  */
 
 import { WebSocket } from 'ws';
@@ -12,6 +17,7 @@ import type { GatewayAgentOps } from '..';
 import { hasWorkspaceAccess, type GatewayAccessScope } from './access-control';
 import { makeResponder } from './request-handler';
 import { GitCommitRefused } from '@electron/ipc/gateway/git-ops';
+import { UploadRefused } from '@electron/ipc/gateway/upload-file';
 
 function message(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
@@ -21,13 +27,18 @@ function message(err: unknown, fallback: string): string {
  * Handle the git request types.
  * Returns true when the request was handled.
  */
-export async function routeGitRequest(
+export async function routeWorkspaceRequest(
   ws: WebSocket,
   agentOps: GatewayAgentOps,
   request: GatewayRequest,
   accessScope: GatewayAccessScope,
 ): Promise<boolean> {
-  if (request.type !== 'git_status' && request.type !== 'git_diff' && request.type !== 'git_commit') {
+  if (
+    request.type !== 'git_status'
+    && request.type !== 'git_diff'
+    && request.type !== 'git_commit'
+    && request.type !== 'upload_file'
+  ) {
     return false;
   }
 
@@ -39,6 +50,30 @@ export async function routeGitRequest(
       requestType: request.type,
       message: `Workspace not authorized: ${request.workspaceId}`,
     });
+    return true;
+  }
+
+  if (request.type === 'upload_file') {
+    try {
+      respond({
+        type: 'ok',
+        requestType: 'upload_file',
+        data: await agentOps.uploadFile(
+          request.workspaceId,
+          request.path,
+          request.contentBase64,
+        ),
+      });
+    } catch (err) {
+      respond({
+        type: 'error',
+        requestType: 'upload_file',
+        // A refusal names its reason first, so the client can key on it.
+        message: err instanceof UploadRefused
+          ? `${err.reason}: ${err.message}`
+          : message(err, 'The upload failed.'),
+      });
+    }
     return true;
   }
 

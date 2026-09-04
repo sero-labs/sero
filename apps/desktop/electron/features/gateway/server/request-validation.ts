@@ -219,6 +219,14 @@ function validateRequestBody(data: Record<string, unknown>): GatewayRequest | nu
       return { type: 'mark_notifications_read', ids };
     }
 
+    case 'upload_file': {
+      const workspaceId = readRequiredString(data, 'workspaceId');
+      const requestPath = readRequiredString(data, 'path');
+      const contentBase64 = readRequiredString(data, 'contentBase64');
+      if (!workspaceId || !requestPath || !contentBase64) return null;
+      return { type: 'upload_file', workspaceId, path: requestPath, contentBase64 };
+    }
+
     case 'git_status': {
       const workspaceId = readRequiredString(data, 'workspaceId');
       return workspaceId ? { type: 'git_status', workspaceId } : null;

@@ -259,6 +259,11 @@ export class GatewayClient {
     this.send({ type: 'search_sessions', query, limit });
   }
 
+  /** Put a file into a workspace. A bare name lands in `uploads/`. */
+  uploadFile(workspaceId: string, filePath: string, contentBase64: string): void {
+    this.send({ type: 'upload_file', workspaceId, path: filePath, contentBase64 });
+  }
+
   /** Read the working tree of a workspace. */
   gitStatus(workspaceId: string): void {
     this.send({ type: 'git_status', workspaceId });

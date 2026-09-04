@@ -1,11 +1,16 @@
 /**
- * File browser, read-only tree view of workspace files.
+ * File browser — a tree of workspace files, with an upload bar.
+ *
+ * The tree itself stays read-only. Uploading is the one write, and it
+ * only ever adds a file: it never overwrites and never deletes.
  */
 
-import { useCallback, memo } from 'react';
+import { useCallback, useState, memo } from 'react';
 import { useFileStore } from '@/stores/files';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { FileEntry } from '@/lib/file-api';
+import { useUploadsStore } from '@/stores/uploads';
+import { UploadBar } from './UploadBar';
 import {
   ChevronDown,
   ChevronRight,
@@ -106,6 +111,8 @@ export function FileBrowser() {
   const tree = useFileStore((s) => s.tree);
   const fetchDirectory = useFileStore((s) => s.fetchDirectory);
   const isLoading = useFileStore((s) => s.isLoading);
+  const upload = useUploadsStore((s) => s.upload);
+  const [dragging, setDragging] = useState(false);
 
   const rootEntries = tree['/'] ?? tree['.'] ?? null;
 
@@ -113,8 +120,29 @@ export function FileBrowser() {
     fetchDirectory('/');
   }, [fetchDirectory]);
 
+  // Dropping a file is the desktop way in; the button is the phone way.
+  const handleDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+      setDragging(false);
+      void upload([...event.dataTransfer.files]);
+    },
+    [upload],
+  );
+
   return (
-    <div className="flex flex-col h-full">
+    <div
+      className={cn(
+        'flex flex-col h-full',
+        dragging && 'ring-2 ring-inset ring-[var(--accent-primary)]',
+      )}
+      onDragOver={(event) => {
+        event.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={handleDrop}
+    >
       <div className="px-3 py-2 border-b border-border flex items-center justify-between">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
           Files
@@ -142,6 +170,8 @@ export function FileBrowser() {
           ))
         )}
       </div>
+
+      <UploadBar />
     </div>
   );
 }

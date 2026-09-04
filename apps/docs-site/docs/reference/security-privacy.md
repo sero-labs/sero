@@ -192,6 +192,12 @@ Most gateway requests only read. These change something:
   answered by any token that reaches it. A question that names no workspace can
   be answered only by the master token.
 - **Mark notifications read.** Any authenticated token. This changes no file.
+- **Upload a file (`upload_file`).** Any token authorized for that
+  workspace. A bare name lands in `uploads/`; the path may not escape the
+  workspace, and an upload never overwrites — a taken name gets a numeric
+  suffix. The cap is 20 MB. Workspace scope is the right bar here because
+  a token that can prompt a workspace can already have the agent write a
+  file in it; refusing the direct path would buy nothing.
 - **Commit changed files (`git_commit`).** Master token only. A scoped web
   token is refused even for a workspace it can otherwise read.
 

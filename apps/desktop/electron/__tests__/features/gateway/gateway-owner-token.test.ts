@@ -121,6 +121,7 @@ function createAgentOps(): TestHarness['state'] & { ops: GatewayAgentOps } {
       branch: 'main', ahead: 0, behind: 0, detached: false, merging: false, files: [],
     }),
     gitDiff: async () => null,
+    uploadFile: async () => ({ path: 'uploads/a.txt', bytes: 1, renamed: false }),
     gitCommit: async () => ({ hash: 'abc1234', branch: 'main', fileCount: 1 }),
     openSession: async (sessionId, workspaceId) => {
       if (!sessionsByWorkspace.has(workspaceId)) {

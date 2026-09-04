@@ -1,0 +1,127 @@
+/**
+ * Uploads store — putting a file into the workspace from a phone.
+ *
+ * Files are sent one at a time. The gateway decides the final name and
+ * sends it back, because a name already taken gets a suffix rather than
+ * overwriting anything.
+ */
+
+import { create } from 'zustand';
+import { useConnectionStore } from './connection';
+import { useWorkspaceStore } from './workspace';
+import { useFileStore } from './files';
+import { useChatStore } from './chat';
+
+/**
+ * Largest file accepted, checked here before anything is sent.
+ * The host enforces the same limit; this only saves the round trip.
+ */
+export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+
+/** Where an upload lands when only a name is sent. */
+export const UPLOAD_DIR = 'uploads';
+
+export interface UploadResult {
+  path: string;
+  bytes: number;
+  /** True when the name was taken and a suffix was added. */
+  renamed: boolean;
+}
+
+interface UploadsStore {
+  uploading: boolean;
+  /** Names still waiting, so the panel can say how many are left. */
+  queued: string[];
+  /** Files put into the workspace this session, newest first. */
+  recent: UploadResult[];
+  error: string | null;
+  upload: (files: File[]) => Promise<void>;
+  /** Put an uploaded path into the composer and go to the chat. */
+  mention: (filePath: string) => void;
+  dismissError: () => void;
+  handleMessage: (msg: { type: string; requestType?: string; data?: unknown; message?: string }) => void;
+}
+
+/** A file's bytes as base64, without the `data:` prefix. */
+export function readAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error(`Could not read ${file.name}.`));
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      const comma = result.indexOf(',');
+      resolve(comma === -1 ? '' : result.slice(comma + 1));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/** The message a refusal carries, without the reason prefix. */
+export function readableUploadError(message: string): string {
+  const separator = message.indexOf(': ');
+  return separator === -1 ? message : message.slice(separator + 2);
+}
+
+export const useUploadsStore = create<UploadsStore>((set, get) => ({
+  uploading: false,
+  queued: [],
+  recent: [],
+  error: null,
+
+  upload: async (files: File[]) => {
+    const workspaceId = useWorkspaceStore.getState().activeWorkspaceId;
+    const client = useConnectionStore.getState().client;
+    if (!workspaceId || !client || files.length === 0) return;
+
+    const tooBig = files.find((file) => file.size > MAX_UPLOAD_BYTES);
+    if (tooBig) {
+      set({
+        error: `${tooBig.name} is larger than the ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB upload limit.`,
+      });
+      return;
+    }
+
+    set({ uploading: true, error: null, queued: files.map((file) => file.name) });
+
+    for (const file of files) {
+      try {
+        const contentBase64 = await readAsBase64(file);
+        client.uploadFile(workspaceId, file.name, contentBase64);
+      } catch (err) {
+        set({ error: err instanceof Error ? err.message : `Could not read ${file.name}.` });
+      }
+      set((s) => ({ queued: s.queued.slice(1) }));
+    }
+  },
+
+  mention: (filePath: string) => {
+    useChatStore.getState().setComposerPrefill(filePath);
+    // The composer is where this text is going, so go there too.
+    useWorkspaceStore.getState().setView('chat');
+  },
+
+  dismissError: () => set({ error: null }),
+
+  handleMessage: (msg) => {
+    if (msg.requestType !== 'upload_file') return;
+
+    if (msg.type === 'error') {
+      set({ uploading: false, queued: [], error: readableUploadError(msg.message ?? 'The upload failed.') });
+      return;
+    }
+    if (msg.type !== 'ok') return;
+
+    const result = msg.data as UploadResult | undefined;
+    if (!result || typeof result.path !== 'string') return;
+
+    set((s) => ({
+      uploading: s.queued.length > 0,
+      recent: [result, ...s.recent].slice(0, 10),
+    }));
+
+    // The tree only shows what it has listed, so refresh the folder the
+    // file landed in.
+    const slash = result.path.lastIndexOf('/');
+    useFileStore.getState().fetchDirectory(slash === -1 ? '/' : result.path.slice(0, slash));
+  },
+}));

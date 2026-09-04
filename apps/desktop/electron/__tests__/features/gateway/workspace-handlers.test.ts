@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { WebSocket } from 'ws';
 
-import { routeGitRequest } from '@electron/features/gateway/server/git-handlers';
+import { routeWorkspaceRequest } from '@electron/features/gateway/server/workspace-handlers';
 import { GitCommitRefused } from '@electron/ipc/gateway/git-ops';
 import type { GatewayAccessScope } from '@electron/features/gateway/server/access-control';
 import type { GatewayAgentOps, GatewayGitStatus } from '@electron/features/gateway/server/types';
@@ -54,7 +54,7 @@ describe('git_status', () => {
   it('returns the working tree for an authorized workspace', async () => {
     const { ws, sent } = fakeSocket();
 
-    await routeGitRequest(
+    await routeWorkspaceRequest(
       ws,
       makeOps(),
       { type: 'git_status', workspaceId: 'ws-1' } as GatewayRequest,
@@ -68,7 +68,7 @@ describe('git_status', () => {
     const { ws, sent } = fakeSocket();
     const gitStatus = vi.fn();
 
-    await routeGitRequest(
+    await routeWorkspaceRequest(
       ws,
       makeOps({ gitStatus }),
       { type: 'git_status', workspaceId: 'ws-2' } as GatewayRequest,
@@ -82,7 +82,7 @@ describe('git_status', () => {
   it('answers with an error when git fails', async () => {
     const { ws, sent } = fakeSocket();
 
-    await routeGitRequest(
+    await routeWorkspaceRequest(
       ws,
       makeOps({
         gitStatus: async () => {
@@ -102,7 +102,7 @@ describe('git_diff', () => {
     const { ws } = fakeSocket();
     const gitDiff = vi.fn(async () => null);
 
-    await routeGitRequest(
+    await routeWorkspaceRequest(
       ws,
       makeOps({ gitDiff }),
       { type: 'git_diff', workspaceId: 'ws-1', path: 'src/a.ts' } as GatewayRequest,
@@ -116,7 +116,7 @@ describe('git_diff', () => {
     const { ws } = fakeSocket();
     const gitDiff = vi.fn(async () => null);
 
-    await routeGitRequest(
+    await routeWorkspaceRequest(
       ws,
       makeOps({ gitDiff }),
       { type: 'git_diff', workspaceId: 'ws-1', path: 'src/a.ts', staged: true } as GatewayRequest,
@@ -129,7 +129,7 @@ describe('git_diff', () => {
   it('refuses a workspace the token cannot reach', async () => {
     const { ws, sent } = fakeSocket();
 
-    await routeGitRequest(
+    await routeWorkspaceRequest(
       ws,
       makeOps(),
       { type: 'git_diff', workspaceId: 'ws-2', path: 'src/a.ts' } as GatewayRequest,
@@ -145,7 +145,7 @@ describe('git_commit', () => {
     const { ws, sent } = fakeSocket();
     const gitCommit = vi.fn(async () => ({ hash: 'abc1234', branch: 'main', fileCount: 2 }));
 
-    await routeGitRequest(
+    await routeWorkspaceRequest(
       ws,
       makeOps({ gitCommit }),
       {
@@ -165,7 +165,7 @@ describe('git_commit', () => {
     const { ws, sent } = fakeSocket();
     const gitCommit = vi.fn();
 
-    await routeGitRequest(
+    await routeWorkspaceRequest(
       ws,
       makeOps({ gitCommit }),
       {
@@ -185,7 +185,7 @@ describe('git_commit', () => {
   it('names the reason when a refusal comes back from the host', async () => {
     const { ws, sent } = fakeSocket();
 
-    await routeGitRequest(
+    await routeWorkspaceRequest(
       ws,
       makeOps({
         gitCommit: async () => {
@@ -205,11 +205,11 @@ describe('git_commit', () => {
   });
 });
 
-describe('routeGitRequest', () => {
+describe('routeWorkspaceRequest', () => {
   it('leaves other request types to the next handler', async () => {
     const { ws, sent } = fakeSocket();
 
-    const handled = await routeGitRequest(
+    const handled = await routeWorkspaceRequest(
       ws,
       makeOps(),
       { type: 'list_workspaces' } as GatewayRequest,

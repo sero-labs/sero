@@ -23,6 +23,7 @@ import { listSessionMetadata } from '../agent/core/session-metadata';
 import { convertToGatewayHistory } from './gateway-history';
 import { searchSessions, MAX_RESULTS } from './session-search';
 import { commitChanges, readGitDiff, readGitStatus } from './git-ops';
+import { uploadFile } from './upload-file';
 import type {
   GatewayAgentOps,
   GatewayDevServerInfo,
@@ -223,6 +224,10 @@ export function buildGatewayOps(
         mimeType: MIME_MAP[ext] ?? 'text/plain',
         size: Buffer.byteLength(content, 'utf8'),
       };
+    },
+    uploadFile: async (workspaceId, filePath, contentBase64) => {
+      const runtime = await runtimeManager.getRuntime(workspaceId);
+      return uploadFile(runtime, filePath, contentBase64);
     },
     listArtifacts: async (sessionId) => {
       return artifactRegistry.list(sessionId).map((a) => ({

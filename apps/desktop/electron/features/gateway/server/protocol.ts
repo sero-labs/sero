@@ -67,6 +67,15 @@ export interface GatewayGetUsageRequest {
   type: 'get_usage';
 }
 
+/** Put a file into a workspace. */
+export interface GatewayUploadFileRequest {
+  type: 'upload_file';
+  workspaceId: string;
+  /** Workspace-relative. A bare name lands in `uploads/`. */
+  path: string;
+  contentBase64: string;
+}
+
 /** The working tree of a workspace. */
 export interface GatewayGitStatusRequest {
   type: 'git_status';
@@ -198,6 +207,7 @@ export type GatewayRequest = (
   | GatewayAnswerChoiceRequest
   | GatewayListNotificationsRequest
   | GatewayMarkNotificationsReadRequest
+  | GatewayUploadFileRequest
   | GatewayGitStatusRequest
   | GatewayGitDiffRequest
   | GatewayGitCommitRequest
