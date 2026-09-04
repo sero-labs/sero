@@ -4,6 +4,8 @@ import { App } from './App';
 import { initTheme } from '@/stores/theme';
 import { hydrateLayout } from '@/stores/layout';
 import { hydrateBoard } from '@/stores/board';
+import { useConnectionStore } from '@/stores/connection';
+import { installRemoteSeroBridge } from '@/lib/sero-bridge';
 import './index.css';
 
 // Apply the stored theme mode before the first paint.
@@ -14,6 +16,11 @@ void hydrateLayout();
 
 // The board shows every session as unread until the marks arrive.
 void hydrateBoard();
+
+// A federated widget expects `window.sero`. It is installed here, not in
+// the connection store, because the bridge reaches back into the stores:
+// installing it there would make the imports circular.
+installRemoteSeroBridge(useConnectionStore.getState().client);
 
 
 createRoot(document.getElementById('root')!).render(

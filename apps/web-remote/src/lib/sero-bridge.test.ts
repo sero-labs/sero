@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { dispatchAppStateChange, installRemoteSeroBridge } from './sero-bridge';
-import type { GatewayClient, GatewayMessage } from './gateway-client';
+import type { GatewayMessage } from './gateway-client';
+import type { RemoteStateClient } from './sero-bridge';
 
 interface AppStateBridge {
   read: (key: string) => Promise<unknown>;
@@ -23,7 +24,7 @@ const client = {
   appStateGet: vi.fn(async () => ({ data: { done: 1 }, etag: 'e1' })),
   appStateWatch: vi.fn(async () => ({ data: { done: 2 }, etag: 'e2' })),
   appStateUnwatch: vi.fn(async () => undefined),
-} as unknown as GatewayClient;
+} as unknown as RemoteStateClient;
 
 beforeEach(() => {
   installRemoteSeroBridge(client);

@@ -15,7 +15,15 @@
 
 import { useChatStore } from '@/stores/chat';
 import { useWorkspaceStore } from '@/stores/workspace';
-import type { GatewayClient, GatewayMessage } from './gateway-client';
+import type { GatewayMessage } from './gateway-client';
+
+/** The part of the gateway client the bridge uses. */
+export interface RemoteStateClient {
+  appStateGet<T>(key: string): Promise<T>;
+  appStateSet<T>(key: string, data: unknown, expectedEtag?: string | null): Promise<T>;
+  appStateWatch<T>(key: string): Promise<T>;
+  appStateUnwatch(key: string): Promise<unknown>;
+}
 
 /** What the host answers a read or a watch with. */
 interface AppStateReadResult<T> {
@@ -55,7 +63,7 @@ function promptFromWidget(text: string): void {
  * Called once, before the first widget mounts. A desktop bridge is never
  * present here, so nothing is overwritten.
  */
-export function installRemoteSeroBridge(client: GatewayClient): void {
+export function installRemoteSeroBridge(client: RemoteStateClient): void {
   const bridge = {
     appState: {
       read: async <T>(key: string): Promise<T> => {
