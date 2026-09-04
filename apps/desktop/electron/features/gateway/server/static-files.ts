@@ -16,6 +16,7 @@ const MIME_TYPES: Record<string, string> = {
   '.js': 'application/javascript',
   '.css': 'text/css',
   '.json': 'application/json',
+  '.webmanifest': 'application/manifest+json',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.svg': 'image/svg+xml',
@@ -98,6 +99,10 @@ function resolveAssetPath(requestPath: string, webDistDir: string): string | nul
  * must be revalidated, or a client keeps an old shell after an update.
  */
 function cacheControlFor(assetPath: string): string {
+  // The service worker is never cached: a stale one keeps serving an old
+  // shell long after an update.
+  if (assetPath === 'sw.js') return 'no-cache, no-store, must-revalidate';
+
   return assetPath.startsWith('assets/')
     ? 'public, max-age=31536000, immutable'
     : 'no-cache';

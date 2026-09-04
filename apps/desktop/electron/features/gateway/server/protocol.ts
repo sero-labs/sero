@@ -105,6 +105,28 @@ export interface GatewayAppStateUnwatchRequest {
   key: string;
 }
 
+/** Ask whether this machine can send Web Push, and for the key. */
+export interface GatewayPushStatusRequest {
+  type: 'push_status';
+}
+
+/** Register one browser for Web Push. */
+export interface GatewayPushSubscribeRequest {
+  type: 'push_subscribe';
+  /** The browser vendor's push endpoint. A capability: treat as secret. */
+  endpoint: string;
+  /** The browser's public key, for payload encryption. */
+  p256dh: string;
+  /** The browser's shared secret, for payload encryption. */
+  auth: string;
+}
+
+/** Forget one browser's Web Push registration. */
+export interface GatewayPushUnsubscribeRequest {
+  type: 'push_unsubscribe';
+  endpoint: string;
+}
+
 /** Put a file into a workspace. */
 export interface GatewayUploadFileRequest {
   type: 'upload_file';
@@ -250,6 +272,9 @@ export type GatewayRequest = (
   | GatewayAppStateWatchRequest
   | GatewayAppStateUnwatchRequest
   | GatewayAppStateSetRequest
+  | GatewayPushStatusRequest
+  | GatewayPushSubscribeRequest
+  | GatewayPushUnsubscribeRequest
   | GatewayUploadFileRequest
   | GatewayGitStatusRequest
   | GatewayGitDiffRequest

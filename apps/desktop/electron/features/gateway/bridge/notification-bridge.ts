@@ -7,6 +7,7 @@
  */
 
 import { getNotificationFeed } from '@electron/features/notifications/feed';
+import { currentPushService } from '../push/service';
 import type { NotificationEntry } from '@electron/features/notifications/types';
 import type {
   GatewayNotificationEvent,
@@ -18,6 +19,8 @@ export interface NotificationEventSink {
   broadcastWorkspaceEvent(workspaceId: string, event: GatewayPushEvent): void;
   broadcastOwnerEvent(event: GatewayPushEvent): void;
   broadcastEvent(event: GatewayPushEvent): void;
+  /** Tokens with a client connected right now. They need no push. */
+  connectedTokenIds(): Set<string>;
 }
 
 let unsubscribe: (() => void) | null = null;
@@ -53,6 +56,8 @@ export function registerGatewayNotificationBridge(sink: NotificationEventSink): 
     const event = toNotificationEvent(entry);
     if (entry.workspaceId) sink.broadcastWorkspaceEvent(entry.workspaceId, event);
     else sink.broadcastOwnerEvent(event);
+
+    pushToPhones(entry, sink);
   });
 
   // An id is a bare UUID and names no workspace, so it carries nothing a
@@ -66,6 +71,29 @@ export function registerGatewayNotificationBridge(sink: NotificationEventSink): 
     stopEntries();
     stopReads();
   };
+}
+
+/**
+ * Send one entry to the phones that are not already watching.
+ *
+ * The payload carries the source and the workspace, never the message:
+ * it travels through a push service outside the tailnet.
+ */
+function pushToPhones(entry: NotificationEntry, sink: NotificationEventSink): void {
+  const push = currentPushService();
+  if (!push?.enabled) return;
+
+  void push.push(
+    {
+      title: `${entry.source} has something for you`,
+      kind: 'notification',
+      path: entry.workspaceId ? `/?workspace=${encodeURIComponent(entry.workspaceId)}` : '/',
+      workspaceId: entry.workspaceId,
+    },
+    sink.connectedTokenIds(),
+  ).catch((err: unknown) => {
+    console.error('[push] Could not send a notification:', err);
+  });
 }
 
 /** Test seam. Stops pushing feed entries. */

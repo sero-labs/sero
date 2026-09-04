@@ -149,6 +149,32 @@ For remote web access, Tailscale is the recommended transport. Sero can expose
 the gateway to your private tailnet through `tailscale serve`; a paired browser
 then uses the tailnet URL and a temporary web token/login flow.
 
+### Install Sero Remote to a home screen
+
+Sero Remote is an installable web app. Open its `*.ts.net` URL on the
+phone, then use the browser's *Add to Home Screen*. It then opens
+full-screen, with no browser chrome.
+
+An HTTPS address is required. The tailnet URL is HTTPS; a plain
+`http://192.168.x.x` address is not, and cannot be installed.
+
+### Notifications with the app closed
+
+Open the notification feed and turn on **On this device**. Sero then
+notifies that phone when work finishes or needs you, even with the app
+closed.
+
+The notification says where it came from, never what was said. Tap it and
+Sero Remote opens on the right workspace, over the tailnet.
+
+Turn it off from the same place. Revoking the device's web token also
+stops its notifications at once.
+
+**Developer note.** A service worker needs a secure origin. `localhost`
+counts, so `pnpm dev` on your own machine can register the worker and
+show the toggle. A plain-HTTP LAN address cannot, and the toggle says so
+instead of failing later. To test a real push, use the tailnet URL.
+
 ### Dashboard widgets in the browser
 
 Sero Remote has a Dashboard view. It shows plugin widgets, not the desktop

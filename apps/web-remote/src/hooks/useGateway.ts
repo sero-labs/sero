@@ -13,6 +13,7 @@ import { useNotificationsStore } from '@/stores/notifications';
 import { useGitStore } from '@/stores/git';
 import { useUploadsStore } from '@/stores/uploads';
 import { useWidgetsStore } from '@/stores/widgets';
+import { usePushStore } from '@/stores/push';
 import { useChatStore } from '@/stores/chat';
 import { useFileStore } from '@/stores/files';
 import { useArtifactStore } from '@/stores/artifacts';
@@ -42,6 +43,12 @@ export function useGatewayDispatcher(): void {
       useGitStore.getState().handleMessage(msg);
       useUploadsStore.getState().handleMessage(msg);
       useWidgetsStore.getState().handleMessage(msg);
+
+      // The workspace listing is the first answer after a connect, so it
+      // is the earliest point push can be set up.
+      if (msg.type === 'ok' && 'requestType' in msg && msg.requestType === 'list_workspaces') {
+        void usePushStore.getState().refresh();
+      }
     };
 
     const unsub = client.onMessage(handler);

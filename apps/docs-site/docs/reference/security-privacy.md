@@ -198,6 +198,13 @@ Most gateway requests only read. These change something:
   suffix. The cap is 20 MB. Workspace scope is the right bar here because
   a token that can prompt a workspace can already have the agent write a
   file in it; refusing the direct path would buy nothing.
+- **Write a widget's state (`app_state_set`).** Any token authorized for
+  that workspace. The client names the file by an opaque key, never by
+  path, and the key resolves only to a file a `remote: true` widget owns
+  in a workspace that token reaches. The write is the same atomic,
+  etag-checked write the desktop makes.
+- **Register this browser for notifications (`push_subscribe`).** Any
+  authenticated token. See [Web Push](#web-push) below.
 - **Commit changed files (`git_commit`).** Master token only. A scoped web
   token is refused even for a workspace it can otherwise read.
 
@@ -246,6 +253,40 @@ when remote access is no longer needed.
 The pairing dialog is security-relevant because it shows both the access scope
 and expiry for a remote web device. Treat real QR codes and login URLs from this
 screen as secrets; redact them from screenshots and rotate exposed tokens.
+
+### Web Push
+
+Sero Remote can notify a phone with the app closed. This is the one part
+of remote access that leaves your tailnet, so it is worth reading.
+
+What leaves the machine, and where it goes:
+
+- A push travels through the browser vendor's push service — Google,
+  Mozilla or Apple — because that is the only way to wake a closed app.
+  Your tailnet cannot do it.
+- The payload carries the source, the kind of event, the workspace id and
+  a path to open. **It never carries message content, session content, or
+  a token.** The phone fetches the details over the tailnet when you tap.
+- The payload is encrypted to that browser's own key, so the push service
+  moves it without reading it.
+
+What controls it:
+
+- Push is off until someone turns it on, per device, from the
+  notification feed. The browser asks its own permission on top.
+- A subscription is filed under the token that made it, with that token's
+  workspace scope frozen in. A scoped token's phone is only pushed events
+  from the workspaces it may see.
+- An event that names no workspace is pushed to owner tokens only.
+- Revoking or expiring a web token drops its subscriptions at once.
+- A token with a client connected right now is not pushed to. It already
+  has the event over the socket.
+- A push service answers `410 Gone` for a browser that dropped its
+  subscription. Sero forgets it then.
+
+The subscription endpoint is a capability: whoever holds it can send that
+browser a message. It is stored with the same file permissions as the
+gateway token, in `gateway-push-subscriptions.json`.
 
 ## Security boundaries
 

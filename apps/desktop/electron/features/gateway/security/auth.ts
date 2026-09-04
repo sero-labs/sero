@@ -17,6 +17,12 @@ const TOKEN_LENGTH = 32;
 export interface GatewayAuthResult {
   type: 'master' | 'web';
   authorizedWorkspaceIds: string[] | null;
+  /**
+   * Which token this was: a web token's id, or `master`. A push
+   * subscription is filed under it, so a revoked token's phone stops
+   * being pushed to.
+   */
+  tokenId: string;
 }
 
 export class GatewayAuth {
@@ -65,6 +71,7 @@ export class GatewayAuth {
         return {
           type: 'master',
           authorizedWorkspaceIds: null,
+          tokenId: 'master',
         };
       }
     }
@@ -77,6 +84,7 @@ export class GatewayAuth {
     return {
       type: 'web',
       authorizedWorkspaceIds: webToken.workspaceIds,
+      tokenId: webToken.token.slice(0, 8),
     };
   }
 

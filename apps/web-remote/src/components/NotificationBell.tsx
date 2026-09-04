@@ -22,6 +22,7 @@ import {
 import { useIsMobile } from '@sero-ai/ui/hooks/use-mobile';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { NotificationFeed } from './NotificationFeed';
+import { PushToggle } from './PushToggle';
 import { useNotificationsStore, selectUnread } from '@/stores/notifications';
 
 /** Above this, the badge stops counting. */
@@ -78,6 +79,7 @@ export function NotificationBell() {
             <div className="flex-1 overflow-y-auto">
               <NotificationFeed />
             </div>
+            <PushToggle />
           </SheetContent>
         </Sheet>
       </>
@@ -92,6 +94,7 @@ export function NotificationBell() {
           Notifications
         </p>
         <NotificationFeed />
+        <PushToggle />
       </PopoverContent>
     </Popover>
   );

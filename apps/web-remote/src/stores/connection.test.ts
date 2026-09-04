@@ -94,6 +94,18 @@ class FakeGatewayClient implements GatewayClientLike {
     return Promise.resolve({ ok: true, etag: 'e1' } as unknown as T);
   }
 
+  pushStatus<T>(): Promise<T> {
+    return Promise.resolve({ enabled: false, publicKey: null } as unknown as T);
+  }
+
+  pushSubscribe<T>(): Promise<T> {
+    return Promise.resolve({ subscribed: true } as unknown as T);
+  }
+
+  pushUnsubscribe<T>(): Promise<T> {
+    return Promise.resolve({ removed: true } as unknown as T);
+  }
+
   appStateUnwatch(): Promise<unknown> {
     return Promise.resolve(undefined);
   }

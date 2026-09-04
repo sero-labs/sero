@@ -6,6 +6,7 @@ import { hydrateLayout } from '@/stores/layout';
 import { hydrateBoard } from '@/stores/board';
 import { useConnectionStore } from '@/stores/connection';
 import { installRemoteSeroBridge } from '@/lib/sero-bridge';
+import { registerWorker } from '@/lib/push';
 import './index.css';
 
 // Apply the stored theme mode before the first paint.
@@ -21,6 +22,10 @@ void hydrateBoard();
 // the connection store, because the bridge reaches back into the stores:
 // installing it there would make the imports circular.
 installRemoteSeroBridge(useConnectionStore.getState().client);
+
+// The service worker makes the app installable and keeps its shell. It
+// is registered whether or not the person ever turns notifications on.
+void registerWorker();
 
 
 createRoot(document.getElementById('root')!).render(

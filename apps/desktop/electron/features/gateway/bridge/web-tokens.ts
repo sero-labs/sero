@@ -50,6 +50,31 @@ function normalizeWebToken(value: unknown): WebToken[] {
   return [{ token, createdAt, expiresAt, label, workspaceIds: workspaceScope.workspaceIds }];
 }
 
+/** Told when tokens stop being valid, by revoke or by expiry. */
+type TokensGoneListener = (tokenIds: string[]) => void;
+
+const tokensGoneListeners: TokensGoneListener[] = [];
+
+/**
+ * Watch for tokens that stop being valid.
+ *
+ * A token's id is the first 8 characters of the token, which is what
+ * every other part of the gateway files things under.
+ */
+export function onWebTokensGone(listener: TokensGoneListener): () => void {
+  tokensGoneListeners.push(listener);
+  return () => {
+    const at = tokensGoneListeners.indexOf(listener);
+    if (at !== -1) tokensGoneListeners.splice(at, 1);
+  };
+}
+
+function announceGone(tokens: WebToken[]): void {
+  if (tokens.length === 0) return;
+  const ids = tokens.map((token) => token.token.slice(0, 8));
+  for (const listener of tokensGoneListeners) listener(ids);
+}
+
 export interface WebToken {
   token: string;
   createdAt: string;
@@ -116,14 +141,16 @@ export class WebTokenManager {
 
   /** Revoke a token by its ID prefix (first 8 chars). */
   revoke(tokenId: string): boolean {
-    const before = this.tokens.length;
+    const removed = this.tokens.filter((t) => t.token.startsWith(tokenId));
+    if (removed.length === 0) return false;
+
     this.tokens = this.tokens.filter((t) => !t.token.startsWith(tokenId));
-    if (this.tokens.length < before) {
-      this.save();
-      console.log(`[web-tokens] Revoked token: ${tokenId}`);
-      return true;
-    }
-    return false;
+    this.save();
+    console.log(`[web-tokens] Revoked token: ${tokenId}`);
+    // Whatever was filed under this token — a phone's push subscription,
+    // for one — has to go with it.
+    announceGone(removed);
+    return true;
   }
 
   /** Validate a token. Returns the scoped token if valid and not expired. */
@@ -143,13 +170,12 @@ export class WebTokenManager {
   /** Remove expired tokens. */
   private pruneExpired(): void {
     const now = Date.now();
-    const before = this.tokens.length;
-    this.tokens = this.tokens.filter(
-      (t) => new Date(t.expiresAt).getTime() > now,
-    );
-    if (this.tokens.length < before) {
-      this.save();
-    }
+    const expired = this.tokens.filter((t) => new Date(t.expiresAt).getTime() <= now);
+    if (expired.length === 0) return;
+
+    this.tokens = this.tokens.filter((t) => new Date(t.expiresAt).getTime() > now);
+    this.save();
+    announceGone(expired);
   }
 
   /** Load tokens from disk. */

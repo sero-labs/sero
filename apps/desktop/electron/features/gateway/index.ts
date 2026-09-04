@@ -36,6 +36,7 @@ import {
   closeIdleConnections,
   countConnectionsFromIp,
   sendPendingChoices,
+  authenticateClient,
 } from './server/client-registry';
 import {
   DevProxyTicketManager,
@@ -44,6 +45,8 @@ import {
 import { createGatewayHttpServer, createPreviewHttpServer } from './server/http-app';
 import { getClientIp, isOriginAllowed } from './server/connection-security';
 import { AssetTicketManager } from './security/asset-ticket';
+import { getPushService, type PushService } from './push/service';
+import { routePushRequest } from './push/handlers';
 import { setAssetTicketIssuer } from './server/widget-handlers';
 import { dropWidgetStateWatches } from './bridge/widget-state-bridge';
 
@@ -66,6 +69,8 @@ export interface ConnectedClient extends GatewayAccessScope {
   authenticated: boolean;
   /** Whether this client authenticated with the master token (vs a web token). */
   isMasterAuth: boolean;
+  /** Which token it used: a web token's id, or `master`. Empty until auth. */
+  tokenId: string;
   /** Session IDs this client is subscribed to for push events. */
   subscribedSessions: Set<string>;
   /** Source IP address of the client. */
@@ -97,10 +102,16 @@ export class GatewayServer {
   /** Cost tracker for gateway-initiated sessions. */
   readonly costTracker: CostTracker;
 
+  /** Web Push, for phones with the app closed. */
+  readonly push: PushService;
+
   constructor(config: GatewayConfig) {
     this.config = config;
     this.auth = new GatewayAuth(config.tokenPath);
     this.costTracker = new CostTracker(config.configDir);
+    this.push = getPushService(config.configDir);
+    // A token revoked while Sero was closed must not keep its phone.
+    this.push.pruneToTokens(new Set(this.auth.webTokens.list().map((t) => t.tokenId)));
     // Tickets are signed with a process-bound secret. We don't persist
     // it: a gateway restart invalidates outstanding tickets, which is
     // the desired behaviour for short-lived preview credentials.
@@ -109,6 +120,20 @@ export class GatewayServer {
     // able to stand in for a dev-proxy ticket.
     this.assetTickets = new AssetTicketManager(generateTicketSecret());
     setAssetTicketIssuer((appId) => this.assetTickets.issue(appId));
+  }
+
+  /**
+   * Tokens with a client connected right now.
+   *
+   * A connected client already receives events over the socket, so its
+   * token needs no push.
+   */
+  connectedTokenIds(): Set<string> {
+    const ids = new Set<string>();
+    for (const [, client] of this.clients) {
+      if (client.authenticated && client.tokenId) ids.add(client.tokenId);
+    }
+    return ids;
   }
 
   /** Register agent operations handler (call before start). */
@@ -354,6 +379,7 @@ export class GatewayServer {
       clientId: `client-${Date.now()}`,
       authenticated: false,
       isMasterAuth: false,
+      tokenId: '',
       authorizedWorkspaceIds: null,
       authorizedSessions: new Map(),
       authorizedArtifacts: new Map(),
@@ -423,45 +449,9 @@ export class GatewayServer {
     client: ConnectedClient,
     request: GatewayRequest,
   ): Promise<void> {
-    // Connect / auth is always allowed
+    // Connect / auth is always allowed.
     if (request.type === 'connect') {
-      // Check rate limiter before validating token
-      if (!this.authLimiter.check(client.remoteIp)) {
-        console.warn(`[gateway] Auth rate-limited: ${client.remoteIp}`);
-        sendResponse(ws, {
-          type: 'error',
-          requestType: 'connect',
-          message: 'Too many authentication attempts. Try again later.',
-        });
-        ws.close(4029, 'Rate limited');
-        return;
-      }
-
-      const authResult = this.auth.validate(request.token);
-      if (!authResult) {
-        console.warn(
-          `[gateway] Auth failed: ${client.remoteIp} (client type: ${request.clientType})`,
-        );
-        sendResponse(ws, {
-          type: 'error',
-          requestType: 'connect',
-          message: 'Invalid authentication token',
-        });
-        ws.close(4003, 'Authentication failed');
-        return;
-      }
-
-      // Successful auth — reset rate limiter for this IP
-      this.authLimiter.reset(client.remoteIp);
-
-      applyAuthResult(client, authResult);
-      client.clientType = request.clientType;
-      if (request.clientId) client.clientId = request.clientId;
-      console.log(
-        `[gateway] Client authenticated: ${client.clientType} (${client.clientId}) from ${client.remoteIp}`,
-      );
-      sendResponse(ws, { type: 'ok', requestType: 'connect' });
-      sendPendingChoices(ws, client);
+      authenticateClient(ws, client, request, this.auth, this.authLimiter);
       return;
     }
 
@@ -475,6 +465,10 @@ export class GatewayServer {
       });
       return;
     }
+
+    // Push is answered here, not in the routing chain: a subscription is
+    // filed under the client's token, which the chain does not carry.
+    if (routePushRequest(ws, client, request, this.push)) return;
 
     if (!this.agentOps) {
       sendResponse(ws, {

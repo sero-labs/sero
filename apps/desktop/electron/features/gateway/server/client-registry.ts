@@ -5,7 +5,10 @@
  */
 
 import { WebSocket } from 'ws';
-import type { GatewayAuthResult } from '../security/auth';
+import type { GatewayAuth, GatewayAuthResult } from '../security/auth';
+import type { GatewayConnectRequest } from './protocol';
+import type { RateLimiter } from '../security/rate-limiter';
+import { sendResponse } from './request-handler';
 import { hasWorkspaceAccess } from './access-control';
 import { pendingChoicesFor } from '../bridge/choice-bridge';
 import type { ConnectedClient } from '..';
@@ -20,6 +23,7 @@ import type { ConnectedClient } from '..';
 export function applyAuthResult(client: ConnectedClient, result: GatewayAuthResult): void {
   client.authenticated = true;
   client.isMasterAuth = result.type === 'master';
+  client.tokenId = result.tokenId;
   client.authorizedWorkspaceIds = result.authorizedWorkspaceIds
     ? new Set(result.authorizedWorkspaceIds)
     : null;
@@ -72,4 +76,54 @@ export function sendPendingChoices(ws: WebSocket, client: ConnectedClient): void
   for (const event of pendingChoicesFor(canReach)) {
     if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(event));
   }
+}
+
+/**
+ * Answer a `connect` request: rate limit, validate, then record what the
+ * token grants. Returns false when the client was refused and closed.
+ */
+export function authenticateClient(
+  ws: WebSocket,
+  client: ConnectedClient,
+  request: GatewayConnectRequest,
+  auth: GatewayAuth,
+  limiter: RateLimiter,
+): boolean {
+  if (!limiter.check(client.remoteIp)) {
+    console.warn(`[gateway] Auth rate-limited: ${client.remoteIp}`);
+    sendResponse(ws, {
+      type: 'error',
+      requestType: 'connect',
+      message: 'Too many authentication attempts. Try again later.',
+    });
+    ws.close(4029, 'Rate limited');
+    return false;
+  }
+
+  const authResult = auth.validate(request.token);
+  if (!authResult) {
+    console.warn(
+      `[gateway] Auth failed: ${client.remoteIp} (client type: ${request.clientType})`,
+    );
+    sendResponse(ws, {
+      type: 'error',
+      requestType: 'connect',
+      message: 'Invalid authentication token',
+    });
+    ws.close(4003, 'Authentication failed');
+    return false;
+  }
+
+  // Successful auth — this IP starts fresh.
+  limiter.reset(client.remoteIp);
+
+  applyAuthResult(client, authResult);
+  client.clientType = request.clientType;
+  if (request.clientId) client.clientId = request.clientId;
+  console.log(
+    `[gateway] Client authenticated: ${client.clientType} (${client.clientId}) from ${client.remoteIp}`,
+  );
+  sendResponse(ws, { type: 'ok', requestType: 'connect' });
+  sendPendingChoices(ws, client);
+  return true;
 }

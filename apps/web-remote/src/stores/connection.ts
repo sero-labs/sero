@@ -59,6 +59,9 @@ export interface GatewayClientLike {
   appStateGet: <T>(key: string) => Promise<T>;
   appStateWatch: <T>(key: string) => Promise<T>;
   appStateSet: <T>(key: string, data: unknown, expectedEtag?: string | null) => Promise<T>;
+  pushStatus: <T>() => Promise<T>;
+  pushSubscribe: <T>(endpoint: string, p256dh: string, auth: string) => Promise<T>;
+  pushUnsubscribe: <T>(endpoint: string) => Promise<T>;
   appStateUnwatch: (key: string) => Promise<unknown>;
   voiceStatus: () => Promise<VoiceTranscriptionStatus>;
   transcribeVoice: (

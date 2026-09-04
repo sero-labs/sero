@@ -52,6 +52,9 @@ export const VALID_REQUEST_TYPES = new Set<GatewayRequest['type']>([
   'app_state_set',
   'app_state_watch',
   'app_state_unwatch',
+  'push_status',
+  'push_subscribe',
+  'push_unsubscribe',
 ]);
 
 const VALID_CLIENT_TYPES = new Set<GatewayConnectRequest['clientType']>(['web', 'discord', 'cli']);
@@ -258,6 +261,22 @@ function validateRequestBody(data: Record<string, unknown>): GatewayRequest | nu
         data: data.data,
         ...(etag === undefined ? {} : { expectedEtag: etag }),
       };
+    }
+
+    case 'push_status':
+      return { type: 'push_status' };
+
+    case 'push_subscribe': {
+      const endpoint = readRequiredString(data, 'endpoint');
+      const p256dh = readRequiredString(data, 'p256dh');
+      const auth = readRequiredString(data, 'auth');
+      if (!endpoint || !p256dh || !auth) return null;
+      return { type: 'push_subscribe', endpoint, p256dh, auth };
+    }
+
+    case 'push_unsubscribe': {
+      const endpoint = readRequiredString(data, 'endpoint');
+      return endpoint ? { type: 'push_unsubscribe', endpoint } : null;
     }
 
     case 'upload_file': {

@@ -318,6 +318,21 @@ export class GatewayClient {
     return this.sendRequest({ type: 'app_state_unwatch', key });
   }
 
+  /** Ask whether this machine can send Web Push, and for its key. */
+  pushStatus<T>(): Promise<T> {
+    return this.sendRequest<T>({ type: 'push_status' });
+  }
+
+  /** Register this browser for Web Push. */
+  pushSubscribe<T>(endpoint: string, p256dh: string, auth: string): Promise<T> {
+    return this.sendRequest<T>({ type: 'push_subscribe', endpoint, p256dh, auth });
+  }
+
+  /** Stop this browser's Web Push. */
+  pushUnsubscribe<T>(endpoint: string): Promise<T> {
+    return this.sendRequest<T>({ type: 'push_unsubscribe', endpoint });
+  }
+
   /** Answer a choice an agent is waiting on. */
   answerChoice(id: string, optionId: string): void {
     this.send({ type: 'answer_choice', id, optionId });
