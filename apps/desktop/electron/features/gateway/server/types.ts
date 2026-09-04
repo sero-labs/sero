@@ -83,6 +83,21 @@ export type GatewayDevServerChange =
       status: GatewayDevServerInfo['status'];
     };
 
+/**
+ * A session as the session list shows it. `updatedAt` and `messageCount`
+ * fill the session-row subtitle; `workspaceId` lets the client file the
+ * session under the right workspace in the tree.
+ */
+export interface GatewaySessionInfo {
+  id: string;
+  name: string;
+  firstMessage?: string;
+  workspaceId: string;
+  /** ISO 8601. Last time the session file changed. */
+  updatedAt: string;
+  messageCount: number;
+}
+
 /** Operations the gateway can delegate to the agent pool. */
 export interface GatewayAgentOps {
   /** Open or get an existing agent session. Returns session path. */
@@ -109,11 +124,9 @@ export interface GatewayAgentOps {
    */
   getSessionWorkspaceId(sessionId: string): string | null;
   /** List sessions for a workspace. */
-  listSessions(
-    workspaceId: string,
-  ): Promise<Array<{ id: string; name: string; firstMessage?: string }>>;
+  listSessions(workspaceId: string): Promise<GatewaySessionInfo[]>;
   /** Create a new session for a workspace. */
-  createSession(workspaceId: string, name?: string): Promise<{ id: string; name: string }>;
+  createSession(workspaceId: string, name?: string): Promise<GatewaySessionInfo>;
   /** List files in a workspace directory. */
   listFiles(workspaceId: string, dirPath: string): Promise<GatewayFileEntry[]>;
   /** Read a file from a workspace. */

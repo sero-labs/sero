@@ -1,45 +1,71 @@
 /**
- * Workspace store — workspace list, active workspace, session management.
+ * Workspace store — workspace list, the session tree, live session state.
+ *
+ * The sidebar shows every workspace the token can reach, each with its own
+ * sessions, so sessions are held per workspace rather than as one flat list.
  */
 
 import { create } from 'zustand';
 import { useConnectionStore } from './connection';
 import type { GatewayMessage, SessionState } from '@/lib/gateway-client';
 
-interface Workspace {
+export interface Workspace {
   id: string;
   name: string;
   path: string;
 }
 
-interface Session {
+export interface Session {
   id: string;
   name: string;
   firstMessage?: string;
+  workspaceId: string;
+  /** ISO 8601, from the gateway. */
+  updatedAt: string;
+  messageCount: number;
 }
 
 /** What the last finished turn produced, for the session list. */
-interface SessionTurn {
+export interface SessionTurn {
   ts: number;
   outcome: 'completed' | 'cancelled' | 'error';
   snippet?: string;
 }
 
+/** Which surface the main area shows. */
+export type WorkspaceView = 'board' | 'chat' | 'dashboard';
+
 interface WorkspaceStore {
   workspaces: Workspace[];
   activeWorkspaceId: string | null;
-  sessions: Session[];
+  /** Sessions keyed by workspace id. */
+  sessionsByWorkspace: Record<string, Session[]>;
   activeSessionId: string | null;
+  /** Expanded workspace rows in the tree, keyed by workspace id. */
+  expanded: Record<string, boolean>;
   /** Live state per session id, from `session_state` push events. */
   sessionStates: Record<string, SessionState>;
   /** Last finished turn per session id, from `turn_complete` push events. */
   lastTurns: Record<string, SessionTurn>;
+  /** Sidebar session filter. Empty means no filter. */
+  searchQuery: string;
+  view: WorkspaceView;
+  /**
+   * Workspace ids of `list_sessions` requests still awaiting a response,
+   * in request order. The response carries a workspace id on each session,
+   * but an empty list carries none — this says which workspace it emptied.
+   * One ordered socket makes first-in-first-out correct.
+   */
+  pendingSessionFetches: string[];
 
   fetchWorkspaces: () => void;
   fetchSessions: (workspaceId: string) => void;
   setActiveWorkspace: (id: string) => void;
+  toggleExpanded: (id: string) => void;
   setActiveSession: (id: string) => void;
-  createSession: (name?: string) => void;
+  createSession: (workspaceId?: string, name?: string) => void;
+  setSearchQuery: (query: string) => void;
+  setView: (view: WorkspaceView) => void;
   handleMessage: (msg: GatewayMessage) => void;
 }
 
@@ -59,38 +85,71 @@ function isTurnOutcome(value: unknown): value is SessionTurn['outcome'] {
   return value === 'completed' || value === 'cancelled' || value === 'error';
 }
 
+/** Group a `list_sessions` response by the workspace each session names. */
+function groupByWorkspace(sessions: Session[]): Record<string, Session[]> {
+  const grouped: Record<string, Session[]> = {};
+  for (const session of sessions) {
+    if (!session.workspaceId) continue;
+    (grouped[session.workspaceId] ??= []).push(session);
+  }
+  return grouped;
+}
+
 export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
   const getClient = () => useConnectionStore.getState().client;
 
   return {
     workspaces: [],
     activeWorkspaceId: null,
-    sessions: [],
+    sessionsByWorkspace: {},
     activeSessionId: null,
+    expanded: {},
     sessionStates: {},
     lastTurns: {},
+    searchQuery: '',
+    view: 'chat',
+    pendingSessionFetches: [],
 
     fetchWorkspaces: () => {
+      // A fresh listing restarts the session-fetch queue. A dropped
+      // response across a reconnect would otherwise shift it out of step.
+      set({ pendingSessionFetches: [] });
       getClient().requestWorkspaces();
     },
 
     fetchSessions: (workspaceId: string) => {
+      set((s) => ({ pendingSessionFetches: [...s.pendingSessionFetches, workspaceId] }));
       getClient().requestSessions(workspaceId);
     },
 
     setActiveWorkspace: (id: string) => {
-      set({ activeWorkspaceId: id, sessions: [], activeSessionId: null });
+      set((s) => ({ activeWorkspaceId: id, expanded: { ...s.expanded, [id]: true } }));
       get().fetchSessions(id);
     },
 
-    setActiveSession: (id: string) => {
-      set({ activeSessionId: id });
+    toggleExpanded: (id: string) => {
+      const wasExpanded = get().expanded[id] ?? false;
+      set((s) => ({ expanded: { ...s.expanded, [id]: !wasExpanded } }));
+      if (!wasExpanded) get().fetchSessions(id);
     },
 
-    createSession: (name?: string) => {
-      const { activeWorkspaceId } = get();
-      if (!activeWorkspaceId) return;
-      getClient().createSession(activeWorkspaceId, name);
+    setActiveSession: (id: string) => {
+      set({ activeSessionId: id, view: 'chat' });
+    },
+
+    createSession: (workspaceId?: string, name?: string) => {
+      const targetId = workspaceId ?? get().activeWorkspaceId;
+      if (!targetId) return;
+      set({ activeWorkspaceId: targetId, view: 'chat' });
+      getClient().createSession(targetId, name);
+    },
+
+    setSearchQuery: (query: string) => {
+      set({ searchQuery: query });
+    },
+
+    setView: (view: WorkspaceView) => {
+      set({ view });
     },
 
     handleMessage: (msg: GatewayMessage) => {
@@ -124,27 +183,56 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
         const workspaces = (response.data as Workspace[]) ?? [];
         set({ workspaces });
 
-        // Auto-select first workspace if none selected
+        // Load every workspace's sessions: the tree shows them all.
+        for (const workspace of workspaces) {
+          get().fetchSessions(workspace.id);
+        }
+
         const { activeWorkspaceId } = get();
         if (!activeWorkspaceId && workspaces.length > 0) {
-          get().setActiveWorkspace(workspaces[0].id);
+          set((s) => ({
+            activeWorkspaceId: workspaces[0].id,
+            expanded: { ...s.expanded, [workspaces[0].id]: true },
+          }));
         }
       }
 
       if (response.requestType === 'list_sessions') {
         const sessions = (response.data as Session[]) ?? [];
-        set({ sessions });
+        const [requestedWorkspaceId, ...rest] = get().pendingSessionFetches;
+        const grouped = groupByWorkspace(sessions);
+        // An empty response names no workspace, so fall back to the
+        // workspace this response answers.
+        if (requestedWorkspaceId && !(requestedWorkspaceId in grouped)) {
+          grouped[requestedWorkspaceId] = [];
+        }
+        set((s) => ({
+          sessionsByWorkspace: { ...s.sessionsByWorkspace, ...grouped },
+          pendingSessionFetches: rest,
+        }));
       }
 
       if (response.requestType === 'create_session') {
-        const session = response.data as Session;
-        if (session) {
-          set((s) => ({
-            sessions: [...s.sessions, session],
-            activeSessionId: session.id,
-          }));
-        }
+        const session = response.data as Session | undefined;
+        if (!session) return;
+        const workspaceId = session.workspaceId || get().activeWorkspaceId;
+        if (!workspaceId) return;
+        set((s) => ({
+          sessionsByWorkspace: {
+            ...s.sessionsByWorkspace,
+            [workspaceId]: [session, ...(s.sessionsByWorkspace[workspaceId] ?? [])],
+          },
+          activeSessionId: session.id,
+          activeWorkspaceId: workspaceId,
+          expanded: { ...s.expanded, [workspaceId]: true },
+          view: 'chat',
+        }));
       }
     },
   };
 });
+
+/** Sessions of one workspace, newest first. */
+export function selectSessions(state: WorkspaceStore, workspaceId: string): Session[] {
+  return state.sessionsByWorkspace[workspaceId] ?? [];
+}

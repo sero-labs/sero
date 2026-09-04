@@ -1,22 +1,24 @@
 /**
- * Status bar, connection status, workspace info, version.
- * Hidden on mobile (see Layout.tsx).
+ * Status bar — `h-6 text-xs`, matching the desktop `StatusBar`.
+ *
+ * Left: connection state, workspace, token scope.
+ * Right: theme cycle, product name.
+ *
+ * Hidden on mobile (see Layout.tsx); the title bar carries the theme
+ * control there.
  */
 
 import { useConnectionStore } from '@/stores/connection';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { describeGatewayScope } from '@/lib/gateway-errors';
 import { cn } from '@sero-ai/ui/lib/utils';
-import { Separator } from '@sero-ai/ui/components/ui/separator';
-import { Button } from '@sero-ai/ui/components/ui/button';
-import { useThemeStore } from '@/stores/theme';
-import { Circle, Monitor, Moon, Sun } from 'lucide-react';
+import { Circle, FolderOpen } from 'lucide-react';
+import { ThemeModeButton } from './ThemeModeButton';
 
 export function StatusBar() {
   const state = useConnectionStore((s) => s.state);
   const workspaces = useWorkspaceStore((s) => s.workspaces);
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
-  const activeSessionId = useWorkspaceStore((s) => s.activeSessionId);
 
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
   const scope = describeGatewayScope(workspaces, activeWorkspaceId);
@@ -38,59 +40,25 @@ export function StatusBar() {
   }[state];
 
   return (
-    <div className="h-7 px-3 bg-card border-t border-border flex items-center justify-between text-xs text-muted-foreground shrink-0">
+    <footer className="flex h-6 shrink-0 items-center justify-between border-t border-[var(--border-default)] bg-[var(--bg-base)] px-3 text-xs text-[var(--text-muted)]">
       <div className="flex items-center gap-3">
         <span className="flex items-center gap-1.5">
           <Circle className={cn('size-2 fill-current', statusColor)} />
           {statusText}
         </span>
         {activeWorkspace && (
-          <>
-            <Separator orientation="vertical" className="h-3" />
-            <span className="text-foreground/60">
-              {activeWorkspace.name}
-            </span>
-          </>
-        )}
-        {scope && (
-          <>
-            <Separator orientation="vertical" className="h-3" />
-            <span className="text-foreground/60">
-              Scope: {scope.shortLabel}
-            </span>
-          </>
-        )}
-      </div>
-      <div className="flex items-center gap-3">
-        {activeSessionId && (
-          <span className="text-foreground/60 truncate max-w-[200px]">
-            Session: {activeSessionId}
+          <span className="flex items-center gap-1">
+            <FolderOpen className="size-3" />
+            {activeWorkspace.name}
           </span>
         )}
+        {scope && <span>Scope: {scope.shortLabel}</span>}
+      </div>
+
+      <div className="flex items-center gap-2">
         <ThemeModeButton />
         <span>Sero Remote</span>
       </div>
-    </div>
-  );
-}
-
-/** Cycle dark → light → system, matching the desktop theme control. */
-export function ThemeModeButton() {
-  const mode = useThemeStore((s) => s.mode);
-  const cycleMode = useThemeStore((s) => s.cycleMode);
-
-  const Icon = mode === 'dark' ? Moon : mode === 'light' ? Sun : Monitor;
-  const label = mode === 'dark' ? 'Dark' : mode === 'light' ? 'Light' : 'System';
-
-  return (
-    <Button
-      onClick={cycleMode}
-      variant="ghost"
-      size="icon-xs"
-      title={`Theme: ${label} (click to change)`}
-      aria-label={`Theme: ${label}. Click to change.`}
-    >
-      <Icon className="size-3" />
-    </Button>
+    </footer>
   );
 }

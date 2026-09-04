@@ -6,6 +6,7 @@ import { WebSocket } from 'ws';
 
 import { GatewayServer, type GatewayAgentOps } from '@electron/features/gateway';
 import type { GatewayPushEvent, GatewayResponse } from '@electron/features/gateway/server/protocol';
+import type { GatewaySessionInfo } from '@electron/features/gateway/server/types';
 import {
   connectClient,
   sendRequest,
@@ -29,9 +30,9 @@ function createAgentOps(): GatewayAgentOps {
     ['session-a', 'workspace-a'],
     ['session-b', 'workspace-b'],
   ]);
-  const sessionsByWorkspace = new Map([
-    ['workspace-a', [{ id: 'session-a', name: 'Session A', firstMessage: 'hello from A' }]],
-    ['workspace-b', [{ id: 'session-b', name: 'Session B', firstMessage: 'hello from B' }]],
+  const sessionsByWorkspace = new Map<string, GatewaySessionInfo[]>([
+    ['workspace-a', [{ ...fakeSession('session-a', 'workspace-a', 'Session A'), firstMessage: 'hello from A' }]],
+    ['workspace-b', [{ ...fakeSession('session-b', 'workspace-b', 'Session B'), firstMessage: 'hello from B' }]],
   ]);
   const historyBySession = new Map<string, Array<{
     id: string;
@@ -94,9 +95,9 @@ function createAgentOps(): GatewayAgentOps {
       const sessionId = `created-${workspaceId}`;
       sessionWorkspaceIds.set(sessionId, workspaceId);
       const sessions = sessionsByWorkspace.get(workspaceId) ?? [];
-      sessionsByWorkspace.set(workspaceId, [...sessions, { id: sessionId, name: name ?? '', firstMessage: '' }]);
+      sessionsByWorkspace.set(workspaceId, [...sessions, fakeSession(sessionId, workspaceId, name)]);
       historyBySession.set(sessionId, []);
-      return { id: sessionId, name: name ?? '' };
+      return fakeSession(sessionId, workspaceId, name);
     },
     listFiles: async () => [],
     readFile: async () => ({ content: '', encoding: 'utf8', mimeType: 'text/plain', size: 0 }),
@@ -131,6 +132,19 @@ async function createHarness(): Promise<TestHarness> {
   }
 
   return { server, port, tmpDir };
+}
+
+
+/** A session list entry with the metadata the session row needs. */
+function fakeSession(id: string, workspaceId: string, name?: string): GatewaySessionInfo {
+  return {
+    id,
+    name: name ?? '',
+    firstMessage: '',
+    workspaceId,
+    updatedAt: new Date(0).toISOString(),
+    messageCount: 0,
+  };
 }
 
 describe('GatewayServer scoped authorization flows', () => {
@@ -173,7 +187,7 @@ describe('GatewayServer scoped authorization flows', () => {
     expect(sessions).toEqual({
       type: 'ok',
       requestType: 'list_sessions',
-      data: [{ id: 'session-a', name: 'Session A', firstMessage: 'hello from A' }],
+      data: [{ ...fakeSession('session-a', 'workspace-a', 'Session A'), firstMessage: 'hello from A' }],
     });
 
     const steerOk = await sendRequest<GatewayResponse>(ws, {
@@ -296,7 +310,7 @@ describe('GatewayServer scoped authorization flows', () => {
     expect(sessions).toEqual({
       type: 'ok',
       requestType: 'list_sessions',
-      data: [{ id: 'session-b', name: 'Session B', firstMessage: 'hello from B' }],
+      data: [{ ...fakeSession('session-b', 'workspace-b', 'Session B'), firstMessage: 'hello from B' }],
     });
 
     expect(await sendRequest<GatewayResponse>(ws, { type: 'list_web_tokens' })).toEqual({
@@ -340,7 +354,7 @@ describe('GatewayServer scoped authorization flows', () => {
     expect(sessions).toEqual({
       type: 'ok',
       requestType: 'list_sessions',
-      data: [{ id: 'session-b', name: 'Session B', firstMessage: 'hello from B' }],
+      data: [{ ...fakeSession('session-b', 'workspace-b', 'Session B'), firstMessage: 'hello from B' }],
     });
 
     const history = await sendRequest<GatewayResponse>(ws, {

@@ -1,32 +1,33 @@
 /**
- * Layout shell, sidebar + chat + panels.
+ * Layout shell — `TitleBar` over a resizable row over `StatusBar`,
+ * matching the desktop shell dimensions.
  *
- * Mobile (<768px): sidebar & right panels are Sheet overlays.
- * Header pinned top, input pinned bottom (via ChatPanel), only chat scrolls.
- * Desktop (≥768px): traditional sidebar + chat + right panel columns.
+ * Desktop (≥768px): sidebar (20% default, min 200px, collapsible),
+ * chat, optional right panel, and the `w-10` activity rail.
+ * Mobile (<768px): the sidebar and right panels are `Sheet` overlays,
+ * and the status bar is hidden to save height.
  */
 
-import { useState, useCallback } from 'react';
-import seroLogoLightUrl from '@assets/logo.svg';
-import seroLogoDarkUrl from '@assets/logo-dark.svg';
-import { WorkspacePicker } from './WorkspacePicker';
+import { useCallback } from 'react';
+import { MainSidebar } from './sidebar/MainSidebar';
 import { ChatPanel } from './ChatPanel';
 import { FileBrowser } from './FileBrowser';
 import { FilePreview } from './FilePreview';
 import { ArtifactGallery } from './ArtifactGallery';
 import { PreviewPanel } from './PreviewPanel';
-import { StatusBar, ThemeModeButton } from './StatusBar';
+import { StatusBar } from './StatusBar';
+import { TitleBar } from './TitleBar';
+import { ActivityRail } from './ActivityRail';
 import { AccessBanner } from './AccessBanner';
 import { useArtifactStore } from '@/stores/artifacts';
 import { useDevServerStore } from '@/stores/dev-servers';
 import { useWorkspaceStore } from '@/stores/workspace';
-import { Button } from '@sero-ai/ui/components/ui/button';
+import { useLayoutStore, type RightPanel } from '@/stores/layout';
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from '@sero-ai/ui/components/ui/resizable';
-import { cn } from '@sero-ai/ui/lib/utils';
 import { useIsMobile } from '@sero-ai/ui/hooks/use-mobile';
 import {
   Sheet,
@@ -34,25 +35,23 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@sero-ai/ui/components/ui/sheet';
-import {
-  PanelLeftClose,
-  PanelLeftOpen,
-  FolderTree,
-  Image as ImageIcon,
-  Menu,
-  Monitor,
-} from 'lucide-react';
 
-type RightPanel = 'files' | 'artifacts' | 'preview' | null;
+const PANEL_TITLES: Record<RightPanel, string> = {
+  files: 'Files',
+  artifacts: 'Artifacts',
+  preview: 'Dev Servers',
+  changes: 'Changes',
+};
 
 export function Layout() {
   const isMobile = useIsMobile();
-  const [sidebarOpen, setSidebarOpen] = useState(() =>
-    typeof window !== 'undefined'
-      ? !window.matchMedia('(max-width: 767px)').matches
-      : true,
-  );
-  const [rightPanel, setRightPanel] = useState<RightPanel>(null);
+  const sidebarOpen = useLayoutStore((s) => s.sidebarOpen);
+  const sidebarSize = useLayoutStore((s) => s.sidebarSize);
+  const setSidebarOpen = useLayoutStore((s) => s.setSidebarOpen);
+  const setSidebarSize = useLayoutStore((s) => s.setSidebarSize);
+  const rightPanel = useLayoutStore((s) => s.rightPanel);
+  const closeRightPanel = useLayoutStore((s) => s.closeRightPanel);
+
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const hasRunningDevServers = useDevServerStore((s) =>
     s.servers.some(
@@ -62,151 +61,97 @@ export function Layout() {
     ),
   );
 
-  const toggleSidebar = useCallback(() => setSidebarOpen((v) => !v), []);
-
-  const toggleRightPanel = useCallback(
-    (panel: 'files' | 'artifacts' | 'preview') => {
-      setRightPanel((current) => (current === panel ? null : panel));
+  const handleSidebarResize = useCallback(
+    (panelSize: { asPercentage: number }) => {
+      setSidebarSize(`${panelSize.asPercentage.toFixed(2)}%`);
     },
-    [],
+    [setSidebarSize],
   );
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Title bar, always pinned at top */}
-      <header className="h-11 px-3 bg-card border-b border-border flex items-center justify-between shrink-0 z-10">
-        <div className="flex items-center gap-2">
-          <SeroLogo />
-          <Button
-            onClick={toggleSidebar}
-            variant="ghost"
-            size="icon-xs"
-            title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-          >
-            {isMobile ? (
-              <Menu className="size-4" />
-            ) : sidebarOpen ? (
-              <PanelLeftClose className="size-4" />
-            ) : (
-              <PanelLeftOpen className="size-4" />
-            )}
-          </Button>
-        </div>
-
-        <div className="flex items-center gap-1">
-          <Button
-            onClick={() => toggleRightPanel('files')}
-            variant={rightPanel === 'files' ? 'secondary' : 'ghost'}
-            size="icon-xs"
-            title="File Browser"
-          >
-            <FolderTree className="size-4" />
-          </Button>
-          <Button
-            onClick={() => toggleRightPanel('artifacts')}
-            variant={rightPanel === 'artifacts' ? 'secondary' : 'ghost'}
-            size="icon-xs"
-            title="Artifacts"
-          >
-            <ImageIcon className="size-4" />
-          </Button>
-          <Button
-            onClick={() => toggleRightPanel('preview')}
-            variant={rightPanel === 'preview' ? 'secondary' : 'ghost'}
-            size="icon-xs"
-            title="Dev Server Preview"
-            className={cn(
-              hasRunningDevServers &&
-                'text-status-success hover:text-status-success/80 data-[state=open]:text-status-success',
-            )}
-          >
-            <Monitor className="size-4" />
-          </Button>
-          {/* The status bar carries the theme control on desktop, but it is
-              hidden on mobile — so the header carries it there. */}
-          {isMobile && <ThemeModeButton />}
-        </div>
-      </header>
+    <div className="flex h-full flex-col">
+      <TitleBar isMobile={isMobile} hasRunningDevServers={hasRunningDevServers} />
 
       <AccessBanner />
 
-      {/* Main content row */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Desktop sidebar, inline panel */}
-        {!isMobile && sidebarOpen && (
-          <div className="w-56 border-r border-border bg-card shrink-0 overflow-hidden">
-            <WorkspacePicker />
-          </div>
-        )}
-
-        {/* Chat + right panel share the row; drag the divider to resize.
-            The group renders on mobile too (right panels are Sheets there)
-            so ChatPanel keeps one position in the tree across panel
-            toggles AND the responsive breakpoint — composer drafts must
-            survive both. Numeric panel sizes are pixels in
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* The panel group renders on mobile too — right panels are
+            sheets there — so ChatPanel keeps one position in the tree
+            across panel toggles AND the responsive breakpoint. Composer
+            drafts must survive both. Numeric sizes are pixels in
             react-resizable-panels v4, so sizes are percentage strings. */}
-        <ResizablePanelGroup orientation="horizontal" className="flex-1 min-w-0">
-          <ResizablePanel minSize="25%">
+        <ResizablePanelGroup orientation="horizontal" className="min-w-0 flex-1">
+          {!isMobile && sidebarOpen && (
+            <>
+              <ResizablePanel
+                id="sidebar"
+                defaultSize={sidebarSize}
+                minSize={200}
+                onResize={handleSidebarResize}
+                className="overflow-hidden"
+              >
+                <MainSidebar />
+              </ResizablePanel>
+              <ResizableHandle />
+            </>
+          )}
+
+          <ResizablePanel id="main" minSize="25%">
             <ChatPanel />
           </ResizablePanel>
+
           {!isMobile && rightPanel && (
             <>
               <ResizableHandle />
               <ResizablePanel
+                id="right"
                 defaultSize={rightPanel === 'preview' ? '45%' : '30%'}
                 minSize="20%"
-                className="bg-card overflow-hidden"
+                className="overflow-hidden bg-[var(--bg-surface)]"
               >
-                {rightPanel === 'files' && <FilesPanel />}
-                {rightPanel === 'artifacts' && <ArtifactPanelConnected />}
-                {rightPanel === 'preview' && <PreviewPanel />}
+                <RightPanelContent panel={rightPanel} />
               </ResizablePanel>
             </>
           )}
         </ResizablePanelGroup>
+
+        {!isMobile && <ActivityRail hasRunningDevServers={hasRunningDevServers} />}
       </div>
 
-      {/* Status bar, hidden on mobile to save space */}
       {!isMobile && <StatusBar />}
 
-      {/* Mobile sidebar, Sheet overlay from left */}
       {isMobile && (
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
           <SheetContent side="left" className="w-72 p-0" showCloseButton={false}>
-            <SheetHeader className="px-3 py-2 border-b border-border">
-              <SheetTitle className="text-base">Workspaces</SheetTitle>
+            <SheetHeader className="sr-only">
+              <SheetTitle>Workspaces</SheetTitle>
             </SheetHeader>
             <div className="flex-1 overflow-hidden">
-              <WorkspacePicker onSessionSelect={() => setSidebarOpen(false)} />
+              <MainSidebar onSessionSelect={() => setSidebarOpen(false)} />
             </div>
           </SheetContent>
         </Sheet>
       )}
 
-      {/* Mobile right panel, Sheet overlay from right */}
       {isMobile && (
         <Sheet
           open={rightPanel !== null}
-          onOpenChange={(open) => { if (!open) setRightPanel(null); }}
+          onOpenChange={(open) => {
+            if (!open) closeRightPanel();
+          }}
         >
           <SheetContent
             side="right"
             className={rightPanel === 'preview' ? 'w-[95vw] p-0' : 'w-80 p-0'}
             showCloseButton={false}
           >
-            <SheetHeader className="px-3 py-2 border-b border-border">
+            <SheetHeader className="border-b border-[var(--border-subtle)] px-3 py-2">
               <SheetTitle className="text-base">
-                {rightPanel === 'files'
-                  ? 'Files'
-                  : rightPanel === 'artifacts'
-                    ? 'Artifacts'
-                    : 'Dev Servers'}
+                {rightPanel ? PANEL_TITLES[rightPanel] : ''}
               </SheetTitle>
             </SheetHeader>
             <div className="flex-1 overflow-hidden">
-              {rightPanel === 'files' && <FilesPanel />}
-              {rightPanel === 'artifacts' && <ArtifactPanelConnected />}
-              {rightPanel === 'preview' && <PreviewPanel />}
+              {rightPanel && <RightPanelContent panel={rightPanel} />}
             </div>
           </SheetContent>
         </Sheet>
@@ -215,11 +160,18 @@ export function Layout() {
   );
 }
 
+function RightPanelContent({ panel }: { panel: RightPanel }) {
+  if (panel === 'files') return <FilesPanel />;
+  if (panel === 'artifacts') return <ArtifactPanelConnected />;
+  if (panel === 'preview') return <PreviewPanel />;
+  return null;
+}
+
 /** Files panel, split between browser and preview. */
 function FilesPanel() {
   return (
-    <div className="flex flex-col h-full">
-      <div className="h-1/3 border-b border-border overflow-hidden">
+    <div className="flex h-full flex-col">
+      <div className="h-1/3 overflow-hidden border-b border-[var(--border-subtle)]">
         <FileBrowser />
       </div>
       <div className="flex-1 overflow-hidden">
@@ -235,36 +187,10 @@ function ArtifactPanelConnected() {
   const loadArtifactData = useArtifactStore((s) => s.loadArtifactData);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       <div className="flex-1 overflow-y-auto">
-        <ArtifactGallery
-          artifacts={artifacts}
-          onLoadArtifact={loadArtifactData}
-        />
+        <ArtifactGallery artifacts={artifacts} onLoadArtifact={loadArtifactData} />
       </div>
     </div>
-  );
-}
-
-/**
- * Theme-aware wordmark. `logo.svg` is dark ink for light backgrounds,
- * `logo-dark.svg` is light ink for dark backgrounds. The swap is pure
- * CSS so it never lags the `.dark` class.
- */
-function SeroLogo() {
-  return (
-    <>
-      <img
-        src={seroLogoLightUrl}
-        alt="Sero"
-        className="h-5 w-auto dark:hidden"
-      />
-      <img
-        src={seroLogoDarkUrl}
-        alt=""
-        aria-hidden="true"
-        className="h-5 w-auto hidden dark:block"
-      />
-    </>
   );
 }

@@ -76,3 +76,94 @@ describe('workspace store session state', () => {
     expect(useWorkspaceStore.getState().lastTurns['session-a'].outcome).toBe('completed');
   });
 });
+
+describe('workspace store session tree', () => {
+  beforeEach(() => {
+    useWorkspaceStore.setState({
+      workspaces: [],
+      sessionsByWorkspace: {},
+      pendingSessionFetches: [],
+      expanded: {},
+      activeWorkspaceId: null,
+      activeSessionId: null,
+      searchQuery: '',
+      view: 'chat',
+    });
+  });
+
+  function session(id: string, workspaceId: string) {
+    return {
+      id,
+      name: id,
+      firstMessage: '',
+      workspaceId,
+      updatedAt: '2026-09-04T00:00:00.000Z',
+      messageCount: 3,
+    };
+  }
+
+  it('files sessions under the workspace each one names', () => {
+    useWorkspaceStore.setState({ pendingSessionFetches: ['workspace-a'] });
+
+    useWorkspaceStore.getState().handleMessage({
+      type: 'ok',
+      requestType: 'list_sessions',
+      data: [session('session-a', 'workspace-a'), session('session-b', 'workspace-a')],
+    });
+
+    const { sessionsByWorkspace, pendingSessionFetches } = useWorkspaceStore.getState();
+    expect(sessionsByWorkspace['workspace-a']).toHaveLength(2);
+    expect(pendingSessionFetches).toEqual([]);
+  });
+
+  it('empties the requested workspace when the response is empty', () => {
+    useWorkspaceStore.setState({
+      sessionsByWorkspace: { 'workspace-a': [session('stale', 'workspace-a')] },
+      pendingSessionFetches: ['workspace-a'],
+    });
+
+    useWorkspaceStore.getState().handleMessage({
+      type: 'ok',
+      requestType: 'list_sessions',
+      data: [],
+    });
+
+    expect(useWorkspaceStore.getState().sessionsByWorkspace['workspace-a']).toEqual([]);
+  });
+
+  it('answers queued requests in order', () => {
+    useWorkspaceStore.setState({ pendingSessionFetches: ['workspace-a', 'workspace-b'] });
+    const { handleMessage } = useWorkspaceStore.getState();
+
+    handleMessage({ type: 'ok', requestType: 'list_sessions', data: [] });
+    expect(useWorkspaceStore.getState().pendingSessionFetches).toEqual(['workspace-b']);
+
+    handleMessage({
+      type: 'ok',
+      requestType: 'list_sessions',
+      data: [session('session-b', 'workspace-b')],
+    });
+
+    const { sessionsByWorkspace } = useWorkspaceStore.getState();
+    expect(sessionsByWorkspace['workspace-a']).toEqual([]);
+    expect(sessionsByWorkspace['workspace-b']).toHaveLength(1);
+  });
+
+  it('puts a created session at the top of its workspace and selects it', () => {
+    useWorkspaceStore.setState({
+      sessionsByWorkspace: { 'workspace-a': [session('older', 'workspace-a')] },
+    });
+
+    useWorkspaceStore.getState().handleMessage({
+      type: 'ok',
+      requestType: 'create_session',
+      data: session('fresh', 'workspace-a'),
+    });
+
+    const state = useWorkspaceStore.getState();
+    expect(state.sessionsByWorkspace['workspace-a'].map((s) => s.id)).toEqual(['fresh', 'older']);
+    expect(state.activeSessionId).toBe('fresh');
+    expect(state.expanded['workspace-a']).toBe(true);
+    expect(state.view).toBe('chat');
+  });
+});

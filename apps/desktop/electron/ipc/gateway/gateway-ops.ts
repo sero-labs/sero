@@ -19,6 +19,7 @@ import {
   SERO_SESSION_DIR,
 } from '@electron/shared/infra/shared-infra';
 import { convertSessionMessages } from '../agent/core/agent-helpers';
+import { listSessionMetadata } from '../agent/core/session-metadata';
 import { convertToGatewayHistory } from './gateway-history';
 import type {
   GatewayAgentOps,
@@ -133,10 +134,20 @@ export function buildGatewayOps(
     listSessions: async (workspaceId) => {
       const wsPath = workspaceManager.getPath(workspaceId);
       if (!wsPath) return [];
-      const workspaceSessions = await SessionManager.list(wsPath, SERO_SESSION_DIR);
-      return workspaceSessions.map((s) => ({
-        id: s.id, name: s.name || '', firstMessage: s.firstMessage || '',
-      }));
+      // listSessionMetadata reads the JSONL headers, which is where the
+      // modified time and message count live. SessionManager.list has
+      // neither, and the session row needs both.
+      const all = await listSessionMetadata(SERO_SESSION_DIR);
+      return all
+        .filter((session) => session.cwd === wsPath)
+        .map((session) => ({
+          id: session.id,
+          name: session.name || '',
+          firstMessage: session.firstMessage || '',
+          workspaceId,
+          updatedAt: session.modified.toISOString(),
+          messageCount: session.messageCount,
+        }));
     },
     createSession: async (workspaceId, name) => {
       const wsPath = workspaceManager.getPath(workspaceId);
@@ -144,7 +155,14 @@ export function buildGatewayOps(
       const sm = SessionManager.create(wsPath, SERO_SESSION_DIR);
       const sessionPath = sm.getSessionFile()!;
       await fs.appendFile(sessionPath, JSON.stringify(sm.getHeader()) + '\n', 'utf8');
-      return { id: sm.getSessionId(), name: name || '' };
+      return {
+        id: sm.getSessionId(),
+        name: name || '',
+        firstMessage: '',
+        workspaceId,
+        updatedAt: new Date().toISOString(),
+        messageCount: 0,
+      };
     },
     listFiles: async (workspaceId, dirPath) => {
       const runtime = await runtimeManager.getRuntime(workspaceId);
