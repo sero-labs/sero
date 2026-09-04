@@ -8,7 +8,9 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "e2e": "playwright test",
+    "e2e:update": "playwright test --update-snapshots"
   },
   "dependencies": {
     "@module-federation/enhanced": "2.8.0",
@@ -26,14 +28,17 @@
   },
   "devDependencies": {
     "@module-federation/vite": "catalog:",
+    "@playwright/test": "1.62.1",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "catalog:",
     "jsdom": "^26.1.0",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "ws": "^8.21.3"
   }
 }
