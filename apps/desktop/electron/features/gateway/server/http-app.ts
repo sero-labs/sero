@@ -3,6 +3,8 @@ import type { Duplex } from 'stream';
 import { DEV_PROXY_PREFIX, handleDevProxyRequest, handleDevProxyUpgrade, type DevProxyDeps } from './devserver-proxy';
 import { tryServeGrabScript } from './grab-script';
 import { tryServeStaticFile } from './static-files';
+import { tryServeExtAsset, EXT_ASSET_PREFIX } from './ext-assets';
+import type { AssetTicketManager } from '../security/asset-ticket';
 
 type WebChatHtmlProvider = () => string;
 
@@ -13,6 +15,8 @@ interface GatewayHttpServerOptions {
   previewTlsPort: number;
   getWebChatHtml: () => WebChatHtmlProvider | null;
   getProxyDeps: () => DevProxyDeps;
+  /** Signs and checks the tickets that unlock plugin asset reads. */
+  assetTickets: AssetTicketManager;
   upgradeWebSocket: (
     req: http.IncomingMessage,
     socket: Duplex,
@@ -87,6 +91,15 @@ export function createGatewayHttpServer(options: GatewayHttpServerOptions): http
     if (pathname === '/health') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
+    if (pathname.startsWith(EXT_ASSET_PREFIX)) {
+      void tryServeExtAsset(req, res, options.assetTickets).then((handled) => {
+        if (handled) return;
+        res.writeHead(404);
+        res.end('Not Found');
+      });
       return;
     }
 

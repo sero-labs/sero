@@ -180,6 +180,7 @@ function parseComponent(
         minSize: parseOptionalSize(value.minSize, { w: 1, h: 1 }),
         maxSize: parseOptionalSize(value.maxSize, { w: 4, h: 4 }),
         description: optionalString(value.description),
+        remote: value.remote === true,
       };
     }
     default:
@@ -301,6 +302,7 @@ function parseLegacyWidget(value: unknown): DashboardWidgetContribution | null {
     minSize: parseOptionalSize(value.minSize, { w: 1, h: 1 }),
     maxSize: parseOptionalSize(value.maxSize, { w: 4, h: 4 }),
     description: optionalString(value.description),
+    remote: value.remote === true,
   };
 }
 

@@ -202,6 +202,16 @@ export interface GatewayNotificationsReadEvent {
   ts: number;
 }
 
+/** A watched widget state file changed on disk. */
+export interface GatewayAppStateChangedEvent {
+  type: 'app_state_changed';
+  /** The opaque key the client watched. */
+  key: string;
+  data: unknown;
+  /** Hash of the raw file text; null when the file is absent. */
+  etag: string | null;
+}
+
 export type GatewayPushEvent =
   | GatewayAgentStartEvent
   | GatewayAgentEndEvent
@@ -219,4 +229,5 @@ export type GatewayPushEvent =
   | GatewayChoiceResolvedEvent
   | GatewayNotificationEvent
   | GatewayNotificationsReadEvent
+  | GatewayAppStateChangedEvent
   | GatewayDevServerChangedEvent;

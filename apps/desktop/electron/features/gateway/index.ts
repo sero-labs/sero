@@ -43,6 +43,9 @@ import {
 } from './security/devserver-ticket';
 import { createGatewayHttpServer, createPreviewHttpServer } from './server/http-app';
 import { getClientIp, isOriginAllowed } from './server/connection-security';
+import { AssetTicketManager } from './security/asset-ticket';
+import { setAssetTicketIssuer } from './server/widget-handlers';
+import { dropWidgetStateWatches } from './bridge/widget-state-bridge';
 
 export type {
   GatewayConfig,
@@ -82,6 +85,7 @@ export class GatewayServer {
   private webChatHtml: WebChatHtmlProvider | null = null;
   private idleCheckTimer: ReturnType<typeof setInterval> | null = null;
   private devProxyTickets: DevProxyTicketManager;
+  private assetTickets: AssetTicketManager;
   private devServerUnsubscribe: (() => void) | null = null;
 
   private authLimiter = new RateLimiter({
@@ -101,6 +105,10 @@ export class GatewayServer {
     // it: a gateway restart invalidates outstanding tickets, which is
     // the desired behaviour for short-lived preview credentials.
     this.devProxyTickets = new DevProxyTicketManager(generateTicketSecret());
+    // A separate secret: asset tickets travel in URLs and must not be
+    // able to stand in for a dev-proxy ticket.
+    this.assetTickets = new AssetTicketManager(generateTicketSecret());
+    setAssetTicketIssuer((appId) => this.assetTickets.issue(appId));
   }
 
   /** Register agent operations handler (call before start). */
@@ -137,6 +145,7 @@ export class GatewayServer {
       previewTlsPort: this.config.previewTlsPort,
       getWebChatHtml: () => this.webChatHtml,
       getProxyDeps: () => this.proxyDeps(),
+      assetTickets: this.assetTickets,
       upgradeWebSocket: (req, socket, head) => {
         this.wss!.handleUpgrade(req, socket, head, (ws) => {
           this.wss!.emit('connection', ws, req);
@@ -290,6 +299,11 @@ export class GatewayServer {
     fanoutOwnerEvent(this.clients, event);
   }
 
+  /** Mint an asset ticket so a client can pull one app's widget assets. */
+  issueAssetTicket(appId: string): string {
+    return this.assetTickets.issue(appId);
+  }
+
   /** Get the auth manager (for web token operations from the request handler). */
   getAuth(): GatewayAuth {
     return this.auth;
@@ -393,11 +407,13 @@ export class GatewayServer {
 
     ws.on('close', () => {
       clearTimeout(authTimeout);
+      dropWidgetStateWatches(ws);
       this.clients.delete(ws);
     });
 
     ws.on('error', (err) => {
       console.error('[gateway] Client error:', err);
+      dropWidgetStateWatches(ws);
       this.clients.delete(ws);
     });
   }

@@ -14,4 +14,9 @@ export interface WidgetManifest {
   maxSize?: { w: number; h: number };
   /** Optional short description for the widget picker. */
   description?: string;
+  /**
+   * Opt in to being shown in web-remote, where only the remote-safe part
+   * of `window.sero` exists.
+   */
+  remote?: boolean;
 }

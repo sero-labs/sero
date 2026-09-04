@@ -219,6 +219,18 @@ function validateRequestBody(data: Record<string, unknown>): GatewayRequest | nu
       return { type: 'mark_notifications_read', ids };
     }
 
+    case 'list_remote_widgets': {
+      const workspaceId = readOptionalString(data, 'workspaceId');
+      return workspaceId === null ? null : { type: 'list_remote_widgets', workspaceId };
+    }
+
+    case 'app_state_get':
+    case 'app_state_watch':
+    case 'app_state_unwatch': {
+      const key = readRequiredString(data, 'key');
+      return key ? { type: data.type, key } : null;
+    }
+
     case 'upload_file': {
       const workspaceId = readRequiredString(data, 'workspaceId');
       const requestPath = readRequiredString(data, 'path');

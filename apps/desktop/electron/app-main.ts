@@ -43,6 +43,7 @@ import {
 import { disposeAllAgentSessions } from './ipc/agent/core/agent';
 import { workspaceManager } from './features/workspace/manager';
 import { setupExtProtocol, registerAllExtAssets } from './platform/protocols/ext-protocol';
+import { registerAllRemoteWidgets } from './features/gateway/server/remote-widgets';
 import { setupHostMediaProtocol } from './platform/protocols/host-media-protocol';
 import { discoverApps, registerAppPath } from './features/apps/discovery';
 import { watchForNewApps } from './ipc/apps/apps';
@@ -310,6 +311,8 @@ app.whenReady().then(async () => {
   // Discover apps and register their assets for the custom protocol.
   const apps = await discoverApps();
   registerAllExtAssets(apps);
+  // Only widgets that opted in with `remote: true` become reachable here.
+  registerAllRemoteWidgets(apps);
 
   // Watch for new app packages created while running (e.g. by the agent)
   const knownAppIds = new Set(apps.map((a) => a.id));

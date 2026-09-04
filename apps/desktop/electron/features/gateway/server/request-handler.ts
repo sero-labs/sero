@@ -21,6 +21,7 @@ import {
 import { routeExtendedRequest } from './extended-handlers';
 import { routeQueryRequest } from './query-handlers';
 import { routeWorkspaceRequest } from './workspace-handlers';
+import { routeWidgetRequest } from './widget-handlers';
 
 // ── Idempotency store ───────────────────────────────────────
 // Prevents duplicate prompt execution from network retries.
@@ -124,6 +125,9 @@ export async function routeAgentRequest(
   // Workspace files: status and diff for any authorized workspace, upload
   // for any authorized workspace, commit for owners only.
   if (await routeWorkspaceRequest(ws, agentOps, request, accessScope)) return;
+
+  // Remote dashboard widgets: the listing, and their state files.
+  if (await routeWidgetRequest(ws, agentOps, request, accessScope)) return;
 
   switch (request.type) {
     case 'prompt': {

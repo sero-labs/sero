@@ -67,6 +67,31 @@ export interface GatewayGetUsageRequest {
   type: 'get_usage';
 }
 
+/** Plugin widgets this client may load. */
+export interface GatewayListRemoteWidgetsRequest {
+  type: 'list_remote_widgets';
+  /** Decides which workspace a workspace-scoped widget reads. */
+  workspaceId?: string;
+}
+
+/** Read one widget's state file, named by its opaque key. */
+export interface GatewayAppStateGetRequest {
+  type: 'app_state_get';
+  key: string;
+}
+
+/** Watch a widget's state file; changes arrive as `app_state_changed`. */
+export interface GatewayAppStateWatchRequest {
+  type: 'app_state_watch';
+  key: string;
+}
+
+/** Stop watching a widget's state file. */
+export interface GatewayAppStateUnwatchRequest {
+  type: 'app_state_unwatch';
+  key: string;
+}
+
 /** Put a file into a workspace. */
 export interface GatewayUploadFileRequest {
   type: 'upload_file';
@@ -207,6 +232,10 @@ export type GatewayRequest = (
   | GatewayAnswerChoiceRequest
   | GatewayListNotificationsRequest
   | GatewayMarkNotificationsReadRequest
+  | GatewayListRemoteWidgetsRequest
+  | GatewayAppStateGetRequest
+  | GatewayAppStateWatchRequest
+  | GatewayAppStateUnwatchRequest
   | GatewayUploadFileRequest
   | GatewayGitStatusRequest
   | GatewayGitDiffRequest

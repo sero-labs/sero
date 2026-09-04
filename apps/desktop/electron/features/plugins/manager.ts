@@ -13,6 +13,10 @@ import path from 'path';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { discoverApps, registerAppPath, unregisterAppPath } from '../apps/discovery';
 import { registerExtAssets, unregisterExtAssets } from '@electron/platform/protocols/ext-protocol';
+import {
+  registerRemoteWidgets,
+  unregisterRemoteWidgets,
+} from '@electron/features/gateway/server/remote-widgets';
 import { invalidatePackageProviderManifestCache } from '@electron/shared/providers/package-provider-manifests';
 import { clearAppManifestCache } from '@electron/ipc/agent/handlers/app-agent';
 import { clearPluginBridgePolicyCache } from '@electron/cli';
@@ -290,6 +294,7 @@ async function doInstallPlugin(source: string): Promise<SeroAppManifest> {
     }
 
     registerExtAssets(manifest);
+    registerRemoteWidgets(manifest);
     invalidatePackageProviderManifestCache();
     return manifest;
   } catch (err) {
@@ -331,6 +336,7 @@ export async function uninstallPlugin(pluginId: string): Promise<void> {
 
   await fs.rm(pluginPath, { recursive: true, force: true });
   unregisterExtAssets(pluginId);
+  unregisterRemoteWidgets(pluginId);
   removePackageFromSettings(pluginPath);
   await reconcileInstalledPluginActivation();
   unregisterAppPath(pluginPath);
