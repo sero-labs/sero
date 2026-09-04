@@ -6,12 +6,50 @@
 
 export interface GatewayAgentStartEvent {
   type: 'agent_start';
+  /** The session's workspace. Used for scope filtering. */
+  workspaceId: string;
   sessionId: string;
 }
 
 export interface GatewayAgentEndEvent {
   type: 'agent_end';
+  /** The session's workspace. Used for scope filtering. */
+  workspaceId: string;
   sessionId: string;
+}
+
+/** What a session is doing. Drives the session-row state dot. */
+export type GatewaySessionState = 'running' | 'idle' | 'awaiting_input';
+
+/**
+ * A session changed state. Sent to every client whose token can reach
+ * the workspace, whether or not the client is viewing that session.
+ */
+export interface GatewaySessionStateEvent {
+  type: 'session_state';
+  workspaceId: string;
+  sessionId: string;
+  state: GatewaySessionState;
+  /** Epoch milliseconds. */
+  ts: number;
+}
+
+/** Maximum length of the `turn_complete` snippet, in characters. */
+export const TURN_SNIPPET_MAX = 140;
+
+/**
+ * A turn finished. Carries at most `TURN_SNIPPET_MAX` characters of the
+ * agent's last message so a list UI can show what happened without
+ * asking for the history.
+ */
+export interface GatewayTurnCompleteEvent {
+  type: 'turn_complete';
+  workspaceId: string;
+  sessionId: string;
+  /** Epoch milliseconds. */
+  ts: number;
+  outcome: 'completed' | 'cancelled' | 'error';
+  snippet?: string;
 }
 
 export interface GatewayTextDeltaEvent {
@@ -100,6 +138,8 @@ export interface GatewayDevServerChangedEvent {
 export type GatewayPushEvent =
   | GatewayAgentStartEvent
   | GatewayAgentEndEvent
+  | GatewaySessionStateEvent
+  | GatewayTurnCompleteEvent
   | GatewayTextDeltaEvent
   | GatewayThinkingDeltaEvent
   | GatewayToolInputStartEvent

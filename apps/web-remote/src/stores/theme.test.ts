@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const savePref = vi.fn(async () => {});
-const loadPref = vi.fn(async () => null as unknown);
+const savePref = vi.fn(async (_key: string, _value: unknown) => {});
+const loadPref = vi.fn(async (_key: string) => null as unknown);
 
 vi.mock('@/lib/prefs-storage', () => ({
   savePref: (key: string, value: unknown) => savePref(key, value),

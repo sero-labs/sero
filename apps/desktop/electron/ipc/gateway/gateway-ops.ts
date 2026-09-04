@@ -81,6 +81,8 @@ export function buildGatewayOps(
   openSessionInternal: (sessionId: string, sessionPath: string, workspaceId: string) => Promise<unknown>,
 ): GatewayAgentOps {
   return {
+    getSessionWorkspaceId: (sessionId) => pool.get(sessionId)?.workspaceId ?? null,
+
     openSession: async (sessionId, workspaceId) => {
       const existing = pool.get(sessionId);
       if (existing) {

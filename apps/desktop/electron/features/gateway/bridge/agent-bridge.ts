@@ -14,6 +14,10 @@
 
 import type { GatewayAgentOps } from '..';
 import type { GatewayPushEvent, GatewayToolEndEvent } from '../server/protocol';
+import {
+  TURN_SNIPPET_MAX,
+  type GatewaySessionState,
+} from '../server/protocol-events';
 import type { CostTracker } from '../server/cost-tracker';
 
 // ── Agent operations bridge ─────────────────────────────────
@@ -36,6 +40,7 @@ export function getGatewayAgentOps(): GatewayAgentOps | null {
 /** Minimal interface — avoids importing the full GatewayServer. */
 interface EventSink {
   pushEvent(sessionId: string, event: GatewayPushEvent): void;
+  broadcastWorkspaceEvent(workspaceId: string, event: GatewayPushEvent): void;
 }
 
 type GatewayEventListener = (event: GatewayPushEvent) => void;
@@ -72,6 +77,8 @@ export function forwardEventToGateway(event: Record<string, unknown>): void {
   const sessionId = event.sessionId as string | undefined;
   if (!sessionId) return;
 
+  trackTurnSnippet(sessionId, event);
+
   // Record token usage for cost tracking (from message_end events)
   if (_costTracker && event.type === 'message_end') {
     const usage = event.usage as Record<string, unknown> | undefined;
@@ -85,30 +92,138 @@ export function forwardEventToGateway(event: Record<string, unknown>): void {
     }
   }
 
-  const mapped = mapAgentEvent(sessionId, event);
-  if (!mapped) return;
+  const workspaceId = _ops?.getSessionWorkspaceId(sessionId) ?? null;
 
-  _sink.pushEvent(sessionId, mapped);
+  const mapped = mapAgentEvent(sessionId, workspaceId, event);
+  if (mapped) {
+    // Lifecycle events name a workspace, so every client that can reach
+    // that workspace gets them — including for sessions it has not opened.
+    // Everything else stays on the per-session subscription path.
+    if (workspaceId && (mapped.type === 'agent_start' || mapped.type === 'agent_end')) {
+      _sink.broadcastWorkspaceEvent(workspaceId, mapped);
+    } else {
+      _sink.pushEvent(sessionId, mapped);
+    }
+    notifyListeners(mapped);
+  }
+
+  if (workspaceId) {
+    for (const derived of deriveStateEvents(sessionId, workspaceId, event)) {
+      _sink.broadcastWorkspaceEvent(workspaceId, derived);
+      notifyListeners(derived);
+    }
+  }
+}
+
+function notifyListeners(event: GatewayPushEvent): void {
   for (const listener of _listeners) {
     try {
-      listener(mapped);
+      listener(event);
     } catch (err) {
       console.error('[gateway] Event listener error:', err);
     }
   }
 }
 
+// ── Session state and turn completion ───────────────────────
+
+/**
+ * The opening of the agent's most recent message, per session. Reset at
+ * every message boundary so `turn_complete` reports the last message and
+ * not the first. Capped at TURN_SNIPPET_MAX and dropped when the turn ends.
+ */
+const _turnSnippets = new Map<string, string>();
+
+function trackTurnSnippet(sessionId: string, event: Record<string, unknown>): void {
+  if (event.type === 'message_start' || event.type === 'agent_start') {
+    _turnSnippets.set(sessionId, '');
+    return;
+  }
+  if (event.type !== 'text_delta') return;
+
+  const current = _turnSnippets.get(sessionId);
+  if (current === undefined || current.length >= TURN_SNIPPET_MAX) return;
+  const delta = typeof event.delta === 'string' ? event.delta : '';
+  _turnSnippets.set(sessionId, (current + delta).slice(0, TURN_SNIPPET_MAX));
+}
+
+function takeTurnSnippet(sessionId: string): string | undefined {
+  const snippet = _turnSnippets.get(sessionId)?.trim();
+  _turnSnippets.delete(sessionId);
+  return snippet ? snippet : undefined;
+}
+
+function toTurnOutcome(value: unknown): 'completed' | 'cancelled' | 'error' {
+  return value === 'cancelled' || value === 'error' ? value : 'completed';
+}
+
+/**
+ * Session-state and turn-completion events derived from the agent stream.
+ * `agent_end` is the same moment the desktop calls `emitTurnComplete`, and
+ * it already reaches the gateway, so it is the single source for both.
+ */
+function deriveStateEvents(
+  sessionId: string,
+  workspaceId: string,
+  event: Record<string, unknown>,
+): GatewayPushEvent[] {
+  const ts = Date.now();
+
+  if (event.type === 'agent_start') {
+    return [sessionStateEvent(workspaceId, sessionId, 'running', ts)];
+  }
+
+  if (event.type === 'agent_end') {
+    return [
+      {
+        type: 'turn_complete',
+        workspaceId,
+        sessionId,
+        ts,
+        outcome: toTurnOutcome(event.outcome),
+        snippet: takeTurnSnippet(sessionId),
+      },
+      sessionStateEvent(workspaceId, sessionId, 'idle', ts),
+    ];
+  }
+
+  return [];
+}
+
+function sessionStateEvent(
+  workspaceId: string,
+  sessionId: string,
+  state: GatewaySessionState,
+  ts: number,
+): GatewayPushEvent {
+  return { type: 'session_state', workspaceId, sessionId, state, ts };
+}
+
+/**
+ * Announce that a session is blocked on the user, or no longer is.
+ * Called by the choice/user-feedback bridge; the agent stream has no
+ * event for it.
+ */
+export function publishSessionState(sessionId: string, state: GatewaySessionState): void {
+  const workspaceId = _ops?.getSessionWorkspaceId(sessionId) ?? null;
+  if (!_sink || !workspaceId) return;
+  const event = sessionStateEvent(workspaceId, sessionId, state, Date.now());
+  _sink.broadcastWorkspaceEvent(workspaceId, event);
+  notifyListeners(event);
+}
+
 /** Map an AgentStreamEvent to a GatewayPushEvent (or null to skip). */
 function mapAgentEvent(
   sessionId: string,
+  workspaceId: string | null,
   event: Record<string, unknown>,
 ): GatewayPushEvent | null {
   switch (event.type) {
     case 'agent_start':
-      return { type: 'agent_start', sessionId };
+      return workspaceId ? { type: 'agent_start', workspaceId, sessionId } : null;
 
     case 'agent_end':
-      return { type: 'agent_end', sessionId };
+      return workspaceId ? { type: 'agent_end', workspaceId, sessionId } : null;
 
     case 'text_delta':
       return { type: 'text_delta', sessionId, delta: event.delta as string };

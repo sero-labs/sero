@@ -27,6 +27,7 @@ import {
 import {
   broadcastDevServerChange as fanoutDevServerChange,
   broadcastGatewayEvent,
+  broadcastWorkspaceEvent as fanoutWorkspaceEvent,
   pushSessionEvent,
 } from './server/event-broadcast';
 import {
@@ -263,6 +264,15 @@ export class GatewayServer {
   /** Push an event to authenticated clients that are authorized for its session. */
   broadcastEvent(event: GatewayPushEvent): void {
     broadcastGatewayEvent(this.clients, event);
+  }
+
+  /**
+   * Push an event to every client whose token can reach the workspace.
+   * Session-scoped filtering would drop events for sessions a client has
+   * not listed yet, which is exactly the case a phone needs to see.
+   */
+  broadcastWorkspaceEvent(workspaceId: string, event: GatewayPushEvent): void {
+    fanoutWorkspaceEvent(this.clients, workspaceId, event);
   }
 
   /** Get the auth manager (for web token operations from the request handler). */

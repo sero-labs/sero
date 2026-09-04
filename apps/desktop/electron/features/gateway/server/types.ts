@@ -102,6 +102,12 @@ export interface GatewayAgentOps {
   abort(sessionId: string): Promise<void>;
   /** List workspaces. */
   listWorkspaces(): Promise<Array<{ id: string; name: string; path: string }>>;
+  /**
+   * The workspace an open session belongs to, or null when the session
+   * is not in the pool. Synchronous: the event-forwarding path needs the
+   * workspace id to scope push events, and cannot await.
+   */
+  getSessionWorkspaceId(sessionId: string): string | null;
   /** List sessions for a workspace. */
   listSessions(
     workspaceId: string,

@@ -15,7 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@sero-ai/ui/components/ui/select';
-import { FolderOpen, MessageSquarePlus, MessageSquare } from 'lucide-react';
+import { FolderOpen, Loader2, MessageSquarePlus, MessageSquare } from 'lucide-react';
+import type { SessionState } from '@/lib/gateway-client';
 
 interface WorkspacePickerProps {
   /** Called after a session is selected, used on mobile to close the sidebar sheet. */
@@ -27,6 +28,7 @@ export function WorkspacePicker({ onSessionSelect }: WorkspacePickerProps) {
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const sessions = useWorkspaceStore((s) => s.sessions);
   const activeSessionId = useWorkspaceStore((s) => s.activeSessionId);
+  const sessionStates = useWorkspaceStore((s) => s.sessionStates);
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
   const setActiveSession = useWorkspaceStore((s) => s.setActiveSession);
   const createSession = useWorkspaceStore((s) => s.createSession);
@@ -116,7 +118,7 @@ export function WorkspacePicker({ onSessionSelect }: WorkspacePickerProps) {
                     : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
                 )}
               >
-                <MessageSquare className="size-3.5 shrink-0" />
+                <SessionStateIcon state={sessionStates[session.id]} />
                 <span className="truncate">
                   {session.name || session.firstMessage || session.id}
                 </span>
@@ -127,4 +129,30 @@ export function WorkspacePicker({ onSessionSelect }: WorkspacePickerProps) {
       </div>
     </div>
   );
+}
+
+/**
+ * Live session state, from the `session_state` push event. Running spins,
+ * awaiting input pulses in the warning token, idle is a plain icon.
+ */
+function SessionStateIcon({ state }: { state?: SessionState }) {
+  if (state === 'running') {
+    return (
+      <Loader2
+        className="size-3.5 shrink-0 animate-spin text-status-info"
+        aria-label="Running"
+      />
+    );
+  }
+
+  if (state === 'awaiting_input') {
+    return (
+      <span
+        className="size-1.5 shrink-0 rounded-full bg-status-warning animate-pulse mx-1"
+        aria-label="Awaiting input"
+      />
+    );
+  }
+
+  return <MessageSquare className="size-3.5 shrink-0" aria-hidden="true" />;
 }

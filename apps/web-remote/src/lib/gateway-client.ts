@@ -40,10 +40,15 @@ export interface VoiceTranscriptionResult {
 
 export type GatewayResponse = GatewayOkResponse | GatewayErrorResponse;
 
+/** What a session is doing. Mirrors `GatewaySessionState` on the host. */
+export type SessionState = 'running' | 'idle' | 'awaiting_input';
+
 export interface GatewayPushEvent {
   type:
     | 'agent_start'
     | 'agent_end'
+    | 'session_state'
+    | 'turn_complete'
     | 'text_delta'
     | 'thinking_delta'
     | 'tool_input_start'
@@ -55,6 +60,8 @@ export interface GatewayPushEvent {
     | 'dev_server_changed';
   /** Present on session-bound events; absent on workspace-bound events like dev_server_changed. */
   sessionId?: string;
+  /** Present on workspace-scoped events: session_state, turn_complete, agent_start, agent_end. */
+  workspaceId?: string;
   [key: string]: unknown;
 }
 

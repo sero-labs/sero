@@ -59,6 +59,29 @@ export function broadcastGatewayEvent(
 }
 
 /**
+ * Push an event to every client whose token can reach `workspaceId`.
+ *
+ * Use this, not `broadcastGatewayEvent`, for any event that names a
+ * workspace. `broadcastGatewayEvent` filters on `hasSessionAccess`,
+ * which only passes for sessions the client has already listed — so a
+ * session created after the client connected would be filtered out.
+ */
+export function broadcastWorkspaceEvent(
+  clients: Map<WebSocket, ConnectedClient>,
+  workspaceId: string,
+  event: GatewayPushEvent,
+): void {
+  const payload = JSON.stringify(event);
+  for (const [ws, client] of clients) {
+    if (!client.authenticated) continue;
+    if (!hasWorkspaceAccess(client, workspaceId)) continue;
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(payload);
+    }
+  }
+}
+
+/**
  * Push a dev server change to clients authorized for the affected
  * workspace. Master-token clients see everything; scoped clients
  * only see workspaces in their authorization set.

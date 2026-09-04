@@ -74,6 +74,7 @@ function createAgentOps(): GatewayAgentOps {
   }
 
   return {
+    getSessionWorkspaceId: () => null,
     openSession: async (sessionId, workspaceId) => {
       const existingWorkspaceId = sessionWorkspaceIds.get(sessionId);
       if (existingWorkspaceId && existingWorkspaceId !== workspaceId) {

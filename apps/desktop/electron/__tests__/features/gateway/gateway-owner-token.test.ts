@@ -114,6 +114,7 @@ function createAgentOps(): TestHarness['state'] & { ops: GatewayAgentOps } {
   };
 
   const ops: GatewayAgentOps = {
+    getSessionWorkspaceId: () => null,
     openSession: async (sessionId, workspaceId) => {
       if (!sessionsByWorkspace.has(workspaceId)) {
         throw new Error(`Workspace not found: ${workspaceId}`);
