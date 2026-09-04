@@ -93,8 +93,28 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
   },
 }));
 
-/** Read the stored layout once at startup. */
+/** True below the 768px breakpoint the layout treats as mobile. */
+function isNarrowViewport(): boolean {
+  if (typeof window === 'undefined' || !window.matchMedia) return false;
+  return window.matchMedia('(max-width: 767px)').matches;
+}
+
+/**
+ * Read the stored layout once at startup.
+ *
+ * On a narrow viewport the sidebar and the right panel are sheets that
+ * cover the chat, so both start closed however the desktop left them.
+ * The stored width is still restored: it applies the moment the window
+ * grows past the breakpoint.
+ */
 export async function hydrateLayout(): Promise<void> {
   const stored = readPersisted(await loadPref(PREF_KEY));
-  useLayoutStore.setState({ ...stored, ready: true });
+  const narrow = isNarrowViewport();
+
+  useLayoutStore.setState({
+    ...stored,
+    sidebarOpen: narrow ? false : stored.sidebarOpen,
+    rightPanel: narrow ? null : stored.rightPanel,
+    ready: true,
+  });
 }
