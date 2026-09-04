@@ -1,10 +1,29 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { federation } from '@module-federation/vite';
 import path from 'path';
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    // Remote widgets are registered at runtime, once the host lists
+    // them. The plugin is here for the shared React singleton: a widget
+    // and this shell must use one copy, or hooks and context break.
+    federation({
+      name: 'sero_web_remote',
+      dts: false,
+      manifest: false,
+      remotes: {},
+      shared: {
+        react: { singleton: true },
+        'react/': { singleton: true },
+        'react-dom': { singleton: true },
+        'react-dom/': { singleton: true },
+      },
+    }),
+  ],
   resolve: {
     alias: [
       {

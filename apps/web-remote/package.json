@@ -11,6 +11,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@module-federation/enhanced": "2.8.0",
+    "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero-ai/ui": "workspace:*",
     "@streamdown/cjk": "^1.0.2",
     "@streamdown/code": "^1.1.0",
@@ -23,6 +25,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@module-federation/vite": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",

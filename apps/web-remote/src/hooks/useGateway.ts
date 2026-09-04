@@ -12,6 +12,7 @@ import { useChoicesStore } from '@/stores/choices';
 import { useNotificationsStore } from '@/stores/notifications';
 import { useGitStore } from '@/stores/git';
 import { useUploadsStore } from '@/stores/uploads';
+import { useWidgetsStore } from '@/stores/widgets';
 import { useChatStore } from '@/stores/chat';
 import { useFileStore } from '@/stores/files';
 import { useArtifactStore } from '@/stores/artifacts';
@@ -40,6 +41,7 @@ export function useGatewayDispatcher(): void {
       useNotificationsStore.getState().handleMessage(msg);
       useGitStore.getState().handleMessage(msg);
       useUploadsStore.getState().handleMessage(msg);
+      useWidgetsStore.getState().handleMessage(msg);
     };
 
     const unsub = client.onMessage(handler);

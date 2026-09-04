@@ -15,6 +15,7 @@ import {
 import { isInvalidAuthTokenMessage } from '@/lib/connect-errors';
 import type { GatewayRequestErrorInfo } from '@/lib/gateway-errors';
 import { saveToken, loadToken, clearToken } from '@/lib/token-storage';
+import { installRemoteSeroBridge } from '@/lib/sero-bridge';
 
 interface TokenStorageAdapter {
   save: (token: string) => Promise<void>;
@@ -55,6 +56,10 @@ export interface GatewayClientLike {
   getArtifact: (artifactId: string) => void;
   listDevServers: (workspaceId?: string) => void;
   createDevServerTicket: (workspaceId: string, port: number) => void;
+  listRemoteWidgets: <T>(workspaceId: string | null) => Promise<T>;
+  appStateGet: <T>(key: string) => Promise<T>;
+  appStateWatch: <T>(key: string) => Promise<T>;
+  appStateUnwatch: (key: string) => Promise<unknown>;
   voiceStatus: () => Promise<VoiceTranscriptionStatus>;
   transcribeVoice: (
     audioDataUrl: string,
@@ -282,5 +287,9 @@ export function createConnectionStore(
 }
 
 const client = new GatewayClient();
+
+// A federated widget expects `window.sero`. It has to exist before the
+// first widget mounts, so it is installed with the client.
+installRemoteSeroBridge(client);
 
 export const useConnectionStore = createConnectionStore(client);

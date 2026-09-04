@@ -61,6 +61,7 @@ export interface GatewayPushEvent {
     | 'choice_resolved'
     | 'notification'
     | 'notifications_read'
+    | 'app_state_changed'
     | 'dev_server_changed';
   /** Present on session-bound events; absent on workspace-bound events like dev_server_changed. */
   sessionId?: string;
@@ -287,6 +288,29 @@ export class GatewayClient {
   /** Mark notifications read for every client. */
   markNotificationsRead(ids: string[]): void {
     this.send({ type: 'mark_notifications_read', ids });
+  }
+
+  /** List the dashboard widgets this client may load. */
+  listRemoteWidgets<T>(workspaceId: string | null): Promise<T> {
+    return this.sendRequest<T>({
+      type: 'list_remote_widgets',
+      ...(workspaceId ? { workspaceId } : {}),
+    });
+  }
+
+  /** Read one widget's state, named by its opaque key. */
+  appStateGet<T>(key: string): Promise<T> {
+    return this.sendRequest<T>({ type: 'app_state_get', key });
+  }
+
+  /** Watch one widget's state. Changes arrive as `app_state_changed`. */
+  appStateWatch<T>(key: string): Promise<T> {
+    return this.sendRequest<T>({ type: 'app_state_watch', key });
+  }
+
+  /** Stop watching one widget's state. */
+  appStateUnwatch(key: string): Promise<unknown> {
+    return this.sendRequest({ type: 'app_state_unwatch', key });
   }
 
   /** Answer a choice an agent is waiting on. */

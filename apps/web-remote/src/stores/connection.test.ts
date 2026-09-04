@@ -78,6 +78,22 @@ class FakeGatewayClient implements GatewayClientLike {
 
   createDevServerTicket(): void {}
 
+  listRemoteWidgets<T>(): Promise<T> {
+    return Promise.resolve([] as unknown as T);
+  }
+
+  appStateGet<T>(): Promise<T> {
+    return Promise.resolve({ data: null, etag: null } as unknown as T);
+  }
+
+  appStateWatch<T>(): Promise<T> {
+    return Promise.resolve({ data: null, etag: null } as unknown as T);
+  }
+
+  appStateUnwatch(): Promise<unknown> {
+    return Promise.resolve(undefined);
+  }
+
   voiceStatus(): Promise<{ enabled: boolean; reason?: string }> {
     return Promise.resolve({ enabled: false, reason: 'Not configured in tests.' });
   }
