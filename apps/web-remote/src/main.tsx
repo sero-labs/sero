@@ -7,6 +7,8 @@ import { hydrateBoard } from '@/stores/board';
 import { useConnectionStore } from '@/stores/connection';
 import { installRemoteSeroBridge } from '@/lib/sero-bridge';
 import { registerWorker } from '@/lib/push';
+import { clearShareFlag, hasSharedFile } from '@/lib/share-target';
+import { useUploadsStore } from '@/stores/uploads';
 import './index.css';
 
 // Apply the stored theme mode before the first paint.
@@ -26,6 +28,13 @@ installRemoteSeroBridge(useConnectionStore.getState().client);
 // The service worker makes the app installable and keeps its shell. It
 // is registered whether or not the person ever turns notifications on.
 void registerWorker();
+
+// A file shared from the phone's share sheet is waiting in a cache. It
+// is uploaded into the workspace the person opens.
+if (hasSharedFile(window.location.search)) {
+  clearShareFlag();
+  void useUploadsStore.getState().uploadShared();
+}
 
 
 createRoot(document.getElementById('root')!).render(

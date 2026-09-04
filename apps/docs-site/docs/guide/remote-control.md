@@ -175,6 +175,17 @@ counts, so `pnpm dev` on your own machine can register the worker and
 show the toggle. A plain-HTTP LAN address cannot, and the toggle says so
 instead of failing later. To test a real push, use the tailnet URL.
 
+### Share a file into a workspace
+
+Once Sero Remote is installed to the home screen, it appears in the
+phone's share sheet. Share a PDF, a photo or a log to Sero and the file
+lands in the open workspace's `uploads/` folder, ready to mention in a
+prompt.
+
+A shared file waits up to 15 seconds for a workspace to open, because a
+share starts the app cold. If none opens, Sero says so rather than
+dropping the file quietly.
+
 ### Dashboard widgets in the browser
 
 Sero Remote has a Dashboard view. It shows plugin widgets, not the desktop

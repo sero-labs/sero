@@ -8,6 +8,7 @@ import {
   MAX_UPLOAD_BYTES,
   readableUploadError,
   useUploadsStore,
+  waitForWorkspace,
 } from '@/stores/uploads';
 
 const uploadFile = vi.fn((_workspaceId: string, _path: string, _content: string) => {});
@@ -166,3 +167,27 @@ describe('uploads store', () => {
     expect(useWorkspaceStore.getState().view).toBe('chat');
   });
 });
+
+describe('waitForWorkspace', () => {
+  it('is true at once when a workspace is already open', async () => {
+    useWorkspaceStore.setState({ activeWorkspaceId: 'ws-1' });
+
+    await expect(waitForWorkspace(50)).resolves.toBe(true);
+  });
+
+  it('waits for a workspace to open, which is the cold-share case', async () => {
+    useWorkspaceStore.setState({ activeWorkspaceId: null });
+    const waiting = waitForWorkspace(1000);
+
+    useWorkspaceStore.setState({ activeWorkspaceId: 'ws-1' });
+
+    await expect(waiting).resolves.toBe(true);
+  });
+
+  it('gives up when nothing opens in time', async () => {
+    useWorkspaceStore.setState({ activeWorkspaceId: null });
+
+    await expect(waitForWorkspace(10)).resolves.toBe(false);
+  });
+});
+

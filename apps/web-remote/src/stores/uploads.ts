@@ -11,6 +11,7 @@ import { useConnectionStore } from './connection';
 import { useWorkspaceStore } from './workspace';
 import { useFileStore } from './files';
 import { useChatStore } from './chat';
+import { takeSharedFile } from '@/lib/share-target';
 
 /**
  * Largest file accepted, checked here before anything is sent.
@@ -36,10 +37,39 @@ interface UploadsStore {
   recent: UploadResult[];
   error: string | null;
   upload: (files: File[]) => Promise<void>;
+  /** Upload a file the phone's share sheet left for us. */
+  uploadShared: () => Promise<void>;
   /** Put an uploaded path into the composer and go to the chat. */
   mention: (filePath: string) => void;
   dismissError: () => void;
   handleMessage: (msg: { type: string; requestType?: string; data?: unknown; message?: string }) => void;
+}
+
+/** How long a shared file waits for a workspace before giving up. */
+const SHARE_WAIT_MS = 15_000;
+
+/**
+ * Wait until a workspace is open, so a share has somewhere to land.
+ *
+ * A share opens the app cold: the gateway is still connecting when the
+ * file arrives. Returns false when nothing opened in time.
+ */
+export function waitForWorkspace(timeoutMs = SHARE_WAIT_MS): Promise<boolean> {
+  if (useWorkspaceStore.getState().activeWorkspaceId) return Promise.resolve(true);
+
+  return new Promise((resolve) => {
+    const stop = useWorkspaceStore.subscribe((state) => {
+      if (!state.activeWorkspaceId) return;
+      stop();
+      clearTimeout(timer);
+      resolve(true);
+    });
+
+    const timer = setTimeout(() => {
+      stop();
+      resolve(false);
+    }, timeoutMs);
+  });
 }
 
 /** A file's bytes as base64, without the `data:` prefix. */
@@ -92,6 +122,21 @@ export const useUploadsStore = create<UploadsStore>((set, get) => ({
       }
       set((s) => ({ queued: s.queued.slice(1) }));
     }
+  },
+
+  uploadShared: async () => {
+    const file = await takeSharedFile();
+    if (!file) return;
+
+    // A share can land before a workspace is chosen, or before the
+    // gateway answers. The file waits in memory until both are there.
+    const ready = await waitForWorkspace();
+    if (!ready) {
+      set({ error: `Could not put ${file.name} anywhere: no workspace was open.` });
+      return;
+    }
+
+    await get().upload([file]);
   },
 
   mention: (filePath: string) => {

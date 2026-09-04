@@ -7,6 +7,7 @@
  *    else is cached: every screen needs the gateway, so a cached page
  *    with no gateway would only show stale work.
  * 2. Show a push, and open the right place when it is tapped.
+ * 3. Take a file from the phone's share sheet and hand it to the app.
  *
  * A push payload never carries message text. It travels through the
  * browser vendor's push service, which is outside your tailnet.
@@ -38,6 +39,42 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+/** Where a shared file waits until the app picks it up. */
+const SHARE_CACHE = 'sero-share';
+
+/** The one request the app fetches a shared file back from. */
+const SHARE_ITEM = '/shared-file';
+
+/**
+ * Take a share, keep the file, and send the browser to the app.
+ *
+ * The share arrives as a POST, which a single-page app cannot read. So
+ * the file is put in a cache under a fixed URL and the app fetches it
+ * from there on the next load.
+ */
+async function receiveShare(request) {
+  try {
+    const form = await request.formData();
+    const file = form.get('file');
+    if (file && typeof file !== 'string') {
+      const cache = await caches.open(SHARE_CACHE);
+      await cache.put(
+        SHARE_ITEM,
+        new Response(file, {
+          headers: {
+            'Content-Type': file.type || 'application/octet-stream',
+            'X-Shared-Name': encodeURIComponent(file.name || 'shared-file'),
+          },
+        }),
+      );
+      return Response.redirect('/?share=file', 303);
+    }
+  } catch {
+    /* fall through to the plain open */
+  }
+  return Response.redirect('/', 303);
+}
+
 /**
  * Network first, cache second, and only for the page itself.
  *
@@ -45,6 +82,13 @@ self.addEventListener('activate', (event) => {
  */
 self.addEventListener('fetch', (event) => {
   const request = event.request;
+
+  const url = new URL(request.url);
+  if (request.method === 'POST' && url.pathname === '/share-target') {
+    event.respondWith(receiveShare(request));
+    return;
+  }
+
   if (request.method !== 'GET' || request.mode !== 'navigate') return;
 
   event.respondWith(
