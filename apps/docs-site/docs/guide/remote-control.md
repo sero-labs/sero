@@ -149,6 +149,19 @@ For remote web access, Tailscale is the recommended transport. Sero can expose
 the gateway to your private tailnet through `tailscale serve`; a paired browser
 then uses the tailnet URL and a temporary web token/login flow.
 
+### Dashboard widgets in the browser
+
+Sero Remote has a Dashboard view. It shows plugin widgets, not the desktop
+dashboard layout.
+
+A widget appears there only when its plugin opted in with `"remote": true`. A
+widget that did not opt in is not listed, and its files are not served. Widgets
+read and write the same state files the desktop uses, and update as the state
+changes.
+
+Widgets are read from the plugins installed on your desktop machine. Sero Remote
+never loads a widget from anywhere else.
+
 ## Remote dev-server previews
 
 Sero desktop tracks dev servers that are started through its workspace tooling or
