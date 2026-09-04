@@ -59,6 +59,8 @@ export interface GatewayPushEvent {
     | 'artifact_added'
     | 'choice_request'
     | 'choice_resolved'
+    | 'notification'
+    | 'notifications_read'
     | 'dev_server_changed';
   /** Present on session-bound events; absent on workspace-bound events like dev_server_changed. */
   sessionId?: string;
@@ -255,6 +257,16 @@ export class GatewayClient {
   /** Search every session this token can reach. */
   searchSessions(query: string, limit?: number): void {
     this.send({ type: 'search_sessions', query, limit });
+  }
+
+  /** Read the notification feed, newest first. */
+  listNotifications(since?: number, limit?: number): void {
+    this.send({ type: 'list_notifications', since, limit });
+  }
+
+  /** Mark notifications read for every client. */
+  markNotificationsRead(ids: string[]): void {
+    this.send({ type: 'mark_notifications_read', ids });
   }
 
   /** Answer a choice an agent is waiting on. */

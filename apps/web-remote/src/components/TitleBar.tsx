@@ -22,6 +22,7 @@ import { cn } from '@sero-ai/ui/lib/utils';
 import type { RightPanel } from '@/stores/layout';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { ThemeModeButton } from './ThemeModeButton';
+import { NotificationBell } from './NotificationBell';
 
 const MOBILE_PANELS: Array<{ id: RightPanel; label: string; icon: typeof FileText }> = [
   { id: 'files', label: 'Files', icon: FileText },
@@ -64,6 +65,8 @@ export function TitleBar({
       <div className="flex-1" />
 
       <div className="flex shrink-0 items-center gap-0.5">
+        <NotificationBell />
+
         {isMobile && (
           <>
             {MOBILE_PANELS.map((panel) => (

@@ -11,6 +11,7 @@ initTheme();
 // The shell renders with defaults until the stored layout arrives.
 void hydrateLayout();
 
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

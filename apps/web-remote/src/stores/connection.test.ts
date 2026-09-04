@@ -53,6 +53,8 @@ class FakeGatewayClient implements GatewayClientLike {
   searchSessions(): void {}
   requestUsage(): void {}
   answerChoice(): void {}
+  listNotifications(): void {}
+  markNotificationsRead(): void {}
 
   createSession(): void {}
 

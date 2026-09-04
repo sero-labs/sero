@@ -9,6 +9,7 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionSearchStore } from '@/stores/session-search';
 import { useUsageStore } from '@/stores/usage';
 import { useChoicesStore } from '@/stores/choices';
+import { useNotificationsStore } from '@/stores/notifications';
 import { useChatStore } from '@/stores/chat';
 import { useFileStore } from '@/stores/files';
 import { useArtifactStore } from '@/stores/artifacts';
@@ -34,6 +35,7 @@ export function useGatewayDispatcher(): void {
       useSessionSearchStore.getState().handleMessage(msg);
       useUsageStore.getState().handleMessage(msg);
       useChoicesStore.getState().handleMessage(msg);
+      useNotificationsStore.getState().handleMessage(msg);
     };
 
     const unsub = client.onMessage(handler);
