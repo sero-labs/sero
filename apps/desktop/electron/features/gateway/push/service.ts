@@ -85,10 +85,20 @@ export class PushService {
 }
 
 let service: PushService | null = null;
+let serviceDir: string | null = null;
 
-/** The profile's push service. Created on first use. */
+/**
+ * The profile's push service. Created on first use.
+ *
+ * A different directory means a different profile, so the service is
+ * rebuilt rather than reused: one profile's phones must never receive
+ * another profile's notifications.
+ */
 export function getPushService(configDir: string): PushService {
-  service ??= new PushService(configDir);
+  if (!service || serviceDir !== configDir) {
+    service = new PushService(configDir);
+    serviceDir = configDir;
+  }
   return service;
 }
 
@@ -100,4 +110,5 @@ export function currentPushService(): PushService | null {
 /** Test seam. Forgets the service. */
 export function resetPushService(): void {
   service = null;
+  serviceDir = null;
 }
