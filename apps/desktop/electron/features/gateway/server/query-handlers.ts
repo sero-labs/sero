@@ -12,9 +12,18 @@ import type { GatewayAgentOps } from '..';
 import type { CostTracker } from './cost-tracker';
 import {
   authorizeSessionFromWorkspace,
+  hasWorkspaceAccess,
   type GatewayAccessScope,
 } from './access-control';
 import { makeResponder } from './request-handler';
+import { answerChoice } from '../bridge/choice-bridge';
+
+/** Why an answer was refused, in words a client can show. */
+const ANSWER_FAILURES: Record<string, string> = {
+  unknown: 'This choice is no longer open.',
+  forbidden: 'This choice is out of scope for this token.',
+  invalid_option: 'That option is not on this choice.',
+};
 
 /** Results returned for one search, whatever the client asks for. */
 const MAX_SEARCH_RESULTS = 20;
@@ -85,6 +94,27 @@ export async function routeQueryRequest(
         requestType: 'get_usage',
         data: costTracker.getUsage(sessionIds),
       });
+      return true;
+    }
+
+    case 'answer_choice': {
+      // A choice that names no workspace is answerable by owner tokens
+      // only, because no scoped token can be shown to have a right to it.
+      const canReach = (workspaceId: string | null) =>
+        workspaceId === null
+          ? accessScope.authorizedWorkspaceIds === null
+          : hasWorkspaceAccess(accessScope, workspaceId);
+
+      const outcome = answerChoice(request.id, request.optionId, canReach);
+      if (outcome.ok) {
+        respond({ type: 'ok', requestType: 'answer_choice', data: { id: request.id } });
+      } else {
+        respond({
+          type: 'error',
+          requestType: 'answer_choice',
+          message: ANSWER_FAILURES[outcome.reason ?? 'unknown'] ?? ANSWER_FAILURES.unknown,
+        });
+      }
       return true;
     }
 

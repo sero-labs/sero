@@ -67,6 +67,13 @@ export interface GatewayGetUsageRequest {
   type: 'get_usage';
 }
 
+/** Answer a pending choice from a remote client. */
+export interface GatewayAnswerChoiceRequest {
+  type: 'answer_choice';
+  id: string;
+  optionId: string;
+}
+
 export interface GatewayCreateSessionRequest {
   type: 'create_session';
   workspaceId: string;
@@ -151,6 +158,7 @@ export type GatewayRequest = (
   | GatewayListSessionsRequest
   | GatewaySearchSessionsRequest
   | GatewayGetUsageRequest
+  | GatewayAnswerChoiceRequest
   | GatewayCreateSessionRequest
   | GatewayListFilesRequest
   | GatewayReadFileRequest
@@ -201,6 +209,7 @@ const VALID_REQUEST_TYPES = new Set<GatewayRequest['type']>([
   'list_sessions',
   'search_sessions',
   'get_usage',
+  'answer_choice',
   'create_session',
   'list_files',
   'read_file',
@@ -357,6 +366,13 @@ function validateRequestBody(data: Record<string, unknown>): GatewayRequest | nu
 
     case 'get_usage':
       return { type: 'get_usage' };
+
+    case 'answer_choice': {
+      const id = readRequiredString(data, 'id');
+      const optionId = readRequiredString(data, 'optionId');
+      if (!id || !optionId) return null;
+      return { type: 'answer_choice', id, optionId };
+    }
 
     case 'create_session': {
       const workspaceId = readRequiredString(data, 'workspaceId');

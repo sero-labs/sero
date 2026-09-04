@@ -135,6 +135,48 @@ export interface GatewayDevServerChangedEvent {
     | { type: 'status_changed'; serverId: string; status: 'running' | 'stopped' | 'starting' | 'failed' };
 }
 
+/** One answer a choice offers. */
+export interface GatewayChoiceOption {
+  id: string;
+  label: string;
+  description?: string;
+}
+
+/**
+ * An agent is waiting for an answer.
+ *
+ * A choice that names a workspace goes to every token that reaches it.
+ * A choice with no workspace goes to owner tokens only.
+ */
+export interface GatewayChoiceRequestEvent {
+  type: 'choice_request';
+  id: string;
+  workspaceId?: string;
+  title: string;
+  body: string;
+  options: GatewayChoiceOption[];
+  /** ISO 8601. When the choice times out, if it does. */
+  expiresAt?: string;
+  /** What happens when the timeout expires. */
+  fallbackLabel?: string;
+  /** Where the choice came from, for example "Sero Orchestrator". */
+  source?: string;
+  ts: number;
+}
+
+/**
+ * A choice is over. Every client dismisses it, whoever answered.
+ */
+export interface GatewayChoiceResolvedEvent {
+  type: 'choice_resolved';
+  id: string;
+  workspaceId?: string;
+  outcome: 'answered' | 'cancelled';
+  /** The option chosen. Absent when the choice was cancelled. */
+  optionId?: string;
+  ts: number;
+}
+
 export type GatewayPushEvent =
   | GatewayAgentStartEvent
   | GatewayAgentEndEvent
@@ -148,4 +190,6 @@ export type GatewayPushEvent =
   | GatewayToolStartEvent
   | GatewayToolEndEvent
   | GatewayArtifactEvent
+  | GatewayChoiceRequestEvent
+  | GatewayChoiceResolvedEvent
   | GatewayDevServerChangedEvent;

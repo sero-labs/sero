@@ -28,8 +28,15 @@ import {
   broadcastDevServerChange as fanoutDevServerChange,
   broadcastGatewayEvent,
   broadcastWorkspaceEvent as fanoutWorkspaceEvent,
+  broadcastOwnerEvent as fanoutOwnerEvent,
   pushSessionEvent,
 } from './server/event-broadcast';
+import {
+  applyAuthResult,
+  closeIdleConnections,
+  countConnectionsFromIp,
+  sendPendingChoices,
+} from './server/client-registry';
 import {
   DevProxyTicketManager,
   generateTicketSecret,
@@ -156,7 +163,7 @@ export class GatewayServer {
       console.error('[gateway] WebSocket server error:', err);
     });
 
-    this.idleCheckTimer = setInterval(() => this.checkIdleConnections(), 5 * 60_000);
+    this.idleCheckTimer = setInterval(() => closeIdleConnections(this.clients, IDLE_TIMEOUT_MS), 5 * 60_000);
 
     try {
       await this.listenOn(this.httpServer, this.config.port);
@@ -275,6 +282,14 @@ export class GatewayServer {
     fanoutWorkspaceEvent(this.clients, workspaceId, event);
   }
 
+  /**
+   * Push an event to owner tokens only. Used for anything that names no
+   * workspace, which no scoped token can be shown to have a right to.
+   */
+  broadcastOwnerEvent(event: GatewayPushEvent): void {
+    fanoutOwnerEvent(this.clients, event);
+  }
+
   /** Get the auth manager (for web token operations from the request handler). */
   getAuth(): GatewayAuth {
     return this.auth;
@@ -292,40 +307,7 @@ export class GatewayServer {
     };
   }
 
-  private applyAuthResult(client: ConnectedClient, result: GatewayAuthResult): void {
-    client.authenticated = true;
-    client.isMasterAuth = result.type === 'master';
-    client.authorizedWorkspaceIds = result.authorizedWorkspaceIds
-      ? new Set(result.authorizedWorkspaceIds)
-      : null;
-    client.authorizedSessions.clear();
-    client.authorizedArtifacts.clear();
-    client.subscribedSessions.clear();
-  }
-
   // ── Internal ──────────────────────────────────────────────
-
-  /** Count connections from a specific IP. */
-  private countConnectionsFromIp(ip: string): number {
-    let count = 0;
-    for (const [, client] of this.clients) {
-      if (client.remoteIp === ip) count++;
-    }
-    return count;
-  }
-
-  /** Close idle authenticated connections. */
-  private checkIdleConnections(): void {
-    const now = Date.now();
-    for (const [ws, client] of this.clients) {
-      if (!client.authenticated) continue;
-      if (now - client.lastActivity > IDLE_TIMEOUT_MS) {
-        console.log(`[gateway] Closing idle connection: ${client.clientType} (${client.clientId})`);
-        ws.close(4008, 'Idle timeout');
-        this.clients.delete(ws);
-      }
-    }
-  }
 
   private handleConnection(ws: WebSocket, req: http.IncomingMessage): void {
     const remoteIp = getClientIp(req);
@@ -338,7 +320,7 @@ export class GatewayServer {
     }
 
     // Enforce per-IP connection limit
-    if (this.countConnectionsFromIp(remoteIp) >= MAX_CONNECTIONS_PER_IP) {
+    if (countConnectionsFromIp(this.clients, remoteIp) >= MAX_CONNECTIONS_PER_IP) {
       console.warn(`[gateway] Connection rejected: max connections per IP (${MAX_CONNECTIONS_PER_IP}) reached for ${remoteIp}`);
       ws.close(4029, 'Too many connections from this IP');
       return;
@@ -456,13 +438,14 @@ export class GatewayServer {
       // Successful auth — reset rate limiter for this IP
       this.authLimiter.reset(client.remoteIp);
 
-      this.applyAuthResult(client, authResult);
+      applyAuthResult(client, authResult);
       client.clientType = request.clientType;
       if (request.clientId) client.clientId = request.clientId;
       console.log(
         `[gateway] Client authenticated: ${client.clientType} (${client.clientId}) from ${client.remoteIp}`,
       );
       sendResponse(ws, { type: 'ok', requestType: 'connect' });
+      sendPendingChoices(ws, client);
       return;
     }
 

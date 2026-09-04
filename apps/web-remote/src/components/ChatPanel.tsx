@@ -2,14 +2,15 @@
  * Chat panel — chat header, conversation, composer.
  *
  * `Conversation` from `@sero-ai/ui` handles stick-to-bottom scrolling,
- * the same component the desktop uses. The message list and the composer
- * live in their own files; this one only wires them together.
+ * the same component the desktop uses. The message list, the choice card
+ * and the composer live in their own files; this one wires them together.
  */
 
 import { useChatStore } from '@/stores/chat';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { ChatMessageComponent } from './ChatMessage';
 import { ChatComposer } from './ChatComposer';
+import { ChoiceCard } from './ChoiceCard';
 import { ChatHeader } from './ChatHeader';
 import { ToolCallGroup } from './ToolCallGroup';
 import {
@@ -62,6 +63,8 @@ export function ChatPanel() {
 
         <ConversationScrollButton />
       </Conversation>
+
+      <ChoiceCard />
 
       <ChatComposer />
     </div>

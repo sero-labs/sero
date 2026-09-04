@@ -7,6 +7,7 @@ import { IpcChannels } from '@/types/ipc-channels';
 import type { QrLoginData } from '@/types/ipc';
 import { gatewayServer, tailscale, webChatServer } from '@electron/shared/infra/shared-infra';
 import { getGatewayAgentOps, setGatewayEventSink, setGatewayCostTracker } from '@electron/features/gateway/bridge/agent-bridge';
+import { registerGatewayChoiceBridge } from '@electron/features/gateway/bridge/choice-bridge';
 import { generateQrDataUrl } from '@electron/features/gateway/bridge/qr-encode';
 import { DiscordAdapter } from '@electron/features/gateway/channels/discord';
 
@@ -165,6 +166,8 @@ async function startGateway(): Promise<void> {
     setGatewayEventSink(gatewayServer);
     // Wire cost tracking for gateway-initiated sessions.
     setGatewayCostTracker(gatewayServer.costTracker);
+    // Wire interactive choices: pending questions → gateway clients.
+    registerGatewayChoiceBridge(gatewayServer);
   } catch (err) {
     console.error('[gateway] Failed to start:', err);
     return;

@@ -57,6 +57,8 @@ export interface GatewayPushEvent {
     | 'tool_start'
     | 'tool_end'
     | 'artifact_added'
+    | 'choice_request'
+    | 'choice_resolved'
     | 'dev_server_changed';
   /** Present on session-bound events; absent on workspace-bound events like dev_server_changed. */
   sessionId?: string;
@@ -253,6 +255,11 @@ export class GatewayClient {
   /** Search every session this token can reach. */
   searchSessions(query: string, limit?: number): void {
     this.send({ type: 'search_sessions', query, limit });
+  }
+
+  /** Answer a choice an agent is waiting on. */
+  answerChoice(id: string, optionId: string): void {
+    this.send({ type: 'answer_choice', id, optionId });
   }
 
   /** Request token and cost totals for the reachable sessions. */

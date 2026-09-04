@@ -82,6 +82,26 @@ export function broadcastWorkspaceEvent(
 }
 
 /**
+ * Push an event to owner tokens only.
+ *
+ * An owner token has no workspace set. Use this for anything that names
+ * no workspace, because no scoped token can be shown to have a right to it.
+ */
+export function broadcastOwnerEvent(
+  clients: Map<WebSocket, ConnectedClient>,
+  event: GatewayPushEvent,
+): void {
+  const payload = JSON.stringify(event);
+  for (const [ws, client] of clients) {
+    if (!client.authenticated) continue;
+    if (client.authorizedWorkspaceIds !== null) continue;
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(payload);
+    }
+  }
+}
+
+/**
  * Push a dev server change to clients authorized for the affected
  * workspace. Master-token clients see everything; scoped clients
  * only see workspaces in their authorization set.

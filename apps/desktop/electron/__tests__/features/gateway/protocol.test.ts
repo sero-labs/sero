@@ -147,4 +147,20 @@ describe('gateway protocol request validation', () => {
   it('accepts a usage request with no fields', () => {
     expect(validateRequest({ type: 'get_usage' })).toEqual({ type: 'get_usage' });
   });
+  it('accepts a choice answer', () => {
+    expect(validateRequest({ type: 'answer_choice', id: 'c1', optionId: 'worktree' })).toEqual({
+      type: 'answer_choice',
+      id: 'c1',
+      optionId: 'worktree',
+    });
+  });
+
+  it('rejects a choice answer with no option', () => {
+    expect(validateRequest({ type: 'answer_choice', id: 'c1' })).toBeNull();
+    expect(validateRequest({ type: 'answer_choice', id: 'c1', optionId: '' })).toBeNull();
+  });
+
+  it('rejects a choice answer with no id', () => {
+    expect(validateRequest({ type: 'answer_choice', optionId: 'worktree' })).toBeNull();
+  });
 });
