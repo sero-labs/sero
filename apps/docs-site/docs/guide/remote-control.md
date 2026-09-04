@@ -105,10 +105,26 @@ support reports.
 
 ## Sero Remote web access
 
-Sero Remote is the browser-based remote UI. It can show workspaces and sessions,
-send prompts, display streamed responses/tool activity, expose remote panels
-such as files or artifacts where supported, and open registered workspace dev
-servers as remote previews.
+Sero Remote is the browser-based remote UI. It shows workspaces and sessions,
+sends prompts, displays streamed responses and tool activity, exposes remote
+panels such as files or artifacts where supported, and opens registered
+workspace dev servers as remote previews.
+
+It also has:
+
+- **A board.** The landing view. One card per session, so a phone answers
+  "what is running, what finished, what needs me?" without opening anything.
+- **Search.** Find a session by name or by what was said in it.
+- **A usage badge.** Tokens and cost for the sessions this token reaches.
+- **A notification feed.** What happened while you were away, with a bell and
+  an unread count.
+- **Answerable questions.** A question an agent is waiting on appears at the
+  top of the board and can be answered there.
+- **A changes panel.** The working tree, file by file, with diffs. An owner
+  token can also commit from it.
+- **File uploads.** Put a PDF, a log or a photo into the workspace, then
+  mention it in a prompt.
+- **Dashboard widgets.** Plugin widgets that opted in to running in a browser.
 
 ![Sero Remote chat](../assets/images/remote-web-1.jpg)
 
