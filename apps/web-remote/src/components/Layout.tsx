@@ -7,14 +7,15 @@
  */
 
 import { useState, useCallback } from 'react';
-import seroLogoUrl from '@assets/logo.svg';
+import seroLogoLightUrl from '@assets/logo.svg';
+import seroLogoDarkUrl from '@assets/logo-dark.svg';
 import { WorkspacePicker } from './WorkspacePicker';
 import { ChatPanel } from './ChatPanel';
 import { FileBrowser } from './FileBrowser';
 import { FilePreview } from './FilePreview';
 import { ArtifactGallery } from './ArtifactGallery';
 import { PreviewPanel } from './PreviewPanel';
-import { StatusBar } from './StatusBar';
+import { StatusBar, ThemeModeButton } from './StatusBar';
 import { AccessBanner } from './AccessBanner';
 import { useArtifactStore } from '@/stores/artifacts';
 import { useDevServerStore } from '@/stores/dev-servers';
@@ -75,11 +76,7 @@ export function Layout() {
       {/* Title bar, always pinned at top */}
       <header className="h-11 px-3 bg-card border-b border-border flex items-center justify-between shrink-0 z-10">
         <div className="flex items-center gap-2">
-          <img
-            src={seroLogoUrl}
-            alt="Sero"
-            className="h-5 w-auto invert"
-          />
+          <SeroLogo />
           <Button
             onClick={toggleSidebar}
             variant="ghost"
@@ -120,11 +117,14 @@ export function Layout() {
             title="Dev Server Preview"
             className={cn(
               hasRunningDevServers &&
-                'text-emerald-500 hover:text-emerald-400 data-[state=open]:text-emerald-400',
+                'text-status-success hover:text-status-success/80 data-[state=open]:text-status-success',
             )}
           >
             <Monitor className="size-4" />
           </Button>
+          {/* The status bar carries the theme control on desktop, but it is
+              hidden on mobile — so the header carries it there. */}
+          {isMobile && <ThemeModeButton />}
         </div>
       </header>
 
@@ -243,5 +243,28 @@ function ArtifactPanelConnected() {
         />
       </div>
     </div>
+  );
+}
+
+/**
+ * Theme-aware wordmark. `logo.svg` is dark ink for light backgrounds,
+ * `logo-dark.svg` is light ink for dark backgrounds. The swap is pure
+ * CSS so it never lags the `.dark` class.
+ */
+function SeroLogo() {
+  return (
+    <>
+      <img
+        src={seroLogoLightUrl}
+        alt="Sero"
+        className="h-5 w-auto dark:hidden"
+      />
+      <img
+        src={seroLogoDarkUrl}
+        alt=""
+        aria-hidden="true"
+        className="h-5 w-auto hidden dark:block"
+      />
+    </>
   );
 }

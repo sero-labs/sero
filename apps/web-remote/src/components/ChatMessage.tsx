@@ -1,12 +1,11 @@
 /**
  * Chat message renderer, handles user, assistant, and system messages
- * with markdown rendering, code highlighting, thinking blocks, and
- * image lightbox support.
+ * with markdown rendering through MessageResponse (Streamdown),
+ * thinking blocks, and image lightbox support.
  */
 
 import { useState, memo } from 'react';
-import ReactMarkdown from 'react-markdown';
-import rehypeHighlight from 'rehype-highlight';
+import { MessageResponse } from '@sero-ai/ui/ai-elements/message';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { ChevronDown, ChevronRight, User, Bot, Brain } from 'lucide-react';
 import { ImageLightbox } from './ImageLightbox';
@@ -96,11 +95,7 @@ export const ChatMessageComponent = memo(function ChatMessageComponent({
             {isUser ? (
               <span className="whitespace-pre-wrap">{message.text}</span>
             ) : (
-              <div className="prose prose-invert prose-sm max-w-none [&_pre]:bg-background [&_pre]:border [&_pre]:border-border [&_pre]:rounded-md [&_code]:text-xs">
-                <ReactMarkdown rehypePlugins={[rehypeHighlight]}>
-                  {message.text}
-                </ReactMarkdown>
-              </div>
+              <MessageResponse>{message.text}</MessageResponse>
             )}
           </div>
         )}

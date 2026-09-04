@@ -6,53 +6,10 @@
  * This provides defense-in-depth against XSS token exfiltration.
  */
 
-const DB_NAME = 'sero-web-remote';
-const STORE_NAME = 'tokens';
+import { openDb, dbGet, dbPut, dbDelete, TOKEN_STORE } from './idb';
+
 const TOKEN_KEY = 'gateway-token';
 const SALT = new TextEncoder().encode('sero-web-remote-token-salt-v1');
-
-// ── IndexedDB helpers ───────────────────────────────────────────
-
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
-    request.onupgradeneeded = () => {
-      request.result.createObjectStore(STORE_NAME);
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-function dbGet(db: IDBDatabase, key: string): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readonly');
-    const store = tx.objectStore(STORE_NAME);
-    const request = store.get(key);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-function dbPut(db: IDBDatabase, key: string, value: unknown): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
-    const request = store.put(value, key);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
-}
-
-function dbDelete(db: IDBDatabase, key: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
-    const request = store.delete(key);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
-}
 
 // ── Crypto helpers ──────────────────────────────────────────────
 
@@ -116,7 +73,7 @@ export async function saveToken(token: string): Promise<void> {
     const key = await deriveKey(gatewayUrl);
     const blob = await encrypt(token, key);
     const db = await openDb();
-    await dbPut(db, TOKEN_KEY, blob);
+    await dbPut(db, TOKEN_STORE, TOKEN_KEY, blob);
     db.close();
   } catch (err) {
     console.warn('[token-storage] Failed to save token:', err);
@@ -129,7 +86,7 @@ export async function loadToken(): Promise<string | null> {
     const gatewayUrl = window.location.origin;
     const key = await deriveKey(gatewayUrl);
     const db = await openDb();
-    const blob = (await dbGet(db, TOKEN_KEY)) as EncryptedBlob | undefined;
+    const blob = (await dbGet(db, TOKEN_STORE, TOKEN_KEY)) as EncryptedBlob | undefined;
     db.close();
     if (!blob) return null;
     return await decrypt(blob, key);
@@ -143,7 +100,7 @@ export async function loadToken(): Promise<string | null> {
 export async function clearToken(): Promise<void> {
   try {
     const db = await openDb();
-    await dbDelete(db, TOKEN_KEY);
+    await dbDelete(db, TOKEN_STORE, TOKEN_KEY);
     db.close();
   } catch {
     // Best-effort

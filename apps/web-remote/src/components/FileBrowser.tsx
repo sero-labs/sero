@@ -63,9 +63,9 @@ const FileTreeItem = memo(function FileTreeItem({
               <ChevronRight className="size-3 shrink-0" />
             )}
             {isExpanded ? (
-              <FolderOpen className="size-4 shrink-0 text-yellow-500" />
+              <FolderOpen className="size-4 shrink-0 text-status-warning" />
             ) : (
-              <Folder className="size-4 shrink-0 text-yellow-500" />
+              <Folder className="size-4 shrink-0 text-status-warning" />
             )}
           </>
         ) : (

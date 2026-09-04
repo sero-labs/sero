@@ -25,9 +25,9 @@ const ToolCallItem = memo(function ToolCallItem({ tc }: { tc: ToolCall }) {
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   const statusIcon = {
-    streaming: <Loader2 className="size-3.5 animate-spin text-blue-500" />,
-    running: <Loader2 className="size-3.5 animate-spin text-yellow-500" />,
-    done: <Check className="size-3.5 text-green-500" />,
+    streaming: <Loader2 className="size-3.5 animate-spin text-status-info" />,
+    running: <Loader2 className="size-3.5 animate-spin text-status-warning" />,
+    done: <Check className="size-3.5 text-status-success" />,
     error: <X className="size-3.5 text-destructive" />,
     cancelled: <X className="size-3.5 text-muted-foreground" />,
   }[tc.state];

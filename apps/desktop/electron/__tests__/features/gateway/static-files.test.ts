@@ -60,8 +60,10 @@ describe('gateway static file serving', () => {
     const { response, writeHead, body } = createMockResponse();
     expect(tryServeStaticFile('/assets/rebuilt.js', response, tmpDir)).toBe(true);
 
+    // Hashed asset names make the file immutable for its whole lifetime.
     expect(writeHead).toHaveBeenCalledWith(200, {
       'Content-Type': 'application/javascript',
+      'Cache-Control': 'public, max-age=31536000, immutable',
     });
     await expect(body).resolves.toContain('rebuilt');
   });
@@ -78,8 +80,10 @@ describe('gateway static file serving', () => {
     const { response, writeHead, body } = createMockResponse();
     expect(tryServeStaticFile('/routes/settings', response, tmpDir)).toBe(true);
 
+    // The shell must be revalidated, or a client keeps an old asset list.
     expect(writeHead).toHaveBeenCalledWith(200, {
       'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-cache',
     });
     await expect(body).resolves.toContain('gateway app');
   });

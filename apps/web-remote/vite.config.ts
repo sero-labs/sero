@@ -32,12 +32,14 @@ export default defineConfig({
   build: {
     outDir: path.resolve(__dirname, '../desktop/electron/features/gateway/web-dist'),
     emptyOutDir: true,
-    cssCodeSplit: false,
+    // Hashed multi-chunk output. Module federation shared singletons and
+    // the service-worker shell cache both need real chunk files with
+    // stable, content-addressed names. `inlineDynamicImports` blocks both.
     rollupOptions: {
       output: {
-        inlineDynamicImports: true,
-        entryFileNames: 'assets/index.js',
-        assetFileNames: 'assets/[name][extname]',
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash][extname]',
       },
     },
   },

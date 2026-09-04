@@ -8,7 +8,9 @@ import { useWorkspaceStore } from '@/stores/workspace';
 import { describeGatewayScope } from '@/lib/gateway-errors';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { Separator } from '@sero-ai/ui/components/ui/separator';
-import { Circle } from 'lucide-react';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { useThemeStore } from '@/stores/theme';
+import { Circle, Monitor, Moon, Sun } from 'lucide-react';
 
 export function StatusBar() {
   const state = useConnectionStore((s) => s.state);
@@ -20,11 +22,11 @@ export function StatusBar() {
   const scope = describeGatewayScope(workspaces, activeWorkspaceId);
 
   const statusColor = {
-    disconnected: 'text-destructive',
-    connecting: 'text-yellow-500',
-    authenticating: 'text-yellow-500',
-    reconnecting: 'text-yellow-500',
-    connected: 'text-green-500',
+    disconnected: 'text-status-error',
+    connecting: 'text-status-warning',
+    authenticating: 'text-status-warning',
+    reconnecting: 'text-status-warning',
+    connected: 'text-status-success',
   }[state];
 
   const statusText = {
@@ -65,8 +67,30 @@ export function StatusBar() {
             Session: {activeSessionId}
           </span>
         )}
+        <ThemeModeButton />
         <span>Sero Remote</span>
       </div>
     </div>
+  );
+}
+
+/** Cycle dark → light → system, matching the desktop theme control. */
+export function ThemeModeButton() {
+  const mode = useThemeStore((s) => s.mode);
+  const cycleMode = useThemeStore((s) => s.cycleMode);
+
+  const Icon = mode === 'dark' ? Moon : mode === 'light' ? Sun : Monitor;
+  const label = mode === 'dark' ? 'Dark' : mode === 'light' ? 'Light' : 'System';
+
+  return (
+    <Button
+      onClick={cycleMode}
+      variant="ghost"
+      size="icon-xs"
+      title={`Theme: ${label} (click to change)`}
+      aria-label={`Theme: ${label}. Click to change.`}
+    >
+      <Icon className="size-3" />
+    </Button>
   );
 }
