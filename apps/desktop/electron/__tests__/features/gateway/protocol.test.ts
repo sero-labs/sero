@@ -119,4 +119,32 @@ describe('gateway protocol request validation', () => {
       }),
     ).toEqual({ type: 'list_workspaces', requestId: 'req-99' });
   });
+  it('accepts a session search with a query only', () => {
+    expect(validateRequest({ type: 'search_sessions', query: 'gateway' })).toEqual({
+      type: 'search_sessions',
+      query: 'gateway',
+      limit: undefined,
+    });
+  });
+
+  it('accepts a session search with a numeric limit', () => {
+    expect(
+      validateRequest({ type: 'search_sessions', query: 'gateway', limit: 5 }),
+    ).toEqual({ type: 'search_sessions', query: 'gateway', limit: 5 });
+  });
+
+  it('rejects a session search with no query', () => {
+    expect(validateRequest({ type: 'search_sessions' })).toBeNull();
+    expect(validateRequest({ type: 'search_sessions', query: '' })).toBeNull();
+  });
+
+  it('rejects a session search whose limit is not a number', () => {
+    expect(
+      validateRequest({ type: 'search_sessions', query: 'a', limit: '5' }),
+    ).toBeNull();
+  });
+
+  it('accepts a usage request with no fields', () => {
+    expect(validateRequest({ type: 'get_usage' })).toEqual({ type: 'get_usage' });
+  });
 });

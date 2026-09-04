@@ -21,6 +21,7 @@ import {
 import { convertSessionMessages } from '../agent/core/agent-helpers';
 import { listSessionMetadata } from '../agent/core/session-metadata';
 import { convertToGatewayHistory } from './gateway-history';
+import { searchSessions, MAX_RESULTS } from './session-search';
 import type {
   GatewayAgentOps,
   GatewayDevServerInfo,
@@ -148,6 +149,33 @@ export function buildGatewayOps(
           updatedAt: session.modified.toISOString(),
           messageCount: session.messageCount,
         }));
+    },
+    searchSessions: async (workspaceIds, query, limit) => {
+      // One directory scan serves every workspace. Map each session
+      // back to its workspace by path, and drop the rest.
+      const workspaceByPath = new Map<string, string>();
+      for (const workspaceId of workspaceIds) {
+        const wsPath = workspaceManager.getPath(workspaceId);
+        if (wsPath) workspaceByPath.set(wsPath, workspaceId);
+      }
+      if (workspaceByPath.size === 0) return [];
+
+      const all = await listSessionMetadata(SERO_SESSION_DIR);
+      const searchable = all.flatMap((session) => {
+        const workspaceId = workspaceByPath.get(session.cwd);
+        if (!workspaceId) return [];
+        return [{
+          id: session.id,
+          workspaceId,
+          name: session.name || '',
+          firstMessage: session.firstMessage || '',
+          updatedAt: session.modified.toISOString(),
+          messageCount: session.messageCount,
+          path: session.path,
+        }];
+      });
+
+      return searchSessions(searchable, query, limit || MAX_RESULTS);
     },
     createSession: async (workspaceId, name) => {
       const wsPath = workspaceManager.getPath(workspaceId);

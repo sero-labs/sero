@@ -19,6 +19,7 @@ import {
   type GatewayAccessScope,
 } from './access-control';
 import { routeExtendedRequest } from './extended-handlers';
+import { routeQueryRequest } from './query-handlers';
 
 // ── Idempotency store ───────────────────────────────────────
 // Prevents duplicate prompt execution from network retries.
@@ -116,6 +117,9 @@ export async function routeAgentRequest(
     );
     if (handled) return;
   }
+  // Read-only queries: cross-session search and usage totals.
+  if (await routeQueryRequest(ws, agentOps, request, accessScope, costTracker)) return;
+
   switch (request.type) {
     case 'prompt': {
       if (!hasWorkspaceAccess(accessScope, request.workspaceId)) {

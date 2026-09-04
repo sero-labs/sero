@@ -98,6 +98,20 @@ export interface GatewaySessionInfo {
   messageCount: number;
 }
 
+/**
+ * One session that matched a search, with the text around the first hit.
+ */
+export interface GatewaySessionSearchResult {
+  sessionId: string;
+  workspaceId: string;
+  name: string;
+  /** Text around the first match, with elided ends marked by "…". */
+  snippet: string;
+  matchCount: number;
+  /** ISO 8601. Last time the session file changed. */
+  updatedAt: string;
+}
+
 /** Operations the gateway can delegate to the agent pool. */
 export interface GatewayAgentOps {
   /** Open or get an existing agent session. Returns session path. */
@@ -125,6 +139,17 @@ export interface GatewayAgentOps {
   getSessionWorkspaceId(sessionId: string): string | null;
   /** List sessions for a workspace. */
   listSessions(workspaceId: string): Promise<GatewaySessionInfo[]>;
+  /**
+   * Search sessions in the given workspaces for `query`.
+   *
+   * The caller passes only the workspaces its token can reach; this
+   * operation applies no authorization of its own.
+   */
+  searchSessions(
+    workspaceIds: string[],
+    query: string,
+    limit: number,
+  ): Promise<GatewaySessionSearchResult[]>;
   /** Create a new session for a workspace. */
   createSession(workspaceId: string, name?: string): Promise<GatewaySessionInfo>;
   /** List files in a workspace directory. */

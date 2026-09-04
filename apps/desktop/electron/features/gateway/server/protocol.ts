@@ -52,6 +52,21 @@ export interface GatewayListSessionsRequest {
   workspaceId: string;
 }
 
+export interface GatewaySearchSessionsRequest {
+  type: 'search_sessions';
+  query: string;
+  /** Results wanted. The server caps this. */
+  limit?: number;
+}
+
+/**
+ * Token and cost totals for the sessions the caller can reach.
+ * The gateway counts these in memory, from desktop start.
+ */
+export interface GatewayGetUsageRequest {
+  type: 'get_usage';
+}
+
 export interface GatewayCreateSessionRequest {
   type: 'create_session';
   workspaceId: string;
@@ -134,6 +149,8 @@ export type GatewayRequest = (
   | GatewayStatusRequest
   | GatewayListWorkspacesRequest
   | GatewayListSessionsRequest
+  | GatewaySearchSessionsRequest
+  | GatewayGetUsageRequest
   | GatewayCreateSessionRequest
   | GatewayListFilesRequest
   | GatewayReadFileRequest
@@ -182,6 +199,8 @@ const VALID_REQUEST_TYPES = new Set<GatewayRequest['type']>([
   'status',
   'list_workspaces',
   'list_sessions',
+  'search_sessions',
+  'get_usage',
   'create_session',
   'list_files',
   'read_file',
@@ -206,6 +225,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function readRequiredString(obj: Record<string, unknown>, key: string): string | null {
   const value = obj[key];
   return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+function readOptionalNumber(obj: Record<string, unknown>, key: string): number | undefined | null {
+  const value = obj[key];
+  if (value === undefined) return undefined;
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 function readOptionalString(obj: Record<string, unknown>, key: string): string | undefined | null {
@@ -322,6 +347,16 @@ function validateRequestBody(data: Record<string, unknown>): GatewayRequest | nu
       const workspaceId = readRequiredString(data, 'workspaceId');
       return workspaceId ? { type: 'list_sessions', workspaceId } : null;
     }
+
+    case 'search_sessions': {
+      const query = readRequiredString(data, 'query');
+      const limit = readOptionalNumber(data, 'limit');
+      if (!query || limit === null) return null;
+      return { type: 'search_sessions', query, limit };
+    }
+
+    case 'get_usage':
+      return { type: 'get_usage' };
 
     case 'create_session': {
       const workspaceId = readRequiredString(data, 'workspaceId');

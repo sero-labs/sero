@@ -84,6 +84,34 @@ interface SessionCost {
   totalCost: number;
   inputTokens: number;
   outputTokens: number;
+  /** Model responses recorded for this session. */
+  requests: number;
+}
+
+/** One session's usage, as a client reads it. */
+export interface SessionUsage {
+  sessionId: string;
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  costUsd: number;
+}
+
+/**
+ * Usage totals plus a per-session breakdown.
+ *
+ * Everything here is in-memory and starts empty when the desktop app
+ * starts. `dailyCostUsd` resets at UTC midnight as well. The UI must say
+ * so, or the numbers read as an all-time total.
+ */
+export interface UsageReport {
+  sessions: SessionUsage[];
+  totals: Omit<SessionUsage, 'sessionId'>;
+  /** Every session since the app started, not only the ones listed. */
+  dailyCostUsd: number;
+  /** UTC date the daily total belongs to, `YYYY-MM-DD`. */
+  dailyDate: string;
 }
 
 export interface LimitCheckResult {
@@ -130,10 +158,12 @@ export class CostTracker {
       totalCost: 0,
       inputTokens: 0,
       outputTokens: 0,
+      requests: 0,
     };
     session.totalCost += cost;
     session.inputTokens += inputTokens;
     session.outputTokens += outputTokens;
+    session.requests += 1;
     this.sessionCosts.set(sessionId, session);
 
     // Update daily cost
@@ -144,6 +174,46 @@ export class CostTracker {
         `(session total: $${session.totalCost.toFixed(4)}, ` +
         `daily: $${this.dailyCost.toFixed(4)})`,
     );
+  }
+
+  /**
+   * Usage for the given sessions. Callers pass only the sessions the
+   * client's token can reach, so scoping stays with the access scope and
+   * not with the tracker.
+   */
+  getUsage(sessionIds: Iterable<string>): UsageReport {
+    const sessions: SessionUsage[] = [];
+    const totals = { requests: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0, costUsd: 0 };
+
+    for (const sessionId of sessionIds) {
+      const cost = this.sessionCosts.get(sessionId);
+      if (!cost) continue;
+
+      const usage: SessionUsage = {
+        sessionId,
+        requests: cost.requests,
+        inputTokens: cost.inputTokens,
+        outputTokens: cost.outputTokens,
+        totalTokens: cost.inputTokens + cost.outputTokens,
+        costUsd: cost.totalCost,
+      };
+      sessions.push(usage);
+
+      totals.requests += usage.requests;
+      totals.inputTokens += usage.inputTokens;
+      totals.outputTokens += usage.outputTokens;
+      totals.totalTokens += usage.totalTokens;
+      totals.costUsd += usage.costUsd;
+    }
+
+    sessions.sort((a, b) => b.costUsd - a.costUsd);
+
+    return { sessions, totals, dailyCostUsd: this.dailyCost, dailyDate: this.dailyDate };
+  }
+
+  /** Every session with recorded usage since the app started. */
+  trackedSessionIds(): string[] {
+    return [...this.sessionCosts.keys()];
   }
 
   /** Mark a session as active (for concurrency limiting). */
