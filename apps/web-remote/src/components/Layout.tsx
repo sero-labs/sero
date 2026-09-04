@@ -8,7 +8,7 @@
  * and the status bar is hidden to save height.
  */
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { MainSidebar } from './sidebar/MainSidebar';
 import { ChatPanel } from './ChatPanel';
 import { FileBrowser } from './FileBrowser';
@@ -45,12 +45,41 @@ const PANEL_TITLES: Record<RightPanel, string> = {
 
 export function Layout() {
   const isMobile = useIsMobile();
-  const sidebarOpen = useLayoutStore((s) => s.sidebarOpen);
+
+  // The store holds the desktop layout, which persists. The mobile
+  // sheets cover the conversation, so they keep their own state and
+  // always start closed — including after a resize across 768px.
+  const desktopSidebarOpen = useLayoutStore((s) => s.sidebarOpen);
   const sidebarSize = useLayoutStore((s) => s.sidebarSize);
-  const setSidebarOpen = useLayoutStore((s) => s.setSidebarOpen);
+  const toggleDesktopSidebar = useLayoutStore((s) => s.toggleSidebar);
   const setSidebarSize = useLayoutStore((s) => s.setSidebarSize);
-  const rightPanel = useLayoutStore((s) => s.rightPanel);
-  const closeRightPanel = useLayoutStore((s) => s.closeRightPanel);
+  const desktopPanel = useLayoutStore((s) => s.rightPanel);
+  const toggleDesktopPanel = useLayoutStore((s) => s.toggleRightPanel);
+  const closeDesktopPanel = useLayoutStore((s) => s.closeRightPanel);
+
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [mobilePanel, setMobilePanel] = useState<RightPanel | null>(null);
+
+  const sidebarOpen = isMobile ? mobileSidebarOpen : desktopSidebarOpen;
+  const rightPanel = isMobile ? mobilePanel : desktopPanel;
+
+  const toggleSidebar = useCallback(() => {
+    if (isMobile) setMobileSidebarOpen((open) => !open);
+    else toggleDesktopSidebar();
+  }, [isMobile, toggleDesktopSidebar]);
+
+  const togglePanel = useCallback(
+    (panel: RightPanel) => {
+      if (isMobile) setMobilePanel((current) => (current === panel ? null : panel));
+      else toggleDesktopPanel(panel);
+    },
+    [isMobile, toggleDesktopPanel],
+  );
+
+  const closePanel = useCallback(() => {
+    if (isMobile) setMobilePanel(null);
+    else closeDesktopPanel();
+  }, [isMobile, closeDesktopPanel]);
 
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const hasRunningDevServers = useDevServerStore((s) =>
@@ -70,7 +99,13 @@ export function Layout() {
 
   return (
     <div className="flex h-full flex-col">
-      <TitleBar isMobile={isMobile} hasRunningDevServers={hasRunningDevServers} />
+      <TitleBar
+        isMobile={isMobile}
+        hasRunningDevServers={hasRunningDevServers}
+        rightPanel={rightPanel}
+        onToggleSidebar={toggleSidebar}
+        onTogglePanel={togglePanel}
+      />
 
       <AccessBanner />
 
@@ -115,19 +150,25 @@ export function Layout() {
           )}
         </ResizablePanelGroup>
 
-        {!isMobile && <ActivityRail hasRunningDevServers={hasRunningDevServers} />}
+        {!isMobile && (
+          <ActivityRail
+            hasRunningDevServers={hasRunningDevServers}
+            rightPanel={rightPanel}
+            onTogglePanel={togglePanel}
+          />
+        )}
       </div>
 
       {!isMobile && <StatusBar />}
 
       {isMobile && (
-        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
           <SheetContent side="left" className="w-72 p-0" showCloseButton={false}>
             <SheetHeader className="sr-only">
               <SheetTitle>Workspaces</SheetTitle>
             </SheetHeader>
             <div className="flex-1 overflow-hidden">
-              <MainSidebar onSessionSelect={() => setSidebarOpen(false)} />
+              <MainSidebar onSessionSelect={() => setMobileSidebarOpen(false)} />
             </div>
           </SheetContent>
         </Sheet>
@@ -137,7 +178,7 @@ export function Layout() {
         <Sheet
           open={rightPanel !== null}
           onOpenChange={(open) => {
-            if (!open) closeRightPanel();
+            if (!open) closePanel();
           }}
         >
           <SheetContent

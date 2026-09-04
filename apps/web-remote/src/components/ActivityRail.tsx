@@ -9,7 +9,7 @@
 import { FileText, GitBranch, Image as ImageIcon, Monitor } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { cn } from '@sero-ai/ui/lib/utils';
-import { useLayoutStore, type RightPanel } from '@/stores/layout';
+import type { RightPanel } from '@/stores/layout';
 
 interface RailItem {
   id: RightPanel;
@@ -29,12 +29,15 @@ const ITEMS: RailItem[] = [
 interface ActivityRailProps {
   /** Highlights the preview icon while a dev server is up. */
   hasRunningDevServers: boolean;
+  rightPanel: RightPanel | null;
+  onTogglePanel: (panel: RightPanel) => void;
 }
 
-export function ActivityRail({ hasRunningDevServers }: ActivityRailProps) {
-  const rightPanel = useLayoutStore((s) => s.rightPanel);
-  const toggleRightPanel = useLayoutStore((s) => s.toggleRightPanel);
-
+export function ActivityRail({
+  hasRunningDevServers,
+  rightPanel,
+  onTogglePanel,
+}: ActivityRailProps) {
   return (
     <nav
       aria-label="Panels"
@@ -51,7 +54,7 @@ export function ActivityRail({ hasRunningDevServers }: ActivityRailProps) {
             aria-label={item.label}
             title={item.label}
             data-panel={item.id}
-            onClick={() => toggleRightPanel(item.id)}
+            onClick={() => onTogglePanel(item.id)}
             className={cn(
               'relative text-[var(--text-muted)] hover:text-[var(--text-secondary)]',
               isLive && 'text-status-success',

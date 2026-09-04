@@ -93,28 +93,14 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
   },
 }));
 
-/** True below the 768px breakpoint the layout treats as mobile. */
-function isNarrowViewport(): boolean {
-  if (typeof window === 'undefined' || !window.matchMedia) return false;
-  return window.matchMedia('(max-width: 767px)').matches;
-}
-
 /**
  * Read the stored layout once at startup.
  *
- * On a narrow viewport the sidebar and the right panel are sheets that
- * cover the chat, so both start closed however the desktop left them.
- * The stored width is still restored: it applies the moment the window
- * grows past the breakpoint.
+ * This store holds the desktop layout only. The mobile sheets keep their
+ * own state in `Layout.tsx` and always start closed, so a stored desktop
+ * session never opens two overlays over a phone's conversation.
  */
 export async function hydrateLayout(): Promise<void> {
   const stored = readPersisted(await loadPref(PREF_KEY));
-  const narrow = isNarrowViewport();
-
-  useLayoutStore.setState({
-    ...stored,
-    sidebarOpen: narrow ? false : stored.sidebarOpen,
-    rightPanel: narrow ? null : stored.rightPanel,
-    ready: true,
-  });
+  useLayoutStore.setState({ ...stored, ready: true });
 }

@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { cn } from '@sero-ai/ui/lib/utils';
-import { useLayoutStore, type RightPanel } from '@/stores/layout';
+import type { RightPanel } from '@/stores/layout';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { ThemeModeButton } from './ThemeModeButton';
 
@@ -32,13 +32,19 @@ const MOBILE_PANELS: Array<{ id: RightPanel; label: string; icon: typeof FileTex
 interface TitleBarProps {
   isMobile: boolean;
   hasRunningDevServers: boolean;
+  /** The open right panel in the current mode, or null. */
+  rightPanel: RightPanel | null;
+  onToggleSidebar: () => void;
+  onTogglePanel: (panel: RightPanel) => void;
 }
 
-export function TitleBar({ isMobile, hasRunningDevServers }: TitleBarProps) {
-  const toggleSidebar = useLayoutStore((s) => s.toggleSidebar);
-  const rightPanel = useLayoutStore((s) => s.rightPanel);
-  const toggleRightPanel = useLayoutStore((s) => s.toggleRightPanel);
-
+export function TitleBar({
+  isMobile,
+  hasRunningDevServers,
+  rightPanel,
+  onToggleSidebar,
+  onTogglePanel,
+}: TitleBarProps) {
   return (
     <header className="flex h-10 shrink-0 items-center gap-1 border-b border-[var(--border-default)] bg-[var(--bg-base)] px-2">
       <SeroLogo />
@@ -46,7 +52,7 @@ export function TitleBar({ isMobile, hasRunningDevServers }: TitleBarProps) {
       <Button
         variant="ghost"
         size="icon-xs"
-        onClick={toggleSidebar}
+        onClick={onToggleSidebar}
         aria-label="Toggle sidebar"
         className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
       >
@@ -67,7 +73,7 @@ export function TitleBar({ isMobile, hasRunningDevServers }: TitleBarProps) {
                 size="icon-xs"
                 title={panel.label}
                 aria-label={panel.label}
-                onClick={() => toggleRightPanel(panel.id)}
+                onClick={() => onTogglePanel(panel.id)}
                 className={cn(
                   panel.id === 'preview' && hasRunningDevServers && 'text-status-success',
                 )}

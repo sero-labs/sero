@@ -81,14 +81,9 @@ describe('layout store', () => {
   });
 });
 
-describe('layout store on a narrow viewport', () => {
+describe('layout store and the mobile sheets', () => {
   beforeEach(() => {
     store.clear();
-    savePref.mockClear();
-    vi.stubGlobal(
-      'matchMedia',
-      vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
-    );
     useLayoutStore.setState({
       sidebarOpen: true,
       sidebarSize: '20%',
@@ -97,15 +92,17 @@ describe('layout store on a narrow viewport', () => {
     });
   });
 
-  it('opens neither sheet on load, whatever the desktop left open', async () => {
+  it('restores the desktop layout untouched', async () => {
+    // Layout.tsx keeps the mobile sheets in their own state, so the store
+    // never has to know about the breakpoint.
     store.set('layout', { sidebarOpen: true, sidebarSize: '33.00%', rightPanel: 'files' });
 
     await hydrateLayout();
 
-    const state = useLayoutStore.getState();
-    expect(state.sidebarOpen).toBe(false);
-    expect(state.rightPanel).toBeNull();
-    // The width still applies once the window grows past the breakpoint.
-    expect(state.sidebarSize).toBe('33.00%');
+    expect(useLayoutStore.getState()).toMatchObject({
+      sidebarOpen: true,
+      sidebarSize: '33.00%',
+      rightPanel: 'files',
+    });
   });
 });
