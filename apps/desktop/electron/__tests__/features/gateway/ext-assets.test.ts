@@ -39,24 +39,29 @@ describe('asset tickets', () => {
 });
 
 describe('parseAssetUrl', () => {
-  it('reads the file from the path', () => {
-    expect(parseAssetUrl('/ext/todo/chunk.js?t=abc')).toEqual({
+  it('reads the ticket, the app and the file from the path', () => {
+    expect(parseAssetUrl('/ext/abc/todo/chunk.js')).toEqual({
       appId: 'todo',
       filePath: 'chunk.js',
       ticket: 'abc',
     });
   });
 
-  it('reads the file from the f parameter, which is how publicPath carries it', () => {
-    expect(parseAssetUrl('/ext/todo/?t=abc&f=static/js/chunk.js')).toEqual({
+  it('reads a nested chunk, which is how a plugin bundle asks for its own files', () => {
+    expect(parseAssetUrl('/ext/abc/todo/assets/NotesWidget-x1.js')).toEqual({
       appId: 'todo',
-      filePath: 'static/js/chunk.js',
+      filePath: 'assets/NotesWidget-x1.js',
       ticket: 'abc',
     });
   });
 
   it('defaults to the federation manifest', () => {
-    expect(parseAssetUrl('/ext/todo/?t=abc')?.filePath).toBe('mf-manifest.json');
+    expect(parseAssetUrl('/ext/abc/todo/')?.filePath).toBe('mf-manifest.json');
+    expect(parseAssetUrl('/ext/abc/todo')?.filePath).toBe('mf-manifest.json');
+  });
+
+  it('ignores a URL with no app in it', () => {
+    expect(parseAssetUrl('/ext/abc')).toBeNull();
   });
 
   it('ignores a URL that is not an asset URL', () => {
@@ -65,12 +70,12 @@ describe('parseAssetUrl', () => {
 });
 
 describe('rewriteFederationManifest', () => {
-  it('points publicPath at the gateway and carries the ticket', () => {
+  it('points publicPath at a ticketed directory, so inferred chunk URLs stay ticketed', () => {
     const raw = JSON.stringify({ metaData: { publicPath: 'auto' } });
 
     const rewritten = JSON.parse(rewriteFederationManifest(raw, 'todo', 'tick et'));
 
-    expect(rewritten.metaData.publicPath).toBe('/ext/todo/?t=tick%20et&f=');
+    expect(rewritten.metaData.publicPath).toBe('/ext/tick%20et/todo/');
   });
 
   it('leaves an unparseable manifest alone', () => {

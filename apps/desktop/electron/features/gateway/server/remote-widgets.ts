@@ -12,7 +12,7 @@
 import path from 'path';
 import type { SeroAppManifest } from '@/types/sero-apps';
 import type { DashboardWidgetContribution } from '@sero-ai/common';
-import { registerRemoteAssets, unregisterRemoteAssets } from './ext-assets';
+import { manifestUrl, registerRemoteAssets, unregisterRemoteAssets } from './ext-assets';
 
 /** One widget a browser may load. */
 export interface GatewayRemoteWidget {
@@ -126,7 +126,7 @@ export function listRemoteWidgets(
         description: widget.description,
         defaultSize: widget.defaultSize,
         remoteName: toRemoteName(manifest.id),
-        remoteEntry: `/ext/${manifest.id}/mf-manifest.json?t=${encodeURIComponent(ticket)}`,
+        remoteEntry: manifestUrl(manifest.id, ticket),
         stateKey: buildStateKey(manifest.id, manifest.scope, workspaceId),
         scope: manifest.scope,
       });

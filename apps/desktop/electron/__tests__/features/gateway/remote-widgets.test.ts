@@ -58,7 +58,7 @@ describe('remote widget registry', () => {
       appId: 'todo',
       widgetId: 'summary',
       remoteName: 'sero_todo',
-      remoteEntry: '/ext/todo/mf-manifest.json?t=ticket-todo',
+      remoteEntry: '/ext/ticket-todo/todo/mf-manifest.json',
       stateKey: 'todo@ws-1',
     });
     expect(hasRemoteAssets('todo')).toBe(true);

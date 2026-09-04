@@ -72,11 +72,23 @@ function contentTypeFor(filePath: string): string {
   return CONTENT_TYPES[path.extname(filePath)] ?? 'application/octet-stream';
 }
 
+/** The URL a client fetches this app's federation manifest from. */
+export function manifestUrl(appId: string, ticket: string): string {
+  return `${assetBase(appId, ticket)}${DEFAULT_ASSET}`;
+}
+
+/** Where an app's files live for one ticket. Always ends in a slash. */
+function assetBase(appId: string, ticket: string): string {
+  return `${EXT_ASSET_PREFIX}${encodeURIComponent(ticket)}/${encodeURIComponent(appId)}/`;
+}
+
 /**
- * Point the federation manifest at the gateway, carrying the ticket.
+ * Point the federation manifest at the gateway.
  *
- * The runtime builds every chunk URL from `publicPath`, so the ticket has
- * to live there or the chunks come back unauthorized.
+ * The ticket sits in the path, not in a query parameter, because a built
+ * plugin bundle works out its own base URL from the directory its script
+ * came from. A query parameter is dropped there; a path prefix is kept,
+ * so every chunk it fetches later stays ticketed.
  */
 export function rewriteFederationManifest(
   raw: string,
@@ -86,7 +98,7 @@ export function rewriteFederationManifest(
   try {
     const manifest = JSON.parse(raw) as { metaData?: Record<string, unknown> };
     if (manifest.metaData && typeof manifest.metaData === 'object') {
-      manifest.metaData.publicPath = `${EXT_ASSET_PREFIX}${appId}/?t=${encodeURIComponent(ticket)}&f=`;
+      manifest.metaData.publicPath = assetBase(appId, ticket);
     }
     return JSON.stringify(manifest);
   } catch {
@@ -103,25 +115,32 @@ interface ParsedAssetUrl {
 }
 
 /**
- * Split an asset URL into its parts.
+ * Split an asset URL into its parts: `/ext/<ticket>/<app-id>/<file>`.
  *
- * The file may come from the path (`/ext/app/chunk.js`) or from the `f`
- * query parameter, which is how the rewritten `publicPath` carries it.
+ * A missing file means the federation manifest, which is what a client
+ * asks for first.
  */
 export function parseAssetUrl(rawUrl: string): ParsedAssetUrl | null {
-  const [rawPath, rawQuery = ''] = rawUrl.split('?');
+  const [rawPath] = rawUrl.split('?');
   if (!rawPath.startsWith(EXT_ASSET_PREFIX)) return null;
 
-  const query = new URLSearchParams(rawQuery);
-  const rest = decodeURIComponent(rawPath.slice(EXT_ASSET_PREFIX.length));
-  const slash = rest.indexOf('/');
-  const appId = slash === -1 ? rest : rest.slice(0, slash);
+  const rest = rawPath.slice(EXT_ASSET_PREFIX.length);
+  const firstSlash = rest.indexOf('/');
+  if (firstSlash <= 0) return null;
+
+  const ticket = decodeURIComponent(rest.slice(0, firstSlash));
+  const afterTicket = rest.slice(firstSlash + 1);
+  const secondSlash = afterTicket.indexOf('/');
+  const appId = decodeURIComponent(
+    secondSlash === -1 ? afterTicket : afterTicket.slice(0, secondSlash),
+  );
   if (!appId) return null;
 
-  const fromPath = slash === -1 ? '' : rest.slice(slash + 1);
-  const filePath = fromPath || query.get('f') || DEFAULT_ASSET;
+  const filePath = secondSlash === -1
+    ? DEFAULT_ASSET
+    : decodeURIComponent(afterTicket.slice(secondSlash + 1)) || DEFAULT_ASSET;
 
-  return { appId, filePath, ticket: query.get('t') ?? '' };
+  return { appId, filePath, ticket };
 }
 
 /**
