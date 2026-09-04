@@ -103,7 +103,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
     expanded: {},
     sessionStates: {},
     lastTurns: {},
-    view: 'chat',
+    view: 'board',
     pendingSessionFetches: [],
 
     fetchWorkspaces: () => {

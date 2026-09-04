@@ -10,7 +10,7 @@
 
 import { useCallback, useState } from 'react';
 import { MainSidebar } from './sidebar/MainSidebar';
-import { ChatPanel } from './ChatPanel';
+import { MainPanel } from './MainPanel';
 import { FileBrowser } from './FileBrowser';
 import { FilePreview } from './FilePreview';
 import { ArtifactGallery } from './ArtifactGallery';
@@ -132,7 +132,7 @@ export function Layout() {
           )}
 
           <ResizablePanel id="main" minSize="25%">
-            <ChatPanel />
+            <MainPanel />
           </ResizablePanel>
 
           {!isMobile && rightPanel && (

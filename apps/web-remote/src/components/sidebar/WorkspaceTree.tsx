@@ -9,6 +9,7 @@
 import { useWorkspaceStore } from '@/stores/workspace';
 import { useSessionSearchStore } from '@/stores/session-search';
 import { useChatStore } from '@/stores/chat';
+import { useBoardStore } from '@/stores/board';
 import { WorkspaceRow } from './WorkspaceRow';
 import { SessionRow } from './SessionRow';
 import { SearchResults } from './SearchResults';
@@ -32,6 +33,7 @@ export function WorkspaceTree({ onSessionSelect }: WorkspaceTreeProps) {
   const createSession = useWorkspaceStore((s) => s.createSession);
   const clearMessages = useChatStore((s) => s.clearMessages);
   const loadHistory = useChatStore((s) => s.loadHistory);
+  const markViewed = useBoardStore((s) => s.markViewed);
 
   const selectSession = (workspaceId: string, sessionId: string) => {
     if (sessionId !== activeSessionId) {
@@ -40,6 +42,8 @@ export function WorkspaceTree({ onSessionSelect }: WorkspaceTreeProps) {
       setActiveSession(sessionId);
       loadHistory(workspaceId, sessionId);
     }
+    // Opening a session clears its unread mark on the board.
+    markViewed(sessionId);
     onSessionSelect?.();
   };
 
