@@ -7,9 +7,11 @@
  */
 
 import { useWorkspaceStore } from '@/stores/workspace';
+import { useSessionSearchStore } from '@/stores/session-search';
 import { useChatStore } from '@/stores/chat';
 import { WorkspaceRow } from './WorkspaceRow';
 import { SessionRow } from './SessionRow';
+import { SearchResults } from './SearchResults';
 
 interface WorkspaceTreeProps {
   /** Called after a session is chosen, used on mobile to close the sheet. */
@@ -23,7 +25,7 @@ export function WorkspaceTree({ onSessionSelect }: WorkspaceTreeProps) {
   const activeSessionId = useWorkspaceStore((s) => s.activeSessionId);
   const expanded = useWorkspaceStore((s) => s.expanded);
   const sessionStates = useWorkspaceStore((s) => s.sessionStates);
-  const searchQuery = useWorkspaceStore((s) => s.searchQuery);
+  const searchQuery = useSessionSearchStore((s) => s.query);
   const toggleExpanded = useWorkspaceStore((s) => s.toggleExpanded);
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
   const setActiveSession = useWorkspaceStore((s) => s.setActiveSession);
@@ -51,14 +53,7 @@ export function WorkspaceTree({ onSessionSelect }: WorkspaceTreeProps) {
 
   if (query) {
     return (
-      <SearchResults
-        query={query}
-        workspaces={workspaces}
-        sessionsByWorkspace={sessionsByWorkspace}
-        activeSessionId={activeSessionId}
-        sessionStates={sessionStates}
-        onSelect={selectSession}
-      />
+      <SearchResults query={query} onSelect={selectSession} />
     );
   }
 
@@ -111,60 +106,6 @@ export function WorkspaceTree({ onSessionSelect }: WorkspaceTreeProps) {
           </div>
         );
       })}
-    </div>
-  );
-}
-
-interface SearchResultsProps {
-  query: string;
-  workspaces: Array<{ id: string; name: string }>;
-  sessionsByWorkspace: Record<string, Array<import('@/stores/workspace').Session>>;
-  activeSessionId: string | null;
-  sessionStates: Record<string, import('@/lib/gateway-client').SessionState>;
-  onSelect: (workspaceId: string, sessionId: string) => void;
-}
-
-/**
- * Instant filter over the sessions already loaded. A gateway-side scan of
- * message bodies is a separate concern (#257).
- */
-function SearchResults({
-  query,
-  workspaces,
-  sessionsByWorkspace,
-  activeSessionId,
-  sessionStates,
-  onSelect,
-}: SearchResultsProps) {
-  const matches = workspaces.flatMap((workspace) =>
-    (sessionsByWorkspace[workspace.id] ?? [])
-      .filter((session) => {
-        const haystack = `${session.name} ${session.firstMessage ?? ''}`.toLowerCase();
-        return haystack.includes(query);
-      })
-      .map((session) => ({ session, workspaceName: workspace.name })),
-  );
-
-  if (matches.length === 0) {
-    return (
-      <p className="px-3 py-4 text-xs text-[var(--text-muted)]">
-        No sessions match.
-      </p>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-1 py-1.5">
-      {matches.map(({ session, workspaceName }) => (
-        <SessionRow
-          key={session.id}
-          session={session}
-          isActive={session.id === activeSessionId}
-          state={sessionStates[session.id]}
-          workspaceName={workspaceName}
-          onSelect={(sessionId) => onSelect(session.workspaceId, sessionId)}
-        />
-      ))}
     </div>
   );
 }

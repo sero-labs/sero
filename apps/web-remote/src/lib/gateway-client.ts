@@ -250,6 +250,16 @@ export class GatewayClient {
     this.send({ type: 'list_sessions', workspaceId });
   }
 
+  /** Search every session this token can reach. */
+  searchSessions(query: string, limit?: number): void {
+    this.send({ type: 'search_sessions', query, limit });
+  }
+
+  /** Request token and cost totals for the reachable sessions. */
+  requestUsage(): void {
+    this.send({ type: 'get_usage' });
+  }
+
   /** Create a new session. */
   createSession(workspaceId: string, name?: string): void {
     this.send({ type: 'create_session', workspaceId, name });

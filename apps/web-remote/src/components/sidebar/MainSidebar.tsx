@@ -3,11 +3,12 @@
  * tree. The order and the class names follow the desktop `MainSidebar`.
  */
 
-import { LayoutGrid, Search, SquareKanban } from 'lucide-react';
+import { LayoutGrid, Loader2, Search, SquareKanban } from 'lucide-react';
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { Separator } from '@sero-ai/ui/components/ui/separator';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useWorkspaceStore, type WorkspaceView } from '@/stores/workspace';
+import { useSessionSearchStore } from '@/stores/session-search';
 import { WorkspaceTree } from './WorkspaceTree';
 
 interface MainSidebarProps {
@@ -23,8 +24,9 @@ const APPS: Array<{ view: WorkspaceView; label: string; icon: typeof SquareKanba
 export function MainSidebar({ onSessionSelect }: MainSidebarProps) {
   const view = useWorkspaceStore((s) => s.view);
   const setView = useWorkspaceStore((s) => s.setView);
-  const searchQuery = useWorkspaceStore((s) => s.searchQuery);
-  const setSearchQuery = useWorkspaceStore((s) => s.setSearchQuery);
+  const searchQuery = useSessionSearchStore((s) => s.query);
+  const setSearchQuery = useSessionSearchStore((s) => s.setQuery);
+  const searchStatus = useSessionSearchStore((s) => s.status);
 
   return (
     <aside className="flex size-full min-w-0 flex-col border-r border-[var(--border-default)] bg-[var(--bg-surface)]">
@@ -68,8 +70,14 @@ export function MainSidebar({ onSessionSelect }: MainSidebarProps) {
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Search sessions..."
             aria-label="Search sessions"
-            className="h-7 pl-7 text-sm"
+            className="h-7 pl-7 pr-7 text-sm"
           />
+          {searchStatus === 'searching' && (
+            <Loader2
+              className="pointer-events-none absolute right-2 top-1/2 size-3.5 -translate-y-1/2 animate-spin text-[var(--text-muted)]"
+              aria-label="Searching"
+            />
+          )}
         </div>
       </div>
 

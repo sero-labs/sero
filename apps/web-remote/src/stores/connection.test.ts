@@ -50,6 +50,8 @@ class FakeGatewayClient implements GatewayClientLike {
   requestWorkspaces(): void {}
 
   requestSessions(): void {}
+  searchSessions(): void {}
+  requestUsage(): void {}
 
   createSession(): void {}
 

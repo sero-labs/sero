@@ -1,12 +1,13 @@
 /**
  * Chat header — `h-9`, matching the desktop `ChatPanel` header.
  *
- * `Bot` icon, an `AGENT` label, the session chip, and a slot on the
- * right for the usage badge (#258).
+ * `Bot` icon, an `AGENT` label, the session chip, and the usage badge
+ * on the right.
  */
 
 import { Bot } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { UsageBadge } from './UsageBadge';
 
 export function ChatHeader() {
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
@@ -30,6 +31,7 @@ export function ChatHeader() {
         </span>
       )}
       <div className="flex-1" />
+      <UsageBadge />
     </header>
   );
 }

@@ -37,6 +37,8 @@ export interface GatewayClientLike {
   ) => void;
   requestWorkspaces: () => void;
   requestSessions: (workspaceId: string) => void;
+  searchSessions: (query: string, limit?: number) => void;
+  requestUsage: () => void;
   createSession: (workspaceId: string, name?: string) => void;
   abortSession: (sessionId: string) => void;
   requestSessionHistory: (workspaceId: string, sessionId: string) => void;

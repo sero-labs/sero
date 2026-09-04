@@ -86,7 +86,6 @@ describe('workspace store session tree', () => {
       expanded: {},
       activeWorkspaceId: null,
       activeSessionId: null,
-      searchQuery: '',
       view: 'chat',
     });
   });

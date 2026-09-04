@@ -47,8 +47,6 @@ interface WorkspaceStore {
   sessionStates: Record<string, SessionState>;
   /** Last finished turn per session id, from `turn_complete` push events. */
   lastTurns: Record<string, SessionTurn>;
-  /** Sidebar session filter. Empty means no filter. */
-  searchQuery: string;
   view: WorkspaceView;
   /**
    * Workspace ids of `list_sessions` requests still awaiting a response,
@@ -64,7 +62,6 @@ interface WorkspaceStore {
   toggleExpanded: (id: string) => void;
   setActiveSession: (id: string) => void;
   createSession: (workspaceId?: string, name?: string) => void;
-  setSearchQuery: (query: string) => void;
   setView: (view: WorkspaceView) => void;
   handleMessage: (msg: GatewayMessage) => void;
 }
@@ -106,7 +103,6 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
     expanded: {},
     sessionStates: {},
     lastTurns: {},
-    searchQuery: '',
     view: 'chat',
     pendingSessionFetches: [],
 
@@ -142,10 +138,6 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
       if (!targetId) return;
       set({ activeWorkspaceId: targetId, view: 'chat' });
       getClient().createSession(targetId, name);
-    },
-
-    setSearchQuery: (query: string) => {
-      set({ searchQuery: query });
     },
 
     setView: (view: WorkspaceView) => {
