@@ -17,6 +17,8 @@ import {
 } from './access-control';
 import { makeResponder } from './request-handler';
 import { answerChoice } from '../bridge/choice-bridge';
+import { getNotificationFeed } from '@electron/features/notifications/feed';
+import { toNotificationEvent } from '../bridge/notification-bridge';
 
 /** Why an answer was refused, in words a client can show. */
 const ANSWER_FAILURES: Record<string, string> = {
@@ -115,6 +117,31 @@ export async function routeQueryRequest(
           message: ANSWER_FAILURES[outcome.reason ?? 'unknown'] ?? ANSWER_FAILURES.unknown,
         });
       }
+      return true;
+    }
+
+    case 'list_notifications': {
+      // The feed holds every entry. A scoped token sees only entries for
+      // its own workspaces; a global entry is owner-only.
+      const isOwner = accessScope.authorizedWorkspaceIds === null;
+      const entries = getNotificationFeed()
+        .list({ since: request.since, limit: request.limit })
+        .filter((entry) =>
+          entry.workspaceId
+            ? hasWorkspaceAccess(accessScope, entry.workspaceId)
+            : isOwner,
+        )
+        .map(toNotificationEvent);
+
+      respond({ type: 'ok', requestType: 'list_notifications', data: entries });
+      return true;
+    }
+
+    case 'mark_notifications_read': {
+      // Marking an entry read reveals nothing and changes nothing a token
+      // could not already read, so no id is refused here.
+      const changed = getNotificationFeed().markRead(request.ids);
+      respond({ type: 'ok', requestType: 'mark_notifications_read', data: { ids: changed } });
       return true;
     }
 

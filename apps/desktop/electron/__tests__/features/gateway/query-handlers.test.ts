@@ -1,12 +1,23 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WebSocket } from 'ws';
 
+// The feed writes to SERO_HOME and lives as a singleton. Give each test
+// its own feed on a temporary path so nothing touches the real home.
+let testFeed: NotificationFeed;
+vi.mock('@electron/features/notifications/feed', async () => {
+  const actual = await vi.importActual<typeof import('@electron/features/notifications/feed')>(
+    '@electron/features/notifications/feed',
+  );
+  return { ...actual, getNotificationFeed: () => testFeed };
+});
+
+import { NotificationFeed } from '@electron/features/notifications/feed';
 import { routeQueryRequest } from '@electron/features/gateway/server/query-handlers';
 import { CostTracker } from '@electron/features/gateway/server/cost-tracker';
 import type { GatewayAccessScope } from '@electron/features/gateway/server/access-control';
 import type { GatewayAgentOps, GatewaySessionSearchResult } from '@electron/features/gateway/server/types';
 import type { GatewayRequest } from '@electron/features/gateway/server/protocol';
-import { mkdtempSync } from 'fs';
+import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
 
@@ -202,5 +213,78 @@ describe('routeQueryRequest', () => {
 
     expect(handled).toBe(false);
     expect(sent).toEqual([]);
+  });
+});
+
+describe('notification handlers', () => {
+  let feedDir: string;
+
+  beforeEach(() => {
+    feedDir = mkdtempSync(path.join(tmpdir(), 'sero-query-notifications-'));
+    testFeed = new NotificationFeed(path.join(feedDir, 'notifications.jsonl'));
+  });
+
+  afterEach(() => {
+    rmSync(feedDir, { recursive: true, force: true });
+  });
+
+  it('hides an out-of-scope notification from a scoped token', async () => {
+    const feed = testFeed;
+    feed.notify({ message: 'mine', workspaceId: 'ws-1', silentOnDesktop: true });
+    feed.notify({ message: 'theirs', workspaceId: 'ws-2', silentOnDesktop: true });
+    feed.notify({ message: 'global', silentOnDesktop: true });
+
+    const { ws, sent } = fakeSocket();
+    const { ops } = makeOps();
+
+    await routeQueryRequest(
+      ws,
+      ops,
+      { type: 'list_notifications' } as GatewayRequest,
+      scope(['ws-1']),
+      tracker(),
+    );
+
+    const data = sent[0]?.data as Array<{ message: string }>;
+    expect(data.map((entry) => entry.message)).toEqual(['mine']);
+  });
+
+  it('shows every notification to an owner token', async () => {
+    const feed = testFeed;
+    feed.notify({ message: 'mine', workspaceId: 'ws-1', silentOnDesktop: true });
+    feed.notify({ message: 'global', silentOnDesktop: true });
+
+    const { ws, sent } = fakeSocket();
+    const { ops } = makeOps();
+
+    await routeQueryRequest(
+      ws,
+      ops,
+      { type: 'list_notifications' } as GatewayRequest,
+      scope(null),
+      tracker(),
+    );
+
+    const data = sent[0]?.data as Array<{ message: string }>;
+    expect(data.map((entry) => entry.message).sort()).toEqual(['global', 'mine']);
+  });
+
+  it('marks entries read and reports what changed', async () => {
+    const feed = testFeed;
+    const entry = feed.notify({ message: 'mine', workspaceId: 'ws-1', silentOnDesktop: true });
+
+    const { ws, sent } = fakeSocket();
+    const { ops } = makeOps();
+
+    await routeQueryRequest(
+      ws,
+      ops,
+      { type: 'mark_notifications_read', ids: [entry.id] } as GatewayRequest,
+      scope(['ws-1']),
+      tracker(),
+    );
+
+    expect(sent[0]?.data).toEqual({ ids: [entry.id] });
+    expect(feed.unreadCount()).toBe(0);
   });
 });

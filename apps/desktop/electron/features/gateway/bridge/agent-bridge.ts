@@ -19,6 +19,7 @@ import {
   type GatewaySessionState,
 } from '../server/protocol-events';
 import type { CostTracker } from '../server/cost-tracker';
+import { notify } from '@electron/features/notifications/feed';
 
 // ── Agent operations bridge ─────────────────────────────────
 
@@ -111,8 +112,28 @@ export function forwardEventToGateway(event: Record<string, unknown>): void {
     for (const derived of deriveStateEvents(sessionId, workspaceId, event)) {
       _sink.broadcastWorkspaceEvent(workspaceId, derived);
       notifyListeners(derived);
+      recordTurnNotification(derived);
     }
   }
+}
+
+/**
+ * Put a finished turn in the notification feed, so "session finished"
+ * reaches a phone without every plugin having to notify.
+ *
+ * No desktop toast: the desktop is where the turn just finished, and a
+ * popup for every turn would be noise.
+ */
+function recordTurnNotification(event: GatewayPushEvent): void {
+  if (event.type !== 'turn_complete') return;
+
+  notify({
+    message: event.snippet || 'The agent finished its turn.',
+    type: event.outcome === 'error' ? 'error' : 'info',
+    source: 'Session',
+    workspaceId: event.workspaceId,
+    silentOnDesktop: true,
+  });
 }
 
 function notifyListeners(event: GatewayPushEvent): void {

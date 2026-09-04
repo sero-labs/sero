@@ -10,7 +10,7 @@
  */
 
 import { runtimeManager } from '@electron/shared/infra/shared-infra';
-import { showNotification } from '@electron/platform/desktop/notifications';
+import { notify } from '@electron/features/notifications/feed';
 
 /**
  * Whether the workspace has any active terminal sessions on its
@@ -48,11 +48,12 @@ export async function recreateContainerIfRunning(workspaceId: string): Promise<v
     console.log(
       `[workspace] Deferring container recreation for ${workspaceId} — active sessions present`,
     );
-    showNotification({
+    notify({
       message:
         'Reference updated. Container will apply changes on next restart (active sessions detected).',
       source: 'Workspace',
       type: 'info',
+      workspaceId,
     });
     return;
   }
@@ -66,10 +67,11 @@ export async function recreateContainerIfRunning(workspaceId: string): Promise<v
     );
   } catch (err) {
     console.error(`[workspace] Failed to recreate container for ${workspaceId}:`, err);
-    showNotification({
+    notify({
       message: 'Failed to recreate container. Changes will apply on next restart.',
       source: 'Workspace',
       type: 'warning',
+      workspaceId,
     });
   }
 }

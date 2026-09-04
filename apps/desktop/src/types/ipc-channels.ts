@@ -399,6 +399,18 @@ export const IpcChannels = {
     /** Renderer → main: get all currently pending questions (for mount-time hydration). */
     getPending: 'sero:user-feedback:get-pending',
   },
+  notifications: {
+    /** Renderer → main: read the feed, newest first. */
+    list: 'sero:notifications:list',
+    /** Renderer → main: mark entries read. */
+    markRead: 'sero:notifications:mark-read',
+    /** Renderer → main: how many entries are unread. */
+    unreadCount: 'sero:notifications:unread-count',
+    /** Main → renderer push: a new entry was added. */
+    added: 'sero:notifications:added',
+    /** Main → renderer push: entries were marked read, here or elsewhere. */
+    read: 'sero:notifications:read',
+  },
   artifacts: {
     /** List all artifacts, optionally filtered by session. */
     list: 'sero:artifacts:list',

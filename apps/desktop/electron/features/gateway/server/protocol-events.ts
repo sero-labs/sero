@@ -177,6 +177,31 @@ export interface GatewayChoiceResolvedEvent {
   ts: number;
 }
 
+/**
+ * A new notification.
+ *
+ * An entry that names a workspace goes to every token that reaches it.
+ * An entry with no workspace goes to owner tokens only.
+ */
+export interface GatewayNotificationEvent {
+  type: 'notification';
+  id: string;
+  /** Milliseconds since the epoch. */
+  ts: number;
+  source: string;
+  notificationType: 'info' | 'warning' | 'error';
+  message: string;
+  workspaceId?: string;
+  read: boolean;
+}
+
+/** Entries were marked read, so every client clears its badge. */
+export interface GatewayNotificationsReadEvent {
+  type: 'notifications_read';
+  ids: string[];
+  ts: number;
+}
+
 export type GatewayPushEvent =
   | GatewayAgentStartEvent
   | GatewayAgentEndEvent
@@ -192,4 +217,6 @@ export type GatewayPushEvent =
   | GatewayArtifactEvent
   | GatewayChoiceRequestEvent
   | GatewayChoiceResolvedEvent
+  | GatewayNotificationEvent
+  | GatewayNotificationsReadEvent
   | GatewayDevServerChangedEvent;

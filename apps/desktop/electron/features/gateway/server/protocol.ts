@@ -67,6 +67,20 @@ export interface GatewayGetUsageRequest {
   type: 'get_usage';
 }
 
+/** Read the notification feed, newest first. */
+export interface GatewayListNotificationsRequest {
+  type: 'list_notifications';
+  /** Only entries newer than this epoch millisecond value. */
+  since?: number;
+  limit?: number;
+}
+
+/** Mark notifications read for every client. */
+export interface GatewayMarkNotificationsReadRequest {
+  type: 'mark_notifications_read';
+  ids: string[];
+}
+
 /** Answer a pending choice from a remote client. */
 export interface GatewayAnswerChoiceRequest {
   type: 'answer_choice';
@@ -159,6 +173,8 @@ export type GatewayRequest = (
   | GatewaySearchSessionsRequest
   | GatewayGetUsageRequest
   | GatewayAnswerChoiceRequest
+  | GatewayListNotificationsRequest
+  | GatewayMarkNotificationsReadRequest
   | GatewayCreateSessionRequest
   | GatewayListFilesRequest
   | GatewayReadFileRequest
@@ -197,281 +213,6 @@ export interface GatewayErrorResponse {
 
 export type GatewayResponse = GatewayOkResponse | GatewayErrorResponse;
 
-// ── Validation ──────────────────────────────────────────────
-
-const VALID_REQUEST_TYPES = new Set<GatewayRequest['type']>([
-  'connect',
-  'prompt',
-  'steer',
-  'abort',
-  'status',
-  'list_workspaces',
-  'list_sessions',
-  'search_sessions',
-  'get_usage',
-  'answer_choice',
-  'create_session',
-  'list_files',
-  'read_file',
-  'list_artifacts',
-  'get_artifact',
-  'create_web_token',
-  'list_web_tokens',
-  'revoke_web_token',
-  'get_session_history',
-  'list_dev_servers',
-  'create_devserver_ticket',
-  'voice_status',
-  'voice_transcribe',
-]);
-
-const VALID_CLIENT_TYPES = new Set<GatewayConnectRequest['clientType']>(['web', 'discord', 'cli']);
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function readRequiredString(obj: Record<string, unknown>, key: string): string | null {
-  const value = obj[key];
-  return typeof value === 'string' && value.length > 0 ? value : null;
-}
-
-function readOptionalNumber(obj: Record<string, unknown>, key: string): number | undefined | null {
-  const value = obj[key];
-  if (value === undefined) return undefined;
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function readOptionalString(obj: Record<string, unknown>, key: string): string | undefined | null {
-  const value = obj[key];
-  if (value === undefined) return undefined;
-  return typeof value === 'string' ? value : null;
-}
-
-function readOptionalFiniteNumber(obj: Record<string, unknown>, key: string): number | undefined | null {
-  const value = obj[key];
-  if (value === undefined) return undefined;
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function readPromptImages(value: unknown): GatewayPromptRequest['images'] | undefined | null {
-  if (value === undefined) return undefined;
-  if (!Array.isArray(value)) return null;
-
-  const images: NonNullable<GatewayPromptRequest['images']> = [];
-  for (const entry of value) {
-    if (!isRecord(entry)) return null;
-    const data = readRequiredString(entry, 'data');
-    const mimeType = readRequiredString(entry, 'mimeType');
-    if (!data || !mimeType) return null;
-    images.push({ data, mimeType });
-  }
-  return images;
-}
-
-function readWorkspaceIds(
-  obj: Record<string, unknown>,
-): { ok: true; workspaceIds: string[] | null } | { ok: false } {
-  const value = obj.workspaceIds;
-  if (value === null) {
-    return { ok: true, workspaceIds: null };
-  }
-  if (!Array.isArray(value) || value.length === 0) {
-    return { ok: false };
-  }
-
-  const workspaceIds: string[] = [];
-  for (const workspaceId of value) {
-    if (typeof workspaceId !== 'string' || workspaceId.length === 0) {
-      return { ok: false };
-    }
-    workspaceIds.push(workspaceId);
-  }
-  return { ok: true, workspaceIds };
-}
-
-export function validateRequest(data: unknown): GatewayRequest | null {
-  if (!isRecord(data)) return null;
-  if (typeof data.type !== 'string' || !VALID_REQUEST_TYPES.has(data.type as GatewayRequest['type'])) {
-    return null;
-  }
-
-  const requestId = readOptionalString(data, 'requestId');
-  if (requestId === null) return null;
-
-  const inner = validateRequestBody(data);
-  if (!inner) return null;
-
-  return requestId === undefined
-    ? (inner as GatewayRequest)
-    : ({ ...inner, requestId } as GatewayRequest);
-}
-
-function validateRequestBody(data: Record<string, unknown>): GatewayRequest | null {
-  switch (data.type) {
-    case 'connect': {
-      const token = readRequiredString(data, 'token');
-      const clientType = readRequiredString(data, 'clientType');
-      const clientId = readOptionalString(data, 'clientId');
-      if (!token || !clientType || !VALID_CLIENT_TYPES.has(clientType as GatewayConnectRequest['clientType'])) {
-        return null;
-      }
-      if (clientId === null) return null;
-      return { type: 'connect', token, clientType: clientType as GatewayConnectRequest['clientType'], clientId };
-    }
-
-    case 'prompt': {
-      const workspaceId = readRequiredString(data, 'workspaceId');
-      const sessionId = readRequiredString(data, 'sessionId');
-      const text = readOptionalString(data, 'text');
-      const idempotencyKey = readOptionalString(data, 'idempotencyKey');
-      const images = readPromptImages(data.images);
-      if (!workspaceId || !sessionId || text === null || text === undefined || idempotencyKey === null || images === null) {
-        return null;
-      }
-      return { type: 'prompt', workspaceId, sessionId, text, images, idempotencyKey };
-    }
-
-    case 'steer': {
-      const sessionId = readRequiredString(data, 'sessionId');
-      const text = readOptionalString(data, 'text');
-      if (!sessionId || text === null || text === undefined) return null;
-      return { type: 'steer', sessionId, text };
-    }
-
-    case 'abort': {
-      const sessionId = readRequiredString(data, 'sessionId');
-      return sessionId ? { type: 'abort', sessionId } : null;
-    }
-
-    case 'status': {
-      const sessionId = readOptionalString(data, 'sessionId');
-      return sessionId === null ? null : { type: 'status', sessionId };
-    }
-
-    case 'list_workspaces':
-      return { type: 'list_workspaces' };
-
-    case 'list_sessions': {
-      const workspaceId = readRequiredString(data, 'workspaceId');
-      return workspaceId ? { type: 'list_sessions', workspaceId } : null;
-    }
-
-    case 'search_sessions': {
-      const query = readRequiredString(data, 'query');
-      const limit = readOptionalNumber(data, 'limit');
-      if (!query || limit === null) return null;
-      return { type: 'search_sessions', query, limit };
-    }
-
-    case 'get_usage':
-      return { type: 'get_usage' };
-
-    case 'answer_choice': {
-      const id = readRequiredString(data, 'id');
-      const optionId = readRequiredString(data, 'optionId');
-      if (!id || !optionId) return null;
-      return { type: 'answer_choice', id, optionId };
-    }
-
-    case 'create_session': {
-      const workspaceId = readRequiredString(data, 'workspaceId');
-      const name = readOptionalString(data, 'name');
-      if (!workspaceId || name === null) return null;
-      return { type: 'create_session', workspaceId, name };
-    }
-
-    case 'list_files': {
-      const workspaceId = readRequiredString(data, 'workspaceId');
-      const requestPath = readRequiredString(data, 'path');
-      return workspaceId && requestPath
-        ? { type: 'list_files', workspaceId, path: requestPath }
-        : null;
-    }
-
-    case 'read_file': {
-      const workspaceId = readRequiredString(data, 'workspaceId');
-      const requestPath = readRequiredString(data, 'path');
-      return workspaceId && requestPath
-        ? { type: 'read_file', workspaceId, path: requestPath }
-        : null;
-    }
-
-    case 'list_artifacts': {
-      const sessionId = readRequiredString(data, 'sessionId');
-      return sessionId ? { type: 'list_artifacts', sessionId } : null;
-    }
-
-    case 'get_artifact': {
-      const artifactId = readRequiredString(data, 'artifactId');
-      return artifactId ? { type: 'get_artifact', artifactId } : null;
-    }
-
-    case 'create_web_token': {
-      const workspaceScope = readWorkspaceIds(data);
-      const label = readOptionalString(data, 'label');
-      const expiryDays = readOptionalFiniteNumber(data, 'expiryDays');
-      if (!workspaceScope.ok || label === null || expiryDays === null) return null;
-      if (expiryDays !== undefined && (!Number.isInteger(expiryDays) || expiryDays <= 0)) {
-        return null;
-      }
-      return { type: 'create_web_token', workspaceIds: workspaceScope.workspaceIds, label, expiryDays };
-    }
-
-    case 'list_web_tokens':
-      return { type: 'list_web_tokens' };
-
-    case 'revoke_web_token': {
-      const tokenId = readRequiredString(data, 'tokenId');
-      return tokenId ? { type: 'revoke_web_token', tokenId } : null;
-    }
-
-    case 'get_session_history': {
-      const workspaceId = readRequiredString(data, 'workspaceId');
-      const sessionId = readRequiredString(data, 'sessionId');
-      return workspaceId && sessionId
-        ? { type: 'get_session_history', workspaceId, sessionId }
-        : null;
-    }
-
-    case 'list_dev_servers': {
-      const workspaceId = readOptionalString(data, 'workspaceId');
-      if (workspaceId === null) return null;
-      return workspaceId
-        ? { type: 'list_dev_servers', workspaceId }
-        : { type: 'list_dev_servers' };
-    }
-
-    case 'create_devserver_ticket': {
-      const workspaceId = readRequiredString(data, 'workspaceId');
-      const port = data.port;
-      if (
-        !workspaceId ||
-        typeof port !== 'number' ||
-        !Number.isInteger(port) ||
-        port < 1 ||
-        port > 65535
-      ) {
-        return null;
-      }
-      return { type: 'create_devserver_ticket', workspaceId, port };
-    }
-
-    case 'voice_status':
-      return { type: 'voice_status' };
-
-    case 'voice_transcribe': {
-      const audioDataUrl = readRequiredString(data, 'audioDataUrl');
-      const mimeType = readOptionalString(data, 'mimeType');
-      if (!audioDataUrl || mimeType === null) return null;
-      // Reject obviously oversized payloads early. The OpenAI transcription
-      // helper enforces the 25 MB decoded ceiling (~33.4 MB base64); this
-      // 35 MB cap stays comfortably under the gateway's 36 MB WebSocket
-      // payload limit and short-circuits clearly bogus inputs.
-      if (audioDataUrl.length > 35 * 1024 * 1024) return null;
-      return { type: 'voice_transcribe', audioDataUrl, mimeType };
-    }
-  }
-
-  return null;
-}
+// Request validation lives in `request-validation.ts`. It is re-exported
+// here so every caller keeps one import for the protocol.
+export { validateRequest } from './request-validation';

@@ -1,5 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+// A finished turn also records a feed entry. The feed writes under
+// SERO_HOME, so it is replaced here with a recorder.
+const notified: Array<Record<string, unknown>> = [];
+vi.mock('@electron/features/notifications/feed', () => ({
+  notify: (options: Record<string, unknown>) => {
+    notified.push(options);
+    return { id: 'entry', ts: Date.now(), source: 'Session', type: 'info', message: '', read: false };
+  },
+}));
+
+
 import {
   forwardEventToGateway,
   installGatewayAgentOps,
@@ -52,6 +63,7 @@ describe('gateway agent bridge listeners', () => {
     sinkBroadcast = createBroadcastMock();
     setGatewayEventSink({ pushEvent: sinkPush, broadcastWorkspaceEvent: sinkBroadcast });
     installOpsForSession(WORKSPACE_ID);
+    notified.length = 0;
   });
 
   afterEach(() => {
@@ -147,6 +159,26 @@ describe('gateway agent bridge listeners', () => {
 
     const turn = findTurnComplete(sinkBroadcast);
     expect(turn.outcome).toBe('cancelled');
+  });
+
+  it('records a finished turn in the notification feed, without a toast', () => {
+    forwardEventToGateway({ type: 'message_start', sessionId: SESSION_ID });
+    forwardEventToGateway({ type: 'text_delta', sessionId: SESSION_ID, delta: 'the answer' });
+    forwardEventToGateway({ type: 'agent_end', sessionId: SESSION_ID, outcome: 'completed' });
+
+    expect(notified).toEqual([{
+      message: 'the answer',
+      type: 'info',
+      source: 'Session',
+      workspaceId: WORKSPACE_ID,
+      silentOnDesktop: true,
+    }]);
+  });
+
+  it('records a failed turn as an error in the feed', () => {
+    forwardEventToGateway({ type: 'agent_end', sessionId: SESSION_ID, outcome: 'error' });
+
+    expect(notified[0]).toMatchObject({ type: 'error', message: 'The agent finished its turn.' });
   });
 
   it('publishes awaiting_input for the choice bridge', () => {

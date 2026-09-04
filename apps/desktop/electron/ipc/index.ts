@@ -37,6 +37,7 @@ import { registerFeedbackHandlers } from './platform/ui/feedback';
 import { registerNetHandlers } from './platform/system/net';
 import { registerSafeStorageHandlers } from './platform/auth/safe-storage';
 import { registerUserFeedbackQuestionHandlers } from './platform/ui/user-feedback-questions';
+import { registerNotificationHandlers } from './notifications';
 import { registerGatewayHandlers } from './gateway/gateway';
 import { registerModelsHandlers } from './agent/handlers/models';
 import { registerSubagentContextHandlers } from './agent/handlers/subagent-context';
@@ -86,6 +87,7 @@ export function registerAllIpcHandlers(): void {
   registerNetHandlers();
   registerSafeStorageHandlers();
   registerUserFeedbackQuestionHandlers();
+  registerNotificationHandlers();
   registerGatewayHandlers();
   registerModelsHandlers();
   registerSubagentContextHandlers();
