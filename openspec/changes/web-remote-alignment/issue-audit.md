@@ -23,17 +23,17 @@ Global decisions (apply to every issue):
 
 - D-G1 The shared package is `@sero-ai/ui` (the brief says `@sero-ui/ai`; no such package exists). Import primitives from `@sero-ai/ui` and AI elements from `@sero-ai/ui/ai-elements/*`.
 - D-G2 Match the desktop renderer first, the prototypes second. `agent-node-aligned` and `tool-call-group-expanded` confirm the desktop conventions (sidebar tree rows, chat header, composer footer, tool group shell). Prototypes use Inter; the desktop does not bundle Inter, so web-remote keeps the `--font-sans` system stack from `globals.css`.
-- D-G3 No new shared abstractions in this epic. Where the desktop hand-rolls a surface (session rows, tool group shell, board card), web-remote copies the markup and classes. Extraction into `@sero-ai/ui` is a separate decision for the user.
+- D-G3 No new shared abstractions in this epic (user decision). Where the desktop hand-rolls a surface (session rows, tool group shell, board card), web-remote copies the markup and classes. Extraction into `@sero-ai/ui` is revisited after web-remote is stable.
 - D-G4 Every new gateway request or push event is added on both sides in one change: `server/protocol.ts` or `server/protocol-events.ts`, `server/extended-handlers.ts`, `apps/web-remote/src/lib/gateway-client.ts`, the store `handleMessage`, and `gateway-client.test.ts`.
 - D-G5 Scoped tokens: every new request calls `hasWorkspaceAccess`; every new push event with a `workspaceId` goes through `broadcastDevServerChange`-style workspace filtering, not `broadcastGatewayEvent` (which only filters by `sessionId`).
 - D-G6 Persist renderer state in IndexedDB using the `lib/token-storage.ts` pattern. No `localStorage`.
 - D-G7 Security docs: `docs/security/gateway.md` (named in #262) does not exist. Document gateway behaviour in `apps/docs-site/docs/guide/remote-control.md` and `apps/docs-site/docs/reference/security-privacy.md`.
 
-## New foundation issues (not yet filed)
+## New foundation issues
 
-The `web-remote` issues assume a UI that matches the desktop. That base does not exist. Three issues must be filed and land before feature work.
+The `web-remote` issues assume a UI that matches the desktop. That base does not exist. Three issues (#494, #495, #496) land before feature work. Epic: #493.
 
-### NEW-A `web-remote: theme and token parity foundation`
+### #494 `web-remote: theme and token parity foundation`
 
 Decisions:
 - D-A1 Add `stores/theme.ts` mirroring the desktop store: `light | dark | system`, `.dark` toggled on `documentElement`, `matchMedia` listener, default `dark`. Persist mode in IndexedDB (D-G6).
@@ -52,7 +52,7 @@ Checklist:
 - [ ] Verify the built bundle size before and after (Streamdown + shiki + mermaid inline into one chunk); record the numbers in the PR.
 - [ ] Add prototype `apps/styleguide/public/prototypes/web-remote-aligned/` and link it in `PrototypeArchive.tsx`.
 
-### NEW-B `web-remote: shell and sidebar parity`
+### #495 `web-remote: shell and sidebar parity`
 
 Decisions:
 - D-B1 Shell: `TitleBar h-10` (logo, sidebar toggle, breadcrumb `Workspace › Session`, right cluster for bell #259 and chat/panel toggles), `StatusBar h-6 text-xs` (connection dot, workspace, scope, theme cycle, version).
@@ -71,7 +71,7 @@ Checklist:
 - [ ] Persist panel sizes and sidebar collapsed state in IndexedDB.
 - [ ] Update `remote-control.md` screenshots after the shell lands.
 
-### NEW-C `web-remote: conversation and composer parity`
+### #496 `web-remote: conversation and composer parity`
 
 Decisions:
 - D-C1 Messages: `Message from="user|assistant"`, `MessageContent`, `MessageResponse`. Drop avatars and coloured bubbles; user messages render as the desktop `ChatMessageItem` does.
@@ -101,9 +101,9 @@ Missing decisions and resolution:
 - D-253-1 Event shape: `session_state { workspaceId, sessionId, state: 'running' | 'idle' | 'awaiting_input', ts }` and `turn_complete { workspaceId, sessionId, ts, snippet? }`. Snippet is capped at 140 chars.
 - D-253-2 Broadcast: add `broadcastWorkspaceEvent` in `event-broadcast.ts` that filters with `hasWorkspaceAccess` (same shape as `broadcastDevServerChange`). Audit `agent_start`/`agent_end` and switch them to it (they carry `sessionId` only; add `workspaceId`).
 - D-253-3 `awaiting_input` is emitted by #254 when a choice is pending. #253 emits only `running`/`idle`.
-- D-253-4 UI in this issue is the status dot on the session row (NEW-B `SessionRow`): `Loader2` spinning = running, `size-1.5 rounded-full bg-status-warning animate-pulse` = awaiting input, none = idle.
+- D-253-4 UI in this issue is the status dot on the session row (#495 `SessionRow`): `Loader2` spinning = running, `size-1.5 rounded-full bg-status-warning animate-pulse` = awaiting input, none = idle.
 
-Issue action: **Keep, edit.** Add the event shapes and the broadcast helper decision to the body. Add "blocked by NEW-B for the UI checkbox".
+Issue action: **Keep, edit.** Add the event shapes and the broadcast helper decision to the body. Add "blocked by #495 for the UI checkbox".
 
 Implementation plan:
 - [ ] Add `GatewaySessionStateEvent` and `GatewayTurnCompleteEvent` to `server/protocol-events.ts`.
@@ -141,12 +141,12 @@ Current scope: two phases in one issue. Phase 1 (asset route, `list_remote_widge
 
 Missing decisions and resolution:
 - D-255-1 Split. Phase 2 becomes its own issue blocked by phase 1.
-- D-255-2 Dashboard view is the `Dashboard` APPS row (NEW-B). Layout: vertical stack on mobile; CSS grid `grid-cols-[repeat(auto-fill,minmax(280px,1fr))]` on desktop. No `react-grid-layout`.
+- D-255-2 Dashboard view is the `Dashboard` APPS row (#495). Layout: vertical stack on mobile; CSS grid `grid-cols-[repeat(auto-fill,minmax(280px,1fr))]` on desktop. No `react-grid-layout`.
 - D-255-3 Widget tiles reuse the `glass-tile` surface from `@sero-ai/ui/styles/glass-board.css` (the desktop dashboard board) so widgets render identically.
 - D-255-4 Federation runtime: copy the minimal `registerRemotes`/`loadRemote` usage from `federation-registry.ts` into `apps/web-remote/src/lib/federation.ts`. No shared package extraction in this epic (D-G3).
 - D-255-5 Build: `inlineDynamicImports` conflicts with module federation shared singletons. Web-remote build must switch to normal chunking for this issue; `server/static-files.ts` must serve hashed assets. This is a prerequisite task, also required by #261.
 
-Issue action: **Split.** #255 keeps phase 1. File `#255-b web-remote: interactive plugin widgets (app_state_set, promptAgent)` for phase 2. Add D-255-5 as the first checkbox.
+Issue action: **Split.** #255 keeps phase 1. File `#497 web-remote: interactive plugin widgets (app_state_set, promptAgent)` for phase 2. Add D-255-5 as the first checkbox.
 
 Implementation plan (phase 1):
 - [ ] Change `vite.config.ts` to hashed multi-chunk output; update `static-files.ts` to serve `assets/*` with long cache and `index.html` without cache.
@@ -164,11 +164,11 @@ Current scope: `git_status`, `git_diff` read-only; "Changes" right panel.
 Missing decisions and resolution:
 - D-256-1 Diff renderer: `@pierre/diffs` lives only in `sero-git-plugin` and needs old/new file contents. Use `ai-elements/code-block` with language `diff` on the unified text from `git_diff`. No new dependency.
 - D-256-2 Changed-file list uses `ai-elements/commit`: `CommitFiles`, `CommitFile`, `CommitFileInfo`, `CommitFileStatus`, `CommitFileIcon`, `CommitFilePath`, `CommitFileChanges`.
-- D-256-3 Panel is the `Changes` item on the activity rail (NEW-B); header row `h-7` uppercase like `ExplorerSidebar`.
+- D-256-3 Panel is the `Changes` item on the activity rail (#495); header row `h-7` uppercase like `ExplorerSidebar`.
 - D-256-4 Truncation cap 200 KB per diff with a `truncated: true` flag and a `Badge` in the header.
-- D-256-5 Remote commit stays out; the follow-up question in the issue is a product decision for the user.
+- D-256-5 Remote commit is wanted (user decision). It ships as its own issue (#498) so #256 keeps its "no write operations" acceptance criterion.
 
-Issue action: **Keep, edit.** Replace step 4 with D-256-1/2.
+Issue action: **Keep, edit.** Replace step 4 with D-256-1/2. File #498 for commit.
 
 Implementation plan:
 - [ ] Add `git_status` and `git_diff` to `protocol.ts` + `extended-handlers.ts`; implement in `gateway-ops.ts` on the git plugin's main-process layer.
@@ -177,12 +177,31 @@ Implementation plan:
 - [ ] Refetch on `turn_complete` (#253) and manual refresh.
 - [ ] Tests: scoped-token rejection; truncation flag on a large diff.
 
+### #498 Commit changes from the phone
+
+Scope: `git_commit` over the gateway with an explicit confirm step, on top of the #256 changes panel.
+
+Decisions:
+- D-256b-1 Owner tokens only. Scoped tokens get `forbidden`.
+- D-256b-2 Request `git_commit { workspaceId, message, paths }`. `paths` is the list of changed files selected in the panel; the host stages exactly those paths and commits. No `amend`, no push, no discard.
+- D-256b-3 UI: `Checkbox` per row in the changes list (all selected by default), a `Textarea` for the message in the panel footer, a `Button` "Commit" that opens an `AlertDialog` listing the file count and branch before the request is sent.
+- D-256b-4 The host refuses to commit when the workspace is mid-merge or mid-rebase and returns a typed `git_state_busy` error.
+- D-256b-5 After success the panel refreshes `git_status` and shows a `sonner` toast with the short hash.
+
+Implementation plan:
+- [ ] Add `git_commit` to `protocol.ts` and `extended-handlers.ts`; implement in `gateway-ops.ts` on the git plugin's main-process layer with owner-only access.
+- [ ] Mirror the type and client method in `gateway-client.ts`; add `commit` action and `selectedPaths` to `stores/git.ts`.
+- [ ] Add row checkboxes, message `Textarea`, and the confirm `AlertDialog` to `ChangesPanel.tsx`.
+- [ ] Typed errors: `git_state_busy`, `git_nothing_selected`; map in `gateway-errors.ts`.
+- [ ] Tests: scoped-token rejection; only selected paths end up in the commit; busy-state refusal.
+- [ ] Document the write surface in `security-privacy.md`.
+
 ### #257 Cross-session search
 
 Current scope: `search_sessions` tiered scan; search input above the session list.
 
 Missing decisions and resolution:
-- D-257-1 Input is the sidebar `SearchInput` `h-7` "Search sessions..." (NEW-B), same position as the desktop `SearchBar`.
+- D-257-1 Input is the sidebar `SearchInput` `h-7` "Search sessions..." (#495), same position as the desktop `SearchBar`.
 - D-257-2 Tier 1 runs client-side on the loaded session list (desktop `searchQuery` behaviour, instant). Tier 2 (`search_sessions`) fires after 300 ms debounce via `createDebouncedFn` and only when the query has ≥ 3 characters.
 - D-257-3 Results replace the tree while the query is non-empty; each result reuses `SessionRow` with the snippet as subtitle and workspace name as a chip.
 - D-257-4 Bound: 200 sessions scanned per request, 2 MB read per session, 20 results.
@@ -209,7 +228,7 @@ Issue action: **Keep, edit.** Resolve the (a)/(b) question to (a).
 Implementation plan:
 - [ ] Add `getSessionUsage`/`getDailyUsage` readers to `cost-tracker.ts` and a `get_usage` request in `extended-handlers.ts` with workspace scoping.
 - [ ] Mirror types; add `stores/usage.ts`; refetch on `turn_complete`.
-- [ ] Add `components/SessionBadge.tsx` in the chat header slot (NEW-C).
+- [ ] Add `components/SessionBadge.tsx` in the chat header slot (#496).
 - [ ] Tests: scoped token sees only its workspaces' sessions.
 
 ### #259 Notification center: persisted feed in the host, surfaced in web-remote
@@ -222,7 +241,7 @@ Missing decisions and resolution:
 - D-259-3 Global notifications (no `workspaceId`) go to owner tokens only.
 - D-259-4 Log: JSONL under `SERO_HOME/agent/notifications.jsonl`, capped at 500.
 
-Issue action: **Split.** #259 keeps the host service + protocol (`#259`). File `#259-b web-remote: notification bell and feed` for the UI, blocked by #259 and NEW-B.
+Issue action: **Split.** #259 keeps the host service + protocol (`#259`). File `#499 web-remote: notification bell and feed` for the UI, blocked by #259 and #495.
 
 Implementation plan (#259 host):
 - [ ] Add `features/notifications/feed.ts` (`notify`, `list`, `markRead`, subscribers, JSONL persistence).
@@ -232,7 +251,7 @@ Implementation plan (#259 host):
 - [ ] Expose a renderer IPC surface (`window.sero.notifications`) for a later desktop feed.
 - [ ] Tests: cap and restart survival; scoped-token filtering.
 
-Implementation plan (#259-b web-remote):
+Implementation plan (#499 web-remote):
 - [ ] Add `stores/notifications.ts` with backfill on reconnect (`since` = last seen ts, persisted in IndexedDB).
 - [ ] Add `components/NotificationBell.tsx` and `NotificationFeed.tsx` (`ActivityList`, `EmptyState`).
 - [ ] Mark-read on open; sync across clients via the push event.
@@ -242,12 +261,12 @@ Implementation plan (#259-b web-remote):
 Current scope: board data, store, UI, default landing.
 
 Missing decisions and resolution:
-- D-260-1 Making the board the default landing view changes the current experience. This is a product decision. Recommendation: board is the landing view when the token has more than one workspace or session; otherwise open chat directly.
+- D-260-1 Landing rule (user decision): the board is the landing view when the token can see more than one workspace or session; otherwise open chat directly.
 - D-260-2 Cards copy the desktop `BoardCard`: `rounded-lg border bg-[var(--bg-surface)]`, 3px left status rail, `text-base font-medium` title, `text-xs tabular-nums` time, footer chips. Group by workspace under an uppercase `tracking-[0.18em]` heading.
 - D-260-3 Unread markers: `lastViewedAt` per session in IndexedDB.
-- D-260-4 Data comes from the `list_sessions` fields added in NEW-B (`updatedAt`, `messageCount`) plus a new `snippet`.
+- D-260-4 Data comes from the `list_sessions` fields added in #495 (`updatedAt`, `messageCount`) plus a new `snippet`.
 
-Issue action: **Keep, edit.** Add the landing-view rule as a question for the user; add D-260-2.
+Issue action: **Keep, edit.** Add the landing-view rule and D-260-2.
 
 Implementation plan:
 - [ ] Add `snippet` to `list_sessions` (`gateway-ops.ts`), capped at 140 chars.
@@ -281,9 +300,9 @@ Implementation plan:
 Current scope: `upload_file` request, Files panel upload + drag-drop, composer mention, share target.
 
 Missing decisions and resolution:
-- D-262-1 Owner-token only in the first iteration. Scoped tokens get `forbidden`.
+- D-262-1 Owner-token only in the first iteration (user decision). Scoped tokens get `forbidden`.
 - D-262-2 Default target `uploads/` under the workspace root; auto-suffix on collision (`name (2).ext`). Cap 20 MB.
-- D-262-3 UI: `Upload` icon button in the Files panel `h-7` header (NEW-B), `Progress` bar while in flight, drag-drop over the tree on desktop widths, toast via `sonner` (`@sero-ai/ui`) on success with a "Mention in prompt" action that sets `composerPrefill`.
+- D-262-3 UI: `Upload` icon button in the Files panel `h-7` header (#495), `Progress` bar while in flight, drag-drop over the tree on desktop widths, toast via `sonner` (`@sero-ai/ui`) on success with a "Mention in prompt" action that sets `composerPrefill`.
 - D-262-4 Share target handling (`/share` route) lives in this issue but is blocked by #261.
 
 Issue action: **Keep, edit.** Add D-262-1..3.
