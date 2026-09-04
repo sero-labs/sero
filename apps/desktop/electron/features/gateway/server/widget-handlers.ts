@@ -1,11 +1,14 @@
 /**
  * Remote widget gateway handlers — list the widgets a browser may load,
- * and read or watch their state.
+ * and read, watch or write their state.
  *
  * A widget's state file is named by an opaque key. The key is resolved
  * here against the registry and the token's workspaces, so a client can
  * only reach a file that a registered remote widget owns in a workspace
  * it may already read.
+ *
+ * A write goes through the same atomic path the desktop uses, etag and
+ * all, so a browser and a desktop writing at once cannot lose a change.
  */
 
 import { WebSocket } from 'ws';
@@ -62,6 +65,7 @@ export async function routeWidgetRequest(
     && request.type !== 'app_state_get'
     && request.type !== 'app_state_watch'
     && request.type !== 'app_state_unwatch'
+    && request.type !== 'app_state_set'
   ) {
     return false;
   }
@@ -95,6 +99,18 @@ export async function routeWidgetRequest(
       type: 'error',
       requestType: request.type,
       message: `Unknown widget state: ${request.key}`,
+    });
+    return true;
+  }
+
+  if (request.type === 'app_state_set') {
+    const result = await appStateManager.write(filePath, request.data, request.expectedEtag);
+    // A refused write is not an error: it hands back the newer content,
+    // and the widget re-applies its change on top.
+    respond({
+      type: 'ok',
+      requestType: 'app_state_set',
+      data: { key: request.key, ...result },
     });
     return true;
   }

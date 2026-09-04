@@ -59,6 +59,7 @@ export interface GatewayClientLike {
   listRemoteWidgets: <T>(workspaceId: string | null) => Promise<T>;
   appStateGet: <T>(key: string) => Promise<T>;
   appStateWatch: <T>(key: string) => Promise<T>;
+  appStateSet: <T>(key: string, data: unknown, expectedEtag?: string | null) => Promise<T>;
   appStateUnwatch: (key: string) => Promise<unknown>;
   voiceStatus: () => Promise<VoiceTranscriptionStatus>;
   transcribeVoice: (

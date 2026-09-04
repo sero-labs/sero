@@ -86,6 +86,19 @@ export interface GatewayAppStateWatchRequest {
   key: string;
 }
 
+/** Write a widget's state file, named by its opaque key. */
+export interface GatewayAppStateSetRequest {
+  type: 'app_state_set';
+  key: string;
+  data: unknown;
+  /**
+   * The etag the writer's state is based on. The write is refused when
+   * the file moved since, so a browser cannot overwrite a change it
+   * never saw. Absent means write regardless.
+   */
+  expectedEtag?: string | null;
+}
+
 /** Stop watching a widget's state file. */
 export interface GatewayAppStateUnwatchRequest {
   type: 'app_state_unwatch';
@@ -236,6 +249,7 @@ export type GatewayRequest = (
   | GatewayAppStateGetRequest
   | GatewayAppStateWatchRequest
   | GatewayAppStateUnwatchRequest
+  | GatewayAppStateSetRequest
   | GatewayUploadFileRequest
   | GatewayGitStatusRequest
   | GatewayGitDiffRequest

@@ -4,11 +4,16 @@ import { WebSocket } from 'ws';
 // The handlers read real state files. The manager is replaced so the
 // tests never touch a profile directory.
 const readWithEtag = vi.fn(async (_filePath: string) => ({ data: { done: 2 }, etag: 'etag-1' }));
+const write = vi.fn(async (_filePath: string, _data: unknown, _etag?: string | null) => ({
+  ok: true as const,
+  etag: 'etag-2',
+}));
 const watch = vi.fn((_filePath: string) => {});
 const unwatch = vi.fn((_filePath: string) => {});
 vi.mock('@electron/features/apps/state/manager', () => ({
   appStateManager: {
     readWithEtag: (filePath: string) => readWithEtag(filePath),
+    write: (filePath: string, data: unknown, etag?: string | null) => write(filePath, data, etag),
     watch: (filePath: string) => watch(filePath),
     unwatch: (filePath: string) => unwatch(filePath),
     onFileChange: () => {},
@@ -89,6 +94,7 @@ afterEach(() => {
   resetRemoteWidgets();
   resetWidgetStateBridge();
   readWithEtag.mockClear();
+  write.mockClear();
   watch.mockClear();
   unwatch.mockClear();
 });
@@ -214,6 +220,59 @@ describe('app state over the gateway', () => {
     );
 
     expect(unwatch).toHaveBeenCalledWith('/work/one/.sero/state.json');
+  });
+
+  it('writes with the etag the widget is based on', async () => {
+    registerTodo();
+    const { ws, sent } = fakeSocket();
+
+    await routeWidgetRequest(
+      ws,
+      ops,
+      {
+        type: 'app_state_set',
+        key: 'todo@ws-1',
+        data: { done: 5 },
+        expectedEtag: 'etag-1',
+      } as GatewayRequest,
+      scope(['ws-1']),
+    );
+
+    expect(write).toHaveBeenCalledWith('/work/one/.sero/state.json', { done: 5 }, 'etag-1');
+    expect(sent[0].data).toEqual({ key: 'todo@ws-1', ok: true, etag: 'etag-2' });
+  });
+
+  it('answers a refused write with the newer content, not an error', async () => {
+    registerTodo();
+    write.mockResolvedValueOnce(
+      { ok: false, data: { done: 9 }, etag: 'etag-3' } as unknown as { ok: true; etag: string },
+    );
+    const { ws, sent } = fakeSocket();
+
+    await routeWidgetRequest(
+      ws,
+      ops,
+      { type: 'app_state_set', key: 'todo@ws-1', data: { done: 5 } } as GatewayRequest,
+      scope(['ws-1']),
+    );
+
+    expect(sent[0]).toMatchObject({ type: 'ok' });
+    expect(sent[0].data).toEqual({ key: 'todo@ws-1', ok: false, data: { done: 9 }, etag: 'etag-3' });
+  });
+
+  it('refuses a write to a workspace this token cannot reach', async () => {
+    registerTodo();
+    const { ws, sent } = fakeSocket();
+
+    await routeWidgetRequest(
+      ws,
+      ops,
+      { type: 'app_state_set', key: 'todo@ws-2', data: { done: 5 } } as GatewayRequest,
+      scope(['ws-1']),
+    );
+
+    expect(sent[0].type).toBe('error');
+    expect(write).not.toHaveBeenCalled();
   });
 
   it('leaves other request types to the rest of the chain', async () => {

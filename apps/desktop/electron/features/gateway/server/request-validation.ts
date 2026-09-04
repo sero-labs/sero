@@ -12,7 +12,12 @@ import type {
   GatewayRequest,
 } from './protocol';
 
-const VALID_REQUEST_TYPES = new Set<GatewayRequest['type']>([
+/**
+ * Every request type the gateway will look at. A type absent here is
+ * rejected before routing, so a new request must be added in both
+ * places. `request-validation.test.ts` fails when the two drift.
+ */
+export const VALID_REQUEST_TYPES = new Set<GatewayRequest['type']>([
   'connect',
   'prompt',
   'steer',
@@ -38,6 +43,15 @@ const VALID_REQUEST_TYPES = new Set<GatewayRequest['type']>([
   'create_devserver_ticket',
   'voice_status',
   'voice_transcribe',
+  'git_status',
+  'git_diff',
+  'git_commit',
+  'upload_file',
+  'list_remote_widgets',
+  'app_state_get',
+  'app_state_set',
+  'app_state_watch',
+  'app_state_unwatch',
 ]);
 
 const VALID_CLIENT_TYPES = new Set<GatewayConnectRequest['clientType']>(['web', 'discord', 'cli']);
@@ -229,6 +243,21 @@ function validateRequestBody(data: Record<string, unknown>): GatewayRequest | nu
     case 'app_state_unwatch': {
       const key = readRequiredString(data, 'key');
       return key ? { type: data.type, key } : null;
+    }
+
+    case 'app_state_set': {
+      const key = readRequiredString(data, 'key');
+      if (!key || !('data' in data)) return null;
+      // `expectedEtag` is optional, and null is a real value: it means
+      // the writer believes the file does not exist yet.
+      const etag = data.expectedEtag;
+      if (etag !== undefined && etag !== null && typeof etag !== 'string') return null;
+      return {
+        type: 'app_state_set',
+        key,
+        data: data.data,
+        ...(etag === undefined ? {} : { expectedEtag: etag }),
+      };
     }
 
     case 'upload_file': {

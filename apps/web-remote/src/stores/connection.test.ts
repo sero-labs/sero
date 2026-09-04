@@ -90,6 +90,10 @@ class FakeGatewayClient implements GatewayClientLike {
     return Promise.resolve({ data: null, etag: null } as unknown as T);
   }
 
+  appStateSet<T>(): Promise<T> {
+    return Promise.resolve({ ok: true, etag: 'e1' } as unknown as T);
+  }
+
   appStateUnwatch(): Promise<unknown> {
     return Promise.resolve(undefined);
   }

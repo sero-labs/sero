@@ -163,4 +163,50 @@ describe('gateway protocol request validation', () => {
   it('rejects a choice answer with no id', () => {
     expect(validateRequest({ type: 'answer_choice', optionId: 'worktree' })).toBeNull();
   });
+
+  describe('widget state requests', () => {
+    it('accepts a write with an etag', () => {
+      expect(
+        validateRequest({
+          type: 'app_state_set',
+          key: 'todo@ws-1',
+          data: { done: 2 },
+          expectedEtag: 'etag-1',
+        }),
+      ).toEqual({
+        type: 'app_state_set',
+        key: 'todo@ws-1',
+        data: { done: 2 },
+        expectedEtag: 'etag-1',
+      });
+    });
+
+    it('keeps a null etag, which says the file is not there yet', () => {
+      expect(
+        validateRequest({ type: 'app_state_set', key: 'todo', data: 1, expectedEtag: null }),
+      ).toMatchObject({ expectedEtag: null });
+    });
+
+    it('drops an absent etag rather than inventing one', () => {
+      expect(validateRequest({ type: 'app_state_set', key: 'todo', data: 1 })).toEqual({
+        type: 'app_state_set',
+        key: 'todo',
+        data: 1,
+      });
+    });
+
+    it('refuses a write with no data field', () => {
+      expect(validateRequest({ type: 'app_state_set', key: 'todo' })).toBeNull();
+    });
+
+    it('refuses a write with an etag of the wrong type', () => {
+      expect(
+        validateRequest({ type: 'app_state_set', key: 'todo', data: 1, expectedEtag: 7 }),
+      ).toBeNull();
+    });
+
+    it('refuses a read with no key', () => {
+      expect(validateRequest({ type: 'app_state_get' })).toBeNull();
+    });
+  });
 });

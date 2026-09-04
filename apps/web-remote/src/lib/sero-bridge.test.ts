@@ -1,14 +1,10 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
-import {
-  dispatchAppStateChange,
-  installRemoteSeroBridge,
-  READ_ONLY_MESSAGE,
-} from './sero-bridge';
+import { dispatchAppStateChange, installRemoteSeroBridge } from './sero-bridge';
 import type { GatewayClient, GatewayMessage } from './gateway-client';
 
 interface AppStateBridge {
   read: (key: string) => Promise<unknown>;
-  write: () => Promise<unknown>;
+  write: (key: string, data: unknown, expectedEtag?: string | null) => Promise<unknown>;
   watch: (key: string) => Promise<{ data: unknown; etag: string | null }>;
   unwatch: (key: string) => Promise<void>;
   onChange: (
@@ -20,7 +16,10 @@ function bridge(): AppStateBridge {
   return (window as unknown as { sero: { appState: AppStateBridge } }).sero.appState;
 }
 
+const appStateSet = vi.fn(async () => ({ key: 'todo@ws-1', ok: true, etag: 'e9' }));
+
 const client = {
+  appStateSet,
   appStateGet: vi.fn(async () => ({ data: { done: 1 }, etag: 'e1' })),
   appStateWatch: vi.fn(async () => ({ data: { done: 2 }, etag: 'e2' })),
   appStateUnwatch: vi.fn(async () => undefined),
@@ -42,8 +41,27 @@ describe('the remote window.sero', () => {
     });
   });
 
-  it('refuses a write, because a browser widget is read-only for now', async () => {
-    await expect(bridge().write()).rejects.toThrow(READ_ONLY_MESSAGE);
+  it('writes state with the etag the widget is based on', async () => {
+    await expect(bridge().write('todo@ws-1', { done: 3 }, 'e1')).resolves.toEqual({
+      ok: true,
+      etag: 'e9',
+    });
+    expect(appStateSet).toHaveBeenCalledWith('todo@ws-1', { done: 3 }, 'e1');
+  });
+
+  it('hands back the newer content when the host refuses the write', async () => {
+    appStateSet.mockResolvedValueOnce({
+      key: 'todo@ws-1',
+      ok: false,
+      data: { done: 7 },
+      etag: 'e8',
+    } as unknown as { key: string; ok: true; etag: string });
+
+    await expect(bridge().write('todo@ws-1', { done: 3 }, 'e1')).resolves.toEqual({
+      ok: false,
+      data: { done: 7 },
+      etag: 'e8',
+    });
   });
 });
 

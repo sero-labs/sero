@@ -308,6 +308,11 @@ export class GatewayClient {
     return this.sendRequest<T>({ type: 'app_state_watch', key });
   }
 
+  /** Write one widget's state, refusing when the file moved. */
+  appStateSet<T>(key: string, data: unknown, expectedEtag?: string | null): Promise<T> {
+    return this.sendRequest<T>({ type: 'app_state_set', key, data, expectedEtag });
+  }
+
   /** Stop watching one widget's state. */
   appStateUnwatch(key: string): Promise<unknown> {
     return this.sendRequest({ type: 'app_state_unwatch', key });
