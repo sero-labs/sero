@@ -117,6 +117,11 @@ function createAgentOps(): TestHarness['state'] & { ops: GatewayAgentOps } {
   const ops: GatewayAgentOps = {
     getSessionWorkspaceId: () => null,
     searchSessions: async () => [],
+    gitStatus: async () => ({
+      branch: 'main', ahead: 0, behind: 0, detached: false, merging: false, files: [],
+    }),
+    gitDiff: async () => null,
+    gitCommit: async () => ({ hash: 'abc1234', branch: 'main', fileCount: 1 }),
     openSession: async (sessionId, workspaceId) => {
       if (!sessionsByWorkspace.has(workspaceId)) {
         throw new Error(`Workspace not found: ${workspaceId}`);

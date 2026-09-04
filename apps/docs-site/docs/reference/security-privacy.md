@@ -180,6 +180,31 @@ IDs, but that is not a comprehensive per-tool or agent-action permission system.
 Because prompts can lead the agent to run tools, treat gateway credentials like
 high-privilege secrets.
 
+### Writes a remote client can make
+
+Most gateway requests only read. These change something:
+
+- **Send a prompt, steer, or abort a turn.** Any authorized token. A prompt can
+  lead the agent to run tools, which is why a gateway token is a
+  high-privilege secret.
+- **Create a session.** Any token authorized for that workspace.
+- **Answer a pending question.** A question that names a workspace can be
+  answered by any token that reaches it. A question that names no workspace can
+  be answered only by the master token.
+- **Mark notifications read.** Any authenticated token. This changes no file.
+- **Commit changed files (`git_commit`).** Master token only. A scoped web
+  token is refused even for a workspace it can otherwise read.
+
+The commit is the only request that changes a git repository. Its limits:
+
+- it stages exactly the paths the client sends and commits those; nothing else
+  in the working tree is staged
+- it refuses while a merge, rebase, cherry-pick or revert is part-way through
+- it never pushes, amends, discards or stashes; there is no gateway request for
+  any of those
+- the commit runs as the desktop user, with that user's git identity and
+  signing configuration
+
 Important gateway limits:
 
 - the master token is profile-scoped and should be stored/handled like a root

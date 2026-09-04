@@ -112,6 +112,74 @@ export interface GatewaySessionSearchResult {
   updatedAt: string;
 }
 
+/** How a file changed, as git reports it. */
+export type GatewayGitFileStatus =
+  | 'added'
+  | 'modified'
+  | 'deleted'
+  | 'renamed'
+  | 'copied'
+  | 'untracked'
+  | 'conflict';
+
+/** One changed file in the working tree. */
+export interface GatewayGitFile {
+  path: string;
+  /** The former path of a rename or a copy. */
+  oldPath?: string;
+  status: GatewayGitFileStatus;
+  staged: boolean;
+}
+
+/** The working tree of one workspace. */
+export interface GatewayGitStatus {
+  /** Empty while HEAD is detached. */
+  branch: string;
+  ahead: number;
+  behind: number;
+  detached: boolean;
+  /** True while a merge is part-way through. */
+  merging: boolean;
+  files: GatewayGitFile[];
+}
+
+/** One line of a diff. */
+export interface GatewayGitDiffLine {
+  type: 'context' | 'add' | 'delete';
+  content: string;
+  oldLineNo?: number;
+  newLineNo?: number;
+}
+
+/** One run of changed lines. */
+export interface GatewayGitDiffHunk {
+  oldStart: number;
+  newStart: number;
+  lines: GatewayGitDiffLine[];
+}
+
+/** One file's diff, cut when it is too large to send. */
+export interface GatewayGitDiff {
+  path: string;
+  oldPath?: string;
+  status: GatewayGitFileStatus;
+  staged: boolean;
+  binary: boolean;
+  additions: number;
+  deletions: number;
+  hunks: GatewayGitDiffHunk[];
+  /** True when lines were dropped to keep the payload sane. */
+  truncated: boolean;
+}
+
+/** What a finished commit reports back. */
+export interface GatewayGitCommitResult {
+  /** Short hash. */
+  hash: string;
+  branch: string;
+  fileCount: number;
+}
+
 /** Operations the gateway can delegate to the agent pool. */
 export interface GatewayAgentOps {
   /** Open or get an existing agent session. Returns session path. */
@@ -152,6 +220,21 @@ export interface GatewayAgentOps {
   ): Promise<GatewaySessionSearchResult[]>;
   /** Create a new session for a workspace. */
   createSession(workspaceId: string, name?: string): Promise<GatewaySessionInfo>;
+  /** The working tree of a workspace: branch, tracking counts, changed files. */
+  gitStatus(workspaceId: string): Promise<GatewayGitStatus>;
+  /** One file's diff, cut when it is too large to send. */
+  gitDiff(workspaceId: string, filePath: string, staged: boolean): Promise<GatewayGitDiff | null>;
+  /**
+   * Stage exactly `paths` and commit them.
+   *
+   * Owner tokens only, enforced by the handler. Nothing outside `paths`
+   * is staged, so a phone can never sweep up a change it did not show.
+   */
+  gitCommit(
+    workspaceId: string,
+    message: string,
+    paths: string[],
+  ): Promise<GatewayGitCommitResult>;
   /** List files in a workspace directory. */
   listFiles(workspaceId: string, dirPath: string): Promise<GatewayFileEntry[]>;
   /** Read a file from a workspace. */

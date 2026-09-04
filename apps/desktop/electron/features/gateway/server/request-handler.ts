@@ -20,6 +20,7 @@ import {
 } from './access-control';
 import { routeExtendedRequest } from './extended-handlers';
 import { routeQueryRequest } from './query-handlers';
+import { routeGitRequest } from './git-handlers';
 
 // ── Idempotency store ───────────────────────────────────────
 // Prevents duplicate prompt execution from network retries.
@@ -119,6 +120,9 @@ export async function routeAgentRequest(
   }
   // Read-only queries: cross-session search and usage totals.
   if (await routeQueryRequest(ws, agentOps, request, accessScope, costTracker)) return;
+
+  // Git: status and diff for any authorized workspace, commit for owners.
+  if (await routeGitRequest(ws, agentOps, request, accessScope)) return;
 
   switch (request.type) {
     case 'prompt': {

@@ -23,7 +23,7 @@ const ITEMS: RailItem[] = [
   { id: 'files', label: 'Files', icon: FileText, enabled: true },
   { id: 'artifacts', label: 'Artifacts', icon: ImageIcon, enabled: true },
   { id: 'preview', label: 'Dev server preview', icon: Monitor, enabled: true },
-  { id: 'changes', label: 'Changes', icon: GitBranch, enabled: false },
+  { id: 'changes', label: 'Changes', icon: GitBranch, enabled: true },
 ];
 
 interface ActivityRailProps {

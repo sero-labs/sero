@@ -12,6 +12,7 @@ import seroLogoDarkUrl from '@assets/logo-dark.svg';
 import {
   ChevronRight,
   FileText,
+  GitBranch,
   Image as ImageIcon,
   Menu,
   Monitor,
@@ -28,6 +29,7 @@ const MOBILE_PANELS: Array<{ id: RightPanel; label: string; icon: typeof FileTex
   { id: 'files', label: 'Files', icon: FileText },
   { id: 'artifacts', label: 'Artifacts', icon: ImageIcon },
   { id: 'preview', label: 'Dev server preview', icon: Monitor },
+  { id: 'changes', label: 'Changes', icon: GitBranch },
 ];
 
 interface TitleBarProps {

@@ -259,6 +259,21 @@ export class GatewayClient {
     this.send({ type: 'search_sessions', query, limit });
   }
 
+  /** Read the working tree of a workspace. */
+  gitStatus(workspaceId: string): void {
+    this.send({ type: 'git_status', workspaceId });
+  }
+
+  /** Read one file's diff. */
+  gitDiff(workspaceId: string, filePath: string, staged: boolean): void {
+    this.send({ type: 'git_diff', workspaceId, path: filePath, staged });
+  }
+
+  /** Stage exactly `paths` and commit them. Owner tokens only. */
+  gitCommit(workspaceId: string, message: string, paths: string[]): void {
+    this.send({ type: 'git_commit', workspaceId, message, paths });
+  }
+
   /** Read the notification feed, newest first. */
   listNotifications(since?: number, limit?: number): void {
     this.send({ type: 'list_notifications', since, limit });

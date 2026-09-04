@@ -77,6 +77,11 @@ function createAgentOps(): GatewayAgentOps {
   return {
     getSessionWorkspaceId: () => null,
     searchSessions: async () => [],
+    gitStatus: async () => ({
+      branch: 'main', ahead: 0, behind: 0, detached: false, merging: false, files: [],
+    }),
+    gitDiff: async () => null,
+    gitCommit: async () => ({ hash: 'abc1234', branch: 'main', fileCount: 1 }),
     openSession: async (sessionId, workspaceId) => {
       const existingWorkspaceId = sessionWorkspaceIds.get(sessionId);
       if (existingWorkspaceId && existingWorkspaceId !== workspaceId) {

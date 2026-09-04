@@ -67,6 +67,29 @@ export interface GatewayGetUsageRequest {
   type: 'get_usage';
 }
 
+/** The working tree of a workspace. */
+export interface GatewayGitStatusRequest {
+  type: 'git_status';
+  workspaceId: string;
+}
+
+/** One file's diff. */
+export interface GatewayGitDiffRequest {
+  type: 'git_diff';
+  workspaceId: string;
+  path: string;
+  /** Read the staged copy rather than the working tree. */
+  staged?: boolean;
+}
+
+/** Stage exactly `paths` and commit them. Owner tokens only. */
+export interface GatewayGitCommitRequest {
+  type: 'git_commit';
+  workspaceId: string;
+  message: string;
+  paths: string[];
+}
+
 /** Read the notification feed, newest first. */
 export interface GatewayListNotificationsRequest {
   type: 'list_notifications';
@@ -175,6 +198,9 @@ export type GatewayRequest = (
   | GatewayAnswerChoiceRequest
   | GatewayListNotificationsRequest
   | GatewayMarkNotificationsReadRequest
+  | GatewayGitStatusRequest
+  | GatewayGitDiffRequest
+  | GatewayGitCommitRequest
   | GatewayCreateSessionRequest
   | GatewayListFilesRequest
   | GatewayReadFileRequest

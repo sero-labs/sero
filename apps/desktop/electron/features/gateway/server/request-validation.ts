@@ -62,6 +62,12 @@ function readStringArray(value: unknown): string[] | null {
   return strings;
 }
 
+function readOptionalBoolean(obj: Record<string, unknown>, key: string): boolean | undefined | null {
+  const value = obj[key];
+  if (value === undefined) return undefined;
+  return typeof value === 'boolean' ? value : null;
+}
+
 function readOptionalNumber(obj: Record<string, unknown>, key: string): number | undefined | null {
   const value = obj[key];
   if (value === undefined) return undefined;
@@ -211,6 +217,27 @@ function validateRequestBody(data: Record<string, unknown>): GatewayRequest | nu
       const ids = readStringArray(data.ids);
       if (!ids || ids.length === 0) return null;
       return { type: 'mark_notifications_read', ids };
+    }
+
+    case 'git_status': {
+      const workspaceId = readRequiredString(data, 'workspaceId');
+      return workspaceId ? { type: 'git_status', workspaceId } : null;
+    }
+
+    case 'git_diff': {
+      const workspaceId = readRequiredString(data, 'workspaceId');
+      const requestPath = readRequiredString(data, 'path');
+      const staged = readOptionalBoolean(data, 'staged');
+      if (!workspaceId || !requestPath || staged === null) return null;
+      return { type: 'git_diff', workspaceId, path: requestPath, staged };
+    }
+
+    case 'git_commit': {
+      const workspaceId = readRequiredString(data, 'workspaceId');
+      const message = readRequiredString(data, 'message');
+      const paths = readStringArray(data.paths);
+      if (!workspaceId || !message || !paths || paths.length === 0) return null;
+      return { type: 'git_commit', workspaceId, message, paths };
     }
 
     case 'create_session': {

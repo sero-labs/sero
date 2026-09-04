@@ -15,6 +15,7 @@ import { FileBrowser } from './FileBrowser';
 import { FilePreview } from './FilePreview';
 import { ArtifactGallery } from './ArtifactGallery';
 import { PreviewPanel } from './PreviewPanel';
+import { ChangesPanel } from './git/ChangesPanel';
 import { StatusBar } from './StatusBar';
 import { TitleBar } from './TitleBar';
 import { ActivityRail } from './ActivityRail';
@@ -205,6 +206,7 @@ function RightPanelContent({ panel }: { panel: RightPanel }) {
   if (panel === 'files') return <FilesPanel />;
   if (panel === 'artifacts') return <ArtifactPanelConnected />;
   if (panel === 'preview') return <PreviewPanel />;
+  if (panel === 'changes') return <ChangesPanel />;
   return null;
 }
 

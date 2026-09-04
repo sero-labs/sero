@@ -42,6 +42,9 @@ export interface GatewayClientLike {
   answerChoice: (id: string, optionId: string) => void;
   listNotifications: (since?: number, limit?: number) => void;
   markNotificationsRead: (ids: string[]) => void;
+  gitStatus: (workspaceId: string) => void;
+  gitDiff: (workspaceId: string, filePath: string, staged: boolean) => void;
+  gitCommit: (workspaceId: string, message: string, paths: string[]) => void;
   createSession: (workspaceId: string, name?: string) => void;
   abortSession: (sessionId: string) => void;
   requestSessionHistory: (workspaceId: string, sessionId: string) => void;

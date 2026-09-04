@@ -22,6 +22,7 @@ import { convertSessionMessages } from '../agent/core/agent-helpers';
 import { listSessionMetadata } from '../agent/core/session-metadata';
 import { convertToGatewayHistory } from './gateway-history';
 import { searchSessions, MAX_RESULTS } from './session-search';
+import { commitChanges, readGitDiff, readGitStatus } from './git-ops';
 import type {
   GatewayAgentOps,
   GatewayDevServerInfo,
@@ -191,6 +192,21 @@ export function buildGatewayOps(
         updatedAt: new Date().toISOString(),
         messageCount: 0,
       };
+    },
+    gitStatus: async (workspaceId) => {
+      const wsPath = workspaceManager.getPath(workspaceId);
+      if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
+      return readGitStatus(wsPath);
+    },
+    gitDiff: async (workspaceId, filePath, staged) => {
+      const wsPath = workspaceManager.getPath(workspaceId);
+      if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
+      return readGitDiff(wsPath, filePath, staged);
+    },
+    gitCommit: async (workspaceId, message, paths) => {
+      const wsPath = workspaceManager.getPath(workspaceId);
+      if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
+      return commitChanges(wsPath, message, paths);
     },
     listFiles: async (workspaceId, dirPath) => {
       const runtime = await runtimeManager.getRuntime(workspaceId);
