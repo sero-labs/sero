@@ -23,6 +23,10 @@ Color tokens control the shell and plugin surfaces that use those tokens.
 
 ![Theme editor color tokens](../assets/images/theme-editor-2.jpg)
 
+The **Layout** tab can make the Sero window translucent. Enable **Glass
+background**, then adjust its tint opacity. Sero uses native background blur
+and removes the Dashboard's separate glass layer while this effect is active.
+
 Check the preview before you close the editor. Confirm that text, borders, and
 status colors remain clear in the selected mode.
 

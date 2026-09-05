@@ -9,27 +9,75 @@
  * Tailwind variable from it in the theme engine.
  */
 
-import type { SpacingTokens, RadiusTokens } from '@/types/theme';
+import type {
+  SpacingTokens,
+  RadiusTokens,
+  ThemeGlassEffect,
+} from '@/types/theme';
+import { Slider } from '@sero-ai/ui/components/ui/slider';
+import { Switch } from '@sero-ai/ui/components/ui/switch';
 import { SliderRow } from './SliderRow';
 
 interface LayoutTabProps {
   spacing: Required<SpacingTokens>;
   radius: Required<RadiusTokens>;
+  glass: ThemeGlassEffect;
   onSpacingChange: (key: keyof SpacingTokens, value: string) => void;
   onRadiusChange: (key: keyof RadiusTokens, value: string) => void;
+  onGlassChange: (updates: Partial<ThemeGlassEffect>) => void;
 }
 
 export function LayoutTab({
   spacing,
   radius,
+  glass,
   onSpacingChange,
   onRadiusChange,
+  onGlassChange,
 }: LayoutTabProps) {
   const spacingMd = parseFloat(spacing.md) || 12;
   const radiusMd = parseFloat(radius.md) || 8;
 
   return (
     <div className="flex flex-col gap-6">
+      <section className="flex flex-col gap-3">
+        <div>
+          <h3 className="text-xs font-semibold text-[var(--text-primary)]">
+            Desktop glass
+          </h3>
+          <p className="mt-0.5 text-sm text-[var(--text-muted)]">
+            Show the desktop through Sero. Dashboard glass is disabled
+            automatically.
+          </p>
+        </div>
+        <ToggleRow
+          label="Glass background"
+          checked={glass.enabled}
+          onCheckedChange={(enabled) => onGlassChange({ enabled })}
+        />
+        <div className={glass.enabled ? '' : 'pointer-events-none opacity-50'}>
+          <div className="flex items-center gap-3">
+            <span className="w-20 shrink-0 text-xs text-[var(--text-secondary)]">
+              Tint opacity
+            </span>
+            <Slider
+              aria-label="Tint opacity"
+              min={20}
+              max={95}
+              step={1}
+              value={[Math.round(glass.opacity * 100)]}
+              onValueChange={([value]) =>
+                onGlassChange({ opacity: value / 100 })
+              }
+              className="flex-1"
+            />
+            <span className="w-10 text-right text-xs tabular-nums text-[var(--text-primary)]">
+              {Math.round(glass.opacity * 100)}%
+            </span>
+          </div>
+        </div>
+      </section>
+
       {/* Spacing */}
       <section className="flex flex-col gap-3">
         <div>
@@ -75,6 +123,28 @@ export function LayoutTab({
         <RadiusPreview base={radiusMd} />
       </section>
     </div>
+  );
+}
+
+function ToggleRow({
+  label,
+  checked,
+  onCheckedChange,
+}: {
+  label: string;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex items-center justify-between gap-3">
+      <span className="text-xs text-[var(--text-secondary)]">{label}</span>
+      <Switch
+        size="sm"
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+        aria-label={label}
+      />
+    </label>
   );
 }
 

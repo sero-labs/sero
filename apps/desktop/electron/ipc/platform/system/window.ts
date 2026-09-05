@@ -1,6 +1,7 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
 import { CHROME_BAR_HEIGHT } from '@electron/chrome';
+import type { ThemeGlassEffect } from '@/types/theme';
 
 function windowOf(event: Electron.IpcMainInvokeEvent): BrowserWindow | null {
   return BrowserWindow.fromWebContents(event.sender);
@@ -41,6 +42,27 @@ export function registerWindowHandlers(): void {
         symbolColor: colors.symbolColor,
         height: CHROME_BAR_HEIGHT,
       });
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.window.setGlassEffect,
+    (event, effect: ThemeGlassEffect) => {
+      if (
+        typeof effect?.enabled !== 'boolean' ||
+        typeof effect?.opacity !== 'number'
+      ) {
+        return;
+      }
+
+      const win = windowOf(event);
+      if (!win) return;
+
+      if (process.platform === 'darwin') {
+        win.setVibrancy(effect.enabled ? 'under-window' : null);
+      } else if (process.platform === 'win32') {
+        win.setBackgroundMaterial(effect.enabled ? 'acrylic' : 'none');
+      }
     },
   );
 }

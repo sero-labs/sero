@@ -42,6 +42,7 @@ export function ThemeEditorSheet({
     handleColorChange,
     handleDraftDescriptionChange,
     handleDraftNameChange,
+    handleGlassChange,
     handleNewTheme,
     handleRadiusChange,
     handleReset,
@@ -111,11 +112,13 @@ export function ThemeEditorSheet({
               mode={mode}
               onColorChange={handleColorChange}
               onModeChange={setMode}
+              onGlassChange={handleGlassChange}
               onRadiusChange={handleRadiusChange}
               onSpacingChange={handleSpacingChange}
               onTabChange={setTab}
               onTypographyChange={handleTypographyChange}
               radius={draft.radius}
+              glass={draft.glass}
               spacing={draft.spacing}
               tab={tab}
               typography={draft.typography}

@@ -31,6 +31,31 @@
   --dash-lift-shadow: 0 16px 48px rgba(0, 0, 0, 0.65);
 }
 
+/* The window theme supplies the single translucent layer in desktop-glass
+   mode. Remove the Dashboard's separate canvas and tile blur so the effects
+   do not stack. */
+.theme-glass .sero-dashboard.glass-canvas {
+  background: transparent;
+}
+
+.theme-glass .sero-dashboard .glass-tile {
+  background: var(--bg-surface);
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+.theme-glass .sero-dashboard .glass {
+  --surface-raised: var(--bg-surface);
+  --surface-flat: var(--bg-elevated);
+  --surface-line: var(--border-subtle);
+  --surface-rim: transparent;
+  --card: var(--bg-surface);
+  --secondary: var(--bg-elevated);
+  --muted: var(--bg-elevated);
+  --accent: var(--bg-elevated);
+  --border: var(--border-subtle);
+}
+
 .sero-dashboard[data-has-background="true"] {
   background-image:
     linear-gradient(var(--dash-background-scrim), var(--dash-background-scrim)),

@@ -7,17 +7,30 @@
 
 import {
   applyThemePreset as applySharedThemePreset,
-  resetTheme,
+  resetTheme as resetSharedTheme,
   validateThemePreset,
+  DEFAULT_GLASS_EFFECT,
   type ThemePreset,
 } from '@sero-ai/ui/theme';
 import { loadGoogleFont } from './google-fonts';
 
-export { resetTheme, validateThemePreset };
+export { validateThemePreset };
+
+function syncWindowGlass(preset?: ThemePreset): void {
+  void window.sero?.window?.setGlassEffect(
+    preset?.glass ?? DEFAULT_GLASS_EFFECT,
+  );
+}
 
 export function applyThemePreset(
   preset: ThemePreset,
   mode: 'light' | 'dark',
 ): void {
   applySharedThemePreset(preset, mode, { loadFont: loadGoogleFont });
+  syncWindowGlass(preset);
+}
+
+export function resetTheme(): void {
+  resetSharedTheme();
+  syncWindowGlass();
 }

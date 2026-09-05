@@ -1,6 +1,8 @@
-import type {
-  ColorTokens,
-  ThemePreset,
+import {
+  DEFAULT_GLASS_EFFECT,
+  type ColorTokens,
+  type ThemeGlassEffect,
+  type ThemePreset,
 } from './types';
 
 // ── Token → CSS Variable Mapping ─────────────────────────────
@@ -78,12 +80,36 @@ const DERIVED_OPACITY_VARS: Array<[string, keyof ColorTokens, number]> = [
   ['--banner-primary-border', 'bannerPrimary', 20],
 ];
 
+const GLASS_SURFACE_KEYS: Array<keyof ColorTokens> = [
+  'bgBase',
+  'bgSurface',
+  'bgElevated',
+  'bgOverlay',
+  'bgMuted',
+];
+
 export interface ApplyThemeOptions {
   loadFont?: (fontStack: string) => void;
 }
 
 function tint(color: string, percentage: number): string {
   return `color-mix(in srgb, ${color} ${percentage}%, transparent)`;
+}
+
+function applyGlassEffect(
+  root: HTMLElement,
+  glass: ThemeGlassEffect | undefined,
+  colors: ColorTokens,
+): void {
+  const enabled = glass?.enabled === true;
+  root.classList.toggle('theme-glass', enabled);
+  if (!enabled) return;
+
+  const opacity = Math.min(0.95, Math.max(0.2, glass.opacity));
+  const percentage = Math.round(opacity * 100);
+  for (const key of GLASS_SURFACE_KEYS) {
+    root.style.setProperty(COLOR_TOKEN_TO_CSS[key], tint(colors[key], percentage));
+  }
 }
 
 // ── Apply / Reset ────────────────────────────────────────────
@@ -130,6 +156,8 @@ export function applyThemePreset(
     root.style.setProperty('--radius', preset.radius.md);
   }
 
+  applyGlassEffect(root, preset.glass, colors);
+
   root.classList.toggle('dark', mode === 'dark');
 }
 
@@ -150,6 +178,7 @@ export function resetTheme(): void {
   for (const cssVar of ALL_MANAGED_VARS) {
     root.style.removeProperty(cssVar);
   }
+  root.classList.remove('theme-glass');
 }
 
 // ── Validation ───────────────────────────────────────────────
@@ -221,6 +250,22 @@ function sanitiseRadius(raw: unknown): ThemePreset['radius'] | undefined {
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
+function sanitiseGlass(raw: unknown): ThemeGlassEffect | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const value = raw as Record<string, unknown>;
+  if (typeof value.enabled !== 'boolean') return undefined;
+
+  const opacity =
+    typeof value.opacity === 'number'
+      ? Math.min(0.95, Math.max(0.2, value.opacity))
+      : DEFAULT_GLASS_EFFECT.opacity;
+
+  return {
+    enabled: value.enabled,
+    opacity,
+  };
+}
+
 /** Validate and normalise an unknown value into a ThemePreset. */
 export function validateThemePreset(data: unknown): ThemePreset | null {
   if (!data || typeof data !== 'object') return null;
@@ -246,5 +291,6 @@ export function validateThemePreset(data: unknown): ThemePreset | null {
     typography: sanitiseTypography(d.typography),
     spacing: sanitiseSpacing(d.spacing),
     radius: sanitiseRadius(d.radius),
+    glass: sanitiseGlass(d.glass),
   };
 }

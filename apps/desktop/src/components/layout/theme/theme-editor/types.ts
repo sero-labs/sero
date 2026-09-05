@@ -8,6 +8,7 @@ import type {
   TypographyTokens,
   SpacingTokens,
   RadiusTokens,
+  ThemeGlassEffect,
 } from '@/types/theme';
 
 export interface ThemeEditorDraft {
@@ -17,4 +18,5 @@ export interface ThemeEditorDraft {
   typography: Required<TypographyTokens>;
   spacing: Required<SpacingTokens>;
   radius: Required<RadiusTokens>;
+  glass: ThemeGlassEffect;
 }

@@ -105,6 +105,13 @@ export interface RadiusTokens {
   lg?: string;
 }
 
+export interface ThemeGlassEffect {
+  /** Show the desktop through Sero's surfaces. */
+  enabled: boolean;
+  /** Surface tint opacity from 0.2 to 0.95. */
+  opacity: number;
+}
+
 // ── Theme Preset ─────────────────────────────────────────────
 
 export interface ThemePreset {
@@ -141,6 +148,9 @@ export interface ThemePreset {
 
   /** Border radius overrides. */
   radius?: RadiusTokens;
+
+  /** Optional translucent desktop window treatment. */
+  glass?: ThemeGlassEffect;
 }
 
 /** Lightweight metadata for listing presets without loading full data. */
@@ -216,6 +226,11 @@ export const DEFAULT_RADIUS: Required<RadiusTokens> = {
   sm: '4px',
   md: '8px',
   lg: '12px',
+};
+
+export const DEFAULT_GLASS_EFFECT: ThemeGlassEffect = {
+  enabled: false,
+  opacity: 0.78,
 };
 
 /** Default colour tokens matching globals.css .dark values. */

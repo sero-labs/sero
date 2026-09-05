@@ -167,7 +167,13 @@ describe('useThemeEditorState', () => {
     expect(latestState?.draft).toBeNull();
 
     await act(async () => {
-      root?.render(<Harness open={true} onOpenChange={onOpenChange} editPresetId="ocean-glow" />);
+      root?.render(
+        <Harness
+          open={true}
+          onOpenChange={onOpenChange}
+          editPresetId="ocean-glow"
+        />,
+      );
     });
     expect(latestState?.draft?.name).toBe('Ocean Glow');
     expect(latestState?.tab).toBe('colors');
@@ -218,6 +224,36 @@ describe('useThemeEditorState', () => {
     expect(setPresetSpy).toHaveBeenCalledWith('ocean-glow-redux');
     expect(onOpenChangeSpy).toHaveBeenCalledWith(false);
     expect(latestState?.draft).toBeNull();
+  });
+
+  it('previews and saves desktop glass controls with the theme', async () => {
+    await act(async () => {
+      root?.render(<Harness open={true} onOpenChange={onOpenChange} editPresetId="ocean-glow" />);
+    });
+
+    act(() => {
+      latestState?.handleGlassChange({
+        enabled: true,
+        opacity: 0.62,
+      });
+    });
+
+    expect(document.documentElement.classList.contains('theme-glass')).toBe(
+      true,
+    );
+    expect(document.documentElement.style.getPropertyValue('--bg-base')).toBe(
+      'color-mix(in srgb, #08111f 62%, transparent)',
+    );
+
+    await act(async () => {
+      await latestState?.handleSave();
+    });
+
+    expect(saveCustomPresetSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        glass: { enabled: true, opacity: 0.62 },
+      }),
+    );
   });
 
   it('debounces auto-save draft changes and persists the latest draft', async () => {

@@ -1,5 +1,6 @@
 import {
   DEFAULT_DARK_COLORS,
+  DEFAULT_GLASS_EFFECT,
   DEFAULT_LIGHT_COLORS,
   DEFAULT_RADIUS,
   DEFAULT_SPACING,
@@ -43,6 +44,10 @@ export function buildDraftFromPreset(
       ...DEFAULT_RADIUS,
       ...(source?.radius ?? {}),
     },
+    glass: {
+      ...DEFAULT_GLASS_EFFECT,
+      ...(source?.glass ?? {}),
+    },
   };
 }
 
@@ -59,6 +64,7 @@ export function buildPresetFromDraft(draft: ThemeEditorDraft): ThemePreset {
     typography: draft.typography,
     spacing: draft.spacing,
     radius: draft.radius,
+    glass: draft.glass,
   };
 }
 
@@ -86,6 +92,7 @@ export function applyDraftPreview(
       typography: draft.typography,
       spacing: draft.spacing,
       radius: draft.radius,
+      glass: draft.glass,
     },
     effectiveMode,
   );

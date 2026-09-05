@@ -89,6 +89,8 @@ export const IpcChannels = {
     maximizedChanged: 'sero:window:maximized-changed',
     /** Re-sync the Windows title-bar overlay colors after a theme change. */
     setOverlayColors: 'sero:window:set-overlay-colors',
+    /** Apply native window transparency and background blur. */
+    setGlassEffect: 'sero:window:set-glass-effect',
     /** Main → renderer: zoom command from the application menu ('in' | 'out' | 'reset'). */
     zoomCommand: 'sero:window:zoom-command',
   },

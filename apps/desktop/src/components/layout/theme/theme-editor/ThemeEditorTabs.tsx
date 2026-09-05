@@ -3,6 +3,7 @@ import type {
   RadiusTokens,
   SpacingTokens,
   ThemeMode,
+  ThemeGlassEffect,
   TypographyTokens,
 } from '@/types/theme';
 import type { ThemeEditorDraft } from './types';
@@ -18,11 +19,13 @@ interface ThemeEditorTabsProps {
   mode: ThemeMode;
   onColorChange: (key: string, value: string) => void;
   onModeChange: (mode: ThemeMode) => void;
+  onGlassChange: (updates: Partial<ThemeGlassEffect>) => void;
   onRadiusChange: (key: keyof RadiusTokens, value: string) => void;
   onSpacingChange: (key: keyof SpacingTokens, value: string) => void;
   onTabChange: (tab: EditorTab) => void;
   onTypographyChange: (key: keyof TypographyTokens, value: string) => void;
   radius: Required<RadiusTokens>;
+  glass: ThemeGlassEffect;
   spacing: Required<SpacingTokens>;
   tab: EditorTab;
   typography: Required<TypographyTokens>;
@@ -34,11 +37,13 @@ export const ThemeEditorTabs = memo(function ThemeEditorTabs({
   mode,
   onColorChange,
   onModeChange,
+  onGlassChange,
   onRadiusChange,
   onSpacingChange,
   onTabChange,
   onTypographyChange,
   radius,
+  glass,
   spacing,
   tab,
   typography,
@@ -84,8 +89,10 @@ export const ThemeEditorTabs = memo(function ThemeEditorTabs({
           <LayoutTab
             spacing={spacing}
             radius={radius}
+            glass={glass}
             onSpacingChange={onSpacingChange}
             onRadiusChange={onRadiusChange}
+            onGlassChange={onGlassChange}
           />
         )}
       </div>

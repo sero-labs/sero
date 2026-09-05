@@ -5,6 +5,7 @@ import type {
   RadiusTokens,
   SpacingTokens,
   ThemePreset,
+  ThemeGlassEffect,
   TypographyTokens,
 } from '@/types/theme';
 import type { ThemeEditorDraft } from './types';
@@ -165,9 +166,10 @@ export function useThemeEditorState({
   const handleNewTheme = useCallback(() => {
     const nextDraft = buildDraftFromPreset(null, '__new__');
     draftRef.current = nextDraft;
+    applyDraftPreview(nextDraft, effectiveMode);
     setDraft(nextDraft);
     setTab('colors');
-  }, []);
+  }, [effectiveMode]);
 
   const handleDraftNameChange = useCallback((value: string) => {
     const previous = draftRef.current;
@@ -239,6 +241,16 @@ export function useThemeEditorState({
     [updateDraft],
   );
 
+  const handleGlassChange = useCallback(
+    (updates: Partial<ThemeGlassEffect>) => {
+      updateDraft((previous) => ({
+        ...previous,
+        glass: { ...previous.glass, ...updates },
+      }));
+    },
+    [updateDraft],
+  );
+
   const handleSave = useCallback(async () => {
     const latestDraft = draftRef.current;
     if (!latestDraft || !latestDraft.name.trim()) {
@@ -299,6 +311,7 @@ export function useThemeEditorState({
     handleColorChange,
     handleDraftDescriptionChange,
     handleDraftNameChange,
+    handleGlassChange,
     handleNewTheme,
     handleRadiusChange,
     handleReset,
