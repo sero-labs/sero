@@ -102,9 +102,13 @@ export class WebTokenManager {
 
     this.pruneExpired();
 
-    // Enforce max tokens — remove oldest if at limit
-    while (this.tokens.length >= MAX_TOKENS) {
-      this.tokens.shift();
+    // Refuse at the cap rather than dropping the oldest. Evicting one
+    // silently unpairs a device that is still in use, with nothing said
+    // to the person holding it or the person creating this token.
+    if (this.tokens.length >= MAX_TOKENS) {
+      throw new Error(
+        `Already paired with ${MAX_TOKENS} devices. Revoke one before pairing another.`,
+      );
     }
 
     const days = expiryDays ?? DEFAULT_EXPIRY_DAYS;

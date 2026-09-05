@@ -4,6 +4,7 @@ import { IpcChannels } from '@/types/ipc-channels';
 import type {
   ProxyFetchRequest,
   ProxyFetchResponse,
+  PairedDevice,
   QrLoginData,
   ResponseFeedbackEntry,
   ResponseFeedbackState,
@@ -74,6 +75,10 @@ export const safeStorageBridge = {
 export const gatewayBridge = {
   getQrLoginData: (expiryDays?: number): Promise<QrLoginData> =>
     ipcRenderer.invoke(IpcChannels.gateway.getQrLoginData, expiryDays),
+  listWebTokens: (): Promise<PairedDevice[]> =>
+    ipcRenderer.invoke(IpcChannels.gateway.listWebTokens),
+  revokeWebToken: (tokenId: string): Promise<boolean> =>
+    ipcRenderer.invoke(IpcChannels.gateway.revokeWebToken, tokenId),
 };
 
 export const clipboardBridge = {

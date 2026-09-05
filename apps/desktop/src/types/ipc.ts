@@ -415,7 +415,7 @@ export interface CreateGitHubRepoResult {
 
 // ── Gateway ─────────────────────────────────────────────────────
 
-export type { QrLoginData } from './gateway';
+export type { PairedDevice, QrLoginData } from './gateway';
 
 // ── IPC Channels ───────────────────────────────────────────────
 

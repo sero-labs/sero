@@ -4,16 +4,25 @@
  *
  * Flow:
  *   1. User opens this dialog (e.g. via ⌘K → "Connect Device")
- *   2. The dialog calls the main process to create a time-limited owner web token
- *   3. A QR code + login URL are shown
+ *   2. It lists the devices already paired with this profile
+ *   3. "Pair a new device" creates a time-limited owner web token and
+ *      shows its QR code + login URL
  *   4. User scans the QR on their device → web-remote auto-connects with access to the whole profile
+ *
+ * Opening this dialog pairs nothing. It used to mint a token on every
+ * open, which filled the ten-token limit with codes nobody had scanned
+ * and pushed real pairings out of it.
+ *
+ * A QR is shown once. Tokens are masked once stored, so a device that
+ * lost its code pairs again rather than being handed the credential a
+ * second time.
  *
  * The manual token entry in the web-remote AuthScreen remains available
  * for same-machine development where camera scanning isn't possible.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, Copy, Loader2, QrCode, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Check, Copy, Loader2, Plus, QrCode } from 'lucide-react';
 
 import {
   Dialog,
@@ -25,20 +34,28 @@ import {
 import { Button } from '@sero-ai/ui/components/ui/button';
 import type { QrLoginData } from '@/types/ipc';
 import { copyTextToClipboard } from '@/lib/copy-to-clipboard';
+import {
+  MAX_PAIRED_DEVICES,
+  PairedDeviceList,
+  usePairedDevices,
+} from './PairedDeviceList';
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-type Phase = 'idle' | 'loading' | 'ready' | 'error';
+type Phase = 'list' | 'loading' | 'ready' | 'error';
 
 export function ConnectDeviceDialog({ open, onOpenChange }: Props) {
-  const [phase, setPhase] = useState<Phase>('idle');
+  const [phase, setPhase] = useState<Phase>('list');
   const [data, setData] = useState<QrLoginData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
+  const { devices, loading: devicesLoading, reload } = usePairedDevices(open);
+
+  const atLimit = devices.length >= MAX_PAIRED_DEVICES;
 
   const generate = useCallback(async () => {
     setPhase('loading');
@@ -55,24 +72,33 @@ export function ConnectDeviceDialog({ open, onOpenChange }: Props) {
     }
   }, []);
 
-  // Generate QR data when the dialog opens. The parent controls `open`
+  /** Back to the list, with the new pairing in it. */
+  const backToList = useCallback(() => {
+    setPhase('list');
+    setData(null);
+    setError(null);
+    void reload();
+  }, [reload]);
+
+  // Opening shows the list and pairs nothing. The parent controls `open`
   // via props, so onOpenChange(true) is never called by radix, we need
   // an effect to detect the open→true transition. (IPC init, valid useEffect.)
   const wasOpen = useRef(false);
   useEffect(() => {
     if (open && !wasOpen.current) {
-      generate();
+      setPhase('list');
+      setData(null);
     }
     if (!open && wasOpen.current) {
       // Reset on close so next open starts fresh
-      setPhase('idle');
+      setPhase('list');
       setData(null);
       setError(null);
       setCopied(false);
       setCopyFailed(false);
     }
     wasOpen.current = open;
-  }, [open, generate]);
+  }, [open]);
 
   const handleCopy = useCallback(async () => {
     if (!data) return;
@@ -105,12 +131,41 @@ export function ConnectDeviceDialog({ open, onOpenChange }: Props) {
             Connect Device
           </DialogTitle>
           <DialogDescription>
-            Scan this QR code with your phone to open Sero Remote.
-            This pairing signs the device into this Sero profile, with access to all current workspaces and any new workspaces you create later.
+            {phase === 'list'
+              ? 'Devices paired with this Sero profile. A paired device reaches every workspace in the profile, including ones you create later.'
+              : 'Scan this QR code with your phone to open Sero Remote. This pairing signs the device into this Sero profile, with access to all current workspaces and any new workspaces you create later.'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col items-center gap-4">
+          {/* ── Paired devices ─────────────────────────────── */}
+          {phase === 'list' && (
+            <>
+              <PairedDeviceList
+                devices={devices}
+                loading={devicesLoading}
+                onRevoked={reload}
+              />
+
+              {atLimit ? (
+                <p className="w-full text-center text-sm text-muted-foreground">
+                  Paired with {MAX_PAIRED_DEVICES} devices, the most allowed.
+                  Unpair one to pair another.
+                </p>
+              ) : null}
+
+              <Button
+                className="w-full gap-2"
+                disabled={devicesLoading || atLimit}
+                data-testid="pair-new-device"
+                onClick={generate}
+              >
+                <Plus className="size-3.5" />
+                Pair a new device
+              </Button>
+            </>
+          )}
+
           {/* ── Loading state ──────────────────────────────── */}
           {phase === 'loading' && (
             <div className="flex h-[272px] w-[272px] items-center justify-center rounded-xl border border-border bg-muted">
@@ -178,15 +233,15 @@ export function ConnectDeviceDialog({ open, onOpenChange }: Props) {
                 </Button>
               </div>
 
-              {/* ── Regenerate ────────────────────────────────── */}
+              {/* ── Back to the list ──────────────────────────── */}
               <Button
                 variant="ghost"
                 size="sm"
                 className="gap-2 text-muted-foreground"
-                onClick={generate}
+                onClick={backToList}
               >
-                <RefreshCw className="size-3.5" />
-                Generate New Code
+                <ArrowLeft className="size-3.5" />
+                Done
               </Button>
             </>
           )}
@@ -195,18 +250,20 @@ export function ConnectDeviceDialog({ open, onOpenChange }: Props) {
           {phase === 'error' && (
             <div className="flex h-[272px] w-[272px] flex-col items-center justify-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center">
               <p className="text-base text-destructive">{error}</p>
-              <Button variant="outline" size="sm" onClick={generate}>
-                Retry
+              <Button variant="outline" size="sm" onClick={backToList}>
+                Back
               </Button>
             </div>
           )}
 
           {/* ── Footer instructions ────────────────────────── */}
+          {phase === 'ready' && (
           <p className="text-center text-sm leading-relaxed text-muted-foreground/70">
             Or paste the URL in your phone's browser.
             <br />
-            The token auto-saves on the device and keeps profile-wide workspace access until it expires or you create a new pairing.
+            The token auto-saves on the device and keeps profile-wide workspace access until it expires or you unpair it.
           </p>
+          )}
         </div>
       </DialogContent>
     </Dialog>
