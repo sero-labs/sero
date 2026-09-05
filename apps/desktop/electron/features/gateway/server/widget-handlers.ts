@@ -103,8 +103,23 @@ export async function routeWidgetRequest(
     return true;
   }
 
+  // The scope is read again after every wait and at every change, never
+  // copied: a token swapped in while this request was in flight must not
+  // get this file's content, and must not keep a watch on it.
+  const keyWorkspace = stateKeyWorkspace(request.key);
+  const canReach = () => keyWorkspace === null || hasWorkspaceAccess(accessScope, keyWorkspace);
+  const refuse = () => {
+    respond({
+      type: 'error',
+      requestType: request.type,
+      message: `Workspace not authorized: ${keyWorkspace}`,
+    });
+    return true;
+  };
+
   if (request.type === 'app_state_set') {
     const result = await appStateManager.write(filePath, request.data, request.expectedEtag);
+    if (!canReach()) return refuse();
     // A refused write is not an error: it hands back the newer content,
     // and the widget re-applies its change on top.
     respond({
@@ -121,14 +136,14 @@ export async function routeWidgetRequest(
     return true;
   }
 
-  // The scope is read again at every change, not copied here: a token
-  // swapped in while this request was in flight must not keep the watch.
-  const keyWorkspace = stateKeyWorkspace(request.key);
-  const canReach = () => keyWorkspace === null || hasWorkspaceAccess(accessScope, keyWorkspace);
-
   const state = request.type === 'app_state_watch'
     ? await watchWidgetState(ws, request.key, filePath, canReach)
     : await appStateManager.readWithEtag(filePath);
+
+  if (!canReach()) {
+    if (request.type === 'app_state_watch') unwatchWidgetState(ws, filePath);
+    return refuse();
+  }
 
   respond({
     type: 'ok',

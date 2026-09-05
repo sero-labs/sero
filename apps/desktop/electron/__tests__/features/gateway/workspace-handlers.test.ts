@@ -1,6 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 import { WebSocket } from 'ws';
 
+// The file-tree bridge is replaced: these tests are about the handler's
+// scope checks, not about the filesystem watcher behind them.
+const watchFileTree = vi.fn(async (_ws: unknown, _workspaceId: string, _canReach?: () => boolean) => true);
+const unwatchFileTree = vi.fn((_ws: unknown, _workspaceId: string) => {});
+vi.mock('@electron/features/gateway/bridge/file-tree-bridge', () => ({
+  watchFileTree: (ws: unknown, workspaceId: string, canReach?: () => boolean) =>
+    watchFileTree(ws, workspaceId, canReach),
+  unwatchFileTree: (ws: unknown, workspaceId: string) => unwatchFileTree(ws, workspaceId),
+}));
+
 import { routeWorkspaceRequest } from '@electron/features/gateway/server/workspace-handlers';
 import { GitCommitRefused } from '@electron/ipc/gateway/git-ops';
 import type { GatewayAccessScope } from '@electron/features/gateway/server/access-control';
@@ -218,5 +228,39 @@ describe('routeWorkspaceRequest', () => {
 
     expect(handled).toBe(false);
     expect(sent).toEqual([]);
+  });
+});
+
+describe('file_tree_watch', () => {
+  it('starts a watch for an authorized workspace', async () => {
+    const { ws, sent } = fakeSocket();
+
+    await routeWorkspaceRequest(
+      ws,
+      makeOps(),
+      { type: 'file_tree_watch', workspaceId: 'ws-1' } as GatewayRequest,
+      scope(['ws-1']),
+    );
+
+    expect(sent[0]).toMatchObject({ type: 'ok', data: { workspaceId: 'ws-1' } });
+  });
+
+  it('refuses, and drops the watch, when the token changed while the roots were resolved', async () => {
+    const { ws, sent } = fakeSocket();
+    const accessScope = scope(['ws-1']);
+    watchFileTree.mockImplementationOnce(async () => {
+      accessScope.authorizedWorkspaceIds = new Set(['ws-2']);
+      return true;
+    });
+
+    await routeWorkspaceRequest(
+      ws,
+      makeOps(),
+      { type: 'file_tree_watch', workspaceId: 'ws-1' } as GatewayRequest,
+      accessScope,
+    );
+
+    expect(sent[0]?.type).toBe('error');
+    expect(unwatchFileTree).toHaveBeenCalledWith(ws, 'ws-1');
   });
 });

@@ -258,6 +258,97 @@ describe('commitChanges', () => {
     expect(run(['ls-tree', '--name-only', 'HEAD'], dir).trim()).toBe('first.txt');
   });
 
+  it('commits a rename whose source came back untracked, and leaves the new file alone', async () => {
+    const dir = makeRepo();
+    run(['mv', 'kept.txt', 'moved.txt'], dir);
+    writeFileSync(path.join(dir, 'kept.txt'), 'a new file with the old name\n', 'utf8');
+
+    await commitChanges(dir, 'chore: move kept', ['moved.txt']);
+
+    expect(run(['ls-tree', '--name-only', 'HEAD'], dir).trim()).toBe('moved.txt');
+    expect((await readGitStatus(dir)).files).toEqual([
+      { path: 'kept.txt', oldPath: undefined, status: 'untracked', staged: false },
+    ]);
+  });
+
+  it('keeps a staged change to a moved file\'s old name out of the commit', async () => {
+    const dir = makeRepo();
+    run(['mv', 'kept.txt', 'moved.txt'], dir);
+    writeFileSync(path.join(dir, 'kept.txt'), 'staged again\n', 'utf8');
+    run(['add', 'kept.txt'], dir);
+
+    await commitChanges(dir, 'chore: copy kept', ['moved.txt']);
+
+    // git calls this an addition with the old name modified, not a
+    // rename, so the old name keeps its committed content and its
+    // staged change waits for its own commit.
+    expect(run(['ls-tree', '--name-only', 'HEAD'], dir).trim()).toBe('kept.txt\nmoved.txt');
+    expect(run(['show', 'HEAD:kept.txt'], dir)).toBe('one\ntwo\nthree\n');
+    expect((await readGitStatus(dir)).files).toEqual([
+      { path: 'kept.txt', oldPath: undefined, status: 'modified', staged: true },
+    ]);
+  });
+
+  it('undoes a commit that a hook widened beyond the selection', async () => {
+    const dir = makeRepo();
+    const before = run(['rev-parse', 'HEAD'], dir).trim();
+    writeFileSync(path.join(dir, 'a.txt'), 'a\n', 'utf8');
+    writeFileSync(path.join(dir, 'sneaky.txt'), 'added by a hook\n', 'utf8');
+    const hook = path.join(dir, '.git', 'hooks', 'pre-commit');
+    writeFileSync(hook, '#!/bin/sh\ngit add sneaky.txt\n', { mode: 0o755 });
+
+    await expect(commitChanges(dir, 'feat: a', ['a.txt'])).rejects.toMatchObject({
+      reason: 'git_commit_failed',
+      message: expect.stringContaining('sneaky.txt'),
+    });
+
+    expect(run(['rev-parse', 'HEAD'], dir).trim()).toBe(before);
+    expect((await readGitStatus(dir)).files.map((file) => file.path).sort()).toEqual(['a.txt', 'sneaky.txt']);
+  });
+
+  it('lets a hook that only rewrites a selected file through', async () => {
+    const dir = makeRepo();
+    writeFileSync(path.join(dir, 'a.txt'), 'a\n', 'utf8');
+    const hook = path.join(dir, '.git', 'hooks', 'pre-commit');
+    writeFileSync(hook, '#!/bin/sh\nprintf formatted > a.txt && git add a.txt\n', { mode: 0o755 });
+
+    await commitChanges(dir, 'feat: a', ['a.txt']);
+
+    expect(run(['show', 'HEAD:a.txt'], dir)).toBe('formatted');
+  });
+
+  it('commits from a linked worktree and leaves no temporary index in it', async () => {
+    const dir = makeRepo();
+    const worktree = path.join(dir, '..', `${path.basename(dir)}-wt`);
+    dirs.push(worktree);
+    run(['worktree', 'add', '-b', 'wt', worktree], dir);
+    writeFileSync(path.join(worktree, 'a.txt'), 'a\n', 'utf8');
+
+    await commitChanges(worktree, 'feat: a', ['a.txt']);
+
+    expect(run(['ls-tree', '--name-only', 'HEAD'], worktree).trim()).toBe('a.txt\nkept.txt');
+    expect((await readGitStatus(worktree)).files).toEqual([]);
+    const leftovers = [
+      ...readdirSync(worktree),
+      ...readdirSync(path.join(dir, '.git', 'worktrees', path.basename(worktree))),
+    ];
+    expect(leftovers.filter((name) => name.startsWith('sero-remote-'))).toEqual([]);
+  });
+
+  it('runs two commits to one repository one after the other', async () => {
+    const dir = makeRepo();
+    writeFileSync(path.join(dir, 'a.txt'), 'a\n', 'utf8');
+    writeFileSync(path.join(dir, 'b.txt'), 'b\n', 'utf8');
+
+    await Promise.all([
+      commitChanges(dir, 'feat: a', ['a.txt']),
+      commitChanges(dir, 'feat: b', ['b.txt']),
+    ]);
+
+    expect(run(['log', '--format=%s', '-3'], dir).trim().split('\n')).toEqual(['feat: b', 'feat: a', 'first']);
+    expect((await readGitStatus(dir)).files).toEqual([]);
+  });
+
   it('leaves no temporary index behind', async () => {
     const dir = makeRepo();
     writeFileSync(path.join(dir, 'a.txt'), 'a\n', 'utf8');

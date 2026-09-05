@@ -60,16 +60,23 @@ export async function routeWorkspaceRequest(
     // The scope is read again at every change, not copied here: a token
     // swapped in while this request was in flight must not keep the watch.
     const { workspaceId } = request;
-    const watching = await watchFileTree(
-      ws,
-      workspaceId,
-      () => hasWorkspaceAccess(accessScope, workspaceId),
-    );
+    const canReach = () => hasWorkspaceAccess(accessScope, workspaceId);
+    const watching = await watchFileTree(ws, workspaceId, canReach);
     if (!watching) {
       respond({
         type: 'error',
         requestType: 'file_tree_watch',
         message: `Workspace not found: ${request.workspaceId}`,
+      });
+      return true;
+    }
+    // The token may have changed while the roots were being resolved.
+    if (!canReach()) {
+      unwatchFileTree(ws, workspaceId);
+      respond({
+        type: 'error',
+        requestType: 'file_tree_watch',
+        message: `Workspace not authorized: ${workspaceId}`,
       });
       return true;
     }

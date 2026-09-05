@@ -191,6 +191,28 @@ describe('app state over the gateway', () => {
     expect(sent[0].data).toMatchObject({ key: 'todo@ws-1', etag: 'etag-1' });
   });
 
+  it('refuses, and drops the watch, when the token changed while the file was read', async () => {
+    registerTodo();
+    const { ws, sent } = fakeSocket();
+    const accessScope = scope(['ws-1']);
+    readWithEtag.mockImplementationOnce(async () => {
+      // The socket authenticated again, with a scope that no longer
+      // covers ws-1, while this read was in flight.
+      accessScope.authorizedWorkspaceIds = new Set(['ws-2']);
+      return { data: { done: 2 }, etag: 'etag-1' };
+    });
+
+    await routeWidgetRequest(
+      ws,
+      ops,
+      { type: 'app_state_watch', key: 'todo@ws-1' } as GatewayRequest,
+      accessScope,
+    );
+
+    expect(sent[0]?.type).toBe('error');
+    expect(unwatch).toHaveBeenCalledWith('/work/one/.sero/state.json');
+  });
+
   it('watches a file once per socket, however often it is asked', async () => {
     registerTodo();
     const { ws } = fakeSocket();
