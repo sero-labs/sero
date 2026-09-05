@@ -13,7 +13,7 @@ import { Button } from '@sero-ai/ui/components/ui/button';
 import { Checkbox } from '@sero-ai/ui/components/ui/checkbox';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useWorkspaceStore } from '@/stores/workspace';
-import { diffKey, selectFiles, useGitStore, type GitFile } from '@/stores/git';
+import { diffKey, selectFiles, useGitStore, type GitFile, type GitStatus } from '@/stores/git';
 import { DiffView } from './DiffView';
 import { CommitBar } from './CommitBar';
 
@@ -79,7 +79,7 @@ export function ChangesPanel() {
 
   return (
     <div className="flex h-full flex-col">
-      <Header workspaceId={workspaceId} loading={loading} />
+      <Header workspaceId={workspaceId} status={status} loading={loading} />
 
       {error && files.length === 0 && (
         <p className="px-2 py-1 text-xs text-status-error">{error}</p>
@@ -110,10 +110,18 @@ export function ChangesPanel() {
   );
 }
 
-function Header({ workspaceId, loading }: { workspaceId: string; loading: boolean }) {
-  const status = useGitStore((s) => s.status);
+/** The branch line and the list controls. `status` is already gated to the active workspace. */
+function Header({
+  workspaceId,
+  status,
+  loading,
+}: {
+  workspaceId: string;
+  status: GitStatus | null;
+  loading: boolean;
+}) {
   const refresh = useGitStore((s) => s.refresh);
-  const selectedCount = useGitStore((s) => s.selectedPaths.length);
+  const selectedCount = useGitStore((s) => (s.workspaceId === workspaceId ? s.selectedPaths.length : 0));
   const selectAll = useGitStore((s) => s.selectAll);
   const clearSelection = useGitStore((s) => s.clearSelection);
 

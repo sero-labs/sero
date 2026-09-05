@@ -223,7 +223,7 @@ export const useGitStore = create<GitStore>((set, get) => {
           set((s) => ({ diffs: { ...s.diffs, [diffKey(diff.path, diff.staged)]: diff } }));
         },
         (err: unknown) => {
-          if (stale(workspaceId)) return;
+          if (stale(workspaceId) || seq !== refreshSeq) return;
           set({ error: errorText(err, 'Could not read the diff.') });
         },
       );

@@ -222,6 +222,20 @@ describe('git store', () => {
     expect(useGitStore.getState().diffs).toEqual({});
   });
 
+  it('drops the failure of a diff that a refresh overtook', async () => {
+    const slow = deferred<unknown>();
+    gitDiff.mockReturnValueOnce(slow.promise);
+    useGitStore.setState({ workspaceId: 'ws-1', status });
+    useGitStore.getState().openFile('ws-1', { path: 'src/a.ts', status: 'modified', staged: false });
+    useGitStore.getState().refresh('ws-1');
+    await flush();
+
+    slow.reject(new Error('Could not read the diff.'));
+    await flush();
+
+    expect(useGitStore.getState().error).toBeNull();
+  });
+
   it('refetches the tree when a turn finishes in its workspace', () => {
     useGitStore.setState({ workspaceId: 'ws-1', status });
 
