@@ -306,6 +306,68 @@ describe('commitChanges', () => {
     expect((await readGitStatus(dir)).files.map((file) => file.path).sort()).toEqual(['a.txt', 'sneaky.txt']);
   });
 
+  it('refuses, and keeps the other commit, when HEAD moved while the commit was made', async () => {
+    const dir = makeRepo();
+    // A commit made elsewhere, landing on HEAD part-way through ours.
+    run(['checkout', '-q', '-b', 'elsewhere'], dir);
+    writeFileSync(path.join(dir, 'theirs.txt'), 'theirs\n', 'utf8');
+    run(['add', 'theirs.txt'], dir);
+    run(['commit', '-qm', 'theirs'], dir);
+    const theirs = run(['rev-parse', 'HEAD'], dir).trim();
+    run(['checkout', '-q', 'main'], dir);
+    const hook = path.join(dir, '.git', 'hooks', 'pre-commit');
+    writeFileSync(hook, `#!/bin/sh\ngit update-ref HEAD ${theirs}\n`, { mode: 0o755 });
+    writeFileSync(path.join(dir, 'a.txt'), 'a\n', 'utf8');
+
+    await expect(commitChanges(dir, 'feat: a', ['a.txt'])).rejects.toMatchObject({
+      reason: 'git_commit_failed',
+    });
+
+    expect(run(['rev-parse', 'HEAD'], dir).trim()).toBe(theirs);
+    expect(run(['show', '--name-only', '--format=', 'HEAD'], dir).trim()).toBe('theirs.txt');
+  });
+
+  it('accepts a commit of a copied file when git is set to detect copies', async () => {
+    const dir = makeRepo();
+    run(['config', 'diff.renames', 'copies'], dir);
+    writeFileSync(path.join(dir, 'copy.txt'), 'one\ntwo\nthree\n', 'utf8');
+
+    await commitChanges(dir, 'feat: copy', ['copy.txt']);
+
+    expect(run(['ls-tree', '--name-only', 'HEAD'], dir).trim()).toBe('copy.txt\nkept.txt');
+  });
+
+  it('keeps the temporary index out of a hook that stages the whole worktree', async () => {
+    const dir = makeRepo();
+    const worktree = path.join(dir, '..', `${path.basename(dir)}-hooked`);
+    dirs.push(worktree);
+    run(['worktree', 'add', '-b', 'hooked', worktree], dir);
+    const hook = path.join(dir, '.git', 'hooks', 'pre-commit');
+    writeFileSync(hook, '#!/bin/sh\ngit add -A\n', { mode: 0o755 });
+    writeFileSync(path.join(worktree, 'a.txt'), 'a\n', 'utf8');
+
+    await commitChanges(worktree, 'feat: a', ['a.txt']);
+
+    expect(run(['show', '--name-only', '--format=', 'HEAD'], worktree).trim()).toBe('a.txt');
+  });
+
+  it('removes a temporary index it cannot reach through the runtime it was given', async () => {
+    const dir = makeRepo();
+    writeFileSync(path.join(dir, 'a.txt'), 'a\n', 'utf8');
+    const removed: string[] = [];
+
+    await commitChanges(dir, 'feat: a', ['a.txt'], {
+      removeFile: async (filePath) => {
+        removed.push(filePath);
+      },
+    });
+
+    // A relative git dir is under the workspace, so the host removed it
+    // itself and the runtime was not asked.
+    expect(removed).toEqual([]);
+    expect(readdirSync(path.join(dir, '.git')).filter((name) => name.startsWith('sero-remote-'))).toEqual([]);
+  });
+
   it('lets a hook that only rewrites a selected file through', async () => {
     const dir = makeRepo();
     writeFileSync(path.join(dir, 'a.txt'), 'a\n', 'utf8');

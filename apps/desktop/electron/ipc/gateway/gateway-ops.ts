@@ -286,7 +286,14 @@ export function buildGatewayOps(
     gitCommit: async (workspaceId, message, paths) => {
       const wsPath = workspaceManager.getPath(workspaceId);
       if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
-      return commitChanges(wsPath, message, paths);
+      return commitChanges(wsPath, message, paths, {
+        // The temporary index sits in the git dir. For a container that
+        // is a container path, which only the runtime can remove.
+        removeFile: async (filePath) => {
+          const runtime = await runtimeManager.getRuntime(workspaceId);
+          await runtime.delete({ path: filePath });
+        },
+      });
     },
     listFiles: async (workspaceId, dirPath) => {
       const runtime = await runtimeManager.getRuntime(workspaceId);

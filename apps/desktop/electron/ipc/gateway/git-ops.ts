@@ -200,14 +200,50 @@ function isPlanned(plan: CommitPlan, changed: string): boolean {
     path === changed || (path.endsWith('/') && changed.startsWith(path)));
 }
 
-/** Where the temporary index lives, relative to `cwd`. */
-function tempIndexPath(gitDir: string): string {
-  const name = `sero-remote-${randomBytes(6).toString('hex')}.index`;
-  // A relative git dir is `.git` under `cwd`, out of sight of file
-  // watchers. An absolute one may be a linked worktree or, for a
-  // container, a path the host cannot reach, so the index goes under
-  // `cwd` itself: the one directory host and container both see.
-  return path.isAbsolute(gitDir) ? name : path.posix.join(gitDir.replace(/\\/g, '/'), name);
+/** What a commit needs from the caller beyond the repository itself. */
+export interface CommitOptions {
+  /**
+   * Remove a file by the path git printed for it. The temporary index
+   * lives in the git dir, which for a container is a path the host
+   * cannot reach; the runtime can. Host paths are removed directly.
+   */
+  removeFile?: (filePath: string) => Promise<void>;
+}
+
+/**
+ * Remove the temporary index.
+ *
+ * It lives in the git dir, out of sight of a hook that runs `git add -A`
+ * on the worktree. A relative git dir is under `cwd`; an absolute one is
+ * removed as a host path first and through the runtime when that fails.
+ */
+async function removeTempIndex(
+  cwd: string,
+  indexFile: string,
+  removeFile: CommitOptions['removeFile'],
+): Promise<void> {
+  const hostPath = path.isAbsolute(indexFile) ? indexFile : path.join(cwd, indexFile);
+  try {
+    await fs.rm(hostPath, { force: true });
+    if (!path.isAbsolute(indexFile)) return;
+  } catch {
+    // Fall through to the runtime.
+  }
+  await removeFile?.(indexFile).catch(() => undefined);
+}
+
+/**
+ * Move HEAD back from `ours` to `before`, but only if HEAD is still
+ * `ours`. A commit somebody else made on top in the meantime stays.
+ */
+async function undoCommit(cwd: string, ours: string, before: string): Promise<boolean> {
+  try {
+    if (before) await runGitAsync(['update-ref', 'HEAD', before, ours], cwd);
+    else await runGitAsync(['update-ref', '-d', 'HEAD', ours], cwd);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -217,9 +253,17 @@ function tempIndexPath(gitDir: string): string {
  * unrelated file someone staged on the desktop stays staged and out of
  * this commit, and a partially staged file commits only what was shown.
  */
-async function commitFromPlan(cwd: string, message: string, plan: CommitPlan): Promise<void> {
+async function commitFromPlan(
+  cwd: string,
+  message: string,
+  plan: CommitPlan,
+  options: CommitOptions,
+): Promise<void> {
   const gitDir = await runGitAsync(['rev-parse', '--git-dir'], cwd);
-  const indexFile = tempIndexPath(gitDir);
+  const indexFile = path.posix.join(
+    gitDir.replace(/\\/g, '/'),
+    `sero-remote-${randomBytes(6).toString('hex')}.index`,
+  );
   const env = { GIT_INDEX_FILE: indexFile };
   const temp = (args: string[]) => runGitAsync(args, cwd, { env });
   const before = await git(['rev-parse', '--verify', '--quiet', 'HEAD'], cwd);
@@ -259,24 +303,36 @@ async function commitFromPlan(cwd: string, message: string, plan: CommitPlan): P
 
     await temp(['commit', '-m', message]);
 
+    // The temporary index was built on `before`. A commit that landed
+    // on the desktop in the meantime would be the parent instead, and
+    // this tree, which knows nothing of it, would undo its changes.
+    const ours = await runGitAsync(['rev-parse', 'HEAD'], cwd);
+    const parent = await git(['rev-parse', '--verify', '--quiet', `${ours}~1`], cwd);
+    if (parent !== before) {
+      await undoCommit(cwd, ours, parent);
+      throw new Error('The repository changed while the commit was being made. Refresh and try again.');
+    }
+
     // A pre-commit hook runs against the temporary index and may stage
     // more, as `git add -A` hooks do. The commit already exists by the
-    // time that can be seen, so it is undone rather than kept.
+    // time that can be seen, so it is undone rather than kept. Rename
+    // and copy detection is off so a copy's untouched source, which the
+    // plan leaves alone on purpose, is not reported as a change.
     const changed = (await runGitAsync(
-      ['diff-tree', '--root', '--no-commit-id', '--name-only', '-r', '-z', 'HEAD'],
+      ['diff-tree', '--root', '--no-commit-id', '--no-renames', '--name-only', '-r', '-z', ours],
       cwd,
       { trim: false },
     )).split('\0').filter(Boolean);
     const unplanned = changed.filter((filePath) => !isPlanned(plan, filePath));
     if (unplanned.length > 0) {
-      if (before) await runGitAsync(['update-ref', 'HEAD', before], cwd);
-      else await runGitAsync(['update-ref', '-d', 'HEAD'], cwd);
+      const undone = await undoCommit(cwd, ours, before);
       throw new Error(
-        `A commit hook added files that were not selected: ${unplanned.join(', ')}.`,
+        `A commit hook added files that were not selected: ${unplanned.join(', ')}.`
+        + (undone ? '' : ` The commit ${ours.slice(0, 7)} was kept because HEAD moved on.`),
       );
     }
   } finally {
-    await fs.rm(path.join(cwd, indexFile), { force: true }).catch(() => undefined);
+    await removeTempIndex(cwd, indexFile, options.removeFile);
   }
 
   // The real index now follows the commit for the working-tree copies,
@@ -313,6 +369,7 @@ export async function commitChanges(
   cwd: string,
   message: string,
   paths: string[],
+  options: CommitOptions = {},
 ): Promise<GatewayGitCommitResult> {
   const trimmed = message.trim();
   if (!trimmed) {
@@ -328,13 +385,14 @@ export async function commitChanges(
     throw new GitCommitRefused('git_nothing_selected', 'Too many files in one commit.');
   }
 
-  return serialized(cwd, () => commitSelected(cwd, trimmed, paths));
+  return serialized(cwd, () => commitSelected(cwd, trimmed, paths, options));
 }
 
 async function commitSelected(
   cwd: string,
   message: string,
   paths: string[],
+  options: CommitOptions,
 ): Promise<GatewayGitCommitResult> {
   // A merge or a rebase decides its own next commit. Committing into one
   // from a phone would finish it by accident.
@@ -353,7 +411,7 @@ async function commitSelected(
   const plan = planCommit(paths, changes);
 
   try {
-    await commitFromPlan(cwd, message, plan);
+    await commitFromPlan(cwd, message, plan, options);
   } catch (err) {
     throw new GitCommitRefused(
       'git_commit_failed',
