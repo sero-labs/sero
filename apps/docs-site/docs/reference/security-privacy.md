@@ -219,7 +219,14 @@ The commit is the only request that changes a git repository. Its limits:
 - it never pushes, amends, discards or stashes; there is no gateway request for
   any of those
 - the commit runs as the desktop user, with that user's git identity and
-  signing configuration
+  signing configuration. The repository's pre-commit, prepare-commit-msg,
+  commit-msg and post-commit hooks run as they would for `git commit`, and a
+  hook that fails refuses the commit with its own message. Running the hooks
+  this way needs git 2.36 or later
+- a hook that stages a file the client did not select refuses the commit;
+  nothing is committed and nothing is left to undo
+- if a commit lands on the desktop while the phone's commit is being made, the
+  phone's commit is refused rather than placed on top of a base it did not see
 
 Important gateway limits:
 

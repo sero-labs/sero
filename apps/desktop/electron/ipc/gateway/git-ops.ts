@@ -10,7 +10,6 @@
  */
 
 import { randomBytes } from 'crypto';
-import { promises as fs } from 'fs';
 import path from 'path';
 import type { FileChange } from '@sero-ai/common';
 import { runGitAsync } from '@electron/features/git/git-service/git-exec';
@@ -18,6 +17,17 @@ import { getFileChanges } from '@electron/features/git/git-service/git-status-qu
 import { getFileDiff } from '@electron/features/git/git-service/git-diff-queries';
 import { getBranches } from '@electron/features/git/git-service/git-refs';
 import { isDetachedHead, readMergeState } from '@electron/features/git/git-service/git-merge-state';
+import {
+  LITERAL,
+  cleanMessage,
+  cleanupMode,
+  covers,
+  hostFiles,
+  readIndexEntries,
+  reconcileIndex,
+  withHostFallback,
+  type TempFiles,
+} from './git-commit-index';
 import type {
   GatewayGitCommitResult,
   GatewayGitDiff,
@@ -35,12 +45,6 @@ export const MAX_COMMIT_MESSAGE = 4000;
 
 /** Why a commit was refused. */
 export type CommitRefusal = 'git_state_busy' | 'git_nothing_selected' | 'git_commit_failed';
-
-/**
- * A pathspec is taken as written. Without this, a file called `*.txt`
- * would match every text file.
- */
-const LITERAL = '--literal-pathspecs';
 
 export class GitCommitRefused extends Error {
   constructor(readonly reason: CommitRefusal, message: string) {
@@ -194,56 +198,42 @@ function planCommit(paths: string[], changes: FileChange[]): CommitPlan {
 }
 
 /** Every path the commit may touch. A selected directory covers its files. */
-function isPlanned(plan: CommitPlan, changed: string): boolean {
-  const planned = [...plan.fromIndex, ...plan.removed, ...plan.fromWorkingTree];
-  return planned.some((path) =>
-    path === changed || (path.endsWith('/') && changed.startsWith(path)));
+function plannedPaths(plan: CommitPlan): string[] {
+  return [...plan.fromIndex, ...plan.removed, ...plan.fromWorkingTree];
 }
 
 /** What a commit needs from the caller beyond the repository itself. */
 export interface CommitOptions {
   /**
-   * Remove a file by the path git printed for it. The temporary index
-   * lives in the git dir, which for a container is a path the host
-   * cannot reach; the runtime can. Host paths are removed directly.
+   * Where the temporary index and message file live while the commit is
+   * made. They sit in the git dir, which for a container is a path only
+   * the runtime can reach. The host handles anything the runtime cannot.
    */
-  removeFile?: (filePath: string) => Promise<void>;
+  files?: TempFiles;
 }
 
-/**
- * Remove the temporary index.
- *
- * It lives in the git dir, out of sight of a hook that runs `git add -A`
- * on the worktree. A relative git dir is under `cwd`; an absolute one is
- * removed as a host path first and through the runtime when that fails.
- */
-async function removeTempIndex(
-  cwd: string,
-  indexFile: string,
-  removeFile: CommitOptions['removeFile'],
-): Promise<void> {
-  const hostPath = path.isAbsolute(indexFile) ? indexFile : path.join(cwd, indexFile);
-  try {
-    await fs.rm(hostPath, { force: true });
-    if (!path.isAbsolute(indexFile)) return;
-  } catch {
-    // Fall through to the runtime.
-  }
-  await removeFile?.(indexFile).catch(() => undefined);
-}
+export type { TempFiles } from './git-commit-index';
 
 /**
- * Move HEAD back from `ours` to `before`, but only if HEAD is still
- * `ours`. A commit somebody else made on top in the meantime stays.
+ * Whether the repository signs its commits: unset is no, a bare
+ * `gpgsign` with no value is yes, and a value git cannot read as a
+ * boolean fails here, before anything is made, as `git commit` fails.
  */
-async function undoCommit(cwd: string, ours: string, before: string): Promise<boolean> {
-  try {
-    if (before) await runGitAsync(['update-ref', 'HEAD', before, ours], cwd);
-    else await runGitAsync(['update-ref', '-d', 'HEAD', ours], cwd);
-    return true;
-  } catch {
-    return false;
-  }
+async function readSignConfig(cwd: string): Promise<boolean> {
+  const value = await runGitAsync(
+    ['config', '--type=bool', '--default=false', '--get', 'commit.gpgsign'],
+    cwd,
+  );
+  return value === 'true';
+}
+
+/** A hook the commit runs. A missing hook is not an error. */
+function runHook(
+  temp: (args: string[]) => Promise<string>,
+  name: string,
+  ...args: string[]
+): Promise<string> {
+  return temp(['hook', 'run', '--ignore-missing', name, ...(args.length > 0 ? ['--', ...args] : [])]);
 }
 
 /**
@@ -252,99 +242,161 @@ async function undoCommit(cwd: string, ours: string, before: string): Promise<bo
  * The real index is read, never written, until the commit exists. So an
  * unrelated file someone staged on the desktop stays staged and out of
  * this commit, and a partially staged file commits only what was shown.
+ *
+ * The steps of `git commit` are run one by one rather than as one
+ * command: the hooks, the tree, the commit object, then the ref. That
+ * way the tree is checked against the selection before anything exists,
+ * the commit's hash is known rather than read back from HEAD, and HEAD
+ * moves only from the commit it was read at. Nothing is made until
+ * every check has passed, so the one thing ever put back is a branch a
+ * hook pointed a detached HEAD at, and that from the exact hash.
+ * Resolves with the hash of the commit made and the branch it is on.
  */
 async function commitFromPlan(
   cwd: string,
   message: string,
   plan: CommitPlan,
   options: CommitOptions,
-): Promise<void> {
+): Promise<{ hash: string; branch: string }> {
   const gitDir = await runGitAsync(['rev-parse', '--git-dir'], cwd);
-  const indexFile = path.posix.join(
+  const stem = path.posix.join(
     gitDir.replace(/\\/g, '/'),
-    `sero-remote-${randomBytes(6).toString('hex')}.index`,
+    `sero-remote-${randomBytes(6).toString('hex')}`,
   );
+  const indexFile = `${stem}.index`;
+  const messageFile = `${stem}.msg`;
+  const files = options.files ? withHostFallback(options.files, hostFiles(cwd)) : hostFiles(cwd);
   const env = { GIT_INDEX_FILE: indexFile };
   const temp = (args: string[]) => runGitAsync(args, cwd, { env });
-  const before = await git(['rev-parse', '--verify', '--quiet', 'HEAD'], cwd);
+  // What HEAD is now: the branch it names, or nothing when detached, and
+  // the commit it is at. The commit goes onto that branch, so a switch
+  // made on the desktop in the meantime cannot redirect it.
+  const [ref, before, sign, cleanup, commentChar] = await Promise.all([
+    git(['symbolic-ref', '--quiet', 'HEAD'], cwd),
+    git(['rev-parse', '--verify', '--quiet', 'HEAD'], cwd),
+    readSignConfig(cwd),
+    git(['config', '--get', 'commit.cleanup'], cwd),
+    git(['config', '--get', 'core.commentchar'], cwd),
+  ]);
+  const planned = plannedPaths(plan);
+
+  // The real index as it stands now. The staged copies come from here,
+  // and after the commit only entries still matching it are rewritten.
+  const snapshot = await readIndexEntries(cwd, planned);
 
   try {
-    await temp(['read-tree', before ? 'HEAD' : '--empty']);
+    await temp(['read-tree', before || '--empty']);
 
-    if (plan.fromIndex.length > 0) {
-      // `ls-files --stage` reads the real index. An entry it lists is
-      // copied across; a path it does not list was deleted there, so
-      // it leaves the commit too.
-      const raw = await runGitAsync(
-        [LITERAL, 'ls-files', '--stage', '-z', '--', ...plan.fromIndex],
-        cwd,
-        { trim: false },
-      );
-      const listed = new Set<string>();
-      for (const entry of raw.split('\0')) {
-        if (!entry) continue;
-        const tab = entry.indexOf('\t');
-        const [mode, sha] = entry.slice(0, tab).split(' ');
-        const filePath = entry.slice(tab + 1);
-        listed.add(filePath);
-        await temp([LITERAL, 'update-index', '--add', '--cacheinfo', mode, sha, filePath]);
-      }
-      for (const filePath of plan.fromIndex) {
-        if (!listed.has(filePath)) await temp([LITERAL, 'update-index', '--force-remove', '--', filePath]);
-      }
+    // A staged entry is copied across; a selected path with no entry was
+    // deleted in the real index, so it leaves the commit too.
+    const staged = new Set<string>();
+    for (const [filePath, entry] of snapshot) {
+      if (!plan.fromIndex.some((selected) => covers(selected, filePath))) continue;
+      staged.add(filePath);
+      await temp([LITERAL, 'update-index', '--add', '--cacheinfo', `${entry.mode},${entry.sha},${filePath}`]);
     }
-    for (const filePath of plan.removed) {
+    for (const filePath of [...plan.fromIndex.filter((p) => !staged.has(p)), ...plan.removed]) {
       await temp([LITERAL, 'update-index', '--force-remove', '--', filePath]);
     }
-
     if (plan.fromWorkingTree.length > 0) {
       await temp([LITERAL, 'add', '--', ...plan.fromWorkingTree]);
     }
 
-    await temp(['commit', '-m', message]);
+    // The hooks see the same index and message `git commit` would show
+    // them, and a hook may change either. A hook that fails refuses the
+    // commit with its own words.
+    await runHook(temp, 'pre-commit');
+    await files.write(messageFile, `${message}\n`);
+    await runHook(temp, 'prepare-commit-msg', messageFile, 'message');
+    await runHook(temp, 'commit-msg', messageFile);
+    const finalMessage = cleanMessage(await files.read(messageFile), cleanupMode(cleanup), commentChar);
+    if (!finalMessage) throw new Error('A commit hook left the message empty.');
 
-    // The temporary index was built on `before`. A commit that landed
-    // on the desktop in the meantime would be the parent instead, and
-    // this tree, which knows nothing of it, would undo its changes.
-    const ours = await runGitAsync(['rev-parse', 'HEAD'], cwd);
-    const parent = await git(['rev-parse', '--verify', '--quiet', `${ours}~1`], cwd);
-    if (parent !== before) {
-      await undoCommit(cwd, ours, parent);
-      throw new Error('The repository changed while the commit was being made. Refresh and try again.');
-    }
-
-    // A pre-commit hook runs against the temporary index and may stage
-    // more, as `git add -A` hooks do. The commit already exists by the
-    // time that can be seen, so it is undone rather than kept. Rename
+    // What the commit would change, checked before it exists. A
+    // pre-commit hook may stage more, as `git add -A` hooks do. Rename
     // and copy detection is off so a copy's untouched source, which the
     // plan leaves alone on purpose, is not reported as a change.
+    const tree = await temp(['write-tree']);
     const changed = (await runGitAsync(
-      ['diff-tree', '--root', '--no-commit-id', '--no-renames', '--name-only', '-r', '-z', ours],
+      before
+        ? ['diff-tree', '--no-renames', '--name-only', '-r', '-z', before, tree]
+        : ['ls-tree', '--name-only', '-r', '-z', tree],
       cwd,
       { trim: false },
     )).split('\0').filter(Boolean);
-    const unplanned = changed.filter((filePath) => !isPlanned(plan, filePath));
+    const unplanned = changed.filter((filePath) => !planned.some((p) => covers(p, filePath)));
     if (unplanned.length > 0) {
-      const undone = await undoCommit(cwd, ours, before);
-      throw new Error(
-        `A commit hook added files that were not selected: ${unplanned.join(', ')}.`
-        + (undone ? '' : ` The commit ${ours.slice(0, 7)} was kept because HEAD moved on.`),
-      );
+      throw new Error(`A commit hook added files that were not selected: ${unplanned.join(', ')}.`);
     }
-  } finally {
-    await removeTempIndex(cwd, indexFile, options.removeFile);
-  }
+    if (changed.length === 0) throw new Error('There is nothing to commit.');
 
-  // The real index now follows the commit for the working-tree copies,
-  // so the tree reads clean rather than as a staged deletion. The commit
-  // exists whatever happens here, so a failure is logged, not reported
-  // as a failed commit.
-  if (plan.fromWorkingTree.length > 0) {
+    // The branch moves only from `before`, the commit the tree was built
+    // on. A commit that landed on the desktop in the meantime would be
+    // the parent instead, and this tree, which knows nothing of it,
+    // would undo its changes. The swap is atomic, so a refusal leaves
+    // nothing but an unreferenced commit object for git to collect.
+    // `commit-tree` does not read `commit.gpgsign` as `git commit` does,
+    // so a repository that signs is told to sign here.
+    const ours = await runGitAsync(
+      [
+        'commit-tree', tree,
+        ...(before ? ['-p', before] : []),
+        ...(sign ? ['-S'] : []),
+        '-m', finalMessage,
+      ],
+      cwd,
+    );
+    const moved = 'The repository changed while the commit was being made. Refresh and try again.';
     try {
-      await runGitAsync([LITERAL, 'add', '--', ...plan.fromWorkingTree], cwd);
+      await runGitAsync(
+        ['update-ref', '-m', `commit: ${finalMessage.split('\n')[0]}`, ref || 'HEAD', ours, before],
+        cwd,
+      );
+    } catch {
+      throw new Error(moved);
+    }
+    let landedOn = ref;
+    if (!ref) {
+      // A detached HEAD is updated through HEAD itself. Had a hook
+      // meanwhile pointed HEAD at a branch at the same commit, that
+      // branch took the commit instead. The hash is exact, so the
+      // branch is put back from it, and only from it. If even that
+      // swap fails, a commit has already landed on top there, and the
+      // commit stays where it is: the reply names that branch.
+      const nowRef = await git(['symbolic-ref', '--quiet', 'HEAD'], cwd);
+      if (nowRef) {
+        const putBack = await runGitAsync(['update-ref', nowRef, before, ours], cwd)
+          .then(() => true, () => false);
+        if (putBack) throw new Error(moved);
+        landedOn = nowRef;
+      }
+    }
+
+    // `git commit` ignores what post-commit says, and so does this. A
+    // hook that reads HEAD expects to find the commit just made there;
+    // if HEAD has moved on already, it is not run against the wrong one.
+    if (await git(['rev-parse', 'HEAD'], cwd) === ours) {
+      await runHook(temp, 'post-commit').catch((err: unknown) => {
+        console.warn('[gateway] The post-commit hook failed:', err);
+      });
+    } else {
+      console.warn('[gateway] HEAD moved before the post-commit hook could run; the hook was skipped.');
+    }
+
+    // The real index now follows the commit for every selected path, so
+    // the tree reads clean rather than as a staged deletion or, after a
+    // hook reformatted a staged file, a staged reversal. The commit
+    // exists whatever happens here, so a failure is logged, not reported
+    // as a failed commit.
+    try {
+      await reconcileIndex(cwd, ours, planned, snapshot);
     } catch (err) {
       console.error('[gateway] Committed, but the index could not be updated:', err);
     }
+    return { hash: ours, branch: landedOn.replace(/^refs\/heads\//, '') };
+  } finally {
+    // The commit, or the refusal, stands whatever happens to these.
+    await Promise.allSettled([files.remove(indexFile), files.remove(messageFile)]);
   }
 }
 
@@ -410,8 +462,9 @@ async function commitSelected(
 
   const plan = planCommit(paths, changes);
 
+  let commit: { hash: string; branch: string };
   try {
-    await commitFromPlan(cwd, message, plan, options);
+    commit = await commitFromPlan(cwd, message, plan, options);
   } catch (err) {
     throw new GitCommitRefused(
       'git_commit_failed',
@@ -419,12 +472,11 @@ async function commitSelected(
     );
   }
 
-  const hash = await git(['rev-parse', '--short', 'HEAD'], cwd);
-  const branches = await getBranches(cwd);
-
+  // The branch is the one the commit went onto, which is what the phone
+  // asked for, whatever HEAD names by now.
   return {
-    hash,
-    branch: branches.find((branch) => branch.current)?.name ?? '',
+    hash: await runGitAsync(['rev-parse', '--short', commit.hash], cwd),
+    branch: commit.branch,
     fileCount: new Set(paths).size,
   };
 }
