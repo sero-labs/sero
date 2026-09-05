@@ -2,6 +2,7 @@ import { useAgentStore } from '@/stores/agent';
 import { useAppStore } from '@/stores/app';
 import { useSessionStore } from '@/stores/sessions';
 import type {
+  ChatHistoryPage,
   ChatMessage,
   ModelTier,
   ModelTierEntry,
@@ -40,7 +41,7 @@ interface OnboardingAppStore {
 }
 
 interface OnboardingAgentBridge {
-  open: (sessionId: string, sessionPath: string, workspaceId: string) => Promise<ChatMessage[]>;
+  open: (sessionId: string, sessionPath: string, workspaceId: string) => Promise<ChatHistoryPage>;
   setModel: (sessionId: string, provider: string, modelId: string) => Promise<SessionModelState>;
   getModelState: (sessionId: string) => Promise<SessionModelState | null>;
   setThinkingLevel: (sessionId: string, level: string) => Promise<SessionModelState>;
@@ -252,7 +253,7 @@ async function getLatestTurnFailure(
   sessionId: string,
   sessionPath: string,
 ): Promise<string | null> {
-  const messages = await deps.agent.open(sessionId, sessionPath, 'global');
+  const { messages } = await deps.agent.open(sessionId, sessionPath, 'global');
   let lastUserIndex = -1;
 
   for (let index = messages.length - 1; index >= 0; index -= 1) {

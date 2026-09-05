@@ -6,13 +6,9 @@ import { ipcMain } from 'electron';
 import type { AgentSession } from '@earendil-works/pi-coding-agent';
 
 import { IpcChannels } from '@/types/ipc-channels';
-import type { AgentStreamEvent, ChatMessage, ChatTurnUndoRef } from '@/types/ipc';
-import {
-  buildTurnUndoMapByTurn,
-  convertSessionMessages,
-  findLegacyTurnUndoEntryId,
-  nextId,
-} from './agent-helpers';
+import type { AgentStreamEvent, ChatHistoryPage, ChatTurnUndoRef } from '@/types/ipc';
+import { findLegacyTurnUndoEntryId, nextId } from './agent-helpers';
+import { readNewestTurns } from './agent-history-window';
 import { vcsManager } from '@electron/shared/infra/shared-infra';
 import { gitWorkspaceStateManager } from '@electron/features/apps/git-app/manager';
 
@@ -38,13 +34,10 @@ function rebuildMessages(
   entry: AgentPoolCheckpointEntry,
   sessionId: string,
   sendEvent: (event: AgentStreamEvent) => void,
-): ChatMessage[] {
-  const chatMessages = convertSessionMessages(
-    entry.session.messages,
-    buildTurnUndoMapByTurn(entry.session, entry.workspaceId),
-  );
-  sendEvent({ type: 'messages_loaded', sessionId, messages: chatMessages });
-  return chatMessages;
+): ChatHistoryPage {
+  const page = readNewestTurns(entry.session, entry.workspaceId);
+  sendEvent({ type: 'messages_loaded', sessionId, ...page });
+  return page;
 }
 
 function assertCanRestore(entry: AgentPoolCheckpointEntry | undefined, sessionId: string) {
@@ -84,7 +77,7 @@ export async function undoToTurn({
   sessionId,
   turnUndo,
   sendEvent,
-}: UndoToTurnArgs): Promise<ChatMessage[]> {
+}: UndoToTurnArgs): Promise<ChatHistoryPage> {
   if (turnUndo.workspaceId !== entry.workspaceId) {
     throw new Error('Turn undo does not belong to the active workspace');
   }
@@ -136,7 +129,7 @@ async function restoreLegacyCheckpoint(
   sessionId: string,
   changeId: string,
   sendEvent: (event: AgentStreamEvent) => void,
-): Promise<ChatMessage[]> {
+): Promise<ChatHistoryPage> {
   console.log(
     `[checkpoint] Legacy restore requested for session=${sessionId}, workspace=${entry.workspaceId}, checkpoint=${changeId}`,
   );
@@ -161,7 +154,7 @@ export function registerAgentCheckpointHandlers(
 ): void {
   ipcMain.handle(
     IpcChannels.agent.undoToTurn,
-    async (_event, sessionId: string, turnUndo: ChatTurnUndoRef): Promise<ChatMessage[]> => {
+    async (_event, sessionId: string, turnUndo: ChatTurnUndoRef): Promise<ChatHistoryPage> => {
       const entry = assertCanRestore(opts.getEntry(sessionId), sessionId);
       return undoToTurn({ entry, sessionId, turnUndo, sendEvent: opts.sendEvent });
     },
@@ -169,7 +162,7 @@ export function registerAgentCheckpointHandlers(
 
   ipcMain.handle(
     IpcChannels.agent.restoreToCheckpoint,
-    async (_event, sessionId: string, changeId: string): Promise<ChatMessage[]> => {
+    async (_event, sessionId: string, changeId: string): Promise<ChatHistoryPage> => {
       const entry = assertCanRestore(opts.getEntry(sessionId), sessionId);
       return restoreLegacyCheckpoint(entry, sessionId, changeId, opts.sendEvent);
     },

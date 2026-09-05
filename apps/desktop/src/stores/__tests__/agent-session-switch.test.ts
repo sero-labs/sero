@@ -5,7 +5,7 @@ import { useAgentStore } from '@/stores/agent';
 
 const initialState = useAgentStore.getState();
 const notifySessionSwitch = vi.fn().mockResolvedValue(undefined);
-const open = vi.fn().mockResolvedValue([]);
+const open = vi.fn().mockResolvedValue({ messages: [], olderCursor: null });
 const getCommands = vi.fn().mockResolvedValue([]);
 const getModelState = vi.fn().mockResolvedValue(null);
 

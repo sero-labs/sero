@@ -13,6 +13,11 @@ package alone. User and plugin-author documentation belongs in
 - Persistent renderer state goes through the host layout service. Plugin state
   goes through the host app-state service. Do not create a second durable state
   path with `localStorage`, `sessionStorage`, or an event log.
+- A chat thread crosses IPC as windows of user turns, never whole. `agent.open`
+  returns the newest window with an older-page cursor, `agent.loadOlderTurns`
+  returns the window before a cursor, and the transcript virtualizes its rows.
+  A head rewrite (compaction, branch change) invalidates cursors, and the main
+  process answers a stale cursor with a replacement window.
 - `~/.sero-ui/profiles.json` selects the active profile. The active `SERO_HOME`
   owns profile data. Machine-shared tools and artifacts stay under the fixed
   host-artifacts root, outside every profile.

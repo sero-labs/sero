@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildTurnUndoMapByTurn,
   convertSessionMessages,
+  findLatestTurnUndo,
 } from '@electron/ipc/agent/core/agent-messages';
 
 describe('agent turn-undo message mapping', () => {
@@ -208,5 +209,40 @@ describe('Goal custom-message projection', () => {
     ]);
     expect(JSON.stringify(messages)).not.toContain('[goal-continuation]');
     expect(JSON.stringify(messages)).not.toContain('raw continuation instructions');
+  });
+});
+
+describe('findLatestTurnUndo', () => {
+  const branch = [
+    { id: 'user-entry-1', type: 'message', message: { role: 'user', content: 'first' } },
+    {
+      id: 'undo-entry-1',
+      type: 'custom',
+      customType: 'turn-undo',
+      data: { workspaceId: 'ws-1', snapshotId: 'snap-1', targetUserEntryId: 'user-entry-1', label: 'one' },
+    },
+    { id: 'user-entry-2', type: 'message', message: { role: 'user', content: 'second' } },
+    { id: 'assistant-entry-2', type: 'message', message: { role: 'assistant', content: [] } },
+  ];
+
+  it('returns the ref recorded for the newest user turn only', () => {
+    const withUndo = [
+      ...branch,
+      {
+        id: 'undo-entry-2',
+        type: 'custom',
+        customType: 'turn-undo',
+        data: { workspaceId: 'ws-1', snapshotId: 'snap-2', targetUserEntryId: 'user-entry-2', label: 'two' },
+      },
+    ];
+    const session = { sessionManager: { getBranch: () => withUndo } } as never;
+
+    expect(findLatestTurnUndo(session, 'ws-1')).toMatchObject({ snapshotId: 'snap-2' });
+    expect(findLatestTurnUndo(session, 'ws-1')).toEqual(buildTurnUndoMapByTurn(session, 'ws-1').get(1));
+  });
+
+  it('does not fall back to an earlier turn when the newest has no ref', () => {
+    const session = { sessionManager: { getBranch: () => branch } } as never;
+    expect(findLatestTurnUndo(session, 'ws-1')).toBeNull();
   });
 });

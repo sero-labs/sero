@@ -7,8 +7,7 @@
 import { vi } from 'vitest';
 import type { AgentStreamEvent } from '@/types/ipc';
 import type { AgentInstance, AgentRetryState, AgentState } from '@/stores/agent-types';
-import { drainDeltaBuffer, handleAgentStreamEvent, patchAssistant } from '@/stores/agent-utils';
-import { applyToolInputDelta, drainToolInputBuffer } from '@/stores/agent-tool-input';
+import { applyBufferedDeltas, handleAgentStreamEvent } from '@/stores/agent-utils';
 
 const rafQueue: Array<() => void> = [];
 
@@ -41,6 +40,8 @@ export function createRendererHarness(sessionId: string): RendererHarness {
     sessionPath: '/tmp/parity-session',
     workspaceId: 'parity-workspace',
     messages: [],
+    olderCursor: null,
+    loadingOlderTurns: false,
     isStreaming: false,
     retry: null,
     error: null,
@@ -60,41 +61,7 @@ export function createRendererHarness(sessionId: string): RendererHarness {
   };
   const get = () => state;
 
-  // Mirrors the flush in `useAgentStore.initEventListener`.
-  const flushDeltas = () => {
-    const { text, thinking } = drainDeltaBuffer();
-    const toolInput = drainToolInputBuffer();
-    if (text.size === 0 && thinking.size === 0 && toolInput.size === 0) return;
-    set((current) => {
-      let agents = current.agents;
-      for (const [sid, messageMap] of text) {
-        for (const [messageId, delta] of messageMap) {
-          agents = patchAssistant(agents, sid, messageId, (message) => ({
-            ...message,
-            text: message.text + delta,
-          }));
-        }
-      }
-      for (const [sid, messageMap] of thinking) {
-        for (const [messageId, delta] of messageMap) {
-          agents = patchAssistant(agents, sid, messageId, (message) => ({
-            ...message,
-            thinking: (message.thinking ?? '') + delta,
-          }));
-        }
-      }
-      for (const [sid, streamMap] of toolInput) {
-        const agent = agents[sid];
-        if (!agent) continue;
-        let messages = agent.messages;
-        for (const [streamKey, pending] of streamMap) {
-          messages = applyToolInputDelta(messages, streamKey, pending);
-        }
-        agents = { ...agents, [sid]: { ...agent, messages } };
-      }
-      return { agents };
-    });
-  };
+  const flushDeltas = () => applyBufferedDeltas(set);
 
   const streamingTimeline: boolean[] = [];
   const retryTimeline: Array<AgentRetryState | null> = [];

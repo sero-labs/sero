@@ -19,6 +19,7 @@ export {
   attachmentsToImages,
   buildTurnUndoMapByTurn,
   convertSessionMessages,
+  findLatestTurnUndo,
   findLegacyTurnUndoEntryId,
   formatCustomMessage,
   projectCustomMessage,

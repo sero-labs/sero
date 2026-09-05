@@ -42,3 +42,17 @@ export function broadcastToWindows(channel: string, ...args: unknown[]): void {
     }
   }
 }
+
+/** Send to the windows whose `webContents.id` is in `webContentsIds` only. */
+export function sendToWindows(webContentsIds: ReadonlySet<number>, channel: string, ...args: unknown[]): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!webContentsIds.has(window.webContents.id)) continue;
+    const target = getSendableTarget(window);
+    if (!target) continue;
+    try {
+      target.send(channel, ...args);
+    } catch {
+      // Window may be navigating or closing while the event fanout runs.
+    }
+  }
+}

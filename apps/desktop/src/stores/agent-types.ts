@@ -20,7 +20,11 @@ export interface AgentInstance {
   sessionPath: string;
   workspaceId: string;
   runtimeBackend?: WorkspaceRuntimeBackend;
+  /** The loaded window of the thread: older turns first, live tail last. */
   messages: ChatMessage[];
+  /** Cursor for the next older window, or null once the whole thread is loaded. */
+  olderCursor: string | null;
+  loadingOlderTurns: boolean;
   isStreaming: boolean;
   retry: AgentRetryState | null;
   error: string | null;
@@ -50,6 +54,8 @@ export interface AgentState {
   ) => Promise<void>;
   /** Close a session — disposes its AgentSession. */
   closeSession: (sessionId: string) => Promise<void>;
+  /** Prepend the next older window of user turns to a session. */
+  loadOlderTurns: (sessionId: string) => Promise<void>;
   /** Send a prompt to a specific session, optionally with file attachments. */
   sendPrompt: (sessionId: string, text: string, attachments?: ChatAttachment[]) => Promise<void>;
   /** Steer the agent mid-stream (interrupt after current tool, skip remaining). */

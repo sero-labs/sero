@@ -10,13 +10,48 @@ import {
   bufferToolInputDelta,
   clearBufferedSessionToolInput,
   createStreamingToolMessage,
+  applyToolInputDelta,
   applyToolInputEnd,
   applyToolStart,
+  drainToolInputBuffer,
   hasBufferedToolInput,
 } from '@/stores/agent-tool-input';
+import {
+  bufferTextDelta,
+  bufferThinkingDelta,
+  bufferToolOutput,
+  clearBufferedSessionDeltas,
+  discardBufferedToolOutput,
+  drainDeltaBuffer,
+  scheduleDeltaFlush,
+  setExternalDeltaWork,
+  type BufferedToolOutput,
+} from '@/stores/agent-delta-buffer';
 import { useContainerStore } from '@/stores/container';
 import { useSessionStore } from '@/stores/sessions';
 import { applyAgentLifecycle } from '@/stores/agent-lifecycle';
+
+// Streaming tool input shares the animation frame with the delta buffer.
+setExternalDeltaWork(hasBufferedToolInput);
+
+/**
+ * Replace the last message matching `predicate`. Live messages sit at the tail,
+ * so the search is short however long the thread is, and the copy keeps every
+ * other message by reference for memoized rows.
+ */
+export function patchLastMessage(
+  messages: ChatMessage[],
+  predicate: (message: ChatMessage) => boolean,
+  patch: (message: ChatMessage) => ChatMessage,
+): ChatMessage[] {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (!predicate(messages[index])) continue;
+    const next = messages.slice();
+    next[index] = patch(messages[index]);
+    return next;
+  }
+  return messages;
+}
 
 export function patchAssistant(
   agents: Record<string, AgentInstance>,
@@ -28,95 +63,78 @@ export function patchAssistant(
     ...agents,
     [sessionId]: {
       ...agents[sessionId],
-      messages: agents[sessionId].messages.map((message) =>
-        message.type === 'assistant' && message.id === messageId ? patch(message) : message,
+      messages: patchLastMessage(
+        agents[sessionId].messages,
+        (message) => message.type === 'assistant' && message.id === messageId,
+        (message) => patch(message as ChatAssistantMessage),
       ),
     },
   };
 }
 
-// ── RAF-batched text / thinking delta buffer ───────────────────
-// Accumulates high-frequency deltas and flushes once per animation
-// frame so the store (and React) sees at most ~60 updates/s.
-
-interface DeltaBuffer {
-  /** sessionId → messageId → accumulated text delta */
-  text: Map<string, Map<string, string>>;
-  /** sessionId → messageId → accumulated thinking delta */
-  thinking: Map<string, Map<string, string>>;
-  rafId: number | null;
+export function patchToolOutput(
+  messages: ChatMessage[],
+  toolCallId: string,
+  update: BufferedToolOutput,
+): ChatMessage[] {
+  return patchLastMessage(
+    messages,
+    (message) => message.type === 'tool' && message.toolCallId === toolCallId,
+    (message) => ({
+      ...(message as ChatToolCallMessage),
+      output: update.output,
+      details: update.details ?? (message as ChatToolCallMessage).details,
+      state: 'running',
+      isPartialOutput: true,
+      images: update.images ?? (message as ChatToolCallMessage).images,
+    }),
+  );
 }
 
-const buf: DeltaBuffer = { text: new Map(), thinking: new Map(), rafId: null };
+type SetFn = (
+  fn: (state: AgentState) => Partial<AgentState> | AgentState,
+) => void;
+type GetFn = () => AgentState;
 
-function appendToBuf(
-  target: Map<string, Map<string, string>>,
-  sessionId: string,
-  messageId: string,
-  delta: string,
-) {
-  let sessionMap = target.get(sessionId);
-  if (!sessionMap) {
-    sessionMap = new Map();
-    target.set(sessionId, sessionMap);
-  }
-  sessionMap.set(messageId, (sessionMap.get(messageId) ?? '') + delta);
-}
-
-/**
- * Queue a text delta for the next animation-frame flush.
- * `flushFn` is called with the buffered deltas once per frame.
- */
-function bufferTextDelta(
-  sessionId: string,
-  messageId: string,
-  delta: string,
-  flushFn: () => void,
-) {
-  appendToBuf(buf.text, sessionId, messageId, delta);
-  scheduleDeltaFlush(flushFn);
-}
-
-/**
- * Queue a thinking delta for the next animation-frame flush.
- */
-function bufferThinkingDelta(
-  sessionId: string,
-  messageId: string,
-  delta: string,
-  flushFn: () => void,
-) {
-  appendToBuf(buf.thinking, sessionId, messageId, delta);
-  scheduleDeltaFlush(flushFn);
-}
-
-function scheduleDeltaFlush(flushFn: () => void) {
-  if (buf.rafId !== null) return;
-  buf.rafId = requestAnimationFrame(() => {
-    buf.rafId = null;
-    flushFn();
+/** Apply every buffered delta to the store in one update. */
+export function applyBufferedDeltas(set: SetFn): void {
+  const { text, thinking, toolOutput } = drainDeltaBuffer();
+  const toolInput = drainToolInputBuffer();
+  if (text.size === 0 && thinking.size === 0 && toolOutput.size === 0 && toolInput.size === 0) return;
+  set((state) => {
+    let agents = state.agents;
+    for (const [sessionId, messageMap] of text) {
+      for (const [messageId, delta] of messageMap) {
+        agents = patchAssistant(agents, sessionId, messageId, (m) => ({ ...m, text: m.text + delta }));
+      }
+    }
+    for (const [sessionId, messageMap] of thinking) {
+      for (const [messageId, delta] of messageMap) {
+        agents = patchAssistant(agents, sessionId, messageId, (m) => ({
+          ...m, thinking: (m.thinking ?? '') + delta,
+        }));
+      }
+    }
+    for (const [sessionId, streamMap] of toolInput) {
+      const agent = agents[sessionId];
+      if (!agent) continue;
+      let messages = agent.messages;
+      for (const [streamKey, pending] of streamMap) {
+        messages = applyToolInputDelta(messages, streamKey, pending);
+      }
+      agents = { ...agents, [sessionId]: { ...agent, messages } };
+    }
+    for (const [sessionId, outputMap] of toolOutput) {
+      const agent = agents[sessionId];
+      if (!agent) continue;
+      let messages = agent.messages;
+      for (const [toolCallId, update] of outputMap) {
+        messages = patchToolOutput(messages, toolCallId, update);
+      }
+      agents = { ...agents, [sessionId]: { ...agent, messages } };
+    }
+    return { agents };
   });
-}
-
-function clearBufferedSessionDeltas(sessionId: string): void {
-  buf.text.delete(sessionId);
-  buf.thinking.delete(sessionId);
-  if (buf.rafId !== null && buf.text.size === 0 && buf.thinking.size === 0 && !hasBufferedToolInput()) {
-    cancelAnimationFrame(buf.rafId);
-    buf.rafId = null;
-  }
-}
-
-/**
- * Drain all buffered deltas. Returns `{ text, thinking }` maps
- * (sessionId → messageId → accumulated delta) and clears the buffer.
- */
-export function drainDeltaBuffer() {
-  const text = buf.text;
-  const thinking = buf.thinking;
-  buf.text = new Map();
-  buf.thinking = new Map();
-  return { text, thinking };
 }
 
 // ── Pending memory context (per-session) ────────────────────────
@@ -143,11 +161,6 @@ interface OptimisticUserMessageOptions {
   attachments?: ChatAttachment[];
   isStreaming?: boolean;
 }
-
-type SetFn = (
-  fn: (state: AgentState) => Partial<AgentState> | AgentState,
-) => void;
-type GetFn = () => AgentState;
 
 export function appendOptimisticUserMessage(
   set: SetFn,
@@ -221,7 +234,15 @@ export function handleAgentStreamEvent(
 
     case 'messages_loaded':
       set((state) => ({
-        agents: { ...state.agents, [sid]: { ...state.agents[sid], messages: event.messages } },
+        agents: {
+          ...state.agents,
+          [sid]: {
+            ...state.agents[sid],
+            messages: event.messages,
+            olderCursor: event.olderCursor ?? null,
+            loadingOlderTurns: false,
+          },
+        },
       }));
       break;
 
@@ -298,10 +319,10 @@ export function handleAgentStreamEvent(
           ...state.agents,
           [sid]: {
             ...state.agents[sid],
-            messages: state.agents[sid].messages.map((message) =>
-              message.type === 'user' && message.id === userMessageId
-                ? ({ ...message, turnUndo } as ChatMessage)
-                : message,
+            messages: patchLastMessage(
+              state.agents[sid].messages,
+              (message) => message.type === 'user' && message.id === userMessageId,
+              (message) => ({ ...message, turnUndo } as ChatMessage),
             ),
           },
         },
@@ -369,47 +390,36 @@ export function handleAgentStreamEvent(
       break;
 
     case 'tool_update':
-      set((state) => ({
-        agents: {
-          ...state.agents,
-          [sid]: {
-            ...state.agents[sid],
-            messages: state.agents[sid].messages.map((message) =>
-              message.type === 'tool' && message.toolCallId === event.toolCallId
-                ? ({
-                    ...message,
-                    output: event.output,
-                    details: event.details ?? message.details,
-                    state: 'running',
-                    isPartialOutput: true,
-                    images: event.images ?? message.images,
-                  } as ChatToolCallMessage)
-                : message,
-            ),
-          },
-        },
-      }));
+      bufferToolOutput(
+        sid,
+        event.toolCallId,
+        { output: event.output, details: event.details, images: event.images },
+        flushDeltas,
+      );
       break;
 
     case 'tool_end':
+      // A partial update still in the buffer would flush after this final
+      // result and put the call back into "running".
+      discardBufferedToolOutput(sid, event.toolCallId);
       set((state) => ({
         agents: {
           ...state.agents,
           [sid]: {
             ...state.agents[sid],
-            messages: state.agents[sid].messages.map((message) =>
-              message.type === 'tool' && message.toolCallId === event.toolCallId
-                ? ({
-                    ...message,
-                    output: event.output,
-                    details: event.details ?? message.details,
-                    isError: event.isError,
-                    state: event.isError ? 'error' : 'completed',
-                    isPartialOutput: false,
-                    isStreamingInput: false,
-                    images: event.images,
-                  } as ChatToolCallMessage)
-                : message,
+            messages: patchLastMessage(
+              state.agents[sid].messages,
+              (message) => message.type === 'tool' && message.toolCallId === event.toolCallId,
+              (message) => ({
+                ...(message as ChatToolCallMessage),
+                output: event.output,
+                details: event.details ?? (message as ChatToolCallMessage).details,
+                isError: event.isError,
+                state: event.isError ? 'error' : 'completed',
+                isPartialOutput: false,
+                isStreamingInput: false,
+                images: event.images,
+              }),
             ),
           },
         },

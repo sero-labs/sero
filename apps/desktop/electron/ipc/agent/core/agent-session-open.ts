@@ -6,7 +6,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import type {
   AgentStreamEvent,
-  ChatMessage,
+  ChatHistoryPage,
   ContextOverrides,
   ContextToolInfo,
 } from '@/types/ipc';
@@ -34,11 +34,8 @@ import {
 } from '@electron/features/plugins/resource-compatibility';
 import { withAgentPluginSkills } from '@electron/features/agent-plugins/skills';
 import { readGlobalAgentsMd } from './global-agents';
-import {
-  buildTurnUndoMapByTurn,
-  convertSessionMessages,
-  getBaseSystemPrompt,
-} from './agent-helpers';
+import { getBaseSystemPrompt } from './agent-helpers';
+import { readNewestTurns } from './agent-history-window';
 import { readPersistedContextOverrides, applyContextOverrides } from './agent-context-overrides';
 import { subscribeToSession } from './agent-subscription';
 
@@ -82,7 +79,7 @@ export async function openSessionInPool({
   workspaceId,
   sendEvent,
   closeExisting,
-}: OpenSessionInPoolArgs): Promise<ChatMessage[]> {
+}: OpenSessionInPoolArgs): Promise<ChatHistoryPage> {
   const workspacePath = workspaceManager.getPath(workspaceId);
   if (!workspacePath) throw new Error(`Workspace not found: ${workspaceId}`);
 
@@ -91,10 +88,7 @@ export async function openSessionInPool({
   const existing = pool.get(sessionId);
   if (existing) {
     if (existing.workspaceId === workspaceId && existing.runtimeBackend === runtime.backend) {
-      return convertSessionMessages(
-        existing.session.messages,
-        buildTurnUndoMapByTurn(existing.session, existing.workspaceId),
-      );
+      return readNewestTurns(existing.session, existing.workspaceId);
     }
 
     console.log(
@@ -221,5 +215,5 @@ export async function openSessionInPool({
   }
 
   pool.set(sessionId, entry);
-  return convertSessionMessages(session.messages, buildTurnUndoMapByTurn(session, workspaceId));
+  return readNewestTurns(session, workspaceId);
 }
