@@ -6,8 +6,18 @@
 import { useEffect } from 'react';
 import { useConnectionStore } from '@/stores/connection';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { useSessionSearchStore } from '@/stores/session-search';
+import { useUsageStore } from '@/stores/usage';
+import { useChoicesStore } from '@/stores/choices';
+import { useNotificationsStore } from '@/stores/notifications';
+import { useGitStore } from '@/stores/git';
+import { useUploadsStore } from '@/stores/uploads';
+import { useWidgetsStore } from '@/stores/widgets';
+import { useModelsStore, startModelSync } from '@/stores/models';
+import { usePushStore } from '@/stores/push';
 import { useChatStore } from '@/stores/chat';
 import { useFileStore } from '@/stores/files';
+import { startFileTreeSync } from '@/stores/file-tree-sync';
 import { useArtifactStore } from '@/stores/artifacts';
 import { useDevServerStore } from '@/stores/dev-servers';
 import type { GatewayMessage } from '@/lib/gateway-client';
@@ -28,10 +38,30 @@ export function useGatewayDispatcher(): void {
       useFileStore.getState().handleMessage(msg);
       useArtifactStore.getState().handleMessage(msg);
       useDevServerStore.getState().handleMessage(msg);
+      useSessionSearchStore.getState().handleMessage(msg);
+      useUsageStore.getState().handleMessage(msg);
+      useChoicesStore.getState().handleMessage(msg);
+      useNotificationsStore.getState().handleMessage(msg);
+      useGitStore.getState().handleMessage(msg);
+      useUploadsStore.getState().handleMessage(msg);
+      useWidgetsStore.getState().handleMessage(msg);
+      useModelsStore.getState().handleMessage(msg);
+
+      // The workspace listing is the first answer after a connect, so it
+      // is the earliest point push can be set up.
+      if (msg.type === 'ok' && 'requestType' in msg && msg.requestType === 'list_workspaces') {
+        void usePushStore.getState().refresh();
+      }
     };
 
     const unsub = client.onMessage(handler);
-    return unsub;
+    const stopFileTreeSync = startFileTreeSync();
+    const stopModelSync = startModelSync();
+    return () => {
+      unsub();
+      stopFileTreeSync();
+      stopModelSync();
+    };
   }, [client]);
 }
 

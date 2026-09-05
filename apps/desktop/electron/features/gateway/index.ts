@@ -27,14 +27,30 @@ import {
 import {
   broadcastDevServerChange as fanoutDevServerChange,
   broadcastGatewayEvent,
+  broadcastWorkspaceEvent as fanoutWorkspaceEvent,
+  broadcastOwnerEvent as fanoutOwnerEvent,
   pushSessionEvent,
 } from './server/event-broadcast';
+import {
+  applyAuthResult,
+  newConnectedClient,
+  closeIdleConnections,
+  countConnectionsFromIp,
+  sendPendingChoices,
+  authenticateClient,
+} from './server/client-registry';
 import {
   DevProxyTicketManager,
   generateTicketSecret,
 } from './security/devserver-ticket';
 import { createGatewayHttpServer, createPreviewHttpServer } from './server/http-app';
 import { getClientIp, isOriginAllowed } from './server/connection-security';
+import { AssetTicketManager } from './security/asset-ticket';
+import { getPushService, type PushService } from './push/service';
+import { routePushRequest } from './push/handlers';
+import { setAssetTicketIssuer } from './server/widget-handlers';
+import { dropWidgetStateWatches } from './bridge/widget-state-bridge';
+import { dropFileTreeWatches } from './bridge/file-tree-bridge';
 
 export type {
   GatewayConfig,
@@ -55,6 +71,8 @@ export interface ConnectedClient extends GatewayAccessScope {
   authenticated: boolean;
   /** Whether this client authenticated with the master token (vs a web token). */
   isMasterAuth: boolean;
+  /** Which token it used: a web token's id, or `master`. Empty until auth. */
+  tokenId: string;
   /** Session IDs this client is subscribed to for push events. */
   subscribedSessions: Set<string>;
   /** Source IP address of the client. */
@@ -74,6 +92,7 @@ export class GatewayServer {
   private webChatHtml: WebChatHtmlProvider | null = null;
   private idleCheckTimer: ReturnType<typeof setInterval> | null = null;
   private devProxyTickets: DevProxyTicketManager;
+  private assetTickets: AssetTicketManager;
   private devServerUnsubscribe: (() => void) | null = null;
 
   private authLimiter = new RateLimiter({
@@ -85,14 +104,42 @@ export class GatewayServer {
   /** Cost tracker for gateway-initiated sessions. */
   readonly costTracker: CostTracker;
 
+  /** Web Push, for phones with the app closed. */
+  readonly push: PushService;
+
   constructor(config: GatewayConfig) {
     this.config = config;
     this.auth = new GatewayAuth(config.tokenPath);
     this.costTracker = new CostTracker(config.configDir);
+    this.push = getPushService(config.configDir);
+    // A token revoked while Sero was closed must not keep its phone.
+    this.push.pruneToTokens(new Set(this.auth.webTokens.list().map((t) => t.tokenId)));
+    // A token that expires while Sero runs must not keep its phone either.
+    this.push.bindTokenCheck(
+      (tokenId) => tokenId === 'master' || this.auth.webTokens.isActive(tokenId),
+    );
     // Tickets are signed with a process-bound secret. We don't persist
     // it: a gateway restart invalidates outstanding tickets, which is
     // the desired behaviour for short-lived preview credentials.
     this.devProxyTickets = new DevProxyTicketManager(generateTicketSecret());
+    // A separate secret: asset tickets travel in URLs and must not be
+    // able to stand in for a dev-proxy ticket.
+    this.assetTickets = new AssetTicketManager(generateTicketSecret());
+    setAssetTicketIssuer((appId) => this.assetTickets.issue(appId));
+  }
+
+  /**
+   * Tokens with a client connected right now.
+   *
+   * A connected client already receives events over the socket, so its
+   * token needs no push.
+   */
+  connectedTokenIds(): Set<string> {
+    const ids = new Set<string>();
+    for (const [, client] of this.clients) {
+      if (client.authenticated && client.tokenId) ids.add(client.tokenId);
+    }
+    return ids;
   }
 
   /** Register agent operations handler (call before start). */
@@ -129,6 +176,7 @@ export class GatewayServer {
       previewTlsPort: this.config.previewTlsPort,
       getWebChatHtml: () => this.webChatHtml,
       getProxyDeps: () => this.proxyDeps(),
+      assetTickets: this.assetTickets,
       upgradeWebSocket: (req, socket, head) => {
         this.wss!.handleUpgrade(req, socket, head, (ws) => {
           this.wss!.emit('connection', ws, req);
@@ -155,7 +203,7 @@ export class GatewayServer {
       console.error('[gateway] WebSocket server error:', err);
     });
 
-    this.idleCheckTimer = setInterval(() => this.checkIdleConnections(), 5 * 60_000);
+    this.idleCheckTimer = setInterval(() => closeIdleConnections(this.clients, IDLE_TIMEOUT_MS), 5 * 60_000);
 
     try {
       await this.listenOn(this.httpServer, this.config.port);
@@ -265,6 +313,28 @@ export class GatewayServer {
     broadcastGatewayEvent(this.clients, event);
   }
 
+  /**
+   * Push an event to every client whose token can reach the workspace.
+   * Session-scoped filtering would drop events for sessions a client has
+   * not listed yet, which is exactly the case a phone needs to see.
+   */
+  broadcastWorkspaceEvent(workspaceId: string, event: GatewayPushEvent): void {
+    fanoutWorkspaceEvent(this.clients, workspaceId, event);
+  }
+
+  /**
+   * Push an event to owner tokens only. Used for anything that names no
+   * workspace, which no scoped token can be shown to have a right to.
+   */
+  broadcastOwnerEvent(event: GatewayPushEvent): void {
+    fanoutOwnerEvent(this.clients, event);
+  }
+
+  /** Mint an asset ticket so a client can pull one app's widget assets. */
+  issueAssetTicket(appId: string): string {
+    return this.assetTickets.issue(appId);
+  }
+
   /** Get the auth manager (for web token operations from the request handler). */
   getAuth(): GatewayAuth {
     return this.auth;
@@ -282,40 +352,7 @@ export class GatewayServer {
     };
   }
 
-  private applyAuthResult(client: ConnectedClient, result: GatewayAuthResult): void {
-    client.authenticated = true;
-    client.isMasterAuth = result.type === 'master';
-    client.authorizedWorkspaceIds = result.authorizedWorkspaceIds
-      ? new Set(result.authorizedWorkspaceIds)
-      : null;
-    client.authorizedSessions.clear();
-    client.authorizedArtifacts.clear();
-    client.subscribedSessions.clear();
-  }
-
   // ── Internal ──────────────────────────────────────────────
-
-  /** Count connections from a specific IP. */
-  private countConnectionsFromIp(ip: string): number {
-    let count = 0;
-    for (const [, client] of this.clients) {
-      if (client.remoteIp === ip) count++;
-    }
-    return count;
-  }
-
-  /** Close idle authenticated connections. */
-  private checkIdleConnections(): void {
-    const now = Date.now();
-    for (const [ws, client] of this.clients) {
-      if (!client.authenticated) continue;
-      if (now - client.lastActivity > IDLE_TIMEOUT_MS) {
-        console.log(`[gateway] Closing idle connection: ${client.clientType} (${client.clientId})`);
-        ws.close(4008, 'Idle timeout');
-        this.clients.delete(ws);
-      }
-    }
-  }
 
   private handleConnection(ws: WebSocket, req: http.IncomingMessage): void {
     const remoteIp = getClientIp(req);
@@ -328,7 +365,7 @@ export class GatewayServer {
     }
 
     // Enforce per-IP connection limit
-    if (this.countConnectionsFromIp(remoteIp) >= MAX_CONNECTIONS_PER_IP) {
+    if (countConnectionsFromIp(this.clients, remoteIp) >= MAX_CONNECTIONS_PER_IP) {
       console.warn(`[gateway] Connection rejected: max connections per IP (${MAX_CONNECTIONS_PER_IP}) reached for ${remoteIp}`);
       ws.close(4029, 'Too many connections from this IP');
       return;
@@ -342,19 +379,7 @@ export class GatewayServer {
       return;
     }
 
-    const client: ConnectedClient = {
-      ws,
-      clientType: 'unknown',
-      clientId: `client-${Date.now()}`,
-      authenticated: false,
-      isMasterAuth: false,
-      authorizedWorkspaceIds: null,
-      authorizedSessions: new Map(),
-      authorizedArtifacts: new Map(),
-      subscribedSessions: new Set(),
-      remoteIp,
-      lastActivity: Date.now(),
-    };
+    const client = newConnectedClient(ws, remoteIp);
     this.clients.set(ws, client);
 
     // Auto-disconnect unauthenticated clients after 10s
@@ -401,11 +426,15 @@ export class GatewayServer {
 
     ws.on('close', () => {
       clearTimeout(authTimeout);
+      dropWidgetStateWatches(ws);
+      dropFileTreeWatches(ws);
       this.clients.delete(ws);
     });
 
     ws.on('error', (err) => {
       console.error('[gateway] Client error:', err);
+      dropWidgetStateWatches(ws);
+      dropFileTreeWatches(ws);
       this.clients.delete(ws);
     });
   }
@@ -415,44 +444,9 @@ export class GatewayServer {
     client: ConnectedClient,
     request: GatewayRequest,
   ): Promise<void> {
-    // Connect / auth is always allowed
+    // Connect / auth is always allowed.
     if (request.type === 'connect') {
-      // Check rate limiter before validating token
-      if (!this.authLimiter.check(client.remoteIp)) {
-        console.warn(`[gateway] Auth rate-limited: ${client.remoteIp}`);
-        sendResponse(ws, {
-          type: 'error',
-          requestType: 'connect',
-          message: 'Too many authentication attempts. Try again later.',
-        });
-        ws.close(4029, 'Rate limited');
-        return;
-      }
-
-      const authResult = this.auth.validate(request.token);
-      if (!authResult) {
-        console.warn(
-          `[gateway] Auth failed: ${client.remoteIp} (client type: ${request.clientType})`,
-        );
-        sendResponse(ws, {
-          type: 'error',
-          requestType: 'connect',
-          message: 'Invalid authentication token',
-        });
-        ws.close(4003, 'Authentication failed');
-        return;
-      }
-
-      // Successful auth — reset rate limiter for this IP
-      this.authLimiter.reset(client.remoteIp);
-
-      this.applyAuthResult(client, authResult);
-      client.clientType = request.clientType;
-      if (request.clientId) client.clientId = request.clientId;
-      console.log(
-        `[gateway] Client authenticated: ${client.clientType} (${client.clientId}) from ${client.remoteIp}`,
-      );
-      sendResponse(ws, { type: 'ok', requestType: 'connect' });
+      authenticateClient(ws, client, request, this.auth, this.authLimiter);
       return;
     }
 
@@ -466,6 +460,10 @@ export class GatewayServer {
       });
       return;
     }
+
+    // Push is answered here, not in the routing chain: a subscription is
+    // filed under the client's token, which the chain does not carry.
+    if (routePushRequest(ws, client, request, this.push)) return;
 
     if (!this.agentOps) {
       sendResponse(ws, {

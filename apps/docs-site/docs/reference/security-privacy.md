@@ -180,6 +180,54 @@ IDs, but that is not a comprehensive per-tool or agent-action permission system.
 Because prompts can lead the agent to run tools, treat gateway credentials like
 high-privilege secrets.
 
+### Writes a remote client can make
+
+Most gateway requests only read. These change something:
+
+- **Send a prompt, steer, or abort a turn.** Any authorized token. A prompt can
+  lead the agent to run tools, which is why a gateway token is a
+  high-privilege secret.
+- **Create a session.** Any token authorized for that workspace.
+- **Answer a pending question.** A question that names a workspace can be
+  answered by any token that reaches it. A question that names no workspace can
+  be answered only by the master token.
+- **Mark notifications read.** Any authenticated token. This changes no file.
+- **Upload a file (`upload_file`).** Any token authorized for that
+  workspace. A bare name lands in `uploads/`; the path may not escape the
+  workspace, and an upload never overwrites — a taken name gets a numeric
+  suffix. The cap is 20 MB. Workspace scope is the right bar here because
+  a token that can prompt a workspace can already have the agent write a
+  file in it; refusing the direct path would buy nothing.
+- **Write a widget's state (`app_state_set`).** Any token authorized for
+  that workspace. The client names the file by an opaque key, never by
+  path, and the key resolves only to a file a `remote: true` widget owns
+  in a workspace that token reaches. The write is the same atomic,
+  etag-checked write the desktop makes.
+- **Register this browser for notifications (`push_subscribe`).** Any
+  authenticated token. See [Web Push](#web-push) below.
+- **Commit changed files (`git_commit`).** Master token only. A scoped web
+  token is refused even for a workspace it can otherwise read.
+
+The commit is the only request that changes a git repository. Its limits:
+
+- it commits exactly the paths the client sends, and nothing else. The commit
+  is built in a temporary index, so a file staged on the desktop but not
+  selected stays staged and out of the commit. A selected file that has a
+  staged copy commits that copy, which is the diff the phone showed; a file
+  with no staged copy commits its working-tree content
+- it refuses while a merge, rebase, cherry-pick or revert is part-way through
+- it never pushes, amends, discards or stashes; there is no gateway request for
+  any of those
+- the commit runs as the desktop user, with that user's git identity and
+  signing configuration. The repository's pre-commit, prepare-commit-msg,
+  commit-msg and post-commit hooks run as they would for `git commit`, and a
+  hook that fails refuses the commit with its own message. Running the hooks
+  this way needs git 2.36 or later
+- a hook that stages a file the client did not select refuses the commit;
+  nothing is committed and nothing is left to undo
+- if a commit lands on the desktop while the phone's commit is being made, the
+  phone's commit is refused rather than placed on top of a base it did not see
+
 Important gateway limits:
 
 - the master token is profile-scoped and should be stored/handled like a root
@@ -215,6 +263,42 @@ when remote access is no longer needed.
 The pairing dialog is security-relevant because it shows both the access scope
 and expiry for a remote web device. Treat real QR codes and login URLs from this
 screen as secrets; redact them from screenshots and rotate exposed tokens.
+
+### Web Push
+
+Sero Remote can notify a phone with the app closed. This is the one part
+of remote access that leaves your tailnet, so it is worth reading.
+
+What leaves the machine, and where it goes:
+
+- A push travels through the browser vendor's push service — Google,
+  Mozilla or Apple — because that is the only way to wake a closed app.
+  Your tailnet cannot do it.
+- The payload carries the source, the kind of event, the workspace id and
+  a path to open. **It never carries message content, session content, or
+  a token.** The phone fetches the details over the tailnet when you tap.
+- The payload is encrypted to that browser's own key, so the push service
+  moves it without reading it.
+
+What controls it:
+
+- Push is off until someone turns it on, per device, from the
+  notification feed. The browser asks its own permission on top.
+- A subscription is filed under the token that made it, with that token's
+  workspace scope frozen in. A scoped token's phone is only pushed events
+  from the workspaces it may see.
+- An event that names no workspace is pushed to owner tokens only.
+- Revoking or expiring a web token drops its subscriptions at once, and every
+  send checks the token again first, so a token that expired since the last
+  prune gets nothing.
+- A token with a client connected right now is not pushed to. It already
+  has the event over the socket.
+- A push service answers `410 Gone` for a browser that dropped its
+  subscription. Sero forgets it then.
+
+The subscription endpoint is a capability: whoever holds it can send that
+browser a message. It is stored with the same file permissions as the
+gateway token, in `gateway-push-subscriptions.json`.
 
 ## Security boundaries
 

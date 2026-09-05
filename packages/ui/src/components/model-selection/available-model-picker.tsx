@@ -1,16 +1,23 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { Check, ChevronDown, Sparkles, X } from 'lucide-react';
+/**
+ * A model picker shaped as a settings field.
+ *
+ * The trigger is a full-width box that names the current model. The list
+ * itself is `ModelPickerBody`, so a composer can show the same list under
+ * a compact chip instead. Thinking is a separate control here: a settings
+ * card keeps it visible beside the model rather than behind a click.
+ */
+
+import { useCallback, useMemo, useState } from 'react';
+import { ChevronDown, Sparkles, X } from 'lucide-react';
 import {
-  filterModelGroups,
   findGroup,
   findModel,
-  modelKey,
   parseModelKey,
   type SharedAvailableModelGroup,
   type SharedModelInfo,
 } from '@sero-ai/common';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { SearchInput } from '../ui/search-input';
+import { ModelPickerBody, ProviderLogo } from './model-picker-body';
 import { cn } from '../../lib/utils';
 
 interface AvailableModelPickerProps<
@@ -45,8 +52,6 @@ export function AvailableModelPicker<
   className,
 }: AvailableModelPickerProps<TModel, TGroup>) {
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const selected = useMemo(() => {
     const parsed = parseModelKey(value);
@@ -65,38 +70,19 @@ export function AvailableModelPicker<
     };
   }, [groups, value]);
 
-  const filteredGroups = useMemo(
-    () => filterModelGroups(groups, query),
-    [groups, query],
-  );
-
-  const totalResults = useMemo(
-    () => filteredGroups.reduce((count, group) => count + group.models.length, 0),
-    [filteredGroups],
-  );
-
-  const handleOpenChange = useCallback((nextOpen: boolean) => {
-    setOpen(nextOpen);
-    if (!nextOpen) return;
-    setQuery('');
-    requestAnimationFrame(() => inputRef.current?.focus());
-  }, []);
-
-  const handleSelect = useCallback((provider: string, modelId: string) => {
-    onChange(modelKey(provider, modelId));
+  const handleSelect = useCallback((nextValue: string) => {
+    onChange(nextValue);
     setOpen(false);
-    setQuery('');
   }, [onChange]);
 
   const handleClear = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     onChange('');
     setOpen(false);
-    setQuery('');
   }, [onChange]);
 
   return (
-    <Popover open={open} onOpenChange={handleOpenChange}>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild disabled={disabled}>
         <div
           role="button"
@@ -110,10 +96,10 @@ export function AvailableModelPicker<
         >
           {selected.group && selected.model ? (
             <>
-              <img
-                src={selected.group.logo}
-                alt={selected.group.displayName}
-                className="size-4 shrink-0 rounded-sm dark:invert"
+              <ProviderLogo
+                logo={selected.group.logo}
+                displayName={selected.group.displayName}
+                className="size-4"
               />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
@@ -159,72 +145,14 @@ export function AvailableModelPicker<
         className="w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-xl border-border/60 bg-background p-0 shadow-xl"
         onWheel={(event) => event.stopPropagation()}
       >
-        <SearchInput
-          ref={inputRef}
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder={searchPlaceholder}
-          containerClassName="border-b border-border/40"
+        <ModelPickerBody
+          groups={groups}
+          value={value}
+          onChange={handleSelect}
+          searchPlaceholder={searchPlaceholder}
+          emptyLabel={emptyLabel}
+          noModelsLabel={noModelsLabel}
         />
-
-        <div className="max-h-[280px] overflow-y-auto py-1">
-          {groups.length === 0 ? (
-            <div className="px-3 py-4 text-center text-sm text-muted-foreground">
-              {noModelsLabel}
-            </div>
-          ) : totalResults === 0 ? (
-            <div className="px-3 py-4 text-center text-sm text-muted-foreground">
-              {emptyLabel}
-            </div>
-          ) : (
-            filteredGroups.map((group, index) => (
-              <div key={group.provider}>
-                {index > 0 ? <div className="mx-3 border-t border-border/30" /> : null}
-                <div className="flex items-center gap-2 px-3 pb-1 pt-2">
-                  <img
-                    src={group.logo}
-                    alt={group.displayName}
-                    className="size-3.5 shrink-0 rounded-sm dark:invert"
-                  />
-                  <span className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                    {group.displayName}
-                  </span>
-                </div>
-                <div className="px-1">
-                  {group.models.map((model) => {
-                    const nextValue = modelKey(model.provider, model.modelId);
-                    const isSelected = nextValue === value;
-                    return (
-                      <button
-                        key={nextValue}
-                        type="button"
-                        onClick={() => handleSelect(model.provider, model.modelId)}
-                        className={cn(
-                          'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors',
-                          isSelected
-                            ? 'bg-secondary text-foreground'
-                            : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground',
-                        )}
-                      >
-                        <div className="flex size-4 shrink-0 items-center justify-center">
-                          {isSelected ? (
-                            <Check className="size-3.5 text-emerald-500" />
-                          ) : (
-                            <div className="size-1.5 rounded-full bg-border" />
-                          )}
-                        </div>
-                        <span className="min-w-0 flex-1 truncate font-medium">{model.name}</span>
-                        {model.reasoning ? (
-                          <Sparkles className="size-3 shrink-0 text-amber-500/60" />
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
       </PopoverContent>
     </Popover>
   );

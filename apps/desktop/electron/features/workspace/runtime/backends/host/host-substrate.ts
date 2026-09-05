@@ -57,7 +57,8 @@ export interface HostRuntimeSubstrate {
   terminalCommand(opts: { cwd: string; env?: Record<string, string> }): Promise<HostSubstrateRendered>;
 
   readFile(path: string): Promise<Buffer>;
-  writeFile(path: string, data: Buffer): Promise<void>;
+  /** `exclusive` refuses an existing file atomically, with an `EEXIST` error. */
+  writeFile(path: string, data: Buffer, opts?: { exclusive?: boolean }): Promise<void>;
   listFiles(path: string): Promise<HostSubstrateFileEntry[]>;
   stat(path: string): Promise<HostSubstrateStat>;
   rename(from: string, to: string): Promise<void>;

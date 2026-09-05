@@ -52,6 +52,14 @@ export interface DashboardWidgetContribution extends ComponentContributionBase {
   minSize?: { w: number; h: number };
   maxSize?: { w: number; h: number };
   description?: string;
+  /**
+   * Opt in to being shown in web-remote.
+   *
+   * A remote widget runs in a browser with no preload bridge, so only the
+   * remote-safe part of `window.sero` is there. Most widgets assume the
+   * full bridge, which is why this is opt-in rather than the default.
+   */
+  remote?: boolean;
 }
 
 export type ComponentContribution =

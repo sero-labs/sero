@@ -29,7 +29,7 @@ contribution a distinct identity.
 | `ui.titlebar.control` | Component | None | Inline title-bar controls |
 | `ui.chat.model-extension` | Component | `models` | Action beside the chat model selector |
 | `ui.admin.model-settings` | Component | `name`, `description?`, `icon?` | Admin Model subsection |
-| `ui.dashboard.widget` | Component | `name`, `defaultSize?`, `minSize?`, `maxSize?`, `description?` | Dashboard grid |
+| `ui.dashboard.widget` | Component | `name`, `defaultSize?`, `minSize?`, `maxSize?`, `description?`, `remote?` | Dashboard grid |
 | `workspace.create.option` | Control | `switch` control and `tool` action | Create New Workspace form |
 
 All component entries require `id`, `extensionPoint`, and `component`. The
@@ -37,6 +37,10 @@ All component entries require `id`, `extensionPoint`, and `component`. The
 example, `"KnowledgeSearch"` maps to the `"./KnowledgeSearch"` key in the
 plugin's `exposes` configuration. The source module must have a default React
 component export. Dashboard sizes default to `2 × 2` when omitted.
+
+Set `"remote": true` on a dashboard widget to also show it in web-remote,
+the browser client. See [Remote widgets](#remote-widgets) for what a widget
+may use there.
 
 An Admin model-settings contribution must also have a non-empty `name`. Admin
 uses this provider-neutral name in its Model subsection selector. The
@@ -189,6 +193,35 @@ availability is decided at runtime. Its registration is sticky for the current
 renderer session, even if the component that called the hook unmounts. For
 manual lifecycle control, `registerWidget()` returns an unregister function.
 Both paths use the same host-owned widget chrome and dashboard components.
+
+## Remote widgets
+
+Web-remote is the browser client. It runs your widget in a browser tab, with
+no Electron preload and no file system. A widget only appears there when its
+contribution sets `"remote": true`.
+
+Opt in when the widget reads its state and shows it. Do not opt in when the
+widget needs anything below.
+
+### What a remote widget may use
+
+| API | Works in a browser | Notes |
+| --- | --- | --- |
+| `useAppState()` read | yes | The host reads the same state file the desktop reads. |
+| `useAppState()` write | yes | Same atomic write, same etag check as the desktop. |
+| Live state updates | yes | The host watches the file and pushes each change. |
+| `useAppInfo()` | partly | `appId` and `workspaceId` are set. `workspacePath` is empty. |
+| `useAgentPrompt()` | yes | The prompt goes to the conversation the person is on. |
+| Everything else on `window.sero` | no | Editors, models, tools and app control are absent. |
+
+### Rules
+
+- A remote widget must not read `workspacePath`. A browser has no file system,
+  so the value is empty there.
+- A remote widget must survive a missing API. Check before you call, and show
+  something useful when an API is absent.
+- Widget assets are served from the gateway with a signed ticket. Nothing is
+  served for a widget that did not opt in.
 
 ## See also
 

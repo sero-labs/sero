@@ -50,6 +50,31 @@ function normalizeWebToken(value: unknown): WebToken[] {
   return [{ token, createdAt, expiresAt, label, workspaceIds: workspaceScope.workspaceIds }];
 }
 
+/** Told when tokens stop being valid, by revoke or by expiry. */
+type TokensGoneListener = (tokenIds: string[]) => void;
+
+const tokensGoneListeners: TokensGoneListener[] = [];
+
+/**
+ * Watch for tokens that stop being valid.
+ *
+ * A token's id is the first 8 characters of the token, which is what
+ * every other part of the gateway files things under.
+ */
+export function onWebTokensGone(listener: TokensGoneListener): () => void {
+  tokensGoneListeners.push(listener);
+  return () => {
+    const at = tokensGoneListeners.indexOf(listener);
+    if (at !== -1) tokensGoneListeners.splice(at, 1);
+  };
+}
+
+function announceGone(tokens: WebToken[]): void {
+  if (tokens.length === 0) return;
+  const ids = tokens.map((token) => token.token.slice(0, 8));
+  for (const listener of tokensGoneListeners) listener(ids);
+}
+
 export interface WebToken {
   token: string;
   createdAt: string;
@@ -77,9 +102,13 @@ export class WebTokenManager {
 
     this.pruneExpired();
 
-    // Enforce max tokens — remove oldest if at limit
-    while (this.tokens.length >= MAX_TOKENS) {
-      this.tokens.shift();
+    // Refuse at the cap rather than dropping the oldest. Evicting one
+    // silently unpairs a device that is still in use, with nothing said
+    // to the person holding it or the person creating this token.
+    if (this.tokens.length >= MAX_TOKENS) {
+      throw new Error(
+        `Already paired with ${MAX_TOKENS} devices. Revoke one before pairing another.`,
+      );
     }
 
     const days = expiryDays ?? DEFAULT_EXPIRY_DAYS;
@@ -116,14 +145,27 @@ export class WebTokenManager {
 
   /** Revoke a token by its ID prefix (first 8 chars). */
   revoke(tokenId: string): boolean {
-    const before = this.tokens.length;
+    const removed = this.tokens.filter((t) => t.token.startsWith(tokenId));
+    if (removed.length === 0) return false;
+
     this.tokens = this.tokens.filter((t) => !t.token.startsWith(tokenId));
-    if (this.tokens.length < before) {
-      this.save();
-      console.log(`[web-tokens] Revoked token: ${tokenId}`);
-      return true;
-    }
-    return false;
+    this.save();
+    console.log(`[web-tokens] Revoked token: ${tokenId}`);
+    // Whatever was filed under this token — a phone's push subscription,
+    // for one — has to go with it.
+    announceGone(removed);
+    return true;
+  }
+
+  /**
+   * True while the token with this id (its first 8 characters) is valid.
+   *
+   * Expiry is noticed here, not only when the settings UI lists tokens,
+   * so a push sender asking at send time gets the current answer.
+   */
+  isActive(tokenId: string): boolean {
+    this.pruneExpired();
+    return this.tokens.some((t) => t.token.startsWith(tokenId));
   }
 
   /** Validate a token. Returns the scoped token if valid and not expired. */
@@ -143,13 +185,12 @@ export class WebTokenManager {
   /** Remove expired tokens. */
   private pruneExpired(): void {
     const now = Date.now();
-    const before = this.tokens.length;
-    this.tokens = this.tokens.filter(
-      (t) => new Date(t.expiresAt).getTime() > now,
-    );
-    if (this.tokens.length < before) {
-      this.save();
-    }
+    const expired = this.tokens.filter((t) => new Date(t.expiresAt).getTime() <= now);
+    if (expired.length === 0) return;
+
+    this.tokens = this.tokens.filter((t) => new Date(t.expiresAt).getTime() > now);
+    this.save();
+    announceGone(expired);
   }
 
   /** Load tokens from disk. */

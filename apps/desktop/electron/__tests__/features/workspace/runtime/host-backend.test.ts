@@ -79,6 +79,16 @@ describe('HostBackend', () => {
     await expect(readFile(path.join(workspacePath, 'nested', 'new.txt'), 'utf8')).rejects.toThrow();
   });
 
+  it('refuses to create over an existing file, and says so with EEXIST', async () => {
+    const { backend, workspacePath } = await createBackend();
+    await writeFile(path.join(workspacePath, 'taken.txt'), 'first', 'utf8');
+
+    await expect(
+      backend.createFile({ path: '/workspace/taken.txt', content: 'second', overwrite: false }),
+    ).rejects.toMatchObject({ code: 'EEXIST' });
+    expect(await readFile(path.join(workspacePath, 'taken.txt'), 'utf8')).toBe('first');
+  });
+
   it('runs commands from the translated cwd', async () => {
     const { backend } = await createBackend();
     await backend.writeFile({ path: '/workspace/package.json', content: '{"name":"demo"}' });

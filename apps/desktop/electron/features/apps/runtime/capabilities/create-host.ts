@@ -6,7 +6,7 @@ import { listWorkspaceAccessRoots } from '@electron/features/workspace/access-ro
 import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import { appControlHostService } from '@electron/features/apps/app-control/host-service';
 import { focusMainWindow } from '@electron/platform/desktop/notifications';
-import { showNotification } from '@electron/platform/desktop/notifications';
+import { notify } from '@electron/features/notifications/feed';
 import { requestChoice } from '@electron/platform/desktop/request-choice';
 import { runWorkspaceCommand } from '@electron/features/workspace/runtime/run-workspace-command';
 import { getRoomSkillCatalog } from '@electron/ipc/agent/handlers/subagent-context';
@@ -227,8 +227,9 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
     notifications: {
       notify: (options) => {
         const target = options.openTarget;
-        showNotification({
+        notify({
           ...options,
+          workspaceId: target?.workspaceId,
           // A notification that says something needs the user must be able to
           // take them there; without this the click does nothing.
           onClick: target

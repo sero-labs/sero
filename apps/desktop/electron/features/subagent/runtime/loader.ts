@@ -18,7 +18,8 @@ import type { ContainerState } from '@electron/features/container/core/types';
 import { buildContainerPromptBlock } from '@electron/features/container/tools/system-prompt';
 import { buildCliPromptBlock } from '@electron/cli';
 import { logProviderRequest } from '@electron/ipc/editor/debug';
-import { showNotification, type NotificationType } from '@electron/platform/desktop/notifications';
+import { notify } from '@electron/features/notifications/feed';
+import type { NotificationType } from '@electron/features/notifications/types';
 import { registerSharedIsolatedCompletionHost } from '@electron/shared/infra/isolated-completion-host';
 import { registerAgentPluginHostCapability } from '@electron/features/agent-plugins/host-capability';
 
@@ -68,7 +69,7 @@ export function createSubagentExtensionFactory(
     pi.events.on('sero:notify', (data: unknown) => {
       const p = data as Record<string, unknown> | undefined;
       if (!p?.message || typeof p.message !== 'string') return;
-      showNotification({
+      notify({
         message: p.message,
         type: (['info', 'warning', 'error'].includes(p.type as string)
           ? p.type : 'info') as NotificationType,

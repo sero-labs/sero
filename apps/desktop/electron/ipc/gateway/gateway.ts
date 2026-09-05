@@ -7,8 +7,11 @@ import { IpcChannels } from '@/types/ipc-channels';
 import type { QrLoginData } from '@/types/ipc';
 import { gatewayServer, tailscale, webChatServer } from '@electron/shared/infra/shared-infra';
 import { getGatewayAgentOps, setGatewayEventSink, setGatewayCostTracker } from '@electron/features/gateway/bridge/agent-bridge';
+import { registerGatewayChoiceBridge } from '@electron/features/gateway/bridge/choice-bridge';
+import { registerGatewayNotificationBridge } from '@electron/features/gateway/bridge/notification-bridge';
 import { generateQrDataUrl } from '@electron/features/gateway/bridge/qr-encode';
 import { DiscordAdapter } from '@electron/features/gateway/channels/discord';
+import { setGatewayEnabled, shouldAutoStartGateway } from '@electron/shared/settings/gateway-settings';
 
 export interface GatewayConfig {
   enabled: boolean;
@@ -28,8 +31,11 @@ let gatewayConfig: GatewayConfig = {
   discordAllowedUsers: [],
 };
 
-/** Read env vars into config. Called once at handler registration time. */
+/** Read env vars and the saved setting. Called at handler registration. */
 function seedConfigFromEnv(): void {
+  // The renderer asks for this config to draw the toggle, so it has to
+  // start out matching what the app actually did at boot.
+  gatewayConfig.enabled = shouldAutoStartGateway();
   if (process.env.SERO_DISCORD_TOKEN) {
     gatewayConfig.discordBotToken = process.env.SERO_DISCORD_TOKEN;
   }
@@ -58,10 +64,11 @@ export function registerGatewayHandlers(): void {
   ipcMain.handle(
     IpcChannels.gateway.setEnabled,
     async (_event, enabled: boolean) => {
-      gatewayConfig.enabled = enabled;
       if (enabled) {
-        await startGateway();
+        await startGatewayAndRemember();
       } else {
+        gatewayConfig.enabled = false;
+        setGatewayEnabled(false);
         await stopGateway();
       }
       return gatewayServer.getStatus();
@@ -104,7 +111,10 @@ export function registerGatewayHandlers(): void {
   ipcMain.handle(
     IpcChannels.gateway.getQrLoginData,
     async (_event, expiryDays?: number): Promise<QrLoginData> => {
-      await startGateway();
+      // Pairing a device is asking for Remote Control, so it is
+      // remembered. Without this the gateway came up for this session
+      // only, and the paired device could not reach it after a restart.
+      await startGatewayAndRemember();
 
       // Clamp expiry to 1–30 days to prevent bogus values from the renderer.
       const days = Math.max(1, Math.min(expiryDays ?? 7, 30));
@@ -142,6 +152,22 @@ export function registerGatewayHandlers(): void {
 
 // ── Gateway lifecycle (called from main.ts) ─────────────────
 
+/**
+ * Start the gateway because someone asked for it, and remember that.
+ *
+ * Every deliberate start goes through here: the Remote Control toggle
+ * and pairing a device. Boot calls `startGateway` directly, because it
+ * is acting on the record rather than making one.
+ *
+ * The record is written first. A start that fails should still leave
+ * the choice, so the next launch tries again rather than forgetting.
+ */
+export async function startGatewayAndRemember(): Promise<void> {
+  gatewayConfig.enabled = true;
+  setGatewayEnabled(true);
+  await startGateway();
+}
+
 export { startGateway, stopGateway };
 
 async function startGateway(): Promise<void> {
@@ -165,6 +191,10 @@ async function startGateway(): Promise<void> {
     setGatewayEventSink(gatewayServer);
     // Wire cost tracking for gateway-initiated sessions.
     setGatewayCostTracker(gatewayServer.costTracker);
+    // Wire interactive choices: pending questions → gateway clients.
+    registerGatewayChoiceBridge(gatewayServer);
+    // Wire the notification feed: new entries → gateway clients.
+    registerGatewayNotificationBridge(gatewayServer);
   } catch (err) {
     console.error('[gateway] Failed to start:', err);
     return;

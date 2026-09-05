@@ -5,16 +5,26 @@ import type {
   LocalModelsSaveResult,
   LocalModelsConnectionRequest,
   LocalRemoteModelInfo,
+  PairedDevice,
   QrLoginData,
 } from './ipc';
 
 export interface SeroGatewayAPI {
   /**
-   * Generate a QR code for device pairing.
-   * Creates a time-limited owner web token with access to the whole profile and returns the QR data URL + login URL.
+   * Pair a device: create a time-limited owner web token with access to
+   * the whole profile, and return the QR data URL and login URL.
+   *
+   * This starts the gateway if it is not already running, and it is
+   * refused once the profile is paired with the maximum number of
+   * devices. Only call it when the user asks to pair.
+   *
    * @param expiryDays Number of days until the token expires (default 7).
    */
   getQrLoginData(expiryDays?: number): Promise<QrLoginData>;
+  /** Devices paired with this profile. Tokens are masked. */
+  listWebTokens(): Promise<PairedDevice[]>;
+  /** Unpair a device by its token id. Its push subscription goes too. */
+  revokeWebToken(tokenId: string): Promise<boolean>;
 }
 
 export interface SeroLocalModelsAPI {

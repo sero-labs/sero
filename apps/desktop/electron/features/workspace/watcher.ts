@@ -8,6 +8,10 @@
  * Each workspace can expose multiple virtual roots (`/workspace`, `/plugin-x`,
  * etc.). We watch every host root and translate changes back into the
  * renderer's virtual path space so the explorer and editor refresh correctly.
+ *
+ * A workspace can have more than one owner: the desktop window and the
+ * gateway both ask for the same tree. The watcher counts its owners, so
+ * one of them leaving never blinds the other.
  */
 
 import fs from 'fs';
@@ -16,6 +20,16 @@ import type { BrowserWindow } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
 
 const DEBOUNCE_MS = 150;
+
+/** What a change event carries: the directories that changed. */
+export interface WorkspaceChangeEvent {
+  workspaceId: string;
+  /** Virtual directories, such as `/workspace/src`. */
+  directories: string[];
+}
+
+/** Who asked for a workspace to be watched. */
+export type WatchOwner = string;
 
 export interface WorkspaceWatchRoot {
   hostDir: string;
@@ -33,23 +47,42 @@ interface WorkspaceWatcher {
   roots: RootWatcher[];
   debounceTimer: ReturnType<typeof setTimeout> | null;
   pendingDirs: Set<string>;
+  owners: Set<WatchOwner>;
 }
+
+/** The owner the desktop window watches under. */
+export const RENDERER_OWNER = 'renderer';
 
 export class FileWatcherManager {
   private watchers = new Map<string, WorkspaceWatcher>();
   private window: BrowserWindow | null = null;
+  private listeners = new Set<(event: WorkspaceChangeEvent) => void>();
 
   setWindow(win: BrowserWindow): void {
     this.window = win;
   }
 
-  /** Start or refresh watching all roots for a workspace. */
-  watch(workspaceId: string, roots: WorkspaceWatchRoot[]): void {
+  /**
+   * Hear about every change, alongside the desktop window.
+   *
+   * The gateway uses this to push changes to a browser, which cannot
+   * watch a filesystem of its own.
+   */
+  onChange(listener: (event: WorkspaceChangeEvent) => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  /** Start or refresh watching all roots for a workspace, for one owner. */
+  watch(workspaceId: string, roots: WorkspaceWatchRoot[], owner: WatchOwner = RENDERER_OWNER): void {
     const nextRoots = normalizeRoots(roots);
     if (nextRoots.length === 0) return;
 
     const existing = this.watchers.get(workspaceId);
     if (existing) {
+      existing.owners.add(owner);
       if (sameRoots(existing.roots, nextRoots)) return;
       this.stopFSWatch(existing);
       existing.roots = nextRoots.map((root) => ({ ...root, watcher: null }));
@@ -62,16 +95,23 @@ export class FileWatcherManager {
       roots: nextRoots.map((root) => ({ ...root, watcher: null })),
       debounceTimer: null,
       pendingDirs: new Set(),
+      owners: new Set([owner]),
     };
 
     this.watchers.set(workspaceId, watcher);
     this.startFSWatch(watcher);
   }
 
-  /** Stop and remove the watcher entirely. */
-  unwatch(workspaceId: string): void {
+  /**
+   * Drop one owner. The watcher stops only when the last owner leaves.
+   */
+  unwatch(workspaceId: string, owner: WatchOwner = RENDERER_OWNER): void {
     const watcher = this.watchers.get(workspaceId);
     if (!watcher) return;
+
+    watcher.owners.delete(owner);
+    if (watcher.owners.size > 0) return;
+
     this.stopFSWatch(watcher);
     this.watchers.delete(workspaceId);
   }
@@ -82,6 +122,7 @@ export class FileWatcherManager {
       this.stopFSWatch(watcher);
     }
     this.watchers.clear();
+    this.listeners.clear();
   }
 
   private startFSWatch(workspace: WorkspaceWatcher): void {
@@ -153,15 +194,30 @@ export class FileWatcherManager {
       const directories = Array.from(workspace.pendingDirs);
       workspace.pendingDirs.clear();
 
-      if (directories.length > 0 && this.window && !this.window.isDestroyed()) {
-        this.window.webContents.send(IpcChannels.filetree.changed, {
-          workspaceId: workspace.workspaceId,
-          directories,
-        });
+      if (directories.length === 0) return;
+
+      const event: WorkspaceChangeEvent = {
+        workspaceId: workspace.workspaceId,
+        directories,
+      };
+
+      if (this.window && !this.window.isDestroyed()) {
+        this.window.webContents.send(IpcChannels.filetree.changed, event);
+      }
+      for (const listener of this.listeners) {
+        listener(event);
       }
     }, DEBOUNCE_MS);
   }
 }
+
+/**
+ * The one watcher every owner shares.
+ *
+ * It lives here, not with the other singletons, so a gateway bridge can
+ * reach it without importing the whole application graph.
+ */
+export const fileWatcherManager = new FileWatcherManager();
 
 function normalizeRoots(roots: WorkspaceWatchRoot[]): WorkspaceWatchRoot[] {
   const seen = new Set<string>();

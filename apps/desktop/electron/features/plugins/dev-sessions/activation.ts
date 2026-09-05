@@ -2,6 +2,10 @@ import path from 'path';
 import type { PackageSource } from '@earendil-works/pi-coding-agent';
 import type { SeroAppManifest } from '@/types/ipc';
 import { registerExtAssets, unregisterExtAssets } from '@electron/platform/protocols/ext-protocol';
+import {
+  registerRemoteWidgets,
+  unregisterRemoteWidgets,
+} from '@electron/features/gateway/server/remote-widgets';
 import { getPackagesArray, readSettings, writeSettings } from '../settings';
 import { getActivePluginDevSessionRecords } from './conflicts';
 import { readPluginDevSessionRecords } from './settings';
@@ -135,8 +139,10 @@ export function reconcileActiveDevSessionExtAssets(activeManifests: SeroAppManif
 
     if (manifest.uiEntry) {
       registerExtAssets(manifest);
+      registerRemoteWidgets(manifest);
     } else {
       unregisterExtAssets(manifest.id);
+      unregisterRemoteWidgets(manifest.id);
     }
   }
 
@@ -144,6 +150,7 @@ export function reconcileActiveDevSessionExtAssets(activeManifests: SeroAppManif
     if (!record.expectedAppId) continue;
     if (!isActiveRecordWithManifest(record.expectedAppId, activeAppIds, activeManifestIds)) {
       unregisterExtAssets(record.expectedAppId);
+      unregisterRemoteWidgets(record.expectedAppId);
     }
   }
 }

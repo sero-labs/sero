@@ -1,4 +1,8 @@
 @import "@sero-ai/ui/styles/globals.css";
+@import "streamdown/styles.css";
+
+/* Streamdown ships its own utility classes; Tailwind must scan them. */
+@source "../node_modules/streamdown/dist/*.js";
 
 /* Scan this app's own component sources for Tailwind utility classes */
 @source "./components";

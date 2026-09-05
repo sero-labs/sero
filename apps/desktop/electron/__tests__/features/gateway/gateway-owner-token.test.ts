@@ -6,6 +6,7 @@ import { WebSocket, type RawData } from 'ws';
 
 import { GatewayServer, type GatewayAgentOps } from '@electron/features/gateway';
 import type { GatewayPushEvent, GatewayResponse } from '@electron/features/gateway/server/protocol';
+import type { GatewaySessionInfo, GatewaySessionModelState } from '@electron/features/gateway/server/types';
 
 interface TestHarness {
   server: GatewayServer;
@@ -89,12 +90,28 @@ async function connectClient(port: number, token: string): Promise<WebSocket> {
   return ws;
 }
 
+/** One fixed model state: these tests only check authorization. */
+const ownerModelState: GatewaySessionModelState = {
+  provider: 'openai',
+  modelId: 'gpt-5',
+  name: 'GPT-5',
+  reasoning: true,
+  thinkingLevel: 'off',
+  availableThinkingLevels: ['off', 'high'],
+  availableModels: [{
+    provider: 'openai',
+    displayName: 'OpenAI',
+    logo: '',
+    models: [{ provider: 'openai', modelId: 'gpt-5', name: 'GPT-5', reasoning: true }],
+  }],
+};
+
 function createAgentOps(): TestHarness['state'] & { ops: GatewayAgentOps } {
   const workspaces = [
     { id: 'workspace-a', name: 'Workspace A', path: '/workspace-a' },
     { id: 'workspace-b', name: 'Workspace B', path: '/workspace-b' },
   ];
-  const sessionsByWorkspace = new Map<string, Array<{ id: string; name: string; firstMessage: string }>>([
+  const sessionsByWorkspace = new Map<string, GatewaySessionInfo[]>([
     ['workspace-a', []],
     ['workspace-b', []],
   ]);
@@ -114,6 +131,14 @@ function createAgentOps(): TestHarness['state'] & { ops: GatewayAgentOps } {
   };
 
   const ops: GatewayAgentOps = {
+    getSessionWorkspaceId: () => null,
+    searchSessions: async () => [],
+    gitStatus: async () => ({
+      branch: 'main', ahead: 0, behind: 0, detached: false, merging: false, files: [],
+    }),
+    gitDiff: async () => null,
+    uploadFile: async () => ({ path: 'uploads/a.txt', bytes: 1, renamed: false }),
+    gitCommit: async () => ({ hash: 'abc1234', branch: 'main', fileCount: 1 }),
     openSession: async (sessionId, workspaceId) => {
       if (!sessionsByWorkspace.has(workspaceId)) {
         throw new Error(`Workspace not found: ${workspaceId}`);
@@ -149,11 +174,21 @@ function createAgentOps(): TestHarness['state'] & { ops: GatewayAgentOps } {
         throw new Error(`Workspace not found: ${workspaceId}`);
       }
       const sessionId = `session-${workspaceId}-${(sessionsByWorkspace.get(workspaceId)?.length ?? 0) + 1}`;
-      sessionsByWorkspace.get(workspaceId)?.push({ id: sessionId, name: name ?? '', firstMessage: '' });
+      sessionsByWorkspace.get(workspaceId)?.push(fakeSession(sessionId, workspaceId, name));
       historyBySession.set(sessionId, []);
       createdSessionIds.set(workspaceId, sessionId);
-      return { id: sessionId, name: name ?? '' };
+      return fakeSession(sessionId, workspaceId, name);
     },
+    deleteSession: async (workspaceId, sessionId) => {
+      const sessions = sessionsByWorkspace.get(workspaceId);
+      if (!sessions?.some((session) => session.id === sessionId)) {
+        throw new Error(`Session not found in workspace: ${sessionId}`);
+      }
+      sessionsByWorkspace.set(workspaceId, sessions.filter((session) => session.id !== sessionId));
+    },
+    getSessionModel: async () => ownerModelState,
+    setSessionModel: async () => ownerModelState,
+    setSessionThinkingLevel: async () => ownerModelState,
     listFiles: async (workspaceId) => {
       if (!filesByWorkspace.has(workspaceId)) {
         throw new Error(`Workspace not found: ${workspaceId}`);
@@ -223,6 +258,19 @@ async function createHarness(): Promise<TestHarness> {
   return { server, port, tmpDir, state };
 }
 
+
+/** A session list entry with the metadata the session row needs. */
+function fakeSession(id: string, workspaceId: string, name?: string): GatewaySessionInfo {
+  return {
+    id,
+    name: name ?? '',
+    firstMessage: '',
+    workspaceId,
+    updatedAt: new Date(0).toISOString(),
+    messageCount: 0,
+  };
+}
+
 describe('GatewayServer owner web token flows', () => {
   const harnesses: TestHarness[] = [];
   const sockets: WebSocket[] = [];
@@ -277,7 +325,7 @@ describe('GatewayServer owner web token flows', () => {
     })).toEqual({
       type: 'ok',
       requestType: 'create_session',
-      data: { id: 'session-workspace-c-1', name: 'Remote session' },
+      data: fakeSession('session-workspace-c-1', 'workspace-c', 'Remote session'),
     });
 
     expect(await sendRequest<GatewayResponse>(ws, {
@@ -286,7 +334,7 @@ describe('GatewayServer owner web token flows', () => {
     })).toEqual({
       type: 'ok',
       requestType: 'list_sessions',
-      data: [{ id: 'session-workspace-c-1', name: 'Remote session', firstMessage: '' }],
+      data: [fakeSession('session-workspace-c-1', 'workspace-c', 'Remote session')],
     });
 
     expect(await sendRequest<GatewayResponse>(ws, {

@@ -35,6 +35,8 @@ interface WatcherEntry {
   refCount: number;
   /** Debounce timer for change events. */
   debounceTimer: ReturnType<typeof setTimeout> | null;
+  /** Counts change reads, so a slow read cannot land over a newer one. */
+  readSeq: number;
   /** True while async watch bootstrap is in progress. */
   initializing: boolean;
   /** True when all refs were released before bootstrap completed. */
@@ -45,7 +47,8 @@ interface WatcherEntry {
 
 // ── AppStateManager ──────────────────────────────────────────
 
-type ChangeListener = (filePath: string, data: unknown) => void;
+/** A change, with the etag of the very content in `data`. */
+type ChangeListener = (filePath: string, data: unknown, etag: string | null) => void;
 
 /** Content etag: hash of the raw file text. `null` means the file is absent. */
 function computeEtag(raw: string): string {
@@ -193,6 +196,7 @@ export class AppStateManager {
       watcher: null,
       refCount: 1,
       debounceTimer: null,
+      readSeq: 0,
       initializing: true,
       cancelled: false,
       setupPromise: null,
@@ -317,8 +321,13 @@ export class AppStateManager {
     if (entry.debounceTimer) clearTimeout(entry.debounceTimer);
     entry.debounceTimer = setTimeout(async () => {
       entry.debounceTimer = null;
+      const seq = ++entry.readSeq;
       try {
         const { data, etag } = await this.readWithEtag(filePath);
+        // Two reads can finish out of order. The older pair is correct
+        // for its moment but stale now, and pushing it would hand every
+        // listener an etag the file has already moved past.
+        if (seq !== entry.readSeq) return;
         this.pushChange(filePath, data, etag);
       } catch (err) {
         console.error(`[AppStateManager] Error reading ${filePath}:`, err);
@@ -331,7 +340,7 @@ export class AppStateManager {
     // Notify registered listeners (e.g. kanban orchestrator)
     for (const listener of this.changeListeners) {
       try {
-        listener(filePath, data);
+        listener(filePath, data, etag);
       } catch (err) {
         console.error('[AppStateManager] Listener error:', err);
       }

@@ -9,3 +9,24 @@ export interface QrLoginData {
   /** Number of days until expiry. */
   expiryDays: number;
 }
+
+/**
+ * A device paired with this profile.
+ *
+ * The token itself is never returned. A QR is shown once, when the
+ * device is paired; losing it means pairing again rather than the
+ * desktop handing out a live credential a second time.
+ */
+export interface PairedDevice {
+  /** First 8 characters of the token. Revoke takes this. */
+  tokenId: string;
+  /** Enough of the token to tell two rows apart. */
+  tokenPreview: string;
+  label: string;
+  /** ISO 8601. */
+  createdAt: string;
+  /** ISO 8601. */
+  expiresAt: string;
+  /** Null means every workspace in the profile, now and later. */
+  workspaceIds: string[] | null;
+}

@@ -1,4 +1,5 @@
 import { userFeedbackBridge } from './platform/user-feedback';
+import { notificationsBridge } from './platform/notifications';
 import { windowBridge } from './platform/window';
 import {
   clipboardBridge,
@@ -93,6 +94,7 @@ export const seroPreloadApi = {
   skills: skillsBridge,
   prompts: promptsBridge,
   userFeedback: userFeedbackBridge,
+  notifications: notificationsBridge,
   editor: editorBridge,
   filetree: filetreeBridge,
   debug: debugBridge,

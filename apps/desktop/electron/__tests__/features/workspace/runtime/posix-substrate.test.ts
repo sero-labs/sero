@@ -121,6 +121,22 @@ describe('PosixHostSubstrate', () => {
     await expect(substrate.resolvePathInsideRoot(path.join(root, 'outside-link', 'new.txt'), root)).resolves.toBeNull();
   });
 
+  it('lets only one of two exclusive writers take a name', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'sero-posix-root-'));
+    tempDirs.push(root);
+    const substrate = createPosixHostSubstrate();
+    const target = path.join(root, 'same.txt');
+
+    const outcomes = await Promise.allSettled([
+      substrate.writeFile(target, Buffer.from('one'), { exclusive: true }),
+      substrate.writeFile(target, Buffer.from('two'), { exclusive: true }),
+    ]);
+
+    expect(outcomes.filter((outcome) => outcome.status === 'fulfilled')).toHaveLength(1);
+    const refused = outcomes.find((outcome) => outcome.status === 'rejected');
+    expect((refused as PromiseRejectedResult).reason).toMatchObject({ code: 'EEXIST' });
+  });
+
   it('rejects lexical sibling paths', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'sero-posix-root-'));
     const sibling = `${root}-sibling`;

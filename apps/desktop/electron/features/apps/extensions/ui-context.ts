@@ -10,7 +10,7 @@
  */
 
 import { Theme, type ExtensionUIContext, type ThemeColor } from '@earendil-works/pi-coding-agent';
-import { showNotification } from '@electron/platform/desktop/notifications';
+import { notify } from '@electron/features/notifications/feed';
 
 const SERO_UI_THEME_COLORS: Record<ThemeColor, string> = {
   accent: '#7c3aed',
@@ -104,7 +104,7 @@ export function createSeroUIContext(): ExtensionUIContext {
     // ── Notifications (real implementation) ──────────────
 
     notify(message: string, type?: 'info' | 'warning' | 'error'): void {
-      showNotification(message, type ?? 'info');
+      notify({ message, type: type ?? 'info' });
     },
 
     // ── Terminal input (not applicable in Sero) ──────────

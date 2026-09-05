@@ -25,7 +25,8 @@ import { listWorkspaceAccessRoots } from '@electron/features/workspace/access-ro
 import { registerSeroBuiltinCommands } from './commands';
 import { buildCliPromptBlock, type CliRegistry } from '@electron/cli';
 import { registerGitCheckpointFeatures } from './git-checkpoints';
-import { showNotification, type NotificationType } from '@electron/platform/desktop/notifications';
+import { notify } from '@electron/features/notifications/feed';
+import type { NotificationType } from '@electron/features/notifications/types';
 import { logProviderRequest } from '@electron/ipc/editor/debug';
 import { registerSubagentTool, registerCreateAgentTool } from '@electron/features/subagent/extensions/tool';
 import { buildSubagentPromptBlock } from '@electron/features/subagent/extensions/prompt';
@@ -115,7 +116,7 @@ export function createSeroExtensionFactory(
     pi.events.on('sero:notify', (data: unknown) => {
       const p = data as Record<string, unknown> | undefined;
       if (!p?.message || typeof p.message !== 'string') return;
-      showNotification({
+      notify({
         message: p.message,
         type: (['info', 'warning', 'error'].includes(p.type as string)
           ? p.type : 'info') as NotificationType,

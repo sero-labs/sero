@@ -16,6 +16,7 @@ const MIME_TYPES: Record<string, string> = {
   '.js': 'application/javascript',
   '.css': 'text/css',
   '.json': 'application/json',
+  '.webmanifest': 'application/manifest+json',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.svg': 'image/svg+xml',
@@ -92,6 +93,21 @@ function resolveAssetPath(requestPath: string, webDistDir: string): string | nul
   return null;
 }
 
+/**
+ * Cache policy. Files under assets/ carry a content hash in their name,
+ * so they can be cached forever. Everything else — index.html above all —
+ * must be revalidated, or a client keeps an old shell after an update.
+ */
+function cacheControlFor(assetPath: string): string {
+  // The service worker is never cached: a stale one keeps serving an old
+  // shell long after an update.
+  if (assetPath === 'sw.js') return 'no-cache, no-store, must-revalidate';
+
+  return assetPath.startsWith('assets/')
+    ? 'public, max-age=31536000, immutable'
+    : 'no-cache';
+}
+
 /** Prime static-file directory resolution once at startup. Asset paths are checked per request so rebuilt bundles work without restarting Sero. */
 export function primeStaticFileCache(gatewayDir: string): void {
   getCache(gatewayDir);
@@ -123,7 +139,10 @@ export function tryServeStaticFile(
   const contentType = MIME_TYPES[ext] ?? 'application/octet-stream';
 
   // Stream the file asynchronously to avoid blocking the event loop
-  res.writeHead(200, { 'Content-Type': contentType });
+  res.writeHead(200, {
+    'Content-Type': contentType,
+    'Cache-Control': cacheControlFor(assetPath),
+  });
   const stream = fs.createReadStream(filePath);
   stream.pipe(res);
   stream.on('error', () => {

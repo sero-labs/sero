@@ -28,9 +28,9 @@ interface ActivePreview {
 function StatusDot({ status }: { status: DevServer['status'] }) {
   const color =
     status === 'running'
-      ? 'bg-emerald-500'
+      ? 'bg-status-success'
       : status === 'starting'
-        ? 'bg-amber-500'
+        ? 'bg-status-warning'
         : 'bg-muted-foreground/40';
   return (
     <span

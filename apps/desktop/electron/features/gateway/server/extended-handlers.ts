@@ -85,6 +85,32 @@ export async function routeExtendedRequest(
       return true;
     }
 
+    case 'delete_session': {
+      if (!hasWorkspaceAccess(accessScope, request.workspaceId)) {
+        respond({
+          type: 'error',
+          requestType: 'delete_session',
+          message: `Workspace not authorized: ${request.workspaceId}`,
+        });
+        return true;
+      }
+      try {
+        await agentOps.deleteSession(request.workspaceId, request.sessionId);
+        respond({
+          type: 'ok',
+          requestType: 'delete_session',
+          data: { sessionId: request.sessionId },
+        });
+      } catch (err) {
+        respond({
+          type: 'error',
+          requestType: 'delete_session',
+          message: err instanceof Error ? err.message : 'Delete session failed',
+        });
+      }
+      return true;
+    }
+
     case 'list_files': {
       if (!hasWorkspaceAccess(accessScope, request.workspaceId)) {
         respond({

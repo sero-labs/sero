@@ -19,7 +19,12 @@ import { saveToken, loadToken, clearToken } from '@/lib/token-storage';
 interface TokenStorageAdapter {
   save: (token: string) => Promise<void>;
   load: () => Promise<string | null>;
-  clear: () => Promise<void>;
+  /**
+   * Forget the stored pairing. `refused` names the token being given up
+   * on, and only that one goes. Without it the stored pairing goes
+   * whatever it is, which is what "use a different token" asks for.
+   */
+  clear: (refused?: string) => Promise<void>;
 }
 
 export interface GatewayClientLike {
@@ -36,16 +41,46 @@ export interface GatewayClientLike {
     images?: Array<{ data: string; mimeType: string }>,
   ) => void;
   requestWorkspaces: () => void;
-  requestSessions: (workspaceId: string) => void;
+  requestSessions: (workspaceId: string) => Promise<unknown>;
+  searchSessions: (query: string, limit?: number) => void;
+  requestUsage: () => void;
+  answerChoice: (id: string, optionId: string) => void;
+  listNotifications: (since?: number, limit?: number) => void;
+  markNotificationsRead: (ids: string[]) => void;
+  dismissNotifications: (ids: string[]) => void;
+  clearReadNotifications: () => void;
+  uploadFile: (workspaceId: string, filePath: string, contentBase64: string) => void;
+  gitStatus: (workspaceId: string) => Promise<unknown>;
+  gitDiff: (workspaceId: string, filePath: string, staged: boolean) => Promise<unknown>;
+  gitCommit: (workspaceId: string, message: string, paths: string[]) => Promise<unknown>;
   createSession: (workspaceId: string, name?: string) => void;
+  deleteSession: (workspaceId: string, sessionId: string) => void;
+  requestSessionModel: (workspaceId: string, sessionId: string) => void;
+  setSessionModel: (
+    workspaceId: string,
+    sessionId: string,
+    provider: string,
+    modelId: string,
+  ) => void;
+  setSessionThinking: (workspaceId: string, sessionId: string, level: string) => void;
   abortSession: (sessionId: string) => void;
   requestSessionHistory: (workspaceId: string, sessionId: string) => void;
   listFiles: (workspaceId: string, filePath: string) => void;
   readFile: (workspaceId: string, filePath: string) => void;
+  watchFileTree: (workspaceId: string) => void;
+  unwatchFileTree: (workspaceId: string) => void;
   listArtifacts: (sessionId: string) => void;
   getArtifact: (artifactId: string) => void;
   listDevServers: (workspaceId?: string) => void;
   createDevServerTicket: (workspaceId: string, port: number) => void;
+  listRemoteWidgets: <T>(workspaceId: string | null) => Promise<T>;
+  appStateGet: <T>(key: string) => Promise<T>;
+  appStateWatch: <T>(key: string) => Promise<T>;
+  appStateSet: <T>(key: string, data: unknown, expectedEtag?: string | null) => Promise<T>;
+  pushStatus: <T>() => Promise<T>;
+  pushSubscribe: <T>(endpoint: string, p256dh: string, auth: string) => Promise<T>;
+  pushUnsubscribe: <T>(endpoint: string) => Promise<T>;
+  appStateUnwatch: (key: string) => Promise<unknown>;
   voiceStatus: () => Promise<VoiceTranscriptionStatus>;
   transcribeVoice: (
     audioDataUrl: string,
@@ -247,7 +282,11 @@ export function createConnectionStore(
             const message = (msg as { message: string }).message;
             const forgetToken = isInvalidAuthTokenMessage(message);
             if (forgetToken) {
-              void tokenStorage.clear();
+              // Only the refused token. Another tab may have paired
+              // again while this one waited to be told, and every tab
+              // on the origin shares the one stored pairing.
+              const refused = get().token;
+              void tokenStorage.clear(refused ?? undefined);
             }
             set({
               token: forgetToken ? null : get().token,

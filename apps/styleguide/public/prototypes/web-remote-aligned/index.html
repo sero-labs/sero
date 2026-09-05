@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Web-remote alignment — Sero prototype</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <svg class="svg-defs" aria-hidden="true">
+    <symbol id="i-panel-left" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></symbol>
+    <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-message" viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"/></symbol>
+    <symbol id="i-loader" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></symbol>
+    <symbol id="i-bot" viewBox="0 0 24 24"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2M20 14h2M9 13v2M15 13v2"/></symbol>
+    <symbol id="i-brain" viewBox="0 0 24 24"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/></symbol>
+    <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.1-3.1a6 6 0 0 1-7.9 7.9l-5.7 5.7a2.1 2.1 0 0 1-3-3l5.7-5.7a6 6 0 0 1 7.9-7.9Z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+    <symbol id="i-paperclip" viewBox="0 0 24 24"><path d="M13.2 2.8a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><rect width="6" height="12" x="9" y="2" rx="3"/><path d="M19 10a7 7 0 0 1-14 0M12 19v3"/></symbol>
+    <symbol id="i-plusmenu" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></symbol>
+    <symbol id="i-files" viewBox="0 0 24 24"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5Z"/><polyline points="14 2 14 8 20 8"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-4.6-4.6a2 2 0 0 0-2.8 0L3 21"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+    <symbol id="i-git" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></symbol>
+    <symbol id="i-board" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></symbol>
+    <symbol id="i-gauge" viewBox="0 0 24 24"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></symbol>
+    <symbol id="i-coins" viewBox="0 0 24 24"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18M7 6h1v4M16.71 13.88l.7.71-2.82 2.82"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  </svg>
+
+  <header class="review-bar">
+    <div class="review-group">
+      <h1>Web-remote alignment</h1>
+      <span class="sub">#494 · target look for phase 2</span>
+    </div>
+    <div class="review-group">
+      <span>Theme</span>
+      <div class="segmented" id="theme-controls" role="group" aria-label="Theme">
+        <button data-theme="dark" class="active">Dark</button>
+        <button data-theme="light">Light</button>
+      </div>
+    </div>
+    <div class="review-group">
+      <span>Viewport</span>
+      <div class="segmented" id="view-controls" role="group" aria-label="Viewport">
+        <button data-view="both" class="active">Both</button>
+        <button data-view="desktop">Desktop 1100×760</button>
+        <button data-view="mobile">Mobile 390×844</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="stage">
+    <div class="frame-wrap" id="wrap-desktop">
+      <span class="frame-label">Desktop · 1100 × 760</span>
+      <div class="frame desktop">
+        <div class="app">
+
+          <div class="titlebar">
+            <span class="wordmark">Sero</span>
+            <button class="icon-button" aria-label="Collapse sidebar"><svg><use href="#i-panel-left"/></svg></button>
+            <div class="breadcrumb">
+              <span class="root">Meridian</span>
+              <svg class="sep" style="width:12px;height:12px"><use href="#i-chevron-right"/></svg>
+              <span class="leaf">Align the remote shell</span>
+            </div>
+            <span class="spacer"></span>
+            <span class="bell-wrap"><button class="icon-button" aria-label="Notifications"><svg><use href="#i-bell"/></svg></button><span class="bell-badge">3</span></span>
+            <button class="icon-button on" aria-label="Toggle chat"><svg><use href="#i-message"/></svg></button>
+          </div>
+
+          <div class="body-row">
+            <aside class="sidebar">
+              <div class="sidebar-scroll">
+                <div class="section-heading"><span>Apps</span></div>
+                <button class="app-row active"><svg><use href="#i-board"/></svg>Board</button>
+                <button class="app-row"><svg><use href="#i-grid"/></svg>Dashboard</button>
+
+                <div class="divider"></div>
+
+                <label class="search-field">
+                  <span class="sr-only">Search sessions</span>
+                  <svg><use href="#i-search"/></svg>
+                  <input placeholder="Search sessions..." value="">
+                </label>
+
+                <div class="section-heading"><span>Workspaces</span></div>
+
+                <button class="tree-row workspace-row" aria-expanded="true">
+                  <svg style="width:12px;height:12px"><use href="#i-chevron-down"/></svg>
+                  <svg class="folder-icon"><use href="#i-folder"/></svg>
+                  <strong>Meridian</strong>
+                  <span class="ws-dot" title="Agent running"></span>
+                  <span class="spacer"></span>
+                  <span class="hover-actions icon-button" title="New session"><svg><use href="#i-plus"/></svg></span>
+                </button>
+                <button class="tree-row session-row active">
+                  <span class="rail"></span>
+                  <svg class="spin"><use href="#i-loader"/></svg>
+                  <span class="session-copy"><strong>Align the remote shell</strong><small>2m ago · 18 msgs</small></span>
+                </button>
+                <button class="tree-row session-row">
+                  <svg><use href="#i-message"/></svg>
+                  <span class="session-copy"><strong>Gateway token scopes</strong><small>1h ago · 42 msgs</small></span>
+                  <span class="await-dot" title="Awaiting input"></span>
+                </button>
+                <button class="tree-row session-row">
+                  <svg><use href="#i-message"/></svg>
+                  <span class="session-copy"><strong>Update the release notes</strong><small>Yesterday · 7 msgs</small></span>
+                </button>
+
+                <button class="tree-row workspace-row" aria-expanded="false" style="margin-top:6px">
+                  <svg style="width:12px;height:12px"><use href="#i-chevron-right"/></svg>
+                  <svg class="folder-icon"><use href="#i-folder"/></svg>
+                  <strong>sero-docs</strong>
+                  <span class="spacer"></span>
+                  <span class="hover-actions icon-button" title="New session"><svg><use href="#i-plus"/></svg></span>
+                </button>
+              </div>
+            </aside>
+
+            <section class="chat">
+              <div class="chat-header">
+                <svg><use href="#i-bot"/></svg>
+                <span class="agent-label">Agent</span>
+                <span class="chip">Align the remote shell</span>
+                <span class="spacer"></span>
+                <button class="session-badge" title="Token usage">
+                  <span><svg style="width:12px;height:12px"><use href="#i-gauge"/></svg>42%</span>
+                  <span><svg style="width:12px;height:12px"><use href="#i-coins"/></svg>$0.38</span>
+                </button>
+              </div>
+
+              <div class="conversation">
+                <div class="msg user">
+                  <div class="bubble">Make the remote sidebar match the desktop tree, then show me the status tokens.</div>
+                </div>
+
+                <div class="msg assistant">
+                  <details class="reasoning" open>
+                    <summary><svg><use href="#i-brain"/></svg>Thought for 4s</summary>
+                    <div class="inner">The desktop tree is WorkspaceNode over SessionNode. Copy the classes rather than build a shared component — D-G3 rules that out for this epic.</div>
+                  </details>
+                </div>
+
+                <div class="msg assistant">
+                  <div class="content">
+                    <h3>Sidebar parity</h3>
+                    <p>The tree now uses the desktop rows. Three things changed:</p>
+                    <ul>
+                      <li><code>WorkspaceNode</code> keeps the chevron, folder and hover <code>Plus</code>.</li>
+                      <li><code>SessionNode</code> gains the active rail and the <em>relative time · N msgs</em> subtitle.</li>
+                      <li>Status colours come from <code>status-*</code> tokens, never the Tailwind palette.</li>
+                    </ul>
+                    <div class="codeblock">
+                      <header><span>tsx</span><span>SessionRow.tsx</span></header>
+<pre><span class="tok-com">// active rail, copied from the desktop SessionNode</span>
+&lt;<span class="tok-key">span</span> className=<span class="tok-str">"absolute inset-y-1 left-0 w-0.5 bg-[var(--accent-primary)]"</span> /&gt;</pre>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="msg assistant">
+                  <div class="toolgroup">
+                    <header><svg><use href="#i-wrench"/></svg><span>3 tools</span><span class="spacer"></span><svg style="width:12px;height:12px"><use href="#i-chevron-down"/></svg></header>
+                    <div class="tool-list">
+                      <div class="tool-item"><svg class="ok"><use href="#i-check"/></svg><span class="name">read_file</span><span class="arg">src/components/sidebar/SessionRow.tsx</span></div>
+                      <div class="tool-item"><svg class="ok"><use href="#i-check"/></svg><span class="name">write_file</span><span class="arg">src/components/sidebar/WorkspaceRow.tsx</span></div>
+                      <div class="tool-item"><svg class="ok"><use href="#i-check"/></svg><span class="name">bash</span><span class="arg">pnpm --filter @sero/web-remote test</span></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="msg assistant">
+                  <div class="toolgroup live">
+                    <header><svg class="stream"><use href="#i-wrench"/></svg><span>1 tool running</span></header>
+                    <div class="tool-list">
+                      <div class="tool-item"><svg class="run spin"><use href="#i-loader"/></svg><span class="name">write_file</span><span class="arg">src/components/StatusBar.tsx</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="composer">
+                <div class="prompt-input">
+                  <div class="prompt-header">
+                    <span class="attachment"><svg><use href="#i-image"/></svg>screenshot.png</span>
+                  </div>
+                  <div class="prompt-body">Ask the agent…</div>
+                  <div class="prompt-footer">
+                    <button class="icon-button" aria-label="Add attachment"><svg><use href="#i-plusmenu"/></svg></button>
+                    <button class="icon-button" aria-label="Dictate"><svg><use href="#i-mic"/></svg></button>
+                    <button class="submit" aria-label="Send"><svg><use href="#i-send"/></svg></button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <nav class="rail" aria-label="Panels">
+              <button class="active" title="Files"><svg><use href="#i-files"/></svg></button>
+              <button title="Artifacts"><svg><use href="#i-image"/></svg></button>
+              <button title="Dev server preview"><svg><use href="#i-monitor"/></svg></button>
+              <button title="Changes"><svg><use href="#i-git"/></svg></button>
+            </nav>
+          </div>
+
+          <div class="statusbar">
+            <span class="item"><span class="dot"></span>Connected</span>
+            <span class="vsep"></span>
+            <span class="item">Meridian</span>
+            <span class="vsep"></span>
+            <span class="item">Scope: 2 workspaces</span>
+            <span class="spacer"></span>
+            <button class="icon-button" aria-label="Theme: Dark. Click to change."><svg><use href="#i-moon"/></svg></button>
+            <span class="item" style="padding-right:6px">Sero Remote</span>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <div class="frame-wrap" id="wrap-mobile">
+      <span class="frame-label">Mobile · 390 × 844</span>
+      <div class="frame mobile">
+        <div class="app">
+          <div class="titlebar">
+            <button class="icon-button" aria-label="Open sidebar"><svg><use href="#i-menu"/></svg></button>
+            <span class="wordmark">Sero</span>
+            <div class="breadcrumb"><span class="leaf">Align the remote shell</span></div>
+            <span class="spacer"></span>
+            <span class="bell-wrap"><button class="icon-button" aria-label="Notifications"><svg><use href="#i-bell"/></svg></button><span class="bell-badge">3</span></span>
+            <button class="icon-button" aria-label="Theme"><svg><use href="#i-moon"/></svg></button>
+          </div>
+
+          <div class="body-row">
+            <section class="chat">
+              <div class="chat-header">
+                <svg><use href="#i-bot"/></svg>
+                <span class="agent-label">Agent</span>
+                <span class="spacer"></span>
+                <button class="session-badge" title="Token usage">
+                  <span><svg style="width:12px;height:12px"><use href="#i-gauge"/></svg>42%</span>
+                  <span><svg style="width:12px;height:12px"><use href="#i-coins"/></svg>$0.38</span>
+                </button>
+              </div>
+
+              <div class="conversation">
+                <div class="msg user"><div class="bubble">Make the remote sidebar match the desktop tree.</div></div>
+
+                <div class="msg assistant">
+                  <details class="reasoning">
+                    <summary><svg><use href="#i-brain"/></svg>Thought for 4s</summary>
+                    <div class="inner">Copy the desktop classes, no shared component.</div>
+                  </details>
+                </div>
+
+                <div class="msg assistant">
+                  <div class="content">
+                    <h3>Sidebar parity</h3>
+                    <p>The tree now uses the desktop rows:</p>
+                    <ul>
+                      <li>Chevron, folder and hover <code>Plus</code>.</li>
+                      <li>Active rail and <em>time · N msgs</em>.</li>
+                      <li><code>status-*</code> tokens only.</li>
+                    </ul>
+                    <div class="codeblock">
+                      <header><span>tsx</span><span>SessionRow.tsx</span></header>
+<pre>&lt;<span class="tok-key">span</span> className=<span class="tok-str">"w-0.5"</span> /&gt;</pre>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="msg assistant">
+                  <div class="toolgroup">
+                    <header><svg><use href="#i-wrench"/></svg><span>3 tools</span><span class="spacer"></span><svg style="width:12px;height:12px"><use href="#i-chevron-down"/></svg></header>
+                    <div class="tool-list">
+                      <div class="tool-item"><svg class="ok"><use href="#i-check"/></svg><span class="name">read_file</span><span class="arg">SessionRow.tsx</span></div>
+                      <div class="tool-item"><svg class="ok"><use href="#i-check"/></svg><span class="name">write_file</span><span class="arg">WorkspaceRow.tsx</span></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="msg assistant">
+                  <div class="toolgroup live">
+                    <header><svg class="stream"><use href="#i-wrench"/></svg><span>1 tool running</span></header>
+                    <div class="tool-list">
+                      <div class="tool-item"><svg class="run spin"><use href="#i-loader"/></svg><span class="name">write_file</span><span class="arg">StatusBar.tsx</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="composer">
+                <div class="prompt-input">
+                  <div class="prompt-body">Ask the agent…</div>
+                  <div class="prompt-footer">
+                    <button class="icon-button" aria-label="Add attachment"><svg><use href="#i-plusmenu"/></svg></button>
+                    <button class="icon-button" aria-label="Dictate"><svg><use href="#i-mic"/></svg></button>
+                    <button class="submit" aria-label="Send"><svg><use href="#i-send"/></svg></button>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

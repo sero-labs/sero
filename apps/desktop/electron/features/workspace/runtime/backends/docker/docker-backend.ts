@@ -48,6 +48,15 @@ import { dockerContainerName, ensureDockerContainer, removeDockerContainer, runt
 import { DockerTerminalRegistry } from './docker-terminal';
 import { DockerPortManager } from './docker-ports';
 import { normalizePreviewPortPoolSize } from '../preview-port-pool';
+import {
+  dirname,
+  emitData,
+  isRuntimeDevServer,
+  sanitizeLogPathSegment,
+  shellQuote,
+  sleep,
+  subscribe,
+} from './docker-backend-support';
 
 interface DockerBackendOptions {
   workspaceId: string;
@@ -182,10 +191,25 @@ export class DockerBackend implements RuntimeBackend {
   }
 
   async writeFile(input: RuntimeWriteFileInput): Promise<void> {
+    await this.writeFileWith(input, { exclusive: false });
+  }
+
+  /**
+   * Write a file, refusing an existing one when `exclusive` is set.
+   *
+   * `set -C` makes the shell open the target with O_EXCL, so the refusal
+   * is the kernel's and two writers racing for one name cannot both win.
+   */
+  private async writeFileWith(input: RuntimeWriteFileInput, opts: { exclusive: boolean }): Promise<void> {
     const encoded = Buffer.from(input.content, input.encoding ?? 'utf8').toString('base64');
     const mode = input.mode ? ` && chmod ${input.mode.toString(8)} -- ${shellQuote(input.path)}` : '';
-    const result = await this.exec({ command: `mkdir -p -- ${shellQuote(dirname(input.path))} && printf %s ${shellQuote(encoded)} | base64 -d > ${shellQuote(input.path)}${mode}` });
-    if (result.exitCode !== 0) throw new Error(result.stderr || `Failed to write ${input.path}`);
+    const noClobber = opts.exclusive ? 'set -C && ' : '';
+    const result = await this.exec({ command: `mkdir -p -- ${shellQuote(dirname(input.path))} && ${noClobber}printf %s ${shellQuote(encoded)} | base64 -d > ${shellQuote(input.path)}${mode}` });
+    if (result.exitCode === 0) return;
+    if (opts.exclusive && (await this.exec({ command: `test -e ${shellQuote(input.path)}` })).exitCode === 0) {
+      throw Object.assign(new Error(`File already exists: ${input.path}`), { code: 'EEXIST' });
+    }
+    throw new Error(result.stderr || `Failed to write ${input.path}`);
   }
 
   async listFiles(input: RuntimeListFilesInput): Promise<RuntimeDirectoryEntry[]> {
@@ -207,8 +231,7 @@ export class DockerBackend implements RuntimeBackend {
   }
 
   async createFile(input: RuntimeCreateFileInput): Promise<void> {
-    if (input.overwrite === false) await this.expectOk(`test ! -e ${shellQuote(input.path)}`);
-    await this.writeFile(input);
+    await this.writeFileWith(input, { exclusive: input.overwrite === false });
   }
 
   async createDirectory(input: RuntimeCreateDirectoryInput): Promise<void> {
@@ -463,35 +486,4 @@ export class DockerBackend implements RuntimeBackend {
   private emitDevServerChange(event: RuntimeDevServerChangeEvent): void {
     for (const cb of this.devServerCallbacks) cb(event);
   }
-}
-
-function dirname(filePath: string): string {
-  const index = filePath.lastIndexOf('/');
-  return index <= 0 ? '/' : filePath.slice(0, index);
-}
-
-function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, `'"'"'`)}'`;
-}
-
-function sanitizeLogPathSegment(value: string): string {
-  return value.replace(/[^a-zA-Z0-9._-]/g, '-').replace(/^-+|-+$/g, '') || 'item';
-}
-
-function emitData(callbacks: Set<(chunk: string) => void>, chunk: Buffer): void {
-  const text = chunk.toString();
-  for (const cb of callbacks) cb(text);
-}
-
-function isRuntimeDevServer(server: RuntimeDevServer | undefined): server is RuntimeDevServer {
-  return Boolean(server);
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function subscribe<T>(callbacks: Set<(value: T) => void>, cb: (value: T) => void): () => void {
-  callbacks.add(cb);
-  return () => callbacks.delete(cb);
 }

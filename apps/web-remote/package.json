@@ -8,26 +8,38 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "e2e": "playwright test",
+    "e2e:update": "playwright test --update-snapshots"
   },
   "dependencies": {
+    "@module-federation/enhanced": "2.8.0",
+    "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
+    "@sero-ai/common": "workspace:*",
     "@sero-ai/ui": "workspace:*",
+    "@streamdown/cjk": "^1.0.2",
+    "@streamdown/code": "^1.1.0",
+    "@streamdown/math": "^1.0.2",
+    "@streamdown/mermaid": "^1.0.2",
     "lucide-react": "^1.28.0",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "react-markdown": "^10.1.0",
-    "rehype-highlight": "^7.0.2",
+    "streamdown": "catalog:",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@module-federation/vite": "catalog:",
+    "@playwright/test": "1.62.1",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "catalog:",
     "jsdom": "^26.1.0",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "ws": "^8.21.3"
   }
 }

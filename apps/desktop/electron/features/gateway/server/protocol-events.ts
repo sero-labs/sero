@@ -6,12 +6,63 @@
 
 export interface GatewayAgentStartEvent {
   type: 'agent_start';
+  /** The session's workspace. Used for scope filtering. */
+  workspaceId: string;
   sessionId: string;
 }
 
 export interface GatewayAgentEndEvent {
   type: 'agent_end';
+  /** The session's workspace. Used for scope filtering. */
+  workspaceId: string;
   sessionId: string;
+}
+
+/** What a session is doing. Drives the session-row state dot. */
+export type GatewaySessionState = 'running' | 'idle' | 'awaiting_input';
+
+/**
+ * A session changed state. Sent to every client whose token can reach
+ * the workspace, whether or not the client is viewing that session.
+ */
+export interface GatewaySessionStateEvent {
+  type: 'session_state';
+  workspaceId: string;
+  sessionId: string;
+  state: GatewaySessionState;
+  /** Epoch milliseconds. */
+  ts: number;
+}
+
+/**
+ * Directories in a watched workspace changed on disk.
+ *
+ * Sent only to a socket that asked for this workspace with
+ * `file_tree_watch`. Paths are runtime paths, such as `/workspace/src`,
+ * so they match the paths a `list_files` listing returns.
+ */
+export interface GatewayFileTreeChangedEvent {
+  type: 'file_tree_changed';
+  workspaceId: string;
+  directories: string[];
+}
+
+/** Maximum length of the `turn_complete` snippet, in characters. */
+export const TURN_SNIPPET_MAX = 140;
+
+/**
+ * A turn finished. Carries at most `TURN_SNIPPET_MAX` characters of the
+ * agent's last message so a list UI can show what happened without
+ * asking for the history.
+ */
+export interface GatewayTurnCompleteEvent {
+  type: 'turn_complete';
+  workspaceId: string;
+  sessionId: string;
+  /** Epoch milliseconds. */
+  ts: number;
+  outcome: 'completed' | 'cancelled' | 'error';
+  snippet?: string;
 }
 
 export interface GatewayTextDeltaEvent {
@@ -97,9 +148,102 @@ export interface GatewayDevServerChangedEvent {
     | { type: 'status_changed'; serverId: string; status: 'running' | 'stopped' | 'starting' | 'failed' };
 }
 
+/** One answer a choice offers. */
+export interface GatewayChoiceOption {
+  id: string;
+  label: string;
+  description?: string;
+}
+
+/**
+ * An agent is waiting for an answer.
+ *
+ * A choice that names a workspace goes to every token that reaches it.
+ * A choice with no workspace goes to owner tokens only.
+ */
+export interface GatewayChoiceRequestEvent {
+  type: 'choice_request';
+  id: string;
+  workspaceId?: string;
+  title: string;
+  body: string;
+  options: GatewayChoiceOption[];
+  /** ISO 8601. When the choice times out, if it does. */
+  expiresAt?: string;
+  /** What happens when the timeout expires. */
+  fallbackLabel?: string;
+  /** Where the choice came from, for example "Sero Orchestrator". */
+  source?: string;
+  ts: number;
+}
+
+/**
+ * A choice is over. Every client dismisses it, whoever answered.
+ */
+export interface GatewayChoiceResolvedEvent {
+  type: 'choice_resolved';
+  id: string;
+  workspaceId?: string;
+  outcome: 'answered' | 'cancelled';
+  /** The option chosen. Absent when the choice was cancelled. */
+  optionId?: string;
+  ts: number;
+}
+
+/**
+ * A new notification.
+ *
+ * An entry that names a workspace goes to every token that reaches it.
+ * An entry with no workspace goes to owner tokens only.
+ */
+export interface GatewayNotificationEvent {
+  type: 'notification';
+  id: string;
+  /** Milliseconds since the epoch. */
+  ts: number;
+  source: string;
+  notificationType: 'info' | 'warning' | 'error';
+  message: string;
+  workspaceId?: string;
+  read: boolean;
+}
+
+/** Entries were marked read, so every client clears its badge. */
+export interface GatewayNotificationsReadEvent {
+  type: 'notifications_read';
+  ids: string[];
+  ts: number;
+}
+
+/**
+ * Entries were removed from the feed. Sent to every client.
+ *
+ * An id is a bare UUID and names no workspace, so it carries nothing a
+ * scoped token should not see. A client drops whatever it holds; ids it
+ * never had mean nothing to it.
+ */
+export interface GatewayNotificationsDismissedEvent {
+  type: 'notifications_dismissed';
+  ids: string[];
+  /** Epoch milliseconds. */
+  ts: number;
+}
+
+/** A watched widget state file changed on disk. */
+export interface GatewayAppStateChangedEvent {
+  type: 'app_state_changed';
+  /** The opaque key the client watched. */
+  key: string;
+  data: unknown;
+  /** Hash of the raw file text; null when the file is absent. */
+  etag: string | null;
+}
+
 export type GatewayPushEvent =
   | GatewayAgentStartEvent
   | GatewayAgentEndEvent
+  | GatewaySessionStateEvent
+  | GatewayTurnCompleteEvent
   | GatewayTextDeltaEvent
   | GatewayThinkingDeltaEvent
   | GatewayToolInputStartEvent
@@ -108,4 +252,11 @@ export type GatewayPushEvent =
   | GatewayToolStartEvent
   | GatewayToolEndEvent
   | GatewayArtifactEvent
+  | GatewayChoiceRequestEvent
+  | GatewayChoiceResolvedEvent
+  | GatewayNotificationEvent
+  | GatewayNotificationsReadEvent
+  | GatewayNotificationsDismissedEvent
+  | GatewayAppStateChangedEvent
+  | GatewayFileTreeChangedEvent
   | GatewayDevServerChangedEvent;

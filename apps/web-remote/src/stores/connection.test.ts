@@ -49,9 +49,32 @@ class FakeGatewayClient implements GatewayClientLike {
 
   requestWorkspaces(): void {}
 
-  requestSessions(): void {}
+  requestSessions(): Promise<unknown> {
+    return Promise.resolve([]);
+  }
+  searchSessions(): void {}
+  requestUsage(): void {}
+  answerChoice(): void {}
+  listNotifications(): void {}
+  markNotificationsRead(): void {}
+  dismissNotifications(): void {}
+  clearReadNotifications(): void {}
+  uploadFile(): void {}
+  gitStatus(): Promise<unknown> {
+    return Promise.resolve(null);
+  }
+  gitDiff(): Promise<unknown> {
+    return Promise.resolve(null);
+  }
+  gitCommit(): Promise<unknown> {
+    return Promise.resolve(null);
+  }
 
   createSession(): void {}
+  deleteSession(): void {}
+  requestSessionModel(): void {}
+  setSessionModel(): void {}
+  setSessionThinking(): void {}
 
   abortSession(): void {}
 
@@ -61,6 +84,10 @@ class FakeGatewayClient implements GatewayClientLike {
 
   readFile(): void {}
 
+  watchFileTree(): void {}
+
+  unwatchFileTree(): void {}
+
   listArtifacts(): void {}
 
   getArtifact(): void {}
@@ -68,6 +95,38 @@ class FakeGatewayClient implements GatewayClientLike {
   listDevServers(): void {}
 
   createDevServerTicket(): void {}
+
+  listRemoteWidgets<T>(): Promise<T> {
+    return Promise.resolve([] as unknown as T);
+  }
+
+  appStateGet<T>(): Promise<T> {
+    return Promise.resolve({ data: null, etag: null } as unknown as T);
+  }
+
+  appStateWatch<T>(): Promise<T> {
+    return Promise.resolve({ data: null, etag: null } as unknown as T);
+  }
+
+  appStateSet<T>(): Promise<T> {
+    return Promise.resolve({ ok: true, etag: 'e1' } as unknown as T);
+  }
+
+  pushStatus<T>(): Promise<T> {
+    return Promise.resolve({ enabled: false, publicKey: null } as unknown as T);
+  }
+
+  pushSubscribe<T>(): Promise<T> {
+    return Promise.resolve({ subscribed: true } as unknown as T);
+  }
+
+  pushUnsubscribe<T>(): Promise<T> {
+    return Promise.resolve({ removed: true } as unknown as T);
+  }
+
+  appStateUnwatch(): Promise<unknown> {
+    return Promise.resolve(undefined);
+  }
 
   voiceStatus(): Promise<{ enabled: boolean; reason?: string }> {
     return Promise.resolve({ enabled: false, reason: 'Not configured in tests.' });

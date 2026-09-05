@@ -77,4 +77,48 @@ describe('WebTokenManager', () => {
       }),
     ]);
   });
+
+  it('refuses to pair past the limit instead of unpairing the oldest device', async () => {
+    tmpDir = await mkdtemp(path.join(os.tmpdir(), 'web-token-test-'));
+    const manager = new WebTokenManager(tmpDir);
+
+    const first = manager.create(null, 'Phone', 7);
+    for (let i = 1; i < 10; i += 1) manager.create(null, `Device ${i}`, 7);
+
+    expect(() => manager.create(null, 'One too many', 7)).toThrow(
+      'Already paired with 10 devices. Revoke one before pairing another.',
+    );
+
+    // The device paired first must still work. Dropping it silently is
+    // what used to unpair a phone with nothing said to anyone.
+    expect(manager.validate(first.token)).not.toBeNull();
+    expect(manager.list()).toHaveLength(10);
+  });
+
+  it('pairs again once a device is unpaired', async () => {
+    tmpDir = await mkdtemp(path.join(os.tmpdir(), 'web-token-test-'));
+    const manager = new WebTokenManager(tmpDir);
+
+    const first = manager.create(null, 'Phone', 7);
+    for (let i = 1; i < 10; i += 1) manager.create(null, `Device ${i}`, 7);
+
+    manager.revoke(first.token.slice(0, 8));
+
+    expect(() => manager.create(null, 'New phone', 7)).not.toThrow();
+    expect(manager.list()).toHaveLength(10);
+    expect(manager.validate(first.token)).toBeNull();
+  });
+
+  it('never returns the raw token from the listing', async () => {
+    tmpDir = await mkdtemp(path.join(os.tmpdir(), 'web-token-test-'));
+    const manager = new WebTokenManager(tmpDir);
+
+    const created = manager.create(null, 'Phone', 7);
+    const [listed] = manager.list();
+
+    // A QR can be shown once because of this. The renderer is never
+    // handed a credential it could pair a second device with.
+    expect(JSON.stringify(listed)).not.toContain(created.token);
+    expect(listed.tokenId).toBe(created.token.slice(0, 8));
+  });
 });

@@ -379,7 +379,7 @@ export function VoiceTranscriptionControl({
           phase === 'recording' && 'bg-destructive/15 text-destructive',
           phase === 'starting' && 'text-muted-foreground',
           phase === 'processing' && 'text-muted-foreground',
-          phase === 'error' && 'text-amber-600 dark:text-amber-400',
+          phase === 'error' && 'text-status-warning',
           phase === 'idle' && 'text-muted-foreground hover:bg-accent hover:text-foreground',
           micDisabled && 'cursor-not-allowed opacity-50',
         )}

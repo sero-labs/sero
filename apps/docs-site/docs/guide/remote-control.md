@@ -105,10 +105,26 @@ support reports.
 
 ## Sero Remote web access
 
-Sero Remote is the browser-based remote UI. It can show workspaces and sessions,
-send prompts, display streamed responses/tool activity, expose remote panels
-such as files or artifacts where supported, and open registered workspace dev
-servers as remote previews.
+Sero Remote is the browser-based remote UI. It shows workspaces and sessions,
+sends prompts, displays streamed responses and tool activity, exposes remote
+panels such as files or artifacts where supported, and opens registered
+workspace dev servers as remote previews.
+
+It also has:
+
+- **A board.** The landing view. One card per session, so a phone answers
+  "what is running, what finished, what needs me?" without opening anything.
+- **Search.** Find a session by name or by what was said in it.
+- **A usage badge.** Tokens and cost for the sessions this token reaches.
+- **A notification feed.** What happened while you were away, with a bell and
+  an unread count.
+- **Answerable questions.** A question an agent is waiting on appears at the
+  top of the board and can be answered there.
+- **A changes panel.** The working tree, file by file, with diffs. An owner
+  token can also commit from it.
+- **File uploads.** Put a PDF, a log or a photo into the workspace, then
+  mention it in a prompt.
+- **Dashboard widgets.** Plugin widgets that opted in to running in a browser.
 
 ![Sero Remote chat](../assets/images/remote-web-1.jpg)
 
@@ -148,6 +164,56 @@ tailscale serve --bg --https=8443 18802
 For remote web access, Tailscale is the recommended transport. Sero can expose
 the gateway to your private tailnet through `tailscale serve`; a paired browser
 then uses the tailnet URL and a temporary web token/login flow.
+
+### Install Sero Remote to a home screen
+
+Sero Remote is an installable web app. Open its `*.ts.net` URL on the
+phone, then use the browser's *Add to Home Screen*. It then opens
+full-screen, with no browser chrome.
+
+An HTTPS address is required. The tailnet URL is HTTPS; a plain
+`http://192.168.x.x` address is not, and cannot be installed.
+
+### Notifications with the app closed
+
+Open the notification feed and turn on **On this device**. Sero then
+notifies that phone when work finishes or needs you, even with the app
+closed.
+
+The notification says where it came from, never what was said. Tap it and
+Sero Remote opens on the right workspace, over the tailnet.
+
+Turn it off from the same place. Revoking the device's web token also
+stops its notifications at once.
+
+**Developer note.** A service worker needs a secure origin. `localhost`
+counts, so `pnpm dev` on your own machine can register the worker and
+show the toggle. A plain-HTTP LAN address cannot, and the toggle says so
+instead of failing later. To test a real push, use the tailnet URL.
+
+### Share a file into a workspace
+
+Once Sero Remote is installed to the home screen, it appears in the
+phone's share sheet. Share a PDF, a photo or a log to Sero and the file
+lands in the open workspace's `uploads/` folder, ready to mention in a
+prompt.
+
+A shared file waits up to 15 seconds for a workspace to open, because a
+share starts the app cold. If none opens, Sero says so rather than
+dropping the file quietly.
+
+### Dashboard widgets in the browser
+
+Sero Remote has a Dashboard view. It shows plugin widgets, not the desktop
+dashboard layout.
+
+A widget appears there only when its plugin opted in with `"remote": true`. A
+widget that did not opt in is not listed, and its files are not served. Widgets
+read and write the same state files the desktop uses, and update as the state
+changes.
+
+Widgets are read from the plugins installed on your desktop machine. Sero Remote
+never loads a widget from anywhere else.
 
 ## Remote dev-server previews
 

@@ -6,6 +6,7 @@ import { WebSocket } from 'ws';
 
 import { GatewayServer, type GatewayAgentOps } from '@electron/features/gateway';
 import type { GatewayPushEvent, GatewayResponse } from '@electron/features/gateway/server/protocol';
+import type { GatewaySessionInfo, GatewaySessionModelState } from '@electron/features/gateway/server/types';
 import {
   connectClient,
   sendRequest,
@@ -20,7 +21,28 @@ interface TestHarness {
   tmpDir: string;
 }
 
+/** A model state in the shape the gateway sends, for the ops stub. */
+function modelState(key: string, thinkingLevel: string): GatewaySessionModelState {
+  const [provider, modelId] = key.split('/');
+  return {
+    provider,
+    modelId,
+    name: modelId,
+    reasoning: true,
+    thinkingLevel: thinkingLevel as GatewaySessionModelState['thinkingLevel'],
+    availableThinkingLevels: ['off', 'low', 'high'],
+    availableModels: [{
+      provider,
+      displayName: provider,
+      logo: '',
+      models: [{ provider, modelId, name: modelId, reasoning: true }],
+    }],
+  };
+}
+
 function createAgentOps(): GatewayAgentOps {
+  const modelBySession = new Map<string, string>();
+  const thinkingBySession = new Map<string, string>();
   const workspaces = [
     { id: 'workspace-a', name: 'Workspace A', path: '/workspace-a' },
     { id: 'workspace-b', name: 'Workspace B', path: '/workspace-b' },
@@ -29,9 +51,9 @@ function createAgentOps(): GatewayAgentOps {
     ['session-a', 'workspace-a'],
     ['session-b', 'workspace-b'],
   ]);
-  const sessionsByWorkspace = new Map([
-    ['workspace-a', [{ id: 'session-a', name: 'Session A', firstMessage: 'hello from A' }]],
-    ['workspace-b', [{ id: 'session-b', name: 'Session B', firstMessage: 'hello from B' }]],
+  const sessionsByWorkspace = new Map<string, GatewaySessionInfo[]>([
+    ['workspace-a', [{ ...fakeSession('session-a', 'workspace-a', 'Session A'), firstMessage: 'hello from A' }]],
+    ['workspace-b', [{ ...fakeSession('session-b', 'workspace-b', 'Session B'), firstMessage: 'hello from B' }]],
   ]);
   const historyBySession = new Map<string, Array<{
     id: string;
@@ -74,6 +96,14 @@ function createAgentOps(): GatewayAgentOps {
   }
 
   return {
+    getSessionWorkspaceId: () => null,
+    searchSessions: async () => [],
+    gitStatus: async () => ({
+      branch: 'main', ahead: 0, behind: 0, detached: false, merging: false, files: [],
+    }),
+    gitDiff: async () => null,
+    uploadFile: async () => ({ path: 'uploads/a.txt', bytes: 1, renamed: false }),
+    gitCommit: async () => ({ hash: 'abc1234', branch: 'main', fileCount: 1 }),
     openSession: async (sessionId, workspaceId) => {
       const existingWorkspaceId = sessionWorkspaceIds.get(sessionId);
       if (existingWorkspaceId && existingWorkspaceId !== workspaceId) {
@@ -93,9 +123,27 @@ function createAgentOps(): GatewayAgentOps {
       const sessionId = `created-${workspaceId}`;
       sessionWorkspaceIds.set(sessionId, workspaceId);
       const sessions = sessionsByWorkspace.get(workspaceId) ?? [];
-      sessionsByWorkspace.set(workspaceId, [...sessions, { id: sessionId, name: name ?? '', firstMessage: '' }]);
+      sessionsByWorkspace.set(workspaceId, [...sessions, fakeSession(sessionId, workspaceId, name)]);
       historyBySession.set(sessionId, []);
-      return { id: sessionId, name: name ?? '' };
+      return fakeSession(sessionId, workspaceId, name);
+    },
+    deleteSession: async (workspaceId, sessionId) => {
+      assertSessionWorkspace(workspaceId, sessionId);
+      const sessions = sessionsByWorkspace.get(workspaceId) ?? [];
+      sessionsByWorkspace.set(workspaceId, sessions.filter((session) => session.id !== sessionId));
+      sessionWorkspaceIds.delete(sessionId);
+    },
+    getSessionModel: async (sessionId, workspaceId) => {
+      assertSessionWorkspace(workspaceId, sessionId);
+      return modelState(modelBySession.get(sessionId) ?? 'openai/gpt-5', thinkingBySession.get(sessionId) ?? 'off');
+    },
+    setSessionModel: async (sessionId, provider, modelId) => {
+      modelBySession.set(sessionId, `${provider}/${modelId}`);
+      return modelState(`${provider}/${modelId}`, thinkingBySession.get(sessionId) ?? 'off');
+    },
+    setSessionThinkingLevel: async (sessionId, level) => {
+      thinkingBySession.set(sessionId, level);
+      return modelState(modelBySession.get(sessionId) ?? 'openai/gpt-5', level);
     },
     listFiles: async () => [],
     readFile: async () => ({ content: '', encoding: 'utf8', mimeType: 'text/plain', size: 0 }),
@@ -130,6 +178,19 @@ async function createHarness(): Promise<TestHarness> {
   }
 
   return { server, port, tmpDir };
+}
+
+
+/** A session list entry with the metadata the session row needs. */
+function fakeSession(id: string, workspaceId: string, name?: string): GatewaySessionInfo {
+  return {
+    id,
+    name: name ?? '',
+    firstMessage: '',
+    workspaceId,
+    updatedAt: new Date(0).toISOString(),
+    messageCount: 0,
+  };
 }
 
 describe('GatewayServer scoped authorization flows', () => {
@@ -172,7 +233,7 @@ describe('GatewayServer scoped authorization flows', () => {
     expect(sessions).toEqual({
       type: 'ok',
       requestType: 'list_sessions',
-      data: [{ id: 'session-a', name: 'Session A', firstMessage: 'hello from A' }],
+      data: [{ ...fakeSession('session-a', 'workspace-a', 'Session A'), firstMessage: 'hello from A' }],
     });
 
     const steerOk = await sendRequest<GatewayResponse>(ws, {
@@ -268,6 +329,134 @@ describe('GatewayServer scoped authorization flows', () => {
       requestType: 'steer',
       message: 'Session not authorized: session-b',
     });
+
+    const foreignDelete = await sendRequest<GatewayResponse>(ws, {
+      type: 'delete_session',
+      workspaceId: 'workspace-b',
+      sessionId: 'session-b',
+    });
+    expect(foreignDelete).toEqual({
+      type: 'error',
+      requestType: 'delete_session',
+      message: 'Workspace not authorized: workspace-b',
+    });
+  });
+
+  it('deletes a session in an authorized workspace and drops it from the listing', async () => {
+    const harness = await createHarness();
+    harnesses.push(harness);
+
+    const token = harness.server.getAuth().webTokens.create(['workspace-a'], 'Phone').token;
+    const ws = await connectClient(harness.port, token);
+    sockets.push(ws);
+
+    const deleted = await sendRequest<GatewayResponse>(ws, {
+      type: 'delete_session',
+      workspaceId: 'workspace-a',
+      sessionId: 'session-a',
+    });
+    expect(deleted).toEqual({
+      type: 'ok',
+      requestType: 'delete_session',
+      data: { sessionId: 'session-a' },
+    });
+
+    const remaining = await sendRequest<GatewayResponse>(ws, {
+      type: 'list_sessions',
+      workspaceId: 'workspace-a',
+    });
+    expect(remaining).toMatchObject({ type: 'ok', requestType: 'list_sessions', data: [] });
+  });
+
+  it('reads and changes a session model in an authorized workspace', async () => {
+    const harness = await createHarness();
+    harnesses.push(harness);
+
+    const token = harness.server.getAuth().webTokens.create(['workspace-a'], 'Phone').token;
+    const ws = await connectClient(harness.port, token);
+    sockets.push(ws);
+
+    const read = await sendRequest<GatewayResponse>(ws, {
+      type: 'get_session_model',
+      workspaceId: 'workspace-a',
+      sessionId: 'session-a',
+    });
+    expect(read).toMatchObject({
+      type: 'ok',
+      requestType: 'get_session_model',
+      data: { provider: 'openai', modelId: 'gpt-5' },
+    });
+
+    const changed = await sendRequest<GatewayResponse>(ws, {
+      type: 'set_session_model',
+      workspaceId: 'workspace-a',
+      sessionId: 'session-a',
+      provider: 'anthropic',
+      modelId: 'claude-opus-5',
+    });
+    expect(changed).toMatchObject({
+      type: 'ok',
+      requestType: 'set_session_model',
+      data: { provider: 'anthropic', modelId: 'claude-opus-5' },
+    });
+
+    const thinking = await sendRequest<GatewayResponse>(ws, {
+      type: 'set_session_thinking',
+      workspaceId: 'workspace-a',
+      sessionId: 'session-a',
+      level: 'high',
+    });
+    expect(thinking).toMatchObject({
+      type: 'ok',
+      requestType: 'set_session_thinking',
+      data: { thinkingLevel: 'high', modelId: 'claude-opus-5' },
+    });
+
+    // The change stuck, so a fresh read reports it too.
+    const reread = await sendRequest<GatewayResponse>(ws, {
+      type: 'get_session_model',
+      workspaceId: 'workspace-a',
+      sessionId: 'session-a',
+    });
+    expect(reread).toMatchObject({
+      type: 'ok',
+      data: { modelId: 'claude-opus-5', thinkingLevel: 'high' },
+    });
+  });
+
+  it('refuses every model request for a workspace the token cannot reach', async () => {
+    const harness = await createHarness();
+    harnesses.push(harness);
+
+    const token = harness.server.getAuth().webTokens.create(['workspace-a'], 'Phone').token;
+    const ws = await connectClient(harness.port, token);
+    sockets.push(ws);
+
+    const refusals = [
+      { type: 'get_session_model', workspaceId: 'workspace-b', sessionId: 'session-b' },
+      {
+        type: 'set_session_model',
+        workspaceId: 'workspace-b',
+        sessionId: 'session-b',
+        provider: 'anthropic',
+        modelId: 'claude-opus-5',
+      },
+      {
+        type: 'set_session_thinking',
+        workspaceId: 'workspace-b',
+        sessionId: 'session-b',
+        level: 'high',
+      },
+    ];
+
+    for (const request of refusals) {
+      const response = await sendRequest<GatewayResponse>(ws, request);
+      expect(response).toEqual({
+        type: 'error',
+        requestType: request.type,
+        message: 'Workspace not authorized: workspace-b',
+      });
+    }
   });
 
   it('allows unrestricted owner web tokens across workspaces without granting master-only token management', async () => {
@@ -295,7 +484,7 @@ describe('GatewayServer scoped authorization flows', () => {
     expect(sessions).toEqual({
       type: 'ok',
       requestType: 'list_sessions',
-      data: [{ id: 'session-b', name: 'Session B', firstMessage: 'hello from B' }],
+      data: [{ ...fakeSession('session-b', 'workspace-b', 'Session B'), firstMessage: 'hello from B' }],
     });
 
     expect(await sendRequest<GatewayResponse>(ws, { type: 'list_web_tokens' })).toEqual({
@@ -339,7 +528,7 @@ describe('GatewayServer scoped authorization flows', () => {
     expect(sessions).toEqual({
       type: 'ok',
       requestType: 'list_sessions',
-      data: [{ id: 'session-b', name: 'Session B', firstMessage: 'hello from B' }],
+      data: [{ ...fakeSession('session-b', 'workspace-b', 'Session B'), firstMessage: 'hello from B' }],
     });
 
     const history = await sendRequest<GatewayResponse>(ws, {

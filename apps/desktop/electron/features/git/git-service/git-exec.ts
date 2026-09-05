@@ -8,6 +8,8 @@ export interface RunGitOptions {
   maxBuffer?: number;
   allowFailure?: boolean;
   trim?: boolean;
+  /** Extra variables for this one command, such as `GIT_INDEX_FILE`. */
+  env?: Record<string, string>;
 }
 
 interface ExecErrorLike {
@@ -26,7 +28,7 @@ interface ExecErrorLike {
 export type GitExecutionRouter = (
   args: string[],
   cwd: string,
-  options: { timeout: number; maxBuffer: number },
+  options: { timeout: number; maxBuffer: number; env?: Record<string, string> },
 ) => Promise<{ stdout: string; stderr: string; exitCode: number } | null>;
 
 let executionRouter: GitExecutionRouter | null = null;
@@ -86,13 +88,14 @@ export async function runGitAsync(
     maxBuffer = 10 * 1024 * 1024,
     allowFailure = false,
     trim = true,
+    env,
   }: RunGitOptions = {},
 ): Promise<string> {
   const args = rawArgs[0] === NO_OPTIONAL_LOCKS ? rawArgs : [NO_OPTIONAL_LOCKS, ...rawArgs];
 
   try {
     if (executionRouter) {
-      const routed = await executionRouter(args, cwd, { timeout, maxBuffer });
+      const routed = await executionRouter(args, cwd, { timeout, maxBuffer, env });
       if (routed) {
         if (routed.exitCode !== 0) {
           const error = new Error(routed.stderr || routed.stdout || `git ${args.join(' ')} failed`);
@@ -111,7 +114,7 @@ export async function runGitAsync(
       encoding: 'utf8',
       timeout,
       maxBuffer,
-      env: { ...process.env, ...authEnv },
+      env: { ...process.env, ...authEnv, ...env },
     });
 
     return normalizeResult(stdout, trim);

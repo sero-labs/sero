@@ -93,6 +93,12 @@ for a runtime widget that must appear and disappear with the current renderer
 lifecycle. Both use host-owned widget chrome. See
 [Plugin Extension Points](/reference/plugin-extension-points).
 
+## Widgets in the browser
+
+Sero Remote shows widgets too, in its own Dashboard view. A widget must opt in:
+its plugin sets `"remote": true` on the contribution. See
+[Remote widgets](/reference/plugin-extension-points#remote-widgets).
+
 ## Related docs
 
 - [Workspace and Chat](/guide/workspace-and-chat)
