@@ -64,13 +64,11 @@ export function registerGatewayHandlers(): void {
   ipcMain.handle(
     IpcChannels.gateway.setEnabled,
     async (_event, enabled: boolean) => {
-      gatewayConfig.enabled = enabled;
-      // Remember it before acting: the next launch reads this, and a
-      // start that fails should still leave the choice recorded.
-      setGatewayEnabled(enabled);
       if (enabled) {
-        await startGateway();
+        await startGatewayAndRemember();
       } else {
+        gatewayConfig.enabled = false;
+        setGatewayEnabled(false);
         await stopGateway();
       }
       return gatewayServer.getStatus();
@@ -113,7 +111,10 @@ export function registerGatewayHandlers(): void {
   ipcMain.handle(
     IpcChannels.gateway.getQrLoginData,
     async (_event, expiryDays?: number): Promise<QrLoginData> => {
-      await startGateway();
+      // Pairing a device is asking for Remote Control, so it is
+      // remembered. Without this the gateway came up for this session
+      // only, and the paired device could not reach it after a restart.
+      await startGatewayAndRemember();
 
       // Clamp expiry to 1–30 days to prevent bogus values from the renderer.
       const days = Math.max(1, Math.min(expiryDays ?? 7, 30));
@@ -150,6 +151,22 @@ export function registerGatewayHandlers(): void {
 }
 
 // ── Gateway lifecycle (called from main.ts) ─────────────────
+
+/**
+ * Start the gateway because someone asked for it, and remember that.
+ *
+ * Every deliberate start goes through here: the Remote Control toggle
+ * and pairing a device. Boot calls `startGateway` directly, because it
+ * is acting on the record rather than making one.
+ *
+ * The record is written first. A start that fails should still leave
+ * the choice, so the next launch tries again rather than forgetting.
+ */
+export async function startGatewayAndRemember(): Promise<void> {
+  gatewayConfig.enabled = true;
+  setGatewayEnabled(true);
+  await startGateway();
+}
 
 export { startGateway, stopGateway };
 
