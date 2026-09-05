@@ -43,6 +43,20 @@ const MIME_MAP: Record<string, string> = {
   '.toml': 'text/x-toml', '.sh': 'text/x-sh',
 };
 
+/**
+ * A path from the remote, in the shape the runtime wants.
+ *
+ * The remote asks for the workspace root as `/`, which is not a runtime
+ * path. Every other path it sends came back from an earlier listing, so
+ * it is already runtime-shaped and passes through unchanged.
+ */
+function toRuntimeDirPath(runtimeWorkspacePath: string, dirPath: string): string {
+  const trimmed = dirPath.trim();
+  return trimmed === '' || trimmed === '/' || trimmed === '.'
+    ? runtimeWorkspacePath
+    : trimmed;
+}
+
 interface SessionPool {
   has(id: string): boolean;
   get(id: string): {
@@ -211,7 +225,9 @@ export function buildGatewayOps(
     },
     listFiles: async (workspaceId, dirPath) => {
       const runtime = await runtimeManager.getRuntime(workspaceId);
-      const entries = await runtime.listFiles({ path: dirPath });
+      const entries = await runtime.listFiles({
+        path: toRuntimeDirPath(runtime.runtimeWorkspacePath, dirPath),
+      });
       return entries.filter((entry) => !entry.name.startsWith('.'));
     },
     readFile: async (workspaceId, filePath) => {

@@ -17,6 +17,13 @@ const mocks = vi.hoisted(() => ({
     open: vi.fn(),
     create: vi.fn(),
   },
+  runtime: {
+    runtimeWorkspacePath: '/workspace',
+    listFiles: vi.fn(),
+  },
+  runtimeManager: {
+    getRuntime: vi.fn(),
+  },
 }));
 
 vi.mock('@electron/features/workspace/manager', () => ({
@@ -26,6 +33,7 @@ vi.mock('@electron/features/workspace/manager', () => ({
 vi.mock('@electron/shared/infra/shared-infra', () => ({
   containerManager: mocks.containerManager,
   artifactRegistry: mocks.artifactRegistry,
+  runtimeManager: mocks.runtimeManager,
   SERO_SESSION_DIR: '/tmp/sero-test-sessions',
 }));
 
@@ -40,6 +48,28 @@ vi.mock('@earendil-works/pi-coding-agent', async (importOriginal) => {
 describe('buildGatewayOps', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.runtimeManager.getRuntime.mockResolvedValue(mocks.runtime);
+    mocks.runtime.listFiles.mockResolvedValue([]);
+  });
+
+  it('lists the workspace root when the remote asks for "/"', async () => {
+    mocks.runtime.listFiles.mockResolvedValue([
+      { name: 'src', path: '/workspace/src', type: 'directory', size: 0 },
+      { name: '.git', path: '/workspace/.git', type: 'directory', size: 0 },
+    ]);
+
+    const ops = buildGatewayOps({ has: vi.fn(), get: vi.fn() }, vi.fn());
+    const entries = await ops.listFiles('workspace-a', '/');
+
+    expect(mocks.runtime.listFiles).toHaveBeenCalledWith({ path: '/workspace' });
+    expect(entries.map((entry) => entry.name)).toEqual(['src']);
+  });
+
+  it('passes a runtime path from an earlier listing through unchanged', async () => {
+    const ops = buildGatewayOps({ has: vi.fn(), get: vi.fn() }, vi.fn());
+    await ops.listFiles('workspace-a', '/workspace/src');
+
+    expect(mocks.runtime.listFiles).toHaveBeenCalledWith({ path: '/workspace/src' });
   });
 
   it('reuses an existing on-disk session when opening by session ID', async () => {
