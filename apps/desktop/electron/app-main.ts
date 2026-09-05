@@ -212,11 +212,18 @@ function platformFrameOptions(): Electron.BrowserWindowConstructorOptions {
 }
 
 function createWindow() {
+  const supportsTransparentWindow = process.platform === 'darwin';
+  const supportsDesktopMaterial =
+    supportsTransparentWindow || process.platform === 'win32';
+
   mainWindow = new BrowserWindow({
     minWidth: 800,
     minHeight: 500,
     ...platformFrameOptions(),
-    backgroundColor: '#00000000',
+    backgroundColor: supportsDesktopMaterial
+      ? '#00000000'
+      : CHROME_BACKGROUND_COLOR,
+    transparent: supportsTransparentWindow,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

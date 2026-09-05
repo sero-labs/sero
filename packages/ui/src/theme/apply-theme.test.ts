@@ -24,7 +24,7 @@ function createPreset(overrides: Partial<ThemePreset> = {}): ThemePreset {
 describe('theme glass effect', () => {
   afterEach(() => resetTheme());
 
-  it('makes theme surfaces translucent while glass is enabled', () => {
+  it('makes the window base translucent while keeping working surfaces opaque', () => {
     applyThemePreset(createPreset({
       glass: { enabled: true, opacity: 0.64 },
     }), 'dark');
@@ -34,8 +34,10 @@ describe('theme glass effect', () => {
     expect(root.style.getPropertyValue('--bg-base')).toBe(
       'color-mix(in srgb, #0a0a0b 64%, transparent)',
     );
-    expect(root.style.getPropertyValue('--bg-surface')).toBe(
-      'color-mix(in srgb, #111113 64%, transparent)',
+    expect(root.style.getPropertyValue('--bg-surface')).toBe('#111113');
+    expect(root.style.getPropertyValue('--bg-elevated')).toBe('#18181b');
+    expect(root.style.getPropertyValue('--window-glass-opaque-base')).toBe(
+      '#0a0a0b',
     );
   });
 
@@ -48,6 +50,7 @@ describe('theme glass effect', () => {
     const root = document.documentElement;
     expect(root.classList.contains('theme-glass')).toBe(false);
     expect(root.style.getPropertyValue('--bg-base')).toBe('#0a0a0b');
+    expect(root.style.getPropertyValue('--window-glass-opaque-base')).toBe('');
   });
 
   it('normalises persisted glass controls', () => {

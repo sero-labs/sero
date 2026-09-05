@@ -80,14 +80,6 @@ const DERIVED_OPACITY_VARS: Array<[string, keyof ColorTokens, number]> = [
   ['--banner-primary-border', 'bannerPrimary', 20],
 ];
 
-const GLASS_SURFACE_KEYS: Array<keyof ColorTokens> = [
-  'bgBase',
-  'bgSurface',
-  'bgElevated',
-  'bgOverlay',
-  'bgMuted',
-];
-
 export interface ApplyThemeOptions {
   loadFont?: (fontStack: string) => void;
 }
@@ -103,13 +95,14 @@ function applyGlassEffect(
 ): void {
   const enabled = glass?.enabled === true;
   root.classList.toggle('theme-glass', enabled);
+  root.style.removeProperty('--window-glass-opaque-base');
   if (!enabled) return;
 
   const opacity = Math.min(0.95, Math.max(0.2, glass.opacity));
   const percentage = Math.round(opacity * 100);
-  for (const key of GLASS_SURFACE_KEYS) {
-    root.style.setProperty(COLOR_TOKEN_TO_CSS[key], tint(colors[key], percentage));
-  }
+  root.style.setProperty('--bg-base', tint(colors.bgBase, percentage));
+
+  root.style.setProperty('--window-glass-opaque-base', colors.bgBase);
 }
 
 // ── Apply / Reset ────────────────────────────────────────────
@@ -170,6 +163,7 @@ const ALL_MANAGED_VARS = [
   '--font-size-base',
   '--spacing',
   '--radius',
+  '--window-glass-opaque-base',
 ];
 
 /** Remove all inline theme overrides, reverting to CSS defaults. */

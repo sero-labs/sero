@@ -46,8 +46,8 @@ export function LayoutTab({
             Desktop glass
           </h3>
           <p className="mt-0.5 text-sm text-[var(--text-muted)]">
-            Show the desktop through Sero. Dashboard glass is disabled
-            automatically.
+            Show the desktop through the main window while dialogs and controls
+            stay opaque.
           </p>
         </div>
         <ToggleRow
