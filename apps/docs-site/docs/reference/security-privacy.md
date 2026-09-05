@@ -210,8 +210,11 @@ Most gateway requests only read. These change something:
 
 The commit is the only request that changes a git repository. Its limits:
 
-- it stages exactly the paths the client sends and commits those; nothing else
-  in the working tree is staged
+- it commits exactly the paths the client sends, and nothing else. The commit
+  is built in a temporary index, so a file staged on the desktop but not
+  selected stays staged and out of the commit. A selected file that has a
+  staged copy commits that copy, which is the diff the phone showed; a file
+  with no staged copy commits its working-tree content
 - it refuses while a merge, rebase, cherry-pick or revert is part-way through
 - it never pushes, amends, discards or stashes; there is no gateway request for
   any of those
@@ -278,7 +281,9 @@ What controls it:
   workspace scope frozen in. A scoped token's phone is only pushed events
   from the workspaces it may see.
 - An event that names no workspace is pushed to owner tokens only.
-- Revoking or expiring a web token drops its subscriptions at once.
+- Revoking or expiring a web token drops its subscriptions at once, and every
+  send checks the token again first, so a token that expired since the last
+  prune gets nothing.
 - A token with a client connected right now is not pushed to. It already
   has the event over the socket.
 - A push service answers `410 Gone` for a browser that dropped its
