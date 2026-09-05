@@ -67,9 +67,16 @@ export function registerGatewayNotificationBridge(sink: NotificationEventSink): 
     sink.broadcastEvent({ type: 'notifications_read', ids, ts: Date.now() });
   });
 
+  // Removals travel the same way reads do, and for the same reason: the
+  // ids are bare UUIDs, so they name nothing a scoped token must not see.
+  const stopDismissals = feed.subscribeDismissed((ids) => {
+    sink.broadcastEvent({ type: 'notifications_dismissed', ids, ts: Date.now() });
+  });
+
   unsubscribe = () => {
     stopEntries();
     stopReads();
+    stopDismissals();
   };
 }
 

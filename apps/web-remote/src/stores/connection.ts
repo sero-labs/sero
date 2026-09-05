@@ -42,6 +42,8 @@ export interface GatewayClientLike {
   answerChoice: (id: string, optionId: string) => void;
   listNotifications: (since?: number, limit?: number) => void;
   markNotificationsRead: (ids: string[]) => void;
+  dismissNotifications: (ids: string[]) => void;
+  clearReadNotifications: () => void;
   uploadFile: (workspaceId: string, filePath: string, contentBase64: string) => void;
   gitStatus: (workspaceId: string) => void;
   gitDiff: (workspaceId: string, filePath: string, staged: boolean) => void;

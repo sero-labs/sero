@@ -55,6 +55,8 @@ class FakeGatewayClient implements GatewayClientLike {
   answerChoice(): void {}
   listNotifications(): void {}
   markNotificationsRead(): void {}
+  dismissNotifications(): void {}
+  clearReadNotifications(): void {}
   uploadFile(): void {}
   gitStatus(): void {}
   gitDiff(): void {}

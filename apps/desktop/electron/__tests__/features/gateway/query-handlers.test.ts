@@ -287,4 +287,86 @@ describe('notification handlers', () => {
     expect(sent[0]?.data).toEqual({ ids: [entry.id] });
     expect(feed.unreadCount()).toBe(0);
   });
+
+  it('dismisses an entry a scoped token can reach', async () => {
+    const feed = testFeed;
+    const entry = feed.notify({ message: 'mine', workspaceId: 'ws-1', silentOnDesktop: true });
+
+    const { ws, sent } = fakeSocket();
+    const { ops } = makeOps();
+
+    await routeQueryRequest(
+      ws,
+      ops,
+      { type: 'dismiss_notifications', ids: [entry.id] } as GatewayRequest,
+      scope(['ws-1']),
+      tracker(),
+    );
+
+    expect(sent[0]?.data).toEqual({ ids: [entry.id] });
+    expect(feed.list()).toHaveLength(0);
+  });
+
+  it('refuses to dismiss an entry a scoped token cannot see', async () => {
+    const feed = testFeed;
+    const theirs = feed.notify({ message: 'theirs', workspaceId: 'ws-2', silentOnDesktop: true });
+    const global = feed.notify({ message: 'global', silentOnDesktop: true });
+
+    const { ws, sent } = fakeSocket();
+    const { ops } = makeOps();
+
+    await routeQueryRequest(
+      ws,
+      ops,
+      { type: 'dismiss_notifications', ids: [theirs.id, global.id] } as GatewayRequest,
+      scope(['ws-1']),
+      tracker(),
+    );
+
+    // Deleting is destructive, so it is scoped even though marking read is not.
+    expect(sent[0]?.data).toEqual({ ids: [] });
+    expect(feed.list()).toHaveLength(2);
+  });
+
+  it('clears read entries and keeps unread ones', async () => {
+    const feed = testFeed;
+    const read = feed.notify({ message: 'seen', workspaceId: 'ws-1', silentOnDesktop: true });
+    feed.notify({ message: 'new', workspaceId: 'ws-1', silentOnDesktop: true });
+    feed.markRead([read.id]);
+
+    const { ws, sent } = fakeSocket();
+    const { ops } = makeOps();
+
+    await routeQueryRequest(
+      ws,
+      ops,
+      { type: 'clear_read_notifications' } as GatewayRequest,
+      scope(['ws-1']),
+      tracker(),
+    );
+
+    expect(sent[0]?.data).toEqual({ ids: [read.id] });
+    expect(feed.list().map((entry) => entry.message)).toEqual(['new']);
+  });
+
+  it('clears only the read entries a scoped token can see', async () => {
+    const feed = testFeed;
+    const mine = feed.notify({ message: 'mine', workspaceId: 'ws-1', silentOnDesktop: true });
+    const theirs = feed.notify({ message: 'theirs', workspaceId: 'ws-2', silentOnDesktop: true });
+    feed.markRead([mine.id, theirs.id]);
+
+    const { ws, sent } = fakeSocket();
+    const { ops } = makeOps();
+
+    await routeQueryRequest(
+      ws,
+      ops,
+      { type: 'clear_read_notifications' } as GatewayRequest,
+      scope(['ws-1']),
+      tracker(),
+    );
+
+    expect(sent[0]?.data).toEqual({ ids: [mine.id] });
+    expect(feed.list().map((entry) => entry.message)).toEqual(['theirs']);
+  });
 });

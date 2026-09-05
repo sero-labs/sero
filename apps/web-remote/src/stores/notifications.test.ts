@@ -6,6 +6,8 @@ import type { GatewayMessage } from '@/lib/gateway-client';
 
 const listNotifications = vi.fn((_since?: number, _limit?: number) => {});
 const markNotificationsRead = vi.fn((_ids: string[]) => {});
+const dismissNotifications = vi.fn((_ids: string[]) => {});
+const clearReadNotifications = vi.fn(() => {});
 
 function pushed(id: string, ts: number, extra: Record<string, unknown> = {}): GatewayMessage {
   return {
@@ -24,8 +26,15 @@ describe('notifications store', () => {
   beforeEach(() => {
     listNotifications.mockClear();
     markNotificationsRead.mockClear();
+    dismissNotifications.mockClear();
+    clearReadNotifications.mockClear();
     useConnectionStore.setState({
-      client: { listNotifications, markNotificationsRead } as unknown as never,
+      client: {
+        listNotifications,
+        markNotificationsRead,
+        dismissNotifications,
+        clearReadNotifications,
+      } as unknown as never,
     });
     useNotificationsStore.setState({ notifications: [] });
   });
@@ -155,5 +164,62 @@ describe('notifications store', () => {
     useNotificationsStore.getState().backfill();
 
     expect(listNotifications).not.toHaveBeenCalled();
+  });
+
+  it('asks the host to dismiss, and keeps the row until it confirms', () => {
+    const store = useNotificationsStore.getState();
+    store.handleMessage(pushed('n1', 1000));
+    store.handleMessage(pushed('n2', 2000));
+
+    store.dismiss(['n1']);
+
+    expect(dismissNotifications).toHaveBeenCalledWith(['n1']);
+    // Nothing is removed optimistically: a refused delete must leave it.
+    expect(useNotificationsStore.getState().notifications).toHaveLength(2);
+  });
+
+  it('drops the entries the host says went', () => {
+    const store = useNotificationsStore.getState();
+    store.handleMessage(pushed('n1', 1000));
+    store.handleMessage(pushed('n2', 2000));
+
+    store.handleMessage({
+      type: 'notifications_dismissed',
+      ids: ['n1'],
+      ts: 3000,
+    } as unknown as GatewayMessage);
+
+    expect(
+      useNotificationsStore.getState().notifications.map((entry) => entry.id),
+    ).toEqual(['n2']);
+  });
+
+  it('ignores ids it never held', () => {
+    const store = useNotificationsStore.getState();
+    store.handleMessage(pushed('n1', 1000));
+
+    store.handleMessage({
+      type: 'notifications_dismissed',
+      ids: ['someone-elses'],
+      ts: 3000,
+    } as unknown as GatewayMessage);
+
+    expect(useNotificationsStore.getState().notifications).toHaveLength(1);
+  });
+
+  it('sends a clear-read request without touching the feed itself', () => {
+    const store = useNotificationsStore.getState();
+    store.handleMessage(pushed('n1', 1000, { read: true }));
+
+    store.clearRead();
+
+    expect(clearReadNotifications).toHaveBeenCalledTimes(1);
+    expect(useNotificationsStore.getState().notifications).toHaveLength(1);
+  });
+
+  it('sends nothing when there is nothing to dismiss', () => {
+    useNotificationsStore.getState().dismiss([]);
+
+    expect(dismissNotifications).not.toHaveBeenCalled();
   });
 });

@@ -173,6 +173,17 @@ export interface GatewayMarkNotificationsReadRequest {
   ids: string[];
 }
 
+/** Remove entries from the feed. The token must be able to see them. */
+export interface GatewayDismissNotificationsRequest {
+  type: 'dismiss_notifications';
+  ids: string[];
+}
+
+/** Remove every read entry the token can see. Unread entries stay. */
+export interface GatewayClearReadNotificationsRequest {
+  type: 'clear_read_notifications';
+}
+
 /** Answer a pending choice from a remote client. */
 export interface GatewayAnswerChoiceRequest {
   type: 'answer_choice';
@@ -316,6 +327,8 @@ export type GatewayRequest = (
   | GatewayAnswerChoiceRequest
   | GatewayListNotificationsRequest
   | GatewayMarkNotificationsReadRequest
+  | GatewayDismissNotificationsRequest
+  | GatewayClearReadNotificationsRequest
   | GatewayListRemoteWidgetsRequest
   | GatewayAppStateGetRequest
   | GatewayAppStateWatchRequest

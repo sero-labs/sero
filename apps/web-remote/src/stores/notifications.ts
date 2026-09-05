@@ -42,6 +42,10 @@ interface NotificationsStore {
   markRead: (ids: string[]) => void;
   /** Mark every unread entry read. Used when the feed is opened. */
   markAllRead: () => void;
+  /** Remove entries. The host removes them for every client. */
+  dismiss: (ids: string[]) => void;
+  /** Remove every read entry. Unread entries stay. */
+  clearRead: () => void;
   handleMessage: (msg: GatewayMessage) => void;
 }
 
@@ -99,11 +103,37 @@ export const useNotificationsStore = create<NotificationsStore>((set, get) => ({
     get().markRead(unread.map((entry) => entry.id));
   },
 
+  // Rows go only when the host confirms, so a refused removal leaves the
+  // feed as it was rather than hiding an entry that still exists.
+  dismiss: (ids: string[]) => {
+    if (ids.length === 0) return;
+    const client = useConnectionStore.getState().client;
+    if (!client) return;
+    client.dismissNotifications(ids);
+  },
+
+  clearRead: () => {
+    const client = useConnectionStore.getState().client;
+    if (!client) return;
+    client.clearReadNotifications();
+  },
+
   handleMessage: (msg: GatewayMessage) => {
     if (msg.type === 'notification') {
       const entry = readNotification(msg);
       if (!entry) return;
       set((s) => ({ notifications: merge(s.notifications, [entry]) }));
+      return;
+    }
+
+    if (msg.type === 'notifications_dismissed') {
+      const ids = (msg as unknown as { ids?: unknown }).ids;
+      if (!Array.isArray(ids)) return;
+      const gone = new Set(ids.filter((id): id is string => typeof id === 'string'));
+      if (gone.size === 0) return;
+      set((s) => ({
+        notifications: s.notifications.filter((entry) => !gone.has(entry.id)),
+      }));
       return;
     }
 

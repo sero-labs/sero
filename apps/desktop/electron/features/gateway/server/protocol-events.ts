@@ -215,6 +215,20 @@ export interface GatewayNotificationsReadEvent {
   ts: number;
 }
 
+/**
+ * Entries were removed from the feed. Sent to every client.
+ *
+ * An id is a bare UUID and names no workspace, so it carries nothing a
+ * scoped token should not see. A client drops whatever it holds; ids it
+ * never had mean nothing to it.
+ */
+export interface GatewayNotificationsDismissedEvent {
+  type: 'notifications_dismissed';
+  ids: string[];
+  /** Epoch milliseconds. */
+  ts: number;
+}
+
 /** A watched widget state file changed on disk. */
 export interface GatewayAppStateChangedEvent {
   type: 'app_state_changed';
@@ -242,6 +256,7 @@ export type GatewayPushEvent =
   | GatewayChoiceResolvedEvent
   | GatewayNotificationEvent
   | GatewayNotificationsReadEvent
+  | GatewayNotificationsDismissedEvent
   | GatewayAppStateChangedEvent
   | GatewayFileTreeChangedEvent
   | GatewayDevServerChangedEvent;

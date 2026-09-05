@@ -30,6 +30,8 @@ export const VALID_REQUEST_TYPES = new Set<GatewayRequest['type']>([
   'answer_choice',
   'list_notifications',
   'mark_notifications_read',
+  'dismiss_notifications',
+  'clear_read_notifications',
   'create_session',
   'delete_session',
   'get_session_model',
@@ -241,6 +243,15 @@ function validateRequestBody(data: Record<string, unknown>): GatewayRequest | nu
       if (!ids || ids.length === 0) return null;
       return { type: 'mark_notifications_read', ids };
     }
+
+    case 'dismiss_notifications': {
+      const ids = readStringArray(data.ids);
+      if (!ids || ids.length === 0) return null;
+      return { type: 'dismiss_notifications', ids };
+    }
+
+    case 'clear_read_notifications':
+      return { type: 'clear_read_notifications' };
 
     case 'list_remote_widgets': {
       const workspaceId = readOptionalString(data, 'workspaceId');

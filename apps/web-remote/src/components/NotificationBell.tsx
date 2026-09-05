@@ -21,7 +21,7 @@ import {
 } from '@sero-ai/ui/components/ui/sheet';
 import { useIsMobile } from '@sero-ai/ui/hooks/use-mobile';
 import { cn } from '@sero-ai/ui/lib/utils';
-import { NotificationFeed } from './NotificationFeed';
+import { ClearReadButton, NotificationFeed } from './NotificationFeed';
 import { PushToggle } from './PushToggle';
 import { useNotificationsStore, selectUnread } from '@/stores/notifications';
 
@@ -74,7 +74,10 @@ export function NotificationBell() {
         <Sheet open={open} onOpenChange={handleOpenChange}>
           <SheetContent side="right" className="w-80 p-0" showCloseButton={false}>
             <SheetHeader className="border-b border-[var(--border-subtle)] px-3 py-2">
-              <SheetTitle className="text-base">Notifications</SheetTitle>
+              <div className="flex items-center justify-between gap-2">
+                <SheetTitle className="text-base">Notifications</SheetTitle>
+                <ClearReadButton />
+              </div>
             </SheetHeader>
             <div className="flex-1 overflow-y-auto">
               <NotificationFeed />
@@ -90,9 +93,10 @@ export function NotificationBell() {
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent align="end" className="max-h-96 w-80 overflow-y-auto p-0">
-        <p className="border-b border-[var(--border-subtle)] px-3 py-2 text-sm font-medium text-[var(--text-primary)]">
-          Notifications
-        </p>
+        <div className="flex items-center justify-between gap-2 border-b border-[var(--border-subtle)] px-3 py-2">
+          <p className="text-sm font-medium text-[var(--text-primary)]">Notifications</p>
+          <ClearReadButton />
+        </div>
         <NotificationFeed />
         <PushToggle />
       </PopoverContent>

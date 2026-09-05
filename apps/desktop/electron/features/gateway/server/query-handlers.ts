@@ -50,6 +50,19 @@ async function searchableWorkspaceIds(
  * Handle the read-only query requests.
  * Returns true when the request was handled.
  */
+/**
+ * What this token is allowed to remove.
+ *
+ * The same rule `list_notifications` applies: an entry that names a
+ * workspace needs access to it, and an entry that names none is
+ * owner-only.
+ */
+function canSee(accessScope: GatewayAccessScope) {
+  const isOwner = accessScope.authorizedWorkspaceIds === null;
+  return (entry: { workspaceId?: string }): boolean =>
+    entry.workspaceId ? hasWorkspaceAccess(accessScope, entry.workspaceId) : isOwner;
+}
+
 export async function routeQueryRequest(
   ws: WebSocket,
   agentOps: GatewayAgentOps,
@@ -142,6 +155,20 @@ export async function routeQueryRequest(
       // could not already read, so no id is refused here.
       const changed = getNotificationFeed().markRead(request.ids);
       respond({ type: 'ok', requestType: 'mark_notifications_read', data: { ids: changed } });
+      return true;
+    }
+
+    case 'dismiss_notifications': {
+      // Removing is destructive, unlike marking read, so a token may only
+      // remove what it could have seen in the first place.
+      const removed = getNotificationFeed().dismiss(request.ids, canSee(accessScope));
+      respond({ type: 'ok', requestType: 'dismiss_notifications', data: { ids: removed } });
+      return true;
+    }
+
+    case 'clear_read_notifications': {
+      const removed = getNotificationFeed().clearRead(canSee(accessScope));
+      respond({ type: 'ok', requestType: 'clear_read_notifications', data: { ids: removed } });
       return true;
     }
 

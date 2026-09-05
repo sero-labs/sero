@@ -151,6 +151,103 @@ describe('marking read', () => {
   });
 });
 
+describe('dismissing entries', () => {
+  it('removes the named entries and reports what went', () => {
+    const { feed } = makeFeed();
+    const keep = feed.notify({ message: 'Keep me' });
+    const drop = feed.notify({ message: 'Drop me' });
+
+    expect(feed.dismiss([drop.id])).toEqual([drop.id]);
+    expect(feed.list().map((entry) => entry.id)).toEqual([keep.id]);
+  });
+
+  it('ignores an id the feed does not hold', () => {
+    const { feed } = makeFeed();
+    feed.notify({ message: 'Only entry' });
+
+    expect(feed.dismiss(['not-a-real-id'])).toEqual([]);
+    expect(feed.list()).toHaveLength(1);
+  });
+
+  it('removes only what the caller is allowed to see', () => {
+    const { feed } = makeFeed();
+    const mine = feed.notify({ message: 'Mine', workspaceId: 'workspace-a' });
+    const theirs = feed.notify({ message: 'Theirs', workspaceId: 'workspace-b' });
+
+    // A scoped token must not be able to delete another workspace's entry.
+    const removed = feed.dismiss(
+      [mine.id, theirs.id],
+      (entry) => entry.workspaceId === 'workspace-a',
+    );
+
+    expect(removed).toEqual([mine.id]);
+    expect(feed.list().map((entry) => entry.id)).toEqual([theirs.id]);
+  });
+
+  it('tells its dismiss subscribers which ids went', () => {
+    const { feed } = makeFeed();
+    const seen: string[][] = [];
+    feed.subscribeDismissed((ids) => seen.push(ids));
+
+    const entry = feed.notify({ message: 'Going' });
+    feed.dismiss([entry.id]);
+
+    expect(seen).toEqual([[entry.id]]);
+  });
+
+  it('tells nobody when nothing was removed', () => {
+    const { feed } = makeFeed();
+    const seen: string[][] = [];
+    feed.subscribeDismissed((ids) => seen.push(ids));
+
+    feed.dismiss(['not-a-real-id']);
+
+    expect(seen).toEqual([]);
+  });
+
+  it('keeps a dismissed entry gone across a restart', () => {
+    const { feed, logPath } = makeFeed();
+    const keep = feed.notify({ message: 'Keep me' });
+    const drop = feed.notify({ message: 'Drop me' });
+    feed.dismiss([drop.id]);
+
+    const reopened = new NotificationFeed(logPath);
+    expect(reopened.list().map((entry) => entry.id)).toEqual([keep.id]);
+  });
+});
+
+describe('clearing read entries', () => {
+  it('removes read entries and keeps unread ones', () => {
+    const { feed } = makeFeed();
+    const read = feed.notify({ message: 'Already seen' });
+    const unread = feed.notify({ message: 'Just arrived' });
+    feed.markRead([read.id]);
+
+    expect(feed.clearRead()).toEqual([read.id]);
+    expect(feed.list().map((entry) => entry.id)).toEqual([unread.id]);
+  });
+
+  it('clears only what the caller is allowed to see', () => {
+    const { feed } = makeFeed();
+    const mine = feed.notify({ message: 'Mine', workspaceId: 'workspace-a' });
+    const theirs = feed.notify({ message: 'Theirs', workspaceId: 'workspace-b' });
+    feed.markRead([mine.id, theirs.id]);
+
+    const removed = feed.clearRead((entry) => entry.workspaceId === 'workspace-a');
+
+    expect(removed).toEqual([mine.id]);
+    expect(feed.list().map((entry) => entry.id)).toEqual([theirs.id]);
+  });
+
+  it('removes nothing when every entry is unread', () => {
+    const { feed } = makeFeed();
+    feed.notify({ message: 'Just arrived' });
+
+    expect(feed.clearRead()).toEqual([]);
+    expect(feed.list()).toHaveLength(1);
+  });
+});
+
 describe('the log on disk', () => {
   it('survives a restart', () => {
     const { feed, logPath } = makeFeed();

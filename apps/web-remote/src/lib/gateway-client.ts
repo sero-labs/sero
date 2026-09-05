@@ -61,6 +61,7 @@ export interface GatewayPushEvent {
     | 'choice_resolved'
     | 'notification'
     | 'notifications_read'
+    | 'notifications_dismissed'
     | 'app_state_changed'
     | 'file_tree_changed'
     | 'dev_server_changed';
@@ -289,6 +290,16 @@ export class GatewayClient {
   /** Mark notifications read for every client. */
   markNotificationsRead(ids: string[]): void {
     this.send({ type: 'mark_notifications_read', ids });
+  }
+
+  /** Remove entries from the feed for every client. */
+  dismissNotifications(ids: string[]): void {
+    this.send({ type: 'dismiss_notifications', ids });
+  }
+
+  /** Remove every read entry. Unread entries stay. */
+  clearReadNotifications(): void {
+    this.send({ type: 'clear_read_notifications' });
   }
 
   /** List the dashboard widgets this client may load. */

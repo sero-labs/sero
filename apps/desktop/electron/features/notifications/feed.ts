@@ -28,11 +28,21 @@ const DEFAULT_LIST_LIMIT = 100;
 
 type Subscriber = (entry: NotificationEntry) => void;
 type ReadSubscriber = (ids: string[]) => void;
+type DismissSubscriber = (ids: string[]) => void;
+
+/**
+ * Whether a caller may act on an entry.
+ *
+ * Marking an entry read needs no such test: it changes nothing a caller
+ * could not already read. Removing one does, so every remove takes this.
+ */
+export type EntryVisibility = (entry: NotificationEntry) => boolean;
 
 export class NotificationFeed {
   private entries: NotificationEntry[] = [];
   private subscribers = new Set<Subscriber>();
   private readSubscribers = new Set<ReadSubscriber>();
+  private dismissSubscribers = new Set<DismissSubscriber>();
   private readonly logPath: string;
   private loaded = false;
 
@@ -127,6 +137,54 @@ export class NotificationFeed {
     return changed;
   }
 
+  /**
+   * Remove entries by id. Returns the ids actually removed.
+   *
+   * `canSee` decides what this caller is allowed to remove. The test and
+   * the removal run in one pass, so nothing can be removed on the
+   * strength of a listing that has since changed.
+   */
+  dismiss(ids: string[], canSee: EntryVisibility = () => true): string[] {
+    this.load();
+    const wanted = new Set(ids);
+    const removed: string[] = [];
+
+    this.entries = this.entries.filter((entry) => {
+      if (!wanted.has(entry.id) || !canSee(entry)) return true;
+      removed.push(entry.id);
+      return false;
+    });
+
+    if (removed.length > 0) this.commitRemoval(removed);
+    return removed;
+  }
+
+  /**
+   * Remove every read entry this caller can see. Returns the ids removed.
+   *
+   * Unread entries stay, so an entry that arrived seconds ago is never
+   * swept away before anyone has seen it.
+   */
+  clearRead(canSee: EntryVisibility = () => true): string[] {
+    this.load();
+    const removed: string[] = [];
+
+    this.entries = this.entries.filter((entry) => {
+      if (!entry.read || !canSee(entry)) return true;
+      removed.push(entry.id);
+      return false;
+    });
+
+    if (removed.length > 0) this.commitRemoval(removed);
+    return removed;
+  }
+
+  /** Write the shortened log, then tell everyone what went. */
+  private commitRemoval(removed: string[]): void {
+    this.persist();
+    for (const subscriber of this.dismissSubscribers) subscriber(removed);
+  }
+
   /** Unread entries, for a badge count. */
   unreadCount(): number {
     this.load();
@@ -143,6 +201,12 @@ export class NotificationFeed {
   subscribeRead(handler: ReadSubscriber): () => void {
     this.readSubscribers.add(handler);
     return () => this.readSubscribers.delete(handler);
+  }
+
+  /** Called with the ids whenever entries are removed. */
+  subscribeDismissed(handler: DismissSubscriber): () => void {
+    this.dismissSubscribers.add(handler);
+    return () => this.dismissSubscribers.delete(handler);
   }
 
   private trim(): void {
