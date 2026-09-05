@@ -137,6 +137,21 @@ describe('workspace store session tree', () => {
     expect(sessionsByWorkspace['workspace-b']).toHaveLength(1);
   });
 
+  it('keeps the newest reply when two fetches of one workspace finish out of order', async () => {
+    const first = deferred();
+    const second = deferred();
+    const replies = [first, second];
+    withSessionsClient(() => replies.shift()!.promise);
+
+    useWorkspaceStore.getState().fetchSessions('workspace-a');
+    useWorkspaceStore.getState().fetchSessions('workspace-a');
+    second.resolve([session('fresh', 'workspace-a')]);
+    first.resolve([]);
+    await flush();
+
+    expect(useWorkspaceStore.getState().sessionsByWorkspace['workspace-a']?.map((s) => s.id)).toEqual(['fresh']);
+  });
+
   it('empties the requested workspace when the reply is empty', async () => {
     useWorkspaceStore.setState({
       sessionsByWorkspace: { 'workspace-a': [session('stale', 'workspace-a')] },

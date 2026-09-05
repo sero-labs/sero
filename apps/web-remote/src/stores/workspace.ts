@@ -92,6 +92,8 @@ function readSessions(value: unknown, workspaceId: string): Session[] {
 
 export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
   const getClient = () => useConnectionStore.getState().client;
+  /** The newest fetch per workspace. An older reply landing later is dropped. */
+  const fetchSeq = new Map<string, number>();
 
   return {
     workspaces: [],
@@ -109,10 +111,15 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
 
     // The reply is correlated to this request, so it names its own
     // workspace whatever order replies arrive in, and an empty list
-    // empties the right one. A failed fetch leaves the old list alone.
+    // empties the right one. Two fetches of one workspace can still
+    // finish out of order, so only the newest one's reply is kept. A
+    // failed fetch leaves the old list alone.
     fetchSessions: (workspaceId: string) => {
+      const seq = (fetchSeq.get(workspaceId) ?? 0) + 1;
+      fetchSeq.set(workspaceId, seq);
       getClient().requestSessions(workspaceId).then(
         (data) => {
+          if (fetchSeq.get(workspaceId) !== seq) return;
           const sessions = readSessions(data, workspaceId);
           set((s) => ({ sessionsByWorkspace: { ...s.sessionsByWorkspace, [workspaceId]: sessions } }));
         },

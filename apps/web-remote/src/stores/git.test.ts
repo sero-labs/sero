@@ -208,6 +208,20 @@ describe('git store', () => {
     expect(useGitStore.getState().diffs).toEqual({});
   });
 
+  it('drops a diff that a refresh of the same workspace overtook', async () => {
+    const slow = deferred<unknown>();
+    gitDiff.mockReturnValueOnce(slow.promise);
+    useGitStore.setState({ workspaceId: 'ws-1', status });
+    useGitStore.getState().openFile('ws-1', { path: 'src/a.ts', status: 'modified', staged: false });
+    useGitStore.getState().refresh('ws-1');
+    await flush();
+
+    slow.resolve({ path: 'src/a.ts', staged: false, hunks: [] });
+    await flush();
+
+    expect(useGitStore.getState().diffs).toEqual({});
+  });
+
   it('refetches the tree when a turn finishes in its workspace', () => {
     useGitStore.setState({ workspaceId: 'ws-1', status });
 

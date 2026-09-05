@@ -40,10 +40,13 @@ const STATUS_TONE: Record<GitFile['status'], string> = {
 
 export function ChangesPanel() {
   const workspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
-  const status = useGitStore((s) => s.status);
-  const loading = useGitStore((s) => s.loading);
-  const error = useGitStore((s) => s.error);
-  const openPath = useGitStore((s) => s.openPath);
+  // Until the store has moved to the active workspace, what it holds is
+  // another workspace's tree, and must not be drawn under this one.
+  const current = useGitStore((s) => s.workspaceId === workspaceId);
+  const status = useGitStore((s) => (current ? s.status : null));
+  const loading = useGitStore((s) => (current ? s.loading : true));
+  const error = useGitStore((s) => (current ? s.error : null));
+  const openPath = useGitStore((s) => (current ? s.openPath : null));
   const diffs = useGitStore((s) => s.diffs);
   const refresh = useGitStore((s) => s.refresh);
   const openFile = useGitStore((s) => s.openFile);

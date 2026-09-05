@@ -213,10 +213,13 @@ export const useGitStore = create<GitStore>((set, get) => {
       set({ openPath: file.path });
       // A diff already fetched is still true until the next refresh clears it.
       if (get().diffs[diffKey(file.path, file.staged)]) return;
+      // A diff belongs to the tree it was asked against. One that lands
+      // after a refresh would show the old file under the new tree.
+      const seq = refreshSeq;
       getClient()?.gitDiff(workspaceId, file.path, file.staged).then(
         (data) => {
           const diff = readDiff(data);
-          if (!diff || stale(workspaceId)) return;
+          if (!diff || stale(workspaceId) || seq !== refreshSeq) return;
           set((s) => ({ diffs: { ...s.diffs, [diffKey(diff.path, diff.staged)]: diff } }));
         },
         (err: unknown) => {
