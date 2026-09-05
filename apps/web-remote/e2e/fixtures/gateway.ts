@@ -167,6 +167,21 @@ function answerModel(request: GatewayTestRequest, state: SessionModel): unknown 
   return { ...state };
 }
 
+/** Which entries a request removes, or null when it removes none. */
+function removalIds(
+  request: GatewayTestRequest,
+  feed: Array<{ id: string; read?: boolean }>,
+): string[] | null {
+  if (request.type === 'dismiss_notifications') {
+    const wanted = request.ids ?? [];
+    return feed.filter((entry) => wanted.includes(entry.id)).map((entry) => entry.id);
+  }
+  if (request.type === 'clear_read_notifications') {
+    return feed.filter((entry) => entry.read === true).map((entry) => entry.id);
+  }
+  return null;
+}
+
 /** The answers, keyed by request type. `undefined` means "no answer". */
 /** Every field the stand-in reads off the wire. */
 interface GatewayTestRequest {
@@ -177,9 +192,14 @@ interface GatewayTestRequest {
   provider?: string;
   modelId?: string;
   level?: string;
+  ids?: string[];
 }
 
-function answerFor(request: GatewayTestRequest, model: SessionModel): unknown {
+function answerFor(
+  request: GatewayTestRequest,
+  model: SessionModel,
+  feed: typeof NOTIFICATIONS,
+): unknown {
   switch (request.type) {
     case 'connect':
       return {};
@@ -190,7 +210,7 @@ function answerFor(request: GatewayTestRequest, model: SessionModel): unknown {
     case 'get_session_history':
       return HISTORY;
     case 'list_notifications':
-      return NOTIFICATIONS;
+      return feed;
     case 'get_usage':
       return { totalCostUsd: 1.24, totalTokens: 184_320, sessionCount: 3 };
     case 'git_status':
@@ -233,16 +253,46 @@ export async function startTestGateway(port: number): Promise<TestGateway> {
     // One model state per connection, so each test starts from the same
     // model whatever the test before it changed.
     const model = freshSessionModel();
+    // The feed the host holds for this connection, same reasoning.
+    let feed = NOTIFICATIONS.map((entry) => ({ ...entry }));
 
     socket.on('message', (raw) => {
       const request = JSON.parse(raw.toString()) as GatewayTestRequest;
+
+      // Removals are answered, then announced. The client drops rows on
+      // the announcement, never on the response, so a stub that only
+      // replied would prove nothing.
+      const removed = removalIds(request, feed);
+      if (removed) {
+        feed = feed.filter((entry) => !removed.includes(entry.id));
+      }
 
       socket.send(JSON.stringify({
         type: 'ok',
         requestType: request.type,
         ...(request.requestId ? { requestId: request.requestId } : {}),
-        data: answerFor(request, model),
+        data: removed ? { ids: removed } : answerFor(request, model, feed),
       }));
+
+      if (removed && removed.length > 0) {
+        socket.send(JSON.stringify({
+          type: 'notifications_dismissed',
+          ids: removed,
+          ts: Date.now(),
+        }));
+      }
+
+      if (request.type === 'mark_notifications_read') {
+        const ids = request.ids ?? [];
+        for (const entry of feed) {
+          if (ids.includes(entry.id)) entry.read = true;
+        }
+        socket.send(JSON.stringify({
+          type: 'notifications_read',
+          ids,
+          ts: Date.now(),
+        }));
+      }
     });
   });
 

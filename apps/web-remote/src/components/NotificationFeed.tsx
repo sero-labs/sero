@@ -45,16 +45,17 @@ export function NotificationFeed() {
           timestamp={
             <span className="flex items-center gap-1">
               {formatRelativeDate(new Date(entry.ts).toISOString())}
-              {/* A phone has no hover, so the control stays visible. */}
+              {/* A phone has no hover, so the control stays visible, and
+                  the target is finger-sized like the session row's. */}
               <button
                 type="button"
                 aria-label="Dismiss notification"
                 title="Dismiss"
                 data-testid="notification-dismiss"
                 onClick={() => dismiss([entry.id])}
-                className="flex size-5 shrink-0 items-center justify-center rounded text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-status-error"
+                className="flex size-7 shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-status-error"
               >
-                <X className="size-3" />
+                <X className="size-3.5" />
               </button>
             </span>
           }
