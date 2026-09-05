@@ -116,7 +116,7 @@ export function PairedDeviceList({
 }
 
 /** Load the paired devices, and reload them on demand. */
-export function usePairedDevices(active: boolean) {
+export function usePairedDevices() {
   const [devices, setDevices] = useState<PairedDevice[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -132,11 +132,11 @@ export function usePairedDevices(active: boolean) {
     }
   }, []);
 
-  // The dialog mounts before it opens, so the load follows `active`
-  // rather than mount. (IPC init, valid useEffect.)
+  // The caller mounts when the dialog opens, so one load on mount is
+  // one load per open. (IPC init, valid useEffect.)
   useEffect(() => {
-    if (active) void reload();
-  }, [active, reload]);
+    void reload();
+  }, [reload]);
 
   return { devices, loading, reload };
 }
