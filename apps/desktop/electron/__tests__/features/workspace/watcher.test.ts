@@ -95,6 +95,46 @@ describe('FileWatcherManager', () => {
     ]);
   });
 
+  it('keeps watching for the second owner when the first one leaves', () => {
+    const roots = [{ hostDir: '/Users/dan/workspaces/current', virtualRoot: '/workspace' }];
+    manager.watch('ws-1', roots, 'renderer');
+    manager.watch('ws-1', roots, 'gateway');
+
+    // One filesystem watch serves both owners.
+    expect(invocations).toHaveLength(1);
+
+    manager.unwatch('ws-1', 'renderer');
+    expect(invocations[0].close).not.toHaveBeenCalled();
+
+    invocations[0].callback('change', 'src/index.ts');
+    vi.advanceTimersByTime(151);
+    expect(send).toHaveBeenCalledWith(IpcChannels.filetree.changed, {
+      workspaceId: 'ws-1',
+      directories: ['/workspace/src'],
+    });
+
+    manager.unwatch('ws-1', 'gateway');
+    expect(invocations[0].close).toHaveBeenCalledTimes(1);
+  });
+
+  it('tells a listener what changed, alongside the window', () => {
+    const heard: unknown[] = [];
+    const stop = manager.onChange((event) => heard.push(event));
+
+    manager.watch('ws-1', [
+      { hostDir: '/Users/dan/workspaces/current', virtualRoot: '/workspace' },
+    ]);
+    invocations[0].callback('change', 'src/index.ts');
+    vi.advanceTimersByTime(151);
+
+    expect(heard).toEqual([{ workspaceId: 'ws-1', directories: ['/workspace/src'] }]);
+
+    stop();
+    invocations[0].callback('change', 'lib/main.ts');
+    vi.advanceTimersByTime(151);
+    expect(heard).toHaveLength(1);
+  });
+
   it('watches the workspace root when the host directory is missing but skips missing linked roots', () => {
     mocks.existsSync.mockImplementation(((target: string) => target === '/Users/dan/workspaces/current') as any);
 

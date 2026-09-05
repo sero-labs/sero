@@ -51,6 +51,8 @@ export interface GatewayClientLike {
   requestSessionHistory: (workspaceId: string, sessionId: string) => void;
   listFiles: (workspaceId: string, filePath: string) => void;
   readFile: (workspaceId: string, filePath: string) => void;
+  watchFileTree: (workspaceId: string) => void;
+  unwatchFileTree: (workspaceId: string) => void;
   listArtifacts: (sessionId: string) => void;
   getArtifact: (artifactId: string) => void;
   listDevServers: (workspaceId?: string) => void;

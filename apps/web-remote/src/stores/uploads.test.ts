@@ -113,26 +113,61 @@ describe('uploads store', () => {
     expect(useUploadsStore.getState().recent[0]?.renamed).toBe(true);
   });
 
-  it('refreshes the folder the file landed in', () => {
+  it('refreshes the folder the file landed in, under its runtime path', () => {
     const fetchDirectory = vi.fn();
-    useFileStore.setState({ fetchDirectory });
+    useFileStore.setState({
+      fetchDirectory,
+      tree: {
+        '/': [{ name: 'uploads', type: 'directory', path: '/workspace/uploads' }],
+        '/workspace/uploads': [],
+      },
+    });
 
     useUploadsStore.getState().handleMessage(
       okResponse({ path: 'uploads/notes.txt', bytes: 5, renamed: false }),
     );
 
-    expect(fetchDirectory).toHaveBeenCalledWith('uploads');
+    expect(fetchDirectory).toHaveBeenCalledWith('/workspace/uploads');
   });
 
   it('refreshes the root for a file with no folder', () => {
     const fetchDirectory = vi.fn();
-    useFileStore.setState({ fetchDirectory });
+    useFileStore.setState({
+      fetchDirectory,
+      tree: { '/': [{ name: 'src', type: 'directory', path: '/workspace/src' }] },
+    });
 
     useUploadsStore.getState().handleMessage(
       okResponse({ path: 'notes.txt', bytes: 5, renamed: false }),
     );
 
     expect(fetchDirectory).toHaveBeenCalledWith('/');
+  });
+
+  it('leaves an unlisted folder alone, because the tree never showed it', () => {
+    const fetchDirectory = vi.fn();
+    useFileStore.setState({
+      fetchDirectory,
+      tree: { '/': [{ name: 'src', type: 'directory', path: '/workspace/src' }] },
+    });
+
+    useUploadsStore.getState().handleMessage(
+      okResponse({ path: 'uploads/notes.txt', bytes: 5, renamed: false }),
+    );
+
+    expect(fetchDirectory).toHaveBeenCalledTimes(1);
+    expect(fetchDirectory).toHaveBeenCalledWith('/');
+  });
+
+  it('refreshes nothing while the tree is unloaded', () => {
+    const fetchDirectory = vi.fn();
+    useFileStore.setState({ fetchDirectory, tree: {} });
+
+    useUploadsStore.getState().handleMessage(
+      okResponse({ path: 'uploads/notes.txt', bytes: 5, renamed: false }),
+    );
+
+    expect(fetchDirectory).not.toHaveBeenCalled();
   });
 
   it('shows why an upload was refused, without the reason prefix', () => {

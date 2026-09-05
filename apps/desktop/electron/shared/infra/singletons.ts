@@ -9,7 +9,7 @@ import { TailscaleIntegration } from '@electron/features/gateway/bridge/tailscal
 import { GitHubAuthManager } from '@electron/features/auth/github/auth-manager';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
-import { FileWatcherManager } from '@electron/features/workspace/watcher';
+import { fileWatcherManager } from '@electron/features/workspace/watcher';
 import { LspManager } from '@electron/features/editor/lsp/lsp-manager';
 import { GitRunner, VcsManager, VcsOps, VcsPullRequestOps } from '@electron/features/git';
 import { setWorktreeGitHubAuth } from '@electron/features/git/worktree/exec';
@@ -64,7 +64,7 @@ export const tailscale = new TailscaleIntegration();
 
 export { workspaceManager, runtimeManager };
 
-export const fileWatcherManager = new FileWatcherManager();
+export { fileWatcherManager };
 
 export const lspManager = new LspManager(runtimeManager);
 

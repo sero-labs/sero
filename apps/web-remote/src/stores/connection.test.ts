@@ -70,6 +70,10 @@ class FakeGatewayClient implements GatewayClientLike {
 
   readFile(): void {}
 
+  watchFileTree(): void {}
+
+  unwatchFileTree(): void {}
+
   listArtifacts(): void {}
 
   getArtifact(): void {}

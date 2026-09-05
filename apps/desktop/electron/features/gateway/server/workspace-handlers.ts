@@ -1,6 +1,6 @@
 /**
  * Workspace-file gateway handlers — read the working tree, commit from
- * it, and put a file into it.
+ * it, put a file into it, and watch it for changes.
  *
  * Reads need workspace access. The commit needs an owner token: it is the
  * only write in the gateway that changes a repository, so it is held to
@@ -18,6 +18,7 @@ import { hasWorkspaceAccess, type GatewayAccessScope } from './access-control';
 import { makeResponder } from './request-handler';
 import { GitCommitRefused } from '@electron/ipc/gateway/git-ops';
 import { UploadRefused } from '@electron/ipc/gateway/upload-file';
+import { unwatchFileTree, watchFileTree } from '../bridge/file-tree-bridge';
 
 function message(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
@@ -38,6 +39,8 @@ export async function routeWorkspaceRequest(
     && request.type !== 'git_diff'
     && request.type !== 'git_commit'
     && request.type !== 'upload_file'
+    && request.type !== 'file_tree_watch'
+    && request.type !== 'file_tree_unwatch'
   ) {
     return false;
   }
@@ -49,6 +52,34 @@ export async function routeWorkspaceRequest(
       type: 'error',
       requestType: request.type,
       message: `Workspace not authorized: ${request.workspaceId}`,
+    });
+    return true;
+  }
+
+  if (request.type === 'file_tree_watch') {
+    const watching = await watchFileTree(ws, request.workspaceId);
+    if (!watching) {
+      respond({
+        type: 'error',
+        requestType: 'file_tree_watch',
+        message: `Workspace not found: ${request.workspaceId}`,
+      });
+      return true;
+    }
+    respond({
+      type: 'ok',
+      requestType: 'file_tree_watch',
+      data: { workspaceId: request.workspaceId },
+    });
+    return true;
+  }
+
+  if (request.type === 'file_tree_unwatch') {
+    unwatchFileTree(ws, request.workspaceId);
+    respond({
+      type: 'ok',
+      requestType: 'file_tree_unwatch',
+      data: { workspaceId: request.workspaceId },
     });
     return true;
   }

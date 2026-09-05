@@ -49,6 +49,7 @@ import { getPushService, type PushService } from './push/service';
 import { routePushRequest } from './push/handlers';
 import { setAssetTicketIssuer } from './server/widget-handlers';
 import { dropWidgetStateWatches } from './bridge/widget-state-bridge';
+import { dropFileTreeWatches } from './bridge/file-tree-bridge';
 
 export type {
   GatewayConfig,
@@ -434,12 +435,14 @@ export class GatewayServer {
     ws.on('close', () => {
       clearTimeout(authTimeout);
       dropWidgetStateWatches(ws);
+      dropFileTreeWatches(ws);
       this.clients.delete(ws);
     });
 
     ws.on('error', (err) => {
       console.error('[gateway] Client error:', err);
       dropWidgetStateWatches(ws);
+      dropFileTreeWatches(ws);
       this.clients.delete(ws);
     });
   }

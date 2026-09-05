@@ -33,6 +33,8 @@ export const VALID_REQUEST_TYPES = new Set<GatewayRequest['type']>([
   'create_session',
   'list_files',
   'read_file',
+  'file_tree_watch',
+  'file_tree_unwatch',
   'list_artifacts',
   'get_artifact',
   'create_web_token',
@@ -329,6 +331,12 @@ function validateRequestBody(data: Record<string, unknown>): GatewayRequest | nu
       return workspaceId && requestPath
         ? { type: 'read_file', workspaceId, path: requestPath }
         : null;
+    }
+
+    case 'file_tree_watch':
+    case 'file_tree_unwatch': {
+      const workspaceId = readRequiredString(data, 'workspaceId');
+      return workspaceId ? { type: data.type, workspaceId } : null;
     }
 
     case 'list_artifacts': {

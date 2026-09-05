@@ -16,6 +16,7 @@ import { useWidgetsStore } from '@/stores/widgets';
 import { usePushStore } from '@/stores/push';
 import { useChatStore } from '@/stores/chat';
 import { useFileStore } from '@/stores/files';
+import { startFileTreeSync } from '@/stores/file-tree-sync';
 import { useArtifactStore } from '@/stores/artifacts';
 import { useDevServerStore } from '@/stores/dev-servers';
 import type { GatewayMessage } from '@/lib/gateway-client';
@@ -52,7 +53,11 @@ export function useGatewayDispatcher(): void {
     };
 
     const unsub = client.onMessage(handler);
-    return unsub;
+    const stopFileTreeSync = startFileTreeSync();
+    return () => {
+      unsub();
+      stopFileTreeSync();
+    };
   }, [client]);
 }
 

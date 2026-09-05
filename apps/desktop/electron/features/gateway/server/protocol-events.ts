@@ -34,6 +34,19 @@ export interface GatewaySessionStateEvent {
   ts: number;
 }
 
+/**
+ * Directories in a watched workspace changed on disk.
+ *
+ * Sent only to a socket that asked for this workspace with
+ * `file_tree_watch`. Paths are runtime paths, such as `/workspace/src`,
+ * so they match the paths a `list_files` listing returns.
+ */
+export interface GatewayFileTreeChangedEvent {
+  type: 'file_tree_changed';
+  workspaceId: string;
+  directories: string[];
+}
+
 /** Maximum length of the `turn_complete` snippet, in characters. */
 export const TURN_SNIPPET_MAX = 140;
 
@@ -230,4 +243,5 @@ export type GatewayPushEvent =
   | GatewayNotificationEvent
   | GatewayNotificationsReadEvent
   | GatewayAppStateChangedEvent
+  | GatewayFileTreeChangedEvent
   | GatewayDevServerChangedEvent;

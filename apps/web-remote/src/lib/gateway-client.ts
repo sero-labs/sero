@@ -62,6 +62,7 @@ export interface GatewayPushEvent {
     | 'notification'
     | 'notifications_read'
     | 'app_state_changed'
+    | 'file_tree_changed'
     | 'dev_server_changed';
   /** Present on session-bound events; absent on workspace-bound events like dev_server_changed. */
   sessionId?: string;
@@ -366,6 +367,16 @@ export class GatewayClient {
   /** Read a file from a workspace. */
   readFile(workspaceId: string, filePath: string): void {
     this.send({ type: 'read_file', workspaceId, path: filePath });
+  }
+
+  /** Ask for `file_tree_changed` events from a workspace. */
+  watchFileTree(workspaceId: string): void {
+    this.send({ type: 'file_tree_watch', workspaceId });
+  }
+
+  /** Stop the `file_tree_changed` events from a workspace. */
+  unwatchFileTree(workspaceId: string): void {
+    this.send({ type: 'file_tree_unwatch', workspaceId });
   }
 
   /** List artifacts for a session. */

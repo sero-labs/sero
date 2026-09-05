@@ -192,6 +192,21 @@ export interface GatewayListFilesRequest {
   path: string;
 }
 
+/**
+ * Watch a workspace's file tree. Every later change to it arrives as a
+ * `file_tree_changed` event on this socket.
+ */
+export interface GatewayFileTreeWatchRequest {
+  type: 'file_tree_watch';
+  workspaceId: string;
+}
+
+/** Stop watching a workspace's file tree. */
+export interface GatewayFileTreeUnwatchRequest {
+  type: 'file_tree_unwatch';
+  workspaceId: string;
+}
+
 export interface GatewayReadFileRequest {
   type: 'read_file';
   workspaceId: string;
@@ -287,6 +302,8 @@ export type GatewayRequest = (
   | GatewayCreateWebTokenRequest
   | GatewayListWebTokensRequest
   | GatewayRevokeWebTokenRequest
+  | GatewayFileTreeWatchRequest
+  | GatewayFileTreeUnwatchRequest
   | GatewayGetSessionHistoryRequest
   | GatewayListDevServersRequest
   | GatewayCreateDevProxyTicketRequest

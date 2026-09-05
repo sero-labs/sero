@@ -164,9 +164,8 @@ export const useUploadsStore = create<UploadsStore>((set, get) => ({
       recent: [result, ...s.recent].slice(0, 10),
     }));
 
-    // The tree only shows what it has listed, so refresh the folder the
-    // file landed in.
-    const slash = result.path.lastIndexOf('/');
-    useFileStore.getState().fetchDirectory(slash === -1 ? '/' : result.path.slice(0, slash));
+    // The tree only shows what it has listed, so refresh the folders the
+    // new file sits in.
+    useFileStore.getState().refreshAfterUpload(result.path);
   },
 }));

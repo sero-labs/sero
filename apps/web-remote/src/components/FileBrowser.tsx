@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useState, memo } from 'react';
-import { useFileStore } from '@/stores/files';
+import { useFileStore, ROOT_DIR_PATH } from '@/stores/files';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { FileEntry } from '@/lib/file-api';
 import { useUploadsStore } from '@/stores/uploads';
@@ -114,10 +114,10 @@ export function FileBrowser() {
   const upload = useUploadsStore((s) => s.upload);
   const [dragging, setDragging] = useState(false);
 
-  const rootEntries = tree['/'] ?? tree['.'] ?? null;
+  const rootEntries = tree[ROOT_DIR_PATH] ?? null;
 
   const handleLoadRoot = useCallback(() => {
-    fetchDirectory('/');
+    fetchDirectory(ROOT_DIR_PATH);
   }, [fetchDirectory]);
 
   // Dropping a file is the desktop way in; the button is the phone way.
