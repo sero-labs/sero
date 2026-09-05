@@ -104,8 +104,82 @@ const GIT_STATUS = {
   ],
 };
 
+/**
+ * Model groups the picker shows. Logos are empty on purpose: the phone
+ * hides them, and the tests must not reach out to models.dev.
+ */
+const MODEL_GROUPS = [
+  {
+    provider: 'anthropic',
+    displayName: 'Anthropic',
+    logo: '',
+    models: [
+      { provider: 'anthropic', modelId: 'claude-opus-5', name: 'Claude Opus 5', reasoning: true },
+      { provider: 'anthropic', modelId: 'claude-sonnet-5', name: 'Claude Sonnet 5', reasoning: true },
+      { provider: 'anthropic', modelId: 'claude-haiku-4-5', name: 'Claude Haiku 4.5', reasoning: false },
+    ],
+  },
+  {
+    provider: 'openai',
+    displayName: 'OpenAI',
+    logo: '',
+    models: [
+      { provider: 'openai', modelId: 'gpt-5', name: 'GPT-5', reasoning: true },
+      { provider: 'openai', modelId: 'gpt-5-mini', name: 'GPT-5 Mini', reasoning: false },
+    ],
+  },
+];
+
+type SessionModel = ReturnType<typeof freshSessionModel>;
+
+/**
+ * The model state a connection starts with.
+ *
+ * One state per connection, not one per server: the server outlives the
+ * run and a change made by one test must not reach the next.
+ */
+function freshSessionModel() {
+  return {
+    provider: 'anthropic',
+    modelId: 'claude-opus-5',
+    name: 'Claude Opus 5',
+    reasoning: true,
+    thinkingLevel: 'high',
+    availableThinkingLevels: ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'],
+    availableModels: MODEL_GROUPS,
+  };
+}
+
+/** Answer a model request, applying the change the phone asked for. */
+function answerModel(request: GatewayTestRequest, state: SessionModel): unknown {
+  if (request.type === 'set_session_model' && request.provider && request.modelId) {
+    const model = MODEL_GROUPS
+      .flatMap((group) => group.models)
+      .find((candidate) => candidate.modelId === request.modelId);
+    state.provider = request.provider;
+    state.modelId = request.modelId;
+    state.name = model?.name ?? request.modelId;
+    state.reasoning = model?.reasoning ?? false;
+  }
+  if (request.type === 'set_session_thinking' && request.level) {
+    state.thinkingLevel = request.level;
+  }
+  return { ...state };
+}
+
 /** The answers, keyed by request type. `undefined` means "no answer". */
-function answerFor(request: { type: string; workspaceId?: string; sessionId?: string }): unknown {
+/** Every field the stand-in reads off the wire. */
+interface GatewayTestRequest {
+  type: string;
+  requestId?: string;
+  workspaceId?: string;
+  sessionId?: string;
+  provider?: string;
+  modelId?: string;
+  level?: string;
+}
+
+function answerFor(request: GatewayTestRequest, model: SessionModel): unknown {
   switch (request.type) {
     case 'connect':
       return {};
@@ -137,6 +211,10 @@ function answerFor(request: { type: string; workspaceId?: string; sessionId?: st
       return { ids: [] };
     case 'delete_session':
       return { sessionId: request.sessionId };
+    case 'get_session_model':
+    case 'set_session_model':
+    case 'set_session_thinking':
+      return answerModel(request, model);
     default:
       return {};
   }
@@ -152,19 +230,18 @@ export async function startTestGateway(port: number): Promise<TestGateway> {
   const server = new WebSocketServer({ port, host: '127.0.0.1' });
 
   server.on('connection', (socket: WebSocket) => {
+    // One model state per connection, so each test starts from the same
+    // model whatever the test before it changed.
+    const model = freshSessionModel();
+
     socket.on('message', (raw) => {
-      const request = JSON.parse(raw.toString()) as {
-        type: string;
-        requestId?: string;
-        workspaceId?: string;
-        sessionId?: string;
-      };
+      const request = JSON.parse(raw.toString()) as GatewayTestRequest;
 
       socket.send(JSON.stringify({
         type: 'ok',
         requestType: request.type,
         ...(request.requestId ? { requestId: request.requestId } : {}),
-        data: answerFor(request),
+        data: answerFor(request, model),
       }));
     });
   });

@@ -6,7 +6,7 @@ import { WebSocket } from 'ws';
 
 import { GatewayServer, type GatewayAgentOps } from '@electron/features/gateway';
 import type { GatewayPushEvent, GatewayResponse } from '@electron/features/gateway/server/protocol';
-import type { GatewaySessionInfo } from '@electron/features/gateway/server/types';
+import type { GatewaySessionInfo, GatewaySessionModelState } from '@electron/features/gateway/server/types';
 import {
   connectClient,
   sendRequest,
@@ -21,7 +21,28 @@ interface TestHarness {
   tmpDir: string;
 }
 
+/** A model state in the shape the gateway sends, for the ops stub. */
+function modelState(key: string, thinkingLevel: string): GatewaySessionModelState {
+  const [provider, modelId] = key.split('/');
+  return {
+    provider,
+    modelId,
+    name: modelId,
+    reasoning: true,
+    thinkingLevel: thinkingLevel as GatewaySessionModelState['thinkingLevel'],
+    availableThinkingLevels: ['off', 'low', 'high'],
+    availableModels: [{
+      provider,
+      displayName: provider,
+      logo: '',
+      models: [{ provider, modelId, name: modelId, reasoning: true }],
+    }],
+  };
+}
+
 function createAgentOps(): GatewayAgentOps {
+  const modelBySession = new Map<string, string>();
+  const thinkingBySession = new Map<string, string>();
   const workspaces = [
     { id: 'workspace-a', name: 'Workspace A', path: '/workspace-a' },
     { id: 'workspace-b', name: 'Workspace B', path: '/workspace-b' },
@@ -111,6 +132,18 @@ function createAgentOps(): GatewayAgentOps {
       const sessions = sessionsByWorkspace.get(workspaceId) ?? [];
       sessionsByWorkspace.set(workspaceId, sessions.filter((session) => session.id !== sessionId));
       sessionWorkspaceIds.delete(sessionId);
+    },
+    getSessionModel: async (sessionId, workspaceId) => {
+      assertSessionWorkspace(workspaceId, sessionId);
+      return modelState(modelBySession.get(sessionId) ?? 'openai/gpt-5', thinkingBySession.get(sessionId) ?? 'off');
+    },
+    setSessionModel: async (sessionId, provider, modelId) => {
+      modelBySession.set(sessionId, `${provider}/${modelId}`);
+      return modelState(`${provider}/${modelId}`, thinkingBySession.get(sessionId) ?? 'off');
+    },
+    setSessionThinkingLevel: async (sessionId, level) => {
+      thinkingBySession.set(sessionId, level);
+      return modelState(modelBySession.get(sessionId) ?? 'openai/gpt-5', level);
     },
     listFiles: async () => [],
     readFile: async () => ({ content: '', encoding: 'utf8', mimeType: 'text/plain', size: 0 }),
@@ -333,6 +366,97 @@ describe('GatewayServer scoped authorization flows', () => {
       workspaceId: 'workspace-a',
     });
     expect(remaining).toMatchObject({ type: 'ok', requestType: 'list_sessions', data: [] });
+  });
+
+  it('reads and changes a session model in an authorized workspace', async () => {
+    const harness = await createHarness();
+    harnesses.push(harness);
+
+    const token = harness.server.getAuth().webTokens.create(['workspace-a'], 'Phone').token;
+    const ws = await connectClient(harness.port, token);
+    sockets.push(ws);
+
+    const read = await sendRequest<GatewayResponse>(ws, {
+      type: 'get_session_model',
+      workspaceId: 'workspace-a',
+      sessionId: 'session-a',
+    });
+    expect(read).toMatchObject({
+      type: 'ok',
+      requestType: 'get_session_model',
+      data: { provider: 'openai', modelId: 'gpt-5' },
+    });
+
+    const changed = await sendRequest<GatewayResponse>(ws, {
+      type: 'set_session_model',
+      workspaceId: 'workspace-a',
+      sessionId: 'session-a',
+      provider: 'anthropic',
+      modelId: 'claude-opus-5',
+    });
+    expect(changed).toMatchObject({
+      type: 'ok',
+      requestType: 'set_session_model',
+      data: { provider: 'anthropic', modelId: 'claude-opus-5' },
+    });
+
+    const thinking = await sendRequest<GatewayResponse>(ws, {
+      type: 'set_session_thinking',
+      workspaceId: 'workspace-a',
+      sessionId: 'session-a',
+      level: 'high',
+    });
+    expect(thinking).toMatchObject({
+      type: 'ok',
+      requestType: 'set_session_thinking',
+      data: { thinkingLevel: 'high', modelId: 'claude-opus-5' },
+    });
+
+    // The change stuck, so a fresh read reports it too.
+    const reread = await sendRequest<GatewayResponse>(ws, {
+      type: 'get_session_model',
+      workspaceId: 'workspace-a',
+      sessionId: 'session-a',
+    });
+    expect(reread).toMatchObject({
+      type: 'ok',
+      data: { modelId: 'claude-opus-5', thinkingLevel: 'high' },
+    });
+  });
+
+  it('refuses every model request for a workspace the token cannot reach', async () => {
+    const harness = await createHarness();
+    harnesses.push(harness);
+
+    const token = harness.server.getAuth().webTokens.create(['workspace-a'], 'Phone').token;
+    const ws = await connectClient(harness.port, token);
+    sockets.push(ws);
+
+    const refusals = [
+      { type: 'get_session_model', workspaceId: 'workspace-b', sessionId: 'session-b' },
+      {
+        type: 'set_session_model',
+        workspaceId: 'workspace-b',
+        sessionId: 'session-b',
+        provider: 'anthropic',
+        modelId: 'claude-opus-5',
+      },
+      {
+        type: 'set_session_thinking',
+        workspaceId: 'workspace-b',
+        sessionId: 'session-b',
+        level: 'high',
+      },
+    ];
+
+    for (const request of refusals) {
+      const response = await sendRequest<GatewayResponse>(ws, request);
+      expect(response).toEqual({
+        type: 'error',
+        requestType: request.type,
+        message: 'Workspace not authorized: workspace-b',
+      });
+    }
   });
 
   it('allows unrestricted owner web tokens across workspaces without granting master-only token management', async () => {

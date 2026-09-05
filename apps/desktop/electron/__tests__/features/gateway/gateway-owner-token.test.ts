@@ -6,7 +6,7 @@ import { WebSocket, type RawData } from 'ws';
 
 import { GatewayServer, type GatewayAgentOps } from '@electron/features/gateway';
 import type { GatewayPushEvent, GatewayResponse } from '@electron/features/gateway/server/protocol';
-import type { GatewaySessionInfo } from '@electron/features/gateway/server/types';
+import type { GatewaySessionInfo, GatewaySessionModelState } from '@electron/features/gateway/server/types';
 
 interface TestHarness {
   server: GatewayServer;
@@ -90,6 +90,22 @@ async function connectClient(port: number, token: string): Promise<WebSocket> {
   return ws;
 }
 
+/** One fixed model state: these tests only check authorization. */
+const ownerModelState: GatewaySessionModelState = {
+  provider: 'openai',
+  modelId: 'gpt-5',
+  name: 'GPT-5',
+  reasoning: true,
+  thinkingLevel: 'off',
+  availableThinkingLevels: ['off', 'high'],
+  availableModels: [{
+    provider: 'openai',
+    displayName: 'OpenAI',
+    logo: '',
+    models: [{ provider: 'openai', modelId: 'gpt-5', name: 'GPT-5', reasoning: true }],
+  }],
+};
+
 function createAgentOps(): TestHarness['state'] & { ops: GatewayAgentOps } {
   const workspaces = [
     { id: 'workspace-a', name: 'Workspace A', path: '/workspace-a' },
@@ -170,6 +186,9 @@ function createAgentOps(): TestHarness['state'] & { ops: GatewayAgentOps } {
       }
       sessionsByWorkspace.set(workspaceId, sessions.filter((session) => session.id !== sessionId));
     },
+    getSessionModel: async () => ownerModelState,
+    setSessionModel: async () => ownerModelState,
+    setSessionThinkingLevel: async () => ownerModelState,
     listFiles: async (workspaceId) => {
       if (!filesByWorkspace.has(workspaceId)) {
         throw new Error(`Workspace not found: ${workspaceId}`);

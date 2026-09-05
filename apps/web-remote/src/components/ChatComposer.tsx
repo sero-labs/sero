@@ -5,8 +5,9 @@
  * and paste. This component turns the submitted files into the
  * `{ data, mimeType }` pairs the gateway expects.
  *
- * There is no model selector: the gateway has no model request, and a
- * control that cannot work is worse than none.
+ * The tools row carries the attachment menu, voice, and the model chip.
+ * The chip opens the model list and the thinking control together, the
+ * same arrangement the desktop composer uses.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -37,6 +38,7 @@ import { useChatStore } from '@/stores/chat';
 import { useConnectionStore } from '@/stores/connection';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { VoiceTranscriptionControl } from './VoiceTranscriptionControl';
+import { ModelPicker } from './ModelPicker';
 
 /** 20 MB, matching the gateway's own attachment ceiling. */
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
@@ -160,6 +162,12 @@ export function ChatComposer() {
               isConnected={isConnected}
               disabled={disabled || isStreaming}
               onTranscript={handleTranscript}
+            />
+
+            <ModelPicker
+              workspaceId={activeWorkspaceId}
+              sessionId={activeSessionId}
+              disabled={disabled || isStreaming}
             />
           </PromptInputTools>
 

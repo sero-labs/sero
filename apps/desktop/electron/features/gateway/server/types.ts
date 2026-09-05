@@ -4,6 +4,8 @@
  * Extracted from gateway/index.ts to keep file sizes under 500 LOC.
  */
 
+import type { SharedAvailableModelGroup, ThinkingLevel } from '@sero-ai/common';
+
 export interface GatewayConfig {
   /** Port for the WebSocket server. Default: 18800. */
   port: number;
@@ -189,6 +191,27 @@ export interface GatewayUploadResult {
   renamed: boolean;
 }
 
+/**
+ * The model a session runs on, and every model it could switch to.
+ *
+ * This mirrors the desktop's own model state, so the phone and the
+ * desktop show the same list and the same thinking level. It is flat
+ * because it crosses a WebSocket.
+ */
+export interface GatewaySessionModelState {
+  provider: string;
+  modelId: string;
+  /** The model's display name, or 'No models available'. */
+  name: string;
+  /** True when the model can think. Thinking is off for the rest. */
+  reasoning: boolean;
+  thinkingLevel: ThinkingLevel;
+  /** Thinking levels this model accepts. Empty when it cannot think. */
+  availableThinkingLevels: ThinkingLevel[];
+  /** Every model with credentials, grouped by provider. */
+  availableModels: SharedAvailableModelGroup[];
+}
+
 /** Operations the gateway can delegate to the agent pool. */
 export interface GatewayAgentOps {
   /** Open or get an existing agent session. Returns session path. */
@@ -237,6 +260,32 @@ export interface GatewayAgentOps {
    * that is already gone succeeds.
    */
   deleteSession(workspaceId: string, sessionId: string): Promise<void>;
+  /**
+   * The session's model and thinking level, with everything it could
+   * switch to.
+   *
+   * This opens the session in the pool if it is not open yet, the same
+   * way a prompt does. The phone reads the model before its first
+   * prompt, so there would otherwise be nothing to read.
+   */
+  getSessionModel(
+    sessionId: string,
+    workspaceId: string,
+  ): Promise<GatewaySessionModelState>;
+  /**
+   * Switch the session to another model. The session must be open, and
+   * the model must have credentials.
+   */
+  setSessionModel(
+    sessionId: string,
+    provider: string,
+    modelId: string,
+  ): Promise<GatewaySessionModelState>;
+  /** Set the session's thinking level. The session must be open. */
+  setSessionThinkingLevel(
+    sessionId: string,
+    level: string,
+  ): Promise<GatewaySessionModelState>;
   /** The working tree of a workspace: branch, tracking counts, changed files. */
   gitStatus(workspaceId: string): Promise<GatewayGitStatus>;
   /** One file's diff, cut when it is too large to send. */

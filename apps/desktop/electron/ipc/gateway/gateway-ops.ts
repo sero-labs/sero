@@ -18,10 +18,11 @@ import {
   runtimeManager,
   SERO_SESSION_DIR,
 } from '@electron/shared/infra/shared-infra';
-import { convertSessionMessages } from '../agent/core/agent-helpers';
+import { buildModelState, convertSessionMessages } from '../agent/core/agent-helpers';
 import { isPathInsideDirectory } from '../agent/handlers/sessions';
 import { listSessionMetadata } from '../agent/core/session-metadata';
 import { convertToGatewayHistory } from './gateway-history';
+import { applySessionModel, applySessionThinkingLevel, toGatewayModelState } from './model-ops';
 import { searchSessions, MAX_RESULTS } from './session-search';
 import { commitChanges, readGitDiff, readGitStatus } from './git-ops';
 import { uploadFile } from './upload-file';
@@ -32,6 +33,7 @@ import type {
   GatewayDevServerChange,
 } from '@electron/features/gateway/server/types';
 import type { RuntimeDevServer } from '@electron/features/workspace/runtime/types';
+import type { AgentStreamEvent } from '@/types/ipc';
 
 /** MIME type map for common source file extensions. */
 const MIME_MAP: Record<string, string> = {
@@ -94,12 +96,30 @@ async function findSessionInfo(workspaceId: string, sessionId: string): Promise<
  *
  * @param pool - The active session pool from agent.ts
  * @param openSessionInternal - Callback to open a session in the pool
+ * @param sendEvent - The pool's event sender, for model_change
  */
 export function buildGatewayOps(
   pool: SessionPool,
   openSessionInternal: (sessionId: string, sessionPath: string, workspaceId: string) => Promise<unknown>,
+  /**
+   * The pool's event sender. A model change made from the phone is sent
+   * on as `model_change`, so a desktop window showing the same session
+   * updates instead of holding a stale model.
+   */
+  sendEvent: (event: AgentStreamEvent) => void,
 ): GatewayAgentOps {
-  return {
+  /**
+   * Tell the desktop the model changed, then answer the phone with the
+   * new state. Both surfaces read the same session, so a change on one
+   * must reach the other.
+   */
+  function announce(sessionId: string, session: AgentSession) {
+    const state = buildModelState({ session });
+    sendEvent({ type: 'model_change', sessionId, state });
+    return toGatewayModelState(session);
+  }
+
+  const opsRef: GatewayAgentOps = {
     getSessionWorkspaceId: (sessionId) => pool.get(sessionId)?.workspaceId ?? null,
 
     openSession: async (sessionId, workspaceId) => {
@@ -230,6 +250,29 @@ export function buildGatewayOps(
         messageCount: 0,
       };
     },
+    getSessionModel: async (sessionId, workspaceId) => {
+      // The phone reads the model before its first prompt, so open the
+      // session here the same way a prompt does.
+      await opsRef.openSession(sessionId, workspaceId);
+      const entry = pool.get(sessionId);
+      if (!entry) throw new Error(`No active session: ${sessionId}`);
+      return toGatewayModelState(entry.session);
+    },
+
+    setSessionModel: async (sessionId, provider, modelId) => {
+      const entry = pool.get(sessionId);
+      if (!entry) throw new Error(`No active session: ${sessionId}`);
+      await applySessionModel(entry.session, provider, modelId);
+      return announce(sessionId, entry.session);
+    },
+
+    setSessionThinkingLevel: async (sessionId, level) => {
+      const entry = pool.get(sessionId);
+      if (!entry) throw new Error(`No active session: ${sessionId}`);
+      applySessionThinkingLevel(entry.session, level);
+      return announce(sessionId, entry.session);
+    },
+
     gitStatus: async (workspaceId) => {
       const wsPath = workspaceManager.getPath(workspaceId);
       if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
@@ -349,4 +392,6 @@ export function buildGatewayOps(
       return convertToGatewayHistory(chatMsgs);
     },
   };
+
+  return opsRef;
 }

@@ -32,6 +32,9 @@ export const VALID_REQUEST_TYPES = new Set<GatewayRequest['type']>([
   'mark_notifications_read',
   'create_session',
   'delete_session',
+  'get_session_model',
+  'set_session_model',
+  'set_session_thinking',
   'list_files',
   'read_file',
   'file_tree_watch',
@@ -323,6 +326,34 @@ function validateRequestBody(data: Record<string, unknown>): GatewayRequest | nu
       const sessionId = readRequiredString(data, 'sessionId');
       return workspaceId && sessionId
         ? { type: 'delete_session', workspaceId, sessionId }
+        : null;
+    }
+
+    case 'get_session_model': {
+      const workspaceId = readRequiredString(data, 'workspaceId');
+      const sessionId = readRequiredString(data, 'sessionId');
+      return workspaceId && sessionId
+        ? { type: 'get_session_model', workspaceId, sessionId }
+        : null;
+    }
+
+    case 'set_session_model': {
+      const workspaceId = readRequiredString(data, 'workspaceId');
+      const sessionId = readRequiredString(data, 'sessionId');
+      const provider = readRequiredString(data, 'provider');
+      const modelId = readRequiredString(data, 'modelId');
+      return workspaceId && sessionId && provider && modelId
+        ? { type: 'set_session_model', workspaceId, sessionId, provider, modelId }
+        : null;
+    }
+
+    case 'set_session_thinking': {
+      const workspaceId = readRequiredString(data, 'workspaceId');
+      const sessionId = readRequiredString(data, 'sessionId');
+      // The level itself is checked by the host, which owns the list.
+      const level = readRequiredString(data, 'level');
+      return workspaceId && sessionId && level
+        ? { type: 'set_session_thinking', workspaceId, sessionId, level }
         : null;
     }
 

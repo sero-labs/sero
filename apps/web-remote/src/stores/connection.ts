@@ -48,6 +48,14 @@ export interface GatewayClientLike {
   gitCommit: (workspaceId: string, message: string, paths: string[]) => void;
   createSession: (workspaceId: string, name?: string) => void;
   deleteSession: (workspaceId: string, sessionId: string) => void;
+  requestSessionModel: (workspaceId: string, sessionId: string) => void;
+  setSessionModel: (
+    workspaceId: string,
+    sessionId: string,
+    provider: string,
+    modelId: string,
+  ) => void;
+  setSessionThinking: (workspaceId: string, sessionId: string, level: string) => void;
   abortSession: (sessionId: string) => void;
   requestSessionHistory: (workspaceId: string, sessionId: string) => void;
   listFiles: (workspaceId: string, filePath: string) => void;

@@ -25,11 +25,19 @@ const mocks = vi.hoisted(() => ({
     getRuntime: vi.fn(),
   },
   unlink: vi.fn(),
+  buildModelState: vi.fn(),
 }));
 
 vi.mock('fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof import('fs/promises')>();
   return { ...actual, default: { ...actual, unlink: mocks.unlink }, unlink: mocks.unlink };
+});
+
+vi.mock('@electron/ipc/agent/core/agent-helpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@electron/ipc/agent/core/agent-helpers')>();
+  // Only the state builder is stubbed. The validators stay real: they
+  // are the rules the phone must not be able to walk past.
+  return { ...actual, buildModelState: mocks.buildModelState };
 });
 
 vi.mock('@electron/features/workspace/manager', () => ({
@@ -65,7 +73,7 @@ describe('buildGatewayOps', () => {
       { name: '.git', path: '/workspace/.git', type: 'directory', size: 0 },
     ]);
 
-    const ops = buildGatewayOps({ has: vi.fn(), get: vi.fn() }, vi.fn());
+    const ops = buildGatewayOps({ has: vi.fn(), get: vi.fn() }, vi.fn(), vi.fn());
     const entries = await ops.listFiles('workspace-a', '/');
 
     expect(mocks.runtime.listFiles).toHaveBeenCalledWith({ path: '/workspace' });
@@ -73,7 +81,7 @@ describe('buildGatewayOps', () => {
   });
 
   it('passes a runtime path from an earlier listing through unchanged', async () => {
-    const ops = buildGatewayOps({ has: vi.fn(), get: vi.fn() }, vi.fn());
+    const ops = buildGatewayOps({ has: vi.fn(), get: vi.fn() }, vi.fn(), vi.fn());
     await ops.listFiles('workspace-a', '/workspace/src');
 
     expect(mocks.runtime.listFiles).toHaveBeenCalledWith({ path: '/workspace/src' });
@@ -91,7 +99,7 @@ describe('buildGatewayOps', () => {
       get: vi.fn().mockReturnValue(undefined),
     };
 
-    const ops = buildGatewayOps(pool, openSessionInternal);
+    const ops = buildGatewayOps(pool, openSessionInternal, vi.fn());
     await ops.openSession('session-123', 'workspace-a');
 
     expect(mocks.sessionManager.create).not.toHaveBeenCalled();
@@ -111,7 +119,7 @@ describe('buildGatewayOps', () => {
       }),
     };
 
-    const ops = buildGatewayOps(pool, vi.fn());
+    const ops = buildGatewayOps(pool, vi.fn(), vi.fn());
 
     await expect(
       ops.getSessionHistory('workspace-a', 'session-123'),
@@ -135,7 +143,7 @@ describe('buildGatewayOps', () => {
         },
       ]);
 
-      const ops = buildGatewayOps({ has: vi.fn(), get: vi.fn() }, vi.fn());
+      const ops = buildGatewayOps({ has: vi.fn(), get: vi.fn() }, vi.fn(), vi.fn());
       await ops.deleteSession('workspace-a', 'session-123');
 
       expect(mocks.unlink).toHaveBeenCalledWith('/tmp/sero-test-sessions/session-123.jsonl');
@@ -145,7 +153,7 @@ describe('buildGatewayOps', () => {
       mocks.workspaceManager.getPath.mockReturnValue('/workspace-a');
       mocks.sessionManager.list.mockResolvedValue([]);
 
-      const ops = buildGatewayOps({ has: vi.fn(), get: vi.fn() }, vi.fn());
+      const ops = buildGatewayOps({ has: vi.fn(), get: vi.fn() }, vi.fn(), vi.fn());
 
       await expect(
         ops.deleteSession('workspace-a', 'session-elsewhere'),
@@ -160,7 +168,7 @@ describe('buildGatewayOps', () => {
         { id: 'session-123', cwd: '/workspace-a', path: '/etc/passwd' },
       ]);
 
-      const ops = buildGatewayOps({ has: vi.fn(), get: vi.fn() }, vi.fn());
+      const ops = buildGatewayOps({ has: vi.fn(), get: vi.fn() }, vi.fn(), vi.fn());
 
       await expect(
         ops.deleteSession('workspace-a', 'session-123'),
@@ -181,9 +189,85 @@ describe('buildGatewayOps', () => {
       const missing = Object.assign(new Error('missing'), { code: 'ENOENT' });
       mocks.unlink.mockRejectedValue(missing);
 
-      const ops = buildGatewayOps({ has: vi.fn(), get: vi.fn() }, vi.fn());
+      const ops = buildGatewayOps({ has: vi.fn(), get: vi.fn() }, vi.fn(), vi.fn());
 
       await expect(ops.deleteSession('workspace-a', 'session-123')).resolves.toBeUndefined();
+    });
+  });
+
+  describe('session model', () => {
+    const modelState = {
+      model: { provider: 'openai', modelId: 'gpt-5', name: 'GPT-5', reasoning: true },
+      thinkingLevel: 'high',
+      availableThinkingLevels: ['off', 'high'],
+      availableModels: [],
+    };
+
+    /** A pool holding one session whose model can be switched. */
+    function poolWithSession() {
+      const gpt5 = { provider: 'openai', id: 'gpt-5' };
+      const setModel = vi.fn().mockResolvedValue(undefined);
+      const setThinkingLevel = vi.fn();
+      const session = {
+        modelRuntime: {
+          getModel: () => gpt5,
+          getAvailable: async () => [gpt5],
+        },
+        setModel,
+        setThinkingLevel,
+      };
+      const pool = {
+        has: vi.fn().mockReturnValue(true),
+        get: vi.fn().mockReturnValue({ session, workspaceId: 'workspace-a' }),
+      };
+      return { pool, setModel, setThinkingLevel };
+    }
+
+    it('tells the desktop when the phone changes the model', async () => {
+      mocks.buildModelState.mockReturnValue(modelState);
+      const { pool, setModel } = poolWithSession();
+      const sendEvent = vi.fn();
+
+      const ops = buildGatewayOps(pool, vi.fn(), sendEvent);
+      const state = await ops.setSessionModel('session-123', 'openai', 'gpt-5');
+
+      expect(setModel).toHaveBeenCalled();
+      // A desktop window on the same session must not keep a stale model.
+      expect(sendEvent).toHaveBeenCalledWith({
+        type: 'model_change',
+        sessionId: 'session-123',
+        state: modelState,
+      });
+      expect(state).toMatchObject({ provider: 'openai', modelId: 'gpt-5' });
+    });
+
+    it('tells the desktop when the phone changes the thinking level', async () => {
+      mocks.buildModelState.mockReturnValue(modelState);
+      const { pool, setThinkingLevel } = poolWithSession();
+      const sendEvent = vi.fn();
+
+      const ops = buildGatewayOps(pool, vi.fn(), sendEvent);
+      const state = await ops.setSessionThinkingLevel('session-123', 'high');
+
+      expect(setThinkingLevel).toHaveBeenCalledWith('high');
+      expect(sendEvent).toHaveBeenCalledWith({
+        type: 'model_change',
+        sessionId: 'session-123',
+        state: modelState,
+      });
+      expect(state.thinkingLevel).toBe('high');
+    });
+
+    it('changes nothing when the session is not open', async () => {
+      const pool = { has: vi.fn(), get: vi.fn().mockReturnValue(undefined) };
+      const sendEvent = vi.fn();
+
+      const ops = buildGatewayOps(pool, vi.fn(), sendEvent);
+
+      await expect(ops.setSessionModel('gone', 'openai', 'gpt-5')).rejects.toThrow(
+        'No active session: gone',
+      );
+      expect(sendEvent).not.toHaveBeenCalled();
     });
   });
 });

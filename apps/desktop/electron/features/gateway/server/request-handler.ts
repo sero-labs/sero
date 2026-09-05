@@ -21,6 +21,7 @@ import {
 import { routeExtendedRequest } from './extended-handlers';
 import { routeQueryRequest } from './query-handlers';
 import { routeWorkspaceRequest } from './workspace-handlers';
+import { routeModelRequest } from './model-handlers';
 import { routeWidgetRequest } from './widget-handlers';
 
 // ── Idempotency store ───────────────────────────────────────
@@ -125,6 +126,9 @@ export async function routeAgentRequest(
   // Workspace files: status and diff for any authorized workspace, upload
   // for any authorized workspace, commit for owners only.
   if (await routeWorkspaceRequest(ws, agentOps, request, accessScope)) return;
+
+  // The session's model and thinking level.
+  if (await routeModelRequest(ws, agentOps, request, accessScope, subscribeToSession)) return;
 
   // Remote dashboard widgets: the listing, and their state files.
   if (await routeWidgetRequest(ws, agentOps, request, accessScope)) return;

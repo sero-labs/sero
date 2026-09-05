@@ -476,6 +476,9 @@ importers:
       '@sero-ai/app-runtime':
         specifier: workspace:@sero-ai/app-runtime@*
         version: link:../../packages/app-runtime
+      '@sero-ai/common':
+        specifier: workspace:*
+        version: link:../../packages/common
       '@sero-ai/ui':
         specifier: workspace:*
         version: link:../../packages/ui

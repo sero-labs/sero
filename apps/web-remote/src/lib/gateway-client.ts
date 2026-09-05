@@ -354,6 +354,29 @@ export class GatewayClient {
     this.send({ type: 'delete_session', workspaceId, sessionId });
   }
 
+  /**
+   * Ask for the session's model, thinking level, and the models it
+   * could switch to. This opens the session on the host.
+   */
+  requestSessionModel(workspaceId: string, sessionId: string): void {
+    this.send({ type: 'get_session_model', workspaceId, sessionId });
+  }
+
+  /** Switch the session to another model. */
+  setSessionModel(
+    workspaceId: string,
+    sessionId: string,
+    provider: string,
+    modelId: string,
+  ): void {
+    this.send({ type: 'set_session_model', workspaceId, sessionId, provider, modelId });
+  }
+
+  /** Set the session's thinking level. */
+  setSessionThinking(workspaceId: string, sessionId: string, level: string): void {
+    this.send({ type: 'set_session_thinking', workspaceId, sessionId, level });
+  }
+
   /** Abort the active agent. */
   abortSession(sessionId: string): void {
     this.send({ type: 'abort', sessionId });

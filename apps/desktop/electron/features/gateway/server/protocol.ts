@@ -193,6 +193,33 @@ export interface GatewayDeleteSessionRequest {
   sessionId: string;
 }
 
+/**
+ * Read the session's model, thinking level, and the models it could
+ * switch to. Opens the session if it is not open yet.
+ */
+export interface GatewayGetSessionModelRequest {
+  type: 'get_session_model';
+  workspaceId: string;
+  sessionId: string;
+}
+
+/** Switch the session to another model. */
+export interface GatewaySetSessionModelRequest {
+  type: 'set_session_model';
+  workspaceId: string;
+  sessionId: string;
+  provider: string;
+  modelId: string;
+}
+
+/** Set the session's thinking level. */
+export interface GatewaySetSessionThinkingRequest {
+  type: 'set_session_thinking';
+  workspaceId: string;
+  sessionId: string;
+  level: string;
+}
+
 export interface GatewayListFilesRequest {
   type: 'list_files';
   workspaceId: string;
@@ -303,6 +330,9 @@ export type GatewayRequest = (
   | GatewayGitCommitRequest
   | GatewayCreateSessionRequest
   | GatewayDeleteSessionRequest
+  | GatewayGetSessionModelRequest
+  | GatewaySetSessionModelRequest
+  | GatewaySetSessionThinkingRequest
   | GatewayListFilesRequest
   | GatewayReadFileRequest
   | GatewayListArtifactsRequest

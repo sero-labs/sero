@@ -13,6 +13,7 @@ import { useNotificationsStore } from '@/stores/notifications';
 import { useGitStore } from '@/stores/git';
 import { useUploadsStore } from '@/stores/uploads';
 import { useWidgetsStore } from '@/stores/widgets';
+import { useModelsStore, startModelSync } from '@/stores/models';
 import { usePushStore } from '@/stores/push';
 import { useChatStore } from '@/stores/chat';
 import { useFileStore } from '@/stores/files';
@@ -44,6 +45,7 @@ export function useGatewayDispatcher(): void {
       useGitStore.getState().handleMessage(msg);
       useUploadsStore.getState().handleMessage(msg);
       useWidgetsStore.getState().handleMessage(msg);
+      useModelsStore.getState().handleMessage(msg);
 
       // The workspace listing is the first answer after a connect, so it
       // is the earliest point push can be set up.
@@ -54,9 +56,11 @@ export function useGatewayDispatcher(): void {
 
     const unsub = client.onMessage(handler);
     const stopFileTreeSync = startFileTreeSync();
+    const stopModelSync = startModelSync();
     return () => {
       unsub();
       stopFileTreeSync();
+      stopModelSync();
     };
   }, [client]);
 }

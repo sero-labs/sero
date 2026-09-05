@@ -143,7 +143,7 @@ export function registerAgentHandlers(): void {
   });
 
   // ── Gateway agent bridge ─────────────────────────────────
-  installGatewayAgentOps(buildGatewayOps(pool, openSessionInternal));
+  installGatewayAgentOps(buildGatewayOps(pool, openSessionInternal, sendEvent));
 
   ipcMain.handle(
     IpcChannels.agent.open,
