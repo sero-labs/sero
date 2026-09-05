@@ -163,6 +163,13 @@ function createAgentOps(): TestHarness['state'] & { ops: GatewayAgentOps } {
       createdSessionIds.set(workspaceId, sessionId);
       return fakeSession(sessionId, workspaceId, name);
     },
+    deleteSession: async (workspaceId, sessionId) => {
+      const sessions = sessionsByWorkspace.get(workspaceId);
+      if (!sessions?.some((session) => session.id === sessionId)) {
+        throw new Error(`Session not found in workspace: ${sessionId}`);
+      }
+      sessionsByWorkspace.set(workspaceId, sessions.filter((session) => session.id !== sessionId));
+    },
     listFiles: async (workspaceId) => {
       if (!filesByWorkspace.has(workspaceId)) {
         throw new Error(`Workspace not found: ${workspaceId}`);

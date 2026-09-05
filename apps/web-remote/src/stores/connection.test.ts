@@ -61,6 +61,7 @@ class FakeGatewayClient implements GatewayClientLike {
   gitCommit(): void {}
 
   createSession(): void {}
+  deleteSession(): void {}
 
   abortSession(): void {}
 

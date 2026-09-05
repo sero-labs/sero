@@ -1,11 +1,25 @@
 /**
  * Session row — copies the desktop `SessionNode` markup and classes.
  *
- * Rename, delete and multi-select are not shown: the gateway has no
+ * Delete is shown only when the caller passes `onDelete`, and asks for
+ * confirmation first, like the desktop `SessionNode`. The trigger is a
+ * `span`, because the row itself is a button and a button cannot nest.
+ *
+ * The desktop reveals its row actions on hover. A phone has no hover,
+ * so the delete control stays visible and keeps a finger-sized target.
+ *
+ * Rename and multi-select are still not shown: the gateway has no
  * request for them, and a control that cannot work is worse than none.
  */
 
-import { Loader2, MessageSquare } from 'lucide-react';
+import { useState } from 'react';
+import { Loader2, MessageSquare, Trash2 } from 'lucide-react';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@sero-ai/ui/components/ui/popover';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { formatRelativeDate } from '@/lib/format-relative-date';
 import type { Session } from '@/stores/workspace';
@@ -20,6 +34,8 @@ interface SessionRowProps {
   /** Shown after the title when results span workspaces. */
   workspaceName?: string;
   onSelect: (sessionId: string) => void;
+  /** Omit to hide the delete control. */
+  onDelete?: (sessionId: string) => void;
 }
 
 export function SessionRow({
@@ -29,7 +45,9 @@ export function SessionRow({
   snippet,
   workspaceName,
   onSelect,
+  onDelete,
 }: SessionRowProps) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const title = session.name || session.firstMessage || 'New chat';
   const modified = formatRelativeDate(session.updatedAt);
 
@@ -98,6 +116,58 @@ export function SessionRow({
         <span className="shrink-0 rounded-full border border-[var(--border-subtle)] px-1.5 text-xs text-[var(--text-muted)]">
           {workspaceName}
         </span>
+      )}
+
+      {onDelete && (
+        <Popover open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <PopoverTrigger asChild>
+            <span
+              role="button"
+              tabIndex={-1}
+              aria-label="Delete session"
+              title="Delete session"
+              data-testid="session-delete"
+              className="flex size-7 shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-surface)] hover:text-status-error"
+              onClick={(e) => { e.stopPropagation(); setConfirmOpen(true); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setConfirmOpen(true); } }}
+            >
+              <Trash2 className="size-3.5" />
+            </span>
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            side="bottom"
+            className="w-52 p-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="mb-3 text-xs text-[var(--text-secondary)]">
+              Delete this session?
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-base"
+                onClick={(e) => { e.stopPropagation(); setConfirmOpen(false); }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="h-7 px-2 text-base"
+                data-testid="session-delete-confirm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setConfirmOpen(false);
+                  onDelete(session.id);
+                }}
+              >
+                Delete
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
       )}
     </button>
   );

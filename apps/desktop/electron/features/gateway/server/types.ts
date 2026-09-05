@@ -229,6 +229,14 @@ export interface GatewayAgentOps {
   ): Promise<GatewaySessionSearchResult[]>;
   /** Create a new session for a workspace. */
   createSession(workspaceId: string, name?: string): Promise<GatewaySessionInfo>;
+  /**
+   * Delete one session's file.
+   *
+   * The session must belong to `workspaceId`, so a token that reaches
+   * one workspace cannot delete another's session. Deleting a session
+   * that is already gone succeeds.
+   */
+  deleteSession(workspaceId: string, sessionId: string): Promise<void>;
   /** The working tree of a workspace: branch, tracking counts, changed files. */
   gitStatus(workspaceId: string): Promise<GatewayGitStatus>;
   /** One file's diff, cut when it is too large to send. */

@@ -62,6 +62,7 @@ interface WorkspaceStore {
   toggleExpanded: (id: string) => void;
   setActiveSession: (id: string) => void;
   createSession: (workspaceId?: string, name?: string) => void;
+  deleteSession: (workspaceId: string, sessionId: string) => void;
   setView: (view: WorkspaceView) => void;
   handleMessage: (msg: GatewayMessage) => void;
 }
@@ -140,6 +141,12 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
       getClient().createSession(targetId, name);
     },
 
+    // The row disappears only when the host confirms the delete, so a
+    // refused delete leaves the session where it is.
+    deleteSession: (workspaceId: string, sessionId: string) => {
+      getClient().deleteSession(workspaceId, sessionId);
+    },
+
     setView: (view: WorkspaceView) => {
       set({ view });
     },
@@ -202,6 +209,22 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
           sessionsByWorkspace: { ...s.sessionsByWorkspace, ...grouped },
           pendingSessionFetches: rest,
         }));
+      }
+
+      if (response.requestType === 'delete_session') {
+        const deletedId = readString((response.data as { sessionId?: unknown } | undefined)?.sessionId);
+        if (!deletedId) return;
+        // A session id is unique, so sweeping every workspace needs no
+        // workspace id in the response.
+        const remaining: Record<string, Session[]> = {};
+        for (const [workspaceId, sessions] of Object.entries(get().sessionsByWorkspace)) {
+          remaining[workspaceId] = sessions.filter((session) => session.id !== deletedId);
+        }
+        set((s) => ({
+          sessionsByWorkspace: remaining,
+          activeSessionId: s.activeSessionId === deletedId ? null : s.activeSessionId,
+        }));
+        return;
       }
 
       if (response.requestType === 'create_session') {

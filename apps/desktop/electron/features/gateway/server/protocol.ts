@@ -186,6 +186,13 @@ export interface GatewayCreateSessionRequest {
   name?: string;
 }
 
+/** Delete one session. The workspace must hold it. */
+export interface GatewayDeleteSessionRequest {
+  type: 'delete_session';
+  workspaceId: string;
+  sessionId: string;
+}
+
 export interface GatewayListFilesRequest {
   type: 'list_files';
   workspaceId: string;
@@ -295,6 +302,7 @@ export type GatewayRequest = (
   | GatewayGitDiffRequest
   | GatewayGitCommitRequest
   | GatewayCreateSessionRequest
+  | GatewayDeleteSessionRequest
   | GatewayListFilesRequest
   | GatewayReadFileRequest
   | GatewayListArtifactsRequest

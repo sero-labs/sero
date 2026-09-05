@@ -31,6 +31,7 @@ export const VALID_REQUEST_TYPES = new Set<GatewayRequest['type']>([
   'list_notifications',
   'mark_notifications_read',
   'create_session',
+  'delete_session',
   'list_files',
   'read_file',
   'file_tree_watch',
@@ -315,6 +316,14 @@ function validateRequestBody(data: Record<string, unknown>): GatewayRequest | nu
       const name = readOptionalString(data, 'name');
       if (!workspaceId || name === null) return null;
       return { type: 'create_session', workspaceId, name };
+    }
+
+    case 'delete_session': {
+      const workspaceId = readRequiredString(data, 'workspaceId');
+      const sessionId = readRequiredString(data, 'sessionId');
+      return workspaceId && sessionId
+        ? { type: 'delete_session', workspaceId, sessionId }
+        : null;
     }
 
     case 'list_files': {

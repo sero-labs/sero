@@ -166,3 +166,70 @@ describe('workspace store session tree', () => {
     expect(state.view).toBe('chat');
   });
 });
+
+describe('workspace store session delete', () => {
+  const sessionA = {
+    id: 'session-a',
+    name: 'First',
+    firstMessage: '',
+    workspaceId: 'workspace-a',
+    updatedAt: new Date(0).toISOString(),
+    messageCount: 1,
+  };
+  const sessionB = { ...sessionA, id: 'session-b', name: 'Second' };
+
+  beforeEach(() => {
+    useWorkspaceStore.setState({
+      sessionsByWorkspace: { 'workspace-a': [sessionA, sessionB] },
+      activeSessionId: null,
+    });
+  });
+
+  it('drops the deleted session from the workspace listing', () => {
+    useWorkspaceStore.getState().handleMessage({
+      type: 'ok',
+      requestType: 'delete_session',
+      data: { sessionId: 'session-a' },
+    });
+
+    expect(
+      useWorkspaceStore.getState().sessionsByWorkspace['workspace-a'].map((s) => s.id),
+    ).toEqual(['session-b']);
+  });
+
+  it('clears the active session when that session was deleted', () => {
+    useWorkspaceStore.setState({ activeSessionId: 'session-a' });
+
+    useWorkspaceStore.getState().handleMessage({
+      type: 'ok',
+      requestType: 'delete_session',
+      data: { sessionId: 'session-a' },
+    });
+
+    expect(useWorkspaceStore.getState().activeSessionId).toBeNull();
+  });
+
+  it('keeps the active session when a different session was deleted', () => {
+    useWorkspaceStore.setState({ activeSessionId: 'session-b' });
+
+    useWorkspaceStore.getState().handleMessage({
+      type: 'ok',
+      requestType: 'delete_session',
+      data: { sessionId: 'session-a' },
+    });
+
+    expect(useWorkspaceStore.getState().activeSessionId).toBe('session-b');
+  });
+
+  it('keeps every session when the host refuses the delete', () => {
+    useWorkspaceStore.getState().handleMessage({
+      type: 'error',
+      requestType: 'delete_session',
+      message: 'Workspace not authorized: workspace-a',
+    });
+
+    expect(
+      useWorkspaceStore.getState().sessionsByWorkspace['workspace-a'].map((s) => s.id),
+    ).toEqual(['session-a', 'session-b']);
+  });
+});

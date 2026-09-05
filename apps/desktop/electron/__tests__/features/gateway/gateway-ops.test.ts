@@ -24,7 +24,13 @@ const mocks = vi.hoisted(() => ({
   runtimeManager: {
     getRuntime: vi.fn(),
   },
+  unlink: vi.fn(),
 }));
+
+vi.mock('fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('fs/promises')>();
+  return { ...actual, default: { ...actual, unlink: mocks.unlink }, unlink: mocks.unlink };
+});
 
 vi.mock('@electron/features/workspace/manager', () => ({
   workspaceManager: mocks.workspaceManager,
@@ -50,6 +56,7 @@ describe('buildGatewayOps', () => {
     vi.clearAllMocks();
     mocks.runtimeManager.getRuntime.mockResolvedValue(mocks.runtime);
     mocks.runtime.listFiles.mockResolvedValue([]);
+    mocks.unlink.mockResolvedValue(undefined);
   });
 
   it('lists the workspace root when the remote asks for "/"', async () => {
@@ -115,5 +122,68 @@ describe('buildGatewayOps', () => {
     expect(mocks.workspaceManager.getPath).not.toHaveBeenCalled();
     expect(mocks.sessionManager.list).not.toHaveBeenCalled();
     expect(mocks.sessionManager.open).not.toHaveBeenCalled();
+  });
+
+  describe('deleteSession', () => {
+    it('deletes the session file the workspace holds', async () => {
+      mocks.workspaceManager.getPath.mockReturnValue('/workspace-a');
+      mocks.sessionManager.list.mockResolvedValue([
+        {
+          id: 'session-123',
+          cwd: '/workspace-a',
+          path: '/tmp/sero-test-sessions/session-123.jsonl',
+        },
+      ]);
+
+      const ops = buildGatewayOps({ has: vi.fn(), get: vi.fn() }, vi.fn());
+      await ops.deleteSession('workspace-a', 'session-123');
+
+      expect(mocks.unlink).toHaveBeenCalledWith('/tmp/sero-test-sessions/session-123.jsonl');
+    });
+
+    it('deletes nothing when the workspace does not hold the session', async () => {
+      mocks.workspaceManager.getPath.mockReturnValue('/workspace-a');
+      mocks.sessionManager.list.mockResolvedValue([]);
+
+      const ops = buildGatewayOps({ has: vi.fn(), get: vi.fn() }, vi.fn());
+
+      await expect(
+        ops.deleteSession('workspace-a', 'session-elsewhere'),
+      ).rejects.toThrow('Session not found in workspace: session-elsewhere');
+
+      expect(mocks.unlink).not.toHaveBeenCalled();
+    });
+
+    it('refuses a session path outside the session directory', async () => {
+      mocks.workspaceManager.getPath.mockReturnValue('/workspace-a');
+      mocks.sessionManager.list.mockResolvedValue([
+        { id: 'session-123', cwd: '/workspace-a', path: '/etc/passwd' },
+      ]);
+
+      const ops = buildGatewayOps({ has: vi.fn(), get: vi.fn() }, vi.fn());
+
+      await expect(
+        ops.deleteSession('workspace-a', 'session-123'),
+      ).rejects.toThrow('Refusing to delete file outside session directory');
+
+      expect(mocks.unlink).not.toHaveBeenCalled();
+    });
+
+    it('succeeds when the session file is already gone', async () => {
+      mocks.workspaceManager.getPath.mockReturnValue('/workspace-a');
+      mocks.sessionManager.list.mockResolvedValue([
+        {
+          id: 'session-123',
+          cwd: '/workspace-a',
+          path: '/tmp/sero-test-sessions/session-123.jsonl',
+        },
+      ]);
+      const missing = Object.assign(new Error('missing'), { code: 'ENOENT' });
+      mocks.unlink.mockRejectedValue(missing);
+
+      const ops = buildGatewayOps({ has: vi.fn(), get: vi.fn() }, vi.fn());
+
+      await expect(ops.deleteSession('workspace-a', 'session-123')).resolves.toBeUndefined();
+    });
   });
 });

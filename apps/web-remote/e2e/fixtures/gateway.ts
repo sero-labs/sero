@@ -105,7 +105,7 @@ const GIT_STATUS = {
 };
 
 /** The answers, keyed by request type. `undefined` means "no answer". */
-function answerFor(request: { type: string; workspaceId?: string }): unknown {
+function answerFor(request: { type: string; workspaceId?: string; sessionId?: string }): unknown {
   switch (request.type) {
     case 'connect':
       return {};
@@ -135,6 +135,8 @@ function answerFor(request: { type: string; workspaceId?: string }): unknown {
       return [];
     case 'mark_notifications_read':
       return { ids: [] };
+    case 'delete_session':
+      return { sessionId: request.sessionId };
     default:
       return {};
   }
@@ -155,6 +157,7 @@ export async function startTestGateway(port: number): Promise<TestGateway> {
         type: string;
         requestId?: string;
         workspaceId?: string;
+        sessionId?: string;
       };
 
       socket.send(JSON.stringify({

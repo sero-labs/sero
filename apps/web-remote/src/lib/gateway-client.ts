@@ -349,6 +349,11 @@ export class GatewayClient {
     this.send({ type: 'create_session', workspaceId, name });
   }
 
+  /** Delete one session. The workspace must hold it. */
+  deleteSession(workspaceId: string, sessionId: string): void {
+    this.send({ type: 'delete_session', workspaceId, sessionId });
+  }
+
   /** Abort the active agent. */
   abortSession(sessionId: string): void {
     this.send({ type: 'abort', sessionId });

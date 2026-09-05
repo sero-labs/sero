@@ -47,6 +47,7 @@ export interface GatewayClientLike {
   gitDiff: (workspaceId: string, filePath: string, staged: boolean) => void;
   gitCommit: (workspaceId: string, message: string, paths: string[]) => void;
   createSession: (workspaceId: string, name?: string) => void;
+  deleteSession: (workspaceId: string, sessionId: string) => void;
   abortSession: (sessionId: string) => void;
   requestSessionHistory: (workspaceId: string, sessionId: string) => void;
   listFiles: (workspaceId: string, filePath: string) => void;

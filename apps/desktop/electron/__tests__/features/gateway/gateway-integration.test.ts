@@ -106,6 +106,12 @@ function createAgentOps(): GatewayAgentOps {
       historyBySession.set(sessionId, []);
       return fakeSession(sessionId, workspaceId, name);
     },
+    deleteSession: async (workspaceId, sessionId) => {
+      assertSessionWorkspace(workspaceId, sessionId);
+      const sessions = sessionsByWorkspace.get(workspaceId) ?? [];
+      sessionsByWorkspace.set(workspaceId, sessions.filter((session) => session.id !== sessionId));
+      sessionWorkspaceIds.delete(sessionId);
+    },
     listFiles: async () => [],
     readFile: async () => ({ content: '', encoding: 'utf8', mimeType: 'text/plain', size: 0 }),
     listArtifacts: async (sessionId) => artifactsBySession.get(sessionId) ?? [],
@@ -290,6 +296,43 @@ describe('GatewayServer scoped authorization flows', () => {
       requestType: 'steer',
       message: 'Session not authorized: session-b',
     });
+
+    const foreignDelete = await sendRequest<GatewayResponse>(ws, {
+      type: 'delete_session',
+      workspaceId: 'workspace-b',
+      sessionId: 'session-b',
+    });
+    expect(foreignDelete).toEqual({
+      type: 'error',
+      requestType: 'delete_session',
+      message: 'Workspace not authorized: workspace-b',
+    });
+  });
+
+  it('deletes a session in an authorized workspace and drops it from the listing', async () => {
+    const harness = await createHarness();
+    harnesses.push(harness);
+
+    const token = harness.server.getAuth().webTokens.create(['workspace-a'], 'Phone').token;
+    const ws = await connectClient(harness.port, token);
+    sockets.push(ws);
+
+    const deleted = await sendRequest<GatewayResponse>(ws, {
+      type: 'delete_session',
+      workspaceId: 'workspace-a',
+      sessionId: 'session-a',
+    });
+    expect(deleted).toEqual({
+      type: 'ok',
+      requestType: 'delete_session',
+      data: { sessionId: 'session-a' },
+    });
+
+    const remaining = await sendRequest<GatewayResponse>(ws, {
+      type: 'list_sessions',
+      workspaceId: 'workspace-a',
+    });
+    expect(remaining).toMatchObject({ type: 'ok', requestType: 'list_sessions', data: [] });
   });
 
   it('allows unrestricted owner web tokens across workspaces without granting master-only token management', async () => {

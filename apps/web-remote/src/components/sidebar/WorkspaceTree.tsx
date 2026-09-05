@@ -30,6 +30,7 @@ export function WorkspaceTree({ onSessionSelect }: WorkspaceTreeProps) {
   const toggleExpanded = useWorkspaceStore((s) => s.toggleExpanded);
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
   const setActiveSession = useWorkspaceStore((s) => s.setActiveSession);
+  const deleteSession = useWorkspaceStore((s) => s.deleteSession);
   const createSession = useWorkspaceStore((s) => s.createSession);
   const clearMessages = useChatStore((s) => s.clearMessages);
   const loadHistory = useChatStore((s) => s.loadHistory);
@@ -102,6 +103,7 @@ export function WorkspaceTree({ onSessionSelect }: WorkspaceTreeProps) {
                       isActive={session.id === activeSessionId}
                       state={sessionStates[session.id]}
                       onSelect={(sessionId) => selectSession(workspace.id, sessionId)}
+                      onDelete={(sessionId) => deleteSession(workspace.id, sessionId)}
                     />
                   ))
                 )}

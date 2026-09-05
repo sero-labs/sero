@@ -19,6 +19,7 @@ import {
   SERO_SESSION_DIR,
 } from '@electron/shared/infra/shared-infra';
 import { convertSessionMessages } from '../agent/core/agent-helpers';
+import { isPathInsideDirectory } from '../agent/handlers/sessions';
 import { listSessionMetadata } from '../agent/core/session-metadata';
 import { convertToGatewayHistory } from './gateway-history';
 import { searchSessions, MAX_RESULTS } from './session-search';
@@ -193,6 +194,27 @@ export function buildGatewayOps(
 
       return searchSessions(searchable, query, limit || MAX_RESULTS);
     },
+    deleteSession: async (workspaceId, sessionId) => {
+      // findSessionInfo lists only this workspace's sessions, so an id
+      // from another workspace finds nothing and deletes nothing.
+      const info = await findSessionInfo(workspaceId, sessionId);
+      if (!info) throw new Error(`Session not found in workspace: ${sessionId}`);
+
+      // Same guard the desktop handler uses: never unlink outside the
+      // session directory, whatever the listing returned.
+      const resolved = path.resolve(info.path);
+      if (!isPathInsideDirectory(resolved, SERO_SESSION_DIR)) {
+        throw new Error('Refusing to delete file outside session directory');
+      }
+
+      try {
+        await fs.unlink(resolved);
+      } catch (err) {
+        // Already gone is the outcome the caller wanted.
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+      }
+    },
+
     createSession: async (workspaceId, name) => {
       const wsPath = workspaceManager.getPath(workspaceId);
       if (!wsPath) throw new Error(`Workspace not found: ${workspaceId}`);
