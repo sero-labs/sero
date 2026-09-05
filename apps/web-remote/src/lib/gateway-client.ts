@@ -190,16 +190,16 @@ export class GatewayClient {
     this.token = token;
     this.shouldReconnect = true;
     this.reconnectDelay = RECONNECT_DELAY_MS;
+    // A reconnect queued by an earlier failure would fire on its own
+    // clock and close the connection this call is about to make.
+    this.clearReconnectTimer();
     this.doConnect();
   }
 
   /** Disconnect from the gateway. */
   disconnect(): void {
     this.shouldReconnect = false;
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
+    this.clearReconnectTimer();
     this.dropSocket();
     this.setState('disconnected');
   }
@@ -210,10 +210,7 @@ export class GatewayClient {
     if (this._state === 'connected' || this._state === 'connecting' || this._state === 'authenticating') {
       return;
     }
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
+    this.clearReconnectTimer();
     this.reconnectDelay = RECONNECT_DELAY_MS;
     this.doConnect();
   }
@@ -553,6 +550,13 @@ export class GatewayClient {
    * its handlers afterwards. Detaching them first is what stops a dead
    * socket from reporting a disconnect that has already been handled.
    */
+  /** Drop a reconnect that has not fired yet. */
+  private clearReconnectTimer(): void {
+    if (!this.reconnectTimer) return;
+    clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+  }
+
   private dropSocket(): void {
     const socket = this.ws;
     if (!socket) return;

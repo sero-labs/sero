@@ -19,7 +19,12 @@ import { saveToken, loadToken, clearToken } from '@/lib/token-storage';
 interface TokenStorageAdapter {
   save: (token: string) => Promise<void>;
   load: () => Promise<string | null>;
-  clear: () => Promise<void>;
+  /**
+   * Forget the stored pairing. `refused` names the token being given up
+   * on, and only that one goes. Without it the stored pairing goes
+   * whatever it is, which is what "use a different token" asks for.
+   */
+  clear: (refused?: string) => Promise<void>;
 }
 
 export interface GatewayClientLike {
@@ -277,7 +282,11 @@ export function createConnectionStore(
             const message = (msg as { message: string }).message;
             const forgetToken = isInvalidAuthTokenMessage(message);
             if (forgetToken) {
-              void tokenStorage.clear();
+              // Only the refused token. Another tab may have paired
+              // again while this one waited to be told, and every tab
+              // on the origin shares the one stored pairing.
+              const refused = get().token;
+              void tokenStorage.clear(refused ?? undefined);
             }
             set({
               token: forgetToken ? null : get().token,

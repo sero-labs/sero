@@ -59,6 +59,40 @@ export function dbPut(
   });
 }
 
+/**
+ * Delete a record, but only while it still matches.
+ *
+ * The read and the delete share one transaction, so a write from
+ * another tab lands wholly before it or wholly after it. `matches` runs
+ * inside that transaction and must not await: a transaction with
+ * nothing left to do commits and closes.
+ *
+ * Resolves with whether the record was deleted.
+ */
+export function dbDeleteIf(
+  db: IDBDatabase,
+  storeName: string,
+  key: string,
+  matches: (value: unknown) => boolean,
+): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, 'readwrite');
+    const store = tx.objectStore(storeName);
+    const read = store.get(key);
+    let deleted = false;
+
+    read.onsuccess = () => {
+      if (read.result === undefined || !matches(read.result)) return;
+      store.delete(key).onsuccess = () => {
+        deleted = true;
+      };
+    };
+    tx.oncomplete = () => resolve(deleted);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+
 export function dbDelete(
   db: IDBDatabase,
   storeName: string,

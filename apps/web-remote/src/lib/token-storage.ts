@@ -4,9 +4,14 @@
  * Stores the gateway auth token encrypted at rest using AES-GCM,
  * with a key derived from the gateway URL (domain binding).
  * This provides defense-in-depth against XSS token exfiltration.
+ *
+ * Every tab on the origin shares this one record, so a tab is only
+ * allowed to delete the pairing it was itself refused for. Each record
+ * carries the SHA-256 of its token to make that comparison possible
+ * without decrypting, and so it can happen inside one transaction.
  */
 
-import { openDb, dbGet, dbPut, dbDelete, TOKEN_STORE } from './idb';
+import { openDb, dbGet, dbPut, dbDelete, dbDeleteIf, TOKEN_STORE } from './idb';
 
 const TOKEN_KEY = 'gateway-token';
 const SALT = new TextEncoder().encode('sero-web-remote-token-salt-v1');
@@ -35,6 +40,29 @@ async function deriveKey(gatewayUrl: string): Promise<CryptoKey> {
 interface EncryptedBlob {
   iv: number[];
   data: number[];
+  /**
+   * SHA-256 of the token, hex. Names the pairing without revealing it.
+   * Absent on records written before this existed.
+   */
+  id?: string;
+}
+
+/** Name a token without storing anything that could be used as one. */
+async function tokenId(token: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(token),
+  );
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/** The id on a stored record, or null when it carries none. */
+function storedId(value: unknown): string | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const id = (value as { id?: unknown }).id;
+  return typeof id === 'string' ? id : null;
 }
 
 async function encrypt(token: string, key: CryptoKey): Promise<EncryptedBlob> {
@@ -72,8 +100,9 @@ export async function saveToken(token: string): Promise<void> {
     const gatewayUrl = window.location.origin;
     const key = await deriveKey(gatewayUrl);
     const blob = await encrypt(token, key);
+    const id = await tokenId(token);
     const db = await openDb();
-    await dbPut(db, TOKEN_STORE, TOKEN_KEY, blob);
+    await dbPut(db, TOKEN_STORE, TOKEN_KEY, { ...blob, id });
     db.close();
   } catch (err) {
     console.warn('[token-storage] Failed to save token:', err);
@@ -96,11 +125,30 @@ export async function loadToken(): Promise<string | null> {
   }
 }
 
-/** Clear the stored token. */
-export async function clearToken(): Promise<void> {
+/**
+ * Forget the stored pairing.
+ *
+ * `refused` names the pairing the caller is giving up on. Only that one
+ * is deleted: a tab left open across a restart is refused for a token
+ * the host no longer holds, and the pairing made in the meantime, in
+ * another tab, has to survive that.
+ *
+ * Called with nothing, the pairing goes whatever it is. That is the
+ * user asking to use a different token, which is about the device
+ * rather than about one token.
+ */
+export async function clearToken(refused?: string): Promise<void> {
   try {
     const db = await openDb();
-    await dbDelete(db, TOKEN_STORE, TOKEN_KEY);
+    if (refused === undefined) {
+      await dbDelete(db, TOKEN_STORE, TOKEN_KEY);
+    } else {
+      const id = await tokenId(refused);
+      // A record from before ids carries none, so it cannot be told
+      // apart from a newer pairing and is left alone. The next sign-in
+      // overwrites it with one that can.
+      await dbDeleteIf(db, TOKEN_STORE, TOKEN_KEY, (value) => storedId(value) === id);
+    }
     db.close();
   } catch {
     // Best-effort

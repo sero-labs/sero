@@ -141,6 +141,28 @@ describe('GatewayClient', () => {
     expect(MockWebSocket.instances).toHaveLength(2);
   });
 
+  it('drops a queued reconnect when a new token is given', () => {
+    // A tab left waiting while the desktop is down has a reconnect
+    // queued. Signing in with a new token has to cancel it: firing it
+    // later would close the connection that sign-in just made.
+    const client = new GatewayClient('ws://gateway.test');
+
+    client.connect('old-token');
+    MockWebSocket.instances[0]!.emitClose(1006, '');
+    expect(client.state).toBe('reconnecting');
+
+    client.connect('new-token');
+    const signedIn = MockWebSocket.instances[1]!;
+    signedIn.emitOpen();
+    signedIn.emitMessage({ type: 'ok', requestType: 'connect' });
+    expect(client.state).toBe('connected');
+
+    vi.advanceTimersByTime(30_000);
+
+    expect(MockWebSocket.instances).toHaveLength(2);
+    expect(client.state).toBe('connected');
+  });
+
   it('stops reconnecting after invalid authentication tokens', () => {
     const client = new GatewayClient('ws://gateway.test');
     const disconnectEvents: Array<{ code: number; reason: string; willReconnect: boolean }> = [];

@@ -8,8 +8,23 @@
 
 import { WebSocketServer, type WebSocket } from 'ws';
 
-/** Any token is accepted. The shell only needs one to get past auth. */
+/** Accepted. The shell only needs one to get past auth. */
 export const TEST_TOKEN = 'visual-test-token';
+
+/**
+ * Refused, the way the host refuses a pairing it no longer holds.
+ *
+ * A revoked or expired token gets exactly this message, and the client
+ * treats it as the one reason to give a saved pairing up.
+ *
+ * The refusal is held back, which is what a restart does in real use: a
+ * tab keeps retrying while the desktop is down, so its refusal arrives
+ * long after it was sent, possibly after another tab has paired again.
+ */
+export const STALE_TOKEN = 'stale-test-token';
+
+/** How long the refusal is held back. Long enough to pair in between. */
+const STALE_REFUSAL_DELAY_MS = 4_000;
 
 /** A fixed instant, so every "ago" label reads the same on every run. */
 const NOW = Date.parse('2026-03-01T12:00:00.000Z');
@@ -187,6 +202,7 @@ function removalIds(
 interface GatewayTestRequest {
   type: string;
   requestId?: string;
+  token?: string;
   workspaceId?: string;
   sessionId?: string;
   provider?: string;
@@ -258,6 +274,19 @@ export async function startTestGateway(port: number): Promise<TestGateway> {
 
     socket.on('message', (raw) => {
       const request = JSON.parse(raw.toString()) as GatewayTestRequest;
+
+      if (request.type === 'connect' && request.token === STALE_TOKEN) {
+        setTimeout(() => {
+          if (socket.readyState !== socket.OPEN) return;
+          socket.send(JSON.stringify({
+            type: 'error',
+            requestType: 'connect',
+            message: 'Invalid authentication token',
+          }));
+          socket.close(4003, 'Authentication failed');
+        }, STALE_REFUSAL_DELAY_MS);
+        return;
+      }
 
       // Removals are answered, then announced. The client drops rows on
       // the announcement, never on the response, so a stub that only
