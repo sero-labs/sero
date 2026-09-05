@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { useConnectionStore } from './connection';
 import { useWorkspaceStore } from './workspace';
 
 describe('workspace store session state', () => {
@@ -82,7 +83,6 @@ describe('workspace store session tree', () => {
     useWorkspaceStore.setState({
       workspaces: [],
       sessionsByWorkspace: {},
-      pendingSessionFetches: [],
       expanded: {},
       activeWorkspaceId: null,
       activeSessionId: null,
@@ -101,51 +101,75 @@ describe('workspace store session tree', () => {
     };
   }
 
-  it('files sessions under the workspace each one names', () => {
-    useWorkspaceStore.setState({ pendingSessionFetches: ['workspace-a'] });
-
-    useWorkspaceStore.getState().handleMessage({
-      type: 'ok',
-      requestType: 'list_sessions',
-      data: [session('session-a', 'workspace-a'), session('session-b', 'workspace-a')],
+  /** A promise the test settles by hand, standing in for a slow host. */
+  function deferred() {
+    let resolve!: (value: unknown) => void;
+    let reject!: (err: Error) => void;
+    const promise = new Promise<unknown>((res, rej) => {
+      resolve = res;
+      reject = rej;
     });
+    return { promise, resolve, reject };
+  }
 
-    const { sessionsByWorkspace, pendingSessionFetches } = useWorkspaceStore.getState();
-    expect(sessionsByWorkspace['workspace-a']).toHaveLength(2);
-    expect(pendingSessionFetches).toEqual([]);
-  });
+  const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-  it('empties the requested workspace when the response is empty', () => {
-    useWorkspaceStore.setState({
-      sessionsByWorkspace: { 'workspace-a': [session('stale', 'workspace-a')] },
-      pendingSessionFetches: ['workspace-a'],
-    });
+  function withSessionsClient(requestSessions: (workspaceId: string) => Promise<unknown>) {
+    useConnectionStore.setState({ client: { requestSessions } as unknown as never });
+  }
 
-    useWorkspaceStore.getState().handleMessage({
-      type: 'ok',
-      requestType: 'list_sessions',
-      data: [],
-    });
+  it('files a reply under the workspace it asked for, whatever order replies arrive', async () => {
+    const replies: Record<string, ReturnType<typeof deferred>> = {
+      'workspace-a': deferred(),
+      'workspace-b': deferred(),
+    };
+    withSessionsClient((workspaceId) => replies[workspaceId].promise);
 
-    expect(useWorkspaceStore.getState().sessionsByWorkspace['workspace-a']).toEqual([]);
-  });
-
-  it('answers queued requests in order', () => {
-    useWorkspaceStore.setState({ pendingSessionFetches: ['workspace-a', 'workspace-b'] });
-    const { handleMessage } = useWorkspaceStore.getState();
-
-    handleMessage({ type: 'ok', requestType: 'list_sessions', data: [] });
-    expect(useWorkspaceStore.getState().pendingSessionFetches).toEqual(['workspace-b']);
-
-    handleMessage({
-      type: 'ok',
-      requestType: 'list_sessions',
-      data: [session('session-b', 'workspace-b')],
-    });
+    useWorkspaceStore.getState().fetchSessions('workspace-a');
+    useWorkspaceStore.getState().fetchSessions('workspace-b');
+    // B answers first, with sessions; A answers second, empty.
+    replies['workspace-b'].resolve([session('session-b', 'workspace-b')]);
+    replies['workspace-a'].resolve([]);
+    await flush();
 
     const { sessionsByWorkspace } = useWorkspaceStore.getState();
     expect(sessionsByWorkspace['workspace-a']).toEqual([]);
     expect(sessionsByWorkspace['workspace-b']).toHaveLength(1);
+  });
+
+  it('empties the requested workspace when the reply is empty', async () => {
+    useWorkspaceStore.setState({
+      sessionsByWorkspace: { 'workspace-a': [session('stale', 'workspace-a')] },
+    });
+    withSessionsClient(() => Promise.resolve([]));
+
+    useWorkspaceStore.getState().fetchSessions('workspace-a');
+    await flush();
+
+    expect(useWorkspaceStore.getState().sessionsByWorkspace['workspace-a']).toEqual([]);
+  });
+
+  it('keeps the old list when the fetch fails', async () => {
+    useWorkspaceStore.setState({
+      sessionsByWorkspace: { 'workspace-a': [session('kept', 'workspace-a')] },
+    });
+    withSessionsClient(() => Promise.reject(new Error('Gateway connection closed.')));
+
+    useWorkspaceStore.getState().fetchSessions('workspace-a');
+    await flush();
+
+    expect(useWorkspaceStore.getState().sessionsByWorkspace['workspace-a']).toHaveLength(1);
+  });
+
+  it('drops a session in the reply that names another workspace', async () => {
+    withSessionsClient(() =>
+      Promise.resolve([session('mine', 'workspace-a'), session('theirs', 'workspace-b')]),
+    );
+
+    useWorkspaceStore.getState().fetchSessions('workspace-a');
+    await flush();
+
+    expect(useWorkspaceStore.getState().sessionsByWorkspace['workspace-a']?.map((s) => s.id)).toEqual(['mine']);
   });
 
   it('puts a created session at the top of its workspace and selects it', () => {

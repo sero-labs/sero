@@ -49,7 +49,9 @@ class FakeGatewayClient implements GatewayClientLike {
 
   requestWorkspaces(): void {}
 
-  requestSessions(): void {}
+  requestSessions(): Promise<unknown> {
+    return Promise.resolve([]);
+  }
   searchSessions(): void {}
   requestUsage(): void {}
   answerChoice(): void {}
@@ -58,9 +60,15 @@ class FakeGatewayClient implements GatewayClientLike {
   dismissNotifications(): void {}
   clearReadNotifications(): void {}
   uploadFile(): void {}
-  gitStatus(): void {}
-  gitDiff(): void {}
-  gitCommit(): void {}
+  gitStatus(): Promise<unknown> {
+    return Promise.resolve(null);
+  }
+  gitDiff(): Promise<unknown> {
+    return Promise.resolve(null);
+  }
+  gitCommit(): Promise<unknown> {
+    return Promise.resolve(null);
+  }
 
   createSession(): void {}
   deleteSession(): void {}

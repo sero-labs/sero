@@ -48,13 +48,6 @@ interface WorkspaceStore {
   /** Last finished turn per session id, from `turn_complete` push events. */
   lastTurns: Record<string, SessionTurn>;
   view: WorkspaceView;
-  /**
-   * Workspace ids of `list_sessions` requests still awaiting a response,
-   * in request order. The response carries a workspace id on each session,
-   * but an empty list carries none — this says which workspace it emptied.
-   * One ordered socket makes first-in-first-out correct.
-   */
-  pendingSessionFetches: string[];
 
   fetchWorkspaces: () => void;
   fetchSessions: (workspaceId: string) => void;
@@ -83,14 +76,18 @@ function isTurnOutcome(value: unknown): value is SessionTurn['outcome'] {
   return value === 'completed' || value === 'cancelled' || value === 'error';
 }
 
-/** Group a `list_sessions` response by the workspace each session names. */
-function groupByWorkspace(sessions: Session[]): Record<string, Session[]> {
-  const grouped: Record<string, Session[]> = {};
-  for (const session of sessions) {
-    if (!session.workspaceId) continue;
-    (grouped[session.workspaceId] ??= []).push(session);
-  }
-  return grouped;
+/** The sessions in a `list_sessions` reply that belong to `workspaceId`. */
+function readSessions(value: unknown, workspaceId: string): Session[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return [];
+    const session = item as Session;
+    if (typeof session.id !== 'string') return [];
+    // A reply is for one workspace. A session naming another one is a
+    // host mistake, and filing it here would show it in the wrong tree.
+    if (session.workspaceId && session.workspaceId !== workspaceId) return [];
+    return [{ ...session, workspaceId }];
+  });
 }
 
 export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
@@ -105,18 +102,22 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
     sessionStates: {},
     lastTurns: {},
     view: 'board',
-    pendingSessionFetches: [],
 
     fetchWorkspaces: () => {
-      // A fresh listing restarts the session-fetch queue. A dropped
-      // response across a reconnect would otherwise shift it out of step.
-      set({ pendingSessionFetches: [] });
       getClient().requestWorkspaces();
     },
 
+    // The reply is correlated to this request, so it names its own
+    // workspace whatever order replies arrive in, and an empty list
+    // empties the right one. A failed fetch leaves the old list alone.
     fetchSessions: (workspaceId: string) => {
-      set((s) => ({ pendingSessionFetches: [...s.pendingSessionFetches, workspaceId] }));
-      getClient().requestSessions(workspaceId);
+      getClient().requestSessions(workspaceId).then(
+        (data) => {
+          const sessions = readSessions(data, workspaceId);
+          set((s) => ({ sessionsByWorkspace: { ...s.sessionsByWorkspace, [workspaceId]: sessions } }));
+        },
+        () => undefined,
+      );
     },
 
     setActiveWorkspace: (id: string) => {
@@ -194,21 +195,6 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => {
             expanded: { ...s.expanded, [workspaces[0].id]: true },
           }));
         }
-      }
-
-      if (response.requestType === 'list_sessions') {
-        const sessions = (response.data as Session[]) ?? [];
-        const [requestedWorkspaceId, ...rest] = get().pendingSessionFetches;
-        const grouped = groupByWorkspace(sessions);
-        // An empty response names no workspace, so fall back to the
-        // workspace this response answers.
-        if (requestedWorkspaceId && !(requestedWorkspaceId in grouped)) {
-          grouped[requestedWorkspaceId] = [];
-        }
-        set((s) => ({
-          sessionsByWorkspace: { ...s.sessionsByWorkspace, ...grouped },
-          pendingSessionFetches: rest,
-        }));
       }
 
       if (response.requestType === 'delete_session') {

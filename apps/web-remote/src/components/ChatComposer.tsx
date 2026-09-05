@@ -37,6 +37,7 @@ import {
 import { useChatStore } from '@/stores/chat';
 import { useConnectionStore } from '@/stores/connection';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { canSend } from '@/lib/composer-rules';
 import { VoiceTranscriptionControl } from './VoiceTranscriptionControl';
 import { ModelPicker } from './ModelPicker';
 
@@ -119,13 +120,7 @@ export function ChatComposer() {
       ? 'Select a workspace first...'
       : 'Send a message...';
 
-  const submit = (
-    <PromptInputSubmit
-      disabled={disabled || isStreaming || !input.trim()}
-      title="Send message"
-      className="bg-status-success text-white hover:bg-status-success/90"
-    />
-  );
+  const submit = <SubmitButton text={input} disabled={disabled} isStreaming={isStreaming} />;
 
   return (
     <div className="relative shrink-0 p-2">
@@ -189,6 +184,37 @@ export function ChatComposer() {
         </PromptInputFooter>
       </PromptInput>
     </div>
+  );
+}
+
+/**
+ * The Send control. It reads the attachment list itself, so an image
+ * with no caption can be sent: the count lives inside `PromptInput`,
+ * where the composer's own state cannot see it.
+ */
+function SubmitButton({
+  text,
+  disabled,
+  isStreaming,
+}: {
+  text: string;
+  disabled: boolean;
+  isStreaming: boolean;
+}) {
+  const attachments = usePromptInputAttachments();
+  const ready = canSend({
+    text,
+    attachmentCount: attachments.files.length,
+    disabled,
+    isStreaming,
+  });
+
+  return (
+    <PromptInputSubmit
+      disabled={!ready}
+      title="Send message"
+      className="bg-status-success text-white hover:bg-status-success/90"
+    />
   );
 }
 

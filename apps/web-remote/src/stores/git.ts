@@ -1,9 +1,14 @@
 /**
- * Git store — the working tree of the active workspace.
+ * Git store — the working tree of one workspace.
  *
- * The status is refetched by hand and whenever a turn finishes, because a
- * turn is what changes files. Diffs are fetched one file at a time and
- * kept, so going back to a file you already opened costs nothing.
+ * Everything here belongs to `workspaceId`. A reply for another workspace,
+ * or one that arrives after the panel moved on, is dropped, so what the
+ * panel shows and what a commit acts on are always the same tree.
+ *
+ * The status is refetched by hand and whenever a turn finishes in that
+ * workspace, because a turn is what changes files. Diffs are fetched one
+ * file at a time and kept, so going back to a file already opened costs
+ * nothing.
  */
 
 import { create } from 'zustand';
@@ -69,6 +74,8 @@ export interface GitCommitResult {
 }
 
 interface GitStore {
+  /** The workspace the status, diffs and selection belong to. */
+  workspaceId: string | null;
   status: GitStatus | null;
   loading: boolean;
   /** The file whose diff is on screen. */
@@ -102,6 +109,10 @@ function getClient() {
   return useConnectionStore.getState().client;
 }
 
+function errorText(err: unknown, fallback: string): string {
+  return err instanceof Error && err.message ? err.message : fallback;
+}
+
 function readStatus(value: unknown): GitStatus | null {
   if (!value || typeof value !== 'object') return null;
   const record = value as Record<string, unknown>;
@@ -127,7 +138,25 @@ function readStatus(value: unknown): GitStatus | null {
   };
 }
 
-export const useGitStore = create<GitStore>((set, get) => ({
+function readDiff(value: unknown): GitDiff | null {
+  if (!value || typeof value !== 'object') return null;
+  const diff = value as GitDiff;
+  return typeof diff.path === 'string' ? diff : null;
+}
+
+function readCommit(value: unknown): GitCommitResult | null {
+  if (!value || typeof value !== 'object') return null;
+  const record = value as Record<string, unknown>;
+  if (typeof record.hash !== 'string') return null;
+  return {
+    hash: record.hash,
+    branch: typeof record.branch === 'string' ? record.branch : '',
+    fileCount: typeof record.fileCount === 'number' ? record.fileCount : 0,
+  };
+}
+
+/** The state the panel starts from for a workspace. */
+const EMPTY_TREE = {
   status: null,
   loading: false,
   openPath: null,
@@ -136,96 +165,121 @@ export const useGitStore = create<GitStore>((set, get) => ({
   committing: false,
   lastCommit: null,
   error: null,
+} satisfies Partial<GitStore>;
 
-  refresh: (workspaceId: string) => {
-    const client = getClient();
-    if (!client) return;
-    set({ loading: true, error: null });
-    client.gitStatus(workspaceId);
-  },
+export const useGitStore = create<GitStore>((set, get) => {
+  /** Counts refreshes, so a slow reply cannot land over a newer one. */
+  let refreshSeq = 0;
 
-  openFile: (workspaceId: string, file: GitFile) => {
-    set({ openPath: file.path });
-    // A diff already fetched is still true until the next refresh clears it.
-    if (get().diffs[diffKey(file.path, file.staged)]) return;
-    getClient()?.gitDiff(workspaceId, file.path, file.staged);
-  },
+  /** True when the store has moved to another workspace since `workspaceId`. */
+  const stale = (workspaceId: string) => get().workspaceId !== workspaceId;
 
-  closeFile: () => set({ openPath: null }),
+  return {
+    workspaceId: null,
+    ...EMPTY_TREE,
 
-  toggleSelected: (path: string) => {
-    set((s) => ({
-      selectedPaths: s.selectedPaths.includes(path)
-        ? s.selectedPaths.filter((selected) => selected !== path)
-        : [...s.selectedPaths, path],
-    }));
-  },
+    refresh: (workspaceId: string) => {
+      const client = getClient();
+      if (!client) return;
+      // Another workspace's tree must not stay on screen while this
+      // one loads: the branch and files shown would be the wrong ones.
+      if (stale(workspaceId)) set({ workspaceId, ...EMPTY_TREE });
 
-  selectAll: () => {
-    set((s) => ({ selectedPaths: [...new Set((s.status?.files ?? []).map((f) => f.path))] }));
-  },
+      const seq = ++refreshSeq;
+      set({ loading: true, error: null });
+      client.gitStatus(workspaceId).then(
+        (data) => {
+          if (stale(workspaceId) || seq !== refreshSeq) return;
+          const status = readStatus(data);
+          // A refresh replaces the tree, so old diffs would be stale.
+          set((s) => ({
+            status,
+            loading: false,
+            diffs: {},
+            selectedPaths: status
+              ? s.selectedPaths.filter((path) => status.files.some((file) => file.path === path))
+              : [],
+          }));
+        },
+        (err: unknown) => {
+          if (stale(workspaceId) || seq !== refreshSeq) return;
+          set({ loading: false, error: errorText(err, 'Could not read the working tree.') });
+        },
+      );
+    },
 
-  clearSelection: () => set({ selectedPaths: [] }),
+    openFile: (workspaceId: string, file: GitFile) => {
+      if (stale(workspaceId)) return;
+      set({ openPath: file.path });
+      // A diff already fetched is still true until the next refresh clears it.
+      if (get().diffs[diffKey(file.path, file.staged)]) return;
+      getClient()?.gitDiff(workspaceId, file.path, file.staged).then(
+        (data) => {
+          const diff = readDiff(data);
+          if (!diff || stale(workspaceId)) return;
+          set((s) => ({ diffs: { ...s.diffs, [diffKey(diff.path, diff.staged)]: diff } }));
+        },
+        (err: unknown) => {
+          if (stale(workspaceId)) return;
+          set({ error: errorText(err, 'Could not read the diff.') });
+        },
+      );
+    },
 
-  commit: (workspaceId: string, message: string) => {
-    const client = getClient();
-    if (!client) return;
-    const { selectedPaths } = get();
-    if (selectedPaths.length === 0) return;
-    set({ committing: true, error: null, lastCommit: null });
-    client.gitCommit(workspaceId, message, selectedPaths);
-  },
+    closeFile: () => set({ openPath: null }),
 
-  dismissError: () => set({ error: null }),
-
-  handleMessage: (msg: GatewayMessage) => {
-    // A finished turn is what changes files, so it is the refresh trigger.
-    if (msg.type === 'turn_complete') {
-      const workspaceId = typeof msg.workspaceId === 'string' ? msg.workspaceId : null;
-      if (workspaceId && get().status) get().refresh(workspaceId);
-      return;
-    }
-
-    if (!('requestType' in msg)) return;
-    const { requestType } = msg;
-    if (requestType !== 'git_status' && requestType !== 'git_diff' && requestType !== 'git_commit') {
-      return;
-    }
-
-    if (msg.type === 'error') {
-      set({ loading: false, committing: false, error: msg.message });
-      return;
-    }
-    if (msg.type !== 'ok') return;
-
-    const data = (msg as { data?: unknown }).data;
-
-    if (requestType === 'git_status') {
-      const status = readStatus(data);
-      // A refresh replaces the tree, so old diffs would be stale.
+    toggleSelected: (path: string) => {
       set((s) => ({
-        status,
-        loading: false,
-        diffs: {},
-        selectedPaths: status
-          ? s.selectedPaths.filter((path) => status.files.some((file) => file.path === path))
-          : [],
+        selectedPaths: s.selectedPaths.includes(path)
+          ? s.selectedPaths.filter((selected) => selected !== path)
+          : [...s.selectedPaths, path],
       }));
-      return;
-    }
+    },
 
-    if (requestType === 'git_diff') {
-      if (!data || typeof data !== 'object') return;
-      const diff = data as GitDiff;
-      if (typeof diff.path !== 'string') return;
-      set((s) => ({ diffs: { ...s.diffs, [diffKey(diff.path, diff.staged)]: diff } }));
-      return;
-    }
+    selectAll: () => {
+      set((s) => ({ selectedPaths: [...new Set((s.status?.files ?? []).map((f) => f.path))] }));
+    },
 
-    const commit = data as GitCommitResult | undefined;
-    set({ committing: false, lastCommit: commit ?? null, selectedPaths: [] });
-  },
-}));
+    clearSelection: () => set({ selectedPaths: [] }),
+
+    commit: (workspaceId: string, message: string) => {
+      const client = getClient();
+      if (!client) return;
+      const { selectedPaths, status } = get();
+      if (selectedPaths.length === 0) return;
+      // The selection was made against the tree on screen. Committing
+      // it into another workspace would commit files nobody looked at.
+      if (stale(workspaceId) || !status) {
+        set({ error: 'The changes shown are not from this workspace. Refresh first.' });
+        return;
+      }
+
+      set({ committing: true, error: null, lastCommit: null });
+      client.gitCommit(workspaceId, message, selectedPaths).then(
+        (data) => {
+          if (stale(workspaceId)) return;
+          set({ committing: false, lastCommit: readCommit(data), selectedPaths: [] });
+          // The commit moved the tree, so what is shown is out of date.
+          get().refresh(workspaceId);
+        },
+        (err: unknown) => {
+          if (stale(workspaceId)) return;
+          set({ committing: false, error: errorText(err, 'The commit failed.') });
+        },
+      );
+    },
+
+    dismissError: () => set({ error: null }),
+
+    handleMessage: (msg: GatewayMessage) => {
+      // A finished turn is what changes files, so it is the refresh
+      // trigger. Only a turn in the workspace on screen counts.
+      if (msg.type !== 'turn_complete') return;
+      const { workspaceId, status } = get();
+      if (workspaceId && status && msg.workspaceId === workspaceId) get().refresh(workspaceId);
+    },
+  };
+});
 
 /** Changed files with no duplicate path, staged copy first. */
 export function selectFiles(status: GitStatus | null): GitFile[] {

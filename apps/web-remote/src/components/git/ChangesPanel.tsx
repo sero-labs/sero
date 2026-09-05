@@ -42,6 +42,7 @@ export function ChangesPanel() {
   const workspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const status = useGitStore((s) => s.status);
   const loading = useGitStore((s) => s.loading);
+  const error = useGitStore((s) => s.error);
   const openPath = useGitStore((s) => s.openPath);
   const diffs = useGitStore((s) => s.diffs);
   const refresh = useGitStore((s) => s.refresh);
@@ -76,6 +77,10 @@ export function ChangesPanel() {
   return (
     <div className="flex h-full flex-col">
       <Header workspaceId={workspaceId} loading={loading} />
+
+      {error && files.length === 0 && (
+        <p className="px-2 py-1 text-xs text-status-error">{error}</p>
+      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {files.length === 0 ? (

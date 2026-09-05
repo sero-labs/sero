@@ -225,4 +225,3 @@ describe('waitForWorkspace', () => {
     await expect(waitForWorkspace(10)).resolves.toBe(false);
   });
 });
-

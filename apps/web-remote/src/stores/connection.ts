@@ -41,7 +41,7 @@ export interface GatewayClientLike {
     images?: Array<{ data: string; mimeType: string }>,
   ) => void;
   requestWorkspaces: () => void;
-  requestSessions: (workspaceId: string) => void;
+  requestSessions: (workspaceId: string) => Promise<unknown>;
   searchSessions: (query: string, limit?: number) => void;
   requestUsage: () => void;
   answerChoice: (id: string, optionId: string) => void;
@@ -50,9 +50,9 @@ export interface GatewayClientLike {
   dismissNotifications: (ids: string[]) => void;
   clearReadNotifications: () => void;
   uploadFile: (workspaceId: string, filePath: string, contentBase64: string) => void;
-  gitStatus: (workspaceId: string) => void;
-  gitDiff: (workspaceId: string, filePath: string, staged: boolean) => void;
-  gitCommit: (workspaceId: string, message: string, paths: string[]) => void;
+  gitStatus: (workspaceId: string) => Promise<unknown>;
+  gitDiff: (workspaceId: string, filePath: string, staged: boolean) => Promise<unknown>;
+  gitCommit: (workspaceId: string, message: string, paths: string[]) => Promise<unknown>;
   createSession: (workspaceId: string, name?: string) => void;
   deleteSession: (workspaceId: string, sessionId: string) => void;
   requestSessionModel: (workspaceId: string, sessionId: string) => void;
