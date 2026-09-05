@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatCost, formatTokens } from './UsageBadge';
+import { formatCost, formatTokens } from './format-usage';
 
 describe('formatCost', () => {
   it('shows nothing spent as zero', () => {

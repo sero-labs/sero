@@ -6,7 +6,7 @@
  * The desktop's rail/split layout is not ported. List mode only.
  */
 
-import { memo, useRef, useState } from 'react';
+import { memo, useState } from 'react';
 import { ChevronRight, Loader2, CheckCircle2, AlertCircle, WrenchIcon } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import type { ToolCall } from '@/stores/chat';
@@ -43,13 +43,10 @@ export const ToolCallGroup = memo(function ToolCallGroup({
   const status = deriveGroupStatus(toolCalls);
   const isRunning = status === 'running';
 
-  // A group that ran in front of the reader stays open until it settles.
-  // A group loaded from history opens only when asked.
-  const wasEverRunning = useRef(isRunning);
-  if (isRunning) wasEverRunning.current = true;
-
+  // A group that is running in front of the reader stays open until it
+  // settles. A group loaded from history opens only when asked.
   const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
-  const expanded = manualExpanded ?? (wasEverRunning.current && isRunning);
+  const expanded = manualExpanded ?? isRunning;
 
   if (toolCalls.length === 0) return null;
 

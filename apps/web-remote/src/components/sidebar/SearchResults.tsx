@@ -35,12 +35,10 @@ export function SearchResults({ query, onSelect }: SearchResultsProps) {
   const workspaceNames = new Map(workspaces.map((workspace) => [workspace.id, workspace.name]));
 
   const rows: ResultRow[] = workspaces.flatMap((workspace) =>
-    (sessionsByWorkspace[workspace.id] ?? [])
-      .filter((session) => {
-        const haystack = `${session.name} ${session.firstMessage ?? ''}`.toLowerCase();
-        return haystack.includes(query);
-      })
-      .map((session) => ({ session, workspaceName: workspace.name })),
+    (sessionsByWorkspace[workspace.id] ?? []).flatMap((session) => {
+      const haystack = `${session.name} ${session.firstMessage ?? ''}`.toLowerCase();
+      return haystack.includes(query) ? [{ session, workspaceName: workspace.name }] : [];
+    }),
   );
 
   // A gateway result the local filter already found is the same session.

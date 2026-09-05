@@ -113,8 +113,11 @@ export const useUploadsStore = create<UploadsStore>((set, get) => ({
 
     set({ uploading: true, error: null, queued: files.map((file) => file.name) });
 
+    // One file at a time on purpose: reading every file at once would
+    // hold all of them in memory as base64 on a phone.
     for (const file of files) {
       try {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop
         const contentBase64 = await readAsBase64(file);
         client.uploadFile(workspaceId, file.name, contentBase64);
       } catch (err) {
