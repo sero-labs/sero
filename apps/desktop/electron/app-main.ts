@@ -67,6 +67,7 @@ import {
   vcsManager,
 } from './shared/infra/shared-infra';
 import { startGateway, stopGateway } from './ipc/gateway/gateway';
+import { shouldAutoStartGateway } from '@electron/shared/settings/gateway-settings';
 import { setupContentSecurityPolicy } from './platform/security/csp';
 import { enablePlainTextFallback } from './shared/lib/safe-storage-backend';
 import { setupMainWindowSecurity } from './platform/security/window-security';
@@ -362,8 +363,9 @@ app.whenReady().then(async () => {
   // Start the WebSocket gateway + web chat UI. The agent ops bridge
   // is already wired by registerAgentHandlers() above, so the gateway
   // can proxy prompts/steer/abort to the agent pool.
-  // Set SERO_GATEWAY=1 to auto-start (disabled by default).
-  if (process.env.SERO_GATEWAY === '1') {
+  // Off unless asked for: `SERO_GATEWAY=1` for this launch, or Remote
+  // Control left on in the app, which is remembered per profile.
+  if (shouldAutoStartGateway()) {
     try {
       await startGateway();
     } catch (err) {

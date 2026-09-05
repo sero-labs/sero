@@ -11,6 +11,7 @@ import { registerGatewayChoiceBridge } from '@electron/features/gateway/bridge/c
 import { registerGatewayNotificationBridge } from '@electron/features/gateway/bridge/notification-bridge';
 import { generateQrDataUrl } from '@electron/features/gateway/bridge/qr-encode';
 import { DiscordAdapter } from '@electron/features/gateway/channels/discord';
+import { setGatewayEnabled, shouldAutoStartGateway } from '@electron/shared/settings/gateway-settings';
 
 export interface GatewayConfig {
   enabled: boolean;
@@ -30,8 +31,11 @@ let gatewayConfig: GatewayConfig = {
   discordAllowedUsers: [],
 };
 
-/** Read env vars into config. Called once at handler registration time. */
+/** Read env vars and the saved setting. Called at handler registration. */
 function seedConfigFromEnv(): void {
+  // The renderer asks for this config to draw the toggle, so it has to
+  // start out matching what the app actually did at boot.
+  gatewayConfig.enabled = shouldAutoStartGateway();
   if (process.env.SERO_DISCORD_TOKEN) {
     gatewayConfig.discordBotToken = process.env.SERO_DISCORD_TOKEN;
   }
@@ -61,6 +65,9 @@ export function registerGatewayHandlers(): void {
     IpcChannels.gateway.setEnabled,
     async (_event, enabled: boolean) => {
       gatewayConfig.enabled = enabled;
+      // Remember it before acting: the next launch reads this, and a
+      // start that fails should still leave the choice recorded.
+      setGatewayEnabled(enabled);
       if (enabled) {
         await startGateway();
       } else {
