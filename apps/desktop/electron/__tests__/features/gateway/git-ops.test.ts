@@ -1,5 +1,5 @@
 import { execFileSync } from 'child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -176,11 +176,94 @@ describe('commitChanges', () => {
     });
   });
 
-  it('reports a failed commit rather than throwing raw', async () => {
+  it('refuses a path that has no change', async () => {
     const dir = makeRepo();
 
     await expect(commitChanges(dir, 'feat: missing', ['not-here.txt'])).rejects.toMatchObject({
-      reason: 'git_commit_failed',
+      reason: 'git_nothing_selected',
+      message: expect.stringContaining('not-here.txt'),
     });
+  });
+
+  it('leaves an unrelated staged file staged and out of the commit', async () => {
+    const dir = makeRepo();
+    writeFileSync(path.join(dir, 'unselected.txt'), 'staged elsewhere\n', 'utf8');
+    run(['add', 'unselected.txt'], dir);
+    writeFileSync(path.join(dir, 'selected.txt'), 'selected\n', 'utf8');
+
+    await commitChanges(dir, 'feat: selected only', ['selected.txt']);
+
+    expect(run(['show', '--name-only', '--format=', 'HEAD'], dir).trim()).toBe('selected.txt');
+    expect((await readGitStatus(dir)).files).toEqual([
+      { path: 'unselected.txt', oldPath: undefined, status: 'added', staged: true },
+    ]);
+  });
+
+  it('commits only the staged copy of a partially staged file', async () => {
+    const dir = makeRepo();
+    writeFileSync(path.join(dir, 'kept.txt'), 'staged\n', 'utf8');
+    run(['add', 'kept.txt'], dir);
+    writeFileSync(path.join(dir, 'kept.txt'), 'staged then changed again\n', 'utf8');
+
+    await commitChanges(dir, 'feat: staged copy', ['kept.txt']);
+
+    expect(run(['show', 'HEAD:kept.txt'], dir)).toBe('staged\n');
+    // The unreviewed working-tree change is still there, still unstaged.
+    expect((await readGitStatus(dir)).files).toEqual([
+      { path: 'kept.txt', oldPath: undefined, status: 'modified', staged: false },
+    ]);
+  });
+
+  it('commits a staged deletion', async () => {
+    const dir = makeRepo();
+    run(['rm', 'kept.txt'], dir);
+
+    await commitChanges(dir, 'chore: drop kept', ['kept.txt']);
+
+    expect(run(['ls-tree', '--name-only', 'HEAD'], dir).trim()).toBe('');
+    expect((await readGitStatus(dir)).files).toEqual([]);
+  });
+
+  it('commits a staged rename with its old path', async () => {
+    const dir = makeRepo();
+    run(['mv', 'kept.txt', 'moved.txt'], dir);
+
+    await commitChanges(dir, 'chore: move kept', ['moved.txt']);
+
+    expect(run(['ls-tree', '--name-only', 'HEAD'], dir).trim()).toBe('moved.txt');
+    expect((await readGitStatus(dir)).files).toEqual([]);
+  });
+
+  it('commits a working-tree deletion and leaves the tree clean', async () => {
+    const dir = makeRepo();
+    rmSync(path.join(dir, 'kept.txt'));
+
+    await commitChanges(dir, 'chore: drop kept', ['kept.txt']);
+
+    expect(run(['ls-tree', '--name-only', 'HEAD'], dir).trim()).toBe('');
+    expect((await readGitStatus(dir)).files).toEqual([]);
+  });
+
+  it('makes the first commit of an empty repository', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'sero-git-ops-empty-'));
+    dirs.push(dir);
+    run(['init', '-b', 'main'], dir);
+    run(['config', 'user.email', 'test@example.com'], dir);
+    run(['config', 'user.name', 'Test'], dir);
+    writeFileSync(path.join(dir, 'first.txt'), 'first\n', 'utf8');
+
+    const result = await commitChanges(dir, 'feat: first', ['first.txt']);
+
+    expect(result.branch).toBe('main');
+    expect(run(['ls-tree', '--name-only', 'HEAD'], dir).trim()).toBe('first.txt');
+  });
+
+  it('leaves no temporary index behind', async () => {
+    const dir = makeRepo();
+    writeFileSync(path.join(dir, 'a.txt'), 'a\n', 'utf8');
+
+    await commitChanges(dir, 'feat: a', ['a.txt']);
+
+    expect(readdirSync(path.join(dir, '.git')).filter((name) => name.startsWith('sero-remote-'))).toEqual([]);
   });
 });

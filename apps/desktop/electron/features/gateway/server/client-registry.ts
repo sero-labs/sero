@@ -11,14 +11,36 @@ import type { RateLimiter } from '../security/rate-limiter';
 import { sendResponse } from './request-handler';
 import { hasWorkspaceAccess } from './access-control';
 import { pendingChoicesFor } from '../bridge/choice-bridge';
+import { dropWidgetStateWatches } from '../bridge/widget-state-bridge';
+import { dropFileTreeWatches } from '../bridge/file-tree-bridge';
 import type { ConnectedClient } from '..';
+
+/** A client that has just connected and holds no grant yet. */
+export function newConnectedClient(ws: WebSocket, remoteIp: string): ConnectedClient {
+  return {
+    ws,
+    clientType: 'unknown',
+    clientId: `client-${Date.now()}`,
+    authenticated: false,
+    isMasterAuth: false,
+    tokenId: '',
+    authorizedWorkspaceIds: null,
+    authorizedSessions: new Map(),
+    authorizedArtifacts: new Map(),
+    subscribedSessions: new Set(),
+    remoteIp,
+    lastActivity: Date.now(),
+  };
+}
 
 /**
  * Record what a successful authentication grants.
  *
  * Every earlier grant is dropped. A client that authenticates again must
  * earn its session and artifact access again, so an old token's reach
- * cannot survive into a new one.
+ * cannot survive into a new one. The widget and file-tree watches go
+ * too: each was granted under the old scope, and a bridge pushing to a
+ * stored socket would otherwise keep serving it.
  */
 export function applyAuthResult(client: ConnectedClient, result: GatewayAuthResult): void {
   client.authenticated = true;
@@ -30,6 +52,8 @@ export function applyAuthResult(client: ConnectedClient, result: GatewayAuthResu
   client.authorizedSessions.clear();
   client.authorizedArtifacts.clear();
   client.subscribedSessions.clear();
+  dropWidgetStateWatches(client.ws);
+  dropFileTreeWatches(client.ws);
 }
 
 /** How many connections come from one IP address. */

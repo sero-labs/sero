@@ -249,6 +249,50 @@ describe('notification handlers', () => {
     expect(data.map((entry) => entry.message)).toEqual(['mine']);
   });
 
+  it('counts the limit in entries the token can see, not in global entries', async () => {
+    const feed = testFeed;
+    feed.notify({ message: 'mine, and old', workspaceId: 'ws-1', silentOnDesktop: true });
+    for (let i = 0; i < 120; i += 1) {
+      feed.notify({ message: `theirs ${i}`, workspaceId: 'ws-2', silentOnDesktop: true });
+    }
+
+    const { ws, sent } = fakeSocket();
+    const { ops } = makeOps();
+
+    await routeQueryRequest(
+      ws,
+      ops,
+      { type: 'list_notifications' } as GatewayRequest,
+      scope(['ws-1']),
+      tracker(),
+    );
+
+    const data = sent[0]?.data as Array<{ message: string }>;
+    expect(data.map((entry) => entry.message)).toEqual(['mine, and old']);
+  });
+
+  it('applies the limit the client asked for after filtering', async () => {
+    const feed = testFeed;
+    for (let i = 0; i < 5; i += 1) {
+      feed.notify({ message: `mine ${i}`, workspaceId: 'ws-1', silentOnDesktop: true });
+      feed.notify({ message: `theirs ${i}`, workspaceId: 'ws-2', silentOnDesktop: true });
+    }
+
+    const { ws, sent } = fakeSocket();
+    const { ops } = makeOps();
+
+    await routeQueryRequest(
+      ws,
+      ops,
+      { type: 'list_notifications', limit: 2 } as GatewayRequest,
+      scope(['ws-1']),
+      tracker(),
+    );
+
+    const data = sent[0]?.data as Array<{ message: string }>;
+    expect(data.map((entry) => entry.message)).toEqual(['mine 4', 'mine 3']);
+  });
+
   it('shows every notification to an owner token', async () => {
     const feed = testFeed;
     feed.notify({ message: 'mine', workspaceId: 'ws-1', silentOnDesktop: true });

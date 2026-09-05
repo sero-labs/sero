@@ -24,7 +24,7 @@ import type {
 export const MAX_ENTRIES = 500;
 
 /** Entries returned when a caller asks for no limit. */
-const DEFAULT_LIST_LIMIT = 100;
+export const DEFAULT_LIST_LIMIT = 100;
 
 type Subscriber = (entry: NotificationEntry) => void;
 type ReadSubscriber = (ids: string[]) => void;

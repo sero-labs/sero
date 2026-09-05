@@ -14,20 +14,27 @@ interface FakeRuntime {
   written: Array<{ path: string; content: string; encoding?: string }>;
 }
 
-/** A runtime holding `existing` paths, recording every write. */
+/**
+ * A runtime holding `existing` paths, recording every write.
+ *
+ * `createFile` with `overwrite: false` refuses a taken name with `EEXIST`
+ * in one step, the way the real backends do, so a race between two
+ * uploads plays out here as it would on disk.
+ */
 function fakeRuntime(existing: string[] = [], backend = 'host'): FakeRuntime {
   const written: FakeRuntime['written'] = [];
   const present = new Set(existing);
 
   const runtime = {
     backend,
-    readFile: async ({ path }: { path: string }) => {
-      if (!present.has(path)) throw new Error('ENOENT');
-      return { content: '', encoding: 'utf8' as const };
-    },
-    writeFile: async (input: { path: string; content: string; encoding?: string }) => {
-      written.push(input);
+    createFile: async (input: { path: string; content: string; encoding?: string; overwrite?: boolean }) => {
+      // Yield first, so two callers reach the check together.
+      await new Promise((resolve) => setImmediate(resolve));
+      if (input.overwrite === false && present.has(input.path)) {
+        throw Object.assign(new Error(`File already exists: ${input.path}`), { code: 'EEXIST' });
+      }
       present.add(input.path);
+      written.push({ path: input.path, content: input.content, encoding: input.encoding });
     },
   } as unknown as RuntimeBackend;
 
@@ -120,6 +127,28 @@ describe('uploadFile', () => {
     ]);
 
     expect((await uploadFile(runtime, 'notes.txt', content)).path).toBe('uploads/notes-3.txt');
+  });
+
+  it('gives two uploads racing for one name different names', async () => {
+    const { runtime, written } = fakeRuntime();
+
+    const [first, second] = await Promise.all([
+      uploadFile(runtime, 'same.txt', content),
+      uploadFile(runtime, 'same.txt', content),
+    ]);
+
+    expect([first.path, second.path].sort()).toEqual(['uploads/same-1.txt', 'uploads/same.txt']);
+    expect(written).toHaveLength(2);
+    expect([first.renamed, second.renamed].filter(Boolean)).toHaveLength(1);
+  });
+
+  it('passes a failure that is not a taken name through as it is', async () => {
+    const { runtime } = fakeRuntime();
+    runtime.createFile = async () => {
+      throw Object.assign(new Error('read-only file system'), { code: 'EROFS' });
+    };
+
+    await expect(uploadFile(runtime, 'notes.txt', content)).rejects.toThrow('read-only file system');
   });
 
   it('refuses a file over the size cap', async () => {

@@ -17,7 +17,11 @@ import {
 } from './access-control';
 import { makeResponder } from './request-handler';
 import { answerChoice } from '../bridge/choice-bridge';
-import { getNotificationFeed } from '@electron/features/notifications/feed';
+import {
+  DEFAULT_LIST_LIMIT,
+  MAX_ENTRIES,
+  getNotificationFeed,
+} from '@electron/features/notifications/feed';
 import { toNotificationEvent } from '../bridge/notification-bridge';
 
 /** Why an answer was refused, in words a client can show. */
@@ -47,15 +51,10 @@ async function searchableWorkspaceIds(
 }
 
 /**
- * Handle the read-only query requests.
- * Returns true when the request was handled.
- */
-/**
- * What this token is allowed to remove.
+ * What this token is allowed to see, and so to remove.
  *
- * The same rule `list_notifications` applies: an entry that names a
- * workspace needs access to it, and an entry that names none is
- * owner-only.
+ * An entry that names a workspace needs access to it, and an entry that
+ * names none is owner-only.
  */
 function canSee(accessScope: GatewayAccessScope) {
   const isOwner = accessScope.authorizedWorkspaceIds === null;
@@ -63,6 +62,10 @@ function canSee(accessScope: GatewayAccessScope) {
     entry.workspaceId ? hasWorkspaceAccess(accessScope, entry.workspaceId) : isOwner;
 }
 
+/**
+ * Handle the read-only query requests.
+ * Returns true when the request was handled.
+ */
 export async function routeQueryRequest(
   ws: WebSocket,
   agentOps: GatewayAgentOps,
@@ -135,15 +138,15 @@ export async function routeQueryRequest(
 
     case 'list_notifications': {
       // The feed holds every entry. A scoped token sees only entries for
-      // its own workspaces; a global entry is owner-only.
-      const isOwner = accessScope.authorizedWorkspaceIds === null;
+      // its own workspaces; a global entry is owner-only. The limit is
+      // applied after that filter, so it counts entries this token can
+      // see: otherwise a burst from another workspace would push this
+      // token's own entries out of the newest hundred, and out of reach.
+      const limit = Math.min(Math.max(request.limit ?? DEFAULT_LIST_LIMIT, 1), MAX_ENTRIES);
       const entries = getNotificationFeed()
-        .list({ since: request.since, limit: request.limit })
-        .filter((entry) =>
-          entry.workspaceId
-            ? hasWorkspaceAccess(accessScope, entry.workspaceId)
-            : isOwner,
-        )
+        .list({ since: request.since, limit: MAX_ENTRIES })
+        .filter(canSee(accessScope))
+        .slice(0, limit)
         .map(toNotificationEvent);
 
       respond({ type: 'ok', requestType: 'list_notifications', data: entries });

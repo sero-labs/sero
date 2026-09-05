@@ -115,6 +115,20 @@ describe('file tree bridge', () => {
     expect(unwatch).toHaveBeenCalledWith('ws-1', 'gateway');
   });
 
+  it('drops a watch whose token no longer reaches the workspace', async () => {
+    const { ws, sent } = fakeSocket();
+    let reaches = true;
+    await watchFileTree(ws, 'ws-1', () => reaches);
+
+    reaches = false;
+    fileChanged?.({ workspaceId: 'ws-1', directories: ['/workspace/src'] });
+    reaches = true;
+    fileChanged?.({ workspaceId: 'ws-1', directories: ['/workspace/src'] });
+
+    expect(sent).toEqual([]);
+    expect(unwatch).toHaveBeenCalledWith('ws-1', 'gateway');
+  });
+
   it('sends the first change at once, then holds the rest for a second', async () => {
     const { ws, sent } = fakeSocket();
     await watchFileTree(ws, 'ws-1');

@@ -45,7 +45,9 @@ function isGone(err: unknown): boolean {
  *
  * A token with a client already connected is skipped: that client got
  * the event over the socket, and a second copy on the lock screen is
- * noise.
+ * noise. A token that `tokenIsLive` no longer vouches for is skipped
+ * and its subscriptions dropped: expiry is checked here, at send time,
+ * not only when the token list is next pruned.
  *
  * Returns how many phones were sent to.
  */
@@ -53,9 +55,15 @@ export async function sendPush(
   store: PushSubscriptionStore,
   payload: PushPayload,
   connectedTokenIds: Set<string>,
+  tokenIsLive: (tokenId: string) => boolean = () => true,
 ): Promise<number> {
   const targets = store
     .list()
+    .filter((s) => {
+      if (tokenIsLive(s.tokenId)) return true;
+      store.removeForToken(s.tokenId);
+      return false;
+    })
     .filter((s) => !connectedTokenIds.has(s.tokenId))
     .filter((s) => subscriptionReaches(s, payload.workspaceId));
 

@@ -91,10 +91,12 @@ export class PosixHostSubstrate implements HostRuntimeSubstrate {
     return readFile(this.toNativeHostPath(filePath));
   }
 
-  async writeFile(filePath: string, data: Buffer): Promise<void> {
+  async writeFile(filePath: string, data: Buffer, opts: { exclusive?: boolean } = {}): Promise<void> {
     const nativePath = this.toNativeHostPath(filePath);
     await mkdir(path.dirname(nativePath), { recursive: true });
-    await writeFile(nativePath, data);
+    // `wx` opens with O_EXCL, so two writers racing for one name cannot
+    // both succeed: the second gets EEXIST from the kernel.
+    await writeFile(nativePath, data, { flag: opts.exclusive ? 'wx' : 'w' });
   }
 
   async listFiles(directoryPath: string): Promise<HostSubstrateFileEntry[]> {

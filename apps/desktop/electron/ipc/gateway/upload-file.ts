@@ -75,25 +75,30 @@ export function suffixName(filePath: string, attempt: number): string {
   return dir === '.' ? suffixed : `${dir}/${suffixed}`;
 }
 
-/** True when a path already exists in the workspace. */
-async function exists(runtime: RuntimeBackend, filePath: string): Promise<boolean> {
-  try {
-    await runtime.readFile({ path: filePath });
-    return true;
-  } catch {
-    // Unreadable and missing look the same here. Treating unreadable as
-    // free is wrong the other way, so this errs towards a new name.
-    return false;
-  }
+function isExists(err: unknown): boolean {
+  return (err as { code?: unknown })?.code === 'EEXIST';
 }
 
-/** The first free name at or after `filePath`. */
-async function freeName(runtime: RuntimeBackend, filePath: string): Promise<string> {
-  if (!(await exists(runtime, filePath))) return filePath;
-
-  for (let attempt = 1; attempt <= MAX_NAME_ATTEMPTS; attempt += 1) {
-    const candidate = suffixName(filePath, attempt);
-    if (!(await exists(runtime, candidate))) return candidate;
+/**
+ * Write to the first free name at or after `filePath`.
+ *
+ * The runtime refuses an existing file atomically, so two uploads racing
+ * for one name cannot both land on it: the loser gets `EEXIST` and moves
+ * on to the next suffix. Any other failure is the runtime's to explain.
+ */
+async function writeToFreeName(
+  runtime: RuntimeBackend,
+  filePath: string,
+  content: string,
+): Promise<string> {
+  for (let attempt = 0; attempt <= MAX_NAME_ATTEMPTS; attempt += 1) {
+    const candidate = attempt === 0 ? filePath : suffixName(filePath, attempt);
+    try {
+      await runtime.createFile({ path: candidate, content, encoding: 'base64', overwrite: false });
+      return candidate;
+    } catch (err) {
+      if (!isExists(err)) throw err;
+    }
   }
 
   throw new UploadRefused(
@@ -137,12 +142,7 @@ export async function uploadFile(
     );
   }
 
-  const filePath = await freeName(runtime, wantedPath);
-  await runtime.writeFile({
-    path: filePath,
-    content: content.toString('base64'),
-    encoding: 'base64',
-  });
+  const filePath = await writeToFreeName(runtime, wantedPath, content.toString('base64'));
 
   return { path: filePath, bytes: content.length, renamed: filePath !== wantedPath };
 }

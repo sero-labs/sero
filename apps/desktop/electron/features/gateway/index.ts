@@ -33,6 +33,7 @@ import {
 } from './server/event-broadcast';
 import {
   applyAuthResult,
+  newConnectedClient,
   closeIdleConnections,
   countConnectionsFromIp,
   sendPendingChoices,
@@ -113,6 +114,10 @@ export class GatewayServer {
     this.push = getPushService(config.configDir);
     // A token revoked while Sero was closed must not keep its phone.
     this.push.pruneToTokens(new Set(this.auth.webTokens.list().map((t) => t.tokenId)));
+    // A token that expires while Sero runs must not keep its phone either.
+    this.push.bindTokenCheck(
+      (tokenId) => tokenId === 'master' || this.auth.webTokens.isActive(tokenId),
+    );
     // Tickets are signed with a process-bound secret. We don't persist
     // it: a gateway restart invalidates outstanding tickets, which is
     // the desired behaviour for short-lived preview credentials.
@@ -374,20 +379,7 @@ export class GatewayServer {
       return;
     }
 
-    const client: ConnectedClient = {
-      ws,
-      clientType: 'unknown',
-      clientId: `client-${Date.now()}`,
-      authenticated: false,
-      isMasterAuth: false,
-      tokenId: '',
-      authorizedWorkspaceIds: null,
-      authorizedSessions: new Map(),
-      authorizedArtifacts: new Map(),
-      subscribedSessions: new Set(),
-      remoteIp,
-      lastActivity: Date.now(),
-    };
+    const client = newConnectedClient(ws, remoteIp);
     this.clients.set(ws, client);
 
     // Auto-disconnect unauthenticated clients after 10s

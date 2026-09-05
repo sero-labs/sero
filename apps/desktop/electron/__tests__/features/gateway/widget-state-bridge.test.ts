@@ -2,7 +2,7 @@ import { describe, expect, it, afterEach, vi } from 'vitest';
 import { WebSocket } from 'ws';
 
 /** The listener the bridge installs, captured so a test can fire it. */
-let fileChanged: ((filePath: string, data: unknown) => void) | null = null;
+let fileChanged: ((filePath: string, data: unknown, etag: string | null) => void) | null = null;
 const watch = vi.fn();
 const unwatch = vi.fn();
 
@@ -11,7 +11,7 @@ vi.mock('@electron/features/apps/state/manager', () => ({
     readWithEtag: async () => ({ data: { done: 3 }, etag: 'etag-2' }),
     watch: (filePath: string) => watch(filePath),
     unwatch: (filePath: string) => unwatch(filePath),
-    onFileChange: (listener: (filePath: string, data: unknown) => void) => {
+    onFileChange: (listener: (filePath: string, data: unknown, etag: string | null) => void) => {
       fileChanged = listener;
     },
   },
@@ -33,9 +33,9 @@ function fakeSocket(): { ws: WebSocket; sent: Array<Record<string, unknown>> } {
   return { ws, sent };
 }
 
-/** Fire a file change and let the bridge's read settle. */
-async function emitChange(filePath: string): Promise<void> {
-  fileChanged?.(filePath, { done: 3 });
+/** Fire a file change carrying `etag`, and let anything async settle. */
+async function emitChange(filePath: string, etag = 'etag-1'): Promise<void> {
+  fileChanged?.(filePath, { done: 3 }, etag);
   await new Promise((resolve) => setImmediate(resolve));
 }
 
@@ -53,8 +53,33 @@ describe('widget state bridge', () => {
     await emitChange('/work/one/state.json');
 
     expect(sent).toEqual([
-      { type: 'app_state_changed', key: 'todo@ws-1', data: { done: 3 }, etag: 'etag-2' },
+      { type: 'app_state_changed', key: 'todo@ws-1', data: { done: 3 }, etag: 'etag-1' },
     ]);
+  });
+
+  it('sends the etag of the data it was handed, not one from a later read', async () => {
+    const { ws, sent } = fakeSocket();
+    await watchWidgetState(ws, 'todo@ws-1', '/work/one/state.json');
+
+    // The file already holds newer content (the mock read says etag-2)
+    // by the time this change, with etag-1, reaches the bridge.
+    await emitChange('/work/one/state.json', 'etag-1');
+
+    expect(sent[0]?.etag).toBe('etag-1');
+  });
+
+  it('drops a watch whose token no longer reaches the file', async () => {
+    const { ws, sent } = fakeSocket();
+    let reaches = true;
+    await watchWidgetState(ws, 'todo@ws-1', '/work/one/state.json', () => reaches);
+
+    reaches = false;
+    await emitChange('/work/one/state.json');
+    reaches = true;
+    await emitChange('/work/one/state.json');
+
+    expect(sent).toEqual([]);
+    expect(unwatch).toHaveBeenCalledWith('/work/one/state.json');
   });
 
   it('sends nothing to a socket that watched another file', async () => {

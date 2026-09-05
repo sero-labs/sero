@@ -45,7 +45,8 @@ interface WatcherEntry {
 
 // ── AppStateManager ──────────────────────────────────────────
 
-type ChangeListener = (filePath: string, data: unknown) => void;
+/** A change, with the etag of the very content in `data`. */
+type ChangeListener = (filePath: string, data: unknown, etag: string | null) => void;
 
 /** Content etag: hash of the raw file text. `null` means the file is absent. */
 function computeEtag(raw: string): string {
@@ -331,7 +332,7 @@ export class AppStateManager {
     // Notify registered listeners (e.g. kanban orchestrator)
     for (const listener of this.changeListeners) {
       try {
-        listener(filePath, data);
+        listener(filePath, data, etag);
       } catch (err) {
         console.error('[AppStateManager] Listener error:', err);
       }

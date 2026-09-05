@@ -28,8 +28,8 @@ const GATEWAY_OWNER = 'gateway';
 /** Shortest time between two pushes for one workspace, in milliseconds. */
 const PUSH_WINDOW_MS = 1000;
 
-/** Watching sockets per workspace id. */
-const watchers = new Map<string, Set<WebSocket>>();
+/** Watching sockets per workspace id, each with its live scope check. */
+const watchers = new Map<string, Map<WebSocket, () => boolean>>();
 
 /** An open window per workspace, holding what changed inside it. */
 interface PushWindow {
@@ -59,7 +59,13 @@ function push(workspaceId: string, directories: string[]): void {
   };
   const payload = JSON.stringify(event);
 
-  for (const ws of sockets) {
+  for (const [ws, canReach] of sockets) {
+    if (!canReach()) {
+      // The socket authenticated again with a scope that no longer
+      // covers this workspace, after this watch was already registering.
+      unwatchFileTree(ws, workspaceId);
+      continue;
+    }
     if (ws.readyState !== WebSocket.OPEN) continue;
     ws.send(payload);
   }
@@ -120,16 +126,21 @@ function closeWindow(workspaceId: string): void {
  * Watch one workspace for one socket.
  *
  * Returns false when the workspace has no path on disk, so the caller
- * can say why nothing will arrive.
+ * can say why nothing will arrive. `canReach` is asked again on every
+ * change, against the socket's live scope.
  */
-export async function watchFileTree(ws: WebSocket, workspaceId: string): Promise<boolean> {
+export async function watchFileTree(
+  ws: WebSocket,
+  workspaceId: string,
+  canReach: () => boolean = () => true,
+): Promise<boolean> {
   const roots = await workspaceWatchRoots(workspaceId);
   if (!roots) return false;
 
   startFileTreeBridge();
 
-  const sockets = watchers.get(workspaceId) ?? new Set<WebSocket>();
-  sockets.add(ws);
+  const sockets = watchers.get(workspaceId) ?? new Map<WebSocket, () => boolean>();
+  sockets.set(ws, canReach);
   watchers.set(workspaceId, sockets);
 
   // One owner covers every socket, so a second watcher never restarts

@@ -20,6 +20,11 @@ export class PushService {
   private readonly store: PushSubscriptionStore;
   /** Null when the key pair could not be created. Push is off then. */
   readonly publicKey: string | null;
+  /**
+   * Whether a token is still valid, asked at send time. Until the
+   * gateway binds one, every stored token is taken as live.
+   */
+  private tokenIsLive: (tokenId: string) => boolean = () => true;
 
   constructor(configDir: string) {
     this.store = new PushSubscriptionStore(configDir);
@@ -36,6 +41,17 @@ export class PushService {
   /** True when a browser can subscribe. */
   get enabled(): boolean {
     return this.publicKey !== null;
+  }
+
+  /**
+   * Tell the service how to check a token before a send.
+   *
+   * Expiry otherwise surfaces only when the token list is pruned, which
+   * the settings UI drives, so an expired token could keep receiving
+   * pushes for as long as nobody opened that screen.
+   */
+  bindTokenCheck(check: (tokenId: string) => boolean): void {
+    this.tokenIsLive = check;
   }
 
   /** Record one browser's subscription under its token's scope. */
@@ -80,7 +96,7 @@ export class PushService {
   /** Send one payload. Resolves with how many phones were reached. */
   async push(payload: PushPayload, connectedTokenIds: Set<string>): Promise<number> {
     if (!this.enabled) return 0;
-    return sendPush(this.store, payload, connectedTokenIds);
+    return sendPush(this.store, payload, connectedTokenIds, this.tokenIsLive);
   }
 }
 

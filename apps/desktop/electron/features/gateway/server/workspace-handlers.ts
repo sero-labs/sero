@@ -57,7 +57,14 @@ export async function routeWorkspaceRequest(
   }
 
   if (request.type === 'file_tree_watch') {
-    const watching = await watchFileTree(ws, request.workspaceId);
+    // The scope is read again at every change, not copied here: a token
+    // swapped in while this request was in flight must not keep the watch.
+    const { workspaceId } = request;
+    const watching = await watchFileTree(
+      ws,
+      workspaceId,
+      () => hasWorkspaceAccess(accessScope, workspaceId),
+    );
     if (!watching) {
       respond({
         type: 'error',

@@ -16,6 +16,7 @@ import {
   PushService,
   resetPushService,
 } from '@electron/features/gateway/push/service';
+import { WebTokenManager } from '@electron/features/gateway/bridge/web-tokens';
 
 let root: string;
 
@@ -56,6 +57,29 @@ describe('the push service', () => {
     } finally {
       fs.rmSync(other, { recursive: true, force: true });
     }
+  });
+
+  it('stops sending to a token that expired, without waiting for a prune', async () => {
+    const tokens = new WebTokenManager(root);
+    const service = new PushService(root);
+    service.bindTokenCheck((tokenId) => tokens.isActive(tokenId));
+    const live = tokens.create(['ws-1'], 'live phone');
+    // Expired the moment it was made: nothing has listed or pruned since.
+    const expired = tokens.create(['ws-1'], 'old phone', -1);
+    service.subscribe(live.token.slice(0, 8), ['ws-1'], {
+      endpoint: 'https://push.example/live', p256dh: 'k', auth: 'a',
+    });
+    service.subscribe(expired.token.slice(0, 8), ['ws-1'], {
+      endpoint: 'https://push.example/expired', p256dh: 'k', auth: 'a',
+    });
+
+    const sent = await service.push(
+      { title: 'x', kind: 'notification', path: '/', workspaceId: 'ws-1' },
+      new Set(),
+    );
+
+    expect(sent).toBe(1);
+    expect(service.count()).toBe(1);
   });
 
   it('sends nothing when push is off', async () => {

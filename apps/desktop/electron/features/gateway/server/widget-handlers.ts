@@ -16,7 +16,7 @@ import type { GatewayRequest } from './protocol';
 import type { GatewayAgentOps } from '..';
 import { hasWorkspaceAccess, type GatewayAccessScope } from './access-control';
 import { makeResponder } from './request-handler';
-import { listRemoteWidgets, resolveStateFile } from './remote-widgets';
+import { listRemoteWidgets, resolveStateFile, stateKeyWorkspace } from './remote-widgets';
 import {
   unwatchWidgetState,
   watchWidgetState,
@@ -121,8 +121,13 @@ export async function routeWidgetRequest(
     return true;
   }
 
+  // The scope is read again at every change, not copied here: a token
+  // swapped in while this request was in flight must not keep the watch.
+  const keyWorkspace = stateKeyWorkspace(request.key);
+  const canReach = () => keyWorkspace === null || hasWorkspaceAccess(accessScope, keyWorkspace);
+
   const state = request.type === 'app_state_watch'
-    ? await watchWidgetState(ws, request.key, filePath)
+    ? await watchWidgetState(ws, request.key, filePath, canReach)
     : await appStateManager.readWithEtag(filePath);
 
   respond({

@@ -12,6 +12,13 @@ import {
   registerGatewayChoiceBridge,
   resetChoiceBridge,
 } from '@electron/features/gateway/bridge/choice-bridge';
+import {
+  forwardEventToGateway,
+  installGatewayAgentOps,
+  resetSessionActivity,
+  setGatewayEventSink,
+} from '@electron/features/gateway/bridge/agent-bridge';
+import type { GatewayAgentOps } from '@electron/features/gateway/server/types';
 import type { GatewayPushEvent } from '@electron/features/gateway/server/protocol-events';
 import type { UserFeedbackPendingQuestion, UserFeedbackResponse } from '@/types/ipc';
 
@@ -232,5 +239,72 @@ describe('choices resolved elsewhere', () => {
     } satisfies UserFeedbackResponse);
 
     expect(workspaceEvents).toHaveLength(afterFirst);
+  });
+});
+
+describe('the session behind a question', () => {
+  /** Every session-state event the agent bridge broadcast, in order. */
+  const states: Array<{ sessionId: unknown; state: unknown }> = [];
+
+  beforeEach(() => {
+    states.length = 0;
+    resetSessionActivity();
+    setGatewayEventSink({
+      pushEvent: () => {},
+      broadcastWorkspaceEvent: (_workspaceId, event) => {
+        if (event.type === 'session_state') states.push({ sessionId: event.sessionId, state: event.state });
+      },
+    });
+    installGatewayAgentOps({ getSessionWorkspaceId: () => 'ws-1' } as unknown as GatewayAgentOps);
+    forwardEventToGateway({ type: 'agent_start', sessionId: 's1' });
+    forwardEventToGateway({ type: 'tool_start', sessionId: 's1', tool: { toolCallId: 'call-1', toolName: 'question' } });
+    states.length = 0;
+  });
+
+  afterEach(() => {
+    resetSessionActivity();
+    setGatewayEventSink({ pushEvent: () => {}, broadcastWorkspaceEvent: () => {} });
+    installGatewayAgentOps({ getSessionWorkspaceId: () => null } as unknown as GatewayAgentOps);
+  });
+
+  /** A question raised by the tool call the bridge saw start. */
+  function fromTool(id: string, count = 1): UserFeedbackPendingQuestion {
+    return { ...question(id, { workspaceId: 'ws-1', count }), toolCallId: 'call-1' };
+  }
+
+  it('is reported as waiting when the question appears, and running once it is answered', () => {
+    getUserFeedbackBus().emit(USER_FEEDBACK_QUESTION_REQUEST_EVENT, fromTool('c1'));
+    expect(states).toEqual([{ sessionId: 's1', state: 'awaiting_input' }]);
+
+    answerChoice('c1', 'worktree', owner);
+    expect(states).toEqual([
+      { sessionId: 's1', state: 'awaiting_input' },
+      { sessionId: 's1', state: 'running' },
+    ]);
+  });
+
+  it('is reported as waiting for a form the phone cannot answer', () => {
+    getUserFeedbackBus().emit(USER_FEEDBACK_QUESTION_REQUEST_EVENT, fromTool('c1', 3));
+    expect(states).toEqual([{ sessionId: 's1', state: 'awaiting_input' }]);
+
+    getUserFeedbackBus().emit(USER_FEEDBACK_QUESTION_CANCEL_EVENT, { id: 'c1' });
+    expect(states[1]).toEqual({ sessionId: 's1', state: 'running' });
+  });
+
+  it('stays idle when the turn ended before the question was cancelled', () => {
+    getUserFeedbackBus().emit(USER_FEEDBACK_QUESTION_REQUEST_EVENT, fromTool('c1'));
+    forwardEventToGateway({ type: 'agent_end', sessionId: 's1' });
+    getUserFeedbackBus().emit(USER_FEEDBACK_QUESTION_CANCEL_EVENT, { id: 'c1' });
+
+    expect(states.map((entry) => entry.state)).toEqual(['awaiting_input', 'idle']);
+  });
+
+  it('says nothing about a question no session raised', () => {
+    getUserFeedbackBus().emit(
+      USER_FEEDBACK_QUESTION_REQUEST_EVENT,
+      question('c1', { workspaceId: 'ws-1' }),
+    );
+
+    expect(states).toEqual([]);
   });
 });

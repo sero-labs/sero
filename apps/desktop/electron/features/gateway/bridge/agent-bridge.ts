@@ -79,6 +79,7 @@ export function forwardEventToGateway(event: Record<string, unknown>): void {
   if (!sessionId) return;
 
   trackTurnSnippet(sessionId, event);
+  trackSessionActivity(sessionId, event);
 
   // Record token usage for cost tracking (from message_end events)
   if (_costTracker && event.type === 'message_end') {
@@ -144,6 +145,61 @@ function notifyListeners(event: GatewayPushEvent): void {
       console.error('[gateway] Event listener error:', err);
     }
   }
+}
+
+// ── Session activity ────────────────────────────────────────
+
+/**
+ * Which session each tool call in flight belongs to. A question a tool
+ * raises names its tool call, and this is how that becomes a session
+ * for the board. Entries leave when the tool ends.
+ */
+const _toolCallSessions = new Map<string, string>();
+
+/** Entries kept for tool calls that never reported an end. */
+const MAX_TOOL_CALLS = 1000;
+
+/** Sessions with a turn in progress. */
+const _runningSessions = new Set<string>();
+
+function trackSessionActivity(sessionId: string, event: Record<string, unknown>): void {
+  if (event.type === 'agent_start') {
+    _runningSessions.add(sessionId);
+    return;
+  }
+  if (event.type === 'agent_end') {
+    _runningSessions.delete(sessionId);
+    return;
+  }
+  if (event.type === 'tool_start') {
+    const toolCallId = (event.tool as { toolCallId?: unknown } | undefined)?.toolCallId;
+    if (typeof toolCallId !== 'string') return;
+    _toolCallSessions.set(toolCallId, sessionId);
+    if (_toolCallSessions.size > MAX_TOOL_CALLS) {
+      const oldest = _toolCallSessions.keys().next().value;
+      if (oldest !== undefined) _toolCallSessions.delete(oldest);
+    }
+    return;
+  }
+  if (event.type === 'tool_end' && typeof event.toolCallId === 'string') {
+    _toolCallSessions.delete(event.toolCallId);
+  }
+}
+
+/** The session a tool call in flight belongs to, if the bridge saw it start. */
+export function sessionForToolCall(toolCallId: string): string | null {
+  return _toolCallSessions.get(toolCallId) ?? null;
+}
+
+/** True while the session has a turn in progress. */
+export function isSessionRunning(sessionId: string): boolean {
+  return _runningSessions.has(sessionId);
+}
+
+/** Test seam. Forgets every tool call and running session. */
+export function resetSessionActivity(): void {
+  _toolCallSessions.clear();
+  _runningSessions.clear();
 }
 
 // ── Session state and turn completion ───────────────────────
@@ -222,8 +278,7 @@ function sessionStateEvent(
 
 /**
  * Announce that a session is blocked on the user, or no longer is.
- * Called by the choice/user-feedback bridge; the agent stream has no
- * event for it.
+ * Called by the choice bridge; the agent stream has no event for it.
  */
 export function publishSessionState(sessionId: string, state: GatewaySessionState): void {
   const workspaceId = _ops?.getSessionWorkspaceId(sessionId) ?? null;

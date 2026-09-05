@@ -157,6 +157,17 @@ export class WebTokenManager {
     return true;
   }
 
+  /**
+   * True while the token with this id (its first 8 characters) is valid.
+   *
+   * Expiry is noticed here, not only when the settings UI lists tokens,
+   * so a push sender asking at send time gets the current answer.
+   */
+  isActive(tokenId: string): boolean {
+    this.pruneExpired();
+    return this.tokens.some((t) => t.token.startsWith(tokenId));
+  }
+
   /** Validate a token. Returns the scoped token if valid and not expired. */
   validate(token: string): WebToken | null {
     const now = Date.now();

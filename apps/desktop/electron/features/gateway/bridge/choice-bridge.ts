@@ -25,6 +25,7 @@ import type {
   GatewayChoiceResolvedEvent,
   GatewayPushEvent,
 } from '../server/protocol-events';
+import { isSessionRunning, publishSessionState, sessionForToolCall } from './agent-bridge';
 
 /** What the bridge needs from the gateway to reach clients. */
 export interface ChoiceEventSink {
@@ -49,6 +50,13 @@ interface PendingChoice {
 }
 
 const pending = new Map<string, PendingChoice>();
+
+/**
+ * Sessions blocked on a question, by question id. Every question a tool
+ * raised counts, including the forms a phone cannot answer: the board
+ * shows the session as waiting either way.
+ */
+const waiting = new Map<string, { sessionId: string; detach: () => void }>();
 
 let sink: ChoiceEventSink | null = null;
 /** This bridge's own bus listeners, so a reset removes only these. */
@@ -114,6 +122,35 @@ function resolved(
   );
 }
 
+/**
+ * Tell the board the session is waiting, and tell it again when the
+ * question is over. A session already finished by then, say by an abort,
+ * has had its idle state announced and gets nothing more.
+ */
+function markWaiting(question: UserFeedbackPendingQuestion): void {
+  const sessionId = sessionForToolCall(question.toolCallId);
+  if (!sessionId || waiting.has(question.id)) return;
+
+  const bus = getUserFeedbackBus();
+  const answerEvent = getUserFeedbackAnswerEvent(question.id);
+  const onDone = () => markResumed(question.id);
+  bus.on(answerEvent, onDone);
+  waiting.set(question.id, {
+    sessionId,
+    detach: () => bus.removeListener(answerEvent, onDone),
+  });
+
+  publishSessionState(sessionId, 'awaiting_input');
+}
+
+function markResumed(questionId: string): void {
+  const entry = waiting.get(questionId);
+  if (!entry) return;
+  waiting.delete(questionId);
+  entry.detach();
+  if (isSessionRunning(entry.sessionId)) publishSessionState(entry.sessionId, 'running');
+}
+
 /** Start forwarding questions. Safe to call more than once. */
 export function registerGatewayChoiceBridge(eventSink: ChoiceEventSink): void {
   sink = eventSink;
@@ -122,6 +159,8 @@ export function registerGatewayChoiceBridge(eventSink: ChoiceEventSink): void {
   const bus = getUserFeedbackBus();
 
   const onQuestion = (question: UserFeedbackPendingQuestion) => {
+    markWaiting(question);
+
     const event = toChoiceEvent(question);
     if (!event) return;
 
@@ -152,6 +191,7 @@ export function registerGatewayChoiceBridge(eventSink: ChoiceEventSink): void {
   };
 
   const onCancel = (payload: UserFeedbackCancelPayload) => {
+    markResumed(payload.id);
     const choice = pending.get(payload.id);
     if (!choice) return;
     resolved(choice, 'cancelled');
@@ -223,6 +263,8 @@ export function pendingChoicesFor(
 export function resetChoiceBridge(): void {
   for (const choice of pending.values()) choice.detach();
   pending.clear();
+  for (const entry of waiting.values()) entry.detach();
+  waiting.clear();
   sink = null;
 
   const bus = getUserFeedbackBus();

@@ -275,10 +275,13 @@ export class HostBackend implements RuntimeBackend {
 
   async createFile(input: RuntimeCreateFileInput): Promise<void> {
     const filePath = (await this.resolveHostPath(input.path)).hostPath;
-    if (input.overwrite === false && await this.substratePathExists(filePath)) {
-      throw new Error(`File already exists: ${input.path}`);
-    }
-    await this.substrate.writeFile(filePath, Buffer.from(input.content, input.encoding ?? 'utf8'));
+    // An existence check before the write would let two callers racing
+    // for one name both pass it. The exclusive open refuses the loser.
+    await this.substrate.writeFile(
+      filePath,
+      Buffer.from(input.content, input.encoding ?? 'utf8'),
+      { exclusive: input.overwrite === false },
+    );
   }
 
   async createDirectory(input: RuntimeCreateDirectoryInput): Promise<void> {
@@ -454,14 +457,6 @@ export class HostBackend implements RuntimeBackend {
     }), Promise.resolve());
   }
 
-  private async substratePathExists(filePath: string): Promise<boolean> {
-    try {
-      await this.substrate.stat(filePath);
-      return true;
-    } catch {
-      return false;
-    }
-  }
 }
 
 function emitData(callbacks: Set<(chunk: string) => void>, chunk: Buffer): void {

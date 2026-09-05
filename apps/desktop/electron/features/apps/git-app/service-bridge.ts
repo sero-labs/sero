@@ -21,12 +21,12 @@ export function registerGitServiceBridge(): void {
   // Repos of container/remote workspaces execute inside their runtime
   // backend (auth-injected, correct git + path mapping); host workspaces and
   // non-workspace paths (card worktrees) execute directly on the host.
-  setGitExecutionRouter(async (args, cwd, { timeout }) => {
+  setGitExecutionRouter(async (args, cwd, { timeout, env }) => {
     const workspace = workspaceManager.findByPath(cwd);
     if (!workspace) return null;
     const runtime = await runtimeManager.getRuntime(workspace.id);
     if (runtime.backend === 'host') return null;
-    return gitRunner.run(workspace.id, args, timeout);
+    return gitRunner.runWithEnv(workspace.id, args, env ?? {}, timeout);
   });
   setGitServiceBridge({
     async runAction(params, cwd) {

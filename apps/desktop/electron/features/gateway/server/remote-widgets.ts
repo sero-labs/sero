@@ -136,6 +136,12 @@ export function listRemoteWidgets(
   return listed;
 }
 
+/** The workspace a state key names, or null for a global key. */
+export function stateKeyWorkspace(stateKey: string): string | null {
+  const at = stateKey.lastIndexOf('@');
+  return at === -1 ? null : stateKey.slice(at + 1);
+}
+
 /**
  * The state file a key names, or null when the key names nothing.
  *
@@ -149,7 +155,7 @@ export function resolveStateFile(
 ): string | null {
   const at = stateKey.lastIndexOf('@');
   const appId = at === -1 ? stateKey : stateKey.slice(0, at);
-  const workspaceId = at === -1 ? null : stateKey.slice(at + 1);
+  const workspaceId = stateKeyWorkspace(stateKey);
 
   const entry = apps.get(appId);
   if (!entry) return null;
