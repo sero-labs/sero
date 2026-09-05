@@ -154,22 +154,22 @@ export function useThemeEditorState({
 
       const next = updater(previous);
       draftRef.current = next;
-      applyDraftPreview(next, effectiveMode);
+      applyDraftPreview(next, effectiveMode, mode);
       if (autoSave) {
         scheduleAutoSave(next);
       }
       setDraft(next);
     },
-    [autoSave, effectiveMode, scheduleAutoSave],
+    [autoSave, effectiveMode, mode, scheduleAutoSave],
   );
 
   const handleNewTheme = useCallback(() => {
     const nextDraft = buildDraftFromPreset(null, '__new__');
     draftRef.current = nextDraft;
-    applyDraftPreview(nextDraft, effectiveMode);
+    applyDraftPreview(nextDraft, effectiveMode, mode);
     setDraft(nextDraft);
     setTab('colors');
-  }, [effectiveMode]);
+  }, [effectiveMode, mode]);
 
   const handleDraftNameChange = useCallback((value: string) => {
     const previous = draftRef.current;
@@ -276,8 +276,8 @@ export function useThemeEditorState({
     const nextDraft = buildDraftFromPreset(restored, editPresetId);
     draftRef.current = nextDraft;
     setDraft(nextDraft);
-    applyDraftPreview(nextDraft, effectiveMode);
-  }, [editPresetId, effectiveMode]);
+    applyDraftPreview(nextDraft, effectiveMode, mode);
+  }, [editPresetId, effectiveMode, mode]);
 
   const handleCancel = useCallback(() => {
     const latestDraft = draftRef.current;
@@ -289,11 +289,11 @@ export function useThemeEditorState({
       return;
     }
 
-    revertPreview(activePreset, effectiveMode);
+    revertPreview(activePreset, effectiveMode, mode);
     draftRef.current = null;
     setDraft(null);
     onOpenChange(false);
-  }, [activePreset, autoSave, effectiveMode, flushAutoSave, onOpenChange]);
+  }, [activePreset, autoSave, effectiveMode, flushAutoSave, mode, onOpenChange]);
 
   return {
     activePreset,

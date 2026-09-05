@@ -75,7 +75,7 @@ export function ActivityBar({
   const bottomItems = builtinItems.filter((i) => i.bottom);
 
   return (
-    <nav className="flex w-10 shrink-0 flex-col items-center border-r border-[var(--border-default)] bg-[var(--bg-surface)] py-1">
+    <nav className="window-glass-sidebar flex w-10 shrink-0 flex-col items-center border-r border-[var(--border-default)] bg-[var(--bg-surface)] py-1">
       {/* Top items */}
       {topItems.map((item) => {
         const isActive = sidebarOpen && activePanel === item.id;

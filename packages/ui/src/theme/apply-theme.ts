@@ -96,12 +96,16 @@ function applyGlassEffect(
   const enabled = glass?.enabled === true;
   root.classList.toggle('theme-glass', enabled);
   root.style.removeProperty('--window-glass-opaque-base');
+  root.style.removeProperty('--window-glass-sidebar');
   if (!enabled) return;
 
-  const opacity = Math.min(0.95, Math.max(0.2, glass.opacity));
+  const opacity = Math.min(1, Math.max(0, glass.opacity));
   const percentage = Math.round(opacity * 100);
   root.style.setProperty('--bg-base', tint(colors.bgBase, percentage));
-
+  root.style.setProperty(
+    '--window-glass-sidebar',
+    tint(colors.bgSurface, percentage),
+  );
   root.style.setProperty('--window-glass-opaque-base', colors.bgBase);
 }
 
@@ -164,6 +168,7 @@ const ALL_MANAGED_VARS = [
   '--spacing',
   '--radius',
   '--window-glass-opaque-base',
+  '--window-glass-sidebar',
 ];
 
 /** Remove all inline theme overrides, reverting to CSS defaults. */
@@ -251,7 +256,7 @@ function sanitiseGlass(raw: unknown): ThemeGlassEffect | undefined {
 
   const opacity =
     typeof value.opacity === 'number'
-      ? Math.min(0.95, Math.max(0.2, value.opacity))
+      ? Math.min(1, Math.max(0, value.opacity))
       : DEFAULT_GLASS_EFFECT.opacity;
 
   return {

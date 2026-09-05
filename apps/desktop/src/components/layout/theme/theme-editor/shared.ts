@@ -6,7 +6,7 @@ import {
   DEFAULT_SPACING,
   DEFAULT_TYPOGRAPHY,
 } from '@/types/theme';
-import type { ColorTokens, ThemePreset } from '@/types/theme';
+import type { ColorTokens, ThemeMode, ThemePreset } from '@/types/theme';
 import { applyThemePreset, resetTheme } from '@/lib/theme-engine';
 import type { ThemeEditorDraft } from './types';
 
@@ -82,6 +82,7 @@ export function getDraftColors(
 export function applyDraftPreview(
   draft: ThemeEditorDraft,
   effectiveMode: 'light' | 'dark',
+  mode: ThemeMode,
 ): void {
   applyThemePreset(
     {
@@ -95,16 +96,18 @@ export function applyDraftPreview(
       glass: draft.glass,
     },
     effectiveMode,
+    mode,
   );
 }
 
 export function revertPreview(
   activePreset: ThemePreset | null,
   effectiveMode: 'light' | 'dark',
+  mode: ThemeMode,
 ): void {
   resetTheme();
   if (activePreset) {
-    applyThemePreset(activePreset, effectiveMode);
+    applyThemePreset(activePreset, effectiveMode, mode);
     return;
   }
 

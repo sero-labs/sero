@@ -506,8 +506,12 @@ html {
 
 /* Native window glass belongs behind the application. Keep the document
    transparent, then restore an opaque base for blocking work surfaces. */
-.theme-glass body {
+html.theme-glass body {
   background-color: transparent;
+}
+
+.theme-glass :is(.window-glass-sidebar, [data-slot="sidebar"]) {
+  background-color: var(--window-glass-sidebar);
 }
 
 .theme-glass :is(

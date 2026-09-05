@@ -34,7 +34,7 @@ export function ExplorerSidebar({ activePanel, workspaceId, fileTreeProps }: Exp
   const title = panelTitles[activePanel] ?? activePanel;
 
   return (
-    <aside className="flex size-full flex-col bg-[var(--bg-surface)]">
+    <aside className="window-glass-sidebar flex size-full flex-col bg-[var(--bg-surface)]">
       {/* ── Header (hidden for orchestration, it has its own) ── */}
       {activePanel !== 'orchestration' && (
         <div className="flex h-7 shrink-0 items-center px-4">

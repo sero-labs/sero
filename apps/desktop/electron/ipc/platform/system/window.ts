@@ -1,7 +1,7 @@
-import { BrowserWindow, ipcMain } from 'electron';
+import { BrowserWindow, ipcMain, nativeTheme } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
 import { CHROME_BAR_HEIGHT } from '@electron/chrome';
-import type { ThemeGlassEffect } from '@/types/theme';
+import type { ThemeGlassEffect, ThemeMode } from '@/types/theme';
 
 function windowOf(event: Electron.IpcMainInvokeEvent): BrowserWindow | null {
   return BrowserWindow.fromWebContents(event.sender);
@@ -47,10 +47,11 @@ export function registerWindowHandlers(): void {
 
   ipcMain.handle(
     IpcChannels.window.setGlassEffect,
-    (event, effect: ThemeGlassEffect) => {
+    (event, effect: ThemeGlassEffect, appearance: ThemeMode) => {
       if (
         typeof effect?.enabled !== 'boolean' ||
-        typeof effect?.opacity !== 'number'
+        typeof effect?.opacity !== 'number' ||
+        !['light', 'dark', 'system'].includes(appearance)
       ) {
         return;
       }
@@ -58,6 +59,7 @@ export function registerWindowHandlers(): void {
       const win = windowOf(event);
       if (!win) return;
 
+      nativeTheme.themeSource = appearance;
       if (process.platform === 'darwin') {
         win.setVibrancy(effect.enabled ? 'under-window' : null);
       } else if (process.platform === 'win32') {

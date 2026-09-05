@@ -36,6 +36,9 @@ describe('theme glass effect', () => {
     );
     expect(root.style.getPropertyValue('--bg-surface')).toBe('#111113');
     expect(root.style.getPropertyValue('--bg-elevated')).toBe('#18181b');
+    expect(root.style.getPropertyValue('--window-glass-sidebar')).toBe(
+      'color-mix(in srgb, #111113 64%, transparent)',
+    );
     expect(root.style.getPropertyValue('--window-glass-opaque-base')).toBe(
       '#0a0a0b',
     );
@@ -50,17 +53,33 @@ describe('theme glass effect', () => {
     const root = document.documentElement;
     expect(root.classList.contains('theme-glass')).toBe(false);
     expect(root.style.getPropertyValue('--bg-base')).toBe('#0a0a0b');
+    expect(root.style.getPropertyValue('--window-glass-sidebar')).toBe('');
     expect(root.style.getPropertyValue('--window-glass-opaque-base')).toBe('');
   });
 
-  it('normalises persisted glass controls', () => {
-    const preset = createPreset({
-      glass: { enabled: true, opacity: 2 },
-    });
+  it('allows a clear window and sidebar tint in light mode', () => {
+    applyThemePreset(createPreset({
+      glass: { enabled: true, opacity: 0 },
+    }), 'light');
+
+    const root = document.documentElement;
+    expect(root.style.getPropertyValue('--bg-base')).toBe(
+      'color-mix(in srgb, #ffffff 0%, transparent)',
+    );
+    expect(root.style.getPropertyValue('--window-glass-sidebar')).toBe(
+      'color-mix(in srgb, #f4f5f7 0%, transparent)',
+    );
+  });
+
+  it.each([
+    [-1, 0],
+    [2, 1],
+  ])('clamps persisted glass opacity %s to %s', (opacity, expected) => {
+    const preset = createPreset({ glass: { enabled: true, opacity } });
 
     expect(validateThemePreset(preset)?.glass).toEqual({
       enabled: true,
-      opacity: 0.95,
+      opacity: expected,
     });
   });
 });

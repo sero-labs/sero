@@ -108,7 +108,7 @@ export interface RadiusTokens {
 export interface ThemeGlassEffect {
   /** Show the desktop through Sero's surfaces. */
   enabled: boolean;
-  /** Surface tint opacity from 0.2 to 0.95. */
+  /** Window and sidebar tint opacity from 0 to 1. */
   opacity: number;
 }
 

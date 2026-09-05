@@ -90,7 +90,7 @@ export const useThemeStore = create<ThemeStoreState>((set, get) => ({
         console.warn(`[theme-store] Invalid theme preset: ${id}`);
         return;
       }
-      applyThemePreset(preset, effective);
+      applyThemePreset(preset, effective, mode);
       set({ activePresetId: id, activePreset: preset });
       persistLayout({ activeThemeId: id });
     } catch (err) {
@@ -103,7 +103,7 @@ export const useThemeStore = create<ThemeStoreState>((set, get) => ({
     const { activePreset } = get();
 
     if (activePreset) {
-      applyThemePreset(activePreset, effective);
+      applyThemePreset(activePreset, effective, mode);
     } else {
       applyMode(effective);
     }
@@ -229,7 +229,7 @@ export async function hydrateThemeStore(
       const raw = await window.sero.themes.load(presetId);
       const preset = validateThemePreset(raw);
       if (preset) {
-        applyThemePreset(preset, effective);
+        applyThemePreset(preset, effective, mode);
         store.setState({ activePreset: preset, ready: true });
         return;
       }
@@ -257,7 +257,7 @@ export function listenForSystemThemeChanges(): () => void {
 
     const effective = getSystemMode();
     if (activePreset) {
-      applyThemePreset(activePreset, effective);
+      applyThemePreset(activePreset, effective, mode);
     } else {
       applyMode(effective);
     }

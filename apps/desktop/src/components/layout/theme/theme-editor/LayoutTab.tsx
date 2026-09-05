@@ -46,8 +46,8 @@ export function LayoutTab({
             Desktop glass
           </h3>
           <p className="mt-0.5 text-sm text-[var(--text-muted)]">
-            Show the desktop through the main window while dialogs and controls
-            stay opaque.
+            Show the desktop through the window and sidebars. Dialogs and
+            controls stay opaque.
           </p>
         </div>
         <ToggleRow
@@ -58,12 +58,12 @@ export function LayoutTab({
         <div className={glass.enabled ? '' : 'pointer-events-none opacity-50'}>
           <div className="flex items-center gap-3">
             <span className="w-20 shrink-0 text-xs text-[var(--text-secondary)]">
-              Tint opacity
+              Theme tint
             </span>
             <Slider
-              aria-label="Tint opacity"
-              min={20}
-              max={95}
+              aria-label="Theme tint"
+              min={0}
+              max={100}
               step={1}
               value={[Math.round(glass.opacity * 100)]}
               onValueChange={([value]) =>
@@ -75,6 +75,9 @@ export function LayoutTab({
               {Math.round(glass.opacity * 100)}%
             </span>
           </div>
+          <p className="ml-23 mt-1 text-xs text-[var(--text-muted)]">
+            0% is clear. 100% uses the solid theme background.
+          </p>
         </div>
       </section>
 

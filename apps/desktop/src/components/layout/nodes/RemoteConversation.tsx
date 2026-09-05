@@ -29,7 +29,7 @@ export function RemoteConversation({ location }: { location: Extract<SessionLoca
     : item.tools.some((tool) => tool.state === 'pending' || tool.state === 'running'));
   if (!node || !session) return <div className="flex h-full items-center justify-center text-sm text-(--text-muted)">Loading node session…</div>;
 
-  return <div className="flex h-full flex-col border-l border-(--border-default) bg-(--bg-surface)">
+  return <div className="window-glass-sidebar flex h-full flex-col border-l border-(--border-default) bg-(--bg-surface)">
     <div className="flex h-9 items-center gap-2 border-b border-(--border-default) px-3"><Bot className="size-3.5 text-(--text-muted)" /><span className="text-sm font-semibold uppercase tracking-[0.18em] text-(--text-secondary)">Agent</span><span className="truncate rounded bg-(--bg-elevated) px-1.5 py-0.5 text-xs text-(--text-muted)">{session.name || session.firstMessage || 'New chat'}</span><span className="ml-auto flex items-center gap-1.5 rounded bg-(--bg-elevated) px-1.5 py-0.5 text-xs text-(--text-secondary)"><NodeConnectionIndicator state={node.connectionState} />{nodeDisplayName(node)}</span></div>
     <NodeStatusStrip node={node} onRetry={() => void retry(node.id)} />
     <Conversation key={session.id} className="min-h-0 flex-1" initial="instant">
