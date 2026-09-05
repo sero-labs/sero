@@ -25,8 +25,34 @@ class MockWebSocket {
     this.sent.push(data);
   }
 
+  /**
+   * A real socket closes asynchronously: the close event lands after the
+   * caller has moved on, and often after a replacement socket exists.
+   * `deferClose` reproduces that. The default stays synchronous so the
+   * tests written against it keep their original timing.
+   */
+  static deferClose = false;
+
   close(code = 1000, reason = ''): void {
+    if (MockWebSocket.deferClose) {
+      this.readyState = MockWebSocket.CLOSING;
+      // Held until the test releases it, standing in for the event loop.
+      this.pendingClose = { code, reason };
+      return;
+    }
     this.emitClose(code, reason);
+  }
+
+  /** A close asked for but not yet delivered. */
+  pendingClose: { code: number; reason: string } | null = null;
+
+  /** Deliver a close the socket is still holding. */
+  flushClose(): void {
+    const pending = this.pendingClose;
+    if (!pending) return;
+    this.pendingClose = null;
+    this.readyState = MockWebSocket.CONNECTING;
+    this.emitClose(pending.code, pending.reason);
   }
 
   emitOpen(): void {
@@ -50,6 +76,7 @@ class MockWebSocket {
 
   static reset(): void {
     MockWebSocket.instances = [];
+    MockWebSocket.deferClose = false;
   }
 }
 
@@ -294,5 +321,72 @@ describe('GatewayClient', () => {
         expiryDays: 3,
       },
     ]);
+  });
+
+  it('keeps the new socket when a replaced one closes late', () => {
+    // A real close lands after doConnect has already opened a
+    // replacement. The old socket must not speak for the new one.
+    MockWebSocket.deferClose = true;
+    const client = new GatewayClient('ws://gateway.test');
+    const states: string[] = [];
+    client.onStateChange((state) => states.push(state));
+
+    client.connect('token-a');
+    const first = MockWebSocket.instances[0];
+    first.emitOpen();
+    first.emitMessage({ type: 'ok', requestType: 'connect' });
+    expect(client.state).toBe('connected');
+
+    // A second connect replaces the socket while the first is still closing.
+    client.connect('token-b');
+    const second = MockWebSocket.instances[1];
+    expect(second).toBeDefined();
+
+    // Now the first socket's close finally arrives.
+    first.flushClose();
+
+    // It must not have torn down the connection that replaced it.
+    second.emitOpen();
+    expect(second.sent).toHaveLength(1);
+    expect(JSON.parse(second.sent[0])).toMatchObject({ token: 'token-b' });
+
+    second.emitMessage({ type: 'ok', requestType: 'connect' });
+    expect(client.state).toBe('connected');
+    expect(states).not.toContain('reconnecting');
+  });
+
+  it('ignores messages from a socket that has been replaced', () => {
+    MockWebSocket.deferClose = true;
+    const client = new GatewayClient('ws://gateway.test');
+    const seen: string[] = [];
+    client.onMessage((msg) => seen.push((msg as { requestType?: string }).requestType ?? msg.type));
+
+    client.connect('token-a');
+    const first = MockWebSocket.instances[0];
+    first.emitOpen();
+
+    client.connect('token-b');
+
+    // A frame still in flight from the old socket must not be dispatched.
+    first.emitMessage({ type: 'ok', requestType: 'list_workspaces', data: [] });
+
+    expect(seen).not.toContain('list_workspaces');
+  });
+
+  it('schedules no reconnect for a socket it already let go', () => {
+    MockWebSocket.deferClose = true;
+    const client = new GatewayClient('ws://gateway.test');
+
+    client.connect('token-a');
+    const first = MockWebSocket.instances[0];
+    first.emitOpen();
+    first.emitMessage({ type: 'ok', requestType: 'connect' });
+
+    client.connect('token-b');
+    first.flushClose();
+
+    // Two sockets so far. A stale close must not queue a third.
+    vi.advanceTimersByTime(60_000);
+    expect(MockWebSocket.instances).toHaveLength(2);
   });
 });

@@ -200,10 +200,7 @@ export class GatewayClient {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
+    this.dropSocket();
     this.setState('disconnected');
   }
 
@@ -549,29 +546,49 @@ export class GatewayClient {
 
   // ── Internal ──────────────────────────────────────────────────
 
-  private doConnect(): void {
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
+  /**
+   * Let go of the current socket without hearing from it again.
+   *
+   * A close is asynchronous, so a socket we have replaced still fires
+   * its handlers afterwards. Detaching them first is what stops a dead
+   * socket from reporting a disconnect that has already been handled.
+   */
+  private dropSocket(): void {
+    const socket = this.ws;
+    if (!socket) return;
+    this.ws = null;
+    socket.onopen = null;
+    socket.onmessage = null;
+    socket.onclose = null;
+    socket.onerror = null;
+    socket.close();
+  }
 
+  private doConnect(): void {
+    this.dropSocket();
     this.setState('connecting');
 
+    let socket: WebSocket;
     try {
-      this.ws = new WebSocket(this.url);
+      socket = new WebSocket(this.url);
     } catch {
       this.scheduleReconnect();
       return;
     }
+    this.ws = socket;
 
-    this.ws.onopen = () => {
+    // Every handler below closes over `socket`, never `this.ws`. Reading
+    // the field instead would let a late event from one socket act on
+    // whichever socket happens to be current.
+    socket.onopen = () => {
       this.setState('authenticating');
-      this.ws!.send(
+      socket.send(
         JSON.stringify({ type: 'connect', token: this.token, clientType: 'web' }),
       );
     };
 
-    this.ws.onmessage = (event) => {
+    socket.onmessage = (event) => {
+      if (this.ws !== socket) return;
       try {
         const msg = JSON.parse(event.data as string) as GatewayMessage;
         this.handleMessage(msg);
@@ -580,7 +597,11 @@ export class GatewayClient {
       }
     };
 
-    this.ws.onclose = (event) => {
+    socket.onclose = (event) => {
+      // A socket we have already replaced has nothing left to say. Acting
+      // on it here would clear the live connection and start a second
+      // reconnect loop against it.
+      if (this.ws !== socket) return;
       this.ws = null;
       this.failPendingRequests('Gateway connection closed.');
       const willReconnect = this.shouldReconnect;
@@ -597,7 +618,7 @@ export class GatewayClient {
       this.scheduleReconnect();
     };
 
-    this.ws.onerror = () => {
+    socket.onerror = () => {
       // onclose will fire after this
     };
   }
