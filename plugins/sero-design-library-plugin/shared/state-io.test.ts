@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { withLock } from '@sero-ai/extension-runtime';
+import { withLock } from '@sero-ai/extension-runtime/file-lock';
 import { designLibraryPathsFromHome, type DesignLibraryPaths } from './paths';
 import {
   StaleStateError,
