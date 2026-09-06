@@ -23,9 +23,6 @@ export function GlassControls({ glass, onChange }: {
     <section className="flex flex-col gap-3">
       <div>
         <h3 className="text-xs font-semibold text-[var(--text-primary)]">Desktop glass</h3>
-        <p className="mt-0.5 text-sm text-[var(--text-muted)]">
-          Adjust the desktop backdrop and each layer independently. Dialogs and menus stay opaque.
-        </p>
       </div>
       <label className="flex items-center justify-between gap-3">
         <span className="text-xs text-[var(--text-secondary)]">Glass background</span>
@@ -42,7 +39,6 @@ export function GlassControls({ glass, onChange }: {
                 onValueChange={([blurRadius]) => onChange({ blurRadius })} />
               <span className="w-10 text-right text-xs tabular-nums text-[var(--text-primary)]">{radius}px</span>
             </div>
-            <p className="text-xs text-[var(--text-muted)]">0px shows a clear backdrop. Higher values soften the desktop without adding tint.</p>
           </div>
         )}
         {platform === 'win32' && (
