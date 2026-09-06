@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type {
+  ChatHistoryPage,
   ChatMessage,
   ModelTierSettings,
   OnboardingState,
@@ -191,6 +192,10 @@ function createConversation(text: string): ChatMessage[] {
   ];
 }
 
+function createPage(messages: ChatMessage[]): ChatHistoryPage {
+  return { messages, olderCursor: null };
+}
+
 describe('onboarding-launch-runtime', () => {
   it('runs temp-session bootstrap, cleans it up, and opens the welcome session', async () => {
     const { deps, spies } = createDeps();
@@ -203,10 +208,10 @@ describe('onboarding-launch-runtime', () => {
       .mockResolvedValueOnce({ id: 'temp-session', path: '/tmp/temp-session' })
       .mockResolvedValueOnce({ id: 'welcome-session', path: '/tmp/welcome-session' });
     spies.agentOpen
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce(createConversation('Memory bootstrap complete.'))
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce(createConversation('Welcome to Sero.'));
+      .mockResolvedValueOnce(createPage([]))
+      .mockResolvedValueOnce(createPage(createConversation('Memory bootstrap complete.')))
+      .mockResolvedValueOnce(createPage([]))
+      .mockResolvedValueOnce(createPage(createConversation('Welcome to Sero.')));
     spies.onboardingGetState.mockResolvedValue(
       createOnboardingState({ memoryBootstrapComplete: true }),
     );
@@ -243,8 +248,8 @@ describe('onboarding-launch-runtime', () => {
 
     spies.createSession.mockResolvedValueOnce({ id: 'temp-session', path: '/tmp/temp-session' });
     spies.agentOpen
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce(createConversation(authError));
+      .mockResolvedValueOnce(createPage([]))
+      .mockResolvedValueOnce(createPage(createConversation(authError)));
     spies.onboardingGetState.mockResolvedValue(createOnboardingState());
 
     const result = await runWelcomeOnboardingFlow(deps, {

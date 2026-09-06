@@ -173,12 +173,50 @@ export function buildTurnUndoMapByTurn(
   return result;
 }
 
+/**
+ * Turn-undo metadata for the newest user turn only. Scans the branch backward
+ * and stops at that turn's user entry, so the cost after a settled turn is the
+ * size of the turn, not of the whole thread.
+ */
+export function findLatestTurnUndo(
+  session: AgentSession,
+  workspaceId?: string,
+): ChatTurnUndoRef | null {
+  const branch = session.sessionManager.getBranch();
+  const candidates: ChatTurnUndoRef[] = [];
+
+  for (let index = branch.length - 1; index >= 0; index -= 1) {
+    const entry = branch[index];
+    if (entry.type === 'message' && entry.message.role === 'user') {
+      return candidates.find((candidate) => candidate.targetUserEntryId === entry.id) ?? null;
+    }
+    if (entry.type !== 'custom' || entry.customType !== TURN_UNDO_ENTRY) continue;
+    const turnUndo = asTurnUndoRef(entry.data);
+    if (!turnUndo) continue;
+    if (workspaceId && turnUndo.workspaceId !== workspaceId) continue;
+    candidates.push(turnUndo);
+  }
+
+  return null;
+}
+
+type SessionMessages = ReturnType<AgentSession['agent']['state']['messages']['slice']>;
+
+/**
+ * @param firstUserTurn - Turn index of the first user message in `messages`,
+ *   so a window cut from the middle of a thread still maps to its undo refs.
+ */
 export function convertSessionMessages(
-  messages: ReturnType<AgentSession['agent']['state']['messages']['slice']>,
+  messages: SessionMessages,
   turnUndoByTurn?: Map<number, ChatTurnUndoRef>,
+  firstUserTurn = 0,
 ): ChatMessage[] {
   const result: ChatMessage[] = [];
-  let userTurn = -1;
+  let userTurn = firstUserTurn - 1;
+  const toolResults = new Map<string, Extract<SessionMessages[number], { role: 'toolResult' }>>();
+  for (const message of messages) {
+    if (message.role === 'toolResult') toolResults.set(message.toolCallId, message);
+  }
 
   for (const message of messages) {
     if (message.role === 'user') {
@@ -238,15 +276,13 @@ export function convertSessionMessages(
       for (const toolCall of toolCalls) {
         if (toolCall.name === 'set_session_title') continue;
 
-        const toolResult = messages.find(
-          (candidate) => candidate.role === 'toolResult' && 'toolCallId' in candidate && candidate.toolCallId === toolCall.id,
-        );
+        const toolResult = toolResults.get(toolCall.id);
         let output: string | null = null;
         let isError = false;
         let details: Record<string, unknown> | null = null;
         let images: ToolResultImage[] | undefined;
 
-        if (toolResult && toolResult.role === 'toolResult') {
+        if (toolResult) {
           const textResultParts = toolResult.content.filter(
             (content): content is { type: 'text'; text: string } => content.type === 'text',
           );
@@ -277,7 +313,7 @@ export function convertSessionMessages(
           }
         }
 
-        const hasToolResult = toolResult?.role === 'toolResult';
+        const hasToolResult = toolResult !== undefined;
         result.push({
           type: 'tool',
           id: nextId(),

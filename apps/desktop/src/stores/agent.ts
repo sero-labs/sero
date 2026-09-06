@@ -7,12 +7,10 @@ import type {
 import type { AgentState } from '@/stores/agent-types';
 import {
   appendOptimisticUserMessage,
+  applyBufferedDeltas,
   clearAgentSessionBuffers,
-  patchAssistant,
-  drainDeltaBuffer,
   handleAgentStreamEvent,
 } from '@/stores/agent-utils';
-import { applyToolInputDelta, drainToolInputBuffer } from '@/stores/agent-tool-input';
 import { notifyPreviousSessionSwitch } from '@/stores/agent-focus';
 
 // Deduplicate concurrent opens for the same session so every caller waits for
@@ -61,6 +59,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
               workspaceId,
               runtimeBackend,
               messages: partial?.messages ?? [],
+              olderCursor: partial?.olderCursor ?? null,
+              loadingOlderTurns: false,
               isStreaming: partial?.isStreaming ?? false,
               retry: partial?.retry ?? null,
               error: partial?.error ?? null,
@@ -72,7 +72,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       });
 
       try {
-        const history = await window.sero.agent.open(sessionId, sessionPath, workspaceId);
+        const page = await window.sero.agent.open(sessionId, sessionPath, workspaceId);
 
         // Fetch available slash commands for this session (non-blocking on failure).
         let commands: SeroSlashCommandInfo[] = [];
@@ -95,7 +95,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
             [sessionId]: {
               ...s.agents[sessionId],
               runtimeBackend,
-              messages: history,
+              messages: page.messages,
+              olderCursor: page.olderCursor,
               commands,
               modelState,
             },
@@ -150,6 +151,46 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         focusedSessionId: s.focusedSessionId === sessionId ? null : s.focusedSessionId,
       };
     });
+  },
+
+  loadOlderTurns: async (sessionId) => {
+    const agent = get().agents[sessionId];
+    if (!agent?.olderCursor || agent.loadingOlderTurns) return;
+    const cursor = agent.olderCursor;
+    set((s) => ({
+      agents: { ...s.agents, [sessionId]: { ...s.agents[sessionId], loadingOlderTurns: true } },
+    }));
+
+    try {
+      const page = await window.sero.agent.loadOlderTurns(sessionId, cursor);
+      set((s) => {
+        const current = s.agents[sessionId];
+        if (!current) return s;
+        // A reload landed while this page was in flight: the page belongs to
+        // the window that asked for it, not to the one now shown.
+        if (current.olderCursor !== cursor && !page.replaces) {
+          return { agents: { ...s.agents, [sessionId]: { ...current, loadingOlderTurns: false } } };
+        }
+        return {
+          agents: {
+            ...s.agents,
+            [sessionId]: {
+              ...current,
+              messages: page.replaces ? page.messages : [...page.messages, ...current.messages],
+              olderCursor: page.olderCursor,
+              loadingOlderTurns: false,
+            },
+          },
+        };
+      });
+    } catch (err) {
+      console.error('[agent] loadOlderTurns failed:', err);
+      set((s) => {
+        const current = s.agents[sessionId];
+        if (!current) return s;
+        return { agents: { ...s.agents, [sessionId]: { ...current, loadingOlderTurns: false } } };
+      });
+    }
   },
 
   sendPrompt: async (sessionId, text, attachments) => {
@@ -299,39 +340,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     }),
 
   initEventListener: () => {
-    // Flush buffered text/thinking deltas into the store in one batch.
-    const flushDeltas = () => {
-      const { text, thinking } = drainDeltaBuffer();
-      const toolInput = drainToolInputBuffer();
-      if (text.size === 0 && thinking.size === 0 && toolInput.size === 0) return;
-      set((s) => {
-        let agents = s.agents;
-        for (const [sessionId, msgMap] of text) {
-          for (const [messageId, delta] of msgMap) {
-            agents = patchAssistant(agents, sessionId, messageId, (m) => ({
-              ...m, text: m.text + delta,
-            }));
-          }
-        }
-        for (const [sessionId, msgMap] of thinking) {
-          for (const [messageId, delta] of msgMap) {
-            agents = patchAssistant(agents, sessionId, messageId, (m) => ({
-              ...m, thinking: (m.thinking ?? '') + delta,
-            }));
-          }
-        }
-        for (const [sessionId, streamMap] of toolInput) {
-          const agent = agents[sessionId];
-          if (!agent) continue;
-          let messages = agent.messages;
-          for (const [streamKey, pending] of streamMap) {
-            messages = applyToolInputDelta(messages, streamKey, pending);
-          }
-          agents = { ...agents, [sessionId]: { ...agent, messages } };
-        }
-        return { agents };
-      });
-    };
+    const flushDeltas = () => applyBufferedDeltas(set);
 
     const unsubscribe = window.sero.agent.onEvent((event: AgentStreamEvent) => {
       handleAgentStreamEvent(event, set, get, flushDeltas);

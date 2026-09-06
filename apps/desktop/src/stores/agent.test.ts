@@ -2,6 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAgentStore } from './agent';
+import type { ChatHistoryPage } from '@/types/ipc';
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -16,7 +17,7 @@ function createDeferred<T>() {
 describe('useAgentStore', () => {
   const initialState = useAgentStore.getState();
   const open = vi.fn<
-    (sessionId: string, sessionPath: string, workspaceId: string) => Promise<[]>
+    (sessionId: string, sessionPath: string, workspaceId: string) => Promise<ChatHistoryPage>
   >();
   const getCommands = vi.fn<() => Promise<[]>>();
   const getModelState = vi.fn<() => Promise<null>>();
@@ -50,7 +51,7 @@ describe('useAgentStore', () => {
   });
 
   it('waits for an in-flight open before a second caller prompts', async () => {
-    const deferred = createDeferred<[]>();
+    const deferred = createDeferred<ChatHistoryPage>();
     let openCompleted = false;
 
     open.mockImplementation(async () => {
@@ -90,7 +91,7 @@ describe('useAgentStore', () => {
     expect(open).toHaveBeenCalledTimes(1);
     expect(prompt).not.toHaveBeenCalled();
 
-    deferred.resolve([]);
+    deferred.resolve({ messages: [], olderCursor: null });
 
     await Promise.all([firstOpen, promptAfterSecondOpen]);
 

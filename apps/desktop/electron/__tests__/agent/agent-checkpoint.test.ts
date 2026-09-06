@@ -71,11 +71,12 @@ describe('undoToTurn', () => {
       mocks.restoreCheckpoint.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
     );
     expect(mocks.invalidateWorkspace).toHaveBeenCalledWith('ws-1', 'turn-undo:restore', { delayMs: 0 });
-    expect(messages).toEqual([]);
+    expect(messages).toEqual({ messages: [], olderCursor: null });
     expect(sendEvent).toHaveBeenNthCalledWith(1, {
       type: 'messages_loaded',
       sessionId: 'session-1',
       messages: [],
+      olderCursor: null,
     });
     expect(sendEvent).toHaveBeenNthCalledWith(2, {
       type: 'composer_prefill',

@@ -4,7 +4,7 @@ import { IpcChannels } from '@/types/ipc-channels';
 import type {
   AgentStreamEvent,
   ChatAttachment,
-  ChatMessage,
+  ChatHistoryPage,
   CompactResult,
   ContextUsageInfo,
   SeroSessionInfo,
@@ -13,11 +13,10 @@ import type {
 } from '@/types/ipc';
 import {
   buildModelState,
-  buildTurnUndoMapByTurn,
   buildCommandList,
-  convertSessionMessages,
   readHiddenCommands,
 } from './agent-helpers';
+import { readNewestTurns, readTurnsBefore } from './agent-history-window';
 import { handlePromptInput, handleSteerInput } from './agent-prompt';
 import { emitSessionShutdown, emitSessionBeforeSwitch } from './agent-session-events';
 import { registerAgentCheckpointHandlers } from './agent-checkpoint';
@@ -32,7 +31,12 @@ import { installCliAgentBridge, noteCliTurnEnd } from '@electron/cli/bridges';
 import { clearBridgedExtensionSessionStateForSession } from '@electron/cli';
 import { installGatewayAgentOps } from '@electron/features/gateway/bridge/agent-bridge';
 import { buildGatewayOps } from '@electron/ipc/gateway/gateway-ops';
-import { emitAgentEvent } from './agent-event-broadcast';
+import {
+  clearSessionViewers,
+  emitAgentEvent,
+  registerSessionViewer,
+  unregisterSessionViewer,
+} from './agent-event-broadcast';
 import { openSessionInPool, type PoolEntry } from './agent-session-open';
 
 export { emitAgentEvent } from './agent-event-broadcast';
@@ -112,6 +116,7 @@ async function closePoolEntry(sessionId: string): Promise<void> {
   entry.session.dispose();
   pool.delete(sessionId);
   pendingResourceReloads.delete(sessionId);
+  clearSessionViewers(sessionId);
   clearBridgedExtensionSessionStateForSession(sessionId);
 }
 
@@ -124,7 +129,7 @@ async function openSessionInternal(
   sessionId: string,
   sessionPath: string,
   workspaceId: string,
-): Promise<ChatMessage[]> {
+): Promise<ChatHistoryPage> {
   return openSessionInPool({
     pool,
     sessionId,
@@ -147,8 +152,25 @@ export function registerAgentHandlers(): void {
 
   ipcMain.handle(
     IpcChannels.agent.open,
-    async (_e, sessionId: string, sessionPath: string, workspaceId: string) =>
-      openSessionInternal(sessionId, sessionPath, workspaceId),
+    async (event, sessionId: string, sessionPath: string, workspaceId: string) => {
+      // Before the open, so the runtime start events reach this window too.
+      registerSessionViewer(sessionId, event.sender);
+      try {
+        return await openSessionInternal(sessionId, sessionPath, workspaceId);
+      } catch (error) {
+        unregisterSessionViewer(sessionId, event.sender.id);
+        throw error;
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.agent.loadOlderTurns,
+    async (_event, sessionId: string, cursor: string): Promise<ChatHistoryPage> => {
+      const entry = pool.get(sessionId);
+      if (!entry) throw new Error(`No active session: ${sessionId}`);
+      return readTurnsBefore(entry.session, entry.workspaceId, cursor);
+    },
   );
 
   ipcMain.handle(
@@ -294,7 +316,7 @@ export function registerAgentHandlers(): void {
 
   ipcMain.handle(
     IpcChannels.agent.clearSession,
-    async (_event, sessionId: string): Promise<ChatMessage[]> => {
+    async (_event, sessionId: string): Promise<ChatHistoryPage> => {
       const entry = pool.get(sessionId);
       if (!entry) throw new Error(`No active session: ${sessionId}`);
 
@@ -305,10 +327,7 @@ export function registerAgentHandlers(): void {
       const sm = entry.session.sessionManager;
       const branch = sm.getBranch();
       if (branch.length === 0) {
-        return convertSessionMessages(
-          entry.session.messages,
-          buildTurnUndoMapByTurn(entry.session, entry.workspaceId),
-        );
+        return readNewestTurns(entry.session, entry.workspaceId);
       }
 
       // Use the SDK's navigateTree which fires session_before_tree /
@@ -322,13 +341,10 @@ export function registerAgentHandlers(): void {
       }
       entry.pendingTurnUndoUserMessageId = null;
 
-      const chatMessages = convertSessionMessages(
-        entry.session.messages,
-        buildTurnUndoMapByTurn(entry.session, entry.workspaceId),
-      );
-      sendEvent({ type: 'messages_loaded', sessionId, messages: chatMessages });
+      const page = readNewestTurns(entry.session, entry.workspaceId);
+      sendEvent({ type: 'messages_loaded', sessionId, ...page });
 
-      return chatMessages;
+      return page;
     },
   );
 

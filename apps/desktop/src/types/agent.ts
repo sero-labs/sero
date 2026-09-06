@@ -141,6 +141,22 @@ export interface ChatToolCallMessage {
 export type AgentSettlement = 'completed' | 'error' | 'cancelled';
 
 /**
+ * One window of a thread, anchored on user turns. `agent.open()` returns the
+ * newest window; `agent.loadOlderTurns()` returns the window before a cursor.
+ */
+export interface ChatHistoryPage {
+  messages: ChatMessage[];
+  /** Cursor for the next older window, or null once the oldest turn is loaded. */
+  olderCursor: string | null;
+  /**
+   * True when the cursor no longer matched the thread (compaction or a branch
+   * change rewrote the head). `messages` is then the newest window and replaces
+   * what the renderer holds instead of being prepended to it.
+   */
+  replaces?: boolean;
+}
+
+/**
  * Events pushed from main → renderer during agent streaming.
  * Kept deliberately slim — only what the UI needs to render.
  *
@@ -152,7 +168,7 @@ export type AgentStreamEvent =
   | { type: 'agent_end'; sessionId: string; outcome?: AgentSettlement }
   | { type: 'retry_start'; sessionId: string; attempt: number; maxAttempts: number; delayMs: number; errorMessage: string }
   | { type: 'retry_end'; sessionId: string; success: boolean; attempt: number; finalError?: string }
-  | { type: 'messages_loaded'; sessionId: string; messages: ChatMessage[] }
+  | { type: 'messages_loaded'; sessionId: string; messages: ChatMessage[]; olderCursor?: string | null }
   | { type: 'text_delta'; sessionId: string; messageId: string; delta: string }
   | { type: 'thinking_delta'; sessionId: string; messageId: string; delta: string }
   | { type: 'message_start'; sessionId: string; message: ChatMessage }

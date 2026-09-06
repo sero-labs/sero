@@ -31,6 +31,8 @@ describe('agent selectors', () => {
           sessionPath: '/tmp/session-1.jsonl',
           workspaceId: 'workspace-1',
           messages: [],
+          olderCursor: null,
+          loadingOlderTurns: false,
           isStreaming: false,
           retry: null,
           error: null,

@@ -26,7 +26,7 @@ import type {
   ProfileInfo,
   SafeStorageStatus,
   SeroSessionInfo,
-  ChatMessage,
+  ChatHistoryPage,
   ChatAttachment,
   AgentStreamEvent,
   ChatTurnUndoRef,
@@ -94,8 +94,10 @@ interface SeroSessionsAPI {
 }
 
 interface SeroAgentAPI {
-  /** Open a session in the agent pool. Creates a workspace-scoped AgentSession. */
-  open(sessionId: string, sessionPath: string, workspaceId: string): Promise<ChatMessage[]>;
+  /** Open a session in the agent pool. Returns the newest window of user turns. */
+  open(sessionId: string, sessionPath: string, workspaceId: string): Promise<ChatHistoryPage>;
+  /** Load the window of user turns before `cursor` (from a previous page). */
+  loadOlderTurns(sessionId: string, cursor: string): Promise<ChatHistoryPage>;
   /** Send a prompt to a specific session, optionally with file attachments. */
   prompt(sessionId: string, text: string, attachments?: ChatAttachment[], clientMessageId?: string): Promise<void>;
   /** Steer the agent mid-stream: delivered after the current tool, skips remaining tools in the turn. */
@@ -117,7 +119,7 @@ interface SeroAgentAPI {
   /** Trigger manual compaction. Returns success/error + token stats. */
   compact(sessionId: string, customInstructions?: string): Promise<CompactResult>;
   /** Clear session by branching from root (resets conversation, keeps session). */
-  clearSession(sessionId: string): Promise<ChatMessage[]>;
+  clearSession(sessionId: string): Promise<ChatHistoryPage>;
   /** Fork session: extract current branch to a new session file. Returns the new session info. */
   forkSession(sessionId: string): Promise<SeroSessionInfo>;
   /** Get current model + thinking level state. */
@@ -135,9 +137,9 @@ interface SeroAgentAPI {
    * branches the session tree to the checkpoint entry, rebuilds the
    * agent's in-memory messages, and pushes a `messages_loaded` event.
    */
-  restoreToCheckpoint(sessionId: string, changeId: string): Promise<ChatMessage[]>;
+  restoreToCheckpoint(sessionId: string, changeId: string): Promise<ChatHistoryPage>;
   /** Undo a user turn: restore files, rewind the session tree, and prefill the composer. */
-  undoToTurn(sessionId: string, turnUndo: ChatTurnUndoRef): Promise<ChatMessage[]>;
+  undoToTurn(sessionId: string, turnUndo: ChatTurnUndoRef): Promise<ChatHistoryPage>;
   /** Subscribe to streaming events pushed from main process. Returns unsubscribe. */
   onEvent(callback: (event: AgentStreamEvent) => void): () => void;
 }

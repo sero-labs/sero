@@ -3,7 +3,7 @@ import { IpcChannels } from '@/types/ipc-channels';
 import type {
   AgentStreamEvent,
   ChatAttachment,
-  ChatMessage,
+  ChatHistoryPage,
   ChatTurnUndoRef,
   CompactResult,
   ContextOverrides,
@@ -159,8 +159,10 @@ export const sessionsBridge = {
 };
 
 export const agentBridge = {
-  open: (sessionId: string, sessionPath: string, workspaceId: string): Promise<ChatMessage[]> =>
+  open: (sessionId: string, sessionPath: string, workspaceId: string): Promise<ChatHistoryPage> =>
     ipcRenderer.invoke(IpcChannels.agent.open, sessionId, sessionPath, workspaceId),
+  loadOlderTurns: (sessionId: string, cursor: string): Promise<ChatHistoryPage> =>
+    ipcRenderer.invoke(IpcChannels.agent.loadOlderTurns, sessionId, cursor),
   prompt: (
     sessionId: string,
     text: string,
@@ -187,7 +189,7 @@ export const agentBridge = {
     ipcRenderer.invoke(IpcChannels.agent.getContextUsage, sessionId),
   compact: (sessionId: string, customInstructions?: string): Promise<CompactResult> =>
     ipcRenderer.invoke(IpcChannels.agent.compact, sessionId, customInstructions),
-  clearSession: (sessionId: string): Promise<ChatMessage[]> =>
+  clearSession: (sessionId: string): Promise<ChatHistoryPage> =>
     ipcRenderer.invoke(IpcChannels.agent.clearSession, sessionId),
   forkSession: (sessionId: string): Promise<SeroSessionInfo> =>
     ipcRenderer.invoke(IpcChannels.agent.forkSession, sessionId),
@@ -201,9 +203,9 @@ export const agentBridge = {
     ipcRenderer.invoke(IpcChannels.agent.getContext, sessionId),
   setContextOverrides: (sessionId: string, overrides: ContextOverrides | null): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.agent.setContextOverrides, sessionId, overrides),
-  restoreToCheckpoint: (sessionId: string, changeId: string): Promise<ChatMessage[]> =>
+  restoreToCheckpoint: (sessionId: string, changeId: string): Promise<ChatHistoryPage> =>
     ipcRenderer.invoke(IpcChannels.agent.restoreToCheckpoint, sessionId, changeId),
-  undoToTurn: (sessionId: string, turnUndo: ChatTurnUndoRef): Promise<ChatMessage[]> =>
+  undoToTurn: (sessionId: string, turnUndo: ChatTurnUndoRef): Promise<ChatHistoryPage> =>
     ipcRenderer.invoke(IpcChannels.agent.undoToTurn, sessionId, turnUndo),
   onEvent: (callback: (event: AgentStreamEvent) => void): (() => void) => {
     const handler = (_event: IpcRendererEvent, data: AgentStreamEvent) => {

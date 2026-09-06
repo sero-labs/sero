@@ -32,6 +32,8 @@ export const IpcChannels = {
   },
   agent: {
     open: 'sero:agent:open',
+    /** Load the window of user turns before a cursor. Args: sessionId, cursor. */
+    loadOlderTurns: 'sero:agent:load-older-turns',
     prompt: 'sero:agent:prompt',
     /** Steer the agent mid-stream (interrupt after current tool, skip remaining). */
     steer: 'sero:agent:steer',

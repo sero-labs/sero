@@ -183,6 +183,7 @@ export type {
   ChatGoalStatusMessage,
   AgentSettlement,
   AgentStreamEvent,
+  ChatHistoryPage,
   SeroSlashCommandInfo,
 } from './agent';
 

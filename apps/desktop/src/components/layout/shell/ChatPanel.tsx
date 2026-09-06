@@ -1,18 +1,22 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Bot, AlertCircle } from 'lucide-react';
 import {
-  Conversation,
   ConversationContent,
   ConversationScrollButton,
 } from '@sero-ai/ui/ai-elements/conversation';
+import { SessionConversation } from './SessionConversation';
+import { ConversationVirtualList } from '@sero-ai/ui/ai-elements/conversation-virtual';
 import { useAgentStore } from '@/stores/agent';
 import { useFocusedAgent } from '@/stores/agent-selectors';
 import { useSessionStore } from '@/stores/sessions';
 import { SessionBadge } from '@/components/layout/SessionBadge';
 import { ToolCallGroup } from '@/components/layout/ToolCallGroup';
 import {
-  groupMessages,
+  groupMessagesIncremental,
   isToolGroupFinalized,
+  previousUserTextAt,
+  type GroupedChatItem,
+  type GroupedChatSnapshot,
 } from '@/components/layout/tool-call-helpers/group-messages';
 import { ChatMessageItem } from '@/components/layout/ChatMessageItem';
 import { CheckpointRestoreDialog } from '@/components/layout/workspace/CheckpointRestoreDialog';
@@ -32,6 +36,10 @@ import { GoalBanner } from '@/components/layout/GoalBanner';
 import { goalBannerCommands, type GoalBannerAction } from '@/components/layout/goal-banner-actions';
 
 const EMPTY_MESSAGES: NonNullable<ReturnType<typeof useFocusedAgent>>['messages'] = [];
+
+function groupedItemKey(item: GroupedChatItem): string {
+  return item.kind === 'tool-group' ? item.id : item.message.id;
+}
 
 /**
  * ChatPanel, agent chat panel wired to Pi SDK AgentSession pool.
@@ -103,6 +111,10 @@ function LocalChatPanel() {
   const showThinkingBlocks = useAgentStore((s) => s.showThinkingBlocks);
   const showMemoryBlocks = useAgentStore((s) => s.showMemoryBlocks);
   const sendPrompt = useAgentStore((s) => s.sendPrompt);
+  const loadOlderTurns = useAgentStore((s) => s.loadOlderTurns);
+  const handleReachStart = useCallback(() => {
+    if (sessionId) void loadOlderTurns(sessionId);
+  }, [loadOlderTurns, sessionId]);
 
   const goal = useMemo(() => {
     for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -121,28 +133,17 @@ function LocalChatPanel() {
     );
   }, [goal, sendPrompt, sessionId]);
 
-  // Group consecutive tool calls into collapsible blocks
-  const groupedItems = useMemo(() => groupMessages(messages), [messages]);
-
-  // Precompute previousUserText for each item index so we avoid an O(n)
-  // backwards scan per assistant message during render.
-  const previousUserTextMap = useMemo(() => {
-    const map = new Map<number, string>();
-    let lastUserText: string | undefined;
-    for (let i = 0; i < groupedItems.length; i++) {
-      const item = groupedItems[i];
-      if (item.kind === 'message' && item.message.type === 'user') {
-        lastUserText = item.message.text;
-      } else if (
-        item.kind === 'message' &&
-        item.message.type === 'assistant' &&
-        lastUserText
-      ) {
-        map.set(i, lastUserText);
-      }
-    }
-    return map;
-  }, [groupedItems]);
+  // Group consecutive tool calls into collapsible blocks. Only the tail
+  // changes while streaming, so earlier groups are reused from the last pass.
+  const groupingRef = useRef<GroupedChatSnapshot | null>(null);
+  const grouping = useMemo(
+    () => groupMessagesIncremental(groupingRef.current, messages),
+    [messages],
+  );
+  useLayoutEffect(() => {
+    groupingRef.current = grouping;
+  }, [grouping]);
+  const groupedItems = grouping.items;
 
   // Show an inline "thinking" indicator when the session is streaming but
   // nothing in the chat is visibly active (no streaming text, no running tools).
@@ -168,67 +169,74 @@ function LocalChatPanel() {
   const hasSession = !!sessionId;
   const isSessionFocusPending = !!activeSessionId && !sessionId;
 
+  const renderGroupedItem = useCallback((item: GroupedChatItem, index: number) => {
+    if (item.kind === 'tool-group') {
+      const feedbackDisposition = getFeedbackToolGroupDisposition(item.tools);
+      if (feedbackDisposition === 'hide') return null;
+      if (feedbackDisposition === 'notice') {
+        return <QuestionnaireNotice tools={item.tools} sessionLabel={sessionLabel ?? null} />;
+      }
+      return (
+        <ToolCallGroup
+          tools={item.tools}
+          isFinalized={isToolGroupFinalized(groupedItems, index)}
+          workspaceId={focusedWorkspaceId}
+        />
+      );
+    }
+
+    return (
+      <ChatMessageItem
+        message={item.message}
+        showThinking={showThinkingBlocks}
+        showMemory={showMemoryBlocks}
+        onRestoreTurnUndo={stableRestoreHandler}
+        sessionId={sessionId ?? undefined}
+        previousUserText={previousUserTextAt(grouping, index)}
+      />
+    );
+  }, [
+    focusedWorkspaceId,
+    groupedItems,
+    grouping,
+    sessionId,
+    sessionLabel,
+    showMemoryBlocks,
+    showThinkingBlocks,
+    stableRestoreHandler,
+  ]);
+
   const conversation = (
-    <Conversation key={sessionId} className="min-h-0 flex-1" initial="instant">
-      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions */}
-      <ConversationContent className="gap-2.5 p-3" onClick={conversationClickHandler}>
-        {isSessionFocusPending ? (
-          <EmptyState message="Loading chat..." />
-        ) : !hasSession ? (
-          <EmptyState message="Select or create a chat to begin" />
-        ) : messages.length === 0 && !isStreaming ? (
-          <EmptyState message="Start a conversation" />
-        ) : (
-          <>
-            {groupedItems.map((item, index) => {
-              if (item.kind === 'tool-group') {
-                const isFinalized = isToolGroupFinalized(groupedItems, index);
+    <SessionConversation key={sessionId} messages={messages} isStreaming={isStreaming} className="min-h-0 flex-1">
+      {(initialScrollToEnd) => (
+        <>
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions */}
+          <ConversationContent className="gap-2.5 p-3" onClick={conversationClickHandler}>
+            {isSessionFocusPending ? (
+              <EmptyState message="Loading chat..." />
+            ) : !hasSession ? (
+              <EmptyState message="Select or create a chat to begin" />
+            ) : messages.length === 0 && !isStreaming ? (
+              <EmptyState message="Start a conversation" />
+            ) : (
+              <ConversationVirtualList
+                initialScrollToEnd={initialScrollToEnd}
+                items={groupedItems}
+                getItemKey={groupedItemKey}
+                renderItem={renderGroupedItem}
+                onReachStart={handleReachStart}
+                rowClassName="pb-2.5"
+              />
+            )}
 
-                const feedbackDisposition = getFeedbackToolGroupDisposition(item.tools);
-                if (feedbackDisposition === 'hide') {
-                  return null;
-                }
-                if (feedbackDisposition === 'notice') {
-                  return (
-                    <QuestionnaireNotice
-                      key={item.id}
-                      tools={item.tools}
-                      sessionLabel={sessionLabel ?? null}
-                    />
-                  );
-                }
+            {retry ? <RetryIndicator retry={retry} /> : showThinking ? <ThinkingIndicator /> : null}
 
-                return (
-                  <ToolCallGroup
-                    key={item.id}
-                    tools={item.tools}
-                    isFinalized={isFinalized}
-                    workspaceId={focusedWorkspaceId}
-                  />
-                );
-              }
-
-              return (
-                <ChatMessageItem
-                  key={item.message.id}
-                  message={item.message}
-                  showThinking={showThinkingBlocks}
-                  showMemory={showMemoryBlocks}
-                  onRestoreTurnUndo={stableRestoreHandler}
-                  sessionId={sessionId ?? undefined}
-                  previousUserText={previousUserTextMap.get(index)}
-                />
-              );
-            })}
-          </>
-        )}
-
-        {retry ? <RetryIndicator retry={retry} /> : showThinking ? <ThinkingIndicator /> : null}
-
-        {error && <ChatError error={error} />}
-      </ConversationContent>
-      <ConversationScrollButton />
-    </Conversation>
+            {error && <ChatError error={error} />}
+          </ConversationContent>
+          <ConversationScrollButton />
+        </>
+      )}
+    </SessionConversation>
   );
 
   return (

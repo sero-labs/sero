@@ -18,8 +18,9 @@ import {
   nextId,
   formatCustomMessage,
   projectCustomMessage,
-  buildTurnUndoMapByTurn,
+  findLatestTurnUndo,
 } from './agent-helpers';
+import { readNewestTurns } from './agent-history-window';
 import { extractImageFilePath, tryParseImageJson } from './tool-result-images';
 import { ToolInputStreams } from './tool-input-stream';
 import { logRawEvent, logTurnContext } from '@electron/ipc/editor/debug';
@@ -120,10 +121,7 @@ export function subscribeToSession(
           entry.pendingTurnUndoUserMessageId = null;
           if (!pendingUserMessageId) break;
 
-          const turnUndoRefs = buildTurnUndoMapByTurn(entry.session, entry.workspaceId);
-          const userCount = entry.session.messages.filter((m) => m.role === 'user').length;
-          const lastTurnIdx = userCount - 1;
-          const turnUndo = turnUndoRefs.get(lastTurnIdx);
+          const turnUndo = findLatestTurnUndo(entry.session, entry.workspaceId);
           if (turnUndo) {
             sendEvent({
               type: 'user_turn_undo',
@@ -133,6 +131,18 @@ export function subscribeToSession(
             });
           }
         }
+        break;
+      }
+
+      case 'compaction_end': {
+        // Compaction rewrites the head of the thread, so any window the
+        // renderer holds (and any older-page cursor) is stale.
+        if (event.aborted || !event.result) break;
+        sendEvent({
+          type: 'messages_loaded',
+          sessionId,
+          ...readNewestTurns(entry.session, entry.workspaceId),
+        });
         break;
       }
 
