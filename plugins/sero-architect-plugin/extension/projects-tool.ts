@@ -4,7 +4,7 @@
  */
 
 import { StringEnum } from '@earendil-works/pi-ai';
-import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI, ExtensionContext, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Text } from '@earendil-works/pi-tui';
 import { Type } from 'typebox';
 
@@ -12,6 +12,7 @@ import { resolveArchitectRuntime } from '../runtime/registry';
 import { AUTONOMY_SETTINGS } from '../shared/charter-shape';
 import type { ProjectRecord } from '../shared/record';
 import type { ArchitectIndexEntry } from '../shared/types';
+import { callerSignals } from './owner-tool';
 
 export const PROJECT_ACTIONS = [
   'list',
@@ -98,9 +99,14 @@ function formatRecord(record: ProjectRecord): string {
   ].join('\n');
 }
 
-export async function executeProjectsTool(params: ProjectsToolParamsShape): Promise<ToolResult> {
+export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?: ExtensionContext): Promise<ToolResult> {
   const runtime = resolveArchitectRuntime();
   if (!runtime) return result(false, 'The Architect runtime is not running.');
+  // The owner session loads this plugin whole, so the management tool arrives
+  // with it. An owner that could approve its own charter, raise its own cap or
+  // answer its own decisions would make every user gate optional.
+  const owner = await runtime.owner.owns(callerSignals(ctx));
+  if (owner) return result(false, `The architect_projects tool is for the user. This session owns project ${owner.id}; use the architect tool.`);
   const actions = runtime.projects;
   const id = params.projectId ?? '';
   const need = (value: string | undefined, name: string): string | null => (value?.trim() ? null : `${name} is required for ${params.action}.`);
@@ -170,7 +176,7 @@ export function registerProjectsTool(pi: ExtensionAPI): void {
     label: 'Architect projects',
     description: PROJECTS_TOOL_DESCRIPTION,
     parameters: ProjectsToolParams,
-    execute: (_id, params) => executeProjectsTool(params),
+    execute: (_id, params, _signal, _onUpdate, ctx) => executeProjectsTool(params, ctx),
     renderCall(args, theme) {
       return new Text(theme.fg('toolTitle', theme.bold('architect_projects ')) + theme.fg('muted', args.action), 0, 0);
     },

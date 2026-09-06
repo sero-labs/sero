@@ -1,0 +1,15 @@
+{
+  "phase": "discovery",
+  "overlay": null,
+  "stateLine": "Discovering the project.",
+  "brief": null,
+  "research": 1,
+  "decisions": 0,
+  "silentTurns": 0,
+  "spentUsd": 0.018446999999999998,
+  "commands": [
+    "architect",
+    "architect_projects",
+    "help"
+  ]
+}

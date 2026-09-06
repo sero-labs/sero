@@ -57,7 +57,7 @@ The owner session's grant SHALL name only the platform tools and the `sero-cli` 
 
 #### Scenario: Owner command surface
 - **WHEN** the owner session opens and logs its command list
-- **THEN** the list holds the Architect commands, `workspace` and `pwd`, and no command from another app
+- **THEN** the list holds the Architect owner command and no command from another app; the shared workspace commands are absent because the private registry bridges only the grant-owning app, and the `architect_projects` management command refuses an owner caller
 
 #### Scenario: Research runs from the runtime
 - **WHEN** the owner calls research with a question and a stopping condition
