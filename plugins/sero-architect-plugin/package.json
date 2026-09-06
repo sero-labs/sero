@@ -1,0 +1,85 @@
+{
+  "name": "@sero-ai/plugin-architect",
+  "version": "0.1.0",
+  "description": "Sero Architect — hand Sero an idea and get a delivered, maintained product back",
+  "type": "module",
+  "keywords": ["pi-package"],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "pnpm exec vitest run --root .",
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json && tsc --noEmit -p extension/tsconfig.json && tsc --noEmit -p runtime/tsconfig.json"
+  },
+  "pi": {
+    "extensions": ["./extension/index.ts"]
+  },
+  "sero": {
+    "app": {
+      "id": "architect",
+      "styleIsolation": "scope",
+      "name": "Architect",
+      "icon": "compass",
+      "scope": "global",
+      "stateFile": ".sero/apps/architect/state.json",
+      "ui": "./dist/ui/remoteEntry.js",
+      "component": "ArchitectApp",
+      "runtime": "./runtime/index.ts",
+      "devPort": 5200,
+      "contributes": {
+        "components": [{
+          "id": "architect-projects",
+          "extensionPoint": "ui.dashboard.widget",
+          "name": "Architect",
+          "component": "ArchitectWidget",
+          "description": "Your Architect projects and what needs you",
+          "defaultSize": { "w": 2, "h": 2 },
+          "minSize": { "w": 1, "h": 1 },
+          "maxSize": { "w": 4, "h": 3 }
+        }]
+      }
+    },
+    "plugin": {
+      "category": "developer-tools",
+      "tags": ["architect", "projects", "autonomous", "orchestrator"],
+      "minSeroVersion": "0.1.0",
+      "runtimeAbi": 3,
+      "preBuilt": false,
+      "requiredHostCapabilities": [
+        "appAgent.invokeTool",
+        "tool.cli",
+        "appRuntime.background",
+        "appRuntime.workspaceCreate"
+      ],
+      "bridgeTools": ["architect", "architect_projects"]
+    }
+  },
+  "dependencies": {
+    "@sero-ai/extension-runtime": "workspace:*",
+    "typebox": "catalog:"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "catalog:peer",
+    "@earendil-works/pi-coding-agent": "catalog:peer",
+    "@earendil-works/pi-tui": "catalog:peer",
+    "zod": "catalog:peer"
+  },
+  "devDependencies": {
+    "@sero-ai/plugin-vite": "workspace:*",
+    "@module-federation/vite": "catalog:",
+    "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
+    "@sero-ai/common": "workspace:*",
+    "@sero-ai/ui": "workspace:*",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

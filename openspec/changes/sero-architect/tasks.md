@@ -14,7 +14,7 @@
 
 ## 3. Plugin skeleton and record
 
-- [ ] 3.1 Create `plugins/sero-architect-plugin/` from the sero-plugin skill's notes example with app id `architect`, global scope, runtime, extension, shared and ui, a unique dev port, `runtimeAbi: 3`, `styleIsolation: scope`, and `requiredHostCapabilities` limited to `appAgent.invokeTool`, `tool.cli`, `appRuntime.background`; verify `pnpm install`, plugin `typecheck` and `build` pass and the app appears in the sidebar
+- [x] 3.1 Create `plugins/sero-architect-plugin/` from the sero-plugin skill's notes example with app id `architect`, global scope, runtime, extension, shared and ui, a unique dev port, `runtimeAbi: 3`, `styleIsolation: scope`, and `requiredHostCapabilities` limited to `appAgent.invokeTool`, `tool.cli`, `appRuntime.background`; verify `pnpm install`, plugin `typecheck` and `build` pass and the app appears in the sidebar
 - [ ] 3.2 Define the project record, index and lifecycle types in `shared/` with `SERO_ARCHITECT` kill switch handling; verify unit tests cover every phase transition, overlay rule and the charter-approval gate
 - [ ] 3.3 Implement the record store under `<SERO_HOME>/apps/architect/` with atomic writes, the watched index and a single writer; verify tests prove an interrupted write leaves the previous record readable and the index updates in the same operation
 - [ ] 3.4 Implement restart reconciliation; verify a test shows an over-budget project comes back `limited` and no wake is issued before reconcile completes
