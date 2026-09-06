@@ -112,7 +112,9 @@ export function ConversationVirtualList<T>({
   // `onReachStart` fires on user scroll only, never on layout: an initial
   // render at offset 0 or a prepend must not cascade into more loads.
   const onReachStartRef = useRef(onReachStart);
-  onReachStartRef.current = onReachStart;
+  useLayoutEffect(() => {
+    onReachStartRef.current = onReachStart;
+  }, [onReachStart]);
   useEffect(() => {
     const scrollElement = scrollRef.current;
     if (!scrollElement) return;

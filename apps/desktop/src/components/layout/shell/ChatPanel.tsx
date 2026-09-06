@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Bot, AlertCircle } from 'lucide-react';
 import {
   ConversationContent,
@@ -136,11 +136,13 @@ function LocalChatPanel() {
   // Group consecutive tool calls into collapsible blocks. Only the tail
   // changes while streaming, so earlier groups are reused from the last pass.
   const groupingRef = useRef<GroupedChatSnapshot | null>(null);
-  const grouping = useMemo(() => {
-    const next = groupMessagesIncremental(groupingRef.current, messages);
-    groupingRef.current = next;
-    return next;
-  }, [messages]);
+  const grouping = useMemo(
+    () => groupMessagesIncremental(groupingRef.current, messages),
+    [messages],
+  );
+  useLayoutEffect(() => {
+    groupingRef.current = grouping;
+  }, [grouping]);
   const groupedItems = grouping.items;
 
   // Show an inline "thinking" indicator when the session is streaming but
