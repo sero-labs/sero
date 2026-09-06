@@ -42,7 +42,7 @@ export const MainSidebar = memo(function MainSidebar() {
 
   return (
     <>
-      <aside className="flex size-full min-w-0 flex-col border-r border-[var(--border-default)] bg-[var(--bg-surface)]">
+      <aside className="window-glass-sidebar flex size-full min-w-0 flex-col border-r border-[var(--border-default)] bg-[var(--bg-surface)]">
         {/* ── Apps ──────────────────────────────────────────────── */}
         <div className="flex flex-col gap-0.5 p-2">
           <div className="flex items-center justify-between px-2 pb-1">

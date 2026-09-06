@@ -9,27 +9,38 @@
  * Tailwind variable from it in the theme engine.
  */
 
-import type { SpacingTokens, RadiusTokens } from '@/types/theme';
+import type {
+  SpacingTokens,
+  RadiusTokens,
+  ThemeGlassEffect,
+} from '@/types/theme';
+import { GlassControls } from './GlassControls';
 import { SliderRow } from './SliderRow';
 
 interface LayoutTabProps {
   spacing: Required<SpacingTokens>;
   radius: Required<RadiusTokens>;
+  glass: ThemeGlassEffect;
   onSpacingChange: (key: keyof SpacingTokens, value: string) => void;
   onRadiusChange: (key: keyof RadiusTokens, value: string) => void;
+  onGlassChange: (updates: Partial<ThemeGlassEffect>) => void;
 }
 
 export function LayoutTab({
   spacing,
   radius,
+  glass,
   onSpacingChange,
   onRadiusChange,
+  onGlassChange,
 }: LayoutTabProps) {
   const spacingMd = parseFloat(spacing.md) || 12;
   const radiusMd = parseFloat(radius.md) || 8;
 
   return (
     <div className="flex flex-col gap-6">
+      <GlassControls glass={glass} onChange={onGlassChange} />
+
       {/* Spacing */}
       <section className="flex flex-col gap-3">
         <div>

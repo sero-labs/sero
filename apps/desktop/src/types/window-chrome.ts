@@ -1,3 +1,5 @@
+import type { ThemeGlassEffect, ThemeMode } from './theme';
+
 /**
  * Shared types for the application chrome (title bar, status bar, window
  * frame). Used by the renderer stores/components and the preload bridge.
@@ -19,6 +21,8 @@ export interface SeroWindowAPI {
   onMaximizedChanged(callback: (maximized: boolean) => void): () => void;
   /** Re-sync the Windows title-bar overlay colors after a theme change. */
   setOverlayColors(colors: { color: string; symbolColor: string }): Promise<void>;
+  /** Apply desktop glass. Returns an error message when native blur is unavailable. */
+  setGlassEffect(effect: ThemeGlassEffect, appearance: ThemeMode): Promise<string | null>;
   /** Subscribe to zoom commands from the application menu. Returns unsubscribe. */
   onZoomCommand(callback: (command: ZoomCommand) => void): () => void;
   /** Apply a page zoom factor via webFrame. */

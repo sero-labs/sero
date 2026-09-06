@@ -1,11 +1,12 @@
 import {
   DEFAULT_DARK_COLORS,
+  DEFAULT_GLASS_EFFECT,
   DEFAULT_LIGHT_COLORS,
   DEFAULT_RADIUS,
   DEFAULT_SPACING,
   DEFAULT_TYPOGRAPHY,
 } from '@/types/theme';
-import type { ColorTokens, ThemePreset } from '@/types/theme';
+import type { ColorTokens, ThemeMode, ThemePreset } from '@/types/theme';
 import { applyThemePreset, resetTheme } from '@/lib/theme-engine';
 import type { ThemeEditorDraft } from './types';
 
@@ -43,6 +44,10 @@ export function buildDraftFromPreset(
       ...DEFAULT_RADIUS,
       ...(source?.radius ?? {}),
     },
+    glass: {
+      ...DEFAULT_GLASS_EFFECT,
+      ...(source?.glass ?? {}),
+    },
   };
 }
 
@@ -59,6 +64,7 @@ export function buildPresetFromDraft(draft: ThemeEditorDraft): ThemePreset {
     typography: draft.typography,
     spacing: draft.spacing,
     radius: draft.radius,
+    glass: draft.glass,
   };
 }
 
@@ -76,6 +82,7 @@ export function getDraftColors(
 export function applyDraftPreview(
   draft: ThemeEditorDraft,
   effectiveMode: 'light' | 'dark',
+  mode: ThemeMode,
 ): void {
   applyThemePreset(
     {
@@ -86,18 +93,21 @@ export function applyDraftPreview(
       typography: draft.typography,
       spacing: draft.spacing,
       radius: draft.radius,
+      glass: draft.glass,
     },
     effectiveMode,
+    mode,
   );
 }
 
 export function revertPreview(
   activePreset: ThemePreset | null,
   effectiveMode: 'light' | 'dark',
+  mode: ThemeMode,
 ): void {
-  resetTheme();
+  resetTheme(mode);
   if (activePreset) {
-    applyThemePreset(activePreset, effectiveMode);
+    applyThemePreset(activePreset, effectiveMode, mode);
     return;
   }
 

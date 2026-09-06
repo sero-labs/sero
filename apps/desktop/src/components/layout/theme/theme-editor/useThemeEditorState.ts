@@ -5,6 +5,7 @@ import type {
   RadiusTokens,
   SpacingTokens,
   ThemePreset,
+  ThemeGlassEffect,
   TypographyTokens,
 } from '@/types/theme';
 import type { ThemeEditorDraft } from './types';
@@ -153,21 +154,22 @@ export function useThemeEditorState({
 
       const next = updater(previous);
       draftRef.current = next;
-      applyDraftPreview(next, effectiveMode);
+      applyDraftPreview(next, effectiveMode, mode);
       if (autoSave) {
         scheduleAutoSave(next);
       }
       setDraft(next);
     },
-    [autoSave, effectiveMode, scheduleAutoSave],
+    [autoSave, effectiveMode, mode, scheduleAutoSave],
   );
 
   const handleNewTheme = useCallback(() => {
     const nextDraft = buildDraftFromPreset(null, '__new__');
     draftRef.current = nextDraft;
+    applyDraftPreview(nextDraft, effectiveMode, mode);
     setDraft(nextDraft);
     setTab('colors');
-  }, []);
+  }, [effectiveMode, mode]);
 
   const handleDraftNameChange = useCallback((value: string) => {
     const previous = draftRef.current;
@@ -239,6 +241,16 @@ export function useThemeEditorState({
     [updateDraft],
   );
 
+  const handleGlassChange = useCallback(
+    (updates: Partial<ThemeGlassEffect>) => {
+      updateDraft((previous) => ({
+        ...previous,
+        glass: { ...previous.glass, ...updates },
+      }));
+    },
+    [updateDraft],
+  );
+
   const handleSave = useCallback(async () => {
     const latestDraft = draftRef.current;
     if (!latestDraft || !latestDraft.name.trim()) {
@@ -264,8 +276,8 @@ export function useThemeEditorState({
     const nextDraft = buildDraftFromPreset(restored, editPresetId);
     draftRef.current = nextDraft;
     setDraft(nextDraft);
-    applyDraftPreview(nextDraft, effectiveMode);
-  }, [editPresetId, effectiveMode]);
+    applyDraftPreview(nextDraft, effectiveMode, mode);
+  }, [editPresetId, effectiveMode, mode]);
 
   const handleCancel = useCallback(() => {
     const latestDraft = draftRef.current;
@@ -277,11 +289,11 @@ export function useThemeEditorState({
       return;
     }
 
-    revertPreview(activePreset, effectiveMode);
+    revertPreview(activePreset, effectiveMode, mode);
     draftRef.current = null;
     setDraft(null);
     onOpenChange(false);
-  }, [activePreset, autoSave, effectiveMode, flushAutoSave, onOpenChange]);
+  }, [activePreset, autoSave, effectiveMode, flushAutoSave, mode, onOpenChange]);
 
   return {
     activePreset,
@@ -299,6 +311,7 @@ export function useThemeEditorState({
     handleColorChange,
     handleDraftDescriptionChange,
     handleDraftNameChange,
+    handleGlassChange,
     handleNewTheme,
     handleRadiusChange,
     handleReset,

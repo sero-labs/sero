@@ -504,6 +504,38 @@ html {
   }
 }
 
+/* Native window glass belongs behind the application. Keep the document
+   transparent, then restore an opaque base for blocking work surfaces. */
+html.theme-glass body {
+  background-color: transparent;
+}
+
+.theme-glass :is(.window-glass-sidebar, [data-slot="sidebar"]) {
+  background-color: var(--window-glass-sidebar);
+  box-shadow: inset -1px 0 0 var(--border-subtle);
+}
+
+.theme-glass :is(
+  [data-slot="dialog-content"],
+  [data-slot="alert-dialog-content"],
+  [data-slot="sheet-content"],
+  [data-slot="drawer-content"],
+  [data-slot="popover-content"],
+  [data-slot="dropdown-menu-content"],
+  [data-slot="context-menu-content"],
+  [data-slot="select-content"]
+) {
+  --background: var(--window-glass-opaque-base);
+  --card: var(--window-glass-opaque-surface);
+  --secondary: var(--window-glass-opaque-elevated);
+  --sidebar: var(--window-glass-opaque-surface);
+  --sidebar-accent: var(--window-glass-opaque-elevated);
+  --bg-base: var(--window-glass-opaque-base);
+  --bg-surface: var(--window-glass-opaque-surface);
+  --bg-elevated: var(--window-glass-opaque-elevated);
+  background-color: var(--window-glass-opaque-base);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -136,7 +136,7 @@ describe('useThemeEditorState', () => {
       } satisfies Pick<typeof window.sero, 'layout' | 'themes'>,
     });
 
-    resetTheme();
+    resetTheme('system');
     document.documentElement.classList.remove('dark');
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -154,7 +154,7 @@ describe('useThemeEditorState', () => {
     container.remove();
     Reflect.deleteProperty(window, 'sero');
     consoleWarnSpy.mockRestore();
-    resetTheme();
+    resetTheme('system');
     document.documentElement.classList.remove('dark');
     useThemeStore.setState(initialThemeState, true);
     useAppStore.setState(initialAppState, true);
@@ -167,7 +167,13 @@ describe('useThemeEditorState', () => {
     expect(latestState?.draft).toBeNull();
 
     await act(async () => {
-      root?.render(<Harness open={true} onOpenChange={onOpenChange} editPresetId="ocean-glow" />);
+      root?.render(
+        <Harness
+          open={true}
+          onOpenChange={onOpenChange}
+          editPresetId="ocean-glow"
+        />,
+      );
     });
     expect(latestState?.draft?.name).toBe('Ocean Glow');
     expect(latestState?.tab).toBe('colors');
@@ -218,6 +224,42 @@ describe('useThemeEditorState', () => {
     expect(setPresetSpy).toHaveBeenCalledWith('ocean-glow-redux');
     expect(onOpenChangeSpy).toHaveBeenCalledWith(false);
     expect(latestState?.draft).toBeNull();
+  });
+
+  it('previews and saves desktop glass controls with the theme', async () => {
+    await act(async () => {
+      root?.render(<Harness open={true} onOpenChange={onOpenChange} editPresetId="ocean-glow" />);
+    });
+
+    act(() => {
+      latestState?.handleGlassChange({
+        enabled: true,
+        opacity: 0.62,
+        blurRadius: 32, windowsMaterial: 'acrylic',
+        sidebarOpacity: 0,
+        surfaceOpacity: 0.12,
+        selectionOpacity: 0.15,
+        borderOpacity: 0.2,
+      });
+    });
+
+    expect(document.documentElement.classList.contains('theme-glass')).toBe(
+      true,
+    );
+    expect(document.documentElement.style.getPropertyValue('--bg-base')).toBe(
+      'color-mix(in srgb, #08111f 62%, transparent)',
+    );
+
+    await act(async () => {
+      await latestState?.handleSave();
+    });
+
+    expect(saveCustomPresetSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        glass: { enabled: true, opacity: 0.62, blurRadius: 32, windowsMaterial: 'acrylic',
+          sidebarOpacity: 0, surfaceOpacity: 0.12, selectionOpacity: 0.15, borderOpacity: 0.2 },
+      }),
+    );
   });
 
   it('debounces auto-save draft changes and persists the latest draft', async () => {

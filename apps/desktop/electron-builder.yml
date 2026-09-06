@@ -40,11 +40,15 @@ files:
   # including the built-in packages staged under dist/electron/builtin/.
   - "!**/*.{tsx,map}"
   - "!**/node_modules/.cache/**"
+  # Desktop blur uses only Koffi's macOS prebuilds, never its compiler sources.
+  - "!**/node_modules/koffi/{src,vendor,doc}/**"
+  - "!**/node_modules/koffi/build/koffi/{freebsd_*,linux_*,musl_*,openbsd_*,win32_*}/**"
 
 # ── asar ──────────────────────────────────────────────────────
 asar: true
 asarUnpack:
   # Native modules must be unpacked (they contain .node binaries)
+  - node_modules/koffi/**/*
   - node_modules/node-pty/**/*
   - node_modules/better-sqlite3/**/*
   - dist/electron/builtin/plugins/sero-web-plugin/node_modules/better-sqlite3/**/*
