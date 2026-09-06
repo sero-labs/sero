@@ -136,7 +136,7 @@ describe('useThemeEditorState', () => {
       } satisfies Pick<typeof window.sero, 'layout' | 'themes'>,
     });
 
-    resetTheme();
+    resetTheme('system');
     document.documentElement.classList.remove('dark');
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -154,7 +154,7 @@ describe('useThemeEditorState', () => {
     container.remove();
     Reflect.deleteProperty(window, 'sero');
     consoleWarnSpy.mockRestore();
-    resetTheme();
+    resetTheme('system');
     document.documentElement.classList.remove('dark');
     useThemeStore.setState(initialThemeState, true);
     useAppStore.setState(initialAppState, true);

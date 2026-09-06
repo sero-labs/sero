@@ -8,7 +8,7 @@ import { applyThemePreset, resetTheme } from './theme-engine';
 describe('desktop theme engine', () => {
   afterEach(() => {
     Reflect.deleteProperty(window, 'sero');
-    resetTheme();
+    resetTheme('system');
   });
 
   it('sends the selected appearance with the native glass effect', () => {

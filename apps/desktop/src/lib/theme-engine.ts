@@ -54,11 +54,11 @@ export function applyThemePreset(
   syncWindowGlass(preset, appearance, mode);
 }
 
-export function resetTheme(): void {
+export function resetTheme(appearance: ThemeMode): void {
   resetSharedTheme();
   syncWindowGlass(
     undefined,
-    document.documentElement.classList.contains('dark') ? 'dark' : 'light',
+    appearance,
     document.documentElement.classList.contains('dark') ? 'dark' : 'light',
   );
 }

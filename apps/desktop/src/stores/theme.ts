@@ -76,7 +76,7 @@ export const useThemeStore = create<ThemeStoreState>((set, get) => ({
 
     if (id === DEFAULT_THEME_ID) {
       // Reset to CSS defaults
-      resetTheme();
+      resetTheme(mode);
       applyMode(effective);
       set({ activePresetId: id, activePreset: null });
       persistLayout({ activeThemeId: id });
@@ -105,6 +105,7 @@ export const useThemeStore = create<ThemeStoreState>((set, get) => ({
     if (activePreset) {
       applyThemePreset(activePreset, effective, mode);
     } else {
+      resetTheme(mode);
       applyMode(effective);
     }
 
@@ -166,7 +167,8 @@ function applyMode(mode: 'light' | 'dark'): void {
 function syncTitleBarOverlay(): void {
   requestAnimationFrame(() => {
     const styles = getComputedStyle(document.documentElement);
-    const color = styles.getPropertyValue('--bg-base').trim();
+    const color = styles.getPropertyValue('--window-glass-opaque-base').trim()
+      || styles.getPropertyValue('--bg-base').trim();
     const symbolColor = styles.getPropertyValue('--text-secondary').trim();
     if (!color || !symbolColor) return;
     void window.sero.window.setOverlayColors({ color, symbolColor });
@@ -238,7 +240,8 @@ export async function hydrateThemeStore(
     }
   }
 
-  // Default preset: just apply mode class
+  // Restore native appearance as well as the default CSS theme.
+  resetTheme(mode);
   applyMode(effective);
   store.setState({ ready: true });
 }
@@ -259,6 +262,7 @@ export function listenForSystemThemeChanges(): () => void {
     if (activePreset) {
       applyThemePreset(activePreset, effective, mode);
     } else {
+      resetTheme(mode);
       applyMode(effective);
     }
     useThemeStore.setState({ effectiveMode: effective });

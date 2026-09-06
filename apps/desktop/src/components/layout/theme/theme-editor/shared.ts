@@ -105,7 +105,7 @@ export function revertPreview(
   effectiveMode: 'light' | 'dark',
   mode: ThemeMode,
 ): void {
-  resetTheme();
+  resetTheme(mode);
   if (activePreset) {
     applyThemePreset(activePreset, effectiveMode, mode);
     return;
