@@ -45,6 +45,7 @@ afterEach(() => {
   container.remove();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe('ConversationVirtualList', () => {
@@ -81,6 +82,31 @@ describe('ConversationVirtualList', () => {
     act(() => root.render(<Chat session="a" items={['Last message', 'New message']} initialScrollToEnd />));
     advanceFrame();
     expect(scroller.scrollTop).toBe(200);
+    expect(list.style.visibility).toBe('');
+  });
+
+  it('reveals a continuously growing transcript without restarting the deadline on new items', () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) =>
+      setTimeout(() => callback(performance.now()), 16));
+    vi.stubGlobal('cancelAnimationFrame', clearTimeout);
+    let height = 1200;
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(() => height);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600);
+    const items = ['Running tool output'];
+    act(() => root.render(<Chat session="streaming" items={items} initialScrollToEnd />));
+    const list = container.querySelector('[data-index]')!.parentElement!;
+    expect(list.style.visibility).toBe('hidden');
+
+    for (let frame = 0; frame < 16; frame += 1) {
+      height += 100;
+      // Changing the count also restarts the positioning effect, as new tool
+      // messages can arrive while the current output row grows.
+      items.push(`Tool update ${frame}`);
+      act(() => root.render(<Chat session="streaming" items={[...items]} initialScrollToEnd />));
+      act(() => vi.advanceTimersByTime(16));
+      if (frame < 15) expect(list.style.visibility).toBe('hidden');
+    }
     expect(list.style.visibility).toBe('');
   });
 

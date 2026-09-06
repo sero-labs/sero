@@ -11,7 +11,7 @@ export interface ConversationVirtualListProps<T> {
   getItemKey: (item: T, index: number) => string;
   /** Return null for an item that renders nothing; it then takes no space. */
   renderItem: (item: T, index: number) => ReactNode;
-  /** Called on a user scroll that brings the viewport within `startThreshold` of the top. */
+  /** Called on a scroll within `startThreshold` of the top, including programmatic scrolls. */
   onReachStart?: () => void;
   startThreshold?: number;
   estimateSize?: number;
@@ -61,6 +61,14 @@ export function ConversationVirtualList<T>({
     getItemKey: (index) => getItemKey(items[index], index),
   });
 
+  // Live output may never reach a stable height. Keep the reveal deadline
+  // independent of item updates so streaming cannot restart the wait.
+  useEffect(() => {
+    if (initialPositioned) return;
+    const timeout = setTimeout(() => setInitialPositioned(true), 250);
+    return () => clearTimeout(timeout);
+  }, [initialPositioned]);
+
   // Virtual rows replace estimated heights over several frames. Position them
   // while hidden so opening history does not display those intermediate jumps.
   useEffect(() => {
@@ -109,8 +117,8 @@ export function ConversationVirtualList<T>({
     scrollElement.scrollTop += totalSizeRef.current - previousTotal;
   });
 
-  // `onReachStart` fires on user scroll only, never on layout: an initial
-  // render at offset 0 or a prepend must not cascade into more loads.
+  // Native scroll events include programmatic positioning and prepend anchoring.
+  // The caller must guard duplicate or in-flight history requests.
   const onReachStartRef = useRef(onReachStart);
   useLayoutEffect(() => {
     onReachStartRef.current = onReachStart;
