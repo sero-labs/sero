@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { withLock, type FileLockOptions } from '@sero-ai/extension-runtime';
+import { withLock, type FileLockOptions } from '@sero-ai/extension-runtime/file-lock';
 import {
   normalizeDesignIndex,
   normalizeExportIndex,

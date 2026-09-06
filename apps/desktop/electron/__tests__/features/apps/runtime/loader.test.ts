@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { loadAppRuntimeModule } from '@electron/features/apps/runtime/loader';
 
 const tempDirs: string[] = [];
+const runtimePlugins = ['design-library', 'graphify', 'orchestrator'];
 
 async function createTempDir(): Promise<string> {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'sero-app-runtime-loader-'));
@@ -21,6 +22,17 @@ function wait(ms: number): Promise<void> {
 }
 
 describe('loadAppRuntimeModule', () => {
+  it.each(runtimePlugins)('loads the %s background runtime with its manifest settings', async (id) => {
+    const pluginDir = path.resolve(process.cwd(), `../../plugins/sero-${id}-plugin`);
+    const manifest: { sero: { app: { runtime: string; runtimeExternals?: string[] } } } =
+      JSON.parse(await readFile(path.join(pluginDir, 'package.json'), 'utf8'));
+    const runtimeModule = await loadAppRuntimeModule(path.resolve(pluginDir, manifest.sero.app.runtime), {
+      externals: manifest.sero.app.runtimeExternals ?? [],
+    });
+
+    expect(typeof runtimeModule.createAppRuntime).toBe('function');
+  });
+
   it('loads named createAppRuntime exports from JavaScript runtime entries', async () => {
     const dir = await createTempDir();
     const runtimePath = path.join(dir, 'runtime.mjs');
