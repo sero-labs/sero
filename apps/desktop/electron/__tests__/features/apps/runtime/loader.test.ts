@@ -5,6 +5,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { loadAppRuntimeModule } from '@electron/features/apps/runtime/loader';
 
 const tempDirs: string[] = [];
+const designLibraryRuntime = path.resolve(
+  process.cwd(),
+  '../../plugins/sero-design-library-plugin/runtime/index.ts',
+);
 
 async function createTempDir(): Promise<string> {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'sero-app-runtime-loader-'));
@@ -21,6 +25,14 @@ function wait(ms: number): Promise<void> {
 }
 
 describe('loadAppRuntimeModule', () => {
+  it('loads the Design Library background runtime', async () => {
+    const runtimeModule = await loadAppRuntimeModule(designLibraryRuntime, {
+      externals: ['esbuild'],
+    });
+
+    expect(typeof runtimeModule.createAppRuntime).toBe('function');
+  });
+
   it('loads named createAppRuntime exports from JavaScript runtime entries', async () => {
     const dir = await createTempDir();
     const runtimePath = path.join(dir, 'runtime.mjs');
