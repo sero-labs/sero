@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useStickToBottomContext } from "use-stick-to-bottom";
 
@@ -15,6 +15,8 @@ export interface ConversationVirtualListProps<T> {
   onReachStart?: () => void;
   startThreshold?: number;
   estimateSize?: number;
+  /** Reveal the initial transcript only after its last row is positioned. */
+  initialScrollToEnd?: boolean;
   overscan?: number;
   /** Class for the wrapper around each rendered item, for example a bottom gap. */
   rowClassName?: string;
@@ -36,19 +38,55 @@ export function ConversationVirtualList<T>({
   onReachStart,
   startThreshold = 240,
   estimateSize = 96,
+  initialScrollToEnd = false,
   overscan = 6,
   rowClassName,
   className,
 }: ConversationVirtualListProps<T>) {
-  const { scrollRef } = useStickToBottomContext();
+  const { scrollRef, state: scrollState } = useStickToBottomContext();
+  const [initialPositioned, setInitialPositioned] = useState(!initialScrollToEnd);
+  const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null);
+
+  // The parent scroll ref attaches after child layout effects. Read it after
+  // commit so a cached transcript also gets a render with a viewport.
+  useEffect(() => {
+    setScrollElement(scrollRef.current);
+  }, [scrollRef]);
 
   const virtualizer = useVirtualizer<HTMLElement, HTMLDivElement>({
     count: items.length,
-    getScrollElement: () => scrollRef.current,
+    getScrollElement: () => scrollElement,
     estimateSize: () => estimateSize,
     overscan,
     getItemKey: (index) => getItemKey(items[index], index),
   });
+
+  // Virtual rows replace estimated heights over several frames. Position them
+  // while hidden so opening history does not display those intermediate jumps.
+  useEffect(() => {
+    if (initialPositioned || !scrollElement || items.length === 0) return;
+    let frame: number;
+    let previousHeight = -1;
+    let stableFrames = 0;
+    const position = () => {
+      const height = scrollElement.scrollHeight;
+      const target = Math.max(0, scrollState.calculatedTargetScrollTop);
+      const lastRow = virtualizer.getVirtualItems().at(-1);
+      const settled = lastRow?.index === items.length - 1
+        && Math.abs(scrollElement.scrollTop - target) <= 1
+        && height === previousHeight;
+      stableFrames = settled ? stableFrames + 1 : 0;
+      previousHeight = height;
+      scrollState.scrollTop = target;
+      if (stableFrames >= 2) {
+        setInitialPositioned(true);
+        return;
+      }
+      frame = requestAnimationFrame(position);
+    };
+    frame = requestAnimationFrame(position);
+    return () => cancelAnimationFrame(frame);
+  }, [initialPositioned, items.length, scrollElement, scrollState, virtualizer]);
 
   // Prepend anchoring: remember where the previous first item went, and shift
   // the scroll offset by the height that now sits above it.
@@ -93,7 +131,7 @@ export function ConversationVirtualList<T>({
   return (
     <div
       className={cn("relative w-full", className)}
-      style={{ height: virtualizer.getTotalSize() }}
+      style={{ height: virtualizer.getTotalSize(), visibility: initialPositioned ? undefined : "hidden" }}
     >
       {virtualizer.getVirtualItems().map((virtualRow) => {
         const content = renderItem(items[virtualRow.index], virtualRow.index);

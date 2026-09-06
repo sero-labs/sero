@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Bot, AlertCircle } from 'lucide-react';
 import {
-  Conversation,
   ConversationContent,
   ConversationScrollButton,
 } from '@sero-ai/ui/ai-elements/conversation';
+import { SessionConversation } from './SessionConversation';
 import { ConversationVirtualList } from '@sero-ai/ui/ai-elements/conversation-virtual';
 import { useAgentStore } from '@/stores/agent';
 import { useFocusedAgent } from '@/stores/agent-selectors';
@@ -205,31 +205,36 @@ function LocalChatPanel() {
   ]);
 
   const conversation = (
-    <Conversation key={sessionId} className="min-h-0 flex-1" initial="instant">
-      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions */}
-      <ConversationContent className="gap-2.5 p-3" onClick={conversationClickHandler}>
-        {isSessionFocusPending ? (
-          <EmptyState message="Loading chat..." />
-        ) : !hasSession ? (
-          <EmptyState message="Select or create a chat to begin" />
-        ) : messages.length === 0 && !isStreaming ? (
-          <EmptyState message="Start a conversation" />
-        ) : (
-          <ConversationVirtualList
-            items={groupedItems}
-            getItemKey={groupedItemKey}
-            renderItem={renderGroupedItem}
-            onReachStart={handleReachStart}
-            rowClassName="pb-2.5"
-          />
-        )}
+    <SessionConversation key={sessionId} messages={messages} isStreaming={isStreaming} className="min-h-0 flex-1">
+      {(initialScrollToEnd) => (
+        <>
+          {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions */}
+          <ConversationContent className="gap-2.5 p-3" onClick={conversationClickHandler}>
+            {isSessionFocusPending ? (
+              <EmptyState message="Loading chat..." />
+            ) : !hasSession ? (
+              <EmptyState message="Select or create a chat to begin" />
+            ) : messages.length === 0 && !isStreaming ? (
+              <EmptyState message="Start a conversation" />
+            ) : (
+              <ConversationVirtualList
+                initialScrollToEnd={initialScrollToEnd}
+                items={groupedItems}
+                getItemKey={groupedItemKey}
+                renderItem={renderGroupedItem}
+                onReachStart={handleReachStart}
+                rowClassName="pb-2.5"
+              />
+            )}
 
-        {retry ? <RetryIndicator retry={retry} /> : showThinking ? <ThinkingIndicator /> : null}
+            {retry ? <RetryIndicator retry={retry} /> : showThinking ? <ThinkingIndicator /> : null}
 
-        {error && <ChatError error={error} />}
-      </ConversationContent>
-      <ConversationScrollButton />
-    </Conversation>
+            {error && <ChatError error={error} />}
+          </ConversationContent>
+          <ConversationScrollButton />
+        </>
+      )}
+    </SessionConversation>
   );
 
   return (
