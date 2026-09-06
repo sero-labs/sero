@@ -36,9 +36,7 @@ import { registerAllIpcHandlers } from './ipc';
 import { forwardWindowStateEvents } from './ipc/platform/system/window';
 import {
   CHROME_BACKGROUND_COLOR,
-  CHROME_BAR_HEIGHT,
-  CHROME_OVERLAY_SYMBOL_COLOR,
-  getMacTrafficLightPosition,
+  platformFrameOptions,
 } from './chrome';
 import { disposeAllAgentSessions } from './ipc/agent/core/agent';
 import { workspaceManager } from './features/workspace/manager';
@@ -182,33 +180,6 @@ function ensureBuiltinPackages(): void {
     writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
     console.log('[sero] Registered built-in app packages and workspace plugins in', settingsPath);
   }
-}
-
-/**
- * Per-platform window frame. The renderer draws one identical chrome
- * everywhere; only the window-control corner differs:
- *   macOS   — native traffic lights over the custom bar (hiddenInset)
- *   Windows — native overlay buttons (min/max/close + snap layouts)
- *   Linux   — frameless; the renderer draws its own controls via IPC
- */
-function platformFrameOptions(): Electron.BrowserWindowConstructorOptions {
-  if (process.platform === 'darwin') {
-    return {
-      titleBarStyle: 'hiddenInset',
-      trafficLightPosition: getMacTrafficLightPosition(),
-    };
-  }
-  if (process.platform === 'win32') {
-    return {
-      titleBarStyle: 'hidden',
-      titleBarOverlay: {
-        height: CHROME_BAR_HEIGHT,
-        color: CHROME_BACKGROUND_COLOR,
-        symbolColor: CHROME_OVERLAY_SYMBOL_COLOR,
-      },
-    };
-  }
-  return { frame: false };
 }
 
 function createWindow() {

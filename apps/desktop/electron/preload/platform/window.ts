@@ -15,7 +15,7 @@ export const windowBridge = {
   },
   setOverlayColors: (colors: { color: string; symbolColor: string }): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.window.setOverlayColors, colors),
-  setGlassEffect: (effect: ThemeGlassEffect, appearance: ThemeMode): Promise<void> =>
+  setGlassEffect: (effect: ThemeGlassEffect, appearance: ThemeMode): Promise<string | null> =>
     ipcRenderer.invoke(IpcChannels.window.setGlassEffect, effect, appearance),
   onZoomCommand: (callback: (command: ZoomCommand) => void): (() => void) => {
     const listener = (_event: IpcRendererEvent, command: ZoomCommand) => callback(command);

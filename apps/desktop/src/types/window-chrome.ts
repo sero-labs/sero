@@ -21,8 +21,8 @@ export interface SeroWindowAPI {
   onMaximizedChanged(callback: (maximized: boolean) => void): () => void;
   /** Re-sync the Windows title-bar overlay colors after a theme change. */
   setOverlayColors(colors: { color: string; symbolColor: string }): Promise<void>;
-  /** Apply the active theme's native desktop glass treatment. */
-  setGlassEffect(effect: ThemeGlassEffect, appearance: ThemeMode): Promise<void>;
+  /** Apply desktop glass. Returns an error message when native blur is unavailable. */
+  setGlassEffect(effect: ThemeGlassEffect, appearance: ThemeMode): Promise<string | null>;
   /** Subscribe to zoom commands from the application menu. Returns unsubscribe. */
   onZoomCommand(callback: (command: ZoomCommand) => void): () => void;
   /** Apply a page zoom factor via webFrame. */

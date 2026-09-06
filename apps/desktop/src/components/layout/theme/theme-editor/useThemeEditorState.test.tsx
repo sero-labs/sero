@@ -235,6 +235,11 @@ describe('useThemeEditorState', () => {
       latestState?.handleGlassChange({
         enabled: true,
         opacity: 0.62,
+        blurRadius: 32, windowsMaterial: 'acrylic',
+        sidebarOpacity: 0,
+        surfaceOpacity: 0.12,
+        selectionOpacity: 0.15,
+        borderOpacity: 0.2,
       });
     });
 
@@ -251,7 +256,8 @@ describe('useThemeEditorState', () => {
 
     expect(saveCustomPresetSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        glass: { enabled: true, opacity: 0.62 },
+        glass: { enabled: true, opacity: 0.62, blurRadius: 32, windowsMaterial: 'acrylic',
+          sidebarOpacity: 0, surfaceOpacity: 0.12, selectionOpacity: 0.15, borderOpacity: 0.2 },
       }),
     );
   });

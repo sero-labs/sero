@@ -105,11 +105,23 @@ export interface RadiusTokens {
   lg?: string;
 }
 
+export const WINDOWS_GLASS_MATERIALS = ['acrylic', 'mica', 'tabbed'] as const;
+export type WindowsGlassMaterial = typeof WINDOWS_GLASS_MATERIALS[number];
+
 export interface ThemeGlassEffect {
   /** Show the desktop through Sero's surfaces. */
   enabled: boolean;
-  /** Window and sidebar tint opacity from 0 to 1. */
+  /** Window tint opacity from 0 to 1. */
   opacity: number;
+  /** Direct macOS desktop blur radius, from 0 to 64 pixels. */
+  blurRadius?: number;
+  /** Windows 11 system backdrop. */
+  windowsMaterial?: WindowsGlassMaterial;
+  /** Independent local layer opacities from 0 to 1. */
+  sidebarOpacity?: number;
+  surfaceOpacity?: number;
+  selectionOpacity?: number;
+  borderOpacity?: number;
 }
 
 // ── Theme Preset ─────────────────────────────────────────────
@@ -228,9 +240,15 @@ export const DEFAULT_RADIUS: Required<RadiusTokens> = {
   lg: '12px',
 };
 
-export const DEFAULT_GLASS_EFFECT: ThemeGlassEffect = {
+export const DEFAULT_GLASS_EFFECT: Required<ThemeGlassEffect> = {
   enabled: false,
   opacity: 0.78,
+  blurRadius: 24,
+  windowsMaterial: 'acrylic',
+  sidebarOpacity: 0.08,
+  surfaceOpacity: 0.18,
+  selectionOpacity: 0.08,
+  borderOpacity: 0.18,
 };
 
 /** Default colour tokens matching globals.css .dark values. */

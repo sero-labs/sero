@@ -14,8 +14,7 @@ import type {
   RadiusTokens,
   ThemeGlassEffect,
 } from '@/types/theme';
-import { Slider } from '@sero-ai/ui/components/ui/slider';
-import { Switch } from '@sero-ai/ui/components/ui/switch';
+import { GlassControls } from './GlassControls';
 import { SliderRow } from './SliderRow';
 
 interface LayoutTabProps {
@@ -40,46 +39,7 @@ export function LayoutTab({
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="flex flex-col gap-3">
-        <div>
-          <h3 className="text-xs font-semibold text-[var(--text-primary)]">
-            Desktop glass
-          </h3>
-          <p className="mt-0.5 text-sm text-[var(--text-muted)]">
-            Show the desktop through the window and sidebars. Dialogs and
-            controls stay opaque.
-          </p>
-        </div>
-        <ToggleRow
-          label="Glass background"
-          checked={glass.enabled}
-          onCheckedChange={(enabled) => onGlassChange({ enabled })}
-        />
-        <div className={glass.enabled ? '' : 'pointer-events-none opacity-50'}>
-          <div className="flex items-center gap-3">
-            <span className="w-20 shrink-0 text-xs text-[var(--text-secondary)]">
-              Theme tint
-            </span>
-            <Slider
-              aria-label="Theme tint"
-              min={0}
-              max={100}
-              step={1}
-              value={[Math.round(glass.opacity * 100)]}
-              onValueChange={([value]) =>
-                onGlassChange({ opacity: value / 100 })
-              }
-              className="flex-1"
-            />
-            <span className="w-10 text-right text-xs tabular-nums text-[var(--text-primary)]">
-              {Math.round(glass.opacity * 100)}%
-            </span>
-          </div>
-          <p className="ml-23 mt-1 text-xs text-[var(--text-muted)]">
-            0% is clear. 100% uses the solid theme background.
-          </p>
-        </div>
-      </section>
+      <GlassControls glass={glass} onChange={onGlassChange} />
 
       {/* Spacing */}
       <section className="flex flex-col gap-3">
@@ -126,28 +86,6 @@ export function LayoutTab({
         <RadiusPreview base={radiusMd} />
       </section>
     </div>
-  );
-}
-
-function ToggleRow({
-  label,
-  checked,
-  onCheckedChange,
-}: {
-  label: string;
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-}) {
-  return (
-    <label className="flex items-center justify-between gap-3">
-      <span className="text-xs text-[var(--text-secondary)]">{label}</span>
-      <Switch
-        size="sm"
-        checked={checked}
-        onCheckedChange={onCheckedChange}
-        aria-label={label}
-      />
-    </label>
   );
 }
 

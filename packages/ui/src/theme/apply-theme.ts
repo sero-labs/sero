@@ -1,5 +1,6 @@
 import {
   DEFAULT_GLASS_EFFECT,
+  WINDOWS_GLASS_MATERIALS,
   type ColorTokens,
   type ThemeGlassEffect,
   type ThemePreset,
@@ -97,6 +98,8 @@ function applyGlassEffect(
   root.classList.toggle('theme-glass', enabled);
   root.style.removeProperty('--window-glass-opaque-base');
   root.style.removeProperty('--window-glass-sidebar');
+  root.style.removeProperty('--window-glass-opaque-surface');
+  root.style.removeProperty('--window-glass-opaque-elevated');
   if (!enabled) return;
 
   const opacity = Math.min(1, Math.max(0, glass.opacity));
@@ -104,9 +107,18 @@ function applyGlassEffect(
   root.style.setProperty('--bg-base', tint(colors.bgBase, percentage));
   root.style.setProperty(
     '--window-glass-sidebar',
-    tint(colors.bgSurface, percentage),
+    tint(colors.bgSurface, (glass.sidebarOpacity ?? DEFAULT_GLASS_EFFECT.sidebarOpacity) * 100),
   );
   root.style.setProperty('--window-glass-opaque-base', colors.bgBase);
+  root.style.setProperty('--window-glass-opaque-surface', colors.bgSurface);
+  root.style.setProperty('--window-glass-opaque-elevated', colors.bgElevated);
+  // Thin local layers preserve the wallpaper while separating nested content.
+  root.style.setProperty('--bg-surface', tint(colors.bgSurface, (glass.surfaceOpacity ?? DEFAULT_GLASS_EFFECT.surfaceOpacity) * 100));
+  root.style.setProperty('--bg-elevated', tint(colors.textPrimary, (glass.selectionOpacity ?? DEFAULT_GLASS_EFFECT.selectionOpacity) * 100));
+  root.style.setProperty('--text-muted', colors.textSecondary);
+  const border = (glass.borderOpacity ?? DEFAULT_GLASS_EFFECT.borderOpacity) * 100;
+  root.style.setProperty('--border-subtle', tint(colors.textPrimary, border * 2 / 3));
+  root.style.setProperty('--border-default', tint(colors.textPrimary, border));
 }
 
 // ── Apply / Reset ────────────────────────────────────────────
@@ -169,6 +181,8 @@ const ALL_MANAGED_VARS = [
   '--radius',
   '--window-glass-opaque-base',
   '--window-glass-sidebar',
+  '--window-glass-opaque-surface',
+  '--window-glass-opaque-elevated',
 ];
 
 /** Remove all inline theme overrides, reverting to CSS defaults. */
@@ -254,15 +268,19 @@ function sanitiseGlass(raw: unknown): ThemeGlassEffect | undefined {
   const value = raw as Record<string, unknown>;
   if (typeof value.enabled !== 'boolean') return undefined;
 
-  const opacity =
-    typeof value.opacity === 'number'
-      ? Math.min(1, Math.max(0, value.opacity))
-      : DEFAULT_GLASS_EFFECT.opacity;
-
-  return {
-    enabled: value.enabled,
-    opacity,
-  };
+  const result = { ...DEFAULT_GLASS_EFFECT, enabled: value.enabled };
+  for (const key of ['opacity', 'sidebarOpacity', 'surfaceOpacity', 'selectionOpacity', 'borderOpacity'] as const) {
+    const amount = value[key];
+    if (typeof amount === 'number' && Number.isFinite(amount)) {
+      result[key] = Math.min(1, Math.max(0, amount));
+    }
+  }
+  if (typeof value.blurRadius === 'number' && Number.isFinite(value.blurRadius)) {
+    result.blurRadius = Math.round(Math.min(64, Math.max(0, value.blurRadius)));
+  }
+  result.windowsMaterial = WINDOWS_GLASS_MATERIALS.find((material) => material === value.windowsMaterial)
+    ?? DEFAULT_GLASS_EFFECT.windowsMaterial;
+  return result;
 }
 
 /** Validate and normalise an unknown value into a ThemePreset. */

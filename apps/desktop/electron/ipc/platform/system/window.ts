@@ -1,7 +1,9 @@
+import { release } from 'node:os';
 import { BrowserWindow, ipcMain, nativeTheme } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
 import { CHROME_BAR_HEIGHT } from '@electron/chrome';
-import type { ThemeGlassEffect, ThemeMode } from '@/types/theme';
+import { setMacWindowBlur } from '@electron/platform/window/macos-glass';
+import { DEFAULT_GLASS_EFFECT, WINDOWS_GLASS_MATERIALS, type ThemeGlassEffect, type ThemeMode } from '@/types/theme';
 
 function windowOf(event: Electron.IpcMainInvokeEvent): BrowserWindow | null {
   return BrowserWindow.fromWebContents(event.sender);
@@ -47,23 +49,39 @@ export function registerWindowHandlers(): void {
 
   ipcMain.handle(
     IpcChannels.window.setGlassEffect,
-    (event, effect: ThemeGlassEffect, appearance: ThemeMode) => {
+    (event, effect: ThemeGlassEffect, appearance: ThemeMode): string | null => {
       if (
         typeof effect?.enabled !== 'boolean' ||
         typeof effect?.opacity !== 'number' ||
         !['light', 'dark', 'system'].includes(appearance)
       ) {
-        return;
+        return 'Invalid glass settings.';
       }
 
       const win = windowOf(event);
-      if (!win) return;
+      if (!win) return 'The window is not available.';
 
-      nativeTheme.themeSource = appearance;
-      if (process.platform === 'darwin') {
-        win.setVibrancy(effect.enabled ? 'under-window' : null);
-      } else if (process.platform === 'win32') {
-        win.setBackgroundMaterial(effect.enabled ? 'acrylic' : 'none');
+      try {
+        nativeTheme.themeSource = appearance;
+        if (process.platform === 'darwin') {
+          win.setVibrancy(null);
+          const radius = typeof effect.blurRadius === 'number' && Number.isFinite(effect.blurRadius)
+            ? Math.round(Math.max(0, Math.min(64, effect.blurRadius)))
+            : DEFAULT_GLASS_EFFECT.blurRadius;
+          setMacWindowBlur(win, effect.enabled ? radius : 0);
+        } else if (process.platform === 'win32') {
+          if (effect.enabled && Number(release().split('.')[2]) < 22621) {
+            return 'Desktop glass requires Windows 11 22H2 or later. Sero uses solid backgrounds.';
+          }
+          const material = WINDOWS_GLASS_MATERIALS.find((candidate) => candidate === effect.windowsMaterial)
+            ?? DEFAULT_GLASS_EFFECT.windowsMaterial;
+          win.setBackgroundMaterial(effect.enabled ? material : 'none');
+        } else if (effect.enabled) {
+          return 'Desktop blur is not available on this Linux compositor. Sero uses solid backgrounds.';
+        }
+        return null;
+      } catch (error) {
+        return error instanceof Error ? error.message : 'Desktop blur is not available.';
       }
     },
   );
