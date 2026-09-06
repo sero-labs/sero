@@ -32,7 +32,7 @@
 
 - [ ] 5.1 Implement intake: idea plus folder, folder creation, `git init`, workspace registration through the new bridge, then the grant; verify an e2e test creates a project from a folder and lands in `discovery` after approval
 - [x] 5.2 Implement discovery and charter: the research action running `host.subagents.runStructured` with a question and stopping condition and attaching the result, then brief, milestones, escalation policy, autonomy setting defaulting to `milestones`, cost cap required, user approval gate; verify tests show a research result on the record before the next wake, refuse a charter without a cap, and hold the phase without approval
-- [ ] 5.3 Implement decisions and parking: shape validation, parked milestones, no timeout or default, forced escalations for charter change, external delivery and over-cap spend, answer with note waking the owner first; verify tests cover each forced escalation and an independent milestone continuing while another is parked
+- [x] 5.3 Implement decisions and parking: shape validation, parked milestones, no timeout or default, forced escalations for charter change, external delivery and over-cap spend, answer with note waking the owner first; verify tests cover each forced escalation and an independent milestone continuing while another is parked
 - [x] 5.4 Implement directives and replies with the reply required before the wake ends; verify a test shows a directive during a running Workflow produces a reply and leaves the Workflow running
 - [x] 5.5 Implement budget accounting from owner turns, subagent runs and linked index usage, the `limited` overlay, and raise-to-resume; verify tests cover cap reached mid-run with the Workflow continuing and cap raised clearing the overlay
 
@@ -40,7 +40,7 @@
 
 - [x] 6.1 Implement the dispatch action: the runtime creates and activates the Workflow or Room through the typed registry handles from task 2.4, links the id to the milestone, and applies the completion-is-a-claim rule that moves a milestone to `verifying`; verify a test drives a dispatched Workflow to complete and observes `verifying`, not `done`, and that the owner session never held a Workflow or Room tool
 - [x] 6.2 Implement the verification gate as runtime-run evidence: commands through host verification with exit codes and output, diff summary from git for file changes, dev-server smoke check and capture for preview milestones through the path chosen in task 2.5, each item stamped with the checked commit, and the four states reported, verified, accepted and delivered kept distinct; verify tests refuse a done request with each missing item and with a non-zero exit code, mark evidence stale after a file change and rerun it, and show a receipt without verification leaving the milestone in `verifying`
-- [ ] 6.3 Implement release through the existing PR or workspace-files delivery with external destinations forced to a decision; verify a test shows an external destination raises a decision before any send
+- [x] 6.3 Implement release through the existing PR or workspace-files delivery with external destinations forced to a decision; verify a test shows an external destination raises a decision before any send
 - [ ] 6.4 Implement maintain: a maintenance Workflow subscribed to GitHub issue, CI-failed and scheduled sources whose completions wake the owner to triage; verify an e2e test on the built Electron main files an issue and observes a triage wake and a dispatch or decision
 
 ## 7. Production UI

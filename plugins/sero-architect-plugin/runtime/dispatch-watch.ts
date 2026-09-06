@@ -11,7 +11,7 @@ import path from 'node:path';
 
 import type { OrchestratorBoardLoopView, OrchestratorBoardRoomView } from '@sero-ai/common';
 
-import { charge, settle } from '../shared/lifecycle';
+import { advancePhase, charge, settle } from '../shared/lifecycle';
 import type { Milestone, ProjectRecord } from '../shared/record';
 import type { WakeEvent, WakeKind } from '../shared/wake';
 import type { ArchitectHost } from './host';
@@ -22,6 +22,22 @@ export const ORCHESTRATOR_STATE_DIR = path.join('.sero', 'apps', 'orchestrator')
 export function orchestratorIndexFiles(workspacePath: string): { loops: string; rooms: string } {
   const dir = path.join(workspacePath, ORCHESTRATOR_STATE_DIR);
   return { loops: path.join(dir, 'index.json'), rooms: path.join(dir, 'rooms', 'index.json') };
+}
+
+/** The per-loop run index, where delivery receipts appear. */
+export function loopRunsIndexFile(workspacePath: string, loopId: string): string {
+  return path.join(workspacePath, ORCHESTRATOR_STATE_DIR, 'loops', loopId, 'runs', 'index.json');
+}
+
+interface RunView {
+  id: string;
+  status: string;
+  delivery?: { destination: string; ref: string; summary: string; deliveredAt: string };
+}
+
+function runsOf(state: unknown): RunView[] {
+  const runs = (state as { runs?: unknown } | null)?.runs;
+  return Array.isArray(runs) ? (runs as RunView[]) : [];
 }
 
 interface Seen {
@@ -69,9 +85,13 @@ function loopTransition(record: ProjectRecord, milestone: Milestone, loop: LoopV
   const pending = loop.pendingInput ?? 0;
   const scheduled = (loop.schedules?.length ?? 0) > 0;
   const label = `milestone ${milestone.id} (Workflow ${loop.id} "${loop.title}")`;
-  if (scheduled && seen && loop.lastRunAt && loop.lastRunAt !== seen.lastRunAt) {
+  // A loop that keeps running on events or a schedule reports each run through
+  // `lastRunAt`; the maintenance Workflow is one, and its completion never
+  // moves its milestone.
+  if ((scheduled || milestone.id === 'maintenance') && seen && loop.lastRunAt && loop.lastRunAt !== seen.lastRunAt) {
     return { kind: 'external-event', item: `${label} ran on an event at ${loop.lastRunAt}`, reported: false };
   }
+  if (milestone.id === 'maintenance') return null;
   if (loop.status === 'complete' && seen?.status !== 'complete' && milestone.status !== 'done') {
     return { kind: 'dispatch-complete', item: `${label} reported completion; it is a claim until evidence passes`, reported: true };
   }
@@ -104,12 +124,56 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
   const seen = new Map<string, Seen>();
   let queue: Promise<void> = Promise.resolve();
 
+  const runSubscriptions = new Map<string, () => void>();
+
+  /**
+   * A receipt proves the artifact exists at the destination and nothing more:
+   * an accepted milestone becomes delivered, any other keeps its state and
+   * shows the receipt as delivery evidence only. A delivered release moves the
+   * project to maintain.
+   */
+  const applyRuns = async (projectId: string, loopId: string, runs: RunView[]): Promise<void> => {
+    const record = await store.read(projectId);
+    if (!record) return;
+    const milestone = record.milestones.find((m) => m.dispatch?.kind === 'workflow' && m.dispatch.id === loopId);
+    const receipt = runs.map((run) => run.delivery).find((delivery) => delivery !== undefined);
+    if (!milestone || !receipt || milestone.receipt === receipt.ref) return;
+    const now = host.now();
+    const delivered = milestone.verification === 'accepted' || milestone.verification === 'delivered';
+    const updated: Milestone = { ...milestone, receipt: receipt.ref, verification: delivered ? 'delivered' : milestone.verification };
+    let next = settle({ ...record, milestones: record.milestones.map((m) => (m.id === milestone.id ? updated : m)) }, now);
+    const items = [`milestone ${milestone.id} has a delivery receipt at ${receipt.ref}${delivered ? '' : ', but it is not verified and accepted, so it stays verifying'}`];
+    if (delivered && next.phase === 'release') {
+      const advanced = advancePhase({ ...next, stateLine: 'Released. Maintaining.' }, 'maintain', now, `release delivered at ${receipt.ref}`);
+      if (advanced.ok) {
+        next = advanced.record;
+        items.push('the release is delivered; maintain starts');
+      }
+    }
+    await store.write(next);
+    deps.wake(projectId, { kind: 'dispatch-complete', at: now, items });
+  };
+
+  const followRuns = (projectId: string, workspacePath: string, loopId: string): void => {
+    const key = `${projectId}:${loopId}`;
+    if (runSubscriptions.has(key)) return;
+    const file = loopRunsIndexFile(workspacePath, loopId);
+    runSubscriptions.set(key, host.onStateChange(file, (state) => enqueue(() => applyRuns(projectId, loopId, runsOf(state)))));
+    enqueue(async () => applyRuns(projectId, loopId, runsOf(await host.readJson(file))));
+  };
+
   const apply = async (projectId: string, loops: LoopView[] | null, rooms: RoomView[] | null): Promise<void> => {
     const record = await store.read(projectId);
     if (!record) return;
     const now = host.now();
     let next = record;
     const wakes: Transition[] = [];
+    const workspacePath = workspacePaths.get(projectId);
+    for (const milestone of record.milestones) {
+      if (milestone.dispatch?.kind === 'workflow' && milestone.dispatch.destination && workspacePath) {
+        followRuns(projectId, workspacePath, milestone.dispatch.id);
+      }
+    }
     for (const milestone of record.milestones) {
       const dispatch = milestone.dispatch;
       if (!dispatch) continue;
@@ -148,6 +212,7 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
       host.log(`dispatch watch failed: ${error instanceof Error ? error.message : String(error)}`);
     });
   };
+  const workspacePaths = new Map<string, string>();
 
   return {
     async track(record) {
@@ -158,6 +223,7 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
         return;
       }
       const files = orchestratorIndexFiles(workspace.path);
+      workspacePaths.set(record.id, workspace.path);
       subscriptions.set(record.id, [
         host.onStateChange(files.loops, (state) => enqueue(() => apply(record.id, loopsOf(state), null))),
         host.onStateChange(files.rooms, (state) => enqueue(() => apply(record.id, null, roomsOf(state)))),
@@ -170,6 +236,13 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
     untrack(projectId) {
       for (const off of subscriptions.get(projectId) ?? []) off();
       subscriptions.delete(projectId);
+      for (const [key, off] of runSubscriptions) {
+        if (key.startsWith(`${projectId}:`)) {
+          off();
+          runSubscriptions.delete(key);
+        }
+      }
+      workspacePaths.delete(projectId);
     },
     flush: () => queue,
     dispose() {

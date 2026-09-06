@@ -13,6 +13,7 @@ import { Type } from 'typebox';
 import { resolveArchitectRuntime } from '../runtime/registry';
 import { AUTONOMY_SETTINGS } from '../shared/charter-shape';
 import {
+  DISPATCH_DESTINATIONS,
   DISPATCH_KINDS,
   EVIDENCE_RESERVED_KEYS,
   OWNER_ACTIONS,
@@ -50,6 +51,8 @@ export const OwnerToolParams = Type.Object({
   stoppingCondition: Type.Optional(Type.String({ description: 'research: when the researcher should stop' })),
   kind: Type.Optional(StringEnum(DISPATCH_KINDS, { description: 'dispatch: workflow or room' })),
   prompt: Type.Optional(Type.String({ description: 'dispatch: the Workflow prompt or the Room mandate' })),
+  destination: Type.Optional(StringEnum(DISPATCH_DESTINATIONS, { description: 'dispatch, release only: where the run delivers. pr or workspace-files run directly; an external destination becomes a decision for the user' })),
+  maxCostUsd: Type.Optional(Type.Number({ description: 'dispatch: what the run may spend; more than the remaining budget becomes a decision for the user' })),
   commandsJson: Type.Optional(Type.String({ description: 'evidence: JSON array of commands for the runtime to run, e.g. ["pnpm test"]' })),
   route: Type.Optional(Type.String({ description: 'evidence: the route to open for a preview milestone' })),
   directiveId: Type.Optional(Type.String({ description: 'reply: the directive id from the contract' })),
@@ -79,6 +82,8 @@ export interface OwnerToolParamsShape {
   stoppingCondition?: string;
   kind?: (typeof DISPATCH_KINDS)[number];
   prompt?: string;
+  destination?: (typeof DISPATCH_DESTINATIONS)[number];
+  maxCostUsd?: number;
   commandsJson?: string;
   route?: string;
   directiveId?: string;
@@ -133,6 +138,8 @@ export function buildOwnerActionInput(params: OwnerToolParamsShape): OwnerAction
     stoppingCondition: params.stoppingCondition,
     kind: params.kind,
     prompt: params.prompt,
+    destination: params.destination,
+    maxCostUsd: params.maxCostUsd,
     commands,
     route: params.route,
     directiveId: params.directiveId,

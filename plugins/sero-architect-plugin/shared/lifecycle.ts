@@ -136,5 +136,6 @@ export function mayWakeForWork(record: ProjectRecord): boolean {
 
 /** Is a new dispatch allowed? Any overlay stops new work. */
 export function mayDispatch(record: ProjectRecord): boolean {
-  return record.phase === 'build' || record.phase === 'maintain' ? deriveOverlay(record) === null : false;
+  const working = record.phase === 'build' || record.phase === 'release' || record.phase === 'maintain';
+  return working ? deriveOverlay(record) === null : false;
 }

@@ -16,6 +16,7 @@ async function setup(recordOverrides = {}) {
     dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1' })),
     evidence: vi.fn(async () => undefined),
     evidenceIsStale: vi.fn(async () => false),
+    maintenance: vi.fn(async (record) => record),
   };
   const record = buildingProject(recordOverrides);
   await store.write(record);
@@ -123,8 +124,43 @@ describe('owner actions', () => {
     const { actions, store, services } = await setup(buildingProject({ milestones: [milestone('m1', { status: 'approved' })] }));
     const outcome = await actions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm1', kind: 'workflow', prompt: 'Build the grid' });
     expect(outcome.ok).toBe(true);
-    expect(services.dispatch).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: 'm1' }), { kind: 'workflow', prompt: 'Build the grid' });
+    expect(services.dispatch).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: 'm1' }), { kind: 'workflow', prompt: 'Build the grid', destination: null, maxCostUsd: null });
     expect((await store.read('proj_1'))?.milestones[0]).toMatchObject({ status: 'running', dispatch: { kind: 'workflow', id: 'loop_9', workspaceId: 'ws-1' } });
+  });
+
+  it('turns an external delivery into a decision before anything is sent', async () => {
+    const { actions, store, services, outcomes } = await setup(buildingProject({ phase: 'release', milestones: [milestone('m1', { status: 'approved' })] }));
+    const outcome = await actions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm1', kind: 'workflow', prompt: 'Announce it', destination: 'chat-post' });
+    expect(outcome.ok).toBe(true);
+    expect(outcome.text).toContain('decision dec_1');
+    expect(services.dispatch).not.toHaveBeenCalled();
+    const record = await store.read('proj_1');
+    expect(record?.milestones[0]?.status).toBe('approved');
+    expect(record?.decisions[0]).toMatchObject({ reason: 'chat-post is an external destination', proposal: { kind: 'dispatch', destination: 'chat-post', milestoneId: 'm1' } });
+    expect(outcomes.end('proj_1')).toBe('decide');
+  });
+
+  it('runs a release to a pull request directly', async () => {
+    const { actions, services } = await setup(buildingProject({ phase: 'release', milestones: [milestone('m1', { status: 'approved' })] }));
+    const outcome = await actions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm1', kind: 'workflow', prompt: 'Open the release PR', destination: 'pr' });
+    expect(outcome.ok).toBe(true);
+    expect(services.dispatch).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({ destination: 'pr' }));
+  });
+
+  it('turns a run that would spend beyond the cap into a decision', async () => {
+    const { actions, store, services } = await setup(buildingProject({ milestones: [milestone('m1', { status: 'approved' })], budget: { capUsd: 40, spentUsd: 35, sources: { owner: 5, research: 0, dispatched: 30 } } }));
+    const outcome = await actions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm1', kind: 'workflow', prompt: 'Big job', maxCostUsd: 20 });
+    expect(outcome.text).toContain('decision dec_1');
+    expect(services.dispatch).not.toHaveBeenCalled();
+    expect((await store.read('proj_1'))?.decisions[0]).toMatchObject({ reason: 'the run would spend beyond the approved cap', proposal: { kind: 'cap', capUsd: 55 } });
+  });
+
+  it('moves the project to release when the last milestone is accepted', async () => {
+    const passed = milestone('m2', { status: 'verifying', verification: 'verified', evidence: { commit: 'abc', checkedAt: T0, commands: [{ command: 'pnpm test', exitCode: 0, output: 'ok', durationMs: 1 }], diffSummary: null, preview: null, passed: true, stale: false } });
+    const { actions, store } = await setup(buildingProject({ milestones: [milestone('m1', { status: 'done', verification: 'accepted' }), passed] }));
+    const outcome = await actions.execute(owner, { action: 'milestone', projectId: 'proj_1', milestoneId: 'm2', done: true });
+    expect(outcome.text).toContain('in release');
+    expect((await store.read('proj_1'))?.phase).toBe('release');
   });
 
   it('refuses to dispatch a planned milestone under milestones autonomy', async () => {
@@ -158,7 +194,7 @@ describe('owner actions', () => {
   });
 
   it('answers a directive while a Workflow runs and leaves the Workflow running', async () => {
-    const running = milestone('m1', { status: 'running', dispatch: { kind: 'workflow', id: 'loop_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0 } });
+    const running = milestone('m1', { status: 'running', dispatch: { kind: 'workflow', id: 'loop_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null } });
     const { actions, store, services } = await setup(buildingProject({ milestones: [running], directives: [{ id: 'dir_1', text: 'Keep the hex grid.', sentAt: T0, reply: null }] }));
     const outcome = await actions.execute(owner, { action: 'reply', projectId: 'proj_1', directiveId: 'dir_1', text: 'Kept.' });
     expect(outcome.ok).toBe(true);

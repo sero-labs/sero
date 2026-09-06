@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ProjectRecord } from '../../shared/record';
 import type { WakeEvent } from '../../shared/wake';
 import { OwnerSessions } from '../owner-session';
 import { createProjectsActions } from '../projects-actions';
@@ -18,8 +19,15 @@ async function setup() {
   gate.release();
   const scheduler: WakeScheduler = createWakeScheduler({ gate, log: host.log, deliver: async (projectId, wake) => { delivered.push({ projectId, wake }); } });
   const watch = { track: vi.fn(async () => undefined), untrack: vi.fn(), flush: vi.fn(async () => undefined), dispose: vi.fn() };
-  const actions = createProjectsActions({ host, store, sessions, scheduler, watch });
-  return { host, store, sessions, scheduler, delivered, watch, actions };
+  const services = {
+    research: vi.fn(async () => ({ id: 'res_1' })),
+    dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1' })),
+    evidence: vi.fn(async () => undefined),
+    evidenceIsStale: vi.fn(async () => false),
+    maintenance: vi.fn(async (record: ProjectRecord) => record),
+  };
+  const actions = createProjectsActions({ host, store, sessions, scheduler, watch, services });
+  return { host, store, sessions, scheduler, delivered, watch, actions, services };
 }
 
 describe('project management', () => {
@@ -56,7 +64,7 @@ describe('project management', () => {
 
   it('pauses without cancelling a running dispatch, and only a directive gets through', async () => {
     const { host, store, actions, delivered } = await setup();
-    await store.write(buildingProject({ milestones: [milestone('m1', { status: 'running', dispatch: { kind: 'workflow', id: 'loop_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0 } })] }));
+    await store.write(buildingProject({ milestones: [milestone('m1', { status: 'running', dispatch: { kind: 'workflow', id: 'loop_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null } })] }));
     expect((await actions.pause('proj_1')).ok).toBe(true);
     const paused = await store.read('proj_1');
     expect(paused?.overlay).toBe('paused');
@@ -92,6 +100,19 @@ describe('project management', () => {
     expect(record?.charter).toMatchObject({ capUsd: 90, autonomy: 'charter-only', approvedAt: T0 });
     expect(record?.budget.capUsd).toBe(90);
     expect(record?.milestones.map((m) => m.title)).toEqual(['Replanned']);
+  });
+
+  it('applies an external-delivery proposal only on apply, and then the send is dispatched', async () => {
+    const { store, actions, services } = await setup();
+    const proposal = { kind: 'dispatch' as const, milestoneId: 'm1', dispatchKind: 'workflow' as const, prompt: 'Announce it', destination: 'chat-post' };
+    const decision = { id: 'dec_1', question: 'Send?', options: [{ id: 'apply', label: 'Send', consequence: 'sent' }, { id: 'keep', label: 'No', consequence: 'not sent' }], recommendation: 'apply', reason: 'external', dependsOn: [], raisedAt: T0, proposal, answer: null };
+    await store.write(buildingProject({ phase: 'release', decisions: [decision], milestones: [milestone('m1', { status: 'approved' })] }));
+    await actions.answer('proj_1', 'dec_1', 'keep');
+    expect(services.dispatch).not.toHaveBeenCalled();
+    await store.write(buildingProject({ phase: 'release', decisions: [decision], milestones: [milestone('m1', { status: 'approved' })] }));
+    await actions.answer('proj_1', 'dec_1', 'apply');
+    expect(services.dispatch).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: 'm1' }), expect.objectContaining({ destination: 'chat-post' }));
+    expect((await store.read('proj_1'))?.milestones[0]).toMatchObject({ status: 'running', dispatch: { id: 'loop_9', destination: 'chat-post' } });
   });
 
   it('approves the charter into build and a milestone plan into approved', async () => {

@@ -254,11 +254,45 @@ export interface OrchestratorBoardLoopLimits {
   maxCostUsd?: number;
 }
 
+/** Where a Workflow or Room delivers its result. Mirrors the plugin's `DeliveryDestinationId`. */
+export type OrchestratorDeliveryDestinationId =
+  | 'pr'
+  | 'workspace-files'
+  | 'saved-artifact'
+  | 'email-draft'
+  | 'email-send'
+  | 'chat-post'
+  | 'webhook-post'
+  | 'invoking-chat';
+
+/** A trigger a plugin runtime asks for at creation. Mirrors the plugin's `LoopTriggerSuggestion`. */
+export interface OrchestratorBoardTriggerSuggestion {
+  type: 'manual' | 'cron' | 'event' | 'hybrid';
+  /** 5-field cron expression, evaluated in UTC. */
+  schedule?: string;
+  /** Namespaced source id, e.g. "github:issue-opened". */
+  eventSource?: string;
+  eventFilter?: Record<string, unknown>;
+  /** Natural-language condition judged by a model call at fire time. */
+  eventCondition?: string;
+  debounceMs?: number;
+  maxFires?: number;
+}
+
+/** Delivery settings a plugin runtime may set at creation. Mirrors the plugin's `LoopDeliverySettings`. */
+export interface OrchestratorBoardDeliverySettings {
+  destination: OrchestratorDeliveryDestinationId;
+  params?: Record<string, string | number | boolean>;
+}
+
 /** Creation options a plugin runtime may pass. A subset of the plugin's own `CreateLoopOptions`. */
 export interface OrchestratorBoardCreateOptions {
   /** Activate as soon as a valid plan lands (a planner question or a validation block parks it instead). */
   activate?: boolean;
   limits?: Partial<OrchestratorBoardLoopLimits>;
+  /** Triggers to wire at creation; when set they win over the planner's own suggestions. */
+  triggers?: OrchestratorBoardTriggerSuggestion[];
+  delivery?: OrchestratorBoardDeliverySettings;
 }
 
 export type OrchestratorBoardAction =
@@ -355,15 +389,7 @@ export interface OrchestratorRoomCreateLimits {
   maxMembers?: number;
   /** The highest permission any member may hold. */
   access?: 'read-only' | 'edit-workspace' | 'edit-and-push';
-  deliveryDestination?:
-    | 'pr'
-    | 'workspace-files'
-    | 'saved-artifact'
-    | 'email-draft'
-    | 'email-send'
-    | 'chat-post'
-    | 'webhook-post'
-    | 'invoking-chat';
+  deliveryDestination?: OrchestratorDeliveryDestinationId;
 }
 
 export interface OrchestratorRoomCreateRequest {

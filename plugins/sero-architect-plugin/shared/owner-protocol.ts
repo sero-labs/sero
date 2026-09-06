@@ -11,7 +11,7 @@ export const OWNER_COMMAND_HELP = [
   '- milestone: --milestoneId <id> [--title ...] [--plan ...] [--previewRoute /path] [--done true]; omit --milestoneId with --title to add one',
   '- decide: --question "..." --optionsJson \'[{"id":"a","label":"...","consequence":"..."}]\' --recommendation <optionId> --reason "..." [--parks m1,m2]',
   '- research: --question "..." --stoppingCondition "..."',
-  '- dispatch: --milestoneId <id> --kind workflow|room --prompt "<the Workflow prompt or Room mandate>"',
+  '- dispatch: --milestoneId <id> --kind workflow|room --prompt "<the Workflow prompt or Room mandate>" [--maxCostUsd <number>] [--destination pr|workspace-files (release only)]',
   '- evidence: --milestoneId <id> --commandsJson \'["pnpm test","pnpm build"]\' [--route /]',
   '- status: --text "<one line for the user>"',
   '- reply: --directiveId <id> --text "..."',

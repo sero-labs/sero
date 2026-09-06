@@ -21,7 +21,7 @@ function record(phase: ProjectRecord['phase'], overlay: ArchitectOverlay | null)
     milestoneIds: ['m1', 'm2'], escalationPolicy: 'raise scope changes', autonomy: 'milestones' as const, capUsd: 40, proposedAt: T0, approvedAt: phase === 'charter' ? null : T0,
   };
   const milestones = charter ? [
-    { id: 'm1', title: 'Grid', status: 'running' as const, plan: 'draw it', preview: { route: '/' }, dispatch: { kind: 'workflow' as const, id: 'loop_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0 }, evidence: null, verification: null, parkedBy: null, parkedFrom: null, receipt: null },
+    { id: 'm1', title: 'Grid', status: 'running' as const, plan: 'draw it', preview: { route: '/' }, dispatch: { kind: 'workflow' as const, id: 'loop_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null }, evidence: null, verification: null, parkedBy: null, parkedFrom: null, receipt: null },
     { id: 'm2', title: 'Combat', status: overlay === 'decision' ? 'parked' as const : 'planned' as const, plan: null, preview: null, dispatch: null, evidence: null, verification: null, parkedBy: overlay === 'decision' ? 'dec_1' : null, parkedFrom: null, receipt: null },
   ] : [];
   return { ...base, ...flags, phase, overlay, charter, milestones, brief: phase === 'intake' ? null : 'A small roguelike.', directives: overlay === 'paused' ? [{ id: 'dir_1', text: 'Use TypeScript only.', sentAt: T0, reply: null }] : [] };

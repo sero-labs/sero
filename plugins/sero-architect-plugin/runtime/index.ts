@@ -6,7 +6,7 @@ import type { ProjectRecord } from '../shared/record';
 import type { WakeEvent } from '../shared/wake';
 import { createDispatchWatch, type DispatchWatch } from './dispatch-watch';
 import { createArchitectHost, type ArchitectHost } from './host';
-import { createOwnerActions, type OwnerActions } from './owner-actions';
+import { createOwnerActions, type OwnerActions, type OwnerServices } from './owner-actions';
 import { OwnerSessions } from './owner-session';
 import { createProjectsActions, type ProjectsActions } from './projects-actions';
 import { createRecordStore, type RecordStore } from './record-store';
@@ -19,7 +19,7 @@ import { createWakeScheduler, type WakeScheduler } from './wake-scheduler';
 
 /** Work the owner could do now without anything running: a quiet project with this wakes once. */
 export function plannedWorkRemains(record: ProjectRecord): boolean {
-  if (record.phase !== 'build' && record.phase !== 'maintain') return false;
+  if (record.phase !== 'build' && record.phase !== 'release' && record.phase !== 'maintain') return false;
   if (record.milestones.some((m) => m.status === 'running')) return false;
   return record.milestones.some((m) =>
     m.status === 'approved'
@@ -38,6 +38,7 @@ export class ArchitectRuntime implements AppRuntime {
   private registered: ArchitectRegistryEntry | null = null;
   private watch: DispatchWatch | null = null;
   private sessions: OwnerSessions | null = null;
+  private services: OwnerServices | null = null;
   readonly gate: WakeGate = createWakeGate();
   scheduler: WakeScheduler | null = null;
   owner: OwnerActions | null = null;
@@ -64,8 +65,9 @@ export class ArchitectRuntime implements AppRuntime {
     const watch = createDispatchWatch({ host: this.host, store, wake });
     this.watch = watch;
     const services = createServices({ host: this.host, store, wake });
+    this.services = services;
     this.owner = createOwnerActions({ host: this.host, store, outcomes, services });
-    this.projects = createProjectsActions({ host: this.host, store, sessions, scheduler, watch });
+    this.projects = createProjectsActions({ host: this.host, store, sessions, scheduler, watch, services });
     this.registered = { owner: this.owner, projects: this.projects };
     registerArchitectRuntime(this.registered);
 
@@ -87,8 +89,16 @@ export class ArchitectRuntime implements AppRuntime {
     const store = this.store;
     const sessions = this.sessions;
     if (!store || !sessions) return;
-    const record = await store.read(projectId);
+    let record = await store.read(projectId);
     if (!record) return;
+    // Entering maintain subscribes the maintenance Workflow before the owner's first triage wake.
+    if (record.phase === 'maintain' && record.blockedReason === null && this.services) {
+      try {
+        record = await this.services.maintenance(record);
+      } catch (error) {
+        this.host.log(`maintenance Workflow for ${projectId} could not be created: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
     const allowed = wake.kind === 'directive' || wake.kind === 'decision' || mayWakeForWork(record);
     if (!allowed) {
       this.host.log(`project ${projectId} is ${record.overlay}; ${wake.kind} wake dropped`);

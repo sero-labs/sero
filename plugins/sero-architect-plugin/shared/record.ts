@@ -43,6 +43,8 @@ export interface MilestoneDispatch {
   dispatchedAt: string;
   /** Reported usage already charged to the project, so an index re-read never double-charges. */
   chargedUsd: number;
+  /** Where the run delivers, for a release milestone. */
+  destination: string | null;
 }
 
 export interface Milestone {
@@ -69,6 +71,11 @@ export interface DecisionOption {
   consequence: string;
 }
 
+export type DecisionProposal =
+  | { kind: 'charter'; charter: Charter; milestones: Milestone[] }
+  | { kind: 'dispatch'; milestoneId: string; dispatchKind: 'workflow' | 'room'; prompt: string; destination: string }
+  | { kind: 'cap'; capUsd: number };
+
 export interface Decision {
   id: string;
   question: string;
@@ -79,7 +86,7 @@ export interface Decision {
   dependsOn: string[];
   raisedAt: string;
   /** A forced escalation carries what it proposes, applied only when the user picks `apply`. */
-  proposal: { kind: 'charter'; charter: Charter; milestones: Milestone[] } | null;
+  proposal: DecisionProposal | null;
   answer: { optionId: string; note: string | null; answeredAt: string } | null;
 }
 

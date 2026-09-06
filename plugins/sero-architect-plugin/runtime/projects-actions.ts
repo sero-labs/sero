@@ -9,7 +9,10 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { advancePhase, approveCharter, block, pause, resume, setAutonomy, setCap, settle, unblock } from '../shared/lifecycle';
-import { createProjectRecord, toIndexEntry, type AutonomySetting, type Milestone, type ProjectRecord } from '../shared/record';
+import { createProjectRecord, toIndexEntry, type AutonomySetting, type DecisionProposal, type Milestone, type ProjectRecord } from '../shared/record';
+import type { DispatchDestination } from '../shared/owner-actions';
+import { performDispatch } from './dispatch-link';
+import type { OwnerServices } from './owner-actions';
 import type { ArchitectIndexEntry } from '../shared/types';
 import type { ArchitectHost } from './host';
 import type { OwnerSessions } from './owner-session';
@@ -25,6 +28,7 @@ export interface ProjectsActionsDeps {
   sessions: OwnerSessions;
   scheduler: WakeScheduler;
   watch: DispatchWatch;
+  services: OwnerServices;
 }
 
 export type ProjectsOutcome = { ok: true; text: string; projectId?: string } | { ok: false; text: string };
@@ -52,7 +56,7 @@ function expandHome(folder: string): string {
 }
 
 /** Applies a charter-change proposal the user accepted. Their acceptance is the approval. */
-function applyCharterProposal(record: ProjectRecord, proposal: NonNullable<ProjectRecord['decisions'][number]['proposal']>, now: string): ProjectRecord {
+function applyCharterProposal(record: ProjectRecord, proposal: Extract<DecisionProposal, { kind: 'charter' }>, now: string): ProjectRecord {
   const charter = { ...proposal.charter, approvedAt: now };
   return {
     ...record,
@@ -64,7 +68,28 @@ function applyCharterProposal(record: ProjectRecord, proposal: NonNullable<Proje
 }
 
 export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsActions {
-  const { host, store, sessions, scheduler, watch } = deps;
+  const { host, store, sessions, scheduler, watch, services } = deps;
+
+  /** What the user's `apply` means for each forced escalation. Nothing here runs on `keep`. */
+  const applyProposal = async (record: ProjectRecord, proposal: DecisionProposal, now: string): Promise<ProjectRecord> => {
+    switch (proposal.kind) {
+      case 'charter':
+        return applyCharterProposal(record, proposal, now);
+      case 'cap': {
+        const raised = setCap(record, proposal.capUsd, now);
+        return raised.ok ? raised.record : record;
+      }
+      case 'dispatch': {
+        const milestone = record.milestones.find((m) => m.id === proposal.milestoneId);
+        if (!milestone || milestone.status === 'running' || milestone.status === 'done') return record;
+        await store.write(record);
+        const { record: dispatched } = await performDispatch(store, services, record, milestone, {
+          kind: proposal.dispatchKind, prompt: proposal.prompt, destination: proposal.destination as DispatchDestination, maxCostUsd: null,
+        }, now);
+        return dispatched;
+      }
+    }
+  };
 
   const read = async (projectId: string): Promise<ProjectRecord | null> => store.read(projectId);
 
@@ -200,7 +225,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
           m.parkedBy === decisionId ? { ...m, status: m.parkedFrom ?? 'planned', parkedBy: null, parkedFrom: null } : m,
         ),
       };
-      if (decision.proposal && optionId === 'apply') next = applyCharterProposal(next, decision.proposal, now);
+      if (decision.proposal && optionId === 'apply') next = await applyProposal(next, decision.proposal, now);
       next = settle(next, now);
       next = { ...next, history: [...next.history, { at: now, phase: next.phase, overlay: next.overlay, cause: `decision ${decisionId} answered: ${optionId}` }] };
       await store.write(next);

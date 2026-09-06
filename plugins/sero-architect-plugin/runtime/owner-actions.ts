@@ -12,12 +12,15 @@ import { parseDecision, toDecision } from '../shared/decision-shape';
 import { advancePhase, block, mayDispatch, mayWakeForWork, settle } from '../shared/lifecycle';
 import {
   EVIDENCE_RESERVED_KEYS,
+  EXTERNAL_DESTINATIONS,
+  type DispatchDestination,
   type DispatchKind,
   type OwnerActionInput,
   type OwnerActionOutcome,
   type OwnerCallerSignals,
 } from '../shared/owner-actions';
 import type { Charter, Milestone, ProjectRecord } from '../shared/record';
+import { performDispatch } from './dispatch-link';
 import type { ArchitectHost } from './host';
 import type { RecordStore } from './record-store';
 import type { TurnOutcomes } from './turn-outcomes';
@@ -27,8 +30,10 @@ export interface OwnerServices {
   dispatch(
     record: ProjectRecord,
     milestone: Milestone,
-    request: { kind: DispatchKind; prompt: string },
+    request: { kind: DispatchKind; prompt: string; destination: DispatchDestination | null; maxCostUsd: number | null },
   ): Promise<{ id: string; workspaceId: string }>;
+  /** Creates the maintenance Workflow for a project entering maintain. Idempotent per project. */
+  maintenance(record: ProjectRecord): Promise<ProjectRecord>;
   evidence(record: ProjectRecord, milestone: Milestone, request: { commands: string[]; route: string | null }): Promise<void>;
   /** True when files changed since the evidence was taken. The runtime marks it stale and reruns it. */
   evidenceIsStale(record: ProjectRecord, milestone: Milestone): Promise<boolean>;
@@ -98,6 +103,19 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
 
   const unansweredDirective = (record: ProjectRecord) => record.directives.find((d) => d.reply === null);
 
+  /** Records a forced-escalation decision and ends the wake. Nothing proposed is applied. */
+  async function escalate(
+    record: ProjectRecord,
+    now: string,
+    draft: { question: string; options: { id: string; label: string; consequence: string }[]; reason: string; proposal: NonNullable<ProjectRecord['decisions'][number]['proposal']> },
+    lead: string,
+  ): Promise<OwnerActionOutcome> {
+    const decision = toDecision({ question: draft.question, options: draft.options, recommendation: 'apply', reason: draft.reason, dependsOn: [] }, host.newId('dec'), now, draft.proposal);
+    await store.write(withHistory({ ...record, decisions: [...record.decisions, decision] }, now, `decision ${decision.id} raised: ${draft.reason}`));
+    outcomes.declare(record.id, 'decide');
+    return ok(`${lead}, so it is recorded as decision ${decision.id}. Nothing was started or sent; this wake is over.`, { decisionId: decision.id });
+  }
+
   async function charter(record: ProjectRecord, input: OwnerActionInput, now: string): Promise<OwnerActionOutcome> {
     const parsed = parseCharter(input);
     if (!parsed.ok) return refuse(parsed.error);
@@ -154,7 +172,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     if (!input.milestoneId) {
       const title = input.title?.trim();
       if (!title) return refuse('A new milestone needs a title.');
-      if (record.phase !== 'build' && record.phase !== 'maintain') return refuse(`Milestones are added during build or maintain, and the project is in ${record.phase}. Propose them in the charter.`);
+      if (record.phase !== 'build' && record.phase !== 'release' && record.phase !== 'maintain') return refuse(`Milestones are added during build, release or maintain, and the project is in ${record.phase}. Propose them in the charter.`);
       const id = `m${record.milestones.length + 1}`;
       const created = toMilestone({ title, plan: input.plan?.trim() || null, previewRoute: input.previewRoute?.trim() || null }, id);
       await store.write(withHistory({ ...record, milestones: [...record.milestones, created] }, now, `milestone ${id} added`));
@@ -178,8 +196,17 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
         return refuse(`Milestone ${found.id} cannot close. Missing: ${reasons.join('; ')}. Ask for an evidence run and wait for it to pass.`);
       }
       const accepted: Milestone = { ...found, status: 'done', verification: 'accepted' };
-      await store.write(withHistory(replace(record, accepted), now, `milestone ${found.id} accepted on passed evidence`));
-      return ok(`Milestone ${found.id} is done: accepted on evidence checked at ${found.evidence?.commit ?? 'unknown commit'}.`);
+      let next = withHistory(replace(record, accepted), now, `milestone ${found.id} accepted on passed evidence`);
+      let note = '';
+      if (next.phase === 'build' && next.milestones.every((m) => m.status === 'done')) {
+        const released = advancePhase({ ...next, stateLine: 'Every milestone is done. Preparing the release.' }, 'release', now, 'every milestone accepted; release starts');
+        if (released.ok) {
+          next = released.record;
+          note = ' Every milestone is done, so the project is in release: add a release milestone and dispatch it with a destination (pr or workspace-files).';
+        }
+      }
+      await store.write(next);
+      return ok(`Milestone ${found.id} is done: accepted on evidence checked at ${found.evidence?.commit ?? 'unknown commit'}.${note}`);
     }
     const updated: Milestone = {
       ...found,
@@ -245,16 +272,39 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     if (found.status === 'planned' && record.autonomy === 'milestones') {
       return refuse(`Milestone ${found.id} needs the user's approval of its plan first (autonomy is "milestones"). Write the plan and call sleep.`);
     }
-    const link = await services.dispatch(record, found, { kind: input.kind, prompt });
-    const running: Milestone = {
-      ...found,
-      status: 'running',
-      verification: null,
-      dispatch: { kind: input.kind, id: link.id, workspaceId: link.workspaceId, dispatchedAt: now, chargedUsd: 0 },
-    };
-    await store.write(withHistory(replace(record, running), now, `milestone ${found.id} dispatched as ${input.kind} ${link.id}`));
-    return ok(`Milestone ${found.id} is running as ${input.kind} ${link.id}. You are woken when it completes, blocks or asks a question; call sleep.`, {
-      milestoneId: found.id, dispatchKind: input.kind, dispatchId: link.id,
+    const destination = input.destination ?? null;
+    if (destination && record.phase !== 'release' && record.phase !== 'maintain') {
+      return refuse(`A delivery destination belongs to a release; the project is in ${record.phase}.`);
+    }
+    const remaining = record.budget.capUsd === null ? null : record.budget.capUsd - record.budget.spentUsd;
+    const maxCostUsd = input.maxCostUsd ?? null;
+    // Two forced escalations, checked here whatever the autonomy setting says.
+    if (destination && (EXTERNAL_DESTINATIONS as readonly string[]).includes(destination)) {
+      return escalate(record, now, {
+        question: `Deliver milestone ${found.id} "${found.title}" to ${destination}? That sends outside Sero.`,
+        options: [
+          { id: 'apply', label: `Send to ${destination}`, consequence: `A ${input.kind} runs and delivers the result to ${destination}.` },
+          { id: 'keep', label: 'Do not send', consequence: 'Nothing is sent; the owner must choose an internal destination such as pr.' },
+        ],
+        reason: `${destination} is an external destination`,
+        proposal: { kind: 'dispatch', milestoneId: found.id, dispatchKind: input.kind, prompt, destination },
+      }, `Sending to ${destination} needs the user's decision`);
+    }
+    if (maxCostUsd !== null && remaining !== null && maxCostUsd > remaining) {
+      const capUsd = Math.ceil(record.budget.spentUsd + maxCostUsd);
+      return escalate(record, now, {
+        question: `Milestone ${found.id} asks for $${maxCostUsd}, but only $${remaining.toFixed(2)} of the $${record.budget.capUsd} cap remains. Raise the cap to $${capUsd}?`,
+        options: [
+          { id: 'apply', label: `Raise the cap to $${capUsd}`, consequence: `The cap becomes $${capUsd}; the owner may then dispatch the run.` },
+          { id: 'keep', label: 'Keep the cap', consequence: 'The owner must plan the run within the remaining budget.' },
+        ],
+        reason: 'the run would spend beyond the approved cap',
+        proposal: { kind: 'cap', capUsd },
+      }, 'Spending beyond the cap needs the user\'s decision');
+    }
+    const { milestone: running } = await performDispatch(store, services, record, found, { kind: input.kind, prompt, destination, maxCostUsd }, now);
+    return ok(`Milestone ${found.id} is running as ${input.kind} ${running.dispatch?.id ?? ''}${destination ? `, delivering to ${destination}` : ''}. You are woken when it completes, blocks or asks a question; call sleep.`, {
+      milestoneId: found.id, dispatchKind: input.kind, dispatchId: running.dispatch?.id ?? '',
     });
   }
 

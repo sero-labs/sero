@@ -11,6 +11,7 @@ import { createOrchestratorRoom, requestOrchestratorAction, type AppRuntimeSubag
 
 import { charge, settle } from '../shared/lifecycle';
 import type { EvidenceCommand, EvidenceRecord, Milestone, ProjectRecord, ResearchResult } from '../shared/record';
+import { MAINTENANCE_MILESTONE_ID, MAINTENANCE_TRIGGERS, maintenancePrompt } from '../shared/maintenance';
 import type { WakeEvent } from '../shared/wake';
 import type { ArchitectHost } from './host';
 import type { OwnerServices } from './owner-actions';
@@ -179,23 +180,58 @@ export function createServices(deps: ServicesDeps): OwnerServices {
 
     async dispatch(record, milestone, request) {
       if (!record.workspaceId) throw new Error('The project has no workspace to dispatch into.');
-      const maxCostUsd = remainingUsd(record);
+      const remaining = remainingUsd(record);
+      // Never more than the project has left; the owner may ask for less.
+      const maxCostUsd = request.maxCostUsd === null ? remaining : remaining === undefined ? request.maxCostUsd : Math.min(request.maxCostUsd, remaining);
+      const limits = maxCostUsd === undefined ? {} : { maxCostUsd };
       if (request.kind === 'workflow') {
         const result = await requestOrchestratorAction(record.workspaceId, {
           kind: 'create',
           prompt: request.prompt,
           title: milestone.title,
-          options: { activate: true, limits: maxCostUsd === undefined ? {} : { maxCostUsd } },
+          options: { activate: true, limits, ...(request.destination ? { delivery: { destination: request.destination } } : {}) },
         });
         if (!result.ok || !result.loopId) throw new Error(result.error ?? 'The Workflow was not created.');
         return { id: result.loopId, workspaceId: record.workspaceId };
       }
       const result = await createOrchestratorRoom(record.workspaceId, {
         mandate: request.prompt,
-        limits: { ...(maxCostUsd === undefined ? {} : { maxCostUsd }), access: 'edit-workspace', deliveryDestination: 'workspace-files' },
+        limits: { ...limits, access: 'edit-workspace', deliveryDestination: request.destination ?? 'workspace-files' },
       });
       if (!result.ok) throw new Error(result.error);
       return { id: result.roomId, workspaceId: record.workspaceId };
+    },
+
+    async maintenance(record) {
+      if (!record.workspaceId) throw new Error('The project has no workspace.');
+      if (record.milestones.some((m) => m.id === MAINTENANCE_MILESTONE_ID)) return record;
+      const remaining = remainingUsd(record);
+      const result = await requestOrchestratorAction(record.workspaceId, {
+        kind: 'create',
+        prompt: maintenancePrompt(record),
+        title: `${record.name}: maintenance`,
+        options: { activate: true, limits: remaining === undefined ? {} : { maxCostUsd: remaining }, triggers: [...MAINTENANCE_TRIGGERS] },
+      });
+      if (!result.ok || !result.loopId) throw new Error(result.error ?? 'The maintenance Workflow was not created.');
+      const now = host.now();
+      const milestone: Milestone = {
+        id: MAINTENANCE_MILESTONE_ID,
+        title: 'Maintenance: triage issues, CI failures and the weekly review',
+        status: 'running',
+        plan: 'A Workflow subscribed to GitHub issues, CI failures and a weekly schedule. Each run wakes the owner to triage.',
+        preview: null,
+        dispatch: { kind: 'workflow', id: result.loopId, workspaceId: record.workspaceId, dispatchedAt: now, chargedUsd: 0, destination: null },
+        evidence: null,
+        verification: null,
+        parkedBy: null,
+        parkedFrom: null,
+        receipt: null,
+      };
+      const fresh = (await store.read(record.id)) ?? record;
+      const settled = settle({ ...fresh, milestones: [...fresh.milestones, milestone] }, now);
+      const next: ProjectRecord = { ...settled, history: [...settled.history, { at: now, phase: settled.phase, overlay: settled.overlay, cause: `maintenance Workflow ${result.loopId} subscribed` }] };
+      await store.write(next);
+      return next;
     },
 
     evidenceIsStale: (record, milestone) => evidenceIsStale(host, record, milestone),
