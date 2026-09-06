@@ -44,16 +44,24 @@ The owner SHALL end each wake by calling one of the Architect tools that declare
 - **WHEN** the owner's turn ends with visible text and no outcome tool call
 - **THEN** the runtime records no progress and does not wake the owner again for that event
 
-### Requirement: Owner tools are the only record writers from the session
-The owner SHALL change the project record only through the Architect tool actions: brief, charter, milestone, decide, dispatch, evidence, status, reply, blocked, and sleep. Each action MUST carry the project id, and a call for a project the calling session does not own MUST be refused. The owner dispatches work only through the existing bridged Orchestrator and Rooms tools and the subagent tool.
+### Requirement: The owner acts only through the Architect tool
+The owner session's grant SHALL name only the platform tools and the `sero-cli` bridge, and the session's command surface SHALL hold only the Architect app's own commands plus the managed-session defaults. The owner SHALL change the project record, start research, dispatch work and request verification only through the Architect tool actions: brief, charter, milestone, decide, research, dispatch, evidence, status, reply, blocked, and sleep. Each action MUST carry the project id, and a call for a project the calling session does not own MUST be refused. The runtime MUST perform research through the subagent seam, dispatch through the typed Orchestrator and Room registry handles, and verification through the host verification, dev-server and git seams. The owner MUST NOT hold a Workflow, Room or subagent tool of its own.
 
 #### Scenario: Foreign project id
 - **WHEN** an owner session calls a record action with another project's id
 - **THEN** the call is refused and the record is unchanged
 
 #### Scenario: Dispatch links the milestone
-- **WHEN** the owner creates and activates a Workflow and then records the dispatch for a milestone
-- **THEN** the milestone status becomes `running` and the Workflow id is linked
+- **WHEN** the owner calls dispatch for a milestone with a Workflow prompt
+- **THEN** the runtime creates and activates the Workflow in the project workspace, the milestone status becomes `running`, and the Workflow id is linked
+
+#### Scenario: Owner command surface
+- **WHEN** the owner session opens and logs its command list
+- **THEN** the list holds the Architect commands, `workspace` and `pwd`, and no command from another app
+
+#### Scenario: Research runs from the runtime
+- **WHEN** the owner calls research with a question and a stopping condition
+- **THEN** the runtime runs a structured subagent with them and the result is attached to the record before the owner is woken again
 
 ### Requirement: Session history is readable but not shown by default
 The user SHALL be able to open the owner session's history from the project page. The project page MUST NOT stream the transcript or show it by default.

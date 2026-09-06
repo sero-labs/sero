@@ -12,13 +12,28 @@ the current tree:
   `OrchestratorCoordinatorHandle` in `@sero-ai/common` (narrow board action
   set: activate, run_next, run_again, retry, retry_step, answer_input,
   choose_suggestion, fire_event), and the watched index files
-  `.sero/apps/orchestrator/index.json` and `rooms/index.json`.
+  `.sero/apps/orchestrator/index.json` and `rooms/index.json`. The
+  coordinator registry behind the handle lives on `globalThis` in Electron
+  main, where every plugin runtime runs. The coordinator's own
+  `requestAction` already handles `create`; only the exported board action
+  view leaves it out. The Room coordinator registry sits on the same global
+  under a `:rooms` suffix but is typed only inside the plugin.
 - The `goal` tool acts only on the calling session, so Goals cannot be
   dispatched to another session.
 - Host-managed persistent sessions are gated by an exact-path allowlist with
   one entry (`orchestrator`) plus a per-grant user approval of a clamped
   proposal. The turn contract is: prompt, receive a `turnId`, wait for
   `turn_end` with that id.
+- A managed session loads only the grant-owning app's package plus the
+  built-in search plugin, into a private CLI registry
+  (`persistent-sessions/wiring.ts`). The shared surface is never bridged into
+  it: other plugins' commands, `sero app`, workspace control, and the
+  `subagent` tool, which sits behind `enableAgentManagementTools: false`. A
+  Room member reaches its Room only through the Orchestrator app's own
+  bridged commands. So an Architect owner session can reach the `architect`
+  app's commands, the platform tools its grant allows, and search, and
+  nothing from Orchestrator, Graphify, Design Library or the subagent
+  manager, whatever the grant proposal names.
 - `host.subagents.runStructured` is ungated, with `customTools`, `agent`,
   `model`, `appendSystemPrompt`, and per-run usage. Pool limits default to 8
   total and 4 concurrent.
@@ -64,8 +79,10 @@ the current tree:
   done without mechanical evidence.
 - A surface that shows state and required input, and nothing else by
   default.
-- Reuse every existing primitive through its existing seam; add exactly two
-  small host capabilities.
+- Reuse every existing primitive through its existing seam; add two small
+  host capabilities and widen one typed contract.
+- Keep reported, verified, accepted and delivered as four separate states,
+  so no lower state ever stands in for a higher one.
 
 **Non-Goals:**
 - A second permission, approval, tool-policy or sandbox layer. Architect
@@ -96,9 +113,15 @@ against the "simple, separate surface" requirement.
 
 Chosen: one host-managed persistent session per project, created from an
 approved grant that names the project workspace, the models, and the tools the
-owner may use. The runtime does management only: persistence, wake scheduling,
-budget, the verification gate, the attention index. The owner does the
-thinking and dispatching by calling bridged tools from its own turns.
+owner may use. The owner does the thinking: it reads the workspace, writes the
+brief and the plans, raises decisions, and asks for work through the
+`architect` tool. The runtime does everything that touches the world outside
+the workspace files: persistence, wake scheduling, budget, the verification
+gate, the attention index, and the mechanical execution of every dispatch,
+research and verification request the owner makes. This split is forced by
+the managed-session wiring (see Context): the owner cannot reach the
+`orchestrator`, `rooms` or `subagent` tools from its session, so the runtime
+must act for it through the runtime-side seams.
 
 The record is authoritative. On every wake the runtime sends a contract
 message built from the record (idea, brief, phase, open decisions, open
@@ -126,16 +149,39 @@ during a turn is queued and coalesced, the way Room `duePasses` work.
 
 ### D4. Owner tools
 
-The owner session's grant lists: `sero-cli` (which bridges `orchestrator`,
-`rooms`, `git_manager`, `devserver`, `browser`, `app`, `memory`,
-`graphify_*`, `design_library_*`, `usage`), `subagent`, `read`, `bash`,
-`write`, `edit`, and the new bridged `architect` tool. The `architect` tool
-is the only writer of the project record from inside the session and offers:
-`brief`, `charter`, `milestone`, `decide` (raise a decision), `dispatch`
-(link a Workflow or Room id to a milestone), `evidence` (attach verification
-evidence to a milestone), `status` (set the one-line state), `reply` (answer
-a directive), `sleep` (end the wake explicitly). Ending a wake is an explicit
-`sleep`, `decide` or `blocked` call, never silence, on the Goal rule.
+The owner session's grant lists `read`, `bash`, `write`, `edit` and
+`sero-cli`, which in a managed session carries only the `architect` app's own
+bridged commands plus `workspace` and `pwd`; search arrives with every
+managed session. The grant names nothing else because nothing else is
+reachable: the wiring loads only the grant-owning app and search into a
+private CLI registry, so `orchestrator`, `rooms`, `subagent`, `graphify_*`,
+`design_library_*` and `sero app` are absent from an owner session whatever
+a proposal says. Memory stays available because it is auto-injected, not
+bridged.
+
+The `architect` tool is the owner's only way to act outside the workspace
+files and the only writer of the project record from inside the session. Its
+actions, and what the runtime does for each:
+
+- `brief`, `charter`, `milestone`, `decide` (raise a decision), `status`
+  (set the one-line state), `reply` (answer a directive), `blocked`, `sleep`
+  (end the wake explicitly): record writes.
+- `research`: the owner gives a question, a stopping condition and the
+  workspace; the runtime runs `host.subagents.runStructured` with them and
+  attaches the structured result to the record. Parallel questions are
+  parallel calls, bounded by the subagent pool.
+- `dispatch`: the owner gives a milestone id and either a Workflow prompt or
+  a Room mandate; the runtime creates and activates the Workflow or Room in
+  the project workspace through the typed dispatch handle (D10), links the
+  id to the milestone and sets it `running`. The owner never receives a
+  loop or room handle of its own.
+- `evidence`: the owner names the commands to run and, for a preview
+  milestone, the route to open; the runtime runs them itself (D7) and
+  records what it observed. The owner cannot attach an exit code, a capture
+  or a diff summary directly, so a claim cannot be dressed as evidence.
+
+Ending a wake is an explicit `sleep`, `decide` or `blocked` call, never
+silence, on the Goal rule.
 
 A separate management surface, the `architect_projects` tool and the UI
 actions, serves the user: create, pause, resume, stop, raise budget, answer
@@ -153,8 +199,8 @@ overlays: decision (parked), blocked, paused, limited (budget)
 
 - intake: the user gives the idea and a folder; Architect creates the folder,
   initialises git and registers the workspace, then opens the owner session.
-- discovery: the owner researches with subagents or a Room and writes the
-  brief.
+- discovery: the owner researches through `research` runs or a Room and
+  writes the brief.
 - charter: milestones, escalation policy, cost cap. Requires user approval.
   Any later change to the charter is a decision.
 - build: one Workflow or Room per milestone. The owner writes each
@@ -183,14 +229,36 @@ forced escalations the runtime checks mechanically.
 
 ### D7. Verification gate
 
-A milestone moves to done only when the owner attaches evidence that the
-runtime can check: at least one command run with exit code through
-`host.verification.runCommands` or the workspace runtime, and, where the
-milestone declares a preview, a dev-server smoke check and one capture. The
-runtime refuses `milestone done` without them and returns the missing item to
-the owner, on the delivery-contract three-layer precedent: prompt contract,
-in-session repair, engine backstop. The dispatched Workflow's own completion
-signal is a claim to the Architect, not a verdict.
+A milestone passes through four states that never substitute for one
+another:
+
+- reported: the dispatched Workflow or Room signalled completion. This is a
+  claim to the Architect, not a verdict. It moves the milestone to
+  `verifying` and wakes the owner.
+- verified: the runtime ran the milestone's evidence itself and every item
+  passed: at least one command with exit code and captured output through
+  `host.verification.runCommands` or the workspace runtime, a diff summary
+  from `host.git` when files changed, and, where the milestone declares a
+  preview, a dev-server smoke check through `host.devServers.startManaged`
+  and one capture.
+- accepted: the owner reviewed the verified evidence against the milestone
+  plan and closed the milestone with `milestone done`. The runtime refuses
+  the call while any evidence item is missing or failed and names the
+  missing item, on the delivery-contract three-layer precedent: prompt
+  contract, in-session repair, engine backstop.
+- delivered: a release receipt was observed for the accepted artifact
+  through the existing delivery path. A receipt proves the artifact exists
+  at the destination; it never proves the behaviour, so it cannot stand in
+  for verified or accepted.
+
+The runtime produces the evidence; the owner only names what to run. The
+capture comes from a verifier `runStructured` run whose tools include the
+CLI browser screenshot, and the runtime refuses the evidence when the capture
+tool never ran, the subagent-image pattern. Whether a subagent run reaches
+the CLI browser tools is checked in phase 1; if it does not, the capture is
+required from the dispatched Workflow's own verification step instead.
+Evidence recorded before a later change to the milestone's files is stale:
+the runtime compares the checked commit with the current one and reruns.
 
 ### D8. Budget
 
@@ -226,6 +294,16 @@ preferences persist through `layout.json`.
   Architect-specific bridge, which keeps to the plugin skill's rule against
   plugin-specific preload or IPC. Graphify's `workspace.create.option` still
   fires after creation.
+- Dispatch handle: the Architect runtime creates Workflows and Rooms through
+  the typed coordinator registry in `@sero-ai/common`, never through session
+  tools. Add `create` to `OrchestratorBoardAction`, carrying prompt, title and
+  options and returning the new loop id in the result; the coordinator's
+  `requestAction` already implements it, so the change is the exported view
+  and the board adapter that narrows to it. Type the Room registry entry the
+  same way with a `create` action carrying the mandate and returning the room
+  id. No new IPC and no new capability: the registry is already on
+  `globalThis` in Electron main, where the Architect runtime runs, and the
+  Room's per-grant approval still happens on creation.
 
 ### D11. Naming and docs
 
@@ -245,6 +323,13 @@ plan-mode are removed from the catalog's recommended list.
   Workflow completion signal is treated as a claim; three-layer contract.
 - [Session driver conflicts] → the owner session is never a target of an
   active-session Workflow step; the grant names only the owner's own session.
+- [Owner reaches for tools it does not have] → the grant lists only what the
+  wiring bridges; the contract message names the `architect` actions as the
+  only way to act; the phase-1 e2e test asserts the owner's logged command
+  list holds `architect`, `workspace` and `pwd` and nothing from another app.
+- [Capture seam absent for subagent runs] → checked in phase 1 before the
+  gate is built; the fallback (capture from the dispatched Workflow's own
+  verification step) changes no record format.
 - [Persistent session for a workspace registered seconds earlier] → intake
   waits for the `sero:workspace:changed` push before requesting the grant;
   verify in phase 1.
@@ -265,6 +350,6 @@ the roguelike spec verbatim.
 ## Open Questions
 
 - Which model tier the owner defaults to, and whether discovery uses a Room or
-  parallel subagents by default. Both are charter settings and do not change
-  the specs.
+  parallel `research` runs by default. Both are charter settings and do not
+  change the specs.
 - Whether the widget opts into remote (`remote: true`) in the first release.

@@ -19,9 +19,11 @@ decision-maker rather than the operator.
   history. Stored under `<SERO_HOME>/apps/architect/` with a watched index.
 - A persistent **Owner session** per project (host-managed persistent session,
   the Room Conductor pattern lifted one level). It is woken by events, never
-  polled, restated its contract from the record on every wake and after
-  compaction, and dispatches work through the existing bridged `orchestrator`,
-  `rooms` and `subagent` tools.
+  polled, and restated its contract from the record on every wake and after
+  compaction. It thinks in its session and acts only through the `architect`
+  tool; the Architect runtime performs each dispatch, research and
+  verification request over runtime-side seams, because a managed session
+  cannot reach another plugin's tools or the subagent manager.
 - A **lifecycle**: intake, discovery, charter, build, release, maintain, with
   decision, blocked, paused and over-budget as overlays.
 - **Decisions** as first-class records: question, options, recommendation,
@@ -30,10 +32,12 @@ decision-maker rather than the operator.
   delivery and spend beyond budget always escalate. Default autonomy: the user
   approves the charter and each milestone plan; the owner decides alone inside
   a milestone.
-- A **verification gate**: a milestone closes only with recorded evidence
-  (commands and exit codes, dev-server smoke check, capture or screenshot,
-  diff summary). A summary or claim is never accepted as completion. Reaching
-  a limit is never completion.
+- A **verification gate**: a milestone closes only with evidence the runtime
+  produced itself (commands and exit codes, dev-server smoke check, capture
+  or screenshot, diff summary). Reported, verified, accepted and delivered
+  are four separate states and a lower one never stands in for a higher one.
+  A summary or claim is never accepted as completion. Reaching a limit is
+  never completion.
 - **Project budget**: a cost cap proposed in the charter and approved by the
   user, enforced by the Architect runtime from per-run usage. Reaching it
   stops the project until the user raises it.
@@ -46,6 +50,10 @@ decision-maker rather than the operator.
 - **Host changes**: add `architect` to the persistent-session built-in
   allowlist, and add workspace creation to the typed plugin bridge so intake
   can create the project folder and workspace.
+- **Contract widening**: the typed Orchestrator coordinator registry in
+  `@sero-ai/common` gains a `create` action for Workflows, which the
+  coordinator already implements, and a typed Room entry with `create`, so
+  the Architect runtime can dispatch without session tools.
 - **Deprecations**: the external kanban and plan-mode plugins are not built
   on; Architect and the host Agent Board supersede them.
 
@@ -68,6 +76,9 @@ decision-maker rather than the operator.
   plugin bridge.
 - `persistent-session-allowlist`: the `architect` app added to the
   built-in persistent-session gate.
+- `orchestrator-dispatch-handle`: Workflow and Room creation exposed on the
+  typed coordinator registry so a plugin runtime in Electron main can
+  dispatch work.
 
 ### Modified Capabilities
 - none
@@ -81,9 +92,12 @@ decision-maker rather than the operator.
 - `packages/common` app-runtime and `packages/app-runtime` bridge types, the
   preload and the main-process handler for workspace creation (all four layers
   together per `AGENTS.md`).
+- `packages/common/src/orchestrator-contract.ts` and the orchestrator
+  plugin's registry and board adapter: `create` on the board action view and
+  a typed Room registry entry, plus tests.
 - Reads `.sero/apps/orchestrator/index.json` and `rooms/index.json` through
-  the app-state watch seam; writes to Orchestrator only through its bridged
-  tools and the typed `OrchestratorCoordinatorHandle`.
+  the app-state watch seam; writes to Orchestrator only through the typed
+  coordinator and Room registry handles from the Architect runtime.
 - Docs: new guide and reference pages under `apps/docs-site/docs/`, and the
   Orchestrator mode table gains one line: Workflow plans a task, Room staffs
   a task, Goal finishes a task, Architect owns the product.

@@ -5,7 +5,7 @@ The project record is the single durable source of truth for one Sero Architect 
 ## ADDED Requirements
 
 ### Requirement: One durable record per project
-The system SHALL keep one project record per Architect project under the active profile, with a watched index that lists every project. The record MUST contain the user's idea verbatim, the Architect's brief, the linked workspace, the phase, the milestones, the decisions, the directives, the dispatch ledger, the budget and usage, and a history of transitions with their causes. The record MUST be JSON-serialisable.
+The system SHALL keep one project record per Architect project under the active profile, with a watched index that lists every project. The record MUST contain the user's idea verbatim, the Architect's brief, the linked workspace, the phase, the milestones, the decisions, the directives, the research results, the dispatch ledger, the budget and usage, and a history of transitions with their causes. The record MUST be JSON-serialisable.
 
 #### Scenario: Idea kept verbatim
 - **WHEN** the user submits an idea at intake
