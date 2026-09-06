@@ -3,6 +3,8 @@ import { subagentManager } from '@electron/features/subagent/singleton';
 import { getSubagentToolCatalog, warmSubagentToolCatalog } from '@electron/features/subagent/runtime/tool-catalog';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { listWorkspaceAccessRoots } from '@electron/features/workspace/access-roots';
+import { assertWorkspaceCreateDeclared, createWorkspaceForApp } from '@electron/features/workspace/create-for-app';
+import { workspaceCreateDeps } from '@electron/ipc/workspace/workspace';
 import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import { appControlHostService } from '@electron/features/apps/app-control/host-service';
 import { focusMainWindow } from '@electron/platform/desktop/notifications';
@@ -86,7 +88,7 @@ async function runtimeFromServerId(serverId: string) {
   return runtimeManager.getRuntime(workspaceId);
 }
 
-export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost {
+export function createAppRuntimeHost(target: AppRuntimeTarget): AppRuntimeHost {
   // `persistentSessions` is deliberately NOT set here. It is installed by the
   // manager after the built-in gate runs (AD-029), so a runtime that is not a
   // permitted bundled plugin simply has no such property — declaring the
@@ -151,6 +153,17 @@ export function createAppRuntimeHost(_target: AppRuntimeTarget): AppRuntimeHost 
       list: async () => {
         const workspaces = await workspaceManager.list();
         return workspaces.map((ws) => ({ id: ws.id, name: ws.name, path: ws.path, open: ws.open }));
+      },
+      create: async (name, parentPath, options) => {
+        assertWorkspaceCreateDeclared(target.manifest);
+        // A runtime has no Add Workspace menu, so the default-on creation
+        // options are the user's standing choice and always apply.
+        const ws = await createWorkspaceForApp(workspaceCreateDeps, {
+          name,
+          parentPath,
+          options: { ...options, applyAppDefaults: true },
+        });
+        return { id: ws.id, name: ws.name, path: ws.path, open: ws.open };
       },
     },
     verification: {

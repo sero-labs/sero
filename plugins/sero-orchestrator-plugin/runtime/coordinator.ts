@@ -247,9 +247,9 @@ export class Coordinator {
     // Activate-after-create only when a valid plan landed (no pending question,
     // no validation block).
     if (options?.activate && !loop.runtime.pendingInput && !loop.runtime.block) {
-      return this.activateLoop(loop.id);
+      return { ...(await this.activateLoop(loop.id)), loopId: loop.id };
     }
-    return { ok: true, loop };
+    return { ok: true, loop, loopId: loop.id };
   }
 
   /**

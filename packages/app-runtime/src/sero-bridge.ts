@@ -102,6 +102,28 @@ export interface SeroContextPresetsBridge {
   save(presets: ContextPreset[]): Promise<void>;
 }
 
+export interface SeroWorkspaceCreateOptions {
+  requireEmpty?: boolean;
+  /** Run the default-on `workspace.create.option` contributions in the host after creation. */
+  applyAppDefaults?: boolean;
+}
+
+export interface SeroWorkspaceInfo {
+  id: string;
+  name: string;
+  path: string;
+  open: boolean;
+}
+
+export interface SeroWorkspaceBridge {
+  /**
+   * Create and register a workspace. The parent folder must be under the user's
+   * home directory; the host applies the same guard as the Add Workspace menu.
+   * Declare `appRuntime.workspaceCreate` in `requiredHostCapabilities`.
+   */
+  create(name: string, parentPath?: string, options?: SeroWorkspaceCreateOptions): Promise<SeroWorkspaceInfo>;
+}
+
 export interface SeroBridge {
   appState: SeroWindowAppStateBridge;
   appAgent: SeroAppAgentBridge;
@@ -111,6 +133,8 @@ export interface SeroBridge {
   models?: SeroModelsBridge;
   subagentContext?: SeroSubagentContextBridge;
   contextPresets?: SeroContextPresetsBridge;
+  /** Absent on hosts that predate `appRuntime.workspaceCreate`. */
+  workspace?: SeroWorkspaceBridge;
 }
 
 function readWindowSero(value: Window): unknown {

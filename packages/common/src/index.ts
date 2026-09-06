@@ -90,6 +90,7 @@ export type {
   AppRuntimeWorkspaceRuntimeCapabilityAuditEntry,
   AppRuntimeWorkspaceRuntimeResolution,
   AppRuntimeWorkspaceInfo,
+  AppRuntimeWorkspaceCreateOptions,
   AppRuntimeWorkspaceApi,
   AppRuntimeVerificationDetectOptions,
   AppRuntimeVerificationCommandResult,
@@ -337,7 +338,11 @@ export {
   ORCHESTRATOR_INDEX_FILE,
   ORCHESTRATOR_ROOM_INDEX_FILE,
   ORCHESTRATOR_REGISTRY_GLOBAL_KEY,
+  ORCHESTRATOR_ROOM_REGISTRY_GLOBAL_KEY,
   getOrchestratorRegistry,
+  getOrchestratorRoomRegistry,
+  requestOrchestratorAction,
+  createOrchestratorRoom,
 } from './orchestrator-contract';
 export type {
   OrchestratorLoopStatus,
@@ -362,8 +367,15 @@ export type {
   OrchestratorBoardEventView,
   OrchestratorBoardAction,
   OrchestratorBoardActionResult,
+  OrchestratorBoardCreateOptions,
+  OrchestratorBoardLoopLimits,
   OrchestratorCoordinatorHandle,
   OrchestratorRegistryEntryView,
+  OrchestratorRoomCreateLimits,
+  OrchestratorRoomCreateRequest,
+  OrchestratorRoomCreateResult,
+  OrchestratorRoomHandle,
+  OrchestratorRoomRegistryEntryView,
 } from './orchestrator-contract';
 
 export type {

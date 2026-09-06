@@ -25,10 +25,14 @@ import {
 
 /** The bundled directory name the allowlist maps `orchestrator` to. */
 const BUNDLED_DIR = 'sero-orchestrator-plugin';
+/** The bundled directory name the allowlist maps `architect` to. */
+const ARCHITECT_DIR = 'sero-architect-plugin';
 
 let bundledRoot = '';
 let bundled = '';
 let otherBuiltin = '';
+let architectBundled = '';
+let architectCopy = '';
 let nestedUnderBundled = '';
 let settingsPackagesCopy = '';
 let devSessionCopy = '';
@@ -47,6 +51,10 @@ beforeAll(async () => {
   otherBuiltin = path.join(bundledRoot, 'sero-git-plugin');
   await mkdir(nestedUnderBundled, { recursive: true });
   await mkdir(otherBuiltin, { recursive: true });
+  architectBundled = path.join(bundledRoot, ARCHITECT_DIR);
+  architectCopy = path.join(tmp, 'dev-sessions', 'session-2', ARCHITECT_DIR);
+  await mkdir(architectBundled, { recursive: true });
+  await mkdir(architectCopy, { recursive: true });
 
   // Same directory name, different parent — the two non-installed discovery
   // sources that `isInstalledPluginPackagePath()` alone would not catch.
@@ -60,7 +68,7 @@ beforeAll(async () => {
   await symlink(bundled, linkToBundled);
   await symlink(settingsPackagesCopy, linkToImposter);
 
-  defaultDiscovery = [bundled, otherBuiltin];
+  defaultDiscovery = [bundled, otherBuiltin, architectBundled];
   discovery.paths = defaultDiscovery;
 });
 
@@ -77,6 +85,14 @@ describe('evaluateBuiltinGate', () => {
   it('allows the bundled plugin at its canonical path', () => {
     expect(gate('orchestrator', bundled)).toBe('allowed');
     expect(isPersistentSessionBuiltin({ appId: 'orchestrator', packagePath: bundled })).toBe(true);
+  });
+
+  it('allows the bundled Architect plugin and denies a copy of it elsewhere', () => {
+    expect(gate('architect', architectBundled)).toBe('allowed');
+    expect(gate('architect', architectCopy)).toBe('package-path-mismatch');
+    // The two allowlisted ids do not vouch for each other's directory.
+    expect(gate('architect', bundled)).toBe('package-path-mismatch');
+    expect(gate('orchestrator', architectBundled)).toBe('package-path-mismatch');
   });
 
   it('allows a symlink whose target is the bundled path', () => {

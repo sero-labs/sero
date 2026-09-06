@@ -36,6 +36,7 @@ import { workspaceManager } from '@electron/features/workspace/manager';
 import { ensureInfra } from '@electron/shared/infra/shared-infra';
 import { syncAppSessionModel } from '@electron/ipc/agent/core/app-agent-session-model-sync';
 import { invokeAppSessionTool } from './app-agent-tools';
+import type { AppToolResult } from '@sero-ai/common';
 
 // ── App Session Pool ─────────────────────────────────────────
 
@@ -171,6 +172,17 @@ async function getOrCreateAppSession(
   return session;
 }
 
+/** Invoke an app-local tool from the main process (the IPC handler's own path). */
+export async function invokeAppTool(
+  appId: string,
+  workspaceId: string,
+  toolName: string,
+  params: Record<string, unknown> = {},
+): Promise<AppToolResult> {
+  const session = await getOrCreateAppSession(appId, workspaceId);
+  return invokeAppSessionTool(session, toolName, params);
+}
+
 export function getAppAgentSessions(): AgentSession[] {
   return [...appPool.values()].map((entry) => entry.session);
 }
@@ -290,8 +302,7 @@ export function registerAppAgentHandlers(): void {
       toolName: string,
       params: Record<string, unknown> = {},
     ) => {
-      const session = await getOrCreateAppSession(appId, workspaceId);
-      return invokeAppSessionTool(session, toolName, params);
+      return invokeAppTool(appId, workspaceId, toolName, params);
     },
   );
 

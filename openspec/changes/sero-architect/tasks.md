@@ -6,11 +6,11 @@
 
 ## 2. Host seams
 
-- [ ] 2.1 Add `architect: 'sero-architect-plugin'` to the persistent-session built-in allowlist; verify the gate tests cover the bundled path accepted and a copy at another path denied with `package-path-mismatch`
-- [ ] 2.2 Add workspace create to the app-runtime workspace API, the typed `SeroBridge`, the preload and the main-process handler together; verify a unit test proves the home-directory guard and the missing-capability refusal, and `pnpm typecheck` passes
-- [ ] 2.3 Verify by a main-process test that a workspace created through the bridge runs the `workspace.create.option` contributions and emits the workspace-changed push
-- [ ] 2.4 Add `create` to `OrchestratorBoardAction` with the loop id in the result, and type the Room registry entry with a `create` action in `@sero-ai/common`; verify tests show a Workflow created through the handle takes the same planner and limits path as the `orchestrator` tool, a Room created through the handle shows the grant prompt, and a missing coordinator fails by name
-- [ ] 2.5 Check whether a `runStructured` subagent run can reach the CLI browser screenshot tool; verify the answer and the chosen capture path (verifier run or dispatched Workflow verification step) are recorded in the pull request description before task 6.2 starts
+- [x] 2.1 Add `architect: 'sero-architect-plugin'` to the persistent-session built-in allowlist; verify the gate tests cover the bundled path accepted and a copy at another path denied with `package-path-mismatch`
+- [x] 2.2 Add workspace create to the app-runtime workspace API, the typed `SeroBridge`, the preload and the main-process handler together; verify a unit test proves the home-directory guard and the missing-capability refusal, and `pnpm typecheck` passes
+- [x] 2.3 Verify by a main-process test that a workspace created through the bridge runs the `workspace.create.option` contributions and emits the workspace-changed push
+- [x] 2.4 Add `create` to `OrchestratorBoardAction` with the loop id in the result, and type the Room registry entry with a `create` action in `@sero-ai/common`; verify tests show a Workflow created through the handle takes the same planner and limits path as the `orchestrator` tool, a Room created through the handle shows the grant prompt, and a missing coordinator fails by name
+- [x] 2.5 Check whether a `runStructured` subagent run can reach the CLI browser screenshot tool; verify the answer and the chosen capture path (verifier run or dispatched Workflow verification step) are recorded in the pull request description before task 6.2 starts
 
 ## 3. Plugin skeleton and record
 

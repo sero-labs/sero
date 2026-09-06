@@ -74,6 +74,12 @@ export interface WorkspaceInfo {
 export interface WorkspaceCreateOptions {
   /** Use a new or empty destination instead of reusing a non-empty directory. */
   requireEmpty?: boolean;
+  /**
+   * Run the `workspace.create.option` contributions that are on by default in
+   * the main process after creation. The Add Workspace menu leaves this unset
+   * because it runs the user's own selections; plugin callers with no UI set it.
+   */
+  applyAppDefaults?: boolean;
 }
 
 /**
