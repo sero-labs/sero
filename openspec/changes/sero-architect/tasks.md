@@ -1,7 +1,7 @@
 ## 1. Prototype and profile
 
-- [ ] 1.1 Build the Architect UI prototype under `apps/styleguide/public/prototypes/sero-architect/` with the states intake, discovery running, charter awaiting approval, building quietly, decision required, limited, maintain, and the projects list; link it from `PrototypeArchive.tsx`; verify it serves from the styleguide Vite URL at two viewport sizes and `pnpm --filter @sero/styleguide build` passes
-- [ ] 1.2 Screenshot every prototype state at real size into `prototypes/screenshots/sero-architect/` and get the user's sign-off on the four-part page and the decision card; verify the sign-off is recorded in the pull request description
+- [x] 1.1 Build the Architect UI prototype under `apps/styleguide/public/prototypes/sero-architect/` with the states intake, discovery running, charter awaiting approval, building quietly, decision required, limited, maintain, and the projects list; link it from `PrototypeArchive.tsx`; verify it serves from the styleguide Vite URL at two viewport sizes and `pnpm --filter @sero/styleguide build` passes
+- [x] 1.2 Screenshot every prototype state at real size into `prototypes/screenshots/sero-architect/` and get the user's sign-off on the four-part page and the decision card; verify the sign-off is recorded in the pull request description
 - [ ] 1.3 Ask the user to create a clean profile by hand and give its path; verify the path is recorded in the pull request description and the source checkout is active under Local Plugin Development in that profile
 
 ## 2. Host seams
