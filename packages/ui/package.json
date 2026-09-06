@@ -1,6 +1,6 @@
 {
   "name": "@sero-ai/ui",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Shared UI components, AI elements, and design tokens for the Sero platform",
   "type": "module",
   "sideEffects": [
