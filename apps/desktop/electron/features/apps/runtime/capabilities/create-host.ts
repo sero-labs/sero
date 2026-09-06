@@ -100,6 +100,10 @@ export function createAppRuntimeHost(target: AppRuntimeTarget): AppRuntimeHost {
       remove: (filePath) => appStateManager.remove(filePath),
       watch: (filePath) => appStateManager.watch(filePath),
       unwatch: (filePath) => appStateManager.unwatch(filePath),
+      onChange: (filePath, listener) =>
+        appStateManager.onFileChange((changedPath, data) => {
+          if (changedPath === filePath) listener(data);
+        }),
       globalDir: async (namespace) => {
         if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(namespace)) {
           throw new Error(`Invalid global app-state namespace: ${namespace}`);

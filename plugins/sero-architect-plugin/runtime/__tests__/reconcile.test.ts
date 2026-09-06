@@ -1,34 +1,11 @@
-import { mkdtemp, rm } from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createProjectRecord, type ProjectRecord } from '../../shared/record';
-import type { ArchitectIndex } from '../../shared/types';
+import { type ProjectRecord } from '../../shared/record';
 import type { ArchitectHost } from '../host';
 import { ArchitectRuntime } from '../index';
 import { createRecordStore } from '../record-store';
+import { buildingProject, cleanupHosts, fakeHost, type FakeHost } from './helpers';
 
-const dirs: string[] = [];
-afterEach(async () => {
-  await Promise.all(dirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
-});
-
-async function fakeHost(workspaceIds: string[]): Promise<ArchitectHost & { index: () => ArchitectIndex | null; logs: string[] }> {
-  const homeDir = await mkdtemp(path.join(os.tmpdir(), 'architect-runtime-'));
-  dirs.push(homeDir);
-  let index: ArchitectIndex | null = null;
-  const logs: string[] = [];
-  return {
-    homeDir: async () => homeDir,
-    indexFile: path.join(homeDir, 'state.json'),
-    updateIndex: async (updater) => { index = updater(index); },
-    listWorkspaces: async () => workspaceIds.map((id) => ({ id, name: id, path: `/repos/${id}`, open: true })),
-    now: () => '2026-09-07T08:00:00.000Z',
-    log: (message) => { logs.push(message); },
-    index: () => index,
-    logs,
-  };
-}
+afterEach(cleanupHosts);
 
 /** Writes a record straight to disk the way a previous run would have left it. */
 async function seed(host: ArchitectHost, record: ProjectRecord): Promise<void> {
@@ -36,16 +13,17 @@ async function seed(host: ArchitectHost, record: ProjectRecord): Promise<void> {
   await store.write(record);
 }
 
-function building(overrides: Partial<ProjectRecord>): ProjectRecord {
-  const base = createProjectRecord({ id: 'hollow', name: 'Hollow', idea: 'x', folder: '~/p', now: '2026-09-06T10:00:00.000Z' });
-  return { ...base, phase: 'build', workspaceId: 'ws-1', budget: { capUsd: 40, spentUsd: 0, sources: { owner: 0, research: 0, dispatched: 0 } }, ...overrides };
-}
+const overBudget = (): ProjectRecord => ({
+  ...buildingProject(),
+  // Saved before the cap was hit: usage was charged, the overlay never re-derived.
+  overlay: null,
+  budget: { capUsd: 40, spentUsd: 41, sources: { owner: 1, research: 0, dispatched: 40 } },
+});
 
 describe('restart reconciliation', () => {
   it('brings an over-budget project back limited and rebuilds the index before any wake', async () => {
-    const host = await fakeHost(['ws-1']);
-    // Saved before the cap was hit: usage was charged, the overlay never re-derived.
-    await seed(host, building({ overlay: null, budget: { capUsd: 40, spentUsd: 41, sources: { owner: 1, research: 0, dispatched: 40 } } }));
+    const host: FakeHost = await fakeHost();
+    await seed(host, overBudget());
     const runtime = new ArchitectRuntime(host, {});
 
     // A wake asked for before start must wait for reconcile, never run ahead of it.
@@ -59,28 +37,30 @@ describe('restart reconciliation', () => {
 
     expect(runtime.gate.open).toBe(true);
     expect(delivered).toHaveBeenCalledWith('limited');
-    const record = await runtime.records()?.read('hollow');
+    const record = await runtime.records()?.read('proj_1');
     expect(record?.overlay).toBe('limited');
     expect(record?.phase).toBe('build');
-    expect(host.index()?.projects).toEqual([expect.objectContaining({ id: 'hollow', overlay: 'limited', spentUsd: 41, capUsd: 40 })]);
-    expect(host.logs).toContain('project hollow comes back limited after restart');
+    expect(host.index()?.projects).toEqual([expect.objectContaining({ id: 'proj_1', overlay: 'limited', spentUsd: 41, capUsd: 40 })]);
+    expect(host.logs).toContain('project proj_1 comes back limited after restart');
+    await runtime.dispose();
   });
 
   it('holds a project whose workspace is gone instead of resuming it', async () => {
-    const host = await fakeHost([]);
-    await seed(host, building({}));
+    const host = await fakeHost({ workspaces: [] });
+    await seed(host, buildingProject());
     const runtime = new ArchitectRuntime(host, {});
     await runtime.start();
 
-    const record = await runtime.records()?.read('hollow');
+    const record = await runtime.records()?.read('proj_1');
     expect(record?.overlay).toBe('blocked');
     expect(record?.blockedReason).toContain('ws-1');
     expect(record?.history.at(-1)?.cause).toContain('not registered');
+    await runtime.dispose();
   });
 
   it('does nothing while the kill switch is set, and keeps the records', async () => {
-    const host = await fakeHost(['ws-1']);
-    await seed(host, building({ budget: { capUsd: 40, spentUsd: 41, sources: { owner: 0, research: 0, dispatched: 41 } } }));
+    const host = await fakeHost();
+    await seed(host, overBudget());
     const runtime = new ArchitectRuntime(host, { SERO_ARCHITECT: '0' });
     await runtime.start();
 
@@ -90,6 +70,7 @@ describe('restart reconciliation', () => {
     // Removing the flag and starting again reconciles from the untouched record.
     const again = new ArchitectRuntime(host, {});
     await again.start();
-    expect((await again.records()?.read('hollow'))?.overlay).toBe('limited');
+    expect((await again.records()?.read('proj_1'))?.overlay).toBe('limited');
+    await again.dispose();
   });
 });

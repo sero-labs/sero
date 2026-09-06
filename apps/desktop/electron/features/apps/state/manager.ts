@@ -65,8 +65,11 @@ export class AppStateManager {
    * Used by the kanban orchestrator to react to state changes
    * from ANY source (extension direct writes, IPC writes, etc.).
    */
-  onFileChange(listener: ChangeListener): void {
+  onFileChange(listener: ChangeListener): () => void {
     this.changeListeners.push(listener);
+    return () => {
+      this.changeListeners = this.changeListeners.filter((entry) => entry !== listener);
+    };
   }
 
   // ── Read ─────────────────────────────────────────────────

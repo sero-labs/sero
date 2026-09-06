@@ -41,6 +41,8 @@ export interface MilestoneDispatch {
   id: string;
   workspaceId: string;
   dispatchedAt: string;
+  /** Reported usage already charged to the project, so an index re-read never double-charges. */
+  chargedUsd: number;
 }
 
 export interface Milestone {
@@ -55,6 +57,8 @@ export interface Milestone {
   verification: VerificationState | null;
   /** The decision that parked this milestone, while it is open. */
   parkedBy: string | null;
+  /** The status to return to when the parking decision is answered. */
+  parkedFrom: MilestoneStatus | null;
   /** Release receipt reference once delivered. */
   receipt: string | null;
 }
@@ -71,8 +75,11 @@ export interface Decision {
   options: DecisionOption[];
   recommendation: string;
   reason: string;
+  /** Milestone ids this decision parks while open. */
   dependsOn: string[];
   raisedAt: string;
+  /** A forced escalation carries what it proposes, applied only when the user picks `apply`. */
+  proposal: { kind: 'charter'; charter: Charter; milestones: Milestone[] } | null;
   answer: { optionId: string; note: string | null; answeredAt: string } | null;
 }
 
@@ -116,10 +123,25 @@ export interface HistoryEntry {
 }
 
 export interface OwnerSessionState {
-  grantHandleId: string | null;
+  /** The host-issued grant the owner session runs under. Null until approved. */
+  grantId: string | null;
+  /** The subject inside the grant. Always `owner`; kept on the record for the CLI scope. */
+  subject: 'owner';
+  sessionId: string | null;
+  /** Absolute Pi session file. The only caller signal the owner tool trusts. */
+  sessionPath: string | null;
+  /** The tools the host actually granted, which may be fewer than proposed. */
+  grantedTools: string[] | null;
+  model: string | null;
+  thinking: string | null;
   /** Consecutive turns that ended without an outcome call. Three block the project. */
   silentTurns: number;
   lastWakeAt: string | null;
+  /** The kind of the last wake delivered, so a quiet follow-up is raised at most once. */
+  lastWakeKind: string | null;
+  turns: number;
+  /** Cumulative session cost last read from the host, so each turn charges only its delta. */
+  sessionCostUsd: number;
 }
 
 export interface ProjectRecord {
@@ -180,7 +202,20 @@ export function createProjectRecord(input: NewProjectInput): ProjectRecord {
     directives: [],
     research: [],
     history: [{ at: input.now, phase: 'intake', overlay: null, cause: 'created from the idea and folder' }],
-    session: { grantHandleId: null, silentTurns: 0, lastWakeAt: null },
+    session: {
+      grantId: null,
+      subject: 'owner',
+      sessionId: null,
+      sessionPath: null,
+      grantedTools: null,
+      model: null,
+      thinking: null,
+      silentTurns: 0,
+      lastWakeAt: null,
+      lastWakeKind: null,
+      turns: 0,
+      sessionCostUsd: 0,
+    },
     paused: false,
     blockedReason: null,
   };

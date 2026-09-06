@@ -45,7 +45,7 @@ function inBuild(): ProjectRecord {
 function decision(id: string, dependsOn: string[] = []): Decision {
   return {
     id, question: 'Which renderer?', options: [{ id: 'a', label: 'A', consequence: 'x' }, { id: 'b', label: 'B', consequence: 'y' }],
-    recommendation: 'a', reason: 'charter is silent', dependsOn, raisedAt: T1, answer: null,
+    recommendation: 'a', reason: 'charter is silent', dependsOn, raisedAt: T1, proposal: null, answer: null,
   };
 }
 
@@ -183,7 +183,7 @@ describe('autonomy and approvals', () => {
   it('counts the charter approval and pending milestone plans as needs-you', () => {
     expect(needsYouCount(inCharter())).toBe(1);
     const built = inBuild();
-    const planned = { ...built, milestones: [{ id: 'm1', title: 'Grid', status: 'planned' as const, plan: 'do it', preview: null, dispatch: null, evidence: null, verification: null, parkedBy: null, receipt: null }] };
+    const planned = { ...built, milestones: [{ id: 'm1', title: 'Grid', status: 'planned' as const, plan: 'do it', preview: null, dispatch: null, evidence: null, verification: null, parkedBy: null, parkedFrom: null, receipt: null }] };
     expect(needsYouCount(planned)).toBe(1);
     expect(needsYouCount({ ...planned, autonomy: 'charter-only' })).toBe(0);
   });

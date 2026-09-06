@@ -114,7 +114,10 @@ export async function installPersistentSessions(
     appId: target.manifest.id,
     packagePath: target.manifest.packagePath,
     workspaceId: target.workspace.id,
-    approveGrant: (proposal) => clampAndApprove(target.workspace.id, proposal),
+    // The proposal's workspace, not the runtime instance's: a profile-global
+    // runtime (the Architect) runs under the synthetic `global` workspace and
+    // proposes sessions for a real project workspace.
+    approveGrant: (proposal) => clampAndApprove(proposal.workspaceId, proposal),
     resolveModel: async (modelId): Promise<CreateAgentSessionOptions['model']> => {
       const { modelRuntime } = await ensureAiInfra();
       const model = (await modelRuntime.getAvailable())
@@ -153,7 +156,7 @@ export async function installPersistentSessions(
         // Without this the session has no `sero-cli` tool object at all, so the
         // approved `sero-cli` name matches nothing and the member cannot run a
         // single Room command (AD-020).
-        customTools: [createWorkspaceCliTool(target.workspace.id, cliScopeId, cliRegistry)],
+        customTools: [createWorkspaceCliTool(input.workspaceId, cliScopeId, cliRegistry)],
         resourceLoader: await createMemberResourceLoader({
           cwd: input.cwd,
           // The POLICY's skills, intersected with what the request asked for —
@@ -167,7 +170,7 @@ export async function installPersistentSessions(
           // instead of guessing its path; a member approved for none cannot.
           packages: [target.manifest.packagePath, ...searchPluginPackages()],
           extensionFactories: [
-            createSeroExtensionFactory(workspaceManager, target.workspace.id, cliScopeId, undefined, {
+            createSeroExtensionFactory(workspaceManager, input.workspaceId, cliScopeId, undefined, {
               // No agent-management tools: a Room member must not be able to
               // spawn agents outside the roster the user approved.
               enableAgentManagementTools: false,

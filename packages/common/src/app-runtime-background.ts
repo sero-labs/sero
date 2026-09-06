@@ -51,6 +51,14 @@ export interface AppRuntimeStateApi {
   watch(filePath: string): void;
   unwatch(filePath: string): void;
   /**
+   * Delivers every change of a WATCHED file to this runtime, from any writer.
+   * `handleStateChange` only covers the runtime's own state file; a runtime
+   * that follows another app's index (the Architect following Orchestrator
+   * loops and Rooms) subscribes here. Returns the unsubscribe function.
+   * Optional for hosts that predate it; a runtime that needs it must check.
+   */
+  onChange?(filePath: string, listener: (state: unknown) => void): () => void;
+  /**
    * Resolve (creating on first use) a profile-global app-state directory at
    * `$SERO_HOME/apps/<namespace>/`. Unlike the per-workspace `stateFilePath`,
    * this is shared across every workspace in the active profile — the home for
