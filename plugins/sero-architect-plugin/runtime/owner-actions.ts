@@ -32,10 +32,12 @@ export interface OwnerServices {
     record: ProjectRecord,
     milestone: Milestone,
     request: { kind: DispatchKind; prompt: string; destination: DispatchDestination | null; maxCostUsd: number | null },
-  ): Promise<{ id: string; workspaceId: string }>;
+  ): Promise<{ id: string; workspaceId: string; baseCommit: string }>;
   /** Creates the maintenance Workflow for a project entering maintain. Idempotent per project. */
   maintenance(record: ProjectRecord): Promise<ProjectRecord>;
   evidence(record: ProjectRecord, milestone: Milestone, request: { commands: string[]; route: string | null }): Promise<void>;
+  /** Restarts background operations that were durable before the previous process stopped. */
+  recoverPending(record: ProjectRecord): void;
   /** True when files changed since the evidence was taken. The runtime marks it stale and reruns it. */
   evidenceIsStale(record: ProjectRecord, milestone: Milestone): Promise<boolean>;
 }
@@ -69,6 +71,7 @@ export function missingEvidence(milestone: Milestone): string[] {
   if (!evidence) return ['no evidence run has happened'];
   const missing: string[] = [];
   if (evidence.stale) missing.push('the evidence is stale: files changed after it was taken, so it must be rerun');
+  if (!evidence.passed) missing.push('the evidence run did not pass');
   if (evidence.commands.length === 0) missing.push('no command was run');
   for (const command of evidence.commands) {
     if (command.exitCode !== 0) missing.push(`command "${command.command}" failed with exit code ${command.exitCode}`);
@@ -227,6 +230,13 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
         return { record: next };
       });
       if (!closed.ok) return refuse(closed.error);
+      if (closed.record.phase === 'maintain' && closed.record.overlay === null) {
+        try {
+          await services.maintenance(closed.record);
+        } catch (error) {
+          host.log(`maintenance Workflow for ${record.id} could not be created after release: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
       return ok(`Milestone ${found.id} is done: accepted on evidence checked at ${found.evidence?.commit ?? 'unknown commit'}.${note}`);
     }
     const edits = {
@@ -263,11 +273,17 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     }
     const decision = toDecision(parsed.draft, host.newId('dec'), now);
     await store.update(record.id, (fresh) => {
-      const milestones = fresh.milestones.map((m) =>
-        decision.dependsOn.includes(m.id) && m.status !== 'parked'
-          ? { ...m, status: 'parked' as const, parkedBy: decision.id, parkedFrom: m.status }
-          : m,
-      );
+      const milestones = fresh.milestones.map((m) => {
+        if (!decision.dependsOn.includes(m.id)) return m;
+        const parkedByDecisions = [...new Set([...(m.parkedByDecisions ?? (m.parkedBy ? [m.parkedBy] : [])), decision.id])];
+        return {
+          ...m,
+          status: 'parked' as const,
+          parkedBy: parkedByDecisions[0] ?? decision.id,
+          parkedByDecisions,
+          parkedFrom: m.parkedFrom ?? m.status,
+        };
+      });
       return withHistory({ ...fresh, decisions: [...fresh.decisions, decision], milestones }, now, `decision ${decision.id} raised: ${decision.question}`);
     });
     outcomes.declare(record.id, 'decide');
@@ -348,6 +364,9 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     if (commands.length === 0) return refuse('commands is required: at least one command for the runtime to run.');
     if (found.status === 'done') return refuse(`Milestone ${found.id} is already done.`);
     if (found.status === 'parked') return refuse(`Milestone ${found.id} is parked by decision ${found.parkedBy}.`);
+    if (!found.dispatch || found.status !== 'verifying' || found.verification !== 'reported') {
+      return refuse(`Milestone ${found.id} needs a linked dispatch that reported completion before evidence can run.`);
+    }
     await services.evidence(record, found, { commands, route: input.route?.trim() || found.preview?.route || null });
     return ok(`Evidence run started for milestone ${found.id}: ${commands.length} command(s)${found.preview || input.route ? ' and the preview smoke check' : ''}. You are woken with the result; call sleep.`);
   }

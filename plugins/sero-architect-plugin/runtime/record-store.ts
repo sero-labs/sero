@@ -5,10 +5,9 @@
  * Single writer: every mutation runs through one promise chain, so two wakes
  * cannot interleave a read-modify-write. Atomic: a record is written to a
  * temp file and renamed into place, so an interrupted write leaves the previous
- * complete record readable and never a partial one. Same operation: the index
- * is updated right after the record lands, inside the same queued step, and
- * only if the record write succeeded, so the index never names a record that
- * does not exist.
+ * complete record readable and never a partial one. The index is derived from
+ * those records. An index failure does not make a durable mutation look safe
+ * to retry; the next write or startup rebuild repairs it.
  */
 
 import { promises as fs } from 'node:fs';
@@ -110,6 +109,7 @@ export function createRecordStore(deps: RecordStoreDeps): RecordStore {
   const io: RecordStoreIo = { ...defaultIo, ...deps.io };
   const projectsDir = path.join(deps.homeDir, 'projects');
   let queue: Promise<unknown> = Promise.resolve();
+  let indexDirty = false;
 
   /** The single writer. Each step waits for the previous, whether it succeeded or not. */
   function enqueue<T>(step: () => Promise<T>): Promise<T> {
@@ -142,17 +142,48 @@ export function createRecordStore(deps: RecordStoreDeps): RecordStore {
     }
   }
 
-  /** Writes the record then its index row. Callers must already hold the queue. */
+  async function listRecords(): Promise<ProjectRecord[]> {
+    const names = (await io.readdir(projectsDir)).filter((name) => name.endsWith('.json'));
+    const records = await Promise.all(names.map((name) => readAt(path.join(projectsDir, name))));
+    return records.filter((record): record is ProjectRecord => record !== null);
+  }
+
+  async function rebuildIndexUnlocked(): Promise<ArchitectIndex> {
+    const rebuilt: ArchitectIndex = { version: 1, projects: (await listRecords()).map(toIndexEntry) };
+    await deps.updateIndex(() => rebuilt);
+    indexDirty = false;
+    return rebuilt;
+  }
+
+  /** A durable record is authoritative. Index failure cannot make its mutation look retryable. */
+  async function updateIndexEntry(record: ProjectRecord): Promise<void> {
+    try {
+      const entry = toIndexEntry(record);
+      await deps.updateIndex((current) => {
+        const index = normalizeIndex(current);
+        const projects = index.projects.some((p) => p.id === entry.id)
+          ? index.projects.map((p) => (p.id === entry.id ? entry : p))
+          : [...index.projects, entry];
+        return { version: 1, projects };
+      });
+      indexDirty = false;
+    } catch {
+      indexDirty = true;
+    }
+  }
+
+  /** Writes the authoritative record, then updates the derived index best-effort. */
   async function commit(record: ProjectRecord): Promise<void> {
     await writeAtomically(record);
-    const entry = toIndexEntry(record);
-    await deps.updateIndex((current) => {
-      const index = normalizeIndex(current);
-      const projects = index.projects.some((p) => p.id === entry.id)
-        ? index.projects.map((p) => (p.id === entry.id ? entry : p))
-        : [...index.projects, entry];
-      return { version: 1, projects };
-    });
+    if (indexDirty) {
+      try {
+        await rebuildIndexUnlocked();
+        return;
+      } catch {
+        indexDirty = true;
+      }
+    }
+    await updateIndexEntry(record);
   }
 
   return {
@@ -162,11 +193,7 @@ export function createRecordStore(deps: RecordStoreDeps): RecordStore {
       return readAt(recordPath(projectId));
     },
 
-    async list() {
-      const names = (await io.readdir(projectsDir)).filter((name) => name.endsWith('.json'));
-      const records = await Promise.all(names.map((name) => readAt(path.join(projectsDir, name))));
-      return records.filter((record): record is ProjectRecord => record !== null);
-    },
+    list: listRecords,
 
     write(record) {
       return enqueue(() => commit(record));
@@ -186,20 +213,20 @@ export function createRecordStore(deps: RecordStoreDeps): RecordStore {
     remove(projectId) {
       return enqueue(async () => {
         await io.unlink(recordPath(projectId)).catch(() => undefined);
-        await deps.updateIndex((current) => {
-          const index = normalizeIndex(current);
-          return { version: 1, projects: index.projects.filter((p) => p.id !== projectId) };
-        });
+        try {
+          await deps.updateIndex((current) => {
+            const index = normalizeIndex(current);
+            return { version: 1, projects: index.projects.filter((p) => p.id !== projectId) };
+          });
+          indexDirty = false;
+        } catch {
+          indexDirty = true;
+        }
       });
     },
 
     rebuildIndex() {
-      return enqueue(async () => {
-        const records = await this.list();
-        const rebuilt: ArchitectIndex = { version: 1, projects: records.map(toIndexEntry) };
-        await deps.updateIndex(() => rebuilt);
-        return rebuilt;
-      });
+      return enqueue(rebuildIndexUnlocked);
     },
   };
 }

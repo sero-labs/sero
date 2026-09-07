@@ -64,6 +64,28 @@ describe('record store', () => {
     expect(updateIndex).toHaveBeenCalledTimes(1);
   });
 
+  it('returns a durable mutation as successful when the derived index write fails', async () => {
+    const homeDir = await mkdtemp(path.join(os.tmpdir(), 'architect-store-'));
+    dirs.push(homeDir);
+    let fail = true;
+    let index: ArchitectIndex | null = null;
+    const indexEntries = (): ArchitectIndex['projects'] => index?.projects ?? [];
+    const store = createRecordStore({
+      homeDir,
+      indexFile: path.join(homeDir, 'state.json'),
+      updateIndex: async (updater) => {
+        if (fail) throw new Error('index unavailable');
+        index = updater(index);
+      },
+    });
+
+    await expect(store.write(record('a', 'durable'))).resolves.toBeUndefined();
+    expect((await store.read('a'))?.stateLine).toBe('durable');
+    fail = false;
+    await store.write(record('b'));
+    expect(indexEntries().map((project) => project.id).sort()).toEqual(['a', 'b']);
+  });
+
   it('serialises writes so the last one wins in order', async () => {
     const { store, index } = await harness();
     await Promise.all([store.write(record('a', '1')), store.write(record('a', '2')), store.write(record('b', 'x'))]);

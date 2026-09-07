@@ -123,11 +123,14 @@ export interface EvidenceLine {
 
 /** One line per evidence item, in the order the runtime ran them. */
 export function evidenceLines(evidence: EvidenceRecord): EvidenceLine[] {
-  const lines: EvidenceLine[] = evidence.commands.map((command) => ({
-    state: command.exitCode === 0 ? 'ok' : 'err',
-    check: command.command,
-    result: `exit ${command.exitCode} · ${Math.round(command.durationMs / 100) / 10}s`,
-  }));
+  const lines: EvidenceLine[] = evidence.commands.map((command) => {
+    const output = command.output.trim().slice(-400);
+    return {
+      state: command.exitCode === 0 ? 'ok' : 'err',
+      check: command.command,
+      result: `exit ${command.exitCode} · ${Math.round(command.durationMs / 100) / 10}s${output ? `\n${output}` : ''}`,
+    };
+  });
   if (evidence.diffSummary) lines.push({ state: 'ok', check: 'git diff', result: evidence.diffSummary });
   if (evidence.preview) {
     lines.push({
@@ -138,7 +141,7 @@ export function evidenceLines(evidence: EvidenceRecord): EvidenceLine[] {
     lines.push({
       state: evidence.preview.capturePath ? 'ok' : 'dim',
       check: `capture ${evidence.preview.route}`,
-      result: evidence.preview.capturePath ? '1 screenshot' : 'none',
+      result: evidence.preview.capturePath ?? 'none',
     });
   }
   return lines;

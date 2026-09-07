@@ -15,6 +15,16 @@ async function setup(record = buildingProject({ milestones: [running('workflow',
   const store = await storeFor(host);
   await store.write(record);
   const wakes: WakeEvent[] = [];
+  const loops = record.milestones.filter((item) => item.dispatch?.kind === 'workflow').map((item) => ({
+    id: item.dispatch?.id ?? '', title: item.title, status: 'active', updatedAt: T0,
+    ...(item.id === 'maintenance' ? { lastRunAt: '2026-09-08T08:00:00.000Z' } : {}),
+  }));
+  const rooms = record.milestones.filter((item) => item.dispatch?.kind === 'room').map((item) => ({
+    id: item.dispatch?.id ?? '', title: item.title, status: 'running', memberCount: 1, activeMemberCount: 1,
+    costUsd: 0, maxCostUsd: 10, startedAt: T0, updatedAt: T0, attentionCount: 0, deliveredAt: null, deliveryRef: null,
+  }));
+  host.jsonFiles[files.loops] = { version: 1, loops };
+  host.jsonFiles[files.rooms] = { schemaVersion: 1, rooms };
   const watch = createDispatchWatch({ host, store, wake: (_id, wake) => { wakes.push(wake); } });
   await watch.track(record);
   const settle = () => watch.flush();
@@ -46,17 +56,50 @@ describe('dispatch watch', () => {
     expect(wakes.map((w) => w.kind)).toEqual(['dispatch-blocked']);
   });
 
+  it('holds running work when restart cannot confirm its dispatch record', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const record = buildingProject({ milestones: [running('workflow', 'missing-loop')] });
+    await store.write(record);
+    host.jsonFiles[files.loops] = { version: 1, loops: [] };
+    host.jsonFiles[files.rooms] = { schemaVersion: 1, rooms: [] };
+    const watch = createDispatchWatch({ host, store, wake: () => undefined });
+
+    await watch.track(record);
+
+    expect((await store.read('proj_1'))?.blockedReason).toContain('missing-loop');
+  });
+
   it('reads the index once on track, so a completion missed while closed is not lost', async () => {
     const host = await fakeHost();
     const store = await storeFor(host);
     const record = buildingProject({ milestones: [running('room', 'room_1')] });
     await store.write(record);
-    host.jsonFiles[files.rooms] = { schemaVersion: 1, rooms: [{ id: 'room_1', title: 'Team', status: 'completed', memberCount: 2, activeMemberCount: 0, costUsd: 4, maxCostUsd: 10, startedAt: T0, updatedAt: T0, attentionCount: 0 }] };
+    host.jsonFiles[files.rooms] = { schemaVersion: 1, rooms: [{ id: 'room_1', title: 'Team', status: 'completed', memberCount: 2, activeMemberCount: 0, costUsd: 4, maxCostUsd: 10, startedAt: T0, updatedAt: T0, attentionCount: 0, deliveredAt: null, deliveryRef: null }] };
     const wakes: WakeEvent[] = [];
     const watch = createDispatchWatch({ host, store, wake: (_id, wake) => { wakes.push(wake); } });
     await watch.track(record);
     expect((await store.read('proj_1'))?.milestones[0]?.status).toBe('verifying');
     expect(wakes.map((w) => w.kind)).toEqual(['dispatch-complete']);
+  });
+
+  it('reads an existing Room delivery receipt from the watched summary', async () => {
+    const release = milestone('m1', {
+      status: 'verifying',
+      verification: 'verified',
+      dispatch: { kind: 'room', id: 'room_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: 'pr' },
+      evidence: { commit: 'abc123', checkedAt: T0, commands: [{ command: 'pnpm test', exitCode: 0, output: 'ok', durationMs: 1 }], diffSummary: null, preview: null, passed: true, stale: false },
+    });
+    const { host, store, wakes, settle } = await setup(buildingProject({ phase: 'release', milestones: [release] }));
+    host.emitState(files.rooms, { schemaVersion: 1, rooms: [{
+      id: 'room_1', title: 'Release room', status: 'completed', memberCount: 2, activeMemberCount: 0,
+      costUsd: 2, maxCostUsd: 10, startedAt: T0, updatedAt: T0, attentionCount: 0,
+      deliveredAt: T0, deliveryRef: 'https://github.com/x/y/pull/8',
+    }] });
+    await settle();
+
+    expect((await store.read('proj_1'))?.milestones[0]?.receipt).toBe('https://github.com/x/y/pull/8');
+    expect(wakes.some((wake) => wake.items.some((item) => item.includes('delivery receipt')))).toBe(true);
   });
 
   it('holds a receipt as delivery evidence until the owner accepts, then delivers and starts maintain', async () => {
@@ -81,8 +124,9 @@ describe('dispatch watch', () => {
     // The owner accepts the milestone on its passed evidence.
     const services: OwnerServices = {
       research: vi.fn(async () => ({ id: 'res_1' })),
-      dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1' })),
+      dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1', baseCommit: 'base-1' })),
       evidence: vi.fn(async () => undefined),
+      recoverPending: vi.fn(),
       evidenceIsStale: vi.fn(async () => false),
       maintenance: vi.fn(async (r) => r),
     };
@@ -92,6 +136,7 @@ describe('dispatch watch', () => {
       { action: 'milestone', projectId: 'proj_1', milestoneId: 'm1', done: true },
     );
     expect(outcome.ok).toBe(true);
+    expect(services.maintenance).toHaveBeenCalledOnce();
     record = await store.read('proj_1');
     expect(record?.milestones[0]).toMatchObject({ status: 'done', verification: 'delivered' });
     expect(record?.phase).toBe('maintain');

@@ -21,8 +21,9 @@ async function setup() {
   const watch = { track: vi.fn(async () => undefined), untrack: vi.fn(), flush: vi.fn(async () => undefined), dispose: vi.fn() };
   const services = {
     research: vi.fn(async () => ({ id: 'res_1' })),
-    dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1' })),
+    dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1', baseCommit: 'base-1' })),
     evidence: vi.fn(async () => undefined),
+    recoverPending: vi.fn(),
     evidenceIsStale: vi.fn(async () => false),
     maintenance: vi.fn(async (record: ProjectRecord) => record),
   };
@@ -47,6 +48,20 @@ describe('project management', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(delivered.map((d) => d.wake.kind)).toEqual(['quiet']);
     expect(host.index()?.projects[0]).toMatchObject({ id: record.id, phase: 'discovery' });
+  });
+
+  it('reads the owner session through the persistent read-only history API', async () => {
+    const { host, store, actions } = await setup();
+    await store.write(buildingProject());
+    host.sessions.readHistory = vi.fn(async () => ({
+      entries: [{ turnIndex: 1, timestamp: T0, role: 'assistant' as const, text: 'Working.' }],
+      olderCursor: null,
+    }));
+
+    const page = await actions.history('proj_1');
+
+    expect(page?.entries[0]?.text).toBe('Working.');
+    expect(host.sessions.readHistory).toHaveBeenCalledWith('grant-1', 'owner', { cursor: undefined, limit: 100 });
   });
 
   it('keeps a project in intake, blocked, when the grant is refused', async () => {
@@ -75,7 +90,7 @@ describe('project management', () => {
   });
 
   it('resume clears a block that was not the user\'s own stop', async () => {
-    const { host, store, actions } = await setup();
+    const { store, actions } = await setup();
     const outcome = await actions.create({ idea: 'x', folder: '~/projects/ok' });
     const id = outcome.ok ? outcome.projectId! : '';
     const record = (await store.read(id))!;
@@ -117,12 +132,17 @@ describe('project management', () => {
     const { store, actions } = await setup();
     const proposal = { kind: 'charter' as const, charter: { milestoneIds: ['m1'], escalationPolicy: 'p', autonomy: 'charter-only' as const, capUsd: 90, proposedAt: T0, approvedAt: null }, milestones: [milestone('m1', { title: 'Replanned' })] };
     const decision = { id: 'dec_1', question: 'Apply?', options: [{ id: 'apply', label: 'A', consequence: 'x' }, { id: 'keep', label: 'K', consequence: 'y' }], recommendation: 'apply', reason: 'r', dependsOn: [], raisedAt: T0, proposal, answer: null };
-    await store.write(buildingProject({ decisions: [decision] }));
+    const live = milestone('m1', {
+      status: 'running',
+      dispatch: { kind: 'workflow', id: 'loop-live', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 3, destination: null },
+    });
+    await store.write(buildingProject({ decisions: [decision], milestones: [live] }));
     await actions.answer('proj_1', 'dec_1', 'apply');
     const record = await store.read('proj_1');
     expect(record?.charter).toMatchObject({ capUsd: 90, autonomy: 'charter-only', approvedAt: T0 });
     expect(record?.budget.capUsd).toBe(90);
     expect(record?.milestones.map((m) => m.title)).toEqual(['Replanned']);
+    expect(record?.milestones[0]).toMatchObject({ status: 'running', dispatch: { id: 'loop-live', chargedUsd: 3 } });
   });
 
   it('applies an external-delivery proposal only on apply, and then the send is dispatched', async () => {
@@ -136,6 +156,18 @@ describe('project management', () => {
     await actions.answer('proj_1', 'dec_1', 'apply');
     expect(services.dispatch).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: 'm1' }), expect.objectContaining({ destination: 'chat-post' }));
     expect((await store.read('proj_1'))?.milestones[0]).toMatchObject({ status: 'running', dispatch: { id: 'loop_9', destination: 'chat-post' } });
+  });
+
+  it('rechecks safety gates before applying an approved dispatch and keeps failure retryable', async () => {
+    const { store, actions, services } = await setup();
+    const proposal = { kind: 'dispatch' as const, milestoneId: 'm1', dispatchKind: 'workflow' as const, prompt: 'Announce it', destination: 'chat-post' };
+    const decision = { id: 'dec_1', question: 'Send?', options: [{ id: 'apply', label: 'Send', consequence: 'sent' }], recommendation: 'apply', reason: 'external', dependsOn: [], raisedAt: T0, proposal, answer: null };
+    await store.write(buildingProject({ phase: 'release', paused: true, decisions: [decision], milestones: [milestone('m1', { status: 'approved' })] }));
+
+    const outcome = await actions.answer('proj_1', 'dec_1', 'apply');
+    expect(outcome).toMatchObject({ ok: false, text: expect.stringContaining('remains open') });
+    expect(services.dispatch).not.toHaveBeenCalled();
+    expect((await store.read('proj_1'))?.decisions[0]?.answer).toBeNull();
   });
 
   it('approves the charter into build and a milestone plan into approved', async () => {
@@ -175,8 +207,26 @@ describe('project management', () => {
     expect(host.index()?.projects).toEqual([]);
   });
 
+  it('keeps a milestone parked until every overlapping decision is answered', async () => {
+    const { store, actions } = await setup();
+    const option = { id: 'keep', label: 'Keep', consequence: 'No change' };
+    const decisions = ['d1', 'd2'].map((id) => ({
+      id, question: id, options: [option], recommendation: 'keep', reason: 'test', dependsOn: ['m1'],
+      raisedAt: T0, proposal: null, answer: null,
+    }));
+    await store.write(buildingProject({
+      decisions,
+      milestones: [milestone('m1', { status: 'parked', parkedBy: 'd1', parkedByDecisions: ['d1', 'd2'], parkedFrom: 'approved' })],
+    }));
+
+    expect((await actions.answer('proj_1', 'd1', 'keep')).ok).toBe(true);
+    expect((await store.read('proj_1'))?.milestones[0]).toMatchObject({ status: 'parked', parkedBy: 'd2' });
+    expect((await actions.answer('proj_1', 'd2', 'keep')).ok).toBe(true);
+    expect((await store.read('proj_1'))?.milestones[0]).toMatchObject({ status: 'approved', parkedBy: null });
+  });
+
   it('frees the scheduler when the user stops the project mid-turn, and delivers again after resume', async () => {
-    const { host, store, sessions, actions } = await setup();
+    const { host, store, sessions } = await setup();
     const delivered: string[] = [];
     const gate = createWakeGate();
     gate.release();
@@ -192,8 +242,9 @@ describe('project management', () => {
     });
     const live = createProjectsActions({ host, store, sessions, scheduler, watch: { track: vi.fn(async () => undefined), untrack: vi.fn(), flush: vi.fn(async () => undefined), dispose: vi.fn() }, services: {
       research: vi.fn(async () => ({ id: 'res_1' })),
-      dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1' })),
+      dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1', baseCommit: 'base-1' })),
       evidence: vi.fn(async () => undefined),
+      recoverPending: vi.fn(),
       evidenceIsStale: vi.fn(async () => false),
       maintenance: vi.fn(async (record: ProjectRecord) => record),
     } });

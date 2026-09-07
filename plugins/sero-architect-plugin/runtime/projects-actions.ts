@@ -8,7 +8,9 @@
 import os from 'node:os';
 import path from 'node:path';
 
-import { advancePhase, approveCharter, block, pause, resume, setAutonomy, setCap, settle, unblock } from '../shared/lifecycle';
+import type { PersistentSessionHistoryPage } from '@sero-ai/common';
+
+import { advancePhase, approveCharter, block, mayDispatch, pause, resume, setAutonomy, setCap, settle, unblock } from '../shared/lifecycle';
 import { createProjectRecord, toIndexEntry, type AutonomySetting, type DecisionProposal, type Milestone, type ProjectRecord } from '../shared/record';
 import type { DispatchDestination } from '../shared/owner-actions';
 import { performDispatch } from './dispatch-link';
@@ -36,6 +38,7 @@ export type ProjectsOutcome = { ok: true; text: string; projectId?: string } | {
 export interface ProjectsActions {
   list(): Promise<ArchitectIndexEntry[]>;
   show(projectId: string): Promise<ProjectRecord | null>;
+  history(projectId: string, cursor?: string): Promise<PersistentSessionHistoryPage | null>;
   create(input: { idea: string; folder: string }): Promise<ProjectsOutcome>;
   pause(projectId: string): Promise<ProjectsOutcome>;
   resume(projectId: string): Promise<ProjectsOutcome>;
@@ -57,11 +60,32 @@ function expandHome(folder: string): string {
 
 /** Applies a charter-change proposal the user accepted. Their acceptance is the approval. */
 function applyCharterProposal(record: ProjectRecord, proposal: Extract<DecisionProposal, { kind: 'charter' }>, now: string): ProjectRecord {
-  const charter = { ...proposal.charter, approvedAt: now };
+  const existing = new Map(record.milestones.map((milestone) => [milestone.id, milestone]));
+  const proposed = proposal.milestones.map((milestone) => {
+    const current = existing.get(milestone.id);
+    if (!current) return milestone;
+    return {
+      ...milestone,
+      status: current.status,
+      dispatch: current.dispatch,
+      evidence: current.evidence,
+      verification: current.verification,
+      parkedBy: current.parkedBy,
+      parkedFrom: current.parkedFrom,
+      parkedByDecisions: current.parkedByDecisions,
+      receipt: current.receipt,
+    };
+  });
+  const proposedIds = new Set(proposed.map((milestone) => milestone.id));
+  const retained = record.milestones.filter((milestone) =>
+    !proposedIds.has(milestone.id) && (milestone.dispatch !== null || milestone.status === 'running' || milestone.status === 'verifying' || milestone.status === 'done'),
+  );
+  const milestones = [...proposed, ...retained];
+  const charter = { ...proposal.charter, milestoneIds: milestones.map((milestone) => milestone.id), approvedAt: now };
   return {
     ...record,
     charter,
-    milestones: proposal.milestones,
+    milestones,
     autonomy: charter.autonomy,
     budget: { ...record.budget, capUsd: charter.capUsd },
   };
@@ -86,9 +110,15 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
           return raised.ok ? raised.record : null;
         })) ?? record;
       case 'dispatch': {
-        const milestone = record.milestones.find((m) => m.id === proposal.milestoneId);
-        if (!milestone || milestone.status === 'running' || milestone.status === 'done') return record;
-        const { record: dispatched } = await performDispatch(store, services, record, milestone, {
+        const current = await store.read(record.id);
+        if (!current) throw new Error(`No project ${record.id}.`);
+        if (!mayDispatch(current)) throw new Error(current.overlay ? `The project is ${current.overlay}; no new dispatch may start.` : `The project is in ${current.phase}; no dispatch may start.`);
+        const milestone = current.milestones.find((m) => m.id === proposal.milestoneId);
+        if (!milestone || milestone.status === 'parked' || milestone.status === 'running' || milestone.status === 'verifying' || milestone.status === 'done') {
+          throw new Error(`Milestone ${proposal.milestoneId} is not available for dispatch.`);
+        }
+        if (milestone.status === 'planned' && current.autonomy === 'milestones') throw new Error(`Milestone ${milestone.id} still needs plan approval.`);
+        const { record: dispatched } = await performDispatch(store, services, current, milestone, {
           kind: proposal.dispatchKind, prompt: proposal.prompt, destination: proposal.destination as DispatchDestination, maxCostUsd: null,
         }, now);
         return dispatched;
@@ -149,6 +179,12 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
 
     show: read,
 
+    async history(projectId, cursor) {
+      const record = await read(projectId);
+      if (!record?.session.grantId || !host.persistentSessions) return null;
+      return host.persistentSessions.readHistory(record.session.grantId, record.session.subject, { cursor, limit: 100 });
+    },
+
     async create(input) {
       const idea = input.idea.trim();
       if (!idea) return refuse('The idea is required.');
@@ -199,6 +235,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
         if (outcome.record.blockedReason) return refuse(outcome.record.blockedReason);
         return ok(`Project ${projectId} resumed. Discovery starts.`);
       }
+      services.recoverPending(next);
       scheduler.request(projectId, { kind: 'quiet', at: now, items: ['the user resumed the project'] });
       return ok(`Project ${projectId} resumed.`);
     },
@@ -257,7 +294,8 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
         if (milestone.status !== 'planned') return { error: `Milestone ${milestone.id} is ${milestone.status}, not planned.` };
         if (!milestone.plan) return { error: `Milestone ${milestone.id} has no plan to approve yet.` };
         const approved: Milestone = { ...milestone, status: 'approved' };
-        return { record: settle({ ...record, milestones: record.milestones.map((m) => (m.id === milestone.id ? approved : m)) }, now) };
+        const settled = settle({ ...record, milestones: record.milestones.map((m) => (m.id === milestone.id ? approved : m)) }, now);
+        return { record: { ...settled, history: [...settled.history, { at: now, phase: settled.phase, overlay: settled.overlay, cause: `user approved milestone ${milestone.id}` }] } };
       });
       if (!result.ok) return refuse(result.error);
       scheduler.request(projectId, { kind: 'decision', at: now, items: [`the user approved the plan for milestone ${milestoneId ?? ''}`] });
@@ -277,17 +315,37 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
         let next: ProjectRecord = settle({
           ...record,
           decisions: record.decisions.map((d) => (d.id === decisionId ? withAnswer : d)),
-          milestones: record.milestones.map((m) =>
-            m.parkedBy === decisionId ? { ...m, status: m.parkedFrom ?? 'planned', parkedBy: null, parkedFrom: null } : m,
-          ),
+          milestones: record.milestones.map((m) => {
+            const blockers = m.parkedByDecisions ?? (m.parkedBy ? [m.parkedBy] : []);
+            if (!blockers.includes(decisionId)) return m;
+            const remaining = blockers.filter((id) => id !== decisionId);
+            return remaining.length > 0
+              ? { ...m, parkedBy: remaining[0] ?? null, parkedByDecisions: remaining }
+              : { ...m, status: m.parkedFrom ?? 'planned', parkedBy: null, parkedByDecisions: [], parkedFrom: null };
+          }),
         }, now);
         next = { ...next, history: [...next.history, { at: now, phase: next.phase, overlay: next.overlay, cause: `decision ${decisionId} answered: ${optionId}` }] };
         return { record: next };
       });
       if (!answered.ok) return refuse(answered.error);
-      // The answer is on disk before anything it proposes runs, so a failed
-      // dispatch never loses the user's decision.
-      if (proposal && optionId === 'apply') await applyProposal(answered.record, proposal, now);
+      if (proposal && optionId === 'apply') {
+        try {
+          await applyProposal(answered.record, proposal, now);
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
+          await store.update(projectId, (fresh) => {
+            const decisions = fresh.decisions.map((decision) => decision.id === decisionId ? { ...decision, answer: null } : decision);
+            const milestones = fresh.milestones.map((milestone) => {
+              if (!fresh.decisions.find((decision) => decision.id === decisionId)?.dependsOn.includes(milestone.id)) return milestone;
+              const parkedByDecisions = [...new Set([...(milestone.parkedByDecisions ?? (milestone.parkedBy ? [milestone.parkedBy] : [])), decisionId])];
+              return { ...milestone, status: 'parked' as const, parkedBy: parkedByDecisions[0] ?? decisionId, parkedByDecisions, parkedFrom: milestone.parkedFrom ?? milestone.status };
+            });
+            return settle({ ...fresh, decisions, milestones }, now);
+          });
+          scheduler.request(projectId, { kind: 'decision', at: now, items: [`decision ${decisionId} could not be applied: ${reason}`] });
+          return refuse(`Decision ${decisionId} was not applied: ${reason}. It remains open so the user can retry.`);
+        }
+      }
       scheduler.request(projectId, { kind: 'decision', at: now, items: [`the user answered decision ${decisionId} with "${optionId}"${note?.trim() ? ' and left a note' : ''}`] });
       return ok(`Decision ${decisionId} answered with "${optionId}".`);
     },

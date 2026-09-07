@@ -128,7 +128,7 @@ export interface FakeHost extends ArchitectHost {
 const dirs: string[] = [];
 
 export async function cleanupHosts(): Promise<void> {
-  await Promise.all(dirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+  await Promise.all(dirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 10 })));
 }
 
 export async function fakeHost(options: { workspaces?: FakeHost['workspaces']; sessions?: FakeSessionsApi } = {}): Promise<FakeHost> {

@@ -23,8 +23,41 @@ export function toOutcome(result: AppToolResult): ActionOutcome {
   return projectId ? { ok, text, projectId } : { ok, text };
 }
 
+export interface SessionHistoryEntry {
+  turnIndex: number;
+  timestamp: string;
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  text: string;
+  compactionBoundary?: boolean;
+}
+
+export interface SessionHistoryOutcome extends ActionOutcome {
+  entries: SessionHistoryEntry[];
+}
+
+function readHistoryEntries(result: AppToolResult): SessionHistoryEntry[] {
+  const raw = result.details?.entries;
+  if (!Array.isArray(raw)) return [];
+  const entries: SessionHistoryEntry[] = [];
+  for (const entry of raw) {
+    if (typeof entry !== 'object' || entry === null || !('turnIndex' in entry) || !('timestamp' in entry) || !('role' in entry) || !('text' in entry)) continue;
+    const role = entry.role;
+    if (typeof entry.turnIndex !== 'number' || typeof entry.timestamp !== 'string' || typeof entry.text !== 'string') continue;
+    if (role !== 'user' && role !== 'assistant' && role !== 'system' && role !== 'tool') continue;
+    entries.push({
+      turnIndex: entry.turnIndex,
+      timestamp: entry.timestamp,
+      role,
+      text: entry.text,
+      ...('compactionBoundary' in entry && entry.compactionBoundary === true ? { compactionBoundary: true } : {}),
+    });
+  }
+  return entries;
+}
+
 export interface ArchitectActions {
   create(idea: string, folder: string): Promise<ActionOutcome>;
+  history(projectId: string): Promise<SessionHistoryOutcome>;
   pause(projectId: string): Promise<ActionOutcome>;
   resume(projectId: string): Promise<ActionOutcome>;
   stop(projectId: string): Promise<ActionOutcome>;
@@ -55,6 +88,14 @@ export function useArchitectActions(): ArchitectActions {
   return useMemo<ArchitectActions>(
     () => ({
       create: (idea, folder) => call({ action: 'create', idea, folder }),
+      history: async (projectId) => {
+        try {
+          const result = await run(PROJECTS_TOOL, { action: 'history', projectId });
+          return { ...toOutcome(result), entries: readHistoryEntries(result) };
+        } catch (error) {
+          return { ok: false, text: error instanceof Error ? error.message : String(error), entries: [] };
+        }
+      },
       pause: (projectId) => call({ action: 'pause', projectId }),
       resume: (projectId) => call({ action: 'resume', projectId }),
       stop: (projectId) => call({ action: 'stop', projectId }),
@@ -67,6 +108,6 @@ export function useArchitectActions(): ArchitectActions {
         call({ action: 'answer', projectId, decisionId, optionId, ...(note.trim() ? { note: note.trim() } : {}) }),
       directive: (projectId, text) => call({ action: 'directive', projectId, text }),
     }),
-    [call],
+    [call, run],
   );
 }

@@ -189,6 +189,8 @@ export function toRoomSummary(record: RoomRecord): RoomSummary {
         ...(startedAt && member.createdAt > startedAt ? { addedAfterStart: true } : {}),
       })),
     attentionCount: toAttentionCount(record, attention),
+    deliveredAt: record.delivery.deliveredAt,
+    deliveryRef: record.delivery.deliveryRef,
     attention,
   };
 }

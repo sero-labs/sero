@@ -43,7 +43,7 @@ const OK: ActionOutcome = { ok: true, text: 'done' };
 function stubActions(overrides: Partial<ArchitectActions> = {}): ArchitectActions {
   const ok = () => vi.fn(async () => OK);
   return {
-    create: ok(), pause: ok(), resume: ok(), stop: ok(), remove: ok(), raiseCap: ok(),
+    create: ok(), history: vi.fn(async () => ({ ...OK, entries: [] })), pause: ok(), resume: ok(), stop: ok(), remove: ok(), raiseCap: ok(),
     setAutonomy: ok(), approveCharter: ok(), approveMilestone: ok(), answer: ok(), directive: ok(),
     ...overrides,
   };
@@ -104,6 +104,30 @@ describe('a refused control', () => {
     act(() => button('Stop').click());
     await flush();
     expect(container.querySelector('[role="alert"]')).toBeNull();
+  });
+});
+
+describe('project history access', () => {
+  it('keeps history disclosures in the narrow layout', () => {
+    renderPage(stubActions());
+    expect(container.querySelector('[data-testid="history"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="older-directives"]')).not.toBeNull();
+  });
+
+  it('opens the owner transcript as read-only history instead of a raw file', async () => {
+    const history = vi.fn(async () => ({
+      ok: true,
+      text: 'read',
+      entries: [{ turnIndex: 1, timestamp: '2026-09-07T09:00:00.000Z', role: 'assistant' as const, text: 'I dispatched milestone one.' }],
+    }));
+    renderPage(stubActions({ history }));
+
+    act(() => button('Open session').click());
+    await flush();
+
+    expect(history).toHaveBeenCalledWith(FIXTURES.build!.id);
+    expect(container.textContent).toContain('I dispatched milestone one.');
+    expect(container.textContent).toContain('Read-only history');
   });
 });
 

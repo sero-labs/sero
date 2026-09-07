@@ -76,6 +76,26 @@ export class ArchitectRuntime implements AppRuntime {
     if (held.length > 0) this.host.log(`held ${held.length} project(s) whose workspace is missing: ${held.join(', ')}`);
     for (const record of records) {
       if (record.blockedReason === null && record.workspaceId) await watch.track(record);
+      const fresh = await store.read(record.id);
+      if (!fresh) continue;
+      const lastWakeAt = fresh.session.lastWakeAt ?? '';
+      const unanswered = fresh.directives.filter((directive) => directive.reply === null);
+      if (unanswered.length > 0) {
+        scheduler.request(fresh.id, { kind: 'directive', at: this.host.now(), items: unanswered.map((directive) => `directive ${directive.id} awaits a reply after restart`) });
+      }
+      const answered = fresh.decisions.filter((decision) => decision.answer && decision.answer.answeredAt > lastWakeAt);
+      const approvals = fresh.history.filter((entry) => entry.at > lastWakeAt && entry.cause.includes('approved'));
+      if (answered.length > 0 || approvals.length > 0) {
+        scheduler.request(fresh.id, {
+          kind: 'decision',
+          at: this.host.now(),
+          items: [...answered.map((decision) => `decision ${decision.id} was answered before restart`), ...approvals.map((entry) => entry.cause)],
+        });
+      }
+      if (mayWakeForWork(fresh)) {
+        services.recoverPending(fresh);
+        if (plannedWorkRemains(fresh)) scheduler.request(fresh.id, { kind: 'quiet', at: this.host.now(), items: ['restart found planned work and nothing running'] });
+      }
     }
     this.gate.release();
   }
@@ -91,14 +111,6 @@ export class ArchitectRuntime implements AppRuntime {
     if (!store || !sessions) return;
     let record = await store.read(projectId);
     if (!record) return;
-    // Entering maintain subscribes the maintenance Workflow before the owner's first triage wake.
-    if (record.phase === 'maintain' && record.blockedReason === null && this.services) {
-      try {
-        record = await this.services.maintenance(record);
-      } catch (error) {
-        this.host.log(`maintenance Workflow for ${projectId} could not be created: ${error instanceof Error ? error.message : String(error)}`);
-      }
-    }
     const allowed = wake.kind === 'directive' || wake.kind === 'decision' || mayWakeForWork(record);
     if (!allowed) {
       this.host.log(`project ${projectId} is ${record.overlay}; ${wake.kind} wake dropped`);
@@ -107,6 +119,14 @@ export class ArchitectRuntime implements AppRuntime {
     if (!record.session.grantId) {
       this.host.log(`project ${projectId} has no owner grant; ${wake.kind} wake dropped`);
       return;
+    }
+    // Entering maintain subscribes maintenance only after the current stop gates pass.
+    if (record.phase === 'maintain' && this.services) {
+      try {
+        record = await this.services.maintenance(record);
+      } catch (error) {
+        this.host.log(`maintenance Workflow for ${projectId} could not be created: ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
     const result = await sessions.runTurn(record, wake);
     const after = result.record;

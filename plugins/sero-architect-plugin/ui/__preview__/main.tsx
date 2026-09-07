@@ -27,7 +27,7 @@ import { FIXTURES, LIST_ROWS } from './fixture';
 
 const ok = async (): Promise<ActionOutcome> => ({ ok: true, text: 'ok' });
 const actions: ArchitectActions = {
-  create: ok, pause: ok, resume: ok, stop: ok, remove: ok, raiseCap: ok, setAutonomy: ok,
+  create: ok, history: async () => ({ ok: true, text: 'ok', entries: [] }), pause: ok, resume: ok, stop: ok, remove: ok, raiseCap: ok, setAutonomy: ok,
   approveCharter: ok, approveMilestone: ok, answer: ok, directive: ok,
 };
 

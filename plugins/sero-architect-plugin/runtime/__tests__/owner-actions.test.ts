@@ -13,8 +13,9 @@ async function setup(recordOverrides = {}) {
   const outcomes = createTurnOutcomes();
   const services: OwnerServices = {
     research: vi.fn(async () => ({ id: 'res_1' })),
-    dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1' })),
+    dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1', baseCommit: 'base-1' })),
     evidence: vi.fn(async () => undefined),
+    recoverPending: vi.fn(),
     evidenceIsStale: vi.fn(async () => false),
     maintenance: vi.fn(async (record) => record),
   };
@@ -65,8 +66,20 @@ describe('owner actions', () => {
     expect(services.evidence).not.toHaveBeenCalled();
   });
 
-  it('starts an evidence run with commands and the route only', async () => {
+  it('refuses evidence before linked work reports completion', async () => {
     const { actions, services } = await setup();
+    const outcome = await actions.execute(owner, { action: 'evidence', projectId: 'proj_1', milestoneId: 'm1', commands: ['pnpm test'] });
+    expect(outcome).toMatchObject({ ok: false, text: expect.stringContaining('linked dispatch') });
+    expect(services.evidence).not.toHaveBeenCalled();
+  });
+
+  it('starts an evidence run with commands and the route only after dispatched work reports completion', async () => {
+    const reported = milestone('m1', {
+      status: 'verifying',
+      verification: 'reported',
+      dispatch: { kind: 'workflow', id: 'loop_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null },
+    });
+    const { actions, services } = await setup({ milestones: [reported] });
     const outcome = await actions.execute(owner, { action: 'evidence', projectId: 'proj_1', milestoneId: 'm1', commands: ['pnpm test'], route: '/' });
     expect(outcome.ok).toBe(true);
     expect(services.evidence).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: 'm1' }), { commands: ['pnpm test'], route: '/' });

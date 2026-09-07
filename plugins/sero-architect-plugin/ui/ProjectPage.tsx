@@ -1,8 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
-import { openSeroFile } from '@sero-ai/app-runtime';
 
 import type { AutonomySetting, ProjectRecord } from '../shared/record';
-import type { ActionOutcome, ArchitectActions } from './lib/actions';
+import type { ActionOutcome, ArchitectActions, SessionHistoryEntry } from './lib/actions';
 import { openDispatch } from './lib/page-helpers';
 import { CapInput } from './components/CapInput';
 import { Directives } from './components/Directives';
@@ -10,6 +9,7 @@ import { LimitBanner } from './components/LimitBanner';
 import { MilestoneRail } from './components/MilestoneRail';
 import { NeedsYou } from './components/NeedsYou';
 import { SideColumn, type DisclosureState } from './components/SideColumn';
+import { SessionHistoryDialog } from './components/SessionHistoryDialog';
 import { StateLine } from './components/StateLine';
 import { TopBar, type ProjectControls } from './components/TopBar';
 import { Quiet, SectionHead } from './components/Pill';
@@ -28,6 +28,10 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, conf
   const id = record.id;
   const [notice, setNotice] = useState<string | null>(null);
   const [capOpen, setCapOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [sessionEntries, setSessionEntries] = useState<SessionHistoryEntry[]>([]);
 
   /** A control that is refused must say so: the record alone never shows the refusal. */
   const report = useCallback(async (outcome: Promise<ActionOutcome>, onOk?: () => void) => {
@@ -43,11 +47,18 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, conf
     raiseCap: () => { setNotice(null); setCapOpen(true); },
     setAutonomy: (next: AutonomySetting) => void report(actions.setAutonomy(id, next)),
     openSession: () => {
-      if (record.workspaceId && record.session.sessionPath) void openSeroFile(record.workspaceId, record.session.sessionPath);
+      setHistoryOpen(true);
+      setHistoryLoading(true);
+      setHistoryError(null);
+      void actions.history(id).then((outcome) => {
+        setSessionEntries(outcome.entries);
+        setHistoryError(outcome.ok ? null : outcome.text);
+        setHistoryLoading(false);
+      });
     },
     // The watcher never pushes null for an unlinked file, so the page leaves on its own.
     remove: () => { if (confirm(`Delete ${record.name}? The record and its owner session are removed. Files in ${record.folder} stay.`)) void report(actions.remove(id), onBack); },
-  }), [actions, confirm, id, onBack, record.folder, record.name, record.session.sessionPath, record.workspaceId, report]);
+  }), [actions, confirm, id, onBack, record.folder, record.name, report]);
 
   const needsActions = useMemo(() => ({
     answer: (decisionId: string, optionId: string, note: string) => actions.answer(id, decisionId, optionId, note),
@@ -98,10 +109,18 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, conf
               )}
               <Directives record={record} onSend={(text) => actions.directive(id, text)} />
             </div>
-            {!narrow && <SideColumn record={record} disclosures={disclosures} />}
+            <SideColumn record={record} disclosures={disclosures} />
           </div>
         </div>
       </div>
+      <SessionHistoryDialog
+        open={historyOpen}
+        projectName={record.name}
+        entries={sessionEntries}
+        loading={historyLoading}
+        error={historyError}
+        onClose={() => setHistoryOpen(false)}
+      />
     </>
   );
 }

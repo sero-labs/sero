@@ -45,6 +45,8 @@ function room(partial: Partial<OrchestratorBoardRoomView>): OrchestratorBoardRoo
     startedAt: '2026-07-18T10:00:00Z',
     updatedAt: '2026-07-18T11:30:00Z',
     attentionCount: 0,
+    deliveredAt: null,
+    deliveryRef: null,
     ...partial,
   };
 }

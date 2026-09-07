@@ -24,6 +24,8 @@ export interface EvidenceCommand {
 export interface EvidenceRecord {
   /** The commit every item was checked against. */
   commit: string;
+  /** Hash of tracked and untracked project content when the checks ran. */
+  fingerprint?: string;
   checkedAt: string;
   commands: EvidenceCommand[];
   /** Diff summary from git, present when the milestone changed files. */
@@ -45,6 +47,8 @@ export interface MilestoneDispatch {
   chargedUsd: number;
   /** Where the run delivers, for a release milestone. */
   destination: string | null;
+  /** HEAD before work started, used to summarize committed milestone changes. */
+  baseCommit?: string;
 }
 
 export interface Milestone {
@@ -59,8 +63,10 @@ export interface Milestone {
   verification: VerificationState | null;
   /** The decision that parked this milestone, while it is open. */
   parkedBy: string | null;
-  /** The status to return to when the parking decision is answered. */
+  /** The status to return to when every parking decision is answered. */
   parkedFrom: MilestoneStatus | null;
+  /** Every open decision that currently parks this milestone. */
+  parkedByDecisions?: string[];
   /** Release receipt reference once delivered. */
   receipt: string | null;
 }
@@ -95,6 +101,20 @@ export interface Directive {
   text: string;
   sentAt: string;
   reply: { text: string; repliedAt: string } | null;
+}
+
+export interface PendingResearch {
+  id: string;
+  question: string;
+  stoppingCondition: string;
+  startedAt: string;
+}
+
+export interface PendingEvidence {
+  milestoneId: string;
+  commands: string[];
+  route: string | null;
+  startedAt: string;
 }
 
 export interface ResearchResult {
@@ -173,6 +193,9 @@ export interface ProjectRecord {
   decisions: Decision[];
   directives: Directive[];
   research: ResearchResult[];
+  /** Background work recorded before it starts, so restart can recover it. */
+  pendingResearch?: PendingResearch[];
+  pendingEvidence?: PendingEvidence[];
   history: HistoryEntry[];
   session: OwnerSessionState;
   paused: boolean;
@@ -208,6 +231,8 @@ export function createProjectRecord(input: NewProjectInput): ProjectRecord {
     decisions: [],
     directives: [],
     research: [],
+    pendingResearch: [],
+    pendingEvidence: [],
     history: [{ at: input.now, phase: 'intake', overlay: null, cause: 'created from the idea and folder' }],
     session: {
       grantId: null,

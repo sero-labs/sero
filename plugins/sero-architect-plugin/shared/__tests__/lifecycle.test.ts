@@ -157,12 +157,12 @@ describe('overlays', () => {
     expect(r.overlay).toBe('limited');
   });
 
-  it('stops work on any overlay but leaves directives reachable', () => {
+  it('stops work on safety overlays but allows work independent of an open decision', () => {
     const quiet = inBuild();
     expect(mayDispatch(quiet)).toBe(true);
     expect(mayWakeForWork(quiet)).toBe(true);
     const withDecision = { ...quiet, decisions: [decision('d1', ['m2'])] };
-    expect(mayDispatch(withDecision)).toBe(false);
+    expect(mayDispatch(withDecision)).toBe(true);
     expect(mayWakeForWork(withDecision)).toBe(true);
     expect(mayDispatch(must(pause(quiet, T1)))).toBe(false);
     expect(mayWakeForWork(charge(quiet, 'owner', 40, T1))).toBe(false);

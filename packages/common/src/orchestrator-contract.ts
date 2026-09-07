@@ -209,6 +209,9 @@ export interface OrchestratorBoardRoomView {
   updatedAt: string;
   /** Open approvals plus a Room stopped waiting for one. */
   attentionCount: number;
+  /** Existing Room delivery proof, exposed so linked consumers can observe it. */
+  deliveredAt: string | null;
+  deliveryRef: string | null;
 }
 
 /** The watched Room index as the board consumes it. */

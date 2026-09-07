@@ -58,6 +58,33 @@ describe('restart reconciliation', () => {
     await runtime.dispose();
   });
 
+  it('reconstructs durable directive, answered-decision and quiet-work wakes', async () => {
+    const host = await fakeHost();
+    const answeredAt = '2026-09-07T10:00:00.000Z';
+    const decision = {
+      id: 'd1', question: 'Ship?', options: [{ id: 'yes', label: 'Yes', consequence: 'Ship' }], recommendation: 'yes',
+      reason: 'release', dependsOn: [], raisedAt: answeredAt, proposal: null,
+      answer: { optionId: 'yes', note: null, answeredAt },
+    };
+    const record = buildingProject({
+      decisions: [decision],
+      directives: [{ id: 'dir-1', text: 'Use the small logo', sentAt: answeredAt, reply: null }],
+      milestones: [{ ...buildingProject().milestones[0]!, status: 'approved' }],
+      session: { ...buildingProject().session, lastWakeAt: '2026-09-07T09:30:00.000Z' },
+    });
+    await seed(host, record);
+    const runtime = new ArchitectRuntime(host, {});
+
+    await runtime.start();
+    await runtime.scheduler?.idle('proj_1');
+
+    expect(host.sessions.prompts).toHaveLength(3);
+    expect(host.sessions.prompts.some((prompt) => prompt.content.includes('dir-1'))).toBe(true);
+    expect(host.sessions.prompts.some((prompt) => prompt.content.includes('decision d1 was answered before restart'))).toBe(true);
+    expect(host.sessions.prompts.some((prompt) => prompt.content.includes('restart found planned work'))).toBe(true);
+    await runtime.dispose();
+  });
+
   it('does nothing while the kill switch is set, and keeps the records', async () => {
     const host = await fakeHost();
     await seed(host, overBudget());

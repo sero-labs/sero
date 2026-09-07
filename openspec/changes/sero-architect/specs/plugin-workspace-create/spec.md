@@ -5,7 +5,7 @@ Plugins can create a workspace through the typed plugin bridge, so a plugin can 
 ## ADDED Requirements
 
 ### Requirement: Create a workspace from plugin code
-The host SHALL expose workspace creation to plugin runtimes and plugin UI through the typed plugin bridge, taking a name, a parent folder and the existing creation options, and returning the workspace record. The call MUST be backed by the same workspace service and MUST apply the same home-directory guard as the existing user-facing creation path.
+The host SHALL expose workspace creation to plugin runtimes through the typed runtime host, taking a name, a parent folder and the existing creation options, and returning the workspace record. Plugin UI MUST request creation through its verified background runtime rather than a global renderer bridge. The call MUST be backed by the same workspace service and MUST apply the same home-directory guard as the existing user-facing creation path.
 
 #### Scenario: Create under the home directory
 - **WHEN** a plugin creates a workspace with a parent folder under the user's home directory
@@ -15,12 +15,16 @@ The host SHALL expose workspace creation to plugin runtimes and plugin UI throug
 - **WHEN** a plugin passes a parent folder outside the user's home directory
 - **THEN** the call fails with the same error as the user-facing path and no folder is created
 
-### Requirement: Contracts stay aligned
-The renderer types, the preload bridge, the main-process handler and the runtime host type MUST expose the same signature, and the capability MUST be declared in the plugin's required host capabilities when the plugin cannot work without it.
+### Requirement: Runtime contract and capability stay aligned
+The runtime host type and main-process implementation MUST expose the same signature, and the capability MUST be declared in the plugin's required host capabilities when the plugin cannot work without it.
 
 #### Scenario: Plugin without the declaration
-- **WHEN** a plugin that did not declare the capability calls workspace creation
+- **WHEN** a plugin runtime that did not declare the capability calls workspace creation
 - **THEN** the call is refused with a message naming the missing capability
+
+#### Scenario: Architect UI creates a project
+- **WHEN** the Architect UI submits a project intake
+- **THEN** it invokes the Architect management tool and the verified Architect runtime creates the workspace
 
 ### Requirement: Existing creation hooks still run
 Creation through the bridge MUST run the same post-creation contributions as the user-facing path, including any `workspace.create.option` controls the user enabled.

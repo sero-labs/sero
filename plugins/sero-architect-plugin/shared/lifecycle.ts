@@ -134,8 +134,11 @@ export function mayWakeForWork(record: ProjectRecord): boolean {
   return deriveOverlay(record) === null || deriveOverlay(record) === 'decision';
 }
 
-/** Is a new dispatch allowed? Any overlay stops new work. */
+/** Is a new dispatch allowed? An unrelated open decision does not stop independent milestones. */
 export function mayDispatch(record: ProjectRecord): boolean {
   const working = record.phase === 'build' || record.phase === 'release' || record.phase === 'maintain';
-  return working ? deriveOverlay(record) === null : false;
+  const stopped = record.blockedReason !== null
+    || record.paused
+    || (record.budget.capUsd !== null && record.budget.spentUsd >= record.budget.capUsd);
+  return working && !stopped;
 }

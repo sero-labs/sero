@@ -5,7 +5,7 @@ import type { WakeEvent } from '../../shared/wake';
 import { missingEvidence } from '../owner-actions';
 import { ORCHESTRATOR_REGISTRY_GLOBAL_KEY, type OrchestratorBoardAction, type OrchestratorRegistryEntryView } from '@sero-ai/common';
 import { MAINTENANCE_MILESTONE_ID } from '../../shared/maintenance';
-import { createServices } from '../services';
+import { createServices, evidenceIsStale, worktreeFingerprint } from '../services';
 import { buildingProject, cleanupHosts, fakeHost, milestone, storeFor, T0 } from './helpers';
 
 afterEach(cleanupHosts);
@@ -16,8 +16,7 @@ async function setup(record = buildingProject()) {
   await store.write(record);
   const wakes: WakeEvent[] = [];
   const services = createServices({ host, store, wake: (_id, wake) => { wakes.push(wake); } });
-  const flush = () => new Promise((resolve) => setTimeout(resolve, 20));
-  return { host, store, services, wakes, flush };
+  return { host, store, services, wakes };
 }
 
 /** Waits for a background evidence run to reach the condition. */
@@ -44,9 +43,10 @@ describe('runtime services', () => {
   it('creates a Workflow through the typed handle with the remaining budget and the delivery destination', async () => {
     const coordinator = fakeCoordinator();
     try {
-      const { services } = await setup(buildingProject({ budget: { capUsd: 40, spentUsd: 10, sources: { owner: 10, research: 0, dispatched: 0 } } }));
+      const { services, host } = await setup(buildingProject({ budget: { capUsd: 40, spentUsd: 10, sources: { owner: 10, research: 0, dispatched: 0 } } }));
+      host.execResults['git rev-parse HEAD'] = { exitCode: 0, stdout: 'base123\n', stderr: '' };
       const link = await services.dispatch(buildingProject({ budget: { capUsd: 40, spentUsd: 10, sources: { owner: 10, research: 0, dispatched: 0 } } }), milestone('m1'), { kind: 'workflow', prompt: 'Open the PR', destination: 'pr', maxCostUsd: 100 });
-      expect(link).toEqual({ id: 'loop_1', workspaceId: 'ws-1' });
+      expect(link).toEqual({ id: 'loop_1', workspaceId: 'ws-1', baseCommit: 'base123' });
       expect(coordinator.actions[0]).toEqual({ kind: 'create', prompt: 'Open the PR', title: 'Milestone m1', options: { activate: true, limits: { maxCostUsd: 30 }, delivery: { destination: 'pr' } } });
     } finally {
       coordinator.uninstall();
@@ -72,11 +72,26 @@ describe('runtime services', () => {
     }
   });
 
+  it('does not create maintenance while stopped or with no remaining budget', async () => {
+    const coordinator = fakeCoordinator();
+    try {
+      const { services } = await setup();
+      await expect(services.maintenance(buildingProject({ phase: 'maintain', paused: true }))).rejects.toThrow('paused');
+      await expect(services.maintenance(buildingProject({
+        phase: 'maintain',
+        budget: { capUsd: 40, spentUsd: 40, sources: { owner: 40, research: 0, dispatched: 0 } },
+      }))).rejects.toThrow('limited');
+      expect(coordinator.actions).toEqual([]);
+    } finally {
+      coordinator.uninstall();
+    }
+  });
+
   it('runs research through the subagent seam and attaches the result before waking the owner', async () => {
-    const { host, store, services, wakes, flush } = await setup();
+    const { host, store, services, wakes } = await setup();
     const { id } = await services.research(buildingProject(), { question: 'Which engine?', stoppingCondition: 'two candidates compared' });
     expect(id).toBe('res_1');
-    await flush();
+    await waitFor(() => wakes.length > 0);
     const record = await store.read('proj_1');
     expect(record?.research[0]).toMatchObject({ id: 'res_1', question: 'Which engine?', result: 'research answer', costUsd: 0.5 });
     expect(record?.budget.sources.research).toBe(0.5);
@@ -84,13 +99,30 @@ describe('runtime services', () => {
     expect(host.logs).toEqual([]);
   });
 
+  it('recovers research that was recorded before a restart', async () => {
+    const pending = { id: 'res-before-restart', question: 'Which engine?', stoppingCondition: 'compare two', startedAt: T0 };
+    const record = buildingProject({ pendingResearch: [pending] });
+    const { store, services, wakes } = await setup(record);
+
+    services.recoverPending(record);
+    await waitFor(() => wakes.length > 0);
+
+    expect((await store.read('proj_1'))?.research[0]?.id).toBe('res-before-restart');
+    expect((await store.read('proj_1'))?.pendingResearch).toEqual([]);
+  });
+
   it('records each command with its exit code and output, the diff summary and the commit, and fails on a non-zero exit', async () => {
-    const { host, store, services, wakes, flush } = await setup(buildingProject({ milestones: [milestone('m1', { status: 'verifying', verification: 'reported' })] }));
+    const reported = milestone('m1', {
+      status: 'verifying',
+      verification: 'reported',
+      dispatch: { kind: 'workflow', id: 'loop_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null, baseCommit: 'base000' },
+    });
+    const { host, store, services, wakes } = await setup(buildingProject({ milestones: [reported] }));
     host.execResults['git rev-parse HEAD'] = { exitCode: 0, stdout: 'abc123\n', stderr: '' };
-    host.execResults['git diff --stat HEAD'] = { exitCode: 0, stdout: ' src/grid.ts | 12 ++--\n', stderr: '' };
+    host.execResults['git diff --stat base000 -- . :(exclude).sero'] = { exitCode: 0, stdout: ' src/grid.ts | 12 ++--\n', stderr: '' };
     host.commandResults['pnpm test'] = { exitCode: 2, stdout: '', stderr: '1 failing' };
     await services.evidence(buildingProject(), milestone('m1', { status: 'verifying' }), { commands: ['pnpm typecheck', 'pnpm test'], route: null });
-    await flush();
+    await waitFor(() => wakes.length > 0);
     const evidence = (await store.read('proj_1'))?.milestones[0]?.evidence;
     expect(evidence).toMatchObject({
       commit: 'abc123',
@@ -108,18 +140,53 @@ describe('runtime services', () => {
   });
 
   it('marks passed evidence verified but never accepted, and fails a preview milestone without a dev server', async () => {
-    const { store, services, flush } = await setup(buildingProject({ milestones: [milestone('m1', { status: 'verifying', preview: { route: '/' } })] }));
+    const { store, services, wakes } = await setup(buildingProject({ milestones: [milestone('m1', { status: 'verifying', preview: { route: '/' } })] }));
     await services.evidence(buildingProject(), milestone('m1', { status: 'verifying', preview: { route: '/' } }), { commands: ['pnpm test'], route: '/' });
-    await flush();
+    await waitFor(() => wakes.length > 0);
     const first = (await store.read('proj_1'))?.milestones[0];
     expect(first?.evidence).toMatchObject({ passed: false, preview: { route: '/', smokePassed: false, capturePath: null } });
 
     const plain = buildingProject({ milestones: [milestone('m1', { status: 'verifying' })] });
     await store.write(plain);
     await services.evidence(plain, plain.milestones[0]!, { commands: ['pnpm test'], route: null });
-    await flush();
+    await waitFor(() => wakes.length > 1);
     const second = (await store.read('proj_1'))?.milestones[0];
     expect(second).toMatchObject({ status: 'verifying', verification: 'verified', evidence: { passed: true, preview: null } });
+  });
+
+  it('detects tracked edits within an already dirty tree', async () => {
+    const { host } = await setup();
+    host.execResults['git rev-parse HEAD'] = { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+    host.execResults['git diff --binary HEAD -- . :(exclude).sero'] = { exitCode: 0, stdout: 'first dirty content', stderr: '' };
+    const fingerprint = await worktreeFingerprint(host, '/home/dan/projects/hollow');
+    const checked = milestone('m1', { evidence: {
+      commit: 'abc123', fingerprint, checkedAt: T0,
+      commands: [{ command: 'pnpm test', exitCode: 0, output: 'ok', durationMs: 1 }],
+      diffSummary: 'src/a.ts | 1 +', preview: null, passed: true, stale: false,
+    } });
+    host.execResults['git diff --binary HEAD -- . :(exclude).sero'] = { exitCode: 0, stdout: 'second dirty content', stderr: '' };
+
+    expect(await evidenceIsStale(host, buildingProject(), checked)).toBe(true);
+  });
+
+  it('rejects an HTTP error preview and always stops its managed server', async () => {
+    const preview = milestone('m1', { status: 'verifying', preview: { route: '/missing' } });
+    const { host, services, wakes } = await setup(buildingProject({ milestones: [preview] }));
+    const server = createServer((_request, response) => { response.statusCode = 404; response.end('missing'); });
+    await new Promise<void>((resolve) => { server.listen(0, '127.0.0.1', resolve); });
+    const port = (server.address() as AddressInfo).port;
+    let stopped = false;
+    try {
+      host.detectDevServerCommand = async () => 'pnpm dev';
+      host.startDevServer = async () => ({ url: `http://127.0.0.1:${port}`, serverId: 'srv-1' });
+      host.stopDevServer = async () => { stopped = true; return true; };
+      await services.evidence(buildingProject({ milestones: [preview] }), preview, { commands: ['pnpm test'], route: '/missing' });
+      await waitFor(() => wakes.length > 0);
+    } finally {
+      await new Promise<void>((resolve) => { server.close(() => resolve()); });
+    }
+    expect(stopped).toBe(true);
+    expect(wakes[0]?.items[0]).toContain('preview smoke check failed');
   });
 
   it('records the failure and wakes the owner when the capture subagent throws', async () => {

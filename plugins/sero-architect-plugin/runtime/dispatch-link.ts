@@ -32,7 +32,15 @@ export async function performDispatch(
     ...milestone,
     status: 'running',
     verification: null,
-    dispatch: { kind: request.kind, id: link.id, workspaceId: link.workspaceId, dispatchedAt: now, chargedUsd: 0, destination: request.destination },
+    dispatch: {
+      kind: request.kind,
+      id: link.id,
+      workspaceId: link.workspaceId,
+      dispatchedAt: now,
+      chargedUsd: 0,
+      destination: request.destination,
+      baseCommit: link.baseCommit,
+    },
   };
   const cause = `milestone ${milestone.id} dispatched as ${request.kind} ${link.id}${request.destination ? ` delivering to ${request.destination}` : ''}`;
   const written = await store.update(record.id, (fresh) => {

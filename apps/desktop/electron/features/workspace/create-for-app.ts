@@ -1,6 +1,5 @@
 /**
- * Workspace creation for plugin callers (the app-runtime host and the typed
- * `window.sero.workspace` bridge).
+ * Workspace creation for verified app-runtime callers.
  *
  * The Add Workspace menu creates the workspace over IPC and then runs the
  * `workspace.create.option` contributions the user ticked, in the renderer.
@@ -90,7 +89,10 @@ export async function createWorkspaceForApp(
   deps: CreateWorkspaceForAppDeps,
   request: CreateWorkspaceForAppRequest,
 ): Promise<WorkspaceInfo> {
-  const { applyAppDefaults: withDefaults, ...managerOptions } = request.options ?? {};
+  const withDefaults = request.options?.applyAppDefaults;
+  const managerOptions = request.options
+    ? { requireEmpty: request.options.requireEmpty }
+    : undefined;
   const workspace = await deps.create(request.name, request.parentPath, managerOptions);
   await deps.reconcileAppRuntimes('workspace create');
   if (withDefaults) await applyAppDefaults(deps, workspace);

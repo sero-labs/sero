@@ -20,8 +20,6 @@ import { assertIsSeroPluginFolder } from '@electron/features/workspace/plugin-va
 import { recreateContainerIfRunning } from '@electron/features/workspace/container-sync';
 import { appRuntimeManager, runtimeManager } from '@electron/shared/infra/shared-infra';
 import { broadcastToWindows } from '@electron/ipc/lib/window-broadcast';
-import { discoverApps } from '@electron/features/apps/discovery';
-import { invokeAppTool } from '@electron/ipc/agent/handlers/app-agent';
 import { createWorkspaceForApp, type CreateWorkspaceForAppDeps } from '@electron/features/workspace/create-for-app';
 import {
   ensureBrowserPack,
@@ -41,8 +39,9 @@ function notifyWorkspaceChanged(): void {
 export const workspaceCreateDeps: CreateWorkspaceForAppDeps = {
   create: (name, parentPath, options) => workspaceManager.create(name, parentPath, options),
   reconcileAppRuntimes,
-  discoverApps,
-  invokeAppTool,
+  // Load app discovery only when a runtime requests default-on contributions.
+  discoverApps: async () => (await import('@electron/features/apps/discovery')).discoverApps(),
+  invokeAppTool: async (...args) => (await import('@electron/ipc/agent/handlers/app-agent')).invokeAppTool(...args),
   notifyWorkspaceChanged,
 };
 

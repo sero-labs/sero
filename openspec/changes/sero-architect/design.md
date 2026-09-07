@@ -288,12 +288,12 @@ preferences persist through `layout.json`.
   `PERSISTENT_SESSION_BUILTIN_APPS`. No change to the exact-path gate or the
   per-grant approval.
 - Workspace create: add `create(name, parentPath, options)` to the app
-  runtime workspace API and the typed `SeroBridge`, backed by the existing
-  workspace manager and its home-directory guard, across all four layers.
-  This is a generic host capability any plugin may declare, not an
-  Architect-specific bridge, which keeps to the plugin skill's rule against
-  plugin-specific preload or IPC. Graphify's `workspace.create.option` still
-  fires after creation.
+  runtime workspace API, backed by the existing workspace manager and its
+  home-directory guard. The Architect UI reaches it through the Architect
+  management tool, so the host verifies the calling plugin and its declared
+  capability before creation. This is a generic runtime capability, not an
+  Architect-specific preload or IPC bridge. Graphify's
+  `workspace.create.option` still fires after creation.
 - Dispatch handle: the Architect runtime creates Workflows and Rooms through
   the typed coordinator registry in `@sero-ai/common`, never through session
   tools. Add `create` to `OrchestratorBoardAction`, carrying prompt, title and

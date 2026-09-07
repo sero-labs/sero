@@ -17,6 +17,7 @@ import { callerSignals } from './owner-tool';
 export const PROJECT_ACTIONS = [
   'list',
   'show',
+  'history',
   'create',
   'pause',
   'resume',
@@ -46,6 +47,7 @@ export const ProjectsToolParams = Type.Object({
   optionId: Type.Optional(Type.String({ description: 'answer: the chosen option id' })),
   note: Type.Optional(Type.String({ description: 'answer: an optional note for the owner' })),
   text: Type.Optional(Type.String({ description: 'directive: what to tell the owner' })),
+  cursor: Type.Optional(Type.String({ description: 'history: cursor for an older page' })),
 });
 
 export interface ProjectsToolParamsShape {
@@ -61,6 +63,7 @@ export interface ProjectsToolParamsShape {
   optionId?: string;
   note?: string;
   text?: string;
+  cursor?: string;
 }
 
 interface ToolResult {
@@ -118,6 +121,14 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
       if (missing) return result(false, missing);
       const record = await actions.show(id);
       return record ? result(true, formatRecord(record)) : result(false, `No project ${id}.`);
+    }
+    case 'history': {
+      const missing = need(id, 'projectId');
+      if (missing) return result(false, missing);
+      const page = await actions.history(id, params.cursor);
+      return page
+        ? result(true, `Read ${page.entries.length} owner-session history entries.`, { entries: page.entries, olderCursor: page.olderCursor })
+        : result(false, `Project ${id} has no readable owner session.`);
     }
     case 'create': {
       const missing = need(params.idea, 'idea') ?? need(params.folder, 'folder');

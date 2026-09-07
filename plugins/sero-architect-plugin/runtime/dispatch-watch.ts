@@ -11,7 +11,7 @@ import path from 'node:path';
 
 import type { OrchestratorBoardLoopView, OrchestratorBoardRoomView } from '@sero-ai/common';
 
-import { charge, settle } from '../shared/lifecycle';
+import { block, charge, settle } from '../shared/lifecycle';
 import { ORCHESTRATOR_INDEX_FILE, ORCHESTRATOR_ROOM_INDEX_FILE } from '@sero-ai/common';
 import type { Milestone, ProjectRecord } from '../shared/record';
 import type { WakeEvent, WakeKind } from '../shared/wake';
@@ -86,7 +86,7 @@ interface Transition {
   reported: boolean;
 }
 
-function loopTransition(record: ProjectRecord, milestone: Milestone, loop: LoopView, seen: Seen | undefined): Transition | null {
+function loopTransition(milestone: Milestone, loop: LoopView, seen: Seen | undefined): Transition | null {
   const pending = loop.pendingInput ?? 0;
   const scheduled = (loop.schedules?.length ?? 0) > 0;
   const label = `milestone ${milestone.id} (Workflow ${loop.id} "${loop.title}")`;
@@ -181,7 +181,7 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
         const room = dispatch.kind === 'room' ? rooms?.find((r) => r.id === dispatch.id) : undefined;
         if (!loop && !room) continue;
         const previous = seen.get(key);
-        const transition = loop ? loopTransition(record, milestone, loop, previous) : room ? roomTransition(milestone, room, previous) : null;
+        const transition = loop ? loopTransition(milestone, loop, previous) : room ? roomTransition(milestone, room, previous) : null;
         const costUsd = loop ? loop.usage?.costUsd ?? 0 : room?.costUsd ?? 0;
         const delta = Math.max(0, costUsd - dispatch.chargedUsd);
         let updated: Milestone = milestone;
@@ -192,8 +192,21 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
         if (transition?.reported && updated.status === 'running') {
           updated = { ...updated, status: 'verifying', verification: 'reported' };
         }
+        if (room?.deliveryRef && updated.receipt !== room.deliveryRef) {
+          updated = { ...updated, receipt: room.deliveryRef };
+        }
         if (updated !== milestone) {
           next = { ...next, milestones: next.milestones.map((m) => (m.id === milestone.id ? updated : m)) };
+        }
+        if (room?.deliveryRef && milestone.receipt !== room.deliveryRef) {
+          const delivery = applyDelivery(next, updated, now);
+          next = delivery.record;
+          wakes.push({
+            kind: 'dispatch-complete',
+            item: `milestone ${milestone.id} has a delivery receipt at ${room.deliveryRef}${isAccepted(updated) ? '' : ', but it is not verified and accepted, so it stays verifying'}`,
+            reported: false,
+          });
+          for (const item of delivery.items) wakes.push({ kind: 'dispatch-complete', item, reported: false });
         }
         if (transition) wakes.push(transition);
         seen.set(key, {
@@ -229,8 +242,21 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
         host.onStateChange(files.rooms, (state) => enqueue(() => apply(record.id, null, roomsOf(state)))),
       ]);
       // Missed while Sero was closed: read once and apply the transitions.
-      const [loops, rooms] = await Promise.all([host.readJson(files.loops), host.readJson(files.rooms)]);
-      enqueue(() => apply(record.id, loopsOf(loops), roomsOf(rooms)));
+      const [loopsState, roomsState] = await Promise.all([host.readJson(files.loops), host.readJson(files.rooms)]);
+      const loops = loopsOf(loopsState);
+      const rooms = roomsOf(roomsState);
+      const missing = record.milestones
+        .filter((milestone) => milestone.status === 'running' && milestone.dispatch)
+        .filter((milestone) => milestone.dispatch?.kind === 'workflow'
+          ? !loops.some((loop) => loop.id === milestone.dispatch?.id)
+          : !rooms.some((room) => room.id === milestone.dispatch?.id));
+      if (missing.length > 0 && record.blockedReason === null) {
+        await store.update(record.id, (fresh) => {
+          const held = block(fresh, host.now(), `dispatch state could not be confirmed after restart: ${missing.map((milestone) => milestone.dispatch?.id).join(', ')}`);
+          return held.ok ? held.record : null;
+        });
+      }
+      enqueue(() => apply(record.id, loops, rooms));
       await queue;
     },
     untrack(projectId) {
