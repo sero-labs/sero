@@ -1,6 +1,8 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { WakeEvent } from '../../shared/wake';
 import { createDispatchWatch, loopRunsIndexFile, orchestratorIndexFiles } from '../dispatch-watch';
+import { createOwnerActions, type OwnerServices } from '../owner-actions';
+import { createTurnOutcomes } from '../turn-outcomes';
 import { buildingProject, cleanupHosts, fakeHost, milestone, storeFor, T0 } from './helpers';
 
 afterEach(cleanupHosts);
@@ -57,29 +59,43 @@ describe('dispatch watch', () => {
     expect(wakes.map((w) => w.kind)).toEqual(['dispatch-complete']);
   });
 
-  it('shows a receipt as delivery evidence only until the milestone is accepted, then marks it delivered and starts maintain', async () => {
-    const release = (verification: 'reported' | 'accepted', status: 'verifying' | 'done') => buildingProject({
-      phase: 'release',
-      milestones: [milestone('m1', { status, verification, dispatch: { kind: 'workflow', id: 'loop_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: 'pr' } })],
+  it('holds a receipt as delivery evidence until the owner accepts, then delivers and starts maintain', async () => {
+    // The real order: the run delivers first, and the owner accepts afterwards.
+    const releaseMilestone = milestone('m1', {
+      status: 'verifying',
+      verification: 'verified',
+      dispatch: { kind: 'workflow', id: 'loop_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: 'pr' },
+      evidence: { commit: 'abc123', checkedAt: T0, commands: [{ command: 'pnpm test', exitCode: 0, output: 'ok', durationMs: 1 }], diffSummary: null, preview: null, passed: true, stale: false },
     });
-    const { host, store, wakes, settle } = await setup(release('reported', 'verifying'));
+    const { host, store, wakes, settle } = await setup(buildingProject({ phase: 'release', milestones: [releaseMilestone] }));
     host.emitState(files.loops, { version: 1, loops: [{ id: 'loop_1', title: 'Release', status: 'active', updatedAt: T0 }] });
     await settle();
     const runs = loopRunsIndexFile('/home/dan/projects/hollow', 'loop_1');
     host.emitState(runs, { version: 1, runs: [{ id: 'run_1', status: 'completed', delivery: { destination: 'pr', ref: 'https://github.com/x/y/pull/7', summary: 'PR opened', deliveredAt: T0 } }] });
     await settle();
     let record = await store.read('proj_1');
-    expect(record?.milestones[0]).toMatchObject({ status: 'verifying', verification: 'reported', receipt: 'https://github.com/x/y/pull/7' });
+    expect(record?.milestones[0]).toMatchObject({ status: 'verifying', verification: 'verified', receipt: 'https://github.com/x/y/pull/7' });
     expect(record?.phase).toBe('release');
     expect(wakes.at(-1)?.items[0]).toContain('stays verifying');
 
-    await store.write(release('accepted', 'done'));
-    host.emitState(runs, { version: 1, runs: [{ id: 'run_1', status: 'completed', delivery: { destination: 'pr', ref: 'https://github.com/x/y/pull/7', summary: 'PR opened', deliveredAt: T0 } }] });
-    await settle();
+    // The owner accepts the milestone on its passed evidence.
+    const services: OwnerServices = {
+      research: vi.fn(async () => ({ id: 'res_1' })),
+      dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1' })),
+      evidence: vi.fn(async () => undefined),
+      evidenceIsStale: vi.fn(async () => false),
+      maintenance: vi.fn(async (r) => r),
+    };
+    const actions = createOwnerActions({ host, store, outcomes: createTurnOutcomes(), services });
+    const outcome = await actions.execute(
+      { sessionPath: '/sessions/owner.jsonl', cwd: '/home/dan/projects/hollow' },
+      { action: 'milestone', projectId: 'proj_1', milestoneId: 'm1', done: true },
+    );
+    expect(outcome.ok).toBe(true);
     record = await store.read('proj_1');
     expect(record?.milestones[0]).toMatchObject({ status: 'done', verification: 'delivered' });
     expect(record?.phase).toBe('maintain');
-    expect(wakes.at(-1)?.items).toContain('the release is delivered; maintain starts');
+    expect(record?.history.at(-1)?.cause).toContain('release delivered at https://github.com/x/y/pull/7');
   });
 
   it('wakes the owner with an external event when the maintenance Workflow runs again', async () => {

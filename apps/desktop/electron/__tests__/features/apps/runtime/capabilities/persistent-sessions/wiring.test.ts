@@ -21,7 +21,12 @@ vi.mock('@electron/platform/desktop/request-choice', () => ({
 }));
 
 vi.mock('@electron/features/workspace/manager', () => ({
-  workspaceManager: { list: async () => [{ id: 'ws-1', path: '/workspace' }] },
+  workspaceManager: {
+    list: async () => [
+      { id: 'ws-1', path: '/workspace' },
+      { id: 'ws-2', path: '/other-workspace' },
+    ],
+  },
 }));
 
 vi.mock('@electron/features/subagent/runtime/tool-catalog', () => ({
@@ -101,6 +106,16 @@ describe('persistent session wiring', () => {
   it('refuses a proposal whose workspace id is not registered, before any prompt', async () => {
     const decision = await clampAndApprove('ws-gone', skillBearingProposal());
     expect(decision).toBeNull();
+  });
+
+  it('drops a cwd that sits in another registered workspace', async () => {
+    const proposal = skillBearingProposal();
+    proposal.subjects.implementer.allowedCwds = ['/workspace/app', '/other-workspace/app'];
+
+    const decision = await clampAndApprove('ws-1', proposal);
+
+    expect(decision?.approved.subjects.implementer.allowedCwds).toEqual(['/workspace/app']);
+    expect(fakes.choices[0].body).toContain('/other-workspace/app');
   });
 
   it('removes tools the approved permission profile cannot provide', async () => {

@@ -11,7 +11,7 @@ import { ArrowLeft, ChevronRight, Coins, Compass, MoreHorizontal, Pause, Play, P
 
 import type { AutonomySetting, ProjectRecord } from '../../shared/record';
 import { AUTONOMY_SETTINGS } from '../../shared/charter-shape';
-import { AUTONOMY_LABEL, isAwake } from '../lib/view-model';
+import { AUTONOMY_LABEL } from '../lib/view-model';
 
 export interface ProjectControls {
   pause(): void;
@@ -31,7 +31,9 @@ function nextAutonomy(current: AutonomySetting): AutonomySetting {
 /** The controls menu: pause or resume, stop, raise cap, autonomy, delete. Open session sits beside it. */
 export function ControlsMenu({ record, controls }: { record: ProjectRecord; controls: ProjectControls }) {
   const [open, setOpen] = useState(false);
-  const paused = record.paused || !isAwake(record);
+  // The record's own paused flag, not awake-ness: a blocked or limited project is not paused,
+  // and offering it a Resume the runtime refuses is a dead control.
+  const paused = record.paused;
   const stopped = record.blockedReason === 'stopped by the user';
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>

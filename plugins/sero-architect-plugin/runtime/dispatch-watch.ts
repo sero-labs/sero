@@ -11,10 +11,11 @@ import path from 'node:path';
 
 import type { OrchestratorBoardLoopView, OrchestratorBoardRoomView } from '@sero-ai/common';
 
-import { advancePhase, charge, settle } from '../shared/lifecycle';
+import { charge, settle } from '../shared/lifecycle';
 import { ORCHESTRATOR_INDEX_FILE, ORCHESTRATOR_ROOM_INDEX_FILE } from '@sero-ai/common';
 import type { Milestone, ProjectRecord } from '../shared/record';
 import type { WakeEvent, WakeKind } from '../shared/wake';
+import { applyDelivery, isAccepted } from './delivery';
 import type { ArchitectHost } from './host';
 import type { RecordStore } from './record-store';
 
@@ -133,29 +134,24 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
   /**
    * A receipt proves the artifact exists at the destination and nothing more:
    * an accepted milestone becomes delivered, any other keeps its state and
-   * shows the receipt as delivery evidence only. A delivered release moves the
-   * project to maintain.
+   * shows the receipt as delivery evidence only. When acceptance comes later,
+   * owner-actions runs the same delivery step.
    */
   const applyRuns = async (projectId: string, loopId: string, runs: RunView[]): Promise<void> => {
-    const record = await store.read(projectId);
-    if (!record) return;
-    const milestone = record.milestones.find((m) => m.dispatch?.kind === 'workflow' && m.dispatch.id === loopId);
-    const receipt = runs.map((run) => run.delivery).find((delivery) => delivery !== undefined);
-    if (!milestone || !receipt || milestone.receipt === receipt.ref) return;
     const now = host.now();
-    const delivered = milestone.verification === 'accepted' || milestone.verification === 'delivered';
-    const updated: Milestone = { ...milestone, receipt: receipt.ref, verification: delivered ? 'delivered' : milestone.verification };
-    let next = settle({ ...record, milestones: record.milestones.map((m) => (m.id === milestone.id ? updated : m)) }, now);
-    const items = [`milestone ${milestone.id} has a delivery receipt at ${receipt.ref}${delivered ? '' : ', but it is not verified and accepted, so it stays verifying'}`];
-    if (delivered && next.phase === 'release') {
-      const advanced = advancePhase({ ...next, stateLine: 'Released. Maintaining.' }, 'maintain', now, `release delivered at ${receipt.ref}`);
-      if (advanced.ok) {
-        next = advanced.record;
-        items.push('the release is delivered; maintain starts');
-      }
-    }
-    await store.write(next);
-    deps.wake(projectId, { kind: 'dispatch-complete', at: now, items });
+    const items: string[] = [];
+    await store.update(projectId, (record) => {
+      const milestone = record.milestones.find((m) => m.dispatch?.kind === 'workflow' && m.dispatch.id === loopId);
+      const receipt = runs.map((run) => run.delivery).find((delivery) => delivery !== undefined);
+      if (!milestone || !receipt || milestone.receipt === receipt.ref) return null;
+      const updated: Milestone = { ...milestone, receipt: receipt.ref };
+      const staged = settle({ ...record, milestones: record.milestones.map((m) => (m.id === milestone.id ? updated : m)) }, now);
+      items.push(`milestone ${milestone.id} has a delivery receipt at ${receipt.ref}${isAccepted(updated) ? '' : ', but it is not verified and accepted, so it stays verifying'}`);
+      const delivery = applyDelivery(staged, updated, now);
+      items.push(...delivery.items);
+      return delivery.record;
+    });
+    if (items.length > 0) deps.wake(projectId, { kind: 'dispatch-complete', at: now, items });
   };
 
   const followRuns = (projectId: string, workspacePath: string, loopId: string): void => {
@@ -167,47 +163,47 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
   };
 
   const apply = async (projectId: string, loops: LoopView[] | null, rooms: RoomView[] | null): Promise<void> => {
-    const record = await store.read(projectId);
-    if (!record) return;
     const now = host.now();
-    let next = record;
     const wakes: Transition[] = [];
-    const workspacePath = workspacePaths.get(projectId);
-    for (const milestone of record.milestones) {
-      if (milestone.dispatch?.kind === 'workflow' && milestone.dispatch.destination && workspacePath) {
-        followRuns(projectId, workspacePath, milestone.dispatch.id);
+    await store.update(projectId, (record) => {
+      let next = record;
+      const workspacePath = workspacePaths.get(projectId);
+      for (const milestone of record.milestones) {
+        if (milestone.dispatch?.kind === 'workflow' && milestone.dispatch.destination && workspacePath) {
+          followRuns(projectId, workspacePath, milestone.dispatch.id);
+        }
       }
-    }
-    for (const milestone of record.milestones) {
-      const dispatch = milestone.dispatch;
-      if (!dispatch) continue;
-      const key = `${projectId}:${dispatch.id}`;
-      const loop = dispatch.kind === 'workflow' ? loops?.find((l) => l.id === dispatch.id) : undefined;
-      const room = dispatch.kind === 'room' ? rooms?.find((r) => r.id === dispatch.id) : undefined;
-      if (!loop && !room) continue;
-      const previous = seen.get(key);
-      const transition = loop ? loopTransition(record, milestone, loop, previous) : room ? roomTransition(milestone, room, previous) : null;
-      const costUsd = loop ? loop.usage?.costUsd ?? 0 : room?.costUsd ?? 0;
-      const delta = Math.max(0, costUsd - dispatch.chargedUsd);
-      let updated: Milestone = milestone;
-      if (delta > 0) {
-        updated = { ...updated, dispatch: { ...dispatch, chargedUsd: costUsd } };
-        next = charge(next, 'dispatched', delta, now);
+      for (const milestone of record.milestones) {
+        const dispatch = milestone.dispatch;
+        if (!dispatch) continue;
+        const key = `${projectId}:${dispatch.id}`;
+        const loop = dispatch.kind === 'workflow' ? loops?.find((l) => l.id === dispatch.id) : undefined;
+        const room = dispatch.kind === 'room' ? rooms?.find((r) => r.id === dispatch.id) : undefined;
+        if (!loop && !room) continue;
+        const previous = seen.get(key);
+        const transition = loop ? loopTransition(record, milestone, loop, previous) : room ? roomTransition(milestone, room, previous) : null;
+        const costUsd = loop ? loop.usage?.costUsd ?? 0 : room?.costUsd ?? 0;
+        const delta = Math.max(0, costUsd - dispatch.chargedUsd);
+        let updated: Milestone = milestone;
+        if (delta > 0) {
+          updated = { ...updated, dispatch: { ...dispatch, chargedUsd: costUsd } };
+          next = charge(next, 'dispatched', delta, now);
+        }
+        if (transition?.reported && updated.status === 'running') {
+          updated = { ...updated, status: 'verifying', verification: 'reported' };
+        }
+        if (updated !== milestone) {
+          next = { ...next, milestones: next.milestones.map((m) => (m.id === milestone.id ? updated : m)) };
+        }
+        if (transition) wakes.push(transition);
+        seen.set(key, {
+          status: loop ? loop.status : room?.status ?? '',
+          pending: loop ? loop.pendingInput ?? 0 : room?.attentionCount ?? 0,
+          lastRunAt: loop?.lastRunAt ?? null,
+        });
       }
-      if (transition?.reported && updated.status === 'running') {
-        updated = { ...updated, status: 'verifying', verification: 'reported' };
-      }
-      if (updated !== milestone) {
-        next = { ...next, milestones: next.milestones.map((m) => (m.id === milestone.id ? updated : m)) };
-      }
-      if (transition) wakes.push(transition);
-      seen.set(key, {
-        status: loop ? loop.status : room?.status ?? '',
-        pending: loop ? loop.pendingInput ?? 0 : room?.attentionCount ?? 0,
-        lastRunAt: loop?.lastRunAt ?? null,
-      });
-    }
-    if (next !== record) await store.write(settle(next, now));
+      return next === record ? null : settle(next, now);
+    });
     for (const transition of wakes) deps.wake(projectId, { kind: transition.kind, at: now, items: [transition.item] });
   };
 

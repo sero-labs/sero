@@ -1,5 +1,8 @@
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { WakeEvent } from '../../shared/wake';
+import { missingEvidence } from '../owner-actions';
 import { ORCHESTRATOR_REGISTRY_GLOBAL_KEY, type OrchestratorBoardAction, type OrchestratorRegistryEntryView } from '@sero-ai/common';
 import { MAINTENANCE_MILESTONE_ID } from '../../shared/maintenance';
 import { createServices } from '../services';
@@ -15,6 +18,15 @@ async function setup(record = buildingProject()) {
   const services = createServices({ host, store, wake: (_id, wake) => { wakes.push(wake); } });
   const flush = () => new Promise((resolve) => setTimeout(resolve, 20));
   return { host, store, services, wakes, flush };
+}
+
+/** Waits for a background evidence run to reach the condition. */
+async function waitFor(condition: () => boolean, timeoutMs = 5000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!condition()) {
+    if (Date.now() > deadline) throw new Error('the condition was never met');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
 }
 
 function fakeCoordinator(): { actions: OrchestratorBoardAction[]; uninstall: () => void } {
@@ -108,5 +120,29 @@ describe('runtime services', () => {
     await flush();
     const second = (await store.read('proj_1'))?.milestones[0];
     expect(second).toMatchObject({ status: 'verifying', verification: 'verified', evidence: { passed: true, preview: null } });
+  });
+
+  it('records the failure and wakes the owner when the capture subagent throws', async () => {
+    const preview = milestone('m1', { status: 'verifying', preview: { route: '/' } });
+    const { host, store, services, wakes } = await setup(buildingProject({ milestones: [preview] }));
+    // A dev server that really answers, so the run reaches the capture step.
+    const server = createServer((_request, response) => { response.statusCode = 200; response.end('ok'); });
+    await new Promise<void>((resolve) => { server.listen(0, '127.0.0.1', resolve); });
+    const port = (server.address() as AddressInfo).port;
+    try {
+      host.detectDevServerCommand = async () => 'pnpm dev';
+      host.startDevServer = async () => ({ url: `http://127.0.0.1:${port}`, serverId: 'srv-1' });
+      host.runStructured = async () => { throw new Error('the subagent seam is unavailable'); };
+      await services.evidence(buildingProject({ milestones: [preview] }), preview, { commands: ['pnpm test'], route: '/' });
+      await waitFor(() => wakes.length > 0);
+    } finally {
+      await new Promise<void>((resolve) => { server.close(() => resolve()); });
+    }
+    expect(wakes[0]).toMatchObject({ kind: 'dispatch-complete', items: [expect.stringContaining('the subagent seam is unavailable')] });
+    const failed = (await store.read('proj_1'))?.milestones[0];
+    expect(failed).toMatchObject({ status: 'verifying', verification: 'reported' });
+    expect(failed?.evidence).toMatchObject({ passed: false, commands: [{ exitCode: 1, output: expect.stringContaining('the subagent seam is unavailable') }] });
+    // The failed evidence is what keeps the milestone from closing.
+    expect(missingEvidence(failed!)).toContainEqual(expect.stringContaining('exit code 1'));
   });
 });

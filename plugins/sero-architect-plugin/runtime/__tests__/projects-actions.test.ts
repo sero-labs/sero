@@ -174,4 +174,48 @@ describe('project management', () => {
     expect(host.sessions.deletedGrants).toEqual(['grant-1']);
     expect(host.index()?.projects).toEqual([]);
   });
+
+  it('frees the scheduler when the user stops the project mid-turn, and delivers again after resume', async () => {
+    const { host, store, sessions, actions } = await setup();
+    const delivered: string[] = [];
+    const gate = createWakeGate();
+    gate.release();
+    const scheduler = createWakeScheduler({
+      gate,
+      log: host.log,
+      deliver: async (projectId, wake) => {
+        const record = await store.read(projectId);
+        if (!record) return;
+        delivered.push(wake.kind);
+        await sessions.runTurn(record, wake);
+      },
+    });
+    const live = createProjectsActions({ host, store, sessions, scheduler, watch: { track: vi.fn(async () => undefined), untrack: vi.fn(), flush: vi.fn(async () => undefined), dispose: vi.fn() }, services: {
+      research: vi.fn(async () => ({ id: 'res_1' })),
+      dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1' })),
+      evidence: vi.fn(async () => undefined),
+      evidenceIsStale: vi.fn(async () => false),
+      maintenance: vi.fn(async (record: ProjectRecord) => record),
+    } });
+    await store.write(buildingProject());
+
+    // The owner turn never ends on its own: it is still working when the user stops.
+    let releaseTurn = (): void => undefined;
+    const hanging = new Promise<void>((resolve) => { releaseTurn = resolve; });
+    host.sessions.onTurn = async () => { await hanging; };
+    scheduler.request('proj_1', { kind: 'quiet', at: T0, items: ['first wake'] });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(scheduler.isRunning('proj_1')).toBe(true);
+
+    expect((await live.stop('proj_1')).ok).toBe(true);
+    await scheduler.idle('proj_1');
+    expect(scheduler.isRunning('proj_1')).toBe(false);
+
+    // The scheduler is free, so the wake after resume is delivered.
+    host.sessions.onTurn = async () => undefined;
+    expect((await live.resume('proj_1')).ok).toBe(true);
+    await scheduler.idle('proj_1');
+    expect(delivered).toEqual(['quiet', 'quiet']);
+    releaseTurn();
+  });
 });

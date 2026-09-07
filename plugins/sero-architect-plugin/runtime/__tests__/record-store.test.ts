@@ -87,4 +87,45 @@ describe('record store', () => {
     expect(rebuilt.projects.map((p) => p.id).sort()).toEqual(['b', 'c']);
     expect((await store.list()).map((p) => p.id).sort()).toEqual(['b', 'c']);
   });
+
+  it('keeps a write made while a slow update is in flight', async () => {
+    const { store } = await harness();
+    await store.write(record('a'));
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    // A wake that reads, waits on something slow, then writes.
+    const slow = store.update('a', async (current) => {
+      await held;
+      return { ...current, stateLine: 'the slow wake finished' };
+    });
+    // The user sends a directive while that wake is still in flight.
+    const directive = store.update('a', (current) => ({
+      ...current,
+      directives: [...current.directives, { id: 'dir_1', text: 'stop gold-plating', sentAt: '2026-09-07T10:00:00.000Z', reply: null }],
+    }));
+    release();
+    await Promise.all([slow, directive]);
+    const final = await store.read('a');
+    expect(final?.stateLine).toBe('the slow wake finished');
+    expect(final?.directives.map((d) => d.id)).toEqual(['dir_1']);
+  });
+
+  it('changes what is on disk, not the stale copy the caller holds', async () => {
+    const { store } = await harness();
+    const stale = record('a');
+    await store.write(stale);
+    await store.write({ ...stale, brief: 'written by another wake' });
+    const written = await store.update('a', (current) => ({ ...current, stateLine: 'written by this wake' }));
+    expect(written?.brief).toBe('written by another wake');
+    expect((await store.read('a'))?.brief).toBe('written by another wake');
+    expect((await store.read('a'))?.stateLine).toBe('written by this wake');
+  });
+
+  it('leaves the record alone when the mutator declines or the project is gone', async () => {
+    const { store } = await harness();
+    await store.write(record('a', 'untouched'));
+    expect(await store.update('a', () => null)).toBeNull();
+    expect((await store.read('a'))?.stateLine).toBe('untouched');
+    expect(await store.update('missing', (current) => current)).toBeNull();
+  });
 });

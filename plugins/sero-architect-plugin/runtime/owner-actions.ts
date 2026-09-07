@@ -20,9 +20,10 @@ import {
   type OwnerCallerSignals,
 } from '../shared/owner-actions';
 import type { Charter, Milestone, ProjectRecord } from '../shared/record';
+import { applyDelivery } from './delivery';
 import { performDispatch } from './dispatch-link';
 import type { ArchitectHost } from './host';
-import type { RecordStore } from './record-store';
+import { mutateRecord, type RecordStore } from './record-store';
 import type { TurnOutcomes } from './turn-outcomes';
 
 export interface OwnerServices {
@@ -111,7 +112,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     lead: string,
   ): Promise<OwnerActionOutcome> {
     const decision = toDecision({ question: draft.question, options: draft.options, recommendation: 'apply', reason: draft.reason, dependsOn: [] }, host.newId('dec'), now, draft.proposal);
-    await store.write(withHistory({ ...record, decisions: [...record.decisions, decision] }, now, `decision ${decision.id} raised: ${draft.reason}`));
+    await store.update(record.id, (fresh) => withHistory({ ...fresh, decisions: [...fresh.decisions, decision] }, now, `decision ${decision.id} raised: ${draft.reason}`));
     outcomes.declare(record.id, 'decide');
     return ok(`${lead}, so it is recorded as decision ${decision.id}. Nothing was started or sent; this wake is over.`, { decisionId: decision.id });
   }
@@ -146,23 +147,20 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
         now,
         { kind: 'charter', charter: proposed, milestones },
       );
-      const next = withHistory({ ...record, decisions: [...record.decisions, decision] }, now, `decision ${decision.id} raised: charter change proposed`);
-      await store.write(next);
+      await store.update(record.id, (fresh) => withHistory({ ...fresh, decisions: [...fresh.decisions, decision] }, now, `decision ${decision.id} raised: charter change proposed`));
       outcomes.declare(record.id, 'decide');
       return ok(`The charter is already approved, so the change is recorded as decision ${decision.id} for the user to answer. Nothing was applied.`, { decisionId: decision.id });
     }
     if (record.phase !== 'discovery' && record.phase !== 'charter') {
       return refuse(`A charter is proposed during discovery, and the project is in ${record.phase}.`);
     }
-    let next: ProjectRecord = { ...record, charter: proposed, milestones, stateLine: 'Charter proposed. Waiting for your approval.' };
-    if (next.phase === 'discovery') {
-      const advanced = advancePhase(next, 'charter', now, 'the owner proposed the charter');
-      if (!advanced.ok) return refuse(advanced.error);
-      next = advanced.record;
-    } else {
-      next = withHistory(next, now, 'the owner proposed a revised charter');
-    }
-    await store.write(next);
+    const applied = await mutateRecord(store, record.id, (fresh) => {
+      const proposal: ProjectRecord = { ...fresh, charter: proposed, milestones, stateLine: 'Charter proposed. Waiting for your approval.' };
+      if (proposal.phase !== 'discovery') return { record: withHistory(proposal, now, 'the owner proposed a revised charter') };
+      const advanced = advancePhase(proposal, 'charter', now, 'the owner proposed the charter');
+      return advanced.ok ? { record: advanced.record } : { error: advanced.error };
+    });
+    if (!applied.ok) return refuse(applied.error);
     return ok(`Charter proposed with ${milestones.length} milestone(s) and a $${draft.capUsd} cap. The user must approve it before any work starts; call sleep.`, {
       milestoneIds: proposed.milestoneIds,
     });
@@ -173,9 +171,15 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
       const title = input.title?.trim();
       if (!title) return refuse('A new milestone needs a title.');
       if (record.phase !== 'build' && record.phase !== 'release' && record.phase !== 'maintain') return refuse(`Milestones are added during build, release or maintain, and the project is in ${record.phase}. Propose them in the charter.`);
-      const id = `m${record.milestones.length + 1}`;
-      const created = toMilestone({ title, plan: input.plan?.trim() || null, previewRoute: input.previewRoute?.trim() || null }, id);
-      await store.write(withHistory({ ...record, milestones: [...record.milestones, created] }, now, `milestone ${id} added`));
+      const draft = { title, plan: input.plan?.trim() || null, previewRoute: input.previewRoute?.trim() || null };
+      // The id counts the milestones on disk, not the copy this turn started with.
+      const added = await mutateRecord(store, record.id, (fresh) => {
+        const id = `m${fresh.milestones.length + 1}`;
+        const created = toMilestone(draft, id);
+        return { record: withHistory({ ...fresh, milestones: [...fresh.milestones, created] }, now, `milestone ${id} added`) };
+      });
+      if (!added.ok) return refuse(added.error);
+      const id = added.record.milestones[added.record.milestones.length - 1]?.id ?? '';
       return ok(`Milestone ${id} "${title}" added as planned.`, { milestoneId: id });
     }
     const found = milestoneOf(record, input.milestoneId);
@@ -183,42 +187,70 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     if (input.done) {
       if (found.status === 'done') return refuse(`Milestone ${found.id} is already done.`);
       if (found.status === 'running') return refuse(`Milestone ${found.id} is still running: the dispatched work has not reported completion, and there is no evidence yet.`);
+      // The staleness check runs git, so it stays outside the store's queue.
       if (found.evidence && !found.evidence.stale && (await services.evidenceIsStale(record, found))) {
         // Files moved under the evidence: mark it, rerun the same commands, refuse.
-        const stale: Milestone = { ...found, evidence: { ...found.evidence, stale: true }, verification: 'reported' };
-        await store.write(settle(replace(record, stale), now));
-        await services.evidence(replace(record, stale), stale, { commands: found.evidence.commands.map((c) => c.command), route: found.preview?.route ?? null });
+        const marked = await mutateRecord(store, record.id, (fresh) => {
+          const current = fresh.milestones.find((m) => m.id === found.id);
+          if (!current?.evidence) return { error: `Milestone ${found.id} no longer has evidence to mark stale.` };
+          const stale: Milestone = { ...current, evidence: { ...current.evidence, stale: true }, verification: 'reported' };
+          return { record: settle(replace(fresh, stale), now) };
+        });
+        if (!marked.ok) return refuse(marked.error);
+        const stale = marked.record.milestones.find((m) => m.id === found.id) ?? found;
+        await services.evidence(marked.record, stale, { commands: found.evidence.commands.map((c) => c.command), route: found.preview?.route ?? null });
         return refuse(`Milestone ${found.id} cannot close: files changed after the evidence was taken, so it is stale. The runtime is rerunning it; you are woken with the result.`);
       }
-      const missing = missingEvidence(found);
-      if (found.status !== 'verifying' || missing.length > 0) {
-        const reasons = missing.length > 0 ? missing : [`the milestone is ${found.status}, not verifying`];
-        return refuse(`Milestone ${found.id} cannot close. Missing: ${reasons.join('; ')}. Ask for an evidence run and wait for it to pass.`);
-      }
-      const accepted: Milestone = { ...found, status: 'done', verification: 'accepted' };
-      let next = withHistory(replace(record, accepted), now, `milestone ${found.id} accepted on passed evidence`);
       let note = '';
-      if (next.phase === 'build' && next.milestones.every((m) => m.status === 'done')) {
-        const released = advancePhase({ ...next, stateLine: 'Every milestone is done. Preparing the release.' }, 'release', now, 'every milestone accepted; release starts');
-        if (released.ok) {
-          next = released.record;
-          note = ' Every milestone is done, so the project is in release: add a release milestone and dispatch it with a destination (pr or workspace-files).';
+      const closed = await mutateRecord(store, record.id, (fresh) => {
+        const current = fresh.milestones.find((m) => m.id === found.id);
+        if (!current) return { error: `Milestone "${found.id}" is not on this project.` };
+        if (current.status === 'done') return { error: `Milestone ${current.id} is already done.` };
+        const missing = missingEvidence(current);
+        if (current.status !== 'verifying' || missing.length > 0) {
+          const reasons = missing.length > 0 ? missing : [`the milestone is ${current.status}, not verifying`];
+          return { error: `Milestone ${current.id} cannot close. Missing: ${reasons.join('; ')}. Ask for an evidence run and wait for it to pass.` };
         }
-      }
-      await store.write(next);
+        const accepted: Milestone = { ...current, status: 'done', verification: 'accepted' };
+        let next = withHistory(replace(fresh, accepted), now, `milestone ${current.id} accepted on passed evidence`);
+        // The receipt usually lands before acceptance, so delivery is settled here too.
+        const delivery = applyDelivery(next, accepted, now);
+        next = delivery.record;
+        if (delivery.items.length > 0) note = ' The release receipt is already recorded, so the release is delivered and maintain starts.';
+        if (next.phase === 'build' && next.milestones.every((m) => m.status === 'done')) {
+          const released = advancePhase({ ...next, stateLine: 'Every milestone is done. Preparing the release.' }, 'release', now, 'every milestone accepted; release starts');
+          if (released.ok) {
+            next = released.record;
+            note = ' Every milestone is done, so the project is in release: add a release milestone and dispatch it with a destination (pr or workspace-files).';
+          }
+        }
+        return { record: next };
+      });
+      if (!closed.ok) return refuse(closed.error);
       return ok(`Milestone ${found.id} is done: accepted on evidence checked at ${found.evidence?.commit ?? 'unknown commit'}.${note}`);
     }
-    const updated: Milestone = {
-      ...found,
-      title: input.title?.trim() || found.title,
-      plan: input.plan?.trim() || found.plan,
-      preview: input.previewRoute?.trim() ? { route: input.previewRoute.trim() } : found.preview,
+    const edits = {
+      title: input.title?.trim() || null,
+      plan: input.plan?.trim() || null,
+      previewRoute: input.previewRoute?.trim() || null,
     };
-    await store.write(settle(replace(record, updated), now));
-    const approvalNote = record.autonomy === 'milestones' && updated.status === 'planned' && updated.plan
-      ? ' The plan waits for the user\'s approval before it can dispatch.'
-      : '';
-    return ok(`Milestone ${updated.id} updated.${approvalNote}`);
+    let approvalNote = '';
+    const changed = await mutateRecord(store, record.id, (fresh) => {
+      const current = fresh.milestones.find((m) => m.id === found.id);
+      if (!current) return { error: `Milestone "${found.id}" is not on this project.` };
+      const updated: Milestone = {
+        ...current,
+        title: edits.title || current.title,
+        plan: edits.plan || current.plan,
+        preview: edits.previewRoute ? { route: edits.previewRoute } : current.preview,
+      };
+      approvalNote = fresh.autonomy === 'milestones' && updated.status === 'planned' && updated.plan
+        ? ' The plan waits for the user\'s approval before it can dispatch.'
+        : '';
+      return { record: settle(replace(fresh, updated), now) };
+    });
+    if (!changed.ok) return refuse(changed.error);
+    return ok(`Milestone ${found.id} updated.${approvalNote}`);
   }
 
   async function decide(record: ProjectRecord, input: OwnerActionInput, now: string): Promise<OwnerActionOutcome> {
@@ -230,17 +262,14 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
       if (found.status === 'done') return refuse(`Milestone ${id} is done and cannot be parked.`);
     }
     const decision = toDecision(parsed.draft, host.newId('dec'), now);
-    const milestones = record.milestones.map((m) =>
-      decision.dependsOn.includes(m.id) && m.status !== 'parked'
-        ? { ...m, status: 'parked' as const, parkedBy: decision.id, parkedFrom: m.status }
-        : m,
-    );
-    const next = withHistory(
-      { ...record, decisions: [...record.decisions, decision], milestones },
-      now,
-      `decision ${decision.id} raised: ${decision.question}`,
-    );
-    await store.write(next);
+    await store.update(record.id, (fresh) => {
+      const milestones = fresh.milestones.map((m) =>
+        decision.dependsOn.includes(m.id) && m.status !== 'parked'
+          ? { ...m, status: 'parked' as const, parkedBy: decision.id, parkedFrom: m.status }
+          : m,
+      );
+      return withHistory({ ...fresh, decisions: [...fresh.decisions, decision], milestones }, now, `decision ${decision.id} raised: ${decision.question}`);
+    });
     outcomes.declare(record.id, 'decide');
     return ok(`Decision ${decision.id} raised. ${decision.dependsOn.length > 0 ? `Parked: ${decision.dependsOn.join(', ')}. ` : ''}The user will answer; this wake is over.`, { decisionId: decision.id });
   }
@@ -335,31 +364,38 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     switch (input.action) {
       case 'brief': {
         if (!text) return refuse('text is required: the brief.');
-        await store.write(settle({ ...record, brief: text }, now));
+        await store.update(record.id, (fresh) => settle({ ...fresh, brief: text }, now));
         return ok('Brief recorded.');
       }
       case 'status': {
         if (!text) return refuse('text is required: one line for the user.');
-        await store.write(settle({ ...record, stateLine: text.split('\n')[0]?.slice(0, 160) ?? text }, now));
+        const line = text.split('\n')[0]?.slice(0, 160) ?? text;
+        await store.update(record.id, (fresh) => settle({ ...fresh, stateLine: line }, now));
         return ok('State line updated. Remember to end the wake with sleep, decide or blocked.');
       }
       case 'reply': {
-        if (!input.directiveId) return refuse('directiveId is required.');
+        const directiveId = input.directiveId;
+        if (!directiveId) return refuse('directiveId is required.');
         if (!text) return refuse('text is required: the reply.');
-        const directive = record.directives.find((d) => d.id === input.directiveId);
-        if (!directive) return refuse(`Directive "${input.directiveId}" is not on this project.`);
-        if (directive.reply) return refuse(`Directive ${directive.id} already has a reply.`);
-        const directives = record.directives.map((d) => (d.id === directive.id ? { ...d, reply: { text, repliedAt: now } } : d));
-        await store.write(settle({ ...record, directives }, now));
-        return ok(`Reply recorded for directive ${directive.id}.`);
+        const replied = await mutateRecord(store, record.id, (fresh) => {
+          const directive = fresh.directives.find((d) => d.id === directiveId);
+          if (!directive) return { error: `Directive "${directiveId}" is not on this project.` };
+          if (directive.reply) return { error: `Directive ${directive.id} already has a reply.` };
+          const directives = fresh.directives.map((d) => (d.id === directive.id ? { ...d, reply: { text, repliedAt: now } } : d));
+          return { record: settle({ ...fresh, directives }, now) };
+        });
+        if (!replied.ok) return refuse(replied.error);
+        return ok(`Reply recorded for directive ${directiveId}.`);
       }
       case 'blocked': {
         if (!text) return refuse('text is required: why you cannot go on.');
-        const pending = unansweredDirective(record);
-        if (pending) return refuse(`Reply to directive ${pending.id} before you end the wake.`);
-        const blocked = block(record, now, text);
-        if (!blocked.ok) return refuse(blocked.error);
-        await store.write(blocked.record);
+        const stopped = await mutateRecord(store, record.id, (fresh) => {
+          const pending = unansweredDirective(fresh);
+          if (pending) return { error: `Reply to directive ${pending.id} before you end the wake.` };
+          const blocked = block(fresh, now, text);
+          return blocked.ok ? { record: blocked.record } : { error: blocked.error };
+        });
+        if (!stopped.ok) return refuse(stopped.error);
         outcomes.declare(record.id, 'blocked');
         return ok('The project is blocked; the user decides what happens next. This wake is over.');
       }

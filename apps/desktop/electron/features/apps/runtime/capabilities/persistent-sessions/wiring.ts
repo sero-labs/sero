@@ -54,7 +54,8 @@ export async function clampAndApprove(
   // The workspace id binds the session's CLI tool and extension. An id the host
   // cannot resolve would pass every other clamp and leave the member with a
   // tool that answers "Workspace not found" on every call.
-  if (!workspaces.some((workspace) => workspace.id === workspaceId)) {
+  const workspace = workspaces.find((candidate) => candidate.id === workspaceId);
+  if (!workspace) {
     console.warn(`[persistent-sessions] grant refused: workspace ${workspaceId} is not registered`);
     return null;
   }
@@ -62,7 +63,11 @@ export async function clampAndApprove(
   // Every field is verified against something real. A proposal field the host
   // cannot resolve is dropped, never trusted — see clamp.ts.
   const { proposal: clamped, notes } = clampProposal(proposal, {
-    workspaceRoots: workspaces.map((workspace) => workspace.path),
+    // Only the root of the proposal's OWN workspace. Every other registered
+    // root would let the grant bind a cwd in a workspace the dialog never
+    // named, so the approval and the stored grant would describe different
+    // places.
+    workspaceRoots: [workspace.path],
     // The same provider-qualified identity the caller names a model by.
     availableModels: new Set(models.map((model) => modelKey(model.provider, model.id))),
     availableTools: new Set(toolCatalog.map((tool) => tool.name)),

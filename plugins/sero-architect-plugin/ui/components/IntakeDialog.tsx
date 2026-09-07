@@ -29,8 +29,9 @@ export function IntakeDialog({ open, onClose, onCreate, defaultFolder }: IntakeD
         setError(outcome.text);
         return;
       }
+      // Success is navigated by the caller, which also closes this dialog. Closing here too
+      // would push a second history entry and land on the list instead of the new project.
       setIdea('');
-      onClose();
     } finally {
       setBusy(false);
     }

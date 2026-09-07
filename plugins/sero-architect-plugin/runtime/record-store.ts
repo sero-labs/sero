@@ -56,16 +56,54 @@ function isRecordShape(value: unknown): value is ProjectRecord {
     && typeof (value as ProjectRecord).phase === 'string';
 }
 
+/**
+ * Turns one record into the next. It runs inside the write queue, so it must
+ * not call back into the store, and any slow work belongs before the call.
+ * Returning null leaves the record on disk untouched.
+ */
+export type RecordMutator = (record: ProjectRecord) => ProjectRecord | null | Promise<ProjectRecord | null>;
+
 export interface RecordStore {
   readonly projectsDir: string;
   read(projectId: string): Promise<ProjectRecord | null>;
   list(): Promise<ProjectRecord[]>;
   /** Writes the record and its index row as one queued step. */
   write(record: ProjectRecord): Promise<void>;
+  /**
+   * Read, change and write as one queued step, so a concurrent write can never
+   * be lost under a stale copy. Returns the record written, or null when the
+   * project is gone or the mutator declined.
+   */
+  update(projectId: string, mutate: RecordMutator): Promise<ProjectRecord | null>;
   /** Removes the record file and its index row as one queued step. */
   remove(projectId: string): Promise<void>;
   /** Rewrites the index from the records on disk, for restart reconciliation. */
   rebuildIndex(): Promise<ArchitectIndex>;
+}
+
+/** What a validating mutator decided: the next record, or why it refused. */
+export type RecordMutation = { record: ProjectRecord } | { error: string };
+
+/**
+ * Validates and changes a record inside the write queue, and reports the
+ * refusal the caller must show. Use it wherever a check reads the record and a
+ * write depends on what it read.
+ */
+export async function mutateRecord(
+  store: RecordStore,
+  projectId: string,
+  mutate: (record: ProjectRecord) => RecordMutation | Promise<RecordMutation>,
+): Promise<{ ok: true; record: ProjectRecord } | { ok: false; error: string }> {
+  let error = `No project ${projectId}.`;
+  const written = await store.update(projectId, async (record) => {
+    const result = await mutate(record);
+    if ('error' in result) {
+      error = result.error;
+      return null;
+    }
+    return result.record;
+  });
+  return written ? { ok: true, record: written } : { ok: false, error };
 }
 
 export function createRecordStore(deps: RecordStoreDeps): RecordStore {
@@ -104,6 +142,19 @@ export function createRecordStore(deps: RecordStoreDeps): RecordStore {
     }
   }
 
+  /** Writes the record then its index row. Callers must already hold the queue. */
+  async function commit(record: ProjectRecord): Promise<void> {
+    await writeAtomically(record);
+    const entry = toIndexEntry(record);
+    await deps.updateIndex((current) => {
+      const index = normalizeIndex(current);
+      const projects = index.projects.some((p) => p.id === entry.id)
+        ? index.projects.map((p) => (p.id === entry.id ? entry : p))
+        : [...index.projects, entry];
+      return { version: 1, projects };
+    });
+  }
+
   return {
     projectsDir,
 
@@ -118,16 +169,17 @@ export function createRecordStore(deps: RecordStoreDeps): RecordStore {
     },
 
     write(record) {
+      return enqueue(() => commit(record));
+    },
+
+    update(projectId, mutate) {
       return enqueue(async () => {
-        await writeAtomically(record);
-        const entry = toIndexEntry(record);
-        await deps.updateIndex((current) => {
-          const index = normalizeIndex(current);
-          const projects = index.projects.some((p) => p.id === entry.id)
-            ? index.projects.map((p) => (p.id === entry.id ? entry : p))
-            : [...index.projects, entry];
-          return { version: 1, projects };
-        });
+        const current = await readAt(recordPath(projectId));
+        if (!current) return null;
+        const next = await mutate(current);
+        if (!next) return null;
+        await commit(next);
+        return next;
       });
     },
 

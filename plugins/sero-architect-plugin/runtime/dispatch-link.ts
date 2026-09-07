@@ -25,6 +25,8 @@ export async function performDispatch(
   request: DispatchRequest,
   now: string,
 ): Promise<{ record: ProjectRecord; milestone: Milestone }> {
+  // The dispatch itself is slow and must stay outside the store's write queue;
+  // only the link is written under it, on whatever the record says by then.
   const link = await services.dispatch(record, milestone, request);
   const running: Milestone = {
     ...milestone,
@@ -32,11 +34,13 @@ export async function performDispatch(
     verification: null,
     dispatch: { kind: request.kind, id: link.id, workspaceId: link.workspaceId, dispatchedAt: now, chargedUsd: 0, destination: request.destination },
   };
-  const settled = settle({ ...record, milestones: record.milestones.map((m) => (m.id === milestone.id ? running : m)) }, now);
-  const next: ProjectRecord = {
-    ...settled,
-    history: [...settled.history, { at: now, phase: settled.phase, overlay: settled.overlay, cause: `milestone ${milestone.id} dispatched as ${request.kind} ${link.id}${request.destination ? ` delivering to ${request.destination}` : ''}` }],
-  };
-  await store.write(next);
-  return { record: next, milestone: running };
+  const cause = `milestone ${milestone.id} dispatched as ${request.kind} ${link.id}${request.destination ? ` delivering to ${request.destination}` : ''}`;
+  const written = await store.update(record.id, (fresh) => {
+    const linked = fresh.milestones.map((m) =>
+      m.id === milestone.id ? { ...m, status: running.status, verification: null, dispatch: running.dispatch } : m,
+    );
+    const settled = settle({ ...fresh, milestones: linked }, now);
+    return { ...settled, history: [...settled.history, { at: now, phase: settled.phase, overlay: settled.overlay, cause }] };
+  });
+  return { record: written ?? record, milestone: running };
 }

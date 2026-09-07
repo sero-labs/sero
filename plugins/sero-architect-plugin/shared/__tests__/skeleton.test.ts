@@ -1,3 +1,5 @@
+import os from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { architectEnabled } from '../kill-switch';
 import { architectPathsFromHome, resolveArchitectPaths, resolveSeroHome } from '../paths';
@@ -20,6 +22,10 @@ describe('paths', () => {
     expect(paths).toEqual(architectPathsFromHome('/profile/apps/architect'));
     expect(paths.indexFile).toBe('/profile/apps/architect/state.json');
     expect(paths.projectsDir).toBe('/profile/apps/architect/projects');
+  });
+
+  it('falls back to ~/.sero-ui, never to the pi home', () => {
+    expect(resolveSeroHome({})).toBe(path.join(os.homedir(), '.sero-ui'));
   });
 });
 

@@ -40,6 +40,8 @@ export function useArchitectView(): readonly [ArchitectView, (view: ArchitectVie
   const [launch] = useState(() => launchView(consumeAppLaunchParams<ArchitectLaunchParams>('architect')));
   const [view, setView] = useState<ArchitectView>(launch ?? parseViewId(host.viewId) ?? { mode: 'list' });
   const viewRef = useRef(view);
+  // A launch param outranks the view the host remembers, until the mount effect below publishes it.
+  const initialLaunch = useRef<ArchitectView | null>(launch);
 
   const navigate = useCallback((next: ArchitectView) => {
     viewRef.current = next;
@@ -49,6 +51,7 @@ export function useArchitectView(): readonly [ArchitectView, (view: ArchitectVie
 
   // Host back/forward is an external source: apply it without a new history entry.
   useEffect(() => {
+    if (initialLaunch.current) return;
     const next = parseViewId(host.viewId);
     if (!next || viewId(next) === viewId(viewRef.current)) return;
     viewRef.current = next;
@@ -57,7 +60,12 @@ export function useArchitectView(): readonly [ArchitectView, (view: ArchitectVie
 
   // A first mount gives the shell a location; a mount-time launch becomes the current entry.
   useEffect(() => {
-    if (!host.viewId || launch) host.navigate(viewId(viewRef.current), { replace: true });
+    if (initialLaunch.current) {
+      host.navigate(viewId(initialLaunch.current), { replace: true });
+      initialLaunch.current = null;
+      return;
+    }
+    if (!host.viewId) host.navigate(viewId(viewRef.current), { replace: true });
     // Once, on mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

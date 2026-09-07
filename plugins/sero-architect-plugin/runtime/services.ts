@@ -114,6 +114,39 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     return { route, smokePassed, capturePath };
   };
 
+  /**
+   * The milestone is already `verifying`, so a run that throws would leave it
+   * there for ever. The error becomes a failed evidence record, which keeps the
+   * milestone from closing, and the owner is woken with the reason.
+   */
+  const recordEvidenceFailure = async (projectId: string, milestoneId: string, startedAt: number, commands: string[], message: string): Promise<void> => {
+    const evidence: EvidenceRecord = {
+      commit: 'unknown',
+      checkedAt: host.now(),
+      commands: [{ command: commands.join(' && '), exitCode: 1, output: `the evidence run could not complete: ${message}`, durationMs: Date.now() - startedAt }],
+      diffSummary: null,
+      preview: null,
+      passed: false,
+      stale: false,
+    };
+    await store.update(projectId, (fresh) => {
+      const current = fresh.milestones.find((m) => m.id === milestoneId);
+      if (!current) return null;
+      const failed: Milestone = {
+        ...current,
+        status: current.status === 'done' ? 'done' : 'verifying',
+        evidence,
+        verification: current.verification === 'accepted' || current.verification === 'delivered' ? current.verification : 'reported',
+      };
+      return settle(replaceMilestone(fresh, failed), host.now());
+    });
+    deps.wake(projectId, {
+      kind: 'dispatch-complete',
+      at: host.now(),
+      items: [`evidence for milestone ${milestoneId} could not run: ${message}. The milestone cannot close until an evidence run passes.`],
+    });
+  };
+
   const runEvidence = async (projectId: string, milestoneId: string, commands: string[], route: string | null): Promise<void> => {
     const startedAt = Date.now();
     const record = await store.read(projectId);
@@ -130,15 +163,16 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     const diffSummary = await diffSummaryOf(host, record.folder);
     const passed = ran.every((c) => c.exitCode === 0) && (preview === null || (preview.smokePassed && preview.capturePath !== null));
     const evidence: EvidenceRecord = { commit, checkedAt: host.now(), commands: ran, diffSummary, preview, passed, stale: false };
-    const fresh = (await store.read(projectId)) ?? record;
-    const current = fresh.milestones.find((m) => m.id === milestoneId) ?? milestone;
-    const verified: Milestone = {
-      ...current,
-      status: current.status === 'done' ? 'done' : 'verifying',
-      evidence,
-      verification: passed ? 'verified' : (current.verification === 'accepted' || current.verification === 'delivered' ? current.verification : 'reported'),
-    };
-    await store.write(settle(replaceMilestone(fresh, verified), host.now()));
+    await store.update(projectId, (fresh) => {
+      const current = fresh.milestones.find((m) => m.id === milestoneId) ?? milestone;
+      const verified: Milestone = {
+        ...current,
+        status: current.status === 'done' ? 'done' : 'verifying',
+        evidence,
+        verification: passed ? 'verified' : (current.verification === 'accepted' || current.verification === 'delivered' ? current.verification : 'reported'),
+      };
+      return settle(replaceMilestone(fresh, verified), host.now());
+    });
     const failures = ran.filter((c) => c.exitCode !== 0).map((c) => `"${c.command}" exited ${c.exitCode}`);
     const previewNote = preview ? (preview.smokePassed ? (preview.capturePath ? 'preview captured' : 'preview rendered but no capture was produced') : 'preview smoke check failed') : '';
     deps.wake(projectId, {
@@ -169,11 +203,9 @@ export function createServices(deps: ServicesDeps): OwnerServices {
           costUsd: result.usage?.costUsd ?? 0,
           completedAt: host.now(),
         };
-        const fresh = await store.read(record.id);
-        if (!fresh) return;
-        const charged = charge({ ...fresh, research: [...fresh.research, entry] }, 'research', entry.costUsd, host.now());
-        await store.write(charged);
-        deps.wake(record.id, { kind: 'quiet', at: host.now(), items: [`research ${id} finished (started ${startedAt}): ${request.question}`] });
+        const written = await store.update(record.id, (fresh) => charge({ ...fresh, research: [...fresh.research, entry] }, 'research', entry.costUsd, host.now()));
+        if (!written) return;
+        deps.wake(record.id,{ kind: 'quiet', at: host.now(), items: [`research ${id} finished (started ${startedAt}): ${request.question}`] });
       })();
       return { id };
     },
@@ -227,21 +259,31 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         parkedFrom: null,
         receipt: null,
       };
-      const fresh = (await store.read(record.id)) ?? record;
-      const settled = settle({ ...fresh, milestones: [...fresh.milestones, milestone] }, now);
-      const next: ProjectRecord = { ...settled, history: [...settled.history, { at: now, phase: settled.phase, overlay: settled.overlay, cause: `maintenance Workflow ${result.loopId} subscribed` }] };
-      await store.write(next);
-      return next;
+      const next = await store.update(record.id, (fresh) => {
+        if (fresh.milestones.some((m) => m.id === MAINTENANCE_MILESTONE_ID)) return null;
+        const settled = settle({ ...fresh, milestones: [...fresh.milestones, milestone] }, now);
+        return { ...settled, history: [...settled.history, { at: now, phase: settled.phase, overlay: settled.overlay, cause: `maintenance Workflow ${result.loopId} subscribed` }] };
+      });
+      return next ?? record;
     },
 
     evidenceIsStale: (record, milestone) => evidenceIsStale(host, record, milestone),
 
     async evidence(record, milestone, request) {
       // Mark the run before it starts so the page shows "verifying" at once.
-      const marked: Milestone = { ...milestone, status: milestone.status === 'done' ? 'done' : 'verifying', preview: request.route ? { route: request.route } : milestone.preview };
-      await store.write(settle(replaceMilestone(record, marked), host.now()));
-      void runEvidence(record.id, milestone.id, request.commands, request.route).catch((error: unknown) => {
-        host.log(`evidence run for ${record.id}/${milestone.id} failed: ${error instanceof Error ? error.message : String(error)}`);
+      await store.update(record.id, (fresh) => {
+        const current = fresh.milestones.find((m) => m.id === milestone.id);
+        if (!current) return null;
+        const marked: Milestone = { ...current, status: current.status === 'done' ? 'done' : 'verifying', preview: request.route ? { route: request.route } : current.preview };
+        return settle(replaceMilestone(fresh, marked), host.now());
+      });
+      const startedAt = Date.now();
+      void runEvidence(record.id, milestone.id, request.commands, request.route).catch(async (error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        host.log(`evidence run for ${record.id}/${milestone.id} failed: ${message}`);
+        await recordEvidenceFailure(record.id, milestone.id, startedAt, request.commands, message).catch((secondary: unknown) => {
+          host.log(`could not record the evidence failure for ${record.id}/${milestone.id}: ${secondary instanceof Error ? secondary.message : String(secondary)}`);
+        });
       });
     },
   };

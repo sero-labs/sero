@@ -26,7 +26,9 @@ describe('owner session', () => {
     host.sessions.denyGrant = true;
     const store = await storeFor(host);
     const sessions = new OwnerSessions({ host, store, outcomes: createTurnOutcomes() });
-    const record = await sessions.requestGrant({ ...buildingProject(), session: { ...buildingProject().session, grantId: null } });
+    const ungranted = { ...buildingProject(), session: { ...buildingProject().session, grantId: null } };
+    await store.write(ungranted);
+    const record = await sessions.requestGrant(ungranted);
     expect(record.overlay).toBe('blocked');
     expect(record.blockedReason).toContain('grant was not approved');
     expect(record.blockedReason).toContain('the user declined');

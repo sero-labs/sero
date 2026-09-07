@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { openSeroFile } from '@sero-ai/app-runtime';
 
 import type { AutonomySetting, ProjectRecord } from '../shared/record';
-import type { ArchitectActions } from './lib/actions';
+import type { ActionOutcome, ArchitectActions } from './lib/actions';
 import { openDispatch } from './lib/page-helpers';
+import { CapInput } from './components/CapInput';
 import { Directives } from './components/Directives';
 import { LimitBanner } from './components/LimitBanner';
 import { MilestoneRail } from './components/MilestoneRail';
@@ -25,23 +26,28 @@ export interface ProjectPageProps {
 
 export function ProjectPage({ record, actions, narrow, disclosures, onBack, confirm }: ProjectPageProps) {
   const id = record.id;
+  const [notice, setNotice] = useState<string | null>(null);
+  const [capOpen, setCapOpen] = useState(false);
+
+  /** A control that is refused must say so: the record alone never shows the refusal. */
+  const report = useCallback(async (outcome: Promise<ActionOutcome>, onOk?: () => void) => {
+    const result = await outcome;
+    setNotice(result.ok ? null : result.text);
+    if (result.ok) onOk?.();
+  }, []);
 
   const controls = useMemo<ProjectControls>(() => ({
-    pause: () => void actions.pause(id),
-    resume: () => void actions.resume(id),
-    stop: () => { if (confirm(`Stop ${record.name}? Running work finishes on its own; the Architect is not woken again.`)) void actions.stop(id); },
-    raiseCap: () => {
-      const current = record.budget.capUsd ?? 0;
-      const answer = window.prompt(`New cost cap in USD (currently $${current})`, String(Math.ceil((current + 20) / 10) * 10));
-      const next = Number(answer);
-      if (answer !== null && Number.isFinite(next) && next > current) void actions.raiseCap(id, next);
-    },
-    setAutonomy: (next: AutonomySetting) => void actions.setAutonomy(id, next),
+    pause: () => void report(actions.pause(id)),
+    resume: () => void report(actions.resume(id)),
+    stop: () => { if (confirm(`Stop ${record.name}? Running work finishes on its own; the Architect is not woken again.`)) void report(actions.stop(id)); },
+    raiseCap: () => { setNotice(null); setCapOpen(true); },
+    setAutonomy: (next: AutonomySetting) => void report(actions.setAutonomy(id, next)),
     openSession: () => {
       if (record.workspaceId && record.session.sessionPath) void openSeroFile(record.workspaceId, record.session.sessionPath);
     },
-    remove: () => { if (confirm(`Delete ${record.name}? The record and its owner session are removed. Files in ${record.folder} stay.`)) void actions.remove(id); },
-  }), [actions, confirm, id, record.budget.capUsd, record.folder, record.name, record.session.sessionPath, record.workspaceId]);
+    // The watcher never pushes null for an unlinked file, so the page leaves on its own.
+    remove: () => { if (confirm(`Delete ${record.name}? The record and its owner session are removed. Files in ${record.folder} stay.`)) void report(actions.remove(id), onBack); },
+  }), [actions, confirm, id, onBack, record.folder, record.name, record.session.sessionPath, record.workspaceId, report]);
 
   const needsActions = useMemo(() => ({
     answer: (decisionId: string, optionId: string, note: string) => actions.answer(id, decisionId, optionId, note),
@@ -54,6 +60,21 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, conf
       <TopBar record={record} controls={controls} onBack={onBack} onNewProject={() => undefined} />
       <div className="ar-scroll">
         <div className="ar-body">
+          {(notice !== null || capOpen) && (
+            <div className="ar-notice">
+              {notice !== null && <p role="alert">{notice}</p>}
+              {capOpen && (
+                <CapInput
+                  cap={record.budget.capUsd}
+                  inputId="ar-raise-cap-in"
+                  submitLabel="Raise cap"
+                  onRaise={(capUsd) => actions.raiseCap(id, capUsd)}
+                  onError={setNotice}
+                  onDone={() => setCapOpen(false)}
+                />
+              )}
+            </div>
+          )}
           <StateLine record={record} home={null} />
           <div className="ar-sections" data-narrow={narrow ? 1 : 0}>
             <div className="ar-col">

@@ -53,7 +53,8 @@ export function ArchitectApp() {
 
   const create = useCallback(async (idea: string, folder: string) => {
     const outcome = await actions.create(idea, folder);
-    if (outcome.ok && outcome.projectId) navigate({ mode: 'project', projectId: outcome.projectId });
+    // One navigation closes the dialog and opens the new project: the dialog must not navigate too.
+    if (outcome.ok) navigate(outcome.projectId ? { mode: 'project', projectId: outcome.projectId } : { mode: 'list' });
     return outcome;
   }, [actions, navigate]);
 
