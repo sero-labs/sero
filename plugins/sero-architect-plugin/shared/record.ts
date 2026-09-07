@@ -30,6 +30,8 @@ export interface EvidenceRecord {
   commands: EvidenceCommand[];
   /** Diff summary from git, present when the milestone changed files. */
   diffSummary: string | null;
+  /** Whether the runtime found project file changes against the dispatch baseline. */
+  filesChanged: boolean;
   /** The runtime's own smoke check and capture for a preview milestone. */
   preview: { route: string; smokePassed: boolean; capturePath: string | null } | null;
   /** True when every item passed; the runtime computes it, never the owner. */
@@ -51,6 +53,12 @@ export interface MilestoneDispatch {
   baseCommit?: string;
 }
 
+export interface PendingMilestoneDispatch {
+  kind: 'workflow' | 'room';
+  destination: string | null;
+  startedAt: string;
+}
+
 export interface Milestone {
   id: string;
   title: string;
@@ -59,6 +67,8 @@ export interface Milestone {
   /** A preview milestone must close with a smoke check and a capture. */
   preview: { route: string } | null;
   dispatch: MilestoneDispatch | null;
+  /** Durable intent written before the external run starts. A surviving value needs reconciliation. */
+  pendingDispatch?: PendingMilestoneDispatch;
   evidence: EvidenceRecord | null;
   verification: VerificationState | null;
   /** The decision that parked this milestone, while it is open. */

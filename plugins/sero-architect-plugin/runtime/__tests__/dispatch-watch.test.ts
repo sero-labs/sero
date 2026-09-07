@@ -70,6 +70,23 @@ describe('dispatch watch', () => {
     expect((await store.read('proj_1'))?.blockedReason).toContain('missing-loop');
   });
 
+  it('holds a project when restart finds a dispatch intent without a saved link', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const record = buildingProject({ milestones: [milestone('m1', {
+      status: 'approved',
+      pendingDispatch: { kind: 'workflow', destination: null, startedAt: T0 },
+    })] });
+    await store.write(record);
+    host.jsonFiles[files.loops] = { version: 1, loops: [] };
+    host.jsonFiles[files.rooms] = { schemaVersion: 1, rooms: [] };
+    const watch = createDispatchWatch({ host, store, wake: () => undefined });
+
+    await watch.track(record);
+
+    expect((await store.read('proj_1'))?.blockedReason).toContain('m1 started at');
+  });
+
   it('reads the index once on track, so a completion missed while closed is not lost', async () => {
     const host = await fakeHost();
     const store = await storeFor(host);
@@ -88,7 +105,7 @@ describe('dispatch watch', () => {
       status: 'verifying',
       verification: 'verified',
       dispatch: { kind: 'room', id: 'room_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: 'pr' },
-      evidence: { commit: 'abc123', checkedAt: T0, commands: [{ command: 'pnpm test', exitCode: 0, output: 'ok', durationMs: 1 }], diffSummary: null, preview: null, passed: true, stale: false },
+      evidence: { commit: 'abc123', checkedAt: T0, commands: [{ command: 'pnpm test', exitCode: 0, output: 'ok', durationMs: 1 }], diffSummary: null, filesChanged: false, preview: null, passed: true, stale: false },
     });
     const { host, store, wakes, settle } = await setup(buildingProject({ phase: 'release', milestones: [release] }));
     host.emitState(files.rooms, { schemaVersion: 1, rooms: [{
@@ -108,7 +125,7 @@ describe('dispatch watch', () => {
       status: 'verifying',
       verification: 'verified',
       dispatch: { kind: 'workflow', id: 'loop_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: 'pr' },
-      evidence: { commit: 'abc123', checkedAt: T0, commands: [{ command: 'pnpm test', exitCode: 0, output: 'ok', durationMs: 1 }], diffSummary: null, preview: null, passed: true, stale: false },
+      evidence: { commit: 'abc123', checkedAt: T0, commands: [{ command: 'pnpm test', exitCode: 0, output: 'ok', durationMs: 1 }], diffSummary: null, filesChanged: false, preview: null, passed: true, stale: false },
     });
     const { host, store, wakes, settle } = await setup(buildingProject({ phase: 'release', milestones: [releaseMilestone] }));
     host.emitState(files.loops, { version: 1, loops: [{ id: 'loop_1', title: 'Release', status: 'active', updatedAt: T0 }] });

@@ -245,14 +245,19 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
       const [loopsState, roomsState] = await Promise.all([host.readJson(files.loops), host.readJson(files.rooms)]);
       const loops = loopsOf(loopsState);
       const rooms = roomsOf(roomsState);
+      const pending = record.milestones.filter((milestone) => milestone.pendingDispatch);
       const missing = record.milestones
         .filter((milestone) => milestone.status === 'running' && milestone.dispatch)
         .filter((milestone) => milestone.dispatch?.kind === 'workflow'
           ? !loops.some((loop) => loop.id === milestone.dispatch?.id)
           : !rooms.some((room) => room.id === milestone.dispatch?.id));
-      if (missing.length > 0 && record.blockedReason === null) {
+      if ((pending.length > 0 || missing.length > 0) && record.blockedReason === null) {
         await store.update(record.id, (fresh) => {
-          const held = block(fresh, host.now(), `dispatch state could not be confirmed after restart: ${missing.map((milestone) => milestone.dispatch?.id).join(', ')}`);
+          const references = [
+            ...pending.map((milestone) => `${milestone.id} started at ${milestone.pendingDispatch?.startedAt}`),
+            ...missing.map((milestone) => milestone.dispatch?.id ?? milestone.id),
+          ];
+          const held = block(fresh, host.now(), `dispatch state could not be confirmed after restart: ${references.join(', ')}`);
           return held.ok ? held.record : null;
         });
       }

@@ -62,6 +62,7 @@ const accepted = (index: number): Milestone => milestone(index, {
       { command: 'pnpm typecheck', exitCode: 0, output: '', durationMs: 9_800 },
     ],
     diffSummary: '14 files · +812 −40',
+    filesChanged: true,
     preview: null,
     passed: true,
     stale: false,

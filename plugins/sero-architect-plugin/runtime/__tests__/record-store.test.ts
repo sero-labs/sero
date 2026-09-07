@@ -86,6 +86,30 @@ describe('record store', () => {
     expect(indexEntries().map((project) => project.id).sort()).toEqual(['a', 'b']);
   });
 
+  it('rebuilds a dirty index before a later removal can mark it clean', async () => {
+    const homeDir = await mkdtemp(path.join(os.tmpdir(), 'architect-store-'));
+    dirs.push(homeDir);
+    let fail = false;
+    let index: ArchitectIndex | null = null;
+    const indexEntries = (): ArchitectIndex['projects'] => index?.projects ?? [];
+    const store = createRecordStore({
+      homeDir,
+      indexFile: path.join(homeDir, 'state.json'),
+      updateIndex: async (updater) => {
+        if (fail) throw new Error('index unavailable');
+        index = updater(index);
+      },
+    });
+
+    await store.write(record('b'));
+    fail = true;
+    await store.write(record('a'));
+    fail = false;
+    await store.remove('b');
+
+    expect(indexEntries().map((project) => project.id)).toEqual(['a']);
+  });
+
   it('serialises writes so the last one wins in order', async () => {
     const { store, index } = await harness();
     await Promise.all([store.write(record('a', '1')), store.write(record('a', '2')), store.write(record('b', 'x'))]);

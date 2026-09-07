@@ -92,10 +92,27 @@ describe('owner actions', () => {
     expect((await store.read('proj_1'))?.milestones[0]?.status).toBe('verifying');
   });
 
+  it('refuses changed-file evidence without a diff summary', async () => {
+    const changed = milestone('m1', {
+      status: 'verifying',
+      verification: 'verified',
+      evidence: {
+        commit: 'abc', checkedAt: T0,
+        commands: [{ command: 'pnpm test', exitCode: 0, output: 'ok', durationMs: 1 }],
+        diffSummary: null, filesChanged: true, preview: null, passed: true, stale: false,
+      },
+    });
+    const { actions } = await setup(buildingProject({ milestones: [changed] }));
+
+    const outcome = await actions.execute(owner, { action: 'milestone', projectId: 'proj_1', milestoneId: 'm1', done: true });
+
+    expect(outcome).toMatchObject({ ok: false, text: expect.stringContaining('no diff summary') });
+  });
+
   it('refuses to close on a failed command and a missing capture, and accepts on passed evidence', async () => {
     const failed = milestone('m1', {
       status: 'verifying', verification: 'reported', preview: { route: '/' },
-      evidence: { commit: 'abc', checkedAt: T0, commands: [{ command: 'pnpm test', exitCode: 1, output: 'boom', durationMs: 5 }], diffSummary: '1 file', preview: { route: '/', smokePassed: true, capturePath: null }, passed: false, stale: false },
+      evidence: { commit: 'abc', checkedAt: T0, commands: [{ command: 'pnpm test', exitCode: 1, output: 'boom', durationMs: 5 }], diffSummary: '1 file', filesChanged: true, preview: { route: '/', smokePassed: true, capturePath: null }, passed: false, stale: false },
     });
     const { actions, store } = await setup(buildingProject({ milestones: [failed] }));
     const refused = await actions.execute(owner, { action: 'milestone', projectId: 'proj_1', milestoneId: 'm1', done: true });
@@ -112,7 +129,7 @@ describe('owner actions', () => {
   it('shows a delivery receipt as evidence of delivery only; without verification the milestone stays verifying', async () => {
     const receipted = milestone('m1', {
       status: 'verifying', verification: 'reported', receipt: 'https://github.com/x/y/pull/7',
-      evidence: { commit: 'abc', checkedAt: T0, commands: [{ command: 'pnpm test', exitCode: 1, output: 'boom', durationMs: 5 }], diffSummary: null, preview: null, passed: false, stale: false },
+      evidence: { commit: 'abc', checkedAt: T0, commands: [{ command: 'pnpm test', exitCode: 1, output: 'boom', durationMs: 5 }], diffSummary: null, filesChanged: false, preview: null, passed: false, stale: false },
     });
     const { actions, store } = await setup(buildingProject({ milestones: [receipted] }));
     const outcome = await actions.execute(owner, { action: 'milestone', projectId: 'proj_1', milestoneId: 'm1', done: true });
@@ -123,7 +140,7 @@ describe('owner actions', () => {
   it('marks stale evidence, reruns it and refuses to close', async () => {
     const verified = milestone('m1', {
       status: 'verifying', verification: 'verified',
-      evidence: { commit: 'abc', checkedAt: T0, commands: [{ command: 'pnpm test', exitCode: 0, output: 'ok', durationMs: 5 }], diffSummary: null, preview: null, passed: true, stale: false },
+      evidence: { commit: 'abc', checkedAt: T0, commands: [{ command: 'pnpm test', exitCode: 0, output: 'ok', durationMs: 5 }], diffSummary: null, filesChanged: false, preview: null, passed: true, stale: false },
     });
     const { actions, store, services } = await setup(buildingProject({ milestones: [verified] }));
     (services.evidenceIsStale as ReturnType<typeof vi.fn>).mockResolvedValue(true);
@@ -135,10 +152,15 @@ describe('owner actions', () => {
 
   it('dispatches an approved milestone through the service and links the id', async () => {
     const { actions, store, services } = await setup(buildingProject({ milestones: [milestone('m1', { status: 'approved' })] }));
+    (services.dispatch as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+      expect((await store.read('proj_1'))?.milestones[0]?.pendingDispatch).toMatchObject({ kind: 'workflow', startedAt: T0 });
+      return { id: 'loop_9', workspaceId: 'ws-1', baseCommit: 'base-1' };
+    });
     const outcome = await actions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm1', kind: 'workflow', prompt: 'Build the grid' });
     expect(outcome.ok).toBe(true);
     expect(services.dispatch).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: 'm1' }), { kind: 'workflow', prompt: 'Build the grid', destination: null, maxCostUsd: null });
     expect((await store.read('proj_1'))?.milestones[0]).toMatchObject({ status: 'running', dispatch: { kind: 'workflow', id: 'loop_9', workspaceId: 'ws-1' } });
+    expect((await store.read('proj_1'))?.milestones[0]?.pendingDispatch).toBeUndefined();
   });
 
   it('turns an external delivery into a decision before anything is sent', async () => {
@@ -169,7 +191,7 @@ describe('owner actions', () => {
   });
 
   it('moves the project to release when the last milestone is accepted', async () => {
-    const passed = milestone('m2', { status: 'verifying', verification: 'verified', evidence: { commit: 'abc', checkedAt: T0, commands: [{ command: 'pnpm test', exitCode: 0, output: 'ok', durationMs: 1 }], diffSummary: null, preview: null, passed: true, stale: false } });
+    const passed = milestone('m2', { status: 'verifying', verification: 'verified', evidence: { commit: 'abc', checkedAt: T0, commands: [{ command: 'pnpm test', exitCode: 0, output: 'ok', durationMs: 1 }], diffSummary: null, filesChanged: false, preview: null, passed: true, stale: false } });
     const { actions, store } = await setup(buildingProject({ milestones: [milestone('m1', { status: 'done', verification: 'accepted' }), passed] }));
     const outcome = await actions.execute(owner, { action: 'milestone', projectId: 'proj_1', milestoneId: 'm2', done: true });
     expect(outcome.text).toContain('in release');

@@ -5,7 +5,7 @@ import type { WakeEvent } from '../../shared/wake';
 import { missingEvidence } from '../owner-actions';
 import { ORCHESTRATOR_REGISTRY_GLOBAL_KEY, type OrchestratorBoardAction, type OrchestratorRegistryEntryView } from '@sero-ai/common';
 import { MAINTENANCE_MILESTONE_ID } from '../../shared/maintenance';
-import { createServices, evidenceIsStale, worktreeFingerprint } from '../services';
+import { commitOf, createServices, evidenceIsStale, worktreeFingerprint } from '../services';
 import { buildingProject, cleanupHosts, fakeHost, milestone, storeFor, T0 } from './helpers';
 
 afterEach(cleanupHosts);
@@ -40,6 +40,12 @@ function fakeCoordinator(): { actions: OrchestratorBoardAction[]; uninstall: () 
 }
 
 describe('runtime services', () => {
+  it('uses Git empty-tree as the baseline before the first commit', async () => {
+    const { host } = await setup();
+    host.execResults['git rev-parse HEAD'] = { exitCode: 128, stdout: '', stderr: 'fatal: ambiguous argument HEAD' };
+    expect(await commitOf(host, '/home/dan/projects/hollow')).toBe('4b825dc642cb6eb9a060e54bf8d69288fbee4904');
+  });
+
   it('creates a Workflow through the typed handle with the remaining budget and the delivery destination', async () => {
     const coordinator = fakeCoordinator();
     try {
@@ -128,6 +134,7 @@ describe('runtime services', () => {
       commit: 'abc123',
       passed: false,
       stale: false,
+      filesChanged: true,
       diffSummary: expect.stringContaining('src/grid.ts'),
       commands: [
         { command: 'pnpm typecheck', exitCode: 0, output: 'ok' },
@@ -157,14 +164,14 @@ describe('runtime services', () => {
   it('detects tracked edits within an already dirty tree', async () => {
     const { host } = await setup();
     host.execResults['git rev-parse HEAD'] = { exitCode: 0, stdout: 'abc123\n', stderr: '' };
-    host.execResults['git diff --binary HEAD -- . :(exclude).sero'] = { exitCode: 0, stdout: 'first dirty content', stderr: '' };
+    host.execResults['git diff --binary abc123 -- . :(exclude).sero'] = { exitCode: 0, stdout: 'first dirty content', stderr: '' };
     const fingerprint = await worktreeFingerprint(host, '/home/dan/projects/hollow');
     const checked = milestone('m1', { evidence: {
       commit: 'abc123', fingerprint, checkedAt: T0,
       commands: [{ command: 'pnpm test', exitCode: 0, output: 'ok', durationMs: 1 }],
-      diffSummary: 'src/a.ts | 1 +', preview: null, passed: true, stale: false,
+      diffSummary: 'src/a.ts | 1 +', filesChanged: true, preview: null, passed: true, stale: false,
     } });
-    host.execResults['git diff --binary HEAD -- . :(exclude).sero'] = { exitCode: 0, stdout: 'second dirty content', stderr: '' };
+    host.execResults['git diff --binary abc123 -- . :(exclude).sero'] = { exitCode: 0, stdout: 'second dirty content', stderr: '' };
 
     expect(await evidenceIsStale(host, buildingProject(), checked)).toBe(true);
   });

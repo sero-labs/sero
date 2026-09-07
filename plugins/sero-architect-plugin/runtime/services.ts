@@ -26,6 +26,7 @@ export interface ServicesDeps {
 
 const COMMAND_TIMEOUT_MS = 10 * 60_000;
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const EMPTY_TREE_COMMIT = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
 function replaceMilestone(record: ProjectRecord, milestone: Milestone): ProjectRecord {
   return { ...record, milestones: record.milestones.map((m) => (m.id === milestone.id ? milestone : m)) };
@@ -50,7 +51,7 @@ function remainingUsd(record: ProjectRecord): number | undefined {
 
 export async function commitOf(host: ArchitectHost, folder: string): Promise<string> {
   const head = await host.exec('git', ['rev-parse', 'HEAD'], folder);
-  return head.exitCode === 0 ? head.stdout.trim() : 'no-commit';
+  return head.exitCode === 0 ? head.stdout.trim() : EMPTY_TREE_COMMIT;
 }
 
 async function untrackedFiles(host: ArchitectHost, folder: string): Promise<string[]> {
@@ -70,7 +71,7 @@ async function diffSummaryOf(host: ArchitectHost, folder: string, baseCommit: st
 /** Hashes the actual checked content, not only whether the tree is dirty. */
 export async function worktreeFingerprint(host: ArchitectHost, folder: string): Promise<string> {
   const head = await commitOf(host, folder);
-  const tracked = await host.exec('git', ['diff', '--binary', 'HEAD', '--', '.', ':(exclude).sero'], folder);
+  const tracked = await host.exec('git', ['diff', '--binary', head, '--', '.', ':(exclude).sero'], folder);
   if (tracked.exitCode !== 0) throw new Error(`git could not fingerprint tracked files: ${tracked.stderr.trim() || tracked.stdout.trim()}`);
   const untracked = await untrackedFiles(host, folder);
   const hash = createHash('sha256').update(head).update('\0').update(tracked.stdout);
@@ -148,6 +149,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       checkedAt: host.now(),
       commands: [{ command: commands.join(' && '), exitCode: 1, output: `the evidence run could not complete: ${message}`, durationMs: Date.now() - startedAt }],
       diffSummary: null,
+      filesChanged: false,
       preview: null,
       passed: false,
       stale: false,
@@ -191,8 +193,10 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       diffSummaryOf(host, record.folder, baseCommit),
       worktreeFingerprint(host, record.folder),
     ]);
-    const passed = ran.every((c) => c.exitCode === 0) && (preview === null || (preview.smokePassed && preview.capturePath !== null));
-    const evidence: EvidenceRecord = { commit, fingerprint, checkedAt: host.now(), commands: ran, diffSummary, preview, passed, stale: false };
+    const filesChanged = diffSummary !== null;
+    const passed = ran.every((c) => c.exitCode === 0)
+      && (preview === null || (preview.smokePassed && preview.capturePath !== null));
+    const evidence: EvidenceRecord = { commit, fingerprint, checkedAt: host.now(), commands: ran, diffSummary, filesChanged, preview, passed, stale: false };
     await store.update(projectId, (fresh) => {
       const current = fresh.milestones.find((m) => m.id === milestoneId) ?? milestone;
       const verified: Milestone = {

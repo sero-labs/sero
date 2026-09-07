@@ -72,6 +72,7 @@ export function missingEvidence(milestone: Milestone): string[] {
   const missing: string[] = [];
   if (evidence.stale) missing.push('the evidence is stale: files changed after it was taken, so it must be rerun');
   if (!evidence.passed) missing.push('the evidence run did not pass');
+  if (evidence.filesChanged && evidence.diffSummary === null) missing.push('project files changed but no diff summary was recorded');
   if (evidence.commands.length === 0) missing.push('no command was run');
   for (const command of evidence.commands) {
     if (command.exitCode !== 0) missing.push(`command "${command.command}" failed with exit code ${command.exitCode}`);

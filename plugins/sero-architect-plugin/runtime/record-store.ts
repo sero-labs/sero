@@ -178,10 +178,10 @@ export function createRecordStore(deps: RecordStoreDeps): RecordStore {
     if (indexDirty) {
       try {
         await rebuildIndexUnlocked();
-        return;
       } catch {
         indexDirty = true;
       }
+      return;
     }
     await updateIndexEntry(record);
   }
@@ -213,6 +213,14 @@ export function createRecordStore(deps: RecordStoreDeps): RecordStore {
     remove(projectId) {
       return enqueue(async () => {
         await io.unlink(recordPath(projectId)).catch(() => undefined);
+        if (indexDirty) {
+          try {
+            await rebuildIndexUnlocked();
+          } catch {
+            indexDirty = true;
+          }
+          return;
+        }
         try {
           await deps.updateIndex((current) => {
             const index = normalizeIndex(current);
