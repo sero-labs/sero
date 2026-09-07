@@ -235,8 +235,10 @@ export function openDecisions(record: ProjectRecord): Decision[] {
 /** Open decisions plus approvals the user owes: the needs-you count the index carries. */
 export function needsYouCount(record: ProjectRecord): number {
   const charterApproval = record.phase === 'charter' && record.charter !== null && record.charter.approvedAt === null ? 1 : 0;
-  const planApprovals = record.autonomy === 'milestones'
-    ? record.milestones.filter((m) => m.status === 'planned' && m.plan !== null && record.phase === 'build').length
+  // The dispatch gate wants an approved plan in build, release and maintain alike.
+  const working = record.phase === 'build' || record.phase === 'release' || record.phase === 'maintain';
+  const planApprovals = record.autonomy === 'milestones' && working
+    ? record.milestones.filter((m) => m.status === 'planned' && m.plan !== null).length
     : 0;
   return openDecisions(record).length + charterApproval + planApprovals;
 }

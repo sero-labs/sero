@@ -12,16 +12,20 @@ import path from 'node:path';
 import type { OrchestratorBoardLoopView, OrchestratorBoardRoomView } from '@sero-ai/common';
 
 import { advancePhase, charge, settle } from '../shared/lifecycle';
+import { ORCHESTRATOR_INDEX_FILE, ORCHESTRATOR_ROOM_INDEX_FILE } from '@sero-ai/common';
 import type { Milestone, ProjectRecord } from '../shared/record';
 import type { WakeEvent, WakeKind } from '../shared/wake';
 import type { ArchitectHost } from './host';
 import type { RecordStore } from './record-store';
 
-export const ORCHESTRATOR_STATE_DIR = path.join('.sero', 'apps', 'orchestrator');
+/** The Orchestrator's own state directory, derived from the contract's index path so a move there moves here. */
+export const ORCHESTRATOR_STATE_DIR = path.dirname(ORCHESTRATOR_INDEX_FILE);
 
 export function orchestratorIndexFiles(workspacePath: string): { loops: string; rooms: string } {
-  const dir = path.join(workspacePath, ORCHESTRATOR_STATE_DIR);
-  return { loops: path.join(dir, 'index.json'), rooms: path.join(dir, 'rooms', 'index.json') };
+  return {
+    loops: path.join(workspacePath, ORCHESTRATOR_INDEX_FILE),
+    rooms: path.join(workspacePath, ORCHESTRATOR_ROOM_INDEX_FILE),
+  };
 }
 
 /** The per-loop run index, where delivery receipts appear. */

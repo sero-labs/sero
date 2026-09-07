@@ -9,7 +9,8 @@ import path from 'node:path';
 export function resolveSeroHome(env: NodeJS.ProcessEnv = process.env): string {
   if (env.SERO_HOME) return env.SERO_HOME;
   if (env.PI_CODING_AGENT_DIR) return path.dirname(env.PI_CODING_AGENT_DIR);
-  return path.join(os.homedir(), '.pi');
+  // The source of truth is apps/desktop/electron/platform/env/index.ts: ~/.sero-ui.
+  return path.join(os.homedir(), '.sero-ui');
 }
 
 /**

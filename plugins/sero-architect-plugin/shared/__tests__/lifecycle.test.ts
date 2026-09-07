@@ -186,6 +186,9 @@ describe('autonomy and approvals', () => {
     const planned = { ...built, milestones: [{ id: 'm1', title: 'Grid', status: 'planned' as const, plan: 'do it', preview: null, dispatch: null, evidence: null, verification: null, parkedBy: null, parkedFrom: null, receipt: null }] };
     expect(needsYouCount(planned)).toBe(1);
     expect(needsYouCount({ ...planned, autonomy: 'charter-only' })).toBe(0);
+    // The dispatch gate wants the plan approved in maintain too, so the count must say so there.
+    expect(needsYouCount({ ...planned, phase: 'maintain' as const })).toBe(1);
+    expect(needsYouCount({ ...planned, phase: 'discovery' as const })).toBe(0);
   });
 
   it('keeps the idea verbatim while the brief changes', () => {

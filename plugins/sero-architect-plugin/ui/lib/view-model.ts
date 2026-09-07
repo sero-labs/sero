@@ -24,7 +24,8 @@ export type NeedsYouItem =
 export function needsYouItems(record: ProjectRecord): NeedsYouItem[] {
   const items: NeedsYouItem[] = openDecisions(record).map((decision) => ({ kind: 'decision', decision }));
   if (record.phase === 'charter' && record.charter && record.charter.approvedAt === null) items.push({ kind: 'charter' });
-  if (record.autonomy === 'milestones' && record.phase === 'build') {
+  const working = record.phase === 'build' || record.phase === 'release' || record.phase === 'maintain';
+  if (record.autonomy === 'milestones' && working) {
     for (const milestone of record.milestones) {
       if (milestone.status === 'planned' && milestone.plan !== null) items.push({ kind: 'milestone', milestone });
     }

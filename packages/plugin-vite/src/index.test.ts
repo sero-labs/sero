@@ -78,6 +78,8 @@ describe('scopePluginCss', () => {
     const wrapped = 'export default "html.theme-glass body { color: red }"';
     expect(transform.call({}, wrapped, '/pkg/globals.css?raw')).toBeNull();
     expect(transform.call({}, wrapped, '/pkg/globals.css?url')).toBeNull();
+    // ?inline is still CSS on the way in; an unscoped html/body rule must be refused, not shipped.
+    expect(() => transform.call({}, 'html.theme-glass body { color: red }', '/pkg/app.css?inline')).toThrow();
     expect(transform.call({}, '.x { color: red }', '/pkg/app.css?t=123')).not.toBeNull();
   });
 });

@@ -35,9 +35,10 @@ export function seroPluginCssScope(options: SeroPluginCssScopeOptions): Plugin {
     transform(code, id) {
       const [cleanId = '', query = ''] = id.split('?', 2);
       if (!cleanId.endsWith('.css')) return null;
-      // `?raw` and `?url` imports arrive as JS modules wrapping the file, not
-      // as stylesheets. Scoping them would parse a JS string as CSS.
-      if (/(^|&)(raw|url|inline)(=|&|$)/.test(query)) return null;
+      // Vite's own special queries (its SPECIAL_QUERY_RE) turn the file into a
+      // JS module or a worker, not a stylesheet. `?inline` stays a stylesheet
+      // until the post plugin, so it is scoped like any other.
+      if (/(^|&)(raw|url|worker|sharedworker)(=|&|$)/.test(query)) return null;
       const { code: scoped, map } = runScope(code, options, id);
       return { code: scoped, map: map ?? undefined };
     },

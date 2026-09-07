@@ -51,6 +51,14 @@ export async function clampAndApprove(
     getRoomSkillCatalog(workspaceId),
   ]);
 
+  // The workspace id binds the session's CLI tool and extension. An id the host
+  // cannot resolve would pass every other clamp and leave the member with a
+  // tool that answers "Workspace not found" on every call.
+  if (!workspaces.some((workspace) => workspace.id === workspaceId)) {
+    console.warn(`[persistent-sessions] grant refused: workspace ${workspaceId} is not registered`);
+    return null;
+  }
+
   // Every field is verified against something real. A proposal field the host
   // cannot resolve is dropped, never trusted — see clamp.ts.
   const { proposal: clamped, notes } = clampProposal(proposal, {

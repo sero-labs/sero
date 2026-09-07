@@ -98,6 +98,11 @@ describe('persistent session wiring', () => {
     expect(fakes.choices[0].body).toContain('normal-disabled');
   });
 
+  it('refuses a proposal whose workspace id is not registered, before any prompt', async () => {
+    const decision = await clampAndApprove('ws-gone', skillBearingProposal());
+    expect(decision).toBeNull();
+  });
+
   it('removes tools the approved permission profile cannot provide', async () => {
     const proposal = skillBearingProposal();
     proposal.subjects.implementer.allowedTools = ['read', 'bash', 'gh', 'git_manager', 'sero-cli'];

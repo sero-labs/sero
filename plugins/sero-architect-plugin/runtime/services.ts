@@ -252,7 +252,8 @@ export async function evidenceIsStale(host: ArchitectHost, record: ProjectRecord
   if (!milestone.evidence) return false;
   const head = await commitOf(host, record.folder);
   if (head !== milestone.evidence.commit) return true;
-  const dirty = await host.exec('git', ['status', '--porcelain'], record.folder);
+  // Sero's own files under .sero (evidence captures included) are not the project's work.
+  const dirty = await host.exec('git', ['status', '--porcelain', '--', '.', ':(exclude).sero'], record.folder);
   const dirtyNow = dirty.stdout.trim().length > 0;
   // Evidence taken on a dirty tree records the diff; a tree that is dirty now
   // but was clean then (or the reverse) has moved.

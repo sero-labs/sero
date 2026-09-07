@@ -54,7 +54,8 @@ export function assertWorkspaceCreateDeclared(manifest: Pick<SeroAppManifest, 'i
 function defaultOnOptions(
   apps: SeroAppManifest[],
 ): Array<{ appId: string; contribution: WorkspaceCreationOptionContribution }> {
-  return apps.flatMap((app) =>
+  // The Add Workspace menu skips plugins the host does not support; so does this path.
+  return apps.filter((app) => app.hostCompatibility?.supported !== false).flatMap((app) =>
     app.contributions.controls
       .filter((control) => control.extensionPoint === 'workspace.create.option')
       .filter((control) => control.control.defaultValue)
