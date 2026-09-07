@@ -68,6 +68,7 @@ function applyCharterProposal(record: ProjectRecord, proposal: Extract<DecisionP
       ...milestone,
       status: current.status,
       dispatch: current.dispatch,
+      pendingDispatch: current.pendingDispatch,
       evidence: current.evidence,
       verification: current.verification,
       parkedBy: current.parkedBy,
@@ -78,7 +79,7 @@ function applyCharterProposal(record: ProjectRecord, proposal: Extract<DecisionP
   });
   const proposedIds = new Set(proposed.map((milestone) => milestone.id));
   const retained = record.milestones.filter((milestone) =>
-    !proposedIds.has(milestone.id) && (milestone.dispatch !== null || milestone.status === 'running' || milestone.status === 'verifying' || milestone.status === 'done'),
+    !proposedIds.has(milestone.id) && (milestone.dispatch !== null || milestone.pendingDispatch !== undefined || milestone.status === 'running' || milestone.status === 'verifying' || milestone.status === 'done'),
   );
   const milestones = [...proposed, ...retained];
   const charter = { ...proposal.charter, milestoneIds: milestones.map((milestone) => milestone.id), approvedAt: now };

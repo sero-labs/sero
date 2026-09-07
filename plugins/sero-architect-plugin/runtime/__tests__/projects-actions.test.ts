@@ -145,6 +145,33 @@ describe('project management', () => {
     expect(record?.milestones[0]).toMatchObject({ status: 'running', dispatch: { id: 'loop-live', chargedUsd: 3 } });
   });
 
+  it('keeps a dispatch reservation when a charter proposal retains the milestone', async () => {
+    const { store, actions } = await setup();
+    const proposal = { kind: 'charter' as const, charter: { milestoneIds: ['m1'], escalationPolicy: 'p', autonomy: 'charter-only' as const, capUsd: 90, proposedAt: T0, approvedAt: null }, milestones: [milestone('m1', { title: 'Replanned' })] };
+    const decision = { id: 'dec_1', question: 'Apply?', options: [{ id: 'apply', label: 'A', consequence: 'x' }], recommendation: 'apply', reason: 'r', dependsOn: [], raisedAt: T0, proposal, answer: null };
+    const pending = milestone('m1', { status: 'approved', pendingDispatch: { kind: 'workflow', destination: null, startedAt: T0 } });
+    await store.write(buildingProject({ decisions: [decision], milestones: [pending] }));
+
+    await actions.answer('proj_1', 'dec_1', 'apply');
+
+    expect((await store.read('proj_1'))?.milestones[0]?.pendingDispatch).toEqual({ kind: 'workflow', destination: null, startedAt: T0 });
+  });
+
+  it('retains a reserved dispatch whose milestone is absent from the new charter', async () => {
+    const { store, actions } = await setup();
+    const proposal = { kind: 'charter' as const, charter: { milestoneIds: ['m2'], escalationPolicy: 'p', autonomy: 'charter-only' as const, capUsd: 90, proposedAt: T0, approvedAt: null }, milestones: [milestone('m2', { title: 'Replacement' })] };
+    const decision = { id: 'dec_1', question: 'Apply?', options: [{ id: 'apply', label: 'A', consequence: 'x' }], recommendation: 'apply', reason: 'r', dependsOn: [], raisedAt: T0, proposal, answer: null };
+    const pending = milestone('m1', { status: 'approved', pendingDispatch: { kind: 'room', destination: 'pr', startedAt: T0 } });
+    await store.write(buildingProject({ decisions: [decision], milestones: [pending] }));
+
+    await actions.answer('proj_1', 'dec_1', 'apply');
+
+    expect((await store.read('proj_1'))?.milestones).toEqual([
+      expect.objectContaining({ id: 'm2', title: 'Replacement' }),
+      expect.objectContaining({ id: 'm1', pendingDispatch: { kind: 'room', destination: 'pr', startedAt: T0 } }),
+    ]);
+  });
+
   it('applies an external-delivery proposal only on apply, and then the send is dispatched', async () => {
     const { store, actions, services } = await setup();
     const proposal = { kind: 'dispatch' as const, milestoneId: 'm1', dispatchKind: 'workflow' as const, prompt: 'Announce it', destination: 'chat-post' };
