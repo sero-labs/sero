@@ -91,6 +91,42 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
     }
   };
 
+  /**
+   * Intake, re-entrant: does whatever the record still lacks (workspace, grant,
+   * phase) and nothing it already has, so create, resume and a restart all take
+   * the same path and an interruption is never permanent.
+   */
+  const advanceIntake = async (start: ProjectRecord): Promise<{ ok: true; record: ProjectRecord } | { ok: false; error: string }> => {
+    let record = start;
+    if (!record.workspaceId) {
+      try {
+        const workspace = await host.createWorkspace(record.name, path.dirname(record.folder));
+        const init = await host.exec('git', ['init'], workspace.path);
+        if (init.exitCode !== 0) throw new Error(`git init failed: ${init.stderr.trim() || init.stdout.trim()}`);
+        record = { ...record, folder: workspace.path, workspaceId: workspace.id, stateLine: 'Workspace ready. Waiting for the owner session grant.' };
+        await store.write(record);
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        const blocked = block(record, host.now(), `the workspace could not be created: ${reason}`);
+        if (blocked.ok) await store.write(blocked.record);
+        return { ok: false, error: reason };
+      }
+    }
+    if (!record.session.grantId) {
+      record = await sessions.requestGrant(record);
+      if (record.blockedReason) return { ok: true, record };
+    }
+    if (record.phase === 'intake') {
+      const advanced = advancePhase({ ...record, stateLine: 'Discovering the project.' }, 'discovery', host.now(), 'workspace registered and owner grant approved');
+      if (!advanced.ok) return { ok: false, error: advanced.error };
+      record = advanced.record;
+      await store.write(record);
+    }
+    await watch.track(record);
+    scheduler.request(record.id, { kind: 'quiet', at: host.now(), items: ['intake finished; discovery starts'] });
+    return { ok: true, record };
+  };
+
   const read = async (projectId: string): Promise<ProjectRecord | null> => store.read(projectId);
 
   return {
@@ -106,29 +142,14 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       const folder = expandHome(input.folder.trim());
       if (!input.folder.trim()) return refuse('The folder is required.');
       const name = path.basename(folder);
-      const now = host.now();
-      let record = createProjectRecord({ id: host.newId('proj'), name, idea, folder, now });
+      const record = createProjectRecord({ id: host.newId('proj'), name, idea, folder, now: host.now() });
       await store.write(record);
-      try {
-        const workspace = await host.createWorkspace(name, path.dirname(folder));
-        const init = await host.exec('git', ['init'], workspace.path);
-        if (init.exitCode !== 0) throw new Error(`git init failed: ${init.stderr.trim() || init.stdout.trim()}`);
-        record = { ...record, folder: workspace.path, workspaceId: workspace.id, stateLine: 'Workspace ready. Waiting for the owner session grant.' };
-        await store.write(record);
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : String(error);
-        const blocked = block(record, host.now(), `the workspace could not be created: ${reason}`);
-        if (blocked.ok) await store.write(blocked.record);
-        return refuse(`The project was created but its workspace could not be: ${reason}`);
+      const outcome = await advanceIntake(record);
+      if (!outcome.ok) return refuse(`The project was created but its workspace could not be: ${outcome.error}`);
+      if (outcome.record.blockedReason) {
+        return { ok: true, text: `Project ${record.id} created, but ${outcome.record.blockedReason}. It stays in intake until the grant is approved; resume to ask again.`, projectId: record.id };
       }
-      record = await sessions.requestGrant(record);
-      if (record.blockedReason) return { ok: true, text: `Project ${record.id} created, but ${record.blockedReason}. It stays in intake until the grant is approved.`, projectId: record.id };
-      const advanced = advancePhase({ ...record, stateLine: 'Discovering the project.' }, 'discovery', host.now(), 'workspace registered and owner grant approved');
-      if (!advanced.ok) return refuse(advanced.error);
-      await store.write(advanced.record);
-      await watch.track(advanced.record);
-      scheduler.request(advanced.record.id, { kind: 'quiet', at: host.now(), items: ['the project was created; discovery starts'] });
-      return ok(`Project ${advanced.record.id} "${name}" created in ${advanced.record.folder}. Discovery starts.`, advanced.record.id);
+      return ok(`Project ${record.id} "${name}" created in ${outcome.record.folder}. Discovery starts.`, record.id);
     },
 
     async pause(projectId) {
@@ -145,9 +166,22 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       const record = await read(projectId);
       if (!record) return refuse(`No project ${projectId}.`);
       const now = host.now();
-      let result = record.blockedReason === STOP_REASON ? unblock(record, now, 'user resumed a stopped project') : resume(record, now);
-      if (!result.ok) return refuse(result.error);
-      await store.write(result.record);
+      if (!record.paused && record.blockedReason === null && record.phase !== 'intake') return refuse('The project is not paused, blocked or waiting in intake.');
+      // Resume is the user's one exit from every stop: a pause, the user's own
+      // stop, a refused grant, a missing workspace, or an owner that gave up.
+      const unpaused = record.paused ? resume(record, now) : null;
+      let next = unpaused?.ok ? unpaused.record : record;
+      if (next.blockedReason !== null) {
+        const cleared = unblock(next, now, `user resumed: ${next.blockedReason}`);
+        if (cleared.ok) next = cleared.record;
+      }
+      await store.write(next);
+      if (next.phase === 'intake' || !next.session.grantId) {
+        const outcome = await advanceIntake(next);
+        if (!outcome.ok) return refuse(outcome.error);
+        if (outcome.record.blockedReason) return refuse(outcome.record.blockedReason);
+        return ok(`Project ${projectId} resumed. Discovery starts.`);
+      }
       scheduler.request(projectId, { kind: 'quiet', at: now, items: ['the user resumed the project'] });
       return ok(`Project ${projectId} resumed.`);
     },

@@ -60,6 +60,29 @@ describe('project management', () => {
     expect(record.blockedReason).toContain('grant');
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(delivered).toEqual([]);
+
+    // Resume is the way back in: the grant is asked for again, and the same
+    // intake step carries the project into discovery without a second workspace.
+    host.sessions.denyGrant = false;
+    const workspacesBefore = (await host.listWorkspaces()).length;
+    const resumed = await actions.resume(record.id);
+    expect(resumed.ok, resumed.text).toBe(true);
+    const after = (await store.read(record.id))!;
+    expect(after.phase).toBe('discovery');
+    expect(after.blockedReason).toBeNull();
+    expect(after.session.grantId).toBe('grant-1');
+    expect((await host.listWorkspaces()).length).toBe(workspacesBefore);
+  });
+
+  it('resume clears a block that was not the user\'s own stop', async () => {
+    const { host, store, actions } = await setup();
+    const outcome = await actions.create({ idea: 'x', folder: '~/projects/ok' });
+    const id = outcome.ok ? outcome.projectId! : '';
+    const record = (await store.read(id))!;
+    await store.write({ ...record, blockedReason: 'the owner ended 3 turns in a row without declaring an outcome' });
+    const resumed = await actions.resume(id);
+    expect(resumed.ok, resumed.text).toBe(true);
+    expect((await store.read(id))!.blockedReason).toBeNull();
   });
 
   it('pauses without cancelling a running dispatch, and only a directive gets through', async () => {
