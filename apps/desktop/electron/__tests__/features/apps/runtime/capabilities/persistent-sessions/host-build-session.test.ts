@@ -162,7 +162,9 @@ describe('member session assembly', () => {
     const { buildSessionInputs, grantId } = await hostWithGrant();
 
     expect(buildSessionInputs).toHaveBeenCalledWith(
-      expect.objectContaining({ grantId, subject: 'implementer' }),
+      // The grant's workspace travels with it: a global runtime proposes
+      // sessions for a real workspace, and the CLI must be scoped to that one.
+      expect.objectContaining({ grantId, subject: 'implementer', workspaceId: 'ws-1' }),
     );
   });
 });

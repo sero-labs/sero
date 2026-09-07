@@ -47,6 +47,7 @@ function createHostStub(
         capabilityAudit: [],
       })),
       list: vi.fn(async () => []),
+      create: vi.fn(async () => ({ id: 'ws-new', name: 'New', path: '/repo-new', open: true })),
     },
     credentials: {
       getProviderApiKey: vi.fn(async () => null),

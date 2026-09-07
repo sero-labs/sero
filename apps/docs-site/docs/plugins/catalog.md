@@ -16,6 +16,7 @@ Built-in plugins can appear in app discovery or favorites. External plugins do n
 
 | Plugin | Package | Docs | Notes |
 | --- | --- | --- | --- |
+| Architect | `@sero-ai/plugin-architect` | [Guide](/guide/architect) | Owns a product from an idea: charter, milestones on evidence, release and maintenance through Workflows and Rooms; global state under the profile's Sero home. |
 | Admin | `@sero-ai/plugin-admin` | [Guide](/guide/settings-models-admin) | Config editor, logs, sessions, agents/skills/prompts; global state file declared by manifest. |
 | Scheduler | `@sero-ai/plugin-cron` | [Guide](/guide/scheduler-reminders) | Reminders and recurring jobs; dashboard widget manifest. |
 | Design Library | `@sero-ai/plugin-design-library` | [Docs](/plugins/design-library) | Visual reference library with automatic design-language analysis; global state under the profile's Sero home. |
@@ -34,12 +35,12 @@ Built-in plugins can appear in app discovery or favorites. External plugins do n
 | Plugin | Package | Status | Source | Docs | Requirements and scope |
 | --- | --- | --- | --- | --- | --- |
 | Google | `@sero-ai/plugin-google` | External | `git:https://github.com/sero-labs/sero-google-plugin.git` | [Docs](/plugins/google) | Gmail and Calendar through `gogcli`; OAuth credentials required. |
-| Kanban | `@sero-ai/plugin-kanban` | External | `git:https://github.com/sero-labs/sero-kanban-plugin.git` | [Docs](/plugins/kanban) | Development board with Git workflow actions. |
+| Kanban | `@sero-ai/plugin-kanban` | Deprecated | `git:https://github.com/sero-labs/sero-kanban-plugin.git` | [Docs](/plugins/kanban) | Development board with Git workflow actions. |
 | Notes | `@sero-ai/plugin-notes` | External | `git:https://github.com/sero-labs/sero-notes-plugin.git` | [Docs](/plugins/notes) | Global note-taking app and tool. |
 | Todo | `@sero-ai/todo-plugin` | External | `git:https://github.com/sero-labs/sero-todo-plugin.git` | [Docs](/plugins/todo) | Task app and Pi extension. |
 | Research | `@sero-ai/plugin-research` | External | `git:https://github.com/sero-labs/sero-research-plugin.git` | [Docs](/plugins/research) | Multi-agent research orchestration. |
 | Signal Desk | `@sero-ai/plugin-signal-desk` | External | `git:https://github.com/sero-labs/sero-signal-desk-plugin.git` | [Docs](/plugins/signal-desk) | Network access for feeds and sources. |
-| Plan Mode | `@sero-ai/plugin-plan-mode` | External | Current source repository not verified. | [Docs](/plugins/plan-mode) | Planning and execution tracking. |
+| Plan Mode | `@sero-ai/plugin-plan-mode` | Deprecated | Current source repository not verified. | [Docs](/plugins/plan-mode) | Planning and execution tracking. |
 | Spotify | `@sero-ai/plugin-spotify` | Deprecated; current runtime path unsupported | None recommended | [Docs](/plugins/spotify) | The repository marks it deprecated. Current stock Electron does not provide its former DRM path. |
 | ImageGen | `@sero-ai/plugin-imagegen` | External | `git:https://github.com/sero-labs/sero-imagegen-plugin.git` | [Docs](/plugins/imagegen) | Gemini credentials and network access. |
 | Loom | `@sero-ai/plugin-loom` | External | `git:https://github.com/sero-labs/sero-loom-plugin.git` | [Docs](/plugins/loom) | GLSL art studio and wallpaper capture. |

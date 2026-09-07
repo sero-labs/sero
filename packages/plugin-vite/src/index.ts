@@ -33,8 +33,11 @@ export function seroPluginCssScope(options: SeroPluginCssScopeOptions): Plugin {
   return {
     name: 'sero-plugin-css-scope',
     transform(code, id) {
-      const cleanId = id.split('?', 1)[0];
+      const [cleanId = '', query = ''] = id.split('?', 2);
       if (!cleanId.endsWith('.css')) return null;
+      // `?raw` and `?url` imports arrive as JS modules wrapping the file, not
+      // as stylesheets. Scoping them would parse a JS string as CSS.
+      if (/(^|&)(raw|url|inline)(=|&|$)/.test(query)) return null;
       const { code: scoped, map } = runScope(code, options, id);
       return { code: scoped, map: map ?? undefined };
     },

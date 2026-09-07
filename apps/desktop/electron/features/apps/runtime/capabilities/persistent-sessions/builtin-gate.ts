@@ -22,6 +22,7 @@ export type { BuiltinGateInput, BuiltinGateResult } from '../builtin-gate';
  */
 export const PERSISTENT_SESSION_BUILTIN_APPS: Readonly<Record<string, string>> = {
   orchestrator: 'sero-orchestrator-plugin',
+  architect: 'sero-architect-plugin',
 };
 
 export function evaluateBuiltinGate(input: BuiltinGateInput): BuiltinGateResult {

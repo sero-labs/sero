@@ -20,6 +20,9 @@ import { assertIsSeroPluginFolder } from '@electron/features/workspace/plugin-va
 import { recreateContainerIfRunning } from '@electron/features/workspace/container-sync';
 import { appRuntimeManager, runtimeManager } from '@electron/shared/infra/shared-infra';
 import { broadcastToWindows } from '@electron/ipc/lib/window-broadcast';
+import { discoverApps } from '@electron/features/apps/discovery';
+import { invokeAppTool } from '@electron/ipc/agent/handlers/app-agent';
+import { createWorkspaceForApp, type CreateWorkspaceForAppDeps } from '@electron/features/workspace/create-for-app';
 import {
   ensureBrowserPack,
   ensureCoreTools,
@@ -33,6 +36,15 @@ import {
 function notifyWorkspaceChanged(): void {
   broadcastToWindows(IpcChannels.workspace.changed);
 }
+
+/** Shared with the app-runtime host so both entry points create workspaces the same way. */
+export const workspaceCreateDeps: CreateWorkspaceForAppDeps = {
+  create: (name, parentPath, options) => workspaceManager.create(name, parentPath, options),
+  reconcileAppRuntimes,
+  discoverApps,
+  invokeAppTool,
+  notifyWorkspaceChanged,
+};
 
 /** Cap on best-effort runtime teardown so a stuck container/runtime can't hang a workspace delete. */
 const RUNTIME_TEARDOWN_TIMEOUT_MS = 15_000;
@@ -83,10 +95,7 @@ export function registerWorkspaceHandlers(): void {
   ipcMain.handle(
     IpcChannels.workspace.create,
     async (_event, name: string, parentPath?: string, options?: WorkspaceCreateOptions): Promise<WorkspaceInfo> => {
-      const workspace = await workspaceManager.create(name, parentPath, options);
-      await reconcileAppRuntimes('workspace create');
-      notifyWorkspaceChanged();
-      return workspace;
+      return createWorkspaceForApp(workspaceCreateDeps, { name, parentPath, options });
     },
   );
 

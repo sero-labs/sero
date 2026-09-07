@@ -40,7 +40,7 @@ export {
   consumeAppLaunchParams,
   onAppLaunchParams,
 } from './app-launch';
-export type { AppModelInfo, AppModelGroup } from './sero-bridge';
+export type { AppModelInfo, AppModelGroup, SeroWorkspaceBridge, SeroWorkspaceCreateOptions, SeroWorkspaceInfo } from './sero-bridge';
 export type { AppToolContentBlock, AppToolImageContent, AppToolResult, AppToolTextContent } from '@sero-ai/common';
 export { registerWidget, getRuntimeWidgets, onWidgetRegistryChange } from './widget-registry';
 export type { RuntimeWidget } from './widget-registry';

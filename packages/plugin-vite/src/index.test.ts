@@ -71,4 +71,13 @@ describe('scopePluginCss', () => {
   it('rejects invalid plugin IDs', () => {
     expect(() => seroPluginCssScope({ pluginId: 'Admin App' })).toThrow('Invalid plugin ID');
   });
+
+  it('leaves ?raw and ?url imports of a stylesheet alone: they are JS modules, not CSS', () => {
+    const plugin = seroPluginCssScope({ pluginId: 'admin' });
+    const transform = plugin.transform as (code: string, id: string) => unknown;
+    const wrapped = 'export default "html.theme-glass body { color: red }"';
+    expect(transform.call({}, wrapped, '/pkg/globals.css?raw')).toBeNull();
+    expect(transform.call({}, wrapped, '/pkg/globals.css?url')).toBeNull();
+    expect(transform.call({}, '.x { color: red }', '/pkg/app.css?t=123')).not.toBeNull();
+  });
 });

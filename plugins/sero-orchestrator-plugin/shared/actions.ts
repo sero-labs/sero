@@ -95,6 +95,8 @@ export interface ReflectedLoopSummary {
 export interface OrchestratorActionResult {
   ok: boolean;
   loop?: Loop;
+  /** Set by `create`: the new loop's id, for callers that hold only the typed board handle. */
+  loopId?: string;
   loops?: Loop[];
   run?: LoopRun;
   error?: string;

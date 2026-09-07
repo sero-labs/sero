@@ -35,6 +35,7 @@ export function registerOrchestratorHandlers(): void {
         return {
           ok: result.ok,
           error: result.error,
+          loopId: result.loopId,
           delivered: result.delivered,
           deduped: result.deduped,
         };
