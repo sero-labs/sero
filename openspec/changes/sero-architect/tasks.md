@@ -45,10 +45,10 @@
 
 ## 7. Production UI
 
-- [ ] 7.1 Build the projects list and project page from the signed-off prototype with the four parts, disclosures for history, evidence and older directives, no event log and no streaming; verify a screenshot check against the prototype at the same size and React Doctor passes
-- [ ] 7.2 Build the decision card with the recommendation preselected and one-action answer, the milestone rail with one Orchestrator link per dispatched milestone, and the directive composer; verify UI tests cover answering in one action and the link opening the Orchestrator record
-- [ ] 7.3 Build the controls (pause, resume, stop, raise cap, change autonomy, open session, delete) and persist layout preferences through the host layout service; verify a test shows collapsed history survives a restart and a grep finds no `localStorage`
-- [ ] 7.4 Build the dashboard widget from the shared dashboard components reading only the index; verify it appears in Add Widget, shows the needs-you count, and shows the empty state with one create action
+- [x] 7.1 Build the projects list and project page from the signed-off prototype with the four parts, disclosures for history, evidence and older directives, no event log and no streaming; verify a screenshot check against the prototype at the same size and React Doctor passes
+- [x] 7.2 Build the decision card with the recommendation preselected and one-action answer, the milestone rail with one Orchestrator link per dispatched milestone, and the directive composer; verify UI tests cover answering in one action and the link opening the Orchestrator record
+- [x] 7.3 Build the controls (pause, resume, stop, raise cap, change autonomy, open session, delete) and persist layout preferences through the host layout service; verify a test shows collapsed history survives a restart and a grep finds no `localStorage`
+- [x] 7.4 Build the dashboard widget from the shared dashboard components reading only the index; verify it appears in Add Widget, shows the needs-you count, and shows the empty state with one create action
 
 ## 8. Proving run and docs
 

@@ -11,35 +11,40 @@ import { federation } from '@module-federation/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { seroPluginCssScope } from '@sero-ai/plugin-vite';
 
+// Unit tests and the component preview harness (ui/__preview__) do not exercise
+// module federation, and the MF plugin cannot start without a host manifest.
+const skipFederation = process.env.VITEST === 'true' || process.env.SERO_PREVIEW === 'true';
+
 export default defineConfig({
   base: process.env.NODE_ENV === 'production' ? './' : '/',
   plugins: [
     react(),
     tailwindcss(),
     seroPluginCssScope({ pluginId: 'architect' }),
-    federation({
-      // MF remote name convention: sero_<appId>. Must be a valid JS identifier.
-      name: 'sero_architect',
-      filename: 'remoteEntry.js',
-      dts: false,
-      manifest: true,
-      exposes: {
-        // Paths are relative to this config file (package root), not `root`.
-        './ArchitectApp': './ui/ArchitectApp.tsx',
-        './ArchitectWidget': './ui/widgets/ArchitectWidget.tsx',
-      },
-      shared: {
-        react: { singleton: true },
-        'react/': { singleton: true },
-        'react-dom': { singleton: true },
-        'react-dom/': { singleton: true },
-        // NOTE: @sero-ai/app-runtime is NOT shared via MF.
-        // The host provides a globalThis singleton; we just excludeDeps below.
-      },
-    }),
+    ...(skipFederation ? [] : [
+      federation({
+        // MF remote name convention: sero_<appId>. Must be a valid JS identifier.
+        name: 'sero_architect',
+        filename: 'remoteEntry.js',
+        dts: false,
+        manifest: true,
+        exposes: {
+          // Paths are relative to this config file (package root), not `root`.
+          './ArchitectApp': './ui/ArchitectApp.tsx',
+          './ArchitectWidget': './ui/widgets/ArchitectWidget.tsx',
+        },
+        shared: {
+          react: { singleton: true },
+          'react/': { singleton: true },
+          'react-dom': { singleton: true },
+          'react-dom/': { singleton: true },
+          // NOTE: @sero-ai/app-runtime is NOT shared via MF.
+          // The host provides a globalThis singleton; we just excludeDeps below.
+        },
+      }),
+    ]),
   ],
   server: {
-    // Must match `sero.app.devPort` in package.json.
     port: 5200,
     strictPort: true,
     origin: 'http://localhost:5200',

@@ -1,69 +1,83 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppState } from '@sero-ai/app-runtime';
-import { Button } from '@sero-ai/ui';
-import { Compass } from 'lucide-react';
 
-import type { ArchitectIndex, ArchitectIndexEntry } from '../shared/types';
+import type { ArchitectIndex } from '../shared/types';
 import { DEFAULT_INDEX, normalizeIndex } from '../shared/types';
+import { IntakeDialog } from './components/IntakeDialog';
+import { ProjectsList } from './components/ProjectsList';
+import { TopBar } from './components/TopBar';
+import { Quiet } from './components/Pill';
+import { useArchitectActions } from './lib/actions';
+import { useArchitectView } from './lib/navigation';
+import { useProjectRecord } from './lib/use-project-record';
+import { useDisclosures } from './lib/page-helpers';
+import { ProjectPage } from './ProjectPage';
 import './styles.css';
 
-function spendLabel(entry: ArchitectIndexEntry): string {
-  const spent = `$${entry.spentUsd.toFixed(1).replace(/\.0$/, '')}`;
-  return entry.capUsd === null ? `${spent} · no cap` : `${spent} / $${entry.capUsd}`;
-}
+/** Below this width the side column folds under the main column, as the prototype's 960 frame does. */
+const NARROW_BELOW = 1100;
 
-function ProjectRow({ entry }: { entry: ArchitectIndexEntry }) {
-  return (
-    <li className="flex items-center gap-4 rounded-lg border border-border bg-card px-4 py-3">
-      <span className="grid size-6 place-items-center rounded-md bg-muted font-mono text-xs font-semibold text-muted-foreground">
-        {entry.name.slice(0, 2).toUpperCase()}
-      </span>
-      <span className="min-w-0 flex-1 truncate text-sm font-semibold">{entry.name}</span>
-      <span className="min-w-0 flex-[2] truncate text-sm text-muted-foreground">{entry.stateLine}</span>
-      <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {entry.overlay ?? entry.phase}
-      </span>
-      <span className="font-mono text-xs text-muted-foreground">{spendLabel(entry)}</span>
-      {entry.needsYou > 0 && (
-        <span className="grid min-w-5 place-items-center rounded-full bg-amber-500 px-1.5 font-mono text-[10px] font-semibold text-amber-950">
-          {entry.needsYou}
-        </span>
-      )}
-    </li>
-  );
+function useNarrow(): [boolean, (node: HTMLDivElement | null) => void] {
+  const [narrow, setNarrow] = useState(false);
+  const observer = useRef<ResizeObserver | null>(null);
+  const attach = useCallback((node: HTMLDivElement | null) => {
+    observer.current?.disconnect();
+    observer.current = null;
+    if (!node || typeof ResizeObserver === 'undefined') return;
+    observer.current = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? 0;
+      setNarrow(width > 0 && width < NARROW_BELOW);
+    });
+    observer.current.observe(node);
+  }, []);
+  useEffect(() => () => observer.current?.disconnect(), []);
+  return [narrow, attach];
 }
 
 export function ArchitectApp() {
-  // The watched index is the app's state file. Nothing else reaches the page.
+  // The watched index is the app's state file. The page watches one record beside it.
   const [stored] = useAppState<ArchitectIndex>(DEFAULT_INDEX);
   const index = normalizeIndex(stored);
+  const [view, navigate] = useArchitectView();
+  const actions = useArchitectActions();
+  const projectId = view.mode === 'project' ? view.projectId : null;
+  const { record, ready } = useProjectRecord(projectId);
+  const [narrow, attach] = useNarrow();
+  const disclosures = useDisclosures();
+
+  const openProject = useCallback((id: string) => navigate({ mode: 'project', projectId: id }), [navigate]);
+  const openIntake = useCallback(() => navigate({ mode: 'list', intake: true }), [navigate]);
+  const closeIntake = useCallback(() => navigate({ mode: 'list' }), [navigate]);
+  const back = useCallback(() => navigate({ mode: 'list' }), [navigate]);
+  const confirm = useCallback((message: string) => window.confirm(message), []);
+
+  const create = useCallback(async (idea: string, folder: string) => {
+    const outcome = await actions.create(idea, folder);
+    if (outcome.ok && outcome.projectId) navigate({ mode: 'project', projectId: outcome.projectId });
+    return outcome;
+  }, [actions, navigate]);
+
+  // A deleted project's page falls back to the list once the index no longer lists it.
+  const listed = projectId ? index.projects.some((entry) => entry.id === projectId) : false;
+  const gone = projectId !== null && ready && record === null && !listed;
 
   return (
-    <div className="flex size-full flex-col gap-5 overflow-hidden bg-background p-6 text-foreground">
-      <header className="flex items-center gap-3 border-b border-border pb-3">
-        <span className="grid size-6 place-items-center rounded-md border border-border text-primary">
-          <Compass className="size-3.5" />
-        </span>
-        <h1 className="text-sm font-semibold">Architect</h1>
-        <span className="ml-auto text-xs text-muted-foreground">Projects the Architect owns for you</span>
-      </header>
-
-      {index.projects.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border px-6 py-12 text-center">
-          <p className="text-base font-medium">No projects yet</p>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            Give the Architect an idea and a folder. It researches, proposes a charter with a cost cap, and
-            builds milestone by milestone, asking you only for the decisions that are yours.
-          </p>
-          <Button size="sm" disabled title="Project intake arrives with the record store">
-            New project
-          </Button>
-        </div>
+    <div className="ar-app" ref={attach}>
+      {projectId && record ? (
+        <ProjectPage record={record} actions={actions} narrow={narrow} disclosures={disclosures} onBack={back} confirm={confirm} />
+      ) : projectId && !gone ? (
+        <>
+          <TopBar record={null} controls={null} onBack={back} onNewProject={openIntake} />
+          <div className="ar-body"><Quiet>Opening the project…</Quiet></div>
+        </>
       ) : (
-        <ul className="flex flex-col gap-2 overflow-y-auto">
-          {index.projects.map((entry) => (
-            <ProjectRow key={entry.id} entry={entry} />
-          ))}
-        </ul>
+        <>
+          <TopBar record={null} controls={null} onBack={back} onNewProject={openIntake} />
+          <div className="ar-scroll">
+            <ProjectsList projects={index.projects} onOpen={openProject} onNewProject={openIntake} />
+          </div>
+          <IntakeDialog open={view.mode === 'list' && view.intake === true} onClose={closeIntake} onCreate={create} defaultFolder="~/Projects/" />
+        </>
       )}
     </div>
   );
