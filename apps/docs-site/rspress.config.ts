@@ -32,6 +32,7 @@ const agentsAutomation = [
   { text: 'Memory', link: '/guide/memory' },
   { text: 'Scheduler and Reminders', link: '/guide/scheduler-reminders' },
   { text: 'Orchestrator', link: '/guide/orchestrator' },
+  { text: 'Architect', link: '/guide/architect' },
   { text: 'Workflows', link: '/guide/workflows' },
   { text: 'Manage Workflows', link: '/guide/workflows-advanced' },
   { text: 'Goals', link: '/guide/goals' },
@@ -66,7 +67,8 @@ const referenceRuntime = [
   { text: 'Agent Plugins', link: '/reference/agent-plugins' },
   { text: 'Orchestrator', link: '/reference/orchestrator' },
   { text: 'Workflows', link: '/reference/workflows' },
-  { text: 'Rooms', link: '/reference/rooms' }
+  { text: 'Rooms', link: '/reference/rooms' },
+  { text: 'Architect', link: '/reference/architect' }
 ];
 
 const referenceAuthors = [
@@ -94,12 +96,10 @@ const selectedPlugins = [
   { text: 'Graphify', link: '/plugins/graphify' },
   { text: 'User Feedback', link: '/plugins/user-feedback' },
   { text: 'Google', link: '/plugins/google' },
-  { text: 'Kanban', link: '/plugins/kanban' },
   { text: 'Notes', link: '/plugins/notes' },
   { text: 'Todo', link: '/plugins/todo' },
   { text: 'Research', link: '/plugins/research' },
   { text: 'Signal Desk', link: '/plugins/signal-desk' },
-  { text: 'Plan Mode', link: '/plugins/plan-mode' },
   { text: 'Spotify (Legacy)', link: '/plugins/spotify' },
   { text: 'ImageGen', link: '/plugins/imagegen' },
   { text: 'Loom', link: '/plugins/loom' },

@@ -55,5 +55,5 @@
 - [ ] 8.1 Run the proving project in the clean profile with the roguelike spec as the verbatim intake and the default autonomy; verify a charter with a cost cap is presented for approval and at least one decision is raised with a recommendation
 - [ ] 8.2 Continue the proving run through two milestones; verify each closes only with recorded command results and a capture, and the total spend stays under the approved cap
 - [ ] 8.3 Continue through release and maintain; verify one filed issue produces a triage wake and a fix delivered through the PR path with a receipt
-- [ ] 8.4 Write the user guide and reference pages under `apps/docs-site/docs/`, add the Architect row to the Orchestrator mode table, and remove kanban and plan-mode from the recommended catalog list; verify the docs-site build passes and every internal link resolves
+- [x] 8.4 Write the user guide and reference pages under `apps/docs-site/docs/`, add the Architect row to the Orchestrator mode table, and remove kanban and plan-mode from the recommended catalog list; verify the docs-site build passes and every internal link resolves
 - [ ] 8.5 Route a code review at high effort and fix the findings; verify `pnpm typecheck`, plugin tests and the e2e specs pass on the final branch
