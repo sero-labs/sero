@@ -59,7 +59,15 @@ export function parseDecision(input: {
   }
   const reason = input.reason?.trim() ?? '';
   if (!reason) return fail('reason is required: why this is escalated to the user.');
-  const dependsOn = [...new Set((input.parks ?? []).map((id) => id.trim()).filter(Boolean))];
+  const dependsOn: string[] = [];
+  const seenDependencies = new Set<string>();
+  for (const park of input.parks ?? []) {
+    const id = park.trim();
+    if (id && !seenDependencies.has(id)) {
+      seenDependencies.add(id);
+      dependsOn.push(id);
+    }
+  }
   return { ok: true, draft: { question, options, recommendation, reason, dependsOn } };
 }
 

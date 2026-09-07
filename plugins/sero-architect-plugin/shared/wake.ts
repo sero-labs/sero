@@ -31,10 +31,11 @@ export function wakePriority(kind: WakeKind): number {
 export function enqueueWake(queue: readonly WakeEvent[], incoming: WakeEvent): WakeEvent[] {
   const existing = queue.find((wake) => wake.kind === incoming.kind);
   if (!existing) return [...queue, incoming];
+  const existingItems = new Set(existing.items);
   const merged: WakeEvent = {
     kind: existing.kind,
     at: existing.at,
-    items: [...existing.items, ...incoming.items.filter((item) => !existing.items.includes(item))],
+    items: [...existing.items, ...incoming.items.filter((item) => !existingItems.has(item))],
   };
   return queue.map((wake) => (wake === existing ? merged : wake));
 }
@@ -42,7 +43,7 @@ export function enqueueWake(queue: readonly WakeEvent[], incoming: WakeEvent): W
 /** The wake to deliver next: highest priority, then oldest. */
 export function nextWake(queue: readonly WakeEvent[]): WakeEvent | null {
   if (queue.length === 0) return null;
-  return [...queue].sort((a, b) => wakePriority(a.kind) - wakePriority(b.kind) || a.at.localeCompare(b.at))[0] ?? null;
+  return queue.toSorted((a, b) => wakePriority(a.kind) - wakePriority(b.kind) || a.at.localeCompare(b.at))[0] ?? null;
 }
 
 export function describeWake(wake: WakeEvent): string {
