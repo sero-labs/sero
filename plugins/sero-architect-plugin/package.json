@@ -1,7 +1,7 @@
 {
   "name": "@sero-ai/plugin-architect",
   "version": "0.1.0",
-  "description": "Sero Architect — hand Sero an idea and get a delivered, maintained product back",
+  "description": "Build and maintain products through Sero Workflows and Rooms",
   "type": "module",
   "keywords": ["pi-package"],
   "scripts": {
@@ -32,7 +32,7 @@
           "extensionPoint": "ui.dashboard.widget",
           "name": "Architect",
           "component": "ArchitectWidget",
-          "description": "Your Architect projects and what needs you",
+          "description": "Architect projects that need your input",
           "defaultSize": { "w": 2, "h": 2 },
           "minSize": { "w": 1, "h": 1 },
           "maxSize": { "w": 4, "h": 3 }

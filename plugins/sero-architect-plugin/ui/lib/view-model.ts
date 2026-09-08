@@ -85,14 +85,14 @@ const TONE: Record<MilestoneStatus, PillTone> = {
 function subLine(milestone: Milestone, record: ProjectRecord): string | null {
   if (milestone.status === 'parked' && milestone.parkedBy) {
     const decision = record.decisions.find((d) => d.id === milestone.parkedBy);
-    return decision ? `Parked on: ${decision.question}` : 'Parked on a decision';
+    return decision ? `Waiting for your answer: ${decision.question}` : 'Waiting for your answer';
   }
   if (milestone.status === 'running' && milestone.dispatch) {
     const where = milestone.dispatch.destination ? ` · delivers to ${milestone.dispatch.destination}` : '';
-    return `${milestone.dispatch.kind === 'room' ? 'Room' : 'Workflow'} running${where}`;
+    return `${milestone.dispatch.kind === 'room' ? 'Room' : 'Workflow'} is running${where}`;
   }
-  if (milestone.status === 'verifying') return 'Reported complete; the runtime is checking the evidence';
-  if (milestone.preview && milestone.status !== 'done') return `Closes with a capture of ${milestone.preview.route}`;
+  if (milestone.status === 'verifying') return 'The run reported completion. Evidence is being checked.';
+  if (milestone.preview && milestone.status !== 'done') return `Ends with a capture of ${milestone.preview.route}`;
   if (milestone.status === 'done' && milestone.receipt) return `Delivered · ${milestone.receipt}`;
   return null;
 }

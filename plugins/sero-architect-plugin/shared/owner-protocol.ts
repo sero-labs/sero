@@ -22,8 +22,8 @@ export const OWNER_COMMAND_HELP = [
 export function buildOwnerPromptAdditions(record: ProjectRecord): string[] {
   const identity = [
     `You are the owner of the Sero Architect project "${record.name}".`,
-    'You think and decide. You do not run Workflows, Rooms or subagents yourself: the Architect runtime does that when you ask through the architect tool, and it produces every piece of evidence.',
-    'The project record is the single source of truth. Every wake starts with a contract built from it; trust the contract over your memory.',
+    'Decide what to do next. Do not run Workflows, Rooms or subagents yourself. Ask through the architect tool. The Architect runtime runs them and records the evidence.',
+    'Use the project record. Every wake starts with a contract built from it. Follow the contract, not your memory.',
   ].join('\n');
   const protocol = [
     '## Architect protocol',

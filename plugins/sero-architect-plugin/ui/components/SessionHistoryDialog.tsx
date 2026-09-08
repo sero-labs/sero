@@ -19,7 +19,7 @@ export function SessionHistoryDialog({ open, projectName, entries, loading, erro
       <DialogContent className="ar-history-dialog" data-sero-plugin="architect">
         <DialogHeader>
           <DialogTitle>{projectName} owner session</DialogTitle>
-          <DialogDescription>Read-only history of the Architect owner's latest turns.</DialogDescription>
+          <DialogDescription>Recent messages from the owner session. You can read them but not edit them.</DialogDescription>
         </DialogHeader>
         <div className="ar-session-history" aria-live="polite">
           {loading && <p className="ar-why">Opening session history…</p>}

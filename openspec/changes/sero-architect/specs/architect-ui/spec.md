@@ -1,6 +1,6 @@
 ## Purpose
 
-The Architect surface shows the state of each project and what the user must do, and nothing else by default, so the user is insulated from detail unless they ask for it.
+The Architect page shows each project's state and the user's next action. It hides other details by default.
 
 ## ADDED Requirements
 

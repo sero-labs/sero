@@ -16,7 +16,7 @@ export function LimitBanner({ record, onRaise }: { record: ProjectRecord; onRais
       <span className="ar-ic"><Coins className="ar-i" /></span>
       <div>
         <b>Cap reached: {usd(record.budget.spentUsd)} of {usd(cap)}</b>
-        <span>{error ?? 'Reaching a limit is not completion. Raise the cap to wake the Architect and allow new dispatches.'}</span>
+        <span>{error ?? 'Architect will not start more work. Current work can continue and may still add cost.'}</span>
       </div>
       <CapInput
         cap={cap}

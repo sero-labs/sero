@@ -34,7 +34,7 @@ export function SideColumn({ record, disclosures }: { record: ProjectRecord; dis
         <summary><ChevronRight className="ar-i" />Older directives<span className="ar-n">{older.length}</span></summary>
         <div className="ar-inner">
           {older.length === 0 ? (
-            <p className="ar-why">Only the latest directive so far.</p>
+            <p className="ar-why">No older directives yet.</p>
           ) : (
             <ul className="ar-older">
               {older.map((directive) => (

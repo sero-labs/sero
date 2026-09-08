@@ -36,7 +36,7 @@ export const PROJECTS_TOOL_DESCRIPTION = `Manage Sero Architect projects. Action
 
 export const ProjectsToolParams = Type.Object({
   action: StringEnum(PROJECT_ACTIONS, { description: `One of: ${PROJECT_ACTIONS.join(', ')}` }),
-  projectId: Type.Optional(Type.String({ description: 'The project. Required for everything except list and create' })),
+  projectId: Type.Optional(Type.String({ description: 'Project ID. Required for every action except list and create' })),
   idea: Type.Optional(Type.String({ description: 'create: the idea, in the user\'s own words' })),
   folder: Type.Optional(Type.String({ description: 'create: the folder to build in, under the home directory' })),
   capUsd: Type.Optional(Type.Number({ description: 'raise_cap: the new cost cap in USD' })),

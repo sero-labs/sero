@@ -1,14 +1,12 @@
 ## Why
 
-Sero has every primitive an autonomous project needs (Workflows, Rooms, Goals,
-worktrees, dev servers, browser capture, memory, graph, scheduling, media
-generation, remote access) but nothing owns the layer above one task. No
-record holds a product's vision, master plan, decisions, milestone state,
-budget or maintenance posture, and no agent is responsible for deciding what
-to run next, verifying the result, and escalating only what the user must
-decide. Sero Architect closes that gap so the user can hand Sero a high-level
-idea and get a delivered, maintained product back, with the user acting as the
-decision-maker rather than the operator.
+Sero can already run Workflows, Rooms and Goals, create worktrees, start dev
+servers, capture browser output and schedule work. It does not have one place
+to manage a product across many tasks. No record keeps the product brief,
+milestones, decisions, budget and maintenance state together. No agent decides
+what to run next and checks the result. Sero Architect adds that project-level
+management. The user supplies the idea and makes the decisions that require
+their input.
 
 ## What Changes
 
@@ -17,16 +15,15 @@ decision-maker rather than the operator.
 - A durable **Project record** per idea: idea verbatim, brief, workspace link,
   phase, milestones, decisions, directives, dispatch ledger, budget and usage,
   history. Stored under `<SERO_HOME>/apps/architect/` with a watched index.
-- A persistent **Owner session** per project (host-managed persistent session,
-  the Room Conductor pattern lifted one level). It is woken by events, never
-  polled, and restated its contract from the record on every wake and after
-  compaction. It thinks in its session and acts only through the `architect`
-  tool; the Architect runtime performs each dispatch, research and
-  verification request over runtime-side seams, because a managed session
-  cannot reach another plugin's tools or the subagent manager.
+- A persistent **Owner session** per project, based on the host-managed Room
+  Conductor pattern at project scope. Events wake it; the runtime does not poll.
+  The runtime restates the session contract from the record on every wake and
+  after compaction. The owner acts only through the `architect` tool. The
+  Architect runtime performs dispatch, research and verification because a
+  managed session cannot reach another plugin's tools or the subagent manager.
 - A **lifecycle**: intake, discovery, charter, build, release, maintain, with
   decision, blocked, paused and over-budget as overlays.
-- **Decisions** as first-class records: question, options, recommendation,
+- **Decision records** with a question, options, recommendation,
   consequence, reason for escalation. An unanswered decision parks the
   dependent work with no timeout and no default. Charter changes, external
   delivery and spend beyond budget always escalate. Default autonomy: the user
@@ -41,8 +38,8 @@ decision-maker rather than the operator.
 - **Project budget**: a cost cap proposed in the charter and approved by the
   user, enforced by the Architect runtime from per-run usage. Reaching it
   stops the project until the user raises it.
-- **Directives**: the user can send the owner a message from the project page;
-  the owner is woken at top priority and replies in one short message.
+- **Directives**: the user can send the owner a message from the project page.
+  The owner handles it before other updates and replies in one short message.
 - **UI**: a projects list and a project page with four parts only: state line
   and spend, Needs You decision cards, milestone rail linking to Orchestrator
   detail, and the directive composer. History is behind a disclosure. One
@@ -96,7 +93,7 @@ decision-maker rather than the operator.
   plugin's registry and board adapter: `create` on the board action view and
   a typed Room registry entry, plus tests.
 - Reads `.sero/apps/orchestrator/index.json` and `rooms/index.json` through
-  the app-state watch seam; writes to Orchestrator only through the typed
+  the app-state watch API; writes to Orchestrator only through the typed
   coordinator and Room registry handles from the Architect runtime.
 - Docs: new guide and reference pages under `apps/docs-site/docs/`, and the
   Orchestrator mode table gains one line: Workflow plans a task, Room staffs

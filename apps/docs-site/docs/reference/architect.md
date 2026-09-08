@@ -1,29 +1,31 @@
 # Architect reference
 
-This page lists the runtime facts for Sero Architect. For the user task, see
-[Architect](/guide/architect).
+This page lists runtime facts for Sero Architect. See
+[Architect](/guide/architect) for the user guide.
 
 ## Availability
 
-Architect is a built-in plugin, `@sero-ai/plugin-architect`, with global scope:
-one project list per profile. It needs persistent agent sessions, the
-Orchestrator plugin, and the host capabilities `appAgent.invokeTool`,
-`tool.cli`, `appRuntime.background` and `appRuntime.workspaceCreate`.
+Architect is the built-in `@sero-ai/plugin-architect` plugin. It has global
+scope, so each profile has one project list. It requires persistent agent
+sessions, the Orchestrator plugin, and the host capabilities
+`appAgent.invokeTool`, `tool.cli`, `appRuntime.background` and
+`appRuntime.workspaceCreate`.
 
 `SERO_ARCHITECT_MODEL` names the owner's model as `provider/model`. Without
-it, the owner uses the first available model that supports reasoning.
+it, the owner uses the first available model that supports reasoning, or the
+first available model if none supports reasoning.
 
 ## Terms
 
 | Term | Meaning |
 | --- | --- |
 | Project | one idea, its folder, workspace, owner session, charter, milestones, decisions, directives, budget and history |
-| Owner | the persistent agent session that thinks for one project; the runtime acts on its behalf |
+| Owner | the persistent agent session for one project; the runtime runs it on the project's behalf |
 | Charter | the brief, milestone list, cost cap and autonomy setting proposed after discovery and approved by you |
 | Milestone | one unit of work, dispatched as a Workflow or a Room and closed only on evidence |
 | Decision | a question raised to you with options, consequences, a recommendation and a reason |
 | Directive | a message from you to the owner; it replies once |
-| Evidence | command results, a diff summary and a capture recorded by the runtime at a named commit |
+| Evidence | command results and a diff summary recorded by the runtime at a named commit; preview milestones also include a capture |
 | Wake | one turn of the owner session, started by the runtime for an event |
 
 ## Phases and overlays
@@ -61,9 +63,10 @@ The runtime wakes the owner for these events, highest priority first:
 | `external-event` | the maintenance Workflow ran for an issue, a CI failure or its schedule |
 | `quiet` | the project was created, research finished, or planned work remains |
 
-One wake runs at a time. Wakes of the same kind merge. The owner is not woken
-while the project is paused, limited, blocked or stopped. Every wake ends with
-one of `sleep`, `decide` or `blocked`; three turns in a row with no outcome
+One wake runs at a time. Wakes of the same kind merge. Ordinary work does not
+wake the owner while the project is paused, limited, blocked or stopped.
+Directives and decision responses can still wake it. Every wake ends with one
+of `sleep`, `decide` or `blocked`; three turns in a row with no outcome
 block the project.
 
 ## Owner tool
@@ -126,9 +129,9 @@ is recorded on the milestone; it never substitutes for verification.
 ## Maintenance
 
 On entering `maintain`, the runtime creates one Workflow subscribed to
-`github:issue-opened`, `github:ci-failed` and the schedule `0 8 * * 1`. Each
-run wakes the owner to triage. A fix is a milestone and moves through the same
-four verification states.
+`github:issue-opened`, `github:ci-failed` and the schedule `0 8 * * 1`
+(Mondays at 08:00 UTC). Each run wakes the owner to triage. A fix is a
+milestone and moves through the same four verification states.
 
 ## State and storage
 
@@ -138,9 +141,9 @@ four verification states.
 | `~/.sero-ui/apps/architect/projects/<id>.json` | the full project record; the runtime is its only writer |
 | `<folder>/.sero/apps/architect/evidence/<milestone>/<commit>.png` | captures taken by the verifier |
 
-The UI, the widget and the management tool read only the index and one
-record. Layout preferences of the Architect surface persist through the host
-layout service, never through browser storage.
+The UI, widget and management tool read the index and project record. **Open
+session** also reads persistent owner-session history. Layout preferences
+persist through the host layout service, never through browser storage.
 
 ## Related pages
 

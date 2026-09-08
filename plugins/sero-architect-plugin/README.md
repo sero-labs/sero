@@ -1,13 +1,15 @@
 # Sero Architect
 
-A profile-global built-in plugin that owns a **product** above the level of one
-task. The user gives an idea and a folder; the Architect researches, proposes a
-charter with milestones and a cost cap, dispatches each milestone to an
-Orchestrator Workflow or Room, verifies the result with evidence it produced
-itself, releases through the existing delivery path, and keeps maintaining the
-product afterwards. The user is the decision-maker, never the operator.
+`@sero-ai/plugin-architect` is a profile-global built-in plugin for managing a
+**product**, not a single task. A user supplies an idea and a folder. Architect
+researches the idea, proposes a charter with milestones and a cost cap, and
+dispatches each milestone to an Orchestrator Workflow or Room. It verifies the
+result with runtime-generated evidence, releases it through the existing
+delivery path, and starts maintenance. The user makes the decisions; the owner
+session runs the project.
 
-The design, specs and build order live in `openspec/changes/sero-architect/`.
+Design notes, specifications and the build order are in
+`openspec/changes/sero-architect/`.
 
 ## Layout
 
@@ -20,11 +22,12 @@ ui/          projects list, project page, dashboard widget (renderer)
 
 ## Where things live
 
-Everything persists under `<SERO_HOME>/apps/architect/`. The index is the app's
-state file (`state.json`), watched by the host and pushed to the UI; full
-records sit in `projects/<id>.json` and are written by the runtime alone.
+Persistent data is stored under `<SERO_HOME>/apps/architect/`. The host watches
+the index at `state.json` and pushes updates to the UI. The runtime alone
+writes full records to `projects/<id>.json`.
 
 ## Kill switch
 
-`SERO_ARCHITECT=0` or `false` before Sero starts disables the runtime. Records
-are kept and no owner session is woken until the flag is removed.
+Set `SERO_ARCHITECT=0` or `false` before Sero starts to disable the runtime.
+Records remain on disk. Restart Sero after removing the variable to enable
+Architect again.

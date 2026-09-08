@@ -41,7 +41,7 @@ export function DecisionCard({ decision, record, actions }: { decision: Decision
   return (
     <article className="ar-card ar-decision" aria-label="Decision">
       <h3 className="ar-q">{decision.question}</h3>
-      <p className="ar-why"><b>Escalated because</b> {decision.reason}</p>
+      <p className="ar-why"><b>Why this needs you</b> {decision.reason}</p>
       <ul className="ar-opts" role="radiogroup" aria-label="Options">
         {decision.options.map((option) => (
           <li key={option.id}>
@@ -61,7 +61,7 @@ export function DecisionCard({ decision, record, actions }: { decision: Decision
         </Button>
       </div>
       {parked.length > 0 && (
-        <p className="ar-parks">Parks {parked.map((title) => <code key={title}>{title}</code>)} until answered. No timeout, no default.</p>
+        <p className="ar-parks">Waiting for your answer: {parked.join(', ')}. There is no default answer.</p>
       )}
       {error && <p className="ar-error">{error}</p>}
     </article>
@@ -80,11 +80,11 @@ export function CharterCard({ record, actions }: { record: ProjectRecord; action
         <div className="ar-term"><span className="ar-k">Cost cap</span><span className="ar-v ar-mono">{usd(charter.capUsd)}</span></div>
         <div className="ar-term"><span className="ar-k">Milestones</span><span className="ar-v">{charter.milestoneIds.length}, in the rail below</span></div>
         <div className="ar-term"><span className="ar-k">Autonomy</span><span className="ar-v">{AUTONOMY_LABEL[charter.autonomy]}</span></div>
-        <div className="ar-term"><span className="ar-k">Always escalates</span><span className="ar-v">Charter changes, external delivery, spend over cap</span></div>
+        <div className="ar-term"><span className="ar-k">Always asks you</span><span className="ar-v">Charter changes, external delivery, spend over cap</span></div>
       </div>
       {charter.escalationPolicy && <p className="ar-plan">{charter.escalationPolicy}</p>}
       <div className="ar-dfoot">
-        <span className="ar-why">To ask for a change instead, send a directive below.</span>
+        <span className="ar-why">Want to change it? Send a directive below.</span>
         <Button size="sm" className="ar-btn ar-btn-solid" disabled={busy} onClick={() => void submit(actions.approveCharter)}>
           <Check className="ar-i" />Approve charter
         </Button>
@@ -101,7 +101,7 @@ export function MilestoneApprovalCard({ milestone, actions }: { milestone: Miles
       <h3 className="ar-q">Approve the plan for {milestone.title}</h3>
       {milestone.plan && <p className="ar-plan">{milestone.plan}</p>}
       <div className="ar-dfoot">
-        <span className="ar-why">Approval lets the Architect dispatch this milestone.</span>
+        <span className="ar-why">Approve this plan to let Architect start the milestone.</span>
         <Button size="sm" className="ar-btn ar-btn-solid" disabled={busy} onClick={() => void submit(() => actions.approveMilestone(milestone.id))}>
           <Check className="ar-i" />Approve plan
         </Button>
@@ -117,7 +117,7 @@ export function NeedsYou({ record, actions }: { record: ProjectRecord; actions: 
     <section aria-labelledby="ar-needs-h">
       <SectionHead id="ar-needs-h" title="Needs you" count={items.length ? String(items.length) : 'none'} warn={items.length > 0} />
       {items.length === 0 ? (
-        <Quiet tone="ok">Nothing is needed from you.{record.paused ? ' The project is paused.' : ''}</Quiet>
+        <Quiet tone="ok">You have nothing to review.{record.paused ? ' The project is paused.' : ''}</Quiet>
       ) : (
         <div className="ar-col">
           {items.map((item) => {

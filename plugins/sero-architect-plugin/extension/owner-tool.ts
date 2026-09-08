@@ -31,14 +31,14 @@ const DO_NOT_SET = 'Do not set. Evidence is produced by the runtime; a call carr
 const RESERVED_IN_SCHEMA = ['exitCode', 'capturePath', 'diffSummary'] as const satisfies readonly (typeof EVIDENCE_RESERVED_KEYS)[number][];
 
 export const OwnerToolParams = Type.Object({
-  action: StringEnum(OWNER_ACTIONS, { description: 'What to do: brief, charter, milestone, decide, research, dispatch, evidence, status, reply, blocked or sleep' }),
+  action: StringEnum(OWNER_ACTIONS, { description: 'Action to run: brief, charter, milestone, decide, research, dispatch, evidence, status, reply, blocked or sleep' }),
   projectId: Type.String({ description: 'The project this session owns. Every call carries it' }),
   text: Type.Optional(Type.String({ description: 'brief/status/reply/blocked/sleep: the text' })),
   title: Type.Optional(Type.String({ description: 'milestone: the title (required for a new milestone)' })),
   milestoneId: Type.Optional(Type.String({ description: 'milestone/dispatch/evidence: the milestone id' })),
   plan: Type.Optional(Type.String({ description: 'milestone: the plan' })),
   previewRoute: Type.Optional(Type.String({ description: 'milestone: the route a preview milestone must render, e.g. /' })),
-  done: Type.Optional(Type.Boolean({ description: 'milestone: accept it on passed evidence' })),
+  done: Type.Optional(Type.Boolean({ description: 'milestone: set true to accept it after evidence passes' })),
   milestonesJson: Type.Optional(Type.String({ description: 'charter: JSON [{"title":"...","plan":"...","previewRoute":"/"}]' })),
   escalationPolicy: Type.Optional(Type.String({ description: 'charter: what you raise to the user and what you decide yourself' })),
   autonomy: Type.Optional(StringEnum(AUTONOMY_SETTINGS, { description: 'charter: milestones (default), charter-only or model-judged' })),
@@ -51,8 +51,8 @@ export const OwnerToolParams = Type.Object({
   stoppingCondition: Type.Optional(Type.String({ description: 'research: when the researcher should stop' })),
   kind: Type.Optional(StringEnum(DISPATCH_KINDS, { description: 'dispatch: workflow or room' })),
   prompt: Type.Optional(Type.String({ description: 'dispatch: the Workflow prompt or the Room mandate' })),
-  destination: Type.Optional(StringEnum(DISPATCH_DESTINATIONS, { description: 'dispatch, release only: where the run delivers. pr or workspace-files run directly; an external destination becomes a decision for the user' })),
-  maxCostUsd: Type.Optional(Type.Number({ description: 'dispatch: what the run may spend; more than the remaining budget becomes a decision for the user' })),
+  destination: Type.Optional(StringEnum(DISPATCH_DESTINATIONS, { description: 'dispatch, release only: delivery target. pr and workspace-files run directly. Any other target requires a user decision' })),
+  maxCostUsd: Type.Optional(Type.Number({ description: 'dispatch: maximum USD this run may spend. If it exceeds the remaining budget, ask the user first' })),
   commandsJson: Type.Optional(Type.String({ description: 'evidence: JSON array of commands for the runtime to run, e.g. ["pnpm test"]' })),
   route: Type.Optional(Type.String({ description: 'evidence: the route to open for a preview milestone' })),
   directiveId: Type.Optional(Type.String({ description: 'reply: the directive id from the contract' })),

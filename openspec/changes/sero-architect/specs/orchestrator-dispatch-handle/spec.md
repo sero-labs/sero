@@ -1,6 +1,6 @@
 ## Purpose
 
-A plugin runtime in Electron main can create Workflows and Rooms through the typed Orchestrator registry, so a runtime that cannot use session tools can still dispatch work without a plugin-specific bridge.
+A plugin runtime in Electron main can create Workflows and Rooms through the typed Orchestrator registry. This lets runtimes that cannot use session tools dispatch work without a plugin-specific bridge.
 
 ## ADDED Requirements
 

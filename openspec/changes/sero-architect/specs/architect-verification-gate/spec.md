@@ -1,6 +1,6 @@
 ## Purpose
 
-The verification gate makes sure a milestone closes only on mechanical evidence, so the Architect never reports hollow success on the strength of a summary or an agent's claim.
+The verification gate closes a milestone only on mechanical evidence. A summary or agent claim is not enough.
 
 ## ADDED Requirements
 

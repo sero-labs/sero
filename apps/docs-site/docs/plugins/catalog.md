@@ -16,7 +16,7 @@ Built-in plugins can appear in app discovery or favorites. External plugins do n
 
 | Plugin | Package | Docs | Notes |
 | --- | --- | --- | --- |
-| Architect | `@sero-ai/plugin-architect` | [Guide](/guide/architect) | Owns a product from an idea: charter, milestones on evidence, release and maintenance through Workflows and Rooms; global state under the profile's Sero home. |
+| Architect | `@sero-ai/plugin-architect` | [Guide](/guide/architect) | Builds a product from an idea with a charter and evidence-checked milestones, then releases and maintains it through Workflows and Rooms. Global state is stored under the profile's Sero home. |
 | Admin | `@sero-ai/plugin-admin` | [Guide](/guide/settings-models-admin) | Config editor, logs, sessions, agents/skills/prompts; global state file declared by manifest. |
 | Scheduler | `@sero-ai/plugin-cron` | [Guide](/guide/scheduler-reminders) | Reminders and recurring jobs; dashboard widget manifest. |
 | Design Library | `@sero-ai/plugin-design-library` | [Docs](/plugins/design-library) | Visual reference library with automatic design-language analysis; global state under the profile's Sero home. |

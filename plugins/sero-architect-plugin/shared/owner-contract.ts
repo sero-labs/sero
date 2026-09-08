@@ -22,7 +22,7 @@ function budgetLines(record: ProjectRecord): string[] {
   const remaining = Math.max(0, capUsd - spentUsd);
   return [
     `Budget: ${usd(spentUsd)} spent of the ${usd(capUsd)} cap, ${usd(remaining)} remaining.`,
-    'The cap bounds what you may start. It is not a spend ceiling: one dispatched run can spend before the next check.',
+    'The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.',
   ];
 }
 
@@ -85,8 +85,8 @@ function phaseInstruction(record: ProjectRecord): string[] {
       return ['The workspace is still being set up. Call sleep.'];
     case 'discovery':
       return [
-        'Keep working. Discover the project: read the workspace, run research for what you cannot tell from it, then write the brief with the brief action.',
-        'When the brief is written, propose the charter with the charter action: milestones, escalation policy, autonomy setting and a cost cap in USD.',
+        'Keep working. Read the workspace. Research only what you cannot learn from it. Then write the brief with the brief action.',
+        'After you write the brief, propose the charter with the charter action. Include milestones, the escalation policy, the autonomy setting and a USD cost cap.',
       ];
     case 'charter':
       return record.charter && record.charter.approvedAt === null
@@ -94,7 +94,7 @@ function phaseInstruction(record: ProjectRecord): string[] {
         : ['Keep working. Propose the charter with the charter action: milestones, escalation policy, autonomy setting and a cost cap in USD.'];
     case 'build':
       return [
-        'Keep working. Plan the next milestone with the milestone action, dispatch it as a Workflow or a Room with the dispatch action, and when the work reports completion ask for evidence with the evidence action.',
+        'Keep working. Plan the next milestone with the milestone action. Dispatch it as a Workflow or Room with the dispatch action. When it reports completion, ask for evidence with the evidence action.',
         record.autonomy === 'milestones'
           ? 'Autonomy is "milestones": a milestone dispatches only after the user approves its plan, so write the plan and call sleep.'
           : `Autonomy is "${record.autonomy}": a planned milestone may dispatch without approval.`,
@@ -118,7 +118,7 @@ function behaviourBlock(record: ProjectRecord, wake: WakeEvent | null): string[]
       ];
     case 'limited':
       return [
-        'The project is at its COST CAP. Reaching a cap is not progress and no milestone is proven by it.',
+        'The project has reached its COST CAP. This does not prove progress or a milestone.',
         'Do not dispatch or research. In-flight work continues under its own limits. The user may raise the cap.',
         replyFirst,
       ];

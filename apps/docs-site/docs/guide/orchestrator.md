@@ -24,21 +24,21 @@ third mode, **[Goals](/guide/goals)**, starts in the chat session itself with
   keep working until a result is reached. Sero plans nothing first. You say what
   must be true at the end, and the session keeps going until it is.
 
-- Use **[Architect](/guide/architect)** when you want a whole product from an
-  idea. Architect researches, proposes a charter with a cost cap, builds one
-  milestone at a time through Workflows and Rooms, checks the evidence itself,
-  releases and maintains the result. You approve the charter and answer the
-  decisions that are yours.
+- Use **[Architect](/guide/architect)** when you want Sero to build and
+  maintain a product from an idea. Architect proposes a charter and cost cap,
+  builds one milestone at a time through Workflows and Rooms, checks the
+  result, then releases and maintains it. You approve the charter and any
+  decisions that need your input.
 
-If you need a plan, choose a Workflow. If you need a team, choose a Room. If you
-need the current chat to keep going, choose a Goal. If you need a product
-owned for you, choose Architect.
+Choose a Workflow for planned steps, a Room for a team, a Goal for ongoing work
+in the current chat, or Architect for a product that Sero will build and
+maintain.
 
 | | Workflow | Room | Goal | Architect |
 | --- | --- | --- | --- | --- |
 | Sero creates | A plan of steps | A team of agents | Nothing to review first | A charter with milestones and a cap |
 | Work happens | Step by step | Members work and share findings | In your chat session | Milestone by milestone, in Workflows and Rooms |
-| Use it for | A task with clear stages | A task that needs different roles or points of view | One result with an unknown route | A product built, released and maintained from an idea |
+| Use it for | A task with clear stages | A task that needs different roles or points of view | One result with an unknown route | A product that Sero builds, releases and maintains from an idea |
 
 You do not need a Workflow before you start a Room or a Goal. They are
 independent.
@@ -75,14 +75,13 @@ or cannot continue.
 
 ## Start here
 
-- [Create and run a Workflow](/guide/workflows) — the tutorial.
-- [Manage Workflows](/guide/workflows-advanced) — schedules, recovery,
+- [Create and run a Workflow](/guide/workflows): the tutorial.
+- [Manage Workflows](/guide/workflows-advanced): schedules, recovery,
   Library and Catalog.
-- [Create and run a Room](/guide/rooms) — the tutorial.
-- [Manage a Room](/guide/rooms-advanced) — claims, limits, and the changes a
+- [Create and run a Room](/guide/rooms): the tutorial.
+- [Manage a Room](/guide/rooms-advanced): claims, limits, and the changes a
   team can make while it works.
-- [Architect](/guide/architect) — a product owned for you, from idea to
-  maintenance.
+- [Architect](/guide/architect): a product from idea through maintenance.
 
 For exact tool names, commands, and compatibility terms, see the
 [Orchestrator reference](/reference/orchestrator), the

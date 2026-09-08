@@ -1,6 +1,6 @@
 ## Purpose
 
-The owner session is the long-lived agent that acts as the project's owner: it thinks, dispatches work through existing Orchestrator modes, verifies results, and escalates decisions, and it is woken by events rather than running on a timer.
+The owner session is a long-lived agent for the project. It dispatches work through existing Orchestrator modes, verifies results, escalates decisions and wakes on events rather than on a timer.
 
 ## ADDED Requirements
 
@@ -45,7 +45,7 @@ The owner SHALL end each wake by calling one of the Architect tools that declare
 - **THEN** the runtime records no progress and does not wake the owner again for that event
 
 ### Requirement: The owner acts only through the Architect tool
-The owner session's grant SHALL name only the platform tools and the `sero-cli` bridge, and the session's command surface SHALL hold only the Architect app's own commands plus the managed-session defaults. The owner SHALL change the project record, start research, dispatch work and request verification only through the Architect tool actions: brief, charter, milestone, decide, research, dispatch, evidence, status, reply, blocked, and sleep. Each action MUST carry the project id, and a call for a project the calling session does not own MUST be refused. The runtime MUST perform research through the subagent seam, dispatch through the typed Orchestrator and Room registry handles, and verification through the host verification, dev-server and git seams. The owner MUST NOT hold a Workflow, Room or subagent tool of its own.
+The owner session's grant SHALL name only the platform tools and the `sero-cli` bridge, and the session's command list SHALL hold only the Architect app's own commands plus the managed-session defaults. The owner SHALL change the project record, start research, dispatch work and request verification only through the Architect tool actions: brief, charter, milestone, decide, research, dispatch, evidence, status, reply, blocked, and sleep. Each action MUST carry the project id, and a call for a project the calling session does not own MUST be refused. The runtime MUST use the host subagent API for research, the typed Orchestrator and Room registries for dispatch, and the host verification, dev-server and git APIs for verification. The owner MUST NOT hold a Workflow, Room or subagent tool of its own.
 
 #### Scenario: Foreign project id
 - **WHEN** an owner session calls a record action with another project's id

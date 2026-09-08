@@ -142,7 +142,7 @@ describe('project history access', () => {
 
     expect(history).toHaveBeenCalledWith(FIXTURES.build!.id);
     expect(container.textContent).toContain('I dispatched milestone one.');
-    expect(container.textContent).toContain('Read-only history');
+    expect(container.textContent).toContain('Recent messages from the owner session.');
   });
 });
 

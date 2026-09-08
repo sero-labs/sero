@@ -1,6 +1,6 @@
 ## Purpose
 
-Decisions carry the questions only the user can answer, with a recommendation so answering is one action, and directives carry the user's instructions to the owner, so the relationship works in both directions without a chat log.
+Decisions carry questions that only the user can answer, with a recommendation so the user can respond in one action. Directives carry the user's instructions to the owner. This lets both sides communicate without a chat log.
 
 ## ADDED Requirements
 

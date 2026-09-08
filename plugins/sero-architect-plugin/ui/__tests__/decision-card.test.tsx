@@ -68,7 +68,7 @@ describe('the needs-you section', () => {
   it('says nothing is needed on a quiet build and shows the card when a decision is open', () => {
     const actions = { answer: vi.fn(), approveCharter: vi.fn(), approveMilestone: vi.fn() };
     act(() => root.render(<NeedsYou record={FIXTURES.build!} actions={actions} />));
-    expect(container.querySelector('.ar-quiet')?.textContent).toContain('Nothing is needed from you.');
+    expect(container.querySelector('.ar-quiet')?.textContent).toContain('You have nothing to review.');
     expect(container.querySelector('.ar-decision')).toBeNull();
 
     act(() => root.render(<NeedsYou record={FIXTURES.decision!} actions={actions} />));

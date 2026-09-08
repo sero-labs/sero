@@ -46,7 +46,7 @@ describe('the milestone rail', () => {
       ['m4', 'parked', 'parked', null],
       ['m5', 'hollow', 'planned', null],
     ]);
-    expect(rows[3]?.sub).toBe('Parked on: How should the dungeon be drawn?');
+    expect(rows[3]?.sub).toBe('Waiting for your answer: How should the dungeon be drawn?');
     expect(acceptedCount(FIXTURES.decision!)).toBe(2);
   });
 

@@ -49,7 +49,7 @@ export function Directives({ record, onSend }: DirectivesProps) {
       ) : latest ? (
         <div className="ar-reply">
           <span className="ar-av"><Compass className="ar-i" /></span>
-          <div className="ar-rt"><small>architect · woken at top priority</small><p>The reply arrives before this wake ends. Running work is not interrupted.</p></div>
+          <div className="ar-rt"><small>architect · replying</small><p>Architect will reply here. Current work continues.</p></div>
         </div>
       ) : (
         <Quiet>No directive sent yet.</Quiet>
@@ -68,7 +68,7 @@ export function Directives({ record, onSend }: DirectivesProps) {
           onKeyDown={(event) => {
             if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void send();
           }}
-          placeholder="Tell the Architect something. It replies in one short message."
+          placeholder="Send an instruction or update."
           aria-label="Directive"
           disabled={disabled}
         />

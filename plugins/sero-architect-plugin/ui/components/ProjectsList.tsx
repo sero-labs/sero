@@ -39,7 +39,7 @@ export function ProjectsList({ projects, onOpen, onNewProject }: ProjectsListPro
       {projects.length === 0 ? (
         <div className="ar-empty">
           <h3>No projects yet</h3>
-          <p>Give the Architect an idea and a folder. It researches, proposes a charter with a cost cap, and builds milestone by milestone, asking you only for the decisions that are yours.</p>
+          <p>Give Architect an idea and a folder. It researches the project, proposes a charter with a cost cap, then builds it milestone by milestone. It asks you when it needs a decision.</p>
           <Button size="sm" className="ar-btn ar-btn-primary" onClick={onNewProject}><Plus className="ar-i" />New project</Button>
         </div>
       ) : (
