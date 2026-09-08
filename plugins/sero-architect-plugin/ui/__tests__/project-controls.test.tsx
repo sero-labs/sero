@@ -14,6 +14,8 @@ import { ProjectPage } from '../ProjectPage';
 vi.mock('@sero-ai/ui', () => {
   const pass = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
   return {
+    Input: 'input',
+    Textarea: 'textarea',
     Button: ({ children, ...props }: { children: ReactNode } & ButtonHTMLAttributes<HTMLButtonElement>) => (
       <button type="button" {...props}>{children}</button>
     ),
@@ -82,6 +84,19 @@ function renderPage(actions: ArchitectActions, onBack = vi.fn()) {
 }
 
 describe('a refused control', () => {
+  it('offers permission retry on an existing intake project and shows request errors', async () => {
+    const resume = vi.fn(async () => ({ ok: false, text: 'Permission request was not answered.' }));
+    const record = { ...FIXTURES.build!, phase: 'intake' as const, blockedReason: 'Permission not approved' };
+    act(() => root.render(
+      <ProjectPage record={record} actions={stubActions({ resume })} narrow disclosures={disclosures} onBack={vi.fn()} confirm={() => true} />,
+    ));
+    act(() => button('Request permission').click());
+    await flush();
+    expect(resume).toHaveBeenCalledWith(record.id);
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe('Permission request was not answered.');
+    expect(button('Request permission').disabled).toBe(false);
+  });
+
   it('shows the refusal text instead of doing nothing', async () => {
     const pause = vi.fn(async () => ({ ok: false, text: 'The project is already stopped.' }));
     renderPage(stubActions({ pause }));
@@ -208,10 +223,15 @@ describe('creating a project', () => {
       setter?.call(idea, 'A roguelike');
       idea.dispatchEvent(new Event('input', { bubbles: true }));
     });
+    act(() => {
+      const name = container.querySelector<HTMLInputElement>('#ar-name')!;
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(name, 'game');
+      name.dispatchEvent(new Event('input', { bubbles: true }));
+    });
     act(() => { idea.form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
     await flush();
 
-    expect(onCreate).toHaveBeenCalledWith('A roguelike', '~/Projects/x');
+    expect(onCreate).toHaveBeenCalledWith('A roguelike', '~/Projects/x/game');
     expect(onClose).not.toHaveBeenCalled();
   });
 });

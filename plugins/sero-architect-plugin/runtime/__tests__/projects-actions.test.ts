@@ -32,10 +32,30 @@ async function setup() {
 }
 
 describe('project management', () => {
+  it('retains the workspace after git setup fails and retries without creating another', async () => {
+    const { host, store, actions } = await setup();
+    const exec = vi.spyOn(host, 'exec');
+    exec.mockRejectedValueOnce(new Error('git unavailable'));
+    const outcome = await actions.create({ idea: 'x', folder: '~/projects/retry' });
+    expect(outcome.ok).toBe(true);
+    const record = (await store.list())[0]!;
+    expect(record.workspaceId).toBeTruthy();
+    expect(record.blockedReason).toContain('git unavailable');
+    const count = (await host.listWorkspaces()).length;
+    expect((await actions.resume(record.id)).ok).toBe(true);
+    expect((await host.listWorkspaces()).length).toBe(count);
+    expect((await store.read(record.id))?.phase).toBe('discovery');
+  });
+
   it('creates a project: folder, git init, workspace, grant, discovery, first wake', async () => {
     const { host, store, actions, delivered, watch } = await setup();
     const outcome = await actions.create({ idea: 'A roguelike.', folder: '~/projects/hollow' });
     expect(outcome.ok).toBe(true);
+    const created = (await store.list())[0]!;
+    expect(created.phase).toBe('intake');
+    expect(host.sessions.proposals).toHaveLength(0);
+    expect(delivered).toHaveLength(0);
+    await actions.resume(created.id);
     const record = (await store.list())[0]!;
     expect(record.idea).toBe('A roguelike.');
     expect(record.workspaceId).toBe('ws-hollow');
@@ -69,10 +89,11 @@ describe('project management', () => {
     host.sessions.denyGrant = true;
     const outcome = await actions.create({ idea: 'x', folder: '~/projects/nope' });
     expect(outcome.ok).toBe(true);
+    await actions.resume((await store.list())[0]!.id);
     const record = (await store.list())[0]!;
     expect(record.phase).toBe('intake');
     expect(record.overlay).toBe('blocked');
-    expect(record.blockedReason).toContain('grant');
+    expect(record.blockedReason).toContain('Permission');
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(delivered).toEqual([]);
 

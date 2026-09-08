@@ -144,8 +144,8 @@ export class OwnerSessions {
     }
     const next = await this.deps.store.update(record.id, (fresh) => {
       if (!granted) {
-        const blocked = block(fresh, now, `the owner session grant was not approved: ${refusal}`);
-        return blocked.ok ? blocked.record : fresh;
+        const blocked = block(fresh, now, `Permission to run the Architect was not approved: ${refusal}`);
+        return blocked.ok ? { ...blocked.record, stateLine: 'Permission was not approved. Request permission to try again.' } : fresh;
       }
       return {
         ...fresh,

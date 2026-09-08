@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useAppState } from '@sero-ai/app-runtime';
 
 import type { ArchitectIndex } from '../shared/types';
@@ -40,6 +41,7 @@ export function ArchitectApp() {
   const index = normalizeIndex(stored);
   const [view, navigate] = useArchitectView();
   const actions = useArchitectActions();
+  const [permissionProjectId, setPermissionProjectId] = useState<string | null>(null);
   const projectId = view.mode === 'project' ? view.projectId : null;
   const { record, ready } = useProjectRecord(projectId);
   const [narrow, attach] = useNarrow();
@@ -54,7 +56,18 @@ export function ArchitectApp() {
   const create = useCallback(async (idea: string, folder: string) => {
     const outcome = await actions.create(idea, folder);
     // One navigation closes the dialog and opens the new project: the dialog must not navigate too.
-    if (outcome.ok) navigate(outcome.projectId ? { mode: 'project', projectId: outcome.projectId } : { mode: 'list' });
+    if (outcome.ok) {
+      // Remove the modal before the host presents its permission question.
+      flushSync(() => {
+        setPermissionProjectId(outcome.projectId ?? null);
+        navigate(outcome.projectId ? { mode: 'project', projectId: outcome.projectId } : { mode: 'list' });
+      });
+      try {
+        if (outcome.projectId) await actions.resume(outcome.projectId);
+      } finally {
+        setPermissionProjectId(null);
+      }
+    }
     return outcome;
   }, [actions, navigate]);
 
@@ -65,7 +78,7 @@ export function ArchitectApp() {
   return (
     <div className="ar-app" ref={attach}>
       {projectId && record ? (
-        <ProjectPage record={record} actions={actions} narrow={narrow} disclosures={disclosures} onBack={back} confirm={confirm} />
+        <ProjectPage record={record} actions={actions} permissionPending={permissionProjectId === projectId} narrow={narrow} disclosures={disclosures} onBack={back} confirm={confirm} />
       ) : projectId && !gone ? (
         <>
           <TopBar record={null} controls={null} onBack={back} onNewProject={openIntake} />

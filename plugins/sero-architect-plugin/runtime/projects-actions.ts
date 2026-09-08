@@ -132,15 +132,13 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
    * phase) and nothing it already has, so create, resume and a restart all take
    * the same path and an interruption is never permanent.
    */
-  const advanceIntake = async (start: ProjectRecord): Promise<{ ok: true; record: ProjectRecord } | { ok: false; error: string }> => {
+  const advanceIntake = async (start: ProjectRecord, requestPermission = true): Promise<{ ok: true; record: ProjectRecord } | { ok: false; error: string }> => {
     let record = start;
     if (!record.workspaceId) {
       try {
         const workspace = await host.createWorkspace(record.name, path.dirname(record.folder));
-        const init = await host.exec('git', ['init'], workspace.path);
-        if (init.exitCode !== 0) throw new Error(`git init failed: ${init.stderr.trim() || init.stdout.trim()}`);
         record = (await store.update(record.id, (fresh) => ({
-          ...fresh, folder: workspace.path, workspaceId: workspace.id, stateLine: 'Workspace ready. Waiting for the owner session grant.',
+          ...fresh, folder: workspace.path, workspaceId: workspace.id, stateLine: 'Workspace ready. Permission is needed to run the Architect.',
         }))) ?? record;
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
@@ -151,6 +149,18 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
         return { ok: false, error: reason };
       }
     }
+    try {
+      const init = await host.exec('git', ['init'], record.folder);
+      if (init.exitCode !== 0) throw new Error(`git init failed: ${init.stderr.trim() || init.stdout.trim()}`);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      await store.update(record.id, (fresh) => {
+        const blocked = block(fresh, host.now(), reason);
+        return blocked.ok ? { ...blocked.record, stateLine: 'Project setup failed. Retry to continue.' } : null;
+      });
+      return { ok: false, error: reason };
+    }
+    if (!requestPermission) return { ok: true, record };
     if (!record.session.grantId) {
       record = await sessions.requestGrant(record);
       if (record.blockedReason) return { ok: true, record };
@@ -194,12 +204,12 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       const name = path.basename(folder);
       const record = createProjectRecord({ id: host.newId('proj'), name, idea, folder, now: host.now() });
       await store.write(record);
-      const outcome = await advanceIntake(record);
-      if (!outcome.ok) return refuse(`The project was created but its workspace could not be: ${outcome.error}`);
+      const outcome = await advanceIntake(record, false);
+      if (!outcome.ok) return ok(`Project saved. Setup needs attention: ${outcome.error}`, record.id);
       if (outcome.record.blockedReason) {
         return { ok: true, text: `Project ${record.id} created, but ${outcome.record.blockedReason}. It stays in intake until the grant is approved; resume to ask again.`, projectId: record.id };
       }
-      return ok(`Project ${record.id} "${name}" created in ${outcome.record.folder}. Discovery starts.`, record.id);
+      return ok(`Project ${record.id} "${name}" created in ${outcome.record.folder}. Permission is needed to run the Architect.`, record.id);
     },
 
     async pause(projectId) {

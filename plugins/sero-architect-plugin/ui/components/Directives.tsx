@@ -74,7 +74,7 @@ export function Directives({ record, onSend }: DirectivesProps) {
         />
         <Button type="submit" size="sm" className="ar-btn ar-btn-primary" disabled={disabled || !draft.trim()}><Send className="ar-i" />Send</Button>
       </form>
-      {error ? <p className="ar-error">{error}</p> : <p className="ar-composer-note">A directive wakes the Architect ahead of every other event.</p>}
+      {error && <p className="ar-error">{error}</p>}
     </section>
   );
 }

@@ -10,7 +10,7 @@
  * token, so the light theme and a brand change follow the host. Amber is only
  * ever solid text, a border, a bar or a dot: never a wash or a glow.
  */
-.ar-app {
+.ar-app, .ar-dialog {
   --ar-text-2: var(--text-secondary);
   --ar-text-3: var(--text-muted);
   --ar-text-4: color-mix(in srgb, var(--text-muted) 80%, var(--bg-base));
@@ -22,6 +22,8 @@
   --ar-info: var(--status-info);
   --ar-violet: var(--brand-secondary);
   --ar-brand: var(--brand-primary);
+}
+.ar-app {
   display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; position: relative;
   background: var(--bg-base); color: var(--text-primary); font-size: 13px; line-height: 1.5;
 }
@@ -97,7 +99,7 @@
 .ar-phase .ar-bar i { position: absolute; inset: 0; background: var(--ar-brand); transform-origin: left; }
 .ar-phase[data-state="done"] .ar-bar i { opacity: .55; }
 .ar-phase[data-state="current"] .ar-bar { box-shadow: 0 0 0 1px color-mix(in srgb, var(--ar-brand) 35%, transparent), 0 0 14px color-mix(in srgb, var(--ar-brand) 35%, transparent); }
-.ar-phase[data-state="current"] .ar-bar i { animation: ar-sweep 2.4s ease-in-out infinite; }
+.ar-phase[data-state="current"] .ar-bar i { animation: ar-fade 4s ease-in-out infinite; }
 .ar-phase[data-state="todo"] .ar-bar i { transform: scaleX(0); }
 .ar-phase .ar-lbl { font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--ar-text-4); font-weight: 600; }
 .ar-phase[data-state="done"] .ar-lbl { color: var(--ar-text-3); }
@@ -111,7 +113,7 @@
 .ar-stateline[data-overlay="limited"] .ar-phase[data-state="current"] .ar-bar i, .ar-stateline[data-overlay="blocked"] .ar-phase[data-state="current"] .ar-bar i { animation: none; background: var(--ar-err); }
 .ar-stateline[data-overlay="limited"] .ar-phase[data-state="current"] .ar-bar, .ar-stateline[data-overlay="blocked"] .ar-phase[data-state="current"] .ar-bar { box-shadow: 0 0 0 1px var(--status-error-border), 0 0 14px color-mix(in srgb, var(--ar-err) 35%, transparent); }
 .ar-stateline[data-overlay="limited"] .ar-phase[data-state="current"] .ar-lbl, .ar-stateline[data-overlay="blocked"] .ar-phase[data-state="current"] .ar-lbl { color: var(--ar-err); }
-@keyframes ar-sweep { 0% { transform: scaleX(.35); opacity: .7; } 50% { transform: scaleX(1); opacity: 1; } 100% { transform: scaleX(.35); opacity: .7; } }
+@keyframes ar-fade { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
 .ar-meta { margin-top: 12px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; color: var(--ar-text-3); font-size: 12px; }
 .ar-meta .ar-sep { width: 3px; height: 3px; border-radius: 50%; background: var(--ar-text-4); }
 .ar-ring { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: center; justify-self: end; }
@@ -257,6 +259,13 @@
 .ar-field textarea { min-height: 120px; resize: vertical; padding: 11px 12px; border: 1px solid var(--ar-line-strong); border-radius: 8px; background: var(--bg-base); color: var(--text-primary); font-size: 13px; line-height: 1.5; font-family: inherit; }
 .ar-field input { height: 34px; padding: 0 11px; border: 1px solid var(--ar-line-strong); border-radius: 8px; background: var(--bg-base); color: var(--text-primary); font: 12px var(--font-mono); }
 .ar-field small { color: var(--ar-text-4); font-size: 11px; }
+.ar-field textarea, .ar-field input {
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+}
+.ar-field textarea:focus-visible, .ar-field input:focus-visible {
+  border-color: var(--brand-primary);
+}
 .ar-dialog .ar-foot { display: flex; justify-content: flex-end; gap: 8px; }
 .ar-idea { color: var(--ar-text-2); line-height: 1.55; white-space: pre-wrap; }
 

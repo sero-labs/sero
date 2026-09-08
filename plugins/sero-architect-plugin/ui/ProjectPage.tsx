@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { Button } from '@sero-ai/ui';
 
 import type { AutonomySetting, ProjectRecord } from '../shared/record';
 import type { ActionOutcome, ArchitectActions, SessionHistoryEntry } from './lib/actions';
@@ -15,6 +16,7 @@ import { TopBar, type ProjectControls } from './components/TopBar';
 import { Quiet, SectionHead } from './components/Pill';
 
 export interface ProjectPageProps {
+  permissionPending?: boolean;
   record: ProjectRecord;
   actions: ArchitectActions;
   narrow: boolean;
@@ -24,9 +26,23 @@ export interface ProjectPageProps {
   confirm(message: string): boolean;
 }
 
-export function ProjectPage({ record, actions, narrow, disclosures, onBack, confirm }: ProjectPageProps) {
+export function ProjectPage({ record, actions, narrow, disclosures, onBack, confirm, permissionPending = false }: ProjectPageProps) {
   const id = record.id;
   const [notice, setNotice] = useState<string | null>(null);
+  const [settingUp, setSettingUp] = useState(false);
+  const continueSetup = async () => {
+    if (settingUp || permissionPending) return;
+    setSettingUp(true);
+    setNotice(null);
+    try {
+      const outcome = await actions.resume(id);
+      if (!outcome.ok) setNotice(outcome.text);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSettingUp(false);
+    }
+  };
   const [capOpen, setCapOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -71,9 +87,9 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, conf
       <TopBar record={record} controls={controls} onBack={onBack} onNewProject={() => undefined} />
       <div className="ar-scroll">
         <div className="ar-body">
-          {(notice !== null || capOpen) && (
+          {((notice !== null && notice !== record.blockedReason) || capOpen) && (
             <div className="ar-notice">
-              {notice !== null && <p role="alert">{notice}</p>}
+              {notice !== null && notice !== record.blockedReason && <p role="alert">{notice}</p>}
               {capOpen && (
                 <CapInput
                   cap={record.budget.capUsd}
@@ -92,7 +108,10 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, conf
               {record.phase === 'intake' ? (
                 <section>
                   <SectionHead title="Setting up" count={record.blockedReason ? 'waiting' : 'in progress'} />
-                  <Quiet>{record.blockedReason ?? 'Creating the folder, initialising the repository, registering the workspace, then asking for the session grant.'}</Quiet>
+                  <Quiet>{record.blockedReason ?? 'Allow the Architect to run in this workspace to start planning your project.'}</Quiet>
+                  <Button className="mt-3" disabled={settingUp || permissionPending} onClick={() => void continueSetup()}>
+                    {settingUp || permissionPending ? 'Waiting for permission…' : record.workspaceId ? 'Request permission' : 'Retry setup'}
+                  </Button>
                 </section>
               ) : (
                 <>

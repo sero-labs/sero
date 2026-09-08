@@ -30,7 +30,7 @@ describe('owner session', () => {
     await store.write(ungranted);
     const record = await sessions.requestGrant(ungranted);
     expect(record.overlay).toBe('blocked');
-    expect(record.blockedReason).toContain('grant was not approved');
+    expect(record.blockedReason).toContain('Permission to run the Architect was not approved');
     expect(record.blockedReason).toContain('the user declined');
   });
 
