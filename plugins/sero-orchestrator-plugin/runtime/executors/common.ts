@@ -9,6 +9,7 @@ import { isModelTier } from '@sero-ai/common';
 import type { Loop, LoopStepDefinition, Observation, StepAttempt, StepOutcome, UsageSummary } from '../../shared/types';
 import { DEFAULT_TOOLS } from '../../shared/constants';
 import type { StepRunInput } from '../engine-types';
+import type { ModelRunResult } from '../host';
 import { artifactPath, storeOutput } from '../artifacts';
 import { extractJson } from '../schema';
 import { resolveStepModel, type ResolvedStepModel } from '../model-resolution';
@@ -117,7 +118,10 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
     disabledSkills: ctxOverride?.disabledSkills,
     signal,
     repair: outcomeRepair(loop, step),
-  });
+  }).catch((error: unknown): ModelRunResult => ({
+    response: '',
+    error: error instanceof Error ? error.message : String(error),
+  }));
 
   // Fan-out activations write per-key artifacts so sibling attempts don't collide.
   const attemptFile = `${step.id}${input.fanOut ? `-${input.fanOut.key}` : ''}-a${attemptNumber}.txt`;

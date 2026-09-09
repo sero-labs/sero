@@ -35,9 +35,12 @@ export async function chooseOwnerModel(host: Pick<ArchitectHost, 'listModels' | 
   const groups = await host.listModels();
   const all = groups.flatMap((group) => group.models.map((model) => ({ key: modelKey(model.provider, model.modelId), model })));
   const wanted = host.env.SERO_ARCHITECT_MODEL?.trim();
+  const provider = wanted?.includes('/') ? wanted.slice(0, wanted.indexOf('/')) : null;
+  const candidates = wanted ? all.filter((entry) => entry.key === wanted || entry.model.provider === provider) : all;
   const picked = (wanted ? all.find((entry) => entry.key === wanted) : undefined)
-    ?? all.find((entry) => entry.model.reasoning)
-    ?? all[0];
+    ?? candidates.find((entry) => entry.model.reasoning)
+    ?? candidates[0];
+  if (!picked && wanted) throw new Error(`No model from the selected provider is available for ${wanted}. Choose another provider before continuing.`);
   if (!picked) throw new Error('No model is available for the owner session: configure a provider first.');
   if (wanted && picked.key !== wanted) host.log(`SERO_ARCHITECT_MODEL=${wanted} is not available; using ${picked.key}`);
   const thinking = picked.model.reasoning ? (picked.model.availableThinkingLevels?.includes('medium') ? 'medium' : picked.model.availableThinkingLevels?.[0] ?? 'medium') : 'off';
@@ -199,7 +202,12 @@ export class OwnerSessions {
     });
 
     let status: OwnerTurnResult['status'];
+    let failure = 'The Architect turn failed. Open the session log for details, then resume to retry.';
     try {
+      await this.deps.store.update(opened.id, (fresh) => ({
+        ...fresh,
+        session: { ...fresh.session, workingSince: this.deps.host.now() },
+      }));
       const { turnId } = await api.prompt(handleId, contract);
       watching = turnId;
       status = ended.get(turnId) ?? (await new Promise<OwnerTurnResult['status']>((resolve) => {
@@ -207,11 +215,16 @@ export class OwnerSessions {
         this.waiting.set(opened.id, resolve);
       }));
     } catch (error) {
-      this.deps.host.log(`owner turn failed for ${opened.id}: ${error instanceof Error ? error.message : String(error)}`);
+      failure = `The Architect could not continue: ${error instanceof Error ? error.message : String(error)}`;
+      this.deps.host.log(`owner turn failed for ${opened.id}: ${failure}`);
       status = 'error';
     } finally {
       this.waiting.delete(opened.id);
       unsubscribe();
+      await this.deps.store.update(opened.id, (fresh) => ({
+        ...fresh,
+        session: { ...fresh.session, workingSince: null },
+      }));
     }
 
     const declared = this.deps.outcomes.end(opened.id);
@@ -220,6 +233,10 @@ export class OwnerSessions {
     const usage = await api.getSessionUsage(handleId).catch(() => null);
     const next = await this.deps.store.update(opened.id, (fresh) => {
       let updated = applyTurnOutcome(fresh, declared, now);
+      if (status === 'error') {
+        const stopped = block(updated, now, failure);
+        if (stopped.ok) updated = { ...stopped.record, stateLine: failure };
+      }
       updated = { ...updated, session: { ...updated.session, lastWakeAt: now, lastWakeKind: wake.kind } };
       if (!usage) return updated;
       const delta = Math.max(0, usage.costUsd - updated.session.sessionCostUsd);

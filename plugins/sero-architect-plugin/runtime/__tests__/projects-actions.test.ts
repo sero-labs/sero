@@ -32,6 +32,22 @@ async function setup() {
 }
 
 describe('project management', () => {
+  it('starts a managed preview from the visible project folder, not an isolated checkout', async () => {
+    const { host, store, actions } = await setup();
+    const record = buildingProject();
+    await store.write(record);
+    vi.spyOn(host, 'detectDevServerCommand').mockResolvedValue('pnpm run dev');
+    const start = vi.spyOn(host, 'startDevServer').mockResolvedValue({ serverId: 'preview-1', url: 'http://127.0.0.1:5174' });
+    expect(await actions.preview(record.id)).toMatchObject({ ok: true, url: 'http://127.0.0.1:5174' });
+    expect(start).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: record.workspaceId, workspacePath: record.folder, cwdPath: record.folder, scope: 'workspace' }));
+  });
+
+  it('reports a missing preview command without opening a dead URL', async () => {
+    const { store, actions } = await setup();
+    await store.write(buildingProject());
+    expect(await actions.preview('proj_1')).toEqual({ ok: false, text: 'No preview command was found in the project workspace.' });
+  });
+
   it('retains the workspace after git setup fails and retries without creating another', async () => {
     const { host, store, actions } = await setup();
     const exec = vi.spyOn(host, 'exec');

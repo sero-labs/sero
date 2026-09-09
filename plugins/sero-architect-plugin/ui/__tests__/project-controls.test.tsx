@@ -35,6 +35,7 @@ vi.mock('@sero-ai/ui', () => {
 });
 
 vi.mock('@sero-ai/app-runtime', () => ({
+  useAppTools: () => ({ run: vi.fn(async () => ({ text: 'Preview unavailable', details: { ok: false } })) }),
   openSeroApp: vi.fn(async () => true),
   openSeroFile: vi.fn(async () => true),
   useAppPreferences: () => ({ values: {}, set: vi.fn() }),

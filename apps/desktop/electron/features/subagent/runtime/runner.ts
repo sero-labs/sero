@@ -363,7 +363,7 @@ export async function runSubagent(
         }
       }
 
-      if (event.type === 'agent_end') {
+      if (event.type === 'turn_end' || event.type === 'agent_end') {
         clearStallTimer();
         try {
           const stats = session?.getSessionStats();

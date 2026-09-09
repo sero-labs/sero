@@ -97,7 +97,7 @@ export function applyPlanningResponse(
   const suggestions = options?.triggers
     ?? mergeExtractedTriggers(response.suggestedTriggers, extraction ?? NO_TRIGGERS);
   const triggers = materializeTriggers(host, draft.id, suggestions);
-  const limits = mergeLimits(response.suggestedLimits, options?.limits);
+  const limits = mergeLimits(response.suggestedLimits, options?.limits, options?.disableTokenLimit);
   const plan = normalizePlanStepTools(response.plan);
 
   const withPlan: Loop = {

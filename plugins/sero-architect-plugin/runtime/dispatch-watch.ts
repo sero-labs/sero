@@ -18,6 +18,7 @@ import type { WakeEvent, WakeKind } from '../shared/wake';
 import { applyDelivery, isAccepted } from './delivery';
 import type { ArchitectHost } from './host';
 import type { RecordStore } from './record-store';
+import { applyRunHealth } from './run-health';
 
 /** The Orchestrator's own state directory, derived from the contract's index path so a move there moves here. */
 export const ORCHESTRATOR_STATE_DIR = path.dirname(ORCHESTRATOR_INDEX_FILE);
@@ -37,6 +38,7 @@ export function loopRunsIndexFile(workspacePath: string, loopId: string): string
 interface RunView {
   id: string;
   status: string;
+  startedAt?: string;
   delivery?: { destination: string; ref: string; summary: string; deliveredAt: string };
 }
 
@@ -139,6 +141,7 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
    */
   const applyRuns = async (projectId: string, loopId: string, runs: RunView[]): Promise<void> => {
     const now = host.now();
+    await applyRunHealth(store, projectId, loopId, runs, now);
     const items: string[] = [];
     await store.update(projectId, (record) => {
       const milestone = record.milestones.find((m) => m.dispatch?.kind === 'workflow' && m.dispatch.id === loopId);
@@ -169,7 +172,7 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
       let next = record;
       const workspacePath = workspacePaths.get(projectId);
       for (const milestone of record.milestones) {
-        if (milestone.dispatch?.kind === 'workflow' && milestone.dispatch.destination && workspacePath) {
+        if (milestone.dispatch?.kind === 'workflow' && workspacePath) {
           followRuns(projectId, workspacePath, milestone.dispatch.id);
         }
       }

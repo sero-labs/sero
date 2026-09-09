@@ -15,6 +15,7 @@ import { PLANNING_SYSTEM_PROMPT, buildPlanningTask, buildRepairTask } from './pl
 import { extractJson, validatePlanningResponse } from './schema';
 import { isRecord } from './structured-call';
 import { parseHumanQuestions } from './human-input';
+import { runPlanningWithRetry } from './planning-retry';
 
 export interface PlanRequest {
   prompt: string;
@@ -63,7 +64,7 @@ function classify(text: string, delivery: LoopDeliverySettings): Classified {
 }
 
 async function runPlanning(host: OrchestratorHost, req: PlanRequest, task: string): Promise<string> {
-  const result = await host.runStructured({
+  const result = await runPlanningWithRetry(host, {
     task,
     systemPrompt: PLANNING_SYSTEM_PROMPT,
     model: req.model,

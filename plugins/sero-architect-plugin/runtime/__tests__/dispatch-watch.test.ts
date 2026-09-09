@@ -32,6 +32,24 @@ async function setup(record = buildingProject({ milestones: [running('workflow',
 }
 
 describe('dispatch watch', () => {
+  it('shows an interrupted execution even when the workflow remains active, then clears it on retry', async () => {
+    const { host, store, settle } = await setup();
+    const file = loopRunsIndexFile('/home/dan/projects/hollow', 'loop_1');
+    host.emitState(file, { runs: [{ id: 'run_1', status: 'orphaned', startedAt: T0 }] });
+    await settle();
+    const failed = await store.read('proj_1');
+    expect(failed?.blockedReason).toContain('Retry step');
+    expect(failed?.milestones[0]?.dispatch?.failure).toContain('stopped before it finished');
+    host.emitState(file, { runs: [
+      { id: 'run_1', status: 'orphaned', startedAt: T0 },
+      { id: 'run_2', status: 'running', startedAt: '2026-09-09T00:00:00.000Z' },
+    ] });
+    await settle();
+    const retried = await store.read('proj_1');
+    expect(retried?.blockedReason).toBeNull();
+    expect(retried?.milestones[0]?.dispatch?.failure).toBeUndefined();
+  });
+
   it('moves a completed Workflow to verifying, never done, and wakes the owner', async () => {
     const { host, store, wakes, settle } = await setup();
     host.emitState(files.loops, { version: 1, loops: [{ id: 'loop_1', title: 'Grid', status: 'active', updatedAt: T0 }] });

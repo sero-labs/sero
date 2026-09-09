@@ -143,6 +143,10 @@ export async function runStepBatch(input: RunBatchInput): Promise<{ loop: Loop; 
     if (recorded.modelFallback) loop = recordModelWarning(host, loop, step.id, recorded.modelFallback.requestedModel);
     if (recorded.agentFallback) loop = recordAgentWarning(host, loop, step.id, recorded.agentFallback.requestedAgent);
 
+    // Save the finished attempt before asking another model to recover or
+    // evaluate stopping. A restart during that call must not erase its result.
+    loop = await commit(loop);
+
     if (outcome.questions?.length) {
       loop = resetStepPending(loop, step.id, host.now());
       parked ??= { stepId: step.id, questions: outcome.questions };

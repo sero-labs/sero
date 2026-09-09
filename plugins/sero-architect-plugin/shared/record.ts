@@ -51,6 +51,8 @@ export interface MilestoneDispatch {
   destination: string | null;
   /** HEAD before work started, used to summarize committed milestone changes. */
   baseCommit?: string;
+  /** Latest execution failed or was interrupted, even if the workflow is enabled. */
+  failure?: string;
 }
 
 export interface PendingMilestoneDispatch {
@@ -160,6 +162,8 @@ export interface HistoryEntry {
 }
 
 export interface OwnerSessionState {
+  /** Set only while the runtime is delivering a turn. Cleared on restart. */
+  workingSince?: string | null;
   /** The host-issued grant the owner session runs under. Null until approved. */
   grantId: string | null;
   /** The subject inside the grant. Always `owner`; kept on the record for the CLI scope. */

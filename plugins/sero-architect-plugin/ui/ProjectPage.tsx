@@ -9,6 +9,8 @@ import { Directives } from './components/Directives';
 import { LimitBanner } from './components/LimitBanner';
 import { MilestoneRail } from './components/MilestoneRail';
 import { NeedsYou } from './components/NeedsYou';
+import { RepairCard } from './components/RepairCard';
+import { ProjectPreview } from './components/ProjectPreview';
 import { SideColumn, type DisclosureState } from './components/SideColumn';
 import { SessionHistoryDialog } from './components/SessionHistoryDialog';
 import { StateLine } from './components/StateLine';
@@ -117,9 +119,11 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, conf
                 <>
                   <LimitBanner record={record} onRaise={(capUsd) => actions.raiseCap(id, capUsd)} />
                   <NeedsYou record={record} actions={needsActions} />
+                  {record.blockedReason && record.milestones.some((item) => item.pendingDispatch) && <RepairCard projectId={id} />}
                 </>
               )}
               <MilestoneRail record={record} onOpenDispatch={openDispatch} />
+              {record.phase !== 'intake' && <ProjectPreview projectId={id} />}
               {record.phase === 'intake' && (
                 <section>
                   <SectionHead title="Idea" count="verbatim" />

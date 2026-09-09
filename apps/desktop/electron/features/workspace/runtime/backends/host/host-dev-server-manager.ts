@@ -56,6 +56,7 @@ interface HostDevServerRecord extends RuntimeDevServer {
 
 export class HostDevServerManager {
   private readonly servers = new Map<string, HostDevServerRecord>();
+  private readonly starting = new Map<string, Promise<RuntimeDevServer>>();
   private readonly workspaceId: string;
   private readonly spawn: SpawnProcess;
   private readonly processAdapter: HostProcessAdapter;
@@ -76,6 +77,21 @@ export class HostDevServerManager {
   }
 
   async start(input: RuntimeDevServerStartInput): Promise<RuntimeDevServer> {
+    const cwd = input.cwd || this.defaultCwd;
+    const scope = input.scope ?? 'workspace';
+    const existing = [...this.servers.values()].find((server) => server.origin === 'spawned'
+      && server.status === 'running' && server.command === input.command && server.cwd === cwd
+      && server.scope === scope && server.cardId === input.cardId);
+    if (existing) return toRuntimeServer(existing);
+    const key = JSON.stringify([input.command, cwd, scope, input.cardId]);
+    const pending = this.starting.get(key);
+    if (pending) return pending;
+    const started = this.startNew(input).finally(() => this.starting.delete(key));
+    this.starting.set(key, started);
+    return started;
+  }
+
+  private async startNew(input: RuntimeDevServerStartInput): Promise<RuntimeDevServer> {
     const cwd = input.cwd || this.defaultCwd;
     const process = await this.spawn({ command: input.command, cwd, stdio: 'pipe' });
     const pid = process.pid;
@@ -233,6 +249,7 @@ export class HostDevServerManager {
   }
 
   async dispose(): Promise<void> {
+    await Promise.allSettled(this.starting.values());
     const servers = [...this.servers.values()];
     // On dispose Sero only tears down its own spawned processes — registered (foreign)
     // listeners belong to the user and must outlive the workspace runtime.

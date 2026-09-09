@@ -40,6 +40,53 @@ function fakeCoordinator(): { actions: OrchestratorBoardAction[]; uninstall: () 
 }
 
 describe('runtime services', () => {
+  it.each([0, 1])('rechecks an accepted milestone without trusting its old evidence (exit=%s)', async (exitCode) => {
+    const accepted = milestone('m1', { status: 'done', verification: 'accepted' });
+    const project = buildingProject({ milestones: [accepted] });
+    const { host, store, services, wakes } = await setup(project);
+    host.runCommand = async () => ({ exitCode, stdout: '', stderr: exitCode ? 'regression found' : '' });
+    await services.evidence(project, accepted, { commands: ['pnpm test'], route: null });
+    await waitFor(() => wakes.length > 0);
+    const updated = (await store.read(project.id))!;
+    expect(updated.milestones[0]).toMatchObject({
+      status: exitCode ? 'verifying' : 'done', verification: exitCode ? 'reported' : 'accepted',
+      evidence: { passed: exitCode === 0 },
+    });
+    expect(updated.blockedReason).toEqual(exitCode ? expect.stringContaining('previous acceptance no longer applies') : null);
+  });
+
+  it('runs one evidence check across duplicate requests and repeated recovery, then permits a recheck', async () => {
+    const record = buildingProject({ milestones: [milestone('m1', { status: 'verifying' })] });
+    const { host, store, services, wakes } = await setup(record);
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    let calls = 0;
+    host.runCommand = async () => {
+      calls += 1;
+      await gate;
+      return { exitCode: calls === 1 ? 1 : 0, stdout: '', stderr: calls === 1 ? 'broken import' : '' };
+    };
+    const request = { commands: ['pnpm test'], route: null };
+    await Promise.all([
+      services.evidence(record, record.milestones[0]!, request),
+      services.evidence(record, record.milestones[0]!, request),
+    ]);
+    const pending = (await store.read(record.id))!;
+    services.recoverPending(pending);
+    services.recoverPending(pending);
+    await waitFor(() => calls > 0);
+    expect(calls).toBe(1);
+    expect(pending.pendingEvidence).toHaveLength(1);
+    release();
+    await waitFor(() => wakes.length === 1);
+    expect((await store.read(record.id))?.milestones[0]?.evidence?.passed).toBe(false);
+    await services.evidence(record, record.milestones[0]!, request);
+    await waitFor(() => wakes.length === 2);
+    expect(calls).toBe(2);
+    expect((await store.read(record.id))?.milestones[0]?.evidence?.passed).toBe(true);
+    expect((await store.read(record.id))?.pendingEvidence).toEqual([]);
+  });
+
   it('uses Git empty-tree as the baseline before the first commit', async () => {
     const { host } = await setup();
     host.execResults['git rev-parse HEAD'] = { exitCode: 128, stdout: '', stderr: 'fatal: ambiguous argument HEAD' };
@@ -52,8 +99,21 @@ describe('runtime services', () => {
       const { services, host } = await setup(buildingProject({ budget: { capUsd: 40, spentUsd: 10, sources: { owner: 10, research: 0, dispatched: 0 } } }));
       host.execResults['git rev-parse HEAD'] = { exitCode: 0, stdout: 'base123\n', stderr: '' };
       const link = await services.dispatch(buildingProject({ budget: { capUsd: 40, spentUsd: 10, sources: { owner: 10, research: 0, dispatched: 0 } } }), milestone('m1'), { kind: 'workflow', prompt: 'Open the PR', destination: 'pr', maxCostUsd: 100 });
-      expect(link).toEqual({ id: 'loop_1', workspaceId: 'ws-1', baseCommit: 'base123' });
-      expect(coordinator.actions[0]).toEqual({ kind: 'create', prompt: 'Open the PR', title: 'Milestone m1', options: { activate: true, limits: { maxCostUsd: 30 }, delivery: { destination: 'pr' } } });
+      expect(link).toMatchObject({ id: 'loop_1', workspaceId: 'ws-1', baseCommit: 'base123' });
+      expect(coordinator.actions).toEqual([{ kind: 'create', prompt: 'Open the PR', title: 'Milestone m1', options: { activate: false, disableTokenLimit: true, limits: { maxCostUsd: 30 }, workspace: { useManagedWorktree: true }, delivery: { destination: 'pr' } } }]);
+      await link.start?.();
+      expect(coordinator.actions[1]).toEqual({ kind: 'activate', loopId: 'loop_1' });
+    } finally {
+      coordinator.uninstall();
+    }
+  });
+
+  it('keeps milestone work local unless a delivery destination was explicitly requested', async () => {
+    const coordinator = fakeCoordinator();
+    try {
+      const { services } = await setup();
+      await services.dispatch(buildingProject(), milestone('m1'), { kind: 'workflow', prompt: 'Build the grid', destination: null, maxCostUsd: null });
+      expect(coordinator.actions[0]).toMatchObject({ kind: 'create', options: { activate: false, workspace: { useManagedWorktree: false, allowDirtyWorkspaceRoot: true }, delivery: { destination: 'workspace-files' } } });
     } finally {
       coordinator.uninstall();
     }
@@ -95,6 +155,13 @@ describe('runtime services', () => {
 
   it('runs research through the subagent seam and attaches the result before waking the owner', async () => {
     const { host, store, services, wakes } = await setup();
+    const run = host.runStructured;
+    host.runStructured = async (params) => {
+      if (!params.agent && !params.systemPrompt) return { response: '', error: 'Either agent name or systemPrompt is required' };
+      expect(params.platformTools).toBe('readOnly');
+      expect(params.model).toBe(buildingProject().session.model);
+      return run(params);
+    };
     const { id } = await services.research(buildingProject(), { question: 'Which engine?', stoppingCondition: 'two candidates compared' });
     expect(id).toBe('res_1');
     await waitFor(() => wakes.length > 0);
@@ -176,7 +243,7 @@ describe('runtime services', () => {
     expect(await evidenceIsStale(host, buildingProject(), checked)).toBe(true);
   });
 
-  it('rejects an HTTP error preview and always stops its managed server', async () => {
+  it('rejects an HTTP error preview without shutting down the shared preview server', async () => {
     const preview = milestone('m1', { status: 'verifying', preview: { route: '/missing' } });
     const { host, services, wakes } = await setup(buildingProject({ milestones: [preview] }));
     const server = createServer((_request, response) => { response.statusCode = 404; response.end('missing'); });
@@ -192,11 +259,11 @@ describe('runtime services', () => {
     } finally {
       await new Promise<void>((resolve) => { server.close(() => resolve()); });
     }
-    expect(stopped).toBe(true);
+    expect(stopped).toBe(false);
     expect(wakes[0]?.items[0]).toContain('preview smoke check failed');
   });
 
-  it('records the failure and wakes the owner when the capture subagent throws', async () => {
+  it.each(['throw', 'result'] as const)('records the capture failure (%s) and accounts for reported usage', async (mode) => {
     const preview = milestone('m1', { status: 'verifying', preview: { route: '/' } });
     const { host, store, services, wakes } = await setup(buildingProject({ milestones: [preview] }));
     // A dev server that really answers, so the run reaches the capture step.
@@ -206,7 +273,11 @@ describe('runtime services', () => {
     try {
       host.detectDevServerCommand = async () => 'pnpm dev';
       host.startDevServer = async () => ({ url: `http://127.0.0.1:${port}`, serverId: 'srv-1' });
-      host.runStructured = async () => { throw new Error('the subagent seam is unavailable'); };
+      host.runStructured = async (params) => {
+        if (!params.agent && !params.systemPrompt) return { response: '', error: 'Either agent name or systemPrompt is required' };
+        if (mode === 'throw') throw new Error('the subagent seam is unavailable');
+        return { response: '', error: 'the subagent seam is unavailable', usage: { inputTokens: 10, outputTokens: 5, totalTokens: 1000, costUsd: 0.02 } };
+      };
       await services.evidence(buildingProject({ milestones: [preview] }), preview, { commands: ['pnpm test'], route: '/' });
       await waitFor(() => wakes.length > 0);
     } finally {
@@ -218,5 +289,28 @@ describe('runtime services', () => {
     expect(failed?.evidence).toMatchObject({ passed: false, commands: [{ exitCode: 1, output: expect.stringContaining('the subagent seam is unavailable') }] });
     // The failed evidence is what keeps the milestone from closing.
     expect(missingEvidence(failed!)).toContainEqual(expect.stringContaining('exit code 1'));
+    expect((await store.read('proj_1'))?.budget.sources.dispatched).toBe(mode === 'result' ? 0.02 : 0);
+  });
+
+  it.each([true, false])('requires visual confirmation in addition to a fresh PNG (rendered=%s)', async (rendered) => {
+    const preview = milestone('m1', { status: 'verifying', preview: { route: '/' } });
+    const project = buildingProject({ milestones: [preview] });
+    const { host, store, services, wakes } = await setup(project);
+    const server = createServer((_request, response) => { response.end('ok'); });
+    await new Promise<void>((resolve) => { server.listen(0, '127.0.0.1', resolve); });
+    try {
+      host.detectDevServerCommand = async () => 'pnpm dev';
+      host.startDevServer = async () => ({ url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, serverId: 'srv-1' });
+      host.runStructured = async () => ({ response: JSON.stringify({ rendered, summary: rendered ? 'Game map and player visible' : 'Explorer file error, not the game' }) });
+      host.fileInfo = async () => ({ mtimeMs: Date.now(), size: 100, head: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]) });
+      await services.evidence(project, preview, { commands: ['pnpm test'], route: '/' });
+      await waitFor(() => wakes.length > 0);
+      const evidence = (await store.read(project.id))?.milestones[0]?.evidence;
+      expect(evidence?.passed).toBe(rendered);
+      if (rendered) expect(evidence?.preview?.capturePath).toMatch(/\.png$/);
+      else expect(evidence?.commands[0]?.output).toContain('Explorer file error');
+    } finally {
+      await new Promise<void>((resolve) => { server.close(() => resolve()); });
+    }
   });
 });

@@ -19,6 +19,7 @@ import type {
 } from './types';
 
 export interface CreateLoopOptions {
+  disableTokenLimit?: boolean;
   activate?: boolean;
   triggers?: LoopTriggerSuggestion[];
   limits?: Partial<LoopLimits>;
@@ -44,6 +45,7 @@ export type OrchestratorAction =
   | { kind: 'set_step_agent'; loopId: string; stepId: string; agent?: string }
   | { kind: 'set_loop_context'; loopId: string; overrides: ContextOverrides | null }
   | { kind: 'set_delivery'; loopId: string; delivery: LoopDeliverySettings }
+  | { kind: 'use_cost_budget'; loopId: string }
   | { kind: 'set_schedule'; loopId: string; triggerId: string; schedule?: string; disabled?: boolean }
   | { kind: 'reflect'; loopId: string }
   | { kind: 'reflect_workspace' }

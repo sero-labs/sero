@@ -269,7 +269,7 @@
 .ar-dialog .ar-foot { display: flex; justify-content: flex-end; gap: 8px; }
 .ar-idea { color: var(--ar-text-2); line-height: 1.55; white-space: pre-wrap; }
 
-.ar-history-dialog { width: 760px; max-width: 92vw; }
+.ar-history-dialog { width: min(1100px, 92vw); max-width: 92vw; }
 .ar-session-history { max-height: 65vh; overflow: auto; display: grid; gap: 10px; }
 .ar-session-history article { border: 1px solid var(--ar-line); border-radius: 8px; padding: 10px 12px; background: var(--bg-base); }
 .ar-session-history article header { display: flex; justify-content: space-between; color: var(--ar-text-3); font-size: 11px; text-transform: capitalize; }

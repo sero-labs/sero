@@ -39,6 +39,7 @@ export const ORCHESTRATOR_ACTIONS = [
   'set_step_agent',
   'set_loop_context',
   'set_delivery',
+  'use_cost_budget',
   'set_schedule',
   'reflect',
   'reflect_workspace',
@@ -232,6 +233,8 @@ export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAc
       }
       return { kind: 'choose_recovery', loopId: params.loopId, decision };
     }
+    case 'use_cost_budget':
+      return params.loopId ? { kind: 'use_cost_budget', loopId: params.loopId } : { error: 'use_cost_budget requires a loopId' };
     case 'retry_step':
       if (!params.loopId) return { error: 'retry_step requires a loopId' };
       if (!params.stepId) return { error: 'retry_step requires a stepId' };
@@ -395,6 +398,8 @@ function summarize(action: OrchestratorAction, res: OrchestratorActionResult): s
       return `Retried step "${action.stepId}" — loop ${action.loopId} now "${res.loop?.status ?? '?'}".`;
     case 'set_delivery':
       return `Loop ${action.loopId} now delivers to "${action.delivery.destination}".`;
+    case 'use_cost_budget':
+      return `Token limit removed. Dollar, time and attempt limits are unchanged. Completed steps are preserved.`;
     case 'set_schedule': {
       const trigger = res.loop?.triggers.find((t) => t.id === action.triggerId);
       return `Loop ${action.loopId} schedule is now "${trigger?.schedule}"${trigger?.scheduleDisabled ? ' (paused)' : ''} — next fire ${trigger?.nextFireAt ?? 'n/a'}.`;

@@ -10,7 +10,7 @@ import path from 'node:path';
 
 import { createOrchestratorRoom, requestOrchestratorAction, type AppRuntimeSubagentResult } from '@sero-ai/common';
 
-import { charge, settle } from '../shared/lifecycle';
+import { block, charge, settle } from '../shared/lifecycle';
 import type { EvidenceCommand, EvidenceRecord, Milestone, PendingResearch, ProjectRecord, ResearchResult } from '../shared/record';
 import { MAINTENANCE_MILESTONE_ID, MAINTENANCE_TRIGGERS, maintenancePrompt } from '../shared/maintenance';
 import type { WakeEvent } from '../shared/wake';
@@ -27,6 +27,16 @@ export interface ServicesDeps {
 const COMMAND_TIMEOUT_MS = 10 * 60_000;
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const EMPTY_TREE_COMMIT = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+
+function captureConfirmed(response: string): boolean {
+  try {
+    const verdict: unknown = JSON.parse(response);
+    return typeof verdict === 'object' && verdict !== null && 'rendered' in verdict && verdict.rendered === true
+      && 'summary' in verdict && typeof verdict.summary === 'string' && verdict.summary.trim().length > 0;
+  } catch {
+    return false;
+  }
+}
 
 function replaceMilestone(record: ProjectRecord, milestone: Milestone): ProjectRecord {
   return { ...record, milestones: record.milestones.map((m) => (m.id === milestone.id ? milestone : m)) };
@@ -108,34 +118,38 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     let smokePassed = false;
     let capturePath: string | null = null;
     try {
-      try {
-        const response = await fetch(url);
-        smokePassed = response.status >= 200 && response.status < 300;
-      } catch {
-        smokePassed = false;
-      }
-      if (smokePassed) {
-        const evidenceDir = path.join(record.folder, '.sero', 'apps', 'architect', 'evidence', milestone.id);
-        const target = path.join(evidenceDir, `${await commitOf(host, record.folder)}.png`);
-        await host.runStructured({
-          task: [
-            `Open ${url} with \`sero app preview ${url}\`, wait for it to render, then save a screenshot with \`sero app screenshot --save ${target}\`.`,
-            'Do nothing else. Reply with the word done.',
-          ].join(' '),
-          parentSessionId: `architect:${record.id}:evidence`,
-          workspaceId,
-          cwd: record.folder,
-          timeoutMs: 3 * 60_000,
-          platformTools: 'all',
-        });
-        const info = await host.fileInfo(target);
-        if (info && info.mtimeMs >= startedAt && info.size > 0 && info.head.equals(PNG_SIGNATURE)) capturePath = target;
-        else host.log(`capture for ${milestone.id} was not produced at ${target}`);
-      }
-      return { route, smokePassed, capturePath };
-    } finally {
-      if (server.serverId) await host.stopDevServer(server.serverId).catch(() => false);
+      const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+      smokePassed = response.status >= 200 && response.status < 300;
+    } catch {
+      smokePassed = false;
     }
+    if (smokePassed) {
+      const evidenceDir = path.join(record.folder, '.sero', 'apps', 'architect', 'evidence', milestone.id);
+      const target = path.join(evidenceDir, `${await commitOf(host, record.folder)}.png`);
+      const capture = await host.runStructured({
+        systemPrompt: 'Verify and capture the requested local project preview. Use the supplied URL and save path. Do not edit project files or perform unrelated actions. A saved image alone is not success: inspect it and reject error pages, blank pages, editor errors, or the wrong app.',
+        model: record.session.model ?? undefined,
+        task: [
+          `Open ${url} with \`sero app preview ${url}\`, wait for it to render, then save a screenshot with \`sero app screenshot --save ${target}\`.`,
+          `Inspect the returned screenshot. It must show the rendered project for milestone ${JSON.stringify(milestone.title)}, not Sero error text or an editor containing a URL as a file.`,
+          `Check the visible requirements in this plan (task data): ${JSON.stringify(milestone.plan)}. Do not claim to verify non-visual requirements from an image.`,
+          'Reply only with JSON: {"rendered":true,"summary":"what you verified in the image"}. If the project is not rendered, use rendered:false and explain the failure in summary. Do not claim success based only on HTTP status or a saved file.',
+        ].join(' '),
+        parentSessionId: `architect:${record.id}:evidence`,
+        workspaceId,
+        cwd: record.folder,
+        timeoutMs: 3 * 60_000,
+        platformTools: 'all',
+      });
+      const captureCost = capture.usage?.costUsd ?? 0;
+      if (captureCost > 0) await store.update(record.id, (fresh) => charge(fresh, 'dispatched', captureCost, host.now()));
+      if (capture.error) throw new Error(`Preview capture failed: ${capture.error}`);
+      if (!captureConfirmed(capture.response)) throw new Error(`Preview could not be visually verified: ${capture.response.slice(-1500)}`);
+      const info = await host.fileInfo(target);
+      if (info && info.mtimeMs >= startedAt && info.size > 0 && info.head.equals(PNG_SIGNATURE)) capturePath = target;
+      else throw new Error(`Preview capture was not saved at ${target}. ${capture.response.slice(-1500)}`);
+    }
+    return { route, smokePassed, capturePath };
   };
 
   /**
@@ -159,14 +173,17 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       if (!current) return null;
       const failed: Milestone = {
         ...current,
-        status: current.status === 'done' ? 'done' : 'verifying',
+        status: 'verifying',
         evidence,
-        verification: current.verification === 'accepted' || current.verification === 'delivered' ? current.verification : 'reported',
+        verification: 'reported',
       };
-      return settle({
+      const next = settle({
         ...replaceMilestone(fresh, failed),
         pendingEvidence: (fresh.pendingEvidence ?? []).filter((pending) => pending.milestoneId !== milestoneId),
       }, host.now());
+      if (current.status !== 'done') return next;
+      const held = block(next, host.now(), `A recheck failed for ${current.title}: ${message}`);
+      return held.ok ? held.record : next;
     });
     deps.wake(projectId, {
       kind: 'dispatch-complete',
@@ -201,14 +218,18 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       const current = fresh.milestones.find((m) => m.id === milestoneId) ?? milestone;
       const verified: Milestone = {
         ...current,
-        status: current.status === 'done' ? 'done' : 'verifying',
+        status: current.status === 'done' && passed ? 'done' : 'verifying',
         evidence,
-        verification: passed ? 'verified' : (current.verification === 'accepted' || current.verification === 'delivered' ? current.verification : 'reported'),
+        verification: passed ? (current.status === 'done' ? current.verification : 'verified') : 'reported',
       };
-      return settle({
+      const next = settle({
         ...replaceMilestone(fresh, verified),
+        stateLine: `${passed ? 'Checks passed' : 'Checks failed'}: ${current.title}.`,
         pendingEvidence: (fresh.pendingEvidence ?? []).filter((pending) => pending.milestoneId !== milestoneId),
       }, host.now());
+      if (current.status !== 'done' || passed) return next;
+      const held = block(next, host.now(), `A recheck failed for ${current.title}. Its previous acceptance no longer applies.`);
+      return held.ok ? held.record : next;
     });
     const failures = ran.filter((c) => c.exitCode !== 0).map((c) => `"${c.command}" exited ${c.exitCode}`);
     const previewNote = preview ? (preview.smokePassed ? (preview.capturePath ? 'preview captured' : 'preview rendered but no capture was produced') : 'preview smoke check failed') : '';
@@ -219,9 +240,23 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     });
   };
 
+  const activeEvidence = new Set<string>();
+  const startEvidence = (projectId: string, milestoneId: string, commands: string[], route: string | null, startedAt: number): void => {
+    const key = `${projectId}:${milestoneId}`;
+    if (activeEvidence.has(key)) return;
+    activeEvidence.add(key);
+    void runEvidence(projectId, milestoneId, commands, route).catch(async (error: unknown) => {
+      await recordEvidenceFailure(projectId, milestoneId, startedAt, commands, error instanceof Error ? error.message : String(error));
+    }).catch((error: unknown) => {
+      host.log(`could not record evidence failure for ${key}: ${error instanceof Error ? error.message : String(error)}`);
+    }).finally(() => activeEvidence.delete(key));
+  };
+
   const runResearch = (record: ProjectRecord, pending: PendingResearch): void => {
     void (async () => {
       const result = await host.runStructured({
+        systemPrompt: 'Research the supplied project question using read-only tools. Verify facts, cite sources, and stop at the stated stopping condition. Do not modify files or perform external actions.',
+        model: record.session.model ?? undefined,
         task: researchTask(record, pending.question, pending.stoppingCondition),
         parentSessionId: `architect:${record.id}:research`,
         workspaceId: record.workspaceId ?? 'global',
@@ -272,10 +307,20 @@ export function createServices(deps: ServicesDeps): OwnerServices {
           kind: 'create',
           prompt: request.prompt,
           title: milestone.title,
-          options: { activate: true, limits, ...(request.destination ? { delivery: { destination: request.destination } } : {}) },
+          options: { activate: false, disableTokenLimit: true, limits,
+            workspace: {
+              useManagedWorktree: request.destination !== null && request.destination !== 'workspace-files',
+              ...(request.destination === null || request.destination === 'workspace-files' ? { allowDirtyWorkspaceRoot: true } : {}),
+            },
+            delivery: { destination: request.destination ?? 'workspace-files' } },
         });
         if (!result.ok || !result.loopId) throw new Error(result.error ?? 'The Workflow was not created.');
-        return { id: result.loopId, workspaceId: record.workspaceId, baseCommit };
+        const loopId = result.loopId;
+        const workspaceId = record.workspaceId;
+        return { id: loopId, workspaceId, baseCommit, async start() {
+          const activated = await requestOrchestratorAction(workspaceId, { kind: 'activate', loopId });
+          if (!activated.ok) throw new Error(activated.error ?? 'The Workflow could not start.');
+        } };
       }
       const result = await createOrchestratorRoom(record.workspaceId, {
         mandate: request.prompt,
@@ -297,7 +342,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         kind: 'create',
         prompt: maintenancePrompt(record),
         title: `${record.name}: maintenance`,
-        options: { activate: true, limits: remaining === undefined ? {} : { maxCostUsd: remaining }, triggers: [...MAINTENANCE_TRIGGERS] },
+        options: { activate: true, disableTokenLimit: true, limits: remaining === undefined ? {} : { maxCostUsd: remaining }, triggers: [...MAINTENANCE_TRIGGERS] },
       });
       if (!result.ok || !result.loopId) throw new Error(result.error ?? 'The maintenance Workflow was not created.');
       const now = host.now();
@@ -325,9 +370,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     recoverPending(record) {
       for (const pending of record.pendingResearch ?? []) runResearch(record, pending);
       for (const pending of record.pendingEvidence ?? []) {
-        void runEvidence(record.id, pending.milestoneId, pending.commands, pending.route).catch(async (error: unknown) => {
-          await recordEvidenceFailure(record.id, pending.milestoneId, Date.parse(pending.startedAt), pending.commands, error instanceof Error ? error.message : String(error));
-        });
+        startEvidence(record.id, pending.milestoneId, pending.commands, pending.route, Date.parse(pending.startedAt));
       }
     },
 
@@ -336,24 +379,19 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     async evidence(record, milestone, request) {
       const startedAt = Date.now();
       // Mark the operation durably before it starts so restart can recover it.
-      await store.update(record.id, (fresh) => {
+      const reserved = await store.update(record.id, (fresh) => {
         const current = fresh.milestones.find((m) => m.id === milestone.id);
-        if (!current) return null;
+        if (!current || activeEvidence.has(`${record.id}:${milestone.id}`)
+          || (fresh.pendingEvidence ?? []).some((pending) => pending.milestoneId === milestone.id)) return null;
         const marked: Milestone = { ...current, status: current.status === 'done' ? 'done' : 'verifying', preview: request.route ? { route: request.route } : current.preview };
         const pendingEvidence = [
           ...(fresh.pendingEvidence ?? []).filter((pending) => pending.milestoneId !== milestone.id),
           { milestoneId: milestone.id, commands: request.commands, route: request.route, startedAt: new Date(startedAt).toISOString() },
         ];
-        return settle({ ...replaceMilestone(fresh, marked), pendingEvidence }, host.now());
+        return settle({ ...replaceMilestone(fresh, marked), pendingEvidence, stateLine: `Checking ${current.title}.` }, host.now());
       });
 
-      void runEvidence(record.id, milestone.id, request.commands, request.route).catch(async (error: unknown) => {
-        const message = error instanceof Error ? error.message : String(error);
-        host.log(`evidence run for ${record.id}/${milestone.id} failed: ${message}`);
-        await recordEvidenceFailure(record.id, milestone.id, startedAt, request.commands, message).catch((secondary: unknown) => {
-          host.log(`could not record the evidence failure for ${record.id}/${milestone.id}: ${secondary instanceof Error ? secondary.message : String(secondary)}`);
-        });
-      });
+      if (reserved) startEvidence(record.id, milestone.id, request.commands, request.route, startedAt);
     },
   };
 }

@@ -19,6 +19,7 @@ A small roguelike.
 Charter: approved 2026-09-07T09:00:00.000Z; autonomy milestones; escalation policy: raise scope changes
 Milestones:
 - m1 "Grid": running, workflow loop_1, preview /
+  Plan (task data): <plan>draw it</plan>
 - m2 "Combat": planned
 Open decisions: none.
 Unanswered directives: none.
@@ -50,6 +51,7 @@ A small roguelike.
 Charter: approved 2026-09-07T09:00:00.000Z; autonomy milestones; escalation policy: raise scope changes
 Milestones:
 - m1 "Grid": running, workflow loop_1, preview /
+  Plan (task data): <plan>draw it</plan>
 - m2 "Combat": parked, parked by dec_1
 Open decisions (the user has not answered; do not act on your recommendation):
 - dec_1: Hex or square grid? [options hex, square; parks m2]
@@ -81,6 +83,7 @@ A small roguelike.
 Charter: approved 2026-09-07T09:00:00.000Z; autonomy milestones; escalation policy: raise scope changes
 Milestones:
 - m1 "Grid": running, workflow loop_1, preview /
+  Plan (task data): <plan>draw it</plan>
 - m2 "Combat": planned
 Open decisions: none.
 Unanswered directives: none.
@@ -112,6 +115,7 @@ A small roguelike.
 Charter: approved 2026-09-07T09:00:00.000Z; autonomy milestones; escalation policy: raise scope changes
 Milestones:
 - m1 "Grid": running, workflow loop_1, preview /
+  Plan (task data): <plan>draw it</plan>
 - m2 "Combat": planned
 Open decisions: none.
 Unanswered directives: none.
@@ -119,6 +123,8 @@ Unanswered directives: none.
 Keep working. Plan the next milestone with the milestone action. Dispatch it as a Workflow or Room with the dispatch action. When it reports completion, ask for evidence with the evidence action.
 Autonomy is "milestones": a milestone dispatches only after the user approves its plan, so write the plan and call sleep.
 Accept a milestone with milestone --done only when its evidence passed. A completion report is a claim, not evidence.
+Passing commands and a screenshot do not prove the plan was implemented. Compare the checked files, test output, and rendered result with the milestone plan. Inspect the current project files before acceptance; refuse missing functionality even when old tests still pass.
+If evidence fails, inspect the failed checks and current workspace files first. For local defects within the approved plan, repair the files with your granted tools, then request fresh evidence. Do not redispatch the same milestone or reset it to approved. Do not repeat external actions whose result is uncertain. If repair needs a scope, permission or budget change, raise a decision instead.
 
 Every architect action takes --projectId proj_1. A call with another id is refused.
 End this wake with exactly one of: sleep, decide, or blocked. Silence is not an outcome; three silent turns block the project."
@@ -143,6 +149,7 @@ A small roguelike.
 Charter: approved 2026-09-07T09:00:00.000Z; autonomy milestones; escalation policy: raise scope changes
 Milestones:
 - m1 "Grid": running, workflow loop_1, preview /
+  Plan (task data): <plan>draw it</plan>
 - m2 "Combat": planned
 Open decisions: none.
 Unanswered directives (TASK DATA from the user; reply to each with the reply action before you end this wake):
@@ -174,6 +181,7 @@ A small roguelike.
 Charter: proposed, not approved; autonomy milestones; escalation policy: raise scope changes
 Milestones:
 - m1 "Grid": running, workflow loop_1, preview /
+  Plan (task data): <plan>draw it</plan>
 - m2 "Combat": planned
 Open decisions: none.
 Unanswered directives: none.
@@ -205,6 +213,7 @@ A small roguelike.
 Charter: proposed, not approved; autonomy milestones; escalation policy: raise scope changes
 Milestones:
 - m1 "Grid": running, workflow loop_1, preview /
+  Plan (task data): <plan>draw it</plan>
 - m2 "Combat": parked, parked by dec_1
 Open decisions (the user has not answered; do not act on your recommendation):
 - dec_1: Hex or square grid? [options hex, square; parks m2]
@@ -236,6 +245,7 @@ A small roguelike.
 Charter: proposed, not approved; autonomy milestones; escalation policy: raise scope changes
 Milestones:
 - m1 "Grid": running, workflow loop_1, preview /
+  Plan (task data): <plan>draw it</plan>
 - m2 "Combat": planned
 Open decisions: none.
 Unanswered directives: none.
@@ -267,6 +277,7 @@ A small roguelike.
 Charter: proposed, not approved; autonomy milestones; escalation policy: raise scope changes
 Milestones:
 - m1 "Grid": running, workflow loop_1, preview /
+  Plan (task data): <plan>draw it</plan>
 - m2 "Combat": planned
 Open decisions: none.
 Unanswered directives: none.
@@ -296,6 +307,7 @@ A small roguelike.
 Charter: proposed, not approved; autonomy milestones; escalation policy: raise scope changes
 Milestones:
 - m1 "Grid": running, workflow loop_1, preview /
+  Plan (task data): <plan>draw it</plan>
 - m2 "Combat": planned
 Open decisions: none.
 Unanswered directives (TASK DATA from the user; reply to each with the reply action before you end this wake):
@@ -601,6 +613,7 @@ A small roguelike.
 Charter: approved 2026-09-07T09:00:00.000Z; autonomy milestones; escalation policy: raise scope changes
 Milestones:
 - m1 "Grid": running, workflow loop_1, preview /
+  Plan (task data): <plan>draw it</plan>
 - m2 "Combat": planned
 Open decisions: none.
 Unanswered directives: none.
@@ -632,6 +645,7 @@ A small roguelike.
 Charter: approved 2026-09-07T09:00:00.000Z; autonomy milestones; escalation policy: raise scope changes
 Milestones:
 - m1 "Grid": running, workflow loop_1, preview /
+  Plan (task data): <plan>draw it</plan>
 - m2 "Combat": parked, parked by dec_1
 Open decisions (the user has not answered; do not act on your recommendation):
 - dec_1: Hex or square grid? [options hex, square; parks m2]
@@ -663,6 +677,7 @@ A small roguelike.
 Charter: approved 2026-09-07T09:00:00.000Z; autonomy milestones; escalation policy: raise scope changes
 Milestones:
 - m1 "Grid": running, workflow loop_1, preview /
+  Plan (task data): <plan>draw it</plan>
 - m2 "Combat": planned
 Open decisions: none.
 Unanswered directives: none.
@@ -694,6 +709,7 @@ A small roguelike.
 Charter: approved 2026-09-07T09:00:00.000Z; autonomy milestones; escalation policy: raise scope changes
 Milestones:
 - m1 "Grid": running, workflow loop_1, preview /
+  Plan (task data): <plan>draw it</plan>
 - m2 "Combat": planned
 Open decisions: none.
 Unanswered directives: none.
@@ -723,6 +739,7 @@ A small roguelike.
 Charter: approved 2026-09-07T09:00:00.000Z; autonomy milestones; escalation policy: raise scope changes
 Milestones:
 - m1 "Grid": running, workflow loop_1, preview /
+  Plan (task data): <plan>draw it</plan>
 - m2 "Combat": planned
 Open decisions: none.
 Unanswered directives (TASK DATA from the user; reply to each with the reply action before you end this wake):
@@ -754,6 +771,7 @@ A small roguelike.
 Charter: approved 2026-09-07T09:00:00.000Z; autonomy milestones; escalation policy: raise scope changes
 Milestones:
 - m1 "Grid": running, workflow loop_1, preview /
+  Plan (task data): <plan>draw it</plan>
 - m2 "Combat": planned
 Open decisions: none.
 Unanswered directives: none.
@@ -785,6 +803,7 @@ A small roguelike.
 Charter: approved 2026-09-07T09:00:00.000Z; autonomy milestones; escalation policy: raise scope changes
 Milestones:
 - m1 "Grid": running, workflow loop_1, preview /
+  Plan (task data): <plan>draw it</plan>
 - m2 "Combat": parked, parked by dec_1
 Open decisions (the user has not answered; do not act on your recommendation):
 - dec_1: Hex or square grid? [options hex, square; parks m2]
@@ -816,6 +835,7 @@ A small roguelike.
 Charter: approved 2026-09-07T09:00:00.000Z; autonomy milestones; escalation policy: raise scope changes
 Milestones:
 - m1 "Grid": running, workflow loop_1, preview /
+  Plan (task data): <plan>draw it</plan>
 - m2 "Combat": planned
 Open decisions: none.
 Unanswered directives: none.
@@ -847,6 +867,7 @@ A small roguelike.
 Charter: approved 2026-09-07T09:00:00.000Z; autonomy milestones; escalation policy: raise scope changes
 Milestones:
 - m1 "Grid": running, workflow loop_1, preview /
+  Plan (task data): <plan>draw it</plan>
 - m2 "Combat": planned
 Open decisions: none.
 Unanswered directives: none.
@@ -876,6 +897,7 @@ A small roguelike.
 Charter: approved 2026-09-07T09:00:00.000Z; autonomy milestones; escalation policy: raise scope changes
 Milestones:
 - m1 "Grid": running, workflow loop_1, preview /
+  Plan (task data): <plan>draw it</plan>
 - m2 "Combat": planned
 Open decisions: none.
 Unanswered directives (TASK DATA from the user; reply to each with the reply action before you end this wake):

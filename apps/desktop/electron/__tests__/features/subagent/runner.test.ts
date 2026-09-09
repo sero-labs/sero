@@ -209,6 +209,24 @@ function createStreamingSession(events: Array<Record<string, unknown>>) {
 }
 
 describe('runSubagent live output', () => {
+  it('reports priced cumulative usage after each model turn, before the helper finishes', async () => {
+    const session = createStreamingSession([{ type: 'turn_end' }]);
+    session.getSessionStats.mockReturnValue({
+      tokens: { input: 100, output: 50, cacheRead: 100000, cacheWrite: 500, total: 100650 },
+      cost: 0.03,
+    });
+    const prompt = session.prompt;
+    let finished = false;
+    session.prompt = vi.fn(async () => { await prompt(); finished = true; });
+    mocks.createAgentSession.mockResolvedValueOnce({ session });
+    const config = createConfig(new AbortController().signal);
+    const progress = vi.fn(() => { expect(finished).toBe(false); });
+    config.onProgress = progress;
+    const result = await runSubagent(config, createDeps());
+    expect(progress).toHaveBeenCalledWith(expect.objectContaining({ cost: 0.03, cacheReadTokens: 100000, totalTokens: 100650 }));
+    expect(result.usage.cost).toBe(0.03);
+  });
+
   it('forwards both text and reasoning deltas into the live-output channel', async () => {
     const session = createStreamingSession([
       { type: 'message_update', assistantMessageEvent: { type: 'thinking_delta', delta: 'weighing options…' } },

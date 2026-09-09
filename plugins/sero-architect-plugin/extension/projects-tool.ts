@@ -21,6 +21,8 @@ export const PROJECT_ACTIONS = [
   'create',
   'pause',
   'resume',
+  'repair',
+  'preview',
   'stop',
   'raise_cap',
   'set_autonomy',
@@ -48,6 +50,7 @@ export const ProjectsToolParams = Type.Object({
   note: Type.Optional(Type.String({ description: 'answer: an optional note for the owner' })),
   text: Type.Optional(Type.String({ description: 'directive: what to tell the owner' })),
   cursor: Type.Optional(Type.String({ description: 'history: cursor for an older page' })),
+  workflowId: Type.Optional(Type.String({ description: 'repair: existing workflow selected by the user' })),
 });
 
 export interface ProjectsToolParamsShape {
@@ -64,6 +67,7 @@ export interface ProjectsToolParamsShape {
   note?: string;
   text?: string;
   cursor?: string;
+  workflowId?: string;
 }
 
 interface ToolResult {
@@ -135,6 +139,18 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
       if (missing) return result(false, missing);
       const outcome = await actions.create({ idea: params.idea ?? '', folder: params.folder ?? '' });
       return result(outcome.ok, outcome.text, outcome.ok ? { projectId: outcome.projectId } : {});
+    }
+    case 'preview': {
+      const missing = need(id, 'projectId');
+      if (missing) return result(false, missing);
+      const outcome = await actions.preview(id);
+      return result(outcome.ok, outcome.text, { url: outcome.url });
+    }
+    case 'repair': {
+      const missing = need(id, 'projectId');
+      if (missing) return result(false, missing);
+      const outcome = await actions.repair(id, params.workflowId);
+      return result(outcome.ok, outcome.text, { candidates: outcome.candidates ?? [] });
     }
     case 'pause':
     case 'resume':

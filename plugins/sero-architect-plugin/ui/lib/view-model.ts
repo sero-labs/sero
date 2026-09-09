@@ -83,6 +83,7 @@ const TONE: Record<MilestoneStatus, PillTone> = {
 };
 
 function subLine(milestone: Milestone, record: ProjectRecord): string | null {
+  if (milestone.dispatch?.failure) return milestone.dispatch.failure;
   if (milestone.status === 'parked' && milestone.parkedBy) {
     const decision = record.decisions.find((d) => d.id === milestone.parkedBy);
     return decision ? `Waiting for your answer: ${decision.question}` : 'Waiting for your answer';
@@ -101,8 +102,8 @@ export function railRows(record: ProjectRecord): RailRow[] {
   return record.milestones.map((milestone) => ({
     milestone,
     dot: DOT[milestone.status],
-    label: milestone.status === 'done' ? 'accepted' : milestone.status,
-    tone: TONE[milestone.status],
+    label: milestone.dispatch?.failure ? 'interrupted' : milestone.status === 'done' ? 'accepted' : milestone.status,
+    tone: milestone.dispatch?.failure ? 'warn' : TONE[milestone.status],
     sub: subLine(milestone, record),
     ladder: ladderLevel(milestone.verification),
     link: milestone.dispatch
@@ -161,6 +162,17 @@ export function directiveThread(record: ProjectRecord): DirectiveThread {
 /** Whether the runtime will wake the owner for events right now. */
 export function isAwake(record: ProjectRecord): boolean {
   return !record.paused && record.overlay !== 'limited' && record.overlay !== 'blocked' && record.phase !== 'intake';
+}
+
+export function projectActivity(record: ProjectRecord): string {
+  if (record.blockedReason) return 'Work is on hold';
+  if (record.paused) return 'Paused';
+  if (record.session.workingSince) return 'Architect is working';
+  const pending = record.milestones.find((milestone) => milestone.pendingDispatch);
+  if (pending) return `Starting ${pending.title}. Waiting for the workflow to respond.`;
+  const running = record.milestones.filter((milestone) => milestone.status === 'running');
+  if (running.length) return `Work in progress: ${running.map((milestone) => milestone.title).join(', ')}`;
+  return isAwake(record) ? 'Waiting for the next event' : 'Architect is stopped';
 }
 
 export const AUTONOMY_LABEL: Record<ProjectRecord['autonomy'], string> = {

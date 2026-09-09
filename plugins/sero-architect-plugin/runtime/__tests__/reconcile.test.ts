@@ -3,7 +3,8 @@ import { type ProjectRecord } from '../../shared/record';
 import type { ArchitectHost } from '../host';
 import { ArchitectRuntime } from '../index';
 import { createRecordStore } from '../record-store';
-import { buildingProject, cleanupHosts, fakeHost, type FakeHost } from './helpers';
+import { orchestratorIndexFiles } from '../dispatch-watch';
+import { buildingProject, cleanupHosts, fakeHost, milestone, T0, type FakeHost } from './helpers';
 
 afterEach(cleanupHosts);
 
@@ -21,6 +22,23 @@ const overBudget = (): ProjectRecord => ({
 });
 
 describe('restart reconciliation', () => {
+  it('continues watching existing work while the owner is blocked after restart', async () => {
+    const host = await fakeHost();
+    const record = buildingProject({ overlay: 'blocked', blockedReason: 'Needs review', milestones: [milestone('m1', {
+      status: 'running', dispatch: { kind: 'workflow', id: 'loop_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null },
+    })] });
+    await seed(host, record);
+    const runtime = new ArchitectRuntime(host, {});
+    await runtime.start();
+    try {
+      host.emitState(orchestratorIndexFiles(record.folder).loops, { loops: [{ id: 'loop_1', title: 'Build', status: 'active', usage: { costUsd: 2 } }] });
+      await vi.waitFor(async () => expect((await runtime.records()?.read(record.id))?.budget.sources.dispatched).toBe(2));
+      expect((await runtime.records()?.read(record.id))?.blockedReason).toBe('Needs review');
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it('brings an over-budget project back limited and rebuilds the index before any wake', async () => {
     const host: FakeHost = await fakeHost();
     await seed(host, overBudget());

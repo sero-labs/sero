@@ -26,6 +26,40 @@ async function setup(recordOverrides = {}) {
 }
 
 describe('owner actions', () => {
+  it('waits for an existing local writer instead of dispatching into the same project folder', async () => {
+    const { actions, services } = await setup({ milestones: [
+      milestone('m1', { status: 'running', dispatch: { kind: 'workflow', id: 'loop_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null } }),
+      milestone('m2', { status: 'approved' }),
+    ] });
+    const result = await actions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm2', kind: 'workflow', prompt: 'Build combat' });
+    expect(result).toMatchObject({ ok: true, text: expect.stringContaining('folder is in use by m1') });
+    expect(services.dispatch).not.toHaveBeenCalled();
+  });
+
+  it('allows runtime rechecking of an accepted milestone rather than trusting its old result', async () => {
+    const accepted = milestone('m1', {
+      status: 'done', verification: 'accepted',
+      dispatch: { kind: 'workflow', id: 'loop_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null },
+    });
+    const { actions, services } = await setup({ milestones: [accepted] });
+    const result = await actions.execute(owner, { action: 'evidence', projectId: 'proj_1', milestoneId: 'm1', commands: ['pnpm test'] });
+    expect(result.ok).toBe(true);
+    expect(services.evidence).toHaveBeenCalledWith(expect.anything(), accepted, { commands: ['pnpm test'], route: null });
+  });
+
+  it('does not accept old evidence or start duplicate checks while verification is running', async () => {
+    const { actions, services, store } = await setup({
+      milestones: [milestone('m1', { status: 'verifying', verification: 'verified' })],
+      pendingEvidence: [{ milestoneId: 'm1', commands: ['pnpm test'], route: null, startedAt: T0 }],
+    });
+    const accepted = await actions.execute(owner, { action: 'milestone', projectId: 'proj_1', milestoneId: 'm1', done: true });
+    expect(accepted).toMatchObject({ ok: false, text: expect.stringContaining('still running') });
+    const duplicate = await actions.execute(owner, { action: 'evidence', projectId: 'proj_1', milestoneId: 'm1', commands: ['pnpm test'] });
+    expect(duplicate).toMatchObject({ ok: true, text: expect.stringContaining('already running') });
+    expect(services.evidence).not.toHaveBeenCalled();
+    expect((await store.read('proj_1'))?.milestones[0]?.status).toBe('verifying');
+  });
+
   it('refuses a caller that is not an owner session', async () => {
     const { actions } = await setup();
     const outcome = await actions.execute({ sessionPath: '/sessions/chat.jsonl', cwd: null }, { action: 'sleep', projectId: 'proj_1' });
@@ -159,7 +193,51 @@ describe('owner actions', () => {
     const outcome = await actions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm1', kind: 'workflow', prompt: 'Build the grid' });
     expect(outcome.ok).toBe(true);
     expect(services.dispatch).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: 'm1' }), { kind: 'workflow', prompt: 'Build the grid', destination: null, maxCostUsd: null });
-    expect((await store.read('proj_1'))?.milestones[0]).toMatchObject({ status: 'running', dispatch: { kind: 'workflow', id: 'loop_9', workspaceId: 'ws-1' } });
+    await vi.waitFor(async () => expect((await store.read('proj_1'))?.milestones[0]).toMatchObject({ status: 'running', dispatch: { kind: 'workflow', id: 'loop_9', workspaceId: 'ws-1' } }));
+    expect((await store.read('proj_1'))?.milestones[0]?.pendingDispatch).toBeUndefined();
+  });
+
+  it('saves the workflow link before activation and returns while work is still running', async () => {
+    const { actions, store, services } = await setup(buildingProject({ milestones: [milestone('m1', { status: 'approved' })] }));
+    let finish: () => void = () => undefined;
+    const running = new Promise<void>((resolve) => { finish = resolve; });
+    let linkedAtStart = false;
+    const start = vi.fn(async () => {
+      linkedAtStart = (await store.read('proj_1'))?.milestones[0]?.dispatch?.id === 'loop_9';
+      await running;
+    });
+    vi.mocked(services.dispatch).mockResolvedValue({ id: 'loop_9', workspaceId: 'ws-1', baseCommit: 'base-1', start });
+    try {
+      const outcome = await actions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm1', kind: 'workflow', prompt: 'Build the grid' });
+      expect(outcome.ok).toBe(true);
+      await vi.waitFor(() => expect(linkedAtStart).toBe(true));
+      expect(start).toHaveBeenCalledOnce();
+    } finally {
+      finish();
+    }
+  });
+
+  it('returns while planning is pending, prevents duplicate dispatch, and links the eventual result', async () => {
+    const { actions, store, services } = await setup(buildingProject({ milestones: [milestone('m1', { status: 'approved' })] }));
+    let finish: (link: Awaited<ReturnType<OwnerServices['dispatch']>>) => void = () => undefined;
+    vi.mocked(services.dispatch).mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    const request = { action: 'dispatch' as const, projectId: 'proj_1', milestoneId: 'm1', kind: 'workflow' as const, prompt: 'Build the grid' };
+    const accepted = await actions.execute(owner, request);
+    expect(accepted.ok).toBe(true);
+    expect(accepted.text).toContain('Planning continues in the background');
+    expect((await store.read('proj_1'))?.milestones[0]?.pendingDispatch).toBeDefined();
+    expect((await actions.execute(owner, request)).text).toContain('No second run was started');
+    expect(services.dispatch).toHaveBeenCalledOnce();
+    finish({ id: 'loop_9', workspaceId: 'ws-1', baseCommit: 'base-1' });
+    await vi.waitFor(async () => expect((await store.read('proj_1'))?.milestones[0]?.dispatch?.id).toBe('loop_9'));
+  });
+
+  it('records a background planning failure and releases the reservation for a later retry', async () => {
+    const { actions, store, services } = await setup(buildingProject({ milestones: [milestone('m1', { status: 'approved' })] }));
+    vi.mocked(services.dispatch).mockRejectedValue(new Error('Planner unavailable'));
+    const accepted = await actions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm1', kind: 'workflow', prompt: 'Build the grid' });
+    expect(accepted.ok).toBe(true);
+    await vi.waitFor(async () => expect((await store.read('proj_1'))?.blockedReason).toContain('Planner unavailable'));
     expect((await store.read('proj_1'))?.milestones[0]?.pendingDispatch).toBeUndefined();
   });
 

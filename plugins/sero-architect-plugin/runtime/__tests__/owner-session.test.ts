@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { OwnerSessions, OWNER_TOOLS, ownerGrantProposal } from '../owner-session';
+import { OwnerSessions, OWNER_TOOLS, ownerGrantProposal, chooseOwnerModel } from '../owner-session';
 import { createTurnOutcomes } from '../turn-outcomes';
 import { buildingProject, cleanupHosts, fakeHost, storeFor, T0 } from './helpers';
 
@@ -8,6 +8,18 @@ afterEach(cleanupHosts);
 const wake = { kind: 'quiet' as const, at: T0, items: ['nothing is running'] };
 
 describe('owner session', () => {
+  it('uses an available model from the same provider when the configured model is missing', async () => {
+    const host = await fakeHost();
+    host.env.SERO_ARCHITECT_MODEL = 'anthropic/retired-model';
+    expect((await chooseOwnerModel(host)).model).toBe('anthropic/claude-fable-5-1');
+  });
+
+  it('does not silently switch providers when the configured provider is unavailable', async () => {
+    const host = await fakeHost();
+    host.env.SERO_ARCHITECT_MODEL = 'openai/unavailable-model';
+    await expect(chooseOwnerModel(host)).rejects.toThrow('Choose another provider');
+  });
+
   it('proposes a grant naming only the platform tools and sero-cli, pinned to the project folder', () => {
     const proposal = ownerGrantProposal(buildingProject(), { model: 'anthropic/claude-fable-5-1', thinking: 'medium' });
     expect(proposal.workspaceId).toBe('ws-1');
@@ -42,6 +54,7 @@ describe('owner session', () => {
     const record = buildingProject();
     await store.write(record);
     host.sessions.onTurn = async (handleId) => {
+      expect((await store.read(record.id))?.session.workingSince).toBe(T0);
       host.sessions.emit(handleId, { type: 'compacted' });
       outcomes.declare('proj_1', 'sleep');
     };
@@ -51,6 +64,7 @@ describe('owner session', () => {
     expect(host.sessions.prompts[0]?.content).toContain('nothing is running');
     expect(host.sessions.steers[0]?.content).toBe(host.sessions.prompts[0]?.content);
     expect(result.declared).toBe('sleep');
+    expect(result.record.session.workingSince).toBeNull();
     expect(result.record.session.silentTurns).toBe(0);
     expect(result.record.session.lastWakeKind).toBe('quiet');
   });

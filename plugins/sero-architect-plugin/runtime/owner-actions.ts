@@ -32,7 +32,7 @@ export interface OwnerServices {
     record: ProjectRecord,
     milestone: Milestone,
     request: { kind: DispatchKind; prompt: string; destination: DispatchDestination | null; maxCostUsd: number | null },
-  ): Promise<{ id: string; workspaceId: string; baseCommit: string }>;
+  ): Promise<{ id: string; workspaceId: string; baseCommit: string; start?(): Promise<void> }>;
   /** Creates the maintenance Workflow for a project entering maintain. Idempotent per project. */
   maintenance(record: ProjectRecord): Promise<ProjectRecord>;
   evidence(record: ProjectRecord, milestone: Milestone, request: { commands: string[]; route: string | null }): Promise<void>;
@@ -189,6 +189,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     const found = milestoneOf(record, input.milestoneId);
     if (typeof found === 'string') return refuse(found);
     if (input.done) {
+      if (record.pendingEvidence?.some((pending) => pending.milestoneId === found.id)) return refuse(`Evidence for ${found.id} is still running. Wait for its result before accepting it.`);
       if (found.status === 'done') return refuse(`Milestone ${found.id} is already done.`);
       if (found.status === 'running') return refuse(`Milestone ${found.id} is still running: the dispatched work has not reported completion, and there is no evidence yet.`);
       // The staleness check runs git, so it stays outside the store's queue.
@@ -210,13 +211,14 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
         const current = fresh.milestones.find((m) => m.id === found.id);
         if (!current) return { error: `Milestone "${found.id}" is not on this project.` };
         if (current.status === 'done') return { error: `Milestone ${current.id} is already done.` };
+        if (fresh.pendingEvidence?.some((pending) => pending.milestoneId === current.id)) return { error: `Evidence for ${current.id} is still running.` };
         const missing = missingEvidence(current);
         if (current.status !== 'verifying' || missing.length > 0) {
           const reasons = missing.length > 0 ? missing : [`the milestone is ${current.status}, not verifying`];
           return { error: `Milestone ${current.id} cannot close. Missing: ${reasons.join('; ')}. Ask for an evidence run and wait for it to pass.` };
         }
         const accepted: Milestone = { ...current, status: 'done', verification: 'accepted' };
-        let next = withHistory(replace(fresh, accepted), now, `milestone ${current.id} accepted on passed evidence`);
+        let next = withHistory({ ...replace(fresh, accepted), stateLine: `Completed: ${current.title}.` }, now, `milestone ${current.id} accepted on passed evidence`);
         // The receipt usually lands before acceptance, so delivery is settled here too.
         const delivery = applyDelivery(next, accepted, now);
         next = delivery.record;
@@ -305,9 +307,16 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
   async function dispatch(record: ProjectRecord, input: OwnerActionInput, now: string): Promise<OwnerActionOutcome> {
     const found = milestoneOf(record, input.milestoneId);
     if (typeof found === 'string') return refuse(found);
+    if (found.pendingDispatch) return ok(`Milestone ${found.id} is already being prepared. No second run was started. Call sleep and wait for the result.`);
     if (!input.kind) return refuse('kind is required: workflow or room.');
     const prompt = input.prompt?.trim();
     if (!prompt) return refuse('prompt is required: the Workflow prompt or the Room mandate.');
+    if (input.kind === 'workflow' && (!input.destination || input.destination === 'workspace-files')) {
+      const busy = record.milestones.find((item) => item.id !== found.id && (item.pendingDispatch
+        || (item.status === 'running' && item.dispatch?.kind === 'workflow'
+          && (!item.dispatch.destination || item.dispatch.destination === 'workspace-files'))));
+      if (busy || record.pendingEvidence?.length) return ok(`The project folder is in use${busy ? ` by ${busy.id}` : ' for verification'}. No new run was started. Call sleep and wait for that work to finish.`);
+    }
     if (!mayDispatch(record)) {
       return refuse(record.overlay ? `The project is ${record.overlay}; no new dispatch may start.` : `Dispatch happens during build or maintain, and the project is in ${record.phase}.`);
     }
@@ -348,9 +357,9 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
         proposal: { kind: 'cap', capUsd },
       }, 'Spending beyond the cap needs the user\'s decision');
     }
-    const { milestone: running } = await performDispatch(store, services, record, found, { kind: input.kind, prompt, destination, maxCostUsd }, now);
-    return ok(`Milestone ${found.id} is running as ${input.kind} ${running.dispatch?.id ?? ''}${destination ? `, delivering to ${destination}` : ''}. You are woken when it completes, blocks or asks a question; call sleep.`, {
-      milestoneId: found.id, dispatchKind: input.kind, dispatchId: running.dispatch?.id ?? '',
+    await performDispatch(store, services, record, found, { kind: input.kind, prompt, destination, maxCostUsd }, now, true);
+    return ok(`Milestone ${found.id} is starting as ${input.kind}. Planning continues in the background. Do not dispatch it again. You are woken when it completes, blocks or asks a question; call sleep.`, {
+      milestoneId: found.id, dispatchKind: input.kind,
     });
   }
 
@@ -362,10 +371,10 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     const found = milestoneOf(record, input.milestoneId);
     if (typeof found === 'string') return refuse(found);
     const commands = (input.commands ?? []).map((c) => c.trim()).filter(Boolean);
+    if (record.pendingEvidence?.some((pending) => pending.milestoneId === found.id)) return ok(`Evidence for ${found.id} is already running. No duplicate check was started. Call sleep.`);
     if (commands.length === 0) return refuse('commands is required: at least one command for the runtime to run.');
-    if (found.status === 'done') return refuse(`Milestone ${found.id} is already done.`);
     if (found.status === 'parked') return refuse(`Milestone ${found.id} is parked by decision ${found.parkedBy}.`);
-    if (!found.dispatch || found.status !== 'verifying' || found.verification !== 'reported') {
+    if (!found.dispatch || (found.status !== 'done' && (found.status !== 'verifying' || found.verification !== 'reported'))) {
       return refuse(`Milestone ${found.id} needs a linked dispatch that reported completion before evidence can run.`);
     }
     await services.evidence(record, found, { commands, route: input.route?.trim() || found.preview?.route || null });

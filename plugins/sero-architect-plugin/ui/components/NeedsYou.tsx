@@ -113,6 +113,7 @@ export function MilestoneApprovalCard({ milestone, actions }: { milestone: Miles
 
 export function NeedsYou({ record, actions }: { record: ProjectRecord; actions: NeedsYouActions }) {
   const items = needsYouItems(record);
+  if (record.blockedReason && items.length === 0) return null;
   return (
     <section aria-labelledby="ar-needs-h">
       <SectionHead id="ar-needs-h" title="Needs you" count={items.length ? String(items.length) : 'none'} warn={items.length > 0} />

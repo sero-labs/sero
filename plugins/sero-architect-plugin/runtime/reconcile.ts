@@ -23,7 +23,7 @@ export async function reconcileProjects(store: RecordStore, host: ArchitectHost)
   const records: ProjectRecord[] = [];
 
   for (const stored of await store.list()) {
-    let record = settle(stored, now);
+    let record = settle({ ...stored, session: { ...stored.session, workingSince: null } }, now);
     const workspaceMissing = record.workspaceId !== null && !workspaceIds.has(record.workspaceId);
     if (workspaceMissing && record.blockedReason === null) {
       const blocked = block(record, now, `workspace ${record.workspaceId} is not registered in this profile`);

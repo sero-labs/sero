@@ -27,7 +27,9 @@ export class PosixHostProcessAdapter implements HostProcessAdapter {
     if (pids.length === 0) return null;
     const lsof = await this.execFile({
       program: 'lsof',
-      args: ['-nP', '-iTCP', '-sTCP:LISTEN', '-p', pids.join(',')],
+      // lsof combines selection sets with OR unless -a is supplied. Without it,
+      // an unrelated system listener can be mistaken for this process's server.
+      args: ['-nP', '-a', '-iTCP', '-sTCP:LISTEN', '-p', pids.join(',')],
       timeoutMs: 2_000,
     }).catch(() => null);
     const lsofPort = lsof?.exitCode === 0 ? parseLsofPort(lsof.stdout) : null;

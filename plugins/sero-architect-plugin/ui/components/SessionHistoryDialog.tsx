@@ -16,7 +16,7 @@ export interface SessionHistoryDialogProps {
 export function SessionHistoryDialog({ open, projectName, entries, loading, error, onClose }: SessionHistoryDialogProps) {
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
-      <DialogContent className="ar-history-dialog" data-sero-plugin="architect">
+      <DialogContent className="ar-history-dialog w-[min(1100px,92vw)] max-w-none sm:max-w-none" data-sero-plugin="architect">
         <DialogHeader>
           <DialogTitle>{projectName} owner session</DialogTitle>
           <DialogDescription>Recent messages from the owner session. You can read them but not edit them.</DialogDescription>

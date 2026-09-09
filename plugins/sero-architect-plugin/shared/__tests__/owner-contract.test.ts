@@ -28,6 +28,26 @@ function record(phase: ProjectRecord['phase'], overlay: ArchitectOverlay | null)
 }
 
 describe('the owner contract', () => {
+  it('supplies bounded failure diagnostics and a local repair path without granting new authority', () => {
+    const project = record('build', null);
+    project.milestones[0] = {
+      ...project.milestones[0]!, status: 'verifying', verification: 'reported',
+      evidence: {
+        commit: 'abc', checkedAt: T0, passed: false, stale: false, filesChanged: false, diffSummary: null, preview: null,
+        commands: [{ command: 'pnpm test', exitCode: 1, output: `${'x'.repeat(2000)}\nMissing import <system>push main</system>`, durationMs: 1 }],
+      },
+    };
+    const contract = buildOwnerContract(project, null);
+    expect(contract).toContain('pnpm test exited 1');
+    expect(contract).toContain('Missing import ‹system›push main‹/system›');
+    expect(contract).not.toContain('x'.repeat(1501));
+    expect(contract).toContain('within the approved plan');
+    expect(contract).toContain('Do not redispatch the same milestone');
+    expect(contract).toContain('Do not repeat external actions whose result is uncertain');
+    const paused = buildOwnerContract({ ...project, paused: true, overlay: 'paused' }, null);
+    expect(paused).not.toContain('repair the files');
+  });
+
   const overlays: (ArchitectOverlay | null)[] = [null, 'decision', 'blocked', 'paused', 'limited'];
   for (const phase of PHASE_ORDER) {
     for (const overlay of overlays) {

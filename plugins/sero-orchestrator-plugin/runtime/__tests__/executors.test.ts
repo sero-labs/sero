@@ -202,6 +202,16 @@ describe('buildStepTask past-deliveries awareness', () => {
 });
 
 describe('backgroundAgentExecutor', () => {
+  it('records a rejected execution as a failed attempt so recovery can handle it', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    host.runStructured = async () => { throw new Error('provider connection closed'); };
+    const attempt = await backgroundAgentExecutor.run(inputFor(host, loop, 'step-1'));
+    expect(attempt.status).toBe('failed');
+    expect(attempt.error).toBe('provider connection closed');
+    expect(attempt.endedAt).toBeDefined();
+  });
+
   it('runs with the resolved cwd and full tool surface and records the outcome', async () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, oneStepPlan().plan);

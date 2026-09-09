@@ -20,7 +20,7 @@ import { createWakeScheduler, type WakeScheduler } from './wake-scheduler';
 /** Work the owner could do now without anything running: a quiet project with this wakes once. */
 export function plannedWorkRemains(record: ProjectRecord): boolean {
   if (record.phase !== 'build' && record.phase !== 'release' && record.phase !== 'maintain') return false;
-  if (record.milestones.some((m) => m.status === 'running')) return false;
+  if (record.milestones.some((m) => m.status === 'running' || m.pendingDispatch)) return false;
   return record.milestones.some((m) =>
     m.status === 'approved'
     || (m.status === 'planned' && record.autonomy !== 'milestones')
@@ -75,7 +75,9 @@ export class ArchitectRuntime implements AppRuntime {
     const { records, held } = await reconcileProjects(store, this.host);
     if (held.length > 0) this.host.log(`held ${held.length} project(s) whose workspace is missing: ${held.join(', ')}`);
     for (const record of records) {
-      if (record.blockedReason === null && record.workspaceId) await watch.track(record);
+      // A blocked owner still needs updates from its existing work. Otherwise
+      // a workflow resumed after restart can never clear the old failure.
+      if (record.workspaceId) await watch.track(record);
       const fresh = await store.read(record.id);
       if (!fresh) continue;
       const lastWakeAt = fresh.session.lastWakeAt ?? '';

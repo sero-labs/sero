@@ -43,6 +43,20 @@ function createManager(options: {
 }
 
 describe('HostDevServerManager', () => {
+  it('shares concurrent preview starts and reuses the running server', async () => {
+    const spawn = vi.fn(async () => createProcess());
+    const manager = createManager({ spawn });
+    const input = { command: 'pnpm dev', cwd: '/workspace' };
+    const [first, second] = await Promise.all([manager.start(input), manager.start(input)]);
+    expect(second.id).toBe(first.id);
+    expect((await manager.start({ ...input, name: 'Evidence check' })).id).toBe(first.id);
+    expect(spawn).toHaveBeenCalledOnce();
+    await manager.stop({ serverId: first.id });
+    await manager.start(input);
+    expect(spawn).toHaveBeenCalledTimes(2);
+    await manager.dispose();
+  });
+
   it('keeps stopped host dev servers registered so they can be restarted', async () => {
     const process = createProcess();
     const manager = createManager({ spawn: vi.fn(async () => process) });

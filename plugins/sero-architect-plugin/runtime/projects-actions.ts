@@ -14,6 +14,7 @@ import { advancePhase, approveCharter, block, mayDispatch, pause, resume, setAut
 import { createProjectRecord, toIndexEntry, type AutonomySetting, type DecisionProposal, type Milestone, type ProjectRecord } from '../shared/record';
 import type { DispatchDestination } from '../shared/owner-actions';
 import { performDispatch } from './dispatch-link';
+import { repairDispatch, type RepairOutcome } from './repair-dispatch';
 import type { OwnerServices } from './owner-actions';
 import type { ArchitectIndexEntry } from '../shared/types';
 import type { ArchitectHost } from './host';
@@ -36,6 +37,8 @@ export interface ProjectsActionsDeps {
 export type ProjectsOutcome = { ok: true; text: string; projectId?: string } | { ok: false; text: string };
 
 export interface ProjectsActions {
+  preview(projectId: string): Promise<ProjectsOutcome & { url?: string }>;
+  repair(projectId: string, workflowId?: string): Promise<RepairOutcome>;
   list(): Promise<ArchitectIndexEntry[]>;
   show(projectId: string): Promise<ProjectRecord | null>;
   history(projectId: string, cursor?: string): Promise<PersistentSessionHistoryPage | null>;
@@ -189,6 +192,27 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
     },
 
     show: read,
+
+    async preview(projectId) {
+      const record = await read(projectId);
+      if (!record?.workspaceId) return refuse('This project has no workspace.');
+      const command = await host.detectDevServerCommand(record.folder);
+      if (!command) return refuse('No preview command was found in the project workspace.');
+      const server = await host.startDevServer({ workspaceId: record.workspaceId,
+        workspacePath: record.folder, cwdPath: record.folder, command, name: record.name, scope: 'workspace' });
+      return server.url ? { ok: true, text: 'Project preview is running.', url: server.url }
+        : refuse(server.reason ?? 'The preview could not start.');
+    },
+
+    async repair(projectId, workflowId) {
+      const result = await repairDispatch(store, host, projectId, workflowId);
+      if (result.ok && workflowId) {
+        watch.untrack(projectId);
+        const record = await store.read(projectId);
+        if (record) await watch.track(record);
+      }
+      return result;
+    },
 
     async history(projectId, cursor) {
       const record = await read(projectId);

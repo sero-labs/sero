@@ -290,6 +290,9 @@ export interface OrchestratorBoardDeliverySettings {
 
 /** Creation options a plugin runtime may pass. A subset of the plugin's own `CreateLoopOptions`. */
 export interface OrchestratorBoardCreateOptions {
+  /** Use dollar/time/attempt limits without a default or planner-suggested token cap. */
+  disableTokenLimit?: boolean;
+  workspace?: { useManagedWorktree?: boolean; allowDirtyWorkspaceRoot?: boolean };
   /** Activate as soon as a valid plan lands (a planner question or a validation block parks it instead). */
   activate?: boolean;
   limits?: Partial<OrchestratorBoardLoopLimits>;
