@@ -98,7 +98,7 @@ Architect SHALL expose failed commands, relevant output and failed preview check
 - **THEN** Architect diagnoses and repairs the defect, reruns the relevant checks and proceeds only on passing acceptance
 
 ### Requirement: Resilience is proved across five fresh projects
-The proving suite SHALL cover a DungeonExplorer game, CSV summary CLI, persistent reading tracker, background import dashboard and basic team issue tracker SaaS prototype. Each project SHALL have fixed acceptance checks, a maintenance exercise, assigned controlled failures and two consecutive fresh unassisted passes on the final candidate. Run records SHALL identify the tested candidate, costs, faults, interventions and evidence.
+The proving suite SHALL cover a DungeonExplorer game, CSV summary CLI, persistent reading tracker, background import dashboard and basic team issue tracker SaaS prototype. Each project SHALL have fixed, bounded delivery smoke checks, a maintenance exercise, assigned controlled failures and two consecutive fresh unassisted process passes on the final candidate. The suite SHALL evaluate Architect’s process, underlying systems and integration with Sero. Example-app checks SHALL establish usable delivery and test the assigned verification or recovery behavior; exhaustive app feature testing is outside the suite. Run records SHALL identify the tested candidate, costs, faults, interventions and evidence.
 
 #### Scenario: Manual rescue makes a run finish
 - **WHEN** a run requires direct record edits, manual worktree transfers, out-of-band implementation or coaching around a runtime defect

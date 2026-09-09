@@ -2,6 +2,8 @@
 
 Most Architect features are implemented, but the proving run needed manual state recovery and file transfers. A working preview and passing unit tests do not yet prove that Architect can finish different projects or recover safely when work fails.
 
+The subject of this suite is Architect’s process, its underlying systems and its integration with Sero. The example apps supply representative work. Use small independent smoke checks to establish usable output and expose false acceptance; exhaustive app feature testing is outside this change.
+
 ## What Changes
 
 - Run five fixed example projects, from a small CLI to a basic full-stack SaaS prototype, starting with DungeonExplorer in a fresh workspace.
