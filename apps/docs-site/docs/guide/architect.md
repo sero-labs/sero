@@ -10,6 +10,8 @@ Use Architect when you want Sero to take a product from idea through
 maintenance. Use [Orchestrator](/guide/orchestrator) when you want to run one
 Workflow, Room or Goal yourself.
 
+![Architect project list showing project phases, spend, and items that need attention](../assets/images/architect-projects.png)
+
 ## Before you start
 
 1. [Install and open Sero](/guide/getting-started).
@@ -31,6 +33,8 @@ approve.
    wrote it and never edits it.
 3. Give a folder inside your home directory. An empty or new folder is best.
 4. Select **Create project**.
+
+![Architect setting up a new project](../assets/images/architect-intake.png)
 
 Architect creates the folder, runs `git init`, registers the folder as a Sero
 workspace, and then asks you to allow the owner session. The project stays in
@@ -74,6 +78,8 @@ The project page has four sections:
 4. **Directive** lets you send Architect a short message and shows its latest
    reply. Architect handles a directive before other updates.
 
+![Architect project page with a charter waiting for approval](../assets/images/architect-charter.png)
+
 History and older directives are behind disclosures in the side column. The
 page never shows an event log and never streams agent output. To read the
 owner's session, select **Open session**.
@@ -92,6 +98,8 @@ recorded on the milestone as one of four states:
 | `verified` | Architect's checks passed at a named commit |
 | `accepted` | the owner accepted the verified result |
 | `delivered` | the result was delivered, for example a merged pull request |
+
+![Architect build phase showing milestone status and verification evidence](../assets/images/architect-build.png)
 
 A lower state never stands in for a higher one. If files change after the
 evidence was taken, the evidence is marked stale and the checks run again.

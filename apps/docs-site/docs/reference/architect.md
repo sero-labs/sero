@@ -119,6 +119,8 @@ owner tries to change an approved charter, deliver to a destination outside
 the workspace (`email-send`, `chat-post`, `webhook-post`), or spend over the
 remaining cap. The proposal is applied only when you pick `apply`.
 
+![Architect decision card with a recommended option and parked milestone](../assets/images/architect-decision.png)
+
 ## Delivery
 
 A release milestone names a destination. Inside the workspace: `pr`,
@@ -132,6 +134,8 @@ On entering `maintain`, the runtime creates one Workflow subscribed to
 `github:issue-opened`, `github:ci-failed` and the schedule `0 8 * * 1`
 (Mondays at 08:00 UTC). Each run wakes the owner to triage. A fix is a
 milestone and moves through the same four verification states.
+
+![Architect maintenance phase showing a delivered release and a fix under verification](../assets/images/architect-maintain.png)
 
 ## State and storage
 
