@@ -26,6 +26,11 @@ export async function syncAppSessionModel(
     // local-model registry refreshes. Swap in the refreshed instance without
     // rewriting settings or appending redundant session history entries.
     setRuntimeSessionModel(session, sharedModel);
+    // `setRuntimeSessionModel` writes `agent.state.model` directly, so it skips
+    // the thinking-level clamp that `AgentSession.setModel()` performs. A
+    // refreshed definition can drop a level, and an unmapped level is sent to
+    // the provider verbatim, so re-apply the current level to clamp it.
+    session.setThinkingLevel(session.thinkingLevel);
     return true;
   }
 

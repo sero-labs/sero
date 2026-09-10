@@ -1,29 +1,21 @@
-import { refreshModelAvailability } from '@electron/ipc/agent/core/model-availability-refresh';
+import { queueModelAvailabilityRefresh } from '@electron/ipc/agent/core/model-availability-refresh';
 
-const REFRESH_TIMEOUT_MS = 15_000;
-let refreshQueue: Promise<void> = Promise.resolve();
-
-export function refreshModelAvailabilityAfterCredentialChange(
+/**
+ * Refresh model availability after a credential change.
+ *
+ * The credential flow must not fail when model reconciliation errors, so this
+ * only logs. The shared queue applies the offline guard and the timeout, and
+ * serializes this call against the background catalog refresh.
+ */
+export async function refreshModelAvailabilityAfterCredentialChange(
   providerId: string,
 ): Promise<void> {
-  const refresh = refreshQueue.then(async () => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), REFRESH_TIMEOUT_MS);
-    try {
-      await refreshModelAvailability({
-        allowNetwork: true,
-        force: true,
-        signal: controller.signal,
-      });
-    } catch (error) {
-      console.warn(
-        `[auth] Credentials changed for ${providerId} but model refresh failed:`,
-        error,
-      );
-    } finally {
-      clearTimeout(timeout);
-    }
-  });
-  refreshQueue = refresh;
-  return refresh;
+  try {
+    await queueModelAvailabilityRefresh({ force: true });
+  } catch (error) {
+    console.warn(
+      `[auth] Credentials changed for ${providerId} but model refresh failed:`,
+      error,
+    );
+  }
 }

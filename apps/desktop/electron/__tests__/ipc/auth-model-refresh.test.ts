@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  refreshModelAvailability: vi.fn(),
+  queueModelAvailabilityRefresh: vi.fn(),
 }));
 
 vi.mock('@electron/ipc/agent/core/model-availability-refresh', () => ({
-  refreshModelAvailability: mocks.refreshModelAvailability,
+  queueModelAvailabilityRefresh: mocks.queueModelAvailabilityRefresh,
 }));
 
 import { refreshModelAvailabilityAfterCredentialChange } from '@electron/ipc/platform/auth/auth-model-refresh';
@@ -15,11 +15,11 @@ describe('refreshModelAvailabilityAfterCredentialChange', () => {
 
   beforeEach(() => {
     consoleWarn.mockClear();
-    mocks.refreshModelAvailability.mockReset();
+    mocks.queueModelAvailabilityRefresh.mockReset();
   });
 
   it('does not fail the credential flow when model reconciliation hits an unrelated refresh error', async () => {
-    mocks.refreshModelAvailability.mockRejectedValue(new Error('models.json is invalid'));
+    mocks.queueModelAvailabilityRefresh.mockRejectedValue(new Error('models.json is invalid'));
 
     await expect(refreshModelAvailabilityAfterCredentialChange('anthropic')).resolves.toBeUndefined();
 
@@ -29,42 +29,34 @@ describe('refreshModelAvailabilityAfterCredentialChange', () => {
     );
   });
 
-  it('still awaits a successful refresh when reconciliation succeeds', async () => {
-    mocks.refreshModelAvailability.mockResolvedValue({
+  it('awaits the shared queue so the offline guard and timeout apply', async () => {
+    mocks.queueModelAvailabilityRefresh.mockResolvedValue({
       sharedModel: null,
       updatedChatSessions: 0,
       updatedAppSessions: 0,
+      refreshWarnings: [],
     });
 
     await expect(refreshModelAvailabilityAfterCredentialChange('anthropic')).resolves.toBeUndefined();
 
-    expect(mocks.refreshModelAvailability).toHaveBeenCalledOnce();
-    expect(mocks.refreshModelAvailability).toHaveBeenCalledWith({
-      allowNetwork: true,
-      force: true,
-      signal: expect.any(AbortSignal),
-    });
+    expect(mocks.queueModelAvailabilityRefresh).toHaveBeenCalledExactlyOnceWith({ force: true });
     expect(consoleWarn).not.toHaveBeenCalled();
   });
 
-  it('serializes credential refreshes so an older result cannot finish last', async () => {
-    let finishFirst: (() => void) | undefined;
-    mocks.refreshModelAvailability
-      .mockImplementationOnce(() => new Promise<void>((resolve) => {
-        finishFirst = resolve;
-      }))
-      .mockResolvedValueOnce({
-        sharedModel: null,
-        updatedChatSessions: 0,
-        updatedAppSessions: 0,
-      });
+  it('hands every concurrent credential change to the shared queue', async () => {
+    mocks.queueModelAvailabilityRefresh.mockResolvedValue({
+      sharedModel: null,
+      updatedChatSessions: 0,
+      updatedAppSessions: 0,
+      refreshWarnings: [],
+    });
 
-    const first = refreshModelAvailabilityAfterCredentialChange('first');
-    const second = refreshModelAvailabilityAfterCredentialChange('second');
-    await vi.waitFor(() => expect(mocks.refreshModelAvailability).toHaveBeenCalledTimes(1));
-    finishFirst?.();
-    await Promise.all([first, second]);
+    await Promise.all([
+      refreshModelAvailabilityAfterCredentialChange('first'),
+      refreshModelAvailabilityAfterCredentialChange('second'),
+    ]);
 
-    expect(mocks.refreshModelAvailability).toHaveBeenCalledTimes(2);
+    expect(mocks.queueModelAvailabilityRefresh).toHaveBeenNthCalledWith(1, { force: true });
+    expect(mocks.queueModelAvailabilityRefresh).toHaveBeenNthCalledWith(2, { force: true });
   });
 });

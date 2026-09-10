@@ -6,7 +6,7 @@ const MODELS_PATH = `${AGENT_DIR}/models.json`;
 const mocks = vi.hoisted(() => ({
   handlers: new Map<string, (...args: unknown[]) => unknown>(),
   ensureInfra: vi.fn(),
-  refreshModelAvailability: vi.fn(),
+  queueModelAvailabilityRefresh: vi.fn(),
 }));
 
 vi.mock('electron', () => ({
@@ -26,7 +26,7 @@ vi.mock('@electron/shared/infra/shared-infra', () => ({
 }));
 
 vi.mock('@electron/ipc/agent/core/model-availability-refresh', () => ({
-  refreshModelAvailability: mocks.refreshModelAvailability,
+  queueModelAvailabilityRefresh: mocks.queueModelAvailabilityRefresh,
 }));
 
 import { IpcChannels } from '@/types/ipc-channels';
@@ -57,7 +57,8 @@ describe('local models IPC', () => {
   });
 
   it('returns registry validation errors as non-blocking save warnings', async () => {
-    mocks.refreshModelAvailability.mockResolvedValue({
+    mocks.queueModelAvailabilityRefresh.mockResolvedValue({
+      refreshWarnings: ['Provider "local": invalid configuration'],
       registryError: 'Provider "local": invalid configuration',
     });
     const saveConfig = mocks.handlers.get(IpcChannels.localModels.saveConfig);
@@ -69,7 +70,8 @@ describe('local models IPC', () => {
   });
 
   it('succeeds when the runtime only reports an availability error', async () => {
-    mocks.refreshModelAvailability.mockResolvedValue({
+    mocks.queueModelAvailabilityRefresh.mockResolvedValue({
+      refreshWarnings: ['Availability refresh: network unavailable'],
       registryError: 'Availability refresh: network unavailable',
     });
     const saveConfig = mocks.handlers.get(IpcChannels.localModels.saveConfig);
@@ -80,8 +82,20 @@ describe('local models IPC', () => {
     });
   });
 
+  it('reports a cancelled refresh instead of a clean save', async () => {
+    mocks.queueModelAvailabilityRefresh.mockResolvedValue({
+      refreshWarnings: ['Model refresh was cancelled'],
+    });
+    const saveConfig = mocks.handlers.get(IpcChannels.localModels.saveConfig);
+    if (!saveConfig) throw new Error('Local models saveConfig handler was not registered');
+
+    await expect(saveConfig({}, { providers: {} })).resolves.toEqual({
+      warning: 'Model refresh was cancelled',
+    });
+  });
+
   it('writes Pi configured auth for keyless providers', async () => {
-    mocks.refreshModelAvailability.mockResolvedValue({});
+    mocks.queueModelAvailabilityRefresh.mockResolvedValue({ refreshWarnings: [] });
     const saveConfig = mocks.handlers.get(IpcChannels.localModels.saveConfig);
     if (!saveConfig) throw new Error('Local models saveConfig handler was not registered');
 

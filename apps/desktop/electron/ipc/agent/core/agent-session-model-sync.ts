@@ -98,6 +98,11 @@ export async function ensureSessionHasAvailableModel(
 
   if (currentModel && refreshedModel && refreshedModel !== currentModel) {
     setRuntimeSessionModel(session, refreshedModel);
+    // `setRuntimeSessionModel` writes `agent.state.model` directly, so it skips
+    // the thinking-level clamp that `AgentSession.setModel()` performs. A
+    // refreshed definition can drop a level, so re-apply the current level to
+    // clamp it. This writes only when the level actually changes.
+    session.setThinkingLevel(session.thinkingLevel);
   }
 
   const availableModels = await session.modelRuntime.getAvailable();
