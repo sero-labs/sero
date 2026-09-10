@@ -7,12 +7,15 @@ export interface RunHealth { status: string; startedAt?: string; steps?: { stepI
 export async function applyRunHealth(store: RecordStore, projectId: string, loopId: string, runs: RunHealth[], now: string): Promise<void> {
   const latest = runs.toSorted((a, b) => (b.startedAt ?? '').localeCompare(a.startedAt ?? ''))[0];
   if (!latest) return;
-  const failed = ['orphaned', 'failed', 'cancelled'].includes(latest.status);
   await store.update(projectId, (record) => {
     const milestone = record.milestones.find((item) => item.dispatch?.id === loopId);
     if (!milestone?.dispatch || milestone.status === 'done') return null;
     const dispatch = milestone.dispatch;
-    const retryStepId = latest.steps?.find((step) => ['orphaned', 'failed', 'cancelled', 'blocked'].includes(step.status) || step.outcomeStatus === 'failed')?.stepId;
+    const retryStepId = latest.steps?.find((step) => ['orphaned', 'failed', 'cancelled', 'blocked'].includes(step.status) || ['failed', 'blocked'].includes(step.outcomeStatus ?? ''))?.stepId;
+    // A worker can finish normally while its structured outcome blocks the run.
+    // Limit-only blocks have no retryable step and keep their cap/time recovery.
+    const failed = ['orphaned', 'failed', 'cancelled'].includes(latest.status)
+      || (latest.status === 'blocked' && retryStepId !== undefined && dispatch.costLimitUsd === undefined);
     const reason = `“${milestone.title}” stopped before it finished. Use Retry step here to continue from the failed step.`;
     if (failed && (milestone.dispatch.failure !== reason || milestone.dispatch.retryStepId !== retryStepId)) {
       const next = { ...record, milestones: record.milestones.map((item) => item.id === milestone.id

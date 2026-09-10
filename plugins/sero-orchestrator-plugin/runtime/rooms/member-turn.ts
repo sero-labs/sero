@@ -53,14 +53,20 @@ const TURN_DETAIL: Record<MemberTurnStatus, string> = {
  * live-output buffer rather than one per caller.
  */
 export function watchTurn(api: PersistentSessionsApi, handleId: string): TurnWatch {
-  const ended = new Map<string, MemberTurnStatus>();
+  const ended = new Map<string, TurnOutcome>();
   let pending: { turnId: string; resolve: (outcome: TurnOutcome) => void } | null = null;
 
   const unsubscribe = api.subscribe(handleId, (event) => {
     if (event.type !== 'turn_end') return;
-    ended.set(event.turnId, event.status);
+    const outcome: TurnOutcome = {
+      turnId: event.turnId,
+      status: event.status,
+      detail: event.status === 'error' && event.errorMessage?.trim()
+        ? event.errorMessage.trim() : TURN_DETAIL[event.status],
+    };
+    ended.set(event.turnId, outcome);
     if (pending?.turnId === event.turnId) {
-      pending.resolve({ turnId: event.turnId, status: event.status, detail: TURN_DETAIL[event.status] });
+      pending.resolve(outcome);
       pending = null;
     }
   });
@@ -70,7 +76,7 @@ export function watchTurn(api: PersistentSessionsApi, handleId: string): TurnWat
       new Promise<TurnOutcome>((resolve) => {
         const already = ended.get(turnId);
         if (already) {
-          resolve({ turnId, status: already, detail: TURN_DETAIL[already] });
+          resolve(already);
           return;
         }
         pending = { turnId, resolve };

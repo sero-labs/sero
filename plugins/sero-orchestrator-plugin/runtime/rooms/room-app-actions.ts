@@ -94,7 +94,7 @@ export interface RoomAppActions extends RoomLiveActions {
   adjust(roomId: string, instruction: string): Promise<PrepareRoomOutcome>;
   start(roomId: string): Promise<SimpleOutcome>;
   pause(roomId: string, detail?: string): Promise<SimpleOutcome>;
-  resume(roomId: string): Promise<SimpleOutcome>;
+  resume(roomId: string, maxWallClockMs?: number): Promise<SimpleOutcome>;
   cancel(roomId: string, detail?: string): Promise<SimpleOutcome>;
   remove(roomId: string): Promise<SimpleOutcome>;
   resolveApproval(roomId: string, approvalId: string, decision: 'approved' | 'rejected'): Promise<SimpleOutcome>;
@@ -348,8 +348,10 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
       return settled(await coordinator.pauseRoom(roomId, detail));
     },
 
-    async resume(roomId) {
-      return settled(await coordinator.resumeRoom(roomId));
+    async resume(roomId, maxWallClockMs) {
+      const result = await coordinator.resumeRoom(roomId, maxWallClockMs);
+      return result.ok && result.room?.runtime.status === 'paused'
+        ? { ok: false, error: result.room.runtime.stopReason?.detail ?? 'The Room is still paused.' } : settled(result);
     },
 
     async cancel(roomId, detail) {

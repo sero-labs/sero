@@ -43,6 +43,25 @@ function createManager(options: {
 }
 
 describe('HostDevServerManager', () => {
+  it.each(['stop', 'restart', 'dispose'] as const)('%s preserves unrelated listeners on the same port', async (action) => {
+    let parentExited = false;
+    const process = createProcess(1234);
+    process.signal.mockImplementation(() => { parentExited = true; });
+    const processAdapter = createProcessAdapter({
+      descendantPids: vi.fn(async () => parentExited ? [] : [2000]),
+      listenerPids: vi.fn(async () => [2000, 9000]),
+    });
+    const manager = createManager({ spawn: vi.fn(async () => process), processAdapter });
+    const server = await manager.start({ command: 'pnpm dev', cwd: '/workspace' });
+
+    if (action === 'dispose') await manager.dispose();
+    else await manager[action]({ serverId: server.id });
+
+    expect(processAdapter.killPids).toHaveBeenCalledWith('TERM', [1234, 2000]);
+    expect(processAdapter.killPids).toHaveBeenCalledWith('KILL', [1234, 2000]);
+    expect(processAdapter.listenerPids).not.toHaveBeenCalled();
+  });
+
   it('shares concurrent preview starts and reuses the running server', async () => {
     const spawn = vi.fn(async () => createProcess());
     const manager = createManager({ spawn });
@@ -129,12 +148,12 @@ describe('HostDevServerManager', () => {
 
     expect(processAdapter.descendantPids).toHaveBeenCalledWith(1234);
     expect(processAdapter.listeningPort).toHaveBeenCalledWith([1234, 2000]);
-    expect(processAdapter.listenerPids).toHaveBeenCalledWith(5173);
-    expect(processAdapter.killPids).toHaveBeenCalledWith('TERM', [1234, 2000, 3000]);
-    expect(processAdapter.killPids).toHaveBeenCalledWith('KILL', [1234, 2000, 3000]);
+    expect(processAdapter.listenerPids).not.toHaveBeenCalled();
+    expect(processAdapter.killPids).toHaveBeenCalledWith('TERM', [1234, 2000]);
+    expect(processAdapter.killPids).toHaveBeenCalledWith('KILL', [1234, 2000]);
   });
 
-  it('kills descendants and listener PIDs when stopping a host dev server', async () => {
+  it('kills owned descendants when stopping a host dev server', async () => {
     const process = createProcess(1234);
     const processAdapter = createProcessAdapter({
       descendantPids: vi.fn(async () => [2000]),
@@ -146,8 +165,8 @@ describe('HostDevServerManager', () => {
     await manager.stop({ serverId: server.id });
 
     expect(process.signal).toHaveBeenCalledWith('SIGTERM');
-    expect(processAdapter.killPids).toHaveBeenCalledWith('TERM', [1234, 2000, 3000]);
-    expect(processAdapter.killPids).toHaveBeenCalledWith('KILL', [1234, 2000, 3000]);
+    expect(processAdapter.killPids).toHaveBeenCalledWith('TERM', [1234, 2000]);
+    expect(processAdapter.killPids).toHaveBeenCalledWith('KILL', [1234, 2000]);
   });
 
   it('preserves dev-server metadata on restart', async () => {

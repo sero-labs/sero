@@ -1,10 +1,37 @@
 import { describe, expect, it } from 'vitest';
 import { mergeLimits } from '../loop-factory';
 import { Coordinator } from '../coordinator';
+import { RunEngine } from '../run-engine';
+import { LoopLocks } from '../locks';
 import { createFakeHost } from './fake-host';
+import { fakeDecider, fakeExecutor } from './engine-fakes';
 import { seedActiveLoop, sequentialPlan } from './fixtures';
 
 describe('cost-based workflow limits', () => {
+  it('keeps a live cap change through progress writes and stops before the next paid step', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, sequentialPlan().plan);
+    loop.limits.maxCostUsd = 4.5;
+    const coordinator = new Coordinator(host);
+    const executor = fakeExecutor({ a: { status: 'succeeded', summary: 'first done' } });
+    const engine = new RunEngine(host, {
+      locks: new LoopLocks(), decider: fakeDecider({ decision: 'wait' }),
+      executor: { run: async (input) => {
+        const attempt = { ...await executor.run(input), usage: { costUsd: 1 } };
+        expect((await coordinator.requestAction({ kind: 'use_cost_budget', loopId: loop.id, maxCostUsd: 0.3 })).ok).toBe(true);
+        await input.onAttempt?.({ ...attempt, status: 'running' });
+        expect(host.state.loops[0].limits.maxCostUsd).toBe(0.3);
+        return attempt;
+      } },
+    });
+    await engine.run(loop.id);
+    expect(executor.calls).toEqual(['a']);
+    expect(host.state.loops[0]).toMatchObject({
+      limits: { maxCostUsd: 0.3 }, status: 'blocked',
+      runtime: { block: { kind: 'management-limit', limit: 'maxCostUsd' }, stepStates: { a: { status: 'succeeded' }, b: { status: 'pending' } } },
+    });
+  });
+
   it('migrates an existing token-blocked workflow without resetting completed work or dollar limits', async () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, sequentialPlan().plan);

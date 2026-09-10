@@ -334,6 +334,32 @@ describe('member turns', () => {
     expect(stored?.usage.turns).toBe(1);
   });
 
+  it.each([true, false])('persists provider failure details when completion arrives early: %s', async (early) => {
+    const room = await seedRoom();
+    const lead = memberOf(room, 'lead');
+    const handle = await startMember(deps, room, lead);
+    const api = host.persistentSessions;
+    api.mode = 'manual';
+    const original = api.prompt.bind(api);
+    const message = 'Codex error: The usage limit has been reached';
+    api.prompt = async (handleId, content) => {
+      const result = await original(handleId, content);
+      const finish = () => api.emit('lead', {
+        type: 'turn_end', turnId: result.turnId, status: 'error', errorMessage: message,
+      });
+      if (early) finish();
+      else setTimeout(finish, 0);
+      return result;
+    };
+
+    const outcome = await runMemberTurn(deps, room, lead, handle.handleId, { prompt: 'Run the check.' });
+    expect(outcome).toMatchObject({ status: 'error', detail: message });
+    const reopened = createRoomStore(makeCtx());
+    expect(await reopened.readMember('room-a', 'lead')).toMatchObject({
+      statusDetail: message, usage: { retries: 1, consecutiveFailures: 1 },
+    });
+  });
+
   it('captures passive cache usage and accepts providers with no cache metadata', async () => {
     const room = await seedRoom();
     const lead = memberOf(room, 'lead');

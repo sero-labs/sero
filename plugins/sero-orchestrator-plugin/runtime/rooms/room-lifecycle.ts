@@ -362,14 +362,24 @@ export async function settlePendingPause(ctx: RoomLifecycleContext, roomId: stri
   await settlePause(ctx, record, stopReason, now);
 }
 
-export async function resumeRoom(ctx: RoomLifecycleContext, roomId: string): Promise<RoomActionResult> {
+export async function resumeRoom(ctx: RoomLifecycleContext, roomId: string, maxWallClockMs?: number): Promise<RoomActionResult> {
   const record = await ctx.store.readRoom(roomId);
   if (!record) return fail(`Room not found: ${roomId}`);
   if (!record.definition.grantId) return fail('This Room lost its authority to run and must be started again.');
+  const now = ctx.host.now();
+  const limit = maxWallClockMs ?? record.definition.envelope.maxWallClockMs;
+  if (!Number.isFinite(limit) || limit <= 0) return fail('The time limit must be a finite positive duration.');
+  if (limit < record.definition.envelope.maxWallClockMs) return fail('Resume can extend the time limit, not reduce it.');
+  if (record.runtime.startedAt && Date.parse(now) - Date.parse(record.runtime.startedAt) >= limit) {
+    return fail('The Room time limit has expired. Resume with a larger maxMinutes total to allow more work.');
+  }
   // Only a Room that is STILL paused resumes. Checked in the writing turn, so a
   // Room cancelled since the read cannot be restarted as `running`.
   const claim = await claimTransition(ctx, roomId, (current, status) =>
-    status === 'paused' ? withRoomStatus(current, 'running', ctx.host.now(), null) : null);
+    status === 'paused' ? withRoomStatus({ ...current,
+      definition: { ...current.definition, envelope: { ...current.definition.envelope, maxWallClockMs: limit } },
+      runtime: { ...current.runtime, lastProgressAt: now },
+    }, 'running', now, null) : null);
   if (!claim.won) return fail(`This Room is "${claim.status}", so it cannot be resumed.`);
   return ok(await reread(ctx, roomId, record));
 }

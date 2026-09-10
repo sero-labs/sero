@@ -41,6 +41,29 @@ beforeEach(async () => {
 afterEach(() => disposeHarness(dir));
 
 describe('stopping a Room', () => {
+  it('requires an explicit time extension after a long pause and preserves history and other limits', async () => {
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    await waitFor(async () => (await memberOf(roomId, 'lead')).usage.turns === 1, 'the first turn');
+    await coordinator.pauseRoom(roomId);
+    const before = (await store.readRoom(roomId))!;
+    host.clockMs += 8 * 60 * 60_000;
+    const refused = await coordinator.resumeRoom(roomId);
+    expect(refused.ok).toBe(false);
+    expect(refused.error).toContain('time limit has expired');
+    expect((await store.readRoom(roomId))?.runtime.status).toBe('paused');
+    host.persistentSessions.mode = 'manual';
+    const extension = 9 * 60 * 60_000;
+    expect((await coordinator.resumeRoom(roomId, extension)).ok).toBe(true);
+    await waitFor(() => host.persistentSessions.openTurns().includes('lead'), 'the resumed turn');
+    const resumed = (await store.readRoom(roomId))!;
+    expect(resumed.runtime.startedAt).toBe(before.runtime.startedAt);
+    expect(resumed.runtime.usage.costUsd).toBe(before.runtime.usage.costUsd);
+    expect(resumed.definition.envelope).toEqual({ ...before.definition.envelope, maxWallClockMs: extension });
+    expect(resumed.definition.grantId).toBe(before.definition.grantId);
+    expect(resumed.members[0]?.session.sessionPath).toBe(before.members[0]?.session.sessionPath);
+  });
+
   it('lets only one concurrent Start obtain a grant', async () => {
     const roomId = await draftRoom();
 

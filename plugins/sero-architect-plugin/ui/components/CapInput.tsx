@@ -48,7 +48,8 @@ export function CapInput({ cap, inputId, submitLabel, onRaise, onError, onDone }
       <input
         id={inputId}
         type="number"
-        min={floor + 1}
+        min={floor}
+        step="any"
         value={value}
         onChange={(event) => setValue(event.target.value)}
         aria-label="New cap"

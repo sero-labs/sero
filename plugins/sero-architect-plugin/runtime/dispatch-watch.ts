@@ -204,6 +204,14 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
           const held = block(next, now, reason);
           if (held.ok) next = { ...held.record, stateLine: reason };
         }
+        if (loop?.status === 'blocked' && loop.block?.limit === 'maxWallClockMs') {
+          const reason = `Workflow reached its time limit. Use Retry step to continue ${milestone.title} from its saved progress.`;
+          if (dispatch.failure !== reason) {
+            updated = { ...updated, dispatch: { ...dispatch, failure: reason, retryStepId: undefined, costLimitUsd: undefined } };
+            const held = block(next, now, reason);
+            if (held.ok) next = { ...held.record, stateLine: reason };
+          }
+        }
         if (delta > 0) {
           updated = { ...updated, dispatch: { ...updated.dispatch!, chargedUsd: costUsd } };
           next = charge(next, 'dispatched', delta, now);

@@ -45,7 +45,7 @@ const RULES: Record<DeliveryDestinationId, Pick<DeliveryDestinationSpec, 'requir
   'workspace-files': {
     requiredTools: [],
     plannerRules:
-      'No delivery step is needed — the results stay in the user\'s workspace files, so no commit or PR is needed; leave the changes in the working tree unless the goal explicitly asks to commit. The finalization step just verifies the work and emits completion.',
+      'No delivery step is needed — the results stay in the user\'s workspace files, so no commit or PR is needed; leave the changes in the working tree unless the goal explicitly asks to commit. This is in-place delivery, not a disposable release staging directory. Preserve existing databases, user files, running previews, .sero/ and .sero-workspace.json. Git ignore rules exclude local files from version control; they never authorize deleting them. Do not plan release cleanup that removes user data or Sero runtime state. The finalization step verifies the work and emits completion.',
     receiptHint: 'not required — results stay in the working tree',
   },
   'saved-artifact': {

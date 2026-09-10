@@ -22,9 +22,9 @@ The subject of these tasks is Architect’s process and integration with Sero. U
 
 ## 4. Persistent reading tracker
 
-- [ ] 4.1 Create the tracker in a fresh workspace; use the real UI to create one record and read it after a service and Sero restart; verify Architect preserves project progress and delivery.
-- [ ] 4.2 Exercise database unavailability, preview startup failure, a failed check, stale evidence after a file edit and dollar-cap stop/resume; verify bounded recovery without losing records or retaining invalid acceptance.
-- [ ] 4.3 Complete the filter maintenance exercise; fix and replay new Sero defects, and verify stored records and affected earlier checks still pass.
+- [x] 4.1 Create the tracker in a fresh workspace; use the real UI to create one record and read it after a service and Sero restart; verify Architect preserves project progress and delivery.
+- [x] 4.2 Exercise database unavailability, preview startup failure, a failed check, stale evidence after a file edit and dollar-cap stop/resume; verify bounded recovery without losing records or retaining invalid acceptance.
+- [x] 4.3 Complete the filter maintenance exercise; fix and replay new Sero defects, and verify stored records and affected earlier checks still pass.
 
 ## 5. Background import dashboard
 

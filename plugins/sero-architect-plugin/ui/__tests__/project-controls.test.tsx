@@ -174,7 +174,10 @@ describe('raising the cap', () => {
     const raiseCap = vi.fn(async () => OK);
     const prompt = vi.fn();
     vi.stubGlobal('prompt', prompt);
-    renderPage(stubActions({ raiseCap }));
+    const record = { ...FIXTURES.build!, budget: { ...FIXTURES.build!.budget, capUsd: 0.5 } };
+    act(() => root.render(
+      <ProjectPage record={record} actions={stubActions({ raiseCap })} narrow disclosures={disclosures} onBack={vi.fn()} confirm={() => true} />,
+    ));
 
     act(() => button('Raise cap').click());
     expect(prompt).not.toHaveBeenCalled();
@@ -186,7 +189,8 @@ describe('raising the cap', () => {
       setter?.call(field, '85');
       field.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    act(() => { field.form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
+    expect(field.checkValidity()).toBe(true);
+    act(() => { field.form?.requestSubmit(); });
     await flush();
 
     expect(raiseCap).toHaveBeenCalledWith(FIXTURES.build!.id, 85);

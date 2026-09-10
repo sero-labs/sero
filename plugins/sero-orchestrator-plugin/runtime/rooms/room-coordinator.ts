@@ -159,8 +159,8 @@ export class RoomCoordinator {
     return pauseRoom(this.ctx, roomId, detail);
   }
 
-  async resumeRoom(roomId: string): Promise<RoomActionResult> {
-    const result = await resumeRoom(this.ctx, roomId);
+  async resumeRoom(roomId: string, maxWallClockMs?: number): Promise<RoomActionResult> {
+    const result = await resumeRoom(this.ctx, roomId, maxWallClockMs);
     if (!result.ok || !result.room) return result;
     const conductor = result.room.members.find((member) => member.isConductor && member.status !== 'retired');
     if (conductor) await this.wake(roomId, conductor.id, 'user-intervention');

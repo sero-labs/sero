@@ -32,9 +32,31 @@ async function setup(record = buildingProject({ milestones: [running('workflow',
 }
 
 describe('dispatch watch', () => {
+  it('exposes time-limit recovery and clears it when the saved workflow resumes', async () => {
+    const { host, store, watch, settle } = await setup();
+    host.emitState(files.loops, { loops: [{ id: 'loop_1', title: 'UI', status: 'blocked', block: { limit: 'maxWallClockMs', reason: 'reached max wall-clock (1800000ms)' }, usage: { costUsd: 2 } }] });
+    await settle();
+    const record = await store.read('proj_1');
+    expect(record).toMatchObject({ overlay: 'blocked', stateLine: expect.stringContaining('time limit') });
+    expect(record?.milestones[0].dispatch).toMatchObject({ id: 'loop_1', chargedUsd: 2, failure: expect.stringContaining('Retry step') });
+    expect(record?.milestones[0].dispatch?.costLimitUsd).toBeUndefined();
+
+    host.emitState(files.loops, { loops: [{ id: 'loop_1', title: 'UI', status: 'active', usage: { costUsd: 2 } }] });
+    host.emitState(loopRunsIndexFile('/home/dan/projects/hollow', 'loop_1'), { runs: [{ id: 'run_resumed', status: 'running', startedAt: T0 }] });
+    await settle();
+    const resumed = await store.read('proj_1');
+    expect(resumed?.blockedReason).toBeNull();
+    expect(resumed?.milestones[0].dispatch).toMatchObject({ id: 'loop_1', chargedUsd: 2 });
+    expect(resumed?.milestones[0].dispatch?.failure).toBeUndefined();
+    watch.dispose();
+  });
+
   it('reports an exhausted Workflow cap with its actual reason and preserves live charges', async () => {
     const { host, store, watch, wakes, settle } = await setup();
     host.emitState(files.loops, { loops: [{ id: 'loop_1', title: 'CLI', status: 'blocked', maxCostUsd: 1.2, block: { limit: 'maxCostUsd', reason: 'reached max cost ($1.2)' }, usage: { costUsd: 1.21 } }] });
+    host.emitState(loopRunsIndexFile('/home/dan/projects/hollow', 'loop_1'), { runs: [{ id: 'run_1', status: 'blocked', startedAt: T0,
+      steps: [{ stepId: 'release', status: 'completed', outcomeStatus: 'blocked' }],
+    }] });
     await settle();
     const record = await store.read('proj_1');
     expect(record).toMatchObject({ overlay: 'blocked', blockedReason: expect.stringContaining('$1.2 cap') });
@@ -84,6 +106,27 @@ describe('dispatch watch', () => {
     const retried = await store.read('proj_1');
     expect(retried?.blockedReason).toBeNull();
     expect(retried?.milestones[0]?.dispatch?.failure).toBeUndefined();
+  });
+
+  it('offers the blocked step for retry when a completed worker reports a blocker', async () => {
+    const { host, store, watch, settle } = await setup();
+    const file = loopRunsIndexFile('/home/dan/projects/hollow', 'loop_1');
+    host.emitState(file, { runs: [{ id: 'run_1', status: 'blocked', startedAt: T0, steps: [
+      { stepId: 'checks', status: 'completed', outcomeStatus: 'succeeded' },
+      { stepId: 'release', status: 'completed', outcomeStatus: 'blocked' },
+    ] }] });
+    await settle();
+    expect((await store.read('proj_1'))?.milestones[0].dispatch).toMatchObject({
+      id: 'loop_1', retryStepId: 'release', failure: expect.stringContaining('Retry step'),
+    });
+    expect((await store.read('proj_1'))?.overlay).toBe('blocked');
+
+    host.emitState(file, { runs: [{ id: 'run_2', status: 'running', startedAt: '2026-09-09T00:00:00.000Z' }] });
+    await settle();
+    const resumed = await store.read('proj_1');
+    expect(resumed?.blockedReason).toBeNull();
+    expect(resumed?.milestones[0].dispatch?.retryStepId).toBeUndefined();
+    watch.dispose();
   });
 
   it('moves a completed Workflow to verifying, never done, and wakes the owner', async () => {

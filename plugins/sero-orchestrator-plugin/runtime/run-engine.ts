@@ -310,6 +310,8 @@ export class RunEngine {
         const queued = (current.runtime.pendingEvents ?? []).filter((e) => e.id !== consumedId);
         result = {
           ...result,
+          // Limits belong to user actions, not the engine's older run snapshot.
+          limits: current.limits,
           triggers: mergeTriggers(current.triggers, result.triggers),
           runtime: {
             ...result.runtime,

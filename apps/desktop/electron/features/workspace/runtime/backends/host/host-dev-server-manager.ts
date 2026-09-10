@@ -294,20 +294,24 @@ export class HostDevServerManager {
       // Registered servers are owned by an external process; we only drop the record.
       return;
     }
-    await this.terminateProcess(server.process, server.executionPid ?? server.pid, server.port);
+    // Other processes can listen on the same port on a different address. A spawned
+    // server owns its process tree, not every listener on that port.
+    await this.terminateProcess(server.process, server.executionPid ?? server.pid,
+      server.origin === 'registered' ? server.port : undefined);
   }
 
   private async terminateProcess(process: RuntimeProcess | undefined, rootPid?: number, port?: number): Promise<void> {
-    process?.signal('SIGTERM');
     const roots = rootPid ? [rootPid] : [];
     const descendants = (await Promise.all(roots.map((pid) => this.processAdapter.descendantPids(pid)))).flat();
     const listeners = port ? await this.processAdapter.listenerPids(port) : [];
     const pids = uniqueNumbers([...roots, ...descendants, ...listeners]);
+    // Snapshot children before signaling their parent; they can be reparented on exit.
+    process?.signal('SIGTERM');
     if (pids.length > 0) await this.processAdapter.killPids('TERM', pids);
     await sleep(this.terminateGraceMs);
     const remainingDescendants = (await Promise.all(roots.map((pid) => this.processAdapter.descendantPids(pid)))).flat();
     const remainingListeners = port ? await this.processAdapter.listenerPids(port) : [];
-    const remainingPids = uniqueNumbers([...roots, ...remainingDescendants, ...remainingListeners]);
+    const remainingPids = uniqueNumbers([...pids, ...remainingDescendants, ...remainingListeners]);
     if (remainingPids.length > 0) await this.processAdapter.killPids('KILL', remainingPids);
   }
 
