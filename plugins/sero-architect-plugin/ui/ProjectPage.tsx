@@ -5,7 +5,7 @@ import type { AutonomySetting, ProjectRecord } from '../shared/record';
 import type { ActionOutcome, ArchitectActions, SessionHistoryEntry } from './lib/actions';
 import { openDispatch } from './lib/page-helpers';
 import { CapInput } from './components/CapInput';
-import { Directives } from './components/Directives';
+import { DirectiveComposer, Directives } from './components/Directives';
 import { LimitBanner } from './components/LimitBanner';
 import { MilestoneRail } from './components/MilestoneRail';
 import { NeedsYou } from './components/NeedsYou';
@@ -133,11 +133,17 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, conf
                   <div className="ar-card"><p className="ar-idea">{record.idea}</p></div>
                 </section>
               )}
-              <Directives record={record} onSend={(text) => actions.directive(id, text)} />
+              <Directives record={record} />
             </div>
             <SideColumn record={record} disclosures={disclosures} />
           </div>
         </div>
+      </div>
+      <div className="ar-dock">
+        <DirectiveComposer
+          disabled={record.phase === 'intake'}
+          onSend={(text) => actions.directive(id, text)}
+        />
       </div>
       <SessionHistoryDialog
         open={historyOpen}

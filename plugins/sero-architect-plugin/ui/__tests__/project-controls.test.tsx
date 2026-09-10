@@ -136,6 +136,17 @@ describe('a refused control', () => {
 });
 
 describe('project history access', () => {
+  it('keeps the directive composer outside the scrolling project content', () => {
+    renderPage(stubActions());
+    const scroll = container.querySelector('.ar-scroll');
+    const composer = container.querySelector('.ar-composer');
+    expect(scroll).not.toBeNull();
+    expect(composer).not.toBeNull();
+    expect(scroll?.contains(composer)).toBe(false);
+    expect(scroll?.querySelector('[data-testid="history"]')).not.toBeNull();
+    expect(scroll?.querySelector('[data-testid="older-directives"]')).not.toBeNull();
+  });
+
   it('keeps history disclosures in the narrow layout', () => {
     renderPage(stubActions());
     expect(container.querySelector('[data-testid="history"]')).not.toBeNull();

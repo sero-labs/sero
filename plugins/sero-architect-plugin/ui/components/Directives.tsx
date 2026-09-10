@@ -10,30 +10,16 @@ import { Quiet, SectionHead } from './Pill';
 
 export interface DirectivesProps {
   record: ProjectRecord;
+}
+
+export interface DirectiveComposerProps {
+  disabled: boolean;
   onSend(text: string): Promise<ActionOutcome>;
 }
 
-/** The latest directive and its reply, then the composer. Older ones live in the side column. */
-export function Directives({ record, onSend }: DirectivesProps) {
+/** The latest directive and its reply. Older ones live in the side column. */
+export function Directives({ record }: DirectivesProps) {
   const { latest } = directiveThread(record);
-  const [draft, setDraft] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const disabled = record.phase === 'intake' || busy;
-
-  const send = async () => {
-    const text = draft.trim();
-    if (!text || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const outcome = await onSend(text);
-      if (outcome.ok) setDraft('');
-      else setError(outcome.text);
-    } finally {
-      setBusy(false);
-    }
-  };
 
   return (
     <section aria-labelledby="ar-dir-h">
@@ -54,6 +40,32 @@ export function Directives({ record, onSend }: DirectivesProps) {
       ) : (
         <Quiet>No directive sent yet.</Quiet>
       )}
+    </section>
+  );
+}
+
+export function DirectiveComposer({ disabled: phaseDisabled, onSend }: DirectiveComposerProps) {
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const disabled = phaseDisabled || busy;
+
+  const send = async () => {
+    const text = draft.trim();
+    if (!text || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const outcome = await onSend(text);
+      if (outcome.ok) setDraft('');
+      else setError(outcome.text);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div>
       <form
         className="ar-composer"
         onSubmit={(event) => {
@@ -75,6 +87,6 @@ export function Directives({ record, onSend }: DirectivesProps) {
         <Button type="submit" size="sm" className="ar-btn ar-btn-primary" disabled={disabled || !draft.trim()}><Send className="ar-i" />Send</Button>
       </form>
       {error && <p className="ar-error">{error}</p>}
-    </section>
+    </div>
   );
 }
