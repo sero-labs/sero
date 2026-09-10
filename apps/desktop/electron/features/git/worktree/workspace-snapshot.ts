@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { WORKSPACE_COMMON_IGNORES } from '@sero-ai/common';
 import { execWorktreeGit } from './exec';
 
 /** Keep one immutable base per Room, including across restarts and roster changes. */
@@ -16,10 +17,12 @@ export async function getWorkspaceSnapshotBase(workspacePath: string, key: strin
   const directory = await mkdtemp(path.join(tmpdir(), 'sero-worktree-base-'));
   const snapshotOptions = { ...options, env: { GIT_INDEX_FILE: path.join(directory, 'index') } };
   try {
+    const excludesFile = path.join(directory, 'excludes');
+    await writeFile(excludesFile, `${WORKSPACE_COMMON_IGNORES.join('\n')}\n`, 'utf8');
     const head = await execWorktreeGit(['rev-parse', '--verify', 'HEAD'], options)
       .then((result) => result.stdout.trim(), () => null);
     await execWorktreeGit(head ? ['read-tree', head] : ['read-tree', '--empty'], snapshotOptions);
-    await execWorktreeGit(['add', '-A'], snapshotOptions);
+    await execWorktreeGit(['-c', `core.excludesFile=${excludesFile}`, 'add', '-A'], snapshotOptions);
     await execWorktreeGit(['rm', '-r', '--cached', '--ignore-unmatch', '--', '.sero'], snapshotOptions);
     const tree = (await execWorktreeGit(['write-tree'], snapshotOptions)).stdout.trim();
     const commit = (await execWorktreeGit([

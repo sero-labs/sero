@@ -257,6 +257,22 @@ describe('dispatch watch', () => {
     expect(record?.history.at(-1)?.cause).toContain('release delivered at https://github.com/x/y/pull/7');
   });
 
+  it('uses the receipt from the latest Workflow run', async () => {
+    const release = milestone('m1', {
+      status: 'verifying',
+      verification: 'verified',
+      dispatch: { kind: 'workflow', id: 'loop_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: 'pr' },
+    });
+    const { host, store, settle } = await setup(buildingProject({ phase: 'release', milestones: [release] }));
+    host.emitState(loopRunsIndexFile('/home/dan/projects/hollow', 'loop_1'), { runs: [
+      { id: 'run_old', status: 'completed', startedAt: '2026-09-08T08:00:00.000Z', delivery: { destination: 'pr', ref: 'https://github.com/x/y/pull/6', summary: 'old', deliveredAt: T0 } },
+      { id: 'run_new', status: 'completed', startedAt: '2026-09-09T08:00:00.000Z', delivery: { destination: 'pr', ref: 'https://github.com/x/y/pull/7', summary: 'new', deliveredAt: T0 } },
+    ] });
+    await settle();
+
+    expect((await store.read('proj_1'))?.milestones[0]?.receipt).toBe('https://github.com/x/y/pull/7');
+  });
+
   it('wakes the owner with an external event when the maintenance Workflow runs again', async () => {
     const maintenance = milestone('maintenance', { status: 'running', dispatch: { kind: 'workflow', id: 'loop_m', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null } });
     const { host, store, wakes, settle } = await setup(buildingProject({ phase: 'maintain', milestones: [maintenance] }));

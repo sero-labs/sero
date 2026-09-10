@@ -148,12 +148,13 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
     const items: string[] = [];
     await store.update(projectId, (record) => {
       const milestone = record.milestones.find((m) => m.dispatch?.kind === 'workflow' && m.dispatch.id === loopId);
+      const latestRuns = runs.toSorted((a, b) => (b.startedAt ?? '').localeCompare(a.startedAt ?? ''));
       // Workspace-file dispatches run in this project's root. Orchestrator
       // deliberately requires no external receipt for that destination; the
       // completed run supplies the location, while acceptance remains separate.
       const localRun = milestone?.dispatch?.destination === 'workspace-files'
-        ? runs.find((run) => run.status === 'completed') : undefined;
-      const receipt = runs.map((run) => run.delivery).find((delivery) => delivery !== undefined)
+        ? latestRuns.find((run) => run.status === 'completed') : undefined;
+      const receipt = latestRuns.find((run) => run.delivery)?.delivery
         ?? (localRun ? { ref: record.folder } : undefined);
       if (!milestone || !receipt || milestone.receipt === receipt.ref) return null;
       const updated: Milestone = { ...milestone, receipt: receipt.ref };

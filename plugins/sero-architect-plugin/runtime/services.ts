@@ -381,47 +381,51 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       if (remaining === 0) throw new Error('Maintenance cannot start with no budget remaining.');
       const workspace = workflowWorkspace(record);
       await store.update(record.id, (fresh) => ({ ...fresh, preparingMaintenance: true, stateLine: 'Preparing the maintenance Workflow.' }));
-      const result = await requestOrchestratorAction(record.workspaceId, {
-        kind: 'create',
-        prompt: maintenancePrompt(record),
-        title: `${record.name}: maintenance`,
-        options: { requestId: `${record.id}:maintenance`, activate: false, delivery: { destination: 'workspace-files' }, workspace, disableTokenLimit: true, limits: remaining === undefined ? {} : { maxCostUsd: remaining }, triggers: [...MAINTENANCE_TRIGGERS] },
-      }).catch((error: unknown) => ({ ok: false as const, error: String(error), loopId: undefined }));
-      if (!result.ok || !result.loopId) {
-        await store.update(record.id, (fresh) => ({ ...fresh, preparingMaintenance: false, stateLine: result.error ?? 'The maintenance Workflow was not created.' }));
-        throw new Error(result.error ?? 'The maintenance Workflow was not created.');
-      }
-      const now = host.now();
-      const milestone: Milestone = {
-        id: MAINTENANCE_MILESTONE_ID,
-        title: 'Maintenance: triage issues, CI failures and the weekly review',
-        status: 'running',
-        plan: 'A Workflow subscribed to GitHub issues, CI failures and a weekly schedule. Each run wakes the owner to triage.',
-        preview: null,
-        dispatch: { kind: 'workflow', id: result.loopId, workspaceId: record.workspaceId, dispatchedAt: now, chargedUsd: 0, destination: null },
-        evidence: null,
-        verification: null,
-        parkedBy: null,
-        parkedFrom: null,
-        receipt: null,
-      };
-      const next = await store.update(record.id, (fresh) => {
-        if (fresh.milestones.some((m) => m.id === MAINTENANCE_MILESTONE_ID)) return null;
-        const settled = settle({ ...fresh, preparingMaintenance: false, stateLine: 'Maintenance Workflow is ready.', milestones: [...fresh.milestones, milestone] }, now);
-        return { ...settled, history: [...settled.history, { at: now, phase: settled.phase, overlay: settled.overlay, cause: `maintenance Workflow ${result.loopId} subscribed` }] };
-      });
-      // Activation can await the first run. Save the link and release the
-      // owner now so directives are not held behind a maintenance execution.
-      void requestOrchestratorAction(record.workspaceId, { kind: 'activate', loopId: result.loopId })
-        .then((started) => { if (!started.ok) throw new Error(started.error ?? 'Maintenance could not start.'); })
-        .catch(async (error: unknown) => {
-          const reason = `Maintenance activation failed: ${String(error)}`;
-          await store.update(record.id, (fresh) => {
-            const held = block(fresh, host.now(), reason);
-            return held.ok ? { ...held.record, stateLine: reason } : fresh;
-          });
+      try {
+        const result = await requestOrchestratorAction(record.workspaceId, {
+          kind: 'create',
+          prompt: maintenancePrompt(record),
+          title: `${record.name}: maintenance`,
+          options: { requestId: `${record.id}:maintenance`, activate: false, delivery: { destination: 'workspace-files' }, workspace, disableTokenLimit: true, limits: remaining === undefined ? {} : { maxCostUsd: remaining }, triggers: [...MAINTENANCE_TRIGGERS] },
+        }).catch((error: unknown) => ({ ok: false as const, error: String(error), loopId: undefined }));
+        if (!result.ok || !result.loopId) {
+          await store.update(record.id, (fresh) => ({ ...fresh, stateLine: result.error ?? 'The maintenance Workflow was not created.' }));
+          throw new Error(result.error ?? 'The maintenance Workflow was not created.');
+        }
+        const now = host.now();
+        const milestone: Milestone = {
+          id: MAINTENANCE_MILESTONE_ID,
+          title: 'Maintenance: triage issues, CI failures and the weekly review',
+          status: 'running',
+          plan: 'A Workflow subscribed to GitHub issues, CI failures and a weekly schedule. Each run wakes the owner to triage.',
+          preview: null,
+          dispatch: { kind: 'workflow', id: result.loopId, workspaceId: record.workspaceId, dispatchedAt: now, chargedUsd: 0, destination: null },
+          evidence: null,
+          verification: null,
+          parkedBy: null,
+          parkedFrom: null,
+          receipt: null,
+        };
+        const next = await store.update(record.id, (fresh) => {
+          if (fresh.milestones.some((m) => m.id === MAINTENANCE_MILESTONE_ID)) return null;
+          const settled = settle({ ...fresh, stateLine: 'Maintenance Workflow is ready.', milestones: [...fresh.milestones, milestone] }, now);
+          return { ...settled, history: [...settled.history, { at: now, phase: settled.phase, overlay: settled.overlay, cause: `maintenance Workflow ${result.loopId} subscribed` }] };
         });
-      return next ?? record;
+        // Activation can await the first run. Save the link and release the
+        // owner now so directives are not held behind a maintenance execution.
+        void requestOrchestratorAction(record.workspaceId, { kind: 'activate', loopId: result.loopId })
+          .then((started) => { if (!started.ok) throw new Error(started.error ?? 'Maintenance could not start.'); })
+          .catch(async (error: unknown) => {
+            const reason = `Maintenance activation failed: ${String(error)}`;
+            await store.update(record.id, (fresh) => {
+              const held = block(fresh, host.now(), reason);
+              return held.ok ? { ...held.record, stateLine: reason } : fresh;
+            });
+          });
+        return next ?? record;
+      } finally {
+        await store.update(record.id, (fresh) => fresh.preparingMaintenance ? { ...fresh, preparingMaintenance: false } : null);
+      }
     },
 
     recoverPending(record) {

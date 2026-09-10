@@ -58,4 +58,10 @@ describe('project model accounting', () => {
     const pending = setAccountingIncomplete(legacy, 'owner:one', true);
     expect(setAccountingIncomplete(pending, 'owner:one', false).budget).toMatchObject({ incomplete: true, incompleteSources: ['historical'] });
   });
+
+  it('preserves record identity when the accounting marker is unchanged', () => {
+    const record = buildingProject();
+    const pending = { ...record, budget: { ...record.budget, incomplete: true, incompleteSources: ['workflow:one'] } };
+    expect(setAccountingIncomplete(pending, 'workflow:one', true)).toBe(pending);
+  });
 });

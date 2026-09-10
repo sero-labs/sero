@@ -5,5 +5,10 @@ export function setAccountingIncomplete(record: ProjectRecord, source: string, i
   const sources = new Set(record.budget.incompleteSources ?? (record.budget.incomplete === false ? [] : ['historical']));
   if (incomplete) sources.add(source);
   else sources.delete(source);
-  return { ...record, budget: { ...record.budget, incomplete: sources.size > 0, incompleteSources: [...sources] } };
+  const incompleteSources = [...sources];
+  const unchanged = record.budget.incomplete === (incompleteSources.length > 0)
+    && record.budget.incompleteSources?.length === incompleteSources.length
+    && record.budget.incompleteSources.every((entry, index) => entry === incompleteSources[index]);
+  if (unchanged) return record;
+  return { ...record, budget: { ...record.budget, incomplete: incompleteSources.length > 0, incompleteSources } };
 }

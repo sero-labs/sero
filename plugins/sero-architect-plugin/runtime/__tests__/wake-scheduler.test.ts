@@ -61,4 +61,27 @@ describe('wake scheduler', () => {
     await scheduler.idle('p');
     expect(delivered).toEqual(['directive']);
   });
+
+  it('delivers a wake requested while the previous drain is settling', async () => {
+    const delivered: string[] = [];
+    const gate = createWakeGate();
+    gate.release();
+    let scheduler: ReturnType<typeof createWakeScheduler>;
+    scheduler = createWakeScheduler({
+      gate,
+      log: () => undefined,
+      deliver: async (_id, event) => {
+        delivered.push(event.kind);
+        if (event.kind === 'directive') {
+          queueMicrotask(() => queueMicrotask(() => scheduler.request('p', wake('quiet', 'settled'))));
+        }
+      },
+    });
+
+    scheduler.request('p', wake('directive', 'first'));
+    await scheduler.idle('p');
+
+    expect(delivered).toEqual(['directive', 'quiet']);
+    expect(scheduler.pending('p')).toEqual([]);
+  });
 });

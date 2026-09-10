@@ -116,6 +116,25 @@ describe('runtime services', () => {
     } finally { delete (globalThis as Record<string, unknown>)[ORCHESTRATOR_REGISTRY_GLOBAL_KEY]; }
   });
 
+  it('clears maintenance preparation when saving the Workflow link fails', async () => {
+    const { services, store } = await setup(buildingProject({ phase: 'maintain' }));
+    const coordinator = fakeCoordinator();
+    const update = store.update.bind(store);
+    let calls = 0;
+    store.update = async (projectId, mutate) => {
+      calls += 1;
+      if (calls === 2) throw new Error('record write failed');
+      return update(projectId, mutate);
+    };
+    try {
+      await expect(services.maintenance((await store.read('proj_1'))!)).rejects.toThrow('record write failed');
+      expect((await store.read('proj_1'))?.preparingMaintenance).toBe(false);
+      expect(coordinator.actions.map((action) => action.kind)).toEqual(['create']);
+    } finally {
+      coordinator.uninstall();
+    }
+  });
+
   it.each([0, 1])('rechecks an accepted milestone without trusting its old evidence (exit=%s)', async (exitCode) => {
     const accepted = milestone('m1', { status: 'done', verification: 'accepted' });
     const project = buildingProject({ milestones: [accepted] });

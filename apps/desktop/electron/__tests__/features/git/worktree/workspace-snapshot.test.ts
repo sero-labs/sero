@@ -59,10 +59,13 @@ it('does not commit or unstage the project when a Room starts before its first c
   await exec('git', ['add', 'cli.py'], { cwd: root });
   const index = await readFile(path.join(root, '.git/index'));
   await writeFile(path.join(root, 'cli.py'), 'current implementation');
+  await mkdir(path.join(root, 'node_modules'));
+  await writeFile(path.join(root, 'node_modules', 'dependency.js'), 'generated dependency');
   await mkdir(path.join(root, '.sero'));
   await writeFile(path.join(root, '.sero', 'runtime.json'), '{}');
   const member = await new WorktreeManager().create(root, 'first-member', 'Review CLI', { workspaceSnapshotKey: 'new-room' });
   expect(await readFile(path.join(member.worktreePath, 'cli.py'), 'utf8')).toBe('current implementation');
+  await expect(readFile(path.join(member.worktreePath, 'node_modules', 'dependency.js'))).rejects.toMatchObject({ code: 'ENOENT' });
   await expect(readFile(path.join(member.worktreePath, '.sero', 'runtime.json'))).rejects.toMatchObject({ code: 'ENOENT' });
   await expect(exec('git', ['rev-parse', '--verify', 'HEAD'], { cwd: root })).rejects.toMatchObject({ code: 128 });
   expect(await readFile(path.join(root, '.git/index'))).toEqual(index);

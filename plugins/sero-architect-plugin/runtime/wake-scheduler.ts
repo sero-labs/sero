@@ -56,16 +56,26 @@ export function createWakeScheduler(deps: WakeSchedulerDeps): WakeScheduler {
     }
   };
 
+  const start = (projectId: string, state: ProjectQueue): void => {
+    if (state.running) return;
+    state.running = drain(projectId).finally(() => {
+      state.running = null;
+      if (state.queue.length > 0) start(projectId, state);
+    });
+  };
+
   return {
     request(projectId, wake) {
       const state = entry(projectId);
       state.queue = enqueueWake(state.queue, wake);
-      if (state.running) return;
-      state.running = drain(projectId).finally(() => { state.running = null; });
+      start(projectId, state);
     },
     isRunning: (projectId) => entry(projectId).running !== null,
     pending: (projectId) => [...entry(projectId).queue],
-    idle: async (projectId) => { await entry(projectId).running; },
+    idle: async (projectId) => {
+      const state = entry(projectId);
+      while (state.running) await state.running;
+    },
     forget: (projectId) => { entry(projectId).queue = []; },
   };
 }
