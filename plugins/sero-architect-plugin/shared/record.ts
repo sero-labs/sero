@@ -64,6 +64,7 @@ export interface MilestoneDispatch {
 }
 
 export interface PendingMilestoneDispatch {
+  planningChargedUsd?: number;
   /** Absent on records written before recoverable dispatch creation. */
   request?: { id: string; prompt: string; maxCostUsd: number | null };
   kind: 'workflow' | 'room';
@@ -139,6 +140,7 @@ export interface PendingResearch {
 }
 
 export interface PendingEvidence {
+  chargedUsd?: number;
   milestoneId: string;
   commands: string[];
   route: string | null;
@@ -167,6 +169,8 @@ export interface Charter {
 }
 
 export interface Budget {
+  incomplete?: boolean;
+  incompleteSources?: string[];
   capUsd: number | null;
   spentUsd: number;
   /** Where the spend came from, so a raise can be reasoned about. */
@@ -269,7 +273,7 @@ export function createProjectRecord(input: NewProjectInput): ProjectRecord {
     brief: null,
     charter: null,
     autonomy: 'milestones',
-    budget: { capUsd: null, spentUsd: 0, sources: { owner: 0, research: 0, dispatched: 0 } },
+    budget: { capUsd: null, spentUsd: 0, incomplete: false, sources: { owner: 0, research: 0, dispatched: 0 } },
     milestones: [],
     decisions: [],
     directives: [],
@@ -321,6 +325,7 @@ export function toIndexEntry(record: ProjectRecord): import('./types').Architect
     overlay: record.overlay,
     stateLine: record.stateLine,
     spentUsd: record.budget.spentUsd,
+    usageIncomplete: record.budget.incomplete !== false,
     capUsd: record.budget.capUsd,
     needsYou: needsYouCount(record),
     updatedAt: record.updatedAt,

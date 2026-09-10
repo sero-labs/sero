@@ -10,14 +10,15 @@ import path from 'node:path';
 import { executionMode, projectWriter, roomWorkspace, workflowWorkspace } from './execution-location';
 import { setTimeout as delay } from 'node:timers/promises';
 
-import { createOrchestratorRoom, getOrchestratorRegistry, requestOrchestratorAction, type AppRuntimeSubagentResult } from '@sero-ai/common';
+import { createOrchestratorRoom, getOrchestratorRegistry, requestOrchestratorAction } from '@sero-ai/common';
 
 import { recoverDispatch } from './dispatch-link';
+import { chargeRoomPlanning, runProjectModel } from './project-usage';
 import { roomModelLimits } from './model-selection';
 import { startResearchRoom } from './research-room';
 import { startResearchWorkflow } from './research-workflow';
 
-import { block, charge, settle } from '../shared/lifecycle';
+import { block, settle } from '../shared/lifecycle';
 import type { EvidenceCommand, EvidenceRecord, Milestone, PendingResearch, ProjectRecord, ResearchResult } from '../shared/record';
 import { MAINTENANCE_MILESTONE_ID, MAINTENANCE_TRIGGERS, maintenancePrompt } from '../shared/maintenance';
 import type { WakeEvent } from '../shared/wake';
@@ -137,7 +138,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     if (smokePassed) {
       const evidenceDir = path.join(record.folder, '.sero', 'apps', 'architect', 'evidence', milestone.id);
       const target = path.join(evidenceDir, `${await commitOf(host, record.folder)}.png`);
-      const capture = await host.runStructured({
+      const capture = await runProjectModel(deps, record, { kind: 'capture', id: milestone.id }, {
         systemPrompt: 'Verify and capture the requested local project preview. Use the supplied URL and save path. Do not edit project files or perform unrelated actions. A saved image alone is not success: inspect it and reject error pages, blank pages, editor errors, or the wrong app.',
         model: record.session.model ?? undefined,
         thinking: record.session.thinking ?? undefined,
@@ -153,8 +154,6 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         timeoutMs: 3 * 60_000,
         platformTools: 'all',
       });
-      const captureCost = capture.usage?.costUsd ?? 0;
-      if (captureCost > 0) await store.update(record.id, (fresh) => charge(fresh, 'dispatched', captureCost, host.now()));
       if (capture.error) throw new Error(`Preview capture failed: ${capture.error}`);
       if (!captureConfirmed(capture.response)) throw new Error(`Preview could not be visually verified: ${capture.response.slice(-1500)}`);
       const info = await host.fileInfo(target);
@@ -287,7 +286,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         });
         return;
       }
-      const result = await host.runStructured({
+      const result = await runProjectModel(deps, record, { kind: 'research', id: pending.id }, {
         systemPrompt: 'Research the supplied project question using read-only tools. Verify facts, cite sources, and stop at the stated stopping condition. Do not modify files or perform external actions.',
         model: record.session.model ?? undefined,
         thinking: record.session.thinking ?? undefined,
@@ -297,20 +296,20 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         cwd: record.folder,
         timeoutMs: 15 * 60_000,
         platformTools: 'readOnly',
-      }).catch((error: unknown): AppRuntimeSubagentResult => ({ response: '', error: error instanceof Error ? error.message : String(error) }));
+      });
       const entry: ResearchResult = {
         id: pending.id,
         question: pending.question,
         stoppingCondition: pending.stoppingCondition,
         result: result.error ? `Research failed: ${result.error}` : result.response,
-        costUsd: result.usage?.costUsd ?? 0,
+        costUsd: result.recordedCostUsd,
         completedAt: host.now(),
       };
-      const written = await store.update(record.id, (fresh) => charge({
+      const written = await store.update(record.id, (fresh) => ({
         ...fresh,
         research: [...fresh.research, entry],
         pendingResearch: (fresh.pendingResearch ?? []).filter((item) => item.id !== pending.id),
-      }, 'research', entry.costUsd, host.now()));
+      }));
       if (!written) return;
       deps.wake(record.id,{ kind: 'quiet', at: host.now(), items: [`research ${pending.id} finished (started ${pending.startedAt}): ${pending.question}`] });
     })();
@@ -361,12 +360,15 @@ export function createServices(deps: ServicesDeps): OwnerServices {
           if (!activated.ok) throw new Error(activated.error ?? 'The Workflow could not start.');
         } };
       }
+      await chargeRoomPlanning(deps, record.id, { kind: 'dispatch', id: milestone.id });
       const result = await createOrchestratorRoom(record.workspaceId, {
+        requestId: milestone.pendingDispatch?.request?.id,
         mandate: request.prompt,
         limits: { ...limits, ...await roomModelLimits(host), ...roomWorkspace(record), access: 'edit-workspace', deliveryDestination: request.destination ?? 'workspace-files' },
       });
+      const chargedUsd = await chargeRoomPlanning(deps, record.id, { kind: 'dispatch', id: milestone.id }, result.usage);
       if (!result.ok) throw new Error(result.error);
-      return { id: result.roomId, workspaceId: record.workspaceId, baseCommit };
+      return { id: result.roomId, workspaceId: record.workspaceId, baseCommit, chargedUsd };
     },
 
     async maintenance(record) {

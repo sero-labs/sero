@@ -124,6 +124,7 @@ export interface OrchestratorUsageView {
   totalTokens?: number;
   costUsd?: number;
   durationMs?: number;
+  incomplete?: boolean;
 }
 
 /** An open PR a loop has raised (compact chip data). */
@@ -200,6 +201,7 @@ export type OrchestratorRoomStatus =
  * Everything else is a reason to open the Room.
  */
 export interface OrchestratorBoardRoomView {
+  usageIncomplete?: boolean;
   id: string;
   title: string;
   status: OrchestratorRoomStatus;
@@ -418,8 +420,8 @@ export interface OrchestratorRoomCreateRequest {
 }
 
 export type OrchestratorRoomCreateResult =
-  | { ok: true; roomId: string }
-  | { ok: false; error: string };
+  | { ok: true; roomId: string; usage?: OrchestratorUsageView }
+  | { ok: false; error: string; usage?: OrchestratorUsageView };
 
 /** The narrow Room surface a plugin runtime may call. */
 export interface OrchestratorRoomHandle {

@@ -107,6 +107,7 @@ export interface ModelRunParams {
 }
 
 export interface ModelRunUsage {
+  incomplete?: boolean;
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
@@ -199,7 +200,7 @@ export interface OrchestratorHost {
   /**
    * Lists the models available on this machine, grouped by provider. Used to
    * resolve a step's chosen model before a run and to detect a pinned model that
-   * is no longer installed (falls back to the MED tier with a warning).
+   * is no longer installed so the executor can stop before starting a worker.
    */
   listAvailableModels(): Promise<SharedAvailableModelGroup[]>;
   /**

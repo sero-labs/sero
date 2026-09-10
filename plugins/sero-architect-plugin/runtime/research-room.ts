@@ -1,3 +1,5 @@
+import { setAccountingIncomplete } from '../shared/accounting';
+import { chargeRoomPlanning } from './project-usage';
 import path from 'node:path';
 import { roomWorkspace } from './execution-location';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -34,14 +36,16 @@ export async function startResearchRoom(deps: ResearchRoomDeps, record: ProjectR
       const remaining = record.budget.capUsd === null ? 5 : record.budget.capUsd - record.budget.spentUsd;
       if (remaining <= 0) throw new Error('There is no project budget left for research.');
       await deps.store.update(record.id, (fresh) => ({ ...fresh, pendingResearch: fresh.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, attempts: (entry.attempts ?? 0) + 1 } : entry) }));
+      await chargeRoomPlanning(deps, record.id, { kind: 'research', id: pending.id });
       const result = await createOrchestratorRoom(record.workspaceId, {
         requestId: `${record.id}:${pending.id}`,
         mandate: `Collaborate on the requested project task.\nUser idea: ${record.idea}\nQuestion: ${pending.question}\nStop when: ${pending.stoppingCondition}\nWork together to investigate the question, challenge assumptions and produce concrete findings with evidence and unresolved user decisions. Do not implement the product.`,
         limits: { ...await roomModelLimits(deps.host), ...roomWorkspace(record), maxCostUsd: Math.min(5, remaining), maxWallClockMs: 15 * 60_000, maxMembers: 3, access: 'read-only', deliveryDestination: 'workspace-files' },
       });
+      await chargeRoomPlanning(deps, record.id, { kind: 'research', id: pending.id }, result.usage);
       if (!result.ok) throw new Error(result.error);
       await deps.store.update(record.id, (fresh) => settle({ ...fresh,
-        pendingResearch: fresh.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, roomId: result.roomId, chargedUsd: 0 } : entry),
+        pendingResearch: fresh.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, roomId: result.roomId, chargedUsd: entry.chargedUsd ?? 0 } : entry),
         stateLine: 'A Room is working on the project question.',
       }, deps.host.now()));
     }
@@ -71,7 +75,7 @@ export async function observeResearchRooms(deps: ResearchRoomDeps, projectId: st
       const current = fresh.pendingResearch?.find((entry) => entry.id === pending.id);
       if (!current) return null;
       const delta = Math.max(0, room.costUsd - (current.chargedUsd ?? 0));
-      let next = charge(fresh, 'research', delta, deps.host.now());
+      let next = charge(setAccountingIncomplete(fresh, `room:${room.id}`, room.usageIncomplete !== false), 'research', delta, deps.host.now());
       if (next.blockedReason?.startsWith(`Research Room ${room.id} is `) && ['ready', 'running', 'completed'].includes(room.status)) {
         const resumed = unblock(next, deps.host.now(), `Research Room ${room.id} resumed`);
         if (resumed.ok) next = { ...resumed.record, stateLine: 'The research Room is working.' };
@@ -80,10 +84,10 @@ export async function observeResearchRooms(deps: ResearchRoomDeps, projectId: st
         completed = true;
         return settle({ ...next, stateLine: 'Room findings are ready for the Architect.',
           pendingResearch: next.pendingResearch?.filter((entry) => entry.id !== pending.id),
-          research: [...next.research, { id: pending.id, roomId: room.id, models: inspection.models, question: pending.question, stoppingCondition: pending.stoppingCondition, result: inspection.result, costUsd: room.costUsd, completedAt: deps.host.now() }],
+          research: [...next.research, { id: pending.id, roomId: room.id, models: inspection.models, question: pending.question, stoppingCondition: pending.stoppingCondition, result: inspection.result, costUsd: Math.max(room.costUsd, current.chargedUsd ?? 0), completedAt: deps.host.now() }],
         }, deps.host.now());
       }
-      next = { ...next, pendingResearch: next.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, chargedUsd: room.costUsd, models: inspection?.models ?? entry.models } : entry) };
+      next = { ...next, pendingResearch: next.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, chargedUsd: Math.max(room.costUsd, current.chargedUsd ?? 0), models: inspection?.models ?? entry.models } : entry) };
       if (['failed', 'cancelled', 'paused'].includes(room.status) || (room.status === 'completed' && inspection && !inspection.result?.trim())) {
         const reason = room.status === 'completed' ? `Research Room ${room.id} finished without saved findings. Open the Room to review its result.` : `Research Room ${room.id} is ${room.status}. Open the Room to review its next action.`;
         const held = block(next, deps.host.now(), reason);

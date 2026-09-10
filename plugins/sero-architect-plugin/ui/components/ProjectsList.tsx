@@ -23,6 +23,7 @@ function ProjectRow({ entry, onOpen }: { entry: ArchitectIndexEntry; onOpen(id: 
       </span>
       <span className="ar-prow-spend">
         <b>{spendLabel(entry.spentUsd, entry.capUsd)}</b>
+        {entry.usageIncomplete !== false && <span>Cost incomplete</span>}
         <span className="ar-track" data-tone={tone}><i style={{ width: `${spendRatio(entry.spentUsd, entry.capUsd) * 100}%` }} /></span>
       </span>
       <span className="ar-prow-needs">

@@ -1,3 +1,5 @@
+import { reportedUsage } from '../../shared/usage';
+import type { UsageSummary } from '../../shared/usage-types';
 /**
  * Turn bookkeeping for a member session: watching one turn to completion, and
  * writing what it cost back onto the Room (spec §16, §21, §30).
@@ -137,9 +139,10 @@ export function markMemberWorking(
  * session being closed and reopened.
  */
 function applyUsage(current: MemberUsage, session: PersistentSessionUsage | null, turns = current.turns): MemberUsage {
-  if (!session) return { ...current, turns };
+  if (!session) return { ...current, turns, incomplete: true };
   return {
     ...current,
+    incomplete: !!session.incomplete,
     costUsd: Math.max(current.costUsd, session.costUsd),
     inputTokens: Math.max(current.inputTokens, session.inputTokens),
     outputTokens: Math.max(current.outputTokens, session.outputTokens),
@@ -190,14 +193,15 @@ function applyTurn(
 }
 
 /** The Room total is the sum of its members. Roster counters are not usage. */
-function aggregateRoomUsage(current: RoomUsage, members: RoomMember[]): RoomUsage {
+function aggregateRoomUsage(current: RoomUsage, members: RoomMember[], planningUsage?: UsageSummary): RoomUsage {
   const total = (pick: (usage: MemberUsage) => number): number =>
     members.reduce((sum, member) => sum + pick(member.usage), 0);
   return {
     ...current,
-    costUsd: total((usage) => usage.costUsd),
-    inputTokens: total((usage) => usage.inputTokens),
-    outputTokens: total((usage) => usage.outputTokens),
+    incomplete: !!reportedUsage(planningUsage)?.incomplete || members.some((member) => member.usage.incomplete),
+    costUsd: total((usage) => usage.costUsd) + (planningUsage?.costUsd ?? 0),
+    inputTokens: total((usage) => usage.inputTokens) + (planningUsage?.inputTokens ?? 0),
+    outputTokens: total((usage) => usage.outputTokens) + (planningUsage?.outputTokens ?? 0),
     turns: total((usage) => usage.turns),
   };
 }
@@ -212,12 +216,11 @@ export function watchMemberUsage(
     if (!['tool_start', 'tool_end', 'turn_end'].includes(event.type)) return;
     pending = pending.then(async () => {
       const session = await readSessionUsage(api, handleId);
-      if (!session) return;
       await store.updateRoom(roomId, (record) => {
         const members = record.members.map((member) => member.id === memberId
           ? { ...member, usage: applyUsage(member.usage, session) } : member);
         return { ...record, members, runtime: {
-          ...record.runtime, usage: aggregateRoomUsage(record.runtime.usage, members),
+            ...record.runtime, usage: aggregateRoomUsage(record.runtime.usage, members, record.runtime.planningUsage),
         } };
       });
     }).catch((error: unknown) => log(`Room usage could not be saved: ${String(error)}`));
@@ -253,7 +256,7 @@ export async function recordMemberTurn(
       runtime: {
         ...record.runtime,
         activeMemberIds: record.runtime.activeMemberIds.filter((id) => id !== memberId),
-        usage: aggregateRoomUsage(record.runtime.usage, members),
+        usage: aggregateRoomUsage(record.runtime.usage, members, record.runtime.planningUsage),
       },
     };
   });

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 import { FIXTURES } from '../__preview__/fixture';
+import { StateLine } from '../components/StateLine';
 import { IntakeDialog } from '../components/IntakeDialog';
 import { ControlsMenu } from '../components/TopBar';
 import type { ActionOutcome, ArchitectActions } from '../lib/actions';
@@ -83,6 +84,17 @@ function renderPage(actions: ArchitectActions, onBack = vi.fn()) {
   ));
   return onBack;
 }
+
+it('labels legacy cost as incomplete without changing the shown spend', () => {
+  const base = FIXTURES.build!;
+  const record = { ...base, budget: { ...base.budget, spentUsd: 12.34, incomplete: undefined } };
+  act(() => root.render(<StateLine record={record} home={null} />));
+  expect(container.textContent).toContain('$12.34');
+  expect(container.textContent).toContain('cost incomplete');
+  act(() => root.render(<StateLine record={{ ...record, budget: { ...record.budget, incomplete: false } }} home={null} />));
+  expect(container.textContent).not.toContain('cost incomplete');
+  expect(container.textContent).toContain('$12.34');
+});
 
 describe('a refused control', () => {
   it('offers permission retry on an existing intake project and shows request errors', async () => {

@@ -3,6 +3,7 @@ import type { OrchestratorHost } from './host';
 import { buildDraftLoop } from './loop-factory';
 import { runPlanningFlow } from './planning-flow';
 import { validateDeliverySettings } from './schema';
+import { mergeConcurrentAccounting } from './run-engine-helpers';
 
 /** Persist before the planner runs; a repeated request resumes the same draft. */
 export function createLoopPlanner(host: OrchestratorHost, onPlanned: (loop: Loop) => void) {
@@ -29,8 +30,9 @@ export function createLoopPlanner(host: OrchestratorHost, onPlanned: (loop: Loop
     draft = { ...draft, creation };
     await host.updateState((state) => ({ ...state, loops: state.loops.map((loop) => loop.id === draft.id ? draft : loop) }));
     const planned = await runPlanningFlow(host, draft, { prompt, options, title });
-    const loop: Loop = { ...planned, creation: { ...creation, complete: true } };
-    await host.updateState((state) => ({ ...state, loops: state.loops.map((current) => current.id === loop.id ? loop : current) }));
+    let loop: Loop = { ...planned, creation: { ...creation, complete: true } };
+    await host.updateState((state) => ({ ...state, loops: state.loops.map((current) => current.id === loop.id ? mergeConcurrentAccounting(current, loop) : current) }));
+    loop = (await host.readState())?.loops.find((current) => current.id === loop.id) ?? loop;
     onPlanned(loop);
     return { ok: true, loop, loopId: loop.id };
   };

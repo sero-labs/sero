@@ -9,6 +9,9 @@ export interface UsageSummary {
   totalTokens?: number;
   costUsd?: number;
   durationMs?: number;
+  /** Cumulative call counters retain uncertainty across process interruption. */
+  startedCalls?: number;
+  finishedCalls?: number;
   /** True until final usage is available; retained for interrupted work. */
   incomplete?: boolean;
 }

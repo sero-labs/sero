@@ -211,7 +211,7 @@ describe('external receipt gate through the engine', () => {
     seedExternalLoop(host);
     await engine(host, { gate: GATE_DONE, 'step-1': completing() }).requestAction({ kind: 'run_next', loopId: 'loop-1' });
     const loop = host.state.loops[0];
-    expect(loop.status).toBe('active'); // not complete — nothing may ship unapproved
+    expect(loop.status).toBe('blocked'); // not complete — nothing may ship unapproved
     expect(loop.runtime.stepStates['step-1'].status).toBe('needs-revision');
     expect(loop.runtime.stepStates['step-1'].outcome?.summary).toContain('approval');
   });
@@ -236,7 +236,7 @@ describe('external receipt gate through the engine', () => {
     host.state = { ...host.state, loops: [loop] };
     const sansToken: StepOutcome = { status: 'succeeded', summary: 'sent', completion: { status: 'complete', reason: 'shipped', receipt: { ...WEBHOOK_RECEIPT, approvalId: undefined } } };
     await engine(host, { gate: GATE_DONE, 'step-1': sansToken }).requestAction({ kind: 'run_next', loopId: 'loop-1' });
-    expect(host.state.loops[0].status).toBe('active');
+    expect(host.state.loops[0].status).toBe('blocked');
     expect(host.state.loops[0].runtime.stepStates['step-1'].outcome?.summary).toContain('approvalId');
   });
 
@@ -247,7 +247,7 @@ describe('external receipt gate through the engine', () => {
     host.state = { ...host.state, loops: [loop] };
     const wrongToken: StepOutcome = { status: 'succeeded', summary: 'sent', completion: { status: 'complete', reason: 'shipped', receipt: { ...WEBHOOK_RECEIPT, approvalId: 'input_9999' } } };
     await engine(host, { gate: GATE_DONE, 'step-1': wrongToken }).requestAction({ kind: 'run_next', loopId: 'loop-1' });
-    expect(host.state.loops[0].status).toBe('active');
+    expect(host.state.loops[0].status).toBe('blocked');
     expect(host.state.loops[0].runtime.deliveries ?? []).toHaveLength(0);
   });
 
@@ -257,7 +257,7 @@ describe('external receipt gate through the engine', () => {
     loop.answeredInputs = [approvalAnswered({ stepId: 'step-1' })];
     host.state = { ...host.state, loops: [loop] };
     await engine(host, { gate: GATE_DONE, 'step-1': completing() }).requestAction({ kind: 'run_next', loopId: 'loop-1' });
-    expect(host.state.loops[0].status).toBe('active');
+    expect(host.state.loops[0].status).toBe('blocked');
     expect(host.state.loops[0].runtime.deliveries ?? []).toHaveLength(0);
   });
 
@@ -267,7 +267,7 @@ describe('external receipt gate through the engine', () => {
     loop.answeredInputs = [approvalAnswered({ answers: [{ questionId: 'q1', choiceId: 'reject' }] })];
     host.state = { ...host.state, loops: [loop] };
     await engine(host, { gate: GATE_DONE, 'step-1': completing() }).requestAction({ kind: 'run_next', loopId: 'loop-1' });
-    expect(host.state.loops[0].status).toBe('active');
+    expect(host.state.loops[0].status).toBe('blocked');
     expect(host.state.loops[0].runtime.deliveries ?? []).toHaveLength(0);
   });
 
@@ -277,7 +277,7 @@ describe('external receipt gate through the engine', () => {
     loop.answeredInputs = [approvalAnswered({ consumedAt: 'earlier' })];
     host.state = { ...host.state, loops: [loop] };
     await engine(host, { gate: GATE_DONE, 'step-1': completing() }).requestAction({ kind: 'run_next', loopId: 'loop-1' });
-    expect(host.state.loops[0].status).toBe('active');
+    expect(host.state.loops[0].status).toBe('blocked');
   });
 
   it('changing the delivery destination voids open approvals', async () => {

@@ -20,7 +20,7 @@ import type {
   RunIndex,
   UsageSummary,
 } from '../shared/types';
-import { aggregateUsage } from '../shared/usage';
+import { aggregateUsage, mergeUsage, reportedUsage } from '../shared/usage';
 import { isExhausted } from './scheduler';
 
 /** Step progress for the home overview, derived from the plan + step states. */
@@ -119,7 +119,7 @@ export function toRunSummary(run: LoopRun): RunIndex['runs'][number] {
       outcomeStatus: a.outcome?.status,
     })),
     recoveries: run.recoveryDecisions.map((d) => ({ decision: d.decision, reason: d.reason })),
-    usage: aggregateUsage(run.stepAttempts),
+    usage: reportedUsage(mergeUsage(aggregateUsage(run.stepAttempts), run.auxiliaryUsage)),
   };
 }
 
@@ -162,7 +162,11 @@ function toActiveStepTitles(loop: Loop): string[] | undefined {
 
 /** Lifetime usage roll-up: sums the per-run roll-ups across all runs. */
 function toLifetimeUsage(loop: Loop): UsageSummary | undefined {
-  return aggregateUsage(loop.runs.map((run) => ({ usage: aggregateUsage(run.stepAttempts) })));
+  return mergeUsage(
+    loop.planningUsage,
+    loop.auxiliaryUsage,
+    ...loop.runs.map((run) => mergeUsage(aggregateUsage(run.stepAttempts), run.auxiliaryUsage)),
+  );
 }
 
 /** Model of the most recent step attempt that reported one. */
@@ -198,7 +202,7 @@ export function toSummary(loop: Loop): LoopSummary {
     attention: toAttention(loop),
     schedules: toSchedules(loop),
     snoozedUntil: loop.runtime.snoozedUntil,
-    usage: toLifetimeUsage(loop),
+    usage: reportedUsage(toLifetimeUsage(loop)),
     activeStepTitles: toActiveStepTitles(loop),
     block: loop.runtime.block ? { reason: loop.runtime.block.reason, limit: loop.runtime.block.limit } : undefined,
     maxCostUsd: loop.limits.maxCostUsd,

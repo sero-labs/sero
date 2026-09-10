@@ -13,6 +13,7 @@ import { validateLoopPlan } from './schema';
 import { applyRecovery } from './recovery-apply';
 import { extractTriggers } from './trigger-extractor';
 import { reapplyExtractedTriggers } from './scheduler';
+import { loopUsageSink } from './usage-tracking';
 
 export interface RevisionOutcome {
   /** The applied, revised loop — caller persists it. */
@@ -28,13 +29,24 @@ export async function buildRevisedLoop(
   loop: Loop,
   prompt?: string,
 ): Promise<RevisionOutcome> {
-  const proposal = await proposeRevisedPlan(host, loop, prompt);
+  const onUsage = loopUsageSink(host, loop.id, 'planningUsage');
+  const proposal = await proposeRevisedPlan(host, loop, prompt, onUsage);
+  const current = (await host.readState())?.loops.find((entry) => entry.id === loop.id);
+  loop = { ...loop, planningUsage: current?.planningUsage ?? loop.planningUsage };
   if (proposal.error || !proposal.plan) {
-    return { error: proposal.error ?? 'Revision failed.', rejectionReason: proposal.error ?? 'no plan returned' };
+    return {
+      loop: { ...loop, planningUsage: loop.planningUsage },
+      error: proposal.error ?? 'Revision failed.',
+      rejectionReason: proposal.error ?? 'no plan returned',
+    };
   }
   const errors = validateLoopPlan(proposal.plan);
   if (errors.length > 0) {
-    return { error: `Revised plan invalid: ${errors.join('; ')}`, rejectionReason: errors.join('; ') };
+    return {
+      loop: { ...loop, planningUsage: loop.planningUsage },
+      error: `Revised plan invalid: ${errors.join('; ')}`,
+      rejectionReason: errors.join('; '),
+    };
   }
 
   const decision: RecoveryDecision = {
@@ -49,7 +61,11 @@ export async function buildRevisedLoop(
   };
   const applied = applyRecovery(host, loop, decision);
   if (applied.rejection) {
-    return { error: applied.rejection, rejectionReason: applied.rejection };
+    return {
+      loop: { ...loop, planningUsage: loop.planningUsage },
+      error: applied.rejection,
+      rejectionReason: applied.rejection,
+    };
   }
 
   // A refinement can change the GOAL itself (its stop condition, cadence, or
@@ -57,14 +73,17 @@ export async function buildRevisedLoop(
   // triggers are derived from, so when it changes we update `prompt` (which the
   // evaluator reads) and re-derive the triggers, preserving existing fire counts.
   let next = applied.loop;
+  next = { ...next, planningUsage: loop.planningUsage };
   const newGoal = proposal.goal?.trim();
   if (newGoal && newGoal !== loop.prompt) {
     const extraction = await extractTriggers(host, {
       prompt: newGoal,
       parentSessionId: loop.runtime.parentSessionId,
       loopId: loop.id,
+      onUsage,
     });
     next = { ...next, prompt: newGoal, triggers: reapplyExtractedTriggers(host, loop.id, next.triggers, extraction) };
+    next = { ...next, planningUsage: (await host.readState())?.loops.find((entry) => entry.id === loop.id)?.planningUsage ?? next.planningUsage };
     host.log(`Loop ${loop.id} goal updated by refinement`);
   }
   return { loop: next };

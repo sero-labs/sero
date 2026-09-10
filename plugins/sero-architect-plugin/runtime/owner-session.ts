@@ -8,6 +8,7 @@
 import { modelKey, type PersistentSessionGrantProposal, type PersistentSessionRequest, type PersistentSessionSubjectPolicy, type PersistentSessionsApi } from '@sero-ai/common';
 
 import { block, charge } from '../shared/lifecycle';
+import { setAccountingIncomplete } from '../shared/accounting';
 import { buildOwnerContract } from '../shared/owner-contract';
 import { buildOwnerPromptAdditions } from '../shared/owner-protocol';
 import type { ProjectRecord } from '../shared/record';
@@ -217,6 +218,20 @@ export class OwnerSessions {
     const ended = new Map<string, OwnerTurnResult['status']>();
     const failures = new Map<string, string>();
     let watching: string | null = null;
+    const usageSource = `owner:${opened.session.sessionId}`;
+    let usageRead: Promise<void> | undefined;
+    const readUsage = (): Promise<void> => {
+      usageRead ??= (async () => {
+        const usage = await api.getSessionUsage(handleId).catch(() => null);
+        await this.deps.store.update(opened.id, (fresh) => {
+          const next = setAccountingIncomplete(fresh, usageSource, !usage || !!usage.incomplete);
+          if (!usage) return next;
+          const cost = Math.max(next.session.sessionCostUsd, usage.costUsd);
+          return charge({ ...next, session: { ...next.session, sessionCostUsd: cost } }, 'owner', cost - next.session.sessionCostUsd, this.deps.host.now());
+        });
+      })().finally(() => { usageRead = undefined; });
+      return usageRead;
+    };
     const unsubscribe = api.subscribe(handleId, (event) => {
       if (event.type === 'compacted') {
         // The contract must survive compaction; steering re-asserts it mid-turn.
@@ -224,6 +239,9 @@ export class OwnerSessions {
           this.deps.host.log(`could not re-send the contract after compaction: ${error instanceof Error ? error.message : String(error)}`);
         });
         return;
+      }
+      if (event.type === 'tool_start' || event.type === 'tool_end') {
+        void readUsage().catch((error: unknown) => this.deps.host.log(`Could not save owner usage: ${String(error)}`));
       }
       if (event.type !== 'turn_end') return;
       ended.set(event.turnId, event.status);
@@ -237,7 +255,7 @@ export class OwnerSessions {
     let finished = false;
     try {
       await this.deps.store.update(opened.id, (fresh) => ({
-        ...fresh,
+        ...setAccountingIncomplete(fresh, usageSource, true),
         session: { ...fresh.session, workingSince: this.deps.host.now() },
       }));
       const turn = async (): Promise<OwnerTurnResult['status']> => {
@@ -275,7 +293,8 @@ export class OwnerSessions {
     const declared = this.deps.outcomes.end(opened.id);
     const now = this.deps.host.now();
     // The usage read talks to the host, so it happens before the queued write.
-    const usage = await api.getSessionUsage(handleId).catch(() => null);
+    await usageRead;
+    await readUsage();
     const next = await this.deps.store.update(opened.id, (fresh) => {
       let updated = status === 'completed' ? applyTurnOutcome(fresh, declared, now)
         : { ...fresh, session: { ...fresh.session, turns: fresh.session.turns + 1 } };
@@ -284,9 +303,7 @@ export class OwnerSessions {
         if (stopped.ok) updated = { ...stopped.record, stateLine: failure };
       }
       updated = { ...updated, session: { ...updated.session, lastWakeAt: now, lastWakeKind: wake.kind } };
-      if (!usage) return updated;
-      const delta = Math.max(0, usage.costUsd - updated.session.sessionCostUsd);
-      return charge({ ...updated, session: { ...updated.session, sessionCostUsd: usage.costUsd } }, 'owner', delta, now);
+      return updated;
     });
     return { record: next ?? opened, status, declared };
   }

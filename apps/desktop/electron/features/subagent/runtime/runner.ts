@@ -40,6 +40,28 @@ const EMPTY_USAGE: SubagentUsage = {
   cost: 0,
 };
 
+type AgentSession = Awaited<ReturnType<typeof createAgentSession>>['session'];
+
+/** Update usage from a SDK snapshot without losing a known high-water mark. */
+function readSessionUsage(session: AgentSession | null, usage: SubagentUsage): void {
+  try {
+    const stats = session?.getSessionStats();
+    if (!stats) {
+      usage.incomplete = true;
+      return;
+    }
+    usage.inputTokens = Math.max(usage.inputTokens, stats.tokens.input);
+    usage.outputTokens = Math.max(usage.outputTokens, stats.tokens.output);
+    usage.cacheReadTokens = Math.max(usage.cacheReadTokens, stats.tokens.cacheRead);
+    usage.cacheWriteTokens = Math.max(usage.cacheWriteTokens, stats.tokens.cacheWrite);
+    usage.totalTokens = Math.max(usage.totalTokens, stats.tokens.total);
+    usage.cost = Math.max(usage.cost, stats.cost);
+    delete usage.incomplete;
+  } catch {
+    usage.incomplete = true;
+  }
+}
+
 export interface ResolvedSubagentPaths {
   sessionPath: string | null;
   containerHostPath: string | null;
@@ -234,6 +256,7 @@ export async function runSubagent(
   let activeToolStallTimer: ReturnType<typeof setTimeout> | null = null;
   let activeToolName: string | null = null;
   let stopReason: string | undefined;
+  const usage: SubagentUsage = { ...EMPTY_USAGE };
 
   function clearStallTimer(): void {
     if (activeToolStallTimer) {
@@ -288,8 +311,6 @@ export async function runSubagent(
     } catch {
       // Fall back to default
     }
-
-    const usage: SubagentUsage = { ...EMPTY_USAGE };
 
     // Set up abort handler
     const abortHandler = () => {
@@ -367,18 +388,8 @@ export async function runSubagent(
 
       if (event.type === 'turn_end' || event.type === 'agent_end') {
         clearStallTimer();
-        try {
-          const stats = session?.getSessionStats();
-          if (stats) {
-            usage.inputTokens = stats.tokens.input;
-            usage.outputTokens = stats.tokens.output;
-            usage.cacheReadTokens = stats.tokens.cacheRead;
-            usage.cacheWriteTokens = stats.tokens.cacheWrite;
-            usage.totalTokens = stats.tokens.total;
-            usage.cost = stats.cost;
-            onProgress?.(usage);
-          }
-        } catch { /* ignore */ }
+        readSessionUsage(session, usage);
+        onProgress?.(usage);
       }
     });
 
@@ -415,17 +426,7 @@ export async function runSubagent(
     unsub();
 
     // Final usage stats
-    try {
-      const stats = session.getSessionStats();
-      if (stats) {
-        usage.inputTokens = stats.tokens.input;
-        usage.outputTokens = stats.tokens.output;
-        usage.cacheReadTokens = stats.tokens.cacheRead;
-        usage.cacheWriteTokens = stats.tokens.cacheWrite;
-        usage.totalTokens = stats.tokens.total;
-        usage.cost = stats.cost;
-      }
-    } catch { /* ignore */ }
+    readSessionUsage(session, usage);
 
     if (signal.aborted || stopReason) {
       return { response: '', usage, modelId: session.model?.id, providerId: session.model?.provider, error: stopReason ?? 'Aborted' };
@@ -434,19 +435,8 @@ export async function runSubagent(
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
 
-    // Best-effort provenance — the session may exist even when the run failed
-    const usage: SubagentUsage = { ...EMPTY_USAGE };
-    try {
-      const stats = session?.getSessionStats();
-      if (stats) {
-        usage.inputTokens = stats.tokens.input;
-        usage.outputTokens = stats.tokens.output;
-        usage.cacheReadTokens = stats.tokens.cacheRead;
-        usage.cacheWriteTokens = stats.tokens.cacheWrite;
-        usage.totalTokens = stats.tokens.total;
-        usage.cost = stats.cost;
-      }
-    } catch { /* session unusable — keep zeros */ }
+    // Best-effort provenance — the session may exist even when the run failed.
+    readSessionUsage(session, usage);
     const modelId = session?.model?.id;
     const providerId = session?.model?.provider;
 

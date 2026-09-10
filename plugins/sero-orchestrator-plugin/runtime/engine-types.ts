@@ -13,6 +13,7 @@ import type {
   ResolvedWorkspaceContext,
   StepAttempt,
   StepOutcome,
+  UsageSummary,
 } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import type { LoopLocks } from './locks';
@@ -57,12 +58,12 @@ export interface RecoveryInput {
 
 /** Decides how to recover after a failed/blocked/needs-revision outcome. */
 export interface RecoveryDecider {
-  decide(input: RecoveryInput): Promise<RecoveryDecision>;
+  decide(input: RecoveryInput & { onUsage?: (usage: UsageSummary) => void | Promise<void> }): Promise<RecoveryDecision>;
 }
 
 /** Turns raw execution output into a StepOutcome when none was reported. */
 export interface OutcomeEvaluator {
-  evaluate(input: { host: OrchestratorHost; loop: Loop; step: LoopStepDefinition; attempt: StepAttempt }): Promise<StepOutcome>;
+  evaluate(input: { host: OrchestratorHost; loop: Loop; step: LoopStepDefinition; attempt: StepAttempt; onUsage?: (usage: UsageSummary) => void | Promise<void> }): Promise<StepOutcome>;
 }
 
 /**
@@ -85,7 +86,7 @@ export interface WorkspaceResolver {
  * tests (no model call); the real LLM checker is wired in production.
  */
 export interface StopChecker {
-  check(input: { host: OrchestratorHost; loop: Loop; run: LoopRun }): Promise<{ stop: boolean; reason: string }>;
+  check(input: { host: OrchestratorHost; loop: Loop; run: LoopRun; onUsage?: (usage: UsageSummary) => void | Promise<void> }): Promise<{ stop: boolean; reason: string }>;
 }
 
 export interface EngineDeps {

@@ -37,6 +37,8 @@ export interface AppRuntimeSubagentUsage {
   outputTokens: number;
   totalTokens: number;
   costUsd?: number;
+  /** True when the SDK could not provide a complete final usage snapshot. */
+  incomplete?: boolean;
 }
 
 export interface AppRuntimeSubagentResult {

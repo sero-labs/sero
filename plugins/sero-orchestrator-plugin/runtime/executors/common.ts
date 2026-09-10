@@ -12,7 +12,7 @@ import type { StepRunInput } from '../engine-types';
 import type { ModelRunResult } from '../host';
 import { artifactPath, storeOutput } from '../artifacts';
 import { extractJson } from '../schema';
-import { resolveStepModel, type ResolvedStepModel } from '../model-resolution';
+import { resolveStepModel, unavailableModelReason, type ResolvedStepModel } from '../model-resolution';
 import { buildOutcomeRepair, buildStepTask, parseStepOutcome, parseStepOutcomeStrict, STEP_SYSTEM_PROMPT } from './prompt';
 import { formatRouteRepair, missingRouteVariables } from '../route-contract';
 import { deliveryProblems, formatDeliveryRepair, receiptRequirement } from '../delivery/delivery-contract';
@@ -51,7 +51,7 @@ export interface RunStepOptions {
   refineOutcome?: (response: string, parsed: StepOutcome | undefined) => StepOutcome | undefined;
 }
 
-function toUsage(durationMs?: number, usage?: { inputTokens: number; outputTokens: number; totalTokens: number; costUsd?: number }): UsageSummary | undefined {
+function toUsage(durationMs?: number, usage?: { inputTokens: number; outputTokens: number; totalTokens: number; costUsd?: number; incomplete?: boolean }): UsageSummary | undefined {
   if (!usage && durationMs === undefined) return undefined;
   return { ...usage, durationMs };
 }
@@ -61,13 +61,36 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
   const task = buildStepTask(loop, step, run, input.fanOut);
 
   // Resolve the step's chosen model. Tiers and "no preference" pass straight
-  // through; a pinned model that is no longer available falls back to MED (we
+  // through; an unavailable explicit pin blocks before any worker starts (we
   // only pay the listAvailableModels call when a specific model is pinned).
   const requested = 'model' in step.execution ? step.execution.model : undefined;
   const resolved: ResolvedStepModel =
     requested && !isModelTier(requested)
       ? resolveStepModel(requested, await host.listAvailableModels())
       : { model: requested };
+
+  const startedAt = host.now();
+  const pendingAttempt: StepAttempt = {
+    id: host.newId('attempt'), stepId: step.id, attemptNumber, parentSessionId,
+    executionType: step.execution.type, status: 'running', workspace,
+    observations: [], usage: { incomplete: true }, startedAt,
+  };
+  if (resolved.unavailableModel) {
+    const reason = unavailableModelReason(resolved.unavailableModel);
+    const blocked: StepAttempt = {
+      ...pendingAttempt,
+      status: 'failed',
+      model: resolved.unavailableModel,
+      usage: { costUsd: 0 },
+      modelUnavailable: { requestedModel: resolved.unavailableModel },
+      outcome: { status: 'blocked', summary: reason },
+      endedAt: host.now(),
+      error: reason,
+    };
+    await input.onAttempt?.(pendingAttempt);
+    await input.onAttempt?.(blocked);
+    return blocked;
+  }
 
   // Named agent role (background-agent steps only; planner-picked or user-set).
   // Verify it against the real catalog before the run — only when one is pinned —
@@ -99,12 +122,6 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
       ? [...new Set([...DEFAULT_TOOLS, ...(step.execution.tools ?? [])])]
       : undefined;
 
-  const startedAt = host.now();
-  const pendingAttempt: StepAttempt = {
-    id: host.newId('attempt'), stepId: step.id, attemptNumber, parentSessionId,
-    executionType: step.execution.type, status: 'running', workspace,
-    observations: [], usage: { incomplete: true }, startedAt,
-  };
   await input.onAttempt?.(pendingAttempt);
   let latestUsage: ModelRunResult['usage'];
   let progress = Promise.resolve();
@@ -169,11 +186,13 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
     outcome,
     workspace,
     model: result.modelId,
-    modelFallback: resolved.fallbackFrom ? { requestedModel: resolved.fallbackFrom } : undefined,
     agentFallback,
     outputPath: stored.artifactRef,
     observations: [observation],
-    usage: { ...toUsage(result.durationMs, result.usage ?? latestUsage), ...((result.error || !result.usage) ? { incomplete: true } : {}) },
+    usage: {
+      ...toUsage(result.durationMs, result.usage ?? latestUsage),
+      ...((result.error || !result.usage || result.usage.incomplete || result.usage.costUsd === undefined) ? { incomplete: true } : {}),
+    },
     startedAt,
     endedAt: host.now(),
     error: result.error,

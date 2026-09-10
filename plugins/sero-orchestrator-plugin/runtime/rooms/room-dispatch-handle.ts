@@ -18,16 +18,16 @@ export function createRoomDispatchHandle(app: Pick<RoomAppActions, 'prepare' | '
       if (!planned.ok) {
         if (planned.needsInput) {
           const asked = planned.questions.map((question) => question.prompt).join(' ');
-          return { ok: false, error: `The Room planner needs an answer before it can plan: ${asked}` };
+          return { ok: false, error: `The Room planner needs an answer before it can plan: ${asked}`, usage: planned.usage };
         }
-        return { ok: false, error: planned.error };
+        return { ok: false, error: planned.error, usage: planned.usage };
       }
-      if (planned.status && !['draft', 'ready', 'adjusting'].includes(planned.status)) return { ok: true, roomId: planned.roomId };
+      if (planned.status && !['draft', 'ready', 'adjusting'].includes(planned.status)) return { ok: true, roomId: planned.roomId, usage: planned.usage };
       const started = await app.start(planned.roomId);
       if (!started.ok) {
-        return { ok: false, error: `Room ${planned.roomId} was planned but did not start: ${started.error}` };
+        return { ok: false, error: `Room ${planned.roomId} was planned but did not start: ${started.error}`, usage: planned.usage };
       }
-      return { ok: true, roomId: planned.roomId };
+      return { ok: true, roomId: planned.roomId, usage: planned.usage };
   };
   return {
     inspect: (roomId) => app.inspect(roomId),

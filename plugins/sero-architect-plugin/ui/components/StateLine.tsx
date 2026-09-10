@@ -16,9 +16,11 @@ const CIRCUMFERENCE = 2 * Math.PI * 28;
 export function SpendRing({
   spentUsd,
   capUsd,
+  incomplete = false,
 }: {
   spentUsd: number;
   capUsd: number | null;
+  incomplete?: boolean;
 }) {
   if (capUsd === null) {
     return (
@@ -28,7 +30,7 @@ export function SpendRing({
         </svg>
         <div className="ar-ring-num">
           <b>{usd(spentUsd)}</b>
-          <span>no cap yet</span>
+          <span>{incomplete ? "cost incomplete" : "no cap yet"}</span>
         </div>
       </div>
     );
@@ -39,7 +41,8 @@ export function SpendRing({
       className="ar-ring"
       data-tone={spendTone(spentUsd, capUsd)}
       role="img"
-      aria-label={`Spent ${usd(spentUsd)} of ${usd(capUsd)}`}
+      title={incomplete ? "Some usage is unavailable. The shown cost is a lower bound." : undefined}
+      aria-label={`Spent ${usd(spentUsd)} of ${usd(capUsd)}${incomplete ? ". Cost incomplete." : ""}`}
     >
       <svg viewBox="0 0 64 64">
         <circle className="ar-ring-bg" cx="32" cy="32" r="28" />
@@ -54,7 +57,7 @@ export function SpendRing({
       </svg>
       <div className="ar-ring-num">
         <b>${spentUsd.toFixed(2)}</b>
-        <span>spent of {usd(capUsd)} budget</span>
+        <span>{incomplete ? "cost incomplete" : <>spent of {usd(capUsd)} budget</>}</span>
       </div>
     </div>
   );
@@ -145,6 +148,7 @@ export function StateLine({
       <SpendRing
         spentUsd={record.budget.spentUsd}
         capUsd={record.budget.capUsd}
+        incomplete={record.budget.incomplete !== false}
       />
     </section>
   );

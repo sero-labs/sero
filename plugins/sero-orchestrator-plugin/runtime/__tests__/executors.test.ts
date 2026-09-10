@@ -421,7 +421,7 @@ describe('step model resolution', () => {
     expect(attempt.modelFallback).toBeUndefined();
   });
 
-  it('falls back to MED and flags the attempt when a pinned model is unavailable', async () => {
+  it('blocks before any model call when a pinned model is unavailable', async () => {
     const host = createFakeHost();
     host.availableModels = availableModels;
     const plan = oneStepPlan().plan;
@@ -429,8 +429,14 @@ describe('step model resolution', () => {
     const loop = seedActiveLoop(host, plan);
     host.modelResponses.push({ response: ok(), modelId: 'med-model' });
     const attempt = await backgroundAgentExecutor.run(inputFor(host, loop, 'step-1'));
-    expect(host.modelCalls[0].model).toBe('MED');
-    expect(attempt.modelFallback).toEqual({ requestedModel: 'openai/gpt-9' });
+    expect(host.modelCalls).toHaveLength(0);
+    expect(attempt).toMatchObject({
+      status: 'failed',
+      model: 'openai/gpt-9',
+      usage: { costUsd: 0 },
+      modelUnavailable: { requestedModel: 'openai/gpt-9' },
+      outcome: { status: 'blocked', summary: expect.stringContaining('select an authorized available model') },
+    });
   });
 });
 

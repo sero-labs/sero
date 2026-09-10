@@ -19,6 +19,7 @@ export interface ArchitectIndexEntry {
   /** The Architect's one-line state, its own words. */
   stateLine: string;
   spentUsd: number;
+  usageIncomplete?: boolean;
   capUsd: number | null;
   /** Open decisions and approvals waiting on the user. */
   needsYou: number;
@@ -51,6 +52,7 @@ function normalizeEntry(value: unknown): ArchitectIndexEntry | null {
     phase: value.phase as ArchitectPhase,
     overlay,
     stateLine: typeof value.stateLine === 'string' ? value.stateLine : '',
+    usageIncomplete: value.usageIncomplete !== false,
     spentUsd: typeof value.spentUsd === 'number' && Number.isFinite(value.spentUsd) ? value.spentUsd : 0,
     capUsd: typeof value.capUsd === 'number' && Number.isFinite(value.capUsd) ? value.capUsd : null,
     needsYou: typeof value.needsYou === 'number' && Number.isFinite(value.needsYou) ? value.needsYou : 0,

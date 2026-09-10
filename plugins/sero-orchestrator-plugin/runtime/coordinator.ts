@@ -43,6 +43,7 @@ import { cleanupPreviousWorktree } from './worktree-cleanup';
 import { retryLoop, retryStepAction, runAgain } from './restart-actions';
 import { buildLifecycleEvents } from './lifecycle-events';
 import { computeReadySteps, hasRunningSteps } from './readiness';
+import { mergeConcurrentAccounting } from './run-engine-helpers';
 import type { PlanRevision, RecoveryDecision } from '../shared/types';
 
 export class Coordinator {
@@ -435,7 +436,7 @@ export class Coordinator {
     if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
     const outcome = await buildRevisedLoop(this.host, loop, prompt);
     if (outcome.error || !outcome.loop) {
-      await this.recordRejectedRevision(loop, outcome.rejectionReason ?? outcome.error ?? 'Revision failed.');
+      await this.recordRejectedRevision(outcome.loop ?? loop, outcome.rejectionReason ?? outcome.error ?? 'Revision failed.');
       return { ok: false, error: outcome.error ?? 'Revision failed.' };
     }
     await this.replaceLoop(outcome.loop);
@@ -482,7 +483,7 @@ export class Coordinator {
   protected async replaceLoop(loop: Loop): Promise<void> {
     await this.host.updateState((state) => ({
       ...state,
-      loops: state.loops.map((l) => (l.id === loop.id ? loop : l)),
+      loops: state.loops.map((l) => (l.id === loop.id ? mergeConcurrentAccounting(l, loop) : l)),
     }));
   }
 }

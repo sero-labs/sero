@@ -40,6 +40,7 @@ import {
   type RoomCapabilityCatalogue,
 } from '../../shared/room-validation';
 import type { OrchestratorHost } from '../host';
+import type { UsageSummary } from '../../shared/usage-types';
 import { runStructuredJson } from '../structured-call';
 import { parseRoomPlannerReply, type RoomPlannerReply } from './planner-parse';
 import {
@@ -83,6 +84,7 @@ export interface RoomPlanRequest {
   model?: string;
   thinking?: string;
   signal?: AbortSignal;
+  onUsage?: (usage: UsageSummary) => void | Promise<void>;
 }
 
 export type RoomPlanOutcome =
@@ -94,9 +96,10 @@ export type RoomPlanOutcome =
       /** What the user's limits took away from the model's suggestion. */
       clamps: BlueprintClamp[];
       modelResponses: string[];
+      usage?: UsageSummary;
     }
-  | { ok: false; needsInput: true; questions: HumanQuestion[]; modelResponses: string[] }
-  | { ok: false; needsInput?: false; errors: string[]; modelResponses: string[] };
+  | { ok: false; needsInput: true; questions: HumanQuestion[]; modelResponses: string[]; usage?: UsageSummary }
+  | { ok: false; needsInput?: false; errors: string[]; modelResponses: string[]; usage?: UsageSummary };
 
 // ── Defaults the user's chips override (D-18) ───────────────
 
@@ -310,14 +313,15 @@ export async function planRoom(host: OrchestratorHost, request: RoomPlanRequest)
     model: request.model,
     thinking: request.thinking,
     signal: request.signal,
+    onUsage: request.onUsage,
   });
 
   if (!result.ok || !result.value) {
     host.log(`room planning failed: ${result.errors.join('; ')}`);
-    return { ok: false, errors: result.errors, modelResponses: result.responses };
+    return { ok: false, errors: result.errors, modelResponses: result.responses, usage: result.usage };
   }
   if (result.value.kind === 'questions') {
-    return { ok: false, needsInput: true, questions: result.value.questions, modelResponses: result.responses };
+    return { ok: false, needsInput: true, questions: result.value.questions, modelResponses: result.responses, usage: result.usage };
   }
 
   const { blueprint, clamps } = result.value;
@@ -329,5 +333,6 @@ export async function planRoom(host: OrchestratorHost, request: RoomPlanRequest)
     proposal: computeProposalSummary(blueprint),
     clamps,
     modelResponses: result.responses,
+    usage: result.usage,
   };
 }

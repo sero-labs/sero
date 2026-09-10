@@ -77,7 +77,7 @@ export interface SingleRunResult {
   /** Wall-clock duration of the run in milliseconds. */
   durationMs?: number;
   /** Token usage totals, plus run cost in USD when the model has known pricing. */
-  usage?: { inputTokens: number; outputTokens: number; totalTokens: number; costUsd?: number };
+  usage?: { inputTokens: number; outputTokens: number; totalTokens: number; costUsd?: number; incomplete?: boolean };
 }
 
 /**
@@ -171,6 +171,7 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
             outputTokens: usage.outputTokens ?? latestUsage?.outputTokens ?? 0,
             totalTokens: usage.totalTokens ?? latestUsage?.totalTokens ?? 0,
             costUsd: usage.cost === undefined ? latestUsage?.costUsd : usage.cost > 0 ? usage.cost : undefined,
+            ...(usage.incomplete ? { incomplete: true } : {}),
           };
           params.onUsage?.(latestUsage);
         },
@@ -191,6 +192,7 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
       // surface it as USD. Omit a non-positive value so callers show no cost
       // rather than a misleading $0 for unpriced models.
       costUsd: Math.max(result.usage.cost, latestUsage?.costUsd ?? 0) || undefined,
+      ...(result.usage.incomplete ? { incomplete: true } : {}),
     };
 
     if (result.error) {

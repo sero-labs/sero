@@ -14,6 +14,8 @@ import type { Loop, OrchestratorAction, OrchestratorActionResult } from '../shar
 import type { OrchestratorHost } from './host';
 import { gatherHistory } from './digest';
 import { hasCompletedRun, proposeSkill, readDraftBody, writeDraftBody, VALID_SKILL_NAME } from './skill-extract';
+import { loopUsageSink } from './usage-tracking';
+import { mergeConcurrentAccounting } from './run-engine-helpers';
 
 type SkillAction = Extract<
   OrchestratorAction,
@@ -26,7 +28,7 @@ async function findLoop(host: OrchestratorHost, loopId: string): Promise<Loop | 
 }
 
 async function replaceLoop(host: OrchestratorHost, loop: Loop): Promise<void> {
-  await host.updateState((state) => ({ ...state, loops: state.loops.map((l) => (l.id === loop.id ? loop : l)) }));
+  await host.updateState((state) => ({ ...state, loops: state.loops.map((l) => (l.id === loop.id ? mergeConcurrentAccounting(l, loop) : l)) }));
 }
 
 async function extractSkill(host: OrchestratorHost, loopId: string): Promise<OrchestratorActionResult> {
@@ -38,14 +40,17 @@ async function extractSkill(host: OrchestratorHost, loopId: string): Promise<Orc
     return { ok: false, error: 'No successful run yet — a skill is extracted from what worked.' };
   }
 
-  const output = await proposeSkill(host, loop, history);
+  const output = await proposeSkill(host, loop, history, loopUsageSink(host, loop.id, 'auxiliaryUsage'));
+  const usage = (await host.readState())?.loops.find((entry) => entry.id === loop.id)?.auxiliaryUsage;
+  const accounted = { ...loop, auxiliaryUsage: usage ?? loop.auxiliaryUsage };
   if ('declined' in output) {
     // A refusal is a successful pass. Nothing is stored, so a later run of the
     // same workflow can still produce a draft once there is more to learn from.
-    return { ok: true, loop, skillDeclined: output.declined };
+    await replaceLoop(host, accounted);
+    return { ok: true, loop: accounted, skillDeclined: output.declined };
   }
 
-  const updated: Loop = { ...loop, skillDraft: output.draft, updatedAt: host.now() };
+  const updated: Loop = { ...accounted, skillDraft: output.draft, updatedAt: host.now() };
   await replaceLoop(host, updated);
   return { ok: true, loop: updated, skillDraftBody: await readDraftBody(host, output.draft.bodyRef) };
 }

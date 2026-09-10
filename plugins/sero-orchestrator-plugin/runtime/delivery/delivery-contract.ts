@@ -20,7 +20,7 @@
  * Everything here is pure (no host) so it unit-tests directly.
  */
 
-import type { AnsweredInput, Loop, LoopStepDefinition, StepOutcome } from '../../shared/types';
+import type { AnsweredInput, Loop, LoopRun, LoopStepDefinition, StepAttempt, StepOutcome } from '../../shared/types';
 import type { DeliveryReceipt, LoopDeliverySettings } from '../../shared/delivery-types';
 import { effectiveDelivery, isExternalDestination } from '../../shared/delivery-types';
 import { finalizationStepId } from '../readiness';
@@ -146,6 +146,56 @@ export function deliveryProblems(loop: Loop, delivery: LoopDeliverySettings, out
     }
   }
   return problems;
+}
+
+export interface UncertainExternalDelivery {
+  stepId: string;
+  attemptId: string;
+  destination: LoopDeliverySettings['destination'];
+  reason: string;
+}
+
+const interruptedOutcomes = new Set<StepOutcome['status']>(['failed', 'blocked', 'needs-revision']);
+
+/**
+ * Detects a failed final external step whose effect may have happened without
+ * a receipt that passed the delivery contract. This is a recovery safety rail:
+ * no model or retry path can infer that an external send was safe to repeat.
+ */
+export function uncertainExternalDelivery(
+  loop: Loop,
+  step: LoopStepDefinition,
+  attempt: StepAttempt,
+  outcome = attempt.outcome,
+): UncertainExternalDelivery | undefined {
+  const delivery = receiptRequirement(loop, step);
+  if (!delivery || !isExternalDestination(delivery.destination) || attempt.modelUnavailable) return undefined;
+
+  const failed = ['failed', 'orphaned', 'cancelled'].includes(attempt.status) || (outcome && interruptedOutcomes.has(outcome.status));
+  if (!failed) return undefined;
+
+  const completion = outcome?.completion;
+  const confirmed = outcome
+    ? completion?.status === 'complete' && !!completion.receipt && deliveryProblems(loop, delivery, outcome).length === 0
+    : false;
+  if (confirmed) return undefined;
+
+  return {
+    stepId: step.id,
+    attemptId: attempt.id,
+    destination: delivery.destination,
+    reason: `External delivery to "${delivery.destination}" may have happened during step "${step.id}", but attempt "${attempt.id}" has no confirmed receipt. Check the destination before retrying this step.`,
+  };
+}
+
+/** Finds an uncertain final external attempt in an interrupted run. */
+export function uncertainExternalDeliveryInRun(loop: Loop, run: LoopRun): UncertainExternalDelivery | undefined {
+  const finalStepId = finalizationStepId(loop);
+  if (!finalStepId) return undefined;
+  const step = loop.plan.steps.find((candidate) => candidate.id === finalStepId);
+  if (!step) return undefined;
+  const attempt = [...run.stepAttempts].reverse().find((candidate) => candidate.stepId === finalStepId);
+  return attempt ? uncertainExternalDelivery(loop, step, attempt) : undefined;
 }
 
 /** Downgrades an outcome whose completion claim failed the contract; used by the backstop and verify-back. */

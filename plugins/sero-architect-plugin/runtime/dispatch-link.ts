@@ -128,7 +128,7 @@ async function linkDispatch(
       id: link.id,
       workspaceId: link.workspaceId,
       dispatchedAt: now,
-      chargedUsd: 0,
+      chargedUsd: link.chargedUsd ?? 0,
       destination: request.destination,
       baseCommit: link.baseCommit,
     },

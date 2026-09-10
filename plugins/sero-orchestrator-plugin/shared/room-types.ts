@@ -29,6 +29,7 @@ import type {
   RoomProposalSummary,
   RoomWorkspacePolicy,
 } from './room-blueprint-types';
+import type { UsageSummary } from './usage-types';
 
 export type RoomStatus =
   | 'draft'
@@ -131,6 +132,7 @@ export interface MemberSessionRef {
 }
 
 export interface MemberUsage {
+  incomplete?: boolean;
   costUsd: number;
   inputTokens: number;
   outputTokens: number;
@@ -169,6 +171,7 @@ export interface RoomMember {
 }
 
 export interface RoomUsage {
+  incomplete?: boolean;
   costUsd: number;
   inputTokens: number;
   outputTokens: number;
@@ -208,6 +211,8 @@ export interface RoomRuntimeState {
   /** Members currently holding an execution slot. */
   activeMemberIds: string[];
   usage: RoomUsage;
+  /** Planning spend is retained when a draft is rebuilt or members update. */
+  planningUsage?: UsageSummary;
   stopReason: RoomStopReason | null;
   /** Monotonic; the message cursor domain. */
   messageSequence: number;

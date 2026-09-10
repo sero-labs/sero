@@ -1,3 +1,4 @@
+import { setAccountingIncomplete } from '../shared/accounting';
 import path from 'node:path';
 import { workflowWorkspace } from './execution-location';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -88,8 +89,8 @@ export async function observeResearchWorkflows(deps: ResearchWorkflowDeps, proje
     await deps.store.update(projectId, (fresh) => {
       const current = fresh.pendingResearch?.find((entry) => entry.id === pending.id);
       if (!current) return null;
-      const costUsd = loop.usage?.costUsd ?? 0;
-      let next = charge(fresh, 'research', Math.max(0, costUsd - (current.chargedUsd ?? 0)), deps.host.now());
+      const costUsd = Math.max(loop.usage?.costUsd ?? 0, current.chargedUsd ?? 0);
+      let next = charge(setAccountingIncomplete(fresh, `workflow:${loop.id}`, !loop.usage || !!loop.usage.incomplete), 'research', Math.max(0, costUsd - (current.chargedUsd ?? 0)), deps.host.now());
       if (next.blockedReason?.startsWith(`Research Workflow ${loop.id} is `) && loop.status !== 'blocked') {
         const resumed = unblock(next, deps.host.now(), `Research Workflow ${loop.id} resumed`);
         if (resumed.ok) next = resumed.record;

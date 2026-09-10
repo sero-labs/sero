@@ -16,13 +16,13 @@ function withWarning(loop: Loop, stepId: string, warning: LoopWarning): Loop {
   return { ...loop, warnings: [...kept, warning] };
 }
 
-/** A step's pinned model was unavailable and the MED tier was used instead. */
+/** Legacy warning for a persisted attempt created before unavailable pins blocked. */
 export function recordModelWarning(host: OrchestratorHost, loop: Loop, stepId: string, requestedModel: string): Loop {
   return withWarning(loop, stepId, {
     id: host.newId('warning'),
     code: 'model-unavailable',
     stepId,
-    message: `Step "${stepTitle(loop, stepId)}" requested model "${requestedModel}", which isn't available — using the MED tier instead.`,
+    message: `Step "${stepTitle(loop, stepId)}" requested model "${requestedModel}", which isn't available — restore it or select an authorized available model before retrying.`,
     createdAt: host.now(),
   });
 }

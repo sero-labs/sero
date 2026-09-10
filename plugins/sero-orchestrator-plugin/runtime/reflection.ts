@@ -21,6 +21,7 @@ import type {
   RecoveryDecision,
   RunDigest,
   SuggestionConfidence,
+  UsageSummary,
 } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import { isRecord, runStructuredJson, type ParseResult } from './structured-call';
@@ -178,13 +179,14 @@ export interface ReflectionOutput {
  * gathered history). Returns durable insights + pending suggestions; returns
  * empty when the model judges nothing worth changing or the reply is unusable.
  */
-export async function proposeImprovements(host: OrchestratorHost, loop: Loop, history: RunDigest[]): Promise<ReflectionOutput> {
+export async function proposeImprovements(host: OrchestratorHost, loop: Loop, history: RunDigest[], onUsage?: (usage: UsageSummary) => void | Promise<void>): Promise<ReflectionOutput> {
   const result = await runStructuredJson<ParsedReflection>(host, {
     systemPrompt: REFLECT_SYSTEM,
     task: buildReflectTask(loop, history),
     parse: parseReflection,
     buildRepair: buildReflectRepair,
     parentSessionId: loop.runtime.parentSessionId,
+    onUsage,
   });
   if (result.responses.length) {
     await host.writeArtifact(`${loopArtifactDir(loop.id)}/reflection/${host.newId('refl')}.txt`, joinResponses(result.responses));

@@ -17,7 +17,7 @@
 
 import type { AppRuntimeSkillSummary } from '@sero-ai/common';
 
-import type { Loop, RunDigest, SkillDraft } from '../shared/types';
+import type { Loop, RunDigest, SkillDraft, UsageSummary } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import { isRecord, runStructuredJson, type ParseResult } from './structured-call';
 import { loopArtifactDir } from './artifacts';
@@ -210,6 +210,7 @@ export async function proposeSkill(
   host: OrchestratorHost,
   loop: Loop,
   history: RunDigest[],
+  onUsage?: (usage: UsageSummary) => void | Promise<void>,
 ): Promise<SkillExtractOutput> {
   const existing = host.skills ? await host.skills.list() : [];
   const result = await runStructuredJson<ParsedExtraction>(host, {
@@ -220,6 +221,7 @@ export async function proposeSkill(
     parentSessionId: loop.runtime.parentSessionId,
     platformTools: 'readOnly',
     cwd: loop.runtime.workspace.resolved?.cwd ?? host.workspacePath,
+    onUsage,
   });
 
   if (result.responses.length) {

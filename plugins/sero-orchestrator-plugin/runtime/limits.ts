@@ -43,16 +43,16 @@ function totalAttempts(loop: Loop, run: LoopRun): number {
 
 function totalTokens(loop: Loop): number {
   return loop.runs.reduce(
-    (sum, run) => sum + run.stepAttempts.reduce((s, a) => s + (a.usage?.totalTokens ?? 0), 0),
-    0,
-  );
+    (sum, run) => sum + (run.auxiliaryUsage?.totalTokens ?? 0) + run.stepAttempts.reduce((s, a) => s + (a.usage?.totalTokens ?? 0), 0),
+    loop.planningUsage?.totalTokens ?? 0,
+  ) + (loop.auxiliaryUsage?.totalTokens ?? 0);
 }
 
 function totalCost(loop: Loop): number {
   return loop.runs.reduce(
-    (sum, run) => sum + run.stepAttempts.reduce((s, a) => s + (a.usage?.costUsd ?? 0), 0),
-    0,
-  );
+    (sum, run) => sum + (run.auxiliaryUsage?.costUsd ?? 0) + run.stepAttempts.reduce((s, a) => s + (a.usage?.costUsd ?? 0), 0),
+    loop.planningUsage?.costUsd ?? 0,
+  ) + (loop.auxiliaryUsage?.costUsd ?? 0);
 }
 
 /**

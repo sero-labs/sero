@@ -1,3 +1,4 @@
+import { setAccountingIncomplete } from '../shared/accounting';
 /**
  * Follows the Orchestrator loop and Room index files of each project's
  * workspace and turns status transitions into wakes and usage into charges.
@@ -196,6 +197,7 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
         const previous = seen.get(key);
         const transition = loop ? loopTransition(milestone, loop, previous) : room ? roomTransition(milestone, room, previous) : null;
         const costUsd = loop ? loop.usage?.costUsd ?? 0 : room?.costUsd ?? 0;
+        next = setAccountingIncomplete(next, `${dispatch.kind}:${dispatch.id}`, loop ? !loop.usage || !!loop.usage.incomplete : room?.usageIncomplete !== false);
         const delta = Math.max(0, costUsd - dispatch.chargedUsd);
         let updated: Milestone = milestone;
         if (loop?.status === 'blocked' && loop.block?.limit === 'maxCostUsd' && loop.maxCostUsd !== undefined && dispatch.costLimitUsd !== loop.maxCostUsd) {

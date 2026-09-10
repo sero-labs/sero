@@ -8,7 +8,7 @@
  * (engine-types.ts) so this orchestration is testable with fakes.
  */
 
-import type { Loop, LoopRun, LoopStepDefinition } from '../shared/types';
+import type { Loop, LoopBlock, LoopRun, LoopStepDefinition } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import type { EngineDeps } from './engine-types';
 import { computeReadySteps, hasRunningSteps, validateRuntime } from './readiness';
@@ -19,10 +19,11 @@ import { appendDigest, buildRunDigest } from './digest';
 import { DEFAULT_RETAIN_DIGESTS } from '../shared/defaults';
 import { checkManagementLimits } from './limits';
 import { toEventFiredBy, toEventObservation } from './event-match';
-import { blockLimit, blockRuntime, dropStrandedEvent, mergeTriggers, needsWorkspace, replaceRun, resetRunningSteps } from './run-engine-helpers';
+import { blockLimit, blockRuntime, dropStrandedEvent, mergeConcurrentAccounting, mergeTriggers, needsWorkspace, replaceRun, resetRunningSteps } from './run-engine-helpers';
 import { reconcileDeliveryWarning } from './delivery/availability';
 import { runStepBatch } from './run-batch';
 import { orphanRunningActivations } from './activations';
+import { uncertainExternalDeliveryInRun } from './delivery/delivery-contract';
 
 export interface RunResult {
   acquired: boolean;
@@ -234,8 +235,23 @@ export class RunEngine {
     // so no step is executing. This happens when a batch returned early (a step
     // completed or blocked the loop) leaving unprocessed siblings. Settle them so
     // the digest and run summary don't show a finished run with 'running' steps.
-    const settledRun = orphanRunningActivations(run, now, run.status === 'cancelled' ? 'cancelled' : 'orphaned');
-    const finishedRun: LoopRun = { ...settledRun, endedAt: now };
+    const interruptedAttempts = run.status === 'cancelled'
+      ? run.stepAttempts.map((attempt) => attempt.status === 'running'
+        ? { ...attempt, status: 'cancelled' as const, endedAt: now, error: attempt.error ?? 'run cancelled' }
+        : attempt)
+      : run.stepAttempts;
+    const settledRun = orphanRunningActivations({ ...run, stepAttempts: interruptedAttempts }, now, run.status === 'cancelled' ? 'cancelled' : 'orphaned');
+    const uncertain = run.status === 'cancelled' ? uncertainExternalDeliveryInRun(loop, settledRun) : undefined;
+    const block: LoopBlock | undefined = uncertain
+      ? {
+          kind: 'recovery-block',
+          reason: uncertain.reason,
+          createdAt: now,
+          sourceStepId: uncertain.stepId,
+          sourceAttemptId: uncertain.attemptId,
+        }
+      : undefined;
+    const finishedRun: LoopRun = { ...settledRun, ...(block ? { block } : {}), endedAt: now };
     // Durable digest for reflection — colocated with the loop, outside run
     // pruning. Best-effort: a digest write must never fail the run.
     await appendDigest(this.host, loop.id, buildRunDigest(loop, finishedRun), loop.logPolicy.retainDigests ?? DEFAULT_RETAIN_DIGESTS)
@@ -247,12 +263,27 @@ export class RunEngine {
     // starts pending/ready) and `hasRunningSteps` reads them as still active,
     // wedging the loop until a restart-time reconcile. Live disable doesn't run
     // the reconciler, so this is the only place that clears them.
-    const stepStates =
+    let stepStates =
       run.status === 'cancelled' ? resetRunningSteps(loop.runtime.stepStates, now) : loop.runtime.stepStates;
+    if (uncertain) {
+      const previous = stepStates[uncertain.stepId];
+      if (previous) {
+        stepStates = {
+          ...stepStates,
+          [uncertain.stepId]: {
+            ...previous,
+            status: 'failed',
+            outcome: previous.outcome ?? { status: 'failed', summary: uncertain.reason },
+            updatedAt: now,
+          },
+        };
+      }
+    }
     const cleared: Loop = {
       ...loop,
+      ...(block ? { status: 'blocked' as const } : {}),
       runs,
-      runtime: { ...loop.runtime, activeRunId: undefined, stepStates },
+      runtime: { ...loop.runtime, activeRunId: undefined, stepStates, ...(block ? { block } : {}) },
       updatedAt: now,
     };
     await this.commit(cleared);
@@ -308,7 +339,7 @@ export class RunEngine {
       if (current) {
         const consumedId = this.consumedEvents.get(loop.id);
         const queued = (current.runtime.pendingEvents ?? []).filter((e) => e.id !== consumedId);
-        result = {
+        result = mergeConcurrentAccounting(current, {
           ...result,
           // Limits belong to user actions, not the engine's older run snapshot.
           limits: current.limits,
@@ -318,9 +349,9 @@ export class RunEngine {
             dueAgain: current.runtime.dueAgain || result.runtime.dueAgain,
             pendingEvents: queued.length ? queued : undefined,
           },
-        };
+        });
       }
-      if (current?.status === 'disabled' && loop.status === 'active') {
+      if (current?.status === 'disabled' && loop.status !== 'disabled') {
         result = { ...result, status: 'disabled', runtime: { ...result.runtime, activeRunId: undefined } };
       }
       result = dropStrandedEvent(this.host, result);

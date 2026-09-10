@@ -127,6 +127,19 @@ describe('executeSingleRun result metadata', () => {
     expect(result.durationMs).toBeGreaterThanOrEqual(0);
   });
 
+  it('propagates incomplete usage from live and final runner results', async () => {
+    const onUsage = vi.fn();
+    mockRunSubagent.mockImplementation(async (config) => {
+      config.onProgress?.({ ...USAGE, incomplete: true });
+      return { response: '', error: 'stats unavailable', usage: { ...USAGE, cost: 0, incomplete: true } };
+    });
+
+    const result = await executeSingleRun(options({ onUsage }));
+
+    expect(onUsage).toHaveBeenCalledWith(expect.objectContaining({ incomplete: true }));
+    expect(result.usage).toMatchObject({ totalTokens: 150, incomplete: true });
+  });
+
   it('forwards platformTools to the runner config', async () => {
     mockRunSubagent.mockResolvedValue({ response: 'ok', usage: USAGE });
 

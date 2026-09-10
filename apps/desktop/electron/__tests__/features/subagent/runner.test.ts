@@ -237,6 +237,59 @@ describe('runSubagent live output', () => {
     expect(result.usage.cost).toBe(0.03);
   });
 
+  it('keeps priced live usage and marks the result incomplete when final stats fail', async () => {
+    const session = createStreamingSession([{ type: 'turn_end' }]);
+    session.getSessionStats
+      .mockReturnValueOnce({
+        tokens: { input: 100, output: 50, cacheRead: 1000, cacheWrite: 20, total: 1170 },
+        cost: 0.03,
+      })
+      .mockImplementationOnce(() => { throw new Error('stats unavailable'); });
+    mocks.createAgentSession.mockResolvedValueOnce({ session });
+
+    const progress = vi.fn();
+    const config = createConfig(new AbortController().signal);
+    config.onProgress = progress;
+    const result = await runSubagent(config, createDeps());
+
+    expect(progress).toHaveBeenCalledWith(expect.objectContaining({ cost: 0.03, totalTokens: 1170 }));
+    expect(result.usage).toMatchObject({ cost: 0.03, totalTokens: 1170, incomplete: true });
+  });
+
+  it('keeps priced live usage and marks the result incomplete when prompt throws', async () => {
+    const session = createStreamingSession([{ type: 'turn_end' }]);
+    session.getSessionStats
+      .mockReturnValueOnce({
+        tokens: { input: 80, output: 40, cacheRead: 500, cacheWrite: 10, total: 630 },
+        cost: 0.02,
+      })
+      .mockImplementationOnce(() => { throw new Error('stats unavailable'); });
+    const emitTurn = session.prompt;
+    session.prompt = vi.fn(async () => {
+      await emitTurn();
+      throw new Error('prompt interrupted');
+    });
+    mocks.createAgentSession.mockResolvedValueOnce({ session });
+
+    const result = await runSubagent(createConfig(new AbortController().signal), createDeps());
+
+    expect(result.error).toBe('prompt interrupted');
+    expect(result.usage).toMatchObject({ cost: 0.02, totalTokens: 630, incomplete: true });
+  });
+
+  it('reports incomplete live usage when a turn-end stats read fails', async () => {
+    const session = createStreamingSession([{ type: 'turn_end' }]);
+    session.getSessionStats.mockImplementation(() => { throw new Error('stats unavailable'); });
+    mocks.createAgentSession.mockResolvedValueOnce({ session });
+
+    const progress = vi.fn();
+    const config = createConfig(new AbortController().signal);
+    config.onProgress = progress;
+    await runSubagent(config, createDeps());
+
+    expect(progress).toHaveBeenCalledWith(expect.objectContaining({ incomplete: true }));
+  });
+
   it('forwards both text and reasoning deltas into the live-output channel', async () => {
     const session = createStreamingSession([
       { type: 'message_update', assistantMessageEvent: { type: 'thinking_delta', delta: 'weighing options…' } },

@@ -22,7 +22,8 @@ function currentModel(step: LoopStepDefinition): string | undefined {
  * Per-step model selector. The orchestrator's planner picks a tier
  * (LOW/MED/HIGH) for each step; this lets the user override it — keep the tier,
  * pick a different tier, pin a specific model, or revert to the default. A
- * pinned model that is unavailable at run time falls back to the MED tier.
+ * pinned model that is unavailable at run time blocks until the model is restored
+ * or the user selects an authorized available model.
  */
 export function StepModelControl({ step, groups, onChange }: StepModelControlProps) {
   const model = currentModel(step);

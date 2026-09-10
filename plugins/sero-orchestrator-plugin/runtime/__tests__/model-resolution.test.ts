@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SharedAvailableModelGroup } from '@sero-ai/common';
-import { FALLBACK_TIER, resolveStepModel } from '../model-resolution';
+import { resolveStepModel } from '../model-resolution';
 
 const GROUPS: SharedAvailableModelGroup[] = [
   {
@@ -31,17 +31,15 @@ describe('resolveStepModel', () => {
     });
   });
 
-  it('falls back to MED and reports the requested ref when a pinned model is gone', () => {
+  it('reports an unavailable pinned model without selecting a fallback', () => {
     expect(resolveStepModel('openai/gpt-9', GROUPS)).toEqual({
-      model: FALLBACK_TIER,
-      fallbackFrom: 'openai/gpt-9',
+      unavailableModel: 'openai/gpt-9',
     });
   });
 
-  it('falls back when no models are available at all', () => {
+  it('reports an unavailable pin when no models are available at all', () => {
     expect(resolveStepModel('anthropic/claude-opus-4-8', [])).toEqual({
-      model: FALLBACK_TIER,
-      fallbackFrom: 'anthropic/claude-opus-4-8',
+      unavailableModel: 'anthropic/claude-opus-4-8',
     });
   });
 });

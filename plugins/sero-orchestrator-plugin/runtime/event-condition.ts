@@ -9,7 +9,7 @@
  * verdict and keeps fire-time evaluation cheap.
  */
 
-import type { Loop, LoopTrigger, OrchestratorEvent } from '../shared/types';
+import type { Loop, LoopTrigger, OrchestratorEvent, UsageSummary } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import { describeValue, isRecord, runStructuredJson, type ParseResult } from './structured-call';
 
@@ -73,6 +73,7 @@ export async function evaluateEventCondition(
   loop: Loop,
   trigger: LoopTrigger,
   event: OrchestratorEvent,
+  options?: { onUsage?: (usage: UsageSummary) => void | Promise<void> },
 ): Promise<boolean> {
   const result = await runStructuredJson<ConditionVerdict>(host, {
     systemPrompt: CONDITION_SYSTEM,
@@ -81,6 +82,7 @@ export async function evaluateEventCondition(
     buildRepair,
     parentSessionId: loop.runtime.parentSessionId,
     model: 'LOW',
+    onUsage: options?.onUsage,
   });
   if (!result.ok) throw new Error(result.errors[0] ?? 'could not evaluate the event condition');
   return result.value!.matches;

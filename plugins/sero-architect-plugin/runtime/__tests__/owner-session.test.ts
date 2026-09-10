@@ -161,6 +161,26 @@ describe('owner session', () => {
     expect(second.record.budget.spentUsd).toBe(2.25);
   });
 
+  it('retains live owner charges when the final usage read fails', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const record = buildingProject();
+    await store.write(record);
+    const outcomes = createTurnOutcomes();
+    const sessions = new OwnerSessions({ host, store, outcomes });
+    host.sessions.costUsd = 0.25;
+    host.sessions.onTurn = async (handleId) => {
+      host.sessions.emit(handleId, { type: 'tool_start', toolName: 'read', summary: 'read file' });
+      await vi.waitFor(async () => expect((await store.read(record.id))?.budget.sources.owner).toBe(0.25));
+      host.sessions.getSessionUsage = async () => { throw new Error('stats unavailable'); };
+      outcomes.declare(record.id, 'sleep');
+    };
+    const result = await sessions.runTurn(record, wake);
+    expect(result.record.budget.sources.owner).toBe(0.25);
+    expect(result.record.budget.incomplete).toBe(true);
+    expect(result.record.session.sessionCostUsd).toBe(0.25);
+  });
+
   it('blocks the project after three turns that end without an outcome', async () => {
     const host = await fakeHost();
     const store = await storeFor(host);
