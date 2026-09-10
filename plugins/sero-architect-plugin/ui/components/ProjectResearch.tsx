@@ -16,7 +16,7 @@ export function ProjectResearch({ record }: { record: ProjectRecord }) {
           <p className="ar-why">{entry.stoppingCondition}</p>
           {entry.models?.map((member) => <p className="ar-why" key={member.name}>{member.name}: {member.model} · {member.thinking} thinking</p>)}
           {'result' in entry && <details className="ar-models"><summary>Findings used for the plan</summary><p className="ar-plan">{entry.result}</p></details>}
-          {(entry.roomId || entry.workflowId) && record.workspaceId ? <Button className="ar-btn" onClick={() => openDispatch({ kind: entry.roomId ? 'room' : 'workflow', id: (entry.roomId ?? entry.workflowId)!, workspaceId: record.workspaceId! })}>{entry.roomId ? 'Open Room' : 'Open Workflow'}</Button> : <p className="ar-why">Preparing the research task.</p>}
+          {(entry.roomId || entry.workflowId) && record.workspaceId ? <Button className="ar-btn ar-research-action" onClick={() => openDispatch({ kind: entry.roomId ? 'room' : 'workflow', id: (entry.roomId ?? entry.workflowId)!, workspaceId: record.workspaceId! })}>{entry.roomId ? 'Open Room' : 'Open Workflow'}</Button> : <p className="ar-why">Preparing the research task.</p>}
         </article>
       ))}
     </section>
