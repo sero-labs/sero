@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { flushSync } from 'react-dom';
 import { useAppState } from '@sero-ai/app-runtime';
 
 import type { ExecutionMode } from '../shared/record';
@@ -59,10 +58,9 @@ export function ArchitectApp() {
     // One navigation closes the dialog and opens the new project: the dialog must not navigate too.
     if (outcome.ok) {
       // Remove the modal before the host presents its permission question.
-      flushSync(() => {
-        setPermissionProjectId(outcome.projectId ?? null);
-        navigate(outcome.projectId ? { mode: 'project', projectId: outcome.projectId } : { mode: 'list' });
-      });
+      setPermissionProjectId(outcome.projectId ?? null);
+      navigate(outcome.projectId ? { mode: 'project', projectId: outcome.projectId } : { mode: 'list' });
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
       try {
         if (outcome.projectId) await actions.resume(outcome.projectId);
       } finally {

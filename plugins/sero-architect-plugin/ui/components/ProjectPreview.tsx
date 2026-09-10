@@ -26,6 +26,6 @@ export function ProjectPreview({ projectId }: { projectId: string }) {
   return <section className="ar-card" aria-label="Project preview">
     <Button disabled={busy} onClick={() => void open()}>{busy ? 'Starting preview…' : 'Open preview'}</Button>
     {error && <p role="alert" className="ar-error">{error}</p>}
-    {url && <iframe title="Project preview" src={url} className="mt-3 h-[600px] w-full rounded-lg border" />}
+    {url && <iframe title="Project preview" src={url} sandbox="allow-forms allow-modals allow-popups allow-scripts" className="mt-3 h-[600px] w-full rounded-lg border" />}
   </section>;
 }

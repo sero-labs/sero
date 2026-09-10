@@ -36,7 +36,7 @@ vi.mock('@sero-ai/ui', () => {
 });
 
 vi.mock('@sero-ai/app-runtime', () => ({
-  useAppTools: () => ({ run: vi.fn(async () => ({ text: 'Preview unavailable', details: { ok: false } })) }),
+  useAppTools: () => ({ run: vi.fn(async () => ({ text: 'Preview ready', details: { ok: true, url: 'http://localhost:3000' } })) }),
   openSeroApp: vi.fn(async () => true),
   openSeroFile: vi.fn(async () => true),
   useAppPreferences: () => ({ values: {}, set: vi.fn() }),
@@ -168,6 +168,15 @@ describe('project history access', () => {
     expect(container.textContent).toContain('I dispatched milestone one.');
     expect(container.textContent).toContain('Recent messages from the owner session.');
   });
+});
+
+it('sandboxes the project preview without granting same-origin access', async () => {
+  renderPage(stubActions());
+  act(() => button('Open preview').click());
+  await flush();
+
+  const preview = container.querySelector('iframe');
+  expect(preview?.getAttribute('sandbox')).toBe('allow-forms allow-modals allow-popups allow-scripts');
 });
 
 describe('deleting a project', () => {

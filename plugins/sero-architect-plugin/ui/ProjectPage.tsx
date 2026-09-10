@@ -29,23 +29,9 @@ export interface ProjectPageProps {
   confirm(message: string): boolean;
 }
 
-export function ProjectPage({ record, actions, narrow, disclosures, onBack, confirm, permissionPending = false }: ProjectPageProps) {
+function useProjectPageControls(record: ProjectRecord, actions: ArchitectActions, onBack: () => void, confirm: (message: string) => boolean) {
   const id = record.id;
   const [notice, setNotice] = useState<string | null>(null);
-  const [settingUp, setSettingUp] = useState(false);
-  const continueSetup = async () => {
-    if (settingUp || permissionPending) return;
-    setSettingUp(true);
-    setNotice(null);
-    try {
-      const outcome = await actions.resume(id);
-      if (!outcome.ok) setNotice(outcome.text);
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : String(error));
-    } finally {
-      setSettingUp(false);
-    }
-  };
   const [capOpen, setCapOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -86,55 +72,112 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, conf
     approveMilestone: (milestoneId: string) => actions.approveMilestone(id, milestoneId),
   }), [actions, id]);
 
+  return {
+    capOpen,
+    controls,
+    historyError,
+    historyLoading,
+    historyOpen,
+    needsActions,
+    notice,
+    sessionEntries,
+    setCapOpen,
+    setHistoryOpen,
+    setNotice,
+  };
+}
+
+function IntakeSetup({ record, actions, permissionPending, onNotice }: {
+  record: ProjectRecord;
+  actions: ArchitectActions;
+  permissionPending: boolean;
+  onNotice(notice: string | null): void;
+}) {
+  const [settingUp, setSettingUp] = useState(false);
+  const continueSetup = async () => {
+    if (settingUp || permissionPending) return;
+    setSettingUp(true);
+    onNotice(null);
+    try {
+      const outcome = await actions.resume(record.id);
+      if (!outcome.ok) onNotice(outcome.text);
+    } catch (error) {
+      onNotice(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSettingUp(false);
+    }
+  };
+  return (
+    <section>
+      <SectionHead title="Setting up" count={record.blockedReason ? 'waiting' : 'in progress'} />
+      <Quiet>{record.blockedReason ?? 'Allow the Architect to run in this workspace to start planning your project.'}</Quiet>
+      <Button className="mt-3" disabled={settingUp || permissionPending} onClick={() => void continueSetup()}>
+        {settingUp || permissionPending ? 'Waiting for permission…' : record.workspaceId ? 'Request permission' : 'Retry setup'}
+      </Button>
+    </section>
+  );
+}
+
+function ProjectMainColumn({ record, actions, needsActions, permissionPending, onNotice }: {
+  record: ProjectRecord;
+  actions: ArchitectActions;
+  needsActions: ReturnType<typeof useProjectPageControls>['needsActions'];
+  permissionPending: boolean;
+  onNotice(notice: string | null): void;
+}) {
+  const id = record.id;
+  return (
+    <div className="ar-col">
+      {record.phase === 'intake' ? (
+        <IntakeSetup record={record} actions={actions} permissionPending={permissionPending} onNotice={onNotice} />
+      ) : (
+        <>
+          <LimitBanner record={record} onRaise={(capUsd) => actions.raiseCap(id, capUsd)} />
+          <NeedsYou record={record} actions={needsActions} />
+          {record.blockedReason && record.milestones.some((item) => item.pendingDispatch) && <RepairCard projectId={id} />}
+        </>
+      )}
+      <ProjectResearch record={record} />
+      <MilestoneRail record={record} onOpenDispatch={openDispatch} onRetry={(milestoneId, capUsd) => actions.retry(id, milestoneId, capUsd)} />
+      {record.phase !== 'intake' && <ProjectPreview projectId={id} />}
+      {record.phase === 'intake' && (
+        <section>
+          <SectionHead title="Idea" count="verbatim" />
+          <div className="ar-card"><p className="ar-idea">{record.idea}</p></div>
+        </section>
+      )}
+      <Directives record={record} />
+    </div>
+  );
+}
+
+export function ProjectPage({ record, actions, narrow, disclosures, onBack, confirm, permissionPending = false }: ProjectPageProps) {
+  const id = record.id;
+  const page = useProjectPageControls(record, actions, onBack, confirm);
+
   return (
     <>
-      <TopBar record={record} controls={controls} onBack={onBack} onNewProject={() => undefined} />
+      <TopBar record={record} controls={page.controls} onBack={onBack} onNewProject={() => undefined} />
       <div className="ar-scroll">
         <div className="ar-body">
-          {((notice !== null && notice !== record.blockedReason) || capOpen) && (
+          {((page.notice !== null && page.notice !== record.blockedReason) || page.capOpen) && (
             <div className="ar-notice">
-              {notice !== null && notice !== record.blockedReason && <p role="alert">{notice}</p>}
-              {capOpen && (
+              {page.notice !== null && page.notice !== record.blockedReason && <p role="alert">{page.notice}</p>}
+              {page.capOpen && (
                 <CapInput
                   cap={record.budget.capUsd}
                   inputId="ar-raise-cap-in"
                   submitLabel="Raise cap"
                   onRaise={(capUsd) => actions.raiseCap(id, capUsd)}
-                  onError={setNotice}
-                  onDone={() => setCapOpen(false)}
+                  onError={page.setNotice}
+                  onDone={() => page.setCapOpen(false)}
                 />
               )}
             </div>
           )}
           <StateLine record={record} home={null} />
           <div className="ar-sections" data-narrow={narrow ? 1 : 0}>
-            <div className="ar-col">
-              {record.phase === 'intake' ? (
-                <section>
-                  <SectionHead title="Setting up" count={record.blockedReason ? 'waiting' : 'in progress'} />
-                  <Quiet>{record.blockedReason ?? 'Allow the Architect to run in this workspace to start planning your project.'}</Quiet>
-                  <Button className="mt-3" disabled={settingUp || permissionPending} onClick={() => void continueSetup()}>
-                    {settingUp || permissionPending ? 'Waiting for permission…' : record.workspaceId ? 'Request permission' : 'Retry setup'}
-                  </Button>
-                </section>
-              ) : (
-                <>
-                  <LimitBanner record={record} onRaise={(capUsd) => actions.raiseCap(id, capUsd)} />
-                  <NeedsYou record={record} actions={needsActions} />
-                  {record.blockedReason && record.milestones.some((item) => item.pendingDispatch) && <RepairCard projectId={id} />}
-                </>
-              )}
-              <ProjectResearch record={record} />
-              <MilestoneRail record={record} onOpenDispatch={openDispatch} onRetry={(milestoneId, capUsd) => actions.retry(id, milestoneId, capUsd)} />
-              {record.phase !== 'intake' && <ProjectPreview projectId={id} />}
-              {record.phase === 'intake' && (
-                <section>
-                  <SectionHead title="Idea" count="verbatim" />
-                  <div className="ar-card"><p className="ar-idea">{record.idea}</p></div>
-                </section>
-              )}
-              <Directives record={record} />
-            </div>
+            <ProjectMainColumn record={record} actions={actions} needsActions={page.needsActions} permissionPending={permissionPending} onNotice={page.setNotice} />
             <SideColumn record={record} disclosures={disclosures} />
           </div>
         </div>
@@ -146,12 +189,12 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, conf
         />
       </div>
       <SessionHistoryDialog
-        open={historyOpen}
+        open={page.historyOpen}
         projectName={record.name}
-        entries={sessionEntries}
-        loading={historyLoading}
-        error={historyError}
-        onClose={() => setHistoryOpen(false)}
+        entries={page.sessionEntries}
+        loading={page.historyLoading}
+        error={page.historyError}
+        onClose={() => page.setHistoryOpen(false)}
       />
     </>
   );
