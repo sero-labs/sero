@@ -189,6 +189,7 @@ export function recordAnswer(
 ): RecordAnswerResult {
   const answered: AnsweredInput = {
     requestId: pending.id,
+    ...(pending.externalDeliveryAttemptId ? { externalDeliveryAttemptId: pending.externalDeliveryAttemptId } : {}),
     source: pending.source,
     stepId: pending.stepId,
     runId: pending.runId,
@@ -202,7 +203,7 @@ export function recordAnswer(
     runtime: { ...loop.runtime, pendingInput: undefined },
     updatedAt: now,
   };
-  if (pending.source === 'step' && pending.stepId) {
+  if (pending.source === 'step' && pending.stepId && !pending.externalDeliveryAttemptId) {
     const variables = mergeVariables(next.runtime.variables, { notes: formatAnswerNote(answered) });
     next = { ...next, runtime: { ...next.runtime, variables } };
     next = resetStepPending(next, pending.stepId, now);

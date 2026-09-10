@@ -41,6 +41,7 @@ import {
 } from './event-delivery';
 import { cleanupPreviousWorktree } from './worktree-cleanup';
 import { retryLoop, retryStepAction, runAgain } from './restart-actions';
+import { requireExternalReview } from './delivery/external-review';
 import { buildLifecycleEvents } from './lifecycle-events';
 import { computeReadySteps, hasRunningSteps } from './readiness';
 import { mergeConcurrentAccounting } from './run-engine-helpers';
@@ -434,6 +435,8 @@ export class Coordinator {
   async revise(loopId: string, prompt?: string): Promise<OrchestratorActionResult> {
     const loop = await this.findLoop(loopId);
     if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
+    const review = await requireExternalReview(this.host, loop, (next) => this.replaceLoop(next));
+    if (review) return review;
     const outcome = await buildRevisedLoop(this.host, loop, prompt);
     if (outcome.error || !outcome.loop) {
       await this.recordRejectedRevision(outcome.loop ?? loop, outcome.rejectionReason ?? outcome.error ?? 'Revision failed.');
@@ -457,6 +460,8 @@ export class Coordinator {
   async chooseRecovery(loopId: string, decision: RecoveryDecision): Promise<OrchestratorActionResult> {
     const loop = await this.findLoop(loopId);
     if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
+    const review = await requireExternalReview(this.host, loop, (next) => this.replaceLoop(next));
+    if (review) return review;
     const applied = applyRecovery(this.host, loop, decision);
     if (applied.rejection) return { ok: false, error: applied.rejection };
     await this.replaceLoop(applied.loop);

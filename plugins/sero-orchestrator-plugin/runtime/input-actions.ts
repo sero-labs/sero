@@ -53,6 +53,8 @@ export async function applyAnswerInput(host: OrchestratorHost, action: AnswerInp
 
   const { loop: recorded, source } = recordAnswer(loop, pending, answers, host.now());
 
+  if (pending.externalDeliveryAttemptId) return { ok: true, loop: recorded, resume: false };
+
   if (source === 'planner') {
     // Re-run the planner with the answers folded in. It may produce a plan, ask
     // again (re-parks), or fail to a blocked draft — all handled by the flow.

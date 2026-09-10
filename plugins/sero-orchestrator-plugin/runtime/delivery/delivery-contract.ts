@@ -170,6 +170,9 @@ export function uncertainExternalDelivery(
 ): UncertainExternalDelivery | undefined {
   const delivery = receiptRequirement(loop, step);
   if (!delivery || !isExternalDestination(delivery.destination) || attempt.modelUnavailable) return undefined;
+  const reviewed = loop.answeredInputs?.some((input) => input.externalDeliveryAttemptId === attempt.id
+    && input.answers.some((answer) => answer.questionId === 'destination-reviewed' && answer.choiceId === 'reviewed-safe'));
+  if (reviewed) return undefined;
 
   const failed = ['failed', 'orphaned', 'cancelled'].includes(attempt.status) || (outcome && interruptedOutcomes.has(outcome.status));
   if (!failed) return undefined;
