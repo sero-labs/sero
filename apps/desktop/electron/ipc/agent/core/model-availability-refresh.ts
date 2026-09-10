@@ -60,10 +60,11 @@ function resolveModelRefreshOptions(
 let refreshQueue: Promise<unknown> = Promise.resolve();
 
 /**
- * Serialize model refreshes so the startup refresh, the interval, and a
- * credential change never run the post-refresh reconciliation together.
- * Pi guards its own provider generations, but Sero's settings cleanup, session
- * reconciliation, and app-session sync would otherwise run more than once.
+ * Serialize model refreshes so the startup refresh, the interval, a credential
+ * change, and a saved local-model config never run the post-refresh
+ * reconciliation together. Pi guards its own provider generations, but Sero's
+ * settings cleanup, session reconciliation, and app-session sync would
+ * otherwise run more than once, and the settings rewrite is not atomic.
  */
 export function queueModelAvailabilityRefresh(
   options: ModelsRefreshOptions = {},

@@ -89,17 +89,22 @@ Alternatives considered:
 
 ### 3. Live sessions: reconcile all, then clamp
 
-Keep today's reconciliation and add the missing clamp after the swap:
+Keep today's reconciliation and add the missing clamp after the swap. Both sibling sync modules write the model directly, so both need it:
 
 ```text
-ensureSessionHasAvailableModel(session)
+ensureSessionHasAvailableModel(session)          # chat sessions
+syncAppSessionModel(session, sharedModel)        # app-agent sessions
   refreshed = runtime.getModel(provider, id)
   if (refreshed && refreshed !== current)
     setRuntimeSessionModel(session, refreshed)          // direct write, no session entry
-    session.setThinkingLevel(session.thinkingLevel)     // clamps; writes only on change
+    session.setThinkingLevel(session.thinkingLevel)     // clamps; acts only on change
 ```
 
-`setThinkingLevel` clamps through `clampThinkingLevel` and only appends a transcript entry and emits events when the level actually changes (`agent-session.ts:1812`). So the clamp is free when nothing changed, and Sero keeps its reason for writing the model directly: calling `session.setModel` would append a `model_change` entry to the session file and check auth on every refresh.
+A missing clamp is not cosmetic on either path. An unmapped level is not dropped at request time: the OpenAI Responses adapter sends `model.thinkingLevelMap?.[effort] ?? effort` (`openai-responses.js:241`), so a session left on `xhigh` after a refreshed definition drops `xhigh` puts the literal string `xhigh` in `reasoning.effort` and the next turn fails.
+
+**Accepted side effect.** `setThinkingLevel` writes more than the session. On a real change it calls `settingsManager.setDefaultThinkingLevel(effectiveLevel)` and `sessionManager.appendThinkingLevelChange(effectiveLevel)` (`dist/core/agent-session.js:1282-1287` in the pinned `0.84.2`, where neither write is gated behind `options.persist` — unlike the `0.85.1` source). So an unattended six-hourly refresh can lower the **global** default thinking level for future sessions. This is deliberate: the level genuinely no longer exists on that model, and it matches what Pi itself does on a user-driven model switch. The renderer stays correct because `buildModelState` carries `thinkingLevel` and `availableThinkingLevels`, and `reconcileLiveChatSessions` emits `model_change` after the sync. The alternative — clamping the session field directly through the private adapter — would avoid touching global settings, and is the escape hatch if this proves unwanted.
+
+The clamp is still free when nothing changed, which is the common case, so Sero keeps its reason for writing the model directly: calling `session.setModel` would append a `model_change` entry and check auth on every refresh.
 
 Alternatives considered:
 

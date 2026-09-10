@@ -17,7 +17,7 @@ import type {
   LocalModelsConnectionRequest,
   LocalRemoteModelInfo,
 } from '@/types/ipc';
-import { refreshModelAvailability } from '@electron/ipc/agent/core/model-availability-refresh';
+import { queueModelAvailabilityRefresh } from '@electron/ipc/agent/core/model-availability-refresh';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 
 const MODELS_JSON_PATH = path.join(SERO_AGENT_DIR, 'models.json');
@@ -258,7 +258,13 @@ async function readModelsConfig(): Promise<LocalModelsConfig> {
   }
 
   if (raw === null) return { providers: {} };
-  return JSON.parse(raw) as LocalModelsConfig;
+  try {
+    return JSON.parse(raw) as LocalModelsConfig;
+  } catch (error) {
+    // Still rejects, as before, but names the file that is malformed.
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`Invalid ${MODELS_JSON_PATH}: ${detail}`);
+  }
 }
 
 function normalizeModelsConfigForPi(config: LocalModelsConfig): LocalModelsConfig {
@@ -349,7 +355,9 @@ export function registerLocalModelsHandlers(): void {
     IpcChannels.localModels.saveConfig,
     async (_event, config: LocalModelsConfig): Promise<LocalModelsSaveResult> => {
       await writeModelsConfig(config);
-      const result = await refreshModelAvailability();
+      // Through the shared queue so a saved config cannot overlap the background
+      // catalog tick. The queue also bounds this call with its timeout.
+      const result = await queueModelAvailabilityRefresh();
       return { warning: result.registryError };
     },
   );

@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AgentSession } from '@earendil-works/pi-coding-agent';
-import { clampThinkingLevel, type Api, type Model, type ModelThinkingLevel, type ThinkingLevelMap } from '@earendil-works/pi-ai';
+import {
+  clampThinkingLevel,
+  type Api,
+  type Model,
+  type ModelThinkingLevel,
+  type ThinkingLevelMap,
+} from '@earendil-works/pi-ai';
 import { ensureSessionHasAvailableModel } from '@electron/ipc/agent/core/agent-session-model-sync';
 
 function createModel(provider: string, id: string): Model<Api> {

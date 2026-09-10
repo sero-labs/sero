@@ -63,8 +63,9 @@ export function startModelCatalogRefresh(): void {
   app.on('before-quit', stopModelCatalogRefresh);
 }
 
-/** Stop the interval. Safe to call more than once. */
+/** Stop the interval and drop the quit hook. Safe to call more than once. */
 export function stopModelCatalogRefresh(): void {
+  app.off('before-quit', stopModelCatalogRefresh);
   if (!timer) return;
   clearInterval(timer);
   timer = null;

@@ -2,12 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   appOn: vi.fn(),
+  appOff: vi.fn(),
   isModelNetworkDisabled: vi.fn(() => false),
   queueModelAvailabilityRefresh: vi.fn(),
 }));
 
 vi.mock('electron', () => ({
-  app: { on: mocks.appOn },
+  app: { on: mocks.appOn, off: mocks.appOff },
 }));
 
 vi.mock('@electron/ipc/agent/core/model-availability-refresh', () => ({
@@ -32,6 +33,7 @@ describe('model catalog refresh schedule', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     mocks.appOn.mockReset();
+    mocks.appOff.mockReset();
     mocks.isModelNetworkDisabled.mockReset().mockReturnValue(false);
     mocks.queueModelAvailabilityRefresh.mockReset().mockResolvedValue(undefined);
   });
@@ -87,6 +89,18 @@ describe('model catalog refresh schedule', () => {
     await vi.advanceTimersByTimeAsync(REFRESH_INTERVAL_MS * 3);
 
     expect(mocks.queueModelAvailabilityRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops the quit hook on stop so handlers cannot accumulate', async () => {
+    startModelCatalogRefresh();
+    await vi.advanceTimersByTimeAsync(0);
+
+    stopModelCatalogRefresh();
+
+    expect(mocks.appOff).toHaveBeenCalledExactlyOnceWith(
+      'before-quit',
+      expect.any(Function),
+    );
   });
 
   it('ignores a second start and a repeated stop', async () => {

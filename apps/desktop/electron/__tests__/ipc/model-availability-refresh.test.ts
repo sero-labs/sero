@@ -75,23 +75,23 @@ const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
 beforeEach(() => {
   consoleWarn.mockClear();
-    mocks.modelRuntimeRefresh.mockReset().mockResolvedValue({
-      aborted: false,
-      errors: new Map(),
-    });
-    mocks.modelRegistryGetAvailable.mockReset();
-    mocks.settingsReload.mockReset();
-    mocks.getGlobalSettings.mockReset().mockReturnValue({});
-    mocks.ensureInfra.mockReset();
-    mocks.refreshInfraModelSelection.mockReset();
-    mocks.applyRuntimeSettings.mockReset();
-    mocks.cleanupUnavailableModelSelections.mockReset();
-    mocks.getAgentPoolEntries.mockReset();
-    mocks.emitAgentEvent.mockReset();
-    mocks.getAppAgentSessions.mockReset();
-    mocks.ensureSessionHasAvailableModel.mockReset();
-    mocks.syncAppSessionPoolModels.mockReset();
-    mocks.buildModelState.mockReset();
+  mocks.modelRuntimeRefresh.mockReset().mockResolvedValue({
+    aborted: false,
+    errors: new Map(),
+  });
+  mocks.modelRegistryGetAvailable.mockReset();
+  mocks.settingsReload.mockReset();
+  mocks.getGlobalSettings.mockReset().mockReturnValue({});
+  mocks.ensureInfra.mockReset();
+  mocks.refreshInfraModelSelection.mockReset();
+  mocks.applyRuntimeSettings.mockReset();
+  mocks.cleanupUnavailableModelSelections.mockReset();
+  mocks.getAgentPoolEntries.mockReset();
+  mocks.emitAgentEvent.mockReset();
+  mocks.getAppAgentSessions.mockReset();
+  mocks.ensureSessionHasAvailableModel.mockReset();
+  mocks.syncAppSessionPoolModels.mockReset();
+  mocks.buildModelState.mockReset();
   mocks.syncQwenChatTemplateReasoning.mockReset().mockResolvedValue(undefined);
 });
 
