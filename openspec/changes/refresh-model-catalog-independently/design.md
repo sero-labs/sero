@@ -143,6 +143,10 @@ Pi has a generation guard (`beginProviderRefresh` supersedes an older generation
 
 - **[An error every six hours on a network that blocks `pi.dev`.]** → The offline guard is the intended remedy, and the warning path already exists (`refreshWarnings`), so the noise is a console warning rather than a user-visible failure.
 
+- **[A serialized save can wait behind a background tick.]** The queue's timeout bounds the catalog request, not the reconciliation that follows it: `ensureSessionHasAvailableModel` awaits `modelRuntime.getAvailable()` with no signal, which runs a full auth-check pass. A user-initiated local-model save is now serialized behind a tick, so it can wait longer than the 15s the comment implies. → The save no longer hides this: `saveConfig` reports `refreshWarnings`, so a cancelled refresh surfaces as a warning instead of a clean save. Bounding the reconciliation with the same signal is a follow-up, and needs care because an abort mid-reconcile leaves partially reconciled sessions. That is idempotent, since the next tick repairs it, but it deserves its own change rather than being smuggled into this one.
+
+- **[A silent behaviour change on the credential path.]** `refreshModelAvailabilityAfterCredentialChange` no longer passes an explicit `allowNetwork: true`; it inherits `modelNetworkEnabled` through the shared queue. That is the intended fix, and the offline guard now applies to a path that previously ignored it.
+
 ## Migration Plan
 
 No data migration. The only new persisted state is one entry per credentialed provider in `~/.sero-ui/agent/models-store.json`, written by Pi. A stale or corrupt store degrades to the built-in catalog.

@@ -356,9 +356,13 @@ export function registerLocalModelsHandlers(): void {
     async (_event, config: LocalModelsConfig): Promise<LocalModelsSaveResult> => {
       await writeModelsConfig(config);
       // Through the shared queue so a saved config cannot overlap the background
-      // catalog tick. The queue also bounds this call with its timeout.
+      // catalog tick. The queue's timeout bounds the catalog request itself; the
+      // session reconciliation that follows it is not bounded by that signal.
       const result = await queueModelAvailabilityRefresh();
-      return { warning: result.registryError };
+      // `refreshWarnings` carries the registry error plus a cancelled refresh and
+      // per-provider failures, so a save that timed out is not reported as clean.
+      const warning = result.refreshWarnings.join('; ');
+      return { warning: warning || undefined };
     },
   );
 
