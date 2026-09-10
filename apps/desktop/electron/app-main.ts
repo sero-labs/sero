@@ -62,7 +62,6 @@ import {
   lspManager,
   pluginDevSessionManager,
   runtimeManager,
-  vcsManager,
 } from './shared/infra/shared-infra';
 import { startGateway, stopGateway } from './ipc/gateway/gateway';
 import { shouldAutoStartGateway } from '@electron/shared/settings/gateway-settings';
@@ -82,6 +81,7 @@ import {
 } from './cli/host-bridge/server';
 import { getCliRegistry } from './cli';
 import { executeCliArgv } from './cli/core/batch-executor';
+import { startModelCatalogRefresh } from './features/models/model-catalog-refresh';
 import { initUpdater } from './features/updater/updater';
 import { installApplicationMenu } from './features/updater/menu';
 import { getPackageSource, removeStaleBuiltinPackages } from './platform/protocols/builtin-package-settings';
@@ -356,6 +356,10 @@ app.whenReady().then(async () => {
   // Application menu (adds "Check for Updates…") + background auto-update.
   installApplicationMenu();
   initUpdater();
+
+  // Background model catalog refresh. Startup is not blocked: the first
+  // refresh runs in the background and the interval stops on quit.
+  startModelCatalogRefresh();
 });
 
 app.on('window-all-closed', () => {

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AgentSession } from '@earendil-works/pi-coding-agent';
 import type { Api, Model } from '@earendil-works/pi-ai';
 
@@ -55,17 +55,26 @@ vi.mock('@electron/shared/providers/qwen-chat-template-reasoning', () => ({
   syncQwenChatTemplateReasoning: mocks.syncQwenChatTemplateReasoning,
 }));
 
-import { refreshModelAvailability } from '@electron/ipc/agent/core/model-availability-refresh';
+import {
+  queueModelAvailabilityRefresh,
+  refreshModelAvailability,
+} from '@electron/ipc/agent/core/model-availability-refresh';
 
 function createModel(provider: string, id: string): Model<Api> {
   return { provider, id } as Model<Api>;
 }
 
-describe('refreshModelAvailability', () => {
-  const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+const originalOffline = process.env.PI_OFFLINE;
 
-  beforeEach(() => {
-    consoleWarn.mockClear();
+function restoreOffline(): void {
+  if (originalOffline === undefined) delete process.env.PI_OFFLINE;
+  else process.env.PI_OFFLINE = originalOffline;
+}
+
+const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+beforeEach(() => {
+  consoleWarn.mockClear();
     mocks.modelRuntimeRefresh.mockReset().mockResolvedValue({
       aborted: false,
       errors: new Map(),
@@ -83,9 +92,10 @@ describe('refreshModelAvailability', () => {
     mocks.ensureSessionHasAvailableModel.mockReset();
     mocks.syncAppSessionPoolModels.mockReset();
     mocks.buildModelState.mockReset();
-    mocks.syncQwenChatTemplateReasoning.mockReset().mockResolvedValue(undefined);
-  });
+  mocks.syncQwenChatTemplateReasoning.mockReset().mockResolvedValue(undefined);
+});
 
+describe('refreshModelAvailability', () => {
   it('reconciles shared state, live chat sessions, and reused app-agent sessions in one flow', async () => {
     const sharedModel = createModel('openai', 'gpt-5.4-mini');
     const availableModels = [
@@ -219,5 +229,70 @@ describe('refreshModelAvailability', () => {
       'Provider "broken": invalid configuration',
     ]);
     expect(result.registryError).toBe('Provider "broken": invalid configuration');
+  });
+});
+
+describe('queueModelAvailabilityRefresh', () => {
+  afterEach(restoreOffline);
+
+  function mockInfra(): void {
+    mocks.ensureInfra.mockResolvedValue({
+      modelRuntime: { refresh: mocks.modelRuntimeRefresh },
+      modelRegistry: {
+        getError: vi.fn(() => null),
+        getAvailable: mocks.modelRegistryGetAvailable.mockReturnValue([]),
+      },
+      settingsManager: {
+        reload: mocks.settingsReload,
+        getGlobalSettings: mocks.getGlobalSettings,
+      },
+    });
+    mocks.getAgentPoolEntries.mockReturnValue([]);
+    mocks.getAppAgentSessions.mockReturnValue([]);
+    mocks.syncAppSessionPoolModels.mockResolvedValue(0);
+  }
+
+  it('keeps network access for a credential change when no offline intent is set', async () => {
+    delete process.env.PI_OFFLINE;
+    mockInfra();
+
+    await queueModelAvailabilityRefresh({ force: true });
+
+    const options = mocks.modelRuntimeRefresh.mock.calls[0][0];
+    expect(options.force).toBe(true);
+    expect(options.allowNetwork).toBeUndefined();
+    expect(options.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  // Pi's ModelRuntime.create() disables model network access whenever
+  // PI_OFFLINE is set at all, so "0" disables it too.
+  it.each(['1', 'true', '0'])('suppresses network access when PI_OFFLINE=%s', async (value) => {
+    process.env.PI_OFFLINE = value;
+    mockInfra();
+
+    await queueModelAvailabilityRefresh({ force: true });
+
+    const options = mocks.modelRuntimeRefresh.mock.calls[0][0];
+    expect(options.allowNetwork).toBe(false);
+    expect(options.force).toBe(false);
+  });
+
+  it('serializes overlapping refreshes so a tick cannot overlap a credential change', async () => {
+    delete process.env.PI_OFFLINE;
+    mockInfra();
+    let releaseFirst: (() => void) | undefined;
+    mocks.modelRuntimeRefresh
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        releaseFirst = () => resolve({ aborted: false, errors: new Map() });
+      }))
+      .mockResolvedValueOnce({ aborted: false, errors: new Map() });
+
+    const scheduled = queueModelAvailabilityRefresh();
+    const credentialChange = queueModelAvailabilityRefresh({ force: true });
+    await vi.waitFor(() => expect(mocks.modelRuntimeRefresh).toHaveBeenCalledTimes(1));
+    releaseFirst?.();
+    await Promise.all([scheduled, credentialChange]);
+
+    expect(mocks.modelRuntimeRefresh).toHaveBeenCalledTimes(2);
   });
 });

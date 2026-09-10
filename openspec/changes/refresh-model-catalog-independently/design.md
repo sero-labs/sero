@@ -65,15 +65,22 @@ Alternatives considered:
 
 ### 2. Offline: one shared guard, keyed on `PI_OFFLINE`
 
-One helper resolves the refresh options. Both callers use it.
+`PI_OFFLINE` is resolved once, in the shared module, and each caller gets the behaviour its job needs.
 
 ```ts
-// sketch, not final shape
-const offline = isOffline();                 // PI_OFFLINE set to a truthy value
-refreshModelAvailability({ allowNetwork: !offline, force: !offline && explicit });
+// implemented shape
+isModelNetworkDisabled()   // true whenever PI_OFFLINE is set AT ALL, matching ModelRuntime.create()
+
+scheduled tick    ->  skip the refresh entirely, log once, never enter the queue
+credential change ->  queueModelAvailabilityRefresh() resolves
+                      { allowNetwork: false, force: false } and still runs
 ```
 
-`allowNetwork: false` is still a useful call. Pi restores the persisted overlay during the local phase before it checks the network flag, so offline mode keeps serving the cached catalog with zero requests.
+A scheduled tick has nothing to do while offline. `ModelRuntime.create({ allowModelNetwork: false })` runs Pi's local phase before it checks the network flag, so the persisted catalog overlay is already applied by the time the scheduler starts. A second local pass would change nothing, and the skip is logged so the behaviour is observable.
+
+A credential change is different. A newly configured provider can make models available with no network at all, so the refresh still runs with `allowNetwork: false` and `force: false`: Pi restores the persisted overlay, availability is recomputed, and no request leaves the machine.
+
+`PI_OFFLINE` follows `ModelRuntime.create()`, which tests set-or-unset rather than truthiness, so `PI_OFFLINE=0` also disables network access. Pi's CLI help text documents the truthy reading, so the divergence is recorded in a code comment instead of being silently resolved one way.
 
 Alternatives considered:
 
