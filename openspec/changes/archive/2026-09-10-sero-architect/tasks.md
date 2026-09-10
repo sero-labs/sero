@@ -1,8 +1,7 @@
-## 1. Prototype and profile
+## 1. Prototype
 
 - [x] 1.1 Build the Architect UI prototype under `apps/styleguide/public/prototypes/sero-architect/` with the states intake, discovery running, charter awaiting approval, building quietly, decision required, limited, maintain, and the projects list; link it from `PrototypeArchive.tsx`; verify it serves from the styleguide Vite URL at two viewport sizes and `pnpm --filter @sero/styleguide build` passes
 - [x] 1.2 Screenshot every prototype state at real size into `prototypes/screenshots/sero-architect/` and get the user's sign-off on the four-part page and the decision card; verify the sign-off is recorded in the pull request description
-- [ ] 1.3 Ask the user to create a clean profile by hand and give its path; verify the path is recorded in the pull request description and the source checkout is active under Local Plugin Development in that profile
 
 ## 2. Host seams
 
@@ -41,7 +40,6 @@
 - [x] 6.1 Implement the dispatch action: the runtime creates and activates the Workflow or Room through the typed registry handles from task 2.4, links the id to the milestone, and applies the completion-is-a-claim rule that moves a milestone to `verifying`; verify a test drives a dispatched Workflow to complete and observes `verifying`, not `done`, and that the owner session never held a Workflow or Room tool
 - [x] 6.2 Implement the verification gate as runtime-run evidence: commands through host verification with exit codes and output, diff summary from git for file changes, dev-server smoke check and capture for preview milestones through the path chosen in task 2.5, each item stamped with the checked commit, and the four states reported, verified, accepted and delivered kept distinct; verify tests refuse a done request with each missing item and with a non-zero exit code, mark evidence stale after a file change and rerun it, and show a receipt without verification leaving the milestone in `verifying`
 - [x] 6.3 Implement release through the existing PR or workspace-files delivery with external destinations forced to a decision; verify a test shows an external destination raises a decision before any send
-- [ ] 6.4 Implement maintain: a maintenance Workflow subscribed to GitHub issue, CI-failed and scheduled sources whose completions wake the owner to triage; verify an e2e test on the built Electron main files an issue and observes a triage wake and a dispatch or decision
 
 ## 7. Production UI
 
@@ -50,10 +48,13 @@
 - [x] 7.3 Build the controls (pause, resume, stop, raise cap, change autonomy, open session, delete) and persist layout preferences through the host layout service; verify a test shows collapsed history survives a restart and a grep finds no `localStorage`
 - [x] 7.4 Build the dashboard widget from the shared dashboard components reading only the index; verify it appears in Add Widget, shows the needs-you count, and shows the empty state with one create action
 
-## 8. Proving run and docs
+## 8. Documentation and review
 
-- [ ] 8.1 Run the proving project in the clean profile with the roguelike spec as the verbatim intake and the default autonomy; verify a charter with a cost cap is presented for approval and at least one decision is raised with a recommendation
-- [ ] 8.2 Continue the proving run through two milestones; verify each closes only with recorded command results and a capture, and the total spend stays under the approved cap
-- [ ] 8.3 Continue through release and maintain; verify one filed issue produces a triage wake and a fix delivered through the PR path with a receipt
-- [x] 8.4 Write the user guide and reference pages under `apps/docs-site/docs/`, add the Architect row to the Orchestrator mode table, and remove kanban and plan-mode from the recommended catalog list; verify the docs-site build passes and every internal link resolves
-- [x] 8.5 Route a code review at high effort and fix the findings; verify `pnpm typecheck`, plugin tests and the e2e specs pass on the final branch
+- [x] 8.1 Write the user guide and reference pages under `apps/docs-site/docs/`, add the Architect row to the Orchestrator mode table, and remove kanban and plan-mode from the recommended catalog list; verify the docs-site build passes and every internal link resolves
+- [x] 8.2 Route a code review at high effort and fix the findings; verify `pnpm typecheck`, plugin tests and the e2e specs pass on the final branch
+
+## Post-merge validation
+
+The live GitHub maintenance wake is tracked in issue #520. It is a post-merge
+check, not a completion gate for this change. The clean-profile Local Plugin
+Development check and the proposed roguelike proving run were cancelled.

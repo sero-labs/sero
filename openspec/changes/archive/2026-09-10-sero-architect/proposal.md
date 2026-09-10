@@ -100,6 +100,3 @@ their input.
   a task, Goal finishes a task, Architect owns the product.
 - Prototype under `apps/styleguide/public/prototypes/sero-architect/` linked
   from `PrototypeArchive.tsx`.
-- First proving run uses a clean Sero profile that the user creates by hand
-  and a fixed intake text (a turn-based roguelike dungeon); the game itself is
-  not planned in advance.

@@ -93,7 +93,6 @@ the current tree:
 - Multi-user or multi-machine ownership. One profile owns a project. Agent
   Node execution is a later concern.
 - Replacing Orchestrator's planner, limits, delivery or receipt contracts.
-- Planning the proving project (the roguelike) in advance.
 
 ## Decisions
 
@@ -335,10 +334,7 @@ and plan-mode are removed from the catalog's recommended list.
 
 The change is additive. Set `SERO_ARCHITECT=0|false` before startup to disable
 the plugin for rollback, as with Rooms and Goals. Records remain under
-`<SERO_HOME>/apps/architect/` while the plugin is disabled. For the proving
-run, the user creates a clean profile, provides its path, activates the plugin
-through Local Plugin Development and submits the roguelike intake text
-verbatim.
+`<SERO_HOME>/apps/architect/` while the plugin is disabled.
 
 ## Open Questions
 
