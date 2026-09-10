@@ -98,6 +98,8 @@ export interface ModelRunParams {
   /** User context override: skill names to hide from the model for this run. */
   disabledSkills?: string[];
   signal?: AbortSignal;
+  /** Remaining Workflow wall-clock budget for this attempt. */
+  timeoutMs?: number;
   /** In-session structured-output repair: re-prompt the SAME session for a valid reply. */
   repair?: AppRuntimeSubagentRepair;
   onUpdate?: (text: string) => void;

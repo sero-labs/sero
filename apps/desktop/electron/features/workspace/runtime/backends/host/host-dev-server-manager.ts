@@ -108,10 +108,11 @@ export class HostDevServerManager {
     try {
       const port = detectionPid ? await this.detectListeningPort(detectionPid, () => earlyExit === undefined) : null;
       if (!port) {
+        const exitBeforeCleanup = earlyExit;
         await this.terminateProcess(process, detectionPid);
         terminated = true;
-        throw new Error(earlyExit
-          ? `Dev server exited before a listening port was detected${formatProcessExit(earlyExit)}.`
+        throw new Error(exitBeforeCleanup
+          ? `Dev server exited before a listening port was detected${formatProcessExit(exitBeforeCleanup)}.`
           : 'No listening port was detected after starting the command.');
       }
       const url = hostPreviewUrl(port);

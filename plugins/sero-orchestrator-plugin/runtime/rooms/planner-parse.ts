@@ -97,8 +97,8 @@ function reportEnvelopeOverreach(raw: unknown, approved: OperatingEnvelope, clam
 
 /**
  * Rebuilds the object to parse from the planner's fields plus the user's. The
- * workspace MODE is the one part of the policy the planner keeps: lowering
- * reach is a planning decision, and the clamp catches an attempt to raise it.
+ * workspace mode is planner-owned unless the caller locks the execution
+ * location. A locked location survives planning and subsequent revisions.
  */
 function withUserAuthority(value: Record<string, unknown>, context: RoomPlannerContext): Record<string, unknown> {
   const proposedPolicy = isRecord(value.workspacePolicy) ? value.workspacePolicy : {};
@@ -106,7 +106,7 @@ function withUserAuthority(value: Record<string, unknown>, context: RoomPlannerC
     schemaVersion: 1,
     envelope: context.envelope,
     workspacePolicy: {
-      mode: proposedPolicy.mode,
+      mode: context.envelope.workspacePolicy.lockedMode ?? proposedPolicy.mode,
       sharedTreeApproved: context.envelope.workspacePolicy.sharedTreeApproved,
       claimPolicy: context.envelope.workspacePolicy.claimPolicy,
     },

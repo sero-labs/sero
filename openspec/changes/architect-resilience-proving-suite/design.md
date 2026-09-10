@@ -23,7 +23,7 @@ Freeze the concrete brief and small independent smoke checks before each first r
 | 1. DungeonExplorer | Seeded dungeon, movement, walls, visibility, exit and restart. Open the delivered game, move the player and inspect one real gameplay capture. | Approvals, owner continuation, worker dispatch, capture, preview and file delivery. | Request one visibility-rule change; verify dispatch, a fresh relevant check and continued delivery. |
 | 2. CSV summary CLI | CSV input, validation, numeric totals and JSON output. Check one fixture with known totals and one invalid input. | Command and file verification, failure repair and completion without a browser. | Add grouping; check one grouped fixture and unchanged default output. |
 | 3. Reading tracker | Persistent books, status, notes, editing and filtering. Create one record through the UI and read it after restart. | Service lifecycle, persistent work, preview recovery and stale-evidence invalidation. | Add a filter; check it against the saved record. |
-| 4. Import dashboard | Local API import, progress, job status and persistent results. Import one fixed dataset and inspect saved record identities. | Background progress, interrupted work, dependency recovery and reconciliation of uncertain effects. | Change the source shape; verify a resumed import preserves existing records without duplicates. |
+| 4. Import dashboard | Local API import, progress, job status and persistent results. Complete one small fixed-dataset import and confirm its result in the delivered UI. | Owner acceptance, workspace/preview delivery and the Sero timeout, verification and budget recoveries already recorded. | Change one source field; verify same-workspace dispatch, one fresh affected import check and return to delivery. |
 | 5. Team issue tracker | Local login, two teams, roles, issues and comments. Create an issue, deny one cross-team access attempt and read the issue after restart. | Multi-service delivery, verification of a meaningful boundary, migration failure and maintenance recovery. | Add one backward-compatible database change; verify existing data remains accessible. |
 
 Project 5 excludes production hosting, real payments, outbound email and real customer data. An external-side-effect recovery case uses a controlled local receiver that can record an operation and then drop the response.
@@ -34,11 +34,21 @@ DungeonExplorer runs first to revisit the known failure path. The simpler CLI ru
 
 Give Architect only the short product idea and essential user constraints. Keep smoke checks and fault procedures with the tester; do not send a specification, milestone list, research conclusions, implementation approach or execution instructions at each stage. Architect chooses a Room, Workflow or focused research for each part of the project, including discovery, planning, implementation, verification and adversarial review. Neither execution kind is tied to a phase. The discovery Room path is part of the original Architect design and must work before a charter exists. Findings must be recorded and used in the next project decision or plan.
 
-Record Room IDs, participants and models, findings, the resulting charter, and links to executing Workflows. A run that receives an operator-written plan is assisted. Existing DungeonExplorer evidence remains diagnostic; it does not prove independent discovery. Fresh final passes must show the full process. Give only requested user decisions and approved maintenance requests during those passes. Unusable findings, inability to choose either execution kind for a suitable task, or a plan supplied by the tester is a process failure. The suite must exercise both Rooms and Workflows, but must not force a Room into every discovery phase.
+Record Room IDs, participants and models, findings, the resulting charter, and links to executing Workflows. A run that receives an operator-written plan is assisted. Existing DungeonExplorer evidence remains diagnostic; it does not prove independent discovery. The fresh final import-dashboard run must show the full process. Give only requested user decisions and the approved maintenance request during that run. Unusable findings, inability to choose either execution kind for a suitable task, or a plan supplied by the tester is a process failure. The suite must exercise both Rooms and Workflows, but must not force a Room into every discovery phase.
+
+### Workspace execution for the remaining suite
+
+Before starting the background import dashboard trial, implement and verify a top-level Architect Workspace / Worktree option. Default new plans/runs to Workspace and save the selected mode with the durable project/run settings before the first dispatch, including pre-charter discovery. The choice applies to the whole plan/run: owner work, research, planning, implementation, review, verification, repair, retries, restart recovery and maintenance. Rooms and Workflows inherit it; planners must not silently select a different mode.
+
+Use existing execution support. Workspace mode runs directly in the project workspace. Pass the user's workspace choice into Room policy as `shared-working-tree` with `sharedTreeApproved`, and use the existing Workflow direct-workspace setting. Read-only workers retain read-only permissions. Worktree mode uses existing isolation for delegated editing work only when the user selects it. The placement choice does not grant additional tools, delivery authority or write permissions. Preserve existing path claims and writer/verification coordination so shared files are not changed concurrently without coordination.
+
+For phases 5–8, including any targeted checks of earlier examples, select Workspace and verify that Architect, Rooms and Workflows create no isolated git worktrees. Record the saved mode, effective worker directories and worktree-creation evidence. Check explicit Worktree selection separately through focused regression coverage; do not run the remaining live suite in that mode. Selecting the product option is a planned user setting and does not make a run assisted.
+
+Persist the selected mode across retries, Sero restarts and resumed work. Do not move active workers, discard existing worktrees or alter completed evidence to apply the new default. Before a later dispatch from a pre-existing project, resolve and save its mode through normal settings without manual record edits. Existing work and grants must remain valid. Missing settings must not silently create an isolated worktree in a Workspace run.
 
 ### 2. Run a bounded diagnose-fix-replay cycle
 
-For each project: run the normal Sero flow with only the bounded delivery smoke checks, exercise its assigned faults, preserve failure evidence, fix one coherent Sero defect, replay that failure, and then run a fresh repeat. Do not change an example's acceptance criteria to make a failing run pass.
+For each project: run the normal Sero flow with only the bounded delivery smoke checks, exercise its assigned faults, preserve failure evidence, fix one coherent Sero defect, and replay the affected path. Use a fresh project only when the defect requires fresh setup or the final gate requires it. Do not change an example's acceptance criteria to make a failing run pass.
 
 Keep an ordered defect list in the implementing GitHub issue or PR description. Each entry has reproduction steps, expected behavior, observed behavior, responsible area, fix, regression test and replay result. Store machine evidence in existing test/runtime artifact locations and link it from that record. Do not add task-history files to product docs.
 
@@ -50,9 +60,15 @@ Alternative rejected: prebuild a broad recovery framework. The suite should esta
 
 All five projects exercise restart recovery, a failed verification, a dollar-cap stop/resume and final delivery. Distribute restart points across planning, active execution and verification; the suite must cover all three. UI projects also exercise preview startup failure and persistence after verification. The CLI must succeed without any preview requirement.
 
-Use DungeonExplorer for dismissed approval, owner wake continuity and transient provider errors. Use the reading tracker for database restart and stale evidence. Use the import dashboard for dependency outages, partial completion and an uncertain acknowledged side effect. Use the SaaS prototype for authorization failures, migration failure and coordinated service restart.
+Use DungeonExplorer for dismissed approval, owner wake continuity and transient provider errors. Use the reading tracker for database restart and stale evidence. Phase 5 reuses recorded Sero timeout, verification, preview and budget recoveries. Its generated-app dependency-outage, partial-import restart and lost receipt-response matrix is removed from scope, not passed. An app retry or receipt implementation would not by itself prove Architect recovery. Use the SaaS prototype for authorization failures, migration failure and coordinated service restart.
 
 Faults must be deterministic and recorded. Prefer existing test seams and controlled local services. Never manufacture an outage against a real third-party account or repeat a real payment, message or deployment to test uncertainty.
+
+### Phase 5 completion after scope reduction
+
+Reduce the existing M4 release milestone to one delivery check. Reuse M2/M3 evidence while the relevant files and runtime conditions remain unchanged. Open the delivered dashboard, complete one small import, and have Architect record acceptance, workspace files and the working preview. Add a check only when it answers a specific unresolved acceptance question. Do not commission a new suite, broad accessibility/responsive audit, documentation expansion, or separate review/finalisation workers.
+
+Follow delivery with one small source-field maintenance request. Architect must dispatch in the same workspace, obtain fresh evidence from one affected import check, and return to delivery. Keep the trial classified as assisted. Validate the Sero fixes with relevant regression checks and root typecheck, commit Phase 5, and stop for reassessment before Phase 6. Do not transfer the removed app fault matrix to another Phase 5 milestone. General Sero authority and safe-recovery requirements remain; removed app scenarios do not prove those requirements passed.
 
 ### 4. Preserve authority during recovery
 
@@ -76,13 +92,15 @@ Classify each run as unassisted pass, assisted diagnostic run or failed. Planned
 
 ### 7. Define a finite completion gate
 
-Each project needs two consecutive fresh unassisted process passes on the final candidate, including its small maintenance exercise. Each pass uses the bounded smoke checks above; it does not require a comprehensive app test suite. Its assigned fault replays must pass. After a fix, rerun the affected earlier checks; freeze the candidate for the final suite rather than restarting every project after each local edit.
+After the five project gates and required fault replays in phases 2–7 pass, freeze an identifiable candidate and run the relevant regression checks. Complete one fresh unassisted import-dashboard run from the short brief through local delivery and one source-schema maintenance change. Use the bounded fixed-dataset and no-duplicate smoke checks above; record process transitions, one valid capture, delivered paths, worker directories, spend and planned approvals.
+
+Revisit earlier apps only where later Sero fixes affect their behavior. Reuse the phase 2–7 fault evidence; do not repeat the full fault matrix or regenerate every app for the final gate. If the final run exposes a defect, fix it, identify the updated candidate, and rerun the affected path and its relevant regression checks. Preserve valid evidence from unaffected paths and complete any remaining steps in the final run. Manual rescue still makes a run assisted and cannot establish an unassisted pass.
 
 Completion requires no unresolved defect that violates the resilience spec, no unexplained accounting gap, and evidence that previews and delivered files are usable. This is a bounded local proving suite, not a claim of production reliability across all providers and stacks.
 
 ## Risks / Trade-offs
 
-- Model variation can hide a defect. Mitigation: fixed briefs, independent checks, two fresh final passes and deterministic fault replays.
+- Model variation can hide a defect. Mitigation: fixed briefs, independent checks, one fresh final run, focused regression checks and deterministic fault replays. This smaller gate provides less evidence of repeatability than repeated fresh runs.
 - Manual rescue can look like autonomous success. Mitigation: record interventions and exclude assisted runs from the completion gate.
 - Broad retries can duplicate external effects. Mitigation: durable identity, reconciliation and a controlled receiver for testing uncertainty.
 - A moving baseline can invalidate evidence. Mitigation: preserve the current dirty tree, identify each tested candidate, and do not restart Sero during active work except for a named restart test.
@@ -92,7 +110,7 @@ Completion requires no unresolved defect that violates the resilience spec, no u
 
 Start the implementation session with a read-only inventory of branch state, staged and unstaged changes, active projects and processes. Reuse existing fixes that pass their checks. Do not reset the checkout or silently stop active work.
 
-Apply changes through existing contracts and validate persisted records from before and after a restart. Do not require manual record editing as the normal upgrade path. Preserve old workspaces and evidence until their owner approves cleanup. Commit the changes after each completed numbered phase, then continue to the next phase. Do not change user docs without separate agreement.
+Apply changes through existing contracts and validate persisted records from before and after a restart. Do not require manual record editing as the normal upgrade path. Preserve old workspaces and evidence until their owner approves cleanup. Commit the changes after each completed numbered phase. The current authorization ends after Phase 5: stop there for reassessment before beginning Phase 6. Do not change user docs without separate agreement.
 
 At completion, prepare a mapping from suite evidence to the original change's unfinished proving and maintenance tasks, plus a list of remaining gaps. Link this companion change and the implementing PR/issue to `sero-architect` and PR #507. Reconcile overlapping requirements before spec synchronization; do not automatically archive either change or mark an original requirement complete unless its actual scenario was tested.
 

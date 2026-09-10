@@ -64,6 +64,7 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, conf
     resume: () => void report(actions.resume(id)),
     stop: () => { if (confirm(`Stop ${record.name}? Running work finishes on its own; the Architect is not woken again.`)) void report(actions.stop(id)); },
     raiseCap: () => { setNotice(null); setCapOpen(true); },
+    setExecutionMode: (next) => void report(actions.setExecutionMode(id, next)),
     setAutonomy: (next: AutonomySetting) => void report(actions.setAutonomy(id, next)),
     openSession: () => {
       setHistoryOpen(true);

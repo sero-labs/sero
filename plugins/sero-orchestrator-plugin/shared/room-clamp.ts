@@ -123,10 +123,11 @@ function clampWorkspacePolicy(
   clamps: BlueprintClamp[],
 ): RoomWorkspacePolicy {
   // The planner cannot approve the shared tree on the user's behalf.
-  const sharedTreeApproved = proposed.sharedTreeApproved && ceiling.sharedTreeApproved;
+  const sharedTreeApproved = ceiling.lockedMode ? ceiling.sharedTreeApproved : proposed.sharedTreeApproved && ceiling.sharedTreeApproved;
   let mode = proposed.mode;
   if (WORKSPACE_MODES.indexOf(mode) > WORKSPACE_MODES.indexOf(ceiling.mode)) mode = ceiling.mode;
   if (mode === 'shared-working-tree' && !sharedTreeApproved) mode = 'worktree-per-member';
+  if (ceiling.lockedMode) mode = ceiling.lockedMode;
   if (mode !== proposed.mode) {
     clamps.push({
       kind: 'workspace-lowered',
@@ -139,7 +140,7 @@ function clampWorkspacePolicy(
   if (claimPolicy !== proposed.claimPolicy) {
     clamps.push({ kind: 'workspace-lowered', memberKey: null, detail: `${label} path claims now block instead of warn.` });
   }
-  return { mode, sharedTreeApproved, claimPolicy };
+  return { mode, sharedTreeApproved, claimPolicy, ...(ceiling.lockedMode ? { lockedMode: ceiling.lockedMode } : {}) };
 }
 
 /**

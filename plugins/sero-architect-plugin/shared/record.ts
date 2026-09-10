@@ -9,6 +9,9 @@ export type { ArchitectOverlay, ArchitectPhase } from './types';
 
 export const PHASE_ORDER: readonly ArchitectPhase[] = ['intake', 'discovery', 'charter', 'build', 'release', 'maintain'];
 
+export const EXECUTION_MODES = ['workspace', 'worktree'] as const;
+export type ExecutionMode = (typeof EXECUTION_MODES)[number];
+
 export type AutonomySetting = 'milestones' | 'charter-only' | 'model-judged';
 
 export type MilestoneStatus = 'planned' | 'approved' | 'running' | 'verifying' | 'done' | 'parked';
@@ -205,6 +208,8 @@ export interface OwnerSessionState {
 
 export interface ProjectRecord {
   version: 1;
+  /** Absent on older projects until the user saves the execution setting. */
+  executionMode?: ExecutionMode;
   /** Admin selections shown before work approval; refreshed by the owner runtime. */
   modelTiers?: SharedModelTierSettings;
   id: string;
@@ -239,6 +244,7 @@ export interface ProjectRecord {
 }
 
 export interface NewProjectInput {
+  executionMode?: ExecutionMode;
   id: string;
   name: string;
   idea: string;
@@ -249,6 +255,7 @@ export interface NewProjectInput {
 export function createProjectRecord(input: NewProjectInput): ProjectRecord {
   return {
     version: 1,
+    executionMode: input.executionMode ?? 'workspace',
     id: input.id,
     name: input.name,
     idea: input.idea,

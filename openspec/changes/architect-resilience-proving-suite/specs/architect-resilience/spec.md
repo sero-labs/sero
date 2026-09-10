@@ -15,6 +15,29 @@ Architect SHALL continue eligible work after an approval, completed operation or
 - **WHEN** the user dismisses an unanswered approval
 - **THEN** no approval is inferred, no restricted work starts, and the user can reopen and answer it
 
+### Requirement: One execution location applies to the whole Architect plan and run
+Architect SHALL expose a top-level Workspace / Worktree option, defaulting to Workspace for new plans/runs. It SHALL save the choice before the first dispatch and apply it to owner work and all delegated Rooms and Workflows across discovery, planning, implementation, review, verification, repair, retry, restart recovery and maintenance. Delegated planners MUST NOT override the saved mode. Workspace mode SHALL use the project workspace without creating isolated git worktrees. Worktree mode SHALL retain existing isolation for delegated editing work when explicitly selected. Placement SHALL NOT widen other permissions or remove shared-file coordination.
+
+#### Scenario: A new plan uses the default location
+- **WHEN** a user starts a new Architect plan without selecting Worktree
+- **THEN** Workspace is saved before any pre-charter or later dispatch
+- **AND** delegated Rooms and Workflows run in the project workspace without creating isolated git worktrees
+- **AND** the user's workspace setting supplies the Room shared-tree approval while read-only workers remain read-only
+
+#### Scenario: The user selects isolated work
+- **WHEN** the user selects Worktree before a run starts
+- **THEN** Architect saves that choice and applies existing worktree isolation to delegated editing work
+
+#### Scenario: Workspace execution resumes
+- **WHEN** a Workspace run retries, resumes after a Sero restart or enters maintenance
+- **THEN** Architect and its Rooms and Workflows retain Workspace mode without silent worktree fallback
+- **AND** existing work and grants are preserved without moving active workers or discarding earlier worktrees
+
+#### Scenario: The remaining proving suite runs
+- **WHEN** phases 5–8 execute, including any targeted checks of earlier examples
+- **THEN** the suite uses Workspace mode and records the saved mode, effective worker directories and evidence that no isolated git worktrees were created
+- **AND** completed earlier evidence retains its original classification
+
 ### Requirement: Recovery preserves work and operation identity
 Architect SHALL reconcile interrupted planning, execution and verification against durable operation identities and existing work before resuming. It MUST NOT create duplicate workflows, discard completed steps or reset recovery limits merely because Sero restarted.
 
@@ -98,7 +121,15 @@ Architect SHALL expose failed commands, relevant output and failed preview check
 - **THEN** Architect diagnoses and repairs the defect, reruns the relevant checks and proceeds only on passing acceptance
 
 ### Requirement: Resilience is proved across five fresh projects
-The proving suite SHALL cover a DungeonExplorer game, CSV summary CLI, persistent reading tracker, background import dashboard and basic team issue tracker SaaS prototype. Each project SHALL have fixed, bounded delivery smoke checks, a maintenance exercise, assigned controlled failures and two consecutive fresh unassisted process passes on the final candidate. The suite SHALL evaluate Architect’s process, underlying systems and integration with Sero. Example-app checks SHALL establish usable delivery and test the assigned verification or recovery behavior; exhaustive app feature testing is outside the suite. Run records SHALL identify the tested candidate, costs, faults, interventions and evidence.
+The proving suite SHALL cover a DungeonExplorer game, CSV summary CLI, persistent reading tracker, background import dashboard and basic team issue tracker SaaS prototype. Each project SHALL have fixed, bounded delivery smoke checks, a maintenance exercise and assigned controlled failures in phases 2–6. The final candidate gate SHALL require one fresh unassisted import-dashboard run through delivery and one source-schema maintenance change, plus relevant regression checks. Earlier apps SHALL be checked again only where later Sero fixes affect them. Required phase 2–7 fault replays SHALL remain part of completion evidence without repeating the full matrix at the final gate. The suite SHALL evaluate Architect’s process, underlying systems and integration with Sero. Example-app checks SHALL establish usable delivery and test the assigned verification or recovery behavior; exhaustive app feature testing is outside the suite. Run records SHALL identify the tested candidate, costs, faults, interventions and evidence.
+
+#### Scenario: Phase 5 uses the reduced process-focused scope
+- **WHEN** the current dashboard trial completes Phase 5
+- **THEN** one small import establishes usable delivery, Architect records acceptance and workspace/preview delivery, and one source-field maintenance change proves same-workspace dispatch, fresh relevant evidence and return to delivery
+- **AND** valid recorded Sero verification, preview, budget and timeout recovery evidence is reused without repeating those faults
+- **AND** the generated-app partial-import restart, transient source-error and lost receipt-response matrix is removed from Phase 5 scope, not reported as passed or as proof of Sero uncertain-effect recovery
+- **AND** no new broad app test suite, UI audit, documentation expansion or separate review/finalisation workers are required for M4
+- **AND** affected Sero regression checks and root typecheck pass before the phase commit, after which execution stops for reassessment before Phase 6
 
 #### Scenario: Manual rescue makes a run finish
 - **WHEN** a run requires direct record edits, manual worktree transfers, out-of-band implementation or coaching around a runtime defect
@@ -106,7 +137,13 @@ The proving suite SHALL cover a DungeonExplorer game, CSV summary CLI, persisten
 
 #### Scenario: The suite is declared complete
 - **WHEN** completion is requested
-- **THEN** all five project gates and assigned fault replays have passed, no required resilience defect or unexplained accounting gap remains, and the evidence is mapped to the original Architect change without claiming untested original requirements are complete
+- **THEN** all five project gates, required phase 2–7 fault replays, the one final unassisted import-dashboard run with maintenance and relevant regression checks have passed, no required resilience defect or unexplained accounting gap remains, and the evidence is mapped to the original Architect change without claiming untested original requirements are complete
+
+#### Scenario: The final candidate needs a fix
+- **WHEN** the final gate exposes a Sero defect
+- **THEN** the defect is fixed, the updated candidate is identified, and the affected path and relevant regression checks are rerun
+- **AND** valid unaffected evidence is retained and remaining final-run steps are completed without restarting the whole suite
+- **AND** assisted diagnostic work does not establish an unassisted pass
 
 ### Requirement: Architect owns discovery from limited input
 Fresh proving passes SHALL start from a short product idea and essential user constraints. Architect SHALL choose Rooms, Workflows or focused research according to the task at any project phase. The suite SHALL cover both execution kinds, including a pre-charter collaboration and a later review, without forcing the choice through an operator-written plan. Test procedures and detailed specifications SHALL NOT be supplied as operator instructions.

@@ -7,6 +7,7 @@
 
 import { createHash } from 'node:crypto';
 import path from 'node:path';
+import { executionMode, projectWriter, roomWorkspace, workflowWorkspace } from './execution-location';
 import { setTimeout as delay } from 'node:timers/promises';
 
 import { createOrchestratorRoom, getOrchestratorRegistry, requestOrchestratorAction, type AppRuntimeSubagentResult } from '@sero-ai/common';
@@ -279,6 +280,13 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       return;
     }
     void (async () => {
+      if (!record.executionMode) {
+        await store.update(record.id, (fresh) => {
+          const held = block(fresh, host.now(), 'Choose Workspace or Worktree in project settings before resuming research.');
+          return held.ok ? held.record : fresh;
+        });
+        return;
+      }
       const result = await host.runStructured({
         systemPrompt: 'Research the supplied project question using read-only tools. Verify facts, cite sources, and stop at the stated stopping condition. Do not modify files or perform external actions.',
         model: record.session.model ?? undefined,
@@ -312,6 +320,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     async research(record, request) {
       const existing = record.pendingResearch?.find((entry) => entry.question === request.question && entry.stoppingCondition === request.stoppingCondition && entry.kind === request.kind);
       if (existing) return { id: existing.id };
+      executionMode(record);
       const pending: PendingResearch = { id: host.newId('res'), ...request, startedAt: host.now() };
       const written = await store.update(record.id, (fresh) => settle({
         ...fresh,
@@ -341,10 +350,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
           prompt: request.prompt,
           title: milestone.title,
           options: { requestId: milestone.pendingDispatch?.request?.id, activate: false, disableTokenLimit: true, limits,
-            workspace: {
-              useManagedWorktree: request.destination !== null && request.destination !== 'workspace-files',
-              ...(request.destination === null || request.destination === 'workspace-files' ? { allowDirtyWorkspaceRoot: true } : {}),
-            },
+            workspace: workflowWorkspace(record),
             delivery: { destination: request.destination ?? 'workspace-files' } },
         });
         if (!result.ok || !result.loopId) throw new Error(result.error ?? 'The Workflow was not created.');
@@ -357,7 +363,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       }
       const result = await createOrchestratorRoom(record.workspaceId, {
         mandate: request.prompt,
-        limits: { ...limits, ...await roomModelLimits(host), access: 'edit-workspace', deliveryDestination: request.destination ?? 'workspace-files' },
+        limits: { ...limits, ...await roomModelLimits(host), ...roomWorkspace(record), access: 'edit-workspace', deliveryDestination: request.destination ?? 'workspace-files' },
       });
       if (!result.ok) throw new Error(result.error);
       return { id: result.roomId, workspaceId: record.workspaceId, baseCommit };
@@ -371,12 +377,13 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       if (record.milestones.some((m) => m.id === MAINTENANCE_MILESTONE_ID)) return record;
       const remaining = remainingUsd(record);
       if (remaining === 0) throw new Error('Maintenance cannot start with no budget remaining.');
+      const workspace = workflowWorkspace(record);
       await store.update(record.id, (fresh) => ({ ...fresh, preparingMaintenance: true, stateLine: 'Preparing the maintenance Workflow.' }));
       const result = await requestOrchestratorAction(record.workspaceId, {
         kind: 'create',
         prompt: maintenancePrompt(record),
         title: `${record.name}: maintenance`,
-        options: { requestId: `${record.id}:maintenance`, activate: false, delivery: { destination: 'workspace-files' }, workspace: { useManagedWorktree: false, allowDirtyWorkspaceRoot: true }, disableTokenLimit: true, limits: remaining === undefined ? {} : { maxCostUsd: remaining }, triggers: [...MAINTENANCE_TRIGGERS] },
+        options: { requestId: `${record.id}:maintenance`, activate: false, delivery: { destination: 'workspace-files' }, workspace, disableTokenLimit: true, limits: remaining === undefined ? {} : { maxCostUsd: remaining }, triggers: [...MAINTENANCE_TRIGGERS] },
       }).catch((error: unknown) => ({ ok: false as const, error: String(error), loopId: undefined }));
       if (!result.ok || !result.loopId) {
         await store.update(record.id, (fresh) => ({ ...fresh, preparingMaintenance: false, stateLine: result.error ?? 'The maintenance Workflow was not created.' }));
@@ -438,6 +445,8 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         const current = fresh.milestones.find((m) => m.id === milestone.id);
         if (!current || activeEvidence.has(`${record.id}:${milestone.id}`)
           || (fresh.pendingEvidence ?? []).some((pending) => pending.milestoneId === milestone.id)) return null;
+        const writer = projectWriter(fresh);
+        if (writer) throw new Error(`The project folder is in use by ${writer.id}. Wait for its result before verification.`);
         const marked: Milestone = { ...current, status: current.status === 'done' ? 'done' : 'verifying', preview: request.route ? { route: request.route } : current.preview };
         const pendingEvidence = [
           ...(fresh.pendingEvidence ?? []).filter((pending) => pending.milestoneId !== milestone.id),

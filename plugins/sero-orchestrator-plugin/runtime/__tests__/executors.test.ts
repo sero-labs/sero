@@ -202,6 +202,22 @@ describe('buildStepTask past-deliveries awareness', () => {
 });
 
 describe('backgroundAgentExecutor', () => {
+  it.each([
+    { limit: 1_800_000, elapsed: 120_000, expected: 1_680_000 },
+    { limit: 1_800_000, elapsed: 1_900_000, expected: 1 },
+    { limit: undefined, elapsed: 120_000, expected: undefined },
+  ])('passes the remaining Workflow time to the worker: $expected', async ({ limit, elapsed, expected }) => {
+    const host = createFakeHost();
+    const now = host.now();
+    host.now = () => now;
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.limits.maxWallClockMs = limit;
+    const input = inputFor(host, loop, 'step-1');
+    input.run.startedAt = new Date(Date.parse(host.now()) - elapsed).toISOString();
+    await backgroundAgentExecutor.run(input);
+    expect(host.modelCalls[0].timeoutMs).toBe(expected);
+  });
+
   it('records a rejected execution as a failed attempt so recovery can handle it', async () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, oneStepPlan().plan);

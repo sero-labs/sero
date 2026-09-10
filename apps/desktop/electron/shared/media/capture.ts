@@ -11,14 +11,23 @@
  * the model sees matches the coordinate space it must click in.
  */
 
-import { BrowserWindow, screen } from 'electron';
+import { BrowserWindow, nativeImage, screen } from 'electron';
 import type { AppPanelRect } from '@/types/ipc';
 
-const capturing = new WeakMap<BrowserWindow, { count: number; throttled: boolean }>();
+interface CaptureState {
+  count: number;
+  throttled: boolean;
+  ownsDebugger: boolean;
+  onDebuggerDetach?: () => void;
+}
+
+const capturing = new WeakMap<BrowserWindow, CaptureState>();
+const stalledNativeCaptures = new WeakSet<BrowserWindow>();
+const CAPTURE_TIMEOUT_MS = 2_000;
 
 /** Let hidden child frames paint without bringing the user's window forward. */
-async function paintForCapture(win: BrowserWindow): Promise<() => void> {
-  const active = capturing.get(win) ?? { count: 0, throttled: win.webContents.getBackgroundThrottling() };
+async function paintForCapture(win: BrowserWindow): Promise<{ release(): void; state: CaptureState }> {
+  const active = capturing.get(win) ?? { count: 0, throttled: win.webContents.getBackgroundThrottling(), ownsDebugger: false };
   active.count += 1;
   capturing.set(win, active);
   win.webContents.setBackgroundThrottling(false);
@@ -26,13 +35,63 @@ async function paintForCapture(win: BrowserWindow): Promise<() => void> {
     active.count -= 1;
     if (active.count === 0) {
       capturing.delete(win);
-      if (!win.isDestroyed()) win.webContents.setBackgroundThrottling(active.throttled);
+      if (!win.isDestroyed()) {
+        const debuggerApi = win.webContents.debugger;
+        if (active.onDebuggerDetach) debuggerApi.removeListener('detach', active.onDebuggerDetach);
+        if (active.ownsDebugger && debuggerApi.isAttached()) debuggerApi.detach();
+        win.webContents.setBackgroundThrottling(active.throttled);
+      }
     }
   };
   try {
     await win.webContents.executeJavaScript('new Promise(resolve => { setTimeout(resolve, 250); requestAnimationFrame(() => requestAnimationFrame(resolve)); })');
-    return release;
+    return { release, state: active };
   } catch (error) { release(); throw error; }
+}
+
+/** Electron capturePage can remain pending after a debugger-driven navigation. */
+async function captureImage(
+  win: BrowserWindow,
+  rect: Electron.Rectangle,
+  cssToDisplay: number,
+  state: CaptureState,
+): Promise<Electron.NativeImage> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    if (!stalledNativeCaptures.has(win)) {
+      const image = await Promise.race([
+        win.webContents.capturePage(rect),
+        new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), CAPTURE_TIMEOUT_MS); }),
+      ]);
+      if (image) return image;
+      // Do not accumulate more unresolved native captures while recording.
+      stalledNativeCaptures.add(win);
+      clearTimeout(timer);
+    }
+    const debuggerApi = win.webContents.debugger;
+    if (!debuggerApi.isAttached()) {
+      debuggerApi.attach('1.3');
+      state.ownsDebugger = true;
+      state.onDebuggerDetach = () => { state.ownsDebugger = false; };
+      debuggerApi.once('detach', state.onDebuggerDetach);
+    }
+    const response: unknown = await Promise.race([
+      debuggerApi.sendCommand('Page.captureScreenshot', {
+        format: 'png', fromSurface: true, captureBeyondViewport: false,
+        clip: { x: rect.x / cssToDisplay, y: rect.y / cssToDisplay,
+          width: rect.width / cssToDisplay, height: rect.height / cssToDisplay, scale: 1 },
+      }),
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error('Screenshot capture timed out')), CAPTURE_TIMEOUT_MS);
+      }),
+    ]);
+    if (!response || typeof response !== 'object' || !('data' in response) || typeof response.data !== 'string') {
+      throw new Error('Screenshot capture returned no PNG data');
+    }
+    const image = nativeImage.createFromBuffer(Buffer.from(response.data, 'base64'));
+    if (image.isEmpty()) throw new Error('Screenshot capture returned an empty image');
+    return image;
+  } finally { clearTimeout(timer); }
 }
 
 /**
@@ -69,10 +128,11 @@ export async function captureRegion(
     height: Math.min(bottom, bounds.height) - y,
   };
 
-  const release = await paintForCapture(win);
+  if (captureArea.width <= 0 || captureArea.height <= 0) return null;
+  const capture = await paintForCapture(win);
   let image: Electron.NativeImage;
-  try { image = await win.webContents.capturePage(captureArea); }
-  finally { release(); }
+  try { image = await captureImage(win, captureArea, cssToDisplay, capture.state); }
+  finally { capture.release(); }
   const targetWidth = Math.max(1, Math.round(cssRect.width));
   const targetHeight = Math.max(1, Math.round(cssRect.height));
   const size = image.getSize();

@@ -126,7 +126,9 @@ export function buildRoomProtocolPrompt(member: RoomMember): string {
     // A member cannot open another member's checkout, and a Room that does not
     // know this argues about a file only one of them can see until its time runs
     // out. Artifacts are the shared record, so they are how work is shown.
-    'Members work in separate checkouts, so nobody else can open the files you change.',
+    member.configuration.needsWorktree
+      ? 'You work in an isolated checkout. Publish changes that other members must inspect.'
+      : 'You share the project workspace. Use path claims, coordinate writes with the Conductor, and wait for writers before verification.',
     'Publish what others must see with publish-artifact, and read theirs with'
       + ' show-artifacts and read-artifact.',
     ...(member.isConductor ? [

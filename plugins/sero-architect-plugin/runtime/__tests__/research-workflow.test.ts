@@ -25,7 +25,7 @@ it.each(['discovery', 'build'] as const)('uses a Workflow for research or review
   const services = createServices({ host, store, wake });
   const started = await services.research(record, { kind: 'workflow', question: 'Review the proposed persistence approach.', stoppingCondition: 'Report proven risks and evidence.' });
   await vi.waitFor(() => expect(action).toHaveBeenCalledTimes(2));
-  expect(action.mock.calls[0]).toEqual([expect.objectContaining({ kind: 'create', options: expect.objectContaining({ requestId: `${record.id}:${started.id}`, activate: false }) })]);
+  expect(action.mock.calls[0]).toEqual([expect.objectContaining({ kind: 'create', options: expect.objectContaining({ requestId: `${record.id}:${started.id}`, activate: false, workspace: { useManagedWorktree: false, allowDirtyWorkspaceRoot: true } }) })]);
   const reopened = await storeFor(host);
   const deps = { host, store: reopened, wake };
   createServices(deps).recoverPending((await reopened.read(record.id))!);

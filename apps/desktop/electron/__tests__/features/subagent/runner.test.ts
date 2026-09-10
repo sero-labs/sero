@@ -255,6 +255,39 @@ describe('runSubagent live output', () => {
 });
 
 describe('runSubagent abort handling', () => {
+  it.each(['timeout', 'stall'] as const)('reports %s without repairing an interrupted reply', async (kind) => {
+    vi.useFakeTimers();
+    try {
+      const session = createSession();
+      mocks.createAgentSession.mockResolvedValueOnce({ session });
+      session.getSessionStats.mockReturnValue({
+        tokens: { input: 100, output: 20, cacheRead: 40, cacheWrite: 0, total: 160 }, cost: 0.42,
+      });
+      const config = createConfig(new AbortController().signal);
+      config.resolved.timeoutMs = 100;
+      config.resolved.toolStallTimeoutMs = kind === 'stall' ? 50 : 0;
+      const validate = vi.fn(() => 'Return a structured outcome.');
+      config.repair = { maxAttempts: 1, validate };
+      session.prompt.mockImplementation(async () => {
+        if (kind === 'stall') {
+          session.subscribe.mock.calls.at(-1)?.[0]?.({ type: 'tool_execution_start', toolName: 'bash', args: {} });
+        }
+        await vi.advanceTimersByTimeAsync(kind === 'stall' ? 50 : 100);
+      });
+
+      const result = await runSubagent(config, createDeps());
+
+      expect(result.error).toContain(kind === 'stall' ? "Tool 'bash' stalled" : 'Timed out');
+      expect(session.abort).toHaveBeenCalledOnce();
+      expect(session.prompt).toHaveBeenCalledOnce();
+      expect(validate).not.toHaveBeenCalled();
+      expect(result.usage).toMatchObject({ totalTokens: 160, cost: 0.42 });
+      expect(session.dispose).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('returns before creating a session when setup is aborted', async () => {
     const controller = new AbortController();
     mocks.reloadResources.mockImplementationOnce(async () => {

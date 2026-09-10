@@ -34,6 +34,35 @@ async function setup() {
 }
 
 describe('project management', () => {
+  it.each(['workspace', 'worktree'] as const)('saves %s before discovery and keeps it after restart and resume', async (executionMode) => {
+    const { host, store, actions } = await setup();
+    await actions.create({ idea: 'A small tool.', folder: '~/projects/placement', executionMode });
+    const created = (await store.list())[0]!;
+    expect(created.executionMode).toBe(executionMode);
+    expect(created.session.turns).toBe(0);
+    const reopened = await storeFor(host);
+    expect((await reopened.read(created.id))?.executionMode).toBe(executionMode);
+    await actions.resume(created.id);
+    expect((await store.read(created.id))?.executionMode).toBe(executionMode);
+  });
+
+  it('requires a saved legacy choice before resume and preserves existing work and grants', async () => {
+    const { host, store, actions, services } = await setup();
+    const record = buildingProject({ executionMode: undefined, paused: true });
+    await store.write(record);
+    expect(await actions.resume(record.id)).toMatchObject({ ok: false, text: expect.stringContaining('Choose Workspace or Worktree') });
+    expect(services.recoverPending).not.toHaveBeenCalled();
+    expect(await actions.setExecutionMode(record.id, 'workspace')).toMatchObject({ ok: true });
+    const reopened = await storeFor(host);
+    const saved = (await reopened.read(record.id))!;
+    expect(saved.executionMode).toBe('workspace');
+    expect(saved.milestones).toEqual(record.milestones);
+    expect(saved.session).toEqual(record.session);
+    await store.update(record.id, (fresh) => ({ ...fresh, session: { ...fresh.session, turns: 1 } }));
+    expect(await actions.setExecutionMode(record.id, 'worktree')).toMatchObject({ ok: false });
+    expect((await store.read(record.id))?.executionMode).toBe('workspace');
+  });
+
   it('retries the interrupted step from Architect, keeps completed milestones and respects a pause', async () => {
     const { store, actions } = await setup();
     const record = buildingProject({ milestones: [milestone('m1', { status: 'done' }), milestone('m2', { status: 'running', dispatch: { kind: 'workflow', id: 'loop-2', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 1, destination: 'workspace-files' } })] });
@@ -104,6 +133,7 @@ describe('project management', () => {
     expect(outcome.ok).toBe(true);
     const created = (await store.list())[0]!;
     expect(created.phase).toBe('intake');
+    expect(created.executionMode).toBe('workspace');
     expect(host.sessions.proposals).toHaveLength(0);
     expect(delivered).toHaveLength(0);
     await actions.resume(created.id);

@@ -7,7 +7,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { block, mayDispatch, settle, unblock } from '../shared/lifecycle';
-import { MAINTENANCE_MILESTONE_ID } from '../shared/maintenance';
+import { projectWriter, usesProjectFiles } from './execution-location';
 import type { DispatchDestination, DispatchKind } from '../shared/owner-actions';
 import type { Milestone, ProjectRecord } from '../shared/record';
 import type { OwnerServices } from './owner-actions';
@@ -41,10 +41,7 @@ export async function performDispatch(
   const prepared = await store.update(record.id, (fresh) => {
     const current = fresh.milestones.find((item) => item.id === milestone.id);
     if (!current || current.dispatch || current.pendingDispatch) return null;
-    if (request.kind === 'workflow' && (!request.destination || request.destination === 'workspace-files')
-      && (fresh.pendingEvidence?.length || fresh.milestones.some((item) => item.id !== milestone.id && item.id !== MAINTENANCE_MILESTONE_ID
-        && (item.pendingDispatch || (item.status === 'running' && item.dispatch?.kind === 'workflow'
-          && (!item.dispatch.destination || item.dispatch.destination === 'workspace-files')))))) return null;
+    if (usesProjectFiles(fresh, request) && (fresh.pendingEvidence?.length || projectWriter(fresh, milestone.id))) return null;
     const milestones = fresh.milestones.map((item) =>
       item.id === milestone.id ? { ...item, pendingDispatch: intent } : item,
     );

@@ -7,7 +7,7 @@ import { useCallback, useMemo } from 'react';
 import { useAppTools } from '@sero-ai/app-runtime';
 import type { AppToolResult } from '@sero-ai/app-runtime';
 
-import type { AutonomySetting } from '../../shared/record';
+import type { AutonomySetting, ExecutionMode } from '../../shared/record';
 
 export interface ActionOutcome {
   ok: boolean;
@@ -56,7 +56,7 @@ function readHistoryEntries(result: AppToolResult): SessionHistoryEntry[] {
 }
 
 export interface ArchitectActions {
-  create(idea: string, folder: string): Promise<ActionOutcome>;
+  create(idea: string, folder: string, executionMode?: ExecutionMode): Promise<ActionOutcome>;
   history(projectId: string): Promise<SessionHistoryOutcome>;
   pause(projectId: string): Promise<ActionOutcome>;
   resume(projectId: string): Promise<ActionOutcome>;
@@ -64,6 +64,7 @@ export interface ArchitectActions {
   stop(projectId: string): Promise<ActionOutcome>;
   remove(projectId: string): Promise<ActionOutcome>;
   raiseCap(projectId: string, capUsd: number): Promise<ActionOutcome>;
+  setExecutionMode(projectId: string, mode: ExecutionMode): Promise<ActionOutcome>;
   setAutonomy(projectId: string, autonomy: AutonomySetting): Promise<ActionOutcome>;
   approveCharter(projectId: string): Promise<ActionOutcome>;
   approveMilestone(projectId: string, milestoneId: string): Promise<ActionOutcome>;
@@ -88,7 +89,7 @@ export function useArchitectActions(): ArchitectActions {
 
   return useMemo<ArchitectActions>(
     () => ({
-      create: (idea, folder) => call({ action: 'create', idea, folder }),
+      create: (idea, folder, executionMode = 'workspace') => call({ action: 'create', idea, folder, executionMode }),
       history: async (projectId) => {
         try {
           const result = await run(PROJECTS_TOOL, { action: 'history', projectId });
@@ -103,6 +104,7 @@ export function useArchitectActions(): ArchitectActions {
       stop: (projectId) => call({ action: 'stop', projectId }),
       remove: (projectId) => call({ action: 'delete', projectId }),
       raiseCap: (projectId, capUsd) => call({ action: 'raise_cap', projectId, capUsd }),
+      setExecutionMode: (projectId, executionMode) => call({ action: 'set_execution_mode', projectId, executionMode }),
       setAutonomy: (projectId, autonomy) => call({ action: 'set_autonomy', projectId, autonomy }),
       approveCharter: (projectId) => call({ action: 'approve', projectId, target: 'charter' }),
       approveMilestone: (projectId, milestoneId) => call({ action: 'approve', projectId, target: 'milestone', milestoneId }),

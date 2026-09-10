@@ -8,9 +8,12 @@ The subject of this suite is Architect’s process, its underlying systems and i
 
 - Run five fixed example projects, from a small CLI to a basic full-stack SaaS prototype, starting with DungeonExplorer in a fresh workspace.
 - Exercise ordinary creation, implementation, verification, workspace delivery and a small maintenance change through Sero's real runtime and UI.
+- Before the background import dashboard trial, add a top-level Architect Workspace / Worktree option, defaulting to Workspace. Persist the choice for the whole plan/run and apply it to all delegated Rooms and Workflows, including recovery and maintenance. Run phases 5–8 in Workspace mode without isolated git worktrees.
+- Keep Phase 5 to one dashboard delivery check, reuse of recorded Sero recovery evidence, and one small source-field maintenance change. Remove its generated-app fault matrix from scope; do not report removed scenarios as passed. Validate and commit Phase 5, then stop for reassessment before Phase 6.
 - Introduce controlled failures, fix the responsible Sero behavior, and replay each failure before moving on. Preserve existing work and approvals during recovery.
 - Require bounded retries, approved same-provider failover, visible progress, useful failure messages and cost accounting that includes failed work where usage is available.
 - Distinguish unassisted passes from runs rescued through manual edits, file transfers or coaching. Require repeatable evidence before declaring resilience complete.
+- Limit the final candidate gate to one fresh unassisted import-dashboard run with one maintenance change and relevant regression checks. Retain all required phase 2–7 fault replays; revisit earlier apps only where later Sero fixes affect them. After a final-gate fix, rerun the affected path without restarting the whole suite.
 - Link the resulting evidence and remaining findings back to `sero-architect` and PR #507 at completion. Do not replace or prematurely close that change.
 
 ## Capabilities

@@ -193,13 +193,16 @@ describe('workspace placement', () => {
 
   it('lets members edit the shared tree once the user has approved it', async () => {
     const roomId = await draftRoom(
-      envelopeWith({ workspacePolicy: { mode: 'shared-working-tree', sharedTreeApproved: true, claimPolicy: 'warn' } }),
+      envelopeWith({ workspacePolicy: { mode: 'shared-working-tree', lockedMode: 'shared-working-tree', sharedTreeApproved: true, claimPolicy: 'warn' } }),
     );
     const placements = await workspaces.prepare(roomId);
     const api = placements.find((placement) => placement.memberId === 'api');
     expect(api).toMatchObject({ kind: 'shared-tree', cwd: host.workspacePath, writable: true });
     expect(host.worktreesCreated).toEqual([]);
     expect((await memberOf(roomId, 'api')).worktreePath).toBeNull();
+    const reopenedWorkspaces = createRoomWorkspaces({ host, store: createRoomStore(makeCtx()) });
+    expect(await reopenedWorkspaces.prepare(roomId)).toEqual(placements);
+    expect(host.worktreesCreated).toEqual([]);
   });
 });
 

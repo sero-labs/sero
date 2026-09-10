@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { workflowWorkspace } from './execution-location';
 import { setTimeout as delay } from 'node:timers/promises';
 import { getOrchestratorRegistry, requestOrchestratorAction, ORCHESTRATOR_INDEX_FILE, type OrchestratorBoardLoopView } from '@sero-ai/common';
 import { block, charge, settle, unblock } from '../shared/lifecycle';
@@ -37,7 +38,7 @@ export async function startResearchWorkflow(deps: ResearchWorkflowDeps, record: 
         title: pending.question,
         prompt: `Investigate this project question in a bounded sequence of steps.\nUser idea: ${record.idea}\nQuestion: ${pending.question}\nStop when: ${pending.stoppingCondition}\nProduce findings, evidence and unresolved user decisions. Save the final research report as a local artifact and include its path in the final step summary. Do not implement the product or change its source files.`,
         options: { requestId: `${record.id}:${pending.id}`, activate: false, disableTokenLimit: true,
-          limits: { maxCostUsd: Math.min(5, remaining) }, workspace: { useManagedWorktree: false, allowDirtyWorkspaceRoot: true }, delivery: { destination: 'workspace-files' } },
+          limits: { maxCostUsd: Math.min(5, remaining) }, workspace: workflowWorkspace(record), delivery: { destination: 'workspace-files' } },
       });
       if (!result.ok || !result.loopId) throw new Error(result.error ?? 'The research Workflow was not created.');
       loopId = result.loopId;

@@ -47,7 +47,7 @@ function stubActions(overrides: Partial<ArchitectActions> = {}): ArchitectAction
   const ok = () => vi.fn(async () => OK);
   return {
     create: ok(), history: vi.fn(async () => ({ ...OK, entries: [] })), pause: ok(), resume: ok(), retry: ok(), stop: ok(), remove: ok(), raiseCap: ok(),
-    setAutonomy: ok(), approveCharter: ok(), approveMilestone: ok(), answer: ok(), directive: ok(),
+    setExecutionMode: ok(), setAutonomy: ok(), approveCharter: ok(), approveMilestone: ok(), answer: ok(), directive: ok(),
     ...overrides,
   };
 }
@@ -200,15 +200,20 @@ describe('raising the cap', () => {
 });
 
 describe('the pause and resume choice', () => {
-  it('offers Resume only for a project the user paused', () => {
+  it('offers Resume for paused or blocked projects, and Pause for a cap alone', () => {
     const controls = {
       pause: vi.fn(), resume: vi.fn(), stop: vi.fn(), raiseCap: vi.fn(),
-      setAutonomy: vi.fn(), openSession: vi.fn(), remove: vi.fn(),
+      setExecutionMode: vi.fn(), setAutonomy: vi.fn(), openSession: vi.fn(), remove: vi.fn(),
     };
     act(() => root.render(<ControlsMenu record={{ ...FIXTURES.build!, paused: true }} controls={controls} />));
     expect(container.textContent).toContain('Resume');
 
-    // Blocked and limited projects are not paused: Resume would be refused, so Pause is offered.
+    act(() => root.render(<ControlsMenu record={{ ...FIXTURES.build!, paused: false, blockedReason: 'The delegated Room needs attention.' }} controls={controls} />));
+    act(() => button('Resume').click());
+    expect(controls.resume).toHaveBeenCalledOnce();
+    expect(controls.pause).not.toHaveBeenCalled();
+
+    // A cap alone is not a blocker that Resume can clear.
     act(() => root.render(<ControlsMenu record={{ ...FIXTURES.limited!, paused: false }} controls={controls} />));
     expect(container.textContent).toContain('Pause');
     expect(container.textContent).not.toContain('Resume');
@@ -216,11 +221,14 @@ describe('the pause and resume choice', () => {
 });
 
 describe('creating a project', () => {
-  it('does not close itself on success, so only the caller navigates', async () => {
+  it.each(['workspace', 'worktree'] as const)('submits %s placement before setup without navigating twice', async (executionMode) => {
     const onClose = vi.fn();
     const onCreate = vi.fn(async () => ({ ok: true, text: 'created', projectId: 'hollow-depths' }));
     act(() => root.render(<IntakeDialog open onClose={onClose} onCreate={onCreate} defaultFolder="~/Projects/x" />));
 
+    const radios = container.querySelectorAll<HTMLInputElement>('input[name="execution-location"]');
+    expect(radios[0].checked).toBe(true);
+    if (executionMode === 'worktree') act(() => radios[1].click());
     const idea = container.querySelector<HTMLTextAreaElement>('#ar-idea');
     if (!idea) throw new Error('no idea field');
     act(() => {
@@ -236,7 +244,7 @@ describe('creating a project', () => {
     act(() => { idea.form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
     await flush();
 
-    expect(onCreate).toHaveBeenCalledWith('A roguelike', '~/Projects/x/game');
+    expect(onCreate).toHaveBeenCalledWith('A roguelike', '~/Projects/x/game', executionMode);
     expect(onClose).not.toHaveBeenCalled();
   });
 });

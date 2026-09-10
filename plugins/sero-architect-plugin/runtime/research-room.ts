@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { roomWorkspace } from './execution-location';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createOrchestratorRoom, getOrchestratorRoomRegistry, ORCHESTRATOR_ROOM_INDEX_FILE, type OrchestratorBoardRoomView } from '@sero-ai/common';
 import { block, charge, settle, unblock } from '../shared/lifecycle';
@@ -36,7 +37,7 @@ export async function startResearchRoom(deps: ResearchRoomDeps, record: ProjectR
       const result = await createOrchestratorRoom(record.workspaceId, {
         requestId: `${record.id}:${pending.id}`,
         mandate: `Collaborate on the requested project task.\nUser idea: ${record.idea}\nQuestion: ${pending.question}\nStop when: ${pending.stoppingCondition}\nWork together to investigate the question, challenge assumptions and produce concrete findings with evidence and unresolved user decisions. Do not implement the product.`,
-        limits: { ...await roomModelLimits(deps.host), maxCostUsd: Math.min(5, remaining), maxWallClockMs: 15 * 60_000, maxMembers: 3, access: 'read-only', deliveryDestination: 'workspace-files' },
+        limits: { ...await roomModelLimits(deps.host), ...roomWorkspace(record), maxCostUsd: Math.min(5, remaining), maxWallClockMs: 15 * 60_000, maxMembers: 3, access: 'read-only', deliveryDestination: 'workspace-files' },
       });
       if (!result.ok) throw new Error(result.error);
       await deps.store.update(record.id, (fresh) => settle({ ...fresh,

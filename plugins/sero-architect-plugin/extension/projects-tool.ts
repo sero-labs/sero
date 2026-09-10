@@ -10,7 +10,7 @@ import { Type } from 'typebox';
 
 import { resolveArchitectRuntime } from '../runtime/registry';
 import { AUTONOMY_SETTINGS } from '../shared/charter-shape';
-import type { ProjectRecord } from '../shared/record';
+import { EXECUTION_MODES, type ExecutionMode, type ProjectRecord } from '../shared/record';
 import type { ArchitectIndexEntry } from '../shared/types';
 import { callerSignals } from './owner-tool';
 
@@ -27,6 +27,7 @@ export const PROJECT_ACTIONS = [
   'stop',
   'raise_cap',
   'set_autonomy',
+  'set_execution_mode',
   'approve',
   'answer',
   'directive',
@@ -43,6 +44,7 @@ export const ProjectsToolParams = Type.Object({
   idea: Type.Optional(Type.String({ description: 'create: the idea, in the user\'s own words' })),
   folder: Type.Optional(Type.String({ description: 'create: the folder to build in, under the home directory' })),
   capUsd: Type.Optional(Type.Number({ description: 'raise_cap: the project cap; retry: an explicitly approved new total Workflow cap in USD' })),
+  executionMode: Type.Optional(StringEnum(EXECUTION_MODES, { description: 'create/set_execution_mode: workspace or worktree; new projects default to workspace' })),
   autonomy: Type.Optional(StringEnum(AUTONOMY_SETTINGS, { description: 'set_autonomy: milestones, charter-only or model-judged' })),
   target: Type.Optional(StringEnum(APPROVE_TARGETS, { description: 'approve: charter or milestone' })),
   milestoneId: Type.Optional(Type.String({ description: 'approve/retry: the milestone id' })),
@@ -60,6 +62,7 @@ export interface ProjectsToolParamsShape {
   idea?: string;
   folder?: string;
   capUsd?: number;
+  executionMode?: ExecutionMode;
   autonomy?: (typeof AUTONOMY_SETTINGS)[number];
   target?: (typeof APPROVE_TARGETS)[number];
   milestoneId?: string;
@@ -99,6 +102,7 @@ function formatRecord(record: ProjectRecord): string {
     `${record.name} (${record.id}): ${record.phase}${record.overlay ? ` · ${record.overlay}` : ''}`,
     record.stateLine,
     `Folder: ${record.folder}`,
+    `Execution location: ${record.executionMode ?? 'choose in project settings'}`,
     `Budget: $${record.budget.spentUsd.toFixed(2)} spent${record.budget.capUsd === null ? ', no cap yet' : ` of $${record.budget.capUsd}`}`,
     record.charter ? `Charter: ${record.charter.approvedAt ? 'approved' : 'waiting for approval'} (autonomy ${record.charter.autonomy})` : 'Charter: none yet',
     ...record.milestones.map((m) => `- ${m.id} ${m.title}: ${m.status}${m.dispatch ? ` (${m.dispatch.kind} ${m.dispatch.id})` : ''}`),
@@ -138,7 +142,7 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
     case 'create': {
       const missing = need(params.idea, 'idea') ?? need(params.folder, 'folder');
       if (missing) return result(false, missing);
-      const outcome = await actions.create({ idea: params.idea ?? '', folder: params.folder ?? '' });
+      const outcome = await actions.create({ idea: params.idea ?? '', folder: params.folder ?? '', executionMode: params.executionMode });
       return result(outcome.ok, outcome.text, outcome.ok ? { projectId: outcome.projectId } : {});
     }
     case 'preview': {
@@ -173,6 +177,13 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
       if (missing) return result(false, missing);
       if (params.capUsd === undefined) return result(false, 'capUsd is required for raise_cap.');
       const outcome = await actions.raiseCap(id, params.capUsd);
+      return result(outcome.ok, outcome.text);
+    }
+    case 'set_execution_mode': {
+      const missing = need(id, 'projectId');
+      if (missing) return result(false, missing);
+      if (!params.executionMode) return result(false, 'executionMode is required.');
+      const outcome = await actions.setExecutionMode(id, params.executionMode);
       return result(outcome.ok, outcome.text);
     }
     case 'set_autonomy': {

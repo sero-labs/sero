@@ -54,12 +54,12 @@ describe('owner actions', () => {
     expect((await store.read('proj_1'))?.directives[0]?.reply).toBeNull();
   });
 
-  it('waits for an existing local writer instead of dispatching into the same project folder', async () => {
+  it.each([['workflow', 'workflow'], ['room', 'workflow'], ['workflow', 'room'], ['room', 'room']] as const)('waits for a %s writer before starting a %s in Workspace', async (writerKind, nextKind) => {
     const { actions, services } = await setup({ milestones: [
-      milestone('m1', { status: 'running', dispatch: { kind: 'workflow', id: 'loop_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null } }),
+      milestone('m1', { status: 'running', dispatch: { kind: writerKind, id: 'loop_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null } }),
       milestone('m2', { status: 'approved' }),
     ] });
-    const result = await actions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm2', kind: 'workflow', prompt: 'Build combat' });
+    const result = await actions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm2', kind: nextKind, prompt: 'Build combat' });
     expect(result).toMatchObject({ ok: true, text: expect.stringContaining('folder is in use by m1') });
     expect(services.dispatch).not.toHaveBeenCalled();
   });

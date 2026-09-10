@@ -30,7 +30,7 @@ describe('discovery through a Room', () => {
     const started = await services.research(record, { question: 'What should the first version do?', stoppingCondition: 'A bounded proposal and unresolved user choices.', kind: 'room' });
     await vi.waitFor(async () => expect((await store.read(record.id))?.pendingResearch?.[0]?.roomId).toBe('room-1'));
     expect(requests).toHaveLength(1);
-    expect(requests[0]).toMatchObject({ requestId: `${record.id}:${started.id}`, limits: { access: 'read-only', maxMembers: 3, models: ['anthropic/claude-fable-5-1'] } });
+    expect(requests[0]).toMatchObject({ requestId: `${record.id}:${started.id}`, limits: { executionMode: 'workspace', access: 'read-only', maxMembers: 3, models: ['anthropic/claude-fable-5-1'] } });
     expect(requests[0].mandate).toContain(record.idea);
     const reopened = await storeFor(host);
     const pending = (await reopened.read(record.id))!;

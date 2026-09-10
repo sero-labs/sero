@@ -60,6 +60,7 @@ export type RoomAccessChoice = MemberPermissionLevel;
 
 /** Everything the user may set before planning. Every field is optional. */
 export interface RoomUserLimits {
+  executionMode?: 'workspace' | 'worktree';
   models?: string[];
   thinkingLevels?: string[];
   maxCostUsd?: number;
@@ -145,7 +146,7 @@ const WORKSPACE_CEILING: Record<RoomAccessChoice, RoomWorkspaceMode> = {
  * deliberate decision.
  */
 const BLOCKED_ACCESS_LABELS: Record<RoomAccessChoice, readonly AccessLabel[]> = {
-  'read-only': ['edit-workspace', 'edit-working-files-directly', 'github-write', 'deployment'],
+  'read-only': ['edit-workspace', 'edit-working-files-directly', 'run-commands', 'github-write', 'deployment'],
   'edit-workspace': ['github-write', 'deployment'],
   'edit-and-push': ['deployment'],
 };
@@ -255,10 +256,11 @@ export function resolveRoomEnvelope(catalogue: RoomCatalogue, limits: RoomUserLi
     ],
     allowedSkills: catalogue.skills.map((skill) => skill.name).filter((name) => allowsCapability(name, access)),
     workspacePolicy: {
-      mode: WORKSPACE_CEILING[access],
-      // Working in the user's own files is reachable only through an explicit
-      // approval in advanced settings, never through a broad access choice.
-      sharedTreeApproved: false,
+      mode: limits.executionMode === 'workspace' ? 'shared-working-tree' : WORKSPACE_CEILING[access],
+      ...(limits.executionMode ? { lockedMode: limits.executionMode === 'workspace' ? 'shared-working-tree' as const : WORKSPACE_CEILING[access] } : {}),
+      // Execution location is a user choice; it grants no additional tools
+      // or member permissions.
+      sharedTreeApproved: limits.executionMode === 'workspace',
       claimPolicy: 'warn',
     },
     allowedDeliveryDestinations: [deliveryChoice(limits)],

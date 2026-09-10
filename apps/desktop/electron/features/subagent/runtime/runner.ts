@@ -233,6 +233,7 @@ export async function runSubagent(
   // Stall timer state — hoisted above try so finally can access clearStallTimer
   let activeToolStallTimer: ReturnType<typeof setTimeout> | null = null;
   let activeToolName: string | null = null;
+  let stopReason: string | undefined;
 
   function clearStallTimer(): void {
     if (activeToolStallTimer) {
@@ -301,8 +302,8 @@ export async function runSubagent(
       return { response: '', usage, modelId: session.model?.id, providerId: session.model?.provider, error: 'Aborted' };
     }
 
-    // Set up timeout
     const timeoutId = setTimeout(() => {
+      stopReason = `Timed out after ${Math.round(resolved.timeoutMs / 1000)}s`;
       try { session?.abort(); } catch { /* ignore */ }
     }, resolved.timeoutMs);
 
@@ -318,6 +319,7 @@ export async function runSubagent(
       activeToolName = toolName;
       activeToolStallTimer = setTimeout(() => {
         const stallMsg = `Tool '${toolName}' stalled after ${Math.round(toolStallMs / 1000)}s — auto-aborting`;
+        stopReason = stallMsg;
         console.warn(`[subagent/runner] ${stallMsg}`);
         onStatusUpdate?.(`⚠️ ${stallMsg}`);
         try { session?.abort(); } catch { /* ignore */ }
@@ -394,7 +396,7 @@ export async function runSubagent(
     // context and tools retained — no new subagent), up to maxAttempts.
     const repair = config.repair;
     if (repair) {
-      for (let i = 0; i < repair.maxAttempts && !signal.aborted; i += 1) {
+      for (let i = 0; i < repair.maxAttempts && !signal.aborted && !stopReason; i += 1) {
         let followUp: string | null;
         try {
           followUp = repair.validate(response);
@@ -412,11 +414,6 @@ export async function runSubagent(
     signal.removeEventListener('abort', abortHandler);
     unsub();
 
-    // Check if we were aborted or timed out
-    if (signal.aborted) {
-      return { response: '', usage, modelId: session.model?.id, providerId: session.model?.provider, error: 'Aborted' };
-    }
-
     // Final usage stats
     try {
       const stats = session.getSessionStats();
@@ -430,6 +427,9 @@ export async function runSubagent(
       }
     } catch { /* ignore */ }
 
+    if (signal.aborted || stopReason) {
+      return { response: '', usage, modelId: session.model?.id, providerId: session.model?.provider, error: stopReason ?? 'Aborted' };
+    }
     return { response, usage, modelId: session.model?.id, providerId: session.model?.provider };
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
@@ -450,9 +450,8 @@ export async function runSubagent(
     const modelId = session?.model?.id;
     const providerId = session?.model?.provider;
 
-    // Distinguish timeout from other errors
-    if (signal.aborted) {
-      return { response: '', usage, modelId, providerId, error: 'Aborted' };
+    if (signal.aborted || stopReason) {
+      return { response: '', usage, modelId, providerId, error: stopReason ?? 'Aborted' };
     }
 
     return { response: '', usage, modelId, providerId, error: errorMsg };

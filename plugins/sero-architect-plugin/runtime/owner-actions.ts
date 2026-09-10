@@ -11,7 +11,6 @@ import { parseCharter, toMilestone } from '../shared/charter-shape';
 import { parseDecision, toDecision } from '../shared/decision-shape';
 import { advancePhase, block, mayDispatch, mayWakeForWork, settle } from '../shared/lifecycle';
 import { quote } from '../shared/owner-contract';
-import { MAINTENANCE_MILESTONE_ID } from '../shared/maintenance';
 import {
   EVIDENCE_RESERVED_KEYS,
   EXTERNAL_DESTINATIONS,
@@ -23,6 +22,7 @@ import {
 } from '../shared/owner-actions';
 import type { Charter, Milestone, ProjectRecord } from '../shared/record';
 import { applyDelivery } from './delivery';
+import { projectWriter, usesProjectFiles } from './execution-location';
 import { performDispatch } from './dispatch-link';
 import type { ArchitectHost } from './host';
 import { mutateRecord, type RecordStore } from './record-store';
@@ -315,10 +315,8 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     if (!input.kind) return refuse('kind is required: workflow or room.');
     const prompt = input.prompt?.trim();
     if (!prompt) return refuse('prompt is required: the Workflow prompt or the Room mandate.');
-    if (input.kind === 'workflow' && (!input.destination || input.destination === 'workspace-files')) {
-      const busy = record.milestones.find((item) => item.id !== found.id && item.id !== MAINTENANCE_MILESTONE_ID && (item.pendingDispatch
-        || (item.status === 'running' && item.dispatch?.kind === 'workflow'
-          && (!item.dispatch.destination || item.dispatch.destination === 'workspace-files'))));
+    if (usesProjectFiles(record, { kind: input.kind, destination: input.destination ?? null })) {
+      const busy = projectWriter(record, found.id);
       if (busy || record.pendingEvidence?.length) return ok(`The project folder is in use${busy ? ` by ${busy.id}` : ' for verification'}. No new run was started. Call sleep and wait for that work to finish.`);
     }
     if (!mayDispatch(record)) {
@@ -374,6 +372,8 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     }
     const found = milestoneOf(record, input.milestoneId);
     if (typeof found === 'string') return refuse(found);
+    const writer = projectWriter(record);
+    if (writer) return ok(`The project folder is in use by ${writer.id}. No verification was started. Call sleep and wait for its result.`);
     const commands = (input.commands ?? []).map((c) => c.trim()).filter(Boolean);
     if (record.pendingEvidence?.some((pending) => pending.milestoneId === found.id)) return ok(`Evidence for ${found.id} is already running. No duplicate check was started. Call sleep.`);
     if (commands.length === 0) return refuse('commands is required: at least one command for the runtime to run.');

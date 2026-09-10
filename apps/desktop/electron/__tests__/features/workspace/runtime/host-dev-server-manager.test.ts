@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { HostDevServerManager } from '@electron/features/workspace/runtime/backends/host/host-dev-server-manager';
 import type { HostProcessAdapter } from '@electron/features/workspace/runtime/backends/host/process/types';
-import type { RuntimeProcessInput } from '@electron/features/workspace/runtime/types';
+import type { RuntimeProcessInput, RuntimeProcess } from '@electron/features/workspace/runtime/types';
 
 function createProcess(pid = 1234, executionPid?: number) {
   return {
@@ -11,7 +11,7 @@ function createProcess(pid = 1234, executionPid?: number) {
     write: vi.fn(),
     signal: vi.fn(),
     onData: vi.fn(() => vi.fn()),
-    onExit: vi.fn(() => vi.fn()),
+    onExit: vi.fn((_listener: Parameters<RuntimeProcess['onExit']>[0]) => vi.fn()),
   };
 }
 
@@ -249,6 +249,9 @@ describe('HostDevServerManager', () => {
 
   it('throws and terminates the spawned process when port detection times out', async () => {
     const process = createProcess();
+    process.signal.mockImplementation(() => {
+      process.onExit.mock.calls.at(-1)?.[0]({ exitCode: null, signal: 'SIGTERM' });
+    });
     const processAdapter = createProcessAdapter({ listeningPort: vi.fn(async () => null) });
     const manager = createManager({
       spawn: vi.fn(async () => process),

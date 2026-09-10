@@ -3,6 +3,8 @@
 exports[`the owner contract > matches the snapshot for build with overlay blocked 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: build. Overlay: blocked.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -35,6 +37,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for build with overlay decision 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: build. Overlay: decision.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -67,6 +71,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for build with overlay limited 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: build. Overlay: limited.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Budget: $40.00 spent of the $40.00 cap, $0.00 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -99,6 +105,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for build with overlay none 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: build. Overlay: none.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -133,6 +141,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for build with overlay paused 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: build. Overlay: paused.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -165,6 +175,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for charter with overlay blocked 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: charter. Overlay: blocked.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -197,6 +209,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for charter with overlay decision 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: charter. Overlay: decision.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -229,6 +243,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for charter with overlay limited 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: charter. Overlay: limited.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Budget: $40.00 spent of the $40.00 cap, $0.00 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -261,6 +277,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for charter with overlay none 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: charter. Overlay: none.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -291,6 +309,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for charter with overlay paused 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: charter. Overlay: paused.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -323,6 +343,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for discovery with overlay blocked 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: discovery. Overlay: blocked.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Spent so far: $12.50. No cap is approved yet; the charter must propose one.
 
 You were woken because the project is quiet and work remains:
@@ -351,6 +373,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for discovery with overlay decision 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: discovery. Overlay: decision.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Spent so far: $12.50. No cap is approved yet; the charter must propose one.
 
 You were woken because the project is quiet and work remains:
@@ -379,6 +403,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for discovery with overlay limited 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: discovery. Overlay: limited.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Budget: $40.00 spent of the $40.00 cap, $0.00 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -408,6 +434,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for discovery with overlay none 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: discovery. Overlay: none.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Spent so far: $12.50. No cap is approved yet; the charter must propose one.
 
 You were woken because the project is quiet and work remains:
@@ -436,6 +464,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for discovery with overlay paused 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: discovery. Overlay: paused.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Spent so far: $12.50. No cap is approved yet; the charter must propose one.
 
 You were woken because the user sent a directive:
@@ -464,6 +494,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for intake with overlay blocked 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: intake. Overlay: blocked.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Spent so far: $12.50. No cap is approved yet; the charter must propose one.
 
 You were woken because the project is quiet and work remains:
@@ -491,6 +523,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for intake with overlay decision 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: intake. Overlay: decision.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Spent so far: $12.50. No cap is approved yet; the charter must propose one.
 
 You were woken because the project is quiet and work remains:
@@ -518,6 +552,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for intake with overlay limited 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: intake. Overlay: limited.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Budget: $40.00 spent of the $40.00 cap, $0.00 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -546,6 +582,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for intake with overlay none 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: intake. Overlay: none.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Spent so far: $12.50. No cap is approved yet; the charter must propose one.
 
 You were woken because the project is quiet and work remains:
@@ -571,6 +609,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for intake with overlay paused 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: intake. Overlay: paused.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Spent so far: $12.50. No cap is approved yet; the charter must propose one.
 
 You were woken because the user sent a directive:
@@ -598,6 +638,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for maintain with overlay blocked 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: maintain. Overlay: blocked.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -630,6 +672,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for maintain with overlay decision 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: maintain. Overlay: decision.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -662,6 +706,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for maintain with overlay limited 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: maintain. Overlay: limited.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Budget: $40.00 spent of the $40.00 cap, $0.00 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -694,6 +740,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for maintain with overlay none 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: maintain. Overlay: none.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -724,6 +772,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for maintain with overlay paused 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: maintain. Overlay: paused.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -756,6 +806,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for release with overlay blocked 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: release. Overlay: blocked.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -788,6 +840,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for release with overlay decision 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: release. Overlay: decision.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -820,6 +874,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for release with overlay limited 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: release. Overlay: limited.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Budget: $40.00 spent of the $40.00 cap, $0.00 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -852,6 +908,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for release with overlay none 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: release. Overlay: none.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -882,6 +940,8 @@ End this wake with exactly one of: sleep, decide, or blocked. Silence is not an 
 exports[`the owner contract > matches the snapshot for release with overlay paused 1`] = `
 "You are the owner of Architect project "Hollow" (id proj_1). This contract replaces every earlier Architect contract in this conversation.
 Phase: release. Overlay: paused.
+Execution location: workspace.
+All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 

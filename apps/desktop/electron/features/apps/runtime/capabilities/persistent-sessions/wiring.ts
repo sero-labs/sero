@@ -28,6 +28,7 @@ import { getRoomSkillCatalog } from '@electron/ipc/agent/handlers/subagent-conte
 
 import { clampProposal, describeGrantAuthority } from './clamp';
 import { applyPermissionProfile } from './permission-tools';
+import { createMemberRuntimeTools } from './member-runtime-tools';
 import { createMemberResourceLoader } from './resource-profile';
 import { createPersistentSessionsApi } from './index';
 import type { AppRuntimeTarget } from '../../types';
@@ -169,7 +170,10 @@ export async function installPersistentSessions(
         // Without this the session has no `sero-cli` tool object at all, so the
         // approved `sero-cli` name matches nothing and the member cannot run a
         // single Room command (AD-020).
-        customTools: [createWorkspaceCliTool(input.workspaceId, cliScopeId, cliRegistry)],
+        customTools: [
+          createWorkspaceCliTool(input.workspaceId, cliScopeId, cliRegistry),
+          ...await createMemberRuntimeTools(input.workspaceId, allowed, input.cwd, cliScopeId),
+        ],
         resourceLoader: await createMemberResourceLoader({
           cwd: input.cwd,
           // The POLICY's skills, intersected with what the request asked for —

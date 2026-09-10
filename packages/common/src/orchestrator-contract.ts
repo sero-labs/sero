@@ -396,6 +396,8 @@ export const ORCHESTRATOR_ROOM_REGISTRY_GLOBAL_KEY = `${ORCHESTRATOR_REGISTRY_GL
 
 /** Limits a plugin runtime may set on a Room it creates. Mirrors the plugin's `RoomUserLimits`. */
 export interface OrchestratorRoomCreateLimits {
+  /** User-selected placement for this Room, independent of tool permissions. */
+  executionMode?: 'workspace' | 'worktree';
   /** Caller-selected model pool; the Room planner cannot expand it. */
   models?: string[];
   thinkingLevels?: string[];

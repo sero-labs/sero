@@ -174,7 +174,7 @@ export function buildRoomLimitsBlock(envelope: OperatingEnvelope, deliveryLabel:
 - at most ${envelope.maxMembers} members in total, the Conductor included
 - at most ${Math.round(envelope.maxWallClockMs / 60_000)} minutes of wall-clock time
 - at most $${envelope.maxCostUsd} of total spend
-- workspace: ${WORKSPACE_CEILING_TEXT[envelope.workspacePolicy.mode]}
+- workspace: ${WORKSPACE_CEILING_TEXT[envelope.workspacePolicy.mode]}${envelope.workspacePolicy.lockedMode ? `; placement is fixed to ${envelope.workspacePolicy.lockedMode}, including revisions. Do not select another mode. File and tool permissions remain unchanged.` : ''}
 - results are delivered to: ${deliveryLabel}
 
 Sero computes the team size, the maximum time, the maximum spend, the access list and any warnings from the team you return, and shows that computed summary to the user for approval. Your prose cannot change it, so never write a number, a duration, a cost or an access claim into it.`;

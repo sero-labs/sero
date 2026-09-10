@@ -12,7 +12,7 @@ import path from 'node:path';
 import { requestOrchestratorAction, type PersistentSessionHistoryPage } from '@sero-ai/common';
 
 import { advancePhase, approveCharter, block, mayDispatch, pause, resume, setAutonomy, setCap, settle, unblock } from '../shared/lifecycle';
-import { createProjectRecord, toIndexEntry, type AutonomySetting, type DecisionProposal, type Milestone, type ProjectRecord } from '../shared/record';
+import { createProjectRecord, toIndexEntry, type AutonomySetting, type ExecutionMode, type DecisionProposal, type Milestone, type ProjectRecord } from '../shared/record';
 import type { DispatchDestination } from '../shared/owner-actions';
 import { performDispatch, recoverDispatch } from './dispatch-link';
 import { repairDispatch, type RepairOutcome } from './repair-dispatch';
@@ -43,12 +43,13 @@ export interface ProjectsActions {
   list(): Promise<ArchitectIndexEntry[]>;
   show(projectId: string): Promise<ProjectRecord | null>;
   history(projectId: string, cursor?: string): Promise<PersistentSessionHistoryPage | null>;
-  create(input: { idea: string; folder: string }): Promise<ProjectsOutcome>;
+  create(input: { idea: string; folder: string; executionMode?: ExecutionMode }): Promise<ProjectsOutcome>;
   pause(projectId: string): Promise<ProjectsOutcome>;
   resume(projectId: string): Promise<ProjectsOutcome>;
   retry(projectId: string, milestoneId: string, maxCostUsd?: number): Promise<ProjectsOutcome>;
   stop(projectId: string): Promise<ProjectsOutcome>;
   raiseCap(projectId: string, capUsd: number): Promise<ProjectsOutcome>;
+  setExecutionMode(projectId: string, mode: ExecutionMode): Promise<ProjectsOutcome>;
   setAutonomy(projectId: string, autonomy: AutonomySetting): Promise<ProjectsOutcome>;
   approve(projectId: string, target: 'charter' | 'milestone', milestoneId?: string): Promise<ProjectsOutcome>;
   answer(projectId: string, decisionId: string, optionId: string, note?: string): Promise<ProjectsOutcome>;
@@ -261,7 +262,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       const folder = expandHome(input.folder.trim());
       if (!input.folder.trim()) return refuse('The folder is required.');
       const name = path.basename(folder);
-      const record = createProjectRecord({ id: host.newId('proj'), name, idea, folder, now: host.now() });
+      const record = createProjectRecord({ id: host.newId('proj'), name, idea, folder, executionMode: input.executionMode, now: host.now() });
       await store.write(record);
       const outcome = await advanceIntake(record, false);
       if (!outcome.ok) return ok(`Project saved. Setup needs attention: ${outcome.error}`, record.id);
@@ -269,6 +270,17 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
         return { ok: true, text: `Project ${record.id} created, but ${outcome.record.blockedReason}. It stays in intake until the grant is approved; resume to ask again.`, projectId: record.id };
       }
       return ok(`Project ${record.id} "${name}" created in ${outcome.record.folder}. Permission is needed to run the Architect.`, record.id);
+    },
+
+    async setExecutionMode(projectId, mode) {
+      const saved = await mutateRecord(store, projectId, (record) => {
+        if (record.executionMode === mode) return { record };
+        if (record.session.workingSince || (record.executionMode !== undefined && record.session.turns > 0)) {
+          return { error: 'Execution location is fixed once the project starts.' };
+        }
+        return { record: settle({ ...record, executionMode: mode, history: [...record.history, { at: host.now(), phase: record.phase, overlay: record.overlay, cause: `execution location set to ${mode}` }] }, host.now()) };
+      });
+      return saved.ok ? ok(`Execution location saved: ${mode}. Existing workers keep their directories.`) : refuse(saved.error);
     },
 
     async pause(projectId) {
@@ -286,6 +298,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       // Resume is the user's one exit from every stop: a pause, the user's own
       // stop, a refused grant, a missing workspace, or an owner that gave up.
       const resumed = await mutateRecord(store, projectId, (record) => {
+        if (!record.executionMode) return { error: 'Choose Workspace or Worktree in project settings before resuming.' };
         if (!record.paused && record.blockedReason === null && record.phase !== 'intake') {
           return { error: 'The project is not paused, blocked or waiting in intake.' };
         }

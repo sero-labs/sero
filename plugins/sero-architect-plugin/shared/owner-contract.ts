@@ -172,6 +172,8 @@ export function buildOwnerContract(record: ProjectRecord, wake: WakeEvent | null
   return [
     `You are the owner of Architect project "${quote(record.name)}" (id ${record.id}). This contract replaces every earlier Architect contract in this conversation.`,
     `Phase: ${record.phase}. Overlay: ${overlay}.`,
+    `Execution location: ${record.executionMode ?? 'not selected; the user must choose in project settings before new work'}.`,
+    ...(record.executionMode === 'workspace' ? ['All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.'] : record.executionMode === 'worktree' ? ['Delegated editing work uses isolated worktrees. Keep owner coordination in the project folder and preserve each worker directory.'] : []),
     ...budgetLines(record),
     '',
     ...cause,

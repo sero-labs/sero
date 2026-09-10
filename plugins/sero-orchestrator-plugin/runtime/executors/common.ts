@@ -108,6 +108,10 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
   await input.onAttempt?.(pendingAttempt);
   let latestUsage: ModelRunResult['usage'];
   let progress = Promise.resolve();
+  // Match active-session execution: the Workflow owns its wall-clock budget.
+  // Omit the override for uncapped runs so the normal agent settings still apply.
+  const remainingMs = loop.limits.maxWallClockMs === undefined ? undefined
+    : loop.limits.maxWallClockMs - (Date.parse(host.now()) - Date.parse(run.startedAt));
   const result = await host.runStructured({
     task,
     agent,
@@ -126,6 +130,7 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
     disabledTools: ctxOverride?.disabledTools,
     disabledSkills: ctxOverride?.disabledSkills,
     signal,
+    timeoutMs: remainingMs !== undefined && Number.isFinite(remainingMs) ? Math.max(1, remainingMs) : undefined,
     repair: outcomeRepair(loop, step),
     onUsage: (usage) => {
       latestUsage = { ...usage };

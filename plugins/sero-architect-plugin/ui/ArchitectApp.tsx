@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useAppState } from '@sero-ai/app-runtime';
 
+import type { ExecutionMode } from '../shared/record';
 import type { ArchitectIndex } from '../shared/types';
 import { DEFAULT_INDEX, normalizeIndex } from '../shared/types';
 import { IntakeDialog } from './components/IntakeDialog';
@@ -53,8 +54,8 @@ export function ArchitectApp() {
   const back = useCallback(() => navigate({ mode: 'list' }), [navigate]);
   const confirm = useCallback((message: string) => window.confirm(message), []);
 
-  const create = useCallback(async (idea: string, folder: string) => {
-    const outcome = await actions.create(idea, folder);
+  const create = useCallback(async (idea: string, folder: string, executionMode: ExecutionMode) => {
+    const outcome = await actions.create(idea, folder, executionMode);
     // One navigation closes the dialog and opens the new project: the dialog must not navigate too.
     if (outcome.ok) {
       // Remove the modal before the host presents its permission question.

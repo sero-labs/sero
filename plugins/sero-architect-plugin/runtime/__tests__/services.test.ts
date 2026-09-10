@@ -40,6 +40,41 @@ function fakeCoordinator(): { actions: OrchestratorBoardAction[]; uninstall: () 
 }
 
 describe('runtime services', () => {
+  it('does not start verification while a Workspace Room is writing', async () => {
+    const target = milestone('m1', { status: 'done', verification: 'accepted' });
+    const writer = milestone('m2', { status: 'running', dispatch: { kind: 'room', id: 'room-1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null } });
+    const record = buildingProject({ milestones: [target, writer] });
+    const { services, store, host } = await setup(record);
+    const run = vi.spyOn(host, 'runCommand');
+    await expect(services.evidence(record, target, { commands: ['node check.js'], route: null })).rejects.toThrow('folder is in use by m2');
+    expect(run).not.toHaveBeenCalled();
+    expect((await store.read(record.id))?.pendingEvidence).toEqual([]);
+  });
+
+  it('holds legacy research recovery and maintenance until a location is saved', async () => {
+    const record = buildingProject({ executionMode: undefined, phase: 'maintain', pendingResearch: [{ id: 'old-research', question: 'Read files', stoppingCondition: 'Report', startedAt: T0 }] });
+    const { services, store, host } = await setup(record);
+    const run = vi.spyOn(host, 'runStructured');
+    services.recoverPending(record);
+    await vi.waitFor(async () => expect((await store.read(record.id))?.blockedReason).toContain('Choose Workspace or Worktree'));
+    expect(run).not.toHaveBeenCalled();
+    await expect(services.maintenance(record)).rejects.toThrow('Choose Workspace or Worktree');
+    expect((await store.read(record.id))?.preparingMaintenance).not.toBe(true);
+  });
+
+  it.each(['workspace', 'worktree'] as const)('uses saved %s placement for milestones and maintenance regardless of delivery', async (executionMode) => {
+    const record = buildingProject({ executionMode, phase: 'maintain' });
+    const { services } = await setup(record);
+    const coordinator = fakeCoordinator();
+    try {
+      await services.dispatch(record, milestone('m1'), { kind: 'workflow', prompt: 'Build it', maxCostUsd: 2, destination: 'workspace-files' });
+      await services.maintenance(record);
+      const creations = coordinator.actions.filter((action) => action.kind === 'create');
+      expect(creations).toHaveLength(2);
+      for (const action of creations) expect(action.options?.workspace).toEqual({ useManagedWorktree: executionMode === 'worktree', allowDirtyWorkspaceRoot: executionMode === 'workspace' });
+    } finally { coordinator.uninstall(); }
+  });
+
   it('keeps a failed command result and skips the later paid preview capture', async () => {
     const preview = milestone('m1', { status: 'verifying', preview: { route: '/' } });
     const project = buildingProject({ milestones: [preview] });
@@ -141,7 +176,7 @@ describe('runtime services', () => {
       host.execResults['git rev-parse HEAD'] = { exitCode: 0, stdout: 'base123\n', stderr: '' };
       const link = await services.dispatch(buildingProject({ budget: { capUsd: 40, spentUsd: 10, sources: { owner: 10, research: 0, dispatched: 0 } } }), milestone('m1'), { kind: 'workflow', prompt: 'Open the PR', destination: 'pr', maxCostUsd: 100 });
       expect(link).toMatchObject({ id: 'loop_1', workspaceId: 'ws-1', baseCommit: 'base123' });
-      expect(coordinator.actions).toEqual([{ kind: 'create', prompt: 'Open the PR', title: 'Milestone m1', options: { activate: false, disableTokenLimit: true, limits: { maxCostUsd: 30 }, workspace: { useManagedWorktree: true }, delivery: { destination: 'pr' } } }]);
+      expect(coordinator.actions).toEqual([{ kind: 'create', prompt: 'Open the PR', title: 'Milestone m1', options: { activate: false, disableTokenLimit: true, limits: { maxCostUsd: 30 }, workspace: { useManagedWorktree: false, allowDirtyWorkspaceRoot: true }, delivery: { destination: 'pr' } } }]);
       await link.start?.();
       expect(coordinator.actions[1]).toEqual({ kind: 'activate', loopId: 'loop_1' });
     } finally {
