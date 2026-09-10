@@ -1,13 +1,60 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import { OwnerSessions, OWNER_TOOLS, ownerGrantProposal, chooseOwnerModel } from '../owner-session';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { OwnerSessions, OWNER_TURN_TIMEOUT_MS, OWNER_TOOLS, ownerGrantProposal, chooseOwnerModel } from '../owner-session';
 import { createTurnOutcomes } from '../turn-outcomes';
-import { buildingProject, cleanupHosts, fakeHost, storeFor, T0 } from './helpers';
+import { buildingProject, cleanupHosts, fakeHost, milestone, storeFor, T0 } from './helpers';
 
-afterEach(cleanupHosts);
+afterEach(() => { vi.useRealTimers(); return cleanupHosts(); });
 
 const wake = { kind: 'quiet' as const, at: T0, items: ['nothing is running'] };
 
 describe('owner session', () => {
+  it('refreshes directives and pending work that arrive while the wake opens its session', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const record = buildingProject();
+    await store.write(record);
+    const outcomes = createTurnOutcomes();
+    const sessions = new OwnerSessions({ host, store, outcomes });
+    const modelTiers = host.modelTiers;
+    let reads = 0;
+    host.modelTiers = async () => {
+      if (++reads === 2) await store.update(record.id, (fresh) => ({
+        ...fresh,
+        directives: [{ id: 'dir-new', text: 'Add grouping and preserve default output.', sentAt: T0, reply: null }],
+        milestones: [milestone('m1', { status: 'approved', pendingDispatch: { kind: 'workflow', destination: null, startedAt: T0 } })],
+      }));
+      return modelTiers();
+    };
+    host.sessions.onTurn = async () => outcomes.declare(record.id, 'sleep');
+    await sessions.runTurn(record, wake);
+    expect(host.sessions.prompts[0]?.content).toContain('dir-new: <directive>Add grouping and preserve default output.</directive>');
+    expect(host.sessions.prompts[0]?.content).toContain('workflow dispatch being prepared');
+    expect(host.sessions.prompts[0]?.content).not.toContain('Unanswered directives: none.');
+  });
+
+  it.each(['prompt', 'turn-end'] as const)('bounds an owner stalled at %s and preserves completed work', async (point) => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const record = buildingProject({ milestones: [milestone('m1', { status: 'done', verification: 'accepted' }), milestone('m2')] });
+    await store.write(record);
+    const prompt = vi.fn(async () => point === 'prompt' ? await new Promise<{ turnId: string }>(() => {}) : { turnId: 'stalled' });
+    host.sessions.prompt = prompt;
+    const abort = vi.spyOn(host.sessions, 'abort');
+    const sessions = new OwnerSessions({ host, store, outcomes: createTurnOutcomes() });
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const pending = sessions.runTurn(record, wake);
+    await vi.waitFor(() => expect(prompt).toHaveBeenCalledOnce());
+    await vi.advanceTimersByTimeAsync(OWNER_TURN_TIMEOUT_MS);
+    const result = await pending;
+    expect(abort).toHaveBeenCalledOnce();
+    expect(result.status).toBe('error');
+    expect(result.record.blockedReason).toContain('exceeded 10 minutes');
+    expect(result.record.session.workingSince).toBeNull();
+    expect(result.record.milestones).toEqual(record.milestones);
+    expect(result.record.session.silentTurns).toBe(0);
+    expect(result.record.session.turns).toBe(record.session.turns + 1);
+  });
+
   it('surfaces a provider rejection immediately without counting it as owner silence', async () => {
     const host = await fakeHost();
     const store = await storeFor(host);

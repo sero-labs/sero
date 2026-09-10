@@ -228,7 +228,9 @@ export function createRoomWorkspaces(ctx: RoomWorkspacesContext): RoomWorkspaces
     // second branch and orphan the work already on the first.
     const handle = member.worktreePath
       ? { worktreePath: member.worktreePath, branchName: member.worktreeBranch }
-      : await host.createWorktree(worktreeKeyFor(roomId, member.id), `${record.definition.title} — ${member.displayName}`);
+      : await host.createWorktree(worktreeKeyFor(roomId, member.id), `${record.definition.title} — ${member.displayName}`, {
+          workspaceSnapshotKey: roomId,
+        });
     await store.updateMember(roomId, member.id, (current) => ({
       ...current,
       worktreePath: handle.worktreePath,

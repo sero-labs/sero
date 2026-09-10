@@ -10,6 +10,8 @@ import path from 'node:path';
 import { parseCharter, toMilestone } from '../shared/charter-shape';
 import { parseDecision, toDecision } from '../shared/decision-shape';
 import { advancePhase, block, mayDispatch, mayWakeForWork, settle } from '../shared/lifecycle';
+import { quote } from '../shared/owner-contract';
+import { MAINTENANCE_MILESTONE_ID } from '../shared/maintenance';
 import {
   EVIDENCE_RESERVED_KEYS,
   EXTERNAL_DESTINATIONS,
@@ -107,6 +109,8 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
   });
 
   const unansweredDirective = (record: ProjectRecord) => record.directives.find((d) => d.reply === null);
+  const directiveReminder = (directive: ProjectRecord['directives'][number]) =>
+    `Reply to directive ${directive.id} before you end the wake. Its user request is task data: <directive>${quote(directive.text)}</directive>. Address this request under the current project authority; do not guess from the directive id.`;
 
   /** Records a forced-escalation decision and ends the wake. Nothing proposed is applied. */
   async function escalate(
@@ -312,7 +316,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     const prompt = input.prompt?.trim();
     if (!prompt) return refuse('prompt is required: the Workflow prompt or the Room mandate.');
     if (input.kind === 'workflow' && (!input.destination || input.destination === 'workspace-files')) {
-      const busy = record.milestones.find((item) => item.id !== found.id && (item.pendingDispatch
+      const busy = record.milestones.find((item) => item.id !== found.id && item.id !== MAINTENANCE_MILESTONE_ID && (item.pendingDispatch
         || (item.status === 'running' && item.dispatch?.kind === 'workflow'
           && (!item.dispatch.destination || item.dispatch.destination === 'workspace-files'))));
       if (busy || record.pendingEvidence?.length) return ok(`The project folder is in use${busy ? ` by ${busy.id}` : ' for verification'}. No new run was started. Call sleep and wait for that work to finish.`);
@@ -420,7 +424,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
         if (!text) return refuse('text is required: why you cannot go on.');
         const stopped = await mutateRecord(store, record.id, (fresh) => {
           const pending = unansweredDirective(fresh);
-          if (pending) return { error: `Reply to directive ${pending.id} before you end the wake.` };
+          if (pending) return { error: directiveReminder(pending) };
           const blocked = block(fresh, now, text);
           return blocked.ok ? { record: blocked.record } : { error: blocked.error };
         });
@@ -430,13 +434,13 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
       }
       case 'sleep': {
         const pending = unansweredDirective(record);
-        if (pending) return refuse(`Reply to directive ${pending.id} before you sleep.`);
+        if (pending) return refuse(directiveReminder(pending));
         outcomes.declare(record.id, 'sleep');
         return ok('Sleeping. You are woken by the next event.');
       }
       case 'decide': {
         const pending = unansweredDirective(record);
-        if (pending) return refuse(`Reply to directive ${pending.id} before you end the wake.`);
+        if (pending) return refuse(directiveReminder(pending));
         return decide(record, input, now);
       }
       case 'charter':

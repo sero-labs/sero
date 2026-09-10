@@ -39,7 +39,7 @@ export function Evidence({ evidence }: { evidence: EvidenceRecord }) {
 
 export interface MilestoneRailProps {
   record: ProjectRecord;
-  onRetry?(milestoneId: string): Promise<ActionOutcome>;
+  onRetry?(milestoneId: string, capUsd?: number): Promise<ActionOutcome>;
   /** Opens the Orchestrator record of a dispatched milestone. */
   onOpenDispatch(link: NonNullable<RailRow['link']>): void;
 }
@@ -56,7 +56,8 @@ function ResearchRuns({ record }: { record: ProjectRecord }) {
   );
 }
 
-function RetryStep({ milestoneId, retry }: { milestoneId: string; retry(id: string): Promise<ActionOutcome> }) {
+function RetryStep({ milestoneId, costLimitUsd, retry }: { milestoneId: string; costLimitUsd?: number; retry(id: string, capUsd?: number): Promise<ActionOutcome> }) {
+  const [cap, setCap] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const run = async () => {
@@ -64,12 +65,12 @@ function RetryStep({ milestoneId, retry }: { milestoneId: string; retry(id: stri
     setBusy(true);
     setError(null);
     try {
-      const result = await retry(milestoneId);
+      const result = costLimitUsd === undefined ? await retry(milestoneId) : await retry(milestoneId, Number(cap));
       if (!result.ok) setError(result.text);
     } catch (failure) { setError(failure instanceof Error ? failure.message : String(failure)); }
     finally { setBusy(false); }
   };
-  return <div><Button size="sm" disabled={busy} onClick={() => void run()}>{busy ? 'Starting retry…' : 'Retry step'}</Button>{error && <p role="alert" className="ar-error">{error}</p>}</div>;
+  return <div>{costLimitUsd !== undefined && <label className="ar-field">New Workflow cap ($)<input aria-label="New Workflow cap ($)" type="number" min={costLimitUsd} step="0.1" value={cap} onChange={(event) => setCap(event.target.value)} /></label>}<Button size="sm" disabled={busy || (costLimitUsd !== undefined && (!cap || Number(cap) <= costLimitUsd))} onClick={() => void run()}>{busy ? 'Starting retry…' : costLimitUsd === undefined ? 'Retry step' : 'Approve cap and resume'}</Button>{error && <p role="alert" className="ar-error">{error}</p>}</div>;
 }
 
 export function MilestoneRail({ record, onOpenDispatch, onRetry }: MilestoneRailProps) {
@@ -98,7 +99,7 @@ export function MilestoneRail({ record, onOpenDispatch, onRetry }: MilestoneRail
             <div className="ar-ms-right">
               <span className="ar-kind">{link?.kind ?? (milestone.id === 'maintenance' ? 'workflow' : '')}</span>
               <Pill tone={tone}>{label}</Pill>
-              {milestone.dispatch?.failure && onRetry && <RetryStep milestoneId={milestone.id} retry={onRetry} />}
+              {milestone.dispatch?.failure && onRetry && <RetryStep milestoneId={milestone.id} costLimitUsd={milestone.dispatch.costLimitUsd} retry={onRetry} />}
               {link && (
                 <button type="button" className="ar-btn-link" onClick={() => onOpenDispatch(link)} data-testid={`open-${milestone.id}`}>
                   Open in Orchestrator <ExternalLink className="ar-i" />

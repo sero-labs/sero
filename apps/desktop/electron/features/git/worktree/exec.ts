@@ -64,6 +64,7 @@ export interface WorktreeExecOptions {
   cwd: string;
   timeout?: number;
   maxBuffer?: number;
+  env?: NodeJS.ProcessEnv;
 }
 
 /**
@@ -85,7 +86,7 @@ async function execWithAuth(
   const authEnv = await buildHostGitAuthEnv(program);
   const result = await execFileAsync(program, args, {
     ...options,
-    env: { ...process.env, ...authEnv },
+    env: { ...process.env, ...authEnv, ...options.env },
   });
   return { stdout: result.stdout, stderr: result.stderr };
 }

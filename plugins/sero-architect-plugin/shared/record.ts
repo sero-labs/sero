@@ -56,6 +56,8 @@ export interface MilestoneDispatch {
   /** Latest execution failed or was interrupted, even if the workflow is enabled. */
   failure?: string;
   retryStepId?: string;
+  /** The Workflow stopped at this total dollar cap. A new cap needs user approval. */
+  costLimitUsd?: number;
 }
 
 export interface PendingMilestoneDispatch {

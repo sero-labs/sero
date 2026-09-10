@@ -74,6 +74,7 @@ export const OrchestratorToolParams = Type.Object({
   prompt: Type.Optional(Type.String({ description: 'User prompt (create) or revision request (revise)' })),
   title: Type.Optional(Type.String({ description: 'Optional loop title for create' })),
   activate: Type.Optional(Type.Boolean({ description: 'Activate the loop immediately after create' })),
+  maxCostUsd: Type.Optional(Type.Number({ description: 'use_cost_budget: an explicitly approved new total dollar cap; preserves completed work and charges' })),
   useManagedWorktree: Type.Optional(Type.Boolean({ description: 'Workspace isolation for create (default true)' })),
   allowDirtyWorkspaceRoot: Type.Optional(Type.Boolean({ description: 'For create in workspace-root mode (useManagedWorktree false): run in place even when the workspace is dirty, skipping the dirty preflight (default false)' })),
   worktreeBranchSource: Type.Optional(StringEnum(WORKTREE_BRANCH_SOURCES, { description: 'For create with a managed worktree: "event-pr" checks out the PR branch named by the firing event instead of minting a new branch (PR-lifecycle loops); default "new"' })),
@@ -117,6 +118,7 @@ export interface OrchestratorToolParamsShape {
   prompt?: string;
   title?: string;
   activate?: boolean;
+  maxCostUsd?: number;
   useManagedWorktree?: boolean;
   allowDirtyWorkspaceRoot?: boolean;
   worktreeBranchSource?: (typeof WORKTREE_BRANCH_SOURCES)[number];
@@ -234,7 +236,7 @@ export function buildAction(params: OrchestratorToolParamsShape): OrchestratorAc
       return { kind: 'choose_recovery', loopId: params.loopId, decision };
     }
     case 'use_cost_budget':
-      return params.loopId ? { kind: 'use_cost_budget', loopId: params.loopId } : { error: 'use_cost_budget requires a loopId' };
+      return params.loopId ? { kind: 'use_cost_budget', loopId: params.loopId, maxCostUsd: params.maxCostUsd } : { error: 'use_cost_budget requires a loopId' };
     case 'retry_step':
       if (!params.loopId) return { error: 'retry_step requires a loopId' };
       if (!params.stepId) return { error: 'retry_step requires a stepId' };
@@ -399,7 +401,7 @@ function summarize(action: OrchestratorAction, res: OrchestratorActionResult): s
     case 'set_delivery':
       return `Loop ${action.loopId} now delivers to "${action.delivery.destination}".`;
     case 'use_cost_budget':
-      return `Token limit removed. Dollar, time and attempt limits are unchanged. Completed steps are preserved.`;
+      return `Cost budget updated. Completed steps, prior charges, time and attempt limits are preserved.`;
     case 'set_schedule': {
       const trigger = res.loop?.triggers.find((t) => t.id === action.triggerId);
       return `Loop ${action.loopId} schedule is now "${trigger?.schedule}"${trigger?.scheduleDisabled ? ' (paused)' : ''} — next fire ${trigger?.nextFireAt ?? 'n/a'}.`;

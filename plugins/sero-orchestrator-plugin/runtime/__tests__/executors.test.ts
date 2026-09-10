@@ -477,6 +477,17 @@ describe('per-step tools', () => {
 
 
 describe('retry handoff', () => {
+  it('carries the original task contract into workers when the generated plan abbreviates it', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.prompt = 'Approved output uses record_count and a numeric total_amount.';
+    loop.runtime.variables = { researchRecommendation: 'Use recordCount and a string totalAmount.' };
+    host.modelResponses.push({ response: outcome({ status: 'succeeded', summary: 'Checked the contract.' }) });
+    await backgroundAgentExecutor.run(inputFor(host, structuredClone(loop), 'step-1'));
+    expect(host.modelCalls[0].task).toContain(loop.prompt);
+    expect(host.modelCalls[0].task).toContain('Original task requirements');
+  });
+
   it('gives a new worker the saved partial result and recovery instruction from the previous run', async () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, oneStepPlan().plan);

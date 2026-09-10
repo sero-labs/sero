@@ -32,6 +32,17 @@ async function setup(record = buildingProject({ milestones: [running('workflow',
 }
 
 describe('dispatch watch', () => {
+  it('reports an exhausted Workflow cap with its actual reason and preserves live charges', async () => {
+    const { host, store, watch, wakes, settle } = await setup();
+    host.emitState(files.loops, { loops: [{ id: 'loop_1', title: 'CLI', status: 'blocked', maxCostUsd: 1.2, block: { limit: 'maxCostUsd', reason: 'reached max cost ($1.2)' }, usage: { costUsd: 1.21 } }] });
+    await settle();
+    const record = await store.read('proj_1');
+    expect(record).toMatchObject({ overlay: 'blocked', blockedReason: expect.stringContaining('$1.2 cap') });
+    expect(record?.milestones[0].dispatch).toMatchObject({ costLimitUsd: 1.2, chargedUsd: 1.21, failure: expect.stringContaining('Approve a new Workflow cap') });
+    expect(wakes.some((wake) => wake.items.some((item) => item.includes('reached max cost ($1.2)')))).toBe(true);
+    watch.dispose();
+  });
+
   it('records completed workspace delivery without accepting unverified work and recovers an accepted release', async () => {
     const release = milestone('m1', { status: 'verifying', verification: 'reported',
       dispatch: { kind: 'workflow', id: 'loop_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: 'workspace-files' } });

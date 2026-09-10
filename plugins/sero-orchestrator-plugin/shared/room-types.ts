@@ -14,6 +14,7 @@
 import type { OrchestratorBoardRoomView } from '@sero-ai/common';
 
 import type { RoomAttention } from './attention-types';
+import type { DeliveryReceipt } from './delivery-types';
 import type {
   MemberReadCursor,
   PathClaim,
@@ -200,6 +201,8 @@ export interface RoomStopReason {
 
 export interface RoomRuntimeState {
   status: RoomStatus;
+  /** Finish request held until running turns have recorded their final usage. */
+  completion?: { summary: string; receipt?: DeliveryReceipt };
   startedAt: string | null;
   endedAt: string | null;
   /** Members currently holding an execution slot. */

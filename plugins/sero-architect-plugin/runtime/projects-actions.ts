@@ -46,7 +46,7 @@ export interface ProjectsActions {
   create(input: { idea: string; folder: string }): Promise<ProjectsOutcome>;
   pause(projectId: string): Promise<ProjectsOutcome>;
   resume(projectId: string): Promise<ProjectsOutcome>;
-  retry(projectId: string, milestoneId: string): Promise<ProjectsOutcome>;
+  retry(projectId: string, milestoneId: string, maxCostUsd?: number): Promise<ProjectsOutcome>;
   stop(projectId: string): Promise<ProjectsOutcome>;
   raiseCap(projectId: string, capUsd: number): Promise<ProjectsOutcome>;
   setAutonomy(projectId: string, autonomy: AutonomySetting): Promise<ProjectsOutcome>;
@@ -226,7 +226,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       return result;
     },
 
-    async retry(projectId, milestoneId) {
+    async retry(projectId, milestoneId, maxCostUsd) {
       const record = await read(projectId);
       const milestone = record?.milestones.find((item) => item.id === milestoneId);
       const dispatch = milestone?.dispatch;
@@ -234,6 +234,15 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       if (record.paused) return refuse('Resume the project before retrying its work.');
       if (record.budget.capUsd !== null && record.budget.spentUsd >= record.budget.capUsd) return refuse('Raise the project cap before retrying.');
       if (record.blockedReason && record.blockedReason !== dispatch.failure) return refuse(record.blockedReason);
+      if (dispatch.costLimitUsd !== undefined) {
+        if (maxCostUsd === undefined || !Number.isFinite(maxCostUsd) || maxCostUsd <= dispatch.chargedUsd) return refuse('Approve a finite Workflow cap above its recorded spend.');
+        const available = record.budget.capUsd === null ? 0 : Math.max(0, record.budget.capUsd - record.budget.spentUsd);
+        if (maxCostUsd > dispatch.chargedUsd + available) return refuse('Raise the project cap first. This Workflow allocation exceeds the remaining project budget.');
+        const changed = await requestOrchestratorAction(dispatch.workspaceId, { kind: 'use_cost_budget', loopId: dispatch.id, maxCostUsd });
+        if (!changed.ok) return refuse(changed.error ?? 'The Workflow cap could not change.');
+        const started = await requestOrchestratorAction(dispatch.workspaceId, { kind: 'run_next', loopId: dispatch.id });
+        return started.ok ? ok(`Workflow resumed with a $${maxCostUsd} cap.`) : refuse(started.error ?? 'The Workflow could not resume.');
+      }
       const result = await requestOrchestratorAction(dispatch.workspaceId, dispatch.retryStepId
         ? { kind: 'retry_step', loopId: dispatch.id, stepId: dispatch.retryStepId }
         : { kind: 'retry', loopId: dispatch.id });

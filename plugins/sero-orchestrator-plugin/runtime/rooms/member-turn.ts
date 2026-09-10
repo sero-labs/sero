@@ -130,16 +130,15 @@ export function markMemberWorking(
  * any number of messages and model calls, and the count has to survive the
  * session being closed and reopened.
  */
-function applyUsage(current: MemberUsage, session: PersistentSessionUsage | null): MemberUsage {
-  const turns = current.turns + 1;
+function applyUsage(current: MemberUsage, session: PersistentSessionUsage | null, turns = current.turns): MemberUsage {
   if (!session) return { ...current, turns };
   return {
     ...current,
-    costUsd: session.costUsd,
-    inputTokens: session.inputTokens,
-    outputTokens: session.outputTokens,
-    cacheReadTokens: session.cacheReadTokens,
-    cacheWriteTokens: session.cacheWriteTokens,
+    costUsd: Math.max(current.costUsd, session.costUsd),
+    inputTokens: Math.max(current.inputTokens, session.inputTokens),
+    outputTokens: Math.max(current.outputTokens, session.outputTokens),
+    cacheReadTokens: Math.max(current.cacheReadTokens, session.cacheReadTokens),
+    cacheWriteTokens: Math.max(current.cacheWriteTokens, session.cacheWriteTokens),
     turns,
   };
 }
@@ -177,7 +176,7 @@ function applyTurn(
     // waiting on a question, and "Finished its turn." would hide what for.
     statusDetail: member.status === 'working' ? outcome.detail : member.statusDetail,
     usage: {
-      ...applyUsage(member.usage, session),
+      ...applyUsage(member.usage, session, member.usage.turns + 1),
       retries: outcome.status === 'error' ? member.usage.retries + 1 : member.usage.retries,
       consecutiveFailures: failures,
     },
@@ -195,6 +194,29 @@ function aggregateRoomUsage(current: RoomUsage, members: RoomMember[]): RoomUsag
     outputTokens: total((usage) => usage.outputTokens),
     turns: total((usage) => usage.turns),
   };
+}
+
+/** Save available SDK totals during a turn without counting another turn. */
+export function watchMemberUsage(
+  api: PersistentSessionsApi, handleId: string, store: RoomStore, roomId: string, memberId: string,
+  log: (message: string) => void,
+): () => Promise<void> {
+  let pending = Promise.resolve();
+  const unsubscribe = api.subscribe(handleId, (event) => {
+    if (!['tool_start', 'tool_end', 'turn_end'].includes(event.type)) return;
+    pending = pending.then(async () => {
+      const session = await readSessionUsage(api, handleId);
+      if (!session) return;
+      await store.updateRoom(roomId, (record) => {
+        const members = record.members.map((member) => member.id === memberId
+          ? { ...member, usage: applyUsage(member.usage, session) } : member);
+        return { ...record, members, runtime: {
+          ...record.runtime, usage: aggregateRoomUsage(record.runtime.usage, members),
+        } };
+      });
+    }).catch((error: unknown) => log(`Room usage could not be saved: ${String(error)}`));
+  });
+  return async () => { unsubscribe(); await pending; };
 }
 
 /**

@@ -109,6 +109,7 @@ describe('member grant proposal', () => {
     // Cost-bearing choices are pinned to the member's own, never to the pool.
     expect(proposal.subjects.lead.allowedModels).toEqual(['sonnet']);
     expect(proposal.subjects.lead.allowedThinkingLevels).toEqual(['medium']);
+    expect(proposal.reason).toContain('sonnet, medium thinking.');
     // Every member holds the Room bridge, whether or not the planner listed it.
     expect(proposal.subjects.lead.allowedTools).toContain('sero-cli');
     // One subject can never reach another's tools.
@@ -354,15 +355,40 @@ describe('member turns', () => {
       cacheWriteTokens: 20,
     });
 
-    // The host projects absent provider fields as zero. Zero is valid usage,
-    // not a signal that the turn failed or that active cache work is needed.
-    session.usage = { ...session.usage, cacheReadTokens: 0, cacheWriteTokens: 0 };
-    const outcome = await runMemberTurn(deps, room, lead, handle.handleId, { prompt: 'Use this provider.' });
+    // A provider without cache metadata reports zero for its new session.
+    const implementer = memberOf(room, 'impl');
+    const plainHandle = await startMember(deps, room, implementer);
+    const outcome = await runMemberTurn(deps, room, implementer, plainHandle.handleId, { prompt: 'Use this provider.' });
     expect(outcome.status).toBe('completed');
-    expect((await store.readMember('room-a', 'lead'))?.usage).toMatchObject({
+    expect((await store.readMember('room-a', 'impl'))?.usage).toMatchObject({
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
     });
+  });
+
+  it('records live cumulative usage without double charging repeated events or counting extra turns', async () => {
+    const room = await seedRoom();
+    const lead = memberOf(room, 'lead');
+    const handle = await startMember(deps, room, lead);
+    const api = host.persistentSessions;
+    api.mode = 'manual';
+    const turn = runMemberTurn(deps, room, lead, handle.handleId, { prompt: 'Run the check.' });
+    await waitFor(() => api.openTurns().includes('lead'));
+    const session = api.sessions.get('lead');
+    if (!session) throw new Error('session missing');
+    session.usage = { ...session.usage, costUsd: 0.4, inputTokens: 200, cacheReadTokens: 80 };
+    api.emit('lead', { type: 'tool_start', toolName: 'bash', summary: 'Run tests' });
+    api.emit('lead', { type: 'tool_end', toolName: 'bash', ok: true });
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      if ((await store.readRoom('room-a'))?.runtime.usage.costUsd === 0.4) break;
+      await new Promise((resolve) => setTimeout(resolve, 1));
+    }
+    expect((await store.readRoom('room-a'))?.runtime.usage).toMatchObject({ costUsd: 0.4, turns: 0 });
+    expect((await store.readMember('room-a', 'lead'))?.status).toBe('working');
+    api.endTurn('lead');
+    await turn;
+    expect((await store.readRoom('room-a'))?.runtime.usage).toMatchObject({ costUsd: 0.65, turns: 1 });
+    expect((await store.readMember('room-a', 'lead'))?.usage.cacheReadTokens).toBe(80);
   });
 });
 

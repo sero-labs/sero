@@ -167,7 +167,10 @@ function retryContext(loop: Loop, step: LoopStepDefinition, run?: LoopRun): stri
 }
 
 export function buildStepTask(loop: Loop, step: LoopStepDefinition, run?: LoopRun, fanOut?: FanOutRunContext): string {
-  const parts = [`Loop objective: ${loop.plan.objective}`];
+  const parts = [
+    `Original task requirements (later approved plan revisions can supersede these):\n${loop.prompt}`,
+    `Loop objective: ${loop.plan.objective}`,
+  ];
   if (loop.plan.globalInstructions) parts.push(`Global instructions: ${loop.plan.globalInstructions}`);
   parts.push(eventContext(run));
   parts.push(`\nStep: ${step.title}\n${step.instructions}`);

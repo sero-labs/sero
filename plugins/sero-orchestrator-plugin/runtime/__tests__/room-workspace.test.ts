@@ -163,6 +163,7 @@ describe('workspace placement', () => {
     expect(api?.cwd).not.toBe(ui?.cwd);
     expect(api?.cwd).not.toBe(host.workspacePath);
     expect(host.worktreesCreated).toEqual([`room-${roomId}-api`, `room-${roomId}-ui`]);
+    expect(host.worktreeCreates.map((call) => call.workspaceSnapshotKey)).toEqual([roomId, roomId]);
 
     // The reader shares the workspace and cannot change it.
     expect(lead).toMatchObject({ kind: 'read-only-shared', cwd: host.workspacePath, writable: false });

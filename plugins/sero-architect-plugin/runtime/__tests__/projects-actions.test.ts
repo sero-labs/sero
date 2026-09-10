@@ -51,6 +51,22 @@ describe('project management', () => {
     } finally { delete (globalThis as Record<string, unknown>)[ORCHESTRATOR_REGISTRY_GLOBAL_KEY]; }
   });
 
+  it('requires an explicit Workflow cap within the remaining project allocation before resuming', async () => {
+    const { store, actions } = await setup();
+    const record = buildingProject({ budget: { capUsd: 5, spentUsd: 3, sources: { owner: 1, research: 0, dispatched: 2 } },
+      milestones: [milestone('m1', { status: 'running', dispatch: { kind: 'workflow', id: 'loop-1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 2, destination: null, failure: 'Cost cap', costLimitUsd: 2 } })] });
+    await store.write(record);
+    const calls: OrchestratorBoardAction[] = [];
+    (globalThis as Record<string, unknown>)[ORCHESTRATOR_REGISTRY_GLOBAL_KEY] = new Map([['ws-1', { coordinator: { requestAction: async (action: OrchestratorBoardAction) => { calls.push(action); return { ok: true }; } } }]]);
+    try {
+      for (const cap of [undefined, 2, Infinity, 4.1]) expect((await actions.retry(record.id, 'm1', cap)).ok).toBe(false);
+      expect(calls).toEqual([]);
+      expect((await actions.retry(record.id, 'm1', 4)).ok).toBe(true);
+      expect(calls).toEqual([{ kind: 'use_cost_budget', loopId: 'loop-1', maxCostUsd: 4 }, { kind: 'run_next', loopId: 'loop-1' }]);
+      expect((await store.read(record.id))?.budget.spentUsd).toBe(3);
+    } finally { delete (globalThis as Record<string, unknown>)[ORCHESTRATOR_REGISTRY_GLOBAL_KEY]; }
+  });
+
   it('starts a managed preview from the visible project folder, not an isolated checkout', async () => {
     const { host, store, actions } = await setup();
     const record = buildingProject();

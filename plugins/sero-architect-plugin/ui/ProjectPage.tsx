@@ -124,7 +124,7 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, conf
                 </>
               )}
               <ProjectResearch record={record} />
-              <MilestoneRail record={record} onOpenDispatch={openDispatch} onRetry={(milestoneId) => actions.retry(id, milestoneId)} />
+              <MilestoneRail record={record} onOpenDispatch={openDispatch} onRetry={(milestoneId, capUsd) => actions.retry(id, milestoneId, capUsd)} />
               {record.phase !== 'intake' && <ProjectPreview projectId={id} />}
               {record.phase === 'intake' && (
                 <section>

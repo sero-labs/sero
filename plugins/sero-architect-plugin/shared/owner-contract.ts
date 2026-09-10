@@ -29,6 +29,7 @@ function budgetLines(record: ProjectRecord): string[] {
 function milestoneLine(milestone: Milestone): string {
   const parts = [`- ${milestone.id} "${milestone.title}": ${milestone.status}`];
   if (milestone.dispatch) parts.push(`${milestone.dispatch.kind} ${milestone.dispatch.id}`);
+  if (milestone.pendingDispatch) parts.push(`${milestone.pendingDispatch.kind} dispatch being prepared`);
   if (milestone.verification) parts.push(`verification ${milestone.verification}`);
   if (milestone.evidence) {
     parts.push(milestone.evidence.stale ? 'evidence stale' : milestone.evidence.passed ? 'evidence passed' : 'evidence failed');
@@ -42,6 +43,9 @@ function milestonesBlock(record: ProjectRecord): string[] {
   if (record.milestones.length === 0) return ['Milestones: none yet.'];
   return ['Milestones:', ...record.milestones.flatMap((milestone) => {
     const lines = [milestoneLine(milestone)];
+    if (milestone.pendingDispatch) {
+      lines.push(`  The runtime accepted this dispatch at ${milestone.pendingDispatch.startedAt} and is preparing it. Its Workflow or Room id is not linked yet. This is pending work, not a missing dispatch. Do not dispatch it again or request evidence yet; call sleep and wait for its result.`);
+    }
     if (milestone.plan) lines.push(`  Plan (task data): <plan>${quote(milestone.plan)}</plan>`);
     if (milestone.evidence) {
       lines.push(`  Checked files: <diff>${quote(milestone.evidence.diffSummary?.slice(-3000) ?? 'No changed files recorded')}</diff>`);

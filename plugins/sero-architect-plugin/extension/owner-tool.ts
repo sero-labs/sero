@@ -39,7 +39,7 @@ export const OwnerToolParams = Type.Object({
   plan: Type.Optional(Type.String({ description: 'milestone: the plan' })),
   previewRoute: Type.Optional(Type.String({ description: 'milestone: the route a preview milestone must render, e.g. /' })),
   done: Type.Optional(Type.Boolean({ description: 'milestone: set true to accept it after evidence passes' })),
-  milestonesJson: Type.Optional(Type.String({ description: 'charter: JSON [{"title":"...","plan":"...","previewRoute":"/"}]' })),
+  milestonesJson: Type.Optional(Type.String({ description: 'charter: JSON [{"title":"...","plan":"..."}]; optional previewRoute only for browser milestones' })),
   escalationPolicy: Type.Optional(Type.String({ description: 'charter: what you raise to the user and what you decide yourself' })),
   autonomy: Type.Optional(StringEnum(AUTONOMY_SETTINGS, { description: 'charter: milestones (default), charter-only or model-judged' })),
   capUsd: Type.Optional(Type.Number({ description: 'charter: the cost cap in USD (required)' })),

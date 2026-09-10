@@ -28,6 +28,7 @@ import { RoomCoordinator } from '../rooms/room-coordinator';
 import { createRoomStore, type RoomStore } from '../rooms/room-store';
 import { createRoomWorkspaces } from '../rooms/room-workspace';
 import { createFakeHost, type FakeHost } from './fake-host';
+import { waitFor } from './room-harness';
 
 let dir: string;
 let host: FakeHost;
@@ -208,6 +209,7 @@ describe('starting a Room whose members edit', () => {
     const fixerTree = started?.members.find((entry) => entry.id === 'fixer')?.worktreePath ?? '';
 
     await coordinator.completeRoom(roomId, 'The Room finished its work.');
+    await waitFor(async () => (await store.readRoom(roomId))?.runtime.status === 'completed', 'the final turn and cleanup');
 
     // Finishing is the ordinary ending, so it strands work more often than
     // cancelling does. Releasing the grant closes every session, and after that

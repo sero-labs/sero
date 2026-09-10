@@ -42,7 +42,7 @@ export const ProjectsToolParams = Type.Object({
   projectId: Type.Optional(Type.String({ description: 'Project ID. Required for every action except list and create' })),
   idea: Type.Optional(Type.String({ description: 'create: the idea, in the user\'s own words' })),
   folder: Type.Optional(Type.String({ description: 'create: the folder to build in, under the home directory' })),
-  capUsd: Type.Optional(Type.Number({ description: 'raise_cap: the new cost cap in USD' })),
+  capUsd: Type.Optional(Type.Number({ description: 'raise_cap: the project cap; retry: an explicitly approved new total Workflow cap in USD' })),
   autonomy: Type.Optional(StringEnum(AUTONOMY_SETTINGS, { description: 'set_autonomy: milestones, charter-only or model-judged' })),
   target: Type.Optional(StringEnum(APPROVE_TARGETS, { description: 'approve: charter or milestone' })),
   milestoneId: Type.Optional(Type.String({ description: 'approve/retry: the milestone id' })),
@@ -150,7 +150,7 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
     case 'retry': {
       const missing = need(id, 'projectId') ?? need(params.milestoneId, 'milestoneId');
       if (missing) return result(false, missing);
-      const outcome = await actions.retry(id, params.milestoneId ?? '');
+      const outcome = await actions.retry(id, params.milestoneId ?? '', params.capUsd);
       return result(outcome.ok, outcome.text);
     }
     case 'repair': {

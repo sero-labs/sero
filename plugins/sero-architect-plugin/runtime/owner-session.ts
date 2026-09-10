@@ -101,6 +101,8 @@ export interface OwnerSessionDeps {
   outcomes: TurnOutcomes;
 }
 
+export const OWNER_TURN_TIMEOUT_MS = 10 * 60_000;
+
 export interface OwnerTurnResult {
   record: ProjectRecord;
   status: 'completed' | 'aborted' | 'error';
@@ -206,8 +208,9 @@ export class OwnerSessions {
     const api = this.api();
     const { handleId, record: opened } = await this.ensureOpen(record);
     const modelTiers = await this.deps.host.modelTiers();
-    await this.deps.store.update(opened.id, (fresh) => ({ ...fresh, modelTiers }));
-    const contract = buildOwnerContract(opened, wake);
+    const latest = await this.deps.store.update(opened.id, (fresh) => ({ ...fresh, modelTiers }));
+    // Opening a session and resolving model tiers can outlast a new directive or dispatch update.
+    const contract = buildOwnerContract(latest ?? opened, wake);
     this.deps.outcomes.begin(opened.id);
 
     let resolveEnd: (status: OwnerTurnResult['status']) => void = () => undefined;
@@ -230,23 +233,37 @@ export class OwnerSessions {
 
     let status: OwnerTurnResult['status'];
     let failure = 'The Architect turn failed. Open the session log for details, then resume to retry.';
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    let finished = false;
     try {
       await this.deps.store.update(opened.id, (fresh) => ({
         ...fresh,
         session: { ...fresh.session, workingSince: this.deps.host.now() },
       }));
-      const { turnId } = await api.prompt(handleId, contract);
-      watching = turnId;
-      status = ended.get(turnId) ?? (await new Promise<OwnerTurnResult['status']>((resolve) => {
-        resolveEnd = resolve;
-        this.waiting.set(opened.id, resolve);
-      }));
-      failure = failures.get(turnId) ?? failure;
+      const turn = async (): Promise<OwnerTurnResult['status']> => {
+        const { turnId } = await api.prompt(handleId, contract);
+        if (finished) return 'aborted';
+        watching = turnId;
+        const result = ended.get(turnId) ?? (await new Promise<OwnerTurnResult['status']>((resolve) => {
+          resolveEnd = resolve;
+          this.waiting.set(opened.id, resolve);
+        }));
+        failure = failures.get(turnId) ?? failure;
+        return result;
+      };
+      status = await Promise.race([turn(), new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(() => {
+          reject(new Error('The owner turn exceeded 10 minutes and was stopped. Existing work is preserved. Resume the project to continue.'));
+          void api.abort(handleId).catch((error: unknown) => this.deps.host.log(`Could not abort timed-out owner: ${String(error)}`));
+        }, OWNER_TURN_TIMEOUT_MS);
+      })]);
     } catch (error) {
       failure = `The Architect could not continue: ${error instanceof Error ? error.message : String(error)}`;
       this.deps.host.log(`owner turn failed for ${opened.id}: ${failure}`);
       status = 'error';
     } finally {
+      finished = true;
+      if (timeout) clearTimeout(timeout);
       this.waiting.delete(opened.id);
       unsubscribe();
       await this.deps.store.update(opened.id, (fresh) => ({

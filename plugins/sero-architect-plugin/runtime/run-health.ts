@@ -22,7 +22,7 @@ export async function applyRunHealth(store: RecordStore, projectId: string, loop
     }
     if (!failed && milestone.dispatch.failure && ['running', 'completed'].includes(latest.status)) {
       const next = { ...record, milestones: record.milestones.map((item) => item.id === milestone.id
-        ? { ...item, dispatch: { ...dispatch, failure: undefined, retryStepId: undefined } } : item) };
+        ? { ...item, dispatch: { ...dispatch, failure: undefined, retryStepId: undefined, costLimitUsd: undefined } } : item) };
       if (record.blockedReason !== milestone.dispatch.failure) return next;
       const cleared = unblock(next, now, `workflow ${loopId} resumed`);
       return cleared.ok ? { ...cleared.record, stateLine: `Workflow resumed: ${milestone.title}.` } : next;

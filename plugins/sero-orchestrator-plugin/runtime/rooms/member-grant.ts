@@ -253,7 +253,7 @@ export async function requestRoomGrant(host: OrchestratorHost, room: Room): Prom
     subjects,
     maxLiveSessions: roomLiveSessionCap(room.definition.envelope),
     maxTotalSessions: roomTotalSessionCap(room.definition.envelope),
-    reason: `Run ${room.members.length} members for the Room "${room.definition.title}".`,
+    reason: `Run ${room.members.length} members for the Room "${room.definition.title}".\n${room.members.map((member) => `${member.displayName}: ${member.configuration.model}, ${member.configuration.thinking} thinking.`).join('\n')}`,
   });
 }
 

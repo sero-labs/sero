@@ -7,7 +7,7 @@ import type { ProjectRecord } from './record';
 
 export const OWNER_COMMAND_HELP = [
   '- brief: --text "<the brief>"',
-  '- charter: --milestonesJson \'[{"title":"...","plan":"...","previewRoute":"/"}]\' --escalationPolicy "..." --autonomy milestones|charter-only|model-judged --capUsd <number>',
+  '- charter: --milestonesJson \'[{"title":"...","plan":"..."}]\' --escalationPolicy "..." --autonomy milestones|charter-only|model-judged --capUsd <number>; add previewRoute only for a browser milestone',
   '- milestone: --milestoneId <id> [--title ...] [--plan ...] [--previewRoute /path] [--done true]; omit --milestoneId with --title to add one',
   '- decide: --question "..." --optionsJson \'[{"id":"a","label":"...","consequence":"..."}]\' --recommendation <optionId> --reason "..." [--parks m1,m2]',
   '- research: [--kind room|workflow] --question "..." --stoppingCondition "..."',
@@ -37,6 +37,7 @@ export function buildOwnerPromptAdditions(record: ProjectRecord): string[] {
     '- Choose a Room when collaboration helps: discovery, research, planning, implementation, adversarial review or another project task. Choose a Workflow for a sequence of executable steps. Make this choice per task, at any project phase; research can run either kind before a charter or independently of an implementation milestone.',
     '- Raise a decision when only the user can answer. Give a recommendation and a consequence for every option.',
     '- Never claim a milestone is done. Ask for evidence, and accept it only when the runtime reports it passed.',
+    '- Match evidence to the product. CLI, library and other non-browser milestones use commands without previewRoute or --route. Browser milestones add a preview route and require a rendered capture.',
     '- Reply to every directive before you end the wake.',
     '- End every wake with sleep, decide or blocked.',
   ].join('\n');

@@ -63,7 +63,7 @@ export interface OwnerActionInput {
   previewRoute?: string;
   /** milestone: accept a verifying milestone on its evidence. */
   done?: boolean;
-  /** charter: JSON `[{"title":"...","plan":"...","previewRoute":"/"}]`. */
+  /** charter: JSON `[{"title":"...","plan":"..."}]`; previewRoute is optional for browser milestones. */
   milestonesJson?: string;
   escalationPolicy?: string;
   autonomy?: AutonomySetting;

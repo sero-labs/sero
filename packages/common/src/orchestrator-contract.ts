@@ -149,6 +149,9 @@ export interface OrchestratorBoardLoopView extends OrchestratorScheduledLoopView
   usage?: OrchestratorUsageView;
   /** Titles of the steps currently running — the card's live activity line. */
   activeStepTitles?: string[];
+  /** Durable reason work cannot continue, including a reached dollar cap. */
+  block?: { reason: string; limit?: string };
+  maxCostUsd?: number;
   /** Model of the most recent step attempt that reported one. */
   lastModel?: string;
   /** Branch of the loop's resolved workspace (worktree or workspace root). */
@@ -309,6 +312,7 @@ export type OrchestratorBoardAction =
   | { kind: 'run_next'; loopId: string }
   | { kind: 'run_again'; loopId: string }
   | { kind: 'retry'; loopId: string }
+  | { kind: 'use_cost_budget'; loopId: string; maxCostUsd?: number }
   | { kind: 'retry_step'; loopId: string; stepId: string }
   | { kind: 'answer_input'; loopId: string; requestId: string; answers: OrchestratorInputAnswerView[] }
   | {

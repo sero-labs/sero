@@ -63,6 +63,7 @@ export interface FakePersistentSessions extends PersistentSessionsApi {
   endTurn(subject: string, status?: 'completed' | 'aborted' | 'error'): void;
   /** Subjects with a turn currently open. */
   openTurns(): string[];
+  emit(subject: string, event: PersistentSessionEvent): void;
 }
 
 export function createFakePersistentSessions(sessionRoot = '/sessions/rooms'): FakePersistentSessions {
@@ -246,6 +247,7 @@ export function createFakePersistentSessions(sessionRoot = '/sessions/rooms'): F
     },
 
     openTurns: () => [...openTurnIds.keys()],
+    emit,
   };
 
   return api;

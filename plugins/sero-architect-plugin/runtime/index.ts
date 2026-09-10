@@ -2,6 +2,7 @@ import type { AppRuntime, AppRuntimeContext, AppRuntimeModule } from '@sero-ai/c
 
 import { architectEnabled } from '../shared/kill-switch';
 import { mayWakeForWork } from '../shared/lifecycle';
+import { MAINTENANCE_MILESTONE_ID } from '../shared/maintenance';
 import type { ProjectRecord } from '../shared/record';
 import type { WakeEvent } from '../shared/wake';
 import { createDispatchWatch, type DispatchWatch } from './dispatch-watch';
@@ -20,7 +21,8 @@ import { createWakeScheduler, type WakeScheduler } from './wake-scheduler';
 /** Work the owner could do now without anything running: a quiet project with this wakes once. */
 export function plannedWorkRemains(record: ProjectRecord): boolean {
   if (record.phase !== 'build' && record.phase !== 'release' && record.phase !== 'maintain') return false;
-  if (record.milestones.some((m) => m.status === 'running' || m.pendingDispatch)) return false;
+  // The recurring maintenance subscription only reads product files and writes internal triage notes.
+  if (record.milestones.some((m) => m.id !== MAINTENANCE_MILESTONE_ID && (m.status === 'running' || m.pendingDispatch))) return false;
   return record.milestones.some((m) =>
     m.status === 'approved'
     || (m.status === 'planned' && record.autonomy !== 'milestones')

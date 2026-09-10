@@ -28,6 +28,25 @@ function record(phase: ProjectRecord['phase'], overlay: ArchitectOverlay | null)
 }
 
 describe('the owner contract', () => {
+  it('preserves an accepted dispatch while its background preparation has no run id yet', () => {
+    const project = record('build', null);
+    project.milestones[0] = {
+      ...project.milestones[0]!, status: 'approved', dispatch: null,
+      pendingDispatch: { kind: 'workflow', destination: 'workspace-files', startedAt: T0,
+        request: { id: 'request-1', prompt: 'Implement the approved scope', maxCostUsd: 2 } },
+    };
+    const contract = buildOwnerContract(project, { kind: 'quiet', at: T0, items: ['earlier quiet event'] });
+    expect(contract).toContain('m1 "Grid": approved, workflow dispatch being prepared');
+    expect(contract).toContain(`accepted this dispatch at ${T0}`);
+    expect(contract).toContain('Do not dispatch it again or request evidence yet');
+    expect(contract).toContain('call sleep and wait for its result');
+    project.milestones[0] = { ...project.milestones[0]!, pendingDispatch: undefined,
+      dispatch: { kind: 'workflow', id: 'loop-accepted', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: 'workspace-files' } };
+    const linked = buildOwnerContract(project, null);
+    expect(linked).toContain('workflow loop-accepted');
+    expect(linked).not.toContain('dispatch being prepared');
+  });
+
   it('supplies bounded failure diagnostics and a local repair path without granting new authority', () => {
     const project = record('build', null);
     project.milestones[0] = {

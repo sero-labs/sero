@@ -16,9 +16,9 @@ The subject of these tasks is Architect’s process and integration with Sero. U
 
 ## 3. CSV summary CLI
 
-- [ ] 3.1 Create the CLI in a fresh workspace through Sero; verify Architect delivers local files and completes without a browser, using one fixture with exact totals and one invalid-input check.
-- [ ] 3.2 Exercise restart during verification, a failed fixture and dollar-cap stop/resume; verify no duplicate check, safe recovery and truthful command results.
-- [ ] 3.3 Complete the grouping-option maintenance exercise; fix and replay any new Sero defect, then rerun the directly affected DungeonExplorer checks and record results.
+- [x] 3.1 Create the CLI in a fresh workspace through Sero; verify Architect delivers local files and completes without a browser, using one fixture with exact totals and one invalid-input check.
+- [x] 3.2 Exercise restart during verification, a failed fixture and dollar-cap stop/resume; verify no duplicate check, safe recovery and truthful command results.
+- [x] 3.3 Complete the grouping-option maintenance exercise; fix and replay any new Sero defect, then rerun the directly affected DungeonExplorer checks and record results.
 
 ## 4. Persistent reading tracker
 

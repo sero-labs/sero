@@ -105,7 +105,7 @@ function loopTransition(milestone: Milestone, loop: LoopView, seen: Seen | undef
     return { kind: 'dispatch-complete', item: `${label} reported completion; it is a claim until evidence passes`, reported: true };
   }
   if (loop.status === 'blocked' && seen?.status !== 'blocked') {
-    return { kind: 'dispatch-blocked', item: `${label} is blocked`, reported: false };
+    return { kind: 'dispatch-blocked', item: `${label} is blocked${loop.block?.reason ? `: ${loop.block.reason}` : ''}`, reported: false };
   }
   if (pending > 0 && (seen?.pending ?? 0) === 0) {
     return { kind: 'dispatch-blocked', item: `${label} asked a question`, reported: false };
@@ -198,8 +198,14 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
         const costUsd = loop ? loop.usage?.costUsd ?? 0 : room?.costUsd ?? 0;
         const delta = Math.max(0, costUsd - dispatch.chargedUsd);
         let updated: Milestone = milestone;
+        if (loop?.status === 'blocked' && loop.block?.limit === 'maxCostUsd' && loop.maxCostUsd !== undefined && dispatch.costLimitUsd !== loop.maxCostUsd) {
+          const reason = `Workflow reached its $${loop.maxCostUsd} cap. Approve a new Workflow cap to resume ${milestone.title}.`;
+          updated = { ...updated, dispatch: { ...dispatch, failure: reason, costLimitUsd: loop.maxCostUsd } };
+          const held = block(next, now, reason);
+          if (held.ok) next = { ...held.record, stateLine: reason };
+        }
         if (delta > 0) {
-          updated = { ...updated, dispatch: { ...dispatch, chargedUsd: costUsd } };
+          updated = { ...updated, dispatch: { ...updated.dispatch!, chargedUsd: costUsd } };
           next = charge(next, 'dispatched', delta, now);
         }
         if (transition?.reported && updated.status === 'running') {

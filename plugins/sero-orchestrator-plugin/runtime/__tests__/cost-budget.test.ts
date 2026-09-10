@@ -20,6 +20,21 @@ describe('cost-based workflow limits', () => {
     expect(host.state.loops[0].runtime.block).toBeUndefined();
   });
 
+  it('raises an exhausted dollar cap without resetting completed steps or other limits', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, sequentialPlan().plan);
+    loop.status = 'blocked';
+    loop.limits = { maxCostUsd: 1, maxAttemptsTotal: 20 };
+    loop.runtime.block = { kind: 'management-limit', limit: 'maxCostUsd', reason: 'cost cap', createdAt: host.now() };
+    loop.runtime.stepStates.a = { status: 'succeeded', attempts: 1, updatedAt: host.now() };
+    const coordinator = new Coordinator(host);
+    expect((await coordinator.requestAction({ kind: 'use_cost_budget', loopId: loop.id, maxCostUsd: Infinity })).ok).toBe(false);
+    expect(host.state.loops[0].limits.maxCostUsd).toBe(1);
+    expect((await coordinator.requestAction({ kind: 'use_cost_budget', loopId: loop.id, maxCostUsd: 2 })).ok).toBe(true);
+    expect(host.state.loops[0]).toMatchObject({ status: 'active', limits: { maxCostUsd: 2, maxAttemptsTotal: 20 }, runtime: { stepStates: { a: { status: 'succeeded', attempts: 1 } } } });
+    expect(host.state.loops[0].runtime.block).toBeUndefined();
+  });
+
   it('removes the token cap without removing the approved cost or execution safeguards', () => {
     const limits = mergeLimits({ maxTotalTokens: 50000, maxCostUsd: 20 }, { maxCostUsd: 4, maxWallClockMs: 1800000, maxAttemptsTotal: 10 }, true);
     expect(limits.maxTotalTokens).toBeUndefined();

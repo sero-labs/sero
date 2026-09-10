@@ -7,6 +7,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { block, mayDispatch, settle, unblock } from '../shared/lifecycle';
+import { MAINTENANCE_MILESTONE_ID } from '../shared/maintenance';
 import type { DispatchDestination, DispatchKind } from '../shared/owner-actions';
 import type { Milestone, ProjectRecord } from '../shared/record';
 import type { OwnerServices } from './owner-actions';
@@ -28,14 +29,20 @@ export async function performDispatch(
   now: string,
   background = false,
 ): Promise<{ record: ProjectRecord; milestone: Milestone }> {
+  const scopedRequest = { ...request, prompt: [
+    'APPROVED ARCHITECT SCOPE. This brief and milestone govern the task. Earlier research artifacts are recommendations, not approvals; do not replace these requirements with them.',
+    `Project brief: ${record.brief ?? record.idea}`,
+    `Milestone: ${milestone.title}\n${milestone.plan ?? ''}`,
+    `Task from the owner:\n${request.prompt}`,
+  ].join('\n\n') };
   const intent = { kind: request.kind, destination: request.destination, startedAt: now,
-    ...(request.kind === 'workflow' ? { request: { id: randomUUID(), prompt: request.prompt, maxCostUsd: request.maxCostUsd } } : {}),
+    ...(request.kind === 'workflow' ? { request: { id: randomUUID(), prompt: scopedRequest.prompt, maxCostUsd: request.maxCostUsd } } : {}),
   };
   const prepared = await store.update(record.id, (fresh) => {
     const current = fresh.milestones.find((item) => item.id === milestone.id);
     if (!current || current.dispatch || current.pendingDispatch) return null;
     if (request.kind === 'workflow' && (!request.destination || request.destination === 'workspace-files')
-      && (fresh.pendingEvidence?.length || fresh.milestones.some((item) => item.id !== milestone.id
+      && (fresh.pendingEvidence?.length || fresh.milestones.some((item) => item.id !== milestone.id && item.id !== MAINTENANCE_MILESTONE_ID
         && (item.pendingDispatch || (item.status === 'running' && item.dispatch?.kind === 'workflow'
           && (!item.dispatch.destination || item.dispatch.destination === 'workspace-files')))))) return null;
     const milestones = fresh.milestones.map((item) =>
@@ -47,7 +54,7 @@ export async function performDispatch(
   const preparedMilestone = prepared.milestones.find((item) => item.id === milestone.id);
   if (!preparedMilestone) throw new Error(`Milestone ${milestone.id} is no longer on this project.`);
 
-  const completion = finishDispatch(store, services, prepared, preparedMilestone, request, now);
+  const completion = finishDispatch(store, services, prepared, preparedMilestone, scopedRequest, now);
   if (!background) return completion;
   void completion.catch(async (error: unknown) => {
     const reason = `Could not start ${milestone.title}: ${error instanceof Error ? error.message : String(error)}`;

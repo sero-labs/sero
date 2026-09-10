@@ -33,6 +33,7 @@ import {
   markMemberWorking,
   readSessionUsage,
   recordMemberTurn,
+  watchMemberUsage,
   watchTurn,
   type MemberTurnStatus,
   type TurnOutcome,
@@ -154,6 +155,7 @@ export async function runMemberTurn(
   await markMemberWorking(deps.store, roomId, member.id);
   // Subscribed before the prompt, so a turn that ends immediately is still seen.
   const watch = watchTurn(api, handleId);
+  const stopUsage = watchMemberUsage(api, handleId, deps.store, roomId, member.id, (message) => deps.host.log(message));
 
   let outcome: TurnOutcome;
   try {
@@ -166,6 +168,7 @@ export async function runMemberTurn(
     outcome = { turnId: null, status: 'error', detail: describeError(error) };
   } finally {
     watch.stop();
+    await stopUsage();
   }
 
   const usage = await recordMemberTurn(

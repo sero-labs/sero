@@ -15,6 +15,7 @@ import type {
   AppRuntimePullRequestSummary,
   AppRuntimeSubagentRepair,
   AppRuntimeWorktreeRemoveOptions,
+  AppRuntimeWorktreeCreateOptions,
   ContextAgentInfo,
   ContextSkillInfo,
   ContextToolInfo,
@@ -227,7 +228,7 @@ export interface OrchestratorHost {
    * remote) instead of minting a new one — PR-lifecycle work lands on the
    * PR's own branch, and removal never deletes it.
    */
-  createWorktree(loopId: string, title: string, options?: { existingBranch?: string }): Promise<WorktreeHandle>;
+  createWorktree(loopId: string, title: string, options?: AppRuntimeWorktreeCreateOptions): Promise<WorktreeHandle>;
   removeWorktree(
     loopId: string,
     options?: AppRuntimeWorktreeRemoveOptions,

@@ -99,7 +99,9 @@ export async function finishRoomWithDelivery(
   const roomId = record.definition.id;
   const result = await deps.completeRoom(roomId, summary, deliveryReceiptFor(deps.host, record, input));
   return result.ok
-    ? ok('The Room is finished and its result was delivered.')
+    ? ok(result.room?.runtime.status === 'completing'
+      ? 'Finish requested. End this turn so Sero can record final usage, deliver the result, and close the Room.'
+      : 'The Room is finished. Check its recorded delivery outcome.')
     : no(result.error ?? 'The Room could not be finished.');
 }
 

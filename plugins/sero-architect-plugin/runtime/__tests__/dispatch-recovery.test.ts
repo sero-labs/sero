@@ -16,7 +16,7 @@ describe('Architect dispatch recovery through the Orchestrator registry', () => 
   it.each(['before-create', 'during-planning', 'before-link'] as const)('recovers %s using the saved request without a duplicate workflow', async (point) => {
     const host = await fakeHost();
     const store = await storeFor(host);
-    const record = buildingProject({ milestones: [milestone('m1', { status: 'approved' })] });
+    const record = buildingProject({ brief: 'Approved output uses record_count and a numeric total_amount.', milestones: [milestone('m1', { status: 'approved' })] });
     await store.write(record);
     const orchestrator = createFakeHost();
     let coordinator = new Coordinator(orchestrator);
@@ -37,6 +37,9 @@ describe('Architect dispatch recovery through the Orchestrator registry', () => 
       kind: 'workflow', prompt: 'Build the grid', destination: null, maxCostUsd: 2,
     }, T0, true);
     if (point !== 'before-create') await vi.waitFor(() => expect(orchestrator.state.loops[0]?.creation?.[point === 'before-link' ? 'complete' : 'attempts']).toBe(point === 'before-link' ? true : 1));
+    const pendingPrompt = (await store.read(record.id))?.milestones[0].pendingDispatch?.request?.prompt;
+    expect(pendingPrompt).toContain(record.brief);
+    await store.update(record.id, (fresh) => ({ ...fresh, brief: 'A later draft must not replace the reserved dispatch.' }));
     const savedId = orchestrator.state.loops[0]?.id;
     const restarted = createFakeHost({ initialState: structuredClone(orchestrator.state) });
     restarted.modelResponses.push({ response: planJson(oneStepPlan()) });
@@ -49,6 +52,7 @@ describe('Architect dispatch recovery through the Orchestrator registry', () => 
     expect(linked.pendingDispatch).toBeUndefined();
     expect(linked.dispatch?.id).toBe(savedId ?? restarted.state.loops[0].id);
     expect(restarted.state.loops).toHaveLength(1);
+    expect(restarted.state.loops[0].prompt).toBe(pendingPrompt);
     await vi.waitFor(() => expect(restarted.state.loops[0].status).toBe('active'));
     if (point === 'before-link') expect(restarted.modelCalls).toHaveLength(0);
   });

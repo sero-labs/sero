@@ -145,6 +145,31 @@ describe('stopping a Room', () => {
     expect(host.persistentSessions.sessions.get('lead')?.sessionPath).toBe('/sessions/rooms/lead.jsonl');
   });
 
+  it('keeps a finishing member alive until its final usage is saved, then delivers once', async () => {
+    const api = host.persistentSessions;
+    api.mode = 'manual';
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    await waitFor(() => api.openTurns().includes('lead'), 'the live turn');
+    const session = api.sessions.get('lead');
+    if (!session) throw new Error('session missing');
+    session.usage = { ...session.usage, costUsd: 0.5 };
+
+    expect((await coordinator.completeRoom(roomId, 'Done.')).ok).toBe(true);
+    expect((await store.readRoom(roomId))?.runtime.status).toBe('completing');
+    expect(session.disposed).toBe(false);
+    expect(api.revoked).toEqual([]);
+    expect((await coordinator.completeRoom(roomId, 'Duplicate.')).ok).toBe(false);
+
+    api.endTurn('lead');
+    await waitFor(async () => (await store.readRoom(roomId))?.runtime.status === 'completed', 'usage and final cleanup');
+    const record = await store.readRoom(roomId);
+    expect(record?.runtime.usage).toMatchObject({ costUsd: 0.75, turns: 1 });
+    expect(session.disposed).toBe(true);
+    expect(api.revoked).toEqual(['grant-1']);
+    expect(record?.runtime.completion).toBeUndefined();
+  });
+
   it('cancels an in-flight turn and gives up the grant', async () => {
     const roomId = await draftRoom();
     const api = host.persistentSessions;

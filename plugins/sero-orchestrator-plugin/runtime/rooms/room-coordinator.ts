@@ -60,6 +60,7 @@ import { RoomSignalBook, quietMark } from './room-signals';
 import { handleIdleLimit, handleStall, reportWaitCycle, type StallContext } from './room-stall';
 import type { RoomRecord } from './room-state';
 import type { RoomStore } from './room-store';
+import { settleRoomCompletion } from './room-completion';
 import type { RoomRuntimeTelemetry } from './room-telemetry';
 import { createRoomWorkspaces, type RoomWorkspaces } from './room-workspace';
 
@@ -367,6 +368,7 @@ export class RoomCoordinator {
     this.emit({ roomId, kind: 'turn-ended', memberId, detail: result.detail });
     const record = await this.deps.store.readRoom(roomId);
     if (!record) return;
+    if (record.runtime.status === 'completing') return settleRoomCompletion(this.ctx, roomId);
     const member = record.members.find((candidate) => candidate.id === memberId);
     const now = this.host.now();
     if (member && (member.status === 'working' || member.status === 'starting')) {

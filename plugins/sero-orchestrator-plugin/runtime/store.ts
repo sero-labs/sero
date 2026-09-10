@@ -200,6 +200,8 @@ export function toSummary(loop: Loop): LoopSummary {
     snoozedUntil: loop.runtime.snoozedUntil,
     usage: toLifetimeUsage(loop),
     activeStepTitles: toActiveStepTitles(loop),
+    block: loop.runtime.block ? { reason: loop.runtime.block.reason, limit: loop.runtime.block.limit } : undefined,
+    maxCostUsd: loop.limits.maxCostUsd,
     lastModel: toLastModel(loop),
     branchName: loop.runtime.workspace.resolved?.branchName,
     checkoutPath: loop.runtime.workspace.resolved?.cwd,

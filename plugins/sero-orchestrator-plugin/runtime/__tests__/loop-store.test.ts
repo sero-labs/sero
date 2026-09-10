@@ -70,6 +70,25 @@ describe('loop store persistence', () => {
     expect(existsSync(path.join(dir, 'loops/loop-x/runs/index.json'))).toBe(true);
   });
 
+  it('refreshes an old index from durable blocked work when reopened, without rewriting the loop', async () => {
+    const ctx = makeCtx();
+    const store = createLoopStore(ctx);
+    const loop = loopFixture('loop-cost');
+    loop.status = 'blocked';
+    loop.limits.maxCostUsd = 2;
+    loop.runtime.block = { kind: 'management-limit', limit: 'maxCostUsd', reason: 'cost reached', createdAt: 't' };
+    await store.updateState((state) => ({ ...state, loops: [loop] }));
+    const indexPath = path.join(dir, 'index.json');
+    const index = JSON.parse(await readFile(indexPath, 'utf8'));
+    delete index.loops[0].block;
+    delete index.loops[0].maxCostUsd;
+    await writeFile(indexPath, JSON.stringify(index));
+    writes = [];
+    await createLoopStore(ctx).readState();
+    expect(JSON.parse(await readFile(indexPath, 'utf8')).loops[0]).toMatchObject({ block: { reason: 'cost reached', limit: 'maxCostUsd' }, maxCostUsd: 2 });
+    expect(writes.map(rel)).toEqual(['index.json']);
+  });
+
   it('migrates a legacy state.json into split files and backs it up', async () => {
     await writeFile(path.join(dir, 'state.json'), JSON.stringify({ version: 1, loops: [loopFixture('loop-x')] }));
     const store = createLoopStore(makeCtx());
