@@ -28,8 +28,8 @@ export function registerAppControlHandlers(): void {
     return appControlHostService.active();
   });
 
-  ipcMain.handle(IpcChannels.appControl.open, async (_e, appId: string): Promise<boolean> => {
-    return appControlHostService.open(appId);
+  ipcMain.handle(IpcChannels.appControl.open, async (_e, appId: string, workspaceId?: string): Promise<boolean> => {
+    return appControlHostService.open(appId, workspaceId);
   });
 
   ipcMain.handle(IpcChannels.appControl.info, async (_e, appId: string): Promise<AppControlEntry | null> => {

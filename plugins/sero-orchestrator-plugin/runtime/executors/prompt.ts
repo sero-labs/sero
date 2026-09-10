@@ -148,6 +148,24 @@ function fanOutContext(step: LoopStepDefinition, fanOut?: FanOutRunContext): str
   return `\nFAN-OUT ACTIVATION ${fanOut.index + 1} of ${fanOut.total} ("${fanOut.key}") — this step runs once per item of "${step.fanOut.itemsFrom}". Handle ONLY the item below; sibling activations handle the rest, so do not process, enumerate, or summarise other items. Record this activation's findings in your StepOutcome "variables"/"summary" — they are aggregated with the sibling results (as "${fanOutResultsVariable(step.fanOut)}") for downstream steps.\nYour item (variables.${fanOut.itemVariable}):\n${JSON.stringify(fanOut.item, null, 2)}`;
 }
 
+/** A retry starts a fresh session, so carry its saved result and recovery decision. */
+function retryContext(loop: Loop, step: LoopStepDefinition, run?: LoopRun): string {
+  const previousId = loop.runtime.stepStates[step.id]?.lastAttemptId;
+  if (!previousId) return '';
+  const history = [...loop.runs, ...(run ? [run] : [])];
+  const previous = history.flatMap((item) => item.stepAttempts).find((attempt) => attempt.id === previousId);
+  if (!previous || previous.outcome?.status === 'succeeded' || previous.outcome?.status === 'skipped') return '';
+  const recovery = history.flatMap((item) => item.recoveryDecisions).reverse()
+    .find((decision) => decision.failedAttemptId === previous.id);
+  const artifacts = [previous.outputPath, ...previous.observations.map((observation) => observation.artifactPath)].filter(Boolean);
+  return [
+    '\nRECOVERING PREVIOUS ATTEMPT. Inspect the existing work before taking new actions. Preserve valid results and finish only the missing or failed work. Recheck evidence where needed; do not repeat an uncertain external effect.',
+    `Previous result: ${previous.outcome?.summary ?? previous.error ?? previous.status}`,
+    recovery ? `Recovery instruction: ${recovery.reason}` : '',
+    artifacts.length ? `Previous artifacts: ${[...new Set(artifacts)].join(', ')}` : '',
+  ].filter(Boolean).join('\n');
+}
+
 export function buildStepTask(loop: Loop, step: LoopStepDefinition, run?: LoopRun, fanOut?: FanOutRunContext): string {
   const parts = [`Loop objective: ${loop.plan.objective}`];
   if (loop.plan.globalInstructions) parts.push(`Global instructions: ${loop.plan.globalInstructions}`);
@@ -155,6 +173,7 @@ export function buildStepTask(loop: Loop, step: LoopStepDefinition, run?: LoopRu
   parts.push(`\nStep: ${step.title}\n${step.instructions}`);
   parts.push(fanOutContext(step, fanOut));
   parts.push(feedbackContext(step, run));
+  if (!fanOut) parts.push(retryContext(loop, step, run));
   if (step.gate === 'approval') {
     parts.push(`\nThis step is an APPROVAL GATE: the user must decide before anything is delivered. Do NOT deliver anything in this step. If the shared notes do not yet contain the user's decision on this exact content, STOP and ask: set "status" to "needs-revision" and emit ONE question of this exact form in your StepOutcome "questions":
 { "prompt": "<what needs approving, one sentence>", "kind": "approval", "attachment": "<the FULL exact content to be delivered>", "choices": [ { "id": "approve", "label": "Approve" }, { "id": "reject", "label": "Reject" } ] }

@@ -30,13 +30,19 @@ Project 5 excludes production hosting, real payments, outbound email and real cu
 
 DungeonExplorer runs first to revisit the known failure path. The simpler CLI runs second to expose assumptions that every project needs a browser. The remaining projects add persistence, asynchronous work and authorization. Running all projects in parallel would make attribution harder and is not part of this plan.
 
+### Trial input and discovery ownership
+
+Give Architect only the short product idea and essential user constraints. Keep smoke checks and fault procedures with the tester; do not send a specification, milestone list, research conclusions, implementation approach or execution instructions at each stage. Architect chooses a Room, Workflow or focused research for each part of the project, including discovery, planning, implementation, verification and adversarial review. Neither execution kind is tied to a phase. The discovery Room path is part of the original Architect design and must work before a charter exists. Findings must be recorded and used in the next project decision or plan.
+
+Record Room IDs, participants and models, findings, the resulting charter, and links to executing Workflows. A run that receives an operator-written plan is assisted. Existing DungeonExplorer evidence remains diagnostic; it does not prove independent discovery. Fresh final passes must show the full process. Give only requested user decisions and approved maintenance requests during those passes. Unusable findings, inability to choose either execution kind for a suitable task, or a plan supplied by the tester is a process failure. The suite must exercise both Rooms and Workflows, but must not force a Room into every discovery phase.
+
 ### 2. Run a bounded diagnose-fix-replay cycle
 
 For each project: run the normal Sero flow with only the bounded delivery smoke checks, exercise its assigned faults, preserve failure evidence, fix one coherent Sero defect, replay that failure, and then run a fresh repeat. Do not change an example's acceptance criteria to make a failing run pass.
 
 Keep an ordered defect list in the implementing GitHub issue or PR description. Each entry has reproduction steps, expected behavior, observed behavior, responsible area, fix, regression test and replay result. Store machine evidence in existing test/runtime artifact locations and link it from that record. Do not add task-history files to product docs.
 
-Every implemented fix needs the closest relevant automated check and a replay through the affected real runtime path. Unit tests with permissive fake hosts are not sufficient evidence for host contracts, provider selection or preview capture.
+Every implemented fix needs the closest relevant automated check and a replay through the affected real runtime path. Unit tests with permissive fake hosts are not sufficient evidence for host contracts, provider selection or preview capture. If a shared setup fix requires a fresh project to replay, use the next required fresh trial and keep that replay open in the cross-cutting audit. It must pass before the final candidate is frozen. Do not edit runtime records to simulate a fresh setup.
 
 Alternative rejected: prebuild a broad recovery framework. The suite should establish which recovery mechanisms are actually missing.
 

@@ -107,3 +107,12 @@ The proving suite SHALL cover a DungeonExplorer game, CSV summary CLI, persisten
 #### Scenario: The suite is declared complete
 - **WHEN** completion is requested
 - **THEN** all five project gates and assigned fault replays have passed, no required resilience defect or unexplained accounting gap remains, and the evidence is mapped to the original Architect change without claiming untested original requirements are complete
+
+### Requirement: Architect owns discovery from limited input
+Fresh proving passes SHALL start from a short product idea and essential user constraints. Architect SHALL choose Rooms, Workflows or focused research according to the task at any project phase. The suite SHALL cover both execution kinds, including a pre-charter collaboration and a later review, without forcing the choice through an operator-written plan. Test procedures and detailed specifications SHALL NOT be supplied as operator instructions.
+
+#### Scenario: Architect chooses how to develop the project
+- **WHEN** a fresh project starts from its short brief
+- **THEN** Architect chooses how to develop the context and plan
+- **AND** the run evidence links delegated findings to subsequent project decisions and execution
+- **AND** an operator-supplied plan prevents an unassisted pass

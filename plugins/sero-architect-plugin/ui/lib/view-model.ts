@@ -137,7 +137,7 @@ export function evidenceLines(evidence: EvidenceRecord): EvidenceLine[] {
     lines.push({
       state: evidence.preview.smokePassed ? 'ok' : 'err',
       check: `smoke ${evidence.preview.route}`,
-      result: evidence.preview.smokePassed ? 'responded' : 'failed',
+      result: evidence.preview.smokePassed ? 'responded' : evidence.preview.failure ?? 'failed',
     });
     lines.push({
       state: evidence.preview.capturePath ? 'ok' : 'dim',
@@ -168,6 +168,9 @@ export function projectActivity(record: ProjectRecord): string {
   if (record.blockedReason) return 'Work is on hold';
   if (record.paused) return 'Paused';
   if (record.session.workingSince) return 'Architect is working';
+  if (record.preparingMaintenance) return 'Preparing the maintenance Workflow';
+  const research = record.pendingResearch?.find((entry) => entry.kind);
+  if (research) return research.roomId ? 'A Room is working on a project task' : research.workflowId ? 'A Workflow is working on a project question' : 'Preparing research or review';
   const pending = record.milestones.find((milestone) => milestone.pendingDispatch);
   if (pending) return `Starting ${pending.title}. Waiting for the workflow to respond.`;
   const running = record.milestones.filter((milestone) => milestone.status === 'running');

@@ -46,7 +46,7 @@ const OK: ActionOutcome = { ok: true, text: 'done' };
 function stubActions(overrides: Partial<ArchitectActions> = {}): ArchitectActions {
   const ok = () => vi.fn(async () => OK);
   return {
-    create: ok(), history: vi.fn(async () => ({ ...OK, entries: [] })), pause: ok(), resume: ok(), stop: ok(), remove: ok(), raiseCap: ok(),
+    create: ok(), history: vi.fn(async () => ({ ...OK, entries: [] })), pause: ok(), resume: ok(), retry: ok(), stop: ok(), remove: ok(), raiseCap: ok(),
     setAutonomy: ok(), approveCharter: ok(), approveMilestone: ok(), answer: ok(), directive: ok(),
     ...overrides,
   };

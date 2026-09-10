@@ -119,3 +119,10 @@ export function dropStrandedEvent(host: OrchestratorHost, loop: Loop): Loop {
     runtime: { ...loop.runtime, pendingEvents: undefined },
   };
 }
+
+/** Replace cumulative progress for one durable attempt; never add its cost twice. */
+export function upsertAttempt(attempts: StepAttempt[], attempt: StepAttempt): StepAttempt[] {
+  return attempts.some((current) => current.id === attempt.id)
+    ? attempts.map((current) => current.id === attempt.id ? attempt : current)
+    : [...attempts, attempt];
+}

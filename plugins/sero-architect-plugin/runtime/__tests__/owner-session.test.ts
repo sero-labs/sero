@@ -8,16 +8,45 @@ afterEach(cleanupHosts);
 const wake = { kind: 'quiet' as const, at: T0, items: ['nothing is running'] };
 
 describe('owner session', () => {
-  it('uses an available model from the same provider when the configured model is missing', async () => {
+  it('surfaces a provider rejection immediately without counting it as owner silence', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const record = buildingProject();
+    await store.write(record);
+    host.sessions.prompt = async (handleId) => {
+      host.sessions.emit(handleId, { type: 'turn_end', turnId: 'rejected', status: 'error', errorMessage: 'Your credit balance is too low to access the Anthropic API.' });
+      return { turnId: 'rejected' };
+    };
+    const sessions = new OwnerSessions({ host, store, outcomes: createTurnOutcomes() });
+    const result = await sessions.runTurn(record, wake);
+    expect(result.status).toBe('error');
+    expect(result.record.overlay).toBe('blocked');
+    expect(result.record.stateLine).toContain('credit balance is too low');
+    expect(result.record.blockedReason).toContain('credit balance is too low');
+    expect(result.record.session.silentTurns).toBe(0);
+    expect(result.record.milestones).toEqual(record.milestones);
+  });
+
+  it('refuses a missing selected model even when the same provider has alternatives', async () => {
     const host = await fakeHost();
     host.env.SERO_ARCHITECT_MODEL = 'anthropic/retired-model';
-    expect((await chooseOwnerModel(host)).model).toBe('anthropic/claude-fable-5-1');
+    await expect(chooseOwnerModel(host)).rejects.toThrow('retired-model is unavailable');
   });
 
   it('does not silently switch providers when the configured provider is unavailable', async () => {
     const host = await fakeHost();
     host.env.SERO_ARCHITECT_MODEL = 'openai/unavailable-model';
-    await expect(chooseOwnerModel(host)).rejects.toThrow('Choose another provider');
+    await expect(chooseOwnerModel(host)).rejects.toThrow('is unavailable');
+  });
+
+  it('uses Admin MED even when another reasoning provider appears first', async () => {
+    const host = await fakeHost();
+    const original = await host.listModels();
+    host.listModels = async () => [...original, { provider: 'openai-codex', displayName: 'Codex', logo: '', models: [{ provider: 'openai-codex', modelId: 'gpt-test', name: 'GPT', reasoning: true, availableThinkingLevels: ['low', 'high'] }] }];
+    host.modelTiers = async () => ({ MED: { provider: 'openai-codex', modelId: 'gpt-test', thinkingLevel: 'low' } });
+    expect(await chooseOwnerModel(host)).toEqual({ model: 'openai-codex/gpt-test', thinking: 'low' });
+    host.env.SERO_ARCHITECT_MODEL = 'openai-codex/gpt-test:high';
+    expect(await chooseOwnerModel(host)).toEqual({ model: 'openai-codex/gpt-test', thinking: 'high' });
   });
 
   it('proposes a grant naming only the platform tools and sero-cli, pinned to the project folder', () => {

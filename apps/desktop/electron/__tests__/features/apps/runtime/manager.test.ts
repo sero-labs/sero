@@ -57,6 +57,7 @@ function createHostStub(
       sharedToolsDir: vi.fn(async () => ({ path: '/tmp/app-tools/test' })),
     },
     models: {
+      tiers: vi.fn(async () => ({})),
       list: vi.fn(async () => []),
     },
     verification: {

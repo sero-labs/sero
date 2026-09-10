@@ -148,6 +148,7 @@ export async function fakeHost(options: { workspaces?: FakeHost['workspaces']; s
       return ws;
     },
     persistentSessions: sessions,
+    modelTiers: async () => ({ MED: { provider: 'anthropic', modelId: 'claude-fable-5-1', thinkingLevel: 'medium' } }),
     listModels: async () => [{ provider: 'anthropic', displayName: 'Anthropic', logo: '', models: [
       { provider: 'anthropic', modelId: 'claude-fable-5-1', name: 'Fable', reasoning: true, availableThinkingLevels: ['low', 'medium', 'high'] },
     ] }],

@@ -16,5 +16,5 @@ export function useDisclosures(): DisclosureState {
 
 /** Opens the Orchestrator on the dispatched Workflow or Room. */
 export function openDispatch(link: NonNullable<RailRow['link']>): void {
-  void openSeroApp('orchestrator', link.kind === 'room' ? { roomId: link.id } : { loopId: link.id });
+  void openSeroApp('orchestrator', link.kind === 'room' ? { roomId: link.id } : { loopId: link.id }, link.workspaceId);
 }

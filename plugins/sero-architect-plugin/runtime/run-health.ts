@@ -1,7 +1,7 @@
 import { block, unblock } from '../shared/lifecycle';
 import type { RecordStore } from './record-store';
 
-export interface RunHealth { status: string; startedAt?: string }
+export interface RunHealth { status: string; startedAt?: string; steps?: { stepId: string; status: string; outcomeStatus?: string }[] }
 
 /** A workflow may stay enabled even when its last execution was interrupted. */
 export async function applyRunHealth(store: RecordStore, projectId: string, loopId: string, runs: RunHealth[], now: string): Promise<void> {
@@ -12,16 +12,17 @@ export async function applyRunHealth(store: RecordStore, projectId: string, loop
     const milestone = record.milestones.find((item) => item.dispatch?.id === loopId);
     if (!milestone?.dispatch || milestone.status === 'done') return null;
     const dispatch = milestone.dispatch;
-    const reason = `“${milestone.title}” stopped before it finished. Open the workflow and choose Retry step to continue from the failed step.`;
-    if (failed && milestone.dispatch.failure !== reason) {
+    const retryStepId = latest.steps?.find((step) => ['orphaned', 'failed', 'cancelled', 'blocked'].includes(step.status) || step.outcomeStatus === 'failed')?.stepId;
+    const reason = `“${milestone.title}” stopped before it finished. Use Retry step here to continue from the failed step.`;
+    if (failed && (milestone.dispatch.failure !== reason || milestone.dispatch.retryStepId !== retryStepId)) {
       const next = { ...record, milestones: record.milestones.map((item) => item.id === milestone.id
-        ? { ...item, dispatch: { ...dispatch, failure: reason } } : item) };
+        ? { ...item, dispatch: { ...dispatch, failure: reason, retryStepId } } : item) };
       const held = block(next, now, reason);
       return held.ok ? { ...held.record, stateLine: 'A workflow needs to be retried.' } : next;
     }
     if (!failed && milestone.dispatch.failure && ['running', 'completed'].includes(latest.status)) {
       const next = { ...record, milestones: record.milestones.map((item) => item.id === milestone.id
-        ? { ...item, dispatch: { ...dispatch, failure: undefined } } : item) };
+        ? { ...item, dispatch: { ...dispatch, failure: undefined, retryStepId: undefined } } : item) };
       if (record.blockedReason !== milestone.dispatch.failure) return next;
       const cleared = unblock(next, now, `workflow ${loopId} resumed`);
       return cleared.ok ? { ...cleared.record, stateLine: `Workflow resumed: ${milestone.title}.` } : next;

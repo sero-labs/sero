@@ -9,6 +9,8 @@ export interface UsageSummary {
   totalTokens?: number;
   costUsd?: number;
   durationMs?: number;
+  /** True until final usage is available; retained for interrupted work. */
+  incomplete?: boolean;
 }
 
 export interface LogPolicy {

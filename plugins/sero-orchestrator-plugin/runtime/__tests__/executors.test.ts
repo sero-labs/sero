@@ -474,3 +474,35 @@ describe('per-step tools', () => {
     expect(host.modelCalls[0].tools).toEqual([...DEFAULT_TOOLS, 'web_search']);
   });
 });
+
+
+describe('retry handoff', () => {
+  it('gives a new worker the saved partial result and recovery instruction from the previous run', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    const step = loop.plan.steps[0];
+    const previous = emptyRun(host);
+    previous.stepAttempts.push({
+      id: 'partial-capture', stepId: step.id, attemptNumber: 1,
+      parentSessionId: loop.runtime.parentSessionId, executionType: step.execution.type,
+      status: 'completed', observations: [], startedAt: host.now(),
+      outcome: { status: 'failed', summary: 'Screenshots exist in evidence/m2; REPORT.md is missing.' },
+      outputPath: 'evidence/m2/capture-log.txt',
+    });
+    previous.recoveryDecisions.push({
+      id: 'recovery-1', stepId: step.id, failedAttemptId: 'partial-capture', createdAt: host.now(),
+      decision: 'retry-step', reason: 'Inspect saved screenshots and write the missing report.',
+    });
+    loop.runs = [previous];
+    loop.runtime.stepStates[step.id].lastAttemptId = 'partial-capture';
+    host.modelResponses.push({ response: outcome({ status: 'succeeded', summary: 'Report written.' }) });
+    await backgroundAgentExecutor.run(inputFor(host, structuredClone(loop), step.id));
+    const task = host.modelCalls[0].task;
+    expect(task).toContain('Screenshots exist in evidence/m2; REPORT.md is missing.');
+    expect(task).toContain('Inspect saved screenshots and write the missing report.');
+    expect(task).toContain('evidence/m2/capture-log.txt');
+    expect(task).toContain('finish only the missing or failed work');
+    loop.runtime.stepStates[step.id].lastAttemptId = undefined;
+    expect(buildStepTask(loop, step)).not.toContain('RECOVERING PREVIOUS ATTEMPT');
+  });
+});

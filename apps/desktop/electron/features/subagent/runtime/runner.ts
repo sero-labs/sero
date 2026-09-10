@@ -259,8 +259,8 @@ export async function runSubagent(
 
     let effectiveThinking = resolved.thinking;
 
-    // Try to set the resolved model — needs provider/modelId lookup
-    try {
+    // A selected model must resolve before any prompt can run.
+    {
       const available = infra.modelRegistry.getAvailable();
       const globalSettings = infra.settingsManager.getGlobalSettings() as Record<string, unknown>;
       const tierSettings = getModelTiers(globalSettings);
@@ -273,12 +273,12 @@ export async function runSubagent(
         effectiveThinking = getModelTierThinkingLevel(tierSettings[parsed.prefer], resolved.thinking);
       }
 
+      if (parsed && !resolvedModel) throw new Error(`Selected model ${parsed.prefer} is unavailable. Update the model selection before retrying.`);
       if (resolvedModel) {
         const model = infra.modelRegistry.find(resolvedModel.provider, resolvedModel.modelId);
-        if (model) await session.setModel(model);
+        if (!model) throw new Error(`Selected model ${resolvedModel.provider}/${resolvedModel.modelId} is unavailable.`);
+        await session.setModel(model);
       }
-    } catch {
-      // Fall back to settingsManager default — still works
     }
 
     // Set thinking level

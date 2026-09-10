@@ -257,6 +257,8 @@ export interface RoomBrief {
 }
 
 export interface RoomDefinition {
+  /** Absent on Rooms created before caller recovery identities were supported. */
+  creationRequestId?: string;
   id: string;
   title: string;
   /** The user's original words. Kept verbatim for the audit trail. */

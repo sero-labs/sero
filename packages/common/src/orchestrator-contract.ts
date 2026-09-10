@@ -290,6 +290,8 @@ export interface OrchestratorBoardDeliverySettings {
 
 /** Creation options a plugin runtime may pass. A subset of the plugin's own `CreateLoopOptions`. */
 export interface OrchestratorBoardCreateOptions {
+  /** Stable caller identity for recovery of an interrupted create request. */
+  requestId?: string;
   /** Use dollar/time/attempt limits without a default or planner-suggested token cap. */
   disableTokenLimit?: boolean;
   workspace?: { useManagedWorktree?: boolean; allowDirtyWorkspaceRoot?: boolean };
@@ -390,6 +392,9 @@ export const ORCHESTRATOR_ROOM_REGISTRY_GLOBAL_KEY = `${ORCHESTRATOR_REGISTRY_GL
 
 /** Limits a plugin runtime may set on a Room it creates. Mirrors the plugin's `RoomUserLimits`. */
 export interface OrchestratorRoomCreateLimits {
+  /** Caller-selected model pool; the Room planner cannot expand it. */
+  models?: string[];
+  thinkingLevels?: string[];
   maxCostUsd?: number;
   maxWallClockMs?: number;
   maxMembers?: number;
@@ -399,6 +404,8 @@ export interface OrchestratorRoomCreateLimits {
 }
 
 export interface OrchestratorRoomCreateRequest {
+  /** Stable identity for a caller recovering an interrupted creation. */
+  requestId?: string;
   /** The Room's brief, kept verbatim. */
   mandate: string;
   limits?: OrchestratorRoomCreateLimits;
@@ -410,6 +417,12 @@ export type OrchestratorRoomCreateResult =
 
 /** The narrow Room surface a plugin runtime may call. */
 export interface OrchestratorRoomHandle {
+  /** Read durable findings and actual roster choices without opening member sessions. */
+  inspect(roomId: string): Promise<{
+    status: OrchestratorRoomStatus;
+    result: string | null;
+    models: { name: string; model: string; thinking: string }[];
+  } | null>;
   /** Plans the team, then starts the Room, which raises the grant prompt. */
   create(request: OrchestratorRoomCreateRequest): Promise<OrchestratorRoomCreateResult>;
 }

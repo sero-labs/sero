@@ -80,6 +80,7 @@ vi.mock('@electron/shared/settings/model-tiers', () => ({
   getModelTiers: vi.fn(() => ({})),
 }));
 
+import { parseModelField } from '@electron/shared/settings/resolve-tier-model';
 import { resolveSubagentPaths, runSubagent } from '@electron/features/subagent/runtime/runner';
 import type { RunnerConfig } from '@electron/features/subagent/core/types';
 import type { RunnerDeps } from '@electron/features/subagent/runtime/runner';
@@ -209,6 +210,15 @@ function createStreamingSession(events: Array<Record<string, unknown>>) {
 }
 
 describe('runSubagent live output', () => {
+  it('does not prompt the default provider when a selected model cannot resolve', async () => {
+    const session = createSession();
+    mocks.createAgentSession.mockResolvedValue({ session });
+    vi.mocked(parseModelField).mockReturnValueOnce({ prefer: 'openai-codex/missing', fallbacks: [] });
+    const result = await runSubagent(createConfig(new AbortController().signal), createDeps());
+    expect(result.error).toContain('Selected model openai-codex/missing is unavailable');
+    expect(session.prompt).not.toHaveBeenCalled();
+  });
+
   it('reports priced cumulative usage after each model turn, before the helper finishes', async () => {
     const session = createStreamingSession([{ type: 'turn_end' }]);
     session.getSessionStats.mockReturnValue({

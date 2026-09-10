@@ -142,7 +142,7 @@ export type PersistentSessionEvent =
   | { type: 'text'; text: string }
   | { type: 'tool_start'; toolName: string; summary: string }
   | { type: 'tool_end'; toolName: string; ok: boolean }
-  | { type: 'turn_end'; turnId: string; status: 'completed' | 'aborted' | 'error' }
+  | { type: 'turn_end'; turnId: string; status: 'completed' | 'aborted' | 'error'; errorMessage?: string }
   | { type: 'compacted' };
 
 /** One page of a session's history, read from the Pi session file on demand. */

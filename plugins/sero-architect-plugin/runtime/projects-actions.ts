@@ -5,15 +5,16 @@
  * store, and every change the owner must hear about becomes a wake.
  */
 
+import { chooseOwnerModel } from './owner-session';
 import os from 'node:os';
 import path from 'node:path';
 
-import type { PersistentSessionHistoryPage } from '@sero-ai/common';
+import { requestOrchestratorAction, type PersistentSessionHistoryPage } from '@sero-ai/common';
 
 import { advancePhase, approveCharter, block, mayDispatch, pause, resume, setAutonomy, setCap, settle, unblock } from '../shared/lifecycle';
 import { createProjectRecord, toIndexEntry, type AutonomySetting, type DecisionProposal, type Milestone, type ProjectRecord } from '../shared/record';
 import type { DispatchDestination } from '../shared/owner-actions';
-import { performDispatch } from './dispatch-link';
+import { performDispatch, recoverDispatch } from './dispatch-link';
 import { repairDispatch, type RepairOutcome } from './repair-dispatch';
 import type { OwnerServices } from './owner-actions';
 import type { ArchitectIndexEntry } from '../shared/types';
@@ -45,6 +46,7 @@ export interface ProjectsActions {
   create(input: { idea: string; folder: string }): Promise<ProjectsOutcome>;
   pause(projectId: string): Promise<ProjectsOutcome>;
   resume(projectId: string): Promise<ProjectsOutcome>;
+  retry(projectId: string, milestoneId: string): Promise<ProjectsOutcome>;
   stop(projectId: string): Promise<ProjectsOutcome>;
   raiseCap(projectId: string, capUsd: number): Promise<ProjectsOutcome>;
   setAutonomy(projectId: string, autonomy: AutonomySetting): Promise<ProjectsOutcome>;
@@ -205,6 +207,16 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
     },
 
     async repair(projectId, workflowId) {
+      const pending = await store.read(projectId);
+      if (pending?.milestones.some((item) => item.pendingDispatch?.request)) {
+        try {
+          return await recoverDispatch(store, services, pending)
+            ? { ok: true, text: 'Workflow recovered. Checking progress.' }
+            : { ok: false, text: 'Workflow recovery is waiting for the project pause, budget or decision to be resolved.' };
+        } catch (error) {
+          return { ok: false, text: error instanceof Error ? error.message : String(error) };
+        }
+      }
       const result = await repairDispatch(store, host, projectId, workflowId);
       if (result.ok && workflowId) {
         watch.untrack(projectId);
@@ -212,6 +224,20 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
         if (record) await watch.track(record);
       }
       return result;
+    },
+
+    async retry(projectId, milestoneId) {
+      const record = await read(projectId);
+      const milestone = record?.milestones.find((item) => item.id === milestoneId);
+      const dispatch = milestone?.dispatch;
+      if (!record || !milestone || dispatch?.kind !== 'workflow' || !dispatch.failure) return refuse('This milestone has no interrupted Workflow to retry.');
+      if (record.paused) return refuse('Resume the project before retrying its work.');
+      if (record.budget.capUsd !== null && record.budget.spentUsd >= record.budget.capUsd) return refuse('Raise the project cap before retrying.');
+      if (record.blockedReason && record.blockedReason !== dispatch.failure) return refuse(record.blockedReason);
+      const result = await requestOrchestratorAction(dispatch.workspaceId, dispatch.retryStepId
+        ? { kind: 'retry_step', loopId: dispatch.id, stepId: dispatch.retryStepId }
+        : { kind: 'retry', loopId: dispatch.id });
+      return result.ok ? ok(`Retry started for ${milestone.title}.`) : refuse(result.error ?? 'The Workflow could not retry.');
     },
 
     async history(projectId, cursor) {
@@ -258,12 +284,18 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
         let next = unpaused?.ok ? unpaused.record : record;
         if (next.blockedReason !== null) {
           const cleared = unblock(next, now, `user resumed: ${next.blockedReason}`);
-          if (cleared.ok) next = cleared.record;
+          if (cleared.ok) next = { ...cleared.record, stateLine: 'Continuing the project.' };
         }
         return { record: next };
       });
       if (!resumed.ok) return refuse(resumed.error);
-      const next = resumed.record;
+      let next = resumed.record;
+      const selected = await chooseOwnerModel(host);
+      if (next.session.grantId && (next.session.model !== selected.model || next.session.thinking !== selected.thinking)) {
+        await sessions.dispose(projectId);
+        next = await sessions.requestGrant(next);
+        if (next.blockedReason) return refuse(next.blockedReason);
+      }
       if (next.phase === 'intake' || !next.session.grantId) {
         const outcome = await advanceIntake(next);
         if (!outcome.ok) return refuse(outcome.error);

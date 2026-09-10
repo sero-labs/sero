@@ -97,6 +97,7 @@ export function StateLine({
             )}
           </div>
         )}
+        <p className="ar-why">Owner model: {record.session.model ?? 'Admin MED (permission pending)'}{record.session.thinking ? ` · ${record.session.thinking} thinking` : ''}</p>
         <div className="ar-spine" aria-hidden="true">
           {PHASES.map((phase, index) => (
             <div

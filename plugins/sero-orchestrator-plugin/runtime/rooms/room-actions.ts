@@ -26,6 +26,7 @@ import type { RoomRecord } from './room-state';
 export const EMPTY_BRIEF_SOURCES: BriefSources = { work: [], artifacts: [], openQuestions: [] };
 
 export interface CreateRoomRequest {
+  requestId?: string;
   /** The user's own words, kept verbatim for the audit trail. */
   problemStatement: string;
   /** Already planned, validated and clamped (planner.ts / adjust.ts). */
@@ -60,6 +61,7 @@ export function buildRoomRecord(host: OrchestratorHost, request: CreateRoomReque
     definition: {
       id,
       title: request.blueprint.title,
+      ...(request.requestId ? { creationRequestId: request.requestId } : {}),
       problemStatement: request.problemStatement,
       blueprint: request.blueprint,
       proposal: request.proposal,

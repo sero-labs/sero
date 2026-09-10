@@ -15,6 +15,7 @@ vi.mock('@/lib/app-control/dom/full-screenshot', () => ({
   stitchFullScreenshot: vi.fn(),
 }));
 
+import { openApp } from '@/lib/open-app';
 import { initAppControlBridge } from './app-control-bridge';
 import { useAppStore } from '@/stores/app';
 import { useEditorBridge } from '@/stores/editor-bridge';
@@ -42,5 +43,33 @@ describe('app control bridge — openFile', () => {
     expect(explorer.activePanel).toBe('explorer');
     expect(explorer.sidebarOpen).toBe(true);
     expect(useEditorBridge.getState().pendingOpen?.filePath).toBe('/repo/src/index.ts');
+  });
+});
+
+
+describe('app control workspace navigation', () => {
+  beforeEach(() => {
+    vi.mocked(openApp).mockClear();
+    initAppControlBridge();
+    useAppStore.setState({ apps: [{ id: 'orchestrator', label: 'Orchestrator', icon: 'box', builtin: false, manifest: null }] });
+    useWorkspaceStore.setState({
+      activeWorkspaceId: 'previous',
+      workspaces: [{ id: 'target', name: 'Target', path: '/target', open: true,
+        runtime: { backend: 'host' }, container: false, references: [], mounts: [], roots: [] }],
+    });
+  });
+
+  it('selects the dispatched workspace before opening its app', () => {
+    vi.mocked(openApp).mockImplementationOnce(() => {
+      expect(useWorkspaceStore.getState().activeWorkspaceId).toBe('target');
+    });
+    expect(window.__appControl!.openApp('orchestrator', 'target')).toBe(true);
+    expect(openApp).toHaveBeenCalledWith('orchestrator');
+  });
+
+  it('refuses an unknown workspace without opening the wrong project', () => {
+    expect(window.__appControl!.openApp('orchestrator', 'missing')).toBe(false);
+    expect(useWorkspaceStore.getState().activeWorkspaceId).toBe('previous');
+    expect(openApp).not.toHaveBeenCalled();
   });
 });

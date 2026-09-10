@@ -32,6 +32,31 @@ async function setup(record = buildingProject({ milestones: [running('workflow',
 }
 
 describe('dispatch watch', () => {
+  it('records completed workspace delivery without accepting unverified work and recovers an accepted release', async () => {
+    const release = milestone('m1', { status: 'verifying', verification: 'reported',
+      dispatch: { kind: 'workflow', id: 'loop_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: 'workspace-files' } });
+    const { host, store, watch, settle } = await setup(buildingProject({ phase: 'release', milestones: [release] }));
+    const file = loopRunsIndexFile('/home/dan/projects/hollow', 'loop_1');
+    host.emitState(file, { runs: [{ id: 'run_1', status: 'running' }] });
+    await settle();
+    expect((await store.read('proj_1'))?.milestones[0]?.receipt).toBeNull();
+    host.emitState(file, { runs: [{ id: 'run_1', status: 'completed' }] });
+    await settle();
+    expect((await store.read('proj_1'))?.milestones[0]).toMatchObject({ receipt: '/home/dan/projects/hollow', verification: 'reported' });
+    expect((await store.read('proj_1'))?.phase).toBe('release');
+    watch.dispose();
+    // A previously accepted local release from before this fix recovers when
+    // the watcher reads the durable run index during startup.
+    await store.write(buildingProject({ phase: 'release', milestones: [{ ...release, status: 'done', verification: 'accepted' }] }));
+    host.jsonFiles[file] = { runs: [{ id: 'run_1', status: 'completed' }] };
+    const recovered = createDispatchWatch({ host, store, wake: vi.fn() });
+    await recovered.track((await store.read('proj_1'))!);
+    await recovered.flush();
+    expect((await store.read('proj_1'))?.milestones[0]?.verification).toBe('delivered');
+    expect((await store.read('proj_1'))?.phase).toBe('maintain');
+    recovered.dispose();
+  });
+
   it('shows an interrupted execution even when the workflow remains active, then clears it on retry', async () => {
     const { host, store, settle } = await setup();
     const file = loopRunsIndexFile('/home/dan/projects/hollow', 'loop_1');

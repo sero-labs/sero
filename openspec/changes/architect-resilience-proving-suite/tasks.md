@@ -1,4 +1,4 @@
-The subject of these tasks is Architect’s process and integration with Sero. Use the bounded app smoke checks in design.md as delivery evidence. Do not expand them into exhaustive app feature audits. Existing checkmarks retain their recorded evidence; this clarification does not turn assisted runs into unassisted passes.
+The subject of these tasks is Architect’s process and integration with Sero. Use the bounded app smoke checks in design.md as delivery evidence. Do not expand them into exhaustive app feature audits. Start each fresh trial from a short idea. Architect must choose Rooms, Workflows or focused research according to each task; keep test procedures outside its input. Existing checkmarks retain their recorded evidence; this clarification does not turn assisted runs into unassisted passes.
 
 ## 1. Establish the proving baseline
 
@@ -9,10 +9,10 @@ The subject of these tasks is Architect’s process and integration with Sero. U
 ## 2. Fresh DungeonExplorer
 
 - [x] 2.1 Create DungeonExplorer through Sero in a new workspace with no inherited app files or runtime records; verify create, grant, charter and milestone approval paths, including dismissing and reopening approval.
-- [ ] 2.2 Run the game milestones to local delivery; verify Architect reaches local delivery, the files are visible in the expected workspace, and the delivered game opens, responds to movement and has one valid gameplay capture.
-- [ ] 2.3 Exercise restart during dispatch preparation and active work, transient provider failure and a deliberately failed verification; verify safe identity-preserving recovery, bounded same-provider fallback, useful progress and no false acceptance.
+- [x] 2.2 Run the game milestones to local delivery; verify Architect reaches local delivery, the files are visible in the expected workspace, and the delivered game opens, responds to movement and has one valid gameplay capture.
+- [x] 2.3 Exercise restart during dispatch preparation and active work, transient provider failure and a deliberately failed verification; verify safe identity-preserving recovery, bounded same-provider fallback, useful progress and no false acceptance.
 - [x] 2.4 Exercise a dollar-cap stop/resume, preview startup failure and repeated preview requests; verify progress survives, the running preview stays available after checks and no competing server is created.
-- [ ] 2.5 Complete the visibility-rule maintenance exercise; fix each reproduced Sero defect in a separate coherent slice with a regression check and real-path replay, and record whether the run was assisted before moving on.
+- [x] 2.5 Complete the visibility-rule maintenance exercise; fix each reproduced Sero defect in a separate coherent slice with a regression check and real-path replay, and record whether the run was assisted. A setup-only replay that needs a fresh project can use the next required trial; keep it open under 7.4 until it passes.
 
 ## 3. CSV summary CLI
 
@@ -44,7 +44,7 @@ The subject of these tasks is Architect’s process and integration with Sero. U
 - [ ] 7.1 Audit recovery evidence across planning, execution and verification; fix remaining gaps and verify duplicate events and process restarts cannot reset retry allowances or create duplicate workflows.
 - [ ] 7.2 Audit model failure cases; verify safe same-provider fallback works and provider changes or uncertain real external effects still require authority rather than blind retry.
 - [ ] 7.3 Audit costs for owner, planning, execution, repair, research and capture, including interruption; verify live updates, cumulative-charge deduplication and cache pricing against available SDK/provider usage, with incomplete usage explicitly identified.
-- [ ] 7.4 Audit status, approval recovery, file delivery and preview lifetime in Sero; verify stale failure text clears, pending work is visible and no successful case depends on a hidden transfer or manual state edit.
+- [ ] 7.4 Audit status, approval recovery, file delivery and preview lifetime in Sero, including fresh maintenance setup carried from phase 2; verify stale failure text clears, pending work is visible and no successful case depends on a hidden transfer or manual state edit.
 
 ## 8. Final candidate and integration handoff
 

@@ -7,8 +7,14 @@
 
 import { createHash } from 'node:crypto';
 import path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 
-import { createOrchestratorRoom, requestOrchestratorAction, type AppRuntimeSubagentResult } from '@sero-ai/common';
+import { createOrchestratorRoom, getOrchestratorRegistry, requestOrchestratorAction, type AppRuntimeSubagentResult } from '@sero-ai/common';
+
+import { recoverDispatch } from './dispatch-link';
+import { roomModelLimits } from './model-selection';
+import { startResearchRoom } from './research-room';
+import { startResearchWorkflow } from './research-workflow';
 
 import { block, charge, settle } from '../shared/lifecycle';
 import type { EvidenceCommand, EvidenceRecord, Milestone, PendingResearch, ProjectRecord, ResearchResult } from '../shared/record';
@@ -103,25 +109,29 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     startedAt: number,
   ): Promise<NonNullable<EvidenceRecord['preview']>> => {
     const workspaceId = record.workspaceId;
-    if (!workspaceId) return { route, smokePassed: false, capturePath: null };
+    if (!workspaceId) return { route, smokePassed: false, capturePath: null, failure: 'The project has no registered workspace.' };
     const command = await host.detectDevServerCommand(record.folder);
     if (!command) {
-      host.log(`no dev server command detected in ${record.folder}; the preview check fails`);
-      return { route, smokePassed: false, capturePath: null };
+      const failure = `No dev server command was detected in ${record.folder}. Add a dev script for this app, then request fresh evidence.`;
+      host.log(failure);
+      return { route, smokePassed: false, capturePath: null, failure };
     }
     const server = await host.startDevServer({ workspaceId, workspacePath: record.folder, cwdPath: record.folder, command, name: `architect ${milestone.id}`, scope: 'workspace' });
     if (!server.url) {
-      host.log(`dev server did not start: ${server.reason ?? 'no reason given'}`);
-      return { route, smokePassed: false, capturePath: null };
+      const failure = `Dev server did not start: ${server.reason ?? 'no URL was returned'}`;
+      host.log(failure);
+      return { route, smokePassed: false, capturePath: null, failure };
     }
     const url = new URL(route, server.url).toString();
     let smokePassed = false;
     let capturePath: string | null = null;
+    let failure: string | undefined;
     try {
       const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
       smokePassed = response.status >= 200 && response.status < 300;
-    } catch {
-      smokePassed = false;
+      if (!smokePassed) failure = `Preview ${url} returned HTTP ${response.status}.`;
+    } catch (error) {
+      failure = `Could not reach preview ${url}: ${error instanceof Error ? error.message : String(error)}`;
     }
     if (smokePassed) {
       const evidenceDir = path.join(record.folder, '.sero', 'apps', 'architect', 'evidence', milestone.id);
@@ -129,6 +139,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       const capture = await host.runStructured({
         systemPrompt: 'Verify and capture the requested local project preview. Use the supplied URL and save path. Do not edit project files or perform unrelated actions. A saved image alone is not success: inspect it and reject error pages, blank pages, editor errors, or the wrong app.',
         model: record.session.model ?? undefined,
+        thinking: record.session.thinking ?? undefined,
         task: [
           `Open ${url} with \`sero app preview ${url}\`, wait for it to render, then save a screenshot with \`sero app screenshot --save ${target}\`.`,
           `Inspect the returned screenshot. It must show the rendered project for milestone ${JSON.stringify(milestone.title)}, not Sero error text or an editor containing a URL as a file.`,
@@ -149,7 +160,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       if (info && info.mtimeMs >= startedAt && info.size > 0 && info.head.equals(PNG_SIGNATURE)) capturePath = target;
       else throw new Error(`Preview capture was not saved at ${target}. ${capture.response.slice(-1500)}`);
     }
-    return { route, smokePassed, capturePath };
+    return { route, smokePassed, capturePath, ...(failure ? { failure } : {}) };
   };
 
   /**
@@ -205,7 +216,13 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       const result = await host.runCommand(record.workspaceId, record.folder, command, COMMAND_TIMEOUT_MS);
       ran.push({ command, exitCode: result.exitCode, output: [result.stdout, result.stderr].filter(Boolean).join('\n').slice(-4000), durationMs: Date.now() - began });
     }
-    const preview = route ? await runPreview(record, milestone, route, startedAt) : null;
+    // Keep real command results when the later preview fails. Reporting a
+    // capture error as a test exit code sends the owner to repair working code.
+    const preview = route && ran.every((command) => command.exitCode === 0)
+      ? await runPreview(record, milestone, route, startedAt).catch((error: unknown) => ({
+        route, smokePassed: false, capturePath: null,
+        failure: error instanceof Error ? error.message : String(error),
+      })) : null;
     const [diffSummary, fingerprint] = await Promise.all([
       diffSummaryOf(host, record.folder, baseCommit),
       worktreeFingerprint(host, record.folder),
@@ -232,7 +249,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       return held.ok ? held.record : next;
     });
     const failures = ran.filter((c) => c.exitCode !== 0).map((c) => `"${c.command}" exited ${c.exitCode}`);
-    const previewNote = preview ? (preview.smokePassed ? (preview.capturePath ? 'preview captured' : 'preview rendered but no capture was produced') : 'preview smoke check failed') : '';
+    const previewNote = preview ? (preview.smokePassed ? (preview.capturePath ? 'preview captured' : 'preview rendered but no capture was produced') : `preview smoke check failed${preview.failure ? `: ${preview.failure}` : ''}`) : '';
     deps.wake(projectId, {
       kind: 'dispatch-complete',
       at: host.now(),
@@ -253,10 +270,19 @@ export function createServices(deps: ServicesDeps): OwnerServices {
   };
 
   const runResearch = (record: ProjectRecord, pending: PendingResearch): void => {
+    if (pending.kind === 'workflow') {
+      void startResearchWorkflow(deps, record, pending).catch((error: unknown) => host.log(`Research Workflow recovery failed: ${String(error)}`));
+      return;
+    }
+    if (pending.kind === 'room') {
+      void startResearchRoom(deps, record, pending).catch((error: unknown) => host.log(`Discovery Room recovery failed: ${String(error)}`));
+      return;
+    }
     void (async () => {
       const result = await host.runStructured({
         systemPrompt: 'Research the supplied project question using read-only tools. Verify facts, cite sources, and stop at the stated stopping condition. Do not modify files or perform external actions.',
         model: record.session.model ?? undefined,
+        thinking: record.session.thinking ?? undefined,
         task: researchTask(record, pending.question, pending.stoppingCondition),
         parentSessionId: `architect:${record.id}:research`,
         workspaceId: record.workspaceId ?? 'global',
@@ -282,8 +308,10 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     })();
   };
 
-  return {
+  const services: OwnerServices = {
     async research(record, request) {
+      const existing = record.pendingResearch?.find((entry) => entry.question === request.question && entry.stoppingCondition === request.stoppingCondition && entry.kind === request.kind);
+      if (existing) return { id: existing.id };
       const pending: PendingResearch = { id: host.newId('res'), ...request, startedAt: host.now() };
       const written = await store.update(record.id, (fresh) => settle({
         ...fresh,
@@ -303,11 +331,16 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       const maxCostUsd = request.maxCostUsd === null ? remaining : remaining === undefined ? request.maxCostUsd : Math.min(request.maxCostUsd, remaining);
       const limits = maxCostUsd === undefined ? {} : { maxCostUsd };
       if (request.kind === 'workflow') {
+        // Workspace runtimes start concurrently with the global Architect runtime.
+        const deadline = Date.now() + 5000;
+        while (milestone.pendingDispatch?.request && !getOrchestratorRegistry()?.has(record.workspaceId) && Date.now() < deadline) {
+          await delay(100);
+        }
         const result = await requestOrchestratorAction(record.workspaceId, {
           kind: 'create',
           prompt: request.prompt,
           title: milestone.title,
-          options: { activate: false, disableTokenLimit: true, limits,
+          options: { requestId: milestone.pendingDispatch?.request?.id, activate: false, disableTokenLimit: true, limits,
             workspace: {
               useManagedWorktree: request.destination !== null && request.destination !== 'workspace-files',
               ...(request.destination === null || request.destination === 'workspace-files' ? { allowDirtyWorkspaceRoot: true } : {}),
@@ -324,7 +357,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       }
       const result = await createOrchestratorRoom(record.workspaceId, {
         mandate: request.prompt,
-        limits: { ...limits, access: 'edit-workspace', deliveryDestination: request.destination ?? 'workspace-files' },
+        limits: { ...limits, ...await roomModelLimits(host), access: 'edit-workspace', deliveryDestination: request.destination ?? 'workspace-files' },
       });
       if (!result.ok) throw new Error(result.error);
       return { id: result.roomId, workspaceId: record.workspaceId, baseCommit };
@@ -338,13 +371,17 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       if (record.milestones.some((m) => m.id === MAINTENANCE_MILESTONE_ID)) return record;
       const remaining = remainingUsd(record);
       if (remaining === 0) throw new Error('Maintenance cannot start with no budget remaining.');
+      await store.update(record.id, (fresh) => ({ ...fresh, preparingMaintenance: true, stateLine: 'Preparing the maintenance Workflow.' }));
       const result = await requestOrchestratorAction(record.workspaceId, {
         kind: 'create',
         prompt: maintenancePrompt(record),
         title: `${record.name}: maintenance`,
-        options: { activate: true, disableTokenLimit: true, limits: remaining === undefined ? {} : { maxCostUsd: remaining }, triggers: [...MAINTENANCE_TRIGGERS] },
-      });
-      if (!result.ok || !result.loopId) throw new Error(result.error ?? 'The maintenance Workflow was not created.');
+        options: { requestId: `${record.id}:maintenance`, activate: false, delivery: { destination: 'workspace-files' }, workspace: { useManagedWorktree: false, allowDirtyWorkspaceRoot: true }, disableTokenLimit: true, limits: remaining === undefined ? {} : { maxCostUsd: remaining }, triggers: [...MAINTENANCE_TRIGGERS] },
+      }).catch((error: unknown) => ({ ok: false as const, error: String(error), loopId: undefined }));
+      if (!result.ok || !result.loopId) {
+        await store.update(record.id, (fresh) => ({ ...fresh, preparingMaintenance: false, stateLine: result.error ?? 'The maintenance Workflow was not created.' }));
+        throw new Error(result.error ?? 'The maintenance Workflow was not created.');
+      }
       const now = host.now();
       const milestone: Milestone = {
         id: MAINTENANCE_MILESTONE_ID,
@@ -361,13 +398,31 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       };
       const next = await store.update(record.id, (fresh) => {
         if (fresh.milestones.some((m) => m.id === MAINTENANCE_MILESTONE_ID)) return null;
-        const settled = settle({ ...fresh, milestones: [...fresh.milestones, milestone] }, now);
+        const settled = settle({ ...fresh, preparingMaintenance: false, stateLine: 'Maintenance Workflow is ready.', milestones: [...fresh.milestones, milestone] }, now);
         return { ...settled, history: [...settled.history, { at: now, phase: settled.phase, overlay: settled.overlay, cause: `maintenance Workflow ${result.loopId} subscribed` }] };
       });
+      // Activation can await the first run. Save the link and release the
+      // owner now so directives are not held behind a maintenance execution.
+      void requestOrchestratorAction(record.workspaceId, { kind: 'activate', loopId: result.loopId })
+        .then((started) => { if (!started.ok) throw new Error(started.error ?? 'Maintenance could not start.'); })
+        .catch(async (error: unknown) => {
+          const reason = `Maintenance activation failed: ${String(error)}`;
+          await store.update(record.id, (fresh) => {
+            const held = block(fresh, host.now(), reason);
+            return held.ok ? { ...held.record, stateLine: reason } : fresh;
+          });
+        });
       return next ?? record;
     },
 
     recoverPending(record) {
+      void recoverDispatch(store, services, record).catch(async (error: unknown) => {
+        const reason = `Could not start workflow recovery: ${error instanceof Error ? error.message : String(error)}`;
+        await store.update(record.id, (fresh) => {
+          const held = block(fresh, host.now(), reason);
+          return held.ok ? { ...held.record, stateLine: reason } : null;
+        });
+      }).catch((error: unknown) => host.log(`Could not record dispatch recovery failure: ${String(error)}`));
       for (const pending of record.pendingResearch ?? []) runResearch(record, pending);
       for (const pending of record.pendingEvidence ?? []) {
         startEvidence(record.id, pending.milestoneId, pending.commands, pending.route, Date.parse(pending.startedAt));
@@ -394,6 +449,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       if (reserved) startEvidence(record.id, milestone.id, request.commands, request.route, startedAt);
     },
   };
+  return services;
 }
 
 /** True when any checked tracked or untracked content moved after evidence ran. */

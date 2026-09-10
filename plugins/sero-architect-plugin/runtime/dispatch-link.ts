@@ -4,7 +4,9 @@
  * paths write the same record shape.
  */
 
-import { block, settle } from '../shared/lifecycle';
+import { randomUUID } from 'node:crypto';
+
+import { block, mayDispatch, settle, unblock } from '../shared/lifecycle';
 import type { DispatchDestination, DispatchKind } from '../shared/owner-actions';
 import type { Milestone, ProjectRecord } from '../shared/record';
 import type { OwnerServices } from './owner-actions';
@@ -26,7 +28,9 @@ export async function performDispatch(
   now: string,
   background = false,
 ): Promise<{ record: ProjectRecord; milestone: Milestone }> {
-  const intent = { kind: request.kind, destination: request.destination, startedAt: now };
+  const intent = { kind: request.kind, destination: request.destination, startedAt: now,
+    ...(request.kind === 'workflow' ? { request: { id: randomUUID(), prompt: request.prompt, maxCostUsd: request.maxCostUsd } } : {}),
+  };
   const prepared = await store.update(record.id, (fresh) => {
     const current = fresh.milestones.find((item) => item.id === milestone.id);
     if (!current || current.dispatch || current.pendingDispatch) return null;
@@ -55,7 +59,39 @@ export async function performDispatch(
   return { record: prepared, milestone: preparedMilestone };
 }
 
-async function finishDispatch(
+const active = new WeakMap<RecordStore, Map<string, Promise<{ record: ProjectRecord; milestone: Milestone }>>>();
+
+export async function recoverDispatch(store: RecordStore, services: OwnerServices, record: ProjectRecord): Promise<boolean> {
+  const milestone = record.milestones.find((item) => item.pendingDispatch?.request);
+  const pending = milestone?.pendingDispatch;
+  if (!milestone || !pending?.request || pending.kind !== 'workflow') return false;
+  const recoverableBlock = record.blockedReason?.startsWith('Could not start ')
+    || record.blockedReason?.startsWith('dispatch state could not be confirmed after restart:');
+  const eligible = recoverableBlock ? { ...record, blockedReason: null } : record;
+  if (!mayDispatch(eligible) || milestone.status === 'parked') return false;
+  await finishDispatch(store, services, eligible, milestone, {
+    kind: 'workflow', destination: pending.destination,
+    prompt: pending.request.prompt, maxCostUsd: pending.request.maxCostUsd,
+  }, pending.startedAt);
+  return true;
+}
+
+function finishDispatch(
+  store: RecordStore, services: OwnerServices, prepared: ProjectRecord,
+  milestone: Milestone, request: DispatchRequest, now: string,
+): Promise<{ record: ProjectRecord; milestone: Milestone }> {
+  let operations = active.get(store);
+  if (!operations) { operations = new Map(); active.set(store, operations); }
+  const key = `${prepared.id}:${milestone.id}`;
+  const existing = operations.get(key);
+  if (existing) return existing;
+  const operation = linkDispatch(store, services, prepared, milestone, request, now)
+    .finally(() => operations.delete(key));
+  operations.set(key, operation);
+  return operation;
+}
+
+async function linkDispatch(
   store: RecordStore, services: OwnerServices, prepared: ProjectRecord,
   preparedMilestone: Milestone, request: DispatchRequest, now: string,
 ): Promise<{ record: ProjectRecord; milestone: Milestone }> {
@@ -71,7 +107,7 @@ async function finishDispatch(
     await store.update(record.id, (fresh) => ({
       ...fresh,
       milestones: fresh.milestones.map((item) =>
-        item.id === milestone.id && item.pendingDispatch?.startedAt === now
+        item.id === milestone.id && item.pendingDispatch?.startedAt === now && !item.pendingDispatch.request
           ? { ...item, pendingDispatch: undefined }
           : item,
       ),
@@ -102,7 +138,9 @@ async function finishDispatch(
         ? { ...m, status: running.status, verification: null, dispatch: running.dispatch, pendingDispatch: undefined }
         : m,
     );
-    const settled = settle({ ...fresh, milestones: linked, stateLine: `Working on ${milestone.title}.` }, now);
+    const recovered = fresh.blockedReason?.startsWith('Could not start ') || fresh.blockedReason?.startsWith('dispatch state could not be confirmed after restart:')
+      ? unblock(fresh, now, `recovered dispatch for ${milestone.id}`) : null;
+    const settled = settle({ ...(recovered?.ok ? recovered.record : fresh), milestones: linked, stateLine: `Working on ${milestone.title}.` }, now);
     return { ...settled, history: [...settled.history, { at: now, phase: settled.phase, overlay: settled.overlay, cause }] };
   });
   if (!written) throw new Error(`Dispatch ${link.id} started, but milestone ${milestone.id} could not save its link. The project needs reconciliation.`);

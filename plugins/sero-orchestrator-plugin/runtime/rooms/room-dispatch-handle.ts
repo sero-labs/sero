@@ -11,10 +11,10 @@
 import type { OrchestratorRoomCreateRequest, OrchestratorRoomCreateResult, OrchestratorRoomHandle } from '@sero-ai/common';
 import type { RoomAppActions } from './room-app-actions';
 
-export function createRoomDispatchHandle(app: Pick<RoomAppActions, 'prepare' | 'start'>): OrchestratorRoomHandle {
-  return {
-    async create(request: OrchestratorRoomCreateRequest): Promise<OrchestratorRoomCreateResult> {
-      const planned = await app.prepare({ problem: request.mandate, limits: request.limits });
+export function createRoomDispatchHandle(app: Pick<RoomAppActions, 'prepare' | 'start' | 'inspect'>): OrchestratorRoomHandle {
+  const pending = new Map<string, Promise<OrchestratorRoomCreateResult>>();
+  const create = async (request: OrchestratorRoomCreateRequest): Promise<OrchestratorRoomCreateResult> => {
+      const planned = await app.prepare({ problem: request.mandate, limits: request.limits, requestId: request.requestId });
       if (!planned.ok) {
         if (planned.needsInput) {
           const asked = planned.questions.map((question) => question.prompt).join(' ');
@@ -22,11 +22,23 @@ export function createRoomDispatchHandle(app: Pick<RoomAppActions, 'prepare' | '
         }
         return { ok: false, error: planned.error };
       }
+      if (planned.status && !['draft', 'ready', 'adjusting'].includes(planned.status)) return { ok: true, roomId: planned.roomId };
       const started = await app.start(planned.roomId);
       if (!started.ok) {
         return { ok: false, error: `Room ${planned.roomId} was planned but did not start: ${started.error}` };
       }
       return { ok: true, roomId: planned.roomId };
+  };
+  return {
+    inspect: (roomId) => app.inspect(roomId),
+    create(request) {
+      if (!request.requestId) return create(request);
+      const existing = pending.get(request.requestId);
+      if (existing) return existing;
+      const key = request.requestId;
+      const operation = create(request).finally(() => pending.delete(key));
+      pending.set(key, operation);
+      return operation;
     },
   };
 }

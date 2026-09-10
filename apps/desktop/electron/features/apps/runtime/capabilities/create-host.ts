@@ -57,6 +57,7 @@ import {
   isToolName,
   type HostToolResolver,
 } from '@electron/features/workspace/runtime/toolchains/host-tool-resolver';
+import { getModelTiers } from '@electron/shared/settings/model-tiers';
 import { ensureAiInfra } from '@electron/shared/infra/ai-infra';
 import { buildAvailableModelGroups } from '@electron/ipc/agent/core/model-groups';
 import { validateRuntimeCustomTools } from './custom-tools';
@@ -263,6 +264,10 @@ export function createAppRuntimeHost(target: AppRuntimeTarget): AppRuntimeHost {
       getProviderApiKey: (providerId) => getProviderApiKey(providerId, SERO_HOME),
     },
     models: {
+      tiers: async () => {
+        const { settingsManager } = await ensureAiInfra();
+        return getModelTiers({ ...settingsManager.getGlobalSettings() });
+      },
       list: async () => {
         const { modelRuntime } = await ensureAiInfra();
         return buildAvailableModelGroups(await modelRuntime.getAvailable());

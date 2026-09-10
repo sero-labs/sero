@@ -19,6 +19,8 @@ import type {
 } from './types';
 
 export interface CreateLoopOptions {
+  /** Stable caller identity for recovery of an interrupted create request. */
+  requestId?: string;
   disableTokenLimit?: boolean;
   activate?: boolean;
   triggers?: LoopTriggerSuggestion[];

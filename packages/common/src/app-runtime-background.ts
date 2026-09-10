@@ -8,7 +8,7 @@
 
 import type { WorkspaceAccessRootsResult } from './workspace-access-roots';
 import type { ExtensionRuntimeContent, ExtensionRuntimeMessage } from './session-runtime';
-import type { SharedAvailableModelGroup } from './model-selection/types';
+import type { SharedAvailableModelGroup, SharedModelTierSettings } from './model-selection/types';
 import type { AppRuntimeGitApi } from './app-runtime-git';
 import type { AppRuntimeNotificationsApi } from './app-runtime-notifications';
 import type { PersistentSessionsApi } from './app-runtime-persistent-sessions';
@@ -300,6 +300,8 @@ export interface AppRuntimeToolchainsApi {
 }
 
 export interface AppRuntimeModelsApi {
+  /** The model and thinking selections saved in Admin for this profile. */
+  tiers(): Promise<SharedModelTierSettings>;
   /**
    * Lists the models currently available to this machine (every provider with a
    * configured key), grouped by provider. Background runtimes use this to resolve

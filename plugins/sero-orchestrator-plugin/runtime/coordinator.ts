@@ -17,12 +17,10 @@ import type {
 } from '../shared/types';
 import { DEFAULT_STATE } from '../shared/defaults';
 import type { OrchestratorHost } from './host';
-import { buildDraftLoop } from './loop-factory';
+import { createLoopPlanner } from './create-loop';
 import { activate, disable, enable, type TransitionResult } from './lifecycle';
 import { planIsActivatable } from './plan-mapping';
-import { validateDeliverySettings } from './schema';
 import { reconcileDeliveryWarning } from './delivery/availability';
-import { runPlanningFlow } from './planning-flow';
 import { RunEngine } from './run-engine';
 import type { EngineDeps } from './engine-types';
 import { reconcileAll } from './reconcile';
@@ -52,7 +50,10 @@ export class Coordinator {
   /** Per-loop abort handle for the in-flight run, so `disable` can kill its subagents. */
   private readonly running = new Map<string, AbortController>();
 
+  private readonly planCreation: ReturnType<typeof createLoopPlanner>;
+
   constructor(protected readonly host: OrchestratorHost, deps?: EngineDeps) {
+    this.planCreation = createLoopPlanner(host, (loop) => this.emitEvents(buildLifecycleEvents(host, undefined, loop)));
     if (deps) this.engine = new RunEngine(host, deps);
   }
 
@@ -230,23 +231,13 @@ export class Coordinator {
     title?: string,
     options?: CreateLoopOptions,
   ): Promise<OrchestratorActionResult> {
-    if (!prompt.trim()) return { ok: false, error: 'A loop prompt is required.' };
-    if (options?.delivery) {
-      const deliveryErrors = validateDeliverySettings(options.delivery);
-      if (deliveryErrors.length > 0) return { ok: false, error: deliveryErrors.join('; ') };
-    }
-    // Build the draft first so we have a stable id and parentSessionId for the
-    // planning model call, then run the shared planning flow (plan / clarifying
-    // questions / blocked draft).
-    const draft = buildDraftLoop(this.host, { prompt, title, options });
-    const loop = await runPlanningFlow(this.host, draft, { prompt, options, title });
-    await this.appendLoop(loop);
-    // A planner clarification parks the new draft — tell followers it asked.
-    this.emitEvents(buildLifecycleEvents(this.host, undefined, loop));
+    const result = await this.planCreation(prompt, title, options);
+    if (!result.ok || !result.loop) return result;
+    const loop = result.loop;
 
     // Activate-after-create only when a valid plan landed (no pending question,
     // no validation block).
-    if (options?.activate && !loop.runtime.pendingInput && !loop.runtime.block) {
+    if (options?.activate && loop.status === 'draft' && !loop.runtime.pendingInput && !loop.runtime.block) {
       return { ...(await this.activateLoop(loop.id)), loopId: loop.id };
     }
     return { ok: true, loop, loopId: loop.id };
@@ -271,6 +262,7 @@ export class Coordinator {
   async activateLoop(loopId: string): Promise<OrchestratorActionResult> {
     const loop = await this.findLoop(loopId);
     if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
+    if (loop.status === 'active' || loop.status === 'complete') return { ok: true, loop };
     const gate = planIsActivatable(loop);
     if (!gate.ok) return { ok: false, error: gate.error };
     // Surface a missing delivery tool at activation (fail-soft — FR-D5); each
@@ -278,10 +270,6 @@ export class Coordinator {
     const checked = await reconcileDeliveryWarning(this.host, loop);
     if (checked !== loop) await this.replaceLoop(checked);
     return this.transition(loopId, (current) => activate(current, this.host.now()));
-  }
-
-  protected async appendLoop(loop: Loop): Promise<void> {
-    await this.host.updateState((state) => ({ ...state, loops: [...state.loops, loop] }));
   }
 
   // ── Delete ────────────────────────────────────────────────

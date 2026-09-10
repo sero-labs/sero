@@ -36,6 +36,8 @@ export interface StepRunInput {
   parentSessionId: string;
   workspace?: ResolvedWorkspaceContext;
   signal?: AbortSignal;
+  /** Persist cumulative attempt progress before the executor completes. */
+  onAttempt?: (attempt: StepAttempt) => Promise<void>;
   /** Set when this attempt is one activation of a fan-out step. */
   fanOut?: FanOutRunContext;
 }

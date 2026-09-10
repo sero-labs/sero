@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { WakeEvent } from '../../shared/wake';
 import { missingEvidence } from '../owner-actions';
 import { ORCHESTRATOR_REGISTRY_GLOBAL_KEY, type OrchestratorBoardAction, type OrchestratorRegistryEntryView } from '@sero-ai/common';
@@ -40,6 +40,47 @@ function fakeCoordinator(): { actions: OrchestratorBoardAction[]; uninstall: () 
 }
 
 describe('runtime services', () => {
+  it('keeps a failed command result and skips the later paid preview capture', async () => {
+    const preview = milestone('m1', { status: 'verifying', preview: { route: '/' } });
+    const project = buildingProject({ milestones: [preview] });
+    const { host, store, services, wakes } = await setup(project);
+    host.runCommand = async () => ({ exitCode: 7, stdout: '', stderr: 'invalid fixture' });
+    host.detectDevServerCommand = vi.fn(async () => 'npm run dev');
+    host.runStructured = vi.fn(async () => ({ response: 'should not run' }));
+    await services.evidence(project, preview, { commands: ['node check.js'], route: '/' });
+    await waitFor(() => wakes.length > 0);
+    expect((await store.read('proj_1'))?.milestones[0]?.evidence).toMatchObject({ passed: false, commands: [{ exitCode: 7, output: 'invalid fixture' }], preview: null });
+    expect(host.detectDevServerCommand).not.toHaveBeenCalled();
+    expect(host.runStructured).not.toHaveBeenCalled();
+  });
+
+  it('records maintenance preparation and links the Workflow before its first run finishes', async () => {
+    const { services, store } = await setup(buildingProject({ phase: 'maintain' }));
+    let finishPlanning: () => void = () => undefined;
+    const planning = new Promise<void>((resolve) => { finishPlanning = resolve; });
+    const actions: OrchestratorBoardAction[] = [];
+    const registry = new Map<string, OrchestratorRegistryEntryView>([['ws-1', {
+      workspaceId: 'ws-1', workspacePath: '/home/dan/projects/hollow',
+      coordinator: { requestAction: async (action) => {
+        actions.push(action);
+        if (action.kind === 'create') { await planning; return { ok: true, loopId: 'maintenance-loop' }; }
+        return new Promise(() => {});
+      } },
+    }]]);
+    (globalThis as Record<string, unknown>)[ORCHESTRATOR_REGISTRY_GLOBAL_KEY] = registry;
+    try {
+      let returned = false;
+      const preparation = services.maintenance((await store.read('proj_1'))!).then(() => { returned = true; });
+      await vi.waitFor(async () => expect((await store.read('proj_1'))?.preparingMaintenance).toBe(true));
+      finishPlanning();
+      await vi.waitFor(() => expect(returned).toBe(true));
+      await preparation;
+      expect(actions[0]).toMatchObject({ options: { activate: false, delivery: { destination: 'workspace-files' }, workspace: { useManagedWorktree: false } } });
+      expect((await store.read('proj_1'))?.milestones.at(-1)?.dispatch?.id).toBe('maintenance-loop');
+      expect((await store.read('proj_1'))?.preparingMaintenance).toBe(false);
+    } finally { delete (globalThis as Record<string, unknown>)[ORCHESTRATOR_REGISTRY_GLOBAL_KEY]; }
+  });
+
   it.each([0, 1])('rechecks an accepted milestone without trusting its old evidence (exit=%s)', async (exitCode) => {
     const accepted = milestone('m1', { status: 'done', verification: 'accepted' });
     const project = buildingProject({ milestones: [accepted] });
@@ -125,13 +166,15 @@ describe('runtime services', () => {
       const { services, store } = await setup(buildingProject({ phase: 'maintain' }));
       const first = await services.maintenance(buildingProject({ phase: 'maintain' }));
       expect(first.milestones.find((m) => m.id === MAINTENANCE_MILESTONE_ID)).toMatchObject({ status: 'running', dispatch: { kind: 'workflow', id: 'loop_1' } });
-      expect(coordinator.actions[0]).toMatchObject({ kind: 'create', options: { activate: true, triggers: [
+      expect(coordinator.actions[0]).toMatchObject({ kind: 'create', options: { requestId: 'proj_1:maintenance', activate: false, triggers: [
         { type: 'event', eventSource: 'github:issue-opened' },
         { type: 'event', eventSource: 'github:ci-failed' },
         { type: 'cron', schedule: '0 8 * * 1' },
       ] } });
       const again = await services.maintenance((await store.read('proj_1'))!);
-      expect(coordinator.actions).toHaveLength(1);
+      expect(coordinator.actions).toHaveLength(2);
+      expect(coordinator.actions[1]).toEqual({ kind: 'activate', loopId: 'loop_1' });
+      expect(again.preparingMaintenance).toBe(false);
       expect(again.milestones.filter((m) => m.id === MAINTENANCE_MILESTONE_ID)).toHaveLength(1);
     } finally {
       coordinator.uninstall();
@@ -218,7 +261,8 @@ describe('runtime services', () => {
     await services.evidence(buildingProject(), milestone('m1', { status: 'verifying', preview: { route: '/' } }), { commands: ['pnpm test'], route: '/' });
     await waitFor(() => wakes.length > 0);
     const first = (await store.read('proj_1'))?.milestones[0];
-    expect(first?.evidence).toMatchObject({ passed: false, preview: { route: '/', smokePassed: false, capturePath: null } });
+    expect(first?.evidence).toMatchObject({ passed: false, preview: { route: '/', smokePassed: false, capturePath: null, failure: expect.stringContaining('No dev server command was detected') } });
+    expect(wakes[0]?.items[0]).toContain('Add a dev script');
 
     const plain = buildingProject({ milestones: [milestone('m1', { status: 'verifying' })] });
     await store.write(plain);
@@ -260,7 +304,7 @@ describe('runtime services', () => {
       await new Promise<void>((resolve) => { server.close(() => resolve()); });
     }
     expect(stopped).toBe(false);
-    expect(wakes[0]?.items[0]).toContain('preview smoke check failed');
+    expect(wakes[0]?.items[0]).toContain('returned HTTP 404');
   });
 
   it.each(['throw', 'result'] as const)('records the capture failure (%s) and accounts for reported usage', async (mode) => {
@@ -286,9 +330,9 @@ describe('runtime services', () => {
     expect(wakes[0]).toMatchObject({ kind: 'dispatch-complete', items: [expect.stringContaining('the subagent seam is unavailable')] });
     const failed = (await store.read('proj_1'))?.milestones[0];
     expect(failed).toMatchObject({ status: 'verifying', verification: 'reported' });
-    expect(failed?.evidence).toMatchObject({ passed: false, commands: [{ exitCode: 1, output: expect.stringContaining('the subagent seam is unavailable') }] });
+    expect(failed?.evidence).toMatchObject({ passed: false, commands: [{ exitCode: 0 }], preview: { smokePassed: false, failure: expect.stringContaining('the subagent seam is unavailable') } });
     // The failed evidence is what keeps the milestone from closing.
-    expect(missingEvidence(failed!)).toContainEqual(expect.stringContaining('exit code 1'));
+    expect(missingEvidence(failed!)).toContain('the dev-server smoke check failed');
     expect((await store.read('proj_1'))?.budget.sources.dispatched).toBe(mode === 'result' ? 0.02 : 0);
   });
 
@@ -308,7 +352,7 @@ describe('runtime services', () => {
       const evidence = (await store.read(project.id))?.milestones[0]?.evidence;
       expect(evidence?.passed).toBe(rendered);
       if (rendered) expect(evidence?.preview?.capturePath).toMatch(/\.png$/);
-      else expect(evidence?.commands[0]?.output).toContain('Explorer file error');
+      else expect(evidence?.preview?.failure).toContain('Explorer file error');
     } finally {
       await new Promise<void>((resolve) => { server.close(() => resolve()); });
     }

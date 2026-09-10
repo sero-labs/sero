@@ -48,7 +48,7 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
         systemPrompt: params.systemPrompt,
         appendSystemPrompt: params.appendSystemPrompt,
         systemPromptOverride: params.systemPromptOverride,
-        model: params.model,
+        model: params.model ?? 'MED',
         thinking: params.thinking,
         parentSessionId: params.parentSessionId,
         workspaceId: ctx.workspaceId,
@@ -60,6 +60,7 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
         signal: params.signal,
         repair: params.repair,
         onUpdate: params.onUpdate,
+        onUsage: params.onUsage,
       }),
 
     listAvailableModels: () => ctx.host.models.list(),

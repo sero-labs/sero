@@ -14,6 +14,27 @@
 import { BrowserWindow, screen } from 'electron';
 import type { AppPanelRect } from '@/types/ipc';
 
+const capturing = new WeakMap<BrowserWindow, { count: number; throttled: boolean }>();
+
+/** Let hidden child frames paint without bringing the user's window forward. */
+async function paintForCapture(win: BrowserWindow): Promise<() => void> {
+  const active = capturing.get(win) ?? { count: 0, throttled: win.webContents.getBackgroundThrottling() };
+  active.count += 1;
+  capturing.set(win, active);
+  win.webContents.setBackgroundThrottling(false);
+  const release = (): void => {
+    active.count -= 1;
+    if (active.count === 0) {
+      capturing.delete(win);
+      if (!win.isDestroyed()) win.webContents.setBackgroundThrottling(active.throttled);
+    }
+  };
+  try {
+    await win.webContents.executeJavaScript('new Promise(resolve => { setTimeout(resolve, 250); requestAnimationFrame(() => requestAnimationFrame(resolve)); })');
+    return release;
+  } catch (error) { release(); throw error; }
+}
+
 /**
  * Capture a region of the window as a PNG base64 string.
  *
@@ -48,7 +69,10 @@ export async function captureRegion(
     height: Math.min(bottom, bounds.height) - y,
   };
 
-  const image = await win.webContents.capturePage(captureArea);
+  const release = await paintForCapture(win);
+  let image: Electron.NativeImage;
+  try { image = await win.webContents.capturePage(captureArea); }
+  finally { release(); }
   const targetWidth = Math.max(1, Math.round(cssRect.width));
   const targetHeight = Math.max(1, Math.round(cssRect.height));
   const size = image.getSize();

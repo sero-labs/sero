@@ -27,7 +27,7 @@ import { mutateRecord, type RecordStore } from './record-store';
 import type { TurnOutcomes } from './turn-outcomes';
 
 export interface OwnerServices {
-  research(record: ProjectRecord, request: { question: string; stoppingCondition: string }): Promise<{ id: string }>;
+  research(record: ProjectRecord, request: { question: string; stoppingCondition: string; kind?: DispatchKind }): Promise<{ id: string }>;
   dispatch(
     record: ProjectRecord,
     milestone: Milestone,
@@ -300,7 +300,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     if (!stoppingCondition) return refuse('stoppingCondition is required: when the researcher should stop.');
     if (record.phase === 'intake') return refuse('Research starts once the workspace exists.');
     if (!mayWakeForWork(record)) return refuse(`The project is ${record.overlay}; no new research may start.`);
-    const { id } = await services.research(record, { question, stoppingCondition });
+    const { id } = await services.research(record, { question, stoppingCondition, ...(input.kind ? { kind: input.kind } : {}) });
     return ok(`Research ${id} started. Its result is attached to the record before your next wake. Call sleep if nothing else is needed now.`, { researchId: id });
   }
 

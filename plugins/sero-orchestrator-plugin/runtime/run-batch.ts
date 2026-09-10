@@ -10,7 +10,7 @@ import { acceptsCompletion, applyStepOutcome, recordCompletion } from './outcome
 import { enforceDeliveryContract } from './delivery/delivery-contract';
 import { applyDeliveryContract } from './delivery/verify-receipt';
 import { recordAgentWarning, recordModelWarning } from './run-warnings';
-import { blockLimit, resetStepPending, replaceRun, resolveOutcome } from './run-engine-helpers';
+import { blockLimit, resetStepPending, replaceRun, resolveOutcome, upsertAttempt } from './run-engine-helpers';
 import { runFanOutStep } from './fan-out-run';
 import { parkForInput } from './human-input';
 import { applyRecovery } from './recovery-apply';
@@ -62,6 +62,14 @@ function syncRun(loop: Loop, run: LoopRun): Loop {
 export async function runStepBatch(input: RunBatchInput): Promise<{ loop: Loop; run: LoopRun; stop: boolean }> {
   const { host, deps, batch, signal, commit } = input;
   let { loop, run } = input;
+  let progress = Promise.resolve();
+  const onAttempt = (attempt: StepAttempt): Promise<void> => {
+    progress = progress.then(async () => {
+      run = { ...run, stepAttempts: upsertAttempt(run.stepAttempts, attempt) };
+      loop = await commit(syncRun(loop, run));
+    });
+    return progress;
+  };
   const startNow = host.now();
   // A fan-out step is always batched alone (run-engine) and creates its own
   // per-item activations; only plain steps get a visit activation here.
@@ -115,6 +123,7 @@ export async function runStepBatch(input: RunBatchInput): Promise<{ loop: Loop; 
       parentSessionId: loop.runtime.parentSessionId,
       workspace: loop.runtime.workspace.resolved,
       signal,
+      onAttempt: (attempt) => onAttempt({ ...attempt, activationId: started.activationIds[step.id] }),
     })));
   }
 
@@ -135,7 +144,7 @@ export async function runStepBatch(input: RunBatchInput): Promise<{ loop: Loop; 
     const recorded: StepAttempt = { ...attempt, activationId, outcome };
     run = {
       ...run,
-      stepAttempts: [...run.stepAttempts, recorded],
+      stepAttempts: upsertAttempt(run.stepAttempts, recorded),
       observations: [...run.observations, ...recorded.observations],
     };
     run = recordActivationAttempt(run, activationId, recorded, outcome, host.now(), !outcome.questions?.length);

@@ -66,7 +66,7 @@ describe('appControlHostService', () => {
     expect(opened).toBe(true);
     expect(mocks.executeJavaScript).toHaveBeenNthCalledWith(
       1,
-      'window.__appControl?.openApp("kanban") ?? false',
+      'window.__appControl?.openApp("kanban", undefined) ?? false',
     );
     expect(mocks.executeJavaScript).toHaveBeenNthCalledWith(
       4,

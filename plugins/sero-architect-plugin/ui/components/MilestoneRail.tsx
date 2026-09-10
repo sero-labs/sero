@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import { Button } from '@sero-ai/ui';
+import type { ActionOutcome } from '../lib/actions';
 import { ChevronRight, ExternalLink } from 'lucide-react';
 
 import type { EvidenceRecord, ProjectRecord } from '../../shared/record';
@@ -36,6 +39,7 @@ export function Evidence({ evidence }: { evidence: EvidenceRecord }) {
 
 export interface MilestoneRailProps {
   record: ProjectRecord;
+  onRetry?(milestoneId: string): Promise<ActionOutcome>;
   /** Opens the Orchestrator record of a dispatched milestone. */
   onOpenDispatch(link: NonNullable<RailRow['link']>): void;
 }
@@ -52,7 +56,23 @@ function ResearchRuns({ record }: { record: ProjectRecord }) {
   );
 }
 
-export function MilestoneRail({ record, onOpenDispatch }: MilestoneRailProps) {
+function RetryStep({ milestoneId, retry }: { milestoneId: string; retry(id: string): Promise<ActionOutcome> }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const run = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await retry(milestoneId);
+      if (!result.ok) setError(result.text);
+    } catch (failure) { setError(failure instanceof Error ? failure.message : String(failure)); }
+    finally { setBusy(false); }
+  };
+  return <div><Button size="sm" disabled={busy} onClick={() => void run()}>{busy ? 'Starting retry…' : 'Retry step'}</Button>{error && <p role="alert" className="ar-error">{error}</p>}</div>;
+}
+
+export function MilestoneRail({ record, onOpenDispatch, onRetry }: MilestoneRailProps) {
   const rows = railRows(record);
   if (rows.length === 0) {
     return (
@@ -78,6 +98,7 @@ export function MilestoneRail({ record, onOpenDispatch }: MilestoneRailProps) {
             <div className="ar-ms-right">
               <span className="ar-kind">{link?.kind ?? (milestone.id === 'maintenance' ? 'workflow' : '')}</span>
               <Pill tone={tone}>{label}</Pill>
+              {milestone.dispatch?.failure && onRetry && <RetryStep milestoneId={milestone.id} retry={onRetry} />}
               {link && (
                 <button type="button" className="ar-btn-link" onClick={() => onOpenDispatch(link)} data-testid={`open-${milestone.id}`}>
                   Open in Orchestrator <ExternalLink className="ar-i" />

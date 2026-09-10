@@ -232,13 +232,13 @@ describe('owner actions', () => {
     await vi.waitFor(async () => expect((await store.read('proj_1'))?.milestones[0]?.dispatch?.id).toBe('loop_9'));
   });
 
-  it('records a background planning failure and releases the reservation for a later retry', async () => {
+  it('records a background planning failure and preserves its recovery identity', async () => {
     const { actions, store, services } = await setup(buildingProject({ milestones: [milestone('m1', { status: 'approved' })] }));
     vi.mocked(services.dispatch).mockRejectedValue(new Error('Planner unavailable'));
     const accepted = await actions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm1', kind: 'workflow', prompt: 'Build the grid' });
     expect(accepted.ok).toBe(true);
     await vi.waitFor(async () => expect((await store.read('proj_1'))?.blockedReason).toContain('Planner unavailable'));
-    expect((await store.read('proj_1'))?.milestones[0]?.pendingDispatch).toBeUndefined();
+    expect((await store.read('proj_1'))?.milestones[0]?.pendingDispatch?.request).toMatchObject({ prompt: 'Build the grid', id: expect.any(String) });
   });
 
   it('turns an external delivery into a decision before anything is sent', async () => {

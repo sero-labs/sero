@@ -11,8 +11,8 @@
  *  - record a system observation explaining the restart.
  *
  * Resetting by step STATE (not just recorded attempts) is essential: a step that
- * was executing when the process died was never saved as a `running` attempt
- * (attempts are recorded only when a step finishes), so its runtime state is left
+ * executed by an older runtime might not have a persisted `running` attempt,
+ * so its runtime state can be left
  * stuck at `running`, which silently wedges the loop (no step is ever ready).
  */
 

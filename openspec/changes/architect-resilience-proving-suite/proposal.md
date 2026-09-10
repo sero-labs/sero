@@ -30,3 +30,5 @@ Primary areas are the Architect owner session, dispatch tracking, verification a
 This is not a second implementation of Architect. A general UI redesign, new orchestration engine, production SaaS hosting, real payments and unrelated cleanup are out of scope. No new package or public API is assumed necessary. Implementation stays on the current feature baseline and preserves existing staged and unstaged changes.
 
 Related work: [Architect change](../sero-architect/proposal.md), [remaining Architect tasks](../sero-architect/tasks.md), and [PR #507](https://github.com/sero-labs/sero/pull/507).
+
+The proving input is a short idea with essential constraints. The tester must not supply a specification or direct each stage. Prove that Architect can choose Rooms or Workflows for any suitable project task, including the pre-charter Room path in the original design and a later collaborative review. Existing assisted runs remain diagnostics.

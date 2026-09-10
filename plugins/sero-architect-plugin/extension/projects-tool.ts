@@ -22,6 +22,7 @@ export const PROJECT_ACTIONS = [
   'pause',
   'resume',
   'repair',
+  'retry',
   'preview',
   'stop',
   'raise_cap',
@@ -44,7 +45,7 @@ export const ProjectsToolParams = Type.Object({
   capUsd: Type.Optional(Type.Number({ description: 'raise_cap: the new cost cap in USD' })),
   autonomy: Type.Optional(StringEnum(AUTONOMY_SETTINGS, { description: 'set_autonomy: milestones, charter-only or model-judged' })),
   target: Type.Optional(StringEnum(APPROVE_TARGETS, { description: 'approve: charter or milestone' })),
-  milestoneId: Type.Optional(Type.String({ description: 'approve milestone: the milestone id' })),
+  milestoneId: Type.Optional(Type.String({ description: 'approve/retry: the milestone id' })),
   decisionId: Type.Optional(Type.String({ description: 'answer: the decision id' })),
   optionId: Type.Optional(Type.String({ description: 'answer: the chosen option id' })),
   note: Type.Optional(Type.String({ description: 'answer: an optional note for the owner' })),
@@ -145,6 +146,12 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
       if (missing) return result(false, missing);
       const outcome = await actions.preview(id);
       return result(outcome.ok, outcome.text, { url: outcome.url });
+    }
+    case 'retry': {
+      const missing = need(id, 'projectId') ?? need(params.milestoneId, 'milestoneId');
+      if (missing) return result(false, missing);
+      const outcome = await actions.retry(id, params.milestoneId ?? '');
+      return result(outcome.ok, outcome.text);
     }
     case 'repair': {
       const missing = need(id, 'projectId');

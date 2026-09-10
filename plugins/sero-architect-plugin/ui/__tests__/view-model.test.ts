@@ -64,8 +64,9 @@ describe('the milestone rail', () => {
       ['ok', 'pnpm typecheck'],
       ['ok', 'git diff'],
     ]);
-    const failed = evidenceLines({ ...evidence, commands: [{ command: 'pnpm test', exitCode: 1, output: '', durationMs: 100 }], preview: { route: '/play', smokePassed: false, capturePath: null } });
+    const failed = evidenceLines({ ...evidence, commands: [{ command: 'pnpm test', exitCode: 1, output: '', durationMs: 100 }], preview: { route: '/play', smokePassed: false, capturePath: null, failure: 'Dev server did not start: address in use' } });
     expect(failed.map((line) => line.state)).toEqual(['err', 'ok', 'err', 'dim']);
+    expect(failed.find((line) => line.check === 'smoke /play')?.result).toBe('Dev server did not start: address in use');
   });
 });
 

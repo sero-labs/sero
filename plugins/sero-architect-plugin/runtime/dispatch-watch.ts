@@ -19,6 +19,8 @@ import { applyDelivery, isAccepted } from './delivery';
 import type { ArchitectHost } from './host';
 import type { RecordStore } from './record-store';
 import { applyRunHealth } from './run-health';
+import { observeResearchRooms } from './research-room';
+import { observeResearchWorkflows } from './research-workflow';
 
 /** The Orchestrator's own state directory, derived from the contract's index path so a move there moves here. */
 export const ORCHESTRATOR_STATE_DIR = path.dirname(ORCHESTRATOR_INDEX_FILE);
@@ -54,7 +56,7 @@ interface Seen {
 }
 
 export interface DispatchWatchDeps {
-  host: Pick<ArchitectHost, 'onStateChange' | 'readJson' | 'now' | 'log' | 'listWorkspaces'>;
+  host: Pick<ArchitectHost, 'onStateChange' | 'readJson' | 'now' | 'log' | 'listWorkspaces' | 'modelTiers'>;
   store: RecordStore;
   wake(projectId: string, wake: WakeEvent): void;
 }
@@ -145,7 +147,13 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
     const items: string[] = [];
     await store.update(projectId, (record) => {
       const milestone = record.milestones.find((m) => m.dispatch?.kind === 'workflow' && m.dispatch.id === loopId);
-      const receipt = runs.map((run) => run.delivery).find((delivery) => delivery !== undefined);
+      // Workspace-file dispatches run in this project's root. Orchestrator
+      // deliberately requires no external receipt for that destination; the
+      // completed run supplies the location, while acceptance remains separate.
+      const localRun = milestone?.dispatch?.destination === 'workspace-files'
+        ? runs.find((run) => run.status === 'completed') : undefined;
+      const receipt = runs.map((run) => run.delivery).find((delivery) => delivery !== undefined)
+        ?? (localRun ? { ref: record.folder } : undefined);
       if (!milestone || !receipt || milestone.receipt === receipt.ref) return null;
       const updated: Milestone = { ...milestone, receipt: receipt.ref };
       const staged = settle({ ...record, milestones: record.milestones.map((m) => (m.id === milestone.id ? updated : m)) }, now);
@@ -168,6 +176,8 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
   const apply = async (projectId: string, loops: LoopView[] | null, rooms: RoomView[] | null): Promise<void> => {
     const now = host.now();
     const wakes: Transition[] = [];
+    if (rooms) await observeResearchRooms(deps, projectId, rooms);
+    if (loops) await observeResearchWorkflows(deps, projectId, loops);
     await store.update(projectId, (record) => {
       let next = record;
       const workspacePath = workspacePaths.get(projectId);
@@ -248,7 +258,7 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
       const [loopsState, roomsState] = await Promise.all([host.readJson(files.loops), host.readJson(files.rooms)]);
       const loops = loopsOf(loopsState);
       const rooms = roomsOf(roomsState);
-      const pending = record.milestones.filter((milestone) => milestone.pendingDispatch);
+      const pending = record.milestones.filter((milestone) => milestone.pendingDispatch && !milestone.pendingDispatch.request);
       const missing = record.milestones
         .filter((milestone) => milestone.status === 'running' && milestone.dispatch)
         .filter((milestone) => milestone.dispatch?.kind === 'workflow'

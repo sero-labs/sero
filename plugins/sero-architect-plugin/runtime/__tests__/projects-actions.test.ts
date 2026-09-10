@@ -1,3 +1,5 @@
+import { ORCHESTRATOR_REGISTRY_GLOBAL_KEY, type OrchestratorBoardAction } from '@sero-ai/common';
+import { applyRunHealth } from '../run-health';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ProjectRecord } from '../../shared/record';
 import type { WakeEvent } from '../../shared/wake';
@@ -32,6 +34,23 @@ async function setup() {
 }
 
 describe('project management', () => {
+  it('retries the interrupted step from Architect, keeps completed milestones and respects a pause', async () => {
+    const { store, actions } = await setup();
+    const record = buildingProject({ milestones: [milestone('m1', { status: 'done' }), milestone('m2', { status: 'running', dispatch: { kind: 'workflow', id: 'loop-2', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 1, destination: 'workspace-files' } })] });
+    await store.write(record);
+    await applyRunHealth(store, record.id, 'loop-2', [{ status: 'orphaned', startedAt: T0, steps: [{ stepId: 'check-release', status: 'orphaned' }] }], T0);
+    const calls: OrchestratorBoardAction[] = [];
+    (globalThis as Record<string, unknown>)[ORCHESTRATOR_REGISTRY_GLOBAL_KEY] = new Map([['ws-1', { coordinator: { requestAction: async (action: OrchestratorBoardAction) => { calls.push(action); return { ok: true }; } } }]]);
+    try {
+      expect(await actions.retry(record.id, 'm2')).toMatchObject({ ok: true });
+      expect(calls).toEqual([{ kind: 'retry_step', loopId: 'loop-2', stepId: 'check-release' }]);
+      expect((await store.read(record.id))?.milestones[0].status).toBe('done');
+      await actions.pause(record.id);
+      expect(await actions.retry(record.id, 'm2')).toMatchObject({ ok: false, text: expect.stringContaining('Resume') });
+      expect(calls).toHaveLength(1);
+    } finally { delete (globalThis as Record<string, unknown>)[ORCHESTRATOR_REGISTRY_GLOBAL_KEY]; }
+  });
+
   it('starts a managed preview from the visible project folder, not an isolated checkout', async () => {
     const { host, store, actions } = await setup();
     const record = buildingProject();

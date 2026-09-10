@@ -44,6 +44,19 @@ function registryWithSession() {
 }
 
 describe('LiveSessionRegistry turn identity', () => {
+  it('reports the final provider error with its reason and does not retain an earlier failed attempt', () => {
+    const { registry, emit, seen } = registryWithSession();
+    const failed = { role: 'assistant', stopReason: 'error', errorMessage: 'Your credit balance is too low to access the Anthropic API.' };
+    registry.beginTurn('psh_1', 'failed-turn');
+    emit({ type: 'agent_end', messages: [failed], willRetry: false });
+    expect(seen).toEqual([{ type: 'turn_end', turnId: 'failed-turn', status: 'error', errorMessage: failed.errorMessage }]);
+    registry.beginTurn('psh_1', 'recovered-turn');
+    emit({ type: 'agent_end', messages: [failed], willRetry: true });
+    expect(seen).toHaveLength(1);
+    emit({ type: 'agent_end', messages: [failed, { role: 'assistant', stopReason: 'stop' }], willRetry: false });
+    expect(seen[1]).toEqual({ type: 'turn_end', turnId: 'recovered-turn', status: 'completed' });
+  });
+
   it('ends the turn the caller was given, not one Pi named', () => {
     const { registry, emit, seen } = registryWithSession();
 

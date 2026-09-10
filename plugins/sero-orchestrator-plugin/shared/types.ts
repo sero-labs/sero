@@ -138,6 +138,8 @@ export type LoopStatus =
   | 'disabled';
 
 export interface Loop {
+  /** Creation recovery counter, saved before each planning attempt. */
+  creation?: { requestId?: string; attempts: number; complete: boolean };
   id: string;
   workspaceId: string;
   title: string;

@@ -27,24 +27,21 @@ export interface OwnerModelChoice {
   thinking: string;
 }
 
-/**
- * The owner's model: `SERO_ARCHITECT_MODEL` (provider/model) when set, else
- * the first reasoning model the machine offers, else the first model at all.
- */
-export async function chooseOwnerModel(host: Pick<ArchitectHost, 'listModels' | 'env' | 'log'>): Promise<OwnerModelChoice> {
-  const groups = await host.listModels();
-  const all = groups.flatMap((group) => group.models.map((model) => ({ key: modelKey(model.provider, model.modelId), model })));
-  const wanted = host.env.SERO_ARCHITECT_MODEL?.trim();
-  const provider = wanted?.includes('/') ? wanted.slice(0, wanted.indexOf('/')) : null;
-  const candidates = wanted ? all.filter((entry) => entry.key === wanted || entry.model.provider === provider) : all;
-  const picked = (wanted ? all.find((entry) => entry.key === wanted) : undefined)
-    ?? candidates.find((entry) => entry.model.reasoning)
-    ?? candidates[0];
-  if (!picked && wanted) throw new Error(`No model from the selected provider is available for ${wanted}. Choose another provider before continuing.`);
-  if (!picked) throw new Error('No model is available for the owner session: configure a provider first.');
-  if (wanted && picked.key !== wanted) host.log(`SERO_ARCHITECT_MODEL=${wanted} is not available; using ${picked.key}`);
-  const thinking = picked.model.reasoning ? (picked.model.availableThinkingLevels?.includes('medium') ? 'medium' : picked.model.availableThinkingLevels?.[0] ?? 'medium') : 'off';
-  return { model: picked.key, thinking };
+/** Resolve the exact selection before requesting authority. Never choose another provider. */
+export async function chooseOwnerModel(host: Pick<ArchitectHost, 'listModels' | 'modelTiers' | 'env'>): Promise<OwnerModelChoice> {
+  const [groups, tiers] = await Promise.all([host.listModels(), host.modelTiers()]);
+  const override = host.env.SERO_ARCHITECT_MODEL?.trim();
+  const [reference, overrideThinking] = override?.split(':') ?? [];
+  const configured = tiers.MED;
+  const wanted = reference || (configured ? modelKey(configured.provider, configured.modelId) : null);
+  if (!wanted) throw new Error('Select the MED model in Admin before starting the Architect.');
+  const picked = groups.flatMap((group) => group.models).find((model) => modelKey(model.provider, model.modelId) === wanted);
+  if (!picked) throw new Error(`The selected Architect model ${wanted} is unavailable. Select an available model in Admin before continuing.`);
+  const thinking = picked.reasoning ? (overrideThinking ?? configured?.thinkingLevel ?? 'medium') : 'off';
+  if (picked.availableThinkingLevels?.length && !picked.availableThinkingLevels.some((level) => level === thinking)) {
+    throw new Error(`The selected Architect model ${wanted} does not support ${thinking} thinking.`);
+  }
+  return { model: wanted, thinking };
 }
 
 export function ownerSubjectPolicy(record: ProjectRecord, choice: OwnerModelChoice): PersistentSessionSubjectPolicy {
@@ -72,7 +69,7 @@ export function ownerGrantProposal(record: ProjectRecord, choice: OwnerModelChoi
     subjects: { [OWNER_SUBJECT]: ownerSubjectPolicy(record, choice) },
     maxLiveSessions: 1,
     maxTotalSessions: 1,
-    reason: `Run the owner agent for the Architect project "${record.name}" in ${record.folder}.`,
+    reason: `Run the owner agent for the Architect project "${record.name}" using ${choice.model} with ${choice.thinking} thinking in ${record.folder}.`,
   };
 }
 
@@ -133,6 +130,7 @@ export class OwnerSessions {
    */
   async requestGrant(record: ProjectRecord): Promise<ProjectRecord> {
     const now = this.deps.host.now();
+    const modelTiers = await this.deps.host.modelTiers();
     // Asking the user is slow, so the answer is written afterwards, on the
     // record as it stands then.
     let granted: { grantId: string; tools: string[]; choice: OwnerModelChoice } | null = null;
@@ -152,7 +150,15 @@ export class OwnerSessions {
       }
       return {
         ...fresh,
-        session: { ...fresh.session, grantId: granted.grantId, grantedTools: granted.tools, model: granted.choice.model, thinking: granted.choice.thinking },
+        modelTiers,
+        session: {
+          ...fresh.session,
+          ...(fresh.session.grantId !== granted.grantId ? {
+            previousSessions: [...(fresh.session.previousSessions ?? []), ...(fresh.session.sessionPath ? [{ grantId: fresh.session.grantId, sessionPath: fresh.session.sessionPath, model: fresh.session.model }] : [])],
+            sessionId: null, sessionPath: null, sessionCostUsd: 0,
+          } : {}),
+          grantId: granted.grantId, grantedTools: granted.tools, model: granted.choice.model, thinking: granted.choice.thinking,
+        },
         history: [...fresh.history, { at: now, phase: fresh.phase, overlay: fresh.overlay, cause: 'the user approved the owner session grant' }],
       };
     });
@@ -180,13 +186,33 @@ export class OwnerSessions {
    * is re-read after the turn because the owner's actions wrote to it.
    */
   async runTurn(record: ProjectRecord, wake: WakeEvent): Promise<OwnerTurnResult> {
+    let modelProblem: string | null = null;
+    try {
+      const choice = await chooseOwnerModel(this.deps.host);
+      if (choice.model !== record.session.model || choice.thinking !== record.session.thinking) {
+        modelProblem = 'The Admin model selection changed. Resume the project to approve its new owner session.';
+      }
+    } catch (error) {
+      modelProblem = error instanceof Error ? error.message : String(error);
+    }
+    if (modelProblem) {
+      const reason = modelProblem;
+      const held = await this.deps.store.update(record.id, (fresh) => {
+        const stopped = block(fresh, this.deps.host.now(), reason);
+        return stopped.ok ? { ...stopped.record, stateLine: reason } : fresh;
+      });
+      return { record: held ?? record, status: 'error', declared: null };
+    }
     const api = this.api();
     const { handleId, record: opened } = await this.ensureOpen(record);
+    const modelTiers = await this.deps.host.modelTiers();
+    await this.deps.store.update(opened.id, (fresh) => ({ ...fresh, modelTiers }));
     const contract = buildOwnerContract(opened, wake);
     this.deps.outcomes.begin(opened.id);
 
     let resolveEnd: (status: OwnerTurnResult['status']) => void = () => undefined;
     const ended = new Map<string, OwnerTurnResult['status']>();
+    const failures = new Map<string, string>();
     let watching: string | null = null;
     const unsubscribe = api.subscribe(handleId, (event) => {
       if (event.type === 'compacted') {
@@ -198,6 +224,7 @@ export class OwnerSessions {
       }
       if (event.type !== 'turn_end') return;
       ended.set(event.turnId, event.status);
+      if (event.errorMessage) failures.set(event.turnId, `The Architect could not continue: ${event.errorMessage}`);
       if (watching === event.turnId) resolveEnd(event.status);
     });
 
@@ -214,6 +241,7 @@ export class OwnerSessions {
         resolveEnd = resolve;
         this.waiting.set(opened.id, resolve);
       }));
+      failure = failures.get(turnId) ?? failure;
     } catch (error) {
       failure = `The Architect could not continue: ${error instanceof Error ? error.message : String(error)}`;
       this.deps.host.log(`owner turn failed for ${opened.id}: ${failure}`);
@@ -232,7 +260,8 @@ export class OwnerSessions {
     // The usage read talks to the host, so it happens before the queued write.
     const usage = await api.getSessionUsage(handleId).catch(() => null);
     const next = await this.deps.store.update(opened.id, (fresh) => {
-      let updated = applyTurnOutcome(fresh, declared, now);
+      let updated = status === 'completed' ? applyTurnOutcome(fresh, declared, now)
+        : { ...fresh, session: { ...fresh.session, turns: fresh.session.turns + 1 } };
       if (status === 'error') {
         const stopped = block(updated, now, failure);
         if (stopped.ok) updated = { ...stopped.record, stateLine: failure };

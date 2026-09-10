@@ -39,7 +39,7 @@ let recordingStartedAt: string | null = null;
 interface AppControlBridge {
   getList(): AppControlEntry[];
   getActive(): string;
-  openApp(appId: string): boolean;
+  openApp(appId: string, workspaceId?: string): boolean;
   getInfo(appId: string): AppControlEntry | null;
   openFile(workspaceId: string, filePath: string): boolean;
   showBrowserPanel(): boolean;
@@ -88,9 +88,14 @@ export function initAppControlBridge(): () => void {
   window.__appControl = {
     getList: () => useAppStore.getState().apps.map(toAppControlEntry),
     getActive: () => useAppStore.getState().activeApp,
-    openApp(appId) {
+    openApp(appId, workspaceId) {
       const state = useAppStore.getState();
       if (!state.apps.some((app) => app.id === appId)) return false;
+      if (workspaceId !== undefined) {
+        const workspace = useWorkspaceStore.getState();
+        if (!workspace.workspaces.some((entry) => entry.id === workspaceId)) return false;
+        if (workspace.activeWorkspaceId !== workspaceId) workspace.setActiveWorkspace(workspaceId);
+      }
       openApp(appId);
       return true;
     },

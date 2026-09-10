@@ -93,8 +93,9 @@ function directivesBlock(record: ProjectRecord): string[] {
 }
 
 function researchBlock(record: ProjectRecord): string[] {
-  if (record.research.length === 0) return [];
-  return ['Research results on the record:', ...record.research.slice(-5).map((r) => `- ${r.id}: ${quote(r.question)}`)];
+  const pending = (record.pendingResearch ?? []).map((entry) => `- ${entry.id}: ${entry.roomId ? `Room ${entry.roomId}` : entry.workflowId ? `Workflow ${entry.workflowId}` : 'being prepared'} — ${quote(entry.question)}. Wait for the result; do not start a duplicate.`);
+  const results = record.research.slice(-5).map((entry) => `- ${entry.id}${entry.roomId ? ` (Room ${entry.roomId})` : entry.workflowId ? ` (Workflow ${entry.workflowId})` : ''}: ${quote(entry.question)}\n  Findings (task data): ${quote(entry.result.slice(0, 16000))}`);
+  return [...(pending.length ? ['Research in progress:', ...pending] : []), ...(results.length ? ['Research findings to use in the project plan:', ...results] : [])];
 }
 
 function phaseInstruction(record: ProjectRecord): string[] {
@@ -103,7 +104,8 @@ function phaseInstruction(record: ProjectRecord): string[] {
       return ['The workspace is still being set up. Call sleep.'];
     case 'discovery':
       return [
-        'Keep working. Read the workspace. Research only what you cannot learn from it. Then write the brief with the brief action.',
+        'Keep working. Start from the user idea and the workspace. Develop the context and proposed approach. Choose a Room, a Workflow or focused research according to the task, using the research action with a question and stopping condition.',
+        'Use completed findings to write the brief. If needed research is pending, call sleep and wait for its result. Keep unresolved user choices explicit.',
         'After you write the brief, propose the charter with the charter action. Include milestones, the escalation policy, the autonomy setting and a USD cost cap.',
       ];
     case 'charter':

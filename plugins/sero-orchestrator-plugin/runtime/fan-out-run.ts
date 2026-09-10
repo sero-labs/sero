@@ -14,7 +14,7 @@ import type { OrchestratorHost } from './host';
 import { recordActivationAttempt } from './activations';
 import { buildFanOutAggregate, expandFanOut, fanOutActivations, fanOutJoinOutcome, runnableFanOutActivations } from './fan-out';
 import { checkManagementLimits, remainingAttemptBudget, type LimitCheck } from './limits';
-import { replaceRun, resolveOutcome } from './run-engine-helpers';
+import { replaceRun, resolveOutcome, upsertAttempt } from './run-engine-helpers';
 import { recordAgentWarning, recordModelWarning } from './run-warnings';
 
 export interface FanOutRunInput {
@@ -83,6 +83,14 @@ function effectiveConcurrency(loop: Loop, step: LoopStepDefinition): number {
 export async function runFanOutStep(input: FanOutRunInput): Promise<FanOutRunResult> {
   const { host, deps, step, signal, commit } = input;
   let { loop, run } = input;
+  let progress = Promise.resolve();
+  const onAttempt = (attempt: StepAttempt): Promise<void> => {
+    progress = progress.then(async () => {
+      run = { ...run, stepAttempts: upsertAttempt(run.stepAttempts, attempt) };
+      loop = await commit(syncRun(loop, run));
+    });
+    return progress;
+  };
   const fanOut = step.fanOut!;
 
   // Reuse this run's persisted manifest (a recovery retry or an answered
@@ -164,6 +172,7 @@ export async function runFanOutStep(input: FanOutRunInput): Promise<FanOutRunRes
         parentSessionId: loop.runtime.parentSessionId,
         workspace: loop.runtime.workspace.resolved,
         signal,
+        onAttempt: (attempt) => onAttempt({ ...attempt, activationId: activation.id }),
         fanOut: {
           activationId: activation.id,
           key: item.key,
@@ -181,7 +190,7 @@ export async function runFanOutStep(input: FanOutRunInput): Promise<FanOutRunRes
       const recorded: StepAttempt = { ...attempt, activationId: activation.id, outcome };
       run = {
         ...run,
-        stepAttempts: [...run.stepAttempts, recorded],
+        stepAttempts: upsertAttempt(run.stepAttempts, recorded),
         observations: [...run.observations, ...recorded.observations],
       };
       run = recordActivationAttempt(run, activation.id, recorded, outcome, host.now(), !outcome.questions?.length);

@@ -1,5 +1,5 @@
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
-import type { AppRuntimeSubagentRepair } from '@sero-ai/common';
+import type { AppRuntimeSubagentRepair, AppRuntimeSubagentResult } from '@sero-ai/common';
 import { randomUUID } from 'crypto';
 import { resolveConfig } from './resolve';
 import type { ConcurrencyPool } from './pool';
@@ -55,6 +55,7 @@ export interface SingleRunParams {
   /** Optional in-session structured-output repair (reuses the session, no new subagent). */
   repair?: AppRuntimeSubagentRepair;
   onUpdate?: (text: string) => void;
+  onUsage?: (usage: NonNullable<AppRuntimeSubagentResult['usage']>) => void;
 }
 
 interface ExecuteSingleRunOptions {
@@ -121,6 +122,7 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
     externalSignal?.addEventListener('abort', onExternalAbort, { once: true });
   }
 
+  let latestUsage: NonNullable<AppRuntimeSubagentResult['usage']> | undefined;
   const entry: SubagentEntry = {
     id: runId,
     agentName: agent.name,
@@ -162,7 +164,16 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
         disabledTools: params.disabledTools,
         disabledSkills: params.disabledSkills,
         repair: params.repair,
-        onProgress: (usage) => tracker.progress(runId, usage),
+        onProgress: (usage) => {
+          tracker.progress(runId, usage);
+          latestUsage = {
+            inputTokens: usage.inputTokens ?? latestUsage?.inputTokens ?? 0,
+            outputTokens: usage.outputTokens ?? latestUsage?.outputTokens ?? 0,
+            totalTokens: usage.totalTokens ?? latestUsage?.totalTokens ?? 0,
+            costUsd: usage.cost === undefined ? latestUsage?.costUsd : usage.cost > 0 ? usage.cost : undefined,
+          };
+          params.onUsage?.(latestUsage);
+        },
         onToolActivity: (name, summary, running) =>
           tracker.updateToolActivity(runId, name, summary, running),
         onTextDelta: (delta) => tracker.appendLiveOutput(runId, delta),
@@ -173,13 +184,13 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
 
     const durationMs = Date.now() - entry.startedAt;
     const usage = {
-      inputTokens: result.usage.inputTokens,
-      outputTokens: result.usage.outputTokens,
-      totalTokens: result.usage.totalTokens,
+      inputTokens: Math.max(result.usage.inputTokens, latestUsage?.inputTokens ?? 0),
+      outputTokens: Math.max(result.usage.outputTokens, latestUsage?.outputTokens ?? 0),
+      totalTokens: Math.max(result.usage.totalTokens, latestUsage?.totalTokens ?? 0),
       // The pi session tracks cumulative cost (priced from the model + tokens);
       // surface it as USD. Omit a non-positive value so callers show no cost
       // rather than a misleading $0 for unpriced models.
-      costUsd: result.usage.cost > 0 ? result.usage.cost : undefined,
+      costUsd: Math.max(result.usage.cost, latestUsage?.costUsd ?? 0) || undefined,
     };
 
     if (result.error) {
@@ -210,7 +221,7 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
     const msg = err instanceof Error ? err.message : String(err);
     tracker.fail(runId, msg);
     onUpdate?.(`❌ ${agent.name} failed — ${msg}`);
-    return { response: '', error: msg, durationMs: Date.now() - entry.startedAt };
+    return { response: '', error: msg, durationMs: Date.now() - entry.startedAt, usage: latestUsage };
   } finally {
     externalSignal?.removeEventListener('abort', onExternalAbort);
     pool.releaseSlot(runId, parentSessionId);

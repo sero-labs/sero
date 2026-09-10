@@ -60,6 +60,8 @@ export type RoomAccessChoice = MemberPermissionLevel;
 
 /** Everything the user may set before planning. Every field is optional. */
 export interface RoomUserLimits {
+  models?: string[];
+  thinkingLevels?: string[];
   maxCostUsd?: number;
   maxWallClockMs?: number;
   maxMembers?: number;
@@ -197,7 +199,7 @@ function pinned(host: OrchestratorHost, variable: string, available: string[]): 
   return available;
 }
 
-async function loadCatalogue(host: OrchestratorHost): Promise<RoomCatalogue> {
+async function loadCatalogue(host: OrchestratorHost, limits: RoomUserLimits = {}): Promise<RoomCatalogue> {
   const [groups, tools, skills] = await Promise.all([
     host.listAvailableModels(),
     host.listToolCatalog(),
@@ -209,8 +211,8 @@ async function loadCatalogue(host: OrchestratorHost): Promise<RoomCatalogue> {
   }));
   const allowed = pinned(host, 'SERO_ROOM_MODELS', models.map((model) => model.id));
   return {
-    models: models.filter((model) => allowed.includes(model.id)),
-    thinkingLevels: pinned(host, 'SERO_ROOM_THINKING', [...DEFAULT_THINKING_LEVELS]),
+    models: models.filter((model) => allowed.includes(model.id) && (!limits.models || limits.models.includes(model.id))),
+    thinkingLevels: pinned(host, 'SERO_ROOM_THINKING', [...DEFAULT_THINKING_LEVELS]).filter((level) => !limits.thinkingLevels || limits.thinkingLevels.includes(level)),
     tools,
     skills,
   };
@@ -276,7 +278,7 @@ function promptCatalogue(catalogue: RoomCatalogue, envelope: OperatingEnvelope):
 // ── Planning ────────────────────────────────────────────────
 
 export async function planRoom(host: OrchestratorHost, request: RoomPlanRequest): Promise<RoomPlanOutcome> {
-  const catalogue = await loadCatalogue(host);
+  const catalogue = await loadCatalogue(host, request.limits);
   if (catalogue.models.length === 0) {
     return { ok: false, errors: ['no models are available in this workspace, so a Room cannot be staffed'], modelResponses: [] };
   }

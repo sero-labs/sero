@@ -16,6 +16,7 @@ import type {
   AppRuntimeWorkspaceInfo,
   PersistentSessionsApi,
   SharedAvailableModelGroup,
+  SharedModelTierSettings,
 } from '@sero-ai/common';
 
 import type { ArchitectIndex } from '../shared/types';
@@ -36,6 +37,7 @@ export interface ArchitectHost {
   createWorkspace(name: string, parentPath: string): Promise<AppRuntimeWorkspaceInfo>;
   /** Present only when the built-in gate admitted this plugin. */
   persistentSessions: PersistentSessionsApi | null;
+  modelTiers(): Promise<SharedModelTierSettings>;
   listModels(): Promise<SharedAvailableModelGroup[]>;
   runStructured(params: AppRuntimeSubagentRunParams): Promise<AppRuntimeSubagentResult>;
   /** One shell command through the workspace runtime, with its real exit code. */
@@ -98,6 +100,7 @@ export function createArchitectHost(ctx: AppRuntimeContext): ArchitectHost {
     listWorkspaces: () => host.workspace.list(),
     createWorkspace: (name, parentPath) => host.workspace.create(name, parentPath, { requireEmpty: false }),
     persistentSessions: host.persistentSessions ?? null,
+    modelTiers: () => host.models.tiers(),
     listModels: () => host.models.list(),
     runStructured: (params) => host.subagents.runStructured(params),
     runCommand: async (workspaceId, cwd, command, timeoutMs) => {

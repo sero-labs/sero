@@ -60,6 +60,7 @@ export interface ArchitectActions {
   history(projectId: string): Promise<SessionHistoryOutcome>;
   pause(projectId: string): Promise<ActionOutcome>;
   resume(projectId: string): Promise<ActionOutcome>;
+  retry(projectId: string, milestoneId: string): Promise<ActionOutcome>;
   stop(projectId: string): Promise<ActionOutcome>;
   remove(projectId: string): Promise<ActionOutcome>;
   raiseCap(projectId: string, capUsd: number): Promise<ActionOutcome>;
@@ -98,6 +99,7 @@ export function useArchitectActions(): ArchitectActions {
       },
       pause: (projectId) => call({ action: 'pause', projectId }),
       resume: (projectId) => call({ action: 'resume', projectId }),
+      retry: (projectId, milestoneId) => call({ action: 'retry', projectId, milestoneId }),
       stop: (projectId) => call({ action: 'stop', projectId }),
       remove: (projectId) => call({ action: 'delete', projectId }),
       raiseCap: (projectId, capUsd) => call({ action: 'raise_cap', projectId, capUsd }),

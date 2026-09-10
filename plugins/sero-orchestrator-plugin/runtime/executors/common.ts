@@ -99,6 +99,15 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
       ? [...new Set([...DEFAULT_TOOLS, ...(step.execution.tools ?? [])])]
       : undefined;
 
+  const startedAt = host.now();
+  const pendingAttempt: StepAttempt = {
+    id: host.newId('attempt'), stepId: step.id, attemptNumber, parentSessionId,
+    executionType: step.execution.type, status: 'running', workspace,
+    observations: [], usage: { incomplete: true }, startedAt,
+  };
+  await input.onAttempt?.(pendingAttempt);
+  let latestUsage: ModelRunResult['usage'];
+  let progress = Promise.resolve();
   const result = await host.runStructured({
     task,
     agent,
@@ -118,10 +127,18 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
     disabledSkills: ctxOverride?.disabledSkills,
     signal,
     repair: outcomeRepair(loop, step),
+    onUsage: (usage) => {
+      latestUsage = { ...usage };
+      const snapshot = { ...pendingAttempt, usage: { ...usage, incomplete: true } };
+      progress = progress.then(async () => { await input.onAttempt?.(snapshot); })
+        .catch((error: unknown) => host.log(`Could not save usage for ${pendingAttempt.id}: ${String(error)}`));
+    },
   }).catch((error: unknown): ModelRunResult => ({
     response: '',
     error: error instanceof Error ? error.message : String(error),
   }));
+
+  await progress;
 
   // Fan-out activations write per-key artifacts so sibling attempts don't collide.
   const attemptFile = `${step.id}${input.fanOut ? `-${input.fanOut.key}` : ''}-a${attemptNumber}.txt`;
@@ -137,8 +154,8 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
     createdAt: host.now(),
   };
 
-  return {
-    id: host.newId('attempt'),
+  const attempt: StepAttempt = {
+    id: pendingAttempt.id,
     stepId: step.id,
     attemptNumber,
     parentSessionId,
@@ -151,9 +168,11 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
     agentFallback,
     outputPath: stored.artifactRef,
     observations: [observation],
-    usage: toUsage(result.durationMs, result.usage),
-    startedAt: observation.createdAt,
+    usage: { ...toUsage(result.durationMs, result.usage ?? latestUsage), ...((result.error || !result.usage) ? { incomplete: true } : {}) },
+    startedAt,
     endedAt: host.now(),
     error: result.error,
   };
+  await input.onAttempt?.(attempt);
+  return attempt;
 }

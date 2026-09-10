@@ -130,6 +130,19 @@ describe('Room creation through the typed handle', () => {
     expect(host.modelCalls[0].task).toContain('read-only');
   });
 
+  it('reuses a saved Room request across repeated handles without planning or granting again', async () => {
+    host.modelResponses.push({ response: JSON.stringify(blueprint()) });
+    const request = { requestId: 'discovery-1', mandate: 'Develop the product approach.', limits: { access: 'read-only' as const, maxCostUsd: 5 } };
+    const first = await createRoomDispatchHandle(app).create(request);
+    expect(first.ok).toBe(true);
+    const planningCalls = host.modelCalls.length;
+    const grants = host.persistentSessions.proposals.length;
+    const second = await createRoomDispatchHandle(app).create(request);
+    expect(second).toEqual(first);
+    expect(host.modelCalls).toHaveLength(planningCalls);
+    expect(host.persistentSessions.proposals).toHaveLength(grants);
+  });
+
   it('returns the planner question instead of a Room when the planner needs input', async () => {
     blueprint(); // only for the model and tool catalogue it installs on the host
     host.modelResponses.push({

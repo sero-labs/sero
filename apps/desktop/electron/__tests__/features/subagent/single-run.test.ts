@@ -70,6 +70,19 @@ beforeEach(() => {
 });
 
 describe('executeSingleRun result metadata', () => {
+  it.each(['throw', 'empty final usage'])('retains live SDK-priced usage after interruption: %s', async (failure) => {
+    const onUsage = vi.fn();
+    mockRunSubagent.mockImplementation(async (config) => {
+      config.onProgress?.({ ...USAGE, cacheReadTokens: 1000, totalTokens: 1150 });
+      expect(onUsage).toHaveBeenCalledWith({ inputTokens: 100, outputTokens: 50, totalTokens: 1150, costUsd: 0.01 });
+      if (failure === 'throw') throw new Error('interrupted after a model turn');
+      return { response: '', error: 'interrupted', usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, totalTokens: 0, cost: 0 } };
+    });
+    const result = await executeSingleRun(options({ onUsage }));
+    expect(result.error).toContain('interrupted');
+    expect(result.usage).toEqual(onUsage.mock.calls[0][0]);
+  });
+
   it('returns modelId, providerId, durationMs, and usage on success', async () => {
     mockRunSubagent.mockResolvedValue({
       response: 'done',

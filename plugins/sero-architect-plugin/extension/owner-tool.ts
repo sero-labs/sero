@@ -49,7 +49,7 @@ export const OwnerToolParams = Type.Object({
   reason: Type.Optional(Type.String({ description: 'decide: why the user must answer this' })),
   parks: Type.Optional(Type.String({ description: 'decide: milestone ids to park, comma-separated' })),
   stoppingCondition: Type.Optional(Type.String({ description: 'research: when the researcher should stop' })),
-  kind: Type.Optional(StringEnum(DISPATCH_KINDS, { description: 'dispatch: workflow or room' })),
+  kind: Type.Optional(StringEnum(DISPATCH_KINDS, { description: 'dispatch/research: workflow or room; omitted research uses one researcher' })),
   prompt: Type.Optional(Type.String({ description: 'dispatch: the Workflow prompt or the Room mandate' })),
   destination: Type.Optional(StringEnum(DISPATCH_DESTINATIONS, { description: 'dispatch, release only: delivery target. pr and workspace-files run directly. Any other target requires a user decision' })),
   maxCostUsd: Type.Optional(Type.Number({ description: 'dispatch: maximum USD this run may spend. If it exceeds the remaining budget, ask the user first' })),

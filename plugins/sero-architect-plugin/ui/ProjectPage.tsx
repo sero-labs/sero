@@ -9,6 +9,7 @@ import { Directives } from './components/Directives';
 import { LimitBanner } from './components/LimitBanner';
 import { MilestoneRail } from './components/MilestoneRail';
 import { NeedsYou } from './components/NeedsYou';
+import { ProjectResearch } from './components/ProjectResearch';
 import { RepairCard } from './components/RepairCard';
 import { ProjectPreview } from './components/ProjectPreview';
 import { SideColumn, type DisclosureState } from './components/SideColumn';
@@ -122,7 +123,8 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, conf
                   {record.blockedReason && record.milestones.some((item) => item.pendingDispatch) && <RepairCard projectId={id} />}
                 </>
               )}
-              <MilestoneRail record={record} onOpenDispatch={openDispatch} />
+              <ProjectResearch record={record} />
+              <MilestoneRail record={record} onOpenDispatch={openDispatch} onRetry={(milestoneId) => actions.retry(id, milestoneId)} />
               {record.phase !== 'intake' && <ProjectPreview projectId={id} />}
               {record.phase === 'intake' && (
                 <section>

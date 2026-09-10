@@ -1,6 +1,8 @@
 // The durable project record: the single source of truth for one Architect
 // project. JSON-serialisable only. The runtime is its only writer.
 
+import type { SharedModelTierSettings } from '@sero-ai/common';
+import type { DispatchDestination } from './owner-actions';
 import type { ArchitectOverlay, ArchitectPhase } from './types';
 
 export type { ArchitectOverlay, ArchitectPhase } from './types';
@@ -33,7 +35,7 @@ export interface EvidenceRecord {
   /** Whether the runtime found project file changes against the dispatch baseline. */
   filesChanged: boolean;
   /** The runtime's own smoke check and capture for a preview milestone. */
-  preview: { route: string; smokePassed: boolean; capturePath: string | null } | null;
+  preview: { route: string; smokePassed: boolean; capturePath: string | null; failure?: string } | null;
   /** True when every item passed; the runtime computes it, never the owner. */
   passed: boolean;
   /** Set when the milestone's files changed after this evidence was taken. */
@@ -53,11 +55,14 @@ export interface MilestoneDispatch {
   baseCommit?: string;
   /** Latest execution failed or was interrupted, even if the workflow is enabled. */
   failure?: string;
+  retryStepId?: string;
 }
 
 export interface PendingMilestoneDispatch {
+  /** Absent on records written before recoverable dispatch creation. */
+  request?: { id: string; prompt: string; maxCostUsd: number | null };
   kind: 'workflow' | 'room';
-  destination: string | null;
+  destination: DispatchDestination | null;
   startedAt: string;
 }
 
@@ -116,6 +121,12 @@ export interface Directive {
 }
 
 export interface PendingResearch {
+  kind?: 'room' | 'workflow';
+  roomId?: string;
+  workflowId?: string;
+  attempts?: number;
+  chargedUsd?: number;
+  models?: { name: string; model: string; thinking: string }[];
   id: string;
   question: string;
   stoppingCondition: string;
@@ -130,6 +141,9 @@ export interface PendingEvidence {
 }
 
 export interface ResearchResult {
+  roomId?: string;
+  workflowId?: string;
+  models?: { name: string; model: string; thinking: string }[];
   id: string;
   question: string;
   stoppingCondition: string;
@@ -162,6 +176,8 @@ export interface HistoryEntry {
 }
 
 export interface OwnerSessionState {
+  /** Earlier grants and transcripts remain available after a model change. */
+  previousSessions?: { grantId: string | null; sessionPath: string; model: string | null }[];
   /** Set only while the runtime is delivering a turn. Cleared on restart. */
   workingSince?: string | null;
   /** The host-issued grant the owner session runs under. Null until approved. */
@@ -187,6 +203,8 @@ export interface OwnerSessionState {
 
 export interface ProjectRecord {
   version: 1;
+  /** Admin selections shown before work approval; refreshed by the owner runtime. */
+  modelTiers?: SharedModelTierSettings;
   id: string;
   name: string;
   /** The user's idea, verbatim, never edited. */
@@ -199,6 +217,8 @@ export interface ProjectRecord {
   /** Derived on every write from the flags below; see lifecycle.ts. */
   overlay: ArchitectOverlay | null;
   stateLine: string;
+  /** Durable while the maintenance Workflow is being prepared. */
+  preparingMaintenance?: boolean;
   brief: string | null;
   charter: Charter | null;
   autonomy: AutonomySetting;

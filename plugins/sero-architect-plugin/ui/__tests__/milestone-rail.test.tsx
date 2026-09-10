@@ -31,6 +31,20 @@ afterEach(() => {
 });
 
 describe('the milestone rail', () => {
+  it('retries failed work in place and shows a refusal without navigating away', async () => {
+    const source = FIXTURES.build!;
+    const first = source.milestones.find((item) => item.dispatch?.kind === 'workflow')!;
+    const record = { ...source, milestones: [{ ...first, dispatch: { ...first.dispatch!, failure: 'Interrupted work', retryStepId: 'check' } }] };
+    const retry = vi.fn(async () => ({ ok: false, text: 'A run is already in progress.' }));
+    const open = vi.fn();
+    act(() => root.render(<MilestoneRail record={record} onOpenDispatch={open} onRetry={retry} />));
+    const button = Array.from(container.querySelectorAll('button')).find((item) => item.textContent === 'Retry step')!;
+    await act(async () => button.click());
+    expect(retry).toHaveBeenCalledWith(first.id);
+    expect(open).not.toHaveBeenCalled();
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe('A run is already in progress.');
+  });
+
   it('shows one Orchestrator link per dispatched milestone and none for the rest', () => {
     const onOpenDispatch = vi.fn();
     act(() => root.render(<MilestoneRail record={FIXTURES.decision!} onOpenDispatch={onOpenDispatch} />));
@@ -45,8 +59,8 @@ describe('the milestone rail', () => {
     act(() => container.querySelector<HTMLButtonElement>('[data-testid="open-m2"]')!.click());
     act(() => container.querySelector<HTMLButtonElement>('[data-testid="open-m3"]')!.click());
     expect(openSeroApp.mock.calls).toEqual([
-      ['orchestrator', { loopId: 'workflow-m2' }],
-      ['orchestrator', { roomId: 'room-m3' }],
+      ['orchestrator', { loopId: 'workflow-m2' }, 'ws-hollow'],
+      ['orchestrator', { roomId: 'room-m3' }, 'ws-hollow'],
     ]);
   });
 

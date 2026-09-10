@@ -13,6 +13,7 @@
  * coordinator or the store, which is the single writer.
  */
 
+import type { OrchestratorRoomHandle } from '@sero-ai/common';
 import type { HumanQuestion } from '../../shared/human-input-types';
 import { roomPlannerSessionId } from '../../shared/ids';
 import type { RoomProposalSummary } from '../../shared/room-blueprint-types';
@@ -47,6 +48,7 @@ export interface RoomAppActionsContext extends RoomLiveContext {
 }
 
 export interface PrepareRoomInput {
+  requestId?: string;
   /** The user's own words, kept verbatim. */
   problem: string;
   /** A built-in preset to start from. Seeds the planner's prose, nothing else. */
@@ -69,6 +71,7 @@ export function limitsForOrigin(input: PrepareRoomInput): RoomUserLimits | undef
 }
 
 export interface RoomPlanned {
+  status?: RoomStatus;
   ok: true;
   roomId: string;
   proposal: RoomProposalSummary;
@@ -84,6 +87,7 @@ export type PrepareRoomOutcome =
 export type SimpleOutcome = { ok: true } | { ok: false; error: string };
 
 export interface RoomAppActions extends RoomLiveActions {
+  inspect: OrchestratorRoomHandle['inspect'];
   /** Plans a team from one brief and drafts the Room. Nothing runs yet. */
   prepare(input: PrepareRoomInput): Promise<PrepareRoomOutcome>;
   /** Re-plans a draft in the user's own words. Refused once the Room has started. */
@@ -211,9 +215,28 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
   return {
     ...live,
 
+    async inspect(roomId) {
+      const record = await store.readRoom(roomId);
+      if (!record) return null;
+      return {
+        status: record.runtime.status,
+        // Completion writes the Conductor's final answer to member status in
+        // the same durable transaction that stops execution.
+        result: record.runtime.status === 'completed' ? record.members.find((member) => member.isConductor)?.statusDetail ?? null : null,
+        models: record.members.map((member) => ({ name: member.displayName, model: member.configuration.model, thinking: member.configuration.thinking })),
+      };
+    },
+
     async prepare(input) {
       const problem = input.problem.trim();
       if (!problem) return { ok: false, error: 'Say what the Room is for.' };
+      if (input.requestId) {
+        const existing = (await store.readState()).rooms.find((room) => room.definition.creationRequestId === input.requestId);
+        if (existing) {
+          if (existing.definition.problemStatement !== problem) return { ok: false, error: 'This creation request belongs to a different Room mandate.' };
+          return { ok: true, roomId: existing.definition.id, proposal: existing.definition.proposal, clamps: [], status: existing.runtime.status };
+        }
+      }
 
       const template = input.presetId ? findRoomTemplate(input.presetId) : null;
       if (input.presetId && !template) return { ok: false, error: `There is no preset ${input.presetId}.` };
@@ -233,6 +256,7 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
 
       const created = await coordinator.createRoom({
         problemStatement: problem,
+        requestId: input.requestId,
         blueprint: plan.blueprint,
         proposal: plan.proposal,
         workspaceId,

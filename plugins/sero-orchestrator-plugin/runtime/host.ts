@@ -100,6 +100,7 @@ export interface ModelRunParams {
   /** In-session structured-output repair: re-prompt the SAME session for a valid reply. */
   repair?: AppRuntimeSubagentRepair;
   onUpdate?: (text: string) => void;
+  onUsage?: (usage: ModelRunUsage) => void;
 }
 
 export interface ModelRunUsage {

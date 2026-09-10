@@ -146,6 +146,22 @@ describe('Coordinator.retryLoop', () => {
 });
 
 describe('Coordinator.retryStepAction (per-step retry)', () => {
+  it('continues an interrupted pending step in a disabled loop without rerunning successful work', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, sequentialPlan().plan);
+    loop.status = 'disabled';
+    loop.runtime.stepStates.a = { status: 'succeeded', attempts: 1, updatedAt: 't', outcome: { status: 'succeeded', summary: 'done' } };
+    loop.runtime.stepStates.b = { status: 'pending', attempts: 1, updatedAt: 't' };
+    host.state = { ...host.state, loops: [loop] };
+    expect(isRetryableLoop(loop)).toBe(true);
+    const result = await new Coordinator(host).retryStepAction('loop-1', 'b');
+    expect(result.ok).toBe(true);
+    expect(host.state.loops[0].status).toBe('active');
+    expect(host.state.loops[0].runtime.stepStates.a).toEqual(loop.runtime.stepStates.a);
+    expect(host.state.loops[0].runtime.stepStates.b.attempts).toBe(0);
+    expect(computeReadySteps(host.state.loops[0])).toEqual(['b']);
+  });
+
   /** Seeds a blocked loop: a succeeded, b blocked, a runtime block + blocked completion owned by b. */
   function seedBlockedAtB(host: FakeHost) {
     const loop = seedActiveLoop(host, sequentialPlan().plan); // a -> b

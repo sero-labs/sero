@@ -6,6 +6,7 @@ import type { Decision, Milestone, ProjectRecord } from '../../shared/record';
 import { usd } from '../lib/format';
 import { AUTONOMY_LABEL, needsYouItems, parkedTitles, recommendedOption } from '../lib/view-model';
 import type { ActionOutcome } from '../lib/actions';
+import { ModelChoices } from './ModelChoices';
 import { Quiet, SectionHead } from './Pill';
 
 export interface NeedsYouActions {
@@ -75,6 +76,7 @@ export function CharterCard({ record, actions }: { record: ProjectRecord; action
   return (
     <article className="ar-card" aria-label="Charter approval">
       <h3 className="ar-q">Approve the charter</h3>
+      <ModelChoices record={record} />
       {record.brief && <p className="ar-brief">{record.brief}</p>}
       <div className="ar-terms">
         <div className="ar-term"><span className="ar-k">Cost cap</span><span className="ar-v ar-mono">{usd(charter.capUsd)}</span></div>
@@ -94,12 +96,13 @@ export function CharterCard({ record, actions }: { record: ProjectRecord; action
   );
 }
 
-export function MilestoneApprovalCard({ milestone, actions }: { milestone: Milestone; actions: NeedsYouActions }) {
+export function MilestoneApprovalCard({ milestone, actions, record }: { milestone: Milestone; actions: NeedsYouActions; record: ProjectRecord }) {
   const { busy, error, submit } = useSubmit();
   return (
     <article className="ar-card" aria-label="Milestone plan approval">
       <h3 className="ar-q">Approve the plan for {milestone.title}</h3>
       {milestone.plan && <p className="ar-plan">{milestone.plan}</p>}
+      <ModelChoices record={record} />
       <div className="ar-dfoot">
         <span className="ar-why">Approve this plan to let Architect start the milestone.</span>
         <Button size="sm" className="ar-btn ar-btn-solid" disabled={busy} onClick={() => void submit(() => actions.approveMilestone(milestone.id))}>
@@ -124,7 +127,7 @@ export function NeedsYou({ record, actions }: { record: ProjectRecord; actions: 
           {items.map((item) => {
             if (item.kind === 'decision') return <DecisionCard key={item.decision.id} decision={item.decision} record={record} actions={actions} />;
             if (item.kind === 'charter') return <CharterCard key="charter" record={record} actions={actions} />;
-            return <MilestoneApprovalCard key={item.milestone.id} milestone={item.milestone} actions={actions} />;
+            return <MilestoneApprovalCard key={item.milestone.id} milestone={item.milestone} actions={actions} record={record} />;
           })}
         </div>
       )}

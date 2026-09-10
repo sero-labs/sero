@@ -13,6 +13,7 @@ import type { UsageSummary } from './types';
 /** Sums usage across step attempts. Returns undefined when no attempt reported any. */
 export function aggregateUsage(attempts: ReadonlyArray<{ usage?: UsageSummary }>): UsageSummary | undefined {
   let reported = false;
+  let incomplete = false;
   let inputTokens = 0;
   let outputTokens = 0;
   let totalTokens = 0;
@@ -21,6 +22,7 @@ export function aggregateUsage(attempts: ReadonlyArray<{ usage?: UsageSummary }>
   for (const { usage } of attempts) {
     if (!usage) continue;
     reported = true;
+    incomplete ||= usage.incomplete === true;
     inputTokens += usage.inputTokens ?? 0;
     outputTokens += usage.outputTokens ?? 0;
     totalTokens += usage.totalTokens ?? 0;
@@ -29,6 +31,7 @@ export function aggregateUsage(attempts: ReadonlyArray<{ usage?: UsageSummary }>
   }
   if (!reported) return undefined;
   const usage: UsageSummary = {};
+  if (incomplete) usage.incomplete = true;
   if (inputTokens) usage.inputTokens = inputTokens;
   if (outputTokens) usage.outputTokens = outputTokens;
   if (totalTokens) usage.totalTokens = totalTokens;
