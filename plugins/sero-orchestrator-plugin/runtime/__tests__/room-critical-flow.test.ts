@@ -182,7 +182,9 @@ describe('a Room from a chat, start to finish', () => {
     // And the watched index says the same thing, because that is all the Rooms
     // list and the Agent Board ever read.
     const index: RoomIndex = JSON.parse(await readFile(path.join(dir, 'rooms', 'index.json'), 'utf8'));
-    expect(index.rooms.find((room) => room.id === roomId)).toMatchObject({ status: 'completed', memberCount: 3 });
+    expect(index.rooms.find((room) => room.id === roomId)).toMatchObject({
+      status: 'completed', memberCount: 3, deliveredAt: expect.any(String), deliveryRef: 'session:sess-9',
+    });
   });
 
   it('holds the Room while it is paused, and lets it finish once resumed', async () => {

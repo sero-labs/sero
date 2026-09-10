@@ -2,9 +2,10 @@
  * Pure run-engine helpers, split out of run-engine.ts (500-LOC limit).
  */
 
-import type { Loop, LoopBlock, LoopRun, LoopStepDefinition, StepAttempt, StepOutcome } from '../shared/types';
+import type { Loop, LoopBlock, LoopRun, LoopStepDefinition, StepAttempt, StepOutcome, UsageSummary } from '../shared/types';
 import type { EngineDeps } from './engine-types';
 import type { OrchestratorHost } from './host';
+import { mergeCumulativeUsage } from '../shared/usage';
 
 /** The attempt's own outcome, the LLM evaluator's, or a mechanical fallback. */
 export async function resolveOutcome(
@@ -13,9 +14,10 @@ export async function resolveOutcome(
   loop: Loop,
   step: LoopStepDefinition,
   attempt: StepAttempt,
+  onUsage?: (usage: UsageSummary) => void | Promise<void>,
 ): Promise<StepOutcome> {
   if (attempt.outcome) return attempt.outcome;
-  if (deps.evaluator) return deps.evaluator.evaluate({ host, loop, step, attempt });
+  if (deps.evaluator) return deps.evaluator.evaluate({ host, loop, step, attempt, onUsage });
   return { status: attempt.status === 'completed' ? 'succeeded' : 'failed', summary: attempt.error ?? `step ${step.id} ${attempt.status}` };
 }
 
@@ -72,6 +74,19 @@ export function replaceRun(runs: LoopRun[], run: LoopRun): LoopRun[] {
   return next;
 }
 
+/** Keeps newer accounting written by a concurrent coordinator action. */
+export function mergeConcurrentAccounting(current: Loop, next: Loop): Loop {
+  return {
+    ...next,
+    planningUsage: mergeCumulativeUsage(current.planningUsage, next.planningUsage),
+    auxiliaryUsage: mergeCumulativeUsage(current.auxiliaryUsage, next.auxiliaryUsage),
+    runs: next.runs.map((run) => ({
+      ...run,
+      auxiliaryUsage: mergeCumulativeUsage(current.runs.find((entry) => entry.id === run.id)?.auxiliaryUsage, run.auxiliaryUsage),
+    })),
+  };
+}
+
 /**
  * Per-trigger merge for engine commits: the on-disk trigger is authoritative
  * (it carries fire counters the coordinator bumped concurrently); the engine's
@@ -118,4 +133,11 @@ export function dropStrandedEvent(host: OrchestratorHost, loop: Loop): Loop {
     ],
     runtime: { ...loop.runtime, pendingEvents: undefined },
   };
+}
+
+/** Replace cumulative progress for one durable attempt; never add its cost twice. */
+export function upsertAttempt(attempts: StepAttempt[], attempt: StepAttempt): StepAttempt[] {
+  return attempts.some((current) => current.id === attempt.id)
+    ? attempts.map((current) => current.id === attempt.id ? attempt : current)
+    : [...attempts, attempt];
 }

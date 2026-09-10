@@ -14,6 +14,7 @@
 import type { OrchestratorBoardRoomView } from '@sero-ai/common';
 
 import type { RoomAttention } from './attention-types';
+import type { DeliveryReceipt } from './delivery-types';
 import type {
   MemberReadCursor,
   PathClaim,
@@ -28,6 +29,7 @@ import type {
   RoomProposalSummary,
   RoomWorkspacePolicy,
 } from './room-blueprint-types';
+import type { UsageSummary } from './usage-types';
 
 export type RoomStatus =
   | 'draft'
@@ -130,6 +132,7 @@ export interface MemberSessionRef {
 }
 
 export interface MemberUsage {
+  incomplete?: boolean;
   costUsd: number;
   inputTokens: number;
   outputTokens: number;
@@ -168,6 +171,7 @@ export interface RoomMember {
 }
 
 export interface RoomUsage {
+  incomplete?: boolean;
   costUsd: number;
   inputTokens: number;
   outputTokens: number;
@@ -200,11 +204,15 @@ export interface RoomStopReason {
 
 export interface RoomRuntimeState {
   status: RoomStatus;
+  /** Finish request held until running turns have recorded their final usage. */
+  completion?: { summary: string; receipt?: DeliveryReceipt };
   startedAt: string | null;
   endedAt: string | null;
   /** Members currently holding an execution slot. */
   activeMemberIds: string[];
   usage: RoomUsage;
+  /** Planning spend is retained when a draft is rebuilt or members update. */
+  planningUsage?: UsageSummary;
   stopReason: RoomStopReason | null;
   /** Monotonic; the message cursor domain. */
   messageSequence: number;
@@ -257,6 +265,8 @@ export interface RoomBrief {
 }
 
 export interface RoomDefinition {
+  /** Absent on Rooms created before caller recovery identities were supported. */
+  creationRequestId?: string;
   id: string;
   title: string;
   /** The user's original words. Kept verbatim for the audit trail. */

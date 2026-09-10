@@ -56,6 +56,7 @@ interface HostDevServerRecord extends RuntimeDevServer {
 
 export class HostDevServerManager {
   private readonly servers = new Map<string, HostDevServerRecord>();
+  private readonly starting = new Map<string, Promise<RuntimeDevServer>>();
   private readonly workspaceId: string;
   private readonly spawn: SpawnProcess;
   private readonly processAdapter: HostProcessAdapter;
@@ -77,6 +78,21 @@ export class HostDevServerManager {
 
   async start(input: RuntimeDevServerStartInput): Promise<RuntimeDevServer> {
     const cwd = input.cwd || this.defaultCwd;
+    const scope = input.scope ?? 'workspace';
+    const existing = [...this.servers.values()].find((server) => server.origin === 'spawned'
+      && server.status === 'running' && server.command === input.command && server.cwd === cwd
+      && server.scope === scope && server.cardId === input.cardId);
+    if (existing) return toRuntimeServer(existing);
+    const key = JSON.stringify([input.command, cwd, scope, input.cardId]);
+    const pending = this.starting.get(key);
+    if (pending) return pending;
+    const started = this.startNew(input).finally(() => this.starting.delete(key));
+    this.starting.set(key, started);
+    return started;
+  }
+
+  private async startNew(input: RuntimeDevServerStartInput): Promise<RuntimeDevServer> {
+    const cwd = input.cwd || this.defaultCwd;
     const process = await this.spawn({ command: input.command, cwd, stdio: 'pipe' });
     const pid = process.pid;
     const detectionPid = process.executionPid ?? process.pid;
@@ -92,10 +108,11 @@ export class HostDevServerManager {
     try {
       const port = detectionPid ? await this.detectListeningPort(detectionPid, () => earlyExit === undefined) : null;
       if (!port) {
+        const exitBeforeCleanup = earlyExit;
         await this.terminateProcess(process, detectionPid);
         terminated = true;
-        throw new Error(earlyExit
-          ? `Dev server exited before a listening port was detected${formatProcessExit(earlyExit)}.`
+        throw new Error(exitBeforeCleanup
+          ? `Dev server exited before a listening port was detected${formatProcessExit(exitBeforeCleanup)}.`
           : 'No listening port was detected after starting the command.');
       }
       const url = hostPreviewUrl(port);
@@ -233,6 +250,7 @@ export class HostDevServerManager {
   }
 
   async dispose(): Promise<void> {
+    await Promise.allSettled(this.starting.values());
     const servers = [...this.servers.values()];
     // On dispose Sero only tears down its own spawned processes — registered (foreign)
     // listeners belong to the user and must outlive the workspace runtime.
@@ -277,20 +295,24 @@ export class HostDevServerManager {
       // Registered servers are owned by an external process; we only drop the record.
       return;
     }
-    await this.terminateProcess(server.process, server.executionPid ?? server.pid, server.port);
+    // Other processes can listen on the same port on a different address. A spawned
+    // server owns its process tree, not every listener on that port.
+    await this.terminateProcess(server.process, server.executionPid ?? server.pid,
+      server.origin === 'registered' ? server.port : undefined);
   }
 
   private async terminateProcess(process: RuntimeProcess | undefined, rootPid?: number, port?: number): Promise<void> {
-    process?.signal('SIGTERM');
     const roots = rootPid ? [rootPid] : [];
     const descendants = (await Promise.all(roots.map((pid) => this.processAdapter.descendantPids(pid)))).flat();
     const listeners = port ? await this.processAdapter.listenerPids(port) : [];
     const pids = uniqueNumbers([...roots, ...descendants, ...listeners]);
+    // Snapshot children before signaling their parent; they can be reparented on exit.
+    process?.signal('SIGTERM');
     if (pids.length > 0) await this.processAdapter.killPids('TERM', pids);
     await sleep(this.terminateGraceMs);
     const remainingDescendants = (await Promise.all(roots.map((pid) => this.processAdapter.descendantPids(pid)))).flat();
     const remainingListeners = port ? await this.processAdapter.listenerPids(port) : [];
-    const remainingPids = uniqueNumbers([...roots, ...remainingDescendants, ...remainingListeners]);
+    const remainingPids = uniqueNumbers([...pids, ...remainingDescendants, ...remainingListeners]);
     if (remainingPids.length > 0) await this.processAdapter.killPids('KILL', remainingPids);
   }
 

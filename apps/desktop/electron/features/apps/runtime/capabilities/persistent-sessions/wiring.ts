@@ -28,6 +28,7 @@ import { getRoomSkillCatalog } from '@electron/ipc/agent/handlers/subagent-conte
 
 import { clampProposal, describeGrantAuthority } from './clamp';
 import { applyPermissionProfile } from './permission-tools';
+import { createMemberRuntimeTools } from './member-runtime-tools';
 import { createMemberResourceLoader } from './resource-profile';
 import { createPersistentSessionsApi } from './index';
 import type { AppRuntimeTarget } from '../../types';
@@ -51,10 +52,23 @@ export async function clampAndApprove(
     getRoomSkillCatalog(workspaceId),
   ]);
 
+  // The workspace id binds the session's CLI tool and extension. An id the host
+  // cannot resolve would pass every other clamp and leave the member with a
+  // tool that answers "Workspace not found" on every call.
+  const workspace = workspaces.find((candidate) => candidate.id === workspaceId);
+  if (!workspace) {
+    console.warn(`[persistent-sessions] grant refused: workspace ${workspaceId} is not registered`);
+    return null;
+  }
+
   // Every field is verified against something real. A proposal field the host
   // cannot resolve is dropped, never trusted — see clamp.ts.
   const { proposal: clamped, notes } = clampProposal(proposal, {
-    workspaceRoots: workspaces.map((workspace) => workspace.path),
+    // Only the root of the proposal's OWN workspace. Every other registered
+    // root would let the grant bind a cwd in a workspace the dialog never
+    // named, so the approval and the stored grant would describe different
+    // places.
+    workspaceRoots: [workspace.path],
     // The same provider-qualified identity the caller names a model by.
     availableModels: new Set(models.map((model) => modelKey(model.provider, model.id))),
     availableTools: new Set(toolCatalog.map((tool) => tool.name)),
@@ -114,7 +128,10 @@ export async function installPersistentSessions(
     appId: target.manifest.id,
     packagePath: target.manifest.packagePath,
     workspaceId: target.workspace.id,
-    approveGrant: (proposal) => clampAndApprove(target.workspace.id, proposal),
+    // The proposal's workspace, not the runtime instance's: a profile-global
+    // runtime (the Architect) runs under the synthetic `global` workspace and
+    // proposes sessions for a real project workspace.
+    approveGrant: (proposal) => clampAndApprove(proposal.workspaceId, proposal),
     resolveModel: async (modelId): Promise<CreateAgentSessionOptions['model']> => {
       const { modelRuntime } = await ensureAiInfra();
       const model = (await modelRuntime.getAvailable())
@@ -153,7 +170,10 @@ export async function installPersistentSessions(
         // Without this the session has no `sero-cli` tool object at all, so the
         // approved `sero-cli` name matches nothing and the member cannot run a
         // single Room command (AD-020).
-        customTools: [createWorkspaceCliTool(target.workspace.id, cliScopeId, cliRegistry)],
+        customTools: [
+          createWorkspaceCliTool(input.workspaceId, cliScopeId, cliRegistry),
+          ...await createMemberRuntimeTools(input.workspaceId, allowed, input.cwd, cliScopeId),
+        ],
         resourceLoader: await createMemberResourceLoader({
           cwd: input.cwd,
           // The POLICY's skills, intersected with what the request asked for —
@@ -167,7 +187,7 @@ export async function installPersistentSessions(
           // instead of guessing its path; a member approved for none cannot.
           packages: [target.manifest.packagePath, ...searchPluginPackages()],
           extensionFactories: [
-            createSeroExtensionFactory(workspaceManager, target.workspace.id, cliScopeId, undefined, {
+            createSeroExtensionFactory(workspaceManager, input.workspaceId, cliScopeId, undefined, {
               // No agent-management tools: a Room member must not be able to
               // spawn agents outside the roster the user approved.
               enableAgentManagementTools: false,

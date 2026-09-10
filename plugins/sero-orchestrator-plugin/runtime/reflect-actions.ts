@@ -15,6 +15,8 @@ import type { Loop, OrchestratorAction, OrchestratorActionResult, ReflectedLoopS
 import type { OrchestratorHost } from './host';
 import { gatherHistory } from './digest';
 import { applyReflection, approveSuggestion, proposeImprovements, rejectSuggestion } from './reflection';
+import { loopUsageSink } from './usage-tracking';
+import { mergeConcurrentAccounting } from './run-engine-helpers';
 
 type ReflectAction = Extract<OrchestratorAction, { kind: 'reflect' | 'reflect_workspace' | 'choose_suggestion' }>;
 
@@ -24,15 +26,16 @@ async function findLoop(host: OrchestratorHost, loopId: string): Promise<Loop | 
 }
 
 async function replaceLoop(host: OrchestratorHost, loop: Loop): Promise<void> {
-  await host.updateState((state) => ({ ...state, loops: state.loops.map((l) => (l.id === loop.id ? loop : l)) }));
+  await host.updateState((state) => ({ ...state, loops: state.loops.map((l) => (l.id === loop.id ? mergeConcurrentAccounting(l, loop) : l)) }));
 }
 
 /** Reflects one loop and persists its new insights + pending suggestions. */
 async function reflectLoop(host: OrchestratorHost, loop: Loop): Promise<{ loop: Loop; added: number } | { error: string }> {
   const history = await gatherHistory(host, loop);
   if (history.length === 0) return { error: 'No runs yet — run the loop before reflecting.' };
-  const output = await proposeImprovements(host, loop, history);
-  const updated = applyReflection(loop, output, host.now());
+  const output = await proposeImprovements(host, loop, history, loopUsageSink(host, loop.id, 'auxiliaryUsage'));
+  const usage = (await host.readState())?.loops.find((entry) => entry.id === loop.id)?.auxiliaryUsage;
+  const updated = { ...applyReflection(loop, output, host.now()), auxiliaryUsage: usage ?? loop.auxiliaryUsage };
   await replaceLoop(host, updated);
   return { loop: updated, added: output.suggestions.length };
 }

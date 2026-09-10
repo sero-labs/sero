@@ -16,7 +16,7 @@
  * persisted for diagnosis.
  */
 
-import type { Loop, LoopRun, StepAttempt } from '../shared/types';
+import type { Loop, LoopRun, StepAttempt, UsageSummary } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import type { StopChecker } from './engine-types';
 import { loopArtifactDir } from './artifacts';
@@ -94,7 +94,7 @@ function parseStopDecision(value: unknown): ParseResult<StopConditionDecision> {
 
 export async function evaluateStopCondition(
   host: OrchestratorHost,
-  args: { loop: Loop; run?: LoopRun; signal?: AbortSignal },
+  args: { loop: Loop; run?: LoopRun; signal?: AbortSignal; onUsage?: (usage: UsageSummary) => void | Promise<void> },
 ): Promise<StopConditionDecision> {
   const { loop } = args;
   // Mid-pass the in-progress run carries the attempts (they are not folded into
@@ -109,6 +109,7 @@ export async function evaluateStopCondition(
     parentSessionId: loop.runtime.parentSessionId,
     signal: args.signal,
     maxRepairs: 2,
+    onUsage: args.onUsage,
   });
   if (!result.ok || !result.value) {
     host.log(`stop-condition evaluation failed for ${loop.id}: ${result.errors.join('; ')}`);
@@ -129,5 +130,5 @@ export async function evaluateStopCondition(
  * (runtime/index.ts); left unset in unit tests so the engine makes no model call.
  */
 export const llmStopChecker: StopChecker = {
-  check: ({ host, loop, run }) => evaluateStopCondition(host, { loop, run }),
+  check: ({ host, loop, run, onUsage }) => evaluateStopCondition(host, { loop, run, onUsage }),
 };

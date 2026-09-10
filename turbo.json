@@ -9,6 +9,7 @@
       "dependsOn": [
         "^build",
         "@sero-ai/plugin-admin#build",
+        "@sero-ai/plugin-architect#build",
         "@sero-ai/plugin-cron#build",
         "@sero-ai/plugin-design-library#build",
         "@sero-ai/plugin-git#build",

@@ -62,6 +62,21 @@ describe('POSIX host process adapter parsers', () => {
 });
 
 describe('POSIX host process adapter', () => {
+  it('intersects process IDs with TCP listeners instead of selecting unrelated servers', async () => {
+    const execFile = vi.fn<HostProcessExecFile>().mockImplementation(async (input) => {
+      if (input.program !== 'lsof') return fail();
+      const own = 'node 1234 user 22u IPv4 TCP 127.0.0.1:5174 (LISTEN)';
+      const unrelated = 'ControlCe 624 user 22u IPv4 TCP *:7000 (LISTEN)';
+      return ok(input.args.includes('-a') ? own : `${unrelated}\n${own}`);
+    });
+    const adapter = new PosixHostProcessAdapter(execFile);
+
+    await expect(adapter.listeningPort([1234])).resolves.toBe(5174);
+    expect(execFile).toHaveBeenCalledWith(expect.objectContaining({
+      args: ['-nP', '-a', '-iTCP', '-sTCP:LISTEN', '-p', '1234'],
+    }));
+  });
+
   it('discovers descendants recursively with pgrep', async () => {
     const execFile = vi.fn<HostProcessExecFile>().mockImplementation(async (input) => {
       if (input.args[1] === '100') return ok('200\n201\n');

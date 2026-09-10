@@ -26,11 +26,12 @@ function launchEventName(appId: string): string {
 /**
  * Switch the shell to another app. Optional `params` are held for the target
  * app to pick up via `consumeAppLaunchParams` when it mounts. Resolves false
- * when the app is unknown or the shell doesn't expose app control.
+ * when the app or requested workspace is unknown, or app control is unavailable.
+ * A workspace id selects that workspace before opening the app.
  */
-export async function openSeroApp(appId: string, params?: Record<string, unknown>): Promise<boolean> {
+export async function openSeroApp(appId: string, params?: Record<string, unknown>, workspaceId?: string): Promise<boolean> {
   if (params) getRegistry().set(appId, params);
-  const opened = (await getSeroApi().appControl?.open(appId)) ?? false;
+  const opened = (await getSeroApi().appControl?.open(appId, workspaceId)) ?? false;
   if (!opened) getRegistry().delete(appId);
   if (opened && params && typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(launchEventName(appId), { detail: params }));

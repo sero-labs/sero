@@ -60,6 +60,7 @@ import { RoomSignalBook, quietMark } from './room-signals';
 import { handleIdleLimit, handleStall, reportWaitCycle, type StallContext } from './room-stall';
 import type { RoomRecord } from './room-state';
 import type { RoomStore } from './room-store';
+import { settleRoomCompletion } from './room-completion';
 import type { RoomRuntimeTelemetry } from './room-telemetry';
 import { createRoomWorkspaces, type RoomWorkspaces } from './room-workspace';
 
@@ -158,8 +159,8 @@ export class RoomCoordinator {
     return pauseRoom(this.ctx, roomId, detail);
   }
 
-  async resumeRoom(roomId: string): Promise<RoomActionResult> {
-    const result = await resumeRoom(this.ctx, roomId);
+  async resumeRoom(roomId: string, maxWallClockMs?: number): Promise<RoomActionResult> {
+    const result = await resumeRoom(this.ctx, roomId, maxWallClockMs);
     if (!result.ok || !result.room) return result;
     const conductor = result.room.members.find((member) => member.isConductor && member.status !== 'retired');
     if (conductor) await this.wake(roomId, conductor.id, 'user-intervention');
@@ -367,6 +368,7 @@ export class RoomCoordinator {
     this.emit({ roomId, kind: 'turn-ended', memberId, detail: result.detail });
     const record = await this.deps.store.readRoom(roomId);
     if (!record) return;
+    if (record.runtime.status === 'completing') return settleRoomCompletion(this.ctx, roomId);
     const member = record.members.find((candidate) => candidate.id === memberId);
     const now = this.host.now();
     if (member && (member.status === 'working' || member.status === 'starting')) {

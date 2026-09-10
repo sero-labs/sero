@@ -26,6 +26,8 @@ USE THE CONTEXT YOU ARE GIVEN. Your task includes the loop's current variables a
 
 THE WORKING DIRECTORY IS SHARED AND CUMULATIVE. Every step of this loop runs in the SAME git worktree, one after another. Files that an earlier step created or edited — INCLUDING new files that are still untracked (not yet \`git add\`ed or committed) — are this loop's in-progress work product, NOT stray cruft. Never delete, revert, \`git checkout --\`/\`git restore\`, \`git stash\`, or \`git clean\` another step's changes unless your own step explicitly tells you to undo work. When your step inspects or reviews the changes, account for untracked files too (e.g. \`git status\`, or \`git add -A\` then \`git diff --staged\`): a new untracked file is intended work from a prior step, not an accident. If the changes look wrong, report it via your StepOutcome ("needs-revision" or "blocked") instead of erasing them.
 
+PRESERVE THE LIVE WORKSPACE. Existing databases and user files are not release debris. Git-ignored files may hold durable user data. Never delete .sero/ or .sero-workspace.json: Sero owns that runtime state. Release hygiene means excluding local files from version control, not erasing them from the working workspace. Remove only scratch files you created for this step and can identify as disposable; preserve the user's running preview. If a step's cleanup instructions conflict with these boundaries, report the conflict instead of carrying out the deletion. Never work around a denied or timed-out permission request by changing the command, tool, or programming language.
+
 CRITICAL — how to report the result: after doing the work, your reply MUST END with exactly one JSON object, wrapped in a \`\`\`json code fence, and nothing after it. Use these EXACT field names and these EXACT status values:
 
 \`\`\`json
@@ -148,13 +150,35 @@ function fanOutContext(step: LoopStepDefinition, fanOut?: FanOutRunContext): str
   return `\nFAN-OUT ACTIVATION ${fanOut.index + 1} of ${fanOut.total} ("${fanOut.key}") — this step runs once per item of "${step.fanOut.itemsFrom}". Handle ONLY the item below; sibling activations handle the rest, so do not process, enumerate, or summarise other items. Record this activation's findings in your StepOutcome "variables"/"summary" — they are aggregated with the sibling results (as "${fanOutResultsVariable(step.fanOut)}") for downstream steps.\nYour item (variables.${fanOut.itemVariable}):\n${JSON.stringify(fanOut.item, null, 2)}`;
 }
 
+/** A retry starts a fresh session, so carry its saved result and recovery decision. */
+function retryContext(loop: Loop, step: LoopStepDefinition, run?: LoopRun): string {
+  const previousId = loop.runtime.stepStates[step.id]?.lastAttemptId;
+  if (!previousId) return '';
+  const history = [...loop.runs, ...(run ? [run] : [])];
+  const previous = history.flatMap((item) => item.stepAttempts).find((attempt) => attempt.id === previousId);
+  if (!previous || previous.outcome?.status === 'succeeded' || previous.outcome?.status === 'skipped') return '';
+  const recovery = history.flatMap((item) => item.recoveryDecisions).reverse()
+    .find((decision) => decision.failedAttemptId === previous.id);
+  const artifacts = [previous.outputPath, ...previous.observations.map((observation) => observation.artifactPath)].filter(Boolean);
+  return [
+    '\nRECOVERING PREVIOUS ATTEMPT. Inspect the existing work before taking new actions. Preserve valid results and finish only the missing or failed work. Recheck evidence where needed; do not repeat an uncertain external effect.',
+    `Previous result: ${previous.outcome?.summary ?? previous.error ?? previous.status}`,
+    recovery ? `Recovery instruction: ${recovery.reason}` : '',
+    artifacts.length ? `Previous artifacts: ${[...new Set(artifacts)].join(', ')}` : '',
+  ].filter(Boolean).join('\n');
+}
+
 export function buildStepTask(loop: Loop, step: LoopStepDefinition, run?: LoopRun, fanOut?: FanOutRunContext): string {
-  const parts = [`Loop objective: ${loop.plan.objective}`];
+  const parts = [
+    `Original task requirements (later approved plan revisions can supersede these):\n${loop.prompt}`,
+    `Loop objective: ${loop.plan.objective}`,
+  ];
   if (loop.plan.globalInstructions) parts.push(`Global instructions: ${loop.plan.globalInstructions}`);
   parts.push(eventContext(run));
   parts.push(`\nStep: ${step.title}\n${step.instructions}`);
   parts.push(fanOutContext(step, fanOut));
   parts.push(feedbackContext(step, run));
+  if (!fanOut) parts.push(retryContext(loop, step, run));
   if (step.gate === 'approval') {
     parts.push(`\nThis step is an APPROVAL GATE: the user must decide before anything is delivered. Do NOT deliver anything in this step. If the shared notes do not yet contain the user's decision on this exact content, STOP and ask: set "status" to "needs-revision" and emit ONE question of this exact form in your StepOutcome "questions":
 { "prompt": "<what needs approving, one sentence>", "kind": "approval", "attachment": "<the FULL exact content to be delivered>", "choices": [ { "id": "approve", "label": "Approve" }, { "id": "reject", "label": "Reject" } ] }

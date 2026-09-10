@@ -9,8 +9,11 @@
  * we reject it with a clear reason and let the model fix it.
  */
 
-import type { OrchestratorHost } from './host';
+import type { ModelRunResult, OrchestratorHost } from './host';
 import { extractJson } from './schema';
+import type { UsageSummary } from '../shared/types';
+import { aggregateUsage } from '../shared/usage';
+import { runTrackedModel } from './usage-tracking';
 
 export type ParseResult<T> =
   | { ok: true; value: T }
@@ -54,6 +57,8 @@ export interface StructuredCallSpec<T> {
   platformTools?: 'none' | 'readOnly';
   /** Working directory, required when `platformTools` is not 'none'. */
   cwd?: string;
+  /** Receives deltas from cumulative SDK snapshots while the operation runs. */
+  onUsage?: (usage: UsageSummary) => void | Promise<void>;
 }
 
 export interface StructuredCallResult<T> {
@@ -62,6 +67,8 @@ export interface StructuredCallResult<T> {
   errors: string[];
   /** Raw model replies in order, for artifacts and diagnostics. */
   responses: string[];
+  /** Sum of each distinct model call, with repeated snapshots replaced. */
+  usage?: UsageSummary;
 }
 
 /**
@@ -77,9 +84,10 @@ export async function runStructuredJson<T>(
   const maxRepairs = spec.maxRepairs ?? 1;
   let task = spec.task;
   let errors: string[] = ['no model response'];
+  const calls: UsageSummary[] = [];
 
   for (let attempt = 0; attempt <= maxRepairs; attempt += 1) {
-    const result = await host.runStructured({
+    const result: ModelRunResult = await runTrackedModel(host, {
       task,
       systemPrompt: spec.systemPrompt,
       model: spec.model,
@@ -88,15 +96,18 @@ export async function runStructuredJson<T>(
       platformTools: spec.platformTools ?? 'none',
       cwd: spec.cwd,
       signal: spec.signal,
-    });
-    if (result.error) return { ok: false, errors: [result.error], responses };
+    }, spec.onUsage);
+    const callUsage = { ...(result.usage ?? {}), ...(!result.usage || result.error ? { incomplete: true } : {}) };
+    calls.push(callUsage);
+    const usage = aggregateUsage(calls.map((usage) => ({ usage })));
+    if (result.error) return { ok: false, errors: [result.error], responses, usage };
     responses.push(result.response);
 
     const parsed = spec.parse(extractJson(result.response));
-    if (parsed.ok) return { ok: true, value: parsed.value, errors: [], responses };
+    if (parsed.ok) return { ok: true, value: parsed.value, errors: [], responses, usage };
 
     errors = parsed.errors;
     task = spec.buildRepair(result.response, parsed.errors);
   }
-  return { ok: false, errors, responses };
+  return { ok: false, errors, responses, usage: aggregateUsage(calls.map((usage) => ({ usage }))) };
 }

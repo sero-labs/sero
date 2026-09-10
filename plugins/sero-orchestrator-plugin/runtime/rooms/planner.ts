@@ -40,6 +40,7 @@ import {
   type RoomCapabilityCatalogue,
 } from '../../shared/room-validation';
 import type { OrchestratorHost } from '../host';
+import type { UsageSummary } from '../../shared/usage-types';
 import { runStructuredJson } from '../structured-call';
 import { parseRoomPlannerReply, type RoomPlannerReply } from './planner-parse';
 import {
@@ -60,6 +61,9 @@ export type RoomAccessChoice = MemberPermissionLevel;
 
 /** Everything the user may set before planning. Every field is optional. */
 export interface RoomUserLimits {
+  executionMode?: 'workspace' | 'worktree';
+  models?: string[];
+  thinkingLevels?: string[];
   maxCostUsd?: number;
   maxWallClockMs?: number;
   maxMembers?: number;
@@ -80,6 +84,7 @@ export interface RoomPlanRequest {
   model?: string;
   thinking?: string;
   signal?: AbortSignal;
+  onUsage?: (usage: UsageSummary) => void | Promise<void>;
 }
 
 export type RoomPlanOutcome =
@@ -91,9 +96,10 @@ export type RoomPlanOutcome =
       /** What the user's limits took away from the model's suggestion. */
       clamps: BlueprintClamp[];
       modelResponses: string[];
+      usage?: UsageSummary;
     }
-  | { ok: false; needsInput: true; questions: HumanQuestion[]; modelResponses: string[] }
-  | { ok: false; needsInput?: false; errors: string[]; modelResponses: string[] };
+  | { ok: false; needsInput: true; questions: HumanQuestion[]; modelResponses: string[]; usage?: UsageSummary }
+  | { ok: false; needsInput?: false; errors: string[]; modelResponses: string[]; usage?: UsageSummary };
 
 // ── Defaults the user's chips override (D-18) ───────────────
 
@@ -143,7 +149,7 @@ const WORKSPACE_CEILING: Record<RoomAccessChoice, RoomWorkspaceMode> = {
  * deliberate decision.
  */
 const BLOCKED_ACCESS_LABELS: Record<RoomAccessChoice, readonly AccessLabel[]> = {
-  'read-only': ['edit-workspace', 'edit-working-files-directly', 'github-write', 'deployment'],
+  'read-only': ['edit-workspace', 'edit-working-files-directly', 'run-commands', 'github-write', 'deployment'],
   'edit-workspace': ['github-write', 'deployment'],
   'edit-and-push': ['deployment'],
 };
@@ -197,7 +203,7 @@ function pinned(host: OrchestratorHost, variable: string, available: string[]): 
   return available;
 }
 
-async function loadCatalogue(host: OrchestratorHost): Promise<RoomCatalogue> {
+async function loadCatalogue(host: OrchestratorHost, limits: RoomUserLimits = {}): Promise<RoomCatalogue> {
   const [groups, tools, skills] = await Promise.all([
     host.listAvailableModels(),
     host.listToolCatalog(),
@@ -209,8 +215,8 @@ async function loadCatalogue(host: OrchestratorHost): Promise<RoomCatalogue> {
   }));
   const allowed = pinned(host, 'SERO_ROOM_MODELS', models.map((model) => model.id));
   return {
-    models: models.filter((model) => allowed.includes(model.id)),
-    thinkingLevels: pinned(host, 'SERO_ROOM_THINKING', [...DEFAULT_THINKING_LEVELS]),
+    models: models.filter((model) => allowed.includes(model.id) && (!limits.models || limits.models.includes(model.id))),
+    thinkingLevels: pinned(host, 'SERO_ROOM_THINKING', [...DEFAULT_THINKING_LEVELS]).filter((level) => !limits.thinkingLevels || limits.thinkingLevels.includes(level)),
     tools,
     skills,
   };
@@ -253,10 +259,11 @@ export function resolveRoomEnvelope(catalogue: RoomCatalogue, limits: RoomUserLi
     ],
     allowedSkills: catalogue.skills.map((skill) => skill.name).filter((name) => allowsCapability(name, access)),
     workspacePolicy: {
-      mode: WORKSPACE_CEILING[access],
-      // Working in the user's own files is reachable only through an explicit
-      // approval in advanced settings, never through a broad access choice.
-      sharedTreeApproved: false,
+      mode: limits.executionMode === 'workspace' ? 'shared-working-tree' : WORKSPACE_CEILING[access],
+      ...(limits.executionMode ? { lockedMode: limits.executionMode === 'workspace' ? 'shared-working-tree' as const : WORKSPACE_CEILING[access] } : {}),
+      // Execution location is a user choice; it grants no additional tools
+      // or member permissions.
+      sharedTreeApproved: limits.executionMode === 'workspace',
       claimPolicy: 'warn',
     },
     allowedDeliveryDestinations: [deliveryChoice(limits)],
@@ -276,7 +283,7 @@ function promptCatalogue(catalogue: RoomCatalogue, envelope: OperatingEnvelope):
 // ── Planning ────────────────────────────────────────────────
 
 export async function planRoom(host: OrchestratorHost, request: RoomPlanRequest): Promise<RoomPlanOutcome> {
-  const catalogue = await loadCatalogue(host);
+  const catalogue = await loadCatalogue(host, request.limits);
   if (catalogue.models.length === 0) {
     return { ok: false, errors: ['no models are available in this workspace, so a Room cannot be staffed'], modelResponses: [] };
   }
@@ -306,14 +313,15 @@ export async function planRoom(host: OrchestratorHost, request: RoomPlanRequest)
     model: request.model,
     thinking: request.thinking,
     signal: request.signal,
+    onUsage: request.onUsage,
   });
 
   if (!result.ok || !result.value) {
     host.log(`room planning failed: ${result.errors.join('; ')}`);
-    return { ok: false, errors: result.errors, modelResponses: result.responses };
+    return { ok: false, errors: result.errors, modelResponses: result.responses, usage: result.usage };
   }
   if (result.value.kind === 'questions') {
-    return { ok: false, needsInput: true, questions: result.value.questions, modelResponses: result.responses };
+    return { ok: false, needsInput: true, questions: result.value.questions, modelResponses: result.responses, usage: result.usage };
   }
 
   const { blueprint, clamps } = result.value;
@@ -325,5 +333,6 @@ export async function planRoom(host: OrchestratorHost, request: RoomPlanRequest)
     proposal: computeProposalSummary(blueprint),
     clamps,
     modelResponses: result.responses,
+    usage: result.usage,
   };
 }

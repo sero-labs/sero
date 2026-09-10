@@ -12,6 +12,7 @@ import { cleanupPreviousWorktree } from './worktree-cleanup';
 import { rearmLoop, reenableSchedule } from './scheduler';
 import { hasRunningSteps } from './readiness';
 import { retryStep, retryStuckLoop } from './recovery-apply';
+import { requireExternalReview } from './delivery/external-review';
 
 /**
  * Restart: re-run the whole plan from the first step. Re-arms every step
@@ -31,6 +32,8 @@ export async function runAgain(
 ): Promise<OrchestratorActionResult> {
   const loop = await seam.findLoop(loopId);
   if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
+  const review = await requireExternalReview(host, loop, (next) => seam.replaceLoop(next));
+  if (review) return review;
   if (loop.status === 'draft') {
     return { ok: false, error: 'This loop has not started yet — use Activate.' };
   }
@@ -60,6 +63,8 @@ export async function retryLoop(
 ): Promise<OrchestratorActionResult> {
   const loop = await seam.findLoop(loopId);
   if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
+  const review = await requireExternalReview(host, loop, (next) => seam.replaceLoop(next));
+  if (review) return review;
   if (loop.runtime.activeRunId || hasRunningSteps(loop)) {
     return { ok: false, error: 'A run is already in progress.' };
   }
@@ -82,6 +87,8 @@ export async function retryStepAction(
 ): Promise<OrchestratorActionResult> {
   const loop = await seam.findLoop(loopId);
   if (!loop) return { ok: false, error: `Loop not found: ${loopId}` };
+  const review = await requireExternalReview(host, loop, (next) => seam.replaceLoop(next));
+  if (review) return review;
   if (loop.runtime.activeRunId || hasRunningSteps(loop)) {
     return { ok: false, error: 'A run is already in progress.' };
   }

@@ -11,15 +11,16 @@
  *  - record a system observation explaining the restart.
  *
  * Resetting by step STATE (not just recorded attempts) is essential: a step that
- * was executing when the process died was never saved as a `running` attempt
- * (attempts are recorded only when a step finishes), so its runtime state is left
+ * executed by an older runtime might not have a persisted `running` attempt,
+ * so its runtime state can be left
  * stuck at `running`, which silently wedges the loop (no step is ever ready).
  */
 
-import type { Loop, Observation, StepRuntimeState } from '../shared/types';
+import type { Loop, LoopBlock, Observation, StepRuntimeState } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import { isRecurring, rearmLoop } from './scheduler';
 import { orphanRunningActivations } from './activations';
+import { uncertainExternalDeliveryInRun } from './delivery/delivery-contract';
 
 const inFlight = (state: StepRuntimeState): boolean =>
   state.status === 'running' || state.status === 'ready';
@@ -34,9 +35,12 @@ export function reconcileLoop(host: OrchestratorHost, loop: Loop): Loop {
 
   const now = host.now();
   const runIndex = activeRunId ? loop.runs.findIndex((r) => r.id === activeRunId) : -1;
+  const interruptedRunIds = new Set(loop.runs.filter((run) => run.id === activeRunId || run.status === 'running').map((run) => run.id));
 
   const runs = loop.runs.map((run) => {
-    if (run.id === activeRunId) {
+    // Mark the active run and any stale running zombie as orphaned. The latter
+    // can retain a running attempt even when activeRunId was already cleared.
+    if (run.id === activeRunId || run.status === 'running') {
       const stepAttempts = run.stepAttempts.map((attempt) =>
         attempt.status === 'running'
           ? { ...attempt, status: 'orphaned' as const, endedAt: now, error: attempt.error ?? 'process restarted' }
@@ -44,8 +48,6 @@ export function reconcileLoop(host: OrchestratorHost, loop: Loop): Loop {
       );
       return orphanRunningActivations({ ...run, status: 'orphaned' as const, endedAt: run.endedAt ?? now, stepAttempts }, now, 'orphaned');
     }
-    // A non-active run still marked 'running' is a stale zombie from a prior run.
-    if (run.status === 'running') return { ...run, status: 'orphaned' as const, endedAt: run.endedAt ?? now };
     return run;
   });
 
@@ -63,6 +65,34 @@ export function reconcileLoop(host: OrchestratorHost, loop: Loop): Loop {
       : runs.map((run, i) => (i === runIndex ? { ...run, observations: [...run.observations, observation] } : run));
 
   const base = { ...loop, runs: reconciledRuns };
+
+  const uncertainEntry = reconciledRuns
+    .filter((run) => interruptedRunIds.has(run.id))
+    .map((run) => ({ run, uncertain: uncertainExternalDeliveryInRun(loop, run) }))
+    .find((entry) => entry.uncertain);
+  const uncertainRun = uncertainEntry?.run;
+  const uncertain = uncertainEntry?.uncertain;
+  if (uncertain && uncertainRun) {
+    const block: LoopBlock = {
+      kind: 'recovery-block',
+      reason: uncertain.reason,
+      createdAt: now,
+      sourceStepId: uncertain.stepId,
+      sourceAttemptId: uncertain.attemptId,
+    };
+    const step = loop.runtime.stepStates[uncertain.stepId];
+    const stepStates = step && inFlight(step)
+      ? { ...loop.runtime.stepStates, [uncertain.stepId]: { ...step, status: 'failed' as const, updatedAt: now } }
+      : loop.runtime.stepStates;
+    const runsWithBlock = reconciledRuns.map((run) => run.id === uncertainRun.id ? { ...run, block } : run);
+    return {
+      ...base,
+      status: loop.status === 'disabled' ? 'disabled' : 'blocked',
+      runs: runsWithBlock,
+      runtime: { ...base.runtime, activeRunId: undefined, stepStates, block },
+      updatedAt: now,
+    };
+  }
 
   // A recurring loop's interrupted iteration is disposable — re-arm for a clean
   // next pass (this also clears the steps the dead run left stuck in 'running').

@@ -26,6 +26,8 @@ export interface AppRuntimeSubagentRunParams {
   disabledTools?: string[];
   disabledSkills?: string[];
   onUpdate?: (text: string) => void;
+  /** Cumulative usage for this run, reported after each model turn. */
+  onUsage?: (usage: AppRuntimeSubagentUsage) => void;
   platformTools?: 'all' | 'readOnly' | 'none';
   signal?: AbortSignal;
 }
@@ -35,6 +37,8 @@ export interface AppRuntimeSubagentUsage {
   outputTokens: number;
   totalTokens: number;
   costUsd?: number;
+  /** True when the SDK could not provide a complete final usage snapshot. */
+  incomplete?: boolean;
 }
 
 export interface AppRuntimeSubagentResult {

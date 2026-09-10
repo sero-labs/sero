@@ -9,9 +9,10 @@ import { isModelTier } from '@sero-ai/common';
 import type { Loop, LoopStepDefinition, Observation, StepAttempt, StepOutcome, UsageSummary } from '../../shared/types';
 import { DEFAULT_TOOLS } from '../../shared/constants';
 import type { StepRunInput } from '../engine-types';
+import type { ModelRunResult } from '../host';
 import { artifactPath, storeOutput } from '../artifacts';
 import { extractJson } from '../schema';
-import { resolveStepModel, type ResolvedStepModel } from '../model-resolution';
+import { resolveStepModel, unavailableModelReason, type ResolvedStepModel } from '../model-resolution';
 import { buildOutcomeRepair, buildStepTask, parseStepOutcome, parseStepOutcomeStrict, STEP_SYSTEM_PROMPT } from './prompt';
 import { formatRouteRepair, missingRouteVariables } from '../route-contract';
 import { deliveryProblems, formatDeliveryRepair, receiptRequirement } from '../delivery/delivery-contract';
@@ -50,7 +51,7 @@ export interface RunStepOptions {
   refineOutcome?: (response: string, parsed: StepOutcome | undefined) => StepOutcome | undefined;
 }
 
-function toUsage(durationMs?: number, usage?: { inputTokens: number; outputTokens: number; totalTokens: number; costUsd?: number }): UsageSummary | undefined {
+function toUsage(durationMs?: number, usage?: { inputTokens: number; outputTokens: number; totalTokens: number; costUsd?: number; incomplete?: boolean }): UsageSummary | undefined {
   if (!usage && durationMs === undefined) return undefined;
   return { ...usage, durationMs };
 }
@@ -60,13 +61,36 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
   const task = buildStepTask(loop, step, run, input.fanOut);
 
   // Resolve the step's chosen model. Tiers and "no preference" pass straight
-  // through; a pinned model that is no longer available falls back to MED (we
+  // through; an unavailable explicit pin blocks before any worker starts (we
   // only pay the listAvailableModels call when a specific model is pinned).
   const requested = 'model' in step.execution ? step.execution.model : undefined;
   const resolved: ResolvedStepModel =
     requested && !isModelTier(requested)
       ? resolveStepModel(requested, await host.listAvailableModels())
       : { model: requested };
+
+  const startedAt = host.now();
+  const pendingAttempt: StepAttempt = {
+    id: host.newId('attempt'), stepId: step.id, attemptNumber, parentSessionId,
+    executionType: step.execution.type, status: 'running', workspace,
+    observations: [], usage: { incomplete: true }, startedAt,
+  };
+  if (resolved.unavailableModel) {
+    const reason = unavailableModelReason(resolved.unavailableModel);
+    const blocked: StepAttempt = {
+      ...pendingAttempt,
+      status: 'failed',
+      model: resolved.unavailableModel,
+      usage: { costUsd: 0 },
+      modelUnavailable: { requestedModel: resolved.unavailableModel },
+      outcome: { status: 'blocked', summary: reason },
+      endedAt: host.now(),
+      error: reason,
+    };
+    await input.onAttempt?.(pendingAttempt);
+    await input.onAttempt?.(blocked);
+    return blocked;
+  }
 
   // Named agent role (background-agent steps only; planner-picked or user-set).
   // Verify it against the real catalog before the run — only when one is pinned —
@@ -98,6 +122,13 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
       ? [...new Set([...DEFAULT_TOOLS, ...(step.execution.tools ?? [])])]
       : undefined;
 
+  await input.onAttempt?.(pendingAttempt);
+  let latestUsage: ModelRunResult['usage'];
+  let progress = Promise.resolve();
+  // Match active-session execution: the Workflow owns its wall-clock budget.
+  // Omit the override for uncapped runs so the normal agent settings still apply.
+  const remainingMs = loop.limits.maxWallClockMs === undefined ? undefined
+    : loop.limits.maxWallClockMs - (Date.parse(host.now()) - Date.parse(run.startedAt));
   const result = await host.runStructured({
     task,
     agent,
@@ -116,8 +147,20 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
     disabledTools: ctxOverride?.disabledTools,
     disabledSkills: ctxOverride?.disabledSkills,
     signal,
+    timeoutMs: remainingMs !== undefined && Number.isFinite(remainingMs) ? Math.max(1, remainingMs) : undefined,
     repair: outcomeRepair(loop, step),
-  });
+    onUsage: (usage) => {
+      latestUsage = { ...usage };
+      const snapshot = { ...pendingAttempt, usage: { ...usage, incomplete: true } };
+      progress = progress.then(async () => { await input.onAttempt?.(snapshot); })
+        .catch((error: unknown) => host.log(`Could not save usage for ${pendingAttempt.id}: ${String(error)}`));
+    },
+  }).catch((error: unknown): ModelRunResult => ({
+    response: '',
+    error: error instanceof Error ? error.message : String(error),
+  }));
+
+  await progress;
 
   // Fan-out activations write per-key artifacts so sibling attempts don't collide.
   const attemptFile = `${step.id}${input.fanOut ? `-${input.fanOut.key}` : ''}-a${attemptNumber}.txt`;
@@ -133,8 +176,8 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
     createdAt: host.now(),
   };
 
-  return {
-    id: host.newId('attempt'),
+  const attempt: StepAttempt = {
+    id: pendingAttempt.id,
     stepId: step.id,
     attemptNumber,
     parentSessionId,
@@ -143,13 +186,17 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
     outcome,
     workspace,
     model: result.modelId,
-    modelFallback: resolved.fallbackFrom ? { requestedModel: resolved.fallbackFrom } : undefined,
     agentFallback,
     outputPath: stored.artifactRef,
     observations: [observation],
-    usage: toUsage(result.durationMs, result.usage),
-    startedAt: observation.createdAt,
+    usage: {
+      ...toUsage(result.durationMs, result.usage ?? latestUsage),
+      ...((result.error || !result.usage || result.usage.incomplete || result.usage.costUsd === undefined) ? { incomplete: true } : {}),
+    },
+    startedAt,
     endedAt: host.now(),
     error: result.error,
   };
+  await input.onAttempt?.(attempt);
+  return attempt;
 }

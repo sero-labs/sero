@@ -89,7 +89,7 @@ interface SeroAppControlAPI {
   /** Get the currently active app ID. */
   active(): Promise<string>;
   /** Switch to a specific app by ID. Returns true if successful. */
-  open(appId: string): Promise<boolean>;
+  open(appId: string, workspaceId?: string): Promise<boolean>;
   /** Get detailed info for a specific app. */
   info(appId: string): Promise<AppControlEntry | null>;
   /** Open a workspace file in the explorer editor / preview pane. */

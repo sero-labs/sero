@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { BlueprintMember, OperatingEnvelope, RoomBlueprint } from '../../shared/room-blueprint-types';
 import { BUILT_IN_ROOM_TEMPLATES, type RoomTemplate } from '../../shared/room-templates';
-import { computeProposalSummary } from '../../shared/room-validation';
+import { clampBlueprintToEnvelope, computeProposalSummary } from '../../shared/room-validation';
 import type { RoomPresetSeed } from '../rooms/planner-prompt';
 import type { RoomCatalogue, RoomPlanOutcome, RoomPlanRequest, RoomUserLimits } from '../rooms/planner';
 import { planRoom, resolveRoomEnvelope } from '../rooms/planner';
@@ -169,6 +169,21 @@ function asked(outcome: RoomPlanOutcome) {
 }
 
 describe('planRoom', () => {
+  it.each(['workspace', 'worktree'] as const)('keeps caller-selected %s placement through planning and later revisions', async (executionMode) => {
+    const host = roomHost();
+    const opposite = executionMode === 'workspace' ? 'worktree-per-member' : 'shared-working-tree';
+    host.modelResponses.push({ response: reply(blueprint({
+      workspacePolicy: { mode: opposite, sharedTreeApproved: true, claimPolicy: 'warn' },
+    })) });
+    const outcome = planned(await planRoom(host, planRequest({ limits: { ...LIMITS, executionMode } })));
+    const mode = executionMode === 'workspace' ? 'shared-working-tree' : 'worktree-per-member';
+    expect(outcome.blueprint.workspacePolicy).toMatchObject({ mode, lockedMode: mode, sharedTreeApproved: executionMode === 'workspace' });
+    expect(outcome.blueprint.members.map((entry) => entry.permissions)).toEqual(['read-only', 'edit-workspace']);
+    const reopened = structuredClone(outcome.blueprint);
+    const revised = clampBlueprintToEnvelope({ ...reopened, workspacePolicy: { mode: opposite, sharedTreeApproved: false, claimPolicy: 'warn' } }, reopened.envelope);
+    expect(revised.blueprint.workspacePolicy).toMatchObject({ mode, lockedMode: mode, sharedTreeApproved: executionMode === 'workspace' });
+  });
+
   it('turns one problem description into a validated blueprint with exactly one Conductor', async () => {
     const host = roomHost();
     host.modelResponses.push({ response: reply(blueprint()) });
@@ -195,6 +210,25 @@ describe('planRoom', () => {
     expect(task).toContain(PROBLEM);
     expect(task).toContain(SONNET);
     expect(task).toContain('sero-plugin');
+  });
+
+  it('offers read-only research tools without command tools that validation would reject', async () => {
+    const host = roomHost();
+    host.toolCatalog = [...TOOL_CATALOG, { name: 'fetch', description: 'Read an API response' }];
+    host.modelResponses.push({ response: reply(blueprint({
+      members: [member(), worker('research', {
+        permissions: 'read-only', needsWorktree: false, tools: ['read', 'fetch', 'sero-cli'],
+      })],
+      workspacePolicy: { mode: 'read-only-shared', sharedTreeApproved: false, claimPolicy: 'warn' },
+    })) });
+
+    const outcome = planned(await planRoom(host, planRequest({ limits: { ...LIMITS, access: 'read-only' } })));
+
+    expect(host.modelCalls).toHaveLength(1);
+    expect(host.modelCalls[0].task).toContain('Read an API response');
+    expect(host.modelCalls[0].task).not.toContain('Run a command');
+    expect(outcome.blueprint.envelope.allowedTools).not.toContain('bash');
+    expect(outcome.blueprint.members[1].tools).toContain('fetch');
   });
 
   it('holds every member to the model and effort level the machine pins', async () => {

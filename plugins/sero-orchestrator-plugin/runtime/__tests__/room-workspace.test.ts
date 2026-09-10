@@ -163,6 +163,7 @@ describe('workspace placement', () => {
     expect(api?.cwd).not.toBe(ui?.cwd);
     expect(api?.cwd).not.toBe(host.workspacePath);
     expect(host.worktreesCreated).toEqual([`room-${roomId}-api`, `room-${roomId}-ui`]);
+    expect(host.worktreeCreates.map((call) => call.workspaceSnapshotKey)).toEqual([roomId, roomId]);
 
     // The reader shares the workspace and cannot change it.
     expect(lead).toMatchObject({ kind: 'read-only-shared', cwd: host.workspacePath, writable: false });
@@ -192,13 +193,16 @@ describe('workspace placement', () => {
 
   it('lets members edit the shared tree once the user has approved it', async () => {
     const roomId = await draftRoom(
-      envelopeWith({ workspacePolicy: { mode: 'shared-working-tree', sharedTreeApproved: true, claimPolicy: 'warn' } }),
+      envelopeWith({ workspacePolicy: { mode: 'shared-working-tree', lockedMode: 'shared-working-tree', sharedTreeApproved: true, claimPolicy: 'warn' } }),
     );
     const placements = await workspaces.prepare(roomId);
     const api = placements.find((placement) => placement.memberId === 'api');
     expect(api).toMatchObject({ kind: 'shared-tree', cwd: host.workspacePath, writable: true });
     expect(host.worktreesCreated).toEqual([]);
     expect((await memberOf(roomId, 'api')).worktreePath).toBeNull();
+    const reopenedWorkspaces = createRoomWorkspaces({ host, store: createRoomStore(makeCtx()) });
+    expect(await reopenedWorkspaces.prepare(roomId)).toEqual(placements);
+    expect(host.worktreesCreated).toEqual([]);
   });
 });
 

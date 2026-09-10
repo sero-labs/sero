@@ -30,6 +30,7 @@ import {
   validateRoomBlueprint,
 } from '../../shared/room-validation';
 import type { OrchestratorHost } from '../host';
+import type { UsageSummary } from '../../shared/usage-types';
 import type { ParseResult } from '../structured-call';
 import { isRecord, runStructuredJson } from '../structured-call';
 import { parseRoomBlueprint } from './blueprint-schema';
@@ -60,6 +61,7 @@ export interface AdjustRoomRequest {
   model?: string;
   thinking?: string;
   signal?: AbortSignal;
+  onUsage?: (usage: UsageSummary) => void | Promise<void>;
 }
 
 export type AdjustRoomOutcome =
@@ -73,8 +75,9 @@ export type AdjustRoomOutcome =
       /** What the user asked for that the approved envelope would not allow. */
       clamps: BlueprintClamp[];
       modelResponses: string[];
+      usage?: UsageSummary;
     }
-  | { ok: false; errors: string[]; modelResponses: string[] };
+  | { ok: false; errors: string[]; modelResponses: string[]; usage?: UsageSummary };
 
 function intersect(allowed: string[], available: string[]): string[] {
   return allowed.filter((name) => available.includes(name));
@@ -223,12 +226,13 @@ export async function adjustRoom(host: OrchestratorHost, request: AdjustRoomRequ
     thinking: request.thinking,
     signal: request.signal,
     maxRepairs: 1,
+    onUsage: request.onUsage,
   });
 
   if (!result.ok || !result.value) {
     const errors = [...new Set([...result.errors, ...rejections])];
     host.log(`Room adjustment failed: ${errors.join('; ')}`);
-    return { ok: false, errors, modelResponses: result.responses };
+    return { ok: false, errors, modelResponses: result.responses, usage: result.usage };
   }
 
   const revised = result.value.blueprint;
@@ -239,5 +243,6 @@ export async function adjustRoom(host: OrchestratorHost, request: AdjustRoomRequ
     diff: diffBlueprints(request.blueprint, revised),
     clamps: result.value.clamps,
     modelResponses: result.responses,
+    usage: result.usage,
   };
 }

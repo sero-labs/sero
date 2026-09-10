@@ -43,6 +43,7 @@ export function isRetryableLoop(loop: Loop): boolean {
   return loop.plan.steps.some((step) => {
     const state = loop.runtime.stepStates[step.id];
     if (!state) return false;
-    return RECOVERABLE_STEP_STATUSES.has(state.status) || isStuckOnAttempts(loop, step, state);
+    return RECOVERABLE_STEP_STATUSES.has(state.status) || isStuckOnAttempts(loop, step, state)
+      || (loop.status === 'disabled' && (state.status === 'pending' || state.status === 'ready'));
   });
 }

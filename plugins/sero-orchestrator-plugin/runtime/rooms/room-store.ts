@@ -21,6 +21,8 @@ import path from 'node:path';
 import type { AppRuntimeContext } from '@sero-ai/common';
 import type { RoomMessage, RoomRevision, RoomTimelineEvent } from '../../shared/room-message-types';
 import type { RoomMember } from '../../shared/room-types';
+import type { UsageSummary } from '../../shared/usage-types';
+import { mergeUsage } from '../../shared/usage';
 import {
   addressesMember,
   assignSequences,
@@ -127,6 +129,9 @@ export interface RoomStore {
   applyRetention(roomId: string): Promise<void>;
   /** Removes `rooms/<roomId>/` entirely. Session files and the grant are the coordinator's (D-12). */
   deleteRoom(roomId: string): Promise<void>;
+  readPendingPlanning(requestId: string): Promise<UsageSummary | undefined>;
+  updatePendingPlanning(requestId: string, usage: UsageSummary): Promise<void>;
+  consumePendingPlanning(requestId: string): Promise<UsageSummary | undefined>;
 }
 
 function requireRoom(state: RoomState, roomId: string): RoomRecord {
@@ -146,6 +151,7 @@ export function createRoomStore(
   let cache: RoomState | null = null;
   let loadPromise: Promise<RoomState> | null = null;
   let tail: Promise<unknown> = Promise.resolve();
+  let pendingPlanning: Record<string, UsageSummary> | null = null;
 
   const readJson = <T>(file: string) => ctx.host.appState.read<T>(file);
   // Atomic write that also triggers the file watcher the UI subscribes to.
@@ -157,6 +163,19 @@ export function createRoomStore(
     loadPromise ??= persistence.load();
     cache = await loadPromise;
     return cache;
+  }
+
+  async function ensurePendingPlanning(): Promise<Record<string, UsageSummary>> {
+    if (pendingPlanning) return pendingPlanning;
+    const loaded = await ctx.host.appState.read<Record<string, UsageSummary>>(paths.planning);
+    pendingPlanning ??= Object.assign(Object.create(null) as Record<string, UsageSummary>, loaded ?? {});
+    return pendingPlanning;
+  }
+
+  async function writePendingPlanning(next: Record<string, UsageSummary>): Promise<void> {
+    Object.setPrototypeOf(next, null);
+    await ctx.host.appState.update(paths.planning, () => next);
+    pendingPlanning = next;
   }
 
   // Serialize writes; a failure does not poison the queue for later writes.
@@ -455,5 +474,26 @@ export function createRoomStore(
         const rooms = prev.rooms.filter((room) => room.definition.id !== roomId);
         await commit(prev, { ...prev, rooms });
       }),
+
+    readPendingPlanning: (requestId) => serialize(async () => {
+      const pending = await ensurePendingPlanning();
+      return pending[requestId] ? structuredClone(pending[requestId]) : undefined;
+    }),
+
+    updatePendingPlanning: (requestId, usage) => serialize(async () => {
+      const pending = await ensurePendingPlanning();
+      await writePendingPlanning({ ...pending, [requestId]: mergeUsage(pending[requestId], usage) ?? {} });
+    }),
+
+    consumePendingPlanning: (requestId) => serialize(async () => {
+      const pending = await ensurePendingPlanning();
+      const usage = pending[requestId];
+      if (usage) {
+        const next = { ...pending };
+        delete next[requestId];
+        await writePendingPlanning(next);
+      }
+      return usage ? structuredClone(usage) : undefined;
+    }),
   };
 }

@@ -38,6 +38,8 @@ export interface HumanQuestion {
  * is never a timeout or default — a human gate only clears when the human answers.
  */
 export interface PendingInput {
+  /** Runtime-issued destination review, bound to one uncertain attempt. */
+  externalDeliveryAttemptId?: string;
   id: string;
   /** Who raised it: the planner (at create time) or a running step. */
   source: 'planner' | 'step';
@@ -65,6 +67,7 @@ export interface InputAnswer {
  * questions) fed back into the asking step's next attempt as context.
  */
 export interface AnsweredInput {
+  externalDeliveryAttemptId?: string;
   requestId: string;
   source: 'planner' | 'step';
   stepId?: string;

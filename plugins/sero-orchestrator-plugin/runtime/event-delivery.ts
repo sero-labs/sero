@@ -20,6 +20,7 @@ import { codeMatchEventTrigger, EVENT_CHAIN_DEPTH_LIMIT, RECENT_EVENT_KEYS_LIMIT
 import { evaluateEventCondition } from './event-condition';
 import { enqueuePendingEvent } from './event-queue';
 import { cleanupPreviousWorktree } from './worktree-cleanup';
+import { loopUsageSink } from './usage-tracking';
 
 /** The coordinator internals event delivery needs — nothing else mutates runs. */
 export interface CoordinatorRunSeam {
@@ -67,7 +68,8 @@ export async function broadcastEvent(
     const passing: string[] = [];
     for (const trigger of candidates) {
       if (trigger.eventCondition) {
-        const matches = await evaluateEventCondition(host, loop, trigger, event).catch((error) => {
+        const onUsage = loopUsageSink(host, loop.id, 'auxiliaryUsage');
+        const matches = await evaluateEventCondition(host, loop, trigger, event, { onUsage }).catch((error) => {
           // An evaluation failure never crashes the broadcast and never counts as a match.
           host.log(`Event condition for loop ${loop.id} trigger ${trigger.id} failed: ${error}`);
           return false;

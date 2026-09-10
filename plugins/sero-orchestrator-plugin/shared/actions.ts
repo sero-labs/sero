@@ -19,6 +19,9 @@ import type {
 } from './types';
 
 export interface CreateLoopOptions {
+  /** Stable caller identity for recovery of an interrupted create request. */
+  requestId?: string;
+  disableTokenLimit?: boolean;
   activate?: boolean;
   triggers?: LoopTriggerSuggestion[];
   limits?: Partial<LoopLimits>;
@@ -44,6 +47,7 @@ export type OrchestratorAction =
   | { kind: 'set_step_agent'; loopId: string; stepId: string; agent?: string }
   | { kind: 'set_loop_context'; loopId: string; overrides: ContextOverrides | null }
   | { kind: 'set_delivery'; loopId: string; delivery: LoopDeliverySettings }
+  | { kind: 'use_cost_budget'; loopId: string; maxCostUsd?: number }
   | { kind: 'set_schedule'; loopId: string; triggerId: string; schedule?: string; disabled?: boolean }
   | { kind: 'reflect'; loopId: string }
   | { kind: 'reflect_workspace' }
@@ -95,6 +99,8 @@ export interface ReflectedLoopSummary {
 export interface OrchestratorActionResult {
   ok: boolean;
   loop?: Loop;
+  /** Set by `create`: the new loop's id, for callers that hold only the typed board handle. */
+  loopId?: string;
   loops?: Loop[];
   run?: LoopRun;
   error?: string;

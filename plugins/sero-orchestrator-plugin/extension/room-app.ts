@@ -62,7 +62,7 @@ export const RoomAppToolParams = Type.Object({
   approvalId: Type.Optional(Type.String({ description: 'For resolve_approval: the approval to answer' })),
   decision: Type.Optional(StringEnum(APPROVAL_DECISIONS, { description: 'For resolve_approval: the answer' })),
   maxCostUsd: Type.Optional(Type.Number({ description: 'For prepare: the most this Room may spend' })),
-  maxMinutes: Type.Optional(Type.Number({ description: 'For prepare: the longest this Room may run' })),
+  maxMinutes: Type.Optional(Type.Number({ description: 'For prepare or resume: total elapsed-minute limit from the original start. Resume may explicitly extend it.' })),
   maxMembers: Type.Optional(Type.Number({ description: 'For prepare: the largest team allowed' })),
   access: Type.Optional(StringEnum(MEMBER_PERMISSION_LEVELS, { description: 'For prepare: the highest access any member may hold' })),
   deliveryDestination: Type.Optional(StringEnum(DELIVERY_DESTINATION_IDS, { description: 'For prepare: where the result goes. invoking-chat returns it to the chat that asked' })),
@@ -205,7 +205,7 @@ async function settledResult(
       return outcome.ok ? done(`Room ${roomId} is pausing. Turns in flight finish first.`) : failure(outcome.error);
     }
     case 'resume': {
-      const outcome = await app.resume(roomId);
+      const outcome = await app.resume(roomId, params.maxMinutes === undefined ? undefined : params.maxMinutes * 60_000);
       return outcome.ok ? done(`Room ${roomId} resumed.`) : failure(outcome.error);
     }
     case 'cancel': {

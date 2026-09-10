@@ -13,6 +13,7 @@
  * coordinator or the store, which is the single writer.
  */
 
+import type { OrchestratorRoomHandle } from '@sero-ai/common';
 import type { HumanQuestion } from '../../shared/human-input-types';
 import { roomPlannerSessionId } from '../../shared/ids';
 import type { RoomProposalSummary } from '../../shared/room-blueprint-types';
@@ -28,6 +29,8 @@ import type { RoomCoordinator } from './room-coordinator';
 import { createRoomLiveActions, type RoomLiveActions, type RoomLiveContext } from './room-app-live';
 import { INVOKING_CHAT_DESTINATION } from './room-delivery';
 import type { RoomMessageDraft } from './room-messages';
+import type { UsageSummary } from '../../shared/usage-types';
+import { mergeUsage, reportedUsage } from '../../shared/usage';
 
 /** Room states the user may still re-plan. Past this, changes go through a revision. */
 const PLANNABLE: readonly RoomStatus[] = ['draft'];
@@ -47,6 +50,7 @@ export interface RoomAppActionsContext extends RoomLiveContext {
 }
 
 export interface PrepareRoomInput {
+  requestId?: string;
   /** The user's own words, kept verbatim. */
   problem: string;
   /** A built-in preset to start from. Seeds the planner's prose, nothing else. */
@@ -69,28 +73,31 @@ export function limitsForOrigin(input: PrepareRoomInput): RoomUserLimits | undef
 }
 
 export interface RoomPlanned {
+  status?: RoomStatus;
   ok: true;
   roomId: string;
   proposal: RoomProposalSummary;
   /** What the user's limits took away from the model's suggestion. */
   clamps: BlueprintClamp[];
+  usage?: UsageSummary;
 }
 
 export type PrepareRoomOutcome =
   | RoomPlanned
-  | { ok: false; needsInput: true; questions: HumanQuestion[] }
-  | { ok: false; needsInput?: false; error: string };
+  | { ok: false; needsInput: true; questions: HumanQuestion[]; usage?: UsageSummary }
+  | { ok: false; needsInput?: false; error: string; usage?: UsageSummary };
 
 export type SimpleOutcome = { ok: true } | { ok: false; error: string };
 
 export interface RoomAppActions extends RoomLiveActions {
+  inspect: OrchestratorRoomHandle['inspect'];
   /** Plans a team from one brief and drafts the Room. Nothing runs yet. */
   prepare(input: PrepareRoomInput): Promise<PrepareRoomOutcome>;
   /** Re-plans a draft in the user's own words. Refused once the Room has started. */
   adjust(roomId: string, instruction: string): Promise<PrepareRoomOutcome>;
   start(roomId: string): Promise<SimpleOutcome>;
   pause(roomId: string, detail?: string): Promise<SimpleOutcome>;
-  resume(roomId: string): Promise<SimpleOutcome>;
+  resume(roomId: string, maxWallClockMs?: number): Promise<SimpleOutcome>;
   cancel(roomId: string, detail?: string): Promise<SimpleOutcome>;
   remove(roomId: string): Promise<SimpleOutcome>;
   resolveApproval(roomId: string, approvalId: string, decision: 'approved' | 'rejected'): Promise<SimpleOutcome>;
@@ -211,37 +218,64 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
   return {
     ...live,
 
+    async inspect(roomId) {
+      const record = await store.readRoom(roomId);
+      if (!record) return null;
+      return {
+        status: record.runtime.status,
+        // Completion writes the Conductor's final answer to member status in
+        // the same durable transaction that stops execution.
+        result: record.runtime.status === 'completed' ? record.members.find((member) => member.isConductor)?.statusDetail ?? null : null,
+        models: record.members.map((member) => ({ name: member.displayName, model: member.configuration.model, thinking: member.configuration.thinking })),
+      };
+    },
+
     async prepare(input) {
       const problem = input.problem.trim();
       if (!problem) return { ok: false, error: 'Say what the Room is for.' };
+      if (input.requestId) {
+        const existing = (await store.readState()).rooms.find((room) => room.definition.creationRequestId === input.requestId);
+        if (existing) {
+          if (existing.definition.problemStatement !== problem) return { ok: false, error: 'This creation request belongs to a different Room mandate.' };
+          return { ok: true, roomId: existing.definition.id, proposal: existing.definition.proposal, clamps: [], usage: reportedUsage(existing.runtime.planningUsage), status: existing.runtime.status };
+        }
+      }
 
       const template = input.presetId ? findRoomTemplate(input.presetId) : null;
       if (input.presetId && !template) return { ok: false, error: `There is no preset ${input.presetId}.` };
 
+      const requestId = input.requestId ?? host.newId('room-planning');
       const plan = await planRoom(host, {
         problem,
         parentSessionId: roomPlannerSessionId(workspaceId),
         limits: limitsForOrigin(input),
         clarifications: input.clarifications,
         preset: template ? presetSeed(template) : undefined,
+        onUsage: (usage) => store.updatePendingPlanning(requestId, usage),
       });
       if (!plan.ok) {
+        const usage = reportedUsage(await store.readPendingPlanning(requestId));
         return plan.needsInput
-          ? { ok: false, needsInput: true, questions: plan.questions }
-          : { ok: false, error: plan.errors.join('; ') };
+          ? { ok: false, needsInput: true, questions: plan.questions, usage }
+          : { ok: false, error: plan.errors.join('; '), usage };
       }
+      const pendingUsage = await store.readPendingPlanning(requestId);
+      const planningUsage = pendingUsage ?? plan.usage;
 
       const created = await coordinator.createRoom({
         problemStatement: problem,
+        requestId,
         blueprint: plan.blueprint,
         proposal: plan.proposal,
         workspaceId,
         originSessionId: input.originSessionId ?? null,
+        planningUsage,
       });
       if (!created.ok || !created.room) {
-        return { ok: false, error: created.error ?? 'The team was planned but the Room could not be drafted.' };
+        return { ok: false, error: created.error ?? 'The team was planned but the Room could not be drafted.', usage: reportedUsage(planningUsage) };
       }
-      return { ok: true, roomId: created.room.definition.id, proposal: plan.proposal, clamps: plan.clamps };
+      await store.consumePendingPlanning(requestId);
+      return { ok: true, roomId: created.room.definition.id, proposal: plan.proposal, clamps: plan.clamps, usage: reportedUsage(planningUsage) };
     },
 
     async adjust(roomId, instruction) {
@@ -277,6 +311,16 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
         // The approved envelope is the ceiling. An adjustment can move within
         // it and never above it, whatever the instruction asks for.
         envelope: record.definition.envelope,
+        onUsage: (usage) => store.updateRoom(roomId, (current) => ({
+          ...current,
+          runtime: { ...current.runtime, planningUsage: mergeUsage(current.runtime.planningUsage, usage),
+            usage: { ...current.runtime.usage,
+              costUsd: current.runtime.usage.costUsd + (usage.costUsd ?? 0),
+              inputTokens: current.runtime.usage.inputTokens + (usage.inputTokens ?? 0),
+              outputTokens: current.runtime.usage.outputTokens + (usage.outputTokens ?? 0),
+            },
+          },
+        })),
       });
       if (!outcome.ok) {
         await store.transact(roomId, null, (current) => ({
@@ -285,21 +329,24 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
             : null,
           result: null,
         })).catch(() => undefined);
-        return { ok: false, error: outcome.errors.join('; ') };
+        return { ok: false, error: outcome.errors.join('; '), usage: outcome.usage };
       }
 
-      // A draft holds no runtime state — no messages, no work, no usage — so the
+      // A draft retains planning usage but has no member work, so the
       // record is rebuilt from the new blueprint through the same function that
       // built the first one, rather than patched member by member. The identity
       // is kept: the user is still looking at this Room.
+      const currentRecord = (await store.readRoom(roomId)) ?? record;
       const rebuilt = buildRoomRecord(host, {
         id: roomId,
+        requestId: record.definition.creationRequestId,
         problemStatement: record.definition.problemStatement,
         blueprint: outcome.blueprint,
         proposal: outcome.proposal,
         workspaceId,
         originSessionId: record.delivery.originSessionId,
         deliveryParams: record.delivery.params,
+        planningUsage: currentRecord.runtime.planningUsage,
       });
       const committed = await store.transact(roomId, null, (current) => ({
         record: current.runtime.status === 'adjusting'
@@ -313,7 +360,7 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
       if (!committed || committed.duplicate || !committed.result) {
         return { ok: false, error: 'This Room changed while the adjustment was planned. Make a new plan from its current state.' };
       }
-      return { ok: true, roomId, proposal: outcome.proposal, clamps: outcome.clamps };
+      return { ok: true, roomId, proposal: outcome.proposal, clamps: outcome.clamps, usage: reportedUsage(currentRecord.runtime.planningUsage) };
     },
 
     async start(roomId) {
@@ -324,8 +371,10 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
       return settled(await coordinator.pauseRoom(roomId, detail));
     },
 
-    async resume(roomId) {
-      return settled(await coordinator.resumeRoom(roomId));
+    async resume(roomId, maxWallClockMs) {
+      const result = await coordinator.resumeRoom(roomId, maxWallClockMs);
+      return result.ok && result.room?.runtime.status === 'paused'
+        ? { ok: false, error: result.room.runtime.stopReason?.detail ?? 'The Room is still paused.' } : settled(result);
     },
 
     async cancel(roomId, detail) {

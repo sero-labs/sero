@@ -14,10 +14,11 @@ import { applyScheduleOverride } from './scheduler';
 
 export type OverrideAction = Extract<
   OrchestratorAction,
-  { kind: 'set_step_model' | 'set_step_tools' | 'set_step_agent' | 'set_loop_context' | 'set_delivery' | 'set_schedule' }
+  { kind: 'set_step_model' | 'set_step_tools' | 'set_step_agent' | 'set_loop_context' | 'set_delivery' | 'set_schedule' | 'use_cost_budget' }
 >;
 
 const OVERRIDE_KINDS: ReadonlySet<string> = new Set([
+  'use_cost_budget',
   'set_step_model',
   'set_step_tools',
   'set_step_agent',
@@ -33,6 +34,18 @@ export function isOverrideAction(action: OrchestratorAction): action is Override
 
 function mapOverride(loop: Loop, action: OverrideAction, now: string): { ok: boolean; loop?: Loop; error?: string } {
   switch (action.kind) {
+    case 'use_cost_budget': {
+      if (!loop.limits.maxCostUsd || !Number.isFinite(loop.limits.maxCostUsd)) return { ok: false, error: 'Set a finite dollar budget before removing the token limit.' };
+      if (action.maxCostUsd !== undefined && (!Number.isFinite(action.maxCostUsd) || action.maxCostUsd <= 0)) return { ok: false, error: 'The dollar cap must be a finite positive number.' };
+      const limits = { ...loop.limits, ...(action.maxCostUsd !== undefined ? { maxCostUsd: action.maxCostUsd } : {}) };
+      delete limits.maxTotalTokens;
+      const tokenBlocked = loop.runtime.block?.kind === 'management-limit'
+        && (loop.runtime.block.limit === 'maxTotalTokens'
+          || (loop.runtime.block.limit === 'maxCostUsd' && action.maxCostUsd !== undefined && action.maxCostUsd > (loop.limits.maxCostUsd ?? 0)));
+      return { ok: true, loop: { ...loop, limits, updatedAt: now,
+        status: tokenBlocked ? 'active' : loop.status,
+        runtime: tokenBlocked ? { ...loop.runtime, block: undefined } : loop.runtime } };
+    }
     case 'set_step_model':
       return applyStepModel(loop, action.stepId, action.model, action.thinking, now);
     case 'set_step_tools':

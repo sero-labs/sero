@@ -41,6 +41,8 @@ export interface OperatingEnvelope {
 export type RoomWorkspaceMode = 'read-only-shared' | 'worktree-per-member' | 'shared-working-tree';
 
 export interface RoomWorkspacePolicy {
+  /** Caller-owned placement retained through planning, revisions and recovery. */
+  lockedMode?: RoomWorkspaceMode;
   mode: RoomWorkspaceMode;
   /** `shared-working-tree` is only reachable with an explicit user approval. */
   sharedTreeApproved: boolean;

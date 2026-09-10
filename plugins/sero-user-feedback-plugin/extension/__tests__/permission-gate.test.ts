@@ -71,6 +71,24 @@ describe('registerPermissionGate', () => {
     expect(mocks.askQuestion).not.toHaveBeenCalled();
   });
 
+  it.each([
+    'rm -rf data .sero',
+    'rm -rf src',
+    'rm -rf dist data',
+    'node -e \'const fs=require("node:fs"); for (const p of ["data",".sero"]) fs.rmSync(p,{recursive:true,force:true})\'',
+  ])('requires approval before destructive workspace cleanup: %s', async (command) => {
+    mocks.hasSeroIPCBridge.mockReturnValue(true);
+    mocks.askQuestion.mockResolvedValue({ answers: [{ value: 'block' }], cancelled: false });
+
+    const result = await handler?.(
+      { toolName: 'bash', toolCallId: 'cleanup', input: { command } },
+      { cwd: '/workspace/project' },
+    );
+
+    expect(mocks.askQuestion).toHaveBeenCalledOnce();
+    expect(result).toEqual({ block: true, reason: 'Blocked by user — dangerous command rejected' });
+  });
+
   it('blocks dangerous commands when Sero approval times out', async () => {
     vi.useFakeTimers();
     mocks.hasSeroIPCBridge.mockReturnValue(true);

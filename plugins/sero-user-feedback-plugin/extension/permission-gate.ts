@@ -3,7 +3,7 @@
  *
  * Hooks `tool_call` events for the `bash` tool and checks the command against
  * a set of dangerous patterns. When matched:
- *   - Simple workspace-scoped `rm -r/-rf` cleanup commands are auto-allowed
+ *   - Simple deletes confined to known generated directories are auto-allowed
  *   - Everything else goes through the approval flow
  *   - Pi CLI mode: shows a warning-styled TUI confirmation via ctx.ui.custom()
  *   - Sero mode:   sends a 'permission' question via the IPC bridge
@@ -23,6 +23,7 @@ import { showPermissionWarningTUI } from './tui-permission-warning';
 
 const DANGEROUS_PATTERNS = [
   /\brm\s+(-rf?|--recursive)/i,
+  /\.(?:rmSync|rmdirSync|unlinkSync)\s*\(/,
   /\bsudo\b/i,
   /\b(chmod|chown)\b.*777/i,
   /\bmkfs\b/i,
@@ -34,6 +35,7 @@ const DANGEROUS_PATTERNS = [
 const PERMISSION_PROMPT_TIMEOUT_MS = 30_000;
 const SHELL_CONTROL_CHARS = /[;&|`$<>()\n]/;
 const GLOB_CHARS = /[*?[\]{}]/;
+const GENERATED_DIRECTORIES = new Set(['build', 'dist', 'coverage', 'node_modules', '.cache', '.vite', '.verification']);
 
 /** Register the permission gate on the `tool_call` event. */
 export function registerPermissionGate(pi: ExtensionAPI) {
@@ -239,7 +241,8 @@ function isAllowedWorkspaceDeleteTarget(target: string, cwd: string, workspaceRo
     return false;
   }
 
-  return true;
+  // Being inside the workspace does not make user data or runtime state disposable.
+  return GENERATED_DIRECTORIES.has(path.relative(path.resolve(cwd), resolved).split(path.sep)[0]);
 }
 
 // ── Pi CLI mode: TUI warning ─────────────────────────────────

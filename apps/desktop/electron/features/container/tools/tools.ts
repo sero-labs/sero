@@ -35,7 +35,7 @@ export async function createRuntimeTools(
   return tools;
 }
 
-async function isBrowserAutomationAvailable(runtime: RuntimeBackend): Promise<boolean> {
+export async function isBrowserAutomationAvailable(runtime: RuntimeBackend): Promise<boolean> {
   if (!runtime.capabilities.browserAutomation) return false;
   if (runtime.backend !== 'host') return true;
   const health = await runtime.health();

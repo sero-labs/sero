@@ -11,6 +11,7 @@
 
 import type { DigestLog, Loop, LoopRun, RunDigest, RunDigestStep, StepAttempt, StepOutcome, StepStatus } from '../shared/types';
 import type { OrchestratorHost } from './host';
+import { aggregateUsage, mergeUsage, reportedUsage } from '../shared/usage';
 
 export function digestsPath(loopId: string): string {
   return `loops/${loopId}/digests.json`;
@@ -55,6 +56,7 @@ function digestStep(
 /** Compacts one finished run (plus the loop's plan, for step titles) into a digest. */
 export function buildRunDigest(loop: Loop, run: LoopRun): RunDigest {
   const titleOf = (id: string) => loop.plan.steps.find((s) => s.id === id)?.title ?? id;
+  const usage = reportedUsage(mergeUsage(aggregateUsage(run.stepAttempts), run.auxiliaryUsage));
   if (run.stepActivations?.length) {
     return {
       runNumber: run.runNumber,
@@ -74,7 +76,7 @@ export function buildRunDigest(loop: Loop, run: LoopRun): RunDigest {
         activation.fanOut?.key,
       )),
       recoveries: run.recoveryDecisions.map((decision) => ({ stepId: decision.stepId, decision: decision.decision, reason: decision.reason })),
-      usage: run.usage,
+      usage,
     };
   }
   const byStep = new Map<string, StepAttempt[]>();
@@ -99,7 +101,7 @@ export function buildRunDigest(loop: Loop, run: LoopRun): RunDigest {
     endedAt: run.endedAt,
     steps,
     recoveries: run.recoveryDecisions.map((d) => ({ stepId: d.stepId, decision: d.decision, reason: d.reason })),
-    usage: run.usage,
+    usage,
   };
 }
 

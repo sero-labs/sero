@@ -56,6 +56,13 @@ export const SERO_HOST_CAPABILITIES = [
    * bundled plugin that passes the built-in gate.
    */
   'appRuntime.skills',
+  /**
+   * `host.workspace.create` for a verified background runtime. Plugin UI asks
+   * its runtime to create the workspace instead of using a global bridge. Any
+   * plugin may declare this capability, but an undeclared runtime call is
+   * refused by name.
+   */
+  'appRuntime.workspaceCreate',
 ] as const;
 
 /**

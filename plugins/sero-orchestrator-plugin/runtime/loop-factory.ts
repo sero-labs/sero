@@ -36,9 +36,12 @@ export function mergeWorkspaceSettings(
 export function mergeLimits(
   suggested?: Partial<LoopLimits>,
   user?: Partial<LoopLimits>,
+  disableTokenLimit = false,
 ): LoopLimits {
   // Defaults < suggested (LLM) < user-supplied.
-  return { ...DEFAULT_LIMITS, ...suggested, ...user };
+  const limits = { ...DEFAULT_LIMITS, ...suggested, ...user };
+  if (disableTokenLimit) delete limits.maxTotalTokens;
+  return limits;
 }
 
 export function materializeTriggers(
@@ -99,7 +102,7 @@ export function buildDraftLoop(host: OrchestratorHost, args: BuildDraftArgs): Lo
       workspace: {},
     },
     triggers: materializeTriggers(host, id, triggerSuggestions),
-    limits: mergeLimits(args.options?.limits, args.options?.limits),
+    limits: mergeLimits(args.options?.limits, args.options?.limits, args.options?.disableTokenLimit),
     logPolicy: { ...DEFAULT_LOG_POLICY },
     warnings: [],
     runs: [],

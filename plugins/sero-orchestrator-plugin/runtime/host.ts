@@ -15,6 +15,7 @@ import type {
   AppRuntimePullRequestSummary,
   AppRuntimeSubagentRepair,
   AppRuntimeWorktreeRemoveOptions,
+  AppRuntimeWorktreeCreateOptions,
   ContextAgentInfo,
   ContextSkillInfo,
   ContextToolInfo,
@@ -97,12 +98,16 @@ export interface ModelRunParams {
   /** User context override: skill names to hide from the model for this run. */
   disabledSkills?: string[];
   signal?: AbortSignal;
+  /** Remaining Workflow wall-clock budget for this attempt. */
+  timeoutMs?: number;
   /** In-session structured-output repair: re-prompt the SAME session for a valid reply. */
   repair?: AppRuntimeSubagentRepair;
   onUpdate?: (text: string) => void;
+  onUsage?: (usage: ModelRunUsage) => void;
 }
 
 export interface ModelRunUsage {
+  incomplete?: boolean;
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
@@ -195,7 +200,7 @@ export interface OrchestratorHost {
   /**
    * Lists the models available on this machine, grouped by provider. Used to
    * resolve a step's chosen model before a run and to detect a pinned model that
-   * is no longer installed (falls back to the MED tier with a warning).
+   * is no longer installed so the executor can stop before starting a worker.
    */
   listAvailableModels(): Promise<SharedAvailableModelGroup[]>;
   /**
@@ -226,7 +231,7 @@ export interface OrchestratorHost {
    * remote) instead of minting a new one — PR-lifecycle work lands on the
    * PR's own branch, and removal never deletes it.
    */
-  createWorktree(loopId: string, title: string, options?: { existingBranch?: string }): Promise<WorktreeHandle>;
+  createWorktree(loopId: string, title: string, options?: AppRuntimeWorktreeCreateOptions): Promise<WorktreeHandle>;
   removeWorktree(
     loopId: string,
     options?: AppRuntimeWorktreeRemoveOptions,

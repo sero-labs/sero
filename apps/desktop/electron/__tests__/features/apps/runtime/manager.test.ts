@@ -47,6 +47,7 @@ function createHostStub(
         capabilityAudit: [],
       })),
       list: vi.fn(async () => []),
+      create: vi.fn(async () => ({ id: 'ws-new', name: 'New', path: '/repo-new', open: true })),
     },
     credentials: {
       getProviderApiKey: vi.fn(async () => null),
@@ -56,6 +57,7 @@ function createHostStub(
       sharedToolsDir: vi.fn(async () => ({ path: '/tmp/app-tools/test' })),
     },
     models: {
+      tiers: vi.fn(async () => ({})),
       list: vi.fn(async () => []),
     },
     verification: {

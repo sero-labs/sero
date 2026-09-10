@@ -18,6 +18,8 @@ import { extractTriggers } from './trigger-extractor';
 import { applyPlanningResponse } from './plan-mapping';
 import { loopArtifactDir } from './artifacts';
 import { parkPlannerQuestions } from './human-input';
+import { loopUsageSink } from './usage-tracking';
+import { mergeCumulativeUsage } from '../shared/usage';
 
 export interface PlanningFlowArgs {
   prompt: string;
@@ -45,6 +47,7 @@ export function plannerClarifications(loop: Loop): { prompt: string; answer: str
 }
 
 export async function runPlanningFlow(host: OrchestratorHost, draft: Loop, args: PlanningFlowArgs): Promise<Loop> {
+  const onUsage = loopUsageSink(host, draft.id, 'planningUsage');
   // Planner picks each step's tools and (optionally) agent role from the real
   // catalogs (fail-soft to [] so planning never blocks on enumeration).
   const [toolCatalog, agentCatalog] = await Promise.all([
@@ -62,7 +65,11 @@ export async function runPlanningFlow(host: OrchestratorHost, draft: Loop, args:
     agentCatalog,
     clarifications: args.clarifications,
     baseline: args.baseline,
+    onUsage,
   });
+
+  draft = { ...draft, planningUsage: mergeCumulativeUsage(draft.planningUsage,
+    (await host.readState())?.loops.find((loop) => loop.id === draft.id)?.planningUsage) };
 
   if (!outcome.ok && outcome.needsInput) {
     host.log(`Planner asked ${outcome.questions.length} clarifying question(s) for ${draft.id}`);
@@ -77,10 +84,17 @@ export async function runPlanningFlow(host: OrchestratorHost, draft: Loop, args:
       prompt: args.prompt,
       parentSessionId: draft.runtime.parentSessionId,
       loopId: draft.id,
+      onUsage,
     });
+    draft = { ...draft, planningUsage: mergeCumulativeUsage(draft.planningUsage,
+    (await host.readState())?.loops.find((loop) => loop.id === draft.id)?.planningUsage) };
     const loop = applyPlanningResponse(host, draft, outcome.response, args.options, args.title, extraction);
-    host.log(`Loop ${loop.id} planned with ${loop.plan.steps.length} step(s)`);
-    return loop;
+    const planned = {
+      ...loop,
+      planningUsage: draft.planningUsage,
+    };
+    host.log(`Loop ${planned.id} planned with ${planned.plan.steps.length} step(s)`);
+    return planned;
   }
 
   // Invalid plan after one repair: store a blocked draft with clear errors and the
@@ -95,6 +109,7 @@ export async function runPlanningFlow(host: OrchestratorHost, draft: Loop, args:
   host.log(`Blocked draft ${draft.id}: ${reason}`);
   return {
     ...draft,
+    planningUsage: draft.planningUsage,
     summary: 'Plan generation failed validation.',
     runtime: { ...draft.runtime, pendingInput: undefined, block: { kind: 'validation-error', reason, createdAt: host.now() } },
   };

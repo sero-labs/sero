@@ -53,6 +53,8 @@ export interface SubagentUsage {
   cacheWriteTokens: number;
   totalTokens: number;
   cost: number;
+  /** True when the SDK could not provide a complete final usage snapshot. */
+  incomplete?: boolean;
 }
 
 /** Tool activity item for live tool feed. */

@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@sero
 import { ExternalLink, FileCode2, Image, type LucideIcon } from 'lucide-react';
 
 const interactivePrototypes = [
+  ['Sero Architect — projects and the project page', 'sero-architect/index.html'],
   ['OpenAI model enhancement settings', 'openai-model-extender-settings.html'],
   ['OpenAI model extender activation', 'openai-model-extender-activation.html'],
   ['Agent Node workspace alignment', 'agent-node-aligned/index.html'],

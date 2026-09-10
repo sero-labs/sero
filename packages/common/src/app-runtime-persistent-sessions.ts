@@ -128,6 +128,8 @@ export interface PersistentSessionUsage {
   cacheReadTokens: number;
   cacheWriteTokens: number;
   costUsd: number;
+  /** True when the SDK could not provide a complete usage snapshot. */
+  incomplete?: boolean;
   /**
    * Turns this session has completed since it was opened. A turn is one prompt
    * and its whole reply — not a message and not a model call — so a caller that
@@ -142,7 +144,7 @@ export type PersistentSessionEvent =
   | { type: 'text'; text: string }
   | { type: 'tool_start'; toolName: string; summary: string }
   | { type: 'tool_end'; toolName: string; ok: boolean }
-  | { type: 'turn_end'; turnId: string; status: 'completed' | 'aborted' | 'error' }
+  | { type: 'turn_end'; turnId: string; status: 'completed' | 'aborted' | 'error'; errorMessage?: string }
   | { type: 'compacted' };
 
 /** One page of a session's history, read from the Pi session file on demand. */

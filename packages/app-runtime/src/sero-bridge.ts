@@ -58,8 +58,8 @@ export interface SeroAppAgentBridge {
 }
 
 export interface SeroAppControlBridge {
-  /** Switch the shell to the app with this id. False when the app is unknown. */
-  open(appId: string): Promise<boolean>;
+  /** Open an app, optionally in a registered workspace. False if either is unknown. */
+  open(appId: string, workspaceId?: string): Promise<boolean>;
   /** Open a workspace file in the explorer editor. False when unavailable. */
   openFile(workspaceId: string, filePath: string): Promise<boolean>;
 }
@@ -113,10 +113,6 @@ export interface SeroBridge {
   contextPresets?: SeroContextPresetsBridge;
 }
 
-function readWindowSero(value: Window): unknown {
-  return Reflect.get(value, 'sero');
-}
-
 function isSeroBridge(value: unknown): value is SeroBridge {
   return typeof value === 'object'
     && value !== null
@@ -128,7 +124,7 @@ function isSeroBridge(value: unknown): value is SeroBridge {
  * Get the Sero preload bridge. Throws if not running inside the Sero shell.
  */
 export function getSeroApi(): SeroBridge {
-  const sero = readWindowSero(window);
+  const sero: unknown = Reflect.get(window, 'sero');
   if (!isSeroBridge(sero)) {
     throw new Error('[app-runtime] window.sero not available — must run inside Sero shell');
   }

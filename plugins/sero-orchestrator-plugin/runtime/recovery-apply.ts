@@ -73,7 +73,8 @@ export function retryStep(loop: Loop, stepId: string, now: string): Loop | null 
   const step = loop.plan.steps.find((s) => s.id === stepId);
   const state = step ? loop.runtime.stepStates[stepId] : undefined;
   if (!step || !state) return null;
-  if (!RECOVERABLE_STEP_STATUSES.has(state.status) && !isStuckOnAttempts(loop, step, state)) return null;
+  const interrupted = loop.status === 'disabled' && (state.status === 'pending' || state.status === 'ready');
+  if (!interrupted && !RECOVERABLE_STEP_STATUSES.has(state.status) && !isStuckOnAttempts(loop, step, state)) return null;
   const stepStates = {
     ...loop.runtime.stepStates,
     [stepId]: { ...state, status: 'pending' as const, outcome: undefined, attempts: 0, updatedAt: now },

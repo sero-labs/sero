@@ -11,9 +11,10 @@
  * process (see 02-integration-seams.md, "CLI Bridge Boundary").
  */
 
-import { ORCHESTRATOR_REGISTRY_GLOBAL_KEY } from '@sero-ai/common';
+import { ORCHESTRATOR_REGISTRY_GLOBAL_KEY, ORCHESTRATOR_ROOM_REGISTRY_GLOBAL_KEY, type OrchestratorRoomHandle } from '@sero-ai/common';
 import type { Coordinator } from './coordinator';
 import type { RoomAppActions } from './rooms/room-app-actions';
+import { createRoomDispatchHandle } from './rooms/room-dispatch-handle';
 import type { RoomCallerSignals, RoomCommandRouter } from './rooms/room-command-router';
 import type { RoomCoordinator } from './rooms/room-coordinator';
 import type { GoalRuntime } from './goals/goal-runtime';
@@ -85,7 +86,7 @@ function entryByCwd(cwd: string): RegistryEntry | undefined {
  * entry and the extension entry are bundled by different loaders, and a plain
  * module-level Map would give the AD-020 command bridge a second, empty copy.
  */
-const ROOM_REGISTRY_KEY = `${ORCHESTRATOR_REGISTRY_GLOBAL_KEY}:rooms`;
+const ROOM_REGISTRY_KEY = ORCHESTRATOR_ROOM_REGISTRY_GLOBAL_KEY;
 
 interface RoomRegistryEntry {
   coordinator: RoomCoordinator;
@@ -93,6 +94,8 @@ interface RoomRegistryEntry {
   router: RoomCommandRouter;
   /** The user's control surface, which the Room panel drives. */
   app: RoomAppActions;
+  /** The typed creation surface another plugin's runtime reads through @sero-ai/common. */
+  handle: OrchestratorRoomHandle;
 }
 
 function roomStore(): Map<string, RoomRegistryEntry> {
@@ -110,7 +113,7 @@ export function registerRoomCoordinator(
   router: RoomCommandRouter,
   app: RoomAppActions,
 ): void {
-  roomStore().set(workspaceId, { coordinator, router, app });
+  roomStore().set(workspaceId, { coordinator, router, app, handle: createRoomDispatchHandle(app) });
 }
 
 export function unregisterRoomCoordinator(workspaceId: string): void {

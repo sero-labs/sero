@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { RunEngine } from '../run-engine';
 import { LoopLocks } from '../locks';
-import type { EngineDeps, StepExecutor } from '../engine-types';
-import type { LoopPlan, StepOutcome } from '../../shared/types';
+import type { EngineDeps, RecoveryDecider, StepExecutor } from '../engine-types';
+import type { LoopPlan, StepAttempt, StepOutcome } from '../../shared/types';
 import { createFakeHost, type FakeHost } from './fake-host';
 import { oneStepPlan, parallelPlan, sequentialPlan, seedActiveLoop } from './fixtures';
 import { artifactExecutor, fakeDecider, fakeExecutor, gatedExecutor } from './engine-fakes';
@@ -161,6 +161,54 @@ describe('RunEngine', () => {
     expect(loopOf(host).runtime.stepStates['step-1'].status).toBe('succeeded');
   });
 
+  it('blocks a failed final external step before automatic recovery', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.delivery = { destination: 'webhook-post', params: { url: 'https://example.test/hook' } };
+    let deciderCalls = 0;
+    const decider: RecoveryDecider = {
+      async decide() {
+        deciderCalls += 1;
+        return { id: 'recovery-should-not-run', stepId: 'step-1', failedAttemptId: 'attempt-1', decision: 'retry-step', reason: 'retry', createdAt: host.now() };
+      },
+    };
+    const failed: StepOutcome = { status: 'failed', summary: 'send may have happened' };
+
+    const executor = fakeExecutor({ 'step-1': failed });
+    await new RunEngine(host, deps({ executor, decider })).run('loop-1');
+
+    const persisted = loopOf(host);
+    expect(deciderCalls).toBe(0);
+    expect(persisted.status).toBe('blocked');
+    expect(persisted.runtime.stepStates['step-1'].status).toBe('failed');
+    expect(persisted.runtime.block?.reason).toContain('no confirmed receipt');
+    expect(persisted.runs[0].recoveryDecisions).toEqual([
+      expect.objectContaining({ decision: 'block-loop', stepId: 'step-1' }),
+    ]);
+    await new RunEngine(host, deps({ executor })).run('loop-1');
+    expect(executor.calls).toHaveLength(1);
+  });
+
+  it('blocks a failed final external step before question parking', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.delivery = { destination: 'webhook-post', params: { url: 'https://example.test/hook' } };
+    const executor = fakeExecutor({
+      'step-1': { status: 'failed', summary: 'send may have happened', questions: [{ id: 'q', prompt: 'Did it send?' }] },
+    });
+
+    await new RunEngine(host, deps({ executor })).run('loop-1');
+
+    const persisted = loopOf(host);
+    expect(executor.calls).toHaveLength(1);
+    expect(persisted.status).toBe('blocked');
+    expect(persisted.runtime.pendingInput).toBeUndefined();
+    expect(persisted.runtime.stepStates['step-1'].status).toBe('failed');
+    expect(persisted.runtime.block?.reason).toContain('no confirmed receipt');
+    await new RunEngine(host, deps({ executor })).run('loop-1');
+    expect(executor.calls).toHaveLength(1);
+  });
+
   it('stores large output as an artifact referenced from the attempt', async () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, oneStepPlan().plan);
@@ -206,6 +254,44 @@ describe('RunEngine', () => {
     // and running again picks it up without an app restart.
     expect(loop.runtime.stepStates['step-1'].status).toBe('pending');
     expect(loop.runtime.activeRunId).toBeUndefined();
+  });
+
+  it('blocks a cancelled final external step instead of resetting it for an automatic retry', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.delivery = { destination: 'webhook-post', params: { url: 'https://example.test/hook' } };
+    let open!: () => void;
+    const gate = new Promise<void>((resolve) => { open = resolve; });
+    const executor: StepExecutor = {
+      async run(input) {
+        const pending: StepAttempt = {
+          id: input.host.newId('attempt'),
+          stepId: input.step.id,
+          attemptNumber: input.attemptNumber,
+          parentSessionId: input.parentSessionId,
+          executionType: input.step.execution.type,
+          status: 'running',
+          observations: [],
+          startedAt: input.host.now(),
+        };
+        await input.onAttempt?.(pending);
+        await gate;
+        return { ...pending, status: 'failed', endedAt: input.host.now(), error: 'Aborted' };
+      },
+    };
+    const controller = new AbortController();
+    const running = new RunEngine(host, deps({ executor })).run('loop-1', controller.signal);
+
+    await waitFor(() => loopOf(host).runs[0]?.stepAttempts.length === 1);
+    controller.abort();
+    open();
+    await running;
+
+    const persisted = loopOf(host);
+    expect(persisted.status).toBe('blocked');
+    expect(persisted.runs[0].stepAttempts[0].status).toBe('cancelled');
+    expect(persisted.runtime.stepStates['step-1'].status).toBe('failed');
+    expect(persisted.runtime.block?.reason).toContain('no confirmed receipt');
   });
 
   it('numbers runs by a monotonic counter that survives run-history pruning', async () => {

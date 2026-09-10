@@ -13,6 +13,7 @@ import { aggregateUsage } from '../../shared/usage';
 import { formatCost, formatTokens } from './format';
 
 export interface LoopUsageSummary {
+  incomplete?: boolean;
   /** Lifetime tokens across all runs (undefined when no run reported tokens). */
   totalTokens?: number;
   /** Lifetime cost across all runs (undefined when no run reported a cost). */
@@ -34,6 +35,7 @@ export function summarizeLoopUsage(runs: LoopRunSummary[], limits: LoopLimits): 
   if (!total && maxTotalTokens === undefined && maxCostUsd === undefined) return null;
 
   return {
+    ...(total?.incomplete ? { incomplete: true } : {}),
     totalTokens: total?.totalTokens,
     totalCost: total?.costUsd,
     tokensRemaining: maxTotalTokens !== undefined ? Math.max(0, maxTotalTokens - (total?.totalTokens ?? 0)) : undefined,
@@ -52,5 +54,6 @@ export function formatLoopUsage(summary: LoopUsageSummary): string | null {
   if (summary.totalCost !== undefined) parts.push(formatCost(summary.totalCost));
   if (summary.tokensRemaining !== undefined) parts.push(`${formatTokens(summary.tokensRemaining)} tok left`);
   if (summary.costRemaining !== undefined) parts.push(`${formatCost(summary.costRemaining)} left`);
+  if (summary.incomplete) parts.push('usage incomplete');
   return parts.length ? parts.join(' · ') : null;
 }

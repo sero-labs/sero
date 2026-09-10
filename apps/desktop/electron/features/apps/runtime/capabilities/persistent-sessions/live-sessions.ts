@@ -86,12 +86,20 @@ export function toPersistentSessionEvent(
       return { type: 'tool_start', toolName: String(event.toolName ?? 'tool'), summary: argSummary(event.args) };
     case 'tool_execution_end':
       return { type: 'tool_end', toolName: String(event.toolName ?? 'tool'), ok: event.isError !== true };
-    case 'agent_end':
-      // Pi retries inside one run: it emits `agent_end` for the attempt and
-      // starts again. The turn is only over when it will not retry.
-      return event.willRetry === true
-        ? null
-        : { type: 'turn_end', turnId: turn.id ?? '', status: turn.aborting ? 'aborted' : 'completed' };
+    case 'agent_end': {
+      // Pi retries inside one run. Only its final attempt ends the caller's turn.
+      if (event.willRetry === true) return null;
+      const assistant = Array.isArray(event.messages)
+        ? [...event.messages].reverse().find((message: unknown) => isRecord(message) && message.role === 'assistant')
+        : undefined;
+      const last = isRecord(assistant) ? assistant : undefined;
+      const status = turn.aborting || last?.stopReason === 'aborted' ? 'aborted'
+        : last?.stopReason === 'error' ? 'error' : 'completed';
+      return {
+        type: 'turn_end', turnId: turn.id ?? '', status,
+        ...(status === 'error' && typeof last?.errorMessage === 'string' ? { errorMessage: last.errorMessage } : {}),
+      };
+    }
     case 'compaction_end':
       return event.aborted === true ? null : { type: 'compacted' };
     default:

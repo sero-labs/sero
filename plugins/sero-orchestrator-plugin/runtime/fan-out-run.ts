@@ -14,8 +14,8 @@ import type { OrchestratorHost } from './host';
 import { recordActivationAttempt } from './activations';
 import { buildFanOutAggregate, expandFanOut, fanOutActivations, fanOutJoinOutcome, runnableFanOutActivations } from './fan-out';
 import { checkManagementLimits, remainingAttemptBudget, type LimitCheck } from './limits';
-import { replaceRun, resolveOutcome } from './run-engine-helpers';
-import { recordAgentWarning, recordModelWarning } from './run-warnings';
+import { replaceRun, resolveOutcome, upsertAttempt } from './run-engine-helpers';
+import { recordAgentWarning } from './run-warnings';
 
 export interface FanOutRunInput {
   host: OrchestratorHost;
@@ -83,6 +83,14 @@ function effectiveConcurrency(loop: Loop, step: LoopStepDefinition): number {
 export async function runFanOutStep(input: FanOutRunInput): Promise<FanOutRunResult> {
   const { host, deps, step, signal, commit } = input;
   let { loop, run } = input;
+  let progress = Promise.resolve();
+  const onAttempt = (attempt: StepAttempt): Promise<void> => {
+    progress = progress.then(async () => {
+      run = { ...run, stepAttempts: upsertAttempt(run.stepAttempts, attempt) };
+      loop = await commit(syncRun(loop, run));
+    });
+    return progress;
+  };
   const fanOut = step.fanOut!;
 
   // Reuse this run's persisted manifest (a recovery retry or an answered
@@ -127,8 +135,9 @@ export async function runFanOutStep(input: FanOutRunInput): Promise<FanOutRunRes
   const executed = new Set<string>();
   let questions: StepOutcome['questions'];
   let limit: LimitCheck | undefined;
+  let modelUnavailable: StepAttempt['modelUnavailable'];
 
-  while (!signal?.aborted && !questions && !limit) {
+  while (!signal?.aborted && !questions && !limit && !modelUnavailable) {
     // Are there still activations to run? Settle this FIRST: once every activation
     // is terminal the step is done, so we must fall through to build and record the
     // join even if the budget is now exactly spent — a limit only blocks work that
@@ -164,6 +173,7 @@ export async function runFanOutStep(input: FanOutRunInput): Promise<FanOutRunRes
         parentSessionId: loop.runtime.parentSessionId,
         workspace: loop.runtime.workspace.resolved,
         signal,
+        onAttempt: (attempt) => onAttempt({ ...attempt, activationId: activation.id }),
         fanOut: {
           activationId: activation.id,
           key: item.key,
@@ -181,12 +191,12 @@ export async function runFanOutStep(input: FanOutRunInput): Promise<FanOutRunRes
       const recorded: StepAttempt = { ...attempt, activationId: activation.id, outcome };
       run = {
         ...run,
-        stepAttempts: [...run.stepAttempts, recorded],
+        stepAttempts: upsertAttempt(run.stepAttempts, recorded),
         observations: [...run.observations, ...recorded.observations],
       };
       run = recordActivationAttempt(run, activation.id, recorded, outcome, host.now(), !outcome.questions?.length);
-      if (recorded.modelFallback) loop = recordModelWarning(host, loop, step.id, recorded.modelFallback.requestedModel);
       if (recorded.agentFallback) loop = recordAgentWarning(host, loop, step.id, recorded.agentFallback.requestedAgent);
+      modelUnavailable ??= recorded.modelUnavailable;
       if (outcome.questions?.length && !questions) questions = outcome.questions;
     }
     loop = await commit(syncRun(loop, run));
@@ -199,6 +209,13 @@ export async function runFanOutStep(input: FanOutRunInput): Promise<FanOutRunRes
       questions,
     };
     return { loop, run, attempt: joinAttempt({ ...input, loop }, outcome) };
+  }
+  if (modelUnavailable) {
+    const outcome: StepOutcome = {
+      status: 'blocked',
+      summary: `Model "${modelUnavailable.requestedModel}" is unavailable. Restore that model/provider or select an authorized available model for this step, then retry the step. No worker was started.`,
+    };
+    return { loop, run, attempt: { ...joinAttempt({ ...input, loop }, outcome), modelUnavailable } };
   }
   // A management limit is a loop-level block, not a step failure: hand the raw
   // LimitCheck back so run-batch applies blockLimit and skips recovery entirely.

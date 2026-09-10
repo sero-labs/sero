@@ -41,6 +41,29 @@ beforeEach(async () => {
 afterEach(() => disposeHarness(dir));
 
 describe('stopping a Room', () => {
+  it('requires an explicit time extension after a long pause and preserves history and other limits', async () => {
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    await waitFor(async () => (await memberOf(roomId, 'lead')).usage.turns === 1, 'the first turn');
+    await coordinator.pauseRoom(roomId);
+    const before = (await store.readRoom(roomId))!;
+    host.clockMs += 8 * 60 * 60_000;
+    const refused = await coordinator.resumeRoom(roomId);
+    expect(refused.ok).toBe(false);
+    expect(refused.error).toContain('time limit has expired');
+    expect((await store.readRoom(roomId))?.runtime.status).toBe('paused');
+    host.persistentSessions.mode = 'manual';
+    const extension = 9 * 60 * 60_000;
+    expect((await coordinator.resumeRoom(roomId, extension)).ok).toBe(true);
+    await waitFor(() => host.persistentSessions.openTurns().includes('lead'), 'the resumed turn');
+    const resumed = (await store.readRoom(roomId))!;
+    expect(resumed.runtime.startedAt).toBe(before.runtime.startedAt);
+    expect(resumed.runtime.usage.costUsd).toBe(before.runtime.usage.costUsd);
+    expect(resumed.definition.envelope).toEqual({ ...before.definition.envelope, maxWallClockMs: extension });
+    expect(resumed.definition.grantId).toBe(before.definition.grantId);
+    expect(resumed.members[0]?.session.sessionPath).toBe(before.members[0]?.session.sessionPath);
+  });
+
   it('lets only one concurrent Start obtain a grant', async () => {
     const roomId = await draftRoom();
 
@@ -143,6 +166,31 @@ describe('stopping a Room', () => {
     expect(record?.definition.grantId).toBeNull();
     // The session files survive: a completed Room stays readable.
     expect(host.persistentSessions.sessions.get('lead')?.sessionPath).toBe('/sessions/rooms/lead.jsonl');
+  });
+
+  it('keeps a finishing member alive until its final usage is saved, then delivers once', async () => {
+    const api = host.persistentSessions;
+    api.mode = 'manual';
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    await waitFor(() => api.openTurns().includes('lead'), 'the live turn');
+    const session = api.sessions.get('lead');
+    if (!session) throw new Error('session missing');
+    session.usage = { ...session.usage, costUsd: 0.5 };
+
+    expect((await coordinator.completeRoom(roomId, 'Done.')).ok).toBe(true);
+    expect((await store.readRoom(roomId))?.runtime.status).toBe('completing');
+    expect(session.disposed).toBe(false);
+    expect(api.revoked).toEqual([]);
+    expect((await coordinator.completeRoom(roomId, 'Duplicate.')).ok).toBe(false);
+
+    api.endTurn('lead');
+    await waitFor(async () => (await store.readRoom(roomId))?.runtime.status === 'completed', 'usage and final cleanup');
+    const record = await store.readRoom(roomId);
+    expect(record?.runtime.usage).toMatchObject({ costUsd: 0.75, turns: 1 });
+    expect(session.disposed).toBe(true);
+    expect(api.revoked).toEqual(['grant-1']);
+    expect(record?.runtime.completion).toBeUndefined();
   });
 
   it('cancels an in-flight turn and gives up the grant', async () => {

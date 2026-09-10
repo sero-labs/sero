@@ -1,20 +1,21 @@
 /** Executes one ready batch, including activation, feedback, recovery and parking. */
 
-import type { HumanQuestion, Loop, LoopRun, LoopStepDefinition, RecoveryDecision, StepAttempt, StepOutcome } from '../shared/types';
+import type { HumanQuestion, Loop, LoopRun, LoopStepDefinition, RecoveryDecision, StepAttempt, StepOutcome, UsageSummary } from '../shared/types';
 import type { EngineDeps } from './engine-types';
 import type { OrchestratorHost } from './host';
 import { startActivations, recordActivationAttempt, settleActivation } from './activations';
 import { applyFeedbackTraversal, feedbackDecision, feedbackExhaustedOutcome } from './feedback-runtime';
 import { enforceRouteContract } from './route-contract';
 import { acceptsCompletion, applyStepOutcome, recordCompletion } from './outcomes';
-import { enforceDeliveryContract } from './delivery/delivery-contract';
+import { enforceDeliveryContract, uncertainExternalDelivery } from './delivery/delivery-contract';
 import { applyDeliveryContract } from './delivery/verify-receipt';
-import { recordAgentWarning, recordModelWarning } from './run-warnings';
-import { blockLimit, resetStepPending, replaceRun, resolveOutcome } from './run-engine-helpers';
+import { recordAgentWarning } from './run-warnings';
+import { blockLimit, blockRuntime, resetStepPending, replaceRun, resolveOutcome, upsertAttempt } from './run-engine-helpers';
 import { runFanOutStep } from './fan-out-run';
 import { parkForInput } from './human-input';
 import { applyRecovery } from './recovery-apply';
 import { isRecurring } from './scheduler';
+import { mergeUsage } from '../shared/usage';
 
 const TERMINAL_OUTCOMES = new Set<StepOutcome['status']>(['failed', 'blocked', 'needs-revision']);
 
@@ -62,6 +63,21 @@ function syncRun(loop: Loop, run: LoopRun): Loop {
 export async function runStepBatch(input: RunBatchInput): Promise<{ loop: Loop; run: LoopRun; stop: boolean }> {
   const { host, deps, batch, signal, commit } = input;
   let { loop, run } = input;
+  let progress = Promise.resolve();
+  const onAttempt = (attempt: StepAttempt): Promise<void> => {
+    progress = progress.then(async () => {
+      run = { ...run, stepAttempts: upsertAttempt(run.stepAttempts, attempt) };
+      loop = await commit(syncRun(loop, run));
+    });
+    return progress;
+  };
+  const saveAuxiliaryUsage = (usage: UsageSummary): Promise<void> => {
+    progress = progress.then(async () => {
+      run = { ...run, auxiliaryUsage: mergeUsage(run.auxiliaryUsage, usage) };
+      loop = await commit(syncRun(loop, run));
+    });
+    return progress;
+  };
   const startNow = host.now();
   // A fan-out step is always batched alone (run-engine) and creates its own
   // per-item activations; only plain steps get a visit activation here.
@@ -115,6 +131,7 @@ export async function runStepBatch(input: RunBatchInput): Promise<{ loop: Loop; 
       parentSessionId: loop.runtime.parentSessionId,
       workspace: loop.runtime.workspace.resolved,
       signal,
+      onAttempt: (attempt) => onAttempt({ ...attempt, activationId: started.activationIds[step.id] }),
     })));
   }
 
@@ -129,24 +146,69 @@ export async function runStepBatch(input: RunBatchInput): Promise<{ loop: Loop; 
       host,
       loop,
       step,
-      enforceRouteContract(loop, step, await resolveOutcome(host, deps, loop, step, attempt)),
+      enforceRouteContract(loop, step, await resolveOutcome(host, deps, loop, step, attempt, saveAuxiliaryUsage)),
     ));
     const activationId = started.activationIds[step.id];
     const recorded: StepAttempt = { ...attempt, activationId, outcome };
     run = {
       ...run,
-      stepAttempts: [...run.stepAttempts, recorded],
+      stepAttempts: upsertAttempt(run.stepAttempts, recorded),
       observations: [...run.observations, ...recorded.observations],
     };
     run = recordActivationAttempt(run, activationId, recorded, outcome, host.now(), !outcome.questions?.length);
     loop = syncRun(loop, run);
-    if (recorded.modelFallback) loop = recordModelWarning(host, loop, step.id, recorded.modelFallback.requestedModel);
     if (recorded.agentFallback) loop = recordAgentWarning(host, loop, step.id, recorded.agentFallback.requestedAgent);
+
+    // Save the finished attempt before asking another model to recover or
+    // evaluate stopping. A restart during that call must not erase its result.
+    loop = await commit(loop);
+
+    // A failed final external step may already have sent its effect. Do not ask
+    // the recovery model to retry, revise or otherwise repeat it without a
+    // receipt that passed the delivery contract. Check this before question
+    // parking can reset the step to pending.
+    const uncertain = uncertainExternalDelivery(loop, step, recorded, outcome);
+    if (uncertain) {
+      const applied = applyOutcome(host, loop, run, step.id, recorded, outcome);
+      loop = applied.loop;
+      run = applied.run;
+      const decision: RecoveryDecision = {
+        id: host.newId('recovery'),
+        stepId: uncertain.stepId,
+        failedAttemptId: uncertain.attemptId,
+        decision: 'block-loop',
+        reason: uncertain.reason,
+        createdAt: host.now(),
+      };
+      const recovery = applyRecovery(host, loop, decision);
+      loop = recovery.loop;
+      run = {
+        ...run,
+        recoveryDecisions: [...run.recoveryDecisions, decision],
+        status: 'blocked',
+        block: loop.runtime.block,
+      };
+      loop = await commit(syncRun(loop, run));
+      stop = true;
+      break;
+    }
 
     if (outcome.questions?.length) {
       loop = resetStepPending(loop, step.id, host.now());
       parked ??= { stepId: step.id, questions: outcome.questions };
       continue;
+    }
+
+    // An unavailable explicit pin is an authority failure, not recoverable work.
+    // Persist its blocked step outcome and stop without asking another model how
+    // to recover; the user must restore or select an authorized model first.
+    if (recorded.modelUnavailable) {
+      const applied = applyOutcome(host, loop, run, step.id, recorded, outcome);
+      loop = blockRuntime(applied.loop, outcome.summary, host.now());
+      run = { ...applied.run, status: 'blocked', block: loop.runtime.block };
+      loop = await commit(syncRun(loop, run));
+      stop = true;
+      break;
     }
 
     const applied = applyOutcome(host, loop, run, step.id, recorded, outcome);
@@ -164,7 +226,7 @@ export async function runStepBatch(input: RunBatchInput): Promise<{ loop: Loop; 
     }
 
     if (deps.stopChecker && !TERMINAL_OUTCOMES.has(outcome.status) && isRecurring(loop)) {
-      const decision = await deps.stopChecker.check({ host, loop, run });
+        const decision = await deps.stopChecker.check({ host, loop, run, onUsage: saveAuxiliaryUsage });
       if (decision.stop) {
         host.log(`Loop ${loop.id} run ended early — nothing to do: ${decision.reason}`);
         run = { ...run, status: 'completed' };
@@ -177,7 +239,7 @@ export async function runStepBatch(input: RunBatchInput): Promise<{ loop: Loop; 
       let recoveryAttempt = recorded;
       let repeatedAcceptedExhaustion = false;
       while (TERMINAL_OUTCOMES.has(outcome.status)) {
-        const rawDecision = await deps.decider.decide({ host, loop, step, attempt: recoveryAttempt, outcome });
+            const rawDecision = await deps.decider.decide({ host, loop, step, attempt: recoveryAttempt, outcome, onUsage: saveAuxiliaryUsage });
         // Retrying the source after exhaustion cannot make progress: the region
         // that feeds it is unchanged, so it re-matches and re-exhausts, burning
         // the per-step budget. Route a post-exhaustion retry to a decisive block

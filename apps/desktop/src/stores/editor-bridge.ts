@@ -48,6 +48,8 @@ function toVirtualChildPath(prefix: string, rootPath: string, filePath: string):
  * (`/<rootId>/<relative>`), which is what tabs are keyed by.
  */
 export function toEditorPath(workspaceId: string, filePath: string): string {
+  // Preview tabs are URLs, not relative files under the workspace root.
+  if (filePath.startsWith('devserver://')) return filePath;
   const workspace = useWorkspaceStore.getState().workspaces.find((item) => item.id === workspaceId);
   if (!workspace) return filePath;
 

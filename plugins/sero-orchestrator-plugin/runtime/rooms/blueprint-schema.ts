@@ -94,6 +94,7 @@ function readEnum<T extends string>(
 function parseWorkspacePolicy(record: Record<string, unknown>, path: string, errors: string[]): RoomWorkspacePolicy {
   return {
     mode: readEnum(record, 'mode', WORKSPACE_MODES, path, errors),
+    ...(record.lockedMode !== undefined ? { lockedMode: readEnum(record, 'lockedMode', WORKSPACE_MODES, path, errors) } : {}),
     sharedTreeApproved: readBoolean(record, 'sharedTreeApproved', path, errors),
     claimPolicy: readEnum(record, 'claimPolicy', CLAIM_POLICIES, path, errors),
   };

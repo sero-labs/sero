@@ -57,27 +57,29 @@ describe('applyStepModel', () => {
   });
 });
 
-describe('engine model-unavailable warning', () => {
+describe('engine unavailable pinned model', () => {
   function pinnedUnavailablePlan(): LoopPlan {
     const plan = oneStepPlan().plan;
     plan.steps[0].execution = { type: 'background-agent', model: 'openai/gpt-9' };
     return plan;
   }
 
-  it('records a warning and uses MED when a pinned model is unavailable, then clears it next run', async () => {
+  it('blocks with a truthful retained state without calling a model', async () => {
     const host = createFakeHost();
     host.availableModels = MODELS;
     seedActiveLoop(host, pinnedUnavailablePlan());
-    host.modelResponses.push({ response: ok() });
     const engine = new RunEngine(host, createEngineDeps(new LoopLocks()));
 
     await engine.run('loop-1');
-    expect(host.modelCalls[0].model).toBe('MED');
-    expect(host.state.loops[0].warnings.some((w) => w.code === 'model-unavailable')).toBe(true);
-
-    // The step already succeeded, so the next run re-runs nothing and the
-    // stale model-unavailable warning is cleared at the start of the run.
-    await engine.run('loop-1');
-    expect(host.state.loops[0].warnings.some((w) => w.code === 'model-unavailable')).toBe(false);
+    expect(host.modelCalls).toHaveLength(0);
+    expect(host.state.loops[0]).toMatchObject({
+      status: 'blocked',
+      runtime: { block: { kind: 'runtime-error', reason: expect.stringContaining('Restore that model/provider') } },
+      runs: [{ status: 'blocked' }],
+    });
+    expect(host.state.loops[0].runtime.stepStates['step-1']).toMatchObject({
+      status: 'blocked',
+      outcome: { status: 'blocked', summary: expect.stringContaining('No worker was started') },
+    });
   });
 });

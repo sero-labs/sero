@@ -143,6 +143,10 @@ export function worktreeKeyFor(roomId: string, memberId: string): string {
 export function placementKindFor(record: RoomRecord, member: RoomMember): MemberPlacementKind {
   if (member.configuration.permissions === 'read-only') return 'read-only-shared';
   const policy = record.definition.workspacePolicy;
+  const locked = record.definition.envelope.workspacePolicy.lockedMode;
+  if (locked && (policy.mode !== locked || (locked === 'shared-working-tree' && !policy.sharedTreeApproved))) {
+    throw new Error('Room placement disagrees with the saved execution location. Restore its approved policy before starting workers.');
+  }
   if (policy.mode === 'shared-working-tree' && policy.sharedTreeApproved) return 'shared-tree';
   // Everything else that writes gets its own tree — including a write-capable
   // member in a Room whose mode is read-only. That combination is a defect
@@ -228,7 +232,9 @@ export function createRoomWorkspaces(ctx: RoomWorkspacesContext): RoomWorkspaces
     // second branch and orphan the work already on the first.
     const handle = member.worktreePath
       ? { worktreePath: member.worktreePath, branchName: member.worktreeBranch }
-      : await host.createWorktree(worktreeKeyFor(roomId, member.id), `${record.definition.title} — ${member.displayName}`);
+      : await host.createWorktree(worktreeKeyFor(roomId, member.id), `${record.definition.title} — ${member.displayName}`, {
+          workspaceSnapshotKey: roomId,
+        });
     await store.updateMember(roomId, member.id, (current) => ({
       ...current,
       worktreePath: handle.worktreePath,

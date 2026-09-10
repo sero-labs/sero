@@ -8,7 +8,7 @@
 
 import type { WorkspaceAccessRootsResult } from './workspace-access-roots';
 import type { ExtensionRuntimeContent, ExtensionRuntimeMessage } from './session-runtime';
-import type { SharedAvailableModelGroup } from './model-selection/types';
+import type { SharedAvailableModelGroup, SharedModelTierSettings } from './model-selection/types';
 import type { AppRuntimeGitApi } from './app-runtime-git';
 import type { AppRuntimeNotificationsApi } from './app-runtime-notifications';
 import type { PersistentSessionsApi } from './app-runtime-persistent-sessions';
@@ -50,6 +50,14 @@ export interface AppRuntimeStateApi {
   remove(filePath: string): Promise<void>;
   watch(filePath: string): void;
   unwatch(filePath: string): void;
+  /**
+   * Delivers every change of a WATCHED file to this runtime, from any writer.
+   * `handleStateChange` only covers the runtime's own state file; a runtime
+   * that follows another app's index (the Architect following Orchestrator
+   * loops and Rooms) subscribes here. Returns the unsubscribe function.
+   * Optional for hosts that predate it; a runtime that needs it must check.
+   */
+  onChange?(filePath: string, listener: (state: unknown) => void): () => void;
   /**
    * Resolve (creating on first use) a profile-global app-state directory at
    * `$SERO_HOME/apps/<namespace>/`. Unlike the per-workspace `stateFilePath`,
@@ -141,6 +149,11 @@ export interface AppRuntimeWorkspaceInfo {
   open: boolean;
 }
 
+export interface AppRuntimeWorkspaceCreateOptions {
+  /** Use a new or empty destination instead of reusing a non-empty directory. */
+  requireEmpty?: boolean;
+}
+
 export interface AppRuntimeWorkspaceApi {
   runCommand(
     workspaceId: string,
@@ -157,6 +170,19 @@ export interface AppRuntimeWorkspaceApi {
   listAccessRoots(workspaceId: string): Promise<WorkspaceAccessRootsResult>;
   /** All workspaces registered in the active profile (host paths). */
   list(): Promise<AppRuntimeWorkspaceInfo[]>;
+  /**
+   * Create and register a workspace, the same path the Add Workspace menu uses:
+   * the parent folder must sit under the user's home directory, the
+   * `workspace.create.option` contributions the user has on by default run
+   * after creation, and every window receives the workspace-changed push.
+   * Requires `appRuntime.workspaceCreate` in the plugin's
+   * `requiredHostCapabilities`; an undeclared call is refused by name.
+   */
+  create(
+    name: string,
+    parentPath?: string,
+    options?: AppRuntimeWorkspaceCreateOptions,
+  ): Promise<AppRuntimeWorkspaceInfo>;
 }
 
 export interface AppRuntimeVerificationDetectOptions {
@@ -274,6 +300,8 @@ export interface AppRuntimeToolchainsApi {
 }
 
 export interface AppRuntimeModelsApi {
+  /** The model and thinking selections saved in Admin for this profile. */
+  tiers(): Promise<SharedModelTierSettings>;
   /**
    * Lists the models currently available to this machine (every provider with a
    * configured key), grouped by provider. Background runtimes use this to resolve

@@ -1,3 +1,5 @@
+import { reportedUsage } from '../../shared/usage';
+import type { UsageSummary } from '../../shared/usage-types';
 /**
  * Turn bookkeeping for a member session: watching one turn to completion, and
  * writing what it cost back onto the Room (spec §16, §21, §30).
@@ -53,14 +55,20 @@ const TURN_DETAIL: Record<MemberTurnStatus, string> = {
  * live-output buffer rather than one per caller.
  */
 export function watchTurn(api: PersistentSessionsApi, handleId: string): TurnWatch {
-  const ended = new Map<string, MemberTurnStatus>();
+  const ended = new Map<string, TurnOutcome>();
   let pending: { turnId: string; resolve: (outcome: TurnOutcome) => void } | null = null;
 
   const unsubscribe = api.subscribe(handleId, (event) => {
     if (event.type !== 'turn_end') return;
-    ended.set(event.turnId, event.status);
+    const outcome: TurnOutcome = {
+      turnId: event.turnId,
+      status: event.status,
+      detail: event.status === 'error' && event.errorMessage?.trim()
+        ? event.errorMessage.trim() : TURN_DETAIL[event.status],
+    };
+    ended.set(event.turnId, outcome);
     if (pending?.turnId === event.turnId) {
-      pending.resolve({ turnId: event.turnId, status: event.status, detail: TURN_DETAIL[event.status] });
+      pending.resolve(outcome);
       pending = null;
     }
   });
@@ -70,7 +78,7 @@ export function watchTurn(api: PersistentSessionsApi, handleId: string): TurnWat
       new Promise<TurnOutcome>((resolve) => {
         const already = ended.get(turnId);
         if (already) {
-          resolve({ turnId, status: already, detail: TURN_DETAIL[already] });
+          resolve(already);
           return;
         }
         pending = { turnId, resolve };
@@ -130,16 +138,16 @@ export function markMemberWorking(
  * any number of messages and model calls, and the count has to survive the
  * session being closed and reopened.
  */
-function applyUsage(current: MemberUsage, session: PersistentSessionUsage | null): MemberUsage {
-  const turns = current.turns + 1;
-  if (!session) return { ...current, turns };
+function applyUsage(current: MemberUsage, session: PersistentSessionUsage | null, turns = current.turns): MemberUsage {
+  if (!session) return { ...current, turns, incomplete: true };
   return {
     ...current,
-    costUsd: session.costUsd,
-    inputTokens: session.inputTokens,
-    outputTokens: session.outputTokens,
-    cacheReadTokens: session.cacheReadTokens,
-    cacheWriteTokens: session.cacheWriteTokens,
+    incomplete: !!session.incomplete,
+    costUsd: Math.max(current.costUsd, session.costUsd),
+    inputTokens: Math.max(current.inputTokens, session.inputTokens),
+    outputTokens: Math.max(current.outputTokens, session.outputTokens),
+    cacheReadTokens: Math.max(current.cacheReadTokens, session.cacheReadTokens),
+    cacheWriteTokens: Math.max(current.cacheWriteTokens, session.cacheWriteTokens),
     turns,
   };
 }
@@ -177,7 +185,7 @@ function applyTurn(
     // waiting on a question, and "Finished its turn." would hide what for.
     statusDetail: member.status === 'working' ? outcome.detail : member.statusDetail,
     usage: {
-      ...applyUsage(member.usage, session),
+      ...applyUsage(member.usage, session, member.usage.turns + 1),
       retries: outcome.status === 'error' ? member.usage.retries + 1 : member.usage.retries,
       consecutiveFailures: failures,
     },
@@ -185,16 +193,39 @@ function applyTurn(
 }
 
 /** The Room total is the sum of its members. Roster counters are not usage. */
-function aggregateRoomUsage(current: RoomUsage, members: RoomMember[]): RoomUsage {
+function aggregateRoomUsage(current: RoomUsage, members: RoomMember[], planningUsage?: UsageSummary): RoomUsage {
   const total = (pick: (usage: MemberUsage) => number): number =>
     members.reduce((sum, member) => sum + pick(member.usage), 0);
   return {
     ...current,
-    costUsd: total((usage) => usage.costUsd),
-    inputTokens: total((usage) => usage.inputTokens),
-    outputTokens: total((usage) => usage.outputTokens),
+    incomplete: !!reportedUsage(planningUsage)?.incomplete || members.some((member) => member.usage.incomplete),
+    costUsd: total((usage) => usage.costUsd) + (planningUsage?.costUsd ?? 0),
+    inputTokens: total((usage) => usage.inputTokens) + (planningUsage?.inputTokens ?? 0),
+    outputTokens: total((usage) => usage.outputTokens) + (planningUsage?.outputTokens ?? 0),
     turns: total((usage) => usage.turns),
   };
+}
+
+/** Save available SDK totals during a turn without counting another turn. */
+export function watchMemberUsage(
+  api: PersistentSessionsApi, handleId: string, store: RoomStore, roomId: string, memberId: string,
+  log: (message: string) => void,
+): () => Promise<void> {
+  let pending = Promise.resolve();
+  const unsubscribe = api.subscribe(handleId, (event) => {
+    if (!['tool_start', 'tool_end', 'turn_end'].includes(event.type)) return;
+    pending = pending.then(async () => {
+      const session = await readSessionUsage(api, handleId);
+      await store.updateRoom(roomId, (record) => {
+        const members = record.members.map((member) => member.id === memberId
+          ? { ...member, usage: applyUsage(member.usage, session) } : member);
+        return { ...record, members, runtime: {
+            ...record.runtime, usage: aggregateRoomUsage(record.runtime.usage, members, record.runtime.planningUsage),
+        } };
+      });
+    }).catch((error: unknown) => log(`Room usage could not be saved: ${String(error)}`));
+  });
+  return async () => { unsubscribe(); await pending; };
 }
 
 /**
@@ -225,7 +256,7 @@ export async function recordMemberTurn(
       runtime: {
         ...record.runtime,
         activeMemberIds: record.runtime.activeMemberIds.filter((id) => id !== memberId),
-        usage: aggregateRoomUsage(record.runtime.usage, members),
+        usage: aggregateRoomUsage(record.runtime.usage, members, record.runtime.planningUsage),
       },
     };
   });

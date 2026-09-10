@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { createRuntimeTools } from '@electron/features/container/tools';
+import { createMemberRuntimeTools } from '@electron/features/apps/runtime/capabilities/persistent-sessions/member-runtime-tools';
+import { applyPermissionProfile } from '@electron/features/apps/runtime/capabilities/persistent-sessions/permission-tools';
+import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import { getRuntimeCapabilities } from '@electron/features/workspace/runtime/capabilities';
 import type {
   RuntimeBackend,
@@ -19,6 +22,56 @@ vi.mock('@electron/cli', () => ({
     execute: async () => ({ content: [] }),
   }),
 }));
+
+vi.mock('@electron/features/workspace/runtime/runtime-manager', () => ({
+  runtimeManager: { getRuntime: vi.fn() },
+}));
+
+describe('persistent member runtime tools', () => {
+  it('runs approved bash through the workspace runtime with the member cwd and CLI scope', async () => {
+    const runtime = fakeRuntime('host', { backend: 'host', status: 'ready', message: 'ready', checks: [] });
+    vi.mocked(runtimeManager.getRuntime).mockResolvedValue(runtime);
+    const tools = await createMemberRuntimeTools('ws-1', ['bash'], '/project', 'grant-1:owner');
+    const bash = tools.find((tool) => tool.name === 'bash');
+    if (!bash) throw new Error('Approved bash missing');
+    // Runtime bash does not read the Pi extension context.
+    await bash.execute('call-1', { command: 'node --version' }, undefined, undefined, undefined as never);
+    expect(runtime.exec).toHaveBeenLastCalledWith({
+      command: 'node --version', cwd: '/project', timeoutMs: undefined,
+      env: { SERO_SESSION_ID: 'grant-1:owner' },
+    });
+    expect(tools.map((tool) => tool.name)).toEqual(['bash']);
+  });
+
+  it('creates the real browser tool for an approved member in its own workspace', async () => {
+    const runtime = fakeRuntime('host', {
+      backend: 'host', status: 'ready', message: 'ready',
+      checks: [{ id: 'runtime.host.browser', category: 'runtime', status: 'pass', message: 'ready', durationMs: 1 }],
+    });
+    vi.mocked(runtimeManager.getRuntime).mockResolvedValue(runtime);
+    const tools = await createMemberRuntimeTools('ws-1', ['read', 'automation_browser']);
+    expect(runtimeManager.getRuntime).toHaveBeenLastCalledWith('ws-1');
+    expect(runtime.ensure).toHaveBeenCalledOnce();
+    expect(tools.map((tool) => tool.name)).toEqual(['automation_browser']);
+  });
+
+  it('does not start a runtime when the permission profile excludes network access', async () => {
+    vi.mocked(runtimeManager.getRuntime).mockClear();
+    const { allowed } = applyPermissionProfile(['read', 'bash', 'automation_browser'], {
+      filesystem: 'read', commands: 'none', network: 'none', vcs: 'read',
+    });
+    expect(await createMemberRuntimeTools('ws-1', allowed)).toEqual([]);
+    expect(runtimeManager.getRuntime).not.toHaveBeenCalled();
+  });
+
+  it('reports an unavailable approved browser before starting a member without it', async () => {
+    vi.mocked(runtimeManager.getRuntime).mockResolvedValue(fakeRuntime('host', {
+      backend: 'host', status: 'ready', message: 'ready', checks: [],
+    }));
+    await expect(createMemberRuntimeTools('ws-1', ['automation_browser']))
+      .rejects.toThrow('approved automation browser is unavailable in workspace ws-1');
+  });
+});
 
 describe('createRuntimeTools browser automation gating', () => {
   it('omits automation_browser for host runtimes until browser pack is ready', async () => {

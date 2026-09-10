@@ -20,6 +20,7 @@ import type {
   RecoveryDecisionKind,
   StepAttempt,
   StepOutcome,
+  UsageSummary,
 } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import type { OutcomeEvaluator, RecoveryDecider } from './engine-types';
@@ -72,7 +73,7 @@ function buildEvaluateRepair(previous: string, errors: string[]): string {
 }
 
 export const llmEvaluator: OutcomeEvaluator = {
-  async evaluate({ host, loop, step, attempt }) {
+  async evaluate({ host, loop, step, attempt, onUsage }) {
     const output = await attemptOutput(host, attempt);
     const result = await runStructuredJson<StepOutcome>(host, {
       systemPrompt: EVALUATE_SYSTEM,
@@ -80,6 +81,7 @@ export const llmEvaluator: OutcomeEvaluator = {
       parse: parseStepOutcomeStrict,
       buildRepair: buildEvaluateRepair,
       parentSessionId: loop.runtime.parentSessionId,
+      onUsage,
     });
     if (result.responses.length > 0) {
       await host.writeArtifact(`${loopArtifactDir(loop.id)}/evaluation/${attempt.id}.txt`, joinResponses(result.responses));
@@ -199,13 +201,14 @@ function parseDecision(value: unknown): ParseResult<ParsedDecision> {
 }
 
 export const llmDecider: RecoveryDecider = {
-  async decide({ host, loop, step, attempt, outcome }): Promise<RecoveryDecision> {
+  async decide({ host, loop, step, attempt, outcome, onUsage }): Promise<RecoveryDecision> {
     const result = await runStructuredJson<ParsedDecision>(host, {
       systemPrompt: RECOVERY_SYSTEM,
       task: await buildRecoveryTask(host, loop, step, attempt, outcome),
       parse: parseDecision,
       buildRepair: buildRecoveryRepair,
       parentSessionId: loop.runtime.parentSessionId,
+      onUsage,
     });
     const modelResponsePath = result.responses.length
       ? await host.writeArtifact(`${loopArtifactDir(loop.id)}/recovery/${attempt.id}.txt`, joinResponses(result.responses))
@@ -242,6 +245,7 @@ export interface RevisionProposal {
   plan?: LoopPlan;
   modelResponsePath?: string;
   error?: string;
+  usage?: UsageSummary;
 }
 
 interface RevisionResult {
@@ -282,17 +286,18 @@ function parseRevision(value: unknown): ParseResult<RevisionResult> {
   return { ok: true, value: { goal: (value.goal as string).trim(), plan: value.plan as unknown as LoopPlan } };
 }
 
-export async function proposeRevisedPlan(host: OrchestratorHost, loop: Loop, prompt?: string): Promise<RevisionProposal> {
+export async function proposeRevisedPlan(host: OrchestratorHost, loop: Loop, prompt?: string, onUsage?: (usage: UsageSummary) => void | Promise<void>): Promise<RevisionProposal> {
   const result = await runStructuredJson<RevisionResult>(host, {
     systemPrompt: REVISE_SYSTEM,
     task: buildRevisionTask(loop, prompt),
     parse: parseRevision,
     buildRepair: buildRevisionRepair,
     parentSessionId: loop.runtime.parentSessionId,
+    onUsage,
   });
   const modelResponsePath = result.responses.length
     ? await host.writeArtifact(`${loopArtifactDir(loop.id)}/revision/${host.newId('rev')}.txt`, joinResponses(result.responses))
     : undefined;
-  if (result.ok) return { goal: result.value!.goal, plan: result.value!.plan, modelResponsePath };
-  return { error: result.errors[0] ?? 'revision response was invalid', modelResponsePath };
+  if (result.ok) return { goal: result.value!.goal, plan: result.value!.plan, modelResponsePath, usage: result.usage };
+  return { error: result.errors[0] ?? 'revision response was invalid', modelResponsePath, usage: result.usage };
 }

@@ -202,6 +202,32 @@ describe('buildStepTask past-deliveries awareness', () => {
 });
 
 describe('backgroundAgentExecutor', () => {
+  it.each([
+    { limit: 1_800_000, elapsed: 120_000, expected: 1_680_000 },
+    { limit: 1_800_000, elapsed: 1_900_000, expected: 1 },
+    { limit: undefined, elapsed: 120_000, expected: undefined },
+  ])('passes the remaining Workflow time to the worker: $expected', async ({ limit, elapsed, expected }) => {
+    const host = createFakeHost();
+    const now = host.now();
+    host.now = () => now;
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.limits.maxWallClockMs = limit;
+    const input = inputFor(host, loop, 'step-1');
+    input.run.startedAt = new Date(Date.parse(host.now()) - elapsed).toISOString();
+    await backgroundAgentExecutor.run(input);
+    expect(host.modelCalls[0].timeoutMs).toBe(expected);
+  });
+
+  it('records a rejected execution as a failed attempt so recovery can handle it', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    host.runStructured = async () => { throw new Error('provider connection closed'); };
+    const attempt = await backgroundAgentExecutor.run(inputFor(host, loop, 'step-1'));
+    expect(attempt.status).toBe('failed');
+    expect(attempt.error).toBe('provider connection closed');
+    expect(attempt.endedAt).toBeDefined();
+  });
+
   it('runs with the resolved cwd and full tool surface and records the outcome', async () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, oneStepPlan().plan);
@@ -395,7 +421,7 @@ describe('step model resolution', () => {
     expect(attempt.modelFallback).toBeUndefined();
   });
 
-  it('falls back to MED and flags the attempt when a pinned model is unavailable', async () => {
+  it('blocks before any model call when a pinned model is unavailable', async () => {
     const host = createFakeHost();
     host.availableModels = availableModels;
     const plan = oneStepPlan().plan;
@@ -403,8 +429,14 @@ describe('step model resolution', () => {
     const loop = seedActiveLoop(host, plan);
     host.modelResponses.push({ response: ok(), modelId: 'med-model' });
     const attempt = await backgroundAgentExecutor.run(inputFor(host, loop, 'step-1'));
-    expect(host.modelCalls[0].model).toBe('MED');
-    expect(attempt.modelFallback).toEqual({ requestedModel: 'openai/gpt-9' });
+    expect(host.modelCalls).toHaveLength(0);
+    expect(attempt).toMatchObject({
+      status: 'failed',
+      model: 'openai/gpt-9',
+      usage: { costUsd: 0 },
+      modelUnavailable: { requestedModel: 'openai/gpt-9' },
+      outcome: { status: 'blocked', summary: expect.stringContaining('select an authorized available model') },
+    });
   });
 });
 
@@ -462,5 +494,48 @@ describe('per-step tools', () => {
     host.modelResponses.push({ response: ok() });
     await backgroundAgentExecutor.run(inputFor(host, loop, 'step-1'));
     expect(host.modelCalls[0].tools).toEqual([...DEFAULT_TOOLS, 'web_search']);
+  });
+});
+
+
+describe('retry handoff', () => {
+  it('carries the original task contract into workers when the generated plan abbreviates it', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    loop.prompt = 'Approved output uses record_count and a numeric total_amount.';
+    loop.runtime.variables = { researchRecommendation: 'Use recordCount and a string totalAmount.' };
+    host.modelResponses.push({ response: outcome({ status: 'succeeded', summary: 'Checked the contract.' }) });
+    await backgroundAgentExecutor.run(inputFor(host, structuredClone(loop), 'step-1'));
+    expect(host.modelCalls[0].task).toContain(loop.prompt);
+    expect(host.modelCalls[0].task).toContain('Original task requirements');
+  });
+
+  it('gives a new worker the saved partial result and recovery instruction from the previous run', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    const step = loop.plan.steps[0];
+    const previous = emptyRun(host);
+    previous.stepAttempts.push({
+      id: 'partial-capture', stepId: step.id, attemptNumber: 1,
+      parentSessionId: loop.runtime.parentSessionId, executionType: step.execution.type,
+      status: 'completed', observations: [], startedAt: host.now(),
+      outcome: { status: 'failed', summary: 'Screenshots exist in evidence/m2; REPORT.md is missing.' },
+      outputPath: 'evidence/m2/capture-log.txt',
+    });
+    previous.recoveryDecisions.push({
+      id: 'recovery-1', stepId: step.id, failedAttemptId: 'partial-capture', createdAt: host.now(),
+      decision: 'retry-step', reason: 'Inspect saved screenshots and write the missing report.',
+    });
+    loop.runs = [previous];
+    loop.runtime.stepStates[step.id].lastAttemptId = 'partial-capture';
+    host.modelResponses.push({ response: outcome({ status: 'succeeded', summary: 'Report written.' }) });
+    await backgroundAgentExecutor.run(inputFor(host, structuredClone(loop), step.id));
+    const task = host.modelCalls[0].task;
+    expect(task).toContain('Screenshots exist in evidence/m2; REPORT.md is missing.');
+    expect(task).toContain('Inspect saved screenshots and write the missing report.');
+    expect(task).toContain('evidence/m2/capture-log.txt');
+    expect(task).toContain('finish only the missing or failed work');
+    loop.runtime.stepStates[step.id].lastAttemptId = undefined;
+    expect(buildStepTask(loop, step)).not.toContain('RECOVERING PREVIOUS ATTEMPT');
   });
 });

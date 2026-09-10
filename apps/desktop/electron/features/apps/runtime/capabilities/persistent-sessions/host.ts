@@ -72,6 +72,8 @@ export interface PersistentSessionHostDeps {
     /** Host-issued grant id and the validated subject: together, this session's identity. */
     grantId: string;
     subject: string;
+    /** The workspace the grant names, which a profile-global runtime's instance does not. */
+    workspaceId: string;
     cwd: string;
     tools: string[];
     skills: string[];
@@ -323,9 +325,12 @@ export class PersistentSessionHost implements PersistentSessionsApi {
     validation: { cwd: string; thinking: string; policy: PersistentSessionSubjectPolicy },
     sessionManager: SessionManager,
   ) {
+    const grant = this.deps.grantStore.get(request.grantId);
+    if (!grant) throw new Error(`Persistent session denied: grant ${request.grantId} is unknown.`);
     const inputs = await this.deps.buildSessionInputs({
       grantId: request.grantId,
       subject: request.subject,
+      workspaceId: grant.workspaceId,
       cwd: validation.cwd,
       tools: request.tools,
       skills: request.skills,

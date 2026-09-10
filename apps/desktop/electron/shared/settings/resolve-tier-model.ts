@@ -40,6 +40,12 @@ function findModelById(
   available: AvailableModel[],
   modelId: string,
 ): AvailableModel | undefined {
+  const separator = modelId.indexOf('/');
+  if (separator > 0) {
+    const provider = modelId.slice(0, separator);
+    const id = modelId.slice(separator + 1);
+    return available.find((model) => model.provider === provider && model.id === id);
+  }
   const lowerId = modelId.toLowerCase();
   return available.find((m) => m.id.toLowerCase() === lowerId);
 }

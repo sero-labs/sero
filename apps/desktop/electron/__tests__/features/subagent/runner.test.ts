@@ -80,6 +80,7 @@ vi.mock('@electron/shared/settings/model-tiers', () => ({
   getModelTiers: vi.fn(() => ({})),
 }));
 
+import { parseModelField } from '@electron/shared/settings/resolve-tier-model';
 import { resolveSubagentPaths, runSubagent } from '@electron/features/subagent/runtime/runner';
 import type { RunnerConfig } from '@electron/features/subagent/core/types';
 import type { RunnerDeps } from '@electron/features/subagent/runtime/runner';
@@ -209,6 +210,86 @@ function createStreamingSession(events: Array<Record<string, unknown>>) {
 }
 
 describe('runSubagent live output', () => {
+  it('does not prompt the default provider when a selected model cannot resolve', async () => {
+    const session = createSession();
+    mocks.createAgentSession.mockResolvedValue({ session });
+    vi.mocked(parseModelField).mockReturnValueOnce({ prefer: 'openai-codex/missing', fallbacks: [] });
+    const result = await runSubagent(createConfig(new AbortController().signal), createDeps());
+    expect(result.error).toContain('Selected model openai-codex/missing is unavailable');
+    expect(session.prompt).not.toHaveBeenCalled();
+  });
+
+  it('reports priced cumulative usage after each model turn, before the helper finishes', async () => {
+    const session = createStreamingSession([{ type: 'turn_end' }]);
+    session.getSessionStats.mockReturnValue({
+      tokens: { input: 100, output: 50, cacheRead: 100000, cacheWrite: 500, total: 100650 },
+      cost: 0.03,
+    });
+    const prompt = session.prompt;
+    let finished = false;
+    session.prompt = vi.fn(async () => { await prompt(); finished = true; });
+    mocks.createAgentSession.mockResolvedValueOnce({ session });
+    const config = createConfig(new AbortController().signal);
+    const progress = vi.fn(() => { expect(finished).toBe(false); });
+    config.onProgress = progress;
+    const result = await runSubagent(config, createDeps());
+    expect(progress).toHaveBeenCalledWith(expect.objectContaining({ cost: 0.03, cacheReadTokens: 100000, totalTokens: 100650 }));
+    expect(result.usage.cost).toBe(0.03);
+  });
+
+  it('keeps priced live usage and marks the result incomplete when final stats fail', async () => {
+    const session = createStreamingSession([{ type: 'turn_end' }]);
+    session.getSessionStats
+      .mockReturnValueOnce({
+        tokens: { input: 100, output: 50, cacheRead: 1000, cacheWrite: 20, total: 1170 },
+        cost: 0.03,
+      })
+      .mockImplementationOnce(() => { throw new Error('stats unavailable'); });
+    mocks.createAgentSession.mockResolvedValueOnce({ session });
+
+    const progress = vi.fn();
+    const config = createConfig(new AbortController().signal);
+    config.onProgress = progress;
+    const result = await runSubagent(config, createDeps());
+
+    expect(progress).toHaveBeenCalledWith(expect.objectContaining({ cost: 0.03, totalTokens: 1170 }));
+    expect(result.usage).toMatchObject({ cost: 0.03, totalTokens: 1170, incomplete: true });
+  });
+
+  it('keeps priced live usage and marks the result incomplete when prompt throws', async () => {
+    const session = createStreamingSession([{ type: 'turn_end' }]);
+    session.getSessionStats
+      .mockReturnValueOnce({
+        tokens: { input: 80, output: 40, cacheRead: 500, cacheWrite: 10, total: 630 },
+        cost: 0.02,
+      })
+      .mockImplementationOnce(() => { throw new Error('stats unavailable'); });
+    const emitTurn = session.prompt;
+    session.prompt = vi.fn(async () => {
+      await emitTurn();
+      throw new Error('prompt interrupted');
+    });
+    mocks.createAgentSession.mockResolvedValueOnce({ session });
+
+    const result = await runSubagent(createConfig(new AbortController().signal), createDeps());
+
+    expect(result.error).toBe('prompt interrupted');
+    expect(result.usage).toMatchObject({ cost: 0.02, totalTokens: 630, incomplete: true });
+  });
+
+  it('reports incomplete live usage when a turn-end stats read fails', async () => {
+    const session = createStreamingSession([{ type: 'turn_end' }]);
+    session.getSessionStats.mockImplementation(() => { throw new Error('stats unavailable'); });
+    mocks.createAgentSession.mockResolvedValueOnce({ session });
+
+    const progress = vi.fn();
+    const config = createConfig(new AbortController().signal);
+    config.onProgress = progress;
+    await runSubagent(config, createDeps());
+
+    expect(progress).toHaveBeenCalledWith(expect.objectContaining({ incomplete: true }));
+  });
+
   it('forwards both text and reasoning deltas into the live-output channel', async () => {
     const session = createStreamingSession([
       { type: 'message_update', assistantMessageEvent: { type: 'thinking_delta', delta: 'weighing options…' } },
@@ -227,6 +308,39 @@ describe('runSubagent live output', () => {
 });
 
 describe('runSubagent abort handling', () => {
+  it.each(['timeout', 'stall'] as const)('reports %s without repairing an interrupted reply', async (kind) => {
+    vi.useFakeTimers();
+    try {
+      const session = createSession();
+      mocks.createAgentSession.mockResolvedValueOnce({ session });
+      session.getSessionStats.mockReturnValue({
+        tokens: { input: 100, output: 20, cacheRead: 40, cacheWrite: 0, total: 160 }, cost: 0.42,
+      });
+      const config = createConfig(new AbortController().signal);
+      config.resolved.timeoutMs = 100;
+      config.resolved.toolStallTimeoutMs = kind === 'stall' ? 50 : 0;
+      const validate = vi.fn(() => 'Return a structured outcome.');
+      config.repair = { maxAttempts: 1, validate };
+      session.prompt.mockImplementation(async () => {
+        if (kind === 'stall') {
+          session.subscribe.mock.calls.at(-1)?.[0]?.({ type: 'tool_execution_start', toolName: 'bash', args: {} });
+        }
+        await vi.advanceTimersByTimeAsync(kind === 'stall' ? 50 : 100);
+      });
+
+      const result = await runSubagent(config, createDeps());
+
+      expect(result.error).toContain(kind === 'stall' ? "Tool 'bash' stalled" : 'Timed out');
+      expect(session.abort).toHaveBeenCalledOnce();
+      expect(session.prompt).toHaveBeenCalledOnce();
+      expect(validate).not.toHaveBeenCalled();
+      expect(result.usage).toMatchObject({ totalTokens: 160, cost: 0.42 });
+      expect(session.dispose).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('returns before creating a session when setup is aborted', async () => {
     const controller = new AbortController();
     mocks.reloadResources.mockImplementationOnce(async () => {

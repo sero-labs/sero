@@ -40,6 +40,28 @@ const EMPTY_USAGE: SubagentUsage = {
   cost: 0,
 };
 
+type AgentSession = Awaited<ReturnType<typeof createAgentSession>>['session'];
+
+/** Update usage from a SDK snapshot without losing a known high-water mark. */
+function readSessionUsage(session: AgentSession | null, usage: SubagentUsage): void {
+  try {
+    const stats = session?.getSessionStats();
+    if (!stats) {
+      usage.incomplete = true;
+      return;
+    }
+    usage.inputTokens = Math.max(usage.inputTokens, stats.tokens.input);
+    usage.outputTokens = Math.max(usage.outputTokens, stats.tokens.output);
+    usage.cacheReadTokens = Math.max(usage.cacheReadTokens, stats.tokens.cacheRead);
+    usage.cacheWriteTokens = Math.max(usage.cacheWriteTokens, stats.tokens.cacheWrite);
+    usage.totalTokens = Math.max(usage.totalTokens, stats.tokens.total);
+    usage.cost = Math.max(usage.cost, stats.cost);
+    delete usage.incomplete;
+  } catch {
+    usage.incomplete = true;
+  }
+}
+
 export interface ResolvedSubagentPaths {
   sessionPath: string | null;
   containerHostPath: string | null;
@@ -233,6 +255,8 @@ export async function runSubagent(
   // Stall timer state — hoisted above try so finally can access clearStallTimer
   let activeToolStallTimer: ReturnType<typeof setTimeout> | null = null;
   let activeToolName: string | null = null;
+  let stopReason: string | undefined;
+  const usage: SubagentUsage = { ...EMPTY_USAGE };
 
   function clearStallTimer(): void {
     if (activeToolStallTimer) {
@@ -259,8 +283,8 @@ export async function runSubagent(
 
     let effectiveThinking = resolved.thinking;
 
-    // Try to set the resolved model — needs provider/modelId lookup
-    try {
+    // A selected model must resolve before any prompt can run.
+    {
       const available = infra.modelRegistry.getAvailable();
       const globalSettings = infra.settingsManager.getGlobalSettings() as Record<string, unknown>;
       const tierSettings = getModelTiers(globalSettings);
@@ -273,12 +297,12 @@ export async function runSubagent(
         effectiveThinking = getModelTierThinkingLevel(tierSettings[parsed.prefer], resolved.thinking);
       }
 
+      if (parsed && !resolvedModel) throw new Error(`Selected model ${parsed.prefer} is unavailable. Update the model selection before retrying.`);
       if (resolvedModel) {
         const model = infra.modelRegistry.find(resolvedModel.provider, resolvedModel.modelId);
-        if (model) await session.setModel(model);
+        if (!model) throw new Error(`Selected model ${resolvedModel.provider}/${resolvedModel.modelId} is unavailable.`);
+        await session.setModel(model);
       }
-    } catch {
-      // Fall back to settingsManager default — still works
     }
 
     // Set thinking level
@@ -287,8 +311,6 @@ export async function runSubagent(
     } catch {
       // Fall back to default
     }
-
-    const usage: SubagentUsage = { ...EMPTY_USAGE };
 
     // Set up abort handler
     const abortHandler = () => {
@@ -301,8 +323,8 @@ export async function runSubagent(
       return { response: '', usage, modelId: session.model?.id, providerId: session.model?.provider, error: 'Aborted' };
     }
 
-    // Set up timeout
     const timeoutId = setTimeout(() => {
+      stopReason = `Timed out after ${Math.round(resolved.timeoutMs / 1000)}s`;
       try { session?.abort(); } catch { /* ignore */ }
     }, resolved.timeoutMs);
 
@@ -318,6 +340,7 @@ export async function runSubagent(
       activeToolName = toolName;
       activeToolStallTimer = setTimeout(() => {
         const stallMsg = `Tool '${toolName}' stalled after ${Math.round(toolStallMs / 1000)}s — auto-aborting`;
+        stopReason = stallMsg;
         console.warn(`[subagent/runner] ${stallMsg}`);
         onStatusUpdate?.(`⚠️ ${stallMsg}`);
         try { session?.abort(); } catch { /* ignore */ }
@@ -363,20 +386,10 @@ export async function runSubagent(
         }
       }
 
-      if (event.type === 'agent_end') {
+      if (event.type === 'turn_end' || event.type === 'agent_end') {
         clearStallTimer();
-        try {
-          const stats = session?.getSessionStats();
-          if (stats) {
-            usage.inputTokens = stats.tokens.input;
-            usage.outputTokens = stats.tokens.output;
-            usage.cacheReadTokens = stats.tokens.cacheRead;
-            usage.cacheWriteTokens = stats.tokens.cacheWrite;
-            usage.totalTokens = stats.tokens.total;
-            usage.cost = stats.cost;
-            onProgress?.(usage);
-          }
-        } catch { /* ignore */ }
+        readSessionUsage(session, usage);
+        onProgress?.(usage);
       }
     });
 
@@ -394,7 +407,7 @@ export async function runSubagent(
     // context and tools retained — no new subagent), up to maxAttempts.
     const repair = config.repair;
     if (repair) {
-      for (let i = 0; i < repair.maxAttempts && !signal.aborted; i += 1) {
+      for (let i = 0; i < repair.maxAttempts && !signal.aborted && !stopReason; i += 1) {
         let followUp: string | null;
         try {
           followUp = repair.validate(response);
@@ -412,47 +425,23 @@ export async function runSubagent(
     signal.removeEventListener('abort', abortHandler);
     unsub();
 
-    // Check if we were aborted or timed out
-    if (signal.aborted) {
-      return { response: '', usage, modelId: session.model?.id, providerId: session.model?.provider, error: 'Aborted' };
-    }
-
     // Final usage stats
-    try {
-      const stats = session.getSessionStats();
-      if (stats) {
-        usage.inputTokens = stats.tokens.input;
-        usage.outputTokens = stats.tokens.output;
-        usage.cacheReadTokens = stats.tokens.cacheRead;
-        usage.cacheWriteTokens = stats.tokens.cacheWrite;
-        usage.totalTokens = stats.tokens.total;
-        usage.cost = stats.cost;
-      }
-    } catch { /* ignore */ }
+    readSessionUsage(session, usage);
 
+    if (signal.aborted || stopReason) {
+      return { response: '', usage, modelId: session.model?.id, providerId: session.model?.provider, error: stopReason ?? 'Aborted' };
+    }
     return { response, usage, modelId: session.model?.id, providerId: session.model?.provider };
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
 
-    // Best-effort provenance — the session may exist even when the run failed
-    const usage: SubagentUsage = { ...EMPTY_USAGE };
-    try {
-      const stats = session?.getSessionStats();
-      if (stats) {
-        usage.inputTokens = stats.tokens.input;
-        usage.outputTokens = stats.tokens.output;
-        usage.cacheReadTokens = stats.tokens.cacheRead;
-        usage.cacheWriteTokens = stats.tokens.cacheWrite;
-        usage.totalTokens = stats.tokens.total;
-        usage.cost = stats.cost;
-      }
-    } catch { /* session unusable — keep zeros */ }
+    // Best-effort provenance — the session may exist even when the run failed.
+    readSessionUsage(session, usage);
     const modelId = session?.model?.id;
     const providerId = session?.model?.provider;
 
-    // Distinguish timeout from other errors
-    if (signal.aborted) {
-      return { response: '', usage, modelId, providerId, error: 'Aborted' };
+    if (signal.aborted || stopReason) {
+      return { response: '', usage, modelId, providerId, error: stopReason ?? 'Aborted' };
     }
 
     return { response: '', usage, modelId, providerId, error: errorMsg };

@@ -7,6 +7,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { modelKey } from '@sero-ai/common';
 import type { RoomBlueprint } from '../../shared/room-blueprint-types';
 import { requestRoomGrant } from '../rooms/member-grant';
@@ -101,17 +103,43 @@ describe('the user Room surface', () => {
       deliveryDestination: 'saved-artifact',
       openAssumptions: [],
     };
-    host.modelResponses.push({ response: JSON.stringify(authored) });
+    host.modelResponses.push({ response: JSON.stringify(authored), usage: { inputTokens: 100, outputTokens: 10, totalTokens: 110, costUsd: 0.2 } });
 
-    const planned = await app.prepare({ problem: 'Review this change.', limits: { access: 'read-only' } });
+    const planned = await app.prepare({ problem: 'Review this change.', requestId: 'priced-room', limits: { access: 'read-only' } });
     expect(planned.ok).toBe(true);
     if (!planned.ok) throw new Error('Room was not planned');
     expect(host.modelCalls[0].task).toContain('installed-review');
     const room = await store.readRoom(planned.roomId);
     if (!room) throw new Error('Room was not stored');
 
+    expect(room.runtime.usage.costUsd).toBeCloseTo(0.2);
+    expect(planned.usage?.costUsd).toBeCloseTo(0.2);
+    const repeated = await app.prepare({ problem: 'Review this change.', requestId: 'priced-room' });
+    expect(repeated.usage?.costUsd).toBeCloseTo(0.2);
+    expect(host.modelCalls).toHaveLength(1);
+    host.modelResponses.push(
+      { response: 'invalid', usage: { inputTokens: 20, outputTokens: 5, totalTokens: 25, costUsd: 0.1 } },
+      { response: 'invalid', usage: { inputTokens: 20, outputTokens: 5, totalTokens: 25, costUsd: 0.1 } },
+    );
+    expect((await app.adjust(planned.roomId, 'Recheck the approach.')).ok).toBe(false);
+    expect((await store.readRoom(planned.roomId))?.runtime.usage.costUsd).toBeCloseTo(0.4);
     const approved = await requestRoomGrant(host, room);
     expect(approved.subjects.verifier.allowedSkills).toEqual(['installed-review']);
+  });
+
+  it('persists paid failed planning even without a caller request id', async () => {
+    host.availableModels = [{ provider: 'anthropic', displayName: 'Anthropic', logo: '',
+      models: [{ provider: 'anthropic', modelId: 'sonnet', name: 'Sonnet', reasoning: true }] }];
+    host.modelResponses.push(
+      { response: 'invalid', usage: { inputTokens: 100, outputTokens: 10, totalTokens: 110, costUsd: 0.3 } },
+      { response: '', error: 'connection lost' },
+    );
+    const result = await app.prepare({ problem: 'Investigate this question.' });
+    expect(result.ok).toBe(false);
+    expect(result.usage).toMatchObject({ costUsd: 0.3, incomplete: true });
+    const saved = JSON.parse(await readFile(path.join(dir, 'rooms', 'planning.json'), 'utf8'));
+    expect(Object.values(saved)).toEqual([expect.objectContaining({ costUsd: 0.3, startedCalls: 2, finishedCalls: 2, incomplete: true })]);
+    expect((await store.readState()).rooms).toHaveLength(0);
   });
 
   it('refuses to re-plan a Room that has already started', async () => {

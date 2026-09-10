@@ -130,8 +130,8 @@ export const appControlHostService = {
     return execRenderer<string>('window.__appControl?.getActive() ?? "explorer"');
   },
 
-  async open(appId: string): Promise<boolean> {
-    return execRenderer<boolean>(`window.__appControl?.openApp(${JSON.stringify(appId)}) ?? false`);
+  async open(appId: string, workspaceId?: string): Promise<boolean> {
+    return execRenderer<boolean>(`window.__appControl?.openApp(${JSON.stringify(appId)}, ${JSON.stringify(workspaceId)}) ?? false`);
   },
 
   async openAndWait(appId: string, options: OpenAndWaitOptions = {}): Promise<boolean> {

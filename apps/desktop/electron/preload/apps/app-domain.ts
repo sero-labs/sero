@@ -117,8 +117,8 @@ export const appControlBridge = {
     ipcRenderer.invoke(IpcChannels.appControl.list),
   active: (): Promise<string> =>
     ipcRenderer.invoke(IpcChannels.appControl.active),
-  open: (appId: string): Promise<boolean> =>
-    ipcRenderer.invoke(IpcChannels.appControl.open, appId),
+  open: (appId: string, workspaceId?: string): Promise<boolean> =>
+    ipcRenderer.invoke(IpcChannels.appControl.open, appId, workspaceId),
   info: (appId: string): Promise<AppControlEntry | null> =>
     ipcRenderer.invoke(IpcChannels.appControl.info, appId),
   openFile: (workspaceId: string, filePath: string): Promise<boolean> =>

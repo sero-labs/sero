@@ -12,13 +12,14 @@
 
 import { promises as fs } from 'fs';
 import path from 'path';
-import type { AppRuntimeWorktreeRemoveOptions } from '@sero-ai/common';
+import type { AppRuntimeWorktreeCreateOptions, AppRuntimeWorktreeRemoveOptions } from '@sero-ai/common';
 
 import { inferConventionalType, slugifyBranchLabel } from '@electron/features/git/support/branch-naming';
 import { ensureBootstrapGitignore } from '@electron/features/git/support/bootstrap-gitignore';
 import { resolvePreferredBaseRef } from './workspace-sync';
 import { isMissingPathError, warnCleanupFailure } from '@electron/features/git/support/cleanup-warnings';
 import { execWorktreeGit, execWorktreeGitCommit } from './exec';
+import { getWorkspaceSnapshotBase } from './workspace-snapshot';
 
 function hasErrorCode(error: unknown, ...codes: string[]): boolean {
   return typeof error === 'object'
@@ -28,15 +29,15 @@ function hasErrorCode(error: unknown, ...codes: string[]): boolean {
 }
 
 /**
- * Ensure a workspace directory is a git repo with at least one commit.
- * Required before `git worktree add` can function.
+ * Prepare Git for a worktree. Default-branch worktrees need an initial commit;
+ * snapshot worktrees supply their own commit and leave the workspace untouched.
  *
  * - No `.git` → runs `git init`
  * - No commits → creates an initial empty commit
  *
  * @returns true if the repo was bootstrapped (greenfield), false if already existed.
  */
-async function ensureGitReady(workspacePath: string): Promise<boolean> {
+async function ensureGitReady(workspacePath: string, preserveExistingFiles = false): Promise<boolean> {
   let bootstrapped = false;
 
   // Check if it's a git repo
@@ -50,6 +51,9 @@ async function ensureGitReady(workspacePath: string): Promise<boolean> {
     await execWorktreeGit(['init'], { cwd: workspacePath, timeout: 10_000 });
     bootstrapped = true;
   }
+
+  // Snapshot branches can start from an internal commit even while HEAD is unborn.
+  if (preserveExistingFiles) return bootstrapped;
 
   // Ensure comprehensive .gitignore exists BEFORE the initial commit
   // so node_modules, dist, .DS_Store, etc. are never tracked.
@@ -123,17 +127,19 @@ export class WorktreeManager {
     workspacePath: string,
     cardId: string,
     cardTitle: string,
-    options?: { existingBranch?: string },
+    options?: AppRuntimeWorktreeCreateOptions,
   ): Promise<{ worktreePath: string; branchName: string; greenfield: boolean }> {
     if (options?.existingBranch) {
       return this.createAtExistingBranch(workspacePath, cardId, options.existingBranch);
     }
     // Ensure the workspace is a valid git repo with at least one commit
-    const greenfield = await ensureGitReady(workspacePath);
+    const greenfield = await ensureGitReady(workspacePath, Boolean(options?.workspaceSnapshotKey));
 
     const worktreePath = this.getPath(workspacePath, cardId);
     const branchName = this.buildBranchName(cardTitle, cardId);
-    const baseRef = await resolvePreferredBaseRef(workspacePath);
+    const baseRef = options?.workspaceSnapshotKey
+      ? await getWorkspaceSnapshotBase(workspacePath, options.workspaceSnapshotKey)
+      : await resolvePreferredBaseRef(workspacePath);
 
     await fs.mkdir(path.dirname(worktreePath), { recursive: true });
     const addArgs = [

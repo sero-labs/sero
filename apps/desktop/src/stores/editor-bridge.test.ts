@@ -74,4 +74,11 @@ describe('useEditorBridge', () => {
       filePath: '/workspace/sero-recordings/recording.mp4',
     });
   });
+
+  it('opens a dev-server preview without converting its URL into a workspace file', () => {
+    const preview = 'devserver://http://127.0.0.1:5174/';
+    useEditorBridge.getState().requestOpenFile('ws-1', preview);
+    expect(useEditorBridge.getState().consumeOpenRequest()).toEqual({ workspaceId: 'ws-1', filePath: preview });
+    expect(useAppStore.getState().activeApp).toBe('explorer');
+  });
 });

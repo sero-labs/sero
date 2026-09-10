@@ -21,11 +21,13 @@ import type { OrchestratorHost } from '../host';
 import { toMemberRecord } from './member-grant';
 import { buildRoomBrief, type BriefSources } from './room-brief';
 import type { RoomRecord } from './room-state';
+import type { UsageSummary } from '../../shared/usage-types';
 
 /** Phase 5 supplies the real work, artifacts and questions. Until then, none exist. */
 export const EMPTY_BRIEF_SOURCES: BriefSources = { work: [], artifacts: [], openQuestions: [] };
 
 export interface CreateRoomRequest {
+  requestId?: string;
   /** The user's own words, kept verbatim for the audit trail. */
   problemStatement: string;
   /** Already planned, validated and clamped (planner.ts / adjust.ts). */
@@ -42,6 +44,7 @@ export interface CreateRoomRequest {
    * the roster is stamped with the id, so it cannot simply be patched in after.
    */
   id?: string;
+  planningUsage?: UsageSummary;
 }
 
 /** A draft Room: members exist and are addressable, but nothing runs and no grant is held. */
@@ -60,6 +63,7 @@ export function buildRoomRecord(host: OrchestratorHost, request: CreateRoomReque
     definition: {
       id,
       title: request.blueprint.title,
+      ...(request.requestId ? { creationRequestId: request.requestId } : {}),
       problemStatement: request.problemStatement,
       blueprint: request.blueprint,
       proposal: request.proposal,
@@ -76,7 +80,17 @@ export function buildRoomRecord(host: OrchestratorHost, request: CreateRoomReque
       startedAt: null,
       endedAt: null,
       activeMemberIds: [],
-      usage: { costUsd: 0, inputTokens: 0, outputTokens: 0, turns: 0, rosterRevisions: 0, memberReplacements: 0 },
+      usage: { incomplete: false, costUsd: 0, inputTokens: 0, outputTokens: 0, turns: 0, rosterRevisions: 0, memberReplacements: 0 },
+      ...(request.planningUsage ? {
+        planningUsage: request.planningUsage,
+        usage: {
+          incomplete: false,
+          costUsd: request.planningUsage.costUsd ?? 0,
+          inputTokens: request.planningUsage.inputTokens ?? 0,
+          outputTokens: request.planningUsage.outputTokens ?? 0,
+          turns: 0, rosterRevisions: 0, memberReplacements: 0,
+        },
+      } : {}),
       stopReason: null,
       messageSequence: 0,
       timelineSequence: 0,

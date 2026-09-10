@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PersistentSessionGrantProposal } from '@sero-ai/common';
+import { Type } from 'typebox';
+import { createManifest } from '../../manager.fixtures';
+import { createPersistentSessionsApi } from '@electron/features/apps/runtime/capabilities/persistent-sessions/index';
+import { createMemberRuntimeTools } from '@electron/features/apps/runtime/capabilities/persistent-sessions/member-runtime-tools';
 
 const fakes = vi.hoisted(() => ({
   choices: [] as { body: string }[],
@@ -21,7 +25,12 @@ vi.mock('@electron/platform/desktop/request-choice', () => ({
 }));
 
 vi.mock('@electron/features/workspace/manager', () => ({
-  workspaceManager: { list: async () => [{ id: 'ws-1', path: '/workspace' }] },
+  workspaceManager: {
+    list: async () => [
+      { id: 'ws-1', path: '/workspace' },
+      { id: 'ws-2', path: '/other-workspace' },
+    ],
+  },
 }));
 
 vi.mock('@electron/features/subagent/runtime/tool-catalog', () => ({
@@ -59,7 +68,11 @@ vi.mock('@electron/features/apps/runtime/capabilities/persistent-sessions/index'
   createPersistentSessionsApi: vi.fn(),
 }));
 
-import { clampAndApprove } from '@electron/features/apps/runtime/capabilities/persistent-sessions/wiring';
+vi.mock('@electron/features/apps/runtime/capabilities/persistent-sessions/member-runtime-tools', () => ({
+  createMemberRuntimeTools: vi.fn(async () => []),
+}));
+
+import { clampAndApprove, installPersistentSessions } from '@electron/features/apps/runtime/capabilities/persistent-sessions/wiring';
 
 function skillBearingProposal(): PersistentSessionGrantProposal {
   return {
@@ -88,6 +101,34 @@ describe('persistent session wiring', () => {
     fakes.choices = [];
   });
 
+  it.each(['none', 'all'] as const)('hands runtime tools to Pi after applying commands: %s', async (commands) => {
+    const browser = {
+      name: 'automation_browser', label: 'Browser', description: 'Approved browser', parameters: Type.Object({}),
+      execute: async () => ({ content: [], details: undefined }),
+    };
+    const bash = { ...browser, name: 'bash' };
+    const runtimeTools = commands === 'all' ? [browser, bash] : [browser];
+    vi.mocked(createMemberRuntimeTools).mockResolvedValueOnce(runtimeTools);
+    await installPersistentSessions({
+      manifest: createManifest('orchestrator'), workspace: { id: 'global', path: '/global' }, stateFilePath: '/state.json',
+    });
+    const wiring = vi.mocked(createPersistentSessionsApi).mock.calls.at(-1)?.[0];
+    if (!wiring) throw new Error('Session capability was not installed');
+    const policy = skillBearingProposal().subjects.implementer;
+    policy.allowedTools = ['read', 'write', 'automation_browser', 'sero-cli', 'bash'];
+    policy.permissionProfile = { filesystem: 'read', commands, network: 'fetch', vcs: 'read' };
+    const inputs = await wiring.buildSessionInputs({
+      grantId: 'grant-1', subject: 'investigator', workspaceId: 'ws-1', cwd: '/workspace',
+      tools: policy.allowedTools, skills: [], systemPromptAdditions: [], policy,
+    });
+    const allowed = ['read', 'automation_browser', 'sero-cli', ...(commands === 'all' ? ['bash'] : [])];
+    expect(createMemberRuntimeTools).toHaveBeenLastCalledWith('ws-1', allowed, '/workspace', 'grant-1:investigator');
+    expect(inputs.customTools).toEqual(expect.arrayContaining(runtimeTools));
+    expect(inputs.tools).toEqual(allowed);
+    expect(inputs.customTools).toContain(browser);
+    expect(inputs.tools).not.toContain('write');
+  });
+
   it('keeps a Room skill that the canonical workspace catalogue can resolve', async () => {
     const decision = await clampAndApprove('ws-1', skillBearingProposal());
 
@@ -96,6 +137,21 @@ describe('persistent session wiring', () => {
     expect(fakes.choices[0].body).toContain('Read and edit files in this workspace');
     expect(fakes.choices[0].body).toContain('Run commands');
     expect(fakes.choices[0].body).toContain('normal-disabled');
+  });
+
+  it('refuses a proposal whose workspace id is not registered, before any prompt', async () => {
+    const decision = await clampAndApprove('ws-gone', skillBearingProposal());
+    expect(decision).toBeNull();
+  });
+
+  it('drops a cwd that sits in another registered workspace', async () => {
+    const proposal = skillBearingProposal();
+    proposal.subjects.implementer.allowedCwds = ['/workspace/app', '/other-workspace/app'];
+
+    const decision = await clampAndApprove('ws-1', proposal);
+
+    expect(decision?.approved.subjects.implementer.allowedCwds).toEqual(['/workspace/app']);
+    expect(fakes.choices[0].body).toContain('/other-workspace/app');
   });
 
   it('removes tools the approved permission profile cannot provide', async () => {

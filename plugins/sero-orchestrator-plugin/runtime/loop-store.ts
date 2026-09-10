@@ -117,7 +117,11 @@ export function createLoopStore(ctx: AppRuntimeContext): LoopStore {
         const loop = await readJson<Loop>(loopFile(summary.id));
         if (loop) loops.push(await reassembleLoop(loop));
       }
-      return composeState(loops);
+      const state = composeState(loops);
+      // Refresh derived fields added by upgrades even for idle blocked loops.
+      const rebuilt = buildIndex(state);
+      if (JSON.stringify(index) !== JSON.stringify(rebuilt)) await writeJson(indexPath, rebuilt);
+      return state;
     }
     // Migrate a legacy single state.json into the split layout (keep a backup).
     const legacy = await readJson<OrchestratorState>(ctx.stateFilePath);

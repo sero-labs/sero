@@ -1,0 +1,5 @@
+/* Harness chrome only. The host tokens are injected by main.tsx as a raw
+   stylesheet, because the plugin CSS scope refuses document selectors. */
+body { margin: 0; background: #050506; }
+.preview-frame { border: 1px solid #27272a; border-radius: 10px; overflow: hidden; min-height: 720px; display: flex; }
+.preview-frame > * { flex: 1; }

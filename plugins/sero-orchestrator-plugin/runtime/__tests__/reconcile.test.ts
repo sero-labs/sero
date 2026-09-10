@@ -3,6 +3,9 @@ import { reconcileAll, reconcileLoop } from '../reconcile';
 import { createFakeHost } from './fake-host';
 import { oneStepPlan, seedActiveLoop, sequentialPlan } from './fixtures';
 import type { Loop, LoopRun, LoopTrigger, StepAttempt } from '../../shared/types';
+import { RunEngine } from '../run-engine';
+import { LoopLocks } from '../locks';
+import { fakeDecider, fakeExecutor } from './engine-fakes';
 
 /** Adds an enabled cron trigger so the loop counts as recurring. */
 function recurring(loop: Loop): Loop {
@@ -66,6 +69,36 @@ describe('reconcileLoop', () => {
     expect(reconciled.runtime.stepStates['step-1'].status).toBe('pending'); // re-armed, not stuck/failed
     expect(reconciled.runtime.activeRunId).toBeUndefined();
     expect(reconciled.status).toBe('active');
+  });
+
+  it('blocks a recurring loop when restart orphaned its final external step', () => {
+    const host = createFakeHost();
+    const loop = recurring(withInFlightRun(seedActiveLoop(host, oneStepPlan().plan)));
+    loop.delivery = { destination: 'webhook-post', params: { url: 'https://example.test/hook' } };
+
+    const reconciled = reconcileLoop(host, loop);
+
+    expect(reconciled.runs[0].status).toBe('orphaned');
+    expect(reconciled.status).toBe('blocked');
+    expect(reconciled.runtime.stepStates['step-1'].status).toBe('failed');
+    expect(reconciled.runtime.block?.reason).toContain('no confirmed receipt');
+  });
+
+  it('orphan-cleans a zombie external attempt when activeRunId is already clear', async () => {
+    const host = createFakeHost();
+    const loop = recurring(withInFlightRun(seedActiveLoop(host, oneStepPlan().plan)));
+    loop.delivery = { destination: 'webhook-post', params: { url: 'https://example.test/hook' } };
+    loop.runtime.activeRunId = undefined;
+
+    const reconciled = reconcileLoop(host, loop);
+    host.state = { ...host.state, loops: [reconciled] };
+    const executor = fakeExecutor({ 'step-1': { status: 'succeeded', summary: 'would duplicate' } });
+    const result = await new RunEngine(host, { executor, decider: fakeDecider({ decision: 'wait' }), locks: new LoopLocks() }).run('loop-1');
+
+    expect(reconciled.runs[0].stepAttempts[0].status).toBe('orphaned');
+    expect(reconciled.status).toBe('blocked');
+    expect(result.acquired).toBe(false);
+    expect(executor.calls).toHaveLength(0);
   });
 
   it('unwedges a recurring loop with a step stuck running but no active run', () => {

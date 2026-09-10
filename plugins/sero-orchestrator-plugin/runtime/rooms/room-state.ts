@@ -1,3 +1,4 @@
+import { reportedUsage } from '../../shared/usage';
 /**
  * Pure helpers for the Room split-persistence layout (one dir per Room + a
  * small watched index), mirroring `runtime/store.ts` for Workflow loops. The
@@ -175,6 +176,7 @@ export function toRoomSummary(record: RoomRecord): RoomSummary {
     memberCount: record.members.length,
     activeMemberCount: record.runtime.activeMemberIds.length,
     costUsd: record.runtime.usage.costUsd,
+    usageIncomplete: record.runtime.usage.incomplete !== false || !!reportedUsage(record.runtime.planningUsage)?.incomplete,
     maxCostUsd: record.definition.envelope.maxCostUsd,
     startedAt,
     updatedAt: record.definition.updatedAt,
@@ -189,6 +191,8 @@ export function toRoomSummary(record: RoomRecord): RoomSummary {
         ...(startedAt && member.createdAt > startedAt ? { addedAfterStart: true } : {}),
       })),
     attentionCount: toAttentionCount(record, attention),
+    deliveredAt: record.delivery.deliveredAt,
+    deliveryRef: record.delivery.deliveryRef,
     attention,
   };
 }

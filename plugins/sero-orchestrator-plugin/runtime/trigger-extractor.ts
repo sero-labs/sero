@@ -17,6 +17,7 @@
  */
 
 import type { LoopTriggerSuggestion } from '../shared/types';
+import type { UsageSummary } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import { loopArtifactDir } from './artifacts';
 import { isValidCron } from './cron';
@@ -143,7 +144,7 @@ function parseTriggerExtraction(value: unknown): ParseResult<TriggerExtraction> 
  */
 export async function extractTriggers(
   host: OrchestratorHost,
-  args: { prompt: string; parentSessionId: string; loopId?: string; model?: string; signal?: AbortSignal },
+  args: { prompt: string; parentSessionId: string; loopId?: string; model?: string; signal?: AbortSignal; onUsage?: (usage: UsageSummary) => void | Promise<void> },
 ): Promise<TriggerExtraction> {
   const result = await runStructuredJson<TriggerExtraction>(host, {
     systemPrompt: TRIGGER_SYSTEM_PROMPT,
@@ -154,6 +155,7 @@ export async function extractTriggers(
     model: args.model,
     signal: args.signal,
     maxRepairs: 2,
+    onUsage: args.onUsage,
   });
   if (!result.ok || !result.value) {
     host.log(`trigger extraction returned nothing usable: ${result.errors.join('; ')}`);

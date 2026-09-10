@@ -88,6 +88,12 @@ export interface PersistentSessionWiring {
   buildSessionInputs(input: {
     grantId: string;
     subject: string;
+    /**
+     * The workspace the GRANT names, not the one the runtime instance runs in.
+     * A profile-global runtime is bound to the synthetic `global` workspace,
+     * and a session's CLI and `workspace` commands must serve the real one.
+     */
+    workspaceId: string;
     cwd: string;
     tools: string[];
     skills: string[];

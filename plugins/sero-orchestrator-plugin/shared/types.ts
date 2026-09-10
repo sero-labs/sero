@@ -138,6 +138,8 @@ export type LoopStatus =
   | 'disabled';
 
 export interface Loop {
+  /** Creation recovery counter, saved before each planning attempt. */
+  creation?: { requestId?: string; attempts: number; complete: boolean };
   id: string;
   workspaceId: string;
   title: string;
@@ -171,6 +173,8 @@ export interface Loop {
   skillLink?: LoopSkillLink;
   /** Local per-step overrides, replayed after a library version switch so they survive the plan being replaced. */
   stepOverrides?: Record<string, StepOverride>;
+  planningUsage?: UsageSummary;
+  auxiliaryUsage?: UsageSummary;
   createdAt: string;
   updatedAt: string;
 }
@@ -383,6 +387,7 @@ export interface LoopRun {
   recoveryDecisions: RecoveryDecision[];
   completionSignal?: CompletionSignal;
   observations: Observation[];
+  auxiliaryUsage?: UsageSummary;
   usage?: UsageSummary;
   startedAt: string;
   endedAt?: string;
@@ -422,8 +427,10 @@ export interface StepAttempt {
   resolvedSessionId?: string;
   sessionTurnId?: string;
   model?: string;
-  /** Set when the step's pinned model was unavailable and the MED tier was used instead. */
+  /** Retained for attempts written before unavailable pins became blocking. */
   modelFallback?: { requestedModel: string };
+  /** Set when an explicit model pin was unavailable and the step was blocked before execution. */
+  modelUnavailable?: { requestedModel: string };
   /** Set when the step's chosen agent role was unavailable and the default ad-hoc agent ran instead. */
   agentFallback?: { requestedAgent: string };
   outputPath?: string;

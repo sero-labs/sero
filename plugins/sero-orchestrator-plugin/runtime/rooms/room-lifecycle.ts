@@ -13,12 +13,13 @@
  * approval from the user.
  */
 
-import type { DeliveryReceipt } from '../../shared/delivery-types';
 import type { RoomMember, RoomStatus, RoomStopReason } from '../../shared/room-types';
 import { TERMINAL_ROOM_STATUSES } from '../../shared/room-types';
 import type { OrchestratorHost } from '../host';
 import { memberTools, requestRoomGrant, requirePersistentSessions } from './member-grant';
-import { deliverRoomResult, INVOKING_CHAT_DESTINATION } from './room-delivery';
+import { INVOKING_CHAT_DESTINATION } from './room-delivery';
+import { releaseAuthority } from './room-completion';
+export { completeRoom, releaseAuthority } from './room-completion';
 import type { MemberSessionPool } from './member-session';
 import {
   buildRoomRecord,
@@ -361,14 +362,24 @@ export async function settlePendingPause(ctx: RoomLifecycleContext, roomId: stri
   await settlePause(ctx, record, stopReason, now);
 }
 
-export async function resumeRoom(ctx: RoomLifecycleContext, roomId: string): Promise<RoomActionResult> {
+export async function resumeRoom(ctx: RoomLifecycleContext, roomId: string, maxWallClockMs?: number): Promise<RoomActionResult> {
   const record = await ctx.store.readRoom(roomId);
   if (!record) return fail(`Room not found: ${roomId}`);
   if (!record.definition.grantId) return fail('This Room lost its authority to run and must be started again.');
+  const now = ctx.host.now();
+  const limit = maxWallClockMs ?? record.definition.envelope.maxWallClockMs;
+  if (!Number.isFinite(limit) || limit <= 0) return fail('The time limit must be a finite positive duration.');
+  if (limit < record.definition.envelope.maxWallClockMs) return fail('Resume can extend the time limit, not reduce it.');
+  if (record.runtime.startedAt && Date.parse(now) - Date.parse(record.runtime.startedAt) >= limit) {
+    return fail('The Room time limit has expired. Resume with a larger maxMinutes total to allow more work.');
+  }
   // Only a Room that is STILL paused resumes. Checked in the writing turn, so a
   // Room cancelled since the read cannot be restarted as `running`.
   const claim = await claimTransition(ctx, roomId, (current, status) =>
-    status === 'paused' ? withRoomStatus(current, 'running', ctx.host.now(), null) : null);
+    status === 'paused' ? withRoomStatus({ ...current,
+      definition: { ...current.definition, envelope: { ...current.definition.envelope, maxWallClockMs: limit } },
+      runtime: { ...current.runtime, lastProgressAt: now },
+    }, 'running', now, null) : null);
   if (!claim.won) return fail(`This Room is "${claim.status}", so it cannot be resumed.`);
   return ok(await reread(ctx, roomId, record));
 }
@@ -402,88 +413,6 @@ export async function cancelRoom(
 
   await releaseAuthority(ctx, roomId, detail);
   return ok(await reread(ctx, roomId, record));
-}
-
-/**
- * Completes the Room: records the transition, delivers the result, then closes
- * the sessions and revokes the grant so nothing can run afterwards.
- *
- * `summary` is the Conductor's final answer — it is what the invoking chat
- * receives. Delivery runs on the completed record, so what the user reads
- * (state, artifacts, cost) is what was actually persisted.
- */
-export async function completeRoom(
-  ctx: RoomLifecycleContext,
-  roomId: string,
-  summary = 'The Room finished its work.',
-  receipt?: DeliveryReceipt,
-): Promise<RoomActionResult> {
-  const record = await ctx.store.readRoom(roomId);
-  if (!record) return fail(`Room not found: ${roomId}`);
-  const now = ctx.host.now();
-
-  // `completing` is the claim AND the crash marker, and it is HELD until the
-  // Room is finished with. Winning it makes this caller the one that delivers:
-  // a cancel can no longer take the Room and a second completion is refused
-  // rather than delivering twice. The members are marked completed in the same
-  // write, so delivery reads the finished Room it reports on.
-  //
-  // Nothing below moves the Room to `completed` until delivery, preservation
-  // and revocation have all run. A crash anywhere in between therefore leaves
-  // `completing`, which is exactly what recovery looks for to say delivery was
-  // interrupted and must not be repeated (§16, room-reconcile).
-  const claim = await claimTransition(ctx, roomId, (current, status) =>
-    TERMINAL_ROOM_STATUSES.includes(status) || status === 'completing'
-      ? null
-      : withRoomStatus(
-          { ...current, members: current.members.map((member) => withMemberStatus(member, 'completed', summary)) },
-          'completing',
-          now,
-          null,
-        ));
-  if (!claim.won) {
-    return fail(claim.status === 'completing' ? 'This Room is already finishing.' : 'This Room has already finished.');
-  }
-
-  // Delivery never decides whether the Room finished: the work is done, and a
-  // refused destination is reported to the user rather than reopening the Room.
-  const delivered = await deliverRoomResult({ host: ctx.host, store: ctx.store }, { roomId, finalResult: summary, receipt });
-  if (!delivered.ok && delivered.problems.length > 0) {
-    ctx.host.notify('The Room finished, but its result was not delivered.', 'warning', {
-      subtitle: record.definition.title,
-      openApp: true,
-    });
-  }
-
-  await releaseAuthority(ctx, roomId, summary);
-
-  // Last: the Room is done with, so the marker can go.
-  await claimTransition(ctx, roomId, (current, status) =>
-    status === 'completing' ? withRoomStatus(current, 'completed', ctx.host.now(), null) : null);
-  return ok(await reread(ctx, roomId, record));
-}
-
-/** Closes every session and gives up the grant. Only ever called for a Room that is finished. */
-export async function releaseAuthority(ctx: RoomLifecycleContext, roomId: string, detail: string): Promise<void> {
-  const record = await ctx.store.readRoom(roomId);
-  if (!record) return;
-  await ctx.sessions.releaseRoom(roomId);
-  // releaseRoom checkpoints first and keeps any checkout whose checkpoint
-  // fails. Grant revocation must still continue so cleanup cannot retain power.
-  await ctx.workspaces.releaseRoom(roomId, detail).catch((error: unknown) => {
-    ctx.host.log(`room ${roomId}: could not release member worktrees: ${String(error)}`);
-    return [];
-  });
-  if (record.definition.grantId) {
-    await requirePersistentSessions(ctx.host).revokeGrant(record.definition.grantId);
-    await ctx.store.updateRoom(roomId, (current) => ({
-      ...current,
-      definition: { ...current.definition, grantId: null },
-    }));
-  }
-  ctx.forgetSignals(roomId);
-  await ctx.store.appendTimeline(roomId, [timelineEvent(ctx.host, roomId, 'room-status', null, detail)]);
-  ctx.emit({ roomId, kind: 'room-status', memberId: null, detail });
 }
 
 /** Deletes the Room and everything under it. The grant goes first. */

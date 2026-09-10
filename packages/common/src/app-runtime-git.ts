@@ -109,6 +109,8 @@ export interface AppRuntimeWorktreeCreateOptions {
    * branch. Removal of such a worktree must never delete the branch.
    */
   existingBranch?: string;
+  /** Start from a saved copy of current workspace files, shared by this Room key. */
+  workspaceSnapshotKey?: string;
 }
 
 export interface AppRuntimeGitApi {
