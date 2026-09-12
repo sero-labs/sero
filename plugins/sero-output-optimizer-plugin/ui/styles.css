@@ -1,0 +1,5 @@
+@import "@sero-ai/ui/styles/plugin.css";
+
+/* REQUIRED: scan plugin-local UI files so external remotes emit the utility
+   classes they use instead of accidentally depending on host CSS. */
+@source "./**/*.{ts,tsx}";

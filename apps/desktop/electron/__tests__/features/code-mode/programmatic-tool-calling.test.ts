@@ -406,4 +406,22 @@ describe('run_code tool', () => {
     await expect(invokeRunCode(controller, 'return await tools.fail({});'))
       .rejects.toThrow(/Code execution failed:.*Nested calls: 0 completed, 1 failed/s);
   });
+
+  it('carries the reserved run_code_ prefix to both nested-call hooks', async () => {
+    const echo = createTool('echo', Type.Object({ value: Type.String() }), async () => ({
+      content: [{ type: 'text', text: 'ok' }],
+      details: undefined,
+    }));
+    const beforeToolCall = vi.fn<NonNullable<RunCodeAgent['beforeToolCall']>>(async () => undefined);
+    const afterToolCall = vi.fn<NonNullable<RunCodeAgent['afterToolCall']>>(async () => undefined);
+    const controller = createRunCodeController();
+    controller.bind(runCodeAgent([echo], { beforeToolCall, afterToolCall }));
+
+    await invokeRunCode(controller, "return await tools.echo({ value: 'x' });");
+
+    expect(beforeToolCall).toHaveBeenCalledOnce();
+    expect(afterToolCall).toHaveBeenCalledOnce();
+    expect(beforeToolCall.mock.calls[0]?.[0].toolCall.id).toMatch(/^run_code_/);
+    expect(afterToolCall.mock.calls[0]?.[0].toolCall.id).toMatch(/^run_code_/);
+  });
 });

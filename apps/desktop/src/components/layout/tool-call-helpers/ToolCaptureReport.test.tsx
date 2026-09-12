@@ -8,6 +8,9 @@ import type { ToolCaptureReadRequest, ToolCaptureReadResult } from '@/types/tool
 import { ToolCaptureReport } from './ToolCaptureReport';
 import { describeToolCapture, type ToolCaptureView } from './tool-capture-details';
 
+/** Must match the inline preview cap in ToolCaptureReport. */
+const INLINE_PREVIEW_CAP = 64 * 1024;
+
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const readCapture = vi.fn<(request: ToolCaptureReadRequest) => Promise<ToolCaptureReadResult>>();
@@ -154,5 +157,52 @@ describe('ToolCaptureReport', () => {
     expect(container.textContent).toContain('Complete output unavailable: capture root is not writable.');
     expect(container.querySelectorAll('button')).toHaveLength(0);
     expect(readCapture).not.toHaveBeenCalled();
+  });
+
+  it('caps the inline preview and points at the full viewer', async () => {
+    const slice = 'x'.repeat(40_000);
+    readCapture.mockImplementation(async (request) => ({
+      state: 'ok',
+      content: slice,
+      totalBytes: 120_000,
+      ...(request.offset === undefined ? { nextOffset: 40_000 } : {}),
+    }));
+    await render(captureView());
+
+    const open = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Combined output'));
+    await act(async () => open?.click());
+
+    const more = [...container.querySelectorAll('button')].find((item) => item.textContent === 'Load more');
+    await act(async () => more?.click());
+
+    expect((container.querySelector('pre')?.textContent ?? '').length).toBeLessThanOrEqual(INLINE_PREVIEW_CAP);
+    expect(container.textContent).toContain('Preview capped at');
+    expect([...container.querySelectorAll('button')].some((item) => item.textContent === 'Load more')).toBe(false);
+    expect([...container.querySelectorAll('button')].some((item) => item.textContent === 'Open full output')).toBe(true);
+  });
+
+  it('opens a dedicated viewer that pages one slice at a time', async () => {
+    readCapture.mockImplementation(async (request) => ({
+      state: 'ok',
+      content: `page-${request.offset ?? 0}`,
+      totalBytes: 100,
+      ...(request.offset === 0 || request.offset === undefined ? { nextOffset: 10 } : {}),
+    }));
+    await render(captureView());
+
+    const open = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Combined output'));
+    await act(async () => open?.click());
+
+    const full = [...container.querySelectorAll('button')].find((item) => item.textContent === 'Open full output');
+    await act(async () => full?.click());
+
+    expect(document.body.textContent).toContain('page-0');
+    expect(readCapture).toHaveBeenLastCalledWith({ path: '/host/combined.log', offset: 0 });
+
+    const next = [...document.querySelectorAll('button')].find((item) => item.textContent === 'Next');
+    await act(async () => next?.click());
+
+    expect(document.body.textContent).toContain('page-10');
+    expect(readCapture).toHaveBeenLastCalledWith({ path: '/host/combined.log', offset: 10 });
   });
 });

@@ -26,6 +26,7 @@ Built-in plugins can appear in app discovery or favorites. External plugins do n
 | Memory | `@sero-ai/plugin-memory` | [Guide](/guide/memory) | Persistent memory, identity/profile facts, and daily logs. |
 | Search | `@sero-ai/plugin-fff` | [Docs](/plugins/search) | Indexed `find`/`grep`/`multi_grep` for agent sessions; extension only, `bridgeTools: false`. |
 | Orchestrator | `@sero-ai/plugin-orchestrator` | [Guide](/guide/orchestrator) | Workflows and Rooms. |
+| Output Optimizer | `@sero-ai/plugin-output-optimizer` | [Docs](/reference/output-optimizer) | Optional shell-output rewriting and compaction; disabled for a new profile. |
 | Usage | `@sero-ai/plugin-usage` | Catalog | Model usage and cost views. |
 | User Feedback | `@sero-ai/plugin-user-feedback` | [Guide](/plugins/user-feedback) | Pending questions/questionnaires; `bridgeTools: false`. |
 | Web | `@sero-ai/plugin-web` | [Guide](/guide/web) | Web search/content fetching/video-related surfaces within manifest scope. |
