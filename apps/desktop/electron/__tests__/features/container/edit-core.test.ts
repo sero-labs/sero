@@ -99,6 +99,7 @@ describe('edit parameter schema', () => {
       newText: 'd',
     })).toBe(true);
     expect(Value.Check(EditParams, { path: 'a.ts' })).toBe(true);
+    expect(Value.Check(EditParams, { path: 'a.ts', edits: [] })).toBe(false);
   });
 });
 
@@ -158,6 +159,19 @@ describe('multi-replacement edits', () => {
         { oldText: 'other', newText: 'y' },
       ],
     })).rejects.toThrow(/Found 2 matches for edits\[0\]/);
+    expect(port.writes).toHaveLength(0);
+  });
+
+  it('rejects an empty array instead of falling back to the legacy fields', async () => {
+    const port = new MemoryPort();
+    port.files.set('/a.ts', 'alpha\n');
+    await expect(runEdit(buildTool(port), {
+      path: '/a.ts',
+      edits: [],
+      oldText: 'alpha',
+      newText: 'legacy',
+    })).rejects.toThrow(/edits\[\] must contain at least one replacement/);
+    expect(port.files.get('/a.ts')).toBe('alpha\n');
     expect(port.writes).toHaveLength(0);
   });
 
@@ -221,6 +235,94 @@ describe('mixed exact and fuzzy matching', () => {
     );
   });
 
+  it('preserves an unchanged line inside a fuzzy hunk', async () => {
+    const port = new MemoryPort();
+    port.files.set('/a.ts', 'l1\nkeep    \nold\nl4\n');
+    await runEdit(buildTool(port), {
+      path: '/a.ts',
+      oldText: 'l1\nkeep\nold\nl4',
+      newText: 'l1\nkeep\nNEW\nl4',
+    });
+
+    expect(port.files.get('/a.ts')).toBe('l1\nkeep    \nNEW\nl4\n');
+  });
+
+  it('keeps a whitespace-only final line during a fuzzy edit', async () => {
+    const port = new MemoryPort();
+    port.files.set('/a.ts', '\u201Cx\u201D\n    ');
+    await runEdit(buildTool(port), { path: '/a.ts', oldText: '"x"', newText: '"y"' });
+
+    expect(port.files.get('/a.ts')).toBe('"y"\n    ');
+  });
+
+  it('preserves unchanged lines and a whitespace-only final line together', async () => {
+    const port = new MemoryPort();
+    port.files.set('/a.ts', '\u201Cx\u201D\nkeep    \nold\n    ');
+    await runEdit(buildTool(port), {
+      path: '/a.ts',
+      oldText: '"x"\nkeep\nold',
+      newText: '"y"\nkeep\nNEW',
+    });
+
+    expect(port.files.get('/a.ts')).toBe('"y"\nkeep    \nNEW\n    ');
+  });
+
+  it('preserves a leading-indent line inside a fuzzy batch', async () => {
+    const port = new MemoryPort();
+    port.files.set('/a.ts', '\u201Cx\u201D\n    kept\nold\n');
+    await runEdit(buildTool(port), {
+      path: '/a.ts',
+      edits: [
+        { oldText: '"x"', newText: '"y"' },
+        { oldText: 'old', newText: 'NEW' },
+      ],
+    });
+
+    expect(port.files.get('/a.ts')).toBe('"y"\n    kept\nNEW\n');
+  });
+
+  it('applies a leading-indent change inside a fuzzy batch', async () => {
+    const port = new MemoryPort();
+    port.files.set('/a.ts', '\u201Cx\u201D\n  indented\n');
+    await runEdit(buildTool(port), {
+      path: '/a.ts',
+      edits: [
+        { oldText: '"x"', newText: '"y"' },
+        { oldText: '  indented', newText: '    indented' },
+      ],
+    });
+
+    expect(port.files.get('/a.ts')).toBe('"y"\n    indented\n');
+  });
+
+  it('applies a requested smart-quote change inside a fuzzy batch', async () => {
+    const port = new MemoryPort();
+    port.files.set('/a.ts', 'a = "x"\n\u201Clabel\u201D\n');
+    await runEdit(buildTool(port), {
+      path: '/a.ts',
+      edits: [
+        { oldText: 'a = "x"', newText: 'a = \u201Cx\u201D' },
+        { oldText: '"label"', newText: '"LABEL"' },
+      ],
+    });
+
+    expect(port.files.get('/a.ts')).toBe('a = \u201Cx\u201D\n"LABEL"\n');
+  });
+
+  it('applies a requested trailing-space change inside a fuzzy batch', async () => {
+    const port = new MemoryPort();
+    port.files.set('/a.ts', 'plain\n\u201Clabel\u201D\n');
+    await runEdit(buildTool(port), {
+      path: '/a.ts',
+      edits: [
+        { oldText: 'plain', newText: 'plain ' },
+        { oldText: '"label"', newText: '"LABEL"' },
+      ],
+    });
+
+    expect(port.files.get('/a.ts')).toBe('plain \n"LABEL"\n');
+  });
+
   it('preserves a BOM and CRLF endings across a mixed batch', async () => {
     const port = new MemoryPort();
     port.files.set('/a.ts', '\uFEFFone\r\ntwo   \r\nthree\r\n');
@@ -270,6 +372,13 @@ describe('result feedback', () => {
     const bounded = boundDiffText(diff, 10, 1024);
     expect(bounded).toContain('[diff truncated: showing 10 of 500 lines]');
     expect(bounded.split('\n')).toHaveLength(11);
+  });
+
+  it('keeps the truncation marker inside the byte budget', () => {
+    const diff = Array.from({ length: 100 }, () => 'x'.repeat(40)).join('\n');
+    const bounded = boundDiffText(diff, 100, 512);
+    expect(bounded).toContain('[diff truncated:');
+    expect(Buffer.byteLength(bounded, 'utf-8')).toBeLessThanOrEqual(512);
   });
 
   it('caps the model-visible diff for a large change', async () => {

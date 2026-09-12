@@ -69,24 +69,39 @@ export function boundDiffText(
   maxBytes = EDIT_DIFF_MAX_BYTES,
 ): string {
   const lines = diff.length === 0 ? [] : diff.split('\n');
+  const markerFor = (kept: number) =>
+    `[diff truncated: showing ${kept} of ${lines.length} lines]`;
+
   const kept: string[] = [];
-  let bytes = 0;
+  let bodyBytes = 0;
   for (const line of lines) {
+    if (kept.length >= maxLines) break;
+    // Each kept line is written with a trailing newline before the marker.
     const lineBytes = Buffer.byteLength(line, 'utf-8') + 1;
-    if (kept.length >= maxLines || bytes + lineBytes > maxBytes) break;
+    const markerBytes = Buffer.byteLength(markerFor(kept.length + 1), 'utf-8');
+    if (bodyBytes + lineBytes + markerBytes > maxBytes) break;
     kept.push(line);
-    bytes += lineBytes;
+    bodyBytes += lineBytes;
   }
+
   if (kept.length === lines.length) return diff;
-  return `${kept.join('\n')}\n[diff truncated: showing ${kept.length} of ${lines.length} lines]`;
+  const body = kept.length > 0 ? `${kept.join('\n')}\n` : '';
+  return `${body}${markerFor(kept.length)}`;
 }
 
-/** Accept the ordered array, the legacy single fields, or both. The array wins. */
+/**
+ * Accept the ordered array, the legacy single fields, or both. When `edits` is
+ * present it is authoritative, so an empty array is an error and never falls
+ * back to the legacy fields.
+ */
 export function resolveEditReplacements(
   params: Static<typeof EditParams>,
   requestedPath: string,
 ): EditReplacement[] {
-  if (Array.isArray(params.edits) && params.edits.length > 0) {
+  if (Array.isArray(params.edits)) {
+    if (params.edits.length === 0) {
+      throw new Error(`edits[] must contain at least one replacement in ${requestedPath}.`);
+    }
     return params.edits.map((edit) => ({ oldText: edit.oldText, newText: edit.newText }));
   }
   if (typeof params.oldText === 'string' && typeof params.newText === 'string') {

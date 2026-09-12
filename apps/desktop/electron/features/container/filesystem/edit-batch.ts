@@ -6,6 +6,8 @@
  * normalized view and untouched lines are copied back from the original.
  */
 
+import * as Diff from 'diff';
+
 import {
   countFuzzyOccurrences,
   fuzzyFindText,
@@ -88,43 +90,6 @@ interface MatchedReplacement {
   newText: string;
 }
 
-interface LineSpan {
-  start: number;
-  end: number;
-}
-
-function splitLinesWithEndings(content: string): string[] {
-  return content.match(/[^\n]*\n|[^\n]+/g) ?? [];
-}
-
-function getLineSpans(content: string): LineSpan[] {
-  let offset = 0;
-  return splitLinesWithEndings(content).map((line) => {
-    const span = { start: offset, end: offset + line.length };
-    offset = span.end;
-    return span;
-  });
-}
-
-function getReplacementLineRange(lines: LineSpan[], replacement: MatchedReplacement): { startLine: number; endLine: number } {
-  const replacementStart = replacement.matchIndex;
-  const replacementEnd = replacement.matchIndex + replacement.matchLength;
-  let startLine = -1;
-  for (let i = 0; i < lines.length; i += 1) {
-    if (replacementStart >= lines[i].start && replacementStart < lines[i].end) {
-      startLine = i;
-      break;
-    }
-  }
-  if (startLine === -1) throw new Error('Replacement range is outside the base content.');
-
-  let endLine = startLine;
-  while (endLine < lines.length && lines[endLine].end < replacementEnd) endLine += 1;
-  if (endLine >= lines.length) throw new Error('Replacement range is outside the base content.');
-
-  return { startLine, endLine: endLine + 1 };
-}
-
 function applyReplacements(
   content: string,
   replacements: MatchedReplacement[],
@@ -142,52 +107,63 @@ function applyReplacements(
 }
 
 /**
+ * Split content into lines that keep their endings. A missing final newline and
+ * a whitespace-only final line both stay represented, so the original and the
+ * normalized view always line up one to one.
+ */
+function splitLines(content: string): string[] {
+  const parts = content.split('\n');
+  return parts.map((text, index) => (index < parts.length - 1 ? `${text}\n` : text));
+}
+
+/**
  * Apply replacements matched against `baseContent` to `originalContent` and
- * keep every untouched line from `originalContent`.
+ * keep every line the replacement did not actually change.
  *
- * Use this when `baseContent` is a normalized view of the original: each
- * touched line region is rewritten from the normalized base, and all other
- * lines are copied back byte for byte. The actual replacement ranges select
- * the regions, so duplicate normalized lines cannot align to the wrong row.
+ * Runs the replacements on the normalized base first, then aligns the base
+ * with the result line by line using exact text. Because the base is the
+ * matched input view and the result is the requested output, an exact match
+ * means the replacement left that line alone. Aligned lines are copied from
+ * `originalContent` byte for byte, so their whitespace and Unicode characters
+ * survive. Any requested change, including a quote, dash, or trailing-space
+ * change, differs exactly and is taken from the result. A whitespace-only
+ * final line is kept because both views split the same way.
  */
 export function applyReplacementsPreservingUnchangedLines(
   originalContent: string,
   baseContent: string,
   replacements: MatchedReplacement[],
 ): string {
-  const originalLines = splitLinesWithEndings(originalContent);
-  const baseLines = getLineSpans(baseContent);
-  if (originalLines.length !== baseLines.length) {
+  const originalLines = splitLines(originalContent);
+  if (originalLines.length !== splitLines(baseContent).length) {
     throw new Error('Cannot preserve unchanged lines because the base content has a different line count.');
   }
 
-  const groups: Array<{ startLine: number; endLine: number; replacements: MatchedReplacement[] }> = [];
-  const sorted = [...replacements].sort((a, b) => a.matchIndex - b.matchIndex);
-  for (const replacement of sorted) {
-    const range = getReplacementLineRange(baseLines, replacement);
-    const current = groups[groups.length - 1];
-    if (current && range.startLine < current.endLine) {
-      current.endLine = Math.max(current.endLine, range.endLine);
-      current.replacements.push(replacement);
+  const replacedBase = applyReplacements(baseContent, replacements);
+  const replacedLines = splitLines(replacedBase);
+  const parts = Diff.diffLines(baseContent, replacedBase);
+
+  let baseLineIndex = 0;
+  let replacedLineIndex = 0;
+  let result = '';
+  for (const part of parts) {
+    const count = part.count ?? 0;
+    if (part.added) {
+      result += replacedLines.slice(replacedLineIndex, replacedLineIndex + count).join('');
+      replacedLineIndex += count;
       continue;
     }
-    groups.push({ ...range, replacements: [replacement] });
+    if (part.removed) {
+      baseLineIndex += count;
+      continue;
+    }
+    result += originalLines.slice(baseLineIndex, baseLineIndex + count).join('');
+    baseLineIndex += count;
+    replacedLineIndex += count;
   }
-
-  let originalLineIndex = 0;
-  let result = '';
-  for (const group of groups) {
-    result += originalLines.slice(originalLineIndex, group.startLine).join('');
-    const groupStartOffset = baseLines[group.startLine].start;
-    const groupEndOffset = baseLines[group.endLine - 1].end;
-    result += applyReplacements(
-      baseContent.slice(groupStartOffset, groupEndOffset),
-      group.replacements,
-      groupStartOffset,
-    );
-    originalLineIndex = group.endLine;
-  }
-  result += originalLines.slice(originalLineIndex).join('');
+  // A final line without a trailing newline is not an aligned part, so append
+  // whatever the base view did not cover, including the whitespace-only line.
+  result += originalLines.slice(baseLineIndex).join('');
   return result;
 }
 

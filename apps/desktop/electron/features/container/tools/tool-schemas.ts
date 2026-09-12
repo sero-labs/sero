@@ -81,6 +81,7 @@ export const EditParams = Type.Object({
   path: Type.String({ description: 'Path to the file to edit (relative or absolute)' }),
   edits: Type.Optional(
     Type.Array(EditReplacementParams, {
+      minItems: 1,
       description:
         'One or more targeted replacements. Each entry matches the original file content, not the result of an earlier entry. ' +
         'Do not send overlapping or nested regions. If two changes touch the same block or nearby lines, merge them into one entry. ' +
