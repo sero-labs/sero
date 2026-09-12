@@ -223,6 +223,16 @@ reports no per-instance identity is not cached at all, because correctness then
 costs one probe per resolution rather than a stale answer. A pin change still
 misses the cache because the pin is part of the key.
 
+Apple Container is such a backend, verified against `container inspect` on CLI
+0.8.0. Its payload has only `status`, `configuration` and `networks`;
+`configuration.id` equals the container name, there is no creation timestamp or
+uuid, and `labels` is empty. The network address is the only field that differs
+between instances, and only while the container runs, so it cannot serve as an
+identity. Apple-backed workspaces therefore probe on every resolution. An
+image-digest key would be sound for the version probe alone, because the binary
+is image-owned, but not for the state-directory check, whose answer depends on
+the container's own filesystem. The simplification is to cache nothing there.
+
 The plugin must bind every inserted RTK executable token to the verified
 runtime path with shell-safe quoting. It must also apply the returned runtime
 state environment to each inserted invocation, including pipeline and compound
