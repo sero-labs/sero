@@ -309,6 +309,21 @@ describe('compactStream', () => {
     expect(streamed.candidateBytes).toBe(Buffer.byteLength(source, 'utf8'));
   });
 
+  it('keeps an unparsed warning alongside grouped lint diagnostics', () => {
+    const diagnostics = Array.from(
+      { length: 60 },
+      (_, index) => `src/components/very/long/path/file.ts:${index + 1}:5: Unexpected any  [no-explicit-any]`,
+    );
+    const source = ['warning: configuration deprecated', ...diagnostics].join('\n');
+
+    const streamed = compactStream(source, 'lint', { maxLines: 1000, maxBytes: 1024 * 1024 });
+    expect(streamed.changed).toBe(true);
+    expect(streamed.preview.content).toContain('warning: configuration deprecated');
+
+    const candidate = compactLinterOutput(source);
+    expect(candidate ?? source).toContain('warning: configuration deprecated');
+  });
+
   it('marks the preview truncated exactly when the candidate exceeds the byte limit', () => {
     const source = `\n\n${'x'.repeat(1023)}`;
     expect(Buffer.byteLength(source, 'utf8')).toBe(1025);

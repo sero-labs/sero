@@ -43,8 +43,13 @@ function lintFragments(source: string): string[] {
   const fragments: string[] = [];
   for (const line of source.split('\n')) {
     const match = line.match(LINT_ISSUE);
-    if (!match) continue;
-    fragments.push(match[1] ?? '', match[3] ?? '');
+    if (match) {
+      fragments.push(match[1] ?? '', match[3] ?? '');
+      continue;
+    }
+    // A non-diagnostic line, such as `warning: configuration deprecated`,
+    // must survive verbatim.
+    if (line.trim()) fragments.push(line.trim());
   }
   return nonEmptyUnique(fragments);
 }

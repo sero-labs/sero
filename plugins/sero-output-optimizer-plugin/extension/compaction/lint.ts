@@ -24,6 +24,8 @@ interface LintIssue {
 interface LintAggregate {
   byFile: Map<string, LintIssue[]>;
   byRule: Map<string, number>;
+  /** Lines that are not diagnostics; they must survive verbatim. */
+  unparsed: string[];
   errors: number;
   warnings: number;
   count: number;
@@ -32,13 +34,18 @@ interface LintAggregate {
 function aggregate(source: string): LintAggregate {
   const byFile = new Map<string, LintIssue[]>();
   const byRule = new Map<string, number>();
+  const unparsed: string[] = [];
   let errors = 0;
   let warnings = 0;
   let count = 0;
 
   for (const raw of source.split('\n')) {
-    const match = stripAnsi(raw).match(ISSUE_LINE);
-    if (!match) continue;
+    const line = stripAnsi(raw);
+    const match = line.match(ISSUE_LINE);
+    if (!match) {
+      unparsed.push(line);
+      continue;
+    }
     const file = match[1] ?? '';
     const message = match[4] ?? '';
     const existing = byFile.get(file) ?? [];
@@ -51,10 +58,12 @@ function aggregate(source: string): LintAggregate {
     count += 1;
   }
 
-  return { byFile, byRule, errors, warnings, count };
+  return { byFile, byRule, unparsed, errors, warnings, count };
 }
 
 function* lintCandidate(agg: LintAggregate): Generator<string> {
+  // Unparsed lines keep their place, so a standalone warning is never lost.
+  yield* agg.unparsed;
   yield `${agg.errors} errors, ${agg.warnings} warnings in ${agg.byFile.size} files`;
   yield 'Rules:';
   const sortedRules = [...agg.byRule.entries()].sort((left, right) => right[1] - left[1]);
