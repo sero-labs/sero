@@ -49,21 +49,57 @@ const PACKAGE_MANAGER_SUBCOMMANDS = new Set([
 ]);
 const GIT_COMPACTED_SUBCOMMANDS = new Set(['status', 'log']);
 
-/**
- * Separators that run separate commands whose output is concatenated.
- *
- * A pipeline is not one of these: its data still comes from the segments that
- * feed it, so the existing first-command rule stays valid.
- */
-const SEQUENCE_SEPARATORS = new Set(['&&', '||', ';', '&', '\n']);
+/** Separators that run separate commands whose output is concatenated. */
+const PIPE_SEPARATORS = new Set(['|', '|&']);
 
 /**
- * Commands that change nothing about later output.
- *
- * This is deliberately small. A command that might print belongs on the
- * rejected side, because one unrecognised line would be compacted away.
+ * Commands that read only their standard input and write a transformation of
+ * it. A pipeline stage from this set cannot add content of its own.
  */
-const NO_OUTPUT_COMMANDS = new Set(['cd', 'export', 'unset', 'source', '.', 'true', ':', 'umask']);
+const STDIN_FILTERS = new Set([
+  'head',
+  'tail',
+  'sort',
+  'uniq',
+  'wc',
+  'cut',
+  'tr',
+  'column',
+  'nl',
+  'tac',
+  'rev',
+  'fold',
+  'expand',
+  'unexpand',
+  'strings',
+  'xxd',
+  'od',
+  'base64',
+  'cat',
+  'tee',
+  'less',
+  'more',
+  'grep',
+  'egrep',
+  'fgrep',
+  'rg',
+  'sed',
+  'awk',
+  'jq',
+]);
+
+/** Filters whose first positional argument is a pattern or expression, not a file. */
+const PATTERN_FIRST = new Set(['grep', 'egrep', 'fgrep', 'rg', 'sed', 'awk', 'jq']);
+
+/**
+ * Commands under a sequence separator that print nothing.
+ *
+ * This list is deliberately tiny and excludes `source`, `.`, `eval`, `exec`
+ * and `command`, which can run arbitrary code that prints. A command that
+ * might print belongs on the rejected side: one unexpected line would be
+ * compacted away.
+ */
+const SILENT_BUILTINS = new Set(['cd', 'export', 'unset', 'true', ':']);
 
 interface FirstCommand {
   name: string;
@@ -132,12 +168,8 @@ function isPackageManagerCommand({ name, args }: FirstCommand): boolean {
   return name === 'pip' || name === 'uv' || name === 'poetry' || name === 'bundle' || name === 'composer';
 }
 
-function isSearchCommand({ name }: FirstCommand): boolean {
-  return SEARCH_COMMANDS.has(name);
-}
-
 function classify(first: FirstCommand): OutputCategory {
-  if (isSearchCommand(first)) return 'search';
+  if (SEARCH_COMMANDS.has(first.name)) return 'search';
   if (isTestCommand(first)) return 'test';
   if (isBuildCommand(first)) return 'build';
   if (isLintCommand(first)) return 'lint';
@@ -147,33 +179,70 @@ function classify(first: FirstCommand): OutputCategory {
 }
 
 /**
- * One category for a command that runs several commands in sequence.
+ * True when a pipeline stage reads only standard input.
  *
- * Every segment must either resolve to the same category or be a control
- * command that prints nothing. Anything else returns `none`: the combined
- * output mixes streams that one rule cannot compact without losing content.
- * For example `pnpm test && cat package.json` must not use the test rule,
- * because the JSON has no test line to protect it.
+ * A numeric positional argument is an option value, as in `head -n 5`, so it
+ * does not name a file. For grep and its relatives the first positional is the
+ * pattern, and any further positional names a file.
  */
-function sequenceCategory(analysis: CommandAnalysis): OutputCategory {
+function isStdinFilter({ name, args }: FirstCommand): boolean {
+  if (!STDIN_FILTERS.has(name)) return false;
+  const positional = args.filter((argument) => !argument.startsWith('-'));
+  if (PATTERN_FIRST.has(name)) return positional.length <= 1;
+  return positional.every((argument) => /^\d+$/.test(argument));
+}
+
+/** True when a sequenced command cannot print. */
+function isSilentBuiltin({ name, args }: FirstCommand): boolean {
+  if (!SILENT_BUILTINS.has(name)) return false;
+  // `cd -` prints the new directory and `export -p` prints every variable.
+  if (name === 'cd') return !args.includes('-');
+  if (name === 'export') return !args.includes('-p');
+  return true;
+}
+
+/**
+ * One category for a command that joins several commands.
+ *
+ * A pipeline stage that resolves to a category produces the visible output, so
+ * it replaces whatever the upstream command produced. Every other segment must
+ * either agree with the chosen category or be provably unable to add content
+ * outside it: a standard-input filter after a pipe, or a silent builtin after a
+ * sequence separator. Anything else returns `none`.
+ *
+ * `pnpm test && cat package.json` and `pnpm test | cat package.json -` must
+ * not use the test rule, because the JSON has no test line to protect it, and
+ * `source ./setup.sh && pnpm test` must not either, because the sourced script
+ * can print anything.
+ */
+function joinedCategory(analysis: CommandAnalysis): OutputCategory {
   let decided: OutputCategory = 'none';
   let sawCommand = false;
 
-  for (const segment of analysis.segments) {
+  for (let index = 0; index < analysis.segments.length; index += 1) {
+    const segment = analysis.segments[index];
+    if (!segment) continue;
     const first = commandOf(segment);
     if (!first) continue;
     sawCommand = true;
+
+    const separator = index > 0 ? analysis.separators[index - 1] : undefined;
+    const isPipeStage = separator !== undefined && PIPE_SEPARATORS.has(separator);
     const category = classify(first);
 
-    if (category === 'none') {
-      if (NO_OUTPUT_COMMANDS.has(first.name)) continue;
-      return 'none';
-    }
-    if (decided === 'none') {
-      decided = category;
+    if (category !== 'none') {
+      if (isPipeStage) {
+        decided = category;
+        continue;
+      }
+      if (decided === 'none') decided = category;
+      else if (decided !== category) return 'none';
       continue;
     }
-    if (decided !== category) return 'none';
+
+    if (isPipeStage && isStdinFilter(first)) continue;
+    if (!isPipeStage && isSilentBuiltin(first)) continue;
+    return 'none';
   }
 
   return sawCommand ? decided : 'none';
@@ -184,19 +253,10 @@ export function detectCategory(command: string | undefined): OutputCategory {
 
   const analysis = analyzeCommand(command);
 
-  // A sequence of commands concatenates their output. Use one category only
-  // when every segment agrees and no other segment can print.
-  if (analysis.separators.some((separator) => SEQUENCE_SEPARATORS.has(separator))) {
-    return sequenceCategory(analysis);
-  }
-
-  if (analysis.segments.some(
-    (segment) => segment.command !== undefined && SEARCH_COMMANDS.has(segment.command),
-  )) {
-    return 'search';
-  }
+  // Any separator joins commands whose output is combined. Use one category
+  // only when every segment is safe under it.
+  if (analysis.separators.length > 0) return joinedCategory(analysis);
 
   const first = analysis.segments[0] ? commandOf(analysis.segments[0]) : null;
-  if (!first) return 'none';
-  return classify(first);
+  return first ? classify(first) : 'none';
 }

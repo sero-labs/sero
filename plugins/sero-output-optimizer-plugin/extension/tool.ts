@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
 import { StringEnum } from '@earendil-works/pi-ai';
 import { Type } from 'typebox';
 
@@ -16,6 +16,14 @@ import {
  */
 
 export interface OptimizerToolContext {
+  /**
+   * Initialise the session identity and accounting.
+   *
+   * A tool call is the only context an isolated app session gets: it never
+   * receives `session_start`, so the RTK resolver would otherwise still hold
+   * an empty session id and the host would reject its request.
+   */
+  ensureReady(ctx: ExtensionContext): Promise<void>;
   /** Read the config file's current settings, not a cached copy. */
   loadConfig(): Promise<OutputOptimizerConfig>;
   setConfig(next: OutputOptimizerConfig): Promise<void>;
@@ -77,7 +85,8 @@ export function registerOptimizerTool(pi: ExtensionAPI, context: OptimizerToolCo
       'Read or change shell output optimisation settings, and read session compaction accounting. ' +
       'Actions: state (read settings, RTK status and session savings), set (write enabled, notices or per-class switches), retry (clear the cached RTK resolution).',
     parameters: OptimizerParams,
-    async execute(_toolCallId, params) {
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      await context.ensureReady(ctx);
       if (params.action === 'retry') {
         await context.retryRtk();
       }

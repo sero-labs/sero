@@ -26,7 +26,8 @@ describe('category detection', () => {
     expect(detectCategory('git log --oneline')).toBe('git');
     expect(detectCategory('pnpm install')).toBe('packageManager');
     expect(detectCategory('rg foo')).toBe('search');
-    expect(detectCategory('git status | grep modified')).toBe('search');
+    expect(detectCategory('pnpm test | head -20')).toBe('test');
+    expect(detectCategory('rg foo | head -n 5')).toBe('search');
     expect(detectCategory('echo hello')).toBe('none');
   });
 
@@ -40,6 +41,27 @@ describe('category detection', () => {
     expect(detectCategory('pnpm install && pnpm build')).toBe('none');
   });
 
+  it('refuses a category when a segment can run code or read a file', () => {
+    // `source` and `.` run arbitrary code that can print.
+    expect(detectCategory('source ./setup.sh && pnpm test')).toBe('none');
+    expect(detectCategory('. ./setup.sh && pnpm test')).toBe('none');
+    expect(detectCategory('eval "echo hi" && pnpm test')).toBe('none');
+    // `cd -` prints the new directory.
+    expect(detectCategory('cd - && pnpm test')).toBe('none');
+    // A pipeline stage that reads a file adds content of its own.
+    expect(detectCategory('pnpm test | cat package.json -')).toBe('none');
+    expect(detectCategory('pnpm test | head package.json')).toBe('none');
+  });
+
+  it('lets a pipeline stage decide the output category', () => {
+    // The stage that writes to the terminal produces the visible output, so it
+    // decides the category. A grep stage is safe because its matches are the
+    // search output, whether it reads standard input or a named file.
+    expect(detectCategory('git status | grep modified')).toBe('search');
+    expect(detectCategory('pnpm test | grep pattern src/file.ts')).toBe('search');
+    expect(detectCategory('pnpm test | tsc --noEmit')).toBe('build');
+  });
+
   it('keeps one category when every command agrees or prints nothing', () => {
     expect(detectCategory('cd apps/desktop && pnpm test')).toBe('test');
     expect(detectCategory('export CI=1 && pnpm test')).toBe('test');
@@ -51,12 +73,20 @@ describe('category detection', () => {
 
   it('preserves every command output when a sequence cannot use one category', () => {
     const json = ['{', '  "name": "fixture",', '  "version": "1.2.3"', '}'].join('\n');
-    const output = ['FAIL src/a.test.ts', '  1 failed', json].join('\n');
+    const output = ['FAIL src/a.test.ts', '  1 failed', 'DEPLOY_TARGET=production', json].join('\n');
 
-    const streamed = compactStream(output, detectCategory('pnpm test && cat package.json'));
-    expect(streamed.changed).toBe(false);
-    expect(streamed.preview.content).toBe(output);
-    expect(streamed.preview.content).toContain('"version": "1.2.3"');
+    const commands = [
+      'pnpm test && cat package.json',
+      'pnpm test | cat package.json -',
+      'source ./setup.sh && pnpm test',
+    ];
+    for (const command of commands) {
+      const streamed = compactStream(output, detectCategory(command));
+      expect(streamed.changed, command).toBe(false);
+      expect(streamed.preview.content, command).toBe(output);
+      expect(streamed.preview.content, command).toContain('DEPLOY_TARGET=production');
+      expect(streamed.preview.content, command).toContain('"version": "1.2.3"');
+    }
   });
 });
 

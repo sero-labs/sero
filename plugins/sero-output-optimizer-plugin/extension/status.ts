@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 
 import {
@@ -81,9 +82,31 @@ export async function loadStatus(): Promise<OptimizerStatus | null> {
 async function saveStatus(status: OptimizerStatus): Promise<void> {
   const target = resolveOptimizerStatusPath();
   await fs.promises.mkdir(path.dirname(target), { recursive: true });
-  const temporary = `${target}.${process.pid}.${Date.now()}.tmp`;
+  // A unique name keeps two writers in the same process from sharing a temp file.
+  const temporary = `${target}.${process.pid}.${randomUUID()}.tmp`;
   await fs.promises.writeFile(temporary, `${JSON.stringify(status, null, 2)}\n`, 'utf8');
+  // A rename replaces the target, so a reader sees either the old or the new file.
   await fs.promises.rename(temporary, target);
+}
+
+/**
+ * The shared write queue.
+ *
+ * Every `StatusStore` in the process serialises through this promise chain, so
+ * a read-merge-write cannot interleave with another one. Without it, a
+ * concurrent savings write and RTK write each read the same file and the
+ * second write drops the first one's field.
+ */
+let writeQueue: Promise<void> = Promise.resolve();
+
+function enqueue(task: () => Promise<void>): Promise<void> {
+  const run = writeQueue.then(task, task);
+  // Keep the chain alive after a failure so later writes still run in order.
+  writeQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
 }
 
 /**
@@ -99,13 +122,15 @@ export class StatusStore {
   }
 
   async publish(partial: Partial<OptimizerStatus>): Promise<void> {
-    try {
-      const current = (await loadStatus()) ?? { savings: emptySessionSavings(), rtk: { state: 'unknown' } };
-      const next: OptimizerStatus = { ...current, ...partial };
-      if (JSON.stringify(next) === JSON.stringify(current)) return;
-      await saveStatus(next);
-    } catch {
-      // Settings sharing is best-effort and never blocks a result.
-    }
+    await enqueue(async () => {
+      try {
+        const current = (await loadStatus()) ?? { savings: emptySessionSavings(), rtk: { state: 'unknown' } };
+        const next: OptimizerStatus = { ...current, ...partial };
+        if (JSON.stringify(next) === JSON.stringify(current)) return;
+        await saveStatus(next);
+      } catch {
+        // Settings sharing is best-effort and never blocks a result.
+      }
+    });
   }
 }

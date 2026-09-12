@@ -137,6 +137,8 @@ export default function outputOptimizerExtension(pi: ExtensionAPI): void {
   // ── Settings surface ──────────────────────────────────────
 
   registerOptimizerTool(pi, {
+    // A tool call is the only entry point an isolated app session gets.
+    ensureReady,
     // The settings tool reads the file, so it sees a change made in another
     // session before it merges its own write.
     loadConfig: () => configStore.reload(),

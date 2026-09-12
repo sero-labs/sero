@@ -103,13 +103,18 @@ test.describe('Output optimizer plugin', () => {
   });
 
   test('reaches the RTK host from the settings app session', async () => {
-    type ToolResult = { details: { rtk: { state: string } } | null };
-    // The settings UI runs in an isolated app session. Retry must reach the
-    // workspace runtime from there; 'unknown' would mean no host handler.
+    type ToolResult = { details: { rtk: { state: string; reason?: string } } | null };
+    // The settings UI runs in an isolated app session that never receives
+    // `session_start`. Retry must still name that session and reach the host.
     const result: ToolResult = await page.evaluate(
       async ({ appId, wsId, tool }) => (window as any).sero.appAgent.invokeTool(appId, wsId, tool, { action: 'retry' }),
       { appId: PLUGIN_ID, wsId: workspaceId, tool: TOOL_NAME },
     );
     expect(['available', 'installing', 'failed']).toContain(result.details?.rtk.state);
+    // A failed state is allowed (RTK may be absent), but these two reasons prove
+    // the request never reached a host handler that accepted this session.
+    const reason = result.details?.rtk.reason ?? '';
+    expect(reason).not.toContain('must name the session that owns this extension host');
+    expect(reason).not.toContain('did not answer the RTK resolution request');
   });
 });

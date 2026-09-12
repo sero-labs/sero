@@ -286,6 +286,25 @@ describe('status file', () => {
     expect(status?.rtk).toEqual({ state: 'failed', reason: 'checksum mismatch' });
   });
 
+  it('serialises concurrent savings and RTK writes', async () => {
+    const StatusStore = await store();
+    const savingsWriter = new StatusStore();
+    const rtkWriter = new StatusStore();
+
+    // Both writers read the same file, so an unlocked read-merge-write would
+    // drop one of the two fields on every round.
+    for (let round = 1; round <= 20; round += 1) {
+      await Promise.all([
+        savingsWriter.publish({ savings: { ...emptySessionSavings(), measuredCalls: round } }),
+        rtkWriter.publish({ rtk: { state: 'available', version: `0.49.${round}` } }),
+      ]);
+
+      const status = await new StatusStore().read();
+      expect(status?.savings.measuredCalls, `round ${round} savings`).toBe(round);
+      expect(status?.rtk, `round ${round} RTK`).toEqual({ state: 'available', version: `0.49.${round}` });
+    }
+  });
+
   it('falls back to empty savings and unknown RTK when the file is absent or damaged', async () => {
     const StatusStore = await store();
     const beforeAnyWrite = await new StatusStore().read();

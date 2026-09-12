@@ -10,7 +10,13 @@ type Handler = (event: unknown, ctx: ExtensionContext) => Promise<unknown> | unk
 
 interface ToolLike {
   name: string;
-  execute: (toolCallId: string, params: Record<string, unknown>) => Promise<unknown>;
+  execute: (
+    toolCallId: string,
+    params: Record<string, unknown>,
+    signal?: unknown,
+    onUpdate?: unknown,
+    ctx?: ExtensionContext,
+  ) => Promise<unknown>;
 }
 
 interface Harness {
@@ -18,11 +24,14 @@ interface Harness {
   handlers: Map<string, Handler>;
   tools: Map<string, ToolLike>;
   exec: ReturnType<typeof vi.fn>;
+  /** The session id of every RTK resolution request the plugin emitted. */
+  rtkRequests: string[];
 }
 
 function harness(): Harness {
   const handlers = new Map<string, Handler>();
   const tools = new Map<string, ToolLike>();
+  const rtkRequests: string[] = [];
   const resolution = {
     state: 'available',
     version: '0.49.0',
@@ -32,10 +41,17 @@ function harness(): Harness {
   const exec = vi.fn(async () => ({ stdout: 'rtk git status', stderr: '', code: 0, killed: false }));
   const pi = {
     on: (event: string, handler: Handler) => { handlers.set(event, handler); },
-    registerTool: (tool: ToolLike) => { tools.set(tool.name, tool); },
+    registerTool: (tool: ToolLike) => {
+      // The SDK supplies the execution context; the test supplies the same one.
+      tools.set(tool.name, {
+        name: tool.name,
+        execute: (toolCallId, params) => tool.execute(toolCallId, params, undefined, undefined, context()),
+      });
+    },
     events: {
       emit: (_channel: string, data: unknown) => {
-        const request = data as { accept(): void; resolve(result: unknown): void };
+        const request = data as { sessionId?: string; accept(): void; resolve(result: unknown): void };
+        rtkRequests.push(request.sessionId ?? '');
         request.accept();
         request.resolve(resolution);
       },
@@ -43,7 +59,7 @@ function harness(): Harness {
     },
     exec,
   } as unknown as ExtensionAPI;
-  return { pi, handlers, tools, exec };
+  return { pi, handlers, tools, exec, rtkRequests };
 }
 
 function context(): ExtensionContext {
@@ -178,6 +194,18 @@ describe('output optimizer extension', () => {
       ?.execute('id', { action: 'state' }) as StateResult;
     expect(result.details.savings.measuredCalls).toBeGreaterThan(0);
     expect(result.details.savings.inputBytes).toBeGreaterThan(0);
+  });
+
+  it('names the session on a retry even when session_start never runs', async () => {
+    // An app session never receives `session_start`, so a tool call is its only
+    // entry point. The tool must initialise the resolver before it retries.
+    const h = harness();
+    outputOptimizerExtension(h.pi);
+
+    await h.tools.get('output_optimizer')?.execute('id', { action: 'retry' });
+
+    expect(h.rtkRequests.length).toBeGreaterThan(0);
+    expect(h.rtkRequests.at(-1)).toBe('session-1');
   });
 
   it('skips nested run_code calls but keeps ordinary calls eligible', async () => {
