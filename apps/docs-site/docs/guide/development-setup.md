@@ -57,6 +57,7 @@ coverage.
 
 For contribution workflow, PR expectations, and security reporting, see the
 root OSS files in the repository:
+
 - [`CONTRIBUTING.md`](https://github.com/sero-labs/sero/blob/main/CONTRIBUTING.md)
 - [`SECURITY.md`](https://github.com/sero-labs/sero/blob/main/SECURITY.md)
 - [`CODE_OF_CONDUCT.md`](https://github.com/sero-labs/sero/blob/main/CODE_OF_CONDUCT.md)
