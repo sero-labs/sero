@@ -3,6 +3,8 @@ import os from 'os';
 import path from 'path';
 import { createGunzip } from 'zlib';
 
+import { unpackZipArchive } from './zip-archive';
+
 const TAR_BLOCK_SIZE = 512;
 const MAX_COMPRESSED_ARCHIVE_BYTES = 2 * 1024 * 1024 * 1024;
 const MAX_DECOMPRESSED_ARCHIVE_BYTES = 8 * 1024 * 1024 * 1024;
@@ -35,7 +37,23 @@ export async function unpackArchive(options: UnpackArchiveOptions): Promise<void
     return;
   }
 
+  if (options.archivePath.endsWith('.zip') || await isZipFile(options.archivePath)) {
+    await unpackZipArchive(options.archivePath, options.destination);
+    return;
+  }
+
   throw new Error(`Unsupported archive format for ${options.archivePath}`);
+}
+
+async function isZipFile(filePath: string): Promise<boolean> {
+  const handle = await fs.promises.open(filePath, 'r');
+  try {
+    const buffer = Buffer.alloc(4);
+    const result = await handle.read(buffer, 0, 4, 0);
+    return result.bytesRead === 4 && buffer[0] === 0x50 && buffer[1] === 0x4b && buffer[2] === 0x03 && buffer[3] === 0x04;
+  } finally {
+    await handle.close();
+  }
 }
 
 async function isGzipFile(filePath: string): Promise<boolean> {

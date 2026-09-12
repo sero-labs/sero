@@ -5,6 +5,7 @@ vi.mock('@electron/platform/env', () => ({
   SERO_AGENT_DIR: '/tmp/sero-agent',
   SERO_HOST_ARTIFACTS_ROOT: '/tmp/sero-host-artifacts',
   SERO_HOME: '/tmp/sero-home',
+  SERO_CAPTURE_ROOT: '/tmp/sero-agent/captures',
 }));
 
 import {
@@ -69,6 +70,35 @@ describe('buildDockerMounts', () => {
 
   it('maps Windows additional roots to the Linux bind target used inside Docker', () => {
     expect(toRuntimeIdentityMountPath('D:\\projects\\linked-root')).toBe('/mnt/d/projects/linked-root');
+  });
+
+  it('mounts the capture root exactly once and read-only', () => {
+    mkdirSync('/tmp/sero-agent/captures', { recursive: true });
+
+    const mounts = buildDockerMounts({
+      workspaceId: 'ws-1',
+      hostPath: '/tmp/sero-workspace',
+      readOnlyMounts: ['/tmp/sero-agent/captures', '/tmp/sero-agent/captures'],
+      writableMounts: [],
+    });
+
+    const captureMounts = mounts.filter((mount) => mount.source === '/tmp/sero-agent/captures');
+    expect(captureMounts).toEqual([{
+      source: '/tmp/sero-agent/captures',
+      target: '/tmp/sero-agent/captures',
+      readonly: true,
+    }]);
+  });
+
+  it('fails the mount build when the capture root cannot be expressed as a bind mount', () => {
+    const mounts = buildDockerMounts({
+      workspaceId: 'ws-1',
+      hostPath: '/tmp/sero-workspace',
+      readOnlyMounts: [],
+      writableMounts: [],
+    });
+
+    expect(() => formatMount({ ...mounts[0], source: '/tmp/sero,evil' })).toThrow(/cannot contain a comma/);
   });
 
   it('keeps explicit bind mount targets stable', () => {

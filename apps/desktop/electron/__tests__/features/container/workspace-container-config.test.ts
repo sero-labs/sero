@@ -9,6 +9,7 @@ vi.mock('@electron/platform/env', () => ({
   SERO_FIXED_ROOT: '/tmp/sero-fixed',
   SERO_HOST_ARTIFACTS_ROOT: '/tmp/sero-host-artifacts',
   SERO_HOME: '/tmp/sero-home',
+  SERO_CAPTURE_ROOT: '/tmp/sero-agent/captures',
 }));
 
 import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
@@ -47,6 +48,7 @@ describe('buildWorkspaceContainerConfig', () => {
         path.join('/tmp/sero-agent', 'prompts'),
         path.join('/tmp/sero-agent', 'agent-plugins'),
         path.join('/tmp/sero-host-artifacts', 'shared', 'pi-docs'),
+        '/tmp/sero-agent/captures',
       ],
       writableMounts: [],
       bindMounts: [
@@ -138,8 +140,7 @@ describe('buildWorkspaceContainerConfig', () => {
     expect(mgr.getRoots).not.toHaveBeenCalled();
   });
 
-  it('drops references whose getPath returns undefined', async () => {
-    const mgr = makeFakeManager({
+  it('drops references whose getPath returns undefined', async () => {    const mgr = makeFakeManager({
       references: [{ id: 'global', path: '/host/global' }],
     });
     // Force getPath to return undefined for the registered reference.

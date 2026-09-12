@@ -7,12 +7,12 @@ See `proposal.md` for motivation. The constraints that shape the approach:
   content needs only the tail, so the complete output does not need to stay in
   memory.
 - The runtime `exec` paths buffer the whole output in memory and cap it at
-  10 MB (`host-backend.ts`, `container/index.ts`). A spill fed from that buffer
+  10 MB (`host-backend.ts`, `container/index.ts`). A capture fed from that buffer
   would be incomplete above the cap and would pay memory for a large command,
   so the bash path streams instead.
 - The host read tool resolves absolute paths through the allowed host roots:
   workspace roots, additional roots, and `PI_CODING_AGENT_DIR`
-  (`SERO_HOME/agent`). A spill outside those roots is not readable by the agent
+  (`SERO_HOME/agent`). A capture outside those roots is not readable by the agent
   on the host backend.
 - Plugin extensions run in the Electron main process. `ExtensionAPI` exposes
   `pi.exec`, which runs on the host, and no runtime or container handle. The
@@ -35,7 +35,7 @@ See `proposal.md` for motivation. The constraints that shape the approach:
   and `systemToolCandidates` searches `PATH` locations. AGENTS.md states the
   system-first policy. A managed-only tool is a deliberate exception.
 - `SERO_HOME` is exported to extensions as an environment variable, so a
-  resolved spill root is available without a new capability.
+  resolved capture root is available without a new capability.
 
 ## Goals / Non-Goals
 
@@ -52,40 +52,40 @@ See `proposal.md` for motivation. The constraints that shape the approach:
 
 - No compaction and no command rewriting. That is the second change.
 - No capture of non-bash tool output.
-- No change to the model-facing truncation limits or markers. The spill path
+- No change to the model-facing truncation limits or markers. The capture path
   and size are added to the model-visible content, but the tail limit and its
   marker stay as they are.
-- No redaction pass before a spill file is written. The spill lives inside the
+- No redaction pass before a capture file is written. The capture lives inside the
   profile and is not automatically sent to a provider. Reading it through an
   agent tool can send the retrieved content. It can hold anything a command
   printed. Redaction is a follow-up, recorded here so it is not dropped.
 - No retrieval tooling beyond the path and size reported in the bash result.
 - No confidentiality boundary between sessions. The read-only mount makes the
-  whole spill root reachable inside a container. See the risk below.
+  whole capture root reachable inside a container. See the risk below.
 
 ## Decisions
 
-### Spill root under the agent directory
+### Capture root under the agent directory
 
-Alternative: place the spill under `SERO_HOME/spill`. Rejected because the host
+Alternative: place the capture under `SERO_HOME/capture`. Rejected because the host
 read tool refuses paths outside the workspace, additional roots, and
-`PI_CODING_AGENT_DIR`. A spill under `SERO_HOME/spill` would be unreachable for
+`PI_CODING_AGENT_DIR`. A capture under `SERO_HOME/capture` would be unreachable for
 a host-backend agent, and the spec requires the agent's normal read tool to
-resolve the reported path. `SERO_AGENT_DIR/spill` is inside an allowed root, is
+resolve the reported path. `SERO_AGENT_DIR/capture` is inside an allowed root, is
 under `SERO_HOME`, and is outside every workspace, so no file watcher,
 explorer refresh, language server, dev server, or workspace search sees it.
 
-### Stream bash output into the spill file
+### Stream bash output into the capture file
 
 Alternatives: raise the in-memory ceiling, rejected because it pays memory for
-large output and still cuts the spill at the new value; document the 10 MB cap
+large output and still cuts the capture at the new value; document the 10 MB cap
 and accept it, rejected because a large build log would still lose output
-before the spill, which is the exact gap this change closes.
+before the capture, which is the exact gap this change closes.
 
 `RuntimeExecInput` gains an optional output sink with stream identity. One
 capture owner drains both streams while the process runs. It keeps a bounded
 in-memory tail and total byte and line counts independently of disk writes.
-The same chunks go to the complete spill. The tail buffer, not the file, is
+The same chunks go to the complete capture. The tail buffer, not the file, is
 the source of the ordinary bash result and its existing truncation markers.
 Other exec callers keep the buffered path unchanged.
 
@@ -109,7 +109,7 @@ that the command ran to completion.
 
 ### Identity mount rather than a portal path
 
-Alternative: mirror the log portal at `/workspace/.sero/spill`. Rejected
+Alternative: mirror the log portal at `/workspace/.sero/capture`. Rejected
 because the reported path would then differ between backends, and a host
 session would be handed a `/workspace/...` path that does not exist on the
 host. A second alternative, no mount at all, was rejected because a
@@ -123,7 +123,7 @@ host string.
 
 The mount is a reachability mechanism, not a confidentiality boundary. A
 container agent that enumerates the read-only root can read another session's
-spill files, and the system cannot prevent that: one container serves several
+capture files, and the system cannot prevent that: one container serves several
 sessions, so the mount cannot be narrowed per session. The system advertises
 only paths created by or inherited into the session. If cross-session
 confidentiality becomes a requirement, a filtered file-read capability is the follow-up.
@@ -139,7 +139,7 @@ The extension and UI consume typed metadata, never parse human-readable paths.
 Carry this metadata on failed commands too; the current throw-only error path
 must be adapted without changing the reported exit status or error state.
 
-The output payload and the spill/status report are separate content blocks.
+The output payload and the capture/status report are separate content blocks.
 `details` identifies their roles and indexes, and the public contract defines
 the payload block independently of human notices. No consumer may concatenate
 notices into a payload and then treat that string as machine-readable output.
@@ -259,10 +259,10 @@ the image's build argument with the manifest's exact version.
   `sero-node:latest` and recreating affected containers is required and
   disruptive. Land the pin so that a version bump is a one-line change in two
   known places.
-- **A new read-only mount touches every container** → Mount only the spill
+- **A new read-only mount touches every container** → Mount only the capture
   root, identity mapped, and extend the existing runtime mount checks so a
   misconfigured mount fails the doctor rather than a session.
-- **A container agent can read another session's spill files** → Accepted for
+- **A container agent can read another session's capture files** → Accepted for
   this change and recorded. The mount is needed for reachability, the system
   advertises only paths created by or inherited into the session, and a
   per-session mount is impossible for a shared container. A filtered file-read capability is the
@@ -270,12 +270,12 @@ the image's build argument with the manifest's exact version.
 - **The streaming exec changes the runtime API** → The output sink is optional
   and additive. Other exec callers keep the buffered path and its 10 MB cap.
   Verify the streaming path on both backends.
-- **The two streams interleave in the spill** → Accepted. Both streams are
+- **The two streams interleave in the capture** → Accepted. Both streams are
   complete in arrival order, which is usually easier to read than the old
   `stdout`-then-`stderr` concatenation.
-- **Spill writes land in a watched workspace** → Avoided by placing the spill
+- **Capture writes land in a watched workspace** → Avoided by placing the capture
   under `SERO_AGENT_DIR` rather than in the workspace.
-- **A spill file can hold secrets a command printed** → Accepted for this
+- **A capture file can hold secrets a command printed** → Accepted for this
   change with the exposure recorded: the file is profile data, and retrieval
   through an agent tool can send its content to a provider. It is deleted after
   its last session reference is released. Redaction before persistence is
@@ -283,8 +283,8 @@ the image's build argument with the manifest's exact version.
 - **Complete output on disk grows without a ceiling** → Accepted. The sweep
   removes only unreferenced data; retained sessions have no size bound. A quota
   requires a separate approved change to the capture or retention guarantees.
-- **A missing spill path in an older session** → The bash result only advertises
-  a spill when the write succeeded, so an older session reports nothing rather
+- **A missing capture path in an older session** → The bash result only advertises
+  a capture when the write succeeded, so an older session reports nothing rather
   than a dead path.
 
 ## Migration Plan
@@ -295,15 +295,15 @@ the image's build argument with the manifest's exact version.
 2. Rebuild `sero-node:latest` with the matching version and recreate affected
    workspace containers. This is the disruptive step and it must be verified on
    the container backend, not only on the host.
-3. Add the spill root, the streaming output sink, the model-visible report,
+3. Add the capture root, the streaming output sink, the model-visible report,
    the mount, the runtime version probe, and retention.
-4. Verify on both backends: a large command spills completely, a command larger
-   than the former 10 MB buffer limit spills completely, the agent reads the
+4. Verify on both backends: a large command is captured completely, a command larger
+   than the former 10 MB buffer limit captures completely, the agent reads the
    reported path, and the model-facing result keeps its truncation.
 
 No session or profile migration. Existing sessions keep working and simply
-report no spill path. Reverting the image tag and removing the manifest entry
-disables the feature; spill directories and host RTK state are inert files that
+report no capture path. Reverting the image tag and removing the manifest entry
+disables the feature; capture directories and host RTK state are inert files that
 the orphan sweep removes only after their last reference is released.
 
 ## Open Questions

@@ -22,6 +22,8 @@ interface ToolchainGeneratedArtifactJson {
   unpackTo: string;
   binPaths: Record<string, string>;
   minVersion?: string;
+  version?: string;
+  managedOnly?: boolean;
   installPolicy: string;
 }
 
@@ -98,6 +100,8 @@ function toManifestArtifact(
     unpackTo: artifact.unpackTo,
     binPaths: artifact.binPaths,
     minVersion: artifact.minVersion,
+    version: artifact.version,
+    managedOnly: artifact.managedOnly,
     installPolicy: artifact.installPolicy,
   };
 }
@@ -117,7 +121,7 @@ function withUrlBaseOverride(defaultUrl: string, slug: string, urlBaseOverride: 
 }
 
 function isToolName(tool: string): tool is ToolName {
-  return ['node', 'npm', 'pnpm', 'git', 'ssh', 'bash', 'rg', 'fd', 'jq', 'gh', 'curl', 'zip', 'unzip', 'uv'].includes(tool);
+  return ['node', 'npm', 'pnpm', 'git', 'ssh', 'bash', 'rg', 'fd', 'jq', 'gh', 'curl', 'zip', 'unzip', 'uv', 'rtk'].includes(tool);
 }
 
 function isToolchainPlatform(platform: string): platform is ManagedToolPlatform {

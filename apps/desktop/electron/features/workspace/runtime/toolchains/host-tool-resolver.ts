@@ -21,6 +21,7 @@ const TOOL_NAMES = new Set<ToolName>([
   'zip',
   'unzip',
   'uv',
+  'rtk',
 ]);
 
 export interface HostToolResolverOptions {

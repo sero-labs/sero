@@ -42,6 +42,7 @@ import {
   profilesBridge,
   sessionsBridge,
   shellBridge,
+  captureBridge,
   workspaceBridge,
 } from './api/core';
 import { editorBridge, filetreeBridge, terminalBridge, vcsBridge } from './api/workbench';
@@ -54,6 +55,7 @@ export const seroPreloadApi = {
   arch: process.arch,
   window: windowBridge,
   shell: shellBridge,
+  toolCapture: captureBridge,
   profiles: profilesBridge,
   workspace: workspaceBridge,
   sessions: sessionsBridge,

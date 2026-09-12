@@ -1,6 +1,6 @@
 import path from 'path';
 
-import { SERO_AGENT_DIR } from '@electron/platform/env';
+import { SERO_AGENT_DIR, SERO_CAPTURE_ROOT } from '@electron/platform/env';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { getSharedPiDocsRoot } from '@electron/features/pi-docs/shared-pi-docs';
 import { buildSeroLogMounts } from './log-access';
@@ -52,6 +52,9 @@ export async function buildWorkspaceContainerConfig(
       path.join(SERO_AGENT_DIR, 'prompts'),
       path.join(SERO_AGENT_DIR, 'agent-plugins'),
       getSharedPiDocsRoot(),
+      // The complete-output capture root. Read-only: a containerised agent must be
+      // able to read a reported path and must never write to the capture.
+      SERO_CAPTURE_ROOT,
     ],
     writableMounts,
     bindMounts: buildSeroLogMounts(),

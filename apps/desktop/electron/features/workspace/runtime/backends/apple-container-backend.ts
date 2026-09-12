@@ -156,7 +156,7 @@ export class AppleContainerBackend implements RuntimeBackend {
       envPrefix ? `${envPrefix} ${input.command}` : input.command,
       input.cwd ?? this.runtimeWorkspacePath,
       input.timeoutMs,
-      { injectGitAuth: input.injectGitAuth },
+      { injectGitAuth: input.injectGitAuth, outputSink: input.outputSink },
     );
   }
 

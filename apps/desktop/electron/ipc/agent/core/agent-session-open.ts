@@ -142,6 +142,7 @@ export async function openSessionInPool({
         subagentManager,
         enableAgentManagementTools: true,
         hostRuntime: hostRuntimeOptions,
+        runtime,
       }),
     ],
     skillsOverride: (base) => withAgentPluginSkills(

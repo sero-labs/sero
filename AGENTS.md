@@ -23,6 +23,10 @@ copy, TypeScript, tests, UI, packages, and documentation.
   toolchain manifest for managed binaries. Resolve a verified system tool
   first, a shared managed install second, and a first-use download last. Do not
   require manual installation.
+- One exception to the system-first rule: an artifact marked `managedOnly` is
+  never resolved from `PATH`. RTK uses it because the host binary decides a
+  command rewrite while the workspace container image runs it, so the two
+  copies must be one pinned version. See `ARCHITECTURE.md`.
 - Sero's agent directory is `~/.sero-ui/agent/`, not `~/.pi/agent/`. The source
   of truth is `apps/desktop/electron/platform/env/index.ts`.
 

@@ -96,4 +96,32 @@ describe('toolchain verifiers', () => {
     expect(satisfiesMinimum('22.1.0', '22.0.0')).toBe(true);
     expect(satisfiesMinimum('21.9.0', '22.0.0')).toBe(false);
   });
+
+  it('accepts only the exact pinned version for rtk', async () => {
+    const probe = (stdout: string) => runner({ stdout, stderr: '', exitCode: 0 });
+
+    await expect(verifyTool('rtk', 'rtk', {
+      source: 'managed',
+      requiredVersion: '0.49.0',
+      run: probe('rtk 0.49.0\n'),
+    })).resolves.toMatchObject({ tool: 'rtk', state: 'ready', version: '0.49.0' });
+
+    await expect(verifyTool('rtk', 'rtk', {
+      source: 'managed',
+      requiredVersion: '0.49.0',
+      run: probe('rtk 0.50.0\n'),
+    })).resolves.toMatchObject({
+      tool: 'rtk',
+      state: 'incompatible',
+      version: '0.50.0',
+      requiredVersion: '0.49.0',
+      error: { code: 'TOOL_VERSION_INCOMPATIBLE', message: expect.stringContaining('does not equal pinned version') },
+    });
+
+    await expect(verifyTool('rtk', 'rtk', {
+      source: 'managed',
+      requiredVersion: '0.49.0',
+      run: probe('rtk 0.48.0\n'),
+    })).resolves.toMatchObject({ tool: 'rtk', state: 'incompatible' });
+  });
 });

@@ -17,9 +17,12 @@ import path from 'path';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import type { ContainerState } from '@electron/features/container';
+import type { RuntimeBackend } from '@electron/features/workspace/runtime/types';
 import type { WorkspaceAccessRootsResult } from '@sero-ai/common';
 import { registerSharedIsolatedCompletionHost } from '@electron/shared/infra/isolated-completion-host';
 import { registerAgentPluginHostCapability } from '@electron/features/agent-plugins/host-capability';
+import { registerRtkHostCapability } from '@electron/features/rtk/host-capability';
+import { registerToolResultPresentation } from '@electron/features/tool-capture/tool-result-presentation';
 import { buildContainerPromptBlock, buildHostPromptBlock } from '@electron/features/container/tools/system-prompt';
 import { listWorkspaceAccessRoots } from '@electron/features/workspace/access-roots';
 import { registerSeroBuiltinCommands } from './commands';
@@ -48,6 +51,11 @@ export interface SeroExtensionOptions {
     workspacePath: string;
     platform?: NodeJS.Platform;
   };
+  /**
+   * The session's runtime. Required for host capabilities that must probe or
+   * execute in the place the session's commands run, such as RTK resolution.
+   */
+  runtime?: RuntimeBackend;
 }
 
 export function createSeroExtensionFactory(
@@ -60,6 +68,10 @@ export function createSeroExtensionFactory(
   return (pi: ExtensionAPI) => {
     registerSharedIsolatedCompletionHost(pi.events);
     registerAgentPluginHostCapability(pi.events);
+    registerToolResultPresentation(pi);
+    if (options?.runtime) {
+      registerRtkHostCapability(pi.events, { sessionId: _sessionId, runtime: options.runtime });
+    }
 
     // ── System prompt injection ───────────────────────────────
 
@@ -146,7 +158,7 @@ export function createSeroExtensionFactory(
 
     pi.registerCommand('workspace', {
       description: 'Manage workspaces: list, info, open <id>, close <id>',
-      handler: async (args, ctx) => {
+      handler: async (args, _ctx) => {
         const parts = (args || '').trim().split(/\s+/);
         const subcommand = parts[0] || 'info';
         const subarg = parts.slice(1).join(' ');
@@ -249,7 +261,7 @@ export function createSeroExtensionFactory(
 
     pi.registerCommand('pwd', {
       description: 'Print working directory (workspace-relative)',
-      handler: async (args, ctx) => {
+      handler: async (_args, ctx) => {
         const wsPath = wsManager.getPath(currentWorkspaceId);
         const cwd = ctx.cwd;
         const relative = wsPath ? path.relative(wsPath, cwd) || '/' : cwd;

@@ -36,6 +36,25 @@ Runtime implementations must preserve the same workspace identity and route
 commands, terminals, Git, previews, and path translation through the selected
 backend. Runtime-specific capability limits must remain visible to callers.
 
+## Tool output capture
+
+The bash tool streams complete standard output and standard error into a
+session-keyed capture under the agent directory while the command runs. The
+model-facing payload is rendered from a bounded in-memory tail, never from the
+capture file, so no in-memory ceiling truncates what is persisted. Capture
+writes never block pipe draining; a persistence failure leaves the bounded
+tail and the command's exit status intact and advertises no path.
+
+The capture root is mounted into workspace containers read-only at its
+identity-mapped path, which is the same mechanism the skills, prompts and agent
+plugins mounts use. The mount is a reachability mechanism, not a confidentiality
+boundary between sessions: one container serves several sessions, so the mount
+cannot be narrowed per session. Host paths stay in typed result metadata; only
+runtime-valid paths enter model-visible text.
+
+Capture files live until their last referencing session is deleted. Referenced
+storage has no size or age limit.
+
 ## Shared host services
 
 - The desktop process owns model credentials and the shared Pi model runtime.
@@ -48,6 +67,13 @@ backend. Runtime-specific capability limits must remain visible to callers.
   resolution uses a verified system tool first, a verified managed tool second,
   and an approved first-use install last. Sero does not mutate the user's shell
   profile or global package-manager configuration.
+- The system-first rule has one deliberate exception. An artifact marked
+  `managedOnly` in the toolchain manifest is never taken from `PATH`. RTK is
+  managed-only: the host binary decides a command rewrite while the workspace
+  container image runs the command, so a system copy on the host could differ
+  from the image copy and produce commands the image cannot run. One pinned
+  version, declared by the manifest and by the image build argument, removes
+  that failure class instead of detecting it.
 
 ## Plugin boundary
 

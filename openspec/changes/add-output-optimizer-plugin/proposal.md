@@ -33,7 +33,7 @@ This change adds the plugin that uses them.
 - Apply compaction to complete captures, preserving diagnostics, file paths,
   line numbers, commit identifiers, commit messages and matched lines in the
   candidate before presentation. Keep the existing bounded model preview;
-  content that cannot fit remains complete in readable spill files. Mark
+  content that cannot fit remains complete in readable capture files. Mark
   omissions and keep failure status visible. Unknown categories stay unchanged.
 - Bypass rewriting and content transformation for requested structured formats.
   Keep stdout byte-exact and separate from stderr and reporting text. Small
@@ -82,8 +82,8 @@ Compaction applies to shell tool results only.
 
 - New plugin package at `plugins/sero-output-optimizer-plugin/`, with an
   extension, shared state, and a settings UI.
-- Depends on `managed-rtk-toolchain` and `tool-result-spill` from
-  `add-managed-rtk-and-result-spill`. It cannot ship before that change.
+- Depends on `managed-rtk-toolchain` and `tool-result-capture` from
+  `add-managed-rtk-and-tool-result-capture`. It cannot ship before that change.
 - `apps/desktop/electron/features/code-mode/tool-adapter.ts` — confirm the
   reserved nested-call marker is propagated to both hooks and advertise that
   guarantee as a required host capability. Ordinary unprefixed calls remain

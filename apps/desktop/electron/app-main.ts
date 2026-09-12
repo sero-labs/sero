@@ -39,6 +39,7 @@ import {
   platformFrameOptions,
 } from './chrome';
 import { disposeAllAgentSessions } from './ipc/agent/core/agent';
+import { runStartupCaptureSweep } from './features/tool-capture/lifecycle';
 import { workspaceManager } from './features/workspace/manager';
 import { setupExtProtocol, registerAllExtAssets } from './platform/protocols/ext-protocol';
 import { registerAllRemoteWidgets } from './features/gateway/server/remote-widgets';
@@ -336,6 +337,10 @@ app.whenReady().then(async () => {
   void ensureInfra().catch((err) => {
     console.error('[sero] Failed to initialize shared infra:', err);
   });
+
+  // Remove complete-output captures whose last referencing session is gone.
+  // Non-blocking: it only reads session files and removes unreferenced data.
+  void runStartupCaptureSweep();
 
   // ── Gateway ──────────────────────────────────────────────────
   // Start the WebSocket gateway + web chat UI. The agent ops bridge

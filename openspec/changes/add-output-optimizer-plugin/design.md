@@ -1,7 +1,7 @@
 ## Context
 
-See `proposal.md` for motivation, and `add-managed-rtk-and-result-spill` for
-the pinned RTK and the spill this change consumes. Constraints that shape the
+See `proposal.md` for motivation, and `add-managed-rtk-and-tool-result-capture` for
+the pinned RTK and the capture this change consumes. Constraints that shape the
 approach:
 
 - Plugin extensions load into every agent session through the resource loader.
@@ -15,7 +15,7 @@ approach:
 - The Pi tool-result hook may replace the result's `content`, `details`,
   `isError` and `usage`. The result becomes the persisted tool result message.
   `details` is persisted, is replayed to the renderer, and is never serialised
-  to a model provider, so it carries UI metadata. It cannot carry the spill
+  to a model provider, so it carries UI metadata. It cannot carry the capture
   path the agent must use; the path stays in the model-visible content.
 - Shell commands nested inside `run_code` DO reach the extension hooks: the
   run_code tool passes the session agent's `beforeToolCall` and `afterToolCall`
@@ -30,7 +30,6 @@ approach:
   can affect these codes, so tests isolate that configuration and assert both
   supported outcomes rather than assuming Git always exits 3. See the
   [upstream protocol](https://github.com/rtk-ai/rtk/blob/v0.49.0/src/hooks/rewrite_cmd.rs).
-
 
 - Measured RTK 0.49 behaviour: `rtk read` is byte-identical to its originals,
   including a 4.3 MB file and a 1 MB lock file. `rtk grep` and `rtk rg`
@@ -54,7 +53,7 @@ approach:
 
 - Bounded shell-output previews backed by complete captured output. Category
   rules retain every diagnostic before preview truncation.
-- Every compaction omission recoverable from the spill without rerunning the
+- Every compaction omission recoverable from the capture without rerunning the
   command. RTK's own filters are outside this contract, which is why the
   measured-loss commands are excluded from rewriting.
 - Fails open at each of the two intervention points, independently.
@@ -64,7 +63,7 @@ approach:
 - No rewriting or compaction of results from tools other than the shell tool,
   and no rewriting or compaction of shell calls nested inside `run_code`.
 - No model call anywhere in the path. Compaction is deterministic.
-- No retrieval tool. The spill path plus the agent's existing file tools is the
+- No retrieval tool. The capture path plus the agent's existing file tools is the
   whole recovery contract.
 - No source-code filtering.
 - No retry, rescue, or reinterpretation of a command that failed.
@@ -118,23 +117,23 @@ All result-compaction categories are implemented in the plugin. RTK owns
 command rewriting. Search grouping stays small and is guarded by tests that copy a path and a matched line out
 of grouped output and assert that an edit resolves.
 
-### Complete output travels through the spill, not `details`
+### Complete output travels through the capture, not `details`
 
 Putting complete output in the result's `details` field was rejected because it
 is persisted in the session file: a multi-megabyte result would inflate the
 session JSONL and slow every session open, and retention could not be tested.
-The bytes live in the spill from `add-managed-rtk-and-result-spill`. Compaction
+The bytes live in the capture from `add-managed-rtk-and-tool-result-capture`. Compaction
 requires finalized, readable capture metadata. If capture failed or cannot be
 read, return the received bash content and error status unchanged; never
 compact its truncated tail or rerun a rewritten command. Accounting metadata
 can record the skip without claiming savings. The
-model-visible result keeps the spill path and size from the bash tool, and the
+model-visible result keeps the capture path and size from the bash tool, and the
 compactor must keep that report. The plugin adds its structured metrics to
 `details` for the UI.
 
 ### Complete input, bounded presentation
 
-The user selected bounded previews with complete readable spill files. Read
+The user selected bounded previews with complete readable capture files. Read
 finalized capture data through the host paths in typed metadata, never the
 truncated tool text or a container-only path. Apply category rules to the
 complete captured output, then construct a preview under the existing 50 KB /
@@ -145,11 +144,11 @@ A rule that cannot process an input safely fails open to the existing bash
 result. An unrecognized category also keeps that result unchanged.
 
 Diagnostic preservation applies to category transformations before preview
-truncation. Protected content that does not fit remains in the original spill;
+truncation. Protected content that does not fit remains in the original capture;
 the preview says that it omits content and points to the complete files. For
 search output, emit only complete path/match groups as edit anchors within the
 preview budget. If one matched line cannot fit, omit that anchor and point to
-the raw spill instead of emitting a shortened anchor. Recompute preview markers
+the raw capture instead of emitting a shortened anchor. Recompute preview markers
 for the candidate; do not reuse line counts from the original bash tail.
 Exit status and capture reports remain outside the payload budget.
 
@@ -163,7 +162,7 @@ conservatively by declining transformation. Use the complete stdout capture as
 the source of the preview and report stderr separately. A small stdout payload
 is unchanged and parseable if the original was valid. An oversized payload is
 only a marked preview; the byte-exact stdout file is the authoritative document.
-Never append spill notices, exit text or stderr to the structured payload.
+Never append capture notices, exit text or stderr to the structured payload.
 Never strip ANSI or whitespace from a stream merely because it looks like
 terminal output. Invalid source documents remain invalid and are not repaired.
 
@@ -243,7 +242,7 @@ stale answers for the whole session.
 The baseline is the complete captured output of the command that actually ran,
 after any RTK filtering and before Sero truncation. The compared output is the
 complete candidate produced by plugin compaction, before any presentation limit.
-Measure both as UTF-8 bytes, excluding spill, rewrite and status notices.
+Measure both as UTF-8 bytes, excluding capture, rewrite and status notices.
 RTK savings and provider billing are not inferred from these values.
 
 Record `inputBytes` and `compactedBytes` for every measurable eligible call,
@@ -265,7 +264,7 @@ history without double-counting replayed entries.
 ## Risks / Trade-offs
 
 - **Protected data exceeds the preview budget** → Keep the full source in the
-  spill, mark preview omissions, and verify recovery from the reported paths.
+  capture, mark preview omissions, and verify recovery from the reported paths.
   Category rules must preserve diagnostics in the complete candidate; preview
   truncation is a separate presentation step and is not counted as savings.
 - **A ported reference rule is lossy in a new way** → The ported rules are
@@ -296,18 +295,18 @@ history without double-counting replayed entries.
 
 ## Migration Plan
 
-1. Land `add-managed-rtk-and-result-spill` first. This change depends on both of
+1. Land `add-managed-rtk-and-tool-result-capture` first. This change depends on both of
    its capabilities.
 2. Ship the plugin disabled. An upgrade changes no session behaviour until a
    user enables it.
 3. Run the bench harness and publish the numbers with the release, including the
    measured result for the requested-format requirement.
 4. Rollback is disabling the profile toggle or the plugin. There is no data
-   migration, and spill files remain inert.
+   migration, and capture files remain inert.
 
 ## Open Questions
 
 None. The user selected bounded previews with complete diagnostics and
-structured output preserved in readable spill files. The presentation limit
+structured output preserved in readable capture files. The presentation limit
 is not a limit on the capture, and the preview is not promised to be complete
 or parseable when it is truncated.

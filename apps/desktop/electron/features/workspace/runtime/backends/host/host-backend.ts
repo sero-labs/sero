@@ -50,6 +50,7 @@ import { HostDevServerManager } from './host-dev-server-manager';
 import { runHostDoctorChecks } from './host-doctor';
 import { createHostProcessAdapter } from './process/factory';
 import { createHostProcessEnv } from './host-env';
+import { runStreamingShellExec } from '../../streaming-exec';
 
 const execFileAsync = promisify(execFile);
 
@@ -145,6 +146,9 @@ export class HostBackend implements RuntimeBackend {
       cwd,
       env: await createHostProcessEnv(this.workspaceId, input.env, this.substrate.platform),
     });
+    if (input.outputSink) {
+      return runStreamingShellExec({ shell: rendered, timeoutMs: input.timeoutMs ?? 120_000, sink: input.outputSink });
+    }
     try {
       const { stdout, stderr } = await execFileAsync(rendered.program, rendered.args, {
         cwd: rendered.nativeCwd,

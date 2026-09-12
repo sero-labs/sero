@@ -28,6 +28,12 @@ export interface ToolVerifierOptions {
 interface ToolProbe {
   args: string[];
   minVersion?: string;
+  /**
+   * `minimum` accepts any newer version (the default). `exact` accepts only the
+   * required version, used by tools that are also pinned inside the container
+   * image so the two copies cannot drift.
+   */
+  versionMatch?: 'minimum' | 'exact';
   parseVersion: (output: string) => string | undefined;
   smokeArgs?: string[];
   smokeOutput?: string;
@@ -56,6 +62,9 @@ const TOOL_PROBES: Record<ToolName, ToolProbe> = {
   zip: { args: ['--version'], parseVersion: parseFirstVersion },
   unzip: { args: ['-v'], parseVersion: parseFirstVersion },
   uv: { args: ['--version'], minVersion: '0.7.3', parseVersion: parseFirstVersion },
+  // RTK is pinned exactly: the host decides a rewrite and the container image
+  // runs it, so a newer or older copy on either side is rejected.
+  rtk: { args: ['--version'], minVersion: '0.49.0', versionMatch: 'exact', parseVersion: parseFirstVersion },
 };
 
 export async function verifyTool(
@@ -79,7 +88,7 @@ export async function verifyTool(
 
   const output = `${result.stdout}\n${result.stderr}`;
   const version = probe.parseVersion(output);
-  if (requiredVersion && (!version || !satisfiesMinimum(version, requiredVersion))) {
+  if (requiredVersion && !matchesRequiredVersion(version, requiredVersion, probe.versionMatch ?? 'minimum')) {
     return {
       tool,
       state: 'incompatible',
@@ -89,7 +98,7 @@ export async function verifyTool(
       requiredVersion,
       error: {
         code: 'TOOL_VERSION_INCOMPATIBLE',
-        message: `${tool} ${version ?? 'unknown'} does not satisfy required version ${requiredVersion}.`,
+        message: versionMatchMessage(tool, version, requiredVersion, probe.versionMatch ?? 'minimum'),
         tool,
         retryable: false,
         installable: source === 'system',
@@ -131,6 +140,28 @@ export async function verifyTools(
     tools.map(async (tool) => [tool, await verifyTool(tool, candidates[tool] ?? tool, options)] as const),
   );
   return Object.fromEntries(entries) as Record<ToolName, ToolStatus>;
+}
+
+function matchesRequiredVersion(
+  version: string | undefined,
+  requiredVersion: string,
+  versionMatch: 'minimum' | 'exact',
+): boolean {
+  if (!version) return false;
+  if (versionMatch === 'exact') return version === requiredVersion;
+  return satisfiesMinimum(version, requiredVersion);
+}
+
+function versionMatchMessage(
+  tool: ToolName,
+  version: string | undefined,
+  requiredVersion: string,
+  versionMatch: 'minimum' | 'exact',
+): string {
+  if (versionMatch === 'exact') {
+    return `${tool} ${version ?? 'unknown'} does not equal pinned version ${requiredVersion}.`;
+  }
+  return `${tool} ${version ?? 'unknown'} does not satisfy required version ${requiredVersion}.`;
 }
 
 export function satisfiesMinimum(version: string, minimum: string): boolean {

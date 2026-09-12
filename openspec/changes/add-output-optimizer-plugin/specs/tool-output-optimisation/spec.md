@@ -2,7 +2,7 @@
 
 Lets a user reduce the shell output that reaches the model, using pinned RTK
 command rewriting and category-aware result compaction, while keeping the
-complete executed-command output reachable in spill files and model previews
+complete executed-command output reachable in capture files and model previews
 bounded. Category rules preserve diagnostics before preview truncation.
 
 ## ADDED Requirements
@@ -31,7 +31,7 @@ follow the fail-open requirement and MUST NOT claim complete recovery.
 #### Scenario: Protected data alone exceeds the limit
 
 - **WHEN** diagnostics or matched lines cannot all fit in the preview
-- **THEN** the preview stays bounded, reports its omissions, and all original diagnostics and matches remain in the complete spill
+- **THEN** the preview stays bounded, reports its omissions, and all original diagnostics and matches remain in the complete capture
 
 #### Scenario: No complete capture
 
@@ -135,7 +135,7 @@ The system SHALL group search output by file itself, keeping every file path
 complete and every matched line complete. When grouping does not reduce the
 byte count, the complete candidate MUST remain the raw output. Only the
 subsequent bounded-preview step may omit content, with the complete source
-remaining in the spill. Preview grouping MUST NOT abbreviate a path or present
+remaining in the capture. Preview grouping MUST NOT abbreviate a path or present
 a partial matched line as a valid edit anchor.
 
 #### Scenario: Grouped search output
@@ -151,7 +151,7 @@ a partial matched line as a valid edit anchor.
 #### Scenario: Grouping does not reduce size
 
 - **WHEN** grouping search output by file would not reduce the byte count
-- **THEN** the complete candidate stays unchanged, and its bounded preview reports any presentation omissions with a link to the complete spill
+- **THEN** the complete candidate stays unchanged, and its bounded preview reports any presentation omissions with a link to the complete capture
 
 ### Requirement: The executed command is visible
 
@@ -227,7 +227,7 @@ its complete capture still contains anything omitted by ordinary truncation.
 - **WHEN** a category rule's result would omit an error, warning, path, line number, commit message or matched line
 - **THEN** the diagnostic is kept and the omission is not applied
 
-### Requirement: Requested structured output stays exact in spill files
+### Requirement: Requested structured output stays exact in capture files
 
 Commands that request machine-readable output SHALL bypass RTK rewriting and
 plugin content transformations, including ANSI stripping. Their captured
@@ -247,7 +247,7 @@ from stdout. Normal file-tool limits can require paged reads or local parsing.
 #### Scenario: Small structured stdout with warnings
 
 - **WHEN** a command requests JSON and emits a valid small JSON document on stdout plus warnings on stderr
-- **THEN** the payload contains the unchanged parseable JSON, the stdout spill contains exactly the same bytes, and stderr and reporting text do not contaminate either
+- **THEN** the payload contains the unchanged parseable JSON, the stdout capture contains exactly the same bytes, and stderr and reporting text do not contaminate either
 
 #### Scenario: Structured output exceeds the presentation limits
 
@@ -273,7 +273,7 @@ system MUST NOT require the original command to be rerun to obtain it.
 
 #### Scenario: A compacted result
 
-- **WHEN** the agent receives a compacted result for a spilled command
+- **WHEN** the agent receives a compacted result for a command with captured output
 - **THEN** the model-visible content reports where the complete output is and how large it is
 
 #### Scenario: The agent retrieves omitted content

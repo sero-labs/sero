@@ -22,6 +22,7 @@ import { notify } from '@electron/features/notifications/feed';
 import type { NotificationType } from '@electron/features/notifications/types';
 import { registerSharedIsolatedCompletionHost } from '@electron/shared/infra/isolated-completion-host';
 import { registerAgentPluginHostCapability } from '@electron/features/agent-plugins/host-capability';
+import { registerToolResultPresentation } from '@electron/features/tool-capture/tool-result-presentation';
 
 /**
  * Creates a reduced extension factory for subagent child sessions.
@@ -39,6 +40,7 @@ export function createSubagentExtensionFactory(
   return (pi: ExtensionAPI) => {
     registerSharedIsolatedCompletionHost(pi.events);
     registerAgentPluginHostCapability(pi.events);
+    registerToolResultPresentation(pi);
 
     // ── System prompt injection (CLI + container) ─────────────
     pi.on('before_agent_start', async (event) => {

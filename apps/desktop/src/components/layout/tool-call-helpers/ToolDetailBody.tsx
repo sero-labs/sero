@@ -1,7 +1,10 @@
 import type { ChatToolCallMessage } from '@/types/ipc';
+import { useMemo } from 'react';
 import { ToolCallProgress, buildToolProgressModel } from '../ToolCallProgress';
 import { ClampedText } from './ClampedText';
 import { StreamingFileWrite } from './StreamingFileWrite';
+import { ToolCaptureReport } from './ToolCaptureReport';
+import { describeToolCapture } from './tool-capture-details';
 import { ToolFileLinks } from './ToolFileLinks';
 import { ToolImages } from './ToolImages';
 import { ToolInputRows } from './ToolInputRows';
@@ -19,6 +22,7 @@ export function ToolDetailBody({
   workspaceId?: string | null;
 }) {
   const progress = buildToolProgressModel(tool);
+  const capture = useMemo(() => describeToolCapture(tool.details), [tool.details]);
   const toolOutput = typeof tool.output === 'string' && tool.output.trim().length > 0
     ? tool.output
     : null;
@@ -46,6 +50,10 @@ export function ToolDetailBody({
           <ClampedText text={output} tone={tool.isError ? 'error' : 'default'} />
         </div>
       ) : null}
+
+      {/* Complete output lives outside the model context; the payload above is
+          the bounded preview the model received. */}
+      {capture ? <ToolCaptureReport view={capture} /> : null}
     </div>
   );
 }

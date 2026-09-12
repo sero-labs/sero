@@ -31,19 +31,19 @@ before the plugin that needs them.
   session-scoped host and runtime RTK state environments to agent extensions over the Pi EventBus, mirroring the existing
   MCP-sources request/response pattern. A request starts the first-use managed
   install.
-- Capture complete bash `stdout` and `stderr` in a session-scoped spill file.
-  Stream both streams into the spill from the runtime as the command runs, so
-  the spill has no in-memory ceiling. Keep an independent bounded tail and
+- Capture complete bash `stdout` and `stderr` in a session-scoped capture file.
+  Stream both streams into the capture from the runtime as the command runs, so
+  the capture has no in-memory ceiling. Keep an independent bounded tail and
   counters so failed persistence cannot lose the command result. Save exact
   stdout and stderr files alongside combined output, so structured stdout stays
   parseable even with stderr diagnostics. All files share the capture lifecycle.
-- Place the spill root under the agent directory, which the host read tool
+- Place the capture root under the agent directory, which the host read tool
   already allows, and mount it into workspace containers read-only at the
   identity-mapped path.
-- Report the spill path and byte size in the model-visible bash result content,
+- Report the capture path and byte size in the model-visible bash result content,
   in a separate reporting block, and carry typed capture metadata in `details`
   for the desktop UI and extensions, including failures. Advertise no path when
-  no complete spill exists; report persistence failures explicitly.
+  no complete capture exists; report persistence failures explicitly.
 - Preserve inherited capture references when sessions fork. Delete captured
   output only after its last referencing session is deleted, and sweep
   unreferenced data at startup. Retain host RTK state needed by inherited
@@ -51,9 +51,9 @@ before the plugin that needs them.
 - Bind rewritten invocations to verified absolute runtime executables. Contain
   RTK tracking and both recovery modes in the returned state locations.
 - Divergence from the source issue: the requirement that the complete raw
-  result stays available is met by the spill file, not by the session file. The
+  result stays available is met by the capture file, not by the session file. The
   bash tool result content keeps its existing truncation for the model. Larger
-  diagnostics and structured output remain complete in readable spill files;
+  diagnostics and structured output remain complete in readable capture files;
   previews are explicitly marked and are not promised to be parseable.
 
 ## Capabilities
@@ -63,7 +63,7 @@ before the plugin that needs them.
 - `managed-rtk-toolchain`: an exact pinned, Sero-managed RTK on the host and in
   the container image, with a resolution contract that agent extensions can
   call, including a session-scoped state directory.
-- `tool-result-spill`: complete bash output capture before truncation,
+- `tool-result-capture`: complete bash output capture before truncation,
   session-keyed storage, model-visible reporting, container reachability, and
   retention.
 
@@ -85,24 +85,24 @@ requirement changes.
 - `apps/desktop/electron/features/workspace/runtime/backends/host/host-backend.ts`
   and `apps/desktop/electron/features/container/index.ts` — stream bash output
   into the sink in the host and container exec paths.
-- `apps/desktop/electron/features/container/tools/tools-coding.ts` — spill path
-  ownership, independent model-facing tail capture, and model-visible spill
+- `apps/desktop/electron/features/container/tools/tools-coding.ts` — capture path
+  ownership, independent model-facing tail capture, and model-visible capture
   reporting.
 - `apps/desktop/electron/features/container/core/workspace-container-config.ts`
-  — the read-only spill mount and the existing mount checks.
-- `apps/desktop/electron/platform/env/index.ts` — spill root and RTK state
+  — the read-only capture mount and the existing mount checks.
+- `apps/desktop/electron/platform/env/index.ts` — capture root and RTK state
   resolution.
 - `packages/common/src/` — the new EventBus channel and request/response types.
 - Session fork and deletion handlers, plus startup cleanup: persist and release
   inherited capture references without changing historical result paths.
 - `apps/desktop/src/` — the ChatPanel tool-result UI that opens the complete
   output.
-- `ARCHITECTURE.md` — the streaming spill boundary and the managed-only RTK
+- `ARCHITECTURE.md` — the streaming capture boundary and the managed-only RTK
   exception to the system-first toolchain policy.
 - `AGENTS.md` — record the managed-only exception in the runtime-boundaries
   rule.
 - `apps/docs-site/docs/` — user-facing retention and cleanup behaviour.
 - No new JavaScript dependency. RTK is an external binary, downloaded and
   verified by the existing toolchain machinery.
-- Existing sessions are unaffected and need no migration. They report no spill
+- Existing sessions are unaffected and need no migration. They report no capture
   path.

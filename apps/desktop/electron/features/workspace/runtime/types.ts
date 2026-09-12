@@ -79,6 +79,20 @@ export interface RuntimeSession {
   containerId?: string;
 }
 
+/**
+ * Streaming output sink for an exec call.
+ *
+ * When `RuntimeExecInput.outputSink` is set, the runtime streams both pipes to
+ * the sink while the command runs and returns no captured text. The sink owns
+ * the tail, the counters and any persistence, so a command larger than the
+ * former in-memory buffer limit is still captured completely.
+ */
+export interface RuntimeExecOutputSink {
+  write(stream: 'stdout' | 'stderr', chunk: string): void;
+  /** Called once, after the last write, when the process ends. */
+  close(): void;
+}
+
 export interface RuntimeExecInput {
   command: string;
   cwd?: string;
@@ -86,6 +100,8 @@ export interface RuntimeExecInput {
   env?: Record<string, string>;
   injectGitAuth?: boolean;
   isolated?: boolean;
+  /** Stream output instead of buffering it. See `RuntimeExecOutputSink`. */
+  outputSink?: RuntimeExecOutputSink;
 }
 
 export interface RuntimeExecFileInput {

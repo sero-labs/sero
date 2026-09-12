@@ -243,6 +243,18 @@ export const SERO_HOME = resolvedEnv.seroHome;
 /** Sero's agent directory — replaces ~/.pi/agent for all SDK calls. */
 export const SERO_AGENT_DIR = resolvedEnv.seroAgentDir;
 
+/**
+ * Root for complete bash output captures.
+ *
+ * It lives under the agent directory because that is an allowed root for the
+ * Pi read tool, and it is outside every workspace so no file watcher, search,
+ * or language server sees it.
+ */
+export const SERO_CAPTURE_ROOT = path.join(SERO_AGENT_DIR, 'captures');
+
+/** Root for session-scoped host RTK tracking and recovery state. */
+export const SERO_HOST_RTK_STATE_ROOT = path.join(SERO_AGENT_DIR, 'rtk');
+
 /** Path to auth.json (API keys + OAuth tokens). Used for permission hardening. */
 export const AUTH_JSON_PATH = resolvedEnv.authJsonPath;
 
