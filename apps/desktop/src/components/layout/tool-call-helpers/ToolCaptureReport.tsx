@@ -308,30 +308,36 @@ function CaptureViewerDialog({ file, onClose }: { file: ToolCaptureFile; onClose
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
+      {/*
+       * A log viewer, not a prompt. Fill most of the window, pin the header and
+       * footer, and let the content scroll on its own.
+       */}
+      <DialogContent className="flex h-[min(88vh,60rem)] w-[min(94vw,80rem)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
+        <DialogHeader className="shrink-0 gap-1 border-b border-[var(--border-subtle)] px-5 py-3 pr-14">
           <DialogTitle>{file.label}</DialogTitle>
           <DialogDescription>
             Complete output · {formatBytes(slice.kind === 'open' ? slice.totalBytes : file.bytes)} · reads one page at a time
           </DialogDescription>
         </DialogHeader>
 
-        {slice.kind === 'loading' ? <p className="text-sm text-[var(--text-muted)]">Loading…</p> : null}
+        {slice.kind === 'loading' ? (
+          <p className="px-5 py-4 text-sm text-[var(--text-muted)]">Loading…</p>
+        ) : null}
         {slice.kind === 'unavailable' ? (
-          <p className="text-sm text-status-error">Complete output unavailable: {slice.reason}</p>
+          <p className="px-5 py-4 text-sm text-status-error">Complete output unavailable: {slice.reason}</p>
         ) : null}
         {slice.kind === 'open' ? (
           <>
             <pre
               className={cn(
-                'max-h-[60vh] overflow-auto whitespace-pre-wrap break-words rounded',
-                'bg-[var(--surface-sunken)] p-3 font-mono text-sm leading-relaxed',
+                'min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words',
+                'bg-[var(--surface-sunken)] px-5 py-4 font-mono text-sm leading-relaxed',
                 'text-[var(--text-secondary)]',
               )}
             >
               {slice.content}
             </pre>
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex shrink-0 items-center justify-between gap-2 border-t border-[var(--border-subtle)] px-5 py-3">
               <span className="text-sm text-[var(--text-muted)]">{positionLabel(offset, slice)}</span>
               {canPage(history, slice) ? (
                 <div className="flex items-center gap-2">

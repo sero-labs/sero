@@ -244,6 +244,27 @@ describe('ToolCaptureReport', () => {
     expect([...document.querySelectorAll('button')].some((item) => item.textContent === 'Next')).toBe(false);
   });
 
+  it('opens a large reading surface instead of the default dialog width', async () => {
+    readCapture.mockResolvedValue({ state: 'ok', content: 'all of it', totalBytes: 111 });
+    await render(captureView());
+
+    const open = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Combined output'));
+    await act(async () => open?.click());
+    const full = [...container.querySelectorAll('button')].find((item) => item.textContent === 'Open full output');
+    await act(async () => full?.click());
+
+    const dialog = document.querySelector('[data-slot="dialog-content"]');
+    expect(dialog).not.toBeNull();
+    // The dialog primitive caps itself at `sm:max-w-lg`. A log viewer must lift
+    // that cap and claim most of the viewport, or large captures are unreadable.
+    expect(dialog?.className).toContain('sm:max-w-none');
+    expect(dialog?.className).toContain('h-[min(88vh,60rem)]');
+    expect(dialog?.className).toContain('w-[min(94vw,80rem)]');
+    // The content scrolls inside the dialog, so the header and footer stay put.
+    expect(dialog?.querySelector('pre')?.className).toContain('flex-1');
+    expect(dialog?.querySelector('pre')?.className).toContain('overflow-auto');
+  });
+
   it('labels an empty capture instead of claiming a zero-byte range', async () => {
     readCapture.mockResolvedValue({ state: 'ok', content: '', totalBytes: 0 });
     await render(captureView());
