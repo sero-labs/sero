@@ -258,6 +258,8 @@ describe('ToolCaptureReport', () => {
     // The dialog primitive caps itself at `sm:max-w-lg`. A log viewer must lift
     // that cap and claim most of the viewport, or large captures are unreadable.
     expect(dialog?.className).toContain('sm:max-w-none');
+    // The merge must drop the primitive's 512px cap, not keep both rules.
+    expect(dialog?.className).not.toContain('sm:max-w-lg');
     expect(dialog?.className).toContain('h-[min(88vh,60rem)]');
     expect(dialog?.className).toContain('w-[min(94vw,80rem)]');
     // The content scrolls inside the dialog, so the header and footer stay put.
