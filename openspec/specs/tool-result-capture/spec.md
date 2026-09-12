@@ -263,13 +263,15 @@ MUST be visible in that result.
 
 ### Requirement: The user can open the complete output
 
-The desktop UI SHALL let the user open a bash result's complete output, and
-MUST distinguish that complete output from the model-facing content.
+The desktop UI SHALL let the user open a bash result's complete output in a
+surface separate from the model-facing content, so the two are never confused.
+The UI MUST NOT restate what the model received: a truncated payload already
+carries its own truncation marker, and a complete one needs no note.
 
 #### Scenario: User expands a result with captured output
 
 - **WHEN** the user opens the complete output for a bash result that has a capture file
-- **THEN** the UI opens the complete output and identifies whether the model received all output or a bounded preview
+- **THEN** the UI opens the complete output in its own surface, separate from the payload the model received
 
 #### Scenario: Capture file is gone
 

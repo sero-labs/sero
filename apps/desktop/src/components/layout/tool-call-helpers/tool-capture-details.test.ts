@@ -74,14 +74,6 @@ describe('describeToolCapture', () => {
     expect(view?.files.map((file) => file.kind)).toEqual(['combined', 'stdout', 'stderr']);
   });
 
-  it('says the model received a bounded preview only when truncation metadata is present', () => {
-    expect(describeToolCapture(captureDetails())?.preview).toBe(false);
-
-    const truncated = captureDetails();
-    truncated.truncation = { truncated: true, truncatedBy: 'lines' };
-    expect(describeToolCapture(truncated)?.preview).toBe(true);
-  });
-
   it('offers no files when the capture is incomplete and carries the reason', () => {
     const view = describeToolCapture({
       capture: { version: 1, captureId: 'capture-2', producerSessionId: 'session-a', complete: false, unavailableReason: 'ENOSPC' },

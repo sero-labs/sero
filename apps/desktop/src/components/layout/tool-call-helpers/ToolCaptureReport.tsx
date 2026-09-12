@@ -56,7 +56,6 @@ export function ToolCaptureReport({ view }: { view: ToolCaptureView }) {
         <CaptureViewerDialog
           key={selected.kind}
           file={selected}
-          preview={view.preview}
           rewrite={view.rewrite}
           onClose={() => setSelected(null)}
         />
@@ -100,12 +99,10 @@ function canPage(history: readonly number[], slice: { nextOffset?: number }): bo
  */
 function CaptureViewerDialog({
   file,
-  preview,
   rewrite,
   onClose,
 }: {
   file: ToolCaptureFile;
-  preview: boolean;
   rewrite?: ToolCaptureView['rewrite'];
   onClose: () => void;
 }) {
@@ -155,8 +152,9 @@ function CaptureViewerDialog({
       <DialogContent className="flex h-[min(88vh,60rem)] w-[min(94vw,80rem)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
         <DialogHeader className="shrink-0 gap-1 border-b border-[var(--border-subtle)] px-5 py-3 pr-14">
           <DialogTitle>Tool Details</DialogTitle>
-          <DialogDescription>
-            {file.label}. {preview ? 'The model received a bounded preview.' : 'The model received all of the output.'}
+          {/* Screen readers only: the payload above already shows a truncation marker. */}
+          <DialogDescription className="sr-only">
+            {file.label}: the complete captured output for this result. Reads one page at a time.
           </DialogDescription>
         </DialogHeader>
 

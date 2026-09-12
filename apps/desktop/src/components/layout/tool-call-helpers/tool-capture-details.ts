@@ -33,8 +33,6 @@ export interface ToolCaptureFile {
 
 export interface ToolCaptureView {
   capture: ToolCaptureDetails;
-  /** True when the model received a bounded preview rather than all of the output. */
-  preview: boolean;
   /** Complete files the user can open. Empty when the capture is incomplete. */
   files: ToolCaptureFile[];
   /**
@@ -74,7 +72,6 @@ export function describeToolCapture(
 
   return {
     capture,
-    preview: isTruncated(details),
     files: capture.complete ? files : [],
     rewrite: parseRewrite(details),
   };
@@ -119,11 +116,6 @@ function parseStream(value: unknown): ToolCaptureStreamDetails | undefined {
     runtimePath: typeof value.runtimePath === 'string' ? value.runtimePath : value.hostPath,
     bytes: typeof value.bytes === 'number' && Number.isFinite(value.bytes) ? value.bytes : 0,
   };
-}
-
-/** The tool result carries `truncation` only when the payload was truncated. */
-function isTruncated(details: Record<string, unknown> | null | undefined): boolean {
-  return isRecord(details?.truncation);
 }
 
 export function formatBytes(bytes: number): string {

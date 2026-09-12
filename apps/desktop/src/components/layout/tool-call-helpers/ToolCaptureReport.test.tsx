@@ -74,25 +74,13 @@ describe('ToolCaptureReport', () => {
     expect(container.textContent).not.toContain('The model received');
     expect(container.querySelector('pre')).toBeNull();
     expect(readCapture).not.toHaveBeenCalled();
-  });
-
-  it('says in the dialog that the model received all of the output', async () => {
-    readCapture.mockResolvedValue({ state: 'ok', content: 'all of it', totalBytes: 111 });
-    await render(captureView());
 
     await act(async () => fileButton('Full details')?.click());
 
-    expect(document.body.textContent).toContain('The model received all of the output.');
-    expect(document.body.textContent).not.toContain('bounded preview');
-  });
-
-  it('says in the dialog when the model received a bounded preview', async () => {
-    readCapture.mockResolvedValue({ state: 'ok', content: 'all of it', totalBytes: 111 });
-    await render(captureView({}, { truncation: { truncated: true } }));
-
-    await act(async () => fileButton('Full details')?.click());
-
-    expect(document.body.textContent).toContain('The model received a bounded preview.');
+    // The dialog does not restate what the model received either: the payload
+    // above already carries a truncation marker when anything was dropped.
+    expect(document.body.textContent).toContain('Tool Details');
+    expect(document.body.textContent).not.toContain('The model received');
   });
 
   it('opens the complete combined output in the Tool Details dialog', async () => {

@@ -307,7 +307,7 @@ system MUST NOT require the original command to be rerun to obtain it.
 #### Scenario: The user opens the complete output
 
 - **WHEN** the user opens the complete output for a compacted result
-- **THEN** the UI shows the complete text and distinguishes it from what the model received
+- **THEN** the UI shows the complete text in its own surface, separate from the payload the model received
 
 ### Requirement: Captures open in a dedicated viewer
 
