@@ -228,10 +228,14 @@ Apple Container is such a backend, verified against `container inspect` on CLI
 `configuration.id` equals the container name, there is no creation timestamp or
 uuid, and `labels` is empty. The network address is the only field that differs
 between instances, and only while the container runs, so it cannot serve as an
-identity. Apple-backed workspaces therefore probe on every resolution. An
-image-digest key would be sound for the version probe alone, because the binary
-is image-owned, but not for the state-directory check, whose answer depends on
-the container's own filesystem. The simplification is to cache nothing there.
+identity. Apple-backed workspaces therefore probe on every resolution.
+
+Decision: keep Apple resolution uncached. Two execs per resolution request are
+not measured as a material problem, and a second caching rule is not justified
+without one. An image digest MUST NOT stand in for a container instance
+identity. If Apple latency later becomes material, evaluate a version-only cache
+separately; the state-directory check must stay uncached, because the container's
+own filesystem is not image content.
 
 The plugin must bind every inserted RTK executable token to the verified
 runtime path with shell-safe quoting. It must also apply the returned runtime
