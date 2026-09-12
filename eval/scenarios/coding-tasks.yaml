@@ -64,7 +64,8 @@
     - type: javascript
       value: |
         const hasGuard = output.includes('?.map') || output.includes('= []')
-          || output.includes('?? []') || output.includes('|| []');
+          || output.includes('?? []') || output.includes('|| []')
+          || /Array\.isArray\(users\)\s*\?\s*users\s*:\s*\[\]/.test(output);
         return {
           pass: hasGuard,
           score: hasGuard ? 1.0 : 0.0,

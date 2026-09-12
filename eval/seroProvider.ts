@@ -25,12 +25,12 @@ import {
   createEvalPromptExtensionFactory,
   createEvalSeroCliTool,
   seedEvalWorkspace,
-  stripExtensionTools,
 } from './evalCli';
 import {
   runGraphifyEvalCommand,
   seedGraphifyEvalProfile,
 } from './searchEvalGraphify';
+import { loadRuntimeHostTools } from './runtimeFileTools';
 import { setupTempDir, teardownTempDir } from './setup';
 
 const DEFAULT_AGENT_DIR =
@@ -45,6 +45,12 @@ interface SeroProviderConfig {
   agentDir?: string;
   /** Search tools exposed to the model for the search A/B evaluation. */
   searchMode?: 'bash' | 'fff' | 'graphify' | 'combined';
+  /**
+   * Tool mode. `runtime` builds the session from Sero's host file-tool factory
+   * with the runtime-backed `read`, `bash`, `write`, and `edit` tools. The
+   * default mode keeps Pi's built-in coding tools.
+   */
+  toolMode?: 'runtime';
 }
 
 interface ToolCall {
@@ -93,6 +99,7 @@ function toolResultText(result: unknown): string {
 
 const RUNTIME_API_KEY_ENV_VARS: Record<string, string[]> = {
   anthropic: ['ANTHROPIC_OAUTH_TOKEN', 'ANTHROPIC_API_KEY'],
+  deepseek: ['DEEPSEEK_API_KEY'],
   openai: ['OPENAI_API_KEY'],
   google: ['GEMINI_API_KEY'],
   openrouter: ['OPENROUTER_API_KEY'],
@@ -175,7 +182,8 @@ export default class SeroProvider implements ApiProvider {
   id(): string {
     const configuredModel = this.config.model ?? process.env.SERO_EVAL_MODEL;
     const mode = this.config.searchMode ? `:${this.config.searchMode}` : '';
-    return `sero:${configuredModel ?? 'default'}${mode}`;
+    const toolMode = this.config.toolMode ? `:${this.config.toolMode}` : '';
+    return `sero:${configuredModel ?? 'default'}${mode}${toolMode}`;
   }
 
   async callApi(prompt: string): Promise<ProviderResponse> {
@@ -200,6 +208,9 @@ export default class SeroProvider implements ApiProvider {
       const workspace = await seedEvalWorkspace(tmpDir, {
         includeSearchFixtures: Boolean(this.config.searchMode),
       });
+      const runtimeTools = this.config.toolMode === 'runtime'
+        ? await loadRuntimeHostTools(tmpDir)
+        : [];
       if (profileDir && hasGraphify(this.config.searchMode)) {
         await seedGraphifyEvalProfile(profileDir, workspace);
       }
@@ -216,6 +227,9 @@ export default class SeroProvider implements ApiProvider {
         cwd: tmpDir,
         agentDir,
         settingsManager,
+        // Eval sessions own their extensions. Profile extensions can import
+        // the installed desktop app and require its native dependencies.
+        noExtensions: true,
         extensionFactories: [createEvalPromptExtensionFactory({
           graphify: hasGraphify(this.config.searchMode),
         })],
@@ -225,9 +239,8 @@ export default class SeroProvider implements ApiProvider {
                 ...(hasFff(this.config.searchMode) ? [FFF_EXTENSION_PATH] : []),
                 ...(hasGraphify(this.config.searchMode) ? [GRAPHIFY_EXTENSION_PATH] : []),
               ],
-              noExtensions: true,
             }
-          : { extensionsOverride: stripExtensionTools }),
+          : {}),
       });
       await loader.reload();
       const extensionErrors = loader.getExtensions().errors;
@@ -250,8 +263,10 @@ export default class SeroProvider implements ApiProvider {
                 ...(hasGraphify(this.config.searchMode) ? ['sero-cli'] : []),
               ],
             }
-          : {}),
-        customTools: [createEvalSeroCliTool(tmpDir, {
+          : this.config.toolMode === 'runtime'
+            ? { tools: ['read', 'bash', 'write', 'edit'] }
+            : {}),
+        customTools: [...runtimeTools, createEvalSeroCliTool(tmpDir, {
           extraHelp: hasGraphify(this.config.searchMode)
             ? '  graphify_query | graphify_search | graphify_path | graphify_explain | graphify_status'
             : undefined,
@@ -361,6 +376,7 @@ export default class SeroProvider implements ApiProvider {
           toolCalls,
           toolCallCount: toolCalls.length,
           searchMode: this.config.searchMode ?? 'default',
+          toolMode: this.config.toolMode ?? 'builtin',
           usage: session.getSessionStats().tokens,
           snapshot,
           runtimeOverrideProviders,

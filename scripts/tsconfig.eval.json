@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "baseUrl": "..",
+    "lib": ["ES2023"],
+    "skipLibCheck": true,
+    "paths": {
+      "@electron/*": ["apps/desktop/electron/*"],
+      "@/*": ["apps/desktop/src/*"],
+      "@sero-ai/*": ["packages/*/src/index.ts"]
+    }
+  }
+}

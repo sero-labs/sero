@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+#
+# File-edit evaluation against Sero's runtime-backed file tools.
+#
+# The provider builds its session from Sero's host file-tool factory
+# (`toolMode: runtime`), so the recorded tool calls exercise the code in
+# `apps/desktop/electron/features/container/tools/` and not Pi's built-in
+# `edit` counterpart.
+#
+# Run: pnpm eval:file-tools
+
+description: "Sero file-edit evaluation (runtime file tools)"
+
+providers:
+  - id: file://./seroProvider.ts
+    label: "Sero (runtime file tools)"
+    config:
+      toolMode: runtime
+      timeout: 120000
+
+prompts:
+  - "{{scenario_prompt}}"
+
+tests:
+  - file://./scenarios/file-edits.yaml
+
+defaultTest:
+  options:
+    provider:
+      id: anthropic:messages:claude-sonnet-4-6

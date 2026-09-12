@@ -69,12 +69,32 @@ export const WriteParams = Type.Object({
   content: Type.String({ description: 'Content to write to the file' }),
 });
 
+export const EditReplacementParams = Type.Object({
+  oldText: Type.String({
+    description:
+      'Exact text for one targeted replacement. It must be unique in the original file and must not overlap another edits[].oldText in the same call.',
+  }),
+  newText: Type.String({ description: 'Replacement text for this targeted edit.' }),
+});
+
 export const EditParams = Type.Object({
   path: Type.String({ description: 'Path to the file to edit (relative or absolute)' }),
-  oldText: Type.String({
-    description: 'Exact text to find and replace (must match exactly)',
-  }),
-  newText: Type.String({ description: 'New text to replace the old text with' }),
+  edits: Type.Optional(
+    Type.Array(EditReplacementParams, {
+      description:
+        'One or more targeted replacements. Each entry matches the original file content, not the result of an earlier entry. ' +
+        'Do not send overlapping or nested regions. If two changes touch the same block or nearby lines, merge them into one entry. ' +
+        'When both edits[] and oldText/newText are present, edits[] is authoritative.',
+    }),
+  ),
+  oldText: Type.Optional(
+    Type.String({
+      description: 'Legacy single replacement: exact text to find and replace. Ignored when edits[] is present.',
+    }),
+  ),
+  newText: Type.Optional(
+    Type.String({ description: 'Legacy single replacement: new text to replace oldText with.' }),
+  ),
 });
 
 

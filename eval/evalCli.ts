@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { Type } from '@sinclair/typebox';
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 
 const execFileAsync = promisify(execFile);
 
@@ -87,18 +87,6 @@ export function createEvalPromptExtensionFactory(options: EvalPromptOptions = {}
       };
     });
   };
-}
-
-export function stripExtensionTools(base: any): any {
-  for (const extension of base.extensions ?? []) {
-    if (extension.tools instanceof Map) {
-      extension.tools.clear();
-    }
-    if (extension.commands instanceof Map) {
-      extension.commands.clear();
-    }
-  }
-  return base;
 }
 
 export async function seedEvalWorkspace(
@@ -359,7 +347,7 @@ async function runEvalCliLine(
   };
 }
 
-export function createEvalSeroCliTool(tmpDir: string, options: EvalCliOptions = {}) {
+export function createEvalSeroCliTool(tmpDir: string, options: EvalCliOptions = {}): ToolDefinition {
   const state: EvalCliState = {
     todos: [],
     notes: [],
