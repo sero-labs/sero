@@ -107,6 +107,16 @@ installation, repair, pin changes and container replacement.
 - **WHEN** installation succeeds during an open session
 - **THEN** a later resolution request can return the available executable without restarting the session
 
+#### Scenario: Container is replaced
+
+- **WHEN** the workspace container is replaced while the session runs
+- **THEN** the next resolution probes the new container instead of reusing the previous container's answer, and a version that now matches the pin enables rewriting
+
+#### Scenario: Runtime reports no container instance
+
+- **WHEN** a backend reports only the stable workspace container name
+- **THEN** the system probes on every resolution rather than caching an answer that a replacement would invalidate
+
 ### Requirement: RTK tracking and recovery stay in managed state
 
 RTK tracking and both file and database recovery output SHALL use the supplied

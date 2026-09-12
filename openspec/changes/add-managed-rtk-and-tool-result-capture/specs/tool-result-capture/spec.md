@@ -53,6 +53,34 @@ capture SHALL share its session references, reachability and cleanup policy.
 - **WHEN** a structured stdout document exceeds 50 KB or 2,000 lines
 - **THEN** its complete stream file remains readable without rerunning the command and the model receives a bounded preview with a separate truncation notice and stream path
 
+#### Scenario: Output is not valid UTF-8
+
+- **WHEN** a command emits bytes that are not valid UTF-8 on either stream
+- **THEN** each capture file holds those bytes unchanged, the reported byte size equals the number of bytes the command produced, and only the model-facing preview decodes with replacement characters
+
+#### Scenario: One line exceeds the whole retained tail
+
+- **WHEN** a command writes one line longer than the retained tail budget and then writes more output
+- **THEN** the model-facing preview keeps the newest bytes of that line and the later output, and a persistence failure does not lose the newest bytes
+
+### Requirement: Capturing complete output bounds memory
+
+Streaming SHALL NOT retain unbounded output in memory. The system MUST bound
+the bytes that wait to be written and MUST apply backpressure to the command's
+pipes while that bound is reached. Backpressure MUST NOT drop, reorder or
+truncate captured output. A command that produces more than the bound MUST still
+be captured complete. Memory use MUST NOT scale with total command output.
+
+#### Scenario: Command outruns the disk
+
+- **WHEN** a command produces output faster than the capture files can be written
+- **THEN** the runtime pauses the producing pipe while the pending writes reach the bound, resumes it when they drain, and the finished capture holds every byte the command produced
+
+#### Scenario: Output far exceeds the bound
+
+- **WHEN** a command produces much more output than the pending bound
+- **THEN** the bytes held in memory stay bounded while the persisted capture remains complete and readable
+
 ### Requirement: Payload and reporting remain distinct
 
 The bash output payload SHALL be distinct from capture, failure and status
@@ -133,6 +161,11 @@ able to write to the capture root.
 - **WHEN** a containerised session attempts to create or modify a file under the capture root
 - **THEN** the write fails and the session continues
 
+#### Scenario: The capture root does not exist yet
+
+- **WHEN** a workspace container is created before any command has produced captured output
+- **THEN** the system creates the capture root before the container, so the read-only mount is applied and a reported path is reachable without recreating the container
+
 ### Requirement: Retention follows all referencing sessions
 
 Deleting a session SHALL release its capture references. Captures MUST remain
@@ -167,6 +200,16 @@ provides no size or age limit for referenced output.
 - **WHEN** a fork is committed while the parent is being deleted
 - **THEN** deletion cannot remove captures referenced by the committed fork
 
+#### Scenario: A command is still running
+
+- **WHEN** a capture belongs to a command that has not published a result yet, and another session is deleted
+- **THEN** cleanup does not remove that capture, whatever its age, until that command's own result is published
+
+#### Scenario: Capture belongs to no surviving reference
+
+- **WHEN** a command has published its result and no session references the capture
+- **THEN** the capture becomes collectable and cleanup removes it
+
 ### Requirement: Capture failure never fails the command
 
 If the complete output cannot be persisted, the command result MUST still be
@@ -182,6 +225,11 @@ MUST be visible in that result.
 
 - **WHEN** a capture write or finalization fails after output exceeds the model-facing limit
 - **THEN** the process continues, the final bounded tail and exit status remain available, and no partial file is advertised as complete
+
+#### Scenario: Capture file is removed while the command runs
+
+- **WHEN** a capture file is no longer readable when the command finishes
+- **THEN** the result reports the complete output as unavailable instead of reporting it as complete, and the command result, its bounded tail and its exit status are unchanged
 
 ### Requirement: The user can open the complete output
 

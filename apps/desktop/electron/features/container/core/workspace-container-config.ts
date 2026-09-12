@@ -1,3 +1,4 @@
+import fs from 'fs';
 import path from 'path';
 
 import { SERO_AGENT_DIR, SERO_CAPTURE_ROOT } from '@electron/platform/env';
@@ -43,6 +44,13 @@ export async function buildWorkspaceContainerConfig(
       pushMount(root.path);
     }
   }
+
+  // A bind mount skips a source that does not exist, and the capture root is
+  // created by the first capture rather than at install time. Create it now, so a
+  // fresh profile's container can reach the path that a tool result reports.
+  // Best effort: a capture creates the directory itself, and a failure here must
+  // not block container creation.
+  await fs.promises.mkdir(SERO_CAPTURE_ROOT, { recursive: true, mode: 0o700 }).catch(() => undefined);
 
   return {
     workspaceId,

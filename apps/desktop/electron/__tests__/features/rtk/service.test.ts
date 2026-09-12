@@ -91,6 +91,8 @@ function toolsHarness(options: {
 interface RuntimeHarness extends RtkRuntimePort {
   commands: string[];
   containerId: string;
+  containerInstanceId?: string;
+  version: string;
 }
 
 function runtimeHarness(options: {
@@ -100,19 +102,28 @@ function runtimeHarness(options: {
   versionExitCode?: number;
   versionStderr?: string;
   stateExitCode?: number;
+  /** Set false to model a runtime that exposes only the stable container name. */
+  instanceIdentity?: boolean;
 } = {}): RuntimeHarness {
   const commands: string[] = [];
   const harness: RuntimeHarness = {
     backend: options.backend ?? 'docker',
     workspaceId: 'ws-1',
     containerId: options.containerId ?? 'container-1',
+    containerInstanceId: options.instanceIdentity === false ? undefined : 'instance-1',
+    version: options.version ?? '0.49.0',
     commands,
-    async ensure() { return { containerId: harness.containerId }; },
+    async ensure() {
+      return {
+        containerId: harness.containerId,
+        ...(harness.containerInstanceId ? { containerInstanceId: harness.containerInstanceId } : {}),
+      };
+    },
     async exec(input) {
       commands.push(input.command);
       if (input.command.includes('--version')) {
         return {
-          stdout: options.versionExitCode ? '' : `rtk ${options.version ?? '0.49.0'}\n`,
+          stdout: options.versionExitCode ? '' : `rtk ${harness.version}\n`,
           stderr: options.versionStderr ?? '',
           exitCode: options.versionExitCode ?? 0,
         };
@@ -214,7 +225,7 @@ describe('RtkToolchainService', () => {
     });
   });
 
-  it('probes the runtime executable once per container identity and pin', async () => {
+  it('probes the runtime executable once per container instance and pin', async () => {
     const runtime = runtimeHarness();
     const service = serviceWith(toolsHarness());
 
@@ -222,23 +233,43 @@ describe('RtkToolchainService', () => {
     await service.resolve({ sessionId: SESSION_B, runtime });
     expect(runtime.commands.filter((command) => command.includes('--version'))).toHaveLength(1);
 
-    runtime.containerId = 'container-2';
+    runtime.containerInstanceId = 'instance-2';
     await service.resolve({ sessionId: SESSION_A, runtime });
     expect(runtime.commands.filter((command) => command.includes('--version'))).toHaveLength(2);
   });
 
-  it('re-probes after a repair invalidates the cache and after a manifest pin change', async () => {
+  it('re-probes a replaced container instead of keeping its old version', async () => {
+    // The workspace container name is stable across a replacement, so an answer
+    // cached by name kept reporting a mismatch after the image was updated.
+    const runtime = runtimeHarness({ version: '0.48.0' });
+    const service = serviceWith(toolsHarness());
+
+    await expect(service.resolve({ sessionId: SESSION_A, runtime })).resolves.toMatchObject({ state: 'failed' });
+
+    runtime.version = '0.49.0';
+    runtime.containerInstanceId = 'instance-2';
+    await expect(service.resolve({ sessionId: SESSION_A, runtime })).resolves.toMatchObject({ state: 'available' });
+  });
+
+  it('does not cache a runtime that reports no container instance identity', async () => {
+    const runtime = runtimeHarness({ instanceIdentity: false });
+    const service = serviceWith(toolsHarness());
+
+    await service.resolve({ sessionId: SESSION_A, runtime });
+    await service.resolve({ sessionId: SESSION_A, runtime });
+    expect(runtime.commands.filter((command) => command.includes('--version'))).toHaveLength(2);
+  });
+
+  it('re-probes after the manifest pin changes', async () => {
     const runtime = runtimeHarness();
     const service = serviceWith(toolsHarness());
 
     await service.resolve({ sessionId: SESSION_A, runtime });
-    service.invalidate();
-    await service.resolve({ sessionId: SESSION_A, runtime });
-    expect(runtime.commands.filter((command) => command.includes('--version'))).toHaveLength(2);
+    expect(runtime.commands.filter((command) => command.includes('--version'))).toHaveLength(1);
 
     const repinned = serviceWith(toolsHarness({ resolved: managedRtk('0.50.0') }), '0.50.0');
-    await repinned.resolve({ sessionId: SESSION_A, runtime });
-    expect(runtime.commands.filter((command) => command.includes('--version'))).toHaveLength(3);
+    await expect(repinned.resolve({ sessionId: SESSION_A, runtime })).resolves.toMatchObject({ state: 'failed' });
+    expect(runtime.commands.filter((command) => command.includes('--version'))).toHaveLength(2);
   });
 
   it('disables rewriting and reports both versions on a mismatch', async () => {

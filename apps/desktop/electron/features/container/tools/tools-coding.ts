@@ -185,11 +185,16 @@ export function createBash(runtime: RuntimeBackend, containerCwd?: string, sessi
       // and typed metadata, which the rejection path would otherwise drop.
       if (result.exitCode !== 0) {
         recordToolResult(toolCallId, { content, details });
+        capture.release();
         const error = new Error([outputText, report].filter(Boolean).join('\n\n'));
         (error as Error & { details?: unknown }).details = details;
         throw error;
       }
 
+      // The reference that keeps this capture alive is inside the result built
+      // above, which the agent persists after this handler returns. The
+      // retention grace window covers that last step.
+      capture.release();
       return { content, details };
     },
   };

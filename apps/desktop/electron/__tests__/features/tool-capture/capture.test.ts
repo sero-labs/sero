@@ -18,6 +18,7 @@ const testEnv = vi.hoisted(() => {
 vi.mock('@electron/platform/env', () => testEnv);
 
 import {
+  CAPTURE_PENDING_HIGH_WATER_BYTES,
   CAPTURE_TAIL_BYTES,
   OutputCapture,
   PAYLOAD_MAX_BYTES,
@@ -36,6 +37,8 @@ function memoryFileSystem(options: {
   failOpen?: (filePath: string) => Error | undefined;
   failWrite?: (filePath: string, writeIndex: number) => Error | undefined;
   failClose?: (filePath: string) => Error | undefined;
+  /** Hold every file write, so nothing in the queue can drain. */
+  holdWrites?: boolean;
 } = {}): MemoryFileSystem {
   const files = new Map<string, Buffer>();
   const openCounts = new Map<string, number>();
@@ -54,6 +57,7 @@ function memoryFileSystem(options: {
           openCounts.set(filePath, writeIndex);
           const writeFailure = options.failWrite?.(filePath, writeIndex);
           if (writeFailure) throw writeFailure;
+          if (options.holdWrites) await new Promise<void>(() => {});
           system.writes += 1;
           files.set(filePath, Buffer.concat([files.get(filePath) ?? Buffer.alloc(0), chunk]));
         },
@@ -68,8 +72,16 @@ function memoryFileSystem(options: {
         if (key === target || key.startsWith(`${target}${path.sep}`)) files.delete(key);
       }
     },
+    async size(filePath) {
+      return files.get(filePath)?.length;
+    },
   };
   return system;
+}
+
+/** Deliver one chunk as bytes, the way an exec output sink does. */
+function send(capture: OutputCapture, text: string, stream: 'stdout' | 'stderr' = 'stdout'): void {
+  void capture.write(stream, Buffer.from(text, 'utf8'));
 }
 
 const roots: string[] = [];
@@ -78,6 +90,15 @@ function tempRoot(): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sero-tool-capture-test-'));
   roots.push(root);
   return root;
+}
+
+/** Wait for the capture's first write to reach the disk. */
+async function waitForFile(filePath: string): Promise<void> {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    if (fs.existsSync(filePath)) return;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  throw new Error(`Timed out waiting for ${filePath}`);
 }
 
 function createCapture(options: Partial<OutputCaptureOptions> = {}): OutputCapture {
@@ -94,9 +115,9 @@ describe('OutputCapture', () => {
     const fileSystem = memoryFileSystem();
     const capture = createCapture({ fileSystem });
 
-    capture.write('stdout', '{"ok":true}\n');
-    capture.write('stderr', 'warning: slow\n');
-    capture.write('stdout', '{"more":1}\n');
+    send(capture, '{"ok":true}\n');
+    send(capture, 'warning: slow\n', 'stderr');
+    send(capture, '{"more":1}\n');
     const record = await capture.finish();
 
     expect(record).toMatchObject({
@@ -123,8 +144,8 @@ describe('OutputCapture', () => {
     const capture = createCapture({ fileSystem });
     const document = `${JSON.stringify({ items: Array.from({ length: 50 }, (_, index) => index) })}\n`;
 
-    capture.write('stdout', document);
-    capture.write('stderr', 'warning\n');
+    send(capture, document);
+    send(capture, 'warning\n', 'stderr');
     const record = await capture.finish();
 
     const stdoutBytes = fileSystem.files.get(record?.stdout?.hostPath as string);
@@ -139,7 +160,7 @@ describe('OutputCapture', () => {
     const chunk = `${'x'.repeat(64 * 1024)}\n`;
     const chunks = 200; // 12.8 MB, above the former 10 MB buffer limit
 
-    for (let index = 0; index < chunks; index += 1) capture.write('stdout', chunk);
+    for (let index = 0; index < chunks; index += 1) send(capture, chunk);
     const record = await capture.finish();
 
     expect(record?.combined?.bytes).toBe(Buffer.byteLength(chunk) * chunks);
@@ -152,7 +173,7 @@ describe('OutputCapture', () => {
   it('bounds the retained tail while keeping exact totals', async () => {
     const fileSystem = memoryFileSystem();
     const capture = createCapture({ fileSystem, tailLimitBytes: 1000 });
-    for (let index = 0; index < 500; index += 1) capture.write('stdout', `line-${index}\n`);
+    for (let index = 0; index < 500; index += 1) send(capture, `line-${index}\n`);
 
     expect(capture.bytes).toBe(Buffer.byteLength(Array.from({ length: 500 }, (_, index) => `line-${index}\n`).join('')));
     expect(Buffer.byteLength(capture.renderPayload().content, 'utf8')).toBeLessThanOrEqual(1000 + 64);
@@ -162,7 +183,7 @@ describe('OutputCapture', () => {
   it('preserves the received tail and status for a timeout or cancellation', async () => {
     const fileSystem = memoryFileSystem();
     const capture = createCapture({ fileSystem });
-    capture.write('stdout', 'partial line one\npartial line two\n');
+    send(capture, 'partial line one\npartial line two\n');
     const record = await capture.finish();
 
     expect(capture.renderPayload().content).toContain('partial line two');
@@ -180,7 +201,7 @@ describe('OutputCapture', () => {
   it('reports an unavailable record and no paths when a file cannot be opened', async () => {
     const fileSystem = memoryFileSystem({ failOpen: () => new Error('ENOSPC: no space left on device') });
     const capture = createCapture({ fileSystem });
-    capture.write('stdout', 'output\n');
+    send(capture, 'output\n');
 
     const record = await capture.finish();
 
@@ -201,7 +222,7 @@ describe('OutputCapture', () => {
     let writes = 0;
     expect(() => {
       for (let index = 0; index < 50; index += 1) {
-        capture.write('stdout', `line-${index}\n`);
+        send(capture, `line-${index}\n`);
         writes += 1;
       }
     }).not.toThrow();
@@ -218,7 +239,7 @@ describe('OutputCapture', () => {
       failClose: (filePath) => (filePath.endsWith('combined.log') ? new Error('flush failed') : undefined),
     });
     const capture = createCapture({ fileSystem, tailLimitBytes: 200 });
-    for (let index = 0; index < 200; index += 1) capture.write('stdout', `line-${index}\n`);
+    for (let index = 0; index < 200; index += 1) send(capture, `line-${index}\n`);
 
     const record = await capture.finish();
 
@@ -235,7 +256,7 @@ describe('OutputCapture', () => {
       captureRoot: 'C:\\Users\\me\\.sero-ui\\agent\\captures',
       toRuntimePath: toRuntimeIdentityMountPath,
     });
-    capture.write('stdout', 'x\n');
+    send(capture, 'x\n');
     const record = await capture.finish();
 
     expect(record?.combined?.hostPath).toContain('C:\\Users\\me');
@@ -246,7 +267,7 @@ describe('OutputCapture', () => {
   it('writes real files under the configured capture root and removes them on discard', async () => {
     const root = tempRoot();
     const capture = createCapture({ captureRoot: root, captureId: 'capture-real' });
-    capture.write('stdout', 'hello\n');
+    send(capture, 'hello\n');
     const record = await capture.finish();
 
     expect(record?.combined?.hostPath.startsWith(root)).toBe(true);
@@ -257,5 +278,101 @@ describe('OutputCapture', () => {
 
   it('sizes the retained tail above the payload byte limit', () => {
     expect(CAPTURE_TAIL_BYTES).toBeGreaterThan(PAYLOAD_MAX_BYTES);
+  });
+
+  it('captures output that is not valid UTF-8 byte for byte', async () => {
+    const fileSystem = memoryFileSystem();
+    const capture = createCapture({ fileSystem });
+    const raw = Buffer.from([0xff, 0x80, 0x41]);
+
+    capture.write('stdout', raw);
+    const record = await capture.finish();
+
+    // Decoding the pipe first turned these three bytes into seven bytes of
+    // replacement characters in the file.
+    expect(record?.stdout?.bytes).toBe(3);
+    expect(fileSystem.files.get(record?.stdout?.hostPath as string)?.equals(raw)).toBe(true);
+  });
+
+  it('keeps the final bytes of a line longer than the entire tail budget', async () => {
+    const fileSystem = memoryFileSystem();
+    const capture = createCapture({ fileSystem, tailLimitBytes: 1024 });
+
+    send(capture, 'x'.repeat(1024));
+    send(capture, 'FINAL');
+
+    expect(capture.renderPayload().content).toContain('FINAL');
+  });
+
+  it('keeps the newest bytes of an over-long line at the default budget', async () => {
+    const fileSystem = memoryFileSystem();
+    const capture = createCapture({ fileSystem });
+
+    send(capture, 'x'.repeat(CAPTURE_TAIL_BYTES));
+    send(capture, 'FINAL');
+
+    expect(capture.renderPayload().content).toContain('FINAL');
+  });
+
+  it('keeps the newest bytes of an over-long line even when persistence fails', async () => {
+    const fileSystem = memoryFileSystem({ failOpen: () => new Error('ENOSPC') });
+    const capture = createCapture({ fileSystem, tailLimitBytes: 1024 });
+
+    send(capture, 'x'.repeat(1024));
+    send(capture, 'FINAL');
+
+    expect(await capture.finish()).toMatchObject({ complete: false });
+    expect(capture.renderPayload().content).toContain('FINAL');
+  });
+
+  it('asks the caller to pause once pending writes reach the bound', async () => {
+    const fileSystem = memoryFileSystem({ holdWrites: true });
+    const capture = createCapture({ fileSystem });
+    const chunk = Buffer.alloc(64 * 1024, 0x78);
+
+    let accepted = 0;
+    let pauses = 0;
+    for (let index = 0; index < 200; index += 1) {
+      const pending = capture.write('stdout', chunk);
+      accepted += chunk.length;
+      if (pending) { pauses += 1; break; }
+    }
+
+    // 12.8 MiB was on offer, but the sink stopped accepting near its bound
+    // instead of holding all of it.
+    expect(pauses).toBe(1);
+    expect(accepted).toBeLessThanOrEqual(CAPTURE_PENDING_HIGH_WATER_BYTES + (64 * 1024) * 2);
+  });
+
+  it('reports incomplete when a named file is missing', async () => {
+    const fileSystem = memoryFileSystem();
+    const capture = createCapture({ fileSystem });
+    send(capture, 'output\n');
+    const record = await capture.finish();
+    expect(record).toMatchObject({ complete: true });
+
+    // Same capture, but the file is no longer readable when the record is read.
+    const gone = createCapture({ fileSystem, captureId: 'capture-gone' });
+    send(gone, 'output\n');
+    fileSystem.size = async () => undefined;
+    const missing = await gone.finish();
+
+    expect(missing).toMatchObject({ complete: false, captureId: 'capture-gone' });
+    expect(missing?.combined).toBeUndefined();
+    expect(missing?.unavailableReason).toContain('missing or incomplete');
+  });
+
+  it('reports incomplete instead of complete for a capture removed while it ran', async () => {
+    const root = tempRoot();
+    const capture = createCapture({ captureRoot: root, captureId: 'capture-removed' });
+    send(capture, 'output that a sweep must not orphan\n');
+    const combinedPath = path.join(capture.directoryPath, 'combined.log');
+    await waitForFile(combinedPath);
+    fs.rmSync(capture.directoryPath, { recursive: true, force: true });
+
+    const record = await capture.finish();
+
+    expect(record).toMatchObject({ complete: false });
+    expect(record?.unavailableReason).toContain('missing or incomplete');
   });
 });

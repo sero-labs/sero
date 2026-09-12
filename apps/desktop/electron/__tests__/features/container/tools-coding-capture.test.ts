@@ -51,8 +51,8 @@ function runtimeHarness(result: {
       inputs.push(input);
       // Emulate a streaming runtime: the sink receives the bytes and the result
       // carries status only.
-      if (result.stdout) input.outputSink?.write('stdout', result.stdout);
-      if (result.stderr) input.outputSink?.write('stderr', result.stderr);
+      if (result.stdout) input.outputSink?.write('stdout', Buffer.from(result.stdout, 'utf8'));
+      if (result.stderr) input.outputSink?.write('stderr', Buffer.from(result.stderr, 'utf8'));
       input.outputSink?.close();
       return { stdout: '', stderr: '', exitCode: result.exitCode ?? 0 };
     }),

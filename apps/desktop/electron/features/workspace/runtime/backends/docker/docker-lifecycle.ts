@@ -125,7 +125,14 @@ export function userArgs(): string[] {
 export async function inspectDockerContainer(cid: string, run: DockerRunner = checkDocker): Promise<DockerInspectData> {
   const result = await run(['inspect', cid], { timeoutMs: 10_000 });
   if (result.exitCode !== 0) throw new Error(result.stderr || `Docker container ${cid} not found`);
-  const parsed = JSON.parse(result.stdout) as unknown;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(result.stdout);
+  } catch {
+    // This function reports an unusable container as an error, so a malformed
+    // payload fails here instead of leaking a raw SyntaxError.
+    throw new Error(`Unexpected docker inspect output for ${cid}`);
+  }
   const first = Array.isArray(parsed) ? parsed[0] : parsed;
   if (!first || typeof first !== 'object') throw new Error(`Unexpected docker inspect output for ${cid}`);
   return first as DockerInspectData;
@@ -165,6 +172,9 @@ export function toContainerState(cid: string, inspect: DockerInspectData, imageR
     state: inspect.State?.Running ? 'running' : 'stopped',
     cpus: DEFAULT_CPUS,
     memoryBytes: inspect.HostConfig?.Memory ?? DEFAULT_MEMORY_MB * 1024 * 1024,
+    // `cid` is the stable workspace name. Docker's own container id is the
+    // per-instance identity that changes when the container is replaced.
+    ...(inspect.Id ? { instanceId: inspect.Id } : {}),
   };
 }
 

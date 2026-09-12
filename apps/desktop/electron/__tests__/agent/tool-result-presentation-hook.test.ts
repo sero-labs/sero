@@ -75,8 +75,8 @@ function failingRuntime(): RuntimeBackend {
     destroy: vi.fn(),
     exec: vi.fn(async (input: RuntimeExecInput) => {
       // A streaming runtime: the sink receives the bytes, status comes back separately.
-      input.outputSink?.write('stdout', 'command output\n');
-      input.outputSink?.write('stderr', 'command failed\n');
+      input.outputSink?.write('stdout', Buffer.from('command output\n', 'utf8'));
+      input.outputSink?.write('stderr', Buffer.from('command failed\n', 'utf8'));
       input.outputSink?.close();
       return { stdout: '', stderr: '', exitCode: 3 };
     }),

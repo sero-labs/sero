@@ -48,3 +48,18 @@
 - [x] 8.3 Keep every touched source file at or below 500 LOC. Verify by checking the length of each changed source file before completion.
 - [x] 8.4 Run `pnpm typecheck` from the monorepo root. Verify it passes with no errors.
 - [x] 8.5 Verify the end-to-end path on host and container backends: output above both limits is captured, paths are readable, failed persistence preserves the bounded result, failed commands retain metadata, forks retain inherited output after parent deletion, and the last reference triggers cleanup. Test RTK tracking and both recovery modes with existing user configuration and inspect the managed state locations.
+
+## 9. Correctness hardening after review
+
+Six defects were reproduced against the first implementation. Each is fixed and
+covered by a test that fails without the fix.
+
+- [x] 9.1 Protect a running command's capture from retention. Register the capture directory while the command runs, release it once its result is built, and never select a registered directory. Verify an aged, unreferenced capture survives a sweep while its command runs, and is removed after release.
+- [x] 9.2 Bound the bytes that wait to be written and apply backpressure instead of queueing all output. Verify a command larger than the bound is captured complete, the peak pending bytes stay within the bound plus one chunk in flight, and the pipe pauses at least once.
+- [x] 9.3 Create the capture root before the container, so a fresh profile's container carries the read-only mount. Verify the built mount list contains the root read-only when the directory did not exist beforehand.
+- [x] 9.4 Keep the newest bytes of a line longer than the whole retained tail instead of dropping the line. Verify the payload keeps the final bytes, with and without a persistence failure.
+- [x] 9.5 Capture raw bytes and decode a separate copy for the preview only. Verify a real child process emitting `ff 80 41` produces a three-byte capture and a byte-identical file.
+- [x] 9.6 Key the runtime version and state answers by a container instance identity, and do not cache when a backend reports only the stable container name. Verify a replaced container is re-probed and a fixed image enables rewriting, and that a runtime without an instance identity probes on every resolution.
+- [x] 9.7 Verify completeness by reading the file length instead of trusting the write path. Verify a capture removed while the command runs is reported as unavailable rather than complete.
+- [x] 9.8 Remove the cache invalidation API, because an instance-keyed cache plus a non-caching fallback replace it and it had no production caller.
+- [x] 9.9 Re-run the full suite and typecheck, and verify the container mount and the instance identity against a real container.

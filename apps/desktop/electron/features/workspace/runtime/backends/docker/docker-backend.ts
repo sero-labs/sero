@@ -431,6 +431,7 @@ export class DockerBackend implements RuntimeBackend {
       runtimeWorkspacePath: this.runtimeWorkspacePath,
       state: state.state,
       containerId: state.id,
+      ...(state.instanceId ? { containerInstanceId: state.instanceId } : {}),
     };
   }
 

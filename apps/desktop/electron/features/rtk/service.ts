@@ -39,7 +39,7 @@ export interface RtkToolchainServiceOptions {
 export interface RtkRuntimePort {
   backend: RuntimeBackendId;
   workspaceId: string;
-  ensure(): Promise<{ containerId?: string }>;
+  ensure(): Promise<{ containerId?: string; containerInstanceId?: string }>;
   exec(input: { command: string; timeoutMs?: number }): Promise<{ stdout: string; stderr: string; exitCode: number }>;
 }
 
@@ -52,6 +52,19 @@ interface RuntimeVersionProbe {
   state: 'ready' | 'unavailable';
   version?: string;
   reason?: string;
+}
+
+/**
+ * Identifies the container that a runtime answer came from.
+ *
+ * `key` names the container instance. `cacheable` is false when the backend
+ * cannot report a per-instance identity: the stable container name survives a
+ * replacement, so an answer cached under it can outlive its container and keep
+ * rewriting disabled after the image was fixed.
+ */
+interface RuntimeIdentity {
+  key: string;
+  cacheable: boolean;
 }
 
 function errorMessage(error: unknown): string {
@@ -94,12 +107,6 @@ export class RtkToolchainService {
       this.options.arch ?? process.arch,
     );
     return artifact?.version ?? artifact?.minVersion;
-  }
-
-  /** Drop cached runtime answers. A repair or container replacement calls this. */
-  invalidate(): void {
-    this.versionProbes.clear();
-    this.stateChecks.clear();
   }
 
   async resolve(input: RtkResolveInput): Promise<RtkToolchainResolution> {
@@ -157,11 +164,11 @@ export class RtkToolchainService {
     }
 
     const identity = await this.runtimeIdentity(input);
-    const probeKey = `${identity}:${pin}`;
-    let probe = this.versionProbes.get(probeKey);
+    const probeKey = `${identity.key}:${pin}`;
+    let probe = identity.cacheable ? this.versionProbes.get(probeKey) : undefined;
     if (!probe) {
       probe = this.probeRuntimeVersion(runtime);
-      this.versionProbes.set(probeKey, probe);
+      if (identity.cacheable) this.versionProbes.set(probeKey, probe);
     }
     const probed = await probe;
 
@@ -182,9 +189,13 @@ export class RtkToolchainService {
     return { executablePath: RUNTIME_RTK_EXECUTABLE_PATH, env: rtkStateEnv(stateDir) };
   }
 
-  private async runtimeIdentity(input: RtkResolveInput): Promise<string> {
+  private async runtimeIdentity(input: RtkResolveInput): Promise<RuntimeIdentity> {
     const session = await input.runtime.ensure();
-    return session.containerId ?? `${input.runtime.backend}:${input.runtime.workspaceId}`;
+    if (session.containerInstanceId) return { key: session.containerInstanceId, cacheable: true };
+    return {
+      key: session.containerId ?? `${input.runtime.backend}:${input.runtime.workspaceId}`,
+      cacheable: false,
+    };
   }
 
   private async probeRuntimeVersion(runtime: RtkRuntimePort): Promise<RuntimeVersionProbe> {
@@ -205,13 +216,13 @@ export class RtkToolchainService {
 
   private ensureRuntimeState(
     runtime: RtkRuntimePort,
-    identity: string,
+    identity: RuntimeIdentity,
     pin: string,
     sessionId: string,
     stateDir: string,
   ): Promise<string | null> {
-    const key = `${identity}:${pin}:${sessionId}`;
-    const cached = this.stateChecks.get(key);
+    const key = `${identity.key}:${pin}:${sessionId}`;
+    const cached = identity.cacheable ? this.stateChecks.get(key) : undefined;
     if (cached) return cached;
     const check = runtime
       .exec({
@@ -222,7 +233,7 @@ export class RtkToolchainService {
         ? null
         : `RTK state directory ${stateDir} is not writable in the workspace runtime.`))
       .catch((error: unknown) => `RTK state directory ${stateDir} is not writable in the workspace runtime: ${errorMessage(error)}`);
-    this.stateChecks.set(key, check);
+    if (identity.cacheable) this.stateChecks.set(key, check);
     return check;
   }
 }

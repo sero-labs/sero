@@ -20,7 +20,7 @@ export interface RtkResolutionSource {
 /** One resolution service per process; its probe cache is keyed by container identity and pin. */
 let sharedService: RtkToolchainService | null = null;
 
-export function getRtkToolchainService(): RtkToolchainService {
+function getRtkToolchainService(): RtkToolchainService {
   if (!sharedService) {
     sharedService = new RtkToolchainService({
       manifest: loadBundledToolchainManifest(),

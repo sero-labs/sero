@@ -89,6 +89,19 @@ The same chunks go to the complete capture. The tail buffer, not the file, is
 the source of the ordinary bash result and its existing truncation markers.
 Other exec callers keep the buffered path unchanged.
 
+Sink chunks are raw buffers, never decoded text. An earlier version set the pipes
+to UTF-8, which re-encoded invalid bytes into replacement characters and made the
+file seven bytes for a three-byte input. Decode a separate copy for the tail
+only, so the persisted bytes are exact.
+
+Unwritten chunks are bounded. A command can print far faster than the disk
+accepts writes, and an unbounded queue made memory scale with total output. When
+the pending bound is reached, the sink returns a promise and the runtime pauses
+that pipe; the kernel pipe buffer then fills and the child blocks. Pausing never
+drops, reorders or truncates output, so the capture stays complete. Resume when
+the queue empties, which keeps the bound strict and cannot spin because the pump
+drains without help from the paused pipe.
+
 An open, write, flush or close failure disables persistence for that call but
 must not stop pipe draining, kill the child or replace its exit status. A
 partial file is never advertised as complete. Remove it when possible and
@@ -96,6 +109,13 @@ leave failed cleanup for the orphan sweep. Return the retained tail and an
 explicit complete-output-unavailable notice. Test failure before the first
 byte and failure after output exceeds the tail limit, including disk-full and
 flush failure. Successful capture is advertised only after finalization.
+
+Finalization confirms that every file the record will name is on disk at the
+length that was written. A capture directory can be removed while the command
+runs, for example by a manual delete, and reporting `complete: true` for a path
+that no longer resolves is a lie the reader discovers later. Verification costs
+one stat per named stream and turns that case into the ordinary unavailable
+notice.
 
 The capture owner writes `combined.log` in arrival order and byte-exact
 `stdout.log` and `stderr.log` for non-empty streams. Stream files contain no
@@ -127,6 +147,13 @@ capture files, and the system cannot prevent that: one container serves several
 sessions, so the mount cannot be narrowed per session. The system advertises
 only paths created by or inherited into the session. If cross-session
 confidentiality becomes a requirement, a filtered file-read capability is the follow-up.
+
+Both backends skip a bind-mount source that does not exist, and the capture root
+is created by the first capture rather than at install time. Building the
+container config therefore creates the root first, so a fresh profile's container
+is created with the mount and the first reported path is reachable without
+recreating the container. Creation is best effort: a capture creates the
+directory itself, and a failure must not block container creation.
 
 ### One capture owner and small result metadata
 
@@ -183,10 +210,18 @@ The EventBus request is resolve-or-install. It names the session and returns
 separate host and runtime state environments. On a host backend the paths may
 be equal. On a container backend the runtime path is the absolute image-owned
 binary path, not an identity mapping of the host executable. Probe that exact
-path, not bare `rtk`, once per container identity and pin. Invalidate cached
-answers on repair, a pin change or container replacement. An unavailable
+path, not bare `rtk`, once per container instance and pin. An unavailable
 answer is not cached for the session lifetime; a later command or retry can
 resolve the completed first-use install.
+
+Cache by a container instance identity, not by the workspace container name. The
+name is stable across a replacement, so an answer cached under it survived the
+replacement that invalidated it: a container replaced with a fixed image kept
+returning the previous version's mismatch and left rewriting disabled. Docker
+reports its own container id, which changes with each container. A backend that
+reports no per-instance identity is not cached at all, because correctness then
+costs one probe per resolution rather than a stale answer. A pin change still
+misses the cache because the pin is part of the key.
 
 The plugin must bind every inserted RTK executable token to the verified
 runtime path with shell-safe quoting. It must also apply the returned runtime
@@ -233,6 +268,16 @@ session deletion and capture cleanup so a concurrent delete cannot remove a
 capture inherited by a committed fork. Failed forks may leak data until a
 successful sweep, but must not cause data loss.
 
+A capture directory appears when the command writes its first byte, and the
+reference that protects it appears only after the result is published. Age alone
+cannot separate a running command's capture from an orphan, so a 15-minute grace
+window was the only guard, and a command that ran longer lost its capture when
+another session was deleted. The capture owner registers its directory while the
+command runs and releases it once the result is built. Retention reads that
+registry and never selects a registered directory, whatever its age. The grace
+window still covers the gap between the result being built and the agent
+persisting it.
+
 A TTL or size-based eviction was rejected because it would invalidate live
 references. Retention is a lifecycle rule, not a disk quota. Active or retained
 sessions can grow indefinitely. Adding a quota would require a separate
@@ -269,7 +314,20 @@ the image's build argument with the manifest's exact version.
   follow-up if confidentiality becomes a requirement.
 - **The streaming exec changes the runtime API** → The output sink is optional
   and additive. Other exec callers keep the buffered path and its 10 MB cap.
-  Verify the streaming path on both backends.
+  Verify the streaming path on both backends. Sink chunks are buffers and the
+  sink may return a promise, so a caller that decodes to text or ignores the
+  promise loses byte-exactness or memory bounding.
+- **A slow disk stalls a command** → Accepted. When the pending bound is reached
+  the runtime pauses the producing pipe, so the child blocks until the disk
+  catches up. This trades throughput for bounded memory and a complete capture,
+  which is the contract here.
+- **A cached runtime answer outlives its container** → Cache by container
+  instance identity and do not cache when the backend reports only the stable
+  workspace name. A stale answer keeps rewriting disabled after the image was
+  fixed, which is worse than the extra probe.
+- **A running command's capture looks orphaned** → Register the directory while
+  the command runs and release it once the result is built. Age alone cannot
+  separate a long command's capture from an orphan.
 - **The two streams interleave in the capture** → Accepted. Both streams are
   complete in arrival order, which is usually easier to read than the old
   `stdout`-then-`stderr` concatenation.

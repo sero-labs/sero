@@ -127,6 +127,8 @@ The bash tool keeps complete command output outside the model context. Each capt
 
 The model receives a bounded tail of this output. The complete files stay on disk, and the tool result reports their paths and sizes. A command with no output creates no capture.
 
+The files hold the bytes the command wrote, including output that is not valid text. Sero does not hold the whole output in memory: when a command prints faster than the disk accepts writes, Sero pauses the command's output until the writes catch up. The command then blocks instead of the profile growing.
+
 The capture root is outside every workspace, so no file watcher, workspace search, or language server sees it. A workspace container receives the same directory read-only.
 
 A capture file can hold anything a command printed, including secrets. It is profile data. Sero deletes it after its last referencing session is released.

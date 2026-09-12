@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { SERO_AGENT_DIR, SERO_HOST_RTK_STATE_ROOT, SERO_CAPTURE_ROOT } from '@electron/platform/env';
+import { activeCaptureDirectories } from './active-captures';
 import {
   FORK_REFERENCE_SUFFIX,
   sessionIdFromReferenceFileName,
@@ -15,6 +16,9 @@ import { TOOL_CAPTURE_RECORD_VERSION } from './types';
  *   1. the session file, whose tool results carry the typed capture record;
  *   2. a fork's reference sidecar, written at fork publication because the Pi
  *      session writer defers a forked file until its first assistant message.
+ *
+ * A capture that a running command owns is never orphaned, whatever its age:
+ * its reference exists only after the command finishes and publishes a result.
  *
  * No separate ownership index exists, so nothing can drift out of sync. Cleanup
  * runs only on a complete inventory. A capture or RTK state directory inside the
@@ -87,6 +91,8 @@ export interface SweepOptions {
   graceMs?: number;
   now?: () => number;
   source?: CaptureInventorySource;
+  /** Directories owned by running commands. Defaults to the process registry. */
+  activeCaptureDirectories?: ReadonlySet<string>;
 }
 
 export function nodeCaptureInventorySource(sessionDir: string = DEFAULT_SESSION_DIR): CaptureInventorySource {
@@ -247,8 +253,13 @@ export function planCaptureCleanup(input: {
   existingSessionFiles: Set<string>;
   graceMs: number;
   now: number;
+  /**
+   * Captures owned by a running command. Such a directory has no reference yet,
+   * so age alone cannot prove that it is orphaned.
+   */
+  activeDirectories?: ReadonlySet<string>;
 }): CaptureCleanupPlan {
-  const { inventory, captures, rtkStates, existingSessionFiles, graceMs, now } = input;
+  const { inventory, captures, rtkStates, existingSessionFiles, graceMs, now, activeDirectories } = input;
   const liveSessionKeys = new Set<string>();
   for (const sessionId of inventory.sessionIds) liveSessionKeys.add(encodeURIComponent(sessionId));
 
@@ -264,6 +275,7 @@ export function planCaptureCleanup(input: {
       captures,
       (capture) => capture.directory,
       (capture) => !inventory.referencedCaptureIds.has(capture.captureId)
+        && !activeDirectories?.has(capture.directory)
         && outsideGrace(capture.modifiedMs, graceMs, now),
     ),
     rtkStateDirectories: selectDirectories(
@@ -322,6 +334,7 @@ export async function sweepOrphanedCaptures(options: SweepOptions = {}): Promise
     existingSessionFiles: await existingSessionFiles(inventory.forkReferenceFiles, source),
     graceMs,
     now,
+    activeDirectories: options.activeCaptureDirectories ?? activeCaptureDirectories(),
   });
 
   // A failed removal is retried by the next sweep; nothing is advertised as gone.

@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'child_process';
+import type { Readable } from 'stream';
 
 import type { RuntimeExecOutputSink } from './types';
 
@@ -48,8 +49,9 @@ export async function runStreamingShellExec(options: {
  * Run a command and stream both pipes to a sink as the command runs.
  *
  * The sink owns the capture. This helper never accumulates output, so a command
- * larger than any in-memory ceiling is captured completely. The returned result
- * carries status only; the caller renders its payload from the sink's tail.
+ * larger than any in-memory ceiling is captured completely, and it pauses a pipe
+ * when the sink reports that it cannot keep up. The returned result carries
+ * status only; the caller renders its payload from the sink's tail.
  */
 export function runStreamingExec(options: StreamingExecOptions): Promise<StreamingExecOutcome> {
   return new Promise((resolve) => {
@@ -73,10 +75,23 @@ export function runStreamingExec(options: StreamingExecOptions): Promise<Streami
       child.kill('SIGKILL');
     }, options.timeoutMs);
 
-    child.stdout?.setEncoding('utf8');
-    child.stderr?.setEncoding('utf8');
-    child.stdout?.on('data', (chunk: string) => options.sink.write('stdout', chunk));
-    child.stderr?.on('data', (chunk: string) => options.sink.write('stderr', chunk));
+    // Chunks stay as bytes so the sink can persist the command's output exactly.
+    // A sink that needs text decodes it itself.
+    const pipeToSink = (source: Readable | null, stream: 'stdout' | 'stderr'): void => {
+      if (!source) return;
+      source.on('data', (chunk: Buffer) => {
+        const pending = options.sink.write(stream, chunk);
+        if (!pending) return;
+        // The sink is holding its maximum unwritten output. Stop reading this
+        // pipe until it catches up. The kernel pipe buffer then fills and the
+        // child blocks, so memory stays bounded and no output is dropped.
+        source.pause();
+        void pending.then(() => { if (!settled) source.resume(); });
+      });
+    };
+
+    pipeToSink(child.stdout, 'stdout');
+    pipeToSink(child.stderr, 'stderr');
 
     const settle = (outcome: StreamingExecOutcome) => {
       if (settled) return;

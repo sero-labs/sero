@@ -114,6 +114,14 @@ export interface ContainerState {
   ipAddress?: string;
   cpus: number;
   memoryBytes: number;
+  /**
+   * Per-instance identity of this container, when the runtime reports one.
+   *
+   * `id` is the stable workspace container name, so anything that caches by it
+   * keeps a stale answer after the container is replaced. This value changes
+   * with each new container.
+   */
+  instanceId?: string;
 }
 
 export interface ExecResult {

@@ -5,6 +5,7 @@ import path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { publishSessionFork, releaseSessionReferences, runRetentionExclusive } from '@electron/features/tool-capture/lifecycle';
+import { OutputCapture } from '@electron/features/tool-capture/capture';
 import {
   collectCaptureIdsFromEntries,
   forkReferencePath,
@@ -110,6 +111,15 @@ function sweep(overrides: Parameters<typeof sweepOrphanedCaptures>[0] = {}) {
   });
 }
 
+/** Wait for a capture's first write to create its directory. */
+async function waitForDirectory(directory: string): Promise<void> {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    if (fs.existsSync(directory)) return;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  throw new Error(`Timed out waiting for ${directory}`);
+}
+
 describe('capture reference inventory', () => {
   it('reads references from session files and fork sidecars', async () => {
     writeSessionFile(PARENT, [{ captureId: 'cap-parent', producerSessionId: PARENT }]);
@@ -178,8 +188,32 @@ describe('capture reference inventory', () => {
 });
 
 describe('capture cleanup', () => {
-  it('removes an unreferenced capture but keeps a referenced one', async () => {
-    writeCapture(PARENT, 'cap-kept');
+  it('keeps a capture that a running command owns until its result is published', async () => {
+    const capture = new OutputCapture({
+      producerSessionId: OTHER,
+      captureId: 'cap-running',
+      captureRoot,
+    });
+    const directory = capture.directoryPath;
+    void capture.write('stdout', Buffer.from('still running\n', 'utf8'));
+    await waitForDirectory(directory);
+
+    // No session file references this capture yet: the command has not finished.
+    // Age alone made it collectable, which removed a capture mid-write.
+    await expect(sweep()).resolves.toMatchObject({ removedCaptures: [] });
+    expect(fs.existsSync(directory)).toBe(true);
+
+    // The record proves the capture is on disk, and the reported result is what
+    // protects it from here on.
+    await expect(capture.finish()).resolves.toMatchObject({ complete: true });
+    await expect(sweep()).resolves.toMatchObject({ removedCaptures: [] });
+
+    capture.release();
+    await expect(sweep()).resolves.toMatchObject({ removedCaptures: [directory] });
+    expect(fs.existsSync(directory)).toBe(false);
+  });
+
+  it('removes an unreferenced capture but keeps a referenced one', async () => {    writeCapture(PARENT, 'cap-kept');
     writeCapture(OTHER, 'cap-orphan');
     writeSessionFile(PARENT, [{ captureId: 'cap-kept', producerSessionId: PARENT }]);
 
@@ -386,6 +420,30 @@ describe('planCaptureCleanup', () => {
 
     expect(plan.captureDirectories).toEqual(['/captures/gone/cap-gone']);
     expect(plan.rtkStateDirectories).toEqual(['/rtk/gone']);
+  });
+
+  it('never selects a capture that a running command owns', () => {
+    const plan = planCaptureCleanup({
+      inventory: {
+        complete: true,
+        referencedCaptureIds: new Set(),
+        sessionIds: new Set(),
+        forkReferenceFiles: [],
+      },
+      captures: [
+        { captureId: 'cap-running', sessionKey: 'busy', directory: '/captures/busy/cap-running', modifiedMs: 0 },
+        { captureId: 'cap-gone', sessionKey: 'gone', directory: '/captures/gone/cap-gone', modifiedMs: 0 },
+      ],
+      rtkStates: [],
+      existingSessionFiles: new Set(),
+      graceMs: 0,
+      now: 10_000_000,
+      activeDirectories: new Set(['/captures/busy/cap-running']),
+    });
+
+    // Both are unreferenced and far past the grace window, so only the registry
+    // distinguishes the running command's capture from the orphan.
+    expect(plan.captureDirectories).toEqual(['/captures/gone/cap-gone']);
   });
 });
 

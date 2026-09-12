@@ -4,6 +4,7 @@ import path from 'path';
 
 import { SERO_CAPTURE_ROOT } from '@electron/platform/env';
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateTail, type TruncationResult } from '@electron/features/container/filesystem/truncate';
+import { registerActiveCapture, releaseActiveCapture } from './active-captures';
 import {
   TOOL_CAPTURE_RECORD_VERSION,
   type ToolCaptureRecord,
@@ -22,6 +23,16 @@ export const PAYLOAD_MAX_BYTES = DEFAULT_MAX_BYTES;
  */
 export const CAPTURE_TAIL_BYTES = 1024 * 1024;
 
+/**
+ * Maximum bytes of output that may wait to be written.
+ *
+ * A command can print far faster than the disk accepts writes. Without this
+ * bound, every unwritten chunk stays in memory and a large command exhausts the
+ * renderer's heap. When the bound is reached, `write` returns a promise and the
+ * runtime pauses that pipe, so the child blocks instead of the process growing.
+ */
+export const CAPTURE_PENDING_HIGH_WATER_BYTES = 1024 * 1024;
+
 export interface CaptureFileHandle {
   write(chunk: Buffer): Promise<void>;
   close(): Promise<void>;
@@ -31,9 +42,11 @@ export interface CaptureFileSystem {
   mkdir(directory: string): Promise<void>;
   open(filePath: string): Promise<CaptureFileHandle>;
   rm(target: string): Promise<void>;
+  /** Byte length of a file, or undefined when it cannot be read. */
+  size(filePath: string): Promise<number | undefined>;
 }
 
-const nodeCaptureFileSystem: CaptureFileSystem = {
+export const nodeCaptureFileSystem: CaptureFileSystem = {
   async mkdir(directory) { await fs.promises.mkdir(directory, { recursive: true, mode: 0o700 }); },
   async open(filePath) {
     const handle = await fs.promises.open(filePath, 'w', 0o600);
@@ -43,6 +56,13 @@ const nodeCaptureFileSystem: CaptureFileSystem = {
     };
   },
   async rm(target) { await fs.promises.rm(target, { recursive: true, force: true }); },
+  async size(filePath) {
+    try {
+      return (await fs.promises.stat(filePath)).size;
+    } catch {
+      return undefined;
+    }
+  },
 };
 
 export interface OutputCaptureOptions {
@@ -91,6 +111,8 @@ export class OutputCapture {
   private totalLines = 0;
   private finalized = false;
   private pump: Promise<void> = Promise.resolve();
+  private pendingBytes = 0;
+  private pendingDrains: Array<() => void> = [];
 
   constructor(options: OutputCaptureOptions) {
     this.options = {
@@ -103,6 +125,9 @@ export class OutputCapture {
     this.now = options.now ?? Date.now;
     this.captureId = options.captureId ?? `${this.now().toString(36)}-${crypto.randomBytes(6).toString('hex')}`;
     this.directory = path.join(this.options.captureRoot, sessionKey(options.producerSessionId), this.captureId);
+    // The directory can exist before any session file references it, so
+    // retention must know that this capture belongs to a running command.
+    registerActiveCapture(this.directory);
     this.sinks = {
       combined: this.createSink('combined', 'combined.log'),
       stdout: this.createSink('stdout', 'stdout.log'),
@@ -131,12 +156,20 @@ export class OutputCapture {
     return this.totalBytes === 0;
   }
 
-  /** Append one chunk. Never throws and never awaits. */
-  write(stream: 'stdout' | 'stderr', chunk: string): void {
+  /**
+   * Append one chunk. Never throws. It returns a promise only when the pending
+   * writes have reached the in-memory bound, and the caller then pauses that
+   * pipe until the promise resolves.
+   */
+  write(stream: 'stdout' | 'stderr', chunk: Buffer): void | Promise<void> {
     if (this.finalized || chunk.length === 0) return;
-    this.appendTail(chunk);
-    this.enqueue(this.sinks.combined, Buffer.from(chunk, 'utf8'));
-    this.enqueue(this.sinks[stream], Buffer.from(chunk, 'utf8'));
+    // Persist the exact bytes and decode a separate copy for the model-facing
+    // tail, so output that is not valid UTF-8 is captured unchanged.
+    this.appendTail(chunk.toString('utf8'));
+    this.enqueue(this.sinks.combined, chunk);
+    this.enqueue(this.sinks[stream], chunk);
+    if (this.pendingBytes < CAPTURE_PENDING_HIGH_WATER_BYTES) return;
+    return new Promise<void>((resolve) => { this.pendingDrains.push(resolve); });
   }
 
   /** The bounded tail rendered with the ordinary payload truncation and markers. */
@@ -162,13 +195,15 @@ export class OutputCapture {
     await this.drain();
     await this.closeAll();
 
-    const failure = this.persistenceFailure();
+    const failure = this.persistenceFailure() ?? await this.verifyPersisted();
     if (!failure && this.totalBytes === 0) {
       await this.removeDirectory();
+      this.release();
       return undefined;
     }
     if (failure) {
       await this.removeDirectory();
+      this.release();
       return {
         version: TOOL_CAPTURE_RECORD_VERSION,
         captureId: this.captureId,
@@ -192,6 +227,18 @@ export class OutputCapture {
   /** Remove every file in this capture. Used by retention and by failed cleanup retries. */
   async discard(): Promise<void> {
     await this.removeDirectory();
+    this.release();
+  }
+
+  /**
+   * Stop protecting this capture from retention.
+   *
+   * The bash tool calls this only after it has built the result that references
+   * the capture: the reference in the session file is what keeps it alive, and a
+   * command that is still running has not written one yet.
+   */
+  release(): void {
+    releaseActiveCapture(this.directory);
   }
 
   private createSink(kind: ToolCaptureStreamKind, fileName: string): StreamSink {
@@ -214,8 +261,12 @@ export class OutputCapture {
     while (Buffer.byteLength(this.tail, 'utf8') > limit) {
       const newline = this.tail.indexOf('\n');
       if (newline === -1) {
-        this.droppedBytes += Buffer.byteLength(this.tail, 'utf8');
-        this.tail = '';
+        // One line longer than the whole tail budget. Its final bytes are the
+        // newest output and the payload renderer shows a line's tail, so keep
+        // them instead of dropping the line.
+        const kept = keepTailBytes(this.tail, limit);
+        this.droppedBytes += Buffer.byteLength(this.tail, 'utf8') - Buffer.byteLength(kept, 'utf8');
+        this.tail = kept;
         return;
       }
       const removed = this.tail.slice(0, newline + 1);
@@ -229,6 +280,7 @@ export class OutputCapture {
     if (sink.failed) return;
     sink.bytes += chunk.length;
     sink.queue.push(chunk);
+    this.pendingBytes += chunk.length;
     this.pump = this.pump.then(() => this.drainSink(sink));
   }
 
@@ -237,7 +289,7 @@ export class OutputCapture {
   }
 
   private async drainSink(sink: StreamSink): Promise<void> {
-    if (sink.failed) { sink.queue.length = 0; return; }
+    if (sink.failed) { this.discardQueue(sink); return; }
     if (!sink.openRequested) {
       sink.openRequested = true;
       try {
@@ -249,20 +301,42 @@ export class OutputCapture {
       }
     }
     while (sink.queue.length > 0) {
-      const chunk = sink.queue.shift() as Buffer;
+      const chunk = sink.queue[0];
       try {
         await sink.handle?.write(chunk);
       } catch (error) {
         this.failSink(sink, error);
         return;
       }
+      sink.queue.shift();
+      this.pendingBytes -= chunk.length;
     }
+    this.releasePendingDrains();
   }
 
   private failSink(sink: StreamSink, error: unknown): void {
     sink.failed = true;
-    sink.queue.length = 0;
+    this.discardQueue(sink);
     this.openFailures.set(sink.kind, errorMessage(error));
+  }
+
+  /** Drop the queued bytes of one sink and keep the pending count honest. */
+  private discardQueue(sink: StreamSink): void {
+    for (const chunk of sink.queue) this.pendingBytes -= chunk.length;
+    sink.queue.length = 0;
+    this.releasePendingDrains();
+  }
+
+  /**
+   * Let paused pipes continue once nothing waits to be written. Resuming only at
+   * zero keeps the bound strict and cannot spin, because the pump drains without
+   * help from the paused pipe.
+   */
+  private releasePendingDrains(): void {
+    if (this.pendingBytes > 0) return;
+    const waiting = this.pendingDrains;
+    this.pendingDrains = [];
+    for (const resolve of waiting) resolve();
   }
 
   private async closeAll(): Promise<void> {
@@ -281,6 +355,22 @@ export class OutputCapture {
     if (!failed) return undefined;
     const detail = this.openFailures.get(failed.kind) ?? 'unknown error';
     return `Complete output could not be saved (${failed.kind}: ${detail}).`;
+  }
+
+  /**
+   * Confirm that every file this record will name is on disk with the length
+   * that was written. `complete: true` must mean the reader can open the file,
+   * so a file removed while the command ran is reported as unavailable.
+   */
+  private async verifyPersisted(): Promise<string | undefined> {
+    if (this.totalBytes === 0) return undefined;
+    for (const sink of [this.sinks.combined, this.sinks.stdout, this.sinks.stderr]) {
+      if (sink.bytes === 0 || sink.failed) continue;
+      if (await this.fileSystem.size(sink.filePath) !== sink.bytes) {
+        return `Complete output could not be saved (${sink.kind}: the capture file is missing or incomplete).`;
+      }
+    }
+    return undefined;
   }
 
   private streamRecord(sink: StreamSink): ToolCaptureStream {
@@ -308,6 +398,20 @@ function countNewlines(value: string): number {
     if (value[index] === '\n') count += 1;
   }
   return count;
+}
+
+/**
+ * Keep the last `limit` bytes of a value, cut on a character boundary.
+ *
+ * Trimming one over-long line cuts at a byte offset, which can land inside a
+ * multi-byte character, so step forward to the next character start first.
+ */
+function keepTailBytes(value: string, limit: number): string {
+  const bytes = Buffer.from(value, 'utf8');
+  if (bytes.length <= limit) return value;
+  let start = bytes.length - limit;
+  while (start < bytes.length && (bytes[start] & 0xc0) === 0x80) start += 1;
+  return bytes.subarray(start).toString('utf8');
 }
 
 function sessionKey(sessionId: string): string {
