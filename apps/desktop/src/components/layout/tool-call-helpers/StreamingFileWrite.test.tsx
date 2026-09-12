@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 
 import type { ChatToolCallMessage } from '@/types/ipc';
-import { StreamingFileWrite, buildStreamingFilePreview } from './StreamingFileWrite';
+import { StreamingFileWrite } from './StreamingFileWrite';
+import { buildStreamingFilePreview } from './streaming-file-preview';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
