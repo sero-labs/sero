@@ -309,24 +309,23 @@ system MUST NOT require the original command to be rerun to obtain it.
 - **WHEN** the user opens the complete output for a compacted result
 - **THEN** the UI shows the complete text and distinguishes it from what the model received
 
-### Requirement: Large captures open in a dedicated viewer
+### Requirement: Captures open in a dedicated viewer
 
-The inline preview in a tool result SHALL be bounded and MUST NOT grow without
-limit while the user reads. Opening a complete capture SHALL provide a dedicated
-viewer surface that can display a capture file, which lives outside every
-workspace. That surface MUST NOT require relaxing the editor's workspace path
-policy, and captures MUST NOT be copied or linked into a workspace to make them
-reachable.
+A tool result SHALL NOT render captured output inline, so a tool call MUST NOT
+accumulate a log as the user reads it. Selecting a capture file SHALL open a
+dedicated viewer surface that can display it. That surface MUST NOT require
+relaxing the editor's workspace path policy, and captures MUST NOT be copied or
+linked into a workspace to make them reachable.
 
-#### Scenario: The inline preview stays bounded
+#### Scenario: The tool result stays bounded
 
-- **WHEN** the user loads more of a large capture in the tool result
-- **THEN** the rendered preview stops at its cap and the tool result does not accumulate an unbounded log
+- **WHEN** a result carries a large capture
+- **THEN** the result renders a file control only, and no captured output is rendered in the tool call
 
 #### Scenario: The user opens a large capture
 
-- **WHEN** the user opens the complete output for a result whose capture is larger than the preview budget
-- **THEN** it opens in a dedicated viewer surface that reports its size and can navigate the file without loading all of it into the tool call
+- **WHEN** the user selects the capture file for a result
+- **THEN** it opens in a dedicated viewer surface that reports its size and navigates the file without loading all of it into the tool call
 
 #### Scenario: A capture outside every workspace
 

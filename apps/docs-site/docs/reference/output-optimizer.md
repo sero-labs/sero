@@ -40,7 +40,7 @@ The **complete** output stays in capture files. While the model payload leaves a
 
 A large capture can need paged reads or local processing, because file reads have their own limits.
 
-To open a capture in the UI, select its file in the tool result. The inline preview stops at a cap and is marked as a preview. Select **Open full output** to read the file in a dedicated viewer that shows one page at a time. A capture lives outside every workspace, so the viewer uses its own read contract instead of the editor's workspace path policy.
+To open a capture in the UI, select its file in the tool result. It opens in the **Tool Details** viewer, which states whether the model received all of the output or a bounded preview, and shows one page at a time. The tool result itself carries the file control only: nothing is rendered inline, so a tool call never accumulates a log. A capture lives outside every workspace, so the viewer uses its own read contract instead of the editor's workspace path policy.
 
 ### Structured output
 
