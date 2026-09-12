@@ -260,4 +260,64 @@ describe('compactStream', () => {
     expect(streamed.changed).toBe(false);
     expect(streamed.preview.content).toBe('plain text');
   });
+
+  it('never empties search output that has no parseable matches', () => {
+    const source = 'rg: private.txt: Permission denied\nno matches found';
+    const streamed = compactStream(source, 'search');
+    expect(streamed.preview.content).toBe(source);
+    expect(streamed.candidateBytes).toBe(Buffer.byteLength(source, 'utf8'));
+  });
+
+  it('never empties lint output that has no parseable diagnostics', () => {
+    const source = 'Nothing to lint today.';
+    const streamed = compactStream(source, 'lint');
+    expect(streamed.preview.content).toBe(source);
+    expect(streamed.candidateBytes).toBe(Buffer.byteLength(source, 'utf8'));
+  });
+
+  it('keeps a coloured FAIL block and its context', () => {
+    const source = [
+      '\u001B[31mFAIL src/a.test.ts\u001B[0m',
+      '  expected 1 to be 2',
+      '\u001B[32m✓ pass\u001B[0m',
+      '\u001B[31m1 failed\u001B[0m',
+    ].join('\n');
+
+    const streamed = compactStream(source, 'test', { maxLines: 1000, maxBytes: 1024 * 1024 });
+    expect(streamed.preview.content).toContain('FAIL src/a.test.ts');
+    expect(streamed.preview.content).toContain('expected 1 to be 2');
+    expect(streamed.preview.content).toContain('1 failed');
+    expect(streamed.preview.content).not.toContain('\u001B[');
+  });
+
+  it('keeps a warning and its file/line context', () => {
+    const source = [
+      'warning: deprecated API at src/main.ts:12',
+      'src/main.ts:12:5 - error TS2322: Type mismatch',
+      '✓ pass',
+      '1 passed',
+    ].join('\n');
+
+    const streamed = compactStream(source, 'test', { maxLines: 1000, maxBytes: 1024 * 1024 });
+    expect(streamed.preview.content).toContain('warning: deprecated API at src/main.ts:12');
+    expect(streamed.preview.content).toContain('src/main.ts:12:5 - error TS2322: Type mismatch');
+  });
+
+  it('counts a leading blank line as a separator byte', () => {
+    const source = '\n\na';
+    const streamed = compactStream(source, 'none');
+    expect(streamed.candidateBytes).toBe(Buffer.byteLength(source, 'utf8'));
+  });
+
+  it('marks the preview truncated exactly when the candidate exceeds the byte limit', () => {
+    const source = `\n\n${'x'.repeat(1023)}`;
+    expect(Buffer.byteLength(source, 'utf8')).toBe(1025);
+
+    const over = compactStream(source, 'none', { maxLines: 100, maxBytes: 1024 });
+    expect(over.candidateBytes).toBe(1025);
+    expect(over.preview.truncated).toBe(true);
+
+    const under = compactStream(source, 'none', { maxLines: 100, maxBytes: 1025 });
+    expect(under.preview.truncated).toBe(false);
+  });
 });

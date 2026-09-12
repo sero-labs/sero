@@ -1,3 +1,4 @@
+import { stripAnsi } from './ansi';
 import { applyPreservationGuard } from './preservation';
 
 /**
@@ -6,7 +7,7 @@ import { applyPreservationGuard } from './preservation';
  * Status keeps every changed path and drops only the `(use "git ...")` hints.
  * Log keeps every commit identifier and the full commit message, dropping only
  * author/date metadata. Neither rule caps the number of paths or truncates a
- * message.
+ * message. Classification runs on the ANSI-stripped line.
  */
 
 const COMMIT_HEADER = /^commit\s+[0-9a-f]{7,40}\b/i;
@@ -16,7 +17,8 @@ const PORCELAIN_ENTRY = /^([ MADRCU?]{2}) (.*)$/;
 
 export function emitGitStatus(source: string, emit: (line: string) => void): boolean {
   let transformed = false;
-  for (const line of source.split('\n')) {
+  for (const raw of source.split('\n')) {
+    const line = stripAnsi(raw);
     if (line.trim() === '' || GIT_HINT.test(line)) {
       transformed = true;
       continue;
@@ -38,7 +40,8 @@ export function emitGitStatus(source: string, emit: (line: string) => void): boo
 export function emitGitLog(source: string, emit: (line: string) => void): boolean {
   let dropped = 0;
   let previousBlank = false;
-  for (const line of source.split('\n')) {
+  for (const raw of source.split('\n')) {
+    const line = stripAnsi(raw);
     if (LOG_METADATA.test(line)) {
       dropped += 1;
       continue;
@@ -55,7 +58,7 @@ export function emitGitLog(source: string, emit: (line: string) => void): boolea
 }
 
 export function emitGitOutput(source: string, emit: (line: string) => void): boolean {
-  if (COMMIT_HEADER.test(source)) return emitGitLog(source, emit);
+  if (COMMIT_HEADER.test(stripAnsi(source))) return emitGitLog(source, emit);
   return emitGitStatus(source, emit);
 }
 

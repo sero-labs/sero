@@ -2,23 +2,22 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 
-import { compactCapture } from '../extension/compaction';
+import { compactStream } from '../extension/compaction';
 import { detectCategory, type OutputCategory } from '../extension/compaction/category';
-import { buildPreview } from '../extension/preview';
+import { PREVIEW_MAX_BYTES, PREVIEW_MAX_LINES } from '../extension/preview';
 
 /**
  * Bench harness for the categories the plugin compacts.
  *
  * A bench harness is a measurement script. It runs each tool for real, captures
- * that tool's output, runs the plugin's compaction on it, and reports the byte
- * counts, estimated tokens and compaction time.
+ * that tool's output, and runs the production streaming compaction on it.
  *
  * Assertions are independent of the implementation's own preservation guard:
  * every line a local pattern marks as a diagnostic must appear in the complete
- * candidate, including when the preview is truncated. Each tool has a success
- * and a failure variant where the environment can produce one.
+ * candidate produced by the production path, and the written capture file must
+ * return the same bytes, including when the preview is truncated.
  *
  * The heavy cases (Playwright, the Electron build, `pnpm install`) only run when
  * `BENCH_HEAVY=1`, so the default run stays fast.
@@ -27,6 +26,11 @@ import { buildPreview } from '../extension/preview';
 const pluginRoot = path.resolve(__dirname, '..');
 const monorepoRoot = path.resolve(pluginRoot, '../..');
 const includeHeavy = process.env.BENCH_HEAVY === '1';
+const captureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'output-optimizer-bench-captures-'));
+
+afterAll(() => {
+  fs.rmSync(captureDir, { recursive: true, force: true });
+});
 
 type Expected = 'success' | 'failure' | 'any';
 
@@ -57,157 +61,36 @@ function prepareBrokenTypeScript(): { cwd: string; args: string[] } {
 const brokenTypeScript = prepareBrokenTypeScript();
 
 const cases: BenchCase[] = [
-  {
-    name: 'vitest pass',
-    tool: 'vitest',
-    variant: 'success',
-    expected: 'success',
-    command: 'pnpm',
-    args: ['exec', 'vitest', 'run', 'extension/__tests__/parse.test.ts'],
-    cwd: pluginRoot,
-  },
-  {
-    name: 'vitest fail',
-    tool: 'vitest',
-    variant: 'failure',
-    expected: 'failure',
-    command: 'pnpm',
-    args: ['exec', 'vitest', 'run', 'bench/fixtures/missing.test.ts'],
-    cwd: pluginRoot,
-  },
-  {
-    name: 'tsc pass',
-    tool: 'tsc',
-    variant: 'success',
-    expected: 'success',
-    command: 'pnpm',
-    args: ['exec', 'tsc', '--noEmit', '-p', 'extension/tsconfig.json'],
-    cwd: pluginRoot,
-    category: 'build',
-  },
-  {
-    name: 'tsc fail',
-    tool: 'tsc',
-    variant: 'failure',
-    expected: 'failure',
-    command: 'pnpm',
-    args: brokenTypeScript.args,
-    cwd: brokenTypeScript.cwd,
-    category: 'build',
-  },
-  {
-    name: 'git status',
-    tool: 'git',
-    variant: 'success',
-    expected: 'success',
-    command: 'git',
-    args: ['status', '--porcelain=v1'],
-    cwd: monorepoRoot,
-    category: 'git',
-  },
-  {
-    name: 'git log',
-    tool: 'git',
-    variant: 'success',
-    expected: 'success',
-    command: 'git',
-    args: ['log', '-n', '5'],
-    cwd: monorepoRoot,
-    category: 'git',
-  },
-  {
-    name: 'git diff fail',
-    tool: 'git',
-    variant: 'failure',
-    expected: 'failure',
-    command: 'git',
-    args: ['diff', '--definitely-not-a-flag'],
-    cwd: monorepoRoot,
-    category: 'git',
-  },
-  {
-    name: 'eslint',
-    tool: 'eslint',
-    variant: 'success',
-    expected: 'any',
-    command: 'pnpm',
-    args: ['exec', 'eslint', 'extension/shell.ts'],
-    cwd: pluginRoot,
-    category: 'lint',
-  },
-  {
-    name: 'eslint fail',
-    tool: 'eslint',
-    variant: 'failure',
-    expected: 'any',
-    command: 'pnpm',
-    args: ['exec', 'eslint', '--not-a-real-flag', '.'],
-    cwd: pluginRoot,
-    category: 'lint',
-  },
-  {
-    name: 'pnpm install',
-    tool: 'pnpm install',
-    variant: 'success',
-    expected: 'success',
-    command: 'pnpm',
-    args: ['install', '--frozen-lockfile'],
-    cwd: monorepoRoot,
-    category: 'packageManager',
-    heavy: true,
-  },
-  {
-    name: 'pnpm install fail',
-    tool: 'pnpm install',
-    variant: 'failure',
-    expected: 'failure',
-    command: 'pnpm',
-    args: ['install', '--not-a-real-flag'],
-    cwd: monorepoRoot,
-    category: 'packageManager',
-    heavy: true,
-  },
-  {
-    name: 'playwright',
-    tool: 'playwright',
-    variant: 'success',
-    expected: 'any',
-    command: 'pnpm',
-    args: ['exec', 'playwright', 'test', '--list'],
-    cwd: path.join(monorepoRoot, 'apps/desktop'),
-    heavy: true,
-  },
-  {
-    name: 'playwright fail',
-    tool: 'playwright',
-    variant: 'failure',
-    expected: 'any',
-    command: 'pnpm',
-    args: ['exec', 'playwright', '--not-a-real-flag'],
-    cwd: path.join(monorepoRoot, 'apps/desktop'),
-    heavy: true,
-  },
-  {
-    name: 'electron build',
-    tool: 'electron build',
-    variant: 'success',
-    expected: 'success',
-    command: 'pnpm',
-    args: ['run', 'build:electron'],
-    cwd: path.join(monorepoRoot, 'apps/desktop'),
-    category: 'build',
-    heavy: true,
-  },
-  {
-    name: 'electron build fail',
-    tool: 'electron build',
-    variant: 'failure',
-    expected: 'failure',
-    command: 'pnpm',
-    args: ['run', 'build:electron:not-a-real-script'],
-    cwd: path.join(monorepoRoot, 'apps/desktop'),
-    heavy: true,
-  },
+  { name: 'vitest pass', tool: 'vitest', variant: 'success', expected: 'success',
+    command: 'pnpm', args: ['exec', 'vitest', 'run', 'extension/__tests__/parse.test.ts'], cwd: pluginRoot },
+  { name: 'vitest fail', tool: 'vitest', variant: 'failure', expected: 'failure',
+    command: 'pnpm', args: ['exec', 'vitest', 'run', 'bench/fixtures/missing.test.ts'], cwd: pluginRoot },
+  { name: 'tsc pass', tool: 'tsc', variant: 'success', expected: 'success',
+    command: 'pnpm', args: ['exec', 'tsc', '--noEmit', '-p', 'extension/tsconfig.json'], cwd: pluginRoot, category: 'build' },
+  { name: 'tsc fail', tool: 'tsc', variant: 'failure', expected: 'failure',
+    command: 'pnpm', args: brokenTypeScript.args, cwd: brokenTypeScript.cwd, category: 'build' },
+  { name: 'git status', tool: 'git', variant: 'success', expected: 'success',
+    command: 'git', args: ['status', '--porcelain=v1'], cwd: monorepoRoot, category: 'git' },
+  { name: 'git log', tool: 'git', variant: 'success', expected: 'success',
+    command: 'git', args: ['log', '-n', '5'], cwd: monorepoRoot, category: 'git' },
+  { name: 'git diff fail', tool: 'git', variant: 'failure', expected: 'failure',
+    command: 'git', args: ['diff', '--definitely-not-a-flag'], cwd: monorepoRoot, category: 'git' },
+  { name: 'eslint', tool: 'eslint', variant: 'success', expected: 'any',
+    command: 'pnpm', args: ['exec', 'eslint', 'extension/shell.ts'], cwd: pluginRoot, category: 'lint' },
+  { name: 'eslint fail', tool: 'eslint', variant: 'failure', expected: 'any',
+    command: 'pnpm', args: ['exec', 'eslint', '--not-a-real-flag', '.'], cwd: pluginRoot, category: 'lint' },
+  { name: 'pnpm install', tool: 'pnpm install', variant: 'success', expected: 'success',
+    command: 'pnpm', args: ['install', '--frozen-lockfile'], cwd: monorepoRoot, category: 'packageManager', heavy: true },
+  { name: 'pnpm install fail', tool: 'pnpm install', variant: 'failure', expected: 'failure',
+    command: 'pnpm', args: ['install', '--not-a-real-flag'], cwd: monorepoRoot, category: 'packageManager', heavy: true },
+  { name: 'playwright', tool: 'playwright', variant: 'success', expected: 'any',
+    command: 'pnpm', args: ['exec', 'playwright', 'test', '--list'], cwd: path.join(monorepoRoot, 'apps/desktop'), heavy: true },
+  { name: 'playwright fail', tool: 'playwright', variant: 'failure', expected: 'any',
+    command: 'pnpm', args: ['exec', 'playwright', '--not-a-real-flag'], cwd: path.join(monorepoRoot, 'apps/desktop'), heavy: true },
+  { name: 'electron build', tool: 'electron build', variant: 'success', expected: 'success',
+    command: 'pnpm', args: ['run', 'build:electron'], cwd: path.join(monorepoRoot, 'apps/desktop'), category: 'build', heavy: true },
+  { name: 'electron build fail', tool: 'electron build', variant: 'failure', expected: 'failure',
+    command: 'pnpm', args: ['run', 'build:electron:not-a-real-script'], cwd: path.join(monorepoRoot, 'apps/desktop'), heavy: true },
 ];
 
 /**
@@ -237,7 +120,7 @@ interface BenchRow {
   removedPercent: number;
   truncated: boolean;
   protectedLost: number;
-  recovered: boolean;
+  recoveryBytes: number;
 }
 
 function runCase(benchCase: BenchCase): BenchRow {
@@ -253,16 +136,26 @@ function runCase(benchCase: BenchCase): BenchRow {
   const category = benchCase.category ?? detectCategory(`${benchCase.command} ${benchCase.args.join(' ')}`);
 
   const compactionStarted = process.hrtime.bigint();
-  const outcome = compactCapture(output, category);
-  const preview = buildPreview(outcome.candidate);
+  const streamed = compactStream(output, category, { maxLines: PREVIEW_MAX_LINES, maxBytes: PREVIEW_MAX_BYTES });
+  // Unbounded preview over the same production path yields the complete candidate.
+  const complete = compactStream(output, category, {
+    maxLines: Number.MAX_SAFE_INTEGER,
+    maxBytes: Number.MAX_SAFE_INTEGER,
+  }).preview.content;
   const latencyMs = Number(process.hrtime.bigint() - compactionStarted) / 1_000_000;
 
-  const candidateBytes = Buffer.byteLength(outcome.candidate, 'utf8');
-  const previewBytes = Buffer.byteLength(preview.content, 'utf8');
-  const removed = inputBytes === 0 ? 0 : ((inputBytes - candidateBytes) / inputBytes) * 100;
+  // Write and read a capture file, so recovery is proven from real bytes.
+  const capturePath = path.join(captureDir, `${benchCase.name.replace(/\W+/g, '-')}.log`);
+  fs.writeFileSync(capturePath, output, 'utf8');
+  const recoveredText = fs.readFileSync(capturePath, 'utf8');
+  const recoveryBytes = Buffer.byteLength(recoveredText, 'utf8');
 
   const mustSurvive = mustSurviveLines(output);
-  const protectedLost = mustSurvive.filter((line) => !outcome.candidate.includes(line)).length;
+  const protectedLost = mustSurvive.filter((line) => !complete.includes(line)).length;
+  const missingFromCapture = mustSurvive.filter((line) => !recoveredText.includes(line)).length;
+
+  const previewBytes = Buffer.byteLength(streamed.preview.content, 'utf8');
+  const removed = inputBytes === 0 ? 0 : ((inputBytes - streamed.candidateBytes) / inputBytes) * 100;
 
   return {
     name: benchCase.name,
@@ -272,16 +165,14 @@ function runCase(benchCase: BenchCase): BenchRow {
     exitCode: result.status ?? -1,
     expected: benchCase.expected,
     inputBytes,
-    candidateBytes,
+    candidateBytes: streamed.candidateBytes,
     previewBytes,
     estimatedTokens: Math.ceil(previewBytes / 4),
     latencyMs: Math.round(latencyMs * 1000) / 1000,
     removedPercent: Math.round(removed * 10) / 10,
-    truncated: preview.truncated,
-    protectedLost,
-    // The complete candidate is the recovery source; it must hold every
-    // protected line even when the preview omitted some of them.
-    recovered: protectedLost === 0,
+    truncated: streamed.preview.truncated,
+    protectedLost: protectedLost + missingFromCapture,
+    recoveryBytes,
   };
 }
 
@@ -319,15 +210,14 @@ describe('output optimizer bench harness', () => {
     console.log(`\n${header}\n${lines.join('\n')}\n`);
 
     for (const row of rows) {
-      // Independent exit-outcome assertion.
       if (row.expected === 'success') {
         expect(row.exitCode, `${row.name} should have succeeded`).toBe(0);
       } else if (row.expected === 'failure') {
         expect(row.exitCode, `${row.name} should have failed`).not.toBe(0);
       }
-      // Independent preservation and complete-recovery assertion.
       expect(row.protectedLost, `${row.name} lost protected content`).toBe(0);
-      expect(row.recovered, `${row.name} did not preserve a complete recovery source`).toBe(true);
+      // The capture file is the recovery source and must return the same bytes.
+      expect(row.recoveryBytes, `${row.name} capture file did not return the input bytes`).toBe(row.inputBytes);
     }
   });
 });

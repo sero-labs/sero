@@ -1,11 +1,12 @@
+import { stripAnsi } from './ansi';
 import { DIAGNOSTIC_LINE, applyPreservationGuard } from './preservation';
 
 /**
  * Compact test-runner output.
  *
- * Failure blocks, the run summary, and every diagnostic line are kept; passing
- * and progress lines are dropped. The preservation guard rejects the result if
- * it lost a failure, summary or diagnostic line.
+ * Failure blocks, the run summary, every diagnostic line, and every file/line
+ * context line are kept; passing and progress lines are dropped. Classification
+ * runs on the ANSI-stripped line, so a coloured FAIL block keeps its block.
  */
 
 const FAILURE_START = [
@@ -19,18 +20,21 @@ const FAILURE_START = [
 ];
 
 const SUMMARY_LINE = /test result:|\b\d+\s+(?:passed|failed|skipped|todo)\b|\bTests?:\s*\d/i;
+/** A file/line context such as `src/main.ts:12:5` must survive. */
+const FILE_LINE = /[^\s:]*[./][^\s:]*:\d+(?::\d+)?/;
 
 function isFailureStart(line: string): boolean {
   return FAILURE_START.some((pattern) => pattern.test(line));
 }
 
 function isProtectedLine(line: string): boolean {
-  return isFailureStart(line) || SUMMARY_LINE.test(line) || DIAGNOSTIC_LINE.test(line);
+  return isFailureStart(line) || SUMMARY_LINE.test(line) || DIAGNOSTIC_LINE.test(line) || FILE_LINE.test(line);
 }
 
 export function emitTestOutput(source: string, emit: (line: string) => void): boolean {
-  const lines = source.split('\n');
-  // Without a failure, summary or diagnostic there is nothing safe to compact.
+  const lines = source.split('\n').map(stripAnsi);
+  // Without a failure, summary, diagnostic or file/line there is nothing safe
+  // to compact; keep the source so it is never emptied.
   if (!lines.some(isProtectedLine)) {
     for (const line of lines) emit(line);
     return false;

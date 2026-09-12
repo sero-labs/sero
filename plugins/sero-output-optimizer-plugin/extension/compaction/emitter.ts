@@ -21,7 +21,10 @@ export class BoundedPreviewEmitter {
 
   emit(line: string): void {
     this.totalLines += 1;
-    const lineBytes = Buffer.byteLength(line, 'utf8') + (this.candidateBytes > 0 ? 1 : 0);
+    // The separator belongs to every line after the first, including a leading
+    // blank line whose own byte length is zero.
+    const separator = this.totalLines > 1 ? 1 : 0;
+    const lineBytes = Buffer.byteLength(line, 'utf8') + separator;
     this.candidateBytes += lineBytes;
     if (this.truncated) return;
 
@@ -51,4 +54,15 @@ export class BoundedPreviewEmitter {
 
 export function byteLength(value: string): number {
   return Buffer.byteLength(value, 'utf8');
+}
+
+/** Byte length of a joined line sequence, without joining it. */
+export function countBytes(lines: Iterable<string>): number {
+  let bytes = 0;
+  let count = 0;
+  for (const line of lines) {
+    bytes += byteLength(line) + (count > 0 ? 1 : 0);
+    count += 1;
+  }
+  return bytes;
 }

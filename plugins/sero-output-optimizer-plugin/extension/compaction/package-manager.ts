@@ -1,4 +1,4 @@
-import { PROGRESS_LINE } from './ansi';
+import { PROGRESS_LINE, stripAnsi } from './ansi';
 import { DIAGNOSTIC_LINE, applyPreservationGuard } from './preservation';
 
 /**
@@ -9,7 +9,8 @@ import { DIAGNOSTIC_LINE, applyPreservationGuard } from './preservation';
  */
 export function emitPackageManagerOutput(source: string, emit: (line: string) => void): boolean {
   let dropped = 0;
-  for (const line of source.split('\n')) {
+  for (const raw of source.split('\n')) {
+    const line = stripAnsi(raw);
     if (PROGRESS_LINE.test(line) && !DIAGNOSTIC_LINE.test(line)) {
       dropped += 1;
       continue;

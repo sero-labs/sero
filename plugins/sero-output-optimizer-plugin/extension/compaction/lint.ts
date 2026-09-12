@@ -1,11 +1,14 @@
-import { byteLength } from './emitter';
+import { stripAnsi } from './ansi';
+import { byteLength, countBytes } from './emitter';
 import { applyPreservationGuard } from './preservation';
 
 /**
  * Aggregate linter diagnostics by file.
  *
  * Every diagnostic line, file, line number and message is kept. Only the
- * per-line file prefix is factored into a file heading.
+ * per-line file prefix is factored into a file heading. When parsing finds no
+ * diagnostics, or aggregation would not reduce the byte count, the unchanged
+ * source is emitted so output is never emptied.
  */
 
 const ISSUE_LINE = /^(.+?):(\d+)(?::(\d+))?:\s*(.+)$/;
@@ -18,60 +21,62 @@ interface LintIssue {
   message: string;
 }
 
-function parseIssues(source: string): LintIssue[] {
-  const issues: LintIssue[] = [];
-  for (const line of source.split('\n')) {
-    const match = line.match(ISSUE_LINE);
-    if (!match) continue;
-    issues.push({
-      file: match[1] ?? '',
-      line: match[2] ?? '',
-      column: match[3],
-      message: match[4] ?? '',
-    });
-  }
-  return issues;
+interface LintAggregate {
+  byFile: Map<string, LintIssue[]>;
+  byRule: Map<string, number>;
+  errors: number;
+  warnings: number;
+  count: number;
 }
 
-export function emitLinterOutput(source: string, emit: (line: string) => void): boolean {
-  const issues = parseIssues(source);
-  if (issues.length === 0) return false;
-
+function aggregate(source: string): LintAggregate {
   const byFile = new Map<string, LintIssue[]>();
   const byRule = new Map<string, number>();
   let errors = 0;
   let warnings = 0;
+  let count = 0;
 
-  for (const issue of issues) {
-    const existing = byFile.get(issue.file) ?? [];
-    existing.push(issue);
-    byFile.set(issue.file, existing);
-    if (/warning/i.test(issue.message)) warnings += 1;
+  for (const raw of source.split('\n')) {
+    const match = stripAnsi(raw).match(ISSUE_LINE);
+    if (!match) continue;
+    const file = match[1] ?? '';
+    const message = match[4] ?? '';
+    const existing = byFile.get(file) ?? [];
+    existing.push({ file, line: match[2] ?? '', column: match[3], message });
+    byFile.set(file, existing);
+    if (/warning/i.test(message)) warnings += 1;
     else errors += 1;
-    const rule = issue.message.match(RULE_IN_MESSAGE)?.[1] ?? 'unclassified';
+    const rule = message.match(RULE_IN_MESSAGE)?.[1] ?? 'unclassified';
     byRule.set(rule, (byRule.get(rule) ?? 0) + 1);
+    count += 1;
   }
 
-  const grouped: string[] = [`${errors} errors, ${warnings} warnings in ${byFile.size} files`, 'Rules:'];
-  const sortedRules = [...byRule.entries()].sort((left, right) => right[1] - left[1]);
-  for (const [rule, count] of sortedRules) grouped.push(`  ${rule} (${count})`);
+  return { byFile, byRule, errors, warnings, count };
+}
 
-  const sortedFiles = [...byFile.entries()].sort(([left], [right]) => left.localeCompare(right));
+function* lintCandidate(agg: LintAggregate): Generator<string> {
+  yield `${agg.errors} errors, ${agg.warnings} warnings in ${agg.byFile.size} files`;
+  yield 'Rules:';
+  const sortedRules = [...agg.byRule.entries()].sort((left, right) => right[1] - left[1]);
+  for (const [rule, frequency] of sortedRules) yield `  ${rule} (${frequency})`;
+
+  const sortedFiles = [...agg.byFile.entries()].sort(([left], [right]) => left.localeCompare(right));
   for (const [file, fileIssues] of sortedFiles) {
-    grouped.push(`${file} (${fileIssues.length})`);
+    yield `${file} (${fileIssues.length})`;
     for (const issue of fileIssues) {
       const location = issue.column ? `${issue.line}:${issue.column}` : issue.line;
-      grouped.push(`  ${location}: ${issue.message}`);
+      yield `  ${location}: ${issue.message}`;
     }
   }
+}
 
-  // Aggregation only wins when it reduces the byte count; otherwise keep raw.
-  if (byteLength(grouped.join('\n')) >= byteLength(source)) {
-    for (const line of source.split('\n')) emit(line);
+export function emitLinterOutput(source: string, emit: (line: string) => void): boolean {
+  const agg = aggregate(source);
+  if (agg.count === 0 || countBytes(lintCandidate(agg)) >= byteLength(source)) {
+    for (const raw of source.split('\n')) emit(stripAnsi(raw));
     return false;
   }
-
-  for (const line of grouped) emit(line);
+  for (const line of lintCandidate(agg)) emit(line);
   return true;
 }
 

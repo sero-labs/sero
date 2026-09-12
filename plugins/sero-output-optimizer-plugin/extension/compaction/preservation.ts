@@ -1,4 +1,5 @@
 import type { OutputCategory } from './category';
+import { stripAnsi } from './ansi';
 
 /**
  * A pre-presentation safety net for category rules.
@@ -27,7 +28,7 @@ function nonEmptyUnique(values: string[]): string[] {
 function testFragments(source: string): string[] {
   return nonEmptyUnique(
     source.split('\n').filter(
-      (line) => FAILURE_LINE.test(line) || SUMMARY_LINE.test(line) || DIAGNOSTIC_LINE.test(line),
+      (line) => FAILURE_LINE.test(line) || SUMMARY_LINE.test(line) || DIAGNOSTIC_LINE.test(line) || FILE_LINE.test(line),
     ),
   );
 }
@@ -92,19 +93,21 @@ function searchFragments(source: string): string[] {
 
 /** Fragments the category must keep in its complete candidate. */
 export function protectedFragments(source: string, category: OutputCategory): string[] {
+  // A candidate is ANSI-stripped, so compare against the stripped source.
+  const clean = stripAnsi(source);
   switch (category) {
     case 'test':
-      return testFragments(source);
+      return testFragments(clean);
     case 'build':
-      return buildFragments(source);
+      return buildFragments(clean);
     case 'lint':
-      return lintFragments(source);
+      return lintFragments(clean);
     case 'git':
-      return gitFragments(source);
+      return gitFragments(clean);
     case 'packageManager':
-      return packageManagerFragments(source);
+      return packageManagerFragments(clean);
     case 'search':
-      return searchFragments(source);
+      return searchFragments(clean);
     default:
       return [];
   }
