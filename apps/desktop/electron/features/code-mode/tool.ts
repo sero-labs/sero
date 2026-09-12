@@ -64,11 +64,15 @@ export function createRunCodeController(): RunCodeController {
     description:
       'Use this as the primary tool for multi-step work that can use available tools and JavaScript. Prefer it over bash, Python, jq, or several direct tool calls when reading multiple files, querying multiple tools, parsing structured data, filtering, grouping, sorting, joining, aggregating, looping, branching, or running calls concurrently. ' +
       'Complete the whole workflow in one run_code program: make every required tool call, process the results, and return the final requested value. Do not use run_code only for discovery and then switch to direct tools or shell commands. ' +
+      'A program can also apply several file mutations in one turn: tools.edit and tools.write run in sequence against current file content, so each call validates the current content, a conflicting edit fails without overwriting an earlier change, and a later whole-file write replaces earlier content. ' +
       'Relative paths already resolve from the active workspace, so call tools.read directly for known workspace files without first querying access roots. ' +
       'Available session tools are async functions on the global tools object and take the same single object argument as direct calls. ' +
       "For a tool name that is not a JavaScript identifier, call tools.call({ name: 'sero-cli', args: { ... } }). " +
       'Tool results expose text directly as result.text. For example, read known files with Promise.all, parse each result.text, compute the answer, and return it. Use direct tools only for one simple operation. ' +
       'No imports, Node.js, filesystem, environment, or network APIs are available except through tools.',
+    promptGuidelines: [
+      'Batch several independent file mutations into one run_code program. Same-file mutations run in sequence against current content, so a conflicting edit fails and a whole-file write replaces earlier edits.',
+    ],
     parameters: RunCodeParams,
     async execute(
       toolCallId,

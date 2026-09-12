@@ -43,6 +43,10 @@ const result = spawnSync(electronBinary, [RUNNER, ...forwardedArgs], {
   env: {
     ...process.env,
     ELECTRON_RUN_AS_NODE: '1',
+    // Let the TypeScript loader resolve Sero source imports such as
+    // `@electron/...` when an eval provider builds its session from Sero tools.
+    TSX_TSCONFIG_PATH:
+      process.env.TSX_TSCONFIG_PATH ?? resolve(ROOT, 'scripts/tsconfig.eval.json'),
   },
   stdio: 'inherit',
 });

@@ -12,21 +12,11 @@ import {
   truncateHead,
   truncateTail,
 } from '../filesystem/truncate';
-import {
-  stripBom,
-  detectLineEnding,
-  normalizeToLF,
-  restoreLineEndings,
-  fuzzyFindText,
-  countFuzzyOccurrences,
-  generateDiffString,
-} from '../filesystem/edit-helpers';
+import { createEditTool, createWriteTool, type FileMutationPort } from './edit-core';
 import {
   detectMimeFromMagicHex,
   BashParams,
   ReadParams,
-  WriteParams,
-  EditParams,
 } from './tool-schemas';
 import {
   commandTouchesProtectedMemory,
@@ -50,16 +40,7 @@ function readFileErrorMessage(filePath: string, err: unknown): string {
   return err instanceof Error ? err.message : `Could not access ${filePath}`;
 }
 
-function normalizeHostGuardPath(value: string): string {
-  return path.resolve(value).replace(/\\/g, '/');
-}
-
-function isMissingPathError(err: unknown): boolean {
-  return !!err
-    && typeof err === 'object'
-    && 'code' in err
-    && (err.code === 'ENOENT' || err.code === 'ENOTDIR');
-}
+import { canonicalizeHostPath } from '../filesystem/host-path';
 
 const SAFE_HOST_TOOL_ENV_KEYS = new Set([
   'PATH',
@@ -81,32 +62,6 @@ function createSafeHostToolEnv(): Record<string, string> {
     if (SAFE_HOST_TOOL_ENV_KEYS.has(key) || key.startsWith('LC_')) env[key] = value;
   }
   return env;
-}
-
-async function resolveHostPathForGuard(candidatePath: string): Promise<string> {
-  let current = normalizeHostGuardPath(candidatePath);
-  const missingSegments: string[] = [];
-
-  while (true) {
-    try {
-      const resolved = normalizeHostGuardPath(await fs.realpath(current));
-      return missingSegments.length > 0
-        ? normalizeHostGuardPath(path.join(resolved, ...missingSegments.reverse()))
-        : resolved;
-    } catch (err) {
-      if (!isMissingPathError(err)) {
-        return normalizeHostGuardPath(candidatePath);
-      }
-
-      const parent = path.dirname(current);
-      if (parent === current) {
-        return normalizeHostGuardPath(candidatePath);
-      }
-
-      missingSegments.push(path.basename(current));
-      current = parent;
-    }
-  }
 }
 
 async function runHostCommand(
@@ -197,6 +152,10 @@ function createHostBash(basedir: string): ToolDefinition {
   return {
     name: 'bash',
     label: 'bash',
+    promptSnippet: 'Run a bash command in the workspace and return its output',
+    promptGuidelines: [
+      'Use bash for project commands and shell or system operations. When run_code is available, use it instead of bash, Python, or jq to read and aggregate structured workspace data.',
+    ],
     description:
       `Execute a bash command in the current working directory. ` +
       `Returns stdout and stderr. Output is truncated to last ` +
@@ -212,7 +171,7 @@ function createHostBash(basedir: string): ToolDefinition {
         || await commandTouchesProtectedMemoryWithResolver({
           command: params.command,
           basedir,
-          resolvePath: resolveHostPathForGuard,
+          resolvePath: canonicalizeHostPath,
         })
       ) {
         throw new Error(getProtectedMemoryAccessError('bash'));
@@ -260,6 +219,10 @@ function createHostRead(basedir: string): ToolDefinition {
   return {
     name: 'read',
     label: 'read',
+    promptSnippet: 'Read a text or image file, with offset and limit for large files',
+    promptGuidelines: [
+      'Use read to examine files before editing. Use offset and limit for large files, and continue with offset until the read is complete.',
+    ],
     description:
       `Read the contents of a file. Supports text files and images ` +
       `(jpg, png, gif, webp). Images are sent as attachments. For text ` +
@@ -274,7 +237,7 @@ function createHostRead(basedir: string): ToolDefinition {
       const absPath = resolveHostPath(params.path, basedir);
       const guardedPath = isProtectedMemoryPath(absPath)
         ? absPath
-        : await resolveHostPathForGuard(absPath);
+        : await canonicalizeHostPath(absPath);
       if (isProtectedMemoryPath(guardedPath)) {
         throw new Error(getProtectedMemoryAccessError('read'));
       }
@@ -371,114 +334,44 @@ function createHostRead(basedir: string): ToolDefinition {
   };
 }
 
-function createHostWrite(basedir: string): ToolDefinition {
+/**
+ * Serialization key for a host target. Host sessions, factories, and the host
+ * side of a live-mounted container share one filesystem namespace and one key.
+ */
+function createHostMutationPort(): FileMutationPort {
   return {
-    name: 'write',
-    label: 'write',
-    description:
-      "Write content to a file. Creates the file if it doesn't exist, " +
-      'overwrites if it does. Automatically creates parent directories.',
-    parameters: WriteParams,
-    execute: async (_toolCallId, params: Static<typeof WriteParams>, signal?) => {
-      if (signal?.aborted) throw new Error('Operation aborted');
-
-      const absPath = resolveHostPath(params.path, basedir);
-      const guardedPath = isProtectedMemoryPath(absPath)
-        ? absPath
-        : await resolveHostPathForGuard(absPath);
-      if (isProtectedMemoryPath(guardedPath)) {
-        throw new Error(getProtectedMemoryAccessError('write'));
-      }
-
-      await fs.mkdir(path.dirname(absPath), { recursive: true });
-      await fs.writeFile(absPath, params.content, 'utf8');
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Successfully wrote ${params.content.length} bytes to ${params.path}`,
-          },
-        ],
-        details: { path: absPath },
-      };
+    resolveTarget: async (absolutePath) => {
+      const canonicalPath = await canonicalizeHostPath(absolutePath);
+      return { key: `host:${canonicalPath}`, canonicalPath };
+    },
+    readFile: (absolutePath) => fs.readFile(absolutePath, 'utf8'),
+    writeFile: async (absolutePath, content) => {
+      await fs.mkdir(path.dirname(absolutePath), { recursive: true });
+      await fs.writeFile(absolutePath, content, 'utf8');
     },
   };
 }
 
-function createHostEdit(basedir: string): ToolDefinition {
-  return {
-    name: 'edit',
-    label: 'edit',
-    description:
-      'Edit a file by replacing exact text. The oldText must match exactly ' +
-      '(including whitespace). Use this for precise, surgical edits.',
-    parameters: EditParams,
-    execute: async (_toolCallId, params: Static<typeof EditParams>, signal?) => {
-      if (signal?.aborted) throw new Error('Operation aborted');
+function createHostWrite(basedir: string): ToolDefinition {
+  return createWriteTool({
+    port: createHostMutationPort(),
+    resolvePath: (requestedPath) => resolveHostPath(requestedPath, basedir),
+    assertAllowed: (target) => {
+      if (isProtectedMemoryPath(target.canonicalPath)) {
+        throw new Error(getProtectedMemoryAccessError('write'));
+      }
+    },
+  });
+}
 
-      const absPath = resolveHostPath(params.path, basedir);
-      const guardedPath = isProtectedMemoryPath(absPath)
-        ? absPath
-        : await resolveHostPathForGuard(absPath);
-      if (isProtectedMemoryPath(guardedPath)) {
+function createHostEdit(basedir: string): ToolDefinition {
+  return createEditTool({
+    port: createHostMutationPort(),
+    resolvePath: (requestedPath) => resolveHostPath(requestedPath, basedir),
+    assertAllowed: (target) => {
+      if (isProtectedMemoryPath(target.canonicalPath)) {
         throw new Error(getProtectedMemoryAccessError('edit'));
       }
-
-      let rawContent: string;
-      try {
-        rawContent = await fs.readFile(absPath, 'utf8');
-      } catch {
-        throw new Error(`File not found: ${params.path}`);
-      }
-
-      const { bom, text: content } = stripBom(rawContent);
-      const originalEnding = detectLineEnding(content);
-      const normalizedContent = normalizeToLF(content);
-      const normalizedOldText = normalizeToLF(params.oldText);
-      const normalizedNewText = normalizeToLF(params.newText);
-
-      const matchResult = fuzzyFindText(normalizedContent, normalizedOldText);
-      if (!matchResult.found) {
-        throw new Error(
-          `Could not find the exact text in ${params.path}. ` +
-            'The old text must match exactly including all whitespace and newlines.',
-        );
-      }
-
-      const occurrences = countFuzzyOccurrences(normalizedContent, normalizedOldText);
-      if (occurrences > 1) {
-        throw new Error(
-          `Found ${occurrences} occurrences of the text in ${params.path}. ` +
-            'The text must be unique. Please provide more context to make it unique.',
-        );
-      }
-
-      const baseContent = matchResult.contentForReplacement;
-      const newContent =
-        baseContent.substring(0, matchResult.index) +
-        normalizedNewText +
-        baseContent.substring(matchResult.index + matchResult.matchLength);
-
-      if (baseContent === newContent) {
-        throw new Error(
-          `No changes made to ${params.path}. The replacement produced identical content.`,
-        );
-      }
-
-      const finalContent = bom + restoreLineEndings(newContent, originalEnding);
-      await fs.writeFile(absPath, finalContent, 'utf8');
-      const diffResult = generateDiffString(baseContent, newContent);
-
-      return {
-        content: [
-          { type: 'text', text: `Successfully replaced text in ${params.path}.` },
-        ],
-        details: {
-          path: absPath,
-          diff: diffResult.diff,
-          firstChangedLine: diffResult.firstChangedLine,
-        },
-      };
     },
-  };
+  });
 }

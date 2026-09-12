@@ -1,21 +1,19 @@
 import { useMemo } from 'react';
 import type { ChatToolCallMessage } from '@/types/ipc';
-
-const TAIL_LINES = 200;
+import { buildStreamingFilePreview, TAIL_LINES } from './streaming-file-preview';
 
 /** Show a readable tail of streamed file input inside the full tool details. */
 export function StreamingFileWrite({ tool }: { tool: ChatToolCallMessage }) {
-  const content = typeof tool.input.content === 'string' ? tool.input.content : '';
   const path = typeof tool.input.path === 'string' ? tool.input.path : null;
-  const isFragment = tool.toolName === 'edit';
+  const { previewText, lineCount, isFragment } = useMemo(
+    () => buildStreamingFilePreview(tool),
+    [tool],
+  );
 
-  const { tail, lineCount } = useMemo(() => {
-    const lines = content.split('\n');
-    return {
-      tail: lines.slice(-TAIL_LINES).join('\n'),
-      lineCount: content ? lines.length - Number(content.endsWith('\n')) : 0,
-    };
-  }, [content]);
+  const tail = useMemo(() => {
+    if (!previewText) return '';
+    return previewText.split('\n').slice(-TAIL_LINES).join('\n');
+  }, [previewText]);
 
   return (
     <div className="min-w-0 space-y-1.5">

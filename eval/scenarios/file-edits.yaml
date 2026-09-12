@@ -1,0 +1,163 @@
+# File-edit scenarios for the runtime-backed file tools.
+#
+# Run with: pnpm eval:file-tools
+#
+# These scenarios exercise Sero's `edit` contract through the runtime host
+# file-tool factory (`toolMode: runtime`): multi-replacement calls, block moves,
+# duplicate-text ambiguity, content changed after an earlier edit, failed-edit
+# recovery, and an intentional whole-file replacement.
+
+- description: "Several independent changes in one file"
+  vars:
+    scenario_prompt: >
+      Create a file called metrics.ts with exactly these three lines:
+      export const READS = 1;
+      export const WRITES = 2;
+      export const DELETES = 3;
+      Then change READS to 10, WRITES to 20, and DELETES to 30 in a single
+      operation. Do not rewrite the whole file. Include the final file contents
+      in a fenced code block.
+  assert:
+    - type: javascript
+      value: file://./assertions/editBatching.ts
+      config:
+        minReplacementsPerCall: 2
+    - type: contains
+      value: "READS = 10"
+    - type: contains
+      value: "DELETES = 30"
+    - type: llm-rubric
+      value: >
+        The agent changed three constants in one file and applied them together
+        rather than in three separate tool calls. The final content keeps all
+        three lines.
+      threshold: 0.6
+
+- description: "Block move in one file"
+  vars:
+    scenario_prompt: >
+      Create a file called order.ts with these two functions in this order:
+      export function second(): number { return 2; }
+      export function first(): number { return 1; }
+      Then move the `first` function above the `second` function without
+      changing either body. Include the final file contents in a fenced code
+      block.
+  assert:
+    - type: llm-rubric
+      value: >
+        The final file defines `first` before `second` and both function bodies
+        are unchanged. The agent used file edit tools rather than leaving the
+        file in its original order.
+      threshold: 0.6
+
+- description: "Duplicate-text ambiguity"
+  vars:
+    scenario_prompt: >
+      Create a file called dup.ts with exactly these lines:
+      const value = 0;
+      const label = "kept";
+      const value = 0;
+      Then change the second `const value = 0;` line to `const value = 9;`
+      without changing the first one. If the match is ambiguous, add enough
+      context to make it unique. Include the final file contents in a fenced
+      code block.
+  assert:
+    - type: javascript
+      value: file://./assertions/editBatching.ts
+    - type: llm-rubric
+      value: >
+        Exactly one of the two `const value = 0;` lines is now
+        `const value = 9;` and the other line is unchanged. The agent handled
+        the duplicate text rather than changing both lines or giving up.
+      threshold: 0.6
+
+- description: "Content removed after an earlier edit"
+  vars:
+    scenario_prompt: >
+      Create a file called stale.ts with exactly these lines:
+      const alpha = "one";
+      const beta = "two";
+      In one turn, first replace `const alpha = "one";` with
+      `const alpha = "changed";`, then replace the original
+      `const alpha = "one";` text again with `const alpha = "again";`.
+      The second replacement must fail because the first edit removed its match.
+      Report the failure and keep the first change. Include the final file
+      contents in a fenced code block.
+  assert:
+    - type: javascript
+      value: file://./assertions/editBatching.ts
+    - type: llm-rubric
+      value: >
+        The final file contains `const alpha = "changed";` and not
+        `const alpha = "one";` or `const alpha = "again";`. The agent reported
+        that the second replacement could not match.
+      threshold: 0.6
+
+- description: "Failed edit followed by recovery"
+  vars:
+    scenario_prompt: >
+      Create a file called recover.ts with exactly these lines:
+      export const retries = 0;
+      export const timeout = 5;
+      Then change the line `export const retries = 3;` to
+      `export const retries = 9;`. That text does not exist. After the failed
+      edit, correct yourself and change `export const retries = 0;` to
+      `export const retries = 9;`. Include the final file contents in a fenced
+      code block.
+  assert:
+    - type: javascript
+      value: file://./assertions/editBatching.ts
+    - type: llm-rubric
+      value: >
+        The final file contains `export const retries = 9;`. The agent made at
+        least one failed edit attempt against nonexistent text and then
+        recovered instead of stopping.
+      threshold: 0.6
+
+- description: "Intentional whole-file replacement"
+  vars:
+    scenario_prompt: >
+      Create a file called config.ts with exactly these lines:
+      export const host = "localhost";
+      export const port = 3000;
+      Then replace the entire file with a single line:
+      export const endpoint = "https://api.example.com";
+      Include the final file contents in a fenced code block.
+  assert:
+    - type: javascript
+      value: file://./assertions/editBatching.ts
+      config:
+        minReplacementsPerCall: 0
+    - type: llm-rubric
+      value: >
+        The final file contains exactly one line,
+        `export const endpoint = "https://api.example.com";`, and neither the
+        host nor port line remains.
+      threshold: 0.6
+
+- description: "Rename six identifiers with targeted edits"
+  vars:
+    scenario_prompt: >
+      Create a file called registry.ts with exactly these lines:
+      export const ALPHA_0 = 0;
+      export const ALPHA_1 = 1;
+      export const ALPHA_2 = 2;
+      export const ALPHA_3 = 3;
+      export const ALPHA_4 = 4;
+      export const ALPHA_5 = 5;
+      Then rename each constant ALPHA_0 through ALPHA_5 to BETA_0 through
+      BETA_5. Make each change as a targeted edit with the edit tool. Do not
+      rewrite the whole file. Do not use shell commands to modify the file.
+      Include the final file contents in a fenced code block.
+  assert:
+    - type: javascript
+      value: file://./assertions/editBatching.ts
+      config:
+        maxLongRunShare: 0
+    - type: contains
+      value: "BETA_5 = 5"
+    - type: llm-rubric
+      value: >
+        All six constants are renamed from ALPHA_0 through ALPHA_5 to BETA_0
+        through BETA_5, and no ALPHA_ constant remains.
+      threshold: 0.6

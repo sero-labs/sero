@@ -32,9 +32,9 @@ pnpm eval:snapshot
 - `pnpm test:ci` — typecheck, build, workspace tests, and the desktop contract E2E project
 - `pnpm eval:snapshot` — fast prompt assembly/cache drift check
 
-For live provider evals, use `pnpm eval` only when credentials and budget are
-available. See [Running Evals](/guide/running-evals) and
-[Testing / Evals](/reference/testing-evals).
+For live provider evals, use `pnpm eval` or `pnpm eval:file-tools` only when
+credentials and budget are available. See [Running Evals](/guide/running-evals)
+and [Testing / Evals](/reference/testing-evals).
 
 ## Runtime notes
 
@@ -57,6 +57,7 @@ coverage.
 
 For contribution workflow, PR expectations, and security reporting, see the
 root OSS files in the repository:
+
 - [`CONTRIBUTING.md`](https://github.com/sero-labs/sero/blob/main/CONTRIBUTING.md)
 - [`SECURITY.md`](https://github.com/sero-labs/sero/blob/main/SECURITY.md)
 - [`CODE_OF_CONDUCT.md`](https://github.com/sero-labs/sero/blob/main/CODE_OF_CONDUCT.md)

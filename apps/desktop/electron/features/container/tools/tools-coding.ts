@@ -11,6 +11,8 @@
  * ignored by the framework.
  */
 
+import path from 'node:path';
+
 import type { Static } from 'typebox';
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import type { RuntimeBackend, RuntimeFileReadResult } from '@electron/features/workspace/runtime/types';
@@ -21,15 +23,8 @@ import {
   truncateHead,
   truncateTail,
 } from '../filesystem/truncate';
-import {
-  stripBom,
-  detectLineEnding,
-  normalizeToLF,
-  restoreLineEndings,
-  fuzzyFindText,
-  countFuzzyOccurrences,
-  generateDiffString,
-} from '../filesystem/edit-helpers';
+import { canonicalizeHostPath } from '../filesystem/host-path';
+import { createEditTool, createWriteTool, type FileMutationPort } from './edit-core';
 import {
   WORKSPACE_DIR,
   resolveContainerPath,
@@ -37,8 +32,6 @@ import {
   detectMimeFromMagicHex,
   BashParams,
   ReadParams,
-  WriteParams,
-  EditParams,
 } from './tool-schemas';
 import {
   commandTouchesProtectedMemory,
@@ -101,6 +94,10 @@ export function createBash(runtime: RuntimeBackend, containerCwd?: string, sessi
   return {
     name: 'bash',
     label: 'bash',
+    promptSnippet: 'Run a bash command in the workspace and return its output',
+    promptGuidelines: [
+      'Use bash for project commands and shell or system operations. When run_code is available, use it instead of bash, Python, or jq to read and aggregate structured workspace data.',
+    ],
     description:
       `Execute a bash command in the current working directory. ` +
       `Returns stdout and stderr. Output is truncated to last ` +
@@ -177,6 +174,10 @@ export function createRead(runtime: RuntimeBackend, containerCwd?: string): Tool
   return {
     name: 'read',
     label: 'read',
+    promptSnippet: 'Read a text or image file, with offset and limit for large files',
+    promptGuidelines: [
+      'Use read to examine files before editing. Use offset and limit for large files, and continue with offset until the read is complete.',
+    ],
     description:
       `Read the contents of a file. Supports text files and images ` +
       `(jpg, png, gif, webp). Images are sent as attachments. For text ` +
@@ -304,129 +305,75 @@ export function createRead(runtime: RuntimeBackend, containerCwd?: string): Tool
 
 // ── Write ───────────────────────────────────────────────────
 
-export function createWrite(runtime: RuntimeBackend, containerCwd?: string): ToolDefinition {
+/**
+ * Serialization key for a container target.
+ *
+ * A path under the runtime workspace maps to the host file identity, so host
+ * tools and container tools that reach the same backing file share one queue.
+ * Other paths stay container-scoped, so separate containers do not collide at
+ * an identical absolute path.
+ */
+export async function containerMutationKey(runtime: RuntimeBackend, canonicalPath: string): Promise<string> {
+  const base = runtime.runtimeWorkspacePath;
+  const inWorkspace = base
+    && (canonicalPath === base || canonicalPath.startsWith(`${base}/`));
+  if (inWorkspace) {
+    const relative = canonicalPath === base ? '' : canonicalPath.slice(base.length + 1);
+    const hostPath = relative
+      ? path.join(runtime.hostWorkspacePath, ...relative.split('/'))
+      : runtime.hostWorkspacePath;
+    // The container path maps onto the host mount, so resolve the host path
+    // through host realpath and share the host file identity.
+    return `host:${await canonicalizeHostPath(hostPath)}`;
+  }
+  return `container:${runtime.backend}:${runtime.workspaceId}:${canonicalPath}`;
+}
+
+function resolveContainerTarget(runtime: RuntimeBackend, targetPath: string, basedir: string): Promise<string> {
+  return isProtectedMemoryPath(targetPath)
+    ? Promise.resolve(normalizeContainerGuardPath(targetPath))
+    : resolveContainerPathForGuard(runtime, targetPath, basedir);
+}
+
+export function createContainerMutationPort(runtime: RuntimeBackend, containerCwd?: string): FileMutationPort {
   const basedir = containerCwd ?? WORKSPACE_DIR;
   return {
-    name: 'write',
-    label: 'write',
-    description:
-      "Write content to a file. Creates the file if it doesn't exist, " +
-      'overwrites if it does. Automatically creates parent directories.',
-    parameters: WriteParams,
-    execute: async (_toolCallId, params: Static<typeof WriteParams>, signal?) => {
-      if (signal?.aborted) throw new Error('Operation aborted');
+    resolveTarget: async (absolutePath) => {
+      const canonicalPath = await resolveContainerTarget(runtime, absolutePath, basedir);
+      return { key: await containerMutationKey(runtime, canonicalPath), canonicalPath };
+    },
+    readFile: async (absolutePath) => {
+      const result = await runtime.readFile({ path: absolutePath });
+      return result.content;
+    },
+    writeFile: (absolutePath, content) => runtime.writeFile({ path: absolutePath, content }),
+  };
+}
 
-      const absPath = resolveContainerPath(params.path, basedir);
-      const guardedPath = isProtectedMemoryPath(absPath)
-        ? absPath
-        : await resolveContainerPathForGuard(runtime, absPath, basedir);
-      if (isProtectedMemoryPath(guardedPath)) {
+export function createWrite(runtime: RuntimeBackend, containerCwd?: string): ToolDefinition {
+  const basedir = containerCwd ?? WORKSPACE_DIR;
+  return createWriteTool({
+    port: createContainerMutationPort(runtime, containerCwd),
+    resolvePath: (requestedPath) => resolveContainerPath(requestedPath, basedir),
+    assertAllowed: (target) => {
+      if (isProtectedMemoryPath(target.canonicalPath)) {
         throw new Error(getProtectedMemoryAccessError('write'));
       }
-      await runtime.writeFile({ path: absPath, content: params.content });
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Successfully wrote ${params.content.length} bytes to ${params.path}`,
-          },
-        ],
-        details: { path: absPath },
-      };
     },
-  };
+  });
 }
 
 // ── Edit ────────────────────────────────────────────────────
 
 export function createEdit(runtime: RuntimeBackend, containerCwd?: string): ToolDefinition {
   const basedir = containerCwd ?? WORKSPACE_DIR;
-  return {
-    name: 'edit',
-    label: 'edit',
-    description:
-      'Edit a file by replacing exact text. The oldText must match exactly ' +
-      '(including whitespace). Use this for precise, surgical edits.',
-    parameters: EditParams,
-    execute: async (_toolCallId, params: Static<typeof EditParams>, signal?) => {
-      if (signal?.aborted) throw new Error('Operation aborted');
-
-      const absPath = resolveContainerPath(params.path, basedir);
-      const guardedPath = isProtectedMemoryPath(absPath)
-        ? absPath
-        : await resolveContainerPathForGuard(runtime, absPath, basedir);
-      if (isProtectedMemoryPath(guardedPath)) {
+  return createEditTool({
+    port: createContainerMutationPort(runtime, containerCwd),
+    resolvePath: (requestedPath) => resolveContainerPath(requestedPath, basedir),
+    assertAllowed: (target) => {
+      if (isProtectedMemoryPath(target.canonicalPath)) {
         throw new Error(getProtectedMemoryAccessError('edit'));
       }
-
-      // Read current file content
-      let rawContent: string;
-      try {
-        const readResult = await runtime.readFile({ path: absPath });
-        rawContent = readResult.content;
-      } catch {
-        throw new Error(`File not found: ${params.path}`);
-      }
-
-      // Strip BOM before matching (LLMs never include invisible BOM)
-      const { bom, text: content } = stripBom(rawContent);
-
-      // Normalise line endings for matching
-      const originalEnding = detectLineEnding(content);
-      const normalizedContent = normalizeToLF(content);
-      const normalizedOldText = normalizeToLF(params.oldText);
-      const normalizedNewText = normalizeToLF(params.newText);
-
-      // Fuzzy find (exact first, then trailing-ws / smart-quote tolerant)
-      const matchResult = fuzzyFindText(normalizedContent, normalizedOldText);
-
-      if (!matchResult.found) {
-        throw new Error(
-          `Could not find the exact text in ${params.path}. ` +
-            'The old text must match exactly including all whitespace and newlines.',
-        );
-      }
-
-      // Reject ambiguous edits (multiple matches)
-      const occurrences = countFuzzyOccurrences(normalizedContent, normalizedOldText);
-      if (occurrences > 1) {
-        throw new Error(
-          `Found ${occurrences} occurrences of the text in ${params.path}. ` +
-            'The text must be unique. Please provide more context to make it unique.',
-        );
-      }
-
-      // Perform replacement
-      const baseContent = matchResult.contentForReplacement;
-      const newContent =
-        baseContent.substring(0, matchResult.index) +
-        normalizedNewText +
-        baseContent.substring(matchResult.index + matchResult.matchLength);
-
-      // Reject no-op edits
-      if (baseContent === newContent) {
-        throw new Error(
-          `No changes made to ${params.path}. The replacement produced identical content.`,
-        );
-      }
-
-      // Restore original line endings + BOM, then write
-      const finalContent = bom + restoreLineEndings(newContent, originalEnding);
-      await runtime.writeFile({ path: absPath, content: finalContent });
-
-      // Generate unified diff for the response
-      const diffResult = generateDiffString(baseContent, newContent);
-
-      return {
-        content: [
-          { type: 'text', text: `Successfully replaced text in ${params.path}.` },
-        ],
-        details: {
-          path: absPath,
-          diff: diffResult.diff,
-          firstChangedLine: diffResult.firstChangedLine,
-        },
-      };
     },
-  };
+  });
 }
