@@ -61,13 +61,11 @@ export class ConfigStore {
     return this.config;
   }
 
-  /** Re-read the file only when it changed since the last read. */
-  async refresh(): Promise<OutputOptimizerConfig> {
-    const target = resolveOptimizerConfigPath();
+  /** Read and adopt the file, remembering the identity of what was read. */
+  private async adopt(target: string): Promise<OutputOptimizerConfig> {
     try {
-      const stat = await fs.promises.stat(target);
-      if (stat.mtimeMs === this.mtimeMs && stat.size === this.size) return this.config;
       const raw = await fs.promises.readFile(target, 'utf8');
+      const stat = await fs.promises.stat(target);
       this.config = normalizeConfig(JSON.parse(raw));
       this.mtimeMs = stat.mtimeMs;
       this.size = stat.size;
@@ -76,6 +74,29 @@ export class ConfigStore {
       if (this.mtimeMs === -1) this.config = defaultOptimizerConfig();
     }
     return this.config;
+  }
+
+  /** Re-read the file only when it changed since the last read. */
+  async refresh(): Promise<OutputOptimizerConfig> {
+    const target = resolveOptimizerConfigPath();
+    try {
+      const stat = await fs.promises.stat(target);
+      if (stat.mtimeMs === this.mtimeMs && stat.size === this.size) return this.config;
+    } catch {
+      // Fall through: adopt() handles a missing or unreadable file.
+    }
+    return this.adopt(target);
+  }
+
+  /**
+   * Re-read the file unconditionally.
+   *
+   * A read-modify-write must not merge into a cached copy, because another
+   * session may have written the file since the last read and a same-size
+   * write can share an mtime tick. Use this before reading settings to merge.
+   */
+  reload(): Promise<OutputOptimizerConfig> {
+    return this.adopt(resolveOptimizerConfigPath());
   }
 
   async save(next: OutputOptimizerConfig): Promise<OutputOptimizerConfig> {

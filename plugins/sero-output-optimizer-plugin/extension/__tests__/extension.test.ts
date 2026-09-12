@@ -107,6 +107,79 @@ describe('output optimizer extension', () => {
     expect(plain.input.command).toBe('git status');
   });
 
+  it('does not revert a settings change made by another session', async () => {
+    const first = await start();
+    const second = await start();
+
+    type SetResult = { details: { config: { enabled: boolean; notices: boolean } } };
+
+    await first.harness.tools.get('output_optimizer')?.execute('id', { action: 'set', enabled: true });
+
+    // The second session changes notices only. It must merge into the file's
+    // current settings, not a cached copy, so enabling optimisation survives.
+    const merged = await second.harness.tools
+      .get('output_optimizer')
+      ?.execute('id', { action: 'set', notices: false }) as SetResult;
+    expect(merged.details.config.enabled).toBe(true);
+    expect(merged.details.config.notices).toBe(false);
+
+    const reread = await first.harness.tools
+      .get('output_optimizer')
+      ?.execute('id', { action: 'state' }) as SetResult;
+    expect(reread.details.config.enabled).toBe(true);
+    expect(reread.details.config.notices).toBe(false);
+  });
+
+  it('shares RTK status with a session that never resolved it', async () => {
+    const chat = await start();
+    await chat.harness.tools.get('output_optimizer')?.execute('id', { action: 'set', enabled: true });
+    await chat.harness.handlers.get('tool_call')?.(
+      { toolName: 'bash', toolCallId: 'call-rtk', input: { command: 'git status' } },
+      chat.ctx,
+    );
+
+    // A second session starts fresh: it never resolved RTK itself.
+    const app = await start();
+    type StateResult = { details: { rtk: { state: string; version?: string } } };
+    const result = await app.harness.tools.get('output_optimizer')
+      ?.execute('id', { action: 'state' }) as StateResult;
+    expect(result.details.rtk.state).toBe('available');
+    expect(result.details.rtk.version).toBe('0.49.0');
+  });
+
+  it('publishes session savings that another session can read', async () => {
+    const chat = await start();
+    await chat.harness.tools.get('output_optimizer')?.execute('id', { action: 'set', enabled: true });
+
+    const capturePath = path.join(directory, 'savings-capture.log');
+    await fs.promises.writeFile(capturePath, 'FAIL src/a.test.ts\n  1 failed\n', 'utf8');
+    await chat.harness.handlers.get('tool_result')?.(
+      {
+        toolName: 'bash',
+        toolCallId: 'call-savings',
+        input: { command: 'pnpm test' },
+        content: [{ type: 'text', text: 'payload' }],
+        details: {
+          exitCode: 1,
+          capture: {
+            captureId: 'capture-1',
+            complete: true,
+            combined: { stream: 'combined', runtimePath: capturePath, hostPath: capturePath, bytes: 30 },
+          },
+        },
+      },
+      chat.ctx,
+    );
+
+    // The settings surface runs in a session with no chat history of its own.
+    const app = await start();
+    type StateResult = { details: { savings: { measuredCalls: number; inputBytes: number } } };
+    const result = await app.harness.tools.get('output_optimizer')
+      ?.execute('id', { action: 'state' }) as StateResult;
+    expect(result.details.savings.measuredCalls).toBeGreaterThan(0);
+    expect(result.details.savings.inputBytes).toBeGreaterThan(0);
+  });
+
   it('skips nested run_code calls but keeps ordinary calls eligible', async () => {
     const { harness: h, ctx } = await start();
     await h.tools.get('output_optimizer')?.execute('id', { action: 'set', enabled: true });

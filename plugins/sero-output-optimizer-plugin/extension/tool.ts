@@ -6,8 +6,6 @@ import {
   REWRITE_CLASSES,  type OutputOptimizerConfig,
   type OutputOptimizerState,
   type RewriteClass,
-  type RtkStatusView,
-  type SessionSavings,
 } from '../shared/types';
 
 /**
@@ -18,10 +16,11 @@ import {
  */
 
 export interface OptimizerToolContext {
-  getConfig(): OutputOptimizerConfig;
+  /** Read the config file's current settings, not a cached copy. */
+  loadConfig(): Promise<OutputOptimizerConfig>;
   setConfig(next: OutputOptimizerConfig): Promise<void>;
-  getSavings(): SessionSavings;
-  getRtkStatus(): RtkStatusView;
+  /** The shared live view: savings the chat session published and RTK status. */
+  getStatus(): Promise<Pick<OutputOptimizerState, 'savings' | 'rtk'>>;
   retryRtk(): Promise<void>;
 }
 
@@ -83,12 +82,15 @@ export function registerOptimizerTool(pi: ExtensionAPI, context: OptimizerToolCo
         await context.retryRtk();
       }
       if (params.action === 'set') {
-        await context.setConfig(mergeConfig(context.getConfig(), params));
+        // Merge into the file's current settings, never a cached copy, so a
+        // change made in another session is not silently reverted.
+        await context.setConfig(mergeConfig(await context.loadConfig(), params));
       }
+      const status = await context.getStatus();
       const state: OutputOptimizerState = {
-        config: context.getConfig(),
-        savings: context.getSavings(),
-        rtk: context.getRtkStatus(),
+        config: await context.loadConfig(),
+        savings: status.savings,
+        rtk: status.rtk,
       };
       return {
         content: [{ type: 'text' as const, text: describe(state) }],

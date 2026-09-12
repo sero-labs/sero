@@ -1,5 +1,5 @@
-import { analyzeCommand } from '../command-analysis';
-import { commandBasename, stripEnvAssignments, tokenizeShellSegment } from '../shell';
+import { analyzeCommand, type AnalyzedSegment, type CommandAnalysis } from '../command-analysis';
+import { commandBasename, stripEnvAssignments } from '../shell';
 
 /**
  * Recognise the categories the plugin compacts.
@@ -49,16 +49,29 @@ const PACKAGE_MANAGER_SUBCOMMANDS = new Set([
 ]);
 const GIT_COMPACTED_SUBCOMMANDS = new Set(['status', 'log']);
 
+/**
+ * Separators that run separate commands whose output is concatenated.
+ *
+ * A pipeline is not one of these: its data still comes from the segments that
+ * feed it, so the existing first-command rule stays valid.
+ */
+const SEQUENCE_SEPARATORS = new Set(['&&', '||', ';', '&', '\n']);
+
+/**
+ * Commands that change nothing about later output.
+ *
+ * This is deliberately small. A command that might print belongs on the
+ * rejected side, because one unrecognised line would be compacted away.
+ */
+const NO_OUTPUT_COMMANDS = new Set(['cd', 'export', 'unset', 'source', '.', 'true', ':', 'umask']);
+
 interface FirstCommand {
   name: string;
   args: string[];
 }
 
-function firstCommand(command: string): FirstCommand | null {
-  const analysis = analyzeCommand(command);
-  const segment = analysis.segments[0];
-  if (!segment) return null;
-  const tokens = stripEnvAssignments(tokenizeShellSegment(segment.text));
+function commandOf(segment: AnalyzedSegment): FirstCommand | null {
+  const tokens = stripEnvAssignments(segment.tokens);
   const executable = tokens[0];
   if (!executable) return null;
   return {
@@ -119,22 +132,71 @@ function isPackageManagerCommand({ name, args }: FirstCommand): boolean {
   return name === 'pip' || name === 'uv' || name === 'poetry' || name === 'bundle' || name === 'composer';
 }
 
-export function detectCategory(command: string | undefined): OutputCategory {
-  if (!command) return 'none';
+function isSearchCommand({ name }: FirstCommand): boolean {
+  return SEARCH_COMMANDS.has(name);
+}
 
-  const analysis = analyzeCommand(command);
-  if (analysis.segments.some(
-    (segment) => segment.command !== undefined && SEARCH_COMMANDS.has(segment.command),
-  )) {
-    return 'search';
-  }
-
-  const first = firstCommand(command);
-  if (!first) return 'none';
+function classify(first: FirstCommand): OutputCategory {
+  if (isSearchCommand(first)) return 'search';
   if (isTestCommand(first)) return 'test';
   if (isBuildCommand(first)) return 'build';
   if (isLintCommand(first)) return 'lint';
   if (isGitCommand(first)) return 'git';
   if (isPackageManagerCommand(first)) return 'packageManager';
   return 'none';
+}
+
+/**
+ * One category for a command that runs several commands in sequence.
+ *
+ * Every segment must either resolve to the same category or be a control
+ * command that prints nothing. Anything else returns `none`: the combined
+ * output mixes streams that one rule cannot compact without losing content.
+ * For example `pnpm test && cat package.json` must not use the test rule,
+ * because the JSON has no test line to protect it.
+ */
+function sequenceCategory(analysis: CommandAnalysis): OutputCategory {
+  let decided: OutputCategory = 'none';
+  let sawCommand = false;
+
+  for (const segment of analysis.segments) {
+    const first = commandOf(segment);
+    if (!first) continue;
+    sawCommand = true;
+    const category = classify(first);
+
+    if (category === 'none') {
+      if (NO_OUTPUT_COMMANDS.has(first.name)) continue;
+      return 'none';
+    }
+    if (decided === 'none') {
+      decided = category;
+      continue;
+    }
+    if (decided !== category) return 'none';
+  }
+
+  return sawCommand ? decided : 'none';
+}
+
+export function detectCategory(command: string | undefined): OutputCategory {
+  if (!command) return 'none';
+
+  const analysis = analyzeCommand(command);
+
+  // A sequence of commands concatenates their output. Use one category only
+  // when every segment agrees and no other segment can print.
+  if (analysis.separators.some((separator) => SEQUENCE_SEPARATORS.has(separator))) {
+    return sequenceCategory(analysis);
+  }
+
+  if (analysis.segments.some(
+    (segment) => segment.command !== undefined && SEARCH_COMMANDS.has(segment.command),
+  )) {
+    return 'search';
+  }
+
+  const first = analysis.segments[0] ? commandOf(analysis.segments[0]) : null;
+  if (!first) return 'none';
+  return classify(first);
 }

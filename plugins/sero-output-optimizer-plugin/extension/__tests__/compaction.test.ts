@@ -29,6 +29,35 @@ describe('category detection', () => {
     expect(detectCategory('git status | grep modified')).toBe('search');
     expect(detectCategory('echo hello')).toBe('none');
   });
+
+  it('refuses one category when a sequence of commands mixes output', () => {
+    // The test rule cannot protect the JSON, so the whole command stays raw.
+    expect(detectCategory('pnpm test && cat package.json')).toBe('none');
+    expect(detectCategory('pnpm test; cat package.json')).toBe('none');
+    expect(detectCategory('rg foo && cat package.json')).toBe('none');
+    // Two different categories also mix output that one rule cannot protect.
+    expect(detectCategory('pnpm test && pnpm build')).toBe('none');
+    expect(detectCategory('pnpm install && pnpm build')).toBe('none');
+  });
+
+  it('keeps one category when every command agrees or prints nothing', () => {
+    expect(detectCategory('cd apps/desktop && pnpm test')).toBe('test');
+    expect(detectCategory('export CI=1 && pnpm test')).toBe('test');
+    expect(detectCategory('pnpm test && pnpm test')).toBe('test');
+    expect(detectCategory('rg foo && rg bar')).toBe('search');
+    // A pipeline keeps its helper: its data still comes from the search command.
+    expect(detectCategory('rg foo | head -20')).toBe('search');
+  });
+
+  it('preserves every command output when a sequence cannot use one category', () => {
+    const json = ['{', '  "name": "fixture",', '  "version": "1.2.3"', '}'].join('\n');
+    const output = ['FAIL src/a.test.ts', '  1 failed', json].join('\n');
+
+    const streamed = compactStream(output, detectCategory('pnpm test && cat package.json'));
+    expect(streamed.changed).toBe(false);
+    expect(streamed.preview.content).toBe(output);
+    expect(streamed.preview.content).toContain('"version": "1.2.3"');
+  });
 });
 
 describe('test compaction', () => {
@@ -115,11 +144,30 @@ describe('git compaction', () => {
       '?? src/g.ts',
     ].join('\n');
 
-    const candidate = compactGitOutput(source);
-    expect(candidate).not.toBeNull();
+    // The rule drops nothing here, so the source is already the candidate.
+    const candidate = compactGitOutput(source) ?? source;
     for (const path of ['src/a.ts', 'src/b.ts', 'src/c.ts', 'src/d.ts', 'src/e.ts', 'src/f.ts', 'src/g.ts']) {
       expect(candidate).toContain(path);
     }
+  });
+
+  it('keeps both porcelain status columns', () => {
+    const source = [
+      'MM src/staged-and-unstaged.ts',
+      'AM src/added-then-edited.ts',
+      'RM src/renamed-then-edited.ts',
+      ' M src/only-unstaged.ts',
+      '(use "git add <file>..." to update what will be committed)',
+    ].join('\n');
+
+    const candidate = compactGitOutput(source);
+    expect(candidate).not.toBeNull();
+    // Both columns survive, so unstaged work is visible.
+    expect(candidate).toContain('MM src/staged-and-unstaged.ts');
+    expect(candidate).toContain('AM src/added-then-edited.ts');
+    expect(candidate).toContain('RM src/renamed-then-edited.ts');
+    expect(candidate).toContain(' M src/only-unstaged.ts');
+    expect(candidate).not.toContain('(use "git add');
   });
 
   it('retains a long commit message in full', () => {

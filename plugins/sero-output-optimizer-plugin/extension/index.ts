@@ -11,6 +11,7 @@ import { renderRewriteNotice } from './report';
 import { optimizeResult } from './optimize-result';
 import { seedMetricsFromHistory } from './history';
 import { registerOptimizerTool } from './tool';
+import { StatusStore } from './status';
 import { isNestedCall } from './nested';
 
 /** The host guarantees this reserved prefix reaches both hooks. */
@@ -32,8 +33,13 @@ export default function outputOptimizerExtension(pi: ExtensionAPI): void {
   const state = new SessionState();
   const resolver = new RtkResolver(pi.events, '', '');
   const configStore = new ConfigStore();
+  const statusStore = new StatusStore();
   let rtkStatus: RtkStatusView = { state: 'unknown' };
   let ready: Promise<void> | null = null;
+
+  /** Publish the session's accounting so the settings surface can read it. */
+  const publishSavings = (): Promise<void> =>
+    statusStore.publish({ savings: state.metrics.snapshot() });
 
   const ensureReady = (ctx: ExtensionContext): Promise<void> => {
     if (!ready) {
@@ -75,6 +81,8 @@ export default function outputOptimizerExtension(pi: ExtensionAPI): void {
     try {
       const resolution = await resolver.resolve();
       rtkStatus = toStatus(resolution);
+      // The settings surface runs in another session and cannot probe RTK itself.
+      await statusStore.publish({ rtk: rtkStatus });
       const outcome = await computeRewrite({ pi, command, resolution, config, platform: process.platform });
       if (outcome.state === 'rewritten') {
         state.recordRewrite(event.toolCallId, { requested: command, executed: outcome.executed });
@@ -101,13 +109,15 @@ export default function outputOptimizerExtension(pi: ExtensionAPI): void {
     // Replay guard: each history entry is counted once.
     if (!state.claimAccounting(event.toolCallId)) return undefined;
     if (!config.enabled) {
-      return rewrite
+      const result = rewrite
         ? { content: appendBlocks(content, [renderRewriteNotice(rewrite.requested, rewrite.executed)]) }
         : undefined;
+      await publishSavings();
+      return result;
     }
 
     try {
-      return await optimizeResult({
+      const result = await optimizeResult({
         content,
         details: event.details,
         requestedCommand: rewrite?.requested ?? commandFromInput(event.input),
@@ -115,8 +125,11 @@ export default function outputOptimizerExtension(pi: ExtensionAPI): void {
         config,
         metrics: state.metrics,
       });
+      await publishSavings();
+      return result;
     } catch {
       // Fail open: preserve the received payload, reports and error status.
+      await publishSavings();
       return undefined;
     }
   });
@@ -124,16 +137,23 @@ export default function outputOptimizerExtension(pi: ExtensionAPI): void {
   // ── Settings surface ──────────────────────────────────────
 
   registerOptimizerTool(pi, {
-    getConfig: () => configStore.current(),
+    // The settings tool reads the file, so it sees a change made in another
+    // session before it merges its own write.
+    loadConfig: () => configStore.reload(),
     setConfig: async (next) => {
       await configStore.save(next);
     },
-    getSavings: () => state.metrics.snapshot(),
-    getRtkStatus: () => rtkStatus,
+    getStatus: async () => {
+      // The chat session publishes accounting and RTK status here. Fall back to
+      // this session's own values when nothing has been published yet.
+      const persisted = await statusStore.read();
+      return persisted ?? { savings: state.metrics.snapshot(), rtk: rtkStatus };
+    },
     retryRtk: async () => {
       // Resolve again and report the current status, not a cached one.
       const resolution = await resolver.resolve();
       rtkStatus = toStatus(resolution);
+      await statusStore.publish({ rtk: rtkStatus });
     },
   });
 }

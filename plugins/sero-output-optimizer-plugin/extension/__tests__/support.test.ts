@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { defaultOptimizerConfig, reductionPercent, type SessionSavings } from '../../shared/types';
+import { defaultOptimizerConfig, emptySessionSavings, reductionPercent, type SessionSavings } from '../../shared/types';
 import { normalizeConfig } from '../config';
 import { buildPreview, PREVIEW_MAX_BYTES, PREVIEW_MAX_LINES } from '../preview';
 import { isConfirmedZeroOutput, parseCaptureRecord } from '../capture';
@@ -233,5 +233,70 @@ describe('config file', () => {
 
     expect((await secondSession.refresh()).enabled).toBe(true);
     expect(secondSession.current().notices).toBe(false);
+  });
+});
+
+describe('status file', () => {
+  const originalHome = process.env.SERO_HOME;
+  let directory: string | null = null;
+
+  afterEach(async () => {
+    if (directory) {
+      await fs.promises.rm(directory, { recursive: true, force: true });
+      directory = null;
+    }
+    if (originalHome === undefined) delete process.env.SERO_HOME;
+    else process.env.SERO_HOME = originalHome;
+  });
+
+  async function store() {
+    directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'output-optimizer-status-'));
+    process.env.SERO_HOME = directory;
+    return (await import('../status')).StatusStore;
+  }
+
+  it('shares savings and the RTK view with a session that has no chat history', async () => {
+    const StatusStore = await store();
+    const chatSession = new StatusStore();
+    await chatSession.publish({
+      savings: { ...emptySessionSavings(), measuredCalls: 3, inputBytes: 1000, compactedBytes: 400 },
+    });
+    await chatSession.publish({ rtk: { state: 'available', version: '0.49.0' } });
+
+    // The settings UI runs in its own app session and reads the same file.
+    const appSession = new StatusStore();
+    const status = await appSession.read();
+    expect(status?.savings.measuredCalls).toBe(3);
+    expect(status?.savings.inputBytes).toBe(1000);
+    expect(status?.rtk).toEqual({ state: 'available', version: '0.49.0' });
+  });
+
+  it('merges a partial write without clobbering the other field', async () => {
+    const StatusStore = await store();
+    const savingsWriter = new StatusStore();
+    const rtkWriter = new StatusStore();
+
+    await savingsWriter.publish({ savings: { ...emptySessionSavings(), measuredCalls: 5 } });
+    await rtkWriter.publish({ rtk: { state: 'failed', reason: 'checksum mismatch' } });
+    // The savings writer publishes again and must keep the RTK view.
+    await savingsWriter.publish({ savings: { ...emptySessionSavings(), measuredCalls: 6 } });
+
+    const status = await new StatusStore().read();
+    expect(status?.savings.measuredCalls).toBe(6);
+    expect(status?.rtk).toEqual({ state: 'failed', reason: 'checksum mismatch' });
+  });
+
+  it('falls back to empty savings and unknown RTK when the file is absent or damaged', async () => {
+    const StatusStore = await store();
+    const beforeAnyWrite = await new StatusStore().read();
+    expect(beforeAnyWrite).toBeNull();
+
+    directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'output-optimizer-status-bad-'));
+    process.env.SERO_HOME = directory;
+    const target = path.join(directory, 'state', 'output-optimizer');
+    await fs.promises.mkdir(target, { recursive: true });
+    await fs.promises.writeFile(path.join(target, 'status.json'), '{ not json', 'utf8');
+
+    expect(await new StatusStore().read()).toBeNull();
   });
 });

@@ -101,4 +101,15 @@ test.describe('Output optimizer plugin', () => {
     );
     expect(reread.details?.config.enabled).toBe(true);
   });
+
+  test('reaches the RTK host from the settings app session', async () => {
+    type ToolResult = { details: { rtk: { state: string } } | null };
+    // The settings UI runs in an isolated app session. Retry must reach the
+    // workspace runtime from there; 'unknown' would mean no host handler.
+    const result: ToolResult = await page.evaluate(
+      async ({ appId, wsId, tool }) => (window as any).sero.appAgent.invokeTool(appId, wsId, tool, { action: 'retry' }),
+      { appId: PLUGIN_ID, wsId: workspaceId, tool: TOOL_NAME },
+    );
+    expect(['available', 'installing', 'failed']).toContain(result.details?.rtk.state);
+  });
 });

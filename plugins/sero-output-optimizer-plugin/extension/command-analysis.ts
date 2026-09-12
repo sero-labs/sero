@@ -25,6 +25,8 @@ export interface AnalyzedSegment {
 
 export interface CommandAnalysis {
   hasTopLevelPipe: boolean;
+  /** Top-level separators between segments, such as `&&`, `||`, `;` and `|`. */
+  separators: string[];
   segments: AnalyzedSegment[];
   tokens: ShellToken[];
 }
@@ -89,6 +91,7 @@ export function analyzeCommand(command: string): CommandAnalysis {
 
   return {
     hasTopLevelPipe: split.hasTopLevelPipe,
+    separators: split.separators,
     segments,
     tokens: segments.flatMap((segment) => segment.tokens),
   };

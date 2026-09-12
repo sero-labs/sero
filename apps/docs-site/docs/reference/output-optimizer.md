@@ -64,6 +64,12 @@ The settings surface reports the plugin's own compaction: total removed bytes di
 
 Calls with a complete capture enter the totals, including calls whose output did not change. Calls without a complete capture count as unmeasured and are excluded from the totals. A command that completes with zero output counts as measured zero input and output bytes.
 
+## Settings session
+
+The settings surface runs in its own app session. That session runs no shell commands, so it holds no accounting and resolves no RTK itself. The chat session publishes its savings and the current RTK status to `state/output-optimizer/status.json` in the profile state directory, and the settings session reads that file. A savings-figure write and an RTK-write merge into the file, so one does not erase the other. When the file is absent, the surface shows the reader's own values.
+
+The **Retry** action asks the workspace runtime for the verified RTK locations again. A failed probe leaves the reported reason in place; it does not change command execution.
+
 ## Related
 
 - [State and Folders](/reference/state-and-folders) — capture storage, host RTK state, and retention.

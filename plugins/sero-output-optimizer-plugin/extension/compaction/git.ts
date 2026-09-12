@@ -4,7 +4,10 @@ import { applyPreservationGuard } from './preservation';
 /**
  * Compact Git status and log output.
  *
- * Status keeps every changed path and drops only the `(use "git ...")` hints.
+ * Status keeps every changed path, both status columns, and drops only the
+ * `(use "git ...")` hints. The two porcelain columns are distinct: `MM` means
+ * a staged and an unstaged change, `AM` a staged add with unstaged edits, `RM`
+ * a rename with unstaged edits. Collapsing them would hide unstaged work.
  * Log keeps every commit identifier and the full commit message, dropping only
  * author/date metadata. Neither rule caps the number of paths or truncates a
  * message. Classification runs on the ANSI-stripped line.
@@ -13,7 +16,6 @@ import { applyPreservationGuard } from './preservation';
 const COMMIT_HEADER = /^commit\s+[0-9a-f]{7,40}\b/i;
 const GIT_HINT = /^\s*\(use /;
 const LOG_METADATA = /^(?:Author|AuthorDate|CommitDate|Commit|Date|Merge):/i;
-const PORCELAIN_ENTRY = /^([ MADRCU?]{2}) (.*)$/;
 
 export function emitGitStatus(source: string, emit: (line: string) => void): boolean {
   let transformed = false;
@@ -21,15 +23,6 @@ export function emitGitStatus(source: string, emit: (line: string) => void): boo
     const line = stripAnsi(raw);
     if (line.trim() === '' || GIT_HINT.test(line)) {
       transformed = true;
-      continue;
-    }
-    const porcelain = line.match(PORCELAIN_ENTRY);
-    if (porcelain) {
-      const status = porcelain[1] ?? '';
-      const code = status[0] !== ' ' ? status[0] : status[1];
-      const normalized = `${code ?? '?'} ${porcelain[2] ?? ''}`;
-      if (normalized !== line) transformed = true;
-      emit(normalized);
       continue;
     }
     emit(line);
