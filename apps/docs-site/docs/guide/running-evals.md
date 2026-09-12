@@ -7,6 +7,7 @@ Use Sero evals when you need a structured signal about prompt assembly or agent 
 | Command | When to use | Cost/auth |
 | --- | --- | --- |
 | `pnpm eval:snapshot` | Prompt assembly and cache drift checks | No live model calls. |
+| `pnpm eval:file-tools` | Runtime file-edit behavior and batching metrics | Requires credentials and may cost money. |
 | `pnpm eval` | Full promptfoo eval against real providers | Requires credentials and may cost money. |
 | `pnpm eval:view` | Inspect saved promptfoo results | No new model calls. |
 
@@ -33,6 +34,8 @@ ANTHROPIC_API_KEY=... pnpm eval
 
 Real evals use promptfoo plus Sero's eval provider. They create isolated temp workspaces under `/tmp/sero-eval-*`, initialize a clean Git repo, expose file tools, and use an eval-only `sero-cli` shim for deterministic platform checks.
 
+The `pnpm eval:file-tools` command builds its session from Sero's host file-tool factory. Use it to check multi-replacement edits, same-file concurrency, and edit result feedback.
+
 Run them before releases, after model or SDK upgrades, or when you change agent
 behavior. Current GitHub workflows do not run `pnpm eval` or
 `pnpm eval:snapshot`.
@@ -53,6 +56,7 @@ This opens Promptfoo's local result viewer so you can compare pass/fail history,
 | `eval/scenarios/file-ops.yaml` | Real LLM | Read/write/edit behavior and latency guards in temp workspaces. |
 | `eval/scenarios/coding-tasks.yaml` | Real LLM | React/TypeScript generation, null-safety fixes, utility generation. |
 | `eval/scenarios/cli-ops.yaml` | Real LLM | Agent preference for `sero-cli`, workspace info, batch commands, VCS status. |
+| `eval/scenarios/file-edits.yaml` | Real LLM (runtime file tools) | Targeted edits, a block move, ambiguous text, failure recovery, and whole-file replacement. |
 
 ## Interpreting failures
 

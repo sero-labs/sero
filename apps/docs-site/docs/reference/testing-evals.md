@@ -13,6 +13,7 @@ pnpm test
 pnpm test:ci
 pnpm eval:snapshot
 pnpm eval:search
+pnpm eval:file-tools
 pnpm eval
 pnpm eval:view
 ```
@@ -37,6 +38,7 @@ manual-only. No workflow runs `pnpm eval` or `pnpm eval:snapshot`.
 | --- | --- | --- | --- |
 | `pnpm eval:snapshot` | `node eval/patch-drizzle.cjs && node scripts/run-promptfoo.mjs eval --config eval/promptfoo-snapshot.yaml --no-cache` | Fast prompt assembly/cache drift check | No live LLM calls; low/no provider cost. |
 | `pnpm eval:search` | `node eval/patch-drizzle.cjs && node scripts/run-promptfoo.mjs eval --config eval/promptfoo-search.yaml --no-cache` | Bash, FFF, Graphify, and combined search behavior, five runs per task and arm | Requires credentials and may cost money. |
+| `pnpm eval:file-tools` | `node eval/patch-drizzle.cjs && node scripts/run-promptfoo.mjs eval --config eval/promptfoo-file-tools.yaml --no-cache` | Runtime-backed file-edit behavior, batching metrics, and result feedback | Requires credentials and may cost money. |
 | `pnpm eval` | `node eval/patch-drizzle.cjs && node scripts/run-promptfoo.mjs eval` | Real agent behavior checks | Requires credentials and may cost money. |
 | `pnpm eval:view` | `node scripts/run-promptfoo.mjs view` | Inspect saved promptfoo results | No new model calls. |
 
@@ -71,6 +73,15 @@ controls must report that profile-wide search is unavailable rather than search
 outside the current workspace. Promptfoo runs cases serially so temporary
 profiles and native indexes do not overlap across arms.
 
+The file-tool eval sets `toolMode: runtime` in
+`eval/promptfoo-file-tools.yaml`. The provider builds its session from Sero's
+host file-tool factory through `eval/runtimeFileTools.ts`, so recorded calls
+exercise the runtime `edit` and `write` tools rather than Pi's built-ins.
+`eval/assertions/editBatching.ts` reports replacements per call, same-file edit
+runs, calls by tool name, result tokens, latency, and failures.
+`eval/seroProvider.test.ts` covers extension-loader isolation in the default and
+runtime modes.
+
 Set `SERO_EVAL_MODEL` to use a specific model in all arms. Use a canonical
 `provider/model` value, for example:
 
@@ -96,6 +107,7 @@ Auth/cost notes:
 | `eval/scenarios/coding-tasks.yaml` | 3 | Real LLM | TypeScript/React generation, null-safety fixes, utility generation. |
 | `eval/scenarios/cli-ops.yaml` | 4 | Real LLM | `sero-cli` use for todos, workspace info, batch commands, and VCS status. |
 | `eval/scenarios/search-tools.yaml` | 6 × 4 arms × 5 repeats | Real LLM | Task completion, tool choice, cross-workspace coverage, follow-up count, result size, and latency for Bash, FFF, Graphify, and their combination. |
+| `eval/scenarios/file-edits.yaml` | 7 | Real LLM (runtime file tools) | Independent changes, a block move, duplicate text, a stale match, failure recovery, whole-file replacement, and identifier renaming. |
 
 To add scenarios, create/edit a YAML file under `eval/scenarios/` and add it to the relevant promptfoo config.
 
@@ -119,6 +131,7 @@ To add scenarios, create/edit a YAML file under `eval/scenarios/` and add it to 
 | --- | --- | --- |
 | Prompt assembly / cache stability | `pnpm eval:snapshot` | Low-cost check for prompt block drift, ordering drift, and size regressions. |
 | Agent file-editing behavior | `pnpm eval` | Exercises real tool use in isolated temp workspaces. |
+| Runtime file-tool behavior | `pnpm eval:file-tools` | Runs the runtime `edit` and `write` tools with batching metrics and diff feedback. |
 | Agent CLI usage patterns | `pnpm eval` | Checks that the agent prefers `sero-cli` in supported scenarios. |
 | Search and graph behavior | `pnpm eval:search` | Compares task completion and tool choice; use the FFF plugin benchmark for model-free latency samples. |
 | Desktop startup/session wiring | desktop Vitest + Playwright CI | Not primarily an eval concern. |

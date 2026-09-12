@@ -32,9 +32,9 @@ pnpm eval:snapshot
 - `pnpm test:ci` — typecheck, build, workspace tests, and the desktop contract E2E project
 - `pnpm eval:snapshot` — fast prompt assembly/cache drift check
 
-For live provider evals, use `pnpm eval` only when credentials and budget are
-available. See [Running Evals](/guide/running-evals) and
-[Testing / Evals](/reference/testing-evals).
+For live provider evals, use `pnpm eval` or `pnpm eval:file-tools` only when
+credentials and budget are available. See [Running Evals](/guide/running-evals)
+and [Testing / Evals](/reference/testing-evals).
 
 ## Runtime notes
 
