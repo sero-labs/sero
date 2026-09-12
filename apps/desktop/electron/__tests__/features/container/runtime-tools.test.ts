@@ -39,6 +39,8 @@ describe('persistent member runtime tools', () => {
     expect(runtime.exec).toHaveBeenLastCalledWith({
       command: 'node --version', cwd: '/project', timeoutMs: undefined,
       env: { SERO_SESSION_ID: 'grant-1:owner' },
+      // Bash streams its complete output into a capture sink.
+      outputSink: expect.objectContaining({ write: expect.any(Function), close: expect.any(Function) }),
     });
     expect(tools.map((tool) => tool.name)).toEqual(['bash']);
   });

@@ -24,6 +24,7 @@ const TOOL_NAMES = new Set<ToolName>([
   'zip',
   'unzip',
   'uv',
+  'rtk',
 ]);
 const PLATFORMS = new Set<ManagedToolPlatform>(['darwin', 'linux', 'win32']);
 const ARCHES = new Set<ManagedToolArch>(['x64', 'arm64']);
@@ -99,6 +100,8 @@ function validateArtifactSpec(key: string, input: unknown): ArtifactSpec {
 
   const binPaths = readStringRecord(input, 'binPaths');
   const minVersion = input.minVersion === undefined ? undefined : readString(input, 'minVersion');
+  const version = input.version === undefined ? undefined : readString(input, 'version');
+  const managedOnly = input.managedOnly === undefined ? undefined : readBoolean(input, 'managedOnly');
 
   return {
     tool: tool as ToolName,
@@ -109,13 +112,23 @@ function validateArtifactSpec(key: string, input: unknown): ArtifactSpec {
     unpackTo,
     binPaths,
     minVersion,
+    version,
+    managedOnly,
     installPolicy: installPolicy as ToolInstallPolicy,
   };
 }
 
 function validateUrl(key: string, url: string): void {
-  const parsed = new URL(url);
+  const parsed = parseUrl(key, url);
   if (parsed.protocol !== 'https:') throw new Error(`Artifact ${key} URL must use https`);
+}
+
+function parseUrl(key: string, url: string): URL {
+  try {
+    return new URL(url);
+  } catch {
+    throw new Error(`Artifact ${key} has an invalid URL`);
+  }
 }
 
 function readString(record: Record<string, unknown>, key: string): string {
@@ -123,6 +136,12 @@ function readString(record: Record<string, unknown>, key: string): string {
   if (typeof value !== 'string' || value.length === 0) {
     throw new Error(`Expected non-empty string at ${key}`);
   }
+  return value;
+}
+
+function readBoolean(record: Record<string, unknown>, key: string): boolean {
+  const value = record[key];
+  if (typeof value !== 'boolean') throw new Error(`Expected boolean at ${key}`);
   return value;
 }
 

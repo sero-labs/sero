@@ -21,6 +21,8 @@ import {
 import { buildModelState, convertSessionMessages } from '../agent/core/agent-helpers';
 import { isPathInsideDirectory } from '../agent/handlers/sessions';
 import { listSessionMetadata } from '../agent/core/session-metadata';
+import { releaseSessionReferences } from '@electron/features/tool-capture/lifecycle';
+import { removeForkReferences } from '@electron/features/tool-capture/fork-references';
 import { convertToGatewayHistory } from './gateway-history';
 import { applySessionModel, applySessionThinkingLevel, toGatewayModelState } from './model-ops';
 import { searchSessions, MAX_RESULTS } from './session-search';
@@ -233,6 +235,11 @@ export function buildGatewayOps(
         // Already gone is the outcome the caller wanted.
         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
       }
+      // The fork reference sidecar belongs to this session file.
+      await removeForkReferences(resolved);
+      // Release this session's capture references and remove captures whose
+      // last reference is gone. A surviving fork keeps its inherited captures.
+      await releaseSessionReferences();
     },
 
     createSession: async (workspaceId, name) => {
@@ -355,7 +362,7 @@ export function buildGatewayOps(
       const matching = (await runtime.getDevServerStatus({})).servers.find((server) => server.port === port);
       if (!matching) return null;
 
-      const upstreamUrl = new URL(matching.url);
+      const upstreamUrl = parseDevServerUrl(matching.url, workspaceId, port);
       const upstreamPort = Number.parseInt(upstreamUrl.port, 10) || port;
       return {
         workspaceId,
@@ -413,4 +420,13 @@ export function buildGatewayOps(
   };
 
   return opsRef;
+}
+
+/** Parse a dev-server URL reported by a runtime. A malformed value fails loudly. */
+function parseDevServerUrl(url: string, workspaceId: string, port: number): URL {
+  try {
+    return new URL(url);
+  } catch {
+    throw new Error(`Dev server target for ${workspaceId}:${port} reported an invalid URL.`);
+  }
 }

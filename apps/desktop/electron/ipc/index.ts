@@ -16,8 +16,7 @@ import { registerGitAppHandlers } from './apps/git-app';
 import { registerWebAppHandlers } from './apps/web-app';
 import { registerBrowserHandlers } from './apps/browser';
 import { registerVoiceHandlers } from './agent/handlers/voice';
-import { registerShellHandlers } from './platform/system/shell';
-import { registerWindowHandlers } from './platform/system/window';
+import { registerShellHandlers } from './platform/system/shell';import { registerWindowHandlers } from './platform/system/window';
 import { registerAppStateHandlers } from './apps/app-state';
 import { registerAppsHandlers } from './apps/apps';
 import { registerAuthHandlers } from './platform/auth/auth';
@@ -53,6 +52,7 @@ import { registerThemeHandlers } from './platform/ui/themes';
 import { registerDoctorHandlers } from './doctor/doctor';
 import { registerUpdaterHandlers } from './updater';
 import { registerAgentNodeHandlers } from './agent-node';
+import { registerToolCaptureHandlers } from './tool-capture/capture';
 
 export function registerAllIpcHandlers(): void {
   registerAgentNodeHandlers();
@@ -67,6 +67,7 @@ export function registerAllIpcHandlers(): void {
   registerBrowserHandlers();
   registerVoiceHandlers();
   registerShellHandlers();
+  registerToolCaptureHandlers();
   registerWindowHandlers();
   registerAppStateHandlers();
   registerAppsHandlers();

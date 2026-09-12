@@ -1,0 +1,158 @@
+// @vitest-environment jsdom
+
+import { act } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createRoot, type Root } from 'react-dom/client';
+
+import type { ToolCaptureReadRequest, ToolCaptureReadResult } from '@/types/tool-capture';
+import { ToolCaptureReport } from './ToolCaptureReport';
+import { describeToolCapture, type ToolCaptureView } from './tool-capture-details';
+
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+const readCapture = vi.fn<(request: ToolCaptureReadRequest) => Promise<ToolCaptureReadResult>>();
+
+function captureView(
+  overrides: Record<string, unknown> = {},
+  topLevel: Record<string, unknown> = {},
+): ToolCaptureView {
+  const view = describeToolCapture({
+    exitCode: 0,
+    ...topLevel,
+    capture: {
+      version: 1,
+      captureId: 'capture-1',
+      producerSessionId: 'session-a',
+      complete: true,
+      combined: { stream: 'combined', runtimePath: '/rt/combined.log', hostPath: '/host/combined.log', bytes: 2048 },
+      stdout: { stream: 'stdout', runtimePath: '/rt/stdout.log', hostPath: '/host/stdout.log', bytes: 1024 },
+      ...overrides,
+    },
+  });
+  if (!view) throw new Error('capture view was not parsed');
+  return view;
+}
+
+describe('ToolCaptureReport', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    readCapture.mockReset();
+    (window as unknown as { sero?: unknown }).sero = { toolCapture: { readCapture } };
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(async () => {
+    await act(async () => root.unmount());
+    container.remove();
+    delete (window as unknown as { sero?: unknown }).sero;
+  });
+
+  async function render(view: ToolCaptureView): Promise<void> {
+    await act(async () => root.render(<ToolCaptureReport view={view} />));
+  }
+
+  it('says the model received all of the output when nothing was truncated', async () => {
+    await render(captureView());
+
+    expect(container.textContent).toContain('The model received all of the output.');
+    expect(container.textContent).not.toContain('bounded preview');
+  });
+
+  it('marks a truncated result as a bounded preview without claiming every result was truncated', async () => {
+    await render(captureView({}, { truncation: { truncated: true } }));
+
+    expect(container.textContent).toContain('The model received a bounded preview.');
+  });
+
+  it('opens the complete combined output for the user', async () => {
+    readCapture.mockResolvedValue({ state: 'ok', content: 'full output\n', totalBytes: 12 });
+    await render(captureView());
+
+    const button = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Combined output'));
+    expect(button?.textContent).toContain('Combined output · 2.0KB');
+
+    await act(async () => button?.click());
+
+    expect(readCapture).toHaveBeenCalledWith({ path: '/host/combined.log', offset: undefined });
+    expect(container.querySelector('pre')?.textContent).toBe('full output\n');
+  });
+
+  it('opens an individual stream file separately from the combined output', async () => {
+    readCapture.mockResolvedValue({ state: 'ok', content: '{"ok":true}\n', totalBytes: 12 });
+    await render(captureView());
+
+    const button = [...container.querySelectorAll('button')].find((item) => item.textContent?.trim().startsWith('stdout'));
+    await act(async () => button?.click());
+
+    expect(readCapture).toHaveBeenCalledWith({ path: '/host/stdout.log', offset: undefined });
+    expect(container.querySelector('pre')?.textContent).toBe('{"ok":true}\n');
+  });
+
+  it('reports that the complete output is unavailable when the file is gone', async () => {
+    readCapture.mockResolvedValue({
+      state: 'unavailable',
+      content: '',
+      totalBytes: 0,
+      reason: 'The complete output file is no longer available.',
+    });
+    await render(captureView());
+
+    const button = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Combined output'));
+    await act(async () => button?.click());
+
+    expect(container.textContent).toContain('Complete output unavailable: The complete output file is no longer available.');
+    // An empty view is not an acceptable answer.
+    expect(container.querySelector('pre')).toBeNull();
+  });
+
+  it('reports a read failure instead of an empty view', async () => {
+    readCapture.mockRejectedValue(new Error('Refusing to read a capture outside the capture root'));
+    await render(captureView());
+
+    const button = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Combined output'));
+    await act(async () => button?.click());
+
+    expect(container.textContent).toContain('outside the capture root');
+    expect(container.querySelector('pre')).toBeNull();
+  });
+
+  it('pages through a large capture and hides Load more at the end', async () => {
+    readCapture
+      .mockResolvedValueOnce({ state: 'ok', content: 'first', totalBytes: 10, nextOffset: 5 })
+      .mockResolvedValueOnce({ state: 'ok', content: 'second', totalBytes: 10 });
+    await render(captureView());
+
+    const open = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Combined output'));
+    await act(async () => open?.click());
+    expect(container.querySelector('pre')?.textContent).toBe('first');
+
+    const more = [...container.querySelectorAll('button')].find((item) => item.textContent === 'Load more');
+    expect(more).toBeDefined();
+    await act(async () => more?.click());
+
+    expect(readCapture).toHaveBeenLastCalledWith({ path: '/host/combined.log', offset: 5 });
+    expect(container.querySelector('pre')?.textContent).toBe('firstsecond');
+    expect([...container.querySelectorAll('button')].some((item) => item.textContent === 'Load more')).toBe(false);
+  });
+
+  it('reports an incomplete capture and offers no files', async () => {
+    const view = describeToolCapture({
+      capture: {
+        version: 1,
+        captureId: 'capture-3',
+        producerSessionId: 'session-a',
+        complete: false,
+        unavailableReason: 'capture root is not writable.',
+      },
+    });
+    await render(view as ToolCaptureView);
+
+    expect(container.textContent).toContain('Complete output unavailable: capture root is not writable.');
+    expect(container.querySelectorAll('button')).toHaveLength(0);
+    expect(readCapture).not.toHaveBeenCalled();
+  });
+});

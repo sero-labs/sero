@@ -30,7 +30,7 @@ import {
   toolchainVersionRoot,
 } from '@electron/features/workspace/runtime/toolchains/storage';
 import type { ToolName, ToolStatus, ToolchainManifest } from '@electron/features/workspace/runtime/toolchains/types';
-import type { ToolVerifierOptions } from '@electron/features/workspace/runtime/toolchains/verifiers';
+import { verifyTool, type ToolVerifierOptions } from '@electron/features/workspace/runtime/toolchains/verifiers';
 
 const reason = { kind: 'test' as const, detail: 'manager test' };
 
@@ -440,6 +440,79 @@ describe('ToolchainManager', () => {
     }));
   });
 
+  it('never resolves rtk from PATH when a managed copy exists', async () => {
+    const harness = await createRtkHarness();
+    cleanupVersions.push(harness.version);
+    const systemResolver = vi.fn(async (tool: ToolName) => readySystem(tool));
+    const manager = managerWithArchive(harness, systemResolver);
+
+    await expect(manager.ensure('rtk', reason)).resolves.toMatchObject({
+      tool: 'rtk',
+      source: 'managed',
+      path: managedBinPath(harness.version, 'rtk/rtk'),
+    });
+    expect(systemResolver).not.toHaveBeenCalled();
+  });
+
+  it('verifies managed rtk against the artifact exact version', async () => {
+    const harness = await createRtkHarness('0.49.0');
+    cleanupVersions.push(harness.version);
+    const verifier = vi.fn(async (tool: ToolName, candidate: string, options: ToolVerifierOptions): Promise<ToolStatus> => ({
+      tool, state: 'ready', source: 'managed', path: candidate, version: options.requiredVersion ?? '0.49.0',
+    }));
+    const manager = new ToolchainManager({
+      manifest: harness.manifest,
+      platform: 'darwin',
+      arch: 'arm64',
+      systemResolver: async () => null,
+      downloader: async (options) => {
+        await fs.promises.cp(harness.archiveRoot, options.destination, { recursive: true });
+      },
+      verifier,
+    });
+
+    await expect(manager.ensure('rtk', reason)).resolves.toMatchObject({ source: 'managed', version: '0.49.0' });
+    expect(verifier).toHaveBeenCalledWith('rtk', managedBinPath(harness.version, 'rtk/rtk'), expect.objectContaining({
+      requiredVersion: '0.49.0',
+    }));
+  });
+
+  it('rejects a managed rtk that does not equal the pin and accepts the exact pin', async () => {
+    const harness = await createRtkHarness('0.49.0');
+    cleanupVersions.push(harness.version);
+    const manager = new ToolchainManager({
+      manifest: harness.manifest,
+      platform: 'darwin',
+      arch: 'arm64',
+      systemResolver: async () => null,
+      downloader: async (options) => {
+        await fs.promises.cp(harness.archiveRoot, options.destination, { recursive: true });
+      },
+      verifier: (tool, candidate, options) => verifyTool(tool, candidate, {
+        ...options,
+        run: async () => ({ stdout: 'rtk 0.50.0\n', stderr: '', exitCode: 0 }),
+      }),
+    });
+
+    await expect(manager.ensure('rtk', reason)).rejects.toMatchObject({ code: 'TOOL_INSTALL_FAILED' });
+
+    const pinned = new ToolchainManager({
+      manifest: harness.manifest,
+      platform: 'darwin',
+      arch: 'arm64',
+      systemResolver: async () => null,
+      downloader: async (options) => {
+        await fs.promises.cp(harness.archiveRoot, options.destination, { recursive: true });
+      },
+      verifier: (tool, candidate, options) => verifyTool(tool, candidate, {
+        ...options,
+        run: async () => ({ stdout: 'rtk 0.49.0\n', stderr: '', exitCode: 0 }),
+      }),
+    });
+
+    await expect(pinned.ensure('rtk', reason)).resolves.toMatchObject({ tool: 'rtk', version: '0.49.0' });
+  });
+
   it('garbage collects all but current and previous toolchain versions', async () => {
     const harness = await createHarness();
     cleanupVersions.push(harness.version, 'old-a', 'old-b', 'previous');
@@ -453,6 +526,35 @@ describe('ToolchainManager', () => {
     await expectExists(toolchainVersionRoot(harness.version), true);
   });
 });
+
+async function createRtkHarness(pinVersion = '0.49.0'): Promise<TestHarness> {
+  const version = `test-rtk-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const archiveRoot = path.join(SERO_FIXED_ROOT, 'toolchains-test-archives', version);
+  await fs.promises.mkdir(archiveRoot, { recursive: true });
+  await fs.promises.writeFile(path.join(archiveRoot, 'rtk'), '#!/bin/sh\necho ok\n', { mode: 0o755 });
+  return {
+    version,
+    archiveRoot,
+    manifest: {
+      version,
+      artifacts: {
+        'rtk-darwin-arm64': {
+          tool: 'rtk',
+          platform: 'darwin',
+          arch: 'arm64',
+          url: 'https://downloads.example.test/rtk.tgz',
+          sha256: sha256Text('rtk'),
+          unpackTo: 'rtk',
+          binPaths: { rtk: 'rtk/rtk' },
+          minVersion: pinVersion,
+          version: pinVersion,
+          managedOnly: true,
+          installPolicy: 'on-demand',
+        },
+      },
+    },
+  };
+}
 
 function managerWithArchive(
   harness: TestHarness,

@@ -21,9 +21,12 @@ import {
   DEFAULT_MAX_BYTES,
   formatSize,
   truncateHead,
-  truncateTail,
 } from '../filesystem/truncate';
 import { canonicalizeHostPath } from '../filesystem/host-path';
+import { toRuntimeIdentityMountPath } from '@electron/features/workspace/runtime/runtime-paths';
+import { OutputCapture } from '@electron/features/tool-capture/capture';
+import { renderCaptureReport } from '@electron/features/tool-capture/report';
+import { recordToolResult } from '@electron/features/tool-capture/tool-results';
 import { createEditTool, createWriteTool, type FileMutationPort } from './edit-core';
 import {
   WORKSPACE_DIR,
@@ -106,7 +109,7 @@ export function createBash(runtime: RuntimeBackend, containerCwd?: string, sessi
       `Use bash for project commands and shell or system operations. When run_code is available, do not use bash, Python, or jq to read and aggregate structured workspace data; use run_code instead. ` +
       `Do not hard-code PATH prefixes; inspect package.json and prefer project scripts over ad-hoc npx commands.`,
     parameters: BashParams,
-    execute: async (_toolCallId, params: Static<typeof BashParams>, signal?) => {
+    execute: async (toolCallId, params: Static<typeof BashParams>, signal?) => {
       if (signal?.aborted) throw new Error('Command aborted');
       if (
         commandTouchesProtectedMemory(params.command)
@@ -120,19 +123,31 @@ export function createBash(runtime: RuntimeBackend, containerCwd?: string, sessi
       }
 
       const timeoutMs = params.timeout ? params.timeout * 1000 : undefined;
+      const capture = new OutputCapture({
+        producerSessionId: sessionId ?? 'unknown-session',
+        toRuntimePath: (hostPath) => (
+          runtime.backend === 'host' ? hostPath : toRuntimeIdentityMountPath(hostPath)
+        ),
+      });
       const result = await runtime.exec({
         command: params.command,
         cwd,
         timeoutMs,
         env: sessionId ? { SERO_SESSION_ID: sessionId } : undefined,
+        outputSink: {
+          write: (stream, chunk) => capture.write(stream, chunk),
+          close: () => {},
+        },
       });
-      const combined = (
-        result.stdout + (result.stderr ? '\n' + result.stderr : '')
-      ).trim();
+      const record = await capture.finish();
 
-      // Line-aware tail truncation (matches Pi SDK)
-      const truncation = truncateTail(combined);
+      // The bounded tail, not the file, is the source of the model payload.
+      const truncation = capture.renderPayload();
       let outputText = truncation.content || '(no output)';
+
+      if (timeoutMs !== undefined && result.exitCode === 124) {
+        outputText += `\n\nCommand timed out after ${Math.round(timeoutMs / 1000)}s.`;
+      }
 
       if (truncation.truncated) {
         const startLine = truncation.totalLines - truncation.outputLines + 1;
@@ -140,7 +155,7 @@ export function createBash(runtime: RuntimeBackend, containerCwd?: string, sessi
 
         if (truncation.lastLinePartial) {
           const lastLineSize = formatSize(
-            Buffer.byteLength(combined.split('\n').pop() || '', 'utf-8'),
+            Buffer.byteLength(truncation.content.split('\n').pop() || '', 'utf-8'),
           );
           outputText += `\n\n[Showing last ${formatSize(truncation.outputBytes)} of line ${endLine} (line is ${lastLineSize}).]`;
         } else if (truncation.truncatedBy === 'lines') {
@@ -154,15 +169,32 @@ export function createBash(runtime: RuntimeBackend, containerCwd?: string, sessi
         outputText += `\n\nCommand exited with code ${result.exitCode}`;
       }
 
-      // Non-zero exit → reject (Pi SDK behaviour: agent-loop sets isError)
+      const report = renderCaptureReport(record);
+      const details = {
+        exitCode: result.exitCode,
+        ...(truncation.truncated ? { truncation } : {}),
+        ...(record ? { capture: record } : {}),
+        blocks: report ? { payload: 0, report: 1 } : { payload: 0 },
+      };
+      const content = report
+        ? [{ type: 'text' as const, text: outputText }, { type: 'text' as const, text: report }]
+        : [{ type: 'text' as const, text: outputText }];
+
+      // Non-zero exit rejects so the agent loop reports isError. The recorded
+      // presentation lets a `tool_result` hook restore the same content blocks
+      // and typed metadata, which the rejection path would otherwise drop.
       if (result.exitCode !== 0) {
-        throw new Error(outputText);
+        recordToolResult(toolCallId, { content, details });
+        capture.release();
+        const error = new Error([outputText, report].filter(Boolean).join('\n\n'));
+        (error as Error & { details?: unknown }).details = details;
+        throw error;
       }
 
-      return {
-        content: [{ type: 'text', text: outputText }],
-        details: { exitCode: result.exitCode, ...(truncation.truncated ? { truncation } : {}) },
-      };
+      // Retention keeps this capture protected until it reads the persisted
+      // reference, including the time spent in asynchronous tool_result hooks.
+      capture.release();
+      return { content, details };
     },
   };
 }

@@ -75,8 +75,10 @@ export class ToolchainManager {
   }
 
   async resolve(tool: ToolName): Promise<ToolResolution | null> {
-    const system = await this.systemResolver(tool);
-    if (system?.state === 'ready') return system;
+    if (!this.isManagedOnly(tool)) {
+      const system = await this.systemResolver(tool);
+      if (system?.state === 'ready') return system;
+    }
     return this.resolveInstalled(tool);
   }
 
@@ -258,7 +260,7 @@ export class ToolchainManager {
     if (!(await exists(candidate))) return null;
     const status = await this.verifier(tool, candidate, {
       source: 'managed',
-      requiredVersion: selection.artifact.minVersion,
+      requiredVersion: selection.artifact.version ?? selection.artifact.minVersion,
       env: await this.managedVerificationEnv(requireReadyMarker),
     });
     if (status.state !== 'ready') return null;
@@ -286,6 +288,15 @@ export class ToolchainManager {
     if (!artifact) return null;
     const key = Object.entries(this.manifest.artifacts).find((entry) => entry[1] === artifact)?.[0];
     return { key: key ?? `${tool}-${this.platform}-${this.arch}`, artifact };
+  }
+
+  /**
+   * A managed-only artifact never consults a system candidate on PATH. RTK is
+   * the current exception: the host binary decides a command rewrite while the
+   * container image runs it, so a mismatched system copy must never be chosen.
+   */
+  private isManagedOnly(tool: ToolName): boolean {
+    return this.findArtifact(tool)?.artifact.managedOnly === true;
   }
 
   private emit(

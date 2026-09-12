@@ -41,7 +41,7 @@ import type {
   RuntimeTerminalSession,
   RuntimeWriteFileInput,
 } from '../../types';
-import { runDocker, spawnDocker, type DockerRunner } from './docker-cli';
+import { runDocker, spawnDocker, streamDocker, type DockerRunner } from './docker-cli';
 import { runDockerDoctorChecks } from './docker-doctor';
 import { ensureDockerImage } from './docker-image';
 import { dockerContainerName, ensureDockerContainer, removeDockerContainer, runtimeEnvArgs } from './docker-lifecycle';
@@ -135,6 +135,9 @@ export class DockerBackend implements RuntimeBackend {
       ...runtimeEnvArgs(env),
       dockerContainerName(this.workspaceId), 'sh', '-lc', input.command,
     ];
+    if (input.outputSink) {
+      return streamDocker(args, { timeoutMs: input.timeoutMs ?? 120_000 }, input.outputSink);
+    }
     return this.run(args, { timeoutMs: input.timeoutMs ?? 120_000 });
   }
 
@@ -428,6 +431,7 @@ export class DockerBackend implements RuntimeBackend {
       runtimeWorkspacePath: this.runtimeWorkspacePath,
       state: state.state,
       containerId: state.id,
+      ...(state.instanceId ? { containerInstanceId: state.instanceId } : {}),
     };
   }
 

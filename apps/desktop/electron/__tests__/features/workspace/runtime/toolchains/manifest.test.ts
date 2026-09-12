@@ -48,8 +48,11 @@ describe('toolchain manifest helpers', () => {
     // uv is on-demand (not core) and ships for darwin arm64/x64, linux arm64/x64, and Windows x64.
     const uvArtifactCount = Object.values(loaded.artifacts).filter((artifact) => artifact.tool === 'uv').length;
     expect(uvArtifactCount).toBe(5);
+    // rtk is on-demand, managed-only, and ships for the same five targets.
+    const rtkArtifactCount = Object.values(loaded.artifacts).filter((artifact) => artifact.tool === 'rtk').length;
+    expect(rtkArtifactCount).toBe(5);
     expect(Object.keys(loaded.artifacts).length).toBe(
-      targets.reduce((count, target) => count + target.tools.length, 0) + uvArtifactCount,
+      targets.reduce((count, target) => count + target.tools.length, 0) + uvArtifactCount + rtkArtifactCount,
     );
     for (const target of targets) {
       for (const tool of target.tools) {
@@ -65,15 +68,22 @@ describe('toolchain manifest helpers', () => {
 
   it('validates bundled artifacts use HTTPS URLs and non-placeholder SHA-256 digests', () => {
     const loaded = loadBundledToolchainManifest();
+    const seroUrlPrefix = `https://github.com/sero-labs/sero/releases/download/${generatedArtifacts.releaseTag}/`;
     for (const artifact of Object.values(loaded.artifacts)) {
       expect(artifact.url).toMatch(/^https:\/\//);
-      // uv installs from astral's pinned upstream release assets except Windows, where Sero republishes a tar.gz.
-      const expectedUrlPattern = artifact.tool === 'uv' && artifact.platform !== 'win32'
-        ? /^https:\/\/github\.com\/astral-sh\/uv\/releases\/download\/\d+\.\d+\.\d+\//
-        : new RegExp(`^https://github\\.com/sero-labs/sero/releases/download/${generatedArtifacts.releaseTag}/`);
-      expect(artifact.url).toMatch(expectedUrlPattern);
+      // uv and rtk install from pinned upstream release assets, except uv on
+      // Windows where Sero republishes a tar.gz.
+      if (artifact.tool === 'rtk') {
+        expect(artifact.url).toMatch(/^https:\/\/github\.com\/rtk-ai\/rtk\/releases\/download\/v\d+\.\d+\.\d+\//);
+      } else if (artifact.tool === 'uv' && artifact.platform !== 'win32') {
+        expect(artifact.url).toMatch(/^https:\/\/github\.com\/astral-sh\/uv\/releases\/download\/\d+\.\d+\.\d+\//);
+      } else {
+        expect(artifact.url.startsWith(seroUrlPrefix)).toBe(true);
+      }
       expect(artifact.url).not.toContain('downloads.sero.ai');
-      expect(artifact.url).toMatch(/\.tar\.gz$/);
+      // The Windows RTK release publishes a .zip; every other artifact is a .tar.gz.
+      const expectedSuffix = artifact.tool === 'rtk' && artifact.platform === 'win32' ? /\.zip$/ : /\.tar\.gz$/;
+      expect(artifact.url).toMatch(expectedSuffix);
       expect(artifact.sha256).toMatch(/^[a-f0-9]{64}$/);
       expect(new Set(artifact.sha256).size).toBeGreaterThan(6);
       expect(artifact.unpackTo).not.toContain('..');
@@ -82,6 +92,21 @@ describe('toolchain manifest helpers', () => {
         expect(binPath.startsWith(`${artifact.unpackTo}/`)).toBe(true);
       }
       expect(artifact.minVersion).toBeTruthy();
+    }
+  });
+
+  it('pins rtk to one exact, managed-only version on every supported host', () => {
+    const loaded = loadBundledToolchainManifest();
+    const rtkArtifacts = Object.values(loaded.artifacts).filter((artifact) => artifact.tool === 'rtk');
+    expect(rtkArtifacts).toHaveLength(5);
+
+    const pins = new Set(rtkArtifacts.map((artifact) => artifact.version));
+    expect(pins).toEqual(new Set(['0.49.0']));
+    for (const artifact of rtkArtifacts) {
+      expect(artifact.managedOnly).toBe(true);
+      expect(artifact.minVersion).toBe(artifact.version);
+      expect(artifact.installPolicy).toBe('on-demand');
+      expect(artifact.url).toContain(`/v${artifact.version}/`);
     }
   });
 
@@ -118,6 +143,17 @@ describe('toolchain manifest helpers', () => {
       ...manifest(),
       artifacts: { bad: { ...artifact(), installPolicy: 'global' } },
     })).toThrow(/unsupported install policy/);
+  });
+
+  it('accepts an exact version and a managed-only policy flag', () => {
+    const pinned = validateToolchainManifest(manifest({
+      artifacts: { 'rtk-darwin-arm64': artifact({ tool: 'rtk', version: '0.49.0', managedOnly: true }) },
+    }));
+    expect(pinned.artifacts['rtk-darwin-arm64']).toMatchObject({ version: '0.49.0', managedOnly: true });
+    expect(() => validateToolchainManifest({
+      ...manifest(),
+      artifacts: { bad: { ...artifact(), managedOnly: 'yes' } },
+    })).toThrow(/Expected boolean at managedOnly/);
   });
 
   it('rejects unpinned or unsafe artifact locations', () => {

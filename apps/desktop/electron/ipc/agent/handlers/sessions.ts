@@ -19,6 +19,11 @@ import type { SeroSessionInfo } from '@/types/ipc';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { SERO_SESSION_DIR } from '@electron/shared/infra/shared-infra';
 import { listSessionMetadata, type SessionMetadata } from '@electron/ipc/agent/core/session-metadata';
+import { releaseSessionReferences } from '@electron/features/tool-capture/lifecycle';
+import { removeForkReferences } from '@electron/features/tool-capture/fork-references';
+import { isPathInsideDirectory } from '@electron/shared/lib/path-confinement';
+
+export { isPathInsideDirectory };
 
 /**
  * Legacy cwd used before workspaces existed.
@@ -36,27 +41,8 @@ interface WorkspaceResolver {
   readConfig(workspacePath: string): Promise<{ id?: string } | null>;
 }
 
-interface PathTools {
-  resolve(...paths: string[]): string;
-  relative(from: string, to: string): string;
-  isAbsolute(path: string): boolean;
-}
-
 function detachedWorkspaceId(cwd: string): string {
   return `detached:${Buffer.from(cwd).toString('base64url')}`;
-}
-
-export function isPathInsideDirectory(
-  candidatePath: string,
-  directoryPath: string,
-  pathTools: PathTools = path,
-): boolean {
-  const relativePath = pathTools.relative(pathTools.resolve(directoryPath), pathTools.resolve(candidatePath));
-  return relativePath === '' || (
-    relativePath.length > 0
-    && !relativePath.startsWith('..')
-    && !pathTools.isAbsolute(relativePath)
-  );
 }
 
 /**
@@ -175,6 +161,11 @@ export function registerSessionHandlers(): void {
         // Ignore if already gone
         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
       }
+      // The fork reference sidecar belongs to this session file.
+      await removeForkReferences(resolved);
+      // Release this session's capture references and remove captures whose
+      // last reference is gone. A surviving fork keeps its inherited captures.
+      await releaseSessionReferences();
     },
   );
 }

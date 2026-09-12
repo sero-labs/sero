@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import fs from 'fs';
 import path from 'path';
 
 // The module under test pulls SERO_AGENT_DIR through `platform/env`, which
@@ -9,9 +10,11 @@ vi.mock('@electron/platform/env', () => ({
   SERO_FIXED_ROOT: '/tmp/sero-fixed',
   SERO_HOST_ARTIFACTS_ROOT: '/tmp/sero-host-artifacts',
   SERO_HOME: '/tmp/sero-home',
+  SERO_CAPTURE_ROOT: '/tmp/sero-agent/captures',
 }));
 
 import { buildWorkspaceContainerConfig } from '@electron/features/container/core/workspace-container-config';
+import { buildDockerMounts } from '@electron/features/workspace/runtime/backends/docker/docker-mounts';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import type { WorkspaceRoot } from '@/types/ipc';
 
@@ -47,6 +50,7 @@ describe('buildWorkspaceContainerConfig', () => {
         path.join('/tmp/sero-agent', 'prompts'),
         path.join('/tmp/sero-agent', 'agent-plugins'),
         path.join('/tmp/sero-host-artifacts', 'shared', 'pi-docs'),
+        '/tmp/sero-agent/captures',
       ],
       writableMounts: [],
       bindMounts: [
@@ -138,8 +142,7 @@ describe('buildWorkspaceContainerConfig', () => {
     expect(mgr.getRoots).not.toHaveBeenCalled();
   });
 
-  it('drops references whose getPath returns undefined', async () => {
-    const mgr = makeFakeManager({
+  it('drops references whose getPath returns undefined', async () => {    const mgr = makeFakeManager({
       references: [{ id: 'global', path: '/host/global' }],
     });
     // Force getPath to return undefined for the registered reference.
@@ -148,5 +151,22 @@ describe('buildWorkspaceContainerConfig', () => {
     const cfg = await buildWorkspaceContainerConfig(mgr, 'ws-1', '/host/ws');
 
     expect(cfg.writableMounts).toEqual([]);
+  });
+
+  it('creates the capture root so a fresh container can mount it', async () => {
+    // A bind mount skips a source that does not exist, and the capture root is
+    // created by the first capture rather than at install time. A fresh
+    // container therefore could not reach the path that a tool result reports.
+    fs.rmSync('/tmp/sero-agent/captures', { recursive: true, force: true });
+    expect(fs.existsSync('/tmp/sero-agent/captures')).toBe(false);
+
+    const cfg = await buildWorkspaceContainerConfig(makeFakeManager(), 'ws-1', '/host/ws');
+
+    expect(fs.existsSync('/tmp/sero-agent/captures')).toBe(true);
+    expect(buildDockerMounts(cfg, 'darwin')).toContainEqual({
+      source: '/tmp/sero-agent/captures',
+      target: '/tmp/sero-agent/captures',
+      readonly: true,
+    });
   });
 });

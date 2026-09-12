@@ -9,6 +9,12 @@ ARG SERO_NODE_VERSION=dev
 ARG NODE_VERSION=24.15.0
 ARG NODE_SHA256_ARM64=f3d5a797b5d210ce8e2cb265544c8e482eaedcb8aa409a8b46da7e8595d0dda0
 ARG NODE_SHA256_X64=472655581fb851559730c48763e0c9d3bc25975c59d518003fc0849d3e4ba0f6
+# RTK is pinned here and in the host toolchain manifest. The two declarations
+# must stay equal; electron/features/workspace/runtime/toolchains/image-pin.ts
+# is the check.
+ARG RTK_VERSION=0.49.0
+ARG RTK_SHA256_ARM64=c8ea4b6560841e73157c134fd4a3293914c6ede42e786ee985cf491fde691ba7
+ARG RTK_SHA256_X64=7278231dfd7e6a730a4ab7f847b195bcf02289c2d57622b0dab75a6411100c8f
 LABEL org.opencontainers.image.title="Sero Node Runtime" \
       org.opencontainers.image.version="$SERO_NODE_VERSION"
 
@@ -33,6 +39,21 @@ RUN apt-get update -qq && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=gh-builder /out/gh /usr/local/bin/gh
+
+# Install the pinned RTK binary and verify its published checksum.
+RUN set -eux; \
+    arch="$(dpkg --print-architecture)"; \
+    case "$arch" in \
+      arm64) rtk_asset="rtk-aarch64-unknown-linux-gnu.tar.gz"; rtk_sha256="$RTK_SHA256_ARM64" ;; \
+      amd64) rtk_asset="rtk-x86_64-unknown-linux-musl.tar.gz"; rtk_sha256="$RTK_SHA256_X64" ;; \
+      *) echo "Unsupported architecture: $arch" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL -o "/tmp/${rtk_asset}" "https://github.com/rtk-ai/rtk/releases/download/v${RTK_VERSION}/${rtk_asset}"; \
+    echo "${rtk_sha256}  /tmp/${rtk_asset}" | sha256sum -c -; \
+    tar -xzf "/tmp/${rtk_asset}" -C /usr/local/bin rtk; \
+    rm -f "/tmp/${rtk_asset}"; \
+    chmod 0755 /usr/local/bin/rtk; \
+    rtk --version
 
 # Install the pinned official Node.js 24 Linux tarball and verify its checksum.
 RUN set -eux; \

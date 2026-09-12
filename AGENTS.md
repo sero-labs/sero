@@ -13,7 +13,7 @@ copy, TypeScript, tests, UI, packages, and documentation.
   Electron main-process types must pass with no errors.
 - Do not use `@ts-ignore`, `@ts-expect-error`, or `any` casts unless no typed
   solution exists. Explain an unavoidable exception in a comment.
-- Keep every source file at or below 500 LOC. Tests, docs and CSS are exempt. Split a source file before completion if your change takes it over the limit.
+- Keep every source file at or below 500 LOC. Tests, docs and CSS are exempt. Markdown is documentation, not source, so this rule does not apply to `openspec/` specs or change artifacts. Split a source file before completion if your change takes it over the limit.
 - Tautological tests considered harmful
 
 ## Runtime boundaries
@@ -23,6 +23,10 @@ copy, TypeScript, tests, UI, packages, and documentation.
   toolchain manifest for managed binaries. Resolve a verified system tool
   first, a shared managed install second, and a first-use download last. Do not
   require manual installation.
+- One exception to the system-first rule: an artifact marked `managedOnly` is
+  never resolved from `PATH`. RTK uses it because the host binary decides a
+  command rewrite while the workspace container image runs it, so the two
+  copies must be one pinned version. See `ARCHITECTURE.md`.
 - Sero's agent directory is `~/.sero-ui/agent/`, not `~/.pi/agent/`. The source
   of truth is `apps/desktop/electron/platform/env/index.ts`.
 

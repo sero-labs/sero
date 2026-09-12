@@ -1,6 +1,7 @@
+import fs from 'fs';
 import path from 'path';
 
-import { SERO_AGENT_DIR } from '@electron/platform/env';
+import { SERO_AGENT_DIR, SERO_CAPTURE_ROOT } from '@electron/platform/env';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { getSharedPiDocsRoot } from '@electron/features/pi-docs/shared-pi-docs';
 import { buildSeroLogMounts } from './log-access';
@@ -44,6 +45,13 @@ export async function buildWorkspaceContainerConfig(
     }
   }
 
+  // A bind mount skips a source that does not exist, and the capture root is
+  // created by the first capture rather than at install time. Create it now, so a
+  // fresh profile's container can reach the path that a tool result reports.
+  // Best effort: a capture creates the directory itself, and a failure here must
+  // not block container creation.
+  await fs.promises.mkdir(SERO_CAPTURE_ROOT, { recursive: true, mode: 0o700 }).catch(() => undefined);
+
   return {
     workspaceId,
     hostPath,
@@ -52,6 +60,9 @@ export async function buildWorkspaceContainerConfig(
       path.join(SERO_AGENT_DIR, 'prompts'),
       path.join(SERO_AGENT_DIR, 'agent-plugins'),
       getSharedPiDocsRoot(),
+      // The complete-output capture root. Read-only: a containerised agent must be
+      // able to read a reported path and must never write to the capture.
+      SERO_CAPTURE_ROOT,
     ],
     writableMounts,
     bindMounts: buildSeroLogMounts(),

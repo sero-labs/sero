@@ -1,6 +1,6 @@
 import { existsSync } from 'fs';
 import path from 'path';
-import { SERO_AGENT_DIR } from '@electron/platform/env';
+import { SERO_AGENT_DIR, SERO_CAPTURE_ROOT } from '@electron/platform/env';
 import type { ContainerConfig } from '@electron/features/container/core/types';
 import { getSharedPiDocsRoot } from '@electron/features/pi-docs/shared-pi-docs';
 import { toRuntimeIdentityMountPath } from '../../runtime-paths';
@@ -43,6 +43,7 @@ export function defaultAgentReadOnlyMounts(): string[] {
     path.join(SERO_AGENT_DIR, 'skills'),
     path.join(SERO_AGENT_DIR, 'prompts'),
     getSharedPiDocsRoot(),
+    SERO_CAPTURE_ROOT,
   ];
 }
 

@@ -77,6 +77,36 @@ export interface RuntimeSession {
   runtimeWorkspacePath: string;
   state: 'running' | 'stopped' | 'unknown';
   containerId?: string;
+  /**
+   * Identity of this container instance, which changes when the container is
+   * replaced. `containerId` is a stable workspace name, so a cache keyed by it
+   * survives a replacement that changed the container's contents.
+   *
+   * Undefined when the backend cannot report a per-instance identity.
+   */
+  containerInstanceId?: string;
+}
+
+/**
+ * Streaming output sink for an exec call.
+ *
+ * When `RuntimeExecInput.outputSink` is set, the runtime streams both pipes to
+ * the sink while the command runs and returns no captured text. The sink owns
+ * the tail, the counters and any persistence, so a command larger than the
+ * former in-memory buffer limit is still captured completely.
+ *
+ * Chunks arrive as raw bytes, never as decoded text, so a capture stays
+ * byte-exact for output that is not valid UTF-8. A sink that needs text decodes
+ * it itself.
+ *
+ * `write` may return a promise to apply backpressure. The runtime then pauses
+ * that pipe until the promise resolves, which bounds the bytes held in memory
+ * without dropping any of them.
+ */
+export interface RuntimeExecOutputSink {
+  write(stream: 'stdout' | 'stderr', chunk: Buffer): void | Promise<void>;
+  /** Called once, after the last write, when the process ends. */
+  close(): void;
 }
 
 export interface RuntimeExecInput {
@@ -86,6 +116,8 @@ export interface RuntimeExecInput {
   env?: Record<string, string>;
   injectGitAuth?: boolean;
   isolated?: boolean;
+  /** Stream output instead of buffering it. See `RuntimeExecOutputSink`. */
+  outputSink?: RuntimeExecOutputSink;
 }
 
 export interface RuntimeExecFileInput {

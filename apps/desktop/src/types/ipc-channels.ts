@@ -104,6 +104,13 @@ export const IpcChannels = {
     /** Clear the renderer HTTP cache after Vite dependency re-optimization. */
     clearRendererCache: 'sero:shell:clear-renderer-cache',
   },
+  toolCapture: {
+    /**
+     * Read a bounded slice of a captured complete tool output file. Confined to
+     * the capture root, so a renderer can only reach capture files.
+     */
+    readCapture: 'sero:tool-capture:read-capture',
+  },
   appState: {
     /** Read an app state JSON file. */
     read: 'sero:app-state:read',

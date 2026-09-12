@@ -37,6 +37,8 @@ import { TerminalManager } from './terminal/terminal';
 import { ensureImage } from './core/image';
 import { PortScanner } from './network/port-forward';
 import { ContainerHttpProxy } from './network/http-proxy';
+import { runStreamingExec } from '@electron/features/workspace/runtime/streaming-exec';
+import type { RuntimeExecOutputSink } from '@electron/features/workspace/runtime/types';
 import { DevServerRegistry } from './registries/dev-server-registry';
 import { LOG_PORTAL_SENTINEL_PATH, prepareWorkspaceLogPortal } from './core/log-access';
 
@@ -54,6 +56,8 @@ function isValidEnvName(name: string): boolean {
 
 interface ExecOptions {
   injectGitAuth?: boolean;
+  /** Stream output instead of buffering it. See `RuntimeExecOutputSink`. */
+  outputSink?: RuntimeExecOutputSink;
 }
 
 export class ContainerManager {
@@ -236,6 +240,43 @@ export class ContainerManager {
     timeoutMs?: number,
     options?: ExecOptions,
   ): Promise<ExecResult> {
+    const args = this.buildExecArgs(workspaceId, command, cwd, options);
+    const timeout = timeoutMs ?? 120_000;
+
+    if (options?.outputSink) {
+      const outcome = await runStreamingExec({ program: CONTAINER_BIN, args, timeoutMs: timeout, sink: options.outputSink });
+      return { stdout: '', stderr: outcome.errorMessage ?? '', exitCode: outcome.exitCode };
+    }
+
+    try {
+      const { stdout, stderr } = await execFileAsync(CONTAINER_BIN, args, {
+        timeout,
+        maxBuffer: 10 * 1024 * 1024,
+      });
+      return { stdout, stderr, exitCode: 0 };
+    } catch (err: unknown) {
+      const e = err as Record<string, unknown>;
+      if (e.killed) {
+        return {
+          stdout: String(e.stdout ?? ''),
+          stderr: `Command timed out after ${Math.round(timeout / 1000)}s. ${String(e.stderr ?? '')}`.trim(),
+          exitCode: 124,
+        };
+      }
+      return {
+        stdout: String(e.stdout ?? ''),
+        stderr: String(e.stderr ?? errorMessage(err)),
+        exitCode: typeof e.code === 'number' ? e.code : 1,
+      };
+    }
+  }
+
+  private buildExecArgs(
+    workspaceId: string,
+    command: string,
+    cwd?: string,
+    options?: ExecOptions,
+  ): string[] {
     const cid = this.getContainerId(workspaceId);
     const args = ['exec'];
 
@@ -267,30 +308,7 @@ export class ContainerManager {
       }
     }
     args.push(cid, 'sh', '-c', command);
-
-    const timeout = timeoutMs ?? 120_000;
-
-    try {
-      const { stdout, stderr } = await execFileAsync(CONTAINER_BIN, args, {
-        timeout,
-        maxBuffer: 10 * 1024 * 1024,
-      });
-      return { stdout, stderr, exitCode: 0 };
-    } catch (err: unknown) {
-      const e = err as Record<string, unknown>;
-      if (e.killed) {
-        return {
-          stdout: String(e.stdout ?? ''),
-          stderr: `Command timed out after ${Math.round(timeout / 1000)}s. ${String(e.stderr ?? '')}`.trim(),
-          exitCode: 124,
-        };
-      }
-      return {
-        stdout: String(e.stdout ?? ''),
-        stderr: String(e.stderr ?? errorMessage(err)),
-        exitCode: typeof e.code === 'number' ? e.code : 1,
-      };
-    }
+    return args;
   }
 
   async inspect(workspaceId: string): Promise<ContainerState> {

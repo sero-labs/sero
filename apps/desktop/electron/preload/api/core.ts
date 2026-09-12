@@ -20,6 +20,7 @@ import type {
   WorkspaceInfo,
   WorkspaceRoot,
 } from '@/types/ipc';
+import type { ToolCaptureReadRequest, ToolCaptureReadResult } from '@/types/tool-capture';
 import type { ProfileRemovalMode } from '@/types/profile';
 import type { WorkspaceRuntimeBackend, WorkspaceRuntimeConfig } from '@/types/workspace-runtime';
 import type {
@@ -42,6 +43,11 @@ export const shellBridge = {
     ipcRenderer.invoke(IpcChannels.shell.openExternal, url),
   clearRendererCache: (): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.shell.clearRendererCache),
+};
+
+export const captureBridge = {
+  readCapture: (request: ToolCaptureReadRequest): Promise<ToolCaptureReadResult> =>
+    ipcRenderer.invoke(IpcChannels.toolCapture.readCapture, request),
 };
 
 export const profilesBridge = {

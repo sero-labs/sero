@@ -78,6 +78,7 @@ import type {
   OnboardingState,
   TerminalCreateResult,
 } from './ipc';
+import type { ToolCaptureReadRequest, ToolCaptureReadResult } from './tool-capture';
 import type { SeroDoctorAPI } from './electron-doctor';
 import type { SeroUpdaterAPI } from './electron-updater';
 import type { SeroWindowAPI } from './window-chrome';
@@ -158,6 +159,16 @@ interface SeroShellAPI {
   openExternal(url: string): Promise<void>;
   /** Clear the renderer HTTP cache, used to recover from stale Vite optimized deps. */
   clearRendererCache(): Promise<void>;
+}
+
+interface SeroToolCaptureAPI {
+  /**
+   * Read a bounded slice of a complete tool-output capture file.
+   *
+   * Confined to the capture root in the main process. A capture that no longer
+   * exists answers `state: 'unavailable'` instead of empty content.
+   */
+  readCapture(request: ToolCaptureReadRequest): Promise<ToolCaptureReadResult>;
 }
 
 interface SeroAuthAPI {
@@ -423,6 +434,7 @@ export interface SeroAPI {
   arch: string;
   window: SeroWindowAPI;
   shell: SeroShellAPI;
+  toolCapture: SeroToolCaptureAPI;
   profiles: SeroProfilesAPI;
   contextPresets: SeroContextPresetsAPI;
   workspace: SeroWorkspaceAPI;
@@ -476,4 +488,3 @@ declare global {
     sero: SeroAPI;
   }
 }
-export {};

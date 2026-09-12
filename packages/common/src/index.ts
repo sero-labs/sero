@@ -415,6 +415,14 @@ export {
   MCP_METADATA_CACHE_RELATIVE_PATH,
 } from './agent-plugins';
 
+export { RTK_TOOLCHAIN_EVENT } from './rtk-toolchain';
+export type {
+  RtkToolchainLocation,
+  RtkToolchainResolution,
+  RtkToolchainState,
+  RtkToolchainRequest,
+} from './rtk-toolchain';
+
 export type {
   GlobalModelConfigStateIPC,
   WorkspaceRootIPC,

@@ -32,7 +32,9 @@ For the default profile, the exact agent directory is `~/.sero-ui/agent/`. Sero 
 │   ├── extensions/
 │   ├── agents/
 │   ├── skills/
-│   └── prompts/
+│   ├── prompts/
+│   ├── capture/
+│   └── rtk/
 ├── apps/
 ├── workspaces/
 ├── themes/
@@ -111,6 +113,58 @@ Container workspaces have a log guide at `/workspace/.sero/logs/README.md`. It p
 ```
 
 Logs can contain paths, prompts, errors, and project details.
+
+## Complete command output
+
+The bash tool keeps complete command output outside the model context. Each capture is a directory:
+
+```text
+<SERO_HOME>/agent/captures/<session-id>/
+├── combined.log   # both streams in arrival order
+├── stdout.log     # only when standard output produced output
+└── stderr.log     # only when standard error produced output
+```
+
+The model receives a bounded tail of this output. The complete files stay on disk, and the tool result reports their paths and sizes. A command with no output creates no capture.
+
+The files hold the bytes the command wrote, including output that is not valid text. Sero does not hold the whole output in memory: when a command prints faster than the disk accepts writes, Sero pauses the command's output until the writes catch up. The command then blocks instead of the profile growing.
+
+The capture root is outside every workspace, so no file watcher, workspace search, or language server sees it. A workspace container receives the same directory read-only.
+
+A capture file can hold anything a command printed, including secrets. It is profile data. Sero deletes it after its last referencing session is released.
+
+### Retention
+
+A capture stays while a session references it. The session that produced it is the first reference. A fork copies the branch, so the fork inherits the same references, and a fork of a fork inherits them again. Sero removes a capture only after the last referencing session is deleted.
+
+Sero protects a new capture until a cleanup scan sees its saved session reference. If that reference is never saved, the next app startup can remove the orphaned capture.
+
+Sero also keeps the host RTK state of a producing session while a surviving inherited capture can still reference its recovery output.
+
+Referenced storage has no size or age limit. A session you keep can accumulate output without a ceiling. A quota would change the complete-capture or retention contract, so it requires a separate decision rather than a setting.
+
+### When a capture cannot be written
+
+A full, read-only, or unavailable disk never fails the command. The command keeps running, its exit status and bounded result stay available, and the result states that the complete output is unavailable instead of reporting a path. A partial file is never reported as complete, and Sero retries a failed cleanup on a later sweep.
+
+### Container lifetime
+
+Sero resolves the capture root on the host, so a complete-output link always points at the host copy. A container receives that directory read-only and cannot write to it.
+
+RTK tracking and recovery state for container commands is separate. It lives under the container's own `/tmp/sero-home/rtk/`, so it is removed with the container and never writes into the profile.
+
+## Host RTK state
+
+RTK tracking and both recovery modes use a session directory:
+
+```text
+<SERO_HOME>/agent/rtk/<session-id>/
+├── history.db
+├── recall.db
+└── tee/
+```
+
+Sero supplies these locations to RTK, so an existing RTK recovery configuration cannot redirect its writes outside them. Sero removes the directory when its session is deleted, unless a surviving inherited capture can still reference its recovery output.
 
 ## Protect private state
 

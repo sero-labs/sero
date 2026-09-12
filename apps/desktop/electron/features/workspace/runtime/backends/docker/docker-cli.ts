@@ -2,6 +2,9 @@ import { existsSync } from 'fs';
 import { delimiter, join } from 'path';
 import { execFile, spawn, type ChildProcess } from 'child_process';
 
+import { runStreamingExec } from '../../streaming-exec';
+import type { RuntimeExecOutputSink } from '../../types';
+
 export interface DockerCommandResult {
   stdout: string;
   stderr: string;
@@ -123,6 +126,23 @@ export async function runDocker(args: string[], options: DockerRunOptions = {}):
   const fallbackResult = await execContainerCommand(fallback, args, options);
   rememberSuccessfulImplicitCommand(fallback, options.env, fallbackResult);
   return fallbackResult;
+}
+
+export async function streamDocker(
+  args: string[],
+  options: DockerRunOptions,
+  sink: RuntimeExecOutputSink,
+): Promise<DockerCommandResult> {
+  const command = resolveDockerCommand(options.env);
+  const outcome = await runStreamingExec({
+    program: command.executable,
+    args,
+    cwd: options.cwd,
+    env: command.env,
+    timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    sink,
+  });
+  return { stdout: '', stderr: outcome.errorMessage ?? '', exitCode: outcome.exitCode };
 }
 
 export async function checkDocker(args: string[], options?: DockerRunOptions): Promise<DockerCommandResult> {

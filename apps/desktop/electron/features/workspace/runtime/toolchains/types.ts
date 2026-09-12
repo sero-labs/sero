@@ -12,7 +12,8 @@ export type ToolName =
   | 'curl'
   | 'zip'
   | 'unzip'
-  | 'uv';
+  | 'uv'
+  | 'rtk';
 
 export type ManagedToolPlatform = Extract<NodeJS.Platform, 'darwin' | 'linux' | 'win32'>;
 export type ManagedToolArch = 'x64' | 'arm64';
@@ -29,6 +30,18 @@ export interface ArtifactSpec {
   unpackTo: string;
   binPaths: Record<string, string>;
   minVersion?: string;
+  /**
+   * Exact pinned version. When set, the verifier must find this exact version,
+   * and a newer or older copy is rejected. Used by tools that are pinned in a
+   * second place, such as the `sero-node` image.
+   */
+  version?: string;
+  /**
+   * When true the resolver never consults a system candidate on `PATH` and
+   * always uses the Sero-managed copy. This is a deliberate exception to the
+   * system-first toolchain policy; see ARCHITECTURE.md.
+   */
+  managedOnly?: boolean;
   installPolicy: ToolInstallPolicy;
 }
 

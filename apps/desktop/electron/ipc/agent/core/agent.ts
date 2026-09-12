@@ -38,6 +38,8 @@ import {
   unregisterSessionViewer,
 } from './agent-event-broadcast';
 import { openSessionInPool, type PoolEntry } from './agent-session-open';
+import { publishSessionFork } from '@electron/features/tool-capture/lifecycle';
+import { collectCaptureIdsFromEntries, writeForkReferences } from '@electron/features/tool-capture/fork-references';
 
 export { emitAgentEvent } from './agent-event-broadcast';
 const pool = new Map<string, PoolEntry>();
@@ -67,7 +69,7 @@ export async function reloadAllSessionResources(): Promise<void> {
       if (!pendingResourceReloads.has(sessionId)) {
         const pending = entry.session.waitForIdle()
           .then(async () => {
-            if (pool.get(sessionId) !== entry) return;
+            if (pool.get(sessionId) !== entry) return undefined;
             const currentHidden = await readHiddenCommands(SERO_CONFIG_PATH);
             await entry.session.reload();
             sendEvent({
@@ -76,6 +78,7 @@ export async function reloadAllSessionResources(): Promise<void> {
               commands: buildCommandList(entry, currentHidden),
               state: buildModelState(entry),
             });
+            return undefined;
           })
           .catch((error) => {
             console.error(`[agent] Deferred resource reload failed for ${sessionId}:`, error);
@@ -85,7 +88,7 @@ export async function reloadAllSessionResources(): Promise<void> {
           });
         pendingResourceReloads.set(sessionId, pending);
       }
-      return;
+      return undefined;
     }
     await entry.session.reload();
     sendEvent({
@@ -363,24 +366,40 @@ export function registerAgentHandlers(): void {
       const leafId = sm.getLeafId();
       if (!leafId) throw new Error('Session has no entries to fork');
 
-      const newSessionPath = sm.createBranchedSession(leafId);
-      if (!newSessionPath) throw new Error('Failed to create forked session file');
+      // Fork publication runs as one retention-gated step: the branch is
+      // written, then the inherited capture references are published. A
+      // concurrent deletion sweep can therefore never miss a committed fork.
+      const fork = await publishSessionFork(async () => {
+        const newSessionPath = sm.createBranchedSession(leafId);
+        if (!newSessionPath) throw new Error('Failed to create forked session file');
 
-      // Read metadata from the new session file (not fabricated timestamps)
-      const newSm = SessionManager.open(newSessionPath, SERO_SESSION_DIR);
-      const header = newSm.getHeader();
-      if (!header) throw new Error('Forked session has no header');
-      const branch = newSm.getBranch();
+        // Read metadata from the new session file (not fabricated timestamps)
+        const newSm = SessionManager.open(newSessionPath, SERO_SESSION_DIR);
+        const header = newSm.getHeader();
+        if (!header) throw new Error('Forked session has no header');
+        const branch = newSm.getBranch();
+
+        // The session writer defers a forked file until its first assistant
+        // message, so publish the inherited capture references now. Without
+        // this, a deletion sweep could remove output this fork references.
+        await writeForkReferences(
+          newSessionPath,
+          newSm.getSessionId(),
+          collectCaptureIdsFromEntries(branch),
+        );
+
+        return { newSessionPath, newSm, header, branch };
+      });
 
       return {
-        path: newSessionPath,
-        id: newSm.getSessionId(),
-        cwd: header.cwd,
+        path: fork.newSessionPath,
+        id: fork.newSm.getSessionId(),
+        cwd: fork.header.cwd,
         workspaceId: entry.workspaceId,
-        name: newSm.getSessionName(),
-        created: header.timestamp,
-        modified: header.timestamp,
-        messageCount: branch.filter(
+        name: fork.newSm.getSessionName(),
+        created: fork.header.timestamp,
+        modified: fork.header.timestamp,
+        messageCount: fork.branch.filter(
           (e) => e.type === 'message' && e.message.role === 'user',
         ).length,
         firstMessage: '',
