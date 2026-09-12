@@ -30,13 +30,27 @@ describe('describeToolCapture', () => {
 
     expect(view?.capture.complete).toBe(true);
     expect(view?.files.map((file) => file.kind)).toEqual(['combined', 'stdout', 'stderr']);
-    expect(view?.files[0]).toMatchObject({ label: 'Combined output', hostPath: '/host/combined.log', bytes: 2048 });
+    expect(view?.files[0]).toMatchObject({ label: 'Full details', hostPath: '/host/combined.log', bytes: 2048 });
   });
 
   it('omits a stream file that produced no output', () => {
     const view = describeToolCapture(captureDetails({ stderr: undefined }));
 
     expect(view?.files.map((file) => file.kind)).toEqual(['combined', 'stdout']);
+  });
+
+  it('exposes the executed command for the viewer', () => {
+    const view = describeToolCapture({
+      ...captureDetails(),
+      rewrite: { requested: 'pnpm install', executed: 'rtk pnpm install' },
+    });
+
+    expect(view?.rewrite).toEqual({ requested: 'pnpm install', executed: 'rtk pnpm install' });
+  });
+
+  it('ignores a malformed rewrite entry', () => {
+    expect(describeToolCapture({ ...captureDetails(), rewrite: { requested: 'pnpm install' } })?.rewrite).toBeUndefined();
+    expect(describeToolCapture({ ...captureDetails(), rewrite: 'nope' })?.rewrite).toBeUndefined();
   });
 
   it('omits a stream that holds the combined file all over again', () => {

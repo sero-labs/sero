@@ -37,10 +37,17 @@ export interface ToolCaptureView {
   preview: boolean;
   /** Complete files the user can open. Empty when the capture is incomplete. */
   files: ToolCaptureFile[];
+  /**
+   * The command that ran, when it differs from the requested one.
+   *
+   * This is UI metadata. The model is told what it asked for and nothing more,
+   * because the wrapper repeats on every rewritten command.
+   */
+  rewrite?: { requested: string; executed: string };
 }
 
 const STREAM_LABELS: Record<ToolCaptureStreamKind, string> = {
-  combined: 'Combined output',
+  combined: 'Full details',
   stdout: 'stdout',
   stderr: 'stderr',
 };
@@ -69,7 +76,20 @@ export function describeToolCapture(
     capture,
     preview: isTruncated(details),
     files: capture.complete ? files : [],
+    rewrite: parseRewrite(details),
   };
+}
+
+/** The requested and executed commands a rewritten result recorded. */
+function parseRewrite(
+  details: Record<string, unknown> | null | undefined,
+): ToolCaptureView['rewrite'] {
+  const value = details?.rewrite;
+  if (!isRecord(value)) return undefined;
+  const { requested, executed } = value;
+  if (typeof requested !== 'string' || !requested) return undefined;
+  if (typeof executed !== 'string' || !executed) return undefined;
+  return { requested, executed };
 }
 
 export function parseToolCaptureDetails(

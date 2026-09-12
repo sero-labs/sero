@@ -75,8 +75,8 @@ describe('ToolCaptureReport', () => {
     readCapture.mockResolvedValue({ state: 'ok', content: 'full output\n', totalBytes: 12 });
     await render(captureView());
 
-    const button = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Combined output'));
-    expect(button?.textContent).toContain('Combined output · 2.0KB');
+    const button = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Full details'));
+    expect(button?.textContent).toContain('Full details · 2.0KB');
 
     await act(async () => button?.click());
 
@@ -104,7 +104,7 @@ describe('ToolCaptureReport', () => {
     });
     await render(captureView());
 
-    const button = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Combined output'));
+    const button = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Full details'));
     await act(async () => button?.click());
 
     expect(container.textContent).toContain('Complete output unavailable: The complete output file is no longer available.');
@@ -116,7 +116,7 @@ describe('ToolCaptureReport', () => {
     readCapture.mockRejectedValue(new Error('Refusing to read a capture outside the capture root'));
     await render(captureView());
 
-    const button = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Combined output'));
+    const button = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Full details'));
     await act(async () => button?.click());
 
     expect(container.textContent).toContain('outside the capture root');
@@ -129,7 +129,7 @@ describe('ToolCaptureReport', () => {
       .mockResolvedValueOnce({ state: 'ok', content: 'second', totalBytes: 10 });
     await render(captureView());
 
-    const open = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Combined output'));
+    const open = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Full details'));
     await act(async () => open?.click());
     expect(container.querySelector('pre')?.textContent).toBe('first');
 
@@ -169,7 +169,7 @@ describe('ToolCaptureReport', () => {
     }));
     await render(captureView());
 
-    const open = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Combined output'));
+    const open = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Full details'));
     await act(async () => open?.click());
 
     const more = [...container.querySelectorAll('button')].find((item) => item.textContent === 'Load more');
@@ -190,7 +190,7 @@ describe('ToolCaptureReport', () => {
     }));
     await render(captureView());
 
-    const open = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Combined output'));
+    const open = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Full details'));
     await act(async () => open?.click());
 
     const full = [...container.querySelectorAll('button')].find((item) => item.textContent === 'Open full output');
@@ -215,7 +215,7 @@ describe('ToolCaptureReport', () => {
     }));
     await render(captureView());
 
-    const open = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Combined output'));
+    const open = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Full details'));
     await act(async () => open?.click());
     const full = [...container.querySelectorAll('button')].find((item) => item.textContent === 'Open full output');
     await act(async () => full?.click());
@@ -233,7 +233,7 @@ describe('ToolCaptureReport', () => {
     readCapture.mockResolvedValue({ state: 'ok', content: 'all of it', totalBytes: 111 });
     await render(captureView());
 
-    const open = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Combined output'));
+    const open = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Full details'));
     await act(async () => open?.click());
     const full = [...container.querySelectorAll('button')].find((item) => item.textContent === 'Open full output');
     await act(async () => full?.click());
@@ -244,11 +244,41 @@ describe('ToolCaptureReport', () => {
     expect([...document.querySelectorAll('button')].some((item) => item.textContent === 'Next')).toBe(false);
   });
 
+  it('shows the executed command in the full-output viewer', async () => {
+    readCapture.mockResolvedValue({ state: 'ok', content: 'all of it', totalBytes: 111 });
+    await render(captureView({}, {
+      rewrite: { requested: 'pnpm install', executed: 'rtk pnpm install' },
+    }));
+
+    const open = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Full details'));
+    await act(async () => open?.click());
+    const full = [...container.querySelectorAll('button')].find((item) => item.textContent === 'Open full output');
+    await act(async () => full?.click());
+
+    // The rewrite lives here, not in the transcript the model reads.
+    expect(document.body.textContent).toContain('Requested');
+    expect(document.body.textContent).toContain('pnpm install');
+    expect(document.body.textContent).toContain('Executed');
+    expect(document.body.textContent).toContain('rtk pnpm install');
+  });
+
+  it('omits the rewrite rows when the command ran as written', async () => {
+    readCapture.mockResolvedValue({ state: 'ok', content: 'all of it', totalBytes: 111 });
+    await render(captureView());
+
+    const open = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Full details'));
+    await act(async () => open?.click());
+    const full = [...container.querySelectorAll('button')].find((item) => item.textContent === 'Open full output');
+    await act(async () => full?.click());
+
+    expect(document.body.textContent).not.toContain('Executed');
+  });
+
   it('opens a large reading surface instead of the default dialog width', async () => {
     readCapture.mockResolvedValue({ state: 'ok', content: 'all of it', totalBytes: 111 });
     await render(captureView());
 
-    const open = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Combined output'));
+    const open = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Full details'));
     await act(async () => open?.click());
     const full = [...container.querySelectorAll('button')].find((item) => item.textContent === 'Open full output');
     await act(async () => full?.click());
@@ -271,7 +301,7 @@ describe('ToolCaptureReport', () => {
     readCapture.mockResolvedValue({ state: 'ok', content: '', totalBytes: 0 });
     await render(captureView());
 
-    const open = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Combined output'));
+    const open = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Full details'));
     await act(async () => open?.click());
     const full = [...container.querySelectorAll('button')].find((item) => item.textContent === 'Open full output');
     await act(async () => full?.click());

@@ -72,7 +72,7 @@ export function ToolCaptureReport({ view }: { view: ToolCaptureView }) {
       </div>
 
       {selected ? (
-        <ToolCaptureViewer key={selected.kind} file={selected} onClose={() => setSelected(null)} />
+        <ToolCaptureViewer key={selected.kind} file={selected} rewrite={view.rewrite} onClose={() => setSelected(null)} />
       ) : null}
     </div>
   );
@@ -89,7 +89,15 @@ type ViewerState =
   | { kind: 'open'; content: string; nextOffset?: number; totalBytes: number; capped: boolean }
   | { kind: 'unavailable'; reason: string };
 
-function ToolCaptureViewer({ file, onClose }: { file: ToolCaptureFile; onClose: () => void }) {
+function ToolCaptureViewer({
+  file,
+  rewrite,
+  onClose,
+}: {
+  file: ToolCaptureFile;
+  rewrite?: ToolCaptureView['rewrite'];
+  onClose: () => void;
+}) {
   const [state, setState] = useState<ViewerState>({ kind: 'loading' });
   const [fullViewerOpen, setFullViewerOpen] = useState(false);
 
@@ -147,7 +155,7 @@ function ToolCaptureViewer({ file, onClose }: { file: ToolCaptureFile; onClose: 
         />
       ) : null}
       {state.kind === 'open' && fullViewerOpen ? (
-        <CaptureViewerDialog file={file} onClose={() => setFullViewerOpen(false)} />
+        <CaptureViewerDialog file={file} rewrite={rewrite} onClose={() => setFullViewerOpen(false)} />
       ) : null}
     </div>
   );
@@ -268,7 +276,15 @@ function canPage(history: readonly number[], slice: { nextOffset?: number }): bo
  * call. It reads through the capture-root read contract, not the editor's
  * workspace path policy.
  */
-function CaptureViewerDialog({ file, onClose }: { file: ToolCaptureFile; onClose: () => void }) {
+function CaptureViewerDialog({
+  file,
+  rewrite,
+  onClose,
+}: {
+  file: ToolCaptureFile;
+  rewrite?: ToolCaptureView['rewrite'];
+  onClose: () => void;
+}) {
   const [offset, setOffset] = useState(0);
   const [history, setHistory] = useState<number[]>([]);
   const [slice, setSlice] = useState<SliceState>({ kind: 'loading' });
@@ -315,10 +331,26 @@ function CaptureViewerDialog({ file, onClose }: { file: ToolCaptureFile; onClose
       <DialogContent className="flex h-[min(88vh,60rem)] w-[min(94vw,80rem)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
         <DialogHeader className="shrink-0 gap-1 border-b border-[var(--border-subtle)] px-5 py-3 pr-14">
           <DialogTitle>{file.label}</DialogTitle>
-          <DialogDescription>
-            Complete output · {formatBytes(slice.kind === 'open' ? slice.totalBytes : file.bytes)} · reads one page at a time
+          {/* Screen readers only: the footer already reports the shown byte range. */}
+          <DialogDescription className="sr-only">
+            Complete captured output, {formatBytes(slice.kind === 'open' ? slice.totalBytes : file.bytes)}. Reads one page at a time.
           </DialogDescription>
         </DialogHeader>
+
+        {/* The executed command is here rather than in the transcript: the model
+            asked for the requested command and cannot act on the wrapper. */}
+        {rewrite ? (
+          <dl className="shrink-0 space-y-1 border-b border-[var(--border-subtle)] px-5 py-3 text-sm">
+            <div className="flex gap-2">
+              <dt className="w-20 shrink-0 text-[var(--text-muted)]">Requested</dt>
+              <dd className="min-w-0 break-all font-mono text-[var(--text-secondary)]">{rewrite.requested}</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="w-20 shrink-0 text-[var(--text-muted)]">Executed</dt>
+              <dd className="min-w-0 break-all font-mono text-[var(--text-secondary)]">{rewrite.executed}</dd>
+            </div>
+          </dl>
+        ) : null}
 
         {slice.kind === 'loading' ? (
           <p className="px-5 py-4 text-sm text-[var(--text-muted)]">Loading…</p>

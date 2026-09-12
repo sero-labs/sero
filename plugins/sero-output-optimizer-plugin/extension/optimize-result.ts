@@ -8,7 +8,6 @@ import {
   renderIncompleteStructuredNotice,
   renderOmissionNotice,
   renderOptimizationNotice,
-  renderRewriteNotice,
   statusNotice,
 } from './report';
 import { appendBlocks, readPayloadIndex, readReportIndex, removeBlock, replaceBlock, type TextBlock } from './result';
@@ -174,7 +173,6 @@ export async function optimizeResult(input: OptimizeInput): Promise<OptimizeOutp
   const { content, details: rawDetails, requestedCommand, rewrite, config, metrics } = input;
   const readCapture = input.readCapture ?? readCaptureContent;
   const notices: string[] = [];
-  if (rewrite) notices.push(renderRewriteNotice(rewrite.requested, rewrite.executed, rewrite.display));
 
   const payloadIndex = readPayloadIndex(rawDetails);
   const receivedPayload = content[payloadIndex]?.text ?? '';
@@ -182,6 +180,12 @@ export async function optimizeResult(input: OptimizeInput): Promise<OptimizeOutp
   const details = {
     ...(typeof rawDetails === 'object' && rawDetails !== null ? rawDetails : {}),
   } as Record<string, unknown>;
+
+  // The executed command is metadata for the UI, not model context. The model
+  // asked for the requested command and received its output; naming the wrapper
+  // was noise it could not act on, and the blocked categories already cover the
+  // cases where RTK loses meaning.
+  if (rewrite) details.rewrite = { requested: rewrite.requested, executed: rewrite.display ?? rewrite.executed };
 
   // The single-command bypass skips rewriting (handled earlier) and compaction.
   // It also leaves the host result untouched, including the capture report.

@@ -6,8 +6,7 @@ import { ConfigStore } from './config';
 import { computeRewrite } from './rewrite';
 import { RtkResolver } from './rtk-client';
 import { SessionState } from './state';
-import { appendBlocks, textBlocks } from './result';
-import { renderRewriteNotice } from './report';
+import { textBlocks } from './result';
 import { optimizeResult } from './optimize-result';
 import { seedMetricsFromHistory } from './history';
 import { registerOptimizerTool } from './tool';
@@ -113,11 +112,10 @@ export default function outputOptimizerExtension(pi: ExtensionAPI): void {
     // Replay guard: each history entry is counted once.
     if (!state.claimAccounting(event.toolCallId)) return undefined;
     if (!config.enabled) {
-      const result = rewrite
-        ? { content: appendBlocks(content, [renderRewriteNotice(rewrite.requested, rewrite.executed, rewrite.display)]) }
-        : undefined;
+      // Nothing to compact and nothing to report: the result reaches the model
+      // exactly as the bash tool produced it.
       await publishSavings();
-      return result;
+      return undefined;
     }
 
     try {

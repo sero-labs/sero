@@ -157,28 +157,31 @@ a partial matched line as a valid edit anchor.
 
 ### Requirement: The executed command is visible
 
-When a command was rewritten, the result SHALL report both the command that was
-requested and the command that ran, so the two are distinguishable. The
-model-visible notice MAY report the RTK form, because the bound executable path
-and the session's RTK state environment repeat on every rewritten command and
-cost more context than the output they describe; the fully bound command SHALL
-remain in the result's typed details. When no rewrite occurred, the result MUST
-NOT add a rewrite notice.
+When a command was rewritten, the result SHALL record both the command that was
+requested and the command that ran, so the two are distinguishable. The record
+SHALL carry the RTK form; the bound executable path and the session's RTK state
+environment repeat on every rewritten command and are not persisted.
+
+The model context MUST NOT carry the rewrite. The model asked for the requested
+command and receives that command's output; naming the wrapper is information it
+cannot act on, and the measured-loss exclusions already cover the commands where
+RTK changes meaning. The full-output viewer SHALL show the requested and executed
+commands. When no rewrite occurred, the result MUST NOT record one.
 
 #### Scenario: Command was rewritten
 
+- **WHEN** a result is recorded for a rewritten command
+- **THEN** the result details name the command that executed and the command that was requested, so the viewer can tell which command ran
+
+#### Scenario: The model context stays unchanged
+
 - **WHEN** the agent receives a result for a rewritten command
-- **THEN** the result names the command that executed and identifies the requested command, so the reader can tell which command ran
-
-#### Scenario: Session state environment is not repeated
-
-- **WHEN** a rewritten command is reported
-- **THEN** the model-visible notice shows the RTK form without the bound executable path and the RTK state assignments, and the fully bound command remains in the result details
+- **THEN** the model-visible content carries the output and no rewrite notice, and the executed command is available only in the result details
 
 #### Scenario: Command was not rewritten
 
-- **WHEN** the agent receives a result for a command that ran as written
-- **THEN** the result carries no rewrite notice
+- **WHEN** a result is recorded for a command that ran as written
+- **THEN** the result carries no rewrite record, and the viewer shows no executed command
 
 ### Requirement: Safe categories are compacted
 

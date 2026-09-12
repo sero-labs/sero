@@ -4,22 +4,6 @@ import type { PreviewResult } from './preview';
 
 /** Model-visible notices. Each is a separate content block, never payload data. */
 
-/**
- * The rewrite notice.
- *
- * `display` is the RTK form the tool returned, such as `rtk pnpm install`. The
- * bound command carries the session's RTK state paths, which are the same for
- * every rewritten command and cost more context than the output they describe;
- * the full command is kept in the result details instead.
- */
-export function renderRewriteNotice(requested: string, executed: string, display?: string): string {
-  return [
-    'Command executed differently:',
-    `- requested: ${requested}`,
-    `- executed:  ${display ?? executed}`,
-  ].join('\n');
-}
-
 export function renderOptimizationNotice(input: {
   category: OutputCategory;
   rule: OutputCategory | null;

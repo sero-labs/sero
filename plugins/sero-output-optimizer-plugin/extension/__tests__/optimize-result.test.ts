@@ -185,7 +185,7 @@ describe('optimizeResult compaction', () => {
     expect(result.content.some((block) => block.text.includes('already compact'))).toBe(false);
   });
 
-  it('shows the RTK form without the session state environment', async () => {
+  it('records the RTK form in the details, not in the model content', async () => {
     const details = captureDetails({ combined: stream('combined', testOutput.length) });
 
     const result = await optimizeResult({
@@ -202,10 +202,13 @@ describe('optimizeResult compaction', () => {
       readCapture: reader({ combined: testOutput }),
     });
 
-    const notice = result.content.find((block) => block.text.includes('Command executed differently'));
-    expect(notice?.text).toContain('- requested: pnpm install');
-    expect(notice?.text).toContain('- executed:  rtk pnpm install');
-    expect(notice?.text).not.toContain('RTK_DB_PATH');
+    // The UI shows this in the full-output viewer. The model asked for the
+    // requested command and cannot act on the wrapper, so it is not in content.
+    expect(result.details).toMatchObject({
+      rewrite: { requested: 'pnpm install', executed: 'rtk pnpm install' },
+    });
+    expect(result.content.some((block) => block.text.includes('Command executed differently'))).toBe(false);
+    expect(JSON.stringify(result.content)).not.toContain('rtk pnpm install');
   });
 
   it('fails open when the capture cannot be read after a rewrite', async () => {
@@ -223,7 +226,7 @@ describe('optimizeResult compaction', () => {
     });
 
     expect((result.content[0] as TextBlock).text).toBe('received payload');
-    expect(result.content.some((block) => block.text.includes('Command executed differently'))).toBe(true);
+    expect(result.details).toMatchObject({ rewrite: { requested: 'git status', executed: 'rtk git status' } });
     expect(result.details).toMatchObject({ optimization: { measured: false } });
   });
 

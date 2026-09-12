@@ -18,7 +18,7 @@ Sero does not rewrite these commands:
 
 RTK exit codes 0 and 3 are rewrite candidates, 1 means no equivalent, and 2 means RTK declined. Sero uses these only to choose a command. They do not grant or bypass Sero permission checks.
 
-A result for a rewritten command names both the requested command and the executed one. The notice shows the RTK form, such as `rtk pnpm install`. The fully bound command, with the resolved RTK executable and its session state paths, stays in the result details, because those paths repeat on every rewritten command.
+A result for a rewritten command records both the requested command and the executed one. Open the **Full details** viewer for a result to see them. The model is not told about the rewrite: it receives the command it asked for and that command's output, and the executed form stays in the result details. The recorded form is the RTK command, such as `rtk pnpm install`; the resolved RTK executable and its session state paths are not persisted.
 
 ## Compaction
 
