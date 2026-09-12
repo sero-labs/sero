@@ -94,14 +94,19 @@ describe('ToolCaptureReport', () => {
     expect(document.querySelector('pre')?.textContent).toBe('full output\n');
   });
 
-  it('opens an individual stream file separately from the combined output', async () => {
-    readCapture.mockResolvedValue({ state: 'ok', content: '{"ok":true}\n', totalBytes: 12 });
+  it('offers one control even when the command split its output across streams', async () => {
+    readCapture.mockResolvedValue({ state: 'ok', content: 'full output\n', totalBytes: 12 });
     await render(captureView());
 
-    await act(async () => fileButton('stdout')?.click());
+    // The combined file holds both streams, so a stdout or stderr button would
+    // repeat content the user already has.
+    expect(container.querySelectorAll('button')).toHaveLength(1);
+    expect(fileButton('stdout')).toBeUndefined();
+    expect(fileButton('stderr')).toBeUndefined();
 
-    expect(readCapture).toHaveBeenCalledWith({ path: '/host/stdout.log', offset: 0 });
-    expect(document.querySelector('pre')?.textContent).toBe('{"ok":true}\n');
+    await act(async () => fileButton('Full details')?.click());
+
+    expect(document.querySelector('pre')?.textContent).toBe('full output\n');
   });
 
   it('reports that the complete output is unavailable when the file is gone', async () => {

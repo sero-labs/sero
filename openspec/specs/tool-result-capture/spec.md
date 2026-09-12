@@ -99,27 +99,36 @@ without parsing human-readable notices. Reports SHALL use runtime-valid paths;
 host consumers SHALL receive host paths through typed metadata only. This
 separation does not remove the ordinary bash payload's existing truncation.
 Payload previews SHALL remain within the existing 50 KB / 2,000-line limits.
+A payload preview SHALL NOT carry ANSI escape sequences: no Sero surface renders
+them as styling, so they are noise in model context. Capture files keep the exact
+bytes, and a structured command's own payload remains byte-exact.
 Reporting blocks are outside that payload budget, as existing truncation and
 exit notices are. A truncated payload MUST be identified as a preview, not a
 complete or parseable structured document. Reports SHALL identify the complete
 combined output and available stream files with their individual byte counts. A
 stream file that holds the same bytes as the combined output MUST NOT be listed
-separately, in the report, in the viewer or in the capture metadata, because it
-repeats one fact at double the cost. Streams that differ
-from the combined output, such as stderr alongside stdout, SHALL be listed.
-The UI SHALL distinguish the preview from complete output and allow each
-stream file to be opened. Normal file-tool read limits still apply; complete
-retrieval can require paged reads or local parsing of the file.
+separately, in the report or in the capture metadata, because it repeats one
+fact at double the cost. Streams that differ from the combined output, such as
+stderr alongside stdout, SHALL be listed in the report, so the agent can read one
+stream alone. The UI SHALL offer the complete combined output as a single
+control: it holds every captured byte, so a control per stream would repeat it.
+Normal file-tool read limits still apply; complete retrieval can require paged
+reads or local parsing of the file.
 
 #### Scenario: Result carries a capture report
 
 - **WHEN** a command produces output and a finalized capture
 - **THEN** the output payload and capture report occupy separate identifiable content blocks
 
+#### Scenario: A command emits colour
+
+- **WHEN** a command writes ANSI escape sequences and its capture is finalized
+- **THEN** the model-visible payload carries the text without the escape sequences, and the capture file keeps them byte for byte
+
 #### Scenario: A stream repeats the combined output
 
 - **WHEN** every captured byte came from one stream, so that stream file is the combined file byte for byte
-- **THEN** the record omits that stream, the report names the combined output once, and the viewer offers one file
+- **THEN** the record omits that stream and the report names the combined output once
 
 #### Scenario: Streams differ from the combined output
 

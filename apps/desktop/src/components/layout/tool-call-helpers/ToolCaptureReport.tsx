@@ -26,39 +26,32 @@ import {
  */
 
 export function ToolCaptureReport({ view }: { view: ToolCaptureView }) {
-  const [selected, setSelected] = useState<ToolCaptureFile | null>(null);
+  const [open, setOpen] = useState(false);
+  const file = view.file;
 
-  if (!view.capture.complete) {
+  if (!file) {
     return (
       <p className="text-sm text-status-error">
-        Complete output unavailable: {view.capture.unavailableReason ?? 'the capture could not be saved.'}
+        Complete output unavailable: {view.unavailableReason ?? 'the capture could not be saved.'}
       </p>
     );
   }
 
   return (
     <div className="flex flex-wrap gap-1.5">
-      {view.files.map((file) => (
-        <button
-          key={file.kind}
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            setSelected(file);
-          }}
-          className="rounded border border-[var(--border-subtle)] px-2 py-1 text-sm text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
-        >
-          {file.label} · {formatBytes(file.bytes)}
-        </button>
-      ))}
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen(true);
+        }}
+        className="rounded border border-[var(--border-subtle)] px-2 py-1 text-sm text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+      >
+        Full details · {formatBytes(file.bytes)}
+      </button>
 
-      {selected ? (
-        <CaptureViewerDialog
-          key={selected.kind}
-          file={selected}
-          rewrite={view.rewrite}
-          onClose={() => setSelected(null)}
-        />
+      {open ? (
+        <CaptureViewerDialog file={file} rewrite={view.rewrite} onClose={() => setOpen(false)} />
       ) : null}
     </div>
   );
@@ -154,7 +147,7 @@ function CaptureViewerDialog({
           <DialogTitle>Tool Details</DialogTitle>
           {/* Screen readers only: the payload above already shows a truncation marker. */}
           <DialogDescription className="sr-only">
-            {file.label}: the complete captured output for this result. Reads one page at a time.
+            Complete captured output for this result. Reads one page at a time.
           </DialogDescription>
         </DialogHeader>
 

@@ -180,6 +180,31 @@ describe('OutputCapture', () => {
     expect(capture.renderPayload().truncated).toBe(true);
   });
 
+  it('strips ANSI escapes from the model payload and keeps them in the file', async () => {
+    const fileSystem = memoryFileSystem();
+    const capture = createCapture({ fileSystem });
+    const raw = '\u001B[1m\u001B[31mFAIL\u001B[39m\u001B[22m src/main.test.jsx\n';
+    send(capture, raw);
+    const record = await capture.finish();
+
+    // Nothing renders ANSI as styling, so the model copy drops it while the
+    // capture keeps the exact bytes.
+    expect(capture.renderPayload().content).toBe('FAIL src/main.test.jsx');
+    expect(fileSystem.files.get(record?.combined?.hostPath as string)?.toString('utf8')).toBe(raw);
+  });
+
+  it('counts the payload budget against the stripped text', async () => {
+    const fileSystem = memoryFileSystem();
+    const capture = createCapture({ fileSystem, tailLimitBytes: 100_000 });
+    // Each line is four bytes of escape around two bytes of text.
+    for (let index = 0; index < 500; index += 1) send(capture, `\u001B[31m${index}\u001B[39m\n`);
+
+    const payload = capture.renderPayload();
+    expect(payload.truncated).toBe(false);
+    expect(payload.content).not.toContain('\u001B[');
+    expect(payload.outputBytes).toBe(Buffer.byteLength(payload.content, 'utf8'));
+  });
+
   it('preserves the received tail and status for a timeout or cancellation', async () => {
     const fileSystem = memoryFileSystem();
     const capture = createCapture({ fileSystem });

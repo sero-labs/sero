@@ -36,11 +36,11 @@ A category rule never removes an error, warning, file path, line number, commit 
 
 The model receives a bounded preview: 2,000 lines or 50 KB, whichever comes first. The preview is not guaranteed to contain every diagnostic, and it is not promised to be parseable when it is truncated.
 
-The **complete** output stays in capture files. While the model payload leaves anything out, the result reports the capture paths and sizes so the agent can read them with its file tools. When the payload already carries the complete output and nothing was omitted, the optimizer omits that report: on a short result it would cost more context than the output it describes. The complete output stays openable from the result either way. A stream file that holds the same bytes as the combined output is not listed separately.
+The **complete** output stays in capture files. While the model payload leaves anything out, the result reports the capture paths and sizes so the agent can read them with its file tools. When the payload already carries the complete output and nothing was omitted, the optimizer omits that report: on a short result it would cost more context than the output it describes. A stream file that holds the same bytes as the combined output is not listed separately.
 
 A large capture can need paged reads or local processing, because file reads have their own limits.
 
-To open a capture in the UI, select its file in the tool result. It opens in the **Tool Details** viewer, which shows one page at a time. The tool result itself carries the file control only: nothing is rendered inline, so a tool call never accumulates a log, and nothing restates what the model received. A capture lives outside every workspace, so the viewer uses its own read contract instead of the editor's workspace path policy.
+To open a capture in the UI, select **Full details** in the tool result. That is the combined file, which holds every captured byte, so there is one control rather than one per stream. It opens in the **Tool Details** viewer, which shows one page at a time. Nothing is rendered inline, so a tool call never accumulates a log, and nothing restates what the model received. A capture lives outside every workspace, so the viewer uses its own read contract instead of the editor's workspace path policy.
 
 ### Structured output
 
