@@ -124,9 +124,10 @@ is persisted in the session file: a multi-megabyte result would inflate the
 session JSONL and slow every session open, and retention could not be tested.
 The bytes live in the capture from `add-managed-rtk-and-tool-result-capture`. Compaction
 requires finalized, readable capture metadata. If capture failed or cannot be
-read, return the received bash content and error status unchanged; never
-compact its truncated tail or rerun a rewritten command. Accounting metadata
-can record the skip without claiming savings. The
+read, preserve the received bash payload, existing reports and error status;
+never compact its truncated tail or rerun a rewritten command. Add the separate
+requested/executed command report if rewriting occurred, even on this failure
+path. Accounting metadata can record the skip without claiming savings. The
 model-visible result keeps the capture path and size from the bash tool, and the
 compactor must keep that report. The plugin adds its structured metrics to
 `details` for the UI.
@@ -194,8 +195,9 @@ Because a tool-call mutation does not reach the persisted tool call, the
 plugin remembers the original and the rewritten command per tool call and
 reports both in the result. The persisted call keeps the requested command, so
 the result must identify the command that executed and the transcript must
-present the two as requested and executed. Without this the reader cannot tell
-what ran.
+present the two as requested and executed. This reporting is independent of
+compaction and must survive a missing capture or a throwing compaction rule.
+Without this the reader cannot tell what ran.
 
 ### Per-class kill switch rather than a carve-out list
 
@@ -264,8 +266,12 @@ RTK savings and provider billing are not inferred from these values.
 Record `inputBytes` and `compactedBytes` for every measurable eligible call,
 including unchanged and failed-compaction calls with equal counts. Eligibility
 means an enabled, ordinary bash call without the bypass marker. Calls without
-a complete capture are excluded from byte totals and shown as unmeasured;
-zero-output calls contribute zero. Disabled and nested calls are excluded.
+a complete capture are excluded from byte totals and shown as unmeasured,
+except confirmed successful capture completion with zero output. The host
+creates no capture record for that case; record inputBytes and compactedBytes
+as zero and do not increase the unmeasured count. Distinguish this case from
+incomplete capture metadata or unavailable capture evidence; absence of a
+record alone does not prove zero output. Disabled and nested calls are excluded.
 The session reduction is `(sum(inputBytes) - sum(compactedBytes)) /
 sum(inputBytes)`; a zero denominator displays no percentage. Count each tool
 call once across replay. Keep accounting metadata for unchanged calls too;

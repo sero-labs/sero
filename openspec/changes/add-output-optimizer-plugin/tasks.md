@@ -13,7 +13,7 @@
 - [ ] 2.5 Exclude `git log`, `git diff` and `git show` from rewriting. Verify each runs unmodified.
 - [ ] 2.6 Skip piped rewrites on Windows. Verify the command runs unmodified when a top-level pipe is present.
 - [ ] 2.7 Advertise a host capability guaranteeing the reserved run_code_ nested-call prefix at both hooks. Require it in the plugin. Verify nested bash calls skip both interventions, ordinary unprefixed calls remain eligible, and a host without the capability leaves all calls unmodified.
-- [ ] 2.8 Record the original and rewritten command per tool call and report both in the result. Verify the result names the command that executed and identifies the requested command.
+- [ ] 2.8 Record the original and rewritten command per tool call and report both in the result. Verify the result names the command that executed and identifies the requested command, including when capture is unavailable or compaction throws. Keep this report separate from the preserved payload and error status.
 - [ ] 2.9 Make every rewrite failure path fail open: unavailable, declined, error, timeout, and Windows pipe. Verify each path runs the original command, preserves its exit code, and continues the session.
 - [ ] 2.10 Classify every RTK invocation in the candidate and check its per-class switch before execution. Discard the whole rewrite if any affected class is disabled. Verify a compound command cannot bypass a disabled class through another enabled class.
 - [ ] 2.11 Apply RTK_DB_PATH, RTK_RECALL_DB and RTK_TEE_DIR from the host/runtime environments to the matching invocations only. Verify tracking and both recovery modes remain within managed session state with existing user configuration, and no concurrent session's environment changes.
@@ -30,7 +30,7 @@
 - [ ] 3.8 Guard category transformations against removing protected diagnostics and identifiers before presentation. Verify a lossy rule is rejected. Apply the existing payload limits only during preview rendering, recompute candidate preview markers, and verify truncation never changes the source capture or claimed compaction savings.
 - [ ] 3.9 Verify unstructured output that matches no category keeps the existing bash preview unchanged, while its complete capture remains available.
 - [ ] 3.10 Skip RTK rewriting and all content transformations for requested structured formats. Verify small JSON stdout is the exact payload despite stderr warnings, and oversized JSON has a bounded incomplete preview plus a byte-exact parseable stdout capture. Test both line and byte limits, format flags, non-zero exits and invalid source documents without claiming to repair them.
-- [ ] 3.11 Make compaction fail open. Verify a throwing rule, missing capture and incomplete capture preserve received bash content and error status, add no further omissions or dead recovery path, and never rerun a command. Keep accounting records without claiming savings.
+- [ ] 3.11 Make compaction fail open. Verify a throwing rule, missing capture and incomplete capture preserve the received bash payload, existing reports and error status, add no further omissions or dead recovery path, and never rerun a command. Verify missing capture and a throwing compactor after successful rewriting still produce the separate requested/executed command report. Keep accounting records without claiming savings.
 - [ ] 3.12 Split compaction rules by category and keep each source file at or below 500 LOC. Verify by checking file lengths.
 - [ ] 3.13 Port the category rules from `pi-rtk-optimizer` in structure only, rewrite every lossy rule against the spec, and add the attribution to `NOTICE`. Verify the reference's known losses are covered by regression tests.
 
@@ -43,7 +43,7 @@
 
 ## 5. Metrics
 
-- [ ] 5.1 Measure complete executed-command capture bytes and complete compacted candidate bytes before presentation limits and without notices. Include unchanged and failed-compaction calls with equal counts; exclude incomplete captures and display their count. Verify replay and fork accounting count each history entry once.
+- [ ] 5.1 Measure complete executed-command capture bytes and complete compacted candidate bytes before presentation limits and without notices. Include unchanged and failed-compaction calls with equal counts; exclude incomplete captures and display their count. Record confirmed successful capture completion with zero output as measured 0/0 despite the absent capture record, without increasing the unmeasured count. Verify this case is distinguished from unavailable capture evidence and does not infer zero output solely from an absent record. Verify replay and fork accounting count each history entry once.
 - [ ] 5.2 Report plugin compaction only: total removed bytes divided by total measured input bytes. Verify 1000/500 plus 1000/1000 yields 25 percent, zero input shows no percentage, and RTK filtering or Sero truncation is not counted as plugin savings.
 
 ## 6. Tests, validation and documentation

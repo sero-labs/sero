@@ -313,20 +313,33 @@ reachable.
 ### Requirement: Compaction fails open
 
 If compaction fails or a complete capture cannot be read, the original bash
-content and error status MUST be delivered unchanged and the session MUST
-continue. The plugin MUST NOT compact a truncated tail when the complete
-capture is unavailable. Accounting metadata may record that compaction was
+payload, existing reports and error status MUST be preserved and the session
+MUST continue. If rewriting occurred, the plugin MUST still add the separate
+report identifying the requested and executed commands. This report is
+independent of compaction and MUST NOT alter the preserved payload or status.
+The plugin MUST NOT compact a truncated tail when the complete capture is
+unavailable. Accounting metadata may record that compaction was
 skipped. A command already executed through RTK MUST NOT be rerun as a fallback.
 
 #### Scenario: Compaction throws
 
 - **WHEN** a compaction rule fails on a result
-- **THEN** the unmodified result reaches the model and no error state is raised
+- **THEN** the original bash payload, existing reports and error status reach the model without a new error state, and any required execution report remains separate
 
 #### Scenario: Complete capture is missing or incomplete
 
 - **WHEN** persistence failed or the capture cannot be read before compaction
-- **THEN** the received bash content and error status reach the model unchanged, no further output is omitted, and no nonexistent recovery path is added
+- **THEN** the received bash payload, existing reports and error status are preserved, no further output is omitted, and no nonexistent recovery path is added
+
+#### Scenario: Capture fails after a command was rewritten
+
+- **WHEN** a rewritten command executes but its complete capture is unavailable
+- **THEN** the result preserves the received payload and error status and separately reports both the requested and executed commands without rerunning the command
+
+#### Scenario: Compaction throws after a command was rewritten
+
+- **WHEN** a rewritten command executes and its compaction rule throws
+- **THEN** the result preserves the received payload and error status and separately reports both the requested and executed commands without rerunning the command
 
 ### Requirement: A single command can bypass optimisation
 
@@ -365,8 +378,12 @@ provider billing savings from these counts.
 Eligible calls are ordinary bash calls while optimization is enabled and
 without a bypass marker. Every eligible call with complete capture SHALL enter
 the denominator, including unchanged calls with zero savings. Incomplete
-captures SHALL be shown as unmeasured and excluded from byte totals. Session
-reduction SHALL equal total removed bytes divided by total input bytes. A zero
+captures SHALL be shown as unmeasured and excluded from byte totals. Confirmed
+successful capture completion with zero output SHALL count as measured zero
+input and output bytes, even though the host creates no capture record. It
+MUST NOT increase the unmeasured-call count. An absent record alone MUST NOT
+be treated as proof of zero output. Session reduction SHALL equal total removed
+bytes divided by total input bytes. A zero
 denominator SHALL display no percentage. Replaying a result MUST NOT count it
 twice.
 
@@ -382,8 +399,13 @@ twice.
 
 #### Scenario: Capture fails
 
-- **WHEN** an eligible call has no complete capture
+- **WHEN** an eligible call has no complete capture and is not confirmed to have completed capture successfully with zero output
 - **THEN** it contributes no byte totals and increases the unmeasured-call count
+
+#### Scenario: Command produces no output
+
+- **WHEN** an eligible call completes capture successfully with zero bytes on both streams and the host creates no capture record
+- **THEN** it records zero input and output bytes, does not increase the unmeasured-call count, and displays no percentage if the session total input remains zero
 
 #### Scenario: Replay or fork
 
