@@ -268,15 +268,18 @@ session deletion and capture cleanup so a concurrent delete cannot remove a
 capture inherited by a committed fork. Failed forks may leak data until a
 successful sweep, but must not cause data loss.
 
-A capture directory appears when the command writes its first byte, and the
-reference that protects it appears only after the result is published. Age alone
-cannot separate a running command's capture from an orphan, so a 15-minute grace
-window was the only guard, and a command that ran longer lost its capture when
-another session was deleted. The capture owner registers its directory while the
-command runs and releases it once the result is built. Retention reads that
-registry and never selects a registered directory, whatever its age. The grace
-window still covers the gap between the result being built and the agent
-persisting it.
+A capture owner registers its directory before the first write. When it builds
+its result, the directory remains protected until a cleanup inventory observes
+the persisted capture reference. Asynchronous result hooks can delay that
+publication, so directory age cannot prove that a completed capture is orphaned.
+Each sweep keeps a snapshot of the protection present before it reads session
+files and adds captures registered during that read. A newer inventory can then
+release protection without making an older inventory unsafe.
+
+If a result never reaches a session file, its pending protection lasts until the
+process exits. The next startup sweep can remove it as an orphan. Referenced
+captures return to normal retention once an inventory has observed their
+references. The grace window remains an additional startup safeguard.
 
 A TTL or size-based eviction was rejected because it would invalidate live
 references. Retention is a lifecycle rule, not a disk quota. Active or retained

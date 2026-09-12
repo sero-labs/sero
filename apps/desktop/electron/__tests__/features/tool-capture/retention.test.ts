@@ -14,6 +14,7 @@ import {
   writeForkReferences,
 } from '@electron/features/tool-capture/fork-references';
 import {
+  DEFAULT_RETENTION_GRACE_MS,
   nodeCaptureInventorySource,
   parseForkReferenceDocument,
   planCaptureCleanup,
@@ -208,9 +209,47 @@ describe('capture cleanup', () => {
     await expect(capture.finish()).resolves.toMatchObject({ complete: true });
     await expect(sweep()).resolves.toMatchObject({ removedCaptures: [] });
 
+    const old = new Date(Date.now() - DEFAULT_RETENTION_GRACE_MS - 10_000);
+    fs.utimesSync(directory, old, old);
     capture.release();
+    // Building the result is not publication. A hook can still be awaiting I/O.
+    await expect(sweep({ graceMs: DEFAULT_RETENTION_GRACE_MS })).resolves.toMatchObject({ removedCaptures: [] });
+    const sessionFile = writeSessionFile(OTHER, [{ captureId: capture.id, producerSessionId: OTHER }]);
+    await expect(sweep()).resolves.toMatchObject({ removedCaptures: [] });
+    // After the inventory has seen the reference, deleting its last owner frees it.
+    fs.unlinkSync(sessionFile);
     await expect(sweep()).resolves.toMatchObject({ removedCaptures: [directory] });
     expect(fs.existsSync(directory)).toBe(false);
+  });
+
+  it('keeps an old inventory safe when another sweep observes publication first', async () => {
+    const capture = new OutputCapture({ producerSessionId: OTHER, captureRoot });
+    await capture.write('stdout', Buffer.from('output\n'));
+    await capture.finish();
+    capture.release();
+    writeSessionFile(OTHER, []);
+    const source = nodeCaptureInventorySource(sessionDir);
+    let readStarted!: () => void;
+    let resumeRead!: () => void;
+    const started = new Promise<void>((resolve) => { readStarted = resolve; });
+    const resume = new Promise<void>((resolve) => { resumeRead = resolve; });
+    const pending = sweep({ source: { ...source, async readTextFile(file) {
+      const oldText = await source.readTextFile(file);
+      readStarted();
+      await resume;
+      return oldText;
+    } } });
+    await started;
+    const sessionFile = writeSessionFile(OTHER, [{ captureId: capture.id, producerSessionId: OTHER }]);
+    try {
+      await expect(sweep()).resolves.toMatchObject({ removedCaptures: [] });
+    } finally {
+      resumeRead();
+    }
+    await expect(pending).resolves.toMatchObject({ removedCaptures: [] });
+    expect(fs.existsSync(capture.directoryPath)).toBe(true);
+    fs.unlinkSync(sessionFile);
+    await expect(sweep()).resolves.toMatchObject({ removedCaptures: [capture.directoryPath] });
   });
 
   it('removes an unreferenced capture but keeps a referenced one', async () => {    writeCapture(PARENT, 'cap-kept');

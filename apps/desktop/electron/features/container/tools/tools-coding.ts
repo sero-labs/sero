@@ -191,9 +191,8 @@ export function createBash(runtime: RuntimeBackend, containerCwd?: string, sessi
         throw error;
       }
 
-      // The reference that keeps this capture alive is inside the result built
-      // above, which the agent persists after this handler returns. The
-      // retention grace window covers that last step.
+      // Retention keeps this capture protected until it reads the persisted
+      // reference, including the time spent in asynchronous tool_result hooks.
       capture.release();
       return { content, details };
     },

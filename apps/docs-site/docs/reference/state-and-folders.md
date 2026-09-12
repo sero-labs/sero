@@ -137,6 +137,8 @@ A capture file can hold anything a command printed, including secrets. It is pro
 
 A capture stays while a session references it. The session that produced it is the first reference. A fork copies the branch, so the fork inherits the same references, and a fork of a fork inherits them again. Sero removes a capture only after the last referencing session is deleted.
 
+Sero protects a new capture until a cleanup scan sees its saved session reference. If that reference is never saved, the next app startup can remove the orphaned capture.
+
 Sero also keeps the host RTK state of a producing session while a surviving inherited capture can still reference its recovery output.
 
 Referenced storage has no size or age limit. A session you keep can accumulate output without a ceiling. A quota would change the complete-capture or retention contract, so it requires a separate decision rather than a setting.

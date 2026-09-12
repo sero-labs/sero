@@ -60,8 +60,13 @@ capture SHALL share its session references, reachability and cleanup policy.
 
 #### Scenario: One line exceeds the whole retained tail
 
-- **WHEN** a command writes one line longer than the retained tail budget and then writes more output
+- **WHEN** a command writes one line longer than the retained tail budget, with or without a terminating newline, and then writes more output
 - **THEN** the model-facing preview keeps the newest bytes of that line and the later output, and a persistence failure does not lose the newest bytes
+
+#### Scenario: A UTF-8 character spans pipe chunks
+
+- **WHEN** a valid UTF-8 character is split across successive chunks on either pipe
+- **THEN** the preview decodes it as one character, independently of chunks on the other pipe, and the capture files preserve the original bytes
 
 ### Requirement: Capturing complete output bounds memory
 
@@ -204,6 +209,12 @@ provides no size or age limit for referenced output.
 
 - **WHEN** a capture belongs to a command that has not published a result yet, and another session is deleted
 - **THEN** cleanup does not remove that capture, whatever its age, until that command's own result is published
+
+#### Scenario: Result publication is delayed
+
+- **WHEN** an aged capture has finished but its result has not reached the session file
+- **THEN** cleanup keeps the capture protected until an inventory observes its persisted reference
+- **AND** a concurrent sweep with an older inventory cannot delete it after a newer inventory releases that protection
 
 #### Scenario: Capture belongs to no surviving reference
 

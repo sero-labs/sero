@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { SERO_AGENT_DIR, SERO_HOST_RTK_STATE_ROOT, SERO_CAPTURE_ROOT } from '@electron/platform/env';
-import { activeCaptureDirectories } from './active-captures';
+import { activeCaptureDirectories, releasePersistedCaptureReferences } from './active-captures';
 import {
   FORK_REFERENCE_SUFFIX,
   sessionIdFromReferenceFileName,
@@ -322,11 +322,17 @@ export async function sweepOrphanedCaptures(options: SweepOptions = {}): Promise
   const now = (options.now ?? Date.now)();
   const source = options.source ?? nodeCaptureInventorySource(options.sessionDir);
 
+  // Keep the protection that existed before the inventory read. Another sweep
+  // can observe a newly persisted reference while this one still has old data.
+  const protectedDirectories = new Set(options.activeCaptureDirectories ?? activeCaptureDirectories());
   const inventory = await readCaptureInventory(source);
   if (!inventory.complete) {
     return { deferred: true, reason: inventory.reason, removedCaptures: [], removedRtkStates: [], removedForkReferences: [] };
   }
 
+  for (const directory of options.activeCaptureDirectories ?? activeCaptureDirectories()) {
+    protectedDirectories.add(directory);
+  }
   const plan = planCaptureCleanup({
     inventory,
     captures: await listCaptureDirectories(captureRoot),
@@ -334,8 +340,10 @@ export async function sweepOrphanedCaptures(options: SweepOptions = {}): Promise
     existingSessionFiles: await existingSessionFiles(inventory.forkReferenceFiles, source),
     graceMs,
     now,
-    activeDirectories: options.activeCaptureDirectories ?? activeCaptureDirectories(),
+    activeDirectories: protectedDirectories,
   });
+
+  releasePersistedCaptureReferences(inventory.referencedCaptureIds);
 
   // A failed removal is retried by the next sweep; nothing is advertised as gone.
   return {

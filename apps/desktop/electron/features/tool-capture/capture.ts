@@ -1,10 +1,11 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import { StringDecoder } from 'string_decoder';
 
 import { SERO_CAPTURE_ROOT } from '@electron/platform/env';
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateTail, type TruncationResult } from '@electron/features/container/filesystem/truncate';
-import { registerActiveCapture, releaseActiveCapture } from './active-captures';
+import { registerActiveCapture, releaseActiveCapture, awaitCaptureReference } from './active-captures';
 import {
   TOOL_CAPTURE_RECORD_VERSION,
   type ToolCaptureRecord,
@@ -106,7 +107,8 @@ export class OutputCapture {
   private readonly openFailures = new Map<ToolCaptureStreamKind, string>();
   private tail = '';
   private droppedBytes = 0;
-  private droppedLines = 0;
+  private readonly decoders = { stdout: new StringDecoder('utf8'), stderr: new StringDecoder('utf8') };
+  private complete = false;
   private totalBytes = 0;
   private totalLines = 0;
   private finalized = false;
@@ -165,7 +167,8 @@ export class OutputCapture {
     if (this.finalized || chunk.length === 0) return;
     // Persist the exact bytes and decode a separate copy for the model-facing
     // tail, so output that is not valid UTF-8 is captured unchanged.
-    this.appendTail(chunk.toString('utf8'));
+    this.totalBytes += chunk.length;
+    this.appendTail(this.decoders[stream].write(chunk));
     this.enqueue(this.sinks.combined, chunk);
     this.enqueue(this.sinks[stream], chunk);
     if (this.pendingBytes < CAPTURE_PENDING_HIGH_WATER_BYTES) return;
@@ -192,6 +195,8 @@ export class OutputCapture {
   async finish(): Promise<ToolCaptureRecord | undefined> {
     if (this.finalized) return undefined;
     this.finalized = true;
+    this.appendTail(this.decoders.stdout.end());
+    this.appendTail(this.decoders.stderr.end());
     await this.drain();
     await this.closeAll();
 
@@ -213,6 +218,7 @@ export class OutputCapture {
       };
     }
 
+    this.complete = true;
     return {
       version: TOOL_CAPTURE_RECORD_VERSION,
       captureId: this.captureId,
@@ -227,18 +233,13 @@ export class OutputCapture {
   /** Remove every file in this capture. Used by retention and by failed cleanup retries. */
   async discard(): Promise<void> {
     await this.removeDirectory();
-    this.release();
+    releaseActiveCapture(this.directory);
   }
 
-  /**
-   * Stop protecting this capture from retention.
-   *
-   * The bash tool calls this only after it has built the result that references
-   * the capture: the reference in the session file is what keeps it alive, and a
-   * command that is still running has not written one yet.
-   */
+  /** Keep a successful result protected until retention observes its reference. */
   release(): void {
-    releaseActiveCapture(this.directory);
+    if (this.complete) awaitCaptureReference(this.directory, this.captureId);
+    else releaseActiveCapture(this.directory);
   }
 
   private createSink(kind: ToolCaptureStreamKind, fileName: string): StreamSink {
@@ -255,24 +256,13 @@ export class OutputCapture {
 
   private appendTail(chunk: string): void {
     this.tail += chunk;
-    this.totalBytes += Buffer.byteLength(chunk, 'utf8');
     this.totalLines += countNewlines(chunk);
-    const limit = this.options.tailLimitBytes;
-    while (Buffer.byteLength(this.tail, 'utf8') > limit) {
-      const newline = this.tail.indexOf('\n');
-      if (newline === -1) {
-        // One line longer than the whole tail budget. Its final bytes are the
-        // newest output and the payload renderer shows a line's tail, so keep
-        // them instead of dropping the line.
-        const kept = keepTailBytes(this.tail, limit);
-        this.droppedBytes += Buffer.byteLength(this.tail, 'utf8') - Buffer.byteLength(kept, 'utf8');
-        this.tail = kept;
-        return;
-      }
-      const removed = this.tail.slice(0, newline + 1);
-      this.droppedBytes += Buffer.byteLength(removed, 'utf8');
-      this.droppedLines += countNewlines(removed);
-      this.tail = this.tail.slice(newline + 1);
+    const bytes = Buffer.byteLength(this.tail, 'utf8');
+    if (bytes > this.options.tailLimitBytes) {
+      // Keep a byte tail even when its final line ends with a newline. Dropping
+      // that entire line would discard the newest output too.
+      this.tail = keepTailBytes(this.tail, this.options.tailLimitBytes);
+      this.droppedBytes += bytes - Buffer.byteLength(this.tail, 'utf8');
     }
   }
 

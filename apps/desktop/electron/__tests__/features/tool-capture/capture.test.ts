@@ -325,6 +325,53 @@ describe('OutputCapture', () => {
     expect(capture.renderPayload().content).toContain('FINAL');
   });
 
+  it.each([false, true])('keeps a newline-terminated overlong tail with persistence failure=%s', async (fail) => {
+    const capture = createCapture({ fileSystem: memoryFileSystem({
+      failOpen: fail ? () => new Error('ENOSPC') : undefined,
+    }) });
+    for (let index = 0; index < 16; index += 1) {
+      await capture.write('stdout', Buffer.alloc(64 * 1024, 120));
+    }
+    await capture.write('stdout', Buffer.from('FINAL'));
+    await capture.write('stdout', Buffer.from('\n'));
+    expect(await capture.finish()).toMatchObject({ complete: !fail });
+    const payload = capture.renderPayload();
+    expect(payload.content.endsWith('FINAL')).toBe(true);
+    expect(payload.outputBytes).toBe(PAYLOAD_MAX_BYTES);
+    expect(payload.truncated).toBe(true);
+    await capture.discard();
+  });
+
+  it('decodes split UTF-8 independently on both pipes while keeping exact files and counts', async () => {
+    const fileSystem = memoryFileSystem();
+    const capture = createCapture({ fileSystem });
+    const stdout = Buffer.from('before € after\n');
+    const stderr = Buffer.from('warning 🛑\n');
+    // Each pipe has an unfinished character when the other pipe writes.
+    await capture.write('stdout', stdout.subarray(0, 8));
+    await capture.write('stderr', stderr.subarray(0, 10));
+    await capture.write('stdout', stdout.subarray(8));
+    await capture.write('stderr', stderr.subarray(10));
+    const record = await capture.finish();
+    expect(capture.renderPayload().content).toBe('before warning € after\n🛑');
+    expect(capture.bytes).toBe(stdout.length + stderr.length);
+    expect(fileSystem.files.get(record!.stdout!.hostPath)).toEqual(stdout);
+    expect(fileSystem.files.get(record!.stderr!.hostPath)).toEqual(stderr);
+    await capture.discard();
+  });
+
+  it('flushes unfinished UTF-8 at EOF without changing the captured bytes', async () => {
+    const fileSystem = memoryFileSystem();
+    const capture = createCapture({ fileSystem });
+    const bytes = Buffer.from([0xe2, 0x82]);
+    await capture.write('stdout', bytes);
+    const record = await capture.finish();
+    expect(capture.renderPayload().content).toBe('�');
+    expect(capture.bytes).toBe(2);
+    expect(fileSystem.files.get(record!.stdout!.hostPath)).toEqual(bytes);
+    await capture.discard();
+  });
+
   it('asks the caller to pause once pending writes reach the bound', async () => {
     const fileSystem = memoryFileSystem({ holdWrites: true });
     const capture = createCapture({ fileSystem });

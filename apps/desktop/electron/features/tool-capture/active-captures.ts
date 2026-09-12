@@ -1,26 +1,31 @@
-/**
- * Registry of captures that a running command owns.
- *
- * A capture directory exists before any session file references it: the bash
- * tool creates the directory on its first write and the reference appears only
- * after `finish()`. Retention cannot tell such a capture from an orphan, so it
- * asks here first. Without this, deleting one session can remove a capture that
- * another session is still writing.
- */
-
+/** Captures still running or waiting for their result reference to reach disk. */
 const active = new Set<string>();
+const awaitingReferences = new Map<string, string>();
 
-/** Note that a capture belongs to a command that has not published a result yet. */
 export function registerActiveCapture(directory: string): void {
   active.add(directory);
 }
 
-/** Release a capture once its result is published, or once it is discarded. */
-export function releaseActiveCapture(directory: string): void {
+/** A finalized result can still be inside an asynchronous tool_result hook. */
+export function awaitCaptureReference(directory: string, captureId: string): void {
+  awaitingReferences.set(directory, captureId);
   active.delete(directory);
 }
 
-/** Capture directories that retention must keep. */
+/** Empty, failed, or discarded captures have no complete output to protect. */
+export function releaseActiveCapture(directory: string): void {
+  active.delete(directory);
+  awaitingReferences.delete(directory);
+}
+
+/** Snapshot protection so a concurrent publication cannot invalidate a sweep. */
 export function activeCaptureDirectories(): ReadonlySet<string> {
-  return active;
+  return new Set([...active, ...awaitingReferences.keys()]);
+}
+
+/** Only a persisted reference can take over protection from the command. */
+export function releasePersistedCaptureReferences(captureIds: ReadonlySet<string>): void {
+  for (const [directory, captureId] of awaitingReferences) {
+    if (captureIds.has(captureId)) awaitingReferences.delete(directory);
+  }
 }
