@@ -11,7 +11,7 @@ import {
   renderRewriteNotice,
   statusNotice,
 } from './report';
-import { appendBlocks, readPayloadIndex, replaceBlock, type TextBlock } from './result';
+import { appendBlocks, readPayloadIndex, readReportIndex, removeBlock, replaceBlock, type TextBlock } from './result';
 import type { SessionMetrics } from './metrics';
 
 /**
@@ -24,7 +24,7 @@ export interface OptimizeInput {
   content: TextBlock[];
   details: unknown;
   requestedCommand: string;
-  rewrite?: { requested: string; executed: string };
+  rewrite?: { requested: string; executed: string; display?: string };
   config: OutputOptimizerConfig;
   metrics: SessionMetrics;
   /** Read one complete capture stream. Injectable for tests. */
@@ -59,6 +59,36 @@ function finish(
   details: Record<string, unknown>,
 ): OptimizeOutput {
   return { content: notices.length > 0 ? appendBlocks(content, notices) : content, details };
+}
+
+interface FinalizeInput {
+  content: TextBlock[];
+  notices: string[];
+  details: Record<string, unknown>;
+  /**
+   * True when the model payload leaves out captured bytes, so the bash tool's
+   * capture report still points at something the model cannot see.
+   *
+   * When the payload already carries the complete output, the report costs more
+   * context than the output it describes, so the plugin drops that block. The
+   * capture stays reachable from the result details in the UI.
+   */
+  keepCaptureReport: boolean;
+}
+
+function finalize({ content, notices, details, keepCaptureReport }: FinalizeInput): OptimizeOutput {
+  if (keepCaptureReport) return finish(content, notices, details);
+  return finish(removeBlock(content, readReportIndex(details)), notices, withoutReportBlock(details));
+}
+
+/** Mirror the host's no-report shape: keep `blocks.payload`, drop `blocks.report`. */
+function withoutReportBlock(details: Record<string, unknown>): Record<string, unknown> {
+  const blocks = details.blocks;
+  if (typeof blocks !== 'object' || blocks === null) return details;
+  const rest = Object.fromEntries(
+    Object.entries(blocks as Record<string, unknown>).filter(([key]) => key !== 'report'),
+  );
+  return { ...details, blocks: rest };
 }
 
 interface AccountFlags {
@@ -113,7 +143,7 @@ export async function optimizeResult(input: OptimizeInput): Promise<OptimizeOutp
   const { content, details: rawDetails, requestedCommand, rewrite, config, metrics } = input;
   const readCapture = input.readCapture ?? readCaptureContent;
   const notices: string[] = [];
-  if (rewrite) notices.push(renderRewriteNotice(rewrite.requested, rewrite.executed));
+  if (rewrite) notices.push(renderRewriteNotice(rewrite.requested, rewrite.executed, rewrite.display));
 
   const payloadIndex = readPayloadIndex(rawDetails);
   const receivedPayload = content[payloadIndex]?.text ?? '';
@@ -123,8 +153,9 @@ export async function optimizeResult(input: OptimizeInput): Promise<OptimizeOutp
   } as Record<string, unknown>;
 
   // The single-command bypass skips rewriting (handled earlier) and compaction.
+  // It also leaves the host result untouched, including the capture report.
   if (hasBypassMarker(requestedCommand)) {
-    return finish(content, notices, details);
+    return finalize({ content, notices, details, keepCaptureReport: true });
   }
 
   const base = rewrite ? { requested: rewrite.requested, executed: rewrite.executed } : {};
@@ -143,7 +174,10 @@ export async function optimizeResult(input: OptimizeInput): Promise<OptimizeOutp
       details.optimization = optimizationDetails({
         category, rule: null, applied: false, truncated: false, ...flags, ...base,
       });
-      return finish(content, notices, details);
+      // The payload was not replaced, so the model has all of the output unless
+      // the bash tool truncated it or the capture itself is unusable.
+      const keepCaptureReport = details.truncation !== undefined || capture?.complete !== true;
+      return finalize({ content, notices, details, keepCaptureReport });
     }
 
     return await compactComplete({
@@ -152,7 +186,7 @@ export async function optimizeResult(input: OptimizeInput): Promise<OptimizeOutp
     });
   } catch {
     // Fail open: keep the received payload and the reports already collected.
-    return finish(content, notices, details);
+    return finalize({ content, notices, details, keepCaptureReport: true });
   }
 }
 
@@ -178,7 +212,7 @@ async function optimizeStructured(args: StructuredArgs): Promise<OptimizeOutput>
     details.optimization = optimizationDetails({
       category: 'structured', rule: null, applied: false, truncated: false, ...flags, ...base,
     });
-    return finish(content, notices, details);
+    return finalize({ content, notices, details, keepCaptureReport: true });
   }
 
   metrics.recordMeasured(capture.combined.bytes, capture.combined.bytes, false);
@@ -197,7 +231,9 @@ async function optimizeStructured(args: StructuredArgs): Promise<OptimizeOutput>
     inputBytes: capture.combined.bytes, compactedBytes: capture.combined.bytes,
     measured: true, truncated: preview.truncated, ...base,
   });
-  return finish(nextContent, notices, details);
+  // The payload is stdout alone, so the report is the only route to stderr.
+  const keepCaptureReport = preview.truncated || capture.stderr !== undefined;
+  return finalize({ content: nextContent, notices, details, keepCaptureReport });
 }
 
 interface CompactArgs {
@@ -225,7 +261,7 @@ async function compactComplete(args: CompactArgs): Promise<OptimizeOutput> {
     details.optimization = optimizationDetails({
       category, rule: null, applied: false, truncated: false, ...flags, ...base,
     });
-    return finish(content, notices, details);
+    return finalize({ content, notices, details, keepCaptureReport: true });
   }
 
   let outcome: ReturnType<typeof compactStream>;
@@ -238,7 +274,7 @@ async function compactComplete(args: CompactArgs): Promise<OptimizeOutput> {
       category, rule: null, applied: false, inputBytes: read.bytes, compactedBytes: read.bytes,
       measured: true, truncated: false, ...base,
     });
-    return finish(content, notices, details);
+    return finalize({ content, notices, details, keepCaptureReport: true });
   }
 
   metrics.recordMeasured(read.bytes, outcome.candidateBytes, outcome.changed);
@@ -247,18 +283,22 @@ async function compactComplete(args: CompactArgs): Promise<OptimizeOutput> {
   const status = statusNotice(rawDetails, receivedPayload);
   if (status) notices.push(status);
   if (outcome.preview.truncated) notices.push(renderOmissionNotice(outcome.preview));
-  if (config.notices) {
+  // An already-compact candidate tells the agent nothing it can act on, so the
+  // notice is reserved for a compaction that actually omitted bytes.
+  if (config.notices && outcome.changed) {
     notices.push(renderOptimizationNotice({
       category, rule: outcome.rule, inputBytes: read.bytes,
-      compactedBytes: outcome.candidateBytes, changed: outcome.changed,
+      compactedBytes: outcome.candidateBytes,
     }));
   }
-  nextContent = appendBlocks(nextContent, notices);
 
   details.optimization = optimizationDetails({
     category, rule: outcome.rule ?? category, applied: outcome.changed,
     inputBytes: read.bytes, compactedBytes: outcome.candidateBytes,
     measured: true, truncated: outcome.preview.truncated, ...base,
   });
-  return { content: nextContent, details };
+  // Nothing was omitted exactly when the rule changed nothing and the preview
+  // carried the whole candidate.
+  const keepCaptureReport = outcome.changed || outcome.preview.truncated;
+  return finalize({ content: nextContent, notices, details, keepCaptureReport });
 }

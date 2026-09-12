@@ -25,6 +25,21 @@ export function readPayloadIndex(details: unknown): number {
   return 0;
 }
 
+/** The index of the bash tool's capture report block, when it added one. */
+export function readReportIndex(details: unknown): number | undefined {
+  if (typeof details !== 'object' || details === null) return undefined;
+  const blocks = (details as Record<string, unknown>).blocks;
+  if (typeof blocks !== 'object' || blocks === null) return undefined;
+  const report = (blocks as Record<string, unknown>).report;
+  return typeof report === 'number' && Number.isInteger(report) && report >= 0 ? report : undefined;
+}
+
+/** Drop one block by index. An unknown index leaves the content unchanged. */
+export function removeBlock(content: readonly TextBlock[], index: number | undefined): TextBlock[] {
+  if (index === undefined || index < 0 || index >= content.length) return [...content];
+  return content.filter((_block, position) => position !== index);
+}
+
 export function replaceBlock(content: readonly TextBlock[], index: number, text: string): TextBlock[] {
   const next = [...content];
   if (index < 0 || index >= next.length) {

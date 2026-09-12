@@ -18,16 +18,25 @@ export function renderCaptureReport(record: ToolCaptureRecord | undefined): stri
     return `Complete output unavailable: ${record.unavailableReason ?? 'capture failed.'}`;
   }
 
+  const combinedBytes = record.combined.bytes;
   const lines = [
-    `Complete output: ${record.combined.runtimePath} (${formatSize(record.combined.bytes)})`,
+    `Complete output: ${record.combined.runtimePath} (${formatSize(combinedBytes)})`,
   ];
-  const streams = [
-    record.stdout ? streamLine('stdout', record.stdout) : undefined,
-    record.stderr ? streamLine('stderr', record.stderr) : undefined,
-  ].filter((line): line is string => line !== undefined);
+  const candidates = [
+    record.stdout ? { label: 'stdout', stream: record.stdout } : undefined,
+    record.stderr ? { label: 'stderr', stream: record.stderr } : undefined,
+  ].filter((entry): entry is { label: string; stream: ToolCaptureStream } => entry !== undefined);
+
+  // A stream that holds every captured byte is `combined` all over again, so
+  // listing it duplicates the file in the report and in the viewer's buttons.
+  const streams: string[] = [];
+  for (const entry of candidates) {
+    if (entry.stream.bytes !== combinedBytes) streams.push(streamLine(entry.label, entry.stream));
+  }
+
   if (streams.length > 0) {
     lines.push('Streams:', ...streams);
-  } else {
+  } else if (candidates.length === 0) {
     lines.push('The command wrote no separate stream output.');
   }
   return lines.join('\n');

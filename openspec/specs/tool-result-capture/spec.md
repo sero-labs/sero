@@ -99,7 +99,10 @@ Payload previews SHALL remain within the existing 50 KB / 2,000-line limits.
 Reporting blocks are outside that payload budget, as existing truncation and
 exit notices are. A truncated payload MUST be identified as a preview, not a
 complete or parseable structured document. Reports SHALL identify the complete
-combined output and available stream files with their individual byte counts.
+combined output and available stream files with their individual byte counts. A
+stream file that holds the same bytes as the combined output MUST NOT be listed
+separately, because it repeats one fact at double the cost. Streams that differ
+from the combined output, such as stderr alongside stdout, SHALL be listed.
 The UI SHALL distinguish the preview from complete output and allow each
 stream file to be opened. Normal file-tool read limits still apply; complete
 retrieval can require paged reads or local parsing of the file.
@@ -108,6 +111,16 @@ retrieval can require paged reads or local parsing of the file.
 
 - **WHEN** a command produces output and a finalized capture
 - **THEN** the output payload and capture report occupy separate identifiable content blocks
+
+#### Scenario: A stream repeats the combined output
+
+- **WHEN** every captured byte came from one stream, so that stream file is the combined file byte for byte
+- **THEN** the report names the combined output once and does not list that stream separately, and the viewer offers one file
+
+#### Scenario: Streams differ from the combined output
+
+- **WHEN** a command wrote to both streams
+- **THEN** the report lists the combined output and each stream file with its own byte count
 
 ### Requirement: Capture files have session references
 

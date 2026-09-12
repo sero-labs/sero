@@ -19,6 +19,8 @@ export interface RewriteOutcome {
   state: RewriteState;
   requested: string;
   executed: string;
+  /** The RTK form, without the bound runtime executable and state environment. */
+  display?: string;
   reason?: string;
 }
 
@@ -111,5 +113,5 @@ export async function computeRewrite(input: RewriteInput): Promise<RewriteOutcom
     return { state: 'failed', requested: command, executed: command, reason: bound.reason };
   }
 
-  return { state: 'rewritten', requested: command, executed: bound.command };
+  return { state: 'rewritten', requested: command, executed: bound.command, display: rewritten };
 }

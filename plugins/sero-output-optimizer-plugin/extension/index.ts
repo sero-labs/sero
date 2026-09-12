@@ -85,7 +85,11 @@ export default function outputOptimizerExtension(pi: ExtensionAPI): void {
       await statusStore.publish({ rtk: rtkStatus });
       const outcome = await computeRewrite({ pi, command, resolution, config, platform: process.platform });
       if (outcome.state === 'rewritten') {
-        state.recordRewrite(event.toolCallId, { requested: command, executed: outcome.executed });
+        state.recordRewrite(event.toolCallId, {
+          requested: command,
+          executed: outcome.executed,
+          display: outcome.display,
+        });
         event.input.command = outcome.executed;
       } else {
         state.metrics.recordSkip();
@@ -110,7 +114,7 @@ export default function outputOptimizerExtension(pi: ExtensionAPI): void {
     if (!state.claimAccounting(event.toolCallId)) return undefined;
     if (!config.enabled) {
       const result = rewrite
-        ? { content: appendBlocks(content, [renderRewriteNotice(rewrite.requested, rewrite.executed)]) }
+        ? { content: appendBlocks(content, [renderRewriteNotice(rewrite.requested, rewrite.executed, rewrite.display)]) }
         : undefined;
       await publishSavings();
       return result;

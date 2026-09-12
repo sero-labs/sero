@@ -39,6 +39,27 @@ describe('describeToolCapture', () => {
     expect(view?.files.map((file) => file.kind)).toEqual(['combined', 'stdout']);
   });
 
+  it('omits a stream that holds the combined file all over again', () => {
+    // With nothing on stderr, stdout carries every captured byte, so a second
+    // button onto the same content is noise.
+    const view = describeToolCapture(captureDetails({
+      stderr: undefined,
+      stdout: { stream: 'stdout', runtimePath: '/rt/stdout.log', hostPath: '/host/stdout.log', bytes: 2048 },
+    }));
+
+    expect(view?.files.map((file) => file.kind)).toEqual(['combined']);
+  });
+
+  it('still lists a stream that differs from combined', () => {
+    // stdout plus stderr interleave into combined, so both are worth offering.
+    const view = describeToolCapture(captureDetails({
+      stdout: { stream: 'stdout', runtimePath: '/rt/stdout.log', hostPath: '/host/stdout.log', bytes: 2036 },
+      stderr: { stream: 'stderr', runtimePath: '/rt/stderr.log', hostPath: '/host/stderr.log', bytes: 12 },
+    }));
+
+    expect(view?.files.map((file) => file.kind)).toEqual(['combined', 'stdout', 'stderr']);
+  });
+
   it('says the model received a bounded preview only when truncation metadata is present', () => {
     expect(describeToolCapture(captureDetails())?.preview).toBe(false);
 

@@ -18,6 +18,8 @@ Sero does not rewrite these commands:
 
 RTK exit codes 0 and 3 are rewrite candidates, 1 means no equivalent, and 2 means RTK declined. Sero uses these only to choose a command. They do not grant or bypass Sero permission checks.
 
+A result for a rewritten command names both the requested command and the executed one. The notice shows the RTK form, such as `rtk pnpm install`. The fully bound command, with the resolved RTK executable and its session state paths, stays in the result details, because those paths repeat on every rewritten command.
+
 ## Compaction
 
 For complete captures, Sero compacts these categories before it builds the preview:
@@ -34,7 +36,9 @@ A category rule never removes an error, warning, file path, line number, commit 
 
 The model receives a bounded preview: 2,000 lines or 50 KB, whichever comes first. The preview is not guaranteed to contain every diagnostic, and it is not promised to be parseable when it is truncated.
 
-The **complete** output stays in capture files. The result reports their paths and sizes. Read a capture with the file tools. A large capture can need paged reads or local processing, because file reads have their own limits.
+The **complete** output stays in capture files. While the model payload leaves anything out, the result reports the capture paths and sizes so the agent can read them with its file tools. When the payload already carries the complete output and nothing was omitted, the optimizer omits that report: on a short result it would cost more context than the output it describes. The complete output stays openable from the result either way. A stream file that holds the same bytes as the combined output is not listed separately.
+
+A large capture can need paged reads or local processing, because file reads have their own limits.
 
 To open a capture in the UI, select its file in the tool result. The inline preview stops at a cap and is marked as a preview. Select **Open full output** to read the file in a dedicated viewer that shows one page at a time. A capture lives outside every workspace, so the viewer uses its own read contract instead of the editor's workspace path policy.
 

@@ -127,8 +127,9 @@ describe('optimizeResult structured output', () => {
 describe('optimizeResult compaction', () => {
   const testOutput = ['FAIL src/a.test.ts', '  expected 1 to be 2', 'Tests: 1 failed, 0 passed'].join('\n');
 
-  it('compacts a complete capture and keeps the capture report block', async () => {
-    const details = captureDetails({ combined: stream('combined', testOutput.length) });
+  it('keeps the capture report block when compaction omitted bytes', async () => {
+    const output = ['✓ passing test', ...testOutput.split('\n')].join('\n');
+    const details = captureDetails({ combined: stream('combined', output.length) });
     const metrics = new SessionMetrics();
 
     const result = await optimizeResult({
@@ -137,14 +138,74 @@ describe('optimizeResult compaction', () => {
       requestedCommand: 'pnpm test',
       config: config(),
       metrics,
-      readCapture: reader({ combined: testOutput }),
+      readCapture: reader({ combined: output }),
     });
 
     expect((result.content[0] as TextBlock).text).toContain('FAIL src/a.test.ts');
-    expect((result.content[1] as TextBlock).text).toContain('Complete output');
+    expect((result.content[0] as TextBlock).text).not.toContain('✓ passing test');
+    // Bytes were omitted, so the report still points at something to read.
+    expect(result.content.some((block) => block.text.includes('Complete output'))).toBe(true);
     const snapshot = metrics.snapshot();
     expect(snapshot.measuredCalls).toBe(1);
-    expect(snapshot.inputBytes).toBe(Buffer.byteLength(testOutput, 'utf8'));
+    expect(snapshot.inputBytes).toBe(Buffer.byteLength(output, 'utf8'));
+  });
+
+  it('drops the capture report when the payload already shows everything', async () => {
+    const details = captureDetails({ combined: stream('combined', testOutput.length) });
+
+    const result = await optimizeResult({
+      content: reportContent('truncated tail'),
+      details,
+      requestedCommand: 'pnpm test',
+      config: config(),
+      metrics: new SessionMetrics(),
+      readCapture: reader({ combined: testOutput }),
+    });
+
+    // Every line was protected, so nothing was omitted. Paying for a report
+    // here costs more context than the output it describes.
+    expect(result.content.some((block) => block.text.includes('Complete output'))).toBe(false);
+    const blocks = (result.details as { blocks?: Record<string, unknown> }).blocks;
+    expect(blocks?.payload).toBe(0);
+    expect(blocks?.report).toBeUndefined();
+  });
+
+  it('omits the already-compact notice', async () => {
+    const details = captureDetails({ combined: stream('combined', testOutput.length) });
+
+    const result = await optimizeResult({
+      content: reportContent('truncated tail'),
+      details,
+      requestedCommand: 'pnpm test',
+      config: config(),
+      metrics: new SessionMetrics(),
+      readCapture: reader({ combined: testOutput }),
+    });
+
+    expect(result.content.some((block) => block.text.includes('already compact'))).toBe(false);
+  });
+
+  it('shows the RTK form without the session state environment', async () => {
+    const details = captureDetails({ combined: stream('combined', testOutput.length) });
+
+    const result = await optimizeResult({
+      content: reportContent('truncated tail'),
+      details,
+      requestedCommand: 'pnpm install',
+      rewrite: {
+        requested: 'pnpm install',
+        executed: "RTK_DB_PATH='/state/history.db' '/toolchains/rtk' pnpm install",
+        display: 'rtk pnpm install',
+      },
+      config: config(),
+      metrics: new SessionMetrics(),
+      readCapture: reader({ combined: testOutput }),
+    });
+
+    const notice = result.content.find((block) => block.text.includes('Command executed differently'));
+    expect(notice?.text).toContain('- requested: pnpm install');
+    expect(notice?.text).toContain('- executed:  rtk pnpm install');
+    expect(notice?.text).not.toContain('RTK_DB_PATH');
   });
 
   it('fails open when the capture cannot be read after a rewrite', async () => {

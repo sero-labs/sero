@@ -5,6 +5,8 @@ import { SessionMetrics } from './metrics';
 export interface RewriteRecord {
   requested: string;
   executed: string;
+  /** The RTK form shown to the model; the bound command stays in `executed`. */
+  display?: string;
 }
 
 export class SessionState {

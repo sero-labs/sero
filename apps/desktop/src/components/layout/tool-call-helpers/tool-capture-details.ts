@@ -54,6 +54,9 @@ export function describeToolCapture(
   const files: ToolCaptureFile[] = [];
   for (const stream of [capture.combined, capture.stdout, capture.stderr]) {
     if (!stream) continue;
+    // A stream holding every captured byte is the combined file again, so
+    // offering both would be two buttons onto the same content.
+    if (stream.stream !== 'combined' && stream.bytes === capture.combined?.bytes) continue;
     files.push({
       kind: stream.stream,
       label: STREAM_LABELS[stream.stream],

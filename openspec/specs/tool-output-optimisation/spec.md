@@ -158,13 +158,22 @@ a partial matched line as a valid edit anchor.
 ### Requirement: The executed command is visible
 
 When a command was rewritten, the result SHALL report both the command that was
-requested and the command that ran, so the two are distinguishable. When no
-rewrite occurred, the result MUST NOT add a rewrite notice.
+requested and the command that ran, so the two are distinguishable. The
+model-visible notice MAY report the RTK form, because the bound executable path
+and the session's RTK state environment repeat on every rewritten command and
+cost more context than the output they describe; the fully bound command SHALL
+remain in the result's typed details. When no rewrite occurred, the result MUST
+NOT add a rewrite notice.
 
 #### Scenario: Command was rewritten
 
 - **WHEN** the agent receives a result for a rewritten command
 - **THEN** the result names the command that executed and identifies the requested command, so the reader can tell which command ran
+
+#### Scenario: Session state environment is not repeated
+
+- **WHEN** a rewritten command is reported
+- **THEN** the model-visible notice shows the RTK form without the bound executable path and the RTK state assignments, and the fully bound command remains in the result details
 
 #### Scenario: Command was not rewritten
 
@@ -270,13 +279,22 @@ from stdout. Normal file-tool limits can require paged reads or local parsing.
 
 When a complete capture is available, a compacted result SHALL report its
 location and size in
-the model-visible content, and SHALL keep the report the bash tool added. The
+the model-visible content, and SHALL keep the report the bash tool added, unless
+the model payload already carries the complete captured output. In that case the
+plugin MUST omit the report block: it would cost more context than the output it
+points at, and the complete output is still openable from the result details.
+The
 system MUST NOT require the original command to be rerun to obtain it.
 
 #### Scenario: A compacted result
 
 - **WHEN** the agent receives a compacted result for a command with captured output
 - **THEN** the model-visible content reports where the complete output is and how large it is
+
+#### Scenario: The payload already holds everything
+
+- **WHEN** compaction omitted nothing and the preview was not truncated, so the model payload is the complete captured output
+- **THEN** the result omits the capture report block and the complete output remains openable from the result details
 
 #### Scenario: The agent retrieves omitted content
 
