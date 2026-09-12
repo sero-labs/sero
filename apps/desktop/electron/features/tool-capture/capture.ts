@@ -364,12 +364,16 @@ export class OutputCapture {
   }
 
   private streamRecord(sink: StreamSink): ToolCaptureStream {
-    return {
+    const runtimePath = this.toRuntimePath(sink.filePath);
+    const record: ToolCaptureStream = {
       stream: sink.kind,
       hostPath: sink.filePath,
-      runtimePath: this.toRuntimePath(sink.filePath),
       bytes: sink.bytes,
     };
+    // On a host workspace the two paths are the same string. Writing both would
+    // store the same long absolute path twice in every session entry.
+    if (runtimePath !== sink.filePath) record.runtimePath = runtimePath;
+    return record;
   }
 
   private async removeDirectory(): Promise<void> {

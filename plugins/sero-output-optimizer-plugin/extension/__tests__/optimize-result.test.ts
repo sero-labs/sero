@@ -84,7 +84,7 @@ describe('optimizeResult structured output', () => {
     expect(Buffer.byteLength(payload, 'utf8')).toBeLessThanOrEqual(50 * 1024);
     expect(result.content.some((block) => block.text.includes('Incomplete preview'))).toBe(true);
     expect(metrics.snapshot().measuredCalls).toBe(1);
-    expect((result.details as { optimization: { truncated: boolean } }).optimization.truncated).toBe(true);
+    expect(result.details).toMatchObject({ optimization: { measured: true, applied: false } });
   });
 
   it('preserves the payload and reports unmeasured when the capture is incomplete', async () => {
@@ -120,7 +120,7 @@ describe('optimizeResult structured output', () => {
 
     expect(result.content.some((block) => block.text.includes('Incomplete preview'))).toBe(true);
     expect(Buffer.byteLength((result.content[0] as TextBlock).text, 'utf8')).toBeLessThanOrEqual(50 * 1024);
-    expect(result.details).toMatchObject({ optimization: { truncated: true } });
+    expect(result.details).toMatchObject({ optimization: { measured: true, applied: false } });
   });
 });
 
@@ -242,7 +242,55 @@ describe('optimizeResult compaction', () => {
     });
 
     expect((result.content[0] as TextBlock).text).toBe('plain tail');
-    expect(result.details).toMatchObject({ optimization: { category: 'none', measured: true, applied: false } });
+    expect(result.details).toMatchObject({ optimization: { measured: true, applied: false } });
+  });
+
+  it('records only the accounting a resumed session re-reads', async () => {
+    const details = captureDetails({ combined: stream('combined', testOutput.length) });
+
+    const result = await optimizeResult({
+      content: reportContent('truncated tail'),
+      details,
+      requestedCommand: 'pnpm install',
+      rewrite: {
+        requested: 'pnpm install',
+        executed: "RTK_DB_PATH='/state/history.db' '/toolchains/rtk' pnpm install",
+        display: 'rtk pnpm install',
+      },
+      config: config(),
+      metrics: new SessionMetrics(),
+      readCapture: reader({ combined: testOutput }),
+    });
+
+    // The bound command and the category/rule had no reader and were written
+    // into every session entry. Only the history-seeding fields remain.
+    const optimization = (result.details as { optimization: Record<string, unknown> }).optimization;
+    expect(Object.keys(optimization).sort()).toEqual(
+      ['applied', 'compactedBytes', 'inputBytes', 'measured'],
+    );
+    expect(JSON.stringify(result.details)).not.toContain('RTK_DB_PATH');
+  });
+
+  it('drops a capture stream that repeats the combined file', async () => {
+    // stdout holds every captured byte here, so recording it as well would put
+    // the same 111 bytes into the session entry twice.
+    const details = captureDetails({
+      combined: stream('combined', testOutput.length),
+      stdout: stream('stdout', testOutput.length),
+    });
+
+    const result = await optimizeResult({
+      content: reportContent('truncated tail'),
+      details,
+      requestedCommand: 'pnpm test',
+      config: config(),
+      metrics: new SessionMetrics(),
+      readCapture: reader({ combined: testOutput }),
+    });
+
+    const capture = (result.details as { capture: Record<string, unknown> }).capture;
+    expect(capture.combined).toBeDefined();
+    expect(capture.stdout).toBeUndefined();
   });
 
   it('records confirmed zero output from the bash metadata', async () => {

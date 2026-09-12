@@ -36,17 +36,20 @@ export interface OptimizeOutput {
   details: unknown;
 }
 
+/**
+ * The accounting a resumed or forked session re-reads from history.
+ *
+ * These five fields are the only ones with a reader: `history.ts` seeds session
+ * metrics from them. Everything else that used to live here - the category, the
+ * rule, the truncation flag and the full bound command - had no consumer, and
+ * was written into every result's session entry.
+ */
 interface MetadataInput {
-  category: string;
-  rule: string | null;
   applied: boolean;
   inputBytes: number;
   compactedBytes: number;
   measured: boolean;
   unmeasured?: boolean;
-  truncated: boolean;
-  requested?: string;
-  executed?: string;
 }
 
 function optimizationDetails(input: MetadataInput): Record<string, unknown> {
@@ -77,8 +80,36 @@ interface FinalizeInput {
 }
 
 function finalize({ content, notices, details, keepCaptureReport }: FinalizeInput): OptimizeOutput {
-  if (keepCaptureReport) return finish(content, notices, details);
-  return finish(removeBlock(content, readReportIndex(details)), notices, withoutReportBlock(details));
+  const record = withoutRedundantStreams(details);
+  if (keepCaptureReport) return finish(content, notices, record);
+  return finish(removeBlock(content, readReportIndex(record)), notices, withoutReportBlock(record));
+}
+
+/**
+ * Drop a capture stream that holds the same bytes as the combined file.
+ *
+ * The plugin reads the record before this runs, so the structured path still
+ * sees stdout. Removing the duplicate afterwards keeps the same bytes out of
+ * the persisted session entry, the debug log and the IPC payload to the UI.
+ */
+function withoutRedundantStreams(details: Record<string, unknown>): Record<string, unknown> {
+  const capture = details.capture;
+  if (typeof capture !== 'object' || capture === null) return details;
+  const record = capture as Record<string, unknown>;
+  const combined = record.combined;
+  if (typeof combined !== 'object' || combined === null) return details;
+  const combinedBytes = (combined as { bytes?: unknown }).bytes;
+  if (typeof combinedBytes !== 'number') return details;
+
+  let dropped = false;
+  const kept = Object.entries(record).filter(([key, value]) => {
+    if (key !== 'stdout' && key !== 'stderr') return true;
+    if (typeof value !== 'object' || value === null) return true;
+    if ((value as { bytes?: unknown }).bytes !== combinedBytes) return true;
+    dropped = true;
+    return false;
+  });
+  return dropped ? { ...details, capture: Object.fromEntries(kept) } : details;
 }
 
 /** Mirror the host's no-report shape: keep `blocks.payload`, drop `blocks.report`. */
@@ -158,13 +189,11 @@ export async function optimizeResult(input: OptimizeInput): Promise<OptimizeOutp
     return finalize({ content, notices, details, keepCaptureReport: true });
   }
 
-  const base = rewrite ? { requested: rewrite.requested, executed: rewrite.executed } : {};
-
   try {
     if (requestsStructuredOutput(analyzeCommand(requestedCommand))) {
       return await optimizeStructured({
         content, notices, payloadIndex, capture, metrics, details, readCapture,
-        rawDetails, receivedPayload, base,
+        rawDetails, receivedPayload,
       });
     }
 
@@ -172,7 +201,7 @@ export async function optimizeResult(input: OptimizeInput): Promise<OptimizeOutp
     if (category === 'none' || !capture || !capture.complete || !capture.combined) {
       const flags = accountUnchanged(metrics, capture, rawDetails);
       details.optimization = optimizationDetails({
-        category, rule: null, applied: false, truncated: false, ...flags, ...base,
+        applied: false, ...flags,
       });
       // The payload was not replaced, so the model has all of the output unless
       // the bash tool truncated it or the capture itself is unusable.
@@ -182,7 +211,7 @@ export async function optimizeResult(input: OptimizeInput): Promise<OptimizeOutp
 
     return await compactComplete({
       content, notices, payloadIndex, capture, category, metrics, config, details, readCapture,
-      rawDetails, receivedPayload, base,
+      rawDetails, receivedPayload,
     });
   } catch {
     // Fail open: keep the received payload and the reports already collected.
@@ -200,17 +229,16 @@ interface StructuredArgs {
   readCapture: (stream: CaptureStream) => Promise<CaptureContent | null>;
   rawDetails: unknown;
   receivedPayload: string;
-  base: { requested?: string; executed?: string };
 }
 
 async function optimizeStructured(args: StructuredArgs): Promise<OptimizeOutput> {
-  const { content, notices, payloadIndex, capture, metrics, details, readCapture, rawDetails, receivedPayload, base } = args;
+  const { content, notices, payloadIndex, capture, metrics, details, readCapture, rawDetails, receivedPayload } = args;
   const read = capture?.complete ? await safeRead(readCapture, capture.stdout) : null;
 
   if (!read || !capture?.stdout || !capture?.combined) {
     const flags = accountUnreadable(metrics, rawDetails);
     details.optimization = optimizationDetails({
-      category: 'structured', rule: null, applied: false, truncated: false, ...flags, ...base,
+      applied: false, ...flags,
     });
     return finalize({ content, notices, details, keepCaptureReport: true });
   }
@@ -227,9 +255,8 @@ async function optimizeStructured(args: StructuredArgs): Promise<OptimizeOutput>
   if (preview.truncated) notices.push(renderIncompleteStructuredNotice(read.bytes));
 
   details.optimization = optimizationDetails({
-    category: 'structured', rule: null, applied: false,
+    applied: false, measured: true,
     inputBytes: capture.combined.bytes, compactedBytes: capture.combined.bytes,
-    measured: true, truncated: preview.truncated, ...base,
   });
   // The payload is stdout alone, so the report is the only route to stderr.
   const keepCaptureReport = preview.truncated || capture.stderr !== undefined;
@@ -248,18 +275,17 @@ interface CompactArgs {
   readCapture: (stream: CaptureStream) => Promise<CaptureContent | null>;
   rawDetails: unknown;
   receivedPayload: string;
-  base: { requested?: string; executed?: string };
 }
 
 async function compactComplete(args: CompactArgs): Promise<OptimizeOutput> {
-  const { content, notices, payloadIndex, capture, category, metrics, config, details, readCapture, rawDetails, receivedPayload, base } = args;
+  const { content, notices, payloadIndex, capture, category, metrics, config, details, readCapture, rawDetails, receivedPayload } = args;
   const combined = capture.combined;
   const read = await safeRead(readCapture, combined);
 
   if (!read || !combined) {
     const flags = accountUnreadable(metrics, rawDetails);
     details.optimization = optimizationDetails({
-      category, rule: null, applied: false, truncated: false, ...flags, ...base,
+      applied: false, ...flags,
     });
     return finalize({ content, notices, details, keepCaptureReport: true });
   }
@@ -271,15 +297,14 @@ async function compactComplete(args: CompactArgs): Promise<OptimizeOutput> {
     // A throwing rule keeps the received payload and records no savings.
     metrics.recordMeasured(read.bytes, read.bytes, false);
     details.optimization = optimizationDetails({
-      category, rule: null, applied: false, inputBytes: read.bytes, compactedBytes: read.bytes,
-      measured: true, truncated: false, ...base,
+      applied: false, measured: true, inputBytes: read.bytes, compactedBytes: read.bytes,
     });
     return finalize({ content, notices, details, keepCaptureReport: true });
   }
 
   metrics.recordMeasured(read.bytes, outcome.candidateBytes, outcome.changed);
 
-  let nextContent = replaceBlock(content, payloadIndex, outcome.preview.content || '(no output)');
+  const nextContent = replaceBlock(content, payloadIndex, outcome.preview.content || '(no output)');
   const status = statusNotice(rawDetails, receivedPayload);
   if (status) notices.push(status);
   if (outcome.preview.truncated) notices.push(renderOmissionNotice(outcome.preview));
@@ -293,9 +318,8 @@ async function compactComplete(args: CompactArgs): Promise<OptimizeOutput> {
   }
 
   details.optimization = optimizationDetails({
-    category, rule: outcome.rule ?? category, applied: outcome.changed,
+    applied: outcome.changed, measured: true,
     inputBytes: read.bytes, compactedBytes: outcome.candidateBytes,
-    measured: true, truncated: outcome.preview.truncated, ...base,
   });
   // Nothing was omitted exactly when the rule changed nothing and the preview
   // carried the whole candidate.

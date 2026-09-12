@@ -2,7 +2,17 @@ import { formatSize } from '@electron/features/container/filesystem/truncate';
 import type { ToolCaptureRecord, ToolCaptureStream } from './types';
 
 function streamLine(label: string, stream: ToolCaptureStream): string {
-  return `- ${label}: ${stream.runtimePath} (${formatSize(stream.bytes)})`;
+  return `- ${label}: ${runtimePath(stream)} (${formatSize(stream.bytes)})`;
+}
+
+/**
+ * The path valid where the command ran.
+ *
+ * The host omits `runtimePath` when it equals `hostPath`, so the fallback never
+ * leaks a host path into model text: the two only differ when both are stored.
+ */
+function runtimePath(stream: ToolCaptureStream): string {
+  return stream.runtimePath ?? stream.hostPath;
 }
 
 /**
@@ -20,7 +30,7 @@ export function renderCaptureReport(record: ToolCaptureRecord | undefined): stri
 
   const combinedBytes = record.combined.bytes;
   const lines = [
-    `Complete output: ${record.combined.runtimePath} (${formatSize(combinedBytes)})`,
+    `Complete output: ${runtimePath(record.combined)} (${formatSize(combinedBytes)})`,
   ];
   const candidates = [
     record.stdout ? { label: 'stdout', stream: record.stdout } : undefined,

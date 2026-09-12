@@ -15,7 +15,10 @@ bash command into the session's capture file while the command runs, before the
 model-facing content is truncated. The capture MUST NOT be bounded by an
 in-memory capture limit. Truncation of the model-facing content MUST NOT reduce
 what is persisted. The bash result SHALL report the capture path and byte size in
-the model-visible content. Capture SHALL preserve the combined output and
+the model-visible content. A reported path SHALL be the path valid where the
+command ran, and a stream record SHALL carry that runtime path only when it
+differs from the host path, so a host workspace stores one path rather than the
+same absolute path twice. Capture SHALL preserve the combined output and
 separate byte-exact stdout and stderr files for each non-empty stream. Stream
 files MUST contain no reporting text or truncation markers. All files in a
 capture SHALL share its session references, reachability and cleanup policy.
@@ -101,7 +104,8 @@ exit notices are. A truncated payload MUST be identified as a preview, not a
 complete or parseable structured document. Reports SHALL identify the complete
 combined output and available stream files with their individual byte counts. A
 stream file that holds the same bytes as the combined output MUST NOT be listed
-separately, because it repeats one fact at double the cost. Streams that differ
+separately, in the report, in the viewer or in the capture metadata, because it
+repeats one fact at double the cost. Streams that differ
 from the combined output, such as stderr alongside stdout, SHALL be listed.
 The UI SHALL distinguish the preview from complete output and allow each
 stream file to be opened. Normal file-tool read limits still apply; complete
@@ -115,7 +119,7 @@ retrieval can require paged reads or local parsing of the file.
 #### Scenario: A stream repeats the combined output
 
 - **WHEN** every captured byte came from one stream, so that stream file is the combined file byte for byte
-- **THEN** the report names the combined output once and does not list that stream separately, and the viewer offers one file
+- **THEN** the record omits that stream, the report names the combined output once, and the viewer offers one file
 
 #### Scenario: Streams differ from the combined output
 

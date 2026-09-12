@@ -120,14 +120,19 @@ describe('bash tool complete-output capture', () => {
     const result = await bash.execute('call-1', { command: 'echo hello' }, undefined, undefined, undefined as never);
     const details = (result as { details: { capture: ToolCaptureRecord } }).details;
 
-    // The container backend renders the reported path through the identity
-    // helper. A POSIX host path maps to itself; the Windows drive mapping is
-    // covered by the capture unit test.
-    expect(details.capture.combined?.runtimePath).toBe(toRuntimeIdentityMountPath(details.capture.combined?.hostPath as string));
+    // A POSIX host path maps to itself through the identity helper, so the
+    // record stores one path and the report falls back to it. The Windows drive
+    // mapping, where the two differ and both are stored, is covered by the
+    // capture unit test.
+    const stream = details.capture.combined;
+    expect(stream?.runtimePath).toBeUndefined();
+    const reported = toRuntimeIdentityMountPath(stream?.hostPath as string);
+    expect(reported).toBe(stream?.hostPath);
+
     const blocks = textBlocks(result);
     // The report carries the runtime-valid path; the payload carries output only.
-    expect(blocks[1]).toContain(details.capture.combined?.runtimePath as string);
-    expect(blocks[0]).not.toContain(details.capture.combined?.runtimePath as string);
+    expect(blocks[1]).toContain(reported);
+    expect(blocks[0]).not.toContain(reported);
   });
 
   it('creates no capture and no report block when the command writes nothing', async () => {

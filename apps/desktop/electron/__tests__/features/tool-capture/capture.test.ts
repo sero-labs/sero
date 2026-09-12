@@ -264,6 +264,16 @@ describe('OutputCapture', () => {
     expect(record?.combined?.hostPath).not.toBe(record?.combined?.runtimePath);
   });
 
+  it('omits a runtime path that is the host path', async () => {
+    const fileSystem = memoryFileSystem();
+    const capture = createCapture({ fileSystem });
+    send(capture, 'x\n');
+    const record = await capture.finish();
+
+    // A host workspace has one path, not the same absolute path twice.
+    expect(Object.keys(record?.combined ?? {})).toEqual(['stream', 'hostPath', 'bytes']);
+  });
+
   it('writes real files under the configured capture root and removes them on discard', async () => {
     const root = tempRoot();
     const capture = createCapture({ captureRoot: root, captureId: 'capture-real' });
