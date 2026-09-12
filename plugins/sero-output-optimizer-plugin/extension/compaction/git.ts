@@ -12,43 +12,56 @@ import { applyPreservationGuard } from './preservation';
 const COMMIT_HEADER = /^commit\s+[0-9a-f]{7,40}\b/i;
 const GIT_HINT = /^\s*\(use /;
 const LOG_METADATA = /^(?:Author|AuthorDate|CommitDate|Commit|Date|Merge):/i;
-
 const PORCELAIN_ENTRY = /^([ MADRCU?]{2}) (.*)$/;
 
-function compactGitStatus(source: string): string | null {
-  const kept: string[] = [];
+export function emitGitStatus(source: string, emit: (line: string) => void): boolean {
+  let transformed = false;
   for (const line of source.split('\n')) {
-    if (line.trim() === '' || GIT_HINT.test(line)) continue;
+    if (line.trim() === '' || GIT_HINT.test(line)) {
+      transformed = true;
+      continue;
+    }
     const porcelain = line.match(PORCELAIN_ENTRY);
     if (porcelain) {
       const status = porcelain[1] ?? '';
       const code = status[0] !== ' ' ? status[0] : status[1];
-      kept.push(`${code ?? '?'} ${porcelain[2] ?? ''}`);
+      const normalized = `${code ?? '?'} ${porcelain[2] ?? ''}`;
+      if (normalized !== line) transformed = true;
+      emit(normalized);
       continue;
     }
-    kept.push(line);
+    emit(line);
   }
-  const candidate = kept.join('\n');
-  if (candidate.length >= source.length) return null;
-  return applyPreservationGuard(source, candidate, 'git');
+  return transformed;
 }
 
-function compactGitLog(source: string): string | null {
-  const kept: string[] = [];
+export function emitGitLog(source: string, emit: (line: string) => void): boolean {
+  let dropped = 0;
   let previousBlank = false;
   for (const line of source.split('\n')) {
-    if (LOG_METADATA.test(line)) continue;
+    if (LOG_METADATA.test(line)) {
+      dropped += 1;
+      continue;
+    }
     const blank = line.trim() === '';
-    if (blank && previousBlank) continue;
+    if (blank && previousBlank) {
+      dropped += 1;
+      continue;
+    }
     previousBlank = blank;
-    kept.push(line);
+    emit(line);
   }
-  const candidate = kept.join('\n');
-  if (candidate.length >= source.length) return null;
-  return applyPreservationGuard(source, candidate, 'git');
+  return dropped > 0;
+}
+
+export function emitGitOutput(source: string, emit: (line: string) => void): boolean {
+  if (COMMIT_HEADER.test(source)) return emitGitLog(source, emit);
+  return emitGitStatus(source, emit);
 }
 
 export function compactGitOutput(source: string): string | null {
-  if (COMMIT_HEADER.test(source)) return compactGitLog(source);
-  return compactGitStatus(source);
+  const lines: string[] = [];
+  const changed = emitGitOutput(source, (line) => lines.push(line));
+  if (!changed) return null;
+  return applyPreservationGuard(source, lines.join('\n'), 'git');
 }

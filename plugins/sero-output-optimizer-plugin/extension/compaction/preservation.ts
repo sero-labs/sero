@@ -8,16 +8,17 @@ import type { OutputCategory } from './category';
  * is a separate step.
  */
 
-const FAILURE_LINE = /(?:^|\s)(?:FAIL|FAILED|✕|✗|●|panicked)\b|^\s*error\b/i;
-const SUMMARY_LINE = /test result:|\b\d+\s+(?:passed|failed|skipped)\b/i;
-const DIAGNOSTIC_LINE = /\b(?:error|warning|warn)\b/i;
+export const DIAGNOSTIC_LINE = /\b(?:error|warning|warn)\b/i;
+const FAILURE_LINE = /(?:^|\s)(?:FAIL|FAILED|✕|✗|×|●|panicked)\b|^\s*error\b/i;
+const SUMMARY_LINE = /test result:|\b\d+\s+(?:passed|failed|skipped|todo)\b/i;
 const FILE_LINE = /[^\s:]+:\d+(?::\d+)?/;
 const LINT_ISSUE = /^(.+?):(\d+)(?::\d+)?:\s*(.+)$/;
 const GIT_DECORATION = /^(?:Author|Date|Merge|AuthorDate|CommitDate):/;
 const COMMIT_LINE = /^commit\s+[0-9a-f]{7,40}\b/i;
 const PORCELAIN_STATUS_LINE = /^([ MADRCU?]{2})\s+(.+)$/;
 const NON_PORCELAIN_STATUS_LINE = /^\s*(?:modified|new file|deleted|renamed|copied|both modified|both added|typechange|untracked):\s+(.+?)(?:\s+->\s+(.+))?$/;
-const SEARCH_LINE = /^(.+?):(\d+)?:(.*)$/;
+/** A search match line needs a numeric line number; `rg: permission denied` is not a match. */
+const SEARCH_LINE = /^(.+?):(\d+):(.*)$/;
 
 function nonEmptyUnique(values: string[]): string[] {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
@@ -25,7 +26,9 @@ function nonEmptyUnique(values: string[]): string[] {
 
 function testFragments(source: string): string[] {
   return nonEmptyUnique(
-    source.split('\n').filter((line) => FAILURE_LINE.test(line) || SUMMARY_LINE.test(line)),
+    source.split('\n').filter(
+      (line) => FAILURE_LINE.test(line) || SUMMARY_LINE.test(line) || DIAGNOSTIC_LINE.test(line),
+    ),
   );
 }
 
@@ -76,9 +79,13 @@ function searchFragments(source: string): string[] {
   for (const line of source.split('\n')) {
     if (!line.trim()) continue;
     const match = line.match(SEARCH_LINE);
-    if (!match) continue;
-    fragments.push(match[1] ?? '');
-    if ((match[3] ?? '').trim()) fragments.push((match[3] ?? '').trim());
+    if (match) {
+      fragments.push(match[1] ?? '');
+      if ((match[3] ?? '').trim()) fragments.push((match[3] ?? '').trim());
+      continue;
+    }
+    // A diagnostic or any other non-match line must survive verbatim.
+    fragments.push(line.trim());
   }
   return nonEmptyUnique(fragments);
 }

@@ -79,8 +79,10 @@ describe('optimizeResult structured output', () => {
     });
 
     const payload = (result.content[0] as TextBlock).text;
-    expect(payload).toContain('[Incomplete preview:');
-    expect(Buffer.byteLength(payload, 'utf8')).toBeLessThanOrEqual(50 * 1024 + 200);
+    // The payload is only the bounded preview; the notice is its own block.
+    expect(payload).not.toContain('Incomplete preview');
+    expect(Buffer.byteLength(payload, 'utf8')).toBeLessThanOrEqual(50 * 1024);
+    expect(result.content.some((block) => block.text.includes('Incomplete preview'))).toBe(true);
     expect(metrics.snapshot().measuredCalls).toBe(1);
     expect((result.details as { optimization: { truncated: boolean } }).optimization.truncated).toBe(true);
   });
@@ -116,7 +118,8 @@ describe('optimizeResult structured output', () => {
       readCapture: reader({ stdout: json }),
     });
 
-    expect((result.content[0] as TextBlock).text).toContain('[Incomplete preview:');
+    expect(result.content.some((block) => block.text.includes('Incomplete preview'))).toBe(true);
+    expect(Buffer.byteLength((result.content[0] as TextBlock).text, 'utf8')).toBeLessThanOrEqual(50 * 1024);
     expect(result.details).toMatchObject({ optimization: { truncated: true } });
   });
 });
@@ -211,5 +214,56 @@ describe('optimizeResult compaction', () => {
     });
 
     expect(result.content.some((block) => block.text.includes('Output optimizer:'))).toBe(false);
+  });
+
+  it('bypasses compaction and accounting for a # no-opt command', async () => {
+    const details = captureDetails({ combined: stream('combined', testOutput.length) });
+    const metrics = new SessionMetrics();
+    const readCapture = reader({ combined: testOutput });
+
+    const result = await optimizeResult({
+      content: reportContent('raw tail'),
+      details,
+      requestedCommand: 'pnpm test # no-opt',
+      config: config(),
+      metrics,
+      readCapture,
+    });
+
+    expect((result.content[0] as TextBlock).text).toBe('raw tail');
+    expect(result.details).not.toHaveProperty('optimization');
+    expect(metrics.snapshot().measuredCalls).toBe(0);
+    expect(metrics.snapshot().unmeasuredCalls).toBe(0);
+  });
+
+  it('keeps the exit code visible when it replaces the payload', async () => {
+    const details = { ...captureDetails({ combined: stream('combined', testOutput.length) }), exitCode: 7 };
+
+    const result = await optimizeResult({
+      content: reportContent('raw tail\n\nCommand exited with code 7'),
+      details,
+      requestedCommand: 'pnpm test',
+      config: config(),
+      metrics: new SessionMetrics(),
+      readCapture: reader({ combined: testOutput }),
+    });
+
+    expect(result.content.some((block) => block.text.includes('Command exited with code 7'))).toBe(true);
+  });
+
+  it('counts a confirmed empty structured command as measured zero', async () => {
+    const metrics = new SessionMetrics();
+    const result = await optimizeResult({
+      content: [textBlock('(no output)')],
+      details: { exitCode: 0, blocks: { payload: 0 } },
+      requestedCommand: 'rg --json foo',
+      config: config(),
+      metrics,
+    });
+
+    expect(metrics.snapshot().measuredCalls).toBe(1);
+    expect(metrics.snapshot().unmeasuredCalls).toBe(0);
+    expect(metrics.snapshot().inputBytes).toBe(0);
+    expect(result.content).toHaveLength(1);
   });
 });

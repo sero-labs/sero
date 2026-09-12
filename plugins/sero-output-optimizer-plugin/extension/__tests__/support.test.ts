@@ -177,7 +177,7 @@ describe('rtk resolver', () => {
     };
   }
 
-  it('caches an available answer and retries an unavailable one', async () => {
+  it('resolves fresh on every call so a runtime change is picked up', async () => {
     const bus = fakeBus([{ state: 'installing' }, { state: 'available', version: '0.49.0' }]);
     const resolver = new RtkResolver(bus, 'session-a', 'workspace-a');
 
@@ -188,9 +188,9 @@ describe('rtk resolver', () => {
     expect(second.state).toBe('available');
     expect(bus.calls()).toBe(2);
 
-    const third = await resolver.resolve();
-    expect(third.state).toBe('available');
-    expect(bus.calls()).toBe(2);
+    // No permanent cache: the next call asks the host again.
+    await resolver.resolve();
+    expect(bus.calls()).toBe(3);
   });
 });
 
@@ -215,5 +215,23 @@ describe('config file', () => {
     expect((await loadConfig()).enabled).toBe(false);
     await saveConfig({ ...defaultOptimizerConfig(), enabled: true });
     expect((await loadConfig()).enabled).toBe(true);
+  });
+
+  it('propagates a change from one session to another through the file', async () => {
+    directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'output-optimizer-'));
+    process.env.SERO_HOME = directory;
+    const { ConfigStore } = await import('../config');
+
+    const firstSession = new ConfigStore();
+    const secondSession = new ConfigStore();
+    expect((await firstSession.refresh()).enabled).toBe(false);
+    expect((await secondSession.refresh()).enabled).toBe(false);
+
+    await firstSession.save({ ...defaultOptimizerConfig(), enabled: true, notices: false });
+    // A later read must observe the other session's write.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect((await secondSession.refresh()).enabled).toBe(true);
+    expect(secondSession.current().notices).toBe(false);
   });
 });

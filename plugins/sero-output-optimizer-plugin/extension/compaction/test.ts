@@ -1,11 +1,11 @@
-import { applyPreservationGuard } from './preservation';
+import { DIAGNOSTIC_LINE, applyPreservationGuard } from './preservation';
 
 /**
  * Compact test-runner output.
  *
- * Failure blocks and the run summary are kept; passing and progress lines are
- * dropped. The preservation guard rejects the result if it lost a failure or
- * summary line.
+ * Failure blocks, the run summary, and every diagnostic line are kept; passing
+ * and progress lines are dropped. The preservation guard rejects the result if
+ * it lost a failure, summary or diagnostic line.
  */
 
 const FAILURE_START = [
@@ -24,34 +24,43 @@ function isFailureStart(line: string): boolean {
   return FAILURE_START.some((pattern) => pattern.test(line));
 }
 
-export function compactTestOutput(source: string): string | null {
+function isProtectedLine(line: string): boolean {
+  return isFailureStart(line) || SUMMARY_LINE.test(line) || DIAGNOSTIC_LINE.test(line);
+}
+
+export function emitTestOutput(source: string, emit: (line: string) => void): boolean {
   const lines = source.split('\n');
-  const kept: string[] = [];
+  // Without a failure, summary or diagnostic there is nothing safe to compact.
+  if (!lines.some(isProtectedLine)) {
+    for (const line of lines) emit(line);
+    return false;
+  }
+
   let inFailure = false;
-  let sawProtected = false;
+  let dropped = 0;
 
   for (const line of lines) {
-    if (isFailureStart(line)) {
-      inFailure = true;
-      sawProtected = true;
-      kept.push(line);
-      continue;
-    }
-    if (SUMMARY_LINE.test(line)) {
-      sawProtected = true;
-      kept.push(line);
+    if (isProtectedLine(line)) {
+      if (isFailureStart(line)) inFailure = true;
+      emit(line);
       continue;
     }
     if (inFailure) {
       if (/^\s/.test(line) || line.trim() === '') {
-        kept.push(line);
+        emit(line);
         continue;
       }
       inFailure = false;
     }
+    dropped += 1;
   }
 
-  if (!sawProtected) return null;
-  if (kept.length >= lines.length) return null;
-  return applyPreservationGuard(source, kept.join('\n'), 'test');
+  return dropped > 0;
+}
+
+export function compactTestOutput(source: string): string | null {
+  const lines: string[] = [];
+  const changed = emitTestOutput(source, (line) => lines.push(line));
+  if (!changed) return null;
+  return applyPreservationGuard(source, lines.join('\n'), 'test');
 }

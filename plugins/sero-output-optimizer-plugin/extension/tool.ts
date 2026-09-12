@@ -22,7 +22,7 @@ export interface OptimizerToolContext {
   setConfig(next: OutputOptimizerConfig): Promise<void>;
   getSavings(): SessionSavings;
   getRtkStatus(): RtkStatusView;
-  retryRtk(): void;
+  retryRtk(): Promise<void>;
 }
 
 const ACTIONS = ['state', 'set', 'retry'] as const;
@@ -80,7 +80,7 @@ export function registerOptimizerTool(pi: ExtensionAPI, context: OptimizerToolCo
     parameters: OptimizerParams,
     async execute(_toolCallId, params) {
       if (params.action === 'retry') {
-        context.retryRtk();
+        await context.retryRtk();
       }
       if (params.action === 'set') {
         await context.setConfig(mergeConfig(context.getConfig(), params));

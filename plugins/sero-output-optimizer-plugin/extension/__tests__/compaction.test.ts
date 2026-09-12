@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { detectCategory } from '../compaction/category';
-import { compactCapture } from '../compaction';
+import { compactCapture, compactStream } from '../compaction';
 import { compactBuildOutput } from '../compaction/build';
 import { compactGitOutput } from '../compaction/git';
 import { compactLinterOutput } from '../compaction/lint';
@@ -52,6 +52,20 @@ describe('test compaction', () => {
 
   it('leaves an output with no failure unchanged', () => {
     expect(compactTestOutput('✓ one\n✓ two\n')).toBeNull();
+  });
+
+  it('keeps a warning line when it compacts passing tests', () => {
+    const source = [
+      'warning: deprecated API at src/main.ts:12',
+      '✓ passing test one',
+      '✓ passing test two',
+      '1 passed',
+    ].join('\n');
+
+    const candidate = compactTestOutput(source);
+    expect(candidate).not.toBeNull();
+    expect(candidate).toContain('warning: deprecated API at src/main.ts:12');
+    expect(candidate).toContain('1 passed');
   });
 });
 
@@ -154,6 +168,18 @@ describe('search grouping', () => {
   it('keeps the raw candidate when grouping would grow it', () => {
     expect(groupSearchOutput('a.ts:1:x\na.ts:2:y')).toBeNull();
   });
+
+  it('keeps a permission error line verbatim', () => {
+    const path = 'src/components/very/long/path/file.ts';
+    const source = [
+      'rg: private.txt: Permission denied',
+      ...Array.from({ length: 12 }, (_, index) => `${path}:${index + 1}:const value${index} = ${index}`),
+    ].join('\n');
+
+    const candidate = groupSearchOutput(source);
+    expect(candidate).not.toBeNull();
+    expect(candidate).toContain('rg: private.txt: Permission denied');
+  });
 });
 
 describe('preservation guard', () => {
@@ -197,5 +223,41 @@ describe('compactCapture', () => {
     const outcome = compactCapture('plain text', 'none');
     expect(outcome.changed).toBe(false);
     expect(outcome.candidate).toBe('plain text');
+  });
+});
+
+describe('compactStream', () => {
+  it('counts the complete candidate and bounds the preview in one pass', () => {
+    const source = [
+      'warning: deprecated API at src/main.ts:12',
+      ...Array.from({ length: 3000 }, (_, index) => `✓ passing ${index}`),
+      'Tests: 1 passed',
+    ].join('\n');
+    const stringCandidate = compactTestOutput(source);
+    expect(stringCandidate).not.toBeNull();
+
+    const streamed = compactStream(source, 'test', { maxLines: 10, maxBytes: 1024 });
+    expect(streamed.candidateBytes).toBe(Buffer.byteLength(stringCandidate as string, 'utf8'));
+    expect(streamed.changed).toBe(true);
+    expect(streamed.preview.truncated).toBe(false);
+  });
+
+  it('bounds the preview when the protected candidate alone is large', () => {
+    const source = Array.from(
+      { length: 3000 },
+      (_, index) => `warning: deprecation ${index} at src/file-${index}.ts:1`,
+    ).join('\n');
+
+    const streamed = compactStream(source, 'test', { maxLines: 10, maxBytes: 1024 });
+    expect(streamed.candidateBytes).toBe(Buffer.byteLength(source, 'utf8'));
+    expect(streamed.preview.shownLines).toBeLessThanOrEqual(10);
+    expect(streamed.preview.truncated).toBe(true);
+    expect(streamed.preview.omittedLines).toBeGreaterThan(0);
+  });
+
+  it('leaves an unrecognised category unchanged', () => {
+    const streamed = compactStream('plain text', 'none');
+    expect(streamed.changed).toBe(false);
+    expect(streamed.preview.content).toBe('plain text');
   });
 });

@@ -56,12 +56,3 @@ export function buildPreview(
     omittedLines: totalLines - shown.length,
   };
 }
-
-/** A byte-exact read of a stream whose presentation preview is incomplete. */
-export function incompleteStructuredPreview(content: string, totalBytes: number): string {
-  return [
-    content,
-    '',
-    `[Incomplete preview: ${totalBytes} bytes on stdout. The complete document is in the stdout capture file.]`,
-  ].join('\n');
-}

@@ -1,15 +1,27 @@
 import { PROGRESS_LINE } from './ansi';
-import { applyPreservationGuard } from './preservation';
+import { DIAGNOSTIC_LINE, applyPreservationGuard } from './preservation';
 
 /**
  * Filter package-manager progress.
  *
- * Only known progress lines are removed. Errors, warnings and every other line
- * stay in the complete candidate, so a non-zero exit keeps its diagnostics.
+ * A line is removed only when it matches a known progress pattern AND carries
+ * no diagnostic, so errors and warnings always stay in the complete candidate.
  */
+export function emitPackageManagerOutput(source: string, emit: (line: string) => void): boolean {
+  let dropped = 0;
+  for (const line of source.split('\n')) {
+    if (PROGRESS_LINE.test(line) && !DIAGNOSTIC_LINE.test(line)) {
+      dropped += 1;
+      continue;
+    }
+    emit(line);
+  }
+  return dropped > 0;
+}
+
 export function compactPackageManagerOutput(source: string): string | null {
-  const lines = source.split('\n');
-  const kept = lines.filter((line) => !PROGRESS_LINE.test(line));
-  if (kept.length >= lines.length || kept.length === 0) return null;
-  return applyPreservationGuard(source, kept.join('\n'), 'packageManager');
+  const lines: string[] = [];
+  const changed = emitPackageManagerOutput(source, (line) => lines.push(line));
+  if (!changed) return null;
+  return applyPreservationGuard(source, lines.join('\n'), 'packageManager');
 }

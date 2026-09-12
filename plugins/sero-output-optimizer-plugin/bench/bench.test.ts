@@ -6,7 +6,6 @@ import { describe, expect, it } from 'vitest';
 
 import { compactCapture } from '../extension/compaction';
 import { detectCategory, type OutputCategory } from '../extension/compaction/category';
-import { preservesProtectedContent } from '../extension/compaction/preservation';
 import { buildPreview } from '../extension/preview';
 
 /**
@@ -14,8 +13,12 @@ import { buildPreview } from '../extension/preview';
  *
  * A bench harness is a measurement script. It runs each tool for real, captures
  * that tool's output, runs the plugin's compaction on it, and reports the byte
- * counts, estimated tokens and compaction time. It fails when a diagnostic was
- * lost before presentation.
+ * counts, estimated tokens and compaction time.
+ *
+ * Assertions are independent of the implementation's own preservation guard:
+ * every line a local pattern marks as a diagnostic must appear in the complete
+ * candidate, including when the preview is truncated. Each tool has a success
+ * and a failure variant where the environment can produce one.
  *
  * The heavy cases (Playwright, the Electron build, `pnpm install`) only run when
  * `BENCH_HEAVY=1`, so the default run stays fast.
@@ -25,19 +28,21 @@ const pluginRoot = path.resolve(__dirname, '..');
 const monorepoRoot = path.resolve(pluginRoot, '../..');
 const includeHeavy = process.env.BENCH_HEAVY === '1';
 
+type Expected = 'success' | 'failure' | 'any';
+
 interface BenchCase {
   name: string;
   tool: string;
   variant: 'success' | 'failure';
+  expected: Expected;
   command: string;
   args: string[];
   cwd: string;
-  /** Override category detection when the command is a wrapper. */
   category?: OutputCategory;
   heavy?: boolean;
 }
 
-/** Write a throwaway project with one type error, for the tsc failure case. */
+/** One throwaway project with a type error, for the tsc failure case. */
 function prepareBrokenTypeScript(): { cwd: string; args: string[] } {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'output-optimizer-bench-tsc-'));
   fs.writeFileSync(path.join(directory, 'bad.ts'), "export const value: number = 'not a number';\n", 'utf8');
@@ -56,6 +61,7 @@ const cases: BenchCase[] = [
     name: 'vitest pass',
     tool: 'vitest',
     variant: 'success',
+    expected: 'success',
     command: 'pnpm',
     args: ['exec', 'vitest', 'run', 'extension/__tests__/parse.test.ts'],
     cwd: pluginRoot,
@@ -64,6 +70,7 @@ const cases: BenchCase[] = [
     name: 'vitest fail',
     tool: 'vitest',
     variant: 'failure',
+    expected: 'failure',
     command: 'pnpm',
     args: ['exec', 'vitest', 'run', 'bench/fixtures/missing.test.ts'],
     cwd: pluginRoot,
@@ -72,6 +79,7 @@ const cases: BenchCase[] = [
     name: 'tsc pass',
     tool: 'tsc',
     variant: 'success',
+    expected: 'success',
     command: 'pnpm',
     args: ['exec', 'tsc', '--noEmit', '-p', 'extension/tsconfig.json'],
     cwd: pluginRoot,
@@ -81,6 +89,7 @@ const cases: BenchCase[] = [
     name: 'tsc fail',
     tool: 'tsc',
     variant: 'failure',
+    expected: 'failure',
     command: 'pnpm',
     args: brokenTypeScript.args,
     cwd: brokenTypeScript.cwd,
@@ -90,6 +99,7 @@ const cases: BenchCase[] = [
     name: 'git status',
     tool: 'git',
     variant: 'success',
+    expected: 'success',
     command: 'git',
     args: ['status', '--porcelain=v1'],
     cwd: monorepoRoot,
@@ -99,15 +109,17 @@ const cases: BenchCase[] = [
     name: 'git log',
     tool: 'git',
     variant: 'success',
+    expected: 'success',
     command: 'git',
     args: ['log', '-n', '5'],
     cwd: monorepoRoot,
     category: 'git',
   },
   {
-    name: 'git diff',
+    name: 'git diff fail',
     tool: 'git',
     variant: 'failure',
+    expected: 'failure',
     command: 'git',
     args: ['diff', '--definitely-not-a-flag'],
     cwd: monorepoRoot,
@@ -117,8 +129,19 @@ const cases: BenchCase[] = [
     name: 'eslint',
     tool: 'eslint',
     variant: 'success',
+    expected: 'any',
     command: 'pnpm',
     args: ['exec', 'eslint', 'extension/shell.ts'],
+    cwd: pluginRoot,
+    category: 'lint',
+  },
+  {
+    name: 'eslint fail',
+    tool: 'eslint',
+    variant: 'failure',
+    expected: 'any',
+    command: 'pnpm',
+    args: ['exec', 'eslint', '--not-a-real-flag', '.'],
     cwd: pluginRoot,
     category: 'lint',
   },
@@ -126,8 +149,20 @@ const cases: BenchCase[] = [
     name: 'pnpm install',
     tool: 'pnpm install',
     variant: 'success',
+    expected: 'success',
     command: 'pnpm',
     args: ['install', '--frozen-lockfile'],
+    cwd: monorepoRoot,
+    category: 'packageManager',
+    heavy: true,
+  },
+  {
+    name: 'pnpm install fail',
+    tool: 'pnpm install',
+    variant: 'failure',
+    expected: 'failure',
+    command: 'pnpm',
+    args: ['install', '--not-a-real-flag'],
     cwd: monorepoRoot,
     category: 'packageManager',
     heavy: true,
@@ -136,8 +171,19 @@ const cases: BenchCase[] = [
     name: 'playwright',
     tool: 'playwright',
     variant: 'success',
+    expected: 'any',
     command: 'pnpm',
     args: ['exec', 'playwright', 'test', '--list'],
+    cwd: path.join(monorepoRoot, 'apps/desktop'),
+    heavy: true,
+  },
+  {
+    name: 'playwright fail',
+    tool: 'playwright',
+    variant: 'failure',
+    expected: 'any',
+    command: 'pnpm',
+    args: ['exec', 'playwright', '--not-a-real-flag'],
     cwd: path.join(monorepoRoot, 'apps/desktop'),
     heavy: true,
   },
@@ -145,13 +191,36 @@ const cases: BenchCase[] = [
     name: 'electron build',
     tool: 'electron build',
     variant: 'success',
+    expected: 'success',
     command: 'pnpm',
     args: ['run', 'build:electron'],
     cwd: path.join(monorepoRoot, 'apps/desktop'),
     category: 'build',
     heavy: true,
   },
+  {
+    name: 'electron build fail',
+    tool: 'electron build',
+    variant: 'failure',
+    expected: 'failure',
+    command: 'pnpm',
+    args: ['run', 'build:electron:not-a-real-script'],
+    cwd: path.join(monorepoRoot, 'apps/desktop'),
+    heavy: true,
+  },
 ];
+
+/**
+ * A local pattern for content that must survive. It is deliberately not the
+ * plugin's guard, so a bug in that guard cannot hide a loss.
+ */
+const MUST_SURVIVE = /\b(?:error|warning|warn|FAIL|FAILED)\b|\b\d+\s+(?:passed|failed)\b|^commit\s|^diff --git|[^\s:]*[./][^\s:]*:\d+(?::\d+)?/i;
+
+function mustSurviveLines(source: string): string[] {
+  return [...new Set(
+    source.split('\n').map((line) => line.trim()).filter((line) => line && MUST_SURVIVE.test(line)),
+  )];
+}
 
 interface BenchRow {
   name: string;
@@ -159,6 +228,7 @@ interface BenchRow {
   variant: string;
   category: OutputCategory;
   exitCode: number;
+  expected: Expected;
   inputBytes: number;
   candidateBytes: number;
   previewBytes: number;
@@ -166,7 +236,8 @@ interface BenchRow {
   latencyMs: number;
   removedPercent: number;
   truncated: boolean;
-  preserved: boolean;
+  protectedLost: number;
+  recovered: boolean;
 }
 
 function runCase(benchCase: BenchCase): BenchRow {
@@ -190,12 +261,16 @@ function runCase(benchCase: BenchCase): BenchRow {
   const previewBytes = Buffer.byteLength(preview.content, 'utf8');
   const removed = inputBytes === 0 ? 0 : ((inputBytes - candidateBytes) / inputBytes) * 100;
 
+  const mustSurvive = mustSurviveLines(output);
+  const protectedLost = mustSurvive.filter((line) => !outcome.candidate.includes(line)).length;
+
   return {
     name: benchCase.name,
     tool: benchCase.tool,
     variant: benchCase.variant,
     category,
     exitCode: result.status ?? -1,
+    expected: benchCase.expected,
     inputBytes,
     candidateBytes,
     previewBytes,
@@ -203,7 +278,10 @@ function runCase(benchCase: BenchCase): BenchRow {
     latencyMs: Math.round(latencyMs * 1000) / 1000,
     removedPercent: Math.round(removed * 10) / 10,
     truncated: preview.truncated,
-    preserved: preservesProtectedContent(output, outcome.candidate, category),
+    protectedLost,
+    // The complete candidate is the recovery source; it must hold every
+    // protected line even when the preview omitted some of them.
+    recovered: protectedLost === 0,
   };
 }
 
@@ -213,8 +291,7 @@ describe('output optimizer bench harness', () => {
   it('reports bytes, tokens and latency for every case, and preserves diagnostics', () => {
     const rows = selected.map(runCase);
     const header = [
-      'name'.padEnd(18),
-      'tool'.padEnd(14),
+      'name'.padEnd(20),
       'variant'.padEnd(9),
       'category'.padEnd(15),
       'exit'.padEnd(5),
@@ -224,11 +301,10 @@ describe('output optimizer bench harness', () => {
       '~tokens'.padStart(8),
       'ms'.padStart(8),
       'removed'.padStart(8),
-      'kept'.padStart(5),
+      'lost'.padStart(5),
     ].join(' ');
     const lines = rows.map((row) => [
-      row.name.padEnd(18),
-      row.tool.padEnd(14),
+      row.name.padEnd(20),
       row.variant.padEnd(9),
       row.category.padEnd(15),
       String(row.exitCode).padEnd(5),
@@ -238,12 +314,20 @@ describe('output optimizer bench harness', () => {
       String(row.estimatedTokens).padStart(8),
       String(row.latencyMs).padStart(8),
       `${row.removedPercent}%`.padStart(8),
-      String(row.preserved).padStart(5),
+      String(row.protectedLost).padStart(5),
     ].join(' '));
     console.log(`\n${header}\n${lines.join('\n')}\n`);
 
     for (const row of rows) {
-      expect(row.preserved, `${row.name} lost protected content before presentation`).toBe(true);
+      // Independent exit-outcome assertion.
+      if (row.expected === 'success') {
+        expect(row.exitCode, `${row.name} should have succeeded`).toBe(0);
+      } else if (row.expected === 'failure') {
+        expect(row.exitCode, `${row.name} should have failed`).not.toBe(0);
+      }
+      // Independent preservation and complete-recovery assertion.
+      expect(row.protectedLost, `${row.name} lost protected content`).toBe(0);
+      expect(row.recovered, `${row.name} did not preserve a complete recovery source`).toBe(true);
     }
   });
 });

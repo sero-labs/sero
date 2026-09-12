@@ -1,12 +1,8 @@
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
 import type { RtkToolchainResolution } from '@sero-ai/common';
 
-import {
-  defaultOptimizerConfig,
-  type OutputOptimizerConfig,
-  type RtkStatusView,
-} from '../shared/types';
-import { loadConfig, normalizeConfig, saveConfig } from './config';
+import { type RtkStatusView } from '../shared/types';
+import { ConfigStore } from './config';
 import { computeRewrite } from './rewrite';
 import { RtkResolver } from './rtk-client';
 import { SessionState } from './state';
@@ -35,7 +31,7 @@ function commandFromInput(input: unknown): string {
 export default function outputOptimizerExtension(pi: ExtensionAPI): void {
   const state = new SessionState();
   const resolver = new RtkResolver(pi.events, '', '');
-  let config: OutputOptimizerConfig = defaultOptimizerConfig();
+  const configStore = new ConfigStore();
   let rtkStatus: RtkStatusView = { state: 'unknown' };
   let ready: Promise<void> | null = null;
 
@@ -44,8 +40,7 @@ export default function outputOptimizerExtension(pi: ExtensionAPI): void {
       const sessionId = ctx.sessionManager.getSessionId();
       state.setSessionId(sessionId);
       resolver.setIdentity(sessionId, ctx.cwd);
-      ready = loadConfig().then((loaded) => {
-        config = loaded;
+      ready = configStore.refresh().then(() => {
         // A resumed session, a replay, or a fork inherits its history here.
         const entries = typeof ctx.sessionManager.getEntries === 'function'
           ? ctx.sessionManager.getEntries()
@@ -54,6 +49,12 @@ export default function outputOptimizerExtension(pi: ExtensionAPI): void {
       });
     }
     return ready;
+  };
+
+  /** Pick up a settings change made in another session before it takes effect. */
+  const currentConfig = async (ctx: ExtensionContext) => {
+    await ensureReady(ctx);
+    return configStore.refresh();
   };
 
   pi.on('session_start', async (_event, ctx) => {
@@ -65,7 +66,7 @@ export default function outputOptimizerExtension(pi: ExtensionAPI): void {
   pi.on('tool_call', async (event, ctx) => {
     if (event.toolName !== 'bash') return undefined;
     if (isNestedCall(event.toolCallId)) return undefined;
-    await ensureReady(ctx);
+    const config = await currentConfig(ctx);
     if (!config.enabled) return undefined;
 
     const command = commandFromInput(event.input);
@@ -92,7 +93,7 @@ export default function outputOptimizerExtension(pi: ExtensionAPI): void {
   pi.on('tool_result', async (event, ctx) => {
     if (event.toolName !== 'bash') return undefined;
     if (isNestedCall(event.toolCallId)) return undefined;
-    await ensureReady(ctx);
+    const config = await currentConfig(ctx);
 
     const content = textBlocks(event.content);
     const rewrite = state.takeRewrite(event.toolCallId);
@@ -106,7 +107,7 @@ export default function outputOptimizerExtension(pi: ExtensionAPI): void {
     }
 
     try {
-      const result = await optimizeResult({
+      return await optimizeResult({
         content,
         details: event.details,
         requestedCommand: rewrite?.requested ?? commandFromInput(event.input),
@@ -114,7 +115,6 @@ export default function outputOptimizerExtension(pi: ExtensionAPI): void {
         config,
         metrics: state.metrics,
       });
-      return result;
     } catch {
       // Fail open: preserve the received payload, reports and error status.
       return undefined;
@@ -124,13 +124,16 @@ export default function outputOptimizerExtension(pi: ExtensionAPI): void {
   // ── Settings surface ──────────────────────────────────────
 
   registerOptimizerTool(pi, {
-    getConfig: () => config,
+    getConfig: () => configStore.current(),
     setConfig: async (next) => {
-      config = normalizeConfig(next);
-      await saveConfig(config);
+      await configStore.save(next);
     },
     getSavings: () => state.metrics.snapshot(),
     getRtkStatus: () => rtkStatus,
-    retryRtk: () => resolver.invalidate(),
+    retryRtk: async () => {
+      // Resolve again and report the current status, not a cached one.
+      const resolution = await resolver.resolve();
+      rtkStatus = toStatus(resolution);
+    },
   });
 }

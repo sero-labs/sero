@@ -8,15 +8,16 @@ import {
 /**
  * Ask the host for the verified RTK locations over the EventBus.
  *
- * Only an `available` answer is cached. An installation that completes after an
- * unavailable answer becomes usable on the next command without a restart.
+ * Nothing is cached across calls: the host resolves the current runtime
+ * identity each time, so an install that completes, a repaired binary, or a
+ * replaced container is reflected without a restart. Concurrent calls share
+ * one in-flight request.
  */
 export class RtkResolver {
   private readonly events: EventBus;
   private sessionId: string;
   private workspaceId: string;
   private readonly timeoutMs: number;
-  private cached: RtkToolchainResolution | null = null;
   private inflight: Promise<RtkToolchainResolution> | null = null;
 
   constructor(events: EventBus, sessionId: string, workspaceId: string, timeoutMs = 15_000) {
@@ -27,25 +28,22 @@ export class RtkResolver {
   }
 
   setIdentity(sessionId: string, workspaceId: string): void {
-    if (this.sessionId !== sessionId) this.cached = null;
+    if (this.sessionId !== sessionId || this.workspaceId !== workspaceId) {
+      // A new session or workspace must not reuse an answer for the old one.
+      this.inflight = null;
+    }
     this.sessionId = sessionId;
     this.workspaceId = workspaceId;
   }
 
-  /** Drop any cached answer, for the settings retry action. */
-  invalidate(): void {
-    this.cached = null;
-  }
-
   resolve(): Promise<RtkToolchainResolution> {
-    if (this.cached) return Promise.resolve(this.cached);
     if (this.inflight) return this.inflight;
-    this.inflight = this.request().then((resolution) => {
-      this.inflight = null;
-      if (resolution.state === 'available') this.cached = resolution;
+    const wrapped = this.request().then((resolution) => {
+      if (this.inflight === wrapped) this.inflight = null;
       return resolution;
     });
-    return this.inflight;
+    this.inflight = wrapped;
+    return wrapped;
   }
 
   private request(): Promise<RtkToolchainResolution> {
