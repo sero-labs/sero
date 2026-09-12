@@ -172,6 +172,22 @@ response. Large documents can be processed locally or retrieved in pages.
 This boundary also keeps capture bytes out of session JSONL except for the
 bounded preview that the model actually receives.
 
+### A dedicated viewer rather than the editor
+
+A capture lives outside every workspace on purpose, so no file watcher, search
+or language server sees it. The editor path resolver enforces that boundary: a
+path outside the workspace roots is rejected, including through a symlink.
+Opening a capture in the editor would require weakening a deliberate guard.
+
+The viewer gets its own read contract instead, confined to the capture root. Do
+not copy or link captures into a workspace to make them reachable: that would
+duplicate large files and reintroduce the watcher noise the layout avoids. Do not
+relax the editor's path policy for this feature.
+
+The inline preview is capped. It exists for a quick look, not as the reading
+surface, and the tool call must not accumulate an unbounded log while the user
+pages through a large file. The complete file stays one action away.
+
 ### A recorded rewrite instead of a hidden one
 
 Because a tool-call mutation does not reach the persisted tool call, the

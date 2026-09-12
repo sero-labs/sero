@@ -39,7 +39,7 @@
 - [ ] 4.1 Add capture-reference and accounting metadata to eligible results, including unchanged calls. Record inputBytes and compactedBytes for complete captures and an unmeasured state otherwise. Add an optimized-result marker only when rewriting or compaction occurred. Verify notices stay separate from payload data and capture reports survive compaction.
 - [ ] 4.2 Add the single-command bypass. Verify a command ending with `# no-opt` is neither rewritten nor compacted and later commands remain optimised.
 - [ ] 4.3 Build the settings surface: enable, per-class switches, optimisation notices, session savings, RTK status and version, the reason RTK is unavailable (install failed, checksum or version mismatch, container mismatch), and a retry action. Verify each control persists across a restart.
-- [ ] 4.4 Mark transformed results and reuse the complete-output viewer for combined output and stream files. Verify a truncated preview is distinguished from full output, all diagnostic details remain reachable from the capture, and structured stdout opens without stderr or notice contamination.
+- [ ] 4.4 Mark transformed results and use the viewer surface defined in section 7 for combined output and stream files. Verify a truncated preview is distinguished from full output, all diagnostic details remain reachable from the capture, and structured stdout opens without stderr or notice contamination.
 
 ## 5. Metrics
 
@@ -55,3 +55,9 @@
 - [ ] 6.5 Document bounded previews and exact readable capture files, including that oversized structured previews need not parse and complete reads may require pagination or local processing. Distinguish plugin compaction from RTK or billing savings and document the # no-opt bypass.
 - [ ] 6.6 Run `pnpm typecheck` from the monorepo root. Verify it passes with no errors.
 - [ ] 6.7 Verify end-to-end on host and container backends: verified RTK execution, excluded and structured commands unchanged, complete diagnostics recoverable despite bounded previews, exact structured stream files, missing-capture fail-open behavior, ordinary versus nested run_code calls, fork retention, and disabling the plugin restoring baseline behavior.
+
+## 7. Complete-output viewer
+
+- [ ] 7.1 Bound the inline preview in the capture report so repeated loading stops at a cap, keeps the complete file reachable, and never accumulates an unbounded log in the tool call. Verify the cap holds for the largest stream file a command can produce.
+- [ ] 7.2 Build a dedicated viewer surface for complete output that can read a capture outside every workspace, with its own read contract rather than a relaxation of the editor's workspace path policy. Verify a large capture opens there, reports its size, and navigates without loading the whole file into the tool call.
+- [ ] 7.3 Keep the bounded inline preview for a quick look and make the two destinations distinguishable. Verify a truncated preview is still identified as a preview, and the complete output is one action away.

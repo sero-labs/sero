@@ -45,6 +45,8 @@ This change adds the plugin that uses them.
 - Report the complete output path and size in the model-visible result, and
   keep that report through compaction. Carry the structured optimisation
   metrics in `details` for the plugin UI.
+- Open a large capture in a dedicated viewer with a bounded inline preview, so
+  the tool call stays light while the complete file stays reachable.
 - Add settings: enable, a per-class kill switch for rewriting, and a toggle for
   optimisation notices. A single command is bypassed with the `# no-opt`
   marker.

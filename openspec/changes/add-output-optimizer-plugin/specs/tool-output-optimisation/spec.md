@@ -286,6 +286,30 @@ system MUST NOT require the original command to be rerun to obtain it.
 - **WHEN** the user opens the complete output for a compacted result
 - **THEN** the UI shows the complete text and distinguishes it from what the model received
 
+### Requirement: Large captures open in a dedicated viewer
+
+The inline preview in a tool result SHALL be bounded and MUST NOT grow without
+limit while the user reads. Opening a complete capture SHALL provide a dedicated
+viewer surface that can display a capture file, which lives outside every
+workspace. That surface MUST NOT require relaxing the editor's workspace path
+policy, and captures MUST NOT be copied or linked into a workspace to make them
+reachable.
+
+#### Scenario: The inline preview stays bounded
+
+- **WHEN** the user loads more of a large capture in the tool result
+- **THEN** the rendered preview stops at its cap and the tool result does not accumulate an unbounded log
+
+#### Scenario: The user opens a large capture
+
+- **WHEN** the user opens the complete output for a result whose capture is larger than the preview budget
+- **THEN** it opens in a dedicated viewer surface that reports its size and can navigate the file without loading all of it into the tool call
+
+#### Scenario: A capture outside every workspace
+
+- **WHEN** the capture file is outside all workspace roots
+- **THEN** the viewer opens it without weakening the editor's workspace path policy, and no capture is copied or linked into a workspace
+
 ### Requirement: Compaction fails open
 
 If compaction fails or a complete capture cannot be read, the original bash
