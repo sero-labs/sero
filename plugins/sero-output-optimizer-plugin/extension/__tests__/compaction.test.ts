@@ -53,6 +53,25 @@ describe('category detection', () => {
     expect(detectCategory('pnpm test | head package.json')).toBe('none');
   });
 
+  it('preserves output added or transformed by a pipeline filter', () => {
+    const output = 'DEPLOY_TARGET=production\n1 passed\n';
+    const commands = [
+      `pnpm test | awk 'BEGIN {print "DEPLOY_TARGET=production"} {print}'`,
+      "pnpm test | sed '1i DEPLOY_TARGET=production'",
+      "pnpm test | jq '{result: .}'",
+      'pnpm test | base64',
+      'pnpm test | head 123',
+      'pnpm test | cat 123',
+      'pnpm test | head -c 5',
+    ];
+    for (const command of commands) {
+      expect(detectCategory(command), command).toBe('none');
+      expect(compactStream(output, detectCategory(command)).preview.content, command).toBe(output);
+    }
+    expect(detectCategory('pnpm test | cat -')).toBe('test');
+    expect(detectCategory('pnpm test | tail -n 5')).toBe('test');
+  });
+
   it('lets a pipeline stage decide the output category', () => {
     // The stage that writes to the terminal produces the visible output, so it
     // decides the category. A grep stage is safe because its matches are the

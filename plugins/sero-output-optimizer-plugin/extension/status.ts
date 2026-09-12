@@ -89,20 +89,16 @@ async function saveStatus(status: OptimizerStatus): Promise<void> {
   await fs.promises.rename(temporary, target);
 }
 
-/**
- * The shared write queue.
- *
- * Every `StatusStore` in the process serialises through this promise chain, so
- * a read-merge-write cannot interleave with another one. Without it, a
- * concurrent savings write and RTK write each read the same file and the
- * second write drops the first one's field.
- */
-let writeQueue: Promise<void> = Promise.resolve();
+// Jiti can load separate copies of this module for different sessions. The
+// queue must belong to the process, not to one extension module instance.
+const shared = globalThis as typeof globalThis & {
+  __seroOutputOptimizerStatusWriteQueue?: Promise<void>;
+};
 
 function enqueue(task: () => Promise<void>): Promise<void> {
-  const run = writeQueue.then(task, task);
+  const run = (shared.__seroOutputOptimizerStatusWriteQueue ?? Promise.resolve()).then(task, task);
   // Keep the chain alive after a failure so later writes still run in order.
-  writeQueue = run.then(
+  shared.__seroOutputOptimizerStatusWriteQueue = run.then(
     () => undefined,
     () => undefined,
   );

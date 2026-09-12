@@ -53,45 +53,6 @@ const GIT_COMPACTED_SUBCOMMANDS = new Set(['status', 'log']);
 const PIPE_SEPARATORS = new Set(['|', '|&']);
 
 /**
- * Commands that read only their standard input and write a transformation of
- * it. A pipeline stage from this set cannot add content of its own.
- */
-const STDIN_FILTERS = new Set([
-  'head',
-  'tail',
-  'sort',
-  'uniq',
-  'wc',
-  'cut',
-  'tr',
-  'column',
-  'nl',
-  'tac',
-  'rev',
-  'fold',
-  'expand',
-  'unexpand',
-  'strings',
-  'xxd',
-  'od',
-  'base64',
-  'cat',
-  'tee',
-  'less',
-  'more',
-  'grep',
-  'egrep',
-  'fgrep',
-  'rg',
-  'sed',
-  'awk',
-  'jq',
-]);
-
-/** Filters whose first positional argument is a pattern or expression, not a file. */
-const PATTERN_FIRST = new Set(['grep', 'egrep', 'fgrep', 'rg', 'sed', 'awk', 'jq']);
-
-/**
  * Commands under a sequence separator that print nothing.
  *
  * This list is deliberately tiny and excludes `source`, `.`, `eval`, `exec`
@@ -178,18 +139,15 @@ function classify(first: FirstCommand): OutputCategory {
   return 'none';
 }
 
-/**
- * True when a pipeline stage reads only standard input.
- *
- * A numeric positional argument is an option value, as in `head -n 5`, so it
- * does not name a file. For grep and its relatives the first positional is the
- * pattern, and any further positional names a file.
- */
+/** Only unchanged text and complete-line selection retain the upstream category. */
 function isStdinFilter({ name, args }: FirstCommand): boolean {
-  if (!STDIN_FILTERS.has(name)) return false;
-  const positional = args.filter((argument) => !argument.startsWith('-'));
-  if (PATTERN_FIRST.has(name)) return positional.length <= 1;
-  return positional.every((argument) => /^\d+$/.test(argument));
+  if (name === 'cat') return args.every((argument) => argument === '-');
+  if (name !== 'head' && name !== 'tail') return false;
+  if (args.length === 0) return true;
+  if (args.length === 1) return /^-\d+$/.test(args[0] ?? '');
+  return args.length === 2
+    && (args[0] === '-n' || args[0] === '--lines')
+    && /^[+-]?\d+$/.test(args[1] ?? '');
 }
 
 /** True when a sequenced command cannot print. */

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { defaultOptimizerConfig, emptySessionSavings, reductionPercent, type SessionSavings } from '../../shared/types';
 import { normalizeConfig } from '../config';
@@ -302,6 +302,23 @@ describe('status file', () => {
       const status = await new StatusStore().read();
       expect(status?.savings.measuredCalls, `round ${round} savings`).toBe(round);
       expect(status?.rtk, `round ${round} RTK`).toEqual({ state: 'available', version: `0.49.${round}` });
+    }
+  });
+
+  it('shares the write queue across separately loaded extension modules', async () => {
+    const FirstStatusStore = await store();
+    vi.resetModules();
+    const { StatusStore: SecondStatusStore } = await import('../status');
+    expect(FirstStatusStore).not.toBe(SecondStatusStore);
+
+    for (let round = 1; round <= 20; round += 1) {
+      await Promise.all([
+        new FirstStatusStore().publish({ savings: { ...emptySessionSavings(), measuredCalls: round } }),
+        new SecondStatusStore().publish({ rtk: { state: 'available', version: String(round) } }),
+      ]);
+      const status = await new FirstStatusStore().read();
+      expect(status?.savings.measuredCalls).toBe(round);
+      expect(status?.rtk.version).toBe(String(round));
     }
   });
 
