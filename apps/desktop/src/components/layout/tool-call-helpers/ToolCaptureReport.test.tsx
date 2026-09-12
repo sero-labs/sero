@@ -205,4 +205,54 @@ describe('ToolCaptureReport', () => {
     expect(document.body.textContent).toContain('page-10');
     expect(readCapture).toHaveBeenLastCalledWith({ path: '/host/combined.log', offset: 10 });
   });
+
+  it('reports the shown byte range, not a bare start offset', async () => {
+    readCapture.mockImplementation(async (request) => ({
+      state: 'ok',
+      content: `page-${request.offset ?? 0}`,
+      totalBytes: 100,
+      ...(request.offset === 0 || request.offset === undefined ? { nextOffset: 10 } : {}),
+    }));
+    await render(captureView());
+
+    const open = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Combined output'));
+    await act(async () => open?.click());
+    const full = [...container.querySelectorAll('button')].find((item) => item.textContent === 'Open full output');
+    await act(async () => full?.click());
+
+    expect(document.body.textContent).toContain('Bytes 0–10 of 100');
+
+    const next = [...document.querySelectorAll('button')].find((item) => item.textContent === 'Next');
+    await act(async () => next?.click());
+
+    // The last slice ends at the file size.
+    expect(document.body.textContent).toContain('Bytes 10–100 of 100');
+  });
+
+  it('offers no pager for a file that fits in one page', async () => {
+    readCapture.mockResolvedValue({ state: 'ok', content: 'all of it', totalBytes: 111 });
+    await render(captureView());
+
+    const open = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Combined output'));
+    await act(async () => open?.click());
+    const full = [...container.querySelectorAll('button')].find((item) => item.textContent === 'Open full output');
+    await act(async () => full?.click());
+
+    expect(document.body.textContent).toContain('Bytes 0–111 of 111');
+    // A greyed-out Previous/Next pair reads as a broken control.
+    expect([...document.querySelectorAll('button')].some((item) => item.textContent === 'Previous')).toBe(false);
+    expect([...document.querySelectorAll('button')].some((item) => item.textContent === 'Next')).toBe(false);
+  });
+
+  it('labels an empty capture instead of claiming a zero-byte range', async () => {
+    readCapture.mockResolvedValue({ state: 'ok', content: '', totalBytes: 0 });
+    await render(captureView());
+
+    const open = [...container.querySelectorAll('button')].find((item) => item.textContent?.includes('Combined output'));
+    await act(async () => open?.click());
+    const full = [...container.querySelectorAll('button')].find((item) => item.textContent === 'Open full output');
+    await act(async () => full?.click());
+
+    expect(document.body.textContent).toContain('Empty file');
+  });
 });

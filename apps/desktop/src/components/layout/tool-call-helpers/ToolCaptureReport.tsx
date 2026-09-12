@@ -241,6 +241,26 @@ type SliceState =
   | { kind: 'unavailable'; reason: string };
 
 /**
+ * Where the shown slice sits in the file.
+ *
+ * A bare start offset reads as an empty view on a single-page file, so report
+ * the shown range against the total. A whole-file read ends at its size.
+ */
+function positionLabel(
+  offset: number,
+  slice: { totalBytes: number; nextOffset?: number },
+): string {
+  if (slice.totalBytes === 0) return 'Empty file';
+  const end = slice.nextOffset ?? slice.totalBytes;
+  return `Bytes ${offset.toLocaleString()}–${end.toLocaleString()} of ${slice.totalBytes.toLocaleString()}`;
+}
+
+/** Navigation is offered only when the file has more than one slice. */
+function canPage(history: readonly number[], slice: { nextOffset?: number }): boolean {
+  return history.length > 0 || slice.nextOffset !== undefined;
+}
+
+/**
  * The dedicated reading surface for one complete capture.
  *
  * It shows one bounded slice at a time and offers paged navigation, so a
@@ -311,34 +331,36 @@ function CaptureViewerDialog({ file, onClose }: { file: ToolCaptureFile; onClose
             >
               {slice.content}
             </pre>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-[var(--text-muted)]">Byte {offset.toLocaleString()}</span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={history.length === 0}
-                  onClick={() => {
-                    const previous = history[history.length - 1] ?? 0;
-                    setHistory((current) => current.slice(0, -1));
-                    setOffset(previous);
-                  }}
-                  className="text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)] disabled:opacity-40"
-                >
-                  Previous
-                </button>
-                <button
-                  type="button"
-                  disabled={slice.nextOffset === undefined}
-                  onClick={() => {
-                    if (slice.nextOffset === undefined) return;
-                    setHistory((current) => [...current, offset]);
-                    setOffset(slice.nextOffset);
-                  }}
-                  className="text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)] disabled:opacity-40"
-                >
-                  Next
-                </button>
-              </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm text-[var(--text-muted)]">{positionLabel(offset, slice)}</span>
+              {canPage(history, slice) ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={history.length === 0}
+                    onClick={() => {
+                      const previous = history[history.length - 1] ?? 0;
+                      setHistory((current) => current.slice(0, -1));
+                      setOffset(previous);
+                    }}
+                    className="text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)] disabled:opacity-40"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    disabled={slice.nextOffset === undefined}
+                    onClick={() => {
+                      if (slice.nextOffset === undefined) return;
+                      setHistory((current) => [...current, offset]);
+                      setOffset(slice.nextOffset);
+                    }}
+                    className="text-sm text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)] disabled:opacity-40"
+                  >
+                    Next
+                  </button>
+                </div>
+              ) : null}
             </div>
           </>
         ) : null}
