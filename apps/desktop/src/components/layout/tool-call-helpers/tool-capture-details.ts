@@ -33,14 +33,19 @@ export interface ToolCaptureFile {
 
 export interface ToolCaptureView {
   capture: ToolCaptureDetails;
-  /** True when the model received a bounded preview rather than all of the output. */
-  preview: boolean;
   /** Complete files the user can open. Empty when the capture is incomplete. */
   files: ToolCaptureFile[];
+  /**
+   * The command that ran, when it differs from the requested one.
+   *
+   * This is UI metadata. The model is told what it asked for and nothing more,
+   * because the wrapper repeats on every rewritten command.
+   */
+  rewrite?: { requested: string; executed: string };
 }
 
 const STREAM_LABELS: Record<ToolCaptureStreamKind, string> = {
-  combined: 'Combined output',
+  combined: 'Full details',
   stdout: 'stdout',
   stderr: 'stderr',
 };
@@ -54,6 +59,9 @@ export function describeToolCapture(
   const files: ToolCaptureFile[] = [];
   for (const stream of [capture.combined, capture.stdout, capture.stderr]) {
     if (!stream) continue;
+    // A stream holding every captured byte is the combined file again, so
+    // offering both would be two buttons onto the same content.
+    if (stream.stream !== 'combined' && stream.bytes === capture.combined?.bytes) continue;
     files.push({
       kind: stream.stream,
       label: STREAM_LABELS[stream.stream],
@@ -64,9 +72,21 @@ export function describeToolCapture(
 
   return {
     capture,
-    preview: isTruncated(details),
     files: capture.complete ? files : [],
+    rewrite: parseRewrite(details),
   };
+}
+
+/** The requested and executed commands a rewritten result recorded. */
+function parseRewrite(
+  details: Record<string, unknown> | null | undefined,
+): ToolCaptureView['rewrite'] {
+  const value = details?.rewrite;
+  if (!isRecord(value)) return undefined;
+  const { requested, executed } = value;
+  if (typeof requested !== 'string' || !requested) return undefined;
+  if (typeof executed !== 'string' || !executed) return undefined;
+  return { requested, executed };
 }
 
 export function parseToolCaptureDetails(
@@ -96,11 +116,6 @@ function parseStream(value: unknown): ToolCaptureStreamDetails | undefined {
     runtimePath: typeof value.runtimePath === 'string' ? value.runtimePath : value.hostPath,
     bytes: typeof value.bytes === 'number' && Number.isFinite(value.bytes) ? value.bytes : 0,
   };
-}
-
-/** The tool result carries `truncation` only when the payload was truncated. */
-function isTruncated(details: Record<string, unknown> | null | undefined): boolean {
-  return isRecord(details?.truncation);
 }
 
 export function formatBytes(bytes: number): string {

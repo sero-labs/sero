@@ -16,6 +16,7 @@
         "@sero-ai/plugin-graphify#build",
         "@sero-ai/plugin-mcp#build",
         "@sero-ai/plugin-orchestrator#build",
+        "@sero-ai/plugin-output-optimizer#build",
         "@sero-ai/plugin-usage#build",
         "@sero-ai/plugin-user-feedback#build",
         "@sero-ai/plugin-web#build"
