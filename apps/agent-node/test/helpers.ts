@@ -5,11 +5,27 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { RunnerHooks, SessionRunner, SessionRunnerFactory } from "../src/pi-host.ts";
 import type { SessionEntry } from "../src/types.ts";
+import type { SessionStore } from "../src/sessions.ts";
 import type { ThinkingLevel } from "@sero-ai/a2a";
 
 export async function temporaryState(): Promise<{ root: string; cleanup: () => Promise<void> }> {
   const root = await mkdtemp(join(tmpdir(), "sero-node-test-"));
   return { root, cleanup: () => rm(root, { recursive: true, force: true }) };
+}
+
+/**
+ * Wait for a session's turn to end before its temp state is removed.
+ *
+ * Releasing a runner starts the turn's final durable write. Cleaning the temp
+ * directory first makes that write fail with ENOENT, so every test that
+ * releases a runner must settle the session before `finally` runs.
+ */
+export async function awaitTurnEnd(store: SessionStore, contextId: string): Promise<void> {
+  for (let attempt = 0; attempt < 400; attempt += 1) {
+    if (!store.activeTask(contextId)) return;
+    await Bun.sleep(5);
+  }
+  throw new Error(`turn for ${contextId} did not settle`);
 }
 
 export class DeferredRunner implements SessionRunner {

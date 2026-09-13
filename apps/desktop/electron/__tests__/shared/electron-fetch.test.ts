@@ -25,7 +25,7 @@ async function startDelayedBodyServer(): Promise<string> {
   return `http://127.0.0.1:${address.port}`;
 }
 
-async function runElectronProbe(baseUrl: string): Promise<Record<string, unknown>> {
+async function runElectronProbeOnce(baseUrl: string): Promise<Record<string, unknown>> {
   const root = await mkdtemp(join(tmpdir(), 'sero-electron-idle-'));
   cleanups.push(() => rm(root, { recursive: true, force: true }));
   const modulePath = resolve('electron/shared/infra/electron-fetch.ts');
@@ -69,7 +69,7 @@ async function runElectronProbe(baseUrl: string): Promise<Record<string, unknown
 
   const output = await new Promise<string>((resolveOutput, rejectOutput) => {
     const electronArgs = process.platform === 'linux'
-      ? ['--no-sandbox', scriptPath]
+      ? ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', scriptPath]
       : [scriptPath];
     const childEnv: NodeJS.ProcessEnv = {
       ...process.env,
@@ -82,10 +82,12 @@ async function runElectronProbe(baseUrl: string): Promise<Record<string, unknown
     });
     let stdout = '';
     let stderr = '';
+    // Under parallel CI load a Chromium process can take well over ten seconds
+    // to reach the probe, and a small /dev/shm makes it fail outright.
     const timer = setTimeout(() => {
       child.kill();
       rejectOutput(new Error(`Electron probe timed out: ${stderr}`));
-    }, 10000);
+    }, 25_000);
     child.stdout.on('data', (chunk) => { stdout += String(chunk); });
     child.stderr.on('data', (chunk) => { stderr += String(chunk); });
     child.on('error', rejectOutput);
@@ -100,6 +102,19 @@ async function runElectronProbe(baseUrl: string): Promise<Record<string, unknown
   return JSON.parse(resultLine.slice('SERO_IDLE_RESULT='.length)) as Record<string, unknown>;
 }
 
+/** One retry absorbs a Chromium startup that fails for a transient host reason. */
+async function runElectronProbe(baseUrl: string): Promise<Record<string, unknown>> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await runElectronProbeOnce(baseUrl);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
+}
+
 describe('Electron fetch', () => {
   it('applies the setting to stalled Electron fetch bodies and supports zero', async () => {
     const baseUrl = await startDelayedBodyServer();
@@ -108,5 +123,5 @@ describe('Electron fetch', () => {
       stalled: 'UND_ERR_BODY_TIMEOUT',
       disabled: 'startend',
     });
-  }, 20000);
+  }, 90_000);
 });
