@@ -15,7 +15,10 @@ bash command into the session's capture file while the command runs, before the
 model-facing content is truncated. The capture MUST NOT be bounded by an
 in-memory capture limit. Truncation of the model-facing content MUST NOT reduce
 what is persisted. The bash result SHALL report the capture path and byte size in
-the model-visible content. Capture SHALL preserve the combined output and
+the model-visible content. A reported path SHALL be the path valid where the
+command ran, and a stream record SHALL carry that runtime path only when it
+differs from the host path, so a host workspace stores one path rather than the
+same absolute path twice. Capture SHALL preserve the combined output and
 separate byte-exact stdout and stderr files for each non-empty stream. Stream
 files MUST contain no reporting text or truncation markers. All files in a
 capture SHALL share its session references, reachability and cleanup policy.
@@ -70,6 +73,32 @@ capture SHALL share its session references, reachability and cleanup policy.
 - **WHEN** a valid UTF-8 character is split across successive chunks on either pipe
 - **THEN** the preview decodes it as one character, independently of chunks on the other pipe, and the capture files preserve the original bytes
 
+### Requirement: A failed command reports error status without losing its result
+
+The bash tool SHALL return an ordinary result for every exit code, including a
+non-zero exit, so the complete payload, capture report and typed capture
+metadata reach the `tool_result` hooks. The persisted result for a non-zero exit
+SHALL carry the error status. The host SHALL derive that status from the
+original tool result, before any extension result hook runs, so a hook that
+replaces the content or the details cannot change it. The system MUST NOT reach
+the error status by rejecting the tool call, because a rejection replaces the
+result content and details before the hooks read them.
+
+#### Scenario: Failure result reaches the hooks
+
+- **WHEN** a command exits non-zero
+- **THEN** the result reaches the hooks with its payload, its capture report and its capture metadata intact, and the persisted result carries the error status
+
+#### Scenario: Command exits zero
+
+- **WHEN** a command exits zero
+- **THEN** the persisted result carries no error status
+
+#### Scenario: An extension rewrites the failure result
+
+- **WHEN** a loaded extension replaces the content and details of a failed bash result
+- **THEN** the replacement survives and the error status stays set, because the host derives the status from the original result before the extension runs
+
 ### Requirement: Capturing complete output bounds memory
 
 Streaming SHALL NOT retain unbounded output in memory. The system MUST bound
@@ -96,18 +125,41 @@ without parsing human-readable notices. Reports SHALL use runtime-valid paths;
 host consumers SHALL receive host paths through typed metadata only. This
 separation does not remove the ordinary bash payload's existing truncation.
 Payload previews SHALL remain within the existing 50 KB / 2,000-line limits.
+A payload preview SHALL NOT carry ANSI escape sequences: no Sero surface renders
+them as styling, so they are noise in model context. Capture files keep the exact
+bytes, and a structured command's own payload remains byte-exact.
 Reporting blocks are outside that payload budget, as existing truncation and
 exit notices are. A truncated payload MUST be identified as a preview, not a
 complete or parseable structured document. Reports SHALL identify the complete
-combined output and available stream files with their individual byte counts.
-The UI SHALL distinguish the preview from complete output and allow each
-stream file to be opened. Normal file-tool read limits still apply; complete
-retrieval can require paged reads or local parsing of the file.
+combined output and available stream files with their individual byte counts. A
+stream file that holds the same bytes as the combined output MUST NOT be listed
+separately, in the report or in the capture metadata, because it repeats one
+fact at double the cost. Streams that differ from the combined output, such as
+stderr alongside stdout, SHALL be listed in the report, so the agent can read one
+stream alone. The UI SHALL offer the complete combined output as a single
+control: it holds every captured byte, so a control per stream would repeat it.
+Normal file-tool read limits still apply; complete retrieval can require paged
+reads or local parsing of the file.
 
 #### Scenario: Result carries a capture report
 
 - **WHEN** a command produces output and a finalized capture
 - **THEN** the output payload and capture report occupy separate identifiable content blocks
+
+#### Scenario: A command emits colour
+
+- **WHEN** a command writes ANSI escape sequences and its capture is finalized
+- **THEN** the model-visible payload carries the text without the escape sequences, and the capture file keeps them byte for byte
+
+#### Scenario: A stream repeats the combined output
+
+- **WHEN** every captured byte came from one stream, so that stream file is the combined file byte for byte
+- **THEN** the record omits that stream and the report names the combined output once
+
+#### Scenario: Streams differ from the combined output
+
+- **WHEN** a command wrote to both streams
+- **THEN** the report lists the combined output and each stream file with its own byte count
 
 ### Requirement: Capture files have session references
 
@@ -246,13 +298,15 @@ MUST be visible in that result.
 
 ### Requirement: The user can open the complete output
 
-The desktop UI SHALL let the user open a bash result's complete output, and
-MUST distinguish that complete output from the model-facing content.
+The desktop UI SHALL let the user open a bash result's complete output in a
+surface separate from the model-facing content, so the two are never confused.
+The UI MUST NOT restate what the model received: a truncated payload already
+carries its own truncation marker, and a complete one needs no note.
 
 #### Scenario: User expands a result with captured output
 
 - **WHEN** the user opens the complete output for a bash result that has a capture file
-- **THEN** the UI opens the complete output and identifies whether the model received all output or a bounded preview
+- **THEN** the UI opens the complete output in its own surface, separate from the payload the model received
 
 #### Scenario: Capture file is gone
 

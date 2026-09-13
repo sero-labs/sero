@@ -41,7 +41,8 @@ This change adds the plugin that uses them.
   and link to the complete parseable source file.
 - Record the rewritten command in the result, because a `tool_call` mutation
   does not change the persisted tool call, so the transcript would otherwise
-  show a command that never ran.
+  show a command that never ran. Keep this separate execution report even when
+  capture or compaction fails, while preserving the received payload and status.
 - Report the complete output path and size in the model-visible result, and
   keep that report through compaction. Carry the structured optimisation
   metrics in `details` for the plugin UI.
@@ -51,7 +52,8 @@ This change adds the plugin that uses them.
   optimisation notices. A single command is bypassed with the `# no-opt`
   marker.
 - Report per-session plugin compaction bytes before presentation limits. Include
-  unchanged eligible calls, disclose unmeasured calls, and do not infer RTK or
+  unchanged eligible calls, count confirmed empty output as measured zero input
+  and output bytes, disclose unmeasured calls, and do not infer RTK or
   provider savings from captured output.
 - Bind each rewritten invocation to the verified runtime executable and its
   session state environment. Treat RTK exit codes as rewrite-candidate outcomes

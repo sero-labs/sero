@@ -15,6 +15,7 @@ Use reference pages when you need exact facts: support boundaries, runtime behav
 - [Containers and Host Mode](/reference/containers-host-mode) — runtime behavior, requirements, logs, overrides, and caveats.
 - [Container Isolation](/reference/container-isolation) — container lifecycle, mounts, networking, and dev-server registry behavior.
 - [State and Folders](/reference/state-and-folders) — profile paths, workspace state, app state, memory storage, and redaction guidance.
+- [Output Optimizer](/reference/output-optimizer) — optional shell-output rewriting and compaction, bounded previews, and complete capture files.
 - [Sero CLI](/reference/sero-cli) — command syntax, namespaces, output, side effects, batch behavior, and plugin bridging.
 - [Orchestrator](/reference/orchestrator) — mode comparison, compatibility terms, and permission boundary.
 - [Workflows](/reference/workflows) — commands, plan rules, recovery, triggers, limits, library, and storage.

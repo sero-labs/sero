@@ -5,6 +5,7 @@ import { StringDecoder } from 'string_decoder';
 
 import { SERO_CAPTURE_ROOT } from '@electron/platform/env';
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, truncateTail, type TruncationResult } from '@electron/features/container/filesystem/truncate';
+import { stripAnsi } from '@electron/shared/lib/ansi-text';
 import { registerActiveCapture, releaseActiveCapture, awaitCaptureReference } from './active-captures';
 import {
   TOOL_CAPTURE_RECORD_VERSION,
@@ -177,7 +178,9 @@ export class OutputCapture {
 
   /** The bounded tail rendered with the ordinary payload truncation and markers. */
   renderPayload(): TruncationResult {
-    const result = truncateTail(this.tail.trim(), { maxLines: PAYLOAD_MAX_LINES, maxBytes: PAYLOAD_MAX_BYTES });
+    // Strip before truncating, so the reported byte counts describe what the
+    // model actually receives.
+    const result = truncateTail(stripAnsi(this.tail.trim()), { maxLines: PAYLOAD_MAX_LINES, maxBytes: PAYLOAD_MAX_BYTES });
     if (this.droppedBytes === 0) return result;
     return {
       ...result,
@@ -364,12 +367,16 @@ export class OutputCapture {
   }
 
   private streamRecord(sink: StreamSink): ToolCaptureStream {
-    return {
+    const runtimePath = this.toRuntimePath(sink.filePath);
+    const record: ToolCaptureStream = {
       stream: sink.kind,
       hostPath: sink.filePath,
-      runtimePath: this.toRuntimePath(sink.filePath),
       bytes: sink.bytes,
     };
+    // On a host workspace the two paths are the same string. Writing both would
+    // store the same long absolute path twice in every session entry.
+    if (runtimePath !== sink.filePath) record.runtimePath = runtimePath;
+    return record;
   }
 
   private async removeDirectory(): Promise<void> {

@@ -3,7 +3,7 @@ import { access, readFile } from "node:fs/promises";
 import { EventHub } from "../src/events.ts";
 import { SessionStore } from "../src/sessions.ts";
 import { ensureState } from "../src/state.ts";
-import { DeferredRunner, runnerFactory, temporaryState } from "./helpers.ts";
+import { DeferredRunner, runnerFactory, temporaryState, awaitTurnEnd } from "./helpers.ts";
 import { ProviderAuthRequiredError } from "../src/pi-host.ts";
 
 describe("persistent sessions and tasks", () => {
@@ -74,6 +74,7 @@ describe("persistent sessions and tasks", () => {
       expect(factoryCalls).toBe(1);
       expect(runners.get(session.id)?.calls.toSorted()).toEqual(["first", "second"]);
       runners.get(session.id)?.release?.("done");
+      await awaitTurnEnd(store, session.id);
     } finally { await temp.cleanup(); }
   });
 
@@ -99,6 +100,7 @@ describe("persistent sessions and tasks", () => {
 
       expect((await store.required(session.id)).approvalMode).toBe("ask");
       runners.get(session.id)?.release?.("done");
+      await awaitTurnEnd(store, session.id);
     } finally { await temp.cleanup(); }
   });
 
@@ -120,6 +122,7 @@ describe("persistent sessions and tasks", () => {
 
       start?.();
       await Promise.all([send, deletion]);
+      await awaitTurnEnd(store, session.id);
 
       expect(await store.get(session.id)).toBeUndefined();
     } finally { await temp.cleanup(); }
@@ -146,7 +149,8 @@ describe("persistent sessions and tasks", () => {
       const session = await store.create({ model: "test/model", workspace: "replay" });
       await store.send(session.id, "hello", "controller");
       while (!runners.get(session.id)?.release) await Bun.sleep(1);
-      runners.get(session.id)?.release?.("answer"); await Bun.sleep(10);
+      runners.get(session.id)?.release?.("answer");
+      await awaitTurnEnd(store, session.id);
       const all = await store.replay(session.id); expect(all.events).toHaveLength(2);
       expect(all.events.every((entry) => /^[0-9a-f]{8}$/.test(entry.id))).toBe(true);
       expect(all.events[1].parentId).toBe(all.events[0].id);
@@ -211,6 +215,7 @@ describe("persistent sessions and tasks", () => {
       expect(await restarted.getTask(task.taskId)).toMatchObject({ status: "failed", message: "the node restarted" });
       expect(await readFile(`${paths.tasks}/${session.id}.jsonl`, "utf8")).toContain("the node restarted");
       runners.get(session.id)?.release?.("");
+      await awaitTurnEnd(store, session.id);
     } finally { await temp.cleanup(); }
   });
 

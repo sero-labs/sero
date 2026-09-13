@@ -1,3 +1,5 @@
+# Tool Output Optimisation Specification
+
 ## Purpose
 
 Lets a user reduce the shell output that reaches the model, using pinned RTK
@@ -5,7 +7,7 @@ command rewriting and category-aware result compaction, while keeping the
 complete executed-command output reachable in capture files and model previews
 bounded. Category rules preserve diagnostics before preview truncation.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Complete captures back bounded previews
 
@@ -155,19 +157,31 @@ a partial matched line as a valid edit anchor.
 
 ### Requirement: The executed command is visible
 
-When a command was rewritten, the result SHALL report both the command that was
-requested and the command that ran, so the two are distinguishable. When no
-rewrite occurred, the result MUST NOT add a rewrite notice.
+When a command was rewritten, the result SHALL record both the command that was
+requested and the command that ran, so the two are distinguishable. The record
+SHALL carry the RTK form; the bound executable path and the session's RTK state
+environment repeat on every rewritten command and are not persisted.
+
+The model context MUST NOT carry the rewrite. The model asked for the requested
+command and receives that command's output; naming the wrapper is information it
+cannot act on, and the measured-loss exclusions already cover the commands where
+RTK changes meaning. The full-output viewer SHALL show the requested and executed
+commands. When no rewrite occurred, the result MUST NOT record one.
 
 #### Scenario: Command was rewritten
 
+- **WHEN** a result is recorded for a rewritten command
+- **THEN** the result details name the command that executed and the command that was requested, so the viewer can tell which command ran
+
+#### Scenario: The model context stays unchanged
+
 - **WHEN** the agent receives a result for a rewritten command
-- **THEN** the result names the command that executed and identifies the requested command, so the reader can tell which command ran
+- **THEN** the model-visible content carries the output and no rewrite notice, and the executed command is available only in the result details
 
 #### Scenario: Command was not rewritten
 
-- **WHEN** the agent receives a result for a command that ran as written
-- **THEN** the result carries no rewrite notice
+- **WHEN** a result is recorded for a command that ran as written
+- **THEN** the result carries no rewrite record, and the viewer shows no executed command
 
 ### Requirement: Safe categories are compacted
 
@@ -175,7 +189,11 @@ The system SHALL compact completed shell output for these categories: test
 runs, builds and type checks, linters, Git status and log, and package-manager
 commands. Compaction MUST preserve failures, errors, warnings, file paths, line
 numbers, commit messages and exit codes in the complete candidate. The
-bounded-preview requirement determines what fits in model-visible content.
+bounded-preview requirement determines what fits in model-visible content. A
+non-zero exit SHALL NOT make a call ineligible: a failed command with a complete
+capture is compacted like a successful one. The plugin MUST NOT set or clear the
+error status; the host derives it from the original result before extension
+hooks run.
 
 #### Scenario: Test run with failures
 
@@ -205,7 +223,7 @@ bounded-preview requirement determines what fits in model-visible content.
 #### Scenario: Command fails
 
 - **WHEN** a compacted command exits non-zero
-- **THEN** the result report keeps the exit code and failure status visible even if diagnostic details exceed the bounded preview
+- **THEN** the complete candidate is compacted like a successful call, and the result report keeps the exit code and failure status visible even if diagnostic details exceed the bounded preview
 
 ### Requirement: Category rules preserve diagnostics before presentation
 
@@ -268,13 +286,22 @@ from stdout. Normal file-tool limits can require paged reads or local parsing.
 
 When a complete capture is available, a compacted result SHALL report its
 location and size in
-the model-visible content, and SHALL keep the report the bash tool added. The
+the model-visible content, and SHALL keep the report the bash tool added, unless
+the model payload already carries the complete captured output. In that case the
+plugin MUST omit the report block: it would cost more context than the output it
+points at, and the complete output is still openable from the result details.
+The
 system MUST NOT require the original command to be rerun to obtain it.
 
 #### Scenario: A compacted result
 
 - **WHEN** the agent receives a compacted result for a command with captured output
 - **THEN** the model-visible content reports where the complete output is and how large it is
+
+#### Scenario: The payload already holds everything
+
+- **WHEN** compaction omitted nothing and the preview was not truncated, so the model payload is the complete captured output
+- **THEN** the result omits the capture report block and the complete output remains openable from the result details
 
 #### Scenario: The agent retrieves omitted content
 
@@ -284,26 +311,25 @@ system MUST NOT require the original command to be rerun to obtain it.
 #### Scenario: The user opens the complete output
 
 - **WHEN** the user opens the complete output for a compacted result
-- **THEN** the UI shows the complete text and distinguishes it from what the model received
+- **THEN** the UI shows the complete text in its own surface, separate from the payload the model received
 
-### Requirement: Large captures open in a dedicated viewer
+### Requirement: Captures open in a dedicated viewer
 
-The inline preview in a tool result SHALL be bounded and MUST NOT grow without
-limit while the user reads. Opening a complete capture SHALL provide a dedicated
-viewer surface that can display a capture file, which lives outside every
-workspace. That surface MUST NOT require relaxing the editor's workspace path
-policy, and captures MUST NOT be copied or linked into a workspace to make them
-reachable.
+A tool result SHALL NOT render captured output inline, so a tool call MUST NOT
+accumulate a log as the user reads it. Selecting a capture file SHALL open a
+dedicated viewer surface that can display it. That surface MUST NOT require
+relaxing the editor's workspace path policy, and captures MUST NOT be copied or
+linked into a workspace to make them reachable.
 
-#### Scenario: The inline preview stays bounded
+#### Scenario: The tool result stays bounded
 
-- **WHEN** the user loads more of a large capture in the tool result
-- **THEN** the rendered preview stops at its cap and the tool result does not accumulate an unbounded log
+- **WHEN** a result carries a large capture
+- **THEN** the result renders a file control only, and no captured output is rendered in the tool call
 
 #### Scenario: The user opens a large capture
 
-- **WHEN** the user opens the complete output for a result whose capture is larger than the preview budget
-- **THEN** it opens in a dedicated viewer surface that reports its size and can navigate the file without loading all of it into the tool call
+- **WHEN** the user selects the capture file for a result
+- **THEN** it opens in a dedicated viewer surface that reports its size and navigates the file without loading all of it into the tool call
 
 #### Scenario: A capture outside every workspace
 
@@ -313,20 +339,36 @@ reachable.
 ### Requirement: Compaction fails open
 
 If compaction fails or a complete capture cannot be read, the original bash
-content and error status MUST be delivered unchanged and the session MUST
-continue. The plugin MUST NOT compact a truncated tail when the complete
-capture is unavailable. Accounting metadata may record that compaction was
+payload, existing reports and error status MUST be preserved and the session
+MUST continue. The plugin MUST NOT set or clear the result's error status; the
+host derives it from the original result before extension hooks run, so a
+fail-open result keeps the status the command produced. If rewriting
+occurred, the plugin MUST still add the separate
+report identifying the requested and executed commands. This report is
+independent of compaction and MUST NOT alter the preserved payload or status.
+The plugin MUST NOT compact a truncated tail when the complete capture is
+unavailable. Accounting metadata may record that compaction was
 skipped. A command already executed through RTK MUST NOT be rerun as a fallback.
 
 #### Scenario: Compaction throws
 
 - **WHEN** a compaction rule fails on a result
-- **THEN** the unmodified result reaches the model and no error state is raised
+- **THEN** the original bash payload, existing reports and error status reach the model without a new error state, and any required execution report remains separate
 
 #### Scenario: Complete capture is missing or incomplete
 
 - **WHEN** persistence failed or the capture cannot be read before compaction
-- **THEN** the received bash content and error status reach the model unchanged, no further output is omitted, and no nonexistent recovery path is added
+- **THEN** the received bash payload, existing reports and error status are preserved, no further output is omitted, and no nonexistent recovery path is added
+
+#### Scenario: Capture fails after a command was rewritten
+
+- **WHEN** a rewritten command executes but its complete capture is unavailable
+- **THEN** the result preserves the received payload and error status and separately reports both the requested and executed commands without rerunning the command
+
+#### Scenario: Compaction throws after a command was rewritten
+
+- **WHEN** a rewritten command executes and its compaction rule throws
+- **THEN** the result preserves the received payload and error status and separately reports both the requested and executed commands without rerunning the command
 
 ### Requirement: A single command can bypass optimisation
 
@@ -365,8 +407,12 @@ provider billing savings from these counts.
 Eligible calls are ordinary bash calls while optimization is enabled and
 without a bypass marker. Every eligible call with complete capture SHALL enter
 the denominator, including unchanged calls with zero savings. Incomplete
-captures SHALL be shown as unmeasured and excluded from byte totals. Session
-reduction SHALL equal total removed bytes divided by total input bytes. A zero
+captures SHALL be shown as unmeasured and excluded from byte totals. Confirmed
+successful capture completion with zero output SHALL count as measured zero
+input and output bytes, even though the host creates no capture record. It
+MUST NOT increase the unmeasured-call count. An absent record alone MUST NOT
+be treated as proof of zero output. Session reduction SHALL equal total removed
+bytes divided by total input bytes. A zero
 denominator SHALL display no percentage. Replaying a result MUST NOT count it
 twice.
 
@@ -375,6 +421,11 @@ twice.
 - **WHEN** eligible calls have input/output byte counts of 1000/500 and 1000/1000
 - **THEN** the session reports 2000 input bytes, 1500 compacted bytes and 25 percent reduction
 
+#### Scenario: Failed command with a complete capture
+
+- **WHEN** an eligible call exits non-zero and its capture is complete
+- **THEN** it enters the denominator with its captured input bytes and compacted bytes, and the unmeasured count does not increase
+
 #### Scenario: RTK rewrites a command
 
 - **WHEN** RTK filters output before Sero captures it
@@ -382,8 +433,13 @@ twice.
 
 #### Scenario: Capture fails
 
-- **WHEN** an eligible call has no complete capture
+- **WHEN** an eligible call has no complete capture and is not confirmed to have completed capture successfully with zero output
 - **THEN** it contributes no byte totals and increases the unmeasured-call count
+
+#### Scenario: Command produces no output
+
+- **WHEN** an eligible call completes capture successfully with zero bytes on both streams and the host creates no capture record
+- **THEN** it records zero input and output bytes, does not increase the unmeasured-call count, and displays no percentage if the session total input remains zero
 
 #### Scenario: Replay or fork
 

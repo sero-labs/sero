@@ -1,0 +1,81 @@
+{
+  "name": "@sero-ai/plugin-output-optimizer",
+  "version": "0.1.0",
+  "description": "Reduce shell output that reaches the model with pinned RTK rewriting and category-aware compaction, keeping complete output readable",
+  "type": "module",
+  "keywords": [
+    "pi-package"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "pnpm exec vitest run",
+    "test:watch": "pnpm exec vitest",
+    "bench": "pnpm exec vitest run --config vitest.bench.config.ts",
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json && tsc --noEmit -p extension/tsconfig.json"
+  },
+  "pi": {
+    "extensions": [
+      "./extension/index.ts"
+    ]
+  },
+  "sero": {
+    "app": {
+      "id": "output-optimizer",
+      "styleIsolation": "scope",
+      "name": "Output Optimizer",
+      "icon": "minimize-2",
+      "scope": "global",
+      "stateFile": ".sero/apps/output-optimizer/state.json",
+      "ui": "./dist/ui/remoteEntry.js",
+      "component": "OutputOptimizerApp",
+      "devPort": 5201
+    },
+    "plugin": {
+      "category": "developer-tools",
+      "tags": [
+        "shell",
+        "output",
+        "compaction",
+        "rtk",
+        "tokens"
+      ],
+      "minSeroVersion": "0.1.0",
+      "runtimeAbi": 3,
+      "requiredHostCapabilities": [
+        "tool.nestedCallPrefix",
+        "appAgent.invokeTool",
+        "tool.cli"
+      ],
+      "bridgeTools": [
+        "output_optimizer"
+      ]
+    }
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "catalog:peer",
+    "@earendil-works/pi-coding-agent": "catalog:peer"
+  },
+  "dependencies": {
+    "typebox": "catalog:"
+  },
+  "devDependencies": {
+    "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
+    "@sero-ai/common": "workspace:*",
+    "@sero-ai/plugin-vite": "workspace:*",
+    "@sero-ai/ui": "workspace:*",
+    "@module-federation/vite": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -28,7 +28,6 @@ vi.mock('@electron/platform/env', () => envMock);
 
 import { HostBackend } from '@electron/features/workspace/runtime/backends/host/host-backend';
 import { createBash } from '@electron/features/container/tools/tools-coding';
-import { clearToolResultsForTests, readToolResult } from '@electron/features/tool-capture/tool-results';
 import type { ToolCaptureRecord } from '@electron/features/tool-capture/types';
 
 const SESSION = 'session-e2e';
@@ -67,7 +66,6 @@ beforeEach(async () => {
   // The host read tool resolves its allowed roots from the process environment,
   // which the app sets at startup from the same agent directory.
   process.env.PI_CODING_AGENT_DIR = envMock.SERO_AGENT_DIR;
-  clearToolResultsForTests();
   await rm(envMock.SERO_FIXED_ROOT, { recursive: true, force: true });
   await mkdir(envMock.SERO_AGENT_DIR, { recursive: true });
 });
@@ -75,7 +73,6 @@ beforeEach(async () => {
 afterEach(async () => {
   if (originalAgentDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
   else process.env.PI_CODING_AGENT_DIR = originalAgentDir;
-  clearToolResultsForTests();
   await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
   await rm(envMock.SERO_FIXED_ROOT, { recursive: true, force: true });
 });
@@ -119,17 +116,17 @@ describe('complete command output on the host backend', () => {
     const { backend, workspacePath } = await createWorkspace();
     const bash = createBash(backend, workspacePath, SESSION);
 
-    await expect(bash.execute('call-3', {
+    const result = await bash.execute('call-3', {
       command: 'printf \'{"ok":true}\\n\'; printf \'warning: slow\\n\' >&2; exit 3',
-    }, undefined, undefined, undefined as never)).rejects.toThrow(/Command exited with code 3[\s\S]*Complete output:/);
+    }, undefined, undefined, undefined as never);
 
-    const presentation = readToolResult('call-3');
-    const capture = presentation?.details.capture as ToolCaptureRecord | undefined;
+    const details = (result as { details: { capture?: ToolCaptureRecord; exitCode?: number } }).details;
+    const capture = details.capture;
     expect(capture).toMatchObject({ complete: true });
-    expect(presentation?.details.exitCode).toBe(3);
+    expect(details.exitCode).toBe(3);
 
-    // The rejection path would have dropped these; the hook restores them.
-    expect(presentation?.content).toHaveLength(2);
+    // The failure returns normally, so both the payload and the report survive.
+    expect(textBlocks(result)).toHaveLength(2);
     expect(await readFile(capture?.stdout?.hostPath as string, 'utf8')).toBe('{"ok":true}\n');
     expect(await readFile(capture?.stderr?.hostPath as string, 'utf8')).toBe('warning: slow\n');
   });
@@ -149,18 +146,19 @@ describe('complete command output on the host backend', () => {
     await writeFile(envMock.SERO_CAPTURE_ROOT, 'not-a-directory');
 
     const bash = createBash(backend, workspacePath, SESSION);
-    await expect(bash.execute('call-5', {
+    const result = await bash.execute('call-5', {
       command: 'printf \'some output\\n\'; exit 7',
-    }, undefined, undefined, undefined as never)).rejects.toThrow(/Command exited with code 7/);
+    }, undefined, undefined, undefined as never);
 
-    const presentation = readToolResult('call-5');
-    const capture = presentation?.details.capture as ToolCaptureRecord | undefined;
+    const details = (result as { details: { capture?: ToolCaptureRecord; exitCode?: number } }).details;
+    const capture = details.capture;
+    const blocks = textBlocks(result);
 
     // The result survives, the failure is explicit, and no path is advertised.
-    expect(presentation?.details.exitCode).toBe(7);
+    expect(details.exitCode).toBe(7);
     expect(capture).toMatchObject({ complete: false });
     expect(capture?.combined).toBeUndefined();
-    expect(presentation?.content[0]?.text).toContain('some output');
-    expect(presentation?.content.some((block) => block.text.includes('Complete output unavailable'))).toBe(true);
+    expect(blocks[0]).toContain('some output');
+    expect(blocks.some((block) => block.includes('Complete output unavailable'))).toBe(true);
   });
 });

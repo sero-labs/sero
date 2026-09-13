@@ -14,6 +14,7 @@ import { workspaceManager } from '@electron/features/workspace/manager';
 import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import { createRuntimeTools } from '@electron/features/container/tools';
 import { createRunCodeController } from '@electron/features/code-mode';
+import { preserveBashFailureStatus } from '@electron/features/tool-capture/bash-result-error-status';
 import { createSeroExtensionFactory } from '@electron/features/apps/extensions/create-sero-extension';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import {
@@ -177,6 +178,7 @@ export async function openSessionInPool({
     settingsManager: infra.settingsManager,
   });
   runCode.bind(session.agent);
+  preserveBashFailureStatus(session.agent);
 
   session.extensionRunner?.setUIContext(createSeroUIContext());
 

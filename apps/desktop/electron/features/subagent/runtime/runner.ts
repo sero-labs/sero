@@ -20,6 +20,7 @@ import type { SharedInfra } from '@electron/shared/infra/shared-infra';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { createRuntimeTools } from '@electron/features/container/tools';
 import { createRunCodeController } from '@electron/features/code-mode';
+import { preserveBashFailureStatus } from '@electron/features/tool-capture/bash-result-error-status';
 import { SEARCH_TOOL_NAMES } from '@electron/features/apps/extensions/search-plugin';
 import { WORKSPACE_DIR } from '@electron/features/container/tools/tool-schemas';
 import { createSubagentResourceLoader } from './resource-loader';
@@ -280,6 +281,7 @@ export async function runSubagent(
     const result = await createAgentSession(sessionOptions);
     session = result.session;
     runCode.bind(session.agent);
+    preserveBashFailureStatus(session.agent);
 
     let effectiveThinking = resolved.thinking;
 

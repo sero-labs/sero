@@ -12,8 +12,13 @@ export type ToolCaptureStreamKind = 'combined' | 'stdout' | 'stderr';
 
 export interface ToolCaptureStream {
   stream: ToolCaptureStreamKind;
-  /** Absolute path in the environment where the command ran. */
-  runtimePath: string;
+  /**
+   * Absolute path in the environment where the command ran.
+   *
+   * Absent when it is identical to `hostPath`, which is the case on a host
+   * workspace. Read it as `runtimePath ?? hostPath`.
+   */
+  runtimePath?: string;
   /** Absolute host path. Host consumers use this; it never enters model text. */
   hostPath: string;
   bytes: number;

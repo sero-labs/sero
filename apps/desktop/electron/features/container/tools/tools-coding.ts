@@ -2,13 +2,13 @@
  * Core coding tool factories: bash, read, write, edit.
  *
  * These mirror Pi SDK's createCodingTools() behaviour as closely as
- * possible — same truncation, fuzzy matching, diff output, error
- * signalling (reject on failure), and image support.
+ * possible — same truncation, fuzzy matching, diff output and image
+ * support.
  *
- * IMPORTANT: Errors are thrown (rejected), not returned with isError.
- * The Pi SDK agent-loop only sets isError=true when the tool rejects;
- * returning { isError: true } from a resolved promise is silently
- * ignored by the framework.
+ * IMPORTANT: The bash tool returns normally for every exit code, so the
+ * full result reaches `tool_result` hooks. A host hook that runs last sets
+ * `isError` from `details.exitCode`; see
+ * `features/tool-capture/bash-result-error-status.ts`.
  */
 
 import path from 'node:path';
@@ -26,7 +26,6 @@ import { canonicalizeHostPath } from '../filesystem/host-path';
 import { toRuntimeIdentityMountPath } from '@electron/features/workspace/runtime/runtime-paths';
 import { OutputCapture } from '@electron/features/tool-capture/capture';
 import { renderCaptureReport } from '@electron/features/tool-capture/report';
-import { recordToolResult } from '@electron/features/tool-capture/tool-results';
 import { createEditTool, createWriteTool, type FileMutationPort } from './edit-core';
 import {
   WORKSPACE_DIR,
@@ -109,7 +108,7 @@ export function createBash(runtime: RuntimeBackend, containerCwd?: string, sessi
       `Use bash for project commands and shell or system operations. When run_code is available, do not use bash, Python, or jq to read and aggregate structured workspace data; use run_code instead. ` +
       `Do not hard-code PATH prefixes; inspect package.json and prefer project scripts over ad-hoc npx commands.`,
     parameters: BashParams,
-    execute: async (toolCallId, params: Static<typeof BashParams>, signal?) => {
+    execute: async (_toolCallId, params: Static<typeof BashParams>, signal?) => {
       if (signal?.aborted) throw new Error('Command aborted');
       if (
         commandTouchesProtectedMemory(params.command)
@@ -180,17 +179,9 @@ export function createBash(runtime: RuntimeBackend, containerCwd?: string, sessi
         ? [{ type: 'text' as const, text: outputText }, { type: 'text' as const, text: report }]
         : [{ type: 'text' as const, text: outputText }];
 
-      // Non-zero exit rejects so the agent loop reports isError. The recorded
-      // presentation lets a `tool_result` hook restore the same content blocks
-      // and typed metadata, which the rejection path would otherwise drop.
-      if (result.exitCode !== 0) {
-        recordToolResult(toolCallId, { content, details });
-        capture.release();
-        const error = new Error([outputText, report].filter(Boolean).join('\n\n'));
-        (error as Error & { details?: unknown }).details = details;
-        throw error;
-      }
-
+      // Every exit code returns the same way, so the result reaches the
+      // `tool_result` hooks intact: the optimizer compacts a failure like a
+      // success, and a host hook that runs last sets `isError` from exitCode.
       // Retention keeps this capture protected until it reads the persisted
       // reference, including the time spent in asynchronous tool_result hooks.
       capture.release();

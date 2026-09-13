@@ -25,42 +25,39 @@ describe('describeToolCapture', () => {
     expect(describeToolCapture({ capture: { complete: true } })).toBeNull();
   });
 
-  it('lists every capture file for the user to open', () => {
+  it('exposes the combined file as the one control to open', () => {
     const view = describeToolCapture(captureDetails());
 
-    expect(view?.capture.complete).toBe(true);
-    expect(view?.files.map((file) => file.kind)).toEqual(['combined', 'stdout', 'stderr']);
-    expect(view?.files[0]).toMatchObject({ label: 'Combined output', hostPath: '/host/combined.log', bytes: 2048 });
+    // One control, because the combined file holds every captured byte. A
+    // per-stream button would repeat it.
+    expect(view?.file).toEqual({ hostPath: '/host/combined.log', bytes: 2048 });
   });
 
-  it('omits a stream file that produced no output', () => {
-    const view = describeToolCapture(captureDetails({ stderr: undefined }));
-
-    expect(view?.files.map((file) => file.kind)).toEqual(['combined', 'stdout']);
-  });
-
-  it('says the model received a bounded preview only when truncation metadata is present', () => {
-    expect(describeToolCapture(captureDetails())?.preview).toBe(false);
-
-    const truncated = captureDetails();
-    truncated.truncation = { truncated: true, truncatedBy: 'lines' };
-    expect(describeToolCapture(truncated)?.preview).toBe(true);
-  });
-
-  it('offers no files when the capture is incomplete and carries the reason', () => {
+  it('offers no file when the capture is incomplete and carries the reason', () => {
     const view = describeToolCapture({
       capture: { version: 1, captureId: 'capture-2', producerSessionId: 'session-a', complete: false, unavailableReason: 'ENOSPC' },
     });
 
-    expect(view?.capture.complete).toBe(false);
-    expect(view?.capture.unavailableReason).toBe('ENOSPC');
-    expect(view?.files).toEqual([]);
+    expect(view?.file).toBeUndefined();
+    expect(view?.unavailableReason).toBe('ENOSPC');
   });
 
-  it('drops a malformed stream entry instead of rendering a dead path', () => {
-    const view = describeToolCapture(captureDetails({ stdout: { stream: 'stdout', bytes: 10 } }));
+  it('exposes the executed command for the viewer', () => {
+    const view = describeToolCapture({
+      ...captureDetails(),
+      rewrite: { requested: 'pnpm install', executed: 'rtk pnpm install' },
+    });
 
-    expect(view?.files.map((file) => file.kind)).toEqual(['combined', 'stderr']);
+    expect(view?.rewrite).toEqual({ requested: 'pnpm install', executed: 'rtk pnpm install' });
+  });
+
+  it('ignores a malformed rewrite entry', () => {
+    expect(describeToolCapture({ ...captureDetails(), rewrite: { requested: 'pnpm install' } })?.rewrite).toBeUndefined();
+    expect(describeToolCapture({ ...captureDetails(), rewrite: 'nope' })?.rewrite).toBeUndefined();
+  });
+
+  it('offers no file when the combined entry has no path', () => {
+    expect(describeToolCapture(captureDetails({ combined: { stream: 'combined', bytes: 10 } }))?.file).toBeUndefined();
   });
 });
 
@@ -70,17 +67,19 @@ describe('parseToolCaptureDetails', () => {
     expect(parseToolCaptureDetails({ capture: 'nope' })).toBeNull();
   });
 
-  it('falls back to the host path when no runtime path was reported', () => {
+  it('reads the combined path and byte count', () => {
+    const parsed = parseToolCaptureDetails(captureDetails());
+
+    expect(parsed?.complete).toBe(true);
+    expect(parsed?.combined).toEqual({ hostPath: '/host/combined.log', bytes: 2048 });
+  });
+
+  it('treats a missing byte count as zero rather than a dead path', () => {
     const parsed = parseToolCaptureDetails(captureDetails({
-      combined: { stream: 'combined', hostPath: '/host/combined.log', bytes: 4 },
+      combined: { stream: 'combined', hostPath: '/host/combined.log' },
     }));
 
-    expect(parsed?.combined).toEqual({
-      stream: 'combined',
-      hostPath: '/host/combined.log',
-      runtimePath: '/host/combined.log',
-      bytes: 4,
-    });
+    expect(parsed?.combined).toEqual({ hostPath: '/host/combined.log', bytes: 0 });
   });
 });
 

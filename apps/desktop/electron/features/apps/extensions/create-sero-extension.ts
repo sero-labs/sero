@@ -22,7 +22,6 @@ import type { WorkspaceAccessRootsResult } from '@sero-ai/common';
 import { registerSharedIsolatedCompletionHost } from '@electron/shared/infra/isolated-completion-host';
 import { registerAgentPluginHostCapability } from '@electron/features/agent-plugins/host-capability';
 import { registerRtkHostCapability } from '@electron/features/rtk/host-capability';
-import { registerToolResultPresentation } from '@electron/features/tool-capture/tool-result-presentation';
 import { buildContainerPromptBlock, buildHostPromptBlock } from '@electron/features/container/tools/system-prompt';
 import { listWorkspaceAccessRoots } from '@electron/features/workspace/access-roots';
 import { registerSeroBuiltinCommands } from './commands';
@@ -68,7 +67,6 @@ export function createSeroExtensionFactory(
   return (pi: ExtensionAPI) => {
     registerSharedIsolatedCompletionHost(pi.events);
     registerAgentPluginHostCapability(pi.events);
-    registerToolResultPresentation(pi);
     if (options?.runtime) {
       registerRtkHostCapability(pi.events, { sessionId: _sessionId, runtime: options.runtime });
     }

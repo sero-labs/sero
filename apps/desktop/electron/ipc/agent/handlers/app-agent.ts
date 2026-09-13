@@ -18,12 +18,14 @@
 
 import { app, ipcMain } from 'electron';
 import { promises as fs } from 'fs';
+import { randomUUID } from 'node:crypto';
 import {
   createAgentSession,
   createReadTool,
   DefaultResourceLoader,
   SessionManager,
   type AgentSession,
+  type ExtensionAPI,
 } from '@earendil-works/pi-coding-agent';
 import os from 'os';
 import path from 'path';
@@ -32,7 +34,10 @@ import { IpcChannels } from '@/types/ipc-channels';
 import { discoverApps } from '@electron/features/apps/discovery';
 import { createSeroUIContext } from '@electron/features/apps/extensions/ui-context';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
+import { registerRtkHostCapability } from '@electron/features/rtk/host-capability';
 import { workspaceManager } from '@electron/features/workspace/manager';
+import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
+import type { RuntimeBackend } from '@electron/features/workspace/runtime/types';
 import { ensureInfra } from '@electron/shared/infra/shared-infra';
 import { syncAppSessionModel } from '@electron/ipc/agent/core/app-agent-session-model-sync';
 import { invokeAppSessionTool } from './app-agent-tools';
@@ -128,8 +133,23 @@ async function getOrCreateAppSession(
     return existing.session;
   }
 
-  const wsPath = workspaceManager.getPath(workspaceId)
-    ?? path.join(os.homedir(), '.sero-ui');
+  const workspacePath = workspaceManager.getPath(workspaceId);
+  const wsPath = workspacePath ?? path.join(os.homedir(), '.sero-ui');
+  // A stable id lets the RTK host capability answer requests that name this
+  // session, and keeps RTK state under the app session's own directory.
+  const sessionId = `app-${randomUUID()}`;
+
+  // A workspace runtime lets the app session resolve RTK on demand. A missing
+  // workspace or runtime must not stop the app session from starting.
+  let runtime: RuntimeBackend | null = null;
+  if (workspacePath) {
+    try {
+      runtime = await runtimeManager.getRuntime(workspaceId);
+    } catch (err) {
+      console.error('[app-agent] RTK host capability unavailable for', appId, err);
+      runtime = null;
+    }
+  }
 
   const packagePath = await getAppPackagePath(appId);
   const resources = packagePath
@@ -148,6 +168,7 @@ async function getOrCreateAppSession(
     noThemes: true,
     additionalExtensionPaths: resources.extensionPaths,
     additionalSkillPaths: resources.skillPaths,
+    extensionFactories: runtime ? [createAppSessionHostExtension(sessionId, runtime)] : undefined,
   });
   await loader.reload();
 
@@ -162,7 +183,7 @@ async function getOrCreateAppSession(
     noTools: 'builtin',
     customTools: [readTool],
     resourceLoader: loader,
-    sessionManager: SessionManager.inMemory(wsPath),
+    sessionManager: SessionManager.inMemory(wsPath, { id: sessionId }),
     settingsManager: infra.settingsManager,
   });
 
@@ -202,6 +223,19 @@ function disposeAllAppSessions(): void {
     entry.session.dispose();
   }
   appPool.clear();
+}
+
+/**
+ * Host capabilities an app session needs on its own event bus.
+ *
+ * An app session runs without the Sero workspace extension, so it has no RTK
+ * handler. A plugin that offers a Retry control needs one to probe the
+ * workspace runtime from its settings surface.
+ */
+function createAppSessionHostExtension(sessionId: string, runtime: RuntimeBackend) {
+  return (pi: ExtensionAPI): void => {
+    registerRtkHostCapability(pi.events, { sessionId, runtime });
+  };
 }
 
 // ── Registration ─────────────────────────────────────────────
