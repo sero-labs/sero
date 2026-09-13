@@ -1,18 +1,18 @@
 import { PROGRESS_LINE, stripAnsi } from './ansi';
-import { DIAGNOSTIC_LINE, applyPreservationGuard } from './preservation';
+import { DIAGNOSTIC_LINE, applyPreservationGuard, isFileReferenceLine } from './preservation';
 
 /**
  * Filter build and type-check progress while keeping diagnostics.
  *
  * A line is removed only when it matches a known progress pattern AND carries
- * no diagnostic. Classification runs on the ANSI-stripped line, so a coloured
- * error or warning is never treated as progress.
+ * no diagnostic or file/line reference. Classification runs on the ANSI-stripped
+ * line, so a coloured error or warning is never treated as progress.
  */
 export function emitBuildOutput(source: string, emit: (line: string) => void): boolean {
   let dropped = 0;
   for (const raw of source.split('\n')) {
     const line = stripAnsi(raw);
-    if (PROGRESS_LINE.test(line) && !DIAGNOSTIC_LINE.test(line)) {
+    if (PROGRESS_LINE.test(line) && !DIAGNOSTIC_LINE.test(line) && !isFileReferenceLine(line)) {
       dropped += 1;
       continue;
     }

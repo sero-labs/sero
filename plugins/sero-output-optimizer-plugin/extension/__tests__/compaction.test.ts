@@ -433,3 +433,86 @@ describe('compactStream', () => {
     expect(under.preview.truncated).toBe(false);
   });
 });
+
+describe('preservation across the stream path', () => {
+  /** Real Vitest 4.1.10 object-equality failure output, captured verbatim. */
+  const assertionFailure = ` RUN  v4.1.10 /Users/danielcarter/Documents/Dev/projects/sero/sero/plugins/sero-output-optimizer-plugin
+
+ ❯ extension/__tests__/zz-repro.test.ts (1 test | 1 failed) 4ms
+     × fails an object equality assertion 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  extension/__tests__/zz-repro.test.ts > repro fixture > fails an object equality assertion
+AssertionError: expected { id: 1, name: 'alpha' } to deeply equal { id: 1, name: 'beta' }
+
+- Expected
++ Received
+
+  {
+    "id": 1,
+-   "name": "beta",
++   "name": "alpha",
+  }
+
+ ❯ extension/__tests__/zz-repro.test.ts:5:38
+      3| describe('repro fixture', () => {
+      4|   it('fails an object equality assertion', () => {
+      5|     expect({ id: 1, name: 'alpha' }).toEqual({ id: 1, name: 'beta' });
+       |                                      ^
+      6|   });
+      7| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  14:54:12
+   Duration  100ms (transform 13ms, setup 0ms, import 18ms, tests 4ms, environment 0ms)`;
+
+  it('keeps a real assertion failure, its diff and its source excerpt', () => {
+    const streamed = compactStream(assertionFailure, 'test', { maxLines: 1000, maxBytes: 1024 * 1024 });
+    const out = streamed.preview.content;
+
+    expect(streamed.changed).toBe(true);
+    expect(out).toContain(' FAIL  extension/__tests__/zz-repro.test.ts > repro fixture > fails an object equality assertion');
+    expect(out).toContain("AssertionError: expected { id: 1, name: 'alpha' } to deeply equal { id: 1, name: 'beta' }");
+    expect(out).toContain('- Expected');
+    expect(out).toContain('+ Received');
+    expect(out).toContain('-   "name": "beta",');
+    expect(out).toContain('+   "name": "alpha",');
+    expect(out).toContain("expect({ id: 1, name: 'alpha' }).toEqual({ id: 1, name: 'beta' })");
+    expect(out).toContain('Tests  1 failed (1)');
+    // Only the decorative separators and the timing lines are gone.
+    expect(out).not.toContain('Failed Tests 1');
+    expect(out).not.toContain('Start at');
+    expect(preservesProtectedContent(assertionFailure, out, 'test')).toBe(true);
+  });
+
+  it('keeps a file/line reference that a build progress rule would drop', () => {
+    const source = 'Checking src/main.ts:12:5\nDone in 1s\n';
+    const streamed = compactStream(source, 'build', { maxLines: 100, maxBytes: 1024 });
+
+    expect(streamed.changed).toBe(true);
+    expect(streamed.preview.content).toContain('src/main.ts:12:5');
+    expect(streamed.preview.content).not.toContain('Done in 1s');
+  });
+
+  it('keeps a file/line reference that a package-manager progress rule would drop', () => {
+    const source = 'Checking src/main.ts:12:5\nDone in 1s\n';
+    const streamed = compactStream(source, 'packageManager', { maxLines: 100, maxBytes: 1024 });
+
+    expect(streamed.changed).toBe(true);
+    expect(streamed.preview.content).toContain('src/main.ts:12:5');
+    expect(streamed.preview.content).not.toContain('Done in 1s');
+  });
+
+  it('keeps a progress-only build source instead of emptying it', () => {
+    const source = 'Compiling 200 files...\nDone in 1s\n';
+    const streamed = compactStream(source, 'build', { maxLines: 100, maxBytes: 1024 });
+
+    expect(streamed.changed).toBe(false);
+    expect(streamed.preview.content).toBe(source);
+  });
+});

@@ -9,10 +9,42 @@ import { stripAnsi } from './ansi';
  * is a separate step.
  */
 
-export const DIAGNOSTIC_LINE = /\b(?:error|warning|warn)\b/i;
-const FAILURE_LINE = /(?:^|\s)(?:FAIL|FAILED|✕|✗|×|●|panicked)\b|^\s*error\b/i;
+/**
+ * A diagnostic line. Assertion failures name a `...Error` class, so a bare
+ * whole-word match for `error` misses `AssertionError`.
+ */
+export const DIAGNOSTIC_LINE = /\b(?:error|warning|warn)s?\b|[A-Za-z]+Error\b/i;
+/**
+ * A failure header or marker. A header carries content after the word, so a
+ * decorative separator that merely contains the word `Failed` is not one.
+ */
+const FAILURE_LINE = /^\s*(?:FAIL|FAILED)\s+\S|^\s*(?:✕|✗|×|●)\s|panicked\b|^\s*error\b|test\s+\S+\s+\.\.\.\s*FAILED/i;
 const SUMMARY_LINE = /test result:|\b\d+\s+(?:passed|failed|skipped|todo)\b/i;
-const FILE_LINE = /[^\s:]+:\d+(?::\d+)?/;
+/** A file/line reference needs a path separator, so `Start at 14:54:12` is not one. */
+const FILE_LINE = /[^\s:]*[./][^\s:]*:\d+(?::\d+)?/;
+/** A run of line-drawing characters: the section separator in test reporters. */
+const SEPARATOR_LINE = /^\s*[─━═⎯]{3,}/;
+
+export function isFailureLine(line: string): boolean {
+  return FAILURE_LINE.test(line);
+}
+
+export function isSummaryLine(line: string): boolean {
+  return SUMMARY_LINE.test(line);
+}
+
+export function isDiagnosticLine(line: string): boolean {
+  return DIAGNOSTIC_LINE.test(line);
+}
+
+export function isFileReferenceLine(line: string): boolean {
+  return FILE_LINE.test(line);
+}
+
+export function isSeparatorLine(line: string): boolean {
+  return SEPARATOR_LINE.test(line);
+}
+
 const LINT_ISSUE = /^(.+?):(\d+)(?::\d+)?:\s*(.+)$/;
 const GIT_DECORATION = /^(?:Author|Date|Merge|AuthorDate|CommitDate):/;
 const COMMIT_LINE = /^commit\s+[0-9a-f]{7,40}\b/i;

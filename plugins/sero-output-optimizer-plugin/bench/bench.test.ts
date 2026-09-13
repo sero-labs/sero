@@ -64,7 +64,7 @@ const cases: BenchCase[] = [
   { name: 'vitest pass', tool: 'vitest', variant: 'success', expected: 'success',
     command: 'pnpm', args: ['exec', 'vitest', 'run', 'extension/__tests__/parse.test.ts'], cwd: pluginRoot },
   { name: 'vitest fail', tool: 'vitest', variant: 'failure', expected: 'failure',
-    command: 'pnpm', args: ['exec', 'vitest', 'run', 'bench/fixtures/missing.test.ts'], cwd: pluginRoot },
+    command: 'pnpm', args: ['exec', 'vitest', 'run', '--config', 'bench/fixtures/assertion/vitest.config.ts'], cwd: pluginRoot },
   { name: 'tsc pass', tool: 'tsc', variant: 'success', expected: 'success',
     command: 'pnpm', args: ['exec', 'tsc', '--noEmit', '-p', 'extension/tsconfig.json'], cwd: pluginRoot, category: 'build' },
   { name: 'tsc fail', tool: 'tsc', variant: 'failure', expected: 'failure',
@@ -97,11 +97,18 @@ const cases: BenchCase[] = [
  * A local pattern for content that must survive. It is deliberately not the
  * plugin's guard, so a bug in that guard cannot hide a loss.
  */
-const MUST_SURVIVE = /\b(?:error|warning|warn|FAIL|FAILED)\b|\b\d+\s+(?:passed|failed)\b|^commit\s|^diff --git|[^\s:]*[./][^\s:]*:\d+(?::\d+)?/i;
+/**
+ * A local pattern for content that must survive. It is deliberately not the
+ * plugin's guard, so a bug in that guard cannot hide a loss. The failure marker
+ * is case-sensitive: `Failed Tests` is a separator, `FAIL` is a header.
+ */
+const MUST_SURVIVE = /\b(?:error|warning|warn)\b|[A-Za-z]+Error\b|\b\d+\s+(?:passed|failed)\b|^commit\s|^diff --git|[^\s:]*[./][^\s:]*:\d+(?::\d+)?/i;
+const FAILURE_MARKER = /\b(?:FAIL|FAILED)\b/;
 
 function mustSurviveLines(source: string): string[] {
   return [...new Set(
-    source.split('\n').map((line) => line.trim()).filter((line) => line && MUST_SURVIVE.test(line)),
+    source.split('\n').map((line) => line.trim())
+      .filter((line) => line && (MUST_SURVIVE.test(line) || FAILURE_MARKER.test(line))),
   )];
 }
 

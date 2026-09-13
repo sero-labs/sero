@@ -2,7 +2,7 @@ import type { PreviewResult } from '../preview';
 import type { OutputCategory } from './category';
 import { stripAnsi } from './ansi';
 import { BoundedPreviewEmitter } from './emitter';
-import { applyPreservationGuard } from './preservation';
+import { applyPreservationGuard, protectedFragments } from './preservation';
 import { compactBuildOutput, emitBuildOutput } from './build';
 import { compactGitOutput, emitGitOutput } from './git';
 import { compactLinterOutput, emitLinterOutput } from './lint';
@@ -99,9 +99,8 @@ export function compactStream(
   category: OutputCategory,
   limits: StreamLimits = {},
 ): StreamOutcome {
-  const emitter = new BoundedPreviewEmitter(limits.maxLines, limits.maxBytes);
-
   if (category === 'none') {
+    const emitter = new BoundedPreviewEmitter(limits.maxLines, limits.maxBytes);
     for (const line of source.split('\n')) emitter.emit(line);
     return {
       candidateBytes: emitter.bytes(),
@@ -112,16 +111,50 @@ export function compactStream(
     };
   }
 
+  const emitter = new BoundedPreviewEmitter(limits.maxLines, limits.maxBytes);
+  const missing = new Set(protectedFragments(source, category));
   let ansiChanged = false;
+  let sawContent = false;
+
   const emit = (line: string): void => {
     const stripped = stripAnsi(line);
     if (stripped !== line) ansiChanged = true;
+    if (stripped.trim()) sawContent = true;
     emitter.emit(stripped);
   };
 
-  const transformed = emitRule(source, category, emit);
-  const changed = ansiChanged || transformed;
+  // Track protected fragments while the rule streams, so the guard still costs
+  // no second candidate. An emitted line usually equals its own fragment; the
+  // scan only runs when a rule reformats one, such as lint grouping.
+  const trackedEmit = (line: string): void => {
+    if (missing.size > 0) {
+      const trimmed = line.trim();
+      if (!missing.delete(trimmed)) {
+        for (const fragment of missing) {
+          if (line.includes(fragment)) missing.delete(fragment);
+        }
+      }
+    }
+    emit(line);
+  };
 
+  const transformed = emitRule(source, category, trackedEmit);
+
+  if (missing.size > 0 || (source.trim().length > 0 && !sawContent)) {
+    // The rule dropped protected content, or emptied a source that had some.
+    // Emit the stripped source instead, so nothing is lost.
+    const fallback = new BoundedPreviewEmitter(limits.maxLines, limits.maxBytes);
+    for (const line of source.split('\n')) fallback.emit(stripAnsi(line));
+    return {
+      candidateBytes: fallback.bytes(),
+      changed: ansiChanged,
+      recognized: true,
+      rule: ansiChanged ? category : null,
+      preview: fallback.result(),
+    };
+  }
+
+  const changed = ansiChanged || transformed;
   return {
     candidateBytes: emitter.bytes(),
     changed,

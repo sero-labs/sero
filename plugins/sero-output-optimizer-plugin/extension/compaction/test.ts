@@ -1,34 +1,35 @@
-import { stripAnsi } from './ansi';
-import { DIAGNOSTIC_LINE, applyPreservationGuard } from './preservation';
+import { PROGRESS_LINE, stripAnsi } from './ansi';
+import {
+  applyPreservationGuard,
+  isDiagnosticLine,
+  isFailureLine,
+  isFileReferenceLine,
+  isSeparatorLine,
+  isSummaryLine,
+} from './preservation';
 
 /**
  * Compact test-runner output.
  *
- * Failure blocks, the run summary, every diagnostic line, and every file/line
- * context line are kept; passing and progress lines are dropped. Classification
- * runs on the ANSI-stripped line, so a coloured FAIL block keeps its block.
+ * Failure blocks, the run summary, every diagnostic line and every file/line
+ * context line are kept; passing and progress lines are dropped. A failure
+ * block keeps every line until a passing line, a section separator or an
+ * unindented progress line: assertion details such as `AssertionError`, the
+ * expected/received diff and the source excerpt are not indented, so an
+ * indentation test would cut the block at its first useful line.
  */
 
-const FAILURE_START = [
-  /^FAIL\s+/,
-  /^FAILED\s+/,
-  /^\s*●\s+/,
-  /^\s*✕\s+/,
-  /^\s*×\s+/,
-  /test\s+\S+\s+\.\.\.\s*FAILED/,
-  /thread\s+'\S+'\s+panicked/,
-];
-
-const SUMMARY_LINE = /test result:|\b\d+\s+(?:passed|failed|skipped|todo)\b|\bTests?:\s*\d/i;
-/** A file/line context such as `src/main.ts:12:5` must survive. */
-const FILE_LINE = /[^\s:]*[./][^\s:]*:\d+(?::\d+)?/;
-
-function isFailureStart(line: string): boolean {
-  return FAILURE_START.some((pattern) => pattern.test(line));
-}
+const PASSING_LINE = /^\s*[✓✔]/;
 
 function isProtectedLine(line: string): boolean {
-  return isFailureStart(line) || SUMMARY_LINE.test(line) || DIAGNOSTIC_LINE.test(line) || FILE_LINE.test(line);
+  return isFailureLine(line) || isSummaryLine(line) || isDiagnosticLine(line) || isFileReferenceLine(line);
+}
+
+function endsFailureBlock(line: string): boolean {
+  if (isSeparatorLine(line)) return true;
+  if (PASSING_LINE.test(line)) return true;
+  // An indented progress-looking line can still be failure detail.
+  return PROGRESS_LINE.test(line) && !/^\s/.test(line);
 }
 
 export function emitTestOutput(source: string, emit: (line: string) => void): boolean {
@@ -45,17 +46,15 @@ export function emitTestOutput(source: string, emit: (line: string) => void): bo
 
   for (const line of lines) {
     if (isProtectedLine(line)) {
-      if (isFailureStart(line)) inFailure = true;
+      if (isFailureLine(line)) inFailure = true;
       emit(line);
       continue;
     }
-    if (inFailure) {
-      if (/^\s/.test(line) || line.trim() === '') {
-        emit(line);
-        continue;
-      }
-      inFailure = false;
+    if (inFailure && !endsFailureBlock(line)) {
+      emit(line);
+      continue;
     }
+    inFailure = false;
     dropped += 1;
   }
 
