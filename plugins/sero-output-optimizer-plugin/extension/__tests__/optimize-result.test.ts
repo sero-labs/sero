@@ -363,6 +363,29 @@ describe('optimizeResult compaction', () => {
     expect(result.content.some((block) => block.text.includes('Command exited with code 7'))).toBe(true);
   });
 
+  it('compacts a failed command that has a complete capture', async () => {
+    const output = ['✓ passing test', ...testOutput.split('\n')].join('\n');
+    const details = { ...captureDetails({ combined: stream('combined', output.length) }), exitCode: 7 };
+    const metrics = new SessionMetrics();
+
+    const result = await optimizeResult({
+      content: reportContent('raw tail\n\nCommand exited with code 7'),
+      details,
+      requestedCommand: 'pnpm test',
+      config: config(),
+      metrics,
+      readCapture: reader({ combined: output }),
+    });
+
+    // A failure reaches the plugin with the same content and details as a
+    // success, so it compacts and is measured the same way.
+    expect(result.details).toMatchObject({ optimization: { applied: true, measured: true } });
+    expect((result.content[0] as TextBlock).text).toContain('FAIL src/a.test.ts');
+    expect((result.content[0] as TextBlock).text).not.toContain('✓ passing test');
+    expect(result.content.some((block) => block.text.includes('Command exited with code 7'))).toBe(true);
+    expect(metrics.snapshot().measuredCalls).toBe(1);
+  });
+
   it('counts a confirmed empty structured command as measured zero', async () => {
     const metrics = new SessionMetrics();
     const result = await optimizeResult({

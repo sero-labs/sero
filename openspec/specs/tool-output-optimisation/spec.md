@@ -189,7 +189,11 @@ The system SHALL compact completed shell output for these categories: test
 runs, builds and type checks, linters, Git status and log, and package-manager
 commands. Compaction MUST preserve failures, errors, warnings, file paths, line
 numbers, commit messages and exit codes in the complete candidate. The
-bounded-preview requirement determines what fits in model-visible content.
+bounded-preview requirement determines what fits in model-visible content. A
+non-zero exit SHALL NOT make a call ineligible: a failed command with a complete
+capture is compacted like a successful one. The plugin MUST NOT set or clear the
+error status; the host derives it from the original result before extension
+hooks run.
 
 #### Scenario: Test run with failures
 
@@ -219,7 +223,7 @@ bounded-preview requirement determines what fits in model-visible content.
 #### Scenario: Command fails
 
 - **WHEN** a compacted command exits non-zero
-- **THEN** the result report keeps the exit code and failure status visible even if diagnostic details exceed the bounded preview
+- **THEN** the complete candidate is compacted like a successful call, and the result report keeps the exit code and failure status visible even if diagnostic details exceed the bounded preview
 
 ### Requirement: Category rules preserve diagnostics before presentation
 
@@ -336,7 +340,10 @@ linked into a workspace to make them reachable.
 
 If compaction fails or a complete capture cannot be read, the original bash
 payload, existing reports and error status MUST be preserved and the session
-MUST continue. If rewriting occurred, the plugin MUST still add the separate
+MUST continue. The plugin MUST NOT set or clear the result's error status; the
+host derives it from the original result before extension hooks run, so a
+fail-open result keeps the status the command produced. If rewriting
+occurred, the plugin MUST still add the separate
 report identifying the requested and executed commands. This report is
 independent of compaction and MUST NOT alter the preserved payload or status.
 The plugin MUST NOT compact a truncated tail when the complete capture is
@@ -413,6 +420,11 @@ twice.
 
 - **WHEN** eligible calls have input/output byte counts of 1000/500 and 1000/1000
 - **THEN** the session reports 2000 input bytes, 1500 compacted bytes and 25 percent reduction
+
+#### Scenario: Failed command with a complete capture
+
+- **WHEN** an eligible call exits non-zero and its capture is complete
+- **THEN** it enters the denominator with its captured input bytes and compacted bytes, and the unmeasured count does not increase
 
 #### Scenario: RTK rewrites a command
 

@@ -29,6 +29,7 @@ import type {
 
 import { GrantStore } from './grant-store';
 import { LiveSessionRegistry } from './live-sessions';
+import { preserveBashFailureStatus } from '@electron/features/tool-capture/bash-result-error-status';
 import { readSessionHistoryPage } from './history';
 import { validatePersistentSessionRequest } from './validate';
 
@@ -356,6 +357,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
       noTools: 'builtin',
       tools: inputs.tools,
     });
+    preserveBashFailureStatus(session.agent);
     return session;
   }
 

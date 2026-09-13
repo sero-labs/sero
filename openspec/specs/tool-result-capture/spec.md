@@ -73,6 +73,32 @@ capture SHALL share its session references, reachability and cleanup policy.
 - **WHEN** a valid UTF-8 character is split across successive chunks on either pipe
 - **THEN** the preview decodes it as one character, independently of chunks on the other pipe, and the capture files preserve the original bytes
 
+### Requirement: A failed command reports error status without losing its result
+
+The bash tool SHALL return an ordinary result for every exit code, including a
+non-zero exit, so the complete payload, capture report and typed capture
+metadata reach the `tool_result` hooks. The persisted result for a non-zero exit
+SHALL carry the error status. The host SHALL derive that status from the
+original tool result, before any extension result hook runs, so a hook that
+replaces the content or the details cannot change it. The system MUST NOT reach
+the error status by rejecting the tool call, because a rejection replaces the
+result content and details before the hooks read them.
+
+#### Scenario: Failure result reaches the hooks
+
+- **WHEN** a command exits non-zero
+- **THEN** the result reaches the hooks with its payload, its capture report and its capture metadata intact, and the persisted result carries the error status
+
+#### Scenario: Command exits zero
+
+- **WHEN** a command exits zero
+- **THEN** the persisted result carries no error status
+
+#### Scenario: An extension rewrites the failure result
+
+- **WHEN** a loaded extension replaces the content and details of a failed bash result
+- **THEN** the replacement survives and the error status stays set, because the host derives the status from the original result before the extension runs
+
 ### Requirement: Capturing complete output bounds memory
 
 Streaming SHALL NOT retain unbounded output in memory. The system MUST bound

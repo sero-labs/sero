@@ -38,12 +38,14 @@ const sessionManager = {
 };
 
 function fakeSession() {
-  return { subscribe: () => () => undefined, dispose: () => undefined };
+  // The real session carries an agent, and buildSession wraps its afterToolCall.
+  return { agent: {}, subscribe: () => () => undefined, dispose: () => undefined };
 }
 
 /** A session that records whether the host disposed it. */
 function trackedSession() {
   const tracked = {
+    agent: {},
     subscribe: () => () => undefined,
     disposed: false,
     dispose: () => {

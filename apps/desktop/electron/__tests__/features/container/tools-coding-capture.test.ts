@@ -19,8 +19,6 @@ vi.mock('@electron/platform/env', () => testEnv);
 import type { RuntimeBackend, RuntimeExecInput } from '@electron/features/workspace/runtime/types';
 import { getRuntimeCapabilities } from '@electron/features/workspace/runtime/capabilities';
 import { createBash } from '@electron/features/container/tools/tools-coding';
-import { clearToolResultsForTests, readToolResult } from '@electron/features/tool-capture/tool-results';
-import { registerToolResultPresentation } from '@electron/features/tool-capture/tool-result-presentation';
 import type { ToolCaptureRecord } from '@electron/features/tool-capture/types';
 import { toRuntimeIdentityMountPath } from '@electron/features/workspace/runtime/runtime-paths';
 
@@ -87,7 +85,6 @@ function textBlocks(result: unknown): string[] {
 const roots: string[] = [];
 
 afterEach(() => {
-  clearToolResultsForTests();
   for (const root of roots) fs.rmSync(root, { recursive: true, force: true });
   roots.length = 0;
 });
@@ -161,38 +158,36 @@ describe('bash tool complete-output capture', () => {
     expect(details.capture.combined?.bytes).toBe(Buffer.byteLength(line.repeat(4000)));
   });
 
-  it('preserves capture metadata for a failed command without changing isError semantics', async () => {
+  it('returns normally for a failed command and keeps the capture metadata', async () => {
     const harness = runtimeHarness({ stdout: 'ok\n', stderr: 'boom\n', exitCode: 1 });
     const bash = createBash(harness.runtime, undefined, SESSION);
 
-    await expect(bash.execute('call-1', { command: 'false' }, undefined, undefined, undefined as never))
-      .rejects.toThrow(/Command exited with code 1[\s\S]*Complete output:/);
+    const result = await bash.execute('call-1', { command: 'false' }, undefined, undefined, undefined as never);
+    const details = (result as {
+      details: { capture?: ToolCaptureRecord; exitCode?: number };
+    }).details;
 
-    const record = readToolResult('call-1')?.details.capture as ToolCaptureRecord | undefined;
-    expect(record).toMatchObject({ complete: true });
-    expect(record?.stderr?.bytes).toBe(5);
+    expect(details.exitCode).toBe(1);
+    expect(details.capture).toMatchObject({ complete: true });
+    expect(details.capture?.stderr?.bytes).toBe(5);
 
-    // The tool_result hook restores the presentation the rejection path drops.
-    const handlers = new Map<string, (event: unknown) => unknown>();
-    registerToolResultPresentation({
-      on: (name: string, handler: (event: unknown) => unknown) => { handlers.set(name, handler); },
-    } as never);
-    const restored = handlers.get('tool_result')?.({
-      toolName: 'bash', toolCallId: 'call-1', content: [], details: {}, isError: true,
-    }) as { content?: Array<{ text?: string }>; details?: { capture?: ToolCaptureRecord }; isError?: boolean } | undefined;
-
-    expect(restored?.details?.capture).toMatchObject({ complete: true });
-    expect(restored?.details).toMatchObject({ exitCode: 1 });
-    expect(restored?.content).toHaveLength(2);
-    expect(restored?.isError).toBeUndefined();
+    // The failure returns through the same path as a success: payload first,
+    // then the capture report block.
+    const blocks = textBlocks(result);
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0]).toContain('Command exited with code 1');
+    expect(blocks[1]).toContain('Complete output:');
   });
 
   it('notes a timeout without claiming the command completed', async () => {
     const harness = runtimeHarness({ stdout: 'partial\n', exitCode: 124 });
     const bash = createBash(harness.runtime, undefined, SESSION);
 
-    await expect(bash.execute('call-1', { command: 'sleep 99', timeout: 30 }, undefined, undefined, undefined as never))
-      .rejects.toThrow(/Command timed out after 30s/);
+    const result = await bash.execute(
+      'call-1', { command: 'sleep 99', timeout: 30 }, undefined, undefined, undefined as never,
+    );
+
+    expect(textBlocks(result)[0]).toContain('Command timed out after 30s');
   });
 
   it('advertises no path and reports the failure when persistence fails', async () => {
@@ -203,12 +198,12 @@ describe('bash tool complete-output capture', () => {
     const harness = runtimeHarness({ stdout: 'output\n', exitCode: 1 });
     const bash = createBash(harness.runtime, undefined, SESSION);
 
-    await expect(bash.execute('call-1', { command: 'false' }, undefined, undefined, undefined as never))
-      .rejects.toThrow(/Complete output unavailable/);
+    const result = await bash.execute('call-1', { command: 'false' }, undefined, undefined, undefined as never);
+    const details = (result as { details: { capture?: ToolCaptureRecord } }).details;
 
-    const record = readToolResult('call-1')?.details.capture as ToolCaptureRecord | undefined;
-    expect(record).toMatchObject({ complete: false });
-    expect(record?.combined).toBeUndefined();
-    expect(record?.unavailableReason).toBeTruthy();
+    expect(details.capture).toMatchObject({ complete: false });
+    expect(details.capture?.combined).toBeUndefined();
+    expect(details.capture?.unavailableReason).toBeTruthy();
+    expect(textBlocks(result).some((text) => text.includes('Complete output unavailable'))).toBe(true);
   });
 });

@@ -407,6 +407,22 @@ describe('run_code tool', () => {
       .rejects.toThrow(/Code execution failed:.*Nested calls: 0 completed, 1 failed/s);
   });
 
+  it('reports a nested failure that a result hook sets without a tool throw', async () => {
+    // The bash tool returns normally for a non-zero exit, so the failure status
+    // arrives through afterToolCall, not through a rejection.
+    const bash = createTool('bash', Type.Object({ command: Type.String() }), async () => ({
+      content: [{ type: 'text', text: 'boom\n\nCommand exited with code 1' }],
+      details: { exitCode: 1 },
+    }));
+    const afterToolCall = vi.fn<NonNullable<RunCodeAgent['afterToolCall']>>(async () => ({ isError: true }));
+    const controller = createRunCodeController();
+    controller.bind(runCodeAgent([bash], { afterToolCall }));
+
+    await expect(invokeRunCode(controller, "return await tools.bash({ command: 'false' });"))
+      .rejects.toThrow(/Code execution failed:.*Nested calls: 0 completed, 1 failed/s);
+    expect(afterToolCall).toHaveBeenCalledOnce();
+  });
+
   it('carries the reserved run_code_ prefix to both nested-call hooks', async () => {
     const echo = createTool('echo', Type.Object({ value: Type.String() }), async () => ({
       content: [{ type: 'text', text: 'ok' }],
