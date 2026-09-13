@@ -78,9 +78,13 @@ function PermissionGateCard({ question }: { question: UserFeedbackPendingQuestio
 
   if (!q) return null;
 
-  // Extract the command from the prompt (between the two newlines after "detected:")
-  const commandMatch = q.prompt.match(/:\n\n\s+(.+)\n\n/);
-  const command = commandMatch?.[1]?.trim() ?? q.prompt;
+  // The prompt wraps the command in framing text. Split on blank lines so a
+  // multiline command keeps its own blank lines, and fall back to the whole
+  // prompt when the shape is unknown.
+  const promptParts = q.prompt.split(/\n\n/);
+  const command = promptParts.length >= 3
+    ? promptParts.slice(1, -1).join('\n\n').trim()
+    : q.prompt;
 
   return (
     <motion.div
@@ -88,10 +92,10 @@ function PermissionGateCard({ question }: { question: UserFeedbackPendingQuestio
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 6 }}
       transition={{ duration: 0.2 }}
-      className="mx-3 mb-2 overflow-hidden rounded-lg border border-status-warning-border bg-status-warning-muted"
+      className="mx-3 mb-2 flex max-h-[min(30rem,55vh)] min-h-0 flex-col overflow-hidden rounded-lg border border-status-warning-border bg-status-warning-muted"
     >
       {/* Warning header */}
-      <div className="flex items-center gap-2.5 px-3 py-2">
+      <div className="flex shrink-0 items-center gap-2.5 px-3 py-2">
         <ShieldAlert className="size-3.5 text-status-warning" />
         <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-status-warning" />
         <span className="flex-1 text-xs font-semibold text-status-warning">
@@ -107,15 +111,15 @@ function PermissionGateCard({ question }: { question: UserFeedbackPendingQuestio
         </button>
       </div>
 
-      {/* Command display */}
-      <div className="border-t border-status-warning-border px-3 pt-2.5 pb-2">
+      {/* Command display, scrolls inside the card so the actions stay reachable */}
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto border-t border-status-warning-border px-3 pt-2.5 pb-2">
         <code className="block whitespace-pre-wrap break-all rounded-md border border-status-error-border bg-status-error-muted px-2.5 py-1.5 font-mono text-base leading-relaxed text-status-error">
           {command}
         </code>
       </div>
 
       {/* Allow / Block buttons */}
-      <div className="flex items-center gap-2 border-t border-status-warning-border px-3 py-2">
+      <div className="flex shrink-0 items-center gap-2 border-t border-status-warning-border px-3 py-2">
         <Button
           size="sm"
           variant="ghost"
@@ -203,10 +207,10 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 6 }}
       transition={{ duration: 0.2 }}
-      className="mx-3 mb-2 overflow-hidden rounded-lg border border-status-info-border bg-status-info-faint"
+      className="mx-3 mb-2 flex max-h-[min(30rem,55vh)] min-h-0 flex-col overflow-hidden rounded-lg border border-status-info-border bg-status-info-faint"
     >
       {/* Header, matches ToolCallGroup summary bar */}
-      <div className="flex items-center gap-2.5 px-3 py-2">
+      <div className="flex shrink-0 items-center gap-2.5 px-3 py-2">
         <ChevronRight className="size-3.5 text-[var(--text-muted)]" />
         <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-status-info" />
         <span className="flex-1 truncate text-xs font-medium text-[var(--text-secondary)]">
@@ -223,6 +227,8 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
         </IconAction>
       </div>
 
+      {/* Content and options scroll; the header stays put. */}
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
       {/* Question content */}
       <div className="border-t border-[var(--border-subtle)] px-3 pt-2.5 pb-1">
         <div className="mb-1 flex items-center gap-2">
@@ -316,6 +322,7 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
             {remainingSeconds !== null ? ` in ${formatCountdown(remainingSeconds)}` : ''}
           </p>
         )}
+      </div>
       </div>
     </motion.div>
   );

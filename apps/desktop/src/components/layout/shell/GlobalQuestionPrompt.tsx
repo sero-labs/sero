@@ -28,9 +28,9 @@ export function GlobalQuestionPrompt() {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
-      className="fixed bottom-4 right-4 z-50 w-[34rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl bg-[var(--bg-base)] shadow-2xl ring-1 ring-status-info-border"
+      className="fixed bottom-4 right-4 z-50 flex max-h-[calc(100vh-2rem)] min-h-0 w-[34rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl bg-[var(--bg-base)] shadow-2xl ring-1 ring-status-info-border"
     >
-      <div className="px-3 pt-2.5 text-sm font-medium uppercase tracking-wide text-[var(--text-muted)]">
+      <div className="shrink-0 px-3 pt-2.5 text-sm font-medium uppercase tracking-wide text-[var(--text-muted)]">
         Needs your input
       </div>
       <PendingQuestionCard />
