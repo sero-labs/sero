@@ -184,6 +184,26 @@ describe('useThemeEditorState', () => {
     expect(latestState?.draft).toBeNull();
   });
 
+  it('loads and saves the selected inactive preset without copying the active preset', async () => {
+    const selected = createPreset({
+      id: 'forest', name: 'Forest', description: 'Green theme',
+      colors: {
+        light: { ...DEFAULT_LIGHT_COLORS, bgBase: '#aabbcc' },
+        dark: { ...DEFAULT_DARK_COLORS, bgBase: '#112233' },
+      },
+    });
+    vi.mocked(window.sero.themes.load).mockResolvedValue(selected);
+    await act(async () => {
+      root?.render(<Harness open onOpenChange={onOpenChange} editPresetId="forest" />);
+    });
+    expect(window.sero.themes.load).toHaveBeenCalledWith('forest');
+    expect(latestState?.draft).toMatchObject({ name: selected.name, colors: selected.colors });
+    expect(setPresetSpy).not.toHaveBeenCalled();
+    await act(async () => { await latestState?.handleSave(); });
+    expect(saveCustomPresetSpy).toHaveBeenCalledWith(expect.objectContaining(selected));
+    expect(setPresetSpy).toHaveBeenCalledWith('forest');
+  });
+
   it('applies live preview changes and reverts them on cancel', async () => {
     await act(async () => {
       root?.render(<Harness open={true} onOpenChange={onOpenChange} editPresetId="ocean-glow" />);
