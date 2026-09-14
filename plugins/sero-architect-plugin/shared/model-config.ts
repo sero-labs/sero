@@ -18,9 +18,16 @@ export interface ResolvedTier {
   source: TierSelectionSource;
 }
 
+/** The model configuration a resolution reads. A `ProjectRecord` satisfies it. */
+export interface ModelConfigSource {
+  modelTiers?: SharedModelTierSettings;
+  modelOverrides?: SharedModelTierSettings;
+  modelConfigRevision?: number;
+}
+
 /** The project override for one tier, or undefined when the tier inherits. */
-export function projectOverride(record: ProjectRecord, tier: ModelTier): SharedModelTierEntry | undefined {
-  return record.modelOverrides?.[tier];
+export function projectOverride(source: ModelConfigSource, tier: ModelTier): SharedModelTierEntry | undefined {
+  return source.modelOverrides?.[tier];
 }
 
 /**
@@ -28,23 +35,23 @@ export function projectOverride(record: ProjectRecord, tier: ModelTier): SharedM
  * A tier with neither is absent from the result: the caller decides whether that
  * is a refusal or a fallback, and never guesses a provider here.
  */
-export function resolveEffectiveTiers(record: ProjectRecord): ResolvedTier[] {
+export function resolveEffectiveTiers(source: ModelConfigSource): ResolvedTier[] {
   const resolved: ResolvedTier[] = [];
   for (const tier of MODEL_TIERS) {
-    const override = projectOverride(record, tier);
+    const override = projectOverride(source, tier);
     if (override) {
       resolved.push({ tier, entry: override, source: 'project-override' });
       continue;
     }
-    const global = record.modelTiers?.[tier];
+    const global = source.modelTiers?.[tier];
     if (global) resolved.push({ tier, entry: global, source: 'inherited-global' });
   }
   return resolved;
 }
 
 /** The effective entry for one tier, or undefined when nothing selects it. */
-export function effectiveTier(record: ProjectRecord, tier: ModelTier): ResolvedTier | undefined {
-  return resolveEffectiveTiers(record).find((entry) => entry.tier === tier);
+export function effectiveTier(source: ModelConfigSource, tier: ModelTier): ResolvedTier | undefined {
+  return resolveEffectiveTiers(source).find((entry) => entry.tier === tier);
 }
 
 /**

@@ -324,7 +324,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       });
       if (!resumed.ok) return refuse(resumed.error);
       let next = resumed.record;
-      const selected = await chooseOwnerModel(host);
+      const selected = await chooseOwnerModel(host, next);
       if (next.session.grantId && (next.session.model !== selected.model || next.session.thinking !== selected.thinking)) {
         await sessions.dispose(projectId);
         next = await sessions.requestGrant(next);

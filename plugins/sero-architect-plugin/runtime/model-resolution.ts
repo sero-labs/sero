@@ -9,12 +9,11 @@
  * unsupported thinking level is refused with a message the user can act on.
  */
 
-import type { ModelTier, SharedAvailableModelGroup, SharedModelInfo, SharedModelTierEntry, ThinkingLevel } from '@sero-ai/common';
+import type { ModelTier, SharedAvailableModelGroup, SharedModelInfo, SharedModelTierEntry, SharedModelTierSettings, ThinkingLevel } from '@sero-ai/common';
 import { MODEL_TIERS, isThinkingLevel, modelKey } from '@sero-ai/common';
-import type { OrchestratorProjectContext } from '@sero-ai/common';
 
-import type { OrchestratorProjectModelSnapshot } from '@sero-ai/common';
-import { resolveEffectiveTiers, type TierSelectionSource } from '../shared/model-config';
+import type { OrchestratorProjectContext, OrchestratorProjectModelSnapshot } from '@sero-ai/common';
+import { resolveEffectiveTiers, type ModelConfigSource, type TierSelectionSource } from '../shared/model-config';
 import { activeRun } from '../shared/runs';
 import type { ProjectRecord } from '../shared/record';
 
@@ -34,10 +33,27 @@ export interface ResolvedSelection {
 
 export type ResolutionResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
+/**
+ * The global selections are authoritative on the host (Admin). A record's
+ * `modelTiers` is only the cached copy shown before work is approved, so it is
+ * never the source of truth: the record contributes its overrides, and the host
+ * contributes the tiers those overrides fall back to.
+ */
+export function projectModelSource(
+  record: Pick<ProjectRecord, 'modelOverrides' | 'modelConfigRevision'>,
+  globals: SharedModelTierSettings,
+): ModelConfigSource {
+  return {
+    modelTiers: globals,
+    ...(record.modelOverrides ? { modelOverrides: record.modelOverrides } : {}),
+    ...(record.modelConfigRevision !== undefined ? { modelConfigRevision: record.modelConfigRevision } : {}),
+  };
+}
+
 /** The catalogue surface resolution needs. */
 export interface ModelCatalogue {
   listModels(): Promise<SharedAvailableModelGroup[]>;
-  modelTiers(): Promise<import('@sero-ai/common').SharedModelTierSettings>;
+  modelTiers(): Promise<SharedModelTierSettings>;
   env?: NodeJS.ProcessEnv;
 }
 
@@ -87,11 +103,11 @@ const SOURCE_DETAIL: Record<SelectionSource, string> = {
  */
 export async function resolveTierSelections(
   catalogue: ModelCatalogue,
-  record: ProjectRecord,
+  source: ModelConfigSource,
 ): Promise<ResolutionResult<ResolvedSelection[]>> {
   const groups = await catalogue.listModels();
   const resolved: ResolvedSelection[] = [];
-  for (const tier of resolveEffectiveTiers(record)) {
+  for (const tier of resolveEffectiveTiers(source)) {
     const checked = validateEntry(groups, tier.entry);
     if (!checked.ok) return { ok: false, error: `The ${tier.tier} tier cannot be used: ${checked.error}` };
     resolved.push({
@@ -99,7 +115,7 @@ export async function resolveTierSelections(
       model: checked.value.model,
       thinking: checked.value.thinking,
       source: tier.source,
-      detail: `${SOURCE_DETAIL[tier.source]} rev ${record.modelConfigRevision ?? 0}`,
+      detail: `${SOURCE_DETAIL[tier.source]} rev ${source.modelConfigRevision ?? 0}`,
     });
   }
   return { ok: true, value: resolved };
@@ -115,7 +131,7 @@ export async function resolveTierSelections(
  */
 export async function resolveOwnerSelection(
   catalogue: ModelCatalogue,
-  record: ProjectRecord,
+  source: ModelConfigSource,
 ): Promise<ResolutionResult<ResolvedSelection>> {
   const groups = await catalogue.listModels();
   const pin = catalogue.env?.SERO_ARCHITECT_MODEL?.trim();
@@ -124,7 +140,7 @@ export async function resolveOwnerSelection(
     if (pinThinking !== undefined && !isThinkingLevel(pinThinking)) {
       return { ok: false, error: `The owner environment pin names an unknown thinking level: ${pinThinking}.` };
     }
-    const entry = findEntryForReference(record, reference);
+    const entry = findEntryForReference(source, reference);
     const pinned: SharedModelTierEntry = pinThinking ? { ...entry, thinkingLevel: pinThinking } : entry;
     const checked = validateEntry(groups, pinned);
     if (!checked.ok) return { ok: false, error: `The owner environment pin cannot be used: ${checked.error}` };
@@ -139,19 +155,19 @@ export async function resolveOwnerSelection(
       },
     };
   }
-  const tiers = await resolveTierSelections(catalogue, record);
+  const tiers = await resolveTierSelections(catalogue, source);
   if (!tiers.ok) return tiers;
   const med = tiers.value.find((selection) => selection.tier === 'MED');
   if (!med) {
     return { ok: false, error: 'Select the MED model in Admin before starting the Architect.' };
   }
-  return { ok: true, value: { ...med, detail: `${SOURCE_DETAIL[med.source]} rev ${record.modelConfigRevision ?? 0}` } };
+  return { ok: true, value: { ...med, detail: `${SOURCE_DETAIL[med.source]} rev ${source.modelConfigRevision ?? 0}` } };
 }
 
 /** The split of a `provider/modelId` reference into a catalogue entry. */
-function findEntryForReference(record: ProjectRecord, reference: string): SharedModelTierEntry {
+function findEntryForReference(source: ModelConfigSource, reference: string): SharedModelTierEntry {
   const saved = MODEL_TIERS
-    .map((tier) => record.modelOverrides?.[tier] ?? record.modelTiers?.[tier])
+    .map((tier) => source.modelOverrides?.[tier] ?? source.modelTiers?.[tier])
     .find((entry) => entry && modelKey(entry.provider, entry.modelId) === reference);
   if (saved) return saved;
   const [provider = '', modelId = ''] = reference.split('/');
@@ -169,8 +185,7 @@ export async function resolveProjectContext(
   catalogue: ModelCatalogue,
   record: ProjectRecord,
 ): Promise<ResolutionResult<OrchestratorProjectContext>> {
-  const snapshot = await resolveDispatchSnapshot(catalogue, record);
-  if (!snapshot.ok) return snapshot;
+  const snapshot = await resolveDispatchSnapshot(catalogue, record);  if (!snapshot.ok) return snapshot;
   const open = activeRun(record);
   return {
     ok: true,
@@ -192,7 +207,7 @@ export async function resolveDispatchSnapshot(
   catalogue: ModelCatalogue,
   record: ProjectRecord,
 ): Promise<ResolutionResult<OrchestratorProjectModelSnapshot>> {
-  const tiers = await resolveTierSelections(catalogue, record);
+  const tiers = await resolveTierSelections(catalogue, projectModelSource(record, await catalogue.modelTiers()));
   if (!tiers.ok) return tiers;
   const snapshot: OrchestratorProjectModelSnapshot = {};
   for (const selection of tiers.value) {

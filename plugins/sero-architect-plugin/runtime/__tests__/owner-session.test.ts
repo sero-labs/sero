@@ -80,6 +80,46 @@ describe('owner session', () => {
     await expect(chooseOwnerModel(host)).rejects.toThrow('retired-model is unavailable');
   });
 
+  describe('project tier overrides govern the owner', () => {
+    /** A record whose project MED is overridden to the codex model. */
+    async function withProjectOverride(host: Awaited<ReturnType<typeof fakeHost>>) {
+      const original = await host.listModels();
+      host.listModels = async () => [...original, { provider: 'openai-codex', displayName: 'Codex', logo: '', models: [{ provider: 'openai-codex', modelId: 'gpt-test', name: 'GPT', reasoning: true, availableThinkingLevels: ['low', 'high'] }] }];
+      return buildingProject({
+        modelOverrides: { MED: { provider: 'openai-codex', modelId: 'gpt-test', thinkingLevel: 'high' } },
+        modelConfigRevision: 8,
+      });
+    }
+
+    it('uses the project MED override rather than the global MED', async () => {
+      const host = await fakeHost();
+      const record = await withProjectOverride(host);
+      await expect(chooseOwnerModel(host, record)).resolves.toEqual({ model: 'openai-codex/gpt-test', thinking: 'high' });
+      // Without the record the global selections still resolve as before.
+      const global = await chooseOwnerModel(host);
+      expect(global.model).not.toBe('openai-codex/gpt-test');
+    });
+
+    it('keeps the environment pin above the project override', async () => {
+      const host = await fakeHost();
+      const record = await withProjectOverride(host);
+      host.env.SERO_ARCHITECT_MODEL = 'anthropic/claude-fable-5-1:low';
+      await expect(chooseOwnerModel(host, record)).resolves.toEqual({ model: 'anthropic/claude-fable-5-1', thinking: 'low' });
+    });
+
+    it('refuses an unavailable project override without switching provider', async () => {
+      const host = await fakeHost();
+      const record = buildingProject({ modelOverrides: { MED: { provider: 'anthropic', modelId: 'retired-model' } } });
+      await expect(chooseOwnerModel(host, record)).rejects.toThrow('retired-model is unavailable');
+    });
+
+    it('refuses an unsupported thinking level on the project override', async () => {
+      const host = await fakeHost();
+      const record = buildingProject({ modelOverrides: { MED: { provider: 'anthropic', modelId: 'claude-fable-5-1', thinkingLevel: 'max' } } });
+      await expect(chooseOwnerModel(host, record)).rejects.toThrow(/does not support max thinking/);
+    });
+  });
+
   it('does not silently switch providers when the configured provider is unavailable', async () => {
     const host = await fakeHost();
     host.env.SERO_ARCHITECT_MODEL = 'openai/unavailable-model';
