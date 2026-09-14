@@ -5,7 +5,7 @@ import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@sero-ai/ui/components/ui/card';
 import { Input } from '@sero-ai/ui/components/ui/input';
-import { NativeSelect, NativeSelectOption } from '@sero-ai/ui/components/ui/native-select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui/components/ui/select';
 import { Skeleton } from '@sero-ai/ui/components/ui/skeleton';
 import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 import { cn } from '@sero-ai/ui/lib/utils';
@@ -96,16 +96,19 @@ export function McpServerCrudPanel({
             <CardDescription>Add, connect, and inspect MCP servers. Raw JSON stays available for advanced edits.</CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            <NativeSelect
-              aria-label="Filter servers by source"
+            <Select
               value={sourceFilter}
-              onChange={(event) => setSourceFilter(event.target.value as typeof sourceFilter)}
-              className="h-8 w-auto text-sm"
+              onValueChange={(value) => setSourceFilter(value as typeof sourceFilter)}
             >
-              <NativeSelectOption value="all">All sources</NativeSelectOption>
-              <NativeSelectOption value="user">User config</NativeSelectOption>
-              <NativeSelectOption value="agent-plugin">Agent Plugins</NativeSelectOption>
-            </NativeSelect>
+              <SelectTrigger size="sm" aria-label="Filter servers by source" className="w-auto text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All sources</SelectItem>
+                <SelectItem value="user">User config</SelectItem>
+                <SelectItem value="agent-plugin">Agent Plugins</SelectItem>
+              </SelectContent>
+            </Select>
             <Button type="button" size="sm" onClick={() => beginDraft(createEmptyServerEditorInput())}>
               <Plus className="mr-2 size-4" />
               Add server
@@ -171,24 +174,39 @@ export function McpServerCrudPanel({
                 <Input value={draft.serverName} onChange={(event) => setDraft({ ...draft, serverName: event.target.value })} placeholder="github" />
               </Field>
               <Field label="Transport">
-                <NativeSelect value={draft.transport} onChange={(event) => setDraft({ ...draft, transport: event.target.value as McpServerEditorInput['transport'] })} className="w-full">
-                  <NativeSelectOption value="stdio">stdio</NativeSelectOption>
-                  <NativeSelectOption value="http">http / sse</NativeSelectOption>
-                </NativeSelect>
+                <Select value={draft.transport} onValueChange={(value) => setDraft({ ...draft, transport: value as McpServerEditorInput['transport'] })}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="stdio">stdio</SelectItem>
+                    <SelectItem value="http">http / sse</SelectItem>
+                  </SelectContent>
+                </Select>
               </Field>
               <Field label="Lifecycle">
-                <NativeSelect value={draft.lifecycle} onChange={(event) => setDraft({ ...draft, lifecycle: event.target.value as McpServerEditorInput['lifecycle'] })} className="w-full">
-                  <NativeSelectOption value="lazy">lazy</NativeSelectOption>
-                  <NativeSelectOption value="eager">eager</NativeSelectOption>
-                  <NativeSelectOption value="keep-alive">keep-alive</NativeSelectOption>
-                </NativeSelect>
+                <Select value={draft.lifecycle} onValueChange={(value) => setDraft({ ...draft, lifecycle: value as McpServerEditorInput['lifecycle'] })}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="lazy">lazy</SelectItem>
+                    <SelectItem value="eager">eager</SelectItem>
+                    <SelectItem value="keep-alive">keep-alive</SelectItem>
+                  </SelectContent>
+                </Select>
               </Field>
               <Field label="Auth">
-                <NativeSelect value={draft.authMode} onChange={(event) => setDraft({ ...draft, authMode: event.target.value as McpServerEditorInput['authMode'] })} className="w-full">
-                  <NativeSelectOption value="none">none</NativeSelectOption>
-                  <NativeSelectOption value="oauth">oauth</NativeSelectOption>
-                  <NativeSelectOption value="bearer">bearer</NativeSelectOption>
-                </NativeSelect>
+                <Select value={draft.authMode} onValueChange={(value) => setDraft({ ...draft, authMode: value as McpServerEditorInput['authMode'] })}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">none</SelectItem>
+                    <SelectItem value="oauth">oauth</SelectItem>
+                    <SelectItem value="bearer">bearer</SelectItem>
+                  </SelectContent>
+                </Select>
               </Field>
               {draft.transport === 'stdio' ? (
                 <>
