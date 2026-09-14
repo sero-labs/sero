@@ -25,6 +25,7 @@ async function setup() {
   const watch = { track: vi.fn(async () => undefined), untrack: vi.fn(), flush: vi.fn(async () => undefined), dispose: vi.fn() };
   const services = {
     research: vi.fn(async () => ({ id: 'res_1' })),
+    resolveDispatchProject: vi.fn(async (record: ProjectRecord) => ({ projectId: record.id, runId: `run-initial-${record.id}` })),
     dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1', baseCommit: 'base-1' })),
     evidence: vi.fn(async () => undefined),
     recoverPending: vi.fn(),
@@ -378,6 +379,7 @@ describe('project management', () => {
     });
     const live = createProjectsActions({ host, store, sessions, scheduler, watch: { track: vi.fn(async () => undefined), untrack: vi.fn(), flush: vi.fn(async () => undefined), dispose: vi.fn() }, services: {
       research: vi.fn(async () => ({ id: 'res_1' })),
+      resolveDispatchProject: vi.fn(async (record: ProjectRecord) => ({ projectId: record.id, runId: `run-initial-${record.id}` })),
       dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1', baseCommit: 'base-1' })),
       evidence: vi.fn(async () => undefined),
       recoverPending: vi.fn(),

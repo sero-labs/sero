@@ -8,11 +8,12 @@
  * outcome (see specs/07-human-input.md) and skips the repair pass.
  */
 
-import type { ContextAgentInfo, ContextToolInfo } from '@sero-ai/common';
+import type { ContextAgentInfo, ContextToolInfo, OrchestratorProjectModelSnapshot } from '@sero-ai/common';
 import type { HumanQuestion, LoopDeliverySettings, PlanningResponse, SharedLoopDefinition, UsageSummary } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import { PLANNING_SYSTEM_PROMPT, buildPlanningTask, buildRepairTask } from './planner-prompt';
 import { extractJson, validatePlanningResponse } from './schema';
+import { applyProjectSnapshot } from './project-models';
 import { isRecord } from './structured-call';
 import { parseHumanQuestions } from './human-input';
 import { runPlanningWithRetry } from './planning-retry';
@@ -36,6 +37,8 @@ export interface PlanRequest {
   clarifications?: { prompt: string; answer: string }[];
   /** Catalog installs: the curated definition the plan adapts (spec 14). */
   baseline?: SharedLoopDefinition;
+  /** The project's tier defaults at creation. Later calls resolve from this, not the global settings. */
+  modelSnapshot?: OrchestratorProjectModelSnapshot;
   model?: string;
   thinking?: string;
   signal?: AbortSignal;
@@ -67,11 +70,13 @@ function classify(text: string, delivery: LoopDeliverySettings): Classified {
 }
 
 async function runPlanning(host: OrchestratorHost, req: PlanRequest, task: string): Promise<ModelRunResult> {
+  // The project snapshot resolved at creation wins over a later global change.
+  const project = applyProjectSnapshot(req.modelSnapshot, req.model);
   return runPlanningWithRetry(host, {
     task,
     systemPrompt: PLANNING_SYSTEM_PROMPT,
-    model: req.model,
-    thinking: req.thinking,
+    model: project.model,
+    thinking: project.thinking ?? req.thinking,
     parentSessionId: req.parentSessionId,
     platformTools: 'none',
     signal: req.signal,

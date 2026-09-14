@@ -11,9 +11,11 @@ import { executionMode, projectWriter, roomWorkspace, workflowWorkspace } from '
 import { setTimeout as delay } from 'node:timers/promises';
 
 import { createOrchestratorRoom, getOrchestratorRegistry, requestOrchestratorAction } from '@sero-ai/common';
+import type { OrchestratorBoardCreateOptions, OrchestratorRoomCreateRequest } from '@sero-ai/common';
 
 import { recoverDispatch } from './dispatch-link';
 import { chargeRoomPlanning, runProjectModel } from './project-usage';
+import { resolveProjectContext } from './model-resolution';
 import { roomModelLimits } from './model-selection';
 import { startResearchRoom } from './research-room';
 import { startResearchWorkflow } from './research-workflow';
@@ -316,6 +318,15 @@ export function createServices(deps: ServicesDeps): OwnerServices {
   };
 
   const services: OwnerServices = {
+    async resolveDispatchProject(record) {
+      const resolved = await resolveProjectContext(
+        { listModels: () => host.listModels(), modelTiers: () => host.modelTiers(), env: host.env },
+        record,
+      );
+      if (!resolved.ok) throw new Error(resolved.error);
+      return resolved.value;
+    },
+
     async research(record, request) {
       const existing = record.pendingResearch?.find((entry) => entry.question === request.question && entry.stoppingCondition === request.stoppingCondition && entry.kind === request.kind);
       if (existing) return { id: existing.id };
@@ -344,13 +355,20 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         while (milestone.pendingDispatch?.request && !getOrchestratorRegistry()?.has(record.workspaceId) && Date.now() < deadline) {
           await delay(100);
         }
+        const createOptions: OrchestratorBoardCreateOptions = {
+          requestId: milestone.pendingDispatch?.request?.id,
+          activate: false,
+          disableTokenLimit: true,
+          limits,
+          workspace: workflowWorkspace(record),
+          delivery: { destination: request.destination ?? 'workspace-files' },
+        };
+        if (request.project) createOptions.project = request.project;
         const result = await requestOrchestratorAction(record.workspaceId, {
           kind: 'create',
           prompt: request.prompt,
           title: milestone.title,
-          options: { requestId: milestone.pendingDispatch?.request?.id, activate: false, disableTokenLimit: true, limits,
-            workspace: workflowWorkspace(record),
-            delivery: { destination: request.destination ?? 'workspace-files' } },
+          options: createOptions,
         });
         if (!result.ok || !result.loopId) throw new Error(result.error ?? 'The Workflow was not created.');
         const loopId = result.loopId;
@@ -361,11 +379,13 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         } };
       }
       await chargeRoomPlanning(deps, record.id, { kind: 'dispatch', id: milestone.id });
-      const result = await createOrchestratorRoom(record.workspaceId, {
+      const roomRequest: OrchestratorRoomCreateRequest = {
         requestId: milestone.pendingDispatch?.request?.id,
         mandate: request.prompt,
         limits: { ...limits, ...await roomModelLimits(host), ...roomWorkspace(record), access: 'edit-workspace', deliveryDestination: request.destination ?? 'workspace-files' },
-      });
+      };
+      if (request.project) roomRequest.project = request.project;
+      const result = await createOrchestratorRoom(record.workspaceId, roomRequest);
       const chargedUsd = await chargeRoomPlanning(deps, record.id, { kind: 'dispatch', id: milestone.id }, result.usage);
       if (!result.ok) throw new Error(result.error);
       return { id: result.roomId, workspaceId: record.workspaceId, baseCommit, chargedUsd };

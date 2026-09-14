@@ -8,6 +8,8 @@ import { randomUUID } from 'node:crypto';
 
 import { block, mayDispatch, settle, unblock } from '../shared/lifecycle';
 import { projectWriter, usesProjectFiles } from './execution-location';
+import type { OrchestratorProjectContext } from '@sero-ai/common';
+
 import type { DispatchDestination, DispatchKind } from '../shared/owner-actions';
 import type { Milestone, ProjectRecord } from '../shared/record';
 import type { OwnerServices } from './owner-actions';
@@ -18,6 +20,8 @@ export interface DispatchRequest {
   prompt: string;
   destination: DispatchDestination | null;
   maxCostUsd: number | null;
+  /** The context resolved before planning. Absent on an older, already-reserved dispatch. */
+  project?: OrchestratorProjectContext;
 }
 
 export async function performDispatch(
@@ -29,13 +33,16 @@ export async function performDispatch(
   now: string,
   background = false,
 ): Promise<{ record: ProjectRecord; milestone: Milestone }> {
-  const scopedRequest = { ...request, prompt: [
+  // Resolved before planning starts, so every descendant call of this dispatch
+  // uses the same models and a restart recovers the same answer.
+  const project = request.project ?? await services.resolveDispatchProject(record);
+  const scopedRequest: DispatchRequest = { ...request, project, prompt: [
     'APPROVED ARCHITECT SCOPE. This brief and milestone govern the task. Earlier research artifacts are recommendations, not approvals; do not replace these requirements with them.',
     `Project brief: ${record.brief ?? record.idea}`,
     `Milestone: ${milestone.title}\n${milestone.plan ?? ''}`,
     `Task from the owner:\n${request.prompt}`,
   ].join('\n\n') };
-  const intent = { kind: request.kind, destination: request.destination, startedAt: now,
+  const intent = { kind: request.kind, destination: request.destination, startedAt: now, project,
     ...(request.kind === 'workflow' ? { request: { id: randomUUID(), prompt: scopedRequest.prompt, maxCostUsd: request.maxCostUsd } } : {}),
   };
   const prepared = await store.update(record.id, (fresh) => {
@@ -76,6 +83,7 @@ export async function recoverDispatch(store: RecordStore, services: OwnerService
   await finishDispatch(store, services, eligible, milestone, {
     kind: 'workflow', destination: pending.destination,
     prompt: pending.request.prompt, maxCostUsd: pending.request.maxCostUsd,
+    project: pending.project,
   }, pending.startedAt);
   return true;
 }

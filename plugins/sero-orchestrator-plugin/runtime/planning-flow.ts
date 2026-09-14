@@ -65,6 +65,7 @@ export async function runPlanningFlow(host: OrchestratorHost, draft: Loop, args:
     agentCatalog,
     clarifications: args.clarifications,
     baseline: args.baseline,
+    modelSnapshot: draft.project?.modelSnapshot,
     onUsage,
   });
 
@@ -84,6 +85,7 @@ export async function runPlanningFlow(host: OrchestratorHost, draft: Loop, args:
       prompt: args.prompt,
       parentSessionId: draft.runtime.parentSessionId,
       loopId: draft.id,
+      modelSnapshot: draft.project?.modelSnapshot,
       onUsage,
     });
     draft = { ...draft, planningUsage: mergeCumulativeUsage(draft.planningUsage,

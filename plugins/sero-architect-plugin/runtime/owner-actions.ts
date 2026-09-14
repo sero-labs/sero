@@ -7,8 +7,9 @@
 
 import path from 'node:path';
 
-import { parseCharter, toMilestone } from '../shared/charter-shape';
-import { parseDecision, toDecision } from '../shared/decision-shape';
+import type { OrchestratorProjectContext } from '@sero-ai/common';
+
+import { parseCharter, toMilestone } from '../shared/charter-shape';import { parseDecision, toDecision } from '../shared/decision-shape';
 import { advancePhase, block, mayDispatch, mayWakeForWork, settle } from '../shared/lifecycle';
 import { quote } from '../shared/owner-contract';
 import {
@@ -30,10 +31,15 @@ import type { TurnOutcomes } from './turn-outcomes';
 
 export interface OwnerServices {
   research(record: ProjectRecord, request: { question: string; stoppingCondition: string; kind?: DispatchKind }): Promise<{ id: string }>;
+  /**
+   * Resolves the project/run context and tier snapshot a dispatch carries.
+   * Called before planning, so a restart recovers the same answer.
+   */
+  resolveDispatchProject(record: ProjectRecord): Promise<OrchestratorProjectContext>;
   dispatch(
     record: ProjectRecord,
     milestone: Milestone,
-    request: { kind: DispatchKind; prompt: string; destination: DispatchDestination | null; maxCostUsd: number | null },
+    request: { kind: DispatchKind; prompt: string; destination: DispatchDestination | null; maxCostUsd: number | null; project?: OrchestratorProjectContext },
   ): Promise<{ id: string; workspaceId: string; baseCommit: string; chargedUsd?: number; start?(): Promise<void> }>;
   /** Creates the maintenance Workflow for a project entering maintain. Idempotent per project. */
   maintenance(record: ProjectRecord): Promise<ProjectRecord>;

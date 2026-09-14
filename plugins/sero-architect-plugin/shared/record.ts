@@ -67,6 +67,11 @@ export interface PendingMilestoneDispatch {
   planningChargedUsd?: number;
   /** Absent on records written before recoverable dispatch creation. */
   request?: { id: string; prompt: string; maxCostUsd: number | null };
+  /**
+   * Project/run attribution and the tier defaults this dispatch resolved before
+   * planning. Recovery reuses it, so a restart never resolves different models.
+   */
+  project?: import('@sero-ai/common').OrchestratorProjectContext;
   kind: 'workflow' | 'room';
   destination: DispatchDestination | null;
   startedAt: string;

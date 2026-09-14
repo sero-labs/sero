@@ -239,6 +239,7 @@ describe('dispatch watch', () => {
     // The owner accepts the milestone on its passed evidence.
     const services: OwnerServices = {
       research: vi.fn(async () => ({ id: 'res_1' })),
+      resolveDispatchProject: vi.fn(async (record) => ({ projectId: record.id, runId: `run-initial-${record.id}` })),
       dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1', baseCommit: 'base-1' })),
       evidence: vi.fn(async () => undefined),
       recoverPending: vi.fn(),
