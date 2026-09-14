@@ -30,9 +30,9 @@
       ]
     },
     "npm": {
-      "version": "11.19.0",
-      "releasedAt": "2026-07-29T20:24:07.500Z",
-      "integrity": "sha512-SDd/hHg3KqHE5Ht2NHWxNYNtqCQ2pXAPLl6OtQhPyED5PHsRfrOtO199MZTIG2cQoQ1ZRI9t28shrD+2cr3AAw==",
+      "version": "12.0.2",
+      "releasedAt": "2026-07-29T21:06:31.421Z",
+      "integrity": "sha512-uIXokLlBj6FpNUTQX1PmT5pz7BlIN9QlixX+zdaSNHsd0qUXsbDLr50xzY6Sw7cJVr0uzHKDOle0swmPW/p5Qw==",
       "routineUpdates": "minor",
       "usedBy": [
         "sero-node",
@@ -51,7 +51,7 @@
     }
   },
   "container": {
-    "golangImage": "golang:1.26.3-bookworm@sha256:386d475a660466863d9f8c766fec64d7fdad3edac2c6a05020c09534d71edb4b",
+    "golangImage": "golang:1.27.1-bookworm@sha256:648f440f42a0958804efb24df176f806f9d353b41f1c0627f666428e40310f6b",
     "ubuntuImage": "ubuntu:24.04@sha256:33ceb71981b602c1a7443a53469e4dba065f7503eab3078a2d7a57a2ab987517",
     "nodeVersion": "24.15.0",
     "nodeSha256": {
@@ -62,7 +62,7 @@
   },
   "containerPolicy": {
     "golang": {
-      "version": "1.26.3",
+      "version": "1.27.1",
       "variant": "bookworm",
       "routineUpdates": "patch"
     },
@@ -71,7 +71,7 @@
     }
   },
   "containerReleasedAt": {
-    "golangImage": "2026-05-20T01:15:02.000Z",
+    "golangImage": "2026-09-02T01:26:02.773673Z",
     "ubuntuImage": "2026-08-10T00:00:00.000Z",
     "nodeVersion": "2026-04-15T00:00:00.000Z",
     "githubCliVersion": "2026-04-28T11:42:05.000Z"
