@@ -108,6 +108,11 @@ export function RoomDetail({
   const send = (action: string, params: Record<string, unknown> = {}) =>
     void dispatch({ action, roomId, ...params });
 
+  const deleteRoom = async () => {
+    const details = await dispatch({ action: 'delete', roomId });
+    if (details?.ok) onBack();
+  };
+
   const selected = selectedId ? members.get(selectedId) ?? null : null;
   const approvals = summary?.attention?.approvals ?? [];
   // A member that used request-attention: it stopped, and only the user can
@@ -134,6 +139,7 @@ export function RoomDetail({
         onPause={() => send('pause')}
         onResume={() => send('resume')}
         onStop={() => send('cancel')}
+        onDelete={() => void deleteRoom()}
       />
 
       {/* Below 900px the roster rail collapses to this face strip (F3). */}

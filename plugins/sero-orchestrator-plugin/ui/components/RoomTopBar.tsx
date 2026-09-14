@@ -23,6 +23,7 @@ import { ROOM_STATUS_STYLE } from '../lib/status-style';
 import { formatCost, formatDuration, formatElapsed } from '../lib/format';
 import { ROOM_DOT } from '../lib/list-row-status';
 import { Meter, Pill, StatusDot, type PillProps } from './room-kit';
+import { RoomDeleteButton } from './RoomDeleteButton';
 
 /** Room lifecycle → the pill's accent (prototype `.pill em` while running). */
 const STATUS_PILL_TONE: Record<RoomStatus, PillProps['tone']> = {
@@ -55,6 +56,7 @@ interface RoomTopBarProps {
   onPause: () => void;
   onResume: () => void;
   onStop: () => void;
+  onDelete: () => void;
 }
 
 export function RoomTopBar({
@@ -69,6 +71,7 @@ export function RoomTopBar({
   onPause,
   onResume,
   onStop,
+  onDelete,
 }: RoomTopBarProps) {
   const { runtime, definition } = room;
   const elapsedMs = runtime.startedAt
@@ -169,6 +172,7 @@ export function RoomTopBar({
             Stop
           </Button>
         )}
+        {finished && <RoomDeleteButton busy={busy} onDelete={onDelete} />}
       </div>
     </div>
   );
