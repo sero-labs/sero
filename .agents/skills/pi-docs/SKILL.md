@@ -36,5 +36,5 @@ Examples — not the current working directory.
 - adding models — `docs/models.md`
 - pi packages — `docs/packages.md`
 
-Read pi `.md` files completely and follow their cross-references before
-implementing (e.g. `tui.md` links to related TUI API details).
+Read the sections that establish the API or runtime behavior needed for this
+task. Follow relevant references until material uncertainty is resolved.

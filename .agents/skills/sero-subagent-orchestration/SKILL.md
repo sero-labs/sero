@@ -62,7 +62,11 @@ const results = await runs.all([
 return results.map(({ key, runId, output, handoff }) => ({ key, runId, output, handoff }));
 ```
 
-Use `subagent_wait` only when the user asked for run-to-completion. Reply to supervisor requests before waiting. Never poll with sleep or repeated status calls.
+For an implementation request, supervise workers through integration and
+validation unless the user explicitly requests background launch only. Handle
+pending supervisor requests before waiting. Use the available wait mechanism
+rather than polling. This does not grant additional push, publish, release,
+or PR authority.
 
 If a supervisor request needs a product, authority, or security decision:
 

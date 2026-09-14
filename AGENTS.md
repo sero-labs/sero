@@ -9,8 +9,10 @@ copy, TypeScript, tests, UI, packages, and documentation.
 
 ## Required checks
 
-- Run `pnpm typecheck` from the monorepo root before every commit. Renderer and
-  Electron main-process types must pass with no errors.
+- Run `pnpm typecheck` from the monorepo root before commits that change source,
+  dependencies, configuration, generated code, or executable examples. Renderer
+  and Electron main-process types must pass with no errors. Documentation-only
+  wording changes do not require it. If impact is unclear, run it.
 - Do not use `@ts-ignore`, `@ts-expect-error`, or `any` casts unless no typed
   solution exists. Explain an unavoidable exception in a comment.
 - Keep every source file at or below 500 LOC. Tests, docs and CSS are exempt. Markdown is documentation, not source, so this rule does not apply to `openspec/` specs or change artifacts. Split a source file before completion if your change takes it over the limit.

@@ -1,11 +1,12 @@
 ---
 name: unslop
-description: Cut AI tells from any writing. Must always apply.
+description: Use by default for regular agent chat, conversation, explanations, and status reports. Use sero-humanize for Sero application content instead.
 ---
 
 # Unslop
 
-Edit text to remove AI patterns and add human voice.
+Apply these style rules to regular conversation and status reports. Use
+`sero-humanize` for Sero application content, even when drafting it in chat.
 
 ## Process
 

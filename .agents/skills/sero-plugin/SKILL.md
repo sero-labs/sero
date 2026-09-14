@@ -1,14 +1,8 @@
 ---
 name: sero-plugin
 description: |
-  Create Sero plugins — self-contained packages with a Pi extension (agent
-  tools/commands), an optional React UI loaded via Module Federation, and an
-  optional background runtime. Use when the user asks to create a Sero
-  plugin/app/extension, add a sidebar panel, dashboard widget, or
-  agent-integrated feature, or convert a Pi extension into a Sero plugin.
-  Trigger on phrases like "create a plugin", "new Sero app", "add a tool
-  with UI", "build an extension", "convert this Pi extension", or any
-  request that touches `plugins/sero-*-plugin/`.
+  Use when creating or converting a Sero plugin, or changing its manifest,
+  host integration, state contract, or contributed UI.
 ---
 
 # Building Sero Plugins
@@ -34,7 +28,7 @@ manifest in `package.json`. No manual registry edits.
 
 | Reference | When to read |
 |-----------|--------------|
-| `example/sero-notes-plugin/` | **Start here.** Canonical, minimal plugin that exercises every surface (extension + CLI bridge, background runtime, UI hooks, static + dynamic widgets, MF config). Copy and rename it as your starting point. See `example/README.md` for the file map. |
+| `example/sero-notes-plugin/` | For a new plugin, copy and rename this minimal example. It covers the extension, CLI bridge, runtime, UI hooks, widgets, and MF config. See `example/README.md` for the file map. |
 | `references/templates.md` | Creating any file (package.json, extension, runtime, UI, Vite, styles). Also contains the Quick do/don't guide and mini examples. |
 | `references/api-and-widgets.md` | Using app-runtime hooks, background runtimes, dashboard widgets, manifest fields |
 | `references/conversion-guide.md` | Converting an existing Pi extension into a plugin |
@@ -104,6 +98,10 @@ Boundaries:
 - Resolve global paths from `SERO_HOME` / `PI_CODING_AGENT_DIR`; fall back to `~/.pi` only when env vars are unset (Pi CLI mode)
 
 ## Step-by-step workflow
+
+Use this workflow for a new plugin. For an existing plugin, apply only the
+relevant rules, references, and steps. Select checks for the changed behavior
+and install dependencies only when needed.
 
 ### 1. Plan
 Decide up front:
@@ -225,13 +223,14 @@ Also create: `vite.config.ts` (at package root), `ui/styles.css`,
 ### 9. Verify
 
 ```bash
-pnpm install
+pnpm install                                  # only when dependencies need installation
 pnpm --filter @sero-ai/plugin-<name> build       # UI only
 pnpm --filter @sero-ai/plugin-<name> typecheck
 bash scripts/build-plugin.sh plugins/sero-<name>-plugin   # installable bundle / release packaging
 ```
 
-All must pass before the plugin is ready.
+For a new plugin, all applicable checks must pass before it is ready. For
+maintenance, run the checks needed for the changed behavior.
 
 ### 10. Test end-to-end
 
@@ -288,7 +287,8 @@ Verify:
 
 - **`sero-dashboard-ui`** (`../sero-dashboard-ui/SKILL.md`) — building or
   redesigning dashboard widgets and compact plugin views with the shared
-  `@sero-ai/ui` dashboard components. Read it whenever a plugin has a widget.
+  `@sero-ai/ui` dashboard components. Read it when the task changes a widget
+  or compact plugin view.
 
 ## Related docs
 

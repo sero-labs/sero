@@ -1,13 +1,10 @@
 ---
 name: sero-humanize
 description: |
-  Audit or edit Sero Markdown documentation and other product prose to remove
-  AI-writing patterns while preserving technical meaning, product terminology,
-  links, examples, and the repository voice. Use when the user asks to humanize,
-  de-slop, tighten, simplify, rewrite, or audit Sero documentation, README text,
-  UI copy, release notes, plans, or specifications for AI tells. Also use when
-  prose needs ASD-STE100 Simplified Technical English. Do not use for code review
-  or for creative and promotional writing.
+  Use to draft, edit, or audit Sero application content, including UI copy,
+  documentation, README text, and release notes. Use unslop for regular chat
+  and status reports instead. Not for code review or creative and promotional
+  writing.
 ---
 
 # Sero Humanize
@@ -15,6 +12,9 @@ description: |
 Make Sero prose direct, specific, and useful. Human writing in technical
 documentation does not need personality. It needs clear decisions, concrete
 facts, and respect for the reader's time.
+
+Apply this skill to Sero content even when drafting it in chat. Use `unslop`
+for the surrounding conversation, not for the content itself.
 
 ## Follow the requested mode
 
@@ -28,7 +28,8 @@ facts, and respect for the reader's time.
 
 Before editing:
 
-1. Read every file in scope in full.
+1. For a passage edit, read the passage and enough surrounding text to preserve
+   meaning. Read the full file for a whole-document audit or structural rewrite.
 2. Read the nearest repository instructions that apply to those files.
 3. Use adjacent, clearly human-edited Sero documentation as the voice sample
    when the named files do not establish a consistent voice.
@@ -264,8 +265,9 @@ Run checks that match the change:
 5. Run `git diff --check`.
 6. Run documentation build or link checks when the change can affect rendering
    or navigation and the repository provides a focused command.
-7. Review at least one rendered page from each changed slice. Check that prose
-   still explains the subject and that lists support rather than replace it.
+7. When changes affect structure, rendering, navigation, or media, review at
+   least one rendered page from each changed slice. Check that prose still
+   explains the subject and that lists support rather than replace it.
 8. Inspect the diff summary. Stop and review again if it shows unexpected mass
    deletions, repeated page rewrites, or asset removal.
 9. State exactly what was checked and what was not checked.
