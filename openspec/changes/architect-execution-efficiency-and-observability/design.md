@@ -131,6 +131,21 @@ Link cumulative spend, cost-by-activity/model and token-composition charts to ti
 
 Use the user's references for the waterfall, expandable tree, linked breakdowns and side-panel pattern, not their product branding or dense administrative navigation. Do not place a new event log or metrics dashboard on the main Architect page. Persist any saved layout preferences through the host layout API, never browser storage.
 
+## Prototype outcome
+
+The interactive prototype at `apps/styleguide/public/prototypes/architect-run-observability/` was approved on 2026-09-14. The user requested no change of behaviour, so the plan below stands. The prototype settles these presentation details for the production work.
+
+- The inspector opens as a dedicated full-width view inside Architect. One control returns to the project page. It is not a dialog and not a separate window.
+- The project controls menu carries `Models…` and `Run metrics…` as the required entry points. The page body adds one compact model-defaults summary and one run-metrics entry point beside them.
+- The run selector lists the runs first, then `Project lifetime`. Lifetime scope shows a run table and one cumulative chart, not a timeline, because each run has its own time origin.
+- The window control above the ruler zooms and pans by pointer, by keyboard, and by explicit Zoom in, Zoom out and Zoom to selection controls. A pointer is never required.
+- An activity that serves several objectives appears as a muted row under the timeline, labelled `linked, not attributed`. It is not placed on the time axis, because it cannot be positioned against one run clock honestly.
+- The selected-activity panel is a rail beside the timeline at wide width and drops below the timeline at narrow width.
+- The high-span fixtures in the prototype exist for the bounded-rendering check. They are not product entries.
+- The destructive menu item keeps the existing `--err` token at 4.37:1 contrast. The prototype does not change the product palette, so this stays open for a later colour decision.
+
+Two findings from the prototype review become production test obligations. First, a model or tool call must group under the activity it serves, not into one flat total. Second, the rendered window must follow the scroll position, and a selected activity must stay inside the rendered window after any change to expansion.
+
 ## Risks / Trade-offs
 
 - Compact context can omit a needed decision. Keep mandatory authority fields, explicit applicability and resolvable evidence; test compaction and stale-reference paths.
