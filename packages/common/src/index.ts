@@ -334,6 +334,23 @@ export type {
 } from './cron-contract';
 
 export {
+  SDK_OBSERVATION_GAPS,
+  toObservationUsage,
+  isMetadataOnly,
+} from './run-observations';
+export type {
+  NumericUsageKey,
+  ObservationGap,
+  ObservationIdentities,
+  ObservationOperationKind,
+  ObservationOutcome,
+  ObservationRecord,
+  ObservationRecordKind,
+  ObservationTiming,
+  ObservationUsage,
+} from './run-observations';
+
+export {
   ORCHESTRATOR_APP_ID,
   ORCHESTRATOR_INDEX_FILE,
   ORCHESTRATOR_ROOM_INDEX_FILE,
