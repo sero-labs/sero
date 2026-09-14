@@ -9,13 +9,15 @@ import { chooseOwnerModel } from './owner-session';
 import os from 'node:os';
 import path from 'node:path';
 
-import { requestOrchestratorAction, type PersistentSessionHistoryPage } from '@sero-ai/common';
+import { requestOrchestratorAction, type ModelTier, type PersistentSessionHistoryPage, type SharedModelTierEntry, type ThinkingLevel } from '@sero-ai/common';
 
 import { advancePhase, approveCharter, block, mayDispatch, pause, resume, setAutonomy, setCap, settle, unblock } from '../shared/lifecycle';
+import { clearProjectTierOverride, setProjectTierOverride } from '../shared/model-config';
 import { createProjectRecord, toIndexEntry, type AutonomySetting, type ExecutionMode, type DecisionProposal, type Milestone, type ProjectRecord } from '../shared/record';
 import type { DispatchDestination } from '../shared/owner-actions';
 import { performDispatch, recoverDispatch } from './dispatch-link';
 import { repairDispatch, type RepairOutcome } from './repair-dispatch';
+import { validateEntry } from './model-resolution';
 import type { OwnerServices } from './owner-actions';
 import type { ArchitectIndexEntry } from '../shared/types';
 import type { ArchitectHost } from './host';
@@ -29,6 +31,19 @@ import type { DispatchWatch } from './dispatch-watch';
 
 export const STOP_REASON = 'stopped by the user';
 
+/**
+ * Feedback after a model change. It names the revision new work will use and
+ * how many existing dispatches keep the earlier one, so the user can see which
+ * work is unaffected by what they just saved.
+ */
+function modelChangeText(record: ProjectRecord, change: string): string {
+  const revision = record.modelConfigRevision ?? 0;
+  const keeping = record.milestones.filter((milestone) => milestone.dispatch).length;
+  const held = keeping === 1 ? '1 existing dispatch keeps' : `${keeping} existing dispatches keep`;
+  return `${change}. New dispatches use revision ${revision}. `
+    + (keeping === 0 ? 'No existing dispatch is affected.' : `${held} revision ${Math.max(0, revision - 1)}.`);
+}
+
 export interface ProjectsActionsDeps {
   host: ArchitectHost;
   store: RecordStore;
@@ -41,6 +56,14 @@ export interface ProjectsActionsDeps {
 }
 
 export type ProjectsOutcome = { ok: true; text: string; projectId?: string } | { ok: false; text: string };
+
+/** One tier default a caller asks to save. */
+export interface ModelDefaultInput {
+  tier: ModelTier;
+  /** `provider/modelId`. */
+  model: string;
+  thinking?: ThinkingLevel;
+}
 
 export interface ProjectsActions {
   preview(projectId: string): Promise<ProjectsOutcome & { url?: string }>;
@@ -56,6 +79,10 @@ export interface ProjectsActions {
   raiseCap(projectId: string, capUsd: number): Promise<ProjectsOutcome>;
   setExecutionMode(projectId: string, mode: ExecutionMode): Promise<ProjectsOutcome>;
   setAutonomy(projectId: string, autonomy: AutonomySetting): Promise<ProjectsOutcome>;
+  /** Saves one project tier override. An unavailable model or thinking level is refused. */
+  setModelDefault(projectId: string, input: ModelDefaultInput): Promise<ProjectsOutcome>;
+  /** Clears one override so the tier inherits the global selection again. */
+  clearModelDefault(projectId: string, tier: ModelTier): Promise<ProjectsOutcome>;
   approve(projectId: string, target: 'charter' | 'milestone', milestoneId?: string): Promise<ProjectsOutcome>;
   answer(projectId: string, decisionId: string, optionId: string, note?: string): Promise<ProjectsOutcome>;
   directive(projectId: string, text: string): Promise<ProjectsOutcome>;
@@ -381,6 +408,30 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       });
       if (!result.ok) return refuse(result.error);
       return ok(`Autonomy set to ${autonomy}; it applies to the next milestone.`);
+    },
+
+    async setModelDefault(projectId, input) {
+      const [provider, modelId] = input.model.split('/');
+      if (!provider || !modelId) return refuse('Name the model as provider/modelId.');
+      const entry: SharedModelTierEntry = { provider, modelId };
+      if (input.thinking) entry.thinkingLevel = input.thinking;
+      // Checked against the real catalogue first: an unavailable model or an
+      // unsupported thinking level is refused, never silently replaced.
+      const checked = validateEntry(await host.listModels(), entry);
+      if (!checked.ok) return refuse(checked.error);
+      const result = await mutateRecord(store, projectId, (record) => ({
+        record: setProjectTierOverride(record, input.tier, entry),
+      }));
+      if (!result.ok) return refuse(result.error);
+      return ok(modelChangeText(result.record, `${input.tier} is now ${checked.value.model} with ${checked.value.thinking} thinking`));
+    },
+
+    async clearModelDefault(projectId, tier) {
+      const result = await mutateRecord(store, projectId, (record) => ({
+        record: clearProjectTierOverride(record, tier),
+      }));
+      if (!result.ok) return refuse(result.error);
+      return ok(modelChangeText(result.record, `${tier} inherits the global selection again`));
     },
 
     async approve(projectId, target, milestoneId) {

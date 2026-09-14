@@ -1,5 +1,6 @@
 import { ORCHESTRATOR_REGISTRY_GLOBAL_KEY, type OrchestratorBoardAction } from '@sero-ai/common';
 import { applyRunHealth } from '../run-health';
+import { effectiveTier } from '../../shared/model-config';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ProjectRecord } from '../../shared/record';
 import type { WakeEvent } from '../../shared/wake';
@@ -344,8 +345,69 @@ describe('project management', () => {
     expect((await journal.readSummary('proj_1', 'run-initial'))).toBeNull();
   });
 
-  it('keeps a milestone parked until every overlapping decision is answered', async () => {
-    const { store, actions } = await setup();
+  describe('project model defaults', () => {
+    const running = { kind: 'workflow' as const, id: 'loop_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null };
+
+    it('saves a tier override and says which dispatches keep the earlier revision', async () => {
+      const { store, actions } = await setup();
+      await store.write(buildingProject({ milestones: [milestone('m1', { status: 'running', dispatch: running })] }));
+
+      const outcome = await actions.setModelDefault('proj_1', { tier: 'MED', model: 'anthropic/claude-fable-5-1', thinking: 'high' });
+      expect(outcome.ok).toBe(true);
+      if (!outcome.ok) return;
+      expect(outcome.text).toContain('MED is now anthropic/claude-fable-5-1 with high thinking');
+      expect(outcome.text).toContain('New dispatches use revision 1');
+      expect(outcome.text).toContain('1 existing dispatch keeps revision 0');
+
+      const record = await store.read('proj_1');
+      expect(record?.modelOverrides?.MED).toEqual({ provider: 'anthropic', modelId: 'claude-fable-5-1', thinkingLevel: 'high' });
+      expect(record?.modelConfigRevision).toBe(1);
+      // The saved tier resolves as an override, and untouched tiers still inherit.
+      expect(record && effectiveTier(record, 'MED')).toMatchObject({ source: 'project-override' });
+      expect(record && effectiveTier(record, 'HIGH')).toBeUndefined();
+    });
+
+    it('clears an override back to inheritance and revises the configuration', async () => {
+      const { store, actions } = await setup();
+      await store.write(buildingProject());
+      await actions.setModelDefault('proj_1', { tier: 'LOW', model: 'anthropic/claude-fable-5-1', thinking: 'low' });
+
+      const cleared = await actions.clearModelDefault('proj_1', 'LOW');
+      expect(cleared.ok).toBe(true);
+      if (!cleared.ok) return;
+      expect(cleared.text).toContain('LOW inherits the global selection again');
+      expect(cleared.text).toContain('No existing dispatch is affected.');
+      const record = await store.read('proj_1');
+      expect(record?.modelOverrides?.LOW).toBeUndefined();
+      expect(record?.modelConfigRevision).toBe(2);
+    });
+
+    it('refuses an unavailable model and saves nothing', async () => {
+      const { store, actions } = await setup();
+      await store.write(buildingProject());
+      const outcome = await actions.setModelDefault('proj_1', { tier: 'MED', model: 'anthropic/retired-model' });
+      expect(outcome.ok).toBe(false);
+      if (outcome.ok) return;
+      expect(outcome.text).toContain('retired-model is unavailable');
+      const record = await store.read('proj_1');
+      expect(record?.modelOverrides).toBeUndefined();
+      expect(record?.modelConfigRevision).toBeUndefined();
+    });
+
+    it('refuses an unsupported thinking level and an unqualified model reference', async () => {
+      const { store, actions } = await setup();
+      await store.write(buildingProject());
+      const thinking = await actions.setModelDefault('proj_1', { tier: 'HIGH', model: 'anthropic/claude-fable-5-1', thinking: 'max' });
+      expect(thinking.ok).toBe(false);
+      if (!thinking.ok) expect(thinking.text).toContain('does not support max thinking');
+
+      const unqualified = await actions.setModelDefault('proj_1', { tier: 'HIGH', model: 'claude-fable-5-1' });
+      expect(unqualified.ok).toBe(false);
+      if (!unqualified.ok) expect(unqualified.text).toContain('provider/modelId');
+    });
+  });
+
+  it('keeps a milestone parked until every overlapping decision is answered', async () => {    const { store, actions } = await setup();
     const option = { id: 'keep', label: 'Keep', consequence: 'No change' };
     const decisions = ['d1', 'd2'].map((id) => ({
       id, question: id, options: [option], recommendation: 'keep', reason: 'test', dependsOn: ['m1'],
