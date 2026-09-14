@@ -66,12 +66,14 @@ describe('Workflow creation through the typed handle', () => {
 describe('Room creation through the typed handle', () => {
   let dir: string;
   let host: Awaited<ReturnType<typeof createRoomHarness>>['host'];
+  let store: Awaited<ReturnType<typeof createRoomHarness>>['store'];
   let app: ReturnType<typeof createRoomAppActions>;
 
   beforeEach(async () => {
     const harness = await createRoomHarness();
     dir = harness.dir;
     host = harness.host;
+    store = harness.store;
     app = createRoomAppActions({ host, store: harness.store, coordinator: harness.coordinator, workspaceId: 'ws-1' });
   });
 
@@ -141,6 +143,28 @@ describe('Room creation through the typed handle', () => {
     expect(second).toEqual(first);
     expect(host.modelCalls).toHaveLength(planningCalls);
     expect(host.persistentSessions.proposals).toHaveLength(grants);
+  });
+
+  it('retains project attribution from a typed dispatch handle', async () => {
+    host.modelResponses.push({ response: JSON.stringify(blueprint()) });
+    const project = { projectId: 'hollow-depths', runId: 'run-initial', configRevision: 7 };
+    const created = await createRoomDispatchHandle(app).create({ mandate: 'Ship items, combat and permadeath.', project });
+    expect(created.ok).toBe(true);
+    if (!created.ok) throw new Error(created.error);
+    const room = await store.readRoom(created.roomId);
+    expect(room?.definition.projectContext).toEqual(project);
+  });
+
+  it('refuses to re-attribute a saved Room request to another project', async () => {
+    host.modelResponses.push({ response: JSON.stringify(blueprint()) });
+    const request = { requestId: 'attributed-1', mandate: 'Ship items, combat and permadeath.', project: { projectId: 'hollow-depths', runId: 'run-initial' } };
+    const first = await createRoomDispatchHandle(app).create(request);
+    expect(first.ok).toBe(true);
+    const refused = await createRoomDispatchHandle(app).create({
+      ...request,
+      project: { projectId: 'ledger', runId: 'run-1' },
+    });
+    expect(refused).toMatchObject({ ok: false, error: expect.stringContaining('different project') });
   });
 
   it('returns the planner question instead of a Room when the planner needs input', async () => {

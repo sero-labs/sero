@@ -20,7 +20,10 @@ import type { OwnerServices } from './owner-actions';
 import type { ArchitectIndexEntry } from '../shared/types';
 import type { ArchitectHost } from './host';
 import type { OwnerSessions } from './owner-session';
-import { mutateRecord, type RecordStore } from './record-store';
+import type { RecordStore } from './record-store';
+import { mutateRecord } from './record-store';
+import type { RunJournal } from './run-journal';
+import { closeActiveRun, ensureInitialRun } from './run-lifecycle';
 import type { WakeScheduler } from './wake-scheduler';
 import type { DispatchWatch } from './dispatch-watch';
 
@@ -33,6 +36,8 @@ export interface ProjectsActionsDeps {
   scheduler: WakeScheduler;
   watch: DispatchWatch;
   services: OwnerServices;
+  /** Detailed run journals, removed with the project on the explicit deletion path. */
+  journal?: RunJournal;
 }
 
 export type ProjectsOutcome = { ok: true; text: string; projectId?: string } | { ok: false; text: string };
@@ -181,6 +186,13 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       });
       if (!advanced) return { ok: false, error: failure || `No project ${record.id}.` };
       record = advanced;
+      // The initial run covers setup through initial delivery, so it opens before
+      // discovery's first model call. Idempotent: a re-entered discovery keeps it.
+      if (deps.journal) {
+        await ensureInitialRun({ store, journal: deps.journal }, record.id, host.now()).catch((error: unknown) => {
+          host.log(`could not open the initial run for ${record.id}: ${error instanceof Error ? error.message : String(error)}`);
+        });
+      }
     }
     await watch.track(record);
     scheduler.request(record.id, { kind: 'quiet', at: host.now(), items: ['intake finished; discovery starts'] });
@@ -338,6 +350,13 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       if (!stopped.ok) return refuse(stopped.error);
       scheduler.forget(projectId);
       await sessions.dispose(projectId);
+      // A Stop is not completion: the run ends as stopped, and any work that is
+      // still in flight keeps its identity so its late usage stays attributable.
+      if (deps.journal) {
+        await closeActiveRun({ store, journal: deps.journal }, projectId, 'stopped', host.now()).catch((error: unknown) => {
+          host.log(`could not close the active run for ${projectId}: ${error instanceof Error ? error.message : String(error)}`);
+        });
+      }
       return ok(`Project ${projectId} stopped. Running work continues under its own limits; the owner session is closed.`);
     },
 
@@ -462,6 +481,13 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
         });
       }
       await store.remove(projectId);
+      // Detailed telemetry lives outside the record. Project deletion is the
+      // existing explicit lifecycle that removes it; nothing expires on its own.
+      if (deps.journal) {
+        await deps.journal.removeProject(projectId).catch((error: unknown) => {
+          host.log(`could not remove run journals for ${projectId}: ${error instanceof Error ? error.message : String(error)}`);
+        });
+      }
       return ok(`Project ${projectId} deleted. Its folder and workspace are kept.`);
     },
   };

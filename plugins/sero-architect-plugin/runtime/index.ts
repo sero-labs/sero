@@ -12,6 +12,8 @@ import { OwnerSessions } from './owner-session';
 import { createProjectsActions, type ProjectsActions } from './projects-actions';
 import { createRecordStore, type RecordStore } from './record-store';
 import { reconcileProjects } from './reconcile';
+import { createRunJournal } from './run-journal';
+import { openMaintenanceRun } from './run-lifecycle';
 import { registerArchitectRuntime, unregisterArchitectRuntime, type ArchitectRegistryEntry } from './registry';
 import { createServices } from './services';
 import { createTurnOutcomes } from './turn-outcomes';
@@ -53,6 +55,8 @@ export class ArchitectRuntime implements AppRuntime {
     if (!architectEnabled(this.env)) return;
     const homeDir = await this.host.homeDir();
     const store = createRecordStore({ homeDir, indexFile: this.host.indexFile, updateIndex: this.host.updateIndex });
+    // Detailed telemetry lives beside the records, under the same profile home.
+    const journal = createRunJournal({ homeDir });
     this.store = store;
     const outcomes = createTurnOutcomes();
     const sessions = new OwnerSessions({ host: this.host, store, outcomes });
@@ -64,12 +68,19 @@ export class ArchitectRuntime implements AppRuntime {
     });
     this.scheduler = scheduler;
     const wake = (projectId: string, event: WakeEvent) => scheduler.request(projectId, event);
-    const watch = createDispatchWatch({ host: this.host, store, wake });
+    const watch = createDispatchWatch({
+      host: this.host,
+      store,
+      wake,
+      openMaintenanceRun: async (projectId, objectiveId) => {
+        await openMaintenanceRun({ store, journal }, projectId, { objectiveId }, this.host.now(), `run-${objectiveId}`);
+      },
+    });
     this.watch = watch;
     const services = createServices({ host: this.host, store, wake });
     this.services = services;
     this.owner = createOwnerActions({ host: this.host, store, outcomes, services });
-    this.projects = createProjectsActions({ host: this.host, store, sessions, scheduler, watch, services });
+    this.projects = createProjectsActions({ host: this.host, store, sessions, scheduler, watch, services, journal });
     this.registered = { owner: this.owner, projects: this.projects };
     registerArchitectRuntime(this.registered);
 

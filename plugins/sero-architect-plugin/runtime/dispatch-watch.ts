@@ -60,6 +60,11 @@ export interface DispatchWatchDeps {
   host: Pick<ArchitectHost, 'onStateChange' | 'readJson' | 'now' | 'log' | 'listWorkspaces' | 'modelTiers'>;
   store: RecordStore;
   wake(projectId: string, wake: WakeEvent): void;
+  /**
+   * Opens the run for a maintenance objective, before its first model call.
+   * Absent in tests and in hosts without the run journal.
+   */
+  openMaintenanceRun?(projectId: string, objectiveId: string): Promise<void>;
 }
 
 export interface DispatchWatch {
@@ -89,6 +94,12 @@ interface Transition {
   item: string;
   /** The milestone moves to verifying with a reported claim. */
   reported: boolean;
+  /**
+   * The objective identity behind an `external-event` wake: the maintenance
+   * run's own start time. A repeat of the same run reuses it, so one objective
+   * never opens a second Architect run.
+   */
+  objectiveId?: string;
 }
 
 function loopTransition(milestone: Milestone, loop: LoopView, seen: Seen | undefined): Transition | null {
@@ -99,7 +110,7 @@ function loopTransition(milestone: Milestone, loop: LoopView, seen: Seen | undef
   // `lastRunAt`; the maintenance Workflow is one, and its completion never
   // moves its milestone.
   if ((scheduled || milestone.id === 'maintenance') && seen && loop.lastRunAt && loop.lastRunAt !== seen.lastRunAt) {
-    return { kind: 'external-event', item: `${label} ran on an event at ${loop.lastRunAt}`, reported: false };
+    return { kind: 'external-event', item: `${label} ran on an event at ${loop.lastRunAt}`, reported: false, objectiveId: `${loop.id}:${loop.lastRunAt}` };
   }
   if (milestone.id === 'maintenance') return null;
   if (loop.status === 'complete' && seen?.status !== 'complete' && milestone.status !== 'done') {
@@ -247,7 +258,16 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
       }
       return next === record ? null : settle(next, now);
     });
-    for (const transition of wakes) deps.wake(projectId, { kind: transition.kind, at: now, items: [transition.item] });
+    for (const transition of wakes) {
+      // An event that starts triage opens its objective's run before the owner's
+      // first model call, so the wake and everything it causes stay attributable.
+      if (transition.kind === 'external-event' && transition.objectiveId && deps.openMaintenanceRun) {
+        await deps.openMaintenanceRun(projectId, transition.objectiveId).catch((error: unknown) => {
+          host.log(`could not open the maintenance run for ${projectId}: ${error instanceof Error ? error.message : String(error)}`);
+        });
+      }
+      deps.wake(projectId, { kind: transition.kind, at: now, items: [transition.item] });
+    }
   };
 
   const enqueue = (work: () => Promise<void>): void => {

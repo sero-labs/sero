@@ -25,10 +25,11 @@ async function setup(record = buildingProject({ milestones: [running('workflow',
   }));
   host.jsonFiles[files.loops] = { version: 1, loops };
   host.jsonFiles[files.rooms] = { schemaVersion: 1, rooms };
-  const watch = createDispatchWatch({ host, store, wake: (_id, wake) => { wakes.push(wake); } });
+  const openMaintenanceRun = vi.fn(async (_projectId: string, _objectiveId: string) => undefined);
+  const watch = createDispatchWatch({ host, store, wake: (_id, wake) => { wakes.push(wake); }, openMaintenanceRun });
   await watch.track(record);
   const settle = () => watch.flush();
-  return { host, store, watch, wakes, settle };
+  return { host, store, watch, wakes, settle, openMaintenanceRun };
 }
 
 describe('dispatch watch', () => {
@@ -275,13 +276,16 @@ describe('dispatch watch', () => {
 
   it('wakes the owner with an external event when the maintenance Workflow runs again', async () => {
     const maintenance = milestone('maintenance', { status: 'running', dispatch: { kind: 'workflow', id: 'loop_m', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null } });
-    const { host, store, wakes, settle } = await setup(buildingProject({ phase: 'maintain', milestones: [maintenance] }));
+    const { host, store, wakes, settle, openMaintenanceRun } = await setup(buildingProject({ phase: 'maintain', milestones: [maintenance] }));
     host.emitState(files.loops, { version: 1, loops: [{ id: 'loop_m', title: 'maintenance', status: 'active', updatedAt: T0, lastRunAt: '2026-09-08T08:00:00.000Z' }] });
     await settle();
     host.emitState(files.loops, { version: 1, loops: [{ id: 'loop_m', title: 'maintenance', status: 'active', updatedAt: T0, lastRunAt: '2026-09-09T08:00:00.000Z' }] });
     await settle();
     expect(wakes.map((w) => w.kind)).toEqual(['external-event']);
     expect((await store.read('proj_1'))?.milestones[0]?.status).toBe('running');
+    // The objective's run opens before the owner's first model call, keyed by
+    // the maintenance run that fired, so a repeat never opens a second run.
+    expect(openMaintenanceRun).toHaveBeenCalledWith('proj_1', 'loop_m:2026-09-09T08:00:00.000Z');
   });
 
   it('takes the limited overlay when dispatched usage reaches the cap, without touching the phase', async () => {

@@ -72,6 +72,42 @@ export interface PendingMilestoneDispatch {
   startedAt: string;
 }
 
+export type ProjectRunKind = 'initial' | 'maintenance';
+
+/**
+ * How a run ended. Only `delivered` and `no-work-needed` are outcomes the
+ * runtime has evidence for; the others stay visibly unfinished.
+ */
+export type ProjectRunOutcome =
+  | 'in-progress'
+  | 'delivered'
+  | 'no-work-needed'
+  | 'stopped'
+  | 'blocked'
+  | 'incomplete';
+
+/**
+ * One objective's run: the initial delivery, or a later maintenance objective.
+ * Detailed spans live in the profile-local run journal, never here and never in
+ * the index, so the hot project list stays small.
+ */
+export interface ProjectRun {
+  id: string;
+  kind: ProjectRunKind;
+  /** The maintenance objective or event this run answers. Null for the initial run. */
+  objectiveId: string | null;
+  startedAt: string;
+  /** Null while the run is open. Retries, pause/resume and restart keep the identity. */
+  endedAt: string | null;
+  outcome: ProjectRunOutcome;
+  /** Another run that belongs together with this one, or that one objective split into. */
+  linkedRunIds?: string[];
+  /** Shared activities charged once and linked from this run. Never a guessed share. */
+  sharedActivityIds?: string[];
+  /** Runs whose coalesced cause this objective reused instead of opening a new one. */
+  coalescedFrom?: string[];
+}
+
 export interface Milestone {
   id: string;
   title: string;
@@ -216,6 +252,12 @@ export interface ProjectRecord {
   executionMode?: ExecutionMode;
   /** Admin selections shown before work approval; refreshed by the owner runtime. */
   modelTiers?: SharedModelTierSettings;
+  /** Project tier overrides. An absent tier inherits the global selection. Absent on older projects. */
+  modelOverrides?: SharedModelTierSettings;
+  /** Increments on each saved override, so an operation can record the revision it resolved. */
+  modelConfigRevision?: number;
+  /** Run identity per objective. Absent on older projects, which stay readable. */
+  runs?: ProjectRun[];
   id: string;
   name: string;
   /** The user's idea, verbatim, never edited. */

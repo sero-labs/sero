@@ -267,6 +267,12 @@ export interface RoomBrief {
 export interface RoomDefinition {
   /** Absent on Rooms created before caller recovery identities were supported. */
   creationRequestId?: string;
+  /**
+   * Project/run attribution retained from creation (spec orchestrator-dispatch-handle).
+   * Attribution only: it never widens access, and reuse refuses to re-attribute
+   * a saved request to a different project.
+   */
+  projectContext?: import('@sero-ai/common').OrchestratorProjectContext;
   id: string;
   title: string;
   /** The user's original words. Kept verbatim for the audit trail. */

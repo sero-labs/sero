@@ -1,3 +1,4 @@
+import { checkOrchestratorProjectContext, sameOrchestratorProjectAttribution } from '@sero-ai/common';
 import type { CreateLoopOptions, Loop, OrchestratorActionResult } from '../shared/types';
 import type { OrchestratorHost } from './host';
 import { buildDraftLoop } from './loop-factory';
@@ -21,6 +22,11 @@ export function createLoopPlanner(host: OrchestratorHost, onPlanned: (loop: Loop
       return { ...state, loops: [...state.loops, draft] };
     });
     if (draft.prompt !== prompt) return { ok: false, loopId: draft.id, error: 'The creation request already belongs to a different prompt.' };
+    if (!sameOrchestratorProjectAttribution(draft.project, options?.project)) {
+      return { ok: false, loopId: draft.id, error: 'The creation request already belongs to a different project.' };
+    }
+    const ownership = checkOrchestratorProjectContext(options?.project, options?.project ? { projectId: options.project.projectId } : null);
+    if (!ownership.ok) return { ok: false, loopId: draft.id, error: ownership.error };
     if (draft.creation?.complete) return { ok: true, loop: draft, loopId: draft.id };
     // One initial attempt and one restart recovery. The counter survives restarts.
     if ((draft.creation?.attempts ?? 0) >= 2) {

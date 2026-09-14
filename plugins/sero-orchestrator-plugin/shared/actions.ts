@@ -3,7 +3,7 @@
  * 500-LOC limit; re-exported from types.ts so existing imports are unaffected.
  */
 
-import type { ContextOverrides, OrchestratorBoardAction } from '@sero-ai/common';
+import type { ContextOverrides, OrchestratorBoardAction, OrchestratorProjectContext, OrchestratorTriggerIntent } from '@sero-ai/common';
 import type { CatalogRepoContents, CatalogRepoRef } from './catalog-types';
 import type { OrchestratorEvent } from './event-types';
 import type {
@@ -24,9 +24,13 @@ export interface CreateLoopOptions {
   disableTokenLimit?: boolean;
   activate?: boolean;
   triggers?: LoopTriggerSuggestion[];
+  /** How the caller expressed recurrence. Absent means the supplied-trigger or extractor path. */
+  triggerIntent?: OrchestratorTriggerIntent;
   limits?: Partial<LoopLimits>;
   workspace?: Partial<LoopWorkspaceSettings>;
   delivery?: LoopDeliverySettings;
+  /** Project/run attribution and the tier defaults resolved before planning. Retention only. */
+  project?: OrchestratorProjectContext;
 }
 
 export type OrchestratorAction =

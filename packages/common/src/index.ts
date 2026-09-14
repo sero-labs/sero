@@ -343,6 +343,9 @@ export {
   getOrchestratorRoomRegistry,
   requestOrchestratorAction,
   createOrchestratorRoom,
+  resolveOrchestratorTriggerIntent,
+  checkOrchestratorProjectContext,
+  sameOrchestratorProjectAttribution,
 } from './orchestrator-contract';
 export type {
   OrchestratorLoopStatus,
@@ -379,6 +382,11 @@ export type {
   OrchestratorRoomCreateResult,
   OrchestratorRoomHandle,
   OrchestratorRoomRegistryEntryView,
+  OrchestratorProjectContext,
+  OrchestratorProjectContextCheck,
+  OrchestratorProjectModelSnapshot,
+  OrchestratorProjectTierSnapshot,
+  OrchestratorTriggerIntent,
 } from './orchestrator-contract';
 
 export type {

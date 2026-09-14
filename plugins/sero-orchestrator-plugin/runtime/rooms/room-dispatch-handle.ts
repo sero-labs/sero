@@ -14,7 +14,7 @@ import type { RoomAppActions } from './room-app-actions';
 export function createRoomDispatchHandle(app: Pick<RoomAppActions, 'prepare' | 'start' | 'inspect'>): OrchestratorRoomHandle {
   const pending = new Map<string, Promise<OrchestratorRoomCreateResult>>();
   const create = async (request: OrchestratorRoomCreateRequest): Promise<OrchestratorRoomCreateResult> => {
-      const planned = await app.prepare({ problem: request.mandate, limits: request.limits, requestId: request.requestId });
+      const planned = await app.prepare({ problem: request.mandate, limits: request.limits, requestId: request.requestId, project: request.project });
       if (!planned.ok) {
         if (planned.needsInput) {
           const asked = planned.questions.map((question) => question.prompt).join(' ');

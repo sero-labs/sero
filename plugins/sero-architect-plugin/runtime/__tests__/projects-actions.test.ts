@@ -5,6 +5,7 @@ import type { ProjectRecord } from '../../shared/record';
 import type { WakeEvent } from '../../shared/wake';
 import { OwnerSessions } from '../owner-session';
 import { createProjectsActions } from '../projects-actions';
+import { createRunJournal } from '../run-journal';
 import { createTurnOutcomes } from '../turn-outcomes';
 import { createWakeGate } from '../wake-gate';
 import { createWakeScheduler, type WakeScheduler } from '../wake-scheduler';
@@ -15,6 +16,7 @@ afterEach(cleanupHosts);
 async function setup() {
   const host = await fakeHost();
   const store = await storeFor(host);
+  const journal = createRunJournal({ homeDir: await host.homeDir() });
   const sessions = new OwnerSessions({ host, store, outcomes: createTurnOutcomes() });
   const delivered: { projectId: string; wake: WakeEvent }[] = [];
   const gate = createWakeGate();
@@ -29,8 +31,8 @@ async function setup() {
     evidenceIsStale: vi.fn(async () => false),
     maintenance: vi.fn(async (record: ProjectRecord) => record),
   };
-  const actions = createProjectsActions({ host, store, sessions, scheduler, watch, services });
-  return { host, store, sessions, scheduler, delivered, watch, actions, services };
+  const actions = createProjectsActions({ host, store, sessions, scheduler, watch, services, journal });
+  return { host, store, sessions, scheduler, delivered, watch, actions, services, journal };
 }
 
 describe('project management', () => {
@@ -322,9 +324,11 @@ describe('project management', () => {
   });
 
   it('stops by blocking, closes the session, and delete removes the grant and the record', async () => {
-    const { host, store, actions, sessions } = await setup();
+    const { host, store, actions, sessions, journal } = await setup();
     await store.write(buildingProject());
     await sessions.ensureOpen(buildingProject());
+    // Detailed run data lives outside the record, under the profile's Architect home.
+    await journal.append('proj_1', 'run-initial', { kind: 'observation', at: T0, key: 'span-1' });
     expect((await actions.stop('proj_1')).ok).toBe(true);
     expect((await store.read('proj_1'))?.blockedReason).toBe('stopped by the user');
     expect(host.sessions.disposed).toEqual(['h1']);
@@ -334,6 +338,9 @@ describe('project management', () => {
     expect(await store.read('proj_1')).toBeNull();
     expect(host.sessions.deletedGrants).toEqual(['grant-1']);
     expect(host.index()?.projects).toEqual([]);
+    // The explicit deletion path takes the run journal with it.
+    expect((await journal.readPage('proj_1', 'run-initial')).records).toEqual([]);
+    expect((await journal.readSummary('proj_1', 'run-initial'))).toBeNull();
   });
 
   it('keeps a milestone parked until every overlapping decision is answered', async () => {
