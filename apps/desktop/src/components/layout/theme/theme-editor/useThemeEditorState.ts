@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppStore } from '@/stores/app';
 import { useThemeStore } from '@/stores/theme';
+import { validateThemePreset } from '@/lib/theme-engine';
 import type {
   RadiusTokens,
   SpacingTokens,
@@ -38,6 +39,7 @@ export function useThemeEditorState({
   const pendingAutoSaveDraftRef = useRef<ThemeEditorDraft | null>(null);
   const autoSaveInFlightRef = useRef<Promise<void> | null>(null);
   const previousOpenRef = useRef<boolean | null>(null);
+  const loadSessionRef = useRef(0);
 
   const autoSave = useAppStore((state) => state.themeEditorAutoSave);
   const setAutoSave = useAppStore((state) => state.setThemeEditorAutoSave);
@@ -52,13 +54,28 @@ export function useThemeEditorState({
     const previousOpen = previousOpenRef.current;
 
     if (open && previousOpen !== true) {
-      const nextDraft = buildDraftFromPreset(activePreset, editPresetId);
-      draftRef.current = nextDraft;
-      setDraft(nextDraft);
+      const session = ++loadSessionRef.current;
+      const initialize = (source: ThemePreset | null) => {
+        if (loadSessionRef.current !== session) return;
+        const nextDraft = buildDraftFromPreset(source, editPresetId);
+        draftRef.current = nextDraft;
+        setDraft(nextDraft);
+      };
+      if (editPresetId && editPresetId !== '__new__' && editPresetId !== activePreset?.id) {
+        void window.sero.themes.load(editPresetId).then((raw) => {
+          const preset = validateThemePreset(raw);
+          if (preset) initialize(preset);
+        }).catch((err) => {
+          console.warn('[theme-editor] Failed to load preset:', err);
+        });
+      } else {
+        initialize(activePreset);
+      }
       setTab('colors');
     }
 
     if (!open && previousOpen === true) {
+      loadSessionRef.current++;
       draftRef.current = null;
       setDraft(null);
     }
