@@ -29,6 +29,7 @@ const ok = async (): Promise<ActionOutcome> => ({ ok: true, text: 'ok' });
 const actions: ArchitectActions = {
   create: ok, history: async () => ({ ok: true, text: 'ok', entries: [] }), pause: ok, resume: ok, retry: ok, stop: ok, remove: ok, raiseCap: ok, setExecutionMode: ok, setAutonomy: ok,
   approveCharter: ok, approveMilestone: ok, answer: ok, directive: ok,
+  setModelDefault: ok, clearModelDefault: ok,
 };
 
 const params = new URLSearchParams(window.location.search);
@@ -46,7 +47,7 @@ function Preview() {
         <div className="preview-frame" style={{ width }}>
           <div className="ar-app">
             {record ? (
-              <ProjectPage record={record} actions={actions} narrow={width < 1100} disclosures={disclosures} onBack={() => undefined} confirm={() => true} />
+              <ProjectPage record={record} actions={actions} narrow={width < 1100} disclosures={disclosures} onBack={() => undefined} onOpenModels={() => undefined} confirm={() => true} />
             ) : (
               <>
                 <TopBar record={null} controls={null} onBack={() => undefined} onNewProject={() => undefined} />

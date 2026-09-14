@@ -6,6 +6,7 @@
 import { useCallback, useMemo } from 'react';
 import { useAppTools } from '@sero-ai/app-runtime';
 import type { AppToolResult } from '@sero-ai/app-runtime';
+import type { ModelTier, ThinkingLevel } from '@sero-ai/common';
 
 import type { AutonomySetting, ExecutionMode } from '../../shared/record';
 
@@ -66,6 +67,10 @@ export interface ArchitectActions {
   raiseCap(projectId: string, capUsd: number): Promise<ActionOutcome>;
   setExecutionMode(projectId: string, mode: ExecutionMode): Promise<ActionOutcome>;
   setAutonomy(projectId: string, autonomy: AutonomySetting): Promise<ActionOutcome>;
+  /** Save one project tier default. A model the catalogue does not offer is refused. */
+  setModelDefault(projectId: string, tier: ModelTier, model: string, thinking?: ThinkingLevel): Promise<ActionOutcome>;
+  /** Clear one override so the tier inherits the global selection again. */
+  clearModelDefault(projectId: string, tier: ModelTier): Promise<ActionOutcome>;
   approveCharter(projectId: string): Promise<ActionOutcome>;
   approveMilestone(projectId: string, milestoneId: string): Promise<ActionOutcome>;
   answer(projectId: string, decisionId: string, optionId: string, note: string): Promise<ActionOutcome>;
@@ -106,6 +111,8 @@ export function useArchitectActions(): ArchitectActions {
       raiseCap: (projectId, capUsd) => call({ action: 'raise_cap', projectId, capUsd }),
       setExecutionMode: (projectId, executionMode) => call({ action: 'set_execution_mode', projectId, executionMode }),
       setAutonomy: (projectId, autonomy) => call({ action: 'set_autonomy', projectId, autonomy }),
+      setModelDefault: (projectId, tier, model, thinking) => call({ action: 'set_model_tier', projectId, tier, model, thinking }),
+      clearModelDefault: (projectId, tier) => call({ action: 'clear_model_tier', projectId, tier }),
       approveCharter: (projectId) => call({ action: 'approve', projectId, target: 'charter' }),
       approveMilestone: (projectId, milestoneId) => call({ action: 'approve', projectId, target: 'milestone', milestoneId }),
       answer: (projectId, decisionId, optionId, note) =>

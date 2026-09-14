@@ -25,11 +25,13 @@ export interface ProjectPageProps {
   narrow: boolean;
   disclosures: DisclosureState;
   onBack(): void;
+  /** Opens the project model defaults view. */
+  onOpenModels(): void;
   /** Called before a destructive control runs; returns false to cancel. */
   confirm(message: string): boolean;
 }
 
-function useProjectPageControls(record: ProjectRecord, actions: ArchitectActions, onBack: () => void, confirm: (message: string) => boolean) {
+function useProjectPageControls(record: ProjectRecord, actions: ArchitectActions, onBack: () => void, confirm: (message: string) => boolean, onOpenModels: () => void) {
   const id = record.id;
   const [notice, setNotice] = useState<string | null>(null);
   const [capOpen, setCapOpen] = useState(false);
@@ -62,9 +64,10 @@ function useProjectPageControls(record: ProjectRecord, actions: ArchitectActions
         setHistoryLoading(false);
       });
     },
+    openModels: onOpenModels,
     // The watcher never pushes null for an unlinked file, so the page leaves on its own.
     remove: () => { if (confirm(`Delete ${record.name}? The record and its owner session are removed. Files in ${record.folder} stay.`)) void report(actions.remove(id), onBack); },
-  }), [actions, confirm, id, onBack, record.folder, record.name, report]);
+  }), [actions, confirm, id, onBack, onOpenModels, record.folder, record.name, report]);
 
   const needsActions = useMemo(() => ({
     answer: (decisionId: string, optionId: string, note: string) => actions.answer(id, decisionId, optionId, note),
@@ -151,9 +154,9 @@ function ProjectMainColumn({ record, actions, needsActions, permissionPending, o
   );
 }
 
-export function ProjectPage({ record, actions, narrow, disclosures, onBack, confirm, permissionPending = false }: ProjectPageProps) {
+export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOpenModels, confirm, permissionPending = false }: ProjectPageProps) {
   const id = record.id;
-  const page = useProjectPageControls(record, actions, onBack, confirm);
+  const page = useProjectPageControls(record, actions, onBack, confirm, onOpenModels);
 
   return (
     <>
