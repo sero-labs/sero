@@ -3,7 +3,7 @@ import { Alert, AlertDescription, AlertTitle } from '@sero-ai/ui/components/ui/a
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@sero-ai/ui/components/ui/card';
 import { Label } from '@sero-ai/ui/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@sero-ai/ui/components/ui/native-select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui/components/ui/select';
 import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { AlertCircle, LifeBuoy, Play, RefreshCw, Wrench, X } from 'lucide-react';
@@ -64,19 +64,22 @@ export function McpServerToolRunnerPanel({
           <>
             <div className="space-y-2">
               <Label htmlFor={`mcp-tool-select-${server.serverName}`}>MCP tool</Label>
-              <NativeSelect
-                id={`mcp-tool-select-${server.serverName}`}
+              <Select
                 value={toolRunner.selectedToolName}
-                onChange={(event) => void toolRunner.selectTool(event.target.value)}
+                onValueChange={(value) => void toolRunner.selectTool(value)}
                 disabled={toolRunner.loadingInventory || toolRunner.loadingDetails || toolRunner.running}
-                className="w-full"
               >
-                {toolRunner.tools.map((tool) => (
-                  <NativeSelectOption key={tool.name} value={tool.name}>
-                    {tool.name}{tool.uiResourceUri ? ' · UI' : ''}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
+                <SelectTrigger id={`mcp-tool-select-${server.serverName}`} className="w-full">
+                  <SelectValue placeholder="Select a tool" />
+                </SelectTrigger>
+                <SelectContent>
+                  {toolRunner.tools.map((tool) => (
+                    <SelectItem key={tool.name} value={tool.name}>
+                      {tool.name}{tool.uiResourceUri ? ' · UI' : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {selectedTool?.description && <p className="text-base text-muted-foreground">{selectedTool.description}</p>}
             </div>
 

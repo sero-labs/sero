@@ -1,3 +1,6 @@
+/**
+ * IMPORTANT - Prefer using the regular Select `./select.tsx` component over this NativeSelect, unless there's a good reason.
+ */
 import * as React from "react"
 import { ChevronDownIcon } from "lucide-react"
 

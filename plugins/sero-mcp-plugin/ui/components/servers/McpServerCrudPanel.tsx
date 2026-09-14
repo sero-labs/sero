@@ -5,7 +5,8 @@ import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@sero-ai/ui/components/ui/card';
 import { Input } from '@sero-ai/ui/components/ui/input';
-import { NativeSelect, NativeSelectOption } from '@sero-ai/ui/components/ui/native-select';
+import { Label } from '@sero-ai/ui/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui/components/ui/select';
 import { Skeleton } from '@sero-ai/ui/components/ui/skeleton';
 import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 import { cn } from '@sero-ai/ui/lib/utils';
@@ -96,16 +97,19 @@ export function McpServerCrudPanel({
             <CardDescription>Add, connect, and inspect MCP servers. Raw JSON stays available for advanced edits.</CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            <NativeSelect
-              aria-label="Filter servers by source"
+            <Select
               value={sourceFilter}
-              onChange={(event) => setSourceFilter(event.target.value as typeof sourceFilter)}
-              className="h-8 w-auto text-sm"
+              onValueChange={(value) => setSourceFilter(value as typeof sourceFilter)}
             >
-              <NativeSelectOption value="all">All sources</NativeSelectOption>
-              <NativeSelectOption value="user">User config</NativeSelectOption>
-              <NativeSelectOption value="agent-plugin">Agent Plugins</NativeSelectOption>
-            </NativeSelect>
+              <SelectTrigger size="sm" aria-label="Filter servers by source" className="w-auto text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All sources</SelectItem>
+                <SelectItem value="user">User config</SelectItem>
+                <SelectItem value="agent-plugin">Agent Plugins</SelectItem>
+              </SelectContent>
+            </Select>
             <Button type="button" size="sm" onClick={() => beginDraft(createEmptyServerEditorInput())}>
               <Plus className="mr-2 size-4" />
               Add server
@@ -167,56 +171,72 @@ export function McpServerCrudPanel({
             )}
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <Field label="Server name">
-                <Input value={draft.serverName} onChange={(event) => setDraft({ ...draft, serverName: event.target.value })} placeholder="github" />
+              <Field label="Server name" htmlFor="mcp-server-name">
+                <Input id="mcp-server-name" value={draft.serverName} onChange={(event) => setDraft({ ...draft, serverName: event.target.value })} placeholder="github" />
               </Field>
-              <Field label="Transport">
-                <NativeSelect value={draft.transport} onChange={(event) => setDraft({ ...draft, transport: event.target.value as McpServerEditorInput['transport'] })} className="w-full">
-                  <NativeSelectOption value="stdio">stdio</NativeSelectOption>
-                  <NativeSelectOption value="http">http / sse</NativeSelectOption>
-                </NativeSelect>
+              <Field label="Transport" htmlFor="mcp-server-transport">
+                <Select value={draft.transport} onValueChange={(value) => setDraft({ ...draft, transport: value as McpServerEditorInput['transport'] })}>
+                  <SelectTrigger id="mcp-server-transport" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="stdio">stdio</SelectItem>
+                    <SelectItem value="http">http / sse</SelectItem>
+                  </SelectContent>
+                </Select>
               </Field>
-              <Field label="Lifecycle">
-                <NativeSelect value={draft.lifecycle} onChange={(event) => setDraft({ ...draft, lifecycle: event.target.value as McpServerEditorInput['lifecycle'] })} className="w-full">
-                  <NativeSelectOption value="lazy">lazy</NativeSelectOption>
-                  <NativeSelectOption value="eager">eager</NativeSelectOption>
-                  <NativeSelectOption value="keep-alive">keep-alive</NativeSelectOption>
-                </NativeSelect>
+              <Field label="Lifecycle" htmlFor="mcp-server-lifecycle">
+                <Select value={draft.lifecycle} onValueChange={(value) => setDraft({ ...draft, lifecycle: value as McpServerEditorInput['lifecycle'] })}>
+                  <SelectTrigger id="mcp-server-lifecycle" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="lazy">lazy</SelectItem>
+                    <SelectItem value="eager">eager</SelectItem>
+                    <SelectItem value="keep-alive">keep-alive</SelectItem>
+                  </SelectContent>
+                </Select>
               </Field>
-              <Field label="Auth">
-                <NativeSelect value={draft.authMode} onChange={(event) => setDraft({ ...draft, authMode: event.target.value as McpServerEditorInput['authMode'] })} className="w-full">
-                  <NativeSelectOption value="none">none</NativeSelectOption>
-                  <NativeSelectOption value="oauth">oauth</NativeSelectOption>
-                  <NativeSelectOption value="bearer">bearer</NativeSelectOption>
-                </NativeSelect>
+              <Field label="Auth" htmlFor="mcp-server-auth">
+                <Select value={draft.authMode} onValueChange={(value) => setDraft({ ...draft, authMode: value as McpServerEditorInput['authMode'] })}>
+                  <SelectTrigger id="mcp-server-auth" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">none</SelectItem>
+                    <SelectItem value="oauth">oauth</SelectItem>
+                    <SelectItem value="bearer">bearer</SelectItem>
+                  </SelectContent>
+                </Select>
               </Field>
               {draft.transport === 'stdio' ? (
                 <>
-                  <Field label="Command">
-                    <Input value={draft.command} onChange={(event) => setDraft({ ...draft, command: event.target.value })} placeholder="npx" />
+                  <Field label="Command" htmlFor="mcp-server-command">
+                    <Input id="mcp-server-command" value={draft.command} onChange={(event) => setDraft({ ...draft, command: event.target.value })} placeholder="npx" />
                   </Field>
-                  <Field label="Working directory">
-                    <Input value={draft.cwd} onChange={(event) => setDraft({ ...draft, cwd: event.target.value })} placeholder="/path/to/project" />
+                  <Field label="Working directory" htmlFor="mcp-server-cwd">
+                    <Input id="mcp-server-cwd" value={draft.cwd} onChange={(event) => setDraft({ ...draft, cwd: event.target.value })} placeholder="/path/to/project" />
                   </Field>
                 </>
               ) : (
                 <>
-                  <Field label="Server URL" className="md:col-span-2">
-                    <Input value={draft.url} onChange={(event) => setDraft({ ...draft, url: event.target.value })} placeholder="https://example.com/mcp" />
+                  <Field label="Server URL" htmlFor="mcp-server-url" className="md:col-span-2">
+                    <Input id="mcp-server-url" value={draft.url} onChange={(event) => setDraft({ ...draft, url: event.target.value })} placeholder="https://example.com/mcp" />
                   </Field>
-                  <Field label="Working directory (optional)">
-                    <Input value={draft.cwd} onChange={(event) => setDraft({ ...draft, cwd: event.target.value })} placeholder="/path/to/project" />
+                  <Field label="Working directory (optional)" htmlFor="mcp-server-cwd">
+                    <Input id="mcp-server-cwd" value={draft.cwd} onChange={(event) => setDraft({ ...draft, cwd: event.target.value })} placeholder="/path/to/project" />
                   </Field>
                 </>
               )}
               {draft.authMode === 'bearer' && (
-                <Field label="Bearer token env var">
-                  <Input value={draft.bearerTokenEnv} onChange={(event) => setDraft({ ...draft, bearerTokenEnv: event.target.value })} placeholder="GITHUB_TOKEN" />
+                <Field label="Bearer token env var" htmlFor="mcp-server-bearer">
+                  <Input id="mcp-server-bearer" value={draft.bearerTokenEnv} onChange={(event) => setDraft({ ...draft, bearerTokenEnv: event.target.value })} placeholder="GITHUB_TOKEN" />
                 </Field>
               )}
               {draft.transport === 'stdio' && (
-                <Field label="Args (one per line)" className="md:col-span-2 xl:col-span-3">
+                <Field label="Args (one per line)" htmlFor="mcp-server-args" className="md:col-span-2 xl:col-span-3">
                   <Textarea
+                    id="mcp-server-args"
                     value={draft.argsText}
                     onChange={(event) => setDraft({ ...draft, argsText: event.target.value })}
                     className="min-h-28 font-mono text-xs"
@@ -369,12 +389,12 @@ function EmptyServerSkeleton() {
   );
 }
 
-function Field({ label, className, children }: { label: string; className?: string; children: ReactNode }) {
+function Field({ label, htmlFor, className, children }: { label: string; htmlFor: string; className?: string; children: ReactNode }) {
   return (
-    <label className={cn('space-y-2 text-base text-muted-foreground', className)}>
-      <span className="block font-medium text-foreground">{label}</span>
+    <div className={cn('space-y-2 text-base text-muted-foreground', className)}>
+      <Label htmlFor={htmlFor} className="block font-medium text-foreground">{label}</Label>
       {children}
-    </label>
+    </div>
   );
 }
 
