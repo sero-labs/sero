@@ -169,7 +169,7 @@ export function createFakePersistentSessions(sessionRoot = '/sessions/rooms'): F
       turns += 1;
       const turnId = `turn-${turns}`;
       openTurnIds.set(session.subject, turnId);
-      emit(session.subject, { type: 'turn_start', turnId });
+      emit(session.subject, { type: 'turn_start', turnId, at: new Date().toISOString() });
       emit(session.subject, { type: 'text', text: `reply ${turnId}` });
       if (api.endBeforePromptResolves) api.endTurn(session.subject);
       // The normal path ends the turn after `prompt` resolves, so the early-end
@@ -243,7 +243,7 @@ export function createFakePersistentSessions(sessionRoot = '/sessions/rooms'): F
           costUsd: Number((session.usage.costUsd + COST_PER_TURN).toFixed(4)),
         };
       }
-      emit(subject, { type: 'turn_end', turnId, status });
+      emit(subject, { type: 'turn_end', turnId, status, at: new Date().toISOString() });
     },
 
     openTurns: () => [...openTurnIds.keys()],

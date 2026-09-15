@@ -138,14 +138,30 @@ export interface PersistentSessionUsage {
   turns: number;
 }
 
-/** One streamed event from a live session. Transient — never persisted by the host. */
+/**
+ * One streamed event from a live session. Transient — never persisted by the host.
+ *
+ * `at` is the host clock when the host observed the event. A reader derives
+ * active intervals from consecutive events, so a long gap between two events is
+ * a gap, never active work.
+ *
+ * Reasoning text is deliberately absent from this union: a watcher may know what
+ * a session is doing, not what it is thinking.
+ */
 export type PersistentSessionEvent =
-  | { type: 'turn_start'; turnId: string }
+  | { type: 'turn_start'; turnId: string; at: string }
   | { type: 'text'; text: string }
-  | { type: 'tool_start'; toolName: string; summary: string }
-  | { type: 'tool_end'; toolName: string; ok: boolean }
-  | { type: 'turn_end'; turnId: string; status: 'completed' | 'aborted' | 'error'; errorMessage?: string }
-  | { type: 'compacted' };
+  /**
+   * One model request. The id is the SDK's message identity when it reports one,
+   * so two requests inside a single turn stay apart. The SDK exposes no
+   * first-token event, so none is reported.
+   */
+  | { type: 'request_start'; requestId: string | null; model?: string; at: string }
+  | { type: 'request_end'; requestId: string | null; outcome: 'ok' | 'failed'; at: string }
+  | { type: 'tool_start'; toolName: string; summary: string; callId: string | null; at: string }
+  | { type: 'tool_end'; toolName: string; ok: boolean; callId: string | null; at: string }
+  | { type: 'turn_end'; turnId: string; status: 'completed' | 'aborted' | 'error'; errorMessage?: string; at: string }
+  | { type: 'compacted'; at: string };
 
 /** One page of a session's history, read from the Pi session file on demand. */
 export interface PersistentSessionHistoryPage {

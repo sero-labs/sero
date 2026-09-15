@@ -61,7 +61,7 @@ describe('owner session', () => {
     const record = buildingProject();
     await store.write(record);
     host.sessions.prompt = async (handleId) => {
-      host.sessions.emit(handleId, { type: 'turn_end', turnId: 'rejected', status: 'error', errorMessage: 'Your credit balance is too low to access the Anthropic API.' });
+      host.sessions.emit(handleId, { type: 'turn_end', turnId: 'rejected', status: 'error', errorMessage: 'Your credit balance is too low to access the Anthropic API.', at: T0 });
       return { turnId: 'rejected' };
     };
     const sessions = new OwnerSessions({ host, store, outcomes: createTurnOutcomes() });
@@ -171,7 +171,7 @@ describe('owner session', () => {
     await store.write(record);
     host.sessions.onTurn = async (handleId) => {
       expect((await store.read(record.id))?.session.workingSince).toBe(T0);
-      host.sessions.emit(handleId, { type: 'compacted' });
+      host.sessions.emit(handleId, { type: 'compacted', at: T0 });
       outcomes.declare('proj_1', 'sleep');
     };
     const result = await sessions.runTurn(record, wake);
@@ -210,7 +210,7 @@ describe('owner session', () => {
     const sessions = new OwnerSessions({ host, store, outcomes });
     host.sessions.costUsd = 0.25;
     host.sessions.onTurn = async (handleId) => {
-      host.sessions.emit(handleId, { type: 'tool_start', toolName: 'read', summary: 'read file' });
+      host.sessions.emit(handleId, { type: 'tool_start', toolName: 'read', summary: 'read file', callId: 'call-1', at: T0 });
       await vi.waitFor(async () => expect((await store.read(record.id))?.budget.sources.owner).toBe(0.25));
       host.sessions.getSessionUsage = async () => { throw new Error('stats unavailable'); };
       outcomes.declare(record.id, 'sleep');

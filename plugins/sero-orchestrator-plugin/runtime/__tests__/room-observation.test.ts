@@ -61,10 +61,10 @@ describe('retention follows demand', () => {
     const observation = createRoomObservation(h.deps);
     observation.attach('room-a', 'm1', 'h1');
 
-    h.push('h1', { type: 'turn_start', turnId: 'turn-1' });
+    h.push('h1', { type: 'turn_start', turnId: 'turn-1' , at: '2026-09-14T09:12:00.000Z' });
     h.push('h1', { type: 'text', text: 'thinking out loud' });
-    h.push('h1', { type: 'tool_start', toolName: 'read', summary: 'src/parser.ts' });
-    h.push('h1', { type: 'turn_end', turnId: 'turn-1', status: 'completed' });
+    h.push('h1', { type: 'tool_start', toolName: 'read', summary: 'src/parser.ts', callId: null, at: '2026-09-14T09:12:00.000Z'  });
+    h.push('h1', { type: 'turn_end', turnId: 'turn-1', status: 'completed' , at: '2026-09-14T09:12:00.000Z' });
 
     const snapshot = observation.snapshotMember('m1');
     expect(snapshot?.text).toBe('');
@@ -83,9 +83,9 @@ describe('retention follows demand', () => {
     const seen: RoomLiveEvent[] = [];
     const unwatch = observation.watchMember('m1', (event) => seen.push(event));
 
-    h.push('h1', { type: 'turn_start', turnId: 'turn-1' });
+    h.push('h1', { type: 'turn_start', turnId: 'turn-1' , at: '2026-09-14T09:12:00.000Z' });
     h.push('h1', { type: 'text', text: 'reading the parser' });
-    h.push('h1', { type: 'tool_start', toolName: 'read', summary: 'src/parser.ts' });
+    h.push('h1', { type: 'tool_start', toolName: 'read', summary: 'src/parser.ts', callId: null, at: '2026-09-14T09:12:00.000Z'  });
 
     expect(observation.snapshotMember('m1')?.text).toBe('reading the parser');
     expect(observation.snapshotMember('m1')?.toolInFlight?.toolName).toBe('read');
@@ -105,7 +105,7 @@ describe('retention follows demand', () => {
     observation.attach('room-a', 'm1', 'h1');
     observation.watchMember('m1', () => undefined);
 
-    h.push('h1', { type: 'turn_start', turnId: 'turn-1' });
+    h.push('h1', { type: 'turn_start', turnId: 'turn-1' , at: '2026-09-14T09:12:00.000Z' });
     h.push('h1', { type: 'text', text: 'x'.repeat(MAX_LIVE_TEXT_CHARS) });
     h.push('h1', { type: 'text', text: 'LATEST' });
 
@@ -121,10 +121,10 @@ describe('retention follows demand', () => {
     observation.attach('room-a', 'm1', 'h1');
     observation.watchMember('m1', () => undefined);
 
-    h.push('h1', { type: 'turn_start', turnId: 'turn-1' });
+    h.push('h1', { type: 'turn_start', turnId: 'turn-1' , at: '2026-09-14T09:12:00.000Z' });
     h.push('h1', { type: 'text', text: 'first turn' });
-    h.push('h1', { type: 'turn_end', turnId: 'turn-1', status: 'completed' });
-    h.push('h1', { type: 'turn_start', turnId: 'turn-2' });
+    h.push('h1', { type: 'turn_end', turnId: 'turn-1', status: 'completed' , at: '2026-09-14T09:12:00.000Z' });
+    h.push('h1', { type: 'turn_start', turnId: 'turn-2' , at: '2026-09-14T09:12:00.000Z' });
 
     expect(observation.snapshotMember('m1')?.text).toBe('');
     expect(observation.snapshotMember('m1')?.turnId).toBe('turn-2');
@@ -136,9 +136,9 @@ describe('retention follows demand', () => {
     observation.attach('room-a', 'm1', 'h1');
     observation.watchMember('m1', () => undefined);
 
-    h.push('h1', { type: 'turn_start', turnId: 'turn-1' });
+    h.push('h1', { type: 'turn_start', turnId: 'turn-1' , at: '2026-09-14T09:12:00.000Z' });
     h.push('h1', { type: 'text', text: 'before compaction' });
-    h.push('h1', { type: 'compacted' });
+    h.push('h1', { type: 'compacted', at: '2026-09-14T09:12:00.000Z'  });
 
     expect(observation.snapshotMember('m1')?.text).toBe('');
     expect(h.lifecycle.map((event) => event.type)).toContain('compacted');
@@ -155,7 +155,7 @@ describe('watching a Room', () => {
     const seen: RoomLiveEvent[] = [];
     const unwatch = observation.watchRoom('room-a', (event) => seen.push(event));
 
-    h.push('h1', { type: 'turn_start', turnId: 'turn-1' });
+    h.push('h1', { type: 'turn_start', turnId: 'turn-1' , at: '2026-09-14T09:12:00.000Z' });
     h.push('h1', { type: 'text', text: 'mine' });
     h.push('h2', { type: 'text', text: 'not mine' });
 
