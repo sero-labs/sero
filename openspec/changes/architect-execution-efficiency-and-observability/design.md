@@ -146,6 +146,31 @@ The interactive prototype at `apps/styleguide/public/prototypes/architect-run-ob
 
 Two findings from the prototype review become production test obligations. First, a model or tool call must group under the activity it serves, not into one flat total. Second, the rendered window must follow the scroll position, and a selected activity must stay inside the rendered window after any change to expansion.
 
+### Delivered inspector against the prototype
+
+Task 8.4 compared the approved prototype with `Inspector.tsx` and
+`InspectorCharts.tsx`. The delivered inspector follows the prototype's shape:
+one full-width view inside Architect, entered from the project controls menu
+and left through one `Back to project` control, with a virtualised timeline
+window that follows the scroll position, and the same refusal to draw a zero for
+anything unmeasured. The destructive menu item reaches the same error token
+through the shared `destructive` variant. The delivered inspector deliberately
+departs from the prototype in these ways, and each is a recorded difference,
+not a defect. The lifetime scope is labelled `Whole project`, is listed first
+in the selector as the prototype's code also does, and shows the shared-activity
+journal in the same timeline and chart layout as a run, instead of the
+prototype's run table and one cumulative chart; a shared activity therefore
+appears on a time axis under its own timestamp rather than as a muted `linked,
+not attributed` row, and its cost is summed into one line of the cost tile.
+The time range has `Zoom in`, `Zoom out` and `Whole run` buttons only; the
+ruler, the pointer-drag window strip, keyboard pan and zoom, and `Zoom to
+selection` were not built. The selected-activity rail stays beside the timeline
+at every width. The second menu item reads `Run inspector…` rather than `Run
+metrics…`, and the page body carries no model-defaults summary or run-metrics
+entry point beside the menu. The token-composition chart was not built, the
+breakdown is two fixed lists rather than one toggled chart, and the timeline is
+a flat record list rather than a span tree.
+
 ## Outstanding evaluation before the efficiency guidance changes
 
 Task 5.4 requires a bounded baseline, measured with the new metrics, for one
@@ -245,10 +270,19 @@ nothing.
 
 ### Unknowns, recorded rather than smoothed
 
-- The collaborative-planning objective was **not** re-measured. It timed out in
-discovery while a Room worked on the project question, before any milestone
-existed, and the harness waits seven minutes for one. The more expensive of the
-two objectives therefore has no `after` figure.
+- The collaborative-planning objective was **not** re-measured, after three
+attempts. The first two timed out in discovery while a Room worked on the
+project question, before any milestone existed. The third, on 2026-09-15 with
+the same model, effort and cap, got further: three milestones were approved,
+the run reached the build phase, and the record then stopped changing at
+`Room findings are ready for the Architect.` with two Rooms linked and no
+decision raised. It stayed there until the harness's 20 minute completion
+limit. That attempt spent $0.904 ($0.139 owner, $0.765 research) and produced
+no accepted outcome, so it is not a measurement and is not in `baseline.json`.
+The record cannot say why the Architect did not act on the Room findings; the
+application log carries no Architect lines for that window. The more expensive
+of the two objectives therefore has no `after` figure, and a fourth attempt
+was not made.
 - Request, tool-call, retry and compaction counters are zero on both sides. The
 run journal carries no session-level events yet, so these are unknown rather than
 unchanged.
@@ -280,5 +314,8 @@ both sides; it is not a roster size. No saving is claimed from a partial total.
 ## Validation Approach
 
 Use the smallest relevant existing Architect, Orchestrator and host session suites. Add behavior tests for context recovery, model propagation and snapshot timing, permission refusal, shared-run attribution, replay-safe charging, partial history and overlapping intervals. UI tests cover menu entry, selection linkage, filters, unknowns and access checks. A bounded high-span fixture checks pagination and rendering without live models.
+The requirement-by-requirement record of which test or observation covers each
+delta-spec scenario, with the eight scenarios that have neither, is in
+`evidence.md` beside this document.
 
 After prototype approval, compare a small implementation-and-independent-review task and a collaborative planning task with fixed acceptance criteria. Record candidate identity, actual model choices, cost completeness, elapsed and active time, requests, retries and outcome. Do not rerun the full resilience app suite or promise a numerical performance target from incomplete historic totals. Run root typecheck for source work and React Doctor after React changes; prototype checks follow `sero-prototype`.
