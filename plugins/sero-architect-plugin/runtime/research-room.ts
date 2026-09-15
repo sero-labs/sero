@@ -9,6 +9,7 @@ import type { PendingResearch, ProjectRecord } from '../shared/record';
 import type { WakeEvent } from '../shared/wake';
 import type { ArchitectHost } from './host';
 import type { RecordStore } from './record-store';
+import { attachResearchArtifact } from './research-artifact';
 import { roomModelLimits } from './model-selection';
 
 interface ResearchRoomDeps {
@@ -95,6 +96,11 @@ export async function observeResearchRooms(deps: ResearchRoomDeps, projectId: st
       }
       return next;
     });
-    if (completed) deps.wake(projectId, { kind: 'quiet', at: deps.host.now(), items: [`Research Room ${room.id} finished. Read research ${pending.id} and use its findings for the next project action.`] });
+    if (completed) {
+      // The finding is already recorded, so saving the report only adds the
+      // reference a later contract points at.
+      await attachResearchArtifact(deps.store, projectId, pending.id);
+      deps.wake(projectId, { kind: 'quiet', at: deps.host.now(), items: [`Research Room ${room.id} finished. Read research ${pending.id} and use its findings for the next project action.`] });
+    }
   }
 }

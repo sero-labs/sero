@@ -27,6 +27,7 @@ import type { WakeEvent } from '../shared/wake';
 import type { ArchitectHost } from './host';
 import type { OwnerServices } from './owner-actions';
 import type { RecordStore } from './record-store';
+import { attachResearchArtifact } from './research-artifact';
 import type { RunJournal } from './run-journal';
 import type { SpanRecorder } from './spans';
 import { activeRun } from '../shared/runs';
@@ -366,6 +367,9 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         pendingResearch: (fresh.pendingResearch ?? []).filter((item) => item.id !== pending.id),
       }));
       if (!written) return;
+      // The finding is already recorded, so saving the report only adds the
+      // reference a later contract points at.
+      await attachResearchArtifact(store, record.id, pending.id);
       deps.wake(record.id,{ kind: 'quiet', at: host.now(), items: [`research ${pending.id} finished (started ${pending.startedAt}): ${pending.question}`] });
     })();
   };

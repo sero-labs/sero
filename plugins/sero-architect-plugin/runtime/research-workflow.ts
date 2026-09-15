@@ -8,6 +8,7 @@ import type { PendingResearch, ProjectRecord } from '../shared/record';
 import type { WakeEvent } from '../shared/wake';
 import type { ArchitectHost } from './host';
 import type { RecordStore } from './record-store';
+import { attachResearchArtifact } from './research-artifact';
 
 interface ResearchWorkflowDeps {
   host: Pick<ArchitectHost, 'readJson' | 'now' | 'log'>;
@@ -110,6 +111,11 @@ export async function observeResearchWorkflows(deps: ResearchWorkflowDeps, proje
       }
       return next;
     });
-    if (completed) deps.wake(projectId, { kind: 'quiet', at: deps.host.now(), items: [`Research Workflow ${loop.id} finished. Read research ${pending.id} and use its findings for the next project action.`] });
+    if (completed) {
+      // The finding is already recorded, so saving the report only adds the
+      // reference a later contract points at.
+      await attachResearchArtifact(deps.store, projectId, pending.id);
+      deps.wake(projectId, { kind: 'quiet', at: deps.host.now(), items: [`Research Workflow ${loop.id} finished. Read research ${pending.id} and use its findings for the next project action.`] });
+    }
   }
 }

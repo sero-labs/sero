@@ -5,6 +5,7 @@ exports[`the owner contract > matches the snapshot for build with overlay blocke
 Phase: build. Overlay: blocked.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -39,6 +40,7 @@ exports[`the owner contract > matches the snapshot for build with overlay decisi
 Phase: build. Overlay: decision.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -73,6 +75,7 @@ exports[`the owner contract > matches the snapshot for build with overlay limite
 Phase: build. Overlay: limited.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Budget: $40.00 spent of the $40.00 cap, $0.00 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -107,6 +110,7 @@ exports[`the owner contract > matches the snapshot for build with overlay none 1
 Phase: build. Overlay: none.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -145,6 +149,7 @@ exports[`the owner contract > matches the snapshot for build with overlay paused
 Phase: build. Overlay: paused.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -179,6 +184,7 @@ exports[`the owner contract > matches the snapshot for charter with overlay bloc
 Phase: charter. Overlay: blocked.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -213,6 +219,7 @@ exports[`the owner contract > matches the snapshot for charter with overlay deci
 Phase: charter. Overlay: decision.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -247,6 +254,7 @@ exports[`the owner contract > matches the snapshot for charter with overlay limi
 Phase: charter. Overlay: limited.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Budget: $40.00 spent of the $40.00 cap, $0.00 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -281,6 +289,7 @@ exports[`the owner contract > matches the snapshot for charter with overlay none
 Phase: charter. Overlay: none.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -313,6 +322,7 @@ exports[`the owner contract > matches the snapshot for charter with overlay paus
 Phase: charter. Overlay: paused.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -347,6 +357,7 @@ exports[`the owner contract > matches the snapshot for discovery with overlay bl
 Phase: discovery. Overlay: blocked.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Spent so far: $12.50. No cap is approved yet; the charter must propose one.
 
 You were woken because the project is quiet and work remains:
@@ -377,6 +388,7 @@ exports[`the owner contract > matches the snapshot for discovery with overlay de
 Phase: discovery. Overlay: decision.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Spent so far: $12.50. No cap is approved yet; the charter must propose one.
 
 You were woken because the project is quiet and work remains:
@@ -407,6 +419,7 @@ exports[`the owner contract > matches the snapshot for discovery with overlay li
 Phase: discovery. Overlay: limited.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Budget: $40.00 spent of the $40.00 cap, $0.00 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -438,6 +451,7 @@ exports[`the owner contract > matches the snapshot for discovery with overlay no
 Phase: discovery. Overlay: none.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Spent so far: $12.50. No cap is approved yet; the charter must propose one.
 
 You were woken because the project is quiet and work remains:
@@ -469,6 +483,7 @@ exports[`the owner contract > matches the snapshot for discovery with overlay pa
 Phase: discovery. Overlay: paused.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Spent so far: $12.50. No cap is approved yet; the charter must propose one.
 
 You were woken because the user sent a directive:
@@ -499,6 +514,7 @@ exports[`the owner contract > matches the snapshot for intake with overlay block
 Phase: intake. Overlay: blocked.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Spent so far: $12.50. No cap is approved yet; the charter must propose one.
 
 You were woken because the project is quiet and work remains:
@@ -528,6 +544,7 @@ exports[`the owner contract > matches the snapshot for intake with overlay decis
 Phase: intake. Overlay: decision.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Spent so far: $12.50. No cap is approved yet; the charter must propose one.
 
 You were woken because the project is quiet and work remains:
@@ -557,6 +574,7 @@ exports[`the owner contract > matches the snapshot for intake with overlay limit
 Phase: intake. Overlay: limited.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Budget: $40.00 spent of the $40.00 cap, $0.00 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -587,6 +605,7 @@ exports[`the owner contract > matches the snapshot for intake with overlay none 
 Phase: intake. Overlay: none.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Spent so far: $12.50. No cap is approved yet; the charter must propose one.
 
 You were woken because the project is quiet and work remains:
@@ -614,6 +633,7 @@ exports[`the owner contract > matches the snapshot for intake with overlay pause
 Phase: intake. Overlay: paused.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Spent so far: $12.50. No cap is approved yet; the charter must propose one.
 
 You were woken because the user sent a directive:
@@ -643,6 +663,7 @@ exports[`the owner contract > matches the snapshot for maintain with overlay blo
 Phase: maintain. Overlay: blocked.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -677,6 +698,7 @@ exports[`the owner contract > matches the snapshot for maintain with overlay dec
 Phase: maintain. Overlay: decision.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -711,6 +733,7 @@ exports[`the owner contract > matches the snapshot for maintain with overlay lim
 Phase: maintain. Overlay: limited.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Budget: $40.00 spent of the $40.00 cap, $0.00 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -745,6 +768,7 @@ exports[`the owner contract > matches the snapshot for maintain with overlay non
 Phase: maintain. Overlay: none.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -777,6 +801,7 @@ exports[`the owner contract > matches the snapshot for maintain with overlay pau
 Phase: maintain. Overlay: paused.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -811,6 +836,7 @@ exports[`the owner contract > matches the snapshot for release with overlay bloc
 Phase: release. Overlay: blocked.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -845,6 +871,7 @@ exports[`the owner contract > matches the snapshot for release with overlay deci
 Phase: release. Overlay: decision.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -879,6 +906,7 @@ exports[`the owner contract > matches the snapshot for release with overlay limi
 Phase: release. Overlay: limited.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Budget: $40.00 spent of the $40.00 cap, $0.00 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -913,6 +941,7 @@ exports[`the owner contract > matches the snapshot for release with overlay none
 Phase: release. Overlay: none.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 
@@ -945,6 +974,7 @@ exports[`the owner contract > matches the snapshot for release with overlay paus
 Phase: release. Overlay: paused.
 Execution location: workspace.
 All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.
+Owner model: not selected yet. Model configuration revision 0.
 Budget: $12.50 spent of the $40.00 cap, $27.50 remaining.
 The cap limits new work. It is not a hard spend ceiling. A dispatched run may spend more before the next budget check.
 

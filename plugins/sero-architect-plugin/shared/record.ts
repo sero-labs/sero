@@ -196,6 +196,12 @@ export interface ResearchResult {
   question: string;
   stoppingCondition: string;
   result: string;
+  /**
+   * Where the full report was saved, relative to the project folder. Absent on
+   * an older result and on one that could not be written, so a contract can say
+   * the detail is gone instead of pointing at a file that is not there.
+   */
+  artifactPath?: string;
   costUsd: number;
   completedAt: string;
 }

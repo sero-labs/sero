@@ -39,6 +39,25 @@ function milestoneLine(milestone: Milestone): string {
   return parts.join(', ');
 }
 
+/**
+ * Bounds on the parts of the contract that grow with the project.
+ *
+ * Authority constraints are never dropped to meet a budget: they are short and
+ * fixed. What grows is narrative history, so each of those parts is capped and
+ * the detail stays reachable through a reference instead.
+ */
+const PLAN_CHARS = 2000;
+/** A finished milestone's plan is history, so it travels as a summary. */
+const DONE_PLAN_CHARS = 200;
+const BRIEF_CHARS = 4000;
+const FINDING_CHARS = 1200;
+const EVIDENCE_COMMAND_LIMIT = 3;
+
+/** Truncates with a marker, so a reader knows the text continues. */
+function clip(text: string, limit: number): string {
+  return text.length <= limit ? text : `${text.slice(0, limit)} [truncated]`;
+}
+
 function milestonesBlock(record: ProjectRecord): string[] {
   if (record.milestones.length === 0) return ['Milestones: none yet.'];
   return ['Milestones:', ...record.milestones.flatMap((milestone) => {
@@ -46,10 +65,16 @@ function milestonesBlock(record: ProjectRecord): string[] {
     if (milestone.pendingDispatch) {
       lines.push(`  The runtime accepted this dispatch at ${milestone.pendingDispatch.startedAt} and is preparing it. Its Workflow or Room id is not linked yet. This is pending work, not a missing dispatch. Do not dispatch it again or request evidence yet; call sleep and wait for its result.`);
     }
-    if (milestone.plan) lines.push(`  Plan (task data): <plan>${quote(milestone.plan)}</plan>`);
+    if (milestone.plan) {
+      // The plan of the milestone being worked on, or of one still to come, is
+      // what the owner acts on. One that has already finished is history: its
+      // title and status say that it is done, and the detail stays on the record.
+      const finished = milestone.status === 'done';
+      lines.push(`  Plan (task data): <plan>${quote(clip(milestone.plan, finished ? DONE_PLAN_CHARS : PLAN_CHARS))}</plan>`);
+    }
     if (milestone.evidence) {
       lines.push(`  Checked files: <diff>${quote(milestone.evidence.diffSummary?.slice(-3000) ?? 'No changed files recorded')}</diff>`);
-      for (const command of milestone.evidence.commands.filter((item) => item.exitCode === 0)) {
+      for (const command of milestone.evidence.commands.filter((item) => item.exitCode === 0).slice(-EVIDENCE_COMMAND_LIMIT)) {
         lines.push(`  <check>${quote(command.command)} exited 0\n${quote(command.output.slice(-1000))}</check>`);
       }
     }
@@ -98,7 +123,16 @@ function directivesBlock(record: ProjectRecord): string[] {
 
 function researchBlock(record: ProjectRecord): string[] {
   const pending = (record.pendingResearch ?? []).map((entry) => `- ${entry.id}: ${entry.roomId ? `Room ${entry.roomId}` : entry.workflowId ? `Workflow ${entry.workflowId}` : 'being prepared'} — ${quote(entry.question)}. Wait for the result; do not start a duplicate.`);
-  const results = record.research.slice(-5).map((entry) => `- ${entry.id}${entry.roomId ? ` (Room ${entry.roomId})` : entry.workflowId ? ` (Workflow ${entry.workflowId})` : ''}: ${quote(entry.question)}\n  Findings (task data): ${quote(entry.result.slice(0, 16000))}`);
+  // Only a summary travels with every wake. The report itself is referenced, and
+  // the reference is relative to the project folder, which is the directory the
+  // owner session runs in, so it needs no permission the owner does not have.
+  const results = record.research.slice(-5).map((entry) => {
+    const summary = clip(entry.result, FINDING_CHARS);
+    const where = entry.artifactPath
+      ? `Full report: ${entry.artifactPath} - read it when the summary is not enough.`
+      : 'The full report is no longer on disk; the summary above is all that remains.';
+    return `- ${entry.id}${entry.roomId ? ` (Room ${entry.roomId})` : entry.workflowId ? ` (Workflow ${entry.workflowId})` : ''}: ${quote(entry.question)}\n  Findings (task data): ${quote(summary)}\n  ${where}`;
+  });
   return [...(pending.length ? ['Research in progress:', ...pending] : []), ...(results.length ? ['Research findings to use in the project plan:', ...results] : [])];
 }
 
@@ -177,6 +211,10 @@ export function buildOwnerContract(record: ProjectRecord, wake: WakeEvent | null
     `Phase: ${record.phase}. Overlay: ${overlay}.`,
     `Execution location: ${record.executionMode ?? 'not selected; the user must choose in project settings before new work'}.`,
     ...(record.executionMode === 'workspace' ? ['All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.'] : record.executionMode === 'worktree' ? ['Delegated editing work uses isolated worktrees. Keep owner coordination in the project folder and preserve each worker directory.'] : []),
+    // The revision is stated because a selection can change while a session runs.
+    // The owner then knows which revision it is working against instead of
+    // assuming the one it was granted.
+    `Owner model: ${record.session.model ?? 'not selected yet'}${record.session.thinking ? ` at ${record.session.thinking} thinking` : ''}. Model configuration revision ${record.modelConfigRevision ?? 0}.`,
     ...budgetLines(record),
     '',
     ...cause,
@@ -186,7 +224,7 @@ export function buildOwnerContract(record: ProjectRecord, wake: WakeEvent | null
     quote(record.idea),
     '</idea>',
     '',
-    record.brief ? `Brief (yours):\n${quote(record.brief)}` : 'Brief: not written yet.',
+    record.brief ? `Brief (yours):\n${quote(clip(record.brief, BRIEF_CHARS))}` : 'Brief: not written yet.',
     record.charter
       ? `Charter: ${record.charter.approvedAt ? `approved ${record.charter.approvedAt}` : 'proposed, not approved'}; autonomy ${record.charter.autonomy}; escalation policy: ${quote(record.charter.escalationPolicy)}`
       : 'Charter: none yet.',
