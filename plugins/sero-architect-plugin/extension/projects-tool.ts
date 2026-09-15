@@ -11,6 +11,7 @@ import { Type } from 'typebox';
 
 import { resolveArchitectRuntime } from '../runtime/registry';
 import type { ModelDefaultInput } from '../runtime/projects-actions';
+import type { TraceQuery } from '../runtime/trace-query';
 import { AUTONOMY_SETTINGS } from '../shared/charter-shape';
 import { EXECUTION_MODES, type ExecutionMode, type ProjectRecord } from '../shared/record';
 import type { ArchitectIndexEntry } from '../shared/types';
@@ -20,6 +21,7 @@ export const PROJECT_ACTIONS = [
   'list',
   'show',
   'history',
+  'trace',
   'create',
   'pause',
   'resume',
@@ -60,6 +62,11 @@ export const ProjectsToolParams = Type.Object({
   note: Type.Optional(Type.String({ description: 'answer: an optional note for the owner' })),
   text: Type.Optional(Type.String({ description: 'directive: what to tell the owner' })),
   cursor: Type.Optional(Type.String({ description: 'history: cursor for an older page' })),
+  runId: Type.Optional(Type.String({ description: 'trace: the run id, or shared for project-scoped activity (default shared)' })),
+  afterSeq: Type.Optional(Type.Number({ description: 'trace: continue a detail page after this sequence' })),
+  limit: Type.Optional(Type.Number({ description: 'trace: records per detail page; the runtime bounds it' })),
+  detail: Type.Optional(Type.Boolean({ description: 'trace: include record metadata. Off by default, so a summary request receives no records' })),
+  knownSpendUsd: Type.Optional(Type.Number({ description: 'trace: the project spend to reconcile the run total against' })),
   workflowId: Type.Optional(Type.String({ description: 'repair: existing workflow selected by the user' })),
 });
 
@@ -82,6 +89,12 @@ export interface ProjectsToolParamsShape {
   text?: string;
   cursor?: string;
   workflowId?: string;
+  /** Trace query. `detail` is opt-in, so a summary request reads no records. */
+  runId?: string;
+  afterSeq?: number;
+  limit?: number;
+  detail?: boolean;
+  knownSpendUsd?: number;
 }
 
 interface ToolResult {
@@ -148,6 +161,30 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
       return page
         ? result(true, `Read ${page.entries.length} owner-session history entries.`, { entries: page.entries, olderCursor: page.olderCursor })
         : result(false, `Project ${id} has no readable owner session.`);
+    }
+    case 'trace': {
+      const missing = need(id, 'projectId');
+      if (missing) return result(false, missing);
+      const query: Omit<TraceQuery, 'projectId'> = {
+        journalId: params.runId,
+        afterSeq: params.afterSeq,
+        limit: params.limit,
+        knownSpendUsd: params.knownSpendUsd,
+        detail: params.detail === true,
+      };
+      const answer = await actions.trace(id, query);
+      if (!answer) return result(false, `No project ${id}, or it keeps no trace.`);
+      const details: Record<string, unknown> = {
+        projectId: answer.projectId,
+        journalId: answer.journalId,
+        summary: answer.summary,
+        timing: answer.timing,
+        tokens: answer.tokens,
+        records: answer.records,
+        nextAfterSeq: answer.nextAfterSeq,
+        incomplete: answer.incomplete,
+      };
+      return result(true, answer.summary.incomplete ? 'Trace summary. More history exists than this folded.' : 'Trace summary.', details);
     }
     case 'create': {
       const missing = need(params.idea, 'idea') ?? need(params.folder, 'folder');

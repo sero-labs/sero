@@ -25,6 +25,7 @@ import type { OwnerSessions } from './owner-session';
 import type { RecordStore } from './record-store';
 import { mutateRecord } from './record-store';
 import type { RunJournal } from './run-journal';
+import { queryTrace, type TraceAnswer, type TraceQuery } from './trace-query';
 import { closeActiveRun, ensureInitialRun } from './run-lifecycle';
 import type { WakeScheduler } from './wake-scheduler';
 import type { DispatchWatch } from './dispatch-watch';
@@ -71,6 +72,11 @@ export interface ProjectsActions {
   list(): Promise<ArchitectIndexEntry[]>;
   show(projectId: string): Promise<ProjectRecord | null>;
   history(projectId: string, cursor?: string): Promise<PersistentSessionHistoryPage | null>;
+  /**
+   * Reads a project's trace. Metadata-only unless `detail` is asked for, so a
+   * page showing a summary never receives records it did not request.
+   */
+  trace(projectId: string, query?: Omit<TraceQuery, 'projectId'>): Promise<TraceAnswer | null>;
   create(input: { idea: string; folder: string; executionMode?: ExecutionMode }): Promise<ProjectsOutcome>;
   pause(projectId: string): Promise<ProjectsOutcome>;
   resume(projectId: string): Promise<ProjectsOutcome>;
@@ -293,6 +299,18 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       const record = await read(projectId);
       if (!record?.session.grantId || !host.persistentSessions) return null;
       return host.persistentSessions.readHistory(record.session.grantId, record.session.subject, { cursor, limit: 100 });
+    },
+
+    /**
+     * Reads a trace only for a project that exists.
+     *
+     * The authorization is the record lookup, so a foreign id, a deleted project
+     * and a typo are all the same answer: nothing.
+     */
+    async trace(projectId, query) {
+      const journal = deps.journal;
+      if (!journal) return null;
+      return queryTrace({ journal, authorize: async (id) => (await read(id)) !== null }, { ...query, projectId });
     },
 
     async create(input) {
