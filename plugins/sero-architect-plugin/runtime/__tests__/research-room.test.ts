@@ -71,6 +71,8 @@ describe('what a research Room may do', () => {
     await services.research((await store.read('proj_1'))!, { question: 'Does the suite pass?', stoppingCondition: 'a verdict per criterion', kind: 'room', access: 'edit-workspace' });
     await vi.waitFor(() => expect(requests).toHaveLength(1));
     expect(requests[0].limits?.access).toBe('edit-workspace');
+    // Commands are isolated even though the project itself runs in workspace mode.
+    expect(requests[0].limits?.executionMode).toBe('worktree');
     expect(requests[0].mandate).toContain('You may run commands');
     expect(requests[0].mandate).toContain('Do not implement the product.');
   });
@@ -101,5 +103,36 @@ describe('what a research Room may do', () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(creates).toBe(1);
     expect((await store.read('proj_1'))?.decisions).toHaveLength(1);
+  });
+
+  it('plans on the record as it is after the wait, and keeps a restart that arrives while a start is in flight', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const decision = {
+      id: 'dec_1', question: 'The research Room asked: may it run the tests?', recommendation: 'allow-commands', reason: 'r', dependsOn: [], raisedAt: T0, answer: null,
+      options: [{ id: 'allow-commands', label: 'a', consequence: 'x' }, { id: 'withdraw', label: 'c', consequence: 'z' }],
+      proposal: { kind: 'research-access' as const, researchId: 'res_1' },
+    };
+    const entry = { id: 'res_1', kind: 'room' as const, question: 'Does the suite pass?', stoppingCondition: 'a verdict', startedAt: T0, attempts: 1 };
+    await store.write(buildingProject({ phase: 'discovery', charter: null, milestones: [], decisions: [decision], pendingResearch: [entry] }));
+    const requests: OrchestratorRoomCreateRequest[] = [];
+    // No registry yet: recovery starts, holds the entry, and waits for it.
+    const services = createServices({ host, store, wake: vi.fn() });
+    services.recoverPending((await store.read('proj_1'))!);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    // The user answers while that start is still waiting. The answer write and
+    // the restart are what the projects action does.
+    await store.update('proj_1', (fresh) => ({
+      ...fresh,
+      decisions: fresh.decisions.map((item) => ({ ...item, answer: { optionId: 'allow-commands', note: null, answeredAt: T0 } })),
+      pendingResearch: fresh.pendingResearch?.map((item) => ({ ...item, access: 'edit-workspace' as const, attempts: 0 })),
+    }));
+    services.restartResearch((await store.read('proj_1'))!, 'res_1');
+    registry({ create: async (request) => { requests.push(request); return { ok: true, roomId: 'room-4' }; }, inspect: async () => ({ status: 'running', models: [], result: null }) });
+    await vi.waitFor(async () => expect((await store.read('proj_1'))?.pendingResearch?.[0]?.roomId).toBe('room-4'));
+    // One plan, with the answered access: a stale copy of the record would have
+    // seen an open decision and planned nothing; a dropped restart likewise.
+    expect(requests).toHaveLength(1);
+    expect(requests[0].limits).toMatchObject({ access: 'edit-workspace', executionMode: 'worktree' });
   });
 });

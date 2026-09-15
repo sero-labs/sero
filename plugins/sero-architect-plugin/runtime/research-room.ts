@@ -19,19 +19,27 @@ interface ResearchRoomDeps {
   wake(projectId: string, wake: WakeEvent): void;
 }
 
-const active = new WeakMap<RecordStore, Set<string>>();
+/** One start per research entry at a time. A start requested meanwhile runs after it, never instead of nothing. */
+const active = new WeakMap<RecordStore, Map<string, { again: boolean }>>();
 
 /** The research intent is saved before planning. Recovery reuses its Room request. */
-export async function startResearchRoom(deps: ResearchRoomDeps, record: ProjectRecord, pending: PendingResearch): Promise<void> {
+export async function startResearchRoom(deps: ResearchRoomDeps, snapshot: ProjectRecord, requested: PendingResearch): Promise<void> {
   let running = active.get(deps.store);
-  if (!running) { running = new Set(); active.set(deps.store, running); }
-  if (running.has(pending.id)) return;
-  running.add(pending.id);
+  if (!running) { running = new Map(); active.set(deps.store, running); }
+  const inFlight = running.get(requested.id);
+  if (inFlight) { inFlight.again = true; return; }
+  const slot = { again: false };
+  running.set(requested.id, slot);
   try {
-    if (!record.workspaceId) throw new Error('The project has no workspace for research.');
+    if (!snapshot.workspaceId) throw new Error('The project has no workspace for research.');
     const deadline = Date.now() + 5000;
-    while (!getOrchestratorRoomRegistry()?.has(record.workspaceId) && Date.now() < deadline) await delay(100);
-    if (!getOrchestratorRoomRegistry()?.has(record.workspaceId)) throw new Error('The workspace Room runtime is not ready. Resume to retry.');
+    while (!getOrchestratorRoomRegistry()?.has(snapshot.workspaceId) && Date.now() < deadline) await delay(100);
+    if (!getOrchestratorRoomRegistry()?.has(snapshot.workspaceId)) throw new Error('The workspace Room runtime is not ready. Resume to retry.');
+    // The wait above is long enough for an answer to land, so the decisions
+    // below are taken on the record as it is now, not on the caller's copy.
+    const record = (await deps.store.read(snapshot.id)) ?? snapshot;
+    const pending = record.pendingResearch?.find((entry) => entry.id === requested.id);
+    if (!pending) return;
     if (!pending.roomId) {
       if (record.paused || record.blockedReason) return;
       // The planner already asked; the user has not answered. Planning again
@@ -49,10 +57,12 @@ export async function startResearchRoom(deps: ResearchRoomDeps, record: ProjectR
       const commands = access === 'edit-workspace'
         ? ' You may run commands such as tests and builds to answer the question.'
         : '';
-      const result = await createOrchestratorRoom(record.workspaceId, {
+      const result = await createOrchestratorRoom(snapshot.workspaceId, {
         requestId: `${record.id}:${pending.id}`,
         mandate: `Collaborate on the requested project task.\nUser idea: ${record.idea}\nQuestion: ${pending.question}\nStop when: ${pending.stoppingCondition}\nWork together to investigate the question, challenge assumptions and produce concrete findings with evidence and unresolved user decisions.${commands} Do not implement the product.`,
-        limits: { ...await roomModelLimits(deps.host), ...roomWorkspace(record), maxCostUsd: Math.min(5, remaining), maxWallClockMs: 15 * 60_000, maxMembers: 3, access, deliveryDestination: 'workspace-files' },
+        // Commands need isolation whatever the project's own mode: in Workspace
+        // mode an editing member would otherwise run in the shared working tree.
+        limits: { ...await roomModelLimits(deps.host), ...roomWorkspace(record), ...(access === 'edit-workspace' ? { executionMode: 'worktree' as const } : {}), maxCostUsd: Math.min(5, remaining), maxWallClockMs: 15 * 60_000, maxMembers: 3, access, deliveryDestination: 'workspace-files' },
       });
       await chargeRoomPlanning(deps, record.id, { kind: 'research', id: pending.id }, result.usage);
       if (!result.ok && result.questions?.length) {
@@ -73,11 +83,18 @@ export async function startResearchRoom(deps: ResearchRoomDeps, record: ProjectR
     if (Array.isArray(rooms)) await observeResearchRooms(deps, record.id, rooms);
   } catch (error) {
     const reason = `Research Room could not continue: ${error instanceof Error ? error.message : String(error)}`;
-    await deps.store.update(record.id, (fresh) => {
+    await deps.store.update(snapshot.id, (fresh) => {
       const held = block(fresh, deps.host.now(), reason);
       return held.ok ? { ...held.record, stateLine: reason } : fresh;
     });
-  } finally { running.delete(pending.id); }
+  } finally {
+    running.delete(requested.id);
+    if (slot.again) {
+      const latest = await deps.store.read(snapshot.id);
+      const entry = latest?.pendingResearch?.find((item) => item.id === requested.id);
+      if (latest && entry) await startResearchRoom(deps, latest, entry);
+    }
+  }
 }
 
 /** Room completion supplies findings, not product acceptance. Costs remain cumulative. */

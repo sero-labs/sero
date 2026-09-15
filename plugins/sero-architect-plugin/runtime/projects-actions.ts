@@ -27,7 +27,7 @@ import { mutateRecord } from './record-store';
 import type { RunJournal } from './run-journal';
 import { queryTrace, type TraceAnswer, type TraceQuery } from './trace-query';
 import { closeActiveRun, ensureInitialRun } from './run-lifecycle';
-import { applyResearchAccessAnswer } from './research-access';
+import { answerResearchAccess, restartsResearch } from './research-access';
 import { applyDecisionProposal } from './decision-proposals';
 import type { WakeScheduler } from './wake-scheduler';
 import type { DispatchWatch } from './dispatch-watch';
@@ -373,6 +373,9 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
               : { ...m, status: m.parkedFrom ?? 'planned', parkedBy: null, parkedByDecisions: [], parkedFrom: null };
           }),
         }, now);
+        // The research effect lands in this same write, so a crash between
+        // the answer and its effect cannot leave the entry pending and unanswerable.
+        if (decision.proposal?.kind === 'research-access') next = settle(answerResearchAccess(next, decision.proposal.researchId, optionId), now);
         next = { ...next, history: [...next.history, { at: now, phase: next.phase, overlay: next.overlay, cause: `decision ${decisionId} answered: ${optionId}` }] };
         return { record: next };
       });
@@ -398,9 +401,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       // Read back from the record: the closure above assigns `proposal` and
       // control-flow typing does not follow it.
       const applied = answered.record.decisions.find((decision) => decision.id === decisionId)?.proposal ?? null;
-      if (applied?.kind === 'research-access') {
-        await applyResearchAccessAnswer({ host, store, restartResearch: (record, id) => services.restartResearch(record, id) }, projectId, applied.researchId, optionId);
-      }
+      if (applied?.kind === 'research-access' && restartsResearch(optionId)) services.restartResearch(answered.record, applied.researchId);
       scheduler.request(projectId, { kind: 'decision', at: now, items: [`the user answered decision ${decisionId} with "${optionId}"${note?.trim() ? ' and left a note' : ''}`] });
       return ok(`Decision ${decisionId} answered with "${optionId}".`);
     },

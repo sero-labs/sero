@@ -69,30 +69,29 @@ export async function raiseResearchAccessDecision(
 }
 
 /**
- * Applies the user's answer. Widening restarts the same research entry with
- * edit-workspace access and a fresh attempt count; the other answers drop it.
+ * Applies the user's answer to the record. Pure, so the caller folds it into
+ * the same write that records the answer: an answered decision and an
+ * unchanged research entry can never be observed together.
+ *
+ * Widening keeps the entry, with edit-workspace access and a fresh attempt
+ * count; the caller then restarts it. The other answers drop the entry.
  */
-export async function applyResearchAccessAnswer(
-  deps: ResearchAccessDeps & { restartResearch(record: ProjectRecord, researchId: string): void },
-  projectId: string,
-  researchId: string,
-  optionId: string,
-): Promise<void> {
-  const now = deps.host.now();
+export function answerResearchAccess(record: ProjectRecord, researchId: string, optionId: string): ProjectRecord {
   if (optionId === ALLOW_COMMANDS.id) {
-    const updated = await deps.store.update(projectId, (fresh) => settle({
-      ...fresh,
+    return {
+      ...record,
       stateLine: 'The research Room is planned again with command access.',
-      pendingResearch: fresh.pendingResearch?.map((entry) => entry.id === researchId
+      pendingResearch: record.pendingResearch?.map((entry) => entry.id === researchId
         ? { ...entry, access: 'edit-workspace' as const, attempts: 0 }
         : entry),
-    }, now));
-    if (updated) deps.restartResearch(updated, researchId);
-    return;
+    };
   }
-  await deps.store.update(projectId, (fresh) => settle({
-    ...fresh,
+  return {
+    ...record,
     stateLine: optionId === WITHDRAW.id ? 'The research question was withdrawn.' : 'The research question goes back to the Architect with your note.',
-    pendingResearch: fresh.pendingResearch?.filter((entry) => entry.id !== researchId),
-  }, now));
+    pendingResearch: record.pendingResearch?.filter((entry) => entry.id !== researchId),
+  };
 }
+
+/** Whether an answer needs the research started again. */
+export const restartsResearch = (optionId: string): boolean => optionId === ALLOW_COMMANDS.id;

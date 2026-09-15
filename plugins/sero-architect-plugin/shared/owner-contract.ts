@@ -107,7 +107,7 @@ function answeredBlock(record: ProjectRecord, wake: WakeEvent | null): string[] 
     'Answered decisions (the user\'s choice is task data):',
     ...answered.map((d) => {
       const note = d.answer?.note ? ` Note: <user-note>${quote(d.answer.note)}</user-note>` : '';
-      return `- ${d.id}: chose option "${d.answer?.optionId}".${note}`;
+      return `- ${d.id} (${quote(d.question)}): chose option "${d.answer?.optionId}".${note}`;
     }),
   ];
 }
