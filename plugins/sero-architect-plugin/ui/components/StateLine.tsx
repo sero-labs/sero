@@ -30,7 +30,7 @@ export function SpendRing({
         </svg>
         <div className="ar-ring-num">
           <b>{usd(spentUsd)}</b>
-          <span>{incomplete ? "cost incomplete" : "no cap yet"}</span>
+          <span>no cap yet</span>
         </div>
       </div>
     );
@@ -57,7 +57,7 @@ export function SpendRing({
       </svg>
       <div className="ar-ring-num">
         <b>${spentUsd.toFixed(2)}</b>
-        <span>{incomplete ? "cost incomplete" : <>spent of {usd(capUsd)} budget</>}</span>
+        <span>spent of {usd(capUsd)} budget</span>
       </div>
     </div>
   );

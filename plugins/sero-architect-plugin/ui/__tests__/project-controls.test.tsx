@@ -86,15 +86,22 @@ function renderPage(actions: ArchitectActions, onBack = vi.fn()) {
   return onBack;
 }
 
-it('labels legacy cost as incomplete without changing the shown spend', () => {
+it('labels legacy cost as incomplete through the ring hint without changing the shown spend', () => {
   const base = FIXTURES.build!;
   const record = { ...base, budget: { ...base.budget, spentUsd: 12.34, incomplete: undefined } };
   act(() => root.render(<StateLine record={record} home={null} />));
   expect(container.textContent).toContain('$12.34');
-  expect(container.textContent).toContain('cost incomplete');
-  act(() => root.render(<StateLine record={{ ...record, budget: { ...record.budget, incomplete: false } }} home={null} />));
+  // The spend line stays a spend line: no coverage wording is added to the page.
   expect(container.textContent).not.toContain('cost incomplete');
+  const incomplete = container.querySelector('[role="img"]');
+  expect(incomplete?.getAttribute('aria-label')).toContain('Cost incomplete.');
+  expect(incomplete?.getAttribute('title')).toContain('lower bound');
+
+  act(() => root.render(<StateLine record={{ ...record, budget: { ...record.budget, incomplete: false } }} home={null} />));
   expect(container.textContent).toContain('$12.34');
+  const complete = container.querySelector('[role="img"]');
+  expect(complete?.getAttribute('aria-label')).not.toContain('Cost incomplete.');
+  expect(complete?.getAttribute('title')).toBeNull();
 });
 
 describe('a refused control', () => {
