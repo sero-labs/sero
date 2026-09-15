@@ -154,7 +154,6 @@ async function approvePrompts(label: string): Promise<number> {
     for (let index = 0; index < count; index += 1) {
       const button = buttons.nth(index);
       if (!(await button.isVisible().catch(() => false))) continue;
-      await shot(`${label}-approve-${answered}`);
       console.log(`[baseline] ${label}: answering a "${name}" prompt`);
       await button.click({ timeout: 10_000 }).catch(() => undefined);
       answered += 1;
