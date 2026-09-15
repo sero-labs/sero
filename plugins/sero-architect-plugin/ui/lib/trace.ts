@@ -164,10 +164,10 @@ export function readTracePage(result: AppToolResult): TracePage | null {
 export function appendTracePage(previous: TracePage, addition: TracePage): TracePage {
   const seen = new Set(previous.records.map((record) => record.seq));
   const records = [...previous.records, ...addition.records.filter((record) => !seen.has(record.seq))];
-  // A re-read of page one carries page one's cursor. The continuation point
-  // is the furthest either side has reached, and none once either reached the end.
-  const nextAfterSeq = previous.nextAfterSeq === null || addition.nextAfterSeq === null
-    ? null
-    : Math.max(previous.nextAfterSeq, addition.nextAfterSeq);
+  // The fresh answer says whether history continues. When it does, continue
+  // from the furthest record already held, not from the fresh page's own end,
+  // and a run that had been read to its end reopens when it has grown since.
+  const furthest = records.reduce((max, record) => Math.max(max, record.seq), 0);
+  const nextAfterSeq = addition.nextAfterSeq === null ? null : Math.max(addition.nextAfterSeq, furthest);
   return { ...addition, records, nextAfterSeq };
 }

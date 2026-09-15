@@ -330,8 +330,11 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
         } catch (error) {
           return refuse(`could not open the initial run for ${projectId}: ${error instanceof Error ? error.message : String(error)}`);
         }
-        // Recovery charges the run, so it must see the record that has it.
-        next = (await store.read(projectId)) ?? next;
+        // Recovery charges the run, so it must see the record that has it. A
+        // stale record would charge nothing, so a failed re-read stops here.
+        const reread = await store.read(projectId);
+        if (!reread) return refuse(`Project ${projectId} could not be re-read after opening its initial run.`);
+        next = reread;
       }
       services.recoverPending(next);
       scheduler.request(projectId, { kind: 'quiet', at: now, items: ['the user resumed the project'] });

@@ -7,7 +7,7 @@
  */
 
 import { afterEach, describe, expect, it } from 'vitest';
-import { createRunJournal } from '../run-journal';
+import { createRunJournal, type JournalRecord } from '../run-journal';
 import { MAX_TRACE_PAGE, queryTrace, toTraceRecordView, type TraceQueryDeps } from '../trace-query';
 import { cleanupHosts, fakeHost } from './helpers';
 
@@ -123,5 +123,22 @@ describe('summary and detail', () => {
     };
     const answer = await queryTrace(capped, { projectId: 'proj_1', journalId: 'prod' });
     expect(answer?.summary.incomplete).toBe(true);
+  });
+
+  it('claims no open wait when the fold was cut short, because its end may lie past the bound', async () => {
+    const { journal } = await journalFor();
+    const started: JournalRecord = { v: 1, seq: 1, at: 't', kind: 'observation', recordKind: 'operation-start', operationId: 'w', operationKind: 'wait', waitCause: 'approval' };
+    const capped: TraceQueryDeps = {
+      authorize: async () => true,
+      journal: { ...journal, readSummary: async () => null, readPage: async () => ({ records: [started], nextAfterSeq: 1, incomplete: true }) },
+    };
+    const answer = await queryTrace(capped, { projectId: 'proj_1', journalId: 'prod' });
+    expect(answer?.timing.openWaits).toEqual([]);
+    // The same start in a complete fold is an open wait.
+    const whole: TraceQueryDeps = {
+      authorize: async () => true,
+      journal: { ...journal, readSummary: async () => null, readPage: async () => ({ records: [started], nextAfterSeq: null, incomplete: false }) },
+    };
+    expect((await queryTrace(whole, { projectId: 'proj_1', journalId: 'prod' }))?.timing.openWaits).toEqual(['approval']);
   });
 });

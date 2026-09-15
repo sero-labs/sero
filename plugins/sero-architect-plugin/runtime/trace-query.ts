@@ -161,7 +161,11 @@ export async function queryTrace(deps: TraceQueryDeps, query: TraceQuery): Promi
     runId: journalId,
     knownSpendUsd: query.knownSpendUsd,
   });
-  const timing = summarizeTiming(folded.records);
+  // An open wait is only known from the whole history: a wait that started
+  // inside a bounded fold may have ended past it. When the fold was cut short,
+  // the answer says nothing is known to be waiting rather than guessing.
+  const observed = summarizeTiming(folded.records);
+  const timing = folded.more || folded.torn ? { ...observed, openWaits: [] } : observed;
   const tokens = tokenComposition(folded.records);
   const answer: TraceAnswer = {
     projectId: query.projectId,

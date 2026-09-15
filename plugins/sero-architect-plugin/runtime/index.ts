@@ -127,7 +127,12 @@ export class ArchitectRuntime implements AppRuntime {
           // Recovery must see the run it will charge, so it reads the record
           // after the repair, and does not start when the repair failed.
           if (!opened) continue;
-          repaired = (await store.read(fresh.id)) ?? fresh;
+          const reread = await store.read(fresh.id);
+          if (!reread) {
+            this.host.log(`could not re-read ${fresh.id} after opening its initial run; recovery skipped`);
+            continue;
+          }
+          repaired = reread;
         }
         services.recoverPending(repaired);
         if (plannedWorkRemains(repaired)) scheduler.request(repaired.id, { kind: 'quiet', at: this.host.now(), items: ['restart found planned work and nothing running'] });
