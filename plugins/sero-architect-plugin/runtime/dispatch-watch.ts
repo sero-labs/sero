@@ -59,7 +59,7 @@ interface Seen {
 }
 
 export interface DispatchWatchDeps {
-  host: Pick<ArchitectHost, 'onStateChange' | 'readJson' | 'now' | 'log' | 'listWorkspaces' | 'modelTiers' | 'newId'>;
+  host: Pick<ArchitectHost, 'onStateChange' | 'readJson' | 'now' | 'log' | 'listWorkspaces' | 'modelTiers' | 'listModels' | 'newId'>;
   store: RecordStore;
   wake(projectId: string, wake: WakeEvent): void;
   /**

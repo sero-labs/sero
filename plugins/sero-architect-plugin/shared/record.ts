@@ -1,7 +1,7 @@
 // The durable project record: the single source of truth for one Architect
 // project. JSON-serialisable only. The runtime is its only writer.
 
-import type { SharedModelTierSettings } from '@sero-ai/common';
+import type { OrchestratorProjectContext, SharedModelTierSettings } from '@sero-ai/common';
 import type { DispatchDestination } from './owner-actions';
 import type { ArchitectOverlay, ArchitectPhase } from './types';
 
@@ -76,7 +76,7 @@ export interface PendingMilestoneDispatch {
    * Project/run attribution and the tier defaults this dispatch resolved before
    * planning. Recovery reuses it, so a restart never resolves different models.
    */
-  project?: import('@sero-ai/common').OrchestratorProjectContext;
+  project?: OrchestratorProjectContext;
   kind: 'workflow' | 'room';
   destination: DispatchDestination | null;
   startedAt: string;
@@ -119,6 +119,8 @@ export interface ProjectRun {
 }
 
 export interface Milestone {
+  /** Objective that owns this milestone, including before dispatch. */
+  runId?: string;
   id: string;
   title: string;
   status: MilestoneStatus;
@@ -175,6 +177,7 @@ export interface Directive {
 }
 
 export interface PendingResearch {
+  project?: OrchestratorProjectContext;
   kind?: 'room' | 'workflow';
   /**
    * The highest permission the research Room may hold. `read-only` is one shared
@@ -296,6 +299,7 @@ export interface ProjectRecord {
   stateLine: string;
   /** Durable while the maintenance Workflow is being prepared. */
   preparingMaintenance?: boolean;
+  maintenanceProject?: OrchestratorProjectContext;
   brief: string | null;
   charter: Charter | null;
   autonomy: AutonomySetting;

@@ -101,3 +101,13 @@ the menu wiring for `Run inspector…` and `Models…`; and the keyboard activat
 of an inspector row. The five resilience scenarios are guidance-only prompt
 changes that task 6.1 deferred to a behavioural assessment. The three UI items
 were exercised by hand only.
+
+## Integration regression coverage after the stack review
+
+- Room planning and saved member configurations use the project model and thinking selection: `orch/runtime/__tests__/room-app-actions.test.ts`, "uses the project snapshot for paid Room planning and member choices". Research creation carries the selection in `arch/runtime/__tests__/research-room.test.ts`; research recovery keeps it in `research-context.test.ts`. Maintenance creation carries project context in `services.test.ts`.
+- Namespaced owner environment pins preserve the full model ID and explicit thinking off: `model-resolution.test.ts`.
+- Compaction retains the full active plan and brief: `owner-session.test.ts`, "sends the contract as the first prompt of a wake and re-sends it after compaction". Completed plans and historical evidence remain bounded.
+- Owner and research costs enter the run journal: `owner-session.test.ts`, "journals owner deltas to their turn run even when another objective opens mid-turn", plus the Room and Workflow research completion tests. These assert the recorded amounts, including repeated observations.
+- `delivery-runs.test.ts` covers receipt/acceptance ordering, repeated delivery, multiple maintenance milestones, distinct objectives, and research finishing last. `owner-actions.test.ts` covers explicit no-work-needed triage and refuses it while the objective has work. The owner names the run and supplies a reason; ordinary sleep does not close a run.
+
+These are deterministic runtime checks. They do not establish a live efficiency improvement or close the unrelated behavioural evidence gaps above.

@@ -380,3 +380,19 @@ describe('owner actions', () => {
     expect((await actions.execute(owner, { action: 'research', projectId: 'proj_1', question: 'q', stoppingCondition: 's' })).text).toContain('paused');
   });
 });
+
+it('requires an explicit empty objective before recording no work needed', async () => {
+  const runs: ProjectRecord['runs'] = [{ id: 'triage', kind: 'maintenance', objectiveId: 'issue', startedAt: T0, endedAt: null, outcome: 'in-progress' }];
+  const { actions, store } = await setup({ phase: 'maintain', milestones: [], runs });
+  const input = { action: 'sleep' as const, projectId: 'proj_1', runId: 'triage', noWorkNeeded: true, text: 'The reported failure is already fixed.' };
+  await actions.execute(owner, { action: 'sleep', projectId: 'proj_1' });
+  expect((await store.read('proj_1'))?.runs?.[0].endedAt).toBeNull();
+  await store.update('proj_1', (fresh) => ({ ...fresh, milestones: [milestone('m1', { runId: 'triage' })] }));
+  expect((await actions.execute(owner, input)).ok).toBe(false);
+  await store.update('proj_1', (fresh) => ({ ...fresh, milestones: [] }));
+  expect((await actions.execute(owner, input)).ok).toBe(true);
+  const completed = (await store.read('proj_1'))?.runs;
+  expect(completed?.[0]).toMatchObject({ outcome: 'no-work-needed', endedAt: T0 });
+  expect((await actions.execute(owner, input)).ok).toBe(true);
+  expect((await store.read('proj_1'))?.runs).toEqual(completed);
+});

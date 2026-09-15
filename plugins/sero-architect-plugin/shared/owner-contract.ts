@@ -46,10 +46,8 @@ function milestoneLine(milestone: Milestone): string {
  * fixed. What grows is narrative history, so each of those parts is capped and
  * the detail stays reachable through a reference instead.
  */
-const PLAN_CHARS = 2000;
 /** A finished milestone's plan is history, so it travels as a summary. */
 const DONE_PLAN_CHARS = 200;
-const BRIEF_CHARS = 4000;
 const FINDING_CHARS = 1200;
 const EVIDENCE_COMMAND_LIMIT = 3;
 
@@ -70,7 +68,7 @@ function milestonesBlock(record: ProjectRecord): string[] {
       // what the owner acts on. One that has already finished is history: its
       // title and status say that it is done, and the detail stays on the record.
       const finished = milestone.status === 'done';
-      lines.push(`  Plan (task data): <plan>${quote(clip(milestone.plan, finished ? DONE_PLAN_CHARS : PLAN_CHARS))}</plan>`);
+      lines.push(`  Plan (task data): <plan>${quote(finished ? clip(milestone.plan, DONE_PLAN_CHARS) : milestone.plan)}</plan>`);
     }
     if (milestone.evidence) {
       lines.push(`  Checked files: <diff>${quote(milestone.evidence.diffSummary?.slice(-3000) ?? 'No changed files recorded')}</diff>`);
@@ -229,7 +227,8 @@ export function buildOwnerContract(record: ProjectRecord, wake: WakeEvent | null
     quote(record.idea),
     '</idea>',
     '',
-    record.brief ? `Brief (yours):\n${quote(clip(record.brief, BRIEF_CHARS))}` : 'Brief: not written yet.',
+    ...(record.runs ?? []).filter((run) => run.kind === 'maintenance' && run.endedAt === null).map((run) => `Open maintenance run ${run.id}: ${quote(run.objectiveId ?? '')}. Use this runId when adding its milestones. If triage finds no work, call sleep with runId, noWorkNeeded=true and text explaining why. Sleeping alone does not close an objective.`),
+    record.brief ? `Brief (yours):\n${quote(record.brief)}` : 'Brief: not written yet.',
     record.charter
       ? `Charter: ${record.charter.approvedAt ? `approved ${record.charter.approvedAt}` : 'proposed, not approved'}; autonomy ${record.charter.autonomy}; escalation policy: ${quote(record.charter.escalationPolicy)}`
       : 'Charter: none yet.',

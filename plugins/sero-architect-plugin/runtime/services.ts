@@ -9,11 +9,13 @@ import path from 'node:path';
 import { executionMode, projectWriter, roomWorkspace, workflowWorkspace } from './execution-location';
 import { setTimeout as delay } from 'node:timers/promises';
 
-import { createOrchestratorRoom, getOrchestratorRegistry, requestOrchestratorAction } from '@sero-ai/common';
+import { modelKey, createOrchestratorRoom, getOrchestratorRegistry, requestOrchestratorAction } from '@sero-ai/common';
 import type { ObservationOperationKind, OrchestratorBoardCreateOptions, OrchestratorRoomCreateRequest } from '@sero-ai/common';
 
 import { recoverDispatch } from './dispatch-link';
 import { chargeRoomPlanning, runProjectModel } from './project-usage';
+import { closeDeliveredObjectives } from './objective-completion';
+import { ensureResearchContext } from './research-context';
 import { resolveProjectContext } from './model-resolution';
 import { roomModelLimits } from './model-selection';
 import { startResearchRoom } from './research-room';
@@ -275,12 +277,12 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         });
         return;
       }
-      // The span covers the research model call itself, so it opens before the
-      // work and closes after it rather than spanning the reservation.
+      const project = await ensureResearchContext(deps, record, pending);
+      const model = project.modelSnapshot?.MED;
       const result = await span(record, 'research', pending.id, () => runProjectModel(deps, record, { kind: 'research', id: pending.id }, {
         systemPrompt: 'Research the supplied project question using read-only tools. Verify facts, cite sources, and stop at the stated stopping condition. Do not modify files or perform external actions.',
-        model: record.session.model ?? undefined,
-        thinking: record.session.thinking ?? undefined,
+        model: model ? modelKey(model.provider, model.modelId) : undefined,
+        thinking: model?.thinkingLevel,
         task: researchTask(record, pending.question, pending.stoppingCondition),
         parentSessionId: `architect:${record.id}:research`,
         workspaceId: record.workspaceId ?? 'global',
@@ -296,25 +298,22 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         costUsd: result.recordedCostUsd,
         completedAt: host.now(),
       };
-      const written = await store.update(record.id, (fresh) => ({
+      const written = await store.update(record.id, (fresh) => closeDeliveredObjectives({
         ...fresh,
         research: [...fresh.research, entry],
         pendingResearch: (fresh.pendingResearch ?? []).filter((item) => item.id !== pending.id),
-      }));
+      }, host.now()));
       if (!written) return;
       // The finding is already recorded, so saving the report only adds the
       // reference a later contract points at.
       await attachResearchArtifact(store, record.id, pending.id);
       deps.wake(record.id,{ kind: 'quiet', at: host.now(), items: [`research ${pending.id} finished (started ${pending.startedAt}): ${pending.question}`] });
-    })();
+    })().catch((error: unknown) => host.log(`Research ${pending.id} failed: ${String(error)}`));
   };
 
   const services: OwnerServices = {
     async resolveDispatchProject(record) {
-      const resolved = await resolveProjectContext(
-        { listModels: () => host.listModels(), modelTiers: () => host.modelTiers(), env: host.env },
-        record,
-      );
+      const resolved = await resolveProjectContext(host, record);
       if (!resolved.ok) throw new Error(resolved.error);
       return resolved.value;
     },
@@ -323,7 +322,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       const existing = record.pendingResearch?.find((entry) => entry.question === request.question && entry.stoppingCondition === request.stoppingCondition && entry.kind === request.kind && (entry.access ?? 'read-only') === (request.access ?? 'read-only'));
       if (existing) return { id: existing.id };
       executionMode(record);
-      const pending: PendingResearch = { id: host.newId('res'), ...request, startedAt: host.now() };
+      const pending: PendingResearch = { id: host.newId('res'), ...request, startedAt: host.now(), project: await services.resolveDispatchProject(record) };
       const written = await store.update(record.id, (fresh) => settle({ ...fresh, pendingResearch: [...(fresh.pendingResearch ?? []), pending] }, host.now()));
       if (!written) throw new Error(`No project ${record.id}.`);
       runResearch(written, pending);
@@ -380,7 +379,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       const roomRequest: OrchestratorRoomCreateRequest = {
         requestId: milestone.pendingDispatch?.request?.id,
         mandate: request.prompt,
-        limits: { ...limits, ...await roomModelLimits(host), ...roomWorkspace(record), access: 'edit-workspace', deliveryDestination: request.destination ?? 'workspace-files' },
+        limits: { ...limits, ...await roomModelLimits(host, request.project?.modelSnapshot), ...roomWorkspace(record), access: 'edit-workspace', deliveryDestination: request.destination ?? 'workspace-files' },
       };
       if (request.project) roomRequest.project = request.project;
       // A Room's planning is its own operation, before any member starts.
@@ -399,13 +398,14 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       const remaining = remainingUsd(record);
       if (remaining === 0) throw new Error('Maintenance cannot start with no budget remaining.');
       const workspace = workflowWorkspace(record);
-      await store.update(record.id, (fresh) => ({ ...fresh, preparingMaintenance: true, stateLine: 'Preparing the maintenance Workflow.' }));
+      const project = record.maintenanceProject ?? await services.resolveDispatchProject(record);
+      await store.update(record.id, (fresh) => ({ ...fresh, preparingMaintenance: true, maintenanceProject: project, stateLine: 'Preparing the maintenance Workflow.' }));
       try {
         const result = await requestOrchestratorAction(record.workspaceId, {
           kind: 'create',
           prompt: maintenancePrompt(record),
           title: `${record.name}: maintenance`,
-          options: { requestId: `${record.id}:maintenance`, activate: false, delivery: { destination: 'workspace-files' }, workspace, disableTokenLimit: true, limits: remaining === undefined ? {} : { maxCostUsd: remaining }, triggers: [...MAINTENANCE_TRIGGERS], triggerIntent: 'supplied' },
+          options: { project, requestId: `${record.id}:maintenance`, activate: false, delivery: { destination: 'workspace-files' }, workspace, disableTokenLimit: true, limits: remaining === undefined ? {} : { maxCostUsd: remaining }, triggers: [...MAINTENANCE_TRIGGERS], triggerIntent: 'supplied' },
         }).catch((error: unknown) => ({ ok: false as const, error: String(error), loopId: undefined }));
         if (!result.ok || !result.loopId) {
           await store.update(record.id, (fresh) => ({ ...fresh, stateLine: result.error ?? 'The maintenance Workflow was not created.' }));

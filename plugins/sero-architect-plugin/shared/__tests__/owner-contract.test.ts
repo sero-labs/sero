@@ -169,11 +169,11 @@ describe('a large record stays within a wake-sized budget', () => {
     expect(contract).not.toContain('Full report:');
   });
 
-  it('bounds the plan and the evidence a milestone carries', () => {
+  it('preserves the full active plan while bounding past evidence', () => {
     const project = record('build', null);
     project.milestones[0] = {
       ...project.milestones[0]!, status: 'verifying', verification: 'reported',
-      plan: 'step. '.repeat(2000),
+      plan: 'step. '.repeat(2000) + 'The exported file must preserve every row.',
       evidence: {
         commit: 'abc', checkedAt: T0, passed: true, stale: false, filesChanged: true,
         diffSummary: 'src/index.ts | 2 +-', preview: null,
@@ -181,7 +181,7 @@ describe('a large record stays within a wake-sized budget', () => {
       },
     };
     const contract = buildOwnerContract(project, null);
-    expect(contract).toContain('[truncated]');
+    expect(contract).toContain('The exported file must preserve every row.');
     // Only the most recent passing checks travel with the wake.
     expect(contract).toContain('check 9');
     expect(contract).not.toContain('check 0');

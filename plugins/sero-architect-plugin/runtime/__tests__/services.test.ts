@@ -72,6 +72,7 @@ describe('runtime services', () => {
       await services.maintenance(record);
       const creations = coordinator.actions.filter((action) => action.kind === 'create');
       expect(creations).toHaveLength(2);
+      expect(creations[1].options?.project).toMatchObject({ projectId: record.id, modelSnapshot: { MED: { modelId: 'claude-fable-5-1' } } });
       for (const action of creations) expect(action.options?.workspace).toEqual({ useManagedWorktree: executionMode === 'worktree', allowDirtyWorkspaceRoot: executionMode === 'workspace' });
     } finally { coordinator.uninstall(); }
   });

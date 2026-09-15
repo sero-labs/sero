@@ -176,6 +176,8 @@ describe('dispatch snapshot', () => {
       models: [{ provider: 'openrouter', modelId: 'anthropic/claude', name: 'Claude via OpenRouter', reasoning: true, availableThinkingLevels: ['off', 'low'] }],
     };
     const source: ModelCatalogue = { listModels: async () => [...GROUPS, routed], modelTiers: async () => GLOBAL_TIERS, env: {} };
+    const pin = await resolveOwnerSelection({ ...source, env: { SERO_ARCHITECT_MODEL: 'openrouter/anthropic/claude:off' } }, project());
+    expect(pin).toMatchObject({ ok: true, value: { model: 'openrouter/anthropic/claude', thinking: 'off' } });
     const record = setProjectTierOverride(project(), 'LOW', { provider: 'openrouter', modelId: 'anthropic/claude', thinkingLevel: 'off' });
     const snapshot = await resolveDispatchSnapshot(source, record);
     expect(snapshot.ok).toBe(true);

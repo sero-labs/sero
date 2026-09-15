@@ -27,6 +27,7 @@ import { mutateRecord } from './record-store';
 import type { RunJournal } from './run-journal';
 import { queryTrace, type TraceAnswer, type TraceQuery } from './trace-query';
 import { closeActiveRun, ensureInitialRun } from './run-lifecycle';
+import { closeDeliveredObjectives } from './objective-completion';
 import { answerResearchAccess, restartsResearch } from './research-access';
 import { applyDecisionProposal } from './decision-proposals';
 import type { WakeScheduler } from './wake-scheduler';
@@ -375,7 +376,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
         }, now);
         // The research effect lands in this same write, so a crash between
         // the answer and its effect cannot leave the entry pending and unanswerable.
-        if (decision.proposal?.kind === 'research-access') next = settle(answerResearchAccess(next, decision.proposal.researchId, optionId), now);
+        if (decision.proposal?.kind === 'research-access') next = closeDeliveredObjectives(settle(answerResearchAccess(next, decision.proposal.researchId, optionId), now), now);
         next = { ...next, history: [...next.history, { at: now, phase: next.phase, overlay: next.overlay, cause: `decision ${decisionId} answered: ${optionId}` }] };
         return { record: next };
       });

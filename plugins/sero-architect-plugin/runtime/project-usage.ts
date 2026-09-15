@@ -48,7 +48,7 @@ export async function recordCharge(
   }).catch((error: unknown) => {
     // The budget already holds this delta. The trace now lacks it, which the
     // summary reports as a reconciliation gap rather than hiding.
-    deps.host.log?.(`usage ${source} (${delta}) was not written to run ${target}: ${error instanceof Error ? error.message : String(error)}`);
+    try { deps.host.log?.(`usage ${source} (${delta}) was not written to run ${target}: ${error instanceof Error ? error.message : String(error)}`); } catch { /* Reporting must not fail execution. */ }
   });
 }
 
@@ -74,7 +74,8 @@ export async function runProjectModel(deps: UsageDeps, record: ProjectRecord, op
           : { ...next, pendingEvidence: next.pendingEvidence?.map((entry) => entry.milestoneId === operation.id ? { ...entry, chargedUsd: (entry.chargedUsd ?? 0) + delta } : entry) };
       });
       // The same delta the budget just charged, so the two cannot drift.
-      await recordCharge(deps, record, source, delta, usage.costUsd === undefined ? 'aggregate' : 'call');
+      await recordCharge(deps, record, source, delta, usage.costUsd === undefined ? 'aggregate' : 'call',
+        operation.kind === 'research' ? record.pendingResearch?.find((entry) => entry.id === operation.id)?.project?.runId : undefined);
     });
   };
   const result = await deps.host.runStructured({ ...params, onUsage: (usage) => { params.onUsage?.(usage); report(usage); } })
@@ -90,11 +91,15 @@ export async function chargeRoomPlanning(deps: Pick<UsageDeps, 'store'> & { host
   let chargedUsd = 0;
   let recordForJournal: ProjectRecord | null = null;
   let deltaForJournal = 0;
+  let runId: string | undefined;
   await deps.store.update(projectId, (fresh) => {
     recordForJournal = fresh;
     const pending = operation.kind === 'research'
       ? fresh.pendingResearch?.find((entry) => entry.id === operation.id)
       : fresh.milestones.find((entry) => entry.id === operation.id)?.pendingDispatch;
+    runId = operation.kind === 'research'
+      ? fresh.pendingResearch?.find((entry) => entry.id === operation.id)?.project?.runId
+      : fresh.milestones.find((entry) => entry.id === operation.id)?.pendingDispatch?.project?.runId;
     const previous = pending ? ('planningChargedUsd' in pending ? pending.planningChargedUsd ?? 0 : 'chargedUsd' in pending ? pending.chargedUsd ?? 0 : 0) : 0;
     chargedUsd = Math.max(previous, usage?.costUsd ?? 0);
     deltaForJournal = chargedUsd - previous;
@@ -112,6 +117,7 @@ export async function chargeRoomPlanning(deps: Pick<UsageDeps, 'store'> & { host
       `room-planning:${operation.kind}:${operation.id}`,
       deltaForJournal,
       usage?.costUsd === undefined ? 'aggregate' : 'call',
+      runId,
     );
   }
   return chargedUsd;

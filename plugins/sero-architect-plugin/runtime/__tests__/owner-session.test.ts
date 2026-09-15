@@ -1,3 +1,5 @@
+import { createRunJournal } from '../run-journal';
+import { closeRun, openRun } from '../../shared/runs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OwnerSessions, OWNER_TURN_TIMEOUT_MS, OWNER_TOOLS, ownerGrantProposal, chooseOwnerModel } from '../owner-session';
 import { createTurnOutcomes } from '../turn-outcomes';
@@ -167,7 +169,7 @@ describe('owner session', () => {
     const store = await storeFor(host);
     const outcomes = createTurnOutcomes();
     const sessions = new OwnerSessions({ host, store, outcomes });
-    const record = buildingProject();
+    const record = buildingProject({ brief: 'Brief context. '.repeat(500) + 'Retain the archived records.', milestones: [milestone('m1', { plan: 'Plan detail. '.repeat(300) + 'Acceptance requires offline export.' })] });
     await store.write(record);
     host.sessions.onTurn = async (handleId) => {
       expect((await store.read(record.id))?.session.workingSince).toBe(T0);
@@ -179,26 +181,38 @@ describe('owner session', () => {
     expect(host.sessions.prompts[0]?.content).toContain('This contract replaces every earlier Architect contract');
     expect(host.sessions.prompts[0]?.content).toContain('nothing is running');
     expect(host.sessions.steers[0]?.content).toBe(host.sessions.prompts[0]?.content);
+    expect(host.sessions.steers[0]?.content).toContain('Retain the archived records.');
+    expect(host.sessions.steers[0]?.content).toContain('Acceptance requires offline export.');
     expect(result.declared).toBe('sleep');
     expect(result.record.session.workingSince).toBeNull();
     expect(result.record.session.silentTurns).toBe(0);
     expect(result.record.session.lastWakeKind).toBe('quiet');
   });
 
-  it('charges only the delta of the session cost to the owner source', async () => {
+  it('journals owner deltas to their turn run even when another objective opens mid-turn', async () => {
     const host = await fakeHost();
     const store = await storeFor(host);
+    const journal = createRunJournal({ homeDir: await host.homeDir() });
     const outcomes = createTurnOutcomes();
-    const sessions = new OwnerSessions({ host, store, outcomes });
-    await store.write(buildingProject());
-    host.sessions.onTurn = async () => outcomes.declare('proj_1', 'sleep');
+    const sessions = new OwnerSessions({ host, store, outcomes, journal });
+    const opened = openRun(buildingProject(), { id: 'initial', kind: 'initial' }, T0);
+    if (!opened.ok) throw new Error(opened.error);
+    await store.write(opened.record);
+    host.sessions.onTurn = async () => {
+      await store.update('proj_1', (fresh) => {
+        const next = openRun(closeRun(fresh, 'initial', 'delivered', T0), { id: 'later', kind: 'maintenance', objectiveId: 'issue' }, T0);
+        return next.ok ? next.record : fresh;
+      });
+      outcomes.declare('proj_1', 'sleep');
+    };
     host.sessions.costUsd = 1.5;
-    const first = await sessions.runTurn(buildingProject(), wake);
-    expect(first.record.budget.sources.owner).toBe(1.5);
+    const first = await sessions.runTurn(opened.record, wake);
     host.sessions.costUsd = 2.25;
     const second = await sessions.runTurn(first.record, wake);
     expect(second.record.budget.sources.owner).toBe(2.25);
-    expect(second.record.budget.spentUsd).toBe(2.25);
+    const costs = async (id: string) => (await journal.readPage('proj_1', id)).records.reduce((sum, entry) => sum + (typeof entry.costUsd === 'number' ? entry.costUsd : 0), 0);
+    expect(await costs('initial')).toBe(1.5);
+    expect(await costs('later')).toBe(0.75);
   });
 
   it('retains live owner charges when the final usage read fails', async () => {

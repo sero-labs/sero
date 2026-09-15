@@ -57,6 +57,9 @@ export interface OwnerActionInput {
   projectId: string;
   /** brief, status, reply, blocked, sleep: the text. */
   text?: string;
+  /** Maintenance objective for a new milestone or a no-work-needed sleep. */
+  runId?: string;
+  noWorkNeeded?: boolean;
   title?: string;
   milestoneId?: string;
   plan?: string;

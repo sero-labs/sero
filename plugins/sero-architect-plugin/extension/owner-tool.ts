@@ -33,6 +33,8 @@ const RESERVED_IN_SCHEMA = ['exitCode', 'capturePath', 'diffSummary'] as const s
 export const OwnerToolParams = Type.Object({
   action: StringEnum(OWNER_ACTIONS, { description: 'Action to run: brief, charter, milestone, decide, research, dispatch, evidence, status, reply, blocked or sleep' }),
   projectId: Type.String({ description: 'The project this session owns. Every call carries it' }),
+  runId: Type.Optional(Type.String({ description: 'milestone/sleep: the maintenance run id from the contract' })),
+  noWorkNeeded: Type.Optional(Type.Boolean({ description: 'sleep: close runId as no work needed after triage; requires text explaining why' })),
   text: Type.Optional(Type.String({ description: 'brief/status/reply/blocked/sleep: the text' })),
   title: Type.Optional(Type.String({ description: 'milestone: the title (required for a new milestone)' })),
   milestoneId: Type.Optional(Type.String({ description: 'milestone/dispatch/evidence: the milestone id' })),
@@ -66,6 +68,8 @@ export interface OwnerToolParamsShape {
   action: (typeof OWNER_ACTIONS)[number];
   projectId: string;
   text?: string;
+  runId?: string;
+  noWorkNeeded?: boolean;
   title?: string;
   milestoneId?: string;
   plan?: string;
@@ -123,6 +127,8 @@ export function buildOwnerActionInput(params: OwnerToolParamsShape): OwnerAction
     action: params.action,
     projectId: params.projectId,
     text: params.text,
+    runId: params.runId,
+    noWorkNeeded: params.noWorkNeeded,
     title: params.title,
     milestoneId: params.milestoneId,
     plan: params.plan,
