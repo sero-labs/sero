@@ -37,9 +37,12 @@ export function activityOf(record: TraceRecord): string {
 
 export function filterRecords(records: readonly TraceRecord[], filters: TraceFilters): TraceRecord[] {
   if (!filtersActive(filters)) return [...records];
+  // Sets, so a filter over a long trace is not a scan per record per filter.
+  const activities = new Set(filters.activities);
+  const models = new Set(filters.models);
   return records.filter((record) => {
-    if (filters.activities.length > 0 && !filters.activities.includes(activityOf(record))) return false;
-    if (filters.models.length > 0 && !filters.models.some((model) => model === record.model)) return false;
+    if (activities.size > 0 && !activities.has(activityOf(record))) return false;
+    if (models.size > 0 && !(record.model !== undefined && models.has(record.model))) return false;
     if (filters.failuresOnly && record.outcome !== 'failed' && record.outcome !== 'error') return false;
     return true;
   });

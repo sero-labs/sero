@@ -45,7 +45,7 @@ export function Inspector({ record, actions, onBack }: {
   onBack(): void;
 }) {
   const runs = record.runs ?? [];
-  const [selected, setSelected] = useState<string>(runs.at(-1)?.id ?? LIFETIME);
+  const [selected, setSelected] = useState<string>(() => runs.at(-1)?.id ?? LIFETIME);
   const [page, setPage] = useState<TracePage | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -79,7 +79,7 @@ export function Inspector({ record, actions, onBack }: {
     void load(selected, withDetail);
   }, [load, selected, withDetail]);
 
-  const records = page?.records ?? [];
+  const records = useMemo(() => page?.records ?? [], [page]);
   const full = useMemo(() => timeRangeOf(records), [records]);
   const visible = useMemo(
     () => filterRecords(records, filters).filter((entry) => inRange(entry, range)),
@@ -269,9 +269,20 @@ export function Inspector({ record, actions, onBack }: {
                     <div
                       key={key}
                       className="ar-span"
+                      role="option"
+                      aria-selected={index === cursor}
+                      tabIndex={-1}
                       data-selected={index === cursor ? 'true' : undefined}
                       style={{ height: ROW_HEIGHT }}
                       onClick={() => setCursor(index)}
+                      onKeyDown={(event) => {
+                        // The container handles arrow keys; the row handles the
+                        // pair a pointer would use on it.
+                        if (event.key !== 'Enter' && event.key !== ' ') return;
+                        event.preventDefault();
+                        setCursor(index);
+                        if (entry.operationId) toggleExpanded(entry.operationId);
+                      }}
                       onDoubleClick={() => entry.operationId && toggleExpanded(entry.operationId)}
                     >
                       <span className="ar-span-at">{clock(entry.at)}</span>
