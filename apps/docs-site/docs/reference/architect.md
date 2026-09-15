@@ -11,9 +11,11 @@ sessions, the Orchestrator plugin, and the host capabilities
 `appAgent.invokeTool`, `tool.cli`, `appRuntime.background` and
 `appRuntime.workspaceCreate`.
 
-`SERO_ARCHITECT_MODEL` names the owner's model as `provider/model`. Without
-it, the owner uses the first available model that supports reasoning, or the
-first available model if none supports reasoning.
+`SERO_ARCHITECT_MODEL` names the owner's model as `provider/model`, with an
+optional `:thinking` suffix. Without it, the owner uses the **MED** tier: the
+project default when you set one, otherwise the global selection in Admin. A
+tier never falls back to another provider. An unavailable model or an
+unsupported thinking level is refused, and the reason is reported.
 
 ## Terms
 
@@ -137,13 +139,38 @@ milestone and moves through the same four verification states.
 
 ![Architect maintenance phase showing a delivered release and a fix under verification](../assets/images/architect-maintain.png)
 
+## Runs and telemetry
+
+A project groups its work by objective. One objective has one run, so the run
+inspector can show what an answer cost without mixing it with the next one.
+Several objectives can be in flight at once.
+
+| Term | Meaning |
+| --- | --- |
+| Run | one objective's work, opened before its first model call and closed when it ends |
+| Shared activity | work charged once to the project and linked from the runs it served, never split by a guessed share |
+| Attributable cost | cost charged to the run itself |
+| Aggregate coverage | a total a source reported without per-call detail |
+| Observed wait | a wait whose start and end were both recorded, by cause |
+
+Each charge is written to the run journal as the same delta the budget takes, so
+a run's total and the project spend for the same scope reconcile. A replay of a
+cumulative report adds nothing.
+
+Coverage is never smoothed. A source that reported no tokens, a run that predates
+run identity, or a restart that lost part of its telemetry all report as
+incomplete. Counters nobody reported stay absent rather than showing zero, and an
+older record keeps the amount it recorded without inventing the calls behind it.
+
 ## State and storage
 
 | Path | Content |
 | --- | --- |
 | `~/.sero-ui/apps/architect/state.json` | the index: one row per project (id, name, phase, overlay, state line, spend, cap, needs-you count) |
 | `~/.sero-ui/apps/architect/projects/<id>.json` | the full project record; the runtime is its only writer |
+| `~/.sero-ui/apps/architect/runs/<project>/<run>.*` | one run's journal and its checkpoint |
 | `<folder>/.sero/apps/architect/evidence/<milestone>/<commit>.png` | captures taken by the verifier |
+| `<folder>/.sero/apps/architect/research/<id>.md` | a finished research report, referenced from the owner contract instead of repeated in it |
 
 The UI, widget and management tool read the index and project record. **Open
 session** also reads persistent owner-session history. Layout preferences

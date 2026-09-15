@@ -15,9 +15,12 @@ Workflow, Room or Goal yourself.
 ## Before you start
 
 1. [Install and open Sero](/guide/getting-started).
-2. [Configure a model](/guide/models-and-providers). Architect uses the first
-   available model that supports reasoning. If none does, it uses the first
-   available model. Set `SERO_ARCHITECT_MODEL` to choose one.
+2. [Configure a model](/guide/models-and-providers). Architect runs its owner
+   session on the **MED** tier: the project default if you set one, otherwise
+   the global selection in Admin. Delegated Workflows and Rooms resolve the same
+   way per tier. Set `SERO_ARCHITECT_MODEL` to override the owner regardless of
+   tier. Architect never falls back to another provider: if the selected model
+   is unavailable, it says so and asks you to choose.
 3. Make sure Orchestrator is available. Architect dispatches its work through
    Workflows and Rooms.
 
@@ -131,15 +134,47 @@ reaches the cap, Architect stops starting new work. Work already in progress
 can continue and add cost before the next budget check. Raise the cap from the
 project page to continue.
 
+The cap limits the work Architect starts. It is not a ceiling on what a project
+can spend: a Workflow or Room already running has its own limit and can keep
+adding cost until it stops. The spend line shows a lower bound. When a source
+reported a total without per-call detail, or did not report at all, the amount
+is marked as incomplete rather than filled in.
+
+## Run inspector
+
+Open **Run inspector** from the controls menu. It shows where a project's time
+and money went, and it opens on the totals: reading the individual operations is
+a separate action named **Load activity**.
+
+- **View** selects the whole project or one run. A project groups its work by
+  objective, so each run answers one thing rather than one session.
+- **Cumulative spend**, **By activity** and **By model** are computed from the
+  operations shown. A row in the activity chart sets the timeline filter, so the
+  two always describe the same records.
+- **Selected activity** shows an operation's own cost and, separately, its
+  inclusive cost with everything below it. The inclusive figure is never added
+  into a total that already counts those operations.
+- Shared activity is charged once to the project and is reported beside a run's own figure, never inside it.
+- A filtered view says which scope its total covers, rather than presenting part
+  of a run as the whole of it.
+
+Model and thinking level are shown together, because the same model at two
+effort levels is two decisions. An operation that recorded no model says so
+rather than showing a blank.
+
 ## Controls
 
 The controls menu on the project page offers:
 
 - **Pause** and **Resume**. Pause prevents Architect from starting or planning
   new work. Work in flight continues.
-- **Stop**. Stops future work. Work in flight continues.
+- **Stop**. Stops future work. Work in flight continues. Work that stops after
+  Stop still appears in the run inspector with its usage.
 - **Raise cap**.
 - **Autonomy**. Cycles through the three settings.
+- **Models…**. Sets a project model default per tier. A tier with no project
+  default inherits the global selection in Admin.
+- **Run inspector…**. Opens the run inspector for this project.
 - **Delete project**. Removes the record and the owner session. Files in the
   project folder stay.
 
