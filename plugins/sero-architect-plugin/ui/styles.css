@@ -360,3 +360,24 @@
 .ar-inspector-detail dl { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 4px 8px; margin: 8px 0; }
 .ar-inspector-detail dt { color: var(--ar-text-3); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
 .ar-inspector-detail dd { margin: 0; color: var(--text-primary); overflow-wrap: anywhere; }
+
+/* Charts read the same records as the totals above them, so the two cannot
+   disagree. A section with nothing priced says so instead of drawing zero. */
+.ar-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.ar-charts section { border: 1px solid var(--ar-line); border-radius: 10px; padding: 10px 12px; }
+.ar-charts h3 { margin: 0 0 6px; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--ar-text-3); }
+.ar-charts svg { color: var(--ar-accent, var(--text-primary)); }
+.ar-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.ar-bar-row {
+  display: grid; width: 100%; align-items: center; gap: 8px; font-size: 12px;
+  grid-template-columns: 84px minmax(0, 1fr) 74px 52px;
+  background: none; border: 0; padding: 2px 0; cursor: pointer; text-align: left; color: inherit;
+}
+.ar-bar-row[data-on] .ar-bar-label { color: var(--text-primary); font-weight: 600; }
+.ar-bar-track { display: block; height: 8px; border-radius: 4px; background: color-mix(in oklab, var(--ar-line) 60%, transparent); overflow: hidden; }
+.ar-bar-track i { display: block; height: 100%; background: var(--ar-accent, var(--text-primary)); }
+.ar-bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ar-text-2); }
+.ar-bar-value, .ar-bar-count { color: var(--ar-text-3); font-family: var(--font-mono, monospace); font-size: 11px; }
+.ar-model-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ar-model-table th { text-align: left; color: var(--ar-text-3); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; padding: 2px 6px 4px 0; }
+.ar-model-table td { padding: 2px 6px 2px 0; color: var(--ar-text-2); }

@@ -3,7 +3,9 @@ import { Button } from '@sero-ai/ui';
 
 import type { ProjectRecord } from '../../shared/record';
 import type { ArchitectActions } from '../lib/actions';
+import { activityBreakdown, inclusiveCost, sharedCost } from '../lib/charts';
 import { useInspectorPreferences } from '../lib/page-helpers';
+import { InspectorCharts } from './InspectorCharts';
 import {
   activityOf, activityOptions, filterRecords, filtersActive, inRange, modelOptions, NO_FILTERS,
   rowWindow, timeRangeOf, zoomRange, type TimeRange, type TraceFilters,
@@ -108,6 +110,9 @@ export function Inspector({ record, actions, onBack }: {
 
   const selectedRecord = visible[cursor] ?? null;
   const summary = page?.summary;
+  // Shared activity is charged once to the project, so it is reported beside the
+  // run's own figure rather than inside it.
+  const shared = sharedCost(records);
 
   return (
     <div className="ar-body ar-inspector">
@@ -130,6 +135,7 @@ export function Inspector({ record, actions, onBack }: {
       <div className="ar-inspector-tiles">
         <div><span>Cost</span><b>{summary ? usd(summary.attributableUsd) : '—'}</b>
           {summary?.hasAggregate && <small>{usd(summary.aggregateUsd)} without call detail</small>}
+          {shared > 0 && <small>{usd(shared)} shared activity, charged once to the project</small>}
           {summary?.reconciliationUsd !== undefined && Math.abs(summary.reconciliationUsd) > 0.0001 && (
             <small>differs from project spend by {usd(summary.reconciliationUsd)}</small>
           )}
@@ -189,6 +195,11 @@ export function Inspector({ record, actions, onBack }: {
             <Button variant="outline" size="sm" className="ar-btn" onClick={() => setFilters(NO_FILTERS)}>Clear filters</Button>
           )}
           {visible.length !== records.length && <span>{visible.length} of {records.length} rows</span>}
+          {filtersActive(filters) && summary && (
+            // A filtered view is part of the run, so its figure is labelled as
+            // the filtered total rather than passed off as the run total.
+            <span role="status">filtered view: {usd(activityBreakdown(visible).reduce((total, entry) => total + entry.costUsd, 0))} of {usd(summary.attributableUsd)}</span>
+          )}
         </div>
         <div className="ar-inspector-zoom" role="group" aria-label="Time range">
           <span>Range</span>
@@ -208,6 +219,14 @@ export function Inspector({ record, actions, onBack }: {
       )}
       {!loading && !withDetail && (
         <p className="ar-why">The totals above cover the whole view. Load the activity to see the individual operations and their timings.</p>
+      )}
+
+      {withDetail && records.length > 0 && (
+        <InspectorCharts
+          records={visible}
+          filters={filters}
+          onPickActivity={(activity) => setFilters(toggle(filters, 'activities', activity))}
+        />
       )}
 
       {withDetail && records.length > 0 && (
@@ -262,7 +281,10 @@ export function Inspector({ record, actions, onBack }: {
                   <dt>at</dt><dd>{selectedRecord.at}</dd>
                   <dt>kind</dt><dd>{activityOf(selectedRecord)}</dd>
                   <dt>model</dt><dd>{selectedRecord.model ?? 'not recorded'}</dd>
-                  <dt>cost</dt><dd>{selectedRecord.costUsd === undefined ? 'not recorded' : usd(selectedRecord.costUsd)}</dd>
+                  <dt>own cost</dt><dd>{selectedRecord.costUsd === undefined ? 'not recorded' : usd(selectedRecord.costUsd)}</dd>
+                  {/* Inclusive covers this operation and everything under it, and
+                      is never added into a total that already counted those. */}
+                  <dt>inclusive</dt><dd>{usd(inclusiveCost(selectedRecord, visible))}</dd>
                   <dt>coverage</dt><dd>{selectedRecord.coverage ?? 'not recorded'}</dd>
                 </dl>
                 {selectedRecord.operationId && (

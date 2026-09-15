@@ -215,8 +215,7 @@ describe('driving the timeline', () => {
     expect(container.textContent).toContain('failed');
   });
 
-  it('says a timing was not observed rather than showing a zero', async () => {
-    const trace = vi.fn(async (_id: string, query: TraceRequest) => ({
+  it('says a timing was not observed rather than showing a zero', async () => {    const trace = vi.fn(async (_id: string, query: TraceRequest) => ({
       ok: true, text: 'done',
       page: query.detail
         ? { ...page([record(0)]), timing: { activeMs: 0, workerMs: 0, waitMs: 0 } }
@@ -227,5 +226,74 @@ describe('driving the timeline', () => {
     expect(container.textContent).toContain('none observed');
     // Counters nothing reported are named, not silently shown as zero coverage.
     expect(container.textContent).toContain('cacheRead unavailable');
+  });
+});
+
+describe('the charts and the timeline agree', () => {
+  const rows = [
+    record(0, { operationKind: 'workflow', costUsd: 0.30, model: 'openai-codex/gpt-5.6-terra', thinking: 'high' }),
+    record(1, { operationKind: 'evidence', costUsd: 0.05, model: 'openai-codex/gpt-5.6-luna', thinking: 'low' }),
+  ];
+
+  const render = async () => {
+    const trace = vi.fn(async (_id: string, query: TraceRequest) => ({
+      ok: true, text: 'done', page: query.detail ? page(rows) : page([]),
+    } as TraceOutcome));
+    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace })} onBack={vi.fn()} />));
+    await flush();
+    click('Load activity');
+    await flush();
+  };
+
+  it('draws a breakdown and a model row per model and effort level', async () => {
+    await render();
+    expect(container.textContent).toContain('Cumulative spend');
+    // Exact values, not rounded into the same number.
+    expect(container.textContent).toContain('$0.3000');
+    expect(container.textContent).toContain('$0.0500');
+    expect(container.textContent).toContain('openai-codex/gpt-5.6-terra');
+    expect(container.textContent).toContain('openai-codex/gpt-5.6-luna');
+    expect(container.textContent).toContain('high');
+    expect(container.textContent).toContain('low');
+  });
+
+  it('filters the timeline when an activity bar is chosen', async () => {
+    await render();
+    const bar = [...container.querySelectorAll('button')].find((el) => el.className === 'ar-bar-row' && el.textContent?.includes('workflow'));
+    if (!bar) throw new Error('no activity bar');
+    act(() => bar.click());
+    // The chart drives the timeline's filter rather than sitting beside it.
+    expect(preferences.inspectorActivities).toBe('workflow');
+
+    // The mock is not reactive, so returning to the view is how the stored
+    // filter is read back: the timeline is narrowed and the total says so.
+    act(() => root.unmount());
+    root = createRoot(container);
+    await render();
+    expect(container.textContent).toContain('filtered view:');
+    expect(container.textContent).toContain('1 of 2 rows');
+  });
+
+  it('shows an operation its own cost and its inclusive cost separately', async () => {
+    await render();
+    expect(container.textContent).toContain('own cost');
+    expect(container.textContent).toContain('inclusive');
+    // The selected row is exclusive; the whole tree's exclusive sum is the same
+    // figure, so the panel's inclusive value is never added into a total.
+    expect(container.textContent).toContain('$0.3000');
+    expect(container.textContent).toContain('$0.3500');
+  });
+
+  it('charts nothing and says so when no usage was priced', async () => {
+    const trace = vi.fn(async (_id: string, query: TraceRequest) => ({
+      ok: true, text: 'done', page: query.detail ? page([record(0), record(1)]) : page([]),
+    } as TraceOutcome));
+    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace })} onBack={vi.fn()} />));
+    await flush();
+    click('Load activity');
+    await flush();
+    expect(container.textContent).toContain('nothing to chart');
+    // Not a line at zero dressed up as a measurement.
+    expect(container.textContent).not.toContain('Cumulative spend');
   });
 });
