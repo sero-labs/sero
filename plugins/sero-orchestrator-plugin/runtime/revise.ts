@@ -80,6 +80,7 @@ export async function buildRevisedLoop(
       prompt: newGoal,
       parentSessionId: loop.runtime.parentSessionId,
       loopId: loop.id,
+      modelSnapshot: loop.project?.modelSnapshot,
       onUsage,
     });
     next = { ...next, prompt: newGoal, triggers: reapplyExtractedTriggers(host, loop.id, next.triggers, extraction) };

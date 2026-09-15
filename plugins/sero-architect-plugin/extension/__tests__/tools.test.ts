@@ -26,6 +26,33 @@ describe('the architect tools', () => {
     expect(calls).toEqual(['approve']);
   });
 
+  it('asks for a trace summary without asking for record detail', async () => {
+    const queries: { projectId: string; query: unknown }[] = [];
+    const answer = {
+      projectId: 'p1', journalId: 'shared',
+      summary: { attributableUsd: 0.3, aggregateUsd: 0.1, hasAggregate: true, incomplete: false, records: 4 },
+      timing: { activeMs: 0, workerMs: 0, waitMs: 0, waitByCause: {} },
+      tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, unavailable: [] },
+    };
+    registered = {
+      owner: { owns: async () => null, execute: async () => ({ ok: true, text: '' }) },
+      projects: {
+        trace: async (projectId: string, query: unknown) => { queries.push({ projectId, query }); return answer; },
+      } as unknown as ArchitectRegistryEntry['projects'],
+    };
+    registerArchitectRuntime(registered);
+
+    const summary = await executeProjectsTool({ action: 'trace', projectId: 'p1', knownSpendUsd: 0.25 }, ctxFor('/s/user-chat.jsonl'));
+    expect(summary.details.ok).toBe(true);
+    // Detail is opt-in, so a summary request never asks for the records.
+    expect(queries[0]).toMatchObject({ projectId: 'p1', query: { detail: false, knownSpendUsd: 0.25 } });
+    expect(summary.details.records).toBeUndefined();
+    expect(summary.details.summary).toMatchObject({ attributableUsd: 0.3 });
+
+    await executeProjectsTool({ action: 'trace', projectId: 'p1', detail: true, limit: 5 }, ctxFor('/s/user-chat.jsonl'));
+    expect(queries[1]).toMatchObject({ query: { detail: true, limit: 5 } });
+  });
+
   it('lists every management action in the description the CLI help is built from', () => {
     for (const action of ['create', 'pause', 'resume', 'stop', 'raise_cap', 'set_autonomy', 'answer', 'directive', 'delete']) {
       expect(PROJECT_ACTIONS).toContain(action);

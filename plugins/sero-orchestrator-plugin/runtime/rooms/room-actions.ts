@@ -30,6 +30,8 @@ export interface CreateRoomRequest {
   requestId?: string;
   /** The user's own words, kept verbatim for the audit trail. */
   problemStatement: string;
+  /** Project/run attribution from a typed dispatch handle. Retention only. */
+  project?: import('@sero-ai/common').OrchestratorProjectContext;
   /** Already planned, validated and clamped (planner.ts / adjust.ts). */
   blueprint: RoomBlueprint;
   /** Computed from the same blueprint. Never planner-authored. */
@@ -64,6 +66,7 @@ export function buildRoomRecord(host: OrchestratorHost, request: CreateRoomReque
       id,
       title: request.blueprint.title,
       ...(request.requestId ? { creationRequestId: request.requestId } : {}),
+      ...(request.project ? { projectContext: request.project } : {}),
       problemStatement: request.problemStatement,
       blueprint: request.blueprint,
       proposal: request.proposal,

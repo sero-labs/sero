@@ -9,23 +9,34 @@ import { chooseOwnerModel } from './owner-session';
 import os from 'node:os';
 import path from 'node:path';
 
-import { requestOrchestratorAction, type PersistentSessionHistoryPage } from '@sero-ai/common';
+import { requestOrchestratorAction, type ModelTier, type PersistentSessionHistoryPage, type SharedModelTierEntry, type SharedModelTierSettings, type ThinkingLevel } from '@sero-ai/common';
 
 import { advancePhase, approveCharter, block, mayDispatch, pause, resume, setAutonomy, setCap, settle, unblock } from '../shared/lifecycle';
 import { createProjectRecord, toIndexEntry, type AutonomySetting, type ExecutionMode, type DecisionProposal, type Milestone, type ProjectRecord } from '../shared/record';
 import type { DispatchDestination } from '../shared/owner-actions';
-import { performDispatch, recoverDispatch } from './dispatch-link';
-import { repairDispatch, type RepairOutcome } from './repair-dispatch';
+import { performDispatch } from './dispatch-link';
+import type { RepairOutcome } from './repair-dispatch';
+import { clearModelDefaultAction, refreshModelTiersAction, setModelDefaultAction, type ModelDefaultInput } from './model-default-actions';
+import { previewProject, repairProject, retryMilestone } from './work-recovery-actions';
 import type { OwnerServices } from './owner-actions';
 import type { ArchitectIndexEntry } from '../shared/types';
 import type { ArchitectHost } from './host';
 import type { OwnerSessions } from './owner-session';
-import { mutateRecord, type RecordStore } from './record-store';
+import type { RecordStore } from './record-store';
+import { mutateRecord } from './record-store';
+import type { RunJournal } from './run-journal';
+import { queryTrace, type TraceAnswer, type TraceQuery } from './trace-query';
+import { closeActiveRun, ensureInitialRun } from './run-lifecycle';
 import type { WakeScheduler } from './wake-scheduler';
 import type { DispatchWatch } from './dispatch-watch';
 
 export const STOP_REASON = 'stopped by the user';
 
+/**
+ * Feedback after a model change. It names the revision new work will use and
+ * how many existing dispatches keep the earlier one, so the user can see which
+ * work is unaffected by what they just saved.
+ */
 export interface ProjectsActionsDeps {
   host: ArchitectHost;
   store: RecordStore;
@@ -33,9 +44,13 @@ export interface ProjectsActionsDeps {
   scheduler: WakeScheduler;
   watch: DispatchWatch;
   services: OwnerServices;
+  /** Detailed run journals, removed with the project on the explicit deletion path. */
+  journal?: RunJournal;
 }
 
 export type ProjectsOutcome = { ok: true; text: string; projectId?: string } | { ok: false; text: string };
+
+/** One tier default a caller asks to save. */
 
 export interface ProjectsActions {
   preview(projectId: string): Promise<ProjectsOutcome & { url?: string }>;
@@ -43,6 +58,11 @@ export interface ProjectsActions {
   list(): Promise<ArchitectIndexEntry[]>;
   show(projectId: string): Promise<ProjectRecord | null>;
   history(projectId: string, cursor?: string): Promise<PersistentSessionHistoryPage | null>;
+  /**
+   * Reads a project's trace. Metadata-only unless `detail` is asked for, so a
+   * page showing a summary never receives records it did not request.
+   */
+  trace(projectId: string, query?: Omit<TraceQuery, 'projectId'>): Promise<TraceAnswer | null>;
   create(input: { idea: string; folder: string; executionMode?: ExecutionMode }): Promise<ProjectsOutcome>;
   pause(projectId: string): Promise<ProjectsOutcome>;
   resume(projectId: string): Promise<ProjectsOutcome>;
@@ -51,6 +71,12 @@ export interface ProjectsActions {
   raiseCap(projectId: string, capUsd: number): Promise<ProjectsOutcome>;
   setExecutionMode(projectId: string, mode: ExecutionMode): Promise<ProjectsOutcome>;
   setAutonomy(projectId: string, autonomy: AutonomySetting): Promise<ProjectsOutcome>;
+  /** Saves one project tier override. An unavailable model or thinking level is refused. */
+  setModelDefault(projectId: string, input: ModelDefaultInput): Promise<ProjectsOutcome>;
+  /** Clears one override so the tier inherits the global selection again. */
+  clearModelDefault(projectId: string, tier: ModelTier): Promise<ProjectsOutcome>;
+  /** Re-reads the host's global model tiers into the cached record, and returns what it read. */
+  refreshModelTiers(projectId: string): Promise<ProjectsOutcome & { tiers?: SharedModelTierSettings }>;
   approve(projectId: string, target: 'charter' | 'milestone', milestoneId?: string): Promise<ProjectsOutcome>;
   answer(projectId: string, decisionId: string, optionId: string, note?: string): Promise<ProjectsOutcome>;
   directive(projectId: string, text: string): Promise<ProjectsOutcome>;
@@ -89,6 +115,7 @@ function applyCharterProposal(record: ProjectRecord, proposal: Extract<DecisionP
   );
   const milestones = [...proposed, ...retained];
   const charter = { ...proposal.charter, milestoneIds: milestones.map((milestone) => milestone.id), approvedAt: now };
+
   return {
     ...record,
     charter,
@@ -181,6 +208,13 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       });
       if (!advanced) return { ok: false, error: failure || `No project ${record.id}.` };
       record = advanced;
+      // The initial run covers setup through initial delivery, so it opens before
+      // discovery's first model call. Idempotent: a re-entered discovery keeps it.
+      if (deps.journal) {
+        await ensureInitialRun({ store, journal: deps.journal }, record.id, host.now()).catch((error: unknown) => {
+          host.log(`could not open the initial run for ${record.id}: ${error instanceof Error ? error.message : String(error)}`);
+        });
+      }
     }
     await watch.track(record);
     scheduler.request(record.id, { kind: 'quiet', at: host.now(), items: ['intake finished; discovery starts'] });
@@ -189,6 +223,8 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
 
   const read = async (projectId: string): Promise<ProjectRecord | null> => store.read(projectId);
 
+  const recovery = { host, store, services, watch };
+
   return {
     async list() {
       return (await store.list()).map(toIndexEntry);
@@ -196,64 +232,26 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
 
     show: read,
 
-    async preview(projectId) {
-      const record = await read(projectId);
-      if (!record?.workspaceId) return refuse('This project has no workspace.');
-      const command = await host.detectDevServerCommand(record.folder);
-      if (!command) return refuse('No preview command was found in the project workspace.');
-      const server = await host.startDevServer({ workspaceId: record.workspaceId,
-        workspacePath: record.folder, cwdPath: record.folder, command, name: record.name, scope: 'workspace' });
-      return server.url ? { ok: true, text: 'Project preview is running.', url: server.url }
-        : refuse(server.reason ?? 'The preview could not start.');
-    },
-
-    async repair(projectId, workflowId) {
-      const pending = await store.read(projectId);
-      if (pending?.milestones.some((item) => item.pendingDispatch?.request)) {
-        try {
-          return await recoverDispatch(store, services, pending)
-            ? { ok: true, text: 'Workflow recovered. Checking progress.' }
-            : { ok: false, text: 'Workflow recovery is waiting for the project pause, budget or decision to be resolved.' };
-        } catch (error) {
-          return { ok: false, text: error instanceof Error ? error.message : String(error) };
-        }
-      }
-      const result = await repairDispatch(store, host, projectId, workflowId);
-      if (result.ok && workflowId) {
-        watch.untrack(projectId);
-        const record = await store.read(projectId);
-        if (record) await watch.track(record);
-      }
-      return result;
-    },
-
-    async retry(projectId, milestoneId, maxCostUsd) {
-      const record = await read(projectId);
-      const milestone = record?.milestones.find((item) => item.id === milestoneId);
-      const dispatch = milestone?.dispatch;
-      if (!record || !milestone || dispatch?.kind !== 'workflow' || !dispatch.failure) return refuse('This milestone has no interrupted Workflow to retry.');
-      if (record.paused) return refuse('Resume the project before retrying its work.');
-      if (record.budget.capUsd !== null && record.budget.spentUsd >= record.budget.capUsd) return refuse('Raise the project cap before retrying.');
-      if (record.blockedReason && record.blockedReason !== dispatch.failure) return refuse(record.blockedReason);
-      if (dispatch.costLimitUsd !== undefined) {
-        if (maxCostUsd === undefined || !Number.isFinite(maxCostUsd) || maxCostUsd <= dispatch.chargedUsd) return refuse('Approve a finite Workflow cap above its recorded spend.');
-        const available = record.budget.capUsd === null ? 0 : Math.max(0, record.budget.capUsd - record.budget.spentUsd);
-        if (maxCostUsd > dispatch.chargedUsd + available) return refuse('Raise the project cap first. This Workflow allocation exceeds the remaining project budget.');
-        const changed = await requestOrchestratorAction(dispatch.workspaceId, { kind: 'use_cost_budget', loopId: dispatch.id, maxCostUsd });
-        if (!changed.ok) return refuse(changed.error ?? 'The Workflow cap could not change.');
-        const started = await requestOrchestratorAction(dispatch.workspaceId, { kind: 'run_next', loopId: dispatch.id });
-        return started.ok ? ok(`Workflow resumed with a $${maxCostUsd} cap.`) : refuse(started.error ?? 'The Workflow could not resume.');
-      }
-      const result = await requestOrchestratorAction(dispatch.workspaceId, dispatch.retryStepId
-        ? { kind: 'retry_step', loopId: dispatch.id, stepId: dispatch.retryStepId }
-        : { kind: 'retry', loopId: dispatch.id });
-      return result.ok ? ok(`Retry started for ${milestone.title}.`) : refuse(result.error ?? 'The Workflow could not retry.');
-    },
+    preview: (projectId) => previewProject(recovery, projectId),
+    repair: (projectId, workflowId) => repairProject(recovery, projectId, workflowId),
+    retry: (projectId, milestoneId, maxCostUsd) => retryMilestone(recovery, projectId, milestoneId, maxCostUsd),
 
     async history(projectId, cursor) {
       const record = await read(projectId);
       if (!record?.session.grantId || !host.persistentSessions) return null;
       return host.persistentSessions.readHistory(record.session.grantId, record.session.subject, { cursor, limit: 100 });
+    },
+
+    /**
+     * Reads a trace only for a project that exists.
+     *
+     * The authorization is the record lookup, so a foreign id, a deleted project
+     * and a typo are all the same answer: nothing.
+     */
+    async trace(projectId, query) {
+      const journal = deps.journal;
+      if (!journal) return null;
+      return queryTrace({ journal, authorize: async (id) => (await read(id)) !== null }, { ...query, projectId });
     },
 
     async create(input) {
@@ -312,7 +310,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       });
       if (!resumed.ok) return refuse(resumed.error);
       let next = resumed.record;
-      const selected = await chooseOwnerModel(host);
+      const selected = await chooseOwnerModel(host, next);
       if (next.session.grantId && (next.session.model !== selected.model || next.session.thinking !== selected.thinking)) {
         await sessions.dispose(projectId);
         next = await sessions.requestGrant(next);
@@ -323,6 +321,20 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
         if (!outcome.ok) return refuse(outcome.error);
         if (outcome.record.blockedReason) return refuse(outcome.record.blockedReason);
         return ok(`Project ${projectId} resumed. Discovery starts.`);
+      }
+      // Discovery may have been entered without its run if that second write
+      // failed. Idempotent: a project that has one keeps it.
+      if (deps.journal) {
+        try {
+          await ensureInitialRun({ store, journal: deps.journal }, projectId, now);
+        } catch (error) {
+          return refuse(`could not open the initial run for ${projectId}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+        // Recovery charges the run, so it must see the record that has it. A
+        // stale record would charge nothing, so a failed re-read stops here.
+        const reread = await store.read(projectId);
+        if (!reread) return refuse(`Project ${projectId} could not be re-read after opening its initial run.`);
+        next = reread;
       }
       services.recoverPending(next);
       scheduler.request(projectId, { kind: 'quiet', at: now, items: ['the user resumed the project'] });
@@ -338,6 +350,13 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       if (!stopped.ok) return refuse(stopped.error);
       scheduler.forget(projectId);
       await sessions.dispose(projectId);
+      // A Stop is not completion: the run ends as stopped, and any work that is
+      // still in flight keeps its identity so its late usage stays attributable.
+      if (deps.journal) {
+        await closeActiveRun({ store, journal: deps.journal }, projectId, 'stopped', host.now()).catch((error: unknown) => {
+          host.log(`could not close the active run for ${projectId}: ${error instanceof Error ? error.message : String(error)}`);
+        });
+      }
       return ok(`Project ${projectId} stopped. Running work continues under its own limits; the owner session is closed.`);
     },
 
@@ -363,6 +382,10 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       if (!result.ok) return refuse(result.error);
       return ok(`Autonomy set to ${autonomy}; it applies to the next milestone.`);
     },
+
+    setModelDefault: (projectId, input) => setModelDefaultAction({ host, store }, projectId, input),
+    clearModelDefault: (projectId, tier) => clearModelDefaultAction({ host, store }, projectId, tier),
+    refreshModelTiers: (projectId) => refreshModelTiersAction({ host, store }, projectId),
 
     async approve(projectId, target, milestoneId) {
       const now = host.now();
@@ -462,6 +485,13 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
         });
       }
       await store.remove(projectId);
+      // Detailed telemetry lives outside the record. Project deletion is the
+      // existing explicit lifecycle that removes it; nothing expires on its own.
+      if (deps.journal) {
+        await deps.journal.removeProject(projectId).catch((error: unknown) => {
+          host.log(`could not remove run journals for ${projectId}: ${error instanceof Error ? error.message : String(error)}`);
+        });
+      }
       return ok(`Project ${projectId} deleted. Its folder and workspace are kept.`);
     },
   };

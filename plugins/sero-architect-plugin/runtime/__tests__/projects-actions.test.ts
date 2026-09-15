@@ -1,10 +1,12 @@
 import { ORCHESTRATOR_REGISTRY_GLOBAL_KEY, type OrchestratorBoardAction } from '@sero-ai/common';
 import { applyRunHealth } from '../run-health';
+import { effectiveTier } from '../../shared/model-config';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ProjectRecord } from '../../shared/record';
 import type { WakeEvent } from '../../shared/wake';
 import { OwnerSessions } from '../owner-session';
 import { createProjectsActions } from '../projects-actions';
+import { createRunJournal } from '../run-journal';
 import { createTurnOutcomes } from '../turn-outcomes';
 import { createWakeGate } from '../wake-gate';
 import { createWakeScheduler, type WakeScheduler } from '../wake-scheduler';
@@ -15,6 +17,7 @@ afterEach(cleanupHosts);
 async function setup() {
   const host = await fakeHost();
   const store = await storeFor(host);
+  const journal = createRunJournal({ homeDir: await host.homeDir() });
   const sessions = new OwnerSessions({ host, store, outcomes: createTurnOutcomes() });
   const delivered: { projectId: string; wake: WakeEvent }[] = [];
   const gate = createWakeGate();
@@ -23,14 +26,15 @@ async function setup() {
   const watch = { track: vi.fn(async () => undefined), untrack: vi.fn(), flush: vi.fn(async () => undefined), dispose: vi.fn() };
   const services = {
     research: vi.fn(async () => ({ id: 'res_1' })),
+    resolveDispatchProject: vi.fn(async (record: ProjectRecord) => ({ projectId: record.id, runId: `run-initial-${record.id}` })),
     dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1', baseCommit: 'base-1' })),
     evidence: vi.fn(async () => undefined),
     recoverPending: vi.fn(),
     evidenceIsStale: vi.fn(async () => false),
     maintenance: vi.fn(async (record: ProjectRecord) => record),
   };
-  const actions = createProjectsActions({ host, store, sessions, scheduler, watch, services });
-  return { host, store, sessions, scheduler, delivered, watch, actions, services };
+  const actions = createProjectsActions({ host, store, sessions, scheduler, watch, services, journal });
+  return { host, store, sessions, scheduler, delivered, watch, actions, services, journal };
 }
 
 describe('project management', () => {
@@ -125,6 +129,15 @@ describe('project management', () => {
     expect((await actions.resume(record.id)).ok).toBe(true);
     expect((await host.listWorkspaces()).length).toBe(count);
     expect((await store.read(record.id))?.phase).toBe('discovery');
+  });
+
+  it('opens the initial run on resume when discovery started without one', async () => {
+    const { store, actions } = await setup();
+    // Discovery was entered but the second write that opens the run was lost.
+    const record = buildingProject({ paused: true, executionMode: 'workspace' });
+    await store.write({ ...record, runs: [] });
+    expect((await actions.resume(record.id)).ok).toBe(true);
+    expect((await store.read(record.id))?.runs?.map((run) => run.kind)).toEqual(['initial']);
   });
 
   it('creates a project: folder, git init, workspace, grant, discovery, first wake', async () => {
@@ -322,9 +335,11 @@ describe('project management', () => {
   });
 
   it('stops by blocking, closes the session, and delete removes the grant and the record', async () => {
-    const { host, store, actions, sessions } = await setup();
+    const { host, store, actions, sessions, journal } = await setup();
     await store.write(buildingProject());
     await sessions.ensureOpen(buildingProject());
+    // Detailed run data lives outside the record, under the profile's Architect home.
+    await journal.append('proj_1', 'run-initial', { kind: 'observation', at: T0, key: 'span-1' });
     expect((await actions.stop('proj_1')).ok).toBe(true);
     expect((await store.read('proj_1'))?.blockedReason).toBe('stopped by the user');
     expect(host.sessions.disposed).toEqual(['h1']);
@@ -334,10 +349,109 @@ describe('project management', () => {
     expect(await store.read('proj_1')).toBeNull();
     expect(host.sessions.deletedGrants).toEqual(['grant-1']);
     expect(host.index()?.projects).toEqual([]);
+    // The explicit deletion path takes the run journal with it.
+    expect((await journal.readPage('proj_1', 'run-initial')).records).toEqual([]);
+    expect((await journal.readSummary('proj_1', 'run-initial'))).toBeNull();
   });
 
-  it('keeps a milestone parked until every overlapping decision is answered', async () => {
-    const { store, actions } = await setup();
+  describe('project model defaults', () => {
+    const running = { kind: 'workflow' as const, id: 'loop_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null };
+
+    it('saves a tier override and says which dispatches keep the earlier revision', async () => {
+      const { store, actions } = await setup();
+      await store.write(buildingProject({ milestones: [milestone('m1', { status: 'running', dispatch: running })] }));
+
+      const outcome = await actions.setModelDefault('proj_1', { tier: 'MED', model: 'anthropic/claude-fable-5-1', thinking: 'high' });
+      expect(outcome.ok).toBe(true);
+      if (!outcome.ok) return;
+      expect(outcome.text).toContain('MED is now anthropic/claude-fable-5-1 with high thinking');
+      expect(outcome.text).toContain('New dispatches use revision 1');
+      expect(outcome.text).toContain('1 existing dispatch keeps revision 0');
+
+      const record = await store.read('proj_1');
+      expect(record?.modelOverrides?.MED).toEqual({ provider: 'anthropic', modelId: 'claude-fable-5-1', thinkingLevel: 'high' });
+      expect(record?.modelConfigRevision).toBe(1);
+      // The saved tier resolves as an override, and untouched tiers still inherit.
+      expect(record && effectiveTier(record, 'MED')).toMatchObject({ source: 'project-override' });
+      expect(record && effectiveTier(record, 'HIGH')).toBeUndefined();
+    });
+
+    it('clears an override back to inheritance and revises the configuration', async () => {
+      const { store, actions } = await setup();
+      await store.write(buildingProject());
+      await actions.setModelDefault('proj_1', { tier: 'LOW', model: 'anthropic/claude-fable-5-1', thinking: 'low' });
+
+      const cleared = await actions.clearModelDefault('proj_1', 'LOW');
+      expect(cleared.ok).toBe(true);
+      if (!cleared.ok) return;
+      expect(cleared.text).toContain('LOW inherits the global selection again');
+      expect(cleared.text).toContain('No existing dispatch is affected.');
+      const record = await store.read('proj_1');
+      expect(record?.modelOverrides?.LOW).toBeUndefined();
+      expect(record?.modelConfigRevision).toBe(2);
+    });
+
+    it('refuses an unavailable model and saves nothing', async () => {
+      const { store, actions } = await setup();
+      await store.write(buildingProject());
+      const outcome = await actions.setModelDefault('proj_1', { tier: 'MED', model: 'anthropic/retired-model' });
+      expect(outcome.ok).toBe(false);
+      if (outcome.ok) return;
+      expect(outcome.text).toContain('retired-model is unavailable');
+      const record = await store.read('proj_1');
+      expect(record?.modelOverrides).toBeUndefined();
+      expect(record?.modelConfigRevision).toBeUndefined();
+    });
+
+    it('refuses an unsupported thinking level and an unqualified model reference', async () => {
+      const { store, actions } = await setup();
+      await store.write(buildingProject());
+      const thinking = await actions.setModelDefault('proj_1', { tier: 'HIGH', model: 'anthropic/claude-fable-5-1', thinking: 'max' });
+      expect(thinking.ok).toBe(false);
+      if (!thinking.ok) expect(thinking.text).toContain('does not support max thinking');
+
+      const unqualified = await actions.setModelDefault('proj_1', { tier: 'HIGH', model: 'claude-fable-5-1' });
+      expect(unqualified.ok).toBe(false);
+      if (!unqualified.ok) expect(unqualified.text).toContain('provider/modelId');
+    });
+
+    it('refreshes the cached global model tiers from the host on its own, without waiting for the owner session to open', async () => {
+      const { host, store, actions } = await setup();
+      await store.write(buildingProject());
+      // Nothing has opened the owner session, which is the only other writer
+      // of this cache, so it starts out unset.
+      expect((await store.read('proj_1'))?.modelTiers).toBeUndefined();
+
+      // The host's global selection changes elsewhere; the cached record does
+      // not see it until something asks for a refresh.
+      host.modelTiers = async () => ({
+        MED: { provider: 'anthropic', modelId: 'claude-fable-5-1', thinkingLevel: 'high' },
+        LOW: { provider: 'anthropic', modelId: 'claude-fable-5-1', thinkingLevel: 'low' },
+      });
+
+      const outcome = await actions.refreshModelTiers('proj_1');
+      expect(outcome.ok).toBe(true);
+      // Reported back directly, so a caller (the model settings view) does not
+      // have to re-read the record to see what this call just fetched.
+      expect(outcome.tiers).toEqual({
+        MED: { provider: 'anthropic', modelId: 'claude-fable-5-1', thinkingLevel: 'high' },
+        LOW: { provider: 'anthropic', modelId: 'claude-fable-5-1', thinkingLevel: 'low' },
+      });
+      const record = await store.read('proj_1');
+      expect(record?.modelTiers).toEqual({
+        MED: { provider: 'anthropic', modelId: 'claude-fable-5-1', thinkingLevel: 'high' },
+        LOW: { provider: 'anthropic', modelId: 'claude-fable-5-1', thinkingLevel: 'low' },
+      });
+    });
+
+    it('refuses to refresh a project that does not exist', async () => {
+      const { actions } = await setup();
+      const outcome = await actions.refreshModelTiers('proj_missing');
+      expect(outcome.ok).toBe(false);
+    });
+  });
+
+  it('keeps a milestone parked until every overlapping decision is answered', async () => {    const { store, actions } = await setup();
     const option = { id: 'keep', label: 'Keep', consequence: 'No change' };
     const decisions = ['d1', 'd2'].map((id) => ({
       id, question: id, options: [option], recommendation: 'keep', reason: 'test', dependsOn: ['m1'],
@@ -371,6 +485,7 @@ describe('project management', () => {
     });
     const live = createProjectsActions({ host, store, sessions, scheduler, watch: { track: vi.fn(async () => undefined), untrack: vi.fn(), flush: vi.fn(async () => undefined), dispose: vi.fn() }, services: {
       research: vi.fn(async () => ({ id: 'res_1' })),
+      resolveDispatchProject: vi.fn(async (record: ProjectRecord) => ({ projectId: record.id, runId: `run-initial-${record.id}` })),
       dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1', baseCommit: 'base-1' })),
       evidence: vi.fn(async () => undefined),
       recoverPending: vi.fn(),

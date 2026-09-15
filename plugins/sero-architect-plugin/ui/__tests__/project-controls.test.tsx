@@ -47,8 +47,9 @@ const OK: ActionOutcome = { ok: true, text: 'done' };
 function stubActions(overrides: Partial<ArchitectActions> = {}): ArchitectActions {
   const ok = () => vi.fn(async () => OK);
   return {
-    create: ok(), history: vi.fn(async () => ({ ...OK, entries: [] })), pause: ok(), resume: ok(), retry: ok(), stop: ok(), remove: ok(), raiseCap: ok(),
+    create: ok(), history: vi.fn(async () => ({ ...OK, entries: [] })), trace: vi.fn(async () => ({ ...OK, page: null })), pause: ok(), resume: ok(), retry: ok(), stop: ok(), remove: ok(), raiseCap: ok(),
     setExecutionMode: ok(), setAutonomy: ok(), approveCharter: ok(), approveMilestone: ok(), answer: ok(), directive: ok(),
+    setModelDefault: ok(), clearModelDefault: ok(), refreshModelTiers: ok(),
     ...overrides,
   };
 }
@@ -80,20 +81,27 @@ function button(label: string): HTMLButtonElement {
 
 function renderPage(actions: ArchitectActions, onBack = vi.fn()) {
   act(() => root.render(
-    <ProjectPage record={FIXTURES.build!} actions={actions} narrow disclosures={disclosures} onBack={onBack} confirm={() => true} />,
+    <ProjectPage record={FIXTURES.build!} actions={actions} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={onBack} confirm={() => true} />,
   ));
   return onBack;
 }
 
-it('labels legacy cost as incomplete without changing the shown spend', () => {
+it('labels legacy cost as incomplete through the ring hint without changing the shown spend', () => {
   const base = FIXTURES.build!;
   const record = { ...base, budget: { ...base.budget, spentUsd: 12.34, incomplete: undefined } };
   act(() => root.render(<StateLine record={record} home={null} />));
   expect(container.textContent).toContain('$12.34');
-  expect(container.textContent).toContain('cost incomplete');
-  act(() => root.render(<StateLine record={{ ...record, budget: { ...record.budget, incomplete: false } }} home={null} />));
+  // The spend line stays a spend line: no coverage wording is added to the page.
   expect(container.textContent).not.toContain('cost incomplete');
+  const incomplete = container.querySelector('[role="img"]');
+  expect(incomplete?.getAttribute('aria-label')).toContain('Cost incomplete.');
+  expect(incomplete?.getAttribute('title')).toContain('lower bound');
+
+  act(() => root.render(<StateLine record={{ ...record, budget: { ...record.budget, incomplete: false } }} home={null} />));
   expect(container.textContent).toContain('$12.34');
+  const complete = container.querySelector('[role="img"]');
+  expect(complete?.getAttribute('aria-label')).not.toContain('Cost incomplete.');
+  expect(complete?.getAttribute('title')).toBeNull();
 });
 
 describe('a refused control', () => {
@@ -101,7 +109,7 @@ describe('a refused control', () => {
     const resume = vi.fn(async () => ({ ok: false, text: 'Permission request was not answered.' }));
     const record = { ...FIXTURES.build!, phase: 'intake' as const, blockedReason: 'Permission not approved' };
     act(() => root.render(
-      <ProjectPage record={record} actions={stubActions({ resume })} narrow disclosures={disclosures} onBack={vi.fn()} confirm={() => true} />,
+      <ProjectPage record={record} actions={stubActions({ resume })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
     act(() => button('Request permission').click());
     await flush();
@@ -208,7 +216,7 @@ describe('raising the cap', () => {
     vi.stubGlobal('prompt', prompt);
     const record = { ...FIXTURES.build!, budget: { ...FIXTURES.build!.budget, capUsd: 0.5 } };
     act(() => root.render(
-      <ProjectPage record={record} actions={stubActions({ raiseCap })} narrow disclosures={disclosures} onBack={vi.fn()} confirm={() => true} />,
+      <ProjectPage record={record} actions={stubActions({ raiseCap })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
 
     act(() => button('Raise cap').click());
@@ -235,7 +243,7 @@ describe('the pause and resume choice', () => {
   it('offers Resume for paused or blocked projects, and Pause for a cap alone', () => {
     const controls = {
       pause: vi.fn(), resume: vi.fn(), stop: vi.fn(), raiseCap: vi.fn(),
-      setExecutionMode: vi.fn(), setAutonomy: vi.fn(), openSession: vi.fn(), remove: vi.fn(),
+      setExecutionMode: vi.fn(), setAutonomy: vi.fn(), openSession: vi.fn(), remove: vi.fn(), openModels: vi.fn(), openInspector: vi.fn(),
     };
     act(() => root.render(<ControlsMenu record={{ ...FIXTURES.build!, paused: true }} controls={controls} />));
     expect(container.textContent).toContain('Resume');

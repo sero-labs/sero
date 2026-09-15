@@ -13,6 +13,7 @@ import type { ModelRunResult } from '../host';
 import { artifactPath, storeOutput } from '../artifacts';
 import { extractJson } from '../schema';
 import { resolveStepModel, unavailableModelReason, type ResolvedStepModel } from '../model-resolution';
+import { applyProjectSnapshot } from '../project-models';
 import { buildOutcomeRepair, buildStepTask, parseStepOutcome, parseStepOutcomeStrict, STEP_SYSTEM_PROMPT } from './prompt';
 import { formatRouteRepair, missingRouteVariables } from '../route-contract';
 import { deliveryProblems, formatDeliveryRepair, receiptRequirement } from '../delivery/delivery-contract';
@@ -68,6 +69,12 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
     requested && !isModelTier(requested)
       ? resolveStepModel(requested, await host.listAvailableModels())
       : { model: requested };
+  // The dispatch's project snapshot wins over a later global change, so this
+  // step, its retries and its recurring runs keep the models work started with.
+  const stepThinking = 'thinking' in step.execution ? step.execution.thinking : undefined;
+  const project = applyProjectSnapshot(loop.project?.modelSnapshot, resolved.model);
+  const callModel = project.model;
+  const callThinking = project.thinking ?? stepThinking;
 
   const startedAt = host.now();
   const pendingAttempt: StepAttempt = {
@@ -138,8 +145,8 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
     systemPrompt: agent ? undefined : STEP_SYSTEM_PROMPT,
     appendSystemPrompt: agent ? [STEP_SYSTEM_PROMPT] : undefined,
     systemPromptOverride: ctxOverride?.systemPrompt ?? undefined,
-    model: resolved.model,
-    thinking: 'thinking' in step.execution ? step.execution.thinking : undefined,
+    model: callModel,
+    thinking: callThinking,
     parentSessionId,
     cwd: options.cwd,
     platformTools: options.platformTools,

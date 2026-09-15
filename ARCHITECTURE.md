@@ -102,6 +102,12 @@ Portable Agent Plugins are a separate host-owned package format. They are not
 Sero plugins, Pi packages, or sidebar apps. Installed package content is
 immutable; writable package data has a separate persistent location.
 
+`@sero-ai/common` is a published package, not a private workspace library. A
+change to a type in it changes the contract that installed plugins compile
+against, so it needs a release before a plugin that depends on the new field can
+be published. The plugin and host boundaries above assume both sides resolve the
+same published version.
+
 ## Persistent agent sessions and Rooms
 
 Host-managed persistent sessions are a gated built-in capability. The host
@@ -122,6 +128,21 @@ scheduling, limits, Git, artifacts, and delivery infrastructure, but keep
 separate domain records. A Room member uses a standard persistent Pi session;
 Orchestrator does not own a second transcript store or model runtime. The
 Conductor can coordinate only inside the approved operating envelope.
+
+Session telemetry crosses one closed contract. `PersistentSessionEvent` names a
+turn, a request and a tool call with explicit identities and host timestamps, and
+carries no first-token timing because the SDK exposes no such event. A producer
+that has no identity for an event writes null rather than inferring one, so a
+consumer can tell a missing fact from a measured one. Raw prompts, reasoning and
+tool payloads are not part of the contract.
+
+Architect delegates through Orchestrator rather than around it. It resolves each
+tier's model before planning and sends the result as closed project context
+(`OrchestratorProjectContext`) with the creation request. Orchestrator keeps that
+context across recovery and retries, so an interrupted dispatch never resolves
+different models on the second attempt. The context carries correlation and model
+defaults only: it grants no access to a foreign project, session or workspace, and
+the existing planner, approval and grant boundaries stay in force.
 
 ## Agent Node
 

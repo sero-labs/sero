@@ -65,13 +65,26 @@ function argSummary(args: unknown): string {
  */
 export function toPersistentSessionEvent(
   event: unknown,
-  turn: { id: string | null; aborting: boolean },
+  turn: { id: string | null; aborting: boolean; model?: string },
 ): PersistentSessionEvent | null {
   if (!isRecord(event) || typeof event.type !== 'string') return null;
+  // The host clock when this event was observed. A reader measures active time
+  // from consecutive events, so an idle gap stays a gap.
+  const at = new Date().toISOString();
+  const messageId = isRecord(event.message) && typeof event.message.id === 'string' ? event.message.id : null;
 
   switch (event.type) {
     case 'agent_start':
-      return { type: 'turn_start', turnId: turn.id ?? '' };
+      return { type: 'turn_start', turnId: turn.id ?? '', at };
+    // One model request. Its identity is the SDK message id, so two requests in
+    // a turn stay apart. No first-token event exists in the SDK, so no timing
+    // beyond these two timestamps is claimed.
+    case 'message_start':
+      return turn.model
+        ? { type: 'request_start', requestId: messageId, model: turn.model, at }
+        : { type: 'request_start', requestId: messageId, at };
+    case 'message_end':
+      return { type: 'request_end', requestId: messageId, outcome: 'ok', at };
     // Pi streams the answer as deltas on the message being written. The
     // thinking deltas are deliberately not forwarded: a watcher wants to know
     // what the session is doing, and reasoning is neither its answer nor its act.
@@ -83,9 +96,15 @@ export function toPersistentSessionEvent(
       return { type: 'text', text: delta.delta };
     }
     case 'tool_execution_start':
-      return { type: 'tool_start', toolName: String(event.toolName ?? 'tool'), summary: argSummary(event.args) };
+      return {
+        type: 'tool_start', toolName: String(event.toolName ?? 'tool'), summary: argSummary(event.args),
+        callId: typeof event.toolCallId === 'string' ? event.toolCallId : null, at,
+      };
     case 'tool_execution_end':
-      return { type: 'tool_end', toolName: String(event.toolName ?? 'tool'), ok: event.isError !== true };
+      return {
+        type: 'tool_end', toolName: String(event.toolName ?? 'tool'), ok: event.isError !== true,
+        callId: typeof event.toolCallId === 'string' ? event.toolCallId : null, at,
+      };
     case 'agent_end': {
       // Pi retries inside one run. Only its final attempt ends the caller's turn.
       if (event.willRetry === true) return null;
@@ -96,12 +115,12 @@ export function toPersistentSessionEvent(
       const status = turn.aborting || last?.stopReason === 'aborted' ? 'aborted'
         : last?.stopReason === 'error' ? 'error' : 'completed';
       return {
-        type: 'turn_end', turnId: turn.id ?? '', status,
+        type: 'turn_end', turnId: turn.id ?? '', status, at,
         ...(status === 'error' && typeof last?.errorMessage === 'string' ? { errorMessage: last.errorMessage } : {}),
       };
     }
     case 'compaction_end':
-      return event.aborted === true ? null : { type: 'compacted' };
+      return event.aborted === true ? null : { type: 'compacted', at };
     default:
       return null;
   }
@@ -119,7 +138,14 @@ export class LiveSessionRegistry {
 
   add(entry: Omit<LiveSession, 'detach' | 'currentTurnId' | 'aborting' | 'turnsTaken'>): LiveSession {
     const detach = entry.session.subscribe((event) => {
-      const mapped = toPersistentSessionEvent(event, { id: live.currentTurnId, aborting: live.aborting });
+      // The model that actually runs, so a request record names it rather than
+      // a tier label.
+      const turnContext: { id: string | null; aborting: boolean; model?: string } = {
+        id: live.currentTurnId,
+        aborting: live.aborting,
+      };
+      if (entry.session.model) turnContext.model = `${entry.session.model.provider}/${entry.session.model.id}`;
+      const mapped = toPersistentSessionEvent(event, turnContext);
       if (!mapped) return;
       // The turn is over: the next one gets its own id, and a cancellation
       // applies to the turn it cancelled, not to the one after it.

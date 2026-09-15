@@ -168,6 +168,12 @@ export interface RunnerConfig {
   disabledSkills?: string[];
   /** Optional in-session structured-output repair (reuses the session, no new subagent). */
   repair?: AppRuntimeSubagentRepair;
+  /**
+   * Metadata-only observations for this run. The runner emits request, turn and
+   * tool-call records here; a throwing observer is swallowed by the caller's
+   * wrapper and can never change execution.
+   */
+  onObservation?: (record: import('@sero-ai/common').ObservationRecord) => void;
 }
 
 // ── Task Overrides (from tool params) ────────────────────────

@@ -1,3 +1,4 @@
+import { applyProjectSnapshot, roomSnapshotLimits } from '../project-models';
 /**
  * The USER's Room control surface (phase 7).
  *
@@ -13,7 +14,7 @@
  * coordinator or the store, which is the single writer.
  */
 
-import type { OrchestratorRoomHandle } from '@sero-ai/common';
+import { sameOrchestratorProjectAttribution, type OrchestratorRoomHandle } from '@sero-ai/common';
 import type { HumanQuestion } from '../../shared/human-input-types';
 import { roomPlannerSessionId } from '../../shared/ids';
 import type { RoomProposalSummary } from '../../shared/room-blueprint-types';
@@ -53,6 +54,8 @@ export interface PrepareRoomInput {
   requestId?: string;
   /** The user's own words, kept verbatim. */
   problem: string;
+  /** Project/run attribution from a typed dispatch handle. Retention only. */
+  project?: import('@sero-ai/common').OrchestratorProjectContext;
   /** A built-in preset to start from. Seeds the planner's prose, nothing else. */
   presetId?: string;
   limits?: RoomUserLimits;
@@ -237,6 +240,9 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
         const existing = (await store.readState()).rooms.find((room) => room.definition.creationRequestId === input.requestId);
         if (existing) {
           if (existing.definition.problemStatement !== problem) return { ok: false, error: 'This creation request belongs to a different Room mandate.' };
+          if (!sameOrchestratorProjectAttribution(existing.definition.projectContext, input.project)) {
+            return { ok: false, error: 'This creation request belongs to a different project.' };
+          }
           return { ok: true, roomId: existing.definition.id, proposal: existing.definition.proposal, clamps: [], usage: reportedUsage(existing.runtime.planningUsage), status: existing.runtime.status };
         }
       }
@@ -245,10 +251,12 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
       if (input.presetId && !template) return { ok: false, error: `There is no preset ${input.presetId}.` };
 
       const requestId = input.requestId ?? host.newId('room-planning');
+      const selection = applyProjectSnapshot(input.project?.modelSnapshot, undefined);
       const plan = await planRoom(host, {
+        model: selection.model, thinking: selection.thinking,
         problem,
         parentSessionId: roomPlannerSessionId(workspaceId),
-        limits: limitsForOrigin(input),
+        limits: { ...roomSnapshotLimits(input.project?.modelSnapshot), ...limitsForOrigin(input) },
         clarifications: input.clarifications,
         preset: template ? presetSeed(template) : undefined,
         onUsage: (usage) => store.updatePendingPlanning(requestId, usage),
@@ -270,6 +278,7 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
         workspaceId,
         originSessionId: input.originSessionId ?? null,
         planningUsage,
+        ...(input.project ? { project: input.project } : {}),
       });
       if (!created.ok || !created.room) {
         return { ok: false, error: created.error ?? 'The team was planned but the Room could not be drafted.', usage: reportedUsage(planningUsage) };
@@ -304,7 +313,9 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
         return { ok: false, error: 'This Room changed before the adjustment started. Make a new plan from its current state.' };
       }
 
+      const selection = applyProjectSnapshot(record.definition.projectContext?.modelSnapshot, undefined);
       const outcome = await adjustRoom(host, {
+        model: selection.model, thinking: selection.thinking,
         blueprint: record.definition.blueprint,
         instruction: asked,
         parentSessionId: roomPlannerSessionId(workspaceId),
@@ -347,6 +358,7 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
         originSessionId: record.delivery.originSessionId,
         deliveryParams: record.delivery.params,
         planningUsage: currentRecord.runtime.planningUsage,
+        ...(record.definition.projectContext ? { project: record.definition.projectContext } : {}),
       });
       const committed = await store.transact(roomId, null, (current) => ({
         record: current.runtime.status === 'adjusting'

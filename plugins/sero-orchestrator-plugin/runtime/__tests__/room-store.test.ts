@@ -158,7 +158,15 @@ describe('room store', () => {
     for (const m of v2Room.members) delete (m as Partial<RoomMember>).statusAt;
     const migrated = migrateRoomRecord(v2Room, 2);
     expect(migrated.members.map((m) => m.statusAt)).toEqual(v2Room.members.map((m) => m.createdAt));
-    expect(ROOM_SCHEMA_VERSION).toBe(3);
+    expect(ROOM_SCHEMA_VERSION).toBe(4);
+  });
+
+  it('migrates a v3 record: a legacy string decision becomes a RoomBriefDecision', () => {
+    const v3Room = roomFixture('room-a');
+    v3Room.brief.decisions = ['Ship the fix'] as unknown as typeof v3Room.brief.decisions;
+    const migrated = migrateRoomRecord(v3Room, 3);
+    expect(migrated.brief.decisions).toEqual([{ title: 'Ship the fix', memberId: null }]);
+    expect(ROOM_SCHEMA_VERSION).toBe(4);
   });
 
   it('stamps statusAt when a member changes status, and only then', async () => {

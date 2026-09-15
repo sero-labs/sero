@@ -33,10 +33,12 @@ const RESERVED_IN_SCHEMA = ['exitCode', 'capturePath', 'diffSummary'] as const s
 export const OwnerToolParams = Type.Object({
   action: StringEnum(OWNER_ACTIONS, { description: 'Action to run: brief, charter, milestone, decide, research, dispatch, evidence, status, reply, blocked or sleep' }),
   projectId: Type.String({ description: 'The project this session owns. Every call carries it' }),
+  runId: Type.Optional(Type.String({ description: 'milestone/sleep: the maintenance run id from the contract' })),
+  noWorkNeeded: Type.Optional(Type.Boolean({ description: 'sleep: close runId as no work needed after triage; requires text explaining why' })),
   text: Type.Optional(Type.String({ description: 'brief/status/reply/blocked/sleep: the text' })),
   title: Type.Optional(Type.String({ description: 'milestone: the title (required for a new milestone)' })),
   milestoneId: Type.Optional(Type.String({ description: 'milestone/dispatch/evidence: the milestone id' })),
-  plan: Type.Optional(Type.String({ description: 'milestone: the plan' })),
+  plan: Type.Optional(Type.String({ description: 'milestone: the plan, including the acceptance criteria an evaluator can check against the result' })),
   previewRoute: Type.Optional(Type.String({ description: 'milestone: the route a preview milestone must render, e.g. /' })),
   done: Type.Optional(Type.Boolean({ description: 'milestone: set true to accept it after evidence passes' })),
   milestonesJson: Type.Optional(Type.String({ description: 'charter: JSON [{"title":"...","plan":"..."}]; optional previewRoute only for browser milestones' })),
@@ -49,8 +51,8 @@ export const OwnerToolParams = Type.Object({
   reason: Type.Optional(Type.String({ description: 'decide: why the user must answer this' })),
   parks: Type.Optional(Type.String({ description: 'decide: milestone ids to park, comma-separated' })),
   stoppingCondition: Type.Optional(Type.String({ description: 'research: when the researcher should stop' })),
-  kind: Type.Optional(StringEnum(DISPATCH_KINDS, { description: 'dispatch/research: workflow or room; omitted research uses one researcher' })),
-  prompt: Type.Optional(Type.String({ description: 'dispatch: the Workflow prompt or the Room mandate' })),
+  kind: Type.Optional(StringEnum(DISPATCH_KINDS, { description: 'dispatch/research: room for investigation, solution planning or adversarial review by specialists; workflow for a structured execution flow toward an accepted objective; omitted research uses one researcher' })),
+  prompt: Type.Optional(Type.String({ description: 'dispatch: the objective, the approved constraints and the acceptance criteria. The Workflow or Room plans its own execution; do not supply a step-by-step plan' })),
   destination: Type.Optional(StringEnum(DISPATCH_DESTINATIONS, { description: 'dispatch, release only: delivery target. pr and workspace-files run directly. Any other target requires a user decision' })),
   maxCostUsd: Type.Optional(Type.Number({ description: 'dispatch: maximum USD this run may spend. If it exceeds the remaining budget, ask the user first' })),
   commandsJson: Type.Optional(Type.String({ description: 'evidence: JSON array of commands for the runtime to run, e.g. ["pnpm test"]' })),
@@ -65,6 +67,8 @@ export interface OwnerToolParamsShape {
   action: (typeof OWNER_ACTIONS)[number];
   projectId: string;
   text?: string;
+  runId?: string;
+  noWorkNeeded?: boolean;
   title?: string;
   milestoneId?: string;
   plan?: string;
@@ -121,6 +125,8 @@ export function buildOwnerActionInput(params: OwnerToolParamsShape): OwnerAction
     action: params.action,
     projectId: params.projectId,
     text: params.text,
+    runId: params.runId,
+    noWorkNeeded: params.noWorkNeeded,
     title: params.title,
     milestoneId: params.milestoneId,
     plan: params.plan,

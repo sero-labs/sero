@@ -340,7 +340,8 @@ describe('routing', () => {
     expect(result.ok).toBe(true);
     const record = await store.readRoom(roomId);
     expect(record?.artifacts[0]).toMatchObject({ kind: 'decision', producedByMemberId: 'impl' });
-    expect(record?.brief.decisions).toContain('Use a hand-written lexer');
+    // The decision relates to no single work item, so it concerns the whole Room.
+    expect(record?.brief.decisions).toContainEqual({ title: 'Use a hand-written lexer', memberId: null });
   });
 
   it('records a status line without calling it progress', async () => {

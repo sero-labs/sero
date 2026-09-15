@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import type { WakeEvent } from '../../shared/wake';
+import { openRun } from '../../shared/runs';
 import { createDispatchWatch, loopRunsIndexFile, orchestratorIndexFiles } from '../dispatch-watch';
 import { createOwnerActions, type OwnerServices } from '../owner-actions';
+import { createRunJournal, type JournalRecord } from '../run-journal';
 import { createTurnOutcomes } from '../turn-outcomes';
 import { buildingProject, cleanupHosts, fakeHost, milestone, storeFor, T0 } from './helpers';
 
@@ -25,10 +29,11 @@ async function setup(record = buildingProject({ milestones: [running('workflow',
   }));
   host.jsonFiles[files.loops] = { version: 1, loops };
   host.jsonFiles[files.rooms] = { schemaVersion: 1, rooms };
-  const watch = createDispatchWatch({ host, store, wake: (_id, wake) => { wakes.push(wake); } });
+  const openMaintenanceRun = vi.fn(async (_projectId: string, _objectiveId: string) => undefined);
+  const watch = createDispatchWatch({ host, store, wake: (_id, wake) => { wakes.push(wake); }, openMaintenanceRun });
   await watch.track(record);
   const settle = () => watch.flush();
-  return { host, store, watch, wakes, settle };
+  return { host, store, watch, wakes, settle, openMaintenanceRun };
 }
 
 describe('dispatch watch', () => {
@@ -153,6 +158,35 @@ describe('dispatch watch', () => {
     expect(wakes.map((w) => w.kind)).toEqual(['dispatch-blocked']);
   });
 
+  it('journals the delegated total as aggregate coverage next to the budget charge', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const homeDir = await host.homeDir();
+    const journal = createRunJournal({ homeDir });
+    const opened = openRun(buildingProject({ milestones: [running('workflow', 'loop_1')] }), { id: 'run-1', kind: 'initial' }, T0);
+    if (!opened.ok) throw new Error(opened.error);
+    await store.write(opened.record);
+    host.jsonFiles[files.loops] = { version: 1, loops: [{ id: 'loop_1', title: 'Grid', status: 'active', updatedAt: T0 }] };
+    host.jsonFiles[files.rooms] = { schemaVersion: 1, rooms: [] };
+
+    const watch = createDispatchWatch({ host, store, wake: () => undefined, journal });
+    await watch.track(opened.record);
+    host.emitState(files.loops, { version: 1, loops: [{ id: 'loop_1', title: 'Grid', status: 'active', updatedAt: T0, usage: { costUsd: 2 } }] });
+    await watch.flush();
+
+    // The budget took the delegated total...
+    expect((await store.read('proj_1'))?.budget.sources.dispatched).toBeCloseTo(2);
+    // ...and the trace holds the same figure, labelled as a total without call
+    // detail rather than as a measured per-call amount.
+    const lines = fs.readFileSync(path.join(homeDir, 'runs', 'proj_1', 'run-1.journal.ndjson'), 'utf8')
+      .split('\n').filter(Boolean).map((line) => JSON.parse(line) as JournalRecord);
+    const usage = lines.filter((line) => line.kind === 'usage');
+    expect(usage).toHaveLength(1);
+    expect(usage[0]?.costUsd).toBeCloseTo(2);
+    expect(usage[0]?.coverage).toBe('aggregate');
+    expect(usage[0]?.source).toBe('dispatch:workflow:loop_1');
+  });
+
   it('holds running work when restart cannot confirm its dispatch record', async () => {
     const host = await fakeHost();
     const store = await storeFor(host);
@@ -238,6 +272,7 @@ describe('dispatch watch', () => {
     // The owner accepts the milestone on its passed evidence.
     const services: OwnerServices = {
       research: vi.fn(async () => ({ id: 'res_1' })),
+      resolveDispatchProject: vi.fn(async (record) => ({ projectId: record.id, runId: `run-initial-${record.id}` })),
       dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1', baseCommit: 'base-1' })),
       evidence: vi.fn(async () => undefined),
       recoverPending: vi.fn(),
@@ -275,13 +310,16 @@ describe('dispatch watch', () => {
 
   it('wakes the owner with an external event when the maintenance Workflow runs again', async () => {
     const maintenance = milestone('maintenance', { status: 'running', dispatch: { kind: 'workflow', id: 'loop_m', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null } });
-    const { host, store, wakes, settle } = await setup(buildingProject({ phase: 'maintain', milestones: [maintenance] }));
+    const { host, store, wakes, settle, openMaintenanceRun } = await setup(buildingProject({ phase: 'maintain', milestones: [maintenance] }));
     host.emitState(files.loops, { version: 1, loops: [{ id: 'loop_m', title: 'maintenance', status: 'active', updatedAt: T0, lastRunAt: '2026-09-08T08:00:00.000Z' }] });
     await settle();
     host.emitState(files.loops, { version: 1, loops: [{ id: 'loop_m', title: 'maintenance', status: 'active', updatedAt: T0, lastRunAt: '2026-09-09T08:00:00.000Z' }] });
     await settle();
     expect(wakes.map((w) => w.kind)).toEqual(['external-event']);
     expect((await store.read('proj_1'))?.milestones[0]?.status).toBe('running');
+    // The objective's run opens before the owner's first model call, keyed by
+    // the maintenance run that fired, so a repeat never opens a second run.
+    expect(openMaintenanceRun).toHaveBeenCalledWith('proj_1', 'loop_m:2026-09-09T08:00:00.000Z');
   });
 
   it('takes the limited overlay when dispatched usage reaches the cap, without touching the phase', async () => {

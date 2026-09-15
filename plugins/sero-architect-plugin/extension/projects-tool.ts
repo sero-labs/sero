@@ -4,11 +4,14 @@
  */
 
 import { StringEnum } from '@earendil-works/pi-ai';
+import { MODEL_TIERS, THINKING_LEVELS } from '@sero-ai/common';
 import type { ExtensionAPI, ExtensionContext, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Text } from '@earendil-works/pi-tui';
 import { Type } from 'typebox';
 
 import { resolveArchitectRuntime } from '../runtime/registry';
+import type { ModelDefaultInput } from '../runtime/model-default-actions';
+import type { TraceQuery } from '../runtime/trace-query';
 import { AUTONOMY_SETTINGS } from '../shared/charter-shape';
 import { EXECUTION_MODES, type ExecutionMode, type ProjectRecord } from '../shared/record';
 import type { ArchitectIndexEntry } from '../shared/types';
@@ -18,6 +21,7 @@ export const PROJECT_ACTIONS = [
   'list',
   'show',
   'history',
+  'trace',
   'create',
   'pause',
   'resume',
@@ -28,6 +32,9 @@ export const PROJECT_ACTIONS = [
   'raise_cap',
   'set_autonomy',
   'set_execution_mode',
+  'set_model_tier',
+  'clear_model_tier',
+  'refresh_model_tiers',
   'approve',
   'answer',
   'directive',
@@ -46,6 +53,9 @@ export const ProjectsToolParams = Type.Object({
   capUsd: Type.Optional(Type.Number({ description: 'raise_cap: the project cap; retry: an explicitly approved new total Workflow cap in USD' })),
   executionMode: Type.Optional(StringEnum(EXECUTION_MODES, { description: 'create/set_execution_mode: workspace or worktree; new projects default to workspace' })),
   autonomy: Type.Optional(StringEnum(AUTONOMY_SETTINGS, { description: 'set_autonomy: milestones, charter-only or model-judged' })),
+  tier: Type.Optional(StringEnum(MODEL_TIERS, { description: 'set_model_tier/clear_model_tier: LOW, MED or HIGH' })),
+  model: Type.Optional(Type.String({ description: 'set_model_tier: the model as provider/modelId' })),
+  thinking: Type.Optional(StringEnum(THINKING_LEVELS, { description: 'set_model_tier: the thinking level for that model' })),
   target: Type.Optional(StringEnum(APPROVE_TARGETS, { description: 'approve: charter or milestone' })),
   milestoneId: Type.Optional(Type.String({ description: 'approve/retry: the milestone id' })),
   decisionId: Type.Optional(Type.String({ description: 'answer: the decision id' })),
@@ -53,6 +63,11 @@ export const ProjectsToolParams = Type.Object({
   note: Type.Optional(Type.String({ description: 'answer: an optional note for the owner' })),
   text: Type.Optional(Type.String({ description: 'directive: what to tell the owner' })),
   cursor: Type.Optional(Type.String({ description: 'history: cursor for an older page' })),
+  runId: Type.Optional(Type.String({ description: 'trace: the run id, or shared for project-scoped activity (default shared)' })),
+  afterSeq: Type.Optional(Type.Number({ description: 'trace: continue a detail page after this sequence' })),
+  limit: Type.Optional(Type.Number({ description: 'trace: records per detail page; the runtime bounds it' })),
+  detail: Type.Optional(Type.Boolean({ description: 'trace: include record metadata. Off by default, so a summary request receives no records' })),
+  knownSpendUsd: Type.Optional(Type.Number({ description: 'trace: the project spend to reconcile the run total against' })),
   workflowId: Type.Optional(Type.String({ description: 'repair: existing workflow selected by the user' })),
 });
 
@@ -64,6 +79,9 @@ export interface ProjectsToolParamsShape {
   capUsd?: number;
   executionMode?: ExecutionMode;
   autonomy?: (typeof AUTONOMY_SETTINGS)[number];
+  tier?: (typeof MODEL_TIERS)[number];
+  model?: string;
+  thinking?: (typeof THINKING_LEVELS)[number];
   target?: (typeof APPROVE_TARGETS)[number];
   milestoneId?: string;
   decisionId?: string;
@@ -72,6 +90,12 @@ export interface ProjectsToolParamsShape {
   text?: string;
   cursor?: string;
   workflowId?: string;
+  /** Trace query. `detail` is opt-in, so a summary request reads no records. */
+  runId?: string;
+  afterSeq?: number;
+  limit?: number;
+  detail?: boolean;
+  knownSpendUsd?: number;
 }
 
 interface ToolResult {
@@ -139,6 +163,30 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
         ? result(true, `Read ${page.entries.length} owner-session history entries.`, { entries: page.entries, olderCursor: page.olderCursor })
         : result(false, `Project ${id} has no readable owner session.`);
     }
+    case 'trace': {
+      const missing = need(id, 'projectId');
+      if (missing) return result(false, missing);
+      const query: Omit<TraceQuery, 'projectId'> = {
+        journalId: params.runId,
+        afterSeq: params.afterSeq,
+        limit: params.limit,
+        knownSpendUsd: params.knownSpendUsd,
+        detail: params.detail === true,
+      };
+      const answer = await actions.trace(id, query);
+      if (!answer) return result(false, `No project ${id}, or it keeps no trace.`);
+      const details: Record<string, unknown> = {
+        projectId: answer.projectId,
+        journalId: answer.journalId,
+        summary: answer.summary,
+        timing: answer.timing,
+        tokens: answer.tokens,
+        records: answer.records,
+        nextAfterSeq: answer.nextAfterSeq,
+        incomplete: answer.incomplete,
+      };
+      return result(true, answer.summary.incomplete ? 'Trace summary. More history exists than this folded.' : 'Trace summary.', details);
+    }
     case 'create': {
       const missing = need(params.idea, 'idea') ?? need(params.folder, 'folder');
       if (missing) return result(false, missing);
@@ -192,6 +240,29 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
       if (!params.autonomy) return result(false, 'autonomy is required for set_autonomy.');
       const outcome = await actions.setAutonomy(id, params.autonomy);
       return result(outcome.ok, outcome.text);
+    }
+    case 'set_model_tier': {
+      const missing = need(id, 'projectId');
+      if (missing) return result(false, missing);
+      if (!params.tier) return result(false, 'tier is required for set_model_tier: LOW, MED or HIGH.');
+      if (!params.model) return result(false, 'model is required for set_model_tier, as provider/modelId.');
+      const modelInput: ModelDefaultInput = { tier: params.tier, model: params.model };
+      if (params.thinking) modelInput.thinking = params.thinking;
+      const outcome = await actions.setModelDefault(id, modelInput);
+      return result(outcome.ok, outcome.text);
+    }
+    case 'clear_model_tier': {
+      const missing = need(id, 'projectId');
+      if (missing) return result(false, missing);
+      if (!params.tier) return result(false, 'tier is required for clear_model_tier: LOW, MED or HIGH.');
+      const outcome = await actions.clearModelDefault(id, params.tier);
+      return result(outcome.ok, outcome.text);
+    }
+    case 'refresh_model_tiers': {
+      const missing = need(id, 'projectId');
+      if (missing) return result(false, missing);
+      const outcome = await actions.refreshModelTiers(id);
+      return result(outcome.ok, outcome.text, outcome.tiers ? { tiers: outcome.tiers } : {});
     }
     case 'approve': {
       const missing = need(id, 'projectId');

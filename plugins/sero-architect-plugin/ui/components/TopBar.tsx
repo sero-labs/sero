@@ -7,7 +7,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@sero-ai/ui';
-import { ArrowLeft, ChevronRight, Coins, Compass, MoreHorizontal, Pause, Play, Plus, SlidersHorizontal, Square, Terminal, Trash2 } from 'lucide-react';
+import { Activity, ArrowLeft, Boxes, ChevronRight, Coins, Compass, MoreHorizontal, Pause, Play, Plus, SlidersHorizontal, Square, Terminal, Trash2 } from 'lucide-react';
 
 import type { AutonomySetting, ExecutionMode, ProjectRecord } from '../../shared/record';
 import { AUTONOMY_SETTINGS } from '../../shared/charter-shape';
@@ -21,6 +21,10 @@ export interface ProjectControls {
   setExecutionMode(next: ExecutionMode): void;
   setAutonomy(next: AutonomySetting): void;
   openSession(): void;
+  /** Opens the project model defaults view. */
+  openModels(): void;
+  /** Opens the run inspector. */
+  openInspector(): void;
   remove(): void;
 }
 
@@ -55,6 +59,13 @@ export function ControlsMenu({ record, controls }: { record: ProjectRecord; cont
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => controls.setAutonomy(nextAutonomy(record.autonomy))} title={AUTONOMY_LABEL[record.autonomy]}>
           <SlidersHorizontal className="ar-i" />Autonomy: {record.autonomy}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={controls.openModels}>
+          <Boxes className="ar-i" />Models…
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={controls.openInspector}>
+          <Activity className="ar-i" />Run inspector…
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled={Boolean(record.session.workingSince) || (record.executionMode !== undefined && record.session.turns > 0)} onSelect={() => controls.setExecutionMode('workspace')}>

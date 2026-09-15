@@ -1,3 +1,6 @@
+import { activeRun } from '../shared/runs';
+import { recordCharge } from './project-usage';
+import type { RunJournal } from './run-journal';
 /**
  * The owner session: one host-managed persistent session per project, opened
  * from a user-approved grant that names only the platform tools and the
@@ -5,15 +8,17 @@
  * record, and the contract is sent again when the session compacts mid-turn.
  */
 
-import { modelKey, type PersistentSessionGrantProposal, type PersistentSessionRequest, type PersistentSessionSubjectPolicy, type PersistentSessionsApi } from '@sero-ai/common';
+import { type PersistentSessionGrantProposal, type PersistentSessionRequest, type PersistentSessionSubjectPolicy, type PersistentSessionsApi } from '@sero-ai/common';
 
 import { block, charge } from '../shared/lifecycle';
+import type { ModelConfigSource } from '../shared/model-config';
 import { setAccountingIncomplete } from '../shared/accounting';
 import { buildOwnerContract } from '../shared/owner-contract';
 import { buildOwnerPromptAdditions } from '../shared/owner-protocol';
 import type { ProjectRecord } from '../shared/record';
 import type { WakeEvent } from '../shared/wake';
 import type { ArchitectHost } from './host';
+import { projectModelSource, resolveOwnerSelection } from './model-resolution';
 import type { RecordStore } from './record-store';
 import { applyTurnOutcome, type OutcomeKind, type TurnOutcomes } from './turn-outcomes';
 
@@ -28,21 +33,23 @@ export interface OwnerModelChoice {
   thinking: string;
 }
 
-/** Resolve the exact selection before requesting authority. Never choose another provider. */
-export async function chooseOwnerModel(host: Pick<ArchitectHost, 'listModels' | 'modelTiers' | 'env'>): Promise<OwnerModelChoice> {
-  const [groups, tiers] = await Promise.all([host.listModels(), host.modelTiers()]);
-  const override = host.env.SERO_ARCHITECT_MODEL?.trim();
-  const [reference, overrideThinking] = override?.split(':') ?? [];
-  const configured = tiers.MED;
-  const wanted = reference || (configured ? modelKey(configured.provider, configured.modelId) : null);
-  if (!wanted) throw new Error('Select the MED model in Admin before starting the Architect.');
-  const picked = groups.flatMap((group) => group.models).find((model) => modelKey(model.provider, model.modelId) === wanted);
-  if (!picked) throw new Error(`The selected Architect model ${wanted} is unavailable. Select an available model in Admin before continuing.`);
-  const thinking = picked.reasoning ? (overrideThinking ?? configured?.thinkingLevel ?? 'medium') : 'off';
-  if (picked.availableThinkingLevels?.length && !picked.availableThinkingLevels.some((level) => level === thinking)) {
-    throw new Error(`The selected Architect model ${wanted} does not support ${thinking} thinking.`);
-  }
-  return { model: wanted, thinking };
+/**
+ * Resolve the exact selection before requesting authority. Never choose another provider.
+ *
+ * With a record, the project's own tier overrides apply, so a project MED
+ * override governs the owner unless the environment pin takes precedence.
+ * Without one, the global selections resolve exactly as before.
+ */
+export async function chooseOwnerModel(
+  host: Pick<ArchitectHost, 'listModels' | 'modelTiers' | 'env'>,
+  source?: ModelConfigSource,
+): Promise<OwnerModelChoice> {
+  const resolved = await resolveOwnerSelection(
+    { listModels: () => host.listModels(), modelTiers: () => host.modelTiers(), env: host.env },
+    projectModelSource(source ?? {}, await host.modelTiers()),
+  );
+  if (!resolved.ok) throw new Error(resolved.error);
+  return { model: resolved.value.model, thinking: resolved.value.thinking };
 }
 
 export function ownerSubjectPolicy(record: ProjectRecord, choice: OwnerModelChoice): PersistentSessionSubjectPolicy {
@@ -97,6 +104,7 @@ export function ownerSessionRequest(record: ProjectRecord, operation: Persistent
 }
 
 export interface OwnerSessionDeps {
+  journal?: RunJournal;
   host: ArchitectHost;
   store: RecordStore;
   outcomes: TurnOutcomes;
@@ -139,7 +147,7 @@ export class OwnerSessions {
     let granted: { grantId: string; tools: string[]; choice: OwnerModelChoice } | null = null;
     let refusal = '';
     try {
-      const choice = await chooseOwnerModel(this.deps.host);
+      const choice = await chooseOwnerModel(this.deps.host, record);
       const handle = await this.api().requestGrant(ownerGrantProposal(record, choice));
       const subject = handle.subjects[OWNER_SUBJECT];
       granted = { grantId: handle.grantId, tools: subject ? [...subject.allowedTools] : [...OWNER_TOOLS], choice };
@@ -191,7 +199,7 @@ export class OwnerSessions {
   async runTurn(record: ProjectRecord, wake: WakeEvent): Promise<OwnerTurnResult> {
     let modelProblem: string | null = null;
     try {
-      const choice = await chooseOwnerModel(this.deps.host);
+      const choice = await chooseOwnerModel(this.deps.host, record);
       if (choice.model !== record.session.model || choice.thinking !== record.session.thinking) {
         modelProblem = 'The Admin model selection changed. Resume the project to approve its new owner session.';
       }
@@ -211,6 +219,8 @@ export class OwnerSessions {
     const modelTiers = await this.deps.host.modelTiers();
     const latest = await this.deps.store.update(opened.id, (fresh) => ({ ...fresh, modelTiers }));
     // Opening a session and resolving model tiers can outlast a new directive or dispatch update.
+    const turnRecord = latest ?? opened;
+    const turnRunId = activeRun(turnRecord)?.id;
     const contract = buildOwnerContract(latest ?? opened, wake);
     this.deps.outcomes.begin(opened.id);
 
@@ -223,12 +233,15 @@ export class OwnerSessions {
     const readUsage = (): Promise<void> => {
       usageRead ??= (async () => {
         const usage = await api.getSessionUsage(handleId).catch(() => null);
+        let delta = 0;
         await this.deps.store.update(opened.id, (fresh) => {
           const next = setAccountingIncomplete(fresh, usageSource, !usage || !!usage.incomplete);
           if (!usage) return next;
           const cost = Math.max(next.session.sessionCostUsd, usage.costUsd);
-          return charge({ ...next, session: { ...next.session, sessionCostUsd: cost } }, 'owner', cost - next.session.sessionCostUsd, this.deps.host.now());
+          delta = cost - next.session.sessionCostUsd;
+          return charge({ ...next, session: { ...next.session, sessionCostUsd: cost } }, 'owner', delta, this.deps.host.now());
         });
+        await recordCharge(this.deps, turnRecord, usageSource, delta, 'aggregate', turnRunId);
       })().finally(() => { usageRead = undefined; });
       return usageRead;
     };

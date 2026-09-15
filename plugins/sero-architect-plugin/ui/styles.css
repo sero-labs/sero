@@ -286,3 +286,110 @@
 .ar-models summary { cursor: pointer; color: var(--text-primary); font-weight: 600; }
 .ar-models p { margin: 6px 0; }
 .ar-models ul { padding-left: 18px; }
+
+/* Project model defaults. One row per tier: selection, effective value, source. */
+.ar-models-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.ar-models-title { font-weight: 600; color: var(--text-primary); }
+.ar-models-rev { margin-left: auto; color: var(--ar-text-3); font-size: 12px; }
+.ar-models-note { margin-top: 12px; color: var(--ar-text-2); font-size: 12px; line-height: 1.55; }
+.ar-tiers { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ar-tiers th {
+  text-align: left; padding: 6px 10px; color: var(--ar-text-3);
+  font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
+  border-bottom: 1px solid var(--ar-line);
+}
+.ar-tiers td { padding: 10px; border-bottom: 1px solid var(--ar-line); vertical-align: middle; }
+.ar-tiers tr:last-child td { border-bottom: 0; }
+.ar-tiers tr[data-override="1"] .ar-tier { color: var(--ar-ok); }
+.ar-tiers select {
+  height: 28px; max-width: 190px; margin-right: 6px; padding: 0 8px;
+  border: 1px solid var(--ar-line-strong); border-radius: 6px;
+  background: var(--bg-base); color: var(--text-primary); font-size: 12px;
+}
+.ar-tier { font-family: var(--font-mono, monospace); font-weight: 600; }
+.ar-tier-effective { display: grid; gap: 2px; color: var(--text-primary); }
+.ar-tier-effective small { color: var(--ar-text-3); font-size: 11px; }
+.ar-tier-source { color: var(--ar-text-3); font-size: 11px; }
+
+/* ── Run inspector (spec architect-run-observability) ───────────────────── */
+.ar-inspector { display: grid; gap: 12px; }
+.ar-inspector-run { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ar-text-3); }
+.ar-inspector-run select { background: var(--bg-base); color: var(--text-primary); border: 1px solid var(--ar-line); border-radius: 6px; padding: 3px 6px; font-size: 12px; }
+.ar-inspector-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.ar-inspector-tiles > div {
+  display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--ar-line); border-radius: 10px;
+}
+.ar-inspector-tiles span { color: var(--ar-text-3); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+.ar-inspector-tiles b { color: var(--text-primary); font-size: 18px; font-family: var(--font-mono, monospace); }
+.ar-inspector-tiles small { color: var(--ar-text-3); font-size: 11px; }
+.ar-inspector-controls { display: grid; gap: 8px; }
+.ar-inspector-filters, .ar-inspector-zoom { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 12px; color: var(--ar-text-2); }
+.ar-inspector-filters > span:first-child, .ar-inspector-zoom > span:first-child {
+  color: var(--ar-text-3); font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
+}
+.ar-inspector-filters label { display: inline-flex; align-items: center; gap: 4px; }
+
+/* The timeline scrolls as one box. Only the rows in view are in the DOM, so a
+   trace with tens of thousands of spans costs the same as a short one. */
+.ar-inspector-split { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 12px; }
+.ar-inspector-timeline {
+  overflow-y: auto; border: 1px solid var(--ar-line); border-radius: 10px;
+  background: var(--bg-base); outline: none;
+}
+.ar-inspector-timeline:focus-visible { border-color: var(--ar-accent, var(--text-primary)); }
+.ar-span {
+  display: grid; position: relative;
+  grid-template-columns: 92px 90px minmax(0, 1fr) 84px 60px;
+  align-items: center; gap: 8px; padding: 0 10px;
+  font-size: 12px; font-family: var(--font-mono, monospace);
+  border-bottom: 1px solid color-mix(in oklab, var(--ar-line) 45%, transparent);
+}
+.ar-span[data-selected] { background: color-mix(in oklab, var(--ar-line) 35%, transparent); }
+.ar-span-at, .ar-span-cost { color: var(--ar-text-3); }
+.ar-span-kind { color: var(--ar-text-2); }
+.ar-span-op { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
+/* A failure is never distinguished by colour alone: the word is present. */
+.ar-span-bad { color: var(--ar-danger, #f87171); font-weight: 600; }
+.ar-span-detail {
+  grid-column: 1 / -1; display: grid; grid-template-columns: 80px minmax(0, 1fr);
+  gap: 2px 10px; margin: 0; padding: 4px 0 8px; font-size: 11px;
+}
+.ar-span-detail dt { color: var(--ar-text-3); }
+.ar-span-detail dd { margin: 0; color: var(--ar-text-2); }
+.ar-inspector-detail { border: 1px solid var(--ar-line); border-radius: 10px; padding: 12px; font-size: 12px; }
+.ar-inspector-detail dl { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 4px 8px; margin: 8px 0; }
+.ar-inspector-detail dt { color: var(--ar-text-3); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+.ar-inspector-detail dd { margin: 0; color: var(--text-primary); overflow-wrap: anywhere; }
+
+/* Charts read the same records as the totals above them, so the two cannot
+   disagree. A section with nothing priced says so instead of drawing zero. */
+.ar-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.ar-charts section { border: 1px solid var(--ar-line); border-radius: 10px; padding: 10px 12px; }
+.ar-charts h3 { margin: 0 0 6px; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--ar-text-3); }
+.ar-charts svg { color: var(--ar-accent, var(--text-primary)); }
+.ar-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.ar-bar-row {
+  display: grid; width: 100%; align-items: center; gap: 8px; font-size: 12px;
+  grid-template-columns: 84px minmax(0, 1fr) 74px 52px;
+  background: none; border: 0; padding: 2px 0; cursor: pointer; text-align: left; color: inherit;
+}
+.ar-bar-row[data-on] .ar-bar-label { color: var(--text-primary); font-weight: 600; }
+.ar-bar-track { display: block; height: 8px; border-radius: 4px; background: color-mix(in oklab, var(--ar-line) 60%, transparent); overflow: hidden; }
+.ar-bar-track i { display: block; height: 100%; background: var(--ar-accent, var(--text-primary)); }
+.ar-bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ar-text-2); }
+.ar-bar-value, .ar-bar-count { color: var(--ar-text-3); font-family: var(--font-mono, monospace); font-size: 11px; }
+.ar-model-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ar-model-table th { text-align: left; color: var(--ar-text-3); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; padding: 2px 6px 4px 0; }
+.ar-model-table td { padding: 2px 6px 2px 0; color: var(--ar-text-2); }
+
+/* A run state is a word first. The tone is decoration, so a reader who cannot
+   see the colour still gets the status. */
+.ar-run-state {
+  display: flex; gap: 8px; align-items: baseline; margin: 0; padding: 8px 12px;
+  border: 1px solid var(--ar-line); border-left-width: 3px; border-radius: 8px;
+  font-size: 12px; color: var(--ar-text-2); line-height: 1.55;
+}
+.ar-run-state b { color: var(--text-primary); }
+.ar-run-state[data-state='failed'], .ar-run-state[data-state='interrupted'] { border-left-color: var(--ar-danger, #f87171); }
+.ar-run-state[data-state='waiting'], .ar-run-state[data-state='incomplete'] { border-left-color: var(--ar-warn, #fbbf24); }
+.ar-run-state[data-state='active'] { border-left-color: var(--ar-accent, var(--text-primary)); }

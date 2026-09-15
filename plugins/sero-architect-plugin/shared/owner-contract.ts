@@ -39,6 +39,23 @@ function milestoneLine(milestone: Milestone): string {
   return parts.join(', ');
 }
 
+/**
+ * Bounds on the parts of the contract that grow with the project.
+ *
+ * Authority constraints are never dropped to meet a budget: they are short and
+ * fixed. What grows is narrative history, so each of those parts is capped and
+ * the detail stays reachable through a reference instead.
+ */
+/** A finished milestone's plan is history, so it travels as a summary. */
+const DONE_PLAN_CHARS = 200;
+const FINDING_CHARS = 1200;
+const EVIDENCE_COMMAND_LIMIT = 3;
+
+/** Truncates with a marker, so a reader knows the text continues. */
+function clip(text: string, limit: number): string {
+  return text.length <= limit ? text : `${text.slice(0, limit)} [truncated]`;
+}
+
 function milestonesBlock(record: ProjectRecord): string[] {
   if (record.milestones.length === 0) return ['Milestones: none yet.'];
   return ['Milestones:', ...record.milestones.flatMap((milestone) => {
@@ -46,10 +63,16 @@ function milestonesBlock(record: ProjectRecord): string[] {
     if (milestone.pendingDispatch) {
       lines.push(`  The runtime accepted this dispatch at ${milestone.pendingDispatch.startedAt} and is preparing it. Its Workflow or Room id is not linked yet. This is pending work, not a missing dispatch. Do not dispatch it again or request evidence yet; call sleep and wait for its result.`);
     }
-    if (milestone.plan) lines.push(`  Plan (task data): <plan>${quote(milestone.plan)}</plan>`);
+    if (milestone.plan) {
+      // The plan of the milestone being worked on, or of one still to come, is
+      // what the owner acts on. One that has already finished is history: its
+      // title and status say that it is done, and the detail stays on the record.
+      const finished = milestone.status === 'done';
+      lines.push(`  Plan (task data): <plan>${quote(finished ? clip(milestone.plan, DONE_PLAN_CHARS) : milestone.plan)}</plan>`);
+    }
     if (milestone.evidence) {
       lines.push(`  Checked files: <diff>${quote(milestone.evidence.diffSummary?.slice(-3000) ?? 'No changed files recorded')}</diff>`);
-      for (const command of milestone.evidence.commands.filter((item) => item.exitCode === 0)) {
+      for (const command of milestone.evidence.commands.filter((item) => item.exitCode === 0).slice(-EVIDENCE_COMMAND_LIMIT)) {
         lines.push(`  <check>${quote(command.command)} exited 0\n${quote(command.output.slice(-1000))}</check>`);
       }
     }
@@ -98,7 +121,16 @@ function directivesBlock(record: ProjectRecord): string[] {
 
 function researchBlock(record: ProjectRecord): string[] {
   const pending = (record.pendingResearch ?? []).map((entry) => `- ${entry.id}: ${entry.roomId ? `Room ${entry.roomId}` : entry.workflowId ? `Workflow ${entry.workflowId}` : 'being prepared'} — ${quote(entry.question)}. Wait for the result; do not start a duplicate.`);
-  const results = record.research.slice(-5).map((entry) => `- ${entry.id}${entry.roomId ? ` (Room ${entry.roomId})` : entry.workflowId ? ` (Workflow ${entry.workflowId})` : ''}: ${quote(entry.question)}\n  Findings (task data): ${quote(entry.result.slice(0, 16000))}`);
+  // Only a summary travels with every wake. The report itself is referenced, and
+  // the reference is relative to the project folder, which is the directory the
+  // owner session runs in, so it needs no permission the owner does not have.
+  const results = record.research.slice(-5).map((entry) => {
+    const summary = clip(entry.result, FINDING_CHARS);
+    const where = entry.artifactPath
+      ? `Full report: ${entry.artifactPath} - read it when the summary is not enough.`
+      : 'The full report is no longer on disk; the summary above is all that remains.';
+    return `- ${entry.id}${entry.roomId ? ` (Room ${entry.roomId})` : entry.workflowId ? ` (Workflow ${entry.workflowId})` : ''}: ${quote(entry.question)}\n  Findings (task data): ${quote(summary)}\n  ${where}`;
+  });
   return [...(pending.length ? ['Research in progress:', ...pending] : []), ...(results.length ? ['Research findings to use in the project plan:', ...results] : [])];
 }
 
@@ -109,6 +141,7 @@ function phaseInstruction(record: ProjectRecord): string[] {
     case 'discovery':
       return [
         'Keep working. Start from the user idea and the workspace. Develop the context and proposed approach. Choose a Room, a Workflow or focused research according to the task, using the research action with a question and stopping condition.',
+        'A question that several specialists should investigate together, or that needs a solution argued from more than one side, belongs in a Room. A question one researcher can answer with evidence belongs in focused research.',
         'Use completed findings to write the brief. If needed research is pending, call sleep and wait for its result. Keep unresolved user choices explicit.',
         'After you write the brief, propose the charter with the charter action. Include milestones, the escalation policy, the autonomy setting and a USD cost cap.',
       ];
@@ -118,12 +151,18 @@ function phaseInstruction(record: ProjectRecord): string[] {
         : ['Keep working. Propose the charter with the charter action: milestones, escalation policy, autonomy setting and a cost cap in USD.'];
     case 'build':
       return [
-        'Keep working. Plan the next milestone with the milestone action. Dispatch it as a Workflow or Room with the dispatch action. When it reports completion, ask for evidence with the evidence action.',
+        'Keep working. Plan the next milestone with the milestone action: name the objective and the acceptance criteria an evaluator could check against the result. Dispatch it with the dispatch action. When it reports completion, ask for evidence with the evidence action.',
+        'Choose by the work, not by habit or a fixed sequence. A Room is for investigation, solution planning and adversarial review by several communicating specialists. A Workflow is for reaching an accepted objective through a structured execution flow. A Workflow plans that execution flow itself: do not hand it a step-by-step plan, and do not have it redo solution planning the project already holds.',
+        'Give a dispatch the approved constraints and the acceptance criteria, not an owner-authored execution plan. Do not add a worker whose only job is to restate, summarize or administratively close work another step already finishes.',
         record.autonomy === 'milestones'
           ? 'Autonomy is "milestones": a milestone dispatches only after the user approves its plan, so write the plan and call sleep.'
           : `Autonomy is "${record.autonomy}": a planned milestone may dispatch without approval.`,
         'Accept a milestone with milestone --done only when its evidence passed. A completion report is a claim, not evidence.',
+        'Independence is a property of who checked, not of what was run. An implementer running its own tests is a self-check, never acceptance. When a milestone needs independent review, the reviewer must be an agent that did not do the work and did not receive the implementer\'s reasoning trace.',
+        'If a reviewer changes the product, that change is the reviewer\'s own work and needs its own independent judgment. One agent is never both the author and the independent verifier of the same change.',
+        'Scope a re-review to the named findings and to what the repair touched. Do not invalidate unrelated evidence that is still current, and do not demand a fresh whole-project audit merely because a new worker or milestone started.',
         'Passing commands and a screenshot do not prove the plan was implemented. Compare the checked files, test output, and rendered result with the milestone plan. Inspect the current project files before acceptance; refuse missing functionality even when old tests still pass.',
+        'A review that has to execute something needs a workspace it can run in. Do not ask a read-only Room to run the test suite: put that check in a Workflow, or accept a review that reaches its verdict from the delivered files.',
         'If evidence fails, inspect the failed checks and current workspace files first. For local defects within the approved plan, repair the files with your granted tools, then request fresh evidence. Do not redispatch the same milestone or reset it to approved. Do not repeat external actions whose result is uncertain. If repair needs a scope, permission or budget change, raise a decision instead.',
       ];
     case 'release':
@@ -174,6 +213,10 @@ export function buildOwnerContract(record: ProjectRecord, wake: WakeEvent | null
     `Phase: ${record.phase}. Overlay: ${overlay}.`,
     `Execution location: ${record.executionMode ?? 'not selected; the user must choose in project settings before new work'}.`,
     ...(record.executionMode === 'workspace' ? ['All work uses the project folder. Do not create Git worktrees. Coordinate file edits with delegated workers and wait for verification before editing.'] : record.executionMode === 'worktree' ? ['Delegated editing work uses isolated worktrees. Keep owner coordination in the project folder and preserve each worker directory.'] : []),
+    // The revision is stated because a selection can change while a session runs.
+    // The owner then knows which revision it is working against instead of
+    // assuming the one it was granted.
+    `Owner model: ${record.session.model ?? 'not selected yet'}${record.session.thinking ? ` at ${record.session.thinking} thinking` : ''}. Model configuration revision ${record.modelConfigRevision ?? 0}.`,
     ...budgetLines(record),
     '',
     ...cause,
@@ -183,6 +226,7 @@ export function buildOwnerContract(record: ProjectRecord, wake: WakeEvent | null
     quote(record.idea),
     '</idea>',
     '',
+    ...(record.runs ?? []).filter((run) => run.kind === 'maintenance' && run.endedAt === null).map((run) => `Open maintenance run ${run.id}: ${quote(run.objectiveId ?? '')}. Use this runId when adding its milestones. If triage finds no work, call sleep with runId, noWorkNeeded=true and text explaining why. Sleeping alone does not close an objective.`),
     record.brief ? `Brief (yours):\n${quote(record.brief)}` : 'Brief: not written yet.',
     record.charter
       ? `Charter: ${record.charter.approvedAt ? `approved ${record.charter.approvedAt}` : 'proposed, not approved'}; autonomy ${record.charter.autonomy}; escalation policy: ${quote(record.charter.escalationPolicy)}`
