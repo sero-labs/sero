@@ -29,9 +29,9 @@
 
 ## 5. Aggregation, historical coverage and a measured baseline
 
-- [ ] 5.1 Extend existing accounting helpers so budget and trace summaries consume the same source deltas. Compute parent inclusive cost without rebilling children and preserve aggregate-only coverage. Verify partial/duplicate/reordered reports, failed attempts, shared activity, restart reconciliation and exact reconciliation with known project spend.
-- [ ] 5.2 Implement timing unions, separate worker-time counters, token composition and configuration provenance summaries. Verify overlapping intervals count once as active run time, cache categories do not overlap after normalization, unsupported counters remain unknown and filtered totals have explicit scope.
-- [ ] 5.3 Read legacy records into honest partial summaries without altering them or reconstructing fictional calls. Verify missing planning usage, old owner sessions, unpriced models and stale/pruned references with sanitized fixtures derived from observed record shapes.
+- [x] 5.1 Extend existing accounting helpers so budget and trace summaries consume the same source deltas. Compute parent inclusive cost without rebilling children and preserve aggregate-only coverage. Verify partial/duplicate/reordered reports, failed attempts, shared activity, restart reconciliation and exact reconciliation with known project spend.
+- [x] 5.2 Implement timing unions, separate worker-time counters, token composition and configuration provenance summaries. Verify overlapping intervals count once as active run time, cache categories do not overlap after normalization, unsupported counters remain unknown and filtered totals have explicit scope.
+- [x] 5.3 Read legacy records into honest partial summaries without altering them or reconstructing fictional calls. Verify missing planning usage, old owner sessions, unpriced models and stale/pruned references with sanitized fixtures derived from observed record shapes.
 - [ ] 5.4 Before changing efficiency guidance, record a bounded baseline for one implementation-and-independent-review objective and one collaborative-planning objective using the new metrics. Verify the record names the candidate, models, acceptance criteria, actual cost coverage and time; use synthetic data only for instrumentation checks, never as evidence of model efficiency. Keep any live-model budget bounded and record the evaluation in the linked GitHub issue or PR.
 
 ## 6. Delegation and context efficiency

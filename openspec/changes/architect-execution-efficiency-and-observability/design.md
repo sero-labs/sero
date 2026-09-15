@@ -132,7 +132,6 @@ Link cumulative spend, cost-by-activity/model and token-composition charts to ti
 Use the user's references for the waterfall, expandable tree, linked breakdowns and side-panel pattern, not their product branding or dense administrative navigation. Do not place a new event log or metrics dashboard on the main Architect page. Persist any saved layout preferences through the host layout API, never browser storage.
 
 ## Prototype outcome
-
 The interactive prototype at `apps/styleguide/public/prototypes/architect-run-observability/` was approved on 2026-09-14. The user requested no change of behaviour, so the plan below stands. The prototype settles these presentation details for the production work.
 
 - The inspector opens as a dedicated full-width view inside Architect. One control returns to the project page. It is not a dialog and not a separate window.
@@ -145,6 +144,22 @@ The interactive prototype at `apps/styleguide/public/prototypes/architect-run-ob
 - The destructive menu item keeps the existing `--err` token at 4.37:1 contrast. The prototype does not change the product palette, so this stays open for a later colour decision.
 
 Two findings from the prototype review become production test obligations. First, a model or tool call must group under the activity it serves, not into one flat total. Second, the rendered window must follow the scroll position, and a selected activity must stay inside the rendered window after any change to expansion.
+
+## Outstanding evaluation before the efficiency guidance changes
+
+Task 5.4 requires a bounded baseline, measured with the new metrics, for one
+implementation-and-independent-review objective and one collaborative-planning
+objective. The measurement instrument is built and tested
+(`runtime/baseline.ts`): it records the candidate, the models that actually ran
+with their selection source, the acceptance criteria held constant, cost
+coverage, elapsed/active/worker/wait time and the run counters, and it refuses
+a synthetic record as evidence about efficiency.
+
+The live measurement itself is **not yet taken**. It needs model runs and a
+bounded spend approval, which is a user decision and not something the
+evaluation may assume. Phase 6 (tasks 6.1 to 6.5) changes owner and planner
+guidance, and this task explicitly requires the baseline first, so 6.1 must not
+start until the two records exist.
 
 ## Risks / Trade-offs
 
