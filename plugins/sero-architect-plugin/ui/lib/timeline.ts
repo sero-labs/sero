@@ -138,3 +138,9 @@ export function modelOptions(records: readonly TraceRecord[]): string[] {
   return [...new Set(records.map((record) => record.model).filter((model): model is string => typeof model === 'string'))]
     .sort((a, b) => a.localeCompare(b));
 }
+
+/** Adds or removes one value from a filter list. */
+export function toggle(filters: TraceFilters, key: 'activities' | 'models', value: string): TraceFilters {
+  const current = filters[key];
+  return { ...filters, [key]: current.includes(value) ? current.filter((entry) => entry !== value) : [...current, value] };
+}
