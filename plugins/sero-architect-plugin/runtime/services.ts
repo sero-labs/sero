@@ -419,6 +419,10 @@ export function createServices(deps: ServicesDeps): OwnerServices {
           requestId: milestone.pendingDispatch?.request?.id,
           activate: false,
           disableTokenLimit: true,
+          // A milestone is work the project asked for once. Saying so here stops
+          // the Orchestrator making a model call to ask whether it recurs.
+          triggerIntent: 'one-off',
+          triggers: [],
           limits,
           workspace: workflowWorkspace(record),
           delivery: { destination: request.destination ?? 'workspace-files' },
@@ -469,7 +473,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
           kind: 'create',
           prompt: maintenancePrompt(record),
           title: `${record.name}: maintenance`,
-          options: { requestId: `${record.id}:maintenance`, activate: false, delivery: { destination: 'workspace-files' }, workspace, disableTokenLimit: true, limits: remaining === undefined ? {} : { maxCostUsd: remaining }, triggers: [...MAINTENANCE_TRIGGERS] },
+          options: { requestId: `${record.id}:maintenance`, activate: false, delivery: { destination: 'workspace-files' }, workspace, disableTokenLimit: true, limits: remaining === undefined ? {} : { maxCostUsd: remaining }, triggers: [...MAINTENANCE_TRIGGERS], triggerIntent: 'supplied' },
         }).catch((error: unknown) => ({ ok: false as const, error: String(error), loopId: undefined }));
         if (!result.ok || !result.loopId) {
           await store.update(record.id, (fresh) => ({ ...fresh, stateLine: result.error ?? 'The maintenance Workflow was not created.' }));

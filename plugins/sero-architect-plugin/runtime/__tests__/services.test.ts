@@ -195,7 +195,7 @@ describe('runtime services', () => {
       host.execResults['git rev-parse HEAD'] = { exitCode: 0, stdout: 'base123\n', stderr: '' };
       const link = await services.dispatch(buildingProject({ budget: { capUsd: 40, spentUsd: 10, sources: { owner: 10, research: 0, dispatched: 0 } } }), milestone('m1'), { kind: 'workflow', prompt: 'Open the PR', destination: 'pr', maxCostUsd: 100 });
       expect(link).toMatchObject({ id: 'loop_1', workspaceId: 'ws-1', baseCommit: 'base123' });
-      expect(coordinator.actions).toEqual([{ kind: 'create', prompt: 'Open the PR', title: 'Milestone m1', options: { activate: false, disableTokenLimit: true, limits: { maxCostUsd: 30 }, workspace: { useManagedWorktree: false, allowDirtyWorkspaceRoot: true }, delivery: { destination: 'pr' } } }]);
+      expect(coordinator.actions).toEqual([{ kind: 'create', prompt: 'Open the PR', title: 'Milestone m1', options: { activate: false, disableTokenLimit: true, limits: { maxCostUsd: 30 }, workspace: { useManagedWorktree: false, allowDirtyWorkspaceRoot: true }, delivery: { destination: 'pr' }, triggerIntent: 'one-off', triggers: [] } }]);
       await link.start?.();
       expect(coordinator.actions[1]).toEqual({ kind: 'activate', loopId: 'loop_1' });
     } finally {
