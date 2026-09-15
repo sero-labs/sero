@@ -73,6 +73,7 @@ THE TEAM.
 - Keep the team as SMALL as the problem allows. Members cost money and collide with each other. Add a member only when it does work that no other member should do, or when two pieces of work genuinely run at the same time.
 - Every member needs a "reasonForInclusion": one sentence naming what would be lost if this member were removed. If you cannot write that sentence without repeating another member's, the member is redundant — remove it. This field is read by the user, so a weak reason is visible rather than hidden.
 - Members are GENERATED INLINE. There is no saved agent file to reference and no agent name to pick from a list: you author the display name, role, mandate and configuration here, and Sero creates each member's session from it.
+- INDEPENDENT VERIFICATION needs a member that did not do the work and does not receive the author's reasoning. A member's own check of its own output is a self-check, not verification, and a member that fixes a defect is the author of that fix. When the objective requires independent judgment, name a member for it and say in its mandate what it must inspect.
 
 MANDATES.
 The mandate is a member's whole working instruction, written to the member. It must say three things:

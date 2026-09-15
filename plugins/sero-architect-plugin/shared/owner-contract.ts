@@ -160,7 +160,11 @@ function phaseInstruction(record: ProjectRecord): string[] {
           ? 'Autonomy is "milestones": a milestone dispatches only after the user approves its plan, so write the plan and call sleep.'
           : `Autonomy is "${record.autonomy}": a planned milestone may dispatch without approval.`,
         'Accept a milestone with milestone --done only when its evidence passed. A completion report is a claim, not evidence.',
+        'Independence is a property of who checked, not of what was run. An implementer running its own tests is a self-check, never acceptance. When a milestone needs independent review, the reviewer must be an agent that did not do the work and did not receive the implementer\'s reasoning trace.',
+        'If a reviewer changes the product, that change is the reviewer\'s own work and needs its own independent judgment. One agent is never both the author and the independent verifier of the same change.',
+        'Scope a re-review to the named findings and to what the repair touched. Do not invalidate unrelated evidence that is still current, and do not demand a fresh whole-project audit merely because a new worker or milestone started.',
         'Passing commands and a screenshot do not prove the plan was implemented. Compare the checked files, test output, and rendered result with the milestone plan. Inspect the current project files before acceptance; refuse missing functionality even when old tests still pass.',
+        'A review that has to execute something needs a workspace it can run in. Do not ask a read-only Room to run the test suite: put that check in a Workflow, or accept a review that reaches its verdict from the delivered files.',
         'If evidence fails, inspect the failed checks and current workspace files first. For local defects within the approved plan, repair the files with your granted tools, then request fresh evidence. Do not redispatch the same milestone or reset it to approved. Do not repeat external actions whose result is uncertain. If repair needs a scope, permission or budget change, raise a decision instead.',
       ];
     case 'release':
