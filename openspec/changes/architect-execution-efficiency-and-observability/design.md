@@ -213,6 +213,50 @@ keeps the baseline unblocked, and it does not remove the gap: an independent
 review that must execute the test suite is still impossible in the Room the
 Architect picks for it.
 
+## Outcome comparison after the efficiency changes
+
+Task 8.2 repeats the task 5.4 measurement with the same acceptance criteria,
+model and effort level (`openai-codex/gpt-5.6-terra`, thinking `high`) and the
+same $2 cap.
+
+| | before (5.4) | after (8.2) |
+| --- | --- | --- |
+| attributable cost | $0.148 | $0.293 |
+| of which aggregate-only | $0.148 | $0.154 |
+| coverage | aggregate | partial |
+| elapsed | 2 min 34 s | 16 min 14 s |
+| active | 26.9 s | 2 min 26 s |
+| summed worker | 1.8 s | 1 min 59 s |
+| owner turns | 9 | 10 |
+| model provenance | none named | owner model and effort named |
+
+**This is not an efficiency comparison, and the numbers do not show one.** The
+two runs did different amounts of work. The earlier run stopped once its first
+milestone was accepted; this one continued, ran further research and reached the
+release phase. More cost and more wall-clock is what more work costs. The record
+cannot separate "the same work cost more" from "there was more work", so the
+change in cost and time is an unknown here, not a regression and certainly not an
+improvement.
+
+What did measurably change is the instrumentation, which is what phase 5 was for:
+coverage moved from a bare `aggregate` total to `partial` with call-level detail,
+and the record now names the model and effort level that ran instead of naming
+nothing.
+
+### Unknowns, recorded rather than smoothed
+
+- The collaborative-planning objective was **not** re-measured. It timed out in
+discovery while a Room worked on the project question, before any milestone
+existed, and the harness waits seven minutes for one. The more expensive of the
+two objectives therefore has no `after` figure.
+- Request, tool-call, retry and compaction counters are zero on both sides. The
+run journal carries no session-level events yet, so these are unknown rather than
+unchanged.
+- Both totals are lower bounds: neither run reported complete coverage.
+
+No fewer-agents claim is made. `agents` counts dispatched milestones and is 1 on
+both sides; it is not a roster size. No saving is claimed from a partial total.
+
 ## Risks / Trade-offs
 
 - Compact context can omit a needed decision. Keep mandatory authority fields, explicit applicability and resolvable evidence; test compaction and stale-reference paths.

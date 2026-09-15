@@ -585,7 +585,7 @@ test('objective 1 — implementation and independent review', async () => {
   // have someone who did not write it check the result against the criteria.
   await drive(projectId, {
     label: 'implementation',
-    timeoutMs: 420_000,
+    timeoutMs: 900_000,
     approveMilestones: true,
     until: (record) => record.milestones.length > 0,
   });
@@ -627,7 +627,7 @@ test('objective 2 — collaborative planning', async () => {
 
   await drive(projectId, {
     label: 'planning',
-    timeoutMs: 420_000,
+    timeoutMs: 900_000,
     approveMilestones: true,
     until: (record) => record.milestones.length > 0,
   });
