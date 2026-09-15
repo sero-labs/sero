@@ -80,7 +80,7 @@ export class ArchitectRuntime implements AppRuntime {
       },
     });
     this.watch = watch;
-    const services = createServices({ host: this.host, store, wake, spans });
+    const services = createServices({ host: this.host, store, wake, spans, journal });
     this.services = services;
     this.owner = createOwnerActions({ host: this.host, store, outcomes, services });
     this.projects = createProjectsActions({ host: this.host, store, sessions, scheduler, watch, services, journal });

@@ -27,6 +27,7 @@ import type { WakeEvent } from '../shared/wake';
 import type { ArchitectHost } from './host';
 import type { OwnerServices } from './owner-actions';
 import type { RecordStore } from './record-store';
+import type { RunJournal } from './run-journal';
 import type { SpanRecorder } from './spans';
 import { activeRun } from '../shared/runs';
 
@@ -36,6 +37,12 @@ export interface ServicesDeps {
   wake(projectId: string, wake: WakeEvent): void;
   /** Semantic operation spans. Absent leaves execution unchanged. */
   spans?: SpanRecorder;
+  /**
+   * The run journal, so every charged delta also lands in the trace. Without it
+   * a charge still reaches the budget and the trace records no cost at all, so
+   * the two cannot be reconciled.
+   */
+  journal?: RunJournal;
 }
 
 const COMMAND_TIMEOUT_MS = 10 * 60_000;
