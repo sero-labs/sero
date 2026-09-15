@@ -127,7 +127,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     kind: ObservationOperationKind,
     suffix: string,
     work: () => Promise<T>,
-    parentOperationId?: string,
+    identity: { parentOperationId?: string; model?: string; thinking?: string } = {},
   ): Promise<T> => {
     const recorder = deps.spans;
     if (!recorder) return work();
@@ -139,7 +139,12 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       runId: open.id,
       operationId,
       kind,
-      ...(parentOperationId ? { parentOperationId } : {}),
+      parentOperationId: identity.parentOperationId,
+      // The model the runtime used for the call this span covers. Set only where
+      // the Architect makes the call itself: a delegated operation names no
+      // model, because the delegate chose it and the Architect did not see it.
+      model: identity.model,
+      thinking: identity.thinking,
     }, work);
   };
 
@@ -262,7 +267,11 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     // capture error as a test exit code sends the owner to repair working code.
     const evidenceSpan = `${activeRun(record)?.id ?? ''}:evidence:${milestoneId}`;
     const preview = route && ran.every((command) => command.exitCode === 0)
-      ? await span(record, 'evidence', `${milestoneId}:capture`, () => runPreview(record, milestone, route, startedAt), evidenceSpan)
+      ? await span(record, 'evidence', `${milestoneId}:capture`, () => runPreview(record, milestone, route, startedAt), {
+        parentOperationId: evidenceSpan,
+        model: record.session.model ?? undefined,
+        thinking: record.session.thinking ?? undefined,
+      })
         .catch((error: unknown) => ({
           route, smokePassed: false, capturePath: null,
           failure: error instanceof Error ? error.message : String(error),
