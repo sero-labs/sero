@@ -6,7 +6,7 @@
  * new revision and what happens to work already in flight are reported together.
  */
 
-import type { ModelTier, SharedModelTierEntry, ThinkingLevel } from '@sero-ai/common';
+import type { ModelTier, SharedModelTierEntry, SharedModelTierSettings, ThinkingLevel } from '@sero-ai/common';
 
 import { clearProjectTierOverride, setProjectTierOverride } from '../shared/model-config';
 import type { ProjectRecord } from '../shared/record';
@@ -77,4 +77,20 @@ export async function clearModelDefaultAction(
   }));
   if (!result.ok) return refuse(result.error);
   return ok(modelChangeText(result.record, `${tier} inherits the global selection again`));
+}
+
+/**
+ * Re-reads the host's global model tiers into the cached record and returns
+ * what it read. The owner session only refreshes that cache when it opens;
+ * the project settings view asks here so an inherited tier is never shown, or
+ * pinned, from a stale copy.
+ */
+export async function refreshModelTiersAction(
+  deps: ModelDefaultDeps,
+  projectId: string,
+): Promise<ProjectsOutcome & { tiers?: SharedModelTierSettings }> {
+  const modelTiers = await deps.host.modelTiers();
+  const result = await mutateRecord(deps.store, projectId, (fresh) => ({ record: { ...fresh, modelTiers } }));
+  if (!result.ok) return refuse(result.error);
+  return { ok: true, text: 'Model tiers refreshed from the host.', tiers: modelTiers };
 }

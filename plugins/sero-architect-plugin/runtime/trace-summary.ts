@@ -210,6 +210,11 @@ export interface TimingSummary {
   /** Sum of observed wait intervals, by cause. Never inferred. */
   waitMs: number;
   waitByCause: Record<string, number>;
+  /**
+   * Causes of waits that have started and not ended in the whole folded
+   * history. A page shows a slice, so only this says what is waiting now.
+   */
+  openWaits: string[];
 }
 
 /**
@@ -255,7 +260,15 @@ export function summarizeTiming(records: readonly JournalRecord[]): TimingSummar
     waitByCause[cause] = (waitByCause[cause] ?? 0) + duration;
   }
 
-  return { activeMs, workerMs, waitMs, waitByCause };
+  const ended = new Set(records
+    .filter((record) => record.recordKind === 'operation-end' && typeof record.operationId === 'string')
+    .map((record) => String(record.operationId)));
+  const openWaits = [...new Set(records
+    .filter((record) => record.recordKind === 'operation-start' && typeof record.waitCause === 'string'
+      && typeof record.operationId === 'string' && !ended.has(String(record.operationId)))
+    .map((record) => String(record.waitCause)))];
+
+  return { activeMs, workerMs, waitMs, waitByCause, openWaits };
 }
 
 /** Operations that represent a worker doing work, as opposed to waiting or grouping. */

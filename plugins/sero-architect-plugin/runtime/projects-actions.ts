@@ -9,14 +9,14 @@ import { chooseOwnerModel } from './owner-session';
 import os from 'node:os';
 import path from 'node:path';
 
-import { requestOrchestratorAction, type ModelTier, type PersistentSessionHistoryPage, type SharedModelTierEntry, type ThinkingLevel } from '@sero-ai/common';
+import { requestOrchestratorAction, type ModelTier, type PersistentSessionHistoryPage, type SharedModelTierEntry, type SharedModelTierSettings, type ThinkingLevel } from '@sero-ai/common';
 
 import { advancePhase, approveCharter, block, mayDispatch, pause, resume, setAutonomy, setCap, settle, unblock } from '../shared/lifecycle';
 import { createProjectRecord, toIndexEntry, type AutonomySetting, type ExecutionMode, type DecisionProposal, type Milestone, type ProjectRecord } from '../shared/record';
 import type { DispatchDestination } from '../shared/owner-actions';
 import { performDispatch } from './dispatch-link';
 import type { RepairOutcome } from './repair-dispatch';
-import { clearModelDefaultAction, setModelDefaultAction, type ModelDefaultInput } from './model-default-actions';
+import { clearModelDefaultAction, refreshModelTiersAction, setModelDefaultAction, type ModelDefaultInput } from './model-default-actions';
 import { previewProject, repairProject, retryMilestone } from './work-recovery-actions';
 import type { OwnerServices } from './owner-actions';
 import type { ArchitectIndexEntry } from '../shared/types';
@@ -75,8 +75,8 @@ export interface ProjectsActions {
   setModelDefault(projectId: string, input: ModelDefaultInput): Promise<ProjectsOutcome>;
   /** Clears one override so the tier inherits the global selection again. */
   clearModelDefault(projectId: string, tier: ModelTier): Promise<ProjectsOutcome>;
-  /** Re-reads the host's global model tiers into the cached record. */
-  refreshModelTiers(projectId: string): Promise<ProjectsOutcome>;
+  /** Re-reads the host's global model tiers into the cached record, and returns what it read. */
+  refreshModelTiers(projectId: string): Promise<ProjectsOutcome & { tiers?: SharedModelTierSettings }>;
   approve(projectId: string, target: 'charter' | 'milestone', milestoneId?: string): Promise<ProjectsOutcome>;
   answer(projectId: string, decisionId: string, optionId: string, note?: string): Promise<ProjectsOutcome>;
   directive(projectId: string, text: string): Promise<ProjectsOutcome>;
@@ -325,9 +325,13 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       // Discovery may have been entered without its run if that second write
       // failed. Idempotent: a project that has one keeps it.
       if (deps.journal) {
-        await ensureInitialRun({ store, journal: deps.journal }, projectId, now).catch((error: unknown) => {
-          host.log(`could not open the initial run for ${projectId}: ${error instanceof Error ? error.message : String(error)}`);
-        });
+        try {
+          await ensureInitialRun({ store, journal: deps.journal }, projectId, now);
+        } catch (error) {
+          return refuse(`could not open the initial run for ${projectId}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+        // Recovery charges the run, so it must see the record that has it.
+        next = (await store.read(projectId)) ?? next;
       }
       services.recoverPending(next);
       scheduler.request(projectId, { kind: 'quiet', at: now, items: ['the user resumed the project'] });
@@ -378,16 +382,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
 
     setModelDefault: (projectId, input) => setModelDefaultAction({ host, store }, projectId, input),
     clearModelDefault: (projectId, tier) => clearModelDefaultAction({ host, store }, projectId, tier),
-    // The owner session only refreshes the cached global model tiers when it
-    // opens; this lets the project settings view ask for a fresh read on its
-    // own, so a tier that still inherits the global selection is not stale
-    // until the owner's next wake.
-    async refreshModelTiers(projectId) {
-      const modelTiers = await host.modelTiers();
-      const result = await mutateRecord(store, projectId, (fresh) => ({ record: { ...fresh, modelTiers } }));
-      if (!result.ok) return refuse(result.error);
-      return ok('Model tiers refreshed from the host.');
-    },
+    refreshModelTiers: (projectId) => refreshModelTiersAction({ host, store }, projectId),
 
     async approve(projectId, target, milestoneId) {
       const now = host.now();

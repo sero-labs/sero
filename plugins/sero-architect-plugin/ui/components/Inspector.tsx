@@ -13,6 +13,15 @@ import {
 } from '../lib/timeline';
 import { appendTracePage, type TracePage } from '../lib/trace';
 
+/** The page currently held, tagged with the view it was read for. A read for
+ * a different journal or detail level replaces it; a read for the same one
+ * merges onto it, so history already loaded by Load more survives a re-read. */
+interface PageState {
+  journalId: string;
+  detail: boolean;
+  page: TracePage;
+}
+
 const ROW_HEIGHT = 34;
 const VIEWPORT = 460;
 /** The shared journal: activity charged once to the project rather than to any single run. */
@@ -46,7 +55,8 @@ export function Inspector({ record, actions, onBack }: {
 }) {
   const runs = record.runs ?? [];
   const [selected, setSelected] = useState<string>(() => runs.at(-1)?.id ?? SHARED_ACTIVITY);
-  const [page, setPage] = useState<TracePage | null>(null);
+  const [pageState, setPageState] = useState<PageState | null>(null);
+  const page = pageState?.page ?? null;
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [withDetail, setWithDetail] = useState(false);
@@ -92,9 +102,19 @@ export function Inspector({ record, actions, onBack }: {
         setNotice(outcome.text);
         return;
       }
-      setPage((current) => {
-        if (afterSeq !== undefined && current && outcome.page) return appendTracePage(current, outcome.page);
-        return outcome.page;
+      const fresh = outcome.page;
+      if (!fresh) {
+        setPageState(null);
+        return;
+      }
+      setPageState((current) => {
+        // The same view as what is already held: merge onto it, whether this
+        // is a Load more continuation or a plain re-read of page one, so
+        // history already loaded survives. Its summary, timing and tokens
+        // still come from this fresh answer. A different journal or detail
+        // level is a different view, and replaces rather than merges.
+        const sameView = current !== null && current.journalId === journalId && current.detail === detail;
+        return { journalId, detail, page: sameView ? appendTracePage(current.page, fresh) : fresh };
       });
     } finally {
       if (gen === generation.current && mounted.current) setLoading(false);
@@ -196,7 +216,7 @@ export function Inspector({ record, actions, onBack }: {
           <span>View</span>
           <select
             value={selected}
-            onChange={(event) => { setSelected(event.target.value); setRange(null); setSelectedSeq(null); }}
+            onChange={(event) => { setSelected(event.target.value); setRange(null); setSelectedSeq(null); setPageState(null); }}
           >
             <option value={SHARED_ACTIVITY}>Shared activity</option>
             {runs.map((run) => (
@@ -393,7 +413,16 @@ export function Inspector({ record, actions, onBack }: {
       )}
 
       {withDetail && page?.nextAfterSeq !== undefined && page.nextAfterSeq !== null && (
-        <Button variant="outline" size="sm" className="ar-btn" onClick={() => void load(selected, true, page.nextAfterSeq ?? undefined)}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="ar-btn"
+          // A read in flight, or a held page that is no longer the selected
+          // view (the moment after switching, before its own read resolves),
+          // must never be asked to continue with a cursor that is not its own.
+          disabled={loading || pageState?.journalId !== selected}
+          onClick={() => void load(selected, true, page.nextAfterSeq ?? undefined)}
+        >
           Load more activity
         </Button>
       )}

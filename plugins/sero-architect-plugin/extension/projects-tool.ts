@@ -262,7 +262,7 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
       const missing = need(id, 'projectId');
       if (missing) return result(false, missing);
       const outcome = await actions.refreshModelTiers(id);
-      return result(outcome.ok, outcome.text);
+      return result(outcome.ok, outcome.text, outcome.tiers ? { tiers: outcome.tiers } : {});
     }
     case 'approve': {
       const missing = need(id, 'projectId');

@@ -6,7 +6,7 @@
 import { useCallback, useMemo } from 'react';
 import { useAppTools } from '@sero-ai/app-runtime';
 import type { AppToolResult } from '@sero-ai/app-runtime';
-import type { ModelTier, ThinkingLevel } from '@sero-ai/common';
+import { MODEL_TIERS, THINKING_LEVELS, type ModelTier, type SharedModelTierEntry, type SharedModelTierSettings, type ThinkingLevel } from '@sero-ai/common';
 
 import type { AutonomySetting, ExecutionMode } from '../../shared/record';
 import { readTracePage, type TracePage } from './trace';
@@ -50,6 +50,24 @@ export interface TraceOutcome extends ActionOutcome {
   page: TracePage | null;
 }
 
+const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+
+/** Reads the tiers a `refresh_model_tiers` answer reported. A malformed entry is dropped, not guessed. */
+function readModelTiers(raw: unknown): SharedModelTierSettings | undefined {
+  if (!isObject(raw)) return undefined;
+  const tiers: SharedModelTierSettings = {};
+  for (const tier of MODEL_TIERS) {
+    const entryRaw = raw[tier];
+    if (!isObject(entryRaw) || typeof entryRaw.provider !== 'string' || typeof entryRaw.modelId !== 'string') continue;
+    const entry: SharedModelTierEntry = { provider: entryRaw.provider, modelId: entryRaw.modelId };
+    if (typeof entryRaw.thinkingLevel === 'string' && (THINKING_LEVELS as readonly string[]).includes(entryRaw.thinkingLevel)) {
+      entry.thinkingLevel = entryRaw.thinkingLevel as ThinkingLevel;
+    }
+    tiers[tier] = entry;
+  }
+  return tiers;
+}
+
 function readHistoryEntries(result: AppToolResult): SessionHistoryEntry[] {
   const raw = result.details?.entries;
   if (!Array.isArray(raw)) return [];
@@ -86,8 +104,8 @@ export interface ArchitectActions {
   setModelDefault(projectId: string, tier: ModelTier, model: string, thinking?: ThinkingLevel): Promise<ActionOutcome>;
   /** Clear one override so the tier inherits the global selection again. */
   clearModelDefault(projectId: string, tier: ModelTier): Promise<ActionOutcome>;
-  /** Re-reads the host's global model tiers into the cached record. */
-  refreshModelTiers(projectId: string): Promise<ActionOutcome>;
+  /** Re-reads the host's global model tiers into the cached record, and returns what it read. */
+  refreshModelTiers(projectId: string): Promise<ActionOutcome & { tiers?: SharedModelTierSettings }>;
   approveCharter(projectId: string): Promise<ActionOutcome>;
   approveMilestone(projectId: string, milestoneId: string): Promise<ActionOutcome>;
   answer(projectId: string, decisionId: string, optionId: string, note: string): Promise<ActionOutcome>;
@@ -137,7 +155,16 @@ export function useArchitectActions(): ArchitectActions {
       setAutonomy: (projectId, autonomy) => call({ action: 'set_autonomy', projectId, autonomy }),
       setModelDefault: (projectId, tier, model, thinking) => call({ action: 'set_model_tier', projectId, tier, model, thinking }),
       clearModelDefault: (projectId, tier) => call({ action: 'clear_model_tier', projectId, tier }),
-      refreshModelTiers: (projectId) => call({ action: 'refresh_model_tiers', projectId }),
+      refreshModelTiers: async (projectId) => {
+        try {
+          const result = await run(PROJECTS_TOOL, { action: 'refresh_model_tiers', projectId });
+          const outcome = toOutcome(result);
+          const tiers = readModelTiers(result.details?.tiers);
+          return tiers ? { ...outcome, tiers } : outcome;
+        } catch (error) {
+          return { ok: false, text: error instanceof Error ? error.message : String(error) };
+        }
+      },
       approveCharter: (projectId) => call({ action: 'approve', projectId, target: 'charter' }),
       approveMilestone: (projectId, milestoneId) => call({ action: 'approve', projectId, target: 'milestone', milestoneId }),
       answer: (projectId, decisionId, optionId, note) =>

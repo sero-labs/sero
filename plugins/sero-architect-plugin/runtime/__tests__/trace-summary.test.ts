@@ -136,6 +136,17 @@ describe('timing counts overlap once', () => {
     expect(timing.waitByCause).toEqual({ approval: 7 * 60_000, queue: 1 * 60_000 });
     // A wait is not active work.
     expect(timing.activeMs).toBe(0);
+    // Both waits ended, so nothing is waiting now.
+    expect(timing.openWaits).toEqual([]);
+  });
+
+  it('names only a wait that has started and not ended as open', () => {
+    const records = [
+      start('wait:approval', T(41), { operationKind: 'wait', waitCause: 'approval' }), end('wait:approval', T(48)),
+      start('wait:queue', T(48), { operationKind: 'wait', waitCause: 'queue' }),
+    ];
+    // The page a reader sees may not hold the end; the folded history does.
+    expect(summarizeTiming(records).openWaits).toEqual(['queue']);
   });
 
   it('leaves an interval nobody closed out of the totals', () => {

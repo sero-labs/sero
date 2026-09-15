@@ -22,15 +22,27 @@ export function ModelSettings({ record, actions, onBack }: {
   const { groups } = useAvailableModels();
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  // The cached global tiers on `record` only refresh when the owner session
+  // opens, so they can be stale. This view reads its own authoritative copy
+  // on arrival and holds it here; every control stays disabled until that
+  // read lands, so a stale value is never shown as editable.
+  const [globals, setGlobals] = useState<SharedModelTierSettings | null>(null);
   const overrides: SharedModelTierSettings = record.modelOverrides ?? {};
-  const globals: SharedModelTierSettings = record.modelTiers ?? {};
 
-  // The cached global tiers only refresh when the owner session opens, so
-  // this view asks the runtime for a fresh read of its own on arrival. An IPC
-  // call on mount is the one case `useEffect` is meant for here.
   useEffect(() => {
-    void actions.refreshModelTiers(record.id);
+    let active = true;
+    void actions.refreshModelTiers(record.id).then((outcome) => {
+      if (!active) return;
+      if (!outcome.ok) {
+        setNotice(outcome.text);
+        return;
+      }
+      setGlobals(outcome.tiers ?? {});
+    });
+    return () => { active = false; };
   }, [actions, record.id]);
+
+  const gated = globals === null || busy !== null;
 
   const submit = async (tier: ModelTier, run: () => Promise<{ ok: boolean; text: string }>) => {
     setBusy(tier);
@@ -51,6 +63,7 @@ export function ModelSettings({ record, actions, onBack }: {
         <span className="ar-models-rev">revision {record.modelConfigRevision ?? 0}</span>
       </div>
 
+      {globals === null && notice === null && <p className="ar-why">Reading the current model defaults…</p>}
       {notice !== null && <p className="ar-notice" role="status">{notice}</p>}
 
       <table className="ar-tiers">
@@ -60,7 +73,7 @@ export function ModelSettings({ record, actions, onBack }: {
         <tbody>
           {MODEL_TIERS.map((tier) => {
             const override = overrides[tier];
-            const effective = override ?? globals[tier];
+            const effective = override ?? (globals ?? {})[tier];
             const inherited = !override;
             const options = groups.flatMap((group) => group.models.map((model) => ({
               value: modelKey(model.provider, model.modelId),
@@ -76,7 +89,7 @@ export function ModelSettings({ record, actions, onBack }: {
                   <select
                     aria-label={`${tier} project model`}
                     value={selected}
-                    disabled={busy !== null}
+                    disabled={gated}
                     onChange={(event) => {
                       const picked = options.find((option) => option.value === event.target.value);
                       if (!picked) return;
@@ -93,7 +106,7 @@ export function ModelSettings({ record, actions, onBack }: {
                     <select
                       aria-label={`${tier} thinking level`}
                       value={effective?.thinkingLevel ?? entry.thinking[0]}
-                      disabled={busy !== null}
+                      disabled={gated}
                       onChange={(event) => {
                         void submit(tier, () => actions.setModelDefault(
                           record.id, tier, selected, event.target.value as ThinkingLevel,
@@ -117,7 +130,7 @@ export function ModelSettings({ record, actions, onBack }: {
                     variant="outline"
                     size="sm"
                     className="ar-btn"
-                    disabled={inherited || busy !== null}
+                    disabled={inherited || gated}
                     onClick={() => void submit(tier, () => actions.clearModelDefault(record.id, tier))}
                   >
                     Use global

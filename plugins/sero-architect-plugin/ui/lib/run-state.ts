@@ -11,7 +11,7 @@
  * was ever reported.
  */
 
-import type { TracePage, TraceRecord } from './trace';
+import type { TracePage } from './trace';
 import type { TimeRange } from './timeline';
 
 export type RunState =
@@ -89,22 +89,12 @@ export function describeRunState(input: RunStateInput): RunStateDescription {
     };
   }
 
-  // A wait is a start with a cause and, once it is over, a matching end for
-  // the same operation. Only a start whose end is missing from this page is
-  // still waiting, and a closed run cannot be. A finished wait falls through
-  // like any other observed interval.
-  const waitStarts = (page?.records ?? []).filter(
-    (candidate): candidate is TraceRecord & { waitCause: string } =>
-      candidate.recordKind === 'operation-start' && typeof candidate.waitCause === 'string',
-  );
-  const closedOperations = new Set(
-    (page?.records ?? [])
-      .filter((candidate) => candidate.recordKind === 'operation-end' && typeof candidate.operationId === 'string')
-      .map((candidate) => candidate.operationId),
-  );
-  const openWaits = waitStarts.filter((candidate) => candidate.operationId === undefined || !closedOperations.has(candidate.operationId));
+  // The runtime folds the whole history, not just this page, to say what is
+  // still waiting: a start whose end fell outside a bounded page would
+  // otherwise look like an open wait it is not. A closed run cannot be waiting.
+  const openWaits = timing?.openWaits ?? [];
   if (input.runOpen && openWaits.length > 0) {
-    const causes = [...new Set(openWaits.map((record) => record.waitCause))].join(', ');
+    const causes = openWaits.join(', ');
     return {
       state: 'waiting',
       label: 'Waiting',

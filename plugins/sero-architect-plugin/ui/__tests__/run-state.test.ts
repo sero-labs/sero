@@ -21,7 +21,7 @@ const page = (records: TraceRecord[], overrides: Partial<TracePage> = {}): Trace
     attributableUsd: 0.1, aggregateUsd: 0, hasAggregate: false, incomplete: false,
     requests: 1, toolCalls: 0, retries: 0, compactions: 0, errors: 0,
   },
-  timing: { activeMs: 1000, workerMs: 0, waitMs: 0 },
+  timing: { activeMs: 1000, workerMs: 0, waitMs: 0, openWaits: [] },
   tokens: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, unavailable: [] },
   records,
   nextAfterSeq: null,
@@ -59,11 +59,9 @@ describe('the state a view is in', () => {
     expect(state.state).toBe('active');
   });
 
-  it('reports waiting only from an observed cause', () => {
+  it('reports waiting only from a cause the runtime says is still open', () => {
     const waited = describeRunState(input({
-      page: page([record(0, {
-        operationKind: 'wait', recordKind: 'operation-start', waitCause: 'approval', operationId: 'op_wait',
-      })], { timing: { activeMs: 0, workerMs: 0, waitMs: 5000 } }),
+      page: page([record(0)], { timing: { activeMs: 0, workerMs: 0, waitMs: 5000, openWaits: ['approval'] } }),
       runOpen: true,
       visibleRecords: 1,
     }));
@@ -72,21 +70,21 @@ describe('the state a view is in', () => {
     expect(waited.detail).toContain('observed intervals only');
   });
 
-  it('does not call a finished wait waiting once its end is in the page', () => {
+  it('does not call it waiting once the runtime reports no open wait, even with wait time recorded', () => {
+    // A page bounded to a slice of history could show a start with no matching
+    // end even though the whole run has long since closed it; only the
+    // runtime's whole-history view decides this, never this page's own rows.
     const state = describeRunState(input({
-      page: page([
-        record(0, { operationKind: 'wait', recordKind: 'operation-start', waitCause: 'approval', operationId: 'op_wait' }),
-        record(1, { recordKind: 'operation-end', operationId: 'op_wait' }),
-      ], { timing: { activeMs: 0, workerMs: 0, waitMs: 5000 } }),
+      page: page([record(0)], { timing: { activeMs: 0, workerMs: 0, waitMs: 5000, openWaits: [] } }),
       runOpen: true,
-      visibleRecords: 2,
+      visibleRecords: 1,
     }));
     expect(state.state).not.toBe('waiting');
   });
 
-  it('does not report waiting once the run has closed, even with an unmatched wait start', () => {
+  it('does not report waiting once the run has closed, even with an open wait reported', () => {
     const state = describeRunState(input({
-      page: page([record(0, { operationKind: 'wait', recordKind: 'operation-start', waitCause: 'approval', operationId: 'op_wait' })]),
+      page: page([record(0)], { timing: { activeMs: 0, workerMs: 0, waitMs: 5000, openWaits: ['approval'] } }),
       runOpen: false,
       visibleRecords: 1,
     }));
@@ -95,7 +93,7 @@ describe('the state a view is in', () => {
 
   it('does not infer waiting from elapsed time alone', () => {
     const state = describeRunState(input({
-      page: page([record(0)], { timing: { activeMs: 1, workerMs: 1, waitMs: 0 } }),
+      page: page([record(0)], { timing: { activeMs: 1, workerMs: 1, waitMs: 0, openWaits: [] } }),
       runOpen: true,
       visibleRecords: 1,
     }));

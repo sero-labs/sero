@@ -431,6 +431,12 @@ describe('project management', () => {
 
       const outcome = await actions.refreshModelTiers('proj_1');
       expect(outcome.ok).toBe(true);
+      // Reported back directly, so a caller (the model settings view) does not
+      // have to re-read the record to see what this call just fetched.
+      expect(outcome.tiers).toEqual({
+        MED: { provider: 'anthropic', modelId: 'claude-fable-5-1', thinkingLevel: 'high' },
+        LOW: { provider: 'anthropic', modelId: 'claude-fable-5-1', thinkingLevel: 'low' },
+      });
       const record = await store.read('proj_1');
       expect(record?.modelTiers).toEqual({
         MED: { provider: 'anthropic', modelId: 'claude-fable-5-1', thinkingLevel: 'high' },

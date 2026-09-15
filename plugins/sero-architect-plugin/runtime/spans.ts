@@ -86,7 +86,11 @@ export function createSpanRecorder(deps: SpanRecorderDeps): SpanRecorder {
   // that fails is reported here and the journal stays incomplete; the work
   // and its result are unchanged (spec: telemetry failure never changes a run).
   const report = (stage: string, operationId: string, error: unknown): void => {
-    deps.log?.(`observation ${stage} for ${operationId} was not written: ${error instanceof Error ? error.message : String(error)}`);
+    try {
+      deps.log?.(`observation ${stage} for ${operationId} was not written: ${error instanceof Error ? error.message : String(error)}`);
+    } catch {
+      // A reporter that fails must not become a second failure of the work.
+    }
   };
 
   return {
@@ -130,12 +134,15 @@ export function createSpanRecorder(deps: SpanRecorderDeps): SpanRecorder {
     },
 
     async around<T>(input: OpenSpanInput, work: () => Promise<T>): Promise<T> {
-      await this.open(input).catch((error: unknown) => report('open', input.operationId, error));
+      // Neither write is awaited: a slow or hung disk must not delay the work
+      // or withhold its result. The journal keeps one writer per file, so the
+      // start still lands before the end, and a read waits behind both.
+      void this.open(input).catch((error: unknown) => report('open', input.operationId, error));
       let value: T;
       try {
         value = await work();
       } catch (error) {
-        await this.close({
+        void this.close({
           projectId: input.projectId,
           runId: input.runId,
           operationId: input.operationId,
@@ -144,7 +151,7 @@ export function createSpanRecorder(deps: SpanRecorderDeps): SpanRecorder {
         }).catch((closeError: unknown) => report('close', input.operationId, closeError));
         throw error;
       }
-      await this.close({ projectId: input.projectId, runId: input.runId, operationId: input.operationId, outcome: 'ok' })
+      void this.close({ projectId: input.projectId, runId: input.runId, operationId: input.operationId, outcome: 'ok' })
         .catch((error: unknown) => report('close', input.operationId, error));
       return value;
     },

@@ -361,7 +361,10 @@ export function createRunJournal(deps: RunJournalDeps): RunJournal {
     appendShared: (projectId, input) => appendAt(projectId, SHARED_JOURNAL_ID, input),
 
     readPage(projectId, journalId, options = {}) {
-      return readPageAt(journalPath(projectId, journalId), options);
+      // A read waits behind the writes queued on the same file, so a record
+      // whose append was started, but not awaited, is already there.
+      const filePath = journalPath(projectId, journalId);
+      return serialized(filePath, () => readPageAt(filePath, options));
     },
 
     readSummary(projectId, journalId) {

@@ -46,6 +46,8 @@ export interface TraceTimingView {
   activeMs: number;
   workerMs: number;
   waitMs: number;
+  /** Causes of waits that started and have not ended across the whole folded history. */
+  openWaits: string[];
 }
 
 export interface TraceTokensView {
@@ -131,7 +133,12 @@ export function readTracePage(result: AppToolResult): TracePage | null {
       errors: num(summaryRaw.errors),
       reconciliationUsd: maybeNum(summaryRaw.reconciliationUsd),
     },
-    timing: { activeMs: num(timing.activeMs), workerMs: num(timing.workerMs), waitMs: num(timing.waitMs) },
+    timing: {
+      activeMs: num(timing.activeMs),
+      workerMs: num(timing.workerMs),
+      waitMs: num(timing.waitMs),
+      openWaits: Array.isArray(timing.openWaits) ? timing.openWaits.filter((entry): entry is string => typeof entry === 'string') : [],
+    },
     tokens: {
       input: num(tokens.input),
       output: num(tokens.output),
@@ -157,5 +164,10 @@ export function readTracePage(result: AppToolResult): TracePage | null {
 export function appendTracePage(previous: TracePage, addition: TracePage): TracePage {
   const seen = new Set(previous.records.map((record) => record.seq));
   const records = [...previous.records, ...addition.records.filter((record) => !seen.has(record.seq))];
-  return { ...addition, records };
+  // A re-read of page one carries page one's cursor. The continuation point
+  // is the furthest either side has reached, and none once either reached the end.
+  const nextAfterSeq = previous.nextAfterSeq === null || addition.nextAfterSeq === null
+    ? null
+    : Math.max(previous.nextAfterSeq, addition.nextAfterSeq);
+  return { ...addition, records, nextAfterSeq };
 }

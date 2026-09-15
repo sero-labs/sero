@@ -115,13 +115,22 @@ export class ArchitectRuntime implements AppRuntime {
       if (mayWakeForWork(fresh)) {
         // A project that entered discovery without its initial run (the second
         // write failed) gets it here, before any wake can charge usage.
+        let repaired = fresh;
         if (fresh.phase !== 'intake') {
-          await ensureInitialRun({ store, journal }, fresh.id, this.host.now()).catch((error: unknown) => {
-            this.host.log(`could not open the initial run for ${fresh.id}: ${error instanceof Error ? error.message : String(error)}`);
-          });
+          const opened = await ensureInitialRun({ store, journal }, fresh.id, this.host.now()).then(
+            () => true,
+            (error: unknown) => {
+              this.host.log(`could not open the initial run for ${fresh.id}: ${error instanceof Error ? error.message : String(error)}`);
+              return false;
+            },
+          );
+          // Recovery must see the run it will charge, so it reads the record
+          // after the repair, and does not start when the repair failed.
+          if (!opened) continue;
+          repaired = (await store.read(fresh.id)) ?? fresh;
         }
-        services.recoverPending(fresh);
-        if (plannedWorkRemains(fresh)) scheduler.request(fresh.id, { kind: 'quiet', at: this.host.now(), items: ['restart found planned work and nothing running'] });
+        services.recoverPending(repaired);
+        if (plannedWorkRemains(repaired)) scheduler.request(repaired.id, { kind: 'quiet', at: this.host.now(), items: ['restart found planned work and nothing running'] });
       }
     }
     this.gate.release();

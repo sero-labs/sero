@@ -11,7 +11,7 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ObservationOperationKind } from '@sero-ai/common';
 import { createRunJournal, type JournalRecord } from '../run-journal';
 import { createSpanRecorder } from '../spans';
@@ -182,8 +182,18 @@ describe('observation writes never gate the work', () => {
     const value = await spans.around({ projectId: PROJECT, runId: RUN, operationId: 'm1:plan', kind: 'planning' }, async () => 'room-1');
     expect(value).toBe('room-1');
     // Both failures are reported, so the gap is visible rather than swallowed.
-    expect(messages).toHaveLength(2);
+    await vi.waitFor(() => expect(messages).toHaveLength(2));
     expect(messages[0]).toContain('m1:plan');
+  });
+
+  it('returns the value even when a write never settles, and a failing reporter changes nothing', async () => {
+    const hung = { append: () => new Promise<number>(() => {}) } as unknown as Parameters<typeof createSpanRecorder>[0]['journal'];
+    const spans = createSpanRecorder({ journal: hung, now: () => '2026-09-15T10:00:00.000Z', log: () => { throw new Error('logger down'); } });
+    const value = await spans.around({ projectId: PROJECT, runId: RUN, operationId: 'm1:plan', kind: 'planning' }, async () => 'room-2');
+    expect(value).toBe('room-2');
+    const failing = { append: async () => { throw new Error('disk full'); } } as unknown as Parameters<typeof createSpanRecorder>[0]['journal'];
+    const reported = createSpanRecorder({ journal: failing, now: () => '2026-09-15T10:00:00.000Z', log: () => { throw new Error('logger down'); } });
+    await expect(reported.around({ projectId: PROJECT, runId: RUN, operationId: 'm1:plan', kind: 'planning' }, async () => 'room-3')).resolves.toBe('room-3');
   });
 
   it('still propagates the error the work itself threw', async () => {

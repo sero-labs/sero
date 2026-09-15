@@ -42,7 +42,7 @@ const page = (records: TraceRecord[], overrides: Partial<TracePage> = {}): Trace
     attributableUsd: 0.4, aggregateUsd: 0.1, hasAggregate: true, incomplete: false,
     requests: 3, toolCalls: 2, retries: 0, compactions: 0, errors: 0,
   },
-  timing: { activeMs: 26_917, workerMs: 1841, waitMs: 0 },
+  timing: { activeMs: 26_917, workerMs: 1841, waitMs: 0, openWaits: [] },
   tokens: { input: 100, output: 20, cacheRead: 0, cacheWrite: 0, unavailable: ['cacheRead'] },
   records,
   nextAfterSeq: null,
@@ -180,6 +180,84 @@ describe('reading around a slow or stale response', () => {
 
     expect(container.textContent).toContain('op_2');
     expect(container.textContent).not.toContain('op_1');
+  });
+});
+
+describe('keeping the page keyed by the selected view', () => {
+  it('keeps a selection that lived on page two through a re-read the budget triggers', async () => {
+    const trace = vi.fn(async (_id: string, query: TraceRequest) => {
+      if (!query.detail) return { ok: true, text: 'done', page: page([]) } as TraceOutcome;
+      if (query.afterSeq !== undefined) return { ok: true, text: 'done', page: page([record(3)], { nextAfterSeq: null }) } as TraceOutcome;
+      // A plain re-read of page one always returns the same first page.
+      return { ok: true, text: 'done', page: page([record(0), record(1), record(2)], { nextAfterSeq: 2 }) } as TraceOutcome;
+    });
+    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace })} onBack={vi.fn()} />));
+    await flush();
+    click('Load activity');
+    await flush();
+    click('Load more activity');
+    await flush();
+    // Select the row that only exists on the second page.
+    act(() => { (container.querySelectorAll('.ar-span')[3] as HTMLElement | undefined)?.click(); });
+    expect(container.querySelector('[data-selected="true"]')?.textContent).toContain('op_3');
+
+    // A budget change alone recreates `load` and re-fires its effect, asking
+    // for page one again with no afterSeq.
+    const spent = { ...FIXTURES.build!, budget: { ...FIXTURES.build!.budget, spentUsd: FIXTURES.build!.budget.spentUsd + 0.01 } };
+    act(() => root.render(<Inspector record={spent} actions={actionsOver({ trace })} onBack={vi.fn()} />));
+    await flush();
+
+    // The second page's row is still there and still selected: the re-read
+    // merged onto what was already loaded rather than replacing it.
+    expect(container.textContent).toContain('op_3');
+    expect(container.querySelector('[data-selected="true"]')?.textContent).toContain('op_3');
+  });
+
+  it('never sends the new selection a Load more with the old one\'s cursor, or shows its records', async () => {
+    const pending = new Map<string, (value: TraceOutcome) => void>();
+    const trace = vi.fn((_id: string, query: TraceRequest) => {
+      if (!query.detail) return Promise.resolve({ ok: true, text: 'done', page: page([]) } as TraceOutcome);
+      const key = `${query.runId}:${query.afterSeq ?? 'first'}`;
+      return new Promise<TraceOutcome>((resolve) => { pending.set(key, resolve); });
+    });
+    const withRuns = {
+      ...FIXTURES.build!,
+      runs: [{ id: 'run-a', kind: 'initial' as const, objectiveId: null, startedAt: at(0), endedAt: at(1000), outcome: 'delivered' as const }],
+    };
+    act(() => root.render(<Inspector record={withRuns} actions={actionsOver({ trace })} onBack={vi.fn()} />));
+    await flush();
+    click('Load activity');
+    await flush();
+    pending.get('run-a:first')!({ ok: true, text: 'done', page: page([record(0), record(1)], { nextAfterSeq: 1 }) } as TraceOutcome);
+    await flush();
+    expect(container.textContent).toContain('op_0');
+    const loadMore = () => [...container.querySelectorAll('button')].find((el) => el.textContent?.includes('Load more activity'));
+    expect(loadMore()).toBeDefined();
+
+    // Switch to the shared view while run-a's page is still on screen: its
+    // own first read for the new selection is now pending.
+    const select = container.querySelector<HTMLSelectElement>('.ar-inspector-run select');
+    if (!select) throw new Error('no view select');
+    act(() => {
+      select.value = 'shared';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flush();
+    expect(pending.has('shared:first')).toBe(true);
+
+    // Nothing to load more from during the gap: run-a's page and cursor are gone.
+    expect(loadMore()).toBeUndefined();
+    expect(container.textContent).not.toContain('op_0');
+
+    pending.get('shared:first')!({ ok: true, text: 'done', page: page([record(9)], { nextAfterSeq: 9 }) } as TraceOutcome);
+    await flush();
+    expect(container.textContent).toContain('op_9');
+    expect(container.textContent).not.toContain('op_0');
+
+    click('Load more activity');
+    await flush();
+    expect(pending.has('shared:9')).toBe(true);
+    expect(pending.has('run-a:1')).toBe(false);
   });
 });
 
@@ -322,8 +400,8 @@ describe('driving the timeline', () => {
   it('says a timing was not observed rather than showing a zero', async () => {    const trace = vi.fn(async (_id: string, query: TraceRequest) => ({
       ok: true, text: 'done',
       page: query.detail
-        ? { ...page([record(0)]), timing: { activeMs: 0, workerMs: 0, waitMs: 0 } }
-        : { ...page([]), timing: { activeMs: 0, workerMs: 0, waitMs: 0 } },
+        ? { ...page([record(0)]), timing: { activeMs: 0, workerMs: 0, waitMs: 0, openWaits: [] } }
+        : { ...page([]), timing: { activeMs: 0, workerMs: 0, waitMs: 0, openWaits: [] } },
     } as TraceOutcome));
     act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace })} onBack={vi.fn()} />));
     await flush();
