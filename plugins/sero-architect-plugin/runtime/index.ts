@@ -14,6 +14,7 @@ import { createRecordStore, type RecordStore } from './record-store';
 import { reconcileProjects } from './reconcile';
 import { createRunJournal } from './run-journal';
 import { openMaintenanceRun } from './run-lifecycle';
+import { createSpanRecorder } from './spans';
 import { registerArchitectRuntime, unregisterArchitectRuntime, type ArchitectRegistryEntry } from './registry';
 import { createServices } from './services';
 import { createTurnOutcomes } from './turn-outcomes';
@@ -57,6 +58,8 @@ export class ArchitectRuntime implements AppRuntime {
     const store = createRecordStore({ homeDir, indexFile: this.host.indexFile, updateIndex: this.host.updateIndex });
     // Detailed telemetry lives beside the records, under the same profile home.
     const journal = createRunJournal({ homeDir });
+    // Semantic spans name what an operation is. The runtime decides, a model never does.
+    const spans = createSpanRecorder({ journal, now: () => this.host.now() });
     this.store = store;
     const outcomes = createTurnOutcomes();
     const sessions = new OwnerSessions({ host: this.host, store, outcomes });
@@ -77,7 +80,7 @@ export class ArchitectRuntime implements AppRuntime {
       },
     });
     this.watch = watch;
-    const services = createServices({ host: this.host, store, wake });
+    const services = createServices({ host: this.host, store, wake, spans });
     this.services = services;
     this.owner = createOwnerActions({ host: this.host, store, outcomes, services });
     this.projects = createProjectsActions({ host: this.host, store, sessions, scheduler, watch, services, journal });

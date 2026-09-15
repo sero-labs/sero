@@ -11,7 +11,7 @@ import { executionMode, projectWriter, roomWorkspace, workflowWorkspace } from '
 import { setTimeout as delay } from 'node:timers/promises';
 
 import { createOrchestratorRoom, getOrchestratorRegistry, requestOrchestratorAction } from '@sero-ai/common';
-import type { OrchestratorBoardCreateOptions, OrchestratorRoomCreateRequest } from '@sero-ai/common';
+import type { ObservationOperationKind, OrchestratorBoardCreateOptions, OrchestratorRoomCreateRequest } from '@sero-ai/common';
 
 import { recoverDispatch } from './dispatch-link';
 import { chargeRoomPlanning, runProjectModel } from './project-usage';
@@ -27,11 +27,15 @@ import type { WakeEvent } from '../shared/wake';
 import type { ArchitectHost } from './host';
 import type { OwnerServices } from './owner-actions';
 import type { RecordStore } from './record-store';
+import type { SpanRecorder } from './spans';
+import { activeRun } from '../shared/runs';
 
 export interface ServicesDeps {
   host: ArchitectHost;
   store: RecordStore;
   wake(projectId: string, wake: WakeEvent): void;
+  /** Semantic operation spans. Absent leaves execution unchanged. */
+  spans?: SpanRecorder;
 }
 
 const COMMAND_TIMEOUT_MS = 10 * 60_000;
@@ -105,6 +109,32 @@ export async function worktreeFingerprint(host: ArchitectHost, folder: string): 
 
 export function createServices(deps: ServicesDeps): OwnerServices {
   const { host, store } = deps;
+
+  /**
+   * Wraps one semantic operation in a span. The runtime says what the operation
+   * is; a model never narrates it. Without a recorder this is the plain call, so
+   * ordinary callers are unaffected.
+   */
+  const span = async <T>(
+    record: ProjectRecord,
+    kind: ObservationOperationKind,
+    suffix: string,
+    work: () => Promise<T>,
+    parentOperationId?: string,
+  ): Promise<T> => {
+    const recorder = deps.spans;
+    if (!recorder) return work();
+    const open = activeRun(record);
+    if (!open) return work();
+    const operationId = `${open.id}:${kind}:${suffix}`;
+    return recorder.around({
+      projectId: record.id,
+      runId: open.id,
+      operationId,
+      kind,
+      ...(parentOperationId ? { parentOperationId } : {}),
+    }, work);
+  };
 
   const runPreview = async (
     record: ProjectRecord,
@@ -288,7 +318,9 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         });
         return;
       }
-      const result = await runProjectModel(deps, record, { kind: 'research', id: pending.id }, {
+      // The span covers the research model call itself, so it opens before the
+      // work and closes after it rather than spanning the reservation.
+      const result = await span(record, 'research', pending.id, () => runProjectModel(deps, record, { kind: 'research', id: pending.id }, {
         systemPrompt: 'Research the supplied project question using read-only tools. Verify facts, cite sources, and stop at the stated stopping condition. Do not modify files or perform external actions.',
         model: record.session.model ?? undefined,
         thinking: record.session.thinking ?? undefined,
@@ -298,7 +330,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         cwd: record.folder,
         timeoutMs: 15 * 60_000,
         platformTools: 'readOnly',
-      });
+      }));
       const entry: ResearchResult = {
         id: pending.id,
         question: pending.question,
