@@ -11,11 +11,13 @@ import {
   SessionManager,
 } from '@earendil-works/pi-coding-agent';
 import type { CreateAgentSessionOptions, ToolDefinition } from '@earendil-works/pi-coding-agent';
-import type { ThinkingLevel, AgentMessage } from '@earendil-works/pi-agent-core';
+import type { ThinkingLevel } from '@earendil-works/pi-agent-core';
 import { getModelTierThinkingLevel, isModelTier } from '@sero-ai/common';
 import { randomUUID } from 'node:crypto';
 
 import type { RunnerConfig, RunResult, SubagentUsage, PlatformToolPolicy } from '../core/types';
+import { observationForEvent, repairAttemptObservation, type ObservationContext } from './session-observation';
+import { extractResponse, extractToolArgsSummary } from './session-output';
 import type { SharedInfra } from '@electron/shared/infra/shared-infra';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { createRuntimeTools } from '@electron/features/container/tools';
@@ -356,27 +358,20 @@ export async function runSubagent(
         }
       : undefined;
     const modelId = session.model ? `${session.model.provider}/${session.model.id}` : undefined;
+    const observationContext: ObservationContext = { operationId: subagentSessionId, model: modelId };
 
     const unsub = session.subscribe((event: Record<string, unknown>) => {
       // Forward all events to the debug log (same file as main sessions)
       logRawEvent(subagentSessionId, event);
+      // A request or a tool call is an observable act; a text delta is the answer
+      // being written. Only the former is recorded.
+      const observed = observationForEvent(event, observationContext, new Date().toISOString());
+      if (observed) observe?.(observed);
 
       if (event.type === 'turn_start' && session) {
         logTurnContext(subagentSessionId, session);
       }
 
-      // One model call. The SDK reports no first-token event, so timing is left
-      // to the caller's clock and never derived from text deltas.
-      if (event.type === 'message_start' || event.type === 'message_end') {
-        const message = event.message as Record<string, unknown> | undefined;
-        const requestId = typeof message?.id === 'string' ? message.id : undefined;
-        observe?.({
-          kind: event.type === 'message_start' ? 'request-start' : 'request-end',
-          identities: { operationId: subagentSessionId, sessionId: subagentSessionId, toolCallId: undefined, requestId },
-          startedAt: new Date().toISOString(),
-          model: modelId,
-        });
-      }
 
       // Tool execution events → tool activity feed + stall detection + observation
       if (event.type === 'tool_execution_start') {
@@ -386,23 +381,12 @@ export async function runSubagent(
         onToolActivity?.(toolName, summary, true);
         onStatusUpdate?.(`  📂 ${toolName}: ${summary}`);
         startStallTimer(toolName);
-        observe?.({
-          kind: 'tool-start',
-          identities: { operationId: subagentSessionId, sessionId: subagentSessionId, toolCallId: typeof event.toolCallId === 'string' ? event.toolCallId : undefined },
-          startedAt: new Date().toISOString(),
-        });
       }
 
       if (event.type === 'tool_execution_end') {
         const toolName = (event.toolName as string) ?? 'unknown';
         onToolActivity?.(toolName, '', false);
         clearStallTimer();
-        observe?.({
-          kind: 'tool-end',
-          identities: { operationId: subagentSessionId, sessionId: subagentSessionId, toolCallId: typeof event.toolCallId === 'string' ? event.toolCallId : undefined },
-          endedAt: new Date().toISOString(),
-          outcome: event.isError === true ? 'failed' : 'ok',
-        });
       }
 
       // Text + reasoning deltas → live output stream. Reasoning is forwarded
@@ -451,20 +435,10 @@ export async function runSubagent(
         if (followUp == null) break;
         // A repair pass is its own observable attempt: it costs a request and
         // must not be folded into the first reply's timing.
-        observe?.({
-          kind: 'request-start',
-          identities: { operationId: subagentSessionId, sessionId: subagentSessionId, attemptId: `${subagentSessionId}:repair-${i + 1}` },
-          startedAt: new Date().toISOString(),
-          model: modelId,
-        });
+        observe?.(repairAttemptObservation(i + 1, observationContext, 'start', new Date().toISOString()));
         await session.prompt(followUp);
         response = extractResponse(session.messages);
-        observe?.({
-          kind: 'request-end',
-          identities: { operationId: subagentSessionId, sessionId: subagentSessionId, attemptId: `${subagentSessionId}:repair-${i + 1}` },
-          endedAt: new Date().toISOString(),
-          model: modelId,
-        });
+        observe?.(repairAttemptObservation(i + 1, observationContext, 'end', new Date().toISOString()));
       }
     }
 
@@ -502,34 +476,3 @@ export async function runSubagent(
 /**
  * Extract a short summary from tool arguments for the activity feed.
  */
-function extractToolArgsSummary(_toolName: string, args?: Record<string, unknown>): string {
-  if (!args) return '';
-  // Return the full value, the tracker caps its length (MAX_TOOL_ARGS_CHARS) and
-  // the UI truncates it to fit, showing the full command on hover.
-  if (typeof args.command === 'string') return args.command;
-  if (typeof args.path === 'string') return args.path;
-  if (typeof args.file_path === 'string') return args.file_path;
-  if (typeof args.query === 'string') return args.query;
-  if (typeof args.pattern === 'string') return args.pattern;
-  // Fallback: first string value
-  const first = Object.values(args).find((v) => typeof v === 'string');
-  return typeof first === 'string' ? first : '';
-}
-
-/**
- * Extract the full text response from a session's messages.
- */
-function extractResponse(messages: AgentMessage[]): string {
-  const assistantMessages = messages.filter(
-    (m): m is Extract<AgentMessage, { role: 'assistant' }> =>
-      'role' in m && m.role === 'assistant',
-  );
-  if (assistantMessages.length === 0) return '';
-
-  // Get the last assistant message's text content
-  const lastMsg = assistantMessages[assistantMessages.length - 1];
-  return lastMsg.content
-    .filter((c): c is { type: 'text'; text: string } => c.type === 'text' && 'text' in c)
-    .map((c) => c.text)
-    .join('');
-}

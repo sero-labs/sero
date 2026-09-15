@@ -5,7 +5,8 @@ import type { WakeEvent } from '../../shared/wake';
 import { missingEvidence } from '../owner-actions';
 import { ORCHESTRATOR_REGISTRY_GLOBAL_KEY, type OrchestratorBoardAction, type OrchestratorRegistryEntryView } from '@sero-ai/common';
 import { MAINTENANCE_MILESTONE_ID } from '../../shared/maintenance';
-import { commitOf, createServices, evidenceIsStale, worktreeFingerprint } from '../services';
+import { commitOf, worktreeFingerprint } from '../service-helpers';
+import { createServices, evidenceIsStale } from '../services';
 import { buildingProject, cleanupHosts, fakeHost, milestone, storeFor, T0 } from './helpers';
 
 afterEach(cleanupHosts);

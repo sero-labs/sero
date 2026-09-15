@@ -10,7 +10,7 @@ import { Text } from '@earendil-works/pi-tui';
 import { Type } from 'typebox';
 
 import { resolveArchitectRuntime } from '../runtime/registry';
-import type { ModelDefaultInput } from '../runtime/projects-actions';
+import type { ModelDefaultInput } from '../runtime/model-default-actions';
 import type { TraceQuery } from '../runtime/trace-query';
 import { AUTONOMY_SETTINGS } from '../shared/charter-shape';
 import { EXECUTION_MODES, type ExecutionMode, type ProjectRecord } from '../shared/record';

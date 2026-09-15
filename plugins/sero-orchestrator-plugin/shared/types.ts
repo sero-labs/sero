@@ -140,11 +140,7 @@ export type LoopStatus =
 export interface Loop {
   /** Creation recovery counter, saved before each planning attempt. */
   creation?: { requestId?: string; attempts: number; complete: boolean };
-  /**
-   * Project/run attribution retained from creation (spec orchestrator-dispatch-handle).
-   * Attribution only: it never widens access, and recovery refuses to re-attribute
-   * a saved request to a different project.
-   */
+  /** Project/run attribution retained from creation. Attribution only: it never widens access. */
   project?: import('@sero-ai/common').OrchestratorProjectContext;
   id: string;
   workspaceId: string;
