@@ -30,7 +30,9 @@ import { mutateRecord, type RecordStore } from './record-store';
 import type { TurnOutcomes } from './turn-outcomes';
 
 export interface OwnerServices {
-  research(record: ProjectRecord, request: { question: string; stoppingCondition: string; kind?: DispatchKind }): Promise<{ id: string }>;
+  research(record: ProjectRecord, request: { question: string; stoppingCondition: string; kind?: DispatchKind; access?: 'read-only' | 'edit-workspace' }): Promise<{ id: string }>;
+  /** Starts a saved research entry again, after the user changed what it may do. */
+  restartResearch(record: ProjectRecord, researchId: string): void;
   /**
    * Resolves the project/run context and tier snapshot a dispatch carries.
    * Called before planning, so a restart recovers the same answer.
@@ -310,7 +312,14 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     if (!stoppingCondition) return refuse('stoppingCondition is required: when the researcher should stop.');
     if (record.phase === 'intake') return refuse('Research starts once the workspace exists.');
     if (!mayWakeForWork(record)) return refuse(`The project is ${record.overlay}; no new research may start.`);
-    const { id } = await services.research(record, { question, stoppingCondition, ...(input.kind ? { kind: input.kind } : {}) });
+    // Only a Room can hold a shell. A single researcher reads; it does not run.
+    if (input.needsCommands && input.kind !== 'room') return refuse('needsCommands requires kind: room. A single researcher cannot run commands.');
+    const { id } = await services.research(record, {
+      question,
+      stoppingCondition,
+      ...(input.kind ? { kind: input.kind } : {}),
+      ...(input.needsCommands ? { access: 'edit-workspace' as const } : {}),
+    });
     return ok(`Research ${id} started. Its result is attached to the record before your next wake. Call sleep if nothing else is needed now.`, { researchId: id });
   }
 

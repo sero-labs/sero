@@ -149,7 +149,9 @@ export interface DecisionOption {
 export type DecisionProposal =
   | { kind: 'charter'; charter: Charter; milestones: Milestone[] }
   | { kind: 'dispatch'; milestoneId: string; dispatchKind: 'workflow' | 'room'; prompt: string; destination: string }
-  | { kind: 'cap'; capUsd: number };
+  | { kind: 'cap'; capUsd: number }
+  /** A research Room's planner asked a question the runtime can answer by widening access. */
+  | { kind: 'research-access'; researchId: string };
 
 export interface Decision {
   id: string;
@@ -174,6 +176,12 @@ export interface Directive {
 
 export interface PendingResearch {
   kind?: 'room' | 'workflow';
+  /**
+   * The highest permission the research Room may hold. `read-only` is one shared
+   * checkout with no commands; `edit-workspace` gives each member a worktree
+   * and a shell, for a question that can only be answered by running something.
+   */
+  access?: 'read-only' | 'edit-workspace';
   roomId?: string;
   workflowId?: string;
   attempts?: number;

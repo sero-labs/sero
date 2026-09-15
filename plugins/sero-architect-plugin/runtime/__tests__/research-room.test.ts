@@ -55,3 +55,51 @@ describe('discovery through a Room', () => {
     expect(wake).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('what a research Room may do', () => {
+  function registry(handle: OrchestratorRoomHandle) {
+    (globalThis as Record<string, unknown>)[ORCHESTRATOR_ROOM_REGISTRY_GLOBAL_KEY] = new Map([['ws-1', { handle }]]);
+  }
+
+  it('asks for edit-workspace access and says commands are allowed when the question needs them', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    await store.write(buildingProject({ phase: 'discovery', charter: null, milestones: [] }));
+    const requests: OrchestratorRoomCreateRequest[] = [];
+    registry({ create: async (request) => { requests.push(request); return { ok: true, roomId: 'room-2' }; }, inspect: async () => ({ status: 'running', models: [], result: null }) });
+    const services = createServices({ host, store, wake: vi.fn() });
+    await services.research((await store.read('proj_1'))!, { question: 'Does the suite pass?', stoppingCondition: 'a verdict per criterion', kind: 'room', access: 'edit-workspace' });
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0].limits?.access).toBe('edit-workspace');
+    expect(requests[0].mandate).toContain('You may run commands');
+    expect(requests[0].mandate).toContain('Do not implement the product.');
+  });
+
+  it('turns a planner question into a decision the user can answer, once, instead of blocking the project', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    await store.write(buildingProject({ phase: 'discovery', charter: null, milestones: [] }));
+    let creates = 0;
+    registry({
+      create: async () => { creates += 1; return { ok: false, error: 'The Room planner needs an answer before it can plan: May the reviewers run the tests?', questions: ['May the reviewers run the tests?'] }; },
+      inspect: async () => ({ status: 'running', models: [], result: null }),
+    });
+    const services = createServices({ host, store, wake: vi.fn() });
+    const started = await services.research((await store.read('proj_1'))!, { question: 'Does the suite pass?', stoppingCondition: 'a verdict', kind: 'room' });
+    await vi.waitFor(async () => expect((await store.read('proj_1'))?.decisions).toHaveLength(1));
+    const record = (await store.read('proj_1'))!;
+    expect(record.blockedReason).toBeNull();
+    expect(record.decisions[0]).toMatchObject({
+      question: expect.stringContaining('May the reviewers run the tests?'),
+      recommendation: 'allow-commands',
+      proposal: { kind: 'research-access', researchId: started.id },
+    });
+    expect(record.decisions[0]?.options.map((option) => option.id)).toEqual(['allow-commands', 'answer-note', 'withdraw']);
+    // The entry is still pending, and recovery does not ask the planner again while the question is open.
+    expect(record.pendingResearch?.[0]?.id).toBe(started.id);
+    createServices({ host, store, wake: vi.fn() }).recoverPending(record);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(creates).toBe(1);
+    expect((await store.read('proj_1'))?.decisions).toHaveLength(1);
+  });
+});

@@ -320,14 +320,11 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     },
 
     async research(record, request) {
-      const existing = record.pendingResearch?.find((entry) => entry.question === request.question && entry.stoppingCondition === request.stoppingCondition && entry.kind === request.kind);
+      const existing = record.pendingResearch?.find((entry) => entry.question === request.question && entry.stoppingCondition === request.stoppingCondition && entry.kind === request.kind && (entry.access ?? 'read-only') === (request.access ?? 'read-only'));
       if (existing) return { id: existing.id };
       executionMode(record);
       const pending: PendingResearch = { id: host.newId('res'), ...request, startedAt: host.now() };
-      const written = await store.update(record.id, (fresh) => settle({
-        ...fresh,
-        pendingResearch: [...(fresh.pendingResearch ?? []), pending],
-      }, host.now()));
+      const written = await store.update(record.id, (fresh) => settle({ ...fresh, pendingResearch: [...(fresh.pendingResearch ?? []), pending] }, host.now()));
       if (!written) throw new Error(`No project ${record.id}.`);
       runResearch(written, pending);
       return { id: pending.id };
@@ -448,6 +445,11 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       } finally {
         await store.update(record.id, (fresh) => fresh.preparingMaintenance ? { ...fresh, preparingMaintenance: false } : null);
       }
+    },
+
+    restartResearch(record, researchId) {
+      const pending = record.pendingResearch?.find((entry) => entry.id === researchId);
+      if (pending) runResearch(record, pending);
     },
 
     recoverPending(record) {

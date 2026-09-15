@@ -11,9 +11,10 @@ import type { ArchitectHost } from './host';
 import type { RecordStore } from './record-store';
 import { attachResearchArtifact } from './research-artifact';
 import { roomModelLimits } from './model-selection';
+import { hasOpenResearchAccessDecision, raiseResearchAccessDecision } from './research-access';
 
 interface ResearchRoomDeps {
-  host: Pick<ArchitectHost, 'modelTiers' | 'readJson' | 'now' | 'log'>;
+  host: Pick<ArchitectHost, 'modelTiers' | 'readJson' | 'now' | 'log' | 'newId'>;
   store: RecordStore;
   wake(projectId: string, wake: WakeEvent): void;
 }
@@ -33,17 +34,33 @@ export async function startResearchRoom(deps: ResearchRoomDeps, record: ProjectR
     if (!getOrchestratorRoomRegistry()?.has(record.workspaceId)) throw new Error('The workspace Room runtime is not ready. Resume to retry.');
     if (!pending.roomId) {
       if (record.paused || record.blockedReason) return;
+      // The planner already asked; the user has not answered. Planning again
+      // would only ask again.
+      if (hasOpenResearchAccessDecision(record, pending.id)) return;
       if ((pending.attempts ?? 0) >= 2) throw new Error('Research Room planning was interrupted twice. Its saved request needs review.');
       const remaining = record.budget.capUsd === null ? 5 : record.budget.capUsd - record.budget.spentUsd;
       if (remaining <= 0) throw new Error('There is no project budget left for research.');
       await deps.store.update(record.id, (fresh) => ({ ...fresh, pendingResearch: fresh.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, attempts: (entry.attempts ?? 0) + 1 } : entry) }));
       await chargeRoomPlanning(deps, record.id, { kind: 'research', id: pending.id });
+      // The access level follows the question. Reading needs one shared checkout
+      // and no shell; a question that must run tests or builds needs a worktree
+      // per member and commands, which is edit-workspace and nothing wider.
+      const access = pending.access ?? 'read-only';
+      const commands = access === 'edit-workspace'
+        ? ' You may run commands such as tests and builds to answer the question.'
+        : '';
       const result = await createOrchestratorRoom(record.workspaceId, {
         requestId: `${record.id}:${pending.id}`,
-        mandate: `Collaborate on the requested project task.\nUser idea: ${record.idea}\nQuestion: ${pending.question}\nStop when: ${pending.stoppingCondition}\nWork together to investigate the question, challenge assumptions and produce concrete findings with evidence and unresolved user decisions. Do not implement the product.`,
-        limits: { ...await roomModelLimits(deps.host), ...roomWorkspace(record), maxCostUsd: Math.min(5, remaining), maxWallClockMs: 15 * 60_000, maxMembers: 3, access: 'read-only', deliveryDestination: 'workspace-files' },
+        mandate: `Collaborate on the requested project task.\nUser idea: ${record.idea}\nQuestion: ${pending.question}\nStop when: ${pending.stoppingCondition}\nWork together to investigate the question, challenge assumptions and produce concrete findings with evidence and unresolved user decisions.${commands} Do not implement the product.`,
+        limits: { ...await roomModelLimits(deps.host), ...roomWorkspace(record), maxCostUsd: Math.min(5, remaining), maxWallClockMs: 15 * 60_000, maxMembers: 3, access, deliveryDestination: 'workspace-files' },
       });
       await chargeRoomPlanning(deps, record.id, { kind: 'research', id: pending.id }, result.usage);
+      if (!result.ok && result.questions?.length) {
+        // A planner question is the user's to answer, on the project page,
+        // not a failure that blocks the project with nothing to click.
+        await raiseResearchAccessDecision(deps, record.id, pending, result.questions);
+        return;
+      }
       if (!result.ok) throw new Error(result.error);
       await deps.store.update(record.id, (fresh) => settle({ ...fresh,
         pendingResearch: fresh.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, roomId: result.roomId, chargedUsd: entry.chargedUsd ?? 0 } : entry),
