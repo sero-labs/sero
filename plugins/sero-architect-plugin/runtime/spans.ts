@@ -11,7 +11,7 @@
  * crash or a Stop must not look like a completed operation.
  */
 
-import type { ObservationOperationKind, ObservationOutcome, ObservationUsage } from '@sero-ai/common';
+import type { ObservationOperationKind, ObservationOutcome, ObservationUsage, ObservationWaitCause } from '@sero-ai/common';
 
 import type { RunJournal, AppendInput } from './run-journal';
 
@@ -20,6 +20,11 @@ export interface OpenSpanInput {
   runId: string;
   operationId: string;
   kind: ObservationOperationKind;
+  /**
+   * Why the operation waits. Only `kind: 'wait'` uses it, and only when the
+   * runtime observed the cause. An unexplained interval stays unknown.
+   */
+  waitCause?: ObservationWaitCause;
   /** Set only when containment is real, never to imply a causal path. */
   parentOperationId?: string;
   /** Other operations this one handed work to or received work from. */
@@ -51,6 +56,21 @@ export interface SpanRecorder {
    * error message when it throws. The error still propagates to the caller.
    */
   around<T>(input: OpenSpanInput, work: () => Promise<T>): Promise<T>;
+  /**
+   * Records a wait the runtime observed from end to end. Both timestamps are
+   * required: a wait whose start or end was not seen is not recorded at all,
+   * because a guessed interval is worse than a missing one.
+   */
+  recordObservedWait(input: ObservedWaitInput): Promise<void>;
+}
+
+export interface ObservedWaitInput extends OpenSpanInput {
+  kind: 'wait';
+  waitCause: ObservationWaitCause;
+  /** ISO timestamp the wait began, as the runtime observed it. */
+  startedAt: string;
+  /** ISO timestamp the wait ended, as the runtime observed it. */
+  endedAt: string;
 }
 
 export interface SpanRecorderDeps {
@@ -83,6 +103,7 @@ export function createSpanRecorder(deps: SpanRecorderDeps): SpanRecorder {
       if (input.toolCallId) record.toolCallId = input.toolCallId;
       if (input.model) record.model = input.model;
       if (input.thinking) record.thinking = input.thinking;
+      if (input.waitCause) record.waitCause = input.waitCause;
       await journal.append(input.projectId, input.runId, record);
     },
 
@@ -116,6 +137,32 @@ export function createSpanRecorder(deps: SpanRecorderDeps): SpanRecorder {
         }).catch(() => undefined);
         throw error;
       }
+    },
+
+    async recordObservedWait(input) {
+      // A wait with no observed end is not a wait: recording it would invent the
+      // very duration the inspector is meant to report honestly.
+      if (!input.startedAt || !input.endedAt || Date.parse(input.endedAt) < Date.parse(input.startedAt)) return;
+      const opened: AppendInput = {
+        kind: 'observation',
+        at: input.startedAt,
+        source: 'wait',
+        key: `${input.operationId}:wait`,
+        operationKind: 'wait',
+        operationId: input.operationId,
+        recordKind: 'operation-start',
+        waitCause: input.waitCause,
+      };
+      if (input.parentOperationId) opened.parentOperationId = input.parentOperationId;
+      await journal.append(input.projectId, input.runId, opened);
+      await journal.append(input.projectId, input.runId, {
+        kind: 'observation',
+        at: input.endedAt,
+        key: `${input.operationId}:wait-end`,
+        operationId: input.operationId,
+        recordKind: 'operation-end',
+        outcome: 'ok',
+      });
     },
   };
 }

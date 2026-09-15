@@ -25,7 +25,7 @@
 - [x] 4.2 Instrument subagent execution from queue admission and startup through model requests, tool calls, format repair and completion. Preserve cache counters and actual resolved model provenance. Verify parallel same-name tools, aborted setup, failed requests, repeated cumulative usage and telemetry failure using the existing runner/single-run test suites.
 - [x] 4.3 Extend persistent-session observations for owner and Room turns with request/call identities and available timing, including compaction. Verify idle gaps are not active work, reopening retains source continuity, reasoning text stays excluded, and a new grant does not erase previous usage.
 - [ ] 4.4 Add semantic operation spans and correlation to Architect services and Orchestrator planning, Room, Workflow and auxiliary paths. Cover research, planning repair, trigger inference, evaluations, worker retries, command evidence, capture and delivery. Verify a deterministic full-run fixture contains every expected activity once with correct parents or links.
-- [ ] 4.5 Record observed approval, queue, pause and backoff intervals without inferring unknown time. Verify an approval wait overlaps a second worker's active interval correctly and a stopped owner does not close a still-running child operation.
+- [x] 4.5 Record observed approval, queue, pause and backoff intervals without inferring unknown time. Verify an approval wait overlaps a second worker's active interval correctly and a stopped owner does not close a still-running child operation.
 
 ## 5. Aggregation, historical coverage and a measured baseline
 

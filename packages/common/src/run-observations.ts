@@ -42,7 +42,15 @@ export type ObservationOperationKind =
   | 'evidence'
   | 'delivery'
   | 'subagent-run'
-  | 'auxiliary';
+  | 'auxiliary'
+  /** Observed waiting. Its interval is measured, never inferred from a gap. */
+  | 'wait';
+
+/**
+ * Why an operation waited. A cause the runtime did not observe is not recorded:
+ * an unexplained interval stays unknown rather than becoming a guessed reason.
+ */
+export type ObservationWaitCause = 'approval' | 'queue' | 'pause' | 'backoff';
 
 /** Identities stay distinct. A session outlives turns; a turn contains requests. */
 export interface ObservationIdentities {

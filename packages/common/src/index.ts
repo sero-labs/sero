@@ -348,6 +348,7 @@ export type {
   ObservationRecordKind,
   ObservationTiming,
   ObservationUsage,
+  ObservationWaitCause,
 } from './run-observations';
 
 export {
