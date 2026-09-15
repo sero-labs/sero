@@ -132,6 +132,7 @@ Link cumulative spend, cost-by-activity/model and token-composition charts to ti
 Use the user's references for the waterfall, expandable tree, linked breakdowns and side-panel pattern, not their product branding or dense administrative navigation. Do not place a new event log or metrics dashboard on the main Architect page. Persist any saved layout preferences through the host layout API, never browser storage.
 
 ## Prototype outcome
+
 The interactive prototype at `apps/styleguide/public/prototypes/architect-run-observability/` was approved on 2026-09-14. The user requested no change of behaviour, so the plan below stands. The prototype settles these presentation details for the production work.
 
 - The inspector opens as a dedicated full-width view inside Architect. One control returns to the project page. It is not a dialog and not a separate window.
