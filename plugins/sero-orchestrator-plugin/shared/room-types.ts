@@ -253,7 +253,7 @@ export interface RoomDelivery {
 export interface RoomBrief {
   objective: string;
   successCriteria: string[];
-  decisions: string[];
+  decisions: RoomBriefDecision[];
   activeWork: string[];
   blockers: string[];
   openQuestions: string[];
@@ -262,6 +262,19 @@ export interface RoomBrief {
   /** Clearly Conductor-authored. Cannot change any computed field above. */
   conductorNote: string | null;
   conductorNoteAt: string | null;
+}
+
+/**
+ * One decision in the brief, with who it applies to.
+ *
+ * `memberId` is the owner of the work the decision relates to, so applicability
+ * comes from the record rather than from reading a display name out of a
+ * sentence. `null` means the decision is about the Room as a whole, which is why
+ * a decision that names nobody still reaches every member.
+ */
+export interface RoomBriefDecision {
+  title: string;
+  memberId: string | null;
 }
 
 export interface RoomDefinition {

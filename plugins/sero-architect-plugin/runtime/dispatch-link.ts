@@ -24,6 +24,11 @@ export interface DispatchRequest {
   project?: OrchestratorProjectContext;
 }
 
+/** How many past approvals travel with a dispatch. A handoff is not a transcript. */
+const APPROVAL_LIMIT = 5;
+/** How many finished findings are referenced. Their reports travel by path, not by text. */
+const FINDING_LIMIT = 5;
+
 export async function performDispatch(
   store: RecordStore,
   services: OwnerServices,
@@ -36,10 +41,25 @@ export async function performDispatch(
   // Resolved before planning starts, so every descendant call of this dispatch
   // uses the same models and a restart recovers the same answer.
   const project = request.project ?? await services.resolveDispatchProject(record);
+  // What the user has actually approved binds the work. A recommendation is
+  // never sent as though it were one, and the delegate does not have to infer
+  // which is which from the conversation it never saw.
+  const approvals = record.decisions
+    .filter((decision) => decision.answer !== null)
+    .slice(-APPROVAL_LIMIT)
+    .map((decision) => `- ${decision.question} -> the user chose "${decision.answer?.optionId}"${decision.answer?.note ? `: ${decision.answer.note}` : ''}`);
+  // Findings travel as references, not as text. The report is already saved
+  // beside the project, and the delegate reads what it needs under the same
+  // permissions it already has. A report that was never saved says so.
+  const findings = record.research
+    .slice(-FINDING_LIMIT)
+    .map((entry) => `- ${entry.question}${entry.artifactPath ? ` - ${entry.artifactPath}` : ' - the full report is not on disk'}`);
   const scopedRequest: DispatchRequest = { ...request, project, prompt: [
     'APPROVED ARCHITECT SCOPE. This brief and milestone govern the task. Earlier research artifacts are recommendations, not approvals; do not replace these requirements with them.',
     `Project brief: ${record.brief ?? record.idea}`,
     `Milestone: ${milestone.title}\n${milestone.plan ?? ''}`,
+    ...(approvals.length > 0 ? [`Approved decisions (USER APPROVALS; these bind the work):\n${approvals.join('\n')}`] : []),
+    ...(findings.length > 0 ? [`Project findings (references; read one when it is relevant):\n${findings.join('\n')}`] : []),
     `Task from the owner:\n${request.prompt}`,
   ].join('\n\n') };
   const intent = { kind: request.kind, destination: request.destination, startedAt: now, project,
