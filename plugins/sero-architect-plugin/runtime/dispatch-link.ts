@@ -40,7 +40,8 @@ export async function performDispatch(
 ): Promise<{ record: ProjectRecord; milestone: Milestone }> {
   // Resolved before planning starts, so every descendant call of this dispatch
   // uses the same models and a restart recovers the same answer.
-  const project = request.project ?? await services.resolveDispatchProject(record);
+  const resolved = request.project ?? await services.resolveDispatchProject(record);
+  const project = milestone.runId && !request.project ? { ...resolved, runId: milestone.runId } : resolved;
   // What the user has actually approved binds the work. A recommendation is
   // never sent as though it were one, and the delegate does not have to infer
   // which is which from the conversation it never saw.

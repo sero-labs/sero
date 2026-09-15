@@ -8,6 +8,8 @@
  * call this, so the order they arrive in does not change the result.
  */
 
+import { closeDeliveredObjectives } from './objective-completion';
+import { closeRun } from '../shared/runs';
 import { advancePhase } from '../shared/lifecycle';
 import type { Milestone, ProjectRecord } from '../shared/record';
 
@@ -38,8 +40,11 @@ export function applyDelivery(record: ProjectRecord, milestone: Milestone, now: 
     const advanced = advancePhase({ ...next, stateLine: 'Released. Maintaining.' }, 'maintain', now, `release delivered at ${milestone.receipt}`);
     if (advanced.ok) {
       next = advanced.record;
+      const initial = next.runs?.find((run) => run.kind === 'initial' && run.endedAt === null);
+      if (initial) next = closeRun(next, initial.id, 'delivered', now);
       items.push('the release is delivered; maintain starts');
     }
   }
+  next = closeDeliveredObjectives(next, now);
   return { record: next, items };
 }

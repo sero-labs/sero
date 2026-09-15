@@ -1,3 +1,4 @@
+import { applyProjectSnapshot, roomSnapshotLimits } from '../project-models';
 /**
  * The USER's Room control surface (phase 7).
  *
@@ -250,10 +251,12 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
       if (input.presetId && !template) return { ok: false, error: `There is no preset ${input.presetId}.` };
 
       const requestId = input.requestId ?? host.newId('room-planning');
+      const selection = applyProjectSnapshot(input.project?.modelSnapshot, undefined);
       const plan = await planRoom(host, {
+        model: selection.model, thinking: selection.thinking,
         problem,
         parentSessionId: roomPlannerSessionId(workspaceId),
-        limits: limitsForOrigin(input),
+        limits: { ...roomSnapshotLimits(input.project?.modelSnapshot), ...limitsForOrigin(input) },
         clarifications: input.clarifications,
         preset: template ? presetSeed(template) : undefined,
         onUsage: (usage) => store.updatePendingPlanning(requestId, usage),
@@ -310,7 +313,9 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
         return { ok: false, error: 'This Room changed before the adjustment started. Make a new plan from its current state.' };
       }
 
+      const selection = applyProjectSnapshot(record.definition.projectContext?.modelSnapshot, undefined);
       const outcome = await adjustRoom(host, {
+        model: selection.model, thinking: selection.thinking,
         blueprint: record.definition.blueprint,
         instruction: asked,
         parentSessionId: roomPlannerSessionId(workspaceId),

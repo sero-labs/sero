@@ -63,7 +63,7 @@ export class ArchitectRuntime implements AppRuntime {
     const spans = createSpanRecorder({ journal, now: () => this.host.now(), log: (message) => this.host.log(message) });
     this.store = store;
     const outcomes = createTurnOutcomes();
-    const sessions = new OwnerSessions({ host: this.host, store, outcomes });
+    const sessions = new OwnerSessions({ host: this.host, store, outcomes, journal });
     this.sessions = sessions;
     const scheduler = createWakeScheduler({
       gate: this.gate,
@@ -160,6 +160,13 @@ export class ArchitectRuntime implements AppRuntime {
     if (!record.session.grantId) {
       this.host.log(`project ${projectId} has no owner grant; ${wake.kind} wake dropped`);
       return;
+    }
+    if (record.phase === 'maintain' && wake.kind === 'directive') {
+      const directive = record.directives.find((entry) => !entry.reply);
+      if (directive) {
+        await openMaintenanceRun({ store }, projectId, { objectiveId: directive.id }, this.host.now(), `run-${directive.id}`);
+        record = await store.read(projectId) ?? record;
+      }
     }
     // Entering maintain subscribes maintenance only after the current stop gates pass.
     if (record.phase === 'maintain' && this.services) {

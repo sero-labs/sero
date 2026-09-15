@@ -1,3 +1,4 @@
+import { activeRun, closeRun } from '../shared/runs';
 /**
  * The runtime side of the `architect` tool. The owner session asks; this
  * module checks who is asking, validates the shape, changes the record, and
@@ -189,7 +190,9 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
       // The id counts the milestones on disk, not the copy this turn started with.
       const added = await mutateRecord(store, record.id, (fresh) => {
         const id = `m${fresh.milestones.length + 1}`;
-        const created = toMilestone(draft, id);
+        const run = input.runId ? fresh.runs?.find((entry) => entry.id === input.runId && entry.endedAt === null) : activeRun(fresh);
+        if (input.runId && !run) return { error: 'The named objective is not open.' };
+        const created = { ...toMilestone(draft, id), ...(run ? { runId: run.id } : {}) };
         return { record: withHistory({ ...fresh, milestones: [...fresh.milestones, created] }, now, `milestone ${id} added`) };
       });
       if (!added.ok) return refuse(added.error);
@@ -441,6 +444,19 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
       case 'sleep': {
         const pending = unansweredDirective(record);
         if (pending) return refuse(directiveReminder(pending));
+        if (input.noWorkNeeded) {
+          if (!mayWakeForWork(record)) return refuse(`The project is ${record.overlay}; its objective cannot close now.`);
+          if (!input.runId || !input.text?.trim()) return refuse('No-work-needed requires runId and text explaining the triage result.');
+          const closed = await mutateRecord(store, record.id, (fresh) => {
+            const run = fresh.runs?.find((entry) => entry.id === input.runId && entry.kind === 'maintenance');
+            if (!run || (run.endedAt !== null && run.outcome !== 'no-work-needed')) return { error: 'The named maintenance objective is not open.' };
+            if (fresh.milestones.some((entry) => (entry.runId ?? entry.dispatch?.runId ?? entry.pendingDispatch?.project?.runId) === run.id)
+              || fresh.pendingResearch?.some((entry) => entry.project?.runId === run.id)
+              || fresh.decisions.some((entry) => !entry.answer)) return { error: 'This objective still has work or an unanswered decision.' };
+            return { record: run.endedAt ? fresh : withHistory(closeRun(fresh, run.id, 'no-work-needed', now), now, `No work needed: ${input.text}`) };
+          });
+          if (!closed.ok) return refuse(closed.error);
+        }
         outcomes.declare(record.id, 'sleep');
         return ok('Sleeping. You are woken by the next event.');
       }

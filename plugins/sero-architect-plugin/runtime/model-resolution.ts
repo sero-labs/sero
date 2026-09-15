@@ -170,7 +170,9 @@ function findEntryForReference(source: ModelConfigSource, reference: string): Sh
     .map((tier) => source.modelOverrides?.[tier] ?? source.modelTiers?.[tier])
     .find((entry) => entry && modelKey(entry.provider, entry.modelId) === reference);
   if (saved) return saved;
-  const [provider = '', modelId = ''] = reference.split('/');
+  const separator = reference.indexOf('/');
+  const provider = separator < 0 ? '' : reference.slice(0, separator);
+  const modelId = separator < 0 ? reference : reference.slice(separator + 1);
   return { provider, modelId };
 }
 

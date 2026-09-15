@@ -146,7 +146,7 @@ Open **Run inspector** from the controls menu. It shows where a project's time
 and money went, and it opens on the totals: reading the individual operations is
 a separate action named **Load activity**.
 
-- **View** selects the whole project or one run. A project groups its work by
+- **View** selects **Shared activity** or one run. A project groups its work by
   objective, so each run answers one thing rather than one session.
 - **Cumulative spend**, **By activity** and **By model** are computed from the
   operations shown. A row in the activity chart sets the timeline filter, so the

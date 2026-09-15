@@ -403,3 +403,25 @@ describe('the user Room surface', () => {
     expect(await app.intervene('room-nope', 'hello')).toEqual({ ok: false, error: 'Room not found: room-nope' });
   });
 });
+
+it('uses the project snapshot for paid Room planning and member choices', async () => {
+  host.availableModels = [{ provider: 'openai-codex', displayName: 'OpenAI', logo: '', models: [
+    { provider: 'openai-codex', modelId: 'gpt-5.6-luna', name: 'Luna', reasoning: true },
+    { provider: 'openai-codex', modelId: 'global-model', name: 'Global', reasoning: true },
+  ] }];
+  const model = 'openai-codex/gpt-5.6-luna';
+  const blueprint = blueprintWith(envelopeWith({ allowedModels: [model], allowedThinkingLevels: ['off'] }), MEMBERS.map((member) => ({ ...member, model, thinking: 'off', tools: [], skills: [] })));
+  host.modelResponses.push({ response: JSON.stringify(blueprint) });
+  const planned = await app.prepare({ problem: 'Review this code', project: { projectId: 'p', runId: 'r', modelSnapshot: { MED: { provider: 'openai-codex', modelId: 'gpt-5.6-luna', thinkingLevel: 'off' } } } });
+  expect(planned.ok).toBe(true);
+  if (!planned.ok) throw new Error('Room did not plan');
+  const saved = await store.readRoom(planned.roomId);
+  expect(saved?.members.map((member) => member.configuration.model)).toEqual([model, model, model]);
+  expect(saved?.members.map((member) => member.configuration.thinking)).toEqual(['off', 'off', 'off']);
+  expect(host.modelCalls.length).toBeGreaterThan(0);
+  expect(host.modelCalls[0].task).toContain('openai-codex/gpt-5.6-luna');
+  for (const call of host.modelCalls) {
+    expect(call).toMatchObject({ model: 'openai-codex/gpt-5.6-luna', thinking: 'off' });
+    expect(call.task).not.toContain('global-model');
+  }
+});

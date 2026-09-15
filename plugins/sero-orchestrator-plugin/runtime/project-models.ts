@@ -57,3 +57,13 @@ export function snapshotSource(
   const tier = tierOf(requested);
   return tier ? snapshot?.[tier]?.source : undefined;
 }
+
+/** A project's resolved tiers also bound the models a Room may staff. */
+export function roomSnapshotLimits(snapshot: OrchestratorProjectModelSnapshot | undefined): { models: string[]; thinkingLevels: string[] } | undefined {
+  if (!snapshot) return undefined;
+  const entries = Object.values(snapshot);
+  return {
+    models: [...new Set(entries.map((entry) => modelKey(entry.provider, entry.modelId)))],
+    thinkingLevels: [...new Set(entries.map((entry) => entry.thinkingLevel ?? 'medium'))],
+  };
+}

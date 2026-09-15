@@ -1,5 +1,8 @@
+import { closeDeliveredObjectives } from './objective-completion';
+import type { RunJournal } from './run-journal';
+import { ensureResearchContext } from './research-context';
 import { setAccountingIncomplete } from '../shared/accounting';
-import { chargeRoomPlanning } from './project-usage';
+import { recordCharge, chargeRoomPlanning } from './project-usage';
 import path from 'node:path';
 import { roomWorkspace } from './execution-location';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -13,8 +16,9 @@ import { attachResearchArtifact } from './research-artifact';
 import { roomModelLimits } from './model-selection';
 
 interface ResearchRoomDeps {
-  host: Pick<ArchitectHost, 'modelTiers' | 'readJson' | 'now' | 'log'>;
+  host: Pick<ArchitectHost, 'listModels' | 'modelTiers' | 'readJson' | 'now' | 'log'>;
   store: RecordStore;
+  journal?: RunJournal;
   wake(projectId: string, wake: WakeEvent): void;
 }
 
@@ -34,14 +38,15 @@ export async function startResearchRoom(deps: ResearchRoomDeps, record: ProjectR
     if (!pending.roomId) {
       if (record.paused || record.blockedReason) return;
       if ((pending.attempts ?? 0) >= 2) throw new Error('Research Room planning was interrupted twice. Its saved request needs review.');
+      const project = await ensureResearchContext(deps, record, pending);
       const remaining = record.budget.capUsd === null ? 5 : record.budget.capUsd - record.budget.spentUsd;
       if (remaining <= 0) throw new Error('There is no project budget left for research.');
       await deps.store.update(record.id, (fresh) => ({ ...fresh, pendingResearch: fresh.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, attempts: (entry.attempts ?? 0) + 1 } : entry) }));
       await chargeRoomPlanning(deps, record.id, { kind: 'research', id: pending.id });
       const result = await createOrchestratorRoom(record.workspaceId, {
-        requestId: `${record.id}:${pending.id}`,
+        project, requestId: `${record.id}:${pending.id}`,
         mandate: `Collaborate on the requested project task.\nUser idea: ${record.idea}\nQuestion: ${pending.question}\nStop when: ${pending.stoppingCondition}\nWork together to investigate the question, challenge assumptions and produce concrete findings with evidence and unresolved user decisions. Do not implement the product.`,
-        limits: { ...await roomModelLimits(deps.host), ...roomWorkspace(record), maxCostUsd: Math.min(5, remaining), maxWallClockMs: 15 * 60_000, maxMembers: 3, access: 'read-only', deliveryDestination: 'workspace-files' },
+        limits: { ...await roomModelLimits(deps.host, project.modelSnapshot), ...roomWorkspace(record), maxCostUsd: Math.min(5, remaining), maxWallClockMs: 15 * 60_000, maxMembers: 3, access: 'read-only', deliveryDestination: 'workspace-files' },
       });
       await chargeRoomPlanning(deps, record.id, { kind: 'research', id: pending.id }, result.usage);
       if (!result.ok) throw new Error(result.error);
@@ -72,10 +77,12 @@ export async function observeResearchRooms(deps: ResearchRoomDeps, projectId: st
     if (pending.kind !== 'room' || !room) continue;
     const inspection = await getOrchestratorRoomRegistry()?.get(record.workspaceId)?.handle.inspect(room.id);
     let completed = false;
+    let chargedDelta = 0;
     await deps.store.update(projectId, (fresh) => {
       const current = fresh.pendingResearch?.find((entry) => entry.id === pending.id);
       if (!current) return null;
       const delta = Math.max(0, room.costUsd - (current.chargedUsd ?? 0));
+      chargedDelta = delta;
       let next = charge(setAccountingIncomplete(fresh, `room:${room.id}`, room.usageIncomplete !== false), 'research', delta, deps.host.now());
       if (next.blockedReason?.startsWith(`Research Room ${room.id} is `) && ['ready', 'running', 'completed'].includes(room.status)) {
         const resumed = unblock(next, deps.host.now(), `Research Room ${room.id} resumed`);
@@ -83,10 +90,10 @@ export async function observeResearchRooms(deps: ResearchRoomDeps, projectId: st
       }
       if (room.status === 'completed' && inspection?.result?.trim()) {
         completed = true;
-        return settle({ ...next, stateLine: 'Room findings are ready for the Architect.',
+        return closeDeliveredObjectives(settle({ ...next, stateLine: 'Room findings are ready for the Architect.',
           pendingResearch: next.pendingResearch?.filter((entry) => entry.id !== pending.id),
           research: [...next.research, { id: pending.id, roomId: room.id, models: inspection.models, question: pending.question, stoppingCondition: pending.stoppingCondition, result: inspection.result, costUsd: Math.max(room.costUsd, current.chargedUsd ?? 0), completedAt: deps.host.now() }],
-        }, deps.host.now());
+        }, deps.host.now()), deps.host.now());
       }
       next = { ...next, pendingResearch: next.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, chargedUsd: Math.max(room.costUsd, current.chargedUsd ?? 0), models: inspection?.models ?? entry.models } : entry) };
       if (['failed', 'cancelled', 'paused'].includes(room.status) || (room.status === 'completed' && inspection && !inspection.result?.trim())) {
@@ -96,6 +103,7 @@ export async function observeResearchRooms(deps: ResearchRoomDeps, projectId: st
       }
       return next;
     });
+    await recordCharge(deps, record, `room:${room.id}`, chargedDelta, 'aggregate', pending.project?.runId);
     if (completed) {
       // The finding is already recorded, so saving the report only adds the
       // reference a later contract points at.

@@ -1,3 +1,6 @@
+import { activeRun } from '../shared/runs';
+import { recordCharge } from './project-usage';
+import type { RunJournal } from './run-journal';
 /**
  * The owner session: one host-managed persistent session per project, opened
  * from a user-approved grant that names only the platform tools and the
@@ -101,6 +104,7 @@ export function ownerSessionRequest(record: ProjectRecord, operation: Persistent
 }
 
 export interface OwnerSessionDeps {
+  journal?: RunJournal;
   host: ArchitectHost;
   store: RecordStore;
   outcomes: TurnOutcomes;
@@ -215,6 +219,8 @@ export class OwnerSessions {
     const modelTiers = await this.deps.host.modelTiers();
     const latest = await this.deps.store.update(opened.id, (fresh) => ({ ...fresh, modelTiers }));
     // Opening a session and resolving model tiers can outlast a new directive or dispatch update.
+    const turnRecord = latest ?? opened;
+    const turnRunId = activeRun(turnRecord)?.id;
     const contract = buildOwnerContract(latest ?? opened, wake);
     this.deps.outcomes.begin(opened.id);
 
@@ -227,12 +233,15 @@ export class OwnerSessions {
     const readUsage = (): Promise<void> => {
       usageRead ??= (async () => {
         const usage = await api.getSessionUsage(handleId).catch(() => null);
+        let delta = 0;
         await this.deps.store.update(opened.id, (fresh) => {
           const next = setAccountingIncomplete(fresh, usageSource, !usage || !!usage.incomplete);
           if (!usage) return next;
           const cost = Math.max(next.session.sessionCostUsd, usage.costUsd);
-          return charge({ ...next, session: { ...next.session, sessionCostUsd: cost } }, 'owner', cost - next.session.sessionCostUsd, this.deps.host.now());
+          delta = cost - next.session.sessionCostUsd;
+          return charge({ ...next, session: { ...next.session, sessionCostUsd: cost } }, 'owner', delta, this.deps.host.now());
         });
+        await recordCharge(this.deps, turnRecord, usageSource, delta, 'aggregate', turnRunId);
       })().finally(() => { usageRead = undefined; });
       return usageRead;
     };
