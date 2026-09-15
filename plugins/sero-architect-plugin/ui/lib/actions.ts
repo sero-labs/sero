@@ -9,6 +9,7 @@ import type { AppToolResult } from '@sero-ai/app-runtime';
 import type { ModelTier, ThinkingLevel } from '@sero-ai/common';
 
 import type { AutonomySetting, ExecutionMode } from '../../shared/record';
+import { readTracePage, type TracePage } from './trace';
 
 export interface ActionOutcome {
   ok: boolean;
@@ -36,6 +37,19 @@ export interface SessionHistoryOutcome extends ActionOutcome {
   entries: SessionHistoryEntry[];
 }
 
+/** What the inspector asks for. `detail` is opt-in, so a summary reads no records. */
+export interface TraceRequest {
+  runId?: string;
+  afterSeq?: number;
+  limit?: number;
+  detail?: boolean;
+  knownSpendUsd?: number;
+}
+
+export interface TraceOutcome extends ActionOutcome {
+  page: TracePage | null;
+}
+
 function readHistoryEntries(result: AppToolResult): SessionHistoryEntry[] {
   const raw = result.details?.entries;
   if (!Array.isArray(raw)) return [];
@@ -59,6 +73,7 @@ function readHistoryEntries(result: AppToolResult): SessionHistoryEntry[] {
 export interface ArchitectActions {
   create(idea: string, folder: string, executionMode?: ExecutionMode): Promise<ActionOutcome>;
   history(projectId: string): Promise<SessionHistoryOutcome>;
+  trace(projectId: string, query: TraceRequest): Promise<TraceOutcome>;
   pause(projectId: string): Promise<ActionOutcome>;
   resume(projectId: string): Promise<ActionOutcome>;
   retry(projectId: string, milestoneId: string, maxCostUsd?: number): Promise<ActionOutcome>;
@@ -103,8 +118,15 @@ export function useArchitectActions(): ArchitectActions {
           return { ok: false, text: error instanceof Error ? error.message : String(error), entries: [] };
         }
       },
-      pause: (projectId) => call({ action: 'pause', projectId }),
-      resume: (projectId) => call({ action: 'resume', projectId }),
+      trace: async (projectId, query) => {
+        try {
+          const result = await run(PROJECTS_TOOL, { action: 'trace', projectId, ...query });
+          return { ...toOutcome(result), page: readTracePage(result) };
+        } catch (error) {
+          return { ok: false, text: error instanceof Error ? error.message : String(error), page: null };
+        }
+      },
+      pause: (projectId) => call({ action: 'pause', projectId }),      resume: (projectId) => call({ action: 'resume', projectId }),
       retry: (projectId, milestoneId, capUsd) => call({ action: 'retry', projectId, milestoneId, capUsd }),
       stop: (projectId) => call({ action: 'stop', projectId }),
       remove: (projectId) => call({ action: 'delete', projectId }),

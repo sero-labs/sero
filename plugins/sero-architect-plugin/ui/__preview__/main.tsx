@@ -27,7 +27,7 @@ import { FIXTURES, LIST_ROWS } from './fixture';
 
 const ok = async (): Promise<ActionOutcome> => ({ ok: true, text: 'ok' });
 const actions: ArchitectActions = {
-  create: ok, history: async () => ({ ok: true, text: 'ok', entries: [] }), pause: ok, resume: ok, retry: ok, stop: ok, remove: ok, raiseCap: ok, setExecutionMode: ok, setAutonomy: ok,
+  create: ok, history: async () => ({ ok: true, text: 'ok', entries: [] }), trace: async () => ({ ok: true, text: 'ok', page: null }), pause: ok, resume: ok, retry: ok, stop: ok, remove: ok, raiseCap: ok, setExecutionMode: ok, setAutonomy: ok,
   approveCharter: ok, approveMilestone: ok, answer: ok, directive: ok,
   setModelDefault: ok, clearModelDefault: ok,
 };
@@ -47,7 +47,7 @@ function Preview() {
         <div className="preview-frame" style={{ width }}>
           <div className="ar-app">
             {record ? (
-              <ProjectPage record={record} actions={actions} narrow={width < 1100} disclosures={disclosures} onBack={() => undefined} onOpenModels={() => undefined} confirm={() => true} />
+              <ProjectPage record={record} actions={actions} narrow={width < 1100} disclosures={disclosures} onBack={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} confirm={() => true} />
             ) : (
               <>
                 <TopBar record={null} controls={null} onBack={() => undefined} onNewProject={() => undefined} />

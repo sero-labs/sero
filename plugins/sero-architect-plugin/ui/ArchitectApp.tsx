@@ -5,6 +5,7 @@ import type { ExecutionMode } from '../shared/record';
 import type { ArchitectIndex } from '../shared/types';
 import { DEFAULT_INDEX, normalizeIndex } from '../shared/types';
 import { IntakeDialog } from './components/IntakeDialog';
+import { Inspector } from './components/Inspector';
 import { ModelSettings } from './components/ModelSettings';
 import { ProjectsList } from './components/ProjectsList';
 import { TopBar } from './components/TopBar';
@@ -43,14 +44,15 @@ export function ArchitectApp() {
   const [view, navigate] = useArchitectView();
   const actions = useArchitectActions();
   const [permissionProjectId, setPermissionProjectId] = useState<string | null>(null);
-  // The model settings view belongs to a project, so it loads the same record.
-  const projectId = view.mode === 'project' || view.mode === 'models' ? view.projectId : null;
+  // The model settings and inspector views belong to a project, so they load the same record.
+  const projectId = view.mode === 'project' || view.mode === 'models' || view.mode === 'inspector' ? view.projectId : null;
   const { record, ready } = useProjectRecord(projectId);
   const [narrow, attach] = useNarrow();
   const disclosures = useDisclosures();
 
   const openProject = useCallback((id: string) => navigate({ mode: 'project', projectId: id }), [navigate]);
   const openModels = useCallback((id: string) => navigate({ mode: 'models', projectId: id }), [navigate]);
+  const openInspector = useCallback((id: string) => navigate({ mode: 'inspector', projectId: id }), [navigate]);
   const openIntake = useCallback(() => navigate({ mode: 'list', intake: true }), [navigate]);
   const closeIntake = useCallback(() => navigate({ mode: 'list' }), [navigate]);
   const back = useCallback(() => navigate({ mode: 'list' }), [navigate]);
@@ -81,8 +83,10 @@ export function ArchitectApp() {
     <div className="ar-app" ref={attach}>
       {view.mode === 'models' && record ? (
         <ModelSettings record={record} actions={actions} onBack={() => navigate({ mode: 'project', projectId: record.id })} />
+      ) : view.mode === 'inspector' && record ? (
+        <Inspector record={record} actions={actions} onBack={() => navigate({ mode: 'project', projectId: record.id })} />
       ) : projectId && record ? (
-        <ProjectPage record={record} actions={actions} permissionPending={permissionProjectId === projectId} narrow={narrow} disclosures={disclosures} onBack={back} onOpenModels={() => openModels(projectId)} confirm={confirm} />
+        <ProjectPage record={record} actions={actions} permissionPending={permissionProjectId === projectId} narrow={narrow} disclosures={disclosures} onBack={back} onOpenModels={() => openModels(projectId)} onOpenInspector={() => openInspector(projectId)} confirm={confirm} />
       ) : projectId && !gone ? (
         <>
           <TopBar record={null} controls={null} onBack={back} onNewProject={openIntake} />

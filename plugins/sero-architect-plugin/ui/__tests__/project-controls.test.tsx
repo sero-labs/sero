@@ -47,7 +47,7 @@ const OK: ActionOutcome = { ok: true, text: 'done' };
 function stubActions(overrides: Partial<ArchitectActions> = {}): ArchitectActions {
   const ok = () => vi.fn(async () => OK);
   return {
-    create: ok(), history: vi.fn(async () => ({ ...OK, entries: [] })), pause: ok(), resume: ok(), retry: ok(), stop: ok(), remove: ok(), raiseCap: ok(),
+    create: ok(), history: vi.fn(async () => ({ ...OK, entries: [] })), trace: vi.fn(async () => ({ ...OK, page: null })), pause: ok(), resume: ok(), retry: ok(), stop: ok(), remove: ok(), raiseCap: ok(),
     setExecutionMode: ok(), setAutonomy: ok(), approveCharter: ok(), approveMilestone: ok(), answer: ok(), directive: ok(),
     setModelDefault: ok(), clearModelDefault: ok(),
     ...overrides,
@@ -81,7 +81,7 @@ function button(label: string): HTMLButtonElement {
 
 function renderPage(actions: ArchitectActions, onBack = vi.fn()) {
   act(() => root.render(
-    <ProjectPage record={FIXTURES.build!} actions={actions} narrow disclosures={disclosures} onOpenModels={() => undefined} onBack={onBack} confirm={() => true} />,
+    <ProjectPage record={FIXTURES.build!} actions={actions} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={onBack} confirm={() => true} />,
   ));
   return onBack;
 }
@@ -109,7 +109,7 @@ describe('a refused control', () => {
     const resume = vi.fn(async () => ({ ok: false, text: 'Permission request was not answered.' }));
     const record = { ...FIXTURES.build!, phase: 'intake' as const, blockedReason: 'Permission not approved' };
     act(() => root.render(
-      <ProjectPage record={record} actions={stubActions({ resume })} narrow disclosures={disclosures} onOpenModels={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+      <ProjectPage record={record} actions={stubActions({ resume })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
     act(() => button('Request permission').click());
     await flush();
@@ -216,7 +216,7 @@ describe('raising the cap', () => {
     vi.stubGlobal('prompt', prompt);
     const record = { ...FIXTURES.build!, budget: { ...FIXTURES.build!.budget, capUsd: 0.5 } };
     act(() => root.render(
-      <ProjectPage record={record} actions={stubActions({ raiseCap })} narrow disclosures={disclosures} onOpenModels={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+      <ProjectPage record={record} actions={stubActions({ raiseCap })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
 
     act(() => button('Raise cap').click());
@@ -243,7 +243,7 @@ describe('the pause and resume choice', () => {
   it('offers Resume for paused or blocked projects, and Pause for a cap alone', () => {
     const controls = {
       pause: vi.fn(), resume: vi.fn(), stop: vi.fn(), raiseCap: vi.fn(),
-      setExecutionMode: vi.fn(), setAutonomy: vi.fn(), openSession: vi.fn(), remove: vi.fn(), openModels: vi.fn(),
+      setExecutionMode: vi.fn(), setAutonomy: vi.fn(), openSession: vi.fn(), remove: vi.fn(), openModels: vi.fn(), openInspector: vi.fn(),
     };
     act(() => root.render(<ControlsMenu record={{ ...FIXTURES.build!, paused: true }} controls={controls} />));
     expect(container.textContent).toContain('Resume');
