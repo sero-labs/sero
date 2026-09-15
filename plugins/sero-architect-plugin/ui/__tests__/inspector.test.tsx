@@ -8,7 +8,7 @@
  * underneath the reader when data arrives.
  */
 
-import { act } from 'react';
+import { act, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
@@ -95,6 +95,12 @@ function toggleFilter(label: string): void {
 }
 
 describe('opening the inspector', () => {
+  it('loads the current summary after Strict Mode reattaches its effects', async () => {
+    act(() => root.render(<StrictMode><Inspector record={FIXTURES.build!} actions={actionsOver()} onBack={vi.fn()} /></StrictMode>));
+    await flush();
+    expect(container.textContent).toContain('$0.4000');
+  });
+
   it('asks for a summary without trace detail', async () => {
     const trace = vi.fn(async (_id: string, _query: TraceRequest) => ({ ok: true, text: 'done', page: page([]) } as TraceOutcome));
     act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace })} onBack={vi.fn()} />));
@@ -306,6 +312,14 @@ describe('driving the timeline', () => {
     if (!timeline) throw new Error('no timeline');
     return timeline;
   };
+
+  it.each(['Enter', ' '])('expands the selected operation from the focused timeline with %s', async (key) => {
+    const timeline = await withRows();
+    const selectedId = timeline.getAttribute('aria-activedescendant');
+    expect(document.getElementById(selectedId!)).not.toBeNull();
+    act(() => { timeline.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true })); });
+    expect(preferences.inspectorExpanded).toBe('op_0');
+  });
 
   it('moves the selection with the arrow keys rather than requiring a pointer', async () => {
     const timeline = await withRows();

@@ -18,6 +18,7 @@ export function InspectorCharts({ records, filters, onPickActivity }: {
   filters: TraceFilters;
   onPickActivity(activity: string): void;
 }) {
+  const selectedActivities = new Set(filters.activities);
   const points = cumulativeSpend(records);
   const activities = activityBreakdown(records);
   const models = modelBreakdown(records);
@@ -64,9 +65,9 @@ export function InspectorCharts({ records, filters, onPickActivity }: {
                 <button
                   type="button"
                   className="ar-bar-row"
-                  data-on={filters.activities.includes(entry.activity) ? 'true' : undefined}
+                  data-on={selectedActivities.has(entry.activity) ? 'true' : undefined}
                   onClick={() => onPickActivity(entry.activity)}
-                  aria-pressed={filters.activities.includes(entry.activity)}
+                  aria-pressed={selectedActivities.has(entry.activity)}
                 >
                   <span className="ar-bar-label">{entry.activity}</span>
                   <span className="ar-bar-track"><i style={{ width: peak > 0 ? `${(entry.costUsd / peak) * 100}%` : '0%' }} /></span>
