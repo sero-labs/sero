@@ -162,6 +162,30 @@ evaluation may assume. Phase 6 (tasks 6.1 to 6.5) changes owner and planner
 guidance, and this task explicitly requires the baseline first, so 6.1 must not
 start until the two records exist.
 
+### Finding for task 6.4: a read-only Room cannot verify by running the tests
+
+The first attempt at the implementation objective blocked, and not for a harness
+reason. The Architect started a research Room to do the independent review. That
+Room's planner stopped and asked whether a command tool could be made available,
+because the Room has no command-execution capability and so the reviewers could
+not run `npm test` and `npm run build` as the objective required. The Architect
+then blocked the project with that question as its reason.
+
+Two things are wrong here, and both belong to task 6.4:
+
+- Independent evaluation that has to *run* something cannot happen in a
+  read-only Room. Either such a Room needs a command tool, or the Architect
+  must not route a runnable verification into one.
+- The question has nowhere to go. The Architect raises no decision for it
+  (`decisions` is empty), so the project page offers the user no action and the
+  work stops. The user has to find the Room in another app to answer it.
+
+Measuring this objective now uses a review that reaches its verdict from the
+delivered files and reports per acceptance criterion, which needs no shell. That
+keeps the baseline unblocked, and it does not remove the gap: an independent
+review that must execute the test suite is still impossible in the Room the
+Architect picks for it.
+
 ## Risks / Trade-offs
 
 - Compact context can omit a needed decision. Keep mandatory authority fields, explicit applicability and resolvable evidence; test compaction and stale-reference paths.

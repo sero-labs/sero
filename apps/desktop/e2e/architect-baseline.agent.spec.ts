@@ -554,7 +554,7 @@ test('objective 1 — implementation and independent review', async () => {
   });
 
   const directive = await projects<{ ok: boolean; text: string }>('directive', projectId,
-    'Implement the slugify package now. Plan a Workflow whose steps finish it, and make one step an independent review by an agent that did not write the code: the reviewer must re-run the tests against the acceptance criteria and report findings. Do not accept the implementer\'s own summary as the review.');
+    'Implement the slugify package now. Plan a Workflow whose steps finish it, and make one step an independent review by an agent that did not write the code. The reviewer reads the delivered files and their tests and reports, per acceptance criterion, whether it is met, with specific findings. The reviewer must not accept the implementer\'s own summary, and it reaches its verdict from the artifacts alone: it runs no commands, so the review needs no shell access.');
   expect(directive.ok, directive.text).toBe(true);
 
   const done = await drive(projectId, {
@@ -569,8 +569,8 @@ test('objective 1 — implementation and independent review', async () => {
   await page.waitForTimeout(30_000);
 
   const captured = await capture(projectId, 'implementation-and-independent-review', idea, [
-    `slugify is implemented in TypeScript with unit tests`,
-    `an agent that did not write the code re-ran the tests and reported findings`,
+    `slugify is implemented in TypeScript with unit tests covering trimming, case folding and separator collapsing`,
+    `an agent that did not write the code read the delivered files and reported a finding for each acceptance criterion`,
     `spend stays within the $${CAP_USD} cap`,
   ]);
   appendResult(captured.record);
@@ -595,7 +595,7 @@ test('objective 2 — collaborative planning', async () => {
   });
 
   const directive = await projects<{ ok: boolean; text: string }>('directive', projectId,
-    'Plan this with a team: run the planning as a Room whose members cover parsing, schema validation and command line experience, and have them agree one plan rather than three separate ones. Deliver the agreed plan as the room result.');
+    'Plan this with a team: run the planning as a Room whose members cover parsing, schema validation and command line experience, and have them agree one plan rather than three separate ones. Planning is a reading and writing task: it needs no shell access. Deliver the agreed plan as the room result.');
   expect(directive.ok, directive.text).toBe(true);
 
   const done = await drive(projectId, {
