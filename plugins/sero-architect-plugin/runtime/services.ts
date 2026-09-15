@@ -380,6 +380,9 @@ export function createServices(deps: ServicesDeps): OwnerServices {
 
     async dispatch(record, milestone, request) {
       if (!record.workspaceId) throw new Error('The project has no workspace to dispatch into.');
+      // Captured after the guard: a narrowing does not survive into a closure.
+      // A distinct name, because the workflow branch below declares its own.
+      const projectWorkspaceId = record.workspaceId;
       const baseCommit = await commitOf(host, record.folder);
       const remaining = remainingUsd(record);
       if (remaining === 0) throw new Error('The project has no budget remaining.');
@@ -401,12 +404,14 @@ export function createServices(deps: ServicesDeps): OwnerServices {
           delivery: { destination: request.destination ?? 'workspace-files' },
         };
         if (request.project) createOptions.project = request.project;
-        const result = await requestOrchestratorAction(record.workspaceId, {
+        // The span covers the Orchestrator's own planning and creation call, so
+        // the timeline shows where the project's time went before any worker ran.
+        const result = await span(record, 'workflow', `${milestone.id}:plan`, () => requestOrchestratorAction(projectWorkspaceId, {
           kind: 'create',
           prompt: request.prompt,
           title: milestone.title,
           options: createOptions,
-        });
+        }));
         if (!result.ok || !result.loopId) throw new Error(result.error ?? 'The Workflow was not created.');
         const loopId = result.loopId;
         const workspaceId = record.workspaceId;
@@ -422,7 +427,8 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         limits: { ...limits, ...await roomModelLimits(host), ...roomWorkspace(record), access: 'edit-workspace', deliveryDestination: request.destination ?? 'workspace-files' },
       };
       if (request.project) roomRequest.project = request.project;
-      const result = await createOrchestratorRoom(record.workspaceId, roomRequest);
+      // A Room's planning is its own operation, before any member starts.
+      const result = await span(record, 'planning', `${milestone.id}:room-plan`, () => createOrchestratorRoom(projectWorkspaceId, roomRequest));
       const chargedUsd = await chargeRoomPlanning(deps, record.id, { kind: 'dispatch', id: milestone.id }, result.usage);
       if (!result.ok) throw new Error(result.error);
       return { id: result.roomId, workspaceId: record.workspaceId, baseCommit, chargedUsd };
