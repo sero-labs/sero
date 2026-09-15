@@ -37,7 +37,7 @@ const record = (seq: number, overrides: Partial<TraceRecord> = {}): TraceRecord 
   seq, at: at(seq * 1000), kind: 'observation', operationId: `op_${seq}`, operationKind: 'workflow', ...overrides,
 });
 
-const page = (records: TraceRecord[]): TracePage => ({
+const page = (records: TraceRecord[], overrides: Partial<TracePage> = {}): TracePage => ({
   summary: {
     attributableUsd: 0.4, aggregateUsd: 0.1, hasAggregate: true, incomplete: false,
     requests: 3, toolCalls: 2, retries: 0, compactions: 0, errors: 0,
@@ -47,6 +47,7 @@ const page = (records: TraceRecord[]): TracePage => ({
   records,
   nextAfterSeq: null,
   incomplete: false,
+  ...overrides,
 });
 
 function actionsOver(overrides: Partial<ArchitectActions> = {}): ArchitectActions {
@@ -295,5 +296,30 @@ describe('the charts and the timeline agree', () => {
     expect(container.textContent).toContain('nothing to chart');
     // Not a line at zero dressed up as a measurement.
     expect(container.textContent).not.toContain('Cumulative spend');
+  });
+
+  it('still shows late worker activity and its usage after a Stop', async () => {
+    const trace = vi.fn(async (_id: string, query: TraceRequest) => ({
+      ok: true, text: 'done',
+      page: query.detail
+        ? page([record(0, { operationKind: 'workflow', costUsd: 0.22 })])
+        : page([], { summary: { ...page([]).summary, attributableUsd: 0.22 } }),
+    } as TraceOutcome));
+    const stopped = {
+      ...FIXTURES.build!,
+      paused: true,
+      runs: [{ id: 'run-stop', kind: 'initial' as const, objectiveId: null, startedAt: at(0), endedAt: null, outcome: 'stopped' as const }],
+    };
+    act(() => root.render(<Inspector record={stopped} actions={actionsOver({ trace })} onBack={vi.fn()} />));
+    await flush();
+    click('Load activity');
+    await flush();
+
+    // The run never ended and the project is stopped, so the view says so rather
+    // than presenting a tidy, finished-looking total.
+    expect(container.textContent).toContain('Interrupted');
+    // The late worker's cost is still counted, not dropped because work stopped.
+    expect(container.textContent).toContain('$0.2200');
+    expect(container.textContent).toContain('op_0');
   });
 });

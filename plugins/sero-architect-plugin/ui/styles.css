@@ -381,3 +381,15 @@
 .ar-model-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .ar-model-table th { text-align: left; color: var(--ar-text-3); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; padding: 2px 6px 4px 0; }
 .ar-model-table td { padding: 2px 6px 2px 0; color: var(--ar-text-2); }
+
+/* A run state is a word first. The tone is decoration, so a reader who cannot
+   see the colour still gets the status. */
+.ar-run-state {
+  display: flex; gap: 8px; align-items: baseline; margin: 0; padding: 8px 12px;
+  border: 1px solid var(--ar-line); border-left-width: 3px; border-radius: 8px;
+  font-size: 12px; color: var(--ar-text-2); line-height: 1.55;
+}
+.ar-run-state b { color: var(--text-primary); }
+.ar-run-state[data-state='failed'], .ar-run-state[data-state='interrupted'] { border-left-color: var(--ar-danger, #f87171); }
+.ar-run-state[data-state='waiting'], .ar-run-state[data-state='incomplete'] { border-left-color: var(--ar-warn, #fbbf24); }
+.ar-run-state[data-state='active'] { border-left-color: var(--ar-accent, var(--text-primary)); }

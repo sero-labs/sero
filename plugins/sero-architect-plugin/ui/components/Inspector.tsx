@@ -5,6 +5,7 @@ import type { ProjectRecord } from '../../shared/record';
 import type { ArchitectActions } from '../lib/actions';
 import { activityBreakdown, inclusiveCost, sharedCost } from '../lib/charts';
 import { useInspectorPreferences } from '../lib/page-helpers';
+import { describeRunState } from '../lib/run-state';
 import { InspectorCharts } from './InspectorCharts';
 import {
   activityOf, activityOptions, filterRecords, filtersActive, inRange, modelOptions, NO_FILTERS,
@@ -113,6 +114,23 @@ export function Inspector({ record, actions, onBack }: {
   // Shared activity is charged once to the project, so it is reported beside the
   // run's own figure rather than inside it.
   const shared = sharedCost(records);
+  const selectedRun = runs.find((run) => run.id === selected);
+  // The state is only described once activity has been asked for: before that,
+  // "no rows" only means the reader has not opened the timeline yet.
+  const state = useMemo(
+    () => (withDetail
+      ? describeRunState({
+        loading,
+        answered: page !== null,
+        page,
+        runOpen: selectedRun !== undefined && selectedRun.endedAt === null,
+        projectHalted: record.overlay !== null || record.paused,
+        range,
+        visibleRecords: visible.length,
+      })
+      : null),
+    [withDetail, loading, page, selectedRun, record.overlay, record.paused, range, visible.length],
+  );
 
   return (
     <div className="ar-body ar-inspector">
@@ -213,11 +231,13 @@ export function Inspector({ record, actions, onBack }: {
         )}
       </div>
 
-      {loading && records.length === 0 && <p className="ar-why">Reading the trace…</p>}
-      {!loading && withDetail && records.length === 0 && (
-        <p className="ar-why">This view has no recorded activity. An objective that has not started, or one whose telemetry failed, looks the same here.</p>
+      {state && (
+        // The word carries the status; the tone only decorates it.
+        <p className="ar-run-state" data-state={state.state} role="status">
+          <b>{state.label}</b> <span>{state.detail}</span>
+        </p>
       )}
-      {!loading && !withDetail && (
+      {!withDetail && (
         <p className="ar-why">The totals above cover the whole view. Load the activity to see the individual operations and their timings.</p>
       )}
 
