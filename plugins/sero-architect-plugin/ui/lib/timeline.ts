@@ -42,7 +42,16 @@ export function filterRecords(records: readonly TraceRecord[], filters: TraceFil
   const models = new Set(filters.models);
   return records.filter((record) => {
     if (activities.size > 0 && !activities.has(activityOf(record))) return false;
-    if (models.size > 0 && !(record.model !== undefined && models.has(record.model))) return false;
+    if (models.size > 0) {
+      // A usage record never carries a model, so a model filter would drop its
+      // charge entirely rather than filtering it. Keep it; the caller reports
+      // it separately as cost no model filter can attribute.
+      if (record.model !== undefined) {
+        if (!models.has(record.model)) return false;
+      } else if (record.kind !== 'usage') {
+        return false;
+      }
+    }
     if (filters.failuresOnly && record.outcome !== 'failed' && record.outcome !== 'error') return false;
     return true;
   });

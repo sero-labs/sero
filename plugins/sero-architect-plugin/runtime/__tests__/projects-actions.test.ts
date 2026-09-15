@@ -131,6 +131,15 @@ describe('project management', () => {
     expect((await store.read(record.id))?.phase).toBe('discovery');
   });
 
+  it('opens the initial run on resume when discovery started without one', async () => {
+    const { store, actions } = await setup();
+    // Discovery was entered but the second write that opens the run was lost.
+    const record = buildingProject({ paused: true, executionMode: 'workspace' });
+    await store.write({ ...record, runs: [] });
+    expect((await actions.resume(record.id)).ok).toBe(true);
+    expect((await store.read(record.id))?.runs?.map((run) => run.kind)).toEqual(['initial']);
+  });
+
   it('creates a project: folder, git init, workspace, grant, discovery, first wake', async () => {
     const { host, store, actions, delivered, watch } = await setup();
     const outcome = await actions.create({ idea: 'A roguelike.', folder: '~/projects/hollow' });
@@ -404,6 +413,35 @@ describe('project management', () => {
       const unqualified = await actions.setModelDefault('proj_1', { tier: 'HIGH', model: 'claude-fable-5-1' });
       expect(unqualified.ok).toBe(false);
       if (!unqualified.ok) expect(unqualified.text).toContain('provider/modelId');
+    });
+
+    it('refreshes the cached global model tiers from the host on its own, without waiting for the owner session to open', async () => {
+      const { host, store, actions } = await setup();
+      await store.write(buildingProject());
+      // Nothing has opened the owner session, which is the only other writer
+      // of this cache, so it starts out unset.
+      expect((await store.read('proj_1'))?.modelTiers).toBeUndefined();
+
+      // The host's global selection changes elsewhere; the cached record does
+      // not see it until something asks for a refresh.
+      host.modelTiers = async () => ({
+        MED: { provider: 'anthropic', modelId: 'claude-fable-5-1', thinkingLevel: 'high' },
+        LOW: { provider: 'anthropic', modelId: 'claude-fable-5-1', thinkingLevel: 'low' },
+      });
+
+      const outcome = await actions.refreshModelTiers('proj_1');
+      expect(outcome.ok).toBe(true);
+      const record = await store.read('proj_1');
+      expect(record?.modelTiers).toEqual({
+        MED: { provider: 'anthropic', modelId: 'claude-fable-5-1', thinkingLevel: 'high' },
+        LOW: { provider: 'anthropic', modelId: 'claude-fable-5-1', thinkingLevel: 'low' },
+      });
+    });
+
+    it('refuses to refresh a project that does not exist', async () => {
+      const { actions } = await setup();
+      const outcome = await actions.refreshModelTiers('proj_missing');
+      expect(outcome.ok).toBe(false);
     });
   });
 

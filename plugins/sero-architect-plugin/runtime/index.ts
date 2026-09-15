@@ -12,6 +12,7 @@ import { OwnerSessions } from './owner-session';
 import { createProjectsActions, type ProjectsActions } from './projects-actions';
 import { createRecordStore, type RecordStore } from './record-store';
 import { reconcileProjects } from './reconcile';
+import { ensureInitialRun } from './run-lifecycle';
 import { createRunJournal } from './run-journal';
 import { openMaintenanceRun } from './run-lifecycle';
 import { createSpanRecorder } from './spans';
@@ -59,7 +60,7 @@ export class ArchitectRuntime implements AppRuntime {
     // Detailed telemetry lives beside the records, under the same profile home.
     const journal = createRunJournal({ homeDir });
     // Semantic spans name what an operation is. The runtime decides, a model never does.
-    const spans = createSpanRecorder({ journal, now: () => this.host.now() });
+    const spans = createSpanRecorder({ journal, now: () => this.host.now(), log: (message) => this.host.log(message) });
     this.store = store;
     const outcomes = createTurnOutcomes();
     const sessions = new OwnerSessions({ host: this.host, store, outcomes });
@@ -112,6 +113,13 @@ export class ArchitectRuntime implements AppRuntime {
         });
       }
       if (mayWakeForWork(fresh)) {
+        // A project that entered discovery without its initial run (the second
+        // write failed) gets it here, before any wake can charge usage.
+        if (fresh.phase !== 'intake') {
+          await ensureInitialRun({ store, journal }, fresh.id, this.host.now()).catch((error: unknown) => {
+            this.host.log(`could not open the initial run for ${fresh.id}: ${error instanceof Error ? error.message : String(error)}`);
+          });
+        }
         services.recoverPending(fresh);
         if (plannedWorkRemains(fresh)) scheduler.request(fresh.id, { kind: 'quiet', at: this.host.now(), items: ['restart found planned work and nothing running'] });
       }

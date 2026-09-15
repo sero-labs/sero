@@ -25,23 +25,31 @@ interface UsageDeps {
  * and a replayed report adds nothing.
  */
 export async function recordCharge(
-  deps: { host: Pick<ArchitectHost, 'now'>; journal?: RunJournal },
+  deps: { host: Pick<ArchitectHost, 'now'> & Partial<Pick<ArchitectHost, 'log'>>; journal?: RunJournal },
   record: ProjectRecord,
   source: string,
   delta: number,
   coverage: 'call' | 'aggregate',
+  runId?: string,
 ): Promise<void> {
   const journal = deps.journal;
-  const run = activeRun(record);
-  if (!journal || !run || delta === 0) return;
-  await journal.append(record.id, run.id, {
+  // Work that was dispatched under a run stays charged to that run, even after
+  // a Stop closed it or a later objective opened another one. Only work with no
+  // dispatch-time run of its own falls back to the run that is open now.
+  const target = runId ?? activeRun(record)?.id;
+  if (!journal || !target || delta === 0) return;
+  await journal.append(record.id, target, {
     kind: 'usage',
     at: deps.host.now(),
     source,
     key: `${source}:${delta}`,
     costUsd: delta,
     coverage,
-  }).catch(() => undefined);
+  }).catch((error: unknown) => {
+    // The budget already holds this delta. The trace now lacks it, which the
+    // summary reports as a reconciliation gap rather than hiding.
+    deps.host.log?.(`usage ${source} (${delta}) was not written to run ${target}: ${error instanceof Error ? error.message : String(error)}`);
+  });
 }
 
 /** Each SDK call starts at zero; pending costs retain earlier interrupted calls. */

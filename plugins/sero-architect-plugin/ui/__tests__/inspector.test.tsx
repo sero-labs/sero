@@ -57,7 +57,7 @@ function actionsOver(overrides: Partial<ArchitectActions> = {}): ArchitectAction
     trace: vi.fn(async (_id: string, _query: TraceRequest) => ({ ok: true, text: 'done', page: page([]) } as TraceOutcome)),
     pause: ok(), resume: ok(), retry: ok(), stop: ok(), remove: ok(), raiseCap: ok(),
     setExecutionMode: ok(), setAutonomy: ok(), approveCharter: ok(), approveMilestone: ok(),
-    answer: ok(), directive: ok(), setModelDefault: ok(), clearModelDefault: ok(),
+    answer: ok(), directive: ok(), setModelDefault: ok(), clearModelDefault: ok(), refreshModelTiers: ok(),
     ...overrides,
   };
 }
@@ -127,6 +127,13 @@ describe('opening the inspector', () => {
     expect(onBack).toHaveBeenCalledOnce();
   });
 
+  it('labels the shared journal as shared activity, not the whole project', async () => {
+    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver()} onBack={vi.fn()} />));
+    await flush();
+    expect(container.textContent).toContain('Shared activity');
+    expect(container.textContent).not.toContain('Whole project');
+  });
+
   it('says a total is a lower bound when the view is incomplete', async () => {
     const trace = vi.fn(async (_id: string, _query: TraceRequest) => ({
       ok: true, text: 'done',
@@ -135,6 +142,76 @@ describe('opening the inspector', () => {
     act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace })} onBack={vi.fn()} />));
     await flush();
     expect(container.textContent).toContain('lower bound');
+  });
+});
+
+describe('reading around a slow or stale response', () => {
+  it('ignores a stale read that resolves after a newer selection already replaced it', async () => {
+    const pending = new Map<string, (value: TraceOutcome) => void>();
+    const trace = vi.fn((_id: string, query: TraceRequest) => {
+      if (!query.detail) return Promise.resolve({ ok: true, text: 'done', page: page([]) } as TraceOutcome);
+      return new Promise<TraceOutcome>((resolve) => { pending.set(query.runId ?? '', resolve); });
+    });
+    const withRuns = {
+      ...FIXTURES.build!,
+      runs: [{ id: 'run-a', kind: 'initial' as const, objectiveId: null, startedAt: at(0), endedAt: at(1000), outcome: 'delivered' as const }],
+    };
+    act(() => root.render(<Inspector record={withRuns} actions={actionsOver({ trace })} onBack={vi.fn()} />));
+    await flush();
+    click('Load activity');
+    await flush();
+    expect(pending.has('run-a')).toBe(true);
+
+    const select = container.querySelector<HTMLSelectElement>('.ar-inspector-run select');
+    if (!select) throw new Error('no view select');
+    act(() => {
+      select.value = 'shared';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flush();
+    expect(pending.has('shared')).toBe(true);
+
+    // The newer (shared) read resolves first...
+    act(() => { pending.get('shared')!({ ok: true, text: 'done', page: page([record(2)]) } as TraceOutcome); });
+    await flush();
+    // ...then the now-obsolete run-a read resolves late. It must not overwrite the page shown.
+    act(() => { pending.get('run-a')!({ ok: true, text: 'done', page: page([record(1)]) } as TraceOutcome); });
+    await flush();
+
+    expect(container.textContent).toContain('op_2');
+    expect(container.textContent).not.toContain('op_1');
+  });
+});
+
+describe('keeping the request cheap', () => {
+  it('does not re-read on a filter change, and uses the latest actions once it does read', async () => {
+    const traceA = vi.fn(async (_id: string, query: TraceRequest) => ({
+      ok: true, text: 'done', page: query.detail ? page([record(0), record(1)], { nextAfterSeq: 1 }) : page([]),
+    } as TraceOutcome));
+    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace: traceA })} onBack={vi.fn()} />));
+    await flush();
+    click('Load activity');
+    await flush();
+    expect(traceA).toHaveBeenCalledTimes(2);
+
+    const traceB = vi.fn(async (_id: string, _query: TraceRequest) => ({
+      ok: true, text: 'done', page: page([record(2)], { nextAfterSeq: null }),
+    } as TraceOutcome));
+    // A preference write elsewhere recreates `actions` with a new identity,
+    // the same shape a real preference set causes through useAppTools.
+    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace: traceB })} onBack={vi.fn()} />));
+    await flush();
+
+    toggleFilter('workflow');
+    await flush();
+    // A pure, local re-render must not trigger another read with either actions.
+    expect(traceA).toHaveBeenCalledTimes(2);
+    expect(traceB).toHaveBeenCalledTimes(0);
+
+    click('Load more activity');
+    await flush();
+    // An explicit read after the swap uses the current actions, not the stale ones.
+    expect(traceB).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -163,6 +240,32 @@ describe('driving the timeline', () => {
 
     act(() => { timeline.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true })); });
     expect(container.textContent).toContain('op_0');
+  });
+
+  it('keeps the selected seq through a Load more that returns a shorter page', async () => {
+    const firstPage = [record(0), record(1), record(2)];
+    const secondPage = [record(3)];
+    const trace = vi.fn(async (_id: string, query: TraceRequest) => {
+      if (!query.detail) return { ok: true, text: 'done', page: page([]) } as TraceOutcome;
+      return query.afterSeq === undefined
+        ? ({ ok: true, text: 'done', page: page(firstPage, { nextAfterSeq: 2 }) } as TraceOutcome)
+        : ({ ok: true, text: 'done', page: page(secondPage, { nextAfterSeq: null }) } as TraceOutcome);
+    });
+    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace })} onBack={vi.fn()} />));
+    await flush();
+    click('Load activity');
+    await flush();
+
+    // Select the middle row (seq 1), not the default first one.
+    act(() => { (container.querySelectorAll('.ar-span')[1] as HTMLElement | undefined)?.click(); });
+    expect(container.querySelector('[data-selected="true"]')?.textContent).toContain('op_1');
+
+    click('Load more activity');
+    await flush();
+
+    // The continuation's shorter page is appended, and the same record stays selected.
+    expect(container.textContent).toContain('op_3');
+    expect(container.querySelector('[data-selected="true"]')?.textContent).toContain('op_1');
   });
 
   it('leaves the view with Escape, the same as the back control', async () => {

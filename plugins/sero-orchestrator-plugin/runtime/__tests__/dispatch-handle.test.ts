@@ -5,7 +5,7 @@
  * the `orchestrator` and `rooms` tools.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createOrchestratorRoom,
   getOrchestratorRoomRegistry,
@@ -165,6 +165,28 @@ describe('Room creation through the typed handle', () => {
       project: { projectId: 'ledger', runId: 'run-1' },
     });
     expect(refused).toMatchObject({ ok: false, error: expect.stringContaining('different project') });
+  });
+
+  it('refuses a conflicting concurrent reuse of a requestId, while an identical reuse still coalesces', async () => {
+    blueprint(); // seeds the model and tool catalogue the planner reads, even though its call hangs
+    host.runStructured = vi.fn(async () => new Promise<never>(() => {}));
+    const handle = createRoomDispatchHandle(app);
+    const request = { requestId: 'concurrent-1', mandate: 'Ship items, combat and permadeath.' };
+
+    const first = handle.create(request);
+    // Same requestId, same mandate: joins the first caller rather than
+    // planning a second Room.
+    const same = handle.create(request);
+    // Same requestId, a different mandate: a second, unrelated caller must
+    // not be handed the first caller's Room, so this is refused immediately.
+    const conflicting = await handle.create({ ...request, mandate: 'Ship something else entirely.' });
+
+    expect(conflicting).toMatchObject({ ok: false, error: expect.stringContaining('different Room mandate') });
+    await vi.waitFor(() => expect(host.runStructured).toHaveBeenCalledOnce());
+    // The identical reuse never triggered its own planning attempt.
+    expect(host.runStructured).toHaveBeenCalledOnce();
+    void first;
+    void same;
   });
 
   it('returns the planner question instead of a Room when the planner needs input', async () => {

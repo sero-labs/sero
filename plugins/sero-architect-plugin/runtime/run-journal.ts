@@ -148,6 +148,8 @@ export interface RunJournalIo {
   statSize(filePath: string): Promise<number>;
   /** The final byte of a file, or an empty string when it is missing or empty. */
   readLastByte(filePath: string): Promise<string>;
+  /** The last `bytes` of a file, so a long journal is never loaded whole. */
+  readTail(filePath: string, bytes: number): Promise<string>;
 }
 
 export interface RunJournalDeps {
@@ -171,6 +173,19 @@ const defaultIo: RunJournalIo = {
       if (size === 0) return '';
       const buffer = Buffer.alloc(1);
       await handle.read(buffer, 0, 1, size - 1);
+      return buffer.toString('utf8');
+    } finally {
+      await handle.close();
+    }
+  },
+  readTail: async (filePath, bytes) => {
+    const handle = await fs.open(filePath, 'r');
+    try {
+      const { size } = await handle.stat();
+      const length = Math.min(size, bytes);
+      if (length === 0) return '';
+      const buffer = Buffer.alloc(length);
+      await handle.read(buffer, 0, length, size - length);
       return buffer.toString('utf8');
     } finally {
       await handle.close();
@@ -210,6 +225,26 @@ export interface RunJournal {
 
 export function createRunJournal(deps: RunJournalDeps): RunJournal {
   const io: RunJournalIo = { ...defaultIo, ...deps.io };
+  // A test io that fakes the file but not the tail read must not reach the disk.
+  if (deps.io?.readFile && !deps.io.readTail) {
+    io.readTail = async (filePath, bytes) => {
+      const text = await io.readFile(filePath);
+      return text.slice(Math.max(0, text.length - bytes));
+    };
+  }
+  // One writer per file. Sequence allocation, torn-tail repair and the append
+  // span several awaits, so two concurrent appends would otherwise share a
+  // sequence and the fold would drop one of them as a replay.
+  const writers = new Map<string, Promise<unknown>>();
+  let tempCounter = 0;
+  const serialized = <T>(filePath: string, task: () => Promise<T>): Promise<T> => {
+    const previous = writers.get(filePath) ?? Promise.resolve();
+    const next = previous.then(task, task);
+    const settled = next.then(() => undefined, () => undefined);
+    writers.set(filePath, settled);
+    void settled.then(() => { if (writers.get(filePath) === settled) writers.delete(filePath); });
+    return next;
+  };
   const projectDir = (projectId: string): string => path.join(deps.homeDir, 'runs', safeId(projectId));
   const journalPath = (projectId: string, journalId: string): string => path.join(projectDir(projectId), `${safeId(journalId)}.journal.ndjson`);
   const summaryPath = (projectId: string, journalId: string): string => path.join(projectDir(projectId), `${safeId(journalId)}.summary.json`);
@@ -221,17 +256,19 @@ export function createRunJournal(deps: RunJournalDeps): RunJournal {
     return cleaned;
   }
 
-  async function appendAt(projectId: string, journalId: string, input: AppendInput): Promise<number> {
+  function appendAt(projectId: string, journalId: string, input: AppendInput): Promise<number> {
     const filePath = journalPath(projectId, journalId);
-    await io.mkdir(projectDir(projectId));
-    // A previous append that was cut short left a line without its newline. Close
-    // that line first, so this record is never glued onto unreadable bytes.
-    if (await hasTornTail(filePath)) await io.appendFile(filePath, '\n');
-    const seq = (await lastSequence(filePath)) + 1;
-    const record: JournalRecord = { v: RUN_JOURNAL_VERSION, seq, ...input };
-    // One complete line per append: a reader can tell a torn tail from a record.
-    await io.appendFile(filePath, `${JSON.stringify(record)}\n`);
-    return seq;
+    return serialized(filePath, async () => {
+      await io.mkdir(projectDir(projectId));
+      // A previous append that was cut short left a line without its newline. Close
+      // that line first, so this record is never glued onto unreadable bytes.
+      if (await hasTornTail(filePath)) await io.appendFile(filePath, '\n');
+      const seq = (await lastSequence(filePath)) + 1;
+      const record: JournalRecord = { v: RUN_JOURNAL_VERSION, seq, ...input };
+      // One complete line per append: a reader can tell a torn tail from a record.
+      await io.appendFile(filePath, `${JSON.stringify(record)}\n`);
+      return seq;
+    });
   }
 
   async function hasTornTail(filePath: string): Promise<boolean> {
@@ -265,8 +302,8 @@ export function createRunJournal(deps: RunJournalDeps): RunJournal {
       const size = await io.statSize(filePath);
       if (size > MAX_READ_BYTES) {
         capped = true;
-        text = await io.readFile(filePath);
-        text = text.slice(text.length - MAX_READ_BYTES);
+        // Only the tail is read from disk, so a long history costs a page, not the file.
+        text = await io.readTail(filePath, MAX_READ_BYTES);
         const firstBreak = text.indexOf('\n');
         text = firstBreak === -1 ? '' : text.slice(firstBreak + 1);
       } else {
@@ -313,7 +350,8 @@ export function createRunJournal(deps: RunJournalDeps): RunJournal {
 
   async function writeSummaryAt(filePath: string, summary: RunSummary): Promise<void> {
     await io.mkdir(path.dirname(filePath));
-    const temp = `${filePath}.tmp.${process.pid}.${Date.now()}`;
+    tempCounter += 1;
+    const temp = `${filePath}.tmp.${process.pid}.${Date.now()}.${tempCounter}`;
     await io.writeFile(temp, JSON.stringify(summary, null, 2));
     await io.rename(temp, filePath);
   }
@@ -330,9 +368,12 @@ export function createRunJournal(deps: RunJournalDeps): RunJournal {
       return readSummaryAt(summaryPath(projectId, journalId));
     },
 
-    async checkpoint(projectId, journalId, fold, now) {
+    checkpoint(projectId, journalId, fold, now) {
       const summaryFile = summaryPath(projectId, journalId);
       const journalFile = journalPath(projectId, journalId);
+      // Serialized with appends on the same journal, so a checkpoint never
+      // publishes a summary older than one written beside it.
+      return serialized(journalFile, async () => {
       const current = (await readSummaryAt(summaryFile)) ?? emptyRunSummary(projectId, journalId, now);
       let next = current;
       let incomplete = false;
@@ -350,6 +391,7 @@ export function createRunJournal(deps: RunJournalDeps): RunJournal {
       next = { ...next, projectId, runId: journalId, incomplete, updatedAt: now };
       if (next !== current) await writeSummaryAt(summaryFile, next);
       return next;
+      });
     },
 
     async removeProject(projectId) {

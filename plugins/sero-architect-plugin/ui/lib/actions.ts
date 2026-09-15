@@ -86,6 +86,8 @@ export interface ArchitectActions {
   setModelDefault(projectId: string, tier: ModelTier, model: string, thinking?: ThinkingLevel): Promise<ActionOutcome>;
   /** Clear one override so the tier inherits the global selection again. */
   clearModelDefault(projectId: string, tier: ModelTier): Promise<ActionOutcome>;
+  /** Re-reads the host's global model tiers into the cached record. */
+  refreshModelTiers(projectId: string): Promise<ActionOutcome>;
   approveCharter(projectId: string): Promise<ActionOutcome>;
   approveMilestone(projectId: string, milestoneId: string): Promise<ActionOutcome>;
   answer(projectId: string, decisionId: string, optionId: string, note: string): Promise<ActionOutcome>;
@@ -135,6 +137,7 @@ export function useArchitectActions(): ArchitectActions {
       setAutonomy: (projectId, autonomy) => call({ action: 'set_autonomy', projectId, autonomy }),
       setModelDefault: (projectId, tier, model, thinking) => call({ action: 'set_model_tier', projectId, tier, model, thinking }),
       clearModelDefault: (projectId, tier) => call({ action: 'clear_model_tier', projectId, tier }),
+      refreshModelTiers: (projectId) => call({ action: 'refresh_model_tiers', projectId }),
       approveCharter: (projectId) => call({ action: 'approve', projectId, target: 'charter' }),
       approveMilestone: (projectId, milestoneId) => call({ action: 'approve', projectId, target: 'milestone', milestoneId }),
       answer: (projectId, decisionId, optionId, note) =>

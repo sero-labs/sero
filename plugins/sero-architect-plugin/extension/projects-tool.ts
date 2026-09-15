@@ -34,6 +34,7 @@ export const PROJECT_ACTIONS = [
   'set_execution_mode',
   'set_model_tier',
   'clear_model_tier',
+  'refresh_model_tiers',
   'approve',
   'answer',
   'directive',
@@ -255,6 +256,12 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
       if (missing) return result(false, missing);
       if (!params.tier) return result(false, 'tier is required for clear_model_tier: LOW, MED or HIGH.');
       const outcome = await actions.clearModelDefault(id, params.tier);
+      return result(outcome.ok, outcome.text);
+    }
+    case 'refresh_model_tiers': {
+      const missing = need(id, 'projectId');
+      if (missing) return result(false, missing);
+      const outcome = await actions.refreshModelTiers(id);
       return result(outcome.ok, outcome.text);
     }
     case 'approve': {

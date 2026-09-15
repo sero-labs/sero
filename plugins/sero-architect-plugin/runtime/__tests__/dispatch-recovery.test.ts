@@ -51,6 +51,10 @@ describe('Architect dispatch recovery through the Orchestrator registry', () => 
     const linked = (await reopened.read(record.id))!.milestones[0];
     expect(linked.pendingDispatch).toBeUndefined();
     expect(linked.dispatch?.id).toBe(savedId ?? restarted.state.loops[0].id);
+    // The run the work was dispatched under stays on the dispatch, so late usage
+    // is charged to it after the run closes.
+    expect(saved.milestones[0].pendingDispatch?.project?.runId).toBeTruthy();
+    expect(linked.dispatch?.runId).toBe(saved.milestones[0].pendingDispatch?.project?.runId);
     expect(restarted.state.loops).toHaveLength(1);
     expect(restarted.state.loops[0].prompt).toBe(pendingPrompt);
     await vi.waitFor(() => expect(restarted.state.loops[0].status).toBe('active'));

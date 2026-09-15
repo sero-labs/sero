@@ -353,6 +353,7 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
         originSessionId: record.delivery.originSessionId,
         deliveryParams: record.delivery.params,
         planningUsage: currentRecord.runtime.planningUsage,
+        ...(record.definition.projectContext ? { project: record.definition.projectContext } : {}),
       });
       const committed = await store.transact(roomId, null, (current) => ({
         record: current.runtime.status === 'adjusting'

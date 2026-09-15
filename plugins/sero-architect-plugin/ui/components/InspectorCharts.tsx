@@ -55,22 +55,27 @@ export function InspectorCharts({ records, filters, onPickActivity }: {
       <section aria-label="Spend by activity">
         <h3>By activity</h3>
         <ul className="ar-bars">
-          {activities.map((entry) => (
-            <li key={entry.activity}>
-              <button
-                type="button"
-                className="ar-bar-row"
-                data-on={filters.activities.includes(entry.activity) ? 'true' : undefined}
-                onClick={() => onPickActivity(entry.activity)}
-                aria-pressed={filters.activities.includes(entry.activity)}
-              >
-                <span className="ar-bar-label">{entry.activity}</span>
-                <span className="ar-bar-track"><i style={{ width: peak > 0 ? `${(entry.costUsd / peak) * 100}%` : '0%' }} /></span>
-                <span className="ar-bar-value">{usd(entry.costUsd)}</span>
-                <span className="ar-bar-count">{entry.records} rec</span>
-              </button>
-            </li>
-          ))}
+          {activities.map((entry) => {
+            // Zero here can mean "measured as none" or "nobody priced this",
+            // and those are not the same claim: the label says which.
+            const value = entry.priced === 0 ? 'not measured' : entry.priced < entry.records ? `${usd(entry.costUsd)} (lower bound)` : usd(entry.costUsd);
+            return (
+              <li key={entry.activity}>
+                <button
+                  type="button"
+                  className="ar-bar-row"
+                  data-on={filters.activities.includes(entry.activity) ? 'true' : undefined}
+                  onClick={() => onPickActivity(entry.activity)}
+                  aria-pressed={filters.activities.includes(entry.activity)}
+                >
+                  <span className="ar-bar-label">{entry.activity}</span>
+                  <span className="ar-bar-track"><i style={{ width: peak > 0 ? `${(entry.costUsd / peak) * 100}%` : '0%' }} /></span>
+                  <span className="ar-bar-value">{value}</span>
+                  <span className="ar-bar-count">{entry.records} rec</span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </section>
 

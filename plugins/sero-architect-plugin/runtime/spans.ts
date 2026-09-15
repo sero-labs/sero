@@ -76,10 +76,18 @@ export interface ObservedWaitInput extends OpenSpanInput {
 export interface SpanRecorderDeps {
   journal: RunJournal;
   now(): string;
+  /** Where a failed observation write is reported. Absent means silent. */
+  log?(message: string): void;
 }
 
 export function createSpanRecorder(deps: SpanRecorderDeps): SpanRecorder {
   const { journal, now } = deps;
+  // An observation is a record of the work, never a condition of it. A write
+  // that fails is reported here and the journal stays incomplete; the work
+  // and its result are unchanged (spec: telemetry failure never changes a run).
+  const report = (stage: string, operationId: string, error: unknown): void => {
+    deps.log?.(`observation ${stage} for ${operationId} was not written: ${error instanceof Error ? error.message : String(error)}`);
+  };
 
   return {
     async open(input) {
@@ -121,12 +129,11 @@ export function createSpanRecorder(deps: SpanRecorderDeps): SpanRecorder {
       await journal.append(input.projectId, input.runId, record);
     },
 
-    async around(input, work) {
-      await this.open(input);
+    async around<T>(input: OpenSpanInput, work: () => Promise<T>): Promise<T> {
+      await this.open(input).catch((error: unknown) => report('open', input.operationId, error));
+      let value: T;
       try {
-        const value = await work();
-        await this.close({ projectId: input.projectId, runId: input.runId, operationId: input.operationId, outcome: 'ok' });
-        return value;
+        value = await work();
       } catch (error) {
         await this.close({
           projectId: input.projectId,
@@ -134,9 +141,12 @@ export function createSpanRecorder(deps: SpanRecorderDeps): SpanRecorder {
           operationId: input.operationId,
           outcome: 'failed',
           error: error instanceof Error ? error.message : String(error),
-        }).catch(() => undefined);
+        }).catch((closeError: unknown) => report('close', input.operationId, closeError));
         throw error;
       }
+      await this.close({ projectId: input.projectId, runId: input.runId, operationId: input.operationId, outcome: 'ok' })
+        .catch((error: unknown) => report('close', input.operationId, error));
+      return value;
     },
 
     async recordObservedWait(input) {

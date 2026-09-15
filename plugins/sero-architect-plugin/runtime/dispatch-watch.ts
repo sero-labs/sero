@@ -202,7 +202,7 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
      * The store updater can run more than once, so nothing here may write until
      * the figure it reports is the committed one.
      */
-    const charges: { source: string; delta: number }[] = [];
+    const charges: { source: string; delta: number; runId?: string }[] = [];
     if (rooms) await observeResearchRooms(deps, projectId, rooms);
     if (loops) await observeResearchWorkflows(deps, projectId, loops);
     await store.update(projectId, (record) => {
@@ -244,7 +244,7 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
         if (delta > 0) {
           updated = { ...updated, dispatch: { ...updated.dispatch!, chargedUsd: costUsd } };
           next = charge(next, 'dispatched', delta, now);
-          charges.push({ source: `dispatch:${dispatch.kind}:${dispatch.id}`, delta });
+          charges.push({ source: `dispatch:${dispatch.kind}:${dispatch.id}`, delta, ...(dispatch.runId ? { runId: dispatch.runId } : {}) });
         }
         if (transition?.reported && updated.status === 'running') {
           updated = { ...updated, status: 'verifying', verification: 'reported' };
@@ -280,7 +280,7 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
       const committed = await store.read(projectId);
       if (committed) {
         for (const entry of charges) {
-          await recordCharge({ host, journal: deps.journal }, committed, entry.source, entry.delta, 'aggregate');
+          await recordCharge({ host, journal: deps.journal }, committed, entry.source, entry.delta, 'aggregate', entry.runId);
         }
       }
     }

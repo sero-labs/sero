@@ -90,4 +90,41 @@ describe('explicit trigger intent', () => {
     expect(host.modelCalls).toHaveLength(1);
     expect(host.state.loops[0]!.triggers[0]).toMatchObject({ schedule: '30 7 * * *' });
   });
+
+  it('keeps a one-off declaration through a planner clarification, and never asks the extractor', async () => {
+    const host = createFakeHost();
+    // The planner asks a clarifying question instead of planning outright.
+    host.modelResponses.push({
+      response: JSON.stringify({ clarifyingQuestions: [{ prompt: 'Which repo does the milestone target?', choices: ['a', 'b'] }] }),
+    });
+
+    const created = await new Coordinator(host).requestAction({
+      kind: 'create',
+      prompt: 'Build the grid',
+      options: { requestId: 'dispatch-5', triggerIntent: 'one-off' },
+    });
+    expect(created.ok).toBe(true);
+    const loop = created.loop!;
+    expect(loop.runtime.pendingInput?.source).toBe('planner');
+    const requestId = loop.runtime.pendingInput!.id;
+    const questionId = loop.runtime.pendingInput!.questions[0].id;
+
+    // Answer the planner's question. The one-off intent recorded at creation
+    // must carry into the re-plan without asking the extractor again.
+    host.modelResponses.push(plan());
+    const answered = await new Coordinator(host).requestAction({
+      kind: 'answer_input',
+      loopId: loop.id,
+      requestId,
+      answers: [{ questionId, text: 'a' }],
+    });
+
+    expect(answered.ok).toBe(true);
+    const finished = answered.loop!;
+    expect(finished.runtime.pendingInput).toBeUndefined();
+    expect(finished.plan.steps.length).toBeGreaterThan(0);
+    // Only the planner ran — no second call to decide recurrence.
+    expect(host.modelCalls).toHaveLength(2);
+    expect(finished.triggers ?? []).toHaveLength(0);
+  });
 });

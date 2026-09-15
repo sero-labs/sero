@@ -65,6 +65,18 @@ describe('filtering', () => {
     expect(filterRecords(records, { ...NO_FILTERS, failuresOnly: true }).map((entry) => entry.seq)).toEqual([2]);
   });
 
+  it('keeps a usage record with no model under a model filter, since usage never carries one', () => {
+    const withUsage = [...records, record({ seq: 3, kind: 'usage' })];
+    const filtered = filterRecords(withUsage, { ...NO_FILTERS, models: ['openai-codex/gpt-5.6-terra'] });
+    expect(filtered.map((entry) => entry.seq)).toEqual([0, 1, 3]);
+  });
+
+  it('still drops a non-usage record with no model under a model filter', () => {
+    const withUnmodeled = [...records, record({ seq: 3, operationKind: 'workflow' })];
+    const filtered = filterRecords(withUnmodeled, { ...NO_FILTERS, models: ['openai-codex/gpt-5.6-terra'] });
+    expect(filtered.map((entry) => entry.seq)).toEqual([0, 1]);
+  });
+
   it('combines filters rather than widening when they disagree', () => {
     const both = filterRecords(records, { activities: ['workflow'], models: ['openai-codex/gpt-5.6-luna'], failuresOnly: false });
     expect(both).toEqual([]);

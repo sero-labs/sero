@@ -170,6 +170,21 @@ describe('dispatch snapshot', () => {
     expect(Object.keys(snapshot.value)).toEqual(['LOW', 'MED', 'HIGH']);
   });
 
+  it('keeps a model id that contains a separator, and an explicit off', async () => {
+    const routed: SharedAvailableModelGroup = {
+      provider: 'openrouter', displayName: 'OpenRouter', logo: '',
+      models: [{ provider: 'openrouter', modelId: 'anthropic/claude', name: 'Claude via OpenRouter', reasoning: true, availableThinkingLevels: ['off', 'low'] }],
+    };
+    const source: ModelCatalogue = { listModels: async () => [...GROUPS, routed], modelTiers: async () => GLOBAL_TIERS, env: {} };
+    const record = setProjectTierOverride(project(), 'LOW', { provider: 'openrouter', modelId: 'anthropic/claude', thinkingLevel: 'off' });
+    const snapshot = await resolveDispatchSnapshot(source, record);
+    expect(snapshot.ok).toBe(true);
+    if (!snapshot.ok) return;
+    // Truncating at the second separator would snapshot a different model, and
+    // dropping `off` would let the delegate fall back to its step's thinking.
+    expect(snapshot.value.LOW).toMatchObject({ provider: 'openrouter', modelId: 'anthropic/claude', thinkingLevel: 'off' });
+  });
+
   it('refuses rather than emitting a partial snapshot', async () => {
     const record = setProjectTierOverride(project(), 'HIGH', { provider: 'anthropic', modelId: 'opus', thinkingLevel: 'low' });
     const snapshot = await resolveDispatchSnapshot(catalogue(), record);

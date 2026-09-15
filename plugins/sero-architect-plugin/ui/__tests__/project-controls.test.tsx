@@ -49,7 +49,7 @@ function stubActions(overrides: Partial<ArchitectActions> = {}): ArchitectAction
   return {
     create: ok(), history: vi.fn(async () => ({ ...OK, entries: [] })), trace: vi.fn(async () => ({ ...OK, page: null })), pause: ok(), resume: ok(), retry: ok(), stop: ok(), remove: ok(), raiseCap: ok(),
     setExecutionMode: ok(), setAutonomy: ok(), approveCharter: ok(), approveMilestone: ok(), answer: ok(), directive: ok(),
-    setModelDefault: ok(), clearModelDefault: ok(),
+    setModelDefault: ok(), clearModelDefault: ok(), refreshModelTiers: ok(),
     ...overrides,
   };
 }

@@ -159,6 +159,7 @@ async function linkDispatch(
       chargedUsd: link.chargedUsd ?? 0,
       destination: request.destination,
       baseCommit: link.baseCommit,
+      ...(request.project?.runId ? { runId: request.project.runId } : {}),
     },
   };
   const cause = `milestone ${milestone.id} dispatched as ${request.kind} ${link.id}${request.destination ? ` delivering to ${request.destination}` : ''}`;

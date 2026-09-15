@@ -30,6 +30,8 @@ export interface ActivityTotal {
   activity: string;
   costUsd: number;
   records: number;
+  /** Records in this bucket that reported a finite cost. */
+  priced: number;
 }
 
 export interface ModelTotal {
@@ -39,7 +41,10 @@ export interface ModelTotal {
   calls: number;
 }
 
-const costOf = (record: TraceRecord): number => (typeof record.costUsd === 'number' && Number.isFinite(record.costUsd) ? record.costUsd : 0);
+/** Whether a record reported a finite cost, as opposed to one nobody priced. */
+const isPriced = (record: TraceRecord): record is TraceRecord & { costUsd: number } =>
+  typeof record.costUsd === 'number' && Number.isFinite(record.costUsd);
+const costOf = (record: TraceRecord): number => (isPriced(record) ? record.costUsd : 0);
 
 /**
  * Cumulative spend over the records, in time order.
@@ -65,9 +70,10 @@ export function activityBreakdown(records: readonly TraceRecord[]): ActivityTota
   const totals = new Map<string, ActivityTotal>();
   for (const record of records) {
     const activity = record.operationKind ?? record.source ?? record.kind;
-    const entry = totals.get(activity) ?? { activity, costUsd: 0, records: 0 };
+    const entry = totals.get(activity) ?? { activity, costUsd: 0, records: 0, priced: 0 };
     entry.costUsd += costOf(record);
     entry.records += 1;
+    if (isPriced(record)) entry.priced += 1;
     totals.set(activity, entry);
   }
   return [...totals.values()].sort((a, b) => b.costUsd - a.costUsd || a.activity.localeCompare(b.activity));
@@ -104,14 +110,9 @@ export function exclusiveCost(record: TraceRecord, records: readonly TraceRecord
   return costOf(record);
 }
 
-/**
- * What an operation and everything under it spent.
- *
- * This is the figure to show for one selected operation, and the one never to add
- * into a total that already counted the children.
- */
-export function inclusiveCost(record: TraceRecord, records: readonly TraceRecord[]): number {
-  let total = costOf(record);
+/** Walks a record and everything under it, each visited once. */
+function* subtreeOf(record: TraceRecord, records: readonly TraceRecord[]): Generator<TraceRecord> {
+  yield record;
   const seen = new Set<string>([record.operationId ?? `seq:${record.seq}`]);
   const stack = childrenOf(record, records);
   while (stack.length > 0) {
@@ -120,10 +121,35 @@ export function inclusiveCost(record: TraceRecord, records: readonly TraceRecord
     // A record that names the same operation twice is still one cost.
     if (seen.has(key)) continue;
     seen.add(key);
-    total += costOf(next);
+    yield next;
     stack.push(...childrenOf(next, records));
   }
+}
+
+/**
+ * What an operation and everything under it spent.
+ *
+ * This is the figure to show for one selected operation, and the one never to add
+ * into a total that already counted the children.
+ */
+export function inclusiveCost(record: TraceRecord, records: readonly TraceRecord[]): number {
+  let total = 0;
+  for (const entry of subtreeOf(record, records)) total += costOf(entry);
   return total;
+}
+
+/**
+ * Whether an operation or anything under it reported a finite cost.
+ *
+ * A tree with nothing priced has an inclusive figure of zero for the same
+ * reason a record with no cost has one: the number is not a measurement, so
+ * the view must be able to say "not measured" instead of showing it as one.
+ */
+export function inclusivePriced(record: TraceRecord, records: readonly TraceRecord[]): boolean {
+  for (const entry of subtreeOf(record, records)) {
+    if (isPriced(entry)) return true;
+  }
+  return false;
 }
 
 export interface Breakdown {
@@ -147,6 +173,19 @@ export function sharedCost(records: readonly TraceRecord[]): number {
 /** Cost the records attribute to this scope, which is everything that is not shared. */
 export function attributableCost(records: readonly TraceRecord[]): number {
   return records.filter((record) => record.kind !== 'shared').reduce((total, record) => total + costOf(record), 0);
+}
+
+/**
+ * Cost from usage records that carry no model.
+ *
+ * A model filter keeps these rather than dropping them, because usage records
+ * never carry a model at all; this is what to name when a filtered total
+ * includes cost a model filter cannot attribute to any of the models shown.
+ */
+export function unattributedCost(records: readonly TraceRecord[]): number {
+  return records
+    .filter((record) => record.kind === 'usage' && record.model === undefined)
+    .reduce((total, record) => total + costOf(record), 0);
 }
 
 /**

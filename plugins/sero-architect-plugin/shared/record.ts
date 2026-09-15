@@ -56,6 +56,11 @@ export interface MilestoneDispatch {
   destination: string | null;
   /** HEAD before work started, used to summarize committed milestone changes. */
   baseCommit?: string;
+  /**
+   * The run this work was dispatched under. Late usage is charged to it even
+   * after the run closes, instead of to whichever run happens to be open.
+   */
+  runId?: string;
   /** Latest execution failed or was interrupted, even if the workflow is enabled. */
   failure?: string;
   retryStepId?: string;

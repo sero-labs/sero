@@ -6,12 +6,13 @@
  * whole history. These tests pin the four properties the runtime depends on.
  */
 
-import { appendFile, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, mkdtemp, open, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   MAX_PAGE_SIZE,
+  MAX_READ_BYTES,
   createRunJournal,
   emptyRunSummary,
   type JournalRecord,
@@ -170,5 +171,53 @@ describe('run journal', () => {
     expect(await journal.readSummary('proj', 'run-1')).toBeNull();
     const summary = await journal.checkpoint('proj', 'run-1', fold, 'T1');
     expect(summary).toEqual(emptyRunSummary('proj', 'run-1', 'T1'));
+  });
+});
+
+describe('one writer per journal', () => {
+  it('gives concurrent appends distinct, contiguous sequences', async () => {
+    const { journal } = await harness();
+    const seqs = await Promise.all(Array.from({ length: 12 }, (_, index) =>
+      journal.append('p', 'r', { kind: 'observation', at: '2026-09-15T10:00:00.000Z', key: `k${index}` })));
+    expect(new Set(seqs).size).toBe(12);
+    const page = await journal.readPage('p', 'r', { limit: 50 });
+    expect(page.records.map((record) => record.seq)).toEqual(Array.from({ length: 12 }, (_, index) => index + 1));
+  });
+
+  it('reads only the tail of a long journal, never the whole file', async () => {
+    const { homeDir } = await harness();
+    const file = path.join(homeDir, 'runs', 'p', 'r.journal.ndjson');
+    await mkdir(path.dirname(file), { recursive: true });
+    await writeFile(file, '');
+    const line = (seq: number) => `${JSON.stringify({ v: 1, seq, kind: 'observation', at: '2026-09-15T10:00:00.000Z', key: `k${seq}`, pad: 'x'.repeat(180) })}\n`;
+    let seq = 0;
+    while ((await stat(file)).size <= MAX_READ_BYTES + line(0).length) {
+      const chunk: string[] = [];
+      for (let index = 0; index < 500; index += 1) { seq += 1; chunk.push(line(seq)); }
+      await appendFile(file, chunk.join(''));
+    }
+    const journal = createRunJournal({
+      homeDir,
+      io: {
+        readFile: async () => { throw new Error('the whole journal was read'); },
+        readTail: async (filePath, bytes) => {
+          const handle = await open(filePath, 'r');
+          try {
+            const { size } = await handle.stat();
+            const length = Math.min(size, bytes);
+            const buffer = Buffer.alloc(length);
+            await handle.read(buffer, 0, length, size - length);
+            return buffer.toString('utf8');
+          } finally {
+            await handle.close();
+          }
+        },
+      },
+    });
+    const page = await journal.readPage('p', 'r', { limit: 5 });
+    expect(page.records).toHaveLength(5);
+    expect(page.incomplete).toBe(true);
+    // The next append sits after the last record on disk, found from the tail alone.
+    expect(await journal.append('p', 'r', { kind: 'observation', at: '2026-09-15T10:00:00.000Z', key: 'late' })).toBe(seq + 1);
   });
 });

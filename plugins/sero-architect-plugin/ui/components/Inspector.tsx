@@ -3,7 +3,7 @@ import { Button } from '@sero-ai/ui';
 
 import type { ProjectRecord } from '../../shared/record';
 import type { ArchitectActions } from '../lib/actions';
-import { activityBreakdown, inclusiveCost, sharedCost } from '../lib/charts';
+import { activityBreakdown, inclusiveCost, inclusivePriced, sharedCost, unattributedCost } from '../lib/charts';
 import { useInspectorPreferences } from '../lib/page-helpers';
 import { describeRunState } from '../lib/run-state';
 import { InspectorCharts } from './InspectorCharts';
@@ -11,12 +11,12 @@ import {
   activityOf, activityOptions, filterRecords, filtersActive, inRange, modelOptions, NO_FILTERS,
   rowWindow, timeRangeOf, zoomRange, type TimeRange, type TraceFilters,
 } from '../lib/timeline';
-import type { TracePage } from '../lib/trace';
+import { appendTracePage, type TracePage } from '../lib/trace';
 
 const ROW_HEIGHT = 34;
 const VIEWPORT = 460;
-/** The project-scoped journal, for the lifetime view. */
-const LIFETIME = 'shared';
+/** The shared journal: activity charged once to the project rather than to any single run. */
+const SHARED_ACTIVITY = 'shared';
 
 const ms = (value: number): string => {
   if (value < 1000) return `${value} ms`;
@@ -45,33 +45,61 @@ export function Inspector({ record, actions, onBack }: {
   onBack(): void;
 }) {
   const runs = record.runs ?? [];
-  const [selected, setSelected] = useState<string>(() => runs.at(-1)?.id ?? LIFETIME);
+  const [selected, setSelected] = useState<string>(() => runs.at(-1)?.id ?? SHARED_ACTIVITY);
   const [page, setPage] = useState<TracePage | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [withDetail, setWithDetail] = useState(false);
   const [scrollTop, setScrollTop] = useState(0);
-  const [cursor, setCursor] = useState(0);
+  /** The selected row, by sequence number rather than array position, so it
+   * survives a Load more or a filter change that reorders or shrinks the rows
+   * around it. */
+  const [selectedSeq, setSelectedSeq] = useState<number | null>(null);
   const { filters, expanded, setFilters, toggleExpanded } = useInspectorPreferences();
   const [range, setRange] = useState<TimeRange | null>(null);
   const scroller = useRef<HTMLDivElement | null>(null);
 
+  // A read that has been superseded, or one that arrives after this view is
+  // gone, must never commit: it would show a page nobody asked to see any
+  // more. The generation counter marks each read's place in line, and the
+  // mounted flag survives past unmount without needing a render.
+  const generation = useRef(0);
+  const mounted = useRef(true);
+  useEffect(() => () => { mounted.current = false; }, []);
+
+  // A preference write recreates `actions` (it flows through the app context),
+  // and `load` reading it directly would recreate itself on every such write
+  // and re-fire its effect. The ref always holds the latest actions without
+  // making `load` depend on them.
+  const actionsRef = useRef(actions);
+  useEffect(() => { actionsRef.current = actions; }, [actions]);
+
   const load = useCallback(async (journalId: string, detail: boolean, afterSeq?: number) => {
+    const gen = ++generation.current;
     setLoading(true);
     setNotice(null);
     try {
-      const outcome = await actions.trace(record.id, {
+      const outcome = await actionsRef.current.trace(record.id, {
         runId: journalId,
         detail,
         knownSpendUsd: record.budget.spentUsd,
         ...(afterSeq === undefined ? {} : { afterSeq }),
       });
-      if (!outcome.ok) setNotice(outcome.text);
-      setPage(outcome.page);
+      // A later load already started while this one was in flight, or the
+      // view is gone: either way, this answer is not for the page shown now.
+      if (gen !== generation.current || !mounted.current) return;
+      if (!outcome.ok) {
+        setNotice(outcome.text);
+        return;
+      }
+      setPage((current) => {
+        if (afterSeq !== undefined && current && outcome.page) return appendTracePage(current, outcome.page);
+        return outcome.page;
+      });
     } finally {
-      setLoading(false);
+      if (gen === generation.current && mounted.current) setLoading(false);
     }
-  }, [actions, record.id, record.budget.spentUsd]);
+  }, [record.id, record.budget.spentUsd]);
 
   // Reading a trace is an IPC call, so it is an external effect rather than
   // derived state: the source of truth is the runtime, not this component.
@@ -87,33 +115,60 @@ export function Inspector({ record, actions, onBack }: {
   );
   const window = rowWindow(visible.length, { scrollTop, rowHeight: ROW_HEIGHT, viewportHeight: VIEWPORT });
   const slice = visible.slice(window.start, window.end);
+  // Whether the timeline (and so the scroller node the keyboard effect binds
+  // to) is on screen at all: it mounts and unmounts with this, not with the
+  // selection, so it is what the listener effect should key off.
+  const hasTimeline = withDetail && records.length > 0;
+
+  // Nothing selected yet defaults to the first row, so the panel is never
+  // empty on arrival. A selection whose seq no longer appears in `visible`
+  // (a filter narrowed it out) reads as unselected here, without losing the
+  // stored seq: widening the filter again finds it and it is selected once more.
+  const selectedIndex = visible.length === 0 ? -1 : (selectedSeq === null ? 0 : visible.findIndex((entry) => entry.seq === selectedSeq));
 
   const step = useCallback((delta: number) => {
-    setCursor((current) => Math.min(Math.max(current + delta, 0), Math.max(0, visible.length - 1)));
-  }, [visible.length]);
+    if (visible.length === 0) return;
+    const base = selectedIndex === -1 ? 0 : selectedIndex;
+    const next = Math.min(Math.max(base + delta, 0), visible.length - 1);
+    const target = visible[next];
+    if (target) setSelectedSeq(target.seq);
+    const node = scroller.current;
+    if (node) {
+      const top = Math.max(0, next - 2) * ROW_HEIGHT;
+      node.scrollTop = top;
+      setScrollTop(top);
+    }
+  }, [selectedIndex, visible]);
+
+  // `step` is recreated on almost every render (it tracks the selection), and
+  // re-subscribing the listener that often would be wasted work. The handler
+  // reads both through a ref that a separate, cheap effect keeps current, so
+  // the listener itself is attached once.
+  const handlers = useRef({ step, onBack });
+  useEffect(() => { handlers.current = { step, onBack }; }, [step, onBack]);
 
   // Arrow keys move the selection, so the timeline is usable without a pointer.
   useEffect(() => {
     const node = scroller.current;
     if (!node) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'ArrowDown') { event.preventDefault(); step(1); }
-      else if (event.key === 'ArrowUp') { event.preventDefault(); step(-1); }
-      else if (event.key === 'Escape') onBack();
-      else return;
-      const target = Math.max(0, cursor - 2) * ROW_HEIGHT;
-      node.scrollTop = target;
-      setScrollTop(target);
+      if (event.key === 'ArrowDown') { event.preventDefault(); handlers.current.step(1); }
+      else if (event.key === 'ArrowUp') { event.preventDefault(); handlers.current.step(-1); }
+      else if (event.key === 'Escape') handlers.current.onBack();
     };
     node.addEventListener('keydown', onKey);
     return () => node.removeEventListener('keydown', onKey);
-  }, [cursor, step, onBack]);
+  }, [hasTimeline]);
 
-  const selectedRecord = visible[cursor] ?? null;
+  const selectedRecord = selectedIndex === -1 ? null : visible[selectedIndex] ?? null;
   const summary = page?.summary;
   // Shared activity is charged once to the project, so it is reported beside the
   // run's own figure rather than inside it.
   const shared = sharedCost(records);
+  // Cost a model filter cannot attribute to any of the models shown: usage
+  // records never carry a model, so the filter keeps them but the total has
+  // to say what part of it that is.
+  const unattributedUsd = filters.models.length > 0 ? unattributedCost(visible) : 0;
   const selectedRun = runs.find((run) => run.id === selected);
   // The state is only described once activity has been asked for: before that,
   // "no rows" only means the reader has not opened the timeline yet.
@@ -139,8 +194,11 @@ export function Inspector({ record, actions, onBack }: {
         <span className="ar-models-title">Run inspector · {record.name}</span>
         <label className="ar-inspector-run">
           <span>View</span>
-          <select value={selected} onChange={(event) => { setSelected(event.target.value); setRange(null); setCursor(0); }}>
-            <option value={LIFETIME}>Whole project</option>
+          <select
+            value={selected}
+            onChange={(event) => { setSelected(event.target.value); setRange(null); setSelectedSeq(null); }}
+          >
+            <option value={SHARED_ACTIVITY}>Shared activity</option>
             {runs.map((run) => (
               <option key={run.id} value={run.id}>{run.kind}{run.endedAt ? '' : ' (open)'} · {run.id}</option>
             ))}
@@ -216,7 +274,10 @@ export function Inspector({ record, actions, onBack }: {
           {filtersActive(filters) && summary && (
             // A filtered view is part of the run, so its figure is labelled as
             // the filtered total rather than passed off as the run total.
-            <span role="status">filtered view: {usd(activityBreakdown(visible).reduce((total, entry) => total + entry.costUsd, 0))} of {usd(summary.attributableUsd)}</span>
+            <span role="status">
+              filtered view: {usd(activityBreakdown(visible).reduce((total, entry) => total + entry.costUsd, 0))} of {usd(summary.attributableUsd)}
+              {unattributedUsd > 0 && <> · {usd(unattributedUsd)} not attributable to a model</>}
+            </span>
           )}
         </div>
         <div className="ar-inspector-zoom" role="group" aria-label="Time range">
@@ -241,7 +302,7 @@ export function Inspector({ record, actions, onBack }: {
         <p className="ar-why">The totals above cover the whole view. Load the activity to see the individual operations and their timings.</p>
       )}
 
-      {withDetail && records.length > 0 && (
+      {hasTimeline && (
         <InspectorCharts
           records={visible}
           filters={filters}
@@ -249,7 +310,7 @@ export function Inspector({ record, actions, onBack }: {
         />
       )}
 
-      {withDetail && records.length > 0 && (
+      {hasTimeline && (
         <div className="ar-inspector-split">
           <div
             className="ar-inspector-timeline"
@@ -270,17 +331,17 @@ export function Inspector({ record, actions, onBack }: {
                       key={key}
                       className="ar-span"
                       role="option"
-                      aria-selected={index === cursor}
+                      aria-selected={index === selectedIndex}
                       tabIndex={-1}
-                      data-selected={index === cursor ? 'true' : undefined}
+                      data-selected={index === selectedIndex ? 'true' : undefined}
                       style={{ height: ROW_HEIGHT }}
-                      onClick={() => setCursor(index)}
+                      onClick={() => setSelectedSeq(entry.seq)}
                       onKeyDown={(event) => {
                         // The container handles arrow keys; the row handles the
                         // pair a pointer would use on it.
                         if (event.key !== 'Enter' && event.key !== ' ') return;
                         event.preventDefault();
-                        setCursor(index);
+                        setSelectedSeq(entry.seq);
                         if (entry.operationId) toggleExpanded(entry.operationId);
                       }}
                       onDoubleClick={() => entry.operationId && toggleExpanded(entry.operationId)}
@@ -315,7 +376,7 @@ export function Inspector({ record, actions, onBack }: {
                   <dt>own cost</dt><dd>{selectedRecord.costUsd === undefined ? 'not recorded' : usd(selectedRecord.costUsd)}</dd>
                   {/* Inclusive covers this operation and everything under it, and
                       is never added into a total that already counted those. */}
-                  <dt>inclusive</dt><dd>{usd(inclusiveCost(selectedRecord, visible))}</dd>
+                  <dt>inclusive</dt><dd>{inclusivePriced(selectedRecord, visible) ? usd(inclusiveCost(selectedRecord, visible)) : 'not measured'}</dd>
                   <dt>coverage</dt><dd>{selectedRecord.coverage ?? 'not recorded'}</dd>
                 </dl>
                 {selectedRecord.operationId && (

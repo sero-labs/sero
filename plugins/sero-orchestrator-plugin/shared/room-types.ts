@@ -384,4 +384,4 @@ export interface RoomIndex {
  * It lives with the shape it describes, so the renderer can state the version
  * of an empty index without importing runtime code.
  */
-export const ROOM_SCHEMA_VERSION = 3;
+export const ROOM_SCHEMA_VERSION = 4;

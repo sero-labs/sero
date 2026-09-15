@@ -61,13 +61,36 @@ describe('the state a view is in', () => {
 
   it('reports waiting only from an observed cause', () => {
     const waited = describeRunState(input({
-      page: page([record(0, { operationKind: 'wait', waitCause: 'approval' })], { timing: { activeMs: 0, workerMs: 0, waitMs: 5000 } }),
+      page: page([record(0, {
+        operationKind: 'wait', recordKind: 'operation-start', waitCause: 'approval', operationId: 'op_wait',
+      })], { timing: { activeMs: 0, workerMs: 0, waitMs: 5000 } }),
       runOpen: true,
       visibleRecords: 1,
     }));
     expect(waited.state).toBe('waiting');
     expect(waited.detail).toContain('approval');
     expect(waited.detail).toContain('observed intervals only');
+  });
+
+  it('does not call a finished wait waiting once its end is in the page', () => {
+    const state = describeRunState(input({
+      page: page([
+        record(0, { operationKind: 'wait', recordKind: 'operation-start', waitCause: 'approval', operationId: 'op_wait' }),
+        record(1, { recordKind: 'operation-end', operationId: 'op_wait' }),
+      ], { timing: { activeMs: 0, workerMs: 0, waitMs: 5000 } }),
+      runOpen: true,
+      visibleRecords: 2,
+    }));
+    expect(state.state).not.toBe('waiting');
+  });
+
+  it('does not report waiting once the run has closed, even with an unmatched wait start', () => {
+    const state = describeRunState(input({
+      page: page([record(0, { operationKind: 'wait', recordKind: 'operation-start', waitCause: 'approval', operationId: 'op_wait' })]),
+      runOpen: false,
+      visibleRecords: 1,
+    }));
+    expect(state.state).not.toBe('waiting');
   });
 
   it('does not infer waiting from elapsed time alone', () => {

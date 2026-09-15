@@ -172,3 +172,24 @@ describe('a complete run contains every activity exactly once', () => {
     expect(seen).toEqual([]);
   });
 });
+
+describe('observation writes never gate the work', () => {
+  const failing = { append: async () => { throw new Error('disk full'); } } as unknown as Parameters<typeof createSpanRecorder>[0]['journal'];
+
+  it('runs the work and returns its value when neither write lands', async () => {
+    const messages: string[] = [];
+    const spans = createSpanRecorder({ journal: failing, now: () => '2026-09-15T10:00:00.000Z', log: (message) => messages.push(message) });
+    const value = await spans.around({ projectId: PROJECT, runId: RUN, operationId: 'm1:plan', kind: 'planning' }, async () => 'room-1');
+    expect(value).toBe('room-1');
+    // Both failures are reported, so the gap is visible rather than swallowed.
+    expect(messages).toHaveLength(2);
+    expect(messages[0]).toContain('m1:plan');
+  });
+
+  it('still propagates the error the work itself threw', async () => {
+    const spans = createSpanRecorder({ journal: failing, now: () => '2026-09-15T10:00:00.000Z' });
+    await expect(spans.around({ projectId: PROJECT, runId: RUN, operationId: 'm1:plan', kind: 'planning' }, async () => {
+      throw new Error('planner refused');
+    })).rejects.toThrow('planner refused');
+  });
+});

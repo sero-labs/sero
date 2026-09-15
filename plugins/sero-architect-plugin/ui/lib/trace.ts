@@ -144,3 +144,18 @@ export function readTracePage(result: AppToolResult): TracePage | null {
     incomplete: details.incomplete === true,
   };
 }
+
+/**
+ * Combines a continuation page onto what was already read.
+ *
+ * Records are kept once each by sequence number, so re-reading the same page
+ * twice never duplicates a row. The newer answer's summary, timing, tokens,
+ * next cursor and incomplete flag replace the previous ones, since the
+ * runtime recomputes those for the whole run on every read rather than only
+ * for the slice of records a continuation asked for.
+ */
+export function appendTracePage(previous: TracePage, addition: TracePage): TracePage {
+  const seen = new Set(previous.records.map((record) => record.seq));
+  const records = [...previous.records, ...addition.records.filter((record) => !seen.has(record.seq))];
+  return { ...addition, records };
+}

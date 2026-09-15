@@ -5,7 +5,7 @@ import { setAccountingIncomplete } from '../../shared/accounting';
 import { openRun } from '../../shared/runs';
 import { createRunJournal, type JournalRecord } from '../run-journal';
 import { summarizeTrace } from '../trace-summary';
-import { chargeRoomPlanning, runProjectModel } from '../project-usage';
+import { chargeRoomPlanning, recordCharge, runProjectModel } from '../project-usage';
 import { buildingProject, cleanupHosts, fakeHost, milestone, storeFor, T0 } from './helpers';
 
 afterEach(cleanupHosts);
@@ -154,5 +154,18 @@ describe('the trace records the same deltas the budget charges', () => {
     // The budget still moves; the trace has nowhere to attribute it yet.
     expect((await store.read(record.id))?.budget.sources.research).toBeCloseTo(0.2);
     expect(journalLines(homeDir, record.id, 'run-1')).toEqual([]);
+  });
+
+  it('charges late delegated usage to the run it was dispatched under, not the run open now', async () => {
+    const host = await fakeHost();
+    const homeDir = await host.homeDir();
+    const journal = createRunJournal({ homeDir });
+    // The initial run has closed and a maintenance run is open: without the
+    // dispatch-time identity this delta would land on the wrong objective.
+    const later = openRun(buildingProject(), { id: 'run-maint', kind: 'maintenance' }, T0);
+    if (!later.ok) throw new Error(later.error);
+    await recordCharge({ host, journal }, later.record, 'dispatch:workflow:w1', 0.4, 'aggregate', 'run-initial');
+    expect(journalLines(homeDir, later.record.id, 'run-initial')).toMatchObject([{ kind: 'usage', costUsd: 0.4, source: 'dispatch:workflow:w1' }]);
+    expect(journalLines(homeDir, later.record.id, 'run-maint')).toEqual([]);
   });
 });

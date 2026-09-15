@@ -1,7 +1,7 @@
 import { useAvailableModels } from '@sero-ai/app-runtime';
 import { MODEL_TIERS, modelKey, type ModelTier, type SharedModelTierSettings, type ThinkingLevel } from '@sero-ai/common';
 import { Button } from '@sero-ai/ui';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import type { ProjectRecord } from '../../shared/record';
 import type { ArchitectActions } from '../lib/actions';
@@ -24,6 +24,13 @@ export function ModelSettings({ record, actions, onBack }: {
   const [busy, setBusy] = useState<string | null>(null);
   const overrides: SharedModelTierSettings = record.modelOverrides ?? {};
   const globals: SharedModelTierSettings = record.modelTiers ?? {};
+
+  // The cached global tiers only refresh when the owner session opens, so
+  // this view asks the runtime for a fresh read of its own on arrival. An IPC
+  // call on mount is the one case `useEffect` is meant for here.
+  useEffect(() => {
+    void actions.refreshModelTiers(record.id);
+  }, [actions, record.id]);
 
   const submit = async (tier: ModelTier, run: () => Promise<{ ok: boolean; text: string }>) => {
     setBusy(tier);

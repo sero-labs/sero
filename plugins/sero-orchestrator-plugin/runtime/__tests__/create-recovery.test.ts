@@ -42,4 +42,28 @@ describe('workflow creation recovery', () => {
     expect(third.modelCalls).toHaveLength(0);
     expect(third.state.loops).toHaveLength(1);
   });
+
+  it('refuses a conflicting concurrent reuse of a requestId, while an identical reuse still coalesces', async () => {
+    const host = createFakeHost();
+    host.runStructured = vi.fn(async () => new Promise<ModelRunResult>(() => {}));
+    const coordinator = new Coordinator(host);
+    const first = coordinator.requestAction(request);
+    // Same requestId, same prompt: joins the first caller rather than starting
+    // a second planning attempt.
+    const same = coordinator.requestAction(request);
+    // Same requestId, a different prompt: a second, unrelated caller must not
+    // be handed the first caller's Workflow, so this is refused immediately.
+    const conflicting = await coordinator.requestAction({
+      kind: 'create',
+      prompt: 'Build something else entirely',
+      options: { requestId: 'dispatch-1' },
+    });
+    expect(conflicting).toMatchObject({ ok: false, error: expect.stringContaining('different prompt') });
+    await vi.waitFor(() => expect(host.runStructured).toHaveBeenCalledOnce());
+    expect(host.state.loops).toHaveLength(1);
+    // The identical reuse never triggered its own planning attempt.
+    expect(host.runStructured).toHaveBeenCalledOnce();
+    void first;
+    void same;
+  });
 });

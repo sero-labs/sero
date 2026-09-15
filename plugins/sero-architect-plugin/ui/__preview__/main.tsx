@@ -29,7 +29,7 @@ const ok = async (): Promise<ActionOutcome> => ({ ok: true, text: 'ok' });
 const actions: ArchitectActions = {
   create: ok, history: async () => ({ ok: true, text: 'ok', entries: [] }), trace: async () => ({ ok: true, text: 'ok', page: null }), pause: ok, resume: ok, retry: ok, stop: ok, remove: ok, raiseCap: ok, setExecutionMode: ok, setAutonomy: ok,
   approveCharter: ok, approveMilestone: ok, answer: ok, directive: ok,
-  setModelDefault: ok, clearModelDefault: ok,
+  setModelDefault: ok, clearModelDefault: ok, refreshModelTiers: ok,
 };
 
 const params = new URLSearchParams(window.location.search);

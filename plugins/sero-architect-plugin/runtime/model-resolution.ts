@@ -212,14 +212,19 @@ export async function resolveDispatchSnapshot(
   const snapshot: OrchestratorProjectModelSnapshot = {};
   for (const selection of tiers.value) {
     if (!selection.tier) continue;
-    const [provider = '', modelId = ''] = selection.model.split('/');
-    const entry: NonNullable<OrchestratorProjectModelSnapshot[ModelTier]> = {
+    // Only the first separator divides provider from model: a model id may
+    // itself contain one, and truncating it would snapshot a different model.
+    const separator = selection.model.indexOf('/');
+    const provider = separator === -1 ? '' : selection.model.slice(0, separator);
+    const modelId = separator === -1 ? selection.model : selection.model.slice(separator + 1);
+    // `off` is a selection too. Dropping it would let the delegate fall back to
+    // its step's thinking, which is not what the project chose.
+    snapshot[selection.tier] = {
       provider,
       modelId,
+      thinkingLevel: selection.thinking,
       source: selection.detail,
     };
-    if (selection.thinking !== 'off') entry.thinkingLevel = selection.thinking;
-    snapshot[selection.tier] = entry;
   }
   return { ok: true, value: snapshot };
 }

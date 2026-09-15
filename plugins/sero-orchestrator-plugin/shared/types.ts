@@ -138,8 +138,8 @@ export type LoopStatus =
   | 'disabled';
 
 export interface Loop {
-  /** Creation recovery counter, saved before each planning attempt. */
-  creation?: { requestId?: string; attempts: number; complete: boolean };
+  /** Creation recovery counter, saved before each planning attempt. `triggerIntent`/`triggers` carry the caller's declared recurrence through a planner-clarification re-plan, instead of falling back to extraction. */
+  creation?: { requestId?: string; attempts: number; complete: boolean; triggerIntent?: import('@sero-ai/common').OrchestratorTriggerIntent; triggers?: LoopTriggerSuggestion[] };
   /** Project/run attribution retained from creation. Attribution only: it never widens access. */
   project?: import('@sero-ai/common').OrchestratorProjectContext;
   id: string;

@@ -11,6 +11,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { modelKey } from '@sero-ai/common';
 import type { RoomBlueprint } from '../../shared/room-blueprint-types';
+import { computeProposalSummary } from '../../shared/room-proposal';
 import { requestRoomGrant } from '../rooms/member-grant';
 import { createRoomAppActions, limitsForOrigin, type RoomAppActions } from '../rooms/room-app-actions';
 import type { RoomCoordinator } from '../rooms/room-coordinator';
@@ -18,6 +19,7 @@ import type { RoomStore } from '../rooms/room-store';
 import type { FakeHost } from './fake-host';
 import {
   MEMBERS,
+  blueprintWith,
   createRoomHarness,
   disposeHarness,
   draftRoomIn,
@@ -200,6 +202,27 @@ describe('the user Room surface', () => {
     expect(started.ok).toBe(true);
     expect(adjusted.ok).toBe(false);
     expect((await store.readRoom(roomId))?.definition.grantId).toBe('grant-1');
+  });
+
+  it('keeps project attribution through an adjustment', async () => {
+    const envelope = envelopeWith();
+    const blueprint = blueprintWith(envelope, MEMBERS);
+    const project = { projectId: 'proj-1', runId: 'run-1' };
+    const created = await coordinator.createRoom({
+      problemStatement: 'the app crashes',
+      blueprint,
+      proposal: computeProposalSummary(blueprint),
+      workspaceId: 'ws-1',
+      project,
+    });
+    if (!created.room) throw new Error(created.error ?? 'no room');
+    const roomId = created.room.definition.id;
+    host.modelResponses.push({ response: JSON.stringify(blueprint) });
+
+    const outcome = await app.adjust(roomId, 'Keep the same team.');
+    expect(outcome.ok).toBe(true);
+    const record = await store.readRoom(roomId);
+    expect(record?.definition.projectContext).toEqual(project);
   });
 
   it('tells the Room as the Room, and wakes who it reached', async () => {

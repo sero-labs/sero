@@ -11,8 +11,14 @@
 import type { OrchestratorRoomCreateRequest, OrchestratorRoomCreateResult, OrchestratorRoomHandle } from '@sero-ai/common';
 import type { RoomAppActions } from './room-app-actions';
 
+/** A pending Room create, keyed by requestId, alongside what it was asked for. */
+interface PendingRoomCreate {
+  promise: Promise<OrchestratorRoomCreateResult>;
+  fingerprint: { mandate: string; projectId?: string; runId?: string };
+}
+
 export function createRoomDispatchHandle(app: Pick<RoomAppActions, 'prepare' | 'start' | 'inspect'>): OrchestratorRoomHandle {
-  const pending = new Map<string, Promise<OrchestratorRoomCreateResult>>();
+  const pending = new Map<string, PendingRoomCreate>();
   const create = async (request: OrchestratorRoomCreateRequest): Promise<OrchestratorRoomCreateResult> => {
       const planned = await app.prepare({ problem: request.mandate, limits: request.limits, requestId: request.requestId, project: request.project });
       if (!planned.ok) {
@@ -33,11 +39,23 @@ export function createRoomDispatchHandle(app: Pick<RoomAppActions, 'prepare' | '
     inspect: (roomId) => app.inspect(roomId),
     create(request) {
       if (!request.requestId) return create(request);
-      const existing = pending.get(request.requestId);
-      if (existing) return existing;
       const key = request.requestId;
+      const fingerprint = { mandate: request.mandate, projectId: request.project?.projectId, runId: request.project?.runId };
+      const existing = pending.get(key);
+      if (existing) {
+        // A concurrent reuse of the same requestId only coalesces when it asks
+        // for the same thing — otherwise a second, unrelated caller would get
+        // the first caller's Room back.
+        if (existing.fingerprint.mandate !== fingerprint.mandate) {
+          return Promise.resolve({ ok: false, error: 'This creation request belongs to a different Room mandate.' });
+        }
+        if (existing.fingerprint.projectId !== fingerprint.projectId || existing.fingerprint.runId !== fingerprint.runId) {
+          return Promise.resolve({ ok: false, error: 'This creation request belongs to a different project.' });
+        }
+        return existing.promise;
+      }
       const operation = create(request).finally(() => pending.delete(key));
-      pending.set(key, operation);
+      pending.set(key, { promise: operation, fingerprint });
       return operation;
     },
   };

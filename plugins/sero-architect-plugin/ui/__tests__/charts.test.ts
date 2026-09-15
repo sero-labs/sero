@@ -8,8 +8,8 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  activityBreakdown, attributableCost, breakdown, cumulativeSpend, exclusiveCost, inclusiveCost,
-  modelBreakdown, sharedCost,
+  activityBreakdown, attributableCost, breakdown, cumulativeSpend, exclusiveCost, inclusiveCost, inclusivePriced,
+  modelBreakdown, sharedCost, unattributedCost,
 } from '../lib/charts';
 import type { TraceRecord } from '../lib/trace';
 
@@ -53,9 +53,22 @@ describe('breakdowns', () => {
 
   it('totals by activity, largest first, and counts the records', () => {
     expect(activityBreakdown(records)).toEqual([
-      { activity: 'workflow', costUsd: 0.4, records: 2 },
-      { activity: 'evidence', costUsd: 0.05, records: 1 },
-      { activity: 'research', costUsd: 0, records: 1 },
+      { activity: 'workflow', costUsd: 0.4, records: 2, priced: 2 },
+      { activity: 'evidence', costUsd: 0.05, records: 1, priced: 1 },
+      { activity: 'research', costUsd: 0, records: 1, priced: 0 },
+    ]);
+  });
+
+  it('counts how many records in a bucket were priced, apart from how many there are', () => {
+    // Two records, one priced: the bucket's cost is not zero and not the whole
+    // bucket's worth of records either, so a reader needs both numbers to know
+    // whether the figure is a measurement or a lower bound.
+    const mixed = [
+      record(0, { operationKind: 'workflow', costUsd: 0.3 }),
+      record(1, { operationKind: 'workflow' }),
+    ];
+    expect(activityBreakdown(mixed)).toEqual([
+      { activity: 'workflow', costUsd: 0.3, records: 2, priced: 1 },
     ]);
   });
 
@@ -82,7 +95,7 @@ describe('breakdowns', () => {
     const filtered = breakdown(records.slice(0, 2), records.length);
     expect(filtered.filtered).toBe(true);
     // The slice total is the slice's own, not the run's.
-    expect(filtered.totals).toEqual([{ activity: 'workflow', costUsd: 0.4, records: 2 }]);
+    expect(filtered.totals).toEqual([{ activity: 'workflow', costUsd: 0.4, records: 2, priced: 2 }]);
   });
 });
 
@@ -117,6 +130,20 @@ describe('inclusive and exclusive cost', () => {
     // Terminates, and counts each of the two once.
     expect(inclusiveCost(loop[0]!, loop)).toBeCloseTo(3);
   });
+
+  it('says an operation was priced when it or a descendant reported a finite cost', () => {
+    expect(inclusivePriced(tree[0]!, tree)).toBe(true);
+    expect(inclusivePriced(tree[1]!, tree)).toBe(true);
+  });
+
+  it('says an operation was not priced when nothing under it was, so its inclusive figure is not a measurement', () => {
+    const unpriced = [
+      record(0, { operationId: 'op_root' }),
+      record(1, { operationId: 'op_child', parentOperationId: 'op_root' }),
+    ];
+    expect(inclusivePriced(unpriced[0]!, unpriced)).toBe(false);
+    expect(inclusiveCost(unpriced[0]!, unpriced)).toBe(0);
+  });
 });
 
 describe('shared and attributable cost', () => {
@@ -133,5 +160,20 @@ describe('shared and attributable cost', () => {
   it('is zero for each when there is none, so the two do not leak into each other', () => {
     expect(sharedCost([record(0, { kind: 'usage', costUsd: 1 })])).toBe(0);
     expect(attributableCost([record(0, { kind: 'shared', costUsd: 1 })])).toBe(0);
+  });
+});
+
+describe('unattributed cost', () => {
+  it('sums usage records that carry no model, so a model filter can name what it cannot attribute', () => {
+    const mixed = [
+      record(0, { kind: 'usage', model: 'openai-codex/gpt-5.6-terra', costUsd: 0.2 }),
+      record(1, { kind: 'usage', costUsd: 0.3 }),
+      record(2, { kind: 'observation', costUsd: 5 }),
+    ];
+    expect(unattributedCost(mixed)).toBeCloseTo(0.3);
+  });
+
+  it('is zero when every usage record names a model', () => {
+    expect(unattributedCost([record(0, { kind: 'usage', model: 'openai-codex/gpt-5.6-terra', costUsd: 0.2 })])).toBe(0);
   });
 });
