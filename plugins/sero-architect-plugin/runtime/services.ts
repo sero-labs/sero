@@ -242,19 +242,24 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     if (!record || !milestone || !record.workspaceId) return;
     const commit = await commitOf(host, record.folder);
     const baseCommit = milestone.dispatch?.baseCommit ?? commit;
+    const workspaceId = record.workspaceId;
     const ran: EvidenceCommand[] = [];
-    for (const command of commands) {
-      const began = Date.now();
-      const result = await host.runCommand(record.workspaceId, record.folder, command, COMMAND_TIMEOUT_MS);
-      ran.push({ command, exitCode: result.exitCode, output: [result.stdout, result.stderr].filter(Boolean).join('\n').slice(-4000), durationMs: Date.now() - began });
-    }
+    await span(record, 'evidence', milestoneId, async () => {
+      for (const command of commands) {
+        const began = Date.now();
+        const result = await host.runCommand(workspaceId, record.folder, command, COMMAND_TIMEOUT_MS);
+        ran.push({ command, exitCode: result.exitCode, output: [result.stdout, result.stderr].filter(Boolean).join('\n').slice(-4000), durationMs: Date.now() - began });
+      }
+    });
     // Keep real command results when the later preview fails. Reporting a
     // capture error as a test exit code sends the owner to repair working code.
+    const evidenceSpan = `${activeRun(record)?.id ?? ''}:evidence:${milestoneId}`;
     const preview = route && ran.every((command) => command.exitCode === 0)
-      ? await runPreview(record, milestone, route, startedAt).catch((error: unknown) => ({
-        route, smokePassed: false, capturePath: null,
-        failure: error instanceof Error ? error.message : String(error),
-      })) : null;
+      ? await span(record, 'evidence', `${milestoneId}:capture`, () => runPreview(record, milestone, route, startedAt), evidenceSpan)
+        .catch((error: unknown) => ({
+          route, smokePassed: false, capturePath: null,
+          failure: error instanceof Error ? error.message : String(error),
+        })) : null;
     const [diffSummary, fingerprint] = await Promise.all([
       diffSummaryOf(host, record.folder, baseCommit),
       worktreeFingerprint(host, record.folder),
