@@ -15,7 +15,7 @@ import type { ThinkingLevel, AgentMessage } from '@earendil-works/pi-agent-core'
 import { getModelTierThinkingLevel, isModelTier } from '@sero-ai/common';
 import { randomUUID } from 'node:crypto';
 
-import type { RunnerConfig, RunResult, SubagentUsage, SubagentToolActivity, PlatformToolPolicy } from '../core/types';
+import type { RunnerConfig, RunResult, SubagentUsage, PlatformToolPolicy } from '../core/types';
 import type { SharedInfra } from '@electron/shared/infra/shared-infra';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { createRuntimeTools } from '@electron/features/container/tools';
@@ -255,7 +255,6 @@ export async function runSubagent(
 
   // Stall timer state — hoisted above try so finally can access clearStallTimer
   let activeToolStallTimer: ReturnType<typeof setTimeout> | null = null;
-  let activeToolName: string | null = null;
   let stopReason: string | undefined;
   const usage: SubagentUsage = { ...EMPTY_USAGE };
 
@@ -264,7 +263,6 @@ export async function runSubagent(
       clearTimeout(activeToolStallTimer);
       activeToolStallTimer = null;
     }
-    activeToolName = null;
   }
 
   try {
@@ -339,7 +337,6 @@ export async function runSubagent(
     function startStallTimer(toolName: string): void {
       clearStallTimer();
       if (toolStallMs <= 0) return; // disabled
-      activeToolName = toolName;
       activeToolStallTimer = setTimeout(() => {
         const stallMsg = `Tool '${toolName}' stalled after ${Math.round(toolStallMs / 1000)}s — auto-aborting`;
         stopReason = stallMsg;
@@ -349,6 +346,17 @@ export async function runSubagent(
       }, toolStallMs);
     }
 
+    // Observation identities stay distinct: the run is the session here, a turn
+    // is one prompt and its reply, a request is one model call, and a tool call
+    // is identified by the SDK's toolCallId so two parallel calls to the same
+    // tool never merge.
+    const observe = config.onObservation
+      ? (record: import('@sero-ai/common').ObservationRecord): void => {
+          try { config.onObservation?.(record); } catch { /* observation only */ }
+        }
+      : undefined;
+    const modelId = session.model ? `${session.model.provider}/${session.model.id}` : undefined;
+
     const unsub = session.subscribe((event: Record<string, unknown>) => {
       // Forward all events to the debug log (same file as main sessions)
       logRawEvent(subagentSessionId, event);
@@ -357,7 +365,20 @@ export async function runSubagent(
         logTurnContext(subagentSessionId, session);
       }
 
-      // Tool execution events → tool activity feed + stall detection
+      // One model call. The SDK reports no first-token event, so timing is left
+      // to the caller's clock and never derived from text deltas.
+      if (event.type === 'message_start' || event.type === 'message_end') {
+        const message = event.message as Record<string, unknown> | undefined;
+        const requestId = typeof message?.id === 'string' ? message.id : undefined;
+        observe?.({
+          kind: event.type === 'message_start' ? 'request-start' : 'request-end',
+          identities: { operationId: subagentSessionId, sessionId: subagentSessionId, toolCallId: undefined, requestId },
+          startedAt: new Date().toISOString(),
+          model: modelId,
+        });
+      }
+
+      // Tool execution events → tool activity feed + stall detection + observation
       if (event.type === 'tool_execution_start') {
         const toolName = (event.toolName as string) ?? 'unknown';
         const args = event.args as Record<string, unknown> | undefined;
@@ -365,12 +386,23 @@ export async function runSubagent(
         onToolActivity?.(toolName, summary, true);
         onStatusUpdate?.(`  📂 ${toolName}: ${summary}`);
         startStallTimer(toolName);
+        observe?.({
+          kind: 'tool-start',
+          identities: { operationId: subagentSessionId, sessionId: subagentSessionId, toolCallId: typeof event.toolCallId === 'string' ? event.toolCallId : undefined },
+          startedAt: new Date().toISOString(),
+        });
       }
 
       if (event.type === 'tool_execution_end') {
         const toolName = (event.toolName as string) ?? 'unknown';
         onToolActivity?.(toolName, '', false);
         clearStallTimer();
+        observe?.({
+          kind: 'tool-end',
+          identities: { operationId: subagentSessionId, sessionId: subagentSessionId, toolCallId: typeof event.toolCallId === 'string' ? event.toolCallId : undefined },
+          endedAt: new Date().toISOString(),
+          outcome: event.isError === true ? 'failed' : 'ok',
+        });
       }
 
       // Text + reasoning deltas → live output stream. Reasoning is forwarded
@@ -417,8 +449,22 @@ export async function runSubagent(
           break; // a throwing validator never blocks the run
         }
         if (followUp == null) break;
+        // A repair pass is its own observable attempt: it costs a request and
+        // must not be folded into the first reply's timing.
+        observe?.({
+          kind: 'request-start',
+          identities: { operationId: subagentSessionId, sessionId: subagentSessionId, attemptId: `${subagentSessionId}:repair-${i + 1}` },
+          startedAt: new Date().toISOString(),
+          model: modelId,
+        });
         await session.prompt(followUp);
         response = extractResponse(session.messages);
+        observe?.({
+          kind: 'request-end',
+          identities: { operationId: subagentSessionId, sessionId: subagentSessionId, attemptId: `${subagentSessionId}:repair-${i + 1}` },
+          endedAt: new Date().toISOString(),
+          model: modelId,
+        });
       }
     }
 
@@ -456,7 +502,7 @@ export async function runSubagent(
 /**
  * Extract a short summary from tool arguments for the activity feed.
  */
-function extractToolArgsSummary(toolName: string, args?: Record<string, unknown>): string {
+function extractToolArgsSummary(_toolName: string, args?: Record<string, unknown>): string {
   if (!args) return '';
   // Return the full value, the tracker caps its length (MAX_TOOL_ARGS_CHARS) and
   // the UI truncates it to fit, showing the full command on hover.

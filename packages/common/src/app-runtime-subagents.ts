@@ -28,6 +28,12 @@ export interface AppRuntimeSubagentRunParams {
   onUpdate?: (text: string) => void;
   /** Cumulative usage for this run, reported after each model turn. */
   onUsage?: (usage: AppRuntimeSubagentUsage) => void;
+  /**
+   * Metadata-only observations for this run: queue admission, startup, model
+   * requests, tool calls, format repair and completion. A throwing observer is
+   * ignored, so telemetry can never break or replay a paid run.
+   */
+  onObservation?: (record: import('./run-observations').ObservationRecord) => void;
   platformTools?: 'all' | 'readOnly' | 'none';
   signal?: AbortSignal;
 }
@@ -36,6 +42,10 @@ export interface AppRuntimeSubagentUsage {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
+  /** Provider cache reads, when the SDK reports them. Absent means unmeasured, not zero. */
+  cacheReadTokens?: number;
+  /** Provider cache writes, when the SDK reports them. Absent means unmeasured, not zero. */
+  cacheWriteTokens?: number;
   costUsd?: number;
   /** True when the SDK could not provide a complete final usage snapshot. */
   incomplete?: boolean;

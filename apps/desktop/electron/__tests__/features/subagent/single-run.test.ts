@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ObservationRecord } from '@sero-ai/common';
 
 vi.mock('@electron/features/subagent/runtime/runner', () => ({
   runSubagent: vi.fn(),
@@ -74,7 +75,10 @@ describe('executeSingleRun result metadata', () => {
     const onUsage = vi.fn();
     mockRunSubagent.mockImplementation(async (config) => {
       config.onProgress?.({ ...USAGE, cacheReadTokens: 1000, totalTokens: 1150 });
-      expect(onUsage).toHaveBeenCalledWith({ inputTokens: 100, outputTokens: 50, totalTokens: 1150, costUsd: 0.01 });
+      expect(onUsage).toHaveBeenCalledWith({
+        inputTokens: 100, outputTokens: 50, totalTokens: 1150, costUsd: 0.01,
+        cacheReadTokens: 1000, cacheWriteTokens: 0,
+      });
       if (failure === 'throw') throw new Error('interrupted after a model turn');
       return { response: '', error: 'interrupted', usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, totalTokens: 0, cost: 0 } };
     });
@@ -96,7 +100,12 @@ describe('executeSingleRun result metadata', () => {
     expect(result.response).toBe('done');
     expect(result.modelId).toBe('claude-test-1');
     expect(result.providerId).toBe('anthropic');
-    expect(result.usage).toEqual({ inputTokens: 100, outputTokens: 50, totalTokens: 150, costUsd: 0.01 });
+    expect(result.usage).toEqual({
+      inputTokens: 100, outputTokens: 50, totalTokens: 150, costUsd: 0.01,
+      // Cache counters travel with the run, so the inspector shows a measured
+      // split instead of reporting it unavailable.
+      cacheReadTokens: 0, cacheWriteTokens: 0,
+    });
     expect(result.durationMs).toBeGreaterThanOrEqual(0);
   });
 
@@ -175,5 +184,61 @@ describe('executeSingleRun result metadata', () => {
     const result = await executeSingleRun(options({ signal: controller.signal }));
 
     expect(result.error).toBe('Aborted');
+  });
+});
+
+describe('executeSingleRun observations', () => {
+  it('observes queue admission and startup before the model runs, and completion after', async () => {
+    const records: ObservationRecord[] = [];
+    mockRunSubagent.mockResolvedValue({ response: 'done', usage: USAGE });
+    const result = await executeSingleRun(options({ onObservation: (record) => records.push(record) }));
+    expect(result.response).toBe('done');
+
+    const starts = records.filter((record) => record.kind === 'operation-start');
+    // One record for admission, one for the started run, both before any work.
+    expect(starts.length).toBeGreaterThanOrEqual(2);
+    expect(starts[0]?.identities.operationId).toBeTruthy();
+    // Startup records what was requested. The model that actually ran is only
+    // known once the session reports it, so it is recorded on the request.
+    expect(starts[1]?.model).toBeTruthy();
+    expect(starts[1]?.identities.operationId).toBe(starts[0]?.identities.operationId);
+  });
+
+  it('never lets telemetry failure change the run', async () => {
+    mockRunSubagent.mockResolvedValue({ response: 'done', usage: USAGE });
+    const result = await executeSingleRun(options({
+      onObservation: () => { throw new Error('journal is unavailable'); },
+    }));
+    expect(result.response).toBe('done');
+    expect(result.error).toBeUndefined();
+  });
+
+  it('keeps the highest cumulative cache counters when a report repeats', async () => {
+    const onUsage = vi.fn();
+    mockRunSubagent.mockImplementation(async (config) => {
+      config.onProgress?.({ ...USAGE, cacheReadTokens: 800 });
+      config.onProgress?.({ ...USAGE, cacheReadTokens: 800 });
+      config.onProgress?.({ ...USAGE, cacheReadTokens: 1200 });
+      return { response: 'done', usage: { ...USAGE, cacheReadTokens: 1200 } };
+    });
+
+    const result = await executeSingleRun(options({ onUsage }));
+    // Repeated cumulative reports must not be summed or double-counted.
+    expect(result.usage?.cacheReadTokens).toBe(1200);
+    expect(onUsage).toHaveBeenLastCalledWith(expect.objectContaining({ cacheReadTokens: 1200 }));
+  });
+
+  it('still reports usage and the model when the request fails', async () => {
+    const records: ObservationRecord[] = [];
+    mockRunSubagent.mockResolvedValue({
+      response: '', error: 'the provider returned 529', usage: USAGE, modelId: 'claude-test-1', providerId: 'anthropic',
+    });
+
+    const result = await executeSingleRun(options({ onObservation: (record) => records.push(record) }));
+    expect(result.error).toContain('529');
+    expect(result.modelId).toBe('claude-test-1');
+    expect(result.usage?.inputTokens).toBe(100);
+    // The run was still observed as started.
+    expect(records.some((record) => record.kind === 'operation-start')).toBe(true);
   });
 });
