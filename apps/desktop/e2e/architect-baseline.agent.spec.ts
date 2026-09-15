@@ -71,7 +71,7 @@ interface BaselineProjectRecord {
   decisions: { id: string; question: string; options: { id: string; label: string }[]; proposal: { kind: string; milestoneId?: string; dispatchKind?: string } | null; answer: { optionId: string } | null }[];
   milestones: { id: string; title: string; status: string; plan: string | null; dispatch: { kind: string; id: string; chargedUsd: number; failure?: string } | null; pendingDispatch?: unknown }[];
   runs?: { id: string; objective?: string; openedAt: string; closedAt?: string }[];
-  session: { turns: number; sessionPath: string | null };
+  session: { turns: number; sessionPath: string | null; model?: string | null; thinking?: string | null };
 }
 
 let homePath = '';
@@ -230,6 +230,29 @@ async function createProject(name: string, idea: string, folder: string): Promis
   return { projectId };
 }
 
+/**
+ * A minimal existing package for the project folder.
+ *
+ * `create` makes an empty folder and runs `git init`, and the Architect's
+ * research Room then has no repository or files to read, so it blocks asking the
+ * user for a workspace. A package on disk gives discovery something real.
+ */
+function seedPackageFolder(folder: string): void {
+  fs.mkdirSync(path.join(folder, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(folder, 'package.json'), `${JSON.stringify({
+    name: 'baseline-package',
+    version: '0.1.0',
+    private: true,
+    type: 'module',
+    scripts: { test: 'node --test', build: 'tsc --noEmit' },
+  }, null, 2)}\n`);
+  fs.writeFileSync(path.join(folder, 'README.md'), '# Baseline package\n\nA small TypeScript utility package.\n');
+  fs.writeFileSync(
+    path.join(folder, 'src', 'index.ts'),
+    'export function placeholder(): string {\n  return "placeholder";\n}\n',
+  );
+}
+
 interface DriveOptions {
   /** Stop once this holds. */
   until: (record: BaselineProjectRecord) => boolean;
@@ -341,6 +364,20 @@ async function capture(
   const timing = summarizeTiming(journal);
   const tokens = tokenComposition(journal);
   const provenance = provenanceOf(journal);
+
+  // The owner session is the Architect's own model, and the Architect knows it
+  // exactly: it opened the session with it. A span covers a delegated operation,
+  // which deliberately names no model, because the Orchestrator picked it from
+  // the snapshot and the Architect never saw which one ran. Without this the
+  // record would name no model at all.
+  if (record.session.model) {
+    provenance.unshift({
+      operationId: 'owner-session',
+      model: record.session.model,
+      ...(record.session.thinking ? { thinking: record.session.thinking } : {}),
+      source: 'owner session',
+    });
+  }
 
   const dispatched = record.milestones.filter((milestone) => milestone.dispatch !== null);
   const elapsedMs = elapsedOf(journal, runs);
@@ -542,6 +579,7 @@ test('objective 1 — implementation and independent review', async () => {
 
   const idea = 'A small TypeScript utility package: a slugify function that lowercases, trims, replaces runs of non-alphanumeric characters with single hyphens, and has unit tests. Keep it under 100 lines.';
   const folder = path.join(PROJECTS_ROOT, `implement-review-${Date.now()}`);
+  seedPackageFolder(folder);
   const { projectId } = await createProject('01-implement', idea, folder);
 
   // Ask for the two-part objective in the user's own words: implement it, then
@@ -585,6 +623,7 @@ test('objective 2 — collaborative planning', async () => {
 
   const idea = 'Plan a command line tool that converts CSV files to JSON with a configurable schema. The plan must cover parsing, schema validation, error reporting and the command line experience.';
   const folder = path.join(PROJECTS_ROOT, `collaborative-planning-${Date.now()}`);
+  seedPackageFolder(folder);
   const { projectId } = await createProject('03-planning', idea, folder);
 
   await drive(projectId, {

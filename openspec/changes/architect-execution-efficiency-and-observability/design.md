@@ -156,11 +156,38 @@ with their selection source, the acceptance criteria held constant, cost
 coverage, elapsed/active/worker/wait time and the run counters, and it refuses
 a synthetic record as evidence about efficiency.
 
-The live measurement itself is **not yet taken**. It needs model runs and a
-bounded spend approval, which is a user decision and not something the
-evaluation may assume. Phase 6 (tasks 6.1 to 6.5) changes owner and planner
-guidance, and this task explicitly requires the baseline first, so 6.1 must not
-start until the two records exist.
+The live measurement is **taken**. Both objectives ran against the real app on
+2026-09-15, with one owner model pinned for every turn and every delegate
+(`openai-codex/gpt-5.6-terra`, thinking `high`), under a $2 cap:
+
+| | implementation + independent review | collaborative planning |
+| --- | --- | --- |
+| attributable cost | $0.148 | $0.518 |
+| of which aggregate-only | $0.148 | $0.483 |
+| coverage | aggregate | partial |
+| elapsed | 2 min 34 s | 10 min 41 s |
+| active | 26.9 s | 15.8 s |
+| summed worker | 1.8 s | 0.9 s |
+| owner turns | 9 | 8 |
+
+Both records are `live`, so neither is an instrumentation check. Three gaps in
+them are recorded rather than smoothed over:
+
+- Per-operation model provenance is empty for every operation the Architect
+  delegated. That is deliberate: the Orchestrator resolves the model from the
+  snapshot it was sent, so the Architect never sees which one ran, and naming one
+  would be a guess. The record names the owner model instead, which the Architect
+  does know because it opened the session.
+- Request, tool-call, retry and compaction counters are zero because the run
+  journal does not yet carry session-level events. Cost and time are unaffected:
+  they come from the charge and span records, which are present.
+- Coverage is `incomplete` on both. No source reported token counters, so the
+  token composition is unknown rather than an exact zero.
+
+The planning objective is the more expensive of the two by a wide margin, and
+almost all of its cost is aggregate: the deliberation itself is delegated, so
+the Architect sees one total rather than per-call detail. That is the number
+phase 6 has to move.
 
 ### Finding for task 6.4: a read-only Room cannot verify by running the tests
 
