@@ -19,6 +19,7 @@ async function setup(recordOverrides = {}) {
     dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1', baseCommit: 'base-1' })),
     evidence: vi.fn(async () => undefined),
     recoverPending: vi.fn(),
+    restartResearch: vi.fn(),
     evidenceIsStale: vi.fn(async () => false),
     maintenance: vi.fn(async (record) => record),
   };
@@ -357,6 +358,18 @@ describe('owner actions', () => {
     expect(record?.directives[0]?.reply?.text).toBe('Kept.');
     expect(record?.milestones[0]).toMatchObject({ status: 'running', dispatch: { id: 'loop_1' } });
     expect(services.dispatch).not.toHaveBeenCalled();
+  });
+
+  it('gives a Room command access only when the owner asks for it, and never a single researcher', async () => {
+    const { actions, services } = await setup();
+    expect((await actions.execute(owner, { action: 'research', projectId: 'proj_1', question: 'Do the tests pass?', stoppingCondition: 'a verdict', needsCommands: true })).text)
+      .toContain('requires kind: room');
+    expect(services.research).not.toHaveBeenCalled();
+    expect((await actions.execute(owner, { action: 'research', projectId: 'proj_1', question: 'Do the tests pass?', stoppingCondition: 'a verdict', kind: 'room', needsCommands: true })).ok).toBe(true);
+    expect(services.research).toHaveBeenCalledWith(expect.anything(), { question: 'Do the tests pass?', stoppingCondition: 'a verdict', kind: 'room', access: 'edit-workspace' });
+    // Without the flag the request carries no access at all, so the Room reads.
+    await actions.execute(owner, { action: 'research', projectId: 'proj_1', question: 'What exists?', stoppingCondition: 'a list', kind: 'room' });
+    expect(services.research).toHaveBeenLastCalledWith(expect.anything(), { question: 'What exists?', stoppingCondition: 'a list', kind: 'room' });
   });
 
   it('runs research through the service only while work may run', async () => {

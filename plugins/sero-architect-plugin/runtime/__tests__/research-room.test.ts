@@ -62,3 +62,115 @@ describe('discovery through a Room', () => {
     expect(wake).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('what a research Room may do', () => {
+  function registry(handle: OrchestratorRoomHandle) {
+    (globalThis as Record<string, unknown>)[ORCHESTRATOR_ROOM_REGISTRY_GLOBAL_KEY] = new Map([['ws-1', { handle }]]);
+  }
+
+  it('asks for edit-workspace access and says commands are allowed when the question needs them', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    await store.write(buildingProject({ phase: 'discovery', charter: null, milestones: [] }));
+    const requests: OrchestratorRoomCreateRequest[] = [];
+    registry({ create: async (request) => { requests.push(request); return { ok: true, roomId: 'room-2' }; }, inspect: async () => ({ status: 'running', models: [], result: null }) });
+    const services = createServices({ host, store, wake: vi.fn() });
+    await services.research((await store.read('proj_1'))!, { question: 'Does the suite pass?', stoppingCondition: 'a verdict per criterion', kind: 'room', access: 'edit-workspace' });
+    await vi.waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0].limits?.access).toBe('edit-workspace');
+    // Commands are isolated even though the project itself runs in workspace mode.
+    expect(requests[0].limits?.executionMode).toBe('worktree');
+    expect(requests[0].mandate).toContain('You may run commands');
+    expect(requests[0].mandate).toContain('Do not implement the product.');
+  });
+
+  it('turns a planner question into a decision the user can answer, once, instead of blocking the project', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    await store.write(buildingProject({ phase: 'discovery', charter: null, milestones: [] }));
+    let creates = 0;
+    registry({
+      create: async () => { creates += 1; return { ok: false, error: 'The Room planner needs an answer before it can plan: May the reviewers run the tests?', questions: ['May the reviewers run the tests?'] }; },
+      inspect: async () => ({ status: 'running', models: [], result: null }),
+    });
+    const services = createServices({ host, store, wake: vi.fn() });
+    const started = await services.research((await store.read('proj_1'))!, { question: 'Does the suite pass?', stoppingCondition: 'a verdict', kind: 'room' });
+    await vi.waitFor(async () => expect((await store.read('proj_1'))?.decisions).toHaveLength(1));
+    const record = (await store.read('proj_1'))!;
+    expect(record.blockedReason).toBeNull();
+    expect(record.decisions[0]).toMatchObject({
+      question: expect.stringContaining('May the reviewers run the tests?'),
+      recommendation: 'allow-commands',
+      proposal: { kind: 'research-access', researchId: started.id },
+    });
+    expect(record.decisions[0]?.options.map((option) => option.id)).toEqual(['allow-commands', 'answer-note', 'withdraw']);
+    // The entry is still pending, and recovery does not ask the planner again while the question is open.
+    expect(record.pendingResearch?.[0]?.id).toBe(started.id);
+    createServices({ host, store, wake: vi.fn() }).recoverPending(record);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(creates).toBe(1);
+    expect((await store.read('proj_1'))?.decisions).toHaveLength(1);
+  });
+
+  it('plans on the record as it is after the wait, and keeps a restart that arrives while a start is in flight', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const decision = {
+      id: 'dec_1', question: 'The research Room asked: may it run the tests?', recommendation: 'allow-commands', reason: 'r', dependsOn: [], raisedAt: T0, answer: null,
+      options: [{ id: 'allow-commands', label: 'a', consequence: 'x' }, { id: 'withdraw', label: 'c', consequence: 'z' }],
+      proposal: { kind: 'research-access' as const, researchId: 'res_1' },
+    };
+    const entry = { id: 'res_1', kind: 'room' as const, question: 'Does the suite pass?', stoppingCondition: 'a verdict', startedAt: T0, attempts: 1 };
+    await store.write(buildingProject({ phase: 'discovery', charter: null, milestones: [], decisions: [decision], pendingResearch: [entry] }));
+    const requests: OrchestratorRoomCreateRequest[] = [];
+    // No registry yet: recovery starts, holds the entry, and waits for it.
+    const services = createServices({ host, store, wake: vi.fn() });
+    services.recoverPending((await store.read('proj_1'))!);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    // The user answers while that start is still waiting. The answer write and
+    // the restart are what the projects action does.
+    await store.update('proj_1', (fresh) => ({
+      ...fresh,
+      decisions: fresh.decisions.map((item) => ({ ...item, answer: { optionId: 'allow-commands', note: null, answeredAt: T0 } })),
+      pendingResearch: fresh.pendingResearch?.map((item) => ({ ...item, access: 'edit-workspace' as const, attempts: 0 })),
+    }));
+    services.restartResearch((await store.read('proj_1'))!, 'res_1');
+    registry({ create: async (request) => { requests.push(request); return { ok: true, roomId: 'room-4' }; }, inspect: async () => ({ status: 'running', models: [], result: null }) });
+    await vi.waitFor(async () => expect((await store.read('proj_1'))?.pendingResearch?.[0]?.roomId).toBe('room-4'));
+    // One plan, with the answered access: a stale copy of the record would have
+    // seen an open decision and planned nothing; a dropped restart likewise.
+    expect(requests).toHaveLength(1);
+    expect(requests[0].limits).toMatchObject({ access: 'edit-workspace', executionMode: 'worktree' });
+  });
+
+  it('retains the saved project selection when the user enables commands after global defaults change', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const record = buildingProject({ phase: 'discovery', charter: null, milestones: [] });
+    await store.write(record);
+    const requests: OrchestratorRoomCreateRequest[] = [];
+    registry({
+      create: async (request) => {
+        requests.push(request);
+        return requests.length === 1
+          ? { ok: false, error: 'Need commands', questions: ['May I run tests?'] }
+          : { ok: true, roomId: 'room-enabled' };
+      },
+      inspect: async () => ({ status: 'running', models: [], result: null }),
+    });
+    const services = createServices({ host, store, wake: vi.fn() });
+    const started = await services.research(record, { question: 'Does it pass?', stoppingCondition: 'A test result', kind: 'room' });
+    await vi.waitFor(async () => expect((await store.read(record.id))?.decisions).toHaveLength(1));
+    host.modelTiers = async () => ({ MED: { provider: 'other-provider', modelId: 'expensive' } });
+    await store.update(record.id, (fresh) => ({ ...fresh,
+      decisions: fresh.decisions.map((decision) => ({ ...decision, answer: { optionId: 'allow-commands', note: null, answeredAt: T0 } })),
+      pendingResearch: fresh.pendingResearch?.map((entry) => ({ ...entry, access: 'edit-workspace' as const, attempts: 0 })),
+    }));
+    services.restartResearch((await store.read(record.id))!, started.id);
+    await vi.waitFor(async () => expect((await store.read(record.id))?.pendingResearch?.[0]?.roomId).toBe('room-enabled'));
+    expect(requests).toHaveLength(2);
+    expect(requests[1].project).toEqual(requests[0].project);
+    expect(requests[1].limits).toMatchObject({ access: 'edit-workspace', executionMode: 'worktree', models: ['anthropic/claude-fable-5-1'] });
+  });
+
+});

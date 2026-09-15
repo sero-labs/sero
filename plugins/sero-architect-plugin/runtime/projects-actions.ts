@@ -27,6 +27,9 @@ import { mutateRecord } from './record-store';
 import type { RunJournal } from './run-journal';
 import { queryTrace, type TraceAnswer, type TraceQuery } from './trace-query';
 import { closeActiveRun, ensureInitialRun } from './run-lifecycle';
+import { closeDeliveredObjectives } from './objective-completion';
+import { answerResearchAccess, restartsResearch } from './research-access';
+import { applyDecisionProposal } from './decision-proposals';
 import type { WakeScheduler } from './wake-scheduler';
 import type { DispatchWatch } from './dispatch-watch';
 
@@ -90,75 +93,10 @@ function expandHome(folder: string): string {
   return folder.startsWith('~') ? path.join(os.homedir(), folder.slice(1)) : path.resolve(folder);
 }
 
-/** Applies a charter-change proposal the user accepted. Their acceptance is the approval. */
-function applyCharterProposal(record: ProjectRecord, proposal: Extract<DecisionProposal, { kind: 'charter' }>, now: string): ProjectRecord {
-  const existing = new Map(record.milestones.map((milestone) => [milestone.id, milestone]));
-  const proposed = proposal.milestones.map((milestone) => {
-    const current = existing.get(milestone.id);
-    if (!current) return milestone;
-    return {
-      ...milestone,
-      status: current.status,
-      dispatch: current.dispatch,
-      pendingDispatch: current.pendingDispatch,
-      evidence: current.evidence,
-      verification: current.verification,
-      parkedBy: current.parkedBy,
-      parkedFrom: current.parkedFrom,
-      parkedByDecisions: current.parkedByDecisions,
-      receipt: current.receipt,
-    };
-  });
-  const proposedIds = new Set(proposed.map((milestone) => milestone.id));
-  const retained = record.milestones.filter((milestone) =>
-    !proposedIds.has(milestone.id) && (milestone.dispatch !== null || milestone.pendingDispatch !== undefined || milestone.status === 'running' || milestone.status === 'verifying' || milestone.status === 'done'),
-  );
-  const milestones = [...proposed, ...retained];
-  const charter = { ...proposal.charter, milestoneIds: milestones.map((milestone) => milestone.id), approvedAt: now };
-
-  return {
-    ...record,
-    charter,
-    milestones,
-    autonomy: charter.autonomy,
-    budget: { ...record.budget, capUsd: charter.capUsd },
-  };
-}
 
 export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsActions {
   const { host, store, sessions, scheduler, watch, services } = deps;
 
-  /**
-   * What the user's `apply` means for each forced escalation. Nothing here runs
-   * on `keep`. It runs after the answer is written, never inside the store's
-   * write queue, because a dispatch calls out to the Orchestrator and then
-   * writes the link itself.
-   */
-  const applyProposal = async (record: ProjectRecord, proposal: DecisionProposal, now: string): Promise<ProjectRecord> => {
-    switch (proposal.kind) {
-      case 'charter':
-        return (await store.update(record.id, (fresh) => settle(applyCharterProposal(fresh, proposal, now), now))) ?? record;
-      case 'cap':
-        return (await store.update(record.id, (fresh) => {
-          const raised = setCap(fresh, proposal.capUsd, now);
-          return raised.ok ? raised.record : null;
-        })) ?? record;
-      case 'dispatch': {
-        const current = await store.read(record.id);
-        if (!current) throw new Error(`No project ${record.id}.`);
-        if (!mayDispatch(current)) throw new Error(current.overlay ? `The project is ${current.overlay}; no new dispatch may start.` : `The project is in ${current.phase}; no dispatch may start.`);
-        const milestone = current.milestones.find((m) => m.id === proposal.milestoneId);
-        if (!milestone || milestone.status === 'parked' || milestone.status === 'running' || milestone.status === 'verifying' || milestone.status === 'done') {
-          throw new Error(`Milestone ${proposal.milestoneId} is not available for dispatch.`);
-        }
-        if (milestone.status === 'planned' && current.autonomy === 'milestones') throw new Error(`Milestone ${milestone.id} still needs plan approval.`);
-        const { record: dispatched } = await performDispatch(store, services, current, milestone, {
-          kind: proposal.dispatchKind, prompt: proposal.prompt, destination: proposal.destination as DispatchDestination, maxCostUsd: null,
-        }, now);
-        return dispatched;
-      }
-    }
-  };
 
   /**
    * Intake, re-entrant: does whatever the record still lacks (workspace, grant,
@@ -436,13 +374,16 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
               : { ...m, status: m.parkedFrom ?? 'planned', parkedBy: null, parkedByDecisions: [], parkedFrom: null };
           }),
         }, now);
+        // The research effect lands in this same write, so a crash between
+        // the answer and its effect cannot leave the entry pending and unanswerable.
+        if (decision.proposal?.kind === 'research-access') next = closeDeliveredObjectives(settle(answerResearchAccess(next, decision.proposal.researchId, optionId), now), now);
         next = { ...next, history: [...next.history, { at: now, phase: next.phase, overlay: next.overlay, cause: `decision ${decisionId} answered: ${optionId}` }] };
         return { record: next };
       });
       if (!answered.ok) return refuse(answered.error);
       if (proposal && optionId === 'apply') {
         try {
-          await applyProposal(answered.record, proposal, now);
+          await applyDecisionProposal({ store, services }, answered.record, proposal, now);
         } catch (error) {
           const reason = error instanceof Error ? error.message : String(error);
           await store.update(projectId, (fresh) => {
@@ -458,6 +399,10 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
           return refuse(`Decision ${decisionId} was not applied: ${reason}. It remains open so the user can retry.`);
         }
       }
+      // Read back from the record: the closure above assigns `proposal` and
+      // control-flow typing does not follow it.
+      const applied = answered.record.decisions.find((decision) => decision.id === decisionId)?.proposal ?? null;
+      if (applied?.kind === 'research-access' && restartsResearch(optionId)) services.restartResearch(answered.record, applied.researchId);
       scheduler.request(projectId, { kind: 'decision', at: now, items: [`the user answered decision ${decisionId} with "${optionId}"${note?.trim() ? ' and left a note' : ''}`] });
       return ok(`Decision ${decisionId} answered with "${optionId}".`);
     },
