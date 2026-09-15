@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import type { WakeEvent } from '../../shared/wake';
+import { openRun } from '../../shared/runs';
 import { createDispatchWatch, loopRunsIndexFile, orchestratorIndexFiles } from '../dispatch-watch';
 import { createOwnerActions, type OwnerServices } from '../owner-actions';
+import { createRunJournal, type JournalRecord } from '../run-journal';
 import { createTurnOutcomes } from '../turn-outcomes';
 import { buildingProject, cleanupHosts, fakeHost, milestone, storeFor, T0 } from './helpers';
 
@@ -152,6 +156,35 @@ describe('dispatch watch', () => {
     await settle();
     expect((await store.read('proj_1'))?.budget.sources.dispatched).toBe(5);
     expect(wakes.map((w) => w.kind)).toEqual(['dispatch-blocked']);
+  });
+
+  it('journals the delegated total as aggregate coverage next to the budget charge', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const homeDir = await host.homeDir();
+    const journal = createRunJournal({ homeDir });
+    const opened = openRun(buildingProject({ milestones: [running('workflow', 'loop_1')] }), { id: 'run-1', kind: 'initial' }, T0);
+    if (!opened.ok) throw new Error(opened.error);
+    await store.write(opened.record);
+    host.jsonFiles[files.loops] = { version: 1, loops: [{ id: 'loop_1', title: 'Grid', status: 'active', updatedAt: T0 }] };
+    host.jsonFiles[files.rooms] = { schemaVersion: 1, rooms: [] };
+
+    const watch = createDispatchWatch({ host, store, wake: () => undefined, journal });
+    await watch.track(opened.record);
+    host.emitState(files.loops, { version: 1, loops: [{ id: 'loop_1', title: 'Grid', status: 'active', updatedAt: T0, usage: { costUsd: 2 } }] });
+    await watch.flush();
+
+    // The budget took the delegated total...
+    expect((await store.read('proj_1'))?.budget.sources.dispatched).toBeCloseTo(2);
+    // ...and the trace holds the same figure, labelled as a total without call
+    // detail rather than as a measured per-call amount.
+    const lines = fs.readFileSync(path.join(homeDir, 'runs', 'proj_1', 'run-1.journal.ndjson'), 'utf8')
+      .split('\n').filter(Boolean).map((line) => JSON.parse(line) as JournalRecord);
+    const usage = lines.filter((line) => line.kind === 'usage');
+    expect(usage).toHaveLength(1);
+    expect(usage[0]?.costUsd).toBeCloseTo(2);
+    expect(usage[0]?.coverage).toBe('aggregate');
+    expect(usage[0]?.source).toBe('dispatch:workflow:loop_1');
   });
 
   it('holds running work when restart cannot confirm its dispatch record', async () => {

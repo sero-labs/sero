@@ -24,7 +24,7 @@ interface UsageDeps {
  * total, is written: summing the journal reproduces exactly what was charged,
  * and a replayed report adds nothing.
  */
-async function recordCharge(
+export async function recordCharge(
   deps: { host: Pick<ArchitectHost, 'now'>; journal?: RunJournal },
   record: ProjectRecord,
   source: string,

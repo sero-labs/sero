@@ -75,6 +75,7 @@ export class ArchitectRuntime implements AppRuntime {
       host: this.host,
       store,
       wake,
+      journal,
       openMaintenanceRun: async (projectId, objectiveId) => {
         await openMaintenanceRun({ store, journal }, projectId, { objectiveId }, this.host.now(), `run-${objectiveId}`);
       },

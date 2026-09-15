@@ -18,7 +18,9 @@ import type { Milestone, ProjectRecord } from '../shared/record';
 import type { WakeEvent, WakeKind } from '../shared/wake';
 import { applyDelivery, isAccepted } from './delivery';
 import type { ArchitectHost } from './host';
+import { recordCharge } from './project-usage';
 import type { RecordStore } from './record-store';
+import type { RunJournal } from './run-journal';
 import { applyRunHealth } from './run-health';
 import { observeResearchRooms } from './research-room';
 import { observeResearchWorkflows } from './research-workflow';
@@ -65,6 +67,11 @@ export interface DispatchWatchDeps {
    * Absent in tests and in hosts without the run journal.
    */
   openMaintenanceRun?(projectId: string, objectiveId: string): Promise<void>;
+  /**
+   * The run journal. A delegated Workflow or Room reports one cumulative total,
+   * so this is where the largest charge in a project enters the trace.
+   */
+  journal?: RunJournal;
 }
 
 export interface DispatchWatch {
@@ -189,9 +196,17 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
   const apply = async (projectId: string, loops: LoopView[] | null, rooms: RoomView[] | null): Promise<void> => {
     const now = host.now();
     const wakes: Transition[] = [];
+    /**
+     * Deltas to journal once the record is committed.
+     *
+     * The store updater can run more than once, so nothing here may write until
+     * the figure it reports is the committed one.
+     */
+    const charges: { source: string; delta: number }[] = [];
     if (rooms) await observeResearchRooms(deps, projectId, rooms);
     if (loops) await observeResearchWorkflows(deps, projectId, loops);
     await store.update(projectId, (record) => {
+      charges.length = 0;
       let next = record;
       const workspacePath = workspacePaths.get(projectId);
       for (const milestone of record.milestones) {
@@ -229,6 +244,7 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
         if (delta > 0) {
           updated = { ...updated, dispatch: { ...updated.dispatch!, chargedUsd: costUsd } };
           next = charge(next, 'dispatched', delta, now);
+          charges.push({ source: `dispatch:${dispatch.kind}:${dispatch.id}`, delta });
         }
         if (transition?.reported && updated.status === 'running') {
           updated = { ...updated, status: 'verifying', verification: 'reported' };
@@ -258,6 +274,16 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
       }
       return next === record ? null : settle(next, now);
     });
+    // A delegated run reports one total, not per-call detail, so it enters the
+    // trace as aggregate coverage and stays identifiable as such.
+    if (charges.length > 0 && deps.journal) {
+      const committed = await store.read(projectId);
+      if (committed) {
+        for (const entry of charges) {
+          await recordCharge({ host, journal: deps.journal }, committed, entry.source, entry.delta, 'aggregate');
+        }
+      }
+    }
     for (const transition of wakes) {
       // An event that starts triage opens its objective's run before the owner's
       // first model call, so the wake and everything it causes stay attributable.
