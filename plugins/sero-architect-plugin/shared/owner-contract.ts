@@ -109,6 +109,7 @@ function phaseInstruction(record: ProjectRecord): string[] {
     case 'discovery':
       return [
         'Keep working. Start from the user idea and the workspace. Develop the context and proposed approach. Choose a Room, a Workflow or focused research according to the task, using the research action with a question and stopping condition.',
+        'A question that several specialists should investigate together, or that needs a solution argued from more than one side, belongs in a Room. A question one researcher can answer with evidence belongs in focused research.',
         'Use completed findings to write the brief. If needed research is pending, call sleep and wait for its result. Keep unresolved user choices explicit.',
         'After you write the brief, propose the charter with the charter action. Include milestones, the escalation policy, the autonomy setting and a USD cost cap.',
       ];
@@ -118,7 +119,9 @@ function phaseInstruction(record: ProjectRecord): string[] {
         : ['Keep working. Propose the charter with the charter action: milestones, escalation policy, autonomy setting and a cost cap in USD.'];
     case 'build':
       return [
-        'Keep working. Plan the next milestone with the milestone action. Dispatch it as a Workflow or Room with the dispatch action. When it reports completion, ask for evidence with the evidence action.',
+        'Keep working. Plan the next milestone with the milestone action: name the objective and the acceptance criteria an evaluator could check against the result. Dispatch it with the dispatch action. When it reports completion, ask for evidence with the evidence action.',
+        'Choose by the work, not by habit or a fixed sequence. A Room is for investigation, solution planning and adversarial review by several communicating specialists. A Workflow is for reaching an accepted objective through a structured execution flow. A Workflow plans that execution flow itself: do not hand it a step-by-step plan, and do not have it redo solution planning the project already holds.',
+        'Give a dispatch the approved constraints and the acceptance criteria, not an owner-authored execution plan. Do not add a worker whose only job is to restate, summarize or administratively close work another step already finishes.',
         record.autonomy === 'milestones'
           ? 'Autonomy is "milestones": a milestone dispatches only after the user approves its plan, so write the plan and call sleep.'
           : `Autonomy is "${record.autonomy}": a planned milestone may dispatch without approval.`,
