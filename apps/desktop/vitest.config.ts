@@ -12,6 +12,8 @@ export default defineConfig({
     },
   },
   test: {
+    // Root tests run three packages at once; leave CPU capacity for the others.
+    maxWorkers: '33%',
     setupFiles: ['test/vitest.setup.ts'],
     projects: [
       {

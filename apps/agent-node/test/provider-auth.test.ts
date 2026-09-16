@@ -8,7 +8,9 @@ import { temporaryState } from "./helpers.ts";
 describe("provider credential persistence", () => {
   test("stores API keys in Pi auth.json and resolves them after restart", async () => {
     const temp = await temporaryState();
+    const inheritedKeys = Object.entries(process.env).filter(([key]) => key.startsWith("ANTHROPIC") && key.endsWith("_API_KEY"));
     try {
+      for (const [key] of inheritedKeys) delete process.env[key];
       const paths = await ensureState(temp.root);
       const first = new ProviderAuth(paths, new EventHub(), ["anthropic"]);
       await first.setApiKey("anthropic", "restart-secret");
@@ -23,6 +25,9 @@ describe("provider credential persistence", () => {
       });
       await restarted.removeApiKey("anthropic");
       expect(JSON.parse(await readFile(`${paths.root}/auth.json`, "utf8"))).toEqual({});
-    } finally { await temp.cleanup(); }
+    } finally {
+      for (const [key, value] of inheritedKeys) process.env[key] = value;
+      await temp.cleanup();
+    }
   });
 });

@@ -4,6 +4,8 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   plugins: [react()],
   test: {
+    // Root tests run three packages at once; leave CPU capacity for the others.
+    maxWorkers: '33%',
     // `ui/lib` holds pure helpers with no DOM dependency, so they run under the
     // same node environment as everything else.
     include: [

@@ -13,7 +13,7 @@
     "styleguide": "pnpm --filter @sero/styleguide dev",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
-    "test": "turbo run test",
+    "test": "turbo run test --concurrency=3",
     "test:advisory": "node scripts/test-advisory.mjs",
     "test:agent-node-evidence": "node --test scripts/__tests__/validate-agent-node-evidence.test.mjs",
     "check:repository-layout": "node scripts/check-repository-layout.mjs",

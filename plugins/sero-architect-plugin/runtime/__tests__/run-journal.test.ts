@@ -115,10 +115,14 @@ describe('run journal', () => {
   });
 
   it('reads bounded pages and never returns more records than asked for', async () => {
-    const { journal } = await harness();
-    for (let index = 0; index < 700; index += 1) {
-      await journal.append('proj', 'run-1', { kind: 'observation', at: `T${index}`, key: `span-${index}` });
-    }
+    const { homeDir, journal } = await harness();
+    // Append behavior is covered above. Seed the read fixture in one write.
+    const records: JournalRecord[] = Array.from({ length: 700 }, (_, index) => ({
+      v: 1, seq: index + 1, kind: 'observation', at: `T${index}`, key: `span-${index}`,
+    }));
+    const projectDir = path.join(homeDir, 'runs', 'proj');
+    await mkdir(projectDir, { recursive: true });
+    await writeFile(path.join(projectDir, 'run-1.journal.ndjson'), records.map((record) => JSON.stringify(record)).join('\n') + '\n');
     const first = await journal.readPage('proj', 'run-1', { limit: 50 });
     expect(first.records).toHaveLength(50);
     expect(first.nextAfterSeq).toBe(50);

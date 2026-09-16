@@ -5,6 +5,7 @@ import { SessionStore } from "../src/sessions.ts";
 import { ensureState } from "../src/state.ts";
 import { DeferredRunner, runnerFactory, temporaryState, awaitTurnEnd } from "./helpers.ts";
 import { ProviderAuthRequiredError } from "../src/pi-host.ts";
+import type { TaskTransition } from "../src/types.ts";
 
 describe("persistent sessions and tasks", () => {
   test("persists thinking level and applies changes to the active runner", async () => {
@@ -274,6 +275,35 @@ describe("persistent sessions and tasks", () => {
       runners.get(session.id)?.release?.("done");
       while ((await store.getTask(task.taskId))?.status !== "completed") await Bun.sleep(1);
     } finally { await temp.cleanup(); }
+  });
+
+  test.each(["once", "task", "session"] as const)("accepts an immediate approval response with %s scope", async (scope) => {
+    const temp = await temporaryState(); const runners = new Map<string, DeferredRunner>();
+    const paths = await ensureState(temp.root);
+    const events = new EventHub();
+    const store = new SessionStore(paths, events, runnerFactory(runners));
+    const session = await store.create({ model: "test/model", workspace: "immediate-approval" });
+    let unsubscribe = () => {};
+    try {
+      const task = await store.send(session.id, "run", "controller");
+      const response = new Promise<TaskTransition>((resolve) => {
+        unsubscribe = events.subscribe(`task:${task.taskId}`, (event) => {
+          const transition = event.data as TaskTransition;
+          if (transition.status === "input-required" && transition.input) {
+            resolve(store.respondApproval(session.id, transition.input.approvalId, true, scope));
+          }
+        });
+      });
+      const decision = runners.get(session.id)!.hooks!.approve("bash", { command: "one" });
+      expect((await response).status).toBe("working");
+      expect(await decision).toBe(true);
+      runners.get(session.id)!.release!("done");
+      await awaitTurnEnd(store, session.id);
+    } finally {
+      unsubscribe();
+      await store.cancelByContext(session.id);
+      await temp.cleanup();
+    }
   });
 
   test("can approve the remaining tool calls in one task", async () => {
