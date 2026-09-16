@@ -13,7 +13,7 @@ import type {
   VerificationState,
 } from '../../shared/record';
 import { openDecisions } from '../../shared/record';
-import type { PillTone } from './format';
+import { shortTime, type PillTone } from './format';
 
 export type NeedsYouItem =
   | { kind: 'decision'; decision: Decision }
@@ -82,11 +82,22 @@ const TONE: Record<MilestoneStatus, PillTone> = {
   parked: 'warn',
 };
 
+/** The maintenance milestone is a standing subscription: running means watching, not executing. */
+function isSubscription(milestone: Milestone): boolean {
+  return milestone.id === 'maintenance' && milestone.status === 'running' && !milestone.dispatch?.failure;
+}
+
 function subLine(milestone: Milestone, record: ProjectRecord): string | null {
   if (milestone.dispatch?.failure) return milestone.dispatch.failure;
   if (milestone.status === 'parked' && milestone.parkedBy) {
     const decision = record.decisions.find((d) => d.id === milestone.parkedBy);
     return decision ? `Waiting for your answer: ${decision.question}` : 'Waiting for your answer';
+  }
+  if (isSubscription(milestone)) {
+    // One item, the nearest fact: the next fire when the schedule is known, else the last run.
+    if (milestone.dispatch?.nextRunAt) return `Next run ${shortTime(milestone.dispatch.nextRunAt)}`;
+    if (milestone.dispatch?.lastRunAt) return `Last run ${shortTime(milestone.dispatch.lastRunAt)}`;
+    return null;
   }
   if (milestone.status === 'running' && milestone.dispatch) {
     const where = milestone.dispatch.destination ? ` · delivers to ${milestone.dispatch.destination}` : '';
@@ -102,7 +113,7 @@ export function railRows(record: ProjectRecord): RailRow[] {
   return record.milestones.map((milestone) => ({
     milestone,
     dot: DOT[milestone.status],
-    label: milestone.dispatch?.failure ? 'interrupted' : milestone.status === 'done' ? 'accepted' : milestone.status,
+    label: milestone.dispatch?.failure ? 'interrupted' : milestone.status === 'done' ? 'accepted' : isSubscription(milestone) ? 'watching' : milestone.status,
     tone: milestone.dispatch?.failure ? 'warn' : TONE[milestone.status],
     sub: subLine(milestone, record),
     ladder: ladderLevel(milestone.verification),

@@ -66,6 +66,9 @@ export interface MilestoneDispatch {
   retryStepId?: string;
   /** The Workflow stopped at this total dollar cap. A new cap needs user approval. */
   costLimitUsd?: number;
+  /** For a standing subscription such as maintenance: when it last ran and when its schedule fires next. */
+  lastRunAt?: string;
+  nextRunAt?: string;
 }
 
 export interface PendingMilestoneDispatch {
