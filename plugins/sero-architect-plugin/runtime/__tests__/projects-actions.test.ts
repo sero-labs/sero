@@ -521,7 +521,9 @@ describe('project management', () => {
     const hanging = new Promise<void>((resolve) => { releaseTurn = resolve; });
     host.sessions.onTurn = async () => { await hanging; };
     scheduler.request('proj_1', { kind: 'quiet', at: T0, items: ['first wake'] });
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    // Wait for the prompt, not a wall-clock guess, so the stop always lands
+    // after the turn is genuinely in flight.
+    await vi.waitFor(() => expect(host.sessions.prompts).toHaveLength(1));
     expect(scheduler.isRunning('proj_1')).toBe(true);
 
     expect((await live.stop('proj_1')).ok).toBe(true);

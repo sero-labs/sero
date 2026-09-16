@@ -126,6 +126,12 @@ export class OwnerSessions {
    * instead, or the wake scheduler stays busy for ever.
    */
   private readonly waiting = new Map<string, (status: OwnerTurnResult['status']) => void>();
+  /**
+   * Bumped on every dispose. A turn captures the value when it starts and ends
+   * as aborted if it changed, so a stop that lands while the turn is still
+   * opening its session is not lost before the waiter exists.
+   */
+  private readonly disposals = new Map<string, number>();
 
   constructor(private readonly deps: OwnerSessionDeps) {}
 
@@ -215,7 +221,17 @@ export class OwnerSessions {
       return { record: held ?? record, status: 'error', declared: null };
     }
     const api = this.api();
+    const disposal = this.disposals.get(record.id) ?? 0;
+    const stopRequested = (): boolean => (this.disposals.get(record.id) ?? 0) !== disposal;
     const { handleId, record: opened } = await this.ensureOpen(record);
+    // The wait is registered before the session is ready. Disposing the session
+    // removes the host's watchers, so a stop during preparation would otherwise
+    // leave the turn waiting for a `turn_end` that never arrives.
+    let resolveEnd: (status: OwnerTurnResult['status']) => void = () => undefined;
+    const closedEarly = new Promise<OwnerTurnResult['status']>((resolve) => {
+      resolveEnd = resolve;
+      this.waiting.set(opened.id, resolve);
+    });
     const modelTiers = await this.deps.host.modelTiers();
     const latest = await this.deps.store.update(opened.id, (fresh) => ({ ...fresh, modelTiers }));
     // Opening a session and resolving model tiers can outlast a new directive or dispatch update.
@@ -224,7 +240,6 @@ export class OwnerSessions {
     const contract = buildOwnerContract(latest ?? opened, wake);
     this.deps.outcomes.begin(opened.id);
 
-    let resolveEnd: (status: OwnerTurnResult['status']) => void = () => undefined;
     const ended = new Map<string, OwnerTurnResult['status']>();
     const failures = new Map<string, string>();
     let watching: string | null = null;
@@ -272,13 +287,11 @@ export class OwnerSessions {
         session: { ...fresh.session, workingSince: this.deps.host.now() },
       }));
       const turn = async (): Promise<OwnerTurnResult['status']> => {
+        if (stopRequested()) return 'aborted';
         const { turnId } = await api.prompt(handleId, contract);
-        if (finished) return 'aborted';
+        if (finished || stopRequested()) return 'aborted';
         watching = turnId;
-        const result = ended.get(turnId) ?? (await new Promise<OwnerTurnResult['status']>((resolve) => {
-          resolveEnd = resolve;
-          this.waiting.set(opened.id, resolve);
-        }));
+        const result = ended.get(turnId) ?? (await closedEarly);
         failure = failures.get(turnId) ?? failure;
         return result;
       };
@@ -324,6 +337,7 @@ export class OwnerSessions {
   async dispose(projectId: string): Promise<void> {
     // End any turn still waiting first: the host stops delivering events to a
     // disposed handle, so nothing else would ever release the wait.
+    this.disposals.set(projectId, (this.disposals.get(projectId) ?? 0) + 1);
     const waiter = this.waiting.get(projectId);
     if (waiter) {
       this.waiting.delete(projectId);
