@@ -17,6 +17,7 @@ const record = (seq: number, overrides: Partial<TraceRecord> = {}): TraceRecord 
 });
 
 const page = (records: TraceRecord[], overrides: Partial<TracePage> = {}): TracePage => ({
+  recorded: true,
   summary: {
     attributableUsd: 0.1, aggregateUsd: 0, hasAggregate: false, incomplete: false,
     requests: 1, toolCalls: 0, retries: 0, compactions: 0, errors: 0,
@@ -38,6 +39,15 @@ const input = (overrides: Partial<RunStateInput> = {}): RunStateInput => ({
   range: null,
   visibleRecords: 1,
   ...overrides,
+});
+
+describe('a view with no journal', () => {
+  it('is nothing recorded even while its run is open', () => {
+    const state = describeRunState(input({ page: page([], { recorded: false }), runOpen: true }));
+    expect(state.state).toBe('empty');
+    expect(state.label).toBe('Nothing recorded');
+    expect(state.detail).toContain('before run tracing existed');
+  });
 });
 
 describe('the state a view is in', () => {

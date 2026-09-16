@@ -1,8 +1,14 @@
 import type { TracePage } from '../lib/trace';
 import { ms, usd } from '../lib/inspector-format';
+import { NOTHING_RECORDED } from '../lib/run-state';
 
-export function InspectorSummary({ page, shared }: { page: TracePage | null; shared: number }) {
+export function InspectorSummary({ page, shared, withDetail }: { page: TracePage | null; shared: number; withDetail: boolean }) {
   const summary = page?.summary;
+  // A view with no journal shows its reason, not a row of zeros that reads as
+  // a run that cost nothing and did nothing.
+  if (page && !page.recorded) {
+    return <p className="ar-run-state" data-state="empty" role="status"><b>Nothing recorded</b> <span>{NOTHING_RECORDED}</span></p>;
+  }
   return <>
       <div className="ar-inspector-tiles">
         <CostTile summary={summary} shared={shared} />
@@ -24,6 +30,9 @@ export function InspectorSummary({ page, shared }: { page: TracePage | null; sha
         <p className="ar-why" role="status">
           This view is incomplete. Some usage, timing or history was not reported, so a total here is a lower bound.
         </p>
+      )}
+      {!withDetail && (
+        <p className="ar-why">The totals above cover the whole view. Load the activity to see the individual operations and their timings.</p>
       )}
 
   </>;

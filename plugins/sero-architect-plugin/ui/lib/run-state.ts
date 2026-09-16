@@ -14,6 +14,9 @@
 import type { TracePage } from './trace';
 import type { TimeRange } from './timeline';
 
+/** Why a view has no trace at all, in the words every surface uses. */
+export const NOTHING_RECORDED = 'No trace was recorded for this view. Its work ran before run tracing existed, or nothing has run yet.';
+
 export type RunState =
   | 'loading'
   | 'empty'
@@ -54,6 +57,12 @@ export function describeRunState(input: RunStateInput): RunStateDescription {
 
   if (input.loading && !input.answered) {
     return { state: 'loading', label: 'Loading', detail: 'Reading this view from the runtime.' };
+  }
+
+  // No journal exists for this view. The runtime said so, rather than the
+  // page happening to be empty, so an open run is no exception.
+  if (page && !page.recorded) {
+    return { state: 'empty', label: 'Nothing recorded', detail: NOTHING_RECORDED };
   }
 
   // Nothing was ever reported. That is not the same as reported as zero.

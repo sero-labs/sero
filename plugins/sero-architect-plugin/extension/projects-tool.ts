@@ -178,6 +178,7 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
       const details: Record<string, unknown> = {
         projectId: answer.projectId,
         journalId: answer.journalId,
+        recorded: answer.recorded,
         summary: answer.summary,
         timing: answer.timing,
         tokens: answer.tokens,

@@ -38,6 +38,7 @@ const record = (seq: number, overrides: Partial<TraceRecord> = {}): TraceRecord 
 });
 
 const page = (records: TraceRecord[], overrides: Partial<TracePage> = {}): TracePage => ({
+  recorded: true,
   summary: {
     attributableUsd: 0.4, aggregateUsd: 0.1, hasAggregate: true, incomplete: false,
     requests: 3, toolCalls: 2, retries: 0, compactions: 0, errors: 0,
@@ -148,6 +149,19 @@ describe('opening the inspector', () => {
     act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace })} onBack={vi.fn()} />));
     await flush();
     expect(container.textContent).toContain('lower bound');
+  });
+
+  it('says nothing was recorded, instead of zeros, when the view has no journal', async () => {
+    const trace = vi.fn(async (_id: string, _query: TraceRequest) => ({
+      ok: true, text: 'done',
+      page: { ...page([]), recorded: false },
+    } as TraceOutcome));
+    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace })} onBack={vi.fn()} />));
+    await flush();
+    expect(container.textContent).toContain('No trace was recorded for this view');
+    expect(container.textContent).not.toContain('$0.0000');
+    expect(container.textContent).not.toContain('differs from project spend');
+    expect(container.textContent).not.toContain('The totals above');
   });
 });
 

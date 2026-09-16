@@ -60,6 +60,8 @@ export interface TraceTokensView {
 }
 
 export interface TracePage {
+  /** False when the runtime found no journal for this view: nothing was ever written. */
+  recorded: boolean;
   summary: TraceSummaryView;
   timing: TraceTimingView;
   tokens: TraceTokensView;
@@ -119,6 +121,9 @@ export function readTracePage(result: AppToolResult): TracePage | null {
     : [];
 
   return {
+    // Only an explicit "no" means nothing was recorded. An older runtime that
+    // does not say is trusted to have a journal behind its numbers.
+    recorded: details.recorded !== false,
     summary: {
       attributableUsd: num(summaryRaw.attributableUsd),
       aggregateUsd: num(summaryRaw.aggregateUsd),
