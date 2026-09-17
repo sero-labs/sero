@@ -333,6 +333,13 @@ describe('dispatch watch', () => {
     await settle();
     const dispatch = (await store.read('proj_1'))?.milestones[0]?.dispatch;
     expect(dispatch).toMatchObject({ lastRunAt: '2026-09-14T19:46:17.412Z', nextRunAt: '2026-09-21T08:00:00.000Z' });
+    host.emitState(files.loops, { version: 1, loops: [{
+      id: 'loop_m', title: 'maintenance', status: 'active', updatedAt: T0, lastRunAt: '2026-09-14T19:46:17.412Z', schedules: [],
+    }] });
+    await settle();
+    const unscheduled = (await store.read('proj_1'))?.milestones[0]?.dispatch;
+    expect(unscheduled?.nextRunAt).toBeUndefined();
+    expect(unscheduled?.lastRunAt).toBe('2026-09-14T19:46:17.412Z');
   });
 
   it('takes the limited overlay when dispatched usage reaches the cap, without touching the phase', async () => {

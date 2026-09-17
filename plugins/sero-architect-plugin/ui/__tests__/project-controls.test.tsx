@@ -19,6 +19,7 @@ vi.mock('@sero-ai/ui', async () => {
   const actual = await vi.importActual<typeof import('@sero-ai/ui')>('@sero-ai/ui');
   return {
     RadioGroup: actual.RadioGroup,
+    Switch: actual.Switch,
     RadioGroupItem: actual.RadioGroupItem,
     Collapsible: actual.Collapsible,
     CollapsibleTrigger: actual.CollapsibleTrigger,
@@ -280,13 +281,11 @@ describe('creating a project', () => {
     const onCreate = vi.fn(async () => ({ ok: true, text: 'created', projectId: 'hollow-depths' }));
     act(() => root.render(<IntakeDialog open onClose={onClose} onCreate={onCreate} defaultFolder="~/Projects/x" />));
 
-    // Styled radios, not native inputs: the group renders role=radio buttons.
-    expect(container.querySelector('input[type="radio"]:not([aria-hidden="true"])')).toBeNull();
-    const radios = container.querySelectorAll<HTMLButtonElement>('[role="radio"]');
-    expect(radios).toHaveLength(2);
-    expect(radios[0].getAttribute('aria-checked')).toBe('true');
-    if (executionMode === 'worktree') act(() => radios[1].click());
-    expect(radios[1].getAttribute('aria-checked')).toBe(executionMode === 'worktree' ? 'true' : 'false');
+    const toggle = container.querySelector<HTMLButtonElement>('[role="switch"]');
+    if (!toggle) throw new Error('no worktree switch');
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    if (executionMode === 'worktree') act(() => toggle.click());
+    expect(toggle.getAttribute('aria-checked')).toBe(executionMode === 'worktree' ? 'true' : 'false');
     expect(container.textContent).not.toContain('Work directly in the project folder');
     const idea = container.querySelector<HTMLTextAreaElement>('#ar-idea');
     if (!idea) throw new Error('no idea field');

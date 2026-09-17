@@ -260,7 +260,7 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
         if (loop && milestone.id === 'maintenance') {
           const stamps = subscriptionStamps(loop);
           if (stamps.lastRunAt !== updated.dispatch?.lastRunAt || stamps.nextRunAt !== updated.dispatch?.nextRunAt) {
-            updated = { ...updated, dispatch: { ...updated.dispatch!, ...stamps } };
+            updated = { ...updated, dispatch: { ...updated.dispatch!, lastRunAt: stamps.lastRunAt, nextRunAt: stamps.nextRunAt } };
           }
         }
         if (room?.deliveryRef && updated.receipt !== room.deliveryRef) {

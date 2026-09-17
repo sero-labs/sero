@@ -64,7 +64,7 @@ describe('the architect tools', () => {
       } as unknown as ArchitectRegistryEntry['projects'],
     };
     registerArchitectRuntime(registered);
-    const models = [{ tier: 'MED', model: 'anthropic/claude-fable-5-1', thinking: 'low' }];
+    const models = [{ tier: 'MED' as const, model: 'anthropic/claude-fable-5-1', thinking: 'low' as const }];
     await executeProjectsTool({ action: 'create', idea: 'x', folder: '~/p', models }, ctxFor('/s/user-chat.jsonl'));
     expect(received).toMatchObject({ idea: 'x', folder: '~/p', models });
   });
