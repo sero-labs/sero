@@ -52,6 +52,11 @@ export const ProjectsToolParams = Type.Object({
   folder: Type.Optional(Type.String({ description: 'create: the folder to build in, under the home directory' })),
   capUsd: Type.Optional(Type.Number({ description: 'raise_cap: the project cap; retry: an explicitly approved new total Workflow cap in USD' })),
   executionMode: Type.Optional(StringEnum(EXECUTION_MODES, { description: 'create/set_execution_mode: workspace or worktree; new projects default to workspace' })),
+  models: Type.Optional(Type.Array(Type.Object({
+    tier: StringEnum(MODEL_TIERS),
+    model: Type.String({ description: 'provider/modelId' }),
+    thinking: Type.Optional(StringEnum(THINKING_LEVELS)),
+  }), { description: 'create: project model overrides per tier, checked against the catalogue' })),
   autonomy: Type.Optional(StringEnum(AUTONOMY_SETTINGS, { description: 'set_autonomy: milestones, charter-only or model-judged' })),
   tier: Type.Optional(StringEnum(MODEL_TIERS, { description: 'set_model_tier/clear_model_tier: LOW, MED or HIGH' })),
   model: Type.Optional(Type.String({ description: 'set_model_tier: the model as provider/modelId' })),
@@ -78,6 +83,7 @@ export interface ProjectsToolParamsShape {
   folder?: string;
   capUsd?: number;
   executionMode?: ExecutionMode;
+  models?: ModelDefaultInput[];
   autonomy?: (typeof AUTONOMY_SETTINGS)[number];
   tier?: (typeof MODEL_TIERS)[number];
   model?: string;
@@ -191,7 +197,7 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
     case 'create': {
       const missing = need(params.idea, 'idea') ?? need(params.folder, 'folder');
       if (missing) return result(false, missing);
-      const outcome = await actions.create({ idea: params.idea ?? '', folder: params.folder ?? '', executionMode: params.executionMode });
+      const outcome = await actions.create({ idea: params.idea ?? '', folder: params.folder ?? '', executionMode: params.executionMode, models: params.models });
       return result(outcome.ok, outcome.text, outcome.ok ? { projectId: outcome.projectId } : {});
     }
     case 'preview': {

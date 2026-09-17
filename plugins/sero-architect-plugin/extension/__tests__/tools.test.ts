@@ -55,6 +55,20 @@ describe('the architect tools', () => {
     expect(queries[1]).toMatchObject({ query: { detail: true, limit: 5 } });
   });
 
+  it('passes intake model overrides through to create', async () => {
+    let received: unknown;
+    registered = {
+      owner: { owns: async () => null, execute: async () => ({ ok: true, text: '' }) },
+      projects: {
+        create: async (input: unknown) => { received = input; return { ok: true, text: 'created', projectId: 'p1' }; },
+      } as unknown as ArchitectRegistryEntry['projects'],
+    };
+    registerArchitectRuntime(registered);
+    const models = [{ tier: 'MED', model: 'anthropic/claude-fable-5-1', thinking: 'low' }];
+    await executeProjectsTool({ action: 'create', idea: 'x', folder: '~/p', models }, ctxFor('/s/user-chat.jsonl'));
+    expect(received).toMatchObject({ idea: 'x', folder: '~/p', models });
+  });
+
   it('lists every management action in the description the CLI help is built from', () => {
     for (const action of ['create', 'pause', 'resume', 'stop', 'raise_cap', 'set_autonomy', 'answer', 'directive', 'delete']) {
       expect(PROJECT_ACTIONS).toContain(action);

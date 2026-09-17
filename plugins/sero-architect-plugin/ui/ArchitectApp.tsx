@@ -10,7 +10,7 @@ import { ModelSettings } from './components/ModelSettings';
 import { ProjectsList } from './components/ProjectsList';
 import { TopBar } from './components/TopBar';
 import { Quiet } from './components/Pill';
-import { useArchitectActions, type ArchitectActions } from './lib/actions';
+import { useArchitectActions, type ArchitectActions, type ModelChoice } from './lib/actions';
 import { useArchitectView, type ArchitectView } from './lib/navigation';
 import { useProjectRecord } from './lib/use-project-record';
 import { useDisclosures } from './lib/page-helpers';
@@ -39,8 +39,8 @@ function useNarrow(): [boolean, (node: HTMLDivElement | null) => void] {
 
 function useCreateProject(actions: ArchitectActions, navigate: (view: ArchitectView) => void) {
   const [permissionProjectId, setPermissionProjectId] = useState<string | null>(null);
-  const create = useCallback(async (idea: string, folder: string, executionMode: ExecutionMode) => {
-    const outcome = await actions.create(idea, folder, executionMode);
+  const create = useCallback(async (idea: string, folder: string, executionMode: ExecutionMode, models: ModelChoice[]) => {
+    const outcome = await actions.create(idea, folder, executionMode, models);
     // One navigation closes the dialog and opens the new project: the dialog must not navigate too.
     if (outcome.ok) {
       // Remove the modal before the host presents its permission question.

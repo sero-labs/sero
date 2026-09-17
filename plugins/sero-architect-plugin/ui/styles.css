@@ -393,3 +393,23 @@
 .ar-run-state[data-state='failed'], .ar-run-state[data-state='interrupted'] { border-left-color: var(--ar-danger, #f87171); }
 .ar-run-state[data-state='waiting'], .ar-run-state[data-state='incomplete'] { border-left-color: var(--ar-warn, #fbbf24); }
 .ar-run-state[data-state='active'] { border-left-color: var(--ar-accent, var(--text-primary)); }
+
+/* ── New project dialog ──────────────────────────────────────────────────── */
+.ar-intake { width: auto; max-width: none; padding: 28px; gap: 20px; color: var(--text-primary); }
+.ar-intake-form { display: grid; gap: 20px; min-width: 0; }
+.ar-intake .ar-field { min-width: 0; }
+.ar-intake-description { min-height: 220px; resize: vertical; font-size: 14px; line-height: 1.5; border-color: var(--ar-line-strong); background: var(--bg-surface); }
+.ar-intake-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.ar-intake-location { width: 100%; justify-content: flex-start; background: var(--bg-surface); }
+.ar-intake-switch { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-primary); width: fit-content; }
+.ar-intake-models { display: grid; gap: 8px; }
+.ar-intake-models-trigger {
+  display: flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none;
+  font-size: 12px; font-weight: 500; color: var(--ar-text-3); cursor: pointer;
+}
+.ar-intake-models-trigger svg { transition: transform .15s; }
+.ar-intake-models-trigger[data-state="open"] svg { transform: rotate(90deg); }
+.ar-intake-models-trigger small { font-size: 11px; color: var(--ar-ok); }
+.ar-intake-models .ar-tiers { border: 1px solid var(--ar-line); border-radius: 8px; }
+.ar-intake-models .ar-tiers td:first-child { width: 64px; padding-left: 14px; }
+.ar-intake .ar-foot { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }

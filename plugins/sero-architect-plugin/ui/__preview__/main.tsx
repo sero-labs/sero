@@ -19,6 +19,8 @@ import './preview.css';
 const tokens = document.createElement('style');
 tokens.textContent = hostTokens;
 document.head.prepend(tokens);
+document.documentElement.classList.add('dark');
+import { IntakeDialog } from '../components/IntakeDialog';
 import { ProjectsList } from '../components/ProjectsList';
 import { TopBar } from '../components/TopBar';
 import { ProjectPage } from '../ProjectPage';
@@ -31,6 +33,14 @@ const actions: ArchitectActions = {
   approveCharter: ok, approveMilestone: ok, answer: ok, directive: ok,
   setModelDefault: ok, clearModelDefault: ok, refreshModelTiers: ok,
 };
+
+// The intake dialog lists models through the host bridge; the harness answers with a fixed catalogue.
+(window as Window & { sero?: unknown }).sero = { appState: {}, appAgent: {}, models: { list: async () => [
+  { provider: 'openai-codex', displayName: 'OpenAI', logo: '', models: [
+    { provider: 'openai-codex', modelId: 'gpt-5.6-sol', name: 'GPT-5.6 Sol', reasoning: true, availableThinkingLevels: ['low', 'medium', 'high'] },
+    { provider: 'openai-codex', modelId: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', reasoning: true, availableThinkingLevels: ['low', 'medium', 'high'] },
+  ] },
+] } };
 
 const params = new URLSearchParams(window.location.search);
 const state = params.get('state') ?? 'list';
@@ -46,6 +56,7 @@ function Preview() {
       <div className="dark" style={{ padding: 24 }}>
         <div className="preview-frame" style={{ width }}>
           <div className="ar-app">
+            {state === 'new-project' && <IntakeDialog open onClose={() => undefined} onCreate={async () => ({ ok: true, text: 'ok' })} defaultFolder="~/Projects/" />}
             {record ? (
               <ProjectPage record={record} actions={actions} narrow={width < 1100} disclosures={disclosures} onBack={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} confirm={() => true} />
             ) : (

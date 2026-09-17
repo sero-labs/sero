@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import type { SeroAdminBridge } from '@sero-ai/common';
 import { FolderOpen } from 'lucide-react';
-import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Textarea } from '@sero-ai/ui';
+import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Switch, Textarea } from '@sero-ai/ui';
 
 import type { ExecutionMode } from '../../shared/record';
-import type { ActionOutcome } from '../lib/actions';
+import type { ActionOutcome, ModelChoice } from '../lib/actions';
+import { IntakeModelOverrides } from './IntakeModelOverrides';
 
 export interface IntakeDialogProps {
   open: boolean;
   onClose(): void;
-  onCreate(idea: string, folder: string, executionMode: ExecutionMode): Promise<ActionOutcome>;
+  onCreate(idea: string, folder: string, executionMode: ExecutionMode, models: ModelChoice[]): Promise<ActionOutcome>;
   /** Fills the folder field with a sensible default under the home directory. */
   defaultFolder: string;
 }
@@ -18,6 +19,7 @@ export interface IntakeDialogProps {
 export function IntakeDialog({ open, onClose, onCreate, defaultFolder }: IntakeDialogProps) {
   const [idea, setIdea] = useState('');
   const [executionMode, setExecutionMode] = useState<ExecutionMode>('workspace');
+  const [models, setModels] = useState<ModelChoice[]>([]);
   const [name, setName] = useState('');
   const [location, setLocation] = useState(() => defaultFolder.replace(/\/+$/, ''));
   const folder = `${location}/${name.trim()}`;
@@ -43,7 +45,7 @@ export function IntakeDialog({ open, onClose, onCreate, defaultFolder }: IntakeD
     setBusy(true);
     setError(null);
     try {
-      const outcome = await onCreate(idea.trim(), folder.trim(), executionMode);
+      const outcome = await onCreate(idea.trim(), folder.trim(), executionMode, models);
       if (!outcome.ok) {
         setError(outcome.text);
         return;
@@ -60,7 +62,10 @@ export function IntakeDialog({ open, onClose, onCreate, defaultFolder }: IntakeD
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next && !busy) onClose(); }}>
-      <DialogContent className="max-w-md" data-sero-plugin="architect">
+      {/* The scope root itself is outside the plugin's @scope, so every class and
+          token lives on the wrapper inside it. The width is inline for the same reason. */}
+      <DialogContent data-sero-plugin="architect" className="p-0" style={{ maxWidth: 'min(760px, 92vw)' }}>
+        <div className="ar-dialog ar-intake">
         <DialogHeader>
           <DialogTitle>New project</DialogTitle>
           <DialogDescription>
@@ -68,41 +73,41 @@ export function IntakeDialog({ open, onClose, onCreate, defaultFolder }: IntakeD
           </DialogDescription>
         </DialogHeader>
         <form
-          className="flex min-w-0 w-full flex-col gap-4"
+          className="ar-intake-form"
           onSubmit={(event) => {
             event.preventDefault();
             void submit();
           }}
         >
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-[var(--text-secondary)]" htmlFor="ar-idea">Idea</label>
-            <Textarea className="min-h-32 border-[var(--border-default)] bg-[var(--bg-surface)] text-sm" id="ar-idea" value={idea} onChange={(event) => setIdea(event.target.value)} disabled={busy} required />
+          <div className="ar-field">
+            <label htmlFor="ar-idea">Description</label>
+            <Textarea className="ar-intake-description" id="ar-idea" value={idea} onChange={(event) => setIdea(event.target.value)} disabled={busy} required />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-[var(--text-secondary)]" htmlFor="ar-name">Name</label>
-            <Input className="bg-[var(--bg-surface)] text-sm" id="ar-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="My Project" disabled={busy} required />
-          </div>
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <label className="text-sm font-medium text-[var(--text-secondary)]" htmlFor="ar-location">Location</label>
-            <Button id="ar-location" type="button" variant="outline" className="w-full justify-start bg-[var(--bg-surface)]" onClick={() => void pickLocation()} disabled={busy} title={location}>
-              <FolderOpen className="size-4 shrink-0" />
-              <span className="truncate">{location}</span>
-            </Button>
-          </div>
-          <fieldset className="flex flex-col gap-1.5" disabled={busy}>
-            <legend className="text-sm font-medium">Execution location</legend>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 text-sm"><input type="radio" name="execution-location" checked={executionMode === 'workspace'} onChange={() => setExecutionMode('workspace')} />Workspace</label>
-              <label className="flex items-center gap-2 text-sm"><input type="radio" name="execution-location" checked={executionMode === 'worktree'} onChange={() => setExecutionMode('worktree')} />Worktree</label>
+          <div className="ar-intake-row">
+            <div className="ar-field">
+              <label htmlFor="ar-name">Name</label>
+              <Input id="ar-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="My Project" disabled={busy} required />
             </div>
-            <p className="text-xs text-muted-foreground">{executionMode === 'workspace' ? 'Work directly in the project folder.' : 'Give delegated editing work isolated Git worktrees.'}</p>
-          </fieldset>
-          {error && <p role="alert" className="text-xs text-status-error">{error}</p>}
-          <div className="mt-2 flex items-center justify-end gap-2">
+            <div className="ar-field">
+              <label htmlFor="ar-location">Location</label>
+              <Button id="ar-location" type="button" variant="outline" className="ar-intake-location" onClick={() => void pickLocation()} disabled={busy} title={location}>
+                <FolderOpen className="size-4 shrink-0" />
+                <span className="truncate">{location}</span>
+              </Button>
+            </div>
+          </div>
+          <label className="ar-intake-switch">
+            <Switch checked={executionMode === 'worktree'} onCheckedChange={(on) => setExecutionMode(on ? 'worktree' : 'workspace')} disabled={busy} />
+            <span>Use worktree</span>
+          </label>
+          <IntakeModelOverrides choices={models} onChange={setModels} disabled={busy} />
+          {error && <p role="alert" className="ar-error">{error}</p>}
+          <div className="ar-foot">
             <Button type="button" variant="outline" onClick={onClose} disabled={busy}>Cancel</Button>
             <Button type="submit" disabled={!ready}>{busy ? 'Creating…' : 'Create project'}</Button>
           </div>
         </form>
+        </div>
       </DialogContent>
     </Dialog>
   );

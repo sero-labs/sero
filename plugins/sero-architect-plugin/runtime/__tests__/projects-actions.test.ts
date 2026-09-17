@@ -141,6 +141,23 @@ describe('project management', () => {
     expect((await store.read(record.id))?.runs?.map((run) => run.kind)).toEqual(['initial']);
   });
 
+  it('saves model overrides chosen at intake, checked against the catalogue', async () => {
+    const { store, actions } = await setup();
+    const outcome = await actions.create({ idea: 'x', folder: '~/projects/models', models: [{ tier: 'HIGH', model: 'anthropic/claude-fable-5-1', thinking: 'high' }] });
+    expect(outcome.ok).toBe(true);
+    const created = (await store.list())[0]!;
+    expect(created.modelOverrides).toEqual({ HIGH: { provider: 'anthropic', modelId: 'claude-fable-5-1', thinkingLevel: 'high' } });
+    expect(created.modelConfigRevision).toBe(1);
+  });
+
+  it('refuses an intake override for a model that is not in the catalogue, and writes nothing', async () => {
+    const { store, actions } = await setup();
+    const outcome = await actions.create({ idea: 'x', folder: '~/projects/models', models: [{ tier: 'LOW', model: 'nobody/ghost' }] });
+    expect(outcome.ok).toBe(false);
+    expect(outcome.text).toContain('unavailable');
+    expect(await store.list()).toHaveLength(0);
+  });
+
   it('creates a project: folder, git init, workspace, grant, discovery, first wake', async () => {
     const { host, store, actions, delivered, watch } = await setup();
     const outcome = await actions.create({ idea: 'A roguelike.', folder: '~/projects/hollow' });

@@ -16,7 +16,9 @@ import { createProjectRecord, toIndexEntry, type AutonomySetting, type Execution
 import type { DispatchDestination } from '../shared/owner-actions';
 import { performDispatch } from './dispatch-link';
 import type { RepairOutcome } from './repair-dispatch';
-import { clearModelDefaultAction, refreshModelTiersAction, setModelDefaultAction, type ModelDefaultInput } from './model-default-actions';
+import { clearModelDefaultAction, parseModelEntry, refreshModelTiersAction, setModelDefaultAction, type ModelDefaultInput } from './model-default-actions';
+import { validateEntry } from './model-resolution';
+import { setProjectTierOverride } from '../shared/model-config';
 import { previewProject, repairProject, retryMilestone } from './work-recovery-actions';
 import type { OwnerServices } from './owner-actions';
 import type { ArchitectIndexEntry } from '../shared/types';
@@ -66,7 +68,7 @@ export interface ProjectsActions {
    * page showing a summary never receives records it did not request.
    */
   trace(projectId: string, query?: Omit<TraceQuery, 'projectId'>): Promise<TraceAnswer | null>;
-  create(input: { idea: string; folder: string; executionMode?: ExecutionMode }): Promise<ProjectsOutcome>;
+  create(input: { idea: string; folder: string; executionMode?: ExecutionMode; models?: ModelDefaultInput[] }): Promise<ProjectsOutcome>;
   pause(projectId: string): Promise<ProjectsOutcome>;
   resume(projectId: string): Promise<ProjectsOutcome>;
   retry(projectId: string, milestoneId: string, maxCostUsd?: number): Promise<ProjectsOutcome>;
@@ -198,7 +200,20 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       const folder = expandHome(input.folder.trim());
       if (!input.folder.trim()) return refuse('The folder is required.');
       const name = path.basename(folder);
-      const record = createProjectRecord({ id: host.newId('proj'), name, idea, folder, executionMode: input.executionMode, now: host.now() });
+      let record = createProjectRecord({ id: host.newId('proj'), name, idea, folder, executionMode: input.executionMode, now: host.now() });
+      // Overrides chosen at intake are checked against the catalogue the same
+      // way a later change is, so the first wake never resolves a model that
+      // does not exist.
+      if (input.models && input.models.length > 0) {
+        const catalogue = await host.listModels();
+        for (const choice of input.models) {
+          const entry = parseModelEntry(choice);
+          if (!entry) return refuse('Name the model as provider/modelId.');
+          const checked = validateEntry(catalogue, entry);
+          if (!checked.ok) return refuse(checked.error);
+          record = setProjectTierOverride(record, choice.tier, entry);
+        }
+      }
       await store.write(record);
       const outcome = await advanceIntake(record, false);
       if (!outcome.ok) return ok(`Project saved. Setup needs attention: ${outcome.error}`, record.id);
