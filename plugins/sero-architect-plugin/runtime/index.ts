@@ -12,6 +12,10 @@ import { OwnerSessions } from './owner-session';
 import { createProjectsActions, type ProjectsActions } from './projects-actions';
 import { createRecordStore, type RecordStore } from './record-store';
 import { reconcileProjects } from './reconcile';
+import { ensureInitialRun } from './run-lifecycle';
+import { createRunJournal } from './run-journal';
+import { openMaintenanceRun } from './run-lifecycle';
+import { createSpanRecorder } from './spans';
 import { registerArchitectRuntime, unregisterArchitectRuntime, type ArchitectRegistryEntry } from './registry';
 import { createServices } from './services';
 import { createTurnOutcomes } from './turn-outcomes';
@@ -53,9 +57,13 @@ export class ArchitectRuntime implements AppRuntime {
     if (!architectEnabled(this.env)) return;
     const homeDir = await this.host.homeDir();
     const store = createRecordStore({ homeDir, indexFile: this.host.indexFile, updateIndex: this.host.updateIndex });
+    // Detailed telemetry lives beside the records, under the same profile home.
+    const journal = createRunJournal({ homeDir });
+    // Semantic spans name what an operation is. The runtime decides, a model never does.
+    const spans = createSpanRecorder({ journal, now: () => this.host.now(), log: (message) => this.host.log(message) });
     this.store = store;
     const outcomes = createTurnOutcomes();
-    const sessions = new OwnerSessions({ host: this.host, store, outcomes });
+    const sessions = new OwnerSessions({ host: this.host, store, outcomes, journal });
     this.sessions = sessions;
     const scheduler = createWakeScheduler({
       gate: this.gate,
@@ -64,12 +72,20 @@ export class ArchitectRuntime implements AppRuntime {
     });
     this.scheduler = scheduler;
     const wake = (projectId: string, event: WakeEvent) => scheduler.request(projectId, event);
-    const watch = createDispatchWatch({ host: this.host, store, wake });
+    const watch = createDispatchWatch({
+      host: this.host,
+      store,
+      wake,
+      journal,
+      openMaintenanceRun: async (projectId, objectiveId) => {
+        await openMaintenanceRun({ store, journal }, projectId, { objectiveId }, this.host.now(), `run-${objectiveId}`);
+      },
+    });
     this.watch = watch;
-    const services = createServices({ host: this.host, store, wake });
+    const services = createServices({ host: this.host, store, wake, spans, journal });
     this.services = services;
     this.owner = createOwnerActions({ host: this.host, store, outcomes, services });
-    this.projects = createProjectsActions({ host: this.host, store, sessions, scheduler, watch, services });
+    this.projects = createProjectsActions({ host: this.host, store, sessions, scheduler, watch, services, journal });
     this.registered = { owner: this.owner, projects: this.projects };
     registerArchitectRuntime(this.registered);
 
@@ -97,8 +113,29 @@ export class ArchitectRuntime implements AppRuntime {
         });
       }
       if (mayWakeForWork(fresh)) {
-        services.recoverPending(fresh);
-        if (plannedWorkRemains(fresh)) scheduler.request(fresh.id, { kind: 'quiet', at: this.host.now(), items: ['restart found planned work and nothing running'] });
+        // A project that entered discovery without its initial run (the second
+        // write failed) gets it here, before any wake can charge usage.
+        let repaired = fresh;
+        if (fresh.phase !== 'intake') {
+          const opened = await ensureInitialRun({ store, journal }, fresh.id, this.host.now()).then(
+            () => true,
+            (error: unknown) => {
+              this.host.log(`could not open the initial run for ${fresh.id}: ${error instanceof Error ? error.message : String(error)}`);
+              return false;
+            },
+          );
+          // Recovery must see the run it will charge, so it reads the record
+          // after the repair, and does not start when the repair failed.
+          if (!opened) continue;
+          const reread = await store.read(fresh.id);
+          if (!reread) {
+            this.host.log(`could not re-read ${fresh.id} after opening its initial run; recovery skipped`);
+            continue;
+          }
+          repaired = reread;
+        }
+        services.recoverPending(repaired);
+        if (plannedWorkRemains(repaired)) scheduler.request(repaired.id, { kind: 'quiet', at: this.host.now(), items: ['restart found planned work and nothing running'] });
       }
     }
     this.gate.release();
@@ -123,6 +160,13 @@ export class ArchitectRuntime implements AppRuntime {
     if (!record.session.grantId) {
       this.host.log(`project ${projectId} has no owner grant; ${wake.kind} wake dropped`);
       return;
+    }
+    if (record.phase === 'maintain' && wake.kind === 'directive') {
+      const directive = record.directives.find((entry) => !entry.reply);
+      if (directive) {
+        await openMaintenanceRun({ store }, projectId, { objectiveId: directive.id }, this.host.now(), `run-${directive.id}`);
+        record = await store.read(projectId) ?? record;
+      }
     }
     // Entering maintain subscribes maintenance only after the current stop gates pass.
     if (record.phase === 'maintain' && this.services) {

@@ -6,8 +6,10 @@
 import { useCallback, useMemo } from 'react';
 import { useAppTools } from '@sero-ai/app-runtime';
 import type { AppToolResult } from '@sero-ai/app-runtime';
+import { MODEL_TIERS, THINKING_LEVELS, type ModelTier, type SharedModelTierEntry, type SharedModelTierSettings, type ThinkingLevel } from '@sero-ai/common';
 
 import type { AutonomySetting, ExecutionMode } from '../../shared/record';
+import { readTracePage, type TracePage } from './trace';
 
 export interface ActionOutcome {
   ok: boolean;
@@ -35,6 +37,37 @@ export interface SessionHistoryOutcome extends ActionOutcome {
   entries: SessionHistoryEntry[];
 }
 
+/** What the inspector asks for. `detail` is opt-in, so a summary reads no records. */
+export interface TraceRequest {
+  runId?: string;
+  afterSeq?: number;
+  limit?: number;
+  detail?: boolean;
+  knownSpendUsd?: number;
+}
+
+export interface TraceOutcome extends ActionOutcome {
+  page: TracePage | null;
+}
+
+const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+
+/** Reads the tiers a `refresh_model_tiers` answer reported. A malformed entry is dropped, not guessed. */
+function readModelTiers(raw: unknown): SharedModelTierSettings | undefined {
+  if (!isObject(raw)) return undefined;
+  const tiers: SharedModelTierSettings = {};
+  for (const tier of MODEL_TIERS) {
+    const entryRaw = raw[tier];
+    if (!isObject(entryRaw) || typeof entryRaw.provider !== 'string' || typeof entryRaw.modelId !== 'string') continue;
+    const entry: SharedModelTierEntry = { provider: entryRaw.provider, modelId: entryRaw.modelId };
+    if (typeof entryRaw.thinkingLevel === 'string' && (THINKING_LEVELS as readonly string[]).includes(entryRaw.thinkingLevel)) {
+      entry.thinkingLevel = entryRaw.thinkingLevel as ThinkingLevel;
+    }
+    tiers[tier] = entry;
+  }
+  return tiers;
+}
+
 function readHistoryEntries(result: AppToolResult): SessionHistoryEntry[] {
   const raw = result.details?.entries;
   if (!Array.isArray(raw)) return [];
@@ -58,6 +91,7 @@ function readHistoryEntries(result: AppToolResult): SessionHistoryEntry[] {
 export interface ArchitectActions {
   create(idea: string, folder: string, executionMode?: ExecutionMode): Promise<ActionOutcome>;
   history(projectId: string): Promise<SessionHistoryOutcome>;
+  trace(projectId: string, query: TraceRequest): Promise<TraceOutcome>;
   pause(projectId: string): Promise<ActionOutcome>;
   resume(projectId: string): Promise<ActionOutcome>;
   retry(projectId: string, milestoneId: string, maxCostUsd?: number): Promise<ActionOutcome>;
@@ -66,6 +100,12 @@ export interface ArchitectActions {
   raiseCap(projectId: string, capUsd: number): Promise<ActionOutcome>;
   setExecutionMode(projectId: string, mode: ExecutionMode): Promise<ActionOutcome>;
   setAutonomy(projectId: string, autonomy: AutonomySetting): Promise<ActionOutcome>;
+  /** Save one project tier default. A model the catalogue does not offer is refused. */
+  setModelDefault(projectId: string, tier: ModelTier, model: string, thinking?: ThinkingLevel): Promise<ActionOutcome>;
+  /** Clear one override so the tier inherits the global selection again. */
+  clearModelDefault(projectId: string, tier: ModelTier): Promise<ActionOutcome>;
+  /** Re-reads the host's global model tiers into the cached record, and returns what it read. */
+  refreshModelTiers(projectId: string): Promise<ActionOutcome & { tiers?: SharedModelTierSettings }>;
   approveCharter(projectId: string): Promise<ActionOutcome>;
   approveMilestone(projectId: string, milestoneId: string): Promise<ActionOutcome>;
   answer(projectId: string, decisionId: string, optionId: string, note: string): Promise<ActionOutcome>;
@@ -98,14 +138,33 @@ export function useArchitectActions(): ArchitectActions {
           return { ok: false, text: error instanceof Error ? error.message : String(error), entries: [] };
         }
       },
-      pause: (projectId) => call({ action: 'pause', projectId }),
-      resume: (projectId) => call({ action: 'resume', projectId }),
+      trace: async (projectId, query) => {
+        try {
+          const result = await run(PROJECTS_TOOL, { action: 'trace', projectId, ...query });
+          return { ...toOutcome(result), page: readTracePage(result) };
+        } catch (error) {
+          return { ok: false, text: error instanceof Error ? error.message : String(error), page: null };
+        }
+      },
+      pause: (projectId) => call({ action: 'pause', projectId }),      resume: (projectId) => call({ action: 'resume', projectId }),
       retry: (projectId, milestoneId, capUsd) => call({ action: 'retry', projectId, milestoneId, capUsd }),
       stop: (projectId) => call({ action: 'stop', projectId }),
       remove: (projectId) => call({ action: 'delete', projectId }),
       raiseCap: (projectId, capUsd) => call({ action: 'raise_cap', projectId, capUsd }),
       setExecutionMode: (projectId, executionMode) => call({ action: 'set_execution_mode', projectId, executionMode }),
       setAutonomy: (projectId, autonomy) => call({ action: 'set_autonomy', projectId, autonomy }),
+      setModelDefault: (projectId, tier, model, thinking) => call({ action: 'set_model_tier', projectId, tier, model, thinking }),
+      clearModelDefault: (projectId, tier) => call({ action: 'clear_model_tier', projectId, tier }),
+      refreshModelTiers: async (projectId) => {
+        try {
+          const result = await run(PROJECTS_TOOL, { action: 'refresh_model_tiers', projectId });
+          const outcome = toOutcome(result);
+          const tiers = readModelTiers(result.details?.tiers);
+          return tiers ? { ...outcome, tiers } : outcome;
+        } catch (error) {
+          return { ok: false, text: error instanceof Error ? error.message : String(error) };
+        }
+      },
       approveCharter: (projectId) => call({ action: 'approve', projectId, target: 'charter' }),
       approveMilestone: (projectId, milestoneId) => call({ action: 'approve', projectId, target: 'milestone', milestoneId }),
       answer: (projectId, decisionId, optionId, note) =>

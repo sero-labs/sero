@@ -90,6 +90,8 @@ export function buildDraftLoop(host: OrchestratorHost, args: BuildDraftArgs): Lo
     prompt: args.prompt,
     summary: args.summary ?? '',
     status: 'draft',
+    // Attribution retained for recovery. It is never authority.
+    project: args.options?.project,
     workspace: mergeWorkspaceSettings(args.options?.workspace),
     // Absent unless the user chose one — the effective destination is then
     // derived from placement (effectiveDelivery), tracking placement changes.

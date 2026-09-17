@@ -1,3 +1,4 @@
+import type { RoomBriefDecision } from '../../shared/room-types';
 import { ROOM_SCHEMA_VERSION, type RoomRecord } from './room-state';
 
 /** Upgrades one persisted Room record by a single schema version. */
@@ -20,6 +21,23 @@ const MIGRATIONS: RoomMigration[] = [
     ...record,
     members: record.members.map((member) => ({ ...member, statusAt: member.createdAt })),
   }),
+  // v3 -> v4: `RoomBrief.decisions` moved from a plain string to
+  // `RoomBriefDecision`, so an old decision has no `memberId` yet. A decision
+  // that named nobody is honestly a Room-wide one, so `null` is the truthful
+  // default rather than a guess at who it was about. Cast the persisted field
+  // because a record on this side of the migration may still carry the old
+  // string shape at runtime, even though `RoomRecord` now types it as current.
+  (record) => {
+    const legacy = record.brief.decisions as unknown as (string | RoomBriefDecision)[];
+    return {
+      ...record,
+      brief: {
+        ...record.brief,
+        decisions: legacy.map((decision): RoomBriefDecision =>
+          typeof decision === 'string' ? { title: decision, memberId: null } : decision),
+      },
+    };
+  },
 ];
 
 /** Applies backward-compatible upgrades when a persisted Room is loaded. */

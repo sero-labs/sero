@@ -17,6 +17,7 @@
 import type {
   Room,
   RoomBrief,
+  RoomBriefDecision,
   RoomMember,
 } from '../../shared/room-types';
 import type { RoomArtifact, WorkItem } from '../../shared/room-message-types';
@@ -47,10 +48,18 @@ export function buildRoomBrief(room: Room, sources: BriefSources, now: string): 
     .map((member) => `${member.displayName}: ${member.statusDetail}`)
     .slice(0, MAX_ITEMS);
 
-  const decisions = sources.artifacts
+  // Applicability comes from the record: a decision relates to a work item, and
+  // that item has an owner. A decision that relates to no single item concerns
+  // the Room as a whole and reaches every member.
+  const decisions: RoomBriefDecision[] = sources.artifacts
     .filter((artifact) => artifact.kind === 'decision')
     .slice(-MAX_ITEMS)
-    .map((artifact) => artifact.title);
+    .map((artifact) => ({
+      title: artifact.title,
+      memberId: artifact.relatedWorkId
+        ? sources.work.find((item) => item.id === artifact.relatedWorkId)?.ownerMemberId ?? null
+        : null,
+    }));
 
   return {
     objective: room.definition.blueprint.objective,
@@ -105,9 +114,11 @@ export interface MemberBriefProjection {
  * The slice of the brief one member sees.
  *
  * The Conductor is the exception: coordinating IS its work, so it receives the
- * whole brief. Every other member gets its own mandate, its own work, and only
- * the decisions and blockers that name it — which keeps a ten-member Room from
- * putting ten members' problems into each member's context.
+ * whole brief. Every other member gets its own mandate, its own work, the
+ * decisions that name it or that concern the whole Room, and its own blockers —
+ * which keeps a ten-member Room from putting ten members' problems into each
+ * member's context without deciding relevance by reading a display name out of
+ * a sentence.
  */
 export function projectBriefForMember(
   brief: RoomBrief,
@@ -118,15 +129,21 @@ export function projectBriefForMember(
     .filter((item) => item.ownerMemberId === member.id)
     .map((item) => `${item.title} (${item.status})`);
 
-  const mentionsMember = (text: string): boolean => text.includes(member.displayName);
+  // `null` is the whole Room, so an unnamed decision is not a decision nobody
+  // needs. Named applicability is an id, never a substring of a sentence.
+  const appliesToMember = (decision: RoomBriefDecision): boolean =>
+    decision.memberId === null || decision.memberId === member.id;
+  // Blockers are built as "<name>: <detail>", so compare the prefix rather than
+  // searching the whole line: one member called Sam must not receive Samantha's.
+  const ownsBlocker = (text: string): boolean => text.startsWith(`${member.displayName}:`);
 
   return {
     objective: brief.objective,
     successCriteria: brief.successCriteria,
     yourMandate: member.mandate.workingInstructions,
     yourWork,
-    relevantDecisions: member.isConductor ? brief.decisions : brief.decisions.filter(mentionsMember),
-    relevantBlockers: member.isConductor ? brief.blockers : brief.blockers.filter(mentionsMember),
+    relevantDecisions: (member.isConductor ? brief.decisions : brief.decisions.filter(appliesToMember)).map((decision) => decision.title),
+    relevantBlockers: member.isConductor ? brief.blockers : brief.blockers.filter(ownsBlocker),
     artifactRefs: brief.artifactRefs,
     conductorNote: brief.conductorNote,
   };

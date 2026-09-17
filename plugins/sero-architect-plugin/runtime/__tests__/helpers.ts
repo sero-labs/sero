@@ -81,9 +81,9 @@ export function fakeSessionsApi(sessionPath = '/sessions/owner.jsonl'): FakeSess
       api.prompts.push({ handleId, content: text });
       const turnId = `turn-${++turn}`;
       queueMicrotask(async () => {
-        api.emit(handleId, { type: 'turn_start', turnId });
+        api.emit(handleId, { type: 'turn_start', turnId, at: T0 });
         await api.onTurn?.(handleId, text);
-        api.emit(handleId, { type: 'turn_end', turnId, status: 'completed' });
+        api.emit(handleId, { type: 'turn_end', turnId, status: 'completed', at: T0 });
       });
       return { turnId };
     },

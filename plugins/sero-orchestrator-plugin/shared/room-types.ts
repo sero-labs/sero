@@ -253,7 +253,7 @@ export interface RoomDelivery {
 export interface RoomBrief {
   objective: string;
   successCriteria: string[];
-  decisions: string[];
+  decisions: RoomBriefDecision[];
   activeWork: string[];
   blockers: string[];
   openQuestions: string[];
@@ -264,9 +264,28 @@ export interface RoomBrief {
   conductorNoteAt: string | null;
 }
 
+/**
+ * One decision in the brief, with who it applies to.
+ *
+ * `memberId` is the owner of the work the decision relates to, so applicability
+ * comes from the record rather than from reading a display name out of a
+ * sentence. `null` means the decision is about the Room as a whole, which is why
+ * a decision that names nobody still reaches every member.
+ */
+export interface RoomBriefDecision {
+  title: string;
+  memberId: string | null;
+}
+
 export interface RoomDefinition {
   /** Absent on Rooms created before caller recovery identities were supported. */
   creationRequestId?: string;
+  /**
+   * Project/run attribution retained from creation (spec orchestrator-dispatch-handle).
+   * Attribution only: it never widens access, and reuse refuses to re-attribute
+   * a saved request to a different project.
+   */
+  projectContext?: import('@sero-ai/common').OrchestratorProjectContext;
   id: string;
   title: string;
   /** The user's original words. Kept verbatim for the audit trail. */
@@ -365,4 +384,4 @@ export interface RoomIndex {
  * It lives with the shape it describes, so the renderer can state the version
  * of an empty index without importing runtime code.
  */
-export const ROOM_SCHEMA_VERSION = 3;
+export const ROOM_SCHEMA_VERSION = 4;

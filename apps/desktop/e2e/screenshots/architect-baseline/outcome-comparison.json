@@ -1,0 +1,59 @@
+[
+  {
+    "candidate": "A small TypeScript utility package: a slugify function that lowercases, trims, replaces runs of non-alphanumeric characters with single hyphens, and has unit tests. Keep it under 100 lines.",
+    "objective": "implementation-and-independent-review",
+    "models": [
+      {
+        "operationId": "owner-session",
+        "model": "openai-codex/gpt-5.6-terra",
+        "thinking": "high",
+        "source": "owner session"
+      },
+      {
+        "operationId": "run-initial-proj_d1z5ws4a:research:res_rlpks4wk",
+        "source": "research"
+      },
+      {
+        "operationId": "run-initial-proj_d1z5ws4a:workflow:m1:plan",
+        "source": "workflow"
+      },
+      {
+        "operationId": "run-initial-proj_d1z5ws4a:evidence:m1",
+        "source": "evidence"
+      },
+      {
+        "operationId": "run-initial-proj_d1z5ws4a:research:res_aumwvkcc",
+        "source": "research"
+      }
+    ],
+    "acceptanceCriteria": [
+      "slugify is implemented in TypeScript with unit tests covering trimming, case folding and separator collapsing",
+      "an agent that did not write the code read the delivered files and reported a finding for each acceptance criterion",
+      "spend stays within the $2 cap"
+    ],
+    "cost": {
+      "attributableUsd": 0.29329136000000006,
+      "aggregateOnlyUsd": 0.15352776,
+      "coverage": "partial",
+      "incomplete": true
+    },
+    "time": {
+      "elapsedMs": 973895,
+      "activeMs": 146184,
+      "workerMs": 119462,
+      "waitMs": 0
+    },
+    "counters": {
+      "agents": 1,
+      "turns": 10,
+      "requests": 0,
+      "toolCalls": 0,
+      "retries": 0,
+      "compactions": 0
+    },
+    "outcome": "accepted",
+    "budgetUsd": 2,
+    "evidence": "live",
+    "recordedAt": "2026-09-15T17:51:31.714Z"
+  }
+]

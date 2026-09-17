@@ -5,7 +5,8 @@ import type { WakeEvent } from '../../shared/wake';
 import { missingEvidence } from '../owner-actions';
 import { ORCHESTRATOR_REGISTRY_GLOBAL_KEY, type OrchestratorBoardAction, type OrchestratorRegistryEntryView } from '@sero-ai/common';
 import { MAINTENANCE_MILESTONE_ID } from '../../shared/maintenance';
-import { commitOf, createServices, evidenceIsStale, worktreeFingerprint } from '../services';
+import { commitOf, worktreeFingerprint } from '../service-helpers';
+import { createServices, evidenceIsStale } from '../services';
 import { buildingProject, cleanupHosts, fakeHost, milestone, storeFor, T0 } from './helpers';
 
 afterEach(cleanupHosts);
@@ -71,6 +72,7 @@ describe('runtime services', () => {
       await services.maintenance(record);
       const creations = coordinator.actions.filter((action) => action.kind === 'create');
       expect(creations).toHaveLength(2);
+      expect(creations[1].options?.project).toMatchObject({ projectId: record.id, modelSnapshot: { MED: { modelId: 'claude-fable-5-1' } } });
       for (const action of creations) expect(action.options?.workspace).toEqual({ useManagedWorktree: executionMode === 'worktree', allowDirtyWorkspaceRoot: executionMode === 'workspace' });
     } finally { coordinator.uninstall(); }
   });
@@ -195,7 +197,7 @@ describe('runtime services', () => {
       host.execResults['git rev-parse HEAD'] = { exitCode: 0, stdout: 'base123\n', stderr: '' };
       const link = await services.dispatch(buildingProject({ budget: { capUsd: 40, spentUsd: 10, sources: { owner: 10, research: 0, dispatched: 0 } } }), milestone('m1'), { kind: 'workflow', prompt: 'Open the PR', destination: 'pr', maxCostUsd: 100 });
       expect(link).toMatchObject({ id: 'loop_1', workspaceId: 'ws-1', baseCommit: 'base123' });
-      expect(coordinator.actions).toEqual([{ kind: 'create', prompt: 'Open the PR', title: 'Milestone m1', options: { activate: false, disableTokenLimit: true, limits: { maxCostUsd: 30 }, workspace: { useManagedWorktree: false, allowDirtyWorkspaceRoot: true }, delivery: { destination: 'pr' } } }]);
+      expect(coordinator.actions).toEqual([{ kind: 'create', prompt: 'Open the PR', title: 'Milestone m1', options: { activate: false, disableTokenLimit: true, limits: { maxCostUsd: 30 }, workspace: { useManagedWorktree: false, allowDirtyWorkspaceRoot: true }, delivery: { destination: 'pr' }, triggerIntent: 'one-off', triggers: [] } }]);
       await link.start?.();
       expect(coordinator.actions[1]).toEqual({ kind: 'activate', loopId: 'loop_1' });
     } finally {

@@ -219,7 +219,7 @@ function Brief({ room }: { room: PersistedRoom }) {
       <div className="rounded-lg border border-room-line bg-room-surface p-3">
         <Eyebrow tone="brand" className="mb-2">Room brief · {formatRelative(brief.updatedAt)}</Eyebrow>
         <p className="text-[11px] leading-[1.6] text-room-text3">{brief.objective}</p>
-        <BriefField label="Decided" lines={brief.decisions} />
+        <BriefField label="Decided" lines={brief.decisions.map((decision) => decision.title)} />
         <BriefField label="Active work" lines={brief.activeWork} />
         <BriefField label="Blocked" lines={brief.blockers} />
         <BriefField label="Open questions" lines={brief.openQuestions} />

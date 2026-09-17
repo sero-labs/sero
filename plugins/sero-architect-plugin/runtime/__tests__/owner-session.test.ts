@@ -1,3 +1,5 @@
+import { createRunJournal } from '../run-journal';
+import { closeRun, openRun } from '../../shared/runs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OwnerSessions, OWNER_TURN_TIMEOUT_MS, OWNER_TOOLS, ownerGrantProposal, chooseOwnerModel } from '../owner-session';
 import { createTurnOutcomes } from '../turn-outcomes';
@@ -61,7 +63,7 @@ describe('owner session', () => {
     const record = buildingProject();
     await store.write(record);
     host.sessions.prompt = async (handleId) => {
-      host.sessions.emit(handleId, { type: 'turn_end', turnId: 'rejected', status: 'error', errorMessage: 'Your credit balance is too low to access the Anthropic API.' });
+      host.sessions.emit(handleId, { type: 'turn_end', turnId: 'rejected', status: 'error', errorMessage: 'Your credit balance is too low to access the Anthropic API.', at: T0 });
       return { turnId: 'rejected' };
     };
     const sessions = new OwnerSessions({ host, store, outcomes: createTurnOutcomes() });
@@ -78,6 +80,46 @@ describe('owner session', () => {
     const host = await fakeHost();
     host.env.SERO_ARCHITECT_MODEL = 'anthropic/retired-model';
     await expect(chooseOwnerModel(host)).rejects.toThrow('retired-model is unavailable');
+  });
+
+  describe('project tier overrides govern the owner', () => {
+    /** A record whose project MED is overridden to the codex model. */
+    async function withProjectOverride(host: Awaited<ReturnType<typeof fakeHost>>) {
+      const original = await host.listModels();
+      host.listModels = async () => [...original, { provider: 'openai-codex', displayName: 'Codex', logo: '', models: [{ provider: 'openai-codex', modelId: 'gpt-test', name: 'GPT', reasoning: true, availableThinkingLevels: ['low', 'high'] }] }];
+      return buildingProject({
+        modelOverrides: { MED: { provider: 'openai-codex', modelId: 'gpt-test', thinkingLevel: 'high' } },
+        modelConfigRevision: 8,
+      });
+    }
+
+    it('uses the project MED override rather than the global MED', async () => {
+      const host = await fakeHost();
+      const record = await withProjectOverride(host);
+      await expect(chooseOwnerModel(host, record)).resolves.toEqual({ model: 'openai-codex/gpt-test', thinking: 'high' });
+      // Without the record the global selections still resolve as before.
+      const global = await chooseOwnerModel(host);
+      expect(global.model).not.toBe('openai-codex/gpt-test');
+    });
+
+    it('keeps the environment pin above the project override', async () => {
+      const host = await fakeHost();
+      const record = await withProjectOverride(host);
+      host.env.SERO_ARCHITECT_MODEL = 'anthropic/claude-fable-5-1:low';
+      await expect(chooseOwnerModel(host, record)).resolves.toEqual({ model: 'anthropic/claude-fable-5-1', thinking: 'low' });
+    });
+
+    it('refuses an unavailable project override without switching provider', async () => {
+      const host = await fakeHost();
+      const record = buildingProject({ modelOverrides: { MED: { provider: 'anthropic', modelId: 'retired-model' } } });
+      await expect(chooseOwnerModel(host, record)).rejects.toThrow('retired-model is unavailable');
+    });
+
+    it('refuses an unsupported thinking level on the project override', async () => {
+      const host = await fakeHost();
+      const record = buildingProject({ modelOverrides: { MED: { provider: 'anthropic', modelId: 'claude-fable-5-1', thinkingLevel: 'max' } } });
+      await expect(chooseOwnerModel(host, record)).rejects.toThrow(/does not support max thinking/);
+    });
   });
 
   it('does not silently switch providers when the configured provider is unavailable', async () => {
@@ -127,11 +169,11 @@ describe('owner session', () => {
     const store = await storeFor(host);
     const outcomes = createTurnOutcomes();
     const sessions = new OwnerSessions({ host, store, outcomes });
-    const record = buildingProject();
+    const record = buildingProject({ brief: 'Brief context. '.repeat(500) + 'Retain the archived records.', milestones: [milestone('m1', { plan: 'Plan detail. '.repeat(300) + 'Acceptance requires offline export.' })] });
     await store.write(record);
     host.sessions.onTurn = async (handleId) => {
       expect((await store.read(record.id))?.session.workingSince).toBe(T0);
-      host.sessions.emit(handleId, { type: 'compacted' });
+      host.sessions.emit(handleId, { type: 'compacted', at: T0 });
       outcomes.declare('proj_1', 'sleep');
     };
     const result = await sessions.runTurn(record, wake);
@@ -139,26 +181,38 @@ describe('owner session', () => {
     expect(host.sessions.prompts[0]?.content).toContain('This contract replaces every earlier Architect contract');
     expect(host.sessions.prompts[0]?.content).toContain('nothing is running');
     expect(host.sessions.steers[0]?.content).toBe(host.sessions.prompts[0]?.content);
+    expect(host.sessions.steers[0]?.content).toContain('Retain the archived records.');
+    expect(host.sessions.steers[0]?.content).toContain('Acceptance requires offline export.');
     expect(result.declared).toBe('sleep');
     expect(result.record.session.workingSince).toBeNull();
     expect(result.record.session.silentTurns).toBe(0);
     expect(result.record.session.lastWakeKind).toBe('quiet');
   });
 
-  it('charges only the delta of the session cost to the owner source', async () => {
+  it('journals owner deltas to their turn run even when another objective opens mid-turn', async () => {
     const host = await fakeHost();
     const store = await storeFor(host);
+    const journal = createRunJournal({ homeDir: await host.homeDir() });
     const outcomes = createTurnOutcomes();
-    const sessions = new OwnerSessions({ host, store, outcomes });
-    await store.write(buildingProject());
-    host.sessions.onTurn = async () => outcomes.declare('proj_1', 'sleep');
+    const sessions = new OwnerSessions({ host, store, outcomes, journal });
+    const opened = openRun(buildingProject(), { id: 'initial', kind: 'initial' }, T0);
+    if (!opened.ok) throw new Error(opened.error);
+    await store.write(opened.record);
+    host.sessions.onTurn = async () => {
+      await store.update('proj_1', (fresh) => {
+        const next = openRun(closeRun(fresh, 'initial', 'delivered', T0), { id: 'later', kind: 'maintenance', objectiveId: 'issue' }, T0);
+        return next.ok ? next.record : fresh;
+      });
+      outcomes.declare('proj_1', 'sleep');
+    };
     host.sessions.costUsd = 1.5;
-    const first = await sessions.runTurn(buildingProject(), wake);
-    expect(first.record.budget.sources.owner).toBe(1.5);
+    const first = await sessions.runTurn(opened.record, wake);
     host.sessions.costUsd = 2.25;
     const second = await sessions.runTurn(first.record, wake);
     expect(second.record.budget.sources.owner).toBe(2.25);
-    expect(second.record.budget.spentUsd).toBe(2.25);
+    const costs = async (id: string) => (await journal.readPage('proj_1', id)).records.reduce((sum, entry) => sum + (typeof entry.costUsd === 'number' ? entry.costUsd : 0), 0);
+    expect(await costs('initial')).toBe(1.5);
+    expect(await costs('later')).toBe(0.75);
   });
 
   it('retains live owner charges when the final usage read fails', async () => {
@@ -170,7 +224,7 @@ describe('owner session', () => {
     const sessions = new OwnerSessions({ host, store, outcomes });
     host.sessions.costUsd = 0.25;
     host.sessions.onTurn = async (handleId) => {
-      host.sessions.emit(handleId, { type: 'tool_start', toolName: 'read', summary: 'read file' });
+      host.sessions.emit(handleId, { type: 'tool_start', toolName: 'read', summary: 'read file', callId: 'call-1', at: T0 });
       await vi.waitFor(async () => expect((await store.read(record.id))?.budget.sources.owner).toBe(0.25));
       host.sessions.getSessionUsage = async () => { throw new Error('stats unavailable'); };
       outcomes.declare(record.id, 'sleep');

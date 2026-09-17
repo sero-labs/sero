@@ -63,6 +63,13 @@ export async function applyAnswerInput(host: OrchestratorHost, action: AnswerInp
       title: recorded.title === 'Untitled loop' ? undefined : recorded.title,
       clarifications: plannerClarifications(recorded),
       baseline: await catalogBaseline(host, recorded),
+      // The caller's own one-off/supplied recurrence choice, saved on the
+      // draft at creation, so a re-plan after a planner clarification does not
+      // fall back to natural-language extraction on work already declared.
+      options: {
+        ...(recorded.creation?.triggerIntent ? { triggerIntent: recorded.creation.triggerIntent } : {}),
+        ...(recorded.creation?.triggers ? { triggers: recorded.creation.triggers } : {}),
+      },
     });
     return { ok: true, loop: replanned, resume: false };
   }

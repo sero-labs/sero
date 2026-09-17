@@ -19,6 +19,9 @@ import { LiveSessionRegistry } from '@electron/features/apps/runtime/capabilitie
 function fakeSession(): { session: AgentSession; emit: (event: unknown) => void } {
   const listeners: ((event: unknown) => void)[] = [];
   const session = {
+    // The model the session actually runs with, so a request record names it
+    // rather than a tier label.
+    model: { id: 'claude-test', provider: 'anthropic' },
     subscribe: (cb: (event: unknown) => void) => {
       listeners.push(cb);
       return () => listeners.splice(listeners.indexOf(cb), 1);
@@ -49,12 +52,12 @@ describe('LiveSessionRegistry turn identity', () => {
     const failed = { role: 'assistant', stopReason: 'error', errorMessage: 'Your credit balance is too low to access the Anthropic API.' };
     registry.beginTurn('psh_1', 'failed-turn');
     emit({ type: 'agent_end', messages: [failed], willRetry: false });
-    expect(seen).toEqual([{ type: 'turn_end', turnId: 'failed-turn', status: 'error', errorMessage: failed.errorMessage }]);
+    expect(seen).toEqual([{ type: 'turn_end', turnId: 'failed-turn', status: 'error', errorMessage: failed.errorMessage, at: expect.any(String) }]);
     registry.beginTurn('psh_1', 'recovered-turn');
     emit({ type: 'agent_end', messages: [failed], willRetry: true });
     expect(seen).toHaveLength(1);
     emit({ type: 'agent_end', messages: [failed, { role: 'assistant', stopReason: 'stop' }], willRetry: false });
-    expect(seen[1]).toEqual({ type: 'turn_end', turnId: 'recovered-turn', status: 'completed' });
+    expect(seen[1]).toEqual({ type: 'turn_end', turnId: 'recovered-turn', status: 'completed', at: expect.any(String) });
   });
 
   it('ends the turn the caller was given, not one Pi named', () => {
@@ -65,8 +68,8 @@ describe('LiveSessionRegistry turn identity', () => {
     emit({ type: 'agent_end', messages: [], willRetry: false });
 
     expect(seen).toEqual([
-      { type: 'turn_start', turnId: 'turn_abc' },
-      { type: 'turn_end', turnId: 'turn_abc', status: 'completed' },
+      { type: 'turn_start', turnId: 'turn_abc', at: expect.any(String) },
+      { type: 'turn_end', turnId: 'turn_abc', status: 'completed', at: expect.any(String) },
     ]);
   });
 
@@ -79,7 +82,7 @@ describe('LiveSessionRegistry turn identity', () => {
     expect(seen).toEqual([]);
 
     emit({ type: 'agent_end', messages: [], willRetry: false });
-    expect(seen).toEqual([{ type: 'turn_end', turnId: 'turn_abc', status: 'completed' }]);
+    expect(seen).toEqual([{ type: 'turn_end', turnId: 'turn_abc', status: 'completed', at: expect.any(String) }]);
   });
 
   it('reports a cancelled turn as cancelled', () => {
@@ -89,7 +92,7 @@ describe('LiveSessionRegistry turn identity', () => {
     registry.markAborting('psh_1');
     emit({ type: 'agent_end', messages: [] });
 
-    expect(seen).toEqual([{ type: 'turn_end', turnId: 'turn_abc', status: 'aborted' }]);
+    expect(seen).toEqual([{ type: 'turn_end', turnId: 'turn_abc', status: 'aborted', at: expect.any(String) }]);
   });
 
   it('gives the next turn its own id, and does not carry the cancellation over', () => {
@@ -103,8 +106,8 @@ describe('LiveSessionRegistry turn identity', () => {
     emit({ type: 'agent_end', messages: [] });
 
     expect(seen).toEqual([
-      { type: 'turn_end', turnId: 'turn_one', status: 'aborted' },
-      { type: 'turn_end', turnId: 'turn_two', status: 'completed' },
+      { type: 'turn_end', turnId: 'turn_one', status: 'aborted', at: expect.any(String) },
+      { type: 'turn_end', turnId: 'turn_two', status: 'completed', at: expect.any(String) },
     ]);
   });
 
@@ -115,7 +118,7 @@ describe('LiveSessionRegistry turn identity', () => {
     // no watcher, which is the point: it must not settle somebody else's turn.
     emit({ type: 'agent_end', messages: [] });
 
-    expect(seen).toEqual([{ type: 'turn_end', turnId: '', status: 'completed' }]);
+    expect(seen).toEqual([{ type: 'turn_end', turnId: '', status: 'completed', at: expect.any(String) }]);
   });
 
   it('does not let a finished turn claim what happens after it', () => {
@@ -129,8 +132,8 @@ describe('LiveSessionRegistry turn identity', () => {
     emit({ type: 'agent_end', messages: [] });
 
     expect(seen).toEqual([
-      { type: 'turn_end', turnId: 'turn_one', status: 'aborted' },
-      { type: 'turn_end', turnId: '', status: 'completed' },
+      { type: 'turn_end', turnId: 'turn_one', status: 'aborted', at: expect.any(String) },
+      { type: 'turn_end', turnId: '', status: 'completed', at: expect.any(String) },
     ]);
   });
 
@@ -146,8 +149,8 @@ describe('LiveSessionRegistry turn identity', () => {
     expect(seen).toEqual([
       { type: 'text', text: 'Fixing ' },
       { type: 'text', text: 'the greeting.' },
-      { type: 'tool_start', toolName: 'bash', summary: 'npm test' },
-      { type: 'tool_end', toolName: 'bash', ok: true },
+      { type: 'tool_start', toolName: 'bash', summary: 'npm test', callId: 'c1', at: expect.any(String) },
+      { type: 'tool_end', toolName: 'bash', ok: true, callId: 'c1', at: expect.any(String) },
     ]);
   });
 
@@ -156,10 +159,20 @@ describe('LiveSessionRegistry turn identity', () => {
 
     registry.beginTurn('psh_1', 'turn_abc');
     emit({ type: 'message_update', assistantMessageEvent: { type: 'thinking_delta', delta: 'maybe the name is empty' } });
+
+    // Reasoning text produces nothing at all: its content never leaves the session.
+    expect(seen).toEqual([]);
+
     emit({ type: 'message_start', message: {} });
     emit({ type: 'turn_start' });
 
-    expect(seen).toEqual([]);
+    // A request identity is reported, because that is execution, not thought.
+    // Pi's own `turn_start` maps to nothing; the caller's turn id governs.
+    // This fake session names its model, so a request record carries it.
+    expect(seen).toEqual([
+      { type: 'request_start', requestId: null, model: 'anthropic/claude-test', at: expect.any(String) },
+    ]);
+    expect(JSON.stringify(seen)).not.toContain('maybe the name is empty');
   });
 
   it('reports a failed tool as failed', () => {
@@ -168,7 +181,7 @@ describe('LiveSessionRegistry turn identity', () => {
     registry.beginTurn('psh_1', 'turn_abc');
     emit({ type: 'tool_execution_end', toolCallId: 'c1', toolName: 'read', result: {}, isError: true });
 
-    expect(seen).toEqual([{ type: 'tool_end', toolName: 'read', ok: false }]);
+    expect(seen).toEqual([{ type: 'tool_end', toolName: 'read', ok: false, callId: 'c1', at: expect.any(String) }]);
   });
 
   it('does not let one bad watcher break the others', () => {
@@ -182,6 +195,50 @@ describe('LiveSessionRegistry turn identity', () => {
     emit({ type: 'agent_end', messages: [] });
 
     expect(angry).toHaveBeenCalled();
-    expect(seen).toEqual([{ type: 'turn_end', turnId: 'turn_abc', status: 'completed' }]);
+    expect(seen).toEqual([{ type: 'turn_end', turnId: 'turn_abc', status: 'completed', at: expect.any(String) }]);
+  });
+});
+
+describe('LiveSessionRegistry request and call identities', () => {
+  it('names the model that actually runs on a request, and keeps two requests apart', () => {
+    const { registry, emit, seen } = registryWithSession();
+    registry.beginTurn('psh_1', 'turn_abc');
+
+    emit({ type: 'message_start', message: { id: 'msg-1' } });
+    emit({ type: 'message_end', message: { id: 'msg-1' } });
+    emit({ type: 'message_start', message: { id: 'msg-2' } });
+
+    expect(seen).toEqual([
+      { type: 'request_start', requestId: 'msg-1', model: 'anthropic/claude-test', at: expect.any(String) },
+      { type: 'request_end', requestId: 'msg-1', outcome: 'ok', at: expect.any(String) },
+      { type: 'request_start', requestId: 'msg-2', model: 'anthropic/claude-test', at: expect.any(String) },
+    ]);
+  });
+
+  it('keeps two parallel calls to the same tool apart by their call id', () => {
+    const { registry, emit, seen } = registryWithSession();
+    registry.beginTurn('psh_1', 'turn_abc');
+
+    emit({ type: 'tool_execution_start', toolCallId: 'call-a', toolName: 'bash', args: { command: 'one' } });
+    emit({ type: 'tool_execution_start', toolCallId: 'call-b', toolName: 'bash', args: { command: 'two' } });
+    emit({ type: 'tool_execution_end', toolCallId: 'call-b', toolName: 'bash', isError: false });
+    emit({ type: 'tool_execution_end', toolCallId: 'call-a', toolName: 'bash', isError: true });
+
+    // The same tool name, four distinct records, each carrying its own identity.
+    expect(seen.map((event) => (event.type === 'tool_start' || event.type === 'tool_end' ? event.callId : null)))
+      .toEqual(['call-a', 'call-b', 'call-b', 'call-a']);
+    expect(seen[3]).toMatchObject({ type: 'tool_end', ok: false });
+    expect(seen[2]).toMatchObject({ type: 'tool_end', ok: true });
+  });
+
+  it('marks a compaction with the time it was observed', () => {
+    const { registry, emit, seen } = registryWithSession();
+    registry.beginTurn('psh_1', 'turn_abc');
+
+    emit({ type: 'compaction_end' });
+    // An aborted compaction is not a compaction.
+    emit({ type: 'compaction_end', aborted: true });
+
+    expect(seen).toEqual([{ type: 'compacted', at: expect.any(String) }]);
   });
 });

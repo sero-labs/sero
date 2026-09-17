@@ -11,6 +11,7 @@
  */
 
 import type { AnsweredInput, CreateLoopOptions, Loop, SharedLoopDefinition } from '../shared/types';
+import { resolveOrchestratorTriggerIntent } from '@sero-ai/common';
 import { effectiveDelivery } from '../shared/delivery-types';
 import type { OrchestratorHost } from './host';
 import { planLoop } from './planner';
@@ -65,6 +66,7 @@ export async function runPlanningFlow(host: OrchestratorHost, draft: Loop, args:
     agentCatalog,
     clarifications: args.clarifications,
     baseline: args.baseline,
+    modelSnapshot: draft.project?.modelSnapshot,
     onUsage,
   });
 
@@ -80,15 +82,25 @@ export async function runPlanningFlow(host: OrchestratorHost, draft: Loop, args:
     // A focused, single-purpose trigger call is far more reliable than asking
     // the planner to remember a trigger. Run it after planning so it never blocks
     // plan authoring.
-    const extraction = await extractTriggers(host, {
-      prompt: args.prompt,
-      parentSessionId: draft.runtime.parentSessionId,
-      loopId: draft.id,
-      onUsage,
-    });
+    //
+    // A caller that declared the work one-off, or supplied validated triggers,
+    // has already answered the question this call exists to ask, so it is not
+    // asked again. One-off also means one-off: the empty list wins over whatever
+    // the planner suggested, so nothing is scheduled for a milestone.
+    const triggerIntent = resolveOrchestratorTriggerIntent(args.options);
+    const options = triggerIntent === 'one-off' ? { ...args.options, triggers: [] } : args.options;
+    const extraction = triggerIntent === 'unspecified'
+      ? await extractTriggers(host, {
+        prompt: args.prompt,
+        parentSessionId: draft.runtime.parentSessionId,
+        loopId: draft.id,
+        modelSnapshot: draft.project?.modelSnapshot,
+        onUsage,
+      })
+      : undefined;
     draft = { ...draft, planningUsage: mergeCumulativeUsage(draft.planningUsage,
     (await host.readState())?.loops.find((loop) => loop.id === draft.id)?.planningUsage) };
-    const loop = applyPlanningResponse(host, draft, outcome.response, args.options, args.title, extraction);
+    const loop = applyPlanningResponse(host, draft, outcome.response, options, args.title, extraction);
     const planned = {
       ...loop,
       planningUsage: draft.planningUsage,

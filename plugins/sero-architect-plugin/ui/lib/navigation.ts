@@ -7,7 +7,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { consumeAppLaunchParams, onAppLaunchParams, useAppNavigation } from '@sero-ai/app-runtime';
 
-export type ArchitectView = { mode: 'list'; intake?: boolean } | { mode: 'project'; projectId: string };
+export type ArchitectView =
+  | { mode: 'list'; intake?: boolean }
+  | { mode: 'project'; projectId: string }
+  /** Project model defaults, opened from the project controls menu. */
+  | { mode: 'models'; projectId: string }
+  /** The run inspector, opened from the project controls menu. */
+  | { mode: 'inspector'; projectId: string };
 
 interface ArchitectLaunchParams extends Record<string, unknown> {
   projectId?: string;
@@ -16,15 +22,19 @@ interface ArchitectLaunchParams extends Record<string, unknown> {
 
 export function viewId(view: ArchitectView): string {
   if (view.mode === 'project') return `projects/${view.projectId}`;
+  if (view.mode === 'models') return `projects/${view.projectId}/models`;
+  if (view.mode === 'inspector') return `projects/${view.projectId}/inspector`;
   return view.intake ? 'projects/new' : 'projects';
 }
 
 export function parseViewId(id: string | undefined): ArchitectView | null {
   if (!id) return null;
-  const [section, rest] = id.split('/');
+  const [section, rest, sub] = id.split('/');
   if (section !== 'projects') return null;
   if (!rest) return { mode: 'list' };
   if (rest === 'new') return { mode: 'list', intake: true };
+  if (sub === 'models') return { mode: 'models', projectId: rest };
+  if (sub === 'inspector') return { mode: 'inspector', projectId: rest };
   return { mode: 'project', projectId: rest };
 }
 

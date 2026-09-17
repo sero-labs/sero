@@ -1,3 +1,4 @@
+import type { OrchestratorProjectContext, OrchestratorTriggerIntent } from './orchestrator-project-context';
 /**
  * Cross-plugin contract for the Orchestrator's scheduled loops.
  *
@@ -7,6 +8,7 @@
  * schedule through the `orchestrator` tool. Keeping the shared shapes here makes
  * producer/consumer drift a typecheck error instead of a runtime mismatch.
  */
+
 
 export const ORCHESTRATOR_APP_ID = 'orchestrator';
 
@@ -293,6 +295,13 @@ export interface OrchestratorBoardDeliverySettings {
   params?: Record<string, string | number | boolean>;
 }
 
+
+/** Older callers that set `triggers` without an intent keep the supplied meaning. */
+export function resolveOrchestratorTriggerIntent(options?: OrchestratorBoardCreateOptions): OrchestratorTriggerIntent {
+  if (options?.triggerIntent) return options.triggerIntent;
+  return options?.triggers?.length ? 'supplied' : 'unspecified';
+}
+
 /** Creation options a plugin runtime may pass. A subset of the plugin's own `CreateLoopOptions`. */
 export interface OrchestratorBoardCreateOptions {
   /** Stable caller identity for recovery of an interrupted create request. */
@@ -305,6 +314,10 @@ export interface OrchestratorBoardCreateOptions {
   limits?: Partial<OrchestratorBoardLoopLimits>;
   /** Triggers to wire at creation; when set they win over the planner's own suggestions. */
   triggers?: OrchestratorBoardTriggerSuggestion[];
+  /** Whether the caller declared one-off work, supplied triggers, or left intent unspecified. */
+  triggerIntent?: OrchestratorTriggerIntent;
+  /** Project/run attribution and the tier defaults resolved before planning. */
+  project?: OrchestratorProjectContext;
   delivery?: OrchestratorBoardDeliverySettings;
 }
 
@@ -417,6 +430,8 @@ export interface OrchestratorRoomCreateRequest {
   /** The Room's brief, kept verbatim. */
   mandate: string;
   limits?: OrchestratorRoomCreateLimits;
+  /** Project/run attribution and the tier defaults resolved before planning. */
+  project?: OrchestratorProjectContext;
 }
 
 export type OrchestratorRoomCreateResult =

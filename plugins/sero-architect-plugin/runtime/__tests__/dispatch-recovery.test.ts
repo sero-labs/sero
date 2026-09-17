@@ -51,9 +51,56 @@ describe('Architect dispatch recovery through the Orchestrator registry', () => 
     const linked = (await reopened.read(record.id))!.milestones[0];
     expect(linked.pendingDispatch).toBeUndefined();
     expect(linked.dispatch?.id).toBe(savedId ?? restarted.state.loops[0].id);
+    // The run the work was dispatched under stays on the dispatch, so late usage
+    // is charged to it after the run closes.
+    expect(saved.milestones[0].pendingDispatch?.project?.runId).toBeTruthy();
+    expect(linked.dispatch?.runId).toBe(saved.milestones[0].pendingDispatch?.project?.runId);
     expect(restarted.state.loops).toHaveLength(1);
     expect(restarted.state.loops[0].prompt).toBe(pendingPrompt);
     await vi.waitFor(() => expect(restarted.state.loops[0].status).toBe('active'));
     if (point === 'before-link') expect(restarted.modelCalls).toHaveLength(0);
+  });
+
+  it('gives the delegate the user approvals, and only the approvals', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const decision = (id: string, question: string, answer: { optionId: string; note: string } | null) => ({
+      id, question,
+      options: [{ id: 'hex', label: 'Hex', consequence: 'harder' }, { id: 'square', label: 'Square', consequence: 'simpler' }],
+      recommendation: 'hex', reason: 'the charter is silent', dependsOn: [], raisedAt: T0, proposal: null,
+      answer: answer ? { ...answer, answeredAt: T0 } : null,
+    });
+    const record = buildingProject({
+      brief: 'A hex grid roguelike.',
+      milestones: [milestone('m1', { status: 'approved' })],
+      decisions: [
+        decision('dec_answered', 'Hex or square grid?', { optionId: 'hex', note: 'Match the original.' }),
+        decision('dec_open', 'Which palette?', null),
+      ],
+      research: [
+        { id: 'res_saved', question: 'Which renderer fits?', stoppingCondition: 'enough', result: 'A long report. '.repeat(500), artifactPath: '.sero/apps/architect/research/res_saved.md', costUsd: 1, completedAt: T0 },
+        { id: 'res_unsaved', question: 'Which input layout?', stoppingCondition: 'enough', result: 'Another long report. '.repeat(500), costUsd: 1, completedAt: T0 },
+      ],
+    });
+    await store.write(record);
+    const services = createServices({ host, store, wake: () => {} });
+    await performDispatch(store, services, record, record.milestones[0], {
+      kind: 'workflow', prompt: 'Build the grid', destination: null, maxCostUsd: 2,
+    }, T0, true);
+
+    const prompt = (await store.read(record.id))?.milestones[0].pendingDispatch?.request?.prompt ?? '';
+    expect(prompt).toContain('Approved decisions (USER APPROVALS; these bind the work):');
+    expect(prompt).toContain('Hex or square grid? -> the user chose "hex": Match the original.');
+    // An unanswered question is not an approval, and the delegate must not
+    // receive the owner's recommendation as though the user had accepted it.
+    expect(prompt).not.toContain('Which palette?');
+    expect(prompt).toContain('Earlier research artifacts are recommendations, not approvals');
+    // Findings arrive as references. The delegate reads the report under its own
+    // permissions; the handoff does not carry the report's text.
+    expect(prompt).toContain('Project findings (references; read one when it is relevant):');
+    expect(prompt).toContain('- Which renderer fits? - .sero/apps/architect/research/res_saved.md');
+    expect(prompt).toContain('Which input layout? - the full report is not on disk');
+    expect(prompt).not.toContain('A long report.');
+    expect(prompt).not.toContain('Another long report.');
   });
 });

@@ -1,5 +1,5 @@
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
-import type { AppRuntimeSubagentRepair, AppRuntimeSubagentResult } from '@sero-ai/common';
+import type { AppRuntimeSubagentRepair, AppRuntimeSubagentResult, ObservationRecord } from '@sero-ai/common';
 import { randomUUID } from 'crypto';
 import { resolveConfig } from './resolve';
 import type { ConcurrencyPool } from './pool';
@@ -56,6 +56,8 @@ export interface SingleRunParams {
   repair?: AppRuntimeSubagentRepair;
   onUpdate?: (text: string) => void;
   onUsage?: (usage: NonNullable<AppRuntimeSubagentResult['usage']>) => void;
+  /** Metadata-only observations. A throwing observer never breaks the run. */
+  onObservation?: (record: ObservationRecord) => void;
 }
 
 interface ExecuteSingleRunOptions {
@@ -77,7 +79,24 @@ export interface SingleRunResult {
   /** Wall-clock duration of the run in milliseconds. */
   durationMs?: number;
   /** Token usage totals, plus run cost in USD when the model has known pricing. */
-  usage?: { inputTokens: number; outputTokens: number; totalTokens: number; costUsd?: number; incomplete?: boolean };
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    /** Provider cache reads. Absent means unmeasured, never zero. */
+    cacheReadTokens?: number;
+    /** Provider cache writes. Absent means unmeasured, never zero. */
+    cacheWriteTokens?: number;
+    costUsd?: number;
+    incomplete?: boolean;
+  };
+}
+
+/** The larger of two optional counters. An absent counter stays absent. */
+function highest(a: number | undefined, b: number | undefined): number | undefined {
+  if (a === undefined) return b;
+  if (b === undefined) return a;
+  return Math.max(a, b);
 }
 
 /**
@@ -114,6 +133,20 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
   const runId = randomUUID();
   const controller = new AbortController();
 
+  /**
+   * Telemetry is never allowed to interfere with a paid run. A throwing or slow
+   * observer is swallowed here, and a failure is reported as an incomplete
+   * observation rather than by replaying or abandoning the work.
+   */
+  const observe = (record: ObservationRecord): void => {
+    try {
+      params.onObservation?.(record);
+    } catch {
+      // Deliberately ignored: an observation must not change execution.
+    }
+  };
+  const identities = { operationId: runId, sessionId: runId, attemptId: runId };
+
   const externalSignal = params.signal;
   const onExternalAbort = () => controller.abort();
   if (externalSignal?.aborted) {
@@ -141,8 +174,16 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
   };
 
   try {
+    // Queue admission is observed around the wait, so a run that never got a
+    // slot is still visible instead of silently missing.
+    observe({ kind: 'operation-start', identities, startedAt: new Date().toISOString() });
     await pool.acquireSlot(runId, parentSessionId, controller);
     tracker.start(entry);
+    observe({
+      kind: 'operation-start', identities,
+      startedAt: new Date().toISOString(),
+      model: resolved.model, thinking: resolved.thinking,
+    });
     onUpdate?.(`🔄 ${agent.name} started — "${task.slice(0, 80)}"`);
 
     const result = await runSubagent(
@@ -166,34 +207,49 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
         repair: params.repair,
         onProgress: (usage) => {
           tracker.progress(runId, usage);
-          latestUsage = {
+          const merged: NonNullable<AppRuntimeSubagentResult['usage']> = {
             inputTokens: usage.inputTokens ?? latestUsage?.inputTokens ?? 0,
             outputTokens: usage.outputTokens ?? latestUsage?.outputTokens ?? 0,
             totalTokens: usage.totalTokens ?? latestUsage?.totalTokens ?? 0,
-            costUsd: usage.cost === undefined ? latestUsage?.costUsd : usage.cost > 0 ? usage.cost : undefined,
-            ...(usage.incomplete ? { incomplete: true } : {}),
+            // Cache counters are carried through, not dropped: the inspector
+            // shows a measured split instead of calling it unavailable.
+            cacheReadTokens: usage.cacheReadTokens ?? latestUsage?.cacheReadTokens,
+            cacheWriteTokens: usage.cacheWriteTokens ?? latestUsage?.cacheWriteTokens,
           };
+          // A cumulative snapshot supersedes an earlier cost. A non-positive
+          // value is left out, so an unpriced model shows no cost rather than
+          // a misleading $0.
+          let costUsd = latestUsage?.costUsd;
+          if (usage.cost !== undefined) costUsd = usage.cost > 0 ? usage.cost : undefined;
+          if (costUsd !== undefined) merged.costUsd = costUsd;
+          if (usage.incomplete) merged.incomplete = true;
+          latestUsage = merged;
           params.onUsage?.(latestUsage);
         },
         onToolActivity: (name, summary, running) =>
           tracker.updateToolActivity(runId, name, summary, running),
         onTextDelta: (delta) => tracker.appendLiveOutput(runId, delta),
+        onObservation: observe,
         onUpdate,
       },
       deps,
     );
 
     const durationMs = Date.now() - entry.startedAt;
-    const usage = {
+    const usage: NonNullable<SingleRunResult['usage']> = {
       inputTokens: Math.max(result.usage.inputTokens, latestUsage?.inputTokens ?? 0),
       outputTokens: Math.max(result.usage.outputTokens, latestUsage?.outputTokens ?? 0),
       totalTokens: Math.max(result.usage.totalTokens, latestUsage?.totalTokens ?? 0),
+      // A cumulative snapshot can arrive more than once; the highest value wins,
+      // so a repeated report never inflates the run.
+      cacheReadTokens: highest(result.usage.cacheReadTokens, latestUsage?.cacheReadTokens),
+      cacheWriteTokens: highest(result.usage.cacheWriteTokens, latestUsage?.cacheWriteTokens),
       // The pi session tracks cumulative cost (priced from the model + tokens);
       // surface it as USD. Omit a non-positive value so callers show no cost
       // rather than a misleading $0 for unpriced models.
       costUsd: Math.max(result.usage.cost, latestUsage?.costUsd ?? 0) || undefined,
-      ...(result.usage.incomplete ? { incomplete: true } : {}),
     };
+    if (result.usage.incomplete) usage.incomplete = true;
 
     if (result.error) {
       tracker.fail(runId, result.error, result.usage);

@@ -18,7 +18,9 @@
 
 import type { LoopTriggerSuggestion } from '../shared/types';
 import type { UsageSummary } from '../shared/types';
+import type { OrchestratorProjectModelSnapshot } from '@sero-ai/common';
 import type { OrchestratorHost } from './host';
+import { applyProjectSnapshot } from './project-models';
 import { loopArtifactDir } from './artifacts';
 import { isValidCron } from './cron';
 import { buildEventSourceCatalogBlock } from './events/source-catalog';
@@ -144,15 +146,26 @@ function parseTriggerExtraction(value: unknown): ParseResult<TriggerExtraction> 
  */
 export async function extractTriggers(
   host: OrchestratorHost,
-  args: { prompt: string; parentSessionId: string; loopId?: string; model?: string; signal?: AbortSignal; onUsage?: (usage: UsageSummary) => void | Promise<void> },
+  args: {
+    prompt: string;
+    parentSessionId: string;
+    loopId?: string;
+    model?: string;
+    /** The project's tier defaults at creation, so inference uses the same models as the dispatch. */
+    modelSnapshot?: OrchestratorProjectModelSnapshot;
+    signal?: AbortSignal;
+    onUsage?: (usage: UsageSummary) => void | Promise<void>;
+  },
 ): Promise<TriggerExtraction> {
+  const project = applyProjectSnapshot(args.modelSnapshot, args.model);
   const result = await runStructuredJson<TriggerExtraction>(host, {
     systemPrompt: TRIGGER_SYSTEM_PROMPT,
     task: buildTriggerTask(args.prompt),
     parse: parseTriggerExtraction,
     buildRepair: buildTriggerRepair(args.prompt),
     parentSessionId: args.parentSessionId,
-    model: args.model,
+    model: project.model,
+    thinking: project.thinking,
     signal: args.signal,
     maxRepairs: 2,
     onUsage: args.onUsage,

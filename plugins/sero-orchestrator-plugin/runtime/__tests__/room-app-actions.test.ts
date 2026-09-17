@@ -11,6 +11,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { modelKey } from '@sero-ai/common';
 import type { RoomBlueprint } from '../../shared/room-blueprint-types';
+import { computeProposalSummary } from '../../shared/room-proposal';
 import { requestRoomGrant } from '../rooms/member-grant';
 import { createRoomAppActions, limitsForOrigin, type RoomAppActions } from '../rooms/room-app-actions';
 import type { RoomCoordinator } from '../rooms/room-coordinator';
@@ -18,6 +19,7 @@ import type { RoomStore } from '../rooms/room-store';
 import type { FakeHost } from './fake-host';
 import {
   MEMBERS,
+  blueprintWith,
   createRoomHarness,
   disposeHarness,
   draftRoomIn,
@@ -202,6 +204,27 @@ describe('the user Room surface', () => {
     expect((await store.readRoom(roomId))?.definition.grantId).toBe('grant-1');
   });
 
+  it('keeps project attribution through an adjustment', async () => {
+    const envelope = envelopeWith();
+    const blueprint = blueprintWith(envelope, MEMBERS);
+    const project = { projectId: 'proj-1', runId: 'run-1' };
+    const created = await coordinator.createRoom({
+      problemStatement: 'the app crashes',
+      blueprint,
+      proposal: computeProposalSummary(blueprint),
+      workspaceId: 'ws-1',
+      project,
+    });
+    if (!created.room) throw new Error(created.error ?? 'no room');
+    const roomId = created.room.definition.id;
+    host.modelResponses.push({ response: JSON.stringify(blueprint) });
+
+    const outcome = await app.adjust(roomId, 'Keep the same team.');
+    expect(outcome.ok).toBe(true);
+    const record = await store.readRoom(roomId);
+    expect(record?.definition.projectContext).toEqual(project);
+  });
+
   it('tells the Room as the Room, and wakes who it reached', async () => {
     const roomId = await draftRoom();
     await coordinator.startRoom(roomId);
@@ -379,4 +402,26 @@ describe('the user Room surface', () => {
     expect(await app.start('room-nope')).toEqual({ ok: false, error: 'Room not found: room-nope' });
     expect(await app.intervene('room-nope', 'hello')).toEqual({ ok: false, error: 'Room not found: room-nope' });
   });
+});
+
+it('uses the project snapshot for paid Room planning and member choices', async () => {
+  host.availableModels = [{ provider: 'openai-codex', displayName: 'OpenAI', logo: '', models: [
+    { provider: 'openai-codex', modelId: 'gpt-5.6-luna', name: 'Luna', reasoning: true },
+    { provider: 'openai-codex', modelId: 'global-model', name: 'Global', reasoning: true },
+  ] }];
+  const model = 'openai-codex/gpt-5.6-luna';
+  const blueprint = blueprintWith(envelopeWith({ allowedModels: [model], allowedThinkingLevels: ['off'] }), MEMBERS.map((member) => ({ ...member, model, thinking: 'off', tools: [], skills: [] })));
+  host.modelResponses.push({ response: JSON.stringify(blueprint) });
+  const planned = await app.prepare({ problem: 'Review this code', project: { projectId: 'p', runId: 'r', modelSnapshot: { MED: { provider: 'openai-codex', modelId: 'gpt-5.6-luna', thinkingLevel: 'off' } } } });
+  expect(planned.ok).toBe(true);
+  if (!planned.ok) throw new Error('Room did not plan');
+  const saved = await store.readRoom(planned.roomId);
+  expect(saved?.members.map((member) => member.configuration.model)).toEqual([model, model, model]);
+  expect(saved?.members.map((member) => member.configuration.thinking)).toEqual(['off', 'off', 'off']);
+  expect(host.modelCalls.length).toBeGreaterThan(0);
+  expect(host.modelCalls[0].task).toContain('openai-codex/gpt-5.6-luna');
+  for (const call of host.modelCalls) {
+    expect(call).toMatchObject({ model: 'openai-codex/gpt-5.6-luna', thinking: 'off' });
+    expect(call.task).not.toContain('global-model');
+  }
 });

@@ -5,15 +5,18 @@
  * touches any of these; it asks, and is woken with the result.
  */
 
-import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { executionMode, projectWriter, roomWorkspace, workflowWorkspace } from './execution-location';
 import { setTimeout as delay } from 'node:timers/promises';
 
-import { createOrchestratorRoom, getOrchestratorRegistry, requestOrchestratorAction } from '@sero-ai/common';
+import { modelKey, createOrchestratorRoom, getOrchestratorRegistry, requestOrchestratorAction } from '@sero-ai/common';
+import type { ObservationOperationKind, OrchestratorBoardCreateOptions, OrchestratorRoomCreateRequest } from '@sero-ai/common';
 
 import { recoverDispatch } from './dispatch-link';
 import { chargeRoomPlanning, runProjectModel } from './project-usage';
+import { closeDeliveredObjectives } from './objective-completion';
+import { ensureResearchContext } from './research-context';
+import { resolveProjectContext } from './model-resolution';
 import { roomModelLimits } from './model-selection';
 import { startResearchRoom } from './research-room';
 import { startResearchWorkflow } from './research-workflow';
@@ -23,86 +26,65 @@ import type { EvidenceCommand, EvidenceRecord, Milestone, PendingResearch, Proje
 import { MAINTENANCE_MILESTONE_ID, MAINTENANCE_TRIGGERS, maintenancePrompt } from '../shared/maintenance';
 import type { WakeEvent } from '../shared/wake';
 import type { ArchitectHost } from './host';
+import { captureConfirmed, commitOf, diffSummaryOf, remainingUsd, replaceMilestone, researchTask, worktreeFingerprint } from './service-helpers';
 import type { OwnerServices } from './owner-actions';
 import type { RecordStore } from './record-store';
+import { attachResearchArtifact } from './research-artifact';
+import type { RunJournal } from './run-journal';
+import type { SpanRecorder } from './spans';
+import { activeRun } from '../shared/runs';
 
 export interface ServicesDeps {
   host: ArchitectHost;
   store: RecordStore;
   wake(projectId: string, wake: WakeEvent): void;
+  /** Semantic operation spans. Absent leaves execution unchanged. */
+  spans?: SpanRecorder;
+  /**
+   * The run journal, so every charged delta also lands in the trace. Without it
+   * a charge still reaches the budget and the trace records no cost at all, so
+   * the two cannot be reconciled.
+   */
+  journal?: RunJournal;
 }
 
 const COMMAND_TIMEOUT_MS = 10 * 60_000;
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-const EMPTY_TREE_COMMIT = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
-function captureConfirmed(response: string): boolean {
-  try {
-    const verdict: unknown = JSON.parse(response);
-    return typeof verdict === 'object' && verdict !== null && 'rendered' in verdict && verdict.rendered === true
-      && 'summary' in verdict && typeof verdict.summary === 'string' && verdict.summary.trim().length > 0;
-  } catch {
-    return false;
-  }
-}
-
-function replaceMilestone(record: ProjectRecord, milestone: Milestone): ProjectRecord {
-  return { ...record, milestones: record.milestones.map((m) => (m.id === milestone.id ? milestone : m)) };
-}
-
-function researchTask(record: ProjectRecord, question: string, stoppingCondition: string): string {
-  return [
-    `You research one question for the software project in ${record.folder}. Answer it with facts you verified, name your sources, and say what you could not find out.`,
-    '',
-    `Question: ${question}`,
-    `Stop when: ${stoppingCondition}`,
-    '',
-    'Reply with the answer as plain text, at most 600 words.',
-  ].join('\n');
-}
-
-/** Remaining budget for one dispatched run, so a Workflow never starts with more than the project has left. */
-function remainingUsd(record: ProjectRecord): number | undefined {
-  if (record.budget.capUsd === null) return undefined;
-  return Math.max(0, record.budget.capUsd - record.budget.spentUsd);
-}
-
-export async function commitOf(host: ArchitectHost, folder: string): Promise<string> {
-  const head = await host.exec('git', ['rev-parse', 'HEAD'], folder);
-  return head.exitCode === 0 ? head.stdout.trim() : EMPTY_TREE_COMMIT;
-}
-
-async function untrackedFiles(host: ArchitectHost, folder: string): Promise<string[]> {
-  const result = await host.exec('git', ['ls-files', '--others', '--exclude-standard', '-z', '--', '.', ':(exclude).sero'], folder);
-  if (result.exitCode !== 0) throw new Error(`git could not list untracked files: ${result.stderr.trim() || result.stdout.trim()}`);
-  return result.stdout.split('\0').filter(Boolean).sort();
-}
-
-async function diffSummaryOf(host: ArchitectHost, folder: string, baseCommit: string): Promise<string | null> {
-  const stat = await host.exec('git', ['diff', '--stat', baseCommit, '--', '.', ':(exclude).sero'], folder);
-  if (stat.exitCode !== 0) throw new Error(`git could not summarize changes from ${baseCommit}: ${stat.stderr.trim() || stat.stdout.trim()}`);
-  const untracked = await untrackedFiles(host, folder);
-  const lines = [stat.stdout.trim(), untracked.length > 0 ? `untracked:\n${untracked.join('\n')}` : ''].filter(Boolean);
-  return lines.length > 0 ? lines.join('\n') : null;
-}
-
-/** Hashes the actual checked content, not only whether the tree is dirty. */
-export async function worktreeFingerprint(host: ArchitectHost, folder: string): Promise<string> {
-  const head = await commitOf(host, folder);
-  const tracked = await host.exec('git', ['diff', '--binary', head, '--', '.', ':(exclude).sero'], folder);
-  if (tracked.exitCode !== 0) throw new Error(`git could not fingerprint tracked files: ${tracked.stderr.trim() || tracked.stdout.trim()}`);
-  const untracked = await untrackedFiles(host, folder);
-  const hash = createHash('sha256').update(head).update('\0').update(tracked.stdout);
-  for (const file of untracked) {
-    const content = await host.exec('git', ['hash-object', '--', file], folder);
-    if (content.exitCode !== 0) throw new Error(`git could not fingerprint ${file}: ${content.stderr.trim() || content.stdout.trim()}`);
-    hash.update('\0').update(file).update('\0').update(content.stdout.trim());
-  }
-  return hash.digest('hex');
-}
 
 export function createServices(deps: ServicesDeps): OwnerServices {
   const { host, store } = deps;
+
+  /**
+   * Wraps one semantic operation in a span. The runtime says what the operation
+   * is; a model never narrates it. Without a recorder this is the plain call, so
+   * ordinary callers are unaffected.
+   */
+  const span = async <T>(
+    record: ProjectRecord,
+    kind: ObservationOperationKind,
+    suffix: string,
+    work: () => Promise<T>,
+    identity: { parentOperationId?: string; model?: string; thinking?: string } = {},
+  ): Promise<T> => {
+    const recorder = deps.spans;
+    if (!recorder) return work();
+    const open = activeRun(record);
+    if (!open) return work();
+    const operationId = `${open.id}:${kind}:${suffix}`;
+    return recorder.around({
+      projectId: record.id,
+      runId: open.id,
+      operationId,
+      kind,
+      parentOperationId: identity.parentOperationId,
+      // The model the runtime used for the call this span covers. Set only where
+      // the Architect makes the call itself: a delegated operation names no
+      // model, because the delegate chose it and the Architect did not see it.
+      model: identity.model,
+      thinking: identity.thinking,
+    }, work);
+  };
 
   const runPreview = async (
     record: ProjectRecord,
@@ -210,19 +192,28 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     if (!record || !milestone || !record.workspaceId) return;
     const commit = await commitOf(host, record.folder);
     const baseCommit = milestone.dispatch?.baseCommit ?? commit;
+    const workspaceId = record.workspaceId;
     const ran: EvidenceCommand[] = [];
-    for (const command of commands) {
-      const began = Date.now();
-      const result = await host.runCommand(record.workspaceId, record.folder, command, COMMAND_TIMEOUT_MS);
-      ran.push({ command, exitCode: result.exitCode, output: [result.stdout, result.stderr].filter(Boolean).join('\n').slice(-4000), durationMs: Date.now() - began });
-    }
+    await span(record, 'evidence', milestoneId, async () => {
+      for (const command of commands) {
+        const began = Date.now();
+        const result = await host.runCommand(workspaceId, record.folder, command, COMMAND_TIMEOUT_MS);
+        ran.push({ command, exitCode: result.exitCode, output: [result.stdout, result.stderr].filter(Boolean).join('\n').slice(-4000), durationMs: Date.now() - began });
+      }
+    });
     // Keep real command results when the later preview fails. Reporting a
     // capture error as a test exit code sends the owner to repair working code.
+    const evidenceSpan = `${activeRun(record)?.id ?? ''}:evidence:${milestoneId}`;
     const preview = route && ran.every((command) => command.exitCode === 0)
-      ? await runPreview(record, milestone, route, startedAt).catch((error: unknown) => ({
-        route, smokePassed: false, capturePath: null,
-        failure: error instanceof Error ? error.message : String(error),
-      })) : null;
+      ? await span(record, 'evidence', `${milestoneId}:capture`, () => runPreview(record, milestone, route, startedAt), {
+        parentOperationId: evidenceSpan,
+        model: record.session.model ?? undefined,
+        thinking: record.session.thinking ?? undefined,
+      })
+        .catch((error: unknown) => ({
+          route, smokePassed: false, capturePath: null,
+          failure: error instanceof Error ? error.message : String(error),
+        })) : null;
     const [diffSummary, fingerprint] = await Promise.all([
       diffSummaryOf(host, record.folder, baseCommit),
       worktreeFingerprint(host, record.folder),
@@ -286,17 +277,19 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         });
         return;
       }
-      const result = await runProjectModel(deps, record, { kind: 'research', id: pending.id }, {
+      const project = await ensureResearchContext(deps, record, pending);
+      const model = project.modelSnapshot?.MED;
+      const result = await span(record, 'research', pending.id, () => runProjectModel(deps, record, { kind: 'research', id: pending.id }, {
         systemPrompt: 'Research the supplied project question using read-only tools. Verify facts, cite sources, and stop at the stated stopping condition. Do not modify files or perform external actions.',
-        model: record.session.model ?? undefined,
-        thinking: record.session.thinking ?? undefined,
+        model: model ? modelKey(model.provider, model.modelId) : undefined,
+        thinking: model?.thinkingLevel,
         task: researchTask(record, pending.question, pending.stoppingCondition),
         parentSessionId: `architect:${record.id}:research`,
         workspaceId: record.workspaceId ?? 'global',
         cwd: record.folder,
         timeoutMs: 15 * 60_000,
         platformTools: 'readOnly',
-      });
+      }));
       const entry: ResearchResult = {
         id: pending.id,
         question: pending.question,
@@ -305,22 +298,31 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         costUsd: result.recordedCostUsd,
         completedAt: host.now(),
       };
-      const written = await store.update(record.id, (fresh) => ({
+      const written = await store.update(record.id, (fresh) => closeDeliveredObjectives({
         ...fresh,
         research: [...fresh.research, entry],
         pendingResearch: (fresh.pendingResearch ?? []).filter((item) => item.id !== pending.id),
-      }));
+      }, host.now()));
       if (!written) return;
+      // The finding is already recorded, so saving the report only adds the
+      // reference a later contract points at.
+      await attachResearchArtifact(store, record.id, pending.id);
       deps.wake(record.id,{ kind: 'quiet', at: host.now(), items: [`research ${pending.id} finished (started ${pending.startedAt}): ${pending.question}`] });
-    })();
+    })().catch((error: unknown) => host.log(`Research ${pending.id} failed: ${String(error)}`));
   };
 
   const services: OwnerServices = {
+    async resolveDispatchProject(record) {
+      const resolved = await resolveProjectContext(host, record);
+      if (!resolved.ok) throw new Error(resolved.error);
+      return resolved.value;
+    },
+
     async research(record, request) {
       const existing = record.pendingResearch?.find((entry) => entry.question === request.question && entry.stoppingCondition === request.stoppingCondition && entry.kind === request.kind);
       if (existing) return { id: existing.id };
       executionMode(record);
-      const pending: PendingResearch = { id: host.newId('res'), ...request, startedAt: host.now() };
+      const pending: PendingResearch = { id: host.newId('res'), ...request, startedAt: host.now(), project: await services.resolveDispatchProject(record) };
       const written = await store.update(record.id, (fresh) => settle({
         ...fresh,
         pendingResearch: [...(fresh.pendingResearch ?? []), pending],
@@ -332,6 +334,9 @@ export function createServices(deps: ServicesDeps): OwnerServices {
 
     async dispatch(record, milestone, request) {
       if (!record.workspaceId) throw new Error('The project has no workspace to dispatch into.');
+      // Captured after the guard: a narrowing does not survive into a closure.
+      // A distinct name, because the workflow branch below declares its own.
+      const projectWorkspaceId = record.workspaceId;
       const baseCommit = await commitOf(host, record.folder);
       const remaining = remainingUsd(record);
       if (remaining === 0) throw new Error('The project has no budget remaining.');
@@ -344,14 +349,27 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         while (milestone.pendingDispatch?.request && !getOrchestratorRegistry()?.has(record.workspaceId) && Date.now() < deadline) {
           await delay(100);
         }
-        const result = await requestOrchestratorAction(record.workspaceId, {
+        const createOptions: OrchestratorBoardCreateOptions = {
+          requestId: milestone.pendingDispatch?.request?.id,
+          activate: false,
+          disableTokenLimit: true,
+          // A milestone is work the project asked for once. Saying so here stops
+          // the Orchestrator making a model call to ask whether it recurs.
+          triggerIntent: 'one-off',
+          triggers: [],
+          limits,
+          workspace: workflowWorkspace(record),
+          delivery: { destination: request.destination ?? 'workspace-files' },
+        };
+        if (request.project) createOptions.project = request.project;
+        // The span covers the Orchestrator's own planning and creation call, so
+        // the timeline shows where the project's time went before any worker ran.
+        const result = await span(record, 'workflow', `${milestone.id}:plan`, () => requestOrchestratorAction(projectWorkspaceId, {
           kind: 'create',
           prompt: request.prompt,
           title: milestone.title,
-          options: { requestId: milestone.pendingDispatch?.request?.id, activate: false, disableTokenLimit: true, limits,
-            workspace: workflowWorkspace(record),
-            delivery: { destination: request.destination ?? 'workspace-files' } },
-        });
+          options: createOptions,
+        }));
         if (!result.ok || !result.loopId) throw new Error(result.error ?? 'The Workflow was not created.');
         const loopId = result.loopId;
         const workspaceId = record.workspaceId;
@@ -361,11 +379,14 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         } };
       }
       await chargeRoomPlanning(deps, record.id, { kind: 'dispatch', id: milestone.id });
-      const result = await createOrchestratorRoom(record.workspaceId, {
+      const roomRequest: OrchestratorRoomCreateRequest = {
         requestId: milestone.pendingDispatch?.request?.id,
         mandate: request.prompt,
-        limits: { ...limits, ...await roomModelLimits(host), ...roomWorkspace(record), access: 'edit-workspace', deliveryDestination: request.destination ?? 'workspace-files' },
-      });
+        limits: { ...limits, ...await roomModelLimits(host, request.project?.modelSnapshot), ...roomWorkspace(record), access: 'edit-workspace', deliveryDestination: request.destination ?? 'workspace-files' },
+      };
+      if (request.project) roomRequest.project = request.project;
+      // A Room's planning is its own operation, before any member starts.
+      const result = await span(record, 'planning', `${milestone.id}:room-plan`, () => createOrchestratorRoom(projectWorkspaceId, roomRequest));
       const chargedUsd = await chargeRoomPlanning(deps, record.id, { kind: 'dispatch', id: milestone.id }, result.usage);
       if (!result.ok) throw new Error(result.error);
       return { id: result.roomId, workspaceId: record.workspaceId, baseCommit, chargedUsd };
@@ -380,13 +401,14 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       const remaining = remainingUsd(record);
       if (remaining === 0) throw new Error('Maintenance cannot start with no budget remaining.');
       const workspace = workflowWorkspace(record);
-      await store.update(record.id, (fresh) => ({ ...fresh, preparingMaintenance: true, stateLine: 'Preparing the maintenance Workflow.' }));
+      const project = record.maintenanceProject ?? await services.resolveDispatchProject(record);
+      await store.update(record.id, (fresh) => ({ ...fresh, preparingMaintenance: true, maintenanceProject: project, stateLine: 'Preparing the maintenance Workflow.' }));
       try {
         const result = await requestOrchestratorAction(record.workspaceId, {
           kind: 'create',
           prompt: maintenancePrompt(record),
           title: `${record.name}: maintenance`,
-          options: { requestId: `${record.id}:maintenance`, activate: false, delivery: { destination: 'workspace-files' }, workspace, disableTokenLimit: true, limits: remaining === undefined ? {} : { maxCostUsd: remaining }, triggers: [...MAINTENANCE_TRIGGERS] },
+          options: { project, requestId: `${record.id}:maintenance`, activate: false, delivery: { destination: 'workspace-files' }, workspace, disableTokenLimit: true, limits: remaining === undefined ? {} : { maxCostUsd: remaining }, triggers: [...MAINTENANCE_TRIGGERS], triggerIntent: 'supplied' },
         }).catch((error: unknown) => ({ ok: false as const, error: String(error), loopId: undefined }));
         if (!result.ok || !result.loopId) {
           await store.update(record.id, (fresh) => ({ ...fresh, stateLine: result.error ?? 'The maintenance Workflow was not created.' }));

@@ -1,7 +1,7 @@
 // The durable project record: the single source of truth for one Architect
 // project. JSON-serialisable only. The runtime is its only writer.
 
-import type { SharedModelTierSettings } from '@sero-ai/common';
+import type { OrchestratorProjectContext, SharedModelTierSettings } from '@sero-ai/common';
 import type { DispatchDestination } from './owner-actions';
 import type { ArchitectOverlay, ArchitectPhase } from './types';
 
@@ -56,6 +56,11 @@ export interface MilestoneDispatch {
   destination: string | null;
   /** HEAD before work started, used to summarize committed milestone changes. */
   baseCommit?: string;
+  /**
+   * The run this work was dispatched under. Late usage is charged to it even
+   * after the run closes, instead of to whichever run happens to be open.
+   */
+  runId?: string;
   /** Latest execution failed or was interrupted, even if the workflow is enabled. */
   failure?: string;
   retryStepId?: string;
@@ -67,12 +72,55 @@ export interface PendingMilestoneDispatch {
   planningChargedUsd?: number;
   /** Absent on records written before recoverable dispatch creation. */
   request?: { id: string; prompt: string; maxCostUsd: number | null };
+  /**
+   * Project/run attribution and the tier defaults this dispatch resolved before
+   * planning. Recovery reuses it, so a restart never resolves different models.
+   */
+  project?: OrchestratorProjectContext;
   kind: 'workflow' | 'room';
   destination: DispatchDestination | null;
   startedAt: string;
 }
 
+export type ProjectRunKind = 'initial' | 'maintenance';
+
+/**
+ * How a run ended. Only `delivered` and `no-work-needed` are outcomes the
+ * runtime has evidence for; the others stay visibly unfinished.
+ */
+export type ProjectRunOutcome =
+  | 'in-progress'
+  | 'delivered'
+  | 'no-work-needed'
+  | 'stopped'
+  | 'blocked'
+  | 'incomplete';
+
+/**
+ * One objective's run: the initial delivery, or a later maintenance objective.
+ * Detailed spans live in the profile-local run journal, never here and never in
+ * the index, so the hot project list stays small.
+ */
+export interface ProjectRun {
+  id: string;
+  kind: ProjectRunKind;
+  /** The maintenance objective or event this run answers. Null for the initial run. */
+  objectiveId: string | null;
+  startedAt: string;
+  /** Null while the run is open. Retries, pause/resume and restart keep the identity. */
+  endedAt: string | null;
+  outcome: ProjectRunOutcome;
+  /** Another run that belongs together with this one, or that one objective split into. */
+  linkedRunIds?: string[];
+  /** Shared activities charged once and linked from this run. Never a guessed share. */
+  sharedActivityIds?: string[];
+  /** Runs whose coalesced cause this objective reused instead of opening a new one. */
+  coalescedFrom?: string[];
+}
+
 export interface Milestone {
+  /** Objective that owns this milestone, including before dispatch. */
+  runId?: string;
   id: string;
   title: string;
   status: MilestoneStatus;
@@ -127,6 +175,7 @@ export interface Directive {
 }
 
 export interface PendingResearch {
+  project?: OrchestratorProjectContext;
   kind?: 'room' | 'workflow';
   roomId?: string;
   workflowId?: string;
@@ -155,6 +204,12 @@ export interface ResearchResult {
   question: string;
   stoppingCondition: string;
   result: string;
+  /**
+   * Where the full report was saved, relative to the project folder. Absent on
+   * an older result and on one that could not be written, so a contract can say
+   * the detail is gone instead of pointing at a file that is not there.
+   */
+  artifactPath?: string;
   costUsd: number;
   completedAt: string;
 }
@@ -216,6 +271,12 @@ export interface ProjectRecord {
   executionMode?: ExecutionMode;
   /** Admin selections shown before work approval; refreshed by the owner runtime. */
   modelTiers?: SharedModelTierSettings;
+  /** Project tier overrides. An absent tier inherits the global selection. Absent on older projects. */
+  modelOverrides?: SharedModelTierSettings;
+  /** Increments on each saved override, so an operation can record the revision it resolved. */
+  modelConfigRevision?: number;
+  /** Run identity per objective. Absent on older projects, which stay readable. */
+  runs?: ProjectRun[];
   id: string;
   name: string;
   /** The user's idea, verbatim, never edited. */
@@ -230,6 +291,7 @@ export interface ProjectRecord {
   stateLine: string;
   /** Durable while the maintenance Workflow is being prepared. */
   preparingMaintenance?: boolean;
+  maintenanceProject?: OrchestratorProjectContext;
   brief: string | null;
   charter: Charter | null;
   autonomy: AutonomySetting;

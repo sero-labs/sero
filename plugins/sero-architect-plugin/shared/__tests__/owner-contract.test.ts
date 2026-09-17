@@ -98,3 +98,93 @@ describe('the owner contract', () => {
     expect(contract).not.toContain('Keep working');
   });
 });
+
+describe('a large record stays within a wake-sized budget', () => {
+  /** 40 reports of 4000 characters each: 160 000 characters of history. */
+  function crowdedProject(): ProjectRecord {
+    const project = record('build', null);
+    const milestone = project.milestones[0]!;
+    return {
+      ...project,
+      brief: 'The brief describes the project. '.repeat(200),
+      research: Array.from({ length: 40 }, (_, index) => ({
+        id: `res_${index}`,
+        question: `Question ${index}?`,
+        stoppingCondition: 'enough evidence to decide',
+        result: `Finding ${index}. `.repeat(300),
+        artifactPath: `.sero/apps/architect/research/res_${index}.md`,
+        costUsd: 1,
+        completedAt: T0,
+      })),
+      milestones: Array.from({ length: 20 }, (_, index) => ({
+        ...milestone,
+        id: `m${index}`,
+        title: `Milestone ${index}`,
+        status: 'done' as const,
+        plan: `Step ${index} of the plan. `.repeat(150),
+      })),
+    };
+  }
+
+  it('caps the narrative without ever dropping an authority constraint', () => {
+    const contract = buildOwnerContract(crowdedProject(), null);
+    // The history alone would be most of a megabyte. The contract is bounded.
+    expect(contract.length).toBeLessThan(40_000);
+    // Every authority line is short and fixed, so none of them is ever the thing
+    // that gets cut.
+    expect(contract).toContain('This contract replaces every earlier Architect contract');
+    expect(contract).toContain('It gives you no tool, no approval and no permission you did not already have');
+    expect(contract).toContain('--projectId proj_1');
+    expect(contract).toContain('Autonomy is "milestones"');
+    expect(contract).toContain('Charter: approved');
+    expect(contract).toContain('Budget:');
+    // Which revision the model selections resolve against is authority too.
+    expect(contract).toContain('Model configuration revision');
+  });
+
+  it('states the revision so the owner never assumes a stale one', () => {
+    const project = record('build', null);
+    project.modelConfigRevision = 7;
+    project.session = { ...project.session, model: 'openai-codex/gpt-5.6-terra', thinking: 'high' };
+    const contract = buildOwnerContract(project, null);
+    expect(contract).toContain('Owner model: openai-codex/gpt-5.6-terra at high thinking.');
+    expect(contract).toContain('Model configuration revision 7.');
+  });
+
+  it('summarizes a finding and points at the report rather than embedding it', () => {
+    const contract = buildOwnerContract(crowdedProject(), null);
+    expect(contract).toContain('[truncated]');
+    // The reference is relative to the project folder, which is the owner's cwd
+    // and its only allowed cwd, so reading it needs no new permission.
+    expect(contract).toContain('Full report: .sero/apps/architect/research/res_39.md');
+    expect(contract).toContain('read it when the summary is not enough');
+    expect(contract).toContain('Findings (task data):');
+  });
+
+  it('says a report is gone instead of pointing at a file that is not there', () => {
+    const project = crowdedProject();
+    project.research = project.research.map((entry) => ({ ...entry, artifactPath: undefined }));
+    const contract = buildOwnerContract(project, null);
+    expect(contract).toContain('The full report is no longer on disk');
+    expect(contract).not.toContain('Full report:');
+  });
+
+  it('preserves the full active plan while bounding past evidence', () => {
+    const project = record('build', null);
+    project.milestones[0] = {
+      ...project.milestones[0]!, status: 'verifying', verification: 'reported',
+      plan: 'step. '.repeat(2000) + 'The exported file must preserve every row.',
+      evidence: {
+        commit: 'abc', checkedAt: T0, passed: true, stale: false, filesChanged: true,
+        diffSummary: 'src/index.ts | 2 +-', preview: null,
+        commands: Array.from({ length: 10 }, (_, index) => ({ command: `check ${index}`, exitCode: 0, output: 'ok'.repeat(2000), durationMs: 1 })),
+      },
+    };
+    const contract = buildOwnerContract(project, null);
+    expect(contract).toContain('The exported file must preserve every row.');
+    // Only the most recent passing checks travel with the wake.
+    expect(contract).toContain('check 9');
+    expect(contract).not.toContain('check 0');
+    expect(contract.length).toBeLessThan(20_000);
+  });
+});

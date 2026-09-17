@@ -1,8 +1,10 @@
-import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createProjectRecord, type ProjectRecord } from '../../shared/record';
+import { clearProjectTierOverride, effectiveTier, setProjectTierOverride } from '../../shared/model-config';
+import { activeRun, closeRun, openRun } from '../../shared/runs';
 import type { ArchitectIndex } from '../../shared/types';
 import { createRecordStore, type RecordStoreIo } from '../record-store';
 
@@ -173,5 +175,142 @@ describe('record store', () => {
     expect(await store.update('a', () => null)).toBeNull();
     expect((await store.read('a'))?.stateLine).toBe('untouched');
     expect(await store.update('missing', (current) => current)).toBeNull();
+  });
+});
+
+/** Budget totals an older runtime recorded, kept verbatim so nothing is rewritten. */
+const LEGACY_BUDGET = {
+  capUsd: 25,
+  spentUsd: 6.1,
+  incomplete: false,
+  sources: { owner: 1.12, research: 2.48, dispatched: 2.5 },
+};
+
+describe('legacy records, project overrides and run references', () => {
+  it('reads a record an older runtime wrote, with its budget amounts unchanged', async () => {
+    const { store, homeDir } = await harness();
+    // Exactly the bytes an older runtime wrote: no runs, no overrides, no revision.
+    const legacy = { ...record('legacy'), budget: LEGACY_BUDGET };
+    await store.write(legacy);
+    const raw = JSON.parse(await readFile(path.join(homeDir, 'projects', 'legacy.json'), 'utf8'));
+    expect(raw).not.toHaveProperty('runs');
+    expect(raw).not.toHaveProperty('modelOverrides');
+    expect(raw).not.toHaveProperty('modelConfigRevision');
+
+    const read = await store.read('legacy');
+    expect(read).not.toBeNull();
+    expect(read?.runs).toBeUndefined();
+    expect(read?.modelOverrides).toBeUndefined();
+    expect(read?.modelConfigRevision).toBeUndefined();
+    expect(read?.budget).toEqual(LEGACY_BUDGET);
+  });
+
+  it('keeps overrides and runs in the record, out of the index, with budget untouched', async () => {
+    const { store, index } = await harness();
+    await store.write({ ...record('a'), budget: LEGACY_BUDGET });
+    const updated = await store.update('a', (current) => {
+      const withOverride = setProjectTierOverride(current, 'MED', {
+        provider: 'openai', modelId: 'gpt-5-codex', thinkingLevel: 'medium',
+      });
+      const opened = openRun(withOverride, { id: 'run-initial', kind: 'initial' }, '2026-09-14T09:12:00.000Z');
+      if (!opened.ok) throw new Error(opened.error);
+      return opened.record;
+    });
+    expect(updated).not.toBeNull();
+
+    const read = await store.read('a');
+    expect(read?.modelOverrides?.MED?.modelId).toBe('gpt-5-codex');
+    expect(read?.modelConfigRevision).toBe(1);
+    expect(read?.runs?.map((run) => run.id)).toEqual(['run-initial']);
+    expect(read?.budget).toEqual(LEGACY_BUDGET);
+
+    // The hot index row stays compact: no detailed telemetry, and the same spend.
+    const row = index()?.projects[0];
+    expect(row).toBeDefined();
+    expect(Object.keys(row ?? {})).not.toContain('runs');
+    expect(row).not.toHaveProperty('modelOverrides');
+    expect(row?.spentUsd).toBe(LEGACY_BUDGET.spentUsd);
+  });
+
+  it('restores global inheritance when a project override is cleared', async () => {
+    const { store } = await harness();
+    const base: ProjectRecord = {
+      ...record('a'),
+      modelTiers: {
+        LOW: { provider: 'anthropic', modelId: 'haiku', thinkingLevel: 'low' },
+        MED: { provider: 'anthropic', modelId: 'sonnet', thinkingLevel: 'medium' },
+      },
+    };
+    await store.write(base);
+    await store.update('a', (current) => setProjectTierOverride(current, 'MED', { provider: 'openai', modelId: 'gpt-5-codex' }));
+    const overridden = await store.read('a');
+    expect(overridden && effectiveTier(overridden, 'MED')).toMatchObject({
+      source: 'project-override', entry: { modelId: 'gpt-5-codex' },
+    });
+    // LOW was never overridden and keeps resolving from the global selection.
+    expect(overridden && effectiveTier(overridden, 'LOW')).toMatchObject({ source: 'inherited-global' });
+
+    await store.update('a', (current) => clearProjectTierOverride(current, 'MED'));
+    const inherited = await store.read('a');
+    expect(inherited && effectiveTier(inherited, 'MED')).toMatchObject({
+      source: 'inherited-global', entry: { modelId: 'sonnet' },
+    });
+    expect(inherited?.modelConfigRevision).toBe(2);
+  });
+
+  it('keeps a concurrent override save and run open from losing each other', async () => {
+    const { store } = await harness();
+    await store.write({ ...record('a'), modelTiers: { MED: { provider: 'anthropic', modelId: 'sonnet' } } });
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    // The runtime opens the initial run before its first observable work.
+    const opening = store.update('a', async (current) => {
+      await held;
+      const opened = openRun(current, { id: 'run-initial', kind: 'initial' }, '2026-09-14T09:12:00.000Z');
+      if (!opened.ok) throw new Error(opened.error);
+      return opened.record;
+    });
+    // The user saves a model default while that open is still in flight.
+    const saving = store.update('a', (current) => setProjectTierOverride(current, 'MED', { provider: 'openai', modelId: 'gpt-5-codex' }));
+    release();
+    await Promise.all([opening, saving]);
+
+    const final = await store.read('a');
+    expect(final?.runs?.map((run) => run.id)).toEqual(['run-initial']);
+    expect(final?.modelOverrides?.MED?.modelId).toBe('gpt-5-codex');
+    expect(final?.modelConfigRevision).toBe(1);
+  });
+
+  it('refuses a duplicate initial run and a duplicate id, and keeps identity across a close', async () => {
+    const { store } = await harness();
+    await store.write(record('a'));
+    await store.update('a', (current) => {
+      const opened = openRun(current, { id: 'run-initial', kind: 'initial' }, '2026-09-14T09:12:00.000Z');
+      if (!opened.ok) throw new Error(opened.error);
+      return opened.record;
+    });
+    // A project has exactly one initial run, and a run id is never reused.
+    await store.update('a', (current) => {
+      expect(openRun(current, { id: 'run-initial-2', kind: 'initial' }, '2026-09-14T09:30:00.000Z').ok).toBe(false);
+      expect(openRun(current, { id: 'run-initial', kind: 'maintenance', objectiveId: 'x' }, '2026-09-14T09:30:00.000Z').ok).toBe(false);
+      return null;
+    });
+
+    await store.update('a', (current) => closeRun(current, 'run-initial', 'delivered', '2026-09-14T12:19:00.000Z'));
+    const closed = await store.read('a');
+    expect(closed && activeRun(closed)).toBeUndefined();
+    expect(closed?.runs?.[0]).toMatchObject({ id: 'run-initial', outcome: 'delivered', endedAt: '2026-09-14T12:19:00.000Z' });
+
+    // Two maintenance objectives can be in flight at once, each with its own run.
+    await store.update('a', (current) => {
+      const first = openRun(current, { id: 'run-maint', kind: 'maintenance', objectiveId: 'issue-12' }, '2026-09-15T08:02:00.000Z');
+      if (!first.ok) throw new Error(first.error);
+      const second = openRun(first.record, { id: 'run-maint-ci', kind: 'maintenance', objectiveId: 'ci-9' }, '2026-09-15T08:03:00.000Z');
+      if (!second.ok) throw new Error(second.error);
+      return second.record;
+    });
+    const running = await store.read('a');
+    expect(running?.runs?.map((run) => run.kind)).toEqual(['initial', 'maintenance', 'maintenance']);
+    expect(running?.runs?.filter((run) => run.endedAt === null)).toHaveLength(2);
   });
 });

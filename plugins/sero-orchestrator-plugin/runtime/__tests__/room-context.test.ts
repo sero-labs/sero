@@ -53,7 +53,7 @@ function room(current: RoomMember): Room {
     },
     members: [current],
     brief: {
-      objective: 'Ship the parser fix', successCriteria: ['Tests pass'], decisions: ['Ada: use the streaming path'],
+      objective: 'Ship the parser fix', successCriteria: ['Tests pass'], decisions: [{ title: 'Use the streaming path', memberId: null }],
       activeWork: [], blockers: [], openQuestions: ['Which encoding do we accept?'],
       artifactRefs: ['/state/rooms/room-a/artifacts/plan.md'], updatedAt: 't',
       conductorNote: null, conductorNoteAt: null,

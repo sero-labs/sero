@@ -344,9 +344,7 @@ describe('member turns', () => {
     const message = 'Codex error: The usage limit has been reached';
     api.prompt = async (handleId, content) => {
       const result = await original(handleId, content);
-      const finish = () => api.emit('lead', {
-        type: 'turn_end', turnId: result.turnId, status: 'error', errorMessage: message,
-      });
+      const finish = () => api.emit('lead', { type: 'turn_end', turnId: result.turnId, status: 'error', errorMessage: message, at: '2026-09-14T09:12:00.000Z' });
       if (early) finish();
       else setTimeout(finish, 0);
       return result;
@@ -403,8 +401,8 @@ describe('member turns', () => {
     const session = api.sessions.get('lead');
     if (!session) throw new Error('session missing');
     session.usage = { ...session.usage, costUsd: 0.4, inputTokens: 200, cacheReadTokens: 80 };
-    api.emit('lead', { type: 'tool_start', toolName: 'bash', summary: 'Run tests' });
-    api.emit('lead', { type: 'tool_end', toolName: 'bash', ok: true });
+    api.emit('lead', { type: 'tool_start', toolName: 'bash', summary: 'Run tests', callId: null, at: '2026-09-14T09:12:00.000Z'  });
+    api.emit('lead', { type: 'tool_end', toolName: 'bash', ok: true, callId: null, at: '2026-09-14T09:12:00.000Z'  });
     for (let attempt = 0; attempt < 100; attempt += 1) {
       if ((await store.readRoom('room-a'))?.runtime.usage.costUsd === 0.4) break;
       await new Promise((resolve) => setTimeout(resolve, 1));

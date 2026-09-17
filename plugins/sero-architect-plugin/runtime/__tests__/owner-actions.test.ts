@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ProjectRecord } from '../../shared/record';
 import { createOwnerActions, type OwnerServices } from '../owner-actions';
 import { createTurnOutcomes } from '../turn-outcomes';
 import { plannedWorkRemains } from '../index';
@@ -14,6 +15,7 @@ async function setup(recordOverrides = {}) {
   const outcomes = createTurnOutcomes();
   const services: OwnerServices = {
     research: vi.fn(async () => ({ id: 'res_1' })),
+    resolveDispatchProject: vi.fn(async (record: ProjectRecord) => ({ projectId: record.id, runId: `run-initial-${record.id}` })),
     dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1', baseCommit: 'base-1' })),
     evidence: vi.fn(async () => undefined),
     recoverPending: vi.fn(),
@@ -220,7 +222,19 @@ describe('owner actions', () => {
     });
     const outcome = await actions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm1', kind: 'workflow', prompt: 'Build the grid' });
     expect(outcome.ok).toBe(true);
-    expect(services.dispatch).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: 'm1' }), { kind: 'workflow', prompt: expect.stringContaining('Task from the owner:\nBuild the grid'), destination: null, maxCostUsd: null });
+    // The dispatch carries the project/run context and the tier snapshot taken
+    // before planning, so its descendant calls and a recovery all resolve the same.
+    expect(services.dispatch).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ id: 'm1' }),
+      expect.objectContaining({
+        kind: 'workflow',
+        prompt: expect.stringContaining('Task from the owner:\nBuild the grid'),
+        destination: null,
+        maxCostUsd: null,
+        project: expect.objectContaining({ projectId: 'proj_1', runId: expect.stringContaining('proj_1') }),
+      }),
+    );
     await vi.waitFor(async () => expect((await store.read('proj_1'))?.milestones[0]).toMatchObject({ status: 'running', dispatch: { kind: 'workflow', id: 'loop_9', workspaceId: 'ws-1' } }));
     expect((await store.read('proj_1'))?.milestones[0]?.pendingDispatch).toBeUndefined();
   });
@@ -352,4 +366,20 @@ describe('owner actions', () => {
     await store.write(buildingProject({ paused: true }));
     expect((await actions.execute(owner, { action: 'research', projectId: 'proj_1', question: 'q', stoppingCondition: 's' })).text).toContain('paused');
   });
+});
+
+it('requires an explicit empty objective before recording no work needed', async () => {
+  const runs: ProjectRecord['runs'] = [{ id: 'triage', kind: 'maintenance', objectiveId: 'issue', startedAt: T0, endedAt: null, outcome: 'in-progress' }];
+  const { actions, store } = await setup({ phase: 'maintain', milestones: [], runs });
+  const input = { action: 'sleep' as const, projectId: 'proj_1', runId: 'triage', noWorkNeeded: true, text: 'The reported failure is already fixed.' };
+  await actions.execute(owner, { action: 'sleep', projectId: 'proj_1' });
+  expect((await store.read('proj_1'))?.runs?.[0].endedAt).toBeNull();
+  await store.update('proj_1', (fresh) => ({ ...fresh, milestones: [milestone('m1', { runId: 'triage' })] }));
+  expect((await actions.execute(owner, input)).ok).toBe(false);
+  await store.update('proj_1', (fresh) => ({ ...fresh, milestones: [] }));
+  expect((await actions.execute(owner, input)).ok).toBe(true);
+  const completed = (await store.read('proj_1'))?.runs;
+  expect(completed?.[0]).toMatchObject({ outcome: 'no-work-needed', endedAt: T0 });
+  expect((await actions.execute(owner, input)).ok).toBe(true);
+  expect((await store.read('proj_1'))?.runs).toEqual(completed);
 });

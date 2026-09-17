@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ObservationRecord } from '@sero-ai/common';
 
 const mocks = vi.hoisted(() => ({
   createAgentSession: vi.fn(),
@@ -506,5 +507,63 @@ describe('runSubagent context overrides', () => {
     const ok = result.skills.find((s) => s.name === 'ok-skill');
     expect(secret?.disableModelInvocation).toBe(true);
     expect(ok?.disableModelInvocation).toBeUndefined();
+  });
+});
+
+describe('runSubagent observations', () => {
+  it('keeps two parallel calls to the same tool apart by their call id', async () => {
+    const session = createStreamingSession([
+      { type: 'tool_execution_start', toolName: 'bash', toolCallId: 'call-a', args: { command: 'one' } },
+      { type: 'tool_execution_start', toolName: 'bash', toolCallId: 'call-b', args: { command: 'two' } },
+      { type: 'tool_execution_end', toolName: 'bash', toolCallId: 'call-b', isError: false },
+      { type: 'tool_execution_end', toolName: 'bash', toolCallId: 'call-a', isError: true },
+    ]);
+    mocks.createAgentSession.mockResolvedValue({ session });
+
+    const records: ObservationRecord[] = [];
+    const config = createConfig(new AbortController().signal);
+    config.onObservation = (record) => records.push(record);
+    await runSubagent(config, createDeps());
+
+    const starts = records.filter((record) => record.kind === 'tool-start');
+    expect(starts.map((record) => record.identities.toolCallId)).toEqual(['call-a', 'call-b']);
+    // The outcomes follow their own call, not arrival order.
+    const ends = records.filter((record) => record.kind === 'tool-end');
+    expect(ends.map((record) => [record.identities.toolCallId, record.outcome])).toEqual([
+      ['call-b', 'ok'],
+      ['call-a', 'failed'],
+    ]);
+    // Still one tool name, so name matching alone would have merged them.
+    expect(new Set(starts.map((record) => record.identities.toolCallId)).size).toBe(2);
+  });
+
+  it('survives an observer that throws, and still returns the response', async () => {
+    const session = createStreamingSession([
+      { type: 'tool_execution_start', toolName: 'read', toolCallId: 'call-1', args: {} },
+      { type: 'tool_execution_end', toolName: 'read', toolCallId: 'call-1', isError: false },
+    ]);
+    mocks.createAgentSession.mockResolvedValue({ session });
+
+    const config = createConfig(new AbortController().signal);
+    config.onObservation = () => { throw new Error('metrics are down'); };
+    const result = await runSubagent(config, createDeps());
+
+    // Telemetry failure never replays, aborts or hides the paid work.
+    expect(result.error).toBeUndefined();
+    expect(session.prompt).toHaveBeenCalledOnce();
+  });
+
+  it('records a model request with the model that actually ran', async () => {
+    const session = createStreamingSession([{ type: 'message_start', message: { id: 'msg-1' } }]);
+    mocks.createAgentSession.mockResolvedValue({ session });
+
+    const records: ObservationRecord[] = [];
+    const config = createConfig(new AbortController().signal);
+    config.onObservation = (record) => records.push(record);
+    await runSubagent(config, createDeps());
+
+    const request = records.find((record) => record.kind === 'request-start');
+    expect(request?.identities.requestId).toBe('msg-1');
+    expect(request?.model).toBe('anthropic/claude-test-1');
   });
 });

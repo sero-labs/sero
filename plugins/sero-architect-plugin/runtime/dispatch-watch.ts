@@ -18,7 +18,9 @@ import type { Milestone, ProjectRecord } from '../shared/record';
 import type { WakeEvent, WakeKind } from '../shared/wake';
 import { applyDelivery, isAccepted } from './delivery';
 import type { ArchitectHost } from './host';
+import { recordCharge } from './project-usage';
 import type { RecordStore } from './record-store';
+import type { RunJournal } from './run-journal';
 import { applyRunHealth } from './run-health';
 import { observeResearchRooms } from './research-room';
 import { observeResearchWorkflows } from './research-workflow';
@@ -57,9 +59,19 @@ interface Seen {
 }
 
 export interface DispatchWatchDeps {
-  host: Pick<ArchitectHost, 'onStateChange' | 'readJson' | 'now' | 'log' | 'listWorkspaces' | 'modelTiers'>;
+  host: Pick<ArchitectHost, 'onStateChange' | 'readJson' | 'now' | 'log' | 'listWorkspaces' | 'modelTiers' | 'listModels'>;
   store: RecordStore;
   wake(projectId: string, wake: WakeEvent): void;
+  /**
+   * Opens the run for a maintenance objective, before its first model call.
+   * Absent in tests and in hosts without the run journal.
+   */
+  openMaintenanceRun?(projectId: string, objectiveId: string): Promise<void>;
+  /**
+   * The run journal. A delegated Workflow or Room reports one cumulative total,
+   * so this is where the largest charge in a project enters the trace.
+   */
+  journal?: RunJournal;
 }
 
 export interface DispatchWatch {
@@ -89,6 +101,12 @@ interface Transition {
   item: string;
   /** The milestone moves to verifying with a reported claim. */
   reported: boolean;
+  /**
+   * The objective identity behind an `external-event` wake: the maintenance
+   * run's own start time. A repeat of the same run reuses it, so one objective
+   * never opens a second Architect run.
+   */
+  objectiveId?: string;
 }
 
 function loopTransition(milestone: Milestone, loop: LoopView, seen: Seen | undefined): Transition | null {
@@ -99,7 +117,7 @@ function loopTransition(milestone: Milestone, loop: LoopView, seen: Seen | undef
   // `lastRunAt`; the maintenance Workflow is one, and its completion never
   // moves its milestone.
   if ((scheduled || milestone.id === 'maintenance') && seen && loop.lastRunAt && loop.lastRunAt !== seen.lastRunAt) {
-    return { kind: 'external-event', item: `${label} ran on an event at ${loop.lastRunAt}`, reported: false };
+    return { kind: 'external-event', item: `${label} ran on an event at ${loop.lastRunAt}`, reported: false, objectiveId: `${loop.id}:${loop.lastRunAt}` };
   }
   if (milestone.id === 'maintenance') return null;
   if (loop.status === 'complete' && seen?.status !== 'complete' && milestone.status !== 'done') {
@@ -178,9 +196,17 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
   const apply = async (projectId: string, loops: LoopView[] | null, rooms: RoomView[] | null): Promise<void> => {
     const now = host.now();
     const wakes: Transition[] = [];
+    /**
+     * Deltas to journal once the record is committed.
+     *
+     * The store updater can run more than once, so nothing here may write until
+     * the figure it reports is the committed one.
+     */
+    const charges: { source: string; delta: number; runId?: string }[] = [];
     if (rooms) await observeResearchRooms(deps, projectId, rooms);
     if (loops) await observeResearchWorkflows(deps, projectId, loops);
     await store.update(projectId, (record) => {
+      charges.length = 0;
       let next = record;
       const workspacePath = workspacePaths.get(projectId);
       for (const milestone of record.milestones) {
@@ -218,6 +244,7 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
         if (delta > 0) {
           updated = { ...updated, dispatch: { ...updated.dispatch!, chargedUsd: costUsd } };
           next = charge(next, 'dispatched', delta, now);
+          charges.push({ source: `dispatch:${dispatch.kind}:${dispatch.id}`, delta, ...(dispatch.runId ? { runId: dispatch.runId } : {}) });
         }
         if (transition?.reported && updated.status === 'running') {
           updated = { ...updated, status: 'verifying', verification: 'reported' };
@@ -247,7 +274,26 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
       }
       return next === record ? null : settle(next, now);
     });
-    for (const transition of wakes) deps.wake(projectId, { kind: transition.kind, at: now, items: [transition.item] });
+    // A delegated run reports one total, not per-call detail, so it enters the
+    // trace as aggregate coverage and stays identifiable as such.
+    if (charges.length > 0 && deps.journal) {
+      const committed = await store.read(projectId);
+      if (committed) {
+        for (const entry of charges) {
+          await recordCharge({ host, journal: deps.journal }, committed, entry.source, entry.delta, 'aggregate', entry.runId);
+        }
+      }
+    }
+    for (const transition of wakes) {
+      // An event that starts triage opens its objective's run before the owner's
+      // first model call, so the wake and everything it causes stay attributable.
+      if (transition.kind === 'external-event' && transition.objectiveId && deps.openMaintenanceRun) {
+        await deps.openMaintenanceRun(projectId, transition.objectiveId).catch((error: unknown) => {
+          host.log(`could not open the maintenance run for ${projectId}: ${error instanceof Error ? error.message : String(error)}`);
+        });
+      }
+      deps.wake(projectId, { kind: transition.kind, at: now, items: [transition.item] });
+    }
   };
 
   const enqueue = (work: () => Promise<void>): void => {

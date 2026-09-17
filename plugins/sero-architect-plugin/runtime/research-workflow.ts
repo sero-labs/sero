@@ -1,3 +1,7 @@
+import { closeDeliveredObjectives } from './objective-completion';
+import { recordCharge } from './project-usage';
+import type { RunJournal } from './run-journal';
+import { ensureResearchContext } from './research-context';
 import { setAccountingIncomplete } from '../shared/accounting';
 import path from 'node:path';
 import { workflowWorkspace } from './execution-location';
@@ -8,10 +12,12 @@ import type { PendingResearch, ProjectRecord } from '../shared/record';
 import type { WakeEvent } from '../shared/wake';
 import type { ArchitectHost } from './host';
 import type { RecordStore } from './record-store';
+import { attachResearchArtifact } from './research-artifact';
 
 interface ResearchWorkflowDeps {
-  host: Pick<ArchitectHost, 'readJson' | 'now' | 'log'>;
+  host: Pick<ArchitectHost, 'listModels' | 'modelTiers' | 'readJson' | 'now' | 'log'>;
   store: RecordStore;
+  journal?: RunJournal;
   wake(projectId: string, wake: WakeEvent): void;
 }
 
@@ -32,13 +38,14 @@ export async function startResearchWorkflow(deps: ResearchWorkflowDeps, record: 
     let loopId = pending.workflowId;
     if (!loopId) {
       if (record.paused || record.blockedReason) return;
+      const project = await ensureResearchContext(deps, record, pending);
       const remaining = record.budget.capUsd === null ? 5 : record.budget.capUsd - record.budget.spentUsd;
       if (remaining <= 0) throw new Error('There is no project budget left for research.');
       const result = await requestOrchestratorAction(record.workspaceId, {
         kind: 'create',
         title: pending.question,
         prompt: `Investigate this project question in a bounded sequence of steps.\nUser idea: ${record.idea}\nQuestion: ${pending.question}\nStop when: ${pending.stoppingCondition}\nProduce findings, evidence and unresolved user decisions. Save the final research report as a local artifact and include its path in the final step summary. Do not implement the product or change its source files.`,
-        options: { requestId: `${record.id}:${pending.id}`, activate: false, disableTokenLimit: true,
+        options: { project, requestId: `${record.id}:${pending.id}`, activate: false, disableTokenLimit: true,
           limits: { maxCostUsd: Math.min(5, remaining) }, workspace: workflowWorkspace(record), delivery: { destination: 'workspace-files' } },
       });
       if (!result.ok || !result.loopId) throw new Error(result.error ?? 'The research Workflow was not created.');
@@ -86,10 +93,12 @@ export async function observeResearchWorkflows(deps: ResearchWorkflowDeps, proje
     if (pending.kind !== 'workflow' || !loop) continue;
     const result = loop.status === 'complete' ? await findings(deps, record.folder, loop.id) : null;
     let completed = false;
+    let chargedDelta = 0;
     await deps.store.update(projectId, (fresh) => {
       const current = fresh.pendingResearch?.find((entry) => entry.id === pending.id);
       if (!current) return null;
       const costUsd = Math.max(loop.usage?.costUsd ?? 0, current.chargedUsd ?? 0);
+      chargedDelta = Math.max(0, costUsd - (current.chargedUsd ?? 0));
       let next = charge(setAccountingIncomplete(fresh, `workflow:${loop.id}`, !loop.usage || !!loop.usage.incomplete), 'research', Math.max(0, costUsd - (current.chargedUsd ?? 0)), deps.host.now());
       if (next.blockedReason?.startsWith(`Research Workflow ${loop.id} is `) && loop.status !== 'blocked') {
         const resumed = unblock(next, deps.host.now(), `Research Workflow ${loop.id} resumed`);
@@ -97,10 +106,10 @@ export async function observeResearchWorkflows(deps: ResearchWorkflowDeps, proje
       }
       if (result) {
         completed = true;
-        return settle({ ...next, stateLine: 'Workflow findings are ready for the Architect.',
+        return closeDeliveredObjectives(settle({ ...next, stateLine: 'Workflow findings are ready for the Architect.',
           pendingResearch: next.pendingResearch?.filter((entry) => entry.id !== pending.id),
           research: [...next.research, { id: pending.id, workflowId: loop.id, question: pending.question, stoppingCondition: pending.stoppingCondition, result, costUsd, completedAt: deps.host.now() }],
-        }, deps.host.now());
+        }, deps.host.now()), deps.host.now());
       }
       next = { ...next, pendingResearch: next.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, chargedUsd: costUsd } : entry) };
       if (loop.status === 'blocked') {
@@ -110,6 +119,12 @@ export async function observeResearchWorkflows(deps: ResearchWorkflowDeps, proje
       }
       return next;
     });
-    if (completed) deps.wake(projectId, { kind: 'quiet', at: deps.host.now(), items: [`Research Workflow ${loop.id} finished. Read research ${pending.id} and use its findings for the next project action.`] });
+    await recordCharge(deps, record, `workflow:${loop.id}`, chargedDelta, 'aggregate', pending.project?.runId);
+    if (completed) {
+      // The finding is already recorded, so saving the report only adds the
+      // reference a later contract points at.
+      await attachResearchArtifact(deps.store, projectId, pending.id);
+      deps.wake(projectId, { kind: 'quiet', at: deps.host.now(), items: [`Research Workflow ${loop.id} finished. Read research ${pending.id} and use its findings for the next project action.`] });
+    }
   }
 }
