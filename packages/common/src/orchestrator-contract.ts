@@ -436,7 +436,8 @@ export interface OrchestratorRoomCreateRequest {
 
 export type OrchestratorRoomCreateResult =
   | { ok: true; roomId: string; usage?: OrchestratorUsageView }
-  | { ok: false; error: string; usage?: OrchestratorUsageView };
+  /** `questions` is present when the planner needs an answer, so the caller can ask its user instead of failing. */
+  | { ok: false; error: string; questions?: string[]; usage?: OrchestratorUsageView };
 
 /** The narrow Room surface a plugin runtime may call. */
 export interface OrchestratorRoomHandle {

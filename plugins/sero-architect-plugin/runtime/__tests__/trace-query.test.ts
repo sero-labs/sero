@@ -78,6 +78,21 @@ describe('what a record exposes', () => {
 });
 
 describe('summary and detail', () => {
+  it('says nothing was recorded, and does not reconcile spend, when no journal exists', async () => {
+    const { deps } = await journalFor();
+    const answer = await queryTrace(deps, { projectId: 'proj_1', journalId: 'run-initial-proj_1', knownSpendUsd: 22.37 });
+    expect(answer?.recorded).toBe(false);
+    expect(answer?.summary.reconciliationUsd).toBeUndefined();
+  });
+
+  it('is recorded once a single record exists, and then reconciles', async () => {
+    const { journal, deps } = await journalFor();
+    await journal.append('proj_1', 'prod', { kind: 'usage', at: 't', source: 'dispatch:workflow:loop_1', costUsd: 0.4, coverage: 'aggregate' });
+    const answer = await queryTrace(deps, { projectId: 'proj_1', journalId: 'prod', knownSpendUsd: 0.4 });
+    expect(answer?.recorded).toBe(true);
+    expect(answer?.summary.reconciliationUsd).toBeCloseTo(0);
+  });
+
   it('answers a summary without sending any record detail', async () => {
     const { journal, deps } = await journalFor();
     await journal.append('proj_1', 'prod', { kind: 'usage', at: 't', source: 'dispatch:workflow:loop_1', costUsd: 0.4, coverage: 'aggregate' });

@@ -210,9 +210,15 @@ export class SessionStore {
           if ((await this.required(contextId)).approvalMode === "allow" || turn.approveRemaining) return true;
           if (TERMINAL.has(turn.task.status)) return false;
           const request: ApprovalRequest = { approvalId: randomUUID(), toolName, input: structuredClone(input) };
-          turn.task.input = request;
-          await this.#transition(turn.task, "input-required", `Approval required for ${toolName}`);
-          return await new Promise<boolean>((resolve) => this.#approvals.set(request.approvalId, { request, resolve }));
+          // A controller can respond as soon as the durable record or event is visible.
+          const decision = new Promise<boolean>((resolve) => this.#approvals.set(request.approvalId, { request, resolve }));
+          try {
+            turn.task.input = request;
+            await this.#transition(turn.task, "input-required", `Approval required for ${toolName}`);
+            return await decision;
+          } finally {
+            this.#approvals.delete(request.approvalId);
+          }
         } finally { releaseQueue(); }
       },
       artifact: async (name, data, mediaType) => {

@@ -50,6 +50,22 @@ describe('the milestone rail', () => {
     expect(acceptedCount(FIXTURES.decision!)).toBe(2);
   });
 
+  it('shows the maintenance subscription as watching, with only its next run', () => {
+    const base = FIXTURES.maintain!;
+    const record = {
+      ...base,
+      milestones: base.milestones.map((m) => (m.id === 'maintenance' && m.dispatch
+        ? { ...m, dispatch: { ...m.dispatch, lastRunAt: '2026-09-14T19:46:17.412Z', nextRunAt: '2026-09-21T08:00:00.000Z' } }
+        : m)),
+    };
+    const row = railRows(record).find((r) => r.milestone.id === 'maintenance');
+    expect(row?.label).toBe('watching');
+    expect(row?.sub).toMatch(/^Next run /);
+    expect(row?.sub).not.toContain('running');
+    // A stamp-less record, as written before the watcher stamped it, says nothing rather than "running".
+    expect(railRows(base).find((r) => r.milestone.id === 'maintenance')?.sub).toBeNull();
+  });
+
   it('places the ladder on the verification state and keeps a lower state from looking higher', () => {
     const rows = railRows(FIXTURES.maintain!);
     expect(rows.find((row) => row.milestone.id === 'f12')?.ladder).toBe(0);

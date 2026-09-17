@@ -29,7 +29,7 @@ describe('the architect tools', () => {
   it('asks for a trace summary without asking for record detail', async () => {
     const queries: { projectId: string; query: unknown }[] = [];
     const answer = {
-      projectId: 'p1', journalId: 'shared',
+      projectId: 'p1', journalId: 'shared', recorded: false,
       summary: { attributableUsd: 0.3, aggregateUsd: 0.1, hasAggregate: true, incomplete: false, records: 4 },
       timing: { activeMs: 0, workerMs: 0, waitMs: 0, waitByCause: {} },
       tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, unavailable: [] },
@@ -48,9 +48,25 @@ describe('the architect tools', () => {
     expect(queries[0]).toMatchObject({ projectId: 'p1', query: { detail: false, knownSpendUsd: 0.25 } });
     expect(summary.details.records).toBeUndefined();
     expect(summary.details.summary).toMatchObject({ attributableUsd: 0.3 });
+    // The inspector reads this flag from the tool result, so it must cross the seam.
+    expect(summary.details.recorded).toBe(false);
 
     await executeProjectsTool({ action: 'trace', projectId: 'p1', detail: true, limit: 5 }, ctxFor('/s/user-chat.jsonl'));
     expect(queries[1]).toMatchObject({ query: { detail: true, limit: 5 } });
+  });
+
+  it('passes intake model overrides through to create', async () => {
+    let received: unknown;
+    registered = {
+      owner: { owns: async () => null, execute: async () => ({ ok: true, text: '' }) },
+      projects: {
+        create: async (input: unknown) => { received = input; return { ok: true, text: 'created', projectId: 'p1' }; },
+      } as unknown as ArchitectRegistryEntry['projects'],
+    };
+    registerArchitectRuntime(registered);
+    const models = [{ tier: 'MED' as const, model: 'anthropic/claude-fable-5-1', thinking: 'low' as const }];
+    await executeProjectsTool({ action: 'create', idea: 'x', folder: '~/p', models }, ctxFor('/s/user-chat.jsonl'));
+    expect(received).toMatchObject({ idea: 'x', folder: '~/p', models });
   });
 
   it('lists every management action in the description the CLI help is built from', () => {

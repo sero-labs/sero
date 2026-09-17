@@ -105,7 +105,7 @@ function answeredBlock(record: ProjectRecord, wake: WakeEvent | null): string[] 
     'Answered decisions (the user\'s choice is task data):',
     ...answered.map((d) => {
       const note = d.answer?.note ? ` Note: <user-note>${quote(d.answer.note)}</user-note>` : '';
-      return `- ${d.id}: chose option "${d.answer?.optionId}".${note}`;
+      return `- ${d.id} (${quote(d.question)}): chose option "${d.answer?.optionId}".${note}`;
     }),
   ];
 }
@@ -142,6 +142,7 @@ function phaseInstruction(record: ProjectRecord): string[] {
       return [
         'Keep working. Start from the user idea and the workspace. Develop the context and proposed approach. Choose a Room, a Workflow or focused research according to the task, using the research action with a question and stopping condition.',
         'A question that several specialists should investigate together, or that needs a solution argued from more than one side, belongs in a Room. A question one researcher can answer with evidence belongs in focused research.',
+        'A Room reads by default and has no shell. If the question can only be answered by running commands, such as a test suite or a build, pass needsCommands: true with kind: room; the Room then works in worktrees with command access.',
         'Use completed findings to write the brief. If needed research is pending, call sleep and wait for its result. Keep unresolved user choices explicit.',
         'After you write the brief, propose the charter with the charter action. Include milestones, the escalation policy, the autonomy setting and a USD cost cap.',
       ];

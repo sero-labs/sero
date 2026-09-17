@@ -276,6 +276,7 @@ describe('dispatch watch', () => {
       dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1', baseCommit: 'base-1' })),
       evidence: vi.fn(async () => undefined),
       recoverPending: vi.fn(),
+      restartResearch: vi.fn(),
       evidenceIsStale: vi.fn(async () => false),
       maintenance: vi.fn(async (r) => r),
     };
@@ -320,6 +321,25 @@ describe('dispatch watch', () => {
     // The objective's run opens before the owner's first model call, keyed by
     // the maintenance run that fired, so a repeat never opens a second run.
     expect(openMaintenanceRun).toHaveBeenCalledWith('proj_1', 'loop_m:2026-09-09T08:00:00.000Z');
+  });
+
+  it('stamps the maintenance dispatch with its last run and next scheduled fire', async () => {
+    const maintenance = milestone('maintenance', { status: 'running', dispatch: { kind: 'workflow', id: 'loop_m', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null } });
+    const { host, store, settle } = await setup(buildingProject({ phase: 'maintain', milestones: [maintenance] }));
+    host.emitState(files.loops, { version: 1, loops: [{
+      id: 'loop_m', title: 'maintenance', status: 'active', updatedAt: T0, lastRunAt: '2026-09-14T19:46:17.412Z',
+      schedules: [{ triggerId: 't1', type: 'cron', schedule: '0 8 * * 1', nextFireAt: '2026-09-21T08:00:00.000Z', lastFireAt: '2026-09-14T19:46:17.298Z' }],
+    }] });
+    await settle();
+    const dispatch = (await store.read('proj_1'))?.milestones[0]?.dispatch;
+    expect(dispatch).toMatchObject({ lastRunAt: '2026-09-14T19:46:17.412Z', nextRunAt: '2026-09-21T08:00:00.000Z' });
+    host.emitState(files.loops, { version: 1, loops: [{
+      id: 'loop_m', title: 'maintenance', status: 'active', updatedAt: T0, lastRunAt: '2026-09-14T19:46:17.412Z', schedules: [],
+    }] });
+    await settle();
+    const unscheduled = (await store.read('proj_1'))?.milestones[0]?.dispatch;
+    expect(unscheduled?.nextRunAt).toBeUndefined();
+    expect(unscheduled?.lastRunAt).toBe('2026-09-14T19:46:17.412Z');
   });
 
   it('takes the limited overlay when dispatched usage reaches the cap, without touching the phase', async () => {

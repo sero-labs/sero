@@ -126,6 +126,23 @@ Other decisions depend on the autonomy setting you chose at the charter:
 A decision has no timeout and no default. Work that depends on your answer
 waits. Other milestones keep running.
 
+### Research that must run something
+
+A research Room reads by default: one shared checkout, no shell. When the
+owner knows a question can only be answered by running commands, such as a
+test suite or a build, it asks for a Room with command access. Each member
+then works in its own worktree and may run commands, but still must not
+implement the product.
+
+If a Room's planner asks for something it does not have, that question comes
+to you as a decision instead of stopping the project:
+
+- **Let the Room run commands** plans the research again with command access.
+- **Answer in a note** withdraws the research and gives your note to the
+  owner, which rewords the question.
+- **Withdraw the question** drops the research and the owner continues without
+  it.
+
 ## Cost
 
 Every project has a cost cap set at the charter. Spend includes the owner

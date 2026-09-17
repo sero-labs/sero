@@ -12,9 +12,19 @@ import { ControlsMenu } from '../components/TopBar';
 import type { ActionOutcome, ArchitectActions } from '../lib/actions';
 import { ProjectPage } from '../ProjectPage';
 
-vi.mock('@sero-ai/ui', () => {
+vi.mock('@sero-ai/ui', async () => {
   const pass = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
+  // The radio group and the disclosure are exercised for real: a stub that
+  // answered every click could not tell a styled control from a native one.
+  const actual = await vi.importActual<typeof import('@sero-ai/ui')>('@sero-ai/ui');
   return {
+    RadioGroup: actual.RadioGroup,
+    Switch: actual.Switch,
+    RadioGroupItem: actual.RadioGroupItem,
+    Collapsible: actual.Collapsible,
+    CollapsibleTrigger: actual.CollapsibleTrigger,
+    CollapsibleContent: actual.CollapsibleContent,
+    Select: pass, SelectTrigger: pass, SelectValue: pass, SelectContent: pass, SelectItem: pass,
     Input: 'input',
     Textarea: 'textarea',
     Button: ({ children, ...props }: { children: ReactNode } & ButtonHTMLAttributes<HTMLButtonElement>) => (
@@ -40,7 +50,12 @@ vi.mock('@sero-ai/app-runtime', () => ({
   openSeroApp: vi.fn(async () => true),
   openSeroFile: vi.fn(async () => true),
   useAppPreferences: () => ({ values: {}, set: vi.fn() }),
+  useAvailableModels: () => ({ groups: [{ provider: 'anthropic', displayName: 'Anthropic', logo: '', models: [{ provider: 'anthropic', modelId: 'claude-fable-5-1', name: 'Fable', reasoning: true, availableThinkingLevels: ['low', 'high'] }] }], loading: false, error: null, refresh: vi.fn() }),
 }));
+
+// The real disclosure measures its content; jsdom has no ResizeObserver.
+class NoopResizeObserver { observe() {} unobserve() {} disconnect() {} }
+(globalThis as { ResizeObserver?: unknown }).ResizeObserver ??= NoopResizeObserver;
 
 const OK: ActionOutcome = { ok: true, text: 'done' };
 
@@ -266,9 +281,12 @@ describe('creating a project', () => {
     const onCreate = vi.fn(async () => ({ ok: true, text: 'created', projectId: 'hollow-depths' }));
     act(() => root.render(<IntakeDialog open onClose={onClose} onCreate={onCreate} defaultFolder="~/Projects/x" />));
 
-    const radios = container.querySelectorAll<HTMLInputElement>('input[name="execution-location"]');
-    expect(radios[0].checked).toBe(true);
-    if (executionMode === 'worktree') act(() => radios[1].click());
+    const toggle = container.querySelector<HTMLButtonElement>('[role="switch"]');
+    if (!toggle) throw new Error('no worktree switch');
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    if (executionMode === 'worktree') act(() => toggle.click());
+    expect(toggle.getAttribute('aria-checked')).toBe(executionMode === 'worktree' ? 'true' : 'false');
+    expect(container.textContent).not.toContain('Work directly in the project folder');
     const idea = container.querySelector<HTMLTextAreaElement>('#ar-idea');
     if (!idea) throw new Error('no idea field');
     act(() => {
@@ -284,7 +302,16 @@ describe('creating a project', () => {
     act(() => { idea.form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
     await flush();
 
-    expect(onCreate).toHaveBeenCalledWith('A roguelike', '~/Projects/x/game', executionMode);
+    expect(onCreate).toHaveBeenCalledWith('A roguelike', '~/Projects/x/game', executionMode, []);
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('keeps the model overrides folded until asked, then shows one row per tier', () => {
+    act(() => root.render(<IntakeDialog open onClose={vi.fn()} onCreate={vi.fn(async () => OK)} defaultFolder="~/Projects/x" />));
+    const trigger = [...container.querySelectorAll('button')].find((el) => el.textContent?.includes('Model overrides'));
+    if (!trigger) throw new Error('no overrides trigger');
+    expect(container.querySelector('[aria-label="LOW model"]')).toBeNull();
+    act(() => trigger.click());
+    for (const tier of ['LOW', 'MED', 'HIGH']) expect(container.textContent).toContain(tier);
   });
 });

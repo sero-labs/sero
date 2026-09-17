@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import { WebSocket } from 'ws';
+import { routeWorkspaceRequest } from '@electron/features/gateway/server/workspace-handlers';
 
 import {
   DEFAULT_UPLOAD_DIR,
@@ -195,11 +197,6 @@ describe('uploadFile', () => {
 
 describe('the upload handler', () => {
   it('is reachable by a workspace-scoped token', async () => {
-    const { routeWorkspaceRequest } = await import(
-      '@electron/features/gateway/server/workspace-handlers'
-    );
-    const { WebSocket } = await import('ws');
-
     const sent: Array<{ type: string; data?: unknown }> = [];
     const ws = {
       readyState: WebSocket.OPEN,
@@ -233,11 +230,6 @@ describe('the upload handler', () => {
   });
 
   it('refuses a workspace the token cannot reach', async () => {
-    const { routeWorkspaceRequest } = await import(
-      '@electron/features/gateway/server/workspace-handlers'
-    );
-    const { WebSocket } = await import('ws');
-
     const sent: Array<{ type: string; message?: string }> = [];
     const ws = {
       readyState: WebSocket.OPEN,

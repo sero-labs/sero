@@ -68,7 +68,7 @@ export function Inspector({ record, actions, onBack }: {
 
       {notice && <p className="ar-error" role="alert">{notice}</p>}
 
-      <InspectorSummary page={page} shared={sharedCost(records)} />
+      <InspectorSummary page={page} shared={sharedCost(records)} withDetail={withDetail} />
       <InspectorControls records={records} visible={visible} filters={filters} setFilters={setFilters} full={full} range={range} setRange={setRange} withDetail={withDetail} setWithDetail={setWithDetail} summary={page?.summary} />
 
       {state && (
@@ -76,9 +76,6 @@ export function Inspector({ record, actions, onBack }: {
         <p className="ar-run-state" data-state={state.state} role="status">
           <b>{state.label}</b> <span>{state.detail}</span>
         </p>
-      )}
-      {!withDetail && (
-        <p className="ar-why">The totals above cover the whole view. Load the activity to see the individual operations and their timings.</p>
       )}
 
       {hasTimeline && (

@@ -219,7 +219,10 @@ describe('findLatestTurnUndo', () => {
       id: 'undo-entry-1',
       type: 'custom',
       customType: 'turn-undo',
-      data: { workspaceId: 'ws-1', snapshotId: 'snap-1', targetUserEntryId: 'user-entry-1', label: 'one' },
+      data: {
+        workspaceId: 'ws-1', snapshotId: 'snap-1', targetUserEntryId: 'user-entry-1', label: 'one',
+        recordedAt: '2026-04-17T09:00:00.000Z',
+      },
     },
     { id: 'user-entry-2', type: 'message', message: { role: 'user', content: 'second' } },
     { id: 'assistant-entry-2', type: 'message', message: { role: 'assistant', content: [] } },
@@ -232,13 +235,23 @@ describe('findLatestTurnUndo', () => {
         id: 'undo-entry-2',
         type: 'custom',
         customType: 'turn-undo',
-        data: { workspaceId: 'ws-1', snapshotId: 'snap-2', targetUserEntryId: 'user-entry-2', label: 'two' },
+        data: {
+          workspaceId: 'ws-1', snapshotId: 'snap-2', targetUserEntryId: 'user-entry-2', label: 'two',
+          recordedAt: '2026-04-17T09:01:00.000Z',
+        },
       },
     ];
     const session = { sessionManager: { getBranch: () => withUndo } } as never;
 
-    expect(findLatestTurnUndo(session, 'ws-1')).toMatchObject({ snapshotId: 'snap-2' });
-    expect(findLatestTurnUndo(session, 'ws-1')).toEqual(buildTurnUndoMapByTurn(session, 'ws-1').get(1));
+    const expected = {
+      kind: 'turn-undo',
+      workspaceId: 'ws-1',
+      snapshotId: 'snap-2',
+      targetUserEntryId: 'user-entry-2',
+      label: 'two',
+    };
+    expect(findLatestTurnUndo(session, 'ws-1')).toMatchObject(expected);
+    expect(buildTurnUndoMapByTurn(session, 'ws-1').get(1)).toMatchObject(expected);
   });
 
   it('does not fall back to an earlier turn when the newest has no ref', () => {

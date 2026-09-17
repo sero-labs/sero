@@ -81,6 +81,8 @@ export interface OwnerActionInput {
   parks?: string[];
   /** research */
   stoppingCondition?: string;
+  /** research: the researchers must run commands (tests, builds). Requires `kind: 'room'`. */
+  needsCommands?: boolean;
   /** dispatch */
   kind?: DispatchKind;
   prompt?: string;

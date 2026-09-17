@@ -30,6 +30,7 @@ async function setup() {
     dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1', baseCommit: 'base-1' })),
     evidence: vi.fn(async () => undefined),
     recoverPending: vi.fn(),
+      restartResearch: vi.fn(),
     evidenceIsStale: vi.fn(async () => false),
     maintenance: vi.fn(async (record: ProjectRecord) => record),
   };
@@ -140,6 +141,23 @@ describe('project management', () => {
     expect((await store.read(record.id))?.runs?.map((run) => run.kind)).toEqual(['initial']);
   });
 
+  it('saves model overrides chosen at intake, checked against the catalogue', async () => {
+    const { store, actions } = await setup();
+    const outcome = await actions.create({ idea: 'x', folder: '~/projects/models', models: [{ tier: 'HIGH', model: 'anthropic/claude-fable-5-1', thinking: 'high' }] });
+    expect(outcome.ok).toBe(true);
+    const created = (await store.list())[0]!;
+    expect(created.modelOverrides).toEqual({ HIGH: { provider: 'anthropic', modelId: 'claude-fable-5-1', thinkingLevel: 'high' } });
+    expect(created.modelConfigRevision).toBe(1);
+  });
+
+  it('refuses an intake override for a model that is not in the catalogue, and writes nothing', async () => {
+    const { store, actions } = await setup();
+    const outcome = await actions.create({ idea: 'x', folder: '~/projects/models', models: [{ tier: 'LOW', model: 'nobody/ghost' }] });
+    expect(outcome.ok).toBe(false);
+    expect(outcome.text).toContain('unavailable');
+    expect(await store.list()).toHaveLength(0);
+  });
+
   it('creates a project: folder, git init, workspace, grant, discovery, first wake', async () => {
     const { host, store, actions, delivered, watch } = await setup();
     const outcome = await actions.create({ idea: 'A roguelike.', folder: '~/projects/hollow' });
@@ -227,6 +245,26 @@ describe('project management', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(delivered.map((d) => d.wake.kind)).toEqual(['directive']);
     expect((await store.read('proj_1'))?.directives[0]).toMatchObject({ text: 'Keep the hex grid.', reply: null });
+  });
+
+  it('applies a research-access answer: widening restarts the research with commands, withdrawing drops it', async () => {
+    const { store, actions, services } = await setup();
+    const decision = (id: string, researchId: string) => ({
+      id, question: 'The research Room asked: may it run the tests?', recommendation: 'allow-commands', reason: 'r', dependsOn: [], raisedAt: T0, answer: null,
+      options: [{ id: 'allow-commands', label: 'a', consequence: 'x' }, { id: 'answer-note', label: 'b', consequence: 'y' }, { id: 'withdraw', label: 'c', consequence: 'z' }],
+      proposal: { kind: 'research-access' as const, researchId },
+    });
+    const pending = (id: string) => ({ id, kind: 'room' as const, question: 'q', stoppingCondition: 's', startedAt: T0, attempts: 1 });
+    await store.write(buildingProject({ decisions: [decision('dec_1', 'res_1'), decision('dec_2', 'res_2')], pendingResearch: [pending('res_1'), pending('res_2')] }));
+
+    expect((await actions.answer('proj_1', 'dec_1', 'allow-commands')).ok).toBe(true);
+    const widened = (await store.read('proj_1'))?.pendingResearch?.find((entry) => entry.id === 'res_1');
+    expect(widened).toMatchObject({ access: 'edit-workspace', attempts: 0 });
+    expect(services.restartResearch).toHaveBeenCalledWith(expect.objectContaining({ id: 'proj_1' }), 'res_1');
+
+    expect((await actions.answer('proj_1', 'dec_2', 'withdraw')).ok).toBe(true);
+    expect((await store.read('proj_1'))?.pendingResearch?.map((entry) => entry.id)).toEqual(['res_1']);
+    expect(services.restartResearch).toHaveBeenCalledOnce();
   });
 
   it('answers a decision: unparks its milestones and wakes the owner with the option and note', async () => {
@@ -489,6 +527,7 @@ describe('project management', () => {
       dispatch: vi.fn(async () => ({ id: 'loop_9', workspaceId: 'ws-1', baseCommit: 'base-1' })),
       evidence: vi.fn(async () => undefined),
       recoverPending: vi.fn(),
+      restartResearch: vi.fn(),
       evidenceIsStale: vi.fn(async () => false),
       maintenance: vi.fn(async (record: ProjectRecord) => record),
     } });
@@ -499,7 +538,9 @@ describe('project management', () => {
     const hanging = new Promise<void>((resolve) => { releaseTurn = resolve; });
     host.sessions.onTurn = async () => { await hanging; };
     scheduler.request('proj_1', { kind: 'quiet', at: T0, items: ['first wake'] });
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    // Wait for the prompt, not a wall-clock guess, so the stop always lands
+    // after the turn is genuinely in flight.
+    await vi.waitFor(() => expect(host.sessions.prompts).toHaveLength(1));
     expect(scheduler.isRunning('proj_1')).toBe(true);
 
     expect((await live.stop('proj_1')).ok).toBe(true);

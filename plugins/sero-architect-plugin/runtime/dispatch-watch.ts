@@ -59,7 +59,7 @@ interface Seen {
 }
 
 export interface DispatchWatchDeps {
-  host: Pick<ArchitectHost, 'onStateChange' | 'readJson' | 'now' | 'log' | 'listWorkspaces' | 'modelTiers' | 'listModels'>;
+  host: Pick<ArchitectHost, 'onStateChange' | 'readJson' | 'now' | 'log' | 'listWorkspaces' | 'modelTiers' | 'listModels' | 'newId'>;
   store: RecordStore;
   wake(projectId: string, wake: WakeEvent): void;
   /**
@@ -130,6 +130,12 @@ function loopTransition(milestone: Milestone, loop: LoopView, seen: Seen | undef
     return { kind: 'dispatch-blocked', item: `${label} asked a question`, reported: false };
   }
   return null;
+}
+
+/** The earliest scheduled fire across a loop's cron triggers, and its last run. */
+function subscriptionStamps(loop: LoopView): { lastRunAt?: string; nextRunAt?: string } {
+  const next = (loop.schedules ?? []).map((schedule) => schedule.nextFireAt).filter((at): at is string => typeof at === 'string').sort()[0];
+  return { ...(loop.lastRunAt ? { lastRunAt: loop.lastRunAt } : {}), ...(next ? { nextRunAt: next } : {}) };
 }
 
 function roomTransition(milestone: Milestone, room: RoomView, seen: Seen | undefined): Transition | null {
@@ -248,6 +254,14 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
         }
         if (transition?.reported && updated.status === 'running') {
           updated = { ...updated, status: 'verifying', verification: 'reported' };
+        }
+        // A subscription never leaves running, so the rail shows when it last
+        // ran and when it fires next instead of claiming work is executing.
+        if (loop && milestone.id === 'maintenance') {
+          const stamps = subscriptionStamps(loop);
+          if (stamps.lastRunAt !== updated.dispatch?.lastRunAt || stamps.nextRunAt !== updated.dispatch?.nextRunAt) {
+            updated = { ...updated, dispatch: { ...updated.dispatch!, lastRunAt: stamps.lastRunAt, nextRunAt: stamps.nextRunAt } };
+          }
         }
         if (room?.deliveryRef && updated.receipt !== room.deliveryRef) {
           updated = { ...updated, receipt: room.deliveryRef };

@@ -45,16 +45,23 @@ function modelChangeText(record: ProjectRecord, change: string): string {
     + (keeping === 0 ? 'No existing dispatch is affected.' : `${held} revision ${Math.max(0, revision - 1)}.`);
 }
 
+/** `provider/modelId` plus a thinking level as a tier entry, or null when the name has no provider. */
+export function parseModelEntry(input: Pick<ModelDefaultInput, 'model' | 'thinking'>): SharedModelTierEntry | null {
+  const separator = input.model.indexOf('/');
+  if (separator <= 0 || separator === input.model.length - 1) return null;
+  const entry: SharedModelTierEntry = { provider: input.model.slice(0, separator), modelId: input.model.slice(separator + 1) };
+  if (input.thinking) entry.thinkingLevel = input.thinking;
+  return entry;
+}
+
 /** Saves one tier default. An unavailable model or thinking level is refused. */
 export async function setModelDefaultAction(
   deps: ModelDefaultDeps,
   projectId: string,
   input: ModelDefaultInput,
 ): Promise<ProjectsOutcome> {
-  const separator = input.model.indexOf('/');
-  if (separator <= 0 || separator === input.model.length - 1) return refuse('Name the model as provider/modelId.');
-  const entry: SharedModelTierEntry = { provider: input.model.slice(0, separator), modelId: input.model.slice(separator + 1) };
-  if (input.thinking) entry.thinkingLevel = input.thinking;
+  const entry = parseModelEntry(input);
+  if (!entry) return refuse('Name the model as provider/modelId.');
   // Checked against the real catalogue first: an unavailable model or an
   // unsupported thinking level is refused, never silently replaced.
   const checked = validateEntry(await deps.host.listModels(), entry);

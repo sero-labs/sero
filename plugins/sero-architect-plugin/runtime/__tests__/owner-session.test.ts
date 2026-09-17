@@ -251,4 +251,28 @@ describe('owner session', () => {
     expect(record.overlay).toBe('blocked');
     expect(record.blockedReason).toContain('3 turns in a row without declaring an outcome');
   });
+
+  it('ends a turn that a stop interrupts while the session is still opening', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const record = buildingProject();
+    await store.write(record);
+    const sessions = new OwnerSessions({ host, store, outcomes: createTurnOutcomes() });
+    // Hold the session open so the stop lands before the turn can wait on it.
+    let enterOpen = (): void => undefined;
+    const entered = new Promise<void>((resolve) => { enterOpen = resolve; });
+    let releaseOpen = (): void => undefined;
+    const opening = new Promise<void>((resolve) => { releaseOpen = resolve; });
+    const open = host.sessions.open.bind(host.sessions);
+    host.sessions.open = async (request) => { enterOpen(); await opening; return open(request); };
+    host.sessions.onTurn = async () => new Promise<void>(() => undefined);
+
+    const pending = sessions.runTurn(record, wake);
+    await entered;
+    await sessions.dispose(record.id);
+    releaseOpen();
+
+    await expect(pending).resolves.toMatchObject({ status: 'aborted' });
+    expect(host.sessions.prompts).toHaveLength(0);
+  });
 });

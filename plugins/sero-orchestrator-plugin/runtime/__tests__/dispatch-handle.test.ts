@@ -201,6 +201,8 @@ describe('Room creation through the typed handle', () => {
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error('expected a refusal');
     expect(result.error).toContain('Which engine?');
+    // Typed as well as in the text, so a caller can put it to its own user.
+    expect(result.questions).toEqual(['Which engine?']);
     expect(host.persistentSessions.proposals).toHaveLength(0);
   });
 

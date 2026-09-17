@@ -3,6 +3,7 @@ import { appendTracePage, type TracePage, type TraceRecord } from '../lib/trace'
 
 const record = (seq: number): TraceRecord => ({ seq, at: `2026-09-15T10:00:${String(seq).padStart(2, '0')}.000Z`, kind: 'observation' });
 const page = (seqs: number[], nextAfterSeq: number | null): TracePage => ({
+  recorded: true,
   summary: { attributableUsd: 0, aggregateUsd: 0, hasAggregate: false, incomplete: false, requests: 0, toolCalls: 0, retries: 0, compactions: 0, errors: 0 },
   timing: { activeMs: 0, workerMs: 0, waitMs: 0, openWaits: [] },
   tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, unavailable: [] },

@@ -23,8 +23,8 @@ export function createRoomDispatchHandle(app: Pick<RoomAppActions, 'prepare' | '
       const planned = await app.prepare({ problem: request.mandate, limits: request.limits, requestId: request.requestId, project: request.project });
       if (!planned.ok) {
         if (planned.needsInput) {
-          const asked = planned.questions.map((question) => question.prompt).join(' ');
-          return { ok: false, error: `The Room planner needs an answer before it can plan: ${asked}`, usage: planned.usage };
+          const questions = planned.questions.map((question) => question.prompt);
+          return { ok: false, error: `The Room planner needs an answer before it can plan: ${questions.join(' ')}`, questions, usage: planned.usage };
         }
         return { ok: false, error: planned.error, usage: planned.usage };
       }

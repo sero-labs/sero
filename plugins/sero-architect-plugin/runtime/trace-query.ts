@@ -93,6 +93,12 @@ export interface TraceQuery {
 export interface TraceAnswer {
   projectId: string;
   journalId: string;
+  /**
+   * False when this journal has neither a checkpoint nor a record. A project
+   * whose work ran before run tracing existed, or one that has not run yet,
+   * has nothing to show, and that is not the same as showing zero.
+   */
+  recorded: boolean;
   summary: TraceSummary;
   timing: ReturnType<typeof summarizeTiming>;
   tokens: ReturnType<typeof tokenComposition>;
@@ -156,10 +162,13 @@ export async function queryTrace(deps: TraceQueryDeps, query: TraceQuery): Promi
     ? { records: [] as JournalRecord[], more: false, torn: checkpoint.incomplete }
     : await foldBounded(deps, query.projectId, journalId, SUMMARY_RECORD_LIMIT);
 
+  const recorded = checkpoint !== null || folded.records.length > 0;
+  // Spend is only reconciled against a trace that exists: an absent journal
+  // would otherwise read as a run that under-reported the whole project.
   const summary = summarizeTrace(folded.records, {
     projectId: query.projectId,
     runId: journalId,
-    knownSpendUsd: query.knownSpendUsd,
+    ...(recorded ? { knownSpendUsd: query.knownSpendUsd } : {}),
   });
   // An open wait is only known from the whole history: a wait that started
   // inside a bounded fold may have ended past it. When the fold was cut short,
@@ -170,6 +179,7 @@ export async function queryTrace(deps: TraceQueryDeps, query: TraceQuery): Promi
   const answer: TraceAnswer = {
     projectId: query.projectId,
     journalId,
+    recorded,
     // A bounded fold does not cover the whole run, so the answer says so rather
     // than presenting a prefix total as the run's total.
     summary: { ...summary, incomplete: summary.incomplete || folded.more || folded.torn },
