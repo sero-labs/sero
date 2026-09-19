@@ -1,0 +1,4 @@
+{
+  "architect-list": "A plain-English observation of what is wrong on this screen, naming the mechanism. Quote the product's own strings. Count the repetitions. Say which action the screen buries. Do not propose a fix here.",
+  "-member-info": "A key starting and ending with a dash matches a sub-view anywhere in the frame id and beats an id prefix, so one note can cover the same tab across every Room."
+}

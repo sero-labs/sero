@@ -1,0 +1,9 @@
+{
+  "title": "Agent and workspace UX audit — current state",
+  "ledes": [
+    "Every frame below is the shipped Sero desktop build photographed against a copy of the <b>PROFILE</b> profile. Nothing here is a mockup. The proposed designs live in a <b>separate document</b> so an attractive drawing is never mistaken for an observation.",
+    "The capture ran with the runtimes switched off (<code>SERO_ARCHITECT=0</code>, <code>SERO_ROOMS=0</code>, <code>SERO_GOALS=0</code>). No owner was woken, no model was called and no record was written, while the pages still render because they read their records from disk. LIST HERE any banner or empty state that is a side effect of the kill switches, so it is not read as a product defect.",
+    "<b>Nothing changed during the capture</b>, so no frame shows a live transition. Every activity transition is listed as a gap at the end of this document rather than implied."
+  ],
+  "footer": "Captured from the built Sero desktop app by <code>apps/desktop/e2e/ux-audit.workflow.spec.ts</code> against a copy of the PROFILE profile. The source profile and its workspaces were not modified. Proposed designs are in <a href=\"./proposals.html\" style=\"color:var(--emerald)\">proposals.html</a>."
+}

@@ -1,0 +1,10 @@
+{
+  "architect": {
+    "title": "Architect",
+    "lede": "One line naming what the profile actually holds for this area, so a reader knows the frames are real records and not a staged fixture."
+  },
+  "orchestrator": {
+    "title": "Orchestrator and Workflows",
+    "lede": "Name the tabs walked and the lifecycle states the captured records cover: active, complete, draft, disabled."
+  }
+}
