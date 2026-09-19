@@ -2,6 +2,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@sero
 import { ExternalLink, FileCode2, Image, type LucideIcon } from 'lucide-react';
 
 const interactivePrototypes = [
+  [
+    'Agent and workspace UX audit — captured current state',
+    'agent-workspace-ux-audit/evidence.html',
+  ],
+  [
+    'Agent and workspace UX audit — proposed changes',
+    'agent-workspace-ux-audit/proposals.html',
+  ],
   ['Sero Architect — projects and the project page', 'sero-architect/index.html'],
   [
     'Architect — project menu, model tiers and the run inspector',
