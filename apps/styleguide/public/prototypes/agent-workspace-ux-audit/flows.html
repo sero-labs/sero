@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent and workspace UX — deliverable flows</title>
+<style>
+:root{
+  --bg:#09090b;--surface:#111113;--raised:#18181b;--overlay:#202024;--muted:#28282d;
+  --line:#26262b;--line-strong:#393940;
+  --text:#f4f4f5;--text-2:#b7b7c0;--text-3:#74747f;
+  --emerald:#34d399;--emerald-2:#10b981;--emerald-wash:rgba(52,211,153,.1);
+  --blue:#60a5fa;--blue-wash:rgba(96,165,250,.12);
+  --amber:#fbbf24;--amber-wash:rgba(251,191,36,.12);
+  --red:#fb7185;--red-wash:rgba(251,113,133,.12);
+  --violet:#a78bfa;
+  --sans:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box}
+html{background:#050506;color-scheme:dark}
+body{margin:0;padding:60px 24px 140px;background:#050506;color:var(--text);font-family:var(--sans)}
+h1,h2,h3,h4,p{margin:0}
+a{color:var(--emerald)}
+.doc{width:min(1080px,100%);margin:0 auto}
+.intro{max-width:840px;margin-bottom:48px}
+h1{font-size:28px;line-height:1.15;letter-spacing:-.04em;font-weight:650}
+.lede{margin-top:13px;color:var(--text-2);font-size:15px;line-height:1.65}
+.lede b{color:var(--text);font-weight:560}
+.rules{margin-top:24px;padding:16px 18px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}
+.rules h4{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--text-3);font-weight:650}
+.rules ul{margin:10px 0 0;padding-left:18px;color:var(--text-2);font-size:13.5px;line-height:1.75}
+.rules b{color:var(--text)}
+.rules code{font:11.5px var(--mono);color:var(--text)}
+
+h2{font-size:19px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
+.sec{margin-top:60px}
+.sec>.sub{margin-top:8px;color:var(--text-3);font-size:13.5px;line-height:1.65;max-width:840px}
+
+table{width:100%;border-collapse:collapse;margin-top:18px;font-size:13px}
+th{text-align:left;padding:0 10px 9px;color:var(--text-3);font:10px var(--mono);letter-spacing:.07em;text-transform:uppercase;font-weight:400}
+th.n,td.n{text-align:right}
+td{padding:11px 10px;border-top:1px solid var(--line);color:var(--text-2);vertical-align:top}
+tr.tot td{border-top:1px solid var(--line-strong);color:var(--text-3)}
+td b{color:var(--text);font-weight:560}
+td.n{font:12px var(--mono)}
+.key{font:11px var(--mono);color:var(--text-3)}
+
+.tag{display:inline-block;padding:2px 7px;border-radius:5px;font:10px var(--mono);letter-spacing:.04em;white-space:nowrap}
+.t-full{background:var(--emerald-wash);color:var(--emerald)}
+.t-part{background:var(--amber-wash);color:var(--amber)}
+.t-none{background:var(--red-wash);color:var(--red)}
+
+.flow{margin-top:56px;border:1px solid var(--line);border-radius:11px;background:var(--surface);overflow:hidden}
+.flow>header{padding:18px 22px 16px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;gap:14px}
+.flow .letter{width:30px;height:30px;border-radius:8px;background:var(--muted);color:var(--text-2);
+  display:grid;place-items:center;font:13px var(--mono);flex:0 0 auto;margin-top:1px}
+.flow h3{font-size:17px;letter-spacing:-.02em;font-weight:620}
+.flow .q{margin-top:4px;color:var(--text-3);font-size:13px;line-height:1.5}
+.flow .meta{margin-left:auto;text-align:right;flex:0 0 auto;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.flow .cnt{font:11px var(--mono);color:var(--text-3)}
+.block{padding:16px 22px;border-top:1px solid var(--line)}
+.block:first-of-type{border-top:0}
+.block h4{font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);font-weight:400;margin-bottom:9px}
+.block p{color:var(--text-2);font-size:13.5px;line-height:1.7;max-width:820px}
+.block ul{margin:0;padding-left:18px;color:var(--text-2);font-size:13.5px;line-height:1.75;max-width:820px}
+.block li+li{margin-top:5px}
+.block li b{color:var(--text);font-weight:560}
+.block.keep{background:rgba(96,165,250,.045)}
+.block.keep h4{color:var(--blue)}
+.quote{margin:0;padding:10px 14px;border-left:2px solid var(--line-strong);color:var(--text-3);
+  font-size:13px;line-height:1.65;max-width:820px}
+.quote+.quote{margin-top:10px}
+.quote b{color:var(--text-2);font-weight:560}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:4px 9px;border:1px solid var(--line-strong);border-radius:6px;background:var(--raised);
+  color:var(--text-3);font:11px var(--mono)}
+.chip b{color:var(--text-2);font-weight:400}
+.ac{counter-reset:ac}
+.ac li{margin-top:6px}
+.nb{margin-top:26px;padding:15px 18px;border:1px solid var(--line-strong);border-radius:9px;background:var(--raised)}
+.nb h4{font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--amber);margin-bottom:8px;font-weight:400}
+.nb p{color:var(--text-2);font-size:13.5px;line-height:1.7}
+.nb p+p{margin-top:9px}
+.ship td:first-child{white-space:nowrap}
+/* A keep-list entry the control walk found and my reading of the frames did not. */
+.block.keep li.found{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.block.keep li.found>b:first-child{color:var(--blue)}
+
+/* A cropped window onto a real captured frame. The keep list says a control
+   exists; the exhibit shows it, at the pixels it actually ships as. */
+.ex{margin-top:14px}
+.ex .win{position:relative;overflow:hidden;border:1px solid var(--line-strong);border-radius:8px;background:#000}
+.ex .win img{position:absolute;max-width:none;image-rendering:auto}
+.ex figcaption{margin-top:8px;color:var(--text-3);font-size:12px;line-height:1.55}
+.ex figcaption b{color:var(--text-2);font-weight:560}
+.ex figcaption code{font:11px var(--mono)}
+</style>
+</head>
+<body>
+<div class="doc">
+
+<div class="intro">
+  <h1>Agent and workspace UX — deliverable flows</h1>
+  <p class="lede">The audit produced <b>296 frames of evidence</b> and <b>10 proposal states</b>. This document sits
+  between them. It groups every captured frame into a flow a person actually walks, states what that flow must keep,
+  and says which flows the current proposals answer. It is the coherence check that has to pass before anything is
+  drawn as an interactive preview.</p>
+  <p class="lede">It exists because the proposals had a real defect, not a presentation problem: two working controls
+  disappeared from them. Redrawing a screen from memory silently deletes what was not remembered.</p>
+
+  <div class="rules">
+    <h4>How a flow was derived</h4>
+    <ul>
+      <li>Every captured frame carries a <code>task</code> field: the thing the person was trying to do. There are
+      <b>70 distinct tasks</b> across the four areas.</li>
+      <li>Each task is assigned to exactly one flow. The assignment is a judgement; the frame counts are not. A script
+      fails if a task lands in two flows or in none, so <b>all 296 frames are accounted for</b>.</li>
+      <li>A second walk records every control by accessible name instead of taking pictures, so the keep lists are
+      the product's own list of <b>329 controls across 279 screens</b>, not my reading of the frames.</li>
+      <li>A flow ships on its own. It names its screens, its defects, its <b>keep list</b> and its acceptance criteria.</li>
+      <li><b>Enhance, not replace.</b> A proposal is only an enhancement if every control on the screens it touches is
+      still reachable. Anything removed is named and argued for, not dropped.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="sec">
+  <h2>What the current proposals actually cover</h2>
+  <p class="sub">Frame counts come from the register. Proposal coverage is a reading of the 10 states in
+  <a href="proposals.html">proposals.html</a> against the tasks in each flow.</p>
+
+  <table>
+    <thead><tr>
+      <th style="width:26px"></th><th>Flow</th><th class="n">Frames</th><th class="n">Pages</th>
+      <th>Areas</th><th>Proposal states</th><th>Coverage</th>
+    </tr></thead>
+    <tbody>
+      <tr><td class="key">A</td><td><b>Triage</b></td><td class="n">25</td><td class="n">8</td>
+        <td>all four</td><td class="key">1, 5, 8, 9</td><td><span class="tag t-full">answered</span></td></tr>
+      <tr><td class="key">B</td><td><b>State vocabulary</b></td><td class="n">13</td><td class="n">6</td>
+        <td>architect, rooms</td><td class="key">4, 10</td><td><span class="tag t-full">answered</span></td></tr>
+      <tr><td class="key">C</td><td><b>Read the outcome</b></td><td class="n">89</td><td class="n">32</td>
+        <td>architect, orchestrator, rooms</td><td class="key">2, 3, 6, 7</td><td><span class="tag t-full">answered</span></td></tr>
+      <tr><td class="key">D</td><td><b>Act on it</b></td><td class="n">46</td><td class="n">14</td>
+        <td>all four</td><td class="key">part of 7</td><td><span class="tag t-part">partial</span></td></tr>
+      <tr><td class="key">E</td><td><b>History and comparison</b></td><td class="n">80</td><td class="n">10</td>
+        <td>orchestrator, rooms</td><td class="key">none</td><td><span class="tag t-none">missing</span></td></tr>
+      <tr><td class="key">F</td><td><b>Start something</b></td><td class="n">31</td><td class="n">12</td>
+        <td>all four</td><td class="key">none</td><td><span class="tag t-none">missing</span></td></tr>
+      <tr><td class="key">G</td><td><b>Follow the thread</b></td><td class="n">12</td><td class="n">7</td>
+        <td>orchestrator, workspaces</td><td class="key">none</td><td><span class="tag t-none">missing</span></td></tr>
+      <tr class="tot"><td></td><td>Total</td><td class="n">296</td><td class="n">—</td><td colspan="3"></td></tr>
+    </tbody>
+  </table>
+
+  <div class="nb">
+    <h4>The finding</h4>
+    <p>Flows D, E, F and G hold <b>169 of 296 frames, 57 percent of the evidence</b>, and between them draw one
+    partial proposal state. The three flows that are fully answered are the three made of lists and reading
+    surfaces, which are the easy things to redraw. The unanswered ones are the flows made of controls: changing a
+    cap, picking a model, choosing context, reading history, creating something, moving between apps.</p>
+    <p>So the instinct that functionality was reduced is right, and it is measurable. The proposals were not a
+    smaller product on purpose. They stopped where drawing got harder, and the stopping point was not written down.</p>
+  </div>
+
+  <div class="nb" style="border-color:var(--line-strong)">
+    <h4 style="color:var(--blue)">What a screenshot could not tell me</h4>
+    <p>The frames were walked a second time by a pass that records controls by accessible name instead of pixels.
+    It found <b>329 distinct controls across 279 screens</b>, and <b>60 of them are named in neither the proposals
+    nor the first draft of the keep lists below</b>. They are not obscure: <b>Back to Rooms</b> and <b>Open in Agent
+    Board</b> are on 103 screens each, <b>Delete Room</b> on 86, <b>Reflect all</b> and <b>More actions</b> on 62,
+    <b>Open in Orchestrator</b> on 57.</p>
+    <p>This is the argument for the method rather than for my attention. I wrote the first keep lists by reading
+    frames, and they missed a fifth of the product. The lists below now come from the walk.</p>
+    <p>It also corrects one flow outright. <b>G, Follow the thread, is not the thin flow I called it.</b> By frames it
+    is the smallest, 12 of 296. By controls it is nearly everywhere: <b>Back to Rooms</b>, <b>Back to projects</b>,
+    <b>Open in Agent Board</b>, <b>Open in Orchestrator</b>, <b>Open Room</b>, <b>Open session</b> and
+    <b>Open preview</b> together appear on almost every screen in the product. Counting frames measured how often I
+    photographed navigation, not how much of the product it is.</p>
+  </div>
+</div>
+
+<div class="sec">
+  <h2>The seven flows</h2>
+  <p class="sub">Each one names what it serves, what it rests on, what is wrong, what must survive the change, and
+  when it is done. The keep list is the contract: those controls exist in the shipped product today and are visible
+  in the evidence.</p>
+
+  <!-- ============ A ============ -->
+  <div class="flow">
+    <header>
+      <div class="letter">A</div>
+      <div>
+        <h3>Triage</h3>
+        <p class="q">Which of my things needs me right now?</p>
+      </div>
+      <div class="meta"><span class="tag t-full">answered</span><span class="cnt">25 frames · 8 pages</span></div>
+    </header>
+
+    <div class="block">
+      <h4>Serves</h4>
+      <div class="chips">
+        <span class="chip">See every project and which one needs me</span>
+        <span class="chip">Find the one thing that needs a decision</span>
+        <span class="chip">Find the workflow that needs me</span>
+        <span class="chip">Find the Room that needs me</span>
+        <span class="chip">Find the workspace I want and see which is active</span>
+        <span class="chip">Decide what to start, and see what is already going</span>
+        <span class="chip">See what happened most recently</span>
+      </div>
+    </div>
+
+    <div class="block">
+      <h4>Rests on</h4>
+      <p>Rooms list (8), Orchestrator Workflow list (5), Orchestrator Home (4), Architect Projects list (2),
+      Workflows tab (2), Workspace tree (2), and two rows reached from a list.</p>
+    </div>
+
+    <div class="block">
+      <h4>What is wrong</h4>
+      <p class="quote">The pill column holds either the phase (BUILD, MAINTAIN) or the overlay (BLOCKED, LIMITED,
+      PAUSED), never both, so <b>a blocked project hides which phase it is in</b>. The header promises "state · phase ·
+      spend · needs you".</p>
+      <p class="quote">Three permanent explanatory cards take roughly a third of the first viewport on every visit.
+      Below them each row gives the workflow's title one truncated line, "Release the completed reading trac…", and
+      gives the rest to the agent's instruction.</p>
+      <p class="quote">Fourteen workspaces are listed flat, with <b>no indication of which hold running work</b>,
+      which have Architect projects, or which were opened most recently.</p>
+    </div>
+
+    <div class="block keep">
+      <h4>Must survive</h4>
+      <ul>
+        <li>Per-row overflow menus on projects, workflows and Rooms.</li>
+        <li>The tab bar: Home, Workflows, Rooms, Goals, Catalog, Library.</li>
+        <li>Rooms list filters and the Rooms list search field.</li>
+        <li>Every create entry point: New project, Create workflow, New Room, Add workspace.</li>
+        <li>The workspace tree's active-workspace marker and its per-workspace context menu.</li>
+        <li class="found"><b>Found by the control walk, missing from my first list:</b> <b>Search workflows…</b>, <b>Search the library…</b>, <b>Search the catalog…</b>, <b>Clear filters</b>, <b>My Library</b>.</li>
+      </ul>
+    </div>
+
+    <div class="block">
+      <h4>The change</h4>
+      <ul>
+        <li>One row carries <b>both</b> phase and overlay. They are different facts and neither replaces the other.</li>
+        <li>The row's line belongs to the title. The agent instruction moves behind a disclosure on the same row.</li>
+        <li>The three explanatory cards collapse to one line that can be dismissed, and work moves to the top.</li>
+        <li>A workspace row states whether anything is running in it.</li>
+      </ul>
+    </div>
+
+    <div class="block">
+      <h4>Done when</h4>
+      <ul class="ac">
+        <li>A blocked project shows its phase without being opened.</li>
+        <li>The first viewport of Orchestrator Home is work, not explanation.</li>
+        <li>No list row's primary line is an agent instruction.</li>
+        <li>Every control in the keep list is still one click from the list.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============ B ============ -->
+  <div class="flow">
+    <header>
+      <div class="letter">B</div>
+      <div>
+        <h3>State vocabulary</h3>
+        <p class="q">What is happening, and is it still happening?</p>
+      </div>
+      <div class="meta"><span class="tag t-full">answered</span><span class="cnt">13 frames · 6 pages</span></div>
+    </header>
+
+    <div class="block">
+      <h4>Serves</h4>
+      <div class="chips">
+        <span class="chip">Understand the state without animation</span>
+        <span class="chip">Understand who is waiting without animation</span>
+        <span class="chip">Tell a paused owner apart from stalled work</span>
+        <span class="chip">Tell whether a paused project still has workers running</span>
+        <span class="chip">See that a milestone is being built without opening it</span>
+        <span class="chip">Understand what stopped and how to restart it</span>
+        <span class="chip">Know whether the finished product still needs me</span>
+      </div>
+    </div>
+
+    <div class="block">
+      <h4>Rests on</h4>
+      <p>Five Architect project pages and one Room, including the reduced-motion pass.</p>
+    </div>
+
+    <div class="block">
+      <h4>What is wrong</h4>
+      <p class="quote">A paused owner and a paused Room read as the same state. The page says work is on hold; it does
+      not say that <b>two Room members have been waiting on the user for over a week</b>, which is the thing that would
+      make someone act.</p>
+      <p class="quote">With prefers-reduced-motion set, nothing is lost, which is the point: the current activity
+      signalling does not depend on animation, but <b>it also does not add a text label where colour is doing the
+      work</b>.</p>
+      <p class="quote">The empty Goals tab renders nothing at all. An empty state and a failure to load are
+      indistinguishable here.</p>
+    </div>
+
+    <div class="block keep">
+      <h4>Must survive</h4>
+      <ul>
+        <li>The existing colour coding. This flow adds a word, it does not take the colour away.</li>
+        <li>The live activity indicator for people who can see motion.</li>
+      </ul>
+    </div>
+
+    <div class="block">
+      <h4>The change</h4>
+      <ul>
+        <li>Seven named states, each a word before it is a colour: <b>working, queued, waiting for you, paused,
+        complete, failed, unconfirmed</b>.</li>
+        <li>Paused splits by who is paused and whether workers continue underneath.</li>
+        <li>Loading, unavailable and failed each render differently and each say which they are. The empty case is
+        already handled: see the Library in flow F.</li>
+        <li>No percentage and no ETA. A step count is a step count.</li>
+      </ul>
+    </div>
+
+    <div class="block">
+      <h4>Done when</h4>
+      <ul class="ac">
+        <li>Every state is legible with motion disabled and with colour ignored.</li>
+        <li>A paused owner with running workers reads differently from a fully stopped project.</li>
+        <li>No screen claims progress the system has not measured.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============ C ============ -->
+  <div class="flow">
+    <header>
+      <div class="letter">C</div>
+      <div>
+        <h3>Read the outcome</h3>
+        <p class="q">Did this do its job, and what is the evidence?</p>
+      </div>
+      <div class="meta"><span class="tag t-full">answered</span><span class="cnt">89 frames · 32 pages</span></div>
+    </header>
+
+    <div class="block">
+      <h4>Serves</h4>
+      <div class="chips">
+        <span class="chip">Judge whether this workflow did its job</span>
+        <span class="chip">Judge one step</span>
+        <span class="chip">Read what each step was told to do and what it returned</span>
+        <span class="chip">Read the instruction and the expected result of one step</span>
+        <span class="chip">Understand what the team did and whether I must act</span>
+        <span class="chip">Read the result and the evidence for it</span>
+        <span class="chip">Read what one member actually did</span>
+        <span class="chip">Find out what the owner actually did</span>
+        <span class="chip">Read the research findings and the evidence behind a claim</span>
+        <span class="chip">Check the commands that proved a milestone</span>
+        <span class="chip">Check which milestones are verified, accepted or delivered</span>
+        <span class="chip">Read the delivery record of a finished project</span>
+        <span class="chip">Re-read what the team was asked to do</span>
+      </div>
+    </div>
+
+    <div class="block">
+      <h4>Rests on</h4>
+      <p>The largest flow. Six Room result and member views, four Orchestrator workflow step views, the Architect
+      Run inspector, and the milestone and research sections of nine project pages.</p>
+    </div>
+
+    <div class="block">
+      <h4>What is wrong</h4>
+      <p class="quote"><b>Seen on 110 frames.</b> The step card prints the whole agent instruction, often 150 words or
+      more, above the result. The EXPECTED and OUTCOME rows underneath are the clearest thing on the card and are
+      worth keeping. They are simply last.</p>
+      <p class="quote">The MANDATE tab opens on a WORKING INSTRUCTIONS field, a 130-word agent instruction printed in
+      full, <b>above the facts a person came for</b>: model, tools, access level and cost. Those facts are well
+      presented and labelled.</p>
+      <p class="quote">One sentence, "FOV raycasting + fog of war stopped before it finished. Use Retry step here to
+      continue from the failed step.", <b>appears four times on this screen</b>.</p>
+      <p class="quote">The paused Room's summary line is a paragraph addressed to an agent: "APPROVED ARCHITECT SCOPE.
+      This brief and milestone govern the task. Earlier research artifacts are recommendations, not approvals…".</p>
+
+      <p class="quote"><b>The Run inspector is the worst screen in the audit, and it needs its own piece of work.</b>
+      Its landing state reports nothing: COST, ACTIVE, WAITING, COUNTERS and TOKENS all read "—", the range says "no
+      timings observed", and two filter controls sit above data that has not loaded, over a <b>Load activity</b>
+      button that must be pressed before any of it means anything. Press it on a view with no journal and the product
+      states its own ambiguity: <b>"A view that has not started and one whose telemetry failed look the same
+      here."</b> That is the clearest writing on the screen.</p>
+      <p class="quote">Loaded, it is worse. From a capture of the running app: <b>every row in the list carries the
+      same 36-character label</b>, <code>owner:01a0ac5a-f8ec-73f5-a728-413dac746997</code>, printed twice per row and
+      overlapping itself so the text collides. The filter checkboxes are raw ids. MODEL and THINKING both read <b>"not
+      recorded"</b>, TOKENS is 0 with "input, output, cacheRead, cacheWrite unavailable", and two totals sit side by
+      side, <b>$4.6026</b> and <b>"$4.4835 without call detail"</b>, with nothing explaining the difference.</p>
+      <p class="quote">Compare the intended design, <a href="../architect-run-observability/index.html">architect-run-observability</a>,
+      whose rows read <b>"Owner wake · intake"</b>, <b>"Research · 3 questions in parallel"</b>, <b>"Waiting for your
+      approval of the charter"</b>, <b>"Session compacted · 41k tokens summarised"</b> and
+      <b>"diff · 3f1c2ab..9d2e401"</b>. The shipped screen prints one opaque id where the prototype names what
+      happened. <b>This is a rethink, not a tidy-up, and it is out of scope for this document.</b></p>
+    </div>
+
+    <div class="block keep">
+      <h4>Must survive</h4>
+      <ul>
+        <li>The full agent instruction, behind a disclosure. It is never truncated and never summarised away.</li>
+        <li>The EXPECTED and OUTCOME rows, which the audit found worth keeping as they are.</li>
+        <li>Model, tools, access level and cost on the member mandate.</li>
+        <li>The plan map, named in the evidence as the clearest thing in the Orchestrator.</li>
+        <li>Retry step, and every other recovery action on a failed step.</li>
+        <li>The Run inspector as a distinct surface, with its raw record intact: the <b>View</b> run picker, the
+        per-activity filters, <b>failures only</b>, <b>Clear filters</b>, <b>Zoom in</b> / <b>Zoom out</b>, the
+        cumulative spend chart, and the by-activity and by-model breakdowns. All of it survives a rethink of how the
+        rows are labelled.</li>
+        <li class="found"><b>Found by the control walk, missing from my first list:</b> <b>Evidence at &lt;sha&gt;</b> on 56 screens, which links a claim to the commit that proves it; <b>Zoom in</b> and <b>Zoom out</b> on the plan map; <b>Open preview</b>; <b>Attempt history</b>.</li>
+      </ul>
+    </div>
+
+    <div class="block">
+      <h4>The change</h4>
+      <ul>
+        <li>Order inverts. Outcome, then evidence, then the instruction that produced it.</li>
+        <li>A sentence appears <b>once</b> per screen, at the level that owns it.</li>
+        <li>Long agent prose gets headings, numbered steps, labelled evidence and acceptance criteria. It is folded,
+        not cut.</li>
+        <li>An agent-addressed paragraph is not used as a human-facing summary line.</li>
+      </ul>
+    </div>
+
+    <div class="block">
+      <h4>Done when</h4>
+      <ul class="ac">
+        <li>The conclusion is above the fold on every step, member and milestone view.</li>
+        <li>No sentence is repeated on one screen.</li>
+        <li>Every word of the original instruction is still reachable in two clicks or fewer.</li>
+        <li>Nothing is truncated to make it fit.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============ D ============ -->
+  <div class="flow">
+    <header>
+      <div class="letter">D</div>
+      <div>
+        <h3>Act on it</h3>
+        <p class="q">Do the one thing that unblocks this.</p>
+      </div>
+      <div class="meta"><span class="tag t-part">partial</span><span class="cnt">46 frames · 14 pages</span></div>
+    </header>
+
+    <div class="block">
+      <h4>Serves</h4>
+      <div class="chips">
+        <span class="chip">Pause, change the cap, autonomy or execution location</span>
+        <span class="chip">See that the cap stopped the work</span>
+        <span class="chip">Read the current directive and reply</span>
+        <span class="chip">Recover a project whose research was cancelled</span>
+        <span class="chip">Approve or adjust the proposed team</span>
+        <span class="chip">Review the plan before it runs</span>
+        <span class="chip">Set limits</span>
+        <span class="chip">Change the model a step runs on</span>
+        <span class="chip">Check which model each role will use</span>
+        <span class="chip">Decide what a step is allowed to see</span>
+        <span class="chip">Decide where the result is delivered</span>
+        <span class="chip">Recover an unavailable workspace</span>
+      </div>
+    </div>
+
+    <div class="block">
+      <h4>Rests on</h4>
+      <p>The Architect Models screen (6), the per-step model, context and delivery pickers across four workflows (12),
+      the cap and autonomy controls on five project pages, and the Room hold card.</p>
+    </div>
+
+    <div class="block">
+      <h4>What is wrong</h4>
+      <p class="quote">Spend is $10.47 against a $10 cap. The row is marked LIMITED and the bar is red, but
+      <b>the page still leads with a completion sentence</b>, so the fact that nothing will start again until the cap
+      is raised is the quietest thing on the screen.</p>
+      <p class="quote"><b>Three sets of the same controls stack down the page</b>: Message the team / Resume / Stop in
+      the top bar, Message the team / Resume / Stop the Room in the hold card, and a third amber strip with Read it.</p>
+      <p class="quote">The status line names a Room by its raw identifier: "Research Room
+      room_32407438-c1ce-4370-8b3b-96186d4bc056 is cancelled.". The identifier is not something a person can act on,
+      and the sentence is truncated before the recovery action.</p>
+      <p class="quote">Under "NEEDS YOU" the product says nothing three times: a section heading, a card and an empty
+      body.</p>
+    </div>
+
+    <div class="block keep">
+      <h4>Must survive — this is where the proposals regressed</h4>
+      <ul>
+        <li><b>The inline cap control.</b> The shipped product renders "Cap reached: $10.5 of $10", a stepper and a
+        <b>Raise and resume</b> button on the project page. Proposal state 2 has none of it. That is a deletion, not a
+        simplification.</li>
+        <li>Pause, Resume, Stop on both the owner and the Room.</li>
+        <li>The autonomy setting and the execution-location setting.</li>
+        <li>The per-step model picker, the context picker and the delivery picker, all three of which are separate
+        decisions.</li>
+        <li>The Architect Models screen, which shows the model per role before anything starts.</li>
+        <li>Retry step, and the workspace reconnect action.</li>
+        <li class="found"><b>Found by the control walk, missing from my first list:</b> <b>New cap</b>, the stepper in the exhibit below; the four Architect model tiers <b>LOW / MED / HIGH project model</b> and <b>Use global</b>; <b>Tune model &amp; tools</b>; <b>Model for &lt;step&gt;</b>, <b>Agent for &lt;step&gt;</b> and <b>Tools for &lt;step&gt;</b>, which are three separate per-step decisions; <b>Update plan</b>; <b>Run again</b> and <b>Run next</b>; <b>Wake</b>; <b>Delete Room</b> on 86 screens; the overflow menus <b>More actions</b> and <b>Project controls</b>; <b>Send</b>, <b>Send a message</b> and <b>Send and continue</b>; <b>Enable</b> and <b>Activate</b>.</li>
+      </ul>
+      <figure class="ex">
+        <div class="win" style="width:926px;max-width:100%;height:64px">
+          <img alt="The shipped cap control: Cap reached, a stepper and Raise and resume"
+               src="../screenshots/agent-workspace-ux-audit/architect-csv-summary-02-1440.webp"
+               style="width:1309px;left:-24px;top:-299px">
+        </div>
+        <figcaption><b>This ships today.</b> Captured on <code>csv-summary-resilience-02</code>. The cap strip,
+        the stepper and <b>Raise and resume</b> sit inline on the project page, directly under the header.
+        Proposal state 2 draws this project and shows none of it.</figcaption>
+      </figure>
+
+    </div>
+
+    <div class="block">
+      <h4>The change</h4>
+      <ul>
+        <li>When a cap has stopped the work, <b>that is the page's first sentence</b>, and the control to fix it sits
+        with the sentence.</li>
+        <li>One set of controls per screen, at the level that owns the action. Not three.</li>
+        <li>A blocked object is named by its title. The identifier moves to a copyable detail.</li>
+        <li>"Needs you" either holds a decision with its action attached, or the section is absent.</li>
+      </ul>
+    </div>
+
+    <div class="block">
+      <h4>Done when</h4>
+      <ul class="ac">
+        <li>Every control in the keep list appears in a proposal state, with a screenshot of its shipped form beside it.</li>
+        <li>A cap-stopped project states that fact before it states anything else.</li>
+        <li>No screen offers the same action three times.</li>
+        <li>No action is offered for behaviour the runtime does not support.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============ E ============ -->
+  <div class="flow">
+    <header>
+      <div class="letter">E</div>
+      <div>
+        <h3>History and comparison</h3>
+        <p class="q">What changed, against what, and who touched it?</p>
+      </div>
+      <div class="meta"><span class="tag t-none">missing</span><span class="cnt">80 frames · 10 pages</span></div>
+    </header>
+
+    <div class="block">
+      <h4>Serves</h4>
+      <div class="chips">
+        <span class="chip">See what the workflow learnt from its runs</span>
+        <span class="chip">Compare this run with the one before it</span>
+        <span class="chip">Review what changed in the workspace</span>
+        <span class="chip">See every event, including sessions and claims</span>
+        <span class="chip">Find the decisions without the working detail</span>
+        <span class="chip">Read what the members said to each other</span>
+        <span class="chip">See the work items only</span>
+        <span class="chip">Go back to the full record</span>
+        <span class="chip">See the short version of what happened</span>
+        <span class="chip">See the work board</span>
+        <span class="chip">Check who holds which files</span>
+        <span class="chip">Check what a member was allowed to touch and what it cost</span>
+        <span class="chip">Open what the team produced</span>
+        <span class="chip">Watch the members work without reading the log</span>
+      </div>
+    </div>
+
+    <div class="block">
+      <h4>Rests on</h4>
+      <p>The second-largest flow: six Rooms across Timeline, Highlights, Decisions, Messages, Work, Claims,
+      Artifacts and Changes, plus the Orchestrator run-comparison views. These frames were re-captured with the Rooms
+      runtime on, so unlike the first pass they hold the real feeds. <b>Not one proposal state touches any of it.</b></p>
+    </div>
+
+    <div class="block">
+      <h4>What is wrong</h4>
+      <p class="quote"><b>Re-captured.</b> The first pass ran with <code>SERO_ROOMS=0</code> and photographed every
+      Activity feed as "Nothing has happened yet.", because the feed is served by the runtime rather than read from
+      disk. Two observations written from those empty frames were withdrawn and the Rooms were re-captured with the
+      runtime on. Nothing ran and nothing was spent. The observations below are from the real feeds.</p>
+      <p class="quote"><b>Every work update is printed twice at the same timestamp</b>, once as "The Room —
+      &lt;member&gt;: &lt;item&gt; (done)." and once as "&lt;member&gt; Work updated: &lt;item&gt; (done)." On the
+      Frogger Room, eight of the first fourteen rows are one of these pairs.</p>
+      <p class="quote">When a member publishes, the feed gives one readable row naming the thing, "published plan:
+      Final proposal: Signal Wake Crossing.", and a second row directly beneath holding only
+      <code>artifact_7aafbcee-6a13-43c6-b019-8ff97baefa7a.md</code> in a boxed monospace block. <b>The box is the more
+      prominent of the two rows and is the one a person cannot read.</b></p>
+      <p class="quote">The five filters do each produce a genuinely different feed, in all six Rooms. But nothing
+      except the pressed button says so: <b>no count, no "showing 12 of 56", no marker on the feed</b>, so a filtered
+      view and the whole record look alike.</p>
+      <p class="quote">Claims reads "No paths are claimed." in <b>every Room captured</b>, including completed
+      three-member ones, because members work on separate branches: "Collected 2 member branch(es). No two members
+      changed the same file." The tab is empty in normal use rather than exceptionally, and it never says so.</p>
+      <p class="quote">In the Artifacts panel a row gives its title, then its kind and author, then a full
+      36-character identifier that wraps onto two lines. The title is the brightest text, so an earlier draft calling
+      the identifier "the most prominent thing" overstated it. <b>It does take more of the row than the title
+      does</b>, and it is not usable by a person.</p>
+    </div>
+
+    <div class="block keep">
+      <h4>Must survive — the second regression</h4>
+      <ul>
+        <li><b>The History record.</b> The shipped Architect project page carries a history of dated changes, 33 on
+        the CSV summary project and 53 on the reading tracker. No proposal state shows it and nothing replaces it, so
+        the record must survive. <b>Its permanent rail must not.</b> See the change below.</li>
+        <li>All nine Room views: Timeline, Highlights, Decisions, Chat, Work items, Board, Diff, Claims, Artifacts.
+        They are separate answers to separate questions.</li>
+        <li>The five activity filters, and the fact that they live in the Timeline view.</li>
+        <li>Per-member cost and access-level detail.</li>
+        <li>Run-to-run comparison in the Orchestrator.</li>
+        <li class="found"><b>Found by the control walk, missing from my first list:</b> the <b>History</b> disclosure itself, on 61 screens, which is the exhibit below; <b>Older directives</b>, also on 61, a whole record of past instructions that appears in no document; <b>What reflection has learned</b> and <b>Reflect all</b>, the Orchestrator's run-to-run learning, on 50 and 62 screens; <b>Learn from past runs and suggest improvements</b>; <b>Shared activity</b> and <b>Load activity</b>.</li>
+      </ul>
+      <figure class="ex">
+        <div class="win" style="width:390px;height:430px">
+          <img alt="The shipped History rail, 33 dated changes"
+               src="../screenshots/agent-workspace-ux-audit/architect-csv-summary-02-1440.webp"
+               style="width:1600px;left:-1184px;top:-371px">
+        </div>
+        <figcaption><b>This ships today.</b> The History rail on the same project, headed
+        <b>33 changes</b>, each one dated and naming the phase it belongs to. No proposal state
+        shows it and nothing in the proposals replaces it.</figcaption>
+      </figure>
+
+    </div>
+
+    <div class="block">
+      <h4>The change</h4>
+      <ul>
+        <li>A filtered view <b>says it is filtered</b>, and says what it is hiding, in words rather than by button
+        state. A count is enough.</li>
+        <li>One event appears once. "The Room says X" and "member says X" at the same timestamp are one row.</li>
+        <li>A published artifact is one row, named. The filename becomes a copy action, not a block of its own.</li>
+        <li>Claims either says why it is empty, or it stops being a permanent tab that never has content.</li>
+        <li>An artifact row leads with its title and what it is. The identifier becomes a copy action.</li>
+        <li><b>History moves out of the project page into its own view.</b> Today it holds the right third of the
+        page permanently to show a log, which is the most expensive real estate in the Architect spent on the thing a
+        person looks at least often. It becomes a view you open, reachable from the project page, grouped by day.</li>
+        <li><b>Older directives</b> is a count-labelled disclosure holding the instructions previously sent to the
+        owner. It is already collapsed by default, so it costs one line rather than a panel. It stays collapsed, and
+        it gets a label that says what it holds.</li>
+      </ul>
+    </div>
+
+    <div class="block">
+      <h4>Done when</h4>
+      <ul class="ac">
+        <li>All nine Room views exist in the proposal, each with a stated question it answers.</li>
+        <li>A person can tell a filtered feed from the full record without clicking.</li>
+        <li>The History record is reachable in one click and occupies no part of the project page by default.</li>
+        <li>No row leads with a raw identifier.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============ F ============ -->
+  <div class="flow">
+    <header>
+      <div class="letter">F</div>
+      <div>
+        <h3>Start something</h3>
+        <p class="q">Create a project, workflow, Room or workspace.</p>
+      </div>
+      <div class="meta"><span class="tag t-none">missing</span><span class="cnt">31 frames · 12 pages</span></div>
+    </header>
+
+    <div class="block">
+      <h4>Serves</h4>
+      <div class="chips">
+        <span class="chip">Describe an idea and choose where it runs</span>
+        <span class="chip">Check the model and location before starting</span>
+        <span class="chip">Describe a repeatable job</span>
+        <span class="chip">Check the request before planning starts</span>
+        <span class="chip">Describe the problem for a team</span>
+        <span class="chip">Check the brief before a team is proposed</span>
+        <span class="chip">Start a Room, or see there are none</span>
+        <span class="chip">Start a goal, or see there are none</span>
+        <span class="chip">Reuse a saved workflow</span>
+        <span class="chip">Install a workflow someone else wrote</span>
+        <span class="chip">Judge a catalog entry before installing it</span>
+        <span class="chip">Turn a proven workflow into a reusable skill</span>
+        <span class="chip">Add a folder, clone a repository, or reconnect one</span>
+        <span class="chip">Set up a new workspace</span>
+        <span class="chip">Choose where a workspace runs</span>
+      </div>
+    </div>
+
+    <div class="block">
+      <h4>Rests on</h4>
+      <p>Catalog (5), Architect intake dialog (4), Create workflow (4), New Room (2), Add workspace (2), and the
+      empty Goals, Rooms and Library tabs (6). Four frames are recorded as gaps: the states past the point where a
+      planner call would start.</p>
+    </div>
+
+    <div class="block">
+      <h4>What is wrong</h4>
+      <p class="quote"><b>Correction.</b> An earlier draft of this audit said the Goals tab "renders nothing at all"
+      and that the Library says nothing about being empty. <b>Both claims were wrong</b>, and re-reading the frames
+      proved it. The observations below replace them.</p>
+      <p class="quote">Goals states its empty case in one line of dim secondary text: "No goals yet. Start one with
+      <code>/goal</code> in a chat." The sentence is correct and names the command, but <b>there is no control here to
+      act on</b>. It sends the reader to a different surface to do the thing this page is about, in the
+      lowest-contrast text on the screen.</p>
+      <p class="quote"><b>The Library is the best-handled empty state in the product</b>, and the one the others
+      should copy: it keeps its search field and its My Library / Catalog toggle, states "0 saved workflow(s)", and
+      explains the fill path. Nothing is missing there.</p>
+    </div>
+
+    <div class="block keep">
+      <h4>Must survive</h4>
+      <ul>
+        <li>Every field of the intake dialog, including the model and execution-location choices.</li>
+        <li>The Catalog's install action and whatever detail a person needs to judge an entry before installing it.</li>
+        <li>Save as skill, on a proven workflow.</li>
+        <li>Add folder, clone repository, and reconnect, as three distinct entry points.</li>
+        <li class="found"><b>Found by the control walk, missing from my first list:</b> <b>Save this Workflow to the Library</b> on 51 screens; <b>Draft a reusable skill from what this Workflow proved works</b> and <b>Review the drafted skill</b>; <b>Custom system prompt and skills for this Workflow</b>; <b>Where this Workflow's results go</b>; <b>Add repo</b> and <b>Pull all catalog repos now</b>; <b>Generate plan →</b>, <b>Design the team →</b>, <b>Automatic</b> and <b>Leave blank to let the AI name it</b>; the Room limit fields <b>Maximum spend</b>, <b>Maximum time</b>, <b>Access</b> and <b>Deliver to</b>.</li>
+      </ul>
+    </div>
+
+    <div class="block">
+      <h4>The change</h4>
+      <ul>
+        <li>An empty tab offers the action that fills it, rather than naming a command to type elsewhere. The
+        Library already does this; Goals does not.</li>
+        <li>Empty, loading and unavailable are three different renderings. The empty case is already handled in both
+        tabs. Loading and unavailable were never captured, so they are a gap rather than an observed defect.</li>
+        <li>The confirmation step before a planner runs states what is about to happen and what it will cost.</li>
+      </ul>
+    </div>
+
+    <div class="block">
+      <h4>Done when</h4>
+      <ul class="ac">
+        <li>Every empty tab offers its filling action in place.</li>
+        <li>Every create path has a proposal state, including the empty case.</li>
+        <li>The gaps are still declared as gaps, not drawn as though they were observed.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============ G ============ -->
+  <div class="flow">
+    <header>
+      <div class="letter">G</div>
+      <div>
+        <h3>Follow the thread</h3>
+        <p class="q">Move between apps without losing the object.</p>
+      </div>
+      <div class="meta"><span class="tag t-none">missing</span><span class="cnt">12 frames · 7 pages</span></div>
+    </header>
+
+    <div class="block">
+      <h4>Serves</h4>
+      <div class="chips">
+        <span class="chip">Follow an Architect milestone into its Workflow</span>
+        <span class="chip">Get back to the project I came from</span>
+        <span class="chip">Switch workspace and see its files</span>
+        <span class="chip">Close, reveal or change the runtime of a workspace</span>
+        <span class="chip">See the order, branches and parallel groups</span>
+      </div>
+    </div>
+
+    <div class="block">
+      <h4>Rests on</h4>
+      <p>12 frames, the fewest of any flow, because navigation is a transition and nothing moved during capture.
+      <b>The frame count badly understates it.</b> The control walk finds this flow's controls on almost every screen
+      in the product: Back to Rooms and Open in Agent Board on 103 screens each, Back to projects on 61, Open in
+      Orchestrator on 57, Open Room on 48. Twelve frames measured how often I photographed navigation, not how much
+      of the product it is.</p>
+    </div>
+
+    <div class="block">
+      <h4>What is wrong</h4>
+      <p>No written observation, and that is the finding. The frames show the endpoints of each move and never the
+      move itself, so I cannot say from this evidence whether a person who follows a milestone into its Workflow can
+      get back, or knows where they are when they arrive. Seven named ways to leave a screen, and no evidence about
+      any of them. It needs a live walk, not a redesign.</p>
+    </div>
+
+    <div class="block keep">
+      <h4>Must survive</h4>
+      <ul>
+        <li>The milestone-to-workflow link, and the return path to the project.</li>
+        <li>The workspace context menu: close, reveal in Finder, change runtime.</li>
+        <li>The plan map's ordering, branch and parallel-group rendering.</li>
+        <li class="found"><b>Found by the control walk, missing from my first list:</b> <b>Back to Rooms</b> and <b>Open in Agent Board</b> on 103 screens each; <b>Back to projects</b> on 61 and <b>Back to project</b> on 12; <b>Open in Orchestrator</b> on 57; <b>Open Room</b> on 48; <b>Open session</b>; <b>Open preview</b>; the workspace panels <b>Orchestration</b> and <b>Terminal</b>.</li>
+      </ul>
+    </div>
+
+    <div class="block">
+      <h4>The change</h4>
+      <p>Undecided, deliberately. Propose after a live walk, not before.</p>
+    </div>
+
+    <div class="block">
+      <h4>Done when</h4>
+      <ul class="ac">
+        <li>A live walk of the four cross-app moves is recorded.</li>
+        <li>Either a proposal exists, or this flow is closed as "no change needed" with a reason.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="sec">
+  <h2>How the previews should be drawn</h2>
+  <p class="sub">The question behind this whole document: rebuild each screen as components, or work from the
+  captured frames? Here is the recommendation and the reason.</p>
+
+  <p class="sub" style="margin-top:18px"><b style="color:var(--text)">Composite over the real frame. Do not rebuild
+  the screen.</b> Each preview state uses a captured frame as its base, dimmed, with drawn overlays only on the
+  region that changes. Everything outside the overlay is the shipped product at its real pixels.</p>
+
+  <div class="rules" style="max-width:880px">
+    <h4>Why this and not a component rebuild</h4>
+    <ul>
+      <li><b>It cannot silently delete a control.</b> A rebuilt screen shows only what was remembered. A composite
+      shows the whole screen, so anything the proposal does not touch is still visibly there. The two regressions in
+      this document exist because the proposals were rebuilt rather than composited.</li>
+      <li><b>It carries the real content.</b> The density problem in flow C is a problem about 150-word instructions
+      at their real length. A rebuild uses shortened sample text and quietly argues the problem away.</li>
+      <li><b>It is far cheaper per state</b>, so flows D, E, F can be drawn at all rather than skipped for budget.</li>
+      <li><b>Before and after are the same image</b>, so the toggle is honest: nothing moves except the thing being
+      proposed.</li>
+    </ul>
+  </div>
+
+  <p class="sub" style="margin-top:20px">The cost is that a composite cannot show a layout that reflows the whole
+  page. Where a flow needs that, and only there, build the state as components and say on the page that it is drawn
+  rather than photographed.</p>
+
+  <p class="sub" style="margin-top:14px">Every preview state carries a <b>control parity list</b> naming each
+  control on the base frame as kept, folded behind a disclosure, moved, or dropped with a reason. Four labels, no
+  fifth. A state with an unlabelled control is not finished.</p>
+</div>
+
+<div class="sec">
+  <h2>Ship order</h2>
+  <p class="sub">B is a vocabulary, so it comes first and the others consume it. D is second because it holds the two
+  regressions and the strongest single defect in the audit. G is last and may never ship.</p>
+
+  <table class="ship">
+    <thead><tr><th style="width:26px"></th><th>Flow</th><th>Why here</th><th>Depends on</th></tr></thead>
+    <tbody>
+      <tr><td class="key">1</td><td><b>B · State vocabulary</b></td>
+        <td>Seven words the other six flows reuse. Cheapest to agree, and everything else reads it.</td><td class="key">—</td></tr>
+      <tr><td class="key">2</td><td><b>D · Act on it</b></td>
+        <td>Restores the cap control, and fixes the cap-stopped project that still leads with a completion sentence.</td><td class="key">B</td></tr>
+      <tr><td class="key">3</td><td><b>C · Read the outcome</b></td>
+        <td>The 110-frame defect. Largest flow, strongest evidence, and the proposals already answer it.</td><td class="key">B</td></tr>
+      <tr><td class="key">4</td><td><b>A · Triage</b></td>
+        <td>Needs B's words and C's folded prose to be worth redrawing.</td><td class="key">B, C</td></tr>
+      <tr><td class="key">5</td><td><b>E · History and comparison</b></td>
+        <td>Restores the History rail. Large, but every defect in it is local to one view.</td><td class="key">B</td></tr>
+      <tr><td class="key">6</td><td><b>F · Start something</b></td>
+        <td>Mostly an application of B to empty and loading states.</td><td class="key">B</td></tr>
+      <tr><td class="key">7</td><td><b>G · Follow the thread</b></td>
+        <td>Blocked on evidence, not on design.</td><td class="key">a live walk</td></tr>
+    </tbody>
+  </table>
+
+  <div class="nb">
+    <h4>Named as a separate task, not attempted here</h4>
+    <p><b>The Run inspector needs a rethink of its own.</b> It is the one screen in this audit where the shipped
+    result and the intended prototype are not the same idea, so folding it into flow C would understate it. It gets
+    its own piece of work, with the prototype as the starting point rather than the current screen.</p>
+  </div>
+
+  <div class="nb">
+    <h4>What this document does not establish</h4>
+    <p>The keep lists now come from the control walk, so they hold every control the walk reached. They do not hold
+    a control on a screen the walk never opened, and the 18 gaps are exactly those screens.</p>
+    <p><b>The loaded Run inspector is one of them.</b> Only one project in this profile has a run journal, and the
+    journal is served by the Architect runtime, which stayed off. Unlike the Rooms runtime, turning this one on is
+    not free: three projects carry no blocked, paused or limited overlay, so waking it could resume real work. The
+    loaded state here is therefore described from a capture of the running app rather than photographed, and it is
+    labelled as such.</p>
+    <p><b>Two observations in the first draft of this audit were wrong.</b> It claimed the Goals tab "renders nothing
+    at all" and that the Library says nothing about being empty. Re-reading the frames disproved both: Goals names
+    the command and the Library is the best-handled empty state in the product. Both are corrected in flow F and in
+    the evidence document. Absence claims are the ones to distrust, in this document and in the next one.</p>
+    <p>And the limit that governs the whole audit still holds: nothing moved during capture, so <b>no transition is
+    evidenced</b>. There is no observed before-and-after for working, queued, waiting, paused, complete or failed.
+    Flow B proposes a vocabulary for states the capture never saw change.</p>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

@@ -7,6 +7,10 @@ const interactivePrototypes = [
     'agent-workspace-ux-audit/evidence.html',
   ],
   [
+    'Agent and workspace UX audit — deliverable flows',
+    'agent-workspace-ux-audit/flows.html',
+  ],
+  [
     'Agent and workspace UX audit — proposed changes',
     'agent-workspace-ux-audit/proposals.html',
   ],

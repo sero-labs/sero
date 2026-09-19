@@ -16,6 +16,38 @@ async function scrollers(page: Page): Promise<number> {
   });
 }
 
+/**
+ * True when the panel has content below the fold.
+ *
+ * A scroll capture of a page that does not scroll is byte-identical to the
+ * frame before it, so asking this first removes the duplicate at source
+ * instead of hashing it away afterwards.
+ */
+export async function canScroll(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const panel = document.querySelector('[data-app-panel]');
+    if (!panel) return false;
+    return [panel, ...panel.querySelectorAll('*')].some(
+      (node) => (node as HTMLElement).scrollHeight > (node as HTMLElement).clientHeight + 40,
+    );
+  }).catch(() => false);
+}
+
+/**
+ * Collapse the shell's workspace sidebar.
+ *
+ * It costs roughly 340 of 1440 pixels and shows the same tree on every screen,
+ * so every app panel is captured wider without it. The workspaces walk toggles
+ * it back, because there the sidebar is the subject.
+ */
+export async function setSidebar(page: Page, visible: boolean): Promise<void> {
+  const panel = page.locator('[data-testid="main-sidebar-panel"]').first();
+  const shown = await panel.isVisible().catch(() => false);
+  if (shown === visible) return;
+  await page.locator('button[aria-label="Toggle sidebar"]').first().click().catch(() => undefined);
+  await page.waitForTimeout(700);
+}
+
 export async function panelScrollTo(page: Page, top: number): Promise<void> {
   await scrollers(page);
   await page.evaluate((value) => {

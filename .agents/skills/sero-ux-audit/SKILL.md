@@ -24,9 +24,10 @@ Worked example: OpenSpec change `audit-agent-workspace-ux`, delivered
 
 - Capture first. Do not substitute mockups for evidence, and do not start
   proposing until the frames exist.
-- Two documents, both static HTML under
-  `apps/styleguide/public/prototypes/<slug>/`: `evidence.html` and
-  `proposals.html`. Link both from `apps/styleguide/src/PrototypeArchive.tsx`.
+- Three documents, all static HTML under
+  `apps/styleguide/public/prototypes/<slug>/`: `evidence.html`, `flows.html`
+  and `proposals.html`. Link each from
+  `apps/styleguide/src/PrototypeArchive.tsx`.
 - Never build an interactive review application, annotation editor, pin or
   rectangle markup, review persistence, or a collaboration backend. This was
   explicitly rejected. It eats the time the captures need.
@@ -37,7 +38,9 @@ Worked example: OpenSpec change `audit-agent-workspace-ux`, delivered
 - An unreachable state is a gap with a recorded reason. It is not audited, and
   it never silently disappears.
 - Do not edit production UI during the audit. The only tracked edit outside the
-  OpenSpec change should be the two archive entries.
+  OpenSpec change should be the archive entries.
+- A proposal enhances. It never quietly removes a shipped control. If a control
+  should go, say so on the page and give the reason.
 
 ## Workflow
 
@@ -153,6 +156,28 @@ cost me a rerun each:
 - A tab may be `role="tab"` in an always-present panel rather than a button in
   a drawer. Probe before assuming.
 
+**Size the window to the screen, and verify it.** A window larger than the
+display is silently clamped and pushed off-screen, so the frames come back
+cropped on the right and nothing warns you. On a 1512x982 logical desktop,
+1440x920 fits with a margin. Read `BrowserWindow.getBounds()` back and assert
+it, and record per-frame overflow (`documentElement.scrollWidth -
+clientWidth`, and the same on the app panel) so a cut frame fails the run
+rather than reaching the document.
+
+**Capture unique screens, not repetitions.** Three cuts took one run from 440
+frames to roughly 290 with no loss of distinct screens:
+
+- Collapse the shell's workspace sidebar. It is the same tree everywhere and
+  costs about 340 of 1440 pixels. Turn it back on only for the walk where the
+  sidebar is the subject.
+- Ask whether the panel scrolls before taking a scroll frame. A scroll capture
+  of a page that does not scroll is byte-identical to the frame before it, so
+  the check removes the duplicate at source instead of hashing it away.
+- Walk sub-views deeply on **one** instance per workspace and shallowly on the
+  rest. Nine sub-tabs times four workflows is the same nine screens four
+  times. Give the shallow pass a `start` offset so it begins after the deep
+  instance, or it re-walks it and writes duplicate register ids.
+
 For each applicable state capture the initial viewport, scrolled sections,
 expanded disclosures, menus, popovers, drawers and dialogs, a smaller desktop
 width, and long real content.
@@ -173,6 +198,20 @@ actually on the screen: quote the product's own strings, count the repetitions,
 name the action the screen buries. Do not propose a fix in the evidence
 document.
 
+**Verify every absence claim against the frame before you write it.** "Renders
+nothing", "says nothing", "no way to start one" are the observations that turn
+out to be wrong, because they are the ones you write from an impression of a
+sparse screen rather than from reading it. On the 2026-09-19 audit two of
+twenty observations were false in exactly this way: the Goals tab does state
+its empty case and name the command, and the Library is the best-handled empty
+state in the product. Both had been written as the opposite. A claim that
+something is present can be checked by looking; a claim that something is
+absent needs you to look harder, not less.
+
+The corollary is worth keeping: an audit that finds nothing good is not
+observing. Say so when a screen handles its case well, and name it as the model
+the others should follow.
+
 What to look for, in the order it usually bites:
 
 - The same sentence repeated at project, research, workflow and step level.
@@ -187,12 +226,64 @@ What to look for, in the order it usually bites:
   above the conclusion someone came for.
 - The decision or the one real action buried in operational detail.
 
-### 10. Draw the proposals as static HTML
+### 10. Break the evidence into deliverable flows before drawing anything
+
+Do this between the evidence and the proposals. Skipping it is how a redesign
+silently deletes working controls: you redraw the screens that are easy to
+redraw, stop where it gets hard, and never write down where you stopped.
+
+Every register row already carries a `task` field. Group those tasks into flows
+a person walks, and assign each task to exactly one flow with a script that
+fails on a task claimed twice or claimed by nobody. Then the frame counts per
+flow are derived rather than asserted, and a flow with no proposal is visible as
+a number.
+
+Each flow states:
+
+- the tasks it serves, quoted from the register;
+- the pages it rests on, with frame counts;
+- the observed defects, quoted from the evidence document;
+- a **keep list**: every control on those screens that must still be reachable
+  afterwards;
+- acceptance criteria, and what it depends on.
+
+The keep list is the contract. A proposal is an enhancement only if every entry
+survives, and anything removed is named and argued for on the page rather than
+dropped. On the 2026-09-19 audit this check found two shipped controls missing
+from the proposals: an inline "Raise and resume" cap control and a project
+History rail. Both had been drawn from memory rather than from the frames.
+
+Write it as a third document, `flows.html`, beside the other two.
+
+A keep list built only from frames still misses a control that appears on no
+frame. `apps/desktop/e2e/helpers/ux-inventory.ts` closes that hole: it
+implements the same `AuditCapture` interface, so the identical walk records
+every button, tab, link, input and disclosure by accessible name instead of
+pixels. Run it with `SERO_E2E_AUDIT_MODE=inventory`. It costs another walk and
+no money.
+
+### 11. Draw the proposals as static HTML
 
 Numbered states in the product's current tokens and density, from
 `packages/ui/src/styles/globals.css`. Preserve the overall style: an audit is
 not a wholesale redesign. Show no control that implies unsupported behaviour.
 State the rules the proposals follow at the top of the document.
+
+**Composite over a captured frame rather than rebuilding the screen.** Use the
+real frame as the base, dimmed, and draw overlays only on the region that
+changes. A rebuilt screen shows only what you remembered, which is how the
+2026-09-19 proposals lost two shipped controls. A composite shows the whole
+screen, so anything untouched is still visibly there, and it carries the real
+content at its real length, which is usually the defect under discussion. It is
+also cheap enough per state that the control-heavy flows get drawn instead of
+skipped. Build a state from components only when the change reflows the whole
+page, and say on the page that the state is drawn rather than photographed.
+
+Give every state a **control parity list**: each control on the base frame
+labelled kept, folded, moved, or dropped with a reason. Four labels, no fifth.
+An unlabelled control means the state is not finished. Do not style a kept
+control with the accent that marks a proposed one, or the list argues against
+itself.
 
 Two rules the user holds firmly:
 
@@ -211,11 +302,11 @@ waiting for the user, paused, complete, failed and unconfirmed or stale. State
 is a word before it is a colour. A blinking dot, a coloured border or an
 animation alone fails a reduced-motion user.
 
-### 11. Delivery checks
+### 12. Delivery checks
 
-    node scripts/check-documents.mjs <repo> <slug>
+    node scripts/check-documents.mjs <repo> <slug> [doc.html ...]
 
-It serves the styleguide public directory and loads both documents at 1600 and
+It serves the styleguide public directory and loads each document at 1600 and
 1180, reporting status, height, horizontal overflow, page errors and failed
 requests. A failed request means a referenced frame is missing, which is the
 defect the eye misses in a 70,000px page.
@@ -223,10 +314,14 @@ defect the eye misses in a 70,000px page.
 Then:
 
 - Reconcile register ids, files on disk and `<img>` tags in the document. All
-  three counts must agree, with no orphan and no missing file.
+  three counts must agree, with no orphan and no missing file. Do this for
+  every document, not just the generated one: a hand-written document that
+  references a frame by name breaks silently when the capture is rebuilt at a
+  different width, and a 404 is a normal HTTP response, so a page-error check
+  alone never sees it.
 - Check the smallest files. A blank frame compresses tiny. Confirm that a small
   file is a genuinely sparse page.
-- Grep both documents for credentials, API keys and tokens. Report any personal
+- Grep every document for credentials, API keys and tokens. Report any personal
   path that appears inside the frames: the shell status bar prints the absolute
   workspace path on nearly every screen, and the profile name sits in the title
   bar. Let the user decide whether to crop.

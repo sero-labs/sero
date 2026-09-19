@@ -41,6 +41,8 @@ export interface RegisterRow extends ShotMeta {
   capturedAt: string | null;
   /** First 220 characters of the panel's visible text, to prove the frame is the right screen. */
   fingerprint: string | null;
+  /** Pixels of content wider than the viewport. Anything above 0 means the frame is cut. */
+  overflowX?: number;
 }
 
 export interface AuditCapture {
@@ -87,6 +89,14 @@ export function createAuditCapture(page: Page, outDir: string, registerFile: str
     try {
       await page.waitForTimeout(SETTLE_MS);
       const mark = await fingerprint();
+      const overflowX = await page.evaluate(() => {
+        const d = document.documentElement;
+        const panel = document.querySelector('[data-app-panel]');
+        return Math.max(
+          d.scrollWidth - d.clientWidth,
+          panel ? panel.scrollWidth - panel.clientWidth : 0,
+        );
+      }).catch(() => 0);
       await page.screenshot({ path: full, animations: 'disabled' });
       const sha1 = createHash('sha1').update(fs.readFileSync(full)).digest('hex');
       const owner = seen.get(sha1);
@@ -117,6 +127,7 @@ export function createAuditCapture(page: Page, outDir: string, registerFile: str
         reason: null,
         capturedAt: new Date().toISOString(),
         fingerprint: mark,
+        overflowX,
       });
       return true;
     } catch (error) {

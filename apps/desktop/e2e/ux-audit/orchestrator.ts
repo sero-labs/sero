@@ -10,7 +10,7 @@
 import type { Page } from '@playwright/test';
 import type { AuditCapture } from '../helpers/ux-audit';
 import { openApp } from '../helpers/ux-audit';
-import { clickByLabel, clickIfPresent, closeOverlay, panelScrollBottom, panelScrollTo } from './actions';
+import { clickByLabel, clickIfPresent, closeOverlay, panelScrollBottom, panelScrollTo, canScroll } from './actions';
 import { openRow, openTab, slugify } from './rows';
 
 const AREA = 'orchestrator' as const;
@@ -51,6 +51,7 @@ export async function captureOrchestratorTabs(
     await page.waitForTimeout(1_800);
     await capture.shot({ id: `orch-${slug}-${width}`, area: AREA, page: label, state, task, width });
 
+    if (await canScroll(page)) {
     await panelScrollBottom(page);
     await capture.shot({
       id: `orch-${slug}-scroll-${width}`,
@@ -61,6 +62,7 @@ export async function captureOrchestratorTabs(
       width,
     });
     await panelScrollTo(page, 0);
+    }
   }
 
   const catalogDetails = page.getByRole('button', { name: 'Details', exact: true }).first();
@@ -224,7 +226,7 @@ export async function captureWorkflowsIn(
   capture: AuditCapture,
   workspace: { id: string; label: string; note: string },
   width: number,
-  { max, deep }: { max: number; deep: boolean },
+  { max, deep, start = 0 }: { max: number; deep: boolean; start?: number },
 ): Promise<void> {
   const count = await openTab(page, workspace.id, 'Workflows');
   if (count <= 0) {
@@ -235,7 +237,7 @@ export async function captureWorkflowsIn(
     return;
   }
 
-  await capture.shot({
+  if (start === 0) await capture.shot({
     id: `orch-wf-list-${workspace.label}-${width}`,
     area: AREA,
     page: 'Workflow list',
@@ -244,7 +246,7 @@ export async function captureWorkflowsIn(
     width,
   });
 
-  for (let index = 0; index < Math.min(count, max); index += 1) {
+  for (let index = start; index < Math.min(count, max); index += 1) {
     await openTab(page, workspace.id, 'Workflows');
     const heading = await openRow(page, index);
     if (!heading) {

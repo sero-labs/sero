@@ -2,7 +2,10 @@
 // two desktop widths, reporting status, height, horizontal overflow, page
 // errors and failed requests.
 //
-//   node check-documents.mjs <repo> <slug>
+//   node check-documents.mjs <repo> <slug> [doc.html ...]
+//
+// Documents default to proposals.html and evidence.html. Name others to check
+// a document the audit added, such as a flow breakdown.
 //
 // A failed request here means a frame the document references is not on disk,
 // which is the failure the eye misses in a 70,000px page.
@@ -11,9 +14,9 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const [REPO, SLUG] = process.argv.slice(2);
+const [REPO, SLUG, ...DOCS] = process.argv.slice(2);
 if (!REPO || !SLUG) {
-  console.error('usage: node check-documents.mjs <repo> <slug>');
+  console.error('usage: node check-documents.mjs <repo> <slug> [doc.html ...]');
   process.exit(1);
 }
 // Resolve Playwright out of the desktop app rather than the caller's cwd.
@@ -36,14 +39,20 @@ await new Promise((resolve) => server.listen(5399, resolve));
 
 const browser = await chromium.launch();
 const errors = [];
-for (const [name, doc, width] of [
-  ['proposals-1600', 'proposals.html', 1600],
-  ['proposals-1180', 'proposals.html', 1180],
-  ['evidence-1600', 'evidence.html', 1600],
-]) {
+// Every document is checked wide and narrow: a layout that only breaks at
+// 1180 is exactly the defect a single-width check misses.
+const documents = DOCS.length ? DOCS : ['proposals.html', 'evidence.html'];
+const cases = documents.flatMap((doc) => {
+  const stem = doc.replace(/\.html$/, '');
+  return [[`${stem}-1600`, doc, 1600], [`${stem}-1180`, doc, 1180]];
+});
+for (const [name, doc, width] of cases) {
   const page = await browser.newPage({ viewport: { width, height: 1100 } });
   page.on('pageerror', (e) => errors.push(`${name}: ${e.message}`));
   page.on('requestfailed', (r) => errors.push(`${name}: failed ${r.url()}`));
+  // A 404 is a normal response, not a request failure, so Playwright reports
+  // nothing. A referenced frame that is not on disk arrives exactly this way.
+  page.on('response', (r) => { if (r.status() >= 400) errors.push(`${name}: ${r.status()} ${r.url()}`); });
   const url = `http://127.0.0.1:5399/prototypes/${SLUG}/${doc}`;
   const response = await page.goto(url, { waitUntil: 'networkidle' }).catch((e) => {
     errors.push(`${name}: ${e.message}`);

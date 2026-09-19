@@ -12,7 +12,7 @@
 import type { Page } from '@playwright/test';
 import type { AuditCapture } from '../helpers/ux-audit';
 import { openApp } from '../helpers/ux-audit';
-import { clickByLabel, clickIfPresent, panelScrollBottom, panelScrollTo } from './actions';
+import { clickByLabel, clickIfPresent, panelScrollBottom, panelScrollTo, canScroll } from './actions';
 import { openRow, openTab, slugify } from './rows';
 
 const AREA = 'rooms' as const;
@@ -132,6 +132,7 @@ export async function captureRoom(
   await capture.shot({ id: `${base}-${width}`, area: AREA, page: label, state: `${state} — initial viewport`, task, width });
   if (!deep) return;
 
+  if (await canScroll(page)) {
   await panelScrollBottom(page);
   await capture.shot({
     id: `${base}-scroll-${width}`,
@@ -142,6 +143,7 @@ export async function captureRoom(
     width,
   });
   await panelScrollTo(page, 0);
+  }
 
   // The activity feed and its filters belong to the Timeline view. A completed
   // Room opens on its Result, where none of them exist, so the walk goes back
@@ -239,12 +241,15 @@ export async function captureRoomsIn(
   capture: AuditCapture,
   workspace: { id: string; label: string; note: string },
   width: number,
-  { max, deep }: { max: number; deep: boolean },
+  { max, deep, start = 0 }: { max: number; deep: boolean; start?: number },
 ): Promise<void> {
-  const count = await captureRoomsList(page, capture, workspace.id, workspace.note, workspace.label, width);
+  // The list is one screen per workspace; a second pass must not re-shoot it.
+  const count = start === 0
+    ? await captureRoomsList(page, capture, workspace.id, workspace.note, workspace.label, width)
+    : await openTab(page, workspace.id, 'Rooms');
   if (count <= 0) return;
 
-  for (let index = 0; index < Math.min(count, max); index += 1) {
+  for (let index = start; index < Math.min(count, max); index += 1) {
     await openTab(page, workspace.id, 'Rooms');
     const heading = await openRow(page, index);
     if (!heading) {
