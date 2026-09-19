@@ -14,6 +14,30 @@ const interactivePrototypes = [
     'Agent and workspace UX audit — proposed changes',
     'agent-workspace-ux-audit/proposals.html',
   ],
+  [
+    'Agent and workspace UX audit — 1 · Activity at a glance',
+    'agent-workspace-ux-audit/1-activity-at-a-glance.html',
+  ],
+  [
+    'Agent and workspace UX audit — 2 · Act on it',
+    'agent-workspace-ux-audit/2-act-on-it.html',
+  ],
+  [
+    'Agent and workspace UX audit — 3 · Read the outcome',
+    'agent-workspace-ux-audit/3-read-the-outcome.html',
+  ],
+  [
+    'Agent and workspace UX audit — 4 · History and comparison',
+    'agent-workspace-ux-audit/4-history-and-comparison.html',
+  ],
+  [
+    'Agent and workspace UX audit — 5 · Start something',
+    'agent-workspace-ux-audit/5-start-something.html',
+  ],
+  [
+    'Agent and workspace UX audit — 6 · Follow the thread',
+    'agent-workspace-ux-audit/6-follow-the-thread.html',
+  ],
   ['Sero Architect — projects and the project page', 'sero-architect/index.html'],
   [
     'Architect — project menu, model tiers and the run inspector',

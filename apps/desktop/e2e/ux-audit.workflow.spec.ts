@@ -27,6 +27,7 @@ import { captureArchitectList, captureArchitectProject, captureArchitectSubViews
 import { captureOrchestratorTabs, captureWorkflowsIn, WORKFLOW_WORKSPACES } from './ux-audit/orchestrator';
 import { captureRoomCreate, captureRoomsIn, captureRoomsList, ROOM_WORKSPACES } from './ux-audit/rooms';
 import { captureWorkspaces } from './ux-audit/workspaces';
+import { captureNavigation } from './ux-audit/navigation';
 import { openRow, openTab } from './ux-audit/rows';
 import { createInventoryCapture } from './helpers/ux-inventory';
 import { setSidebar } from './ux-audit/actions';
@@ -151,6 +152,13 @@ test('workspaces: the tree, its menus and cross-app navigation', async () => {
   test.setTimeout(300_000);
   await setSidebar(page, true);
   await captureWorkspaces(page, capture, WIDE);
+  await setSidebar(page, false);
+});
+
+test('navigation: follow the thread between apps by clicking the real controls', async () => {
+  test.setTimeout(300_000);
+  await setSidebar(page, true);
+  await captureNavigation(page, capture, WIDE, path.join(OUT_DIR, 'navigation.json'));
   await setSidebar(page, false);
 });
 

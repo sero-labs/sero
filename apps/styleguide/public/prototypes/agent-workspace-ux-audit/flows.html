@@ -178,7 +178,7 @@ details.more>summary+.block{border-top:0}
   and the order are right.</p>
   <ol class="ask">
     <li>Are these the right seven groups? Name anything that belongs in a different one, or is missing.</li>
-    <li>Is this the right order to build them?</li>
+    <li>Is this the right order to build them? One proposal at a time, each approved before the next.</li>
   </ol>
 
   <ol class="cards">
@@ -187,16 +187,25 @@ details.more>summary+.block{border-top:0}
       <div class="body">
         <p class="nm"><b>State vocabulary</b> <span>What is happening, and is it still happening?</span></p>
         <p class="ch">Seven words for seven states, each readable without motion or colour.</p>
-        <p class="why">First because the other six reuse it. Cheapest to agree, and it depends on nothing.</p>
+        <p class="why">Drawn with A as proposal 1, <a href="1-activity-at-a-glance.html">Activity at a glance</a>. Approved 19 September.</p>
       </div>
-      <div class="rt"><span class="tag t-full">answered</span><span class="cnt">13 frames</span></div>
+      <div class="rt"><span class="tag t-full">approved</span><span class="cnt">13 frames</span></div>
+    </li>
+    <li>
+      <span class="ord">1</span><span class="ltr">A</span>
+      <div class="body">
+        <p class="nm"><b>Triage</b> <span>Which of my things needs me right now?</span></p>
+        <p class="ch">One row carries both phase and overlay, and work comes before explanation.</p>
+        <p class="why">Drawn with B as proposal 1, <a href="1-activity-at-a-glance.html">Activity at a glance</a>. Your activity questions are answered on list rows, so it moved up from fourth. Approved 19 September.</p>
+      </div>
+      <div class="rt"><span class="tag t-full">approved</span><span class="cnt">26 frames</span></div>
     </li>
     <li>
       <span class="ord">2</span><span class="ltr">D</span>
       <div class="body">
         <p class="nm"><b>Act on it</b> <span>Do the one thing that unblocks this.</span></p>
         <p class="ch">Restore the spend cap control, and stop a cap-stopped project reading as finished.</p>
-        <p class="why">Holds both regressions in the current proposals and the strongest single defect in the audit. Needs B.</p>
+        <p class="why">Next. Holds both regressions in the first proposals and the strongest single defect in the audit.</p>
       </div>
       <div class="rt"><span class="tag t-part">partial</span><span class="cnt">48 frames</span></div>
     </li>
@@ -210,16 +219,7 @@ details.more>summary+.block{border-top:0}
       <div class="rt"><span class="tag t-full">answered</span><span class="cnt">100 frames</span></div>
     </li>
     <li>
-      <span class="ord">4</span><span class="ltr">A</span>
-      <div class="body">
-        <p class="nm"><b>Triage</b> <span>Which of my things needs me right now?</span></p>
-        <p class="ch">One row carries both phase and overlay, and work comes before explanation.</p>
-        <p class="why">A list row is a summary of C, so it is not worth redrawing until B and C are settled.</p>
-      </div>
-      <div class="rt"><span class="tag t-full">answered</span><span class="cnt">26 frames</span></div>
-    </li>
-    <li>
-      <span class="ord">5</span><span class="ltr">E</span>
+      <span class="ord">4</span><span class="ltr">E</span>
       <div class="body">
         <p class="nm"><b>History and comparison</b> <span>What changed, against what, and who touched it?</span></p>
         <p class="ch">History becomes a view you open, not a rail holding a third of the project page.</p>
@@ -228,7 +228,7 @@ details.more>summary+.block{border-top:0}
       <div class="rt"><span class="tag t-none">missing</span><span class="cnt">80 frames</span></div>
     </li>
     <li>
-      <span class="ord">6</span><span class="ltr">F</span>
+      <span class="ord">5</span><span class="ltr">F</span>
       <div class="body">
         <p class="nm"><b>Start something</b> <span>Create a project, workflow, Room or workspace.</span></p>
         <p class="ch">Apply B&rsquo;s words to every empty, loading and just-created state.</p>
@@ -237,7 +237,7 @@ details.more>summary+.block{border-top:0}
       <div class="rt"><span class="tag t-none">missing</span><span class="cnt">31 frames</span></div>
     </li>
     <li>
-      <span class="ord">7</span><span class="ltr">G</span>
+      <span class="ord">6</span><span class="ltr">G</span>
       <div class="body">
         <p class="nm"><b>Follow the thread</b> <span>Move between apps without losing the object.</span></p>
         <p class="ch">Blocked on evidence, not on design.</p>
@@ -366,10 +366,10 @@ details.more>summary+.block{border-top:0}
     <div class="block keep">
       <h4>Must survive</h4>
       <ul>
-        <li>Per-row overflow menus on projects, workflows and Rooms.</li>
-        <li>The tab bar: Home, Workflows, Rooms, Goals, Catalog, Library.</li>
-        <li>Rooms list filters and the Rooms list search field.</li>
-        <li>Every create entry point: New project, Create workflow, New Room, Add workspace.</li>
+        <li>The tab bar: Home, Workflows, Rooms, Goals, Catalog, Library, with its counts.</li>
+        <li><b>Reflect all</b> and <b>More actions</b> on the Workflows tab, and <b>dismiss</b> on the Rooms list.</li>
+        <li>Every create entry point: <b>New project</b>, <b>New workflow</b>, the Workflow, Room and Goal cards on Home, and Add workspace.</li>
+        <li><b>Review</b> on each item in Home's Needs you list.</li>
         <li>The workspace tree's active-workspace marker and its per-workspace context menu.</li>
         <li class="found"><b>Found by the control walk, missing from my first list:</b> <b>Search workflows…</b>, <b>Search the library…</b>, <b>Search the catalog…</b>, <b>Clear filters</b>, <b>My Library</b>.</li>
       </ul>
@@ -439,8 +439,10 @@ details.more>summary+.block{border-top:0}
       <p class="quote">With prefers-reduced-motion set, nothing is lost, which is the point: the current activity
       signalling does not depend on animation, but <b>it also does not add a text label where colour is doing the
       work</b>.</p>
-      <p class="quote">The empty Goals tab renders nothing at all. An empty state and a failure to load are
-      indistinguishable here.</p>
+      <p class="quote">Architect off and Architect on read the same on the project list. With the runtime off,
+      FroggerNeon's row said <b>"Working on M2"</b> at 15:07 for a Workflow that had not reported for three days; the
+      project was marked blocked when Architect next ran. A saved milestone status of "running" outlives its
+      Workflow.</p>
     </div>
 
     <div class="block keep">
@@ -989,32 +991,18 @@ details.more>summary+.block{border-top:0}
   <p class="sub">The question behind this whole document: rebuild each screen as components, or work from the
   captured frames? Here is the recommendation and the reason.</p>
 
-  <p class="sub" style="margin-top:18px"><b style="color:var(--text)">Composite over the real frame. Do not rebuild
-  the screen.</b> Each preview state uses a captured frame as its base, dimmed, with drawn overlays only on the
-  region that changes. Everything outside the overlay is the shipped product at its real pixels.</p>
+  <p class="sub" style="margin-top:18px"><b style="color:var(--text)">Draw the screen in the product's style, from real
+  records.</b> This was a choice between drawn screens and overlays on the captured frames. You chose drawn screens,
+  in the style of <a href="proposals.html">proposals.html</a>. Every name, count, date and amount comes from the
+  project, Workflow and Room records, not from memory.</p>
 
-  <div class="rules" style="max-width:880px">
-    <details class="more"><summary><span>Why this and not a component rebuild</span><span class="crumbs">4 reasons</span></summary>
-    <ul>
-      <li><b>It cannot silently delete a control.</b> A rebuilt screen shows only what was remembered. A composite
-      shows the whole screen, so anything the proposal does not touch is still visibly there. The two regressions in
-      this document exist because the proposals were rebuilt rather than composited.</li>
-      <li><b>It carries the real content.</b> The density problem in flow C is a problem about 150-word instructions
-      at their real length. A rebuild uses shortened sample text and quietly argues the problem away.</li>
-      <li><b>It is far cheaper per state</b>, so flows D, E, F can be drawn at all rather than skipped for budget.</li>
-      <li><b>Before and after are the same image</b>, so the toggle is honest: nothing moves except the thing being
-      proposed.</li>
-    </ul>
-  </details>
-  </div>
-
-  <p class="sub" style="margin-top:20px">The cost is that a composite cannot show a layout that reflows the whole
-  page. Where a flow needs that, and only there, build the state as components and say on the page that it is drawn
-  rather than photographed.</p>
+  <p class="sub" style="margin-top:14px">A drawn screen can silently lose a control, which is how the first proposals
+  lost two. The control list below each screen is what stops that.</p>
 
   <p class="sub" style="margin-top:14px">Every preview state carries a <b>control parity list</b> naming each
-  control on the base frame as kept, folded behind a disclosure, moved, or dropped with a reason. Four labels, no
-  fifth. A state with an unlabelled control is not finished.</p>
+  control the shipped screen has, from the control walk, as kept, moved, folded behind a disclosure, or dropped
+  with a reason. A new control is listed as added. A drop or an addition waits for your approval. A state with an
+  unlabelled control is not finished.</p>
 </div>
 
 <div class="sec">
@@ -1036,8 +1024,8 @@ details.more>summary+.block{border-top:0}
     <p><b>The loaded Run inspector is no longer one of them.</b> It was, on the first pass: the run journal is
     served by the Architect runtime, which stayed off, so the loaded state photographed as empty. A second walk
     enabled that runtime for the Architect pages only, opened the one project in this profile that carries a journal,
-    and pressed <b>Load activity</b>. Waking the runtime started no work, and the profile copy was unchanged
-    afterwards. Nine frames now cover the loaded list, the scrolled list and the failures-only filter.</p>
+    and pressed <b>Load activity</b>. Waking the runtime did change the copy: Architect marked FroggerNeon blocked,
+    the same state the real profile already held. It started no work. Nine frames now cover the loaded list, the scrolled list and the failures-only filter.</p>
     <p><b>Two observations in the first draft of this audit were wrong.</b> It claimed the Goals tab "renders nothing
     at all" and that the Library says nothing about being empty. Re-reading the frames disproved both: Goals names
     the command and the Library is the best-handled empty state in the product. Both are corrected in flow F and in

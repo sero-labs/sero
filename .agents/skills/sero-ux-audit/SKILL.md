@@ -291,19 +291,34 @@ Numbered states in the product's current tokens and density, from
 not a wholesale redesign. Show no control that implies unsupported behaviour.
 State the rules the proposals follow at the top of the document.
 
-**Composite over a captured frame rather than rebuilding the screen.** Use the
-real frame as the base, dimmed, and draw overlays only on the region that
-changes. A rebuilt screen shows only what you remembered, which is how the
-2026-09-19 proposals lost two shipped controls. A composite shows the whole
-screen, so anything untouched is still visibly there, and it carries the real
-content at its real length, which is usually the defect under discussion. It is
-also cheap enough per state that the control-heavy flows get drawn instead of
-skipped. Build a state from components only when the change reflows the whole
-page, and say on the page that the state is drawn rather than photographed.
+**Draw each screen in the product's style, from real records.** On the
+2026-09-19 audit the user chose drawn HTML screens over overlays on captured
+frames. Take every name, count, date and amount from the project, Workflow and
+Room records, never from an earlier draft: the first proposals said a Workflow
+had 4 steps when its record had 3, and showed a spend from an older snapshot.
+A drawn screen shows only what you remembered, which is how the first
+proposals lost two shipped controls, so the control list below is mandatory.
 
-Give every state a **control parity list**: each control on the base frame
-labelled kept, folded, moved, or dropped with a reason. Four labels, no fifth.
-An unlabelled control means the state is not finished. Do not style a kept
+**One document per flow, one at a time.** Draw one flow's screens, get the
+user's approval, and only then start the next. Name each document
+`<n>-<flow>.html` beside the evidence and link it from the flow breakdown.
+
+**Keep each row plain.** The user rejected rows that said the same fact twice.
+Their examples: a "paused" pill beside a "Paused by you" line, a labelled grid
+of Architect / Delegated / Needs you, a "Nothing" in every empty Needs you
+cell, and step or word counts beside a disclosure. Use one activity column: the
+first line is the state that matters, the second says whose it is. Keep spend
+alone in its column, never wrapped with member counts. Put nothing under a
+workspace row in the tree, because the rows under a workspace are its
+sessions; use a single icon with hover text.
+
+Give every state a **control parity list**, collapsed by default: each control
+the shipped screen has, taken from the control walk, labelled kept, moved,
+folded, or dropped with a reason. A new control is labelled added. A drop or an
+addition is a product decision and waits for the user's approval. Also list
+content that leaves the row even when it is not a control, such as an owner's
+sentence or member avatars; the avatars were dropped once without anyone
+noticing. An unlabelled control means the state is not finished. Do not style a kept
 control with the accent that marks a proposed one, or the list argues against
 itself.
 
@@ -320,7 +335,9 @@ For activity and progress, a user must know without drilling down: whether
 work is happening, what is happening, whether anything finished, whether they
 need to act, whether the owner or a delegated Workflow or Room is working, and
 whether the owner paused while its workers continue. Cover working, queued,
-waiting for the user, paused, complete, failed and unconfirmed or stale. State
+waiting for the user, paused, idle, complete, stopped and last known. A saved
+status of "running" outlives a dead Workflow, so "working" must come from a
+run reporting, never from the saved status alone. State
 is a word before it is a colour. A blinking dot, a coloured border or an
 animation alone fails a reduced-motion user.
 
