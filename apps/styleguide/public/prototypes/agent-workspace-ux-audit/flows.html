@@ -51,7 +51,7 @@ td.n{font:12px var(--mono)}
 .t-part{background:var(--amber-wash);color:var(--amber)}
 .t-none{background:var(--red-wash);color:var(--red)}
 
-.flow{margin-top:56px;border:1px solid var(--line);border-radius:11px;background:var(--surface);overflow:hidden}
+.flow{margin-top:18px;border:1px solid var(--line);border-radius:11px;background:var(--surface);overflow:hidden}
 .flow>header{padding:18px 22px 16px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;gap:14px}
 .flow .letter{width:30px;height:30px;border-radius:8px;background:var(--muted);color:var(--text-2);
   display:grid;place-items:center;font:13px var(--mono);flex:0 0 auto;margin-top:1px}
@@ -82,7 +82,6 @@ td.n{font:12px var(--mono)}
 .nb h4{font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--amber);margin-bottom:8px;font-weight:400}
 .nb p{color:var(--text-2);font-size:13.5px;line-height:1.7}
 .nb p+p{margin-top:9px}
-.ship td:first-child{white-space:nowrap}
 /* A keep-list entry the control walk found and my reading of the frames did not. */
 .block.keep li.found{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
 .block.keep li.found>b:first-child{color:var(--blue)}
@@ -95,6 +94,52 @@ td.n{font:12px var(--mono)}
 .ex figcaption{margin-top:8px;color:var(--text-3);font-size:12px;line-height:1.55}
 .ex figcaption b{color:var(--text-2);font-weight:560}
 .ex figcaption code{font:11px var(--mono)}
+
+/* ---- The decision panel. One screen, seven rows, ship order. Everything a
+   reader needs to say yes or to move a flow; nothing they have to scroll for. */
+.decide{margin-top:44px}
+.decide .ask{margin:16px 0 0;padding-left:20px;color:var(--text);font-size:14px;line-height:1.85}
+.decide .ask li{padding-left:2px}
+.cards{list-style:none;margin:22px 0 0;padding:0;border:1px solid var(--line);border-radius:11px;
+  background:var(--surface);overflow:hidden}
+.cards li{display:flex;gap:13px;align-items:flex-start;padding:14px 18px;border-top:1px solid var(--line)}
+.cards li:first-child{border-top:0}
+.cards .ord{width:19px;flex:0 0 auto;color:var(--text-3);font:11px var(--mono);line-height:26px;text-align:right}
+.cards .ltr{width:26px;height:26px;flex:0 0 auto;border-radius:7px;background:var(--muted);color:var(--text-2);
+  display:grid;place-items:center;font:12px var(--mono)}
+.cards .body{flex:1 1 auto;min-width:0}
+.cards .nm{font-size:14.5px;line-height:1.45;color:var(--text)}
+.cards .nm b{font-weight:600}
+.cards .nm span{color:var(--text-3);font-size:13px}
+.cards .ch{margin-top:4px;color:var(--text-2);font-size:13.5px;line-height:1.6}
+.cards .why{margin-top:3px;color:var(--text-3);font-size:12.5px;line-height:1.6}
+.cards .rt{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:6px;padding-top:2px}
+.cards .cnt{font:11px var(--mono);color:var(--text-3)}
+
+/* ---- Disclosures. Nothing is cut; it is folded, and the fold says what is
+   inside it so a reader can decide not to open it. */
+.gist{margin-top:6px;color:var(--text-2);font-size:13px;line-height:1.55;max-width:660px}
+details.more>summary{display:flex;align-items:baseline;gap:12px;padding:12px 22px;cursor:pointer;
+  color:var(--text-2);font-size:13px;list-style:none;border-top:1px solid var(--line)}
+details.more>summary::-webkit-details-marker{display:none}
+details.more>summary::before{content:"\25B8";color:var(--text-3);font-size:10px;line-height:1.6}
+details.more[open]>summary::before{content:"\25BE"}
+details.more>summary:hover{background:var(--raised);color:var(--text)}
+details.more>summary .crumbs{color:var(--text-3);font:10px var(--mono);letter-spacing:.05em;
+  text-transform:uppercase;margin-left:auto;text-align:right}
+details.more[open]>summary{border-bottom:1px solid var(--line)}
+details.more>summary+.block{border-top:0}
+.nb details.more>summary,
+.rules details.more>summary{padding:0;border:0}
+.nb details.more>summary:hover,
+.rules details.more>summary:hover{background:none}
+.nb details.more[open]>summary,
+.rules details.more[open]>summary{border:0;margin-bottom:10px}
+@media (max-width:720px){
+  .cards li{flex-wrap:wrap}
+  .cards .rt{flex-direction:row;align-items:center;width:100%;padding-left:58px}
+  details.more>summary .crumbs{display:none}
+}
 </style>
 </head>
 <body>
@@ -102,7 +147,7 @@ td.n{font:12px var(--mono)}
 
 <div class="intro">
   <h1>Agent and workspace UX — deliverable flows</h1>
-  <p class="lede">The audit produced <b>296 frames of evidence</b> and <b>10 proposal states</b>. This document sits
+  <p class="lede">The audit produced <b>310 frames of evidence</b> and <b>10 proposal states</b>. This document sits
   between them. It groups every captured frame into a flow a person actually walks, states what that flow must keep,
   and says which flows the current proposals answer. It is the coherence check that has to pass before anything is
   drawn as an interactive preview.</p>
@@ -110,19 +155,101 @@ td.n{font:12px var(--mono)}
   disappeared from them. Redrawing a screen from memory silently deletes what was not remembered.</p>
 
   <div class="rules">
-    <h4>How a flow was derived</h4>
+    <details class="more"><summary><span>How a flow was derived</span><span class="crumbs">method · 5 rules</span></summary>
     <ul>
       <li>Every captured frame carries a <code>task</code> field: the thing the person was trying to do. There are
-      <b>70 distinct tasks</b> across the four areas.</li>
+      <b>76 distinct tasks</b> across the four areas.</li>
       <li>Each task is assigned to exactly one flow. The assignment is a judgement; the frame counts are not. A script
-      fails if a task lands in two flows or in none, so <b>all 296 frames are accounted for</b>.</li>
+      fails if a task lands in two flows or in none, so <b>all 310 frames are accounted for</b>.</li>
       <li>A second walk records every control by accessible name instead of taking pictures, so the keep lists are
       the product's own list of <b>329 controls across 279 screens</b>, not my reading of the frames.</li>
       <li>A flow ships on its own. It names its screens, its defects, its <b>keep list</b> and its acceptance criteria.</li>
       <li><b>Enhance, not replace.</b> A proposal is only an enhancement if every control on the screens it touches is
       still reachable. Anything removed is named and argued for, not dropped.</li>
     </ul>
+  </details>
   </div>
+</div>
+
+<div class="sec decide">
+  <h2>The decision</h2>
+  <p class="sub">Two questions, and nothing below this panel has to be read to answer them. Every flow further down
+  opens to its evidence, its keep list and its acceptance criteria; none of that is needed to say whether the groups
+  and the order are right.</p>
+  <ol class="ask">
+    <li>Are these the right seven groups? Name anything that belongs in a different one, or is missing.</li>
+    <li>Is this the right order to build them?</li>
+  </ol>
+
+  <ol class="cards">
+    <li>
+      <span class="ord">1</span><span class="ltr">B</span>
+      <div class="body">
+        <p class="nm"><b>State vocabulary</b> <span>What is happening, and is it still happening?</span></p>
+        <p class="ch">Seven words for seven states, each readable without motion or colour.</p>
+        <p class="why">First because the other six reuse it. Cheapest to agree, and it depends on nothing.</p>
+      </div>
+      <div class="rt"><span class="tag t-full">answered</span><span class="cnt">13 frames</span></div>
+    </li>
+    <li>
+      <span class="ord">2</span><span class="ltr">D</span>
+      <div class="body">
+        <p class="nm"><b>Act on it</b> <span>Do the one thing that unblocks this.</span></p>
+        <p class="ch">Restore the spend cap control, and stop a cap-stopped project reading as finished.</p>
+        <p class="why">Holds both regressions in the current proposals and the strongest single defect in the audit. Needs B.</p>
+      </div>
+      <div class="rt"><span class="tag t-part">partial</span><span class="cnt">48 frames</span></div>
+    </li>
+    <li>
+      <span class="ord">3</span><span class="ltr">C</span>
+      <div class="body">
+        <p class="nm"><b>Read the outcome</b> <span>Did this do its job, and what is the evidence?</span></p>
+        <p class="ch">Outcome first, the agent instruction folded beneath it, and no sentence printed twice.</p>
+        <p class="why">The 110-frame defect. Largest flow, strongest evidence, and the proposals already answer it. Needs B.</p>
+      </div>
+      <div class="rt"><span class="tag t-full">answered</span><span class="cnt">100 frames</span></div>
+    </li>
+    <li>
+      <span class="ord">4</span><span class="ltr">A</span>
+      <div class="body">
+        <p class="nm"><b>Triage</b> <span>Which of my things needs me right now?</span></p>
+        <p class="ch">One row carries both phase and overlay, and work comes before explanation.</p>
+        <p class="why">A list row is a summary of C, so it is not worth redrawing until B and C are settled.</p>
+      </div>
+      <div class="rt"><span class="tag t-full">answered</span><span class="cnt">26 frames</span></div>
+    </li>
+    <li>
+      <span class="ord">5</span><span class="ltr">E</span>
+      <div class="body">
+        <p class="nm"><b>History and comparison</b> <span>What changed, against what, and who touched it?</span></p>
+        <p class="ch">History becomes a view you open, not a rail holding a third of the project page.</p>
+        <p class="why">Large, but every defect in it is local to one view, so it can wait. Needs B.</p>
+      </div>
+      <div class="rt"><span class="tag t-none">missing</span><span class="cnt">80 frames</span></div>
+    </li>
+    <li>
+      <span class="ord">6</span><span class="ltr">F</span>
+      <div class="body">
+        <p class="nm"><b>Start something</b> <span>Create a project, workflow, Room or workspace.</span></p>
+        <p class="ch">Apply B&rsquo;s words to every empty, loading and just-created state.</p>
+        <p class="why">Mostly an application of B, with little of its own to decide. Needs B.</p>
+      </div>
+      <div class="rt"><span class="tag t-none">missing</span><span class="cnt">31 frames</span></div>
+    </li>
+    <li>
+      <span class="ord">7</span><span class="ltr">G</span>
+      <div class="body">
+        <p class="nm"><b>Follow the thread</b> <span>Move between apps without losing the object.</span></p>
+        <p class="ch">Blocked on evidence, not on design.</p>
+        <p class="why">The frames show the endpoints of every navigation move and never the move. Needs a live walk before anything is drawn.</p>
+      </div>
+      <div class="rt"><span class="tag t-none">missing</span><span class="cnt">12 frames</span></div>
+    </li>
+  </ol>
+
+  <p class="sub" style="margin-top:20px">Frame counts come from the capture register. Coverage is a reading of the ten
+  states in <a href="proposals.html">proposals.html</a> against the tasks in each flow. The Run inspector counts in
+  flow C and is redesigned separately in <a href="https://github.com/sero-labs/sero/issues/535">issue #535</a>.</p>
 </div>
 
 <div class="sec">
@@ -136,36 +263,37 @@ td.n{font:12px var(--mono)}
       <th>Areas</th><th>Proposal states</th><th>Coverage</th>
     </tr></thead>
     <tbody>
-      <tr><td class="key">A</td><td><b>Triage</b></td><td class="n">25</td><td class="n">8</td>
+      <tr><td class="key">A</td><td><b>Triage</b></td><td class="n">26</td><td class="n">9</td>
         <td>all four</td><td class="key">1, 5, 8, 9</td><td><span class="tag t-full">answered</span></td></tr>
       <tr><td class="key">B</td><td><b>State vocabulary</b></td><td class="n">13</td><td class="n">6</td>
         <td>architect, rooms</td><td class="key">4, 10</td><td><span class="tag t-full">answered</span></td></tr>
-      <tr><td class="key">C</td><td><b>Read the outcome</b></td><td class="n">89</td><td class="n">32</td>
+      <tr><td class="key">C</td><td><b>Read the outcome</b></td><td class="n">100</td><td class="n">32</td>
         <td>architect, orchestrator, rooms</td><td class="key">2, 3, 6, 7</td><td><span class="tag t-full">answered</span></td></tr>
-      <tr><td class="key">D</td><td><b>Act on it</b></td><td class="n">46</td><td class="n">14</td>
+      <tr><td class="key">D</td><td><b>Act on it</b></td><td class="n">48</td><td class="n">17</td>
         <td>all four</td><td class="key">part of 7</td><td><span class="tag t-part">partial</span></td></tr>
       <tr><td class="key">E</td><td><b>History and comparison</b></td><td class="n">80</td><td class="n">10</td>
         <td>orchestrator, rooms</td><td class="key">none</td><td><span class="tag t-none">missing</span></td></tr>
-      <tr><td class="key">F</td><td><b>Start something</b></td><td class="n">31</td><td class="n">12</td>
+      <tr><td class="key">F</td><td><b>Start something</b></td><td class="n">31</td><td class="n">13</td>
         <td>all four</td><td class="key">none</td><td><span class="tag t-none">missing</span></td></tr>
       <tr><td class="key">G</td><td><b>Follow the thread</b></td><td class="n">12</td><td class="n">7</td>
         <td>orchestrator, workspaces</td><td class="key">none</td><td><span class="tag t-none">missing</span></td></tr>
-      <tr class="tot"><td></td><td>Total</td><td class="n">296</td><td class="n">—</td><td colspan="3"></td></tr>
+      <tr class="tot"><td></td><td>Total</td><td class="n">310</td><td class="n">50</td><td colspan="3"></td></tr>
     </tbody>
   </table>
 
   <div class="nb">
-    <h4>The finding</h4>
-    <p>Flows D, E, F and G hold <b>169 of 296 frames, 57 percent of the evidence</b>, and between them draw one
+    <details class="more"><summary><span>The finding: the unanswered flows are the ones made of controls</span><span class="crumbs">2 paragraphs</span></summary>
+    <p>Flows D, E, F and G hold <b>171 of 310 frames, 55 percent of the evidence</b>, and between them draw one
     partial proposal state. The three flows that are fully answered are the three made of lists and reading
     surfaces, which are the easy things to redraw. The unanswered ones are the flows made of controls: changing a
     cap, picking a model, choosing context, reading history, creating something, moving between apps.</p>
     <p>So the instinct that functionality was reduced is right, and it is measurable. The proposals were not a
     smaller product on purpose. They stopped where drawing got harder, and the stopping point was not written down.</p>
+  </details>
   </div>
 
   <div class="nb" style="border-color:var(--line-strong)">
-    <h4 style="color:var(--blue)">What a screenshot could not tell me</h4>
+    <details class="more"><summary><span>What a screenshot could not tell me: the control walk, and the flow it corrected</span><span class="crumbs">3 paragraphs</span></summary>
     <p>The frames were walked a second time by a pass that records controls by accessible name instead of pixels.
     It found <b>329 distinct controls across 279 screens</b>, and <b>60 of them are named in neither the proposals
     nor the first draft of the keep lists below</b>. They are not obscure: <b>Back to Rooms</b> and <b>Open in Agent
@@ -174,10 +302,11 @@ td.n{font:12px var(--mono)}
     <p>This is the argument for the method rather than for my attention. I wrote the first keep lists by reading
     frames, and they missed a fifth of the product. The lists below now come from the walk.</p>
     <p>It also corrects one flow outright. <b>G, Follow the thread, is not the thin flow I called it.</b> By frames it
-    is the smallest, 12 of 296. By controls it is nearly everywhere: <b>Back to Rooms</b>, <b>Back to projects</b>,
+    is the smallest, 12 of 310. By controls it is nearly everywhere: <b>Back to Rooms</b>, <b>Back to projects</b>,
     <b>Open in Agent Board</b>, <b>Open in Orchestrator</b>, <b>Open Room</b>, <b>Open session</b> and
     <b>Open preview</b> together appear on almost every screen in the product. Counting frames measured how often I
     photographed navigation, not how much of the product it is.</p>
+  </details>
   </div>
 </div>
 
@@ -194,9 +323,14 @@ td.n{font:12px var(--mono)}
       <div>
         <h3>Triage</h3>
         <p class="q">Which of my things needs me right now?</p>
+        <p class="gist">One row carries both phase and overlay, and work comes before explanation.</p>
       </div>
-      <div class="meta"><span class="tag t-full">answered</span><span class="cnt">25 frames · 8 pages</span></div>
+      <div class="meta"><span class="tag t-full">answered</span><span class="cnt">26 frames · 9 pages</span></div>
     </header>
+
+    <details class="more">
+      <summary><span>Evidence and detail</span><span class="crumbs">Rests on · What is wrong · Must survive · The change · Done when</span></summary>
+
 
     <div class="block">
       <h4>Serves</h4>
@@ -260,6 +394,7 @@ td.n{font:12px var(--mono)}
         <li>Every control in the keep list is still one click from the list.</li>
       </ul>
     </div>
+    </details>
   </div>
 
   <!-- ============ B ============ -->
@@ -269,9 +404,14 @@ td.n{font:12px var(--mono)}
       <div>
         <h3>State vocabulary</h3>
         <p class="q">What is happening, and is it still happening?</p>
+        <p class="gist">Seven words for seven states, each readable without motion or colour.</p>
       </div>
       <div class="meta"><span class="tag t-full">answered</span><span class="cnt">13 frames · 6 pages</span></div>
     </header>
+
+    <details class="more">
+      <summary><span>Evidence and detail</span><span class="crumbs">Rests on · What is wrong · Must survive · The change · Done when</span></summary>
+
 
     <div class="block">
       <h4>Serves</h4>
@@ -331,6 +471,7 @@ td.n{font:12px var(--mono)}
         <li>No screen claims progress the system has not measured.</li>
       </ul>
     </div>
+    </details>
   </div>
 
   <!-- ============ C ============ -->
@@ -340,9 +481,14 @@ td.n{font:12px var(--mono)}
       <div>
         <h3>Read the outcome</h3>
         <p class="q">Did this do its job, and what is the evidence?</p>
+        <p class="gist">Outcome first, the instruction folded beneath it, and no sentence printed twice.</p>
       </div>
-      <div class="meta"><span class="tag t-full">answered</span><span class="cnt">89 frames · 32 pages</span></div>
+      <div class="meta"><span class="tag t-full">answered</span><span class="cnt">100 frames · 32 pages</span></div>
     </header>
+
+    <details class="more">
+      <summary><span>Evidence and detail</span><span class="crumbs">Rests on · What is wrong · Must survive · The change · Done when</span></summary>
+
 
     <div class="block">
       <h4>Serves</h4>
@@ -388,16 +534,26 @@ td.n{font:12px var(--mono)}
       button that must be pressed before any of it means anything. Press it on a view with no journal and the product
       states its own ambiguity: <b>"A view that has not started and one whose telemetry failed look the same
       here."</b> That is the clearest writing on the screen.</p>
-      <p class="quote">Loaded, it is worse. From a capture of the running app: <b>every row in the list carries the
-      same 36-character label</b>, <code>owner:01a0ac5a-f8ec-73f5-a728-413dac746997</code>, printed twice per row and
-      overlapping itself so the text collides. The filter checkboxes are raw ids. MODEL and THINKING both read <b>"not
-      recorded"</b>, TOKENS is 0 with "input, output, cacheRead, cacheWrite unavailable", and two totals sit side by
-      side, <b>$4.6026</b> and <b>"$4.4835 without call detail"</b>, with nothing explaining the difference.</p>
+      <p class="quote">Loaded, it is worse. Nine frames now show it, on the one project in the profile carrying a run
+      journal: <b>every row in the list carries the same 36-character label</b>,
+      <code>owner:01a0ac5a-f8ec-73f5-a728-413dac746997</code>. The column is narrower than the id, so the wrapped text
+      renders on top of the row beneath it and <b>several rows collide in the same pixels</b>. The filter checkboxes
+      are raw ids. MODEL and THINKING both read <b>"not recorded"</b> in the one panel that exists to break spend down
+      by model, TOKENS is 0 with "input, output, cacheRead, cacheWrite unavailable", and two totals sit side by side,
+      <b>$4.6026</b> and <b>"$4.4835 without call detail"</b>, with nothing explaining the difference.</p>
+      <p class="quote">It also arrives pre-filtered without saying so. One owner checkbox is already ticked:
+      <b>"34 of 100 rows, filtered view: $0.0400 of $4.6026"</b>. The headline COST reads $4.6026 while every panel
+      below it accounts for $0.0400. The two agree once the filter is noticed, and nothing leads the eye to it.</p>
+      <p class="quote">Tick <b>failures only</b> and the answer is "0 of 100 rows" in small text at the top, over
+      roughly <b>500 px of empty box containing no message at all</b>. The one sentence rendered in the body is about
+      the chart. A person filtering for failures is told nothing about failures.</p>
       <p class="quote">Compare the intended design, <a href="../architect-run-observability/index.html">architect-run-observability</a>,
       whose rows read <b>"Owner wake · intake"</b>, <b>"Research · 3 questions in parallel"</b>, <b>"Waiting for your
       approval of the charter"</b>, <b>"Session compacted · 41k tokens summarised"</b> and
       <b>"diff · 3f1c2ab..9d2e401"</b>. The shipped screen prints one opaque id where the prototype names what
-      happened. <b>This is a rethink, not a tidy-up, and it is out of scope for this document.</b></p>
+      happened. <b>This is a rethink, not a tidy-up.</b> It is tracked as its own piece of work in
+      <a href="https://github.com/sero-labs/sero/issues/535">issue #535</a>, which starts from the prototype rather
+      than from the current screen. The screen stays in this flow so it is not lost between the two.</p>
     </div>
 
     <div class="block keep">
@@ -436,6 +592,7 @@ td.n{font:12px var(--mono)}
         <li>Nothing is truncated to make it fit.</li>
       </ul>
     </div>
+    </details>
   </div>
 
   <!-- ============ D ============ -->
@@ -445,9 +602,14 @@ td.n{font:12px var(--mono)}
       <div>
         <h3>Act on it</h3>
         <p class="q">Do the one thing that unblocks this.</p>
+        <p class="gist">Restore the cap control, and stop a cap-stopped project reading as finished.</p>
       </div>
-      <div class="meta"><span class="tag t-part">partial</span><span class="cnt">46 frames · 14 pages</span></div>
+      <div class="meta"><span class="tag t-part">partial</span><span class="cnt">48 frames · 17 pages</span></div>
     </header>
+
+    <details class="more">
+      <summary><span>Evidence and detail</span><span class="crumbs">Rests on · What is wrong · Must survive · The change · Done when</span></summary>
+
 
     <div class="block">
       <h4>Serves</h4>
@@ -534,6 +696,7 @@ td.n{font:12px var(--mono)}
         <li>No action is offered for behaviour the runtime does not support.</li>
       </ul>
     </div>
+    </details>
   </div>
 
   <!-- ============ E ============ -->
@@ -543,9 +706,14 @@ td.n{font:12px var(--mono)}
       <div>
         <h3>History and comparison</h3>
         <p class="q">What changed, against what, and who touched it?</p>
+        <p class="gist">History becomes a view you open, not a rail that is always on screen.</p>
       </div>
       <div class="meta"><span class="tag t-none">missing</span><span class="cnt">80 frames · 10 pages</span></div>
     </header>
+
+    <details class="more">
+      <summary><span>Evidence and detail</span><span class="crumbs">Rests on · What is wrong · Must survive · The change · Done when</span></summary>
+
 
     <div class="block">
       <h4>Serves</h4>
@@ -652,6 +820,7 @@ td.n{font:12px var(--mono)}
         <li>No row leads with a raw identifier.</li>
       </ul>
     </div>
+    </details>
   </div>
 
   <!-- ============ F ============ -->
@@ -661,9 +830,14 @@ td.n{font:12px var(--mono)}
       <div>
         <h3>Start something</h3>
         <p class="q">Create a project, workflow, Room or workspace.</p>
+        <p class="gist">Apply B&rsquo;s words to every empty, loading and just-created state.</p>
       </div>
-      <div class="meta"><span class="tag t-none">missing</span><span class="cnt">31 frames · 12 pages</span></div>
+      <div class="meta"><span class="tag t-none">missing</span><span class="cnt">31 frames · 13 pages</span></div>
     </header>
+
+    <details class="more">
+      <summary><span>Evidence and detail</span><span class="crumbs">Rests on · What is wrong · Must survive · The change · Done when</span></summary>
+
 
     <div class="block">
       <h4>Serves</h4>
@@ -737,6 +911,7 @@ td.n{font:12px var(--mono)}
         <li>The gaps are still declared as gaps, not drawn as though they were observed.</li>
       </ul>
     </div>
+    </details>
   </div>
 
   <!-- ============ G ============ -->
@@ -746,9 +921,14 @@ td.n{font:12px var(--mono)}
       <div>
         <h3>Follow the thread</h3>
         <p class="q">Move between apps without losing the object.</p>
+        <p class="gist">Blocked on evidence, not on design. Needs a live walk before it can be drawn.</p>
       </div>
       <div class="meta"><span class="tag t-none">missing</span><span class="cnt">12 frames · 7 pages</span></div>
     </header>
+
+    <details class="more">
+      <summary><span>Evidence and detail</span><span class="crumbs">Rests on · What is wrong · Must survive · The change · Done when</span></summary>
+
 
     <div class="block">
       <h4>Serves</h4>
@@ -800,6 +980,7 @@ td.n{font:12px var(--mono)}
         <li>Either a proposal exists, or this flow is closed as "no change needed" with a reason.</li>
       </ul>
     </div>
+    </details>
   </div>
 </div>
 
@@ -813,7 +994,7 @@ td.n{font:12px var(--mono)}
   region that changes. Everything outside the overlay is the shipped product at its real pixels.</p>
 
   <div class="rules" style="max-width:880px">
-    <h4>Why this and not a component rebuild</h4>
+    <details class="more"><summary><span>Why this and not a component rebuild</span><span class="crumbs">4 reasons</span></summary>
     <ul>
       <li><b>It cannot silently delete a control.</b> A rebuilt screen shows only what was remembered. A composite
       shows the whole screen, so anything the proposal does not touch is still visibly there. The two regressions in
@@ -824,6 +1005,7 @@ td.n{font:12px var(--mono)}
       <li><b>Before and after are the same image</b>, so the toggle is honest: nothing moves except the thing being
       proposed.</li>
     </ul>
+  </details>
   </div>
 
   <p class="sub" style="margin-top:20px">The cost is that a composite cannot show a layout that reflows the whole
@@ -836,46 +1018,26 @@ td.n{font:12px var(--mono)}
 </div>
 
 <div class="sec">
-  <h2>Ship order</h2>
-  <p class="sub">B is a vocabulary, so it comes first and the others consume it. D is second because it holds the two
-  regressions and the strongest single defect in the audit. G is last and may never ship.</p>
-
-  <table class="ship">
-    <thead><tr><th style="width:26px"></th><th>Flow</th><th>Why here</th><th>Depends on</th></tr></thead>
-    <tbody>
-      <tr><td class="key">1</td><td><b>B · State vocabulary</b></td>
-        <td>Seven words the other six flows reuse. Cheapest to agree, and everything else reads it.</td><td class="key">—</td></tr>
-      <tr><td class="key">2</td><td><b>D · Act on it</b></td>
-        <td>Restores the cap control, and fixes the cap-stopped project that still leads with a completion sentence.</td><td class="key">B</td></tr>
-      <tr><td class="key">3</td><td><b>C · Read the outcome</b></td>
-        <td>The 110-frame defect. Largest flow, strongest evidence, and the proposals already answer it.</td><td class="key">B</td></tr>
-      <tr><td class="key">4</td><td><b>A · Triage</b></td>
-        <td>Needs B's words and C's folded prose to be worth redrawing.</td><td class="key">B, C</td></tr>
-      <tr><td class="key">5</td><td><b>E · History and comparison</b></td>
-        <td>Restores the History rail. Large, but every defect in it is local to one view.</td><td class="key">B</td></tr>
-      <tr><td class="key">6</td><td><b>F · Start something</b></td>
-        <td>Mostly an application of B to empty and loading states.</td><td class="key">B</td></tr>
-      <tr><td class="key">7</td><td><b>G · Follow the thread</b></td>
-        <td>Blocked on evidence, not on design.</td><td class="key">a live walk</td></tr>
-    </tbody>
-  </table>
+  <h2>Notes and limits</h2>
 
   <div class="nb">
-    <h4>Named as a separate task, not attempted here</h4>
+    <h4>Carried out of this document as its own task</h4>
     <p><b>The Run inspector needs a rethink of its own.</b> It is the one screen in this audit where the shipped
-    result and the intended prototype are not the same idea, so folding it into flow C would understate it. It gets
-    its own piece of work, with the prototype as the starting point rather than the current screen.</p>
+    result and the intended prototype are not the same idea. Its nine frames count in flow C, because they answer
+    flow C's question, and its keep list holds every control it ships with today. The redesign is
+    <a href="https://github.com/sero-labs/sero/issues/535">issue #535</a>, with
+    <a href="../architect-run-observability/index.html">architect-run-observability</a> as the starting point.</p>
   </div>
 
   <div class="nb">
-    <h4>What this document does not establish</h4>
+    <details class="more"><summary><span>What this document does not establish</span><span class="crumbs">4 limits</span></summary>
     <p>The keep lists now come from the control walk, so they hold every control the walk reached. They do not hold
     a control on a screen the walk never opened, and the 18 gaps are exactly those screens.</p>
-    <p><b>The loaded Run inspector is one of them.</b> Only one project in this profile has a run journal, and the
-    journal is served by the Architect runtime, which stayed off. Unlike the Rooms runtime, turning this one on is
-    not free: three projects carry no blocked, paused or limited overlay, so waking it could resume real work. The
-    loaded state here is therefore described from a capture of the running app rather than photographed, and it is
-    labelled as such.</p>
+    <p><b>The loaded Run inspector is no longer one of them.</b> It was, on the first pass: the run journal is
+    served by the Architect runtime, which stayed off, so the loaded state photographed as empty. A second walk
+    enabled that runtime for the Architect pages only, opened the one project in this profile that carries a journal,
+    and pressed <b>Load activity</b>. Waking the runtime started no work, and the profile copy was unchanged
+    afterwards. Nine frames now cover the loaded list, the scrolled list and the failures-only filter.</p>
     <p><b>Two observations in the first draft of this audit were wrong.</b> It claimed the Goals tab "renders nothing
     at all" and that the Library says nothing about being empty. Re-reading the frames disproved both: Goals names
     the command and the Library is the best-handled empty state in the product. Both are corrected in flow F and in
@@ -883,6 +1045,7 @@ td.n{font:12px var(--mono)}
     <p>And the limit that governs the whole audit still holds: nothing moved during capture, so <b>no transition is
     evidenced</b>. There is no observed before-and-after for working, queued, waiting, paused, complete or failed.
     Flow B proposes a vocabulary for states the capture never saw change.</p>
+  </details>
   </div>
 </div>
 

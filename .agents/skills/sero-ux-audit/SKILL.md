@@ -255,6 +255,28 @@ History rail. Both had been drawn from memory rather than from the frames.
 
 Write it as a third document, `flows.html`, beside the other two.
 
+The flow document exists to get one decision made: are the groups right, and is
+the order right. Everything else in it is the brief for after that decision, so
+it must not stand between the reader and the question. Open with a **decision
+panel**: one row per flow in ship order, each carrying the flow's question, its
+frame count, its coverage and one sentence naming the change. Seven rows fit on
+a screen. Fold every flow's evidence, keep list and acceptance criteria behind a
+`<details>` whose summary names what is inside it, so a reader can decide not to
+open it. Nothing is cut and nothing is truncated; it is folded. On the
+2026-09-19 audit the first draft was 13,500 px of continuous prose and the
+answer to it was "it's too much to take in and make decisions on". Folded, the
+same content is 4,100 px.
+
+Do not print the ship order twice. It was a table at the foot of the first draft
+and a column in the decision panel, and the two disagreed within a day.
+
+A screen that needs its own piece of work still counts in the flow whose
+question it answers, and it still gets a keep list. Carry it out as a GitHub
+issue and link the issue from the flow. Dropping it from the coverage table is
+how a screen gets quietly deleted: on this audit the Run inspector was named as
+"a separate task, not attempted here" and had no row anywhere, which read as a
+plan to remove it.
+
 A keep list built only from frames still misses a control that appears on no
 frame. `apps/desktop/e2e/helpers/ux-inventory.ts` closes that hole: it
 implements the same `AuditCapture` interface, so the identical walk records
