@@ -28,7 +28,9 @@ export function stampLiveRun(loop: Loop, now: string): Loop {
 
 /** Drops the mark. Nothing reports for this loop until a run stamps it again. */
 export function clearLiveRun(loop: Loop): Loop {
-  if (!loop.runtime.liveRun) return loop;
+  // Reconciliation clears the mark before it checks anything else, so this also
+  // runs against loops persisted by an older schema that has no runtime field.
+  if (!loop.runtime?.liveRun) return loop;
   const { liveRun: _dropped, ...runtime } = loop.runtime;
   return { ...loop, runtime };
 }

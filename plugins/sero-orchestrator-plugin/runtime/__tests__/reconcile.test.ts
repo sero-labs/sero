@@ -166,4 +166,16 @@ describe('live-run marks across a restart', () => {
 
     expect(reconcileLoop(host, loop)).toBe(loop);
   });
+
+  it('recovers a loop persisted by an older schema with no runtime at all', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    // reconcileRecovered already tolerates this shape; clearing the mark runs
+    // first, so it has to tolerate it too. The cast builds what tsc forbids and
+    // the disk still holds.
+    const legacy = { ...loop, runtime: undefined } as unknown as Loop;
+
+    expect(() => reconcileLoop(host, legacy)).not.toThrow();
+    expect(reconcileLoop(host, legacy)).toBe(legacy);
+  });
 });

@@ -9,7 +9,8 @@ import {
 import { Button } from "@sero-ai/ui";
 import { relativeTime, sessionStartedAt } from "@sero-ai/common";
 import { milestoneCounts, projectActivity } from "../../shared/activity";
-import { ActivityGlyphIcon, ownerSentence } from "./ActivityWord";
+import { ActivityGlyphIcon } from "./ActivityWord";
+import { ownerSentence } from "../lib/format";
 
 const CIRCUMFERENCE = 2 * Math.PI * 28;
 

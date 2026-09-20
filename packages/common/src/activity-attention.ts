@@ -98,6 +98,9 @@ export function roomAttention(room: OrchestratorBoardRoomView): AttentionClaim |
  * and written both the state and the action, so this only reads them.
  */
 export function projectAttention(project: ArchitectProjectView): AttentionClaim | null {
+  // The index is a file on disk, and a reader sees it before its writer is
+  // upgraded. One written before this contract carries no activity at all.
+  if (!project.activity) return null;
   const { state, action, headline } = project.activity;
   if (!action) return null;
   if (state === 'stopped') return { state: 'stopped', cause: headline, action, headline };

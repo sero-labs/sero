@@ -99,6 +99,142 @@ function AttentionIndicator({ workspaceId }: { workspaceId: string }) {
   );
 }
 
+/**
+ * The controls at the trailing end of a workspace row.
+ *
+ * The row has two of them, and only one at a time: while sessions are selected
+ * it offers the count with delete and clear, and otherwise the usual cluster of
+ * new session, runtime, git and close. Keeping both here leaves `WorkspaceNode`
+ * with the row itself rather than the branch between them.
+ */
+interface WorkspaceRowActionsProps {
+  workspace: WorkspaceInfo;
+  /** How many of this workspace's sessions are selected right now. */
+  selectedInWorkspace: number;
+  isDefault: boolean;
+  clearSelection(): void;
+  onBulkDelete(): void;
+  onNewSession(event: React.MouseEvent | React.KeyboardEvent): void | Promise<void>;
+  onOpenRemotes(): void;
+  onClose(): void;
+  onDelete(): void;
+}
+
+function WorkspaceRowActions({
+  workspace,
+  selectedInWorkspace,
+  isDefault,
+  clearSelection,
+  onBulkDelete,
+  onNewSession,
+  onOpenRemotes,
+  onClose,
+  onDelete,
+}: WorkspaceRowActionsProps) {
+  return (
+            <span className="relative ml-auto flex h-5 shrink-0 items-center justify-end">
+              {selectedInWorkspace > 0 ? (
+                <span className="flex items-center gap-1">
+                  <span className="text-xs font-medium text-[var(--accent-primary)]">
+                    {selectedInWorkspace}
+                  </span>
+                  <IconAction
+                    as="span"
+                    role="button"
+                    tabIndex={-1}
+                    tone="destructive"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onBulkDelete();
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.stopPropagation();
+                        onBulkDelete();
+                      }
+                    }}
+                    title={`Delete ${selectedInWorkspace} selected session${selectedInWorkspace > 1 ? 's' : ''}`}
+                  >
+                    <Trash2 className="size-3" />
+                  </IconAction>
+                  <span
+                    role="button"
+                    tabIndex={-1}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      clearSelection();
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.stopPropagation();
+                        clearSelection();
+                      }
+                    }}
+                    className="rounded p-0.5 text-xs text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-base)] hover:text-[var(--text-primary)]"
+                    title="Clear selection (Esc)"
+                  >
+                    <X className="size-3" />
+                  </span>
+                </span>
+              ) : (
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.span
+                    key="actions"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="flex items-center gap-0.5"
+                  >
+                    <IconAction
+                      as="span"
+                      role="button"
+                      tabIndex={-1}
+                      onClick={onNewSession}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          void onNewSession(event);
+                        }
+                      }}
+                      title="New session"
+                    >
+                      <Plus className="size-3" />
+                    </IconAction>
+                    <RuntimePickerMenu workspace={workspace} />
+                    {workspace.runtime.backend !== 'host' && <WorkspaceReferencesMenu workspace={workspace} />}
+                    <IconAction
+                      as="span"
+                      role="button"
+                      tabIndex={-1}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onOpenRemotes();
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.stopPropagation();
+                          onOpenRemotes();
+                        }
+                      }}
+                      title="Git repository"
+                    >
+                      <GitBranch className="size-3" />
+                    </IconAction>
+                    {!isDefault && (
+                      <WorkspaceCloseMenu
+                        workspaceName={workspace.name}
+                        workspacePath={workspace.path}
+                        onClose={onClose}
+                        onDelete={onDelete}
+                      />
+                    )}
+                  </motion.span>
+                </AnimatePresence>
+              )}
+            </span>
+        );
+    }
+
 interface WorkspaceNodeProps {
   workspace: WorkspaceInfo;
   sessions: SeroSessionInfo[];
@@ -202,106 +338,17 @@ export const WorkspaceNode = memo(function WorkspaceNode({ workspace, sessions }
           </span>
         )}
 
-        <span className="relative ml-auto flex h-5 shrink-0 items-center justify-end">
-          {selectedInWorkspace > 0 ? (
-            <span className="flex items-center gap-1">
-              <span className="text-xs font-medium text-[var(--accent-primary)]">
-                {selectedInWorkspace}
-              </span>
-              <IconAction
-                as="span"
-                role="button"
-                tabIndex={-1}
-                tone="destructive"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setConfirmBulkDelete(true);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.stopPropagation();
-                    setConfirmBulkDelete(true);
-                  }
-                }}
-                title={`Delete ${selectedInWorkspace} selected session${selectedInWorkspace > 1 ? 's' : ''}`}
-              >
-                <Trash2 className="size-3" />
-              </IconAction>
-              <span
-                role="button"
-                tabIndex={-1}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  clearSelection();
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.stopPropagation();
-                    clearSelection();
-                  }
-                }}
-                className="rounded p-0.5 text-xs text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-base)] hover:text-[var(--text-primary)]"
-                title="Clear selection (Esc)"
-              >
-                <X className="size-3" />
-              </span>
-            </span>
-          ) : (
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.span
-                key="actions"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-                className="flex items-center gap-0.5"
-              >
-                <IconAction
-                  as="span"
-                  role="button"
-                  tabIndex={-1}
-                  onClick={handleNewSession}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      void handleNewSession(event);
-                    }
-                  }}
-                  title="New session"
-                >
-                  <Plus className="size-3" />
-                </IconAction>
-                <RuntimePickerMenu workspace={workspace} />
-                {workspace.runtime.backend !== 'host' && <WorkspaceReferencesMenu workspace={workspace} />}
-                <IconAction
-                  as="span"
-                  role="button"
-                  tabIndex={-1}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setRemoteManagerOpen(true);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      event.stopPropagation();
-                      setRemoteManagerOpen(true);
-                    }
-                  }}
-                  title="Git repository"
-                >
-                  <GitBranch className="size-3" />
-                </IconAction>
-                {!isDefault && (
-                  <WorkspaceCloseMenu
-                    workspaceName={workspace.name}
-                    workspacePath={workspace.path}
-                    onClose={handleClose}
-                    onDelete={handleDelete}
-                  />
-                )}
-              </motion.span>
-            </AnimatePresence>
-          )}
-        </span>
+        <WorkspaceRowActions
+          workspace={workspace}
+          selectedInWorkspace={selectedInWorkspace}
+          isDefault={isDefault}
+          clearSelection={clearSelection}
+          onBulkDelete={() => setConfirmBulkDelete(true)}
+          onNewSession={handleNewSession}
+          onOpenRemotes={() => setRemoteManagerOpen(true)}
+          onClose={handleClose}
+          onDelete={handleDelete}
+        />
       </button>
 
       {expanded && (

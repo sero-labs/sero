@@ -13,12 +13,12 @@ import type { ComponentType } from 'react';
 import {
   ACTIVITY_STATE_GLYPH,
   ACTIVITY_STATE_TONE,
-  relativeTime,
   type ActivityGlyph,
   type ActivityState,
 } from '@sero-ai/common';
 import { Check, Clock, History, Layers, Minus, MessageCircleQuestion, OctagonAlert, Pause, Play } from 'lucide-react';
 import type { ProjectActivity } from '../../shared/activity';
+import { ownerSentence } from '../lib/format';
 
 const GLYPH_ICON: Record<ActivityGlyph, ComponentType<{ className?: string }>> = {
   play: Play,
@@ -42,18 +42,9 @@ export function ActivityGlyphIcon({ state }: { state: ActivityState }) {
 }
 
 /**
- * Whose work it is, and when it last said so. Times are formatted here, at
- * render, because the index is written once and read for days.
- *
  * The project header shows this line under its own heading, so it is its own
  * component: rendering the full two lines there printed the glyph twice.
  */
-export function ownerSentence(activity: ProjectActivity): string {
-  const when = activity.ownerAt ? relativeTime(activity.ownerAt) : '';
-  const owner = [activity.owner, when].filter(Boolean).join(' ');
-  return [owner, activity.ownerSuffix].filter(Boolean).join(' · ');
-}
-
 export function ActivityOwner({ activity }: { activity: ProjectActivity }) {
   const second = ownerSentence(activity);
   return second ? <small>{second}</small> : null;

@@ -48,4 +48,16 @@ describe('the Architect index as the shell reads it', () => {
       action: 'Raise the cap',
     });
   });
+
+  it('claims nothing for a project written before activity existed', () => {
+    // An index on disk outlives the version that wrote it. The shell reads it
+    // on upgrade, before the Architect runs again and rewrites it, so the cast
+    // here is the only way to build the shape that actually arrives.
+    const legacy = {
+      ...index.projects[0],
+      activity: undefined,
+    } as unknown as ArchitectIndexView['projects'][number];
+
+    expect(projectAttention(legacy)).toBeNull();
+  });
 });

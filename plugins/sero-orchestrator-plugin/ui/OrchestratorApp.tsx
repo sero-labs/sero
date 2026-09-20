@@ -2,25 +2,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAppState, useAppTools } from '@sero-ai/app-runtime';
 import { DEFAULT_LIBRARY_INDEX, DEFAULT_STATE } from '../shared/defaults';
 import type { LibraryIndex, Loop, OrchestratorAction } from '../shared/types';
-import { WorkflowsList } from './components/WorkflowsList';
-import { RoomsOverview } from './components/RoomsOverview';
-import { RoomCreateFlow } from './components/RoomCreateFlow';
-import { RoomDetail } from './components/RoomDetail';
 import { attentionCount } from './lib/attention-count';
 import { useRoomIndex } from './lib/use-room-index';
 import { useGoalIndex } from './lib/use-goal-index';
-import { WorkflowPage } from './components/WorkflowPage';
-import { LibraryView } from './components/LibraryView';
-import { HomeView } from './components/HomeView';
 import { ShellTopBar, type ShellTab } from './components/ShellTopBar';
-import { CreateLoopWizard } from './components/CreateLoopWizard';
+import { OrchestratorRoutes } from './OrchestratorRoutes';
 import type { CreateLoopSubmit } from './components/CreateLoopForm';
 import { actionToParams } from './lib/action-params';
 import { useOrchestratorIndex, useStateDir } from './lib/use-orchestrator-index';
 import { useWatchedJson } from './lib/use-watched-json';
 import { useOrchestratorNavigation, type OrchestratorView } from './lib/orchestrator-navigation';
 import { OrchestratorStateContext } from './lib/orchestrator-state';
-import { GoalMode } from './components/GoalMode';
 import { useRoomActions } from './lib/use-room-actions';
 import { shellControlsFor } from './lib/shell-controls';
 import './styles.css';
@@ -231,104 +223,30 @@ export function OrchestratorApp() {
       )}
 
       <div className="flex min-h-0 flex-1">
-        {view.mode === 'home' && (
-          <HomeView
-            loops={index.loops}
-            busy={busy}
-            onAction={onAction}
-            onOpenLoop={openLoop}
-            onNew={openCreate}
-            onNewRoom={room.openCreate}
-            rooms={roomIndex.rooms}
-            onRoomApproval={room.onApproval}
-            onRoomAnswer={room.onAnswer}
-            onRoomResume={room.onResume}
-            onOpenRoom={room.open}
-            goals={goalIndex.goals}
-            onOpenGoal={openGoal}
-            onDeleteGoal={deleteGoal}
-          />
-        )}
-        {view.mode === 'create' && (
-          <CreateLoopWizard busy={busy} stateDir={stateDir} onCreate={createLoop} onAction={onAction} onOpenLoop={openLoop} onCancel={() => navigate({ mode: 'home' })} />
-        )}
-        {view.mode === 'rooms' && view.roomId && (
-          <RoomDetail
-            roomId={view.roomId}
-            summary={roomIndex.rooms.find((room) => room.id === view.roomId)}
-            busy={busy}
-            dispatch={room.dispatch}
-            onApproval={room.onApproval}
-            initialView={view.roomView}
-            initialMemberId={view.memberId}
-            onLocationChange={(roomView, memberId, options) => navigate(
-              {
-                mode: 'rooms',
-                roomId: view.roomId,
-                roomView,
-                memberId: memberId ?? undefined,
-              },
-              options,
-            )}
-            onBack={() => navigate({ mode: 'rooms', roomId: null })}
-          />
-        )}
-        {view.mode === 'rooms' && !view.roomId && (
-          <div className="flex h-full flex-1 flex-col overflow-auto px-6 py-5">
-            <RoomsOverview rooms={roomIndex.rooms} onOpenRoom={room.open} onNew={room.openCreate} />
-          </div>
-        )}
-        {view.mode === 'room-create' && (
-          <RoomCreateFlow
-            busy={busy}
-            dispatch={room.dispatch}
-            onStarted={room.open}
-            onCancel={() => navigate({ mode: 'rooms', roomId: null })}
-          />
-        )}
-        {view.mode === 'goals' && (
-          <GoalMode
-            goalId={view.goalId}
-            goals={goalIndex.goals}
-            onOpenGoal={openGoal}
-            onBack={() => navigate({ mode: 'goals', goalId: null })}
-          />
-        )}
-        {view.mode === 'library' && (
-          <LibraryView
-            key={view.tab}
-            initialTab={view.tab}
-            libraryDir={libraryDir}
-            libraryIndex={libraryIndex}
-            busy={busy}
-            onLoad={onLoadFromLibrary}
-            onOpenLoop={openLoop}
-            dispatch={detailsDispatch}
-            onClose={() => navigate({ mode: 'home' })}
-          />
-        )}
-        {view.mode === 'detail' && !selectedId && (
-          <WorkflowsList
-            loops={index.loops}
-            libraryIndex={libraryIndex}
-            query={workflowQuery}
-            onQueryChange={setWorkflowQuery}
-            onSelect={openLoop}
-            onNew={openCreate}
-          />
-        )}
-        {view.mode === 'detail' && selectedId && (
-          <WorkflowPage
-            loop={selected}
-            busy={busy}
-            onAction={onAction}
-            onDispatch={detailsDispatch}
-            stateDir={stateDir}
-            libraryDir={libraryDir}
-            libraryIndex={libraryIndex}
-            onBack={() => navigate({ mode: 'detail', loopId: null })}
-          />
-        )}
+        <OrchestratorRoutes
+          view={view}
+          navigate={navigate}
+          index={index}
+          roomIndex={roomIndex}
+          goalIndex={goalIndex}
+          room={room}
+          busy={busy}
+          stateDir={stateDir}
+          libraryDir={libraryDir}
+          libraryIndex={libraryIndex}
+          selected={selected}
+          selectedId={selectedId}
+          workflowQuery={workflowQuery}
+          setWorkflowQuery={setWorkflowQuery}
+          onAction={onAction}
+          detailsDispatch={detailsDispatch}
+          openLoop={openLoop}
+          openCreate={openCreate}
+          openGoal={openGoal}
+          deleteGoal={deleteGoal}
+          createLoop={createLoop}
+          onLoadFromLibrary={onLoadFromLibrary}
+        />
       </div>
       </div>
     </OrchestratorStateContext.Provider>

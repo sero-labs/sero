@@ -1,6 +1,21 @@
 /** Small formatting helpers shared by the list, the page and the widget. */
 
+import { relativeTime } from '@sero-ai/common';
+import type { ProjectActivity } from '../../shared/activity';
 import type { ArchitectOverlay, ArchitectPhase } from '../../shared/types';
+
+/**
+ * Whose work it is, and when it last said so. Times are formatted at render,
+ * because the index is written once and read for days.
+ *
+ * It lives here, not beside the component that shows it, so the component file
+ * exports components only and Fast Refresh can keep their state.
+ */
+export function ownerSentence(activity: ProjectActivity): string {
+  const when = activity.ownerAt ? relativeTime(activity.ownerAt) : '';
+  const owner = [activity.owner, when].filter(Boolean).join(' ');
+  return [owner, activity.ownerSuffix].filter(Boolean).join(' · ');
+}
 
 export const PHASES: readonly ArchitectPhase[] = ['intake', 'discovery', 'charter', 'build', 'release', 'maintain'];
 

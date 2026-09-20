@@ -29,7 +29,7 @@ function loop(partial: Partial<LoopSummary> & Pick<LoopSummary, 'id' | 'title'>)
   };
 }
 
-export const PREVIEW_LOOPS: LoopSummary[] = [
+const PREVIEW_LOOPS: LoopSummary[] = [
   loop({
     id: 'maintenance',
     title: 'reading-tracker-resilience-01: maintenance',
@@ -81,7 +81,7 @@ function room(partial: Partial<RoomSummary> & Pick<RoomSummary, 'id' | 'title'>)
   };
 }
 
-export const PREVIEW_ROOMS: RoomSummary[] = [
+const PREVIEW_ROOMS: RoomSummary[] = [
   room({
     id: 'room-1',
     title: 'CSV Summariser Adversarial Validation',
