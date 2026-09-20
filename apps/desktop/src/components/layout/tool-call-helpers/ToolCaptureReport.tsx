@@ -5,7 +5,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@sero-ai/ui';
+} from '@sero-ai/ui/components/ui/dialog';
 import { cn } from '@sero-ai/ui/lib/utils';
 
 import {

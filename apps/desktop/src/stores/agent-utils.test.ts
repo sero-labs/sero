@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
 import { handleAgentStreamEvent } from './agent-utils';
 import type { AgentState } from './agent-types';

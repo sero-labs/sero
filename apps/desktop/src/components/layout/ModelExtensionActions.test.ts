@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import type { ChatModelExtensionContribution } from '@sero-ai/common';
 import { matchesModelExtension } from './ModelExtensionActions';

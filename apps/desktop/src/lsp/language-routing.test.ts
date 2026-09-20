@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { getLanguage } from '@/components/apps/explorer/editor/editor-panel-shared';
 import {

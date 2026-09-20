@@ -94,18 +94,10 @@ jobs:
         run: |
           set -euo pipefail
           start=$SECONDS; pnpm install --frozen-lockfile; echo "Install took $((SECONDS - start))s"
-      - name: Report remote cache configuration
-        env:
-          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
-          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-        run: |
-          if [[ -n "${TURBO_TOKEN:-}" && -n "${TURBO_TEAM:-}" ]]; then echo 'Turbo remote cache credentials: present'; else echo 'Turbo remote cache credentials: absent (local cache only)'; fi
       - name: Typecheck source
         shell: bash
         env:
           FULL_RUN: ${{ needs.changes.outputs.full }}
-          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
-          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_SCM_BASE: ${{ needs.changes.outputs.base }}
           TURBO_SCM_HEAD: ${{ needs.changes.outputs.head }}
         run: |
@@ -145,18 +137,10 @@ jobs:
         run: |
           set -euo pipefail
           start=$SECONDS; pnpm install --frozen-lockfile; echo "Install took $((SECONDS - start))s"
-      - name: Report remote cache configuration
-        env:
-          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
-          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-        run: |
-          if [[ -n "${TURBO_TOKEN:-}" && -n "${TURBO_TEAM:-}" ]]; then echo 'Turbo remote cache credentials: present'; else echo 'Turbo remote cache credentials: absent (local cache only)'; fi
       - name: Typecheck tests
         shell: bash
         env:
           FULL_RUN: ${{ needs.changes.outputs.full }}
-          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
-          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_SCM_BASE: ${{ needs.changes.outputs.base }}
           TURBO_SCM_HEAD: ${{ needs.changes.outputs.head }}
         run: |
@@ -188,18 +172,10 @@ jobs:
       - name: Install dependencies
         shell: bash
         run: start=$SECONDS; pnpm install --frozen-lockfile; echo "Install took $((SECONDS - start))s"
-      - name: Report remote cache configuration
-        env:
-          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
-          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-        run: |
-          if [[ -n "${TURBO_TOKEN:-}" && -n "${TURBO_TEAM:-}" ]]; then echo 'Turbo remote cache credentials: present'; else echo 'Turbo remote cache credentials: absent (local cache only)'; fi
       - name: Build
         shell: bash
         env:
           FULL_RUN: ${{ needs.changes.outputs.full }}
-          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
-          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_SCM_BASE: ${{ needs.changes.outputs.base }}
           TURBO_SCM_HEAD: ${{ needs.changes.outputs.head }}
         run: |
@@ -211,8 +187,6 @@ jobs:
         shell: bash
         env:
           FULL_RUN: ${{ needs.changes.outputs.full }}
-          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
-          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_SCM_BASE: ${{ needs.changes.outputs.base }}
           TURBO_SCM_HEAD: ${{ needs.changes.outputs.head }}
         run: |
@@ -244,18 +218,10 @@ jobs:
       - name: Install dependencies
         shell: bash
         run: start=$SECONDS; pnpm install --frozen-lockfile; echo "Install took $((SECONDS - start))s"
-      - name: Report remote cache configuration
-        env:
-          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
-          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-        run: |
-          if [[ -n "${TURBO_TOKEN:-}" && -n "${TURBO_TEAM:-}" ]]; then echo 'Turbo remote cache credentials: present'; else echo 'Turbo remote cache credentials: absent (local cache only)'; fi
       - name: Tests
         shell: bash
         env:
           FULL_RUN: ${{ needs.changes.outputs.full }}
-          TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
-          TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
           TURBO_SCM_BASE: ${{ needs.changes.outputs.base }}
           TURBO_SCM_HEAD: ${{ needs.changes.outputs.head }}
         run: |

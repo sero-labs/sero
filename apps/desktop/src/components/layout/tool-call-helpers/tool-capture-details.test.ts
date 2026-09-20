@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest';
 
 import { describeToolCapture, formatBytes, parseToolCaptureDetails } from './tool-capture-details';

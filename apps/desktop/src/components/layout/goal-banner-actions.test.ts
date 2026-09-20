@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import type { ChatGoalSnapshot } from '@/types/ipc';
 import { goalBannerCommands } from './goal-banner-actions';
