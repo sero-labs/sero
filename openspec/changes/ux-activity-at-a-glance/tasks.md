@@ -58,4 +58,4 @@
 - [x] 8.1 Run `pnpm typecheck` from the repo root and verify it passes for the renderer, the Electron main process and both plugins
 - [x] 8.2 Run the Architect, Orchestrator and desktop test suites and verify they pass
 - [x] 8.3 Check every new state on the four surfaces with reduced motion enabled and with colour ignored, and verify each state still reads as a word with its glyph
-- [ ] 8.4 Screenshot the projects list, the project header, Orchestrator Home, the Workflows list and page, the Rooms list and the workspace tree against the approved drawings, and record any deliberate departure on issue #536
+- [x] 8.4 Screenshot the projects list, the project header, Orchestrator Home, the Workflows list and page, the Rooms list and the workspace tree against the approved drawings, and record any deliberate departure on issue #536
