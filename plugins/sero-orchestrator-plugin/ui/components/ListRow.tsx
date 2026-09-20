@@ -1,64 +1,51 @@
 /**
- * The Home list row (prototype screen 1 `.row`): status dot, fixed-width
- * title, truncating summary, face stack, and mono meta. Below 820px (panel
- * container query) the summary and meta drop to their own lines under the
- * title instead of truncating to nothing.
+ * The Home and Rooms list row, drawn to the approved proposal
+ * (`1-activity-at-a-glance.html`, screens 5 and 7).
+ *
+ * The title takes the first line on its own. The state goes under it as a glyph
+ * chip and a sentence, so what the row is doing reads without a legend. A
+ * middle column carries what it waits for; money stands alone on the right in
+ * mono. A row that needs the user is washed as well as bordered, but the wash
+ * is never the only signal: the ask is printed in words inside it.
+ *
+ * Below 820px (panel container query) the three columns stack.
  */
 
 import type { ReactNode } from 'react';
 import { cn } from '@sero-ai/ui/lib/utils';
-import { Pill, StatusDot, type MemberStatus } from './room-kit';
 
 export interface ListRowProps {
-  status: MemberStatus;
   title: string;
-  /** Truncating summary; full text in the hover title. */
-  sub?: string;
-  /** Face stack or other fixed middle content. */
-  faces?: ReactNode;
-  /** Amber "N needs you" pill when something waits on the user. */
-  needsCount?: number;
-  /** Mono meta — `5 members · 41m · $3.18 / $6.00`. Never shrinks. */
-  meta: ReactNode;
+  /** The glyph chip and the state sentence: the row's second line. */
+  activity?: ReactNode;
+  /** What it waits for, or who is in it. The middle column. */
+  middle?: ReactNode;
+  /** Mono money, right-aligned. Never shrinks. */
+  money: ReactNode;
+  /** Washes and borders the row amber. Something in it needs the user. */
+  attention?: boolean;
   onClick: () => void;
 }
 
-export function ListRow({ status, title, sub, faces, needsCount = 0, meta, onClick }: ListRowProps) {
+export function ListRow({ title, activity, middle, money, attention = false, onClick }: ListRowProps) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="mb-[7px] flex w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-room-line bg-room-surface px-[13px] py-[11px] text-left last:mb-0 hover:bg-room-raised/60"
+      className={cn(
+        'mb-2 grid w-full gap-x-3.5 gap-y-2 rounded-[9px] border px-3.5 py-3.25 text-left last:mb-0',
+        '@min-[820px]/panel:grid-cols-[minmax(0,1fr)_300px_130px] @min-[820px]/panel:items-center',
+        attention
+          ? 'border-status-warning-border bg-status-warning-muted/45'
+          : 'border-room-line bg-room-surface hover:border-room-line-strong',
+      )}
     >
-      <StatusDot status={status} />
-      <span className="min-w-0 flex-1 truncate text-[13px] text-room-text @min-[820px]/panel:w-[230px] @min-[820px]/panel:flex-none">
-        {title}
+      <span className="min-w-0">
+        <span className="block truncate text-[13px] font-medium text-room-text">{title}</span>
+        {activity != null && <span className="mt-1.5 block">{activity}</span>}
       </span>
-      {sub != null && (
-        <span
-          title={sub}
-          className={cn(
-            'order-last basis-full truncate pl-[19px] text-[11px] text-room-text3',
-            '@min-[820px]/panel:order-none @min-[820px]/panel:min-w-0 @min-[820px]/panel:flex-1 @min-[820px]/panel:basis-auto @min-[820px]/panel:pl-0',
-          )}
-        >
-          {sub}
-        </span>
-      )}
-      {faces}
-      {needsCount > 0 && (
-        <Pill tone="warn" className="shrink-0">
-          {needsCount} needs you
-        </Pill>
-      )}
-      <span
-        className={cn(
-          'room-tabular order-last basis-full pl-[19px] text-[10px] whitespace-nowrap text-room-text3',
-          '@min-[820px]/panel:order-none @min-[820px]/panel:basis-auto @min-[820px]/panel:shrink-0 @min-[820px]/panel:pl-0',
-        )}
-      >
-        {meta}
-      </span>
+      <span className="min-w-0 text-[11px] text-room-text3">{middle}</span>
+      <span className="room-tabular text-right text-[11px] whitespace-nowrap text-room-text3">{money}</span>
     </button>
   );
 }

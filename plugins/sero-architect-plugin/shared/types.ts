@@ -1,7 +1,12 @@
 // Single source of truth for state shared across extension, runtime and UI.
 // JSON-serialisable only: no Date, Map, Set or functions.
 
+import { ACTIVITY_STATES, type ActivityState } from '@sero-ai/common';
+import type { ProjectActivity } from './activity';
+
 export const ARCHITECT_APP_ID = 'architect';
+
+export type { ProjectActivity } from './activity';
 
 export type ArchitectPhase = 'intake' | 'discovery' | 'charter' | 'build' | 'release' | 'maintain';
 export type ArchitectOverlay = 'decision' | 'blocked' | 'paused' | 'limited';
@@ -16,8 +21,14 @@ export interface ArchitectIndexEntry {
   workspaceId: string | null;
   phase: ArchitectPhase;
   overlay: ArchitectOverlay | null;
-  /** The Architect's one-line state, its own words. */
-  stateLine: string;
+  /**
+   * The derived activity: the state that matters, whose work it is, and the
+   * action it needs. Derived from the record on every write (shared/activity.ts),
+   * never written by the owner model.
+   */
+  activity: ProjectActivity;
+  /** Known completed work as a count, never a percentage. */
+  milestones: { accepted: number; total: number };
   spentUsd: number;
   usageIncomplete?: boolean;
   capUsd: number | null;
@@ -29,6 +40,13 @@ export interface ArchitectIndexEntry {
 export interface ArchitectIndex {
   version: 1;
   projects: ArchitectIndexEntry[];
+  /**
+   * Whether the Architect runtime is running in this Sero session, written at
+   * extension activation whether or not the kill switch allows the runtime. A
+   * reader uses it to say so once, at the top of the list, instead of leaving
+   * every row to guess.
+   */
+  runtime?: { running: boolean; startedAt: string };
 }
 
 export const DEFAULT_INDEX: ArchitectIndex = { version: 1, projects: [] };
@@ -51,7 +69,8 @@ function normalizeEntry(value: unknown): ArchitectIndexEntry | null {
     workspaceId: typeof value.workspaceId === 'string' ? value.workspaceId : null,
     phase: value.phase as ArchitectPhase,
     overlay,
-    stateLine: typeof value.stateLine === 'string' ? value.stateLine : '',
+    activity: normalizeActivity(value.activity),
+    milestones: normalizeCounts(value.milestones),
     usageIncomplete: value.usageIncomplete !== false,
     spentUsd: typeof value.spentUsd === 'number' && Number.isFinite(value.spentUsd) ? value.spentUsd : 0,
     capUsd: typeof value.capUsd === 'number' && Number.isFinite(value.capUsd) ? value.capUsd : null,
@@ -60,10 +79,47 @@ function normalizeEntry(value: unknown): ArchitectIndexEntry | null {
   };
 }
 
+function normalizeCounts(value: unknown): { accepted: number; total: number } {
+  if (!isRecord(value)) return { accepted: 0, total: 0 };
+  const number = (candidate: unknown) => (typeof candidate === 'number' && Number.isFinite(candidate) ? candidate : 0);
+  return { accepted: number(value.accepted), total: number(value.total) };
+}
+
+/**
+ * An entry written before this change has no activity. It reads as last known
+ * rather than as anything happening, which is the safe direction.
+ */
+function normalizeActivity(value: unknown): ProjectActivity {
+  const fallback: ProjectActivity = {
+    state: 'last-known',
+    headline: 'Last known state',
+    owner: 'No report since this project was last saved',
+  };
+  if (!isRecord(value)) return fallback;
+  if (!ACTIVITY_STATES.includes(value.state as ActivityState)) return fallback;
+  const text = (candidate: unknown, or = '') => (typeof candidate === 'string' ? candidate : or);
+  return {
+    state: value.state as ActivityState,
+    headline: text(value.headline, fallback.headline),
+    owner: text(value.owner),
+    ...(typeof value.ownerAt === 'string' ? { ownerAt: value.ownerAt } : {}),
+    ...(typeof value.ownerSuffix === 'string' ? { ownerSuffix: value.ownerSuffix } : {}),
+    ...(typeof value.action === 'string' ? { action: value.action } : {}),
+    ...(typeof value.lastReportAt === 'string' ? { lastReportAt: value.lastReportAt } : {}),
+  };
+}
+
+function normalizeRuntime(value: unknown): ArchitectIndex['runtime'] {
+  if (!isRecord(value) || typeof value.running !== 'boolean') return undefined;
+  return { running: value.running, startedAt: typeof value.startedAt === 'string' ? value.startedAt : '' };
+}
+
 export function normalizeIndex(value: unknown): ArchitectIndex {
   if (!isRecord(value) || !Array.isArray(value.projects)) return { ...DEFAULT_INDEX, projects: [] };
+  const runtime = normalizeRuntime(value.runtime);
   return {
     version: 1,
     projects: value.projects.map(normalizeEntry).filter((entry): entry is ArchitectIndexEntry => entry !== null),
+    ...(runtime ? { runtime } : {}),
   };
 }

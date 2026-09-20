@@ -96,7 +96,7 @@ function button(label: string): HTMLButtonElement {
 
 function renderPage(actions: ArchitectActions, onBack = vi.fn()) {
   act(() => root.render(
-    <ProjectPage record={FIXTURES.build!} actions={actions} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={onBack} confirm={() => true} />,
+    <ProjectPage runtimeRunning record={FIXTURES.build!} actions={actions} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={onBack} confirm={() => true} />,
   ));
   return onBack;
 }
@@ -104,7 +104,7 @@ function renderPage(actions: ArchitectActions, onBack = vi.fn()) {
 it('labels legacy cost as incomplete through the ring hint without changing the shown spend', () => {
   const base = FIXTURES.build!;
   const record = { ...base, budget: { ...base.budget, spentUsd: 12.34, incomplete: undefined } };
-  act(() => root.render(<StateLine record={record} home={null} />));
+  act(() => root.render(<StateLine runtimeRunning record={record} home={null} />));
   expect(container.textContent).toContain('$12.34');
   // The spend line stays a spend line: no coverage wording is added to the page.
   expect(container.textContent).not.toContain('cost incomplete');
@@ -112,7 +112,7 @@ it('labels legacy cost as incomplete through the ring hint without changing the 
   expect(incomplete?.getAttribute('aria-label')).toContain('Cost incomplete.');
   expect(incomplete?.getAttribute('title')).toContain('lower bound');
 
-  act(() => root.render(<StateLine record={{ ...record, budget: { ...record.budget, incomplete: false } }} home={null} />));
+  act(() => root.render(<StateLine runtimeRunning record={{ ...record, budget: { ...record.budget, incomplete: false } }} home={null} />));
   expect(container.textContent).toContain('$12.34');
   const complete = container.querySelector('[role="img"]');
   expect(complete?.getAttribute('aria-label')).not.toContain('Cost incomplete.');
@@ -124,7 +124,7 @@ describe('a refused control', () => {
     const resume = vi.fn(async () => ({ ok: false, text: 'Permission request was not answered.' }));
     const record = { ...FIXTURES.build!, phase: 'intake' as const, blockedReason: 'Permission not approved' };
     act(() => root.render(
-      <ProjectPage record={record} actions={stubActions({ resume })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+      <ProjectPage runtimeRunning record={record} actions={stubActions({ resume })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
     act(() => button('Request permission').click());
     await flush();
@@ -231,7 +231,7 @@ describe('raising the cap', () => {
     vi.stubGlobal('prompt', prompt);
     const record = { ...FIXTURES.build!, budget: { ...FIXTURES.build!.budget, capUsd: 0.5 } };
     act(() => root.render(
-      <ProjectPage record={record} actions={stubActions({ raiseCap })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+      <ProjectPage runtimeRunning record={record} actions={stubActions({ raiseCap })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
 
     act(() => button('Raise cap').click());
@@ -313,5 +313,78 @@ describe('creating a project', () => {
     expect(container.querySelector('[aria-label="LOW model"]')).toBeNull();
     act(() => trigger.click());
     for (const tier of ['LOW', 'MED', 'HIGH']) expect(container.textContent).toContain(tier);
+  });
+});
+
+describe('the top of a project', () => {
+  /** A project whose milestone run stopped with a step to retry. */
+  function stoppedProject() {
+    const base = FIXTURES.build!;
+    const first = base.milestones[0];
+    return {
+      ...base,
+      stateLine: 'Milestone m2 stopped before it finished; the runtime must surface the concrete blocker.',
+      milestones: [
+        { ...first, dispatch: { ...first.dispatch!, failure: 'Interrupted work', retryStepId: 'check-release' } },
+        ...base.milestones.slice(1),
+      ],
+    };
+  }
+
+  it('leads with the state in plain words and lifts Retry step into the header', async () => {
+    const retry = vi.fn(async () => OK);
+    const record = stoppedProject();
+
+    act(() => root.render(
+      <ProjectPage runtimeRunning record={record} actions={stubActions({ retry })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+    ));
+
+    const heading = container.querySelector('.ar-sentence');
+    expect(heading?.textContent).toContain(`Stopped at ${record.milestones[0].title}`);
+    // The header's own retry, above the rail, starting the same retry.
+    const headerRetry = container.querySelector('.ar-stateline button');
+    expect(headerRetry?.textContent).toBe('Retry step');
+
+    act(() => (headerRetry as HTMLButtonElement).click());
+    await flush();
+
+    expect(retry).toHaveBeenCalledWith(record.id, record.milestones[0].id);
+  });
+
+  it('offers the cap control in the header when the spend cap stopped the project', () => {
+    const base = FIXTURES.limited!;
+    const record = { ...base, budget: { ...base.budget, spentUsd: base.budget.capUsd ?? 0 } };
+
+    act(() => root.render(
+      <ProjectPage runtimeRunning record={record} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+    ));
+
+    const header = container.querySelector('.ar-stateline button') as HTMLButtonElement | null;
+    expect(header?.textContent).toBe('Raise the cap');
+
+    act(() => header?.click());
+    // The same cap input the controls menu opens, not a second way to raise it.
+    expect(container.querySelector('#ar-raise-cap-in')).not.toBeNull();
+  });
+
+  it('shows no header button when nothing needs the user', () => {
+    act(() => root.render(
+      <ProjectPage runtimeRunning record={FIXTURES.build!} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+    ));
+
+    expect(container.querySelector('.ar-stateline button')).toBeNull();
+  });
+
+  it('keeps the Architect sentence complete behind a disclosure, and out of the heading', () => {
+    const record = stoppedProject();
+
+    act(() => root.render(
+      <ProjectPage runtimeRunning record={record} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+    ));
+
+    const reported = container.querySelector('.ar-reported');
+    expect(reported?.querySelector('summary')?.textContent).toContain('What Architect reported');
+    expect(reported?.textContent).toContain(record.stateLine);
+    expect(container.querySelector('.ar-sentence')?.textContent).not.toContain(record.stateLine);
   });
 });

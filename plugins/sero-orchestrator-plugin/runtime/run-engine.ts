@@ -23,6 +23,7 @@ import { blockLimit, blockRuntime, dropStrandedEvent, mergeConcurrentAccounting,
 import { reconcileDeliveryWarning } from './delivery/availability';
 import { runStepBatch } from './run-batch';
 import { orphanRunningActivations } from './activations';
+import { stampLiveRun } from './live-run';
 import { uncertainExternalDeliveryInRun } from './delivery/delivery-contract';
 
 export interface RunResult {
@@ -355,6 +356,8 @@ export class RunEngine {
         result = { ...result, status: 'disabled', runtime: { ...result.runtime, activeRunId: undefined } };
       }
       result = dropStrandedEvent(this.host, result);
+      // Every commit during a run is that run reporting. No run, no mark.
+      result = stampLiveRun(result, this.host.now());
       return { ...state, loops: state.loops.map((l) => (l.id === loop.id ? result : l)) };
     });
     return result;

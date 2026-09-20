@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useAgentBoardStore } from '@/stores/agent-board';
 import { useAppStore } from '@/stores/app';
 import { useAgentStore } from '@/stores/agent';
 import { useOpenWorkspaces, useWorkspaceStore } from '@/stores/workspace';
@@ -33,6 +34,13 @@ export function useWorkspaceTreeRuntime() {
   useEffect(() => {
     refreshWorkspaceTree(loadWorkspaces, loadSessions);
   }, [loadSessions, loadWorkspaces]);
+
+  // The attention icon reads the same watched indexes as the Agent Board, so
+  // the tree attaches the watchers whether or not the board was ever opened.
+  // Watchers only: the board's GitHub sweep stays with the board.
+  useEffect(() => {
+    useAgentBoardStore.getState().startWatching();
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

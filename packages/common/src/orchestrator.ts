@@ -8,14 +8,16 @@ export {
   ORCHESTRATOR_APP_ID,
   ORCHESTRATOR_INDEX_FILE,
   ORCHESTRATOR_ROOM_INDEX_FILE,
+  resolveOrchestratorTriggerIntent,
+} from './orchestrator-contract';
+export {
   ORCHESTRATOR_REGISTRY_GLOBAL_KEY,
   ORCHESTRATOR_ROOM_REGISTRY_GLOBAL_KEY,
   getOrchestratorRegistry,
   getOrchestratorRoomRegistry,
   requestOrchestratorAction,
   createOrchestratorRoom,
-  resolveOrchestratorTriggerIntent,
-} from './orchestrator-contract';
+} from './orchestrator-registry';
 export {
   checkOrchestratorProjectContext,
   sameOrchestratorProjectAttribution,
@@ -48,6 +50,8 @@ export type {
   OrchestratorBoardTriggerSuggestion,
   OrchestratorDeliveryDestinationId,
   OrchestratorBoardLoopLimits,
+} from './orchestrator-contract';
+export type {
   OrchestratorCoordinatorHandle,
   OrchestratorRegistryEntryView,
   OrchestratorRoomCreateLimits,
@@ -55,7 +59,7 @@ export type {
   OrchestratorRoomCreateResult,
   OrchestratorRoomHandle,
   OrchestratorRoomRegistryEntryView,
-} from './orchestrator-contract';
+} from './orchestrator-registry';
 export type {
   OrchestratorProjectContext,
   OrchestratorProjectContextCheck,

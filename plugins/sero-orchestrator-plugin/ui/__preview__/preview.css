@@ -1,11 +1,8 @@
 /**
- * Host-owned tokens, for the harness only.
+ * Harness chrome only.
  *
- * `plugin.css` deliberately leaves the Sero design tokens to the host: a
- * federated plugin inherits `--background`, `--brand-*`, and the light/dark
- * blocks from the document root of the app that mounts it. The harness has no
- * host, so it imports the host stylesheet to supply them. Never import this
- * from the plugin's own `styles.css`.
+ * The host tokens are not imported here. `main.tsx` injects the host stylesheet
+ * as a raw string, because routed through Vite it meets the plugin CSS scope,
+ * which refuses document-level selectors such as `html.theme-glass body`.
+ * Never import the host stylesheet from the plugin's own `styles.css`.
  */
-
-@import "@sero-ai/ui/styles/globals.css";

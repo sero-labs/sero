@@ -187,6 +187,18 @@ function toPullRequests(loop: Loop): OrchestratorPullRequestView[] | undefined {
   return prs.map((pr) => ({ number: pr.number, url: pr.url, title: pr.title }));
 }
 
+/**
+ * The event sources that can still start this loop. A disabled trigger is left
+ * out, so a disarmed maintenance Workflow does not claim it is waiting on
+ * GitHub when nothing will reach it.
+ */
+function toArmedEventSources(loop: Loop): string[] | undefined {
+  const sources = loop.triggers
+    .filter((t) => (t.type === 'event' || t.type === 'hybrid') && t.eventSource && !t.disabled && !isExhausted(t))
+    .map((t) => t.eventSource!);
+  return sources.length > 0 ? [...new Set(sources)] : undefined;
+}
+
 export function toSummary(loop: Loop): LoopSummary {
   const pendingSuggestions = (loop.suggestions ?? []).filter((s) => s.status === 'pending').length;
   const pendingInput = loop.runtime.pendingInput?.questions.length ?? 0;
@@ -194,6 +206,7 @@ export function toSummary(loop: Loop): LoopSummary {
     id: loop.id,
     title: loop.title,
     status: loop.status,
+    liveRun: loop.runtime.liveRun,
     summary: loop.summary,
     prompt: loop.prompt,
     pendingSuggestions: pendingSuggestions || undefined,
@@ -201,6 +214,7 @@ export function toSummary(loop: Loop): LoopSummary {
     progress: toProgress(loop),
     attention: toAttention(loop),
     schedules: toSchedules(loop),
+    armedEventSources: toArmedEventSources(loop),
     snoozedUntil: loop.runtime.snoozedUntil,
     usage: reportedUsage(toLifetimeUsage(loop)),
     activeStepTitles: toActiveStepTitles(loop),

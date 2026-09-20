@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Button } from '@sero-ai/ui';
 
+import { sessionStartedAt } from '@sero-ai/common';
+import { projectActivity } from '../shared/activity';
 import type { AutonomySetting, ProjectRecord } from '../shared/record';
 import type { ActionOutcome, ArchitectActions, SessionHistoryEntry } from './lib/actions';
 import { openDispatch } from './lib/page-helpers';
@@ -14,13 +16,15 @@ import { RepairCard } from './components/RepairCard';
 import { ProjectPreview } from './components/ProjectPreview';
 import { SideColumn, type DisclosureState } from './components/SideColumn';
 import { SessionHistoryDialog } from './components/SessionHistoryDialog';
-import { StateLine } from './components/StateLine';
+import { StateLine, type HeaderAction } from './components/StateLine';
 import { TopBar, type ProjectControls } from './components/TopBar';
 import { Quiet, SectionHead } from './components/Pill';
 
 export interface ProjectPageProps {
   permissionPending?: boolean;
   record: ProjectRecord;
+  /** Whether the Architect runtime is running in this session. */
+  runtimeRunning: boolean;
   actions: ArchitectActions;
   narrow: boolean;
   disclosures: DisclosureState;
@@ -157,9 +161,42 @@ function ProjectMainColumn({ record, actions, needsActions, permissionPending, o
   );
 }
 
-export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOpenModels, onOpenInspector, confirm, permissionPending = false }: ProjectPageProps) {
+/**
+ * The one action the header offers, and what it runs.
+ *
+ * It is the same action the projects list names, so a user reading either sees
+ * one thing to do. Retry step is lifted here from the milestone rail: both
+ * start the same retry.
+ */
+function useHeaderAction(
+  record: ProjectRecord,
+  actions: ArchitectActions,
+  runtimeRunning: boolean,
+  raiseCap: () => void,
+): HeaderAction | null {
+  const activity = projectActivity(record, { sessionStartedAt: sessionStartedAt(), runtimeRunning });
+  if (!activity.action) return null;
+  const stopped = record.milestones.find((milestone) => milestone.dispatch?.failure && milestone.dispatch.retryStepId);
+  if (activity.action === 'Retry the step' && stopped) {
+    return { label: 'Retry step', run: () => void actions.retry(record.id, stopped.id) };
+  }
+  if (activity.action === 'Raise the cap') {
+    return { label: 'Raise the cap', run: raiseCap };
+  }
+  const room = record.milestones.find((milestone) => milestone.dispatch?.kind === 'room' && milestone.dispatch.failure);
+  if (activity.action === 'Open the Room to answer' && room?.dispatch) {
+    const { kind, id, workspaceId } = room.dispatch;
+    return { label: 'Open Room to answer', run: () => openDispatch({ kind, id, workspaceId }) };
+  }
+  // An open decision keeps its control: the Needs You card sits right under
+  // this header with its answer, so a second button would be the same one twice.
+  return null;
+}
+
+export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOpenModels, onOpenInspector, confirm, runtimeRunning, permissionPending = false }: ProjectPageProps) {
   const id = record.id;
   const page = useProjectPageControls(record, actions, onBack, confirm, onOpenModels, onOpenInspector);
+  const headerAction = useHeaderAction(record, actions, runtimeRunning, page.controls.raiseCap);
 
   return (
     <>
@@ -181,7 +218,7 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOp
               )}
             </div>
           )}
-          <StateLine record={record} home={null} />
+          <StateLine record={record} home={null} action={headerAction} runtimeRunning={runtimeRunning} />
           <div className="ar-sections" data-narrow={narrow ? 1 : 0}>
             <ProjectMainColumn record={record} actions={actions} needsActions={page.needsActions} permissionPending={permissionPending} onNotice={page.setNotice} />
             <SideColumn record={record} disclosures={disclosures} />

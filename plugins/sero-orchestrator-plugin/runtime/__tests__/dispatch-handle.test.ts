@@ -26,7 +26,7 @@ import { createRoomAppActions } from '../rooms/room-app-actions';
 import type { RoomCommandRouter } from '../rooms/room-command-router';
 import { createRoomDispatchHandle } from '../rooms/room-dispatch-handle';
 import { createFakeHost } from './fake-host';
-import { planJson, oneStepPlan } from './fixtures';
+import { planJson, oneStepPlan, seedActiveLoop } from './fixtures';
 import { createRoomHarness, disposeHarness, envelopeWith } from './room-harness';
 
 afterEach(() => {
@@ -209,5 +209,82 @@ describe('Room creation through the typed handle', () => {
   it('fails by workspace name when no Room coordinator is registered', async () => {
     const result = await createOrchestratorRoom('ws-missing', { mandate: 'anything' });
     expect(result).toEqual({ ok: false, error: expect.stringContaining('"ws-missing"') });
+  });
+});
+
+describe('Trigger arming through the typed handle', () => {
+  function seedMaintenanceLoop(host: ReturnType<typeof createFakeHost>, projectId: string) {
+    const loop = seedActiveLoop(host, oneStepPlan().plan, 'loop-maint');
+    const armed = {
+      ...loop,
+      project: { projectId, runId: 'run_1' },
+      runtime: { ...loop.runtime, activeRunId: 'run_in_flight' },
+      triggers: [
+        { id: 'issues', loopId: loop.id, workspaceId: 'ws-1', type: 'event' as const, eventSource: 'github:issue-opened', fireCount: 0 },
+        { id: 'weekly', loopId: loop.id, workspaceId: 'ws-1', type: 'cron' as const, schedule: '0 8 * * 1', fireCount: 0 },
+      ],
+    };
+    host.state = { ...host.state, loops: [armed] };
+    return armed;
+  }
+
+  it('disarms every trigger and leaves the run in flight alone', async () => {
+    const host = createFakeHost({ workspaceId: 'ws-1' });
+    seedMaintenanceLoop(host, 'proj_1');
+    registerCoordinator('ws-1', '/repos/ws-1', new Coordinator(host));
+
+    const result = await requestOrchestratorAction('ws-1', {
+      kind: 'set_armed',
+      loopId: 'loop-maint',
+      armed: false,
+      owner: { projectId: 'proj_1' },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.changedTriggerIds).toEqual(['issues', 'weekly']);
+    const loop = host.state.loops[0];
+    expect(loop.triggers.every((t) => t.disabled)).toBe(true);
+    expect(loop.status).toBe('active');
+    expect(loop.runtime.activeRunId).toBe('run_in_flight');
+  });
+
+  it('re-arms exactly the triggers it disarmed, leaving one the user turned off', async () => {
+    const host = createFakeHost({ workspaceId: 'ws-1' });
+    const loop = seedMaintenanceLoop(host, 'proj_1');
+    host.state = {
+      ...host.state,
+      loops: [{ ...loop, triggers: loop.triggers.map((t) => ({ ...t, disabled: true })) }],
+    };
+    registerCoordinator('ws-1', '/repos/ws-1', new Coordinator(host));
+
+    const result = await requestOrchestratorAction('ws-1', {
+      kind: 'set_armed',
+      loopId: 'loop-maint',
+      armed: true,
+      triggerIds: ['weekly'],
+      owner: { projectId: 'proj_1' },
+    });
+
+    expect(result.ok).toBe(true);
+    const triggers = host.state.loops[0].triggers;
+    expect(triggers.find((t) => t.id === 'weekly')?.disabled).toBe(false);
+    expect(triggers.find((t) => t.id === 'issues')?.disabled).toBe(true);
+  });
+
+  it('refuses a Workflow another project owns and changes nothing', async () => {
+    const host = createFakeHost({ workspaceId: 'ws-1' });
+    seedMaintenanceLoop(host, 'proj_1');
+    registerCoordinator('ws-1', '/repos/ws-1', new Coordinator(host));
+
+    const result = await requestOrchestratorAction('ws-1', {
+      kind: 'set_armed',
+      loopId: 'loop-maint',
+      armed: false,
+      owner: { projectId: 'proj_other' },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('loop-maint');
+    expect(host.state.loops[0].triggers.some((t) => t.disabled)).toBe(false);
   });
 });

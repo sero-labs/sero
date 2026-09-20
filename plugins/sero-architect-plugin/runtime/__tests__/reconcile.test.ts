@@ -111,11 +111,49 @@ describe('restart reconciliation', () => {
 
     expect(runtime.gate.open).toBe(false);
     expect(runtime.records()).toBeNull();
-    expect(host.index()).toBeNull();
+    // The list is told nobody is running; no project row is written, and the
+    // records on disk are untouched.
+    expect(host.index()?.runtime).toMatchObject({ running: false });
+    expect(host.index()?.projects).toEqual([]);
     // Removing the flag and starting again reconciles from the untouched record.
     const again = new ArchitectRuntime(host, {});
     await again.start();
     expect((await again.records()?.read('proj_1'))?.overlay).toBe('limited');
     await again.dispose();
+  });
+});
+
+describe('the runtime flag and stale liveness', () => {
+  it('drops an observed-liveness stamp from an earlier session at startup', async () => {
+    const host = await fakeHost();
+    const record = buildingProject({ milestones: [milestone('m1', {
+      status: 'running',
+      dispatch: { kind: 'workflow', id: 'loop_1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null, observedLiveAt: T0 },
+    })] });
+    await seed(host, record);
+
+    const runtime = new ArchitectRuntime(host, {});
+    await runtime.start();
+    try {
+      const reconciled = await runtime.records()?.read(record.id);
+      expect(reconciled?.milestones[0].dispatch?.observedLiveAt).toBeUndefined();
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it('records that the runtime is running, and that it is not when the kill switch is off', async () => {
+    const host = await fakeHost();
+    await seed(host, buildingProject());
+
+    const runtime = new ArchitectRuntime(host, {});
+    await runtime.start();
+    expect(host.index()?.runtime).toMatchObject({ running: true });
+    await runtime.dispose();
+    expect(host.index()?.runtime).toMatchObject({ running: false });
+
+    const disabled = new ArchitectRuntime(host, { SERO_ARCHITECT: '0' });
+    await disabled.start();
+    expect(host.index()?.runtime).toMatchObject({ running: false });
   });
 });

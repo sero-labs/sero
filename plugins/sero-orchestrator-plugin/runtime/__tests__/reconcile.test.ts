@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { isLive } from '@sero-ai/common';
 import { reconcileAll, reconcileLoop } from '../reconcile';
 import { createFakeHost } from './fake-host';
 import { oneStepPlan, seedActiveLoop, sequentialPlan } from './fixtures';
@@ -133,5 +134,48 @@ describe('reconcileAll', () => {
     await reconcileAll(host);
     expect(host.state.loops[0].runtime.activeRunId).toBeUndefined();
     expect(host.state.loops[0].runs[0].status).toBe('orphaned');
+  });
+});
+
+describe('live-run marks across a restart', () => {
+  const earlier = { runId: 'run-1', startedAt: '2026-09-16T08:00:00.000Z', reportedAt: '2026-09-16T08:12:00.000Z' };
+
+  it('clears a mark an earlier session left behind an active run', () => {
+    const host = createFakeHost();
+    const loop = withInFlightRun(seedActiveLoop(host, oneStepPlan().plan));
+    const stale = { ...loop, runtime: { ...loop.runtime, liveRun: earlier } };
+
+    const reconciled = reconcileLoop(host, stale);
+
+    expect(reconciled.runtime.liveRun).toBeUndefined();
+    // The mark is also false on its own terms: it reported before this session began.
+    expect(isLive(stale.runtime.liveRun, '2026-09-19T09:00:00.000Z')).toBe(false);
+  });
+
+  it('clears a mark even when nothing else needs recovery', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    const stale = { ...loop, runtime: { ...loop.runtime, liveRun: earlier } };
+
+    expect(reconcileLoop(host, stale).runtime.liveRun).toBeUndefined();
+  });
+
+  it('leaves a loop with neither a mark nor in-flight work by reference', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+
+    expect(reconcileLoop(host, loop)).toBe(loop);
+  });
+
+  it('recovers a loop persisted by an older schema with no runtime at all', () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    // reconcileRecovered already tolerates this shape; clearing the mark runs
+    // first, so it has to tolerate it too. The cast builds what tsc forbids and
+    // the disk still holds.
+    const legacy = { ...loop, runtime: undefined } as unknown as Loop;
+
+    expect(() => reconcileLoop(host, legacy)).not.toThrow();
+    expect(reconcileLoop(host, legacy)).toBe(legacy);
   });
 });

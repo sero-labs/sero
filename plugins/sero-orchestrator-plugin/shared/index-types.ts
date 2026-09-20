@@ -53,6 +53,8 @@ export interface LoopSummary extends OrchestratorBoardLoopView {
   prompt: string;
   /** Cron/hybrid trigger schedules — lets external surfaces list scheduled loops from the index alone. */
   schedules?: OrchestratorScheduleSummary[];
+  /** Event sources of this loop's armed event/hybrid triggers, so a row can say what starts the work. */
+  armedEventSources?: string[];
   /** Count of pending reflection suggestions — drives the loop-list badge. */
   pendingSuggestions?: number;
   /** Count of open questions the loop is waiting on — drives the input badge. */

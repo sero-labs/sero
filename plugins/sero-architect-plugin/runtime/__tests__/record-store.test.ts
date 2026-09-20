@@ -24,9 +24,10 @@ async function harness(io?: Partial<RecordStoreIo>) {
   return { homeDir, store, updateIndex, index: () => index };
 }
 
-const record = (id: string, stateLine = 'fresh'): ProjectRecord => ({
+const record = (id: string, stateLine = 'fresh', updatedAt = '2026-09-06T10:00:00.000Z'): ProjectRecord => ({
   ...createProjectRecord({ id, name: id, idea: 'idea', folder: '~/p', now: '2026-09-06T10:00:00.000Z' }),
   stateLine,
+  updatedAt,
 });
 
 describe('record store', () => {
@@ -35,14 +36,16 @@ describe('record store', () => {
     await store.write(record('a', 'one'));
 
     expect(await store.read('a')).toMatchObject({ id: 'a', stateLine: 'one' });
-    expect(index()?.projects).toEqual([expect.objectContaining({ id: 'a', stateLine: 'one', phase: 'intake', needsYou: 0 })]);
+    expect(index()?.projects).toEqual([expect.objectContaining({ id: 'a', phase: 'intake', needsYou: 0 })]);
+    // The owner's own sentence stays on the record; the index carries the derived state.
+    expect(index()?.projects[0]).not.toHaveProperty('stateLine');
     expect(updateIndex).toHaveBeenCalledTimes(1);
     // No temp file survives a successful write.
     expect(await readdir(path.join(homeDir, 'projects'))).toEqual(['a.json']);
 
-    await store.write(record('a', 'two'));
+    await store.write(record('a', 'two', '2026-09-06T11:00:00.000Z'));
     expect(index()?.projects).toHaveLength(1);
-    expect(index()?.projects[0].stateLine).toBe('two');
+    expect(index()?.projects[0].updatedAt).toBe('2026-09-06T11:00:00.000Z');
   });
 
   it('leaves the previous record readable and the index untouched when a write is interrupted', async () => {
@@ -57,12 +60,12 @@ describe('record store', () => {
     await store.write(record('a', 'complete'));
     failNext = true;
 
-    await expect(store.write(record('a', 'partial'))).rejects.toThrow('power cut');
+    await expect(store.write(record('a', 'partial', '2026-09-06T12:00:00.000Z'))).rejects.toThrow('power cut');
 
     expect(await store.read('a')).toMatchObject({ stateLine: 'complete' });
     expect(JSON.parse(await readFile(path.join(homeDir, 'projects', 'a.json'), 'utf8')).stateLine).toBe('complete');
     expect(await readdir(path.join(homeDir, 'projects'))).toEqual(['a.json']);
-    expect(index()?.projects[0].stateLine).toBe('complete');
+    expect(index()?.projects[0].updatedAt).toBe('2026-09-06T10:00:00.000Z');
     expect(updateIndex).toHaveBeenCalledTimes(1);
   });
 

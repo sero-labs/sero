@@ -36,6 +36,7 @@ import {
   withLease,
   type RoomMessageDraft,
 } from './room-messages';
+import { withLiveRun, withStatusStamps } from './room-commit-stamps';
 import { createRoomPaths } from './room-paths';
 import { createRoomPersistence } from './room-persistence';
 import {
@@ -185,31 +186,11 @@ export function createRoomStore(
     return result;
   }
 
-  /**
-   * `statusAt` upkeep: a member entering a new status gets stamped here, at
-   * the one seam every write shares — no write site can forget it. Staying in
-   * a status keeps the stamp; new members keep what their creation site set.
-   */
-  function withStatusStamps(room: RoomRecord, prev: RoomState): RoomRecord {
-    const prevRoom = prev.rooms.find((candidate) => candidate.definition.id === room.definition.id);
-    if (!prevRoom || prevRoom.members === room.members) return room;
-    const before = new Map(prevRoom.members.map((member) => [member.id, member]));
-    return {
-      ...room,
-      members: room.members.map((member) => {
-        const was = before.get(member.id);
-        return !was || was.status === member.status
-          ? member
-          : { ...member, statusAt: new Date().toISOString() };
-      }),
-    };
-  }
-
-  /** The normalizations every write path shares: cursors, then statusAt. */
+  /** The normalizations every write path shares: cursors, statusAt, then the live mark. */
   async function commit(prev: RoomState, next: RoomState): Promise<void> {
     const normalized = {
       ...next,
-      rooms: next.rooms.map((room) => withMemberCursors(withStatusStamps(room, prev))),
+      rooms: next.rooms.map((room) => withLiveRun(withMemberCursors(withStatusStamps(room, prev)))),
     };
     await persistence.commit(prev, normalized);
     const currentIds = new Set(normalized.rooms.map((room) => room.definition.id));

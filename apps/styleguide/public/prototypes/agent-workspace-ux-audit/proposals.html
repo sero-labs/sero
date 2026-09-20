@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent and workspace UX — proposals</title>
+<style>
+:root{
+  --bg:#09090b;--surface:#111113;--raised:#18181b;--overlay:#202024;--muted:#28282d;
+  --line:#26262b;--line-strong:#393940;
+  --text:#f4f4f5;--text-2:#b7b7c0;--text-3:#74747f;
+  --emerald:#34d399;--emerald-2:#10b981;--emerald-wash:rgba(52,211,153,.1);
+  --blue:#60a5fa;--blue-wash:rgba(96,165,250,.12);
+  --amber:#fbbf24;--amber-wash:rgba(251,191,36,.12);
+  --red:#fb7185;--red-wash:rgba(251,113,133,.12);
+  --violet:#a78bfa;
+  --sans:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box}
+html{background:#050506;color-scheme:dark}
+body{margin:0;padding:60px 24px 120px;background:#050506;color:var(--text);font-family:var(--sans)}
+button{font:inherit;border:0;background:none;color:inherit;text-align:left;padding:0}
+h1,h2,h3,h4,p{margin:0}
+.doc{width:min(1400px,100%);margin:0 auto}
+.intro{max-width:820px;margin-bottom:56px}
+h1{font-size:28px;line-height:1.15;letter-spacing:-.04em;font-weight:650}
+.lede{margin-top:13px;color:var(--text-2);font-size:15px;line-height:1.65}
+.lede b{color:var(--text);font-weight:560}
+.rules{margin-top:22px;padding:16px 18px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}
+.rules h4{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--text-3);font-weight:650}
+.rules ul{margin:10px 0 0;padding-left:18px;color:var(--text-2);font-size:13px;line-height:1.7}
+.rules b{color:var(--text)}
+.state{margin-top:64px}
+.state:first-of-type{margin-top:0}
+h2{font-size:19px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
+.note{max-width:880px;margin:9px 0 8px;color:var(--text-3);font-size:13px;line-height:1.6}
+.note b{color:var(--text-2);font-weight:560}
+.was{max-width:880px;margin:0 0 18px;color:#8a8a93;font-size:12px;line-height:1.55}
+.was b{color:var(--red);font-weight:560}
+
+.app{width:1400px;max-width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;
+  box-shadow:0 30px 90px rgba(0,0,0,.46);overflow:hidden;display:flex;flex-direction:column}
+.top{height:52px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--line);flex:0 0 auto}
+.mark{width:20px;height:20px;border-radius:6px;background:linear-gradient(145deg,#1d3b31,#101012);
+  border:1px solid #2f5b4b;display:grid;place-items:center;color:var(--emerald);font-size:10px}
+.top .name{font-size:13px;font-weight:650}
+.crumb{display:flex;align-items:center;gap:8px;color:var(--text-3);font-size:12px}
+.crumb b{color:var(--text-2);font-weight:500}
+.top .right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.btn{height:30px;padding:0 11px;border:1px solid var(--line-strong);border-radius:7px;background:var(--raised);
+  color:var(--text-2);display:inline-flex;align-items:center;gap:7px;font-size:12px;white-space:nowrap}
+.btn.primary{border-color:#2dd49a;background:var(--emerald-2);color:#04130d;font-weight:650}
+.btn.quiet{border-color:transparent;background:transparent;color:var(--text-3)}
+.btn.sm{height:26px;padding:0 9px;font-size:11px}
+.nav{display:flex;align-items:center;gap:2px;margin-left:8px}
+.nav a{padding:6px 12px;border-radius:7px;color:var(--text-3);font-size:12px;text-decoration:none}
+.nav a.on{background:var(--raised);color:var(--text)}
+.body{padding:18px 20px 22px}
+
+/* activity line — the core of proposals 1 and 4 */
+.act{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--text-2)}
+.act .glyph{width:16px;height:16px;border-radius:4px;display:grid;place-items:center;font:9px var(--mono);flex:0 0 auto}
+.g-run{background:var(--emerald-wash);color:var(--emerald)}
+.g-wait{background:var(--amber-wash);color:var(--amber)}
+.g-queue{background:var(--blue-wash);color:var(--blue)}
+.g-pause{background:var(--muted);color:var(--text-2)}
+.g-done{background:var(--muted);color:var(--text-3)}
+.g-fail{background:var(--red-wash);color:var(--red)}
+.g-stale{background:var(--muted);color:var(--amber)}
+.who{color:var(--text-3);font-size:12px;line-height:1.45}
+.who b{color:var(--text-2);font-weight:560}
+
+.rowhead{display:grid;grid-template-columns:230px minmax(0,1fr) 290px 120px;gap:14px;padding:0 18px 9px;
+  color:var(--text-3);font:10px var(--mono);letter-spacing:.07em;text-transform:uppercase}
+.rowhead .sp{text-align:right}
+.row{display:grid;grid-template-columns:230px minmax(0,1fr) 290px 120px;gap:14px;align-items:center;
+  padding:13px 14px;border:1px solid var(--line);border-radius:9px;background:var(--surface);margin-bottom:8px}
+.row .title{font-size:13px;font-weight:560;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .id{margin-top:3px;color:var(--text-3);font:10px var(--mono)}
+.row .money{text-align:right;color:var(--text-3);font:11px var(--mono)}
+.row.attn{border-color:rgba(251,191,36,.34);background:rgba(251,191,36,.045)}
+.row.fail{border-color:rgba(251,113,133,.3);background:rgba(251,113,133,.04)}
+.needs{display:inline-block;padding:3px 8px;border-radius:6px;background:var(--amber-wash);
+  color:var(--amber);font-size:11px;font-weight:560;line-height:1.45}
+.plain{color:var(--text-3);font-size:11px}
+
+.card{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:15px 17px}
+.card + .card{margin-top:11px}
+.sec{margin-top:22px}
+.sec-head{display:flex;align-items:baseline;gap:10px;margin-bottom:10px;color:var(--text-3);
+  font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase}
+.sec-head .n{margin-left:auto;color:#55555e}
+h3{font-size:17px;letter-spacing:-.02em;font-weight:600;line-height:1.25}
+.sub{margin-top:5px;color:var(--text-3);font-size:12px}
+.dis{margin-top:11px;border-top:1px solid var(--line);padding-top:10px}
+.dis summary{cursor:default;color:var(--text-2);font-size:12px;list-style:none;display:flex;align-items:center;gap:8px}
+.dis summary::-webkit-details-marker{display:none}
+.dis summary .chev{width:0;height:0;flex:0 0 auto;border-left:5px solid var(--text-3);
+  border-top:4px solid transparent;border-bottom:4px solid transparent;font-size:0}
+.dis[open] > summary .chev{border-left-color:transparent;border-top:5px solid var(--text-3);
+  border-right:4px solid transparent;border-left:4px solid transparent;border-bottom:0}
+.dis summary .n{margin-left:auto;color:var(--text-3);font:10px var(--mono)}
+.dis[open] > summary{margin-bottom:10px}
+.kv{display:grid;grid-template-columns:132px minmax(0,1fr);gap:6px 14px;font-size:12px;color:var(--text-2)}
+.kv dt{color:var(--text-3);font:10px var(--mono);letter-spacing:.06em;text-transform:uppercase;padding-top:2px}
+.kv dd{margin:0;line-height:1.55}
+.evi{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--line);font-size:12px}
+.evi:last-child{border-bottom:0}
+.evi .ok{color:var(--emerald);font:11px var(--mono)}
+.evi .bad{color:var(--red);font:11px var(--mono)}
+.evi code{font:11px var(--mono);color:var(--text-2)}
+.evi .when{margin-left:auto;color:var(--text-3);font:10px var(--mono)}
+.chip{display:inline-flex;align-items:center;height:21px;padding:0 8px;border-radius:6px;background:var(--raised);
+  color:var(--text-3);font-size:11px}
+.chip.on{background:var(--emerald-wash);color:var(--emerald)}
+.chip.warn{background:var(--amber-wash);color:var(--amber)}
+.chip.bad{background:var(--red-wash);color:var(--red)}
+.chip.info{background:var(--blue-wash);color:var(--blue)}
+.steps{counter-reset:s;margin:0;padding:0;list-style:none}
+.steps li{position:relative;padding:0 0 12px 30px;counter-increment:s}
+.steps li:before{content:counter(s);position:absolute;left:0;top:0;width:20px;height:20px;border-radius:50%;
+  border:1px solid var(--line-strong);display:grid;place-items:center;color:var(--text-3);font:10px var(--mono)}
+.steps li b{display:block;font-size:13px;font-weight:560;color:var(--text)}
+.steps li span{display:block;margin-top:3px;color:var(--text-3);font-size:12px;line-height:1.5}
+.two{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px}
+.ask{border:1px solid rgba(251,191,36,.34);background:rgba(251,191,36,.05);border-radius:10px;padding:16px 18px}
+.ask .eyebrow{color:var(--amber);font:9px var(--mono);letter-spacing:.11em;text-transform:uppercase}
+.ask h3{margin-top:7px}
+.opt{margin-top:11px;border:1px solid var(--line-strong);border-radius:8px;background:var(--bg);padding:11px 13px}
+.opt.pick{border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.05)}
+.opt b{font-size:13px}
+.opt p{margin-top:4px;color:var(--text-3);font-size:12px;line-height:1.5}
+.opt .rec{float:right;color:var(--emerald);font:9px var(--mono);letter-spacing:.09em;text-transform:uppercase}
+.mini{color:var(--text-3);font-size:11px;line-height:1.5}
+.bar{height:3px;border-radius:2px;background:var(--muted);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--emerald)}
+.bar.over i{background:var(--red)}
+.tl{border-left:1px solid var(--line);margin-left:7px;padding-left:16px}
+.tl .ev{position:relative;padding:8px 0;font-size:12px;color:var(--text-2)}
+.tl .ev:before{content:"";position:absolute;left:-20px;top:13px;width:7px;height:7px;border-radius:50%;background:#3d3d45}
+.tl .ev.now:before{background:var(--emerald)}
+.tl .ev .t{color:var(--text-3);font:10px var(--mono);margin-right:9px}
+footer{margin-top:80px;padding-top:20px;border-top:1px solid var(--line);color:var(--text-3);font-size:12px;line-height:1.6}
+footer a{color:var(--emerald)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main class="doc">
+
+<div class="intro">
+  <h1>Agent and workspace UX — proposed changes</h1>
+  <p class="lede">These are <b>proposals</b>, not the product. Each one answers a problem recorded in
+  <a href="./evidence.html" style="color:var(--emerald)">evidence.html</a>, which holds the captured frames of the
+  shipped build. Nothing here has been implemented, and no frame here is evidence of anything.</p>
+  <p class="lede">The visual system does not change: same surfaces, same emerald accent, same density, same controls.
+  What changes is <b>what is shown first</b>, <b>who is speaking</b>, and <b>how a state is named</b>.</p>
+  <div class="rules">
+    <h4>Rules these proposals follow</h4>
+    <ul>
+      <li><b>No truncation as a remedy.</b> Long text is kept in full, behind a disclosure, with headings, ordered
+      steps, labelled evidence rows or acceptance criteria. Nothing is deleted to make a card fit.</li>
+      <li><b>The user's words, not the agent's.</b> A heading says what the project is and what it needs. The
+      instruction an agent was given is supporting detail, and is labelled as the agent's.</li>
+      <li><b>State is a word before it is a colour.</b> Every status carries a text label and a distinct glyph, so it
+      survives reduced motion, a greyscale display and colour blindness.</li>
+      <li><b>No invented progress.</b> No percentage, no ETA, no bar that implies elapsed work. Counts of finished
+      steps are shown as counts, and freshness is shown as freshness.</li>
+      <li><b>Say nothing rather than say nothing loudly.</b> An empty section is one quiet line, not a heading, a
+      badge and a card.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- 1 -->
+<section class="state">
+  <h2>1 · Project list — activity, owner and worker, before anything is opened</h2>
+  <p class="note">One row answers all six questions: is work happening, what is it, who is doing it, must I act,
+  how fresh is this, and what has it cost. <b>Owner activity and delegated activity are separate columns</b>, so a
+  paused Architect whose Workflow is still running reads correctly. The spend bar stays, but it is no longer the only
+  bar on the row, so money is not mistaken for progress.</p>
+  <p class="was"><b>Today:</b> one pill holds either the phase or the overlay, never both; the header promises a
+  "needs you" column that never appears; the only bar measures spend; and "Working on M2…" reads the same whether a
+  worker is running or nothing has happened for a week.</p>
+  <div class="app">
+    <div class="top">
+      <div class="mark">◈</div><div class="name">Architect</div>
+      <div class="crumb">· <b>Projects</b></div>
+      <div class="right"><button class="btn">Needs you · 3</button><button class="btn primary">New project</button></div>
+    </div>
+    <div class="body">
+      <div class="rowhead"><span>Project</span><span>Activity</span><span>Needs you</span><span class="sp">Spend</span></div>
+
+      <div class="row">
+        <div><div class="title">FroggerNeon</div><div class="id">build · milestone 2 of 2</div></div>
+        <div>
+          <div class="act"><span class="glyph g-run">▶</span>Building <b>Adversarial review and release</b></div>
+          <div class="who" style="margin-top:4px">Workflow <b>M2 — Adversarial review</b> is running · updated 4 min ago</div>
+        </div>
+        <div><span class="plain">Nothing — it will ask when the milestone is done</span></div>
+        <div><div class="money">$2.70 of $10</div><div class="bar" style="margin-top:5px"><i style="width:27%"></i></div></div>
+      </div>
+
+      <div class="row attn">
+        <div><div class="title">DungeonExplorer</div><div class="id">build · milestone 3 of 5</div></div>
+        <div>
+          <div class="act"><span class="glyph g-fail">!</span>Stopped at <b>FOV raycasting + fog of war</b></div>
+          <div class="who" style="margin-top:4px">Nothing is running · last change 9 days ago</div>
+        </div>
+        <div><span class="needs">Retry the step, or change the plan</span></div>
+        <div><div class="money">$10.18 of $25</div><div class="bar" style="margin-top:5px"><i style="width:41%"></i></div></div>
+      </div>
+
+      <div class="row attn">
+        <div><div class="title">CSV Summary Resilience 01</div><div class="id">build · milestone 2 of 2</div></div>
+        <div>
+          <div class="act"><span class="glyph g-pause">❚❚</span>You paused the owner</div>
+          <div class="who" style="margin-top:4px">Room <b>Adversarial Validation</b> is holding — 2 members waiting on you</div>
+        </div>
+        <div><span class="needs">Answer 2 members in the Room</span></div>
+        <div><div class="money">$5.52 of $10</div><div class="bar" style="margin-top:5px"><i style="width:55%"></i></div></div>
+      </div>
+
+      <div class="row attn">
+        <div><div class="title">import-dashboard-resilience-01</div><div class="id">discovery · no milestones yet</div></div>
+        <div>
+          <div class="act"><span class="glyph g-fail">!</span>Research was cancelled before it reported</div>
+          <div class="who" style="margin-top:4px">Nothing is running · Room <b>Import Dashboard Discovery</b> cancelled</div>
+        </div>
+        <div><span class="needs">Start the research again, or write the brief yourself</span></div>
+        <div><div class="money">$5.54 · no cap</div><div class="bar" style="margin-top:5px"><i style="width:0%"></i></div></div>
+      </div>
+
+      <div class="row">
+        <div><div class="title">reading-tracker-resilience-01</div><div class="id">maintain · released</div></div>
+        <div>
+          <div class="act"><span class="glyph g-queue">◔</span>Waiting for a trigger</div>
+          <div class="who" style="margin-top:4px">Maintenance Workflow runs Mondays 08:00, or on a CI failure · last ran 4 days ago</div>
+        </div>
+        <div><span class="plain">Nothing</span></div>
+        <div><div class="money">$22.37 of $30</div><div class="bar" style="margin-top:5px"><i style="width:75%"></i></div></div>
+      </div>
+
+      <div class="row fail">
+        <div><div class="title">csv-summary-resilience-02</div><div class="id">maintain · released</div></div>
+        <div>
+          <div class="act"><span class="glyph g-fail">$</span>Stopped — the cap was reached</div>
+          <div class="who" style="margin-top:4px">Nothing is running and nothing will start until you raise the cap</div>
+        </div>
+        <div><span class="needs">Raise the cap, or close the project</span></div>
+        <div><div class="money">$10.47 of $10</div><div class="bar over" style="margin-top:5px"><i style="width:100%"></i></div></div>
+      </div>
+
+      <div class="row">
+        <div><div class="title">import-dashboard-resilience-02</div><div class="id">maintain · released</div></div>
+        <div>
+          <div class="act"><span class="glyph g-pause">❚❚</span>You paused the owner</div>
+          <div class="who" style="margin-top:4px">Nothing is running · maintenance will not start while paused</div>
+        </div>
+        <div><span class="plain">Nothing</span></div>
+        <div><div class="money">$35.38 of $50</div><div class="bar" style="margin-top:5px"><i style="width:71%"></i></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2 -->
+<section class="state">
+  <h2>2 · Project page — the decision first, the agent's prose behind a disclosure</h2>
+  <p class="note">The heading is the project, not the owner's last sentence. Under it sits <b>one activity line</b> and
+  the one thing that needs a person. The owner's own report is kept <b>in full</b> under "What the owner reported",
+  where it reads as a quote from the agent rather than as the page's title.</p>
+  <p class="was"><b>Today:</b> the h1 is the owner's status sentence cut mid-word at "…passes the full quality and
+  restar"; "Needs you / None / You have nothing to review." says nothing three times; and the research card's heading
+  is the verbatim instruction the research team was given.</p>
+  <div class="app">
+    <div class="top">
+      <div class="mark">◈</div><div class="name">Architect</div>
+      <div class="crumb">· <b>reading-tracker-resilience-01</b></div>
+      <div class="right"><button class="btn quiet">Open session</button><button class="btn">⋯</button></div>
+    </div>
+    <div class="body">
+      <div class="card">
+        <div style="display:flex;align-items:start;gap:16px">
+          <div style="flex:1;min-width:0">
+            <h3>reading-tracker-resilience-01</h3>
+            <div class="act" style="margin-top:9px"><span class="glyph g-queue">◔</span>Waiting for a trigger</div>
+            <div class="who" style="margin-top:5px">Maintenance Workflow runs Mondays 08:00, or on a CI failure ·
+              last ran 4 days ago · nothing is running now</div>
+            <div class="sub" style="margin-top:9px">Released · 6 milestones, all accepted · owner
+              <span class="chip" style="margin-left:4px">gpt-5.6-luna · high</span></div>
+          </div>
+          <div style="width:210px;flex:0 0 auto">
+            <div class="mini">Spend</div>
+            <div style="margin-top:5px;font:14px var(--mono);color:var(--text-2)">$22.37 <span style="color:var(--text-3)">of $30</span></div>
+            <div class="bar" style="margin-top:6px"><i style="width:75%"></i></div>
+            <div class="mini" style="margin-top:7px">Owner $4.20 · research $0.48 · delegated $17.69</div>
+          </div>
+        </div>
+        <details class="dis">
+          <summary><span class="chev"></span>What the owner reported, in its own words<span class="n">4 days ago</span></summary>
+          <p style="color:var(--text-2);font-size:13px;line-height:1.6">“Title substring search is complete and
+          verified: it composes with status filters, preserves all stored records and notes, and passes the full
+          quality and restart suite. The change is non-destructive and the rendered application was checked at the
+          repository root.”</p>
+        </details>
+      </div>
+
+      <div class="sec">
+        <div class="sec-head">Needs you<span class="n">nothing</span></div>
+        <p class="mini" style="padding:0 2px">Nothing. The maintenance Workflow will ask when it finds something.</p>
+      </div>
+
+      <div class="sec">
+        <div class="sec-head">Research<span class="n">finished · 3 members · $0.48</span></div>
+        <div class="card">
+          <h3 style="font-size:15px">What the reading tracker should be built on</h3>
+          <p class="sub">Discovery finished 9 days ago. Its findings were used for the plan below.</p>
+          <details class="dis">
+            <summary><span class="chev"></span>The question the team was given<span class="n">agent instruction</span></summary>
+            <dl class="kv">
+              <dt>Question</dt><dd>Inspect the nearly empty workspace and develop a concise implementation
+                recommendation: suitable stack, product scope and UX, persistence model, validation and testing
+                strategy, key risks, and a milestone breakdown. Resolve reasonable defaults autonomously and
+                explicitly identify only choices that truly require the user.</dd>
+              <dt>Stop when</dt><dd>A concrete discovery report is returned that is sufficient to write the project
+                brief and charter, including acceptance criteria, proposed file and app structure, the persistence
+                approach across close and restart, test commands, and an estimated execution cost cap.</dd>
+              <dt>Team</dt><dd>Morgan — Discovery Conductor · gpt-5.6-luna, high<br>Riley — Workspace Investigator ·
+                gpt-5.6-sol, medium<br>Avery — Product Architect · gpt-5.6-luna, high</dd>
+            </dl>
+          </details>
+          <details class="dis">
+            <summary><span class="chev"></span>Findings used for the plan<span class="n">6 findings</span></summary>
+            <ol class="steps" style="margin-top:4px">
+              <li><b>React + TypeScript + Vite for the frontend</b><span>The workspace is empty, so nothing constrains
+                the choice, and the test tooling is already familiar.</span></li>
+              <li><b>A small Node HTTP service is the source of truth</b><span>Records must survive a frontend reload
+                and a full service restart, which rules out browser storage.</span></li>
+              <li><b>SQLite on a configurable path</b><span>Durable, no server to run, and the path can be moved
+                without a migration.</span></li>
+            </ol>
+          </details>
+          <div style="margin-top:12px"><button class="btn sm">Open the Room</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 -->
+<section class="state">
+  <h2>3 · Milestone rail — one state per milestone, evidence that names itself</h2>
+  <p class="note">A milestone shows <b>one</b> state word and the date it reached it. The four-pill chain moves into
+  the disclosure, where the four stages have dates and so mean something. Evidence rows keep the structure that
+  already works — a label, the command, a pass or fail mark — and gain a plain-English heading instead of a bare
+  commit hash.</p>
+  <p class="was"><b>Today:</b> every finished milestone shows REPORTED — VERIFIED — ACCEPTED — DELIVERED as four
+  pills; the disclosure is labelled "Evidence at 4402796"; and two different milestones show the same hash.</p>
+  <div class="app">
+    <div class="top">
+      <div class="mark">◈</div><div class="name">Architect</div>
+      <div class="crumb">· <b>DungeonExplorer</b></div>
+      <div class="right"><button class="btn quiet">Open session</button><button class="btn">⋯</button></div>
+    </div>
+    <div class="body">
+      <div class="sec-head">Milestones<span class="n">2 accepted · 1 stopped · 2 approved</span></div>
+
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="flex:1"><h3 style="font-size:15px">Project scaffold + tile map rendering</h3>
+            <p class="sub">Accepted 9 days ago · built by a Workflow</p></div>
+          <span class="chip on">Accepted</span>
+          <button class="btn sm">Open the Workflow</button>
+        </div>
+        <details class="dis">
+          <summary><span class="chev"></span>How this was checked<span class="n">4 commands · all passed</span></summary>
+          <div class="evi"><span class="ok">PASS</span><code>npm run lint</code><span class="when">9d ago</span></div>
+          <div class="evi"><span class="ok">PASS</span><code>npm run typecheck</code><span class="when">9d ago</span></div>
+          <div class="evi"><span class="ok">PASS</span><code>npm test -- --run</code><span class="when">9d ago</span></div>
+          <div class="evi"><span class="ok">PASS</span><code>npm run build</code><span class="when">9d ago</span></div>
+          <dl class="kv" style="margin-top:12px">
+            <dt>Reported</dt><dd>9 days ago, by the Workflow that built it</dd>
+            <dt>Verified</dt><dd>9 days ago, against commit <code>4402796</code></dd>
+            <dt>Accepted</dt><dd>9 days ago, by you</dd>
+            <dt>Delivered</dt><dd>Not delivered — this milestone is part of a later release</dd>
+          </dl>
+        </details>
+      </div>
+
+      <div class="card" style="border-color:rgba(251,113,133,.3);background:rgba(251,113,133,.04)">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="flex:1"><h3 style="font-size:15px">FOV raycasting + fog of war</h3>
+            <p class="sub">Stopped 9 days ago, part way through · nothing has run since</p></div>
+          <span class="chip bad">Stopped</span>
+          <button class="btn primary">Retry from the failed step</button>
+        </div>
+        <details class="dis">
+          <summary><span class="chev"></span>What stopped it<span class="n">step 3 of 6</span></summary>
+          <dl class="kv">
+            <dt>Last step</dt><dd>Implement the shadow-casting field of view and the fog-of-war overlay</dd>
+            <dt>What happened</dt><dd>The Workflow was interrupted before the step reported an outcome. No result was
+              recorded, so nothing about the step is known to have passed or failed.</dd>
+            <dt>Your options</dt><dd>Retry from the failed step, keeping the two steps that already finished · or
+              change the plan and start the milestone again</dd>
+          </dl>
+        </details>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="flex:1"><h3 style="font-size:15px">Turn system, enemies with A*, combat</h3>
+            <p class="sub">Approved and waiting · it will start when the milestone before it is accepted</p></div>
+          <span class="chip info">Queued</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 -->
+<section class="state">
+  <h2>4 · Every state, spelled out — no meaning carried by colour or motion alone</h2>
+  <p class="note">Seven states, each with a word, a distinct glyph shape and a sentence that says what will happen
+  next. <b>Unconfirmed</b> is the one the product does not have today: it says the updates stopped arriving, which is
+  neither success nor failure. None of these animate, so reduced motion loses nothing.</p>
+  <p class="was"><b>Today:</b> the Orchestrator Home list carries status in a coloured dot with no text; "BLOCKED"
+  covers four different situations that need four different actions; and there is no way to say "we have not heard
+  from this in a while".</p>
+  <div class="app">
+    <div class="body">
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px">
+        <div class="card"><div class="act"><span class="glyph g-run">▶</span><b style="color:var(--text)">Working</b></div>
+          <p class="mini" style="margin-top:7px">Names what is being worked on and who is doing it. Freshness is shown as
+          an age, never as a percentage.<br><span style="color:var(--text-2)">Building “Adversarial review” · Workflow M2 · updated 4 min ago</span></p></div>
+        <div class="card"><div class="act"><span class="glyph g-queue">◔</span><b style="color:var(--text)">Queued</b></div>
+          <p class="mini" style="margin-top:7px">Says what it is waiting for, so a schedule is not mistaken for a
+          stall.<br><span style="color:var(--text-2)">Runs Mondays 08:00, or on a CI failure · last ran 4 days ago</span></p></div>
+        <div class="card"><div class="act"><span class="glyph g-wait">?</span><b style="color:var(--text)">Waiting for you</b></div>
+          <p class="mini" style="margin-top:7px">The only state that earns an amber row and a count on the tab.
+          <br><span style="color:var(--text-2)">2 members asked a question · nothing else will move until you answer</span></p></div>
+        <div class="card"><div class="act"><span class="glyph g-pause">❚❚</span><b style="color:var(--text)">Paused by you</b></div>
+          <p class="mini" style="margin-top:7px">Says separately whether delegated work is still
+          running.<br><span style="color:var(--text-2)">Owner paused · Room Adversarial Validation is still holding 2 members</span></p></div>
+        <div class="card"><div class="act"><span class="glyph g-done">✓</span><b style="color:var(--text)">Complete</b></div>
+          <p class="mini" style="margin-top:7px">Counts what finished. A count is not a percentage of
+          time.<br><span style="color:var(--text-2)">6 of 6 milestones accepted · released 9 days ago</span></p></div>
+        <div class="card"><div class="act"><span class="glyph g-fail">!</span><b style="color:var(--text)">Stopped</b></div>
+          <p class="mini" style="margin-top:7px">Names the cause and the one action that clears
+          it.<br><span style="color:var(--text-2)">The cap was reached · nothing will start until you raise it</span></p></div>
+        <div class="card" style="grid-column:1/-1"><div class="act"><span class="glyph g-stale">~</span><b style="color:var(--text)">Unconfirmed</b></div>
+          <p class="mini" style="margin-top:7px">New. The last update is old enough that the product will not claim
+          either way. It does not say failed, and it does not say running.
+          <br><span style="color:var(--text-2)">Last update 3 hours ago, while this Workflow usually reports every few
+          minutes. It may still be working. Open the session to check.</span></p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 5 -->
+<section class="state">
+  <h2>5 · Workflow list — the title gets the line, the instruction gets a disclosure</h2>
+  <p class="note">The row shows the workflow's name in full, its state in words, and what it is waiting for. The
+  agent's instruction is still there, complete, under "What each step is told to do".</p>
+  <p class="was"><b>Today:</b> the title truncates to one line at "Release the completed reading trac…" while three
+  full lines of the agent's instruction sit underneath it, and the status is a coloured dot.</p>
+  <div class="app">
+    <div class="top">
+      <div class="mark">∞</div><div class="name">Orchestrator</div>
+      <div class="nav"><a href="#">Home</a><a class="on" href="#">Workflows 6</a><a href="#">Rooms</a><a href="#">Goals</a><a href="#">Library</a><a href="#">Catalog</a></div>
+      <div class="right"><button class="btn primary">New workflow</button></div>
+    </div>
+    <div class="body">
+      <div class="row" style="grid-template-columns:minmax(0,1fr) 300px 150px">
+        <div><div class="title" style="white-space:normal">reading-tracker-resilience-01: maintenance</div>
+          <div class="act" style="margin-top:6px"><span class="glyph g-queue">◔</span>Queued — runs Mondays 08:00, or on a CI failure</div></div>
+        <div class="mini">Last ran 4 days ago · 1 run · 2 steps</div>
+        <div class="money">$0.79 of $7.24 left</div>
+      </div>
+      <div class="row" style="grid-template-columns:minmax(0,1fr) 300px 150px">
+        <div><div class="title" style="white-space:normal">Composable title search</div>
+          <div class="act" style="margin-top:6px"><span class="glyph g-done">✓</span>Complete — 4 of 4 steps finished</div></div>
+        <div class="mini">Finished 4 days ago · 2 attempts</div>
+        <div class="money">$3.13</div>
+      </div>
+      <div class="row" style="grid-template-columns:minmax(0,1fr) 300px 150px">
+        <div><div class="title" style="white-space:normal">Release the completed reading tracker</div>
+          <div class="act" style="margin-top:6px"><span class="glyph g-done">✓</span>Complete — delivered to the workspace</div></div>
+        <div class="mini">Finished 9 days ago · 1 attempt</div>
+        <div class="money">$1.45</div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <details class="dis" style="border-top:0;padding-top:0" open>
+          <summary><span class="chev"></span>Composable title search — what each step is told to do<span class="n">4 steps · full text</span></summary>
+          <ol class="steps" style="margin-top:6px">
+            <li><b>Inspect the existing library implementation</b><span>Read the current search and filter code, the
+              stored record shape, and the tests that cover them. Do not change anything in this step.</span></li>
+            <li><b>Add a non-destructive accessible title search</b><span>Add substring matching on the title that
+              composes with the existing status filter, preserves every stored record and note, and is reachable by
+              keyboard with a labelled field.</span></li>
+            <li><b>Run all release checks</b><span>Lint, typecheck, the unit suite and the production build must all
+              pass before the step reports.</span></li>
+            <li><b>Verify the rendered application at /</b><span>Load the built application, search for a known
+              title, and confirm the result set and the stored notes are unchanged.</span></li>
+          </ol>
+        </details>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 6 -->
+<section class="state">
+  <h2>6 · Workflow step — the outcome first, the instruction underneath it</h2>
+  <p class="note">The labelled <b>Expected</b> and <b>Outcome</b> rows are the best thing on the current step card and
+  they stay. What changes is the order: the outcome leads, the instruction that produced it sits under a disclosure,
+  and the acceptance criteria become a checked list rather than a paragraph.</p>
+  <p class="was"><b>Today:</b> a 150-word agent instruction is printed in full at the top of every step, and the
+  one-line outcome is the last thing on the card.</p>
+  <div class="app">
+    <div class="body">
+      <div class="card">
+        <div style="display:flex;align-items:start;gap:12px">
+          <div style="flex:1"><h3 style="font-size:15px">1 · Investigate and document one problem</h3>
+            <p class="sub">Finished on the first attempt · background agent · gpt-5.6-luna, high</p></div>
+          <span class="chip on">Done</span>
+        </div>
+        <dl class="kv" style="margin-top:13px">
+          <dt>Outcome</dt><dd>Investigated the weekly maintenance run and created a triage note documenting
+            unavailable GitHub history and passing local checks.</dd>
+          <dt>Wrote</dt><dd><code>.sero/apps/architect/triage/2026-09-14-weekly-github-history-unavailable.md</code></dd>
+        </dl>
+        <details class="dis">
+          <summary><span class="chev"></span>Acceptance criteria<span class="n">3 of 3 met</span></summary>
+          <div class="evi"><span class="ok">MET</span><span>Exactly one concise triage note is created</span></div>
+          <div class="evi"><span class="ok">MET</span><span>Findings are evidence-based, with confirmed evidence kept apart from hypotheses</span></div>
+          <div class="evi"><span class="ok">MET</span><span>No project code was changed</span></div>
+        </details>
+        <details class="dis">
+          <summary><span class="chev"></span>What this step was told to do<span class="n">agent instruction · 168 words</span></summary>
+          <p style="color:var(--text-2);font-size:12px;line-height:1.6">Read the event observation that fired this
+          run. For <code>github:issue-opened</code>, inspect that issue and the relevant repository code. For
+          <code>github:ci-failed</code>, inspect the failed workflow run, its logs, the affected commit and the
+          relevant code. For a weekly run, review open issues and the latest CI results, then select exactly one
+          highest-priority actionable problem; if none exists, document that no active failure was found and what was
+          checked. Reproduce or confirm the selected problem where feasible using read-only inspection and safe
+          diagnostic or test commands, without editing project code. Avoid overwriting existing generated or user
+          files, and remove only those artefacts newly created by this investigation when safe. Determine what
+          happened, the likely code location, severity, evidence, and a concise suggested fix. Create
+          <code>.sero/apps/architect/triage/&lt;current-date&gt;-&lt;descriptive-slug&gt;.md</code>, ensuring a
+          collision-safe slug or suffix if that path already exists. Record
+          <code>variables.triageNotePath</code> as the exact relative note path created.</p>
+        </details>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 7 -->
+<section class="state">
+  <h2>7 · Room — who is waiting, on what, and the one place to answer</h2>
+  <p class="note">A Room that is holding says so once, at the top, with the question in it and a single place to
+  answer. The roster shows how long each member has been waiting in words. <b>An empty activity feed is explained</b>
+  rather than reported as "Nothing has happened yet." beside a Room that has been holding for nine days.</p>
+  <p class="was"><b>Today:</b> "Message the team / Resume / Stop" appears twice, the amber "…stopped to ask you
+  something" strip is a third control, and the Highlights feed says nothing has happened while two members have been
+  waiting 211 hours.</p>
+  <div class="app">
+    <div class="top">
+      <div class="mark">◎</div><div class="name">Orchestrator</div>
+      <div class="nav"><a href="#">Home</a><a href="#">Workflows 1</a><a class="on" href="#">Rooms 4</a><a href="#">Goals</a></div>
+      <div class="right"><span class="chip warn">2 waiting on you</span><button class="btn">Stop the Room</button></div>
+    </div>
+    <div class="body">
+      <div class="ask">
+        <div class="eyebrow">Waiting on you · 8 days</div>
+        <h3>Should a repaired file keep its original timestamp?</h3>
+        <p class="sub">Morgan and Riley both stopped here. Nothing else in the Room will move until this is answered.</p>
+        <div class="opt pick"><span class="rec">Recommended</span><b>Keep the original timestamp</b>
+          <p>Downstream summaries group by date. Rewriting the timestamp would move repaired rows into the wrong day
+          and change totals that have already been reported.</p></div>
+        <div class="opt"><b>Use the repair time</b>
+          <p>Simpler to reason about, and makes the repair visible in the file itself. Totals for earlier days would
+          change.</p></div>
+        <div style="margin-top:13px;display:flex;gap:8px;align-items:center">
+          <button class="btn primary">Answer and resume</button>
+          <button class="btn">Write a different answer</button>
+          <span class="mini" style="margin-left:auto">Answering resumes both members</span>
+        </div>
+      </div>
+
+      <div class="two" style="margin-top:16px">
+        <div>
+          <div class="sec-head">Activity<span class="n">nothing since the question was asked</span></div>
+          <div class="card">
+            <div class="tl">
+              <div class="ev now"><span class="t">8d ago</span>Riley stopped to ask about the timestamp rule</div>
+              <div class="ev"><span class="t">8d ago</span>Morgan stopped for the same question</div>
+              <div class="ev"><span class="t">8d ago</span>Riley claimed <code>src/repair/*.py</code></div>
+              <div class="ev"><span class="t">8d ago</span>Morgan read the approved brief and the delivered files</div>
+              <div class="ev"><span class="t">8d ago</span>Room started · 2 members · cap $2.00</div>
+            </div>
+            <p class="mini" style="margin-top:12px">Nothing has happened since, because both members are waiting for
+            the answer above. This is not a stall.</p>
+          </div>
+        </div>
+        <div>
+          <div class="sec-head">Team<span class="n">2</span></div>
+          <div class="card">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:26px;height:26px;border-radius:7px;background:#4a2b2f"></div>
+              <div style="flex:1"><div style="font-size:13px">Morgan</div><div class="mini">Adversarial Validation Lead</div></div>
+              <span class="chip warn">Waiting 8d</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+              <div style="width:26px;height:26px;border-radius:7px;background:#25414a"></div>
+              <div style="flex:1"><div style="font-size:13px">Riley</div><div class="mini">CLI Repair Specialist</div></div>
+              <span class="chip warn">Waiting 8d</span>
+            </div>
+            <div class="mini" style="margin-top:14px">$0.31 spent of $2.00 · 15 minutes of work before the question</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 8 -->
+<section class="state">
+  <h2>8 · Rooms list — a card that says what the Room is for, not what it was told</h2>
+  <p class="note">Each row gets a one-line purpose written for a person. The approved brief stays complete inside the
+  Room. Two Rooms with the same name are told apart by what they covered and when.</p>
+  <p class="was"><b>Today:</b> the paused Room's summary line begins "APPROVED ARCHITECT SCOPE. This brief and
+  milestone govern the task. Earlier research artifacts are recommendations, not approvals…" — a paragraph addressed
+  to an agent — and two Rooms named "CSV Summary CLI Verification" are distinguished only by their spend.</p>
+  <div class="app">
+    <div class="top">
+      <div class="mark">◎</div><div class="name">Orchestrator</div>
+      <div class="nav"><a href="#">Home</a><a href="#">Workflows 1</a><a class="on" href="#">Rooms 4</a></div>
+      <div class="right"><button class="btn primary">New Room</button></div>
+    </div>
+    <div class="body">
+      <div class="row attn" style="grid-template-columns:minmax(0,1fr) 250px 160px">
+        <div><div class="title" style="white-space:normal">CSV Summariser Adversarial Validation</div>
+          <div class="mini" style="margin-top:4px">Checks the delivered CLI against the approved brief and repairs what it finds</div>
+          <div class="act" style="margin-top:6px"><span class="glyph g-wait">?</span>Waiting on you for 8 days</div></div>
+        <div><span class="needs">2 members asked one question</span></div>
+        <div class="money">$0.31 of $2.00</div>
+      </div>
+      <div class="row" style="grid-template-columns:minmax(0,1fr) 250px 160px">
+        <div><div class="title" style="white-space:normal">CSV Summary CLI Verification — delivered files</div>
+          <div class="mini" style="margin-top:4px">Independent check of the files written into the workspace</div>
+          <div class="act" style="margin-top:6px"><span class="glyph g-done">✓</span>Complete · 9 days ago · 1 member</div></div>
+        <div class="mini">Result: 3 defects found, all repaired</div>
+        <div class="money">$0.064 of $0.50</div>
+      </div>
+      <div class="row" style="grid-template-columns:minmax(0,1fr) 250px 160px">
+        <div><div class="title" style="white-space:normal">CSV Summary CLI Verification — edge cases</div>
+          <div class="mini" style="margin-top:4px">Re-ran the rejection and encoding cases after the repair</div>
+          <div class="act" style="margin-top:6px"><span class="glyph g-done">✓</span>Complete · 9 days ago · 1 member</div></div>
+        <div class="mini">Result: all cases passed</div>
+        <div class="money">$0.00 of $0.50</div>
+      </div>
+      <div class="row" style="grid-template-columns:minmax(0,1fr) 250px 160px">
+        <div><div class="title" style="white-space:normal">CSV Summary CLI Discovery</div>
+          <div class="mini" style="margin-top:4px">Decided the stack, the command contract and the milestone split</div>
+          <div class="act" style="margin-top:6px"><span class="glyph g-done">✓</span>Complete · 9 days ago · 3 members</div></div>
+        <div class="mini">Result: 6 findings, used for the plan</div>
+        <div class="money">$0.31 of $5.00</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 9 -->
+<section class="state">
+  <h2>9 · Orchestrator Home — work first, the explanation once</h2>
+  <p class="note">Home opens on what is happening and what needs a person. The three explainer cards become one row of
+  start buttons with a single "What are these?" disclosure, so the space they held goes to the work.</p>
+  <p class="was"><b>Today:</b> three explanatory cards take a third of the first viewport on every visit, above a list
+  whose rows carry the agent's instruction and a status dot with no text.</p>
+  <div class="app">
+    <div class="top">
+      <div class="mark">∞</div><div class="name">Orchestrator</div>
+      <div class="nav"><a class="on" href="#">Home</a><a href="#">Workflows 6</a><a href="#">Rooms</a><a href="#">Goals</a><a href="#">Library</a><a href="#">Catalog</a></div>
+      <div class="right">
+        <button class="btn">New Workflow</button><button class="btn">New Room</button><button class="btn">New Goal</button>
+      </div>
+    </div>
+    <div class="body">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="act"><span class="glyph g-queue">◔</span>Nothing is running in this workspace</div>
+        <span class="mini">1 workflow is scheduled · $16.97 spent here</span>
+        <details class="dis" style="margin-left:auto;border-top:0;padding-top:0">
+          <summary><span class="chev"></span>What are Workflows, Rooms and Goals?</summary>
+        </details>
+      </div>
+
+      <div class="sec">
+        <div class="sec-head">Needs you<span class="n">nothing</span></div>
+        <p class="mini" style="padding:0 2px">Nothing here needs an answer.</p>
+      </div>
+
+      <div class="sec">
+        <div class="sec-head">Scheduled<span class="n">1</span></div>
+        <div class="row" style="grid-template-columns:minmax(0,1fr) 320px 130px">
+          <div><div class="title" style="white-space:normal">reading-tracker-resilience-01: maintenance</div>
+            <div class="act" style="margin-top:6px"><span class="glyph g-queue">◔</span>Runs Mondays 08:00, or on a CI failure</div></div>
+          <div class="mini">Last ran 4 days ago and wrote one triage note</div>
+          <div class="money">$0.79</div>
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-head">Finished<span class="n">5 · newest first</span></div>
+        <div class="row" style="grid-template-columns:minmax(0,1fr) 320px 130px">
+          <div><div class="title" style="white-space:normal">Composable title search</div>
+            <div class="act" style="margin-top:6px"><span class="glyph g-done">✓</span>Complete · 4 days ago</div></div>
+          <div class="mini">Added title search; all release checks passed</div>
+          <div class="money">$3.13</div>
+        </div>
+        <div class="row" style="grid-template-columns:minmax(0,1fr) 320px 130px">
+          <div><div class="title" style="white-space:normal">Release the completed reading tracker</div>
+            <div class="act" style="margin-top:6px"><span class="glyph g-done">✓</span>Complete · 9 days ago</div></div>
+          <div class="mini">Delivered the release to the workspace</div>
+          <div class="money">$1.45</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 10 -->
+<section class="state">
+  <h2>10 · Not generated yet is not a failure</h2>
+  <p class="note">Four different absences that the product currently draws in similar ways. Each gets its own words
+  and its own next step. Only one of them is a fault.</p>
+  <p class="was"><b>Today:</b> a preview with no output, a panel whose data has not loaded, a feature that is off, and
+  a genuine failure all arrive as an empty box or a warning-coloured strip.</p>
+  <div class="app">
+    <div class="body">
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px">
+        <div class="card">
+          <div class="sec-head" style="margin-bottom:8px">Not made yet</div>
+          <p class="mini">There is no preview because the milestone that builds the page has not run.
+          <span style="color:var(--text-2)">It will appear when “Browser build and a playable demo page” finishes.</span></p>
+          <div style="margin-top:11px"><span class="chip">Nothing to do</span></div>
+        </div>
+        <div class="card">
+          <div class="sec-head" style="margin-bottom:8px">Loading</div>
+          <p class="mini">Reading the run journal…<br><span style="color:var(--text-2)">Started 2 seconds ago.</span></p>
+          <div style="margin-top:11px"><div class="bar"><i style="width:35%;background:var(--text-3)"></i></div></div>
+        </div>
+        <div class="card">
+          <div class="sec-head" style="margin-bottom:8px">Not available here</div>
+          <p class="mini">Run history is kept by the Architect runtime, which is switched off in this session.
+          <span style="color:var(--text-2)">The records are safe; nothing has been lost.</span></p>
+          <div style="margin-top:11px"><span class="chip info">How to turn it back on</span></div>
+        </div>
+        <div class="card" style="border-color:rgba(251,113,133,.3);background:rgba(251,113,133,.04)">
+          <div class="sec-head" style="margin-bottom:8px">Failed</div>
+          <p class="mini">The preview server exited while starting.
+          <span style="color:var(--text-2)">Port 5173 was already in use.</span></p>
+          <div style="margin-top:11px;display:flex;gap:8px"><button class="btn sm primary">Try again</button><button class="btn sm">Open the log</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  Proposed designs only. Nothing here is implemented, and no frame here is evidence.
+  The captured current state is in <a href="./evidence.html">evidence.html</a>.
+</footer>
+</main>
+</body>
+</html>

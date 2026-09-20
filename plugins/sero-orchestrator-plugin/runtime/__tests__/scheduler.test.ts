@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyEventFires, applyScheduleOverride, evaluateCronTriggers, isRecurring, nextFireAfter, parseCron, rearmLoop } from '../scheduler';
+import { applyArmingOverride, applyEventFires, applyScheduleOverride, evaluateCronTriggers, isRecurring, nextFireAfter, parseCron, rearmLoop } from '../scheduler';
 import type { Loop, LoopTrigger } from '../../shared/types';
 import { createFakeHost } from './fake-host';
 import { oneStepPlan, seedActiveLoop } from './fixtures';
@@ -179,5 +179,60 @@ describe('applyScheduleOverride', () => {
     const loop = withTriggers(base(), [cronTrigger({ schedule: '0 * * * *', maxFires: 3, fireCount: 3, disabled: true })]);
     expect(applyScheduleOverride(loop, 't', { schedule: '0 9 * * *' }, NOW).ok).toBe(false);
     expect(applyScheduleOverride(loop, 't', { disabled: false }, NOW).ok).toBe(false);
+  });
+});
+
+describe('applyArmingOverride', () => {
+  const eventTrigger = (overrides: Partial<LoopTrigger> = {}): LoopTrigger => ({
+    id: 'e', loopId: 'loop-1', workspaceId: 'ws-1', type: 'event', eventSource: 'github:issue-opened', fireCount: 0, ...overrides,
+  });
+
+  it('disarms every trigger, including the event legs a paused schedule would leave firing', () => {
+    const loop = withTriggers(seedActiveLoop(createFakeHost(), oneStepPlan().plan), [
+      cronTrigger({ id: 'cron', nextFireAt: new Date(T0 + 3600_000).toISOString() }),
+      eventTrigger({ id: 'issues' }),
+    ]);
+
+    const result = applyArmingOverride(loop, false, undefined, new Date(T0).toISOString());
+
+    expect(result.ok).toBe(true);
+    expect(result.loop!.triggers.map((t) => t.disabled)).toEqual([true, true]);
+    expect(result.loop!.triggers[0].nextFireAt).toBeUndefined();
+    expect(result.changedTriggerIds).toEqual(['cron', 'issues']);
+  });
+
+  it('re-arms only the named triggers and restores the next fire', () => {
+    const loop = withTriggers(seedActiveLoop(createFakeHost(), oneStepPlan().plan), [
+      cronTrigger({ id: 'cron', schedule: '0 * * * *', disabled: true }),
+      eventTrigger({ id: 'issues', disabled: true }),
+    ]);
+
+    const result = applyArmingOverride(loop, true, ['cron'], new Date(T0).toISOString());
+
+    expect(result.changedTriggerIds).toEqual(['cron']);
+    expect(result.loop!.triggers[0].disabled).toBe(false);
+    expect(Date.parse(result.loop!.triggers[0].nextFireAt!)).toBeGreaterThan(T0);
+    expect(result.loop!.triggers[1].disabled).toBe(true);
+  });
+
+  it('leaves an exhausted trigger off, because it can never fire again', () => {
+    const loop = withTriggers(seedActiveLoop(createFakeHost(), oneStepPlan().plan), [
+      cronTrigger({ id: 'cron', disabled: true, fireCount: 3, maxFires: 3 }),
+    ]);
+
+    const result = applyArmingOverride(loop, true, undefined, new Date(T0).toISOString());
+
+    expect(result.changedTriggerIds).toEqual([]);
+    expect(result.loop!.triggers[0].disabled).toBe(true);
+  });
+
+  it('reports a trigger id the loop does not have and changes nothing', () => {
+    const loop = withTriggers(seedActiveLoop(createFakeHost(), oneStepPlan().plan), [cronTrigger({ id: 'cron' })]);
+
+    const result = applyArmingOverride(loop, false, ['ghost'], new Date(T0).toISOString());
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('ghost');
+    expect(loop.triggers[0].disabled).toBeUndefined();
   });
 });

@@ -1,3 +1,4 @@
+import type { LiveRunMark } from './activity-state';
 import type { OrchestratorProjectContext, OrchestratorTriggerIntent } from './orchestrator-project-context';
 /**
  * Cross-plugin contract for the Orchestrator's scheduled loops.
@@ -44,6 +45,13 @@ export interface OrchestratorScheduledLoopView {
   id: string;
   title: string;
   status: OrchestratorLoopStatus;
+  /**
+   * Written while the coordinator watches a run report, cleared when the run
+   * ends, and cleared again by startup reconciliation. A reader decides whether
+   * it is live with `isLive(mark, sessionStartedAt)`: `status` and
+   * `progress.running` outlive the run that set them, this does not.
+   */
+  liveRun?: LiveRunMark;
   /** Present only when the loop has cron/hybrid triggers carrying a schedule. */
   schedules?: OrchestratorScheduleSummary[];
   /** A user-delayed run will retry at this durable timestamp. */
@@ -216,6 +224,12 @@ export interface OrchestratorBoardRoomView {
   updatedAt: string;
   /** Open approvals plus a Room stopped waiting for one. */
   attentionCount: number;
+  /**
+   * Written while this session watches the Room work, cleared when it settles
+   * and when the store loads. `status` outlives the session that set it; this
+   * does not, so it is what "Working" is read from (see `isLive`).
+   */
+  liveRun?: LiveRunMark;
   /** Existing Room delivery proof, exposed so linked consumers can observe it. */
   deliveredAt: string | null;
   deliveryRef: string | null;
@@ -337,7 +351,22 @@ export type OrchestratorBoardAction =
       decision: 'approve' | 'reject';
       rejectionReason?: string;
     }
-  | { kind: 'fire_event'; event: OrchestratorBoardEventView };
+  | { kind: 'fire_event'; event: OrchestratorBoardEventView }
+  /**
+   * Stop or restart a Workflow's triggers without ending it. Disarming leaves an
+   * in-flight run alone: it stops new runs starting, which is what an owner
+   * needs when its project is paused. `triggerIds` omitted means every trigger.
+   *
+   * `owner` is required here and checked against the Workflow's retained project
+   * attribution, so a runtime can only arm and disarm what it created.
+   */
+  | {
+      kind: 'set_armed';
+      loopId: string;
+      armed: boolean;
+      triggerIds?: string[];
+      owner: { projectId: string };
+    };
 
 /** The slice of the coordinator's action result the board consumes. */
 export interface OrchestratorBoardActionResult {
@@ -349,132 +378,6 @@ export interface OrchestratorBoardActionResult {
   delivered?: number;
   /** Set by `fire_event`: the event's dedupeKey was already delivered, so it was dropped. */
   deduped?: boolean;
-}
-
-// ── Coordinator registry seam (Electron main) ──
-//
-// Coordinators register on `globalThis` because the plugin's runtime and
-// extension bundles load through different loaders in the same main process
-// (see the plugin's runtime/registry.ts). The shell's `sero:orchestrator:action`
-// handler reaches a coordinator through this same global — typed here so the
-// shell never imports plugin internals.
-
-export const ORCHESTRATOR_REGISTRY_GLOBAL_KEY = '__seroOrchestratorCoordinators__';
-
-/** The narrow coordinator surface the shell invokes. */
-export interface OrchestratorCoordinatorHandle {
-  requestAction(action: OrchestratorBoardAction): Promise<OrchestratorBoardActionResult>;
-}
-
-export interface OrchestratorRegistryEntryView {
-  workspaceId: string;
-  workspacePath: string;
-  coordinator: OrchestratorCoordinatorHandle;
-}
-
-/** Reads the shared coordinator registry off `globalThis` (Electron main only). */
-export function getOrchestratorRegistry(): ReadonlyMap<string, OrchestratorRegistryEntryView> | undefined {
-  const globalScope = globalThis as Record<string, unknown>;
-  return globalScope[ORCHESTRATOR_REGISTRY_GLOBAL_KEY] as
-    | Map<string, OrchestratorRegistryEntryView>
-    | undefined;
-}
-
-/**
- * Sends one board action to the coordinator registered for `workspaceId`.
- * A workspace without a coordinator answers with a result that names it, so a
- * runtime that dispatches into the wrong workspace learns which one.
- */
-export async function requestOrchestratorAction(
-  workspaceId: string,
-  action: OrchestratorBoardAction,
-): Promise<OrchestratorBoardActionResult> {
-  const entry = getOrchestratorRegistry()?.get(workspaceId);
-  if (!entry) {
-    return { ok: false, error: `No Orchestrator coordinator is registered for workspace "${workspaceId}".` };
-  }
-  try {
-    return await entry.coordinator.requestAction(action);
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
-  }
-}
-
-// ── Room registry seam (Electron main) ──
-//
-// Rooms are registered by the same plugin on a sibling global key. Only
-// creation is typed here: a plugin runtime that cannot use session tools needs
-// to start a Room and get its id back, nothing more. The per-grant user approval
-// still happens inside the plugin when the Room starts.
-
-export const ORCHESTRATOR_ROOM_REGISTRY_GLOBAL_KEY = `${ORCHESTRATOR_REGISTRY_GLOBAL_KEY}:rooms`;
-
-/** Limits a plugin runtime may set on a Room it creates. Mirrors the plugin's `RoomUserLimits`. */
-export interface OrchestratorRoomCreateLimits {
-  /** User-selected placement for this Room, independent of tool permissions. */
-  executionMode?: 'workspace' | 'worktree';
-  /** Caller-selected model pool; the Room planner cannot expand it. */
-  models?: string[];
-  thinkingLevels?: string[];
-  maxCostUsd?: number;
-  maxWallClockMs?: number;
-  maxMembers?: number;
-  /** The highest permission any member may hold. */
-  access?: 'read-only' | 'edit-workspace' | 'edit-and-push';
-  deliveryDestination?: OrchestratorDeliveryDestinationId;
-}
-
-export interface OrchestratorRoomCreateRequest {
-  /** Stable identity for a caller recovering an interrupted creation. */
-  requestId?: string;
-  /** The Room's brief, kept verbatim. */
-  mandate: string;
-  limits?: OrchestratorRoomCreateLimits;
-  /** Project/run attribution and the tier defaults resolved before planning. */
-  project?: OrchestratorProjectContext;
-}
-
-export type OrchestratorRoomCreateResult =
-  | { ok: true; roomId: string; usage?: OrchestratorUsageView }
-  /** `questions` is present when the planner needs an answer, so the caller can ask its user instead of failing. */
-  | { ok: false; error: string; questions?: string[]; usage?: OrchestratorUsageView };
-
-/** The narrow Room surface a plugin runtime may call. */
-export interface OrchestratorRoomHandle {
-  /** Read durable findings and actual roster choices without opening member sessions. */
-  inspect(roomId: string): Promise<{
-    status: OrchestratorRoomStatus;
-    result: string | null;
-    models: { name: string; model: string; thinking: string }[];
-  } | null>;
-  /** Plans the team, then starts the Room, which raises the grant prompt. */
-  create(request: OrchestratorRoomCreateRequest): Promise<OrchestratorRoomCreateResult>;
-}
-
-export interface OrchestratorRoomRegistryEntryView {
-  handle: OrchestratorRoomHandle;
-}
-
-/** Reads the shared Room registry off `globalThis` (Electron main only). */
-export function getOrchestratorRoomRegistry(): ReadonlyMap<string, OrchestratorRoomRegistryEntryView> | undefined {
-  const globalScope = globalThis as Record<string, unknown>;
-  return globalScope[ORCHESTRATOR_ROOM_REGISTRY_GLOBAL_KEY] as
-    | Map<string, OrchestratorRoomRegistryEntryView>
-    | undefined;
-}
-
-/** Creates a Room in `workspaceId`; a workspace without Room support answers with a result that names it. */
-export async function createOrchestratorRoom(
-  workspaceId: string,
-  request: OrchestratorRoomCreateRequest,
-): Promise<OrchestratorRoomCreateResult> {
-  const entry = getOrchestratorRoomRegistry()?.get(workspaceId);
-  if (!entry) {
-    return { ok: false, error: `No Room coordinator is registered for workspace "${workspaceId}".` };
-  }
-  try {
-    return await entry.handle.create(request);
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
-  }
+  /** Set by `set_armed`: the triggers this call actually changed, so the caller can restore exactly those. */
+  changedTriggerIds?: string[];
 }

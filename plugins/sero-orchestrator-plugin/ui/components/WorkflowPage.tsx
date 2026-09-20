@@ -1,0 +1,48 @@
+/**
+ * One Workflow on its own page, reached from the full-width Workflows list.
+ *
+ * The page owns only the way back; everything below it is the Workflow detail
+ * this app already had. While its record is still being read, the page says so
+ * rather than telling the user to select something.
+ */
+
+import type { LibraryIndex, Loop, OrchestratorAction } from '../../shared/types';
+import { WORKFLOWS_LABEL } from '../../shared/labels';
+import { LoopDetail } from './LoopDetail';
+
+export interface WorkflowPageProps {
+  /** The watched record, or null while it is being read. */
+  loop: Loop | null;
+  busy: boolean;
+  onAction: (action: OrchestratorAction) => void;
+  onDispatch: (params: Record<string, unknown>) => Promise<Record<string, unknown> | null>;
+  stateDir: string;
+  libraryDir: string | null;
+  libraryIndex: LibraryIndex;
+  onBack: () => void;
+}
+
+export function WorkflowPage({ loop, busy, onAction, onDispatch, stateDir, libraryDir, libraryIndex, onBack }: WorkflowPageProps) {
+  return (
+    <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex shrink-0 items-center gap-2 border-b border-room-line px-4 py-2">
+        <button type="button" className="text-xs text-room-text3 hover:text-room-text" onClick={onBack}>
+          ← {WORKFLOWS_LABEL}
+        </button>
+      </div>
+      {loop ? (
+        <LoopDetail
+          loop={loop}
+          busy={busy}
+          onAction={onAction}
+          onDispatch={onDispatch}
+          stateDir={stateDir}
+          libraryDir={libraryDir}
+          libraryIndex={libraryIndex}
+        />
+      ) : (
+        <div className="flex flex-1 items-center justify-center text-sm text-room-text3">Reading this Workflow…</div>
+      )}
+    </div>
+  );
+}

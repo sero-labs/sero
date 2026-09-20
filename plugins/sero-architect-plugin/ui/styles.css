@@ -7,8 +7,12 @@
 /*
  * The Architect surface, ported from the signed-off prototype
  * (apps/styleguide/public/prototypes/sero-architect). Every colour is a host
- * token, so the light theme and a brand change follow the host. Amber is only
- * ever solid text, a border, a bar or a dot: never a wash or a glow.
+ * token, so the light theme and a brand change follow the host.
+ *
+ * The activity surfaces follow the later proposal,
+ * apps/styleguide/public/prototypes/agent-workspace-ux-audit/1-activity-at-a-glance.html,
+ * which supersedes the earlier rule that amber may never be a wash: the glyph
+ * chip, the Needs you pill and the attention row are all washed there.
  */
 .ar-app, .ar-dialog {
   --ar-text-2: var(--text-secondary);
@@ -44,6 +48,7 @@
 .ar-top-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; position: relative; }
 .ar-btn { height: 30px; border-radius: 7px; font-size: 12px; gap: 7px; }
 .ar-btn-icon { width: 30px; padding: 0; }
+.ar-btn-sm { height: 26px; padding: 0 9px; font-size: 11px; font-weight: 650; }
 .ar-btn-primary { border: 1px solid color-mix(in srgb, var(--ar-brand) 40%, transparent); background: color-mix(in srgb, var(--ar-brand) 14%, transparent); color: var(--ar-brand); }
 .ar-btn-primary:hover { background: color-mix(in srgb, var(--ar-brand) 22%, transparent); color: var(--ar-brand); }
 .ar-btn-solid { background: var(--ar-brand); color: var(--brand-primary-foreground); font-weight: 600; }
@@ -65,21 +70,42 @@
 .ar-count { display: inline-flex; min-width: 18px; height: 18px; align-items: center; justify-content: center; padding: 0 6px; border-radius: 10px; background: var(--ar-warn); color: #1c1200; font: 600 10px/1 var(--font-mono); }
 
 /* projects list */
-.ar-list-head { display: flex; align-items: center; height: 26px; margin: 0 0 10px; color: var(--ar-text-3); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
-.ar-list-head .ar-line { flex: 1; height: 1px; margin: 0 12px; background: var(--ar-line); }
-.ar-list-head .ar-hint { font: 10px var(--font-mono); letter-spacing: 0; text-transform: none; }
-.ar-prow { display: grid; grid-template-columns: 22px minmax(200px, 1fr) 2fr 120px 150px 60px; align-items: center; gap: 14px; width: 100%; padding: 13px 16px; border: 1px solid var(--ar-line); border-radius: 9px; background: var(--bg-surface); margin-bottom: 8px; text-align: left; color: inherit; font: inherit; cursor: pointer; }
+/* The glyph chip: a 16px rounded square holding a 10px stroke icon, tinted by
+   the tone the shared vocabulary gives the state. The shape and the word carry
+   the state on their own; the tint only makes a scan faster. */
+.ar-gchip { width: 16px; height: 16px; border-radius: 4px; display: grid; place-items: center; flex: 0 0 auto; background: var(--bg-muted); color: var(--ar-text-2); }
+.ar-gi { width: 10px; height: 10px; }
+.ar-gchip[data-tone="live"] { background: color-mix(in srgb, var(--ar-ok) 12%, transparent); color: var(--ar-ok); }
+.ar-gchip[data-tone="armed"] { background: color-mix(in srgb, var(--ar-info) 14%, transparent); color: var(--ar-info); }
+.ar-gchip[data-tone="attention"] { background: color-mix(in srgb, var(--ar-warn) 14%, transparent); color: var(--ar-warn); }
+.ar-gchip[data-tone="danger"] { background: color-mix(in srgb, var(--ar-err) 14%, transparent); color: var(--ar-err); }
+.ar-gchip[data-tone="stale"] { background: var(--bg-muted); color: var(--ar-warn); }
+
+/* projects list */
+.ar-list-head { display: flex; align-items: center; height: 26px; margin: 0 0 4px; }
+.ar-list-head .ar-line { flex: 1; }
+.ar-rowhead { display: grid; grid-template-columns: 230px minmax(0, 1fr) 290px 120px; gap: 14px; padding: 0 15px 9px; color: var(--ar-text-3); font: 10px var(--font-mono); letter-spacing: .07em; text-transform: uppercase; }
+.ar-rowhead .ar-sp { text-align: right; }
+.ar-prow { display: grid; grid-template-columns: 230px minmax(0, 1fr) 290px 120px; align-items: center; gap: 14px; width: 100%; padding: 13px 14px; border: 1px solid var(--ar-line); border-radius: 9px; background: var(--bg-surface); margin-bottom: 8px; text-align: left; color: inherit; font: inherit; cursor: pointer; }
 .ar-prow:hover { border-color: var(--ar-line-strong); }
-.ar-prow[data-needs="1"] { border-color: color-mix(in srgb, var(--ar-warn) 60%, transparent); }
-.ar-glyph { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font: 600 11px var(--font-mono); background: var(--bg-muted); color: var(--ar-text-2); }
-.ar-prow-name { font-size: 13px; font-weight: 600; color: var(--text-primary); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.ar-prow-name small { font: 10px var(--font-mono); color: var(--ar-text-3); font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ar-prow-state { color: var(--ar-text-2); font-size: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ar-prow-spend { display: grid; gap: 4px; }
-.ar-prow-spend b { font: 11px var(--font-mono); color: var(--ar-text-2); font-weight: 400; }
-.ar-prow-needs { justify-self: end; }
+/* The row a user must act on is washed as well as bordered, so a scan finds it
+   without reading. The word in the Needs you column is what actually says so. */
+.ar-prow[data-needs="1"] { border-color: color-mix(in srgb, var(--ar-warn) 34%, transparent); background: color-mix(in srgb, var(--ar-warn) 4.5%, var(--bg-surface)); }
+.ar-prow[data-needs="1"][data-state="stopped"] { border-color: color-mix(in srgb, var(--ar-err) 30%, transparent); background: color-mix(in srgb, var(--ar-err) 4%, var(--bg-surface)); }
+.ar-prow-name { font-size: 13px; font-weight: 600; color: var(--text-primary); display: flex; flex-direction: column; gap: 3px; min-width: 0; line-height: 1.3; overflow-wrap: anywhere; }
+.ar-prow-name small { font: 10px var(--font-mono); color: var(--ar-text-3); font-weight: 400; }
+.ar-prow-needs-action { justify-self: start; display: inline-block; padding: 3px 8px; border-radius: 6px; background: color-mix(in srgb, var(--ar-warn) 14%, transparent); color: var(--ar-warn); font-size: 11px; font-weight: 560; line-height: 1.45; }
+.ar-prow[data-needs="0"] .ar-prow-needs-action { padding: 0; background: none; color: var(--ar-text-3); font-size: 11px; font-weight: 400; }
+.ar-activity { display: grid; gap: 3px; min-width: 0; }
+.ar-activity-state { display: flex; align-items: center; gap: 7px; color: var(--ar-text-2); font-size: 12px; }
+.ar-activity-state b { color: var(--text-primary); font-weight: 560; }
+.ar-activity small { color: var(--ar-text-3); font-size: 12px; line-height: 1.45; }
+.ar-runtime-notice { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 12px; padding: 11px 14px; border: 1px solid var(--ar-line-strong); border-radius: 9px; background: var(--bg-elevated); color: var(--ar-text-2); font-size: 12px; line-height: 1.55; }
+.ar-runtime-notice b { color: var(--text-primary); font-weight: 560; }
+.ar-prow-spend { display: grid; gap: 5px; justify-items: stretch; }
+.ar-prow-spend b { text-align: right; font: 11px var(--font-mono); color: var(--ar-text-3); font-weight: 400; }
 .ar-track { height: 3px; border-radius: 2px; background: var(--bg-muted); overflow: hidden; display: block; }
-.ar-track i { display: block; height: 100%; background: var(--ar-brand); }
+.ar-track i { display: block; height: 100%; background: var(--ar-ok); }
 .ar-track[data-tone="warn"] i { background: var(--ar-warn); }
 .ar-track[data-tone="err"] i { background: var(--ar-err); }
 .ar-empty { border: 1px dashed var(--ar-line-strong); border-radius: 10px; padding: 46px 20px; text-align: center; color: var(--ar-text-3); display: grid; gap: 10px; justify-items: center; }
@@ -87,47 +113,50 @@
 .ar-empty p { max-width: 460px; font-size: 13px; line-height: 1.55; }
 
 /* the state line: sentence, spine, spend ring */
-.ar-stateline { display: grid; grid-template-columns: minmax(0, 1fr) 190px; gap: 22px; align-items: center; padding: 18px 22px 20px; border: 1px solid var(--ar-line); border-radius: 12px; background: linear-gradient(180deg, var(--bg-elevated), var(--bg-surface)); position: relative; overflow: hidden; }
-.ar-stateline:before { content: ""; position: absolute; inset: 0; background: radial-gradient(600px 160px at 12% 0%, color-mix(in srgb, var(--ar-brand) 10%, transparent), transparent 70%); pointer-events: none; }
-.ar-stateline[data-overlay="limited"]:before, .ar-stateline[data-overlay="blocked"]:before { background: radial-gradient(600px 160px at 12% 0%, color-mix(in srgb, var(--ar-err) 14%, transparent), transparent 70%); }
-.ar-stateline[data-overlay="paused"]:before { background: radial-gradient(600px 160px at 12% 0%, color-mix(in srgb, var(--ar-text-2) 8%, transparent), transparent 70%); }
-.ar-stateline > * { position: relative; min-width: 0; overflow-wrap: anywhere; }
-.ar-sentence { font-size: 20px; line-height: 1.3; letter-spacing: -.02em; font-weight: 560; color: var(--text-primary); max-width: 780px; }
-.ar-sentence .ar-who { color: var(--ar-text-3); font-weight: 400; }
-.ar-spine { margin-top: 16px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
-.ar-phase { display: grid; gap: 7px; }
-.ar-phase .ar-bar { height: 4px; border-radius: 2px; background: var(--bg-muted); position: relative; overflow: hidden; }
-.ar-phase .ar-bar i { position: absolute; inset: 0; background: var(--ar-brand); transform-origin: left; }
-.ar-phase[data-state="done"] .ar-bar i { opacity: .55; }
-.ar-phase[data-state="current"] .ar-bar { box-shadow: 0 0 0 1px color-mix(in srgb, var(--ar-brand) 35%, transparent), 0 0 14px color-mix(in srgb, var(--ar-brand) 35%, transparent); }
-.ar-phase[data-state="current"] .ar-bar i { animation: ar-fade 4s ease-in-out infinite; transform: none; }
-.ar-phase[data-state="todo"] .ar-bar i { transform: scaleX(0); }
-.ar-phase .ar-lbl { font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--ar-text-4); font-weight: 600; }
-.ar-phase[data-state="done"] .ar-lbl { color: var(--ar-text-3); }
-.ar-phase[data-state="current"] .ar-lbl { color: var(--ar-brand); }
-.ar-stateline[data-overlay="paused"] .ar-phase[data-state="current"] .ar-bar i { animation: none; background: var(--ar-text-3); }
-.ar-stateline[data-overlay="paused"] .ar-phase[data-state="current"] .ar-bar { box-shadow: none; }
-.ar-stateline[data-overlay="paused"] .ar-phase[data-state="current"] .ar-lbl { color: var(--ar-text-2); }
-.ar-stateline[data-overlay="decision"] .ar-phase[data-state="current"] .ar-bar i { animation: none; background: var(--ar-warn); }
-.ar-stateline[data-overlay="decision"] .ar-phase[data-state="current"] .ar-bar { box-shadow: none; }
-.ar-stateline[data-overlay="decision"] .ar-phase[data-state="current"] .ar-lbl { color: var(--ar-warn); }
-.ar-stateline[data-overlay="limited"] .ar-phase[data-state="current"] .ar-bar i, .ar-stateline[data-overlay="blocked"] .ar-phase[data-state="current"] .ar-bar i { animation: none; background: var(--ar-err); }
-.ar-stateline[data-overlay="limited"] .ar-phase[data-state="current"] .ar-bar, .ar-stateline[data-overlay="blocked"] .ar-phase[data-state="current"] .ar-bar { box-shadow: 0 0 0 1px var(--status-error-border), 0 0 14px color-mix(in srgb, var(--ar-err) 35%, transparent); }
-.ar-stateline[data-overlay="limited"] .ar-phase[data-state="current"] .ar-lbl, .ar-stateline[data-overlay="blocked"] .ar-phase[data-state="current"] .ar-lbl { color: var(--ar-err); }
-@keyframes ar-fade { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-.ar-meta { margin-top: 12px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; color: var(--ar-text-3); font-size: 12px; }
-.ar-meta .ar-sep { width: 3px; height: 3px; border-radius: 50%; background: var(--ar-text-4); }
-.ar-ring { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: center; justify-self: end; }
-.ar-ring svg { width: 64px; height: 64px; transform: rotate(-90deg); }
+/* The top of a project: a bordered band, with spend divided off into its own
+   shaded column. Nothing animates and nothing glows; the state is carried by
+   the heading, the glyph chip and the rail. */
+.ar-stateline { display: flex; align-items: stretch; border: 1px solid var(--ar-line); border-radius: 10px; background: var(--bg-surface); overflow: hidden; }
+.ar-stateline-main { flex: 1; min-width: 0; padding: 16px 18px; overflow-wrap: anywhere; }
+.ar-sentence { font-size: 17px; line-height: 1.25; letter-spacing: -.02em; font-weight: 600; color: var(--text-primary); max-width: 780px; }
+.ar-stateline-who { display: flex; align-items: center; gap: 7px; margin-top: 9px; color: var(--ar-text-3); font-size: 12px; line-height: 1.45; }
+.ar-act-btn { margin-top: 11px; }
+
+/* the phase rail: a 3px bar over each label, the current one named */
+.ar-spine { margin-top: 14px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.ar-phase { border-top: 3px solid var(--bg-muted); padding-top: 6px; font: 9px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ar-text-3); }
+.ar-phase[data-state="done"] { border-top-color: var(--ar-ok); }
+.ar-phase[data-state="current"] { border-top-color: var(--ar-text-2); color: var(--text-primary); }
+.ar-stateline[data-overlay="paused"] .ar-phase[data-state="current"] { border-top-color: var(--ar-text-2); color: var(--text-primary); }
+.ar-stateline[data-overlay="decision"] .ar-phase[data-state="current"] { border-top-color: var(--ar-warn); color: var(--ar-warn); }
+.ar-stateline[data-overlay="limited"] .ar-phase[data-state="current"],
+.ar-stateline[data-overlay="blocked"] .ar-phase[data-state="current"] { border-top-color: var(--ar-err); color: var(--ar-err); }
+
+.ar-meta { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; color: var(--ar-text-3); font-size: 11px; }
+.ar-meta code { font: 11px var(--font-mono); }
+
+/* spend: its own column, divided from the header and shaded */
+.ar-ring { flex: 0 0 240px; display: flex; align-items: center; justify-content: center; gap: 14px; padding: 16px; border-left: 1px solid var(--ar-line); background: var(--bg-elevated); }
+.ar-ring svg { width: 64px; height: 64px; flex: 0 0 auto; transform: rotate(-90deg); }
 .ar-ring circle { fill: none; stroke-width: 5; }
 .ar-ring .ar-ring-bg { stroke: var(--bg-muted); }
-.ar-ring .ar-ring-fg { stroke: var(--ar-brand); stroke-linecap: round; transition: stroke-dashoffset .4s; }
+.ar-ring .ar-ring-fg { stroke: var(--ar-ok); stroke-linecap: round; }
 .ar-ring[data-tone="warn"] .ar-ring-fg { stroke: var(--ar-warn); }
 .ar-ring[data-tone="err"] .ar-ring-fg { stroke: var(--ar-err); }
-.ar-ring-num { display: grid; gap: 2px; }
-.ar-ring-num b { font: 600 15px var(--font-mono); color: var(--text-primary); letter-spacing: -.02em; }
-.ar-ring-num span { font-size: 11px; color: var(--ar-text-3); }
+.ar-ring-num { display: grid; gap: 3px; }
+.ar-ring-num b { font: 15px var(--font-mono); color: var(--text-primary); font-weight: 400; }
+.ar-ring-num span { font-size: 11.5px; color: var(--ar-text-3); white-space: nowrap; }
 .ar-ring[data-tone="err"] .ar-ring-num b { color: var(--ar-err); }
+
+/* "What Architect reported, in its own words": the owner's paragraph, folded */
+.ar-reported { margin-top: 11px; border-top: 1px solid var(--ar-line); padding-top: 10px; }
+.ar-reported > summary { display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; color: var(--ar-text-2); font-size: 12px; }
+.ar-reported > summary::-webkit-details-marker { display: none; }
+.ar-reported > summary::before { content: "\25B8"; color: var(--ar-text-3); font-size: 10px; }
+.ar-reported[open] > summary::before { content: "\25BE"; }
+.ar-reported > summary .ar-when { margin-left: auto; color: var(--ar-text-3); font: 10px var(--font-mono); }
+.ar-reported[open] > summary { margin-bottom: 10px; }
+.ar-reported p { color: var(--ar-text-2); font-size: 12.5px; line-height: 1.6; }
 
 /* sections */
 .ar-sections { margin-top: 22px; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 22px; align-items: start; }

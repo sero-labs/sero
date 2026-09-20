@@ -7,7 +7,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GoalIndexEntry } from '../../shared/goal-types';
 import { HomeView } from '../components/HomeView';
 
-vi.mock('lucide-react', () => ({ Search: () => <svg /> }));
+vi.mock('lucide-react', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('lucide-react')>()),
+  Search: () => <svg />,
+}));
+vi.mock('@sero-ai/app-runtime', () => ({
+  useAppInfo: () => ({ appId: 'orchestrator', workspaceId: 'ws-1', workspacePath: '/repos/ws-1' }),
+}));
 vi.mock('@sero-ai/ui/components/ui/input', () => ({ Input: () => <input /> }));
 vi.mock('../components/AttentionQueue', () => ({ AttentionQueue: () => null }));
 vi.mock('../components/LoopsOverview', () => ({ LoopsOverview: () => null }));
@@ -47,7 +53,11 @@ describe('Home Goal navigation', () => {
     container.remove();
   });
 
-  it('opens the Goals overview instead of the first Goal detail', async () => {
+  // The Goal start moved to the shell top bar. Home must not offer a second
+  // one, because the bug this guards against was Home's button opening the
+  // first Goal's detail instead of the overview. shell-controls.test covers
+  // the start itself.
+  it('offers no Goal start of its own, so it cannot open the wrong Goal', async () => {
     const onOpenGoal = vi.fn();
     await act(async () => root.render(
       <HomeView
@@ -66,8 +76,8 @@ describe('Home Goal navigation', () => {
 
     const card = [...container.querySelectorAll('button')]
       .find((button) => button.textContent?.startsWith('Goal'));
-    await act(async () => card?.click());
 
-    expect(onOpenGoal).toHaveBeenCalledWith('');
+    expect(card).toBeUndefined();
+    expect(onOpenGoal).not.toHaveBeenCalled();
   });
 });

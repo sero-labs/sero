@@ -190,6 +190,7 @@ export function toRoomSummary(record: RoomRecord): RoomSummary {
         isConductor: member.isConductor,
         ...(startedAt && member.createdAt > startedAt ? { addedAfterStart: true } : {}),
       })),
+    liveRun: record.runtime.liveRun,
     attentionCount: toAttentionCount(record, attention),
     deliveredAt: record.delivery.deliveredAt,
     deliveryRef: record.delivery.deliveryRef,

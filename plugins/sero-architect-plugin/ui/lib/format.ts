@@ -1,6 +1,21 @@
 /** Small formatting helpers shared by the list, the page and the widget. */
 
+import { relativeTime } from '@sero-ai/common';
+import type { ProjectActivity } from '../../shared/activity';
 import type { ArchitectOverlay, ArchitectPhase } from '../../shared/types';
+
+/**
+ * Whose work it is, and when it last said so. Times are formatted at render,
+ * because the index is written once and read for days.
+ *
+ * It lives here, not beside the component that shows it, so the component file
+ * exports components only and Fast Refresh can keep their state.
+ */
+export function ownerSentence(activity: ProjectActivity): string {
+  const when = activity.ownerAt ? relativeTime(activity.ownerAt) : '';
+  const owner = [activity.owner, when].filter(Boolean).join(' ');
+  return [owner, activity.ownerSuffix].filter(Boolean).join(' · ');
+}
 
 export const PHASES: readonly ArchitectPhase[] = ['intake', 'discovery', 'charter', 'build', 'release', 'maintain'];
 
@@ -8,9 +23,23 @@ export function usd(value: number): string {
   return `$${value.toFixed(1).replace(/\.0$/, '')}`;
 }
 
-/** "$11.4 / $40" or "$0.9 · no cap". */
+/**
+ * An amount in cents, as the list and the project header print it: "$5.52",
+ * "$10", "$0.064".
+ *
+ * Cents are kept because a cap is read against them, and a third decimal is
+ * only added when two would round a real charge to nothing. A whole amount
+ * drops its zeros, so a $10 cap does not read as "$10.00".
+ */
+export function money(value: number): string {
+  const cents = value.toFixed(2);
+  if (value !== 0 && Number(cents) === 0) return `$${value.toPrecision(2)}`;
+  return `$${cents.replace(/\.00$/, '')}`;
+}
+
+/** "$5.52 of $10" or "$0.9 · no cap". */
 export function spendLabel(spentUsd: number, capUsd: number | null): string {
-  return capUsd === null ? `${usd(spentUsd)} · no cap` : `${usd(spentUsd)} / ${usd(capUsd)}`;
+  return capUsd === null ? `${money(spentUsd)} · no cap` : `${money(spentUsd)} of ${money(capUsd)}`;
 }
 
 export type SpendTone = 'ok' | 'warn' | 'err' | 'none';

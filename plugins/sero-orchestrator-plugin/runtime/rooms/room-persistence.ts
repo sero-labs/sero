@@ -29,6 +29,16 @@ interface PersistenceIo {
   writeJson<T>(file: string, data: T): Promise<void>;
 }
 
+/**
+ * Drops a live-run mark read from disk. Whatever wrote it belonged to an
+ * earlier session, so it cannot say anything about work happening now.
+ */
+function clearRoomLiveRun(record: RoomRecord): RoomRecord {
+  if (!record.runtime.liveRun) return record;
+  const { liveRun: _dropped, ...runtime } = record.runtime;
+  return { ...record, runtime };
+}
+
 /** Owns split-file writes and replays an interrupted transaction on startup. */
 export function createRoomPersistence(paths: RoomPaths, io: PersistenceIo) {
   const write = (file: string, data: unknown): WriteOperation => ({ kind: 'write', file, data });
@@ -98,7 +108,7 @@ export function createRoomPersistence(paths: RoomPaths, io: PersistenceIo) {
         if (member) members.push(member);
       }
       const revisions = (await io.readJson<RoomRevision[]>(paths.revisions(summary.id))) ?? [];
-      const record = reassembleRoom(persisted, members, revisions);
+      const record = clearRoomLiveRun(reassembleRoom(persisted, members, revisions));
       const migrated = migrateRoomRecord(record, index.schemaVersion);
       if (migrated !== record) await apply(roomFull(migrated));
       rooms.push(migrated);

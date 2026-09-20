@@ -9,9 +9,18 @@
  */
 
 import { create } from 'zustand';
+import { useShallow } from 'zustand/react/shallow';
 import {
+  ARCHITECT_APP_ID,
   ORCHESTRATOR_INDEX_FILE,
   ORCHESTRATOR_ROOM_INDEX_FILE,
+  attentionSentence,
+  loopAttention,
+  projectAttention,
+  roomAttention,
+  sessionStartedAt,
+  type ArchitectIndexView,
+  type AttentionClaim,
   type GitDiffStat,
   type OrchestratorBoardAction,
   type OrchestratorBoardActionResult,
@@ -19,14 +28,23 @@ import {
   type OrchestratorBoardRoomIndexView,
 } from '@sero-ai/common';
 import type { BoardColumnId, BoardLayoutState, WorkspaceBoardSlice } from '@/types/board';
+import { useAppStore } from '@/stores/app';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { persistLayout } from '@/lib/persist-layout';
 
 const EMPTY_SLICE: WorkspaceBoardSlice = { index: null, rooms: null, issues: [], openPrs: [] };
 
+/** This renderer session, the anchor a live-run mark is judged against. */
+const SESSION_STARTED_AT = sessionStartedAt();
+
 interface AgentBoardState {
   /** Aggregated per-workspace state (watched files + fetched gh reads). */
   slices: Record<string, WorkspaceBoardSlice>;
+  /**
+   * The Architect's global project index, null until it is read. Its projects
+   * name their own workspace, so it is watched once rather than per workspace.
+   */
+  architect: ArchitectIndexView | null;
   /** True once watchers are attached (board mounted at least once). */
   started: boolean;
   /** In-flight guard for the gh fetch sweep. */
@@ -36,6 +54,8 @@ interface AgentBoardState {
   collapsedColumns: BoardColumnId[];
   workspaceFilter: string | null;
 
+  /** Attach the watchers only. The workspace tree calls this on mount. */
+  startWatching: () => void;
   start: () => void;
   refreshIssues: () => Promise<void>;
   requestAction: (
@@ -48,13 +68,14 @@ interface AgentBoardState {
   hydrate: (layout: BoardLayoutState | undefined) => void;
 }
 
-/** What a watched file is: the two indexes are different shapes in the same slice. */
-type WatchKind = 'loops' | 'rooms';
+/** What a watched file is: three shapes, two of them per workspace. */
+type WatchKind = 'loops' | 'rooms' | 'architect';
 
 /** Absolute index path → what it is and whose. Module-level: survives store updates. */
 const watchTargets = new Map<string, { workspaceId: string; kind: WatchKind }>();
 let changeUnsubscribe: (() => void) | null = null;
 let workspaceUnsubscribe: (() => void) | null = null;
+let appsUnsubscribe: (() => void) | null = null;
 
 function indexPath(workspacePath: string): string {
   return `${workspacePath}/${ORCHESTRATOR_INDEX_FILE}`;
@@ -78,8 +99,35 @@ function normalizeRoomIndex(data: unknown): OrchestratorBoardRoomIndexView | nul
   return data as OrchestratorBoardRoomIndexView;
 }
 
+function normalizeArchitectIndex(data: unknown): ArchitectIndexView | null {
+  if (!data || typeof data !== 'object' || !Array.isArray((data as { projects?: unknown }).projects)) {
+    return null;
+  }
+  return data as ArchitectIndexView;
+}
+
+/**
+ * The state bridge, or null when there is none.
+ *
+ * The workspace subscription below outlives any one screen, so it must not
+ * throw when it runs without a bridge; it simply watches nothing.
+ */
+function appStateBridge(): Window['sero']['appState'] | null {
+  return window.sero?.appState ?? null;
+}
+
+/** Where the Architect keeps its index, or null before app discovery finishes. */
+function architectIndexPath(): string | null {
+  const app = useAppStore.getState().apps.find((entry) => entry.id === ARCHITECT_APP_ID);
+  return app?.manifest?.globalStatePath ?? null;
+}
+
 export const useAgentBoardStore = create<AgentBoardState>((set, get) => {
   function applyWatched(workspaceId: string, kind: WatchKind, data: unknown): void {
+    if (kind === 'architect') {
+      set({ architect: normalizeArchitectIndex(data) });
+      return;
+    }
     set((state) => {
       const slice = state.slices[workspaceId] ?? EMPTY_SLICE;
       const next: WorkspaceBoardSlice = kind === 'loops'
@@ -90,9 +138,10 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => {
   }
 
   function watchPath(filePath: string, workspaceId: string, kind: WatchKind): void {
-    if (watchTargets.has(filePath)) return;
+    const bridge = appStateBridge();
+    if (!bridge || watchTargets.has(filePath)) return;
     watchTargets.set(filePath, { workspaceId, kind });
-    window.sero.appState
+    bridge
       .watch(filePath)
       .then(({ data }: { data: unknown }) => applyWatched(workspaceId, kind, data))
       .catch(() => applyWatched(workspaceId, kind, null));
@@ -100,6 +149,8 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => {
 
   /** Aligns watchers with the current workspace list (idempotent, push-driven). */
   function syncWatchers(): void {
+    const bridge = appStateBridge();
+    if (!bridge) return;
     const workspaces = useWorkspaceStore.getState().workspaces;
     const wanted = new Map<string, { workspaceId: string; kind: WatchKind }>();
     for (const ws of workspaces) {
@@ -107,10 +158,12 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => {
       wanted.set(indexPath(ws.path), { workspaceId: ws.id, kind: 'loops' });
       wanted.set(roomIndexPath(ws.path), { workspaceId: ws.id, kind: 'rooms' });
     }
+    const architectPath = architectIndexPath();
+    if (architectPath) wanted.set(architectPath, { workspaceId: '', kind: 'architect' });
     for (const [filePath] of watchTargets) {
       if (wanted.has(filePath)) continue;
       watchTargets.delete(filePath);
-      void window.sero.appState.unwatch(filePath).catch(() => undefined);
+      void bridge.unwatch(filePath).catch(() => undefined);
     }
     for (const [filePath, target] of wanted) watchPath(filePath, target.workspaceId, target.kind);
     // Drop slices of workspaces that no longer exist.
@@ -124,25 +177,35 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => {
 
   return {
     slices: {},
+    architect: null,
     started: false,
     refreshingIssues: false,
     diffStats: {},
     collapsedColumns: [],
     workspaceFilter: null,
 
-    start: () => {
+    startWatching: () => {
       if (!get().started) {
         set({ started: true });
-        changeUnsubscribe ??= window.sero.appState.onChange((filePath: string, data: unknown) => {
+        changeUnsubscribe ??= appStateBridge()?.onChange((filePath: string, data: unknown) => {
           const target = watchTargets.get(filePath);
           if (target) applyWatched(target.workspaceId, target.kind, data);
-        });
+        }) ?? null;
         // Workspaces added/removed while the board is up re-align the watcher set.
         workspaceUnsubscribe ??= useWorkspaceStore.subscribe((state, prev) => {
           if (state.workspaces !== prev.workspaces) syncWatchers();
         });
+        // App discovery finishes after the tree mounts, and it carries the
+        // Architect's index path.
+        appsUnsubscribe ??= useAppStore.subscribe((state, prev) => {
+          if (state.apps !== prev.apps) syncWatchers();
+        });
       }
       syncWatchers();
+    },
+
+    start: () => {
+      get().startWatching();
       // Every mount refetches gh state, so a reopened board isn't stale.
       void get().refreshIssues();
     },
@@ -215,6 +278,50 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => {
     },
   };
 });
+
+/**
+ * The one thing in this workspace that needs the user, or null.
+ *
+ * It reads only records the apps already publish, so a workspace whose indexes
+ * have not been read says nothing rather than claiming its work is fine. The
+ * first claim wins: the tree shows one icon, and a project's own words are more
+ * use than the Workflow underneath it.
+ */
+export interface WorkspaceAttention {
+  /** The state the owning app is in, for the glyph. */
+  state: AttentionClaim['state'];
+  /** What needs the user, named and worded as its own app words it. */
+  sentence: string;
+}
+
+export function workspaceAttention(
+  state: Pick<AgentBoardState, 'slices' | 'architect'>,
+  workspaceId: string,
+): WorkspaceAttention | null {
+  const named = (title: string, claim: AttentionClaim | null): WorkspaceAttention | null =>
+    (claim ? { state: claim.state, sentence: `${title}: ${attentionSentence(claim)}` } : null);
+
+  for (const project of state.architect?.projects ?? []) {
+    if (project.workspaceId !== workspaceId) continue;
+    const found = named(project.name, projectAttention(project));
+    if (found) return found;
+  }
+  const slice = state.slices[workspaceId];
+  for (const loop of slice?.index?.loops ?? []) {
+    const found = named(loop.title, loopAttention(loop, SESSION_STARTED_AT));
+    if (found) return found;
+  }
+  for (const room of slice?.rooms?.rooms ?? []) {
+    const found = named(room.title, roomAttention(room));
+    if (found) return found;
+  }
+  return null;
+}
+
+/** Subscribes to the one sentence, so an unrelated index write re-renders nothing. */
+export function useWorkspaceAttention(workspaceId: string): WorkspaceAttention | null {
+  return useAgentBoardStore(useShallow((state) => workspaceAttention(state, workspaceId)));
+}
 
 /** Current board prefs merged with a partial update (for persistLayout). */
 function buildBoardLayout(partial: Partial<BoardLayoutState>): BoardLayoutState {

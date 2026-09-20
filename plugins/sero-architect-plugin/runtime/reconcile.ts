@@ -16,6 +16,25 @@ export interface ReconcileResult {
   held: string[];
 }
 
+/**
+ * Drops every dispatch's observed-liveness stamp.
+ *
+ * The stamp means "this runtime session watched that work report". A session
+ * that has just started has watched nothing, so keeping a saved stamp would let
+ * a dead Workflow read as Working, which is the fault this exists to prevent.
+ */
+function clearObservedLiveness(record: ProjectRecord): ProjectRecord {
+  if (!record.milestones.some((milestone) => milestone.dispatch?.observedLiveAt)) return record;
+  return {
+    ...record,
+    milestones: record.milestones.map((milestone) => {
+      if (!milestone.dispatch?.observedLiveAt) return milestone;
+      const { observedLiveAt: _dropped, ...dispatch } = milestone.dispatch;
+      return { ...milestone, dispatch };
+    }),
+  };
+}
+
 export async function reconcileProjects(store: RecordStore, host: ArchitectHost): Promise<ReconcileResult> {
   const now = host.now();
   const workspaceIds = new Set((await host.listWorkspaces()).map((ws) => ws.id));
@@ -23,7 +42,7 @@ export async function reconcileProjects(store: RecordStore, host: ArchitectHost)
   const records: ProjectRecord[] = [];
 
   for (const stored of await store.list()) {
-    let record = settle({ ...stored, session: { ...stored.session, workingSince: null } }, now);
+    let record = settle(clearObservedLiveness({ ...stored, session: { ...stored.session, workingSince: null } }), now);
     const workspaceMissing = record.workspaceId !== null && !workspaceIds.has(record.workspaceId);
     if (workspaceMissing && record.blockedReason === null) {
       const blocked = block(record, now, `workspace ${record.workspaceId} is not registered in this profile`);

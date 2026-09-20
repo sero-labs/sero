@@ -81,7 +81,9 @@ export type OrchestratorAction =
   | { kind: 'catalog_refresh'; repoKey?: string }
   | { kind: 'catalog_install'; repoKey: string; slug: string; workspaceLoad?: boolean }
   | { kind: 'delete'; loopId: string; deleteBranch?: boolean }
-  | { kind: 'fire_event'; event: OrchestratorEvent };
+  | { kind: 'fire_event'; event: OrchestratorEvent }
+  /** Trigger arming. `owner` is set by a plugin runtime and checked against the loop's project; the app's own UI omits it. */
+  | { kind: 'set_armed'; loopId: string; armed: boolean; triggerIds?: string[]; owner?: { projectId: string } };
 
 /**
  * Compile-time guard: every action the shell's Agent Board can send
@@ -112,6 +114,8 @@ export interface OrchestratorActionResult {
   delivered?: number;
   /** Set by `fire_event`: the event's dedupeKey was already delivered, so it was dropped. */
   deduped?: boolean;
+  /** Set by `set_armed`: the triggers this call actually changed, so the caller can restore exactly those. */
+  changedTriggerIds?: string[];
   /** Set by `reflect`: how many suggestions this pass produced. */
   reflection?: { suggestionCount: number };
   /** Set by `reflect_workspace`: the consecutive per-loop sweep summary. */

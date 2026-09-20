@@ -13,6 +13,13 @@ import type { AutonomySetting, ExecutionMode, ProjectRecord } from '../../shared
 import { AUTONOMY_SETTINGS } from '../../shared/charter-shape';
 import { AUTONOMY_LABEL } from '../lib/view-model';
 
+/** The "Needs you · N" filter the projects list is driven by. */
+export interface NeedsYouToggle {
+  count: number;
+  on: boolean;
+  toggle(): void;
+}
+
 export interface ProjectControls {
   pause(): void;
   resume(): void;
@@ -86,9 +93,11 @@ export interface TopBarProps {
   controls: ProjectControls | null;
   onBack(): void;
   onNewProject(): void;
+  /** Only the list supplies this; a project page has no rows to filter. */
+  needsYou?: NeedsYouToggle;
 }
 
-export function TopBar({ record, controls, onBack, onNewProject }: TopBarProps) {
+export function TopBar({ record, controls, onBack, onNewProject, needsYou }: TopBarProps) {
   return (
     <div className="ar-top">
       <div className="ar-brand"><span className="ar-brand-mark"><Compass className="ar-i" /></span>Architect</div>
@@ -107,7 +116,14 @@ export function TopBar({ record, controls, onBack, onNewProject }: TopBarProps) 
             <ControlsMenu record={record} controls={controls} />
           </>
         ) : !record ? (
-          <Button size="sm" className="ar-btn ar-btn-primary" onClick={onNewProject}><Plus className="ar-i" />New project</Button>
+          <>
+            {needsYou !== undefined && needsYou.count > 0 && (
+              <Button variant="outline" size="sm" className="ar-btn" aria-pressed={needsYou.on} onClick={needsYou.toggle}>
+                Needs you · {needsYou.count}
+              </Button>
+            )}
+            <Button size="sm" className="ar-btn ar-btn-solid" onClick={onNewProject}><Plus className="ar-i" />New project</Button>
+          </>
         ) : null}
       </div>
     </div>

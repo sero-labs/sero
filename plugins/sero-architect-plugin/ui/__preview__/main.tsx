@@ -25,7 +25,7 @@ import { ProjectsList } from '../components/ProjectsList';
 import { TopBar } from '../components/TopBar';
 import { ProjectPage } from '../ProjectPage';
 import type { ArchitectActions, ActionOutcome } from '../lib/actions';
-import { FIXTURES, LIST_ROWS } from './fixture';
+import { FIXTURES, listRows } from './fixture';
 
 const ok = async (): Promise<ActionOutcome> => ({ ok: true, text: 'ok' });
 const actions: ArchitectActions = {
@@ -45,6 +45,9 @@ const actions: ArchitectActions = {
 const params = new URLSearchParams(window.location.search);
 const state = params.get('state') ?? 'list';
 const width = Number(params.get('width') ?? 1240);
+// `?runtime=off` draws the list as it reads when the Architect runtime is not
+// running in this session: the notice at the top and last-known rows.
+const runtimeRunning = params.get('runtime') !== 'off';
 
 function Preview() {
   const record = FIXTURES[state];
@@ -58,11 +61,11 @@ function Preview() {
           <div className="ar-app">
             {state === 'new-project' && <IntakeDialog open onClose={() => undefined} onCreate={async () => ({ ok: true, text: 'ok' })} defaultFolder="~/Projects/" />}
             {record ? (
-              <ProjectPage record={record} actions={actions} narrow={width < 1100} disclosures={disclosures} onBack={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} confirm={() => true} />
+              <ProjectPage runtimeRunning={runtimeRunning} record={record} actions={actions} narrow={width < 1100} disclosures={disclosures} onBack={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} confirm={() => true} />
             ) : (
               <>
-                <TopBar record={null} controls={null} onBack={() => undefined} onNewProject={() => undefined} />
-                <ProjectsList projects={state === 'empty' ? [] : LIST_ROWS} onOpen={() => undefined} onNewProject={() => undefined} />
+                <TopBar record={null} controls={null} onBack={() => undefined} onNewProject={() => undefined} needsYou={{ count: listRows(runtimeRunning).filter((row) => row.activity.action).length, on: false, toggle: () => undefined }} />
+                <ProjectsList needsOnly={false} projects={state === 'empty' ? [] : listRows(runtimeRunning)} runtime={{ running: runtimeRunning, startedAt: new Date().toISOString() }} onOpen={() => undefined} onNewProject={() => undefined} />
               </>
             )}
           </div>

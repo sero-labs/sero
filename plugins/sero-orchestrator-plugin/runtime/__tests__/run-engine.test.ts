@@ -442,3 +442,34 @@ describe('RunEngine — branching', () => {
     expect(loop.runs[0].recoveryDecisions).toHaveLength(1);
   });
 });
+
+describe('the live-run mark', () => {
+  it('is present while the run reports and gone once it ends', async () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+    const seen: (string | undefined)[] = [];
+    const executor = fakeExecutor({
+      'step-1': () => {
+        // Mid-run: the mark is the loop's own active run.
+        const mark = loopOf(host).runtime.liveRun;
+        seen.push(mark?.runId);
+        return SUCCESS;
+      },
+    });
+
+    await new RunEngine(host, deps({ executor })).run('loop-1');
+
+    const loop = loopOf(host);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toBe(loop.runs[0].id);
+    expect(loop.runtime.activeRunId).toBeUndefined();
+    expect(loop.runtime.liveRun).toBeUndefined();
+  });
+
+  it('never appears for a loop that has not run', () => {
+    const host = createFakeHost();
+    seedActiveLoop(host, oneStepPlan().plan);
+
+    expect(loopOf(host).runtime.liveRun).toBeUndefined();
+  });
+});

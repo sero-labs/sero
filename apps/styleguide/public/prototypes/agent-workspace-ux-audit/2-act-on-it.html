@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Act on it — proposal 2</title>
+<style>
+:root{
+  --bg:#09090b;--surface:#111113;--raised:#18181b;--overlay:#202024;--muted:#28282d;
+  --line:#26262b;--line-strong:#393940;
+  --text:#f4f4f5;--text-2:#b7b7c0;--text-3:#74747f;
+  --emerald:#34d399;--emerald-2:#10b981;--emerald-wash:rgba(52,211,153,.1);
+  --blue:#60a5fa;--blue-wash:rgba(96,165,250,.12);
+  --amber:#fbbf24;--amber-wash:rgba(251,191,36,.12);
+  --red:#fb7185;--red-wash:rgba(251,113,133,.12);
+  --violet:#a78bfa;
+  --sans:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box}
+html{background:#050506;color-scheme:dark}
+body{margin:0;padding:60px 24px 120px;background:#050506;color:var(--text);font-family:var(--sans)}
+button{font:inherit;border:0;background:none;color:inherit;text-align:left;padding:0}
+h1,h2,h3,h4,p{margin:0}
+.doc{width:min(1400px,100%);margin:0 auto}
+.intro{max-width:820px;margin-bottom:56px}
+h1{font-size:28px;line-height:1.15;letter-spacing:-.04em;font-weight:650}
+.lede{margin-top:13px;color:var(--text-2);font-size:15px;line-height:1.65}
+.lede b{color:var(--text);font-weight:560}
+.rules{margin-top:22px;padding:16px 18px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}
+.rules h4{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--text-3);font-weight:650}
+.rules ul{margin:10px 0 0;padding-left:18px;color:var(--text-2);font-size:13px;line-height:1.7}
+.rules b{color:var(--text)}
+.state{margin-top:64px}
+.state:first-of-type{margin-top:0}
+h2{font-size:19px;line-height:1.2;letter-spacing:-.02em;font-weight:620}
+.note{max-width:880px;margin:9px 0 8px;color:var(--text-3);font-size:13px;line-height:1.6}
+.note b{color:var(--text-2);font-weight:560}
+.was{max-width:880px;margin:0 0 18px;color:#8a8a93;font-size:12px;line-height:1.55}
+.was b{color:var(--red);font-weight:560}
+
+.app{width:1400px;max-width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;
+  box-shadow:0 30px 90px rgba(0,0,0,.46);overflow:hidden;display:flex;flex-direction:column}
+.top{height:52px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--line);flex:0 0 auto}
+.mark{width:20px;height:20px;border-radius:6px;background:linear-gradient(145deg,#1d3b31,#101012);
+  border:1px solid #2f5b4b;display:grid;place-items:center;color:var(--emerald);font-size:10px}
+.top .name{font-size:13px;font-weight:650}
+.crumb{display:flex;align-items:center;gap:8px;color:var(--text-3);font-size:12px}
+.crumb b{color:var(--text-2);font-weight:500}
+.top .right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.btn{height:30px;padding:0 11px;border:1px solid var(--line-strong);border-radius:7px;background:var(--raised);
+  color:var(--text-2);display:inline-flex;align-items:center;gap:7px;font-size:12px;white-space:nowrap}
+.btn.primary{border-color:#2dd49a;background:var(--emerald-2);color:#04130d;font-weight:650}
+.btn.quiet{border-color:transparent;background:transparent;color:var(--text-3)}
+.btn.sm{height:26px;padding:0 9px;font-size:11px}
+.nav{display:flex;align-items:center;gap:2px;margin-left:8px}
+.nav a{padding:6px 12px;border-radius:7px;color:var(--text-3);font-size:12px;text-decoration:none}
+.nav a.on{background:var(--raised);color:var(--text)}
+.body{padding:18px 20px 22px}
+
+/* activity line — the core of proposals 1 and 4 */
+.act{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--text-2)}
+.act .glyph{width:16px;height:16px;border-radius:4px;display:grid;place-items:center;font:9px var(--mono);flex:0 0 auto}
+.g-run{background:var(--emerald-wash);color:var(--emerald)}
+.g-wait{background:var(--amber-wash);color:var(--amber)}
+.g-queue{background:var(--blue-wash);color:var(--blue)}
+.g-pause{background:var(--muted);color:var(--text-2)}
+.g-done{background:var(--muted);color:var(--text-3)}
+.g-fail{background:var(--red-wash);color:var(--red)}
+.g-stale{background:var(--muted);color:var(--amber)}
+.who{color:var(--text-3);font-size:12px;line-height:1.45}
+.who b{color:var(--text-2);font-weight:560}
+
+.rowhead{display:grid;grid-template-columns:230px minmax(0,1fr) 290px 120px;gap:14px;padding:0 18px 9px;
+  color:var(--text-3);font:10px var(--mono);letter-spacing:.07em;text-transform:uppercase}
+.rowhead .sp{text-align:right}
+.row{display:grid;grid-template-columns:230px minmax(0,1fr) 290px 120px;gap:14px;align-items:center;
+  padding:13px 14px;border:1px solid var(--line);border-radius:9px;background:var(--surface);margin-bottom:8px}
+.row .title{font-size:13px;font-weight:560;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .id{margin-top:3px;color:var(--text-3);font:10px var(--mono)}
+.row .money{text-align:right;color:var(--text-3);font:11px var(--mono)}
+.row.attn{border-color:rgba(251,191,36,.34);background:rgba(251,191,36,.045)}
+.row.fail{border-color:rgba(251,113,133,.3);background:rgba(251,113,133,.04)}
+.needs{display:inline-block;padding:3px 8px;border-radius:6px;background:var(--amber-wash);
+  color:var(--amber);font-size:11px;font-weight:560;line-height:1.45}
+.plain{color:var(--text-3);font-size:11px}
+
+.card{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:15px 17px}
+.card + .card{margin-top:11px}
+.sec{margin-top:22px}
+.sec-head{display:flex;align-items:baseline;gap:10px;margin-bottom:10px;color:var(--text-3);
+  font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase}
+.sec-head .n{margin-left:auto;color:#55555e}
+h3{font-size:17px;letter-spacing:-.02em;font-weight:600;line-height:1.25}
+.sub{margin-top:5px;color:var(--text-3);font-size:12px}
+.dis{margin-top:11px;border-top:1px solid var(--line);padding-top:10px}
+.dis summary{cursor:default;color:var(--text-2);font-size:12px;list-style:none;display:flex;align-items:center;gap:8px}
+.dis summary::-webkit-details-marker{display:none}
+.dis summary .chev{width:0;height:0;flex:0 0 auto;border-left:5px solid var(--text-3);
+  border-top:4px solid transparent;border-bottom:4px solid transparent;font-size:0}
+.dis[open] > summary .chev{border-left-color:transparent;border-top:5px solid var(--text-3);
+  border-right:4px solid transparent;border-left:4px solid transparent;border-bottom:0}
+.dis summary .n{margin-left:auto;color:var(--text-3);font:10px var(--mono)}
+.dis[open] > summary{margin-bottom:10px}
+.kv{display:grid;grid-template-columns:132px minmax(0,1fr);gap:6px 14px;font-size:12px;color:var(--text-2)}
+.kv dt{color:var(--text-3);font:10px var(--mono);letter-spacing:.06em;text-transform:uppercase;padding-top:2px}
+.kv dd{margin:0;line-height:1.55}
+.evi{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--line);font-size:12px}
+.evi:last-child{border-bottom:0}
+.evi .ok{color:var(--emerald);font:11px var(--mono)}
+.evi .bad{color:var(--red);font:11px var(--mono)}
+.evi code{font:11px var(--mono);color:var(--text-2)}
+.evi .when{margin-left:auto;color:var(--text-3);font:10px var(--mono)}
+.chip{display:inline-flex;align-items:center;height:21px;padding:0 8px;border-radius:6px;background:var(--raised);
+  color:var(--text-3);font-size:11px}
+.chip.on{background:var(--emerald-wash);color:var(--emerald)}
+.chip.warn{background:var(--amber-wash);color:var(--amber)}
+.chip.bad{background:var(--red-wash);color:var(--red)}
+.chip.info{background:var(--blue-wash);color:var(--blue)}
+.steps{counter-reset:s;margin:0;padding:0;list-style:none}
+.steps li{position:relative;padding:0 0 18px 30px;counter-increment:s}
+.steps li:before{content:counter(s);position:absolute;left:0;top:0;width:20px;height:20px;border-radius:50%;
+  border:1px solid var(--line-strong);display:grid;place-items:center;color:var(--text-3);font:10px var(--mono)}
+.steps li b{display:block;font-size:13px;font-weight:560;color:var(--text)}
+.steps li span{display:block;margin-top:3px;color:var(--text-3);font-size:12px;line-height:1.5}
+.two{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px}
+.ask{border:1px solid rgba(251,191,36,.34);background:rgba(251,191,36,.05);border-radius:10px;padding:16px 18px}
+.ask .eyebrow{color:var(--amber);font:9px var(--mono);letter-spacing:.11em;text-transform:uppercase}
+.ask h3{margin-top:7px}
+.opt{margin-top:11px;border:1px solid var(--line-strong);border-radius:8px;background:var(--bg);padding:11px 13px}
+.opt.pick{border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.05)}
+.opt b{font-size:13px}
+.opt p{margin-top:4px;color:var(--text-3);font-size:12px;line-height:1.5}
+.opt .rec{float:right;color:var(--emerald);font:9px var(--mono);letter-spacing:.09em;text-transform:uppercase}
+.mini{color:var(--text-3);font-size:11px;line-height:1.5}
+.bar{height:3px;border-radius:2px;background:var(--muted);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--emerald)}
+.bar.over i{background:var(--red)}
+.tl{border-left:1px solid var(--line);margin-left:7px;padding-left:16px}
+.tl .ev{position:relative;padding:8px 0;font-size:12px;color:var(--text-2)}
+.tl .ev:before{content:"";position:absolute;left:-20px;top:13px;width:7px;height:7px;border-radius:50%;background:#3d3d45}
+.tl .ev.now:before{background:var(--emerald)}
+.tl .ev .t{color:var(--text-3);font:10px var(--mono);margin-right:9px}
+footer{margin-top:80px;padding-top:20px;border-top:1px solid var(--line);color:var(--text-3);font-size:12px;line-height:1.6}
+footer a{color:var(--emerald)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* ---- additions for the per-flow documents ---- */
+a{color:var(--emerald)}
+.ico{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.act .glyph .ico{width:10px;height:10px}
+.g-idle{background:var(--muted);color:var(--text-3)}
+.g-known{background:var(--muted);color:var(--amber)}
+.qs{margin-top:22px;border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden;max-width:980px}
+.qs table{width:100%;border-collapse:collapse;font-size:13px}
+.qs th{text-align:left;padding:10px 14px;color:var(--text-3);font:10px var(--mono);letter-spacing:.07em;text-transform:uppercase;font-weight:400;border-bottom:1px solid var(--line)}
+.qs td{padding:10px 14px;border-top:1px solid var(--line);color:var(--text-2);vertical-align:top;line-height:1.5}
+.qs tr:first-child td{border-top:0}
+.qs td b{color:var(--text);font-weight:560}
+.qs td.st{white-space:nowrap;font:11px var(--mono);color:var(--text-3)}
+.answers{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 6px}
+.answers span{padding:3px 8px;border-radius:6px;background:var(--raised);border:1px solid var(--line);color:var(--text-3);font-size:11px}
+.answers span.q{color:var(--emerald);border-color:rgba(52,211,153,.25);background:var(--emerald-wash)}
+.was a{color:#8a8a93}
+details.parity{margin-top:12px;max-width:1400px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}
+details.parity>summary{display:flex;align-items:baseline;gap:12px;padding:10px 14px;cursor:pointer;list-style:none;color:var(--text-2);font-size:12px}
+details.parity>summary::-webkit-details-marker{display:none}
+details.parity>summary::before{content:"\25B8";color:var(--text-3);font-size:10px}
+details.parity[open]>summary::before{content:"\25BE"}
+details.parity>summary .tally{margin-left:auto;color:var(--text-3);font:10px var(--mono);letter-spacing:.04em}
+details.parity ul{margin:0;padding:4px 14px 12px;list-style:none;columns:2;column-gap:28px}
+details.parity li{break-inside:avoid;padding:5px 0;font-size:12px;color:var(--text-2);line-height:1.5;display:flex;gap:9px}
+details.parity li i{font-style:normal;color:var(--text-3)}
+.pl{flex:0 0 52px;height:18px;border-radius:5px;display:inline-grid;place-items:center;font:9px var(--mono);letter-spacing:.06em;text-transform:uppercase}
+.pl.k{background:var(--muted);color:var(--text-2)}
+.pl.m{background:var(--blue-wash);color:var(--blue)}
+.pl.f{background:var(--emerald-wash);color:var(--emerald)}
+.pl.d{background:var(--red-wash);color:var(--red)}
+.pl.n{background:var(--amber-wash);color:var(--amber)}
+.plist{display:grid;grid-template-columns:200px 170px minmax(0,1fr) 230px 104px;gap:14px}
+.plist .title{white-space:normal;overflow-wrap:anywhere;line-height:1.35}
+.phase{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:4px;color:var(--text-3);font-size:11px}
+.phase .cnt{flex-basis:100%;margin-top:2px}
+.phase b{font:9px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);font-weight:400}
+.phase .ov{padding:1px 6px;border-radius:4px;font:9px var(--mono);letter-spacing:.07em;text-transform:uppercase}
+.ov.blocked{background:var(--red-wash);color:var(--red)}
+.ov.paused{background:var(--muted);color:var(--text-2)}
+.ov.limited{background:var(--red-wash);color:var(--red)}
+.cell-h{color:var(--text-3);font:9px var(--mono);letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px;display:none}
+.banner{display:flex;align-items:flex-start;gap:10px;padding:11px 14px;margin-bottom:12px;border:1px solid var(--line-strong);border-radius:9px;background:var(--raised);font-size:12px;color:var(--text-2);line-height:1.55}
+.banner b{color:var(--text)}
+.band{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:16px 18px}
+.band + .band{margin-top:12px}
+.band .lines{display:grid;grid-template-columns:96px minmax(0,1fr);gap:8px 14px;margin-top:12px;font-size:12.5px}
+.band .lines dt{color:var(--text-3);font:10px var(--mono);letter-spacing:.07em;text-transform:uppercase;padding-top:3px}
+.band .lines dd{margin:0;color:var(--text-2);line-height:1.5}
+.rail{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:14px}
+.rail div{border-top:3px solid var(--muted);padding-top:6px;color:var(--text-3);font:9px var(--mono);letter-spacing:.08em;text-transform:uppercase}
+.rail div.done{border-color:var(--emerald-2)}
+.rail div.now{border-color:var(--text-2);color:var(--text)}
+.rail div.now.bad{border-color:var(--red);color:var(--red)}
+.meta2{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;color:var(--text-3);font-size:11px}
+.meta2 code{font:11px var(--mono)}
+.ring{width:210px;flex:0 0 auto}
+.side{width:260px;flex:0 0 auto;border-right:1px solid var(--line);padding:12px 10px}
+.search{height:30px;border:1px solid var(--line-strong);border-radius:7px;background:var(--bg);display:flex;align-items:center;gap:7px;padding:0 9px;color:var(--text-3);font-size:12px;flex:1}
+.wfi{padding:9px 8px;border-radius:7px}
+.wfi + .wfi{margin-top:2px}
+.wfi .t{font-size:12.5px;color:var(--text);line-height:1.35}
+.wfi .act{margin-top:5px;font-size:11px}
+.wfi.sel{background:var(--raised)}
+.badge{display:inline-flex;align-items:center;gap:3px;height:18px;padding:0 6px;border-radius:5px;background:var(--blue-wash);color:var(--blue);font:10px var(--mono);margin-left:6px;vertical-align:1px}
+.tree{width:330px;border-right:1px solid var(--line);padding:10px 8px;font-size:12.5px}
+.tree .hd{display:flex;align-items:center;padding:6px 8px;color:var(--text-3);font:10px var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.tree .hd span{margin-left:auto;display:flex;gap:10px;color:var(--text-3)}
+.wsr{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:6px;color:var(--text-2)}
+.wsr .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wsr .icons{display:flex;gap:7px;color:var(--text-3);font-size:11px}
+.wsr .st{display:flex;align-items:center;gap:5px;margin:2px 0 4px 28px;font-size:11px;color:var(--text-3)}
+.wsr.st{margin:0 0 5px 30px;padding:0;gap:6px;font-size:11px;color:var(--text-3)}
+.wsflag{display:inline-flex}
+.wsflag .glyph{width:15px;height:15px}
+.wsr.on{background:var(--raised);color:var(--text)}
+.wsw{padding:0}
+.opens{margin-top:48px;max-width:980px}
+.opens ol{margin:12px 0 0;padding-left:20px;color:var(--text-2);font-size:13.5px;line-height:1.7}
+.opens li+li{margin-top:10px}
+.opens li b{color:var(--text)}
+.vocab{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.vocab .card p{margin-top:7px}
+.vocab .card+.card{margin-top:0}
+.vocab .ex{display:block;margin-top:6px;color:var(--text-2)}
+.vocab .src{display:block;margin-top:5px;color:var(--text-3);font:10px var(--mono)}
+.card.new{border-color:rgba(251,191,36,.3)}
+.newtag{margin-left:8px;color:var(--amber);font:9px var(--mono);letter-spacing:.09em;text-transform:uppercase}
+@media (max-width:1100px){details.parity ul{columns:1}}
+.field{display:inline-flex;align-items:center;height:26px;padding:0 9px;border:1px solid var(--line-strong);border-radius:6px;background:var(--bg);color:var(--text-2);font:12px var(--mono)}
+.setrow{display:flex;flex-wrap:wrap;gap:8px 26px;margin:12px 0 0;padding:11px 14px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}
+.setrow div{display:flex;flex-direction:column;gap:3px}
+.setrow dt{color:var(--text-3);font:9px var(--mono);letter-spacing:.08em;text-transform:uppercase}
+.setrow dd{margin:0;color:var(--text-2);font-size:12.5px}
+.setrow a{color:var(--text);text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:3px}
+table.mt{width:100%;border-collapse:collapse;font-size:12.5px}
+table.mt th{text-align:left;padding:0 10px 8px;color:var(--text-3);font:10px var(--mono);letter-spacing:.07em;text-transform:uppercase;font-weight:400;border-bottom:1px solid var(--line)}
+table.mt td{padding:10px;border-bottom:1px solid var(--line);color:var(--text-2);vertical-align:middle}
+table.mt td .act{font-size:12px}
+table.mt .tier{font:11px var(--mono);color:var(--emerald);width:70px}
+table.mt tr.owner td{background:var(--raised)}
+table.mt tr.owner .tier{color:var(--text-2)}
+.ask code,.kv code{font:11px var(--mono);color:var(--text-2)}
+
+/* Spend as the existing app draws it: a ring, the amount beside it. */
+.ring{width:auto;flex:0 0 auto;display:flex;align-items:center;gap:14px;padding-left:8px}
+.ring svg{width:64px;height:64px;transform:rotate(-90deg)}
+.ring .trk{fill:none;stroke:var(--muted);stroke-width:5}
+.ring .val{fill:none;stroke:var(--emerald-2);stroke-width:5;stroke-linecap:round}
+.ring.over .val{stroke:var(--red)}
+.ring .amt{font:15px var(--mono);color:var(--text)}
+.ring.over .amt{color:var(--red)}
+.ring .of{margin-top:3px;color:var(--text-3);font-size:11.5px}
+
+/* The spend panel: its own column, divided from the header and shaded. */
+.band.split{padding:0;overflow:hidden}
+.bandrow{display:flex;align-items:stretch}
+.bandmain{flex:1;min-width:0;padding:16px 18px}
+.band.split .ring .of{white-space:nowrap}
+.band.split .ring{flex:0 0 240px;justify-content:center;padding:16px;border-left:1px solid var(--line);background:var(--raised)}
+/* Workflow plan, Details view (PlanView + StepCard) */
+.objective{margin-top:16px;font-size:12.5px;color:var(--text-2);line-height:1.55}
+.objective b{color:var(--text);font-weight:600}
+.pbar{display:flex;align-items:center;gap:12px;margin:14px 0 12px}
+.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:7px;overflow:hidden}
+.seg span{padding:4px 11px;font-size:12px;color:var(--text-3)}
+.seg span + span{border-left:1px solid var(--line-strong)}
+.seg span.on{background:var(--overlay);color:var(--text)}
+.srow{display:flex;gap:12px;position:relative}
+.srow .mk{display:flex;flex-direction:column;align-items:center;flex:0 0 24px}
+.srow .mk b{width:24px;height:24px;border-radius:50%;border:1px solid var(--line-strong);background:var(--surface);display:grid;place-items:center;font:11px var(--mono);color:var(--text-2);font-weight:400}
+.srow .mk i{flex:1;width:1px;background:var(--line-strong)}
+.srow .sc{flex:1;min-width:0;padding-bottom:12px}
+.step{border:1px solid var(--line);border-radius:9px;background:var(--surface);padding:11px 14px}
+.step .hd{display:flex;align-items:center;gap:9px}
+.step .hd b{flex:1;font-size:13px;font-weight:600;color:var(--text)}
+.lp-a::before,.lp-b::before{content:"";position:absolute;left:-14px;width:12px;border:1.5px dashed var(--violet);border-right:0}
+.lp-a::before{top:12px;bottom:0;border-bottom:0}
+.lp-b::before{top:0;height:12px;border-top:0}
+.lp-a::after{content:"";position:absolute;left:-4px;top:8px;border:5px solid transparent;border-left-color:var(--violet)}
+.ib{width:24px;height:24px;border:0;background:none;color:var(--text-3);display:grid;place-items:center;border-radius:5px;padding:0}
+.ib svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.kv.oc{margin-top:8px}
+.kv.oc dd{color:var(--text)}
+.srow .mk b svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.grp{border:1px dashed var(--line-strong);border-radius:9px;padding:8px;display:flex;flex-direction:column;gap:8px}
+.grp .gh{font-size:11.5px;color:var(--text-3);padding:0 4px}
+.grp .gg{display:grid;align-items:start;grid-template-columns:1fr 1fr;gap:8px}
+.step .hd .n{font:11px var(--mono);color:var(--text-3);font-weight:400;flex:0 0 auto}
+.step.dim{opacity:.55}
+.step.live{border-color:rgba(52,211,153,.35)}
+.step.wait{border-color:rgba(251,191,36,.35)}
+.lp-m::before{content:"";position:absolute;left:-14px;top:0;bottom:0;border-left:1.5px dashed var(--violet)}
+[hidden]{display:none!important}
+.more{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.kv{margin:0;display:grid;grid-template-columns:110px minmax(0,1fr);gap:8px 14px;font-size:12px}
+.kv dt{font:9.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);padding-top:2px}
+.kv dd{margin:0;color:var(--text-2);line-height:1.55}
+.tune{margin-top:10px;padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:var(--bg);display:flex;flex-wrap:wrap;gap:8px 18px}
+.tune label{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--text-3)}
+.ib{cursor:pointer}.ib:hover{color:var(--text);background:var(--overlay)}
+.ib[data-t="more"][aria-expanded="true"] svg{transform:rotate(180deg)}
+.ib[data-t="tune"][aria-expanded="true"]{color:var(--text);background:var(--overlay)}
+.sh{margin:24px 0 10px;font-size:13px;color:var(--text-2);font-weight:600}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="i-run" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></symbol><symbol id="i-queue" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol><symbol id="i-wait" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></symbol><symbol id="i-pause" viewBox="0 0 24 24"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></symbol><symbol id="i-done" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol><symbol id="i-fail" viewBox="0 0 24 24"><path d="M12 16h.01"/><path d="M12 8v4"/><path d="M15.312 2a2 2 0 0 1 1.414.586l4.688 4.688A2 2 0 0 1 22 8.688v6.624a2 2 0 0 1-.586 1.414l-4.688 4.688a2 2 0 0 1-1.414.586H8.688a2 2 0 0 1-1.414-.586l-4.688-4.688A2 2 0 0 1 2 15.312V8.688a2 2 0 0 1 .586-1.414l4.688-4.688A2 2 0 0 1 8.688 2z"/></symbol><symbol id="i-idle" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol><symbol id="i-known" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></symbol><symbol id="i-tune" viewBox="0 0 24 24"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></symbol><symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol><symbol id="i-branch" viewBox="0 0 24 24"><line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></symbol><symbol id="i-together" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol></svg>
+<main class="doc">
+<div class="intro">
+  <h1>Act on it</h1>
+  <p class="lede">Proposal 2 of 6 for the agent and workspace UX audit, flow <b>D</b>. When something needs you, the
+  screen says what stopped, why, and puts the control that fixes it beside the sentence. One set of controls per
+  screen, at the level that owns the action.</p>
+  <p class="lede">Same style and rules as <a href="./1-activity-at-a-glance.html">proposal 1</a>. Every name, amount and
+  quote is from the <b>seroarchitectdev</b> records on 19 September. Under each screen, <b>Controls on this screen
+  today</b> lists every control the shipped screen has and what happens to it.</p>
+</div>
+
+<!-- 1 -->
+<section class="state" style="margin-top:56px">
+  <h2>1 · Cap reached: the first sentence, with the fix beside it</h2>
+  <div class="answers"><span class="q">Does the user need to act?</span><span>Decisions obscured by operational detail</span><span>Agent instructions as headings</span></div>
+  <p class="note">The heading says the cap stopped the work. The <b>New cap</b> field and <b>Raise and resume</b> sit in
+  the header, beside that sentence. The owner's completion report is still there, folded. The empty Needs you
+  section is gone, because the cap is the one thing that needs you.</p>
+  <p class="was"><b>Today:</b> the heading is the owner's sentence, cut at "…all 47 tests plus comp". The cap strip is
+  the second card down, and under it "Needs you · none · You have nothing to review." says nothing three times. See
+  <a href="./evidence.html">architect-csv-summary-02-1440</a>.</p>
+  <div class="app">
+    <div class="top">
+      <div class="mark">◈</div><div class="name">Architect</div>
+      <div class="crumb">← Projects · <b>csv-summary-resilience-02</b></div>
+      <div class="right"><button class="btn quiet">Choose execution location</button><button class="btn">Open session</button><button class="btn" aria-label="Project controls">⋯</button></div>
+    </div>
+    <div class="body">
+      <div class="band split" style="border-color:rgba(251,113,133,.3)"><div class="bandrow"><div class="bandmain">
+            <h3>Stopped by the spend cap</h3>
+            <div class="act" style="margin-top:9px"><span class="glyph g-fail" aria-hidden="true"><svg class="ico"><use href="#i-fail"/></svg></span>The maintenance Workflow cannot start</div>
+            <div style="margin-top:12px;display:flex;align-items:center;gap:8px">
+              <span class="mini">New cap $</span><span class="field">30</span><button class="btn sm primary">Raise and resume</button>
+            </div>
+            <div class="rail"><div class="done">intake</div><div class="done">discovery</div><div class="done">charter</div><div class="done">build</div><div class="done">release</div><div class="now bad">maintain · limited</div></div>
+            <div class="meta2"><span>5 of 6 milestones accepted</span><code>/Users/danielcarter/Projects/csv-summary-resilience-02</code></div>
+            <details class="dis"><summary><span class="chev"></span>What Architect reported, in its own words<span class="n">9 days ago</span></summary>
+          <p style="color:var(--text-2);font-size:12.5px;line-height:1.6">"Category grouping maintenance update complete: `--group-by category` is implemented and documented, default output remains unchanged, and all 47 tests plus comp…" <span class="mini">(the record holds the sentence to this point)</span></p>
+        </details>
+          </div><div class="ring over"><svg viewBox="0 0 64 64" aria-hidden="true"><circle class="trk" cx="32" cy="32" r="26"/><circle class="val" cx="32" cy="32" r="26" stroke-dasharray="163.4 163.4"/></svg><div><div class="amt">$10.47</div><div class="of">spent of $10 budget</div></div></div></div></div>
+      <p class="mini" style="margin-top:12px;padding:0 2px">Research, milestones, History and the directive box follow, unchanged.</p>
+    </div>
+  </div>
+  <details class="parity"><summary>Controls in this part of the page today<span class="tally">5 kept · 2 moved · 0 folded · 0 dropped</span></summary>
+    <ul>
+      <li><span class="pl k">kept</span><span>Back to projects, Open session, Project controls (⋯), Choose execution location</span></li>
+      <li><span class="pl m">moved</span><span>New cap. From its own strip into the header, beside the sentence it fixes.</span></li>
+      <li><span class="pl m">moved</span><span>Raise and resume. Same place as New cap.</span></li>
+      <li><span class="pl k">kept</span><span>Raise cap in the ⋯ menu. It stays; the header copy is the one you reach first.</span></li>
+      <li><span class="pl m">moved</span><span>"You approve each milestone plan". It leaves the header; the setting stays in the ⋯ menu as Autonomy: milestones. <i>Not a control</i></span></li>
+      <li><span class="pl k">kept</span><span>The Needs you section. It is not a control; it is absent while it is empty and returns when it holds something. <i>Screen 6</i></span></li>
+    </ul>
+  </details>
+</section>
+
+<!-- 2 -->
+<section class="state">
+  <h2>2 · Research cancelled: name the Room, say why, offer what exists</h2>
+  <div class="answers"><span class="q">Does the user need to act?</span><span>Decisions obscured by operational detail</span><span>Poor distinction between failed and absent</span></div>
+  <p class="note">The heading names the Room by its title, not its id. The reason, which today is only in History,
+  moves up: two members were read-only and could not run commands. The actions are the ones that exist today:
+  open the Room, or tell Architect what to do next.</p>
+  <p class="was"><b>Today:</b> "Research Room room_32407438-c1ce-4370-8b3b-96186d4bc056 is cancelled. Open the Room to
+  review its next action." The reason is near the bottom of 64 History entries: "Lin — Codebase Investigator is read-only, so it
+  cannot use the command tool bash". See <a href="./evidence.html">architect-import-dashboard-01-1440</a> and
+  <a href="./evidence.html">architect-import-dashboard-01-scroll2-1440</a>.</p>
+  <div class="app">
+    <div class="top">
+      <div class="mark">◈</div><div class="name">Architect</div>
+      <div class="crumb">← Projects · <b>import-dashboard-resilience-01</b></div>
+      <div class="right"><button class="btn quiet">Workspace</button><button class="btn">Open session</button><button class="btn" aria-label="Project controls">⋯</button></div>
+    </div>
+    <div class="body">
+      <div class="band split"><div class="bandrow"><div class="bandmain">
+            <h3>Research was cancelled before it reported</h3>
+            <div class="act" style="margin-top:9px"><span class="glyph g-fail" aria-hidden="true"><svg class="ico"><use href="#i-fail"/></svg></span>Room <b>&nbsp;Import Dashboard Discovery</b>&nbsp;· cancelled 9 days ago</div>
+            <div class="who" style="margin-top:5px">Before that it stopped twice: two members, Lin and Grace, were read-only and could not run commands · Architect paused by you</div>
+            <div style="margin-top:12px;display:flex;gap:8px"><button class="btn sm primary">Open Room</button><button class="btn sm">Tell Architect what to do next</button></div>
+            <div class="rail"><div class="done">intake</div><div class="now bad">discovery · blocked</div><div>charter</div><div>build</div><div>release</div><div>maintain</div></div>
+            <div class="meta2"><span>No milestones yet</span><code>/Users/danielcarter/Projects/import-dashboard-resilience-01</code></div>
+          </div><div class="ring"><svg viewBox="0 0 64 64" aria-hidden="true"><circle class="trk" cx="32" cy="32" r="26"/></svg><div><div class="amt">$5.54</div><div class="of">no cap yet</div></div></div></div></div>
+    </div>
+  </div>
+  <details class="parity"><summary>Controls in this part of the page today<span class="tally">6 kept · 0 moved · 0 folded · 0 dropped · 1 added</span></summary>
+    <ul>
+      <li><span class="pl k">kept</span><span>Back to projects, Open session, Project controls (⋯), Workspace</span></li>
+      <li><span class="pl k">kept</span><span>Open Room. It also stays on the research card below.</span></li>
+      <li><span class="pl k">kept</span><span>Open preview, History, Older directives, Directive and Send, further down</span></li>
+      <li><span class="pl n">added</span><span>Tell Architect what to do next. It puts the cursor in the existing directive box; it is not a new action.</span></li>
+      <li><span class="pl k">kept</span><span>The Room id. It moves off the heading into the Room itself.</span></li>
+    </ul>
+  </details>
+</section>
+
+<!-- 3 -->
+<section class="state">
+  <h2>3 · A Room on hold: the question once, the actions once</h2>
+  <div class="answers"><span class="q">Does the user need to act?</span><span>Repeated descriptions</span><span>Too many cards</span><span>Agent instructions as summaries</span></div>
+  <p class="note">The hold card holds the question, in plain words, with the members' own text folded under it. It
+  also holds the Room's three actions. The header keeps the Room's name, state, spend and views. The strip with
+  <b>Read it</b> is folded into the card, because the card is what it pointed to.</p>
+  <p class="was"><b>Today:</b> Message the team / Resume / Stop appear in the header and again in the hold card, and a
+  third strip adds Read it. The question itself is four long agent messages in the feed. The header shows "229h 28m
+  of 1h". See <a href="./evidence.html">rooms-csv-summary-01-0-csv-summariser-adversarial-validation-1440</a>.</p>
+  <div class="app">
+    <div class="top">
+      <div class="mark">∞</div><div class="name">Orchestrator</div>
+      <div class="crumb">← <b>CSV Summariser Adversarial Validation</b></div>
+      <span class="chip warn" style="margin-left:6px">Paused · waiting for you</span>
+      <div class="right"><span class="mini">$0.31 of $2.00 · 229h 28m of a 1h time limit</span><button class="btn sm">Timeline</button><button class="btn sm quiet">Watch</button></div>
+    </div>
+    <div class="body">
+      <div class="ask">
+        <div class="eyebrow">Waiting on you · 9 days</div>
+        <h3>Morgan and Riley cannot merge the repaired files</h3>
+        <p class="sub">The harness rejected their <code>git merge --ff-only</code>, because Sero manages git commands and their sessions have none. Both ask for the saved snapshot to be applied through the harness.</p>
+        <details class="dis"><summary><span class="chev"></span>What they wrote</summary>
+          <dl class="kv">
+            <dt>Morgan</dt><dd>"Assisted recovery merge could not be attempted: the harness rejected `git merge --ff-only 53f31d...` with `Mutating git commands are managed by Sero, and this session has no git command of its own.` Current worktree remains at c2739d3. Please apply the supplied immutable snapshot through the harness"</dd>
+            <dt>Riley</dt><dd>"System-directed recovery is blocked in Riley worktree: clean status confirmed, but `git merge --ff-only 53f31d677ab895ba9422b8c013b08018da1890ee` is rejected by harness because mutating git commands are managed by Sero and this session has no git command. Please apply/enable the immutable snapshot t…" <span class="mini">(the feed shows the message to this point)</span></dd>
+          </dl>
+        </details>
+        <div style="margin-top:13px;display:flex;gap:8px;align-items:center">
+          <button class="btn primary">Message the team</button><button class="btn">Resume</button><button class="btn quiet" style="color:var(--red)">Stop the Room</button>
+        </div>
+      </div>
+      <p class="mini" style="margin-top:12px;padding:0 2px">Team, Activity and the Brief, Work, Claims, Artifacts and Changes tabs follow, unchanged. <i>Proposal 4</i></p>
+    </div>
+  </div>
+  <details class="parity"><summary>Controls on this part of the screen today<span class="tally">6 kept · 3 moved · 1 folded · 0 dropped</span></summary>
+    <ul>
+      <li><span class="pl k">kept</span><span>Back to Rooms, Timeline, Watch</span></li>
+      <li><span class="pl k">kept</span><span>Message the team, Resume and Stop the Room, in the hold card</span></li>
+      <li><span class="pl m">moved</span><span>Message the team in the header. Same action; one copy remains, in the card.</span></li>
+      <li><span class="pl m">moved</span><span>Resume in the header. Same action; one copy remains, in the card.</span></li>
+      <li><span class="pl m">moved</span><span>Stop in the header. Same action as Stop the Room; one copy remains. When the Room is running and has no question, Stop returns to the header.</span></li>
+      <li><span class="pl f">folded</span><span>Read it. The card now shows what it opened.</span></li>
+      <li><span class="pl k">kept</span><span>dismiss, Brief, the member rows, Open in Agent Board, the five activity filters and the five tabs, below this drawing</span></li>
+    </ul>
+  </details>
+</section>
+
+<!-- 4 -->
+<section class="state">
+  <h2>4 · A Workflow: its settings and its plan</h2>
+  <div class="answers"><span class="q">Does the user need to act?</span><span>Decisions obscured by operational detail</span><span>Supporting material exposed by default</span></div>
+  <p class="note">Each step shows its title, state and outcome. The instruction and expected result open from the
+  chevron. Model, agent and tools open from the tune button, and show on the card only when you changed them.</p>
+  <p class="was"><b>Today:</b> seven equal buttons, with Delete second, beside Run again. The settings are an icon strip.
+  Each step card shows the full instruction, Expected and Outcome. The same Workflow is $3.55 on Home and in the list.
+  See <a href="./evidence.html">orch-wf-reading-tracker-0-composable-title-search-tune-1440</a>.</p>
+
+  <div class="app">
+    <div class="top">
+      <div class="mark">∞</div><div class="name">Orchestrator</div>
+      <div class="crumb">← Workflows · <b>Composable title search</b></div>
+      <div class="right"><button class="btn quiet">Library</button><button class="btn quiet">Reflect</button><button class="btn quiet">Skill</button><button class="btn" aria-label="More actions">⋯</button><button class="btn primary">Run again</button></div>
+    </div>
+    <div class="body">
+      <div class="act"><span class="glyph g-done" aria-hidden="true"><svg class="ico"><use href="#i-done"/></svg></span>Complete · 3 of 3 steps finished · 9 days ago · 2 runs</div>
+      <dl class="setrow">
+        <div><dt>Runs in</dt><dd>Workspace root</dd></div>
+        <div><dt>Results to</dt><dd><a href="#">Workspace files</a></dd></div>
+        <div><dt>Starts</dt><dd>Manually</dd></div>
+        <div><dt>Context</dt><dd><a href="#">Default preset</a></dd></div>
+        <div><dt>Spend</dt><dd>$3.13 of $4.50</dd></div>
+        <div><dt>Attempts</dt><dd>50</dd></div>
+        <div><dt>Time</dt><dd>30 min</dd></div>
+      </dl>
+      <p class="objective"><b>Objective</b> · Implement approved Milestone 6 as a focused frontend enhancement that composes normalised title search with status filtering without changing persisted data, API contracts, or the SQLite schema.</p>
+      <div class="pbar"><span class="seg" role="group" aria-label="Plan presentation"><span>Map</span><span class="on">Details</span></span></div>
+      <div class="srow"><div class="mk"><b>1</b><i></i></div><div class="sc"><div class="step">
+        <div class="hd"><b>Implement accessible composable title search</b><span class="chip on">Done</span><button class="ib" data-t="tune" aria-label="Model, agent and tools" aria-expanded="false"><svg><use href="#i-tune"/></svg></button><button class="ib" data-t="more" aria-label="Show instruction and expected result" aria-expanded="true"><svg><use href="#i-chev"/></svg></button></div>
+        <dl class="kv oc"><dt>Result</dt><dd>Implemented and verified accessible composable title search with responsive styling, deliberate no-results behaviour, unchanged persistence contracts, and focused frontend coverage.</dd></dl>
+        <div class="more"><dl class="kv"><dt>Instruction</dt><dd>Inspect the current React library controls, filtering/count behaviour, state handling, styling, and frontend test conventions. Implement a polished responsive title-search control using trimmed, case-insensitive title substring matching, composed with the active All/Want to Read/Reading/Finished predicate so both apply simultaneously. Keep existing status counts unchanged unless adding a separately and clearly labelled result count. Preserve the genuine empty-library state; add a distinct useful no-results state reflecting the active title query and status, with an obvious accessible clear-search action. Ensure keyboard/focus behaviour, labels, status changes, and add/edit flows remain sound. Search must be presentation-only: do not issue API/database writes or mutate book records, authors, statuses, notes, IDs, or timestamps. Add or update frontend tests covering partial matches, case insensitivity, trimming/whitespace normalisation, combined title-and-status filtering, clearing search, distinct no-results messaging, and absence of persistence mutations. Update README only if it materially improves usage documentation. Keep the change focused and consistent with existing project patterns.</dd><dt>Expected result</dt><dd>The library has an accessible responsive title search that composes correctly with status filtering, has deliberate empty/no-match behaviour, performs no persistence writes, and is covered by focused frontend tests.</dd></dl></div>
+        <div class="tune" hidden><label>Model <span class="field">MED ▾</span></label><label>Agent <span class="field">implementer ▾</span></label><label>Tools <span class="field">Default ▾</span></label></div>
+      </div></div></div>
+      <div class="srow"><div class="mk"><b>2</b><i></i></div><div class="sc"><div class="step">
+        <div class="hd"><b>Run release checks and rendered verification</b><span class="chip on">Done</span><button class="ib" data-t="tune" aria-label="Model, agent and tools" aria-expanded="false"><svg><use href="#i-tune"/></svg></button><button class="ib" data-t="more" aria-label="Show instruction and expected result" aria-expanded="false"><svg><use href="#i-chev"/></svg></button></div>
+        <dl class="kv oc"><dt>Result</dt><dd>Release verification passed: <code>npm run lint</code>, <code>npm run typecheck</code>, <code>npm test</code> (6 API, 10 UI, and restart-persistence release integration tests), and <code>npm run build</code>; visible Sero browser testing at <code>/</code> confirmed trimmed mixed-case partial search, composed status filtering, distinct no-match messaging, clear-and-refocus behaviour, unchanged shelf counts, zero search network writes, safe add/edit cancellation with focus restoration, and responsive 390px layout without horizontal overflow; the true-empty state remains covered by the full UI suite, no durable records were modified, and no defects required correction.</dd></dl>
+        <div class="more" hidden><dl class="kv"><dt>Instruction</dt><dd>Review the resulting diff against every milestone constraint, correcting any defects found while keeping the change non-destructive and frontend-focused. Determine and run the repository&#x27;s exact lint, typecheck, full test suite (including API and service restart-persistence coverage), and production build commands; do not replace the full suite with targeted tests. Confirm tests demonstrate that search causes no persistence mutations. Start or reuse the documented local services without deleting or resetting durable data, then verify the rendered application at / in the visible Sero browser: exercise partial and mixed-case search, surrounding whitespace, combined status/search predicates, clear-search behaviour, distinct true-empty versus no-match states where safely testable, responsive layout, accessibility/focus basics, and continued add/edit/status behaviour without damaging existing user records. Capture exact commands and outcomes plus concise browser evidence in the step outcome. Fix issues and rerun affected checks until all checks pass, or report a concrete blocker.</dd><dt>Expected result</dt><dd>Lint, typecheck, complete tests including restart persistence, and production build pass, while rendered verification at / confirms the milestone behaviour and no regressions or destructive changes.</dd></dl></div>
+        <div class="tune" hidden><label>Model <span class="field">HIGH ▾</span></label><label>Agent <span class="field">quality-reviewer ▾</span></label><label>Tools <span class="field">Default ▾</span></label></div>
+      </div></div></div>
+      <div class="srow"><div class="mk"><b>3</b></div><div class="sc"><div class="step">
+        <div class="hd"><b>Finalise Milestone 6</b><span class="chip on">Done</span><button class="ib" data-t="tune" aria-label="Model, agent and tools" aria-expanded="false"><svg><use href="#i-tune"/></svg></button><button class="ib" data-t="more" aria-label="Show instruction and expected result" aria-expanded="false"><svg><use href="#i-chev"/></svg></button></div>
+        <dl class="kv oc"><dt>Result</dt><dd>Milestone 6 is fully implemented, verified, and left uncommitted in the workspace.</dd></dl>
+        <div class="more" hidden><dl class="kv"><dt>Instruction</dt><dd>Confirm the approved objective is fully met, the working tree contains only intentional changes, no schema/API/user-data mutation was introduced, and the verification evidence includes exact changed files, behavioural changes, commands, results, and rendered checks at /. Leave all changes uncommitted in the workspace. Then EMIT THE COMPLETION SIGNAL in the StepOutcome with completion.status set to &quot;complete&quot;; if the objective cannot be met, set completion.status to &quot;blocked&quot; and state the precise blocker and remaining work.</dd><dt>Expected result</dt><dd>A concise evidence-backed completion report is emitted and the validated implementation remains in the user&#x27;s working tree.</dd></dl></div>
+        <div class="tune" hidden><label>Model <span class="field">LOW ▾</span></label><label>Agent <span class="field">Default ▾</span></label><label>Tools <span class="field">Default ▾</span></label></div>
+      </div></div></div>
+      <details class="dis"><summary>Attempt history<span class="n">2 runs</span></summary></details>
+      <details class="dis"><summary>What reflection has learned</summary></details>
+    </div>
+  </div>
+
+  <h3 class="sh">A step that loops back: End-to-end resilience and release verification</h3>
+  <p class="was"><b>Today:</b> a banner above the plan, "↩ Feedback: verify-release → harden-and-cover", with step ids.</p>
+  <div class="app">
+    <div class="top">
+      <div class="mark">∞</div><div class="name">Orchestrator</div>
+      <div class="crumb">← Workflows · <b>End-to-end resilience and release verification</b></div>
+      <div class="right"><button class="btn quiet">Library</button><button class="btn quiet">Reflect</button><button class="btn quiet">Skill</button><button class="btn" aria-label="More actions">⋯</button><button class="btn primary">Run again</button></div>
+    </div>
+    <div class="body">
+      <div class="act"><span class="glyph g-done" aria-hidden="true"><svg class="ico"><use href="#i-done"/></svg></span>Complete · 4 of 4 steps finished</div>
+      <div class="pbar"><span class="seg" role="group" aria-label="Plan presentation"><span>Map</span><span class="on">Details</span></span></div>
+      <div style="padding-left:16px" title="Step 3 goes back to step 2 when releaseVerification = needs-fix. 0 of 2 used this run.">
+      <div class="srow"><div class="mk"><b>1</b><i></i></div><div class="sc"><div class="step">
+        <div class="hd"><b>Inspect the implementation and establish a baseline</b><span class="chip on">Done</span><button class="ib" data-t="tune" aria-label="Model, agent and tools" aria-expanded="false"><svg><use href="#i-tune"/></svg></button><button class="ib" data-t="more" aria-label="Show instruction and expected result" aria-expanded="false"><svg><use href="#i-chev"/></svg></button></div>
+        <dl class="kv oc"><dt>Result</dt><dd>Mapped the release path, passed all baseline checks, and identified bounded gaps in production static-delivery coverage, edited multi-record restart coverage, README accuracy, and existing screenshot evidence.</dd></dl>
+        <div class="more" hidden><dl class="kv"><dt>Instruction</dt><dd>Inspect repository status, package scripts, frontend, Node/TypeScript service, SQLite initialisation/migrations, configuration handling, tests, README, ignore rules, and existing verification artifacts. Locate and assess the prior preview-port fix. Map the actual production build/start procedure and same-origin request path. Review current handling of validation, service/database errors, startup and graceful shutdown, configurable database path/host/port, editor keyboard and focus behaviour, responsive states, and generated artifacts. Run focused baseline checks where useful, but do not replace the approved requirements with prior recommendations. Identify only concrete defects or reproducible coverage gaps that require action.</dd><dt>Expected result</dt><dd>A precise understanding of the current release path, relevant files and scripts, existing workspace changes, and a bounded list of concrete defects or test/documentation gaps.</dd></dl></div>
+        <div class="tune" hidden><label>Model <span class="field">HIGH ▾</span></label><label>Agent <span class="field">analyst ▾</span></label><label>Tools <span class="field">Default ▾</span></label></div>
+      </div></div></div>
+      <div class="srow lp-a"><div class="mk"><b>2</b><i></i></div><div class="sc"><div class="step">
+        <div class="hd"><b>Exercise, harden, and strengthen coverage</b><span class="chip on">Done</span><button class="ib" data-t="tune" aria-label="Model, agent and tools" aria-expanded="false"><svg><use href="#i-tune"/></svg></button><button class="ib" data-t="more" aria-label="Show instruction and expected result" aria-expanded="false"><svg><use href="#i-chev"/></svg></button></div>
+        <dl class="kv oc"><dt>Result</dt><dd>Hardened release coverage, verified production same-origin delivery and SQLite persistence across clean restarts, exercised UI creation/editing/filtering and validation, updated documentation and repository hygiene, and passed build, typecheck, lint, API, UI, and release integration checks.</dd></dl>
+        <div class="more" hidden><dl class="kv"><dt>Instruction</dt><dd>Using the findings from inspect-and-baseline, build and run the real production frontend through the same-origin Node service with explicit host/port configuration and a fresh isolated on-disk SQLite path. Exercise the complete journey: create books in multiple statuses with notes, display them, edit one, verify All and status filters, and inspect corresponding API results; stop the full service cleanly, restart it against exactly the same database file, and verify stable IDs, timestamps, records, notes, statuses, and edits remain. Check failure recovery without UI crashes, invalid required-field rejection, database/request validation, configuration behaviour, graceful termination, keyboard/focus flows, responsive presentation, README instructions, ignore rules, generated artifacts, and the preview-port fix. Fix only defects actually found within the approved scope. Add or strengthen automated integration/end-to-end coverage only where necessary, prioritising production static delivery at `/` and persistence across separate service instances. Remove inappropriate generated verification artifacts while retaining useful project assets. Ensure the final preview procedure can show healthy populated data at `/`. Record the exact persistence procedure and evidence.</dd><dt>Expected result</dt><dd>Concrete release defects are corrected, necessary regression coverage exists, documentation and repository hygiene are accurate, and production delivery plus restart durability are reproducibly demonstrated.</dd></dl></div>
+        <div class="tune" hidden><label>Model <span class="field">HIGH ▾</span></label><label>Agent <span class="field">implementer ▾</span></label><label>Tools <span class="field">Default ▾</span></label></div>
+      </div></div></div>
+      <div class="srow lp-b"><div class="mk"><b>3</b><i></i></div><div class="sc"><div class="step">
+        <div class="hd"><b>Run full release verification</b><span class="chip on">Done</span><button class="ib" data-t="tune" aria-label="Model, agent and tools" aria-expanded="false"><svg><use href="#i-tune"/></svg></button><button class="ib" data-t="more" aria-label="Show instruction and expected result" aria-expanded="false"><svg><use href="#i-chev"/></svg></button></div>
+        <dl class="kv oc"><dt>Result</dt><dd>Release verification passed with all quality gates, production delivery, restart persistence, API filtering, validation, graceful shutdown and populated UI rendering confirmed.</dd></dl>
+        <div class="more" hidden><dl class="kv"><dt>Instruction</dt><dd>Inspect the resulting diff and final files for scope compliance and accidental regressions. Run the repository&#x27;s exact lint command, both TypeScript checks, all API and UI tests, and the production build. Then independently repeat the production same-origin journey with a fresh isolated SQLite file: start the full service, populate multiple statuses and notes, edit a record, verify filters and API responses, terminate it cleanly, restart with the identical database path, and prove the persisted records and edits remain. Confirm `/` serves the production app and render healthy populated data there; capture useful rendered evidence using the visible Sero browser/app workflow if supported by the repository setup, while treating commands/tests—not screenshots—as persistence proof. Check terminal output for unhandled errors and ensure temporary processes and disposable databases are cleaned up unless deliberately retained as documented preview data. Record variables.releaseVerification as &quot;passed&quot; only if every required gate succeeds; otherwise record it as &quot;needs-fix&quot; with exact actionable failures.</dd><dt>Expected result</dt><dd>All required commands pass, production static delivery and restart persistence are proven, populated UI evidence at `/` is available, and no unresolved in-scope defect remains.</dd><dt>Decides</dt><dd>releaseVerification</dd><dt>Goes back</dt><dd>to step 2 when releaseVerification = needs-fix · 0 of 2 used this run</dd></dl></div>
+        <div class="tune" hidden><label>Model <span class="field">HIGH ▾</span></label><label>Agent <span class="field">quality-reviewer ▾</span></label><label>Tools <span class="field">Default ▾</span></label></div>
+      </div></div></div>
+      <div class="srow"><div class="mk"><b>4</b></div><div class="sc"><div class="step">
+        <div class="hd"><b>Confirm release readiness and complete</b><span class="chip on">Done</span><button class="ib" data-t="tune" aria-label="Model, agent and tools" aria-expanded="false"><svg><use href="#i-tune"/></svg></button><button class="ib" data-t="more" aria-label="Show instruction and expected result" aria-expanded="false"><svg><use href="#i-chev"/></svg></button></div>
+        <dl class="kv oc"><dt>Result</dt><dd>Release readiness confirmed: production static delivery, SQLite restart durability, populated rendering, validation, filtering, graceful shutdown and every required quality gate passed.</dd></dl>
+        <div class="more" hidden><dl class="kv"><dt>Instruction</dt><dd>Confirm the approved milestone objective is met and releaseVerification is passed. Provide a concise completion report identifying inspected files, files changed or removed, concrete defects fixed, tests added or strengthened, the exact isolated database path/configuration and stop/restart persistence exercise, rendered evidence at `/`, and outcomes of lint, both TypeScript checks, all API/UI tests, and production build. Note any intentionally preserved unrelated working-tree changes. Then emit the completion signal in the StepOutcome with completion.status &quot;complete&quot;. If the objective cannot be met after the bounded repair attempts, report the exact blocker and emit completion.status &quot;blocked&quot;.</dd><dt>Expected result</dt><dd>The workspace is release-ready and the loop terminates with an evidence-backed completion status.</dd></dl></div>
+        <div class="tune" hidden><label>Model <span class="field">MED ▾</span></label><label>Agent <span class="field">spec-reviewer ▾</span></label><label>Tools <span class="field">Default ▾</span></label></div>
+      </div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="sh">A plan with branches: Issue implementer</h3>
+  <p class="was"><b>Today:</b> the same dashed branch groups, marked ⌥ on the rail. The last pass selected no issue,
+  so step 2 did not run. Map dims it. Details shows it as pending, like every later step.</p>
+  <div class="app">
+    <div class="top">
+      <div class="mark">∞</div><div class="name">Orchestrator</div>
+      <div class="crumb">← Workflows · <b>Issue implementer</b></div>
+      <div class="right"><button class="btn quiet">Library</button><button class="btn quiet">Reflect</button><button class="btn quiet">Skill</button><button class="btn" aria-label="More actions">⋯</button><button class="btn">Restart</button><button class="btn primary">Enable</button></div>
+    </div>
+    <div class="body">
+      <div class="act"><span class="glyph g-pause" aria-hidden="true"><svg class="ico"><use href="#i-pause"/></svg></span>Paused by you · the last pass selected no issue</div>
+      <p class="objective"><b>Objective</b> · Handle exactly one suitable open unassigned repository issue per pass, delivering implemented work as a pull request and never merging it.</p>
+      <div class="pbar"><span class="seg" role="group" aria-label="Plan presentation"><span>Map</span><span class="on">Details</span></span></div>
+      <div class="srow"><div class="mk"><b>1</b><i></i></div><div class="sc"><div class="step">
+        <div class="hd"><b>Scan backlog and select one issue</b><span class="chip on">Done</span><button class="ib" data-t="tune" aria-label="Model, agent and tools" aria-expanded="false"><svg><use href="#i-tune"/></svg></button><button class="ib" data-t="more" aria-label="Show instruction and expected result" aria-expanded="false"><svg><use href="#i-chev"/></svg></button></div>
+        <dl class="kv oc"><dt>Result</dt><dd>No suitable issue was selected because the repository has no open issues.</dd></dl>
+        <div class="more" hidden><dl class="kv"><dt>Instruction</dt><dd>Review any open pull requests listed in the run context first; if an open PR already covers an issue, exclude that issue. Then list open issues in the repository and consider only open unassigned issues. Exclude issues that already have an open linked pull request, a human assignee, or a recent Sero claim comment containing exactly or substantially &#x27;Sero started work on this issue&#x27; posted within the last day. Treat older Sero claim comments with no linked pull request as expired. Judge remaining candidates on clarity, size, risk, and value, and pick the single best one for this pass. Record variables.selection_status as either &quot;selected&quot; or &quot;none&quot;. If selected, also record variables.issue_number and a brief variables.selection_reason. If none are suitable, record variables.no_issue_reason plainly.</dd><dt>Expected result</dt><dd>Either one issue number is selected for this pass, or the pass is marked as having no suitable issue.</dd><dt>Decides</dt><dd>selection_status, issue_number, selection_reason, no_issue_reason</dd></dl></div>
+        <div class="tune" hidden><label>Model <span class="field">MED ▾</span></label><label>Agent <span class="field">Default ▾</span></label><label>Tools <span class="field">current_time ▾</span></label></div>
+      </div></div></div>
+      <div class="srow"><div class="mk"><b>2</b><i></i></div><div class="sc"><div class="step dim">
+        <div class="hd"><b>Claim the selected issue and verify exclusivity</b><span class="chip">Not taken</span><button class="ib" data-t="tune" aria-label="Model, agent and tools" aria-expanded="false"><svg><use href="#i-tune"/></svg></button><button class="ib" data-t="more" aria-label="Show instruction and expected result" aria-expanded="false"><svg><use href="#i-chev"/></svg></button></div>
+        <div class="more" hidden><dl class="kv"><dt>Instruction</dt><dd>Only if an issue was selected: get the current time, assign the selected issue to the user/me using the repository&#x27;s GitHub identity, and post the issue comment exactly: &quot;Sero started work on this issue&quot; followed by the current time. Then re-read the issue, assignees, comments, and linked/open pull requests. If someone else is now also assigned, or someone posted an earlier active Sero claim within the last day, record variables.claim_status as &quot;contended&quot;. Otherwise record variables.claim_status as &quot;verified&quot;. Always record relevant evidence in the StepOutcome.</dd><dt>Expected result</dt><dd>The chosen issue is either safely claimed or detected as contended.</dd><dt>Decides</dt><dd>claim_status</dd><dt>Runs only when</dt><dd>selection_status = selected</dd></dl></div>
+        <div class="tune" hidden><label>Model <span class="field">MED ▾</span></label><label>Agent <span class="field">Default ▾</span></label><label>Tools <span class="field">current_time ▾</span></label></div>
+      </div></div></div>
+      <div class="srow"><div class="mk"><b title="Branch"><svg><use href="#i-branch"/></svg></b><i></i></div><div class="sc"><div class="grp">
+        <span class="gh">Branch · claim_status (not decided yet)</span>
+        <div class="gg"><div class="step">
+        <div class="hd"><span class="n">3</span><b>Release claim if another worker has priority</b><span class="chip">Pending</span><button class="ib" data-t="tune" aria-label="Model, agent and tools" aria-expanded="false"><svg><use href="#i-tune"/></svg></button><button class="ib" data-t="more" aria-label="Show instruction and expected result" aria-expanded="false"><svg><use href="#i-chev"/></svg></button></div>
+        <div class="more" hidden><dl class="kv"><dt>Instruction</dt><dd>If the claim was contended, remove my assignment from the issue. Do not write code, do not open a pull request, and record that this pass was skipped because the issue had another active claimant or assignee.</dd><dt>Expected result</dt><dd>The selected issue is no longer assigned to me and the pass is safely skipped.</dd><dt>Runs only when</dt><dd>claim_status = contended</dd></dl></div>
+        <div class="tune" hidden><label>Model <span class="field">LOW ▾</span></label><label>Agent <span class="field">Default ▾</span></label><label>Tools <span class="field">Default ▾</span></label></div>
+      </div><div class="step">
+        <div class="hd"><span class="n">4</span><b>Decide how to handle the verified issue</b><span class="chip">Pending</span><button class="ib" data-t="tune" aria-label="Model, agent and tools" aria-expanded="false"><svg><use href="#i-tune"/></svg></button><button class="ib" data-t="more" aria-label="Show instruction and expected result" aria-expanded="false"><svg><use href="#i-chev"/></svg></button></div>
+        <div class="more" hidden><dl class="kv"><dt>Instruction</dt><dd>Re-read the verified issue carefully, inspect the relevant codebase areas as needed, and decide the approach. Record variables.approach as exactly one of: &quot;direct&quot; for a small clear implementation, &quot;planned&quot; for a substantial but feasible change needing a short implementation plan first, &quot;vague&quot; for an issue needing concrete clarifying questions before work, or &quot;too_large&quot; for a product decision or change too large for one PR. Record variables.approach_reason with concise reasoning.</dd><dt>Expected result</dt><dd>A clear route is chosen for the claimed issue.</dd><dt>Decides</dt><dd>approach, approach_reason</dd><dt>Runs only when</dt><dd>claim_status = verified</dd></dl></div>
+        <div class="tune" hidden><label>Model <span class="field">MED ▾</span></label><label>Agent <span class="field">Default ▾</span></label><label>Tools <span class="field">grep, find, ls ▾</span></label></div>
+      </div></div>
+      </div></div></div>
+      <div class="srow"><div class="mk"><b title="Branch"><svg><use href="#i-branch"/></svg></b><i></i></div><div class="sc"><div class="grp">
+        <span class="gh">Branch · approach (not decided yet)</span>
+        <div class="gg"><div class="step">
+        <div class="hd"><span class="n">5</span><b>Ask issue clarifying questions and release claim</b><span class="chip">Pending</span><button class="ib" data-t="tune" aria-label="Model, agent and tools" aria-expanded="false"><svg><use href="#i-tune"/></svg></button><button class="ib" data-t="more" aria-label="Show instruction and expected result" aria-expanded="false"><svg><use href="#i-chev"/></svg></button></div>
+        <div class="more" hidden><dl class="kv"><dt>Instruction</dt><dd>For a vague issue, post a GitHub issue comment with concrete clarifying questions that would unblock implementation. Then remove my assignment from the issue. Do not write code and do not open a pull request.</dd><dt>Expected result</dt><dd>The issue has actionable clarifying questions and is no longer assigned to me.</dd><dt>Runs only when</dt><dd>approach = vague</dd></dl></div>
+        <div class="tune" hidden><label>Model <span class="field">MED ▾</span></label><label>Agent <span class="field">Default ▾</span></label><label>Tools <span class="field">Default ▾</span></label></div>
+      </div><div class="step">
+        <div class="hd"><span class="n">6</span><b>Explain product/size blocker and release claim</b><span class="chip">Pending</span><button class="ib" data-t="tune" aria-label="Model, agent and tools" aria-expanded="false"><svg><use href="#i-tune"/></svg></button><button class="ib" data-t="more" aria-label="Show instruction and expected result" aria-expanded="false"><svg><use href="#i-chev"/></svg></button></div>
+        <div class="more" hidden><dl class="kv"><dt>Instruction</dt><dd>For an issue needing a product decision or too large for one change, post a GitHub issue comment explaining why it should not be implemented in one pass and suggest a concrete breakdown or decision needed. Then remove my assignment from the issue. Do not write code and do not open a pull request.</dd><dt>Expected result</dt><dd>The issue has a useful breakdown or decision request and is no longer assigned to me.</dd><dt>Runs only when</dt><dd>approach = too_large</dd></dl></div>
+        <div class="tune" hidden><label>Model <span class="field">MED ▾</span></label><label>Agent <span class="field">Default ▾</span></label><label>Tools <span class="field">Default ▾</span></label></div>
+      </div><div class="step">
+        <div class="hd"><span class="n">7</span><b>Write short implementation plan</b><span class="chip">Pending</span><button class="ib" data-t="tune" aria-label="Model, agent and tools" aria-expanded="false"><svg><use href="#i-tune"/></svg></button><button class="ib" data-t="more" aria-label="Show instruction and expected result" aria-expanded="false"><svg><use href="#i-chev"/></svg></button></div>
+        <div class="more" hidden><dl class="kv"><dt>Instruction</dt><dd>For a substantial but feasible issue, write a short implementation plan in the StepOutcome before coding. Include the intended code areas, tests, documentation updates if applicable, and main risks. Do not ask the user; this is an internal plan for the implementation step.</dd><dt>Expected result</dt><dd>A concise implementation plan is recorded for the substantial change.</dd><dt>Runs only when</dt><dd>approach = planned</dd></dl></div>
+        <div class="tune" hidden><label>Model <span class="field">MED ▾</span></label><label>Agent <span class="field">Default ▾</span></label><label>Tools <span class="field">grep, find, ls ▾</span></label></div>
+      </div></div>
+      </div></div></div>
+      <div class="srow"><div class="mk"><b>8</b><i></i></div><div class="sc"><div class="step">
+        <div class="hd"><b>Implement the issue fix</b><span class="chip">Pending</span><button class="ib" data-t="tune" aria-label="Model, agent and tools" aria-expanded="false"><svg><use href="#i-tune"/></svg></button><button class="ib" data-t="more" aria-label="Show instruction and expected result" aria-expanded="false"><svg><use href="#i-chev"/></svg></button></div>
+        <div class="more" hidden><dl class="kv"><dt>Instruction</dt><dd>Implement the selected issue according to the direct route or the recorded implementation plan. Add or update tests and documentation where they apply. Keep the scope focused to the single issue. Do not merge anything. Record a concise implementation summary and the important files changed.</dd><dt>Expected result</dt><dd>The issue is implemented in the worktree with relevant tests/docs updated.</dd><dt>Runs only when</dt><dd>approach = direct / planned</dd></dl></div>
+        <div class="tune" hidden><label>Model <span class="field">HIGH ▾</span></label><label>Agent <span class="field">Default ▾</span></label><label>Tools <span class="field">grep, find, ls ▾</span></label></div>
+      </div></div></div>
+      <div class="srow"><div class="mk"><b>9</b><i></i></div><div class="sc"><div class="step">
+        <div class="hd"><b>Run project checks</b><span class="chip">Pending</span><button class="ib" data-t="tune" aria-label="Model, agent and tools" aria-expanded="false"><svg><use href="#i-tune"/></svg></button><button class="ib" data-t="more" aria-label="Show instruction and expected result" aria-expanded="false"><svg><use href="#i-chev"/></svg></button></div>
+        <div class="more" hidden><dl class="kv"><dt>Instruction</dt><dd>Run the repository&#x27;s relevant checks for the change: tests, type checks, linting, build, or the documented project check command as applicable. Fix failures caused by the change and rerun checks until they pass or a genuine external blocker is identified. Record the commands run and their results.</dd><dt>Expected result</dt><dd>Relevant checks pass, or a blocker is clearly recorded.</dd><dt>Runs only when</dt><dd>approach = direct / planned</dd></dl></div>
+        <div class="tune" hidden><label>Model <span class="field">LOW ▾</span></label><label>Agent <span class="field">Default ▾</span></label><label>Tools <span class="field">Default ▾</span></label></div>
+      </div></div></div>
+      <div class="srow"><div class="mk"><b>10</b><i></i></div><div class="sc"><div class="step">
+        <div class="hd"><b>Commit, push, open PR, and comment link</b><span class="chip">Pending</span><button class="ib" data-t="tune" aria-label="Model, agent and tools" aria-expanded="false"><svg><use href="#i-tune"/></svg></button><button class="ib" data-t="more" aria-label="Show instruction and expected result" aria-expanded="false"><svg><use href="#i-chev"/></svg></button></div>
+        <div class="more" hidden><dl class="kv"><dt>Instruction</dt><dd>Commit the completed and verified change on the current branch with a clear message. If the repository has a git remote and gh CLI is available, push the current branch and open a pull request. The PR description must include &quot;Closes #&lt;issue number&gt;&quot; using the selected issue number. Then comment the pull request link on the issue. Record the delivery receipt in StepOutcome with receipt.ref set exactly to the pull request URL. If an existing PR for this run&#x27;s branch was updated instead of opening a new one, use that PR URL as receipt.ref.</dd><dt>Expected result</dt><dd>A pull request exists for the implemented issue and the issue has a PR link comment.</dd><dt>Runs only when</dt><dd>approach = direct / planned</dd></dl></div>
+        <div class="tune" hidden><label>Model <span class="field">LOW ▾</span></label><label>Agent <span class="field">Default ▾</span></label><label>Tools <span class="field">git_manager ▾</span></label></div>
+      </div></div></div>
+      <div class="srow"><div class="mk"><b>11</b></div><div class="sc"><div class="step">
+        <div class="hd"><b>Finalize this backlog pass</b><span class="chip">Pending</span><button class="ib" data-t="tune" aria-label="Model, agent and tools" aria-expanded="false"><svg><use href="#i-tune"/></svg></button><button class="ib" data-t="more" aria-label="Show instruction and expected result" aria-expanded="false"><svg><use href="#i-chev"/></svg></button></div>
+        <div class="more" hidden><dl class="kv"><dt>Instruction</dt><dd>Confirm the objective for this single pass is met. If no suitable issue was found, report that plainly without claiming PR delivery. If the issue was contended, vague, or too large, report the skip/action taken and confirm no PR was opened. If implementation occurred, verify the pull request delivery receipt exists and that receipt.ref is the PR URL. Then EMIT THE COMPLETION SIGNAL in the StepOutcome: completion.status &quot;complete&quot; when the pass was handled as intended, or &quot;blocked&quot; if the objective could not be met due to an unresolved blocker.</dd><dt>Expected result</dt><dd>The loop run has a clear final status and completion signal.</dd></dl></div>
+        <div class="tune" hidden><label>Model <span class="field">LOW ▾</span></label><label>Agent <span class="field">Default ▾</span></label><label>Tools <span class="field">Default ▾</span></label></div>
+      </div></div></div>
+    </div>
+  </div>
+
+  <details class="parity"><summary>Controls on this screen today<span class="tally">12 kept · 5 moved · 1 folded · 1 dropped · 1 added</span></summary>
+    <ul>
+      <li><span class="pl k">kept</span><span>Run again, still the primary button</span></li>
+      <li><span class="pl m">moved</span><span>Delete. Into More actions (⋯), so it is not beside Run again.</span></li>
+      <li><span class="pl m">moved</span><span>Context and Delivery. They open from their values in the settings line instead of from buttons.</span></li>
+      <li><span class="pl k">kept</span><span>Library, Reflect, Skill</span></li>
+      <li><span class="pl d">dropped</span><span>"1 concurrent", the steps-at-a-time limit. It is display only; the plan still sets it. Removed at your request.</span></li>
+      <li><span class="pl k">kept</span><span>Map and Details, and Steps per row in Map. Map is not changed.</span></li>
+      <li><span class="pl k">kept</span><span>Objective</span></li>
+      <li><span class="pl k">kept</span><span>The joined numbered rail, and the parallel and branch groups on it. The rail marks a group with the same icon as Map. No captured Workflow runs steps in parallel, so only branches are drawn.</span></li>
+      <li><span class="pl n">added</span><span>"Not taken" on a step whose route was not chosen, using the rule Map already uses to dim it.</span></li>
+      <li><span class="pl k">kept</span><span>Outcome, now labelled Result</span></li>
+      <li><span class="pl f">folded</span><span>The instruction and Expected. They open from the chevron on the step.</span></li>
+      <li><span class="pl k">kept</span><span>Tune model &amp; tools, and the Model, Agent and Tools controls</span></li>
+      <li><span class="pl m">moved</span><span>A changed model, agent or tools shows on the step card. Unchanged ones stay behind Tune.</span></li>
+      <li><span class="pl m">moved</span><span>The loop-back banner. The loop is drawn on the rail, and its condition and count show on hover.</span></li>
+      <li><span class="pl m">moved</span><span>Step marks (decides, only if, fan-out). They show when the step is opened.</span></li>
+      <li><span class="pl k">kept</span><span>Retry step, on a failed, blocked or needs-revision step when no run is active</span></li>
+      <li><span class="pl k">kept</span><span>Attempt history and What reflection has learned. Their content is in proposal 3.</span></li>
+      <li><span class="pl k">kept</span><span>Reflect all, More actions, Search workflows, New workflow and the tabs</span></li>
+    </ul>
+  </details>
+</section>
+
+<!-- 5 -->
+<section class="state">
+  <h2>5 · Project models: what runs, and what cannot be read</h2>
+  <div class="answers"><span class="q">Is Architect working?</span><span>Loading, absent, unavailable, failed</span><span>Excessive explanatory text</span></div>
+  <p class="note">The owner's model becomes a row of the table, not a sentence under it. The saving rules go into one
+  disclosure. When Architect is off, a tier that inherits from global says the global cannot be read now. It does not
+  say "Not selected" and ask you to choose.</p>
+  <p class="was"><b>Today:</b> with Architect off, all three tiers read "Not selected · choose a model to run work",
+  while the note under the table says "The owner is running gpt-5.6-luna with high thinking". See
+  <a href="./evidence.html">architect-dungeonexplorer-models-1440</a> and <a href="./evidence.html">architect-froggerneon-models-1440</a>.</p>
+  <div class="app">
+    <div class="top">
+      <div class="mark">◈</div><div class="name">Architect</div>
+      <div class="crumb">← FroggerNeon · <b>Project models</b></div>
+      <div class="right"><span class="mini">revision 5</span></div>
+    </div>
+    <div class="body">
+      <table class="mt">
+        <thead><tr><th>Tier</th><th>Project selection</th><th>Effective</th><th>Source</th><th></th></tr></thead>
+        <tbody>
+          <tr><td class="tier">LOW</td><td><span class="field">DeepSeek V4.1 Flash ▾</span> <span class="field">low ▾</span></td><td>deepseek-flash · low</td><td class="mini">project</td><td><button class="btn sm">Use global</button></td></tr>
+          <tr><td class="tier">MED</td><td><span class="field">DeepSeek V4.1 Flash ▾</span> <span class="field">high ▾</span></td><td>deepseek-flash · high</td><td class="mini">project</td><td><button class="btn sm">Use global</button></td></tr>
+          <tr><td class="tier">HIGH</td><td><span class="field">GPT-5.6 Sol ▾</span> <span class="field">medium ▾</span></td><td>gpt-5.6-sol · medium</td><td class="mini">project</td><td><button class="btn sm">Use global</button></td></tr>
+          <tr class="owner"><td class="tier">OWNER</td><td class="mini">Pinned by the owner environment. It outranks the MED tier.</td><td>deepseek-flash · high</td><td class="mini">environment</td><td></td></tr>
+        </tbody>
+      </table>
+      <details class="dis"><summary><span class="chev"></span>When a change takes effect</summary>
+        <p style="color:var(--text-2);font-size:12.5px;line-height:1.6">Saving affects new dispatches, new direct calls and the next idle owner turn. It does not change a turn that is already running, and it does not change the defaults of a Workflow or Room that was already created.</p></details>
+      <div class="sec-head" style="margin-top:22px">The same page for DungeonExplorer, with Architect off</div>
+      <table class="mt">
+        <thead><tr><th>Tier</th><th>Project selection</th><th>Effective</th><th>Source</th><th></th></tr></thead>
+        <tbody>
+          <tr><td class="tier">LOW</td><td><span class="field">Global ▾</span></td><td><span class="act"><span class="glyph g-known" aria-hidden="true"><svg class="ico"><use href="#i-known"/></svg></span>Global, cannot be read while Architect is off</span></td><td class="mini">global</td><td><button class="btn sm" disabled style="opacity:.45">Use global</button></td></tr>
+          <tr><td class="tier">MED</td><td><span class="field">Global ▾</span></td><td><span class="act"><span class="glyph g-known" aria-hidden="true"><svg class="ico"><use href="#i-known"/></svg></span>Global, cannot be read while Architect is off</span></td><td class="mini">global</td><td><button class="btn sm" disabled style="opacity:.45">Use global</button></td></tr>
+          <tr><td class="tier">HIGH</td><td><span class="field">Global ▾</span></td><td><span class="act"><span class="glyph g-known" aria-hidden="true"><svg class="ico"><use href="#i-known"/></svg></span>Global, cannot be read while Architect is off</span></td><td class="mini">global</td><td><button class="btn sm" disabled style="opacity:.45">Use global</button></td></tr>
+          <tr class="owner"><td class="tier">OWNER</td><td class="mini">Last known</td><td>gpt-5.6-luna · high</td><td class="mini">environment</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <details class="parity"><summary>Controls on this screen today<span class="tally">10 kept · 0 moved · 1 folded · 0 dropped</span></summary>
+    <ul>
+      <li><span class="pl k">kept</span><span>Back to project</span></li>
+      <li><span class="pl k">kept</span><span>Model and thinking pickers for LOW, MED and HIGH</span></li>
+      <li><span class="pl k">kept</span><span>Use global, on each tier</span></li>
+      <li><span class="pl k">kept</span><span>The revision number</span></li>
+      <li><span class="pl f">folded</span><span>The note on when a change takes effect. Its owner sentence becomes the OWNER row.</span></li>
+      <li><span class="pl k">kept</span><span>"The Architect runtime is not running." It becomes the words on each tier it affects.</span></li>
+    </ul>
+  </details>
+</section>
+
+<!-- 6 -->
+<section class="state">
+  <h2>6 · Nothing to show: say which kind of nothing, once</h2>
+  <div class="answers"><span class="q">Is work happening?</span><span>Warnings for information not generated yet</span><span>Loading, absent, unavailable, failed</span><span>Empty containers</span></div>
+  <p class="note">Four real kinds of nothing from the audit. Each gets one quiet line in the place it belongs, not a
+  heading, a badge and a card. Only a fault uses a colour.</p>
+  <p class="was"><b>Today:</b> "Needs you · none" is a heading, a label and a card with one sentence; "Milestones ·
+  none yet" is a dashed card; and with the Rooms runtime off, a Room with 99 events showed "Nothing has happened yet."
+  See <a href="./evidence.html">architect-import-dashboard-02-1440</a> and <a href="./evidence.html">architect-import-dashboard-01-1440</a>.</p>
+  <div class="app"><div class="body">
+    <div class="vocab">
+      <div class="card"><div class="sec-head" style="margin-bottom:6px">Empty</div>
+        <p class="mini">Nothing needs you in import-dashboard-resilience-02.<span class="ex">The Needs you section is absent. The project list already says "Nothing".</span><span class="src">replaces a heading, a "none" label and a card</span></p></div>
+      <div class="card"><div class="sec-head" style="margin-bottom:6px">Not made yet</div>
+        <p class="mini">import-dashboard-resilience-01 has no milestones because it has no charter.<span class="ex">Milestones · the charter names them, after research</span><span class="src">one line in the section header, replacing a dashed card</span></p></div>
+      <div class="card"><div class="sec-head" style="margin-bottom:6px">Not available here</div>
+        <p class="mini">A Room's activity comes from the Rooms runtime.<span class="ex"><span class="act"><span class="glyph g-known" aria-hidden="true"><svg class="ico"><use href="#i-known"/></svg></span>Activity is not available while Rooms is off. Its 99 events are saved.</span></span><span class="src">replaces "Nothing has happened yet."</span></p></div>
+      <div class="card"><div class="sec-head" style="margin-bottom:6px;color:var(--red)">Stopped</div>
+        <p class="mini">A fault, with its cause and its action.<span class="ex"><span class="act"><span class="glyph g-fail" aria-hidden="true"><svg class="ico"><use href="#i-fail"/></svg></span>Research was cancelled before it reported · Open Room</span></span><span class="src">screen 2</span></p></div>
+    </div>
+  </div></div>
+  <details class="parity"><summary>Controls on this screen today<span class="tally">no controls added or removed</span></summary>
+    <ul><li><span class="pl k">kept</span><span>Every section returns, with its controls, as soon as it has something in it.</span></li></ul>
+  </details>
+</section>
+
+<div class="opens">
+  <h2>Decisions</h2>
+  <ol>
+    <li><b>Delete moves into More actions (⋯).</b> Approved 2026-09-19. Screen 4.</li>
+    <li><b>"Tell Architect what to do next" is added</b> on a stopped project. Approved 2026-09-19. Screen 2.</li>
+    <li><b>A paused Room's clock stops.</b> Approved 2026-09-19. Today it reads "229h 28m of 1h". This is a behaviour fix to build later.</li>
+    <li><b>Every screen shows $3.13</b>, the spend the limit counts. Approved 2026-09-19. The $3.55 on Home and in the list is a bug to find.</li>
+    <li><b>Details shows "Not taken"</b> on a step whose branch was not chosen, as Map does. Approved 2026-09-19. Screen 4.</li>
+  </ol>
+  <p class="mini" style="margin-top:14px">Not drawn, because the audit has no frame of them: creating a Room (settings, advanced settings, the team proposal), planning a new Workflow, and a disconnected workspace. They are gaps in the evidence and belong to proposal 5, Start something.</p>
+  <h2 style="margin-top:28px">Notes</h2>
+  <ol>
+    <li><b>The folder path in a project header should open the folder in Finder.</b> Today it is plain text. The
+    drawings keep it as text until this is built.</li>
+  </ol>
+</div>
+
+<footer>
+  Proposed designs only. Nothing here is implemented. The captured current state is in
+  <a href="./evidence.html">evidence.html</a>, and the flow breakdown is in <a href="./flows.html">flows.html</a>.
+</footer>
+
+</main>
+<script>
+document.addEventListener('click',function(e){var b=e.target.closest('.ib[data-t]');if(!b)return;var el=b.closest('.step').querySelector('.'+b.dataset.t);var open=el.hidden;el.hidden=!open;b.setAttribute('aria-expanded',String(open));});
+</script>
+</body>
+</html>
