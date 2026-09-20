@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * The workspace tree's one sentence per workspace, derived from the watched
  * indexes alone.

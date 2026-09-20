@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { AgentInstance, AgentState } from '@/stores/agent-types';
 import type { ChatMessage, ChatToolCallMessage } from '@/types/ipc';

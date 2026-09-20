@@ -12,8 +12,10 @@ export default defineConfig({
     },
   },
   test: {
-    // Root tests run three packages at once; leave CPU capacity for the others.
-    maxWorkers: '33%',
+    // CI runs one package at a time (`turbo run test --concurrency=1`), so the
+    // suite can use most of the runner. A local run puts three packages on the
+    // same machine, so each suite stays near a third of the available CPUs.
+    maxWorkers: process.env.CI ? '75%' : '33%',
     setupFiles: ['test/vitest.setup.ts'],
     projects: [
       {

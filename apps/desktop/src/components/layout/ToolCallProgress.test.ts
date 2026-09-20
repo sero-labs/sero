@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import type { ChatToolCallMessage } from '@/types/ipc';
 import { buildToolProgressModel, getEffectiveToolName, getToolProgressHeaderText } from './ToolCallProgress';
