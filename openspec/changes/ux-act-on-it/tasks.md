@@ -16,10 +16,10 @@
 
 ## 3. The project header carries the fix
 
-- [ ] 3.1 Change `StateLine` to accept a small set of header actions instead of one, and to render a field beside a control where the action needs a value. Verify existing header-action tests still pass and a two-action state renders both.
-- [ ] 3.2 Move `LimitBanner`'s cap field and Raise and resume into the header and delete the separate strip, keeping one code path for raising the cap. Verify raising from the header and from the project menu both call the same action and that a refusal still shows its message.
-- [ ] 3.3 Add the two actions for a cancelled research Room: open the Room, and tell the Architect what to do next, the second focusing the existing `DirectiveComposer` in the dock through a ref. Verify the composer receives focus and that no second send path is introduced.
-- [ ] 3.4 Remove the autonomy sentence from the header, and verify the setting is still reachable in the project controls menu.
+- [x] 3.1 Change `StateLine` to accept a small set of header actions instead of one, and to render a field beside a control where the action needs a value. Verify existing header-action tests still pass and a two-action state renders both.
+- [x] 3.2 Move `LimitBanner`'s cap field and Raise and resume into the header and delete the separate strip, keeping one code path for raising the cap. Verify raising from the header and from the project menu both call the same action and that a refusal still shows its message.
+- [x] 3.3 Add the two actions for a cancelled research Room: open the Room, and tell the Architect what to do next, the second focusing the existing `DirectiveComposer` in the dock through a ref. Verify the composer receives focus and that no second send path is introduced.
+- [x] 3.4 Remove the autonomy sentence from the header, and verify the setting is still reachable in the project controls menu.
 
 ## 4. Each kind of nothing, once
 

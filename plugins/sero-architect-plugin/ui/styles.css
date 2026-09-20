@@ -120,6 +120,9 @@
 .ar-stateline-main { flex: 1; min-width: 0; padding: 16px 18px; overflow-wrap: anywhere; }
 .ar-sentence { font-size: 17px; line-height: 1.25; letter-spacing: -.02em; font-weight: 600; color: var(--text-primary); max-width: 780px; }
 .ar-stateline-who { display: flex; align-items: center; gap: 7px; margin-top: 9px; color: var(--ar-text-3); font-size: 12px; line-height: 1.45; }
+/* The controls that fix what the heading says, on one row beside it. */
+.ar-act-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 11px; }
+.ar-act-row .ar-cap { margin-top: 0; }
 /* Why the work stopped. Quiet, under the owner line, never a colour of its own. */
 .ar-stateline-why { margin-top: 5px; color: var(--ar-text-3); font-size: 12px; line-height: 1.45; }
 .ar-act-btn { margin-top: 11px; }

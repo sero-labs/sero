@@ -351,7 +351,10 @@ describe('the top of a project', () => {
     expect(retry).toHaveBeenCalledWith(record.id, record.milestones[0].id);
   });
 
-  it('offers the cap control in the header when the spend cap stopped the project', () => {
+  it('puts the new-cap field beside the sentence when the spend cap stopped the project', () => {
+    // The cap strip used to be the second card down, under a heading that said
+    // nothing needed the user. Raising the cap needs a number, so the header
+    // carries the field rather than a button that reveals one.
     const base = FIXTURES.limited!;
     const record = { ...base, budget: { ...base.budget, spentUsd: base.budget.capUsd ?? 0 } };
 
@@ -359,12 +362,31 @@ describe('the top of a project', () => {
       <ProjectPage runtimeRunning record={record} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
 
-    const header = container.querySelector('.ar-stateline button') as HTMLButtonElement | null;
-    expect(header?.textContent).toBe('Raise the cap');
+    const field = container.querySelector('.ar-stateline #ar-header-cap-in');
+    expect(field).not.toBeNull();
+    const submit = container.querySelector('.ar-stateline button') as HTMLButtonElement | null;
+    expect(submit?.textContent).toBe('Raise and resume');
+    expect(container.querySelector('.ar-limit')).toBeNull();
+  });
 
-    act(() => header?.click());
-    // The same cap input the controls menu opens, not a second way to raise it.
-    expect(container.querySelector('#ar-raise-cap-in')).not.toBeNull();
+  it('raises the cap through one action, whichever copy the user reaches', async () => {
+    const base = FIXTURES.limited!;
+    const record = { ...base, budget: { ...base.budget, spentUsd: base.budget.capUsd ?? 0 } };
+    const raiseCap = vi.fn(async () => OK);
+
+    act(() => root.render(
+      <ProjectPage runtimeRunning record={record} actions={stubActions({ raiseCap })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+    ));
+
+    const form = container.querySelector('.ar-stateline form.ar-cap') as HTMLFormElement | null;
+    expect(form).not.toBeNull();
+    act(() => { form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
+    await flush();
+
+    expect(raiseCap).toHaveBeenCalledWith(record.id, expect.any(Number));
+    // Raise cap is still in the project menu; the header copy is the one the
+    // user reaches first.
+    expect(container.querySelector('.ar-stateline #ar-header-cap-in')).not.toBeNull();
   });
 
   it('shows no header button when nothing needs the user', () => {
@@ -386,5 +408,80 @@ describe('the top of a project', () => {
     expect(reported?.querySelector('summary')?.textContent).toContain('What Architect reported');
     expect(reported?.textContent).toContain(record.stateLine);
     expect(container.querySelector('.ar-sentence')?.textContent).not.toContain(record.stateLine);
+  });
+});
+
+/**
+ * A project stopped because its research Room ended without reporting. The
+ * header names the Room, says why, and offers the two things there are to do.
+ */
+describe('a project stopped on delegated work', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    Reflect.set(globalThis, 'IS_REACT_ACT_ENVIRONMENT', true);
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    Reflect.deleteProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT');
+  });
+
+  const cancelledRoom = () => ({
+    ...FIXTURES.build!,
+    blockedReason: 'Research Room room_3240 is cancelled. Open the Room to review its next action.',
+    blockedOn: {
+      kind: 'room' as const,
+      id: 'room_3240',
+      title: 'Import Dashboard Discovery',
+      status: 'cancelled',
+      at: '2026-09-10T12:00:00.000Z',
+      cause: { text: 'Its members had read-only access and could not run commands.', decisionId: 'dec-1' },
+    },
+  });
+
+  const render = (record: ReturnType<typeof cancelledRoom>) => act(() => root.render(
+    <ProjectPage runtimeRunning record={record} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+  ));
+
+  it('keeps the autonomy setting out of the header and in the project menu', () => {
+    render(cancelledRoom());
+    // The header says what stopped and what to do about it, nothing else. The
+    // setting itself is a menu entry, checked in the controls-menu tests above.
+    expect(container.querySelector('.ar-stateline')?.textContent).not.toContain('You approve each milestone plan');
+    expect(container.querySelector('.ar-stateline')?.textContent).not.toContain('Autonomy');
+  });
+
+  it('names the Room and states the reason, instead of printing its id', () => {
+    render(cancelledRoom());
+    const header = container.querySelector('.ar-stateline')?.textContent ?? '';
+    expect(header).toContain('Research was cancelled before it reported');
+    expect(header).toContain('Import Dashboard Discovery');
+    expect(header).toContain('Its members had read-only access and could not run commands.');
+    expect(container.querySelector('.ar-sentence')?.textContent).not.toContain('room_3240');
+  });
+
+  it('offers opening the Room and telling the Architect what to do next', () => {
+    render(cancelledRoom());
+    const labels = [...container.querySelectorAll('.ar-stateline button')].map((node) => node.textContent);
+    expect(labels).toEqual(['Open Room', 'Tell Architect what to do next']);
+  });
+
+  it('puts the cursor in the existing directive box rather than opening another', () => {
+    render(cancelledRoom());
+    const tell = [...container.querySelectorAll<HTMLButtonElement>('.ar-stateline button')]
+      .find((node) => node.textContent === 'Tell Architect what to do next');
+    const composers = container.querySelectorAll('textarea[aria-label="Directive"]');
+    expect(composers).toHaveLength(1);
+
+    act(() => tell?.click());
+    expect(document.activeElement).toBe(composers[0]);
+    // Still one box: the control is a way in, not a second way to send.
+    expect(container.querySelectorAll('textarea[aria-label="Directive"]')).toHaveLength(1);
   });
 });
