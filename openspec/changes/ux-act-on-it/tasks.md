@@ -9,10 +9,10 @@
 
 ## 2. Architect records why it stopped
 
-- [ ] 2.1 Add the named block structure to the project record for a block on delegated work, carrying the work's title, its state, the time and an optional cause, alongside the existing `blockedReason`. Verify the record round-trips through the store with the new fields.
-- [ ] 2.2 Save the Room title, status and time in `observeResearchRooms()` at the point it blocks, using the `OrchestratorBoardRoomView.title` already in scope, and link the research-access decision as the cause when one exists. Verify with a test that a cancelled research Room produces a record naming the Room and the cause.
-- [ ] 2.3 Verify a block with no recorded cause saves the work, its state and the time and no cause, and that `PendingResearch.attempts` is not written or read as a count of the work stopping.
-- [ ] 2.4 Derive the screen-2 headline and reason from the saved fields in `shared/activity.ts`, falling back to the existing sentence for records written before this change. Verify both an old record and a new one render without the Room id as the heading.
+- [x] 2.1 Add the named block structure to the project record for a block on delegated work, carrying the work's title, its state, the time and an optional cause, alongside the existing `blockedReason`. Verify the record round-trips through the store with the new fields.
+- [x] 2.2 Save the Room title, status and time in `observeResearchRooms()` at the point it blocks, using the `OrchestratorBoardRoomView.title` already in scope, and link the research-access decision as the cause when one exists. Verify with a test that a cancelled research Room produces a record naming the Room and the cause.
+- [x] 2.3 Verify a block with no recorded cause saves the work, its state and the time and no cause, and that `PendingResearch.attempts` is not written or read as a count of the work stopping.
+- [x] 2.4 Derive the screen-2 headline and reason from the saved fields in `shared/activity.ts`, falling back to the existing sentence for records written before this change. Verify both an old record and a new one render without the Room id as the heading.
 
 ## 3. The project header carries the fix
 

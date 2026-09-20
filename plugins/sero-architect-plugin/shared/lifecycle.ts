@@ -4,7 +4,7 @@
  * caller that persists the result, which keeps the single-writer rule simple.
  */
 
-import { PHASE_ORDER, openDecisions, type ArchitectOverlay, type ArchitectPhase, type ProjectRecord } from './record';
+import { PHASE_ORDER, openDecisions, type ArchitectOverlay, type ArchitectPhase, type BlockedWork, type ProjectRecord } from './record';
 
 export type Refusal = { ok: false; error: string };
 export type Applied = { ok: true; record: ProjectRecord };
@@ -80,14 +80,26 @@ export function resume(record: ProjectRecord, now: string): Outcome {
   return { ok: true, record: recordHistory({ ...record, paused: false }, now, 'user resumed the project') };
 }
 
-export function block(record: ProjectRecord, now: string, reason: string): Outcome {
+/**
+ * Blocks the project. `on` names the delegated work that caused it, so the
+ * page can say which Room stopped and why without parsing the reason sentence
+ * or reading the project's history.
+ */
+export function block(record: ProjectRecord, now: string, reason: string, on?: BlockedWork): Outcome {
   if (!reason.trim()) return refuse('A blocked project needs a reason.');
-  return { ok: true, record: recordHistory({ ...record, blockedReason: reason.trim() }, now, `blocked: ${reason.trim()}`) };
+  return {
+    ok: true,
+    record: recordHistory(
+      { ...record, blockedReason: reason.trim(), ...(on ? { blockedOn: on } : {}) },
+      now,
+      `blocked: ${reason.trim()}`,
+    ),
+  };
 }
 
 export function unblock(record: ProjectRecord, now: string, cause: string): Outcome {
   if (record.blockedReason === null) return refuse('The project is not blocked.');
-  return { ok: true, record: recordHistory({ ...record, blockedReason: null }, now, cause) };
+  return { ok: true, record: recordHistory({ ...record, blockedReason: null, blockedOn: null }, now, cause) };
 }
 
 /**

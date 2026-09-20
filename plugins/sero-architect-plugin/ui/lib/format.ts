@@ -17,6 +17,21 @@ export function ownerSentence(activity: ProjectActivity): string {
   return [owner, activity.ownerSuffix].filter(Boolean).join(' · ');
 }
 
+/**
+ * The project header's lines under the heading. When the record saved why the
+ * work stopped, the reason takes a line of its own and carries what the
+ * Architect itself is doing, so neither fact is printed twice. Without a
+ * reason this is the same one line the projects list shows.
+ */
+export function headerSentences(activity: ProjectActivity): { owner: string; reason: string | null } {
+  if (!activity.reason) return { owner: ownerSentence(activity), reason: null };
+  const when = activity.ownerAt ? relativeTime(activity.ownerAt) : '';
+  return {
+    owner: [activity.owner, when].filter(Boolean).join(' '),
+    reason: [activity.reason, activity.ownerSuffix].filter(Boolean).join(' · '),
+  };
+}
+
 export const PHASES: readonly ArchitectPhase[] = ['intake', 'discovery', 'charter', 'build', 'release', 'maintain'];
 
 export function usd(value: number): string {

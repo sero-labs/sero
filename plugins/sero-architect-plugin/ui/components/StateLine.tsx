@@ -1,6 +1,7 @@
 import type { ProjectRecord } from "../../shared/record";
 import {
   PHASES,
+  headerSentences,
   homeRelative,
   money,
   spendRatio,
@@ -10,7 +11,6 @@ import { Button } from "@sero-ai/ui";
 import { relativeTime, sessionStartedAt } from "@sero-ai/common";
 import { milestoneCounts, projectActivity } from "../../shared/activity";
 import { ActivityGlyphIcon } from "./ActivityWord";
-import { ownerSentence } from "../lib/format";
 
 const CIRCUMFERENCE = 2 * Math.PI * 28;
 
@@ -95,6 +95,7 @@ export function StateLine({
     "dispatch state could not be confirmed after restart:",
   );
   const activity = projectActivity(record, { sessionStartedAt: sessionStartedAt(), runtimeRunning });
+  const lines = headerSentences(activity);
   const counts = milestoneCounts(record);
   return (
     <section
@@ -110,8 +111,12 @@ export function StateLine({
             the same words twice. */}
         <p className="ar-stateline-who">
           <ActivityGlyphIcon state={activity.state} />
-          <span>{ownerSentence(activity)}</span>
+          <span>{lines.owner}</span>
         </p>
+        {/* Why the work stopped, when the record saved a cause. It used to sit
+            among the project's history entries, so the page said a Room was
+            cancelled without ever saying why. */}
+        {lines.reason && <p className="ar-stateline-why">{lines.reason}</p>}
         {action && (
           <Button size="sm" className="ar-btn ar-btn-sm ar-btn-solid ar-act-btn" onClick={action.run}>
             {action.label}

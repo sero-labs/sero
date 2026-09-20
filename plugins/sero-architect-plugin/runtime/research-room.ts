@@ -14,7 +14,7 @@ import type { ArchitectHost } from './host';
 import type { RecordStore } from './record-store';
 import { attachResearchArtifact } from './research-artifact';
 import { roomModelLimits } from './model-selection';
-import { hasOpenResearchAccessDecision, raiseResearchAccessDecision } from './research-access';
+import { hasOpenResearchAccessDecision, raiseResearchAccessDecision, researchBlockCause } from './research-access';
 
 interface ResearchRoomDeps {
   host: Pick<ArchitectHost, 'listModels' | 'modelTiers' | 'readJson' | 'now' | 'log' | 'newId'>;
@@ -132,7 +132,18 @@ export async function observeResearchRooms(deps: ResearchRoomDeps, projectId: st
       next = { ...next, pendingResearch: next.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, chargedUsd: Math.max(room.costUsd, current.chargedUsd ?? 0), models: inspection?.models ?? entry.models } : entry) };
       if (['failed', 'cancelled', 'paused'].includes(room.status) || (room.status === 'completed' && inspection && !inspection.result?.trim())) {
         const reason = room.status === 'completed' ? `Research Room ${room.id} finished without saved findings. Open the Room to review its result.` : `Research Room ${room.id} is ${room.status}. Open the Room to review its next action.`;
-        const held = block(next, deps.host.now(), reason);
+        // The Room's title and the cause are both in hand here. Saving them is
+        // what lets the project page name the Room and say what happened,
+        // instead of showing its id and leaving the reason in History.
+        const cause = researchBlockCause(next, current);
+        const held = block(next, deps.host.now(), reason, {
+          kind: 'room',
+          id: room.id,
+          title: room.title,
+          status: room.status === 'completed' ? 'finished without findings' : room.status,
+          at: deps.host.now(),
+          ...(cause ? { cause } : {}),
+        });
         if (held.ok) next = { ...held.record, stateLine: reason };
       }
       return next;

@@ -330,6 +330,41 @@ export interface ProjectRecord {
   session: OwnerSessionState;
   paused: boolean;
   blockedReason: string | null;
+  /**
+   * Why the Architect blocked on delegated work, as named fields. Absent on a
+   * block from another cause, and on records written before this existed.
+   *
+   * `blockedReason` alone used to carry all of this inside one sentence, which
+   * a reader then had to parse back out: the project page showed a Room by its
+   * id because the title was never saved, and the reason a Room could not run
+   * commands was findable only among the project's history entries.
+   */
+  blockedOn?: BlockedWork | null;
+}
+
+/** The delegated work a project is blocked on, and what is known about it. */
+export interface BlockedWork {
+  kind: 'workflow' | 'room';
+  id: string;
+  /** What the work is called. Saved when the block is raised, where it is known. */
+  title: string | null;
+  /** The state the work ended in, e.g. `cancelled`. */
+  status: string;
+  /** When the Architect observed that ending. */
+  at: string;
+  /**
+   * Why it ended, when something recorded a cause. A cause is never inferred
+   * from a count of attempts: `PendingResearch.attempts` counts attempts to
+   * plan the work, not times the work itself stopped.
+   */
+  cause?: BlockedWorkCause;
+}
+
+export interface BlockedWorkCause {
+  /** The cause in plain words, for the project page. */
+  text: string;
+  /** The decision this cause came from, when it came from one. */
+  decisionId?: string;
 }
 
 export interface NewProjectInput {

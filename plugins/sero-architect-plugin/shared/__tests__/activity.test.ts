@@ -196,3 +196,55 @@ describe('projectActivity', () => {
     expect(milestoneCounts(record)).toEqual({ accepted: 1, total: 2 });
   });
 });
+
+/**
+ * A block on delegated work. The captured defect: the project page read
+ * "Research Room room_32407438-c1ce-4370-8b3b-96186d4bc056 is cancelled." as
+ * its heading, and why the Room could not work was one line among sixty-four
+ * History entries.
+ */
+describe('a project blocked on delegated work', () => {
+  const cancelled = (over: Partial<ProjectRecord['blockedOn'] & object> = {}) => project({
+    blockedReason: 'Research Room room_3240 is cancelled. Open the Room to review its next action.',
+    blockedOn: {
+      kind: 'room',
+      id: 'room_3240',
+      title: 'Import Dashboard Discovery',
+      status: 'cancelled',
+      at: '2026-09-10T12:00:00.000Z',
+      ...over,
+    },
+  });
+
+  it('names the Room by its title and says what became of it', () => {
+    const activity = projectActivity(cancelled(), RUNNING_SESSION);
+    expect(activity.headline).toBe('Research was cancelled before it reported');
+    expect(activity.owner).toBe('Room Import Dashboard Discovery · cancelled');
+    expect(activity.ownerAt).toBe('2026-09-10T12:00:00.000Z');
+    expect(activity.headline).not.toContain('room_3240');
+  });
+
+  it('states the reason the record saved', () => {
+    const activity = projectActivity(
+      cancelled({ cause: { text: 'Its members had read-only access and could not run commands.', decisionId: 'dec_1' } }),
+      RUNNING_SESSION,
+    );
+    expect(activity.reason).toBe('Its members had read-only access and could not run commands.');
+  });
+
+  it('shows no reason line when nothing recorded a cause', () => {
+    expect(projectActivity(cancelled(), RUNNING_SESSION).reason).toBeUndefined();
+  });
+
+  it('falls back to the saved sentence for a record written before the fields existed', () => {
+    const old = project({ blockedReason: 'Research Room room_3240 is cancelled. Open the Room to review its next action.' });
+    const activity = projectActivity(old, RUNNING_SESSION);
+    expect(activity.headline).toBe(old.blockedReason);
+    expect(activity.reason).toBeUndefined();
+  });
+
+  it('falls back to the Room id only when no title was saved', () => {
+    const activity = projectActivity(cancelled({ title: null }), RUNNING_SESSION);
+    expect(activity.owner).toBe('Room room_3240 · cancelled');
+  });
+});
