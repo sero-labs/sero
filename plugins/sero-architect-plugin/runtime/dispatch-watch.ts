@@ -10,7 +10,7 @@ import { setAccountingIncomplete } from '../shared/accounting';
 
 import path from 'node:path';
 
-import type { OrchestratorBoardLoopView, OrchestratorBoardRoomView } from '@sero-ai/common';
+import { isLive, type OrchestratorBoardLoopView, type OrchestratorBoardRoomView } from '@sero-ai/common';
 
 import { block, charge, settle } from '../shared/lifecycle';
 import { ORCHESTRATOR_INDEX_FILE, ORCHESTRATOR_ROOM_INDEX_FILE } from '@sero-ai/common';
@@ -18,6 +18,7 @@ import type { Milestone, ProjectRecord } from '../shared/record';
 import type { WakeEvent, WakeKind } from '../shared/wake';
 import { applyDelivery, isAccepted } from './delivery';
 import type { ArchitectHost } from './host';
+import { SESSION_STARTED_AT } from './session-state';
 import { recordCharge } from './project-usage';
 import type { RecordStore } from './record-store';
 import type { RunJournal } from './run-journal';
@@ -246,6 +247,14 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
             const held = block(next, now, reason);
             if (held.ok) next = { ...held.record, stateLine: reason };
           }
+        }
+        // The one place "Working" can be earned: the watched index says a run
+        // is live, and this session is the one watching it.
+        if (isLive(loop?.liveRun ?? room?.liveRun, SESSION_STARTED_AT)) {
+          updated = { ...updated, dispatch: { ...updated.dispatch!, observedLiveAt: now } };
+        } else if (updated.dispatch?.observedLiveAt) {
+          const { observedLiveAt: _ended, ...settled } = updated.dispatch;
+          updated = { ...updated, dispatch: settled };
         }
         if (delta > 0) {
           updated = { ...updated, dispatch: { ...updated.dispatch!, chargedUsd: costUsd } };

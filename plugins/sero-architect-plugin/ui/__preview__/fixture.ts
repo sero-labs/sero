@@ -3,7 +3,9 @@
  * lifecycle state, with the prototype's data so screenshots line up.
  */
 
-import { createProjectRecord, type Decision, type Milestone, type ProjectRecord } from '../../shared/record';
+import { sessionStartedAt } from '@sero-ai/common';
+import { createProjectRecord, toIndexEntry, type Decision, type Milestone, type ProjectRecord } from '../../shared/record';
+import { MAINTENANCE_MILESTONE_ID } from '../../shared/maintenance';
 import type { ArchitectIndexEntry } from '../../shared/types';
 
 const T = (hhmm: string): string => {
@@ -166,9 +168,66 @@ export const FIXTURES: Record<string, ProjectRecord> = {
   }),
 };
 
-export const LIST_ROWS: ArchitectIndexEntry[] = [
-  { id: 'hollow-depths', name: 'Hollow Depths', workspaceId: 'ws-hollow', phase: 'build', overlay: 'decision', stateLine: 'One decision is waiting on you. Milestone 3 keeps running.', spentUsd: 19.7, capUsd: 40, needsYou: 1, updatedAt: T('13:02') },
-  { id: 'ledger', name: 'Ledger', workspaceId: 'ws-ledger', phase: 'build', overlay: null, stateLine: 'Milestone 2 is running. Nothing needs you.', spentUsd: 6.1, capUsd: 25, needsYou: 0, updatedAt: T('12:00') },
-  { id: 'field-notes', name: 'Field Notes', workspaceId: 'ws-notes', phase: 'maintain', overlay: null, stateLine: 'Released. Quiet since Tuesday.', spentUsd: 31.8, capUsd: 35, needsYou: 0, updatedAt: T('08:00') },
-  { id: 'relay', name: 'Relay', workspaceId: 'ws-relay', phase: 'charter', overlay: 'paused', stateLine: 'Paused by you before the charter.', spentUsd: 1.2, capUsd: null, needsYou: 0, updatedAt: T('07:00') },
-];
+/**
+ * The four list rows, built the way the runtime builds them: real records put
+ * through `toIndexEntry`, not hand-written activity text. So the harness shows
+ * what the derivation produces, and the runtime-off screen is honest — an
+ * observed report from an earlier session falls to `Last known` on its own.
+ */
+function listRecords(runtimeRunning: boolean): ProjectRecord[] {
+  // With the runtime off, nothing has reported into this session.
+  const reportedAt = runtimeRunning ? new Date().toISOString() : T('08:10');
+  const running = milestone(1, {
+    status: 'running',
+    dispatch: { ...dispatched(1, '11:09')!, observedLiveAt: reportedAt, lastRunAt: reportedAt },
+  });
+  const maintenance: Milestone = {
+    id: MAINTENANCE_MILESTONE_ID,
+    title: 'Maintenance Workflow',
+    status: 'running',
+    plan: null,
+    preview: null,
+    dispatch: {
+      kind: 'workflow', id: 'workflow-maintenance', workspaceId: 'ws-notes',
+      dispatchedAt: T('07:30'), chargedUsd: 1.1, destination: null, lastRunAt: T('08:00'),
+    },
+    evidence: null,
+    verification: null,
+    parkedBy: null,
+    parkedFrom: null,
+    receipt: null,
+  };
+  return [
+    base({
+      id: 'hollow-depths', name: 'Hollow Depths', overlay: 'decision', decisions: [DECISION],
+      budget: { capUsd: 40, spentUsd: 19.7, sources: { owner: 2.1, research: 0.9, dispatched: 16.7 } },
+      milestones: [accepted(0), accepted(1), milestone(2), milestone(3), milestone(4)],
+      updatedAt: T('13:02'),
+    }),
+    base({
+      id: 'ledger', name: 'Ledger', workspaceId: 'ws-ledger',
+      budget: { capUsd: 25, spentUsd: 6.1, sources: { owner: 1.2, research: 0.4, dispatched: 4.5 } },
+      milestones: [accepted(0), running, milestone(2), milestone(3)],
+      updatedAt: T('12:00'),
+    }),
+    base({
+      id: 'field-notes', name: 'Field Notes', workspaceId: 'ws-notes', phase: 'maintain',
+      budget: { capUsd: 35, spentUsd: 31.8, sources: { owner: 4.1, research: 0.9, dispatched: 26.8 } },
+      milestones: [accepted(0), accepted(1), accepted(2), accepted(3), accepted(4), maintenance],
+      updatedAt: T('08:00'),
+    }),
+    base({
+      id: 'relay', name: 'Relay', workspaceId: 'ws-relay', phase: 'charter', overlay: 'paused', paused: true,
+      budget: { capUsd: null, spentUsd: 1.2, sources: { owner: 1.2, research: 0, dispatched: 0 } },
+      milestones: [], charter: null, brief: null, updatedAt: T('07:00'),
+    }),
+  ];
+}
+
+/** The rows as the list receives them. `runtimeRunning` is the Architect's own flag. */
+export function listRows(runtimeRunning = true): ArchitectIndexEntry[] {
+  const options = { sessionStartedAt: sessionStartedAt(), runtimeRunning };
+  return listRecords(runtimeRunning).map((record) => toIndexEntry(record, options));
+}
+
+export const LIST_ROWS: ArchitectIndexEntry[] = listRows();

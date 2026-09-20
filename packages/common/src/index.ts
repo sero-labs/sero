@@ -351,6 +351,41 @@ export type {
   ObservationWaitCause,
 } from './run-observations';
 
+export {
+  ACTIVITY_STATES,
+  ACTIVITY_STATE_GLYPH,
+  ACTIVITY_STATE_TONE,
+  ACTIVITY_STATE_WORD,
+  activityNextStep,
+  isLive,
+  missingActivityDetail,
+  sessionStartedAt,
+} from './activity-state';
+export type {
+  ActivityDetail,
+  ActivityGlyph,
+  ActivityState,
+  ActivityTone,
+  LiveRunMark,
+} from './activity-state';
+
+export { ARCHITECT_APP_ID } from './architect-contract';
+export type {
+  ArchitectActivityView,
+  ArchitectIndexView,
+  ArchitectProjectView,
+} from './architect-contract';
+
+export {
+  attentionSentence,
+  loopAttention,
+  loopBlockedAction,
+  loopWaitingAction,
+  projectAttention,
+  roomAttention,
+} from './activity-attention';
+export type { AttentionClaim } from './activity-attention';
+
 export * from './orchestrator';
 
 export type {

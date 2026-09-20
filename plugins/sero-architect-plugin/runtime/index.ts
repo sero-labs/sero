@@ -4,6 +4,7 @@ import { architectEnabled } from '../shared/kill-switch';
 import { mayWakeForWork } from '../shared/lifecycle';
 import { MAINTENANCE_MILESTONE_ID } from '../shared/maintenance';
 import type { ProjectRecord } from '../shared/record';
+import { normalizeIndex } from '../shared/types';
 import type { WakeEvent } from '../shared/wake';
 import { createDispatchWatch, type DispatchWatch } from './dispatch-watch';
 import { createArchitectHost, type ArchitectHost } from './host';
@@ -18,6 +19,7 @@ import { openMaintenanceRun } from './run-lifecycle';
 import { createSpanRecorder } from './spans';
 import { registerArchitectRuntime, unregisterArchitectRuntime, type ArchitectRegistryEntry } from './registry';
 import { createServices } from './services';
+import { markRuntimeRunning, SESSION_STARTED_AT } from './session-state';
 import { createTurnOutcomes } from './turn-outcomes';
 import { createWakeGate, type WakeGate } from './wake-gate';
 import { createWakeScheduler, type WakeScheduler } from './wake-scheduler';
@@ -52,9 +54,33 @@ export class ArchitectRuntime implements AppRuntime {
 
   constructor(private readonly host: ArchitectHost, private readonly env: NodeJS.ProcessEnv = process.env) {}
 
+  /**
+   * Records in the index whether the runtime is running in this Sero session.
+   *
+   * It is written on both paths of start, including the kill-switch one, and
+   * again on dispose. A reader needs to tell "no report yet" from "nobody is
+   * there to report", and only this process knows which.
+   */
+  private async markRuntime(running: boolean): Promise<void> {
+    markRuntimeRunning(running);
+    try {
+      await this.host.updateIndex((current) => ({
+        ...normalizeIndex(current),
+        runtime: { running, startedAt: SESSION_STARTED_AT },
+      }));
+    } catch (error) {
+      this.host.log(`could not record the runtime state: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
   async start(): Promise<void> {
-    // Disabled by the kill switch: records are kept and nothing is woken.
-    if (!architectEnabled(this.env)) return;
+    // Disabled by the kill switch: records are kept and nothing is woken. The
+    // list still needs to know nobody is running, so the flag is written first.
+    if (!architectEnabled(this.env)) {
+      await this.markRuntime(false);
+      return;
+    }
+    await this.markRuntime(true);
     const homeDir = await this.host.homeDir();
     const store = createRecordStore({ homeDir, indexFile: this.host.indexFile, updateIndex: this.host.updateIndex });
     // Detailed telemetry lives beside the records, under the same profile home.
@@ -194,6 +220,7 @@ export class ArchitectRuntime implements AppRuntime {
   }
 
   async dispose(): Promise<void> {
+    await this.markRuntime(false);
     if (this.registered) unregisterArchitectRuntime(this.registered);
     this.watch?.dispose();
     await this.sessions?.disposeAll();

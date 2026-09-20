@@ -8,9 +8,23 @@ export function usd(value: number): string {
   return `$${value.toFixed(1).replace(/\.0$/, '')}`;
 }
 
-/** "$11.4 / $40" or "$0.9 · no cap". */
+/**
+ * An amount in cents, as the list and the project header print it: "$5.52",
+ * "$10", "$0.064".
+ *
+ * Cents are kept because a cap is read against them, and a third decimal is
+ * only added when two would round a real charge to nothing. A whole amount
+ * drops its zeros, so a $10 cap does not read as "$10.00".
+ */
+export function money(value: number): string {
+  const cents = value.toFixed(2);
+  if (value !== 0 && Number(cents) === 0) return `$${value.toPrecision(2)}`;
+  return `$${cents.replace(/\.00$/, '')}`;
+}
+
+/** "$5.52 of $10" or "$0.9 · no cap". */
 export function spendLabel(spentUsd: number, capUsd: number | null): string {
-  return capUsd === null ? `${usd(spentUsd)} · no cap` : `${usd(spentUsd)} / ${usd(capUsd)}`;
+  return capUsd === null ? `${money(spentUsd)} · no cap` : `${money(spentUsd)} of ${money(capUsd)}`;
 }
 
 export type SpendTone = 'ok' | 'warn' | 'err' | 'none';

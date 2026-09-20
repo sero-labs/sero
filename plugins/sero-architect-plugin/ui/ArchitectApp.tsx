@@ -70,6 +70,10 @@ export function ArchitectApp() {
   const { record, ready } = useProjectRecord(projectId);
   const [narrow, attach] = useNarrow();
   const disclosures = useDisclosures();
+  // The filter lives here because its control is in the top bar and the rows it
+  // hides are in the list.
+  const [needsOnly, setNeedsOnly] = useState(false);
+  const needsYouCount = index.projects.filter((entry) => entry.activity.action).length;
 
   const openProject = useCallback((id: string) => navigate({ mode: 'project', projectId: id }), [navigate]);
   const openModels = useCallback((id: string) => navigate({ mode: 'models', projectId: id }), [navigate]);
@@ -88,7 +92,7 @@ export function ArchitectApp() {
   return (
     <div className="ar-app" ref={attach}>
       {projectId && record ? (
-        <ProjectView mode={view.mode} onProject={() => openProject(record.id)} record={record} actions={actions} permissionPending={permissionProjectId === projectId} narrow={narrow} disclosures={disclosures} onBack={back} onOpenModels={() => openModels(projectId)} onOpenInspector={() => openInspector(projectId)} confirm={confirm} />
+        <ProjectView mode={view.mode} onProject={() => openProject(record.id)} record={record} runtimeRunning={index.runtime?.running !== false} actions={actions} permissionPending={permissionProjectId === projectId} narrow={narrow} disclosures={disclosures} onBack={back} onOpenModels={() => openModels(projectId)} onOpenInspector={() => openInspector(projectId)} confirm={confirm} />
       ) : projectId && !gone ? (
         <>
           <TopBar record={null} controls={null} onBack={back} onNewProject={openIntake} />
@@ -96,9 +100,9 @@ export function ArchitectApp() {
         </>
       ) : (
         <>
-          <TopBar record={null} controls={null} onBack={back} onNewProject={openIntake} />
+          <TopBar record={null} controls={null} onBack={back} onNewProject={openIntake} needsYou={{ count: needsYouCount, on: needsOnly, toggle: () => setNeedsOnly((was) => !was) }} />
           <div className="ar-scroll">
-            <ProjectsList projects={index.projects} onOpen={openProject} onNewProject={openIntake} />
+            <ProjectsList projects={index.projects} runtime={index.runtime} needsOnly={needsOnly} onOpen={openProject} onNewProject={openIntake} />
           </div>
           <IntakeDialog open={view.mode === 'list' && view.intake === true} onClose={closeIntake} onCreate={create} defaultFolder="~/Projects/" />
         </>

@@ -273,6 +273,8 @@ export interface LoopRuntimeState {
   stepStates: Record<string, StepRuntimeState>;
   workspace: LoopWorkspaceRuntime;
   activeRunId?: string;
+  /** This session's proof that a run is reporting — see runtime/live-run.ts. */
+  liveRun?: import('@sero-ai/common').LiveRunMark;
   dueAgain?: boolean;
   /** A dirty-workspace run delayed by the user. Blocks runs until this durable timestamp. */
   snoozedUntil?: string;

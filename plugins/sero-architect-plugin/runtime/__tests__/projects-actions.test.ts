@@ -555,3 +555,97 @@ describe('project management', () => {
     releaseTurn();
   });
 });
+
+describe('pausing a project pauses what it runs on a trigger', () => {
+  const maintenance = () => milestone('maintenance', {
+    status: 'done',
+    dispatch: { kind: 'workflow', id: 'loop-maint', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null, lastRunAt: T0 },
+  });
+
+  function registry(calls: OrchestratorBoardAction[], result: Record<string, unknown> = { ok: true, changedTriggerIds: ['issues', 'weekly'] }) {
+    (globalThis as Record<string, unknown>)[ORCHESTRATOR_REGISTRY_GLOBAL_KEY] = new Map([
+      ['ws-1', { coordinator: { requestAction: async (action: OrchestratorBoardAction) => { calls.push(action); return result; } } }],
+    ]);
+  }
+
+  it('disarms the maintenance Workflow and records which triggers it turned off', async () => {
+    const { store, actions } = await setup();
+    const record = buildingProject({ phase: 'maintain', milestones: [maintenance()] });
+    await store.write(record);
+    const calls: OrchestratorBoardAction[] = [];
+    registry(calls);
+
+    try {
+      const paused = await actions.pause(record.id);
+
+      expect(paused).toMatchObject({ ok: true, text: expect.stringContaining('maintenance Workflow is paused with it') });
+      expect(calls).toEqual([{ kind: 'set_armed', loopId: 'loop-maint', armed: false, owner: { projectId: record.id } }]);
+      const saved = await store.read(record.id);
+      expect(saved?.paused).toBe(true);
+      expect(saved?.milestones[0].dispatch?.disarmedTriggerIds).toEqual(['issues', 'weekly']);
+    } finally { delete (globalThis as Record<string, unknown>)[ORCHESTRATOR_REGISTRY_GLOBAL_KEY]; }
+  });
+
+  it('re-arms exactly the triggers it disarmed, and forgets them', async () => {
+    const { store, actions } = await setup();
+    const record = buildingProject({
+      phase: 'maintain',
+      paused: true,
+      executionMode: 'workspace',
+      milestones: [milestone('maintenance', {
+        status: 'done',
+        dispatch: {
+          kind: 'workflow', id: 'loop-maint', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null,
+          disarmedTriggerIds: ['weekly'],
+        },
+      })],
+    });
+    await store.write(record);
+    const calls: OrchestratorBoardAction[] = [];
+    registry(calls, { ok: true, changedTriggerIds: ['weekly'] });
+
+    try {
+      const resumed = await actions.resume(record.id);
+
+      expect(resumed.ok).toBe(true);
+      expect(calls).toEqual([
+        { kind: 'set_armed', loopId: 'loop-maint', armed: true, triggerIds: ['weekly'], owner: { projectId: record.id } },
+      ]);
+      expect((await store.read(record.id))?.milestones[0].dispatch?.disarmedTriggerIds).toBeUndefined();
+    } finally { delete (globalThis as Record<string, unknown>)[ORCHESTRATOR_REGISTRY_GLOBAL_KEY]; }
+  });
+
+  it('says so when the Workflow could not be paused, rather than reporting a clean pause', async () => {
+    const { store, actions } = await setup();
+    await store.write(buildingProject({ phase: 'maintain', milestones: [maintenance()] }));
+    const calls: OrchestratorBoardAction[] = [];
+    registry(calls, { ok: false, error: 'No Orchestrator coordinator is registered for workspace "ws-1".' });
+
+    try {
+      const paused = await actions.pause('proj_1');
+
+      expect(paused).toMatchObject({ ok: true, text: expect.stringContaining('could not be paused with it') });
+    } finally { delete (globalThis as Record<string, unknown>)[ORCHESTRATOR_REGISTRY_GLOBAL_KEY]; }
+  });
+
+  it('leaves a milestone run in flight alone', async () => {
+    const { store, actions } = await setup();
+    const record = buildingProject({
+      milestones: [
+        milestone('m1', { status: 'running', dispatch: { kind: 'workflow', id: 'loop-1', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null } }),
+        maintenance(),
+      ],
+    });
+    await store.write(record);
+    const calls: OrchestratorBoardAction[] = [];
+    registry(calls);
+
+    try {
+      await actions.pause(record.id);
+
+      // Only the maintenance Workflow is disarmed; the running milestone is untouched.
+      expect(calls.map((call) => ('loopId' in call ? call.loopId : null))).toEqual(['loop-maint']);
+      expect((await store.read(record.id))?.milestones[0].status).toBe('running');
+    } finally { delete (globalThis as Record<string, unknown>)[ORCHESTRATOR_REGISTRY_GLOBAL_KEY]; }
+  });
+});

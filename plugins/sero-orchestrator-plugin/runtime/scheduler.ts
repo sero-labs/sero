@@ -171,6 +171,52 @@ export function applyScheduleOverride(
 }
 
 /**
+ * Arms or disarms a loop's triggers (set_armed) without touching its status or
+ * its in-flight run: an owner that pauses its project needs new runs to stop
+ * starting, not the current one killed.
+ *
+ * Disarming sets `disabled`, which stops the cron leg AND event matching —
+ * unlike `scheduleDisabled`, which leaves a hybrid trigger firing on its events.
+ * Arming re-arms `nextFireAt` for a cron/hybrid trigger, and skips one that has
+ * reached its run limit, because that trigger can never fire again.
+ */
+export function applyArmingOverride(
+  loop: Loop,
+  armed: boolean,
+  triggerIds: string[] | undefined,
+  now: string,
+): { ok: boolean; loop?: Loop; error?: string; changedTriggerIds: string[] } {
+  const wanted = triggerIds ? new Set(triggerIds) : null;
+  if (wanted) {
+    const known = new Set(loop.triggers.map((t) => t.id));
+    const unknown = [...wanted].filter((id) => !known.has(id));
+    if (unknown.length > 0) {
+      return { ok: false, error: `Trigger not found: ${unknown.join(', ')}`, changedTriggerIds: [] };
+    }
+  }
+  const nowMs = Date.parse(now);
+  const changedTriggerIds: string[] = [];
+  const triggers = loop.triggers.map((trigger) => {
+    if (wanted && !wanted.has(trigger.id)) return trigger;
+    if (armed && isExhausted(trigger)) return trigger;
+    if ((trigger.disabled ?? false) === !armed) return trigger;
+    changedTriggerIds.push(trigger.id);
+    if (!armed) return { ...trigger, disabled: true, nextFireAt: undefined };
+    const next =
+      (trigger.type === 'cron' || trigger.type === 'hybrid') && trigger.schedule && !trigger.scheduleDisabled
+        ? nextFireAfter(trigger.schedule, nowMs)
+        : null;
+    return {
+      ...trigger,
+      disabled: false,
+      nextFireAt: next !== null ? new Date(next).toISOString() : undefined,
+    };
+  });
+  if (changedTriggerIds.length === 0) return { ok: true, loop, changedTriggerIds };
+  return { ok: true, loop: { ...loop, triggers, updatedAt: now }, changedTriggerIds };
+}
+
+/**
  * Re-applies goal-derived triggers to a loop's EXISTING triggers without
  * resetting run history (used when a refinement changes the goal's cadence or
  * events): an existing cron/hybrid trigger keeps its fireCount/lastFireAt but

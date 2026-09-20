@@ -11,9 +11,17 @@
 
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
+// The host supplies the design tokens in the real app. The harness has no host,
+// so it injects the host stylesheet raw: routed through Vite it would meet the
+// plugin CSS scope, which refuses document-level selectors.
+import hostTokens from '@sero-ai/ui/styles/globals.css?raw';
 import '../styles.css';
 import './preview.css';
 import { PREVIEWS } from './previews';
+
+const tokens = document.createElement('style');
+tokens.textContent = hostTokens;
+document.head.prepend(tokens);
 
 function Harness() {
   const [dark, setDark] = useState(true);
@@ -47,7 +55,9 @@ function Harness() {
             <section key={preview.id} id={preview.id} className="flex flex-col gap-2">
               <h2 className="text-base font-medium">{preview.title}</h2>
               <p className="text-xs text-foreground/70">{preview.note}</p>
-              <div style={{ width: preview.width }}>{preview.render()}</div>
+              {/* The app root carries @container/panel; without it here every
+                  container query in a preview reads as the narrow layout. */}
+              <div className="@container/panel" style={{ width: preview.width }}>{preview.render()}</div>
             </section>
           ))}
         </div>

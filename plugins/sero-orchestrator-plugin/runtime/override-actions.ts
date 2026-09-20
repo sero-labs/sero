@@ -10,11 +10,11 @@ import type { Loop, OrchestratorAction, OrchestratorActionResult } from '../shar
 import type { OrchestratorHost } from './host';
 import { voidOpenApprovals } from './delivery/delivery-contract';
 import { applyLoopContext, applyLoopDelivery, applyStepAgent, applyStepModel, applyStepTools } from './plan-mapping';
-import { applyScheduleOverride } from './scheduler';
+import { applyArmingOverride, applyScheduleOverride } from './scheduler';
 
 export type OverrideAction = Extract<
   OrchestratorAction,
-  { kind: 'set_step_model' | 'set_step_tools' | 'set_step_agent' | 'set_loop_context' | 'set_delivery' | 'set_schedule' | 'use_cost_budget' }
+  { kind: 'set_step_model' | 'set_step_tools' | 'set_step_agent' | 'set_loop_context' | 'set_delivery' | 'set_schedule' | 'set_armed' | 'use_cost_budget' }
 >;
 
 const OVERRIDE_KINDS: ReadonlySet<string> = new Set([
@@ -25,6 +25,7 @@ const OVERRIDE_KINDS: ReadonlySet<string> = new Set([
   'set_loop_context',
   'set_delivery',
   'set_schedule',
+  'set_armed',
 ]);
 
 /** True for every override action — lets the coordinator route them in one line. */
@@ -32,7 +33,15 @@ export function isOverrideAction(action: OrchestratorAction): action is Override
   return OVERRIDE_KINDS.has(action.kind);
 }
 
-function mapOverride(loop: Loop, action: OverrideAction, now: string): { ok: boolean; loop?: Loop; error?: string } {
+interface OverrideMapping {
+  ok: boolean;
+  loop?: Loop;
+  error?: string;
+  /** Only `set_armed` sets this: the triggers the call actually changed. */
+  changedTriggerIds?: string[];
+}
+
+function mapOverride(loop: Loop, action: OverrideAction, now: string): OverrideMapping {
   switch (action.kind) {
     case 'use_cost_budget': {
       if (!loop.limits.maxCostUsd || !Number.isFinite(loop.limits.maxCostUsd)) return { ok: false, error: 'Set a finite dollar budget before removing the token limit.' };
@@ -56,6 +65,14 @@ function mapOverride(loop: Loop, action: OverrideAction, now: string): { ok: boo
       return { ok: true, loop: applyLoopContext(loop, action.overrides, now) };
     case 'set_schedule':
       return applyScheduleOverride(loop, action.triggerId, { schedule: action.schedule, disabled: action.disabled }, now);
+    case 'set_armed': {
+      // Attribution is the only claim a plugin runtime has on a Workflow: it may
+      // arm and disarm what it created, and nothing else.
+      if (action.owner && loop.project?.projectId !== action.owner.projectId) {
+        return { ok: false, error: `Workflow ${loop.id} ("${loop.title}") does not belong to project ${action.owner.projectId}.` };
+      }
+      return applyArmingOverride(loop, action.armed, action.triggerIds, now);
+    }
     case 'set_delivery': {
       const result = applyLoopDelivery(loop, action.delivery, now);
       if (!result.ok || !result.loop) return result;
@@ -81,5 +98,5 @@ export async function handleOverrideAction(
     ...current,
     loops: current.loops.map((l) => (l.id === updated.id ? updated : l)),
   }));
-  return { ok: true, loop: updated };
+  return { ok: true, loop: updated, ...(result.changedTriggerIds ? { changedTriggerIds: result.changedTriggerIds } : {}) };
 }

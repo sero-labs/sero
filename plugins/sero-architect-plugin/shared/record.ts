@@ -3,6 +3,7 @@
 
 import type { OrchestratorProjectContext, SharedModelTierSettings } from '@sero-ai/common';
 import type { DispatchDestination } from './owner-actions';
+import { milestoneCounts, projectActivity } from './activity';
 import type { ArchitectOverlay, ArchitectPhase } from './types';
 
 export type { ArchitectOverlay, ArchitectPhase } from './types';
@@ -69,6 +70,17 @@ export interface MilestoneDispatch {
   /** For a standing subscription such as maintenance: when it last ran and when its schedule fires next. */
   lastRunAt?: string;
   nextRunAt?: string;
+  /**
+   * The last time THIS runtime session watched this work report. Cleared when
+   * the runtime starts, so a saved value can never claim a run is live (see
+   * runtime/dispatch-watch.ts). It is what "Working" is earned with.
+   */
+  observedLiveAt?: string;
+  /**
+   * Triggers this project's pause disarmed, so resume re-arms exactly those and
+   * leaves alone any the user turned off by hand.
+   */
+  disarmedTriggerIds?: string[];
 }
 
 export interface PendingMilestoneDispatch {
@@ -388,15 +400,26 @@ export function needsYouCount(record: ProjectRecord): number {
   return openDecisions(record).length + charterApproval + planApprovals;
 }
 
-/** The index row the UI, the widget and the management tool read. Derived, never edited by hand. */
-export function toIndexEntry(record: ProjectRecord): import('./types').ArchitectIndexEntry {
+/**
+ * The index row the UI, the widget and the management tool read. Derived, never
+ * edited by hand.
+ *
+ * `activity` is derived here rather than written by the owner, and the owner's
+ * own sentence stays on the record for the project page's "What Architect
+ * reported" disclosure.
+ */
+export function toIndexEntry(
+  record: ProjectRecord,
+  options: { sessionStartedAt: string; runtimeRunning: boolean },
+): import('./types').ArchitectIndexEntry {
   return {
     id: record.id,
     name: record.name,
     workspaceId: record.workspaceId,
     phase: record.phase,
     overlay: record.overlay,
-    stateLine: record.stateLine,
+    activity: projectActivity(record, options),
+    milestones: milestoneCounts(record),
     spentUsd: record.budget.spentUsd,
     usageIncomplete: record.budget.incomplete !== false,
     capUsd: record.budget.capUsd,

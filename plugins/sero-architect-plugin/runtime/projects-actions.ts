@@ -12,9 +12,11 @@ import path from 'node:path';
 import { requestOrchestratorAction, type ModelTier, type PersistentSessionHistoryPage, type SharedModelTierEntry, type SharedModelTierSettings, type ThinkingLevel } from '@sero-ai/common';
 
 import { advancePhase, approveCharter, block, mayDispatch, pause, resume, setAutonomy, setCap, settle, unblock } from '../shared/lifecycle';
+import { activityOptions } from './session-state';
 import { createProjectRecord, toIndexEntry, type AutonomySetting, type ExecutionMode, type DecisionProposal, type Milestone, type ProjectRecord } from '../shared/record';
 import type { DispatchDestination } from '../shared/owner-actions';
 import { performDispatch } from './dispatch-link';
+import { disarmMaintenance, rearmMaintenance } from './maintenance-arming';
 import type { RepairOutcome } from './repair-dispatch';
 import { clearModelDefaultAction, parseModelEntry, refreshModelTiersAction, setModelDefaultAction, type ModelDefaultInput } from './model-default-actions';
 import { validateEntry } from './model-resolution';
@@ -167,7 +169,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
 
   return {
     async list() {
-      return (await store.list()).map(toIndexEntry);
+      return (await store.list()).map((record) => toIndexEntry(record, activityOptions()));
     },
 
     show: read,
@@ -241,7 +243,10 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
         return result.ok ? { record: result.record } : { error: result.error };
       });
       if (!paused.ok) return refuse(paused.error);
-      return ok(`Project ${projectId} paused. Running work continues; the owner is not woken until resume.`);
+      // Pausing the project pauses what it runs on a trigger. Work already in
+      // flight is left alone, which is what pause has always promised.
+      const disarmed = await disarmMaintenance(store, paused.record);
+      return ok(`Project ${projectId} paused. Running work continues; the owner is not woken until resume.${disarmed.note}`);
     },
 
     async resume(projectId) {
@@ -262,7 +267,8 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
         return { record: next };
       });
       if (!resumed.ok) return refuse(resumed.error);
-      let next = resumed.record;
+      const rearmed = await rearmMaintenance(store, resumed.record);
+      let next = (await store.read(projectId)) ?? resumed.record;
       const selected = await chooseOwnerModel(host, next);
       if (next.session.grantId && (next.session.model !== selected.model || next.session.thinking !== selected.thinking)) {
         await sessions.dispose(projectId);
@@ -273,7 +279,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
         const outcome = await advanceIntake(next);
         if (!outcome.ok) return refuse(outcome.error);
         if (outcome.record.blockedReason) return refuse(outcome.record.blockedReason);
-        return ok(`Project ${projectId} resumed. Discovery starts.`);
+        return ok(`Project ${projectId} resumed. Discovery starts.${rearmed.note}`);
       }
       // Discovery may have been entered without its run if that second write
       // failed. Idempotent: a project that has one keeps it.
@@ -291,7 +297,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       }
       services.recoverPending(next);
       scheduler.request(projectId, { kind: 'quiet', at: now, items: ['the user resumed the project'] });
-      return ok(`Project ${projectId} resumed.`);
+      return ok(`Project ${projectId} resumed.${rearmed.note}`);
     },
 
     async stop(projectId) {

@@ -44,7 +44,7 @@ export function ArchitectWidget() {
                 <ItemListItem
                   key={entry.id}
                   primary={entry.name}
-                  secondary={entry.stateLine}
+                  secondary={entry.activity.headline}
                   trailing={entry.needsYou > 0 ? <span className="ar-count">{entry.needsYou}</span> : <span className="ar-kind">{widgetMeta(entry)}</span>}
                   onClick={() => openProject(entry)}
                 />

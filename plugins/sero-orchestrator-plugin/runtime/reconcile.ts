@@ -20,13 +20,24 @@ import type { Loop, LoopBlock, Observation, StepRuntimeState } from '../shared/t
 import type { OrchestratorHost } from './host';
 import { isRecurring, rearmLoop } from './scheduler';
 import { orphanRunningActivations } from './activations';
+import { clearLiveRun } from './live-run';
 import { uncertainExternalDeliveryInRun } from './delivery/delivery-contract';
 
 const inFlight = (state: StepRuntimeState): boolean =>
   state.status === 'running' || state.status === 'ready';
 
-/** Reconciles a single loop. Returns it unchanged when nothing was in flight. */
+/**
+ * Reconciles a single loop. Returns it unchanged when nothing was in flight.
+ *
+ * The live-run mark goes first and unconditionally: it means "a run is
+ * reporting to this session", so one left by an earlier session is false the
+ * moment this one starts, whether or not anything else needs recovery.
+ */
 export function reconcileLoop(host: OrchestratorHost, loop: Loop): Loop {
+  return reconcileRecovered(host, clearLiveRun(loop));
+}
+
+function reconcileRecovered(host: OrchestratorHost, loop: Loop): Loop {
   // Tolerate loops persisted by an incompatible/older schema (no runtime field).
   if (!loop.runtime) return loop;
   const activeRunId = loop.runtime.activeRunId;

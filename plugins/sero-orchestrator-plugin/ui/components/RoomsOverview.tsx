@@ -8,11 +8,15 @@
 import { useMemo, useState } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Users } from 'lucide-react';
+import { sessionStartedAt } from '@sero-ai/common';
 import type { RoomStatus, RoomSummary } from '../../shared/room-types';
 import { formatCost, formatElapsed, formatRelative } from '../lib/format';
 import { ROOM_DOT } from '../lib/list-row-status';
+import { roomActivity, type RoomActivity } from '../lib/room-activity';
 import { memberGlyph } from '../lib/member-glyph';
+import { ActivityWord } from './ActivityWord';
 import { ListRow } from './ListRow';
+import { NeedsPill } from './NeedsPill';
 import { FaceStack, SectionHead } from './room-kit';
 
 /** Running Rooms first, then the ones that need a decision, then the settled ones. */
@@ -36,26 +40,40 @@ interface RoomsOverviewProps {
   onNew: () => void;
 }
 
-/** `5 members · 41m · $3.18 / $6.00` — the row's mono meta. */
-function roomMeta(room: RoomSummary): string {
+/** `2 members · 15 min of work` — who is in it and how long they worked. */
+function roomWho(room: RoomSummary): string {
   const members = `${room.memberCount} member${room.memberCount === 1 ? '' : 's'}`;
   const end = room.status === 'running' || room.status === 'completing' ? Date.now() : Date.parse(room.updatedAt);
+  // Wall-clock between its first and last report. It is not time spent working,
+  // which nothing records, so the row does not claim it is.
   const elapsed = room.startedAt ? formatElapsed(end - Date.parse(room.startedAt)) : formatRelative(room.updatedAt);
-  const spend = room.maxCostUsd > 0
-    ? `${formatCost(room.costUsd)} / ${formatCost(room.maxCostUsd)}`
-    : formatCost(room.costUsd);
-  return `${members} · ${elapsed} · ${spend}`;
+  return `${members} · ${elapsed}`;
 }
 
-/** The row subtitle: why the Room stopped beats what it was asked to do. */
-function roomSub(room: RoomSummary): string | undefined {
-  if (room.attention?.pause) return room.attention.pause.detail;
-  if (room.status === 'completed') return `Completed · ${formatRelative(room.updatedAt)}`;
-  return room.problemStatement;
+/** `$0.31 of $2.00` — spend alone on the right, as the drawing puts it. */
+function roomMoney(room: RoomSummary): string {
+  return room.maxCostUsd > 0
+    ? `${formatCost(room.costUsd)} of ${formatCost(room.maxCostUsd)}`
+    : formatCost(room.costUsd);
+}
+
+/** What the Room asks the user for, in words. A count alone says nothing. */
+function roomAsk(room: RoomSummary, activity: RoomActivity): string | null {
+  if (room.attentionCount <= 0) return null;
+  return activity.action ?? `${room.attentionCount} ${room.attentionCount === 1 ? 'item needs' : 'items need'} you`;
+}
+
+/**
+ * The row's second line: the state word, then how long it has waited. The brief
+ * the Room was given is complete inside the Room, never on the row.
+ */
+function roomLine(activity: RoomActivity): string {
+  return activity.waitingFor ? `${activity.word} · ${activity.waitingFor}` : activity.word;
 }
 
 export function RoomsOverview({ rooms, onOpenRoom, onNew }: RoomsOverviewProps) {
   const [shown, setShown] = useState(PAGE);
+  const session = useMemo(() => sessionStartedAt(), []);
   const sorted = useMemo(() => {
     const rank = new Map(STATUS_ORDER.map((status, i) => [status, i]));
     return rooms.toSorted((a, b) =>
@@ -67,30 +85,38 @@ export function RoomsOverview({ rooms, onOpenRoom, onNew }: RoomsOverviewProps) 
   return (
     <div className="flex flex-col">
       <SectionHead count={rooms.length}>Rooms</SectionHead>
-      {sorted.slice(0, shown).map((room) => (
+      {sorted.slice(0, shown).map((room) => {
+        const activity = roomActivity(room, session);
+        return (
         <ListRow
           key={room.id}
-          status={ROOM_DOT[room.status]}
           title={room.title}
-          sub={roomSub(room)}
-          faces={
-            room.members?.length ? (
-              <FaceStack
-                className="shrink-0"
-                faces={room.members.map((member) => ({
-                  seed: member.id ?? member.name,
-                  // The 22px list face carries the initial (C), never ◎.
-                  label: memberGlyph(member.name),
-                  tone: member.isConductor ? 'conductor' : member.addedAfterStart ? 'new' : 'member',
-                }))}
-              />
-            ) : undefined
+          attention={roomAsk(room, activity) !== null}
+          activity={<ActivityWord state={activity.state} word={roomLine(activity)} nextStep={activity.nextStep} />}
+          middle={
+            <span className="flex flex-col items-start gap-1.5">
+              {roomAsk(room, activity) !== null && <NeedsPill>{roomAsk(room, activity)}</NeedsPill>}
+              <span className="flex items-center gap-2">
+                {room.members?.length ? (
+                  <FaceStack
+                    className="shrink-0"
+                    faces={room.members.map((member) => ({
+                      seed: member.id ?? member.name,
+                      // The 22px list face carries the initial (C), never ◎.
+                      label: memberGlyph(member.name),
+                      tone: member.isConductor ? 'conductor' : member.addedAfterStart ? 'new' : 'member',
+                    }))}
+                  />
+                ) : null}
+                {roomWho(room)}
+              </span>
+            </span>
           }
-          needsCount={room.attentionCount}
-          meta={roomMeta(room)}
+          money={roomMoney(room)}
           onClick={() => onOpenRoom(room.id)}
         />
-      ))}
+        );
+      })}
       {sorted.length > shown && (
         <Button size="sm" variant="ghost" className="self-start text-xs text-room-text3" onClick={() => setShown((n) => n + PAGE)}>
           Show {sorted.length - shown} more

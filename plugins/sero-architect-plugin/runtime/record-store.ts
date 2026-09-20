@@ -15,6 +15,7 @@ import path from 'node:path';
 
 import { normalizeIndex, type ArchitectIndex } from '../shared/types';
 import { toIndexEntry, type ProjectRecord } from '../shared/record';
+import { activityOptions, isRuntimeRunning, SESSION_STARTED_AT } from './session-state';
 
 export interface RecordStoreIo {
   writeFile(filePath: string, data: string): Promise<void>;
@@ -148,8 +149,18 @@ export function createRecordStore(deps: RecordStoreDeps): RecordStore {
     return records.filter((record): record is ProjectRecord => record !== null);
   }
 
+  /** The runtime block every index write carries: this session, and whether it runs. */
+  function runtimeBlock(): ArchitectIndex['runtime'] {
+    return { running: isRuntimeRunning(), startedAt: SESSION_STARTED_AT };
+  }
+
   async function rebuildIndexUnlocked(): Promise<ArchitectIndex> {
-    const rebuilt: ArchitectIndex = { version: 1, projects: (await listRecords()).map(toIndexEntry) };
+    const options = activityOptions();
+    const rebuilt: ArchitectIndex = {
+      version: 1,
+      projects: (await listRecords()).map((record) => toIndexEntry(record, options)),
+      runtime: runtimeBlock(),
+    };
     await deps.updateIndex(() => rebuilt);
     indexDirty = false;
     return rebuilt;
@@ -158,13 +169,13 @@ export function createRecordStore(deps: RecordStoreDeps): RecordStore {
   /** A durable record is authoritative. Index failure cannot make its mutation look retryable. */
   async function updateIndexEntry(record: ProjectRecord): Promise<void> {
     try {
-      const entry = toIndexEntry(record);
+      const entry = toIndexEntry(record, activityOptions());
       await deps.updateIndex((current) => {
         const index = normalizeIndex(current);
         const projects = index.projects.some((p) => p.id === entry.id)
           ? index.projects.map((p) => (p.id === entry.id ? entry : p))
           : [...index.projects, entry];
-        return { version: 1, projects };
+        return { version: 1, projects, runtime: runtimeBlock() };
       });
       indexDirty = false;
     } catch {

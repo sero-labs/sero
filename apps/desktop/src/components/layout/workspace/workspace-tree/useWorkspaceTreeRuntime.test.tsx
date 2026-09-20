@@ -102,6 +102,12 @@ describe('useWorkspaceTreeRuntime', () => {
         workspace: {
           open: openWorkspace,
         },
+        // The tree attaches the attention watchers on mount.
+        appState: {
+          watch: vi.fn(async () => ({ data: null })),
+          unwatch: vi.fn(async () => {}),
+          onChange: vi.fn(() => () => {}),
+        },
       },
     });
 

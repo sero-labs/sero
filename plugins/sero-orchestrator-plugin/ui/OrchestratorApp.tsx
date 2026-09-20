@@ -1,15 +1,15 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAppState, useAppTools } from '@sero-ai/app-runtime';
 import { DEFAULT_LIBRARY_INDEX, DEFAULT_STATE } from '../shared/defaults';
 import type { LibraryIndex, Loop, OrchestratorAction } from '../shared/types';
-import { LoopList } from './components/LoopList';
+import { WorkflowsList } from './components/WorkflowsList';
 import { RoomsOverview } from './components/RoomsOverview';
 import { RoomCreateFlow } from './components/RoomCreateFlow';
 import { RoomDetail } from './components/RoomDetail';
 import { attentionCount } from './lib/attention-count';
 import { useRoomIndex } from './lib/use-room-index';
 import { useGoalIndex } from './lib/use-goal-index';
-import { LoopDetail } from './components/LoopDetail';
+import { WorkflowPage } from './components/WorkflowPage';
 import { LibraryView } from './components/LibraryView';
 import { HomeView } from './components/HomeView';
 import { ShellTopBar, type ShellTab } from './components/ShellTopBar';
@@ -35,8 +35,6 @@ function tabOf(view: OrchestratorView): ShellTab {
     case 'library': return view.tab === 'catalog' ? 'catalog' : 'library';
   }
 }
-
-const MemoizedLoopList = memo(LoopList);
 
 /** Directory of a file path, tolerant of either separator (renderer has no node:path). */
 function dirOf(filePath: string): string {
@@ -68,6 +66,8 @@ export function OrchestratorApp() {
   const [error, setError] = useState<string | null>(null);
   const [reflectSummary, setReflectSummary] = useState<string | null>(null);
   const [libraryDir, setLibraryDir] = useState<string | null>(null);
+  // Kept at the app so opening a Workflow and coming back keeps the search.
+  const [workflowQuery, setWorkflowQuery] = useState('');
 
   const index = useOrchestratorIndex();
   const roomIndex = useRoomIndex();
@@ -188,6 +188,9 @@ export function OrchestratorApp() {
   const activeTab = tabOf(view);
   const shellControls = shellControlsFor(activeTab, {
     reflectAll: () => void reflectAll(),
+    newWorkflow: openCreate,
+    newRoom: room.openCreate,
+    newGoal: () => openGoal(''),
   }, busy || index.loops.length === 0);
   // The Home badge mirrors HomeView's "Needs you" count, row for row.
   const needsCount = attentionCount(index.loops, roomIndex.rooms, goalIndex.goals);
@@ -304,15 +307,27 @@ export function OrchestratorApp() {
             onClose={() => navigate({ mode: 'home' })}
           />
         )}
-        {view.mode === 'detail' && (
-          <>
-            <MemoizedLoopList loops={index.loops} libraryIndex={libraryIndex} selectedId={selectedId} onSelect={openLoop} onNew={openCreate} />
-            {selected ? (
-              <LoopDetail loop={selected} busy={busy} onAction={onAction} onDispatch={detailsDispatch} stateDir={stateDir} libraryDir={libraryDir} libraryIndex={libraryIndex} />
-            ) : (
-              <div className="flex flex-1 items-center justify-center text-base text-muted-foreground">Select a Workflow from the list.</div>
-            )}
-          </>
+        {view.mode === 'detail' && !selectedId && (
+          <WorkflowsList
+            loops={index.loops}
+            libraryIndex={libraryIndex}
+            query={workflowQuery}
+            onQueryChange={setWorkflowQuery}
+            onSelect={openLoop}
+            onNew={openCreate}
+          />
+        )}
+        {view.mode === 'detail' && selectedId && (
+          <WorkflowPage
+            loop={selected}
+            busy={busy}
+            onAction={onAction}
+            onDispatch={detailsDispatch}
+            stateDir={stateDir}
+            libraryDir={libraryDir}
+            libraryIndex={libraryIndex}
+            onBack={() => navigate({ mode: 'detail', loopId: null })}
+          />
         )}
       </div>
       </div>

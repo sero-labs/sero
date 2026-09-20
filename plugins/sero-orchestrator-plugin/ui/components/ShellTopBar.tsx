@@ -26,6 +26,8 @@ export interface ShellAction {
   label: string;
   onSelect: () => void;
   disabled?: boolean;
+  /** "start" draws the bordered create buttons the proposal puts on Home. */
+  kind?: 'quiet' | 'start';
 }
 
 export interface ShellTopBarProps {
@@ -126,8 +128,8 @@ export function ShellTopBar({ active, workflowCount, roomCount, goalCount, needs
                 <Button
                   key={action.label}
                   size="sm"
-                  variant="ghost"
-                  className="text-xs font-normal text-room-text3"
+                  variant={action.kind === 'start' ? 'outline' : 'ghost'}
+                  className={action.kind === 'start' ? 'h-[30px] text-xs' : 'text-xs font-normal text-room-text3'}
                   disabled={action.disabled}
                   onClick={action.onSelect}
                 >

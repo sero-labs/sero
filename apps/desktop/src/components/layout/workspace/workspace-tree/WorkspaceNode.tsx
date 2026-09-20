@@ -5,12 +5,16 @@ import {
   Folder,
   FolderOpen,
   GitBranch,
+  MessageCircleQuestion,
+  OctagonAlert,
   Plus,
   Trash2,
   X,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '@sero-ai/ui/lib/utils';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@sero-ai/ui/components/ui/tooltip';
+import { useWorkspaceAttention } from '@/stores/agent-board';
 import type { WorkspaceInfo, SeroSessionInfo } from '@/types/ipc';
 import { IconAction } from '@/components/ui/IconAction';
 import { SessionNode } from '../SessionNode';
@@ -51,6 +55,47 @@ function ContainerIndicator({ workspaceId, containerEnabled }: { workspaceId: st
       className={cn('size-1.5 shrink-0 rounded-full', color, animate && 'animate-pulse')}
       title={title}
     />
+  );
+}
+
+/**
+ * One icon when work in this workspace needs the user or has stopped.
+ *
+ * It says nothing on its own: the sentence comes from the app that owns the
+ * work, so the tree and the Architect projects list word the same situation the
+ * same way. Nothing here counts, animates or adds a row, and a workspace whose
+ * records have not been read shows no icon rather than a guess.
+ */
+function AttentionIndicator({ workspaceId }: { workspaceId: string }) {
+  const attention = useWorkspaceAttention(workspaceId);
+  if (!attention) return null;
+
+  // The same two shapes and tints the owning apps draw: a red octagon when work
+  // stopped, an amber question when it is waiting on the user.
+  const stopped = attention.state === 'stopped';
+  const Glyph = stopped ? OctagonAlert : MessageCircleQuestion;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          role="img"
+          tabIndex={0}
+          aria-label={attention.sentence}
+          title={attention.sentence}
+          data-testid={`workspace-attention-${workspaceId}`}
+          className={cn(
+            'grid size-[15px] shrink-0 place-items-center rounded-[4px] outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent-primary)]',
+            stopped
+              ? 'bg-status-error/14 text-status-error'
+              : 'bg-status-warning/14 text-status-warning',
+          )}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <Glyph className="size-2.5" />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="right">{attention.sentence}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -146,6 +191,7 @@ export const WorkspaceNode = memo(function WorkspaceNode({ workspace, sessions }
         <span className="min-w-0 flex-1 truncate text-sm font-semibold">
           {workspace.name}
         </span>
+        <AttentionIndicator workspaceId={workspace.id} />
         <ContainerIndicator workspaceId={workspace.id} containerEnabled={workspace.container} />
         {mountCount > 0 && (
           <span

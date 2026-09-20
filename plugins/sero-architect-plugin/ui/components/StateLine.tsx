@@ -1,15 +1,15 @@
 import type { ProjectRecord } from "../../shared/record";
 import {
-  OVERLAY_LABEL,
   PHASES,
   homeRelative,
-  overlayTone,
+  money,
   spendRatio,
   spendTone,
-  usd,
 } from "../lib/format";
-import { AUTONOMY_LABEL, projectActivity } from "../lib/view-model";
-import { Pill } from "./Pill";
+import { Button } from "@sero-ai/ui";
+import { relativeTime, sessionStartedAt } from "@sero-ai/common";
+import { milestoneCounts, projectActivity } from "../../shared/activity";
+import { ActivityGlyphIcon, ownerSentence } from "./ActivityWord";
 
 const CIRCUMFERENCE = 2 * Math.PI * 28;
 
@@ -29,7 +29,7 @@ export function SpendRing({
           <circle className="ar-ring-bg" cx="32" cy="32" r="28" />
         </svg>
         <div className="ar-ring-num">
-          <b>{usd(spentUsd)}</b>
+          <b>{money(spentUsd)}</b>
           <span>no cap yet</span>
         </div>
       </div>
@@ -42,7 +42,7 @@ export function SpendRing({
       data-tone={spendTone(spentUsd, capUsd)}
       role="img"
       title={incomplete ? "Some usage is unavailable. The shown cost is a lower bound." : undefined}
-      aria-label={`Spent ${usd(spentUsd)} of ${usd(capUsd)}${incomplete ? ". Cost incomplete." : ""}`}
+      aria-label={`Spent ${money(spentUsd)} of ${money(capUsd)}${incomplete ? ". Cost incomplete." : ""}`}
     >
       <svg viewBox="0 0 64 64">
         <circle className="ar-ring-bg" cx="32" cy="32" r="28" />
@@ -56,51 +56,79 @@ export function SpendRing({
         />
       </svg>
       <div className="ar-ring-num">
-        <b>${spentUsd.toFixed(2)}</b>
-        <span>spent of {usd(capUsd)} budget</span>
+        <b>{money(spentUsd)}</b>
+        <span>spent of {money(capUsd)} budget</span>
       </div>
     </div>
   );
 }
 
+export interface HeaderAction {
+  label: string;
+  run(): void;
+}
+
+/**
+ * The top of a project: the state in plain words, the same activity line the
+ * list shows, and one button when something needs the user.
+ *
+ * The Architect's own sentence is complete under "What Architect reported". It
+ * used to be the heading, which is how a paragraph the owner wrote to itself
+ * became the first thing the user read.
+ */
 export function StateLine({
   record,
   home,
+  action,
+  runtimeRunning,
 }: {
   record: ProjectRecord;
   home: string | null;
+  /** The one action this state asks for, when it asks for one. */
+  action?: HeaderAction | null;
+  /** Whether the Architect runtime is running in this session. */
+  runtimeRunning: boolean;
 }) {
   const current = PHASES.indexOf(record.phase);
   const unlinked = record.blockedReason?.startsWith(
     "dispatch state could not be confirmed after restart:",
   );
-  const activity = projectActivity(record);
+  const activity = projectActivity(record, { sessionStartedAt: sessionStartedAt(), runtimeRunning });
+  const counts = milestoneCounts(record);
   return (
     <section
       className="ar-stateline"
       data-overlay={record.overlay ?? ""}
       aria-label="Project state"
     >
-      <div>
-        <p className="ar-sentence">
-          {record.blockedReason ? "Work is on hold" : record.stateLine}
+      <div className="ar-stateline-main">
+        <h3 className="ar-sentence">{activity.headline}</h3>
+        {/* The drawing puts a third line between the heading and this one,
+            naming the work again. The record holds that only inside the
+            headline, so the chip rides the owner sentence instead of printing
+            the same words twice. */}
+        <p className="ar-stateline-who">
+          <ActivityGlyphIcon state={activity.state} />
+          <span>{ownerSentence(activity)}</span>
         </p>
-        {record.blockedReason && (
+        {action && (
+          <Button size="sm" className="ar-btn ar-btn-sm ar-btn-solid ar-act-btn" onClick={action.run}>
+            {action.label}
+          </Button>
+        )}
+        {record.blockedReason && unlinked && (
           <div role="alert">
             <p className="ar-why">
-              {unlinked
-                ? "Architect lost the link to a workflow when Sero restarted. The work may have started, so Architect will not start another copy. The existing workflow must be reconnected before this project can continue."
-                : record.blockedReason}
+              Architect lost the link to a workflow when Sero restarted. The work may have started, so
+              Architect will not start another copy. The existing workflow must be reconnected before
+              this project can continue.
             </p>
-            {unlinked && (
-              <details>
-                <summary>Technical details</summary>
-                <p className="ar-why">{record.blockedReason}</p>
-              </details>
-            )}
+            <details>
+              <summary>Technical details</summary>
+              <p className="ar-why">{record.blockedReason}</p>
+            </details>
           </div>
         )}
-        <p className="ar-why">Owner model: {record.session.model ?? 'Admin MED (permission pending)'}{record.session.thinking ? ` · ${record.session.thinking} thinking` : ''}</p>
         <div className="ar-spine" aria-hidden="true">
           {PHASES.map((phase, index) => (
             <div
@@ -114,36 +142,24 @@ export function StateLine({
                     : "todo"
               }
             >
-              <div className="ar-bar">
-                <i />
-              </div>
-              <span className="ar-lbl">{phase}</span>
+              {index === current && record.overlay ? `${phase} · ${record.overlay}` : phase}
             </div>
           ))}
         </div>
         <div className="ar-meta">
-          {record.overlay && (
-            <Pill tone={overlayTone(record.overlay)}>
-              {OVERLAY_LABEL[record.overlay]}
-            </Pill>
-          )}
-          {!record.blockedReason && (
-            <span
-              role="status"
-              className={
-                record.session.workingSince
-                  ? "text-primary font-medium animate-pulse motion-reduce:animate-none"
-                  : undefined
-              }
-            >
-              {activity}
-            </span>
-          )}
-          <span>{AUTONOMY_LABEL[record.autonomy]}</span>
+          <span>
+            {counts.total === 0
+              ? "no milestones yet"
+              : `${counts.accepted} of ${counts.total} milestones accepted`}
+          </span>
+          <code>{homeRelative(record.folder, home)}</code>
         </div>
-        <p className="ar-why ar-mono break-all mt-2">
-          {homeRelative(record.folder, home)}
-        </p>
+        {record.stateLine && (
+          <details className="ar-reported">
+            <summary>What Architect reported, in its own words<span className="ar-when">{relativeTime(record.updatedAt)}</span></summary>
+            <p>{record.stateLine}</p>
+          </details>
+        )}
       </div>
       <SpendRing
         spentUsd={record.budget.spentUsd}

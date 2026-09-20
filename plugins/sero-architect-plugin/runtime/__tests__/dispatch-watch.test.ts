@@ -353,3 +353,46 @@ describe('dispatch watch', () => {
     expect(record?.history.at(-1)?.cause).toBe('reached the $40 cost cap');
   });
 });
+
+describe('observed liveness', () => {
+  it('stamps a dispatch only while the watched index marks its run live in this session', async () => {
+    const { host, store, watch, settle } = await setup();
+    const reportedNow = new Date().toISOString();
+
+    host.emitState(files.loops, {
+      loops: [{
+        id: 'loop_1',
+        title: 'UI',
+        status: 'active',
+        liveRun: { runId: 'run_1', startedAt: reportedNow, reportedAt: reportedNow },
+        usage: { costUsd: 1 },
+      }],
+    });
+    await settle();
+    expect((await store.read('proj_1'))?.milestones[0].dispatch?.observedLiveAt).toBeDefined();
+
+    // The run ends: the mark goes, and so does the stamp.
+    host.emitState(files.loops, { loops: [{ id: 'loop_1', title: 'UI', status: 'active', usage: { costUsd: 1 } }] });
+    await settle();
+    expect((await store.read('proj_1'))?.milestones[0].dispatch?.observedLiveAt).toBeUndefined();
+    watch.dispose();
+  });
+
+  it('ignores a live mark left by an earlier session', async () => {
+    const { host, store, watch, settle } = await setup();
+
+    host.emitState(files.loops, {
+      loops: [{
+        id: 'loop_1',
+        title: 'UI',
+        status: 'active',
+        liveRun: { runId: 'run_old', startedAt: T0, reportedAt: T0 },
+        usage: { costUsd: 1 },
+      }],
+    });
+    await settle();
+
+    expect((await store.read('proj_1'))?.milestones[0].dispatch?.observedLiveAt).toBeUndefined();
+    watch.dispose();
+  });
+});

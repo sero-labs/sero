@@ -185,22 +185,26 @@ export interface NeedsBandProps {
   children: ReactNode;
 }
 
-/** The amber “Needs you” band. Rows are NeedsRow. */
+/**
+ * The "Needs you" section: a quiet mono heading over a plain card.
+ *
+ * It used to be an amber band with a warning glyph. The approved proposal draws
+ * it plain, because every row inside already names what is being asked and the
+ * amber is spent on the ask itself, not on the container.
+ */
 export function NeedsBand({ title = 'Needs you', count, className, children }: NeedsBandProps) {
   return (
-    <div className={cn('rounded-[9px] border border-status-warning-border bg-status-warning-muted px-4 py-3.5', className)}>
-      <div className="flex items-center gap-[9px] text-xs font-medium text-room-ink-warn">
-        <span aria-hidden>⚠</span>
+    <section className={className}>
+      <div className="mb-2.5 flex items-baseline gap-2.5 font-mono text-[10px] tracking-[0.08em] text-room-text3 uppercase">
         {title}
-        {count != null && <span className="room-tabular ml-auto text-[10px] text-room-text4">{count}</span>}
+        {count != null && <span className="room-tabular ml-auto text-room-text4">{count}</span>}
       </div>
-      {children}
-    </div>
+      <div className="rounded-[10px] border border-room-line bg-room-surface px-[17px] py-[15px]">{children}</div>
+    </section>
   );
 }
 
 export interface NeedsRowProps {
-  status?: MemberStatus;
   /** Dimmed trailing source — `Room · Auth hardening · Conductor`. */
   source?: ReactNode;
   /** Right-aligned action button. */
@@ -209,19 +213,19 @@ export interface NeedsRowProps {
   children: ReactNode;
 }
 
-/** One item in the Needs you band. */
-export function NeedsRow({ status = 'waiting', source, action, className, children }: NeedsRowProps) {
+/** One item in the Needs you card: a divided row, the action on the right. */
+export function NeedsRow({ source, action, className, children }: NeedsRowProps) {
   return (
     <div
       className={cn(
-        'mt-[9px] flex items-center gap-2.5 border-t border-status-warning-subtle pt-[9px] text-xs text-room-text2',
+        'flex items-center gap-[9px] border-b border-room-line py-1.5 text-xs text-room-text2 last:border-b-0',
         className,
       )}
     >
-      <StatusDot status={status} className="shadow-none" />
       <span className="min-w-0 flex-1 truncate">
         {children}
-        {source != null && <span className="ml-1 text-[11px] text-room-text3">· {source}</span>}
+        {/* An empty source used to print a separator with nothing after it. */}
+        {source != null && source !== '' && <span className="ml-1 text-[11px] text-room-text3">· {source}</span>}
       </span>
       {action != null && <span className="shrink-0">{action}</span>}
     </div>

@@ -121,7 +121,8 @@ export function formatIndex(projects: ArchitectIndexEntry[]): string {
       const state = p.overlay ? `${p.phase} · ${p.overlay}` : p.phase;
       const spend = p.capUsd === null ? `$${p.spentUsd.toFixed(2)}` : `$${p.spentUsd.toFixed(2)} of $${p.capUsd}`;
       const needs = p.needsYou ? ` · needs you: ${p.needsYou}` : '';
-      return `${p.name} (${p.id}) [${state}] ${spend}${needs}\n  ${p.stateLine}`;
+      const line = [p.activity.headline, p.activity.action].filter(Boolean).join('. ');
+      return `${p.name} (${p.id}) [${state}] ${spend}${needs}\n  ${line}`;
     })
     .join('\n');
 }

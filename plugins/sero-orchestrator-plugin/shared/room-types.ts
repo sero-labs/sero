@@ -11,7 +11,7 @@
  * (FR-030).
  */
 
-import type { OrchestratorBoardRoomView } from '@sero-ai/common';
+import type { LiveRunMark, OrchestratorBoardRoomView } from '@sero-ai/common';
 
 import type { RoomAttention } from './attention-types';
 import type { DeliveryReceipt } from './delivery-types';
@@ -67,6 +67,13 @@ export const TERMINAL_ROOM_STATUSES: readonly RoomStatus[] = ['completed', 'fail
  * pause or a cancel can land between the two.
  */
 export const SCHEDULABLE_ROOM_STATUSES: readonly RoomStatus[] = ['running', 'ready'];
+
+/**
+ * Room states where work is actually in flight. A Room in one of these gets a
+ * live-run mark at every commit, so a list row can tell work happening now from
+ * a `running` status an interrupted session left behind.
+ */
+export const WORKING_ROOM_STATUSES: readonly RoomStatus[] = ['running', 'starting', 'completing', 'adjusting'];
 
 /** Member states that hold no execution slot (NFR-004). */
 export const IDLE_MEMBER_STATUSES: readonly MemberStatus[] = [
@@ -226,6 +233,12 @@ export interface RoomRuntimeState {
   /** Command idempotency keys already applied (NFR-003). Bounded. */
   appliedCommandIds: string[];
   lastProgressAt: string | null;
+  /**
+   * Written while this process commits a working Room, cleared when it settles
+   * and when the store loads. Like a Workflow's mark it cannot outlive its
+   * session, so it is the only honest source for "working" on a Room row.
+   */
+  liveRun?: LiveRunMark;
 }
 
 /**
@@ -343,6 +356,8 @@ export interface RoomSummary extends OrchestratorBoardRoomView {
   problemStatement?: string;
   /** Active roster, capped, for the list row's face stack. */
   members?: RoomSummaryMember[];
+  /** Present only while this session watches the Room work — see RoomRuntimeState.liveRun. */
+  liveRun?: LiveRunMark;
   /** Count of open approvals and attention items, for the home inbox badge. */
   attentionCount: number;
   /**

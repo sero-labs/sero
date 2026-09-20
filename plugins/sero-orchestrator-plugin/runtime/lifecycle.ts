@@ -8,6 +8,7 @@
  */
 
 import type { Loop, LoopStatus } from '../shared/types';
+import { clearLiveRun } from './live-run';
 
 export interface TransitionResult {
   ok: boolean;
@@ -46,7 +47,7 @@ export function disable(loop: Loop, now: string): TransitionResult {
   if (loop.status === 'complete') {
     return { ok: false, error: 'Cannot disable a completed loop.' };
   }
-  const cleared = { ...loop, runtime: { ...loop.runtime, activeRunId: undefined } };
+  const cleared = clearLiveRun({ ...loop, runtime: { ...loop.runtime, activeRunId: undefined } });
   return { ok: true, loop: withStatus(cleared, 'disabled', now) };
 }
 
