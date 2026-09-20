@@ -114,23 +114,27 @@ export function MilestoneApprovalCard({ milestone, actions, record }: { mileston
   );
 }
 
+/**
+ * Open decisions and approvals.
+ *
+ * It is absent while it is empty, and returns with its controls as soon as it
+ * holds something. It used to say nothing three times over: a heading, a
+ * "none" count and a card reading "You have nothing to review." Whether the
+ * project is paused is on the header and on the projects list already.
+ */
 export function NeedsYou({ record, actions }: { record: ProjectRecord; actions: NeedsYouActions }) {
   const items = needsYouItems(record);
-  if (record.blockedReason && items.length === 0) return null;
+  if (items.length === 0) return null;
   return (
     <section aria-labelledby="ar-needs-h">
-      <SectionHead id="ar-needs-h" title="Needs you" count={items.length ? String(items.length) : 'none'} warn={items.length > 0} />
-      {items.length === 0 ? (
-        <Quiet tone="ok">You have nothing to review.{record.paused ? ' The project is paused.' : ''}</Quiet>
-      ) : (
-        <div className="ar-col">
-          {items.map((item) => {
-            if (item.kind === 'decision') return <DecisionCard key={item.decision.id} decision={item.decision} record={record} actions={actions} />;
-            if (item.kind === 'charter') return <CharterCard key="charter" record={record} actions={actions} />;
-            return <MilestoneApprovalCard key={item.milestone.id} milestone={item.milestone} actions={actions} record={record} />;
-          })}
-        </div>
-      )}
+      <SectionHead id="ar-needs-h" title="Needs you" count={String(items.length)} warn />
+      <div className="ar-col">
+        {items.map((item) => {
+          if (item.kind === 'decision') return <DecisionCard key={item.decision.id} decision={item.decision} record={record} actions={actions} />;
+          if (item.kind === 'charter') return <CharterCard key="charter" record={record} actions={actions} />;
+          return <MilestoneApprovalCard key={item.milestone.id} milestone={item.milestone} actions={actions} record={record} />;
+        })}
+      </div>
     </section>
   );
 }

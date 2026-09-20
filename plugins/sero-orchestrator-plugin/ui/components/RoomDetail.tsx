@@ -255,7 +255,7 @@ export function RoomDetail({
             onOpen={selectMember}
           />
           ) : (
-            <RoomActivity events={events} members={members} />
+            <RoomActivity events={events} members={members} savedEvents={room.runtime.timelineSequence} />
           )}
         </RoomDesktopLayout>
 

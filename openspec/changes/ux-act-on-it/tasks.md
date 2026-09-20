@@ -23,10 +23,10 @@
 
 ## 4. Each kind of nothing, once
 
-- [ ] 4.1 Make the Needs You section absent while it is empty and return with its controls when it holds something. Verify a project with no decision renders no heading, label or card for it, and that raising a decision brings the section back.
-- [ ] 4.2 Replace the empty milestones card with one line in the section header naming what produces milestones. Verify a project with no charter renders that line and no card.
-- [ ] 4.3 Make the Rooms-off case in `RoomActivity` say the activity is not available while the runtime is off and how many events are saved, instead of saying nothing has happened. Verify both the runtime-off case with saved events and the genuinely empty case with the runtime running.
-- [ ] 4.4 Verify that among several empty sections and one stopped research Room, only the stopped Room's line uses colour.
+- [x] 4.1 Make the Needs You section absent while it is empty and return with its controls when it holds something. Verify a project with no decision renders no heading, label or card for it, and that raising a decision brings the section back.
+- [x] 4.2 Replace the empty milestones card with one line in the section header naming what produces milestones. Verify a project with no charter renders that line and no card.
+- [x] 4.3 Make the Rooms-off case in `RoomActivity` say the activity is not available while the runtime is off and how many events are saved, instead of saying nothing has happened. Verify both the runtime-off case with saved events and the genuinely empty case with the runtime running.
+- [x] 4.4 Verify that among several empty sections and one stopped research Room, only the stopped Room's line uses colour.
 
 ## 5. The Workflow page
 

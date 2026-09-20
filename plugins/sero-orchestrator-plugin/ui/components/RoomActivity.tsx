@@ -56,9 +56,16 @@ const PROMOTED_TONE: Partial<Record<RoomTimelineEvent['kind'], EventCardTone>> =
 interface RoomActivityProps {
   events: RoomTimelineEvent[];
   members: Map<string, RoomMember>;
+  /**
+   * Events the Room record says it has appended. When none of them arrive, the
+   * activity could not be read rather than never having happened: a Room with
+   * ninety-nine saved events read "Nothing has happened yet." with the Rooms
+   * runtime off.
+   */
+  savedEvents?: number;
 }
 
-export function RoomActivity({ events, members }: RoomActivityProps) {
+export function RoomActivity({ events, members, savedEvents = 0 }: RoomActivityProps) {
   const [filter, setFilter] = useState<Filter>('highlights');
 
   const shown = useMemo(
@@ -97,7 +104,11 @@ export function RoomActivity({ events, members }: RoomActivityProps) {
       <div className="min-h-0 flex-1 overflow-y-auto">
         {shown.length === 0 && (
           <p className="text-xs text-room-text4">
-            {events.length === 0 ? 'Nothing has happened yet.' : 'Nothing of that kind yet.'}
+            {events.length > 0
+              ? 'Nothing of that kind yet.'
+              : savedEvents > 0
+                ? `Activity is not available now. Its ${savedEvents} events are saved.`
+                : 'Nothing has happened yet.'}
           </p>
         )}
         {shown.map((event) => <ActivityRow key={event.id} event={event} members={members} />)}

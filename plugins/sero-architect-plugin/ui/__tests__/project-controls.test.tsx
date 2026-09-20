@@ -5,11 +5,12 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
-import { FIXTURES } from '../__preview__/fixture';
+import { DECISION, FIXTURES } from '../__preview__/fixture';
 import { StateLine } from '../components/StateLine';
 import { IntakeDialog } from '../components/IntakeDialog';
 import { ControlsMenu } from '../components/TopBar';
 import type { ActionOutcome, ArchitectActions } from '../lib/actions';
+import type { ProjectRecord } from '../../shared/record';
 import { ProjectPage } from '../ProjectPage';
 
 vi.mock('@sero-ai/ui', async () => {
@@ -483,5 +484,86 @@ describe('a project stopped on delegated work', () => {
     expect(document.activeElement).toBe(composers[0]);
     // Still one box: the control is a way in, not a second way to send.
     expect(container.querySelectorAll('textarea[aria-label="Directive"]')).toHaveLength(1);
+  });
+});
+
+/**
+ * Each kind of nothing gets one quiet line where it belongs.
+ *
+ * The captured defects: "Needs you · none" was a heading, a label and a card
+ * saying "You have nothing to review."; and milestones that did not exist yet
+ * were a dashed card repeating what the header could say.
+ */
+describe('the kinds of nothing', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    Reflect.set(globalThis, 'IS_REACT_ACT_ENVIRONMENT', true);
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    Reflect.deleteProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT');
+  });
+
+  const render = (record: ProjectRecord) => act(() => root.render(
+    <ProjectPage runtimeRunning record={record} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+  ));
+
+  it('leaves out the Needs you section entirely while nothing needs the user', () => {
+    render(FIXTURES.build!);
+    const text = container.textContent ?? '';
+    expect(container.querySelector('#ar-needs-h')).toBeNull();
+    expect(text).not.toContain('Needs you');
+    expect(text).not.toContain('You have nothing to review');
+  });
+
+  it('brings the section back, with its control, as soon as it holds something', () => {
+    render({ ...FIXTURES.build!, decisions: [DECISION] });
+    expect(container.querySelector('#ar-needs-h')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Decision"]')).not.toBeNull();
+    expect(container.textContent).toContain(DECISION.question);
+  });
+
+  it('says what produces milestones once, in the section header', () => {
+    const noMilestones = { ...FIXTURES.build!, milestones: [], charter: null, research: [] };
+    render(noMilestones);
+    const text = container.textContent ?? '';
+    expect(text).toContain('the charter names them, after research');
+    expect(text).not.toContain('The charter will name the milestones.');
+    expect(text).not.toContain('none yet');
+  });
+
+  it('gives colour only to the fault, with several sections empty', () => {
+    // One project with nothing needing the user, no milestones and a stopped
+    // research Room. Only the stopped Room may be coloured.
+    render({
+      ...FIXTURES.build!,
+      decisions: [],
+      milestones: [],
+      charter: null,
+      research: [],
+      blockedReason: 'Research Room room_3240 is cancelled.',
+      blockedOn: {
+        kind: 'room' as const,
+        id: 'room_3240',
+        title: 'Import Dashboard Discovery',
+        status: 'cancelled',
+        at: '2026-09-10T12:00:00.000Z',
+      },
+    });
+
+    // Only the fault is toned. Every other glyph on the page is neutral, and
+    // no section header is warned.
+    const tones = [...container.querySelectorAll('.ar-gchip')].map((node) => node.getAttribute('data-tone'));
+    expect(tones).toContain('danger');
+    expect(tones.filter((tone) => tone !== 'neutral')).toEqual(['danger']);
+    expect(container.querySelector('.ar-warn-text')).toBeNull();
+    expect(container.textContent).not.toContain('You have nothing to review');
   });
 });
