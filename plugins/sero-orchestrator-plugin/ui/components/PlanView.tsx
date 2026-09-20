@@ -4,6 +4,7 @@ import { Card } from '@sero-ai/ui/components/ui/card';
 import { isStuckOnAttempts, RECOVERABLE_STEP_STATUSES } from '../../shared/recovery';
 import { fanOutView } from '../lib/fan-out-summary';
 import { groupStepsByLevel } from '../lib/plan-levels';
+import { loopBackTitle } from '../lib/step-detail';
 import { StepCard } from './StepCard';
 
 const routeText = (value: unknown): string => (typeof value === 'string' ? value : JSON.stringify(value));
@@ -11,6 +12,46 @@ const routeText = (value: unknown): string => (typeof value === 'string' ? value
 interface PlanViewProps {
   loop: Loop;
   onAction: (action: OrchestratorAction) => void;
+}
+
+/** Where a level sits on a loop that goes back: its end, its start, or in between. */
+type LoopRail = { part: 'to' | 'from' | 'through'; title: string };
+
+const RAIL_CLASS: Record<LoopRail['part'], string> = {
+  to: 'orc-loop-row orc-loop-to',
+  from: 'orc-loop-row orc-loop-from',
+  through: 'orc-loop-row orc-loop-through',
+};
+
+/**
+ * Which levels a loop-back passes through, so the rail can draw it.
+ *
+ * The plan used to say this in a banner above the steps: "↩ Feedback:
+ * verify-release → harden-and-cover". Two step ids told the reader nothing
+ * about where on the plan the loop went, and the ids appear nowhere else on
+ * the page. The rail draws it where it happens, and the step that decides
+ * carries the condition in words.
+ */
+function loopRails(loop: Loop, levels: LoopStepDefinition[][]): Map<number, LoopRail> {
+  const levelOf = new Map<string, number>();
+  levels.forEach((group, index) => group.forEach((step) => levelOf.set(step.id, index)));
+  const numberOf = new Map(loop.plan.steps.map((step, index) => [step.id, index + 1]));
+
+  const rails = new Map<number, LoopRail>();
+  for (const step of loop.plan.steps) {
+    if (!step.feedback) continue;
+    const from = levelOf.get(step.id);
+    const to = levelOf.get(step.feedback.toStepId);
+    if (from === undefined || to === undefined || to >= from) continue;
+    const title = loopBackTitle(loop, step, numberOf) ?? '';
+    // A level already on another loop keeps the rail it has: two brackets in
+    // the same gutter would draw over each other and read as one loop.
+    for (let index = to; index <= from; index += 1) {
+      if (rails.has(index)) continue;
+      rails.set(index, { part: index === to ? 'to' : index === from ? 'from' : 'through', title });
+    }
+  }
+  return rails;
 }
 
 /**
@@ -52,9 +93,8 @@ export function PlanView({ loop, onAction }: PlanViewProps) {
   }
 
   const levels = groupStepsByLevel(plan.steps);
-  const feedbackSource = plan.steps.find((step) => step.feedback);
-  const feedback = feedbackSource?.feedback;
   const numberOf = new Map(plan.steps.map((s, i) => [s.id, i + 1]));
+  const rails = loopRails(loop, levels);
   // showNumber is off for a lone step (the spine rail shows its number) and on
   // inside a parallel/branch group, whose rail marker is a glyph not a number.
   const renderCard = (step: LoopStepDefinition, showNumber: boolean) => (
@@ -62,6 +102,8 @@ export function PlanView({ loop, onAction }: PlanViewProps) {
       key={step.id}
       step={step}
       number={numberOf.get(step.id)!}
+      loop={loop}
+      numberOf={numberOf}
       showNumber={showNumber}
       state={runtime.stepStates[step.id]}
       groups={groups}
@@ -79,22 +121,16 @@ export function PlanView({ loop, onAction }: PlanViewProps) {
     <div className="flex flex-col gap-2">
       {plan.objective && (
         <p className="text-base text-muted-foreground">
-          <span className="font-medium text-foreground">Objective: </span>{plan.objective}
+          <span className="font-medium text-foreground">Objective</span> · {plan.objective}
         </p>
       )}
-      {feedbackSource && feedback && (
-        <div className="flex flex-wrap items-center gap-2 border border-violet-500/40 bg-violet-500/10 px-3 py-2 text-xs text-violet-300">
-          <span className="font-medium">↩ Feedback: {feedbackSource.id} → {feedback.toStepId}</span>
-          <span>when {feedback.when.var} = {feedback.when.in.map(routeText).join(' / ')}</span>
-          <span className="tabular-nums">{runtime.feedbackStates?.[feedback.id]?.traversals ?? 0}/{feedback.maxTraversalsPerRun} traversals</span>
-        </div>
-      )}
-      <div className="flex flex-col">
+      <div className={`flex flex-col${rails.size > 0 ? ' pl-4' : ''}`}>
         {levels.map((group, i) => {
           const isLast = i === levels.length - 1;
+          const rail = rails.get(i);
           if (group.length === 1) {
             return (
-              <SpineRow key={group[0].id} marker={String(numberOf.get(group[0].id))} isLast={isLast}>
+              <SpineRow key={group[0].id} marker={String(numberOf.get(group[0].id))} isLast={isLast} rail={rail}>
                 {renderCard(group[0], false)}
               </SpineRow>
             );
@@ -105,7 +141,7 @@ export function PlanView({ loop, onAction }: PlanViewProps) {
             ? `Branch · ${branchVar}${chosen !== undefined ? ` = ${routeText(chosen)}` : ' (not decided yet)'}`
             : `Run in parallel · ${group.length} steps`;
           return (
-            <SpineRow key={group.map((s) => s.id).join('+')} marker={branchVar ? '⌥' : '⇉'} isLast={isLast}>
+            <SpineRow key={group.map((s) => s.id).join('+')} marker={branchVar ? '⌥' : '⇉'} isLast={isLast} rail={rail}>
               <div className="flex flex-col gap-2 rounded-md border border-dashed border-border p-2">
                 <span className="text-xs font-medium text-muted-foreground">{header}</span>
                 <div className="grid gap-2 sm:grid-cols-2">{group.map((step) => renderCard(step, true))}</div>
@@ -119,9 +155,9 @@ export function PlanView({ loop, onAction }: PlanViewProps) {
 }
 
 /** One row on the vertical plan spine: a rail marker + a connector line + content. */
-function SpineRow({ marker, isLast, children }: { marker: string; isLast: boolean; children: React.ReactNode }) {
+function SpineRow({ marker, isLast, rail, children }: { marker: string; isLast: boolean; rail?: LoopRail; children: React.ReactNode }) {
   return (
-    <div className="flex gap-3">
+    <div className={`flex gap-3${rail ? ` ${RAIL_CLASS[rail.part]}` : ''}`} title={rail?.title}>
       <div className="flex flex-col items-center">
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-card text-sm tabular-nums text-muted-foreground">
           {marker}

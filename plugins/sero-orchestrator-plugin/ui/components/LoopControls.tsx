@@ -2,7 +2,13 @@ import { useState } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Checkbox } from '@sero-ai/ui/components/ui/checkbox';
 import { Label } from '@sero-ai/ui/components/ui/label';
-import { Power, PowerOff, RotateCcw, StepForward, Trash2, Zap } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@sero-ai/ui/components/ui/dropdown-menu';
+import { MoreHorizontal, Power, PowerOff, RotateCcw, StepForward, Trash2, Zap } from 'lucide-react';
 import type { Loop, OrchestratorAction } from '../../shared/types';
 
 interface LoopControlsProps {
@@ -11,7 +17,14 @@ interface LoopControlsProps {
   onAction: (action: OrchestratorAction) => void;
 }
 
-/** Lifecycle controls. Each button maps to exactly one coordinator action. */
+/**
+ * Lifecycle controls. Each button maps to exactly one coordinator action.
+ *
+ * Delete is not one of the buttons. It used to sit second in a row of seven
+ * equal ones, beside Run again, so the control that destroys the Workflow was
+ * the same size and weight as the one that runs it. It lives in More actions
+ * now, and still asks before it deletes.
+ */
 export function LoopControls({ loop, busy, onAction }: LoopControlsProps) {
   const { id, status } = loop;
   // While parked on a human question, nothing can run until it is answered — so
@@ -101,9 +114,18 @@ export function LoopControls({ loop, busy, onAction }: LoopControlsProps) {
             </Button>
           </>
         ) : (
-          <Button size="sm" variant="outline" disabled={busy} onClick={startDelete}>
-            <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="icon-sm" variant="ghost" disabled={busy} aria-label="More actions" title="More actions">
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem variant="destructive" onSelect={startDelete}>
+                <Trash2 /> Delete Workflow
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
     </div>

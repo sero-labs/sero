@@ -21,15 +21,20 @@ import { Input } from '@sero-ai/ui/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui/components/ui/select';
 import type { DeliveryDestinationId, Loop, OrchestratorAction } from '../../shared/types';
 import { LOOP_DELIVERY_DESTINATIONS, deliveryDestinationInfo, effectiveDelivery } from '../../shared/delivery-types';
+import { deliveryChip } from '../lib/delivery-summary';
+import { SETTING_VALUE_CLASS } from '../lib/loop-settings';
 
 export function LoopDeliveryControl({
   loop,
   busy,
   onAction,
+  variant = 'button',
 }: {
   loop: Loop;
   busy: boolean;
   onAction: (action: OrchestratorAction) => void;
+  /** `value` draws the destination as the settings line's value and opens from it. */
+  variant?: 'button' | 'value';
 }) {
   const [open, setOpen] = useState(false);
   const current = effectiveDelivery(loop);
@@ -54,11 +59,17 @@ export function LoopDeliveryControl({
 
   return (
     <>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)} title="Where this Workflow's results go">
-        <Send className="mr-1 h-3.5 w-3.5" />
-        Delivery
-        {loop.delivery && <span className="ml-1 size-1.5 rounded-full bg-primary" />}
-      </Button>
+      {variant === 'value' ? (
+        <button type="button" className={SETTING_VALUE_CLASS} onClick={() => setOpen(true)}>
+          {deliveryChip(loop).label}
+        </button>
+      ) : (
+        <Button size="sm" variant="outline" onClick={() => setOpen(true)} title="Where this Workflow's results go">
+          <Send className="mr-1 h-3.5 w-3.5" />
+          Delivery
+          {loop.delivery && <span className="ml-1 size-1.5 rounded-full bg-primary" />}
+        </Button>
+      )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>

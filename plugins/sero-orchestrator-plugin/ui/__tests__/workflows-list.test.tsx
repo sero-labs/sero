@@ -120,6 +120,7 @@ describe('the Workflow page', () => {
       root.render(
         <WorkflowPage
           loop={{ id: 'loop-1', title: LONG_TITLE } as never}
+          summary={null}
           busy={false}
           onAction={() => {}}
           onDispatch={async () => null}
@@ -143,6 +144,7 @@ describe('the Workflow page', () => {
       root.render(
         <WorkflowPage
           loop={null}
+          summary={null}
           busy={false}
           onAction={() => {}}
           onDispatch={async () => null}

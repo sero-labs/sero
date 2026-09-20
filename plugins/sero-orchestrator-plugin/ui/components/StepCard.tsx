@@ -1,9 +1,14 @@
 /**
- * One step on the plan spine (see specs/09-ui-redesign.md, C3 + C1). The card is
- * calm by default — title, type, status, instructions, outcome — and hides
- * per-step tuning (model + tools) behind a "Tune" expander so power controls
- * don't clutter every card (B2 inspector was dropped). Retry stays visible when a
- * step is recoverable, since it's a contextual recovery action.
+ * One step on the plan spine: its title, its state word, and what it produced.
+ *
+ * Everything that explains how the step was written opens from the chevron —
+ * the instruction, the expected result, and the marks that place the step in
+ * the plan. The card used to print a page of instructions above every Result,
+ * so on a real Workflow the reader scrolled past the instruction three times
+ * to find out what had happened.
+ *
+ * Model, agent and tools open from Tune. A value that is not the default shows
+ * on the card, so a step whose model was pinned says so without opening.
  */
 
 import { useState } from 'react';
@@ -13,11 +18,11 @@ import { Card } from '@sero-ai/ui/components/ui/card';
 import { ChevronDown, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import type { AppModelGroup } from '@sero-ai/app-runtime';
 import type { ContextAgentInfo, ContextToolInfo } from '@sero-ai/common';
-import type { LoopStepDefinition, StepRuntimeState } from '../../shared/types';
-import { guardLabel } from '../lib/guard-label';
+import type { Loop, LoopStepDefinition, StepRuntimeState } from '../../shared/types';
 import { STEP_STATUS_STYLE } from '../lib/status-style';
-import { fanOutSummaryLabel, type FanOutView } from '../lib/fan-out-summary';
+import { stepMarks, stepOverrides, stepStateLabel, type StepFact } from '../lib/step-detail';
 import { StepStatusPill } from './StatusBadge';
+import { fanOutSummaryLabel, type FanOutView } from '../lib/fan-out-summary';
 import { StepModelControl } from './StepModelControl';
 import { StepToolsControl } from './StepToolsControl';
 import { StepAgentControl } from './StepAgentControl';
@@ -27,6 +32,10 @@ const PROBLEM_STATUSES = new Set(['failed', 'blocked', 'needs-revision']);
 export interface StepCardProps {
   step: LoopStepDefinition;
   number: number;
+  /** The Workflow, for the route rule and the loop-back count. */
+  loop: Loop;
+  /** Every step's position on the plan, so a loop-back names a step number. */
+  numberOf: Map<string, number>;
   /** Show the step number in the card. Off for single steps (the spine rail shows
    * it); on inside a parallel/branch group, whose rail marker is a glyph. */
   showNumber?: boolean;
@@ -43,70 +52,97 @@ export interface StepCardProps {
   fanOut?: FanOutView;
 }
 
-export function StepCard({ step, number, showNumber = true, state, groups, toolCatalog, agentCatalog, onSetModel, onSetTools, onSetAgent, onRetry, fanOut }: StepCardProps) {
+/** A labelled fact, in the drawing's two-column key/value shape. */
+function Facts({ facts }: { facts: StepFact[] }) {
+  return (
+    <dl className="flex flex-col gap-1.5 text-xs">
+      {facts.map((fact) => (
+        <div key={fact.label} className="flex gap-5">
+          <dt className="w-24 shrink-0 text-sm font-semibold uppercase tracking-wide text-foreground">{fact.label}</dt>
+          <dd className="min-w-0 whitespace-pre-wrap text-muted-foreground">{fact.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+export function StepCard({ step, number, loop, numberOf, showNumber = true, state, groups, toolCatalog, agentCatalog, onSetModel, onSetTools, onSetAgent, onRetry, fanOut }: StepCardProps) {
   const [tuning, setTuning] = useState(false);
-  const skipped = state?.status === 'skipped';
+  const [open, setOpen] = useState(false);
+  const stateLabel = stepStateLabel(loop, step, state?.status);
+  const notTaken = stateLabel === 'Not taken';
   const isProblem = !!state && PROBLEM_STATUSES.has(state.status);
   const tint = state ? STEP_STATUS_STYLE[state.status].tint : '';
   const canTune = step.execution.type !== 'active-session';
+  const overrides = stepOverrides(step);
 
   return (
-    <Card className={`flex flex-col gap-1.5 p-3 ${tint || 'border-border/75'}${skipped ? ' opacity-60' : ''}`}>
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          {showNumber && <span className="text-xs tabular-nums text-muted-foreground">{number}.</span>}
-          <span className="truncate font-medium">{step.title}</span>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {state && <StepStatusPill status={state.status} />}
-          <Badge variant="outline" className="text-sm font-normal text-muted-foreground">{step.execution.type}</Badge>
-          {canTune && (
-            <Button
-              size="xs"
-              variant="ghost"
-              className="h-6 px-1.5 text-muted-foreground"
-              onClick={() => setTuning((t) => !t)}
-              aria-expanded={tuning}
-              aria-label="Tune model & tools"
-              title="Tune model & tools"
-            >
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-              <ChevronDown className={`ml-0.5 h-3 w-3 transition-transform ${tuning ? 'rotate-180' : ''}`} />
-            </Button>
-          )}
-        </div>
+    <Card className={`flex flex-col gap-1.5 p-3 ${tint || 'border-border/75'}${notTaken ? ' opacity-60' : ''}`}>
+      <div className="flex items-center gap-2">
+        {showNumber && <span className="text-xs tabular-nums text-muted-foreground">{number}.</span>}
+        <span className="min-w-0 flex-1 truncate font-medium">{step.title}</span>
+        {/* One word, from one rule. The tone comes from the shared status
+            style; "Not taken" has no status of its own, so it stays plain. */}
+        <Badge
+          variant="outline"
+          className={`shrink-0 ${state && !notTaken ? STEP_STATUS_STYLE[state.status].badge : 'border-border text-muted-foreground'}`}
+        >
+          {stateLabel}
+        </Badge>
+        {canTune && (
+          <Button
+            size="xs"
+            variant="ghost"
+            className="h-6 shrink-0 px-1.5 text-muted-foreground"
+            onClick={() => setTuning((t) => !t)}
+            aria-expanded={tuning}
+            aria-label={`Model, agent and tools for ${step.title}`}
+            title="Model, agent and tools"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        <Button
+          size="xs"
+          variant="ghost"
+          className="h-6 shrink-0 px-1.5 text-muted-foreground"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-label={`Show instruction and expected result for ${step.title}`}
+          title="Instruction and expected result"
+        >
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </Button>
       </div>
 
-      {(step.produces?.length || step.when || step.fanOut) && (
+      {overrides.length > 0 && (
         <div className="flex flex-wrap items-center gap-1">
-          {step.produces?.length ? <Badge variant="outline" className="text-sm font-normal">decides {step.produces.join(', ')}</Badge> : null}
-          {step.when ? <Badge variant="outline" className="text-sm font-normal">{guardLabel(step.when)}</Badge> : null}
-          {step.fanOut ? <Badge variant="outline" className="text-sm font-normal">⇉ one per {step.fanOut.itemsFrom} · up to {step.fanOut.maxItems}</Badge> : null}
+          {overrides.map((fact) => (
+            <Badge key={fact.label} variant="outline" className="text-sm font-normal text-muted-foreground">
+              {fact.label}: {fact.value}
+            </Badge>
+          ))}
         </div>
       )}
 
-      <p className="whitespace-pre-wrap text-xs text-muted-foreground">{step.instructions}</p>
-
       {fanOut && <FanOutActivations view={fanOut} />}
 
-      {(step.expectedOutcome || state?.outcome) && (
+      {state?.outcome && (
         <dl className="mt-1 flex flex-col gap-1.5 border-t border-border/60 pt-2.5 text-xs">
-          {step.expectedOutcome && (
-            <div className="flex gap-5">
-              <dt className="w-16 shrink-0 text-sm font-semibold uppercase tracking-wide text-foreground">Expected</dt>
-              <dd className="text-muted-foreground">{step.expectedOutcome}</dd>
-            </div>
-          )}
-          {state?.outcome && (
-            <div className="flex gap-5">
-              <dt className="w-16 shrink-0 text-sm font-semibold uppercase tracking-wide text-foreground">Outcome</dt>
-              <dd className={isProblem ? 'text-destructive' : 'text-muted-foreground'}>
-                {state.outcome.summary}
-                {state.attempts > 0 && <span> · {state.attempts} attempt(s)</span>}
-              </dd>
-            </div>
-          )}
+          <div className="flex gap-5">
+            <dt className="w-24 shrink-0 text-sm font-semibold uppercase tracking-wide text-foreground">Result</dt>
+            <dd className={`min-w-0 ${isProblem ? 'text-destructive' : 'text-foreground'}`}>
+              {state.outcome.summary}
+              {state.attempts > 0 && <span className="text-muted-foreground"> · {state.attempts} attempt(s)</span>}
+            </dd>
+          </div>
         </dl>
+      )}
+
+      {open && (
+        <div className="mt-1 border-t border-border/60 pt-2.5">
+          <Facts facts={stepMarks(loop, step, numberOf)} />
+        </div>
       )}
 
       {onRetry && (

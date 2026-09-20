@@ -1,9 +1,15 @@
 /**
- * The live Room's top bar (prototype screens 8 and 9): 50px, dot, title,
- * status pill, divider, the two meters against the approved envelope, the
- * turn count, then Timeline/Watch and the user's controls with Stop danger-
- * toned. "41m" means nothing without "of 2h" — a limit the user set and the
- * Room cannot exceed.
+ * The live Room's top bar: 50px, title, status pill, divider, the two meters
+ * against the approved envelope, then Timeline/Watch and the user's controls
+ * with Stop danger-toned. "41m" means nothing without "of 2h" — a limit the
+ * user set and the Room cannot exceed.
+ *
+ * The dot said what the pill beside it already said, in colour alone. The
+ * turns-active count was the Team roster's member states added up, and the
+ * roster names each one in words. Both are gone.
+ *
+ * While the Room is on hold, Message the team, Resume and Stop are not here:
+ * the hold card below carries them, and each existed twice on this page.
  *
  * Elapsed time is the Room's active time, read at render. The component
  * re-renders when the watched Room record changes, so the figure advances with
@@ -24,8 +30,7 @@ import { elapsedActiveMs } from '../../shared/room-active-time';
 import type { RoomView } from '../lib/room-view';
 import { ROOM_STATUS_STYLE } from '../lib/status-style';
 import { formatCost, formatDuration, formatElapsed } from '../lib/format';
-import { ROOM_DOT } from '../lib/list-row-status';
-import { Meter, Pill, StatusDot, type PillProps } from './room-kit';
+import { Meter, Pill, type PillProps } from './room-kit';
 import { RoomDeleteButton } from './RoomDeleteButton';
 
 /** Room lifecycle → the pill's accent (prototype `.pill em` while running). */
@@ -52,6 +57,14 @@ interface RoomTopBarProps {
   busy: boolean;
   /** The side-panel drawer state below 1200px (F3). */
   panelOpen: boolean;
+  /** Whether the hold card is on screen. It carries message, resume and stop. */
+  holding: boolean;
+  /**
+   * Whether the hold is a question for the user. The pill says so, because
+   * "Paused" alone does not tell a reader whether the Room is waiting on them
+   * or on itself.
+   */
+  waitingForYou?: boolean;
   onTogglePanel: () => void;
   onBack: () => void;
   onView: (view: RoomView) => void;
@@ -67,6 +80,8 @@ export function RoomTopBar({
   view,
   busy,
   panelOpen,
+  holding,
+  waitingForYou = false,
   onTogglePanel,
   onBack,
   onView,
@@ -96,11 +111,12 @@ export function RoomTopBar({
       <Button variant="ghost" size="icon" aria-label="Back to Rooms" className="-ml-2 size-[26px] shrink-0 text-room-text3" onClick={onBack}>
         <ArrowLeft className="size-3.5" />
       </Button>
-      <StatusDot status={ROOM_DOT[runtime.status]} />
       <h2 className="min-w-[72px] truncate text-sm font-semibold tracking-[-0.02em] text-room-text">
         {definition.title}
       </h2>
-      <Pill tone={STATUS_PILL_TONE[runtime.status]}>{ROOM_STATUS_STYLE[runtime.status].label}</Pill>
+      <Pill tone={waitingForYou ? 'warn' : STATUS_PILL_TONE[runtime.status]}>
+        {ROOM_STATUS_STYLE[runtime.status].label}{waitingForYou ? ' · waiting for you' : ''}
+      </Pill>
       <span aria-hidden className="h-[18px] w-px shrink-0 bg-room-line @max-[820px]/panel:hidden" />
 
       <Meter
@@ -115,9 +131,6 @@ export function RoomTopBar({
         pct={(runtime.usage.costUsd / definition.envelope.maxCostUsd) * 100}
         className="@max-[820px]/panel:hidden"
       />
-      <span className="room-tabular shrink-0 text-[10px] text-room-text3 @max-[1000px]/panel:hidden">
-        {runtime.activeMemberIds.length} of {definition.envelope.maxActiveTurns} turns active
-      </span>
 
       <div className="ml-auto flex shrink-0 items-center gap-[7px]">
         <div role="group" aria-label="Room view" className="flex gap-[5px]">
@@ -147,7 +160,7 @@ export function RoomTopBar({
         >
           Brief
         </Button>
-        {live && (
+        {live && !holding && (
           <Button variant="outline" aria-label="Message the team" className={SMALL_BTN} disabled={busy} onClick={onMessage}>
             <MessageSquare className="size-3 @min-[1000px]/panel:hidden" />
             <span className="@max-[1000px]/panel:hidden">Message the team</span>
@@ -158,12 +171,12 @@ export function RoomTopBar({
             Pause
           </Button>
         )}
-        {paused && (
+        {paused && !holding && (
           <Button variant="outline" className={SMALL_BTN} disabled={busy} onClick={onResume}>
             Resume
           </Button>
         )}
-        {live && (
+        {live && !holding && (
           <Button
             variant="outline"
             className={cn(SMALL_BTN, 'border-status-error-border text-status-error hover:bg-status-error-muted hover:text-status-error')}

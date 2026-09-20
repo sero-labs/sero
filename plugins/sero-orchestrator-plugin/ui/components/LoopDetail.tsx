@@ -6,6 +6,7 @@ import type {
   GithubSourceHealth,
   LibraryIndex,
   Loop,
+  LoopSummary,
   OrchestratorAction,
   RunIndex,
   WebhookSourceHealth,
@@ -15,9 +16,8 @@ import { useWatchedJson } from '../lib/use-watched-json';
 import { useLibraryLink } from '../lib/use-library-link';
 import { LoopStatusBadge, NeedsYouBadge } from './StatusBadge';
 import { LoopControls } from './LoopControls';
-import { LoopContextControl } from './LoopContextControl';
-import { LoopDeliveryControl } from './LoopDeliveryControl';
-import { LoopMetaStrip } from './LoopMetaStrip';
+import { LoopSettingsLine } from './LoopSettingsLine';
+import { LoopStateLine } from './LoopStateLine';
 import { LibrarySaveControl } from './LibrarySaveControl';
 import { SkillDraftControl } from './SkillDraftControl';
 import { LibraryLinkBadge } from './LibraryLinkBadge';
@@ -35,6 +35,8 @@ const MemoizedPlanPresentation = memo(PlanPresentation);
 
 interface LoopDetailProps {
   loop: Loop;
+  /** The watched index entry, for the state line's activity word. */
+  summary: LoopSummary | null;
   busy: boolean;
   onAction: (action: OrchestratorAction) => void;
   /** Tool dispatch that returns the action's result — the skill draft review needs it. */
@@ -53,11 +55,11 @@ interface LoopDetailProps {
  * strip shows while running; plan and history collapse for progressive
  * disclosure. The Library link + save controls are folded in.
  */
-export function LoopDetail({ loop, busy, onAction, onDispatch, stateDir, libraryDir, libraryIndex }: LoopDetailProps) {
+export function LoopDetail({ loop, summary, busy, onAction, onDispatch, stateDir, libraryDir, libraryIndex }: LoopDetailProps) {
   const { runtime } = loop;
   const runIndex = useWatchedJson<RunIndex>(`${stateDir}/loops/${loop.id}/runs/index.json`, DEFAULT_RUN_INDEX);
-  // Source health for the meta strip: the event adapters persist these small
-  // state files; the strip shows them only when the loop uses the source.
+  // Source health for the state line: the event adapters persist these small
+  // state files; the line shows them only when the loop uses the source.
   const githubHealth = useWatchedJson<GithubSourceHealth | null>(`${stateDir}/events/github.json`, null);
   const webhookHealth = useWatchedJson<WebhookSourceHealth | null>(`${stateDir}/events/webhook.json`, null);
   const linkStatus = useLibraryLink(loop, libraryDir, libraryIndex);
@@ -80,12 +82,11 @@ export function LoopDetail({ loop, busy, onAction, onDispatch, stateDir, library
             <LoopStatusBadge status={loop.status} />
           </div>
         </div>
+        <LoopStateLine loop={loop} summary={summary} runCount={runIndex.runs.length} githubHealth={githubHealth} webhookHealth={webhookHealth} />
         <p className="text-base text-muted-foreground">{loop.summary || loop.prompt}</p>
-        <LoopMetaStrip loop={loop} runs={runIndex.runs} githubHealth={githubHealth} webhookHealth={webhookHealth} />
+        <LoopSettingsLine loop={loop} runs={runIndex.runs} busy={busy} onAction={onAction} />
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <LoopControls loop={loop} busy={busy} onAction={onAction} />
-          <LoopContextControl loop={loop} onAction={onAction} />
-          <LoopDeliveryControl loop={loop} busy={busy} onAction={onAction} />
           <LibrarySaveControl loop={loop} busy={busy} onAction={onAction} />
           {runIndex.runs.length > 0 && (
             <Button

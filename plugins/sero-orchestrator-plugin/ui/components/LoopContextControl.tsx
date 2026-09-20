@@ -14,6 +14,7 @@ import type { ContextPreset } from '@sero-ai/common';
 import { useSubagentContext, useContextPresets } from '@sero-ai/app-runtime';
 import { ContextEditor } from '@sero-ai/ui/components/context-editor/ContextEditor';
 import type { Loop, OrchestratorAction } from '../../shared/types';
+import { SETTING_VALUE_CLASS, contextWords } from '../lib/loop-settings';
 
 const LOOP_PROMPT_COPY = {
   title: 'System Prompt',
@@ -67,20 +68,33 @@ function LoopContextDialog({
 export function LoopContextControl({
   loop,
   onAction,
+  variant = 'button',
 }: {
   loop: Loop;
   onAction: (action: OrchestratorAction) => void;
+  /**
+   * `value` draws the current context as the settings line's value and opens
+   * the editor from it, so the line says what the setting is and changing it
+   * starts in the same place.
+   */
+  variant?: 'button' | 'value';
 }) {
   const [open, setOpen] = useState(false);
   const active = !!loop.contextOverrides;
 
   return (
     <>
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)} title="Custom system prompt and skills for this Workflow">
-        <Settings2 className="mr-1 h-3.5 w-3.5" />
-        Context
-        {active && <span className="ml-1 size-1.5 rounded-full bg-primary" />}
-      </Button>
+      {variant === 'value' ? (
+        <button type="button" className={SETTING_VALUE_CLASS} onClick={() => setOpen(true)}>
+          {contextWords(loop)}
+        </button>
+      ) : (
+        <Button size="sm" variant="outline" onClick={() => setOpen(true)} title="Custom system prompt and skills for this Workflow">
+          <Settings2 className="mr-1 h-3.5 w-3.5" />
+          Context
+          {active && <span className="ml-1 size-1.5 rounded-full bg-primary" />}
+        </Button>
+      )}
       {open && (
         <LoopContextDialog loop={loop} onAction={onAction} open={open} onOpenChange={setOpen} />
       )}

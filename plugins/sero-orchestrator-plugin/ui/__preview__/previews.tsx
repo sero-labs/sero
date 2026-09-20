@@ -9,6 +9,7 @@ import { PlanMap } from '../components/PlanMap';
 import type { PlanMapStepsPerRow } from '../lib/plan-map-layout';
 import { previewLoop } from './fixture';
 import { HomePreview, RoomsPreview, WorkflowsListPreview } from './activity-fixture';
+import { RoomHoldPreview, WorkflowPagePreview } from './act-on-it-fixture';
 
 export interface Preview {
   id: string;
@@ -43,6 +44,20 @@ export const PREVIEWS: Preview[] = [
     note: 'Whole titles, the state in words, and what each one waits for. A row opens its own page.',
     width: 1160,
     render: () => <WorkflowsListPreview />,
+  },
+  {
+    id: 'workflow-page',
+    title: 'A Workflow · its settings and its plan',
+    note: 'The state line, the labelled settings line, and steps that lead with their Result. Context and Delivery open from their values; the instruction opens from the chevron.',
+    width: 1160,
+    render: () => <WorkflowPagePreview />,
+  },
+  {
+    id: 'room-hold',
+    title: 'A Room on hold · the question once, the actions once',
+    note: 'One card holds the question, the members\' own words and the three controls. The header carries none of them while it is shown.',
+    width: 1160,
+    render: () => <RoomHoldPreview />,
   },
   {
     id: 'rooms',

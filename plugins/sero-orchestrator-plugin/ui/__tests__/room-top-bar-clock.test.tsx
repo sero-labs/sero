@@ -66,6 +66,7 @@ describe('RoomTopBar clock', () => {
       view="timeline"
       busy={false}
       panelOpen={false}
+      holding={false}
       onTogglePanel={() => undefined}
       onBack={() => undefined}
       onView={() => undefined}

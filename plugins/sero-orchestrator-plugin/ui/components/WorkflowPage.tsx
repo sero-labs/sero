@@ -6,13 +6,15 @@
  * rather than telling the user to select something.
  */
 
-import type { LibraryIndex, Loop, OrchestratorAction } from '../../shared/types';
+import type { LibraryIndex, Loop, LoopSummary, OrchestratorAction } from '../../shared/types';
 import { WORKFLOWS_LABEL } from '../../shared/labels';
 import { LoopDetail } from './LoopDetail';
 
 export interface WorkflowPageProps {
   /** The watched record, or null while it is being read. */
   loop: Loop | null;
+  /** The watched index entry for the same Workflow, for the state line. */
+  summary: LoopSummary | null;
   busy: boolean;
   onAction: (action: OrchestratorAction) => void;
   onDispatch: (params: Record<string, unknown>) => Promise<Record<string, unknown> | null>;
@@ -22,7 +24,7 @@ export interface WorkflowPageProps {
   onBack: () => void;
 }
 
-export function WorkflowPage({ loop, busy, onAction, onDispatch, stateDir, libraryDir, libraryIndex, onBack }: WorkflowPageProps) {
+export function WorkflowPage({ loop, summary, busy, onAction, onDispatch, stateDir, libraryDir, libraryIndex, onBack }: WorkflowPageProps) {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b border-room-line px-4 py-2">
@@ -33,6 +35,7 @@ export function WorkflowPage({ loop, busy, onAction, onDispatch, stateDir, libra
       {loop ? (
         <LoopDetail
           loop={loop}
+          summary={summary}
           busy={busy}
           onAction={onAction}
           onDispatch={onDispatch}

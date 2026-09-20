@@ -27,7 +27,7 @@ import { RoomDraftReview } from './RoomDraftReview';
 import { RoomDesktopLayout } from './RoomDesktopLayout';
 import { RoomMemberPanel } from './RoomMemberPanel';
 import { RoomMessageDialog } from './RoomMessageDialog';
-import { RoomStopBanner } from './RoomStopBanner';
+import { RoomHoldCard } from './RoomHoldCard';
 import { RoomRoster } from './RoomRoster';
 import { RoomSidePanel } from './RoomSidePanel';
 import { RoomTopBar } from './RoomTopBar';
@@ -122,6 +122,14 @@ export function RoomDetail({
       const member = members.get(memberId);
       return member?.status === 'blocked' ? [member] : [];
     });
+  // The hold card carries Message the team, Resume and Stop while it is on
+  // screen, so the header offers none of them: one copy of each control.
+  const holding = !!room.runtime.stopReason || needsUser.length > 0;
+  // A Room can be stopped without anyone asking anything: a limit was reached,
+  // or the user paused it. Only a question makes the header say so.
+  const waitingForYou = needsUser.length > 0
+    || room.runtime.stopReason?.kind === 'awaiting-user'
+    || room.runtime.stopReason?.kind === 'awaiting-approval';
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -130,6 +138,8 @@ export function RoomDetail({
         view={shownView}
         busy={busy}
         panelOpen={panelOpen}
+        holding={holding}
+        waitingForYou={waitingForYou}
         onTogglePanel={() => setPanelOpen((open) => !open)}
         onBack={onBack}
         onView={(next) => {
@@ -168,30 +178,18 @@ export function RoomDetail({
         })}
       </div>
 
-      {room.runtime.stopReason && (
-        <RoomStopBanner
-          stopReason={room.runtime.stopReason}
-          resumable={!finished}
-          busy={busy}
-          onMessage={() => setComposing({ memberIds: [] })}
-          onResume={() => send('resume')}
-          onStop={() => send('cancel')}
-        />
-      )}
-
-      {/* A member that stopped to ask the user is invisible from the Room view
-          otherwise: the Room is still running, so there is no stop banner, and
-          the request is not an approval. It has to be findable from here. */}
-      {needsUser.length > 0 && !selectedId && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-status-warning-border bg-status-warning-muted px-[18px] py-2">
-          <span className="text-xs text-room-ink-warn">
-            {needsUser.map((member) => member.displayName).join(', ')} stopped to ask you something.
-          </span>
-          <Button className="ml-auto h-[26px] px-2.5 text-[11px]" onClick={() => selectMember(needsUser[0].id)}>
-            Read it
-          </Button>
-        </div>
-      )}
+      {/* One card for the whole hold: why it stopped, who asked, what they
+          wrote, and the three things the user can do about it. The header
+          carries none of those three while this is on screen. */}
+      <RoomHoldCard
+        stopReason={room.runtime.stopReason}
+        members={needsUser}
+        resumable={!finished}
+        busy={busy}
+        onMessage={() => setComposing({ memberIds: [] })}
+        onResume={() => send('resume')}
+        onStop={() => send('cancel')}
+      />
 
       {approvals.length > 0 && summary && (
         <div className="grid gap-3 border-b border-room-line p-3 @min-[900px]/panel:grid-cols-2">

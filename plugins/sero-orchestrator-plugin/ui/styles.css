@@ -71,3 +71,51 @@
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
+
+/* A step that goes back to an earlier step. The loop is drawn beside the plan
+   rail: a dashed bracket from the step that decides, up to the step it returns
+   to, with an arrowhead into that step. It replaces a banner above the plan
+   that named both steps by their ids. The rows in between carry the line. */
+.orc-loop-row {
+  position: relative;
+}
+
+.orc-loop-row::before {
+  content: "";
+  position: absolute;
+  left: -14px;
+  border: 1.5px dashed var(--collab-primary);
+  border-right: 0;
+}
+
+/* The step the loop returns to: the bracket starts at its marker and runs down. */
+.orc-loop-to::before {
+  top: 12px;
+  bottom: 0;
+  border-bottom: 0;
+}
+
+/* The arrowhead pointing into that step. */
+.orc-loop-to::after {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: 8px;
+  border: 5px solid transparent;
+  border-left-color: var(--collab-primary);
+}
+
+/* The step that decides: the bracket ends at its marker. */
+.orc-loop-from::before {
+  top: 0;
+  height: 12px;
+  border-top: 0;
+}
+
+/* Every step the loop passes over. */
+.orc-loop-through::before {
+  top: 0;
+  bottom: 0;
+  border-top: 0;
+  border-bottom: 0;
+}

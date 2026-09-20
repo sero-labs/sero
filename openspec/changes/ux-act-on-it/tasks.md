@@ -30,31 +30,31 @@
 
 ## 5. The Workflow page
 
-- [ ] 5.1 Replace `LoopMetaStrip`'s icon chips with the labelled settings line covering where it runs, where results go, what starts it, context, spend, attempts and time, with context and delivery opening from their values. Verify each label renders and that the steps-at-a-time limit is absent from the display while still applying.
-- [ ] 5.2 Put the event triggers under what starts the Workflow, with their filters and conditions opening from that value, and move queued events and source health onto the Workflow's state line in the same quiet grey. Verify a Workflow with two GitHub events, three queued events and a delaying source renders all three facts without the user opening anything, and that none is coloured as needing the user.
-- [ ] 5.3 Give each step in the detail view a title, a state word and a Result row, with instruction and expected result behind a chevron. Verify a finished step renders its result and keeps its instruction folded.
-- [ ] 5.4 Move model, agent and tools behind one control on the step, showing on the card only what the user changed. Verify a step with only its model changed shows the model and keeps agent and tools folded.
-- [ ] 5.5 Mark a step whose route was not chosen as `Not taken` in the detail view, reusing `mapRouteState()`. Verify a skipped step reads `Not taken`, an undecided branch's steps read pending, and Map dims the same step the detail view marks.
-- [ ] 5.6 Draw the loop-back on the plan rail and remove the banner that names the two steps by id. Verify the loop renders on the plan and the banner is gone.
-- [ ] 5.7 Move Delete into More actions, away from Run again, and verify Run again remains the only primary control.
+- [x] 5.1 Replace `LoopMetaStrip`'s icon chips with the labelled settings line covering where it runs, where results go, what starts it, context, spend, attempts and time, with context and delivery opening from their values. Verify each label renders and that the steps-at-a-time limit is absent from the display while still applying.
+- [x] 5.2 Put the event triggers under what starts the Workflow, with their filters and conditions opening from that value, and move queued events and source health onto the Workflow's state line in the same quiet grey. Verify a Workflow with two GitHub events, three queued events and a delaying source renders all three facts without the user opening anything, and that none is coloured as needing the user.
+- [x] 5.3 Give each step in the detail view a title, a state word and a Result row, with instruction and expected result behind a chevron. Verify a finished step renders its result and keeps its instruction folded.
+- [x] 5.4 Move model, agent and tools behind one control on the step, showing on the card only what the user changed. Verify a step with only its model changed shows the model and keeps agent and tools folded.
+- [x] 5.5 Mark a step whose route was not chosen as `Not taken` in the detail view, reusing `mapRouteState()`. Verify a skipped step reads `Not taken`, an undecided branch's steps read pending, and Map dims the same step the detail view marks.
+- [x] 5.6 Draw the loop-back on the plan rail and remove the banner that names the two steps by id. Verify the loop renders on the plan and the banner is gone.
+- [x] 5.7 Move Delete into More actions, away from Run again, and verify Run again remains the only primary control.
 
 ## 6. The Room page
 
-- [ ] 6.1 Put the hold's question in plain words in one card with the members' own text folded under it, using the existing shared attention wording. Verify two blocked members produce one question sentence rather than a count.
-- [ ] 6.2 Carry message, resume and stop in that card only, and remove their copies from the header while a hold is shown. Verify the header shows stop for a running Room that asks nothing, and shows none of the three while the hold card is rendered.
-- [ ] 6.3 Fold the Read it strip into the card and verify the control is gone and the card shows what it used to open.
-- [ ] 6.4 Remove the status dot and the turns-active count from the Room header and verify the Team roster still names each member's state in words.
+- [x] 6.1 Put the hold's question in plain words in one card with the members' own text folded under it, using the existing shared attention wording. Verify two blocked members produce one question sentence rather than a count.
+- [x] 6.2 Carry message, resume and stop in that card only, and remove their copies from the header while a hold is shown. Verify the header shows stop for a running Room that asks nothing, and shows none of the three while the hold card is rendered.
+- [x] 6.3 Fold the Read it strip into the card and verify the control is gone and the card shows what it used to open.
+- [x] 6.4 Remove the status dot and the turns-active count from the Room header and verify the Team roster still names each member's state in words.
 
 ## 7. Project models
 
-- [ ] 7.1 Carry the resolved owner model's source and what it outranks out of `resolveOwnerSelection()` through `chooseOwnerModel()` and onto the record. Verify an environment-pinned owner saves its source.
-- [ ] 7.2 Render the owner as a row of the tier table with its effective model, thinking level and source, and show the last known selection with the runtime off. Verify both the running and the not-running case.
-- [ ] 7.3 Make a tier that inherits an unreadable global say the global cannot be read now, instead of showing nothing selected. Verify with the runtime off that inherited tiers say so, an overridden tier still shows its override, and starting the runtime resolves them without the user acting.
-- [ ] 7.4 Put the rules about when a saved change takes effect behind one disclosure and verify they are not repeated beside each tier.
+- [x] 7.1 Carry the resolved owner model's source and what it outranks out of `resolveOwnerSelection()` through `chooseOwnerModel()` and onto the record. Verify an environment-pinned owner saves its source.
+- [x] 7.2 Render the owner as a row of the tier table with its effective model, thinking level and source, and show the last known selection with the runtime off. Verify both the running and the not-running case.
+- [x] 7.3 Make a tier that inherits an unreadable global say the global cannot be read now, instead of showing nothing selected. Verify with the runtime off that inherited tiers say so, an overridden tier still shows its override, and starting the runtime resolves them without the user acting.
+- [x] 7.4 Put the rules about when a saved change takes effect behind one disclosure and verify they are not repeated beside each tier.
 
 ## 8. Match the drawing, and check
 
-- [ ] 8.1 Capture every frame of `2-act-on-it.html` and of `2a-open-questions.html`, capture the built surfaces at the same width from each plugin's preview harness, and compare them frame by frame. Record each difference and either fix it or state it as a departure.
-- [ ] 8.2 Confirm the `@container/panel` root is present on the Orchestrator preview page and that the host stylesheet is injected raw, before trusting any capture.
-- [ ] 8.3 Check every control in each screen's parity list is still reachable, and name where anything the drawing dropped now lives.
-- [ ] 8.4 Run `pnpm typecheck` from the root and the tests for both plugins, and verify no source file passed 500 lines.
+- [x] 8.1 Capture every frame of `2-act-on-it.html` and of `2a-open-questions.html`, capture the built surfaces at the same width from each plugin's preview harness, and compare them frame by frame. Record each difference and either fix it or state it as a departure.
+- [x] 8.2 Confirm the `@container/panel` root is present on the Orchestrator preview page and that the host stylesheet is injected raw, before trusting any capture.
+- [x] 8.3 Check every control in each screen's parity list is still reachable, and name where anything the drawing dropped now lives.
+- [x] 8.4 Run `pnpm typecheck` from the root and the tests for both plugins, and verify no source file passed 500 lines.

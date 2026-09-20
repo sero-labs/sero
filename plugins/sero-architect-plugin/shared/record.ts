@@ -1,9 +1,10 @@
 // The durable project record: the single source of truth for one Architect
 // project. JSON-serialisable only. The runtime is its only writer.
 
-import type { OrchestratorProjectContext, SharedModelTierSettings } from '@sero-ai/common';
+import type { ModelTier, OrchestratorProjectContext, SharedModelTierSettings } from '@sero-ai/common';
 import type { DispatchDestination } from './owner-actions';
 import { milestoneCounts, projectActivity } from './activity';
+import type { SelectionSource } from './model-config';
 import type { ArchitectOverlay, ArchitectPhase } from './types';
 
 export type { ArchitectOverlay, ArchitectPhase } from './types';
@@ -278,6 +279,18 @@ export interface OwnerSessionState {
   grantedTools: string[] | null;
   model: string | null;
   thinking: string | null;
+  /**
+   * Which rule chose the owner's model, and the tier it outranks.
+   *
+   * The project models page used to state the owner's model in a sentence
+   * under the tier table, with a second sentence saying a pin "outranks the
+   * MED tier" whether or not one existed. The owner is a row of that table
+   * now, and these are the two columns it fills.
+   *
+   * Absent on records written before this existed.
+   */
+  modelSource?: SelectionSource | null;
+  modelOutranks?: ModelTier | null;
   /** Consecutive turns that ended without an outcome call. Three block the project. */
   silentTurns: number;
   lastWakeAt: string | null;

@@ -42,6 +42,15 @@ const EVENT_SOURCE_WORDS: Record<string, string> = {
   'github:pr-review': 'a pull-request review',
 };
 
+/**
+ * One event source in plain words. The settings line on the Workflow page and
+ * the rows on the list read from the same map, so a source is never named one
+ * way in a list and another way on the page it opens.
+ */
+export function eventSourceWords(source: string): string {
+  return EVENT_SOURCE_WORDS[source] ?? source;
+}
+
 const DAYS = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
 
 /** "Mondays 08:00" and "daily 02:00" for the plain shapes; the expression otherwise. */
@@ -58,7 +67,7 @@ export function scheduleWords(expression: string): string {
 
 /** Everything armed on this Workflow, worded as a list: "a GitHub issue, a CI failure or Mondays 08:00". */
 export function armedTriggerWords(loop: LoopSummary): string | undefined {
-  const events = (loop.armedEventSources ?? []).map((source) => EVENT_SOURCE_WORDS[source] ?? source);
+  const events = (loop.armedEventSources ?? []).map(eventSourceWords);
   const schedules = (loop.schedules ?? [])
     .filter((schedule) => !schedule.paused && !schedule.exhausted)
     .map((schedule) => scheduleWords(schedule.schedule));
