@@ -8,6 +8,7 @@
  */
 
 import type { Loop, LoopLimits, LoopRun } from '../shared/types';
+import { aggregateUsage, lifetimeUsage, mergeUsage } from '../shared/usage';
 
 export interface LimitCheck {
   ok: boolean;
@@ -49,10 +50,10 @@ function totalTokens(loop: Loop): number {
 }
 
 function totalCost(loop: Loop): number {
-  return loop.runs.reduce(
-    (sum, run) => sum + (run.auxiliaryUsage?.costUsd ?? 0) + run.stepAttempts.reduce((s, a) => s + (a.usage?.costUsd ?? 0), 0),
-    loop.planningUsage?.costUsd ?? 0,
-  ) + (loop.auxiliaryUsage?.costUsd ?? 0);
+  return lifetimeUsage(
+    loop,
+    loop.runs.map((run) => mergeUsage(aggregateUsage(run.stepAttempts), run.auxiliaryUsage)),
+  )?.costUsd ?? 0;
 }
 
 /**

@@ -12,6 +12,7 @@
 
 import type { OperatingEnvelope } from '../../shared/room-blueprint-types';
 import type { Room, RoomMember } from '../../shared/room-types';
+import { elapsedActiveMs } from '../../shared/room-active-time';
 
 export interface RoomLimitCheck {
   ok: boolean;
@@ -39,11 +40,11 @@ export function checkRoomLimits(room: Room, nowMs: number): RoomLimitCheck {
     return exceeded('maxCostUsd', `The Room reached its ${formatUsd(envelope.maxCostUsd)} spending limit.`);
   }
 
-  if (startedAt) {
-    const elapsedMs = nowMs - Date.parse(startedAt);
-    if (elapsedMs >= envelope.maxWallClockMs) {
-      return exceeded('maxWallClockMs', `The Room reached its ${formatDuration(envelope.maxWallClockMs)} time limit.`);
-    }
+  // Active time, not the wall clock since the Room started: a paused Room is
+  // not spending its budget, so nine days paused against a one-hour limit is
+  // not over the limit.
+  if (startedAt && elapsedActiveMs(room.runtime, nowMs) >= envelope.maxWallClockMs) {
+    return exceeded('maxWallClockMs', `The Room reached its ${formatDuration(envelope.maxWallClockMs)} time limit.`);
   }
 
   if (usage.inputTokens + usage.outputTokens >= envelope.maxTokens) {

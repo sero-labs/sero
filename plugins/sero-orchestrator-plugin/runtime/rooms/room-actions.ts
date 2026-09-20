@@ -18,6 +18,7 @@ import type { RoomBlueprint, RoomProposalSummary } from '../../shared/room-bluep
 import type { RoomMessage, RoomTimelineEvent } from '../../shared/room-message-types';
 import type { MemberStatus, RoomMember, RoomStatus, RoomStopReason } from '../../shared/room-types';
 import type { OrchestratorHost } from '../host';
+import { withActiveTime } from '../../shared/room-active-time';
 import { toMemberRecord } from './member-grant';
 import { buildRoomBrief, type BriefSources } from './room-brief';
 import type { RoomRecord } from './room-state';
@@ -171,6 +172,9 @@ export function withRoomStatus(
       status,
       startedAt: record.runtime.startedAt ?? (status === 'ready' || status === 'running' ? now : null),
       endedAt: ended ? record.runtime.endedAt ?? now : record.runtime.endedAt,
+      // Every status change comes through here, so the Room's active time is
+      // banked or reopened exactly once per transition and no timer runs.
+      ...withActiveTime(record.runtime, status, now),
       activeMemberIds: activeIds(record.members),
       stopReason,
     },

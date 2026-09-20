@@ -5,9 +5,11 @@
  * toned. "41m" means nothing without "of 2h" — a limit the user set and the
  * Room cannot exceed.
  *
- * Elapsed time is computed at render. The component re-renders when the watched
- * Room record changes, so the figure advances with the Room's own progress and
- * no timer runs.
+ * Elapsed time is the Room's active time, read at render. The component
+ * re-renders when the watched Room record changes, so the figure advances with
+ * the Room's own progress and no timer runs. It counts only the periods the
+ * Room ran: a paused Room's clock holds, because a paused Room is not spending
+ * its time budget and its limit does not move either.
  *
  * F3: the regions that collapse at narrow widths surface here — the Brief
  * toggle below 1200px (side panel drawer), which below 900px also carries the
@@ -18,6 +20,7 @@ import { Button } from '@sero-ai/ui/components/ui/button';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { ArrowLeft, MessageSquare } from 'lucide-react';
 import { TERMINAL_ROOM_STATUSES, type PersistedRoom, type RoomStatus } from '../../shared/room-types';
+import { elapsedActiveMs } from '../../shared/room-active-time';
 import type { RoomView } from '../lib/room-view';
 import { ROOM_STATUS_STYLE } from '../lib/status-style';
 import { formatCost, formatDuration, formatElapsed } from '../lib/format';
@@ -74,9 +77,7 @@ export function RoomTopBar({
   onDelete,
 }: RoomTopBarProps) {
   const { runtime, definition } = room;
-  const elapsedMs = runtime.startedAt
-    ? (runtime.endedAt ? new Date(runtime.endedAt).getTime() : Date.now()) - new Date(runtime.startedAt).getTime()
-    : 0;
+  const elapsedMs = runtime.startedAt ? elapsedActiveMs(runtime, Date.now()) : 0;
   const running = runtime.status === 'running';
   const paused = runtime.status === 'paused';
   const finished = TERMINAL_ROOM_STATUSES.includes(runtime.status);

@@ -41,7 +41,7 @@ export function LoopMetaStrip({
   const eventChips = eventTriggerChips(loop.triggers);
   const healthChips = sourceHealthChips(loop, githubHealth, webhookHealth);
   const limits = limitsSummary(loop);
-  const usage = summarizeLoopUsage(runs, loop.limits);
+  const usage = summarizeLoopUsage(loop, runs);
   const usageText = usage ? formatLoopUsage(usage) : null;
 
   return (

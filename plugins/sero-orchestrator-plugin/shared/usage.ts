@@ -81,3 +81,21 @@ export function reportedUsage(usage: UsageSummary | undefined): UsageSummary | u
   const { startedCalls = 0, finishedCalls = 0, ...reported } = usage;
   return startedCalls > finishedCalls ? { ...reported, incomplete: true } : reported;
 }
+
+/**
+ * A Workflow's lifetime usage: everything its cost and token limits are tested
+ * against. That is the Workflow's own planning and auxiliary usage plus each
+ * run's total, so money spent outside a run — planning, reflection, skill
+ * extraction, revision proposals — is counted wherever the figure is shown.
+ *
+ * One derivation, called by the limit check, by the index the lists read, and
+ * by the Workflow page. The page used to sum only the runs, which is how the
+ * same Workflow read lower on its own page than on Home while the limit
+ * blocked at the higher figure.
+ */
+export function lifetimeUsage(
+  loop: { planningUsage?: UsageSummary; auxiliaryUsage?: UsageSummary },
+  runUsages: ReadonlyArray<UsageSummary | undefined>,
+): UsageSummary | undefined {
+  return mergeUsage(loop.planningUsage, loop.auxiliaryUsage, ...runUsages);
+}

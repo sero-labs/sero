@@ -1,11 +1,11 @@
 ## 1. The two accounting fixes, before any screen is redrawn
 
-- [ ] 1.1 Make the Workflow detail page read the same lifetime spend the cost limit is tested against, replacing the run-only sum in `ui/lib/usage-summary.ts`, and correct its comment that claims the two are already equal. Verify with a unit test over a Workflow that has planning usage, Workflow-level auxiliary usage and two runs, asserting the page figure equals `totalCost()` from `runtime/limits.ts`.
-- [ ] 1.2 Assert the three surfaces agree: add a test that Home, the Workflows list and the Workflow page render the same spend for one record, and that the remaining budget reaches zero at the point `maxCostUsd` blocks.
-- [ ] 1.3 Add an accumulated active duration and a current-period start to the Room runtime record, and an `elapsedActiveMs` equivalent for Rooms mirroring `runtime/goals/goal-limits.ts`. Verify with a unit test covering run, pause, resume and end.
-- [ ] 1.4 Make `checkRoomLimits()` test `maxWallClockMs` against accumulated active time rather than `now - startedAt`. Verify a Room paused for nine days with twelve active minutes is not over a one-hour limit, and that it trips after the accumulated time passes the limit.
-- [ ] 1.5 Seed the accumulator from `startedAt` to the migration instant when a Room record has none, and verify an existing paused Room reads the elapsed time it had and does not grow afterwards.
-- [ ] 1.6 Make `RoomTopBar` read the accumulated active time and drop its own `now - startedAt` computation, and verify by rendering a paused Room that its elapsed figure does not change between renders.
+- [x] 1.1 Make the Workflow detail page read the same lifetime spend the cost limit is tested against, replacing the run-only sum in `ui/lib/usage-summary.ts`, and correct its comment that claims the two are already equal. Verify with a unit test over a Workflow that has planning usage, Workflow-level auxiliary usage and two runs, asserting the page figure equals `totalCost()` from `runtime/limits.ts`.
+- [x] 1.2 Assert the three surfaces agree: add a test that Home, the Workflows list and the Workflow page render the same spend for one record, and that the remaining budget reaches zero at the point `maxCostUsd` blocks.
+- [x] 1.3 Add an accumulated active duration and a current-period start to the Room runtime record, and an `elapsedActiveMs` equivalent for Rooms mirroring `runtime/goals/goal-limits.ts`. Verify with a unit test covering run, pause, resume and end.
+- [x] 1.4 Make `checkRoomLimits()` test `maxWallClockMs` against accumulated active time rather than `now - startedAt`. Verify a Room paused for nine days with twelve active minutes is not over a one-hour limit, and that it trips after the accumulated time passes the limit.
+- [x] 1.5 Seed the accumulator from `startedAt` to the migration instant when a Room record has none, and verify an existing paused Room reads the elapsed time it had and does not grow afterwards.
+- [x] 1.6 Make `RoomTopBar` read the accumulated active time and drop its own `now - startedAt` computation, and verify by rendering a paused Room that its elapsed figure does not change between renders.
 
 ## 2. Architect records why it stopped
 
