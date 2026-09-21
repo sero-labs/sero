@@ -237,11 +237,19 @@
 .ar-evidence summary { list-style: none; cursor: pointer; font-size: 11px; color: var(--ar-text-3); display: inline-flex; align-items: center; gap: 5px; }
 .ar-evidence summary::-webkit-details-marker { display: none; }
 .ar-evidence[open] summary svg { transform: rotate(90deg); }
-.ar-ev { margin-top: 8px; border: 1px solid var(--ar-line); border-radius: 7px; background: var(--bg-base); padding: 9px 11px; display: grid; gap: 5px; font: 11px/1.6 var(--font-mono); color: var(--ar-text-2); }
-.ar-ev div { display: grid; grid-template-columns: 16px 1fr auto; gap: 8px; align-items: center; }
-.ar-ev [data-state="ok"] { color: var(--ar-ok); }
-.ar-ev [data-state="err"] { color: var(--ar-err); }
-.ar-ev [data-state="dim"] { color: var(--ar-text-4); }
+/* Evidence as a list of checks (prototype frame 2). Each row owns its own
+   output, so the one check that failed is not buried in the ones that passed. */
+.ar-checks { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.ar-checks summary, .ar-check-cap { font-family: var(--font-mono); font-size: 12.5px; display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 6px; color: var(--ar-text-2); cursor: pointer; list-style: none; }
+.ar-checks summary::-webkit-details-marker { display: none; }
+.ar-checks summary:hover, .ar-check-cap:hover { background: var(--bg-elevated); }
+.ar-check-name { min-width: 0; }
+.ar-check-t { margin-left: auto; color: var(--ar-text-3); }
+.ar-check-cap button { margin-left: auto; }
+.ar-checks pre { margin: 2px 0 6px 30px; padding: 9px 11px; border-radius: 7px; background: var(--bg-base); border: 1px solid var(--ar-line); font: 11px/1.5 var(--font-mono); color: var(--ar-text-2); white-space: pre-wrap; }
+.ar-checks [data-state="ok"] { color: var(--ar-ok); }
+.ar-checks [data-state="err"] { color: var(--ar-err); }
+.ar-checks [data-state="dim"] { color: var(--ar-text-4); }
 .ar-fact { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--ar-line); font-size: 12px; color: var(--ar-text-3); }
 .ar-fact:first-of-type { border-top: 0; padding-top: 0; }
 .ar-fact b { font: 12px var(--font-mono); color: var(--ar-text-2); font-weight: 400; text-align: right; }

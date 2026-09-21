@@ -22,9 +22,10 @@
  * roster as its Team tab.
  */
 
+import { useState } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { cn } from '@sero-ai/ui/lib/utils';
-import { ArrowLeft, MessageSquare } from 'lucide-react';
+import { ArrowLeft, MessageSquare, MoreHorizontal } from 'lucide-react';
 import { TERMINAL_ROOM_STATUSES, type PersistedRoom, type RoomStatus } from '../../shared/room-types';
 import { elapsedActiveMs } from '../../shared/room-active-time';
 import { roomControls, type RoomControls } from '../lib/room-controls';
@@ -186,8 +187,42 @@ export function RoomTopBar({
             Stop
           </Button>
         )}
-        {finished && <RoomDeleteButton busy={busy} onDelete={onDelete} />}
+        {finished && <MoreActionsMenu busy={busy} onDelete={onDelete} />}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The Room's ⋯ menu.
+ *
+ * Deleting a Room sat between Stop and the view controls as if it were one of
+ * them, which is how a destructive control gets clicked by accident. It is
+ * still offered wherever the Room is shown, and it still asks first — the
+ * confirmation lives inside the button, so nothing about it changed.
+ */
+function MoreActionsMenu({ busy, onDelete }: { busy: boolean; onDelete: () => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <Button
+        variant="outline"
+        className={SMALL_BTN}
+        aria-label="More actions"
+        aria-expanded={open}
+        disabled={busy}
+        onClick={() => setOpen((was) => !was)}
+      >
+        <MoreHorizontal className="size-3.5" />
+      </Button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-30 mt-1 flex min-w-[15rem] flex-col gap-1 rounded-lg border border-room-line bg-room-surface p-2 shadow-lg"
+        >
+          <RoomDeleteButton busy={busy} onDelete={() => { setOpen(false); onDelete(); }} />
+        </div>
+      )}
     </div>
   );
 }

@@ -222,4 +222,46 @@ describe('a Room from a chat, start to finish', () => {
     expect(record?.delivery.deliveredAt).toBeNull();
     expect(host.sessionSends).toEqual([]);
   });
+
+  it('reads back what the Room published, and refuses another Room\'s artifact', async () => {
+    await activate();
+    const published = await router.execute(asImpl, {
+      command: 'publish-artifact',
+      artifactKind: 'report',
+      title: 'What was wrong',
+      body: 'The start path reused a stale handle.',
+    });
+    const artifactId = published.details.artifactId as string;
+
+    const mine = await app.readArtifact(roomId, artifactId);
+    expect(mine.ok).toBe(true);
+    expect(mine.content).toContain('The start path reused a stale handle.');
+    expect(mine.artifact?.title).toBe('What was wrong');
+
+    // Another Room holding the same id gets nothing: the lookup is against the
+    // Room that is asking, so the refusal is the lookup rather than a check.
+    await roomFromChat();
+    const stolen = await app.readArtifact(roomId, artifactId);
+    expect(stolen.ok).toBe(false);
+    expect(stolen.content).toBeUndefined();
+    expect(stolen.error).toContain('is not an artifact of this Room');
+  });
+
+  it('says an artifact cannot be read rather than showing it as empty', async () => {
+    await activate();
+    const published = await router.execute(asImpl, {
+      command: 'publish-artifact',
+      artifactKind: 'pull-request',
+      title: 'The PR',
+      ref: 'https://github.com/sero-labs/sero/pull/1',
+    });
+
+    const read = await app.readArtifact(roomId, published.details.artifactId as string);
+    expect(read.ok).toBe(false);
+    expect(read.content).toBeUndefined();
+    // The title, kind and author still reach the panel, so it can name what it
+    // could not show.
+    expect(read.artifact).toMatchObject({ title: 'The PR', kind: 'pull-request' });
+    expect(read.error).toContain('cannot be read from here');
+  });
 });

@@ -1,20 +1,23 @@
 /**
- * How a Room ended (prototype screen 16).
+ * How a Room ended (prototype screen 16, frame 3).
  *
- * The detail the delivered result only summarises: what came out of it, what
- * each member cost, and what was left undone and why. Cost is grouped by member
- * the same way the Usage app groups it, so the two never disagree.
- *
- * Nothing here is written for the occasion. Every figure is read from the Room
- * record, and the closing line is the one the Room itself recorded when it
- * finished.
+ * The result, then the plan the Room produced, open at its first section, then
+ * the artifacts it also published, then what it cost. The title and the status
+ * belong to the top bar and the duration and spend to the header, so this view
+ * does not repeat them — what is left is what the Room made, where it went and
+ * what it cost, which is what the user came for.
  */
 
+import { Fragment, useEffect } from 'react';
+import type { RoomArtifact } from '../../shared/room-message-types';
 import type { PersistedRoom, RoomMember } from '../../shared/room-types';
 import { artifactFileName, resolveArtifactPath } from '../lib/artifact-path';
-import { formatCost, formatDuration, formatTime } from '../lib/format';
-import { ROOM_STATUS_STYLE } from '../lib/status-style';
-import { RoomArtifactLink } from './RoomArtifactLink';
+import { splitArtifactDocument } from '../lib/artifact-document';
+import { formatCost } from '../lib/format';
+import { deliveredLine, otherArtifacts, pickPlan, resultLine } from '../lib/room-result';
+import { useRoomArtifact } from '../lib/use-room-artifact';
+import { ArtifactProse } from './ArtifactProse';
+import { WorkspaceFileLink } from './WorkspaceFileLink';
 
 interface RoomCompletionProps {
   room: PersistedRoom;
@@ -24,113 +27,180 @@ interface RoomCompletionProps {
   onOpenMember: (memberId: string) => void;
 }
 
-export function RoomCompletion({ room, members, finalLine, onOpenMember }: RoomCompletionProps) {
-  const { runtime, definition, delivery, brief, artifacts } = room;
-  const style = ROOM_STATUS_STYLE[runtime.status];
-  const durationMs = runtime.startedAt && runtime.endedAt
-    ? new Date(runtime.endedAt).getTime() - new Date(runtime.startedAt).getTime()
-    : 0;
-  const roster = room.memberIds.map((id) => members.get(id)).filter((member): member is RoomMember => !!member);
-  const topCost = Math.max(...roster.map((member) => member.usage.costUsd), 0.01);
-  const undone = [...brief.blockers, ...brief.openQuestions];
+/** A fold with the drawing's chevron and summary, used for sections and cards. */
+function Fold({ title, hint, defaultOpen = false, children }: {
+  title: string;
+  hint?: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <details open={defaultOpen} className="group">
+      <summary className="flex cursor-pointer list-none items-center gap-2 py-1 text-[12.5px] text-room-text2 hover:text-room-text">
+        <span aria-hidden className="text-room-text4 transition-transform group-open:rotate-90">›</span>
+        <span className="min-w-0">{title}</span>
+        {hint && <span className="ml-auto shrink-0 font-mono text-[11.5px] text-room-text3">{hint}</span>}
+      </summary>
+      {children}
+    </details>
+  );
+}
+
+/**
+ * The plan the Room produced, read in place.
+ *
+ * The card's title is the artifact's OWN recorded title, not the first heading
+ * of the file: the file's heading names the subject, and this names the
+ * artifact. The file's heading is still shown, so nothing is dropped.
+ */
+function PlanCard({ room, artifact, author, workspaceId }: {
+  room: PersistedRoom;
+  artifact: RoomArtifact;
+  author: RoomMember | undefined;
+  workspaceId: string | undefined;
+}) {
+  const { reads, read } = useRoomArtifact(room.definition.id);
+  const state = reads[artifact.id];
+
+  // Read when the card appears, not on every render. A Room's artifacts are
+  // bounded, and the plan is the one the user came to read.
+  useEffect(() => { read(artifact.id); }, [artifact.id, read]);
+
+  const document = state?.status === 'ready' ? splitArtifactDocument(state.content) : null;
+  const path = resolveArtifactPath(artifact.ref, author);
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-6 overflow-auto p-6">
-      <div>
-        <span className={`rounded-full border px-2 py-0.5 text-xs ${style.badge}`}>{style.label}</span>
-        <h3 className="mt-2 text-base font-semibold">{definition.title}</h3>
-        <p className="mt-1 text-sm text-muted-foreground">{finalLine ?? brief.objective}</p>
+    <section className="flex flex-col gap-1 rounded-[10px] border border-room-line bg-room-surface px-4 py-3">
+      <div className="flex items-center gap-2.5">
+        <b className="min-w-0 text-[13.5px] text-room-text">{artifact.title}</b>
+        <span className="shrink-0 text-[11.5px] text-room-text3">
+          {artifact.kind} · {author?.displayName ?? artifact.producedByMemberId}
+        </span>
+        <WorkspaceFileLink
+          workspaceId={workspaceId}
+          path={path}
+          className="ml-auto shrink-0 rounded border border-room-line px-2 py-0.5 text-[11.5px] text-room-text2 hover:border-room-line-strong hover:text-room-text"
+        >
+          Open file
+        </WorkspaceFileLink>
       </div>
 
-      <div className="flex flex-wrap gap-x-10 gap-y-4">
-        <Stat label="Duration" value={formatDuration(durationMs)} of={formatDuration(definition.envelope.maxWallClockMs)} />
-        <Stat label="Spend" value={formatCost(runtime.usage.costUsd)} of={formatCost(definition.envelope.maxCostUsd)} />
-        <Stat label="Team" value={`${roster.length} member(s)`} of={`${runtime.usage.memberReplacements} replaced`} />
-        <Stat label="Artifacts" value={`${artifacts.length}`} of={`${runtime.usage.turns} turn(s)`} />
-      </div>
-
-      <Panel title="Result">
-        {delivery.deliveredAt ? (
-          <p className="text-sm">
-            Delivered to {delivery.destination} · {formatTime(delivery.deliveredAt)}
-            {delivery.deliveryRef && <span className="block break-all font-mono text-xs text-muted-foreground">{delivery.deliveryRef}</span>}
-          </p>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            The work is finished. It was not delivered to {delivery.destination}, so nothing left Sero.
-          </p>
-        )}
-      </Panel>
-
-      <Panel title={`Artifacts · ${artifacts.length}`}>
-        {artifacts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nothing was published.</p>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {artifacts.map((artifact) => (
-              <RoomArtifactLink
-                key={artifact.id}
-                workspaceId={members.get(artifact.producedByMemberId)?.session.workspaceId ?? roster[0]?.session.workspaceId}
-                path={resolveArtifactPath(artifact.ref, members.get(artifact.producedByMemberId))}
-                className="rounded-md px-1 py-0.5 hover:bg-accent/40"
-              >
-                <span className="text-sm">{artifact.title}</span>
-                <span className="ml-2 text-xs text-muted-foreground">
-                  {artifact.kind} · {members.get(artifact.producedByMemberId)?.displayName ?? artifact.producedByMemberId}
-                </span>
-                <span className="block font-mono text-xs text-muted-foreground transition-colors group-hover:text-room-text2">
-                  {artifactFileName(artifact.ref)}
-                </span>
-              </RoomArtifactLink>
-            ))}
-          </div>
-        )}
-      </Panel>
-
-      <Panel title={`Cost by member · ${formatCost(runtime.usage.costUsd)}`}>
-        {roster.map((member) => (
-          <button
-            key={member.id}
-            type="button"
-            onClick={() => onOpenMember(member.id)}
-            className="flex items-center gap-2 rounded-md px-1 py-0.5 text-left hover:bg-accent/40"
-          >
-            <span className="w-40 shrink-0 truncate text-sm">{member.displayName}</span>
-            <span className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
-              <span
-                className="block h-full rounded-full bg-emerald-500"
-                style={{ width: `${(member.usage.costUsd / topCost) * 100}%` }}
-              />
-            </span>
-            <span className="w-16 shrink-0 text-right text-xs tabular-nums">{formatCost(member.usage.costUsd)}</span>
-          </button>
-        ))}
-      </Panel>
-
-      {undone.length > 0 && (
-        <Panel title={`Left undone · ${undone.length}`}>
-          {undone.map((line) => <p key={line} className="text-sm">{line}</p>)}
-        </Panel>
+      {state?.status === 'unreadable' && (
+        // The artifact is named and attributed; only its content is missing.
+        <p className="text-[12.5px] text-room-text3">{state.reason}</p>
       )}
+      {state?.status === 'loading' && <p className="text-[12.5px] text-room-text3">Reading the plan…</p>}
+
+      {document?.title && (
+        <p className="text-[12.5px] text-room-text3">{document.title}</p>
+      )}
+      {document && document.sections.length === 0 && <ArtifactProse lines={document.intro} />}
+      {document && document.sections.length > 0 && (
+        <div className="mt-1 flex flex-col">
+          {document.intro.length > 0 && <ArtifactProse lines={document.intro} />}
+          {document.sections.map((section, index) => (
+            <Fold key={`${section.heading}:${index}`} title={section.heading} defaultOpen={index === 0}>
+              <div className="pb-2">
+                <ArtifactProse lines={section.lines} />
+              </div>
+            </Fold>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** What the Room published besides its plan, as compact rows. */
+function ArtifactRows({ room, artifacts, members, workspaceId }: {
+  room: PersistedRoom;
+  artifacts: RoomArtifact[];
+  members: Map<string, RoomMember>;
+  workspaceId: string | undefined;
+}) {
+  return (
+    <div className="flex flex-col">
+      {artifacts.map((artifact) => {
+        const author = members.get(artifact.producedByMemberId);
+        return (
+          <div
+            key={artifact.id}
+            className="flex items-center gap-2.5 border-b border-room-line py-2 last:border-b-0"
+          >
+            <b className="min-w-0 text-[12.5px] text-room-text">{artifact.title}</b>
+            <span className="shrink-0 text-[11.5px] text-room-text3">
+              {artifact.kind} · {author?.displayName ?? artifact.producedByMemberId}
+            </span>
+            <WorkspaceFileLink
+              workspaceId={workspaceId}
+              path={resolveArtifactPath(artifact.ref, author)}
+              className="ml-auto shrink-0 rounded border border-room-line px-2 py-0.5 text-[11.5px] text-room-text2 hover:border-room-line-strong hover:text-room-text"
+            >
+              Open
+            </WorkspaceFileLink>
+            {!workspaceId && <span className="shrink-0 font-mono text-[11px] text-room-text4">{artifactFileName(artifact.ref)}</span>}
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-function Stat({ label, value, of }: { label: string; value: string; of: string }) {
-  return (
-    <span className="flex min-w-20 flex-col gap-0.5">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <b className="text-sm">{value}</b>
-      <span className="text-xs text-muted-foreground">of {of}</span>
-    </span>
-  );
-}
+export function RoomCompletion({ room, members, finalLine, onOpenMember }: RoomCompletionProps) {
+  const plan = pickPlan(room, members);
+  const others = otherArtifacts(room, plan);
+  const result = resultLine(finalLine, plan);
+  const delivered = deliveredLine(room);
+  const roster = room.memberIds.map((id) => members.get(id)).filter((member): member is RoomMember => member !== undefined);
+  const undone = [...room.brief.blockers, ...room.brief.openQuestions];
+  // Artifacts live in the Room's workspace, so the author's own session names it.
+  const workspaceId = plan
+    ? members.get(plan.producedByMemberId)?.session.workspaceId ?? roster[0]?.session.workspaceId
+    : roster[0]?.session.workspaceId;
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="flex flex-col gap-3 rounded-md border border-border p-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
-      {children}
-    </section>
+    <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto p-6">
+      <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5">
+        <dt className="text-[12.5px] text-room-text3">Result</dt>
+        <dd className="text-[13px] text-room-text">{result ?? room.brief.objective}</dd>
+        <dt className="text-[12.5px] text-room-text3">Delivered</dt>
+        <dd className="text-[12.5px] text-room-text2">
+          {delivered.text}
+          {delivered.ref && <code className="block break-all font-mono text-[11px] text-room-text3">{delivered.ref}</code>}
+        </dd>
+      </dl>
+
+      {plan && <PlanCard room={room} artifact={plan} author={members.get(plan.producedByMemberId)} workspaceId={workspaceId} />}
+      {others.length > 0 && (
+        <ArtifactRows room={room} artifacts={others} members={members} workspaceId={workspaceId} />
+      )}
+
+      <Fold title="Cost by member" hint={formatCost(room.runtime.usage.costUsd)}>
+        <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1.5 py-1.5 text-[12.5px]">
+          {roster.map((member) => (
+            <Fragment key={member.id}>
+              <dt className="min-w-0 text-room-text2">
+                <button
+                  type="button"
+                  onClick={() => onOpenMember(member.id)}
+                  className="cursor-pointer text-left underline decoration-room-text4 decoration-dotted underline-offset-2 hover:decoration-solid"
+                >
+                  {member.displayName}
+                </button>
+              </dt>
+              <dd className="text-right font-mono text-room-text2">{formatCost(member.usage.costUsd)}</dd>
+            </Fragment>
+          ))}
+        </dl>
+      </Fold>
+
+      {undone.length > 0 && (
+        <Fold title={`Left undone · ${undone.length}`}>
+          <div className="flex flex-col gap-1 pb-2">
+            {undone.map((line) => <p key={line} className="m-0 text-[12.5px] text-room-text2">{line}</p>)}
+          </div>
+        </Fold>
+      )}
+    </div>
   );
 }

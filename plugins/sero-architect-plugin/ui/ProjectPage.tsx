@@ -3,10 +3,10 @@ import { Button } from '@sero-ai/ui';
 
 import { sessionStartedAt } from '@sero-ai/common';
 import { projectActivity } from '../shared/activity';
-import type { AutonomySetting, ProjectRecord } from '../shared/record';
+import type { AutonomySetting, Milestone, ProjectRecord } from '../shared/record';
 import type { ActionOutcome, ArchitectActions, SessionHistoryEntry } from './lib/actions';
 import { openDispatch } from './lib/page-helpers';
-import { CapInput } from './components/CapInput';
+import { CapInput, type CapInputProps } from './components/CapInput';
 import { DirectiveComposer, Directives } from './components/Directives';
 import { MilestoneRail } from './components/MilestoneRail';
 import { NeedsYou } from './components/NeedsYou';
@@ -146,7 +146,7 @@ function ProjectMainColumn({ record, actions, needsActions, permissionPending, o
         </>
       )}
       <ProjectResearch record={record} />
-      <MilestoneRail record={record} onOpenDispatch={openDispatch} onRetry={(milestoneId, capUsd) => actions.retry(id, milestoneId, capUsd)} />
+      <MilestoneRail record={record} onOpenDispatch={openDispatch} />
       {record.phase !== 'intake' && <ProjectPreview projectId={id} />}
       {record.phase === 'intake' && (
         <section>
@@ -163,9 +163,10 @@ function ProjectMainColumn({ record, actions, needsActions, permissionPending, o
  * What the header offers, and what each control runs.
  *
  * Each is the same action the rest of the page already has, so nothing is only
- * reachable here: Retry step is the milestone rail's control, Open Room is the
- * research card's, and "Tell Architect what to do next" puts the cursor in the
- * directive box at the foot of the page rather than sending anything itself.
+ * reachable here: Retry step and the workflow-cap resume are the recovery
+ * controls the milestone row used to carry, and "Tell Architect what to do
+ * next" puts the cursor in the directive box at the foot of the page rather
+ * than sending anything itself.
  */
 function useHeaderActions(
   record: ProjectRecord,
@@ -175,9 +176,10 @@ function useHeaderActions(
 ): HeaderAction[] {
   const activity = projectActivity(record, { sessionStartedAt: sessionStartedAt(), runtimeRunning });
 
-  // The cap is not a button: it needs a number, so the header carries the
-  // field instead and this returns nothing for it.
+  // A cap is not a button: it needs a number, so the header carries the field
+  // instead and this returns nothing for it.
   if (activity.action === 'Raise the cap') return [];
+  if (cappedWorkflow(record)) return [];
 
   // Delegated work that stopped without reporting. The Room is worth opening,
   // and the Architect needs telling what to do instead.
@@ -206,6 +208,18 @@ function useHeaderActions(
   return [];
 }
 
+/**
+ * A dispatched milestone that stopped at its OWN cap.
+ *
+ * Its recovery needs a new number before the Workflow can resume, so its control
+ * is a field rather than a button — the same shape the project's own cap needs.
+ */
+function cappedWorkflow(record: ProjectRecord): Milestone | undefined {
+  return record.milestones.find(
+    (item) => item.dispatch?.failure && item.dispatch.costLimitUsd !== undefined,
+  );
+}
+
 export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOpenModels, onOpenInspector, confirm, runtimeRunning, permissionPending = false }: ProjectPageProps) {
   const id = record.id;
   const page = useProjectPageControls(record, actions, onBack, confirm, onOpenModels, onOpenInspector);
@@ -219,6 +233,28 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOp
   // At the cap the header carries the field, because raising it needs a number
   // rather than a confirmation. The same action stays in the project menu.
   const atCap = record.overlay === 'limited' && record.budget.capUsd !== null;
+  // A dispatch that stopped at its own cap needs a number too. Both cases are
+  // one field with different wording and target, so they are built together.
+  const cappedMilestone = cappedWorkflow(record);
+  const workflowCap = cappedMilestone?.dispatch?.costLimitUsd;
+  let capForm: Omit<CapInputProps, 'onError' | 'onDone'> | null = null;
+  if (atCap) {
+    capForm = {
+      cap: record.budget.capUsd,
+      inputId: 'ar-header-cap-in',
+      label: 'New cap',
+      submitLabel: 'Raise and resume',
+      onRaise: (capUsd) => actions.raiseCap(id, capUsd),
+    };
+  } else if (cappedMilestone && workflowCap !== undefined) {
+    capForm = {
+      cap: workflowCap,
+      inputId: 'ar-header-wf-cap-in',
+      label: 'New Workflow cap',
+      submitLabel: 'Approve cap and resume',
+      onRaise: (capUsd) => actions.retry(id, cappedMilestone.id, capUsd),
+    };
+  }
 
   return (
     <>
@@ -244,13 +280,12 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOp
             record={record}
             home={null}
             actions={headerActions}
-            form={atCap ? (
+            form={capForm ? (
+              // A Workflow that stopped at its own cap moves its whole control
+              // here, so a workflow-cap resume works from the header rather
+              // than only from the milestone row below.
               <CapInput
-                cap={record.budget.capUsd}
-                inputId="ar-header-cap-in"
-                label="New cap"
-                submitLabel="Raise and resume"
-                onRaise={(capUsd) => actions.raiseCap(id, capUsd)}
+                {...capForm}
                 onError={page.setNotice}
                 onDone={() => page.setNotice(null)}
               />

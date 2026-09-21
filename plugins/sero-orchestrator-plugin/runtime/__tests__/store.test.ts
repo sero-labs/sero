@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { buildIndex, buildRunIndex, composeState, diffRuns, diffState, stripLoopForPersist, toSummary } from '../store';
+import { buildIndex, buildRunIndex, composeState, diffRuns, diffState, stripLoopForPersist, toRunSummary, toSummary } from '../store';
 import { createFakeHost } from './fake-host';
 import { oneStepPlan, seedActiveLoop } from './fixtures';
-import type { Loop, LoopRun } from '../../shared/types';
+import type {
+  Loop,
+  LoopBlock,
+  LoopRun,
+  LoopRunSummary,
+  RunIndex,
+  StepActivation,
+  StepActivationStatus,
+  StepAttemptStatus,
+} from '../../shared/types';
 
 function run(id: string, summary = 'ok'): LoopRun {
   return {
@@ -244,5 +253,130 @@ describe('board enrichment (Agent Board index view)', () => {
     expect(summary.lastModel).toBeUndefined();
     expect(summary.branchName).toBeUndefined();
     expect(summary.pullRequests).toBeUndefined();
+  });
+});
+
+describe('run summary retains why a run ended', () => {
+  const limitBlock: LoopBlock = {
+    kind: 'management-limit',
+    reason: 'reached max cost ($1.2)',
+    createdAt: '2026-07-18T10:00:00.000Z',
+    sourceStepId: 's1',
+    sourceAttemptId: 'a-s1',
+    limit: 'maxCostUsd',
+  };
+
+  function activation(
+    id: string,
+    stepId: string,
+    status: StepActivationStatus,
+    visitNumber = 1,
+  ): StepActivation {
+    return { id, stepId, visitNumber, status, attemptIds: [], startedAt: 't' };
+  }
+
+  function attempt(id: string, stepId: string, activationId: string, status: StepAttemptStatus) {
+    return {
+      id,
+      stepId,
+      activationId,
+      attemptNumber: 1,
+      parentSessionId: 'p',
+      executionType: 'background-agent' as const,
+      status,
+      observations: [],
+      startedAt: 't',
+    };
+  }
+
+  it('retains the block with every field the management-limit type carries', () => {
+    const settled: LoopRun = {
+      ...run('r1'),
+      status: 'blocked',
+      block: limitBlock,
+      stepActivations: [activation('act-1', 's1', 'succeeded')],
+    };
+    expect(toRunSummary(settled).block).toEqual(limitBlock);
+  });
+
+  it('retains no block and no interrupted step for a run that completed', () => {
+    const summary = toRunSummary(run('r1'));
+    expect(summary.block).toBeUndefined();
+    expect(summary.interruptedStepIds).toBeUndefined();
+  });
+
+  it('names every step a restart left in flight, not only one', () => {
+    const interrupted: LoopRun = {
+      ...run('r1'),
+      status: 'orphaned',
+      stepActivations: [
+        activation('act-1', 's1', 'orphaned'),
+        activation('act-2', 's2', 'succeeded'),
+        activation('act-3', 's3', 'orphaned'),
+      ],
+    };
+    expect(toRunSummary(interrupted).interruptedStepIds).toEqual(['s1', 's3']);
+  });
+
+  it('reports an interrupted step as interrupted beside an untouched step\'s own outcome', () => {
+    const interrupted: LoopRun = {
+      ...run('r1'),
+      status: 'orphaned',
+      stepAttempts: [attempt('a1', 's1', 'act-1', 'completed'), attempt('a2', 's2', 'act-2', 'failed')],
+      stepActivations: [activation('act-1', 's1', 'orphaned'), activation('act-2', 's2', 'failed')],
+    };
+    const summary = toRunSummary(interrupted);
+    expect(summary.steps.map((s) => [s.stepId, s.status])).toEqual([
+      ['s1', 'orphaned'],
+      ['s2', 'failed'],
+    ]);
+    expect(summary.interruptedStepIds).toEqual(['s1']);
+  });
+
+  it('reads an orphaned activation with no attempts as interrupted, not completed', () => {
+    const interrupted: LoopRun = {
+      ...run('r1'),
+      status: 'orphaned',
+      stepAttempts: [],
+      stepActivations: [activation('act-1', 's1', 'orphaned')],
+    };
+    expect(toRunSummary(interrupted).steps[0].status).toBe('orphaned');
+  });
+
+  it('round-trips the block and the interrupted steps through the run index', () => {
+    const index = buildRunIndex([
+      { ...run('r1'), status: 'blocked', block: limitBlock, stepActivations: [activation('act-1', 's1', 'orphaned')] },
+    ]);
+    const restored = JSON.parse(JSON.stringify(index)) as RunIndex;
+    expect(restored).toEqual(index);
+    expect(restored.runs[0].block).toEqual(limitBlock);
+    expect(restored.runs[0].interruptedStepIds).toEqual(['s1']);
+  });
+
+  it('loads a summary written before the block and interrupted fields existed', () => {
+    // Exactly the shape runs/index.json held before this change.
+    const earlier: LoopRunSummary = {
+      id: 'run_1',
+      runNumber: 1,
+      status: 'orphaned',
+      startedAt: 't',
+      steps: [{ stepId: 's1', attemptNumber: 1, executionType: 'background-agent', status: 'completed' }],
+      recoveries: [],
+    };
+    const loaded = JSON.parse(JSON.stringify(earlier)) as LoopRunSummary;
+    expect(loaded).toEqual(earlier);
+    expect(loaded.block).toBeUndefined();
+    expect(loaded.interruptedStepIds).toBeUndefined();
+  });
+
+  it('does not infer an interrupted step from a run that kept no activations', () => {
+    const earlier: LoopRun = {
+      ...run('r1'),
+      status: 'orphaned',
+      stepAttempts: [{ ...run('r1').stepAttempts[0], status: 'orphaned' }],
+    };
+    const summary = toRunSummary(earlier);
+    expect(summary.interruptedStepIds).toBeUndefined();
+    expect(summary.block).toBeUndefined();
   });
 });

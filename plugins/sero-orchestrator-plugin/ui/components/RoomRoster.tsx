@@ -29,7 +29,7 @@ interface RoomRosterProps {
 
 export function RoomRoster({ memberIds, members, selectedId, onSelect, className }: RoomRosterProps) {
   return (
-    <aside className={cn('flex w-[264px] shrink-0 flex-col overflow-y-auto border-r border-room-line px-2.5 py-[13px]', className)}>
+    <aside className={cn('flex w-[230px] shrink-0 flex-col overflow-y-auto border-r border-room-line px-2.5 py-[13px]', className)}>
       <div className="room-mono-micro flex h-[26px] items-center px-2 uppercase tracking-[0.1em] text-room-text4">
         Team
         <span className="ml-auto tracking-normal">{memberIds.length}</span>
@@ -101,13 +101,15 @@ function MemberRow({
         statusRingClass={selected ? 'border-room-raised' : 'border-room-bg'}
       />
       <span className="min-w-0 flex-1">
-        <b className={cn('block truncate text-xs font-medium', selected || isActive ? 'text-room-text' : 'text-room-text2')}>
+        {/* The name is the member's whole name, wrapped rather than cut: a
+            roster that says "Nova — Product Con…" does not name anyone. */}
+        <b className={cn('block text-xs font-medium', selected || isActive ? 'text-room-text' : 'text-room-text2')}>
           {name}
         </b>
         <span className="sr-only">{MEMBER_STATUS_LABEL[status]}</span>
-        {/* "Holds no turn" is the rail-foot's job; repeating it per row
-            truncates the status detail it sits behind. */}
-        <span className={cn('mt-[3px] block truncate text-xs', isActive ? 'text-emerald-200/80' : 'text-room-text4')}>
+        {/* "Holds no turn" is the rail-foot's job; repeating it per row leaves
+            no room for the status detail that says something. */}
+        <span className={cn('mt-[3px] block text-xs', isActive ? 'text-emerald-200/80' : 'text-room-text4')}>
           {member ? statusLine(member) : 'Loading…'}
         </span>
       </span>

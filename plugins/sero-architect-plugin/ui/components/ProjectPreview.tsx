@@ -1,31 +1,12 @@
-import { useState } from 'react';
-import { useAppTools } from '@sero-ai/app-runtime';
 import { Button } from '@sero-ai/ui';
-import { PROJECTS_TOOL, toOutcome } from '../lib/actions';
+import { useProjectPreview } from '../lib/use-project-preview';
+import { PreviewFrame } from './PreviewFrame';
 
 export function ProjectPreview({ projectId }: { projectId: string }) {
-  const { run } = useAppTools();
-  const [busy, setBusy] = useState(false);
-  const [url, setUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const open = async () => {
-    if (busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const result = await run(PROJECTS_TOOL, { action: 'preview', projectId });
-      const outcome = toOutcome(result);
-      if (!outcome.ok || typeof result.details?.url !== 'string') setError(outcome.text);
-      else setUrl(result.details.url);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const preview = useProjectPreview(projectId);
   return <section className="ar-card" aria-label="Project preview">
-    <Button disabled={busy} onClick={() => void open()}>{busy ? 'Starting preview…' : 'Open preview'}</Button>
-    {error && <p role="alert" className="ar-error">{error}</p>}
-    {url && <iframe title="Project preview" src={url} sandbox="allow-forms allow-modals allow-popups allow-scripts" className="mt-3 h-[600px] w-full rounded-lg border" />}
+    <Button disabled={preview.busy} onClick={() => void preview.open()}>{preview.busy ? 'Starting preview…' : 'Open preview'}</Button>
+    {preview.error && <p role="alert" className="ar-error">{preview.error}</p>}
+    {preview.url && <PreviewFrame url={preview.url} />}
   </section>;
 }

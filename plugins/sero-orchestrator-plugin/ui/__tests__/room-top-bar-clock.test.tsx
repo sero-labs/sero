@@ -101,4 +101,20 @@ describe('RoomTopBar clock', () => {
     await render(pausedRoom());
     expect(container.querySelector('[aria-label^="Time used:"]')?.getAttribute('aria-label')).toBe('Time used: 12m');
   });
+
+  it('offers Delete Room from the ⋯ menu, not beside the view controls', async () => {
+    const room = pausedRoom();
+    const finished = { ...room, runtime: { ...room.runtime, status: 'completed' } } as PersistedRoom;
+    await render(finished);
+
+    // Deleting is not a peer of Timeline, Watch and Stop: it takes opening the
+    // menu, which is what keeps a destructive control from being clicked by
+    // accident. It is still offered, and it still asks (the button confirms).
+    expect(container.querySelector('button[aria-label="Delete Room"]')).toBeNull();
+    const more = container.querySelector<HTMLButtonElement>('button[aria-label="More actions"]');
+    expect(more).not.toBeNull();
+
+    await act(async () => more?.click());
+    expect(container.querySelector('button[aria-label="Delete Room"]')).not.toBeNull();
+  });
 });

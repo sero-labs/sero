@@ -95,16 +95,25 @@ export function toRunSummary(run: LoopRun): RunIndex['runs'][number] {
   const activationSteps = run.stepActivations?.map((activation) => {
     const attempts = run.stepAttempts.filter((attempt) => attempt.activationId === activation.id);
     const last = attempts[attempts.length - 1];
+    // A restart orphaned this activation, so the run never finished the step and
+    // it reads as interrupted whatever its last attempt recorded. Otherwise the
+    // last attempt is the outcome, falling back to the activation's own state.
+    const status = activation.status === 'orphaned'
+      ? ('orphaned' as const)
+      : last?.status ?? (activation.status === 'running' ? 'running' as const : 'completed' as const);
     return {
       stepId: activation.stepId,
       visitNumber: activation.visitNumber,
       activationId: activation.id,
       attemptNumber: last?.attemptNumber ?? attempts.length,
       executionType: last?.executionType ?? 'background-agent' as const,
-      status: last?.status ?? (activation.status === 'running' ? 'running' as const : 'completed' as const),
+      status,
       outcomeStatus: activation.outcome?.status,
     };
   });
+  const interruptedStepIds = run.stepActivations
+    ? [...new Set(run.stepActivations.flatMap((a) => (a.status === 'orphaned' ? [a.stepId] : [])))]
+    : [];
   return {
     id: run.id,
     runNumber: run.runNumber,
@@ -125,6 +134,8 @@ export function toRunSummary(run: LoopRun): RunIndex['runs'][number] {
     })),
     recoveries: run.recoveryDecisions.map((d) => ({ decision: d.decision, reason: d.reason })),
     usage: reportedUsage(runUsage(run)),
+    block: run.block,
+    interruptedStepIds: interruptedStepIds.length > 0 ? interruptedStepIds : undefined,
   };
 }
 

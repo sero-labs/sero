@@ -10,6 +10,7 @@ import type { PlanMapStepsPerRow } from '../lib/plan-map-layout';
 import { previewLoop } from './fixture';
 import { HomePreview, RoomsPreview, WorkflowsListPreview } from './activity-fixture';
 import { RoomHoldPreview, WorkflowPagePreview } from './act-on-it-fixture';
+import { LoopEndingPreview, MemberInfoPreview, RoomResultPreview } from './read-the-outcome-fixture';
 
 export interface Preview {
   id: string;
@@ -65,5 +66,26 @@ export const PREVIEWS: Preview[] = [
     note: 'The row says what it waits for and for how long, and keeps its member avatars.',
     width: 1160,
     render: () => <RoomsPreview />,
+  },
+  {
+    id: 'loop-ending',
+    title: 'A Workflow ending · the Result row and the request',
+    note: 'One Result row above the settings for every ending, then the objective with the request that started it folded under it. Frame 1 of 3-read-the-outcome.',
+    width: 1440,
+    render: () => <LoopEndingPreview />,
+  },
+  {
+    id: 'room-result',
+    title: 'A Room result · the result, then the plan it produced',
+    note: 'The Room closing line, then the Conductor plan open at its first section with the author others folded, then the artifacts and the cost. Frame 3 of 3-read-the-outcome.',
+    width: 1440,
+    render: () => <RoomResultPreview />,
+  },
+  {
+    id: 'member-info',
+    title: 'A member Info tab · what it is, then its terms',
+    note: 'Model, tools, access and spend lead; the working instructions and the usage fold; and a member over its own limit rings as a fault. Frame 4 of 3-read-the-outcome.',
+    width: 1440,
+    render: () => <MemberInfoPreview />,
   },
 ];

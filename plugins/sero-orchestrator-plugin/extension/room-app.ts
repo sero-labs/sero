@@ -39,6 +39,7 @@ export const ROOM_APP_ACTIONS = [
   'watch',
   'unwatch',
   'history',
+  'read_artifact',
   'context',
 ] as const;
 
@@ -68,6 +69,7 @@ export const RoomAppToolParams = Type.Object({
   deliveryDestination: Type.Optional(StringEnum(DELIVERY_DESTINATION_IDS, { description: 'For prepare: where the result goes. invoking-chat returns it to the chat that asked' })),
   presetId: Type.Optional(StringEnum(ROOM_PRESET_IDS, { description: 'For prepare: a preset to start from. It guides the planner and never widens what the team may do' })),
   limit: Type.Optional(Type.Number({ description: 'For timeline and history: how many entries to return' })),
+  artifactId: Type.Optional(Type.String({ description: 'For read_artifact: the artifact id from the Room record, whose content the result view shows in place' })),
   cursor: Type.Optional(Type.String({ description: 'For history: the cursor from the previous page, to read further back' })),
   clarificationsJson: Type.Optional(Type.String({ description: 'For prepare: answers to the planner\'s questions, as JSON [{"prompt":"...","answer":"..."}]' })),
 });
@@ -91,6 +93,7 @@ export interface RoomAppToolParamsShape {
   deliveryDestination?: DeliveryDestinationId;
   presetId?: string;
   limit?: number;
+  artifactId?: string;
   cursor?: string;
   clarificationsJson?: string;
 }
@@ -283,6 +286,27 @@ async function settledResult(
       if (!memberId) return failure('memberId is required for wake');
       const outcome = await app.wake(roomId, memberId);
       return outcome.ok ? done(`${memberId} is awake.`) : failure(outcome.error);
+    }
+    case 'read_artifact': {
+      const artifactId = params.artifactId?.trim();
+      if (!artifactId) return failure('artifactId is required for read_artifact');
+      const outcome = await app.readArtifact(roomId, artifactId);
+      // A reference that cannot be opened is an answer rather than a broken
+      // call: the caller needs the artifact named AND the reason, so it can say
+      // the content cannot be read instead of showing the artifact as empty.
+      return result(
+        outcome.ok
+          ? `${outcome.artifact?.title ?? artifactId}:\n\n${outcome.content ?? ''}`
+          : outcome.error ?? 'That artifact could not be read.',
+        {
+          ok: outcome.ok,
+          roomId,
+          artifactId,
+          artifact: outcome.artifact,
+          content: outcome.content,
+          error: outcome.error,
+        },
+      );
     }
     default:
       return failure(`Unknown Room action: ${String(params.action)}`);

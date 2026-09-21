@@ -127,36 +127,75 @@ export function acceptedCount(record: ProjectRecord): number {
   return record.milestones.filter((milestone) => milestone.status === 'done').length;
 }
 
-export interface EvidenceLine {
+export interface EvidenceCheck {
+  /** How the check ended. `dim` is "nothing to report", which is not a failure. */
   state: 'ok' | 'err' | 'dim';
-  check: string;
-  result: string;
+  /**
+   * The row's label — the command, or what the check was with its outcome,
+   * where the outcome IS the point ("17 new files", "Page / responded").
+   */
+  name: string;
+  /** An outcome the label cannot carry, such as why a smoke check failed. */
+  detail?: string;
+  /**
+   * The check's own duration. Absent when the record holds none — a list of
+   * files and a capture have no duration, and one is never invented for them.
+   */
+  durationMs?: number;
+  /** The check's own COMPLETE output, which opens from its own row. */
+  output?: string;
+  /** Set on the capture row: it opens the project preview rather than text. */
+  opensPreview?: boolean;
 }
 
-/** One line per evidence item, in the order the runtime ran them. */
-export function evidenceLines(evidence: EvidenceRecord): EvidenceLine[] {
-  const lines: EvidenceLine[] = evidence.commands.map((command) => {
-    const output = command.output.trim().slice(-400);
-    return {
-      state: command.exitCode === 0 ? 'ok' : 'err',
-      check: command.command,
-      result: `exit ${command.exitCode} · ${Math.round(command.durationMs / 100) / 10}s${output ? `\n${output}` : ''}`,
-    };
-  });
-  if (evidence.diffSummary) lines.push({ state: 'ok', check: 'git diff', result: evidence.diffSummary });
-  if (evidence.preview) {
-    lines.push({
-      state: evidence.preview.smokePassed ? 'ok' : 'err',
-      check: `smoke ${evidence.preview.route}`,
-      result: evidence.preview.smokePassed ? 'responded' : evidence.preview.failure ?? 'failed',
-    });
-    lines.push({
-      state: evidence.preview.capturePath ? 'ok' : 'dim',
-      check: `capture ${evidence.preview.route}`,
-      result: evidence.preview.capturePath ?? 'none',
+/**
+ * What changed, as the drawn row reads it: "17 new files".
+ *
+ * The summary is `git diff --stat` for tracked files followed by an
+ * `untracked:` block, so the two are counted apart rather than added together:
+ * a file git already tracks did not arrive new.
+ */
+function changedFilesName(diffSummary: string): string {
+  const marker = diffSummary.indexOf('untracked:');
+  const tracked = marker < 0 ? diffSummary.trim() : diffSummary.slice(0, marker).trim();
+  const untracked = marker < 0
+    ? []
+    : diffSummary.slice(marker + 'untracked:'.length).split('\n').filter((line) => line.trim().length > 0);
+  const parts: string[] = [];
+  if (tracked.length > 0) parts.push('changed files');
+  if (untracked.length > 0) parts.push(`${untracked.length} new file${untracked.length === 1 ? '' : 's'}`);
+  return parts.join(' · ') || 'changed files';
+}
+
+/**
+ * One row per check, in the order the runtime ran them.
+ *
+ * Each row owns its own output, so nothing prints every command's log at once
+ * and no output is cut to fit a summary line.
+ */
+export function evidenceLines(evidence: EvidenceRecord): EvidenceCheck[] {
+  const checks: EvidenceCheck[] = evidence.commands.map((command) => ({
+    state: command.exitCode === 0 ? 'ok' : 'err',
+    name: command.command,
+    durationMs: command.durationMs,
+    ...(command.output.trim() ? { output: command.output } : {}),
+  }));
+  if (evidence.diffSummary) {
+    checks.push({
+      state: 'ok',
+      name: changedFilesName(evidence.diffSummary),
+      output: evidence.diffSummary,
     });
   }
-  return lines;
+  if (evidence.preview) {
+    checks.push(evidence.preview.smokePassed
+      ? { state: 'ok', name: `Page ${evidence.preview.route} responded` }
+      : { state: 'err', name: `Page ${evidence.preview.route}`, detail: evidence.preview.failure ?? 'did not respond' });
+    checks.push(evidence.preview.capturePath
+      ? { state: 'ok', name: `Screenshot of ${evidence.preview.route}`, opensPreview: true }
+      : { state: 'dim', name: `No screenshot of ${evidence.preview.route}` });
+  }
+  return checks;
 }
 
 export interface DirectiveThread {

@@ -496,3 +496,5 @@ export {
 } from './editor-themes';
 
 export type { ShikiThemeName, ShikiThemePair } from './editor-themes';
+
+export { spendRatio, spendTone, type SpendTone } from './spend';

@@ -18,6 +18,7 @@ import { useLibraryLink } from '../lib/use-library-link';
 import { NeedsYouBadge } from './StatusBadge';
 import { LoopControls } from './LoopControls';
 import { LoopSettingsLine } from './LoopSettingsLine';
+import { LoopResult } from './LoopResult';
 import { LoopStateLine } from './LoopStateLine';
 import { LibrarySaveControl } from './LibrarySaveControl';
 import { SkillDraftControl } from './SkillDraftControl';
@@ -96,8 +97,11 @@ export function LoopDetail({ loop, summary, busy, onAction, onDispatch, stateDir
       <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
         <header className="flex flex-col gap-3">
           <LoopStateLine loop={loop} summary={summary} runCount={runs} githubHealth={githubHealth} webhookHealth={webhookHealth} />
-          {/* The prompt only while there is no objective to say it better. */}
-          {!loop.plan.objective && <p className="text-sm text-room-text2">{loop.summary || loop.prompt}</p>}
+          {/* The result of the ending, for every ending, above the settings.
+              The request that started the Workflow opens from the objective's
+              own disclosure, which the plan carries — so the paragraph that
+              showed it only when there was no objective is gone. */}
+          <LoopResult loop={loop} />
           <LoopSettingsLine loop={loop} runs={runIndex.runs} busy={busy} onAction={onAction} />
         </header>
 
@@ -214,42 +218,27 @@ function LoopNotices({ loop }: { loop: Loop }) {
       )}
 
       <BlockNotice loop={loop} />
-
-      {/* A completed Workflow needs no card: every step reads Done and the
-          last step's Result says what it did. Any other ending explains
-          itself here. */}
-      {runtime.completion && runtime.completion.status !== 'complete' && (
-        <Card className="border-destructive/50 p-3 text-base">
-          <span className="font-medium">Stopped ({runtime.completion.status}): </span>
-          {runtime.completion.reason}
-        </Card>
-      )}
     </>
   );
 }
 
 /**
  * A step-owned block (planned/recovery) points at the step, where the reason and
- * a Retry button live. Loop-wide blocks (limit/validation/runtime) show the
- * reason here with the whole-loop recovery options.
+ * a Retry button live. A block with no step of its own is a limit or a runtime
+ * fault, and the Workflow's own reason — printed by the Result row above — is
+ * the whole statement; a second card here said the same thing twice.
  */
 function BlockNotice({ loop }: { loop: Loop }) {
   const block = loop.runtime.block;
-  if (!block) return null;
-  const blockedStep = block.sourceStepId ? loop.plan.steps.find((s) => s.id === block.sourceStepId) : undefined;
+  if (!block?.sourceStepId) return null;
+  const blockedStep = loop.plan.steps.find((step) => step.id === block.sourceStepId);
+  if (!blockedStep) return null;
   return (
     <Card className="border-destructive/50 p-3 text-base">
-      {blockedStep ? (
-        <span>
-          <span className="font-medium text-destructive">Blocked at “{blockedStep.title}”. </span>
-          Fix the cause, then <span className="font-medium">Retry step</span> on it in the plan below — or <span className="font-medium">Restart</span> the Workflow.
-        </span>
-      ) : (
-        <span>
-          <span className="font-medium text-destructive">Blocked ({block.kind}): </span>
-          {block.reason} — <span className="font-medium">Restart</span> the Workflow or <span className="font-medium">Refine</span> the plan.
-        </span>
-      )}
+      <span>
+        <span className="font-medium text-destructive">Blocked at “{blockedStep.title}”. </span>
+        Fix the cause, then <span className="font-medium">Retry step</span> on it in the plan below — or <span className="font-medium">Restart</span> the Workflow.
+      </span>
     </Card>
   );
 }

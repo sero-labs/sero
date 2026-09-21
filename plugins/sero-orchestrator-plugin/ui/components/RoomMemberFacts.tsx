@@ -11,6 +11,7 @@
 import { cn } from '@sero-ai/ui/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@sero-ai/ui/components/ui/tooltip';
 import type { PersistentSessionContextUsage } from '@sero-ai/common';
+import { spendRatio, spendTone } from '@sero-ai/common';
 import type { MemberLiveSnapshot } from '../../shared/room-live-types';
 import type { RoomMember } from '../../shared/room-types';
 import { formatClock, formatCost, formatTokens } from '../lib/format';
@@ -110,79 +111,120 @@ export function MemberTabPanel({ tab, member, context, maxCostUsd }: FactsProps 
   const { mandate, configuration, session, usage } = member;
 
   if (tab === 'info') {
-    const costPercent = maxCostUsd > 0 ? Math.min(100, (usage.costUsd / maxCostUsd) * 100) : 0;
-
     return (
       <div role="tabpanel" aria-label={MEMBER_TAB_LABEL.info} className="min-h-0 flex-1 overflow-y-auto p-[18px]">
-        <div className="grid w-full gap-3 sm:grid-cols-2">
-          <section className="rounded-lg border border-room-line bg-room-surface p-3.5 sm:col-span-2">
-            <Eyebrow tone="brand">Mandate</Eyebrow>
-            <div className="mt-2">
-              <MandateRow label="Role">{mandate.role}</MandateRow>
-              <MandateRow label="Responsibilities">{mandate.responsibilities}</MandateRow>
-              {mandate.currentTask && <MandateRow label="Doing now">{mandate.currentTask}</MandateRow>}
-              {mandate.priorities.length > 0 && (
-                <MandateRow label="Priorities">{mandate.priorities.join(' · ')}</MandateRow>
-              )}
-              <MandateRow label="Working instructions">{mandate.workingInstructions}</MandateRow>
-            </div>
-          </section>
-
-          <section className="rounded-lg border border-room-line bg-room-surface p-3.5">
-            <ContextMeter context={context} member={member} brand />
-            <div className="mt-2">
-              <Kv label="Compactions">
-                {session.compactionCount}
-                {session.lastCompactedAt && ` · ${formatClock(session.lastCompactedAt)}`}
-              </Kv>
+        {/* What the member is, then the terms it runs on, then the spend — the
+            order the drawing has. The tab used to open on an 81-word
+            instruction, so the first thing read was how it works rather than
+            what it is. */}
+        <section className="flex flex-wrap items-stretch rounded-lg border border-room-line bg-room-surface">
+          <div className="min-w-[16rem] flex-1 p-3.5">
+            <dl>
               <Kv label="Model">{configuration.model} · {configuration.thinking}</Kv>
               <Kv label="Tools" mono>{configuration.tools.join(', ') || 'none'}</Kv>
-              <Kv label="Skills" mono>{configuration.skills.join(', ') || 'none'}</Kv>
-              <Kv label="Access">{configuration.permissions}</Kv>
-            </div>
-          </section>
+              {/* "No worktree" is an access fact, not a card of its own: a
+                  member that ran without one is otherwise indistinguishable
+                  from one whose worktree is simply hidden. */}
+              <Kv label="Access">{accessLine(member)}</Kv>
+              {member.worktreePath && (
+                <TooltipProvider delayDuration={500}>
+                  <Kv label="Branch" mono><WorktreeValue value={member.worktreeBranch ?? '—'} /></Kv>
+                  <Kv label="Path" mono><WorktreeValue value={member.worktreePath} openable /></Kv>
+                </TooltipProvider>
+              )}
+              <Kv label="Role">{mandate.role}</Kv>
+              <Kv label="Responsible for">{mandate.responsibilities}</Kv>
+              {mandate.currentTask && <Kv label="Doing now">{mandate.currentTask}</Kv>}
+              {mandate.priorities.length > 0 && <Kv label="Priorities">{mandate.priorities.join(' · ')}</Kv>}
+            </dl>
 
-          <section className="rounded-lg border border-room-line bg-room-surface p-3.5">
-            <Eyebrow tone="brand">Worktree</Eyebrow>
-            {member.worktreePath ? (
-              <TooltipProvider delayDuration={500}>
-                <div className="mt-2">
-                  <Kv label="Branch" mono>
-                    <WorktreeValue value={member.worktreeBranch ?? '—'} />
-                  </Kv>
-                  <Kv label="Path" mono>
-                    <WorktreeValue value={member.worktreePath} openable />
-                  </Kv>
-                </div>
-              </TooltipProvider>
-            ) : (
-              <p className="mt-2 text-xs text-room-text4">No worktree</p>
-            )}
-          </section>
+            <MemberFold title="Working instructions">
+              <p className="text-xs leading-relaxed text-room-text2">{mandate.workingInstructions}</p>
+            </MemberFold>
 
-          <section className="rounded-lg border border-room-line bg-room-surface p-3.5 sm:col-span-2">
-            <Eyebrow tone="brand">Cost</Eyebrow>
-            <div className="mt-2 flex items-baseline gap-2">
-              <b className="text-lg font-semibold text-room-text">{formatCost(usage.costUsd)}</b>
-              <span className="room-tabular text-xs text-room-text4">of {formatCost(maxCostUsd)}</span>
-            </div>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-room-muted">
-              <div className="h-full bg-brand-primary" style={{ width: `${costPercent}%` }} />
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-room-line pt-3 sm:grid-cols-5">
-              <CostStat label="Turns" value={String(usage.turns)} />
-              <CostStat label="Input" value={formatTokens(usage.inputTokens)} />
-              <CostStat label="Output" value={formatTokens(usage.outputTokens)} />
-              <CostStat label="Cache read" value={formatTokens(usage.cacheReadTokens)} />
-              <CostStat label="Retries" value={String(usage.retries)} />
-            </div>
-          </section>
-        </div>
+            <MemberFold title="Usage">
+              <dl>
+                <Kv label="Turns">{usage.turns}</Kv>
+                <Kv label="Input">{formatTokens(usage.inputTokens)} tokens</Kv>
+                <Kv label="Output">{formatTokens(usage.outputTokens)} tokens</Kv>
+                <Kv label="Cache read">{formatTokens(usage.cacheReadTokens)} tokens</Kv>
+                <Kv label="Retries">{usage.retries}</Kv>
+                <Kv label="Compactions">
+                  {session.compactionCount}
+                  {session.lastCompactedAt && ` · ${formatClock(session.lastCompactedAt)}`}
+                </Kv>
+                <Kv label="Skills" mono>{configuration.skills.join(', ') || 'none'}</Kv>
+              </dl>
+            </MemberFold>
+          </div>
+
+          {/* The spend ring is the shaded column beside the facts, with the
+              hairline the drawing puts between them, and a member over its own
+              limit reads as a fault by the SAME rule a project and a Room use. */}
+          <div className="flex w-[240px] shrink-0 items-center justify-center border-l border-room-line bg-room-raised p-4">
+            <SpendRing spentUsd={usage.costUsd} capUsd={maxCostUsd} />
+          </div>
+        </section>
       </div>
     );
   }
 
   return null;
+}
+
+/** Whether the member ran in its own checkout, as one of its access facts. */
+function accessLine(member: RoomMember): string {
+  // The record holds the permission id; the drawing reads it as a word.
+  const permissions = member.configuration.permissions;
+  const label = permissions.charAt(0).toUpperCase() + permissions.slice(1);
+  return `${label} · ${member.worktreePath ? 'worktree' : 'no worktree'}`;
+}
+
+/** A fold inside the Info tab, with the drawing's chevron. */
+function MemberFold({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <details className="group mt-2 border-t border-room-line">
+      <summary className="flex cursor-pointer list-none items-center gap-2 py-2 text-xs text-room-text2 hover:text-room-text">
+        <span aria-hidden className="text-room-text4 transition-transform group-open:rotate-90">›</span>
+        {title}
+      </summary>
+      <div className="pb-2">{children}</div>
+    </details>
+  );
+}
+
+/**
+ * The member's spend against its own limit.
+ *
+ * The tone comes from the one shared rule, so "over the limit" means the same
+ * thing here as it does for the project and the Room. The amount is still shown
+ * against the limit it passed, and the fault is stated in words: a reader who
+ * cannot see the colour must not be the only one who misses it.
+ */
+function SpendRing({ spentUsd, capUsd }: { spentUsd: number; capUsd: number }) {
+  const tone = spendTone(spentUsd, capUsd);
+  const ratio = spendRatio(spentUsd, capUsd);
+  const circumference = 2 * Math.PI * 26;
+  const stroke = tone === 'err' ? 'var(--status-error)' : tone === 'warn' ? 'var(--status-warning)' : 'var(--brand-primary)';
+  return (
+    <div className="flex shrink-0 flex-col items-center gap-1.5" data-tone={tone}>
+      <svg viewBox="0 0 64 64" className="size-16" aria-hidden="true">
+        <circle cx="32" cy="32" r="26" fill="none" stroke="var(--border-subtle)" strokeWidth="5" />
+        <circle
+          cx="32" cy="32" r="26" fill="none" stroke={stroke} strokeWidth="5" strokeLinecap="round"
+          strokeDasharray={`${(circumference * ratio).toFixed(1)} ${circumference.toFixed(1)}`}
+          transform="rotate(-90 32 32)"
+        />
+      </svg>
+      <div className="text-center">
+        <div className="room-tabular text-[13px] text-room-text">{formatCost(spentUsd)}</div>
+        <div className="text-[11px] text-room-text4">spent of {formatCost(capUsd)} limit</div>
+      </div>
+      {tone === 'err' && (
+        <div className="text-[11px] text-status-error">At or over the member limit</div>
+      )}
+    </div>
+  );
 }
 
 function WorktreeValue({ value, openable = false }: { value: string; openable?: boolean }) {
@@ -206,15 +248,6 @@ function WorktreeValue({ value, openable = false }: { value: string; openable?: 
         {value}
       </TooltipContent>
     </Tooltip>
-  );
-}
-
-function MandateRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="grid gap-1 border-t border-room-line py-2.5 sm:grid-cols-[10rem_minmax(0,1fr)] sm:gap-4">
-      <p className="room-mono-micro uppercase tracking-[0.08em] text-room-text4">{label}</p>
-      <p className="text-xs leading-relaxed text-room-text2">{children}</p>
-    </div>
   );
 }
 
@@ -266,14 +299,14 @@ function ContextMeter({
   );
 }
 
-/** A `.kv` row: label left, value right, hairline above. */
+/** A `.kv` row: a fixed label column, then the value beside it, wrapping rather than clipped. */
 function Kv({ label, mono, children }: { label: string; mono?: boolean; children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-3 border-t border-room-line py-2 text-[11px]">
-      <small className="mr-auto shrink-0 text-[11px] text-room-text4">{label}</small>
-      <span className={cn('min-w-0 truncate text-right', mono ? 'room-tabular text-[10px] text-room-text3' : 'font-medium text-room-text2')}>
+    <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-x-3.5 border-t border-room-line py-1.5 first:border-t-0">
+      <dt className="pt-0.5 font-mono text-[9.5px] uppercase tracking-[0.08em] text-room-text3">{label}</dt>
+      <dd className={cn('m-0 text-xs leading-[1.55]', mono ? 'break-words font-mono text-[10.5px] text-room-text2' : 'text-room-text2')}>
         {children}
-      </span>
+      </dd>
     </div>
   );
 }
