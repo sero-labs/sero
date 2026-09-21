@@ -15,7 +15,8 @@ import { previewLoop } from './fixture';
 import { LoopSettingsLine } from '../components/LoopSettingsLine';
 import { LoopStateLine } from '../components/LoopStateLine';
 import { PlanView } from '../components/PlanView';
-import { RoomHoldCard, type HoldMember } from '../components/RoomHoldCard';
+import { RoomHoldCard } from '../components/RoomHoldCard';
+import type { HoldMember } from '../lib/room-hold';
 import { RoomTopBar } from '../components/RoomTopBar';
 
 /**

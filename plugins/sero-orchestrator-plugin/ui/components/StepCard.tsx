@@ -59,7 +59,14 @@ export interface StepCardProps {
 function WithCode({ text }: { text: string }) {
   const parts = text.split('`');
   if (parts.length % 2 === 0) return <>{text}</>;
-  return <>{parts.map((part, index) => (index % 2 === 1 ? <code key={index}>{part}</code> : part))}</>;
+  // Each part is keyed by where it starts in the text, which never changes.
+  let start = 0;
+  const spans = parts.map((part, index) => {
+    const span = { part, start, code: index % 2 === 1 };
+    start += part.length + 1;
+    return span;
+  });
+  return <>{spans.map(({ part, start: at, code }) => (code ? <code key={at}>{part}</code> : <Fragment key={at}>{part}</Fragment>))}</>;
 }
 
 /** The two icon buttons in the step header, as the drawing sets them. */
@@ -76,40 +83,17 @@ export function StepCard({ step, number, loop, numberOf, showNumber = true, stat
 
   return (
     <div className={`orc-step flex flex-col${notTaken ? ' orc-step-dim' : ''}${tint ? ` ${tint}` : ''}`}>
-      <div className="flex items-center gap-[9px]">
-        {showNumber && <span className="shrink-0 font-mono text-[11px] text-room-text3">{number}</span>}
-        <span className="min-w-0 flex-1 text-[13px] font-semibold text-room-text">{step.title}</span>
-        {/* One word, from one rule. The tone comes from the shared status
-            style; "Not taken" has no status of its own, so it stays plain. */}
-        <Badge
-          variant="outline"
-          className={`shrink-0 rounded-md bg-room-raised ${state && !notTaken ? STEP_STATUS_STYLE[state.status].badge : 'text-muted-foreground'} border-transparent`}
-        >
-          {stateLabel}
-        </Badge>
-        {canTune && (
-          <button
-            type="button"
-            className={`${ICON_BUTTON}${tuning ? ' bg-room-overlay text-room-text' : ''}`}
-            onClick={() => setTuning((t) => !t)}
-            aria-expanded={tuning}
-            aria-label={`Model, agent and tools for ${step.title}`}
-            title="Model, agent and tools"
-          >
-            <SlidersHorizontal className="size-3.5" />
-          </button>
-        )}
-        <button
-          type="button"
-          className={ICON_BUTTON}
-          onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-          aria-label={`Show instruction and expected result for ${step.title}`}
-          title="Instruction and expected result"
-        >
-          <ChevronDown className={`size-3.5 ${open ? 'rotate-180' : ''}`} />
-        </button>
-      </div>
+      <StepHeader
+        step={step}
+        number={showNumber ? number : null}
+        stateLabel={stateLabel}
+        badgeTone={state && !notTaken ? STEP_STATUS_STYLE[state.status].badge : 'text-muted-foreground'}
+        canTune={canTune}
+        tuning={tuning}
+        open={open}
+        onTune={() => setTuning((t) => !t)}
+        onOpen={() => setOpen((o) => !o)}
+      />
 
       {fanOut && <div className="mt-2"><FanOutActivations view={fanOut} /></div>}
 
@@ -140,15 +124,73 @@ export function StepCard({ step, number, loop, numberOf, showNumber = true, stat
       )}
 
       {canTune && tuning && (
-        <div className="orc-tune flex flex-wrap items-center gap-x-[18px] gap-y-2">
-          <StepModelControl step={step} groups={groups} onChange={(model, thinking) => onSetModel(step.id, model, thinking)} />
-          {step.execution.type === 'background-agent' && (
-            <>
-              <StepAgentControl step={step} catalog={agentCatalog} onChange={(agent) => onSetAgent(step.id, agent)} />
-              <StepToolsControl step={step} catalog={toolCatalog} onChange={(tools) => onSetTools(step.id, tools)} />
-            </>
-          )}
-        </div>
+        <StepTune step={step} groups={groups} toolCatalog={toolCatalog} agentCatalog={agentCatalog} onSetModel={onSetModel} onSetTools={onSetTools} onSetAgent={onSetAgent} />
+      )}
+    </div>
+  );
+}
+
+/** The title row: number, title, state word, then Tune and the chevron. */
+function StepHeader({ step, number, stateLabel, badgeTone, canTune, tuning, open, onTune, onOpen }: {
+  step: LoopStepDefinition;
+  /** Null when the spine rail shows the number instead. */
+  number: number | null;
+  stateLabel: string;
+  badgeTone: string;
+  canTune: boolean;
+  tuning: boolean;
+  open: boolean;
+  onTune: () => void;
+  onOpen: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-[9px]">
+      {number !== null && <span className="shrink-0 font-mono text-[11px] text-room-text3">{number}</span>}
+      <span className="min-w-0 flex-1 text-[13px] font-semibold text-room-text">{step.title}</span>
+      {/* One word, from one rule. The tone comes from the shared status
+          style; "Not taken" has no status of its own, so it stays plain. */}
+      <Badge
+        variant="outline"
+        className={`shrink-0 rounded-md bg-room-raised ${badgeTone} border-transparent`}
+      >
+        {stateLabel}
+      </Badge>
+      {canTune && (
+        <button
+          type="button"
+          className={`${ICON_BUTTON}${tuning ? ' bg-room-overlay text-room-text' : ''}`}
+          onClick={onTune}
+          aria-expanded={tuning}
+          aria-label={`Model, agent and tools for ${step.title}`}
+          title="Model, agent and tools"
+        >
+          <SlidersHorizontal className="size-3.5" />
+        </button>
+      )}
+      <button
+        type="button"
+        className={ICON_BUTTON}
+        onClick={onOpen}
+        aria-expanded={open}
+        aria-label={`Show instruction and expected result for ${step.title}`}
+        title="Instruction and expected result"
+      >
+        <ChevronDown className={`size-3.5 ${open ? 'rotate-180' : ''}`} />
+      </button>
+    </div>
+  );
+}
+
+/** Model, agent and tools for one step. Agent and tools apply to a background agent only. */
+function StepTune({ step, groups, toolCatalog, agentCatalog, onSetModel, onSetTools, onSetAgent }: Pick<StepCardProps, 'step' | 'groups' | 'toolCatalog' | 'agentCatalog' | 'onSetModel' | 'onSetTools' | 'onSetAgent'>) {
+  return (
+    <div className="orc-tune flex flex-wrap items-center gap-x-[18px] gap-y-2">
+      <StepModelControl step={step} groups={groups} onChange={(model, thinking) => onSetModel(step.id, model, thinking)} />
+      {step.execution.type === 'background-agent' && (
+        <>
+          <StepAgentControl step={step} catalog={agentCatalog} onChange={(agent) => onSetAgent(step.id, agent)} />
+          <StepToolsControl step={step} catalog={toolCatalog} onChange={(tools) => onSetTools(step.id, tools)} />
+        </>
       )}
     </div>
   );

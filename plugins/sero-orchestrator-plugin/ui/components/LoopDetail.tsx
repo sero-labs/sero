@@ -67,15 +67,12 @@ interface LoopDetailProps {
  * that already did.
  */
 export function LoopDetail({ loop, summary, busy, onAction, onDispatch, stateDir, libraryDir, libraryIndex, onBack }: LoopDetailProps) {
-  const { runtime } = loop;
   const runIndex = useWatchedJson<RunIndex>(`${stateDir}/loops/${loop.id}/runs/index.json`, DEFAULT_RUN_INDEX);
   // Source health for the state line: the event adapters persist these small
   // state files; the line shows them only when the loop uses the source.
   const githubHealth = useWatchedJson<GithubSourceHealth | null>(`${stateDir}/events/github.json`, null);
   const webhookHealth = useWatchedJson<WebhookSourceHealth | null>(`${stateDir}/events/webhook.json`, null);
   const linkStatus = useLibraryLink(loop, libraryDir, libraryIndex);
-  const pendingInput = runtime.pendingInput?.questions.length ?? 0;
-  const pendingSuggestions = (loop.suggestions ?? []).filter((s) => s.status === 'pending').length;
   const insights = loop.insights ?? [];
   const runs = runIndex.runs.length;
   // A skill is extracted from what worked, so the control appears only once a run
@@ -85,40 +82,16 @@ export function LoopDetail({ loop, summary, busy, onAction, onDispatch, stateDir
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-room-line px-4 py-2">
-        <button
-          type="button"
-          className="group cursor-pointer text-xs text-room-text3 transition-colors hover:text-room-text"
-          onClick={onBack}
-        >
-          ←{' '}
-          <span className="underline decoration-room-text4 decoration-dotted underline-offset-[3px] group-hover:decoration-solid group-hover:decoration-current">
-            {WORKFLOWS_LABEL}
-          </span>
-        </button>
-        <span className="text-xs text-room-text3">·</span>
-        <h1 className="min-w-0 truncate text-xs font-medium text-room-text2">{loop.title}</h1>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <NeedsYouBadge kind="input" count={pendingInput} />
-          <NeedsYouBadge kind="suggestions" count={pendingSuggestions} />
-          {linkStatus && <LibraryLinkBadge loop={loop} status={linkStatus} busy={busy} onAction={onAction} />}
-          <LibrarySaveControl loop={loop} busy={busy} onAction={onAction} />
-          {runs > 0 && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-room-text3"
-              disabled={busy}
-              onClick={() => onAction({ kind: 'reflect', loopId: loop.id })}
-              title="Learn from past runs and suggest improvements"
-            >
-              Reflect
-            </Button>
-          )}
-          {canExtractSkill && <SkillDraftControl loop={loop} busy={busy} onDispatch={onDispatch} />}
-          <LoopControls loop={loop} busy={busy} onAction={onAction} />
-        </div>
-      </div>
+      <LoopTopRow
+        loop={loop}
+        busy={busy}
+        onAction={onAction}
+        onDispatch={onDispatch}
+        onBack={onBack}
+        linkStatus={linkStatus}
+        canReflect={runs > 0}
+        canExtractSkill={canExtractSkill}
+      />
 
       <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
         <header className="flex flex-col gap-3">
@@ -130,37 +103,10 @@ export function LoopDetail({ loop, summary, busy, onAction, onDispatch, stateDir
 
         <LiveActivityStrip loop={loop} runIndex={runIndex} />
 
-        {runtime.snoozedUntil && (
-          <Card className="border-blue-500/30 bg-blue-500/[0.05] p-3 text-base">
-            Snoozed until {new Date(runtime.snoozedUntil).toLocaleString()}. The workspace will be checked again before the Workflow runs.
-          </Card>
-        )}
-
         <InputRequestCard loop={loop} busy={busy} onAction={onAction} />
         <SuggestionsInbox loop={loop} busy={busy} onAction={onAction} />
 
-        {loop.warnings.length > 0 && (
-          <Card className="flex flex-col gap-1 border-amber-500/40 p-3 text-base">
-            {loop.warnings.map((w) => (
-              <div key={w.id} className="flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-500" />
-                <span>{w.message}</span>
-              </div>
-            ))}
-          </Card>
-        )}
-
-        <BlockNotice loop={loop} />
-
-        {/* A completed Workflow needs no card: every step reads Done and the
-            last step's Result says what it did. Any other ending explains
-            itself here. */}
-        {runtime.completion && runtime.completion.status !== 'complete' && (
-          <Card className="border-destructive/50 p-3 text-base">
-            <span className="font-medium">Stopped ({runtime.completion.status}): </span>
-            {runtime.completion.reason}
-          </Card>
-        )}
+        <LoopNotices loop={loop} />
 
         {linkStatus?.hasActions && (
           <CollapsibleSection title="Library" defaultOpen>
@@ -193,6 +139,92 @@ export function LoopDetail({ loop, summary, busy, onAction, onDispatch, stateDir
         </div>
       </div>
     </div>
+  );
+}
+
+/** The back link, the title and every control, once. */
+function LoopTopRow({ loop, busy, onAction, onDispatch, onBack, linkStatus, canReflect, canExtractSkill }: Pick<LoopDetailProps, 'loop' | 'busy' | 'onAction' | 'onDispatch' | 'onBack'> & {
+  linkStatus: ReturnType<typeof useLibraryLink>;
+  canReflect: boolean;
+  canExtractSkill: boolean;
+}) {
+  const pendingInput = loop.runtime.pendingInput?.questions.length ?? 0;
+  const pendingSuggestions = (loop.suggestions ?? []).filter((s) => s.status === 'pending').length;
+  return (
+    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-room-line px-4 py-2">
+      <button
+        type="button"
+        className="group cursor-pointer text-xs text-room-text3 transition-colors hover:text-room-text"
+        onClick={onBack}
+      >
+        ←{' '}
+        <span className="underline decoration-room-text4 decoration-dotted underline-offset-[3px] group-hover:decoration-solid group-hover:decoration-current">
+          {WORKFLOWS_LABEL}
+        </span>
+      </button>
+      <span className="text-xs text-room-text3">·</span>
+      <h1 className="min-w-0 truncate text-xs font-medium text-room-text2">{loop.title}</h1>
+      <div className="ml-auto flex flex-wrap items-center gap-2">
+        <NeedsYouBadge kind="input" count={pendingInput} />
+        <NeedsYouBadge kind="suggestions" count={pendingSuggestions} />
+        {linkStatus && <LibraryLinkBadge loop={loop} status={linkStatus} busy={busy} onAction={onAction} />}
+        <LibrarySaveControl loop={loop} busy={busy} onAction={onAction} />
+        {canReflect && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-room-text3"
+            disabled={busy}
+            onClick={() => onAction({ kind: 'reflect', loopId: loop.id })}
+            title="Learn from past runs and suggest improvements"
+          >
+            Reflect
+          </Button>
+        )}
+        {canExtractSkill && <SkillDraftControl loop={loop} busy={busy} onDispatch={onDispatch} />}
+        <LoopControls loop={loop} busy={busy} onAction={onAction} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Whatever explains a Workflow that is not simply running: a snooze, its
+ * warnings, a block, and an ending that was not complete.
+ */
+function LoopNotices({ loop }: { loop: Loop }) {
+  const { runtime } = loop;
+  return (
+    <>
+      {runtime.snoozedUntil && (
+        <Card className="border-blue-500/30 bg-blue-500/[0.05] p-3 text-base">
+          Snoozed until {new Date(runtime.snoozedUntil).toLocaleString()}. The workspace will be checked again before the Workflow runs.
+        </Card>
+      )}
+
+      {loop.warnings.length > 0 && (
+        <Card className="flex flex-col gap-1 border-amber-500/40 p-3 text-base">
+          {loop.warnings.map((w) => (
+            <div key={w.id} className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-500" />
+              <span>{w.message}</span>
+            </div>
+          ))}
+        </Card>
+      )}
+
+      <BlockNotice loop={loop} />
+
+      {/* A completed Workflow needs no card: every step reads Done and the
+          last step's Result says what it did. Any other ending explains
+          itself here. */}
+      {runtime.completion && runtime.completion.status !== 'complete' && (
+        <Card className="border-destructive/50 p-3 text-base">
+          <span className="font-medium">Stopped ({runtime.completion.status}): </span>
+          {runtime.completion.reason}
+        </Card>
+      )}
+    </>
   );
 }
 
