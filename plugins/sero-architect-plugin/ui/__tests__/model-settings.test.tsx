@@ -36,10 +36,11 @@ vi.mock('@sero-ai/app-runtime', () => ({
   }),
 }));
 
-vi.mock('@sero-ai/ui', () => ({
+vi.mock('@sero-ai/ui', async () => ({
   Button: ({ children, ...props }: { children: ReactNode } & ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button type="button" {...props}>{children}</button>
   ),
+  ...(await import('./select-stand-in')),
 }));
 
 function actionsOver(overrides: Partial<ArchitectActions> = {}): ArchitectActions {
@@ -155,7 +156,8 @@ describe('the owner row', () => {
     expect(owner).toBeDefined();
     expect(owner![1]).toBe('Pinned by the owner environment. It outranks the MED tier.');
     expect(owner![2]).toContain('openai/gpt-5.6-luna');
-    expect(owner![2]).toContain('high thinking');
+    // The Effective column names the model only; the thinking level has its own picker.
+    expect(owner![2]).not.toContain('thinking');
     expect(owner![3]).toBe('environment');
     // The two sentences under the table are gone; the row replaces them.
     expect(container.textContent).not.toContain('The owner is running');

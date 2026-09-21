@@ -14,6 +14,8 @@ import {
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@sero-ai/ui/components/ui/tooltip';
+import { ARCHITECT_APP_ID } from '@sero-ai/common';
+import { openGlobalAppView } from '@/lib/open-app';
 import { useWorkspaceAttention } from '@/stores/agent-board';
 import type { WorkspaceInfo, SeroSessionInfo } from '@/types/ipc';
 import { IconAction } from '@/components/ui/IconAction';
@@ -74,25 +76,43 @@ function AttentionIndicator({ workspaceId }: { workspaceId: string }) {
   // stopped, an amber question when it is waiting on the user.
   const stopped = attention.state === 'stopped';
   const Glyph = stopped ? OctagonAlert : MessageCircleQuestion;
+  const className = cn(
+    'grid size-[15px] shrink-0 place-items-center rounded-[4px] outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent-primary)]',
+    stopped
+      ? 'bg-status-error/14 text-status-error'
+      : 'bg-status-warning/14 text-status-warning',
+  );
+  // An Architect project has a page that says what it needs, so the icon opens
+  // it. A Workflow or a Room has no such page to open from here.
+  const { projectId } = attention;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span
-          role="img"
-          tabIndex={0}
-          aria-label={attention.sentence}
-          title={attention.sentence}
-          data-testid={`workspace-attention-${workspaceId}`}
-          className={cn(
-            'grid size-[15px] shrink-0 place-items-center rounded-[4px] outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent-primary)]',
-            stopped
-              ? 'bg-status-error/14 text-status-error'
-              : 'bg-status-warning/14 text-status-warning',
-          )}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <Glyph className="size-2.5" />
-        </span>
+        {projectId ? (
+          <button
+            type="button"
+            aria-label={attention.sentence}
+            data-testid={`workspace-attention-${workspaceId}`}
+            className={cn(className, 'cursor-pointer transition-colors', stopped ? 'hover:bg-status-error/28' : 'hover:bg-status-warning/28')}
+            onClick={(event) => {
+              event.stopPropagation();
+              openGlobalAppView(ARCHITECT_APP_ID, `projects/${projectId}`);
+            }}
+          >
+            <Glyph className="size-2.5" />
+          </button>
+        ) : (
+          <span
+            role="img"
+            tabIndex={0}
+            aria-label={attention.sentence}
+            data-testid={`workspace-attention-${workspaceId}`}
+            className={className}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <Glyph className="size-2.5" />
+          </span>
+        )}
       </TooltipTrigger>
       <TooltipContent side="right">{attention.sentence}</TooltipContent>
     </Tooltip>

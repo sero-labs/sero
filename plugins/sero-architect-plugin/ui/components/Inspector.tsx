@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Button } from '@sero-ai/ui';
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui';
 import type { ProjectRecord } from '../../shared/record';
 import type { ArchitectActions } from '../lib/actions';
 import { sharedCost } from '../lib/charts';
@@ -52,18 +52,20 @@ export function Inspector({ record, actions, onBack }: {
       <div className="ar-models-head">
         <Button variant="outline" size="sm" className="ar-btn" onClick={onBack}>Back to project</Button>
         <span className="ar-models-title">Run inspector · {record.name}</span>
-        <label className="ar-inspector-run">
+        <div className="ar-inspector-run">
           <span>View</span>
-          <select
-            value={selected}
-            onChange={(event) => { setSelected(event.target.value); setRange(null); clear(); }}
-          >
-            <option value={SHARED_ACTIVITY}>Shared activity</option>
-            {runs.map((run) => (
-              <option key={run.id} value={run.id}>{run.kind}{run.endedAt ? '' : ' (open)'} · {run.id}</option>
-            ))}
-          </select>
-        </label>
+          <Select value={selected} onValueChange={(value) => { setSelected(value); setRange(null); clear(); }}>
+            <SelectTrigger size="sm" aria-label="View" className="text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={SHARED_ACTIVITY}>Shared activity</SelectItem>
+              {runs.map((run) => (
+                <SelectItem key={run.id} value={run.id}>{run.kind}{run.endedAt ? '' : ' (open)'} · {run.id}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {notice && <p className="ar-error" role="alert">{notice}</p>}

@@ -1,11 +1,14 @@
 import { useAvailableModels } from '@sero-ai/app-runtime';
 import { MODEL_TIERS, modelKey, type ModelTier, type ThinkingLevel } from '@sero-ai/common';
 import { ChevronRight } from 'lucide-react';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@sero-ai/ui';
+import {
+  Collapsible, CollapsibleContent, CollapsibleTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@sero-ai/ui';
 
 import type { ModelChoice } from '../lib/actions';
 
-const GLOBAL = '';
+/** The "inherit the global selection" entry. The styled Select refuses an empty value. */
+const GLOBAL = '__global__';
 
 /**
  * Per-tier model overrides chosen before the project exists. Folded away by
@@ -48,29 +51,37 @@ export function IntakeModelOverrides({ choices, onChange, disabled }: {
                 <tr key={tier} data-override={current ? 1 : 0}>
                   <td className="ar-tier">{tier}</td>
                   <td>
-                    <select
-                      aria-label={`${tier} model`}
+                    <Select
                       value={current?.model ?? GLOBAL}
                       disabled={disabled}
-                      onChange={(event) => {
-                        const picked = options.find((option) => option.value === event.target.value);
+                      onValueChange={(value) => {
+                        const picked = options.find((option) => option.value === value);
                         if (!picked) { set(tier, null); return; }
                         const thinking = current?.thinking && picked.thinking.includes(current.thinking) ? current.thinking : picked.thinking[0];
                         set(tier, { tier, model: picked.value, ...(thinking ? { thinking } : {}) });
                       }}
                     >
-                      <option value={GLOBAL}>Global selection</option>
-                      {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
+                      <SelectTrigger size="sm" aria-label={`${tier} model`} className="text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={GLOBAL}>Global selection</SelectItem>
+                        {options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                     {entry && entry.thinking.length > 0 && (
-                      <select
-                        aria-label={`${tier} thinking level`}
+                      <Select
                         value={current?.thinking ?? entry.thinking[0]}
                         disabled={disabled}
-                        onChange={(event) => set(tier, { tier, model: entry.value, thinking: event.target.value as ThinkingLevel })}
+                        onValueChange={(value) => set(tier, { tier, model: entry.value, thinking: value as ThinkingLevel })}
                       >
-                        {entry.thinking.map((level) => <option key={level} value={level}>{level}</option>)}
-                      </select>
+                        <SelectTrigger size="sm" aria-label={`${tier} thinking level`} className="text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {entry.thinking.map((level) => <SelectItem key={level} value={level}>{level}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     )}
                   </td>
                 </tr>

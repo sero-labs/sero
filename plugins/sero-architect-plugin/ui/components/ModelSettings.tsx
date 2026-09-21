@@ -1,6 +1,6 @@
 import { useAvailableModels } from '@sero-ai/app-runtime';
 import { MODEL_TIERS, modelKey, type ModelTier, type SharedModelTierSettings, type ThinkingLevel } from '@sero-ai/common';
-import { Button } from '@sero-ai/ui';
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui';
 import { useEffect, useState } from 'react';
 
 import type { SelectionSource } from '../../shared/model-config';
@@ -15,6 +15,9 @@ const SOURCE_WORD: Record<SelectionSource, string> = {
   'owner-environment-pin': 'environment',
   'manual-pin': 'manual pin',
 };
+
+/** The picker's "no project choice" entry. The styled Select refuses an empty value. */
+const NONE = '__none__';
 
 interface ModelOption {
   value: string;
@@ -33,7 +36,7 @@ interface ModelOption {
  * where it came from, in the four columns the tiers use.
  */
 function OwnerRow({ record, runtimeRunning }: { record: ProjectRecord; runtimeRunning: boolean }) {
-  const { model, thinking, modelSource, modelOutranks } = record.session;
+  const { model, modelSource, modelOutranks } = record.session;
   if (!model) return null;
   // With the Architect off, what is on the record is the last reading, not a
   // live one, whichever rule produced it. Saying how it was chosen would claim
@@ -43,7 +46,7 @@ function OwnerRow({ record, runtimeRunning }: { record: ProjectRecord; runtimeRu
       <tr className="ar-tier-owner">
         <td className="ar-tier">OWNER</td>
         <td><span className="ar-tier-source">Last known</span></td>
-        <td><span className="ar-tier-effective">{model}<small>{thinking ?? 'medium'} thinking</small></span></td>
+        <td><span className="ar-tier-effective">{model}</span></td>
         <td><span className="ar-tier-source">{modelSource ? SOURCE_WORD[modelSource] : 'not recorded'}</span></td>
         <td />
       </tr>
@@ -58,7 +61,7 @@ function OwnerRow({ record, runtimeRunning }: { record: ProjectRecord; runtimeRu
       <td className="ar-tier">OWNER</td>
       <td><span className="ar-tier-source">{selection}</span></td>
       <td>
-        <span className="ar-tier-effective">{model}<small>{thinking ?? 'medium'} thinking</small></span>
+        <span className="ar-tier-effective">{model}</span>
       </td>
       <td>
         <span className="ar-tier-source">{modelSource ? SOURCE_WORD[modelSource] : 'not recorded'}</span>
@@ -159,12 +162,11 @@ export function ModelSettings({ record, actions, runtimeRunning, onBack }: {
               <tr key={tier} data-override={override ? 1 : 0}>
                 <td className="ar-tier">{tier}</td>
                 <td>
-                  <select
-                    aria-label={`${tier} project model`}
-                    value={selected}
+                  <Select
+                    value={selected || NONE}
                     disabled={gated}
-                    onChange={(event) => {
-                      const picked = options.find((option) => option.value === event.target.value);
+                    onValueChange={(value) => {
+                      const picked = options.find((option) => option.value === value);
                       if (!picked) return;
                       const thinking = (effective?.thinkingLevel && picked.thinking.includes(effective.thinkingLevel))
                         ? effective.thinkingLevel
@@ -172,27 +174,36 @@ export function ModelSettings({ record, actions, runtimeRunning, onBack }: {
                       void submit(tier, () => actions.setModelDefault(record.id, tier, picked.value, thinking));
                     }}
                   >
-                    <option value="">{inherited && globalsUnreadable ? 'Global' : 'Not selected'}</option>
-                    {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                  </select>
+                    <SelectTrigger size="sm" aria-label={`${tier} project model`} className="text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>{inherited && globalsUnreadable ? 'Global' : 'Not selected'}</SelectItem>
+                      {options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                   {entry && entry.thinking.length > 0 && (
-                    <select
-                      aria-label={`${tier} thinking level`}
+                    <Select
                       value={effective?.thinkingLevel ?? entry.thinking[0]}
                       disabled={gated}
-                      onChange={(event) => {
+                      onValueChange={(value) => {
                         void submit(tier, () => actions.setModelDefault(
-                          record.id, tier, selected, event.target.value as ThinkingLevel,
+                          record.id, tier, selected, value as ThinkingLevel,
                         ));
                       }}
                     >
-                      {entry.thinking.map((level) => <option key={level} value={level}>{level}</option>)}
-                    </select>
+                      <SelectTrigger size="sm" aria-label={`${tier} thinking level`} className="text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {entry.thinking.map((level) => <SelectItem key={level} value={level}>{level}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   )}
                 </td>
                 <td>
                   {effective ? (
-                    <span className="ar-tier-effective">{selected}<small>{effective.thinkingLevel ?? 'medium'} thinking</small></span>
+                    <span className="ar-tier-effective">{selected}</span>
                   ) : globalsUnreadable ? (
                     // The global selection is not missing; it is out of reach
                     // until the runtime starts, and starting it resolves this

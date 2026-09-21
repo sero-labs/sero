@@ -292,6 +292,8 @@ export interface WorkspaceAttention {
   state: AttentionClaim['state'];
   /** What needs the user, named and worded as its own app words it. */
   sentence: string;
+  /** The Architect project that raised it, so the icon can open that project. */
+  projectId?: string;
 }
 
 export function workspaceAttention(
@@ -304,7 +306,7 @@ export function workspaceAttention(
   for (const project of state.architect?.projects ?? []) {
     if (project.workspaceId !== workspaceId) continue;
     const found = named(project.name, projectAttention(project));
-    if (found) return found;
+    if (found) return { ...found, projectId: project.id };
   }
   const slice = state.slices[workspaceId];
   for (const loop of slice?.index?.loops ?? []) {

@@ -15,6 +15,17 @@ import { ActivityGlyphIcon } from "./ActivityWord";
 
 const CIRCUMFERENCE = 2 * Math.PI * 28;
 
+type HostShell = { showItemInFolder(path: string): Promise<void> };
+
+/**
+ * The host's shell bridge, when the page runs inside Sero. Despite its name,
+ * `showItemInFolder` opens the folder itself in Finder (the host calls
+ * `shell.openPath`), so the project folder opens rather than its parent.
+ */
+function hostShell(): HostShell | undefined {
+  return (window as Window & { sero?: { shell?: HostShell } }).sero?.shell;
+}
+
 export function SpendRing({
   spentUsd,
   capUsd,
@@ -180,7 +191,7 @@ export function StateLine({
               ? "no milestones yet"
               : `${counts.accepted} of ${counts.total} milestones accepted`}
           </span>
-          <code>{homeRelative(record.folder, home)}</code>
+          <FolderLink folder={record.folder} label={homeRelative(record.folder, home)} />
         </div>
         {record.stateLine && (
           <details className="ar-reported">
@@ -195,5 +206,16 @@ export function StateLine({
         incomplete={record.budget.incomplete !== false}
       />
     </section>
+  );
+}
+
+/** The project folder. It opens in Finder when the host can open it. */
+function FolderLink({ folder, label }: { folder: string; label: string }) {
+  const shell = hostShell();
+  if (!shell) return <code>{label}</code>;
+  return (
+    <button type="button" className="ar-folder" title="Open in Finder" onClick={() => void shell.showItemInFolder(folder)}>
+      <code>{label}</code>
+    </button>
   );
 }
