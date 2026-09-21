@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { GitBranch, GitFork, Loader2, Sparkles } from 'lucide-react';
 import type { CreatePullRequestResult, PullRequestPreview, PullRequestState } from '@sero-ai/common';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui/components/ui/select';
 import { seroBridge } from '../../store/sero-bridge';
 
 interface Feedback {
@@ -169,18 +170,20 @@ export function PullRequestPane({
           <>
             <div className="grid grid-cols-2 gap-2">
               <Field label="Source">
-                <select
-                  aria-label="Source branch"
+                <Select
                   value={sourceBranch}
-                  onChange={(event) => setSourceBranch(event.target.value)}
+                  onValueChange={setSourceBranch}
                   disabled={action === 'draft' || action === 'pr'}
-                  className={`${FIELD} disabled:opacity-40`}
                 >
-                  <option value="">Select branch</option>
-                  {prState.sourceBranches.map((branch) => (
-                    <option key={branch} value={branch}>{branch}</option>
-                  ))}
-                </select>
+                  <SelectTrigger size="sm" aria-label="Source branch" className={`${FIELD} data-[size=sm]:h-7 disabled:opacity-40`}>
+                    <SelectValue placeholder="Select branch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {prState.sourceBranches.map((branch) => (
+                      <SelectItem key={branch} value={branch}>{branch}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
               <Field label="Target">
                 <div className={`${FIELD} flex items-center gap-1`}>

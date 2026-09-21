@@ -1,4 +1,5 @@
 import { Checkbox } from '@sero-ai/ui/components/ui/checkbox';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@sero-ai/ui/components/ui/select';
 import type { LocalThinkingFormat } from '@/types/local-models';
 import { LocalProviderField } from './LocalProviderField';
 import { THINKING_FORMAT_OPTIONS } from './shared';
@@ -26,24 +27,22 @@ export function LocalProviderCompatSection({
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-[var(--border-subtle)] p-3">
       <LocalProviderField label="Thinking Request Format">
-        <select
-          aria-label="Thinking request format"
-          value={thinkingFormat}
-          onChange={(event) => onThinkingFormatChange(
-            event.target.value as LocalThinkingFormat,
-          )}
-          className="h-8 w-full rounded-md border border-[var(--border-subtle)] bg-[var(--bg-base)]
-            px-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]"
-        >
-          {commonFormats.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-          <optgroup label="Advanced formats">
-            {advancedFormats.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
+        <Select value={thinkingFormat} onValueChange={(value) => onThinkingFormatChange(value as LocalThinkingFormat)}>
+          <SelectTrigger size="sm" aria-label="Thinking request format" className="h-8 w-full border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 text-xs text-[var(--text-primary)]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {commonFormats.map((option) => (
+              <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
             ))}
-          </optgroup>
-        </select>
+            <SelectGroup>
+              <SelectLabel>Advanced formats</SelectLabel>
+              {advancedFormats.map((option) => (
+                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
         {thinkingFormat === 'qwen-chat-template' ? (
           <p className="text-sm text-[var(--text-muted)]">
             Uses Qwen chat template controls for SGLang and sends the model's mapped

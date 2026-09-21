@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { ModelThinkingLevel, ThinkingLevelMap } from '@earendil-works/pi-ai';
 import { ArrowLeft } from 'lucide-react';
 import { Checkbox } from '@sero-ai/ui/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui/components/ui/select';
 import type { LocalModelEntry, LocalThinkingFormat } from '@/types/local-models';
 import { LocalProviderField } from './LocalProviderField';
 
@@ -193,20 +194,22 @@ export function LocalModelEditor({
                     border-[var(--border-subtle)] px-3 py-1.5"
                 >
                   <span className="text-xs text-[var(--text-secondary)]">{label}</span>
-                  <select
-                    aria-label={`${label} provider value`}
-                    value={selectValue}
-                    onChange={(event) => updateThinkingLevel(value, event.target.value)}
-                    className="h-7 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-base)]
-                      px-2 text-xs text-[var(--text-primary)] outline-none
-                      focus:border-[var(--border-focus)]"
-                  >
-                    <option value="disabled">Disabled</option>
-                    {hasCustomValue ? <option value={mappedValue}>{mappedValue}</option> : null}
-                    {COMMON_PROVIDER_VALUES.map((providerValue) => (
-                      <option key={providerValue} value={providerValue}>{providerValue}</option>
-                    ))}
-                  </select>
+                  <Select value={selectValue} onValueChange={(next) => updateThinkingLevel(value, next)}>
+                    <SelectTrigger
+                      size="sm"
+                      aria-label={`${label} provider value`}
+                      className="h-7 border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 text-xs text-[var(--text-primary)]"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="disabled">Disabled</SelectItem>
+                      {hasCustomValue && typeof mappedValue === 'string' ? <SelectItem value={mappedValue}>{mappedValue}</SelectItem> : null}
+                      {COMMON_PROVIDER_VALUES.map((providerValue) => (
+                        <SelectItem key={providerValue} value={providerValue}>{providerValue}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               );
             })}

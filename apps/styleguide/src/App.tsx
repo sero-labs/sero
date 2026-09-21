@@ -11,6 +11,11 @@ import {
   CardHeader,
   CardTitle,
   Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Separator,
   Skeleton,
   Textarea,
@@ -111,16 +116,16 @@ function Header({ activeTheme, mode, onModeChange, onThemeChange, themeId }: Hea
       </div>
       <div className="flex flex-col gap-3 rounded-2xl border border-border bg-background p-3 lg:min-w-80">
         <label className="text-xs font-medium text-muted-foreground" htmlFor="theme-select">Theme preset</label>
-        <select
-          id="theme-select"
-          value={themeId}
-          onChange={(event) => onThemeChange(event.currentTarget.value)}
-          className="h-9 rounded-md border border-input bg-background px-3 text-base outline-none focus:border-ring"
-        >
-          {STYLEGUIDE_THEMES.map((theme) => (
-            <option key={theme.id} value={theme.id}>{theme.name}</option>
-          ))}
-        </select>
+        <Select value={themeId} onValueChange={onThemeChange}>
+          <SelectTrigger id="theme-select" className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {STYLEGUIDE_THEMES.map((theme) => (
+              <SelectItem key={theme.id} value={theme.id}>{theme.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <div className="flex gap-2">
           <Button variant={mode === 'light' ? 'default' : 'outline'} size="sm" onClick={() => onModeChange('light')}>
             <Sun className="size-4" />
