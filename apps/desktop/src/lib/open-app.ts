@@ -23,6 +23,24 @@ export function openApp(appId: string): void {
   useAppStore.getState().setActiveApp(appId);
 }
 
+/**
+ * Open one view of a global app, as one history entry. An app that is already
+ * showing records the view itself; any other app gets the view first, so it
+ * mounts on it and the history entry carries it.
+ */
+export function openGlobalAppView(appId: string, viewId: string): void {
+  const store = useAppStore.getState();
+  if (store.activeApp === appId) {
+    // A switch to another app may still be loading. Normal navigation cancels
+    // it; without this, it lands after the view opens and replaces it.
+    if (store.pendingApp) store.setActiveApp(appId);
+    store.setAppView(appId, 'global', viewId);
+    return;
+  }
+  store.setAppView(appId, 'global', viewId, { skipHistory: true });
+  store.setActiveApp(appId);
+}
+
 function canActivate(
   target: NavEntry,
   appIds: Set<string>,

@@ -20,7 +20,7 @@ import type {
   RunIndex,
   UsageSummary,
 } from '../shared/types';
-import { aggregateUsage, mergeUsage, reportedUsage } from '../shared/usage';
+import { aggregateUsage, lifetimeUsage, mergeUsage, reportedUsage } from '../shared/usage';
 import { isExhausted } from './scheduler';
 
 /** Step progress for the home overview, derived from the plan + step states. */
@@ -85,6 +85,11 @@ export function stripLoopForPersist(loop: Loop): Loop {
   return { ...loop, runs: [], revisions: [] };
 }
 
+/** One run's own total: its step attempts plus its auxiliary usage. */
+function runUsage(run: LoopRun): UsageSummary | undefined {
+  return mergeUsage(aggregateUsage(run.stepAttempts), run.auxiliaryUsage);
+}
+
 /** Compact summary of one run for the per-loop runs/index.json. */
 export function toRunSummary(run: LoopRun): RunIndex['runs'][number] {
   const activationSteps = run.stepActivations?.map((activation) => {
@@ -119,7 +124,7 @@ export function toRunSummary(run: LoopRun): RunIndex['runs'][number] {
       outcomeStatus: a.outcome?.status,
     })),
     recoveries: run.recoveryDecisions.map((d) => ({ decision: d.decision, reason: d.reason })),
-    usage: reportedUsage(mergeUsage(aggregateUsage(run.stepAttempts), run.auxiliaryUsage)),
+    usage: reportedUsage(runUsage(run)),
   };
 }
 
@@ -160,13 +165,9 @@ function toActiveStepTitles(loop: Loop): string[] | undefined {
   return titles.length > 0 ? titles : undefined;
 }
 
-/** Lifetime usage roll-up: sums the per-run roll-ups across all runs. */
+/** Lifetime usage roll-up, through the one derivation the limit check uses. */
 function toLifetimeUsage(loop: Loop): UsageSummary | undefined {
-  return mergeUsage(
-    loop.planningUsage,
-    loop.auxiliaryUsage,
-    ...loop.runs.map((run) => mergeUsage(aggregateUsage(run.stepAttempts), run.auxiliaryUsage)),
-  );
+  return lifetimeUsage(loop, loop.runs.map(runUsage));
 }
 
 /** Model of the most recent step attempt that reported one. */

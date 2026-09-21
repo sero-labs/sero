@@ -14,10 +14,14 @@ import {
   withQwenChatTemplateReasoningEffort,
 } from '@electron/shared/providers/qwen-chat-template-reasoning';
 
-const AGENT_DIR = '/tmp/sero-local-thinking-adapter-test';
+// A folder per run. A fixed path is shared with any other run on the machine,
+// and the runtime can still be writing into it when `afterAll` removes it.
+const { AGENT_DIR } = vi.hoisted(() => ({
+  AGENT_DIR: `${require('node:os').tmpdir()}/sero-local-thinking-adapter-${process.pid}-${Date.now()}`,
+}));
 
 vi.mock('@electron/platform/env', () => ({
-  SERO_AGENT_DIR: '/tmp/sero-local-thinking-adapter-test',
+  SERO_AGENT_DIR: AGENT_DIR,
 }));
 
 const model: Model<'openai-completions'> = {
@@ -64,7 +68,7 @@ describe('Qwen chat-template reasoning effort', () => {
   });
 
   afterAll(async () => {
-    await rm(AGENT_DIR, { recursive: true, force: true });
+    await rm(AGENT_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
   });
 
   it.each([

@@ -13,12 +13,11 @@ import type { ModelTier, SharedAvailableModelGroup, SharedModelInfo, SharedModel
 import { MODEL_TIERS, isThinkingLevel, modelKey } from '@sero-ai/common';
 
 import type { OrchestratorProjectContext, OrchestratorProjectModelSnapshot } from '@sero-ai/common';
-import { resolveEffectiveTiers, type ModelConfigSource, type TierSelectionSource } from '../shared/model-config';
+import { resolveEffectiveTiers, type ModelConfigSource, type SelectionSource } from '../shared/model-config';
 import { activeRun } from '../shared/runs';
 import type { ProjectRecord } from '../shared/record';
 
-/** Where a resolved selection came from. The UI shows this next to the model. */
-export type SelectionSource = TierSelectionSource | 'owner-environment-pin' | 'manual-pin';
+export type { SelectionSource };
 
 export interface ResolvedSelection {
   /** The tier this selection belongs to. Null for the owner's environment pin. */
@@ -27,6 +26,12 @@ export interface ResolvedSelection {
   model: string;
   thinking: ThinkingLevel;
   source: SelectionSource;
+  /**
+   * The tier this selection takes precedence over. Set only when something
+   * outside the tiers chose the model, so the page can say what it overrode
+   * rather than leaving the reader to infer it from the source alone.
+   */
+  outranks?: ModelTier;
   /** Short provenance for a UI or a journal record. */
   detail: string;
 }
@@ -151,6 +156,7 @@ export async function resolveOwnerSelection(
         model: checked.value.model,
         thinking: checked.value.thinking,
         source: 'owner-environment-pin',
+        outranks: 'MED',
         detail: 'SERO_ARCHITECT_MODEL overrides the project tier',
       },
     };

@@ -1,22 +1,92 @@
 import { useAvailableModels } from '@sero-ai/app-runtime';
 import { MODEL_TIERS, modelKey, type ModelTier, type SharedModelTierSettings, type ThinkingLevel } from '@sero-ai/common';
-import { Button } from '@sero-ai/ui';
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui';
 import { useEffect, useState } from 'react';
 
+import type { SelectionSource } from '../../shared/model-config';
 import type { ProjectRecord } from '../../shared/record';
 import type { ArchitectActions } from '../lib/actions';
+import { ActivityGlyphIcon } from './ActivityWord';
+
+/** What each source is called in the table's Source column. */
+const SOURCE_WORD: Record<SelectionSource, string> = {
+  'project-override': 'project',
+  'inherited-global': 'global',
+  'owner-environment-pin': 'environment',
+  'manual-pin': 'manual pin',
+};
+
+/** The picker's "no project choice" entry. The styled Select refuses an empty value. */
+const NONE = '__none__';
+
+interface ModelOption {
+  value: string;
+  label: string;
+  thinking: readonly ThinkingLevel[];
+}
+
+/**
+ * The owner as a row of the same table.
+ *
+ * It used to be one or two sentences under the table: "The owner is running
+ * gpt-5.6-luna with high thinking" followed by "An explicit owner environment
+ * pin outranks the MED tier", which the page printed whether or not a pin
+ * existed. The reader then had to work out how that related to the three tiers
+ * above it. The row states its selection, what it outranks, what runs and
+ * where it came from, in the four columns the tiers use.
+ */
+function OwnerRow({ record, runtimeRunning }: { record: ProjectRecord; runtimeRunning: boolean }) {
+  const { model, modelSource, modelOutranks } = record.session;
+  if (!model) return null;
+  // With the Architect off, what is on the record is the last reading, not a
+  // live one, whichever rule produced it. Saying how it was chosen would claim
+  // the rule still holds; the page cannot know that until the runtime starts.
+  if (!runtimeRunning) {
+    return (
+      <tr className="ar-tier-owner">
+        <td className="ar-tier">OWNER</td>
+        <td><span className="ar-tier-source">Last known</span></td>
+        <td><span className="ar-tier-effective">{model}</span></td>
+        <td><span className="ar-tier-source">{modelSource ? SOURCE_WORD[modelSource] : 'not recorded'}</span></td>
+        <td />
+      </tr>
+    );
+  }
+  const pinned = modelSource === 'owner-environment-pin';
+  const selection = pinned
+    ? `Pinned by the owner environment.${modelOutranks ? ` It outranks the ${modelOutranks} tier.` : ''}`
+    : `Follows the ${modelOutranks ?? 'MED'} tier.`;
+  return (
+    <tr className="ar-tier-owner">
+      <td className="ar-tier">OWNER</td>
+      <td><span className="ar-tier-source">{selection}</span></td>
+      <td>
+        <span className="ar-tier-effective">{model}</span>
+      </td>
+      <td>
+        <span className="ar-tier-source">{modelSource ? SOURCE_WORD[modelSource] : 'not recorded'}</span>
+      </td>
+      <td />
+    </tr>
+  );
+}
 
 /**
  * Project model defaults (spec architect-model-overrides).
  *
- * One row per tier. A tier without an override inherits the global selection,
- * and clearing it restores that inheritance. The effective model, its thinking
- * level and the source are always shown, so a tier label never stands in for
- * the model that will actually run.
+ * One row per tier, and the owner as a fourth. A tier without an override
+ * inherits the global selection, and clearing it restores that inheritance.
+ *
+ * A tier that inherits says so even when the global cannot be read. It used to
+ * read "Not selected · choose a model to run work" with the Architect off,
+ * which asked the user to fix something that was neither missing nor theirs:
+ * the selection exists on the host, and the page simply could not reach it.
  */
-export function ModelSettings({ record, actions, onBack }: {
+export function ModelSettings({ record, actions, runtimeRunning, onBack }: {
   record: ProjectRecord;
   actions: ArchitectActions;
+  /** Whether the Architect runtime is running in this session. */
+  runtimeRunning: boolean;
   onBack(): void;
 }) {
   const { groups } = useAvailableModels();
@@ -43,6 +113,9 @@ export function ModelSettings({ record, actions, onBack }: {
   }, [actions, record.id]);
 
   const gated = globals === null || busy !== null;
+  // Reading the globals failed, so an inherited tier's model is unknown here.
+  // That is not the same as the project having chosen nothing.
+  const globalsUnreadable = globals === null && notice !== null;
 
   const submit = async (tier: ModelTier, run: () => Promise<{ ok: boolean; text: string }>) => {
     setBusy(tier);
@@ -55,6 +128,12 @@ export function ModelSettings({ record, actions, onBack }: {
     }
   };
 
+  const options: ModelOption[] = groups.flatMap((group) => group.models.map((model) => ({
+    value: modelKey(model.provider, model.modelId),
+    label: model.name,
+    thinking: model.availableThinkingLevels ?? [],
+  })));
+
   return (
     <div className="ar-body">
       <div className="ar-models-head">
@@ -64,6 +143,8 @@ export function ModelSettings({ record, actions, onBack }: {
       </div>
 
       {globals === null && notice === null && <p className="ar-why">Reading the current model defaults…</p>}
+      {/* The refusal itself stays: it says what went wrong. Each tier below
+          then says what that means for it. */}
       {notice !== null && <p className="ar-notice" role="status">{notice}</p>}
 
       <table className="ar-tiers">
@@ -75,23 +156,17 @@ export function ModelSettings({ record, actions, onBack }: {
             const override = overrides[tier];
             const effective = override ?? (globals ?? {})[tier];
             const inherited = !override;
-            const options = groups.flatMap((group) => group.models.map((model) => ({
-              value: modelKey(model.provider, model.modelId),
-              label: model.name,
-              thinking: model.availableThinkingLevels ?? [],
-            })));
             const selected = effective ? modelKey(effective.provider, effective.modelId) : '';
             const entry = options.find((option) => option.value === selected);
             return (
               <tr key={tier} data-override={override ? 1 : 0}>
                 <td className="ar-tier">{tier}</td>
                 <td>
-                  <select
-                    aria-label={`${tier} project model`}
-                    value={selected}
+                  <Select
+                    value={selected || NONE}
                     disabled={gated}
-                    onChange={(event) => {
-                      const picked = options.find((option) => option.value === event.target.value);
+                    onValueChange={(value) => {
+                      const picked = options.find((option) => option.value === value);
                       if (!picked) return;
                       const thinking = (effective?.thinkingLevel && picked.thinking.includes(effective.thinkingLevel))
                         ? effective.thinkingLevel
@@ -99,31 +174,51 @@ export function ModelSettings({ record, actions, onBack }: {
                       void submit(tier, () => actions.setModelDefault(record.id, tier, picked.value, thinking));
                     }}
                   >
-                    <option value="">Not selected</option>
-                    {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                  </select>
+                    <SelectTrigger size="sm" aria-label={`${tier} project model`} className="text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>{inherited && globalsUnreadable ? 'Global' : 'Not selected'}</SelectItem>
+                      {options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                   {entry && entry.thinking.length > 0 && (
-                    <select
-                      aria-label={`${tier} thinking level`}
+                    <Select
                       value={effective?.thinkingLevel ?? entry.thinking[0]}
                       disabled={gated}
-                      onChange={(event) => {
+                      onValueChange={(value) => {
                         void submit(tier, () => actions.setModelDefault(
-                          record.id, tier, selected, event.target.value as ThinkingLevel,
+                          record.id, tier, selected, value as ThinkingLevel,
                         ));
                       }}
                     >
-                      {entry.thinking.map((level) => <option key={level} value={level}>{level}</option>)}
-                    </select>
+                      <SelectTrigger size="sm" aria-label={`${tier} thinking level`} className="text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {entry.thinking.map((level) => <SelectItem key={level} value={level}>{level}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   )}
                 </td>
                 <td>
-                  {effective
-                    ? <span className="ar-tier-effective">{selected}<small>{effective.thinkingLevel ?? 'medium'} thinking</small></span>
-                    : <span className="ar-tier-effective">Not selected<small>choose a model to run work</small></span>}
+                  {effective ? (
+                    <span className="ar-tier-effective">{selected}</span>
+                  ) : globalsUnreadable ? (
+                    // The global selection is not missing; it is out of reach
+                    // until the runtime starts, and starting it resolves this
+                    // without the user choosing anything. The glyph is the one
+                    // the rest of the app uses for a last-known reading.
+                    <span className="ar-tier-unread">
+                      <ActivityGlyphIcon state="last-known" />
+                      Global, cannot be read while Architect is off
+                    </span>
+                  ) : (
+                    <span className="ar-tier-effective">Not selected<small>choose a model to run work</small></span>
+                  )}
                 </td>
                 <td>
-                  <span className="ar-tier-source">{inherited ? 'inherited global' : 'project override'}</span>
+                  <span className="ar-tier-source">{inherited ? 'global' : 'project'}</span>
                 </td>
                 <td>
                   <Button
@@ -139,21 +234,20 @@ export function ModelSettings({ record, actions, onBack }: {
               </tr>
             );
           })}
+          <OwnerRow record={record} runtimeRunning={runtimeRunning} />
         </tbody>
       </table>
 
-      <p className="ar-models-note">
-        Saving affects new dispatches, new direct calls and the next idle owner turn.
-        It does not change a turn that is already running, and it does not change the
-        defaults of a Workflow or Room that was already created.
-      </p>
-      {record.session.model && (
+      {/* One disclosure, once. The same rules used to sit beside the table as a
+          paragraph every visit had to read past. */}
+      <details className="ar-models-when">
+        <summary>When a change takes effect</summary>
         <p className="ar-models-note">
-          The owner is running {record.session.model}
-          {record.session.thinking ? ` with ${record.session.thinking} thinking` : ''}.
-          An explicit owner environment pin outranks the MED tier.
+          Saving affects new dispatches, new direct calls and the next idle owner turn.
+          It does not change a turn that is already running, and it does not change the
+          defaults of a Workflow or Room that was already created.
         </p>
-      )}
+      </details>
     </div>
   );
 }

@@ -120,6 +120,11 @@
 .ar-stateline-main { flex: 1; min-width: 0; padding: 16px 18px; overflow-wrap: anywhere; }
 .ar-sentence { font-size: 17px; line-height: 1.25; letter-spacing: -.02em; font-weight: 600; color: var(--text-primary); max-width: 780px; }
 .ar-stateline-who { display: flex; align-items: center; gap: 7px; margin-top: 9px; color: var(--ar-text-3); font-size: 12px; line-height: 1.45; }
+/* The controls that fix what the heading says, on one row beside it. */
+.ar-act-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 11px; }
+.ar-act-row .ar-cap { margin-top: 0; }
+/* Why the work stopped. Quiet, under the owner line, never a colour of its own. */
+.ar-stateline-why { margin-top: 5px; color: var(--ar-text-3); font-size: 12px; line-height: 1.45; }
 .ar-act-btn { margin-top: 11px; }
 
 /* the phase rail: a 3px bar over each label, the current one named */
@@ -134,6 +139,9 @@
 
 .ar-meta { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; color: var(--ar-text-3); font-size: 11px; }
 .ar-meta code { font: 11px var(--font-mono); }
+/* The project folder opens in Finder: a pointer and a lighter tone say so. */
+.ar-folder { padding: 0; border: 0; background: none; color: inherit; cursor: pointer; }
+.ar-folder:hover { color: var(--ar-text-2); text-decoration: underline; text-underline-offset: 3px; }
 
 /* spend: its own column, divided from the header and shaded */
 .ar-ring { flex: 0 0 240px; display: flex; align-items: center; justify-content: center; gap: 14px; padding: 16px; border-left: 1px solid var(--ar-line); background: var(--bg-elevated); }
@@ -330,20 +338,14 @@
 .ar-tiers td { padding: 10px; border-bottom: 1px solid var(--ar-line); vertical-align: middle; }
 .ar-tiers tr:last-child td { border-bottom: 0; }
 .ar-tiers tr[data-override="1"] .ar-tier { color: var(--ar-ok); }
-.ar-tiers select {
-  height: 28px; max-width: 190px; margin-right: 6px; padding: 0 8px;
-  border: 1px solid var(--ar-line-strong); border-radius: 6px;
-  background: var(--bg-base); color: var(--text-primary); font-size: 12px;
-}
+.ar-tiers [data-slot="select-trigger"] { display: inline-flex; max-width: 190px; margin-right: 6px; vertical-align: middle; }
 .ar-tier { font-family: var(--font-mono, monospace); font-weight: 600; }
 .ar-tier-effective { display: grid; gap: 2px; color: var(--text-primary); }
-.ar-tier-effective small { color: var(--ar-text-3); font-size: 11px; }
 .ar-tier-source { color: var(--ar-text-3); font-size: 11px; }
 
 /* ── Run inspector (spec architect-run-observability) ───────────────────── */
 .ar-inspector { display: grid; gap: 12px; }
 .ar-inspector-run { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ar-text-3); }
-.ar-inspector-run select { background: var(--bg-base); color: var(--text-primary); border: 1px solid var(--ar-line); border-radius: 6px; padding: 3px 6px; font-size: 12px; }
 .ar-inspector-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
 .ar-inspector-tiles > div {
   display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--ar-line); border-radius: 10px;
@@ -442,3 +444,18 @@
 .ar-intake-models .ar-tiers { border: 1px solid var(--ar-line); border-radius: 8px; }
 .ar-intake-models .ar-tiers td:first-child { width: 64px; padding-left: 14px; }
 .ar-intake .ar-foot { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
+
+/* The owner's row on the project models table. It is the same table, so it
+   keeps the same type; only the tier label is quieter, because OWNER is not a
+   tier the user picks from. */
+.ar-tiers tr.ar-tier-owner td { border-top: 1px solid var(--ar-line); }
+.ar-tiers tr.ar-tier-owner .ar-tier { color: var(--ar-text-2); }
+
+/* When a saved change takes effect. One disclosure under the table. */
+.ar-models-when { margin-top: 16px; }
+.ar-models-when summary { color: var(--ar-text-3); font-size: 12px; cursor: pointer; }
+.ar-models-when .ar-models-note { margin-top: 8px; }
+
+/* A tier whose global selection is out of reach: the last-known glyph and one
+   line, as the approved drawing sets it. */
+.ar-tier-unread { display: inline-flex; align-items: center; gap: 8px; color: var(--ar-text-2); }

@@ -1,6 +1,8 @@
+import type { ReactNode } from "react";
 import type { ProjectRecord } from "../../shared/record";
 import {
   PHASES,
+  headerSentences,
   homeRelative,
   money,
   spendRatio,
@@ -10,9 +12,19 @@ import { Button } from "@sero-ai/ui";
 import { relativeTime, sessionStartedAt } from "@sero-ai/common";
 import { milestoneCounts, projectActivity } from "../../shared/activity";
 import { ActivityGlyphIcon } from "./ActivityWord";
-import { ownerSentence } from "../lib/format";
 
 const CIRCUMFERENCE = 2 * Math.PI * 28;
+
+type HostShell = { showItemInFolder(path: string): Promise<void> };
+
+/**
+ * The host's shell bridge, when the page runs inside Sero. Despite its name,
+ * `showItemInFolder` opens the folder itself in Finder (the host calls
+ * `shell.openPath`), so the project folder opens rather than its parent.
+ */
+function hostShell(): HostShell | undefined {
+  return (window as Window & { sero?: { shell?: HostShell } }).sero?.shell;
+}
 
 export function SpendRing({
   spentUsd,
@@ -67,11 +79,19 @@ export function SpendRing({
 export interface HeaderAction {
   label: string;
   run(): void;
+  /** The action the state is really asking for. At most one per state. */
+  primary?: boolean;
 }
 
 /**
  * The top of a project: the state in plain words, the same activity line the
- * list shows, and one button when something needs the user.
+ * list shows, and the controls that fix it beside that sentence.
+ *
+ * The controls are here because the thing that stopped the work and the thing
+ * that fixes it belong together: the cap strip used to be two cards further
+ * down, under a heading that said nothing needed the user. Everything offered
+ * here also exists where it did before, so nothing is only reachable from the
+ * header.
  *
  * The Architect's own sentence is complete under "What Architect reported". It
  * used to be the heading, which is how a paragraph the owner wrote to itself
@@ -80,13 +100,16 @@ export interface HeaderAction {
 export function StateLine({
   record,
   home,
-  action,
+  actions,
+  form,
   runtimeRunning,
 }: {
   record: ProjectRecord;
   home: string | null;
-  /** The one action this state asks for, when it asks for one. */
-  action?: HeaderAction | null;
+  /** What this state asks the user to do. Empty when it asks nothing. */
+  actions?: readonly HeaderAction[];
+  /** A control that needs a value before it can run, such as the new cap. */
+  form?: ReactNode;
   /** Whether the Architect runtime is running in this session. */
   runtimeRunning: boolean;
 }) {
@@ -95,6 +118,7 @@ export function StateLine({
     "dispatch state could not be confirmed after restart:",
   );
   const activity = projectActivity(record, { sessionStartedAt: sessionStartedAt(), runtimeRunning });
+  const lines = headerSentences(activity);
   const counts = milestoneCounts(record);
   return (
     <section
@@ -110,12 +134,26 @@ export function StateLine({
             the same words twice. */}
         <p className="ar-stateline-who">
           <ActivityGlyphIcon state={activity.state} />
-          <span>{ownerSentence(activity)}</span>
+          <span>{lines.owner}</span>
         </p>
-        {action && (
-          <Button size="sm" className="ar-btn ar-btn-sm ar-btn-solid ar-act-btn" onClick={action.run}>
-            {action.label}
-          </Button>
+        {/* Why the work stopped, when the record saved a cause. It used to sit
+            among the project's history entries, so the page said a Room was
+            cancelled without ever saying why. */}
+        {lines.reason && <p className="ar-stateline-why">{lines.reason}</p>}
+        {(form || (actions && actions.length > 0)) && (
+          <div className="ar-act-row">
+            {form}
+            {actions?.map((item) => (
+              <Button
+                key={item.label}
+                size="sm"
+                className={`ar-btn ar-btn-sm ${item.primary ? 'ar-btn-solid' : ''} ar-act-btn`}
+                onClick={item.run}
+              >
+                {item.label}
+              </Button>
+            ))}
+          </div>
         )}
         {record.blockedReason && unlinked && (
           <div role="alert">
@@ -153,7 +191,7 @@ export function StateLine({
               ? "no milestones yet"
               : `${counts.accepted} of ${counts.total} milestones accepted`}
           </span>
-          <code>{homeRelative(record.folder, home)}</code>
+          <FolderLink folder={record.folder} label={homeRelative(record.folder, home)} />
         </div>
         {record.stateLine && (
           <details className="ar-reported">
@@ -168,5 +206,16 @@ export function StateLine({
         incomplete={record.budget.incomplete !== false}
       />
     </section>
+  );
+}
+
+/** The project folder. It opens in Finder when the host can open it. */
+function FolderLink({ folder, label }: { folder: string; label: string }) {
+  const shell = hostShell();
+  if (!shell) return <code>{label}</code>;
+  return (
+    <button type="button" className="ar-folder" title="Open in Finder" onClick={() => void shell.showItemInFolder(folder)}>
+      <code>{label}</code>
+    </button>
   );
 }

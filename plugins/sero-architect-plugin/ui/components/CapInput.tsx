@@ -10,6 +10,8 @@ export interface CapInputProps {
   /** Unique per instance: two cap forms can be on the page at once. */
   inputId: string;
   submitLabel: string;
+  /** Words before the amount, e.g. "New cap". The `$` follows them. */
+  label?: string;
   onRaise(capUsd: number): Promise<ActionOutcome>;
   /** Given the refusal text when the runtime rejects the new cap. */
   onError(text: string): void;
@@ -17,7 +19,7 @@ export interface CapInputProps {
 }
 
 /** The one number field that raises a cost cap. Electron has no window.prompt. */
-export function CapInput({ cap, inputId, submitLabel, onRaise, onError, onDone }: CapInputProps) {
+export function CapInput({ cap, inputId, submitLabel, label, onRaise, onError, onDone }: CapInputProps) {
   const [value, setValue] = useState(String(suggestedCap(cap)));
   const [busy, setBusy] = useState(false);
   const floor = cap ?? 0;
@@ -44,7 +46,7 @@ export function CapInput({ cap, inputId, submitLabel, onRaise, onError, onDone }
         void raise();
       }}
     >
-      <label className="ar-mono" htmlFor={inputId}>$</label>
+      <label className="ar-mono" htmlFor={inputId}>{label ? `${label} $` : '$'}</label>
       <input
         id={inputId}
         type="number"

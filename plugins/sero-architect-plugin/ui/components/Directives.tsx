@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type RefObject } from 'react';
 import { Button } from '@sero-ai/ui';
 import { Compass, Send } from 'lucide-react';
 
@@ -15,6 +15,11 @@ export interface DirectivesProps {
 export interface DirectiveComposerProps {
   disabled: boolean;
   onSend(text: string): Promise<ActionOutcome>;
+  /**
+   * Focused by "Tell Architect what to do next" in the project header. That
+   * control is a way into this box, not a second way to send a directive.
+   */
+  inputRef?: RefObject<HTMLTextAreaElement | null>;
 }
 
 /** The latest directive and its reply. Older ones live in the side column. */
@@ -44,7 +49,7 @@ export function Directives({ record }: DirectivesProps) {
   );
 }
 
-export function DirectiveComposer({ disabled: phaseDisabled, onSend }: DirectiveComposerProps) {
+export function DirectiveComposer({ disabled: phaseDisabled, onSend, inputRef }: DirectiveComposerProps) {
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +79,7 @@ export function DirectiveComposer({ disabled: phaseDisabled, onSend }: Directive
         }}
       >
         <textarea
+          ref={inputRef}
           rows={1}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}

@@ -24,7 +24,10 @@ vi.mock('@sero-ai/ui/components/ui/input', () => ({
 }));
 
 vi.mock('../components/LoopDetail', () => ({
-  LoopDetail: ({ loop }: { loop: { title: string } }) => <div>detail of {loop.title}</div>,
+  // The detail draws the top row, so it owns the way back the page hands it.
+  LoopDetail: ({ loop, onBack }: { loop: { title: string }; onBack: () => void }) => (
+    <div><button type="button" onClick={onBack}>← Workflows</button>detail of {loop.title}</div>
+  ),
 }));
 
 const LONG_TITLE = 'End-to-end resilience and release verification';
@@ -120,6 +123,7 @@ describe('the Workflow page', () => {
       root.render(
         <WorkflowPage
           loop={{ id: 'loop-1', title: LONG_TITLE } as never}
+          summary={null}
           busy={false}
           onAction={() => {}}
           onDispatch={async () => null}
@@ -143,6 +147,7 @@ describe('the Workflow page', () => {
       root.render(
         <WorkflowPage
           loop={null}
+          summary={null}
           busy={false}
           onAction={() => {}}
           onDispatch={async () => null}

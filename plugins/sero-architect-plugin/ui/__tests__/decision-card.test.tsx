@@ -65,11 +65,14 @@ describe('the decision card', () => {
 });
 
 describe('the needs-you section', () => {
-  it('says nothing is needed on a quiet build and shows the card when a decision is open', () => {
+  it('is absent on a quiet build, and returns with its card when a decision opens', () => {
+    // It used to say nothing three times: a heading, a "none" count and a card
+    // reading "You have nothing to review."
     const actions = { answer: vi.fn(), approveCharter: vi.fn(), approveMilestone: vi.fn() };
     act(() => root.render(<NeedsYou record={FIXTURES.build!} actions={actions} />));
-    expect(container.querySelector('.ar-quiet')?.textContent).toContain('You have nothing to review.');
+    expect(container.querySelector('.ar-sec-head')).toBeNull();
     expect(container.querySelector('.ar-decision')).toBeNull();
+    expect(container.textContent).toBe('');
 
     act(() => root.render(<NeedsYou record={FIXTURES.decision!} actions={actions} />));
     expect(container.querySelector('.ar-decision')).not.toBeNull();

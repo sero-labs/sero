@@ -46,7 +46,7 @@ describe('durable worker usage', () => {
     const restarted = reconcileLoop(host, saved);
     expect(restarted.runs[0].stepAttempts.every((attempt) => attempt.status === 'orphaned')).toBe(true);
     expect(aggregateUsage(restarted.runs[0].stepAttempts)).toEqual(liveUsage);
-    const summary = summarizeLoopUsage([toRunSummary(restarted.runs[0])], loop.limits);
+    const summary = summarizeLoopUsage(restarted, [toRunSummary(restarted.runs[0])]);
     expect(formatLoopUsage(summary!)).toContain('usage incomplete');
 
     release();

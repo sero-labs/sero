@@ -101,6 +101,15 @@ async function waitForFile(filePath: string): Promise<void> {
   throw new Error(`Timed out waiting for ${filePath}`);
 }
 
+/** Wait until a capture file holds `bytes` bytes. */
+async function waitForSize(filePath: string, bytes: number): Promise<void> {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    if (fs.existsSync(filePath) && fs.statSync(filePath).size === bytes) return;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  throw new Error(`Timed out waiting for ${filePath} to hold ${bytes} bytes`);
+}
+
 function createCapture(options: Partial<OutputCaptureOptions> = {}): OutputCapture {
   return new OutputCapture({ producerSessionId: 'session-a', captureId: 'capture-1', ...options });
 }
@@ -447,9 +456,14 @@ describe('OutputCapture', () => {
   it('reports incomplete instead of complete for a capture removed while it ran', async () => {
     const root = tempRoot();
     const capture = createCapture({ captureRoot: root, captureId: 'capture-removed' });
-    send(capture, 'output that a sweep must not orphan\n');
-    const combinedPath = path.join(capture.directoryPath, 'combined.log');
-    await waitForFile(combinedPath);
+    const text = 'output that a sweep must not orphan\n';
+    send(capture, text);
+    // Both files must hold every byte before the removal. Removed while the
+    // stdout write is still in flight, that write fails instead, and the
+    // record names the write failure rather than the missing file.
+    for (const name of ['combined.log', 'stdout.log']) {
+      await waitForSize(path.join(capture.directoryPath, name), Buffer.byteLength(text));
+    }
     fs.rmSync(capture.directoryPath, { recursive: true, force: true });
 
     const record = await capture.finish();

@@ -76,6 +76,27 @@ describe('owner session', () => {
     expect(result.record.milestones).toEqual(record.milestones);
   });
 
+  it('saves which rule chose the owner model, and the tier it outranks', async () => {
+    // The project models page states the owner as a row of its tier table, so
+    // the record has to carry more than the model name: without the source it
+    // could only guess whether a pin or the MED tier chose it.
+    const host = await fakeHost();
+    const inherited = await chooseOwnerModel(host);
+    expect(inherited.source).toBe('inherited-global');
+    expect(inherited.outranks).toBeUndefined();
+
+    const original = await host.listModels();
+    host.listModels = async () => [...original, { provider: 'openai-codex', displayName: 'Codex', logo: '', models: [{ provider: 'openai-codex', modelId: 'gpt-test', name: 'GPT', reasoning: true, availableThinkingLevels: ['low', 'high'] }] }];
+    host.env.SERO_ARCHITECT_MODEL = 'openai-codex/gpt-test:high';
+    const pinned = await chooseOwnerModel(host);
+    expect(pinned).toEqual({
+      model: 'openai-codex/gpt-test',
+      thinking: 'high',
+      source: 'owner-environment-pin',
+      outranks: 'MED',
+    });
+  });
+
   it('refuses a missing selected model even when the same provider has alternatives', async () => {
     const host = await fakeHost();
     host.env.SERO_ARCHITECT_MODEL = 'anthropic/retired-model';
@@ -96,7 +117,9 @@ describe('owner session', () => {
     it('uses the project MED override rather than the global MED', async () => {
       const host = await fakeHost();
       const record = await withProjectOverride(host);
-      await expect(chooseOwnerModel(host, record)).resolves.toEqual({ model: 'openai-codex/gpt-test', thinking: 'high' });
+      await expect(chooseOwnerModel(host, record)).resolves.toEqual({
+        model: 'openai-codex/gpt-test', thinking: 'high', source: 'project-override',
+      });
       // Without the record the global selections still resolve as before.
       const global = await chooseOwnerModel(host);
       expect(global.model).not.toBe('openai-codex/gpt-test');
@@ -106,7 +129,9 @@ describe('owner session', () => {
       const host = await fakeHost();
       const record = await withProjectOverride(host);
       host.env.SERO_ARCHITECT_MODEL = 'anthropic/claude-fable-5-1:low';
-      await expect(chooseOwnerModel(host, record)).resolves.toEqual({ model: 'anthropic/claude-fable-5-1', thinking: 'low' });
+      await expect(chooseOwnerModel(host, record)).resolves.toEqual({
+        model: 'anthropic/claude-fable-5-1', thinking: 'low', source: 'owner-environment-pin', outranks: 'MED',
+      });
     });
 
     it('refuses an unavailable project override without switching provider', async () => {
@@ -133,13 +158,17 @@ describe('owner session', () => {
     const original = await host.listModels();
     host.listModels = async () => [...original, { provider: 'openai-codex', displayName: 'Codex', logo: '', models: [{ provider: 'openai-codex', modelId: 'gpt-test', name: 'GPT', reasoning: true, availableThinkingLevels: ['low', 'high'] }] }];
     host.modelTiers = async () => ({ MED: { provider: 'openai-codex', modelId: 'gpt-test', thinkingLevel: 'low' } });
-    expect(await chooseOwnerModel(host)).toEqual({ model: 'openai-codex/gpt-test', thinking: 'low' });
+    expect(await chooseOwnerModel(host)).toEqual({
+      model: 'openai-codex/gpt-test', thinking: 'low', source: 'inherited-global',
+    });
     host.env.SERO_ARCHITECT_MODEL = 'openai-codex/gpt-test:high';
-    expect(await chooseOwnerModel(host)).toEqual({ model: 'openai-codex/gpt-test', thinking: 'high' });
+    expect(await chooseOwnerModel(host)).toEqual({
+      model: 'openai-codex/gpt-test', thinking: 'high', source: 'owner-environment-pin', outranks: 'MED',
+    });
   });
 
   it('proposes a grant naming only the platform tools and sero-cli, pinned to the project folder', () => {
-    const proposal = ownerGrantProposal(buildingProject(), { model: 'anthropic/claude-fable-5-1', thinking: 'medium' });
+    const proposal = ownerGrantProposal(buildingProject(), { model: 'anthropic/claude-fable-5-1', thinking: 'medium', source: 'inherited-global' });
     expect(proposal.workspaceId).toBe('ws-1');
     expect(proposal.maxLiveSessions).toBe(1);
     const owner = proposal.subjects.owner!;

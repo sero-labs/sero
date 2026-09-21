@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Button } from '@sero-ai/ui';
 
 import { sessionStartedAt } from '@sero-ai/common';
@@ -8,7 +8,6 @@ import type { ActionOutcome, ArchitectActions, SessionHistoryEntry } from './lib
 import { openDispatch } from './lib/page-helpers';
 import { CapInput } from './components/CapInput';
 import { DirectiveComposer, Directives } from './components/Directives';
-import { LimitBanner } from './components/LimitBanner';
 import { MilestoneRail } from './components/MilestoneRail';
 import { NeedsYou } from './components/NeedsYou';
 import { ProjectResearch } from './components/ProjectResearch';
@@ -142,7 +141,6 @@ function ProjectMainColumn({ record, actions, needsActions, permissionPending, o
         <IntakeSetup record={record} actions={actions} permissionPending={permissionPending} onNotice={onNotice} />
       ) : (
         <>
-          <LimitBanner record={record} onRaise={(capUsd) => actions.raiseCap(id, capUsd)} />
           <NeedsYou record={record} actions={needsActions} />
           {record.blockedReason && record.milestones.some((item) => item.pendingDispatch) && <RepairCard projectId={id} />}
         </>
@@ -162,41 +160,65 @@ function ProjectMainColumn({ record, actions, needsActions, permissionPending, o
 }
 
 /**
- * The one action the header offers, and what it runs.
+ * What the header offers, and what each control runs.
  *
- * It is the same action the projects list names, so a user reading either sees
- * one thing to do. Retry step is lifted here from the milestone rail: both
- * start the same retry.
+ * Each is the same action the rest of the page already has, so nothing is only
+ * reachable here: Retry step is the milestone rail's control, Open Room is the
+ * research card's, and "Tell Architect what to do next" puts the cursor in the
+ * directive box at the foot of the page rather than sending anything itself.
  */
-function useHeaderAction(
+function useHeaderActions(
   record: ProjectRecord,
   actions: ArchitectActions,
   runtimeRunning: boolean,
-  raiseCap: () => void,
-): HeaderAction | null {
+  focusDirective: () => void,
+): HeaderAction[] {
   const activity = projectActivity(record, { sessionStartedAt: sessionStartedAt(), runtimeRunning });
-  if (!activity.action) return null;
+
+  // The cap is not a button: it needs a number, so the header carries the
+  // field instead and this returns nothing for it.
+  if (activity.action === 'Raise the cap') return [];
+
+  // Delegated work that stopped without reporting. The Room is worth opening,
+  // and the Architect needs telling what to do instead.
+  const blocked = record.blockedOn;
+  if (blocked && record.workspaceId) {
+    const { kind, id, workspaceId } = { ...blocked, workspaceId: record.workspaceId };
+    return [
+      { label: kind === 'room' ? 'Open Room' : 'Open Workflow', primary: true, run: () => openDispatch({ kind, id, workspaceId }) },
+      { label: 'Tell Architect what to do next', run: focusDirective },
+    ];
+  }
+
+  if (!activity.action) return [];
+
   const stopped = record.milestones.find((milestone) => milestone.dispatch?.failure && milestone.dispatch.retryStepId);
   if (activity.action === 'Retry the step' && stopped) {
-    return { label: 'Retry step', run: () => void actions.retry(record.id, stopped.id) };
-  }
-  if (activity.action === 'Raise the cap') {
-    return { label: 'Raise the cap', run: raiseCap };
+    return [{ label: 'Retry step', primary: true, run: () => void actions.retry(record.id, stopped.id) }];
   }
   const room = record.milestones.find((milestone) => milestone.dispatch?.kind === 'room' && milestone.dispatch.failure);
   if (activity.action === 'Open the Room to answer' && room?.dispatch) {
     const { kind, id, workspaceId } = room.dispatch;
-    return { label: 'Open Room to answer', run: () => openDispatch({ kind, id, workspaceId }) };
+    return [{ label: 'Open Room to answer', primary: true, run: () => openDispatch({ kind, id, workspaceId }) }];
   }
   // An open decision keeps its control: the Needs You card sits right under
   // this header with its answer, so a second button would be the same one twice.
-  return null;
+  return [];
 }
 
 export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOpenModels, onOpenInspector, confirm, runtimeRunning, permissionPending = false }: ProjectPageProps) {
   const id = record.id;
   const page = useProjectPageControls(record, actions, onBack, confirm, onOpenModels, onOpenInspector);
-  const headerAction = useHeaderAction(record, actions, runtimeRunning, page.controls.raiseCap);
+  // Focusing a node is an external side effect, so it is a ref and a call, not
+  // derived state. The header's "Tell Architect what to do next" runs it.
+  const directiveRef = useRef<HTMLTextAreaElement>(null);
+  // Focusing the box scrolls it into view on its own, so there is nothing else
+  // to do here.
+  const focusDirective = useCallback(() => directiveRef.current?.focus(), []);
+  const headerActions = useHeaderActions(record, actions, runtimeRunning, focusDirective);
+  // At the cap the header carries the field, because raising it needs a number
+  // rather than a confirmation. The same action stays in the project menu.
+  const atCap = record.overlay === 'limited' && record.budget.capUsd !== null;
 
   return (
     <>
@@ -218,7 +240,23 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOp
               )}
             </div>
           )}
-          <StateLine record={record} home={null} action={headerAction} runtimeRunning={runtimeRunning} />
+          <StateLine
+            record={record}
+            home={null}
+            actions={headerActions}
+            form={atCap ? (
+              <CapInput
+                cap={record.budget.capUsd}
+                inputId="ar-header-cap-in"
+                label="New cap"
+                submitLabel="Raise and resume"
+                onRaise={(capUsd) => actions.raiseCap(id, capUsd)}
+                onError={page.setNotice}
+                onDone={() => page.setNotice(null)}
+              />
+            ) : undefined}
+            runtimeRunning={runtimeRunning}
+          />
           <div className="ar-sections" data-narrow={narrow ? 1 : 0}>
             <ProjectMainColumn record={record} actions={actions} needsActions={page.needsActions} permissionPending={permissionPending} onNotice={page.setNotice} />
             <SideColumn record={record} disclosures={disclosures} />
@@ -228,6 +266,7 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOp
       <div className="ar-dock">
         <DirectiveComposer
           disabled={record.phase === 'intake'}
+          inputRef={directiveRef}
           onSend={(text) => actions.directive(id, text)}
         />
       </div>

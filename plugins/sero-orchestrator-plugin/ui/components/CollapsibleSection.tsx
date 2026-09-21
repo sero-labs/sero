@@ -1,11 +1,9 @@
 /**
- * A titled, collapsible section for the calm single-column detail view
- * (specs/09-ui-redesign.md, B1 progressive disclosure). The header shows the
- * title, an optional count/hint, and a chevron; children render when open.
+ * A folded section at the foot of the Workflow page, as the approved drawing
+ * sets it: a rule above, the title, and a count at the far right.
  */
 
 import { useState } from 'react';
-import { ChevronRight } from 'lucide-react';
 
 interface CollapsibleSectionProps {
   title: string;
@@ -18,16 +16,15 @@ interface CollapsibleSectionProps {
 export function CollapsibleSection({ title, hint, defaultOpen = false, children }: CollapsibleSectionProps) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <section className="flex flex-col gap-2">
+    <section className="flex flex-col gap-2.5 border-t border-room-line pt-2.5">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground"
+        className="flex items-center gap-2 text-left text-sm text-room-text2 hover:text-room-text"
       >
-        <ChevronRight className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-90' : ''}`} />
         {title}
-        {hint && <span className="ml-auto font-normal normal-case tracking-normal text-muted-foreground">{hint}</span>}
+        {hint && <span className="ml-auto font-mono text-[10px] text-room-text3">{hint}</span>}
       </button>
       {open && children}
     </section>

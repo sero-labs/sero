@@ -34,8 +34,8 @@ earlier runs. Review the updated plan before you run the Workflow again.
 The **What reflection has learned** section keeps useful findings from earlier
 reflections. Select **Reflect** again after more runs to include the new results.
 
-Select **Reflect all** at the top of Orchestrator to review every Workflow in
-the current workspace that has run. Sero adds the suggestions to each Workflow
+To review every Workflow in the current workspace that has run, enter
+`/orchestrator reflect_workspace` in chat. Sero adds the suggestions to each Workflow
 for you to approve or reject.
 
 Reflect is most useful for recurring Workflows. It lets you improve the plan

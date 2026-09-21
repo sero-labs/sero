@@ -112,7 +112,7 @@ export function ArchitectApp() {
 }
 
 function ProjectView({ mode, onProject, ...props }: ComponentProps<typeof ProjectPage> & { mode: ArchitectView['mode']; onProject(): void }) {
-  if (mode === 'models') return <ModelSettings record={props.record} actions={props.actions} onBack={onProject} />;
+  if (mode === 'models') return <ModelSettings record={props.record} actions={props.actions} runtimeRunning={props.runtimeRunning} onBack={onProject} />;
   if (mode === 'inspector') return <Inspector record={props.record} actions={props.actions} onBack={onProject} />;
   return <ProjectPage {...props} />;
 }

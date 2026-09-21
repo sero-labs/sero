@@ -41,13 +41,40 @@ beforeEach(async () => {
 afterEach(() => disposeHarness(dir));
 
 describe('stopping a Room', () => {
-  it('requires an explicit time extension after a long pause and preserves history and other limits', async () => {
+  it('resumes after a long pause, because a paused Room spends no time budget', async () => {
+    // The Room worked for moments and then sat paused for eight hours against
+    // a one-hour limit. It used to be refused, because the limit measured the
+    // wall clock since the Room started rather than the time it worked.
     const roomId = await draftRoom();
     await coordinator.startRoom(roomId);
     await waitFor(async () => (await memberOf(roomId, 'lead')).usage.turns === 1, 'the first turn');
     await coordinator.pauseRoom(roomId);
     const before = (await store.readRoom(roomId))!;
     host.clockMs += 8 * 60 * 60_000;
+
+    host.persistentSessions.mode = 'manual';
+    expect((await coordinator.resumeRoom(roomId)).ok).toBe(true);
+    await waitFor(() => host.persistentSessions.openTurns().includes('lead'), 'the resumed turn');
+    const resumed = (await store.readRoom(roomId))!;
+    expect(resumed.runtime.startedAt).toBe(before.runtime.startedAt);
+    expect(resumed.runtime.usage.costUsd).toBe(before.runtime.usage.costUsd);
+    expect(resumed.definition.envelope).toEqual(before.definition.envelope);
+    expect(resumed.definition.grantId).toBe(before.definition.grantId);
+    expect(resumed.members[0]?.session.sessionPath).toBe(before.members[0]?.session.sessionPath);
+    // The pause banked what it actually worked, and eight idle hours are not it.
+    expect(resumed.runtime.activeMs).toBeLessThan(60 * 60_000);
+  });
+
+  it('requires an explicit time extension once the Room has worked past its limit, and preserves history and other limits', async () => {
+    const roomId = await draftRoom();
+    await coordinator.startRoom(roomId);
+    await waitFor(async () => (await memberOf(roomId, 'lead')).usage.turns === 1, 'the first turn');
+    // Eight hours pass while the Room is RUNNING, so the time is really spent.
+    host.clockMs += 8 * 60 * 60_000;
+    await coordinator.pauseRoom(roomId);
+    const before = (await store.readRoom(roomId))!;
+    expect(before.runtime.activeMs).toBeGreaterThan(before.definition.envelope.maxWallClockMs);
+
     const refused = await coordinator.resumeRoom(roomId);
     expect(refused.ok).toBe(false);
     expect(refused.error).toContain('time limit has expired');

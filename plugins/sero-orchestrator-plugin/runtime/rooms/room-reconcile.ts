@@ -25,6 +25,7 @@
  */
 
 import type { RoomTimelineEvent } from '../../shared/room-message-types';
+import { seedActiveTime } from '../../shared/room-active-time';
 import { TERMINAL_ROOM_STATUSES } from '../../shared/room-types';
 import type { OrchestratorHost } from '../host';
 import { reconcileMemberSessions, type MemberSessionDeps } from './member-session';
@@ -58,8 +59,13 @@ function leasedMemberIds(record: RoomRecord): string[] {
  * have been reconciled, so the roster it reads holds no stale handle and no
  * member left mid-turn.
  */
-export function reconcileRoomRecord(host: OrchestratorHost, record: RoomRecord): RoomReconcileResult {
+export function reconcileRoomRecord(host: OrchestratorHost, found: RoomRecord): RoomReconcileResult {
   const now = host.now();
+  // A record written before active-time accounting is seeded once, here, so
+  // every branch below (including the early return for a paused Room) saves
+  // a fixed figure instead of one that grows with the wall clock.
+  const seeded = seedActiveTime(found.runtime, now);
+  const record = seeded === found.runtime ? found : { ...found, runtime: seeded };
   const roomId = record.definition.id;
   const events: RoomTimelineEvent[] = [];
 

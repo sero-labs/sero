@@ -1,4 +1,5 @@
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui/components/ui/select';
 import type {
   LocalModelApi,
   LocalProviderApiKeySource,
@@ -93,16 +94,16 @@ export function LocalProviderConnectionSection({
       </LocalProviderField>
 
       <LocalProviderField label="API Type">
-        <select aria-label="API type"
-          value={api}
-          onChange={(event) => onApiChange(event.target.value as LocalModelApi)}
-          className="h-8 w-full rounded-md border border-[var(--border-subtle)] bg-[var(--bg-base)]
-            px-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--border-focus)]"
-        >
-          {API_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
+        <Select value={api} onValueChange={(value) => onApiChange(value as LocalModelApi)}>
+          <SelectTrigger size="sm" aria-label="API type" className="h-8 w-full border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 text-xs text-[var(--text-primary)]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {API_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </LocalProviderField>
 
       <LocalProviderField label="Authentication">
@@ -128,20 +129,20 @@ export function LocalProviderConnectionSection({
           </p>
         ) : (
           <div className="grid grid-cols-[140px_1fr] gap-2">
-            <select
-              aria-label="API key source"
-              value={apiKeySource}
-              onChange={(event) => onApiKeySourceChange(
-                event.target.value as LocalProviderApiKeySource,
-              )}
-              className="h-8 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-base)]
-                px-2 text-xs text-[var(--text-primary)] outline-none
-                focus:border-[var(--border-focus)]"
-            >
-              <option value="literal">Literal value</option>
-              <option value="environment">Environment variable</option>
-              <option value="command">Command</option>
-            </select>
+            <Select value={apiKeySource} onValueChange={(value) => onApiKeySourceChange(value as LocalProviderApiKeySource)}>
+              <SelectTrigger
+                size="sm"
+                aria-label="API key source"
+                className="h-8 w-full border-[var(--border-subtle)] bg-[var(--bg-base)] px-2 text-xs text-[var(--text-primary)]"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="literal">Literal value</SelectItem>
+                <SelectItem value="environment">Environment variable</SelectItem>
+                <SelectItem value="command">Command</SelectItem>
+              </SelectContent>
+            </Select>
             <input
               aria-label="API key"
               value={apiKey}

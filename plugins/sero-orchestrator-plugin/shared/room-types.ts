@@ -215,6 +215,19 @@ export interface RoomRuntimeState {
   completion?: { summary: string; receipt?: DeliveryReceipt };
   startedAt: string | null;
   endedAt: string | null;
+  /**
+   * Time the Room has been active, accumulated over every period it ran. The
+   * time limit is tested against this plus the open period below, never
+   * against the wall clock since `startedAt`: a Room paused for nine days has
+   * not spent nine days working, and used to read `229h 28m of 1h` because
+   * both the header and the limit measured the wall clock.
+   *
+   * Optional so a record written before this existed still loads; a reader
+   * seeds it from `startedAt` rather than treating it as no time used.
+   */
+  activeMs?: number;
+  /** When the open active period began, or null while the Room is not active. */
+  activeSince?: string | null;
   /** Members currently holding an execution slot. */
   activeMemberIds: string[];
   usage: RoomUsage;

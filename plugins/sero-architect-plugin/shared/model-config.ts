@@ -12,6 +12,13 @@ import type { ProjectRecord } from './record';
 /** Why a tier resolved to the entry it did. */
 export type TierSelectionSource = 'project-override' | 'inherited-global';
 
+/**
+ * Where any resolved selection came from, including the two that sit above the
+ * tiers. It lives here rather than beside the resolver because the record
+ * saves the owner's source, and the page that shows it reads the record.
+ */
+export type SelectionSource = TierSelectionSource | 'owner-environment-pin' | 'manual-pin';
+
 export interface ResolvedTier {
   tier: ModelTier;
   entry: SharedModelTierEntry;

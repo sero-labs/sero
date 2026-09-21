@@ -25,6 +25,11 @@ export interface ProjectActivity {
   ownerSuffix?: string;
   /** What the user must do. Absent when nothing is needed. */
   action?: string;
+  /**
+   * Why the work stopped, when the record saved a cause. The project page
+   * gives it its own line; a cause is never invented to fill it.
+   */
+  reason?: string;
   /** The last saved report, for `last-known`. */
   lastReportAt?: string;
 }
@@ -53,6 +58,14 @@ function ownerSuffix(record: ProjectRecord, runtimeRunning: boolean): string {
   if (!runtimeRunning) return 'Architect is not running';
   if (record.session.workingSince) return 'Architect is taking a turn';
   return 'Architect idle';
+}
+
+/** The heading for a block on delegated work, from the state it ended in. */
+function blockedHeadline(status: string): string {
+  if (status === 'cancelled') return 'Research was cancelled before it reported';
+  if (status === 'failed') return 'Research stopped before it reported';
+  if (status === 'paused') return 'Research is paused and has not reported';
+  return 'Research finished without saving findings';
 }
 
 function dispatchWord(milestone: Milestone): string {
@@ -125,6 +138,23 @@ export function projectActivity(
       ownerAt: stopped.dispatch.lastRunAt ?? stopped.dispatch.dispatchedAt,
       ownerSuffix: suffix,
       action: stopped.dispatch.retryStepId ? 'Retry the step' : 'Open the work to decide what next',
+    };
+  }
+
+  // A block on delegated work knows what the work was called and what became
+  // of it. A record written before those fields existed falls back to the
+  // sentence below, which is why the heading used to be a Room id.
+  if (record.blockedOn) {
+    const work = record.blockedOn;
+    const name = work.kind === 'room' ? 'Room' : 'Workflow';
+    return {
+      state: 'stopped',
+      headline: blockedHeadline(work.status),
+      owner: `${name} ${work.title ?? work.id} · ${work.status}`,
+      ownerAt: work.at,
+      ownerSuffix: suffix,
+      ...(work.cause ? { reason: work.cause.text } : {}),
+      action: 'Open the project to decide what next',
     };
   }
 

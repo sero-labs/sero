@@ -1,15 +1,18 @@
 /**
  * Lifetime usage + remaining-budget derivation for the loop detail (RR-6).
  *
- * Pure (no host/IO): the renderer already watches `runs/index.json`, whose
- * per-run `usage` is each run's rolled-up total (the same aggregation the engine
- * uses for limit enforcement, `runtime/limits.ts`). Summing those run totals
- * therefore equals the engine's lifetime spend, so the remaining-budget hint
- * lines up exactly with when a `maxTotalTokens` / `maxCostUsd` limit would block.
+ * Pure (no host/IO). The renderer watches `runs/index.json`, whose per-run
+ * `usage` is that run's own total, and `loop.json`, which keeps the Workflow's
+ * planning and auxiliary usage even though its runs are stripped out. Both are
+ * needed: summing the runs alone understates the Workflow by whatever it spent
+ * planning and reflecting, which is money `maxCostUsd` counts. That gap is why
+ * the same Workflow used to read lower here than on Home. `lifetimeUsage` is
+ * the one derivation the limit check uses, so the remaining-budget hint now
+ * runs out exactly when the limit blocks.
  */
 
-import type { LoopLimits, LoopRunSummary } from '../../shared/types';
-import { aggregateUsage } from '../../shared/usage';
+import type { Loop, LoopRunSummary } from '../../shared/types';
+import { lifetimeUsage } from '../../shared/usage';
 import { formatCost, formatTokens } from './format';
 
 export interface LoopUsageSummary {
@@ -25,13 +28,17 @@ export interface LoopUsageSummary {
 }
 
 /**
- * Rolls run usage up to a lifetime total and, when a token/cost limit is set,
- * the remaining budget. Returns null when there is nothing to show (no usage
- * reported and no budget configured).
+ * Rolls the Workflow's own usage and its runs up to the lifetime total the
+ * limits are tested against and, when a token/cost limit is set, the remaining
+ * budget. Returns null when there is nothing to show (no usage reported and no
+ * budget configured).
  */
-export function summarizeLoopUsage(runs: LoopRunSummary[], limits: LoopLimits): LoopUsageSummary | null {
-  const total = aggregateUsage(runs);
-  const { maxTotalTokens, maxCostUsd } = limits;
+export function summarizeLoopUsage(
+  loop: Pick<Loop, 'planningUsage' | 'auxiliaryUsage' | 'limits'>,
+  runs: LoopRunSummary[],
+): LoopUsageSummary | null {
+  const total = lifetimeUsage(loop, runs.map((run) => run.usage));
+  const { maxTotalTokens, maxCostUsd } = loop.limits;
   if (!total && maxTotalTokens === undefined && maxCostUsd === undefined) return null;
 
   return {

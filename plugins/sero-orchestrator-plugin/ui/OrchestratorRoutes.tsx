@@ -164,6 +164,7 @@ export function OrchestratorRoutes({
       {view.mode === 'detail' && selectedId && (
         <WorkflowPage
           loop={selected}
+          summary={index.loops.find((entry) => entry.id === selectedId) ?? null}
           busy={busy}
           onAction={onAction}
           onDispatch={detailsDispatch}

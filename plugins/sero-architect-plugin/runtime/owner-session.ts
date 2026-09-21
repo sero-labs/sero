@@ -8,6 +8,7 @@ import type { RunJournal } from './run-journal';
  * record, and the contract is sent again when the session compacts mid-turn.
  */
 
+import type { ModelTier } from '@sero-ai/common';
 import { type PersistentSessionGrantProposal, type PersistentSessionRequest, type PersistentSessionSubjectPolicy, type PersistentSessionsApi } from '@sero-ai/common';
 
 import { block, charge } from '../shared/lifecycle';
@@ -18,7 +19,7 @@ import { buildOwnerPromptAdditions } from '../shared/owner-protocol';
 import type { ProjectRecord } from '../shared/record';
 import type { WakeEvent } from '../shared/wake';
 import type { ArchitectHost } from './host';
-import { projectModelSource, resolveOwnerSelection } from './model-resolution';
+import { projectModelSource, resolveOwnerSelection, type SelectionSource } from './model-resolution';
 import type { RecordStore } from './record-store';
 import { applyTurnOutcome, type OutcomeKind, type TurnOutcomes } from './turn-outcomes';
 
@@ -31,6 +32,14 @@ export const OWNER_SUBJECT = 'owner';
 export interface OwnerModelChoice {
   model: string;
   thinking: string;
+  /**
+   * Which rule chose it. The page used to state the owner's model in a
+   * sentence under the tier table and leave the reader to work out how it
+   * related to the tiers above it.
+   */
+  source: SelectionSource;
+  /** The tier the choice takes precedence over, when it is not a tier itself. */
+  outranks?: ModelTier;
 }
 
 /**
@@ -49,7 +58,13 @@ export async function chooseOwnerModel(
     projectModelSource(source ?? {}, await host.modelTiers()),
   );
   if (!resolved.ok) throw new Error(resolved.error);
-  return { model: resolved.value.model, thinking: resolved.value.thinking };
+  const chosen = resolved.value;
+  return {
+    model: chosen.model,
+    thinking: chosen.thinking,
+    source: chosen.source,
+    ...(chosen.outranks ? { outranks: chosen.outranks } : {}),
+  };
 }
 
 export function ownerSubjectPolicy(record: ProjectRecord, choice: OwnerModelChoice): PersistentSessionSubjectPolicy {
@@ -174,7 +189,12 @@ export class OwnerSessions {
             previousSessions: [...(fresh.session.previousSessions ?? []), ...(fresh.session.sessionPath ? [{ grantId: fresh.session.grantId, sessionPath: fresh.session.sessionPath, model: fresh.session.model }] : [])],
             sessionId: null, sessionPath: null, sessionCostUsd: 0,
           } : {}),
-          grantId: granted.grantId, grantedTools: granted.tools, model: granted.choice.model, thinking: granted.choice.thinking,
+          grantId: granted.grantId,
+          grantedTools: granted.tools,
+          model: granted.choice.model,
+          thinking: granted.choice.thinking,
+          modelSource: granted.choice.source,
+          modelOutranks: granted.choice.outranks ?? null,
         },
         history: [...fresh.history, { at: now, phase: fresh.phase, overlay: fresh.overlay, cause: 'the user approved the owner session grant' }],
       };

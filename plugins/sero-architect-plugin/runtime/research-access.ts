@@ -10,7 +10,7 @@
 
 import { toDecision } from '../shared/decision-shape';
 import { settle } from '../shared/lifecycle';
-import type { DecisionOption, PendingResearch, ProjectRecord } from '../shared/record';
+import type { BlockedWorkCause, DecisionOption, PendingResearch, ProjectRecord } from '../shared/record';
 import type { ArchitectHost } from './host';
 import type { RecordStore } from './record-store';
 
@@ -95,3 +95,26 @@ export function answerResearchAccess(record: ProjectRecord, researchId: string, 
 
 /** Whether an answer needs the research started again. */
 export const restartsResearch = (optionId: string): boolean => optionId === ALLOW_COMMANDS.id;
+
+/**
+ * Why a research Room could not do its work, when the record holds a reason.
+ *
+ * The only recorded cause is the access decision its planner raised, so a
+ * cause is returned only while that decision still describes the Room: open,
+ * or answered without granting the access. After "allow commands" the
+ * replanned Room has the access, so a later stop is not about access, and
+ * naming the old question would blame the wrong thing.
+ * Nothing is inferred from
+ * `PendingResearch.attempts`: that counts attempts to plan the Room, not times
+ * the Room stopped.
+ */
+export function researchBlockCause(record: ProjectRecord, pending: PendingResearch): BlockedWorkCause | undefined {
+  const decision = [...record.decisions].reverse().find(
+    (entry) => entry.proposal?.kind === 'research-access' && entry.proposal.researchId === pending.id,
+  );
+  if (!decision || (decision.answer && restartsResearch(decision.answer.optionId))) return undefined;
+  const text = (pending.access ?? 'read-only') === 'read-only'
+    ? 'Its members had read-only access and could not run commands.'
+    : 'Its members asked for access the Room did not have.';
+  return { text, decisionId: decision.id };
+}

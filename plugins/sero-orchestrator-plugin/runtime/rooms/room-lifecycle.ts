@@ -18,6 +18,7 @@ import { TERMINAL_ROOM_STATUSES } from '../../shared/room-types';
 import type { OrchestratorHost } from '../host';
 import { memberTools, requestRoomGrant, requirePersistentSessions } from './member-grant';
 import { INVOKING_CHAT_DESTINATION } from './room-delivery';
+import { elapsedActiveMs } from '../../shared/room-active-time';
 import { releaseAuthority } from './room-completion';
 export { completeRoom, releaseAuthority } from './room-completion';
 import type { MemberSessionPool } from './member-session';
@@ -370,7 +371,10 @@ export async function resumeRoom(ctx: RoomLifecycleContext, roomId: string, maxW
   const limit = maxWallClockMs ?? record.definition.envelope.maxWallClockMs;
   if (!Number.isFinite(limit) || limit <= 0) return fail('The time limit must be a finite positive duration.');
   if (limit < record.definition.envelope.maxWallClockMs) return fail('Resume can extend the time limit, not reduce it.');
-  if (record.runtime.startedAt && Date.parse(now) - Date.parse(record.runtime.startedAt) >= limit) {
+  // The same active-time rule the limit check uses. On the wall clock, any
+  // Room paused longer than its limit could never be resumed, however little
+  // of that budget it had actually spent.
+  if (record.runtime.startedAt && elapsedActiveMs(record.runtime, Date.parse(now)) >= limit) {
     return fail('The Room time limit has expired. Resume with a larger maxMinutes total to allow more work.');
   }
   // Only a Room that is STILL paused resumes. Checked in the writing turn, so a

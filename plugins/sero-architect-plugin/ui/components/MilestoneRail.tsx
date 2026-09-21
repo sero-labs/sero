@@ -5,7 +5,7 @@ import { ChevronRight, ExternalLink } from 'lucide-react';
 
 import type { EvidenceRecord, ProjectRecord } from '../../shared/record';
 import { acceptedCount, evidenceLines, railRows, type RailRow } from '../lib/view-model';
-import { Pill, Quiet, SectionHead } from './Pill';
+import { Pill, SectionHead } from './Pill';
 
 const LADDER = ['reported', 'verified', 'accepted', 'delivered'] as const;
 
@@ -45,7 +45,9 @@ export interface MilestoneRailProps {
 }
 
 function ResearchRuns({ record }: { record: ProjectRecord }) {
-  if (record.research.length === 0) return <Quiet>The charter will name the milestones.</Quiet>;
+  // What produces milestones is said once, in the section header above. This
+  // used to repeat it as a card of its own.
+  if (record.research.length === 0) return null;
   return (
     <div className="ar-card">
       <SectionHead title="Research runs" count={String(record.research.length)} />
@@ -76,9 +78,11 @@ function RetryStep({ milestoneId, costLimitUsd, retry }: { milestoneId: string; 
 export function MilestoneRail({ record, onOpenDispatch, onRetry }: MilestoneRailProps) {
   const rows = railRows(record);
   if (rows.length === 0) {
+    // Not made yet, rather than empty: the charter names the milestones, and
+    // the charter comes after research. One quiet line in the header says so.
     return (
       <section>
-        <SectionHead title="Milestones" count="none yet" />
+        <SectionHead title="Milestones" count="the charter names them, after research" />
         <ResearchRuns record={record} />
       </section>
     );

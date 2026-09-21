@@ -174,3 +174,76 @@ describe('what a research Room may do', () => {
   });
 
 });
+
+/**
+ * What the record keeps when a research Room ends without reporting.
+ *
+ * The captured defect: `blockedReason` carried the Room's id, its status and
+ * an instruction inside one sentence, and nothing else was saved. The page
+ * could only show the id, and the reason the Room could not run commands was
+ * one line among sixty-four History entries.
+ */
+describe('a research Room that ends without reporting', () => {
+  async function blockOn(status: OrchestratorBoardRoomView['status'], access: 'read-only' | 'edit-workspace' = 'read-only', withDecision = true, answer = 'withdraw') {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const record = buildingProject({ phase: 'discovery', charter: null, milestones: [] });
+    const pending = { id: 'res-1', question: 'q', stoppingCondition: 's', startedAt: T0, kind: 'room' as const, roomId: 'room-9', access };
+    await store.write({
+      ...record,
+      pendingResearch: [pending],
+      decisions: withDecision
+        ? [{
+            id: 'dec-1', question: 'The research Room asked for a shell.', options: [], recommendation: '',
+            reason: 'The Room planner cannot plan research res-1 without this answer.',
+            dependsOn: [], raisedAt: T0,
+            proposal: { kind: 'research-access' as const, researchId: 'res-1' },
+            answer: { optionId: answer, note: null, answeredAt: T0 },
+          }]
+        : [],
+    });
+    const handle: OrchestratorRoomHandle = {
+      create: async () => ({ ok: true, roomId: 'room-9' }),
+      inspect: async () => ({ status, models: [], result: null }),
+    };
+    (globalThis as Record<string, unknown>)[ORCHESTRATOR_ROOM_REGISTRY_GLOBAL_KEY] = new Map([['ws-1', { handle }]]);
+    const room: OrchestratorBoardRoomView = {
+      id: 'room-9', title: 'Import Dashboard Discovery', status, memberCount: 2, activeMemberCount: 0,
+      costUsd: 0.2, maxCostUsd: 5, startedAt: T0, updatedAt: T0, attentionCount: 0, deliveredAt: null, deliveryRef: null,
+    };
+    await observeResearchRooms({ host, store, wake: vi.fn() }, record.id, [room]);
+    return (await store.read(record.id))!;
+  }
+
+  it('saves the Room title, its state and the time, not just a sentence', async () => {
+    const blocked = await blockOn('cancelled');
+    expect(blocked.blockedOn).toMatchObject({ kind: 'room', id: 'room-9', title: 'Import Dashboard Discovery', status: 'cancelled' });
+    expect(blocked.blockedOn?.at).toBeTruthy();
+  });
+
+  it('links the access decision as the cause', async () => {
+    const blocked = await blockOn('cancelled');
+    expect(blocked.blockedOn?.cause).toMatchObject({
+      text: 'Its members had read-only access and could not run commands.',
+      decisionId: 'dec-1',
+    });
+  });
+
+  it('saves no cause when nothing recorded one', async () => {
+    const blocked = await blockOn('cancelled', 'read-only', false);
+    expect(blocked.blockedOn?.title).toBe('Import Dashboard Discovery');
+    expect(blocked.blockedOn?.cause).toBeUndefined();
+  });
+
+  it('saves no cause once the user granted the access the decision asked for', async () => {
+    const blocked = await blockOn('cancelled', 'edit-workspace', true, 'allow-commands');
+    expect(blocked.blockedOn?.title).toBe('Import Dashboard Discovery');
+    expect(blocked.blockedOn?.cause).toBeUndefined();
+  });
+
+  it('never reads the planning-attempt count as a number of times the Room stopped', async () => {
+    const blocked = await blockOn('cancelled');
+    expect(JSON.stringify(blocked.blockedOn)).not.toContain('attempts');
+    expect(blocked.blockedOn?.cause?.text ?? '').not.toMatch(/stopped (once|twice|\d+ times)/);
+  });
+});

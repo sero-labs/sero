@@ -7,6 +7,7 @@ import { TooltipProvider } from '@sero-ai/ui/components/ui/tooltip';
 import type { ArchitectIndexView } from '@sero-ai/common';
 import type { WorkspaceInfo } from '@/types/ipc';
 import { useAgentBoardStore } from '@/stores/agent-board';
+import { useAppStore } from '@/stores/app';
 import { useContainerStore } from '@/stores/container';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { WorkspaceNode } from './WorkspaceNode';
@@ -54,6 +55,7 @@ const stoppedProject: ArchitectIndexView = {
 const initialWorkspaceState = useWorkspaceStore.getState();
 const initialContainerState = useContainerStore.getState();
 const initialBoardState = useAgentBoardStore.getState();
+const initialAppState = useAppStore.getState();
 
 describe('the workspace row when work needs the user', () => {
   let containerEl: HTMLDivElement;
@@ -82,6 +84,7 @@ describe('the workspace row when work needs the user', () => {
     useWorkspaceStore.setState(initialWorkspaceState, true);
     useContainerStore.setState(initialContainerState, true);
     useAgentBoardStore.setState(initialBoardState, true);
+    useAppStore.setState(initialAppState, true);
   });
 
   async function renderNode() {
@@ -126,5 +129,43 @@ describe('the workspace row when work needs the user', () => {
     });
 
     expect(document.body.textContent).toContain('Stopped by the spend cap. Raise the cap.');
+  });
+
+  it('opens the project page, not the projects list, and leaves the row alone', async () => {
+    useAppStore.setState({
+      apps: [{ id: 'architect', label: 'Architect', icon: 'box', builtin: true, manifest: null }],
+      activeApp: 'explorer',
+      pendingApp: null,
+      appViewIds: {},
+    });
+    useAgentBoardStore.setState({ architect: stoppedProject });
+    await renderNode();
+    const expandedBefore = containerEl.innerHTML;
+
+    await act(async () => { icon()?.click(); });
+
+    expect(useAppStore.getState().activeApp).toBe('architect');
+    expect(useAppStore.getState().appViewIds.architect?.global).toBe('projects/p1');
+    expect(containerEl.innerHTML).toBe(expandedBefore);
+  });
+
+  it('cancels a switch to another app that is still loading', async () => {
+    // Architect is showing and another plugin is loading. Its preload
+    // activates only while it is still pending, so clearing it here is what
+    // stops it landing after the project opens.
+    useAppStore.setState({
+      apps: [{ id: 'architect', label: 'Architect', icon: 'box', builtin: true, manifest: null }],
+      activeApp: 'architect',
+      pendingApp: 'explorer',
+      appViewIds: {},
+    });
+    useAgentBoardStore.setState({ architect: stoppedProject });
+    await renderNode();
+
+    await act(async () => { icon()?.click(); });
+
+    expect(useAppStore.getState().pendingApp).toBeNull();
+    expect(useAppStore.getState().activeApp).toBe('architect');
+    expect(useAppStore.getState().appViewIds.architect?.global).toBe('projects/p1');
   });
 });

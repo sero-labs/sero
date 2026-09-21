@@ -33,6 +33,10 @@ const interactivePrototypes = [
     'Workflow plan view — serpentine card and steps per row',
     'plan-view-layouts/serpentine.html',
   ],
+  [
+    'Act on it — two open layout questions (issue 537)',
+    'agent-workspace-ux-audit/2a-open-questions.html',
+  ],
 ] as const;
 
 const agentRoomScreens = [

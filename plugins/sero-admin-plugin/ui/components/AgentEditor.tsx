@@ -15,6 +15,7 @@ import {
 import { AvailableModelPicker } from '@sero-ai/ui/model-selection/available-model-picker';
 import { ModelWarningList } from '@sero-ai/ui/model-selection/model-warning-list';
 import { Button } from '@sero-ai/ui/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui/components/ui/select';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { getSero, type AvailableModelGroupIPC, type GlobalModelConfigStateIPC } from '../hooks/host';
 import { useBridgeRefresh } from '../hooks/useBridgeRefresh';
@@ -205,39 +206,44 @@ export function AgentEditor({ data, isNew, saving, onSave, onDelete, onChange }:
         </Field>
 
         <Field label="Model choice" hint="usually LOW / MED / HIGH">
-          <select aria-label="Model choice"
-            value={modelSelectValue}
-            onChange={(e) => handleModelSelectChange(e.target.value)}
-            className={fieldClass}
-          >
-            <option value={DEFAULT_MODEL_VALUE}>Use Sero default (recommended)</option>
-            <option value="LOW">LOW, fast</option>
-            <option value="MED">MED, balanced</option>
-            <option value="HIGH">HIGH, strongest</option>
-            <option value={CUSTOM_MODEL_VALUE}>Pick a specific model…</option>
-          </select>
+          <Select value={modelSelectValue} onValueChange={handleModelSelectChange}>
+            <SelectTrigger aria-label="Model choice" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={DEFAULT_MODEL_VALUE}>Use Sero default (recommended)</SelectItem>
+              <SelectItem value="LOW">LOW, fast</SelectItem>
+              <SelectItem value="MED">MED, balanced</SelectItem>
+              <SelectItem value="HIGH">HIGH, strongest</SelectItem>
+              <SelectItem value={CUSTOM_MODEL_VALUE}>Pick a specific model…</SelectItem>
+            </SelectContent>
+          </Select>
         </Field>
 
         <Field label="Thinking" hint={isPinnedModelMode ? 'only used for a pinned model' : 'inherited from the selected tier'}>
-          <select aria-label="Thinking mode"
-            value={isPinnedModelMode ? (data.thinking || '') : ''}
-            onChange={(e) => update({ thinking: e.target.value || undefined })}
+          {/* No value shows the placeholder, which says why nothing is chosen. */}
+          <Select
+            value={isPinnedModelMode && data.thinking ? data.thinking : ''}
+            onValueChange={(value) => update({ thinking: value || undefined })}
             disabled={!isPinnedModelMode || !selectedPinnedModel}
-            className={cn(fieldClass, (!isPinnedModelMode || !selectedPinnedModel) && 'opacity-60')}
           >
-            <option value="" disabled>
-              {!isPinnedModelMode
-                ? 'Inherited from model choice'
-                : selectedPinnedModel
-                  ? 'Choose thinking…'
-                  : 'Pick a model first'}
-            </option>
-            {availablePinnedThinkingLevels.map((level) => (
-              <option key={level} value={level}>
-                {THINKING_LABELS[level]}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger aria-label="Thinking mode" className="w-full">
+              <SelectValue
+                placeholder={!isPinnedModelMode
+                  ? 'Inherited from model choice'
+                  : selectedPinnedModel
+                    ? 'Choose thinking…'
+                    : 'Pick a model first'}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {availablePinnedThinkingLevels.map((level) => (
+                <SelectItem key={level} value={level}>
+                  {THINKING_LABELS[level]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
       </div>
 

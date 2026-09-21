@@ -26,10 +26,11 @@ vi.mock('@sero-ai/app-runtime', () => ({
   }),
 }));
 
-vi.mock('@sero-ai/ui', () => ({
+vi.mock('@sero-ai/ui', async () => ({
   Button: ({ children, ...props }: { children: ReactNode } & ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button type="button" {...props}>{children}</button>
   ),
+  ...(await import('./select-stand-in')),
 }));
 
 const at = (offsetMs: number): string => new Date(Date.parse('2026-09-14T09:00:00.000Z') + offsetMs).toISOString();
