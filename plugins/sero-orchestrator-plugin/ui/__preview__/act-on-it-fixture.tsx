@@ -148,7 +148,7 @@ export function RoomHoldPreview() {
       <RoomHoldCard
         stopReason={ROOM.runtime.stopReason}
         members={MEMBERS}
-        resumable
+        controls={{ message: true, resume: true, stop: true }}
         busy={false}
         onMessage={() => undefined}
         onResume={() => undefined}

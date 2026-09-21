@@ -7,7 +7,7 @@ import { usd } from '../lib/format';
 import { AUTONOMY_LABEL, needsYouItems, parkedTitles, recommendedOption } from '../lib/view-model';
 import type { ActionOutcome } from '../lib/actions';
 import { ModelChoices } from './ModelChoices';
-import { Quiet, SectionHead } from './Pill';
+import { SectionHead } from './Pill';
 
 export interface NeedsYouActions {
   answer(decisionId: string, optionId: string, note: string): Promise<ActionOutcome>;

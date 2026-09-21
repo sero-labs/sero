@@ -100,7 +100,11 @@ export const restartsResearch = (optionId: string): boolean => optionId === ALLO
  * Why a research Room could not do its work, when the record holds a reason.
  *
  * The only recorded cause is the access decision its planner raised, so a
- * cause is returned only when that decision exists. Nothing is inferred from
+ * cause is returned only while that decision still describes the Room: open,
+ * or answered without granting the access. After "allow commands" the
+ * replanned Room has the access, so a later stop is not about access, and
+ * naming the old question would blame the wrong thing.
+ * Nothing is inferred from
  * `PendingResearch.attempts`: that counts attempts to plan the Room, not times
  * the Room stopped.
  */
@@ -108,7 +112,7 @@ export function researchBlockCause(record: ProjectRecord, pending: PendingResear
   const decision = [...record.decisions].reverse().find(
     (entry) => entry.proposal?.kind === 'research-access' && entry.proposal.researchId === pending.id,
   );
-  if (!decision) return undefined;
+  if (!decision || (decision.answer && restartsResearch(decision.answer.optionId))) return undefined;
   const text = (pending.access ?? 'read-only') === 'read-only'
     ? 'Its members had read-only access and could not run commands.'
     : 'Its members asked for access the Room did not have.';

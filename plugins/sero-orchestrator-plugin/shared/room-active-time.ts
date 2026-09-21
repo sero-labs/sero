@@ -15,12 +15,14 @@ import { TERMINAL_ROOM_STATUSES, type RoomRuntimeState, type RoomStatus } from '
 
 /**
  * Statuses that spend the Room's time budget. `pausing` counts because turns in
- * flight are still finishing. `completing` does not: `withRoomStatus` stamps
+ * flight are still finishing. `starting` does not: it covers workspace
+ * preparation and the wait for the user to grant the Room its authority, and no
+ * member works in either. `completing` does not either: `withRoomStatus` stamps
  * `endedAt` when completion begins, on the rule that the Room stopped working
  * then, and counting it here would contradict that stamp. Everything else,
  * including `paused`, `ready` and `draft`, is not working.
  */
-const ACTIVE_STATUSES: readonly RoomStatus[] = ['starting', 'running', 'pausing'];
+const ACTIVE_STATUSES: readonly RoomStatus[] = ['running', 'pausing'];
 
 export function isActiveStatus(status: RoomStatus): boolean {
   return ACTIVE_STATUSES.includes(status);
@@ -36,6 +38,20 @@ function accumulated(runtime: Pick<RoomRuntimeState, 'activeMs' | 'startedAt' | 
   if (!runtime.startedAt) return 0;
   const until = runtime.endedAt ? Date.parse(runtime.endedAt) : nowMs;
   return Math.max(0, until - Date.parse(runtime.startedAt));
+}
+
+/**
+ * Writes the accumulator into a record that predates it, at `now`: the
+ * migration instant the design names. Restart recovery calls this for every
+ * Room, so a paused legacy Room keeps the figure it showed at that instant and
+ * the figure stops growing. Without it the seed above is re-read against a
+ * later `nowMs` each time and a paused Room's clock keeps running.
+ */
+export function seedActiveTime(runtime: RoomRuntimeState, now: string): RoomRuntimeState {
+  if (runtime.activeMs !== undefined) return runtime;
+  const activeMs = accumulated(runtime, Date.parse(now));
+  const open = isActiveStatus(runtime.status) && !TERMINAL_ROOM_STATUSES.includes(runtime.status);
+  return { ...runtime, activeMs, activeSince: open ? now : null };
 }
 
 /** Time the Room has been active: what is banked, plus the period open now. */

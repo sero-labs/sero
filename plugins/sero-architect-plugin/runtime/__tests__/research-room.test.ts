@@ -184,7 +184,7 @@ describe('what a research Room may do', () => {
  * one line among sixty-four History entries.
  */
 describe('a research Room that ends without reporting', () => {
-  async function blockOn(status: OrchestratorBoardRoomView['status'], access: 'read-only' | 'edit-workspace' = 'read-only', withDecision = true) {
+  async function blockOn(status: OrchestratorBoardRoomView['status'], access: 'read-only' | 'edit-workspace' = 'read-only', withDecision = true, answer = 'withdraw') {
     const host = await fakeHost();
     const store = await storeFor(host);
     const record = buildingProject({ phase: 'discovery', charter: null, milestones: [] });
@@ -198,7 +198,7 @@ describe('a research Room that ends without reporting', () => {
             reason: 'The Room planner cannot plan research res-1 without this answer.',
             dependsOn: [], raisedAt: T0,
             proposal: { kind: 'research-access' as const, researchId: 'res-1' },
-            answer: { optionId: 'withdraw', note: null, answeredAt: T0 },
+            answer: { optionId: answer, note: null, answeredAt: T0 },
           }]
         : [],
     });
@@ -231,6 +231,12 @@ describe('a research Room that ends without reporting', () => {
 
   it('saves no cause when nothing recorded one', async () => {
     const blocked = await blockOn('cancelled', 'read-only', false);
+    expect(blocked.blockedOn?.title).toBe('Import Dashboard Discovery');
+    expect(blocked.blockedOn?.cause).toBeUndefined();
+  });
+
+  it('saves no cause once the user granted the access the decision asked for', async () => {
+    const blocked = await blockOn('cancelled', 'edit-workspace', true, 'allow-commands');
     expect(blocked.blockedOn?.title).toBe('Import Dashboard Discovery');
     expect(blocked.blockedOn?.cause).toBeUndefined();
   });

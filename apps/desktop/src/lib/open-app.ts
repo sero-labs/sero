@@ -31,6 +31,9 @@ export function openApp(appId: string): void {
 export function openGlobalAppView(appId: string, viewId: string): void {
   const store = useAppStore.getState();
   if (store.activeApp === appId) {
+    // A switch to another app may still be loading. Normal navigation cancels
+    // it; without this, it lands after the view opens and replaces it.
+    if (store.pendingApp) store.setActiveApp(appId);
     store.setAppView(appId, 'global', viewId);
     return;
   }

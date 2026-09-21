@@ -90,7 +90,9 @@ export function block(record: ProjectRecord, now: string, reason: string, on?: B
   return {
     ok: true,
     record: recordHistory(
-      { ...record, blockedReason: reason.trim(), ...(on ? { blockedOn: on } : {}) },
+      // A block without `on` clears the old one, or the page would name a Room
+      // that is no longer the reason.
+      { ...record, blockedReason: reason.trim(), blockedOn: on ?? null },
       now,
       `blocked: ${reason.trim()}`,
     ),

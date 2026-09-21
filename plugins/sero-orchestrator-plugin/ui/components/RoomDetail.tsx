@@ -17,6 +17,7 @@ import { TERMINAL_ROOM_STATUSES, type RoomSummary } from '../../shared/room-type
 import { useRoom } from '../lib/use-room-index';
 import { memberNames, useRoomMembers } from '../lib/use-room-members';
 import { defaultRoomView, roomSignal, type RoomView } from '../lib/room-view';
+import { roomControls } from '../lib/room-controls';
 import { useRoomLive, useRoomTimeline, type RoomFeedDispatch } from '../lib/use-room-feed';
 import { MEMBER_DOT, memberGlyph } from '../lib/member-glyph';
 import { Face } from './room-kit';
@@ -125,6 +126,7 @@ export function RoomDetail({
   // The hold card carries Message the team, Resume and Stop while it is on
   // screen, so the header offers none of them: one copy of each control.
   const holding = !!room.runtime.stopReason || needsUser.length > 0;
+  const controls = roomControls(room.runtime, approvals.length);
   // A Room can be stopped without anyone asking anything: a limit was reached,
   // or the user paused it. Only a question makes the header say so.
   const waitingForYou = needsUser.length > 0
@@ -139,6 +141,7 @@ export function RoomDetail({
         busy={busy}
         panelOpen={panelOpen}
         holding={holding}
+        controls={controls}
         waitingForYou={waitingForYou}
         onTogglePanel={() => setPanelOpen((open) => !open)}
         onBack={onBack}
@@ -184,7 +187,7 @@ export function RoomDetail({
       <RoomHoldCard
         stopReason={room.runtime.stopReason}
         members={needsUser}
-        resumable={!finished}
+        controls={controls}
         busy={busy}
         onMessage={() => setComposing({ memberIds: [] })}
         onResume={() => send('resume')}

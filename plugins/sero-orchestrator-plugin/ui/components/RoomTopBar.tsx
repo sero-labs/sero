@@ -27,6 +27,7 @@ import { cn } from '@sero-ai/ui/lib/utils';
 import { ArrowLeft, MessageSquare } from 'lucide-react';
 import { TERMINAL_ROOM_STATUSES, type PersistedRoom, type RoomStatus } from '../../shared/room-types';
 import { elapsedActiveMs } from '../../shared/room-active-time';
+import { roomControls, type RoomControls } from '../lib/room-controls';
 import type { RoomView } from '../lib/room-view';
 import { ROOM_STATUS_STYLE } from '../lib/status-style';
 import { formatCost, formatDuration, formatElapsed } from '../lib/format';
@@ -59,6 +60,8 @@ interface RoomTopBarProps {
   panelOpen: boolean;
   /** Whether the hold card is on screen. It carries message, resume and stop. */
   holding: boolean;
+  /** What the Room can take now. Defaults to the rule with no approval open. */
+  controls?: RoomControls;
   /**
    * Whether the hold is a question for the user. The pill says so, because
    * "Paused" alone does not tell a reader whether the Room is waiting on them
@@ -81,6 +84,7 @@ export function RoomTopBar({
   busy,
   panelOpen,
   holding,
+  controls = roomControls(room.runtime),
   waitingForYou = false,
   onTogglePanel,
   onBack,
@@ -94,11 +98,7 @@ export function RoomTopBar({
   const { runtime, definition } = room;
   const elapsedMs = runtime.startedAt ? elapsedActiveMs(runtime, Date.now()) : 0;
   const running = runtime.status === 'running';
-  const paused = runtime.status === 'paused';
   const finished = TERMINAL_ROOM_STATUSES.includes(runtime.status);
-  // Cancelling a Room that has already stopped changes nothing, so the control
-  // that would do it is not offered.
-  const live = running || paused || runtime.status === 'pausing' || runtime.status === 'completing';
 
   const views: Array<{ id: RoomView; label: string }> = [
     ...(finished ? [{ id: 'result' as const, label: 'Result' }] : []),
@@ -160,7 +160,7 @@ export function RoomTopBar({
         >
           Brief
         </Button>
-        {live && !holding && (
+        {controls.message && !holding && (
           <Button variant="outline" aria-label="Message the team" className={SMALL_BTN} disabled={busy} onClick={onMessage}>
             <MessageSquare className="size-3 @min-[1000px]/panel:hidden" />
             <span className="@max-[1000px]/panel:hidden">Message the team</span>
@@ -171,12 +171,12 @@ export function RoomTopBar({
             Pause
           </Button>
         )}
-        {paused && !holding && (
+        {controls.resume && !holding && (
           <Button variant="outline" className={SMALL_BTN} disabled={busy} onClick={onResume}>
             Resume
           </Button>
         )}
-        {live && !holding && (
+        {controls.stop && !holding && (
           <Button
             variant="outline"
             className={cn(SMALL_BTN, 'border-status-error-border text-status-error hover:bg-status-error-muted hover:text-status-error')}

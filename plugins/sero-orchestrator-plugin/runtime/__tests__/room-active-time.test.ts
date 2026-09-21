@@ -9,8 +9,11 @@
 
 import { describe, expect, it } from 'vitest';
 import type { Room, RoomRuntimeState, RoomStatus } from '../../shared/room-types';
-import { elapsedActiveMs, isActiveStatus, withActiveTime } from '../../shared/room-active-time';
+import { elapsedActiveMs, isActiveStatus, seedActiveTime, withActiveTime } from '../../shared/room-active-time';
+import type { OrchestratorHost } from '../host';
 import { checkRoomLimits } from '../rooms/room-limits';
+import { reconcileRoomRecord } from '../rooms/room-reconcile';
+import type { RoomRecord } from '../rooms/room-state';
 
 const T0 = Date.parse('2026-09-01T10:00:00.000Z');
 const MINUTE = 60_000;
@@ -72,16 +75,24 @@ describe('a Room counts the time it was active', () => {
     expect(elapsedActiveMs(done, T0 + 40 * HOUR)).toBe(20 * MINUTE);
   });
 
-  it('treats paused, ready and draft as not working', () => {
+  it('treats starting, paused, ready and draft as not working', () => {
     expect(isActiveStatus('running')).toBe(true);
     expect(isActiveStatus('pausing')).toBe(true);
-    for (const status of ['paused', 'ready', 'draft', 'completed', 'cancelled'] as RoomStatus[]) {
+    // Starting covers workspace preparation and the wait for the user's grant.
+    for (const status of ['starting', 'paused', 'ready', 'draft', 'completed', 'cancelled'] as RoomStatus[]) {
       expect(isActiveStatus(status)).toBe(false);
     }
   });
 });
 
 describe('the time limit is tested against that same figure', () => {
+  it('does not spend the budget while the user decides whether to grant the start', () => {
+    let state = transition(runtime({ status: 'draft', startedAt: null, activeMs: 0, activeSince: null }), 'starting', 0);
+    state = transition(state, 'ready', 2 * MINUTE);
+    state = { ...transition(state, 'running', 2 * MINUTE), startedAt: at(2 * MINUTE) };
+    expect(checkRoomLimits(room(state, MINUTE), T0 + 2 * MINUTE).ok).toBe(true);
+  });
+
   it('does not stop a Room paused for nine days after twelve active minutes', () => {
     const paused = transition(runtime({ activeMs: 0, activeSince: at(0) }), 'paused', 12 * MINUTE);
     const check = checkRoomLimits(room(paused), T0 + 9 * 24 * HOUR);
@@ -102,6 +113,30 @@ describe('a Room that predates active-time accounting', () => {
     const legacy = runtime({ status: 'paused', activeMs: undefined, activeSince: undefined });
     expect(elapsedActiveMs(legacy, T0 + 40 * MINUTE)).toBe(40 * MINUTE);
     expect(elapsedActiveMs(legacy, T0 + 40 * MINUTE)).not.toBe(0);
+  });
+
+  it('is seeded once at the migration instant, so a paused one stops growing', () => {
+    const legacy = runtime({ status: 'paused', activeMs: undefined, activeSince: undefined });
+    const seeded = seedActiveTime(legacy, at(40 * MINUTE));
+    expect(seeded.activeMs).toBe(40 * MINUTE);
+    expect(seeded.activeSince).toBeNull();
+    // Read at two later instants: the unseeded record grew between them.
+    expect(elapsedActiveMs(seeded, T0 + 41 * MINUTE)).toBe(40 * MINUTE);
+    expect(elapsedActiveMs(seeded, T0 + 9 * 24 * HOUR)).toBe(40 * MINUTE);
+  });
+
+  it('is seeded by restart recovery, which otherwise leaves a paused Room alone', () => {
+    const legacy = { definition: { id: 'r-1' }, members: [], runtime: runtime({ status: 'paused', activeMs: undefined, activeSince: undefined }) };
+    const host = { now: () => at(40 * MINUTE) } as unknown as OrchestratorHost;
+    const { record } = reconcileRoomRecord(host, legacy as unknown as RoomRecord);
+    expect(record.runtime.activeMs).toBe(40 * MINUTE);
+    expect(elapsedActiveMs(record.runtime, T0 + 9 * 24 * HOUR)).toBe(40 * MINUTE);
+  });
+
+  it('keeps a running one counting from the migration instant', () => {
+    const legacy = runtime({ status: 'running', activeMs: undefined, activeSince: undefined });
+    const seeded = seedActiveTime(legacy, at(40 * MINUTE));
+    expect(elapsedActiveMs(seeded, T0 + 45 * MINUTE)).toBe(45 * MINUTE);
   });
 
   it('stops growing from the first transition that banks it', () => {

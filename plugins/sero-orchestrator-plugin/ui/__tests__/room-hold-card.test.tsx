@@ -16,6 +16,7 @@ import type { RoomMember } from '../../shared/room-types';
 import { RoomHoldCard, namesSentence, type HoldMember } from '../components/RoomHoldCard';
 import { RoomRoster } from '../components/RoomRoster';
 import { RoomTopBar } from '../components/RoomTopBar';
+import { roomControls } from '../lib/room-controls';
 
 const AT = '2026-09-11T09:00:00.000Z';
 const HOUR = 3_600_000;
@@ -55,7 +56,7 @@ function renderCard(props: Partial<Parameters<typeof RoomHoldCard>[0]> = {}) {
       <RoomHoldCard
         stopReason={AWAITING}
         members={[MORGAN, RILEY]}
-        resumable
+        controls={{ message: true, resume: true, stop: true }}
         busy={false}
         onMessage={() => {}}
         onResume={() => {}}
@@ -100,6 +101,12 @@ describe('the hold card', () => {
       act(() => { button?.click(); });
     }
     expect(calls).toEqual(['message', 'resume', 'stop']);
+  });
+
+  it('offers only the controls it is given', () => {
+    renderCard({ controls: { message: true, resume: false, stop: true } });
+    const labels = [...host.querySelectorAll('button')].map((node) => node.textContent);
+    expect(labels).toEqual(['Message the team', 'Stop the Room']);
   });
 
   it('names a stop nobody asked about from the runtime kind', () => {
@@ -168,6 +175,32 @@ function renderBar(status: PersistedRoom['runtime']['status'], holding: boolean)
     );
   });
 }
+
+describe('which controls a Room can take', () => {
+  const approval: RoomStopReason = { kind: 'awaiting-approval', detail: 'd', at: AT };
+
+  it('offers Resume only to a paused Room, never a running one a member stopped in', () => {
+    expect(roomControls({ status: 'running', stopReason: null })).toEqual({ message: true, resume: false, stop: true });
+    expect(roomControls({ status: 'pausing', stopReason: null }).resume).toBe(false);
+    expect(roomControls({ status: 'paused', stopReason: AWAITING }).resume).toBe(true);
+  });
+
+  it('keeps Stop for a delivery a restart interrupted, which has no approval card', () => {
+    const controls = roomControls({ status: 'completing', stopReason: approval }, 0);
+    expect(controls.stop).toBe(true);
+    expect(controls.resume).toBe(false);
+  });
+
+  it('leaves an open approval to its own card, but still offers Stop', () => {
+    const controls = roomControls({ status: 'paused', stopReason: approval }, 1);
+    expect(controls.resume).toBe(false);
+    expect(controls.stop).toBe(true);
+  });
+
+  it('does not offer Stop while a completion is still delivering', () => {
+    expect(roomControls({ status: 'completing', stopReason: null }).stop).toBe(false);
+  });
+});
 
 function buttonLabels(): string[] {
   return [...host.querySelectorAll('button')]

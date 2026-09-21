@@ -76,7 +76,9 @@ harness at the same width.
 
 **Screen 3, the Room on hold.** Back to Rooms, Timeline and Watch are on the header. Message
 the team, Resume and Stop the Room are in the card, and the header offers none of the three
-while the card is shown (`room-hold-card.test.tsx`). Read it is gone, and the card shows what
+while the card is shown (`room-hold-card.test.tsx`). One rule, `roomControls`, decides each
+of the three for both places, so the card always shows what the header hides: Resume only on
+a paused Room with no approval open, and Stop on a delivery a restart interrupted. Read it is gone, and the card shows what
 it opened. The member rows, Open in Agent Board and the Brief drawer are unchanged in
 `RoomRoster` and `RoomDetail`.
 

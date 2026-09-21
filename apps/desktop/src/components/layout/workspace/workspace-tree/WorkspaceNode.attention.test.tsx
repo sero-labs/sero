@@ -148,4 +148,24 @@ describe('the workspace row when work needs the user', () => {
     expect(useAppStore.getState().appViewIds.architect?.global).toBe('projects/p1');
     expect(containerEl.innerHTML).toBe(expandedBefore);
   });
+
+  it('cancels a switch to another app that is still loading', async () => {
+    // Architect is showing and another plugin is loading. Its preload
+    // activates only while it is still pending, so clearing it here is what
+    // stops it landing after the project opens.
+    useAppStore.setState({
+      apps: [{ id: 'architect', label: 'Architect', icon: 'box', builtin: true, manifest: null }],
+      activeApp: 'architect',
+      pendingApp: 'explorer',
+      appViewIds: {},
+    });
+    useAgentBoardStore.setState({ architect: stoppedProject });
+    await renderNode();
+
+    await act(async () => { icon()?.click(); });
+
+    expect(useAppStore.getState().pendingApp).toBeNull();
+    expect(useAppStore.getState().activeApp).toBe('architect');
+    expect(useAppStore.getState().appViewIds.architect?.global).toBe('projects/p1');
+  });
 });

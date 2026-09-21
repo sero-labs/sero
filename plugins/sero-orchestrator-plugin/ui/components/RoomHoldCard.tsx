@@ -15,6 +15,7 @@
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { relativeTime } from '@sero-ai/common';
 import type { RoomStopReason } from '../../shared/room-types';
+import type { RoomControls } from '../lib/room-controls';
 
 /** What each stop means to the user, in their terms. */
 const EXPLANATION: Record<RoomStopReason['kind'], { title: string; note: string }> = {
@@ -89,15 +90,15 @@ interface RoomHoldCardProps {
   stopReason: RoomStopReason | null;
   /** Members that stopped to ask the user. Can be non-empty while the Room runs. */
   members: HoldMember[];
-  /** False once the Room has ended — a finished Room has nothing to resume. */
-  resumable: boolean;
+  /** What the Room can take now. The header hides these while the card shows. */
+  controls: RoomControls;
   busy: boolean;
   onMessage: () => void;
   onResume: () => void;
   onStop: () => void;
 }
 
-export function RoomHoldCard({ stopReason, members, resumable, busy, onMessage, onResume, onStop }: RoomHoldCardProps) {
+export function RoomHoldCard({ stopReason, members, controls, busy, onMessage, onResume, onStop }: RoomHoldCardProps) {
   if (!stopReason && members.length === 0) return null;
 
   // Whoever stopped names the hold. The runtime's own kind names it otherwise.
@@ -111,8 +112,6 @@ export function RoomHoldCard({ stopReason, members, resumable, busy, onMessage, 
   // the runtime's detail and their own words below already say it, and the
   // note would be the same thing a third time.
   const note = asked || !stopReason ? undefined : EXPLANATION[stopReason.kind].note;
-  // An approval is answered on its own card, right below this one.
-  const actionable = resumable && stopReason?.kind !== 'awaiting-approval';
 
   return (
     <section
@@ -141,13 +140,15 @@ export function RoomHoldCard({ stopReason, members, resumable, busy, onMessage, 
         </details>
       )}
 
-      {actionable && (
+      {(controls.message || controls.resume || controls.stop) && (
         <div className="mt-1 flex flex-wrap gap-2">
-          <Button size="sm" disabled={busy} onClick={onMessage}>Message the team</Button>
-          <Button size="sm" variant="outline" disabled={busy} onClick={onResume}>Resume</Button>
-          <Button size="sm" variant="ghost" disabled={busy} className="text-destructive" onClick={onStop}>
-            Stop the Room
-          </Button>
+          {controls.message && <Button size="sm" disabled={busy} onClick={onMessage}>Message the team</Button>}
+          {controls.resume && <Button size="sm" variant="outline" disabled={busy} onClick={onResume}>Resume</Button>}
+          {controls.stop && (
+            <Button size="sm" variant="ghost" disabled={busy} className="text-destructive" onClick={onStop}>
+              Stop the Room
+            </Button>
+          )}
         </div>
       )}
     </section>
