@@ -53,7 +53,7 @@ function spentLoop(maxCostUsd?: number): Loop {
 /** What the Workflow page has to work with: loop.json has no runs in it. */
 function pageFigure(loop: Loop): number | undefined {
   const watched = stripLoopForPersist(structuredClone(loop));
-  return summarizeLoopUsage(watched, loop.runs.map(toRunSummary))?.totalCost;
+  return summarizeLoopUsage(watched, loop.runs.map((run) => toRunSummary(run)))?.totalCost;
 }
 
 describe('one Workflow shows one spend', () => {
@@ -83,12 +83,12 @@ describe('one Workflow shows one spend', () => {
 
     const under = spentLoop(2.56);
     const watchedUnder = stripLoopForPersist(structuredClone(under));
-    expect(summarizeLoopUsage(watchedUnder, under.runs.map(toRunSummary))?.costRemaining).toBeGreaterThan(0);
+    expect(summarizeLoopUsage(watchedUnder, under.runs.map((run) => toRunSummary(run)))?.costRemaining).toBeGreaterThan(0);
     expect(checkManagementLimits(under, under.runs[0], justStarted(under)).ok).toBe(true);
 
     const at = spentLoop(2.55);
     const watchedAt = stripLoopForPersist(structuredClone(at));
-    expect(summarizeLoopUsage(watchedAt, at.runs.map(toRunSummary))?.costRemaining).toBe(0);
+    expect(summarizeLoopUsage(watchedAt, at.runs.map((run) => toRunSummary(run)))?.costRemaining).toBe(0);
     const blocked = checkManagementLimits(at, at.runs[0], justStarted(at));
     expect(blocked.ok).toBe(false);
     expect(blocked.limit).toBe('maxCostUsd');

@@ -45,8 +45,12 @@ interface RunView {
   id: string;
   status: string;
   startedAt?: string;
-  /** The run's own step order, so an interrupted step's position can be named rather than guessed. */
-  steps?: { stepId: string; status: string; outcomeStatus?: string }[];
+  /**
+   * The run's steps, each carrying its PLAN position when the run recorded one.
+   * Activation order is the order steps happened to run, so `planIndex` — not
+   * the position in this list — is what names a step to the user.
+   */
+  steps?: { stepId: string; status: string; outcomeStatus?: string; planIndex?: number }[];
   /** The block that ended the run, with the limit's own reason. */
   block?: { reason: string; limit?: string };
   /** Steps a restart left in flight, from the run's own record. */

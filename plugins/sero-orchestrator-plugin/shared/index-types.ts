@@ -108,6 +108,15 @@ export interface LoopRunStepSummary {
   executionType: StepExecutionTarget['type'];
   status: StepAttemptStatus;
   outcomeStatus?: StepOutcome['status'];
+  /**
+   * The step's zero-based position in the PLAN, when the writer knew the plan.
+   *
+   * The activation list is the order steps happened to run, which is NOT the
+   * order the page numbers them: a run that executed steps 1 and 3 lists the
+   * third one second. Anything that says "step N" to the user must use this,
+   * and must state no number at all when it is absent.
+   */
+  planIndex?: number;
 }
 
 export interface LoopRunSummary {

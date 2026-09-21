@@ -60,7 +60,7 @@ describe('RoomTopBar clock', () => {
     Reflect.deleteProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT');
   });
 
-  const render = async (room: PersistedRoom) => act(async () => root.render(
+  const render = async (room: PersistedRoom, onDelete: () => void = () => undefined) => act(async () => root.render(
     <RoomTopBar
       room={room}
       view="timeline"
@@ -74,7 +74,7 @@ describe('RoomTopBar clock', () => {
       onPause={() => undefined}
       onResume={() => undefined}
       onStop={() => undefined}
-      onDelete={() => undefined}
+      onDelete={onDelete}
     />,
   ));
 
@@ -102,19 +102,34 @@ describe('RoomTopBar clock', () => {
     expect(container.querySelector('[aria-label^="Time used:"]')?.getAttribute('aria-label')).toBe('Time used: 12m');
   });
 
-  it('offers Delete Room from the ⋯ menu, not beside the view controls', async () => {
+  it('offers Delete Room from the ⋯ menu, not beside the view controls, and still asks', async () => {
     const room = pausedRoom();
     const finished = { ...room, runtime: { ...room.runtime, status: 'completed' } } as PersistedRoom;
-    await render(finished);
+    const onDelete = vi.fn();
+    await render(finished, onDelete);
 
     // Deleting is not a peer of Timeline, Watch and Stop: it takes opening the
     // menu, which is what keeps a destructive control from being clicked by
-    // accident. It is still offered, and it still asks (the button confirms).
+    // accident. The menu portals, so it is not clipped by this bar's own
+    // 50px `overflow-hidden` either.
     expect(container.querySelector('button[aria-label="Delete Room"]')).toBeNull();
     const more = container.querySelector<HTMLButtonElement>('button[aria-label="More actions"]');
     expect(more).not.toBeNull();
 
-    await act(async () => more?.click());
-    expect(container.querySelector('button[aria-label="Delete Room"]')).not.toBeNull();
+    act(() => { more?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0 })); });
+    const item = [...document.querySelectorAll('[role="menuitem"]')]
+      .find((node) => node.textContent?.includes('Delete Room'));
+    expect(item).toBeDefined();
+
+    act(() => { (item as HTMLElement).click(); });
+    // It still asks, with the copy that says what is preserved.
+    expect(document.body.textContent).toContain('Delete this Room?');
+    expect(document.body.textContent).toContain('worktree cannot be preserved');
+    expect(onDelete).not.toHaveBeenCalled();
+
+    const confirm = [...document.body.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button')]
+      .find((button) => button.textContent === 'Delete Room');
+    await act(async () => { confirm?.click(); });
+    expect(onDelete).toHaveBeenCalledOnce();
   });
 });

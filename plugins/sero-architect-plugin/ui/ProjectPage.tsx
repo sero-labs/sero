@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@sero-ai/ui';
 
 import { sessionStartedAt } from '@sero-ai/common';
@@ -13,6 +13,7 @@ import { NeedsYou } from './components/NeedsYou';
 import { ProjectResearch } from './components/ProjectResearch';
 import { RepairCard } from './components/RepairCard';
 import { ProjectPreview } from './components/ProjectPreview';
+import { RetryWorkflowControl } from './components/RetryWorkflowControl';
 import { SideColumn, type DisclosureState } from './components/SideColumn';
 import { SessionHistoryDialog } from './components/SessionHistoryDialog';
 import { StateLine, type HeaderAction } from './components/StateLine';
@@ -163,10 +164,9 @@ function ProjectMainColumn({ record, actions, needsActions, permissionPending, o
  * What the header offers, and what each control runs.
  *
  * Each is the same action the rest of the page already has, so nothing is only
- * reachable here: Retry step and the workflow-cap resume are the recovery
- * controls the milestone row used to carry, and "Tell Architect what to do
- * next" puts the cursor in the directive box at the foot of the page rather
- * than sending anything itself.
+ * reachable here: the recovery controls the milestone row used to carry now sit
+ * in the header, and "Tell Architect what to do next" puts the cursor in the
+ * directive box at the foot of the page rather than sending anything itself.
  */
 function useHeaderActions(
   record: ProjectRecord,
@@ -194,10 +194,12 @@ function useHeaderActions(
 
   if (!activity.action) return [];
 
-  const stopped = record.milestones.find((milestone) => milestone.dispatch?.failure && milestone.dispatch.retryStepId);
-  if (activity.action === 'Retry the step' && stopped) {
-    return [{ label: 'Retry step', primary: true, run: () => void actions.retry(record.id, stopped.id) }];
-  }
+  // A stopped dispatch's recovery is the header's OWN control, not a button
+  // here. A cap needs a field to type in, and no cap needs the busy state and
+  // the refusal — neither of which a bare action can show. `ProjectPage`
+  // renders it in the `form` slot; this returns nothing so it appears once.
+  if (record.milestones.some((milestone) => milestone.dispatch?.failure)) return [];
+
   const room = record.milestones.find((milestone) => milestone.dispatch?.kind === 'room' && milestone.dispatch.failure);
   if (activity.action === 'Open the Room to answer' && room?.dispatch) {
     const { kind, id, workspaceId } = room.dispatch;
@@ -256,6 +258,26 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOp
     };
   }
 
+  // A dispatch that stopped with NO cap to approve: a time limit clears the step
+  // id, so there is no step to retry from and the whole Workflow restarts. The
+  // milestone row carried this control before it moved; without it here the
+  // recovery is unreachable, which is the fault this shape exists to prevent.
+  const stoppedWorkflow = record.milestones.find(
+    (item) => item.dispatch?.failure && item.dispatch.costLimitUsd === undefined,
+  );
+  let headerForm: ReactNode;
+  if (capForm) {
+    headerForm = <CapInput {...capForm} onError={page.setNotice} onDone={() => page.setNotice(null)} />;
+  } else if (stoppedWorkflow) {
+    headerForm = (
+      <RetryWorkflowControl
+        label={stoppedWorkflow.dispatch?.retryStepId ? 'Retry step' : 'Restart the Workflow'}
+        retry={() => actions.retry(id, stoppedWorkflow.id)}
+        onError={page.setNotice}
+      />
+    );
+  }
+
   return (
     <>
       <TopBar record={record} controls={page.controls} onBack={onBack} onNewProject={() => undefined} />
@@ -280,16 +302,7 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOp
             record={record}
             home={null}
             actions={headerActions}
-            form={capForm ? (
-              // A Workflow that stopped at its own cap moves its whole control
-              // here, so a workflow-cap resume works from the header rather
-              // than only from the milestone row below.
-              <CapInput
-                {...capForm}
-                onError={page.setNotice}
-                onDone={() => page.setNotice(null)}
-              />
-            ) : undefined}
+            form={headerForm}
             runtimeRunning={runtimeRunning}
           />
           <div className="ar-sections" data-narrow={narrow ? 1 : 0}>

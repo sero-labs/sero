@@ -4,7 +4,7 @@ import type { RecordStore } from './record-store';
 export interface RunHealth {
   status: string;
   startedAt?: string;
-  steps?: { stepId: string; status: string; outcomeStatus?: string }[];
+  steps?: { stepId: string; status: string; outcomeStatus?: string; planIndex?: number }[];
   /** The block that ended the run, carrying the limit's own reason rather than a paraphrase. */
   block?: { reason: string; limit?: string };
   /** Steps a restart left in flight, so the page can say which step the run was on. */
@@ -18,17 +18,23 @@ export interface RunHealth {
  * run records as facts and this words; or nothing, said plainly rather than
  * filled with a sentence that sounds like a cause the record never held.
  *
- * The step number is stated only when the run's own step order resolves to
- * exactly one interrupted step, so a number is never guessed.
+ * The step number is stated only when the run's own record resolves to exactly
+ * one interrupted step AND the plan position is known, so a number is never
+ * guessed.
  */
 function stopReason(latest: RunHealth): string {
   if (latest.block?.reason) return latest.block.reason;
   const interrupted = latest.interruptedStepIds ?? [];
   if (interrupted.length === 1) {
-    const at = (latest.steps ?? []).findIndex((step) => step.stepId === interrupted[0]);
-    return at >= 0
-      ? `Sero restarted during step ${at + 1} of its Workflow.`
-      : 'Sero restarted while its Workflow was mid-step.';
+    // The number has to be the PLAN's: that is the one the plan and the page
+    // show. The position in the activation list is the order steps happened to
+    // run — a run that executed steps 1 and 3 lists the third one second — so
+    // it is not the number, and when no plan position was recorded no number is
+    // stated at all.
+    const step = (latest.steps ?? []).find((candidate) => candidate.stepId === interrupted[0]);
+    return step?.planIndex === undefined
+      ? 'Sero restarted while its Workflow was mid-step.'
+      : `Sero restarted during step ${step.planIndex + 1} of its Workflow.`;
   }
   if (interrupted.length > 1) return `Sero restarted with ${interrupted.length} steps in flight.`;
   return 'The Workflow stopped. No cause was recorded.';

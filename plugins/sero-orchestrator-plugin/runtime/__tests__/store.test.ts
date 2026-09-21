@@ -379,4 +379,30 @@ describe('run summary retains why a run ended', () => {
     expect(summary.interruptedStepIds).toBeUndefined();
     expect(summary.block).toBeUndefined();
   });
+
+  it('records each step\'s position in the PLAN, which is not its place in the run', () => {
+    const interrupted: LoopRun = {
+      ...run('r1'),
+      status: 'orphaned',
+      stepActivations: [activation('act-1', 'choose', 'succeeded'), activation('act-2', 'right', 'orphaned')],
+    };
+    // The plan is [choose, left, right] and the run skipped `left`, so the
+    // interrupted step is the third even though it is the second activation.
+    const index = buildRunIndex([interrupted], ['choose', 'left', 'right']);
+    expect(index.runs[0].steps.map((step) => [step.stepId, step.planIndex]))
+      .toEqual([['choose', 0], ['right', 2]]);
+    expect(index.runs[0].interruptedStepIds).toEqual(['right']);
+  });
+
+  it('leaves the plan position absent when the writer did not know the plan', () => {
+    const summary = toRunSummary({
+      ...run('r1'),
+      status: 'orphaned',
+      stepActivations: [activation('act-1', 's1', 'orphaned')],
+    });
+    // No plan to read, so no position is claimed. A reader must then state no
+    // step number rather than infer one from the run's own order.
+    expect(summary.steps[0].planIndex).toBeUndefined();
+    expect(summary.interruptedStepIds).toEqual(['s1']);
+  });
 });

@@ -59,7 +59,7 @@ describe('dispatch watch', () => {
     watch.dispose();
   });
 
-  it('names the step a restart interrupted, from the run\'s own order', async () => {
+  it('names the PLAN position of the step a restart interrupted, not its place in the run', async () => {
     const { host, store, watch, settle } = await setup();
     const file = loopRunsIndexFile('/home/dan/projects/hollow', 'loop_1');
     host.emitState(file, {
@@ -67,15 +67,40 @@ describe('dispatch watch', () => {
         id: 'run_1',
         status: 'orphaned',
         startedAt: T0,
-        steps: [{ stepId: 's1', status: 'completed' }, { stepId: 's2', status: 'orphaned' }],
-        interruptedStepIds: ['s2'],
+        // The plan's third step, and only the second activation: a run that
+        // skipped a step lists them out of plan order, so the position in this
+        // array is NOT the number the page shows.
+        steps: [
+          { stepId: 'choose', status: 'completed', planIndex: 0 },
+          { stepId: 'right', status: 'orphaned', planIndex: 2 },
+        ],
+        interruptedStepIds: ['right'],
       }],
     });
     await settle();
     const record = await store.read('proj_1');
-    expect(record?.milestones[0]?.dispatch?.failure).toBe('Sero restarted during step 2 of its Workflow.');
+    expect(record?.milestones[0]?.dispatch?.failure).toBe('Sero restarted during step 3 of its Workflow.');
     // The interrupted step is still the one the recovery offers.
-    expect(record?.milestones[0]?.dispatch?.retryStepId).toBe('s2');
+    expect(record?.milestones[0]?.dispatch?.retryStepId).toBe('right');
+    watch.dispose();
+  });
+
+  it('states no step number when the run recorded no plan position', async () => {
+    const { host, store, watch, settle } = await setup();
+    const file = loopRunsIndexFile('/home/dan/projects/hollow', 'loop_1');
+    host.emitState(file, {
+      runs: [{
+        id: 'run_1',
+        status: 'orphaned',
+        startedAt: T0,
+        steps: [{ stepId: 's1', status: 'orphaned' }],
+        interruptedStepIds: ['s1'],
+      }],
+    });
+    await settle();
+    // Without a plan position there is no honest number, so none is given.
+    expect((await store.read('proj_1'))?.milestones[0]?.dispatch?.failure)
+      .toBe('Sero restarted while its Workflow was mid-step.');
     watch.dispose();
   });
 
