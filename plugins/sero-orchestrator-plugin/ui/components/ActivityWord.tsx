@@ -37,8 +37,8 @@ const TONE_CHIP: Record<ActivityTone, string> = {
   armed: 'bg-status-info/14 text-status-info',
   attention: 'bg-status-warning/14 text-status-warning',
   danger: 'bg-status-error/14 text-status-error',
-  stale: 'bg-bg-muted text-status-warning',
-  neutral: 'bg-bg-muted text-room-text2',
+  stale: 'bg-room-muted text-status-warning',
+  neutral: 'bg-room-muted text-room-text2',
 };
 
 export interface ActivityWordProps {

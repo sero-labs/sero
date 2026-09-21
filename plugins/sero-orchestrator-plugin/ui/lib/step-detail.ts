@@ -11,7 +11,6 @@
  */
 
 import type { Loop, LoopStepDefinition, StepStatus } from '../../shared/types';
-import { isDefaultTool } from '../../shared/constants';
 import { guardLabel } from './guard-label';
 import { mapRouteState } from './plan-map-state';
 import { STEP_STATUS_STYLE } from './status-style';
@@ -42,26 +41,6 @@ export function stepStateLabel(loop: Loop, step: LoopStepDefinition, status?: St
 }
 
 /**
- * What differs from the default on this step: the model, the agent role and any
- * tools beyond the standard set.
- *
- * The record does not say who set a value, the planner or the user, so anything
- * that is not the default shows. A step left entirely on the defaults shows
- * nothing here and the Tune control still opens all three.
- */
-export function stepOverrides(step: LoopStepDefinition): StepFact[] {
-  const facts: StepFact[] = [];
-  const model = 'model' in step.execution ? step.execution.model : undefined;
-  if (model) facts.push({ label: 'Model', value: model });
-  if (step.execution.type === 'background-agent') {
-    if (step.execution.agent) facts.push({ label: 'Agent', value: step.execution.agent });
-    const extras = (step.execution.tools ?? []).filter((name) => !isDefaultTool(name));
-    if (extras.length > 0) facts.push({ label: 'Tools', value: `Default tools + ${extras.join(', ')}` });
-  }
-  return facts;
-}
-
-/**
  * Everything that explains how the step was written: what it is told to do,
  * what it is meant to produce, and the marks that place it in the plan.
  *
@@ -73,9 +52,9 @@ export function stepMarks(loop: Loop, step: LoopStepDefinition, numberOf: Map<st
     { label: 'Instruction', value: step.instructions },
   ];
   if (step.expectedOutcome) facts.push({ label: 'Expected result', value: step.expectedOutcome });
-  facts.push({ label: 'Runs as', value: step.execution.type });
   if (step.produces?.length) facts.push({ label: 'Decides', value: step.produces.join(', ') });
-  if (step.when) facts.push({ label: 'Runs only when', value: guardLabel(step.when) });
+  // The label already says "only when", so the guard drops its own "only if".
+  if (step.when) facts.push({ label: 'Runs only when', value: guardLabel(step.when).replace(/^only if /, '') });
   if (step.fanOut) {
     facts.push({ label: 'One per', value: `${step.fanOut.itemsFrom} · up to ${step.fanOut.maxItems}` });
   }

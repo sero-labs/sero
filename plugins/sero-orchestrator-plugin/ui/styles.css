@@ -84,6 +84,9 @@
   content: "";
   position: absolute;
   left: -14px;
+  /* Without a width the box shrinks to nothing, and the two hooks that join
+     the line to each step vanish, leaving a bare line beside the plan. */
+  width: 12px;
   border: 1.5px dashed var(--collab-primary);
   border-right: 0;
 }
@@ -118,4 +121,87 @@
   bottom: 0;
   border-top: 0;
   border-bottom: 0;
+}
+
+/* A step on the plan, as the approved drawing sets it
+   (prototypes/agent-workspace-ux-audit/2-act-on-it.html, frame 4).
+   The rules below name the host tokens: the room-* names exist only inside
+   Tailwind utilities (@theme inline), never as runtime variables. */
+.orc-step {
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  background: var(--bg-surface);
+  padding: 11px 14px;
+}
+
+/* A step on a route the Workflow did not take. */
+.orc-step-dim {
+  opacity: 0.55;
+}
+
+/* Labelled facts: the Result on the card, and what opens from the chevron. */
+.orc-kv {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 8px 14px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.orc-kv dt {
+  padding-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.orc-kv dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.orc-kv code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* The panel Tune opens: model, agent and tools. */
+.orc-tune {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 7px;
+  background: var(--bg-base);
+}
+
+/* The rail marker: a step number, or the icon of the group it starts. */
+.orc-rail-mark {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  border: 1px solid var(--border-default);
+  border-radius: 50%;
+  background: var(--bg-surface);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* Steps that run together, or compete on one variable. */
+.orc-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border: 1px dashed var(--border-default);
+  border-radius: 9px;
 }

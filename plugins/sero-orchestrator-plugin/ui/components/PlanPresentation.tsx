@@ -2,7 +2,6 @@ import { useId } from 'react';
 import { useAppPreferences } from '@sero-ai/app-runtime';
 import { Slider } from '@sero-ai/ui/components/ui/slider';
 import { ToggleGroup, ToggleGroupItem } from '@sero-ai/ui/components/ui/toggle-group';
-import { ListTree, Map } from 'lucide-react';
 import type { Loop, OrchestratorAction } from '../../shared/types';
 import {
   clampStepsPerRow,
@@ -38,6 +37,12 @@ export function PlanPresentation({ loop, onAction }: PlanPresentationProps) {
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Above the switch: the objective is the plan's, not one view's. */}
+      {loop.plan.objective && (
+        <p className="text-sm leading-relaxed text-room-text2">
+          <span className="font-semibold text-room-text">Objective</span> · {loop.plan.objective}
+        </p>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <ToggleGroup
           type="single"
@@ -47,8 +52,8 @@ export function PlanPresentation({ loop, onAction }: PlanPresentationProps) {
           onValueChange={(value) => value && setMode(value as PlanPresentationMode)}
           aria-label="Plan presentation"
         >
-          <ToggleGroupItem value="map"><Map /> Map</ToggleGroupItem>
-          <ToggleGroupItem value="details"><ListTree /> Details</ToggleGroupItem>
+          <ToggleGroupItem value="map">Map</ToggleGroupItem>
+          <ToggleGroupItem value="details">Details</ToggleGroupItem>
         </ToggleGroup>
 
         {mode === 'map' && (

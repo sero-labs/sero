@@ -17,11 +17,13 @@ import { summarizeLoopUsage } from './usage-summary';
 
 /**
  * How a settings value that opens something is drawn: the value itself, with a
- * dotted underline. A button beside the line would be a second thing to read
- * before the user knows what the setting currently is.
+ * dotted underline that turns solid under the pointer. A button beside the line
+ * would be a second thing to read before the user knows what the setting
+ * currently is. Tailwind gives a button the default cursor, so the pointer is
+ * set here.
  */
 export const SETTING_VALUE_CLASS =
-  'max-w-full truncate text-left text-[12.5px] leading-tight text-room-text2 underline decoration-dotted decoration-room-line underline-offset-[3px] hover:text-room-text hover:decoration-room-text3';
+  'max-w-full cursor-pointer truncate rounded-sm text-left text-[12.5px] leading-tight text-room-text underline decoration-room-text4 decoration-dotted underline-offset-[3px] transition-colors hover:text-room-ink-brand hover:decoration-solid hover:decoration-current focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-room-line-strong';
 
 /** One event or schedule, and everything that narrows when it fires. */
 export interface TriggerDetail {
@@ -76,24 +78,24 @@ function scheduleArmed(trigger: LoopTrigger): boolean {
 
 function workspaceWords(loop: Loop): string {
   const { workspace } = loop;
-  const resolved = loop.runtime.workspace.resolved;
-  const parts = [workspace.useManagedWorktree ? 'A managed worktree' : 'The workspace root'];
-  if (workspace.useManagedWorktree && workspace.worktreeBranchSource === 'event-pr') parts.push('on the branch from the event');
-  if (!workspace.useManagedWorktree && workspace.allowDirtyWorkspaceRoot) parts.push('in place');
-  if (resolved) parts.push(resolved.type);
-  return parts.join(' · ');
+  // Where it actually ran, once it has: a worktree setting can fall back to the
+  // root. "in place" and the resolved type id said the same thing twice more.
+  const resolved = loop.runtime.workspace.resolved?.type;
+  const worktree = resolved ? resolved === 'managed-worktree' : workspace.useManagedWorktree;
+  if (!worktree) return 'Workspace root';
+  return workspace.worktreeBranchSource === 'event-pr' ? 'Managed worktree · on the branch from the event' : 'Managed worktree';
 }
 
 /** What the background agents run with: the default, or what the user changed. */
 export function contextWords(loop: Loop): string {
   const overrides = loop.contextOverrides;
-  if (!overrides) return 'Sero default';
+  if (!overrides) return 'Default preset';
   const parts: string[] = [];
   if (overrides.systemPrompt === '') parts.push('No base prompt');
   else if (typeof overrides.systemPrompt === 'string') parts.push('Custom prompt');
   const off = overrides.disabledSkills?.length ?? 0;
   if (off > 0) parts.push(`${off} skill${off === 1 ? '' : 's'} off`);
-  return parts.length ? parts.join(' · ') : 'Sero default';
+  return parts.length ? parts.join(' · ') : 'Default preset';
 }
 
 /** Each trigger's narrowing conditions, worded rather than shown as JSON. */

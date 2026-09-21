@@ -8,6 +8,7 @@
  * it as a colour, so a scan down a column reads the states first.
  */
 
+import { stageLabel } from '../lib/plan-stages';
 import { Bot, Circle, GitBranch, MessageSquare, Repeat, ShieldCheck, Sparkles, Users } from 'lucide-react';
 import type { Loop, LoopStepDefinition, StepStatus } from '../../shared/types';
 import { guardLabel } from '../lib/guard-label';
@@ -94,13 +95,7 @@ export function PlanMapStageFrame({
   children: React.ReactNode;
   style?: React.CSSProperties;
 }) {
-  const chosen = branchVar ? loop.runtime.variables[branchVar] : undefined;
-  let label = `Run together · ${steps} steps`;
-  if (kind === 'branch') {
-    label = `Branch · ${branchVar}${chosen === undefined ? ' (not decided yet)' : ` = ${routeText(chosen)}`}`;
-  } else if (kind === 'mixed') {
-    label = `Same stage · ${steps} steps`;
-  }
+  const label = stageLabel(kind, branchVar, steps, loop.runtime.variables);
 
   return (
     <div
@@ -184,8 +179,6 @@ function Mark({ children, label, className = '' }: { children: React.ReactNode; 
     </span>
   );
 }
-
-const routeText = (value: unknown): string => (typeof value === 'string' ? value : JSON.stringify(value));
 
 function statusTextClass(status: StepStatus): string {
   if (status === 'failed') return 'text-rose-400';

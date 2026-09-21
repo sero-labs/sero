@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { isModelTier, MODEL_TIERS } from '@sero-ai/common';
 import type { AppModelGroup } from '@sero-ai/app-runtime';
 import { AvailableModelPicker } from '@sero-ai/ui/model-selection/available-model-picker';
-import { cn } from '@sero-ai/ui/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui/components/ui/select';
 import type { LoopStepDefinition } from '../../shared/types';
 
 const AUTO = '__auto__';
@@ -43,18 +43,18 @@ export function StepModelControl({ step, groups, onChange }: StepModelControlPro
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-xs text-muted-foreground">Model</span>
-      <select
-        aria-label={`Model for ${step.title}`}
-        value={showCustom ? CUSTOM : model ?? AUTO}
-        onChange={(e) => onSelect(e.target.value)}
-        className={selectClass}
-      >
-        <option value={AUTO}>Auto (default)</option>
-        {MODEL_TIERS.map((tier) => (
-          <option key={tier} value={tier}>{tier}</option>
-        ))}
-        <option value={CUSTOM}>Specific model…</option>
-      </select>
+      <Select value={showCustom ? CUSTOM : model ?? AUTO} onValueChange={onSelect}>
+        <SelectTrigger size="sm" aria-label={`Model for ${step.title}`} className="text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={AUTO}>Auto (default)</SelectItem>
+          {MODEL_TIERS.map((tier) => (
+            <SelectItem key={tier} value={tier}>{tier}</SelectItem>
+          ))}
+          <SelectItem value={CUSTOM}>Specific model…</SelectItem>
+        </SelectContent>
+      </Select>
       {showCustom && (
         <AvailableModelPicker
           groups={groups}
@@ -71,8 +71,3 @@ export function StepModelControl({ step, groups, onChange }: StepModelControlPro
     </div>
   );
 }
-
-const selectClass = cn(
-  'rounded-md border border-input bg-background px-2 py-1 text-xs text-foreground',
-  'focus:outline-none focus:ring-1 focus:ring-ring',
-);

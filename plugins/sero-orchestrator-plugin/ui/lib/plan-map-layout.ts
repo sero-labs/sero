@@ -14,7 +14,7 @@
  */
 
 import type { LoopStepDefinition } from '../../shared/types';
-import { groupStepsByLevel } from './plan-levels';
+import { planStages, type PlanStage } from './plan-stages';
 
 export type PlanMapStepsPerRow = 1 | 2 | 3 | 4;
 
@@ -106,31 +106,7 @@ const GROUP_LABEL_HEIGHT = 22;
 const GROUP_PADDING = 14;
 const GROUP_GAP = 6;
 
-interface StageGroup {
-  kind: PlanMapCell['kind'];
-  branchVar?: string;
-  steps: PlanMapCellStep[];
-}
-
-function toStages(steps: LoopStepDefinition[]): StageGroup[] {
-  const numberById = new Map(steps.map((step, index) => [step.id, index + 1]));
-  return groupStepsByLevel(steps).map((level) => {
-    const guarded = level.filter((step) => step.when);
-    const branchVars = new Set(guarded.flatMap((step) => step.when ? [step.when.var] : []));
-    const oneBranch = guarded.length === level.length && branchVars.size === 1;
-    let kind: PlanMapCell['kind'] = 'single';
-    if (level.length > 1) {
-      if (oneBranch) kind = 'branch';
-      else if (guarded.length === 0) kind = 'parallel';
-      else kind = 'mixed';
-    }
-    return {
-      kind,
-      branchVar: oneBranch ? guarded[0].when?.var : undefined,
-      steps: level.map((step) => ({ step, number: numberById.get(step.id)! })),
-    };
-  });
-}
+type StageGroup = PlanStage;
 
 /** The setting, reduced when the panel is too narrow to hold that many columns. */
 function fitStepsPerRow(setting: PlanMapStepsPerRow, width: number): PlanMapStepsPerRow {
@@ -152,7 +128,7 @@ export function computePlanMapLayout(
   if (steps.length === 0) return empty;
 
   const panelWidth = Math.max(PLAN_MAP_MIN_WIDTH, options.width);
-  const stages = toStages(steps);
+  const stages = planStages(steps);
   const stepsPerRow = fitStepsPerRow(options.stepsPerRow, panelWidth);
   const width = panelWidth;
   const rowOf = (stage: number) => Math.floor(stage / stepsPerRow);

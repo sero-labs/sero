@@ -48,11 +48,11 @@ function render(status: LoopStatus, onAction: (action: OrchestratorAction) => vo
 }
 
 describe('the Workflow controls', () => {
-  it('leaves Run again the only button beside More actions', () => {
+  it('leaves Run again the only button beside More actions, and last', () => {
     render('complete');
     const buttons = [...host.querySelectorAll('button')];
     const labels = buttons.map((button) => button.textContent?.trim() || button.getAttribute('aria-label'));
-    expect(labels).toEqual(['Run again', 'More actions']);
+    expect(labels).toEqual(['More actions', 'Run again']);
     expect(host.textContent).not.toContain('Delete');
   });
 

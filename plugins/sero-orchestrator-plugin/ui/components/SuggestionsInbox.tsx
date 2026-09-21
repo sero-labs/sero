@@ -16,18 +16,19 @@ interface SuggestionsInboxProps {
  * The reflection inbox: pending improvement suggestions the user approves or
  * rejects. Approve applies the proposed plan (recorded as a revision); reject
  * keeps the suggestion with a reason so it isn't re-proposed. Renders nothing
- * until a loop has been reflected at least once.
+ * while no suggestion is waiting.
  */
 export function SuggestionsInbox({ loop, busy, onAction }: SuggestionsInboxProps) {
   const suggestions = loop.suggestions ?? [];
-  const insights = loop.insights ?? [];
   const pending = suggestions.filter((s) => s.status === 'pending');
   const approved = suggestions.filter((s) => s.status === 'approved').length;
   const rejected = suggestions.filter((s) => s.status === 'rejected').length;
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [reason, setReason] = useState('');
 
-  if (suggestions.length === 0 && insights.length === 0) return null;
+  // Only what waits for a decision. What reflection learned has its own fold at
+  // the foot of the page, and decided suggestions are history.
+  if (pending.length === 0) return null;
 
   const approve = (id: string) =>
     onAction({ kind: 'choose_suggestion', loopId: loop.id, suggestionId: id, decision: 'approve' });
@@ -40,12 +41,8 @@ export function SuggestionsInbox({ loop, busy, onAction }: SuggestionsInboxProps
   return (
     <section className="flex flex-col gap-2">
       <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Suggestions{pending.length > 0 && <span className="text-amber-500"> · {pending.length} pending</span>}
+        Suggestions <span className="text-amber-500">· {pending.length} pending</span>
       </h2>
-
-      {pending.length === 0 && suggestions.length > 0 && (
-        <p className="text-xs text-muted-foreground">No pending suggestions. Reflect again after more runs.</p>
-      )}
 
       {pending.map((s) => (
         <Card key={s.id} className="flex flex-col gap-2 p-3">
@@ -91,14 +88,6 @@ export function SuggestionsInbox({ loop, busy, onAction }: SuggestionsInboxProps
         <p className="text-xs text-muted-foreground">Earlier: {approved} approved · {rejected} rejected</p>
       )}
 
-      {insights.length > 0 && (
-        <details className="text-xs text-muted-foreground">
-          <summary className="cursor-pointer">What reflection has learned ({insights.length})</summary>
-          <ul className="ml-4 mt-1 list-disc">
-            {insights.map((i) => <li key={i.id}>{i.summary}</li>)}
-          </ul>
-        </details>
-      )}
     </section>
   );
 }

@@ -18,7 +18,6 @@ import {
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { Label } from '@sero-ai/ui/components/ui/label';
 import { Textarea } from '@sero-ai/ui/components/ui/textarea';
-import { BookmarkPlus } from 'lucide-react';
 import type { Loop, OrchestratorAction } from '../../shared/types';
 
 export function LibrarySaveControl({
@@ -60,10 +59,9 @@ export function LibrarySaveControl({
 
   return (
     <>
-      <Button size="sm" variant="outline" disabled={busy} onClick={() => setOpen(true)} title="Save this Workflow to the Library">
-        <BookmarkPlus className="mr-1 h-3.5 w-3.5" />
+      <Button size="sm" variant="ghost" className="text-room-text3" disabled={busy} onClick={() => setOpen(true)} title="Save this Workflow to the Library">
+        {/* The link badge beside this button already names the version. */}
         Library
-        {linked && <span className="ml-1 text-sm font-medium">v{linked.version}</span>}
       </Button>
 
       <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>

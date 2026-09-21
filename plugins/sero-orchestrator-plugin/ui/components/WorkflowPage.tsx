@@ -1,9 +1,9 @@
 /**
  * One Workflow on its own page, reached from the full-width Workflows list.
  *
- * The page owns only the way back; everything below it is the Workflow detail
- * this app already had. While its record is still being read, the page says so
- * rather than telling the user to select something.
+ * The Workflow detail draws its own top row, with the way back beside its name.
+ * While its record is still being read, the page says so rather than telling
+ * the user to select something.
  */
 
 import type { LibraryIndex, Loop, LoopSummary, OrchestratorAction } from '../../shared/types';
@@ -25,6 +25,21 @@ export interface WorkflowPageProps {
 }
 
 export function WorkflowPage({ loop, summary, busy, onAction, onDispatch, stateDir, libraryDir, libraryIndex, onBack }: WorkflowPageProps) {
+  if (loop) {
+    return (
+      <LoopDetail
+        loop={loop}
+        summary={summary}
+        busy={busy}
+        onAction={onAction}
+        onDispatch={onDispatch}
+        stateDir={stateDir}
+        libraryDir={libraryDir}
+        libraryIndex={libraryIndex}
+        onBack={onBack}
+      />
+    );
+  }
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b border-room-line px-4 py-2">
@@ -32,20 +47,7 @@ export function WorkflowPage({ loop, summary, busy, onAction, onDispatch, stateD
           ← {WORKFLOWS_LABEL}
         </button>
       </div>
-      {loop ? (
-        <LoopDetail
-          loop={loop}
-          summary={summary}
-          busy={busy}
-          onAction={onAction}
-          onDispatch={onDispatch}
-          stateDir={stateDir}
-          libraryDir={libraryDir}
-          libraryIndex={libraryIndex}
-        />
-      ) : (
-        <div className="flex flex-1 items-center justify-center text-sm text-room-text3">Reading this Workflow…</div>
-      )}
+      <div className="flex flex-1 items-center justify-center text-sm text-room-text3">Reading this Workflow…</div>
     </div>
   );
 }

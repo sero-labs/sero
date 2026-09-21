@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Loop, LoopStepDefinition } from '../../shared/types';
 import { previewLoop } from '../__preview__/fixture';
 import { mapRouteState } from '../lib/plan-map-state';
-import { stepMarks, stepOverrides, stepStateLabel } from '../lib/step-detail';
+import { stepMarks, stepStateLabel } from '../lib/step-detail';
 import { PlanMapCard } from '../components/PlanMapCard';
 import { StepCard } from '../components/StepCard';
 
@@ -101,26 +101,18 @@ describe('a finished step', () => {
 });
 
 describe('model, agent and tools on a step', () => {
-  it('shows only what is not the default and keeps the rest behind Tune', () => {
-    const step = find('discover');
-    expect(stepOverrides(step)).toEqual([{ label: 'Agent', value: 'explorer' }]);
+  it('keeps them behind Tune, never on the card', () => {
+    // The step carries a model and an agent; the card states neither.
+    const step = { ...find('discover'), execution: { type: 'background-agent' as const, model: 'HIGH', agent: 'explorer' } };
     renderStep(step);
-    expect(host.textContent).toContain('Agent: explorer');
-    // Model and tools are on their defaults, so neither is stated on the card.
-    expect(host.textContent).not.toContain('Model:');
-    expect(host.textContent).not.toContain('Tools:');
+    expect(host.textContent).not.toContain('HIGH');
+    expect(host.textContent).not.toContain('explorer');
     const tune = [...host.querySelectorAll('button')]
       .find((candidate) => candidate.getAttribute('aria-label')?.startsWith('Model, agent and tools'));
     expect(tune?.getAttribute('aria-expanded')).toBe('false');
     act(() => { (tune as HTMLButtonElement).click(); });
     expect(host.querySelector(`[aria-label="Model for ${step.title}"]`)).not.toBeNull();
     expect(host.querySelector(`[aria-label="Tools for ${step.title}"]`)).not.toBeNull();
-  });
-
-  it('states a pinned model on the card', () => {
-    const step = { ...find('patch'), execution: { type: 'background-agent' as const, model: 'claude-opus-5' } };
-    renderStep(step);
-    expect(host.textContent).toContain('Model: claude-opus-5');
   });
 });
 
@@ -168,7 +160,8 @@ describe('the step marks', () => {
     expect(labels(find('patch'))).toContain('Runs only when');
     expect(labels(find('check'))).toContain('One per');
     expect(labels(find('solutions'))).toContain('Waits for you');
-    // The execution target moved off the card header into the opened panel.
-    expect(labels(find('patch'))).toContain('Runs as');
+    // The label already says "only when", so the value does not repeat it.
+    const guard = stepMarks(previewLoop, find('patch'), NUMBER_OF).find((fact) => fact.label === 'Runs only when');
+    expect(guard?.value.startsWith('only if')).toBe(false);
   });
 });

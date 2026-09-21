@@ -56,7 +56,6 @@ export function OrchestratorApp() {
   const [view, navigate] = useOrchestratorNavigation(stateRuntime);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [reflectSummary, setReflectSummary] = useState<string | null>(null);
   const [libraryDir, setLibraryDir] = useState<string | null>(null);
   // Kept at the app so opening a Workflow and coming back keeps the search.
   const [workflowQuery, setWorkflowQuery] = useState('');
@@ -166,24 +165,15 @@ export function OrchestratorApp() {
     return details.loop?.id ?? null;
   };
 
-  const reflectAll = async () => {
-    setReflectSummary(null);
-    const res = await dispatch({ action: 'reflect_workspace' });
-    const details = res?.details as { workspaceReflection?: { reflected: number; suggestionCount: number } } | null;
-    const summary = details?.workspaceReflection;
-    if (summary) setReflectSummary(`Reflected ${summary.reflected} workflow(s) · ${summary.suggestionCount} suggestion(s) to review.`);
-  };
-
   const openLoop = useCallback((loopId: string) => navigate({ mode: 'detail', loopId }), [navigate]);
   const openCreate = useCallback(() => navigate({ mode: 'create' }), [navigate]);
 
   const activeTab = tabOf(view);
   const shellControls = shellControlsFor(activeTab, {
-    reflectAll: () => void reflectAll(),
     newWorkflow: openCreate,
     newRoom: room.openCreate,
     newGoal: () => openGoal(''),
-  }, busy || index.loops.length === 0);
+  });
   // The Home badge mirrors HomeView's "Needs you" count, row for row.
   const needsCount = attentionCount(index.loops, roomIndex.rooms, goalIndex.goals);
 
@@ -207,13 +197,6 @@ export function OrchestratorApp() {
         onSelect={onSelectTab}
         actions={shellControls.actions}
       />
-
-      {reflectSummary && (
-        <div className="flex items-center justify-between gap-2 border-b border-border bg-accent/40 px-4 py-2 text-xs">
-          <span>{reflectSummary}</span>
-          <button type="button" className="shrink-0 underline" onClick={() => setReflectSummary(null)}>dismiss</button>
-        </div>
-      )}
 
       {error && (
         <div className="flex items-center justify-between gap-2 border-b border-destructive/40 bg-destructive/10 px-4 py-2 text-xs text-destructive">

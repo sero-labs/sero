@@ -7,20 +7,20 @@
  * so on a real Workflow the reader scrolled past the instruction three times
  * to find out what had happened.
  *
- * Model, agent and tools open from Tune. A value that is not the default shows
- * on the card, so a step whose model was pinned says so without opening.
+ * Model, agent and tools open from Tune and nowhere else. The card never
+ * states them: the planner sets them on nearly every step, so every card
+ * would carry the same line.
  */
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { Button } from '@sero-ai/ui/components/ui/button';
-import { Card } from '@sero-ai/ui/components/ui/card';
 import { ChevronDown, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import type { AppModelGroup } from '@sero-ai/app-runtime';
 import type { ContextAgentInfo, ContextToolInfo } from '@sero-ai/common';
 import type { Loop, LoopStepDefinition, StepRuntimeState } from '../../shared/types';
 import { STEP_STATUS_STYLE } from '../lib/status-style';
-import { stepMarks, stepOverrides, stepStateLabel, type StepFact } from '../lib/step-detail';
+import { stepMarks, stepStateLabel } from '../lib/step-detail';
 import { StepStatusPill } from './StatusBadge';
 import { fanOutSummaryLabel, type FanOutView } from '../lib/fan-out-summary';
 import { StepModelControl } from './StepModelControl';
@@ -52,19 +52,18 @@ export interface StepCardProps {
   fanOut?: FanOutView;
 }
 
-/** A labelled fact, in the drawing's two-column key/value shape. */
-function Facts({ facts }: { facts: StepFact[] }) {
-  return (
-    <dl className="flex flex-col gap-1.5 text-xs">
-      {facts.map((fact) => (
-        <div key={fact.label} className="flex gap-5">
-          <dt className="w-24 shrink-0 text-sm font-semibold uppercase tracking-wide text-foreground">{fact.label}</dt>
-          <dd className="min-w-0 whitespace-pre-wrap text-muted-foreground">{fact.value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
+/**
+ * Backticked spans in an outcome, set as code the way the agent wrote them.
+ * An odd number of backticks leaves a span open, so the text prints as written.
+ */
+function WithCode({ text }: { text: string }) {
+  const parts = text.split('`');
+  if (parts.length % 2 === 0) return <>{text}</>;
+  return <>{parts.map((part, index) => (index % 2 === 1 ? <code key={index}>{part}</code> : part))}</>;
 }
+
+/** The two icon buttons in the step header, as the drawing sets them. */
+const ICON_BUTTON = 'grid size-6 shrink-0 place-items-center rounded-[5px] text-room-text3 hover:bg-room-overlay hover:text-room-text';
 
 export function StepCard({ step, number, loop, numberOf, showNumber = true, state, groups, toolCatalog, agentCatalog, onSetModel, onSetTools, onSetAgent, onRetry, fanOut }: StepCardProps) {
   const [tuning, setTuning] = useState(false);
@@ -74,85 +73,74 @@ export function StepCard({ step, number, loop, numberOf, showNumber = true, stat
   const isProblem = !!state && PROBLEM_STATUSES.has(state.status);
   const tint = state ? STEP_STATUS_STYLE[state.status].tint : '';
   const canTune = step.execution.type !== 'active-session';
-  const overrides = stepOverrides(step);
 
   return (
-    <Card className={`flex flex-col gap-1.5 p-3 ${tint || 'border-border/75'}${notTaken ? ' opacity-60' : ''}`}>
-      <div className="flex items-center gap-2">
-        {showNumber && <span className="text-xs tabular-nums text-muted-foreground">{number}.</span>}
-        <span className="min-w-0 flex-1 truncate font-medium">{step.title}</span>
+    <div className={`orc-step flex flex-col${notTaken ? ' orc-step-dim' : ''}${tint ? ` ${tint}` : ''}`}>
+      <div className="flex items-center gap-[9px]">
+        {showNumber && <span className="shrink-0 font-mono text-[11px] text-room-text3">{number}</span>}
+        <span className="min-w-0 flex-1 text-[13px] font-semibold text-room-text">{step.title}</span>
         {/* One word, from one rule. The tone comes from the shared status
             style; "Not taken" has no status of its own, so it stays plain. */}
         <Badge
           variant="outline"
-          className={`shrink-0 ${state && !notTaken ? STEP_STATUS_STYLE[state.status].badge : 'border-border text-muted-foreground'}`}
+          className={`shrink-0 rounded-md bg-room-raised ${state && !notTaken ? STEP_STATUS_STYLE[state.status].badge : 'text-muted-foreground'} border-transparent`}
         >
           {stateLabel}
         </Badge>
         {canTune && (
-          <Button
-            size="xs"
-            variant="ghost"
-            className="h-6 shrink-0 px-1.5 text-muted-foreground"
+          <button
+            type="button"
+            className={`${ICON_BUTTON}${tuning ? ' bg-room-overlay text-room-text' : ''}`}
             onClick={() => setTuning((t) => !t)}
             aria-expanded={tuning}
             aria-label={`Model, agent and tools for ${step.title}`}
             title="Model, agent and tools"
           >
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-          </Button>
+            <SlidersHorizontal className="size-3.5" />
+          </button>
         )}
-        <Button
-          size="xs"
-          variant="ghost"
-          className="h-6 shrink-0 px-1.5 text-muted-foreground"
+        <button
+          type="button"
+          className={ICON_BUTTON}
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
           aria-label={`Show instruction and expected result for ${step.title}`}
           title="Instruction and expected result"
         >
-          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
-        </Button>
+          <ChevronDown className={`size-3.5 ${open ? 'rotate-180' : ''}`} />
+        </button>
       </div>
 
-      {overrides.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1">
-          {overrides.map((fact) => (
-            <Badge key={fact.label} variant="outline" className="text-sm font-normal text-muted-foreground">
-              {fact.label}: {fact.value}
-            </Badge>
-          ))}
-        </div>
-      )}
-
-      {fanOut && <FanOutActivations view={fanOut} />}
+      {fanOut && <div className="mt-2"><FanOutActivations view={fanOut} /></div>}
 
       {state?.outcome && (
-        <dl className="mt-1 flex flex-col gap-1.5 border-t border-border/60 pt-2.5 text-xs">
-          <div className="flex gap-5">
-            <dt className="w-24 shrink-0 text-sm font-semibold uppercase tracking-wide text-foreground">Result</dt>
-            <dd className={`min-w-0 ${isProblem ? 'text-destructive' : 'text-foreground'}`}>
-              {state.outcome.summary}
-              {state.attempts > 0 && <span className="text-muted-foreground"> · {state.attempts} attempt(s)</span>}
-            </dd>
-          </div>
+        <dl className="orc-kv mt-2.5">
+          <dt>Result</dt>
+          <dd className={isProblem ? 'text-destructive' : 'text-room-text'}><WithCode text={state.outcome.summary} /></dd>
         </dl>
       )}
 
       {open && (
-        <div className="mt-1 border-t border-border/60 pt-2.5">
-          <Facts facts={stepMarks(loop, step, numberOf)} />
+        <div className="mt-2.5 border-t border-room-line pt-2.5">
+          <dl className="orc-kv">
+            {stepMarks(loop, step, numberOf).map((fact) => (
+              <Fragment key={fact.label}>
+                <dt>{fact.label}</dt>
+                <dd>{fact.value}</dd>
+              </Fragment>
+            ))}
+          </dl>
         </div>
       )}
 
       {onRetry && (
-        <Button size="xs" variant="outline" className="self-start" onClick={onRetry} title="Reset this step and run the Workflow from here (keeps finished work)">
+        <Button size="xs" variant="outline" className="mt-2 self-start" onClick={onRetry} title="Reset this step and run the Workflow from here (keeps finished work)">
           <RefreshCw className="mr-1 h-3.5 w-3.5" /> Retry step
         </Button>
       )}
 
       {canTune && tuning && (
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-md border border-border bg-background/40 p-2">
+        <div className="orc-tune flex flex-wrap items-center gap-x-[18px] gap-y-2">
           <StepModelControl step={step} groups={groups} onChange={(model, thinking) => onSetModel(step.id, model, thinking)} />
           {step.execution.type === 'background-agent' && (
             <>
@@ -162,7 +150,7 @@ export function StepCard({ step, number, loop, numberOf, showNumber = true, stat
           )}
         </div>
       )}
-    </Card>
+    </div>
   );
 }
 

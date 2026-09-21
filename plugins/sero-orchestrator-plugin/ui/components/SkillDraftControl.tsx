@@ -24,7 +24,7 @@ import {
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { Label } from '@sero-ai/ui/components/ui/label';
 import { Textarea } from '@sero-ai/ui/components/ui/textarea';
-import { GraduationCap, LoaderCircle } from 'lucide-react';
+import { LoaderCircle } from 'lucide-react';
 import type { Loop, SkillDraft } from '../../shared/types';
 import { useWatchedJson } from '../lib/use-watched-json';
 import { approveSkillWrite } from '../lib/skill-approval';
@@ -174,18 +174,15 @@ export function SkillDraftControl({
     <>
       <Button
         size="sm"
-        variant="outline"
+        variant="ghost"
+        className="text-room-text3"
         // A pending draft opens from its artifact, so the button waits for it
         // rather than opening the review with an empty SKILL.md.
         disabled={busy || extracting || (!!pending && !watched.body)}
         onClick={() => (pending ? dispatch({ kind: 'review', draft: pending, body: watched.body }) : void extract())}
         title={pending ? 'Review the drafted skill' : 'Draft a reusable skill from what this Workflow proved works'}
       >
-        {extracting ? (
-          <LoaderCircle className="mr-1 h-3.5 w-3.5 animate-spin" />
-        ) : (
-          <GraduationCap className="mr-1 h-3.5 w-3.5" />
-        )}
+        {extracting && <LoaderCircle className="mr-1 h-3.5 w-3.5 animate-spin" />}
         {extracting ? 'Preparing skill…' : pending ? 'Review skill' : 'Skill'}
         {loop.skillLink && !pending && <span className="ml-1 text-sm font-medium">{loop.skillLink.name}</span>}
       </Button>

@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Card } from '@sero-ai/ui/components/ui/card';
-import { AlertTriangle, Sparkles } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import type {
   GithubSourceHealth,
   LibraryIndex,
@@ -12,9 +12,10 @@ import type {
   WebhookSourceHealth,
 } from '../../shared/types';
 import { DEFAULT_RUN_INDEX } from '../../shared/defaults';
+import { WORKFLOWS_LABEL } from '../../shared/labels';
 import { useWatchedJson } from '../lib/use-watched-json';
 import { useLibraryLink } from '../lib/use-library-link';
-import { LoopStatusBadge, NeedsYouBadge } from './StatusBadge';
+import { NeedsYouBadge } from './StatusBadge';
 import { LoopControls } from './LoopControls';
 import { LoopSettingsLine } from './LoopSettingsLine';
 import { LoopStateLine } from './LoopStateLine';
@@ -47,15 +48,25 @@ interface LoopDetailProps {
   libraryDir: string | null;
   /** The watched library index, for a linked loop's version status. */
   libraryIndex: LibraryIndex;
+  /** Back to the Workflows list. */
+  onBack: () => void;
 }
 
 /**
- * Calm single-column loop detail (specs/09-ui-redesign.md, B1 + B3 touch). The
- * input request gets top weight (the moment that needs you); a live-activity
- * strip shows while running; plan and history collapse for progressive
- * disclosure. The Library link + save controls are folded in.
+ * One Workflow, as the approved drawing sets it
+ * (prototypes/agent-workspace-ux-audit/2-act-on-it.html, frame 4).
+ *
+ * The top row names the Workflow and holds every control once: Library,
+ * Reflect and Skill quiet, then More actions, then the one primary action.
+ * Below it, the state line and the settings, then whatever needs you, then the
+ * plan, then the folds.
+ *
+ * The page used to repeat itself: a title with a status badge over a state line
+ * that said the same, the prompt restated above the objective, a "Plan" fold
+ * around the plan, and a completion card saying "complete" under a state line
+ * that already did.
  */
-export function LoopDetail({ loop, summary, busy, onAction, onDispatch, stateDir, libraryDir, libraryIndex }: LoopDetailProps) {
+export function LoopDetail({ loop, summary, busy, onAction, onDispatch, stateDir, libraryDir, libraryIndex, onBack }: LoopDetailProps) {
   const { runtime } = loop;
   const runIndex = useWatchedJson<RunIndex>(`${stateDir}/loops/${loop.id}/runs/index.json`, DEFAULT_RUN_INDEX);
   // Source health for the state line: the event adapters persist these small
@@ -65,95 +76,122 @@ export function LoopDetail({ loop, summary, busy, onAction, onDispatch, stateDir
   const linkStatus = useLibraryLink(loop, libraryDir, libraryIndex);
   const pendingInput = runtime.pendingInput?.questions.length ?? 0;
   const pendingSuggestions = (loop.suggestions ?? []).filter((s) => s.status === 'pending').length;
+  const insights = loop.insights ?? [];
+  const runs = runIndex.runs.length;
   // A skill is extracted from what worked, so the control appears only once a run
   // has actually completed (or while a draft from one is still under review).
   const canExtractSkill = loop.skillDraft?.status === 'pending'
     || runIndex.runs.some((run) => run.completionStatus === 'complete');
 
   return (
-    <div className="flex h-full flex-1 flex-col gap-4 overflow-auto p-4">
-      <header className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-2">
-          <h1 className="text-lg font-semibold">{loop.title}</h1>
-          <div className="flex items-center gap-2">
-            <NeedsYouBadge kind="input" count={pendingInput} />
-            <NeedsYouBadge kind="suggestions" count={pendingSuggestions} />
-            {linkStatus && <LibraryLinkBadge loop={loop} status={linkStatus} busy={busy} onAction={onAction} />}
-            <LoopStatusBadge status={loop.status} />
-          </div>
-        </div>
-        <LoopStateLine loop={loop} summary={summary} runCount={runIndex.runs.length} githubHealth={githubHealth} webhookHealth={webhookHealth} />
-        <p className="text-base text-muted-foreground">{loop.summary || loop.prompt}</p>
-        <LoopSettingsLine loop={loop} runs={runIndex.runs} busy={busy} onAction={onAction} />
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          <LoopControls loop={loop} busy={busy} onAction={onAction} />
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-room-line px-4 py-2">
+        <button
+          type="button"
+          className="group cursor-pointer text-xs text-room-text3 transition-colors hover:text-room-text"
+          onClick={onBack}
+        >
+          ←{' '}
+          <span className="underline decoration-room-text4 decoration-dotted underline-offset-[3px] group-hover:decoration-solid group-hover:decoration-current">
+            {WORKFLOWS_LABEL}
+          </span>
+        </button>
+        <span className="text-xs text-room-text3">·</span>
+        <h1 className="min-w-0 truncate text-xs font-medium text-room-text2">{loop.title}</h1>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <NeedsYouBadge kind="input" count={pendingInput} />
+          <NeedsYouBadge kind="suggestions" count={pendingSuggestions} />
+          {linkStatus && <LibraryLinkBadge loop={loop} status={linkStatus} busy={busy} onAction={onAction} />}
           <LibrarySaveControl loop={loop} busy={busy} onAction={onAction} />
-          {runIndex.runs.length > 0 && (
+          {runs > 0 && (
             <Button
               size="sm"
-              variant="outline"
+              variant="ghost"
+              className="text-room-text3"
               disabled={busy}
               onClick={() => onAction({ kind: 'reflect', loopId: loop.id })}
               title="Learn from past runs and suggest improvements"
             >
-              <Sparkles className="mr-1 h-3.5 w-3.5" /> Reflect
+              Reflect
             </Button>
           )}
           {canExtractSkill && <SkillDraftControl loop={loop} busy={busy} onDispatch={onDispatch} />}
+          <LoopControls loop={loop} busy={busy} onAction={onAction} />
         </div>
-      </header>
+      </div>
 
-      <LiveActivityStrip loop={loop} runIndex={runIndex} />
+      <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
+        <header className="flex flex-col gap-3">
+          <LoopStateLine loop={loop} summary={summary} runCount={runs} githubHealth={githubHealth} webhookHealth={webhookHealth} />
+          {/* The prompt only while there is no objective to say it better. */}
+          {!loop.plan.objective && <p className="text-sm text-room-text2">{loop.summary || loop.prompt}</p>}
+          <LoopSettingsLine loop={loop} runs={runIndex.runs} busy={busy} onAction={onAction} />
+        </header>
 
-      {runtime.snoozedUntil && (
-        <Card className="border-blue-500/30 bg-blue-500/[0.05] p-3 text-base">
-          Snoozed until {new Date(runtime.snoozedUntil).toLocaleString()}. The workspace will be checked again before the Workflow runs.
-        </Card>
-      )}
+        <LiveActivityStrip loop={loop} runIndex={runIndex} />
 
-      <InputRequestCard loop={loop} busy={busy} onAction={onAction} />
-      <SuggestionsInbox loop={loop} busy={busy} onAction={onAction} />
-
-      {loop.warnings.length > 0 && (
-        <Card className="flex flex-col gap-1 border-amber-500/40 p-3 text-base">
-          {loop.warnings.map((w) => (
-            <div key={w.id} className="flex items-start gap-2">
-              <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-500" />
-              <span>{w.message}</span>
-            </div>
-          ))}
-        </Card>
-      )}
-
-      <BlockNotice loop={loop} />
-
-      {runtime.completion && (
-        <Card className="border-emerald-500/40 p-3 text-base">
-          <span className="font-medium">Completion ({runtime.completion.status}): </span>
-          {runtime.completion.reason}
-        </Card>
-      )}
-
-      {linkStatus?.hasActions && (
-        <CollapsibleSection title="Library" defaultOpen>
-          <LibraryLinkSection loop={loop} status={linkStatus} busy={busy} onAction={onAction} />
-        </CollapsibleSection>
-      )}
-
-      <CollapsibleSection title="Plan" hint={`${loop.plan.steps.length} step(s)`} defaultOpen>
-        <MemoizedPlanPresentation
-          key={`${loop.id}:${loop.status === 'draft' ? 'draft' : 'live'}`}
-          loop={loop}
-          onAction={onAction}
-        />
-        {REFINABLE.has(loop.status) && (
-          <RefinePlan key={loop.id} busy={busy} planRevision={loop.plan.revision} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} />
+        {runtime.snoozedUntil && (
+          <Card className="border-blue-500/30 bg-blue-500/[0.05] p-3 text-base">
+            Snoozed until {new Date(runtime.snoozedUntil).toLocaleString()}. The workspace will be checked again before the Workflow runs.
+          </Card>
         )}
-      </CollapsibleSection>
 
-      <CollapsibleSection title="Attempt history" hint={`${runIndex.runs.length} run(s)`}>
-        <AttemptHistory runs={runIndex.runs} />
-      </CollapsibleSection>
+        <InputRequestCard loop={loop} busy={busy} onAction={onAction} />
+        <SuggestionsInbox loop={loop} busy={busy} onAction={onAction} />
+
+        {loop.warnings.length > 0 && (
+          <Card className="flex flex-col gap-1 border-amber-500/40 p-3 text-base">
+            {loop.warnings.map((w) => (
+              <div key={w.id} className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-500" />
+                <span>{w.message}</span>
+              </div>
+            ))}
+          </Card>
+        )}
+
+        <BlockNotice loop={loop} />
+
+        {/* A completed Workflow needs no card: every step reads Done and the
+            last step's Result says what it did. Any other ending explains
+            itself here. */}
+        {runtime.completion && runtime.completion.status !== 'complete' && (
+          <Card className="border-destructive/50 p-3 text-base">
+            <span className="font-medium">Stopped ({runtime.completion.status}): </span>
+            {runtime.completion.reason}
+          </Card>
+        )}
+
+        {linkStatus?.hasActions && (
+          <CollapsibleSection title="Library" defaultOpen>
+            <LibraryLinkSection loop={loop} status={linkStatus} busy={busy} onAction={onAction} />
+          </CollapsibleSection>
+        )}
+
+        <section className="flex flex-col gap-3">
+          <MemoizedPlanPresentation
+            key={`${loop.id}:${loop.status === 'draft' ? 'draft' : 'live'}`}
+            loop={loop}
+            onAction={onAction}
+          />
+          {REFINABLE.has(loop.status) && (
+            <RefinePlan key={loop.id} busy={busy} planRevision={loop.plan.revision} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} />
+          )}
+        </section>
+
+        <div className="flex flex-col">
+          <CollapsibleSection title="Attempt history" hint={`${runs} run${runs === 1 ? '' : 's'}`}>
+            <AttemptHistory runs={runIndex.runs} />
+          </CollapsibleSection>
+          {insights.length > 0 && (
+            <CollapsibleSection title="What reflection has learned">
+              <ul className="ml-4 list-disc text-xs text-room-text2">
+                {insights.map((insight) => <li key={insight.id}>{insight.summary}</li>)}
+              </ul>
+            </CollapsibleSection>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

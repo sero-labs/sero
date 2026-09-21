@@ -32,7 +32,10 @@ export function LoopStateLine({
   githubHealth?: GithubSourceHealth | null;
   webhookHealth?: WebhookSourceHealth | null;
 }) {
-  const activity = summary ? loopActivity(summary, sessionStartedAt()) : null;
+  // A complete Workflow says nothing here: every step card reads Done and the
+  // Attempt history fold counts the runs. Any other state is said only here.
+  const found = summary ? loopActivity(summary, sessionStartedAt()) : null;
+  const activity = found?.state === 'complete' ? null : found;
   // When it last ran and how often, which the list carries in separate columns
   // and this page has nowhere else to put.
   const tail = [

@@ -66,9 +66,9 @@ describe('the Workflow settings line', () => {
     const labels = [...host.querySelectorAll('dt')].map((node) => node.textContent);
     expect(labels).toEqual(['Runs in', 'Results to', 'Starts', 'Context', 'Spend', 'Attempts', 'Time']);
     const values = [...host.querySelectorAll('dd')].map((node) => node.textContent);
-    expect(values[0]).toBe('The workspace root');
+    expect(values[0]).toBe('Workspace root');
     expect(values[2]).toBe('Mondays 08:00');
-    expect(values[3]).toBe('Sero default');
+    expect(values[3]).toBe('Default preset');
     expect(values[4]).toBe('$0.00 of $4.50');
     expect(values[5]).toBe('50');
     expect(values[6]).toBe('30 min');

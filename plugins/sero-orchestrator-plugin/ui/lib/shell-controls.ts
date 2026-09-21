@@ -2,7 +2,6 @@ import { WORKFLOW_LABEL } from '../../shared/labels';
 import type { ShellAction, ShellTab } from '../components/ShellTopBar';
 
 interface ShellControlHandlers {
-  reflectAll: () => void;
   /** The three create buttons the proposal puts in the top bar on Home. */
   newWorkflow: () => void;
   newRoom: () => void;
@@ -16,7 +15,6 @@ export interface ShellControls {
 export function shellControlsFor(
   tab: ShellTab,
   handlers: ShellControlHandlers,
-  reflectDisabled: boolean,
 ): ShellControls {
   if (tab === 'home') {
     return {
@@ -25,11 +23,6 @@ export function shellControlsFor(
         { label: 'Room', onSelect: handlers.newRoom, kind: 'start' },
         { label: 'Goal', onSelect: handlers.newGoal, kind: 'start' },
       ],
-    };
-  }
-  if (tab === 'workflows') {
-    return {
-      actions: [{ label: 'Reflect all', onSelect: handlers.reflectAll, disabled: reflectDisabled }],
     };
   }
   return { actions: [] };

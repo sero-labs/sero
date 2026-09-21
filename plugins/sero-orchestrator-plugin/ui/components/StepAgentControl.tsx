@@ -1,5 +1,5 @@
 import type { ContextAgentInfo } from '@sero-ai/common';
-import { cn } from '@sero-ai/ui/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui/components/ui/select';
 import type { LoopStepDefinition } from '../../shared/types';
 
 const DEFAULT = '__default__';
@@ -27,23 +27,18 @@ export function StepAgentControl({ step, catalog, onChange }: StepAgentControlPr
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-xs text-muted-foreground">Agent</span>
-      <select
-        aria-label={`Agent for ${step.title}`}
-        value={agent ?? DEFAULT}
-        onChange={(e) => onChange(e.target.value === DEFAULT ? undefined : e.target.value)}
-        className={selectClass}
-      >
-        <option value={DEFAULT}>Default agent</option>
-        {catalog.map((a) => (
-          <option key={a.name} value={a.name}>{a.name}</option>
-        ))}
-        {missing && <option value={agent}>{agent} (unavailable)</option>}
-      </select>
+      <Select value={agent ?? DEFAULT} onValueChange={(value) => onChange(value === DEFAULT ? undefined : value)}>
+        <SelectTrigger size="sm" aria-label={`Agent for ${step.title}`} className="text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={DEFAULT}>Default agent</SelectItem>
+          {catalog.map((a) => (
+            <SelectItem key={a.name} value={a.name}>{a.name}</SelectItem>
+          ))}
+          {missing && agent && <SelectItem value={agent}>{agent} (unavailable)</SelectItem>}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
-
-const selectClass = cn(
-  'rounded-md border border-input bg-background px-2 py-1 text-xs text-foreground',
-  'focus:outline-none focus:ring-1 focus:ring-ring',
-);
