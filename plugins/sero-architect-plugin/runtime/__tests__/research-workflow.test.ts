@@ -50,7 +50,7 @@ it.each(['discovery', 'build'] as const)('uses a Workflow for research or review
   expect(wake).toHaveBeenCalledTimes(1);
 });
 
-it('clears a stopped research Workflow and records the resume without a name to print', async () => {
+it('clears a stopped research Workflow and names it by the Workflow title', async () => {
   const host = await fakeHost();
   const store = await storeFor(host);
   const pending = { id: 'res-1', question: 'Does the suite pass?', stoppingCondition: 'a verdict', startedAt: T0, kind: 'workflow' as const, workflowId: 'loop-research' };
@@ -63,8 +63,8 @@ it('clears a stopped research Workflow and records the resume without a name to 
   const resumed = (await store.read('proj_1'))!;
   expect(resumed.blockedReason).toBeNull();
   const entry = resumed.history.find((item) => item.cause === 'Workflow resumed');
-  // A research Workflow holds no milestone title, so its entry saves no name
-  // and reads as the cause alone.
-  expect(entry?.subject).toEqual({ kind: 'workflow', id: 'loop-research', label: null });
+  // The Workflow's own title is the best name the writer holds, so the entry
+  // reads as `Review Workflow resumed` rather than the bare cause.
+  expect(entry?.subject).toEqual({ kind: 'workflow', id: 'loop-research', label: 'Review' });
   expect(entry?.detail).toBe(reason);
 });

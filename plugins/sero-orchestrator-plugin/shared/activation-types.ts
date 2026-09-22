@@ -39,6 +39,13 @@ export interface StepActivation {
   id: string;
   stepId: string;
   visitNumber: number;
+  /**
+   * The plan's title for the step when this visit started. Saved with the visit
+   * so a run row names the step it actually ran, even after reflection or a
+   * manual revise rewrites the plan. Absent on a visit written before this
+   * field existed; a reader then names the step by its id.
+   */
+  title?: string;
   status: StepActivationStatus;
   /** Set on fan-out activations: which item of the expanded collection this is. */
   fanOut?: {

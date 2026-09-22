@@ -471,7 +471,7 @@
 /* Architect History: a centred timeline, one heading per day, a dot on the
    line for a block, a question or an accepted milestone. The vertical rule and
    the dots are drawn on the row background so the line is continuous. */
-.ar-history { max-width: 880px; }
+.ar-history { max-width: 880px; margin-inline: auto; }
 .ar-hist { margin: 4px auto 0; }
 .ar-hist-head { display: flex; align-items: baseline; gap: 10px; padding-bottom: 10px; margin-bottom: 4px; border-bottom: 1px solid var(--ar-line); }
 .ar-hist-head b { font-size: 14px; color: var(--text-primary); font-weight: 600; }

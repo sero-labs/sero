@@ -231,6 +231,10 @@ describe('project management', () => {
     const resumed = await actions.resume(id);
     expect(resumed.ok, resumed.text).toBe(true);
     expect((await store.read(id))!.blockedReason).toBeNull();
+    // The block reason is folded under the resume headline rather than printed
+    // in it, so a long reason does not become the entry's headline.
+    const entry = (await store.read(id))!.history.find((item) => item.cause === 'You resumed the project');
+    expect(entry?.detail).toBe('the owner ended 3 turns in a row without declaring an outcome');
   });
 
   it('pauses without cancelling a running dispatch, and only a directive gets through', async () => {

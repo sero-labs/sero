@@ -100,41 +100,45 @@ export function HistoryView({ record, onBack, onOpenDispatch, onOpenEvidence, fo
   const workspaceId = record.workspaceId ?? '';
 
   return (
-    <div className="ar-body ar-history">
-      <div className="ar-models-head">
-        <Button variant="outline" size="sm" className="ar-btn" onClick={onBack}><ChevronLeft className="ar-i" />Back to project</Button>
-        <span className="ar-models-title">History · {record.name}</span>
-      </div>
-      <div className="ar-hist">
-        <div className="ar-hist-head">
-          <b>{header.count}</b>
-          {header.range && <span>{header.range}</span>}
+    // The app root owns the height and hides overflow, so History needs its own
+    // scroll region: a long timeline and opened notes must stay reachable.
+    <div className="ar-scroll">
+      <div className="ar-body ar-history">
+        <div className="ar-models-head">
+          <Button variant="outline" size="sm" className="ar-btn" onClick={onBack}><ChevronLeft className="ar-i" />Back to project</Button>
+          <span className="ar-models-title">History · {record.name}</span>
         </div>
-        {days.length === 0 ? (
-          <p className="ar-why">Nothing has happened yet.</p>
-        ) : (
-          days.map((day) => (
-            <Fragment key={day.label}>
-              <div className="ar-hist-day">{day.label}</div>
-              {day.rows.map(({ entry, key }) => (
-                <HistoryRow
-                  key={key}
-                  entry={entry}
-                  record={record}
-                  noteKey={key}
-                  folds={folds}
-                  onOpenDispatch={(link) => onOpenDispatch({ ...link, workspaceId })}
-                  onOpenEvidence={onOpenEvidence}
-                />
-              ))}
-            </Fragment>
-          ))
-        )}
-        {hidden > 0 && (
-          <button type="button" className="ar-btn ar-hist-more" onClick={() => setLimit(entries.length)}>
-            Show {hidden} earlier
-          </button>
-        )}
+        <div className="ar-hist">
+          <div className="ar-hist-head">
+            <b>{header.count}</b>
+            {header.range && <span>{header.range}</span>}
+          </div>
+          {days.length === 0 ? (
+            <p className="ar-why">Nothing has happened yet.</p>
+          ) : (
+            days.map((day) => (
+              <Fragment key={day.label}>
+                <div className="ar-hist-day">{day.label}</div>
+                {day.rows.map(({ entry, key }) => (
+                  <HistoryRow
+                    key={key}
+                    entry={entry}
+                    record={record}
+                    noteKey={key}
+                    folds={folds}
+                    onOpenDispatch={(link) => onOpenDispatch({ ...link, workspaceId })}
+                    onOpenEvidence={onOpenEvidence}
+                  />
+                ))}
+              </Fragment>
+            ))
+          )}
+          {hidden > 0 && (
+            <button type="button" className="ar-btn ar-hist-more" onClick={() => setLimit(entries.length)}>
+              Show {hidden} earlier
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

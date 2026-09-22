@@ -261,7 +261,9 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
         const unpaused = record.paused ? resume(record, now) : null;
         let next = unpaused?.ok ? unpaused.record : record;
         if (next.blockedReason !== null) {
-          const cleared = unblock(next, now, `user resumed: ${next.blockedReason}`);
+          // The reason it was blocked is folded under the headline, so the entry
+          // reads as the user's own act rather than a raw block sentence.
+          const cleared = unblock(next, now, 'You resumed the project', undefined, next.blockedReason);
           if (cleared.ok) next = { ...cleared.record, stateLine: 'Continuing the project.' };
         }
         return { record: next };

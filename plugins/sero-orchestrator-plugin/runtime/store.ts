@@ -94,19 +94,17 @@ function runUsage(run: LoopRun): UsageSummary | undefined {
 export function toRunSummary(
   run: LoopRun,
   /**
-   * The plan's steps, in plan order, with the titles the plan held. Omitted by
-   * callers that do not have it; a step's title is then left absent and a
-   * reader names the step by its id.
+   * The plan's step ids, in plan order. Omitted by callers that do not have it.
+   *
+   * Used for the plan POSITION only. The title is not read from here: it is
+   * saved on each visit when the run started, so a later plan revision cannot
+   * rewrite the name a finished run ran under.
    */
   planSteps?: readonly { id: string; title: string }[],
 ): RunIndex['runs'][number] {
   const planIndex = (stepId: string): number | undefined => {
     const at = planSteps?.findIndex((step) => step.id === stepId) ?? -1;
     return at >= 0 ? at : undefined;
-  };
-  const titleOf = (stepId: string): { title: string } | Record<string, never> => {
-    const title = planSteps?.find((step) => step.id === stepId)?.title;
-    return title === undefined ? {} : { title };
   };
   const activationSteps = run.stepActivations?.map((activation) => {
     const attempts = run.stepAttempts.filter((attempt) => attempt.activationId === activation.id);
@@ -120,7 +118,7 @@ export function toRunSummary(
     const at = planIndex(activation.stepId);
     return {
       stepId: activation.stepId,
-      ...titleOf(activation.stepId),
+      ...(activation.title === undefined ? {} : { title: activation.title }),
       visitNumber: activation.visitNumber,
       activationId: activation.id,
       attemptNumber: last?.attemptNumber ?? attempts.length,
@@ -146,7 +144,6 @@ export function toRunSummary(
     delivery: run.completionSignal?.receipt,
     steps: activationSteps ?? run.stepAttempts.map((a) => ({
       stepId: a.stepId,
-      ...titleOf(a.stepId),
       attemptNumber: a.attemptNumber,
       executionType: a.executionType,
       status: a.status,

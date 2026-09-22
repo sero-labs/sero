@@ -11,7 +11,7 @@ import path from 'node:path';
 import type { OrchestratorProjectContext } from '@sero-ai/common';
 
 import { parseCharter, toMilestone } from '../shared/charter-shape';import { parseDecision, toDecision } from '../shared/decision-shape';
-import { advancePhase, block, mayDispatch, mayWakeForWork, settle } from '../shared/lifecycle';
+import { advancePhase, appendHistory, block, mayDispatch, mayWakeForWork, settle } from '../shared/lifecycle';
 import { quote } from '../shared/owner-contract';
 import {
   EVIDENCE_RESERVED_KEYS,
@@ -22,7 +22,7 @@ import {
   type OwnerActionOutcome,
   type OwnerCallerSignals,
 } from '../shared/owner-actions';
-import type { Charter, HistorySubject, Milestone, ProjectRecord } from '../shared/record';
+import type { Charter, Milestone, ProjectRecord } from '../shared/record';
 import { applyDelivery } from './delivery';
 import { projectWriter, usesProjectFiles } from './execution-location';
 import { performDispatch } from './dispatch-link';
@@ -70,21 +70,6 @@ const ok = (text: string, details: Record<string, unknown> = {}): OwnerActionOut
 const refuse = (text: string): OwnerActionOutcome => ({ ok: false, text });
 
 const same = (a: string, b: string): boolean => path.resolve(a) === path.resolve(b);
-
-function withHistory(record: ProjectRecord, now: string, cause: string, subject?: HistorySubject, detail?: string): ProjectRecord {
-  const settled = settle(record, now);
-  return {
-    ...settled,
-    history: [...settled.history, {
-      at: now,
-      phase: settled.phase,
-      overlay: settled.overlay,
-      cause,
-      ...(subject ? { subject } : {}),
-      ...(detail ? { detail } : {}),
-    }],
-  };
-}
 
 /** Why a milestone cannot close yet, in the owner's words. Empty means it can. */
 export function missingEvidence(milestone: Milestone): string[] {
@@ -139,7 +124,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     lead: string,
   ): Promise<OwnerActionOutcome> {
     const decision = toDecision({ question: draft.question, options: draft.options, recommendation: 'apply', reason: draft.reason, dependsOn: [] }, host.newId('dec'), now, draft.proposal);
-    await store.update(record.id, (fresh) => withHistory(
+    await store.update(record.id, (fresh) => appendHistory(
       { ...fresh, decisions: [...fresh.decisions, decision] },
       now,
       'Architect asked a question',
@@ -180,7 +165,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
         now,
         { kind: 'charter', charter: proposed, milestones },
       );
-      await store.update(record.id, (fresh) => withHistory({ ...fresh, decisions: [...fresh.decisions, decision] }, now, `decision ${decision.id} raised: charter change proposed`));
+      await store.update(record.id, (fresh) => appendHistory({ ...fresh, decisions: [...fresh.decisions, decision] }, now, `decision ${decision.id} raised: charter change proposed`));
       outcomes.declare(record.id, 'decide');
       return ok(`The charter is already approved, so the change is recorded as decision ${decision.id} for the user to answer. Nothing was applied.`, { decisionId: decision.id });
     }
@@ -189,7 +174,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     }
     const applied = await mutateRecord(store, record.id, (fresh) => {
       const proposal: ProjectRecord = { ...fresh, charter: proposed, milestones, stateLine: 'Charter proposed. Waiting for your approval.' };
-      if (proposal.phase !== 'discovery') return { record: withHistory(proposal, now, 'the owner proposed a revised charter') };
+      if (proposal.phase !== 'discovery') return { record: appendHistory(proposal, now, 'the owner proposed a revised charter') };
       const advanced = advancePhase(proposal, 'charter', now, 'the owner proposed the charter');
       return advanced.ok ? { record: advanced.record } : { error: advanced.error };
     });
@@ -211,7 +196,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
         const run = input.runId ? fresh.runs?.find((entry) => entry.id === input.runId && entry.endedAt === null) : activeRun(fresh);
         if (input.runId && !run) return { error: 'The named objective is not open.' };
         const created = { ...toMilestone(draft, id), ...(run ? { runId: run.id } : {}) };
-        return { record: withHistory({ ...fresh, milestones: [...fresh.milestones, created] }, now, 'added', { kind: 'milestone', id, label: created.title }) };
+        return { record: appendHistory({ ...fresh, milestones: [...fresh.milestones, created] }, now, 'added', { kind: 'milestone', id, label: created.title }) };
       });
       if (!added.ok) return refuse(added.error);
       const id = added.record.milestones[added.record.milestones.length - 1]?.id ?? '';
@@ -249,7 +234,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
           return { error: `Milestone ${current.id} cannot close. Missing: ${reasons.join('; ')}. Ask for an evidence run and wait for it to pass.` };
         }
         const accepted: Milestone = { ...current, status: 'done', verification: 'accepted' };
-        let next = withHistory({ ...replace(fresh, accepted), stateLine: `Completed: ${current.title}.` }, now, 'accepted on passed evidence', { kind: 'milestone', id: current.id, label: current.title });
+        let next = appendHistory({ ...replace(fresh, accepted), stateLine: `Completed: ${current.title}.` }, now, 'accepted on passed evidence', { kind: 'milestone', id: current.id, label: current.title });
         // The receipt usually lands before acceptance, so delivery is settled here too.
         const delivery = applyDelivery(next, accepted, now);
         next = delivery.record;
@@ -318,7 +303,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
           parkedFrom: m.parkedFrom ?? m.status,
         };
       });
-      return withHistory(
+      return appendHistory(
         { ...fresh, decisions: [...fresh.decisions, decision], milestones },
         now,
         'Architect asked a question',
@@ -484,7 +469,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
             if (fresh.milestones.some((entry) => (entry.runId ?? entry.dispatch?.runId ?? entry.pendingDispatch?.project?.runId) === run.id)
               || fresh.pendingResearch?.some((entry) => entry.project?.runId === run.id)
               || fresh.decisions.some((entry) => !entry.answer)) return { error: 'This objective still has work or an unanswered decision.' };
-            return { record: run.endedAt ? fresh : withHistory(closeRun(fresh, run.id, 'no-work-needed', now), now, `No work needed: ${input.text}`) };
+            return { record: run.endedAt ? fresh : appendHistory(closeRun(fresh, run.id, 'no-work-needed', now), now, `No work needed: ${input.text}`) };
           });
           if (!closed.ok) return refuse(closed.error);
         }

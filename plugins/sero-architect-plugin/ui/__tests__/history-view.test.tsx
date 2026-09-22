@@ -54,6 +54,15 @@ function button(label: string): HTMLButtonElement | undefined {
 }
 
 describe('the History view', () => {
+  it('keeps the timeline inside its own scroll region', () => {
+    render(ENTRIES);
+    // The app root owns the height and hides overflow, so the timeline must
+    // scroll on its own or a long history is clipped.
+    const scroll = container.querySelector('.ar-scroll');
+    expect(scroll).not.toBeNull();
+    expect(scroll?.querySelector('.ar-history')).not.toBeNull();
+  });
+
   it('states the count and date range and heads each day', () => {
     render(ENTRIES);
     expect(container.textContent).toContain('6 changes');
