@@ -84,7 +84,11 @@ zoom the app content in or out.
 ### Back and forward
 
 Use the back and forward buttons in the title bar, or `⌘[` / `⌘]` (`Ctrl+[` /
-`Ctrl+]` on other platforms), to move through recently visited apps.
+`Ctrl+]` on other platforms), to move through recently visited apps and the pages
+inside them. The button names where it lands, for example
+"Back to Sero Orchestrator · FroggerNeon". Opening a Workflow or a Room from
+Architect, and choosing another workspace, each count as one step, so a single
+Back returns to the page you left.
 
 ### Pinned shortcuts
 

@@ -58,6 +58,11 @@ carries a `workspaceId`.
 - Refreshing the displayed project name after a rename.
 - Agent Board's own Back to the Room, which is unchanged.
 - Any IPC, preload or main-process surface.
+- Explorer's workspace history. The shell treats every built-in app as global in
+  history, and an existing test enforces it (`does not attach built-in app
+  history to the active workspace`). A workspace move while Explorer is open
+  therefore still records no step. That is the existing shell model, unchanged
+  by this change; only the workspace-scoped plugin apps gain the step.
 
 ## Decisions
 
