@@ -32,6 +32,8 @@ import {
 } from '@sero-ai/ui/components/ui/dropdown-menu';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { ArrowLeft, MessageSquare, MoreHorizontal, Trash2 } from 'lucide-react';
+import { openSeroApp } from '@sero-ai/app-runtime';
+import { ARCHITECT_APP_ID } from '@sero-ai/common';
 import { TERMINAL_ROOM_STATUSES, type PersistedRoom, type RoomStatus } from '../../shared/room-types';
 import { elapsedActiveMs } from '../../shared/room-active-time';
 import { roomControls, type RoomControls } from '../lib/room-controls';
@@ -58,6 +60,14 @@ const STATUS_PILL_TONE: Record<RoomStatus, PillProps['tone']> = {
 
 /** The prototype's small .btn (26px, 11px type). */
 const SMALL_BTN = 'h-[26px] px-2.5 text-[11px]';
+
+/**
+ * The project's name beside the state pill. It opens the project in Architect,
+ * so it is drawn like the other in-value links: a dotted underline that turns
+ * solid under the pointer.
+ */
+const PROJECT_LINK_CLASS =
+  'max-w-[220px] shrink-0 cursor-pointer truncate text-[11.5px] text-room-text3 underline decoration-room-text4 decoration-dotted underline-offset-[3px] transition-colors hover:text-room-ink-brand hover:decoration-solid focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-room-line-strong';
 
 interface RoomTopBarProps {
   room: PersistedRoom;
@@ -103,6 +113,7 @@ export function RoomTopBar({
   onDelete,
 }: RoomTopBarProps) {
   const { runtime, definition } = room;
+  const project = definition.projectContext?.projectName ? definition.projectContext : null;
   const elapsedMs = runtime.startedAt ? elapsedActiveMs(runtime, Date.now()) : 0;
   const running = runtime.status === 'running';
   const finished = TERMINAL_ROOM_STATUSES.includes(runtime.status);
@@ -124,6 +135,16 @@ export function RoomTopBar({
       <Pill tone={waitingForYou ? 'warn' : STATUS_PILL_TONE[runtime.status]}>
         {ROOM_STATUS_STYLE[runtime.status].label}{waitingForYou ? ' · waiting for you' : ''}
       </Pill>
+      {/* Names the project that opened the Room, whether or not the Room is on hold. */}
+      {project && (
+        <button
+          type="button"
+          className={PROJECT_LINK_CLASS}
+          onClick={() => void openSeroApp(ARCHITECT_APP_ID, { projectId: project.projectId })}
+        >
+          {project.projectName}
+        </button>
+      )}
       <span aria-hidden className="h-[18px] w-px shrink-0 bg-room-line @max-[820px]/panel:hidden" />
 
       <Meter

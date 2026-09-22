@@ -15,7 +15,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@sero-ai/ui/components/ui/tooltip';
 import { ARCHITECT_APP_ID } from '@sero-ai/common';
-import { openGlobalAppView } from '@/lib/open-app';
+import { openGlobalAppView, switchWorkspace } from '@/lib/open-app';
 import { useWorkspaceAttention } from '@/stores/agent-board';
 import type { WorkspaceInfo, SeroSessionInfo } from '@/types/ipc';
 import { IconAction } from '@/components/ui/IconAction';
@@ -267,7 +267,6 @@ export const WorkspaceNode = memo(function WorkspaceNode({ workspace, sessions }
   const isActive = useWorkspaceStore(
     (state) => state.activeWorkspaceId === workspace.id,
   );
-  const setActiveWorkspace = useWorkspaceStore((state) => state.setActiveWorkspace);
   const closeWorkspace = useWorkspaceStore((state) => state.closeWorkspace);
   const deleteWorkspace = useWorkspaceStore((state) => state.deleteWorkspace);
   const createSession = useSessionStore((state) => state.createSession);
@@ -286,13 +285,13 @@ export const WorkspaceNode = memo(function WorkspaceNode({ workspace, sessions }
 
   const handleHeaderClick = () => {
     toggleCollapsed(workspace.id);
-    setActiveWorkspace(workspace.id);
+    switchWorkspace(workspace.id);
   };
 
   const handleNewSession = async (event: React.MouseEvent | React.KeyboardEvent) => {
     event.stopPropagation();
     await createSession(workspace.id);
-    setActiveWorkspace(workspace.id);
+    switchWorkspace(workspace.id);
   };
 
   const handleClose = () => {

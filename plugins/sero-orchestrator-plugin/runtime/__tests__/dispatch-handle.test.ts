@@ -11,6 +11,7 @@ import {
   getOrchestratorRoomRegistry,
   modelKey,
   requestOrchestratorAction,
+  sameOrchestratorProjectAttribution,
   type OrchestratorBoardAction,
 } from '@sero-ai/common';
 import type { RoomBlueprint } from '../../shared/room-blueprint-types';
@@ -60,6 +61,25 @@ describe('Workflow creation through the typed handle', () => {
   it('fails by workspace name when no coordinator is registered', async () => {
     const result = await requestOrchestratorAction('ws-missing', { kind: 'create', prompt: 'anything' });
     expect(result).toEqual({ ok: false, error: expect.stringContaining('"ws-missing"') });
+  });
+
+  it('retains the project display name in the draft loop without changing attribution', async () => {
+    const host = createFakeHost({ workspaceId: 'ws-1' });
+    host.modelResponses.push({ response: planJson(oneStepPlan()) });
+    registerCoordinator('ws-1', '/repos/ws-1', new Coordinator(host));
+
+    const project = { projectId: 'ws-1', runId: 'run-initial', projectName: 'DungeonExplorer' };
+    // This path reaches `buildDraftLoop`, which keeps the project context it was given.
+    const result = await requestOrchestratorAction('ws-1', {
+      kind: 'create', prompt: 'Build the grid and field of view', title: 'Milestone 1', options: { project },
+    });
+
+    expect(result.ok).toBe(true);
+    const loop = host.state.loops.find((candidate) => candidate.id === result.loopId);
+    expect(loop?.project?.projectName).toBe('DungeonExplorer');
+    // The name is display only: a rename must not read as a different request.
+    expect(sameOrchestratorProjectAttribution(loop?.project, { ...project, projectName: 'Renamed' })).toBe(true);
+    expect(sameOrchestratorProjectAttribution(loop?.project, { ...project, runId: 'run-other' })).toBe(false);
   });
 });
 

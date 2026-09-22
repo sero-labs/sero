@@ -13,9 +13,11 @@ import { clearProjectTierOverride, setProjectTierOverride } from '../../shared/m
 import {
   resolveDispatchSnapshot,
   resolveOwnerSelection,
+  resolveProjectContext,
   resolveTierSelections,
   type ModelCatalogue,
 } from '../model-resolution';
+import { sameOrchestratorProjectAttribution } from '@sero-ai/common';
 
 const T0 = '2026-09-14T09:12:00.000Z';
 
@@ -191,5 +193,22 @@ describe('dispatch snapshot', () => {
     const record = setProjectTierOverride(project(), 'HIGH', { provider: 'anthropic', modelId: 'opus', thinkingLevel: 'low' });
     const snapshot = await resolveDispatchSnapshot(catalogue(), record);
     expect(snapshot.ok).toBe(false);
+  });
+});
+
+describe('dispatch project context', () => {
+  it('carries the project display name as a display-only snapshot', async () => {
+    const named = await resolveProjectContext(catalogue(), project({ name: 'DungeonExplorer' }));
+    expect(named.ok).toBe(true);
+    if (!named.ok) return;
+    expect(named.value.projectName).toBe('DungeonExplorer');
+    // The name is display only: it never changes what makes two requests the same.
+    expect(sameOrchestratorProjectAttribution(named.value, { ...named.value, projectName: 'Renamed' })).toBe(true);
+    expect(sameOrchestratorProjectAttribution(named.value, { ...named.value, runId: 'run-other' })).toBe(false);
+
+    const unnamed = await resolveProjectContext(catalogue(), project({ name: '' }));
+    expect(unnamed.ok).toBe(true);
+    if (!unnamed.ok) return;
+    expect(unnamed.value.projectName).toBeUndefined();
   });
 });

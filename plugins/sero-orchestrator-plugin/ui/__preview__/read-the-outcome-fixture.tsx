@@ -20,6 +20,7 @@ import { LoopStateLine } from '../components/LoopStateLine';
 import { MemberTabPanel } from '../components/RoomMemberFacts';
 import { PlanPresentation } from '../components/PlanPresentation';
 import { RoomCompletion } from '../components/RoomCompletion';
+import { RoomTopBar } from '../components/RoomTopBar';
 
 /**
  * The plan and the Room result read through the host bridge, which throws
@@ -157,7 +158,14 @@ const ROOM_MEMBERS = [
 // runtime totals, the delivery record, the brief and the artifact list.
 const ROOM = {
   memberIds: ['nova', 'flux', 'pulse'],
-  definition: { id: 'room_8f83c75a', title: 'Frogger: Neon Crossing — Product and Technical Direction', creationRequestId: 'req-1' },
+  definition: {
+    id: 'room_8f83c75a',
+    title: 'Frogger: Neon Crossing — Product and Technical Direction',
+    creationRequestId: 'req-1',
+    // The Architect project that opened it, named beside the state in the header.
+    projectContext: { projectId: 'proj_frogger', runId: 'run-1', projectName: 'FroggerNeon' },
+    envelope: { maxWallClockMs: 15 * 60_000, maxCostUsd: 5 },
+  },
   runtime: {
     status: 'completed',
     startedAt: days(10),
@@ -181,12 +189,27 @@ const ROOM = {
 
 const FINAL_LINE = 'Delivered and independently reviewed the Signal Wake Crossing product/technical direction. It documents the empty mounted-workspace blocker with concrete path evidence; recommends one scope-safe mechanic unifying gameplay, AV, controls, accessibility, and typed Canvas design; defines loop/system boundaries, verification gates, risks, rejected alternatives, unresolved decisions, and M0–M5 implementation slices. No code was implemented. Final plan: artifact_7aafbcee';
 
-/** Frame 3: the Room's result, then the plan it produced, then its cost. */
+/** Frame 3: the Room's header, then the result, then the plan it produced. */
 export function RoomResultPreview() {
   const members = new Map(ROOM_MEMBERS.map((member) => [member.id, member]));
   return (
     <AppContext.Provider value={APP_CONTEXT}>
-      <div className="flex flex-col p-4">
+      <div className="flex min-w-0 flex-col border border-room-line">
+        <RoomTopBar
+          room={ROOM}
+          view="result"
+          busy={false}
+          panelOpen={false}
+          holding={false}
+          onTogglePanel={() => undefined}
+          onBack={() => undefined}
+          onView={() => undefined}
+          onMessage={() => undefined}
+          onPause={() => undefined}
+          onResume={() => undefined}
+          onStop={() => undefined}
+          onDelete={() => undefined}
+        />
         <RoomCompletion room={ROOM} members={members} finalLine={FINAL_LINE} onOpenMember={() => undefined} />
       </div>
     </AppContext.Provider>

@@ -163,6 +163,8 @@ export const previewLoop: Loop = {
   prompt: 'Find every failing level and repair it.',
   summary: 'Checks each level, repairs the ones outside their band, and opens a pull request.',
   status: 'active',
+  // The Architect project that dispatched it, so its settings line shows FROM.
+  project: { projectId: 'proj_dungeon', runId: 'run-m3', projectName: 'DungeonExplorer' },
   workspace: { ...DEFAULT_WORKSPACE_SETTINGS },
   plan: {
     schemaVersion: 1,

@@ -70,9 +70,6 @@ function navigate(direction: NavigationDirection): void {
   if (target.entry.workspaceId
     && target.entry.workspaceId !== useWorkspaceStore.getState().activeWorkspaceId) {
     useWorkspaceStore.getState().setActiveWorkspace(target.entry.workspaceId);
-    // Sidebar workspace sync uses the latest route; history must keep its
-    // exact older route instead.
-    useNavigationStore.getState().replaceCurrent(target.entry);
   }
   if (target.entry.viewId) {
     useAppStore.getState().setAppView(
@@ -93,4 +90,25 @@ export function navigateBack(): void {
 /** Go forward in navigation history (title-bar button, ⌘], mouse button 5). */
 export function navigateForward(): void {
   navigate(1);
+}
+
+/**
+ * Change the active workspace while the active app stays open. The app's page in
+ * the new workspace becomes a place in history, so one Back returns to the page
+ * the user left in the previous workspace. A workspace change that is part of
+ * opening another app is recorded by `setActiveApp` instead.
+ */
+export function switchWorkspace(workspaceId: string): void {
+  if (useWorkspaceStore.getState().activeWorkspaceId === workspaceId) return;
+  const { activeApp, apps, appViewIds } = useAppStore.getState();
+  const entry = apps.find((candidate) => candidate.id === activeApp);
+  // A built-in or global app has no per-workspace page to record.
+  if (entry && !entry.builtin && entry.manifest?.scope !== 'global') {
+    useNavigationStore.getState().push({
+      appId: activeApp,
+      viewId: appViewIds[activeApp]?.[workspaceId],
+      workspaceId,
+    });
+  }
+  useWorkspaceStore.getState().setActiveWorkspace(workspaceId);
 }

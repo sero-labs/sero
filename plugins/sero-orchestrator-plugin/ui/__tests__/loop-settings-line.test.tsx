@@ -11,10 +11,13 @@
 
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GithubSourceHealth, Loop, LoopSummary, LoopTrigger } from '../../shared/types';
 import { LoopSettingsLine } from '../components/LoopSettingsLine';
 import { LoopStateLine } from '../components/LoopStateLine';
+
+const { openSeroApp } = vi.hoisted(() => ({ openSeroApp: vi.fn(async () => true) }));
+vi.mock('@sero-ai/app-runtime', () => ({ openSeroApp }));
 
 const NOW = '2026-09-20T10:00:00.000Z';
 
@@ -44,6 +47,7 @@ let host: HTMLDivElement;
 let root: Root;
 
 beforeEach(() => {
+  openSeroApp.mockClear();
   host = document.createElement('div');
   document.body.append(host);
   root = createRoot(host);
@@ -109,6 +113,35 @@ describe('the Workflow settings line', () => {
     const dialog = document.body.textContent ?? '';
     expect(dialog).toContain('Only when repo is sero-labs/sero');
     expect(dialog).toContain('Only when: the issue is labelled bug');
+  });
+
+  it('names the Architect project it came from, first, and opens it', () => {
+    renderSettings(workflow({
+      project: { projectId: 'proj_dungeon', runId: 'run-1', projectName: 'DungeonExplorer' },
+    }));
+
+    // FROM leads the line, and every value the line showed before is still here.
+    const labels = [...host.querySelectorAll('dt')].map((node) => node.textContent);
+    expect(labels).toEqual(['From', 'Runs in', 'Results to', 'Starts', 'Context', 'Spend', 'Attempts', 'Time']);
+
+    const from = [...host.querySelectorAll('dd')][0].querySelector('button');
+    expect(from?.textContent).toBe('DungeonExplorer');
+    act(() => { from?.click(); });
+    expect(openSeroApp).toHaveBeenCalledWith('architect', { projectId: 'proj_dungeon' });
+  });
+
+  it('shows no From value when the record has an id but no name', () => {
+    renderSettings(workflow({ project: { projectId: 'proj_dungeon', runId: 'run-1' } }));
+
+    const labels = [...host.querySelectorAll('dt')].map((node) => node.textContent);
+    expect(labels).toEqual(['Runs in', 'Results to', 'Starts', 'Context', 'Spend', 'Attempts', 'Time']);
+  });
+
+  it('shows no From value when the record names no project', () => {
+    renderSettings(workflow());
+
+    expect([...host.querySelectorAll('dt')].map((node) => node.textContent)).not.toContain('From');
+    expect(openSeroApp).not.toHaveBeenCalled();
   });
 });
 

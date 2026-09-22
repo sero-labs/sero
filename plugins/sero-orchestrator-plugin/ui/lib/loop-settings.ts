@@ -34,7 +34,15 @@ export interface TriggerDetail {
   lines: string[];
 }
 
+/** The Architect project that created this Workflow. `projectId` is the link target. */
+export interface LoopOriginProject {
+  name: string;
+  projectId: string;
+}
+
 export interface LoopSettings {
+  /** The project that created the Workflow, when the record names it. */
+  project: LoopOriginProject | null;
   /** Where the Workflow runs. */
   workspace: string;
   /** What starts it, or "Manually" when nothing does. */
@@ -160,7 +168,13 @@ function spendWords(loop: Loop, runs: LoopRunSummary[]): string | null {
  */
 export function loopSettings(loop: Loop, runs: LoopRunSummary[]): LoopSettings {
   const { maxAttemptsTotal, maxWallClockMs } = loop.limits;
+  const origin = loop.project;
   return {
+    // The name was a snapshot at creation, and the link uses the id so a rename
+    // still reaches the project. An unnamed record shows no FROM value.
+    project: origin?.projectName
+      ? { name: origin.projectName, projectId: origin.projectId }
+      : null,
     workspace: workspaceWords(loop),
     starts: startsWords(loop),
     triggerDetail: triggerDetail(loop),

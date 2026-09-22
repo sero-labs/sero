@@ -13,14 +13,22 @@ export function NavButtons() {
   const index = useNavigationStore((s) => s.index);
   const apps = useAppStore((s) => s.apps);
   const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
   const appIds = new Set<string>();
   for (const app of apps) {
     if (isAppEntrySupported(app)) appIds.add(app.id);
   }
   const workspaceIds = new Set(workspaces.map((workspace) => workspace.id));
 
-  const labelFor = (entry: NavEntry | undefined) =>
-    apps.find((app) => app.id === entry?.appId)?.label;
+  // Name the app and the workspace the control lands in. A global app names no
+  // workspace of its own, so the active workspace stands in for it.
+  const labelFor = (entry: NavEntry | undefined) => {
+    const appLabel = apps.find((app) => app.id === entry?.appId)?.label;
+    if (!appLabel) return undefined;
+    const landingWorkspaceId = entry?.workspaceId ?? activeWorkspaceId;
+    const workspaceLabel = workspaces.find((workspace) => workspace.id === landingWorkspaceId)?.name;
+    return workspaceLabel ? `${appLabel} · ${workspaceLabel}` : appLabel;
+  };
   const canUse = (entry: NavEntry) => {
     return appIds.has(entry.appId) && (!entry.workspaceId || workspaceIds.has(entry.workspaceId));
   };

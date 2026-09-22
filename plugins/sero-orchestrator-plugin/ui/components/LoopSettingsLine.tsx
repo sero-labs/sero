@@ -21,6 +21,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@sero-ai/ui/components/ui/dialog';
+import { openSeroApp } from '@sero-ai/app-runtime';
+import { ARCHITECT_APP_ID } from '@sero-ai/common';
 import type { Loop, LoopRunSummary, OrchestratorAction } from '../../shared/types';
 import { SETTING_VALUE_CLASS, loopSettings, type TriggerDetail } from '../lib/loop-settings';
 import { LoopContextControl } from './LoopContextControl';
@@ -88,11 +90,23 @@ export function LoopSettingsLine({
 }) {
   const [triggersOpen, setTriggersOpen] = useState(false);
   const settings = loopSettings(loop, runs);
+  const project = settings.project;
   const hasTriggerDetail = settings.triggerDetail.length > 0;
 
   return (
     <>
       <dl className="flex flex-wrap gap-x-[26px] gap-y-2.5 rounded-[9px] border border-room-line bg-room-surface px-3.5 py-[11px]">
+        {project && (
+          <Cell label="From">
+            <button
+              type="button"
+              className={SETTING_VALUE_CLASS}
+              onClick={() => void openSeroApp(ARCHITECT_APP_ID, { projectId: project.projectId })}
+            >
+              {project.name}
+            </button>
+          </Cell>
+        )}
         <Cell label="Runs in">{settings.workspace}</Cell>
         <Cell label="Results to">
           <LoopDeliveryControl loop={loop} busy={busy} onAction={onAction} variant="value" />
