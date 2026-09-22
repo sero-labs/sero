@@ -29,7 +29,7 @@ interface RoomRosterProps {
 
 export function RoomRoster({ memberIds, members, selectedId, onSelect, className }: RoomRosterProps) {
   return (
-    <aside className={cn('flex w-[264px] shrink-0 flex-col overflow-y-auto border-r border-room-line px-2.5 py-[13px]', className)}>
+    <aside className={cn('flex w-[230px] shrink-0 flex-col overflow-y-auto border-r border-room-line px-2.5 py-[13px]', className)}>
       <div className="room-mono-micro flex h-[26px] items-center px-2 uppercase tracking-[0.1em] text-room-text4">
         Team
         <span className="ml-auto tracking-normal">{memberIds.length}</span>
@@ -65,6 +65,28 @@ function statusLine(member: RoomMember): string {
   return heldMs >= 60_000 ? `${base} · ${formatElapsed(heldMs)}` : base;
 }
 
+/**
+ * What a row knows about a member before its record has loaded.
+ *
+ * Its own function because the row reads these four facts several times, and
+ * each `??` and each status test counted against the row's complexity.
+ */
+function memberFacts(member: RoomMember | null, memberId: string) {
+  const status = member?.status ?? 'offline';
+  return {
+    name: member?.displayName ?? memberId,
+    status,
+    conductor: member?.isConductor === true,
+    active: status === 'starting' || status === 'working' || status === 'retiring',
+  };
+}
+
+/** The row's own tone: a working member first, then the selected one, then quiet. */
+function rowTone(active: boolean, selected: boolean): string {
+  if (active) return 'border-emerald-400/35 bg-emerald-400/[0.07]';
+  return selected ? 'border-room-line bg-room-raised' : 'border-transparent hover:bg-room-raised/50';
+}
+
 function MemberRow({
   memberId,
   member,
@@ -76,9 +98,7 @@ function MemberRow({
   selected: boolean;
   onSelect: (memberId: string) => void;
 }) {
-  const name = member?.displayName ?? memberId;
-  const status = member?.status ?? 'offline';
-  const isActive = status === 'starting' || status === 'working' || status === 'retiring';
+  const { name, status, conductor, active } = memberFacts(member, memberId);
 
   return (
     <button
@@ -87,27 +107,27 @@ function MemberRow({
       onClick={() => onSelect(memberId)}
       className={cn(
         'mb-0.5 flex w-full items-center gap-[9px] rounded-[7px] border p-[9px] text-left',
-        isActive && 'border-emerald-400/35 bg-emerald-400/[0.07]',
-        selected && !isActive && 'border-room-line bg-room-raised',
-        !selected && !isActive && 'border-transparent hover:bg-room-raised/50',
+        rowTone(active, selected),
       )}
     >
       <Face
         seed={memberId}
         size={26}
-        tone={member?.isConductor ? 'conductor' : 'member'}
-        label={memberGlyph(name, member?.isConductor)}
+        tone={conductor ? 'conductor' : 'member'}
+        label={memberGlyph(name, conductor)}
         status={MEMBER_DOT[status]}
         statusRingClass={selected ? 'border-room-raised' : 'border-room-bg'}
       />
       <span className="min-w-0 flex-1">
-        <b className={cn('block truncate text-xs font-medium', selected || isActive ? 'text-room-text' : 'text-room-text2')}>
+        {/* The name is the member's whole name, wrapped rather than cut: a
+            roster that says "Nova — Product Con…" does not name anyone. */}
+        <b className={cn('block text-xs font-medium', selected || active ? 'text-room-text' : 'text-room-text2')}>
           {name}
         </b>
         <span className="sr-only">{MEMBER_STATUS_LABEL[status]}</span>
-        {/* "Holds no turn" is the rail-foot's job; repeating it per row
-            truncates the status detail it sits behind. */}
-        <span className={cn('mt-[3px] block truncate text-xs', isActive ? 'text-emerald-200/80' : 'text-room-text4')}>
+        {/* "Holds no turn" is the rail-foot's job; repeating it per row leaves
+            no room for the status detail that says something. */}
+        <span className={cn('mt-[3px] block text-xs', active ? 'text-emerald-200/80' : 'text-room-text4')}>
           {member ? statusLine(member) : 'Loading…'}
         </span>
       </span>

@@ -15,23 +15,23 @@ import { applyProjectSnapshot, roomSnapshotLimits } from '../project-models';
  */
 
 import { sameOrchestratorProjectAttribution, type OrchestratorRoomHandle } from '@sero-ai/common';
-import type { HumanQuestion } from '../../shared/human-input-types';
 import { roomPlannerSessionId } from '../../shared/ids';
-import type { RoomProposalSummary } from '../../shared/room-blueprint-types';
-import type { BlueprintClamp } from '../../shared/room-clamp';
 import type { RoomTimelineEvent } from '../../shared/room-message-types';
 import { TERMINAL_ROOM_STATUSES, type MemberStatus, type RoomStatus } from '../../shared/room-types';
-import { findRoomTemplate, type RoomTemplate } from '../../shared/room-templates';
+import { findRoomTemplate } from '../../shared/room-templates';
 import { adjustRoom } from './adjust';
-import { planRoom, type RoomUserLimits } from './planner';
-import type { RoomPresetSeed } from './planner-prompt';
+import { planRoom } from './planner';
 import { buildRoomRecord } from './room-actions';
 import type { RoomCoordinator } from './room-coordinator';
+import { readRoomArtifact, type RoomArtifactReadOutcome } from './room-app-artifacts';
 import { createRoomLiveActions, type RoomLiveActions, type RoomLiveContext } from './room-app-live';
-import { INVOKING_CHAT_DESTINATION } from './room-delivery';
+import { limitsForOrigin, presetSeed, type PrepareRoomInput, type PrepareRoomOutcome } from './room-app-planning';
 import type { RoomMessageDraft } from './room-messages';
-import type { UsageSummary } from '../../shared/usage-types';
 import { mergeUsage, reportedUsage } from '../../shared/usage';
+
+// How a planning request is shaped lives in its own module (500-LOC limit);
+// re-exported so importers of this surface keep resolving it from one place.
+export { limitsForOrigin, type PrepareRoomOutcome } from './room-app-planning';
 
 /** Room states the user may still re-plan. Past this, changes go through a revision. */
 const PLANNABLE: readonly RoomStatus[] = ['draft'];
@@ -49,46 +49,6 @@ export interface RoomAppActionsContext extends RoomLiveContext {
   coordinator: RoomCoordinator;
   workspaceId: string;
 }
-
-export interface PrepareRoomInput {
-  requestId?: string;
-  /** The user's own words, kept verbatim. */
-  problem: string;
-  /** Project/run attribution from a typed dispatch handle. Retention only. */
-  project?: import('@sero-ai/common').OrchestratorProjectContext;
-  /** A built-in preset to start from. Seeds the planner's prose, nothing else. */
-  presetId?: string;
-  limits?: RoomUserLimits;
-  /** Answers to the planner's earlier questions, folded into a re-plan. */
-  clarifications?: { prompt: string; answer: string }[];
-  /** The chat that asked for the Room, when there was one. */
-  originSessionId?: string | null;
-}
-
-/**
- * A Room a chat asked for answers that chat (FR-029) unless the caller named
- * somewhere else. The planner never chooses a destination, so the choice is
- * made here — the only place that knows a chat is behind this Room.
- */
-export function limitsForOrigin(input: PrepareRoomInput): RoomUserLimits | undefined {
-  if (!input.originSessionId || input.limits?.deliveryDestination) return input.limits;
-  return { ...input.limits, deliveryDestination: INVOKING_CHAT_DESTINATION };
-}
-
-export interface RoomPlanned {
-  status?: RoomStatus;
-  ok: true;
-  roomId: string;
-  proposal: RoomProposalSummary;
-  /** What the user's limits took away from the model's suggestion. */
-  clamps: BlueprintClamp[];
-  usage?: UsageSummary;
-}
-
-export type PrepareRoomOutcome =
-  | RoomPlanned
-  | { ok: false; needsInput: true; questions: HumanQuestion[]; usage?: UsageSummary }
-  | { ok: false; needsInput?: false; error: string; usage?: UsageSummary };
 
 export type SimpleOutcome = { ok: true } | { ok: false; error: string };
 
@@ -138,29 +98,18 @@ export interface RoomAppActions extends RoomLiveActions {
    * is the signal — rather than a poll.
    */
   timeline(roomId: string, limit?: number): Promise<RoomTimelineEvent[]>;
+  /**
+   * One published artifact's own content, so the result view shows the plan in
+   * place rather than sending the user to a file to find it.
+   *
+   * The artifact list already comes from the Room record, so this answers only
+   * what the record cannot: what the file says, or why it cannot be shown.
+   */
+  readArtifact(roomId: string, artifactId: string): Promise<RoomArtifactReadOutcome>;
 }
 
 /** One screen of history. More than this is an audit question, not a panel question. */
 const TIMELINE_PAGE = 100;
-
-/**
- * A preset as the planner sees it: a label, how this kind of problem is usually
- * staffed, and the roles it tends to use.
- *
- * Deliberately prose ONLY. A template also carries preferred limits, a
- * permission ceiling and a delivery destination, and none of those are read
- * here: authority comes from the user's own choices, so picking a preset can
- * never widen what the team may do.
- */
-function presetSeed(template: RoomTemplate): RoomPresetSeed {
-  return {
-    label: template.name,
-    guidance: [template.planningStrategy, template.collaborationInstructions, template.outputExpectations]
-      .filter(Boolean)
-      .join('\n\n'),
-    exampleRoles: template.exampleRoles.map((role) => `${role.role} — ${role.responsibility}`),
-  };
-}
 
 export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions {
   const { host, store, coordinator, workspaceId } = ctx;
@@ -447,6 +396,10 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
 
     async timeline(roomId, limit = TIMELINE_PAGE) {
       return store.readTimeline(roomId, Math.max(1, Math.min(limit, TIMELINE_PAGE)));
+    },
+
+    async readArtifact(roomId, artifactId) {
+      return readRoomArtifact({ host, store }, roomId, artifactId);
     },
 
     async answer(roomId, memberId, body) {

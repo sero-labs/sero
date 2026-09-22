@@ -73,16 +73,74 @@ describe('the milestone rail', () => {
     expect(rows.find((row) => row.milestone.id === 'maintenance')?.ladder).toBeNull();
   });
 
-  it('renders evidence lines from commands, diff and preview in run order', () => {
+  it('gives every check its own row, in run order', () => {
     const evidence = FIXTURES.build!.milestones[0]!.evidence!;
-    expect(evidenceLines(evidence).map((line) => [line.state, line.check])).toEqual([
+    expect(evidenceLines(evidence).map((check) => [check.state, check.name])).toEqual([
       ['ok', 'pnpm test'],
       ['ok', 'pnpm typecheck'],
-      ['ok', 'git diff'],
+      ['ok', 'changed files'],
     ]);
-    const failed = evidenceLines({ ...evidence, commands: [{ command: 'pnpm test', exitCode: 1, output: '', durationMs: 100 }], preview: { route: '/play', smokePassed: false, capturePath: null, failure: 'Dev server did not start: address in use' } });
-    expect(failed.map((line) => line.state)).toEqual(['err', 'ok', 'err', 'dim']);
-    expect(failed.find((line) => line.check === 'smoke /play')?.result).toBe('Dev server did not start: address in use');
+  });
+
+  it('keeps each command\'s complete output rather than the last 400 characters', () => {
+    const base = FIXTURES.build!.milestones[0]!.evidence!;
+    const long = `first line\n${'x'.repeat(900)}\nlast line`;
+    const checks = evidenceLines({ ...base, commands: [{ command: 'pnpm build', exitCode: 0, output: long, durationMs: 833 }] });
+    expect(checks[0].output).toBe(long);
+    expect(checks[0].durationMs).toBe(833);
+  });
+
+  it('counts new files apart from files git already tracks', () => {
+    const base = FIXTURES.build!.milestones[0]!.evidence!;
+    const onlyNew = evidenceLines({ ...base, commands: [], diffSummary: 'untracked:\na.md\nb.md\nc.md' });
+    expect(onlyNew).toHaveLength(1);
+    expect(onlyNew[0].name).toBe('3 new files');
+    expect(onlyNew[0].state).toBe('ok');
+
+    const mixed = evidenceLines({
+      ...base,
+      commands: [],
+      diffSummary: 'src/game.js | 4 ++--\n1 file changed, 2 insertions(+), 2 deletions(-)\nuntracked:\na.md\nb.md',
+    });
+    expect(mixed[0].name).toBe('changed files · 2 new files');
+
+    const oneNew = evidenceLines({ ...base, commands: [], diffSummary: 'untracked:\nonly.md' });
+    expect(oneNew[0].name).toBe('1 new file');
+  });
+
+  it('never invents a duration or an outcome the record does not hold', () => {
+    const base = FIXTURES.build!.milestones[0]!.evidence!;
+    const checks = evidenceLines({
+      ...base,
+      commands: [{ command: 'pnpm test', exitCode: 1, output: '', durationMs: 100 }],
+      diffSummary: null,
+      preview: { route: '/play', smokePassed: false, capturePath: null, failure: 'Dev server did not start: address in use' },
+    });
+    // A failed command keeps its exit state and its own duration.
+    expect(checks[0]).toMatchObject({ state: 'err', name: 'pnpm test', durationMs: 100 });
+    // A failed smoke check says why, and has no duration to give.
+    const smoke = checks.find((check) => check.detail);
+    expect(smoke).toMatchObject({ state: 'err', name: 'Page /play', detail: 'Dev server did not start: address in use' });
+    expect(smoke?.durationMs).toBeUndefined();
+    // No capture is not a failure, and it carries neither a duration nor an
+    // output, nor the preview control that would have nothing to open.
+    const capture = checks.at(-1)!;
+    expect(capture).toMatchObject({ state: 'dim', name: 'No screenshot of /play' });
+    expect(capture.durationMs).toBeUndefined();
+    expect(capture.opensPreview).toBeUndefined();
+  });
+
+  it('offers the preview from the capture row when a capture exists, and no duration for it', () => {
+    const base = FIXTURES.build!.milestones[0]!.evidence!;
+    const checks = evidenceLines({
+      ...base,
+      commands: [],
+      diffSummary: null,
+      preview: { route: '/', smokePassed: true, capturePath: 'evidence/m3/shot.png' },
+    });
+    expect(checks[0]).toMatchObject({ state: 'ok', name: 'Page / responded' });
+    expect(checks[1]).toMatchObject({ state: 'ok', name: 'Screenshot of /', opensPreview: true });
+    expect(checks[1].durationMs).toBeUndefined();
   });
 });
 

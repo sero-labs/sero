@@ -91,20 +91,39 @@ function runUsage(run: LoopRun): UsageSummary | undefined {
 }
 
 /** Compact summary of one run for the per-loop runs/index.json. */
-export function toRunSummary(run: LoopRun): RunIndex['runs'][number] {
+export function toRunSummary(
+  run: LoopRun,
+  /** The plan's step ids, in plan order. Omitted by callers that do not have it. */
+  planStepIds?: readonly string[],
+): RunIndex['runs'][number] {
+  const planIndex = (stepId: string): number | undefined => {
+    const at = planStepIds?.indexOf(stepId) ?? -1;
+    return at >= 0 ? at : undefined;
+  };
   const activationSteps = run.stepActivations?.map((activation) => {
     const attempts = run.stepAttempts.filter((attempt) => attempt.activationId === activation.id);
     const last = attempts[attempts.length - 1];
+    // A restart orphaned this activation, so the run never finished the step and
+    // it reads as interrupted whatever its last attempt recorded. Otherwise the
+    // last attempt is the outcome, falling back to the activation's own state.
+    const status = activation.status === 'orphaned'
+      ? ('orphaned' as const)
+      : last?.status ?? (activation.status === 'running' ? 'running' as const : 'completed' as const);
+    const at = planIndex(activation.stepId);
     return {
       stepId: activation.stepId,
       visitNumber: activation.visitNumber,
       activationId: activation.id,
       attemptNumber: last?.attemptNumber ?? attempts.length,
       executionType: last?.executionType ?? 'background-agent' as const,
-      status: last?.status ?? (activation.status === 'running' ? 'running' as const : 'completed' as const),
+      status,
       outcomeStatus: activation.outcome?.status,
+      ...(at === undefined ? {} : { planIndex: at }),
     };
   });
+  const interruptedStepIds = run.stepActivations
+    ? [...new Set(run.stepActivations.flatMap((a) => (a.status === 'orphaned' ? [a.stepId] : [])))]
+    : [];
   return {
     id: run.id,
     runNumber: run.runNumber,
@@ -125,11 +144,13 @@ export function toRunSummary(run: LoopRun): RunIndex['runs'][number] {
     })),
     recoveries: run.recoveryDecisions.map((d) => ({ decision: d.decision, reason: d.reason })),
     usage: reportedUsage(runUsage(run)),
+    block: run.block,
+    interruptedStepIds: interruptedStepIds.length > 0 ? interruptedStepIds : undefined,
   };
 }
 
-export function buildRunIndex(runs: LoopRun[]): RunIndex {
-  return { version: 1, runs: runs.map(toRunSummary) };
+export function buildRunIndex(runs: LoopRun[], planStepIds?: readonly string[]): RunIndex {
+  return { version: 1, runs: runs.map((run) => toRunSummary(run, planStepIds)) };
 }
 
 export interface RunsDiff {

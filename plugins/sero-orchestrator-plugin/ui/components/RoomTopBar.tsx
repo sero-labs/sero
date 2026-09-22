@@ -22,9 +22,16 @@
  * roster as its Team tab.
  */
 
+import { useState } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@sero-ai/ui/components/ui/dropdown-menu';
 import { cn } from '@sero-ai/ui/lib/utils';
-import { ArrowLeft, MessageSquare } from 'lucide-react';
+import { ArrowLeft, MessageSquare, MoreHorizontal, Trash2 } from 'lucide-react';
 import { TERMINAL_ROOM_STATUSES, type PersistedRoom, type RoomStatus } from '../../shared/room-types';
 import { elapsedActiveMs } from '../../shared/room-active-time';
 import { roomControls, type RoomControls } from '../lib/room-controls';
@@ -186,8 +193,48 @@ export function RoomTopBar({
             Stop
           </Button>
         )}
-        {finished && <RoomDeleteButton busy={busy} onDelete={onDelete} />}
+        {finished && <MoreActionsMenu busy={busy} onDelete={onDelete} />}
       </div>
     </div>
+  );
+}
+
+/**
+ * The Room's ⋯ menu.
+ *
+ * Deleting a Room sat between Stop and the view controls as if it were one of
+ * them, which is how a destructive control gets clicked by accident. It is
+ * still offered wherever the Room is shown, and it still asks first: the menu
+ * carries the trigger and the same AlertDialog carries the confirmation.
+ *
+ * The shared `DropdownMenu` rather than an absolutely-positioned div, for two
+ * reasons: it renders in a portal, so it is not clipped by this bar's own
+ * 50px `overflow-hidden`; and it brings the keyboard and focus behaviour every
+ * other menu in the product already has.
+ */
+function MoreActionsMenu({ busy, onDelete }: { busy: boolean; onDelete: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            className={SMALL_BTN}
+            aria-label="More actions"
+            title="More actions"
+            disabled={busy}
+          >
+            <MoreHorizontal className="size-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem variant="destructive" onSelect={() => setConfirming(true)}>
+            <Trash2 /> Delete Room
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <RoomDeleteButton busy={busy} onDelete={onDelete} open={confirming} onOpenChange={setConfirming} />
+    </>
   );
 }

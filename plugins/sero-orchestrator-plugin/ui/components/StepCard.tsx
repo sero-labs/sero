@@ -20,9 +20,11 @@ import type { AppModelGroup } from '@sero-ai/app-runtime';
 import type { ContextAgentInfo, ContextToolInfo } from '@sero-ai/common';
 import type { Loop, LoopStepDefinition, StepRuntimeState } from '../../shared/types';
 import { STEP_STATUS_STYLE } from '../lib/status-style';
+import { splitFileRefs } from '../lib/file-refs';
 import { stepMarks, stepStateLabel } from '../lib/step-detail';
 import { StepStatusPill } from './StatusBadge';
 import { fanOutSummaryLabel, type FanOutView } from '../lib/fan-out-summary';
+import { WorkspaceFileLink } from './WorkspaceFileLink';
 import { StepModelControl } from './StepModelControl';
 import { StepToolsControl } from './StepToolsControl';
 import { StepAgentControl } from './StepAgentControl';
@@ -69,6 +71,41 @@ function WithCode({ text }: { text: string }) {
   return <>{spans.map(({ part, start: at, code }) => (code ? <code key={at}>{part}</code> : <Fragment key={at}>{part}</Fragment>))}</>;
 }
 
+/**
+ * A result: backticked spans as code, and any file it names as a control that
+ * opens it. The drawing links a file a result mentions, because a result that
+ * says it produced a screenshot is not useful if the reader cannot look at it.
+ *
+ * A reference the host cannot open stays plain text — a control that cannot
+ * open it would be worse than the words.
+ */
+function WithFileRefs({ text, workspaceId }: { text: string; workspaceId: string }) {
+  // Keyed by where each part starts in the text — the same identity `WithCode`
+  // uses above, and one that does not move when the parts around it change.
+  let at = 0;
+  const parts = splitFileRefs(text).map((part) => {
+    const start = at;
+    at += part.text.length;
+    return { part, at: start };
+  });
+  return (
+    <>
+      {parts.map(({ part, at: start }) => part.file
+        ? (
+          <WorkspaceFileLink
+            key={start}
+            workspaceId={workspaceId}
+            path={part.file}
+            className="font-medium underline decoration-room-text4 decoration-dotted underline-offset-2 hover:decoration-solid"
+          >
+            {part.text}
+          </WorkspaceFileLink>
+        )
+        : <Fragment key={start}><WithCode text={part.text} /></Fragment>)}
+    </>
+  );
+}
+
 /** The two icon buttons in the step header, as the drawing sets them. */
 const ICON_BUTTON = 'grid size-6 shrink-0 place-items-center rounded-[5px] text-room-text3 hover:bg-room-overlay hover:text-room-text';
 
@@ -100,7 +137,7 @@ export function StepCard({ step, number, loop, numberOf, showNumber = true, stat
       {state?.outcome && (
         <dl className="orc-kv mt-2.5">
           <dt>Result</dt>
-          <dd className={isProblem ? 'text-destructive' : 'text-room-text'}><WithCode text={state.outcome.summary} /></dd>
+          <dd className={isProblem ? 'text-destructive' : 'text-room-text'}><WithFileRefs text={state.outcome.summary} workspaceId={loop.workspaceId} /></dd>
         </dl>
       )}
 

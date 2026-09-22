@@ -1,18 +1,19 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@sero-ai/ui';
 
 import { sessionStartedAt } from '@sero-ai/common';
 import { projectActivity } from '../shared/activity';
-import type { AutonomySetting, ProjectRecord } from '../shared/record';
+import type { AutonomySetting, Milestone, ProjectRecord } from '../shared/record';
 import type { ActionOutcome, ArchitectActions, SessionHistoryEntry } from './lib/actions';
 import { openDispatch } from './lib/page-helpers';
-import { CapInput } from './components/CapInput';
+import { CapInput, type CapInputProps } from './components/CapInput';
 import { DirectiveComposer, Directives } from './components/Directives';
 import { MilestoneRail } from './components/MilestoneRail';
 import { NeedsYou } from './components/NeedsYou';
 import { ProjectResearch } from './components/ProjectResearch';
 import { RepairCard } from './components/RepairCard';
 import { ProjectPreview } from './components/ProjectPreview';
+import { RetryWorkflowControl } from './components/RetryWorkflowControl';
 import { SideColumn, type DisclosureState } from './components/SideColumn';
 import { SessionHistoryDialog } from './components/SessionHistoryDialog';
 import { StateLine, type HeaderAction } from './components/StateLine';
@@ -146,7 +147,7 @@ function ProjectMainColumn({ record, actions, needsActions, permissionPending, o
         </>
       )}
       <ProjectResearch record={record} />
-      <MilestoneRail record={record} onOpenDispatch={openDispatch} onRetry={(milestoneId, capUsd) => actions.retry(id, milestoneId, capUsd)} />
+      <MilestoneRail record={record} onOpenDispatch={openDispatch} />
       {record.phase !== 'intake' && <ProjectPreview projectId={id} />}
       {record.phase === 'intake' && (
         <section>
@@ -163,8 +164,8 @@ function ProjectMainColumn({ record, actions, needsActions, permissionPending, o
  * What the header offers, and what each control runs.
  *
  * Each is the same action the rest of the page already has, so nothing is only
- * reachable here: Retry step is the milestone rail's control, Open Room is the
- * research card's, and "Tell Architect what to do next" puts the cursor in the
+ * reachable here: the recovery controls the milestone row used to carry now sit
+ * in the header, and "Tell Architect what to do next" puts the cursor in the
  * directive box at the foot of the page rather than sending anything itself.
  */
 function useHeaderActions(
@@ -175,9 +176,10 @@ function useHeaderActions(
 ): HeaderAction[] {
   const activity = projectActivity(record, { sessionStartedAt: sessionStartedAt(), runtimeRunning });
 
-  // The cap is not a button: it needs a number, so the header carries the
-  // field instead and this returns nothing for it.
+  // A cap is not a button: it needs a number, so the header carries the field
+  // instead and this returns nothing for it.
   if (activity.action === 'Raise the cap') return [];
+  if (cappedWorkflow(record)) return [];
 
   // Delegated work that stopped without reporting. The Room is worth opening,
   // and the Architect needs telling what to do instead.
@@ -192,10 +194,12 @@ function useHeaderActions(
 
   if (!activity.action) return [];
 
-  const stopped = record.milestones.find((milestone) => milestone.dispatch?.failure && milestone.dispatch.retryStepId);
-  if (activity.action === 'Retry the step' && stopped) {
-    return [{ label: 'Retry step', primary: true, run: () => void actions.retry(record.id, stopped.id) }];
-  }
+  // A stopped dispatch's recovery is the header's OWN control, not a button
+  // here. A cap needs a field to type in, and no cap needs the busy state and
+  // the refusal — neither of which a bare action can show. `ProjectPage`
+  // renders it in the `form` slot; this returns nothing so it appears once.
+  if (record.milestones.some((milestone) => milestone.dispatch?.failure)) return [];
+
   const room = record.milestones.find((milestone) => milestone.dispatch?.kind === 'room' && milestone.dispatch.failure);
   if (activity.action === 'Open the Room to answer' && room?.dispatch) {
     const { kind, id, workspaceId } = room.dispatch;
@@ -204,6 +208,18 @@ function useHeaderActions(
   // An open decision keeps its control: the Needs You card sits right under
   // this header with its answer, so a second button would be the same one twice.
   return [];
+}
+
+/**
+ * A dispatched milestone that stopped at its OWN cap.
+ *
+ * Its recovery needs a new number before the Workflow can resume, so its control
+ * is a field rather than a button — the same shape the project's own cap needs.
+ */
+function cappedWorkflow(record: ProjectRecord): Milestone | undefined {
+  return record.milestones.find(
+    (item) => item.dispatch?.failure && item.dispatch.costLimitUsd !== undefined,
+  );
 }
 
 export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOpenModels, onOpenInspector, confirm, runtimeRunning, permissionPending = false }: ProjectPageProps) {
@@ -219,6 +235,48 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOp
   // At the cap the header carries the field, because raising it needs a number
   // rather than a confirmation. The same action stays in the project menu.
   const atCap = record.overlay === 'limited' && record.budget.capUsd !== null;
+  // A dispatch that stopped at its own cap needs a number too. Both cases are
+  // one field with different wording and target, so they are built together.
+  const cappedMilestone = cappedWorkflow(record);
+  const workflowCap = cappedMilestone?.dispatch?.costLimitUsd;
+  let capForm: Omit<CapInputProps, 'onError' | 'onDone'> | null = null;
+  if (atCap) {
+    capForm = {
+      cap: record.budget.capUsd,
+      inputId: 'ar-header-cap-in',
+      label: 'New cap',
+      submitLabel: 'Raise and resume',
+      onRaise: (capUsd) => actions.raiseCap(id, capUsd),
+    };
+  } else if (cappedMilestone && workflowCap !== undefined) {
+    capForm = {
+      cap: workflowCap,
+      inputId: 'ar-header-wf-cap-in',
+      label: 'New Workflow cap',
+      submitLabel: 'Approve cap and resume',
+      onRaise: (capUsd) => actions.retry(id, cappedMilestone.id, capUsd),
+    };
+  }
+
+  // A dispatch that stopped with NO cap to approve: a time limit clears the step
+  // id, so there is no step to retry from and the whole Workflow restarts. The
+  // milestone row carried this control before it moved; without it here the
+  // recovery is unreachable, which is the fault this shape exists to prevent.
+  const stoppedWorkflow = record.milestones.find(
+    (item) => item.dispatch?.failure && item.dispatch.costLimitUsd === undefined,
+  );
+  let headerForm: ReactNode;
+  if (capForm) {
+    headerForm = <CapInput {...capForm} onError={page.setNotice} onDone={() => page.setNotice(null)} />;
+  } else if (stoppedWorkflow) {
+    headerForm = (
+      <RetryWorkflowControl
+        label={stoppedWorkflow.dispatch?.retryStepId ? 'Retry step' : 'Restart the Workflow'}
+        retry={() => actions.retry(id, stoppedWorkflow.id)}
+        onError={page.setNotice}
+      />
+    );
+  }
 
   return (
     <>
@@ -244,17 +302,7 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOp
             record={record}
             home={null}
             actions={headerActions}
-            form={atCap ? (
-              <CapInput
-                cap={record.budget.capUsd}
-                inputId="ar-header-cap-in"
-                label="New cap"
-                submitLabel="Raise and resume"
-                onRaise={(capUsd) => actions.raiseCap(id, capUsd)}
-                onError={page.setNotice}
-                onDone={() => page.setNotice(null)}
-              />
-            ) : undefined}
+            form={headerForm}
             runtimeRunning={runtimeRunning}
           />
           <div className="ar-sections" data-narrow={narrow ? 1 : 0}>

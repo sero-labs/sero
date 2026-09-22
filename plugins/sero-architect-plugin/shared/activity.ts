@@ -129,12 +129,16 @@ export function projectActivity(
   }
 
   const stopped = record.milestones.find((m) => m.dispatch?.failure);
-  if (stopped?.dispatch) {
-    const isMaintenance = stopped.id === MAINTENANCE_MILESTONE_ID;
+  const cause = stopped?.dispatch?.failure;
+  if (stopped?.dispatch && cause) {
+    // The cause IS the activity line, beside the state glyph, the way the
+    // drawing has it: "Sero restarted during step 1 of its Workflow · 10 days
+    // ago". It is not a second sentence under that line, and the owner line no
+    // longer repeats that the work stopped.
     return {
       state: 'stopped',
-      headline: isMaintenance ? 'Maintenance stopped before it finished' : `Stopped at ${stopped.title}`,
-      owner: `${dispatchWord(stopped)} stopped before it finished`,
+      headline: stopped.id === MAINTENANCE_MILESTONE_ID ? 'Maintenance stopped' : `${stopped.title} stopped`,
+      owner: cause,
       ownerAt: stopped.dispatch.lastRunAt ?? stopped.dispatch.dispatchedAt,
       ownerSuffix: suffix,
       action: stopped.dispatch.retryStepId ? 'Retry the step' : 'Open the work to decide what next',

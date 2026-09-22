@@ -13,6 +13,7 @@
  */
 
 import type { RoomArtifactKind } from '../../shared/room-message-types';
+import { decodeEscapedLineBreaks } from '../../shared/artifact-content';
 import type { OrchestratorHost } from '../host';
 import type { RoomRecord } from './room-state';
 import type { RoomWork } from './room-work';
@@ -59,7 +60,11 @@ export async function publishArtifactCommand(
     {
       kind: input.artifactKind,
       title: input.title ?? '',
-      content: input.body || undefined,
+      // The command surface carries the body as one CLI argument, where a line
+      // break survives as the escape `\n`. Decoding HERE keeps it to the one
+      // path that produces the escape: a caller handing over ordinary text is
+      // stored exactly as given.
+      content: input.body ? decodeEscapedLineBreaks(input.body) : undefined,
       ref: input.ref,
       relatedWorkId: input.relatedWorkId,
     },

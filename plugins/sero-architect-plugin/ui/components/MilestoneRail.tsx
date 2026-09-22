@@ -1,10 +1,8 @@
-import { useState } from 'react';
-import { Button } from '@sero-ai/ui';
-import type { ActionOutcome } from '../lib/actions';
-import { ChevronRight, ExternalLink } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 
-import type { EvidenceRecord, ProjectRecord } from '../../shared/record';
-import { acceptedCount, evidenceLines, railRows, type RailRow } from '../lib/view-model';
+import type { ProjectRecord } from '../../shared/record';
+import { acceptedCount, railRows, type RailRow } from '../lib/view-model';
+import { Evidence } from './Evidence';
 import { Pill, SectionHead } from './Pill';
 
 const LADDER = ['reported', 'verified', 'accepted', 'delivered'] as const;
@@ -19,27 +17,8 @@ export function Ladder({ level }: { level: number }) {
   );
 }
 
-export function Evidence({ evidence }: { evidence: EvidenceRecord }) {
-  const lines = evidenceLines(evidence);
-  return (
-    <details className="ar-evidence">
-      <summary><ChevronRight className="ar-i" />Evidence at {evidence.commit.slice(0, 7)}{evidence.stale ? ' · stale' : ''}</summary>
-      <div className="ar-ev">
-        {lines.map((line) => (
-          <div key={`${line.check}:${line.result}`}>
-            <span data-state={line.state}>{line.state === 'ok' ? '✓' : line.state === 'err' ? '✕' : '·'}</span>
-            <span>{line.check}</span>
-            <span data-state={line.state === 'dim' ? 'dim' : undefined}>{line.result}</span>
-          </div>
-        ))}
-      </div>
-    </details>
-  );
-}
-
 export interface MilestoneRailProps {
   record: ProjectRecord;
-  onRetry?(milestoneId: string, capUsd?: number): Promise<ActionOutcome>;
   /** Opens the Orchestrator record of a dispatched milestone. */
   onOpenDispatch(link: NonNullable<RailRow['link']>): void;
 }
@@ -58,24 +37,7 @@ function ResearchRuns({ record }: { record: ProjectRecord }) {
   );
 }
 
-function RetryStep({ milestoneId, costLimitUsd, retry }: { milestoneId: string; costLimitUsd?: number; retry(id: string, capUsd?: number): Promise<ActionOutcome> }) {
-  const [cap, setCap] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const run = async () => {
-    if (busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const result = costLimitUsd === undefined ? await retry(milestoneId) : await retry(milestoneId, Number(cap));
-      if (!result.ok) setError(result.text);
-    } catch (failure) { setError(failure instanceof Error ? failure.message : String(failure)); }
-    finally { setBusy(false); }
-  };
-  return <div>{costLimitUsd !== undefined && <label className="ar-field">New Workflow cap ($)<input aria-label="New Workflow cap ($)" type="number" min={costLimitUsd} step="0.1" value={cap} onChange={(event) => setCap(event.target.value)} /></label>}<Button size="sm" disabled={busy || (costLimitUsd !== undefined && (!cap || Number(cap) <= costLimitUsd))} onClick={() => void run()}>{busy ? 'Starting retry…' : costLimitUsd === undefined ? 'Retry step' : 'Approve cap and resume'}</Button>{error && <p role="alert" className="ar-error">{error}</p>}</div>;
-}
-
-export function MilestoneRail({ record, onOpenDispatch, onRetry }: MilestoneRailProps) {
+export function MilestoneRail({ record, onOpenDispatch }: MilestoneRailProps) {
   const rows = railRows(record);
   if (rows.length === 0) {
     // Not made yet, rather than empty: the charter names the milestones, and
@@ -98,12 +60,14 @@ export function MilestoneRail({ record, onOpenDispatch, onRetry }: MilestoneRail
               <b>{milestone.title}</b>
               {sub && <span>{sub}</span>}
               {ladder !== null && <Ladder level={ladder} />}
-              {milestone.evidence && <Evidence evidence={milestone.evidence} />}
+              {milestone.evidence && <Evidence evidence={milestone.evidence} projectId={record.id} />}
             </div>
             <div className="ar-ms-right">
               <span className="ar-kind">{link?.kind ?? (milestone.id === 'maintenance' ? 'workflow' : '')}</span>
               <Pill tone={tone}>{label}</Pill>
-              {milestone.dispatch?.failure && onRetry && <RetryStep milestoneId={milestone.id} costLimitUsd={milestone.dispatch.costLimitUsd} retry={onRetry} />}
+              {/* The recovery control lives in the project header, beside the
+                  reason it answers. Repeating it here put the same button on
+                  the page twice with no way to tell which one mattered. */}
               {link && (
                 <button type="button" className="ar-btn-link" onClick={() => onOpenDispatch(link)} data-testid={`open-${milestone.id}`}>
                   Open in Orchestrator <ExternalLink className="ar-i" />

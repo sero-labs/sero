@@ -42,8 +42,11 @@ describe('dispatch watch', () => {
     host.emitState(files.loops, { loops: [{ id: 'loop_1', title: 'UI', status: 'blocked', block: { limit: 'maxWallClockMs', reason: 'reached max wall-clock (1800000ms)' }, usage: { costUsd: 2 } }] });
     await settle();
     const record = await store.read('proj_1');
-    expect(record).toMatchObject({ overlay: 'blocked', stateLine: expect.stringContaining('time limit') });
-    expect(record?.milestones[0].dispatch).toMatchObject({ id: 'loop_1', chargedUsd: 2, failure: expect.stringContaining('Retry step') });
+    expect(record).toMatchObject({ overlay: 'blocked' });
+    expect(record?.milestones[0].dispatch).toMatchObject({ id: 'loop_1', chargedUsd: 2, failure: 'reached max wall-clock (1800000ms)' });
+    // The reason is not filed as the Architect's own report: that fold holds
+    // what the Architect said, and it said nothing about this stop.
+    expect(record?.stateLine).not.toBe('reached max wall-clock (1800000ms)');
     expect(record?.milestones[0].dispatch?.costLimitUsd).toBeUndefined();
 
     host.emitState(files.loops, { loops: [{ id: 'loop_1', title: 'UI', status: 'active', usage: { costUsd: 2 } }] });
@@ -56,6 +59,69 @@ describe('dispatch watch', () => {
     watch.dispose();
   });
 
+  it('names the PLAN position of the step a restart interrupted, not its place in the run', async () => {
+    const { host, store, watch, settle } = await setup();
+    const file = loopRunsIndexFile('/home/dan/projects/hollow', 'loop_1');
+    host.emitState(file, {
+      runs: [{
+        id: 'run_1',
+        status: 'orphaned',
+        startedAt: T0,
+        // The plan's third step, and only the second activation: a run that
+        // skipped a step lists them out of plan order, so the position in this
+        // array is NOT the number the page shows.
+        steps: [
+          { stepId: 'choose', status: 'completed', planIndex: 0 },
+          { stepId: 'right', status: 'orphaned', planIndex: 2 },
+        ],
+        interruptedStepIds: ['right'],
+      }],
+    });
+    await settle();
+    const record = await store.read('proj_1');
+    expect(record?.milestones[0]?.dispatch?.failure).toBe('Sero restarted during step 3 of its Workflow.');
+    // The interrupted step is still the one the recovery offers.
+    expect(record?.milestones[0]?.dispatch?.retryStepId).toBe('right');
+    watch.dispose();
+  });
+
+  it('states no step number when the run recorded no plan position', async () => {
+    const { host, store, watch, settle } = await setup();
+    const file = loopRunsIndexFile('/home/dan/projects/hollow', 'loop_1');
+    host.emitState(file, {
+      runs: [{
+        id: 'run_1',
+        status: 'orphaned',
+        startedAt: T0,
+        steps: [{ stepId: 's1', status: 'orphaned' }],
+        interruptedStepIds: ['s1'],
+      }],
+    });
+    await settle();
+    // Without a plan position there is no honest number, so none is given.
+    expect((await store.read('proj_1'))?.milestones[0]?.dispatch?.failure)
+      .toBe('Sero restarted while its Workflow was mid-step.');
+    watch.dispose();
+  });
+
+  it('states no step number when a restart left more than one step in flight', async () => {
+    const { host, store, watch, settle } = await setup();
+    const file = loopRunsIndexFile('/home/dan/projects/hollow', 'loop_1');
+    host.emitState(file, {
+      runs: [{
+        id: 'run_1',
+        status: 'orphaned',
+        startedAt: T0,
+        steps: [{ stepId: 's1', status: 'orphaned' }, { stepId: 's2', status: 'orphaned' }],
+        interruptedStepIds: ['s1', 's2'],
+      }],
+    });
+    await settle();
+    expect((await store.read('proj_1'))?.milestones[0]?.dispatch?.failure)
+      .toBe('Sero restarted with 2 steps in flight.');
+    watch.dispose();
+  });
+
   it('reports an exhausted Workflow cap with its actual reason and preserves live charges', async () => {
     const { host, store, watch, wakes, settle } = await setup();
     host.emitState(files.loops, { loops: [{ id: 'loop_1', title: 'CLI', status: 'blocked', maxCostUsd: 1.2, block: { limit: 'maxCostUsd', reason: 'reached max cost ($1.2)' }, usage: { costUsd: 1.21 } }] });
@@ -64,8 +130,9 @@ describe('dispatch watch', () => {
     }] });
     await settle();
     const record = await store.read('proj_1');
-    expect(record).toMatchObject({ overlay: 'blocked', blockedReason: expect.stringContaining('$1.2 cap') });
-    expect(record?.milestones[0].dispatch).toMatchObject({ costLimitUsd: 1.2, chargedUsd: 1.21, failure: expect.stringContaining('Approve a new Workflow cap') });
+    // The run's own reason, not a paraphrase of it.
+    expect(record?.milestones[0].dispatch).toMatchObject({ costLimitUsd: 1.2, chargedUsd: 1.21, failure: 'reached max cost ($1.2)' });
+    expect(record?.blockedReason).toBe('reached max cost ($1.2)');
     expect(wakes.some((wake) => wake.items.some((item) => item.includes('reached max cost ($1.2)')))).toBe(true);
     watch.dispose();
   });
@@ -101,8 +168,10 @@ describe('dispatch watch', () => {
     host.emitState(file, { runs: [{ id: 'run_1', status: 'orphaned', startedAt: T0 }] });
     await settle();
     const failed = await store.read('proj_1');
-    expect(failed?.blockedReason).toContain('Retry step');
-    expect(failed?.milestones[0]?.dispatch?.failure).toContain('stopped before it finished');
+    // The run kept no cause (it has no block and no interrupted step), and the
+    // record says exactly that instead of inventing one.
+    expect(failed?.milestones[0]?.dispatch?.failure).toBe('The Workflow stopped. No cause was recorded.');
+    expect(failed?.blockedReason).toBe('The Workflow stopped. No cause was recorded.');
     host.emitState(file, { runs: [
       { id: 'run_1', status: 'orphaned', startedAt: T0 },
       { id: 'run_2', status: 'running', startedAt: '2026-09-09T00:00:00.000Z' },
@@ -122,7 +191,7 @@ describe('dispatch watch', () => {
     ] }] });
     await settle();
     expect((await store.read('proj_1'))?.milestones[0].dispatch).toMatchObject({
-      id: 'loop_1', retryStepId: 'release', failure: expect.stringContaining('Retry step'),
+      id: 'loop_1', retryStepId: 'release', failure: 'The Workflow stopped. No cause was recorded.',
     });
     expect((await store.read('proj_1'))?.overlay).toBe('blocked');
 

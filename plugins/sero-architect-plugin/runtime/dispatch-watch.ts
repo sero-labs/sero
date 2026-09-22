@@ -45,6 +45,16 @@ interface RunView {
   id: string;
   status: string;
   startedAt?: string;
+  /**
+   * The run's steps, each carrying its PLAN position when the run recorded one.
+   * Activation order is the order steps happened to run, so `planIndex` — not
+   * the position in this list — is what names a step to the user.
+   */
+  steps?: { stepId: string; status: string; outcomeStatus?: string; planIndex?: number }[];
+  /** The block that ended the run, with the limit's own reason. */
+  block?: { reason: string; limit?: string };
+  /** Steps a restart left in flight, from the run's own record. */
+  interruptedStepIds?: string[];
   delivery?: { destination: string; ref: string; summary: string; deliveredAt: string };
 }
 
@@ -235,17 +245,21 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
         const delta = Math.max(0, costUsd - dispatch.chargedUsd);
         let updated: Milestone = milestone;
         if (loop?.status === 'blocked' && loop.block?.limit === 'maxCostUsd' && loop.maxCostUsd !== undefined && dispatch.costLimitUsd !== loop.maxCostUsd) {
-          const reason = `Workflow reached its $${loop.maxCostUsd} cap. Approve a new Workflow cap to resume ${milestone.title}.`;
+          // The run's own reason, not a paraphrase: the record already says
+          // which limit it reached.
+          const reason = loop.block.reason;
           updated = { ...updated, dispatch: { ...dispatch, failure: reason, costLimitUsd: loop.maxCostUsd } };
           const held = block(next, now, reason);
-          if (held.ok) next = { ...held.record, stateLine: reason };
+          // The reason rides the activity line. `stateLine` is what the
+          // Architect reported in its own words, and this is not that.
+          if (held.ok) next = held.record;
         }
         if (loop?.status === 'blocked' && loop.block?.limit === 'maxWallClockMs') {
-          const reason = `Workflow reached its time limit. Use Retry step to continue ${milestone.title} from its saved progress.`;
+          const reason = loop.block.reason;
           if (dispatch.failure !== reason) {
             updated = { ...updated, dispatch: { ...dispatch, failure: reason, retryStepId: undefined, costLimitUsd: undefined } };
             const held = block(next, now, reason);
-            if (held.ok) next = { ...held.record, stateLine: reason };
+            if (held.ok) next = held.record;
           }
         }
         // The one place "Working" can be earned: the watched index says a run

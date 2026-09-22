@@ -341,7 +341,7 @@ describe('the top of a project', () => {
     ));
 
     const heading = container.querySelector('.ar-sentence');
-    expect(heading?.textContent).toContain(`Stopped at ${record.milestones[0].title}`);
+    expect(heading?.textContent).toContain(`${record.milestones[0].title} stopped`);
     // The header's own retry, above the rail, starting the same retry.
     const headerRetry = container.querySelector('.ar-stateline button');
     expect(headerRetry?.textContent).toBe('Retry step');
@@ -388,6 +388,54 @@ describe('the top of a project', () => {
     // Raise cap is still in the project menu; the header copy is the one the
     // user reaches first.
     expect(container.querySelector('.ar-stateline #ar-header-cap-in')).not.toBeNull();
+  });
+
+  it('carries a Workflow cap resume in the header, whole', async () => {
+    // The control used to live on the milestone row. It moves here complete:
+    // its own field, its own wording, and the retry action with the new cap —
+    // so a workflow-cap resume no longer depends on reaching the row.
+    const base = FIXTURES.build!;
+    const first = base.milestones[0];
+    const record = {
+      ...base,
+      milestones: [
+        { ...first, dispatch: { ...first.dispatch!, failure: 'reached max cost ($1.2)', costLimitUsd: 1.2 } },
+        ...base.milestones.slice(1),
+      ],
+    };
+    const retry = vi.fn(async () => OK);
+
+    act(() => root.render(
+      <ProjectPage runtimeRunning record={record} actions={stubActions({ retry })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+    ));
+
+    expect(container.querySelector('#ar-header-wf-cap-in')).not.toBeNull();
+    const submit = container.querySelector('.ar-stateline form.ar-cap button') as HTMLButtonElement | null;
+    expect(submit?.textContent).toBe('Approve cap and resume');
+
+    const form = container.querySelector('.ar-stateline form.ar-cap') as HTMLFormElement | null;
+    act(() => { form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
+    await flush();
+
+    expect(retry).toHaveBeenCalledWith(record.id, first.id, expect.any(Number));
+  });
+
+  it('says what stopped, and why, once', () => {
+    const record = stoppedProject();
+
+    act(() => root.render(
+      <ProjectPage runtimeRunning record={record} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+    ));
+
+    const header = container.querySelector('.ar-stateline')!;
+    // The cause rides the activity line beside the state glyph — one line, the
+    // shape the drawing shows — and is not repeated as a second line below it.
+    expect(header.querySelector('.ar-stateline-who')?.textContent).toContain('Interrupted work');
+    expect(header.querySelector('.ar-stateline-why')).toBeNull();
+    const occurrences = (header.textContent ?? '').split('Interrupted work').length - 1;
+    expect(occurrences).toBe(1);
+    // Nor is it filed as the Architect's own report, which is a different fact.
+    expect(header.querySelector('.ar-reported')?.textContent).not.toContain('Interrupted work');
   });
 
   it('shows no header button when nothing needs the user', () => {

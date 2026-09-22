@@ -110,7 +110,12 @@ describe('projectActivity', () => {
     const activity = projectActivity(record, RUNNING_SESSION);
 
     expect(activity.state).toBe('stopped');
-    expect(activity.headline).toBe('Stopped at M2 · Adversarial review');
+    // The heading names what stopped, and the cause rides the activity line
+    // beside the state glyph — the same one line the drawing shows. Neither
+    // repeats the other, and the state is not stated a third time.
+    expect(activity.headline).toBe('M2 · Adversarial review stopped');
+    expect(activity.owner).toBe('The run was interrupted');
+    expect(activity.reason).toBeUndefined();
     expect(activity.action).toBe('Retry the step');
   });
 

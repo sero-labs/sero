@@ -15,6 +15,7 @@ import type {
 } from '@sero-ai/common';
 import type {
   CompletionSignal,
+  LoopBlock,
   LoopRunStatus,
   LoopStatus,
   RecoveryDecisionKind,
@@ -107,6 +108,15 @@ export interface LoopRunStepSummary {
   executionType: StepExecutionTarget['type'];
   status: StepAttemptStatus;
   outcomeStatus?: StepOutcome['status'];
+  /**
+   * The step's zero-based position in the PLAN, when the writer knew the plan.
+   *
+   * The activation list is the order steps happened to run, which is NOT the
+   * order the page numbers them: a run that executed steps 1 and 3 lists the
+   * third one second. Anything that says "step N" to the user must use this,
+   * and must state no number at all when it is absent.
+   */
+  planIndex?: number;
 }
 
 export interface LoopRunSummary {
@@ -126,6 +136,19 @@ export interface LoopRunSummary {
   recoveries: { decision: RecoveryDecisionKind; reason: string }[];
   /** Rolled-up token/time totals across this run's attempts (cost when reported). */
   usage?: UsageSummary;
+  /**
+   * The block that ended this run, with its own reason. Absent for a run that
+   * ended without one — including every run written before this field existed.
+   * A reader states what this holds and MUST NOT reconstruct a cause from
+   * another file.
+   */
+  block?: LoopBlock;
+  /**
+   * Step ids a restart left in flight (activations it marked orphaned). Absent
+   * when the run kept no activations, so an interrupted step is never inferred
+   * from the attempt list of a run written before this field existed.
+   */
+  interruptedStepIds?: string[];
 }
 
 export interface RunIndex {

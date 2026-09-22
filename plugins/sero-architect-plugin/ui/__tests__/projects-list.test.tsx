@@ -29,10 +29,11 @@ function entry(overrides: Partial<ArchitectIndexEntry> = {}): ArchitectIndexEntr
     overlay: null,
     activity: {
       state: 'stopped',
-      headline: 'Stopped at M2 · Adversarial review',
-      owner: 'Workflow stopped before it finished',
+      headline: 'M2 · Adversarial review stopped',
+      owner: 'Workflow',
       ownerAt: '2026-09-16T08:12:00.000Z',
       ownerSuffix: 'Architect idle',
+      reason: 'Sero restarted during step 2 of its Workflow.',
       action: 'Retry the step',
     },
     milestones: { accepted: 1, total: 2 },
@@ -84,8 +85,8 @@ describe('the projects list', () => {
     render([entry()]);
 
     const text = container.textContent ?? '';
-    expect(text).toContain('Stopped at M2 · Adversarial review');
-    expect(text).toContain('Workflow stopped before it finished');
+    expect(text).toContain('M2 · Adversarial review stopped');
+    expect(text).toContain('Workflow');
     expect(text).toContain('Architect idle');
     expect(text).toContain('Retry the step');
     expect(text).toContain('build · 1 of 2 milestones accepted');

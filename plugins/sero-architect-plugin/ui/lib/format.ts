@@ -1,8 +1,13 @@
 /** Small formatting helpers shared by the list, the page and the widget. */
 
-import { relativeTime } from '@sero-ai/common';
+import { relativeTime, spendRatio, spendTone } from '@sero-ai/common';
 import type { ProjectActivity } from '../../shared/activity';
 import type { ArchitectOverlay, ArchitectPhase } from '../../shared/types';
+
+// The rule lives in @sero-ai/common so a project, a Room and a single member
+// cannot disagree about whether something is at its limit. Re-exported here
+// because every Architect surface imports it from this module.
+export { spendRatio, spendTone };
 
 /**
  * Whose work it is, and when it last said so. Times are formatted at render,
@@ -55,22 +60,6 @@ export function money(value: number): string {
 /** "$5.52 of $10" or "$0.9 · no cap". */
 export function spendLabel(spentUsd: number, capUsd: number | null): string {
   return capUsd === null ? `${money(spentUsd)} · no cap` : `${money(spentUsd)} of ${money(capUsd)}`;
-}
-
-export type SpendTone = 'ok' | 'warn' | 'err' | 'none';
-
-/** Green under 80% of the cap, amber from 80%, red at the cap. No cap is toneless. */
-export function spendTone(spentUsd: number, capUsd: number | null): SpendTone {
-  if (capUsd === null || capUsd <= 0) return 'none';
-  const ratio = spentUsd / capUsd;
-  if (ratio >= 1) return 'err';
-  if (ratio >= 0.8) return 'warn';
-  return 'ok';
-}
-
-export function spendRatio(spentUsd: number, capUsd: number | null): number {
-  if (capUsd === null || capUsd <= 0) return 0;
-  return Math.min(1, spentUsd / capUsd);
 }
 
 export const OVERLAY_LABEL: Record<ArchitectOverlay, string> = {

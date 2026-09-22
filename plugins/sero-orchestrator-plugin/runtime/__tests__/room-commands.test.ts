@@ -28,7 +28,7 @@ import { requestDeliveryApproval } from '../rooms/room-delivery';
 import { applyRevisionToRoom } from '../rooms/room-revision-mutate';
 import { applyRoomRevision } from '../rooms/room-revisions';
 import { createRoomStore, type RoomStore } from '../rooms/room-store';
-import { createRoomWork } from '../rooms/room-work';
+import { createRoomWork, type RoomWork } from '../rooms/room-work';
 import { createRoomWorkspaces } from '../rooms/room-workspace';
 import { createFakeHost, type FakeHost } from './fake-host';
 import { disposeHarness } from './room-harness';
@@ -39,6 +39,7 @@ let host: FakeHost;
 let store: RoomStore;
 let coordinator: RoomCoordinator;
 let router: RoomCommandRouter;
+let work: RoomWork;
 let roomId: string;
 
 /** Where the host would have put each member's session file. */
@@ -85,7 +86,7 @@ async function makeRoom(): Promise<void> {
     deliveryDestination: 'saved-artifact',
     openAssumptions: [],
   };
-  const work = createRoomWork({ host, store });
+  work = createRoomWork({ host, store });
   const claims = createRoomClaims({ host, store });
   const sessions = createMemberSessionPool({ host, store });
   coordinator = new RoomCoordinator(host, {
@@ -342,6 +343,35 @@ describe('routing', () => {
     expect(record?.artifacts[0]).toMatchObject({ kind: 'decision', producedByMemberId: 'impl' });
     // The decision relates to no single work item, so it concerns the whole Room.
     expect(record?.brief.decisions).toContainEqual({ title: 'Use a hand-written lexer', memberId: null });
+  });
+
+  it('stores a published artifact with the line breaks its author wrote', async () => {
+    // The command surface carries the body as ONE CLI argument, where a line
+    // break survives as the escape `\n`. What is stored has to be the document
+    // the author wrote, or every reader sees one long line of markup instead.
+    const published = await router.execute(asImpl, {
+      command: 'publish-artifact',
+      artifactKind: 'report',
+      title: 'Two sections',
+      body: '## Evidence\\nseen\\n\\n## Decision\\nnot yet',
+    });
+    expect(published.ok).toBe(true);
+    const artifacts = await work.listArtifacts(roomId);
+    const stored = artifacts.find((artifact) => artifact.id === published.details.artifactId);
+    expect(await host.readArtifact(stored?.ref ?? '')).toBe('## Evidence\nseen\n\n## Decision\nnot yet');
+  });
+
+  it('stores content from a caller that is not the command surface exactly as given', async () => {
+    // A structured caller never passes through the CLI, so a `\n` in its text is
+    // a character its author meant. Decoding here would rewrite their work.
+    const published = await work.publishArtifact(roomId, 'impl', {
+      kind: 'report',
+      title: 'Quotes the escape',
+      content: 'the parser writes "\\n" between rules',
+    });
+    expect(published.ok).toBe(true);
+    if (!published.ok) return;
+    expect(await host.readArtifact(published.artifact.ref)).toBe('the parser writes "\\n" between rules');
   });
 
   it('records a status line without calling it progress', async () => {
