@@ -1,0 +1,47 @@
+## 1. The record keeps what a history entry is about
+
+- [ ] 1.1 Add `HistorySubject` and the optional `subject` and `detail` fields to `HistoryEntry` in `plugins/sero-architect-plugin/shared/record.ts`, and export `HistorySubject`. Verify `pnpm typecheck` reports no error in the architect plugin.
+- [ ] 1.2 Add `historyLine(entry)` and `historyLink(entry)` to a new `plugins/sero-architect-plugin/ui/lib/history-view.ts`. `historyLine` returns the cause prefixed by the subject's label unless the subject is a decision; `historyLink` returns the milestone's evidence, a Workflow or Room for those kinds, and no link for a decision or an entry with no subject. Verify `ui/__tests__/history-view.test.ts` covers every subject kind plus an entry with no subject.
+- [ ] 1.3 Rewrite the milestone writers to save a name-first cause and a milestone subject: `runtime/dispatch-link.ts` (`sent to its Workflow`), `runtime/repair-dispatch.ts`, `runtime/owner-actions.ts` (milestone added, milestone accepted), and `runtime/projects-actions.ts` (milestone approved). Verify each writer's existing runtime test passes and asserts the saved `subject.kind`, `subject.id` and `subject.label`.
+- [ ] 1.4 Rewrite the decision writers to save a decision subject and fold the long text into `detail`: `runtime/owner-actions.ts` (decision raised), `runtime/projects-actions.ts` (decision answered), and `runtime/research-access.ts`. Verify the raised entry's cause names no id, its `detail` holds the question, and the answered entry names the chosen option label.
+- [ ] 1.5 Rewrite the resume and subscription writers to save a Workflow or Room subject: `runtime/run-health.ts`, `runtime/research-workflow.ts`, `runtime/research-room.ts`, and `runtime/services.ts`. Verify each records the work's id and, where the writer holds one, its name; verify a writer without a name saves a null label.
+- [ ] 1.6 Verify an entry that records no subject is rendered with the cause it was written with and no link, by a unit test on `historyLine` and `historyLink` and one runtime test that loads a record whose history predates the fields.
+
+## 2. History is its own view
+
+- [ ] 2.1 Add a `history` mode and an optional `focusMilestoneId` to `ArchitectView` in `ui/lib/navigation.ts`, and encode and parse both in `viewId` and `parseViewId`. Verify the navigation tests cover `projects/<id>/history` and a project view carrying a milestone focus.
+- [ ] 2.2 Add an `openHistory` control to `ProjectControls` and a History item to the project controls menu in `ui/components/TopBar.tsx`, and thread it through `ProjectView` in `ArchitectApp.tsx`. Verify a component test opens the view from the menu.
+- [ ] 2.3 Build `ui/components/HistoryView.tsx`: the centred timeline, the header count and date range, a day heading per day, a dot per block, question or accepted milestone, the link from an entry to its Workflow or evidence, the folded note, and the "Show earlier" control. Keep the file at or under the 500-line limit by moving any data shaping into `ui/lib/history-view.ts`. Verify `ui/__tests__/history-view.test.tsx` covers a day heading, each dot state, each link, a fold, and "Show earlier".
+- [ ] 2.4 Persist which notes are folded through the host layout service as one joined list, replacing `historyOpen` in `ui/lib/page-helpers.ts`. Verify a test that a folded note is still folded after a remount.
+- [ ] 2.5 Let `ui/components/MilestoneRail.tsx` accept the focused milestone id, scroll that milestone into view and open its evidence. Verify a component test that the focused milestone's evidence opens.
+- [ ] 2.6 Remove the History disclosure from `ui/components/SideColumn.tsx` and keep the older-directives disclosure. Verify `ui/__tests__/project-controls.test.tsx` expects no history disclosure on the project page and still finds the older-directives one.
+
+## 3. A Workflow's runs name their steps and their reason
+
+- [ ] 3.1 Add the optional `title` field to `LoopRunStepSummary` in `shared/index-types.ts`, write each activation's title in `toRunSummary` (`runtime/store.ts`), and pass the plan's steps from `runtime/loop-store.ts` in place of the plan's ids. Verify the store tests assert a written title and the plan-index behaviour is unchanged.
+- [ ] 3.2 Update the run row in `ui/components/AttemptHistory.tsx` to the drawing: the number reads `Run 2` without the `#`, the chip prints `run.block.reason` when the run holds a block, the start prints through `formatDayTime` as `10 Sep, 13:09`, and one step line names the visited steps by their saved titles in visit order with a fallback to the step id. Drop the step-outcome count line and the separate step-id line. Verify `ui/__tests__/` covers a run stopped at a limit, a run with two titled steps, a run whose summary predates the title field, and a run that visited no step.
+- [ ] 3.3 Bring the attempt-history table to the drawing: the uppercase mono column labels with no shaded strip, the rows separated by a hairline, and the run-chip colours, with the stop chip red rather than the shipped amber. This case is approved: a stopped run is a fault, not an ask, so red is correct and amber stays for what asks the user. Verify the capture in task 6.2 shows the column treatment and the chip colours matching the drawing.
+- [ ] 3.4 Keep `summarizeRun` in `ui/lib/run-summary.ts` for a run that visited no step or carries a run-level reason, and stop using its outcome counts on a row that has step titles. Verify a run with no steps still states why, and no row renders an empty line.
+
+## 4. Reflection adds only a lesson it does not already hold
+
+- [ ] 4.1 Add the rule to `REFLECT_SYSTEM` in `runtime/reflection.ts`: the existing insights are already known, and a new insight must state something none of them states. Verify a runtime test asserts the built task lists the existing insights and the system prompt carries the rule.
+- [ ] 4.2 Confirm `applyReflection` still adds what the model returns, with no text comparison. Verify the existing reflection-apply test passes unchanged.
+- [ ] 4.3 Give the "What reflection has learned" fold in `ui/components/LoopDetail.tsx` the drawing's count and dates: the number of lessons through `CollapsibleSection`'s hint, and each lesson's recorded day beside its text. Add a day-only `formatDay` beside `formatDayTime`. Verify a test that two lessons show a count of two and each lesson's recorded day.
+
+## 5. The Room's timeline
+
+- [ ] 5.1 In `ui/components/RoomActivity.tsx`, make the promoted artifact card show the event's summary as its title and `RoomArtifactLink` as its `Open` control, and stop using `artifactFileName` as the title. Keep the file name reachable in the control's title attribute. Verify a test that a publish row names the artifact and offers one control that opens it.
+- [ ] 5.2 Show a count on each activity filter in `RoomActivity.tsx`, and on the Work, Claims and Artifacts tabs in `ui/components/RoomSidePanel.tsx`, counting in the same pass that filters or selects. Brief and Changes carry none. Verify a test that all five filters show their count, that Work, Claims and Artifacts show theirs, that Brief and Changes carry none, that an empty tab reads `0` and can still be opened, and that `All` selects every event.
+- [ ] 5.3 Bring the filter pills and the tab row to the drawing's treatment: an inactive pill outlined with a transparent background and only the active one filled, the drawing's pill geometry and 12px text, tabs sized to content with an 18px gap at 12.5px, the active tab carrying a 2px brand underline, and an empty tab dimmed with its `0` still legible. Verify the capture in task 6.2 shows the pill fill, the underline weight, the gap and the count typography matching the drawing, and that no test asserts only a class list.
+- [ ] 5.4 Drop the trailing "the brief is built from Room records" paragraph from `Brief` in `ui/components/RoomSidePanel.tsx`. Verify a test that the brief ends at its last field.
+
+## 6. Match the drawing, and check
+
+- [ ] 6.1 Add previews that render the real `HistoryView`, the real `RoomActivity` with `RoomSidePanel`, and the real `AttemptHistory`, each from fixture data taken from a real record. Verify every preview renders the real component and not a copy.
+- [ ] 6.2 Start the styleguide and the preview harness, screenshot each frame of `4-history-and-comparison.html` and each preview at a 1600 viewport for a 1440 panel, open every fold on both sides, and read them side by side. Verify every frame was captured and looked at, and say plainly which were not.
+- [ ] 6.3 Capture the DungeonExplorer project's History through the real page component and verify its entries written before this change read exactly as they did, with no link invented and nothing dropped.
+- [ ] 6.4 Run a fresh Architect project so its History holds entries written by the new code, capture that record's History, and compare it with the drawing's frame 1. Verify every visible entry names its subject and no entry the new code wrote prints a raw id.
+- [ ] 6.5 Record in `comparison.md` each defect the captures found and fixed, the entries written earlier that keep their ids as a stated departure, and any wording difference in a raised question's headline.
+- [ ] 6.6 Walk each frame's parity list and verify every named control is still reachable, and name where anything the drawing moved now lives.
+- [ ] 6.7 Run `pnpm typecheck` from the monorepo root and verify it passes with no error in the renderer or the Electron main process.
