@@ -25,9 +25,9 @@
 
 ## 4. Reflection adds only a lesson it does not already hold
 
-- [ ] 4.1 Add the rule to `REFLECT_SYSTEM` in `runtime/reflection.ts`: the existing insights are already known, and a new insight must state something none of them states. Verify a runtime test asserts the built task lists the existing insights and the system prompt carries the rule.
-- [ ] 4.2 Confirm `applyReflection` still adds what the model returns, with no text comparison. Verify the existing reflection-apply test passes unchanged.
-- [ ] 4.3 Give the "What reflection has learned" fold in `ui/components/LoopDetail.tsx` the drawing's count and dates: the number of lessons through `CollapsibleSection`'s hint, and each lesson's recorded day beside its text. Add a day-only `formatDay` beside `formatDayTime`. Verify a test that two lessons show a count of two and each lesson's recorded day.
+- [x] 4.1 Add the rule to `REFLECT_SYSTEM` in `runtime/reflection.ts`: the existing insights are already known, and a new insight must state something none of them states. Verify a runtime test asserts the built task lists the existing insights and the system prompt carries the rule.
+- [x] 4.2 Confirm `applyReflection` still adds what the model returns, with no text comparison. Verify the existing reflection-apply test passes unchanged.
+- [x] 4.3 Give the "What reflection has learned" fold in `ui/components/LoopDetail.tsx` the drawing's count and dates: the number of lessons through `CollapsibleSection`'s hint, and each lesson's recorded day beside its text. Add a day-only `formatDay` beside `formatDayTime`. Verify a test that two lessons show a count of two and each lesson's recorded day.
 
 ## 5. The Room's timeline
 
