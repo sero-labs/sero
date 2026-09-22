@@ -42,13 +42,23 @@ const STEPS: { key: Stage; label: string }[] = [
 
 export function CreateLoopWizard({ busy, stateDir, onCreate, onAction, onOpenLoop, onCancel }: CreateLoopWizardProps) {
   const [loopId, setLoopId] = useState<string | null>(null);
+  // The create call awaits the planner, so the draft id arrives only once
+  // planning is done. Without this flag the Describe form would stay on screen
+  // through the whole call and the wait would never show (prototype frame 2's
+  // rule applies to a Workflow's plan too).
+  const [creating, setCreating] = useState(false);
   const loop = useWatchedJson<Loop | null>(loopId && stateDir ? `${stateDir}/loops/${loopId}/loop.json` : null, null);
 
   const stage = deriveCreateStage(loopId, loop);
 
   const create = async (values: CreateLoopSubmit) => {
-    const id = await onCreate(values);
-    if (id) setLoopId(id);
+    setCreating(true);
+    try {
+      const id = await onCreate(values);
+      if (id) setLoopId(id);
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
@@ -58,9 +68,9 @@ export function CreateLoopWizard({ busy, stateDir, onCreate, onAction, onOpenLoo
         <Stepper stage={stage} />
       </header>
 
-      {stage === 'describe' && <CreateLoopForm busy={busy} onSubmit={create} onCancel={onCancel} />}
+      {stage === 'describe' && !creating && <CreateLoopForm busy={busy} onSubmit={create} onCancel={onCancel} />}
 
-      {stage === 'planning' && (
+      {(creating || stage === 'planning') && (
         <PlanMapSkeleton />
       )}
 

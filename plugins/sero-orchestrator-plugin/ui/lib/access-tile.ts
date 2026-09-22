@@ -36,7 +36,7 @@ const MODE_VERB: Record<string, string> = {
   read: 'read',
   edit: 'edit',
   push: 'push to',
-  'run commands': 'run commands in',
+  'run commands': 'run commands',
   deploy: 'deploy to',
   send: 'send',
 };
@@ -89,24 +89,22 @@ export function accessTile(entries: AccessSummaryEntry[]): AccessTile {
  * `Read this workspace`. The proposal is the only caller — the advanced
  * settings view keeps the two-line tile.
  *
- * The sentence is built from the facets, not by lower-casing the composed
- * value: `GitHub` and `Sero` are names, and `Push github` is wrong.
+ * Each entry becomes its own phrase so an action stays attached to the target
+ * it applies to: `Edit this workspace and read GitHub`, never a verb list
+ * beside a target list, which would read as edit access to GitHub. Names keep
+ * their capitals.
  */
 export function accessSentence(entries: AccessSummaryEntry[]): string {
-  const tile = accessTile(entries);
-  if (!tile.sub) return capitalise(tile.value);
-
-  const targets = new Set<string>();
-  const modes = new Set<string>();
+  const phrases: string[] = [];
   for (const entry of entries) {
     const facet = FACETS[entry.label];
-    if (facet.target) targets.add(facet.target);
-    if (facet.mode) modes.add(facet.mode);
+    const target = facet.target ? TARGET_PHRASE[facet.target] ?? facet.target : '';
+    const verb = facet.mode ? MODE_VERB[facet.mode] ?? facet.mode : '';
+    const phrase = verb && target ? `${verb} ${target}` : verb || target;
+    if (phrase && !phrases.includes(phrase)) phrases.push(phrase);
   }
-
-  const head = joinPhrase(ordered(modes, MODE_ORDER).map((mode) => MODE_VERB[mode] ?? mode));
-  const tail = joinPhrase(ordered(targets, TARGET_ORDER).map((target) => TARGET_PHRASE[target] ?? target));
-  return capitalise(tail ? `${head} ${tail}` : head);
+  if (phrases.length === 0) return 'Nothing outside the Room';
+  return capitalise(joinPhrase(phrases));
 }
 
 /** The sentence always opens with a capital, whether or not it has a verb. */

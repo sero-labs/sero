@@ -30,9 +30,22 @@ describe('accessSentence', () => {
     expect(accessSentence([{ label: 'deployment' }])).toBe('Deploy to live systems');
   });
 
+  it('keeps each action attached to its own target', () => {
+    expect(accessSentence([{ label: 'edit-workspace' }, { label: 'read-github' }])).toBe(
+      'Edit this workspace and read GitHub',
+    );
+    expect(accessSentence([{ label: 'read-github' }, { label: 'run-commands' }])).toBe(
+      'Read GitHub and run commands',
+    );
+  });
+
+  it('reads a mode with no target without a dangling preposition', () => {
+    expect(accessSentence([{ label: 'run-commands' }])).toBe('Run commands');
+  });
+
   it('joins two targets', () => {
     expect(accessSentence([{ label: 'read-workspace' }, { label: 'read-github' }])).toBe(
-      'Read this workspace and GitHub',
+      'Read this workspace and read GitHub',
     );
   });
 

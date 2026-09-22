@@ -81,11 +81,13 @@ Select **Design the team →**.
 Sero calls a model to review the task, workspace, limits, and access and to
 propose a team. This planning call can incur a cost before you select **Start**.
 Member sessions and their execution costs start only after you select
-**Start**.
+**Start**. While the call runs, the screen shows a spinner and the real time
+since the request, and never an estimate of how long it will take.
 
-![Designing the team, with its five steps and the time remaining](../assets/images/orchestrator-rooms-designing.jpg)
+![Designing the team](../assets/images/orchestrator-rooms-designing.jpg)
 
-The proposal shows each member, its role, and the access it needs.
+The proposal shows each member, its role, and the access it needs, and it says
+what designing the team cost.
 
 ![The proposal with the team and approval summary](../assets/images/orchestrator-rooms-proposal.jpg)
 

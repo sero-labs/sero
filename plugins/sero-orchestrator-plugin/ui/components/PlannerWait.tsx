@@ -6,15 +6,20 @@
  * The planner reports nothing until it returns, so the screen shows no steps, no
  * bar, no percentage and no countdown. The spinner is the one allowed animation:
  * work is genuinely in flight, and it stops under `prefers-reduced-motion`.
+ *
+ * The elapsed figure is the difference from the mount time, not a count of
+ * interval callbacks: a delayed or throttled timer would otherwise leave the
+ * clock permanently behind the request it claims to measure.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { formatTimer } from '../lib/format';
 
 export function PlannerWait({ title }: { title: string }) {
-  const [elapsedMs, setElapsedMs] = useState(0);
+  const startedAt = useRef(Date.now());
+  const [now, setNow] = useState(startedAt.current);
   useEffect(() => {
-    const timer = setInterval(() => setElapsedMs((ms) => ms + 1000), 1000);
+    const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -26,7 +31,7 @@ export function PlannerWait({ title }: { title: string }) {
         aria-label={title}
         className="mt-4 size-5 animate-spin rounded-full border-2 border-room-line-strong border-t-brand-primary motion-reduce:animate-none"
       />
-      <span className="room-tabular mt-2.5 text-xs text-room-text3">{formatTimer(elapsedMs)}</span>
+      <span className="room-tabular mt-2.5 text-xs text-room-text3">{formatTimer(now - startedAt.current)}</span>
     </div>
   );
 }
