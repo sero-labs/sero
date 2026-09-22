@@ -24,6 +24,7 @@ import { IntakeDialog } from '../components/IntakeDialog';
 import { ProjectsList } from '../components/ProjectsList';
 import { TopBar } from '../components/TopBar';
 import { ModelSettings } from '../components/ModelSettings';
+import { HistoryView } from '../components/HistoryView';
 import { ProjectPage } from '../ProjectPage';
 import type { ArchitectActions, ActionOutcome } from '../lib/actions';
 import { FIXTURES, listRows } from './fixture';
@@ -71,10 +72,20 @@ const runtimeRunning = params.get('runtime') !== 'off';
 function Preview() {
   const record = FIXTURES[state];
   const [olderOpen, setOlderOpen] = useState(false);
+  // The real app keeps the folds in the host layout service. The harness has no
+  // host, so it keeps them here and the notes still open.
+  const [openedNotes, setOpenedNotes] = useState<ReadonlySet<string>>(new Set());
   const disclosures = {
     olderOpen,
     setOlderOpen,
-    folds: { opened: new Set<string>(), toggle: () => undefined },
+    folds: {
+      opened: openedNotes,
+      toggle: (key: string) => setOpenedNotes((current) => {
+        const next = new Set(current);
+        if (next.has(key)) next.delete(key); else next.add(key);
+        return next;
+      }),
+    },
   };
   return (
     <div data-sero-plugin="architect">
@@ -82,7 +93,15 @@ function Preview() {
         <div className="preview-frame" style={{ width }}>
           <div className="ar-app">
             {state === 'new-project' && <IntakeDialog open onClose={() => undefined} onCreate={async () => ({ ok: true, text: 'ok' })} defaultFolder="~/Projects/" />}
-            {state === 'models' ? (
+            {state === 'history' && record ? (
+              <HistoryView
+                record={record}
+                onBack={() => undefined}
+                onOpenDispatch={() => undefined}
+                onOpenEvidence={() => undefined}
+                folds={disclosures.folds}
+              />
+            ) : state === 'models' ? (
               <ModelSettings
                 runtimeRunning={runtimeRunning}
                 record={{

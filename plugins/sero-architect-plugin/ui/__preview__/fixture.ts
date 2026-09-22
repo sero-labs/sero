@@ -166,6 +166,28 @@ export const FIXTURES: Record<string, ProjectRecord> = {
     ],
     directives: [{ id: 'dir9', text: 'Triage anything that arrives.', sentAt: T('08:00'), reply: { text: 'Issue #12 is real. Dispatched a fix Workflow; PR opens on the existing path once the evidence passes.', repliedAt: T('08:14') } }],
   }),
+  // The History view preview: entries written by the new code (with subjects and
+  // folded notes) beside the entries a project written earlier holds, which keep
+  // the text they were written with.
+  history: base({
+    id: 'dungeon-explorer', name: 'DungeonExplorer',
+    stateLine: 'Milestone 2 is running. Nothing needs you.',
+    milestones: [accepted(0), accepted(1), milestone(2, { status: 'running', dispatch: dispatched(2, '12:10') }), milestone(3), milestone(4)],
+    updatedAt: '2026-09-10T13:09:00.000Z',
+    history: [
+      { at: '2026-09-08T09:12:00.000Z', phase: 'intake', overlay: null, cause: 'you gave the idea and the folder. Workspace registered, owner session granted.' },
+      { at: '2026-09-09T19:39:00.000Z', phase: 'build', overlay: null, cause: 'You resumed the project', detail: 'The capture step keeps failing because the preview server is not ready. Give it more time before the screenshot.' },
+      { at: '2026-09-09T19:40:00.000Z', phase: 'build', overlay: 'decision', cause: 'Architect asked a question', subject: { kind: 'decision', id: 'd7', label: 'How should the dungeon be drawn?' }, detail: 'How should the dungeon be drawn? The choice changes milestone 4 and the browser build.' },
+      { at: '2026-09-09T19:44:00.000Z', phase: 'build', overlay: null, cause: "You answered Architect's question: Canvas 2D with a sprite atlas", subject: { kind: 'decision', id: 'd7', label: 'How should the dungeon be drawn?' } },
+      { at: '2026-09-09T19:45:00.000Z', phase: 'build', overlay: null, cause: 'accepted on passed evidence', subject: { kind: 'milestone', id: 'm1', label: 'Project scaffold + tile map rendering' } },
+      { at: '2026-09-09T19:45:00.000Z', phase: 'build', overlay: null, cause: 'sent to its Workflow', subject: { kind: 'workflow', id: 'workflow-m1', label: 'Project scaffold + tile map rendering' } },
+      { at: '2026-09-09T19:56:00.000Z', phase: 'build', overlay: 'blocked', cause: 'blocked: Procedural dungeon generation (seeded) stopped before it finished' },
+      { at: '2026-09-09T20:00:00.000Z', phase: 'build', overlay: null, cause: 'Workflow resumed', subject: { kind: 'workflow', id: 'workflow-m2', label: 'Procedural dungeon generation (seeded)' }, detail: 'reached max wall-clock (1800000ms)' },
+      { at: '2026-09-09T20:11:00.000Z', phase: 'build', overlay: null, cause: 'sent to its Room', subject: { kind: 'room', id: 'room-m3', label: 'Items, combat and permadeath' } },
+      { at: '2026-09-09T20:12:00.000Z', phase: 'build', overlay: 'paused', cause: 'user paused the project' },
+      { at: '2026-09-10T01:45:00.000Z', phase: 'build', overlay: 'blocked', cause: 'blocked: FOV raycasting + fog of war stopped before it finished' },
+    ],
+  }),
 };
 
 /**

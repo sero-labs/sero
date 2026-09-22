@@ -1,97 +1,114 @@
-# Matching the drawing
+# History and comparison — capture record
 
-The approved drawing is
-`apps/styleguide/public/prototypes/agent-workspace-ux-audit/4-history-and-comparison.html`.
-Its three frames and its Decisions are binding.
+The captures are the check for this change. Every frame of
+`4-history-and-comparison.html` and every new preview was captured at a 1600
+viewport for a 1440 panel, with the folds open on both sides, and read side by
+side. This file records what they found and what was fixed.
 
-This file is the audit record for the change. It is filled in during the capture
-pass (tasks 6.1 to 6.6), the way `ux-read-the-outcome`'s did. The sections below
-carry the departures known before the build starts, so they are not rediscovered
-as defects later.
+## Captured and read
 
-## How the captures are taken
+| Capture | Result |
+| --- | --- |
+| Drawing frame 1 (History as its own view) | read |
+| Drawing frame 2 (a Room's activity and side panel) | read |
+| Drawing frame 3 (a Workflow's runs and what reflection learned) | read |
+| Drawing Decisions | read |
+| Preview `?state=history` (folded and notes open) | read |
+| Preview `?preview=room-activity` | read |
+| Preview `?preview=attempt-history` | read |
 
-- Orchestrator previews: `pnpm --filter @sero-ai/plugin-orchestrator preview`,
-  panel width 1440, screenshotted at a 1600 viewport.
-- Architect previews: `pnpm --filter @sero-ai/plugin-architect preview`.
-- The drawing is screenshotted from `file://` at 1440.
-- Every preview renders the real component. A preview that re-draws a surface
-  proves nothing about it.
-- Every fold, chevron and disclosure is opened in the drawing and in the build
-  before a frame is compared.
-- One frame at a time, drawing on the left and build on the right.
+Nothing was skipped. The captures live in the working directory used for the
+comparison and are not committed.
 
-## Departures known before the build
+## Defects the captures found and fixed
 
-### Entries written earlier keep their ids
+1. **The History preview could not open its notes.** The fold state comes from
+   the host layout service, which the preview harness does not have, so the
+   note control did nothing. The harness now keeps the opened notes in local
+   state, and the capture shows the folded note opening under its entry.
+2. **The attempt-history preview showed the runs in the wrong order.** The
+   component expects the run index oldest-first and reverses it; the fixture was
+   written newest-first, so `Run 1` sat above `Run 2`. The fixture is now
+   oldest-first and the capture matches the drawing's `Run 2` above `Run 1`.
 
-The drawing's frame 1 source is the DungeonExplorer project, and every entry it
-holds was written before this change. Those entries have no saved subject, so the
-view prints their cause as written, which for several is
-`milestone m2 dispatched as workflow loop_0bf73d9f-…`.
+Neither was a product defect. Both were faults in what the capture rendered,
+which is exactly what this pass is for.
 
-This is a stated departure, not a defect. Unwinding those ids would mean parsing
-the Architect's own sentences, and the approved decision was to save the subject
-on new entries rather than branch on old ones. The "no raw id" acceptance applies
-to entries the new code writes. The capture in task 6.3 shows the old entries
-reading as they did, with nothing dropped.
+## Departures the change states
 
-### A raised question's headline is composed, not shortened by hand
+1. **Entries written earlier keep their ids.** The `DungeonExplorer` record's 31
+   entries were written before a subject existed. They read with the cause they
+   were written with — including `milestone m3 dispatched as workflow
+   loop_200ac871-0683-4209-818e-14a95318d3ae` and `decision dec_p5pq0ezs
+   answered: retry` — and no link is invented for any of them. Nothing is
+   dropped: the view states `31 changes` and `Show 17 earlier` opens the rest.
+   Unwinding the ids inside those sentences would be string matching, which this
+   change removes elsewhere.
+2. **A block entry shows `Blocked` as a status and the reason without its
+   prefix.** A block cause is written as `blocked: <reason>`. The view separates
+   the literal word into the drawing's status column, so `blocked: The Workflow
+   stopped. No cause was recorded.` reads as `Blocked · The Workflow stopped.
+   No cause was recorded.` This is a rendering difference, not a change to what
+   the entry holds.
+3. **A block entry carries no link.** The drawing's block rows link to their
+   Workflow. The approved writer table does not give the block writers a subject,
+   so a block entry has no Workflow to link to and shows its dot and reason
+   alone. The reason text still names the work.
+4. **A published artifact stays a promoted card.** The drawing draws the publish
+   row as a plain feed row with a right-aligned `Open`. The approved task keeps
+   the promoted card, so the card's title is the event's summary and its `Open`
+   control opens the file; the file name stays reachable on the control's title
+   attribute.
 
-The drawing's headline for a raised question is a hand-shortened version of a
-97-word question. The build composes a plain headline and folds the full question
-under it. If the wording stands after the capture, it is recorded here rather than
-chased.
+## Wording difference in a raised question's headline
 
-## Defects already visible in the code
+The drawing's frame 1 shows `Architect asked how to get past the broken capture
+step`, a hand-shortened question. The build composes the plain headline
+`Architect asked a question` and folds the complete question under the entry.
+The drawing's wording is not reproducible from the record without taking the
+question apart, so the plain headline stands and the full question is one click
+away.
 
-These do not need the capture to find, but they are the change's work all the same,
-and each is checked again against the drawing in the capture.
+## What was not captured end to end
 
-- The shipped filter pills fill every option and tint the active one with the brand
-  colour. The drawing outlines the inactive pills and fills only the active one
-  with a raised background and white text.
-- The shipped tabs are an equal-width grid at 11px with a 1px inset underline. The
-  drawing sizes the tabs to their content, sets 12.5px text, and gives the active
-  tab a 2px underline.
-- Neither the filters nor the tabs carry a count today. The drawing puts a 10px
-  muted mono count after each label.
+A fresh Architect project was not run through the desktop app in this
+environment. Instead the "new code" entries were produced by the real writers
+(`createOwnerActions` dispatch, decide and milestone-add) and read through the
+real `HistoryView` in `ui/__tests__/history-record.test.tsx`: every entry the
+new code wrote names its subject and no entry it wrote prints a raw id. The
+preview `?state=history` captures the same shapes with the drawing's values.
 
-The Workflow page's attempt history has the same kind of gap:
+## Parity walk
 
-- The shipped run row prints `Run #2`, where the drawing prints `Run 2`.
-- The shipped start is `formatTime`'s full locale stamp, where the drawing prints
-  `10 Sep, 13:09`.
-- The shipped row keeps a step-outcome count line and a separate step-id line. The
-  drawing has one line of step titles, and the chip carries the ending. The counts
-  are dropped, not moved.
-- The `blocked` chip is amber. The stop chip is red, as the drawing has it and as
-  the decision approves for this case: a stopped run is a fault, not an ask.
-- The "What reflection has learned" fold carries no count and no lesson dates,
-  where the drawing shows both.
+Every control each frame names is still reachable.
 
-The drawing gives a count to the Work, Claims and Artifacts tabs and to none of the
-filters' counterpart tabs, Brief and Changes. The build matches the drawing. A
-Changes count, if it is wanted later, is a new decision rather than a defect
-against this drawing.
+**Frame 1 — all kept · 1 moved · 1 added**
 
-## Defects the captures found, and what was done
+- Older directives, the directive box and Send: still on the project page. The
+  `SideColumn` keeps the older-directives disclosure; the composer is unchanged.
+- Back to projects, Open session, Project controls (⋯), Choose execution
+  location: unchanged in the top bar.
+- History: moved from the right rail to its own view at
+  `projects/<id>/history`, opened from the project controls menu. The view's
+  `Back to project` control returns to the page.
+- Links from an entry to what it names: added. An accepted milestone opens its
+  evidence on the project page; a dispatched milestone opens its Workflow or
+  Room.
 
-Filled in by task 6.5.
+**Frame 2 — all kept · 1 folded**
 
-| Frame | What the capture showed | Outcome |
-| --- | --- | --- |
-| | | |
+- Highlights, All, Decisions, Messages and Work, each with its count: kept.
+- Brief, Work, Claims, Artifacts and Changes: kept. An empty tab shows `0` and
+  stays usable.
+- The artifact file-name row: folded into the publish row's `Open` control. The
+  file name is still reachable on the control's title attribute.
+- Back to Rooms, Result, Timeline, Watch, ⋯ with Delete Room, the team column,
+  Open in Agent Board: unchanged in the Room header and team rail.
 
-## Differences that remain
+**Frame 3 — all kept**
 
-Filled in by task 6.5.
-
-## Departures taken knowingly
-
-Filled in by task 6.5. Carries the two above unless the capture changes them.
-
-## Footer: what is captured, and what was checked by eye
-
-Filled in by task 6.2. Names each frame that was captured and read beside the
-drawing, and says plainly which frames were not compared.
+- Attempt history, with every run and its time, tokens and cost, five runs a
+  page: kept. The page size and the amount columns are unchanged.
+- What reflection has learned, Reflect, Reflect all, and the suggestions with
+  Approve and Reject: kept. The fold gained a count and a day per lesson.
+- The trigger and delivery badges on a run: kept.

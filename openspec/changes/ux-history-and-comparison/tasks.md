@@ -38,10 +38,10 @@
 
 ## 6. Match the drawing, and check
 
-- [ ] 6.1 Add previews that render the real `HistoryView`, the real `RoomActivity` with `RoomSidePanel`, and the real `AttemptHistory`, each from fixture data taken from a real record. Verify every preview renders the real component and not a copy.
-- [ ] 6.2 Start the styleguide and the preview harness, screenshot each frame of `4-history-and-comparison.html` and each preview at a 1600 viewport for a 1440 panel, open every fold on both sides, and read them side by side. Verify every frame was captured and looked at, and say plainly which were not.
-- [ ] 6.3 Capture the DungeonExplorer project's History through the real page component and verify its entries written before this change read exactly as they did, with no link invented and nothing dropped.
-- [ ] 6.4 Run a fresh Architect project so its History holds entries written by the new code, capture that record's History, and compare it with the drawing's frame 1. Verify every visible entry names its subject and no entry the new code wrote prints a raw id.
-- [ ] 6.5 Record in `comparison.md` each defect the captures found and fixed, the entries written earlier that keep their ids as a stated departure, and any wording difference in a raised question's headline.
-- [ ] 6.6 Walk each frame's parity list and verify every named control is still reachable, and name where anything the drawing moved now lives.
-- [ ] 6.7 Run `pnpm typecheck` from the monorepo root and verify it passes with no error in the renderer or the Electron main process.
+- [x] 6.1 Add previews that render the real `HistoryView`, the real `RoomActivity` with `RoomSidePanel`, and the real `AttemptHistory`, each from fixture data taken from a real record. Verify every preview renders the real component and not a copy.
+- [x] 6.2 Start the styleguide and the preview harness, screenshot each frame of `4-history-and-comparison.html` and each preview at a 1600 viewport for a 1440 panel, open every fold on both sides, and read them side by side. Verify every frame was captured and looked at, and say plainly which were not.
+- [x] 6.3 Capture the DungeonExplorer project's History through the real page component and verify its entries written before this change read exactly as they did, with no link invented and nothing dropped.
+- [x] 6.4 Run a fresh Architect project so its History holds entries written by the new code, capture that record's History, and compare it with the drawing's frame 1. Verify every visible entry names its subject and no entry the new code wrote prints a raw id.
+- [x] 6.5 Record in `comparison.md` each defect the captures found and fixed, the entries written earlier that keep their ids as a stated departure, and any wording difference in a raised question's headline.
+- [x] 6.6 Walk each frame's parity list and verify every named control is still reachable, and name where anything the drawing moved now lives.
+- [x] 6.7 Run `pnpm typecheck` from the monorepo root and verify it passes with no error in the renderer or the Electron main process.

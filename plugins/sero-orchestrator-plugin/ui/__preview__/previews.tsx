@@ -11,6 +11,7 @@ import { previewLoop } from './fixture';
 import { HomePreview, RoomsPreview, WorkflowsListPreview } from './activity-fixture';
 import { RoomHoldPreview, WorkflowPagePreview } from './act-on-it-fixture';
 import { LoopEndingPreview, MemberInfoPreview, RoomResultPreview } from './read-the-outcome-fixture';
+import { AttemptHistoryPreview, RoomActivityPreview } from './history-comparison-fixture';
 
 export interface Preview {
   id: string;
@@ -87,5 +88,19 @@ export const PREVIEWS: Preview[] = [
     note: 'Model, tools, access and spend lead; the working instructions and the usage fold; and a member over its own limit rings as a fault. Frame 4 of 3-read-the-outcome.',
     width: 1440,
     render: () => <MemberInfoPreview />,
+  },
+  {
+    id: 'room-activity',
+    title: 'A Room · the timeline and its side panel',
+    note: 'The publish row names what was published and opens it, every filter and countable tab shows its count, and the brief ends at its last field. Frame 2 of 4-history-and-comparison.',
+    width: 1440,
+    render: () => <RoomActivityPreview />,
+  },
+  {
+    id: 'attempt-history',
+    title: "A Workflow's runs · the steps and the reason",
+    note: 'A run names its steps by title and prints its own saved stop reason, in the fault colour. Frame 3 of 4-history-and-comparison.',
+    width: 1440,
+    render: () => <AttemptHistoryPreview />,
   },
 ];
