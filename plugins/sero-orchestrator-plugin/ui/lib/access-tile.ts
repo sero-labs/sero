@@ -51,6 +51,15 @@ const TARGET_PHRASE: Record<string, string> = {
   'other tools': 'other tools',
 };
 
+/**
+ * The action for a label that grants a target without a mode of its own, so
+ * the sentence never reads bare tool access as read access.
+ */
+const TARGET_ONLY_VERB: Partial<Record<AccessLabel, string>> = {
+  'reach-internet': 'reach',
+  'other-tools': 'use',
+};
+
 function ordered(values: Set<string>, order: string[]): string[] {
   return order.filter((value) => values.has(value));
 }
@@ -99,7 +108,7 @@ export function accessSentence(entries: AccessSummaryEntry[]): string {
   for (const entry of entries) {
     const facet = FACETS[entry.label];
     const target = facet.target ? TARGET_PHRASE[facet.target] ?? facet.target : '';
-    const verb = facet.mode ? MODE_VERB[facet.mode] ?? facet.mode : '';
+    const verb = facet.mode ? MODE_VERB[facet.mode] ?? facet.mode : TARGET_ONLY_VERB[entry.label] ?? '';
     const phrase = verb && target ? `${verb} ${target}` : verb || target;
     if (phrase && !phrases.includes(phrase)) phrases.push(phrase);
   }

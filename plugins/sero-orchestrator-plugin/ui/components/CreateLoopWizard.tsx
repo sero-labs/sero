@@ -68,9 +68,18 @@ export function CreateLoopWizard({ busy, stateDir, onCreate, onAction, onOpenLoo
         <Stepper stage={stage} />
       </header>
 
-      {stage === 'describe' && !creating && <CreateLoopForm busy={busy} onSubmit={create} onCancel={onCancel} />}
+      {stage === 'describe' && (
+        <>
+          {/* Kept mounted while creating so a failed create returns the form
+              with the prompt and settings the user entered. */}
+          <div className={creating ? 'hidden' : undefined}>
+            <CreateLoopForm busy={busy} onSubmit={create} onCancel={onCancel} />
+          </div>
+          {creating && <PlanMapSkeleton />}
+        </>
+      )}
 
-      {(creating || stage === 'planning') && (
+      {stage === 'planning' && (
         <PlanMapSkeleton />
       )}
 

@@ -49,9 +49,15 @@ describe('accessSentence', () => {
     );
   });
 
-  it('leaves a value with no mode as the tile reads it, with the sentence capital', () => {
-    expect(accessSentence([{ label: 'reach-internet' }])).toBe('The internet');
-    expect(accessSentence([{ label: 'other-tools' }])).toBe('Other tools');
+  it('gives a target with no mode its own action', () => {
+    expect(accessSentence([{ label: 'reach-internet' }])).toBe('Reach the internet');
+    expect(accessSentence([{ label: 'other-tools' }])).toBe('Use other tools');
+    expect(accessSentence([{ label: 'read-workspace' }, { label: 'other-tools' }])).toBe(
+      'Read this workspace and use other tools',
+    );
+    expect(accessSentence([{ label: 'edit-workspace' }, { label: 'reach-internet' }])).toBe(
+      'Edit this workspace and reach the internet',
+    );
   });
 
   it('reports nothing when the Room reaches nothing', () => {
