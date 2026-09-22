@@ -5,13 +5,14 @@
  * no live workflow. Give it everything it needs through props and a fixture.
  */
 
-import { PlanMap } from '../components/PlanMap';
+import { PlanMap, PlanMapSkeleton } from '../components/PlanMap';
 import type { PlanMapStepsPerRow } from '../lib/plan-map-layout';
 import { previewLoop } from './fixture';
 import { HomePreview, RoomsPreview, WorkflowsListPreview } from './activity-fixture';
 import { RoomHoldPreview, WorkflowPagePreview } from './act-on-it-fixture';
 import { LoopEndingPreview, MemberInfoPreview, RoomResultPreview } from './read-the-outcome-fixture';
 import { AttemptHistoryPreview, RoomActivityPreview } from './history-comparison-fixture';
+import { CatalogPreview, RoomBriefPreview, RoomPlanningPreview, RoomProposalPreview } from './start-something-fixture';
 
 export interface Preview {
   id: string;
@@ -102,5 +103,40 @@ export const PREVIEWS: Preview[] = [
     note: 'A run names its steps by title and prints its own saved stop reason, in the fault colour. Frame 3 of 4-history-and-comparison.',
     width: 1440,
     render: () => <AttemptHistoryPreview />,
+  },
+  {
+    id: 'room-brief',
+    title: 'New Room · the brief',
+    note: 'Frame 1 of 5-start-something. The line under the brief says only when the team starts, and claims nothing about spend.',
+    width: 1440,
+    render: () => <RoomBriefPreview />,
+  },
+  {
+    id: 'room-planning',
+    title: 'Designing the team · the wait',
+    note: 'Frame 2 of 5-start-something. A spinner and the real elapsed time; no steps, bar or countdown.',
+    width: 1440,
+    render: () => <RoomPlanningPreview />,
+  },
+  {
+    id: 'plan-map-skeleton',
+    title: 'Shaping a Workflow plan · the wait',
+    note: 'The Workflow twin of frame 2: the same spinner and elapsed time, with no placeholder step boxes.',
+    width: 1160,
+    render: () => <PlanMapSkeleton />,
+  },
+  {
+    id: 'room-proposal',
+    title: 'A proposed team · the consent surface',
+    note: 'Frame 3 of 5-start-something. Full member names, the drawn avatars, no subtitles under the figures, and what designing the team cost.',
+    width: 1440,
+    render: () => <RoomProposalPreview />,
+  },
+  {
+    id: 'catalog',
+    title: 'The Catalog · repos and entries',
+    note: 'Frame 4 of 5-start-something. The repo controls on one row, the model-tier chip naming its tier, and an entry\'s steps inside Details.',
+    width: 1440,
+    render: () => <CatalogPreview />,
   },
 ];

@@ -12,13 +12,23 @@ export interface CatalogChip {
   title?: string;
 }
 
+/**
+ * The model tier as a word, not its code (prototype frame 4): the chip reads
+ * `low-tier model`, and it no longer needs a hover title to say what it is.
+ */
+const MODEL_TIER_LABEL: Record<NonNullable<CatalogEntryMeta['modelTier']>, string> = {
+  LOW: 'low-tier model',
+  MED: 'mid-tier model',
+  HIGH: 'high-tier model',
+};
+
 /** The metadata chips on an entry card, in display order. */
 export function entryChips(meta: CatalogEntryMeta): CatalogChip[] {
   const chips: CatalogChip[] = [];
   if (meta.recommendedTrigger) chips.push({ label: meta.recommendedTrigger, title: 'When it runs' });
   if (meta.delivery) chips.push({ label: `→ ${deliveryDestinationInfo(meta.delivery).label}`, title: 'Where results ship' });
   if (meta.costBand) chips.push({ label: `${meta.costBand} cost` });
-  if (meta.modelTier) chips.push({ label: meta.modelTier, title: 'Model tier' });
+  if (meta.modelTier) chips.push({ label: MODEL_TIER_LABEL[meta.modelTier] });
   for (const connector of meta.connectors ?? []) chips.push({ label: connector, title: 'Needs this connector' });
   return chips;
 }

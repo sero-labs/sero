@@ -14,6 +14,7 @@ import { Card } from '@sero-ai/ui/components/ui/card';
 import { Sparkles } from 'lucide-react';
 import type { Loop, OrchestratorAction } from '../../shared/types';
 import { useWatchedJson } from '../lib/use-watched-json';
+import { formatCost } from '../lib/format';
 import { deriveCreateStage, type CreateStage as Stage } from '../lib/create-stage';
 import { CreateLoopForm, type CreateLoopSubmit } from './CreateLoopForm';
 import { InputRequestCard } from './InputRequestCard';
@@ -41,13 +42,23 @@ const STEPS: { key: Stage; label: string }[] = [
 
 export function CreateLoopWizard({ busy, stateDir, onCreate, onAction, onOpenLoop, onCancel }: CreateLoopWizardProps) {
   const [loopId, setLoopId] = useState<string | null>(null);
+  // The create call awaits the planner, so the draft id arrives only once
+  // planning is done. Without this flag the Describe form would stay on screen
+  // through the whole call and the wait would never show (prototype frame 2's
+  // rule applies to a Workflow's plan too).
+  const [creating, setCreating] = useState(false);
   const loop = useWatchedJson<Loop | null>(loopId && stateDir ? `${stateDir}/loops/${loopId}/loop.json` : null, null);
 
   const stage = deriveCreateStage(loopId, loop);
 
   const create = async (values: CreateLoopSubmit) => {
-    const id = await onCreate(values);
-    if (id) setLoopId(id);
+    setCreating(true);
+    try {
+      const id = await onCreate(values);
+      if (id) setLoopId(id);
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
@@ -57,7 +68,16 @@ export function CreateLoopWizard({ busy, stateDir, onCreate, onAction, onOpenLoo
         <Stepper stage={stage} />
       </header>
 
-      {stage === 'describe' && <CreateLoopForm busy={busy} onSubmit={create} onCancel={onCancel} />}
+      {stage === 'describe' && (
+        <>
+          {/* Kept mounted while creating so a failed create returns the form
+              with the prompt and settings the user entered. */}
+          <div className={creating ? 'hidden' : undefined}>
+            <CreateLoopForm busy={busy} onSubmit={create} onCancel={onCancel} />
+          </div>
+          {creating && <PlanMapSkeleton />}
+        </>
+      )}
 
       {stage === 'planning' && (
         <PlanMapSkeleton />
@@ -85,11 +105,17 @@ export function CreateLoopWizard({ busy, stateDir, onCreate, onAction, onOpenLoo
           )}
           <PlanPresentation loop={loop} onAction={onAction} />
           <RefinePlan busy={busy} planRevision={loop.plan.revision} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} />
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" disabled={busy} onClick={() => onOpenLoop(loop.id)}>Save as draft</Button>
-            <Button disabled={busy || loop.plan.steps.length === 0} onClick={() => { onAction({ kind: 'activate', loopId: loop.id }); onOpenLoop(loop.id); }}>
-              Activate workflow →
-            </Button>
+          <div className="flex items-center gap-2.5">
+            {/* What planning this Workflow cost — the loop's saved planning usage. */}
+            {loop.planningUsage?.costUsd !== undefined && (
+              <span className="text-xs text-room-text3">Planning this cost {formatCost(loop.planningUsage.costUsd)}</span>
+            )}
+            <div className="ml-auto flex gap-2">
+              <Button variant="ghost" disabled={busy} onClick={() => onOpenLoop(loop.id)}>Save as draft</Button>
+              <Button disabled={busy || loop.plan.steps.length === 0} onClick={() => { onAction({ kind: 'activate', loopId: loop.id }); onOpenLoop(loop.id); }}>
+                Activate workflow →
+              </Button>
+            </div>
           </div>
         </div>
       )}

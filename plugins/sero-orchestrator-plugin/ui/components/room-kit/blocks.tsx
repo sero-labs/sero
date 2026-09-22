@@ -69,7 +69,7 @@ export function AuthorityBand({ title, hint, cells, footer, tone = 'brand', clas
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-[10px] border',
+        'overflow-hidden rounded-lg border',
         brand
           ? 'border-brand-primary-border bg-linear-[160deg] from-brand-primary-faint to-transparent'
           : 'border-room-line bg-room-surface',
@@ -78,12 +78,12 @@ export function AuthorityBand({ title, hint, cells, footer, tone = 'brand', clas
     >
       <div
         className={cn(
-          'flex items-center gap-2 border-b px-[15px] py-[11px] text-[11px] font-semibold',
+          'flex items-center gap-2 border-b px-4 py-2.5 text-sm font-semibold',
           brand ? 'border-brand-primary-subtle text-room-ink-brand' : 'border-room-line text-room-text2',
         )}
       >
         {title}
-        {hint != null && <span className="ml-auto text-[10px] font-normal text-room-text4">{hint}</span>}
+        {hint != null && <span className="ml-auto text-xs font-normal text-room-text4">{hint}</span>}
       </div>
       {/* The emerald band separates cells with hairlines; the neutral
           recompute panel uses plain gaps (prototype .auth-grid vs .diff).
@@ -92,7 +92,7 @@ export function AuthorityBand({ title, hint, cells, footer, tone = 'brand', clas
       <div
         className={cn(
           'grid @min-[600px]/panel:grid-cols-2 @min-[900px]/panel:grid-cols-4',
-          !brand && 'gap-2.5 px-[15px] py-[13px]',
+          !brand && 'gap-2.5 px-4 py-3',
         )}
       >
         {cells.map((cell) => (
@@ -100,29 +100,29 @@ export function AuthorityBand({ title, hint, cells, footer, tone = 'brand', clas
             key={cell.label}
             className={cn(
               brand
-                && 'border-brand-primary-muted px-[15px] py-[13px] not-last:border-b @min-[600px]/panel:nth-[odd]:border-r @min-[600px]/panel:nth-[3]:border-b-0 @min-[900px]/panel:not-last:border-r @min-[900px]/panel:border-b-0',
+                && 'border-brand-primary-muted px-4 py-3 not-last:border-b @min-[600px]/panel:nth-[odd]:border-r @min-[600px]/panel:nth-[3]:border-b-0 @min-[900px]/panel:not-last:border-r @min-[900px]/panel:border-b-0',
             )}
           >
-            <span className="room-mono-micro block uppercase tracking-[0.07em] text-room-text4">{cell.label}</span>
+            <span className="font-mono text-xs block uppercase tracking-[0.08em] text-room-text4">{cell.label}</span>
             <span
               className={cn(
-                'mt-[7px] block text-[15px] font-medium tracking-[-0.02em]',
+                'mt-1.5 block text-lg font-medium tracking-[-0.02em]',
                 cell.was != null ? 'text-brand-primary' : 'text-room-text',
               )}
             >
               {cell.value}
             </span>
             {cell.was != null && (
-              <span className="mt-1 block text-[10px] text-room-text4 line-through">{cell.was}</span>
+              <span className="mt-1 block text-xs text-room-text4 line-through">{cell.was}</span>
             )}
-            {cell.sub != null && <span className="mt-1 block text-[10px] text-room-text4">{cell.sub}</span>}
+            {cell.sub != null && <span className="mt-1 block text-xs text-room-text4">{cell.sub}</span>}
           </div>
         ))}
       </div>
       {footer != null && (
         <div
           className={cn(
-            'border-t px-[15px] py-[11px] text-[11px] leading-relaxed text-room-text4',
+            'border-t px-4 py-2.5 text-sm leading-relaxed text-room-text4',
             brand ? 'border-brand-primary-subtle' : 'border-room-line',
           )}
         >

@@ -31,6 +31,35 @@ const FACETS: Record<AccessLabel, LabelFacet> = {
 const TARGET_ORDER = ['This workspace', 'GitHub', 'the internet', 'live systems', 'outside Sero', 'other tools'];
 const MODE_ORDER = ['read', 'edit', 'push', 'run commands', 'deploy', 'send'];
 
+/** The verb phrase a mode reads as in a one-sentence access value. */
+const MODE_VERB: Record<string, string> = {
+  read: 'read',
+  edit: 'edit',
+  push: 'push to',
+  'run commands': 'run commands',
+  deploy: 'deploy to',
+  send: 'send',
+};
+
+/** The target as it reads mid-sentence. Names keep their capitals. */
+const TARGET_PHRASE: Record<string, string> = {
+  'This workspace': 'this workspace',
+  GitHub: 'GitHub',
+  'the internet': 'the internet',
+  'live systems': 'live systems',
+  'outside Sero': 'outside Sero',
+  'other tools': 'other tools',
+};
+
+/**
+ * The action for a label that grants a target without a mode of its own, so
+ * the sentence never reads bare tool access as read access.
+ */
+const TARGET_ONLY_VERB: Partial<Record<AccessLabel, string>> = {
+  'reach-internet': 'reach',
+  'other-tools': 'use',
+};
+
 function ordered(values: Set<string>, order: string[]): string[] {
   return order.filter((value) => values.has(value));
 }
@@ -61,4 +90,37 @@ export function accessTile(entries: AccessSummaryEntry[]): AccessTile {
     value: joinPhrase(ordered(targets, TARGET_ORDER)) || 'This workspace',
     sub: ordered(modes, MODE_ORDER).join(', '),
   };
+}
+
+/**
+ * The access as one sentence, for a surface that shows a single access value
+ * rather than a value and a mode line (the Room proposal, #540 frame 3):
+ * `Read this workspace`. The proposal is the only caller — the advanced
+ * settings view keeps the two-line tile.
+ *
+ * Each entry becomes its own phrase so an action stays attached to the target
+ * it applies to: `Edit this workspace and read GitHub`, never a verb list
+ * beside a target list, which would read as edit access to GitHub. Names keep
+ * their capitals.
+ */
+export function accessSentence(entries: AccessSummaryEntry[]): string {
+  const phrases: string[] = [];
+  const seen = new Set<string>();
+  for (const entry of entries) {
+    const facet = FACETS[entry.label];
+    const target = facet.target ? TARGET_PHRASE[facet.target] ?? facet.target : '';
+    const verb = facet.mode ? MODE_VERB[facet.mode] ?? facet.mode : TARGET_ONLY_VERB[entry.label] ?? '';
+    const phrase = verb && target ? `${verb} ${target}` : verb || target;
+    if (phrase && !seen.has(phrase)) {
+      seen.add(phrase);
+      phrases.push(phrase);
+    }
+  }
+  if (phrases.length === 0) return 'Nothing outside the Room';
+  return capitalise(joinPhrase(phrases));
+}
+
+/** The sentence always opens with a capital, whether or not it has a verb. */
+function capitalise(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
