@@ -222,6 +222,9 @@ describe('runtime services', () => {
       const { services, store } = await setup(buildingProject({ phase: 'maintain' }));
       const first = await services.maintenance(buildingProject({ phase: 'maintain' }));
       expect(first.milestones.find((m) => m.id === MAINTENANCE_MILESTONE_ID)).toMatchObject({ status: 'running', dispatch: { kind: 'workflow', id: 'loop_1' } });
+      // The subscription entry names the Workflow by the title its milestone carries.
+      const subscribed = first.history.find((entry) => entry.cause === 'Maintenance Workflow subscribed');
+      expect(subscribed?.subject).toEqual({ kind: 'workflow', id: 'loop_1', label: 'Maintenance: triage issues, CI failures and the weekly review' });
       expect(coordinator.actions[0]).toMatchObject({ kind: 'create', options: { requestId: 'proj_1:maintenance', activate: false, triggers: [
         { type: 'event', eventSource: 'github:issue-opened' },
         { type: 'event', eventSource: 'github:ci-failed' },

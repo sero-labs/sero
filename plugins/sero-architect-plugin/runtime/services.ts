@@ -412,6 +412,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
           throw new Error(result.error ?? 'The maintenance Workflow was not created.');
         }
         const now = host.now();
+        const loopId = result.loopId;
         const milestone: Milestone = {
           id: MAINTENANCE_MILESTONE_ID,
           title: 'Maintenance: triage issues, CI failures and the weekly review',
@@ -428,7 +429,16 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         const next = await store.update(record.id, (fresh) => {
           if (fresh.milestones.some((m) => m.id === MAINTENANCE_MILESTONE_ID)) return null;
           const settled = settle({ ...fresh, stateLine: 'Maintenance Workflow is ready.', milestones: [...fresh.milestones, milestone] }, now);
-          return { ...settled, history: [...settled.history, { at: now, phase: settled.phase, overlay: settled.overlay, cause: `maintenance Workflow ${result.loopId} subscribed` }] };
+          return {
+            ...settled,
+            history: [...settled.history, {
+              at: now,
+              phase: settled.phase,
+              overlay: settled.overlay,
+              cause: 'Maintenance Workflow subscribed',
+              subject: { kind: 'workflow' as const, id: loopId, label: milestone.title },
+            }],
+          };
         });
         // Activation can await the first run. Save the link and release the
         // owner now so directives are not held behind a maintenance execution.

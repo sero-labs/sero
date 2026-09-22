@@ -22,7 +22,7 @@ import {
   type OwnerActionOutcome,
   type OwnerCallerSignals,
 } from '../shared/owner-actions';
-import type { Charter, Milestone, ProjectRecord } from '../shared/record';
+import type { Charter, HistorySubject, Milestone, ProjectRecord } from '../shared/record';
 import { applyDelivery } from './delivery';
 import { projectWriter, usesProjectFiles } from './execution-location';
 import { performDispatch } from './dispatch-link';
@@ -71,9 +71,19 @@ const refuse = (text: string): OwnerActionOutcome => ({ ok: false, text });
 
 const same = (a: string, b: string): boolean => path.resolve(a) === path.resolve(b);
 
-function withHistory(record: ProjectRecord, now: string, cause: string): ProjectRecord {
+function withHistory(record: ProjectRecord, now: string, cause: string, subject?: HistorySubject, detail?: string): ProjectRecord {
   const settled = settle(record, now);
-  return { ...settled, history: [...settled.history, { at: now, phase: settled.phase, overlay: settled.overlay, cause }] };
+  return {
+    ...settled,
+    history: [...settled.history, {
+      at: now,
+      phase: settled.phase,
+      overlay: settled.overlay,
+      cause,
+      ...(subject ? { subject } : {}),
+      ...(detail ? { detail } : {}),
+    }],
+  };
 }
 
 /** Why a milestone cannot close yet, in the owner's words. Empty means it can. */
@@ -129,7 +139,13 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     lead: string,
   ): Promise<OwnerActionOutcome> {
     const decision = toDecision({ question: draft.question, options: draft.options, recommendation: 'apply', reason: draft.reason, dependsOn: [] }, host.newId('dec'), now, draft.proposal);
-    await store.update(record.id, (fresh) => withHistory({ ...fresh, decisions: [...fresh.decisions, decision] }, now, `decision ${decision.id} raised: ${draft.reason}`));
+    await store.update(record.id, (fresh) => withHistory(
+      { ...fresh, decisions: [...fresh.decisions, decision] },
+      now,
+      'Architect asked a question',
+      { kind: 'decision', id: decision.id, label: draft.question },
+      draft.question,
+    ));
     outcomes.declare(record.id, 'decide');
     return ok(`${lead}, so it is recorded as decision ${decision.id}. Nothing was started or sent; this wake is over.`, { decisionId: decision.id });
   }
@@ -195,7 +211,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
         const run = input.runId ? fresh.runs?.find((entry) => entry.id === input.runId && entry.endedAt === null) : activeRun(fresh);
         if (input.runId && !run) return { error: 'The named objective is not open.' };
         const created = { ...toMilestone(draft, id), ...(run ? { runId: run.id } : {}) };
-        return { record: withHistory({ ...fresh, milestones: [...fresh.milestones, created] }, now, `milestone ${id} added`) };
+        return { record: withHistory({ ...fresh, milestones: [...fresh.milestones, created] }, now, 'added', { kind: 'milestone', id, label: created.title }) };
       });
       if (!added.ok) return refuse(added.error);
       const id = added.record.milestones[added.record.milestones.length - 1]?.id ?? '';
@@ -233,7 +249,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
           return { error: `Milestone ${current.id} cannot close. Missing: ${reasons.join('; ')}. Ask for an evidence run and wait for it to pass.` };
         }
         const accepted: Milestone = { ...current, status: 'done', verification: 'accepted' };
-        let next = withHistory({ ...replace(fresh, accepted), stateLine: `Completed: ${current.title}.` }, now, `milestone ${current.id} accepted on passed evidence`);
+        let next = withHistory({ ...replace(fresh, accepted), stateLine: `Completed: ${current.title}.` }, now, 'accepted on passed evidence', { kind: 'milestone', id: current.id, label: current.title });
         // The receipt usually lands before acceptance, so delivery is settled here too.
         const delivery = applyDelivery(next, accepted, now);
         next = delivery.record;
@@ -302,7 +318,13 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
           parkedFrom: m.parkedFrom ?? m.status,
         };
       });
-      return withHistory({ ...fresh, decisions: [...fresh.decisions, decision], milestones }, now, `decision ${decision.id} raised: ${decision.question}`);
+      return withHistory(
+        { ...fresh, decisions: [...fresh.decisions, decision], milestones },
+        now,
+        'Architect asked a question',
+        { kind: 'decision', id: decision.id, label: decision.question },
+        decision.question,
+      );
     });
     outcomes.declare(record.id, 'decide');
     return ok(`Decision ${decision.id} raised. ${decision.dependsOn.length > 0 ? `Parked: ${decision.dependsOn.join(', ')}. ` : ''}The user will answer; this wake is over.`, { decisionId: decision.id });

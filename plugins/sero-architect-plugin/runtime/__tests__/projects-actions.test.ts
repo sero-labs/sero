@@ -277,6 +277,11 @@ describe('project management', () => {
     expect(record?.overlay).toBeNull();
     expect(record?.decisions[0]?.answer).toEqual({ optionId: 'sq', note: 'Keep it simple.', answeredAt: T0 });
     expect(record?.milestones[1]).toMatchObject({ status: 'approved', parkedBy: null });
+    // The answer entry names the chosen option and folds the note.
+    const answerEntry = record?.history.find((entry) => entry.cause.startsWith("You answered Architect's question:"));
+    expect(answerEntry?.cause).toBe("You answered Architect's question: Square");
+    expect(answerEntry?.subject).toEqual({ kind: 'decision', id: 'dec_1', label: 'Hex?' });
+    expect(answerEntry?.detail).toBe('Keep it simple.');
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(delivered[0]?.wake).toMatchObject({ kind: 'decision', items: ['the user answered decision dec_1 with "sq" and left a note'] });
   });
@@ -358,6 +363,9 @@ describe('project management', () => {
     expect((await store.read('proj_1'))?.phase).toBe('build');
     expect((await actions.approve('proj_1', 'milestone', 'm1')).ok).toBe(true);
     expect((await store.read('proj_1'))?.milestones[0]?.status).toBe('approved');
+    // The approval entry carries the milestone's own name, not its id alone.
+    const approvedEntry = (await store.read('proj_1'))?.history.find((entry) => entry.cause === 'approved');
+    expect(approvedEntry?.subject).toEqual({ kind: 'milestone', id: 'm1', label: 'Milestone m1' });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(delivered.map((d) => d.wake.kind)).toEqual(['decision', 'decision']);
   });

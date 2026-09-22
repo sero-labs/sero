@@ -49,3 +49,22 @@ it.each(['discovery', 'build'] as const)('uses a Workflow for research or review
   expect(finished.milestones).toEqual([]);
   expect(wake).toHaveBeenCalledTimes(1);
 });
+
+it('clears a stopped research Workflow and records the resume without a name to print', async () => {
+  const host = await fakeHost();
+  const store = await storeFor(host);
+  const pending = { id: 'res-1', question: 'Does the suite pass?', stoppingCondition: 'a verdict', startedAt: T0, kind: 'workflow' as const, workflowId: 'loop-research' };
+  const reason = 'Research Workflow loop-research is blocked. Open it to review the next action.';
+  await store.write({ ...buildingProject({ phase: 'discovery', charter: null, milestones: [] }), pendingResearch: [pending], blockedReason: reason });
+  const loop = { id: 'loop-research', status: 'active', usage: { costUsd: 0.1 }, title: 'Review', updatedAt: T0 } satisfies OrchestratorBoardLoopView;
+
+  await observeResearchWorkflows({ host, store, wake: vi.fn() }, 'proj_1', [loop]);
+
+  const resumed = (await store.read('proj_1'))!;
+  expect(resumed.blockedReason).toBeNull();
+  const entry = resumed.history.find((item) => item.cause === 'Workflow resumed');
+  // A research Workflow holds no milestone title, so its entry saves no name
+  // and reads as the cause alone.
+  expect(entry?.subject).toEqual({ kind: 'workflow', id: 'loop-research', label: null });
+  expect(entry?.detail).toBe(reason);
+});

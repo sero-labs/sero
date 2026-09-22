@@ -4,7 +4,7 @@
  * caller that persists the result, which keeps the single-writer rule simple.
  */
 
-import { PHASE_ORDER, openDecisions, type ArchitectOverlay, type ArchitectPhase, type BlockedWork, type ProjectRecord } from './record';
+import { PHASE_ORDER, openDecisions, type ArchitectOverlay, type ArchitectPhase, type BlockedWork, type HistorySubject, type ProjectRecord } from './record';
 
 export type Refusal = { ok: false; error: string };
 export type Applied = { ok: true; record: ProjectRecord };
@@ -31,11 +31,18 @@ export function settle(record: ProjectRecord, now: string): ProjectRecord {
   return { ...record, overlay: deriveOverlay(record), updatedAt: now };
 }
 
-function recordHistory(record: ProjectRecord, now: string, cause: string): ProjectRecord {
+function recordHistory(record: ProjectRecord, now: string, cause: string, subject?: HistorySubject, detail?: string): ProjectRecord {
   const settled = settle(record, now);
   return {
     ...settled,
-    history: [...settled.history, { at: now, phase: settled.phase, overlay: settled.overlay, cause }],
+    history: [...settled.history, {
+      at: now,
+      phase: settled.phase,
+      overlay: settled.overlay,
+      cause,
+      ...(subject ? { subject } : {}),
+      ...(detail ? { detail } : {}),
+    }],
   };
 }
 
@@ -99,9 +106,9 @@ export function block(record: ProjectRecord, now: string, reason: string, on?: B
   };
 }
 
-export function unblock(record: ProjectRecord, now: string, cause: string): Outcome {
+export function unblock(record: ProjectRecord, now: string, cause: string, subject?: HistorySubject, detail?: string): Outcome {
   if (record.blockedReason === null) return refuse('The project is not blocked.');
-  return { ok: true, record: recordHistory({ ...record, blockedReason: null, blockedOn: null }, now, cause) };
+  return { ok: true, record: recordHistory({ ...record, blockedReason: null, blockedOn: null }, now, cause, subject, detail) };
 }
 
 /**

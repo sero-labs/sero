@@ -256,11 +256,26 @@ export interface Budget {
   sources: { owner: number; research: number; dispatched: number };
 }
 
+export interface HistorySubject {
+  /** Which record the entry is about. The kind also decides the link, if any. */
+  kind: 'milestone' | 'workflow' | 'room' | 'decision';
+  id: string;
+  /**
+   * The subject's name, saved where the writer held it. Null when the writer
+   * holds no name, in which case the view falls back to the cause alone.
+   */
+  label: string | null;
+}
+
 export interface HistoryEntry {
   at: string;
   phase: ArchitectPhase;
   overlay: ArchitectOverlay | null;
   cause: string;
+  /** What the entry is about. Absent on entries written before this change. */
+  subject?: HistorySubject;
+  /** The long note, question or reason, folded under the entry. */
+  detail?: string;
 }
 
 export interface OwnerSessionState {
