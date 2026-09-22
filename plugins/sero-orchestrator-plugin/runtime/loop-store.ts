@@ -37,15 +37,16 @@ export interface LoopStore {
 }
 
 /**
- * The plan's step ids, in plan order.
+ * The plan's steps, in plan order, with the titles the plan holds.
  *
  * The run index is the only place a reader outside the runtime can learn a
  * step's POSITION, and the plan is the only thing that knows it: activation
- * order is the order steps happened to run. Passed at every write so the number
- * a page states is the number the plan shows.
+ * order is the order steps happened to run. The title is saved with the
+ * position so a run row names a step without reading the plan, which reflection
+ * and a manual revise both rewrite.
  */
-function planStepIds(loop: Loop): string[] {
-  return loop.plan.steps.map((step) => step.id);
+function planSteps(loop: Loop): Loop['plan']['steps'] {
+  return loop.plan.steps;
 }
 
 export function createLoopStore(ctx: AppRuntimeContext): LoopStore {
@@ -71,7 +72,7 @@ export function createLoopStore(ctx: AppRuntimeContext): LoopStore {
   async function persistLoopFull(loop: Loop): Promise<void> {
     await writeJson(loopFile(loop.id), stripLoopForPersist(loop));
     for (const run of loop.runs) await writeJson(runFile(loop.id, run.id), run);
-    await writeJson(runIndexFile(loop.id), buildRunIndex(loop.runs, planStepIds(loop)));
+    await writeJson(runIndexFile(loop.id), buildRunIndex(loop.runs, planSteps(loop)));
     if (loop.revisions.length) await writeJson(revisionsFile(loop.id), loop.revisions);
   }
 
@@ -85,7 +86,7 @@ export function createLoopStore(ctx: AppRuntimeContext): LoopStore {
     const runs = diffRuns(prev.runs, next.runs);
     for (const run of runs.changed) await writeJson(runFile(next.id, run.id), run);
     for (const runId of runs.removedIds) await rm(runFile(next.id, runId), { force: true });
-    if (runs.indexChanged) await writeJson(runIndexFile(next.id), buildRunIndex(next.runs, planStepIds(next)));
+    if (runs.indexChanged) await writeJson(runIndexFile(next.id), buildRunIndex(next.runs, planSteps(next)));
     if (JSON.stringify(prev.revisions) !== JSON.stringify(next.revisions)) {
       await writeJson(revisionsFile(next.id), next.revisions);
     }

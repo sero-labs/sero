@@ -364,6 +364,7 @@ describe('run summary retains why a run ended', () => {
     expect(index.runs[0].block).toBeUndefined();
     expect(index.runs[0].interruptedStepIds).toBeUndefined();
     expect(index.runs[0].steps[0].planIndex).toBeUndefined();
+    expect(index.runs[0].steps[0].title).toBeUndefined();
     expect(index.runs[0].steps[0].status).toBe('completed');
   });
 
@@ -386,10 +387,29 @@ describe('run summary retains why a run ended', () => {
     };
     // The plan is [choose, left, right] and the run skipped `left`, so the
     // interrupted step is the third even though it is the second activation.
-    const index = buildRunIndex([interrupted], ['choose', 'left', 'right']);
+    const index = buildRunIndex([interrupted], [
+      { id: 'choose', title: 'Choose the branch' },
+      { id: 'left', title: 'Take the left branch' },
+      { id: 'right', title: 'Take the right branch' },
+    ]);
     expect(index.runs[0].steps.map((step) => [step.stepId, step.planIndex]))
       .toEqual([['choose', 0], ['right', 2]]);
+    // The title the plan held rides with the position, so the row names the step.
+    expect(index.runs[0].steps.map((step) => step.title))
+      .toEqual(['Choose the branch', 'Take the right branch']);
     expect(index.runs[0].interruptedStepIds).toEqual(['right']);
+  });
+
+  it('writes each visited step\'s title from the plan the run ran under', () => {
+    const visited: LoopRun = {
+      ...run('r1'),
+      stepActivations: [activation('act-1', 's1', 'succeeded'), activation('act-2', 's2', 'succeeded')],
+    };
+    const summary = toRunSummary(visited, [
+      { id: 's1', title: 'First step' },
+      { id: 's2', title: 'Second step' },
+    ]);
+    expect(summary.steps.map((step) => step.title)).toEqual(['First step', 'Second step']);
   });
 
   it('leaves the plan position absent when the writer did not know the plan', () => {
@@ -401,6 +421,8 @@ describe('run summary retains why a run ended', () => {
     // No plan to read, so no position is claimed. A reader must then state no
     // step number rather than infer one from the run's own order.
     expect(summary.steps[0].planIndex).toBeUndefined();
+    // No plan to read, so no title is claimed either.
+    expect(summary.steps[0].title).toBeUndefined();
     expect(summary.interruptedStepIds).toEqual(['s1']);
   });
 });

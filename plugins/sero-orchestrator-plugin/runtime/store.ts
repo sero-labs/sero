@@ -93,12 +93,20 @@ function runUsage(run: LoopRun): UsageSummary | undefined {
 /** Compact summary of one run for the per-loop runs/index.json. */
 export function toRunSummary(
   run: LoopRun,
-  /** The plan's step ids, in plan order. Omitted by callers that do not have it. */
-  planStepIds?: readonly string[],
+  /**
+   * The plan's steps, in plan order, with the titles the plan held. Omitted by
+   * callers that do not have it; a step's title is then left absent and a
+   * reader names the step by its id.
+   */
+  planSteps?: readonly { id: string; title: string }[],
 ): RunIndex['runs'][number] {
   const planIndex = (stepId: string): number | undefined => {
-    const at = planStepIds?.indexOf(stepId) ?? -1;
+    const at = planSteps?.findIndex((step) => step.id === stepId) ?? -1;
     return at >= 0 ? at : undefined;
+  };
+  const titleOf = (stepId: string): { title: string } | Record<string, never> => {
+    const title = planSteps?.find((step) => step.id === stepId)?.title;
+    return title === undefined ? {} : { title };
   };
   const activationSteps = run.stepActivations?.map((activation) => {
     const attempts = run.stepAttempts.filter((attempt) => attempt.activationId === activation.id);
@@ -112,6 +120,7 @@ export function toRunSummary(
     const at = planIndex(activation.stepId);
     return {
       stepId: activation.stepId,
+      ...titleOf(activation.stepId),
       visitNumber: activation.visitNumber,
       activationId: activation.id,
       attemptNumber: last?.attemptNumber ?? attempts.length,
@@ -137,6 +146,7 @@ export function toRunSummary(
     delivery: run.completionSignal?.receipt,
     steps: activationSteps ?? run.stepAttempts.map((a) => ({
       stepId: a.stepId,
+      ...titleOf(a.stepId),
       attemptNumber: a.attemptNumber,
       executionType: a.executionType,
       status: a.status,
@@ -149,8 +159,8 @@ export function toRunSummary(
   };
 }
 
-export function buildRunIndex(runs: LoopRun[], planStepIds?: readonly string[]): RunIndex {
-  return { version: 1, runs: runs.map((run) => toRunSummary(run, planStepIds)) };
+export function buildRunIndex(runs: LoopRun[], planSteps?: readonly { id: string; title: string }[]): RunIndex {
+  return { version: 1, runs: runs.map((run) => toRunSummary(run, planSteps)) };
 }
 
 export interface RunsDiff {
