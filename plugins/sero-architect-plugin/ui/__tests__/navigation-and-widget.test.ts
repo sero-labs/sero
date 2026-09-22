@@ -7,10 +7,25 @@ import { needsYouTotal, widgetMeta } from '../lib/widget-model';
 
 describe('navigation', () => {
   it('round-trips the list, the intake dialog and a project page through host history', () => {
-    for (const view of [{ mode: 'list' as const }, { mode: 'list' as const, intake: true }, { mode: 'project' as const, projectId: 'hollow-depths' }]) {
+    for (const view of [
+      { mode: 'list' as const },
+      { mode: 'list' as const, intake: true },
+      { mode: 'project' as const, projectId: 'hollow-depths' },
+      { mode: 'project' as const, projectId: 'hollow-depths', focusMilestoneId: 'm4' },
+      { mode: 'history' as const, projectId: 'hollow-depths' },
+      { mode: 'models' as const, projectId: 'hollow-depths' },
+      { mode: 'inspector' as const, projectId: 'hollow-depths' },
+    ]) {
       expect(parseViewId(viewId(view))).toEqual(view.mode === 'list' && !view.intake ? { mode: 'list' } : view);
     }
     expect(parseViewId('elsewhere/1')).toBeNull();
+  });
+
+  it('encodes History as its own view and a milestone focus on the project page', () => {
+    expect(viewId({ mode: 'history', projectId: 'hollow-depths' })).toBe('projects/hollow-depths/history');
+    expect(parseViewId('projects/hollow-depths/history')).toEqual({ mode: 'history', projectId: 'hollow-depths' });
+    expect(viewId({ mode: 'project', projectId: 'hollow-depths', focusMilestoneId: 'm4' })).toBe('projects/hollow-depths/milestone/m4');
+    expect(parseViewId('projects/hollow-depths/milestone/m4')).toEqual({ mode: 'project', projectId: 'hollow-depths', focusMilestoneId: 'm4' });
   });
 
   it('finds the record beside the index the runtime writes', () => {

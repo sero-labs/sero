@@ -126,4 +126,17 @@ describe('the milestone rail', () => {
     expect(evidence?.querySelector('summary')?.textContent).toContain('Evidence at 3f1c2ab');
     expect(container.textContent).not.toContain('step 4 of 7');
   });
+
+  it('scrolls the focused milestone into view and opens its evidence alone', () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    act(() => root.render(<MilestoneRail record={FIXTURES.decision!} onOpenDispatch={vi.fn()} focusMilestoneId="m1" />));
+
+    const focused = container.querySelector('[data-milestone="m1"]');
+    expect(focused?.querySelector('details.ar-evidence')?.hasAttribute('open')).toBe(true);
+    // A second accepted milestone keeps its evidence folded until its own control opens it.
+    const other = container.querySelector('[data-milestone="m2"]');
+    expect(other?.querySelector('details.ar-evidence')?.hasAttribute('open')).toBe(false);
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
+  });
 });

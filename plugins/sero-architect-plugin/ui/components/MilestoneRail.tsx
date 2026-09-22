@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { ExternalLink } from 'lucide-react';
 
 import type { ProjectRecord } from '../../shared/record';
@@ -21,6 +22,8 @@ export interface MilestoneRailProps {
   record: ProjectRecord;
   /** Opens the Orchestrator record of a dispatched milestone. */
   onOpenDispatch(link: NonNullable<RailRow['link']>): void;
+  /** A milestone whose evidence scrolls into view and opens on arrival. */
+  focusMilestoneId?: string;
 }
 
 function ResearchRuns({ record }: { record: ProjectRecord }) {
@@ -37,8 +40,19 @@ function ResearchRuns({ record }: { record: ProjectRecord }) {
   );
 }
 
-export function MilestoneRail({ record, onOpenDispatch }: MilestoneRailProps) {
+export function MilestoneRail({ record, onOpenDispatch, focusMilestoneId }: MilestoneRailProps) {
   const rows = railRows(record);
+  const focusRef = useRef<HTMLDivElement>(null);
+  // Scrolling and opening the evidence are external DOM effects: the record is
+  // unchanged, so neither is derived state. The evidence stays open once the
+  // reader has it, which a controlled prop would not.
+  useEffect(() => {
+    const node = focusRef.current;
+    if (!node || !focusMilestoneId) return;
+    node.scrollIntoView?.({ block: 'start' });
+    const evidence = node.querySelector<HTMLDetailsElement>('details.ar-evidence');
+    if (evidence) evidence.open = true;
+  }, [focusMilestoneId]);
   if (rows.length === 0) {
     // Not made yet, rather than empty: the charter names the milestones, and
     // the charter comes after research. One quiet line in the header says so.
@@ -54,7 +68,7 @@ export function MilestoneRail({ record, onOpenDispatch }: MilestoneRailProps) {
       <SectionHead title="Milestones" count={`${acceptedCount(record)} of ${rows.length} accepted`} />
       <div className="ar-card ar-rail">
         {rows.map(({ milestone, dot, label, tone, sub, ladder, link }) => (
-          <div key={milestone.id} className="ar-ms" data-status={milestone.status}>
+          <div key={milestone.id} ref={milestone.id === focusMilestoneId ? focusRef : undefined} className="ar-ms" data-status={milestone.status} data-milestone={milestone.id}>
             <div className="ar-node"><span className="ar-dot" data-dot={dot} /></div>
             <div className="ar-ms-text">
               <b>{milestone.title}</b>

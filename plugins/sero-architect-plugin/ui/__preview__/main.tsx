@@ -70,9 +70,12 @@ const runtimeRunning = params.get('runtime') !== 'off';
 
 function Preview() {
   const record = FIXTURES[state];
-  const [historyOpen, setHistoryOpen] = useState(params.get('history') === 'open');
   const [olderOpen, setOlderOpen] = useState(false);
-  const disclosures = { historyOpen, olderOpen, setHistoryOpen, setOlderOpen };
+  const disclosures = {
+    olderOpen,
+    setOlderOpen,
+    folds: { opened: new Set<string>(), toggle: () => undefined },
+  };
   return (
     <div data-sero-plugin="architect">
       <div className="dark" style={{ padding: 24 }}>
@@ -99,7 +102,7 @@ function Preview() {
                 onBack={() => undefined}
               />
             ) : record ? (
-              <ProjectPage runtimeRunning={runtimeRunning} record={record} actions={actions} narrow={width < 1100} disclosures={disclosures} onBack={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} confirm={() => true} />
+              <ProjectPage runtimeRunning={runtimeRunning} record={record} actions={actions} narrow={width < 1100} disclosures={disclosures} onBack={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} confirm={() => true} />
             ) : (
               <>
                 <TopBar record={null} controls={null} onBack={() => undefined} onNewProject={() => undefined} needsYou={{ count: listRows(runtimeRunning).filter((row) => row.activity.action).length, on: false, toggle: () => undefined }} />

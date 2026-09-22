@@ -70,7 +70,7 @@ function stubActions(overrides: Partial<ArchitectActions> = {}): ArchitectAction
   };
 }
 
-const disclosures = { historyOpen: false, olderOpen: false, setHistoryOpen: vi.fn(), setOlderOpen: vi.fn() };
+const disclosures = { olderOpen: false, setOlderOpen: vi.fn(), folds: { opened: new Set<string>(), toggle: vi.fn() } };
 
 let container: HTMLDivElement;
 let root: Root;
@@ -97,7 +97,7 @@ function button(label: string): HTMLButtonElement {
 
 function renderPage(actions: ArchitectActions, onBack = vi.fn()) {
   act(() => root.render(
-    <ProjectPage runtimeRunning record={FIXTURES.build!} actions={actions} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={onBack} confirm={() => true} />,
+    <ProjectPage runtimeRunning record={FIXTURES.build!} actions={actions} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={onBack} confirm={() => true} />,
   ));
   return onBack;
 }
@@ -125,7 +125,7 @@ describe('a refused control', () => {
     const resume = vi.fn(async () => ({ ok: false, text: 'Permission request was not answered.' }));
     const record = { ...FIXTURES.build!, phase: 'intake' as const, blockedReason: 'Permission not approved' };
     act(() => root.render(
-      <ProjectPage runtimeRunning record={record} actions={stubActions({ resume })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+      <ProjectPage runtimeRunning record={record} actions={stubActions({ resume })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
     act(() => button('Request permission').click());
     await flush();
@@ -167,13 +167,14 @@ describe('project history access', () => {
     expect(scroll).not.toBeNull();
     expect(composer).not.toBeNull();
     expect(scroll?.contains(composer)).toBe(false);
-    expect(scroll?.querySelector('[data-testid="history"]')).not.toBeNull();
+    // History is its own view now; the page keeps only the older directives.
+    expect(scroll?.querySelector('[data-testid="history"]')).toBeNull();
     expect(scroll?.querySelector('[data-testid="older-directives"]')).not.toBeNull();
   });
 
-  it('keeps history disclosures in the narrow layout', () => {
+  it('keeps the older-directives disclosure in the narrow layout and drops History', () => {
     renderPage(stubActions());
-    expect(container.querySelector('[data-testid="history"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="history"]')).toBeNull();
     expect(container.querySelector('[data-testid="older-directives"]')).not.toBeNull();
   });
 
@@ -232,7 +233,7 @@ describe('raising the cap', () => {
     vi.stubGlobal('prompt', prompt);
     const record = { ...FIXTURES.build!, budget: { ...FIXTURES.build!.budget, capUsd: 0.5 } };
     act(() => root.render(
-      <ProjectPage runtimeRunning record={record} actions={stubActions({ raiseCap })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+      <ProjectPage runtimeRunning record={record} actions={stubActions({ raiseCap })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
 
     act(() => button('Raise cap').click());
@@ -259,7 +260,7 @@ describe('the pause and resume choice', () => {
   it('offers Resume for paused or blocked projects, and Pause for a cap alone', () => {
     const controls = {
       pause: vi.fn(), resume: vi.fn(), stop: vi.fn(), raiseCap: vi.fn(),
-      setExecutionMode: vi.fn(), setAutonomy: vi.fn(), openSession: vi.fn(), remove: vi.fn(), openModels: vi.fn(), openInspector: vi.fn(),
+      setExecutionMode: vi.fn(), setAutonomy: vi.fn(), openSession: vi.fn(), remove: vi.fn(), openModels: vi.fn(), openInspector: vi.fn(), openHistory: vi.fn(),
     };
     act(() => root.render(<ControlsMenu record={{ ...FIXTURES.build!, paused: true }} controls={controls} />));
     expect(container.textContent).toContain('Resume');
@@ -273,6 +274,19 @@ describe('the pause and resume choice', () => {
     act(() => root.render(<ControlsMenu record={{ ...FIXTURES.limited!, paused: false }} controls={controls} />));
     expect(container.textContent).toContain('Pause');
     expect(container.textContent).not.toContain('Resume');
+  });
+
+  it('offers History in the project controls menu and runs it', () => {
+    const openHistory = vi.fn();
+    const controls = {
+      pause: vi.fn(), resume: vi.fn(), stop: vi.fn(), raiseCap: vi.fn(),
+      setExecutionMode: vi.fn(), setAutonomy: vi.fn(), openSession: vi.fn(), remove: vi.fn(), openModels: vi.fn(), openInspector: vi.fn(), openHistory,
+    };
+    act(() => root.render(<ControlsMenu record={FIXTURES.build!} controls={controls} />));
+
+    act(() => button('History…').click());
+
+    expect(openHistory).toHaveBeenCalledOnce();
   });
 });
 
@@ -337,7 +351,7 @@ describe('the top of a project', () => {
     const record = stoppedProject();
 
     act(() => root.render(
-      <ProjectPage runtimeRunning record={record} actions={stubActions({ retry })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+      <ProjectPage runtimeRunning record={record} actions={stubActions({ retry })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
 
     const heading = container.querySelector('.ar-sentence');
@@ -360,7 +374,7 @@ describe('the top of a project', () => {
     const record = { ...base, budget: { ...base.budget, spentUsd: base.budget.capUsd ?? 0 } };
 
     act(() => root.render(
-      <ProjectPage runtimeRunning record={record} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+      <ProjectPage runtimeRunning record={record} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
 
     const field = container.querySelector('.ar-stateline #ar-header-cap-in');
@@ -376,7 +390,7 @@ describe('the top of a project', () => {
     const raiseCap = vi.fn(async () => OK);
 
     act(() => root.render(
-      <ProjectPage runtimeRunning record={record} actions={stubActions({ raiseCap })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+      <ProjectPage runtimeRunning record={record} actions={stubActions({ raiseCap })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
 
     const form = container.querySelector('.ar-stateline form.ar-cap') as HTMLFormElement | null;
@@ -406,7 +420,7 @@ describe('the top of a project', () => {
     const retry = vi.fn(async () => OK);
 
     act(() => root.render(
-      <ProjectPage runtimeRunning record={record} actions={stubActions({ retry })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+      <ProjectPage runtimeRunning record={record} actions={stubActions({ retry })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
 
     expect(container.querySelector('#ar-header-wf-cap-in')).not.toBeNull();
@@ -424,7 +438,7 @@ describe('the top of a project', () => {
     const record = stoppedProject();
 
     act(() => root.render(
-      <ProjectPage runtimeRunning record={record} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+      <ProjectPage runtimeRunning record={record} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
 
     const header = container.querySelector('.ar-stateline')!;
@@ -440,7 +454,7 @@ describe('the top of a project', () => {
 
   it('shows no header button when nothing needs the user', () => {
     act(() => root.render(
-      <ProjectPage runtimeRunning record={FIXTURES.build!} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+      <ProjectPage runtimeRunning record={FIXTURES.build!} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
 
     expect(container.querySelector('.ar-stateline button')).toBeNull();
@@ -450,7 +464,7 @@ describe('the top of a project', () => {
     const record = stoppedProject();
 
     act(() => root.render(
-      <ProjectPage runtimeRunning record={record} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+      <ProjectPage runtimeRunning record={record} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
 
     const reported = container.querySelector('.ar-reported');
@@ -495,7 +509,7 @@ describe('a project stopped on delegated work', () => {
   });
 
   const render = (record: ReturnType<typeof cancelledRoom>) => act(() => root.render(
-    <ProjectPage runtimeRunning record={record} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+    <ProjectPage runtimeRunning record={record} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
   ));
 
   it('keeps the autonomy setting out of the header and in the project menu', () => {
@@ -560,7 +574,7 @@ describe('the kinds of nothing', () => {
   });
 
   const render = (record: ProjectRecord) => act(() => root.render(
-    <ProjectPage runtimeRunning record={record} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+    <ProjectPage runtimeRunning record={record} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
   ));
 
   it('leaves out the Needs you section entirely while nothing needs the user', () => {

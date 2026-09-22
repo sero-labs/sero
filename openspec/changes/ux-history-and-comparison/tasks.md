@@ -9,12 +9,12 @@
 
 ## 2. History is its own view
 
-- [ ] 2.1 Add a `history` mode and an optional `focusMilestoneId` to `ArchitectView` in `ui/lib/navigation.ts`, and encode and parse both in `viewId` and `parseViewId`. Verify the navigation tests cover `projects/<id>/history` and a project view carrying a milestone focus.
-- [ ] 2.2 Add an `openHistory` control to `ProjectControls` and a History item to the project controls menu in `ui/components/TopBar.tsx`, and thread it through `ProjectView` in `ArchitectApp.tsx`. Verify a component test opens the view from the menu.
-- [ ] 2.3 Build `ui/components/HistoryView.tsx`: the centred timeline, the header count and date range, a day heading per day, a dot per block, question or accepted milestone, the link from an entry to its Workflow or evidence, the folded note, and the "Show earlier" control. Keep the file at or under the 500-line limit by moving any data shaping into `ui/lib/history-view.ts`. Verify `ui/__tests__/history-view.test.tsx` covers a day heading, each dot state, each link, a fold, and "Show earlier".
-- [ ] 2.4 Persist which notes are folded through the host layout service as one joined list, replacing `historyOpen` in `ui/lib/page-helpers.ts`. Verify a test that a folded note is still folded after a remount.
-- [ ] 2.5 Let `ui/components/MilestoneRail.tsx` accept the focused milestone id, scroll that milestone into view and open its evidence. Verify a component test that the focused milestone's evidence opens.
-- [ ] 2.6 Remove the History disclosure from `ui/components/SideColumn.tsx` and keep the older-directives disclosure. Verify `ui/__tests__/project-controls.test.tsx` expects no history disclosure on the project page and still finds the older-directives one.
+- [x] 2.1 Add a `history` mode and an optional `focusMilestoneId` to `ArchitectView` in `ui/lib/navigation.ts`, and encode and parse both in `viewId` and `parseViewId`. Verify the navigation tests cover `projects/<id>/history` and a project view carrying a milestone focus.
+- [x] 2.2 Add an `openHistory` control to `ProjectControls` and a History item to the project controls menu in `ui/components/TopBar.tsx`, and thread it through `ProjectView` in `ArchitectApp.tsx`. Verify a component test opens the view from the menu.
+- [x] 2.3 Build `ui/components/HistoryView.tsx`: the centred timeline, the header count and date range, a day heading per day, a dot per block, question or accepted milestone, the link from an entry to its Workflow or evidence, the folded note, and the "Show earlier" control. Keep the file at or under the 500-line limit by moving any data shaping into `ui/lib/history-view.ts`. Verify `ui/__tests__/history-view.test.tsx` covers a day heading, each dot state, each link, a fold, and "Show earlier".
+- [x] 2.4 Persist which notes are folded through the host layout service as one joined list, replacing `historyOpen` in `ui/lib/page-helpers.ts`. Verify a test that a folded note is still folded after a remount.
+- [x] 2.5 Let `ui/components/MilestoneRail.tsx` accept the focused milestone id, scroll that milestone into view and open its evidence. Verify a component test that the focused milestone's evidence opens.
+- [x] 2.6 Remove the History disclosure from `ui/components/SideColumn.tsx` and keep the older-directives disclosure. Verify `ui/__tests__/project-controls.test.tsx` expects no history disclosure on the project page and still finds the older-directives one.
 
 ## 3. A Workflow's runs name their steps and their reason
 

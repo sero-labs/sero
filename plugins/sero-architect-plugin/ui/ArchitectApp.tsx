@@ -6,6 +6,7 @@ import type { ArchitectIndex } from '../shared/types';
 import { DEFAULT_INDEX, normalizeIndex } from '../shared/types';
 import { IntakeDialog } from './components/IntakeDialog';
 import { Inspector } from './components/Inspector';
+import { HistoryView } from './components/HistoryView';
 import { ModelSettings } from './components/ModelSettings';
 import { ProjectsList } from './components/ProjectsList';
 import { TopBar } from './components/TopBar';
@@ -13,7 +14,7 @@ import { Quiet } from './components/Pill';
 import { useArchitectActions, type ArchitectActions, type ModelChoice } from './lib/actions';
 import { useArchitectView, type ArchitectView } from './lib/navigation';
 import { useProjectRecord } from './lib/use-project-record';
-import { useDisclosures } from './lib/page-helpers';
+import { openDispatch, useDisclosures } from './lib/page-helpers';
 import { ProjectPage } from './ProjectPage';
 import './styles.css';
 
@@ -78,6 +79,8 @@ export function ArchitectApp() {
   const openProject = useCallback((id: string) => navigate({ mode: 'project', projectId: id }), [navigate]);
   const openModels = useCallback((id: string) => navigate({ mode: 'models', projectId: id }), [navigate]);
   const openInspector = useCallback((id: string) => navigate({ mode: 'inspector', projectId: id }), [navigate]);
+  const openHistory = useCallback((id: string) => navigate({ mode: 'history', projectId: id }), [navigate]);
+  const openEvidence = useCallback((id: string, milestoneId: string) => navigate({ mode: 'project', projectId: id, focusMilestoneId: milestoneId }), [navigate]);
   const openIntake = useCallback(() => navigate({ mode: 'list', intake: true }), [navigate]);
   const closeIntake = useCallback(() => navigate({ mode: 'list' }), [navigate]);
   const back = useCallback(() => navigate({ mode: 'list' }), [navigate]);
@@ -92,7 +95,7 @@ export function ArchitectApp() {
   return (
     <div className="ar-app" ref={attach}>
       {projectId && record ? (
-        <ProjectView mode={view.mode} onProject={() => openProject(record.id)} record={record} runtimeRunning={index.runtime?.running !== false} actions={actions} permissionPending={permissionProjectId === projectId} narrow={narrow} disclosures={disclosures} onBack={back} onOpenModels={() => openModels(projectId)} onOpenInspector={() => openInspector(projectId)} confirm={confirm} />
+        <ProjectView mode={view.mode} focusMilestoneId={view.mode === 'project' ? view.focusMilestoneId : undefined} onProject={() => openProject(record.id)} onOpenEvidence={(milestoneId) => openEvidence(record.id, milestoneId)} record={record} runtimeRunning={index.runtime?.running !== false} actions={actions} permissionPending={permissionProjectId === projectId} narrow={narrow} disclosures={disclosures} onBack={back} onOpenModels={() => openModels(projectId)} onOpenInspector={() => openInspector(projectId)} onOpenHistory={() => openHistory(projectId)} confirm={confirm} />
       ) : projectId && !gone ? (
         <>
           <TopBar record={null} controls={null} onBack={back} onNewProject={openIntake} />
@@ -111,10 +114,16 @@ export function ArchitectApp() {
   );
 }
 
-function ProjectView({ mode, onProject, ...props }: ComponentProps<typeof ProjectPage> & { mode: ArchitectView['mode']; onProject(): void }) {
+function ProjectView({ mode, focusMilestoneId, onProject, onOpenEvidence, ...props }: ComponentProps<typeof ProjectPage> & {
+  mode: ArchitectView['mode'];
+  focusMilestoneId?: string;
+  onProject(): void;
+  onOpenEvidence(milestoneId: string): void;
+}) {
   if (mode === 'models') return <ModelSettings record={props.record} actions={props.actions} runtimeRunning={props.runtimeRunning} onBack={onProject} />;
   if (mode === 'inspector') return <Inspector record={props.record} actions={props.actions} onBack={onProject} />;
-  return <ProjectPage {...props} />;
+  if (mode === 'history') return <HistoryView record={props.record} onBack={onProject} onOpenDispatch={openDispatch} onOpenEvidence={onOpenEvidence} folds={props.disclosures.folds} />;
+  return <ProjectPage {...props} focusMilestoneId={focusMilestoneId} />;
 }
 
 export default ArchitectApp;

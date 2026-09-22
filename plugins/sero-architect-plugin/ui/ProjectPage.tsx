@@ -5,7 +5,7 @@ import { sessionStartedAt } from '@sero-ai/common';
 import { projectActivity } from '../shared/activity';
 import type { AutonomySetting, Milestone, ProjectRecord } from '../shared/record';
 import type { ActionOutcome, ArchitectActions, SessionHistoryEntry } from './lib/actions';
-import { openDispatch } from './lib/page-helpers';
+import { openDispatch, type Disclosures } from './lib/page-helpers';
 import { CapInput, type CapInputProps } from './components/CapInput';
 import { DirectiveComposer, Directives } from './components/Directives';
 import { MilestoneRail } from './components/MilestoneRail';
@@ -14,7 +14,7 @@ import { ProjectResearch } from './components/ProjectResearch';
 import { RepairCard } from './components/RepairCard';
 import { ProjectPreview } from './components/ProjectPreview';
 import { RetryWorkflowControl } from './components/RetryWorkflowControl';
-import { SideColumn, type DisclosureState } from './components/SideColumn';
+import { SideColumn } from './components/SideColumn';
 import { SessionHistoryDialog } from './components/SessionHistoryDialog';
 import { StateLine, type HeaderAction } from './components/StateLine';
 import { TopBar, type ProjectControls } from './components/TopBar';
@@ -27,17 +27,21 @@ export interface ProjectPageProps {
   runtimeRunning: boolean;
   actions: ArchitectActions;
   narrow: boolean;
-  disclosures: DisclosureState;
+  disclosures: Disclosures;
   onBack(): void;
   /** Opens the project model defaults view. */
   onOpenModels(): void;
   /** Opens the run inspector. */
   onOpenInspector(): void;
+  /** Opens the project's History view. */
+  onOpenHistory(): void;
+  /** The milestone whose evidence opens on arrival, from a History link. */
+  focusMilestoneId?: string;
   /** Called before a destructive control runs; returns false to cancel. */
   confirm(message: string): boolean;
 }
 
-function useProjectPageControls(record: ProjectRecord, actions: ArchitectActions, onBack: () => void, confirm: (message: string) => boolean, onOpenModels: () => void, onOpenInspector: () => void) {
+function useProjectPageControls(record: ProjectRecord, actions: ArchitectActions, onBack: () => void, confirm: (message: string) => boolean, onOpenModels: () => void, onOpenInspector: () => void, onOpenHistory: () => void) {
   const id = record.id;
   const [notice, setNotice] = useState<string | null>(null);
   const [capOpen, setCapOpen] = useState(false);
@@ -72,9 +76,10 @@ function useProjectPageControls(record: ProjectRecord, actions: ArchitectActions
     },
     openModels: onOpenModels,
     openInspector: onOpenInspector,
+    openHistory: onOpenHistory,
     // The watcher never pushes null for an unlinked file, so the page leaves on its own.
     remove: () => { if (confirm(`Delete ${record.name}? The record and its owner session are removed. Files in ${record.folder} stay.`)) void report(actions.remove(id), onBack); },
-  }), [actions, confirm, id, onBack, onOpenModels, onOpenInspector, record.folder, record.name, report]);
+  }), [actions, confirm, id, onBack, onOpenModels, onOpenInspector, onOpenHistory, record.folder, record.name, report]);
 
   const needsActions = useMemo(() => ({
     answer: (decisionId: string, optionId: string, note: string) => actions.answer(id, decisionId, optionId, note),
@@ -128,12 +133,13 @@ function IntakeSetup({ record, actions, permissionPending, onNotice }: {
   );
 }
 
-function ProjectMainColumn({ record, actions, needsActions, permissionPending, onNotice }: {
+function ProjectMainColumn({ record, actions, needsActions, permissionPending, onNotice, focusMilestoneId }: {
   record: ProjectRecord;
   actions: ArchitectActions;
   needsActions: ReturnType<typeof useProjectPageControls>['needsActions'];
   permissionPending: boolean;
   onNotice(notice: string | null): void;
+  focusMilestoneId?: string;
 }) {
   const id = record.id;
   return (
@@ -147,7 +153,7 @@ function ProjectMainColumn({ record, actions, needsActions, permissionPending, o
         </>
       )}
       <ProjectResearch record={record} />
-      <MilestoneRail record={record} onOpenDispatch={openDispatch} />
+      <MilestoneRail record={record} onOpenDispatch={openDispatch} focusMilestoneId={focusMilestoneId} />
       {record.phase !== 'intake' && <ProjectPreview projectId={id} />}
       {record.phase === 'intake' && (
         <section>
@@ -170,7 +176,6 @@ function ProjectMainColumn({ record, actions, needsActions, permissionPending, o
  */
 function useHeaderActions(
   record: ProjectRecord,
-  actions: ArchitectActions,
   runtimeRunning: boolean,
   focusDirective: () => void,
 ): HeaderAction[] {
@@ -222,16 +227,16 @@ function cappedWorkflow(record: ProjectRecord): Milestone | undefined {
   );
 }
 
-export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOpenModels, onOpenInspector, confirm, runtimeRunning, permissionPending = false }: ProjectPageProps) {
+export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOpenModels, onOpenInspector, onOpenHistory, focusMilestoneId, confirm, runtimeRunning, permissionPending = false }: ProjectPageProps) {
   const id = record.id;
-  const page = useProjectPageControls(record, actions, onBack, confirm, onOpenModels, onOpenInspector);
+  const page = useProjectPageControls(record, actions, onBack, confirm, onOpenModels, onOpenInspector, onOpenHistory);
   // Focusing a node is an external side effect, so it is a ref and a call, not
   // derived state. The header's "Tell Architect what to do next" runs it.
   const directiveRef = useRef<HTMLTextAreaElement>(null);
   // Focusing the box scrolls it into view on its own, so there is nothing else
   // to do here.
   const focusDirective = useCallback(() => directiveRef.current?.focus(), []);
-  const headerActions = useHeaderActions(record, actions, runtimeRunning, focusDirective);
+  const headerActions = useHeaderActions(record, runtimeRunning, focusDirective);
   // At the cap the header carries the field, because raising it needs a number
   // rather than a confirmation. The same action stays in the project menu.
   const atCap = record.overlay === 'limited' && record.budget.capUsd !== null;
@@ -306,7 +311,7 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOp
             runtimeRunning={runtimeRunning}
           />
           <div className="ar-sections" data-narrow={narrow ? 1 : 0}>
-            <ProjectMainColumn record={record} actions={actions} needsActions={page.needsActions} permissionPending={permissionPending} onNotice={page.setNotice} />
+            <ProjectMainColumn record={record} actions={actions} needsActions={page.needsActions} permissionPending={permissionPending} onNotice={page.setNotice} focusMilestoneId={focusMilestoneId} />
             <SideColumn record={record} disclosures={disclosures} />
           </div>
         </div>
