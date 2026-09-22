@@ -105,12 +105,16 @@ export function accessTile(entries: AccessSummaryEntry[]): AccessTile {
  */
 export function accessSentence(entries: AccessSummaryEntry[]): string {
   const phrases: string[] = [];
+  const seen = new Set<string>();
   for (const entry of entries) {
     const facet = FACETS[entry.label];
     const target = facet.target ? TARGET_PHRASE[facet.target] ?? facet.target : '';
     const verb = facet.mode ? MODE_VERB[facet.mode] ?? facet.mode : TARGET_ONLY_VERB[entry.label] ?? '';
     const phrase = verb && target ? `${verb} ${target}` : verb || target;
-    if (phrase && !phrases.includes(phrase)) phrases.push(phrase);
+    if (phrase && !seen.has(phrase)) {
+      seen.add(phrase);
+      phrases.push(phrase);
+    }
   }
   if (phrases.length === 0) return 'Nothing outside the Room';
   return capitalise(joinPhrase(phrases));

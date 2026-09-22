@@ -12,12 +12,12 @@
  * clock permanently behind the request it claims to measure.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { formatTimer } from '../lib/format';
 
 export function PlannerWait({ title }: { title: string }) {
-  const startedAt = useRef(Date.now());
-  const [now, setNow] = useState(startedAt.current);
+  const [startedAt] = useState(() => Date.now());
+  const [now, setNow] = useState(() => startedAt);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
@@ -31,7 +31,7 @@ export function PlannerWait({ title }: { title: string }) {
         aria-label={title}
         className="mt-4 size-5 animate-spin rounded-full border-2 border-room-line-strong border-t-brand-primary motion-reduce:animate-none"
       />
-      <span className="room-tabular mt-2.5 text-xs text-room-text3">{formatTimer(now - startedAt.current)}</span>
+      <span className="room-tabular mt-2.5 text-xs text-room-text3">{formatTimer(now - startedAt)}</span>
     </div>
   );
 }
