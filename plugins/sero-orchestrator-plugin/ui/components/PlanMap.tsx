@@ -13,6 +13,7 @@ import { mapEdgeState } from '../lib/plan-map-state';
 import { guardLabel } from '../lib/guard-label';
 import { STEP_STATUS_STYLE } from '../lib/status-style';
 import { PlanMapCard, PlanMapStageFrame } from './PlanMapCard';
+import { PlannerWait } from './PlannerWait';
 
 interface PlanMapProps {
   loop: Loop;
@@ -232,20 +233,5 @@ function SelectedStep({ loop, step }: { loop: Loop; step: LoopStepDefinition }) 
 }
 
 export function PlanMapSkeleton() {
-  return (
-    <Card className="overflow-hidden p-4">
-      <div className="mb-4 flex items-center gap-2 text-base text-muted-foreground">
-        <Sparkles className="h-4 w-4 animate-pulse text-sky-400" />
-        The AI is shaping the plan…
-      </div>
-      <div className="flex min-h-40 flex-wrap items-center justify-center gap-5">
-        {[0, 1, 2, 3].map((index) => (
-          <div key={index} className="flex items-center gap-5">
-            {index > 0 && <span className="h-px w-6 bg-border" />}
-            <div className="h-16 w-36 animate-pulse rounded-md border border-border bg-muted/35" />
-          </div>
-        ))}
-      </div>
-    </Card>
-  );
+  return <PlannerWait title="Planning this Workflow" />;
 }

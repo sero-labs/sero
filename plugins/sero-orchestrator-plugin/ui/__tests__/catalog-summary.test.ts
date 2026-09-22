@@ -31,7 +31,17 @@ describe('entryChips', () => {
         connectors: ['GitHub (gh login)'],
       }),
     ).map((c) => c.label);
-    expect(chips).toEqual(['fires on github:ci-failed', '→ Pull request', 'medium cost', 'MED', 'GitHub (gh login)']);
+    expect(chips).toEqual(['fires on github:ci-failed', '→ Pull request', 'medium cost', 'mid-tier model', 'GitHub (gh login)']);
+  });
+
+  it('names the model tier in words for every tier', () => {
+    expect(entryChips(meta({ modelTier: 'LOW' })).map((c) => c.label)).toEqual(['low-tier model']);
+    expect(entryChips(meta({ modelTier: 'MED' })).map((c) => c.label)).toEqual(['mid-tier model']);
+    expect(entryChips(meta({ modelTier: 'HIGH' })).map((c) => c.label)).toEqual(['high-tier model']);
+  });
+
+  it('adds no tier chip when the entry has none', () => {
+    expect(entryChips(meta()).some((c) => c.label.includes('tier'))).toBe(false);
   });
 
   it('is empty for bare metadata', () => {

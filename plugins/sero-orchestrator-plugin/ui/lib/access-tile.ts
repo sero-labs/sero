@@ -62,3 +62,17 @@ export function accessTile(entries: AccessSummaryEntry[]): AccessTile {
     sub: ordered(modes, MODE_ORDER).join(', '),
   };
 }
+
+/**
+ * The access as one sentence, for a surface that shows a single access value
+ * rather than a value and a mode line (the Room proposal, #540 frame 3):
+ * `Read this workspace`. The proposal is the only caller — the advanced
+ * settings view keeps the two-line tile.
+ */
+export function accessSentence(entries: AccessSummaryEntry[]): string {
+  const { value, sub } = accessTile(entries);
+  if (!sub) return value;
+  const modes = sub.split(', ');
+  const verb = modes.length === 1 ? modes[0] : `${modes.slice(0, -1).join(', ')} and ${modes[modes.length - 1]}`;
+  return `${verb.charAt(0).toUpperCase()}${verb.slice(1)} ${value.toLowerCase()}`;
+}

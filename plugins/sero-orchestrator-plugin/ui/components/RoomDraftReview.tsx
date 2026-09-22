@@ -1,8 +1,8 @@
 /**
  * Reviewing a Room before it runs (prototype screens 4–7).
  *
- * A draft Room is a proposal and nothing else: no session exists, nothing has
- * been spent, and there is nothing to watch. It reaches this screen two ways —
+ * A draft Room has no session and nothing to watch, but designing it was a
+ * model call and the proposal shows what that cost. It reaches this screen two ways —
  * straight out of the create flow, or opened from the list later, because a
  * chat can prepare a Room for the user to approve (FR-029) and because a
  * proposal the user walked away from is still there when they come back.
@@ -97,7 +97,7 @@ export function RoomDraftReview({
     onLeave();
   };
 
-  if (rethinking) return <RoomPreparing title="Rethinking the team" />;
+  if (rethinking) return <RoomPreparing title="Rethinking your team" />;
 
   if (!room) {
     return (
@@ -145,6 +145,7 @@ export function RoomDraftReview({
         key={previous ? 'revised' : 'plain'}
         proposal={computeProposalSummary(room.definition.blueprint)}
         clamps={revised ?? clamps}
+        planningCostUsd={room.runtime.planningUsage?.costUsd}
         busy={busy}
         onStart={start}
         onAdjust={adjust}

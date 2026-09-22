@@ -14,6 +14,7 @@ import { Card } from '@sero-ai/ui/components/ui/card';
 import { Sparkles } from 'lucide-react';
 import type { Loop, OrchestratorAction } from '../../shared/types';
 import { useWatchedJson } from '../lib/use-watched-json';
+import { formatCost } from '../lib/format';
 import { deriveCreateStage, type CreateStage as Stage } from '../lib/create-stage';
 import { CreateLoopForm, type CreateLoopSubmit } from './CreateLoopForm';
 import { InputRequestCard } from './InputRequestCard';
@@ -85,11 +86,17 @@ export function CreateLoopWizard({ busy, stateDir, onCreate, onAction, onOpenLoo
           )}
           <PlanPresentation loop={loop} onAction={onAction} />
           <RefinePlan busy={busy} planRevision={loop.plan.revision} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} />
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" disabled={busy} onClick={() => onOpenLoop(loop.id)}>Save as draft</Button>
-            <Button disabled={busy || loop.plan.steps.length === 0} onClick={() => { onAction({ kind: 'activate', loopId: loop.id }); onOpenLoop(loop.id); }}>
-              Activate workflow →
-            </Button>
+          <div className="flex items-center gap-2.5">
+            {/* What planning this Workflow cost — the loop's saved planning usage. */}
+            {loop.planningUsage?.costUsd !== undefined && (
+              <span className="text-xs text-room-text3">Planning this cost {formatCost(loop.planningUsage.costUsd)}</span>
+            )}
+            <div className="ml-auto flex gap-2">
+              <Button variant="ghost" disabled={busy} onClick={() => onOpenLoop(loop.id)}>Save as draft</Button>
+              <Button disabled={busy || loop.plan.steps.length === 0} onClick={() => { onAction({ kind: 'activate', loopId: loop.id }); onOpenLoop(loop.id); }}>
+                Activate workflow →
+              </Button>
+            </div>
           </div>
         </div>
       )}

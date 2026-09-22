@@ -17,7 +17,7 @@ import { DELIVERY_DESTINATIONS, defaultDeliveryFor } from '../../shared/delivery
 import type { DeliveryDestinationId } from '../../shared/delivery-types';
 import type { MemberPermissionLevel } from '../../shared/room-blueprint-types';
 import { BUILT_IN_ROOM_TEMPLATES } from '../../shared/room-templates';
-import { Eyebrow, SectionHead } from './room-kit';
+import { SectionHead } from './room-kit';
 
 export interface RoomBrief {
   problem: string;
@@ -72,12 +72,13 @@ export function RoomBriefForm({ busy, onDesign, onCancel }: RoomBriefFormProps) 
   const ready = problem.trim().length > 0 && !busy;
 
   return (
-    <div className="mx-auto mt-[26px] flex w-[min(808px,100%)] flex-col px-6 pb-8">
-      <Eyebrow tone="brand" className="text-[10px] tracking-[0.13em]">New room</Eyebrow>
-      <h2 className="mt-3.5 text-[27px] leading-[1.2] font-semibold tracking-[-0.04em] text-room-text">
+    <div className="mx-auto mt-6 flex w-full max-w-[58rem] flex-col px-6 pb-8">
+      {/* The drawing's eyebrow: 10px mono, emerald, wide tracking. */}
+      <div className="font-mono text-xs uppercase tracking-[0.12em] text-brand-primary">New room</div>
+      <h2 className="mt-3 text-3xl leading-tight font-semibold tracking-[-0.03em] text-room-text">
         What would you like the team to accomplish?
       </h2>
-      <p className="mt-2.5 text-[13px] leading-relaxed text-room-text3">
+      <p className="mt-2.5 text-base leading-relaxed text-room-text3">
         Describe the problem and what a good result looks like. Sero designs the team from your
         description — you do not need to pick agents, models or tools.
       </p>
@@ -85,13 +86,13 @@ export function RoomBriefForm({ busy, onDesign, onCancel }: RoomBriefFormProps) 
       <Textarea
         value={problem}
         onChange={(event) => setProblem(event.target.value)}
-        rows={5}
+        rows={4}
         autoFocus
-        className="mt-5 min-h-[132px] rounded-[10px] border-room-line-strong bg-room-sunken px-4 py-[15px] text-sm leading-relaxed text-room-text2 focus-visible:border-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary-border"
+        className="mt-4 min-h-28 rounded-lg border-room-line-strong bg-room-sunken px-4 py-3 text-sm leading-relaxed text-room-text2 focus-visible:border-brand-primary focus-visible:ring-2 focus-visible:ring-brand-primary-border"
         placeholder="Our login flow probably has a session-fixation problem. Find out whether it does, fix it properly, and give me a pull request with a test that fails on the old code."
       />
 
-      <div className="mt-4 flex flex-wrap items-center gap-[9px]">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <OptionChip
           label="Maximum spend"
           value={String(limits.maxCostUsd)}
@@ -126,14 +127,13 @@ export function RoomBriefForm({ busy, onDesign, onCancel }: RoomBriefFormProps) 
         />
       </div>
 
-      <div className="mt-6 flex items-center gap-4 border-t border-room-line pt-[18px]">
-        <p className="max-w-[420px] text-[11px] leading-normal text-room-text4">
-          Sero proposes a team before anything runs. Nothing starts and nothing is spent until you
-          press Start room.
+      <div className="mt-5 flex items-center gap-4 border-t border-room-line pt-4">
+        <p className="flex-1 text-xs leading-normal text-room-text3">
+          The team starts only when you press Start room.
         </p>
         <div className="ml-auto flex shrink-0 gap-2">
-          <Button variant="ghost" className="text-room-text3" onClick={onCancel} disabled={busy}>Cancel</Button>
-          <Button className="h-[38px] px-[18px] text-[13px]" disabled={!ready}
+          <Button variant="ghost" className="h-9 px-3 text-sm text-room-text3" onClick={onCancel} disabled={busy}>Cancel</Button>
+          <Button className="h-9 px-4 text-sm" disabled={!ready}
             onClick={() => onDesign({ problem: problem.trim(), presetId, ...limits, deliveryDestination })}
           >
             {busy ? 'Designing…' : 'Design the team →'}
@@ -141,12 +141,12 @@ export function RoomBriefForm({ busy, onDesign, onCancel }: RoomBriefFormProps) 
         </div>
       </div>
 
-      <div className="mt-[26px]">
+      <div className="mt-6">
         <SectionHead>
           Start from a preset
-          <span className="ml-2 text-[10px] font-normal tracking-normal normal-case text-room-text4">optional</span>
+          <span className="ml-2 text-xs font-normal tracking-normal normal-case text-room-text4">optional</span>
         </SectionHead>
-        <div className="grid gap-[9px] @min-[560px]/panel:grid-cols-2 @min-[760px]/panel:grid-cols-3">
+        <div className="grid gap-2 @min-[560px]/panel:grid-cols-2 @min-[760px]/panel:grid-cols-3">
           {BUILT_IN_ROOM_TEMPLATES.map((template) => (
             <button
               key={template.id}
@@ -161,7 +161,7 @@ export function RoomBriefForm({ busy, onDesign, onCancel }: RoomBriefFormProps) 
               )}
             >
               <b className="text-xs font-medium text-room-text2">{template.name}</b>
-              <span className="mt-1.5 text-[10px] leading-normal text-room-text4">{template.description}</span>
+              <span className="mt-1.5 text-xs leading-normal text-room-text4">{template.description}</span>
             </button>
           ))}
         </div>
@@ -191,7 +191,7 @@ function OptionChip({
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger
         className={cn(
-          'flex h-[34px] items-center gap-2 rounded-lg border px-3 text-xs shadow-none',
+          'flex h-9 items-center gap-2 rounded-md border px-3 text-sm shadow-none',
           set
             ? 'border-brand-primary-border bg-brand-primary-muted text-room-ink-brand'
             : 'border-room-line bg-room-surface text-room-text3',

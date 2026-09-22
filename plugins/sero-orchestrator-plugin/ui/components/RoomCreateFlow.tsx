@@ -3,8 +3,8 @@
  *
  * Three states and no more: the brief, the wait while the planner works, and
  * the proposal. The planner runs as an isolated call rather than as a Room
- * member, so nothing is created and nothing is spent until the user presses
- * Start room.
+ * member, so nothing is started until the user presses Start room — but it is a
+ * model call, and the proposal then shows what designing the team cost.
  *
  * The draft Room IS the working copy. Planning writes it, adjusting rewrites
  * it, and discarding deletes it — so a reload during the flow finds the same
@@ -68,7 +68,7 @@ export function RoomCreateFlow({ busy, dispatch, onStarted, onCancel }: RoomCrea
     setStage({ name: 'brief' });
   };
 
-  if (stage.name === 'planning') return <RoomPreparing title="Designing the team" />;
+  if (stage.name === 'planning') return <RoomPreparing title="Designing your team" />;
 
   if (stage.name === 'proposal') {
     return (

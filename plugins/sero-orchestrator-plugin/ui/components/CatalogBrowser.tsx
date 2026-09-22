@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, RefreshCw, Search, X } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Card } from '@sero-ai/ui/components/ui/card';
 import {
@@ -120,31 +120,38 @@ export function CatalogBrowser({ busy, libraryIndex, dispatch, onOpenLoop, onSho
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Repo management: official baked in, add/refresh/remove for the rest. */}
-      <Card className="flex flex-wrap items-center gap-1.5 p-2 text-xs">
+      {/* Repo management: official baked in, add/refresh/remove for the rest.
+          One row (prototype frame 4) — the shared Card's flex-col is overridden. */}
+      <Card className="flex flex-row flex-wrap items-center gap-2 p-2 text-sm">
         {repos.map((repo) => {
           const issue = fetchIssues.find((i) => i.key === repo.key);
           return (
             <span
               key={repo.key}
-              className="flex items-center gap-1 rounded bg-accent/60 px-1.5 py-0.5"
+              className="flex items-center gap-1 rounded-md bg-room-raised px-2 py-0.5 text-room-text2"
               title={[repo.url, repo.lastFetchedAt ? `fetched ${repo.lastFetchedAt}` : 'never fetched', issue?.reason].filter(Boolean).join('\n')}
             >
               {repo.official ? 'Official' : repo.key}
-              {issue && <span className="text-amber-400">{issue.stale ? '(stale copy)' : '(unreachable)'}</span>}
+              {issue && <span className="text-status-warning">{issue.stale ? '(stale copy)' : '(unreachable)'}</span>}
               {!repo.official && (
-                <button type="button" title="Remove this catalog (installed workflows are kept)" onClick={() => void removeRepo(repo.key)}>
-                  <X className="h-3 w-3" />
+                <button
+                  type="button"
+                  aria-label="Remove this catalog"
+                  title="Remove this catalog (installed workflows are kept)"
+                  className="px-1 text-room-text3 hover:text-room-text"
+                  onClick={() => void removeRepo(repo.key)}
+                >
+                  ×
                 </button>
               )}
             </span>
           );
         })}
         <Button size="xs" variant="ghost" disabled={busy} onClick={() => setAddOpen(true)}>
-          <Plus className="mr-0.5 h-3 w-3" /> Add repo
+          + Add repo
         </Button>
         <Button size="xs" variant="ghost" disabled={busy || fetching} onClick={() => void refreshRepo()} title="Pull all catalog repos now">
-          <RefreshCw className={`mr-0.5 h-3 w-3 ${fetching ? 'animate-spin' : ''}`} /> Refresh
+          <span className={fetching ? 'inline-block animate-spin' : undefined}>↻</span> Refresh
         </Button>
       </Card>
 
