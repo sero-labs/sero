@@ -119,7 +119,7 @@ export async function observeResearchRooms(deps: ResearchRoomDeps, projectId: st
       chargedDelta = delta;
       let next = charge(setAccountingIncomplete(fresh, `room:${room.id}`, room.usageIncomplete !== false), 'research', delta, deps.host.now());
       if (next.blockedReason?.startsWith(`Research Room ${room.id} is `) && ['ready', 'running', 'completed'].includes(room.status)) {
-        const resumed = unblock(next, deps.host.now(), `Research Room ${room.id} resumed`);
+        const resumed = unblock(next, deps.host.now(), 'Room resumed', { kind: 'room', id: room.id, label: room.title }, next.blockedReason ?? undefined);
         if (resumed.ok) next = { ...resumed.record, stateLine: 'The research Room is working.' };
       }
       if (room.status === 'completed' && inspection?.result?.trim()) {

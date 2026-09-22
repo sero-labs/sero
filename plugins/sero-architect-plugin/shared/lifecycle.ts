@@ -4,7 +4,7 @@
  * caller that persists the result, which keeps the single-writer rule simple.
  */
 
-import { PHASE_ORDER, openDecisions, type ArchitectOverlay, type ArchitectPhase, type BlockedWork, type ProjectRecord } from './record';
+import { PHASE_ORDER, openDecisions, type ArchitectOverlay, type ArchitectPhase, type BlockedWork, type HistorySubject, type ProjectRecord } from './record';
 
 export type Refusal = { ok: false; error: string };
 export type Applied = { ok: true; record: ProjectRecord };
@@ -31,11 +31,23 @@ export function settle(record: ProjectRecord, now: string): ProjectRecord {
   return { ...record, overlay: deriveOverlay(record), updatedAt: now };
 }
 
-function recordHistory(record: ProjectRecord, now: string, cause: string): ProjectRecord {
+/**
+ * Appends one history entry to a record, with the subject it is about and the
+ * long note it folds. Exported so the writers that do not go through the phase
+ * helpers save the same shape.
+ */
+export function appendHistory(record: ProjectRecord, now: string, cause: string, subject?: HistorySubject, detail?: string): ProjectRecord {
   const settled = settle(record, now);
   return {
     ...settled,
-    history: [...settled.history, { at: now, phase: settled.phase, overlay: settled.overlay, cause }],
+    history: [...settled.history, {
+      at: now,
+      phase: settled.phase,
+      overlay: settled.overlay,
+      cause,
+      ...(subject ? { subject } : {}),
+      ...(detail ? { detail } : {}),
+    }],
   };
 }
 
@@ -54,7 +66,7 @@ export function advancePhase(record: ProjectRecord, to: ArchitectPhase, now: str
   if (to === 'discovery' && record.workspaceId === null) {
     return refuse('Cannot start discovery: the workspace is not registered yet.');
   }
-  return { ok: true, record: recordHistory({ ...record, phase: to }, now, cause) };
+  return { ok: true, record: appendHistory({ ...record, phase: to }, now, cause) };
 }
 
 export function approveCharter(record: ProjectRecord, now: string): Outcome {
@@ -67,17 +79,17 @@ export function approveCharter(record: ProjectRecord, now: string): Outcome {
     autonomy: charter.autonomy,
     budget: { ...record.budget, capUsd: charter.capUsd },
   };
-  return { ok: true, record: recordHistory(next, now, 'user approved the charter') };
+  return { ok: true, record: appendHistory(next, now, 'user approved the charter') };
 }
 
 export function pause(record: ProjectRecord, now: string): Outcome {
   if (record.paused) return refuse('The project is already paused.');
-  return { ok: true, record: recordHistory({ ...record, paused: true }, now, 'user paused the project') };
+  return { ok: true, record: appendHistory({ ...record, paused: true }, now, 'user paused the project') };
 }
 
 export function resume(record: ProjectRecord, now: string): Outcome {
   if (!record.paused) return refuse('The project is not paused.');
-  return { ok: true, record: recordHistory({ ...record, paused: false }, now, 'user resumed the project') };
+  return { ok: true, record: appendHistory({ ...record, paused: false }, now, 'user resumed the project') };
 }
 
 /**
@@ -89,7 +101,7 @@ export function block(record: ProjectRecord, now: string, reason: string, on?: B
   if (!reason.trim()) return refuse('A blocked project needs a reason.');
   return {
     ok: true,
-    record: recordHistory(
+    record: appendHistory(
       // A block without `on` clears the old one, or the page would name a Room
       // that is no longer the reason.
       { ...record, blockedReason: reason.trim(), blockedOn: on ?? null },
@@ -99,9 +111,9 @@ export function block(record: ProjectRecord, now: string, reason: string, on?: B
   };
 }
 
-export function unblock(record: ProjectRecord, now: string, cause: string): Outcome {
+export function unblock(record: ProjectRecord, now: string, cause: string, subject?: HistorySubject, detail?: string): Outcome {
   if (record.blockedReason === null) return refuse('The project is not blocked.');
-  return { ok: true, record: recordHistory({ ...record, blockedReason: null, blockedOn: null }, now, cause) };
+  return { ok: true, record: appendHistory({ ...record, blockedReason: null, blockedOn: null }, now, cause, subject, detail) };
 }
 
 /**
@@ -122,7 +134,7 @@ export function charge(
   const next = { ...record, budget };
   const nowLimited = deriveOverlay(next) === 'limited';
   if (nowLimited && !wasLimited) {
-    return recordHistory(next, now, `reached the $${budget.capUsd} cost cap`);
+    return appendHistory(next, now, `reached the $${budget.capUsd} cost cap`);
   }
   return settle(next, now);
 }
@@ -134,13 +146,13 @@ export function setCap(record: ProjectRecord, capUsd: number, now: string): Outc
   const cause = wasLimited && deriveOverlay(next) !== 'limited'
     ? `user raised the cap to $${capUsd}, limit cleared`
     : `user set the cap to $${capUsd}`;
-  return { ok: true, record: recordHistory(next, now, cause) };
+  return { ok: true, record: appendHistory(next, now, cause) };
 }
 
 export function setAutonomy(record: ProjectRecord, autonomy: ProjectRecord['autonomy'], now: string): Outcome {
   if (record.autonomy === autonomy) return refuse(`Autonomy is already ${autonomy}.`);
   const charter = record.charter ? { ...record.charter, autonomy } : null;
-  return { ok: true, record: recordHistory({ ...record, autonomy, charter }, now, `user set autonomy to ${autonomy}`) };
+  return { ok: true, record: appendHistory({ ...record, autonomy, charter }, now, `user set autonomy to ${autonomy}`) };
 }
 
 /** Is the owner allowed to be woken for ordinary work right now? Directives always may. */

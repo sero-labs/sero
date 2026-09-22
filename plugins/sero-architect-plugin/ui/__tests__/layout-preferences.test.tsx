@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { FIXTURES } from '../__preview__/fixture';
+import { HistoryView } from '../components/HistoryView';
 import { SideColumn } from '../components/SideColumn';
 import { useDisclosures } from '../lib/page-helpers';
 
@@ -18,16 +19,41 @@ vi.mock('@sero-ai/app-runtime', () => ({
   useAppPreferences: () => ({ values: { ...layoutStore }, set: (key: string, value: string | number | boolean | null) => { layoutStore[key] = value; } }),
 }));
 
-function Harness() {
+const NOTE = 'A note that folds under its entry.';
+const RECORD = {
+  ...FIXTURES.build!,
+  history: [...FIXTURES.build!.history, { at: '2026-09-19T20:16:00.000Z', phase: 'build' as const, overlay: null, cause: 'You resumed the project', detail: NOTE }],
+};
+
+function HistoryHarness() {
+  const disclosures = useDisclosures();
+  return (
+    <HistoryView
+      record={RECORD}
+      onBack={() => undefined}
+      onOpenDispatch={() => undefined}
+      onOpenEvidence={() => undefined}
+      folds={disclosures.folds}
+    />
+  );
+}
+
+function DirectivesHarness() {
   const disclosures = useDisclosures();
   return <SideColumn record={FIXTURES.build!} disclosures={disclosures} />;
 }
 
 let container: HTMLDivElement;
 let root: Root;
+const remount = (node: React.ReactElement) => {
+  act(() => root.unmount());
+  root = createRoot(container);
+  act(() => root.render(node));
+};
 
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  for (const key of Object.keys(layoutStore)) delete layoutStore[key];
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -39,28 +65,29 @@ afterEach(() => {
 });
 
 describe('layout preferences', () => {
-  it('keeps history collapsed across a restart through the host layout service', () => {
-    act(() => root.render(<Harness />));
-    const history = () => container.querySelector<HTMLDetailsElement>('[data-testid="history"]')!;
-    expect(history().open).toBe(false);
+  it('keeps an opened history note open across a restart through the host layout service', () => {
+    act(() => root.render(<HistoryHarness />));
+    const toggle = () => container.querySelector<HTMLButtonElement>('button[aria-label="Show the note"]')!;
+    // Folded by default: the long note is not shown until its own control opens it.
+    expect(container.textContent).not.toContain(NOTE);
 
-    // Open it, then collapse it again: the last state is what the host keeps.
-    act(() => { history().open = true; history().dispatchEvent(new Event('toggle')); });
-    expect(layoutStore.historyOpen).toBe(true);
-    act(() => { history().open = false; history().dispatchEvent(new Event('toggle')); });
-    expect(layoutStore.historyOpen).toBe(false);
+    act(() => toggle().click());
+    // The host layout service keeps the opened note; a fresh mount reads it back.
+    expect(layoutStore.historyFolded).toBeTruthy();
+    remount(<HistoryHarness />);
+    expect(container.textContent).toContain(NOTE);
+  });
 
-    // A restart is a fresh mount reading the same profile-wide values.
-    act(() => root.unmount());
-    root = createRoot(container);
-    act(() => root.render(<Harness />));
-    expect(history().open).toBe(false);
+  it('keeps older directives open across a restart through the host layout service', () => {
+    act(() => root.render(<DirectivesHarness />));
+    const older = () => container.querySelector<HTMLDetailsElement>('[data-testid="older-directives"]')!;
+    expect(older().open).toBe(false);
 
-    layoutStore.historyOpen = true;
-    act(() => root.unmount());
-    root = createRoot(container);
-    act(() => root.render(<Harness />));
-    expect(history().open).toBe(true);
+    act(() => { older().open = true; older().dispatchEvent(new Event('toggle')); });
+    expect(layoutStore.olderOpen).toBe(true);
+
+    remount(<DirectivesHarness />);
+    expect(older().open).toBe(true);
   });
 
   it('never touches browser storage', () => {

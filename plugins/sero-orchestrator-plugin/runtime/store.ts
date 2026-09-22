@@ -93,11 +93,17 @@ function runUsage(run: LoopRun): UsageSummary | undefined {
 /** Compact summary of one run for the per-loop runs/index.json. */
 export function toRunSummary(
   run: LoopRun,
-  /** The plan's step ids, in plan order. Omitted by callers that do not have it. */
-  planStepIds?: readonly string[],
+  /**
+   * The plan's step ids, in plan order. Omitted by callers that do not have it.
+   *
+   * Used for the plan POSITION only. The title is not read from here: it is
+   * saved on each visit when the run started, so a later plan revision cannot
+   * rewrite the name a finished run ran under.
+   */
+  planSteps?: readonly { id: string; title: string }[],
 ): RunIndex['runs'][number] {
   const planIndex = (stepId: string): number | undefined => {
-    const at = planStepIds?.indexOf(stepId) ?? -1;
+    const at = planSteps?.findIndex((step) => step.id === stepId) ?? -1;
     return at >= 0 ? at : undefined;
   };
   const activationSteps = run.stepActivations?.map((activation) => {
@@ -112,6 +118,7 @@ export function toRunSummary(
     const at = planIndex(activation.stepId);
     return {
       stepId: activation.stepId,
+      ...(activation.title === undefined ? {} : { title: activation.title }),
       visitNumber: activation.visitNumber,
       activationId: activation.id,
       attemptNumber: last?.attemptNumber ?? attempts.length,
@@ -149,8 +156,8 @@ export function toRunSummary(
   };
 }
 
-export function buildRunIndex(runs: LoopRun[], planStepIds?: readonly string[]): RunIndex {
-  return { version: 1, runs: runs.map((run) => toRunSummary(run, planStepIds)) };
+export function buildRunIndex(runs: LoopRun[], planSteps?: readonly { id: string; title: string }[]): RunIndex {
+  return { version: 1, runs: runs.map((run) => toRunSummary(run, planSteps)) };
 }
 
 export interface RunsDiff {

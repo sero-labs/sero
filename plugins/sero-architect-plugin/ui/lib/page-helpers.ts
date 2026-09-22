@@ -4,14 +4,28 @@ import type { DisclosureState } from '../components/SideColumn';
 import type { RailRow } from './view-model';
 import type { TraceFilters } from './timeline';
 
+/** Which History notes the reader has opened. A note not in `opened` is folded. */
+export interface HistoryFolds {
+  opened: ReadonlySet<string>;
+  toggle(key: string): void;
+}
+
+/** The layout preferences the project page and the History view read. */
+export type Disclosures = DisclosureState & { folds: HistoryFolds };
+
 /** Layout preferences live in the host layout service, keyed by this app. Never browser storage. */
-export function useDisclosures(): DisclosureState {
+export function useDisclosures(): Disclosures {
   const { values, set } = useAppPreferences();
+  const opened = list(values.historyFolded);
   return {
-    historyOpen: values.historyOpen === true,
     olderOpen: values.olderOpen === true,
-    setHistoryOpen: (open) => set('historyOpen', open),
     setOlderOpen: (open) => set('olderOpen', open),
+    folds: {
+      opened: new Set(opened),
+      toggle: (key) => set('historyFolded', joined(opened.includes(key)
+        ? opened.filter((entry) => entry !== key)
+        : [...opened, key])),
+    },
   };
 }
 

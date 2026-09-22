@@ -56,27 +56,45 @@ export function RoomSidePanel({ room, names, members, className }: RoomSidePanel
   const who = (memberId: string | null) => (memberId ? names.get(memberId) ?? memberId : 'nobody');
   // A released claim is history; the panel answers "what is claimed now".
   const active = room.claims.filter((claim) => claim.status === 'active');
+  // A tab that holds a countable list carries its count. Brief and Changes are
+  // not lists the user can compare, so they carry none. The counting reads the
+  // same values the tabs render.
+  const counts: Partial<Record<Tab, number>> = {
+    work: room.work.length,
+    claims: active.length,
+    artifacts: room.artifacts.length,
+  };
 
   return (
     <aside className={cn('flex w-80 shrink-0 flex-col overflow-hidden border-l border-room-line bg-room-sunken', className)}>
-      <div role="tablist" aria-label="Room detail" className="flex h-9 shrink-0 border-b border-room-line px-2.5">
-        {(Object.keys(TAB_LABEL) as Tab[]).map((option) => (
-          <button
-            key={option}
-            type="button"
-            role="tab"
-            aria-selected={tab === option}
-            onClick={() => setTab(option)}
-            className={cn(
-              'grid flex-1 place-items-center text-[11px]',
-              tab === option
-                ? 'text-room-text2 shadow-[inset_0_-1px_0_var(--brand-primary)]'
-                : 'text-room-text4 hover:text-room-text3',
-            )}
-          >
-            {TAB_LABEL[option]}
-          </button>
-        ))}
+      <div role="tablist" aria-label="Room detail" className="flex shrink-0 gap-[18px] border-b border-room-line px-2.5 pt-2">
+        {(Object.keys(TAB_LABEL) as Tab[]).map((option) => {
+          const count = counts[option];
+          return (
+            <button
+              key={option}
+              type="button"
+              role="tab"
+              aria-selected={tab === option}
+              onClick={() => setTab(option)}
+              className={cn(
+                // Tabs size to their own content, as the drawing sets them, and
+                // the active one carries a 2px brand underline.
+                'flex items-baseline px-[2px] pb-[8px] text-[12.5px]',
+                tab === option
+                  ? 'border-b-2 border-brand-primary text-room-text'
+                  : count === 0
+                    ? 'text-room-text4/60 hover:text-room-text3'
+                    : 'text-room-text3 hover:text-room-text2',
+              )}
+            >
+              {TAB_LABEL[option]}
+              {count !== undefined && (
+                <i className="ml-[3px] font-mono text-[10px] not-italic text-room-text3">{count}</i>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       <div role="tabpanel" aria-label={TAB_LABEL[tab]} className="flex flex-1 flex-col gap-3 overflow-y-auto p-3.5">
@@ -231,11 +249,6 @@ function Brief({ room }: { room: PersistedRoom }) {
           {brief.conductorNote}
         </NoteBlock>
       )}
-
-      <p className="text-[10px] leading-[1.55] text-room-text4">
-        The brief is built from Room records, not from the transcript. Each member is given only the part
-        that concerns its own work.
-      </p>
     </>
   );
 }

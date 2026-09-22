@@ -143,6 +143,32 @@ describe('loop store persistence', () => {
     expect(touched).not.toContain('index.json'); // summary unchanged
   });
 
+  it('keeps the title a finished run ran under when the plan is revised and the index is rebuilt', async () => {
+    const store = createLoopStore(makeCtx());
+    const loop = loopFixture('loop-a');
+    const first: LoopRun = {
+      ...runFixture('run-1'),
+      stepActivations: [{ id: 'act-1', stepId: 'step-1', visitNumber: 1, title: 'Do the work', status: 'succeeded', attemptIds: [], startedAt: 't' }],
+    };
+    await store.updateState((s) => ({ ...s, loops: [{ ...loop, runs: [first] }] }));
+
+    // Reflection rewrites the step, then a second run starts under the new name.
+    const second: LoopRun = {
+      ...runFixture('run-2'),
+      stepActivations: [{ id: 'act-2', stepId: 'step-1', visitNumber: 1, title: 'Do the work thoroughly', status: 'succeeded', attemptIds: [], startedAt: 't' }],
+    };
+    await store.updateState((s) => ({
+      ...s,
+      loops: s.loops.map((l) => (l.id === 'loop-a'
+        ? { ...l, plan: { ...l.plan, steps: l.plan.steps.map((step) => ({ ...step, title: 'Do the work thoroughly' })) }, runs: [...l.runs, second] }
+        : l)),
+    }));
+
+    const index = JSON.parse(await readFile(path.join(dir, 'loops/loop-a/runs/index.json'), 'utf8'));
+    expect(index.runs.map((run: { steps: { title?: string }[] }) => run.steps[0]?.title))
+      .toEqual(['Do the work', 'Do the work thoroughly']);
+  });
+
   it('removes the loop folder on deletion', async () => {
     const store = createLoopStore(makeCtx());
     await store.updateState((s) => ({ ...s, loops: [loopFixture('loop-a'), loopFixture('loop-b')] }));

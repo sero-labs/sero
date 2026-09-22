@@ -167,3 +167,31 @@ describe('the objective and the request that started it', () => {
     expect(container.textContent).toContain(previewLoop.prompt);
   });
 });
+
+describe('what reflection has learned', () => {
+  it('shows the number of lessons and the day each was recorded', () => {
+    const at = (month: number, day: number) => new Date(2026, month, day, 12).toISOString();
+    const loop = {
+      ...previewLoop,
+      insights: [
+        { id: 'i1', summary: 'Separating implementation from verification improved coverage.', createdAt: at(8, 19) },
+        { id: 'i2', summary: 'The implementation sequence completed without rework.', createdAt: at(8, 20) },
+      ],
+    } as unknown as Loop;
+
+    render(loop);
+
+    const section = [...container.querySelectorAll('button')]
+      .find((button) => button.textContent?.startsWith('What reflection has learned'));
+    // The count rides the fold's own hint.
+    expect(section?.textContent).toContain('2');
+
+    act(() => (section as HTMLButtonElement).click());
+
+    expect(container.textContent).toContain('Separating implementation from verification improved coverage.');
+    expect(container.textContent).toContain('The implementation sequence completed without rework.');
+    // Each lesson shows the day it was recorded, beside its text.
+    expect(container.textContent).toContain('19 Sep');
+    expect(container.textContent).toContain('20 Sep');
+  });
+});

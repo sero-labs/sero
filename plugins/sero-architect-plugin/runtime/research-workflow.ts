@@ -101,7 +101,7 @@ export async function observeResearchWorkflows(deps: ResearchWorkflowDeps, proje
       chargedDelta = Math.max(0, costUsd - (current.chargedUsd ?? 0));
       let next = charge(setAccountingIncomplete(fresh, `workflow:${loop.id}`, !loop.usage || !!loop.usage.incomplete), 'research', Math.max(0, costUsd - (current.chargedUsd ?? 0)), deps.host.now());
       if (next.blockedReason?.startsWith(`Research Workflow ${loop.id} is `) && loop.status !== 'blocked') {
-        const resumed = unblock(next, deps.host.now(), `Research Workflow ${loop.id} resumed`);
+        const resumed = unblock(next, deps.host.now(), 'Workflow resumed', { kind: 'workflow', id: loop.id, label: loop.title }, next.blockedReason ?? undefined);
         if (resumed.ok) next = resumed.record;
       }
       if (result) {

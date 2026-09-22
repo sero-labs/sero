@@ -72,10 +72,15 @@ export function startActivations(
     }
     const visitNumber = (visitCountByStep.get(stepId) ?? 0) + 1;
     const context = feedbackContexts.get(stepId);
+    // The title is captured with the visit, not read back from the plan later:
+    // the plan is rewritten by reflection and manual revise, and a run row must
+    // keep the name the step had when the run visited it.
+    const title = currentLoop.plan.steps.find((step) => step.id === stepId)?.title;
     const activation: StepActivation = {
       id: activationId(run.id, stepId, visitNumber),
       stepId,
       visitNumber,
+      ...(title === undefined ? {} : { title }),
       status: 'running',
       attemptIds: [],
       triggeredByFeedbackId: context?.feedbackId,

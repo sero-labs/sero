@@ -27,6 +27,10 @@ describe('reconnect workflow', () => {
     expect(fixed?.blockedReason).toBeNull();
     expect(fixed?.milestones[0]).toMatchObject({ status: 'running', dispatch: { id: 'loop_1' } });
     expect(fixed?.milestones[0]?.pendingDispatch).toBeUndefined();
+    // The reconnection names the milestone and records the Workflow it went to.
+    const entry = fixed?.history.at(-1);
+    expect(entry?.cause).toBe('You reconnected it to its Workflow');
+    expect(entry?.subject).toEqual({ kind: 'workflow', id: 'loop_1', label: 'Milestone m1' });
     expect((await repairDispatch(store, host, record.id, 'loop_1')).ok).toBe(false);
   });
 

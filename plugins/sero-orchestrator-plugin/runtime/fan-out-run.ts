@@ -115,6 +115,7 @@ export async function runFanOutStep(input: FanOutRunInput): Promise<FanOutRunRes
       id: item.activationId,
       stepId: step.id,
       visitNumber: 1,
+      title: step.title,
       status: 'pending',
       fanOut: { index: item.index, key: item.key, item: item.item },
       attemptIds: [],

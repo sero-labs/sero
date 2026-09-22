@@ -70,3 +70,10 @@ export async function worktreeFingerprint(host: ArchitectHost, folder: string): 
   }
   return hash.digest('hex');
 }
+
+/** True when any checked tracked or untracked content moved after evidence ran. */
+export async function evidenceIsStale(host: ArchitectHost, record: ProjectRecord, milestone: Milestone): Promise<boolean> {
+  if (!milestone.evidence) return false;
+  if (!milestone.evidence.fingerprint) return true;
+  return (await worktreeFingerprint(host, record.folder)) !== milestone.evidence.fingerprint;
+}

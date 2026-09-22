@@ -21,12 +21,12 @@ import { roomModelLimits } from './model-selection';
 import { startResearchRoom } from './research-room';
 import { startResearchWorkflow } from './research-workflow';
 
-import { block, settle } from '../shared/lifecycle';
+import { appendHistory, block, settle } from '../shared/lifecycle';
 import type { EvidenceCommand, EvidenceRecord, Milestone, PendingResearch, ProjectRecord, ResearchResult } from '../shared/record';
 import { MAINTENANCE_MILESTONE_ID, MAINTENANCE_TRIGGERS, maintenancePrompt } from '../shared/maintenance';
 import type { WakeEvent } from '../shared/wake';
 import type { ArchitectHost } from './host';
-import { captureConfirmed, commitOf, diffSummaryOf, remainingUsd, replaceMilestone, researchTask, worktreeFingerprint } from './service-helpers';
+import { captureConfirmed, commitOf, diffSummaryOf, evidenceIsStale, remainingUsd, replaceMilestone, researchTask, worktreeFingerprint } from './service-helpers';
 import type { OwnerServices } from './owner-actions';
 import type { RecordStore } from './record-store';
 import { attachResearchArtifact } from './research-artifact';
@@ -412,6 +412,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
           throw new Error(result.error ?? 'The maintenance Workflow was not created.');
         }
         const now = host.now();
+        const loopId = result.loopId;
         const milestone: Milestone = {
           id: MAINTENANCE_MILESTONE_ID,
           title: 'Maintenance: triage issues, CI failures and the weekly review',
@@ -427,8 +428,12 @@ export function createServices(deps: ServicesDeps): OwnerServices {
         };
         const next = await store.update(record.id, (fresh) => {
           if (fresh.milestones.some((m) => m.id === MAINTENANCE_MILESTONE_ID)) return null;
-          const settled = settle({ ...fresh, stateLine: 'Maintenance Workflow is ready.', milestones: [...fresh.milestones, milestone] }, now);
-          return { ...settled, history: [...settled.history, { at: now, phase: settled.phase, overlay: settled.overlay, cause: `maintenance Workflow ${result.loopId} subscribed` }] };
+          return appendHistory(
+            { ...fresh, stateLine: 'Maintenance Workflow is ready.', milestones: [...fresh.milestones, milestone] },
+            now,
+            'Maintenance Workflow subscribed',
+            { kind: 'workflow', id: loopId, label: milestone.title },
+          );
         });
         // Activation can await the first run. Save the link and release the
         // owner now so directives are not held behind a maintenance execution.
@@ -489,11 +494,4 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     },
   };
   return services;
-}
-
-/** True when any checked tracked or untracked content moved after evidence ran. */
-export async function evidenceIsStale(host: ArchitectHost, record: ProjectRecord, milestone: Milestone): Promise<boolean> {
-  if (!milestone.evidence) return false;
-  if (!milestone.evidence.fingerprint) return true;
-  return (await worktreeFingerprint(host, record.folder)) !== milestone.evidence.fingerprint;
 }

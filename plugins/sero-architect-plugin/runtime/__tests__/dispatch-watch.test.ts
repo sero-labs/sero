@@ -56,6 +56,10 @@ describe('dispatch watch', () => {
     expect(resumed?.blockedReason).toBeNull();
     expect(resumed?.milestones[0].dispatch).toMatchObject({ id: 'loop_1', chargedUsd: 2 });
     expect(resumed?.milestones[0].dispatch?.failure).toBeUndefined();
+    // The resumed entry names the milestone and folds the reason it stopped.
+    const entry = resumed?.history.find((item) => item.cause === 'Workflow resumed');
+    expect(entry?.subject).toEqual({ kind: 'workflow', id: 'loop_1', label: 'Milestone m1' });
+    expect(entry?.detail).toBe('reached max wall-clock (1800000ms)');
     watch.dispose();
   });
 

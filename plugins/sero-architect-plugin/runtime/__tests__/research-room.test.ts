@@ -104,6 +104,11 @@ describe('what a research Room may do', () => {
       proposal: { kind: 'research-access', researchId: started.id },
     });
     expect(record.decisions[0]?.options.map((option) => option.id)).toEqual(['allow-commands', 'answer-note', 'withdraw']);
+    // The raised entry names no id and folds the Room's question.
+    const raised = record.history.at(-1);
+    expect(raised?.cause).toBe('Architect asked a question');
+    expect(raised?.subject).toEqual({ kind: 'decision', id: record.decisions[0]?.id, label: record.decisions[0]?.question });
+    expect(raised?.detail).toBe(record.decisions[0]?.question);
     // The entry is still pending, and recovery does not ask the planner again while the question is open.
     expect(record.pendingResearch?.[0]?.id).toBe(started.id);
     createServices({ host, store, wake: vi.fn() }).recoverPending(record);
@@ -245,5 +250,31 @@ describe('a research Room that ends without reporting', () => {
     const blocked = await blockOn('cancelled');
     expect(JSON.stringify(blocked.blockedOn)).not.toContain('attempts');
     expect(blocked.blockedOn?.cause?.text ?? '').not.toMatch(/stopped (once|twice|\d+ times)/);
+  });
+
+  it('clears the block when the Room reports again, naming it and folding the reason', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const record = buildingProject({ phase: 'discovery', charter: null, milestones: [] });
+    const pending = { id: 'res-1', question: 'q', stoppingCondition: 's', startedAt: T0, kind: 'room' as const, roomId: 'room-9' };
+    const reason = 'Research Room room-9 is cancelled. Open the Room to review its next action.';
+    await store.write({ ...record, pendingResearch: [pending], blockedReason: reason });
+    const handle: OrchestratorRoomHandle = {
+      create: async () => ({ ok: true, roomId: 'room-9' }),
+      inspect: async () => ({ status: 'running', models: [], result: null }),
+    };
+    (globalThis as Record<string, unknown>)[ORCHESTRATOR_ROOM_REGISTRY_GLOBAL_KEY] = new Map([['ws-1', { handle }]]);
+    const room: OrchestratorBoardRoomView = {
+      id: 'room-9', title: 'Import Dashboard Discovery', status: 'running', memberCount: 2, activeMemberCount: 2,
+      costUsd: 0.2, maxCostUsd: 5, startedAt: T0, updatedAt: T0, attentionCount: 0, deliveredAt: null, deliveryRef: null,
+    };
+
+    await observeResearchRooms({ host, store, wake: vi.fn() }, record.id, [room]);
+
+    const resumed = (await store.read(record.id))!;
+    expect(resumed.blockedReason).toBeNull();
+    const entry = resumed.history.find((item) => item.cause === 'Room resumed');
+    expect(entry?.subject).toEqual({ kind: 'room', id: 'room-9', label: 'Import Dashboard Discovery' });
+    expect(entry?.detail).toBe(reason);
   });
 });

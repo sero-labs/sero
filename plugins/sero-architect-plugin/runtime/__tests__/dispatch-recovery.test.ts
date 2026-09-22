@@ -55,6 +55,9 @@ describe('Architect dispatch recovery through the Orchestrator registry', () => 
     // is charged to it after the run closes.
     expect(saved.milestones[0].pendingDispatch?.project?.runId).toBeTruthy();
     expect(linked.dispatch?.runId).toBe(saved.milestones[0].pendingDispatch?.project?.runId);
+    // The dispatch entry names the milestone and records the Workflow it went to.
+    const dispatchEntry = (await reopened.read(record.id))!.history.filter((entry) => entry.cause === 'sent to its Workflow').at(-1);
+    expect(dispatchEntry?.subject).toEqual({ kind: 'workflow', id: linked.dispatch?.id, label: 'Milestone m1' });
     expect(restarted.state.loops).toHaveLength(1);
     expect(restarted.state.loops[0].prompt).toBe(pendingPrompt);
     await vi.waitFor(() => expect(restarted.state.loops[0].status).toBe('active'));

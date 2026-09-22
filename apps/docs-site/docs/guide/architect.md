@@ -83,9 +83,10 @@ The project page has four sections:
 
 ![Architect project page with a charter waiting for approval](../assets/images/architect-charter.png)
 
-History and older directives are behind disclosures in the side column. The
-page never shows an event log and never streams agent output. To read the
-owner's session, select **Open session**.
+History is its own view, opened from the project controls menu (⋯). Older
+directives stay behind a disclosure in the side column. The page never shows an
+event log and never streams agent output. To read the owner's session, select
+**Open session**.
 
 ## Milestones close on evidence
 

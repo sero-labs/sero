@@ -208,6 +208,18 @@ describe('legacy records, project overrides and run references', () => {
     expect(read?.budget).toEqual(LEGACY_BUDGET);
   });
 
+  it('reads history entries written before a subject and a note existed', async () => {
+    const { store } = await harness();
+    // The exact entry shape the older runtime wrote: no subject, no detail.
+    const history = [{ at: '2026-09-06T10:00:00.000Z', phase: 'intake' as const, overlay: null, cause: 'milestone m1 dispatched as workflow loop_1' }];
+    await store.write({ ...record('legacy'), history });
+
+    const read = await store.read('legacy');
+    expect(read?.history).toEqual(history);
+    expect(read?.history[0]).not.toHaveProperty('subject');
+    expect(read?.history[0]).not.toHaveProperty('detail');
+  });
+
   it('keeps overrides and runs in the record, out of the index, with budget untouched', async () => {
     const { store, index } = await harness();
     await store.write({ ...record('a'), budget: LEGACY_BUDGET });

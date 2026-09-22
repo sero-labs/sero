@@ -101,6 +101,12 @@ export interface OrchestratorIndex {
  */
 export interface LoopRunStepSummary {
   stepId: string;
+  /**
+   * The plan's title for the step when the run visited it. Absent on a summary
+   * written before this field existed; a reader then names the step by its id
+   * rather than by a title taken from the loop's current plan.
+   */
+  title?: string;
   /** Logical visit number. Absent for history written before activations. */
   visitNumber?: number;
   activationId?: string;

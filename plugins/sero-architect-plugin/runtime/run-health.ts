@@ -68,7 +68,7 @@ export async function applyRunHealth(store: RecordStore, projectId: string, loop
       const next = { ...record, milestones: record.milestones.map((item) => item.id === milestone.id
         ? { ...item, dispatch: { ...dispatch, failure: undefined, retryStepId: undefined, costLimitUsd: undefined } } : item) };
       if (record.blockedReason !== milestone.dispatch.failure) return next;
-      const cleared = unblock(next, now, `workflow ${loopId} resumed`);
+      const cleared = unblock(next, now, 'Workflow resumed', { kind: 'workflow', id: loopId, label: milestone.title }, milestone.dispatch.failure);
       return cleared.ok ? { ...cleared.record, stateLine: `Workflow resumed: ${milestone.title}.` } : next;
     }
     return null;

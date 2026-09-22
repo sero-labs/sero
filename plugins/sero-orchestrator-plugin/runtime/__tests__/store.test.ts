@@ -270,8 +270,9 @@ describe('run summary retains why a run ended', () => {
     stepId: string,
     status: StepActivationStatus,
     visitNumber = 1,
+    title?: string,
   ): StepActivation {
-    return { id, stepId, visitNumber, status, attemptIds: [], startedAt: 't' };
+    return { id, stepId, visitNumber, ...(title === undefined ? {} : { title }), status, attemptIds: [], startedAt: 't' };
   }
 
   function attempt(id: string, stepId: string, activationId: string, status: StepAttemptStatus) {
@@ -364,6 +365,7 @@ describe('run summary retains why a run ended', () => {
     expect(index.runs[0].block).toBeUndefined();
     expect(index.runs[0].interruptedStepIds).toBeUndefined();
     expect(index.runs[0].steps[0].planIndex).toBeUndefined();
+    expect(index.runs[0].steps[0].title).toBeUndefined();
     expect(index.runs[0].steps[0].status).toBe('completed');
   });
 
@@ -382,14 +384,54 @@ describe('run summary retains why a run ended', () => {
     const interrupted: LoopRun = {
       ...run('r1'),
       status: 'orphaned',
-      stepActivations: [activation('act-1', 'choose', 'succeeded'), activation('act-2', 'right', 'orphaned')],
+      stepActivations: [
+        activation('act-1', 'choose', 'succeeded', 1, 'Choose the branch'),
+        activation('act-2', 'right', 'orphaned', 1, 'Take the right branch'),
+      ],
     };
     // The plan is [choose, left, right] and the run skipped `left`, so the
     // interrupted step is the third even though it is the second activation.
-    const index = buildRunIndex([interrupted], ['choose', 'left', 'right']);
+    const index = buildRunIndex([interrupted], [
+      { id: 'choose', title: 'Choose the branch' },
+      { id: 'left', title: 'Take the left branch' },
+      { id: 'right', title: 'Take the right branch' },
+    ]);
     expect(index.runs[0].steps.map((step) => [step.stepId, step.planIndex]))
       .toEqual([['choose', 0], ['right', 2]]);
+    // The title the step held when the visit started rides with the position.
+    expect(index.runs[0].steps.map((step) => step.title))
+      .toEqual(['Choose the branch', 'Take the right branch']);
     expect(index.runs[0].interruptedStepIds).toEqual(['right']);
+  });
+
+  it('writes each visited step\'s title from the visit, not from the current plan', () => {
+    const visited: LoopRun = {
+      ...run('r1'),
+      stepActivations: [
+        activation('act-1', 's1', 'succeeded', 1, 'First step'),
+        activation('act-2', 's2', 'succeeded', 2, 'Second step'),
+      ],
+    };
+    const summary = toRunSummary(visited, [
+      { id: 's1', title: 'Rewritten first step' },
+      { id: 's2', title: 'Rewritten second step' },
+    ]);
+    expect(summary.steps.map((step) => step.title)).toEqual(['First step', 'Second step']);
+  });
+
+  it('keeps the title a finished run ran under when the plan is revised later', () => {
+    const first: LoopRun = {
+      ...run('r1'),
+      stepActivations: [activation('act-1', 'implement', 'succeeded', 1, 'Implement title search')],
+    };
+    const second: LoopRun = {
+      ...run('r2'),
+      stepActivations: [activation('act-2', 'implement', 'succeeded', 1, 'Implement ranked title search')],
+    };
+    // Reflection rewrote the step after run 1, so the index is rebuilt under a
+    // revised plan. Run 1 must keep the name it actually ran under.
+    const index = buildRunIndex([first, second], [{ id: 'implement', title: 'Implement ranked title search' }]);
+    expect(index.runs.map((r) => r.steps[0]?.title)).toEqual(['Implement title search', 'Implement ranked title search']);
   });
 
   it('leaves the plan position absent when the writer did not know the plan', () => {
@@ -401,6 +443,8 @@ describe('run summary retains why a run ended', () => {
     // No plan to read, so no position is claimed. A reader must then state no
     // step number rather than infer one from the run's own order.
     expect(summary.steps[0].planIndex).toBeUndefined();
+    // No plan to read, so no title is claimed either.
+    expect(summary.steps[0].title).toBeUndefined();
     expect(summary.interruptedStepIds).toEqual(['s1']);
   });
 });

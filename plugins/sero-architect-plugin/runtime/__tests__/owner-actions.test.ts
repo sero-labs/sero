@@ -189,6 +189,18 @@ describe('owner actions', () => {
     const accepted = await actions.execute(owner, { action: 'milestone', projectId: 'proj_1', milestoneId: 'm1', done: true });
     expect(accepted.ok).toBe(true);
     expect((await store.read('proj_1'))?.milestones[0]).toMatchObject({ status: 'done', verification: 'accepted' });
+    // The entry names the milestone, so the view needs no lookup and prints no id.
+    const acceptedEntry = (await store.read('proj_1'))?.history.find((entry) => entry.cause === 'accepted on passed evidence');
+    expect(acceptedEntry?.subject).toEqual({ kind: 'milestone', id: 'm1', label: 'Milestone m1' });
+  });
+
+  it('records a newly added milestone with its own name', async () => {
+    const { actions, store } = await setup();
+    const outcome = await actions.execute(owner, { action: 'milestone', projectId: 'proj_1', title: 'A new step' });
+    expect(outcome.ok).toBe(true);
+    const entry = (await store.read('proj_1'))?.history.at(-1);
+    expect(entry?.cause).toBe('added');
+    expect(entry?.subject).toEqual({ kind: 'milestone', id: 'm3', label: 'A new step' });
   });
 
   it('shows a delivery receipt as evidence of delivery only; without verification the milestone stays verifying', async () => {
@@ -337,6 +349,11 @@ describe('owner actions', () => {
     expect(record?.milestones.find((m) => m.id === 'm2')).toMatchObject({ status: 'parked', parkedBy: 'dec_1', parkedFrom: 'planned' });
     expect(record?.milestones.find((m) => m.id === 'm1')?.status).toBe('planned');
     expect(outcomes.end('proj_1')).toBe('decide');
+    // The entry folds the question and names no id in its headline.
+    const entry = record?.history.at(-1);
+    expect(entry?.cause).toBe('Architect asked a question');
+    expect(entry?.subject).toEqual({ kind: 'decision', id: 'dec_1', label: 'Hex or square?' });
+    expect(entry?.detail).toBe('Hex or square?');
   });
 
   it('will not let the owner sleep past an unanswered directive', async () => {

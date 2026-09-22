@@ -48,7 +48,7 @@ export async function repairDispatch(
     } : item), stateLine: `Reconnected to ${milestone.title}. Checking progress.` }, now);
     // Only clear the missing-link block. Other failures still need attention.
     if (linked.blockedReason?.startsWith('dispatch state could not be confirmed after restart:')) {
-      const cleared = unblock(linked, now, `user reconnected ${milestone.id} to workflow ${workflowId}`);
+      const cleared = unblock(linked, now, 'You reconnected it to its Workflow', { kind: 'workflow', id: workflowId, label: milestone.title });
       return cleared.ok ? cleared.record : linked;
     }
     return linked;

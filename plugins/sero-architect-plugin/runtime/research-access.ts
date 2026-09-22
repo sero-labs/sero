@@ -63,7 +63,14 @@ export async function raiseResearchAccessDecision(
       ...fresh,
       stateLine: 'The research Room needs an answer from you.',
       decisions: [...fresh.decisions, decision],
-      history: [...fresh.history, { at: now, phase: fresh.phase, overlay: fresh.overlay, cause: `decision ${decision.id} raised: the research Room asked a question` }],
+      history: [...fresh.history, {
+        at: now,
+        phase: fresh.phase,
+        overlay: fresh.overlay,
+        cause: 'Architect asked a question',
+        subject: { kind: 'decision', id: decision.id, label: decision.question },
+        detail: decision.question,
+      }],
     }, now);
   });
 }

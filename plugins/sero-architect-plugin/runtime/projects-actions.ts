@@ -261,7 +261,9 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
         const unpaused = record.paused ? resume(record, now) : null;
         let next = unpaused?.ok ? unpaused.record : record;
         if (next.blockedReason !== null) {
-          const cleared = unblock(next, now, `user resumed: ${next.blockedReason}`);
+          // The reason it was blocked is folded under the headline, so the entry
+          // reads as the user's own act rather than a raw block sentence.
+          const cleared = unblock(next, now, 'You resumed the project', undefined, next.blockedReason);
           if (cleared.ok) next = { ...cleared.record, stateLine: 'Continuing the project.' };
         }
         return { record: next };
@@ -366,7 +368,18 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
         if (!milestone.plan) return { error: `Milestone ${milestone.id} has no plan to approve yet.` };
         const approved: Milestone = { ...milestone, status: 'approved' };
         const settled = settle({ ...record, milestones: record.milestones.map((m) => (m.id === milestone.id ? approved : m)) }, now);
-        return { record: { ...settled, history: [...settled.history, { at: now, phase: settled.phase, overlay: settled.overlay, cause: `user approved milestone ${milestone.id}` }] } };
+        return {
+          record: {
+            ...settled,
+            history: [...settled.history, {
+              at: now,
+              phase: settled.phase,
+              overlay: settled.overlay,
+              cause: 'approved',
+              subject: { kind: 'milestone' as const, id: milestone.id, label: milestone.title },
+            }],
+          },
+        };
       });
       if (!result.ok) return refuse(result.error);
       scheduler.request(projectId, { kind: 'decision', at: now, items: [`the user approved the plan for milestone ${milestoneId ?? ''}`] });
@@ -395,10 +408,22 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
               : { ...m, status: m.parkedFrom ?? 'planned', parkedBy: null, parkedByDecisions: [], parkedFrom: null };
           }),
         }, now);
+        const chosen = decision.options.find((o) => o.id === optionId);
+        const answerNote = note?.trim() || null;
         // The research effect lands in this same write, so a crash between
         // the answer and its effect cannot leave the entry pending and unanswerable.
         if (decision.proposal?.kind === 'research-access') next = closeDeliveredObjectives(settle(answerResearchAccess(next, decision.proposal.researchId, optionId), now), now);
-        next = { ...next, history: [...next.history, { at: now, phase: next.phase, overlay: next.overlay, cause: `decision ${decisionId} answered: ${optionId}` }] };
+        next = {
+          ...next,
+          history: [...next.history, {
+            at: now,
+            phase: next.phase,
+            overlay: next.overlay,
+            cause: `You answered Architect's question: ${chosen?.label ?? optionId}`,
+            subject: { kind: 'decision' as const, id: decisionId, label: decision.question },
+            ...(answerNote ? { detail: answerNote } : {}),
+          }],
+        };
         return { record: next };
       });
       if (!answered.ok) return refuse(answered.error);

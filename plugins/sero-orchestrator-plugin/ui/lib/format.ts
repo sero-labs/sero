@@ -16,6 +16,20 @@ export function formatClock(iso: string): string {
 }
 
 /**
+ * Day and short month, without a time — the drawing's `19 Sep`.
+ *
+ * `formatDayTime` is the same day with the clock; this is for a line whose
+ * whole job is to say which day a fact was recorded.
+ */
+export function formatDay(iso?: string): string {
+  if (!iso) return '—';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  const month = date.toLocaleDateString(undefined, { month: 'short' });
+  return `${date.getDate()} ${month}`;
+}
+
+/**
  * Day, short month and time — the drawing's `16 Sep, 23:13`.
  *
  * `formatTime` prints a full locale stamp, which is 21 characters of noise on a
@@ -25,8 +39,7 @@ export function formatDayTime(iso?: string): string {
   if (!iso) return '—';
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  const month = date.toLocaleDateString(undefined, { month: 'short' });
-  return `${date.getDate()} ${month}, ${formatClock(iso)}`;
+  return `${formatDay(iso)}, ${formatClock(iso)}`;
 }
 
 /** Compact relative time: "just now", "5m ago", "2h ago", "3d ago". */
