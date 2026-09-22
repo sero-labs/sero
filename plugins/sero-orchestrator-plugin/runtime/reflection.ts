@@ -55,6 +55,7 @@ RULES — read carefully:
 - Base every suggestion on EVIDENCE in the run history (a step that repeatedly failed/retried/was revised, an ordering problem, instructions that caused rework). Do not speculate.
 - If nothing is clearly worth changing, return "suggestions": []. NEVER invent a change to seem useful — no churn.
 - Record "insights" (durable lessons) even when you propose no change. Keep them short and specific.
+- The existing insights are already known to you. Add an insight only when it states something none of the existing insights states; do not restate one in other words.
 - Do NOT re-propose anything listed under PREVIOUSLY REJECTED.
 - Be sparing: at most a few high-value suggestions.`;
 
@@ -145,11 +146,15 @@ function parseReflection(value: unknown): ParseResult<ParsedReflection> {
     }
     const rationale = typeof raw.rationale === 'string' ? raw.rationale.trim() : '';
     const confidence = raw.confidence as SuggestionConfidence;
+    // SAFETY: `isRecord` proves the value is an object and `validateLoopPlan`
+    // proves it holds a complete LoopPlan, so the cast states a checked fact.
     const planValid = isRecord(raw.plan) && validateLoopPlan(raw.plan as unknown as LoopPlan).length === 0;
     if (!rationale || !CONFIDENCES.includes(confidence) || !planValid) {
       dropped += 1;
       continue;
     }
+    // SAFETY: `planValid` above ran `validateLoopPlan` on this exact value, so
+    // it is a complete LoopPlan and the cast adds no assumption.
     suggestions.push({ rationale, confidence, plan: raw.plan as unknown as LoopPlan });
   }
   return { ok: true, value: { insights, suggestions, dropped } };

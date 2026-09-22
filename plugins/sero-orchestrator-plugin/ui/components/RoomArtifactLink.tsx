@@ -6,11 +6,13 @@ import { cn } from '@sero-ai/ui/lib/utils';
 interface RoomArtifactLinkProps {
   workspaceId: string | null | undefined;
   path: string;
+  /** The file's own name, kept reachable on hover when the control says only `Open`. */
+  title?: string;
   children: ReactNode;
   className?: string;
 }
 
-export function RoomArtifactLink({ workspaceId, path, children, className }: RoomArtifactLinkProps) {
+export function RoomArtifactLink({ workspaceId, path, title, children, className }: RoomArtifactLinkProps) {
   return (
     <TooltipProvider delayDuration={500}>
       <Tooltip>
@@ -18,6 +20,7 @@ export function RoomArtifactLink({ workspaceId, path, children, className }: Roo
           <button
             type="button"
             disabled={!workspaceId}
+            title={title}
             onClick={() => workspaceId && void openSeroFile(workspaceId, path)}
             className={cn('group min-w-0 text-left enabled:cursor-pointer disabled:cursor-default', className)}
           >

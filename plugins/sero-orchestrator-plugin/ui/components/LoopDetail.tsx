@@ -14,6 +14,7 @@ import type {
 import { DEFAULT_RUN_INDEX } from '../../shared/defaults';
 import { WORKFLOWS_LABEL } from '../../shared/labels';
 import { useWatchedJson } from '../lib/use-watched-json';
+import { formatDay } from '../lib/format';
 import { useLibraryLink } from '../lib/use-library-link';
 import { NeedsYouBadge } from './StatusBadge';
 import { LoopControls } from './LoopControls';
@@ -134,9 +135,14 @@ export function LoopDetail({ loop, summary, busy, onAction, onDispatch, stateDir
             <AttemptHistory runs={runIndex.runs} />
           </CollapsibleSection>
           {insights.length > 0 && (
-            <CollapsibleSection title="What reflection has learned">
+            <CollapsibleSection title="What reflection has learned" hint={String(insights.length)}>
               <ul className="ml-4 list-disc text-xs text-room-text2">
-                {insights.map((insight) => <li key={insight.id}>{insight.summary}</li>)}
+                {insights.map((insight) => (
+                  <li key={insight.id}>
+                    {insight.summary}
+                    <span className="ml-2 font-mono text-[10px] text-room-text3">{formatDay(insight.createdAt)}</span>
+                  </li>
+                ))}
               </ul>
             </CollapsibleSection>
           )}

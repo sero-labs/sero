@@ -53,6 +53,23 @@ describe('proposeImprovements', () => {
     expect(out.insights).toHaveLength(1);
   });
 
+  it('gives the reflector its existing lessons and the rule that a new one must add something', async () => {
+    const host = createFakeHost();
+    const held = 'step a fails when it edits before reading';
+    const loop = {
+      ...seedActiveLoop(host, sequentialPlan().plan),
+      insights: [{ id: 'ins-1', summary: held, createdAt: 't' }],
+    };
+    host.modelResponses.push({ response: JSON.stringify({ insights: [], suggestions: [] }) });
+
+    await proposeImprovements(host, loop, [digest(1)]);
+
+    // The task lists the lessons already held, so the model does the comparison
+    // rather than any code matching one lesson's text against another's.
+    expect(host.modelCalls[0].task).toContain(held);
+    expect(host.modelCalls[0].systemPrompt).toContain('none of the existing insights states');
+  });
+
   it('drops a suggestion whose proposed plan is invalid, keeping the valid one', async () => {
     const host = createFakeHost();
     const loop = seedActiveLoop(host, sequentialPlan().plan);

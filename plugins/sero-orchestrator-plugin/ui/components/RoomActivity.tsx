@@ -68,20 +68,28 @@ interface RoomActivityProps {
 export function RoomActivity({ events, members, savedEvents = 0 }: RoomActivityProps) {
   const [filter, setFilter] = useState<Filter>('highlights');
 
-  const shown = useMemo(
-    () => {
-      if (filter === 'highlights') return events.filter(isHighlight);
-      if (filter === 'all') return events;
-      return events.filter((event) => FILTER_KINDS[filter].includes(event.kind));
-    },
-    [events, filter],
-  );
+  // The counts and the shown rows come from one pass over the events, so a
+  // filter can never show a number its own list disagrees with.
+  const { shown, counts } = useMemo(() => {
+    const select = (option: Exclude<Filter, 'all' | 'highlights'>) => events.filter((event) => FILTER_KINDS[option].includes(event.kind));
+    const counts: Record<Filter, number> = {
+      highlights: events.filter(isHighlight).length,
+      all: events.length,
+      decisions: select('decisions').length,
+      messages: select('messages').length,
+      work: select('work').length,
+    };
+    const shown = filter === 'highlights' ? events.filter(isHighlight)
+      : filter === 'all' ? events
+      : select(filter);
+    return { shown, counts };
+  }, [events, filter]);
 
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-hidden px-[18px] py-[15px]">
       <div className="mb-3 flex items-center">
         <b className="text-xs font-semibold text-room-text2">Activity</b>
-        <div role="group" aria-label="Filter activity" className="ml-auto flex gap-[5px]">
+        <div role="group" aria-label="Filter activity" className="ml-auto flex gap-[6px]">
           {(Object.keys(FILTER_LABEL) as Filter[]).map((option) => (
             <button
               key={option}
@@ -89,13 +97,17 @@ export function RoomActivity({ events, members, savedEvents = 0 }: RoomActivityP
               aria-pressed={filter === option}
               onClick={() => setFilter(option)}
               className={cn(
-                'flex h-[21px] items-center rounded-[11px] px-2 text-[10px]',
+                // An inactive pill is outlined with a transparent background; only
+                // the active one is filled, as the drawing sets it.
+                'flex items-center rounded-full border px-[10px] py-[4px] text-[12px]',
                 filter === option
-                  ? 'bg-brand-primary-subtle text-room-ink-brand'
-                  : 'bg-room-muted text-room-text3 hover:text-room-text2',
+                  ? 'border-room-line-strong bg-room-overlay text-room-text'
+                  : 'border-room-line bg-transparent text-room-text3 hover:text-room-text2',
               )}
             >
               {FILTER_LABEL[option]}
+              {/* The count is its own element, never part of the label. */}
+              <i className="ml-[3px] font-mono text-[10px] not-italic text-room-text3">{counts[option]}</i>
             </button>
           ))}
         </div>
@@ -140,18 +152,22 @@ function ActivityRow({ event, members }: { event: RoomTimelineEvent; members: Ma
       <div className="min-w-0 flex-1">
         {tone ? (
           // The weighty kinds are the card itself, not a sentence plus a card:
-          // the record carries one summary, and saying it twice is noise.
+          // the record carries one summary, and saying it twice is noise. A
+          // published artifact names what was published and offers one control
+          // that opens it.
           <EventCard
             tone={tone}
-            title={artifactRef ? (
+            title={<span className="min-w-0">{event.summary}</span>}
+            actions={artifactRef ? (
               <RoomArtifactLink
                 workspaceId={workspaceId}
                 path={resolveArtifactPath(artifactRef, member ?? undefined)}
-                className="room-tabular truncate text-room-text2 hover:text-room-text"
+                title={artifactFileName(artifactRef)}
+                className="text-[11px] font-semibold text-room-ink-brand hover:underline"
               >
-                {artifactFileName(artifactRef)}
+                Open
               </RoomArtifactLink>
-            ) : <span className="min-w-0">{event.summary}</span>}
+            ) : undefined}
           >
             {!artifactRef && event.details?.ref != null ? (
               <span className="room-tabular text-room-text3">{String(event.details.ref)}</span>
