@@ -12,6 +12,8 @@ vi.mock('@/components/layout/git-remote/origin-utils', () => ({
 }));
 
 import { useWorkspaceStore } from './workspace';
+import { useAppStore } from '@/stores/app';
+import { useNavigationStore } from '@/stores/navigation';
 
 const workspaceBridge = {
   create: vi.fn(),
@@ -20,6 +22,8 @@ const workspaceBridge = {
 
 const originalSeroDescriptor = Object.getOwnPropertyDescriptor(window, 'sero');
 const initialState = useWorkspaceStore.getInitialState();
+const initialAppState = useAppStore.getState();
+const initialNavigationState = useNavigationStore.getState();
 
 function workspace(id: string): WorkspaceInfo {
   return {
@@ -49,6 +53,8 @@ describe('workspace clone action', () => {
 
   afterEach(() => {
     useWorkspaceStore.setState(initialState, true);
+    useAppStore.setState(initialAppState, true);
+    useNavigationStore.setState(initialNavigationState, true);
     if (originalSeroDescriptor) {
       Object.defineProperty(window, 'sero', originalSeroDescriptor);
     } else {
@@ -89,5 +95,30 @@ describe('workspace clone action', () => {
 
     expect(workspaceBridge.close).toHaveBeenCalledWith('new-repo');
     expect(useWorkspaceStore.getState().activeWorkspaceId).toBe('existing');
+  });
+
+  it('records the move to a created workspace as a step in history', async () => {
+    useWorkspaceStore.setState({ activeWorkspaceId: 'existing' });
+    useAppStore.setState({
+      ...initialAppState,
+      activeApp: 'kanban',
+      apps: [{ id: 'kanban', label: 'Kanban', icon: 'box', builtin: false, manifest: null }],
+      appViewIds: { kanban: { 'new-repo': 'board/card-1' } },
+    }, true);
+    useNavigationStore.setState({
+      entries: [{ appId: 'kanban', viewId: 'board/card-0', workspaceId: 'existing' }],
+      index: 0,
+    });
+
+    await useWorkspaceStore.getState().createWorkspace('New Repo');
+
+    // The active app stays open, so one Back must reach the page it left.
+    expect(useNavigationStore.getState()).toMatchObject({
+      entries: [
+        { appId: 'kanban', viewId: 'board/card-0', workspaceId: 'existing' },
+        { appId: 'kanban', viewId: 'board/card-1', workspaceId: 'new-repo' },
+      ],
+      index: 1,
+    });
   });
 });

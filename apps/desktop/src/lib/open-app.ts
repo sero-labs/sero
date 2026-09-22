@@ -112,3 +112,20 @@ export function switchWorkspace(workspaceId: string): void {
   }
   useWorkspaceStore.getState().setActiveWorkspace(workspaceId);
 }
+
+/**
+ * Point the shell at a workspace for an app that is about to open.
+ *
+ * When that app is already showing, the workspace change is its own step in
+ * history, so one Back returns to the page the user left. When another app is
+ * about to open, `setActiveApp` records the move and a second step would be
+ * wrong. Call this instead of `setActiveWorkspace` before an app open.
+ */
+export function selectWorkspaceForApp(appId: string, workspaceId: string): void {
+  if (useWorkspaceStore.getState().activeWorkspaceId === workspaceId) return;
+  if (useAppStore.getState().activeApp === appId) {
+    switchWorkspace(workspaceId);
+    return;
+  }
+  useWorkspaceStore.getState().setActiveWorkspace(workspaceId);
+}

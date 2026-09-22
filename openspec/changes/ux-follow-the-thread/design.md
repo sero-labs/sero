@@ -74,22 +74,38 @@ already sets the precedent.
 
 ### 2. Record the workspace switch where the user acts
 
-Delete `listenForAppNavigationWorkspace`. Add one helper beside `navigateBack`
-in `apps/desktop/src/lib/open-app.ts` that pushes the active app's location in the
-new workspace and then calls `setActiveWorkspace`. Use it at the three sites that
-change workspace while the active app stays the same:
+Delete `listenForAppNavigationWorkspace`. Add two helpers beside `navigateBack`
+in `apps/desktop/src/lib/open-app.ts`:
+
+- `switchWorkspace(id)` pushes the active app's location in the new workspace and
+then calls `setActiveWorkspace`. Use it where the workspace moves and no app open
+follows, or where the same app is about to open.
+- `selectWorkspaceForApp(appId, id)` calls `switchWorkspace` when `appId` is
+already the active app, and otherwise only sets the workspace, because the app
+open that follows records the move.
+
+Use them at every site that changes workspace while an app is open:
 
 ```text
 components/layout/workspace/workspace-tree/WorkspaceNode.tsx  handleHeaderClick
 components/layout/workspace/workspace-tree/WorkspaceNode.tsx  handleNewSession
 stores/sessions.ts                                             setActiveSession
+stores/workspace.ts                                            createWorkspace/cloneWorkspace/addFolder
+lib/app-control-bridge.ts                                      openApp
+stores/editor-bridge.ts                                        focusEditor
+components/layout/DevServerPanel.tsx                          the open action
+components/layout/PendingQuestionCard.tsx                      handleOpen
+components/apps/board/BoardCard.tsx                            openCard/openInBrowser
 ```
 
-Every other `setActiveWorkspace` caller is either a history restore or is
-followed by `setActiveApp`, which already records the new app and workspace:
-`open-app.navigate`, `app-control-bridge.openApp`, `editor-bridge.focusEditor`,
-`DevServerPanel`, `BoardCard` (two handlers), `PendingQuestionCard`,
-`workspace.createWorkspace`/`cloneWorkspace`.
+`setActiveApp` records a new app and workspace, but it returns early when the app
+is already active. A caller that sets the workspace and then opens the same app
+records nothing, so it must record the step itself. Every other
+`setActiveWorkspace` caller is a history restore and must not push:
+
+```text
+lib/open-app.ts  navigate
+```
 
 **Alternative considered:** keep the listener and change `replaceCurrent` to
 `push`, with `open-app.navigate` restoring `{entries, index}` after the workspace

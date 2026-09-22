@@ -3,7 +3,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/persist-layout', () => ({ persistLayout: vi.fn() }));
-vi.mock('@/lib/open-app', () => ({ openApp: vi.fn() }));
+vi.mock('@/lib/open-app', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/open-app')>()),
+  openApp: vi.fn(),
+}));
 vi.mock('@/lib/app-control/dom-interactions', () => ({
   executeAppInteraction: vi.fn(),
   getAppPanelRect: vi.fn(() => null),

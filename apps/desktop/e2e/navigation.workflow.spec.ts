@@ -295,3 +295,17 @@ test('a sidebar workspace switch then Back once lands on the page left', async (
   await titleBack().click();
   await expect(orchestratorPanel()).toContainText(workflowDispatch.title!, { timeout: 30_000 });
 });
+
+test('opening the same app in another workspace records a step', async () => {
+  test.setTimeout(120_000);
+  await openApp('orchestrator', { loopId: workflowDispatch.id }, workflowDispatch.workspaceId);
+  await expect(orchestratorPanel()).toContainText(workflowDispatch.title!, { timeout: 30_000 });
+
+  // The app stays open; only the workspace moves, through app control.
+  await openApp('orchestrator', undefined, roomDispatch.workspaceId);
+
+  // One Back returns to the Workflow page the user left.
+  await expect(titleBack()).toBeEnabled();
+  await titleBack().click();
+  await expect(orchestratorPanel()).toContainText(workflowDispatch.title!, { timeout: 30_000 });
+});

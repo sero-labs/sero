@@ -19,7 +19,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useAgentBoardStore } from '@/stores/agent-board';
-import { useWorkspaceStore } from '@/stores/workspace';
+import { selectWorkspaceForApp, switchWorkspace } from '@/lib/open-app';
 import { useSessionStore } from '@/stores/sessions';
 import { useAgentStore } from '@/stores/agent';
 import { useAppStore } from '@/stores/app';
@@ -402,7 +402,7 @@ function OpenCardButton({ card }: { card: BoardLoopCard | BoardIssueCard | Board
 
 /** Opens web links in the card's workspace-scoped Explorer browser. */
 function openInBrowser(workspaceId: string, url: string): void {
-  useWorkspaceStore.getState().setActiveWorkspace(workspaceId);
+  selectWorkspaceForApp('explorer', workspaceId);
   useAppStore.getState().setActiveApp('explorer');
   useExplorerStore.getState().set(workspaceId, { activePanel: 'browser', sidebarOpen: false });
   useBrowserStore.getState().createTab(workspaceId, url);
@@ -410,19 +410,23 @@ function openInBrowser(workspaceId: string, url: string): void {
 
 /** Opens the work item that the link button explicitly targets. */
 function openCard(card: BoardCardModel): void {
-  useWorkspaceStore.getState().setActiveWorkspace(card.workspaceId);
-  if (card.kind === 'loop') {
-    void openSeroApp(ORCHESTRATOR_APP_ID, { loopId: card.loop.id });
-    return;
-  }
   if (card.kind === 'issue') {
     openInBrowser(card.workspaceId, card.issue.url);
     return;
   }
+  if (card.kind === 'loop') {
+    selectWorkspaceForApp(ORCHESTRATOR_APP_ID, card.workspaceId);
+    void openSeroApp(ORCHESTRATOR_APP_ID, { loopId: card.loop.id });
+    return;
+  }
   if (card.kind === 'room') {
+    selectWorkspaceForApp(ORCHESTRATOR_APP_ID, card.workspaceId);
     void openSeroApp(ORCHESTRATOR_APP_ID, { roomId: card.room.id });
     return;
   }
+  // The session opens in the chat panel and the active app stays, so the move
+  // to its workspace is its own step in history.
+  switchWorkspace(card.workspaceId);
   const info = useSessionStore.getState().sessions.find((s) => s.id === card.sessionId);
   if (info) {
     void useAgentStore.getState().openSession(info.id, info.path, info.workspaceId);

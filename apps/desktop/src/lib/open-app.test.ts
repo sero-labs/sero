@@ -5,7 +5,7 @@ import { useAppStore, type AppEntry } from '@/stores/app';
 import { useNavigationStore } from '@/stores/navigation';
 import { useUserFeedbackStore } from '@/stores/user-feedback-store';
 import { useWorkspaceStore } from '@/stores/workspace';
-import { navigateBack, openApp, switchWorkspace } from './open-app';
+import { navigateBack, openApp, selectWorkspaceForApp, switchWorkspace } from './open-app';
 
 function createApp(id: string, label: string, builtin = false): AppEntry {
   return {
@@ -246,6 +246,47 @@ describe('openApp', () => {
 
     expect(useNavigationStore.getState()).toMatchObject({
       entries: [{ appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-2' }],
+      index: 0,
+    });
+  });
+
+  it('records a step when a same-app open moves to another workspace', () => {
+    useWorkspaceStore.setState({ activeWorkspaceId: 'workspace-1' });
+    useAppStore.setState({
+      appViewIds: { kanban: { 'workspace-2': 'rooms/room-2' } },
+    });
+    useNavigationStore.setState({
+      entries: [{ appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-1' }],
+      index: 0,
+    });
+
+    selectWorkspaceForApp('kanban', 'workspace-2');
+
+    expect(useNavigationStore.getState()).toMatchObject({
+      entries: [
+        { appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-1' },
+        { appId: 'kanban', viewId: 'rooms/room-2', workspaceId: 'workspace-2' },
+      ],
+      index: 1,
+    });
+  });
+
+  it('leaves the step to the app open when a different app is about to open', () => {
+    useWorkspaceStore.setState({ activeWorkspaceId: 'workspace-1' });
+    useAppStore.setState({
+      appViewIds: { kanban: { 'workspace-2': 'rooms/room-2' } },
+    });
+    useNavigationStore.setState({
+      entries: [{ appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-1' }],
+      index: 0,
+    });
+
+    selectWorkspaceForApp('orchestrator', 'workspace-2');
+
+    // The workspace moved, but the app being left is not recorded again.
+    expect(useWorkspaceStore.getState().activeWorkspaceId).toBe('workspace-2');
+    expect(useNavigationStore.getState()).toMatchObject({
+      entries: [{ appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-1' }],
       index: 0,
     });
   });

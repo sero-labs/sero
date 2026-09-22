@@ -29,7 +29,7 @@ import { useDevServers, useRunningDevServerCount } from '@/stores/dev-server';
 import { useAppStore } from '@/stores/app';
 import { useBrowserStore } from '@/stores/browser';
 import { useExplorerStore } from '@/stores/explorer';
-import { useWorkspaceStore } from '@/stores/workspace';
+import { selectWorkspaceForApp } from '@/lib/open-app';
 import type { DevServer } from '@/types/ipc';
 
 // ── Status indicator dot ────────────────────────────────────
@@ -76,7 +76,7 @@ function ServerRow({ server }: { server: DevServer }) {
           await window.sero.devServer.unregister(server.id);
           break;
         case 'open': {
-          useWorkspaceStore.getState().setActiveWorkspace(server.workspaceId);
+          selectWorkspaceForApp('explorer', server.workspaceId);
           useAppStore.getState().setActiveApp('explorer');
           useExplorerStore.getState().set(server.workspaceId, {
             activePanel: 'browser',
