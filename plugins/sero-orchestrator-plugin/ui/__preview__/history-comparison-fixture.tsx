@@ -24,13 +24,13 @@ const member = (id: string, displayName: string, isConductor = false): RoomMembe
   worktreePath: `/work/frogger/${id}`,
 }) as unknown as RoomMember;
 
-export const PREVIEW_MEMBERS = new Map<string, RoomMember>([
+const PREVIEW_MEMBERS = new Map<string, RoomMember>([
   ['nova', member('nova', 'Nova — Product Conductor', true)],
   ['flux', member('flux', 'Flux — Canvas Engineering Analyst')],
   ['pulse', member('pulse', 'Pulse — Game and UX Critic')],
 ]);
 
-export const PREVIEW_NAMES = new Map([
+const PREVIEW_NAMES = new Map([
   ['nova', 'Nova — Product Conductor'],
   ['flux', 'Flux — Canvas Engineering Analyst'],
   ['pulse', 'Pulse — Game and UX Critic'],

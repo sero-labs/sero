@@ -129,59 +129,112 @@ export function RoomActivity({ events, members, savedEvents = 0 }: RoomActivityP
   );
 }
 
-function ActivityRow({ event, members }: { event: RoomTimelineEvent; members: Map<string, RoomMember> }) {
+/**
+ * Everything one row reads off a single event, derived in one place so the row
+ * below is only the assembly of its parts.
+ */
+interface ActivityRowParts {
+  member: RoomMember | null;
+  system: boolean;
+  who: string;
+  tone: EventCardTone | undefined;
+  artifactRef: string | null;
+  refText: string | null;
+  sentence: string;
+  workspaceId: string | undefined;
+}
+
+function activityRowParts(event: RoomTimelineEvent, members: Map<string, RoomMember>): ActivityRowParts {
   const member = event.memberId ? members.get(event.memberId) ?? null : null;
   const system = !event.memberId && SYSTEM_KINDS.includes(event.kind);
   const who = member?.displayName ?? event.memberId ?? (system ? 'Sero' : 'The Room');
-  const tone = PROMOTED_TONE[event.kind];
-  const artifactRef = event.kind === 'artifact' && event.details?.ref != null ? String(event.details.ref) : null;
-  const workspaceId = member?.session.workspaceId ?? members.values().next().value?.session.workspaceId;
-  // The summary opens with the actor's name; the bold prefix must not repeat it.
-  const sentence = event.summary.startsWith(who) ? event.summary.slice(who.length).trimStart() : event.summary;
+  // The event's own reference, whether or not it was promoted into a card.
+  const refText = event.details?.ref != null ? String(event.details.ref) : null;
+  return {
+    member,
+    system,
+    who,
+    tone: PROMOTED_TONE[event.kind],
+    artifactRef: event.kind === 'artifact' ? refText : null,
+    refText,
+    // The summary opens with the actor's name; the bold prefix must not repeat it.
+    sentence: event.summary.startsWith(who) ? event.summary.slice(who.length).trimStart() : event.summary,
+    workspaceId: member?.session.workspaceId ?? members.values().next().value?.session.workspaceId,
+  };
+}
 
+/** The member's face, or the Room's own mark for something the Room did itself. */
+function ActivityAvatar({ event, member, who, system }: {
+  event: RoomTimelineEvent;
+  member: RoomMember | null;
+  who: string;
+  system: boolean;
+}) {
+  if (!member && system) {
+    return (
+      <span aria-hidden className="grid size-[22px] shrink-0 place-items-center rounded-[6px] bg-room-muted text-[9px] text-room-text3">
+        ◷
+      </span>
+    );
+  }
+  return (
+    <Face seed={member?.id ?? event.memberId ?? who} size={22} tone={member?.isConductor ? 'conductor' : 'member'} label={memberGlyph(who, member?.isConductor)} />
+  );
+}
+
+/**
+ * A weighty event as the card itself, not a sentence plus a card: the record
+ * carries one summary, and saying it twice is noise. A published artifact
+ * names what was published and offers one control that opens it.
+ */
+function PromotedEvent({ event, parts, tone }: { event: RoomTimelineEvent; parts: ActivityRowParts; tone: EventCardTone }) {
+  return (
+    <EventCard
+      tone={tone}
+      title={<span className="min-w-0">{event.summary}</span>}
+      actions={parts.artifactRef ? (
+        <RoomArtifactLink
+          workspaceId={parts.workspaceId}
+          path={resolveArtifactPath(parts.artifactRef, parts.member ?? undefined)}
+          title={artifactFileName(parts.artifactRef)}
+          className="text-[11px] font-semibold text-room-ink-brand hover:underline"
+        >
+          Open
+        </RoomArtifactLink>
+      ) : undefined}
+    >
+      {!parts.artifactRef && parts.refText != null ? (
+        <span className="room-tabular text-room-text3">{parts.refText}</span>
+      ) : null}
+    </EventCard>
+  );
+}
+
+/** An ordinary event: the actor and the sentence, then its reference if it has one. */
+function ActivitySentence({ who, sentence, refText }: { who: string; sentence: string; refText: string | null }) {
+  return (
+    <>
+      <p className="text-xs leading-[1.55] text-room-text3">
+        <b className="font-medium text-room-text2">{who}</b> {sentence}
+      </p>
+      {refText != null && (
+        <p className="room-tabular mt-[5px] truncate text-[11px] text-room-text4">{refText}</p>
+      )}
+    </>
+  );
+}
+
+function ActivityRow({ event, members }: { event: RoomTimelineEvent; members: Map<string, RoomMember> }) {
+  const parts = activityRowParts(event, members);
   return (
     <div className="flex gap-[11px] border-b border-room-line py-2.5 last:border-b-0">
       <span className="room-tabular w-11 shrink-0 pt-0.5 text-[9px] text-room-text4">{formatClock(event.at)}</span>
-      {member || !system ? (
-        <Face seed={member?.id ?? event.memberId ?? who} size={22} tone={member?.isConductor ? 'conductor' : 'member'} label={memberGlyph(who, member?.isConductor)} />
-      ) : (
-        <span aria-hidden className="grid size-[22px] shrink-0 place-items-center rounded-[6px] bg-room-muted text-[9px] text-room-text3">
-          ◷
-        </span>
-      )}
+      <ActivityAvatar event={event} member={parts.member} who={parts.who} system={parts.system} />
       <div className="min-w-0 flex-1">
-        {tone ? (
-          // The weighty kinds are the card itself, not a sentence plus a card:
-          // the record carries one summary, and saying it twice is noise. A
-          // published artifact names what was published and offers one control
-          // that opens it.
-          <EventCard
-            tone={tone}
-            title={<span className="min-w-0">{event.summary}</span>}
-            actions={artifactRef ? (
-              <RoomArtifactLink
-                workspaceId={workspaceId}
-                path={resolveArtifactPath(artifactRef, member ?? undefined)}
-                title={artifactFileName(artifactRef)}
-                className="text-[11px] font-semibold text-room-ink-brand hover:underline"
-              >
-                Open
-              </RoomArtifactLink>
-            ) : undefined}
-          >
-            {!artifactRef && event.details?.ref != null ? (
-              <span className="room-tabular text-room-text3">{String(event.details.ref)}</span>
-            ) : null}
-          </EventCard>
+        {parts.tone ? (
+          <PromotedEvent event={event} parts={parts} tone={parts.tone} />
         ) : (
-          <>
-            <p className="text-xs leading-[1.55] text-room-text3">
-              <b className="font-medium text-room-text2">{who}</b> {sentence}
-            </p>
-            {event.details?.ref != null && (
-              <p className="room-tabular mt-[5px] truncate text-[11px] text-room-text4">{String(event.details.ref)}</p>
-            )}
-          </>
+          <ActivitySentence who={parts.who} sentence={parts.sentence} refText={parts.refText} />
         )}
       </div>
     </div>

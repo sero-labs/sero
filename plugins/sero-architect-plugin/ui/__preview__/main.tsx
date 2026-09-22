@@ -27,6 +27,8 @@ import { ModelSettings } from '../components/ModelSettings';
 import { HistoryView } from '../components/HistoryView';
 import { ProjectPage } from '../ProjectPage';
 import type { ArchitectActions, ActionOutcome } from '../lib/actions';
+import type { Disclosures } from '../lib/page-helpers';
+import type { ProjectRecord } from '../../shared/record';
 import { FIXTURES, listRows } from './fixture';
 
 const ok = async (): Promise<ActionOutcome> => ({ ok: true, text: 'ok' });
@@ -69,13 +71,15 @@ const width = Number(params.get('width') ?? 1240);
 // running in this session: the notice at the top and last-known rows.
 const runtimeRunning = params.get('runtime') !== 'off';
 
-function Preview() {
-  const record = FIXTURES[state];
+/**
+ * The folds the History view reads. The real app keeps them in the host layout
+ * service; the harness has no host, so it keeps them here and the notes still
+ * open.
+ */
+function usePreviewDisclosures(): Disclosures {
   const [olderOpen, setOlderOpen] = useState(false);
-  // The real app keeps the folds in the host layout service. The harness has no
-  // host, so it keeps them here and the notes still open.
   const [openedNotes, setOpenedNotes] = useState<ReadonlySet<string>>(new Set());
-  const disclosures = {
+  return {
     olderOpen,
     setOlderOpen,
     folds: {
@@ -87,48 +91,97 @@ function Preview() {
       }),
     },
   };
+}
+
+function IntakePreview() {
+  return <IntakeDialog open onClose={() => undefined} onCreate={async () => ({ ok: true, text: 'ok' })} defaultFolder="~/Projects/" />;
+}
+
+function HistoryPreview({ record, disclosures }: { record: ProjectRecord; disclosures: Disclosures }) {
+  return (
+    <HistoryView
+      record={record}
+      onBack={() => undefined}
+      onOpenDispatch={() => undefined}
+      onOpenEvidence={() => undefined}
+      folds={disclosures.folds}
+    />
+  );
+}
+
+function ModelSettingsPreview({ runtimeRunning }: { runtimeRunning: boolean }) {
+  return (
+    <ModelSettings
+      runtimeRunning={runtimeRunning}
+      record={{
+        ...FIXTURES.build!,
+        name: 'FroggerNeon',
+        modelConfigRevision: 5,
+        modelOverrides: runtimeRunning ? TIERS : undefined,
+        session: {
+          ...FIXTURES.build!.session,
+          model: runtimeRunning ? 'deepseek/v4.1-flash' : 'openai-codex/gpt-5.6-luna',
+          thinking: 'high',
+          modelSource: 'owner-environment-pin',
+          modelOutranks: 'MED',
+        },
+      }}
+      actions={actions}
+      onBack={() => undefined}
+    />
+  );
+}
+
+function ProjectPreview({ record, runtimeRunning, width, disclosures }: {
+  record: ProjectRecord;
+  runtimeRunning: boolean;
+  width: number;
+  disclosures: Disclosures;
+}) {
+  return (
+    <ProjectPage runtimeRunning={runtimeRunning} record={record} actions={actions} narrow={width < 1100} disclosures={disclosures} onBack={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} confirm={() => true} />
+  );
+}
+
+function ProjectsOverview({ state, runtimeRunning }: { state: string; runtimeRunning: boolean }) {
+  return (
+    <>
+      <TopBar record={null} controls={null} onBack={() => undefined} onNewProject={() => undefined} needsYou={{ count: listRows(runtimeRunning).filter((row) => row.activity.action).length, on: false, toggle: () => undefined }} />
+      <ProjectsList needsOnly={false} projects={state === 'empty' ? [] : listRows(runtimeRunning)} runtime={{ running: runtimeRunning, startedAt: new Date().toISOString() }} onOpen={() => undefined} onNewProject={() => undefined} />
+    </>
+  );
+}
+
+function PreviewStage({ state, width, runtimeRunning, disclosures }: {
+  state: string;
+  width: number;
+  runtimeRunning: boolean;
+  disclosures: Disclosures;
+}) {
+  const record = FIXTURES[state];
+  return (
+    <div className="ar-app">
+      {state === 'new-project' && <IntakePreview />}
+      {state === 'history' && record ? (
+        <HistoryPreview record={record} disclosures={disclosures} />
+      ) : state === 'models' ? (
+        <ModelSettingsPreview runtimeRunning={runtimeRunning} />
+      ) : record ? (
+        <ProjectPreview record={record} runtimeRunning={runtimeRunning} width={width} disclosures={disclosures} />
+      ) : (
+        <ProjectsOverview state={state} runtimeRunning={runtimeRunning} />
+      )}
+    </div>
+  );
+}
+
+function Preview() {
+  const disclosures = usePreviewDisclosures();
   return (
     <div data-sero-plugin="architect">
       <div className="dark" style={{ padding: 24 }}>
         <div className="preview-frame" style={{ width }}>
-          <div className="ar-app">
-            {state === 'new-project' && <IntakeDialog open onClose={() => undefined} onCreate={async () => ({ ok: true, text: 'ok' })} defaultFolder="~/Projects/" />}
-            {state === 'history' && record ? (
-              <HistoryView
-                record={record}
-                onBack={() => undefined}
-                onOpenDispatch={() => undefined}
-                onOpenEvidence={() => undefined}
-                folds={disclosures.folds}
-              />
-            ) : state === 'models' ? (
-              <ModelSettings
-                runtimeRunning={runtimeRunning}
-                record={{
-                  ...FIXTURES.build!,
-                  name: 'FroggerNeon',
-                  modelConfigRevision: 5,
-                  modelOverrides: runtimeRunning ? TIERS : undefined,
-                  session: {
-                    ...FIXTURES.build!.session,
-                    model: runtimeRunning ? 'deepseek/v4.1-flash' : 'openai-codex/gpt-5.6-luna',
-                    thinking: 'high',
-                    modelSource: 'owner-environment-pin',
-                    modelOutranks: 'MED',
-                  },
-                }}
-                actions={actions}
-                onBack={() => undefined}
-              />
-            ) : record ? (
-              <ProjectPage runtimeRunning={runtimeRunning} record={record} actions={actions} narrow={width < 1100} disclosures={disclosures} onBack={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} confirm={() => true} />
-            ) : (
-              <>
-                <TopBar record={null} controls={null} onBack={() => undefined} onNewProject={() => undefined} needsYou={{ count: listRows(runtimeRunning).filter((row) => row.activity.action).length, on: false, toggle: () => undefined }} />
-                <ProjectsList needsOnly={false} projects={state === 'empty' ? [] : listRows(runtimeRunning)} runtime={{ running: runtimeRunning, startedAt: new Date().toISOString() }} onOpen={() => undefined} onNewProject={() => undefined} />
-              </>
-            )}
-          </div>
+          <PreviewStage state={state} width={width} runtimeRunning={runtimeRunning} disclosures={disclosures} />
         </div>
       </div>
     </div>
