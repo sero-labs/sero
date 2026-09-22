@@ -128,6 +128,11 @@ export function acceptedCount(record: ProjectRecord): number {
 }
 
 export interface EvidenceCheck {
+  /**
+   * Stable identity for the row. A check names itself, so the list is not keyed
+   * by position and inserting a check does not re-key the ones after it.
+   */
+  key: string;
   /** How the check ended. `dim` is "nothing to report", which is not a failure. */
   state: 'ok' | 'err' | 'dim';
   /**
@@ -174,11 +179,11 @@ function changedFilesName(diffSummary: string): string {
  * and no output is cut to fit a summary line.
  */
 export function evidenceLines(evidence: EvidenceRecord): EvidenceCheck[] {
-  const checks: EvidenceCheck[] = evidence.commands.map((command) => ({
+  const checks: Omit<EvidenceCheck, 'key'>[] = evidence.commands.map((command) => ({
     state: command.exitCode === 0 ? 'ok' : 'err',
     name: command.command,
     durationMs: command.durationMs,
-    ...(command.output.trim() ? { output: command.output } : {}),
+    output: command.output.trim() ? command.output : undefined,
   }));
   if (evidence.diffSummary) {
     checks.push({
@@ -195,7 +200,14 @@ export function evidenceLines(evidence: EvidenceRecord): EvidenceCheck[] {
       ? { state: 'ok', name: `Screenshot of ${evidence.preview.route}`, opensPreview: true }
       : { state: 'dim', name: `No screenshot of ${evidence.preview.route}` });
   }
-  return checks;
+  // Two checks can share a name — a command can be listed more than once — so
+  // each row is named by its name plus how many identical ones came before.
+  const seen = new Map<string, number>();
+  return checks.map((check) => {
+    const nth = seen.get(check.name) ?? 0;
+    seen.set(check.name, nth + 1);
+    return { ...check, key: nth === 0 ? check.name : `${check.name}#${nth}` };
+  });
 }
 
 export interface DirectiveThread {

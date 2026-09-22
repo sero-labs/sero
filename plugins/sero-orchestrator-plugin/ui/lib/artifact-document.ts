@@ -108,3 +108,21 @@ export function toArtifactLine(raw: string): ArtifactLine {
 export function isBlankLine(line: ArtifactLine): boolean {
   return line.spans.every((span) => span.text.trim().length === 0);
 }
+
+/**
+ * A stable React key for each named part of a document, in order.
+ *
+ * A document repeats things — a horizontal rule, a repeated bullet, two
+ * sections that happen to share a heading — so a part's own text is not unique.
+ * Naming it by its text plus how many identical ones came before keeps the key
+ * attached to the part rather than to its position, which an index does not:
+ * inserting one line would re-key every line after it.
+ */
+export function partKeys(texts: readonly string[]): string[] {
+  const seen = new Map<string, number>();
+  return texts.map((text) => {
+    const nth = seen.get(text) ?? 0;
+    seen.set(text, nth + 1);
+    return nth === 0 ? text : `${text}#${nth}`;
+  });
+}

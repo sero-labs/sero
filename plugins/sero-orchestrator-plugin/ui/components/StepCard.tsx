@@ -80,12 +80,20 @@ function WithCode({ text }: { text: string }) {
  * open it would be worse than the words.
  */
 function WithFileRefs({ text, workspaceId }: { text: string; workspaceId: string }) {
+  // Keyed by where each part starts in the text — the same identity `WithCode`
+  // uses above, and one that does not move when the parts around it change.
+  let at = 0;
+  const parts = splitFileRefs(text).map((part) => {
+    const start = at;
+    at += part.text.length;
+    return { part, at: start };
+  });
   return (
     <>
-      {splitFileRefs(text).map((part, index) => part.file
+      {parts.map(({ part, at: start }) => part.file
         ? (
           <WorkspaceFileLink
-            key={index}
+            key={start}
             workspaceId={workspaceId}
             path={part.file}
             className="font-medium underline decoration-room-text4 decoration-dotted underline-offset-2 hover:decoration-solid"
@@ -93,7 +101,7 @@ function WithFileRefs({ text, workspaceId }: { text: string; workspaceId: string
             {part.text}
           </WorkspaceFileLink>
         )
-        : <Fragment key={index}><WithCode text={part.text} /></Fragment>)}
+        : <Fragment key={start}><WithCode text={part.text} /></Fragment>)}
     </>
   );
 }

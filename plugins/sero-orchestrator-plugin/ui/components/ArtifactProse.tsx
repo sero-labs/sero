@@ -10,15 +10,16 @@
  * from.
  */
 
-import { isBlankLine, toArtifactLine, type ArtifactSpan } from '../lib/artifact-document';
+import { isBlankLine, partKeys, toArtifactLine, type ArtifactSpan } from '../lib/artifact-document';
 
 function Spans({ spans }: { spans: ArtifactSpan[] }) {
+  const keys = partKeys(spans.map((span) => span.text));
   return (
     <>
-      {spans.map((span, index) => (
+      {spans.map((span, at) => (
         span.bold
-          ? <strong key={index} className="font-semibold text-foreground">{span.text}</strong>
-          : <span key={index}>{span.text}</span>
+          ? <strong key={keys[at]} className="font-semibold text-foreground">{span.text}</strong>
+          : <span key={keys[at]}>{span.text}</span>
       ))}
     </>
   );
@@ -28,13 +29,17 @@ function Spans({ spans }: { spans: ArtifactSpan[] }) {
 export function ArtifactProse({ lines }: { lines: string[] }) {
   const drawn = lines.map(toArtifactLine).filter((line) => !isBlankLine(line));
   if (drawn.length === 0) return null;
+  // Each line is named by its own text, so inserting a line does not re-key the
+  // ones after it.
+  const keys = partKeys(drawn.map((line) => line.spans.map((span) => span.text).join('')));
 
   return (
     <div className="flex flex-col gap-1.5 text-[12.5px] leading-[1.6] text-muted-foreground">
-      {drawn.map((line, index) => {
+      {drawn.map((line, at) => {
+        const key = keys[at];
         if (line.kind === 'bullet') {
           return (
-            <div key={index} className="flex gap-2">
+            <div key={key} className="flex gap-2">
               <span aria-hidden className="shrink-0 text-muted-foreground/60">•</span>
               <span className="min-w-0"><Spans spans={line.spans} /></span>
             </div>
@@ -42,14 +47,14 @@ export function ArtifactProse({ lines }: { lines: string[] }) {
         }
         if (line.kind === 'number') {
           return (
-            <div key={index} className="flex gap-2">
+            <div key={key} className="flex gap-2">
               <span aria-hidden className="shrink-0 tabular-nums text-muted-foreground/60">{line.ordinal}.</span>
               <span className="min-w-0"><Spans spans={line.spans} /></span>
             </div>
           );
         }
         return (
-          <p key={index} className="m-0">
+          <p key={key} className="m-0">
             <Spans spans={line.spans} />
           </p>
         );

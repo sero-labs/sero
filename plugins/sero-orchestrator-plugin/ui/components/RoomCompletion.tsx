@@ -12,7 +12,7 @@ import { Fragment, useEffect } from 'react';
 import type { RoomArtifact } from '../../shared/room-message-types';
 import type { PersistedRoom, RoomMember } from '../../shared/room-types';
 import { artifactFileName, resolveArtifactPath } from '../lib/artifact-path';
-import { splitArtifactDocument } from '../lib/artifact-document';
+import { splitArtifactDocument, partKeys } from '../lib/artifact-document';
 import { formatCost } from '../lib/format';
 import { deliveredLine, otherArtifacts, pickPlan, resultLine } from '../lib/room-result';
 import { useRoomArtifact } from '../lib/use-room-artifact';
@@ -67,6 +67,9 @@ function PlanCard({ room, artifact, author, workspaceId }: {
   useEffect(() => { read(artifact.id); }, [artifact.id, read]);
 
   const document = state?.status === 'ready' ? splitArtifactDocument(state.content) : null;
+  // A document can repeat a heading, so each section is named by its own text
+  // plus how many identical ones came before — not by its position.
+  const sectionKeys = partKeys(document?.sections.map((section) => section.heading) ?? []);
   const path = resolveArtifactPath(artifact.ref, author);
 
   return (
@@ -98,8 +101,8 @@ function PlanCard({ room, artifact, author, workspaceId }: {
       {document && document.sections.length > 0 && (
         <div className="mt-1 flex flex-col">
           {document.intro.length > 0 && <ArtifactProse lines={document.intro} />}
-          {document.sections.map((section, index) => (
-            <Fold key={`${section.heading}:${index}`} title={section.heading} defaultOpen={index === 0}>
+          {document.sections.map((section, at) => (
+            <Fold key={sectionKeys[at]} title={section.heading} defaultOpen={at === 0}>
               <div className="pb-2">
                 <ArtifactProse lines={section.lines} />
               </div>
@@ -112,8 +115,7 @@ function PlanCard({ room, artifact, author, workspaceId }: {
 }
 
 /** What the Room published besides its plan, as compact rows. */
-function ArtifactRows({ room, artifacts, members, workspaceId }: {
-  room: PersistedRoom;
+function ArtifactRows({ artifacts, members, workspaceId }: {
   artifacts: RoomArtifact[];
   members: Map<string, RoomMember>;
   workspaceId: string | undefined;
@@ -172,7 +174,7 @@ export function RoomCompletion({ room, members, finalLine, onOpenMember }: RoomC
 
       {plan && <PlanCard room={room} artifact={plan} author={members.get(plan.producedByMemberId)} workspaceId={workspaceId} />}
       {others.length > 0 && (
-        <ArtifactRows room={room} artifacts={others} members={members} workspaceId={workspaceId} />
+        <ArtifactRows artifacts={others} members={members} workspaceId={workspaceId} />
       )}
 
       <Fold title="Cost by member" hint={formatCost(room.runtime.usage.costUsd)}>

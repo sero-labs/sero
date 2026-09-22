@@ -66,10 +66,11 @@ export function Evidence({ evidence, projectId }: { evidence: EvidenceRecord; pr
         Evidence at {evidence.commit.slice(0, 7)}{evidence.stale ? ' · stale' : ''}
       </summary>
       <ul className="ar-checks">
-        {checks.map((check, index) => (
-          // Two checks can share a name — a command can be listed more than
-          // once — so the row's position is part of its identity.
-          <li key={`${check.name}:${index}`}>
+        {checks.map((check) => (
+          // `check.key` names the row by its own name plus how many identical
+          // ones came before, because two checks can share a name — a command
+          // can be listed more than once.
+          <li key={check.key}>
             <CheckRow check={check} projectId={projectId} />
           </li>
         ))}

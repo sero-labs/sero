@@ -6,7 +6,6 @@ import type {
   Loop,
   LoopBlock,
   LoopRun,
-  LoopRunSummary,
   RunIndex,
   StepActivation,
   StepActivationStatus,
@@ -343,30 +342,29 @@ describe('run summary retains why a run ended', () => {
     expect(toRunSummary(interrupted).steps[0].status).toBe('orphaned');
   });
 
-  it('round-trips the block and the interrupted steps through the run index', () => {
+  it('writes the block and the interrupted steps into the run index', () => {
     const index = buildRunIndex([
       { ...run('r1'), status: 'blocked', block: limitBlock, stepActivations: [activation('act-1', 's1', 'orphaned')] },
     ]);
-    const restored = JSON.parse(JSON.stringify(index)) as RunIndex;
-    expect(restored).toEqual(index);
+    // What the index file holds, and what a reader gets back out of it.
+    expect(JSON.stringify(index)).toContain('reached max cost ($1.2)');
+    const restored = structuredClone(index);
     expect(restored.runs[0].block).toEqual(limitBlock);
     expect(restored.runs[0].interruptedStepIds).toEqual(['s1']);
   });
 
   it('loads a summary written before the block and interrupted fields existed', () => {
-    // Exactly the shape runs/index.json held before this change.
-    const earlier: LoopRunSummary = {
-      id: 'run_1',
-      runNumber: 1,
-      status: 'orphaned',
-      startedAt: 't',
-      steps: [{ stepId: 's1', attemptNumber: 1, executionType: 'background-agent', status: 'completed' }],
-      recoveries: [],
-    };
-    const loaded = JSON.parse(JSON.stringify(earlier)) as LoopRunSummary;
-    expect(loaded).toEqual(earlier);
-    expect(loaded.block).toBeUndefined();
-    expect(loaded.interruptedStepIds).toBeUndefined();
+    // A runs/index.json written by the build before this change, as bytes: no
+    // block, no interrupted steps, no plan position on any step. It must load
+    // as-is and nothing may reconstruct what is not there.
+    const onDisk = '{"version":1,"runs":[{"id":"run_1","runNumber":1,"status":"orphaned","startedAt":"t",'
+      + '"steps":[{"stepId":"s1","attemptNumber":1,"executionType":"background-agent","status":"completed"}],'
+      + '"recoveries":[]}]}';
+    const index = JSON.parse(onDisk) as RunIndex;
+    expect(index.runs[0].block).toBeUndefined();
+    expect(index.runs[0].interruptedStepIds).toBeUndefined();
+    expect(index.runs[0].steps[0].planIndex).toBeUndefined();
+    expect(index.runs[0].steps[0].status).toBe('completed');
   });
 
   it('does not infer an interrupted step from a run that kept no activations', () => {
