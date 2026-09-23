@@ -35,4 +35,4 @@
 - [x] 6.1 Run `pnpm typecheck` from the monorepo root and confirm no error in the renderer or the Electron main process. Confirm the four unchanged consumers (Admin `AgentEditor.tsx` and `ModelPanel.tsx`, onboarding `SetupScreen.tsx`, Design Library `SettingsPage.tsx`) compile against the unchanged props.
 - [x] 6.2 Run the touched suites - `pnpm --filter @sero-ai/ui test`, the Architect `ui/__tests__` suites and the Orchestrator `ui/__tests__` suites - and record the result before review.
 - [x] 6.3 Bump the `@sero-ai/ui` version in `packages/ui/package.json` in the same pull request, because it is published to npm. Verify `pnpm --filter @sero-ai/ui build` passes.
-- [ ] 6.4 Open one draft pull request that references issue #543, with the change summary and the `comparison.md` captures, and confirm the issue link is in the description.
+- [x] 6.4 Open one draft pull request that references issue #543, with the change summary and the `comparison.md` captures, and confirm the issue link is in the description.
