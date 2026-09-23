@@ -116,7 +116,9 @@ Intake placement resolves once, before `create` writes a record, so a refusal
 leaves no project behind. `advanceIntake` stays re-entrant differently: because
 the record already holds the resolved destination, a retry finds a workspace the
 failed attempt created by that exact path and adopts it, instead of making a
-suffixed sibling. The refusal therefore does not move into the host adapter.
+suffixed sibling. It adopts only a workspace no other project already owns, so
+two intakes that both passed the check cannot end up sharing one. The refusal
+therefore does not move into the host adapter.
 
 ### 5. `requireEmpty` stays `false`, and the host adapter is untouched
 

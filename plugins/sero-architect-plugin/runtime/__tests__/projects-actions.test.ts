@@ -174,6 +174,26 @@ describe('project management', () => {
     expect((await host.listWorkspaces()).length).toBe(before);
   });
 
+  it('does not adopt a workspace another project already owns', async () => {
+    const { host, store, actions } = await setup();
+    // Two intakes can pass the existence check before either creates a workspace.
+    // The first to create owns it; the second must make its own, not share it.
+    const owner = createProjectRecord({ id: 'proj_a', name: 'App', idea: 'a', folder: '/home/dan/projects/app', workspaceId: 'app', now: T0 });
+    await store.write(owner);
+    host.workspaces.push({ id: 'app', name: 'App', path: '/home/dan/projects/app', open: true });
+    const second = createProjectRecord({ id: 'proj_b', name: 'App', idea: 'b', folder: '/home/dan/projects/app', now: T0 });
+    await store.write(second);
+    const before = (await host.listWorkspaces()).length;
+
+    const resumed = await actions.resume(second.id);
+
+    expect(resumed.ok, resumed.text).toBe(true);
+    const saved = (await store.read(second.id))!;
+    expect(saved.workspaceId).not.toBe('app');
+    expect(saved.workspaceId).not.toBeNull();
+    expect((await host.listWorkspaces()).length).toBe(before + 1);
+  });
+
   it('requires a saved legacy choice before resume and preserves existing work and grants', async () => {
     const { host, store, actions, services } = await setup();
     const record = buildingProject({ executionMode: undefined, paused: true });

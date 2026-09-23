@@ -110,8 +110,10 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
         const parent = path.dirname(record.folder);
         // Intake is re-entrant: a workspace created before a lost record update
         // is already at the record's folder, so it is adopted by path rather
-        // than made again as a suffixed sibling.
-        const existing = (await host.listWorkspaces()).find((workspace) => workspace.path === record.folder);
+        // than made again as a suffixed sibling. A workspace another project
+        // already owns is never adopted, so two intakes cannot share one.
+        const owned = new Set((await store.list()).filter((project) => project.id !== record.id).map((project) => project.workspaceId));
+        const existing = (await host.listWorkspaces()).find((workspace) => workspace.path === record.folder && !owned.has(workspace.id));
         const workspace = existing ?? await host.createWorkspace(record.name, parent);
         record = (await store.update(record.id, (fresh) => ({
           ...fresh, folder: workspace.path, workspaceId: workspace.id, stateLine: 'Workspace ready. Permission is needed to run the Architect.',
