@@ -201,6 +201,8 @@ export async function resolveProjectContext(
       projectId: record.id,
       // A dispatch always happens inside a run; the initial one covers any gap.
       runId: open?.id ?? `run-initial-${record.id}`,
+      // The name is a display snapshot; the link keeps working from the id.
+      projectName: record.name || undefined,
       configRevision: record.modelConfigRevision ?? 0,
       modelSnapshot: snapshot.value,
     },

@@ -9,6 +9,7 @@ import { create } from 'zustand';
 import { useAppStore } from '@/stores/app';
 import { useExplorerStore } from '@/stores/explorer';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { selectWorkspaceForApp } from '@/lib/open-app';
 
 interface EditorBridgeState {
   /** Pending file-open request. Consumed by ExplorerWorkspace on the next tick. */
@@ -74,7 +75,7 @@ export function toEditorPath(workspaceId: string, filePath: string): string {
 }
 
 function focusEditor(workspaceId: string): void {
-  useWorkspaceStore.getState().setActiveWorkspace(workspaceId);
+  selectWorkspaceForApp('explorer', workspaceId);
   useExplorerStore.getState().set(workspaceId, {
     activePanel: 'explorer',
     sidebarOpen: true,

@@ -5,8 +5,7 @@ import { useAppStore, type AppEntry } from '@/stores/app';
 import { useNavigationStore } from '@/stores/navigation';
 import { useUserFeedbackStore } from '@/stores/user-feedback-store';
 import { useWorkspaceStore } from '@/stores/workspace';
-import { listenForAppNavigationWorkspace } from '@/stores/app/listeners';
-import { navigateBack, openApp } from './open-app';
+import { navigateBack, openApp, selectWorkspaceForApp, switchWorkspace } from './open-app';
 
 function createApp(id: string, label: string, builtin = false): AppEntry {
   return {
@@ -172,7 +171,49 @@ describe('openApp', () => {
     });
   });
 
-  it('moves the current workspace app entry when the sidebar workspace changes', () => {
+  it('records a sidebar workspace switch but not a history restore', () => {
+    useWorkspaceStore.setState({
+      activeWorkspaceId: 'workspace-2',
+      workspaces: [
+        { id: 'workspace-1', name: 'One', path: '/one', open: true, runtime: { backend: 'host' }, container: false, references: [], mounts: [], roots: [] },
+        { id: 'workspace-2', name: 'Two', path: '/two', open: true, runtime: { backend: 'host' }, container: false, references: [], mounts: [], roots: [] },
+      ],
+    });
+    useAppStore.setState({
+      appViewIds: { kanban: { 'workspace-2': 'rooms/room-2' } },
+    });
+    useNavigationStore.setState({
+      entries: [
+        { appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-1' },
+        { appId: 'kanban', viewId: 'rooms/room-2', workspaceId: 'workspace-2' },
+      ],
+      index: 1,
+    });
+
+    // A history restore moves the workspace without recording a step, and the
+    // places already visited stay exactly as they were.
+    navigateBack();
+    expect(useWorkspaceStore.getState().activeWorkspaceId).toBe('workspace-1');
+    expect(useNavigationStore.getState()).toMatchObject({
+      entries: [
+        { appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-1' },
+        { appId: 'kanban', viewId: 'rooms/room-2', workspaceId: 'workspace-2' },
+      ],
+      index: 0,
+    });
+
+    // Choosing a workspace in the sidebar records the app's page there.
+    switchWorkspace('workspace-2');
+    expect(useNavigationStore.getState()).toMatchObject({
+      entries: [
+        { appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-1' },
+        { appId: 'kanban', viewId: 'rooms/room-2', workspaceId: 'workspace-2' },
+      ],
+      index: 1,
+    });
+  });
+
+  it('records the app page in the new workspace as a step when the workspace switches', () => {
     useWorkspaceStore.setState({ activeWorkspaceId: 'workspace-1' });
     useAppStore.setState({
       appViewIds: { kanban: { 'workspace-2': 'rooms/room-2' } },
@@ -181,14 +222,72 @@ describe('openApp', () => {
       entries: [{ appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-1' }],
       index: 0,
     });
-    const unsubscribe = listenForAppNavigationWorkspace();
 
-    useWorkspaceStore.setState({ activeWorkspaceId: 'workspace-2' });
+    switchWorkspace('workspace-2');
 
+    expect(useWorkspaceStore.getState().activeWorkspaceId).toBe('workspace-2');
     expect(useNavigationStore.getState()).toMatchObject({
-      entries: [{ appId: 'kanban', viewId: 'rooms/room-2', workspaceId: 'workspace-2' }],
+      entries: [
+        { appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-1' },
+        { appId: 'kanban', viewId: 'rooms/room-2', workspaceId: 'workspace-2' },
+      ],
+      index: 1,
+    });
+  });
+
+  it('does nothing when the workspace is already active', () => {
+    useWorkspaceStore.setState({ activeWorkspaceId: 'workspace-2' });
+    useNavigationStore.setState({
+      entries: [{ appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-2' }],
       index: 0,
     });
-    unsubscribe();
+
+    switchWorkspace('workspace-2');
+
+    expect(useNavigationStore.getState()).toMatchObject({
+      entries: [{ appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-2' }],
+      index: 0,
+    });
+  });
+
+  it('records a step when a same-app open moves to another workspace', () => {
+    useWorkspaceStore.setState({ activeWorkspaceId: 'workspace-1' });
+    useAppStore.setState({
+      appViewIds: { kanban: { 'workspace-2': 'rooms/room-2' } },
+    });
+    useNavigationStore.setState({
+      entries: [{ appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-1' }],
+      index: 0,
+    });
+
+    selectWorkspaceForApp('kanban', 'workspace-2');
+
+    expect(useNavigationStore.getState()).toMatchObject({
+      entries: [
+        { appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-1' },
+        { appId: 'kanban', viewId: 'rooms/room-2', workspaceId: 'workspace-2' },
+      ],
+      index: 1,
+    });
+  });
+
+  it('leaves the step to the app open when a different app is about to open', () => {
+    useWorkspaceStore.setState({ activeWorkspaceId: 'workspace-1' });
+    useAppStore.setState({
+      appViewIds: { kanban: { 'workspace-2': 'rooms/room-2' } },
+    });
+    useNavigationStore.setState({
+      entries: [{ appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-1' }],
+      index: 0,
+    });
+
+    selectWorkspaceForApp('orchestrator', 'workspace-2');
+
+    // The workspace moved, but the app being left is not recorded again.
+    expect(useWorkspaceStore.getState().activeWorkspaceId).toBe('workspace-2');
+    expect(useNavigationStore.getState()).toMatchObject({
+      entries: [{ appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-1' }],
+      index: 0,
+    });
   });
 });

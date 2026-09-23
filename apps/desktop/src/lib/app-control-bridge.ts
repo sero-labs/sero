@@ -11,7 +11,7 @@ import { useBrowserStore } from '@/stores/browser';
 import { useEditorBridge } from '@/stores/editor-bridge';
 import { useExplorerStore } from '@/stores/explorer';
 import { useWorkspaceStore } from '@/stores/workspace';
-import { openApp } from '@/lib/open-app';
+import { openApp, selectWorkspaceForApp } from '@/lib/open-app';
 import { executeAppInteraction, getAppPanelRect } from '@/lib/app-control/dom-interactions';
 import {
   prepareFullScreenshot,
@@ -94,7 +94,7 @@ export function initAppControlBridge(): () => void {
       if (workspaceId !== undefined) {
         const workspace = useWorkspaceStore.getState();
         if (!workspace.workspaces.some((entry) => entry.id === workspaceId)) return false;
-        if (workspace.activeWorkspaceId !== workspaceId) workspace.setActiveWorkspace(workspaceId);
+        if (workspace.activeWorkspaceId !== workspaceId) selectWorkspaceForApp(appId, workspaceId);
       }
       openApp(appId);
       return true;

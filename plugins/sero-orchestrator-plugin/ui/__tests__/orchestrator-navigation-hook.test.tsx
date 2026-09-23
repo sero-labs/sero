@@ -95,4 +95,52 @@ describe('useOrchestratorNavigation', () => {
       }),
     }), 'e1');
   });
+
+  it('replaces the entry the shell opened on, so one Back leaves the app', async () => {
+    const write = vi.fn(async () => ({ ok: true as const, etag: 'e1' }));
+    const navigate = vi.fn();
+    Reflect.set(window, 'sero', {
+      appState: {
+        read: vi.fn(async () => null),
+        write,
+        watch: vi.fn(async () => ({ data: null, etag: null })),
+        unwatch: vi.fn(async () => undefined),
+        onChange: vi.fn(() => () => undefined),
+      },
+      appAgent: {
+        prompt: vi.fn(async () => ''),
+        invokeTool: vi.fn(async () => ({ text: '', content: [], details: null, isError: false })),
+      },
+    });
+    // The Orchestrator is opened on a Workflow while the shell remembers the
+    // page it last showed in this workspace.
+    Reflect.set(globalThis, '__sero_app_launch_params__', new Map([['orchestrator', { loopId: 'loop-1' }]]));
+
+    function Probe() {
+      const [state, updateState, ready] = useAppState(DEFAULT_STATE);
+      useOrchestratorNavigation({ state, updateState, ready });
+      return null;
+    }
+
+    await act(async () => {
+      root.render(
+        <AppProvider
+          value={{
+            appId: 'orchestrator',
+            workspaceId: 'workspace-1',
+            workspacePath: '/workspace',
+            stateFilePath: '/workspace/state.json',
+            navigation: { viewId: 'workflows/old-loop', navigate },
+          }}
+        >
+          <Probe />
+        </AppProvider>,
+      );
+      await Promise.resolve();
+    });
+
+    // One navigation, and it replaces: the launch does not add a second step.
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith('workflows/loop-1', { replace: true });
+  });
 });

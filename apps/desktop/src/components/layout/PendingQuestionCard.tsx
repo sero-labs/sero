@@ -23,6 +23,7 @@ import { IconAction } from '@/components/ui/IconAction';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { useUserFeedbackStore } from '@/stores/user-feedback-store';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { selectWorkspaceForApp } from '@/lib/open-app';
 import type { UserFeedbackPendingQuestion, UserFeedbackAnswer } from '@/types/ipc';
 
 export function PendingQuestionCard() {
@@ -195,7 +196,7 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
   const handleOpen = useCallback(() => {
     const target = question.openTarget;
     if (!target) return;
-    if (target.workspaceId) useWorkspaceStore.getState().setActiveWorkspace(target.workspaceId);
+    if (target.workspaceId) selectWorkspaceForApp(target.appId, target.workspaceId);
     void openSeroApp(target.appId, target.params);
   }, [question.openTarget]);
 

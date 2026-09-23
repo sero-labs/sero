@@ -4,6 +4,7 @@ import type { WorkspaceInfo } from '@/types/ipc';
 import type { WorkspaceRuntimeBackend } from '@/types/workspace-runtime';
 import { useSessionStore } from '@/stores/sessions';
 import { persistLayout } from '@/lib/persist-layout';
+import { switchWorkspace } from '@/lib/open-app';
 import { createDebouncedFn } from '@/hooks/useDebouncedCallback';
 import { connectOrigin } from '@/components/layout/git-remote/origin-utils';
 
@@ -171,6 +172,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   createWorkspace: async (name, parentPath) => {
     const workspace = await window.sero.workspace.create(name, parentPath);
+    // The active app stays open, so the move to the new workspace is a step.
+    switchWorkspace(workspace.id);
     set((s) => ({
       workspaces: [...s.workspaces, workspace],
       activeWorkspaceId: workspace.id,
@@ -188,6 +191,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     const repoName = name?.trim() || deriveRepoNameFromGitUrl(url) || 'repository';
     const previousActiveWorkspaceId = get().activeWorkspaceId;
     const workspace = await window.sero.workspace.create(repoName, parentPath, { requireEmpty: true });
+    // The active app stays open, so the move to the new workspace is a step.
+    switchWorkspace(workspace.id);
     set((s) => ({
       workspaces: [...s.workspaces, workspace],
       activeWorkspaceId: workspace.id,
@@ -222,6 +227,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   addFolder: async (folderPath, name) => {
     const workspace = await window.sero.workspace.addFolder(folderPath, name);
     const isReopen = get().workspaces.some((w) => w.id === workspace.id);
+    // The active app stays open, so the move to the new workspace is a step.
+    switchWorkspace(workspace.id);
     set((s) => {
       // Replace if already exists (re-added), otherwise append
       const existing = s.workspaces.findIndex((w) => w.id === workspace.id);

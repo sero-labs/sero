@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { SeroSessionInfo } from '@/types/ipc';
-import { useWorkspaceStore } from '@/stores/workspace';
 import { persistLayout } from '@/lib/persist-layout';
+import { switchWorkspace } from '@/lib/open-app';
 import { sessionLocationKey, useNodesStore } from '@/stores/nodes';
 
 // ── Types ──────────────────────────────────────────────────────
@@ -127,7 +127,7 @@ export const useSessionStore = create<SessionsState>((set, get) => ({
     if (id) {
       const session = get().sessions.find((s) => s.id === id);
       if (session) {
-        useWorkspaceStore.getState().setActiveWorkspace(session.workspaceId);
+        switchWorkspace(session.workspaceId);
       }
     }
   },

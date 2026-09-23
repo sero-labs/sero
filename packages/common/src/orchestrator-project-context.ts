@@ -32,6 +32,8 @@ export interface OrchestratorProjectContext {
   projectId: string;
   /** The run identity the created work belongs to. */
   runId: string;
+  /** The project's display name when the work was requested. Display only; never used for authority. */
+  projectName?: string;
   /** The project configuration revision used to resolve `modelSnapshot`. */
   configRevision?: number;
   /** Tier defaults resolved before planning. Absent when the caller resolved none. */

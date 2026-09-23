@@ -138,7 +138,7 @@ export function useOrchestratorNavigation({
     locallyNavigated.current = true;
     viewRef.current = next;
     setView(next);
-    host.navigate(orchestratorViewId(next));
+    host.navigate(orchestratorViewId(next), { replace: true });
   }, [appState.ui?.navigationViewId, host, stateReady]);
 
   // Flush only an explicit route queued during the initial state read. Never
@@ -151,7 +151,7 @@ export function useOrchestratorNavigation({
 
   // Give a first mount a shell location without writing plugin state.
   useEffect(() => {
-    if (stateReady && !host.viewId) host.navigate(orchestratorViewId(viewRef.current));
+    if (stateReady && !host.viewId) host.navigate(orchestratorViewId(viewRef.current), { replace: true });
   }, [host, stateReady]);
 
   // A deep link can arrive while Orchestrator is already mounted.
@@ -160,11 +160,12 @@ export function useOrchestratorNavigation({
     if (next) navigate(next);
   }), [navigate]);
 
-  // Mount-time launch params must become the shell's current history entry.
+  // Mount-time launch params must become the shell's current history entry, so
+  // one Back returns to the app the user came from instead of this app's page.
   useEffect(() => {
     if (!initialLaunch.current) return;
     persist(initialLaunch.current);
-    host.navigate(orchestratorViewId(initialLaunch.current));
+    host.navigate(orchestratorViewId(initialLaunch.current), { replace: true });
     initialLaunch.current = null;
   }, [host, persist]);
 
