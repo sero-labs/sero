@@ -9,6 +9,7 @@
 
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { PluginStyleScope } from '@sero-ai/ui';
 // The host supplies the design tokens in the real app. The harness has no
 // host, so it injects the host stylesheet raw: routed through Vite it would
 // meet the plugin CSS scope, which refuses document-level selectors.
@@ -29,7 +30,7 @@ import { ProjectPage } from '../ProjectPage';
 import type { ArchitectActions, ActionOutcome } from '../lib/actions';
 import type { Disclosures } from '../lib/page-helpers';
 import type { ProjectRecord } from '../../shared/record';
-import { FIXTURES, listRows } from './fixture';
+import { FIXTURES, INTAKE_WORKSPACES, INTAKE_WORKSPACES_WITH_PROJECT, listRows } from './fixture';
 
 const ok = async (): Promise<ActionOutcome> => ({ ok: true, text: 'ok' });
 
@@ -53,8 +54,8 @@ const actions: ArchitectActions = {
     : { ok: true, text: 'ok', tiers: TIERS }),
 };
 
-// The intake dialog lists models through the host bridge; the harness answers with a fixed catalogue.
-(window as Window & { sero?: unknown }).sero = { appState: {}, appAgent: {}, models: { list: async () => [
+// The intake dialog lists models and workspaces through the host bridge; the harness answers with fixed catalogues.
+(window as Window & { sero?: unknown }).sero = { appState: {}, appAgent: {}, workspace: { list: async () => INTAKE_WORKSPACES, pickFolder: async () => null }, models: { list: async () => [
   { provider: 'openai-codex', displayName: 'OpenAI', logo: '', models: [
     { provider: 'openai-codex', modelId: 'gpt-5.6-sol', name: 'GPT-5.6 Sol', reasoning: true, availableThinkingLevels: ['low', 'medium', 'high'] },
     { provider: 'openai-codex', modelId: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', reasoning: true, availableThinkingLevels: ['low', 'medium', 'high'] },
@@ -93,8 +94,8 @@ function usePreviewDisclosures(): Disclosures {
   };
 }
 
-function IntakePreview() {
-  return <IntakeDialog open onClose={() => undefined} onCreate={async () => ({ ok: true, text: 'ok' })} defaultFolder="~/Projects/" />;
+function IntakePreview({ mode = 'new' }: { mode?: 'new' | 'existing' }) {
+  return <IntakeDialog open onClose={() => undefined} onCreate={async () => ({ ok: true, text: 'ok' })} defaultFolder="~/Projects/" takenWorkspaceIds={INTAKE_WORKSPACES_WITH_PROJECT} initialMode={mode} />;
 }
 
 function HistoryPreview({ record, disclosures }: { record: ProjectRecord; disclosures: Disclosures }) {
@@ -162,6 +163,7 @@ function PreviewStage({ state, width, runtimeRunning, disclosures }: {
   return (
     <div className="ar-app">
       {state === 'new-project' && <IntakePreview />}
+      {state === 'existing-workspace' && <IntakePreview mode="existing" />}
       {state === 'history' && record ? (
         <HistoryPreview record={record} disclosures={disclosures} />
       ) : state === 'models' ? (
@@ -177,14 +179,19 @@ function PreviewStage({ state, width, runtimeRunning, disclosures }: {
 
 function Preview() {
   const disclosures = usePreviewDisclosures();
+  // The host wraps a plugin surface in `PluginStyleScope`, which gives portaled
+  // menus a container inside the plugin's `@scope`. Without it the harness's
+  // Radix popovers portal to `document.body` and lose every plugin style.
   return (
-    <div data-sero-plugin="architect">
-      <div className="dark" style={{ padding: 24 }}>
-        <div className="preview-frame" style={{ width }}>
-          <PreviewStage state={state} width={width} runtimeRunning={runtimeRunning} disclosures={disclosures} />
+    <PluginStyleScope pluginId="architect" surfaceId="preview">
+      <div data-sero-plugin="architect">
+        <div className="dark" style={{ padding: 24 }}>
+          <div className="preview-frame" style={{ width }}>
+            <PreviewStage state={state} width={width} runtimeRunning={runtimeRunning} disclosures={disclosures} />
+          </div>
         </div>
       </div>
-    </div>
+    </PluginStyleScope>
   );
 }
 

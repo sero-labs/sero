@@ -1,8 +1,10 @@
-import { ORCHESTRATOR_REGISTRY_GLOBAL_KEY, type OrchestratorBoardAction } from '@sero-ai/common';
+import path from 'node:path';
+import { ensureUniqueId, ORCHESTRATOR_REGISTRY_GLOBAL_KEY, workspaceSlug, type OrchestratorBoardAction } from '@sero-ai/common';
 import { applyRunHealth } from '../run-health';
 import { effectiveTier } from '../../shared/model-config';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ProjectRecord } from '../../shared/record';
+import { createProjectRecord } from '../../shared/record';
 import type { WakeEvent } from '../../shared/wake';
 import { OwnerSessions } from '../owner-session';
 import { createProjectsActions } from '../projects-actions';
@@ -49,6 +51,210 @@ describe('project management', () => {
     expect((await reopened.read(created.id))?.executionMode).toBe(executionMode);
     await actions.resume(created.id);
     expect((await store.read(created.id))?.executionMode).toBe(executionMode);
+  });
+
+  it('starts a project on an existing workspace without creating or registering one', async () => {
+    const { host, store, actions } = await setup();
+    host.workspaces.push({ id: 'frogger', name: 'FroggerNeon', path: '/home/dan/projects/frogger', open: true });
+    const before = (await host.listWorkspaces()).length;
+
+    const outcome = await actions.create({ idea: 'Add a JSON flag.', workspaceId: 'frogger' });
+
+    expect(outcome.ok, outcome.text).toBe(true);
+    const record = (await store.list())[0]!;
+    expect(record).toMatchObject({ name: 'FroggerNeon', folder: '/home/dan/projects/frogger', workspaceId: 'frogger' });
+    expect((await host.listWorkspaces()).length).toBe(before);
+    // The repository is still initialised, so discovery and evidence have git.
+    expect(host.execCalls).toContainEqual({ file: 'git', args: ['init'], cwd: '/home/dan/projects/frogger' });
+  });
+
+  it('refuses a second project on a workspace that already holds one', async () => {
+    const { host, store, actions } = await setup();
+    host.workspaces.push({ id: 'frogger', name: 'FroggerNeon', path: '/home/dan/projects/frogger', open: true });
+    await actions.create({ idea: 'First.', workspaceId: 'frogger' });
+
+    const second = await actions.create({ idea: 'Second.', workspaceId: 'frogger' });
+
+    expect(second.ok).toBe(false);
+    expect(second.text).toContain('already has an Architect project');
+    expect(await store.list()).toHaveLength(1);
+  });
+
+  it('refuses an unregistered workspace and the Global workspace', async () => {
+    const { host, actions } = await setup();
+    host.workspaces.push({ id: 'global', name: 'Global', path: '/home/dan/global', open: true });
+
+    expect((await actions.create({ idea: 'x', workspaceId: 'ghost' })).ok).toBe(false);
+    expect((await actions.create({ idea: 'x', workspaceId: 'global' })).ok).toBe(false);
+  });
+
+  it('refuses a new folder that already exists and never registers it in place', async () => {
+    const { host, store, actions } = await setup();
+    const folder = '/home/dan/projects/taken';
+    // `pathExists` uses fs.stat, so an existing directory counts, not only a readable file.
+    host.existingPaths.add(folder);
+
+    const outcome = await actions.create({ idea: 'x', folder });
+
+    expect(outcome).toMatchObject({ ok: false, text: expect.stringContaining(folder) });
+    expect(await store.list()).toHaveLength(0);
+    expect((await host.listWorkspaces()).some((workspace) => workspace.path === folder)).toBe(false);
+  });
+
+  it('refuses a folder that exists at the workspace destination, not only as typed', async () => {
+    const { host, store, actions } = await setup();
+    // The host creates the workspace at `slugify(name)`, so `TestRepo` lands in `testrepo`.
+    host.existingPaths.add('/home/dan/projects/testrepo');
+
+    const outcome = await actions.create({ idea: 'x', folder: '/home/dan/projects/TestRepo' });
+
+    expect(outcome).toMatchObject({ ok: false, text: expect.stringContaining('/home/dan/projects/testrepo') });
+    expect(await store.list()).toHaveLength(0);
+  });
+
+  it('refuses the suffixed folder the host would pick when the base id is taken elsewhere', async () => {
+    const { host, store, actions } = await setup();
+    // Another workspace already holds the base id, so the host would create `app-2`.
+    host.workspaces.push({ id: 'app', name: 'Elsewhere', path: '/elsewhere/app', open: true });
+    host.existingPaths.add('/home/dan/projects/app-2');
+
+    const outcome = await actions.create({ idea: 'x', folder: '/home/dan/projects/App' });
+
+    expect(outcome).toMatchObject({ ok: false, text: expect.stringContaining('/home/dan/projects/app-2') });
+    expect(await store.list()).toHaveLength(0);
+  });
+
+  it('requires exactly one place to work', async () => {
+    const { actions } = await setup();
+    expect((await actions.create({ idea: 'x' })).ok).toBe(false);
+    expect((await actions.create({ idea: 'x', folder: '~/p/a', workspaceId: 'ws-1' })).ok).toBe(false);
+  });
+
+  it('does not make a second workspace when resume re-enters intake', async () => {
+    const { host, store, actions } = await setup();
+    const record = createProjectRecord({ id: 'proj_lost', name: 'Lost', idea: 'x', folder: '/home/dan/projects/lost', now: T0 });
+    await store.write(record);
+    const before = (await host.listWorkspaces()).length;
+
+    await actions.resume(record.id);
+    await actions.pause(record.id);
+    await actions.resume(record.id);
+
+    expect((await store.read(record.id))!.workspaceId).not.toBeNull();
+    expect((await host.listWorkspaces()).length).toBe(before + 1);
+  });
+
+  it('reuses the workspace a lost record update left behind, instead of a second one', async () => {
+    const { host, store, actions } = await setup();
+    // Intake records the workspace's destination as the project folder, then
+    // creates the workspace. If the record update that saved its id is lost, the
+    // workspace is registered at that folder and the record still has no id.
+    const record = createProjectRecord({ id: 'proj_lost', name: 'Lost', idea: 'x', folder: '/home/dan/projects/lost', now: T0 });
+    await store.write(record);
+    host.workspaces.push({ id: 'lost', name: 'Lost', path: '/home/dan/projects/lost', open: true });
+    const before = (await host.listWorkspaces()).length;
+
+    const resumed = await actions.resume(record.id);
+
+    expect(resumed.ok, resumed.text).toBe(true);
+    expect((await store.read(record.id))!.workspaceId).toBe('lost');
+    expect((await host.listWorkspaces()).length).toBe(before);
+  });
+
+  it('reuses a suffixed workspace left by a lost record update', async () => {
+    const { host, store, actions } = await setup();
+    const record = createProjectRecord({ id: 'proj_lost', name: 'Lost', idea: 'x', folder: '/home/dan/projects/lost-2', now: T0 });
+    await store.write(record);
+    host.workspaces.push({ id: 'lost-2', name: 'Lost', path: '/home/dan/projects/lost-2', open: true });
+    const before = (await host.listWorkspaces()).length;
+
+    const resumed = await actions.resume(record.id);
+
+    expect(resumed.ok, resumed.text).toBe(true);
+    expect((await store.read(record.id))!.workspaceId).toBe('lost-2');
+    expect((await host.listWorkspaces()).length).toBe(before);
+  });
+
+  it('does not adopt a workspace another project already owns', async () => {
+    const { host, store, actions } = await setup();
+    // Two intakes can pass the existence check before either creates a workspace.
+    // The first to create owns it; the second must make its own, not share it.
+    const owner = createProjectRecord({ id: 'proj_a', name: 'App', idea: 'a', folder: '/home/dan/projects/app', workspaceId: 'app', now: T0 });
+    await store.write(owner);
+    host.workspaces.push({ id: 'app', name: 'App', path: '/home/dan/projects/app', open: true });
+    const second = createProjectRecord({ id: 'proj_b', name: 'App', idea: 'b', folder: '/home/dan/projects/app', now: T0 });
+    await store.write(second);
+    const before = (await host.listWorkspaces()).length;
+
+    const resumed = await actions.resume(second.id);
+
+    expect(resumed.ok, resumed.text).toBe(true);
+    const saved = (await store.read(second.id))!;
+    expect(saved.workspaceId).not.toBe('app');
+    expect(saved.workspaceId).not.toBeNull();
+    expect((await host.listWorkspaces()).length).toBe(before + 1);
+  });
+
+  it('gives concurrent new-folder intakes separate workspaces', async () => {
+    const { host, store, actions } = await setup();
+    host.workspaces.length = 0;
+
+    const gate = () => {
+      let open!: () => void;
+      const promise = new Promise<void>((resolve) => { open = resolve; });
+      return { promise, open };
+    };
+    const firstCreating = gate();
+    const secondSaved = gate();
+    const releaseFirst = gate();
+    const written: ProjectRecord[] = [];
+    let holdingFirst = true;
+    let creates = 0;
+
+    const write = store.write.bind(store);
+    vi.spyOn(store, 'write').mockImplementation(async (record) => {
+      await write(record);
+      written.push(record);
+      if (written.length === 2) secondSaved.open();
+    });
+    const list = store.list.bind(store);
+    // While the first create is held, both records exist with no workspace.
+    vi.spyOn(store, 'list').mockImplementation(async () => (holdingFirst ? [...written] : list()));
+
+    host.createWorkspace = vi.fn(async (name, parentPath) => {
+      const first = ++creates === 1;
+      if (first) {
+        firstCreating.open();
+        await secondSaved.promise;
+      }
+      const id = ensureUniqueId(workspaceSlug(name), new Set(host.workspaces.map((workspace) => workspace.id)));
+      const workspace = { id, name, path: path.join(parentPath, id), open: true };
+      host.workspaces.push(workspace);
+      if (first) await releaseFirst.promise;
+      return workspace;
+    });
+
+    const first = actions.create({ idea: 'First.', folder: '/home/dan/projects/app' });
+    await firstCreating.promise;
+    const second = actions.create({ idea: 'Second.', folder: '/home/dan/projects/app' });
+
+    await secondSaved.promise;
+    // Drain promise continuations: without the claim queue, the second intake
+    // can adopt the first's published workspace here, before its id was saved.
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    holdingFirst = false;
+    releaseFirst.open();
+
+    const outcomes = await Promise.all([first, second]);
+    for (const outcome of outcomes) {
+      expect(outcome.ok, outcome.text).toBe(true);
+      expect(outcome.text).not.toContain('Setup needs attention');
+    }
+    const records = await store.list();
+    expect(new Set(records.map((record) => record.workspaceId)).size).toBe(2);
+    expect(records.map((record) => record.workspaceId).sort()).toEqual(['app', 'app-2']);
+    expect(host.workspaces).toHaveLength(2);
+    expect(host.createWorkspace).toHaveBeenCalledTimes(2);
   });
 
   it('requires a saved legacy choice before resume and preserves existing work and grants', async () => {

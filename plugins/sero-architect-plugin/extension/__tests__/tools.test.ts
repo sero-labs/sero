@@ -69,6 +69,52 @@ describe('the architect tools', () => {
     expect(received).toMatchObject({ idea: 'x', folder: '~/p', models });
   });
 
+  it('creates on an existing workspace instead of a folder when workspaceId is given', async () => {
+    let received: Record<string, unknown> | undefined;
+    registered = {
+      owner: { owns: async () => null, execute: async () => ({ ok: true, text: '' }) },
+      projects: {
+        create: async (input: Record<string, unknown>) => { received = input; return { ok: true, text: 'created', projectId: 'p1' }; },
+      } as unknown as ArchitectRegistryEntry['projects'],
+    };
+    registerArchitectRuntime(registered);
+
+    const outcome = await executeProjectsTool({ action: 'create', idea: 'x', workspaceId: 'frogger' }, ctxFor('/s/user-chat.jsonl'));
+
+    expect(outcome.details.ok).toBe(true);
+    expect(received).toMatchObject({ idea: 'x', workspaceId: 'frogger' });
+    expect(received).not.toHaveProperty('folder');
+  });
+
+  it('asks for a folder when no workspace is chosen', async () => {
+    registered = {
+      owner: { owns: async () => null, execute: async () => ({ ok: true, text: '' }) },
+      projects: { create: async () => ({ ok: true, text: 'created' }) } as unknown as ArchitectRegistryEntry['projects'],
+    };
+    registerArchitectRuntime(registered);
+
+    const outcome = await executeProjectsTool({ action: 'create', idea: 'x' }, ctxFor('/s/user-chat.jsonl'));
+
+    expect(outcome.details.ok).toBe(false);
+    expect(outcome.content[0]?.text).toContain('folder');
+  });
+
+  it('passes both fields through so the runtime can refuse them together', async () => {
+    let received: Record<string, unknown> | undefined;
+    registered = {
+      owner: { owns: async () => null, execute: async () => ({ ok: true, text: '' }) },
+      projects: {
+        create: async (input: Record<string, unknown>) => { received = input; return { ok: false, text: 'not both' }; },
+      } as unknown as ArchitectRegistryEntry['projects'],
+    };
+    registerArchitectRuntime(registered);
+
+    const outcome = await executeProjectsTool({ action: 'create', idea: 'x', folder: '~/p', workspaceId: 'frogger' }, ctxFor('/s/user-chat.jsonl'));
+
+    expect(outcome.details.ok).toBe(false);
+    expect(received).toMatchObject({ folder: '~/p', workspaceId: 'frogger' });
+  });
+
   it('lists every management action in the description the CLI help is built from', () => {
     for (const action of ['create', 'pause', 'resume', 'stop', 'raise_cap', 'set_autonomy', 'answer', 'directive', 'delete']) {
       expect(PROJECT_ACTIONS).toContain(action);

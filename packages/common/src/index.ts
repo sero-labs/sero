@@ -6,10 +6,10 @@
  * Keep this package limited to generic Sero platform contracts.
  */
 
-export { createDebouncedFn } from './debounce';
-export type { DebouncedFn } from './debounce';
-
+export { createDebouncedFn, type DebouncedFn } from './debounce';
 export { relativeTime } from './time';
+
+export { workspaceSlug, isSafeWorkspaceId, assertSafeWorkspaceId, ensureUniqueId } from './workspace-id';
 
 export {
   SERO_HOST_CAPABILITIES,

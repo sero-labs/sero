@@ -6,16 +6,16 @@
  */
 
 import { chooseOwnerModel } from './owner-session';
-import os from 'node:os';
-import path from 'node:path';
 
-import { requestOrchestratorAction, type ModelTier, type PersistentSessionHistoryPage, type SharedModelTierEntry, type SharedModelTierSettings, type ThinkingLevel } from '@sero-ai/common';
+import { type ModelTier, type PersistentSessionHistoryPage, type SharedModelTierSettings } from '@sero-ai/common';
 
-import { advancePhase, approveCharter, block, mayDispatch, pause, resume, setAutonomy, setCap, settle, unblock } from '../shared/lifecycle';
+import { advancePhase, approveCharter, block, pause, resume, setAutonomy, setCap, settle, unblock } from '../shared/lifecycle';
 import { activityOptions } from './session-state';
 import { createProjectRecord, toIndexEntry, type AutonomySetting, type ExecutionMode, type DecisionProposal, type Milestone, type ProjectRecord } from '../shared/record';
+import type { CreateProjectInput } from '../shared/create-project';
+import { resolveIntakePlacement } from './intake-placement';
+import { createWorkspaceClaim } from './workspace-claim';
 import type { DispatchDestination } from '../shared/owner-actions';
-import { performDispatch } from './dispatch-link';
 import { disarmMaintenance, rearmMaintenance } from './maintenance-arming';
 import type { RepairOutcome } from './repair-dispatch';
 import { clearModelDefaultAction, parseModelEntry, refreshModelTiersAction, setModelDefaultAction, type ModelDefaultInput } from './model-default-actions';
@@ -70,7 +70,7 @@ export interface ProjectsActions {
    * page showing a summary never receives records it did not request.
    */
   trace(projectId: string, query?: Omit<TraceQuery, 'projectId'>): Promise<TraceAnswer | null>;
-  create(input: { idea: string; folder: string; executionMode?: ExecutionMode; models?: ModelDefaultInput[] }): Promise<ProjectsOutcome>;
+  create(input: CreateProjectInput): Promise<ProjectsOutcome>;
   pause(projectId: string): Promise<ProjectsOutcome>;
   resume(projectId: string): Promise<ProjectsOutcome>;
   retry(projectId: string, milestoneId: string, maxCostUsd?: number): Promise<ProjectsOutcome>;
@@ -93,13 +93,10 @@ export interface ProjectsActions {
 const ok = (text: string, projectId?: string): ProjectsOutcome => ({ ok: true, text, projectId });
 const refuse = (text: string): ProjectsOutcome => ({ ok: false, text });
 
-function expandHome(folder: string): string {
-  return folder.startsWith('~') ? path.join(os.homedir(), folder.slice(1)) : path.resolve(folder);
-}
-
 
 export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsActions {
   const { host, store, sessions, scheduler, watch, services } = deps;
+  const claimWorkspace = createWorkspaceClaim(host, store);
 
 
   /**
@@ -111,10 +108,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
     let record = start;
     if (!record.workspaceId) {
       try {
-        const workspace = await host.createWorkspace(record.name, path.dirname(record.folder));
-        record = (await store.update(record.id, (fresh) => ({
-          ...fresh, folder: workspace.path, workspaceId: workspace.id, stateLine: 'Workspace ready. Permission is needed to run the Architect.',
-        }))) ?? record;
+        record = await claimWorkspace(record.id);
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         await store.update(record.id, (fresh) => {
@@ -199,10 +193,11 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
     async create(input) {
       const idea = input.idea.trim();
       if (!idea) return refuse('The idea is required.');
-      const folder = expandHome(input.folder.trim());
-      if (!input.folder.trim()) return refuse('The folder is required.');
-      const name = path.basename(folder);
-      let record = createProjectRecord({ id: host.newId('proj'), name, idea, folder, executionMode: input.executionMode, now: host.now() });
+      const resolved = await resolveIntakePlacement(input, { host, store });
+      if (!resolved.ok) return refuse(resolved.error);
+      const { name, folder, workspaceId } = resolved.placement;
+
+      let record = createProjectRecord({ id: host.newId('proj'), name, idea, folder, workspaceId, executionMode: input.executionMode, now: host.now() });
       // Overrides chosen at intake are checked against the catalogue the same
       // way a later change is, so the first wake never resolves a model that
       // does not exist.

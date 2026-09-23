@@ -5,7 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
-import { DECISION, FIXTURES } from '../__preview__/fixture';
+import { DECISION, FIXTURES, INTAKE_WORKSPACES, INTAKE_WORKSPACES_WITH_PROJECT } from '../__preview__/fixture';
 import { StateLine } from '../components/StateLine';
 import { IntakeDialog } from '../components/IntakeDialog';
 import { ControlsMenu } from '../components/TopBar';
@@ -25,7 +25,7 @@ vi.mock('@sero-ai/ui', async () => {
     Collapsible: actual.Collapsible,
     CollapsibleTrigger: actual.CollapsibleTrigger,
     CollapsibleContent: actual.CollapsibleContent,
-    Select: pass, SelectTrigger: pass, SelectValue: pass, SelectContent: pass, SelectItem: pass,
+    ...(await import('./select-stand-in')),
     Input: 'input',
     Textarea: 'textarea',
     Button: ({ children, ...props }: { children: ReactNode } & ButtonHTMLAttributes<HTMLButtonElement>) => (
@@ -77,6 +77,8 @@ let root: Root;
 
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  // The intake picker reads the profile workspaces through the host bridge.
+  (globalThis as { sero?: unknown }).sero = { workspace: { list: async () => INTAKE_WORKSPACES } };
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -85,6 +87,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  delete (globalThis as { sero?: unknown }).sero;
 });
 
 const flush = () => act(async () => { await Promise.resolve(); });
@@ -294,7 +297,7 @@ describe('creating a project', () => {
   it.each(['workspace', 'worktree'] as const)('submits %s placement before setup without navigating twice', async (executionMode) => {
     const onClose = vi.fn();
     const onCreate = vi.fn(async () => ({ ok: true, text: 'created', projectId: 'hollow-depths' }));
-    act(() => root.render(<IntakeDialog open onClose={onClose} onCreate={onCreate} defaultFolder="~/Projects/x" />));
+    act(() => root.render(<IntakeDialog open onClose={onClose} onCreate={onCreate} defaultFolder="~/Projects/x" takenWorkspaceIds={INTAKE_WORKSPACES_WITH_PROJECT} />));
 
     const toggle = container.querySelector<HTMLButtonElement>('[role="switch"]');
     if (!toggle) throw new Error('no worktree switch');
@@ -317,12 +320,89 @@ describe('creating a project', () => {
     act(() => { idea.form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
     await flush();
 
-    expect(onCreate).toHaveBeenCalledWith('A roguelike', '~/Projects/x/game', executionMode, []);
+    expect(onCreate).toHaveBeenCalledWith({ idea: 'A roguelike', folder: '~/Projects/x/game', executionMode, models: [] });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('offers free workspaces first, disables the ones with a project, and leaves Global out', async () => {
+    act(() => root.render(<IntakeDialog open onClose={vi.fn()} onCreate={vi.fn(async () => OK)} defaultFolder="~/Projects/x" takenWorkspaceIds={INTAKE_WORKSPACES_WITH_PROJECT} initialMode="existing" />));
+    await flush();
+    await flush();
+
+    const select = container.querySelector<HTMLSelectElement>('select[aria-label="Workspace"]');
+    if (!select) throw new Error('no workspace picker');
+    const options = [...select.querySelectorAll('option')];
+    // The free workspaces come first, in the bridge's order, then the ones a project holds.
+    expect(options.map((option) => option.value)).toEqual([
+      'testrepo',
+      'architecttest',
+      'planner-scope-diagnostic-01',
+      'optimizer-agent-q0oqut',
+      'froggerneon',
+      'dungeonexplorer',
+      'dungeonexplorer-resilience-01',
+      'csv-summary-resilience-01',
+      'csv-summary-resilience-02',
+      'reading-tracker-resilience-01',
+      'import-dashboard-resilience-01',
+      'import-dashboard-resilience-02',
+      'workspace-placement-diagnostic-01',
+    ]);
+    expect(options.find((option) => option.value === 'froggerneon')?.disabled).toBe(true);
+    expect(options.find((option) => option.value === 'testrepo')?.disabled).toBe(false);
+    expect(options.some((option) => option.value === 'global')).toBe(false);
+  });
+
+  it('starts on a chosen workspace and submits its id instead of a folder', async () => {
+    const onCreate = vi.fn(async () => ({ ok: true, text: 'created', projectId: 'frogger' }));
+    act(() => root.render(<IntakeDialog open onClose={vi.fn()} onCreate={onCreate} defaultFolder="~/Projects/x" takenWorkspaceIds={INTAKE_WORKSPACES_WITH_PROJECT} />));
+
+    const existing = [...container.querySelectorAll('button')].find((el) => el.textContent === 'Existing workspace');
+    if (!existing) throw new Error('no Existing workspace choice');
+    act(() => existing.click());
+    await flush();
+
+    const idea = container.querySelector<HTMLTextAreaElement>('#ar-idea')!;
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set?.call(idea, 'Add a JSON flag');
+      idea.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const select = container.querySelector<HTMLSelectElement>('select[aria-label="Workspace"]');
+    if (!select) throw new Error('no workspace picker');
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set?.call(select, 'testrepo');
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    act(() => { select.form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
+    await flush();
+
+    expect(onCreate).toHaveBeenCalledWith({ idea: 'Add a JSON flag', executionMode: 'workspace', models: [], workspaceId: 'testrepo' });
+  });
+
+  it('keeps the dialog open and shows the runtime refusal', async () => {
+    const onClose = vi.fn();
+    const onCreate = vi.fn(async () => ({ ok: false, text: 'The folder /home/dan/projects/taken already exists.' }));
+    act(() => root.render(<IntakeDialog open onClose={onClose} onCreate={onCreate} defaultFolder="~/Projects/x" takenWorkspaceIds={[]} />));
+
+    const idea = container.querySelector<HTMLTextAreaElement>('#ar-idea')!;
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set?.call(idea, 'A roguelike');
+      idea.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    act(() => {
+      const name = container.querySelector<HTMLInputElement>('#ar-name')!;
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(name, 'taken');
+      name.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    act(() => { idea.form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
+    await flush();
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain('already exists');
     expect(onClose).not.toHaveBeenCalled();
   });
 
   it('keeps the model overrides folded until asked, then shows one row per tier', () => {
-    act(() => root.render(<IntakeDialog open onClose={vi.fn()} onCreate={vi.fn(async () => OK)} defaultFolder="~/Projects/x" />));
+    act(() => root.render(<IntakeDialog open onClose={vi.fn()} onCreate={vi.fn(async () => OK)} defaultFolder="~/Projects/x" takenWorkspaceIds={[]} />));
     const trigger = [...container.querySelectorAll('button')].find((el) => el.textContent?.includes('Model overrides'));
     if (!trigger) throw new Error('no overrides trigger');
     expect(container.querySelector('[aria-label="LOW model"]')).toBeNull();

@@ -119,6 +119,8 @@ export interface FakeHost extends ArchitectHost {
   execResults: Record<string, CommandRun>;
   stateListeners: Map<string, Set<(state: unknown) => void>>;
   jsonFiles: Record<string, unknown>;
+  /** Paths that already exist, for the intake folder refusal. */
+  existingPaths: Set<string>;
   emitState(filePath: string, state: unknown): void;
   sessions: FakeSessionsApi;
   workspaces: { id: string; name: string; path: string; open: boolean }[];
@@ -172,6 +174,7 @@ export async function fakeHost(options: { workspaces?: FakeHost['workspaces']; s
     },
     readJson: async (filePath) => host.jsonFiles[filePath] ?? null,
     fileInfo: async () => null,
+    pathExists: async (filePath) => host.existingPaths.has(filePath),
     notify: (message) => { host.notices.push(message); },
     now: () => host.clock.shift() ?? T0,
     newId: (prefix) => `${prefix}_${++ids}`,
@@ -186,6 +189,7 @@ export async function fakeHost(options: { workspaces?: FakeHost['workspaces']; s
     execResults: {},
     stateListeners: new Map(),
     jsonFiles: {},
+    existingPaths: new Set(),
     emitState: (filePath, state) => {
       for (const cb of host.stateListeners.get(filePath) ?? []) cb(state);
     },

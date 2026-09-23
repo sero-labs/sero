@@ -59,6 +59,11 @@ containers.
 - Report in ASD-STE100 Simplified Technical English.
 - Use Conventional Commit messages.
 - Create pull requests as drafts. Make one ready only when the user asks.
+- If a change touches a package that is published to npm, bump its version in
+  the same pull request so it can be republished. The published packages are
+  `@sero-ai/app-runtime`, `@sero-ai/common`, `@sero-ai/extension-runtime`,
+  `@sero-ai/plugin-vite` and `@sero-ai/ui`. Every other `packages/*` project is
+  private, and `plugins/*` and `apps/desktop` are not npm packages.
 - Put plans and task history in GitHub issues or pull request descriptions. Put
   user and plugin-author docs in `apps/docs-site/docs/`, subsystem guidance in
   the owning README, and current cross-cutting boundaries in `ARCHITECTURE.md`.

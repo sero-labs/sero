@@ -401,6 +401,8 @@ export interface NewProjectInput {
   name: string;
   idea: string;
   folder: string;
+  /** Set when the project starts on a workspace that already exists. */
+  workspaceId?: string | null;
   now: string;
 }
 
@@ -412,7 +414,7 @@ export function createProjectRecord(input: NewProjectInput): ProjectRecord {
     name: input.name,
     idea: input.idea,
     folder: input.folder,
-    workspaceId: null,
+    workspaceId: input.workspaceId ?? null,
     createdAt: input.now,
     updatedAt: input.now,
     phase: 'intake',
