@@ -5,88 +5,112 @@ The approved drawing is
 Its two frames, its "Controls on this screen today" lists and its Decisions are
 binding.
 
-**Status: drawing captured and read; build not captured yet.** Both frames of the
-drawing were rendered and read as images at planning time (see the method below
-and "What the drawing shows"). The built surfaces do not exist yet. Task 4.2
-captures both sides after the build and task 4.3 fills in the "Differences the
-captures showed" section. Until then this file records what the drawing shows
-from real images, so it is not later checked against memory.
+**Status: both sides captured and read.** The drawing's two frames and both
+built surfaces were rendered, screenshot, and read as images. The differences
+below are what the images showed, not what anyone remembered.
 
 ## How the captures are taken
 
-- Start the drawing page with `pnpm styleguide`, then open
+- Drawing: `pnpm styleguide`, then
   `http://localhost:5176/prototypes/agent-workspace-ux-audit/8-model-pickers.html`.
-- Screenshot each frame's `.app` element from `section.state .app`, and the whole
-  page with `fullPage: true`, at a viewport wider than the panel (1440 used here).
-  Open every `<details>` disclosure first.
-- Use the repository's own Playwright, not the Homebrew CLI:
+  Screenshot each frame's `.app` element from `section.state .app` and the whole
+  page with `fullPage: true`, at 1440 width, with every `<details>` opened.
+- Built step: `pnpm --filter @sero-ai/plugin-orchestrator preview`, then
+  `ui/__preview__/index.html?preview=step-model`. Tune opens on load; the field's
+  chevron is clicked and `sonnet` typed. Screenshot the viewport at 1600x900.
+- Built tier table: `pnpm --filter @sero-ai/plugin-architect preview`, then
+  `ui/__preview__/index.html?state=models&width=1240`. The MED field's chevron is
+  clicked and `flash` typed. Screenshot the viewport at 1600x1000.
+- Both built captures add the `dark` class to `document.documentElement` first.
+  The harness toggles the theme on an inner div, and a popup portals into a
+  sibling container, so without this the popup renders light on a dark card.
+- Every surface is read as an image. A byte size proves nothing. The
+  repository's own Playwright is used, not the Homebrew CLI:
   `node_modules/.pnpm/playwright@1.62.1/node_modules/playwright/index.mjs`.
-- Built surfaces: `pnpm --filter @sero-ai/plugin-orchestrator preview` for the
-  step (the Tune panel open on a real `StepCard`), and
-  `pnpm --filter @sero-ai/plugin-architect preview` with `?state=models` for the
-  tier table.
-- Every fold, chevron and Tune panel is opened on both sides before comparing.
-  Each surface is read as an image. A byte size proves nothing.
+
+## The model-picker inventory
+
+Every site in the two plugins that chooses a model, and what it uses:
+
+- `plugins/sero-orchestrator-plugin/ui/components/StepModelControl.tsx` -
+  `AvailableModelPicker`, tiers first.
+- `plugins/sero-architect-plugin/ui/components/ModelSettings.tsx` -
+  `AvailableModelPicker` per tier, the inherited choice first.
+- `plugins/sero-architect-plugin/ui/components/IntakeModelOverrides.tsx` -
+  `AvailableModelPicker` per tier, `Global selection` first.
+
+No native `<select>` and no styled `Select` chooses a model in either plugin. The
+remaining `Select` in `ModelSettings.tsx` and `IntakeModelOverrides.tsx` is the
+thinking picker, which the drawing keeps beside the model field. Read-only model
+displays are not pickers and are unchanged: the Room member facts, the Room's
+allowed-models chips, `ModelChoices.tsx` and the inspector.
 
 ## What the drawing shows
 
-Frame 1 - a step's model, Orchestrator, `Composable title search`:
+Frame 1 - a step's model, Orchestrator:
 
 - One row of three inline, externally labelled fields: `Model`, `Agent`
   (`implementer`), `Tools` (`Default`).
-- The `Model` field is a wide combobox, about ten times the width a single model
-  name needs, with `sonnet` typed and its list open.
-- The list holds only the four matching Sonnet rows; the tier entries are
-  filtered out because they do not match the query. Each row names the model and
-  its provider (`Anthropic`, right-aligned and muted). The chosen row carries a
-  check mark.
-- The `Agent` and `Tools` fields are compact chevron fields.
+- The `Model` field is a wide combobox with `sonnet` typed and its list open. The
+  tier entries are filtered out because they do not match the query. Each row
+  names the model and its provider (`Anthropic`, right-aligned and muted). The
+  closed field carries no clear control.
 
-Frame 2 - Project models, Architect, `FroggerNeon`:
+Frame 2 - Project models, Architect:
 
 - A table: `TIER`, `PROJECT SELECTION`, `EFFECTIVE`, `SOURCE`, and a trailing
-  action column.
-- Each tier's `PROJECT SELECTION` cell is the model field followed by a compact
-  thinking field (`low ▾`, `high ▾`, `medium ▾`) on the same line.
-- The model field names the model on the left and the provider on the right,
-  inside the field, before the chevron (`DeepSeek V4.1 Flash` ... `DeepSeek`).
-  No provider logo and no group heading appear; the provider is text on the row.
-- The open list shows one row per model, name left and provider right, with a
-  check mark on the chosen row.
-- `EFFECTIVE` reads `<model> · <thinking>`; `SOURCE` reads `project`; the trailing
-  column holds one `Use global` button per row.
-- The header keeps `revision 5` and the `Back to project` control is in the
-  parity list.
-
-Both frames confirm the parity lists: frame 1 folds "the tier select and the
-Specific model picker, into one field" and keeps Auto, the tiers, every model,
-clearing a pin, Agent and Tools; frame 2 keeps model and thinking for LOW, MED
-and HIGH, `Use global`, `Back to project` and the revision number.
+  `Use global` column. The model field names the model on the left and the
+  provider on the right, inside the field, before the chevron. The thinking field
+  is compact and sits on the same line. `EFFECTIVE` reads `<model id> · <thinking>`.
+- No provider logo and no group heading; the provider is text on the row.
 
 ## Differences the captures showed
 
-To be filled by task 4.3, one row per difference, each naming the frame, what the
-capture showed, and what was done. The drawing side above is the reference.
+- **Frame 1: the step field showed a clear `X` beside a tier.** The drawing shows
+  none, because a tier is not a pinned model. Fixed: `StepModelControl` passes
+  `allowClear` only when the step's model is a pinned model (`isModelTier` is
+  false). The tier tables already passed no `allowClear`.
+- **Frame 1: the built list held three Sonnet rows against the drawing's four.**
+  That is the preview fixture's catalogue, not the control: the drawing used a
+  saved profile with four Sonnet models. The field, the rows, the filter and the
+  provider label all match.
+- **Frame 1: the built card also shows a Result row.** The drawing's frame is a
+  simplified step (title, state, Tune row). The real card shows the Result row
+  from an earlier change. The model field itself matches the frame.
+- **Frame 2: `EFFECTIVE` now reads `v4.1-flash · low`, `v4.1-flash · high` and
+  `gpt-5.6-sol · medium`.** The drawing's format. The shipped page had read the
+  provider-qualified reference with no thinking level.
+- **Frame 2: the open list shows one DeepSeek row with a check mark and its
+  provider right-aligned.** Matches the drawing.
+- **Harness: the Orchestrator popup lost every plugin style.** The plugin
+  preview page did not wrap its surface in `PluginStyleScope`, so the combobox
+  popup portaled to `document.body`, outside the plugin's `@scope`. Fixed in
+  `ui/__preview__/main.tsx`, matching the Architect harness. A harness fix, not a
+  product change.
 
 ## Departures taken knowingly
 
-- **The shared picker's other consumers are not captured.** The drawing names
-  Admin, onboarding and Design Library as changing with the shared picker, but
-  they have no preview harness and no frame. They are covered by the shared
-  component's tests and appear here as uncaptured.
-- **The list is flat, with no provider logos or headings.** The drawing shows
-  text only. This drops the grouped list and the provider logo the current picker
-  draws.
 - **The Project models first choice keeps the shipped label rule.** The open list
   labels the inherited choice `Global` when the global cannot be read and
-  `Not selected` otherwise, as the view does today. The drawing names it `Global`
-  in the closed-field data. The issue allows this ("Global (or Not selected)"),
-  and the user kept the split. The difference will show when the list is opened
-  for a tier whose global can be read.
+  `Not selected` otherwise, as the view does today. The drawing names it `Global`.
+  The issue allows this ("Global (or Not selected)"), and the user kept the split.
 - **The owner row's Effective cell is unchanged.** Frame 2 draws no owner row, so
   the change to `<model id> · <thinking level>` applies to the LOW, MED and HIGH
   rows only. The owner row keeps the model string it shows today.
-- **The read-only model displays are not pickers and are unchanged.** The Room
-  member facts, the Room's allowed-models chips, `ModelChoices.tsx` and the
-  inspector keep their format; only the three model-choice sites move to the
-  shared picker.
+- **The list is flat, with no provider logos or headings.** The drawing shows text
+  only. This drops the grouped list and the provider logo the picker drew before.
+- **The shared picker's other consumers are not captured.** The drawing names
+  Admin, onboarding and Design Library as changing with the shared picker, but
+  they have no preview harness and no frame. They are covered by the shared
+  component's tests.
+- **The New project Model overrides are not captured.** They use the same field
+  as Project models and are covered by a unit test, but no harness state opens the
+  folded section with a catalogue, so no image was taken.
+
+## Frames never compared
+
+- The drawing page's other documents (`proposals.html`, `evidence.html`,
+  `flows.html`) are not this change.
+- The Admin, onboarding and Design Library surfaces, and the folded New project
+  Model overrides, were not put beside an image. They are named as uncaptured
+  above.

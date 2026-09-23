@@ -11,6 +11,7 @@
 
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { PluginStyleScope } from '@sero-ai/ui';
 // The host supplies the design tokens in the real app. The harness has no host,
 // so it injects the host stylesheet raw: routed through Vite it would meet the
 // plugin CSS scope, which refuses document-level selectors.
@@ -67,4 +68,13 @@ function Harness() {
 }
 
 const container = document.getElementById('root');
-if (container) createRoot(container).render(<Harness />);
+if (container) {
+  // The host wraps a plugin surface in `PluginStyleScope`, which gives portaled
+  // popups a container inside the plugin's `@scope`. Without it the harness's
+  // combobox popups portal to `document.body` and lose every plugin style.
+  createRoot(container).render(
+    <PluginStyleScope pluginId="orchestrator" surfaceId="preview">
+      <Harness />
+    </PluginStyleScope>,
+  );
+}

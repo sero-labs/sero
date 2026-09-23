@@ -46,6 +46,8 @@ vi.mock('@sero-ai/ui', async () => {
   };
 });
 
+vi.mock('@sero-ai/ui/model-selection/available-model-picker', async () => await import('./model-picker-stand-in'));
+
 vi.mock('@sero-ai/app-runtime', () => ({
   useAppTools: () => ({ run: vi.fn(async () => ({ text: 'Preview ready', details: { ok: true, url: 'http://localhost:3000' } })) }),
   openSeroApp: vi.fn(async () => true),
