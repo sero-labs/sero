@@ -49,7 +49,8 @@ export const ProjectsToolParams = Type.Object({
   action: StringEnum(PROJECT_ACTIONS, { description: `One of: ${PROJECT_ACTIONS.join(', ')}` }),
   projectId: Type.Optional(Type.String({ description: 'Project ID. Required for every action except list and create' })),
   idea: Type.Optional(Type.String({ description: 'create: the idea, in the user\'s own words' })),
-  folder: Type.Optional(Type.String({ description: 'create: the folder to build in, under the home directory' })),
+  folder: Type.Optional(Type.String({ description: 'create: the new folder to build in, under the home directory. Not used when workspaceId is given' })),
+  workspaceId: Type.Optional(Type.String({ description: 'create: an existing registered workspace to work in, instead of a new folder' })),
   capUsd: Type.Optional(Type.Number({ description: 'raise_cap: the project cap; retry: an explicitly approved new total Workflow cap in USD' })),
   executionMode: Type.Optional(StringEnum(EXECUTION_MODES, { description: 'create/set_execution_mode: workspace or worktree; new projects default to workspace' })),
   models: Type.Optional(Type.Array(Type.Object({
@@ -81,6 +82,7 @@ export interface ProjectsToolParamsShape {
   projectId?: string;
   idea?: string;
   folder?: string;
+  workspaceId?: string;
   capUsd?: number;
   executionMode?: ExecutionMode;
   models?: ModelDefaultInput[];
@@ -196,9 +198,14 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
       return result(true, answer.summary.incomplete ? 'Trace summary. More history exists than this folded.' : 'Trace summary.', details);
     }
     case 'create': {
-      const missing = need(params.idea, 'idea') ?? need(params.folder, 'folder');
+      const missing = need(params.idea, 'idea') ?? (params.workspaceId ? null : need(params.folder, 'folder'));
       if (missing) return result(false, missing);
-      const outcome = await actions.create({ idea: params.idea ?? '', folder: params.folder ?? '', executionMode: params.executionMode, models: params.models });
+      const outcome = await actions.create({
+        idea: params.idea ?? '',
+        executionMode: params.executionMode,
+        models: params.models,
+        ...(params.workspaceId ? { workspaceId: params.workspaceId } : { folder: params.folder ?? '' }),
+      });
       return result(outcome.ok, outcome.text, outcome.ok ? { projectId: outcome.projectId } : {});
     }
     case 'preview': {

@@ -3,6 +3,7 @@ import { applyRunHealth } from '../run-health';
 import { effectiveTier } from '../../shared/model-config';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ProjectRecord } from '../../shared/record';
+import { createProjectRecord } from '../../shared/record';
 import type { WakeEvent } from '../../shared/wake';
 import { OwnerSessions } from '../owner-session';
 import { createProjectsActions } from '../projects-actions';
@@ -49,6 +50,73 @@ describe('project management', () => {
     expect((await reopened.read(created.id))?.executionMode).toBe(executionMode);
     await actions.resume(created.id);
     expect((await store.read(created.id))?.executionMode).toBe(executionMode);
+  });
+
+  it('starts a project on an existing workspace without creating or registering one', async () => {
+    const { host, store, actions } = await setup();
+    host.workspaces.push({ id: 'frogger', name: 'FroggerNeon', path: '/home/dan/projects/frogger', open: true });
+    const before = (await host.listWorkspaces()).length;
+
+    const outcome = await actions.create({ idea: 'Add a JSON flag.', workspaceId: 'frogger' });
+
+    expect(outcome.ok, outcome.text).toBe(true);
+    const record = (await store.list())[0]!;
+    expect(record).toMatchObject({ name: 'FroggerNeon', folder: '/home/dan/projects/frogger', workspaceId: 'frogger' });
+    expect((await host.listWorkspaces()).length).toBe(before);
+    // The repository is still initialised, so discovery and evidence have git.
+    expect(host.execCalls).toContainEqual({ file: 'git', args: ['init'], cwd: '/home/dan/projects/frogger' });
+  });
+
+  it('refuses a second project on a workspace that already holds one', async () => {
+    const { host, store, actions } = await setup();
+    host.workspaces.push({ id: 'frogger', name: 'FroggerNeon', path: '/home/dan/projects/frogger', open: true });
+    await actions.create({ idea: 'First.', workspaceId: 'frogger' });
+
+    const second = await actions.create({ idea: 'Second.', workspaceId: 'frogger' });
+
+    expect(second.ok).toBe(false);
+    expect(second.text).toContain('already has an Architect project');
+    expect(await store.list()).toHaveLength(1);
+  });
+
+  it('refuses an unregistered workspace and the Global workspace', async () => {
+    const { host, actions } = await setup();
+    host.workspaces.push({ id: 'global', name: 'Global', path: '/home/dan/global', open: true });
+
+    expect((await actions.create({ idea: 'x', workspaceId: 'ghost' })).ok).toBe(false);
+    expect((await actions.create({ idea: 'x', workspaceId: 'global' })).ok).toBe(false);
+  });
+
+  it('refuses a new folder that already exists and never registers it in place', async () => {
+    const { host, store, actions } = await setup();
+    const folder = '/home/dan/projects/taken';
+    vi.spyOn(host, 'fileInfo').mockResolvedValue({ mtimeMs: 1, size: 1, head: Buffer.from('{}') });
+
+    const outcome = await actions.create({ idea: 'x', folder });
+
+    expect(outcome).toMatchObject({ ok: false, text: expect.stringContaining(folder) });
+    expect(await store.list()).toHaveLength(0);
+    expect((await host.listWorkspaces()).some((workspace) => workspace.path === folder)).toBe(false);
+  });
+
+  it('requires exactly one place to work', async () => {
+    const { actions } = await setup();
+    expect((await actions.create({ idea: 'x' })).ok).toBe(false);
+    expect((await actions.create({ idea: 'x', folder: '~/p/a', workspaceId: 'ws-1' })).ok).toBe(false);
+  });
+
+  it('does not make a second workspace when resume re-enters intake', async () => {
+    const { host, store, actions } = await setup();
+    const record = createProjectRecord({ id: 'proj_lost', name: 'Lost', idea: 'x', folder: '/home/dan/projects/lost', now: T0 });
+    await store.write(record);
+    const before = (await host.listWorkspaces()).length;
+
+    await actions.resume(record.id);
+    await actions.pause(record.id);
+    await actions.resume(record.id);
+
+    expect((await store.read(record.id))!.workspaceId).not.toBeNull();
+    expect((await host.listWorkspaces()).length).toBe(before + 1);
   });
 
   it('requires a saved legacy choice before resume and preserves existing work and grants', async () => {

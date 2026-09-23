@@ -20,8 +20,18 @@ export function SelectContent({ children }: { children?: ReactNode }) {
   return <>{children}</>;
 }
 
-export function SelectItem({ value, children }: { value: string; children?: ReactNode }) {
-  return <option value={value}>{children}</option>;
+export function SelectItem({ value, disabled, children }: { value: string; disabled?: boolean; children?: ReactNode }) {
+  // An <option> holds text, so render the label as text: a caller that draws a
+  // name and a path in spans would otherwise put a span inside an option.
+  return <option value={value} disabled={disabled}>{textOf(children)}</option>;
+}
+
+function textOf(node: ReactNode): string {
+  if (node === null || node === undefined || typeof node === 'boolean') return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(textOf).filter(Boolean).join(' ');
+  if (isValidElement<{ children?: ReactNode }>(node)) return textOf(node.props.children);
+  return '';
 }
 
 export function Select({

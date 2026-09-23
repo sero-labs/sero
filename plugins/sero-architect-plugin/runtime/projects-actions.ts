@@ -13,7 +13,7 @@ import { requestOrchestratorAction, type ModelTier, type PersistentSessionHistor
 
 import { advancePhase, approveCharter, block, mayDispatch, pause, resume, setAutonomy, setCap, settle, unblock } from '../shared/lifecycle';
 import { activityOptions } from './session-state';
-import { createProjectRecord, toIndexEntry, type AutonomySetting, type ExecutionMode, type DecisionProposal, type Milestone, type ProjectRecord } from '../shared/record';
+import { createProjectRecord, toIndexEntry, type AutonomySetting, type CreateProjectInput, type ExecutionMode, type DecisionProposal, type Milestone, type ProjectRecord } from '../shared/record';
 import type { DispatchDestination } from '../shared/owner-actions';
 import { performDispatch } from './dispatch-link';
 import { disarmMaintenance, rearmMaintenance } from './maintenance-arming';
@@ -70,7 +70,7 @@ export interface ProjectsActions {
    * page showing a summary never receives records it did not request.
    */
   trace(projectId: string, query?: Omit<TraceQuery, 'projectId'>): Promise<TraceAnswer | null>;
-  create(input: { idea: string; folder: string; executionMode?: ExecutionMode; models?: ModelDefaultInput[] }): Promise<ProjectsOutcome>;
+  create(input: CreateProjectInput): Promise<ProjectsOutcome>;
   pause(projectId: string): Promise<ProjectsOutcome>;
   resume(projectId: string): Promise<ProjectsOutcome>;
   retry(projectId: string, milestoneId: string, maxCostUsd?: number): Promise<ProjectsOutcome>;
@@ -92,6 +92,9 @@ export interface ProjectsActions {
 
 const ok = (text: string, projectId?: string): ProjectsOutcome => ({ ok: true, text, projectId });
 const refuse = (text: string): ProjectsOutcome => ({ ok: false, text });
+
+/** The default Sero workspace. It holds personal data, so it is never a project. */
+const GLOBAL_WORKSPACE_ID = 'global';
 
 function expandHome(folder: string): string {
   return folder.startsWith('~') ? path.join(os.homedir(), folder.slice(1)) : path.resolve(folder);
@@ -199,10 +202,35 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
     async create(input) {
       const idea = input.idea.trim();
       if (!idea) return refuse('The idea is required.');
-      const folder = expandHome(input.folder.trim());
-      if (!input.folder.trim()) return refuse('The folder is required.');
-      const name = path.basename(folder);
-      let record = createProjectRecord({ id: host.newId('proj'), name, idea, folder, executionMode: input.executionMode, now: host.now() });
+      const folderInput = input.folder?.trim() ?? '';
+      const chosenWorkspaceId = input.workspaceId?.trim() ?? '';
+      if (folderInput && chosenWorkspaceId) return refuse('Choose a new folder or an existing workspace, not both.');
+      if (!folderInput && !chosenWorkspaceId) return refuse('Choose a new folder or an existing workspace.');
+
+      let name: string;
+      let folder: string;
+      let workspaceId: string | null;
+      if (chosenWorkspaceId) {
+        const workspace = (await host.listWorkspaces()).find((candidate) => candidate.id === chosenWorkspaceId);
+        if (!workspace) return refuse(`No workspace ${chosenWorkspaceId} is registered.`);
+        if (workspace.id === GLOBAL_WORKSPACE_ID) return refuse('The Global workspace cannot hold an Architect project.');
+        // One Architect project per workspace: new work goes to the project already there.
+        if ((await store.list()).some((project) => project.workspaceId === workspace.id)) {
+          return refuse(`${workspace.name} already has an Architect project.`);
+        }
+        name = workspace.name;
+        folder = workspace.path;
+        workspaceId = workspace.id;
+      } else {
+        folder = expandHome(folderInput);
+        if (await host.fileInfo(folder)) {
+          return refuse(`The folder ${folder} already exists. Choose another folder, or choose Existing workspace to use it.`);
+        }
+        name = path.basename(folder);
+        workspaceId = null;
+      }
+
+      let record = createProjectRecord({ id: host.newId('proj'), name, idea, folder, workspaceId, executionMode: input.executionMode, now: host.now() });
       // Overrides chosen at intake are checked against the catalogue the same
       // way a later change is, so the first wake never resolves a model that
       // does not exist.

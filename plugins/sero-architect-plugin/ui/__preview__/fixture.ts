@@ -253,3 +253,39 @@ export function listRows(runtimeRunning = true): ArchitectIndexEntry[] {
 }
 
 export const LIST_ROWS: ArchitectIndexEntry[] = listRows();
+
+/**
+ * The profile workspaces the intake picker reads, mirroring the prototype's
+ * records in `7-architect-in-an-existing-workspace.html`: the free ones first,
+ * then the ones that already hold an Architect project, and Global, which the
+ * picker leaves out.
+ */
+export const INTAKE_WORKSPACES = [
+  { id: 'testrepo', name: 'TestRepo', path: '~/.sero-ui/profiles/seroarchitectdev/workspaces/testrepo' },
+  { id: 'architecttest', name: 'ArchitectTest', path: '~/.sero-ui/profiles/seroarchitectdev/workspaces/architecttest' },
+  { id: 'planner-scope-diagnostic-01', name: 'planner-scope-diagnostic-01', path: '~/.sero-ui/profiles/seroarchitectdev/workspaces/planner-scope-diagnostic-01' },
+  { id: 'optimizer-agent-q0oqut', name: 'optimizer-agent-q0oqut', path: '/var/folders/wh/0dgmrbl12xsdtvgf6xxq2w7r0000gn/T/optimizer-agent-q0OQut' },
+  { id: 'froggerneon', name: 'FroggerNeon', path: '~/.sero-ui/profiles/seroarchitectdev/workspaces/froggerneon' },
+  { id: 'dungeonexplorer', name: 'DungeonExplorer', path: '~/.sero-ui/profiles/seroarchitectdev/workspaces/dungeonexplorer' },
+  { id: 'dungeonexplorer-resilience-01', name: 'DungeonExplorer Resilience 01', path: '~/.sero-ui/profiles/seroarchitectdev/workspaces/dungeonexplorer-resilience-01' },
+  { id: 'csv-summary-resilience-01', name: 'CSV Summary Resilience 01', path: '~/.sero-ui/profiles/seroarchitectdev/workspaces/csv-summary-resilience-01' },
+  { id: 'csv-summary-resilience-02', name: 'csv-summary-resilience-02', path: '~/.sero-ui/profiles/seroarchitectdev/workspaces/csv-summary-resilience-02' },
+  { id: 'reading-tracker-resilience-01', name: 'reading-tracker-resilience-01', path: '~/.sero-ui/profiles/seroarchitectdev/workspaces/reading-tracker-resilience-01' },
+  { id: 'import-dashboard-resilience-01', name: 'import-dashboard-resilience-01', path: '~/.sero-ui/profiles/seroarchitectdev/workspaces/import-dashboard-resilience-01' },
+  { id: 'import-dashboard-resilience-02', name: 'import-dashboard-resilience-02', path: '~/.sero-ui/profiles/seroarchitectdev/workspaces/import-dashboard-resilience-02' },
+  { id: 'workspace-placement-diagnostic-01', name: 'workspace-placement-diagnostic-01', path: '~/.sero-ui/profiles/seroarchitectdev/workspaces/workspace-placement-diagnostic-01' },
+  { id: 'global', name: 'Global', path: '~/.sero-ui/profiles/seroarchitectdev/workspaces/global' },
+];
+
+/** The workspaces that already hold an Architect project, so the picker disables them. */
+export const INTAKE_WORKSPACES_WITH_PROJECT = [
+  'froggerneon',
+  'dungeonexplorer',
+  'dungeonexplorer-resilience-01',
+  'csv-summary-resilience-01',
+  'csv-summary-resilience-02',
+  'reading-tracker-resilience-01',
+  'import-dashboard-resilience-01',
+  'import-dashboard-resilience-02',
+  'workspace-placement-diagnostic-01',
+];

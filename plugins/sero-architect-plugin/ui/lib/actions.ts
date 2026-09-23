@@ -8,7 +8,7 @@ import { useAppTools } from '@sero-ai/app-runtime';
 import type { AppToolResult } from '@sero-ai/app-runtime';
 import { MODEL_TIERS, THINKING_LEVELS, type ModelTier, type SharedModelTierEntry, type SharedModelTierSettings, type ThinkingLevel } from '@sero-ai/common';
 
-import type { AutonomySetting, ExecutionMode } from '../../shared/record';
+import type { AutonomySetting, CreateProjectInput, ExecutionMode } from '../../shared/record';
 
 /** One tier override chosen before the project exists. The runtime checks it against the catalogue. */
 export interface ModelChoice {
@@ -97,7 +97,7 @@ function readHistoryEntries(result: AppToolResult): SessionHistoryEntry[] {
 }
 
 export interface ArchitectActions {
-  create(idea: string, folder: string, executionMode?: ExecutionMode, models?: ModelChoice[]): Promise<ActionOutcome>;
+  create(input: CreateProjectInput): Promise<ActionOutcome>;
   history(projectId: string): Promise<SessionHistoryOutcome>;
   trace(projectId: string, query: TraceRequest): Promise<TraceOutcome>;
   pause(projectId: string): Promise<ActionOutcome>;
@@ -137,7 +137,13 @@ export function useArchitectActions(): ArchitectActions {
 
   return useMemo<ArchitectActions>(
     () => ({
-      create: (idea, folder, executionMode = 'workspace', models = []) => call({ action: 'create', idea, folder, executionMode, ...(models.length > 0 ? { models } : {}) }),
+      create: (input) => call({
+        action: 'create',
+        idea: input.idea,
+        executionMode: input.executionMode ?? 'workspace',
+        ...(input.models && input.models.length > 0 ? { models: input.models } : {}),
+        ...(input.workspaceId ? { workspaceId: input.workspaceId } : input.folder ? { folder: input.folder } : {}),
+      }),
       history: async (projectId) => {
         try {
           const result = await run(PROJECTS_TOOL, { action: 'history', projectId });

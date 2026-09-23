@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
 import { useAppState } from '@sero-ai/app-runtime';
 
-import type { ExecutionMode } from '../shared/record';
+import type { CreateProjectInput } from '../shared/record';
 import type { ArchitectIndex } from '../shared/types';
 import { DEFAULT_INDEX, normalizeIndex } from '../shared/types';
 import { IntakeDialog } from './components/IntakeDialog';
@@ -11,7 +11,7 @@ import { ModelSettings } from './components/ModelSettings';
 import { ProjectsList } from './components/ProjectsList';
 import { TopBar } from './components/TopBar';
 import { Quiet } from './components/Pill';
-import { useArchitectActions, type ArchitectActions, type ModelChoice } from './lib/actions';
+import { useArchitectActions, type ArchitectActions } from './lib/actions';
 import { useArchitectView, type ArchitectView } from './lib/navigation';
 import { useProjectRecord } from './lib/use-project-record';
 import { openDispatch, useDisclosures } from './lib/page-helpers';
@@ -40,8 +40,8 @@ function useNarrow(): [boolean, (node: HTMLDivElement | null) => void] {
 
 function useCreateProject(actions: ArchitectActions, navigate: (view: ArchitectView) => void) {
   const [permissionProjectId, setPermissionProjectId] = useState<string | null>(null);
-  const create = useCallback(async (idea: string, folder: string, executionMode: ExecutionMode, models: ModelChoice[]) => {
-    const outcome = await actions.create(idea, folder, executionMode, models);
+  const create = useCallback(async (input: CreateProjectInput) => {
+    const outcome = await actions.create(input);
     // One navigation closes the dialog and opens the new project: the dialog must not navigate too.
     if (outcome.ok) {
       // Remove the modal before the host presents its permission question.
@@ -75,6 +75,8 @@ export function ArchitectApp() {
   // hides are in the list.
   const [needsOnly, setNeedsOnly] = useState(false);
   const needsYouCount = index.projects.filter((entry) => entry.activity.action).length;
+  // One Architect project per workspace, so a linked workspace cannot be chosen again.
+  const takenWorkspaceIds = index.projects.map((entry) => entry.workspaceId).filter((id): id is string => id !== null);
 
   const openProject = useCallback((id: string) => navigate({ mode: 'project', projectId: id }), [navigate]);
   const openModels = useCallback((id: string) => navigate({ mode: 'models', projectId: id }), [navigate]);
@@ -107,7 +109,7 @@ export function ArchitectApp() {
           <div className="ar-scroll">
             <ProjectsList projects={index.projects} runtime={index.runtime} needsOnly={needsOnly} onOpen={openProject} onNewProject={openIntake} />
           </div>
-          <IntakeDialog open={view.mode === 'list' && view.intake === true} onClose={closeIntake} onCreate={create} defaultFolder="~/Projects/" />
+          <IntakeDialog open={view.mode === 'list' && view.intake === true} onClose={closeIntake} onCreate={create} defaultFolder="~/Projects/" takenWorkspaceIds={takenWorkspaceIds} />
         </>
       )}
     </div>
