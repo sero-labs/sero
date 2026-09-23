@@ -59,10 +59,14 @@ None.
   choice and the picker rows), and the preview harness `ui/__preview__/main.tsx`
   and `ui/__preview__/fixture.ts` for captures.
 - Architect runtime: `runtime/projects-actions.ts` (`create` accepts a
-  workspace, refuses an existing folder, and skips workspace creation) and
+  workspace, refuses an existing folder, and skips workspace creation),
+  `runtime/intake-placement.ts` (where the folder or workspace choice is resolved)
+  and `runtime/workspace-claim.ts` (the serialized workspace link), plus
   `extension/projects-tool.ts` (the `create` action accepts `workspaceId`).
-  `runtime/host.ts` is unchanged; it already exposes `fileInfo` and
-  `listWorkspaces`.
+  `runtime/host.ts` gains `pathExists`.
+- Shared: `packages/common/src/workspace-id.ts` holds the workspace id rule
+  (`workspaceSlug`, `ensureUniqueId`, and the safety checks), reused by
+  `apps/desktop/electron/features/workspace/utils.ts`.
 - Tests: `runtime/__tests__/projects-actions.test.ts` and
   `ui/__tests__/project-controls.test.tsx`; `runtime/__tests__/helpers.ts` gains
   an existing workspace.

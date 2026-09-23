@@ -1,4 +1,5 @@
-import { ORCHESTRATOR_REGISTRY_GLOBAL_KEY, type OrchestratorBoardAction } from '@sero-ai/common';
+import path from 'node:path';
+import { ensureUniqueId, ORCHESTRATOR_REGISTRY_GLOBAL_KEY, workspaceSlug, type OrchestratorBoardAction } from '@sero-ai/common';
 import { applyRunHealth } from '../run-health';
 import { effectiveTier } from '../../shared/model-config';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -192,6 +193,68 @@ describe('project management', () => {
     expect(saved.workspaceId).not.toBe('app');
     expect(saved.workspaceId).not.toBeNull();
     expect((await host.listWorkspaces()).length).toBe(before + 1);
+  });
+
+  it('gives concurrent new-folder intakes separate workspaces', async () => {
+    const { host, store, actions } = await setup();
+    host.workspaces.length = 0;
+
+    const gate = () => {
+      let open!: () => void;
+      const promise = new Promise<void>((resolve) => { open = resolve; });
+      return { promise, open };
+    };
+    const firstCreating = gate();
+    const secondSaved = gate();
+    const releaseFirst = gate();
+    const written: ProjectRecord[] = [];
+    let holdingFirst = true;
+    let creates = 0;
+
+    const write = store.write.bind(store);
+    vi.spyOn(store, 'write').mockImplementation(async (record) => {
+      await write(record);
+      written.push(record);
+      if (written.length === 2) secondSaved.open();
+    });
+    const list = store.list.bind(store);
+    // While the first create is held, both records exist with no workspace.
+    vi.spyOn(store, 'list').mockImplementation(async () => (holdingFirst ? [...written] : list()));
+
+    host.createWorkspace = vi.fn(async (name, parentPath) => {
+      const first = ++creates === 1;
+      if (first) {
+        firstCreating.open();
+        await secondSaved.promise;
+      }
+      const id = ensureUniqueId(workspaceSlug(name), new Set(host.workspaces.map((workspace) => workspace.id)));
+      const workspace = { id, name, path: path.join(parentPath, id), open: true };
+      host.workspaces.push(workspace);
+      if (first) await releaseFirst.promise;
+      return workspace;
+    });
+
+    const first = actions.create({ idea: 'First.', folder: '/home/dan/projects/app' });
+    await firstCreating.promise;
+    const second = actions.create({ idea: 'Second.', folder: '/home/dan/projects/app' });
+
+    await secondSaved.promise;
+    // Drain promise continuations: without the claim queue, the second intake
+    // can adopt the first's published workspace here, before its id was saved.
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    holdingFirst = false;
+    releaseFirst.open();
+
+    const outcomes = await Promise.all([first, second]);
+    for (const outcome of outcomes) {
+      expect(outcome.ok, outcome.text).toBe(true);
+      expect(outcome.text).not.toContain('Setup needs attention');
+    }
+    const records = await store.list();
+    expect(new Set(records.map((record) => record.workspaceId)).size).toBe(2);
+    expect(records.map((record) => record.workspaceId).sort()).toEqual(['app', 'app-2']);
+    expect(host.workspaces).toHaveLength(2);
+    expect(host.createWorkspace).toHaveBeenCalledTimes(2);
   });
 
   it('requires a saved legacy choice before resume and preserves existing work and grants', async () => {

@@ -6,7 +6,6 @@
  */
 
 import { chooseOwnerModel } from './owner-session';
-import path from 'node:path';
 
 import { type ModelTier, type PersistentSessionHistoryPage, type SharedModelTierSettings } from '@sero-ai/common';
 
@@ -15,6 +14,7 @@ import { activityOptions } from './session-state';
 import { createProjectRecord, toIndexEntry, type AutonomySetting, type ExecutionMode, type DecisionProposal, type Milestone, type ProjectRecord } from '../shared/record';
 import type { CreateProjectInput } from '../shared/create-project';
 import { resolveIntakePlacement } from './intake-placement';
+import { createWorkspaceClaim } from './workspace-claim';
 import type { DispatchDestination } from '../shared/owner-actions';
 import { disarmMaintenance, rearmMaintenance } from './maintenance-arming';
 import type { RepairOutcome } from './repair-dispatch';
@@ -96,6 +96,7 @@ const refuse = (text: string): ProjectsOutcome => ({ ok: false, text });
 
 export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsActions {
   const { host, store, sessions, scheduler, watch, services } = deps;
+  const claimWorkspace = createWorkspaceClaim(host, store);
 
 
   /**
@@ -107,17 +108,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
     let record = start;
     if (!record.workspaceId) {
       try {
-        const parent = path.dirname(record.folder);
-        // Intake is re-entrant: a workspace created before a lost record update
-        // is already at the record's folder, so it is adopted by path rather
-        // than made again as a suffixed sibling. A workspace another project
-        // already owns is never adopted, so two intakes cannot share one.
-        const owned = new Set((await store.list()).filter((project) => project.id !== record.id).map((project) => project.workspaceId));
-        const existing = (await host.listWorkspaces()).find((workspace) => workspace.path === record.folder && !owned.has(workspace.id));
-        const workspace = existing ?? await host.createWorkspace(record.name, parent);
-        record = (await store.update(record.id, (fresh) => ({
-          ...fresh, folder: workspace.path, workspaceId: workspace.id, stateLine: 'Workspace ready. Permission is needed to run the Architect.',
-        }))) ?? record;
+        record = await claimWorkspace(record.id);
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         await store.update(record.id, (fresh) => {
