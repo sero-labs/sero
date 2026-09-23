@@ -61,7 +61,7 @@ describe('the picker list', () => {
 
   it('appends a saved value the catalogue does not hold', () => {
     const options = buildModelPickerOptions(GROUPS, TIERS, 'ghost/removed');
-    expect(options.at(-1)).toEqual({ value: 'ghost/removed', label: 'ghost/removed', provider: '' });
+    expect(options.at(-1)).toEqual({ value: 'ghost/removed', label: 'ghost/removed', provider: '', modelId: '' });
   });
 
   it('does not append a saved value that is already listed', () => {
@@ -85,6 +85,16 @@ describe('the picker list', () => {
     expect(values(buildModelPickerOptions(GROUPS, TIERS), 'fable-5')).toEqual([
       'anthropic/claude-fable-5',
     ]);
+  });
+
+  it('matches the provider by its display name, not by its key', () => {
+    const options = buildModelPickerOptions(GROUPS, TIERS);
+    // The display name is the searchable provider. The key is not.
+    expect(values(options, 'openai codex')).toEqual([
+      'openai-codex/gpt-5.6-sol',
+      'openai-codex/gpt-6-astra',
+    ]);
+    expect(values(options, 'openai-codex')).toHaveLength(0);
   });
 
   it('filters the fixed choices with the same query as the models', () => {

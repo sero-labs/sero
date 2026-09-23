@@ -15,6 +15,8 @@ export interface ModelPickerOption {
   label: string;
   /** The provider's display name. Empty for a leading option. */
   provider: string;
+  /** The provider-local model id. Empty for a leading option. */
+  modelId: string;
 }
 
 export interface ModelPickerLeadingOption {
@@ -40,26 +42,28 @@ export function buildModelPickerOptions<
       value: option.value,
       label: option.label,
       provider: '',
+      modelId: '',
     })),
     ...groups.flatMap((group) =>
       group.models.map((model) => ({
         value: modelKey(model.provider, model.modelId),
         label: model.name,
         provider: group.displayName,
+        modelId: model.modelId,
       })),
     ),
   ];
 
   if (savedValue && !options.some((option) => option.value === savedValue)) {
-    options.push({ value: savedValue, label: savedValue, provider: '' });
+    options.push({ value: savedValue, label: savedValue, provider: '', modelId: '' });
   }
 
   return options;
 }
 
-/** The filter rule: provider, then name, then id, case-insensitive. */
+/** The filter rule: provider, then name, then model id - the string `filterModelGroups` matches. */
 export function matchesModelPickerQuery(option: ModelPickerOption, query: string): boolean {
   const normalized = query.trim().toLowerCase();
   if (!normalized) return true;
-  return `${option.provider} ${option.label} ${option.value}`.toLowerCase().includes(normalized);
+  return `${option.provider} ${option.label} ${option.modelId}`.toLowerCase().includes(normalized);
 }
