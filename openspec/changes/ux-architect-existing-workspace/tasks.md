@@ -32,6 +32,6 @@
 
 ## 7. Checks and delivery
 
-- [ ] 7.1 Run `pnpm typecheck` from the monorepo root and confirm no errors in the renderer or the Electron main process.
-- [ ] 7.2 Run the touched suites: `plugins/sero-architect-plugin/runtime/__tests__/projects-actions.test.ts`, `plugins/sero-architect-plugin/extension/__tests__/tools.test.ts` and `plugins/sero-architect-plugin/ui/__tests__/project-controls.test.tsx`, and record the result before review.
-- [ ] 7.3 Open the pull request as a draft, linked to issue #542 in its description, and paste the `comparison.md` captures into the description.
+- [x] 7.1 Run `pnpm typecheck` from the monorepo root and confirm no errors in the renderer or the Electron main process.
+- [x] 7.2 Run the touched suites: `plugins/sero-architect-plugin/runtime/__tests__/projects-actions.test.ts`, `plugins/sero-architect-plugin/extension/__tests__/tools.test.ts` and `plugins/sero-architect-plugin/ui/__tests__/project-controls.test.tsx`, and record the result before review.
+- [x] 7.3 Open the pull request as a draft, linked to issue #542 in its description, and paste the `comparison.md` captures into the description.
