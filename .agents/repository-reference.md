@@ -49,8 +49,13 @@ repeated smoke tests for removed behavior.
 
 ## Packages and documentation
 
-- If a change affects `packages/*`, remind the user that the package might need
-  publication to npm.
+- Five packages are published to npm: `@sero-ai/app-runtime`, `@sero-ai/common`,
+  `@sero-ai/extension-runtime`, `@sero-ai/plugin-vite` and `@sero-ai/ui`. If a
+  change affects one of them, bump its version in the same pull request so it
+  can be republished. The release script syncs only the root and
+  `apps/desktop` versions, so a published package's version is a manual step.
+  Every other `packages/*` project is private, and `plugins/*` and
+  `apps/desktop` are not npm packages.
 - Before you create a pull request, check whether `apps/docs-site` needs an
   update.
 - Do not lint or validate Markdown when no rendered output, links, or examples
