@@ -1,5 +1,18 @@
 # @sero-ai/ui changelog
 
+## 0.7.0
+
+### Changed
+
+- **`AvailableModelPicker` is one combobox.** It is built on `Combobox`: type to
+  filter by provider, model name or model id, move with the arrow keys, pick with
+  Enter and close with Escape. Each row names the model and its provider, and the
+  closed field does too. The grouped list with provider headings and logos is
+  replaced by a flat list. A new optional `leadingOptions` prop lists fixed
+  choices - a step's `Auto` and tiers, or a tier table's inherited selection -
+  before the models. The props and generics are otherwise unchanged, so Admin,
+  onboarding and Design Library pick up the new control without an edit.
+
 ## 0.5.0
 
 ### Breaking

@@ -56,12 +56,21 @@ const actions: ArchitectActions = {
 
 // The intake dialog lists models and workspaces through the host bridge; the harness answers with fixed catalogues.
 (window as Window & { sero?: unknown }).sero = { appState: {}, appAgent: {}, workspace: { list: async () => INTAKE_WORKSPACES, pickFolder: async () => null }, models: { list: async () => [
-  { provider: 'openai-codex', displayName: 'OpenAI', logo: '', models: [
+  { provider: 'openai-codex', displayName: 'OpenAI Codex', logo: '', models: [
     { provider: 'openai-codex', modelId: 'gpt-5.6-sol', name: 'GPT-5.6 Sol', reasoning: true, availableThinkingLevels: ['low', 'medium', 'high'] },
     { provider: 'openai-codex', modelId: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', reasoning: true, availableThinkingLevels: ['low', 'medium', 'high'] },
+    { provider: 'openai-codex', modelId: 'gpt-6-astra', name: 'GPT-6 Astra', reasoning: true, availableThinkingLevels: ['low', 'medium', 'high'] },
+  ] },
+  { provider: 'anthropic', displayName: 'Anthropic', logo: '', models: [
+    { provider: 'anthropic', modelId: 'claude-sonnet-5', name: 'Claude Sonnet 5', reasoning: true, availableThinkingLevels: ['low', 'medium', 'high'] },
+    { provider: 'anthropic', modelId: 'claude-opus-5', name: 'Claude Opus 5', reasoning: true, availableThinkingLevels: ['low', 'medium', 'high'] },
   ] },
   { provider: 'deepseek', displayName: 'DeepSeek', logo: '', models: [
     { provider: 'deepseek', modelId: 'v4.1-flash', name: 'DeepSeek V4.1 Flash', reasoning: true, availableThinkingLevels: ['low', 'medium', 'high'] },
+    { provider: 'deepseek', modelId: 'v4-pro', name: 'DeepSeek V4 Pro', reasoning: true, availableThinkingLevels: ['low', 'medium', 'high'] },
+  ] },
+  { provider: 'xai', displayName: 'xAI', logo: '', models: [
+    { provider: 'xai', modelId: 'grok-4.5', name: 'Grok 4.5', reasoning: true, availableThinkingLevels: ['low', 'medium', 'high'] },
   ] },
 ] } };
 

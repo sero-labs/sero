@@ -44,7 +44,7 @@ export function StepToolsControl({ step, catalog, onChange }: StepToolsControlPr
             {extras.size > 0 ? `Default tools + ${extras.size}` : 'Default tools'}
           </button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-72 p-0">
+        <PopoverContent align="start" className="w-96 p-0">
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
             <span className="text-xs font-medium">Step tools</span>
             <Button

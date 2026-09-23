@@ -1,6 +1,7 @@
 import { useAvailableModels } from '@sero-ai/app-runtime';
 import { MODEL_TIERS, modelKey, type ModelTier, type SharedModelTierSettings, type ThinkingLevel } from '@sero-ai/common';
 import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui';
+import { AvailableModelPicker } from '@sero-ai/ui/model-selection/available-model-picker';
 import { useEffect, useState } from 'react';
 
 import type { SelectionSource } from '../../shared/model-config';
@@ -162,48 +163,56 @@ export function ModelSettings({ record, actions, runtimeRunning, onBack }: {
               <tr key={tier} data-override={override ? 1 : 0}>
                 <td className="ar-tier">{tier}</td>
                 <td>
-                  <Select
-                    value={selected || NONE}
-                    disabled={gated}
-                    onValueChange={(value) => {
-                      const picked = options.find((option) => option.value === value);
-                      if (!picked) return;
-                      const thinking = (effective?.thinkingLevel && picked.thinking.includes(effective.thinkingLevel))
-                        ? effective.thinkingLevel
-                        : picked.thinking[0];
-                      void submit(tier, () => actions.setModelDefault(record.id, tier, picked.value, thinking));
-                    }}
-                  >
-                    <SelectTrigger size="sm" aria-label={`${tier} project model`} className="text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>{inherited && globalsUnreadable ? 'Global' : 'Not selected'}</SelectItem>
-                      {options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  {entry && entry.thinking.length > 0 && (
-                    <Select
-                      value={effective?.thinkingLevel ?? entry.thinking[0]}
+                  <div className="flex items-center gap-1.5">
+                    <AvailableModelPicker
+                      groups={groups}
+                      value={selected || NONE}
+                      leadingOptions={[
+                        { value: NONE, label: inherited && globalsUnreadable ? 'Global' : 'Not selected' },
+                      ]}
+                      ariaLabel={`${tier} project model`}
                       disabled={gated}
-                      onValueChange={(value) => {
-                        void submit(tier, () => actions.setModelDefault(
-                          record.id, tier, selected, value as ThinkingLevel,
-                        ));
+                      onChange={(value) => {
+                        // The first choice restores inheritance. It is not a
+                        // model, so it clears rather than setting a default.
+                        if (value === NONE || value === '') {
+                          void submit(tier, () => actions.clearModelDefault(record.id, tier));
+                          return;
+                        }
+                        const picked = options.find((option) => option.value === value);
+                        if (!picked) return;
+                        const thinking = (effective?.thinkingLevel && picked.thinking.includes(effective.thinkingLevel))
+                          ? effective.thinkingLevel
+                          : picked.thinking[0];
+                        void submit(tier, () => actions.setModelDefault(record.id, tier, picked.value, thinking));
                       }}
-                    >
-                      <SelectTrigger size="sm" aria-label={`${tier} thinking level`} className="text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {entry.thinking.map((level) => <SelectItem key={level} value={level}>{level}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  )}
+                      className="w-[320px]"
+                    />
+                    {entry && entry.thinking.length > 0 && (
+                      <Select
+                        value={effective?.thinkingLevel ?? entry.thinking[0]}
+                        disabled={gated}
+                        onValueChange={(value) => {
+                          void submit(tier, () => actions.setModelDefault(
+                            record.id, tier, selected, value as ThinkingLevel,
+                          ));
+                        }}
+                      >
+                        <SelectTrigger size="sm" aria-label={`${tier} thinking level`} className="text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {entry.thinking.map((level) => <SelectItem key={level} value={level}>{level}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
                 </td>
                 <td>
                   {effective ? (
-                    <span className="ar-tier-effective">{selected}</span>
+                    <span className="ar-tier-effective">
+                      {effective.modelId}{effective.thinkingLevel ? ` · ${effective.thinkingLevel}` : ''}
+                    </span>
                   ) : globalsUnreadable ? (
                     // The global selection is not missing; it is out of reach
                     // until the runtime starts, and starting it resolves this

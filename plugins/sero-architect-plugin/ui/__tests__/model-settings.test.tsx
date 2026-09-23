@@ -43,6 +43,8 @@ vi.mock('@sero-ai/ui', async () => ({
   ...(await import('./select-stand-in')),
 }));
 
+vi.mock('@sero-ai/ui/model-selection/available-model-picker', async () => await import('./model-picker-stand-in'));
+
 function actionsOver(overrides: Partial<ArchitectActions> = {}): ArchitectActions {
   const ok = () => vi.fn(async (): Promise<ActionOutcome> => ({ ok: true, text: 'done' }));
   return {
@@ -106,7 +108,7 @@ describe('reading the authoritative tiers', () => {
 
     // The refreshed model is now the effective one, distinct from the stale cache.
     expect(container.textContent).not.toContain('Reading the current model defaults');
-    expect(container.textContent).toContain('anthropic/claude-sonnet-5');
+    expect(container.textContent).toContain('claude-sonnet-5 · high');
     const medSelect = container.querySelector<HTMLSelectElement>('[aria-label="MED project model"]');
     expect(medSelect?.disabled).toBe(false);
     expect(medSelect?.value).toBe('anthropic/claude-sonnet-5');
@@ -203,7 +205,7 @@ describe('a tier that inherits a global it cannot read', () => {
     renderPage(overridden, false, unreachable());
     await flush();
     const high = rows().find((cells) => cells[0] === 'HIGH');
-    expect(high![2]).toContain('anthropic/claude-sonnet-5');
+    expect(high![2]).toContain('claude-sonnet-5');
     expect(high![2]).not.toContain('cannot be read');
     expect(high![3]).toBe('project');
   });
@@ -218,8 +220,50 @@ describe('a tier that inherits a global it cannot read', () => {
     }));
     await flush();
     const low = rows().find((cells) => cells[0] === 'LOW');
-    expect(low![2]).toContain('anthropic/claude-fable-5-1');
+    expect(low![2]).toContain('claude-fable-5-1');
     expect(container.textContent).not.toContain('cannot be read while Architect is off');
+  });
+
+  it('labels the inherited choice Global while the global cannot be read', async () => {
+    renderPage(staleRecord, false, unreachable());
+    await flush();
+    const field = container.querySelector<HTMLSelectElement>('[aria-label="LOW project model"]')!;
+    expect([...field.options].map((option) => option.textContent)[0]).toBe('Global');
+  });
+});
+
+describe('choosing a tier model', () => {
+  it('restores inheritance when the first choice is picked', async () => {
+    const clearModelDefault = vi.fn(async (): Promise<ActionOutcome> => ({ ok: true, text: 'done' }));
+    const overridden = {
+      ...staleRecord,
+      modelOverrides: { MED: { provider: 'anthropic', modelId: 'claude-sonnet-5' as const, thinkingLevel: 'high' as const } },
+    };
+    renderPage(overridden, true, actionsOver({ clearModelDefault }));
+    await flush();
+
+    const field = container.querySelector<HTMLSelectElement>('[aria-label="MED project model"]')!;
+    expect(field.value).toBe('anthropic/claude-sonnet-5');
+    act(() => {
+      field.value = '__none__';
+      field.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    expect(clearModelDefault).toHaveBeenCalledWith(overridden.id, 'MED');
+  });
+
+  it('saves a picked model with its thinking level', async () => {
+    const setModelDefault = vi.fn(async (): Promise<ActionOutcome> => ({ ok: true, text: 'done' }));
+    renderPage(staleRecord, true, actionsOver({ setModelDefault }));
+    await flush();
+
+    const field = container.querySelector<HTMLSelectElement>('[aria-label="LOW project model"]')!;
+    act(() => {
+      field.value = 'anthropic/claude-sonnet-5';
+      field.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    expect(setModelDefault).toHaveBeenCalledWith(staleRecord.id, 'LOW', 'anthropic/claude-sonnet-5', 'low');
   });
 });
 

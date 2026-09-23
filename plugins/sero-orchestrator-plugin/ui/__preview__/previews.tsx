@@ -13,6 +13,7 @@ import { RoomHoldPreview, WorkflowPagePreview } from './act-on-it-fixture';
 import { LoopEndingPreview, MemberInfoPreview, RoomResultPreview } from './read-the-outcome-fixture';
 import { AttemptHistoryPreview, RoomActivityPreview } from './history-comparison-fixture';
 import { CatalogPreview, RoomBriefPreview, RoomPlanningPreview, RoomProposalPreview } from './start-something-fixture';
+import { StepTunePreview } from './model-picker-fixture';
 
 export interface Preview {
   id: string;
@@ -138,5 +139,12 @@ export const PREVIEWS: Preview[] = [
     note: 'Frame 4 of 5-start-something. The repo controls on one row, the model-tier chip naming its tier, and an entry\'s steps inside Details.',
     width: 1440,
     render: () => <CatalogPreview />,
+  },
+  {
+    id: 'step-model',
+    title: "A step's model · one filterable field",
+    note: 'Frame 1 of 8-model-pickers. Tune opens on load: the Model field holds Auto, the tiers and every model, with the provider on each row. Open the list with the field\'s chevron.',
+    width: 1160,
+    render: () => <StepTunePreview />,
   },
 ];
