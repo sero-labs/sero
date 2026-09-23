@@ -90,13 +90,25 @@ describe('project management', () => {
   it('refuses a new folder that already exists and never registers it in place', async () => {
     const { host, store, actions } = await setup();
     const folder = '/home/dan/projects/taken';
-    vi.spyOn(host, 'fileInfo').mockResolvedValue({ mtimeMs: 1, size: 1, head: Buffer.from('{}') });
+    // `pathExists` uses fs.stat, so an existing directory counts, not only a readable file.
+    host.existingPaths.add(folder);
 
     const outcome = await actions.create({ idea: 'x', folder });
 
     expect(outcome).toMatchObject({ ok: false, text: expect.stringContaining(folder) });
     expect(await store.list()).toHaveLength(0);
     expect((await host.listWorkspaces()).some((workspace) => workspace.path === folder)).toBe(false);
+  });
+
+  it('refuses a folder that exists at the workspace destination, not only as typed', async () => {
+    const { host, store, actions } = await setup();
+    // The host creates the workspace at `slugify(name)`, so `TestRepo` lands in `testrepo`.
+    host.existingPaths.add('/home/dan/projects/testrepo');
+
+    const outcome = await actions.create({ idea: 'x', folder: '/home/dan/projects/TestRepo' });
+
+    expect(outcome).toMatchObject({ ok: false, text: expect.stringContaining('/home/dan/projects/testrepo') });
+    expect(await store.list()).toHaveLength(0);
   });
 
   it('requires exactly one place to work', async () => {

@@ -51,6 +51,8 @@ export interface ArchitectHost {
   onStateChange(filePath: string, listener: (state: unknown) => void): () => void;
   readJson(filePath: string): Promise<unknown | null>;
   fileInfo(filePath: string): Promise<{ mtimeMs: number; size: number; head: Buffer } | null>;
+  /** Whether any file or directory is already at the path. Safe for directories. */
+  pathExists(filePath: string): Promise<boolean>;
   notify(message: string, type: 'info' | 'warning' | 'error'): void;
   now(): string;
   newId(prefix: string): string;
@@ -91,6 +93,16 @@ export async function fileInfoOf(filePath: string): Promise<{ mtimeMs: number; s
   }
 }
 
+/** Whether any file or directory is already at the path. `fs.stat` works for both. */
+export async function pathExists(filePath: string): Promise<boolean> {
+  try {
+    await fs.stat(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function createArchitectHost(ctx: AppRuntimeContext): ArchitectHost {
   const { host } = ctx;
   return {
@@ -123,6 +135,7 @@ export function createArchitectHost(ctx: AppRuntimeContext): ArchitectHost {
     },
     readJson: readJsonFile,
     fileInfo: fileInfoOf,
+    pathExists,
     notify: (message, type) => host.notifications.notify({ message, type, source: 'Architect' }),
     now: () => new Date().toISOString(),
     newId: (prefix) => `${prefix}_${Math.random().toString(36).slice(2, 10)}`,

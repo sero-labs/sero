@@ -96,18 +96,24 @@ The dialog's list can be stale, so `create` re-validates on submit:
   `global`, and must not already hold a project. On success the record takes the
   workspace's `id`, `path` and `name`, and `advanceIntake` skips workspace creation
   because `workspaceId` is set.
-- `folder`: `host.fileInfo(folder)` must report no entry. `fileInfo` already exists
-  on `ArchitectHost`; no new host method is needed.
+- `folder`: the destination the host would create must be free. Intake checks
+  both the folder the user named and the host's destination for it
+  (`path.dirname(folder)` joined with `slugify(basename(folder))`, the shared
+  `workspaceSlug`), because the host resolves a workspace's path from a slug.
+  `host.pathExists` uses `fs.stat`, so an existing directory counts; `fileInfo`
+  cannot answer this, because it reads the first bytes and returns `null` when
+  that read fails on a directory. Intake resolution lives in
+  `runtime/intake-placement.ts`, so `create` stays a short caller.
 
 A workspace already holding a project is refused even if the UI offered it,
 because one Architect project per workspace is a runtime rule.
 
-### 4. The existence check lives in `create`, not in `advanceIntake`
+### 4. The existence check lives before the record, not in `advanceIntake`
 
-`create` is the fresh-intake path and runs once per project, so refusing an
-existing folder there is safe. `advanceIntake` stays re-entrant: it must still
-reuse a workspace it may have created before an interrupted record update. The
-refusal therefore does not move into the host adapter or into `advanceIntake`.
+Intake placement resolves once, before `create` writes a record, so a refusal
+leaves no project behind. `advanceIntake` stays re-entrant: it must still reuse a
+workspace it may have created before an interrupted record update. The refusal
+therefore does not move into the host adapter or into `advanceIntake`.
 
 ### 5. `requireEmpty` stays `false` in the host adapter
 
@@ -130,14 +136,10 @@ are binding; `comparison.md` records the captures and any departure.
 
 ## Risks / Trade-offs
 
-- **The refusal checks the folder the user named, not the slug the host creates.**
-  `host.workspace.create` derives its destination from `slugify(name)`, so a name
-  whose slug differs from the typed name (for example `TestRepo` → `testrepo`) is
-  checked at the typed path. A pre-existing folder at the slug path would still be
-  taken over. The issue names the check as `Location / Name`, and the common case —
-  a name that is already kebab-case, as folder names are — is exact. Raised as a
-  stated departure in `comparison.md`; closing it fully needs a shared slug helper
-  or a host destination query, which is a wider change than this issue.
+- **The shared slug is the host's slug.** Intake predicts a workspace's
+  destination with `workspaceSlug` from `@sero-ai/common`, which the desktop
+  workspace manager also uses. One spelling of the rule, so the two cannot
+  drift apart silently.
 - **The picker list can change between open and submit.** Mitigated by decision 3:
   the runtime re-validates and refuses.
 - **`window.sero.workspace.list` is optional.** When it is absent the picker shows

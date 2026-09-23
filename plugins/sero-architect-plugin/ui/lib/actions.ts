@@ -8,7 +8,8 @@ import { useAppTools } from '@sero-ai/app-runtime';
 import type { AppToolResult } from '@sero-ai/app-runtime';
 import { MODEL_TIERS, THINKING_LEVELS, type ModelTier, type SharedModelTierEntry, type SharedModelTierSettings, type ThinkingLevel } from '@sero-ai/common';
 
-import type { AutonomySetting, CreateProjectInput, ExecutionMode } from '../../shared/record';
+import type { AutonomySetting, ExecutionMode } from '../../shared/record';
+import type { CreateProjectInput } from '../../shared/create-project';
 
 /** One tier override chosen before the project exists. The runtime checks it against the catalogue. */
 export interface ModelChoice {

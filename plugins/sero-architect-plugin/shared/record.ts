@@ -1,7 +1,7 @@
 // The durable project record: the single source of truth for one Architect
 // project. JSON-serialisable only. The runtime is its only writer.
 
-import type { ModelTier, OrchestratorProjectContext, SharedModelTierSettings, ThinkingLevel } from '@sero-ai/common';
+import type { ModelTier, OrchestratorProjectContext, SharedModelTierSettings } from '@sero-ai/common';
 import type { DispatchDestination } from './owner-actions';
 import { milestoneCounts, projectActivity } from './activity';
 import type { SelectionSource } from './model-config';
@@ -15,22 +15,6 @@ export const EXECUTION_MODES = ['workspace', 'worktree'] as const;
 export type ExecutionMode = (typeof EXECUTION_MODES)[number];
 
 export type AutonomySetting = 'milestones' | 'charter-only' | 'model-judged';
-
-/**
- * Intake asks for an idea and then a place to work: a new folder the Architect
- * makes, or a workspace that already exists. Exactly one of `folder` and
- * `workspaceId` is required. Shared so the UI, the management tool and the
- * runtime one contract.
- */
-export interface CreateProjectInput {
-  idea: string;
-  executionMode?: ExecutionMode;
-  models?: { tier: ModelTier; model: string; thinking?: ThinkingLevel }[];
-  /** New folder: the folder the Architect creates. */
-  folder?: string;
-  /** Existing workspace: the registered workspace the project works in. */
-  workspaceId?: string;
-}
 
 export type MilestoneStatus = 'planned' | 'approved' | 'running' | 'verifying' | 'done' | 'parked';
 

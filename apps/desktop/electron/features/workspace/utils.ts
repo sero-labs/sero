@@ -7,6 +7,8 @@
 import os from 'os';
 import path from 'path';
 
+import { workspaceSlug } from '@sero-ai/common';
+
 // Workspace IDs are interpolated into dev-server IDs as the first colon-separated segment
 // (see runtime-manager `workspaceIdFromServerId`), so they must not themselves contain colons.
 // Slugify enforces this by construction; the regex below is the runtime guard for any path
@@ -14,13 +16,7 @@ import path from 'path';
 const SAFE_WORKSPACE_ID = /^[a-z0-9][a-z0-9-]*$/;
 
 /** Convert a string to a kebab-case slug. Output always satisfies `isSafeWorkspaceId`. */
-export function slugify(input: string): string {
-  return input
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    || 'workspace';
-}
+export const slugify = workspaceSlug;
 
 /** Returns true if the value is a safe workspace ID (colon-free, lowercase kebab-case). */
 export function isSafeWorkspaceId(value: unknown): value is string {

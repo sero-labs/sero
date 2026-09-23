@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
 import { useAppState } from '@sero-ai/app-runtime';
 
-import type { CreateProjectInput } from '../shared/record';
+import type { CreateProjectInput } from '../shared/create-project';
 import type { ArchitectIndex } from '../shared/types';
 import { DEFAULT_INDEX, normalizeIndex } from '../shared/types';
 import { IntakeDialog } from './components/IntakeDialog';

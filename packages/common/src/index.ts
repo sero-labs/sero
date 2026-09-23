@@ -11,6 +11,8 @@ export type { DebouncedFn } from './debounce';
 
 export { relativeTime } from './time';
 
+export { slugify as workspaceSlug } from './workspace-slug';
+
 export {
   SERO_HOST_CAPABILITIES,
   SERO_PLUGIN_RUNTIME_ABI,

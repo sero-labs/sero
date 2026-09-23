@@ -204,7 +204,8 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
         idea: params.idea ?? '',
         executionMode: params.executionMode,
         models: params.models,
-        ...(params.workspaceId ? { workspaceId: params.workspaceId } : { folder: params.folder ?? '' }),
+        ...(params.folder !== undefined ? { folder: params.folder } : {}),
+        ...(params.workspaceId !== undefined ? { workspaceId: params.workspaceId } : {}),
       });
       return result(outcome.ok, outcome.text, outcome.ok ? { projectId: outcome.projectId } : {});
     }

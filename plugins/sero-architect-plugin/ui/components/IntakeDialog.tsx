@@ -3,7 +3,8 @@ import type { SeroAdminBridge } from '@sero-ai/common';
 import { FolderOpen } from 'lucide-react';
 import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, Switch, Textarea } from '@sero-ai/ui';
 
-import type { CreateProjectInput, ExecutionMode } from '../../shared/record';
+import type { ExecutionMode } from '../../shared/record';
+import type { CreateProjectInput } from '../../shared/create-project';
 import type { ActionOutcome, ModelChoice } from '../lib/actions';
 import { IntakeModelOverrides } from './IntakeModelOverrides';
 
