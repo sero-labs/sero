@@ -111,6 +111,18 @@ describe('project management', () => {
     expect(await store.list()).toHaveLength(0);
   });
 
+  it('refuses the suffixed folder the host would pick when the base id is taken elsewhere', async () => {
+    const { host, store, actions } = await setup();
+    // Another workspace already holds the base id, so the host would create `app-2`.
+    host.workspaces.push({ id: 'app', name: 'Elsewhere', path: '/elsewhere/app', open: true });
+    host.existingPaths.add('/home/dan/projects/app-2');
+
+    const outcome = await actions.create({ idea: 'x', folder: '/home/dan/projects/App' });
+
+    expect(outcome).toMatchObject({ ok: false, text: expect.stringContaining('/home/dan/projects/app-2') });
+    expect(await store.list()).toHaveLength(0);
+  });
+
   it('requires exactly one place to work', async () => {
     const { actions } = await setup();
     expect((await actions.create({ idea: 'x' })).ok).toBe(false);
@@ -129,6 +141,37 @@ describe('project management', () => {
 
     expect((await store.read(record.id))!.workspaceId).not.toBeNull();
     expect((await host.listWorkspaces()).length).toBe(before + 1);
+  });
+
+  it('reuses the workspace a lost record update left behind, instead of a second one', async () => {
+    const { host, store, actions } = await setup();
+    // Intake records the workspace's destination as the project folder, then
+    // creates the workspace. If the record update that saved its id is lost, the
+    // workspace is registered at that folder and the record still has no id.
+    const record = createProjectRecord({ id: 'proj_lost', name: 'Lost', idea: 'x', folder: '/home/dan/projects/lost', now: T0 });
+    await store.write(record);
+    host.workspaces.push({ id: 'lost', name: 'Lost', path: '/home/dan/projects/lost', open: true });
+    const before = (await host.listWorkspaces()).length;
+
+    const resumed = await actions.resume(record.id);
+
+    expect(resumed.ok, resumed.text).toBe(true);
+    expect((await store.read(record.id))!.workspaceId).toBe('lost');
+    expect((await host.listWorkspaces()).length).toBe(before);
+  });
+
+  it('reuses a suffixed workspace left by a lost record update', async () => {
+    const { host, store, actions } = await setup();
+    const record = createProjectRecord({ id: 'proj_lost', name: 'Lost', idea: 'x', folder: '/home/dan/projects/lost-2', now: T0 });
+    await store.write(record);
+    host.workspaces.push({ id: 'lost-2', name: 'Lost', path: '/home/dan/projects/lost-2', open: true });
+    const before = (await host.listWorkspaces()).length;
+
+    const resumed = await actions.resume(record.id);
+
+    expect(resumed.ok, resumed.text).toBe(true);
+    expect((await store.read(record.id))!.workspaceId).toBe('lost-2');
+    expect((await host.listWorkspaces()).length).toBe(before);
   });
 
   it('requires a saved legacy choice before resume and preserves existing work and grants', async () => {

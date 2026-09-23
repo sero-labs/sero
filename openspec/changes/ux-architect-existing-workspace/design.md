@@ -96,10 +96,12 @@ The dialog's list can be stale, so `create` re-validates on submit:
   `global`, and must not already hold a project. On success the record takes the
   workspace's `id`, `path` and `name`, and `advanceIntake` skips workspace creation
   because `workspaceId` is set.
-- `folder`: the destination the host would create must be free. Intake checks
-  both the folder the user named and the host's destination for it
-  (`path.dirname(folder)` joined with `slugify(basename(folder))`, the shared
-  `workspaceSlug`), because the host resolves a workspace's path from a slug.
+- `folder`: the destination the host would create must be free. Intake resolves
+  the exact destination the host would pick — `path.dirname(folder)` joined with
+  `ensureUniqueId(workspaceSlug(basename(folder)), registeredIds)`, both shared
+  from `@sero-ai/common` — and refuses when either the folder the user named or
+  that destination exists. It records the destination as the project's folder, so
+  the record and the created workspace agree from the first write.
   `host.pathExists` uses `fs.stat`, so an existing directory counts; `fileInfo`
   cannot answer this, because it reads the first bytes and returns `null` when
   that read fails on a directory. Intake resolution lives in
@@ -111,16 +113,17 @@ because one Architect project per workspace is a runtime rule.
 ### 4. The existence check lives before the record, not in `advanceIntake`
 
 Intake placement resolves once, before `create` writes a record, so a refusal
-leaves no project behind. `advanceIntake` stays re-entrant: it must still reuse a
-workspace it may have created before an interrupted record update. The refusal
-therefore does not move into the host adapter or into `advanceIntake`.
+leaves no project behind. `advanceIntake` stays re-entrant differently: because
+the record already holds the resolved destination, a retry finds a workspace the
+failed attempt created by that exact path and adopts it, instead of making a
+suffixed sibling. The refusal therefore does not move into the host adapter.
 
-### 5. `requireEmpty` stays `false` in the host adapter
+### 5. `requireEmpty` stays `false`, and the host adapter is untouched
 
-Changing it to `true` would break re-entrancy: after a create-then-failed-update, a
-retry would bump the destination to a sibling instead of reusing it. The refusal
-in `create` is what stops the take-over, and it runs before any workspace is
-touched.
+The host's `ensureUniqueId` bumps a destination when the base id is already
+registered, so intake predicts the bumped path itself rather than asking the host
+to change. The host keeps the reuse behavior its other callers rely on, and the
+plugin owns the one rule that must be exact: what the destination will be.
 
 ### 6. The drawing governs the dialog's appearance
 
@@ -136,10 +139,12 @@ are binding; `comparison.md` records the captures and any departure.
 
 ## Risks / Trade-offs
 
-- **The shared slug is the host's slug.** Intake predicts a workspace's
-  destination with `workspaceSlug` from `@sero-ai/common`, which the desktop
-  workspace manager also uses. One spelling of the rule, so the two cannot
-  drift apart silently.
+- **The shared id rule is the host's rule.** Intake predicts a workspace's
+  destination with `workspaceSlug` and `ensureUniqueId` from `@sero-ai/common`,
+  which the desktop workspace manager also uses. One spelling of the rule, so the
+  two cannot drift apart silently.
+- **`packages/common` changed.** The new `workspace-id` module may need the
+  package republished before a release that consumes it.
 - **The picker list can change between open and submit.** Mitigated by decision 3:
   the runtime re-validates and refuses.
 - **`window.sero.workspace.list` is optional.** When it is absent the picker shows

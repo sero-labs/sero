@@ -58,13 +58,16 @@ checked against the frame's own "Controls on this screen today" list.
 - **New folder stays the default choice.** The drawing shows Existing workspace
   selected in both frames because that is what it is demonstrating. The cheaper
   default is the shipped behavior: a user who wants a new folder changes nothing.
-- **The existing-folder refusal checks both paths.** Frame 1's "Today" note names
-  `Location / Name`. The host resolves the workspace destination from
-  `slugify(name)`, so intake refuses when either the typed folder or that slug
-  destination exists. The slug comes from `workspaceSlug` in `@sero-ai/common`,
-  the same function the desktop workspace manager uses, so the two cannot drift
-  apart. The check uses `fs.stat`, so a directory counts, which a byte-reading
-  `fileInfo` could not see on every platform.
+- **The existing-folder refusal checks the real destination.** Frame 1's "Today"
+  note names `Location / Name`. The host resolves a workspace's destination from
+  `workspaceSlug(name)`, bumped by `ensureUniqueId` when that id is taken, so
+  intake predicts that exact path and refuses when either the typed folder or it
+  exists. It then records the destination as the project's folder, so a retry
+  after a lost record write finds the workspace by path and never makes a second
+  one. The slug and the uniqueness rule come from `@sero-ai/common`, the same
+  code the desktop workspace manager uses. The existence check uses `fs.stat`, so
+  a directory counts, which a byte-reading `fileInfo` could not see on every
+  platform.
 - **A workspace whose path is unavailable is still offered.** The drawing has no
   frame for it. Creation proceeds and `git init` fails into the existing blocked
   state, which the project page already names.

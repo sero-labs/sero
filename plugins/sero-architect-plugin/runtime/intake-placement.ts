@@ -7,7 +7,7 @@
 import os from 'node:os';
 import path from 'node:path';
 
-import { workspaceSlug } from '@sero-ai/common';
+import { ensureUniqueId, workspaceSlug } from '@sero-ai/common';
 
 import type { CreateProjectInput } from '../shared/create-project';
 import type { ArchitectHost } from './host';
@@ -49,12 +49,18 @@ export async function resolveIntakePlacement(
   }
 
   const folder = expandHome(folderInput);
+  const name = path.basename(folder);
   if (await deps.host.pathExists(folder)) return { ok: false, error: existingFolder(folder) };
-  // The host creates the workspace at `slugify(name)` under the parent, so an
-  // existing folder at the slugged path is refused as well as the typed path.
-  const destination = path.join(path.dirname(folder), workspaceSlug(path.basename(folder)));
+  // The host creates the workspace at `parent/<ensureUniqueId(slug(name))>`.
+  // Intake predicts that exact destination, refuses when it exists, and records
+  // it as the project's folder, so a resume can find the workspace by path. The
+  // ids come from the same registry the host reads.
+  const registeredIds = new Set((await deps.host.listWorkspaces()).map((workspace) => workspace.id));
+  const destination = path.join(path.dirname(folder), ensureUniqueId(workspaceSlug(name), registeredIds));
   if (destination !== folder && await deps.host.pathExists(destination)) return { ok: false, error: existingFolder(destination) };
-  return { ok: true, placement: { name: path.basename(folder), folder, workspaceId: null } };
+  // Record the destination, not the typed folder: the host derives the folder
+  // from the name, so the record and the created workspace agree from the start.
+  return { ok: true, placement: { name, folder: destination, workspaceId: null } };
 }
 
 function existingFolder(folder: string): string {

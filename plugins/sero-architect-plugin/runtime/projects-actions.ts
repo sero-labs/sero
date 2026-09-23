@@ -107,7 +107,12 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
     let record = start;
     if (!record.workspaceId) {
       try {
-        const workspace = await host.createWorkspace(record.name, path.dirname(record.folder));
+        const parent = path.dirname(record.folder);
+        // Intake is re-entrant: a workspace created before a lost record update
+        // is already at the record's folder, so it is adopted by path rather
+        // than made again as a suffixed sibling.
+        const existing = (await host.listWorkspaces()).find((workspace) => workspace.path === record.folder);
+        const workspace = existing ?? await host.createWorkspace(record.name, parent);
         record = (await store.update(record.id, (fresh) => ({
           ...fresh, folder: workspace.path, workspaceId: workspace.id, stateLine: 'Workspace ready. Permission is needed to run the Architect.',
         }))) ?? record;
