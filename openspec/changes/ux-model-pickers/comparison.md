@@ -21,6 +21,9 @@ below are what the images showed, not what anyone remembered.
 - Built tier table: `pnpm --filter @sero-ai/plugin-architect preview`, then
   `ui/__preview__/index.html?state=models&width=1240`. The MED field's chevron is
   clicked and `flash` typed. Screenshot the viewport at 1600x1000.
+- The drawing page renders at a 16px root; the app renders at 13px. A width the
+  drawing draws as 320px is a 20rem (`w-80`) token, which measures 260px in the
+  app. Compare widths by token, not by pixel.
 - Both built captures add the `dark` class to `document.documentElement` first.
   The harness toggles the theme on an inner div, and a popup portals into a
   sibling container, so without this the popup renders light on a dark card.
@@ -51,10 +54,11 @@ Frame 1 - a step's model, Orchestrator:
 
 - One row of three inline, externally labelled fields: `Model`, `Agent`
   (`implementer`), `Tools` (`Default`).
-- The `Model` field is a wide combobox with `sonnet` typed and its list open. The
-  tier entries are filtered out because they do not match the query. Each row
-  names the model and its provider (`Anthropic`, right-aligned and muted). The
-  closed field carries no clear control.
+- The `Model` field is a combobox 20rem wide (`w-80`; 320px at the drawing page's
+  16px root) with `sonnet` typed and its list open. The tier entries are filtered
+  out because they do not match the query. Each row names the model and its
+  provider (`Anthropic`, right-aligned and muted). The closed field carries no
+  clear control.
 
 Frame 2 - Project models, Architect:
 
@@ -66,6 +70,12 @@ Frame 2 - Project models, Architect:
 
 ## Differences the captures showed
 
+- **Frame 1: the built Model field first stretched the whole row.** The first
+  capture used `flex-1`, so the field filled the card (748px) and pushed `Agent`
+  and `Tools` to the far right; the drawing draws a 20rem field with the other
+  two controls just after it. Fixed: `StepModelControl` uses `w-80`, matching the
+  drawing's token (320px at its 16px root, 260px at the app's 13px root). The two
+  tier fields use `w-80` too, in place of `min-w-0 flex-1`.
 - **Frame 1: the step field showed a clear `X` beside a tier.** The drawing shows
   none, because a tier is not a pinned model. Fixed: `StepModelControl` passes
   `allowClear` only when the step's model is a pinned model (`isModelTier` is

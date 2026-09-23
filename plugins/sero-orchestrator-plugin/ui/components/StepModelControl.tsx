@@ -38,7 +38,7 @@ export function StepModelControl({ step, groups, onChange }: StepModelControlPro
   const pinned = !!model && !isModelTier(model);
 
   return (
-    <div className="flex min-w-[16rem] flex-1 items-center gap-2">
+    <div className="flex items-center gap-2">
       <span className="shrink-0 text-xs text-muted-foreground">Model</span>
       <AvailableModelPicker
         groups={groups}
@@ -47,7 +47,7 @@ export function StepModelControl({ step, groups, onChange }: StepModelControlPro
         leadingOptions={LEADING_OPTIONS}
         ariaLabel={`Model for ${step.title}`}
         allowClear={pinned}
-        className="min-w-0 flex-1"
+        className="w-80"
       />
     </div>
   );

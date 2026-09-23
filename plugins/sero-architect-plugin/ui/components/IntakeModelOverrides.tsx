@@ -67,7 +67,7 @@ export function IntakeModelOverrides({ choices, onChange, disabled }: {
                           const thinking = current?.thinking && picked.thinking.includes(current.thinking) ? current.thinking : picked.thinking[0];
                           set(tier, { tier, model: picked.value, ...(thinking ? { thinking } : {}) });
                         }}
-                        className="min-w-0 flex-1"
+                        className="w-80"
                       />
                       {entry && entry.thinking.length > 0 && (
                         <Select

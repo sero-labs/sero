@@ -108,9 +108,10 @@ or group headings remain in this picker; the drawing shows text only.
 `leadingOptions = [Auto, LOW, MED, HIGH]`, `value = model ?? 'Auto'`, and
 `allowClear`. `onChange` maps `Auto` and `''` to `onChange(undefined)`, a tier to
 `onChange(tier)`, and a model key to `onChange(key)`. The `customArmed` state and
-the second picker are removed. Clearing stays: it selects `Auto`. The field is wide - frame 1 draws it about ten
- times a single model name, against the current `min-w-[12rem]` - so a name and
- its provider read on one line beside `Agent` and `Tools`.
+the second picker are removed. Clearing stays: it selects `Auto`. The field is a fixed 20rem (`w-80`), which
+frame 1 draws as 320px at its 16px root; the app's root is 13px, so the same
+token measures 260px there. A name and its provider read on one line beside
+`Agent` and `Tools`.
 
 **Alternative considered:** keep the select and only swap the second picker.
 Rejected: the drawing folds both into one field.

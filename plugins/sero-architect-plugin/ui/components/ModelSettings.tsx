@@ -186,7 +186,7 @@ export function ModelSettings({ record, actions, runtimeRunning, onBack }: {
                           : picked.thinking[0];
                         void submit(tier, () => actions.setModelDefault(record.id, tier, picked.value, thinking));
                       }}
-                      className="min-w-0 flex-1"
+                      className="w-80"
                     />
                     {entry && entry.thinking.length > 0 && (
                       <Select
