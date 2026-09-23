@@ -11,7 +11,7 @@
 
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { PluginStyleScope } from '@sero-ai/ui';
+import { PluginStyleScope } from '@sero-ai/ui/plugin-style-scope';
 // The host supplies the design tokens in the real app. The harness has no host,
 // so it injects the host stylesheet raw: routed through Vite it would meet the
 // plugin CSS scope, which refuses document-level selectors.

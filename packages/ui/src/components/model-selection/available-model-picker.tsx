@@ -8,7 +8,7 @@
  * selection - with `leadingOptions`; the same query filters both.
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import {
   type SharedAvailableModelGroup,
   type SharedModelInfo,
@@ -97,6 +97,11 @@ export function AvailableModelPicker<
     [onChange],
   );
 
+  // The popup sizes to the anchor. Anchor it to the whole field, not the input:
+  // the provider beside the input narrows it, and a popup sized to the input
+  // would clip every model name to fit the leftover space.
+  const anchorRef = useRef<HTMLDivElement>(null);
+
   return (
     <Combobox
       items={options}
@@ -109,28 +114,30 @@ export function AvailableModelPicker<
       filter={filter}
       inline={false}
     >
-      <ComboboxInput
-        className={cn('w-full', className)}
-        placeholder={searchPlaceholder ?? placeholder}
-        aria-label={ariaLabel}
-        disabled={disabled}
-        showTrigger={false}
-        showClear={false}
-      >
-        <InputGroupAddon align="inline-end">
-          {selectedOption?.provider ? (
-            <span className="pointer-events-none max-w-[8rem] truncate text-sm text-muted-foreground">
-              {selectedOption.provider}
-            </span>
-          ) : null}
-          {allowClear && value ? <ComboboxClear disabled={disabled} /> : null}
-          <InputGroupButton size="icon-xs" variant="ghost" asChild disabled={disabled}>
-            <ComboboxTrigger aria-label={ariaLabel ? `Open ${ariaLabel}` : 'Open model list'} />
-          </InputGroupButton>
-        </InputGroupAddon>
-      </ComboboxInput>
+      <div ref={anchorRef} className={cn('w-full', className)}>
+        <ComboboxInput
+          className="w-full"
+          placeholder={searchPlaceholder ?? placeholder}
+          aria-label={ariaLabel}
+          disabled={disabled}
+          showTrigger={false}
+          showClear={false}
+        >
+          <InputGroupAddon align="inline-end">
+            {selectedOption?.provider ? (
+              <span className="pointer-events-none max-w-[8rem] truncate text-sm text-muted-foreground">
+                {selectedOption.provider}
+              </span>
+            ) : null}
+            {allowClear && value ? <ComboboxClear disabled={disabled} /> : null}
+            <InputGroupButton size="icon-xs" variant="ghost" asChild disabled={disabled}>
+              <ComboboxTrigger aria-label={ariaLabel ? `Open ${ariaLabel}` : 'Open model list'} />
+            </InputGroupButton>
+          </InputGroupAddon>
+        </ComboboxInput>
+      </div>
 
-      <ComboboxContent>
+      <ComboboxContent anchor={anchorRef}>
         <ComboboxEmpty>{groups.length === 0 ? noModelsLabel : emptyLabel}</ComboboxEmpty>
         <ComboboxList>
           {(option: ModelPickerOption) => (

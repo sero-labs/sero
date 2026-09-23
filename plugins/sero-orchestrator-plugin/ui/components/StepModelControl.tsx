@@ -47,7 +47,7 @@ export function StepModelControl({ step, groups, onChange }: StepModelControlPro
         leadingOptions={LEADING_OPTIONS}
         ariaLabel={`Model for ${step.title}`}
         allowClear={pinned}
-        className="w-80"
+        className="w-[320px]"
       />
     </div>
   );

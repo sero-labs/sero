@@ -108,10 +108,12 @@ or group headings remain in this picker; the drawing shows text only.
 `leadingOptions = [Auto, LOW, MED, HIGH]`, `value = model ?? 'Auto'`, and
 `allowClear`. `onChange` maps `Auto` and `''` to `onChange(undefined)`, a tier to
 `onChange(tier)`, and a model key to `onChange(key)`. The `customArmed` state and
-the second picker are removed. Clearing stays: it selects `Auto`. The field is a fixed 20rem (`w-80`), which
-frame 1 draws as 320px at its 16px root; the app's root is 13px, so the same
-token measures 260px there. A name and its provider read on one line beside
-`Agent` and `Tools`.
+the second picker are removed. Clearing stays: it selects `Auto`. The field is a fixed 320px, the width frame 1
+draws. The drawing page's root is 16px and the app's is 13px, so a rem-based
+width renders about 23% smaller in the app; a fixed 320px keeps the drawn size.
+The popup is anchored to the whole field, not the input, so the provider beside
+the input cannot narrow it and clip every model name. A name and its provider
+read on one line beside `Agent` and `Tools`.
 
 **Alternative considered:** keep the select and only swap the second picker.
 Rejected: the drawing folds both into one field.
