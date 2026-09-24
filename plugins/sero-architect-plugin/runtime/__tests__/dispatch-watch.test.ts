@@ -260,6 +260,33 @@ describe('dispatch watch', () => {
     expect(usage[0]?.source).toBe('dispatch:workflow:loop_1');
   });
 
+  it('journals the rise in a Workflow\'s working time, with or without a cost rise, once', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const homeDir = await host.homeDir();
+    const journal = createRunJournal({ homeDir });
+    const opened = openRun(buildingProject({ milestones: [running('workflow', 'loop_1')] }), { id: 'run-1', kind: 'initial' }, T0);
+    if (!opened.ok) throw new Error(opened.error);
+    await store.write(opened.record);
+    host.jsonFiles[files.loops] = { version: 1, loops: [{ id: 'loop_1', title: 'Grid', status: 'active', updatedAt: T0 }] };
+    host.jsonFiles[files.rooms] = { schemaVersion: 1, rooms: [] };
+    const watch = createDispatchWatch({ host, store, wake: () => undefined, journal });
+    await watch.track(opened.record);
+    const report = async (costUsd: number, durationMs: number) => {
+      host.emitState(files.loops, { version: 1, loops: [{ id: 'loop_1', title: 'Grid', status: 'active', updatedAt: T0, usage: { costUsd, durationMs } }] });
+      await watch.flush();
+    };
+    await report(2, 600_000);
+    await report(2, 900_000);
+    await report(2, 900_000);
+
+    const usage = fs.readFileSync(path.join(homeDir, 'runs', 'proj_1', 'run-1.journal.ndjson'), 'utf8')
+      .split('\n').filter(Boolean).map((line) => JSON.parse(line) as JournalRecord).filter((line) => line.kind === 'usage');
+    expect(usage.map((line) => [line.costUsd, line.activeMs])).toEqual([[2, 600_000], [0, 300_000]]);
+    // Time alone never charges the budget.
+    expect((await store.read('proj_1'))?.budget.sources.dispatched).toBeCloseTo(2);
+  });
+
   it('holds running work when restart cannot confirm its dispatch record', async () => {
     const host = await fakeHost();
     const store = await storeFor(host);

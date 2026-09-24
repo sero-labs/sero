@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ProjectRecord } from '../../shared/record';
 import type { ArchitectActions } from './actions';
-import { appendTracePage, type TracePage } from './trace';
+import { appendTracePage, type LifetimeView, type TracePage } from './trace';
+
+/** The Scope value for project-lifetime totals. Never a run id. */
+export const LIFETIME = 'lifetime';
 
 /** The page currently held, tagged with the view it was read for. A read for
  * a different journal or detail level replaces it; a read for the same one
@@ -12,7 +15,14 @@ interface PageState {
   page: TracePage;
 }
 
-export function useInspectorTrace(record: ProjectRecord, actions: ArchitectActions, selected: string, withDetail: boolean) {
+/**
+ * Reads the selected run: its summary, its activity tree and the first page of
+ * charges, all on open. `knownSpendUsd` is what a live view reacts to: the
+ * project record is pushed when spend changes, and a new value re-reads the
+ * run. A paused view passes the value it paused at, so nothing is re-read
+ * until it resumes.
+ */
+export function useInspectorTrace(record: ProjectRecord, actions: ArchitectActions, selected: string, knownSpendUsd: number) {
   const [pageState, setPageState] = useState<PageState | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -39,7 +49,7 @@ export function useInspectorTrace(record: ProjectRecord, actions: ArchitectActio
       const outcome = await actionsRef.current.trace(record.id, {
         runId: journalId,
         detail,
-        knownSpendUsd: record.budget.spentUsd,
+        knownSpendUsd,
         ...(afterSeq === undefined ? {} : { afterSeq }),
       });
       // A later load already started while this one was in flight, or the
@@ -66,13 +76,32 @@ export function useInspectorTrace(record: ProjectRecord, actions: ArchitectActio
     } finally {
       if (gen === generation.current && mounted.current) setLoading(false);
     }
-  }, [record.id, record.budget.spentUsd]);
+  }, [record.id, knownSpendUsd]);
 
   // Reading a trace is an IPC call, so it is an external effect rather than
   // derived state: the source of truth is the runtime, not this component.
   useEffect(() => {
-    void load(selected, withDetail);
-  }, [load, selected, withDetail]);
+    if (selected === LIFETIME) return;
+    void load(selected, true);
+  }, [load, selected]);
 
   return { pageState, notice, loading, load, clear: () => setPageState(null) };
+}
+
+/** Reads project-lifetime totals while that scope is selected. */
+export function useLifetime(record: ProjectRecord, actions: ArchitectActions, selected: string, knownSpendUsd: number): LifetimeView | null {
+  const [lifetime, setLifetime] = useState<{ key: string; view: LifetimeView | null } | null>(null);
+  const actionsRef = useRef(actions);
+  useEffect(() => { actionsRef.current = actions; }, [actions]);
+  const key = `${record.id}:${knownSpendUsd}`;
+  // An IPC read, like the run read above; the latest answer for this key wins.
+  useEffect(() => {
+    if (selected !== LIFETIME) return;
+    let current = true;
+    void actionsRef.current.lifetime(record.id, knownSpendUsd).then((outcome) => {
+      if (current) setLifetime({ key, view: outcome.lifetime });
+    });
+    return () => { current = false; };
+  }, [record.id, knownSpendUsd, selected, key]);
+  return selected === LIFETIME ? lifetime?.view ?? null : null;
 }

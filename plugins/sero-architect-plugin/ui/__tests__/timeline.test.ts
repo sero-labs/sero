@@ -6,16 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  activityOf, activityOptions, filterRecords, filtersActive, inRange, modelOptions, NO_FILTERS,
-  rowWindow, timeRangeOf, zoomRange,
-} from '../lib/timeline';
-import type { TraceRecord } from '../lib/trace';
-
-const at = (offsetMs: number): string => new Date(Date.parse('2026-09-14T09:00:00.000Z') + offsetMs).toISOString();
-const record = (overrides: Partial<TraceRecord> & { seq: number }): TraceRecord => ({
-  at: at(overrides.seq * 1000), kind: 'observation', ...overrides,
-});
+import { panRange, rangeOf, rowWindow, ticks, zoomRange } from '../lib/timeline';
 
 describe('bounded rendering', () => {
   it('never renders more rows than the viewport and its overscan, at any scroll position', () => {
@@ -44,72 +35,22 @@ describe('bounded rendering', () => {
   });
 });
 
-describe('filtering', () => {
-  const records = [
-    record({ seq: 0, operationKind: 'workflow', model: 'openai-codex/gpt-5.6-terra' }),
-    record({ seq: 1, operationKind: 'evidence', model: 'openai-codex/gpt-5.6-terra' }),
-    record({ seq: 2, operationKind: 'research', model: 'openai-codex/gpt-5.6-luna', outcome: 'failed' }),
-  ];
-
-  it('passes everything through when no filter is set', () => {
-    expect(filtersActive(NO_FILTERS)).toBe(false);
-    expect(filterRecords(records, NO_FILTERS)).toHaveLength(3);
-  });
-
-  it('keeps the named activities and models', () => {
-    expect(filterRecords(records, { ...NO_FILTERS, activities: ['research'] }).map((entry) => entry.seq)).toEqual([2]);
-    expect(filterRecords(records, { ...NO_FILTERS, models: ['openai-codex/gpt-5.6-terra'] }).map((entry) => entry.seq)).toEqual([0, 1]);
-  });
-
-  it('keeps only records that reported a failure', () => {
-    expect(filterRecords(records, { ...NO_FILTERS, failuresOnly: true }).map((entry) => entry.seq)).toEqual([2]);
-  });
-
-  it('keeps a usage record with no model under a model filter, since usage never carries one', () => {
-    const withUsage = [...records, record({ seq: 3, kind: 'usage' })];
-    const filtered = filterRecords(withUsage, { ...NO_FILTERS, models: ['openai-codex/gpt-5.6-terra'] });
-    expect(filtered.map((entry) => entry.seq)).toEqual([0, 1, 3]);
-  });
-
-  it('still drops a non-usage record with no model under a model filter', () => {
-    const withUnmodeled = [...records, record({ seq: 3, operationKind: 'workflow' })];
-    const filtered = filterRecords(withUnmodeled, { ...NO_FILTERS, models: ['openai-codex/gpt-5.6-terra'] });
-    expect(filtered.map((entry) => entry.seq)).toEqual([0, 1]);
-  });
-
-  it('combines filters rather than widening when they disagree', () => {
-    const both = filterRecords(records, { activities: ['workflow'], models: ['openai-codex/gpt-5.6-luna'], failuresOnly: false });
-    expect(both).toEqual([]);
-  });
-
-  it('lists the activities and models that are present', () => {
-    expect(activityOptions(records)).toEqual(['evidence', 'research', 'workflow']);
-    expect(modelOptions(records)).toEqual(['openai-codex/gpt-5.6-luna', 'openai-codex/gpt-5.6-terra']);
-    // A record with no model contributes no option, so the control never offers a blank.
-    expect(modelOptions([record({ seq: 9 })])).toEqual([]);
-  });
-
-  it('falls back to the source, then the kind, when a record has no operation kind', () => {
-    expect(activityOf(record({ seq: 0, source: 'session' }))).toBe('session');
-    expect(activityOf(record({ seq: 0 }))).toBe('observation');
-  });
-});
-
 describe('time range', () => {
-  it('is null when nothing carries a usable time, rather than an empty range', () => {
-    expect(timeRangeOf([])).toBeNull();
-    expect(timeRangeOf([{ seq: 0, at: 'not a time', kind: 'observation' }])).toBeNull();
+  it('is null when the run has no usable time, rather than an empty range', () => {
+    expect(rangeOf(null)).toBeNull();
+    expect(rangeOf({ from: 'not a time', to: 'x' })).toBeNull();
   });
 
-  it('covers the first and last observed record', () => {
-    const range = timeRangeOf([record({ seq: 1 }), record({ seq: 5 })]);
-    expect(range).toEqual({ from: Date.parse(at(1000)), to: Date.parse(at(5000)) });
+  it('pans without resizing and stops at either end', () => {
+    const full = { from: 0, to: 100_000 };
+    expect(panRange(full, { from: 10_000, to: 30_000 }, 5_000)).toEqual({ from: 15_000, to: 35_000 });
+    expect(panRange(full, { from: 10_000, to: 30_000 }, -50_000)).toEqual({ from: 0, to: 20_000 });
+    expect(panRange(full, { from: 10_000, to: 30_000 }, 500_000)).toEqual({ from: 80_000, to: 100_000 });
   });
 
-  it('keeps a record with no time visible instead of dropping it', () => {
-    expect(inRange({ seq: 0, at: 'not a time', kind: 'observation' }, { from: 0, to: 1 })).toBe(true);
-    expect(inRange(record({ seq: 5 }), { from: 0, to: 1 })).toBe(false);
-    expect(inRange(record({ seq: 5 }), null)).toBe(true);
+  it('marks the ruler at a round interval measured from the start of the run', () => {
+    const marks = ticks({ from: 0, to: 3 * 3_600_000 }, 0);
+    expect(marks.map((mark) => mark.offset / 60_000)).toEqual([0, 30, 60, 90, 120, 150, 180]);
   });
 
   it('zooms around an anchor and stops at the whole run when zooming out', () => {

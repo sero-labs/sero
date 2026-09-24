@@ -351,87 +351,178 @@
 .ar-tier-effective { display: grid; gap: 2px; color: var(--text-primary); }
 .ar-tier-source { color: var(--ar-text-3); font-size: 11px; }
 
-/* ── Run inspector (spec architect-run-observability) ───────────────────── */
-.ar-inspector { display: grid; gap: 12px; }
-.ar-inspector-run { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ar-text-3); }
-.ar-inspector-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
-.ar-inspector-tiles > div {
-  display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--ar-line); border-radius: 10px;
-}
-.ar-inspector-tiles span { color: var(--ar-text-3); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
-.ar-inspector-tiles b { color: var(--text-primary); font-size: 18px; font-family: var(--font-mono, monospace); }
-.ar-inspector-tiles small { color: var(--ar-text-3); font-size: 11px; }
-.ar-inspector-controls { display: grid; gap: 8px; }
-.ar-inspector-filters, .ar-inspector-zoom { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 12px; color: var(--ar-text-2); }
-.ar-inspector-filters > span:first-child, .ar-inspector-zoom > span:first-child {
-  color: var(--ar-text-3); font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
-}
-.ar-inspector-filters label { display: inline-flex; align-items: center; gap: 4px; }
+/* ── Run inspector (spec architect-run-observability) ─────────────────────
+   Ported from apps/styleguide/public/prototypes/architect-run-observability.
+   Panels that share a row share its height, and each panel's content grows to
+   fill it, so the layout leaves no blank band between or inside panels. */
+.ar-insp { display: grid; gap: 14px; container: ar-insp / inline-size; }
+.ar-insp-top { display: flex; align-items: center; gap: 10px; min-height: 36px; }
+.ar-insp-crumb { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--text-primary); min-width: 0; }
+.ar-insp-crumb svg { width: 14px; height: 14px; color: var(--ar-text-3); }
+.ar-insp-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.ar-insp-scope { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--ar-text-3); }
+.ar-insp-scope [data-slot='select-trigger'] { min-width: 240px; max-width: 360px; }
+.ar-insp-empty { padding: 26px 12px; text-align: center; color: var(--ar-text-2); font-size: 12px; }
 
-/* The timeline scrolls as one box. Only the rows in view are in the DOM, so a
-   trace with tens of thousands of spans costs the same as a short one. */
-.ar-inspector-split { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 12px; }
-.ar-inspector-timeline {
-  overflow-y: auto; border: 1px solid var(--ar-line); border-radius: 10px;
-  background: var(--bg-base); outline: none;
-}
-.ar-inspector-timeline:focus-visible { border-color: var(--ar-accent, var(--text-primary)); }
-.ar-span {
-  display: grid; position: relative;
-  grid-template-columns: 92px 90px minmax(0, 1fr) 84px 60px;
-  align-items: center; gap: 8px; padding: 0 10px;
-  font-size: 12px; font-family: var(--font-mono, monospace);
-  border-bottom: 1px solid color-mix(in oklab, var(--ar-line) 45%, transparent);
-}
-.ar-span[data-selected] { background: color-mix(in oklab, var(--ar-line) 35%, transparent); }
-.ar-span-at, .ar-span-cost { color: var(--ar-text-3); }
-.ar-span-kind { color: var(--ar-text-2); }
-.ar-span-op { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
-/* A failure is never distinguished by colour alone: the word is present. */
-.ar-span-bad { color: var(--ar-danger, #f87171); font-weight: 600; }
-.ar-span-detail {
-  grid-column: 1 / -1; display: grid; grid-template-columns: 80px minmax(0, 1fr);
-  gap: 2px 10px; margin: 0; padding: 4px 0 8px; font-size: 11px;
-}
-.ar-span-detail dt { color: var(--ar-text-3); }
-.ar-span-detail dd { margin: 0; color: var(--ar-text-2); }
-.ar-inspector-detail { border: 1px solid var(--ar-line); border-radius: 10px; padding: 12px; font-size: 12px; }
-.ar-inspector-detail dl { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 4px 8px; margin: 8px 0; }
-.ar-inspector-detail dt { color: var(--ar-text-3); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
-.ar-inspector-detail dd { margin: 0; color: var(--text-primary); overflow-wrap: anywhere; }
+.ar-tiles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.ar-tile { border: 1px solid var(--ar-line); border-radius: 9px; background: var(--bg-surface); padding: 9px 11px; display: grid; gap: 3px; min-width: 0; }
+.ar-tile .k { font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--ar-text-2); font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ar-tile .v { font: 600 15px var(--font-mono, monospace); color: var(--text-primary); letter-spacing: -.02em; }
+.ar-tile .n { font-size: 11px; color: var(--ar-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 16px; }
+.ar-tile[data-unknown] .v { color: var(--ar-text-2); font-weight: 400; }
+.ar-counters { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--ar-text-2); }
+.ar-counters:empty { display: none; }
 
-/* Charts read the same records as the totals above them, so the two cannot
-   disagree. A section with nothing priced says so instead of drawing zero. */
-.ar-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
-.ar-charts section { border: 1px solid var(--ar-line); border-radius: 10px; padding: 10px 12px; }
-.ar-charts h3 { margin: 0 0 6px; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--ar-text-3); }
-.ar-charts svg { color: var(--ar-accent, var(--text-primary)); }
-.ar-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.ar-bar-row {
-  display: grid; width: 100%; align-items: center; gap: 8px; font-size: 12px;
-  grid-template-columns: 84px minmax(0, 1fr) 74px 52px;
-  background: none; border: 0; padding: 2px 0; cursor: pointer; text-align: left; color: inherit;
-}
-.ar-bar-row[data-on] .ar-bar-label { color: var(--text-primary); font-weight: 600; }
-.ar-bar-track { display: block; height: 8px; border-radius: 4px; background: color-mix(in oklab, var(--ar-line) 60%, transparent); overflow: hidden; }
-.ar-bar-track i { display: block; height: 100%; background: var(--ar-accent, var(--text-primary)); }
-.ar-bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ar-text-2); }
-.ar-bar-value, .ar-bar-count { color: var(--ar-text-3); font-family: var(--font-mono, monospace); font-size: 11px; }
-.ar-model-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.ar-model-table th { text-align: left; color: var(--ar-text-3); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; padding: 2px 6px 4px 0; }
-.ar-model-table td { padding: 2px 6px 2px 0; color: var(--ar-text-2); }
+.ar-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ar-chips { display: inline-flex; flex-wrap: wrap; padding: 2px; border: 1px solid var(--ar-line); border-radius: 7px; background: var(--bg-surface); gap: 2px; }
+.ar-chips button { height: 24px; padding: 0 9px; border: 0; border-radius: 5px; background: none; color: var(--ar-text-2); font-size: 11px; white-space: nowrap; cursor: pointer; }
+.ar-chips button[aria-pressed='true'] { background: var(--bg-muted); color: var(--text-primary); }
+.ar-tools [data-slot='select-trigger'] { min-width: 180px; }
+.ar-scope-note { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--ar-text-2); }
+.ar-scope-note b { color: var(--text-primary); font-weight: 560; font-family: var(--font-mono, monospace); }
 
-/* A run state is a word first. The tone is decoration, so a reader who cannot
-   see the colour still gets the status. */
-.ar-run-state {
-  display: flex; gap: 8px; align-items: baseline; margin: 0; padding: 8px 12px;
-  border: 1px solid var(--ar-line); border-left-width: 3px; border-radius: 8px;
-  font-size: 12px; color: var(--ar-text-2); line-height: 1.55;
+.ar-insp-main { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 14px; align-items: stretch; }
+.ar-insp-main[data-solo] { grid-template-columns: minmax(0, 1fr); }
+.ar-panel { border: 1px solid var(--ar-line); border-radius: 10px; background: var(--bg-surface); overflow: hidden; min-width: 0; }
+.ar-panel-head { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--ar-line); font-size: 11px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--ar-text-2); }
+.ar-panel-head .n { margin-left: auto; font: 10px var(--font-mono, monospace); letter-spacing: 0; text-transform: none; }
+
+.ar-insp-tl { display: flex; flex-direction: column; }
+.ar-ov { padding: 10px 12px 8px; border-bottom: 1px solid var(--ar-line); }
+.ar-ov-strip { position: relative; height: 34px; border: 1px solid var(--ar-line); border-radius: 6px; background: var(--bg-base); overflow: hidden; cursor: grab; touch-action: none; }
+.ar-ov-strip:active { cursor: grabbing; }
+.ar-ov-bar { position: absolute; top: 6px; height: 6px; border-radius: 3px; background: var(--ar-line-strong); }
+.ar-ov-bar[data-state='failed'] { background: var(--ar-err); }
+.ar-ov-bar[data-state='waiting'] { top: 16px; background: var(--ar-warn); opacity: .7; }
+.ar-ov-bar[data-state='running'] { background: var(--ar-brand); }
+.ar-ov-win { position: absolute; top: 0; bottom: 0; border: 1px solid var(--ar-brand); border-radius: 6px; background: color-mix(in srgb, var(--ar-brand) 10%, transparent); }
+.ar-ov-win .h { position: absolute; top: 0; bottom: 0; width: 8px; cursor: ew-resize; }
+.ar-ov-win .h.l { left: -4px; } .ar-ov-win .h.r { right: -4px; }
+.ar-ov-tools { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 7px; }
+.ar-ov-tools .whole { margin-right: auto; display: inline-flex; align-items: center; gap: 5px; font-size: 10px; color: var(--ar-text-2); }
+
+.ar-tl-head, .ar-tl-row { display: grid; grid-template-columns: minmax(190px, 36%) 64px minmax(0, 1fr); gap: 10px; padding: 0 12px; }
+.ar-tl-head { padding-top: 7px; padding-bottom: 7px; border-bottom: 1px solid var(--ar-line); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--ar-text-2); font-weight: 650; }
+.ar-tl-head > span:nth-child(2) { text-align: right; }
+.ar-ruler { position: relative; height: 14px; }
+.ar-ruler span { position: absolute; top: 0; font: 9px var(--font-mono, monospace); color: var(--ar-text-2); letter-spacing: 0; transform: translateX(-1px); white-space: nowrap; }
+/* The tree fills whatever height the row gives the panel, never less than the
+   prototype's viewport, and its gridlines run to the bottom edge. */
+.ar-tl-body { position: relative; flex: 1 1 auto; min-height: 240px; }
+.ar-tl-grid { position: absolute; inset: 0; pointer-events: none; display: grid; grid-template-columns: minmax(190px, 36%) 64px minmax(0, 1fr); gap: 10px; padding: 0 12px; }
+.ar-tl-ticks { position: relative; }
+.ar-tl-ticks i { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--ar-line); opacity: .6; }
+.ar-tl-scroll { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; outline: none; }
+.ar-tl-scroll:focus-visible { box-shadow: inset 0 0 0 2px var(--ar-brand); }
+.ar-tl-row { position: absolute; left: 0; right: 0; height: 28px; align-items: center; border-bottom: 1px solid color-mix(in srgb, var(--ar-line) 50%, transparent); cursor: default; }
+.ar-tl-row:hover { background: color-mix(in srgb, var(--bg-muted) 40%, transparent); }
+.ar-tl-row[aria-selected='true'] { background: color-mix(in srgb, var(--ar-brand) 10%, transparent); box-shadow: inset 2px 0 0 var(--ar-brand); }
+.ar-tl-row[data-hit] { background: color-mix(in srgb, var(--ar-info) 10%, transparent); }
+.ar-tl-row[data-dim] { opacity: .32; }
+.ar-tl-label { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ar-tl-tw { width: 16px; height: 16px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--ar-text-2); flex: 0 0 auto; cursor: pointer; }
+.ar-tl-tw:hover { background: var(--bg-muted); color: var(--text-primary); }
+.ar-tl-tw[data-leaf] { visibility: hidden; }
+.ar-tl-tw svg { width: 14px; height: 14px; transition: transform .12s; }
+.ar-tl-tw[aria-expanded='true'] svg { transform: rotate(90deg); }
+.ar-tl-st { width: 16px; height: 16px; display: grid; place-items: center; flex: 0 0 auto; color: var(--ar-text-2); }
+.ar-tl-st svg { width: 14px; height: 14px; }
+.ar-tl-st[data-state='done'] { color: var(--ar-ok); }
+.ar-tl-st[data-state='failed'] { color: var(--ar-err); }
+.ar-tl-st[data-state='waiting'] { color: var(--ar-warn); }
+.ar-tl-st[data-state='running'] { color: var(--ar-brand); }
+.ar-tl-st[data-state='aborted'] { color: var(--ar-violet); }
+.ar-tl-lbl { display: flex; align-items: baseline; gap: 6px; min-width: 0; overflow: hidden; white-space: nowrap; }
+.ar-tl-lbl b { font-weight: 500; font-size: 12px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; flex: 0 0 auto; max-width: 100%; }
+.ar-tl-lbl em { font: normal 10px var(--font-mono, monospace); color: var(--ar-text-3); overflow: hidden; text-overflow: ellipsis; flex: 0 1000 auto; min-width: 0; }
+.ar-tl-row[aria-selected='true'] .ar-tl-lbl b { color: var(--ar-brand); }
+.ar-tl-cost { font: 11px var(--font-mono, monospace); color: var(--ar-text-2); text-align: right; white-space: nowrap; }
+.ar-insp-track { position: relative; height: 100%; }
+.ar-bar { position: absolute; top: 9px; height: 10px; border-radius: 3px; background: color-mix(in srgb, var(--ar-info) 65%, var(--bg-base)); min-width: 3px; }
+.ar-bar[data-state='failed'] { background: var(--ar-err); }
+.ar-bar[data-state='running'] { background: var(--ar-brand); }
+.ar-bar[data-state='waiting'] { background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--ar-warn) 85%, transparent) 0 3px, color-mix(in srgb, var(--ar-warn) 35%, transparent) 3px 6px); }
+.ar-bar[data-state='unknown'] { background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--ar-text-3) 80%, transparent) 0 3px, color-mix(in srgb, var(--ar-text-3) 25%, transparent) 3px 6px); }
+.ar-bar[data-charge] { width: 3px; background: var(--ar-text-3); }
+.ar-tl-row[aria-selected='true'] .ar-bar { box-shadow: 0 0 0 1px var(--text-primary); }
+.ar-tl-row[data-hit] .ar-bar { box-shadow: 0 0 0 1px var(--ar-info); }
+.ar-tl-empty { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; color: var(--ar-text-2); font-size: 12px; }
+.ar-tl-more { position: absolute; left: 0; right: 0; height: 36px; display: flex; align-items: center; padding: 0 12px; }
+
+.ar-detail { display: flex; flex-direction: column; max-height: 720px; }
+.ar-detail .ar-panel-head { text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--text-primary); }
+.ar-detail-title { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.ar-detail-body { overflow-y: auto; flex: 1 1 auto; }
+.ar-facts { display: grid; gap: 6px; align-content: start; padding: 10px 12px; border-bottom: 1px solid var(--ar-line); }
+.ar-facts:last-child { border-bottom: 0; }
+.ar-dfact { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: baseline; font-size: 12px; color: var(--ar-text-2); }
+.ar-dfact b { font: 12px var(--font-mono, monospace); color: var(--ar-text-2); font-weight: 400; text-align: right; overflow-wrap: anywhere; }
+.ar-dfact .sq { margin-right: 6px; }
+.ar-tokbar { display: flex; height: 12px; border-radius: 3px; overflow: hidden; border: 1px solid var(--ar-line); }
+.ar-tokbar i { display: block; height: 100%; }
+.ar-state-chip { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border: 1px solid var(--ar-line-strong); border-radius: 999px; font: 600 10px var(--font-mono, monospace); letter-spacing: .04em; text-transform: uppercase; color: var(--ar-text-2); }
+.ar-state-chip svg { width: 11px; height: 11px; }
+.ar-ref { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ar-brand); background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+.ar-ref svg { width: 13px; height: 13px; }
+
+.ar-chart-row { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 12px; align-items: stretch; }
+.ar-chart { display: flex; flex-direction: column; padding: 12px; min-height: 180px; }
+.ar-chart-title { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 11px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--ar-text-2); }
+.ar-chart-title .n { margin-left: auto; font: 10px var(--font-mono, monospace); letter-spacing: 0; text-transform: none; }
+/* The plot grows to the row height; its axis labels are text at a fixed size,
+   so a wide panel never scales them up. */
+.ar-plot { position: relative; flex: 1 1 auto; min-height: 110px; display: grid; grid-template-columns: 44px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 16px; }
+.ar-plot svg { grid-column: 2; grid-row: 1; width: 100%; height: 100%; display: block; overflow: visible; }
+.ar-plot .y { grid-column: 1; grid-row: 1; position: relative; font: 10px var(--font-mono, monospace); color: var(--ar-text-2); }
+.ar-plot .y span { position: absolute; right: 6px; transform: translateY(-50%); }
+.ar-plot .x { grid-column: 2; grid-row: 2; display: flex; justify-content: space-between; font: 10px var(--font-mono, monospace); color: var(--ar-text-2); }
+.ar-plot .area { fill: color-mix(in srgb, var(--ar-brand) 16%, transparent); }
+.ar-plot .line { stroke: var(--ar-brand); stroke-width: 1.6; fill: none; vector-effect: non-scaling-stroke; }
+.ar-plot .gl { stroke: var(--ar-line); stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
+.ar-plot .bound { stroke: var(--ar-line-strong); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.ar-plot .band { fill: transparent; cursor: pointer; }
+.ar-plot .band:hover, .ar-plot .band[data-on] { fill: color-mix(in srgb, var(--text-primary) 6%, transparent); }
+.ar-hbars { flex: 1 1 auto; display: grid; align-content: space-evenly; gap: 4px; }
+.ar-hbar { display: grid; grid-template-columns: 96px minmax(0, 1fr) 52px; gap: 8px; align-items: center; padding: 2px 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; font: 10px var(--font-mono, monospace); }
+.ar-hbar .l { color: var(--ar-text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: capitalize; }
+.ar-hbar .t { height: 9px; display: flex; }
+.ar-hbar .t i { display: block; height: 100%; border-radius: 2px; background: color-mix(in srgb, var(--ar-info) 65%, var(--bg-base)); }
+.ar-hbar:hover .t i, .ar-hbar[aria-pressed='true'] .t i { background: var(--ar-brand); }
+.ar-hbar .t i.seg { border-radius: 0; }
+.ar-hbar .r { color: var(--ar-text-2); text-align: right; }
+.ar-chart-foot { margin-top: auto; padding-top: 8px; display: flex; gap: 10px; flex-wrap: wrap; font-size: 11px; color: var(--ar-text-2); }
+.ar-chart-foot span { display: inline-flex; align-items: center; gap: 5px; }
+.sq { width: 8px; height: 8px; border-radius: 2px; display: inline-block; flex: 0 0 auto; }
+.ar-chart-none { flex: 1 1 auto; display: grid; place-content: center; font-size: 12px; color: var(--ar-text-2); }
+
+.ar-legend { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--ar-text-2); }
+.ar-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.ar-legend svg { width: 13px; height: 13px; }
+
+.ar-runs { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ar-runs th { text-align: left; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--ar-text-2); font-weight: 650; padding: 8px 12px; border-bottom: 1px solid var(--ar-line); }
+.ar-runs td { padding: 10px 12px; border-bottom: 1px solid var(--ar-line); color: var(--text-primary); vertical-align: middle; }
+.ar-runs tr:last-child td { border-bottom: 0; }
+.ar-runs td.m { font-family: var(--font-mono, monospace); font-weight: 600; }
+.ar-runs td:last-child { text-align: right; }
+
+.ar-icon { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: 0 0 auto; }
+
+/* Narrow: the detail panel and the charts stack below the timeline. */
+@container ar-insp (max-width: 1100px) {
+  .ar-insp-main, .ar-chart-row { grid-template-columns: minmax(0, 1fr); }
+  .ar-detail { max-height: none; }
+  /* Stacked, a chart shares its row with nothing, so it takes its own height. */
+  .ar-chart { min-height: 0; }
+  .ar-hbars { align-content: start; }
+  .ar-chart-none { padding: 16px 0; }
 }
-.ar-run-state b { color: var(--text-primary); }
-.ar-run-state[data-state='failed'], .ar-run-state[data-state='interrupted'] { border-left-color: var(--ar-danger, #f87171); }
-.ar-run-state[data-state='waiting'], .ar-run-state[data-state='incomplete'] { border-left-color: var(--ar-warn, #fbbf24); }
-.ar-run-state[data-state='active'] { border-left-color: var(--ar-accent, var(--text-primary)); }
+@container ar-insp (max-width: 760px) {
+  .ar-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ar-tl-tw svg { transition: none; }
+}
 
 /* ── New project dialog ──────────────────────────────────────────────────── */
 .ar-intake { width: auto; max-width: none; padding: 28px; gap: 20px; color: var(--text-primary); }

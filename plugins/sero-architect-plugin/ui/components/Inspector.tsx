@@ -1,112 +1,131 @@
 import { useMemo, useState } from 'react';
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui';
 import type { ProjectRecord } from '../../shared/record';
 import type { ArchitectActions } from '../lib/actions';
-import { sharedCost } from '../lib/charts';
-import { useInspectorPreferences } from '../lib/page-helpers';
-import { useInspectorTrace } from '../lib/use-inspector-trace';
-import { describeRunState } from '../lib/run-state';
-import { filterRecords, inRange, timeRangeOf, toggle, type TimeRange } from '../lib/timeline';
+import { buildTree, defaultSelection, filtersActive, matchedCost, modelsOf, NO_FILTERS } from '../lib/activity-tree';
+import { openDispatch, useInspectorPreferences } from '../lib/page-helpers';
+import { inspectorPhase, NOTHING_RECORDED } from '../lib/run-state';
+import { rangeOf, type TimeRange } from '../lib/timeline';
+import { LIFETIME, useInspectorTrace, useLifetime } from '../lib/use-inspector-trace';
 import { InspectorCharts } from './InspectorCharts';
-import { InspectorSummary } from './InspectorSummary';
-import { InspectorControls } from './InspectorControls';
-import { InspectorActivity } from './InspectorActivity';
+import { InspectorDetail } from './InspectorDetail';
+import { InspectorFilters } from './InspectorFilters';
+import { InspectorHeader } from './InspectorHeader';
+import { InspectorLifetime } from './InspectorLifetime';
+import { InspectorTimeline, type Highlight } from './InspectorTimeline';
+import { InspectorTotals } from './InspectorTotals';
 
-const SHARED_ACTIVITY = 'shared';
-
-/** Totals load first; detail is paginated and the timeline renders only its visible rows. */
+/**
+ * The run inspector. Opening it reads the newest run's totals, activity tree
+ * and first page of charges, so the first screen answers where the run's time
+ * and money went without pressing anything.
+ */
 export function Inspector({ record, actions, onBack }: {
   record: ProjectRecord; actions: ArchitectActions; onBack(): void;
 }) {
   const runs = record.runs ?? [];
-  const [selected, setSelected] = useState(() => runs.at(-1)?.id ?? SHARED_ACTIVITY);
-  const [withDetail, setWithDetail] = useState(false);
+  const [scope, setScope] = useState(() => runs.at(-1)?.id ?? LIFETIME);
+  // Paused holds the spend it paused at, so a pushed record does not re-read.
+  const [pausedAt, setPausedAt] = useState<number | null>(null);
   const [range, setRange] = useState<TimeRange | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [highlight, setHighlight] = useState<Highlight | null>(null);
+  const [by, setBy] = useState<'activity' | 'model'>('activity');
   const { filters, expanded, setFilters, toggleExpanded } = useInspectorPreferences();
-  const { pageState, loading, notice, load, clear } = useInspectorTrace(record, actions, selected, withDetail);
-  const page = pageState?.page ?? null;
-  const records = useMemo(() => page?.records ?? [], [page]);
-  const full = useMemo(() => timeRangeOf(records), [records]);
-  const visible = useMemo(() => filterRecords(records, filters).filter((entry) => inRange(entry, range)), [records, filters, range]);
-  const hasTimeline = withDetail && records.length > 0;
-  const selectedRun = runs.find((run) => run.id === selected);
-  // The state is only described once activity has been asked for: before that,
-  // "no rows" only means the reader has not opened the timeline yet.
-  const state = useMemo(
-    () => (withDetail
-      ? describeRunState({
-        loading,
-        answered: page !== null,
-        page,
-        runOpen: selectedRun !== undefined && selectedRun.endedAt === null,
-        projectHalted: record.overlay !== null || record.paused,
-        range,
-        visibleRecords: visible.length,
-      })
-      : null),
-    [withDetail, loading, page, selectedRun, record.overlay, record.paused, range, visible.length],
+  const knownSpendUsd = pausedAt ?? record.budget.spentUsd;
+  const { pageState, loading, notice, load, clear } = useInspectorTrace(record, actions, scope, knownSpendUsd);
+  const lifetime = useLifetime(record, actions, scope, knownSpendUsd);
+  // A page still held from the previous scope is never shown under the new one.
+  const page = pageState && pageState.journalId === scope ? pageState.page : null;
+  const selectedRun = runs.find((run) => run.id === scope);
+  const phase = inspectorPhase({ loading, page });
+
+  const expandedIds = useMemo(() => new Set(expanded), [expanded]);
+  const tree = useMemo(
+    () => (page ? buildTree(page.activity, page.records, expandedIds, filters) : null),
+    [page, expandedIds, filters],
   );
+  const full = useMemo(() => rangeOf(page?.activity.elapsed ?? null), [page]);
+  const current = selected ?? (page ? defaultSelection(page.activity) : null);
+  // A selection the filters hid falls back to the first row, so the detail
+  // panel never leaves its column blank.
+  const selectedRow = tree?.rows.find((row) => row.key === current) ?? tree?.rows[0] ?? null;
+
+  const changeScope = (next: string) => {
+    setScope(next);
+    setRange(null);
+    setSelected(null);
+    setHighlight(null);
+    setPausedAt(null);
+    clear();
+  };
+  const dispatchFor = (nodeId: string) => {
+    const node = tree?.byId.get(nodeId);
+    const milestone = node?.kind === 'milestone' ? record.milestones.find((entry) => entry.id === node.rawId) : undefined;
+    const dispatch = milestone?.dispatch;
+    if (!dispatch?.id || !dispatch.workspaceId) return null;
+    return () => openDispatch({ kind: dispatch.kind, id: dispatch.id, workspaceId: dispatch.workspaceId });
+  };
+  const membersOf = (nodeId: string) => {
+    const node = tree?.byId.get(nodeId);
+    if (node?.kind !== 'research') return null;
+    const saved = record.research.find((entry) => entry.id === node.rawId) ?? record.pendingResearch?.find((entry) => entry.id === node.rawId);
+    return saved?.models ?? null;
+  };
+  const filtered = filtersActive(filters);
+  const empty = tree && filtered && tree.rows.length === 0
+    ? (filters.failuresOnly && filters.group === null && filters.model === null ? 'No failures in this run.' : 'No activity matches these filters.')
+    : null;
+  const next = page?.nextAfterSeq ?? null;
 
   return (
-    <div className="ar-body ar-inspector">
-      <div className="ar-models-head">
-        <Button variant="outline" size="sm" className="ar-btn" onClick={onBack}>Back to project</Button>
-        <span className="ar-models-title">Run inspector · {record.name}</span>
-        <div className="ar-inspector-run">
-          <span>View</span>
-          <Select value={selected} onValueChange={(value) => { setSelected(value); setRange(null); clear(); }}>
-            <SelectTrigger size="sm" aria-label="View" className="text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={SHARED_ACTIVITY}>Shared activity</SelectItem>
-              {runs.map((run) => (
-                <SelectItem key={run.id} value={run.id}>{run.kind}{run.endedAt ? '' : ' (open)'} · {run.id}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
+    <div className="ar-body ar-insp">
+      <InspectorHeader
+        name={record.name}
+        runs={runs}
+        scope={scope}
+        onScope={changeScope}
+        live={selectedRun && selectedRun.endedAt === null ? pausedAt === null : null}
+        onLive={() => setPausedAt(pausedAt === null ? record.budget.spentUsd : null)}
+        onBack={onBack}
+      />
       {notice && <p className="ar-error" role="alert">{notice}</p>}
 
-      <InspectorSummary page={page} shared={sharedCost(records)} withDetail={withDetail} />
-      <InspectorControls records={records} visible={visible} filters={filters} setFilters={setFilters} full={full} range={range} setRange={setRange} withDetail={withDetail} setWithDetail={setWithDetail} summary={page?.summary} />
-
-      {state && (
-        // The word carries the status; the tone only decorates it.
-        <p className="ar-run-state" data-state={state.state} role="status">
-          <b>{state.label}</b> <span>{state.detail}</span>
-        </p>
+      {scope === LIFETIME ? (
+        lifetime ? <InspectorLifetime lifetime={lifetime} onOpen={changeScope} /> : <p className="ar-insp-empty" role="status">Loading</p>
+      ) : phase === 'loading' ? (
+        <p className="ar-insp-empty" role="status">Loading</p>
+      ) : phase === 'empty' || !page || !tree ? (
+        <p className="ar-insp-empty" role="status">{NOTHING_RECORDED}</p>
+      ) : (
+        <>
+          <InspectorTotals page={page} />
+          <InspectorFilters filters={filters} setFilters={setFilters} models={modelsOf(page.activity)}
+            filteredUsd={matchedCost(tree)} fullUsd={page.summary.attributableUsd} />
+          <div className="ar-insp-main" data-solo={selectedRow ? undefined : 'true'}>
+            <InspectorTimeline
+              rows={tree.rows}
+              nodes={page.activity.nodes}
+              byId={tree.byId}
+              count={filtered ? `${tree.matched.size} of ${page.activity.nodes.length} activities` : `${page.activity.nodes.length} activities`}
+              full={full}
+              range={range}
+              setRange={setRange}
+              selected={selectedRow?.key ?? null}
+              onSelect={setSelected}
+              onToggle={toggleExpanded}
+              highlight={highlight}
+              empty={empty}
+              onClearFilters={() => setFilters(NO_FILTERS)}
+              more={next !== null && !empty ? { onLoad: () => void load(scope, true, next), disabled: loading } : null}
+              onBack={onBack}
+            />
+            <InspectorDetail row={selectedRow} onOpenDispatch={dispatchFor} membersOf={membersOf} />
+          </div>
+          <InspectorCharts activity={page.activity} totalUsd={page.summary.attributableUsd} by={by} setBy={setBy}
+            highlight={highlight} setHighlight={setHighlight} />
+        </>
       )}
-
-      {hasTimeline && (
-        <InspectorCharts
-          records={visible}
-          filters={filters}
-          onPickActivity={(activity) => setFilters(toggle(filters, 'activities', activity))}
-        />
-      )}
-
-      {hasTimeline && (
-        <InspectorActivity key={selected} visible={visible} expanded={expanded} toggleExpanded={toggleExpanded} onBack={onBack} />
-      )}
-
-      {withDetail && page?.nextAfterSeq !== undefined && page.nextAfterSeq !== null && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="ar-btn"
-          // A read in flight, or a held page that is no longer the selected
-          // view (the moment after switching, before its own read resolves),
-          // must never be asked to continue with a cursor that is not its own.
-          disabled={loading || pageState?.journalId !== selected}
-          onClick={() => void load(selected, true, page.nextAfterSeq ?? undefined)}
-        >
-          Load more activity
-        </Button>
-      )}
-      {withDetail && page?.incomplete && <p className="ar-why">This activity page is not the whole history.</p>}
     </div>
   );
 }
+

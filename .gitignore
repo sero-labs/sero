@@ -33,3 +33,6 @@ apps/desktop/sero-desktop-*.tgz
 
 # e2e LLM credentials (per-developer, never committed)
 apps/desktop/e2e/.env.test
+
+# Real project data exported for a plugin preview. Never committed.
+plugins/*/ui/__preview__/*.local.json

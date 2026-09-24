@@ -3,6 +3,7 @@ import { closeRun, openRun } from '../../shared/runs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OwnerSessions, OWNER_TURN_TIMEOUT_MS, OWNER_TOOLS, ownerGrantProposal, chooseOwnerModel } from '../owner-session';
 import { createTurnOutcomes } from '../turn-outcomes';
+import { createSpanRecorder } from '../spans';
 import { buildingProject, cleanupHosts, fakeHost, milestone, storeFor, T0 } from './helpers';
 
 afterEach(() => { vi.useRealTimers(); return cleanupHosts(); });
@@ -242,6 +243,53 @@ describe('owner session', () => {
     const costs = async (id: string) => (await journal.readPage('proj_1', id)).records.reduce((sum, entry) => sum + (typeof entry.costUsd === 'number' ? entry.costUsd : 0), 0);
     expect(await costs('initial')).toBe(1.5);
     expect(await costs('later')).toBe(0.75);
+  });
+
+  it('records each owner turn as one wake that owns its charges, with the model and token deltas', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const journal = createRunJournal({ homeDir: await host.homeDir() });
+    const spans = createSpanRecorder({ journal, now: () => host.now() });
+    const outcomes = createTurnOutcomes();
+    const sessions = new OwnerSessions({ host, store, outcomes, journal, spans });
+    const opened = openRun(buildingProject(), { id: 'initial', kind: 'initial' }, T0);
+    if (!opened.ok) throw new Error(opened.error);
+    await store.write(opened.record);
+    const readings = [
+      { costUsd: 0.1, inputTokens: 100, outputTokens: 10, cacheReadTokens: 0, cacheWriteTokens: 0 },
+      { costUsd: 0.3, inputTokens: 250, outputTokens: 30, cacheReadTokens: 40, cacheWriteTokens: 5 },
+      // A counter that went down: the session restarted, so the difference is unknown.
+      { costUsd: 0.6, inputTokens: 20, outputTokens: 2, cacheReadTokens: 0, cacheWriteTokens: 0 },
+    ];
+    let reading = readings[0]!;
+    host.sessions.getSessionUsage = async () => ({ ...reading, turns: 1 });
+    host.sessions.onTurn = async (handleId) => {
+      for (const next of readings) {
+        reading = next;
+        host.sessions.emit(handleId, { type: 'tool_start', toolName: 'read', summary: 'read file', callId: `call-${next.costUsd}`, at: T0 });
+        await vi.waitFor(async () => expect((await store.read('proj_1'))?.budget.sources.owner).toBe(next.costUsd));
+      }
+      outcomes.declare('proj_1', 'sleep');
+    };
+    await sessions.runTurn(opened.record, wake);
+    const { records } = await journal.readPage('proj_1', 'initial');
+    const wakes = records.filter((entry) => entry.operationKind === 'owner-wake');
+    expect(wakes).toHaveLength(1);
+    const wakeId = wakes[0]!.operationId;
+    expect(wakeId).toMatch(/^initial:owner-wake:quiet:/);
+    expect(wakes[0]).toMatchObject({ model: opened.record.session.model, thinking: opened.record.session.thinking });
+    expect(records.find((entry) => entry.recordKind === 'operation-end' && entry.operationId === wakeId)?.outcome).toBe('ok');
+    const charges = records.filter((entry) => entry.kind === 'usage');
+    expect(charges).toHaveLength(3);
+    expect(charges.every((entry) => entry.parentOperationId === wakeId && entry.model === opened.record.session.model)).toBe(true);
+    expect(charges.reduce((sum, entry) => sum + Number(entry.costUsd), 0)).toBeCloseTo(0.6);
+    // The first reading has no baseline and the reset has no valid difference.
+    expect(charges.map((entry) => entry.usage ?? null)).toEqual([
+      null,
+      { inputTokens: 150, outputTokens: 20, cacheReadTokens: 40, cacheWriteTokens: 5 },
+      null,
+    ]);
+    expect(charges.map((entry) => entry.coverage)).toEqual(['aggregate', 'call', 'aggregate']);
   });
 
   it('retains live owner charges when the final usage read fails', async () => {

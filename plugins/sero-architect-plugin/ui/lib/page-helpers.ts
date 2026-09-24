@@ -2,7 +2,8 @@ import { openSeroApp, useAppPreferences } from '@sero-ai/app-runtime';
 
 import type { DisclosureState } from '../components/SideColumn';
 import type { RailRow } from './view-model';
-import type { TraceFilters } from './timeline';
+import type { TraceFilters } from './activity-tree';
+import { ACTIVITY_GROUPS, type ActivityGroup } from './trace';
 
 /** Which History notes the reader has opened. A note not in `opened` is folded. */
 export interface HistoryFolds {
@@ -55,16 +56,16 @@ export function useInspectorPreferences(): {
 } {
   const { values, set } = useAppPreferences();
   const expanded = list(values.inspectorExpanded);
+  // A value saved by an earlier inspector (an identifier list) is not a group,
+  // and is read as no filter rather than as a filter that matches nothing.
+  const group = (ACTIVITY_GROUPS as readonly unknown[]).includes(values.inspectorActivities) ? values.inspectorActivities as ActivityGroup : null;
+  const model = typeof values.inspectorModels === 'string' && values.inspectorModels.length > 0 && !values.inspectorModels.includes(',') ? values.inspectorModels : null;
   return {
-    filters: {
-      activities: list(values.inspectorActivities),
-      models: list(values.inspectorModels),
-      failuresOnly: values.inspectorFailuresOnly === true,
-    },
+    filters: { group, model, failuresOnly: values.inspectorFailuresOnly === true },
     expanded,
     setFilters: (filters) => {
-      set('inspectorActivities', joined(filters.activities));
-      set('inspectorModels', joined(filters.models));
+      set('inspectorActivities', filters.group ?? '');
+      set('inspectorModels', filters.model ?? '');
       set('inspectorFailuresOnly', filters.failuresOnly);
     },
     toggleExpanded: (operationId) => {

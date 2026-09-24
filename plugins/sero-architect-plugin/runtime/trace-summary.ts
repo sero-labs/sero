@@ -26,6 +26,10 @@ export interface TraceTotals {
   aggregateUsd: number;
   /** True when at least one charged record reported aggregate coverage. */
   hasAggregate: boolean;
+  /** Charges that arrived with no price: work that happened, at an unknown cost. */
+  unpricedCharges: number;
+  /** True when any record reported a token counter. False means tokens are unknown, not zero. */
+  tokensMeasured: boolean;
   /** True when any record was incomplete or a span never closed. */
   incomplete: boolean;
   requests: number;
@@ -44,6 +48,8 @@ export function emptyTraceTotals(): TraceTotals {
     attributableUsd: 0,
     aggregateUsd: 0,
     hasAggregate: false,
+    unpricedCharges: 0,
+    tokensMeasured: false,
     incomplete: false,
     requests: 0,
     toolCalls: 0,
@@ -89,6 +95,8 @@ export function foldTraceTotals(record: JournalRecord, totals: TraceTotals): Tra
         next.aggregateUsd += cost;
         next.hasAggregate = true;
       }
+    } else {
+      next.unpricedCharges += 1;
     }
   }
 
@@ -97,7 +105,10 @@ export function foldTraceTotals(record: JournalRecord, totals: TraceTotals): Tra
     // of output and is therefore not added a second time.
     for (const field of TOKEN_FIELDS) {
       const value = usage[field as TokenField];
-      if (typeof value === 'number') next[field] += value;
+      if (typeof value === 'number') {
+        next[field] += value;
+        next.tokensMeasured = true;
+      }
     }
     if (usage.incomplete) next.incomplete = true;
   }
@@ -181,7 +192,9 @@ function observedIntervals(records: readonly JournalRecord[]): Interval[] {
   const open = new Map<string, { kind: string; from: number }>();
   const hasChildren = new Set<string>();
   for (const record of records) {
-    if (typeof record.parentOperationId === 'string') hasChildren.add(record.parentOperationId);
+    // Only an operation is a child. A charge names its operation as parent too,
+    // and counting it would make every charged operation look like a parent.
+    if (record.recordKind === 'operation-start' && typeof record.parentOperationId === 'string') hasChildren.add(record.parentOperationId);
   }
   const intervals: Interval[] = [];
   for (const record of records) {
@@ -199,7 +212,26 @@ function observedIntervals(records: readonly JournalRecord[]): Interval[] {
     if (hasChildren.has(id)) continue;
     intervals.push({ operationId: id, kind: started.kind, from: started.from, to: at });
   }
-  return intervals.filter((interval) => interval.to >= interval.from);
+  return [...intervals, ...delegatedIntervals(records)].filter((interval) => interval.to >= interval.from);
+}
+
+/**
+ * Working time a delegated Room or Workflow reported, one interval per rise.
+ * The rise is known only when it is read, so it is placed as the time that
+ * ended at the reading. Overlap with the Architect's own operations then
+ * counts once in the union.
+ */
+function delegatedIntervals(records: readonly JournalRecord[]): Interval[] {
+  // Never before the run's first record, so Active cannot exceed Elapsed.
+  const first = Math.min(...records.map((record) => Date.parse(record.at)).filter(Number.isFinite));
+  const intervals: Interval[] = [];
+  for (const record of records) {
+    if (record.kind !== 'usage' || typeof record.activeMs !== 'number' || record.activeMs <= 0) continue;
+    const to = Date.parse(record.at);
+    if (!Number.isFinite(to)) continue;
+    intervals.push({ operationId: `delegated:${record.seq}`, kind: 'delegated', from: Math.max(first, to - record.activeMs), to });
+  }
+  return intervals;
 }
 
 export interface TimingSummary {
@@ -272,7 +304,7 @@ export function summarizeTiming(records: readonly JournalRecord[]): TimingSummar
 }
 
 /** Operations that represent a worker doing work, as opposed to waiting or grouping. */
-const WORKER_KINDS = new Set(['workflow-step', 'workflow-attempt', 'room-member', 'research', 'repair', 'evaluation', 'evidence']);
+const WORKER_KINDS = new Set(['workflow-step', 'workflow-attempt', 'room-member', 'research', 'repair', 'evaluation', 'evidence', 'delegated']);
 
 export interface TokenComposition {
   input: number;

@@ -13,7 +13,9 @@
  * trace.
  */
 
+import type { ProjectRecord } from '../shared/record';
 import { type JournalRecord, type RunJournal } from './run-journal';
+import { buildActivity, type ActivityView } from './trace-activity';
 import { summarizeTiming, summarizeTrace, tokenComposition, type TraceSummary } from './trace-summary';
 
 /** Keys the inspector reads. Nothing outside this list leaves the runtime. */
@@ -35,6 +37,9 @@ export type TraceRecordView = {
 } & Partial<Record<MetadataKey, string | number | boolean | string[]>> & {
   /** Token counters, already flat numbers. */
   usage?: Partial<Record<'inputTokens' | 'outputTokens' | 'cacheReadTokens' | 'cacheWriteTokens' | 'reasoningTokens', number>>;
+  /** The activity node a charge sits under, and that node's name. Charges only. */
+  nodeId?: string;
+  label?: string;
 };
 
 const TOKEN_FIELDS = ['inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheWriteTokens', 'reasoningTokens'] as const;
@@ -108,12 +113,22 @@ export interface TraceAnswer {
   nextAfterSeq?: number | null;
   /** Present only in detail mode. */
   incomplete?: boolean;
+  /** The named activity tree and chart series, folded from the same records as the summary. */
+  activity: ActivityView;
+  /**
+   * Shared activity linked to this run. It is charged once in lifetime totals,
+   * so it is shown beside the run's cost and never added into it.
+   */
+  linkedSharedUsd: number;
 }
 
 export interface TraceQueryDeps {
   journal: RunJournal;
-  /** Resolves the project, so a foreign or missing id cannot be read. */
-  authorize(projectId: string): Promise<boolean>;
+  /**
+   * Resolves the project, so a foreign or missing id cannot be read. The
+   * record also names the activity: research questions and milestone titles.
+   */
+  readProject(projectId: string): Promise<ProjectRecord | null>;
 }
 
 /**
@@ -153,7 +168,8 @@ Promise<{ records: JournalRecord[]; more: boolean; torn: boolean }> {
  * rather than an empty answer that confirms the id.
  */
 export async function queryTrace(deps: TraceQueryDeps, query: TraceQuery): Promise<TraceAnswer | null> {
-  if (!(await deps.authorize(query.projectId))) return null;
+  const project = await deps.readProject(query.projectId);
+  if (!project) return null;
   const journalId = query.journalId ?? 'shared';
   // The runtime keeps a checkpoint current, and reading one is a single bounded
   // read. Only a journal that has none is folded, and then only up to the limit.
@@ -176,6 +192,14 @@ export async function queryTrace(deps: TraceQueryDeps, query: TraceQuery): Promi
   const observed = summarizeTiming(folded.records);
   const timing = folded.more || folded.torn ? { ...observed, openWaits: [] } : observed;
   const tokens = tokenComposition(folded.records);
+  const runOpen = (project.runs ?? []).some((run) => run.id === journalId && run.endedAt === null);
+  const activity = buildActivity(project, journalId, folded.records, runOpen);
+  const shared = journalId === 'shared'
+    ? { records: [] as JournalRecord[] }
+    : await foldBounded(deps, query.projectId, 'shared', SUMMARY_RECORD_LIMIT);
+  const linkedSharedUsd = shared.records
+    .filter((record) => record.kind === 'shared' && typeof record.costUsd === 'number' && Array.isArray(record.runIds) && record.runIds.includes(journalId))
+    .reduce((sum, record) => sum + (record.costUsd as number), 0);
   const answer: TraceAnswer = {
     projectId: query.projectId,
     journalId,
@@ -185,6 +209,8 @@ export async function queryTrace(deps: TraceQueryDeps, query: TraceQuery): Promi
     summary: { ...summary, incomplete: summary.incomplete || folded.more || folded.torn },
     timing,
     tokens,
+    activity: activity.view,
+    linkedSharedUsd,
   };
 
   if (query.detail !== true) return answer;
@@ -196,7 +222,12 @@ export async function queryTrace(deps: TraceQueryDeps, query: TraceQuery): Promi
   });
   return {
     ...answer,
-    records: page.records.map(toTraceRecordView),
+    records: page.records.map((record) => {
+      const view = toTraceRecordView(record);
+      if (record.kind !== 'usage') return view;
+      const nodeId = activity.placeCharge(record);
+      return { ...view, nodeId, label: activity.labelOf(nodeId) };
+    }),
     nextAfterSeq: page.nextAfterSeq,
     incomplete: page.incomplete,
   };

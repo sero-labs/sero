@@ -19,7 +19,7 @@ import type { WakeEvent, WakeKind } from '../shared/wake';
 import { applyDelivery, isAccepted } from './delivery';
 import type { ArchitectHost } from './host';
 import { SESSION_STARTED_AT } from './session-state';
-import { recordCharge } from './project-usage';
+import { activeRise, recordCharge, reportedActiveMs } from './project-usage';
 import type { RecordStore } from './record-store';
 import type { RunJournal } from './run-journal';
 import { applyRunHealth } from './run-health';
@@ -219,7 +219,7 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
      * The store updater can run more than once, so nothing here may write until
      * the figure it reports is the committed one.
      */
-    const charges: { source: string; delta: number; runId?: string }[] = [];
+    const charges: { source: string; delta: number; activeMs: number; runId?: string }[] = [];
     if (rooms) await observeResearchRooms(deps, projectId, rooms);
     if (loops) await observeResearchWorkflows(deps, projectId, loops);
     await store.update(projectId, (record) => {
@@ -243,6 +243,7 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
         const costUsd = loop ? loop.usage?.costUsd ?? 0 : room?.costUsd ?? 0;
         next = setAccountingIncomplete(next, `${dispatch.kind}:${dispatch.id}`, loop ? !loop.usage || !!loop.usage.incomplete : room?.usageIncomplete !== false);
         const delta = Math.max(0, costUsd - dispatch.chargedUsd);
+        const time = activeRise(loop ? reportedActiveMs(loop, Date.parse(now)) : room ? reportedActiveMs(room, Date.parse(now)) : null, dispatch.countedActiveMs);
         let updated: Milestone = milestone;
         if (loop?.status === 'blocked' && loop.block?.limit === 'maxCostUsd' && loop.maxCostUsd !== undefined && dispatch.costLimitUsd !== loop.maxCostUsd) {
           // The run's own reason, not a paraphrase: the record already says
@@ -270,10 +271,10 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
           const { observedLiveAt: _ended, ...settled } = updated.dispatch;
           updated = { ...updated, dispatch: settled };
         }
-        if (delta > 0) {
-          updated = { ...updated, dispatch: { ...updated.dispatch!, chargedUsd: costUsd } };
-          next = charge(next, 'dispatched', delta, now);
-          charges.push({ source: `dispatch:${dispatch.kind}:${dispatch.id}`, delta, ...(dispatch.runId ? { runId: dispatch.runId } : {}) });
+        if (delta > 0 || time.rise > 0) {
+          updated = { ...updated, dispatch: { ...updated.dispatch!, chargedUsd: Math.max(costUsd, dispatch.chargedUsd), countedActiveMs: time.counted } };
+          if (delta > 0) next = charge(next, 'dispatched', delta, now);
+          charges.push({ source: `dispatch:${dispatch.kind}:${dispatch.id}`, delta, activeMs: time.rise, ...(dispatch.runId ? { runId: dispatch.runId } : {}) });
         }
         if (transition?.reported && updated.status === 'running') {
           updated = { ...updated, status: 'verifying', verification: 'reported' };
@@ -317,7 +318,7 @@ export function createDispatchWatch(deps: DispatchWatchDeps): DispatchWatch {
       const committed = await store.read(projectId);
       if (committed) {
         for (const entry of charges) {
-          await recordCharge({ host, journal: deps.journal }, committed, entry.source, entry.delta, 'aggregate', entry.runId);
+          await recordCharge({ host, journal: deps.journal }, committed, entry.source, entry.delta, 'aggregate', entry.runId, { activeMs: entry.activeMs });
         }
       }
     }

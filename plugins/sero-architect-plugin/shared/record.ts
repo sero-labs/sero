@@ -54,6 +54,8 @@ export interface MilestoneDispatch {
   dispatchedAt: string;
   /** Reported usage already charged to the project, so an index re-read never double-charges. */
   chargedUsd: number;
+  /** Reported working time already journaled, on the same rule as `chargedUsd`. */
+  countedActiveMs?: number;
   /** Where the run delivers, for a release milestone. */
   destination: string | null;
   /** HEAD before work started, used to summarize committed milestone changes. */
@@ -205,6 +207,7 @@ export interface PendingResearch {
   workflowId?: string;
   attempts?: number;
   chargedUsd?: number;
+  countedActiveMs?: number;
   models?: { name: string; model: string; thinking: string }[];
   id: string;
   question: string;

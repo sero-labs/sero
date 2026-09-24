@@ -69,7 +69,7 @@ export const ProjectsToolParams = Type.Object({
   note: Type.Optional(Type.String({ description: 'answer: an optional note for the owner' })),
   text: Type.Optional(Type.String({ description: 'directive: what to tell the owner' })),
   cursor: Type.Optional(Type.String({ description: 'history: cursor for an older page' })),
-  runId: Type.Optional(Type.String({ description: 'trace: the run id, or shared for project-scoped activity (default shared)' })),
+  runId: Type.Optional(Type.String({ description: 'trace: the run id, shared for project-scoped activity, or lifetime for every run (default shared)' })),
   afterSeq: Type.Optional(Type.Number({ description: 'trace: continue a detail page after this sequence' })),
   limit: Type.Optional(Type.Number({ description: 'trace: records per detail page; the runtime bounds it' })),
   detail: Type.Optional(Type.Boolean({ description: 'trace: include record metadata. Off by default, so a summary request receives no records' })),
@@ -175,6 +175,12 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
     case 'trace': {
       const missing = need(id, 'projectId');
       if (missing) return result(false, missing);
+      if (params.runId === 'lifetime') {
+        const lifetime = await actions.lifetime(id, params.knownSpendUsd);
+        return lifetime
+          ? result(true, 'Project lifetime totals.', { projectId: lifetime.projectId, lifetime })
+          : result(false, `No project ${id}, or it keeps no trace.`);
+      }
       const query: Omit<TraceQuery, 'projectId'> = {
         journalId: params.runId,
         afterSeq: params.afterSeq,
@@ -194,6 +200,8 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
         records: answer.records,
         nextAfterSeq: answer.nextAfterSeq,
         incomplete: answer.incomplete,
+        activity: answer.activity,
+        linkedSharedUsd: answer.linkedSharedUsd,
       };
       return result(true, answer.summary.incomplete ? 'Trace summary. More history exists than this folded.' : 'Trace summary.', details);
     }

@@ -1,61 +1,11 @@
 /**
- * Inspector timeline logic (spec architect-run-observability).
+ * Inspector timeline geometry (spec architect-run-observability).
  *
- * Pure functions, so the rendering below stays a rendering. Two of these carry
- * rules worth stating.
- *
- * The window is what keeps a long trace cheap: a trace with fifty thousand spans
+ * The row window keeps a long trace cheap: a trace with fifty thousand rows
  * renders the rows on screen and nothing else, so scrolling never grows the DOM.
- *
- * An unknown value is never filled in. A record with no cost contributes no cost
- * rather than zero, and a range with no timestamps is null rather than an empty
- * range, so the view can say "not measured" instead of drawing a flat line at
- * zero and calling it data.
+ * A range with no timestamps is null rather than empty, so the view can say
+ * "unavailable" instead of drawing a flat line at zero.
  */
-
-import type { TraceRecord } from './trace';
-
-export interface TraceFilters {
-  /** Operation kinds to keep. Empty means every kind. */
-  activities: readonly string[];
-  /** Models to keep. Empty means every model. */
-  models: readonly string[];
-  /** Keep only records that reported a failure. */
-  failuresOnly: boolean;
-}
-
-export const NO_FILTERS: TraceFilters = { activities: [], models: [], failuresOnly: false };
-
-export function filtersActive(filters: TraceFilters): boolean {
-  return filters.activities.length > 0 || filters.models.length > 0 || filters.failuresOnly;
-}
-
-/** The activity a record belongs to. A record with no kind is its own bucket. */
-export function activityOf(record: TraceRecord): string {
-  return record.operationKind ?? record.source ?? record.kind;
-}
-
-export function filterRecords(records: readonly TraceRecord[], filters: TraceFilters): TraceRecord[] {
-  if (!filtersActive(filters)) return [...records];
-  // Sets, so a filter over a long trace is not a scan per record per filter.
-  const activities = new Set(filters.activities);
-  const models = new Set(filters.models);
-  return records.filter((record) => {
-    if (activities.size > 0 && !activities.has(activityOf(record))) return false;
-    if (models.size > 0) {
-      // A usage record never carries a model, so a model filter would drop its
-      // charge entirely rather than filtering it. Keep it; the caller reports
-      // it separately as cost no model filter can attribute.
-      if (record.model !== undefined) {
-        if (!models.has(record.model)) return false;
-      } else if (record.kind !== 'usage') {
-        return false;
-      }
-    }
-    if (filters.failuresOnly && record.outcome !== 'failed' && record.outcome !== 'error') return false;
-    return true;
-  });
-}
 
 export interface RowWindow {
   /** First rendered index, inclusive. */
@@ -93,17 +43,14 @@ export interface TimeRange {
   to: number;
 }
 
-/** The span the records cover, or null when none of them carries a usable time. */
-export function timeRangeOf(records: readonly TraceRecord[]): TimeRange | null {
-  let from = Number.POSITIVE_INFINITY;
-  let to = Number.NEGATIVE_INFINITY;
-  for (const record of records) {
-    const at = Date.parse(record.at);
-    if (!Number.isFinite(at)) continue;
-    from = Math.min(from, at);
-    to = Math.max(to, at);
-  }
-  return Number.isFinite(from) && Number.isFinite(to) ? { from, to } : null;
+/** The run's observed span, or null when no record carried a usable time. */
+export function rangeOf(elapsed: { from: string; to: string } | null): TimeRange | null {
+  if (!elapsed) return null;
+  const from = Date.parse(elapsed.from);
+  const to = Date.parse(elapsed.to);
+  if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
+  // A run with one observation still gets a visible second of width.
+  return { from, to: Math.max(to, from + 1000) };
 }
 
 /**
@@ -120,27 +67,34 @@ export function zoomRange(full: TimeRange, current: TimeRange, factor: number, a
   return { from, to: Math.min(full.to, from + next) };
 }
 
-/** Whether a record falls inside a range. Records without a time stay visible. */
-export function inRange(record: TraceRecord, range: TimeRange | null): boolean {
-  if (!range) return true;
-  const at = Date.parse(record.at);
-  if (!Number.isFinite(at)) return true;
-  return at >= range.from && at <= range.to;
+/** Moves a range without resizing it, stopping at either end of the full range. */
+export function panRange(full: TimeRange, current: TimeRange, deltaMs: number): TimeRange {
+  const width = current.to - current.from;
+  const from = Math.max(full.from, Math.min(current.from + deltaMs, full.to - width));
+  return { from, to: from + width };
 }
 
-/** The activity kinds present, for the filter control. */
-export function activityOptions(records: readonly TraceRecord[]): string[] {
-  return [...new Set(records.map(activityOf))].sort((a, b) => a.localeCompare(b));
+/** True when a range shows the whole run, so it can be stored as "no zoom". */
+export const isWhole = (full: TimeRange, range: TimeRange): boolean => range.from <= full.from && range.to >= full.to;
+
+const STEPS = [1, 5, 10, 30, 60, 300, 600, 900, 1800, 3600, 7200, 10800, 21600, 43200, 86400].map((seconds) => seconds * 1000);
+
+/** Ruler marks at a round interval: about five across whatever is shown. */
+export function ticks(range: TimeRange, origin: number): { at: number; offset: number }[] {
+  const span = range.to - range.from;
+  const step = STEPS.find((candidate) => span / candidate <= 6) ?? STEPS[STEPS.length - 1]!;
+  const marks: { at: number; offset: number }[] = [];
+  for (let offset = Math.ceil((range.from - origin) / step) * step; origin + offset <= range.to; offset += step) {
+    marks.push({ at: ((origin + offset - range.from) / span) * 100, offset });
+  }
+  return marks;
 }
 
-/** The models present, in a stable order for the filter control. */
-export function modelOptions(records: readonly TraceRecord[]): string[] {
-  return [...new Set(records.map((record) => record.model).filter((model): model is string => typeof model === 'string'))]
-    .sort((a, b) => a.localeCompare(b));
-}
-
-/** Adds or removes one value from a filter list. */
-export function toggle(filters: TraceFilters, key: 'activities' | 'models', value: string): TraceFilters {
-  const current = filters[key];
-  return { ...filters, [key]: current.includes(value) ? current.filter((entry) => entry !== value) : [...current, value] };
+/** Where an interval sits in a range, as percentages. Null when it is outside. */
+export function barGeometry(range: TimeRange, from: number, to: number): { left: number; width: number } | null {
+  const span = range.to - range.from;
+  const start = Math.max(from, range.from);
+  const end = Math.min(to, range.to);
+  if (end < range.from || start > range.to) return null;
+  return { left: ((start - range.from) / span) * 100, width: Math.max(0.4, ((end - start) / span) * 100) };
 }

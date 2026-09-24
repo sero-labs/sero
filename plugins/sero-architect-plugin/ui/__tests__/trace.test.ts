@@ -1,16 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { appendTracePage, type TracePage, type TraceRecord } from '../lib/trace';
+import { tracePage } from './trace-fixture';
 
 const record = (seq: number): TraceRecord => ({ seq, at: `2026-09-15T10:00:${String(seq).padStart(2, '0')}.000Z`, kind: 'observation' });
-const page = (seqs: number[], nextAfterSeq: number | null): TracePage => ({
-  recorded: true,
-  summary: { attributableUsd: 0, aggregateUsd: 0, hasAggregate: false, incomplete: false, requests: 0, toolCalls: 0, retries: 0, compactions: 0, errors: 0 },
-  timing: { activeMs: 0, workerMs: 0, waitMs: 0, openWaits: [] },
-  tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, unavailable: [] },
-  records: seqs.map(record),
-  nextAfterSeq,
-  incomplete: false,
-});
+const page = (seqs: number[], nextAfterSeq: number | null): TracePage => tracePage({ records: seqs.map(record), nextAfterSeq });
 
 describe('appendTracePage', () => {
   it('keeps each record once and continues from the furthest one held', () => {

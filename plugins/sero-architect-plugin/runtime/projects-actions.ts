@@ -29,6 +29,7 @@ import type { OwnerSessions } from './owner-session';
 import type { RecordStore } from './record-store';
 import { mutateRecord } from './record-store';
 import type { RunJournal } from './run-journal';
+import { queryLifetime, type LifetimeAnswer } from './trace-lifetime';
 import { queryTrace, type TraceAnswer, type TraceQuery } from './trace-query';
 import { closeActiveRun, ensureInitialRun } from './run-lifecycle';
 import { closeDeliveredObjectives } from './objective-completion';
@@ -70,6 +71,8 @@ export interface ProjectsActions {
    * page showing a summary never receives records it did not request.
    */
   trace(projectId: string, query?: Omit<TraceQuery, 'projectId'>): Promise<TraceAnswer | null>;
+  /** Project-lifetime totals: each run's summary and the shared activity, with no detail pages. */
+  lifetime(projectId: string, knownSpendUsd?: number): Promise<LifetimeAnswer | null>;
   create(input: CreateProjectInput): Promise<ProjectsOutcome>;
   pause(projectId: string): Promise<ProjectsOutcome>;
   resume(projectId: string): Promise<ProjectsOutcome>;
@@ -187,7 +190,13 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
     async trace(projectId, query) {
       const journal = deps.journal;
       if (!journal) return null;
-      return queryTrace({ journal, authorize: async (id) => (await read(id)) !== null }, { ...query, projectId });
+      return queryTrace({ journal, readProject: read }, { ...query, projectId });
+    },
+
+    async lifetime(projectId, knownSpendUsd) {
+      const journal = deps.journal;
+      if (!journal) return null;
+      return queryLifetime({ journal, readProject: read }, projectId, knownSpendUsd);
     },
 
     async create(input) {

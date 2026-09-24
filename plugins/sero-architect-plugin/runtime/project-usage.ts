@@ -1,11 +1,11 @@
-import type { AppRuntimeSubagentResult, AppRuntimeSubagentRunParams, OrchestratorUsageView } from '@sero-ai/common';
+import type { AppRuntimeSubagentResult, AppRuntimeSubagentRunParams, ObservationUsage, OrchestratorBoardRoomView, OrchestratorUsageView } from '@sero-ai/common';
 import { setAccountingIncomplete } from '../shared/accounting';
 import { charge } from '../shared/lifecycle';
 import { activeRun } from '../shared/runs';
 import type { ProjectRecord } from '../shared/record';
 import type { ArchitectHost } from './host';
 import type { RecordStore } from './record-store';
-import type { RunJournal } from './run-journal';
+import type { AppendInput, RunJournal } from './run-journal';
 
 type Operation = { kind: 'research'; id: string } | { kind: 'capture'; id: string };
 type AppRuntimeSubagentUsage = NonNullable<AppRuntimeSubagentResult['usage']>;
@@ -20,6 +20,38 @@ interface UsageDeps {
 }
 
 /**
+ * What else is known about one charge. The parent is the operation the charge
+ * belongs to, so the inspector can place it under a named row; model and tokens
+ * are set only by a caller that made the call itself and saw them.
+ */
+export interface ChargeDetail {
+  parentOperationId?: string;
+  model?: string;
+  thinking?: string;
+  usage?: Pick<ObservationUsage, 'inputTokens' | 'outputTokens' | 'cacheReadTokens' | 'cacheWriteTokens'>;
+  /** The rise in a delegated run's reported working time since the last line. */
+  activeMs?: number;
+}
+
+/**
+ * A delegated run's working time as its own view reports it: a Room's banked
+ * time plus the period open now, or the summed step time of a Workflow. Null
+ * when the view reports none, so an unreported figure is never read as zero.
+ */
+export function reportedActiveMs(view: { usage?: OrchestratorUsageView } | Pick<OrchestratorBoardRoomView, 'activeMs' | 'activeSince'>, nowMs: number): number | null {
+  if ('usage' in view) return view.usage?.durationMs ?? null;
+  if (!('activeMs' in view) || view.activeMs === undefined) return null;
+  const open = view.activeSince ? Math.max(0, nowMs - Date.parse(view.activeSince)) : 0;
+  return view.activeMs + open;
+}
+
+/** The rise since `counted`, and the new baseline. A figure that went down adds nothing. */
+export function activeRise(reported: number | null, counted: number | undefined): { rise: number; counted: number | undefined } {
+  if (reported === null) return { rise: 0, counted };
+  return { rise: Math.max(0, reported - (counted ?? 0)), counted: Math.max(reported, counted ?? 0) };
+}
+
+/**
  * Records one charged delta in the run journal. The delta, not the cumulative
  * total, is written: summing the journal reproduces exactly what was charged,
  * and a replayed report adds nothing.
@@ -31,21 +63,33 @@ export async function recordCharge(
   delta: number,
   coverage: 'call' | 'aggregate',
   runId?: string,
+  detail: ChargeDetail = {},
 ): Promise<void> {
   const journal = deps.journal;
   // Work that was dispatched under a run stays charged to that run, even after
   // a Stop closed it or a later objective opened another one. Only work with no
   // dispatch-time run of its own falls back to the run that is open now.
   const target = runId ?? activeRun(record)?.id;
-  if (!journal || !target || delta === 0) return;
-  await journal.append(record.id, target, {
+  const activeMs = detail.activeMs && detail.activeMs > 0 ? Math.round(detail.activeMs) : 0;
+  if (!journal || !target || (delta === 0 && activeMs === 0)) return;
+  const entry: AppendInput = {
     kind: 'usage',
     at: deps.host.now(),
     source,
     key: `${source}:${delta}`,
     costUsd: delta,
     coverage,
-  }).catch((error: unknown) => {
+  };
+  // Assigned only when known, so an absent fact stays absent, not undefined.
+  if (detail.parentOperationId) entry.parentOperationId = detail.parentOperationId;
+  if (detail.model) entry.model = detail.model;
+  if (detail.thinking) entry.thinking = detail.thinking;
+  if (detail.usage && Object.keys(detail.usage).length > 0) entry.usage = detail.usage;
+  if (activeMs > 0) {
+    entry.activeMs = activeMs;
+    entry.key = `${source}:${delta}:${activeMs}`;
+  }
+  await journal.append(record.id, target, entry).catch((error: unknown) => {
     // The budget already holds this delta. The trace now lacks it, which the
     // summary reports as a reconciliation gap rather than hiding.
     try { deps.host.log?.(`usage ${source} (${delta}) was not written to run ${target}: ${error instanceof Error ? error.message : String(error)}`); } catch { /* Reporting must not fail execution. */ }
@@ -60,6 +104,13 @@ export async function runProjectModel(deps: UsageDeps, record: ProjectRecord, op
     ? record.pendingResearch?.find((entry) => entry.id === operation.id)?.chargedUsd ?? 0
     : record.pendingEvidence?.find((entry) => entry.milestoneId === operation.id)?.chargedUsd ?? 0;
   let writes = Promise.resolve();
+  const runId = operation.kind === 'research' ? record.pendingResearch?.find((entry) => entry.id === operation.id)?.project?.runId : undefined;
+  // The source names no research or milestone, so the charge names the
+  // operation it runs inside: the same id the runtime's span for this work uses.
+  const spanRun = activeRun(record)?.id;
+  const parentOperationId = spanRun
+    ? operation.kind === 'research' ? `${spanRun}:research:${operation.id}` : `${spanRun}:evidence:${operation.id}:capture`
+    : undefined;
   await deps.store.update(record.id, (fresh) => setAccountingIncomplete(fresh, source, true));
   const report = (usage: AppRuntimeSubagentUsage) => {
     const cost = Math.max(latestCost, usage.costUsd ?? 0);
@@ -74,8 +125,8 @@ export async function runProjectModel(deps: UsageDeps, record: ProjectRecord, op
           : { ...next, pendingEvidence: next.pendingEvidence?.map((entry) => entry.milestoneId === operation.id ? { ...entry, chargedUsd: (entry.chargedUsd ?? 0) + delta } : entry) };
       });
       // The same delta the budget just charged, so the two cannot drift.
-      await recordCharge(deps, record, source, delta, usage.costUsd === undefined ? 'aggregate' : 'call',
-        operation.kind === 'research' ? record.pendingResearch?.find((entry) => entry.id === operation.id)?.project?.runId : undefined);
+      await recordCharge(deps, record, source, delta, usage.costUsd === undefined ? 'aggregate' : 'call', runId,
+        parentOperationId ? { parentOperationId } : {});
     });
   };
   const result = await deps.host.runStructured({ ...params, onUsage: (usage) => { params.onUsage?.(usage); report(usage); } })
@@ -121,4 +172,31 @@ export async function chargeRoomPlanning(deps: Pick<UsageDeps, 'store'> & { host
     );
   }
   return chargedUsd;
+}
+
+/** Cumulative session token counters, as the host reports them. */
+export interface TokenCounters {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+}
+
+/**
+ * The tokens used since the previous reading of the same session.
+ *
+ * Null when there is no previous reading, or when a counter went down, which
+ * means the session restarted and its counters began again. Either way the
+ * difference is unknown, and an unknown difference is not recorded as tokens:
+ * a whole session's count would otherwise land on one charge.
+ */
+export function tokenDelta(previous: TokenCounters | undefined, current: TokenCounters): TokenCounters | null {
+  if (!previous) return null;
+  const delta = {
+    inputTokens: current.inputTokens - previous.inputTokens,
+    outputTokens: current.outputTokens - previous.outputTokens,
+    cacheReadTokens: current.cacheReadTokens - previous.cacheReadTokens,
+    cacheWriteTokens: current.cacheWriteTokens - previous.cacheWriteTokens,
+  };
+  return Object.values(delta).some((value) => value < 0) ? null : delta;
 }
