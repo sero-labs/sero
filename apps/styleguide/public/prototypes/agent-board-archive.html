@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent Board archive · UX prototype</title>
+  <style>
+    :root { color-scheme:dark; --bg-base:#0a0a0b; --bg-surface:#111113; --bg-elevated:#18181b; --bg-overlay:#1f1f23; --bg-muted:#27272a; --border-subtle:#27272a; --border-default:#3f3f46; --border-focus:#34d399; --text-primary:#fafafa; --text-secondary:#a1a1aa; --text-muted:#71717a; --brand-primary:#34d399; --brand-primary-muted:rgba(52,211,153,.1); --brand-primary-faint:rgba(52,211,153,.03); --status-success:#22c55e; --status-warning:#f59e0b; --status-error:#ef4444; --status-info:#3b82f6; --status-warning-faint:rgba(245,158,11,.03); --status-warning-border:rgba(245,158,11,.2); --font-sans:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+    * { box-sizing:border-box }
+    body { margin:0; background:var(--bg-base); color:var(--text-primary); font:13px var(--font-sans) }
+    button,input,select { font:inherit }
+    button { cursor:pointer }
+    button:focus-visible,input:focus-visible,select:focus-visible { outline:2px solid var(--border-focus); outline-offset:2px }
+    button:disabled { opacity:.45; cursor:not-allowed }
+    .app { min-height:100vh; background:radial-gradient(60% 180px at 50% 0%,var(--brand-primary-faint),transparent),var(--bg-base) }
+    .shell { max-width:1440px; margin:auto; padding:16px 20px 28px }
+    .heading { display:flex; align-items:center; gap:12px; flex-wrap:wrap; min-height:48px }
+    .mark { display:grid; place-items:center; width:32px; height:32px; border-radius:8px; background:var(--brand-primary-muted); color:var(--brand-primary) }
+    svg { width:16px; height:16px; stroke:currentColor; stroke-width:1.8; fill:none; stroke-linecap:round; stroke-linejoin:round }
+    .mark svg { width:18px; height:18px }
+    h1 { font-size:16px; line-height:1.2; margin:0; font-weight:600 }
+    .subtitle { color:var(--text-muted); font-size:12px; margin:4px 0 0 }
+    .tools { margin-left:auto; display:flex; align-items:center; gap:8px; flex-wrap:wrap }
+    .select,.search { color:var(--text-secondary); background:var(--bg-surface); border:1px solid var(--border-default); border-radius:7px; padding:7px 10px; min-height:32px }
+    .search { min-width:210px; color:var(--text-primary) }
+    .tabs { display:flex; gap:4px; border-bottom:1px solid var(--border-subtle); margin:16px 0 14px }
+    .tab { border:0; border-bottom:2px solid transparent; background:transparent; color:var(--text-muted); padding:9px 13px; font-weight:600 }
+    .tab[aria-selected=true] { color:var(--brand-primary); border-color:var(--brand-primary) }
+    .count { margin-left:5px; font-size:11px; padding:2px 6px; border-radius:12px; background:var(--bg-overlay); color:var(--text-secondary) }
+    .board { display:grid; grid-template-columns:repeat(4,minmax(210px,1fr)); gap:12px; min-height:65vh }
+    .column { min-width:0; background:color-mix(in srgb,var(--bg-surface) 60%,transparent); border:1px solid var(--border-subtle); border-radius:12px; padding:10px 8px }
+    .column.attention:not(:has(.empty)) { border-color:var(--status-warning-border) }
+    .column-head { display:flex; align-items:center; gap:8px; padding:2px 5px 12px; color:var(--text-secondary); font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em }
+    .dot { width:8px; height:8px; border-radius:50%; background:var(--text-muted) }
+    .active .dot { background:var(--status-success) } .attention .dot { background:var(--status-warning) } .done .dot { background:var(--status-info) }
+    .column-head .count { margin-left:0 }
+    .card { position:relative; background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:8px; box-shadow:0 2px 6px #0002; padding:11px 12px 11px 15px; margin-bottom:8px; min-width:0 }
+    .card::before { content:''; position:absolute; inset:0 auto 0 0; width:3px; border-radius:8px 0 0 8px; background:var(--text-muted) }
+    .active .card::before { background:var(--status-success) } .attention .card::before { background:var(--status-warning) } .done .card::before { background:var(--status-info) }
+    .attention .card { border-color:var(--status-warning-border); background:color-mix(in srgb,var(--status-warning-faint) 100%,var(--bg-surface)) }
+    .card-top { display:flex; gap:6px; align-items:flex-start }
+    .card h3 { min-width:0; flex:1; margin:0; font-size:14px; font-weight:550; line-height:1.4; overflow-wrap:anywhere }
+    .age { color:var(--text-muted); font-size:12px; flex:none }
+    .icon-btn { width:24px; height:24px; display:grid; place-items:center; flex:none; color:var(--text-muted); background:transparent; border:0; border-radius:5px; margin:-3px -3px 0 0 }
+    .icon-btn:hover,.icon-btn[aria-expanded=true] { color:var(--text-primary); background:var(--bg-overlay) }
+    .icon-btn svg { width:15px; height:15px }
+    .meta { color:var(--text-muted); font-size:12px; margin-top:7px }
+    .detail { color:var(--text-secondary); font-size:12px; margin:9px 0 0; line-height:1.4 }
+    .detail.warn { color:var(--status-warning) }
+    .chip { display:inline-block; border-radius:4px; padding:3px 6px; background:var(--bg-elevated); color:var(--text-secondary); font-size:11px; margin:9px 5px 0 0 }
+    .empty { border:1px dashed var(--border-subtle); border-radius:8px; padding:25px 12px; text-align:center; color:var(--text-muted); font-size:12px }
+    .menu { position:fixed; z-index:10; min-width:156px; padding:4px; background:var(--bg-elevated); border:1px solid var(--border-default); border-radius:8px; box-shadow:0 14px 30px #0009 }
+    .menu button { width:100%; display:flex; gap:8px; align-items:center; border:0; border-radius:5px; background:transparent; color:var(--text-primary); padding:8px; text-align:left }
+    .menu button:hover,.menu button:focus-visible { background:var(--bg-overlay) }
+    .menu svg { width:14px; height:14px }
+    .menu .danger { color:var(--status-error) }
+    .archive-head { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:4px 0 14px }
+    .archive-head h2 { font-size:14px; margin:0 }
+    .archive-head p { color:var(--text-muted); font-size:12px; margin:0 }
+    .archive-list { display:grid; gap:8px; max-width:920px }
+    .archive-row { display:flex; align-items:center; gap:14px; padding:12px 14px; border:1px solid var(--border-subtle); border-radius:9px; background:var(--bg-surface) }
+    .archive-row .main { min-width:0; flex:1 }
+    .archive-row h3 { font-size:13px; font-weight:550; margin:0 0 5px; overflow-wrap:anywhere }
+    .archive-row p { font-size:12px; color:var(--text-muted); margin:0 }
+    .archive-row .actions { display:flex; gap:7px; align-items:center }
+    .button { border:1px solid var(--border-default); color:var(--text-secondary); background:var(--bg-elevated); border-radius:6px; padding:6px 10px; white-space:nowrap }
+    .button:hover { background:var(--bg-overlay); color:var(--text-primary) }
+    .button.danger { color:var(--status-error) } .button.primary { color:#052e1c; border-color:var(--brand-primary); background:var(--brand-primary); font-weight:600 }
+    .button.primary:hover { filter:brightness(1.12) }
+    dialog { width:min(440px,calc(100vw - 32px)); border:1px solid var(--border-default); border-radius:12px; background:var(--bg-elevated); color:var(--text-primary); padding:20px; box-shadow:0 20px 70px #000b }
+    dialog::backdrop { background:#000a }
+    dialog h2 { margin:0 0 10px; font-size:16px } dialog p { color:var(--text-secondary); line-height:1.55; margin:0 0 18px }
+    .dialog-actions { display:flex; justify-content:flex-end; gap:8px }
+    .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--bg-elevated); border:1px solid var(--border-default); border-radius:8px; padding:10px 14px; box-shadow:0 10px 32px #0008; z-index:20 }
+    .hidden { display:none!important }
+    @media(max-width:950px) { .board { overflow-x:auto; grid-template-columns:repeat(4,minmax(220px,1fr)) } }
+    @media(max-width:600px) { .shell { padding:12px } .tools { width:100%; margin-left:0 } .archive-row { align-items:flex-start; flex-direction:column } .archive-row .actions { align-self:flex-end } }
+    @media(prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; transition-duration:.01ms!important } }
+  </style>
+</head>
+<body>
+  <main class="app"><div class="shell">
+    <header class="heading">
+      <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="16" rx="1"/></svg></span>
+      <div><h1>Agent Board</h1><p class="subtitle" id="summary"></p></div>
+      <div class="tools">
+        <label class="hidden" for="workspace">Workspace</label>
+        <select id="workspace" class="select" aria-label="Filter by workspace"><option value="all">All workspaces</option><option value="Sero">Sero</option><option value="Graphify">Graphify</option></select>
+        <input id="search" class="search hidden" type="search" placeholder="Search archived tasks" aria-label="Search archived tasks">
+      </div>
+    </header>
+    <div class="tabs" role="tablist" aria-label="Agent Board views">
+      <button id="board-tab" class="tab" role="tab" aria-controls="board-panel" aria-selected="true" tabindex="0">Board</button>
+      <button id="archive-tab" class="tab" role="tab" aria-controls="archive-panel" aria-selected="false" tabindex="-1">Archive <span class="count" id="archive-count">0</span></button>
+    </div>
+    <section id="board-panel" role="tabpanel" aria-labelledby="board-tab"><div id="board" class="board"></div></section>
+    <section id="archive-panel" role="tabpanel" aria-labelledby="archive-tab" class="hidden">
+      <div class="archive-head"><h2>Archived tasks</h2><p>Hidden from the board. Restore a task to show its current state.</p></div>
+      <div id="archive-list" class="archive-list"></div>
+    </section>
+  </div></main>
+  <div id="menu" class="menu hidden" role="menu" aria-label="Task actions"></div>
+  <dialog id="confirm" aria-labelledby="dialog-title"><h2 id="dialog-title"></h2><p id="dialog-copy"></p><div class="dialog-actions"><button id="cancel" class="button" type="button">Cancel</button><button id="confirm-action" class="button primary" type="button"></button></div></dialog>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+  <script>
+    const icons = {
+      more:'<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>',
+      archive:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v12h14V8M10 12h4"/></svg>',
+      restore:'<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg>',
+      trash:'<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6M10 10v6m4-6v6"/></svg>'
+    };
+    const tasks = [
+      {id:'loop-1',kind:'Workflow',title:'Improve Agent Board loading state',workspace:'Sero',column:'active',age:'2m',detail:'Running · 3/7 steps',chip:'sonnet-5'},
+      {id:'room-1',kind:'Room',title:'Review plugin permission model',workspace:'Sero',column:'active',age:'8m',detail:'2 of 3 members working',chip:'$0.42'},
+      {id:'session-1',kind:'Session',title:'Explore board interaction ideas',workspace:'Graphify',column:'active',age:'now',detail:'Live session · responding…',chip:''},
+      {id:'loop-2',kind:'Workflow',title:'Resolve release gate',workspace:'Sero',column:'attention',age:'14m',detail:'Approval needed to continue',chip:'opus-5'},
+      {id:'issue-1',kind:'Issue',title:'#555 Add a way to archive tickets on agent board',workspace:'Sero',column:'backlog',age:'1d',detail:'Open GitHub issue',chip:'enhancement'},
+      {id:'loop-3',kind:'Workflow',title:'Refresh docs navigation',workspace:'Graphify',column:'backlog',age:'3h',detail:'Draft · not yet activated',chip:''},
+      {id:'loop-4',kind:'Workflow',title:'Fix workspace reconnect',workspace:'Sero',column:'done',age:'1h',detail:'Completed',chip:'#548'}
+    ];
+    const columns = [['backlog','Backlog'],['active','Active'],['attention','Needs Attention'],['done','Finished']];
+    const $ = (id) => document.getElementById(id);
+    const escapeHtml = (value) => String(value).replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    let view = 'board', menuFor = null, previousFocus = null, toastTimer, onConfirm = null;
+    const visible = (task) => $('workspace').value === 'all' || $('workspace').value === task.workspace;
+    function card(task) {
+      return `<article class="card"><div class="card-top"><h3>${escapeHtml(task.title)}</h3><button class="icon-btn" type="button" data-menu="${task.id}" aria-label="Actions for ${escapeHtml(task.title)}" aria-haspopup="menu" aria-expanded="${menuFor===task.id}">${icons.more}</button><span class="age">${task.age}</span></div><div class="meta">${task.workspace} · ${task.kind}</div><p class="detail ${task.column==='attention'?'warn':''}">${escapeHtml(task.detail)}</p>${task.chip?`<span class="chip">${escapeHtml(task.chip)}</span>`:''}</article>`;
+    }
+    function render() {
+      const boardItems = tasks.filter(t=>!t.archived && visible(t));
+      $('board').innerHTML = columns.map(([id,label])=>`<section class="column ${id}" aria-label="${label}"><div class="column-head"><span class="dot"></span>${label}<span class="count">${boardItems.filter(t=>t.column===id).length}</span></div>${boardItems.filter(t=>t.column===id).map(card).join('')||'<div class="empty">'+(id==='attention'?'All clear':'Nothing here')+'</div>'}</section>`).join('');
+      const archived = tasks.filter(t=>t.archived && visible(t) && `${t.title} ${t.workspace} ${t.kind}`.toLowerCase().includes($('search').value.toLowerCase()));
+      $('archive-list').innerHTML = archived.map(t=>`<article class="archive-row"><div class="main"><h3>${escapeHtml(t.title)}</h3><p>${t.workspace} · ${t.kind} · Archived just now · ${t.column==='active'?'Work may still be running':escapeHtml(t.detail)}</p></div><div class="actions"><button class="button" type="button" data-restore="${t.id}">Restore</button><button class="button danger" type="button" data-delete="${t.id}">Delete…</button></div></article>`).join('') || '<div class="empty">No archived tasks match this view.</div>';
+      $('archive-count').textContent=tasks.filter(t=>t.archived).length;
+      $('summary').textContent=view==='board' ? `${boardItems.filter(t=>t.column==='active').length} running · ${boardItems.filter(t=>t.column==='attention').length} need you` : `${tasks.filter(t=>t.archived).length} archived tasks`;
+    }
+    function setView(next) {
+      closeMenu(); view=next;
+      for (const id of ['board','archive']) { const selected=id===next; $(`${id}-tab`).setAttribute('aria-selected',selected); $(`${id}-tab`).tabIndex=selected?0:-1; $(`${id}-panel`).classList.toggle('hidden',!selected); }
+      $('search').classList.toggle('hidden',next!=='archive'); render();
+    }
+    function closeMenu(returnFocus=false) { const button=menuFor && document.querySelector(`[data-menu="${menuFor}"]`); $('menu').classList.add('hidden'); button?.setAttribute('aria-expanded','false'); if(returnFocus) button?.focus(); menuFor=null; }
+    function openMenu(button) {
+      const id=button.dataset.menu;
+      if(menuFor===id) { closeMenu(true); return; }
+      menuFor=id; const menu=$('menu'); menu.innerHTML=`<button type="button" role="menuitem" data-archive="${id}">${icons.archive} Archive</button>`;
+      menu.classList.remove('hidden');
+      const rect=button.getBoundingClientRect(), width=menu.offsetWidth, height=menu.offsetHeight;
+      menu.style.left=`${Math.max(8,Math.min(rect.right-width,innerWidth-width-8))}px`;
+      menu.style.top=`${Math.min(rect.bottom+4,innerHeight-height-8)}px`;
+      button.setAttribute('aria-expanded','true'); menu.querySelector('button').focus();
+    }
+    function notify(message) { const toast=$('toast'); toast.textContent=message; toast.classList.remove('hidden'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>toast.classList.add('hidden'),3500); }
+    function ask(title,copy,action,label,danger=false) {
+      previousFocus=document.activeElement; $('dialog-title').textContent=title; $('dialog-copy').textContent=copy;
+      $('confirm-action').textContent=label; $('confirm-action').className=`button ${danger?'danger':'primary'}`;
+      onConfirm=action; $('confirm').showModal(); $('cancel').focus();
+    }
+    function archiveTask(task) { task.archived=true; closeMenu(); render(); notify('Task archived. Restore it from Archive.'); }
+    document.addEventListener('click',(event)=>{
+      const button=event.target.closest('button');
+      if (button?.dataset.menu) { openMenu(button); return; }
+      if (button?.dataset.archive) { const task=tasks.find(t=>t.id===button.dataset.archive); closeMenu(); if(task.column==='active') ask('Archive active work?',`“${task.title}” will leave the board. Archiving does not stop the work. You can restore it later.`,()=>archiveTask(task),'Archive'); else archiveTask(task); return; }
+      if (button?.dataset.restore) { const task=tasks.find(t=>t.id===button.dataset.restore); task.archived=false; render(); notify('Task restored to its current board column.'); return; }
+      if (button?.dataset.delete) { const task=tasks.find(t=>t.id===button.dataset.delete); ask('Delete archived task?',`“${task.title}” will be removed from this board. This cannot be undone. The source ${task.kind.toLowerCase()} is not deleted.`,()=>{tasks.splice(tasks.indexOf(task),1);render();notify('Task removed from this board.');},'Delete',true); return; }
+      if (!event.target.closest('#menu')) closeMenu();
+    });
+    $('board-tab').addEventListener('click',()=>setView('board')); $('archive-tab').addEventListener('click',()=>setView('archive'));
+    for(const tab of document.querySelectorAll('[role="tab"]')) tab.addEventListener('keydown',(event)=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();const target=tab.id==='board-tab'?'archive':'board';setView(target);$(`${target}-tab`).focus();}});
+    $('workspace').addEventListener('change',render); $('search').addEventListener('input',render);
+    $('cancel').addEventListener('click',()=>$('confirm').close());
+    $('confirm-action').addEventListener('click',()=>{const action=onConfirm;$('confirm').close();action?.();});
+    $('confirm').addEventListener('close',()=>{previousFocus?.focus();onConfirm=null;});
+    document.addEventListener('keydown',(event)=>{if(event.key==='Escape' && !$('confirm').open) closeMenu(true); if(['ArrowDown','ArrowUp'].includes(event.key) && document.activeElement.closest('#menu')) { event.preventDefault(); } });
+    document.addEventListener('pointerdown',(event)=>{if(menuFor && !event.target.closest('#menu,[data-menu]')) closeMenu();});
+    render();
+  </script>
+</body>
+</html>
