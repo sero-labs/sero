@@ -439,7 +439,7 @@ export const IpcChannels = {
     listAuthSources: 'sero:profiles:list-auth-sources',
     /** List profiles found on disk that the registry does not reference. */
     discover: 'sero:profiles:discover',
-    /** Adopt a profile at its existing path (triggers app restart). Args: profile. */
+    /** Adopt a profile at its existing path (triggers app restart). Args: path. */
     adopt: 'sero:profiles:adopt',
   },
   doctor: {

@@ -368,11 +368,7 @@ describe('profile operation error surfaces', () => {
     });
 
     await vi.waitFor(() => {
-      expect(profileBridge.adopt).toHaveBeenCalledWith({
-        id: 'cand-1',
-        name: 'Studio',
-        path: '/profiles/studio',
-      });
+      expect(profileBridge.adopt).toHaveBeenCalledWith('/profiles/studio');
     });
   });
 
@@ -407,5 +403,29 @@ describe('profile operation error surfaces', () => {
 
     expect(document.body.textContent).not.toContain('Profiles');
     expect(document.querySelectorAll('button').length).toBe(0);
+  });
+
+  it('keeps discovered profiles reachable once a profile is registered', async () => {
+    const active: ProfileInfo = {
+      id: 'active', name: 'Current', path: '/profiles/current',
+      createdAt: '2026-04-14T00:00:00.000Z', isActive: true, canDeleteFiles: false,
+    };
+    useProfileStore.setState({
+      profiles: [active],
+      activeProfile: active,
+      hasActiveProfile: true,
+      discoveredProfiles: [
+        { id: 'cand-1', name: 'Studio', path: '/profiles/studio', lastModified: '2026-09-20T13:08:15.000Z' },
+      ],
+    });
+
+    await act(async () => { root?.render(<ProfileSwitcher />); });
+    await act(async () => {
+      findButton('Current').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    // Adopting one profile must not hide the ones still unregistered.
+    expect(document.body.textContent).toContain('Found on this computer');
+    expect(document.body.textContent).toContain('/profiles/studio');
   });
 });

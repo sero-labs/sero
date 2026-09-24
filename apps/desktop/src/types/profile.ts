@@ -35,4 +35,11 @@ export interface DiscoveredProfile {
   path: string;
   /** ISO timestamp of the newest profile-file modification. */
   lastModified: string;
+  /**
+   * Recorded folder ownership from a broken registry. Absent means ownership
+   * is unknown, and an unknown folder is never eligible for deletion.
+   */
+  folderProvenance?: ProfileFolderProvenance;
+  /** Recorded onboarding state from a broken registry, when one carried it. */
+  onboarded?: boolean;
 }

@@ -410,8 +410,8 @@ interface SeroProfilesAPI {
   listAuthSources(): Promise<ProfileInfo[]>;
   /** List profiles found on disk that the registry does not reference. */
   discover(): Promise<DiscoveredProfile[]>;
-  /** Adopt a profile at its existing path. Triggers app restart. */
-  adopt(profile: { id?: string; name: string; path: string }): Promise<void>;
+  /** Adopt the profile at this existing path. Triggers app restart. */
+  adopt(path: string): Promise<void>;
 }
 
 interface SeroPluginsAPI {

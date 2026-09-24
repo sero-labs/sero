@@ -76,8 +76,8 @@ export const profilesBridge = {
     ipcRenderer.invoke(IpcChannels.profiles.listAuthSources),
   discover: (): Promise<DiscoveredProfile[]> =>
     ipcRenderer.invoke(IpcChannels.profiles.discover),
-  adopt: (profile: { id?: string; name: string; path: string }): Promise<void> =>
-    ipcRenderer.invoke(IpcChannels.profiles.adopt, profile),
+  adopt: (path: string): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.profiles.adopt, path),
 };
 
 export const workspaceBridge = {

@@ -68,7 +68,7 @@ export function ProfileSwitcher() {
   const handleOpen = async (profile: DiscoveredProfile) => {
     setSwitching(profile.id);
     await runProfileOperation(
-      () => adoptProfile({ id: profile.id, name: profile.name, path: profile.path }),
+      () => adoptProfile(profile.path),
       () => setSwitching(null),
     );
     // App restarts on success.
@@ -105,11 +105,13 @@ export function ProfileSwitcher() {
           className="w-56 p-1"
         >
           <div className="flex flex-col">
-            <div className="px-2 py-1.5">
-              <p className="text-sm font-medium uppercase tracking-wider text-[var(--text-muted)]">
-                Profiles
-              </p>
-            </div>
+            {profiles.length > 0 && (
+              <div className="px-2 py-1.5">
+                <p className="text-sm font-medium uppercase tracking-wider text-[var(--text-muted)]">
+                  Profiles
+                </p>
+              </div>
+            )}
 
             {profiles.map((profile) => (
               <div key={profile.id} className="flex items-center rounded-md hover:bg-[var(--bg-elevated)]">
@@ -143,7 +145,9 @@ export function ProfileSwitcher() {
               </div>
             ))}
 
-            {profiles.length === 0 && discoveredProfiles.length > 0 && (
+            {/* Unregistered candidates stay available while registered profiles
+                exist, so adopting one does not hide the rest. */}
+            {discoveredProfiles.length > 0 && (
               <>
                 <div className="px-2 py-1.5">
                   <p className="text-sm font-medium uppercase tracking-wider text-[var(--text-muted)]">

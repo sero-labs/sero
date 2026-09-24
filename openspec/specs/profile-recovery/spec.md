@@ -8,13 +8,14 @@ reset never strands real data.
 
 ### Requirement: Discover profiles that exist outside the registry
 
-When the registry lists no profiles, the system SHALL find profile directories
-that exist on disk but are not registered. It SHALL scan the managed profiles
-directory under the Sero root, and it SHALL read the newest
-`profiles.broken-<timestamp>.json` backup beside `profiles.json`. A discovery
-result SHALL carry an id, a name, an absolute path, and a last-modified time for
-each entry. The system SHALL return each profile at most once, even when the
-directory scan and the backup both match it.
+The system SHALL find profile directories that exist on disk but are not
+registered. It SHALL scan the managed profiles directory under the Sero root,
+SHALL offer the Sero root itself when that directory holds profile data, and
+SHALL read the newest `profiles.broken-<timestamp>.json` backup beside
+`profiles.json`. A discovery result SHALL carry an id, a name, an absolute path,
+and a last-modified time for each entry, and SHALL carry recorded folder
+ownership and onboarding state when the backup provides them. The system SHALL
+return each profile at most once, even when two sources match it.
 
 #### Scenario: Directories under the managed root are found
 
@@ -51,12 +52,52 @@ directory scan and the backup both match it.
   backup resolve to the same path
 - **THEN** discovery returns one entry for that path
 
+#### Scenario: The default-root profile is found
+
+- **WHEN** the registry is empty, no usable backup exists, and the Sero root
+  itself holds profile data
+- **THEN** discovery offers the profile at the Sero root
+
+#### Scenario: A fresh installation is not offered
+
+- **WHEN** the Sero root holds no profile data
+- **THEN** discovery does not offer the Sero root as a profile
+
+#### Scenario: Recorded ownership is carried
+
+- **WHEN** the newest broken backup records a profile whose folder ownership is
+  `custom`
+- **THEN** discovery reports that ownership rather than deriving one from the
+  folder's location
+
 ### Requirement: Adopt a discovered profile at its existing path
 
 The system SHALL adopt a discovered profile by registering it at the path it
 already occupies and SHALL make it the active profile. Adoption SHALL NOT copy,
-move, or rewrite profile data. Adopting a path that is already registered SHALL
-fail with an error instead of creating a duplicate entry.
+move, or rewrite profile data. Adopting a path that is already registered, or a
+path where discovery finds no recoverable profile, SHALL fail with an error
+instead of creating a duplicate entry. Adoption SHALL take identity and folder
+ownership from discovery and SHALL NOT infer ownership from the path: a folder
+that no record describes SHALL keep unknown ownership and SHALL NOT become
+eligible for permanent deletion.
+
+#### Scenario: Ownership is not inferred from location
+
+- **WHEN** a profile is adopted from a directory under the managed profiles root
+  that no record describes
+- **THEN** it keeps unknown ownership and is not eligible for permanent deletion
+
+#### Scenario: Recorded ownership is preserved
+
+- **WHEN** a broken-registry backup records a profile in a folder marked
+  `custom`
+- **THEN** adoption keeps `custom`, and the folder stays ineligible for
+  permanent deletion even under the managed profiles root
+
+#### Scenario: No recoverable profile at the path
+
+- **WHEN** the user adopts a path where discovery finds no recoverable profile
+- **THEN** adoption fails with an error and the registry is unchanged
 
 #### Scenario: Adopting makes the profile active
 
@@ -106,15 +147,21 @@ screen SHALL show the create-profile form as it does today.
 
 ### Requirement: Profile switching stays reachable
 
-The profile switcher SHALL render when the registry lists no profiles but
-discovery finds at least one, so the user can still reach a profile list from
-the app shell. The switcher SHALL NOT render when neither the registry nor
+The profile switcher SHALL list unregistered profiles that discovery finds,
+whether or not the registry already lists profiles, so adopting one never hides
+the others. The switcher SHALL NOT render when neither the registry nor
 discovery finds a profile.
 
 #### Scenario: Switcher renders on an empty registry with candidates
 
 - **WHEN** the registry lists no profiles and discovery finds profiles
 - **THEN** the switcher renders and lists them
+
+#### Scenario: Remaining candidates stay available
+
+- **WHEN** the registry lists a profile and discovery finds other unregistered
+  profiles
+- **THEN** the switcher lists those candidates alongside the registered profile
 
 #### Scenario: Switcher stays hidden with nothing to show
 

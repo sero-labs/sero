@@ -220,12 +220,12 @@ describe('preload event bridge subscriptions', () => {
 
   it('invokes profile discovery and adoption over the profiles IPC surface', async () => {
     await profilesBridge.discover();
-    await profilesBridge.adopt({ id: 'a', name: 'Alpha', path: '/tmp/sero-test/profiles/a' });
+    await profilesBridge.adopt('/tmp/sero-test/profiles/a');
 
     expect(mocks.ipcRenderer.invoke).toHaveBeenCalledWith(IpcChannels.profiles.discover);
     expect(mocks.ipcRenderer.invoke).toHaveBeenCalledWith(
       IpcChannels.profiles.adopt,
-      { id: 'a', name: 'Alpha', path: '/tmp/sero-test/profiles/a' },
+      '/tmp/sero-test/profiles/a',
     );
   });
 

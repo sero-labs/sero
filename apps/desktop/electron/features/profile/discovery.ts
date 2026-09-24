@@ -26,6 +26,8 @@ export interface SalvageCandidate {
 const AGENT_DIR = 'agent';
 const MANAGED_PROFILES_DIR = 'profiles';
 const BROKEN_REGISTRY_PREFIX = 'profiles.broken-';
+/** Conventional name for the first production profile, which lives at the Sero root. */
+const DEFAULT_PROFILE_NAME = 'Default';
 const PROFILE_AGENT_FILES = [
   'settings.json',
   'auth.json',
@@ -104,6 +106,12 @@ function profileLastModified(profilePath: string): string {
   return new Date(newestMtime(targets)).toISOString();
 }
 
+/** True when a directory is a profile and holds profile data, not just an empty agent dir. */
+function hasProfileData(profilePath: string): boolean {
+  const agentDir = path.join(profilePath, AGENT_DIR);
+  return PROFILE_AGENT_FILES.some((fileName) => existsSync(path.join(agentDir, fileName)));
+}
+
 /** Paths the current registry already references. */
 function readRegisteredPaths(registryPath: string): Set<string> {
   const registered = new Set<string>();
@@ -134,11 +142,15 @@ function readLatestBrokenRegistry(seroRoot: string): Array<Record<string, unknow
 /**
  * Find profiles that exist on disk but are not in the registry.
  *
- * Sources, in precedence order:
+ * Sources:
  * 1. Directories under `<seroRoot>/profiles/` that contain an `agent/` child.
- * 2. Entries from the newest broken-registry backup whose recorded path exists.
+ * 2. The Sero root itself, when it holds profile data. The first production
+ *    profile lives there, not under `profiles/`.
+ * 3. Entries from the newest broken-registry backup whose recorded path exists.
  *
- * A recorded entry wins on a path collision: its id and name are kept.
+ * A recorded entry wins on a path collision: its id, name and recorded
+ * ownership are kept. Identity and ownership are never inferred from the
+ * location, so a profile the registry never described stays unknown.
  */
 export function discoverProfiles({ seroRoot, registryPath }: DiscoveryInput): DiscoveredProfile[] {
   const registered = readRegisteredPaths(registryPath);
@@ -166,6 +178,18 @@ export function discoverProfiles({ seroRoot, registryPath }: DiscoveryInput): Di
     });
   }
 
+  // The Sero root itself, when it holds real profile data. Requiring profile
+  // data keeps a fresh installation out of the recovery list.
+  const rootKey = path.resolve(seroRoot);
+  if (!registered.has(rootKey) && !byPath.has(rootKey) && hasProfileData(seroRoot)) {
+    byPath.set(rootKey, {
+      id: randomUUID(),
+      name: DEFAULT_PROFILE_NAME,
+      path: seroRoot,
+      lastModified: profileLastModified(seroRoot),
+    });
+  }
+
   for (const recorded of readLatestBrokenRegistry(seroRoot)) {
     const recordedPath = recorded.path;
     const recordedId = recorded.id;
@@ -181,6 +205,9 @@ export function discoverProfiles({ seroRoot, registryPath }: DiscoveryInput): Di
       name: recordedName,
       path: resolved,
       lastModified: profileLastModified(resolved),
+      // Ownership comes only from the record. Location never grants it.
+      folderProvenance: toProvenance(recorded.folderProvenance),
+      onboarded: typeof recorded.onboarded === 'boolean' ? recorded.onboarded : undefined,
     });
   }
 

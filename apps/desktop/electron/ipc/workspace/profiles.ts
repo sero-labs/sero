@@ -211,9 +211,9 @@ export function registerProfileHandlers(): void {
    */
   ipcMain.handle(
     IpcChannels.profiles.adopt,
-    async (_e, profile: { id?: string; name: string; path: string }): Promise<void> => {
+    async (_e, path: string): Promise<void> => {
       disposeAgentNodeService();
-      await profileManager.adopt(profile);
+      await profileManager.adopt(path);
 
       clearLoadedProfileEnvForRelaunch();
       app.relaunch();

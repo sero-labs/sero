@@ -89,19 +89,15 @@ describe('profile store', () => {
   it('adopts a discovered profile through the bridge', async () => {
     profileBridge.adopt.mockResolvedValue(undefined);
 
-    await adoptProfile({ id: 'cand', name: 'Studio', path: '/p/studio' });
+    await adoptProfile('/p/studio');
 
-    expect(profileBridge.adopt).toHaveBeenCalledWith({
-      id: 'cand',
-      name: 'Studio',
-      path: '/p/studio',
-    });
+    expect(profileBridge.adopt).toHaveBeenCalledWith('/p/studio');
   });
 
   it('reports an adoption failure and clears the loading flag', async () => {
     profileBridge.adopt.mockRejectedValue(new Error('Adopt blocked'));
 
-    await expect(adoptProfile({ name: 'Studio', path: '/p/studio' })).rejects.toThrow('Adopt blocked');
+    await expect(adoptProfile('/p/studio')).rejects.toThrow('Adopt blocked');
 
     const state = useProfileStore.getState();
     expect(state.isLoading).toBe(false);

@@ -20,6 +20,7 @@ import { randomUUID } from 'crypto';
 
 import type { ProfileInfo, ProfileRemovalMode } from '@/types/profile';
 import type { ProfileEntry, ProfileRegistry } from './types';
+import { discoverProfiles } from './discovery';
 import { resolveSeroRoot } from './roots';
 
 /** Fixed location for the profile registry — never changes. */
@@ -307,9 +308,16 @@ class ProfileManager {
    * Adopt a profile that already exists on disk, registering it at its current
    * path and making it active. Adopting never copies, moves, or rewrites
    * profile data — the directory stays where it is.
+   *
+   * Identity and folder ownership come from disk discovery, never from the
+   * caller and never inferred from the path. A folder the registry never
+   * described keeps unknown ownership and stays ineligible for deletion.
+   *
+   * Throws when the path is already registered, or when discovery finds no
+   * recoverable profile there.
    */
-  async adopt(profile: { name: string; path: string; id?: string }): Promise<ProfileEntry> {
-    const resolvedPath = path.resolve(profile.path);
+  async adopt(profilePath: string): Promise<ProfileEntry> {
+    const resolvedPath = path.resolve(profilePath);
 
     const alreadyRegistered = this.registry.profiles.find(
       (existing) => path.resolve(existing.path) === resolvedPath,
@@ -320,16 +328,25 @@ class ProfileManager {
       );
     }
 
+    const candidate = discoverProfiles({
+      seroRoot: SERO_ROOT,
+      registryPath: REGISTRY_PATH,
+    }).find((entry) => path.resolve(entry.path) === resolvedPath);
+    if (!candidate) {
+      throw new Error(`No recoverable profile exists at ${resolvedPath}`);
+    }
+
     // Reuse the same overlap rules as create() so an adopted path cannot
     // nest inside or contain a registered profile.
     this.validateNewProfilePath(resolvedPath);
 
     const entry: ProfileEntry = {
-      id: profile.id ?? randomUUID(),
-      name: profile.name.trim(),
+      id: candidate.id,
+      name: candidate.name.trim(),
       path: resolvedPath,
       createdAt: new Date().toISOString(),
-      folderProvenance: this.provenanceForPath(resolvedPath),
+      folderProvenance: candidate.folderProvenance,
+      onboarded: candidate.onboarded,
     };
 
     this.registry.profiles.push(entry);
@@ -389,13 +406,6 @@ class ProfileManager {
   }
 
   // ── Helpers ─────────────────────────────────────────────
-
-  /** Folder provenance for a path that already exists on disk. */
-  private provenanceForPath(profilePath: string): ProfileEntry['folderProvenance'] {
-    if (profilePath === DEFAULT_PROFILE_PATH) return 'default-root';
-    if (isManagedNestedProfilePath(profilePath)) return 'sero-managed';
-    return 'custom';
-  }
 
   private validateNewProfilePath(candidatePath: string): void {
     if (candidatePath === DEFAULT_PROFILE_PATH && this.registry.profiles.length > 0) {

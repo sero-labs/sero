@@ -110,18 +110,14 @@ describe('profile recovery IPC handlers', () => {
     });
   });
 
-  it('adopts the profile at its existing path, then relaunches', async () => {
+  it('adopts the profile at a path, then relaunches', async () => {
     mocks.adopt.mockResolvedValue({ id: 'a', name: 'Alpha', path: '/tmp/sero-test/profiles/a' });
 
     const handler = mocks.handlers.get(IpcChannels.profiles.adopt);
     expect(handler).toBeTypeOf('function');
-    await handler?.({}, { id: 'a', name: 'Alpha', path: '/tmp/sero-test/profiles/a' });
+    await handler?.({}, '/tmp/sero-test/profiles/a');
 
-    expect(mocks.adopt).toHaveBeenCalledWith({
-      id: 'a',
-      name: 'Alpha',
-      path: '/tmp/sero-test/profiles/a',
-    });
+    expect(mocks.adopt).toHaveBeenCalledWith('/tmp/sero-test/profiles/a');
     expect(mocks.clearLoadedProfileEnvForRelaunch).toHaveBeenCalledOnce();
     expect(mocks.relaunch).toHaveBeenCalledOnce();
     expect(mocks.exit).toHaveBeenCalledWith(0);

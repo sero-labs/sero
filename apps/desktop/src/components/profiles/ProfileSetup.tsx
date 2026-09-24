@@ -81,11 +81,7 @@ export function ProfileSetup() {
 
   const handleOpen = async (profile: DiscoveredProfile) => {
     // Adoption registers the profile at its existing path and restarts into it.
-    await runProfileOperation(() => adoptProfile({
-      id: profile.id,
-      name: profile.name,
-      path: profile.path,
-    }));
+    await runProfileOperation(() => adoptProfile(profile.path));
   };
 
   const hasDiscovered = discoveredProfiles.length > 0;

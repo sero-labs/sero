@@ -118,6 +118,52 @@ describe('discoverProfiles', () => {
     const found = discoverProfiles({ seroRoot: root, registryPath: registryPath() });
     expect(Number.isNaN(Date.parse(found[0].lastModified))).toBe(false);
   });
+
+  it('offers the default-root profile when it holds profile data', async () => {
+    await fs.mkdir(path.join(root, 'agent'), { recursive: true });
+    await fs.writeFile(path.join(root, 'agent', 'settings.json'), '{}');
+
+    const found = discoverProfiles({ seroRoot: root, registryPath: registryPath() });
+
+    expect(found).toEqual([
+      expect.objectContaining({ name: 'Default', path: root }),
+    ]);
+  });
+
+  it('does not offer a fresh installation that only has an empty agent directory', async () => {
+    await fs.mkdir(path.join(root, 'agent'), { recursive: true });
+
+    expect(discoverProfiles({ seroRoot: root, registryPath: registryPath() })).toEqual([]);
+  });
+
+  it('carries recorded ownership and onboarding state', async () => {
+    const custom = await makeProfile('custom/studio');
+    await writeBrokenBackup('2026-09-20T13-08-18-575Z', [
+      {
+        id: 'abc',
+        name: 'Studio',
+        path: custom,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        folderProvenance: 'custom',
+        onboarded: true,
+      },
+    ]);
+
+    const found = discoverProfiles({ seroRoot: root, registryPath: registryPath() });
+
+    expect(found).toHaveLength(1);
+    expect(found[0].folderProvenance).toBe('custom');
+    expect(found[0].onboarded).toBe(true);
+  });
+
+  it('leaves ownership and onboarding unknown for a scanned profile', async () => {
+    await makeProfile('profiles/alpha');
+
+    const found = discoverProfiles({ seroRoot: root, registryPath: registryPath() });
+
+    expect(found[0].folderProvenance).toBeUndefined();
+    expect(found[0].onboarded).toBeUndefined();
+  });
 });
 
 describe('selectSalvageCandidates', () => {

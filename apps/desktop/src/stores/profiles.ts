@@ -157,12 +157,10 @@ export async function switchProfile(id: string): Promise<void> {
  * Adopt a profile that already exists on disk, at the path it occupies.
  * Triggers app restart so the adopted profile becomes active.
  */
-export async function adoptProfile(
-  profile: { id?: string; name: string; path: string },
-): Promise<void> {
+export async function adoptProfile(path: string): Promise<void> {
   useProfileStore.setState({ isLoading: true, error: null });
   try {
-    await window.sero.profiles.adopt(profile);
+    await window.sero.profiles.adopt(path);
     // App will restart — this line may not execute
   } catch (err) {
     failProfileOperation('adopt', err);
