@@ -336,9 +336,7 @@ class ProfileManager {
       throw new Error(`No recoverable profile exists at ${resolvedPath}`);
     }
 
-    // Reuse the same overlap rules as create() so an adopted path cannot
-    // nest inside or contain a registered profile.
-    this.validateNewProfilePath(resolvedPath);
+    this.validateAdoptablePath(resolvedPath);
 
     const entry: ProfileEntry = {
       id: candidate.id,
@@ -427,6 +425,40 @@ class ProfileManager {
       if (!candidateInsideExisting && !existingInsideCandidate) continue;
 
       if (candidateInsideExisting && isAllowedDefaultProfileContainment(existingPath, candidatePath)) {
+        continue;
+      }
+
+      throw new Error(
+        `Profile path overlaps with existing profile "${existing.name}" at ${existing.path}`,
+      );
+    }
+  }
+
+  /**
+   * Overlap rules for adoption. Unlike create(), the first profile's default
+   * root is not reserved: recovering it is the whole point, so it may be
+   * adopted alongside the managed children that live under it. Duplicate paths
+   * and unrelated overlaps are still rejected.
+   */
+  private validateAdoptablePath(candidatePath: string): void {
+    for (const existing of this.registry.profiles) {
+      const existingPath = path.resolve(existing.path);
+      if (existingPath === candidatePath) {
+        throw new Error(
+          `Profile path already belongs to profile "${existing.name}": ${candidatePath}`,
+        );
+      }
+
+      const candidateInsideExisting = isNestedPath(existingPath, candidatePath);
+      const existingInsideCandidate = isNestedPath(candidatePath, existingPath);
+      if (!candidateInsideExisting && !existingInsideCandidate) continue;
+
+      // The default root and its managed children are one profile family in
+      // either direction, so recovery works whichever profile opens first.
+      if (
+        isAllowedDefaultProfileContainment(existingPath, candidatePath)
+        || isAllowedDefaultProfileContainment(candidatePath, existingPath)
+      ) {
         continue;
       }
 

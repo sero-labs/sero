@@ -99,6 +99,19 @@ eligible for permanent deletion.
 - **WHEN** the user adopts a path where discovery finds no recoverable profile
 - **THEN** adoption fails with an error and the registry is unchanged
 
+#### Scenario: The default root is recoverable in either order
+
+- **WHEN** the registry is empty and profile data exists both at the Sero root
+  and in a managed child folder
+- **THEN** adopting the managed child and then the default root succeeds, and so
+  does adopting the default root and then the managed child
+
+#### Scenario: An unrelated custom overlap is still rejected
+
+- **WHEN** a registered custom profile folder sits inside the path being
+  adopted
+- **THEN** adoption fails with an overlap error and the registry is unchanged
+
 #### Scenario: Adopting makes the profile active
 
 - **WHEN** the user adopts a discovered profile

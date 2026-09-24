@@ -151,6 +151,56 @@ describe('profile manager adoption', () => {
     await expect(profileManager.adopt(notAProfile)).rejects.toThrow('No recoverable profile');
   });
 
+  it('recovers the default root after a managed child is adopted', async () => {
+    tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), 'profile-adopt-work-first-'));
+    await fs.mkdir(path.join(tmpHome, 'agent'), { recursive: true });
+    await fs.writeFile(path.join(tmpHome, 'agent', 'settings.json'), '{}');
+    const workPath = path.join(tmpHome, 'profiles', 'work');
+    await fs.mkdir(path.join(workPath, 'agent'), { recursive: true });
+    await fs.writeFile(path.join(workPath, 'agent', 'workspaces.json'), '{"workspaces":[]}');
+
+    const { profileManager } = await importManager();
+
+    const work = await profileManager.adopt(workPath);
+    const root = await profileManager.adopt(tmpHome);
+
+    expect(work.path).toBe(workPath);
+    expect(root.path).toBe(tmpHome);
+    expect(root.name).toBe('Default');
+    expect(profileManager.getActiveId()).toBe(root.id);
+    expect(profileManager.list()).toHaveLength(2);
+  });
+
+  it('recovers a managed child after the default root is adopted', async () => {
+    tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), 'profile-adopt-root-first-'));
+    await fs.mkdir(path.join(tmpHome, 'agent'), { recursive: true });
+    await fs.writeFile(path.join(tmpHome, 'agent', 'settings.json'), '{}');
+    const workPath = path.join(tmpHome, 'profiles', 'work');
+    await fs.mkdir(path.join(workPath, 'agent'), { recursive: true });
+    await fs.writeFile(path.join(workPath, 'agent', 'workspaces.json'), '{"workspaces":[]}');
+
+    const { profileManager } = await importManager();
+
+    const root = await profileManager.adopt(tmpHome);
+    const work = await profileManager.adopt(workPath);
+
+    expect(root.path).toBe(tmpHome);
+    expect(work.path).toBe(workPath);
+    expect(profileManager.getActiveId()).toBe(work.id);
+    expect(profileManager.list()).toHaveLength(2);
+  });
+
+  it('still rejects an unrelated custom overlap on adoption', async () => {
+    tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), 'profile-adopt-overlap-'));
+    await fs.mkdir(path.join(tmpHome, 'agent'), { recursive: true });
+    await fs.writeFile(path.join(tmpHome, 'agent', 'settings.json'), '{}');
+
+    const { profileManager } = await importManager();
+    await profileManager.create('Custom', path.join(tmpHome, 'custom'));
+
+    await expect(profileManager.adopt(tmpHome)).rejects.toThrow('overlaps with existing profile');
+  });
+
   it('refuses to adopt an already registered path and leaves the registry unchanged', async () => {
     tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), 'profile-adopt-dup-'));
 
