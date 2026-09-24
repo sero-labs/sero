@@ -98,7 +98,7 @@
     </div>
     <section id="board-panel" role="tabpanel" aria-labelledby="board-tab"><div id="board" class="board"></div></section>
     <section id="archive-panel" role="tabpanel" aria-labelledby="archive-tab" class="hidden">
-      <div class="archive-head"><h2>Archived tasks</h2><p>Hidden from the board. Restore a task to show its current state.</p></div>
+      <div class="archive-head"><h2>Archived tasks</h2><p>Restore a card, or remove it from Sero's board. The source item stays intact.</p></div>
       <div id="archive-list" class="archive-list"></div>
     </section>
     <section id="task-panel" class="task-detail hidden" aria-labelledby="task-title">
@@ -126,6 +126,21 @@
       {id:'loop-3',kind:'Workflow',title:'Refresh docs navigation',workspace:'Graphify',column:'backlog',age:'3h',detail:'Draft · not yet activated',chip:''},
       {id:'loop-4',kind:'Workflow',title:'Fix workspace reconnect',workspace:'Sero',column:'done',age:'1h',detail:'Completed',chip:'#548'}
     ];
+    // Keep demo board removals across reloads without touching Sero's layout state.
+    const saved = new URLSearchParams(location.hash.slice(1));
+    const deletedIds = new Set((saved.get('deleted') || '').split(',').filter(Boolean));
+    const archivedIds = new Set((saved.get('archived') || '').split(',').filter(Boolean));
+    for (let i=tasks.length-1;i>=0;i--) {
+      if (deletedIds.has(tasks[i].id)) tasks.splice(i,1);
+      else if (archivedIds.has(tasks[i].id)) tasks[i].archived=true;
+    }
+    function saveDemoState() {
+      const params=new URLSearchParams();
+      if (deletedIds.size) params.set('deleted',[...deletedIds].join(','));
+      const archived=tasks.filter(t=>t.archived).map(t=>t.id);
+      if (archived.length) params.set('archived',archived.join(','));
+      history.replaceState(null,'',location.pathname+location.search+(params.size?'#'+params:''));
+    }
     const columns = [['backlog','Backlog'],['active','Active'],['attention','Needs Attention'],['done','Finished']];
     const $ = (id) => document.getElementById(id);
     const escapeHtml = (value) => String(value).replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -169,7 +184,7 @@
       onSecondary=secondary?.action ?? null;
       onConfirm=action; $('confirm').showModal(); $('cancel').focus();
     }
-    function archiveTask(task) { task.archived=true; closeMenu(); render(); notify('Task archived. Restore it from Archive.'); }
+    function archiveTask(task) { task.archived=true; saveDemoState(); closeMenu(); render(); notify('Task archived. Restore it from Archive.'); }
     function openTask(task) {
       detailTask=task; setView('detail');
       $('task-title').textContent=task.title;
@@ -188,8 +203,8 @@
       const button=event.target.closest('button');
       if (button?.dataset.menu) { openMenu(button); return; }
       if (button?.dataset.archive) { const task=tasks.find(t=>t.id===button.dataset.archive); closeMenu(); if(task.column==='active') promptArchiveActive(task); else archiveTask(task); return; }
-      if (button?.dataset.restore) { const task=tasks.find(t=>t.id===button.dataset.restore); task.archived=false; render(); notify('Task restored to its current board column.'); return; }
-      if (button?.dataset.delete) { const task=tasks.find(t=>t.id===button.dataset.delete); ask('Delete archived task?',`“${task.title}” will be removed from this board. This cannot be undone. The source ${task.kind.toLowerCase()} is not deleted.`,()=>{tasks.splice(tasks.indexOf(task),1);render();notify('Task removed from this board.');},'Delete',true); return; }
+      if (button?.dataset.restore) { const task=tasks.find(t=>t.id===button.dataset.restore); task.archived=false; saveDemoState(); render(); notify('Task restored to its current board column.'); return; }
+      if (button?.dataset.delete) { const task=tasks.find(t=>t.id===button.dataset.delete); ask('Remove from Sero’s board?',`“${task.title}” will no longer appear on this board, even after a refresh. The source ${task.kind.toLowerCase()} stays intact. This cannot be undone here.`,()=>{deletedIds.add(task.id);tasks.splice(tasks.indexOf(task),1);saveDemoState();render();notify('Card removed from Sero’s board.');},'Delete card',true); return; }
       if (!event.target.closest('#menu')) closeMenu();
     });
     $('board-tab').addEventListener('click',()=>setView('board')); $('archive-tab').addEventListener('click',()=>setView('archive'));
