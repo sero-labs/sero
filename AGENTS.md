@@ -16,7 +16,6 @@ copy, TypeScript, tests, UI, packages, and documentation.
 - Do not use `@ts-ignore`, `@ts-expect-error`, or `any` casts unless no typed
   solution exists. Explain an unavoidable exception in a comment.
 - Keep every source file at or below 500 LOC. Tests, docs and CSS are exempt. Markdown is documentation, not source, so this rule does not apply to `openspec/` specs or change artifacts. Split a source file before completion if your change takes it over the limit.
-- Tautological tests considered harmful
 
 ## Runtime boundaries
 
@@ -75,4 +74,9 @@ containers.
 - Keep review and fix passes small. For a large diff, split review by source seam and give each reviewer a narrow question set. After synthesis, give a worker one coherent fix slice, validate it, then start the next slice. A re-review checks only the named findings and the direct blast radius of their fixes; it does not repeat the full review.
 - Do not make product decisions without user consent. If feasibility findings would reduce supported workflows, change an approved experience, or remove a primary use case, stop and ask the user before implementation.
 - Treat new abstractions, compatibility paths, infrastructure, or unrelated edits as signals to stop and recheck the plan against those bounds.
+
+## Tests
 - Run the closest existing checks first. Add only the smallest coverage needed for changed behavior that existing checks cannot prove, and tie each new test to an acceptance criterion.
+- Tautological tests considered harmfulw
+- Change-detector tests considered harmful.  
+- Do not create regression tests for bug fixes without a genuine gap in behavior testing.
