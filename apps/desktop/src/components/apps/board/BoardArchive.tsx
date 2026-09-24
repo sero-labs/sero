@@ -3,7 +3,7 @@ import { Search } from 'lucide-react';
 import type { SeroSessionInfo } from '@/types/ipc';
 import type { BoardArchiveEntry, WorkspaceBoardSlice } from '@/types/board';
 import { useAgentBoardStore } from '@/stores/agent-board';
-import { isUnclaimedIssue } from './board-model';
+import { isUnclaimedIssue, loopCardKey } from './board-model';
 import {
   AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -21,7 +21,7 @@ function sourceAvailable(
   const slice = slices[entry.workspaceId];
   if (!slice) return false;
   if (entry.kind === 'loop') {
-    return slice.index?.loops.some((loop) => `${entry.workspaceId}:loop:${loop.id}` === entry.key
+    return slice.index?.loops.some((loop) => loopCardKey(entry.workspaceId, loop) === entry.key
       && loop.status !== 'disabled') ?? false;
   }
   if (entry.kind === 'room') {

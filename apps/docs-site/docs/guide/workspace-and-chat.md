@@ -120,7 +120,8 @@ Sero starts with core built-in apps:
   The Archive tab lets you search, restore, or delete archived cards. Delete
   removes only the card from Sero's board; it never deletes its source item.
   Deleted cards stay off the board after refresh. Restore is available while
-  the source item can still appear on the board.
+  the source item can still appear on the board. A recurring Workflow gets a
+  new board card for each new run, even if an earlier run was archived or deleted.
 - **Explorer** — the project workspace surface for files, editors, previews,
   diffs, and terminal-related work.
 

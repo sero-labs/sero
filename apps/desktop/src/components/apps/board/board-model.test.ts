@@ -15,6 +15,7 @@ import {
   formatTokens,
   formatUntil,
   isUnclaimedIssue,
+  loopCardKey,
   loopColumn,
   roomColumn,
   type BoardWorkspace,
@@ -182,7 +183,7 @@ describe('buildBoardColumns', () => {
       [],
       NOW,
     );
-    expect(withRooms.active.map((c) => c.key)).toEqual(['ws1:room:r1', 'ws1:loop:running']);
+    expect(withRooms.active.map((c) => c.key)).toEqual(['ws1:room:r1', 'ws1:loop:running:before-first-run']);
     expect(withRooms.done.map((c) => c.key)).toEqual(['ws1:room:r2']);
 
     // A workspace with no Room index is the normal case while Room mode is off.
@@ -209,20 +210,33 @@ describe('buildBoardColumns', () => {
       NOW,
     );
 
-    expect(columns.active.map((c) => c.key)).toEqual(['ws1:session:s1', 'ws1:loop:running']);
-    expect(columns.backlog.map((c) => c.key)).toEqual(['ws1:loop:draft', 'ws1:issue:42']);
-    expect(columns.attention.map((c) => c.key)).toEqual(['ws1:loop:needy']);
-    expect(columns.done.map((c) => c.key)).toEqual(['ws1:loop:finished']);
+    expect(columns.active.map((c) => c.key)).toEqual(['ws1:session:s1', 'ws1:loop:running:before-first-run']);
+    expect(columns.backlog.map((c) => c.key)).toEqual(['ws1:loop:draft:before-first-run', 'ws1:issue:42']);
+    expect(columns.attention.map((c) => c.key)).toEqual(['ws1:loop:needy:before-first-run']);
+    expect(columns.done.map((c) => c.key)).toEqual(['ws1:loop:finished:before-first-run']);
   });
 
   it('keeps archived and deleted source cards off the board after rebuilding it', () => {
     const source = slice({ index: { loops: [loop({ id: 'running' })] }, issues: [issue({ number: 42 })] });
-    const hidden = new Set(['ws1:loop:running', 'ws1:issue:42']);
+    const hidden = new Set(['ws1:loop:running:before-first-run', 'ws1:issue:42']);
     const columns = buildBoardColumns([WS], source, [], NOW, hidden);
     expect(columns.active).toEqual([]);
     expect(columns.backlog).toEqual([]);
     expect(buildBoardColumns([WS], source, [], NOW).active.map((card) => card.key))
-      .toContain('ws1:loop:running');
+      .toContain('ws1:loop:running:before-first-run');
+  });
+
+  it('shows a new card when an archived or deleted recurring Workflow starts another run', () => {
+    const first = loop({ id: 'recurring', lastRunId: 'run-1', status: 'active' });
+    const oldKey = loopCardKey('ws1', first);
+    const hidden = new Set([oldKey]);
+    const firstRun = buildBoardColumns([WS], slice({ index: { loops: [first] } }), [], NOW, hidden);
+    expect(firstRun.active).toEqual([]);
+
+    const next = loop({ ...first, lastRunId: 'run-2', updatedAt: '2026-07-18T12:01:00Z' });
+    const nextRun = buildBoardColumns([WS], slice({ index: { loops: [next] } }), [], NOW, hidden);
+    expect(nextRun.active.map((card) => card.key)).toEqual(['ws1:loop:recurring:run:run-2']);
+    expect(oldKey).toBe('ws1:loop:recurring:run:run-1');
   });
 
   it('restores a stopped session to Finished and keeps it visible beyond the normal cap', () => {
@@ -233,10 +247,10 @@ describe('buildBoardColumns', () => {
     const columns = buildBoardColumns(
       [WS], slice({ index: { loops: completed } }),
       [{ sessionId: 's1', workspaceId: 'ws1', title: 'Stopped chat', streaming: false }],
-      NOW, new Set(), new Set([key, 'ws1:loop:done-30']),
+      NOW, new Set(), new Set([key, 'ws1:loop:done-30:before-first-run']),
     );
     expect(columns.done.map((card) => card.key)).toContain(key);
-    expect(columns.done.map((card) => card.key)).toContain('ws1:loop:done-30');
+    expect(columns.done.map((card) => card.key)).toContain('ws1:loop:done-30:before-first-run');
   });
 
   it('links loop PRs to the issues they close and drops those issues from Backlog', () => {
@@ -284,8 +298,8 @@ describe('buildBoardColumns', () => {
       NOW,
     );
     expect(columns.backlog.map((c) => c.key)).toEqual([
-      'ws1:loop:soon',
-      'ws1:loop:draft',
+      'ws1:loop:soon:before-first-run',
+      'ws1:loop:draft:before-first-run',
       'ws1:issue:42',
     ]);
   });

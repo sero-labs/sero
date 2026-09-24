@@ -75,6 +75,13 @@ export type BoardCard = BoardLoopCard | BoardIssueCard | BoardSessionCard | Boar
 
 export type BoardColumns = Record<BoardColumnId, BoardCard[]>;
 
+/** Board identity belongs to the current run, not the recurring Workflow. */
+export function loopCardKey(workspaceId: string, loop: OrchestratorBoardLoopView): string {
+  const instance = loop.lastRunId ? `run:${loop.lastRunId}`
+    : loop.lastRunAt ? `started:${loop.lastRunAt}` : 'before-first-run';
+  return `${workspaceId}:loop:${loop.id}:${instance}`;
+}
+
 /** Finished stays bounded — most recent first. */
 const FINISHED_CARD_CAP = 30;
 
@@ -152,7 +159,7 @@ function toLoopCard(
   );
   const card: BoardLoopCard = {
     kind: 'loop',
-    key: `${workspace.id}:loop:${loop.id}`,
+    key: loopCardKey(workspace.id, loop),
     workspaceId: workspace.id,
     workspaceName: workspace.name,
     loop,
