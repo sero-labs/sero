@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@sero
 import { ExternalLink, FileCode2, Image, type LucideIcon } from 'lucide-react';
 
 const interactivePrototypes = [
+  ['Agent Board archive (issue 555)', 'agent-board-archive.html'],
   ['Sero Architect — projects and the project page', 'sero-architect/index.html'],
   [
     'Architect — project menu, model tiers and the run inspector',
