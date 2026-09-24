@@ -70,7 +70,10 @@
     dialog { width:min(440px,calc(100vw - 32px)); border:1px solid var(--border-default); border-radius:12px; background:var(--bg-elevated); color:var(--text-primary); padding:20px; box-shadow:0 20px 70px #000b }
     dialog::backdrop { background:#000a }
     dialog h2 { margin:0 0 10px; font-size:16px } dialog p { color:var(--text-secondary); line-height:1.55; margin:0 0 18px }
-    .dialog-actions { display:flex; justify-content:flex-end; gap:8px }
+    .dialog-actions { display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap }
+    .task-detail { max-width:660px; border:1px solid var(--border-subtle); border-radius:10px; background:var(--bg-surface); padding:20px; margin-top:16px }
+    .task-detail h2 { font-size:16px; margin:16px 0 8px }
+    .task-detail p { color:var(--text-secondary); line-height:1.5 }
     .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--bg-elevated); border:1px solid var(--border-default); border-radius:8px; padding:10px 14px; box-shadow:0 10px 32px #0008; z-index:20 }
     .hidden { display:none!important }
     @media(max-width:950px) { .board { overflow-x:auto; grid-template-columns:repeat(4,minmax(220px,1fr)) } }
@@ -98,9 +101,14 @@
       <div class="archive-head"><h2>Archived tasks</h2><p>Hidden from the board. Restore a task to show its current state.</p></div>
       <div id="archive-list" class="archive-list"></div>
     </section>
+    <section id="task-panel" class="task-detail hidden" aria-labelledby="task-title">
+      <button id="back-to-board" class="button" type="button">Back to Agent Board</button>
+      <h2 id="task-title"></h2><p id="task-copy"></p>
+      <button id="stop-in-task" class="button danger" type="button"></button>
+    </section>
   </div></main>
   <div id="menu" class="menu hidden" role="menu" aria-label="Task actions"></div>
-  <dialog id="confirm" aria-labelledby="dialog-title"><h2 id="dialog-title"></h2><p id="dialog-copy"></p><div class="dialog-actions"><button id="cancel" class="button" type="button">Cancel</button><button id="confirm-action" class="button primary" type="button"></button></div></dialog>
+  <dialog id="confirm" aria-labelledby="dialog-title"><h2 id="dialog-title"></h2><p id="dialog-copy"></p><div class="dialog-actions"><button id="cancel" class="button" type="button">Cancel</button><button id="secondary-action" class="button hidden" type="button"></button><button id="confirm-action" class="button primary" type="button"></button></div></dialog>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   <script>
     const icons = {
@@ -121,7 +129,7 @@
     const columns = [['backlog','Backlog'],['active','Active'],['attention','Needs Attention'],['done','Finished']];
     const $ = (id) => document.getElementById(id);
     const escapeHtml = (value) => String(value).replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    let view = 'board', menuFor = null, previousFocus = null, toastTimer, onConfirm = null;
+    let view = 'board', menuFor = null, previousFocus = null, toastTimer, onConfirm = null, onSecondary = null, detailTask = null;
     const visible = (task) => $('workspace').value === 'all' || $('workspace').value === task.workspace;
     function card(task) {
       return `<article class="card"><div class="card-top"><h3>${escapeHtml(task.title)}</h3><button class="icon-btn" type="button" data-menu="${task.id}" aria-label="Actions for ${escapeHtml(task.title)}" aria-haspopup="menu" aria-expanded="${menuFor===task.id}">${icons.more}</button><span class="age">${task.age}</span></div><div class="meta">${task.workspace} · ${task.kind}</div><p class="detail ${task.column==='attention'?'warn':''}">${escapeHtml(task.detail)}</p>${task.chip?`<span class="chip">${escapeHtml(task.chip)}</span>`:''}</article>`;
@@ -132,11 +140,13 @@
       const archived = tasks.filter(t=>t.archived && visible(t) && `${t.title} ${t.workspace} ${t.kind}`.toLowerCase().includes($('search').value.toLowerCase()));
       $('archive-list').innerHTML = archived.map(t=>`<article class="archive-row"><div class="main"><h3>${escapeHtml(t.title)}</h3><p>${t.workspace} · ${t.kind} · Archived just now · ${t.column==='active'?'Work may still be running':escapeHtml(t.detail)}</p></div><div class="actions"><button class="button" type="button" data-restore="${t.id}">Restore</button><button class="button danger" type="button" data-delete="${t.id}">Delete…</button></div></article>`).join('') || '<div class="empty">No archived tasks match this view.</div>';
       $('archive-count').textContent=tasks.filter(t=>t.archived).length;
-      $('summary').textContent=view==='board' ? `${boardItems.filter(t=>t.column==='active').length} running · ${boardItems.filter(t=>t.column==='attention').length} need you` : `${tasks.filter(t=>t.archived).length} archived tasks`;
+      $('summary').textContent=view==='board' ? `${boardItems.filter(t=>t.column==='active').length} running · ${boardItems.filter(t=>t.column==='attention').length} need you` : view==='archive' ? `${tasks.filter(t=>t.archived).length} archived tasks` : 'Task details';
     }
     function setView(next) {
       closeMenu(); view=next;
       for (const id of ['board','archive']) { const selected=id===next; $(`${id}-tab`).setAttribute('aria-selected',selected); $(`${id}-tab`).tabIndex=selected?0:-1; $(`${id}-panel`).classList.toggle('hidden',!selected); }
+      document.querySelector('.tabs').classList.toggle('hidden',next==='detail');
+      $('task-panel').classList.toggle('hidden',next!=='detail');
       $('search').classList.toggle('hidden',next!=='archive'); render();
     }
     function closeMenu(returnFocus=false) { const button=menuFor && document.querySelector(`[data-menu="${menuFor}"]`); $('menu').classList.add('hidden'); button?.setAttribute('aria-expanded','false'); if(returnFocus) button?.focus(); menuFor=null; }
@@ -151,26 +161,46 @@
       button.setAttribute('aria-expanded','true'); menu.querySelector('button').focus();
     }
     function notify(message) { const toast=$('toast'); toast.textContent=message; toast.classList.remove('hidden'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>toast.classList.add('hidden'),3500); }
-    function ask(title,copy,action,label,danger=false) {
+    function ask(title,copy,action,label,danger=false,secondary=null) {
       previousFocus=document.activeElement; $('dialog-title').textContent=title; $('dialog-copy').textContent=copy;
       $('confirm-action').textContent=label; $('confirm-action').className=`button ${danger?'danger':'primary'}`;
+      $('secondary-action').classList.toggle('hidden',!secondary);
+      if (secondary) $('secondary-action').textContent=secondary.label;
+      onSecondary=secondary?.action ?? null;
       onConfirm=action; $('confirm').showModal(); $('cancel').focus();
     }
     function archiveTask(task) { task.archived=true; closeMenu(); render(); notify('Task archived. Restore it from Archive.'); }
+    function openTask(task) {
+      detailTask=task; setView('detail');
+      $('task-title').textContent=task.title;
+      $('task-copy').textContent=`${task.kind} in ${task.workspace}. This represents its ${task.kind==='Room'?'Room': 'Orchestrator'} detail view, where you can stop the work before archiving.`;
+      $('stop-in-task').textContent=task.kind==='Room'?'Cancel Room & archive':'Disable workflow & archive';
+      $('back-to-board').focus();
+    }
+    function promptArchiveActive(task) {
+      const directStop=task.kind==='Session';
+      ask('Archive active work?',`“${task.title}” will leave the board. Archiving alone does not stop the work. You can restore it later.`,()=>archiveTask(task),'Archive anyway',false,{
+        label:directStop?'Stop & archive':'Open task',
+        action:directStop?()=>{task.detail='Session stopped';task.column='done';archiveTask(task);notify('Session stopped and archived.');}:()=>openTask(task)
+      });
+    }
     document.addEventListener('click',(event)=>{
       const button=event.target.closest('button');
       if (button?.dataset.menu) { openMenu(button); return; }
-      if (button?.dataset.archive) { const task=tasks.find(t=>t.id===button.dataset.archive); closeMenu(); if(task.column==='active') ask('Archive active work?',`“${task.title}” will leave the board. Archiving does not stop the work. You can restore it later.`,()=>archiveTask(task),'Archive'); else archiveTask(task); return; }
+      if (button?.dataset.archive) { const task=tasks.find(t=>t.id===button.dataset.archive); closeMenu(); if(task.column==='active') promptArchiveActive(task); else archiveTask(task); return; }
       if (button?.dataset.restore) { const task=tasks.find(t=>t.id===button.dataset.restore); task.archived=false; render(); notify('Task restored to its current board column.'); return; }
       if (button?.dataset.delete) { const task=tasks.find(t=>t.id===button.dataset.delete); ask('Delete archived task?',`“${task.title}” will be removed from this board. This cannot be undone. The source ${task.kind.toLowerCase()} is not deleted.`,()=>{tasks.splice(tasks.indexOf(task),1);render();notify('Task removed from this board.');},'Delete',true); return; }
       if (!event.target.closest('#menu')) closeMenu();
     });
     $('board-tab').addEventListener('click',()=>setView('board')); $('archive-tab').addEventListener('click',()=>setView('archive'));
+    $('back-to-board').addEventListener('click',()=>{setView('board');$('board-tab').focus();});
+    $('stop-in-task').addEventListener('click',()=>{detailTask.detail=detailTask.kind==='Room'?'Room cancelled':'Workflow disabled';detailTask.column='done';archiveTask(detailTask);setView('archive');$('archive-tab').focus();notify('Work stopped and archived.');});
     for(const tab of document.querySelectorAll('[role="tab"]')) tab.addEventListener('keydown',(event)=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();const target=tab.id==='board-tab'?'archive':'board';setView(target);$(`${target}-tab`).focus();}});
     $('workspace').addEventListener('change',render); $('search').addEventListener('input',render);
     $('cancel').addEventListener('click',()=>$('confirm').close());
+    $('secondary-action').addEventListener('click',()=>{const action=onSecondary;$('confirm').close();action?.();});
     $('confirm-action').addEventListener('click',()=>{const action=onConfirm;$('confirm').close();action?.();});
-    $('confirm').addEventListener('close',()=>{previousFocus?.focus();onConfirm=null;});
+    $('confirm').addEventListener('close',()=>{if(view!=='detail') previousFocus?.focus();onConfirm=null;onSecondary=null;});
     document.addEventListener('keydown',(event)=>{if(event.key==='Escape' && !$('confirm').open) closeMenu(true); if(['ArrowDown','ArrowUp'].includes(event.key) && document.activeElement.closest('#menu')) { event.preventDefault(); } });
     document.addEventListener('pointerdown',(event)=>{if(menuFor && !event.target.closest('#menu,[data-menu]')) closeMenu();});
     render();
