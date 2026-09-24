@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import os from 'os';
 
 const mocks = vi.hoisted(() => ({
   readFileSync: vi.fn(),
@@ -31,7 +30,7 @@ describe('staged env bootstrap', () => {
     vi.resetModules();
     delete process.env.SERO_HOME;
     delete process.env.PI_CODING_AGENT_DIR;
-    delete process.env.SERO_HOST_ARTIFACTS_ROOT_OVERRIDE;
+    process.env.SERO_HOST_ARTIFACTS_ROOT_OVERRIDE = '/tmp/host-artifacts';
     delete process.env.OPENAI_API_KEY;
     delete process.env.ANTHROPIC_API_KEY;
     process.env.SERO_HOME_OVERRIDE = '/tmp/sero-profile';
@@ -89,7 +88,7 @@ describe('staged env bootstrap', () => {
     const env = await import('@electron/platform/env');
 
     expect(env.SERO_FIXED_ROOT).toBe('/tmp/sero-profile');
-    expect(env.SERO_HOST_ARTIFACTS_ROOT).toBe(`${os.homedir()}/.sero-ui`);
+    expect(env.SERO_HOST_ARTIFACTS_ROOT).toBe('/tmp/host-artifacts');
     expect(env.SERO_HOME).toBe('/tmp/sero-profile/profiles/work');
     expect(env.SERO_AGENT_DIR).toBe('/tmp/sero-profile/profiles/work/agent');
     expect(env.ACTIVE_PROFILE_ID).toBe('work');
@@ -97,12 +96,12 @@ describe('staged env bootstrap', () => {
   });
 
   it('allows tests to isolate host artifacts separately from profile state', async () => {
-    process.env.SERO_HOST_ARTIFACTS_ROOT_OVERRIDE = '/tmp/host-artifacts';
+    process.env.SERO_HOST_ARTIFACTS_ROOT_OVERRIDE = '/tmp/host-artifacts-custom';
 
     const env = await import('@electron/platform/env');
 
     expect(env.SERO_FIXED_ROOT).toBe('/tmp/sero-profile');
-    expect(env.SERO_HOST_ARTIFACTS_ROOT).toBe('/tmp/host-artifacts');
+    expect(env.SERO_HOST_ARTIFACTS_ROOT).toBe('/tmp/host-artifacts-custom');
   });
 
   it('clears only profile-loaded env values before profile relaunch', async () => {

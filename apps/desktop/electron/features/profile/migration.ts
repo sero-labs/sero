@@ -15,13 +15,13 @@
  */
 
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
-import os from 'os';
 import path from 'path';
 import { randomUUID } from 'crypto';
 
+import { resolveSeroRoot } from './roots';
 import type { ProfileRegistry } from './types';
 
-const SERO_ROOT = path.join(os.homedir(), '.sero-ui');
+const SERO_ROOT = resolveSeroRoot();
 const REGISTRY_PATH = path.join(SERO_ROOT, 'profiles.json');
 const AGENT_DIR = path.join(SERO_ROOT, 'agent');
 

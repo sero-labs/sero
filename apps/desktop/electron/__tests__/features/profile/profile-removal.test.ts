@@ -6,16 +6,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 let root = '';
 const previousFixedRoot = process.env.SERO_FIXED_ROOT_OVERRIDE;
+const previousSeroHomeOverride = process.env.SERO_HOME_OVERRIDE;
 
 beforeEach(async () => {
   root = await fs.mkdtemp(path.join(os.tmpdir(), 'sero-profile-removal-'));
   process.env.SERO_FIXED_ROOT_OVERRIDE = root;
+  // Keep SERO_HOME_OVERRIDE unset so the first profile lands at the default
+  // root and stays non-deletable, which is what this suite asserts.
+  delete process.env.SERO_HOME_OVERRIDE;
   vi.resetModules();
 });
 
 afterEach(async () => {
   if (previousFixedRoot === undefined) delete process.env.SERO_FIXED_ROOT_OVERRIDE;
   else process.env.SERO_FIXED_ROOT_OVERRIDE = previousFixedRoot;
+  if (previousSeroHomeOverride === undefined) delete process.env.SERO_HOME_OVERRIDE;
+  else process.env.SERO_HOME_OVERRIDE = previousSeroHomeOverride;
   await fs.rm(root, { recursive: true, force: true });
   await fs.rm(`${root}-custom`, { recursive: true, force: true });
   vi.resetModules();

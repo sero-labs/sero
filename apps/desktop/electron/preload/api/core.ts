@@ -21,7 +21,7 @@ import type {
   WorkspaceRoot,
 } from '@/types/ipc';
 import type { ToolCaptureReadRequest, ToolCaptureReadResult } from '@/types/tool-capture';
-import type { ProfileRemovalMode } from '@/types/profile';
+import type { DiscoveredProfile, ProfileRemovalMode } from '@/types/profile';
 import type { WorkspaceRuntimeBackend, WorkspaceRuntimeConfig } from '@/types/workspace-runtime';
 import type {
   BrowserPackProgressIPC,
@@ -74,6 +74,10 @@ export const profilesBridge = {
     ipcRenderer.invoke(IpcChannels.profiles.markOnboardingDone),
   listAuthSources: (): Promise<ProfileInfo[]> =>
     ipcRenderer.invoke(IpcChannels.profiles.listAuthSources),
+  discover: (): Promise<DiscoveredProfile[]> =>
+    ipcRenderer.invoke(IpcChannels.profiles.discover),
+  adopt: (profile: { id?: string; name: string; path: string }): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.profiles.adopt, profile),
 };
 
 export const workspaceBridge = {

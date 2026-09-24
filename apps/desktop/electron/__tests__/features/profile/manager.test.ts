@@ -4,10 +4,9 @@ import path from 'path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-describe('profile manager path validation', () => {
+describe('profile manager', () => {
   let tmpHome: string | null = null;
-  const originalHome = process.env.HOME;
-  const originalSeroHomeOverride = process.env.SERO_HOME_OVERRIDE;
+  const originalFixedRootOverride = process.env.SERO_FIXED_ROOT_OVERRIDE;
 
   async function importManager() {
     if (!tmpHome) {
@@ -15,18 +14,20 @@ describe('profile manager path validation', () => {
     }
 
     vi.resetModules();
-    process.env.HOME = tmpHome;
+    // State the root explicitly instead of inferring it from a swapped HOME.
+    // SERO_HOME_OVERRIDE stays unset so the first-profile default-root branch
+    // stays under test.
+    process.env.SERO_FIXED_ROOT_OVERRIDE = tmpHome;
     delete process.env.SERO_HOME_OVERRIDE;
     return import('@electron/features/profile/manager');
   }
 
   afterEach(async () => {
     vi.resetModules();
-    process.env.HOME = originalHome;
-    if (originalSeroHomeOverride === undefined) {
-      delete process.env.SERO_HOME_OVERRIDE;
+    if (originalFixedRootOverride === undefined) {
+      delete process.env.SERO_FIXED_ROOT_OVERRIDE;
     } else {
-      process.env.SERO_HOME_OVERRIDE = originalSeroHomeOverride;
+      process.env.SERO_FIXED_ROOT_OVERRIDE = originalFixedRootOverride;
     }
 
     if (tmpHome) {
@@ -43,8 +44,8 @@ describe('profile manager path validation', () => {
     const defaultProfile = await profileManager.create('Default');
     const workProfile = await profileManager.create('Work');
 
-    expect(defaultProfile.path).toBe(path.join(tmpHome, '.sero-ui'));
-    expect(workProfile.path).toBe(path.join(tmpHome, '.sero-ui', 'profiles', 'work'));
+    expect(defaultProfile.path).toBe(tmpHome);
+    expect(workProfile.path).toBe(path.join(tmpHome, 'profiles', 'work'));
   });
 
   it('uses SERO_HOME_OVERRIDE as the isolated profile registry root', async () => {
@@ -114,7 +115,53 @@ describe('profile manager path validation', () => {
     await profileManager.create('Work', path.join(tmpHome, 'profiles', 'work'));
 
     await expect(
-      profileManager.create('Default-ish', path.join(tmpHome, '.sero-ui')),
+      profileManager.create('Default-ish', tmpHome),
     ).rejects.toThrow('reserved for the first default profile');
+  });
+
+  it('adopts a profile directory that already exists without touching its files', async () => {
+    tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), 'profile-manager-adopt-'));
+    const profilePath = path.join(tmpHome, 'profiles', 'studio');
+    await fs.mkdir(path.join(profilePath, 'agent'), { recursive: true });
+    await fs.writeFile(
+      path.join(profilePath, 'agent', 'workspaces.json'),
+      '{"workspaces":[{"id":"w1"}]}',
+    );
+    const before = (await fs.readdir(profilePath, { recursive: true })).sort();
+
+    const { profileManager } = await importManager();
+    const entry = await profileManager.adopt({ id: 'recorded-id', name: 'Studio', path: profilePath });
+
+    expect(entry.id).toBe('recorded-id');
+    expect(entry.path).toBe(profilePath);
+    expect(entry.folderProvenance).toBe('sero-managed');
+    expect(profileManager.getActiveId()).toBe('recorded-id');
+    expect(profileManager.findById('recorded-id')?.name).toBe('Studio');
+    await expect(fs.readdir(profilePath, { recursive: true })).resolves.toEqual(before);
+  });
+
+  it('adopts a profile at the default root when the registry is empty', async () => {
+    tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), 'profile-manager-adopt-default-'));
+
+    const { profileManager } = await importManager();
+    const entry = await profileManager.adopt({ name: 'Default', path: tmpHome });
+
+    expect(entry.path).toBe(tmpHome);
+    expect(entry.folderProvenance).toBe('default-root');
+    expect(profileManager.getActiveId()).toBe(entry.id);
+  });
+
+  it('refuses to adopt an already registered path and leaves the registry unchanged', async () => {
+    tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), 'profile-manager-adopt-dup-'));
+
+    const { profileManager } = await importManager();
+    const created = await profileManager.create('Default', undefined, true);
+    const before = profileManager.list();
+
+    await expect(
+      profileManager.adopt({ name: 'Copy', path: created.path }),
+    ).rejects.toThrow('already registered');
+
+    expect(profileManager.list()).toEqual(before);
   });
 });

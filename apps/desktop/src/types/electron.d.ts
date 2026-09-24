@@ -12,7 +12,7 @@ import type {
   SeroOrchestratorAPI,
 } from './electron-workspace';
 import type { LayoutState, LoadedLayoutState } from './layout';
-import type { ProfileRemovalMode } from './profile';
+import type { DiscoveredProfile, ProfileRemovalMode } from './profile';
 import type { SeroBrowserAPI } from './electron-browser';
 import type {
   SeroGatewayAPI,
@@ -408,6 +408,10 @@ interface SeroProfilesAPI {
   markOnboardingDone(): Promise<void>;
   /** List profiles that have transferable credentials/config available for import. */
   listAuthSources(): Promise<ProfileInfo[]>;
+  /** List profiles found on disk that the registry does not reference. */
+  discover(): Promise<DiscoveredProfile[]>;
+  /** Adopt a profile at its existing path. Triggers app restart. */
+  adopt(profile: { id?: string; name: string; path: string }): Promise<void>;
 }
 
 interface SeroPluginsAPI {

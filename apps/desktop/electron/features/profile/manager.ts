@@ -13,24 +13,14 @@
  *     module level — those are not yet initialised when this runs.
  */
 
-import { copyFileSync, existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { promises as fs } from 'fs';
-import os from 'os';
 import path from 'path';
 import { randomUUID } from 'crypto';
 
 import type { ProfileInfo, ProfileRemovalMode } from '@/types/profile';
 import type { ProfileEntry, ProfileRegistry } from './types';
-
-function resolveSeroRoot(): string {
-  if (process.env.NODE_ENV === 'test' && process.env.SERO_FIXED_ROOT_OVERRIDE) {
-    return path.resolve(process.env.SERO_FIXED_ROOT_OVERRIDE);
-  }
-  if (process.env.SERO_HOME_OVERRIDE) {
-    return path.resolve(process.env.SERO_HOME_OVERRIDE);
-  }
-  return path.join(os.homedir(), '.sero-ui');
-}
+import { resolveSeroRoot } from './roots';
 
 /** Fixed location for the profile registry — never changes. */
 const SERO_ROOT = resolveSeroRoot();
@@ -157,7 +147,7 @@ export function readRegistryLoadSync(): ProfileRegistryLoadResult {
 }
 
 /** Write registry synchronously. */
-function writeRegistrySync(registry: ProfileRegistry): void {
+export function writeRegistrySync(registry: ProfileRegistry): void {
   mkdirSync(SERO_ROOT, { recursive: true });
   writeFileSync(REGISTRY_PATH, JSON.stringify(registry, null, 2) + '\n', 'utf8');
 }
@@ -200,29 +190,6 @@ async function writeRegistryAsync(registry: ProfileRegistry): Promise<void> {
   const tmpFile = `${REGISTRY_PATH}.${process.pid}.tmp`;
   await fs.writeFile(tmpFile, JSON.stringify(registry, null, 2) + '\n', 'utf8');
   await fs.rename(tmpFile, REGISTRY_PATH);
-}
-
-export interface ProfileRegistryResetResult {
-  registryPath: string;
-  backupPath: string | null;
-}
-
-/**
- * Preserve a malformed profiles.json for inspection, then replace it with a
- * fresh empty registry so the app can recover on next launch.
- */
-export function backupAndResetRegistrySync(): ProfileRegistryResetResult {
-  mkdirSync(SERO_ROOT, { recursive: true });
-
-  let backupPath: string | null = null;
-  if (existsSync(REGISTRY_PATH)) {
-    const timestamp = new Date().toISOString().replace(/[.:]/g, '-');
-    backupPath = path.join(SERO_ROOT, `profiles.broken-${timestamp}.json`);
-    copyFileSync(REGISTRY_PATH, backupPath);
-  }
-
-  writeRegistrySync(emptyRegistry());
-  return { registryPath: REGISTRY_PATH, backupPath };
 }
 
 // ── ProfileManager ──────────────────────────────────────────
@@ -336,6 +303,41 @@ class ProfileManager {
     return entry;
   }
 
+  /**
+   * Adopt a profile that already exists on disk, registering it at its current
+   * path and making it active. Adopting never copies, moves, or rewrites
+   * profile data — the directory stays where it is.
+   */
+  async adopt(profile: { name: string; path: string; id?: string }): Promise<ProfileEntry> {
+    const resolvedPath = path.resolve(profile.path);
+
+    const alreadyRegistered = this.registry.profiles.find(
+      (existing) => path.resolve(existing.path) === resolvedPath,
+    );
+    if (alreadyRegistered) {
+      throw new Error(
+        `Profile path is already registered to "${alreadyRegistered.name}": ${resolvedPath}`,
+      );
+    }
+
+    // Reuse the same overlap rules as create() so an adopted path cannot
+    // nest inside or contain a registered profile.
+    this.validateNewProfilePath(resolvedPath);
+
+    const entry: ProfileEntry = {
+      id: profile.id ?? randomUUID(),
+      name: profile.name.trim(),
+      path: resolvedPath,
+      createdAt: new Date().toISOString(),
+      folderProvenance: this.provenanceForPath(resolvedPath),
+    };
+
+    this.registry.profiles.push(entry);
+    this.registry.activeProfileId = entry.id;
+    await writeRegistryAsync(this.registry);
+    return entry;
+  }
+
   /** Set the active profile. Does NOT restart the app — caller must do that. */
   async setActive(id: string): Promise<void> {
     const profile = this.findById(id);
@@ -387,6 +389,13 @@ class ProfileManager {
   }
 
   // ── Helpers ─────────────────────────────────────────────
+
+  /** Folder provenance for a path that already exists on disk. */
+  private provenanceForPath(profilePath: string): ProfileEntry['folderProvenance'] {
+    if (profilePath === DEFAULT_PROFILE_PATH) return 'default-root';
+    if (isManagedNestedProfilePath(profilePath)) return 'sero-managed';
+    return 'custom';
+  }
 
   private validateNewProfilePath(candidatePath: string): void {
     if (candidatePath === DEFAULT_PROFILE_PATH && this.registry.profiles.length > 0) {

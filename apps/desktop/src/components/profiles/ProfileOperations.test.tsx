@@ -22,6 +22,8 @@ const profileBridge = {
   listAuthSources: vi.fn(),
   pickFolder: vi.fn(),
   hasActive: vi.fn(),
+  discover: vi.fn(),
+  adopt: vi.fn(),
 };
 
 const originalSeroDescriptor = Object.getOwnPropertyDescriptor(window, 'sero');
@@ -29,6 +31,7 @@ const originalSeroDescriptor = Object.getOwnPropertyDescriptor(window, 'sero');
 function resetProfileStore() {
   useProfileStore.setState({
     profiles: [],
+    discoveredProfiles: [],
     activeProfile: null,
     ready: true,
     hasActiveProfile: false,
@@ -102,6 +105,8 @@ describe('profile operation error surfaces', () => {
     profileBridge.pickFolder.mockResolvedValue(null);
     profileBridge.hasActive.mockResolvedValue(false);
     profileBridge.remove.mockResolvedValue(undefined);
+    profileBridge.discover.mockResolvedValue([]);
+    profileBridge.adopt.mockResolvedValue(undefined);
 
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -322,5 +327,85 @@ describe('profile operation error surfaces', () => {
 
     expect(document.body.textContent).not.toContain('Delete files');
     expect(document.body.textContent).toContain('Retain files');
+  });
+
+  it('lists profiles found on disk above the create form', async () => {
+    useProfileStore.setState({
+      discoveredProfiles: [
+        { id: 'cand-1', name: 'Studio', path: '/profiles/studio', lastModified: '2026-09-20T13:08:15.000Z' },
+      ],
+    });
+
+    await act(async () => { root?.render(<ProfileSetup />); });
+
+    expect(document.body.textContent).toContain('Profiles found on this computer');
+    expect(document.body.textContent).toContain('Studio');
+    expect(document.body.textContent).toContain('/profiles/studio');
+
+    const open = findButton('Open');
+    const input = findProfileNameInput();
+    expect(open.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('shows only the create form when nothing is found on disk', async () => {
+    await act(async () => { root?.render(<ProfileSetup />); });
+
+    expect(document.body.textContent).not.toContain('Profiles found on this computer');
+    expect(findProfileNameInput()).toBeInstanceOf(HTMLInputElement);
+    expect(Array.from(document.querySelectorAll('button')).some((button) => button.textContent?.includes('Open'))).toBe(false);
+  });
+
+  it('adopts a profile found on disk at its existing path', async () => {
+    useProfileStore.setState({
+      discoveredProfiles: [
+        { id: 'cand-1', name: 'Studio', path: '/profiles/studio', lastModified: '2026-09-20T13:08:15.000Z' },
+      ],
+    });
+
+    await act(async () => { root?.render(<ProfileSetup />); });
+    await act(async () => {
+      findButton('Open').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    await vi.waitFor(() => {
+      expect(profileBridge.adopt).toHaveBeenCalledWith({
+        id: 'cand-1',
+        name: 'Studio',
+        path: '/profiles/studio',
+      });
+    });
+  });
+
+  it('renders the switcher for profiles found on disk when the registry is empty', async () => {
+    useProfileStore.setState({
+      profiles: [],
+      activeProfile: null,
+      hasActiveProfile: false,
+      discoveredProfiles: [
+        { id: 'cand-1', name: 'Studio', path: '/profiles/studio', lastModified: '2026-09-20T13:08:15.000Z' },
+      ],
+    });
+
+    await act(async () => { root?.render(<ProfileSwitcher />); });
+    await act(async () => {
+      findButton('Studio').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(document.body.textContent).toContain('Found on this computer');
+    expect(document.body.textContent).toContain('/profiles/studio');
+  });
+
+  it('hides the switcher when neither the registry nor discovery finds a profile', async () => {
+    useProfileStore.setState({
+      profiles: [],
+      activeProfile: null,
+      hasActiveProfile: false,
+      discoveredProfiles: [],
+    });
+
+    await act(async () => { root?.render(<ProfileSwitcher />); });
+
+    expect(document.body.textContent).not.toContain('Profiles');
+    expect(document.querySelectorAll('button').length).toBe(0);
   });
 });

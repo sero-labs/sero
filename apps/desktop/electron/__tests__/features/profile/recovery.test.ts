@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 describe('profile registry recovery helpers', () => {
   let tmpHome: string | null = null;
-  const originalHome = process.env.HOME;
+  const originalSeroHomeOverride = process.env.SERO_HOME_OVERRIDE;
 
   async function importManager() {
     if (!tmpHome) {
@@ -15,13 +15,18 @@ describe('profile registry recovery helpers', () => {
     }
 
     vi.resetModules();
-    process.env.HOME = tmpHome;
+    // State the root explicitly instead of inferring it from a swapped HOME.
+    process.env.SERO_HOME_OVERRIDE = tmpHome;
     return import('@electron/features/profile/manager');
   }
 
   afterEach(async () => {
     vi.resetModules();
-    process.env.HOME = originalHome;
+    if (originalSeroHomeOverride === undefined) {
+      delete process.env.SERO_HOME_OVERRIDE;
+    } else {
+      process.env.SERO_HOME_OVERRIDE = originalSeroHomeOverride;
+    }
 
     if (tmpHome) {
       await fs.rm(tmpHome, { recursive: true, force: true });
@@ -32,7 +37,7 @@ describe('profile registry recovery helpers', () => {
   it('reports malformed profiles.json through the startup-safe loader', async () => {
     tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), 'profile-recovery-'));
 
-    const registryPath = path.join(tmpHome, '.sero-ui', 'profiles.json');
+    const registryPath = path.join(tmpHome, 'profiles.json');
     await fs.mkdir(path.dirname(registryPath), { recursive: true });
     await fs.writeFile(registryPath, '{broken-json', 'utf8');
 
@@ -47,12 +52,13 @@ describe('profile registry recovery helpers', () => {
   it('backs up the broken registry before resetting it to an empty state', async () => {
     tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), 'profile-recovery-reset-'));
 
-    const registryPath = path.join(tmpHome, '.sero-ui', 'profiles.json');
+    const registryPath = path.join(tmpHome, 'profiles.json');
     const brokenContent = '{still-broken-json';
     await fs.mkdir(path.dirname(registryPath), { recursive: true });
     await fs.writeFile(registryPath, brokenContent, 'utf8');
 
-    const { backupAndResetRegistrySync, readRegistrySync } = await importManager();
+    const { readRegistrySync } = await importManager();
+    const { backupAndResetRegistrySync } = await import('@electron/features/profile/registry-recovery');
     const result = backupAndResetRegistrySync();
 
     expect(result.registryPath).toBe(registryPath);
@@ -60,5 +66,41 @@ describe('profile registry recovery helpers', () => {
     expect(existsSync(result.backupPath!)).toBe(true);
     await expect(fs.readFile(result.backupPath!, 'utf8')).resolves.toBe(brokenContent);
     expect(readRegistrySync()).toEqual({ version: 1, activeProfileId: null, profiles: [] });
+  });
+
+  it('keeps the profiles whose directories still exist, backing up the broken file', async () => {
+    tmpHome = await fs.mkdtemp(path.join(os.tmpdir(), 'profile-recovery-salvage-'));
+
+    const profileA = path.join(tmpHome, 'profiles', 'a');
+    const profileB = path.join(tmpHome, 'profiles', 'b');
+    await fs.mkdir(path.join(profileA, 'agent'), { recursive: true });
+    await fs.mkdir(path.join(profileB, 'agent'), { recursive: true });
+
+    const registryPath = path.join(tmpHome, 'profiles.json');
+    const brokenContent = JSON.stringify({
+      version: 1,
+      activeProfileId: null,
+      profiles: [
+        { id: 'a', name: 'A', path: profileA, createdAt: '2026-01-01T00:00:00.000Z' },
+        { id: 'b', name: 'B', path: profileB, createdAt: '2026-01-01T00:00:00.000Z' },
+        { id: 'gone', name: 'Gone', path: path.join(tmpHome, 'missing'), createdAt: '2026-01-01T00:00:00.000Z' },
+      ],
+    });
+    await fs.writeFile(registryPath, brokenContent, 'utf8');
+
+    // importManager() reloads the module so REGISTRY_PATH points at this temp root.
+    const { readRegistrySync } = await importManager();
+    const { salvageRegistrySync } = await import('@electron/features/profile/registry-recovery');
+    const { selectSalvageCandidates } = await import('@electron/features/profile/discovery');
+
+    const result = salvageRegistrySync(selectSalvageCandidates(registryPath));
+
+    expect(result.kept).toBe(2);
+    expect(result.backupPath).not.toBeNull();
+    expect(existsSync(result.backupPath!)).toBe(true);
+    await expect(fs.readFile(result.backupPath!, 'utf8')).resolves.toBe(brokenContent);
+    const registry = readRegistrySync();
+    expect(registry.profiles.map((profile) => profile.id).sort()).toEqual(['a', 'b']);
+    expect(registry.activeProfileId).toBe('a');
   });
 });

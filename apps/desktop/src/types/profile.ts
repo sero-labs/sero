@@ -24,3 +24,15 @@ export interface ProfileInfo {
   /** True once onboarding has completed for this profile. */
   onboarded?: boolean;
 }
+
+/** A profile found on disk that the registry does not reference. */
+export interface DiscoveredProfile {
+  /** Recorded id when a broken backup recorded one, otherwise a scan id. */
+  id: string;
+  /** Recorded name when available, otherwise the directory name. */
+  name: string;
+  /** Absolute path the profile already occupies. */
+  path: string;
+  /** ISO timestamp of the newest profile-file modification. */
+  lastModified: string;
+}
