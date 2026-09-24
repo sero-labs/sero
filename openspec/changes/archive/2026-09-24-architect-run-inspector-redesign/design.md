@@ -19,7 +19,7 @@ See proposal.md for why. The facts that shape the approach:
 
 **Non-Goals:**
 
-- Reporting the model a delegate chose inside a Room or Workflow. The Orchestrator does not report it to the Architect today; those fields read `unavailable`.
+- Recording the tokens and model a Room or Workflow used. The Orchestrator counts them, but the Architect saves only the cost today. A research activity shows its Room members' saved models; any other fact that was not recorded is left out of the detail panel.
 - Rewriting old journals. Legacy data is folded at read time only.
 - The six other audit flows, and any change to the project page or its menu.
 - A new push channel. Live uses the existing record push.
@@ -61,7 +61,9 @@ Alternative: one usage record per turn end. Rejected: a crash mid-turn would los
 
 ### D4. Research and planning charges get a parent
 
-`project-usage.ts` passes `parentOperationId: ${runId}:research:${researchId}` for `room-planning:research:*` and for `room:<roomId>` when a research entry names that Room. Planning charges use the planning span id. No other source changes.
+Most sources already name what they paid for: `room-planning:research:<id>`, `room-planning:dispatch:<milestoneId>`, `room:<roomId>` and `dispatch:<kind>:<loopOrRoomId>`. Those are placed when the journal is read (D6), which also covers journals written before this change. Only `runProjectModel` charges (`research:<usageId>`, `capture:<usageId>`) name nothing, so they record their span as parent: `${runId}:research:<id>` or `${runId}:evidence:<milestoneId>:capture`.
+
+Alternative: write a parent on every charge. Rejected: it adds a second path next to the read-time placement that old journals need anyway.
 
 ### D5. Names are joined at read time
 
@@ -69,9 +71,17 @@ Alternative: one usage record per turn end. Rejected: a crash mid-turn would los
 
 Alternative: write names into the journal. Rejected: it copies owner-authored text into metric records, which the observability spec forbids by default, and it does nothing for old runs.
 
-### D6. Folding legacy records into groups
+### D6. Placing charges and naming groups at read time
 
-At read time a usage record with no parent is placed under a synthetic group per run: `owner:*` under `Owner`, `room-planning:research:<id>` and a matching `room:<id>` under that research, anything else under `Unassigned`. Synthetic groups are marked so the detail panel shows coverage `aggregate` and no timing claim beyond the first and last charge.
+`runtime/trace-activity.ts` builds the tree from the bounded fold, so group costs cover the whole folded run, not only the loaded detail pages. A charge that names a parent goes there. Otherwise it is placed by source:
+
+- `owner:*` goes under one `Owner` group per run.
+- `room-planning:research:<id>` goes under that research. So does `room:<roomId>` when a research entry names that Room.
+- `dispatch:*:<id>` and `room-planning:dispatch:<milestoneId>` go under the milestone whose dispatch id matches. The group is labelled with the milestone title.
+- A `room:<id>` or `dispatch:*:<id>` with no match gets its own group, named from `blockedOn.title` or else the raw id.
+- Anything else goes under `Unassigned`.
+
+A real journal (FroggerNeon, 506 records) has 336 `dispatch:workflow:*` charges, so milestone grouping is the largest case, not an edge case. Operations the runtime opened under a milestone (`workflow:<m>:plan`, `evidence:<m>`, `planning:<m>:room-plan`) nest under that milestone's group. An operation id that starts again is one row with a retry count. A group's timing is its first and last charge. Its state comes from the record: the milestone status, or whether the research has saved findings. Detail pages carry each charge's `nodeId` and `label`, so the UI places leaf rows under the same nodes. The UI merges a node's aggregate charges into one row per kind of source (`room`, `owner`, `dispatch:workflow`, `capture`). Each aggregate charge is the rise in a running total that Sero read, so its time says when Sero checked, not when the work happened. FroggerNeon's research row goes from 63 children to 2 and its Owner row from 37 to 1. Charges with per-call detail keep their own rows.
 
 ### D7. Activity chips map operation kinds
 
@@ -83,7 +93,7 @@ Tiles: Elapsed, Active, Waiting, Attributable cost, Linked shared, Unknown cost.
 
 ### D9. Scope and Live
 
-The Scope selector lists `Project lifetime` then each run, newest first, defaulting to the newest run. Lifetime reads each run's summary checkpoint and the shared journal, then renders the prototype's runs table and cumulative chart; **Open** switches scope to that run. **Live** shows only for an open run. Paused stores the last page and ignores the spend-driven re-read until resumed. Live state is not persisted.
+The Scope selector lists `Project lifetime` then each run, newest first, defaulting to the newest run. Lifetime folds each run within the same 1,000-record bound as a run view (no runtime code writes summary checkpoints today) and the shared journal, then renders the prototype's runs table and cumulative chart; **Open** switches scope to that run. **Live** shows only for an open run. Paused stores the last page and ignores the spend-driven re-read until resumed. Live state is not persisted.
 
 ### D10. Charts without new dependencies
 
@@ -103,11 +113,32 @@ Alternative: move the charts into the left column under the timeline. Rejected: 
 
 Split to keep every source file under 500 LOC: `InspectorHeader`, `InspectorTotals`, `InspectorFilters`, `InspectorTimeline` (overview, ruler, tree), `InspectorDetail`, `InspectorCharts`, `InspectorLifetime`. Filter and expansion preferences stay in `useInspectorPreferences` on the host layout service.
 
+### Differences in the build
+
+- The wake id carries the wake kind (`<run>:owner-wake:<kind>:<id>`), so the row reads "Owner wake · your decision" without a second lookup. Older ids read "Owner wake".
+- The detail panel shows "Source" only for a charge or a merged spend row. An activity row shows its ID only when the label differs from it.
+- No "Linked shared" line under the timeline. The Linked shared tile carries that number once.
+- Project lifetime shows the unassigned amount as a tile, not as a runs table row.
+- Waiting reads `0s` when no waits were recorded, because the owner records every wait it starts.
+- Zoom in, Zoom out and Zoom to selection are icon buttons, where the prototype has text buttons. Each keeps its name as its accessible label and tooltip.
+- The detail panel heading stops at three lines. A research question can run to a paragraph and would push every fact below the fold.
+- A research row lists its Room members with their models and thinking levels, read from the saved research record.
+- Time ranges show dates when they cross a day (see the spec requirement on time ranges).
+- When a counter goes down after a session restart, the charge records no tokens and is marked `aggregate`, instead of tokens clamped at zero. A clamped zero would read as a measured zero.
+
+### D13. Delegated working time
+
+Active was the union of the operations the Architect times itself, so a run whose work happened in Rooms and Workflows read 1.5m over five days. The Orchestrator already keeps each Room's working time (`activeMs`, plus `activeSince` for the period open now) and each Workflow's summed step time (`usage.durationMs`). The Room view now publishes both Room fields. The Architect records the rise next to the cost rise and keeps a `countedActiveMs` baseline beside `chargedUsd`, so a re-read adds nothing. The trace fold places each rise as the time that ended at the reading, because that is all a reading says. Gaps between records are not read as idle or as work: a quiet gap can mean either. A Workflow's summed step time can exceed its wall clock when steps run in parallel, so each rise is clipped to start no earlier than the run's first record, and Active never exceeds Elapsed.
+
+Alternative: record Room and Workflow spans as operations. Rejected: the Architect sees only readings, not the start and end of each member turn or step, so the spans would be guesses.
+
 ## Risks / Trade-offs
 
 - [Owner charges read on every tool event produce many child rows under one wake] → The wake row is collapsed by default and its inclusive cost is the sum; children are the call detail.
+- [The first reading of a run dispatched before this change carries all its past working time at once] → It lands as one interval ending at that reading. The total is right; its place on the timeline is late.
+- [A merged spend row covers only the charges loaded so far] → Its parent's cost is the full fold. Load more adds the next page's charges to the same row.
 - [Name join reads the whole project record per query] → The record is already in memory in the runtime; the join is a map built once per query.
-- [Token deltas from cumulative counters can go negative after a session restart] → Clamp at zero and mark the charge `aggregate`, the same rule the cost delta uses.
+- [Token deltas from cumulative counters can go negative after a session restart] → Record no tokens for that charge and mark it `aggregate`.
 - [Removing help sentences hides the conservation rule] → The rule is enforced in the numbers and covered by tests; the spec keeps it.
 - [Visual drift from the prototype] → Task 6 captures the built screen at the same widths and states as `prototype/` and compares frame by frame.
 

@@ -9,6 +9,16 @@ The Run inspector SHALL match the Run inspector view of `apps/styleguide/public/
 - **WHEN** the built inspector and the prototype are captured at 1240 px and 960 px with the same run selected
 - **THEN** each region appears in the same order and position, with the prototype's help sentences absent
 
+#### Scenario: Zoom controls
+
+- **WHEN** the timeline shows its overview strip
+- **THEN** Zoom in, Zoom out and Zoom to selection are icon buttons, and each keeps its name as its accessible label and tooltip
+
+#### Scenario: A long activity name in the detail panel
+
+- **WHEN** the selected activity's name runs longer than three lines, such as a research question
+- **THEN** the panel heading shows its first three lines with the full name on hover, and the state chip stays on one line beside it
+
 #### Scenario: Few rows beside a tall detail panel
 
 - **WHEN** a filter leaves three timeline rows while the selected-activity panel shows model and token detail

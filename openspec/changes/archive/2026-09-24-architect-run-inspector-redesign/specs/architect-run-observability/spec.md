@@ -29,6 +29,43 @@ Each owner turn SHALL be recorded as one `owner-wake` operation with a start, an
 - **WHEN** a run's journal holds 100 owner charges with no wake operation
 - **THEN** the timeline shows one `Owner` row containing them, not 100 rows at the top level
 
+### Requirement: Running-total charges are one row
+
+Charges without per-call detail SHALL be shown as one row per kind of source under each activity, such as `Room spend` or `Owner spend`, because each one is only the rise in a running total that Sero read. The row SHALL show the number of updates, their total cost, and one bar from the first update to the last. Selecting it SHALL show the time span, the cost, the number of updates, the coverage and the source, or the number of sources when several were merged. A charge with per-call detail SHALL keep its own row. A kind of source with only one charge SHALL keep that charge's own row.
+
+#### Scenario: A Room's spend
+
+- **WHEN** a research activity holds one planning charge with per-call detail and 62 aggregate charges from its Room
+- **THEN** opening it shows two rows: the planning charge, and `Room spend` with `62 updates` and the sum of the 62 costs
+
+#### Scenario: Two owner sessions
+
+- **WHEN** the `Owner` group holds aggregate charges from two owner sessions
+- **THEN** it shows one `Owner spend` row, and its detail reads `Sources 2`
+
+### Requirement: Delegated work counts as active time
+
+When the Architect reads a Room's or Workflow's progress, it SHALL record the rise in that run's reported working time on the same journal line as the cost rise: a Room's banked working time plus the period open now, and a Workflow's summed step time. A rise in working time with no cost rise SHALL still be recorded, with a cost of zero, and SHALL NOT charge the budget. A reading that repeats the last figure SHALL record nothing. Active time SHALL count each recorded rise as work that ended when it was read, and SHALL count its overlap with other work once. A figure the run did not report SHALL NOT be recorded as zero.
+
+#### Scenario: A Workflow works without a cost rise
+
+- **WHEN** a Workflow's reported cost stays at $2 while its step time rises from 10 to 15 minutes
+- **THEN** the journal gains one line with cost $0 and 5 minutes of working time, and the budget does not change
+
+#### Scenario: Owner and Workflow overlap
+
+- **WHEN** an owner wake runs from minute 0 to minute 10 and a Workflow reports 20 minutes of work at minute 25
+- **THEN** Active reads 25 minutes, not 30
+
+### Requirement: Time ranges name their dates across days
+
+A time range in the inspector SHALL show only clock times when both ends fall on one day, and SHALL show the date at both ends when they do not.
+
+#### Scenario: A run open for five days
+
+- **WHEN** a run's first record is at 16 Sep 23:04 and its last at 21 Sep 22:28
+- **THEN** the Elapsed tile reads `119h 23m` over `16 Sep 23:04 → 21 Sep 22:28`
+
 ### Requirement: The inspector shows the run when it opens
 
 Opening the inspector SHALL read the selected run's summary and its first page of activity without further input. The first screen SHALL show the run's totals, timeline and charts, or a loading state while the read is in flight. Further pages SHALL be read only when the user asks for them from the end of the timeline. Reads SHALL stay bounded as the existing observability requirement states.
@@ -45,7 +82,7 @@ Opening the inspector SHALL read the selected run's summary and its first page o
 
 ### Requirement: Unmeasured values are not zero
 
-A value the sources did not measure SHALL read `unavailable`. A displayed `0` or `$0.00` SHALL mean a measured zero. A token total SHALL be `unavailable` when no charge in its scope reported tokens. A model or thinking level SHALL be `unavailable` when the operation's model was chosen by a delegate and not reported.
+A displayed `0` or `$0.00` SHALL mean a measured zero. In the totals and charts, a value the sources did not measure SHALL read `unavailable`, and a token total SHALL be `unavailable` when no charge in its scope reported tokens. In the selected-activity detail, a fact the sources did not record SHALL be left out, not shown as `unavailable` or zero. A research activity SHALL show its Room members' models and thinking levels as the project saved them.
 
 #### Scenario: Aggregate-only charges
 
@@ -55,7 +92,17 @@ A value the sources did not measure SHALL read `unavailable`. A displayed `0` or
 #### Scenario: Delegated Workflow step
 
 - **WHEN** the user selects a Workflow step whose model was chosen by the Orchestrator
-- **THEN** its model and thinking read `unavailable`
+- **THEN** the detail shows no model or thinking fact
+
+#### Scenario: Research Room members
+
+- **WHEN** the user selects a research activity whose Room members were saved with their models
+- **THEN** the detail lists each member's name, model and thinking level
+
+#### Scenario: A step nothing was charged to
+
+- **WHEN** the user selects an operation, such as `Workflow plan`, that no charge names or was placed under
+- **THEN** its cost reads `no charges recorded` once, and no model, attributable, inclusive, coverage, thinking or token facts are shown
 
 ### Requirement: One authoritative cost
 
