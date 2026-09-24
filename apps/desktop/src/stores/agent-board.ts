@@ -27,7 +27,8 @@ import {
   type OrchestratorBoardIndexView,
   type OrchestratorBoardRoomIndexView,
 } from '@sero-ai/common';
-import type { BoardColumnId, BoardLayoutState, WorkspaceBoardSlice } from '@/types/board';
+import type { BoardArchiveEntry, BoardColumnId, BoardLayoutState, WorkspaceBoardSlice } from '@/types/board';
+import type { BoardCard } from '@/components/apps/board/board-model';
 import { useAppStore } from '@/stores/app';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { persistLayout } from '@/lib/persist-layout';
@@ -53,6 +54,9 @@ interface AgentBoardState {
   diffStats: Record<string, { key: string; stat: GitDiffStat | null }>;
   collapsedColumns: BoardColumnId[];
   workspaceFilter: string | null;
+  archived: BoardArchiveEntry[];
+  deletedKeys: string[];
+  restoredKeys: string[];
 
   /** Attach the watchers only. The workspace tree calls this on mount. */
   startWatching: () => void;
@@ -65,6 +69,9 @@ interface AgentBoardState {
   fetchDiffStat: (checkoutPath: string, cacheKey: string) => void;
   toggleColumn: (column: BoardColumnId) => void;
   setWorkspaceFilter: (workspaceId: string | null) => void;
+  archiveCard: (card: BoardCard) => void;
+  restoreCard: (key: string) => void;
+  deleteArchived: (key: string) => void;
   hydrate: (layout: BoardLayoutState | undefined) => void;
 }
 
@@ -183,6 +190,9 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => {
     diffStats: {},
     collapsedColumns: [],
     workspaceFilter: null,
+    archived: [],
+    deletedKeys: [],
+    restoredKeys: [],
 
     startWatching: () => {
       if (!get().started) {
@@ -269,11 +279,49 @@ export const useAgentBoardStore = create<AgentBoardState>((set, get) => {
       persistLayout({ boardLayout: buildBoardLayout({ workspaceFilter: workspaceId }) });
     },
 
+    archiveCard: (card) => {
+      if (get().deletedKeys.includes(card.key) || get().archived.some((entry) => entry.key === card.key)) return;
+      const entry: BoardArchiveEntry = {
+        key: card.key,
+        kind: card.kind,
+        title: card.kind === 'issue' ? `#${card.issue.number} ${card.issue.title}`
+          : card.kind === 'loop' ? card.loop.title
+          : card.kind === 'room' ? card.room.title : card.title,
+        workspaceId: card.workspaceId,
+        workspaceName: card.workspaceName,
+        archivedAt: new Date().toISOString(),
+      };
+      const archived = [entry, ...get().archived];
+      set({ archived });
+      persistLayout({ boardLayout: buildBoardLayout({ archived }) });
+    },
+
+    restoreCard: (key) => {
+      const entry = get().archived.find((item) => item.key === key);
+      if (!entry || get().deletedKeys.includes(key)) return;
+      const archived = get().archived.filter((item) => item.key !== key);
+      const restoredKeys = [...new Set([...get().restoredKeys, key])];
+      set({ archived, restoredKeys });
+      persistLayout({ boardLayout: buildBoardLayout({ archived, restoredKeys }) });
+    },
+
+    deleteArchived: (key) => {
+      if (!get().archived.some((item) => item.key === key)) return;
+      const archived = get().archived.filter((item) => item.key !== key);
+      const deletedKeys = [...new Set([...get().deletedKeys, key])];
+      const restoredKeys = get().restoredKeys.filter((item) => item !== key);
+      set({ archived, deletedKeys, restoredKeys });
+      persistLayout({ boardLayout: buildBoardLayout({ archived, deletedKeys, restoredKeys }) });
+    },
+
     hydrate: (layout) => {
       if (!layout) return;
       set({
         collapsedColumns: layout.collapsedColumns ?? [],
         workspaceFilter: layout.workspaceFilter ?? null,
+        archived: Array.isArray(layout.archived) ? layout.archived : [],
+        deletedKeys: Array.isArray(layout.deletedKeys) ? layout.deletedKeys : [],
+        restoredKeys: Array.isArray(layout.restoredKeys) ? layout.restoredKeys : [],
       });
     },
   };
@@ -332,5 +380,8 @@ function buildBoardLayout(partial: Partial<BoardLayoutState>): BoardLayoutState 
     collapsedColumns: partial.collapsedColumns ?? state.collapsedColumns,
     workspaceFilter:
       partial.workspaceFilter !== undefined ? partial.workspaceFilter : state.workspaceFilter,
+    archived: partial.archived ?? state.archived,
+    deletedKeys: partial.deletedKeys ?? state.deletedKeys,
+    restoredKeys: partial.restoredKeys ?? state.restoredKeys,
   };
 }

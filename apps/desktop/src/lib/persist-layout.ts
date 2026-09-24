@@ -88,6 +88,9 @@ function buildLayoutState(partial: Partial<LayoutState>): LayoutState {
     boardLayout: partial.boardLayout ?? {
       collapsedColumns: useAgentBoardStore.getState().collapsedColumns,
       workspaceFilter: useAgentBoardStore.getState().workspaceFilter,
+      archived: useAgentBoardStore.getState().archived,
+      deletedKeys: useAgentBoardStore.getState().deletedKeys,
+      restoredKeys: useAgentBoardStore.getState().restoredKeys,
     },
   };
 }

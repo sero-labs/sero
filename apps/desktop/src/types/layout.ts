@@ -86,7 +86,7 @@ export interface LayoutState {
   hiddenProviders?: string[];
   /** Dashboard widget grid layout. */
   dashboardLayout?: DashboardLayoutState;
-  /** Agent Board preferences (collapsed columns, workspace filter). */
+  /** Agent Board preferences and board-only archive/deletion records. */
   boardLayout?: BoardLayoutState;
   /** Open browser tabs (restored on app start). */
   browserTabs?: PersistedBrowserTab[];

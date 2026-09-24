@@ -114,6 +114,13 @@ Sero starts with core built-in apps:
   live progress, branch and PR chips, and token/cost stats; questions and
   approvals can be answered directly on the card. Clicking a card jumps to the
   owning workspace.
+- Use a card's actions menu to archive it from any column. If work is running,
+  Sero warns you before hiding it. You can stop and archive a live session, or
+  open a Workflow or Room to stop it there. Archiving alone does not stop work.
+  The Archive tab lets you search, restore, or delete archived cards. Delete
+  removes only the card from Sero's board; it never deletes its source item.
+  Deleted cards stay off the board after refresh. Restore is available while
+  the source item can still appear on the board.
 - **Explorer** — the project workspace surface for files, editors, previews,
   diffs, and terminal-related work.
 

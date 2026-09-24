@@ -215,6 +215,30 @@ describe('buildBoardColumns', () => {
     expect(columns.done.map((c) => c.key)).toEqual(['ws1:loop:finished']);
   });
 
+  it('keeps archived and deleted source cards off the board after rebuilding it', () => {
+    const source = slice({ index: { loops: [loop({ id: 'running' })] }, issues: [issue({ number: 42 })] });
+    const hidden = new Set(['ws1:loop:running', 'ws1:issue:42']);
+    const columns = buildBoardColumns([WS], source, [], NOW, hidden);
+    expect(columns.active).toEqual([]);
+    expect(columns.backlog).toEqual([]);
+    expect(buildBoardColumns([WS], source, [], NOW).active.map((card) => card.key))
+      .toContain('ws1:loop:running');
+  });
+
+  it('restores a stopped session to Finished and keeps it visible beyond the normal cap', () => {
+    const completed = Array.from({ length: 31 }, (_, i) => loop({
+      id: `done-${i}`, status: 'complete', updatedAt: new Date(NOW - i * 60_000).toISOString(),
+    }));
+    const key = 'ws1:session:s1';
+    const columns = buildBoardColumns(
+      [WS], slice({ index: { loops: completed } }),
+      [{ sessionId: 's1', workspaceId: 'ws1', title: 'Stopped chat', streaming: false }],
+      NOW, new Set(), new Set([key, 'ws1:loop:done-30']),
+    );
+    expect(columns.done.map((card) => card.key)).toContain(key);
+    expect(columns.done.map((card) => card.key)).toContain('ws1:loop:done-30');
+  });
+
   it('links loop PRs to the issues they close and drops those issues from Backlog', () => {
     const columns = buildBoardColumns(
       [WS],
