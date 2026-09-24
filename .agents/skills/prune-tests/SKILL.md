@@ -1,6 +1,7 @@
 ---
 name: prune-tests
 description: Audit brittle or tautological tests and, when cleanup is authorized, delete or rewrite them around independently specified behavior.
+disable-model-invocation: true
 ---
 
 # Prune tests
