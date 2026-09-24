@@ -1,13 +1,9 @@
 import { ChevronRight, ChevronsLeft } from 'lucide-react';
 import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@sero-ai/ui';
 import type { ProjectRun } from '../../shared/record';
+import { runLabel } from '../lib/inspector-view';
 import { LIFETIME } from '../lib/use-inspector-trace';
 import { StateIcon } from './InspectorStatus';
-
-export function runLabel(run: Pick<ProjectRun, 'kind' | 'objectiveId'>): string {
-  if (run.kind === 'initial') return 'Initial delivery';
-  return run.objectiveId ? `Maintenance · ${run.objectiveId}` : 'Maintenance';
-}
 
 /** Project, the page title, Scope and Live: the only controls above the figures. */
 export function InspectorHeader({ name, runs, scope, onScope, live, onLive, onBack }: {

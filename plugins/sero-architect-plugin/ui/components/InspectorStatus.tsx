@@ -1,28 +1,6 @@
 import { Check, CircleHelp, CircleSlash, Pause, RefreshCw, X } from 'lucide-react';
-import type { ActivityGroup, ActivityState } from '../lib/trace';
-
-/** Every activity group, in the order the filter chips show them. */
-export const GROUP_LABEL: Record<ActivityGroup, string> = {
-  owner: 'Owner',
-  research: 'Research',
-  planning: 'Planning',
-  rooms: 'Rooms',
-  workflows: 'Workflows',
-  evaluation: 'Evaluation',
-  repair: 'Repair',
-  waits: 'Waits',
-  unassigned: 'Unassigned',
-};
-
-/** The word for a state. The icon beside it is decoration, so colour never carries it alone. */
-export const STATE_WORD: Record<ActivityState, string> = {
-  done: 'done',
-  running: 'running',
-  waiting: 'waiting',
-  failed: 'failed',
-  aborted: 'stopped',
-  unknown: 'unknown',
-};
+import { STATE_WORD } from '../lib/inspector-view';
+import type { ActivityState } from '../lib/trace';
 
 function HalfCircle() {
   return (

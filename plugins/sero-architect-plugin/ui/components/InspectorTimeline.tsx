@@ -1,7 +1,8 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { ChevronRight, Clock, Focus, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@sero-ai/ui';
-import { updatesLabel, type TreeRow } from '../lib/activity-tree';
+import type { TreeRow } from '../lib/activity-tree';
+import { rowText } from '../lib/inspector-view';
 import { dur, usd } from '../lib/inspector-format';
 import { barGeometry, isWhole, panRange, rowWindow, ticks, zoomRange, type TimeRange } from '../lib/timeline';
 import type { ActivityNodeView, TraceRecord } from '../lib/trace';
@@ -235,31 +236,34 @@ export function InspectorTimeline(props: {
   );
 }
 
-/** The kind in the grey detail, unless the label already says it or it is a group. */
-function kindWord(node: ActivityNodeView): string | null {
-  if (node.synthetic) return null;
-  const word = node.kind.replace(/-/g, ' ');
-  return node.label.toLowerCase().startsWith(word) ? null : word;
+/** The expand arrow. A leaf keeps the space but hides the control from assistive tech. */
+function Twisty({ row, label, onToggle }: { row: TreeRow; label: string; onToggle(id: string): void }) {
+  if (!row.hasChildren) {
+    return <span className="ar-tl-tw" data-leaf="true" aria-hidden="true"><ChevronRight aria-hidden="true" /></span>;
+  }
+  return (
+    <button type="button" className="ar-tl-tw" tabIndex={-1} aria-expanded={row.open} aria-label={`${row.open ? 'Collapse' : 'Expand'} ${label}`}
+      onClick={(event) => { event.stopPropagation(); onToggle(row.key); }}>
+      <ChevronRight aria-hidden="true" />
+    </button>
+  );
+}
+
+/** A row's bar: an interval, or a charge's single moment. Nothing when the row has no time. */
+function Bar({ row, range, full, state }: { row: TreeRow; range: TimeRange | null; full: TimeRange | null; state: string }) {
+  const span = range && full ? interval(row, full) : null;
+  if (!span || !range) return null;
+  const bar = barGeometry(range, span.from, span.to);
+  if (!bar) return null;
+  if (row.charge) return <span className="ar-bar" data-state={state} data-charge="true" style={{ left: `${bar.left}%` }} />;
+  return <span className="ar-bar" data-state={state} style={{ left: `${bar.left}%`, width: `${bar.width}%` }} />;
 }
 
 function Row({ row, top, range, full, selected, hit, onSelect, onToggle }: {
   row: TreeRow; top: number; range: TimeRange | null; full: TimeRange | null; selected: boolean; hit: boolean;
   onSelect(key: string): void; onToggle(id: string): void;
 }) {
-  const node = row.node;
-  const charge: TraceRecord | undefined = row.charge;
-  const updates = row.updates;
-  const label = node?.label ?? (updates ? updatesLabel(updates) : 'Usage');
-  const meta = node
-    ? [kindWord(node), node.model?.split('/').pop(), node.thinking].filter(Boolean).join(' · ')
-    : updates ? `${updates.records.length} updates`
-    : [charge?.model?.split('/').pop(), charge?.thinking].filter(Boolean).join(' · ');
-  const cost = node ? (node.costUsd === null ? '—' : usd(node.costUsd))
-    : updates ? usd(updates.costUsd)
-    : charge?.costUsd === undefined ? '—' : usd(charge.costUsd);
-  const span = range && full ? interval(row, full) : null;
-  const bar = span && range ? barGeometry(range, span.from, span.to) : null;
-  const state = node?.state ?? 'done';
+  const { label, meta, retries, cost, state } = rowText(row);
   return (
     <div
       id={`ar-row-${row.key}`}
@@ -274,18 +278,13 @@ function Row({ row, top, range, full, selected, hit, onSelect, onToggle }: {
       onClick={() => onSelect(row.key)}
     >
       <div className="ar-tl-label" style={{ paddingLeft: row.depth * 12 }}>
-        <button type="button" className="ar-tl-tw" tabIndex={-1} data-leaf={row.hasChildren ? undefined : 'true'}
-          aria-expanded={row.hasChildren ? row.open : undefined} aria-label={row.hasChildren ? `${row.open ? 'Collapse' : 'Expand'} ${label}` : undefined}
-          aria-hidden={row.hasChildren ? undefined : true}
-          onClick={(event) => { event.stopPropagation(); onToggle(row.key); }}>
-          <ChevronRight aria-hidden="true" />
-        </button>
+        <Twisty row={row} label={label} onToggle={onToggle} />
         <span className="ar-tl-st" data-state={state} title={state}><StateIcon state={state} /></span>
-        <span className="ar-tl-lbl" title={label}><b>{label}</b>{meta && <em>{meta}</em>}{node && node.retries > 0 && <em>{node.retries} {node.retries === 1 ? 'retry' : 'retries'}</em>}</span>
+        <span className="ar-tl-lbl" title={label}><b>{label}</b>{meta && <em>{meta}</em>}{retries && <em>{retries}</em>}</span>
       </div>
       <span className="ar-tl-cost">{cost}</span>
       <div className="ar-insp-track">
-        {bar && <span className="ar-bar" data-state={state} data-charge={charge ? 'true' : undefined} style={{ left: `${bar.left}%`, width: charge ? undefined : `${bar.width}%` }} />}
+        <Bar row={row} range={range} full={full} state={state} />
       </div>
     </div>
   );

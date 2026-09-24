@@ -3,8 +3,8 @@ import { Layers } from 'lucide-react';
 import { Button } from '@sero-ai/ui';
 import { dur, tokens as short, usd } from '../lib/inspector-format';
 import type { ActivityView, TokenSet } from '../lib/trace';
-import { TOKEN_COLOURS } from './InspectorDetail';
-import { GROUP_LABEL, StateLegend } from './InspectorStatus';
+import { GROUP_LABEL, TOKEN_COLOURS } from '../lib/inspector-view';
+import { StateLegend } from './InspectorStatus';
 import type { Highlight } from './InspectorTimeline';
 
 const BANDS = 8;

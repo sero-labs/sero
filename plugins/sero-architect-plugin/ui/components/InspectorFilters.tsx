@@ -3,7 +3,7 @@ import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue }
 import { filtersActive, NO_FILTERS, type TraceFilters } from '../lib/activity-tree';
 import { usd } from '../lib/inspector-format';
 import { ACTIVITY_GROUPS } from '../lib/trace';
-import { GROUP_LABEL } from './InspectorStatus';
+import { GROUP_LABEL } from '../lib/inspector-view';
 
 const ALL_MODELS = '__all__';
 
