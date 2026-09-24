@@ -253,6 +253,7 @@ export function toSummary(loop: Loop): LoopSummary {
     branchName: loop.runtime.workspace.resolved?.branchName,
     checkoutPath: loop.runtime.workspace.resolved?.cwd,
     pullRequests: toPullRequests(loop),
+    lastRunId: loop.runs.at(-1)?.id,
     lastRunAt: loop.runtime.lastRunAt,
     libraryLink: loop.libraryLink,
     createdAt: loop.createdAt,

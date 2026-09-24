@@ -171,6 +171,8 @@ export interface OrchestratorBoardLoopView extends OrchestratorScheduledLoopView
   checkoutPath?: string;
   /** Open PRs attributed to this loop. */
   pullRequests?: OrchestratorPullRequestView[];
+  /** Stable identity of the newest run. A recurring Workflow creates a new board card for each run. */
+  lastRunId?: string;
   lastRunAt?: string;
   createdAt?: string;
 }

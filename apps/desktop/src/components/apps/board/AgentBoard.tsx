@@ -5,7 +5,7 @@
  * events); the columns recompute on state change, never on a timer.
  */
 
-import { memo, useEffect, useMemo } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { domMax, LazyMotion, LayoutGroup, m } from 'motion/react';
 import { Columns3, RefreshCw } from 'lucide-react';
 import {
@@ -26,6 +26,7 @@ import {
   type BoardWorkspace,
 } from './board-model';
 import { BoardColumn } from './BoardColumn';
+import { BoardArchive } from './BoardArchive';
 import { COLUMN_ORDER } from './board-constants';
 
 export const AgentBoard = memo(function AgentBoard() {
@@ -33,6 +34,9 @@ export const AgentBoard = memo(function AgentBoard() {
   const slices = useAgentBoardStore((s) => s.slices);
   const collapsedColumns = useAgentBoardStore((s) => s.collapsedColumns);
   const workspaceFilter = useAgentBoardStore((s) => s.workspaceFilter);
+  const archived = useAgentBoardStore((s) => s.archived);
+  const deletedKeys = useAgentBoardStore((s) => s.deletedKeys);
+  const restoredKeys = useAgentBoardStore((s) => s.restoredKeys);
   const setWorkspaceFilter = useAgentBoardStore((s) => s.setWorkspaceFilter);
   const refreshIssues = useAgentBoardStore((s) => s.refreshIssues);
   const refreshingIssues = useAgentBoardStore((s) => s.refreshingIssues);
@@ -40,6 +44,7 @@ export const AgentBoard = memo(function AgentBoard() {
   const sessions = useSessionStore((s) => s.sessions);
   const streamingSessionIds = useStreamingSessionIds();
   const agents = useAgentStore((s) => s.agents);
+  const [view, setView] = useState<'board' | 'archive'>('board');
 
   useEffect(() => {
     start();
@@ -54,29 +59,41 @@ export const AgentBoard = memo(function AgentBoard() {
       ),
     [workspaces, workspaceFilter],
   );
+  const restoredKeySet = useMemo(() => new Set(restoredKeys), [restoredKeys]);
 
-  const liveSessions = useMemo<BoardSession[]>(() => {
-    return streamingSessionIds.map((sessionId) => {
+  const boardSessions = useMemo<BoardSession[]>(() => {
+    const streaming = new Set(streamingSessionIds);
+    const ids = new Set(streaming);
+    const sessionsById = new Map(sessions.map((session) => [session.id, session]));
+    for (const session of sessions) {
+      if (restoredKeySet.has(`${session.workspaceId}:session:${session.id}`)) ids.add(session.id);
+    }
+    return [...ids].map((sessionId) => {
       const agent = agents[sessionId];
-      const info = sessions.find((s) => s.id === sessionId);
+      const info = sessionsById.get(sessionId);
       return {
         sessionId,
         workspaceId: agent?.workspaceId ?? info?.workspaceId ?? 'global',
         title: info?.name ?? info?.firstMessage ?? 'Live session',
-        streaming: true,
+        streaming: streaming.has(sessionId),
       };
-    });
-  }, [streamingSessionIds, agents, sessions]);
+    }).filter((session) => !workspaceFilter || session.workspaceId === workspaceFilter);
+  }, [streamingSessionIds, restoredKeySet, agents, sessions, workspaceFilter]);
 
   // No timers on the board: the clock advances only when board data changes,
   // which is exactly when ages can change meaning. A stable value between data
   // changes also keeps the memoized columns/cards from re-rendering for free.
   // eslint-disable-next-line react-hooks/exhaustive-deps -- data deps deliberately drive the clock
-  const nowMs = useMemo(() => Date.now(), [boardWorkspaces, slices, liveSessions]);
+  const nowMs = useMemo(() => Date.now(), [boardWorkspaces, slices, boardSessions]);
+
+  const hiddenKeys = useMemo(
+    () => new Set([...archived.map((entry) => entry.key), ...deletedKeys]),
+    [archived, deletedKeys],
+  );
 
   const columns = useMemo(
-    () => buildBoardColumns(boardWorkspaces, slices, liveSessions, nowMs),
-    [boardWorkspaces, slices, liveSessions, nowMs],
+    () => buildBoardColumns(boardWorkspaces, slices, boardSessions, nowMs, hiddenKeys, restoredKeySet),
+    [boardWorkspaces, slices, boardSessions, nowMs, hiddenKeys, restoredKeySet],
   );
 
   const runningCount = columns.active.length;
@@ -110,8 +127,10 @@ export const AgentBoard = memo(function AgentBoard() {
               Agent Board
             </h1>
             <p className="text-xs text-[var(--text-muted)]">
-              {runningCount > 0 ? `${runningCount} running` : 'Nothing running'}
-              {attentionCount > 0 ? ` · ${attentionCount} need${attentionCount === 1 ? 's' : ''} you` : ''}
+              {view === 'archive' ? `${archived.length} archived tasks` : <>
+                {runningCount > 0 ? `${runningCount} running` : 'Nothing running'}
+                {attentionCount > 0 ? ` · ${attentionCount} need${attentionCount === 1 ? 's' : ''} you` : ''}
+              </>}
             </p>
           </div>
         </m.div>
@@ -124,18 +143,37 @@ export const AgentBoard = memo(function AgentBoard() {
             selected={workspaceFilter}
             onSelect={setWorkspaceFilter}
           />
-          <button
+          {view === 'board' && <button
             type="button"
             onClick={() => void refreshIssues()}
             title="Refresh GitHub issues and pull requests"
             className="flex size-7 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-overlay)] hover:text-[var(--text-primary)]"
           >
             <RefreshCw className={`size-3.5 ${refreshingIssues ? 'animate-spin' : ''}`} />
-          </button>
+          </button>}
         </div>
       </header>
 
-      <div className="relative z-10 min-h-0 flex-1 overflow-x-auto px-4 pb-4">
+      <div role="tablist" aria-label="Agent Board views" className="relative z-10 flex gap-1 border-b border-[var(--border-subtle)] px-5">
+        {(['board', 'archive'] as const).map((tab) => (
+          <button key={tab} type="button" role="tab" id={`${tab}-tab`}
+            aria-selected={view === tab} aria-controls={`${tab}-panel`}
+            tabIndex={view === tab ? 0 : -1}
+            onClick={() => setView(tab)}
+            onKeyDown={(event) => {
+              if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+                event.preventDefault();
+                const next = tab === 'board' ? 'archive' : 'board';
+                setView(next);
+                document.getElementById(`${next}-tab`)?.focus();
+              }
+            }}
+            className={`border-b-2 px-3 py-2 text-xs font-semibold capitalize ${view === tab ? 'border-brand-primary text-brand-primary' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
+          >{tab}{tab === 'archive' && archived.length > 0 ? ` (${archived.length})` : ''}</button>
+        ))}
+      </div>
+
+      <div id="board-panel" role="tabpanel" aria-labelledby="board-tab" hidden={view !== 'board'} className="relative z-10 min-h-0 flex-1 overflow-x-auto px-4 pb-4 pt-3">
         <LayoutGroup>
           <div className="grid h-full min-w-[880px] grid-cols-4 gap-3">
             {COLUMN_ORDER.map((columnId, index) => (
@@ -151,6 +189,8 @@ export const AgentBoard = memo(function AgentBoard() {
           </div>
         </LayoutGroup>
       </div>
+      <BoardArchive active={view === 'archive'} workspaceFilter={workspaceFilter}
+        workspaces={boardWorkspaces} sessions={sessions} slices={slices} />
       </div>
     </LazyMotion>
   );

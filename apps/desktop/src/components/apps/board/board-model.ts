@@ -11,6 +11,7 @@ import type {
   OrchestratorBoardRoomView,
 } from '@sero-ai/common';
 import type { BoardColumnId, WorkspaceBoardSlice } from '@/types/board';
+import { COLUMN_ORDER } from './board-constants';
 
 export interface BoardWorkspace {
   id: string;
@@ -67,11 +68,19 @@ export interface BoardSessionCard {
   workspaceName: string;
   sessionId: string;
   title: string;
+  streaming: boolean;
 }
 
 export type BoardCard = BoardLoopCard | BoardIssueCard | BoardSessionCard | BoardRoomCard;
 
 export type BoardColumns = Record<BoardColumnId, BoardCard[]>;
+
+/** Board identity belongs to the current run, not the recurring Workflow. */
+export function loopCardKey(workspaceId: string, loop: OrchestratorBoardLoopView): string {
+  const instance = loop.lastRunId ? `run:${loop.lastRunId}`
+    : loop.lastRunAt ? `started:${loop.lastRunAt}` : 'before-first-run';
+  return `${workspaceId}:loop:${loop.id}:${instance}`;
+}
 
 /** Finished stays bounded — most recent first. */
 const FINISHED_CARD_CAP = 30;
@@ -150,7 +159,7 @@ function toLoopCard(
   );
   const card: BoardLoopCard = {
     kind: 'loop',
-    key: `${workspace.id}:loop:${loop.id}`,
+    key: loopCardKey(workspace.id, loop),
     workspaceId: workspace.id,
     workspaceName: workspace.name,
     loop,
@@ -207,6 +216,8 @@ export function buildBoardColumns(
   slices: Record<string, WorkspaceBoardSlice | undefined>,
   sessions: BoardSession[],
   nowMs: number,
+  hiddenKeys: ReadonlySet<string> = new Set(),
+  restoredKeys: ReadonlySet<string> = new Set(),
 ): BoardColumns {
   const columns: BoardColumns = { backlog: [], active: [], attention: [], done: [] };
   const workspaceById = new Map(workspaces.map((ws) => [ws.id, ws]));
@@ -251,18 +262,21 @@ export function buildBoardColumns(
   }
 
   for (const session of sessions) {
-    if (!session.streaming) continue;
+    const key = `${session.workspaceId}:session:${session.sessionId}`;
+    if (!session.streaming && !restoredKeys.has(key)) continue;
     const workspace = workspaceById.get(session.workspaceId);
-    columns.active.push({
+    columns[session.streaming ? 'active' : 'done'].push({
       kind: 'session',
-      key: `${session.workspaceId}:session:${session.sessionId}`,
+      key,
       workspaceId: session.workspaceId,
       workspaceName: workspace?.name ?? session.workspaceId,
       sessionId: session.sessionId,
       title: session.title,
+      streaming: session.streaming,
     });
   }
 
+  for (const id of COLUMN_ORDER) columns[id] = columns[id].filter((card) => !hiddenKeys.has(card.key));
   columns.attention.sort(byUpdatedAtDesc);
   columns.active.sort(byUpdatedAtDesc);
   columns.backlog.sort((a, b) => {
@@ -270,7 +284,10 @@ export function buildBoardColumns(
     return order !== 0 ? order : byUpdatedAtDesc(a, b);
   });
   columns.done.sort(byUpdatedAtDesc);
-  columns.done = columns.done.slice(0, FINISHED_CARD_CAP);
+  // Restored cards stay visible even when the ordinary Finished cap is full.
+  const restored = columns.done.filter((card) => restoredKeys.has(card.key));
+  columns.done = [...restored, ...columns.done.filter((card) => !restoredKeys.has(card.key))
+    .slice(0, Math.max(0, FINISHED_CARD_CAP - restored.length))];
 
   return columns;
 }

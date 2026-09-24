@@ -38,6 +38,7 @@ import {
   type BoardSessionCard,
 } from './board-model';
 import { BoardCardActions } from './BoardCardActions';
+import { BoardCardArchiveAction } from './BoardCardArchiveAction';
 
 const COLUMN_ACCENT: Record<BoardColumnId, string> = {
   backlog: 'var(--text-muted)',
@@ -106,6 +107,7 @@ function LoopCardBody({
           {loop.title}
         </h3>
         <OpenCardButton card={card} />
+        <BoardCardArchiveAction card={card} onOpen={() => openCard(card)} />
         <span className="shrink-0 text-xs tabular-nums text-[var(--text-muted)]">
           {formatAge(loop.updatedAt, nowMs)}
         </span>
@@ -219,6 +221,7 @@ function IssueCardBody({ card, nowMs }: { card: BoardIssueCard; nowMs: number })
           {issue.title}
         </h3>
         <OpenCardButton card={card} />
+        <BoardCardArchiveAction card={card} onOpen={() => openCard(card)} />
         <span className="shrink-0 text-xs tabular-nums text-[var(--text-muted)]">
           {formatAge(issue.updatedAt, nowMs)}
         </span>
@@ -247,14 +250,18 @@ function SessionCardBody({ card }: { card: BoardSessionCard }) {
   return (
     <>
       <div className="flex items-start gap-2">
-        <PulsingDot tone="var(--status-success)" />
+        {card.streaming ? <PulsingDot tone="var(--status-success)" /> : <MessageSquare className="mt-0.5 size-3.5 shrink-0 text-[var(--text-muted)]" />}
         <h3 className="min-w-0 flex-1 truncate text-base font-medium leading-snug text-[var(--text-primary)]">
           {card.title}
         </h3>
         <MessageSquare className="size-3.5 shrink-0 text-[var(--text-muted)]" />
+        <OpenCardButton card={card} />
+        <BoardCardArchiveAction card={card} onOpen={() => openCard(card)} />
       </div>
       <WorkspaceLine name={card.workspaceName} />
-      <p className="text-xs text-status-success">Live session — responding…</p>
+      <p className={`text-xs ${card.streaming ? 'text-status-success' : 'text-[var(--text-muted)]'}`}>
+        {card.streaming ? 'Live session — responding…' : 'Session stopped'}
+      </p>
     </>
   );
 }
@@ -278,6 +285,7 @@ function RoomCardBody({ card, nowMs }: { card: BoardRoomCard; nowMs: number }) {
           {room.title}
         </h3>
         <OpenCardButton card={card} />
+        <BoardCardArchiveAction card={card} onOpen={() => openCard(card)} />
         <span className="shrink-0 text-xs tabular-nums text-[var(--text-muted)]">
           {formatAge(room.updatedAt, nowMs)}
         </span>
@@ -385,7 +393,7 @@ const OPEN_LABEL: Record<BoardCardModel['kind'], string> = {
   session: 'Open session',
 };
 
-function OpenCardButton({ card }: { card: BoardLoopCard | BoardIssueCard | BoardRoomCard }) {
+function OpenCardButton({ card }: { card: BoardCardModel }) {
   const label = OPEN_LABEL[card.kind];
   return (
     <button

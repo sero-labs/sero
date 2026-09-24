@@ -12,11 +12,26 @@ import type {
 
 export type BoardColumnId = 'backlog' | 'active' | 'attention' | 'done';
 
-/** Board preferences persisted via layout.json (never localStorage). */
+/** A board-only record. It never owns or deletes the source item. */
+export interface BoardArchiveEntry {
+  key: string;
+  kind: 'loop' | 'room' | 'issue' | 'session';
+  title: string;
+  workspaceId: string;
+  workspaceName: string;
+  archivedAt: string;
+}
+
+/** Board state persisted via layout.json (never localStorage). */
 export interface BoardLayoutState {
   collapsedColumns?: BoardColumnId[];
   /** Workspace id to filter to; absent/null = all workspaces. */
   workspaceFilter?: string | null;
+  archived?: BoardArchiveEntry[];
+  /** Permanent board suppression, including cards that later reappear in source data. */
+  deletedKeys?: string[];
+  /** Restored cards remain visible past the usual Finished cap; stopped sessions appear there. */
+  restoredKeys?: string[];
 }
 
 /** Everything the board aggregates for one workspace (all push/watched or on-demand). */

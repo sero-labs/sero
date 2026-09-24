@@ -127,7 +127,7 @@ describe('loop store persistence', () => {
     expect(touched).toContain('index.json'); // status changed → index refreshed
   });
 
-  it('writes a new run to its own file without rewriting loop.json or the index', async () => {
+  it('writes a new run to its own file without rewriting loop.json', async () => {
     const store = createLoopStore(makeCtx());
     await store.updateState((s) => ({ ...s, loops: [loopFixture('loop-a')] }));
     writes = [];
@@ -140,7 +140,8 @@ describe('loop store persistence', () => {
     expect(touched).toContain('loops/loop-a/runs/run-1.json'); // the run lands in its own file
     expect(touched).toContain('loops/loop-a/runs/index.json'); // run index refreshed
     expect(touched).not.toContain('loops/loop-a/loop.json'); // config/runtime unchanged → not rewritten
-    expect(touched).not.toContain('index.json'); // summary unchanged
+    // The newest run id is part of the loop summary, so the board index refreshes with it.
+    expect(touched).toContain('index.json');
   });
 
   it('keeps the title a finished run ran under when the plan is revised and the index is rebuilt', async () => {

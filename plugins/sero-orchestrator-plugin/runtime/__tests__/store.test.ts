@@ -242,6 +242,7 @@ describe('board enrichment (Agent Board index view)', () => {
     expect(summary.checkoutPath).toBe('/ws/.sero/worktrees/loop-a');
     expect(summary.pullRequests).toEqual([{ number: 7, url: 'https://github.com/o/r/pull/7', title: 'Fix' }]);
     expect(summary.lastRunAt).toBe('2026-07-18T11:00:00Z');
+    expect(summary.lastRunId).toBe('r2');
   });
 
   it('omits every board field when the loop has no runs or workspace context', () => {
