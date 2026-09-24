@@ -3,7 +3,7 @@ import { Search } from 'lucide-react';
 import type { SeroSessionInfo } from '@/types/ipc';
 import type { BoardArchiveEntry, WorkspaceBoardSlice } from '@/types/board';
 import { useAgentBoardStore } from '@/stores/agent-board';
-import { isUnclaimedIssue, loopCardKey } from './board-model';
+import { buildBoardColumns, loopCardKey, type BoardWorkspace } from './board-model';
 import {
   AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -14,6 +14,7 @@ function sourceAvailable(
   entry: BoardArchiveEntry,
   slices: Record<string, WorkspaceBoardSlice>,
   sessions: SeroSessionInfo[],
+  availableIssueKeys: ReadonlySet<string>,
 ): boolean {
   if (entry.kind === 'session') {
     return sessions.some((session) => `${session.workspaceId}:session:${session.id}` === entry.key);
@@ -27,8 +28,7 @@ function sourceAvailable(
   if (entry.kind === 'room') {
     return slice.rooms?.rooms.some((room) => `${entry.workspaceId}:room:${room.id}` === entry.key) ?? false;
   }
-  return slice.issues.some((issue) => `${entry.workspaceId}:issue:${issue.number}` === entry.key
-    && isUnclaimedIssue(issue, slice.openPrs));
+  return availableIssueKeys.has(entry.key);
 }
 
 const KIND_LABEL: Record<BoardArchiveEntry['kind'], string> = {
@@ -36,10 +36,11 @@ const KIND_LABEL: Record<BoardArchiveEntry['kind'], string> = {
 };
 
 export function BoardArchive({
-  active, workspaceFilter, slices, sessions,
+  active, workspaceFilter, workspaces, slices, sessions,
 }: {
   active: boolean;
   workspaceFilter: string | null;
+  workspaces: BoardWorkspace[];
   slices: Record<string, WorkspaceBoardSlice>;
   sessions: SeroSessionInfo[];
 }) {
@@ -48,6 +49,10 @@ export function BoardArchive({
   const deleteArchived = useAgentBoardStore((s) => s.deleteArchived);
   const [query, setQuery] = useState('');
   const [deleteKey, setDeleteKey] = useState<string | null>(null);
+  const availableIssueKeys = useMemo(() => new Set(active
+    ? buildBoardColumns(workspaces, slices, [], Date.now()).backlog
+      .filter((card) => card.kind === 'issue').map((card) => card.key)
+    : []), [active, workspaces, slices]);
   const target = archived.find((entry) => entry.key === deleteKey);
   const filtered = useMemo(() => archived.filter((entry) =>
     (!workspaceFilter || entry.workspaceId === workspaceFilter)
@@ -73,7 +78,7 @@ export function BoardArchive({
     </div>
     <div className="flex max-w-4xl flex-col gap-2">
       {filtered.map((entry) => {
-        const canRestore = sourceAvailable(entry, slices, sessions);
+        const canRestore = sourceAvailable(entry, slices, sessions, availableIssueKeys);
         return <article key={entry.key} className="flex flex-wrap items-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2.5">
           <div className="min-w-48 flex-1">
             <h3 className="text-sm font-medium text-[var(--text-primary)]">{entry.title}</h3>

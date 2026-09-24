@@ -59,23 +59,26 @@ export const AgentBoard = memo(function AgentBoard() {
       ),
     [workspaces, workspaceFilter],
   );
+  const restoredKeySet = useMemo(() => new Set(restoredKeys), [restoredKeys]);
 
   const boardSessions = useMemo<BoardSession[]>(() => {
-    const ids = new Set(streamingSessionIds);
+    const streaming = new Set(streamingSessionIds);
+    const ids = new Set(streaming);
+    const sessionsById = new Map(sessions.map((session) => [session.id, session]));
     for (const session of sessions) {
-      if (restoredKeys.includes(`${session.workspaceId}:session:${session.id}`)) ids.add(session.id);
+      if (restoredKeySet.has(`${session.workspaceId}:session:${session.id}`)) ids.add(session.id);
     }
     return [...ids].map((sessionId) => {
       const agent = agents[sessionId];
-      const info = sessions.find((s) => s.id === sessionId);
+      const info = sessionsById.get(sessionId);
       return {
         sessionId,
         workspaceId: agent?.workspaceId ?? info?.workspaceId ?? 'global',
         title: info?.name ?? info?.firstMessage ?? 'Live session',
-        streaming: streamingSessionIds.includes(sessionId),
+        streaming: streaming.has(sessionId),
       };
     }).filter((session) => !workspaceFilter || session.workspaceId === workspaceFilter);
-  }, [streamingSessionIds, restoredKeys, agents, sessions, workspaceFilter]);
+  }, [streamingSessionIds, restoredKeySet, agents, sessions, workspaceFilter]);
 
   // No timers on the board: the clock advances only when board data changes,
   // which is exactly when ages can change meaning. A stable value between data
@@ -87,7 +90,6 @@ export const AgentBoard = memo(function AgentBoard() {
     () => new Set([...archived.map((entry) => entry.key), ...deletedKeys]),
     [archived, deletedKeys],
   );
-  const restoredKeySet = useMemo(() => new Set(restoredKeys), [restoredKeys]);
 
   const columns = useMemo(
     () => buildBoardColumns(boardWorkspaces, slices, boardSessions, nowMs, hiddenKeys, restoredKeySet),
@@ -187,7 +189,8 @@ export const AgentBoard = memo(function AgentBoard() {
           </div>
         </LayoutGroup>
       </div>
-      <BoardArchive active={view === 'archive'} workspaceFilter={workspaceFilter} sessions={sessions} slices={slices} />
+      <BoardArchive active={view === 'archive'} workspaceFilter={workspaceFilter}
+        workspaces={boardWorkspaces} sessions={sessions} slices={slices} />
       </div>
     </LazyMotion>
   );

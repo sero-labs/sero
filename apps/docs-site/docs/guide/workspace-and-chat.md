@@ -117,6 +117,7 @@ Sero starts with core built-in apps:
 - Use a card's actions menu to archive it from any column. If work is running,
   Sero warns you before hiding it. You can stop and archive a live session, or
   open a Workflow or Room to stop it there. Archiving alone does not stop work.
+  Archived work stays off the board even if that run or Room later needs your input.
   The Archive tab lets you search, restore, or delete archived cards. Delete
   removes only the card from Sero's board; it never deletes its source item.
   Deleted cards stay off the board after refresh. Restore is available while
