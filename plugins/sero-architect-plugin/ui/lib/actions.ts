@@ -18,7 +18,7 @@ export interface ModelChoice {
   model: string;
   thinking?: ThinkingLevel;
 }
-import { readTracePage, type TracePage } from './trace';
+import { readLifetime, readTracePage, type LifetimeView, type TracePage } from './trace';
 
 export interface ActionOutcome {
   ok: boolean;
@@ -57,6 +57,10 @@ export interface TraceRequest {
 
 export interface TraceOutcome extends ActionOutcome {
   page: TracePage | null;
+}
+
+export interface LifetimeOutcome extends ActionOutcome {
+  lifetime: LifetimeView | null;
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
@@ -101,6 +105,7 @@ export interface ArchitectActions {
   create(input: CreateProjectInput): Promise<ActionOutcome>;
   history(projectId: string): Promise<SessionHistoryOutcome>;
   trace(projectId: string, query: TraceRequest): Promise<TraceOutcome>;
+  lifetime(projectId: string, knownSpendUsd: number): Promise<LifetimeOutcome>;
   pause(projectId: string): Promise<ActionOutcome>;
   resume(projectId: string): Promise<ActionOutcome>;
   retry(projectId: string, milestoneId: string, maxCostUsd?: number): Promise<ActionOutcome>;
@@ -159,6 +164,14 @@ export function useArchitectActions(): ArchitectActions {
           return { ...toOutcome(result), page: readTracePage(result) };
         } catch (error) {
           return { ok: false, text: error instanceof Error ? error.message : String(error), page: null };
+        }
+      },
+      lifetime: async (projectId, knownSpendUsd) => {
+        try {
+          const result = await run(PROJECTS_TOOL, { action: 'trace', projectId, runId: 'lifetime', knownSpendUsd });
+          return { ...toOutcome(result), lifetime: readLifetime(result) };
+        } catch (error) {
+          return { ok: false, text: error instanceof Error ? error.message : String(error), lifetime: null };
         }
       },
       pause: (projectId) => call({ action: 'pause', projectId }),      resume: (projectId) => call({ action: 'resume', projectId }),

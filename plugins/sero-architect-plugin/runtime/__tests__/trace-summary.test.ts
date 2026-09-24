@@ -116,6 +116,15 @@ describe('timing counts overlap once', () => {
     expect(timing.workerMs).toBe(20 * 60_000);
   });
 
+  it('counts the working time a Room or Workflow reported, and its overlap with the owner once', () => {
+    const records: JournalRecord[] = [
+      start('wake', T(0), { operationKind: 'owner-wake' }), end('wake', T(10)),
+      // Twenty minutes reported at minute 25: minutes 5 to 25, five of them shared with the wake.
+      { v: 1, seq: 9, at: T(25), kind: 'usage', source: 'dispatch:workflow:l', costUsd: 0.5, coverage: 'aggregate', activeMs: 20 * 60_000 },
+    ];
+    expect(summarizeTiming(records).activeMs).toBe(25 * 60_000);
+  });
+
   it('does not fill a parent interval across its children gaps', () => {
     const records = [
       start('workflow', T(0), { operationKind: 'workflow' }), end('workflow', T(60)),
@@ -197,11 +206,32 @@ describe('summary shape', () => {
   it('returns the empty totals for no records', () => {
     const summary = summarizeTrace([], { projectId: 'p', runId: 'r' });
     const expected: TraceTotals = {
-      attributableUsd: 0, aggregateUsd: 0, hasAggregate: false, incomplete: false,
+      attributableUsd: 0, aggregateUsd: 0, hasAggregate: false, unpricedCharges: 0, tokensMeasured: false, incomplete: false,
       requests: 0, toolCalls: 0, retries: 0, compactions: 0, errors: 0,
       inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0,
     };
     expect(summary).toEqual({ ...expected, projectId: 'p', runId: 'r', records: 0 });
+  });
+
+  it('counts an operation with charges under it as active, because a charge is not a child operation', () => {
+    const records: JournalRecord[] = [
+      { v: 1, seq: 1, at: '2026-09-16T10:00:00.000Z', kind: 'observation', recordKind: 'operation-start', operationId: 'wake', operationKind: 'owner-wake' },
+      { v: 1, seq: 2, at: '2026-09-16T10:01:00.000Z', kind: 'usage', source: 'owner:s', costUsd: 0.1, coverage: 'call', parentOperationId: 'wake' },
+      { v: 1, seq: 3, at: '2026-09-16T10:03:00.000Z', kind: 'observation', recordKind: 'operation-end', operationId: 'wake', outcome: 'ok' },
+    ];
+    expect(summarizeTiming(records).activeMs).toBe(180_000);
+  });
+
+  it('reports an all-aggregate run as unmeasured tokens with the whole cost aggregate', () => {
+    const records: JournalRecord[] = [
+      { v: 1, seq: 1, at: 't', kind: 'usage', source: 'owner:s', costUsd: 0.25, coverage: 'aggregate' },
+      { v: 1, seq: 2, at: 't', kind: 'usage', source: 'dispatch:workflow:l', costUsd: 0.5, coverage: 'aggregate' },
+      { v: 1, seq: 3, at: 't', kind: 'usage', source: 'dispatch:workflow:l', coverage: 'aggregate' },
+    ];
+    const summary = summarizeTrace(records, { projectId: 'p', runId: 'r' });
+    expect(summary.tokensMeasured).toBe(false);
+    expect(summary.aggregateUsd).toBeCloseTo(summary.attributableUsd);
+    expect(summary.unpricedCharges).toBe(1);
   });
 
   it('shows a non-zero reconciliation when the trace and budget disagree', () => {

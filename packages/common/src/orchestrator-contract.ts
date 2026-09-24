@@ -220,6 +220,13 @@ export interface OrchestratorBoardRoomView {
   activeMemberCount: number;
   costUsd: number;
   maxCostUsd: number;
+  /**
+   * Working time banked so far, and the start of the working period open now
+   * (null when none is). Together they give the Room's working time at any
+   * instant. Absent on a Room recorded before working time was kept.
+   */
+  activeMs?: number;
+  activeSince?: string | null;
   startedAt: string | null;
   updatedAt: string;
   /** Open approvals plus a Room stopped waiting for one. */

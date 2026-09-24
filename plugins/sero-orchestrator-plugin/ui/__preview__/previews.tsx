@@ -14,6 +14,7 @@ import { LoopEndingPreview, MemberInfoPreview, RoomResultPreview } from './read-
 import { AttemptHistoryPreview, RoomActivityPreview } from './history-comparison-fixture';
 import { CatalogPreview, RoomBriefPreview, RoomPlanningPreview, RoomProposalPreview } from './start-something-fixture';
 import { StepTunePreview } from './model-picker-fixture';
+import { LiveActivityStrip } from '../components/LiveActivityStrip';
 
 export interface Preview {
   id: string;
@@ -35,6 +36,18 @@ export const PREVIEWS: Preview[] = [
     width: 1160,
     render: () => <PlanMap loop={previewLoop} stepsPerRow={stepsPerRow} />,
   })),
+  {
+    id: 'live-activity',
+    title: 'A running Workflow · the live strip',
+    note: 'Laid out like the Architect project header: what is running on the left, the run figures in a side panel on the right. Below 720 px the panel moves under the text.',
+    width: 1160,
+    render: () => (
+      <LiveActivityStrip
+        loop={{ ...previewLoop, runtime: { ...previewLoop.runtime, activeRunId: 'run-1', lastRunAt: new Date(Date.now() - 14_000).toISOString() } }}
+        runIndex={{ version: 1, runs: [{ id: 'run-1', runNumber: 1, status: 'running', startedAt: new Date(Date.now() - 14_000).toISOString(), steps: [], recoveries: [], usage: { inputTokens: 70_000, outputTokens: 7_845, totalTokens: 77_845, costUsd: 0.0103 } }] }}
+      />
+    ),
+  },
   {
     id: 'home',
     title: 'Home · status line, then what needs you',

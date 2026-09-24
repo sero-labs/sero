@@ -1,5 +1,6 @@
 import { activeRun } from '../shared/runs';
-import { recordCharge } from './project-usage';
+import { recordCharge, tokenDelta, type TokenCounters } from './project-usage';
+import type { SpanRecorder } from './spans';
 import type { RunJournal } from './run-journal';
 /**
  * The owner session: one host-managed persistent session per project, opened
@@ -120,6 +121,8 @@ export function ownerSessionRequest(record: ProjectRecord, operation: Persistent
 
 export interface OwnerSessionDeps {
   journal?: RunJournal;
+  /** Records each owner turn as an `owner-wake` operation. Absent means no spans. */
+  spans?: SpanRecorder;
   host: ArchitectHost;
   store: RecordStore;
   outcomes: TurnOutcomes;
@@ -147,6 +150,13 @@ export class OwnerSessions {
    * opening its session is not lost before the waiter exists.
    */
   private readonly disposals = new Map<string, number>();
+  /**
+   * The last token counters read from each session. Counters are cumulative,
+   * so a charge's tokens are the difference from the previous reading. Kept in
+   * memory only: after a restart the first reading sets the baseline and its
+   * charge carries no tokens rather than the whole session's count.
+   */
+  private readonly tokenMarks = new Map<string, TokenCounters>();
 
   constructor(private readonly deps: OwnerSessionDeps) {}
 
@@ -264,6 +274,12 @@ export class OwnerSessions {
     const failures = new Map<string, string>();
     let watching: string | null = null;
     const usageSource = `owner:${opened.session.sessionId}`;
+    // One operation per owner turn. Every charge of the turn names it as its
+    // parent, so the inspector shows a few named wakes instead of loose charges.
+    // The wake's kind is part of the id, so the inspector can say why each turn ran.
+    const wakeId = turnRunId ? `${turnRunId}:owner-wake:${wake.kind}:${this.deps.host.newId('wake')}` : undefined;
+    const spans = this.deps.spans;
+    const { model, thinking } = opened.session;
     let usageRead: Promise<void> | undefined;
     const readUsage = (): Promise<void> => {
       usageRead ??= (async () => {
@@ -276,7 +292,15 @@ export class OwnerSessions {
           delta = cost - next.session.sessionCostUsd;
           return charge({ ...next, session: { ...next.session, sessionCostUsd: cost } }, 'owner', delta, this.deps.host.now());
         });
-        await recordCharge(this.deps, turnRecord, usageSource, delta, 'aggregate', turnRunId);
+        const tokens = usage ? tokenDelta(this.tokenMarks.get(usageSource), usage) : null;
+        if (usage) this.tokenMarks.set(usageSource, { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, cacheReadTokens: usage.cacheReadTokens, cacheWriteTokens: usage.cacheWriteTokens });
+        // A charge with its tokens is call detail; one without is a bare total.
+        await recordCharge(this.deps, turnRecord, usageSource, delta, tokens ? 'call' : 'aggregate', turnRunId, {
+          ...(wakeId ? { parentOperationId: wakeId } : {}),
+          ...(model ? { model } : {}),
+          ...(thinking ? { thinking } : {}),
+          ...(tokens ? { usage: tokens } : {}),
+        });
       })().finally(() => { usageRead = undefined; });
       return usageRead;
     };
@@ -306,6 +330,12 @@ export class OwnerSessions {
         ...setAccountingIncomplete(fresh, usageSource, true),
         session: { ...fresh.session, workingSince: this.deps.host.now() },
       }));
+      // Not awaited: an observation never delays the work. The journal keeps
+      // one writer per file, so this start still lands before the turn's charges.
+      if (spans && wakeId && turnRunId) {
+        void spans.open({ projectId: opened.id, runId: turnRunId, operationId: wakeId, kind: 'owner-wake', ...(model ? { model } : {}), ...(thinking ? { thinking } : {}) })
+          .catch((error: unknown) => this.deps.host.log(`owner wake was not recorded: ${String(error)}`));
+      }
       const turn = async (): Promise<OwnerTurnResult['status']> => {
         if (stopRequested()) return 'aborted';
         const { turnId } = await api.prompt(handleId, contract);
@@ -341,6 +371,15 @@ export class OwnerSessions {
     // The usage read talks to the host, so it happens before the queued write.
     await usageRead;
     await readUsage();
+    if (spans && wakeId && turnRunId) {
+      await spans.close({
+        projectId: opened.id,
+        runId: turnRunId,
+        operationId: wakeId,
+        outcome: status === 'completed' ? 'ok' : status === 'aborted' ? 'aborted' : 'failed',
+        ...(status === 'error' ? { error: failure } : {}),
+      }).catch((error: unknown) => this.deps.host.log(`owner wake end was not recorded: ${String(error)}`));
+    }
     const next = await this.deps.store.update(opened.id, (fresh) => {
       let updated = status === 'completed' ? applyTurnOutcome(fresh, declared, now)
         : { ...fresh, session: { ...fresh.session, turns: fresh.session.turns + 1 } };

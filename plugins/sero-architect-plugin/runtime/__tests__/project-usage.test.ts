@@ -5,7 +5,7 @@ import { setAccountingIncomplete } from '../../shared/accounting';
 import { openRun } from '../../shared/runs';
 import { createRunJournal, type JournalRecord } from '../run-journal';
 import { summarizeTrace } from '../trace-summary';
-import { chargeRoomPlanning, recordCharge, runProjectModel } from '../project-usage';
+import { chargeRoomPlanning, recordCharge, reportedActiveMs, runProjectModel } from '../project-usage';
 import { buildingProject, cleanupHosts, fakeHost, milestone, storeFor, T0 } from './helpers';
 
 afterEach(cleanupHosts);
@@ -25,6 +25,16 @@ function projectWithRun(overrides: Parameters<typeof buildingProject>[0] = {}) {
   if (!opened.ok) throw new Error(opened.error);
   return opened.record;
 }
+
+describe('reported working time', () => {
+  it('adds a Room\'s open working period to its banked time, and reads an unreported figure as null', () => {
+    const now = Date.parse('2026-09-16T10:03:00.000Z');
+    expect(reportedActiveMs({ activeMs: 60_000, activeSince: '2026-09-16T10:01:00.000Z' }, now)).toBe(180_000);
+    expect(reportedActiveMs({ activeMs: 60_000, activeSince: null }, now)).toBe(60_000);
+    expect(reportedActiveMs({}, now)).toBeNull();
+    expect(reportedActiveMs({ usage: { costUsd: 1 } }, now)).toBeNull();
+  });
+});
 
 describe('project model accounting', () => {
   it('persists live research spend, deduplicates cumulative reports and retains prior attempt cost', async () => {

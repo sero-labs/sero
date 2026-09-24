@@ -27,6 +27,7 @@ import { TopBar } from '../components/TopBar';
 import { ModelSettings } from '../components/ModelSettings';
 import { HistoryView } from '../components/HistoryView';
 import { ProjectPage } from '../ProjectPage';
+import { InspectorPreview } from './InspectorPreview';
 import type { ArchitectActions, ActionOutcome } from '../lib/actions';
 import type { Disclosures } from '../lib/page-helpers';
 import type { ProjectRecord } from '../../shared/record';
@@ -46,7 +47,7 @@ const TIERS = {
 } as const;
 
 const actions: ArchitectActions = {
-  create: ok, history: async () => ({ ok: true, text: 'ok', entries: [] }), trace: async () => ({ ok: true, text: 'ok', page: null }), pause: ok, resume: ok, retry: ok, stop: ok, remove: ok, raiseCap: ok, setExecutionMode: ok, setAutonomy: ok,
+  create: ok, history: async () => ({ ok: true, text: 'ok', entries: [] }), trace: async () => ({ ok: true, text: 'ok', page: null }), lifetime: async () => ({ ok: true, text: 'ok', lifetime: null }), pause: ok, resume: ok, retry: ok, stop: ok, remove: ok, raiseCap: ok, setExecutionMode: ok, setAutonomy: ok,
   approveCharter: ok, approveMilestone: ok, answer: ok, directive: ok,
   setModelDefault: ok, clearModelDefault: ok,
   refreshModelTiers: async () => (new URLSearchParams(window.location.search).get('runtime') === 'off'
@@ -173,7 +174,9 @@ function PreviewStage({ state, width, runtimeRunning, disclosures }: {
     <div className="ar-app">
       {state === 'new-project' && <IntakePreview />}
       {state === 'existing-workspace' && <IntakePreview mode="existing" />}
-      {state === 'history' && record ? (
+      {state === 'inspector' ? (
+        <InspectorPreview actions={actions} />
+      ) : state === 'history' && record ? (
         <HistoryPreview record={record} disclosures={disclosures} />
       ) : state === 'models' ? (
         <ModelSettingsPreview runtimeRunning={runtimeRunning} />

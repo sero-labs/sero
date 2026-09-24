@@ -1,5 +1,5 @@
 import { closeDeliveredObjectives } from './objective-completion';
-import { recordCharge } from './project-usage';
+import { activeRise, recordCharge, reportedActiveMs } from './project-usage';
 import type { RunJournal } from './run-journal';
 import { ensureResearchContext } from './research-context';
 import { setAccountingIncomplete } from '../shared/accounting';
@@ -94,11 +94,14 @@ export async function observeResearchWorkflows(deps: ResearchWorkflowDeps, proje
     const result = loop.status === 'complete' ? await findings(deps, record.folder, loop.id) : null;
     let completed = false;
     let chargedDelta = 0;
+    let activeMs = 0;
     await deps.store.update(projectId, (fresh) => {
       const current = fresh.pendingResearch?.find((entry) => entry.id === pending.id);
       if (!current) return null;
       const costUsd = Math.max(loop.usage?.costUsd ?? 0, current.chargedUsd ?? 0);
       chargedDelta = Math.max(0, costUsd - (current.chargedUsd ?? 0));
+      const time = activeRise(reportedActiveMs(loop, Date.parse(deps.host.now())), current.countedActiveMs);
+      activeMs = time.rise;
       let next = charge(setAccountingIncomplete(fresh, `workflow:${loop.id}`, !loop.usage || !!loop.usage.incomplete), 'research', Math.max(0, costUsd - (current.chargedUsd ?? 0)), deps.host.now());
       if (next.blockedReason?.startsWith(`Research Workflow ${loop.id} is `) && loop.status !== 'blocked') {
         const resumed = unblock(next, deps.host.now(), 'Workflow resumed', { kind: 'workflow', id: loop.id, label: loop.title }, next.blockedReason ?? undefined);
@@ -111,7 +114,7 @@ export async function observeResearchWorkflows(deps: ResearchWorkflowDeps, proje
           research: [...next.research, { id: pending.id, workflowId: loop.id, question: pending.question, stoppingCondition: pending.stoppingCondition, result, costUsd, completedAt: deps.host.now() }],
         }, deps.host.now()), deps.host.now());
       }
-      next = { ...next, pendingResearch: next.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, chargedUsd: costUsd } : entry) };
+      next = { ...next, pendingResearch: next.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, chargedUsd: costUsd, countedActiveMs: time.counted } : entry) };
       if (loop.status === 'blocked') {
         const reason = `Research Workflow ${loop.id} is blocked. Open it to review the next action.`;
         const held = block(next, deps.host.now(), reason);
@@ -119,7 +122,7 @@ export async function observeResearchWorkflows(deps: ResearchWorkflowDeps, proje
       }
       return next;
     });
-    await recordCharge(deps, record, `workflow:${loop.id}`, chargedDelta, 'aggregate', pending.project?.runId);
+    await recordCharge(deps, record, `workflow:${loop.id}`, chargedDelta, 'aggregate', pending.project?.runId, { activeMs });
     if (completed) {
       // The finding is already recorded, so saving the report only adds the
       // reference a later contract points at.

@@ -89,7 +89,7 @@ export class ArchitectRuntime implements AppRuntime {
     const spans = createSpanRecorder({ journal, now: () => this.host.now(), log: (message) => this.host.log(message) });
     this.store = store;
     const outcomes = createTurnOutcomes();
-    const sessions = new OwnerSessions({ host: this.host, store, outcomes, journal });
+    const sessions = new OwnerSessions({ host: this.host, store, outcomes, journal, spans });
     this.sessions = sessions;
     const scheduler = createWakeScheduler({
       gate: this.gate,

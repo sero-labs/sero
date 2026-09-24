@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 
 /**
- * The run inspector (spec architect-run-observability).
+ * The run inspector (spec architect-run-observability, architect-ui).
  *
- * What matters here is that a summary does not pull a trace, that the reader can
- * drive the timeline from the keyboard, and that the view does not reset itself
- * underneath the reader when data arrives.
+ * The first screen shows the run without a click; a figure nobody measured is
+ * a word; the filtered subtotal appears only while a filter is on; an empty
+ * filter says why; and the view never resets itself under the reader when a
+ * read arrives.
  */
 
 import { act, StrictMode } from 'react';
@@ -15,8 +16,10 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 import { FIXTURES } from '../__preview__/fixture';
 import { Inspector } from '../components/Inspector';
-import type { ArchitectActions, TraceOutcome, TraceRequest } from '../lib/actions';
+import type { ArchitectActions, LifetimeOutcome, TraceOutcome, TraceRequest } from '../lib/actions';
+import type { ProjectRecord, ProjectRun } from '../../shared/record';
 import type { TracePage, TraceRecord } from '../lib/trace';
+import { activity, node, T, tracePage } from './trace-fixture';
 
 const preferences: Record<string, unknown> = {};
 vi.mock('@sero-ai/app-runtime', () => ({
@@ -24,6 +27,7 @@ vi.mock('@sero-ai/app-runtime', () => ({
     values: preferences,
     set: (key: string, value: unknown) => { preferences[key] = value; },
   }),
+  openSeroApp: vi.fn(),
 }));
 
 vi.mock('@sero-ai/ui', async () => ({
@@ -33,30 +37,41 @@ vi.mock('@sero-ai/ui', async () => ({
   ...(await import('./select-stand-in')),
 }));
 
-const at = (offsetMs: number): string => new Date(Date.parse('2026-09-14T09:00:00.000Z') + offsetMs).toISOString();
-const record = (seq: number, overrides: Partial<TraceRecord> = {}): TraceRecord => ({
-  seq, at: at(seq * 1000), kind: 'observation', operationId: `op_${seq}`, operationKind: 'workflow', ...overrides,
+const run = (id: string, overrides: Partial<ProjectRun> = {}): ProjectRun => ({
+  id, kind: 'initial', objectiveId: null, startedAt: T(0), endedAt: null, outcome: 'in-progress', ...overrides,
 });
+const project = (runs: ProjectRun[] = [run('run-1')], overrides: Partial<ProjectRecord> = {}): ProjectRecord => ({ ...FIXTURES.build!, runs, ...overrides });
 
-const page = (records: TraceRecord[], overrides: Partial<TracePage> = {}): TracePage => ({
-  recorded: true,
-  summary: {
-    attributableUsd: 0.4, aggregateUsd: 0.1, hasAggregate: true, incomplete: false,
-    requests: 3, toolCalls: 2, retries: 0, compactions: 0, errors: 0,
-  },
-  timing: { activeMs: 26_917, workerMs: 1841, waitMs: 0, openWaits: [] },
-  tokens: { input: 100, output: 20, cacheRead: 0, cacheWrite: 0, unavailable: ['cacheRead'] },
-  records,
-  nextAfterSeq: null,
-  incomplete: false,
+/** A run shaped like the audit's: owner charges, a delegated milestone, research, one failure. */
+const froggerRun = activity([
+  node('owner', { label: 'Owner', kind: 'owner', group: 'owner', costUsd: 0.04, charges: 2, model: 'anthropic/claude-fable-5-1', thinking: 'medium' }),
+  node('m1', { label: 'M1 · Playable crossing', kind: 'milestone', costUsd: 4.2, startAt: T(5) }),
+  node('m1:step', { parentId: 'm1', label: 'Implement the grid', kind: 'workflow-step', costUsd: 3, startAt: T(6) }),
+  node('m1:evidence', { parentId: 'm1', label: 'Evidence', kind: 'evidence', group: 'evaluation', state: 'failed', costUsd: 0.05, startAt: T(30) }),
+  node('res', { label: 'What should the first minute teach?', kind: 'research', group: 'research', costUsd: 0.36, startAt: T(2) }),
+], {
+  spend: [{ at: T(1), usd: 1 }, { at: T(40), usd: 4.6 }],
+  byGroup: [{ group: 'workflows', usd: 4.2, tokens: null }, { group: 'research', usd: 0.36, tokens: null }, { group: 'owner', usd: 0.04, tokens: null }],
+  byModel: [{ model: null, usd: 4.56 }, { model: 'anthropic/claude-fable-5-1', usd: 0.04 }],
+});
+const ownerCharge = (seq: number): TraceRecord => ({
+  seq, at: T(seq), kind: 'usage', source: 'owner:sess', costUsd: 0.02, coverage: 'call', nodeId: 'owner', label: 'Owner',
+  model: 'anthropic/claude-fable-5-1', thinking: 'medium', usage: { inputTokens: 100, outputTokens: 10 },
+});
+const froggerPage = (overrides: Partial<TracePage> = {}): TracePage => tracePage({
+  summary: { ...tracePage().summary, attributableUsd: 4.6, aggregateUsd: 4.48, hasAggregate: true },
+  activity: froggerRun,
+  records: [ownerCharge(1), ownerCharge(2)],
   ...overrides,
 });
+const answer = (page: TracePage): TraceOutcome => ({ ok: true, text: 'done', page });
 
 function actionsOver(overrides: Partial<ArchitectActions> = {}): ArchitectActions {
   const ok = () => vi.fn(async () => ({ ok: true, text: 'done' }));
   return {
     create: ok(), history: vi.fn(async () => ({ ok: true, text: 'done', entries: [] })),
-    trace: vi.fn(async (_id: string, _query: TraceRequest) => ({ ok: true, text: 'done', page: page([]) } as TraceOutcome)),
+    trace: vi.fn(async (_id: string, _query: TraceRequest) => answer(froggerPage())),
+    lifetime: vi.fn(async (): Promise<LifetimeOutcome> => ({ ok: true, text: 'done', lifetime: null })),
     pause: ok(), resume: ok(), retry: ok(), stop: ok(), remove: ok(), raiseCap: ok(),
     setExecutionMode: ok(), setAutonomy: ok(), approveCharter: ok(), approveMilestone: ok(),
     answer: ok(), directive: ok(), setModelDefault: ok(), clearModelDefault: ok(), refreshModelTiers: ok(),
@@ -80,456 +95,242 @@ afterEach(() => {
   container.remove();
 });
 
-const flush = () => act(async () => { await Promise.resolve(); });
+const flush = () => act(async () => { await Promise.resolve(); await Promise.resolve(); });
+const text = () => container.textContent ?? '';
+const rows = () => [...container.querySelectorAll<HTMLElement>('[role="treeitem"]')];
+const rowLabels = () => rows().map((row) => row.querySelector('b')?.textContent);
 
-function click(label: string): void {
-  const found = [...container.querySelectorAll('button')].find((el) => el.textContent?.includes(label));
+function button(label: string): HTMLButtonElement {
+  const found = [...container.querySelectorAll('button')].find((el) => el.textContent?.trim() === label || el.getAttribute('aria-label') === label);
   if (!found) throw new Error(`no button labelled ${label}`);
-  act(() => found.click());
+  return found;
 }
-
-/** The filter controls are checkboxes inside their label, not buttons. */
-function toggleFilter(label: string): void {
-  const field = [...container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')]
-    .find((el) => el.parentElement?.textContent?.includes(label));
-  if (!field) throw new Error(`no filter labelled ${label}`);
-  act(() => field.click());
+const click = (label: string) => act(() => button(label).click());
+const rerender = (record: ProjectRecord, actions: ArchitectActions, onBack = vi.fn()) =>
+  act(() => root.render(<Inspector record={record} actions={actions} onBack={onBack} />));
+async function open(record = project(), actions = actionsOver(), onBack = vi.fn()) {
+  rerender(record, actions, onBack);
+  await flush();
+  return actions;
+}
+function key(name: string, shiftKey = false): void {
+  const tree = container.querySelector('[role="tree"]');
+  if (!tree) throw new Error('no tree');
+  act(() => { tree.dispatchEvent(new KeyboardEvent('keydown', { key: name, shiftKey, bubbles: true })); });
 }
 
 describe('opening the inspector', () => {
-  it('loads the current summary after Strict Mode reattaches its effects', async () => {
-    act(() => root.render(<StrictMode><Inspector record={FIXTURES.build!} actions={actionsOver()} onBack={vi.fn()} /></StrictMode>));
+  it('reads the newest run with its activity once, and shows named rows without a click', async () => {
+    const actions = actionsOver();
+    act(() => root.render(<StrictMode><Inspector record={project()} actions={actions} onBack={vi.fn()} /></StrictMode>));
     await flush();
-    expect(container.textContent).toContain('$0.4000');
+    const reads = vi.mocked(actions.trace).mock.calls.map(([, query]) => query);
+    expect(reads.every((query) => query.detail === true && query.runId === 'run-1')).toBe(true);
+    expect(rowLabels()).toEqual(['Owner', 'What should the first minute teach?', 'M1 · Playable crossing']);
+    expect(text()).not.toContain('Load activity');
+    expect(text()).not.toContain('owner:sess');
   });
 
-  it('asks for a summary without trace detail', async () => {
-    const trace = vi.fn(async (_id: string, _query: TraceRequest) => ({ ok: true, text: 'done', page: page([]) } as TraceOutcome));
-    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace })} onBack={vi.fn()} />));
-    await flush();
-    expect(trace).toHaveBeenCalledTimes(1);
-    expect(trace.mock.calls[0]?.[1]).toMatchObject({ detail: false });
-    // The totals are shown; the records are not read until asked for.
-    expect(container.textContent).toContain('$0.4000');
-    expect(container.textContent).toContain('Load activity');
+  it('says nothing was recorded once, with no tiles or charts', async () => {
+    await open(project(), actionsOver({ trace: vi.fn(async () => answer(tracePage({ recorded: false }))) }));
+    expect(text()).toContain('Nothing recorded for this run yet.');
+    expect(container.querySelector('.ar-tile')).toBeNull();
+    expect(container.querySelector('.ar-chart')).toBeNull();
   });
 
-  it('reads the records only when the reader asks', async () => {
-    const trace = vi.fn(async (_id: string, query: TraceRequest) => ({
-      ok: true, text: 'done', page: page(query.detail ? [record(0), record(1)] : []),
-    } as TraceOutcome));
-    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace })} onBack={vi.fn()} />));
-    await flush();
-    click('Load activity');
-    await flush();
-    expect(trace).toHaveBeenCalledTimes(2);
-    expect(trace.mock.calls[1]?.[1]).toMatchObject({ detail: true });
-    expect(container.textContent).toContain('op_0');
-  });
-
-  it('returns to the project from the header', async () => {
-    const onBack = vi.fn();
-    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver()} onBack={onBack} />));
-    await flush();
-    click('Back to project');
-    expect(onBack).toHaveBeenCalledOnce();
-  });
-
-  it('labels the shared journal as shared activity, not the whole project', async () => {
-    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver()} onBack={vi.fn()} />));
-    await flush();
-    expect(container.textContent).toContain('Shared activity');
-    expect(container.textContent).not.toContain('Whole project');
-  });
-
-  it('says a total is a lower bound when the view is incomplete', async () => {
-    const trace = vi.fn(async (_id: string, _query: TraceRequest) => ({
-      ok: true, text: 'done',
-      page: { ...page([]), summary: { ...page([]).summary, incomplete: true } },
-    } as TraceOutcome));
-    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace })} onBack={vi.fn()} />));
-    await flush();
-    expect(container.textContent).toContain('lower bound');
-  });
-
-  it('says nothing was recorded, instead of zeros, when the view has no journal', async () => {
-    const trace = vi.fn(async (_id: string, _query: TraceRequest) => ({
-      ok: true, text: 'done',
-      page: { ...page([]), recorded: false },
-    } as TraceOutcome));
-    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace })} onBack={vi.fn()} />));
-    await flush();
-    expect(container.textContent).toContain('No trace was recorded for this view');
-    expect(container.textContent).not.toContain('$0.0000');
-    expect(container.textContent).not.toContain('differs from project spend');
-    expect(container.textContent).not.toContain('The totals above');
-  });
-});
-
-describe('reading around a slow or stale response', () => {
-  it('ignores a stale read that resolves after a newer selection already replaced it', async () => {
+  it('ignores a read for a run the reader has already left', async () => {
     const pending = new Map<string, (value: TraceOutcome) => void>();
-    const trace = vi.fn((_id: string, query: TraceRequest) => {
-      if (!query.detail) return Promise.resolve({ ok: true, text: 'done', page: page([]) } as TraceOutcome);
-      return new Promise<TraceOutcome>((resolve) => { pending.set(query.runId ?? '', resolve); });
-    });
-    const withRuns = {
-      ...FIXTURES.build!,
-      runs: [{ id: 'run-a', kind: 'initial' as const, objectiveId: null, startedAt: at(0), endedAt: at(1000), outcome: 'delivered' as const }],
-    };
-    act(() => root.render(<Inspector record={withRuns} actions={actionsOver({ trace })} onBack={vi.fn()} />));
+    const trace = vi.fn((_id: string, query: TraceRequest) => new Promise<TraceOutcome>((resolve) => { pending.set(query.runId ?? '', resolve); }));
+    await open(project([run('run-a', { endedAt: T(9) }), run('run-b')]), actionsOver({ trace }));
+    const scope = container.querySelector<HTMLSelectElement>('select[aria-label="Scope"]')!;
+    act(() => { scope.value = 'run-a'; scope.dispatchEvent(new Event('change', { bubbles: true })); });
     await flush();
-    click('Load activity');
+    act(() => pending.get('run-a')!(answer(froggerPage({ activity: activity([node('a', { label: 'Run A work' })]) }))));
     await flush();
-    expect(pending.has('run-a')).toBe(true);
-
-    const select = container.querySelector<HTMLSelectElement>('.ar-inspector-run select');
-    if (!select) throw new Error('no view select');
-    act(() => {
-      select.value = 'shared';
-      select.dispatchEvent(new Event('change', { bubbles: true }));
-    });
+    act(() => pending.get('run-b')!(answer(froggerPage({ activity: activity([node('b', { label: 'Run B work' })]) }))));
     await flush();
-    expect(pending.has('shared')).toBe(true);
-
-    // The newer (shared) read resolves first...
-    act(() => { pending.get('shared')!({ ok: true, text: 'done', page: page([record(2)]) } as TraceOutcome); });
-    await flush();
-    // ...then the now-obsolete run-a read resolves late. It must not overwrite the page shown.
-    act(() => { pending.get('run-a')!({ ok: true, text: 'done', page: page([record(1)]) } as TraceOutcome); });
-    await flush();
-
-    expect(container.textContent).toContain('op_2');
-    expect(container.textContent).not.toContain('op_1');
+    expect(rowLabels()).toEqual(['Run A work']);
   });
 });
 
-describe('keeping the page keyed by the selected view', () => {
-  it('keeps a selection that lived on page two through a re-read the budget triggers', async () => {
-    const trace = vi.fn(async (_id: string, query: TraceRequest) => {
-      if (!query.detail) return { ok: true, text: 'done', page: page([]) } as TraceOutcome;
-      if (query.afterSeq !== undefined) return { ok: true, text: 'done', page: page([record(3)], { nextAfterSeq: null }) } as TraceOutcome;
-      // A plain re-read of page one always returns the same first page.
-      return { ok: true, text: 'done', page: page([record(0), record(1), record(2)], { nextAfterSeq: 2 }) } as TraceOutcome;
-    });
-    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace })} onBack={vi.fn()} />));
-    await flush();
-    click('Load activity');
-    await flush();
-    click('Load more activity');
-    await flush();
-    // Select the row that only exists on the second page.
-    act(() => { (container.querySelectorAll('.ar-span')[3] as HTMLElement | undefined)?.click(); });
-    expect(container.querySelector('[data-selected="true"]')?.textContent).toContain('op_3');
-
-    // A budget change alone recreates `load` and re-fires its effect, asking
-    // for page one again with no afterSeq.
-    const spent = { ...FIXTURES.build!, budget: { ...FIXTURES.build!.budget, spentUsd: FIXTURES.build!.budget.spentUsd + 0.01 } };
-    act(() => root.render(<Inspector record={spent} actions={actionsOver({ trace })} onBack={vi.fn()} />));
-    await flush();
-
-    // The second page's row is still there and still selected: the re-read
-    // merged onto what was already loaded rather than replacing it.
-    expect(container.textContent).toContain('op_3');
-    expect(container.querySelector('[data-selected="true"]')?.textContent).toContain('op_3');
+describe('the figures', () => {
+  it('states the aggregate part inside the one headline cost', async () => {
+    await open();
+    const tile = [...container.querySelectorAll('.ar-tile')].find((el) => el.textContent?.includes('Attributable cost'));
+    expect(tile?.textContent).toContain('$4.60');
+    expect(tile?.textContent).toContain('$4.48 without per-call detail');
   });
 
-  it('never sends the new selection a Load more with the old one\'s cursor, or shows its records', async () => {
-    const pending = new Map<string, (value: TraceOutcome) => void>();
-    const trace = vi.fn((_id: string, query: TraceRequest) => {
-      if (!query.detail) return Promise.resolve({ ok: true, text: 'done', page: page([]) } as TraceOutcome);
-      const key = `${query.runId}:${query.afterSeq ?? 'first'}`;
-      return new Promise<TraceOutcome>((resolve) => { pending.set(key, resolve); });
-    });
-    const withRuns = {
-      ...FIXTURES.build!,
-      runs: [{ id: 'run-a', kind: 'initial' as const, objectiveId: null, startedAt: at(0), endedAt: at(1000), outcome: 'delivered' as const }],
-    };
-    act(() => root.render(<Inspector record={withRuns} actions={actionsOver({ trace })} onBack={vi.fn()} />));
-    await flush();
-    click('Load activity');
-    await flush();
-    pending.get('run-a:first')!({ ok: true, text: 'done', page: page([record(0), record(1)], { nextAfterSeq: 1 }) } as TraceOutcome);
-    await flush();
-    expect(container.textContent).toContain('op_0');
-    const loadMore = () => [...container.querySelectorAll('button')].find((el) => el.textContent?.includes('Load more activity'));
-    expect(loadMore()).toBeDefined();
+  it('says per call when every charge had call detail', async () => {
+    await open(project(), actionsOver({ trace: vi.fn(async () => answer(froggerPage({ summary: { ...tracePage().summary, attributableUsd: 1 } }))) }));
+    expect([...container.querySelectorAll('.ar-tile')].map((el) => el.textContent).join(' ')).toContain('per call');
+  });
 
-    // Switch to the shared view while run-a's page is still on screen: its
-    // own first read for the new selection is now pending.
-    const select = container.querySelector<HTMLSelectElement>('.ar-inspector-run select');
-    if (!select) throw new Error('no view select');
-    act(() => {
-      select.value = 'shared';
-      select.dispatchEvent(new Event('change', { bubbles: true }));
-    });
-    await flush();
-    expect(pending.has('shared:first')).toBe(true);
-
-    // Nothing to load more from during the gap: run-a's page and cursor are gone.
-    expect(loadMore()).toBeUndefined();
-    expect(container.textContent).not.toContain('op_0');
-
-    pending.get('shared:first')!({ ok: true, text: 'done', page: page([record(9)], { nextAfterSeq: 9 }) } as TraceOutcome);
-    await flush();
-    expect(container.textContent).toContain('op_9');
-    expect(container.textContent).not.toContain('op_0');
-
-    click('Load more activity');
-    await flush();
-    expect(pending.has('shared:9')).toBe(true);
-    expect(pending.has('run-a:1')).toBe(false);
+  it('shows unmeasured tokens and active time as unavailable, not zero', async () => {
+    await open(project(), actionsOver({ trace: vi.fn(async () => answer(froggerPage({ activity: { ...froggerRun, nodes: froggerRun.nodes.map((entry) => ({ ...entry, endAt: null, synthetic: true })) } }))) }));
+    const tiles = [...container.querySelectorAll('.ar-tile')].map((el) => el.textContent ?? '');
+    expect(tiles.find((tile) => tile.startsWith('Active'))).toContain('unavailable');
+    const tokens = [...container.querySelectorAll('.ar-chart')].find((el) => el.textContent?.includes('Token composition'));
+    expect(tokens?.textContent).toContain('unavailable');
   });
 });
 
-describe('keeping the request cheap', () => {
-  it('does not re-read on a filter change, and uses the latest actions once it does read', async () => {
-    const traceA = vi.fn(async (_id: string, query: TraceRequest) => ({
-      ok: true, text: 'done', page: query.detail ? page([record(0), record(1)], { nextAfterSeq: 1 }) : page([]),
-    } as TraceOutcome));
-    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace: traceA })} onBack={vi.fn()} />));
+describe('Live and Paused', () => {
+  it('makes no read for a spend change while paused, and one when resumed', async () => {
+    const actions = await open();
+    const reads = () => vi.mocked(actions.trace).mock.calls.length;
+    const before = reads();
+    click('Live');
+    const spent = (usd: number) => project([run('run-1')], { budget: { ...FIXTURES.build!.budget, spentUsd: usd } });
+    rerender(spent(9), actions);
     await flush();
-    click('Load activity');
+    expect(reads()).toBe(before);
+    click('Paused');
     await flush();
-    expect(traceA).toHaveBeenCalledTimes(2);
+    expect(reads()).toBe(before + 1);
+  });
 
-    const traceB = vi.fn(async (_id: string, _query: TraceRequest) => ({
-      ok: true, text: 'done', page: page([record(2)], { nextAfterSeq: null }),
-    } as TraceOutcome));
-    // A preference write elsewhere recreates `actions` with a new identity,
-    // the same shape a real preference set causes through useAppTools.
-    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace: traceB })} onBack={vi.fn()} />));
-    await flush();
-
-    toggleFilter('workflow');
-    await flush();
-    // A pure, local re-render must not trigger another read with either actions.
-    expect(traceA).toHaveBeenCalledTimes(2);
-    expect(traceB).toHaveBeenCalledTimes(0);
-
-    click('Load more activity');
-    await flush();
-    // An explicit read after the swap uses the current actions, not the stale ones.
-    expect(traceB).toHaveBeenCalledTimes(1);
+  it('offers no Live control for a closed run', async () => {
+    await open(project([run('run-1', { endedAt: T(60), outcome: 'delivered' })]));
+    expect(() => button('Live')).toThrow();
   });
 });
 
-describe('driving the timeline', () => {
-  const withRows = async () => {
-    const trace = vi.fn(async (_id: string, query: TraceRequest) => ({
-      ok: true, text: 'done', page: query.detail ? page([record(0), record(1), record(2)]) : page([]),
-    } as TraceOutcome));
-    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace })} onBack={vi.fn()} />));
-    await flush();
-    click('Load activity');
-    await flush();
-    const timeline = container.querySelector<HTMLDivElement>('[aria-label="Activity timeline"]');
-    if (!timeline) throw new Error('no timeline');
-    return timeline;
-  };
-
-  it.each(['Enter', ' '])('expands the selected operation from the focused timeline with %s', async (key) => {
-    const timeline = await withRows();
-    const selectedId = timeline.getAttribute('aria-activedescendant');
-    expect(document.getElementById(selectedId!)).not.toBeNull();
-    act(() => { timeline.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true })); });
-    expect(preferences.inspectorExpanded).toBe('op_0');
+describe('filters', () => {
+  it('shows no subtotal unfiltered, and the matched cost of the full run with a filter on', async () => {
+    const actions = await open();
+    expect(container.querySelector('.ar-scope-note')).toBeNull();
+    click('Owner');
+    // The host's preferences re-render the surface; the stand-in store only records.
+    rerender(project(), actions);
+    expect(container.querySelector('.ar-scope-note')?.textContent).toContain('$0.04 of $4.60');
+    const tile = [...container.querySelectorAll('.ar-tile')].find((el) => el.textContent?.includes('Attributable cost'));
+    expect(tile?.textContent).toContain('$4.60');
   });
 
-  it('moves the selection with the arrow keys rather than requiring a pointer', async () => {
-    const timeline = await withRows();
-    // The first row is selected, so the panel is never empty on arrival.
-    expect(container.textContent).toContain('op_0');
-
-    act(() => { timeline.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })); });
-    expect(container.querySelector('[data-selected="true"]')).not.toBeNull();
-    expect(container.textContent).toContain('op_1');
-
-    act(() => { timeline.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true })); });
-    expect(container.textContent).toContain('op_0');
+  it('clears the chip, the model and Failures only together', async () => {
+    Object.assign(preferences, { inspectorActivities: 'research', inspectorModels: 'anthropic/claude-fable-5-1', inspectorFailuresOnly: true });
+    await open();
+    click('Clear filters');
+    expect(preferences).toMatchObject({ inspectorActivities: '', inspectorModels: '', inspectorFailuresOnly: false });
   });
 
-  it('keeps the selected seq through a Load more that returns a shorter page', async () => {
-    const firstPage = [record(0), record(1), record(2)];
-    const secondPage = [record(3)];
-    const trace = vi.fn(async (_id: string, query: TraceRequest) => {
-      if (!query.detail) return { ok: true, text: 'done', page: page([]) } as TraceOutcome;
-      return query.afterSeq === undefined
-        ? ({ ok: true, text: 'done', page: page(firstPage, { nextAfterSeq: 2 }) } as TraceOutcome)
-        : ({ ok: true, text: 'done', page: page(secondPage, { nextAfterSeq: null }) } as TraceOutcome);
-    });
-    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace })} onBack={vi.fn()} />));
-    await flush();
-    click('Load activity');
-    await flush();
-
-    // Select the middle row (seq 1), not the default first one.
-    act(() => { (container.querySelectorAll('.ar-span')[1] as HTMLElement | undefined)?.click(); });
-    expect(container.querySelector('[data-selected="true"]')?.textContent).toContain('op_1');
-
-    click('Load more activity');
-    await flush();
-
-    // The continuation's shorter page is appended, and the same record stays selected.
-    expect(container.textContent).toContain('op_3');
-    expect(container.querySelector('[data-selected="true"]')?.textContent).toContain('op_1');
+  it('says a run with no failures has none, and offers Clear filters', async () => {
+    const clean = froggerPage({ activity: { ...froggerRun, nodes: froggerRun.nodes.map((entry) => ({ ...entry, state: 'done' as const })) }, nextAfterSeq: 4 });
+    preferences.inspectorFailuresOnly = true;
+    await open(project(), actionsOver({ trace: vi.fn(async () => answer(clean)) }));
+    expect(text()).toContain('No failures in this run.');
+    expect(() => button('Clear filters')).not.toThrow();
+    expect(() => button('Load more activity')).toThrow();
   });
 
-  it('leaves the view with Escape, the same as the back control', async () => {
+  it('says no activity matches when combined filters match nothing', async () => {
+    Object.assign(preferences, { inspectorActivities: 'repair', inspectorFailuresOnly: true });
+    await open();
+    expect(text()).toContain('No activity matches these filters.');
+  });
+
+  it('opens the ancestors of a failure so the failure is visible', async () => {
+    preferences.inspectorFailuresOnly = true;
+    await open();
+    expect(rowLabels()).toEqual(['M1 · Playable crossing', 'Evidence']);
+    expect(rows()[0]?.dataset.dim).toBe('true');
+  });
+});
+
+describe('the timeline', () => {
+  it('expands and collapses from the keyboard, and Escape returns to the project', async () => {
     const onBack = vi.fn();
-    const trace = vi.fn(async (_id: string, query: TraceRequest) => ({
-      ok: true, text: 'done', page: query.detail ? page([record(0)]) : page([]),
-    } as TraceOutcome));
-    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace })} onBack={onBack} />));
+    await open(project(), actionsOver(), onBack);
+    key('End');
+    key('ArrowRight');
+    expect(preferences.inspectorExpanded).toBe('m1');
+    rerender(project(), actionsOver(), onBack);
     await flush();
-    click('Load activity');
-    await flush();
-    const timeline = container.querySelector<HTMLDivElement>('[aria-label="Activity timeline"]');
-    act(() => { timeline?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
-    expect(onBack).toHaveBeenCalledOnce();
+    expect(rowLabels()).toContain('Implement the grid');
+    key('ArrowLeft');
+    expect(preferences.inspectorExpanded).toBe('');
+    key('Escape');
+    expect(onBack).toHaveBeenCalled();
   });
 
-  it('keeps the selected row when a later read arrives', async () => {
-    const timeline = await withRows();
-    act(() => { timeline.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })); });
-    const first = container.querySelector('[data-selected="true"]')?.textContent;
-    // A filter change re-renders the same selection; the reader's place survives it.
-    toggleFilter('workflow');
+  it('keeps the selected row through a re-read', async () => {
+    const actions = await open();
+    act(() => rows().find((row) => row.textContent?.includes('What should'))!.click());
+    rerender(project([run('run-1')], { budget: { ...FIXTURES.build!.budget, spentUsd: 5 } }), actions);
     await flush();
-    expect(container.querySelector('[data-selected="true"]')?.textContent).toBe(first);
+    expect(container.querySelector('[aria-selected="true"]')?.textContent).toContain('What should the first minute teach?');
   });
 
-  it('remembers the filters in the host layout service, so returning shows them again', async () => {
-    await withRows();
-    toggleFilter('workflow');
-    expect(preferences.inspectorActivities).toBe('workflow');
-
-    // Leaving the inspector and coming back re-reads the stored value. The mock
-    // is not reactive, so a remount is how that return is reproduced here.
-    act(() => root.unmount());
-    root = createRoot(container);
-    await withRows();
-    const field = [...container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')]
-      .find((el) => el.parentElement?.textContent?.includes('workflow'));
-    expect(field?.checked).toBe(true);
-    expect(container.textContent).toContain('Clear filters');
+  it('renders a bounded number of rows for a 1,240-activity run', async () => {
+    const many = activity(Array.from({ length: 1240 }, (_, index) => node(`n${index}`, { label: `Activity ${index}`, startAt: T(index) })));
+    await open(project(), actionsOver({ trace: vi.fn(async () => answer(froggerPage({ activity: many, records: [] }))) }));
+    expect(rows().length).toBeGreaterThan(0);
+    expect(rows().length).toBeLessThanOrEqual(60);
   });
 
-  it('distinguishes a failure by its words and not only by colour', async () => {
-    const trace = vi.fn(async (_id: string, query: TraceRequest) => ({
-      ok: true, text: 'done', page: query.detail ? page([record(0, { outcome: 'failed' })]) : page([]),
-    } as TraceOutcome));
-    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace })} onBack={vi.fn()} />));
+  it('shows Load more activity as the last row while older pages exist', async () => {
+    const trace = vi.fn(async (_id: string, query: TraceRequest) => answer(froggerPage({ nextAfterSeq: query.afterSeq === undefined ? 2 : null })));
+    const actions = await open(project(), actionsOver({ trace }));
+    click('Load more activity');
     await flush();
-    click('Load activity');
-    await flush();
-    expect(container.textContent).toContain('failed');
-  });
-
-  it('says a timing was not observed rather than showing a zero', async () => {    const trace = vi.fn(async (_id: string, query: TraceRequest) => ({
-      ok: true, text: 'done',
-      page: query.detail
-        ? { ...page([record(0)]), timing: { activeMs: 0, workerMs: 0, waitMs: 0, openWaits: [] } }
-        : { ...page([]), timing: { activeMs: 0, workerMs: 0, waitMs: 0, openWaits: [] } },
-    } as TraceOutcome));
-    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace })} onBack={vi.fn()} />));
-    await flush();
-    expect(container.textContent).toContain('none observed');
-    // Counters nothing reported are named, not silently shown as zero coverage.
-    expect(container.textContent).toContain('cacheRead unavailable');
+    expect(vi.mocked(actions.trace).mock.calls.at(-1)?.[1]).toMatchObject({ afterSeq: 2, detail: true });
+    expect(() => button('Load more activity')).toThrow();
   });
 });
 
-describe('the charts and the timeline agree', () => {
-  const rows = [
-    record(0, { operationKind: 'workflow', costUsd: 0.30, model: 'openai-codex/gpt-5.6-terra', thinking: 'high' }),
-    record(1, { operationKind: 'evidence', costUsd: 0.05, model: 'openai-codex/gpt-5.6-luna', thinking: 'low' }),
-  ];
-
-  const render = async () => {
-    const trace = vi.fn(async (_id: string, query: TraceRequest) => ({
-      ok: true, text: 'done', page: query.detail ? page(rows) : page([]),
-    } as TraceOutcome));
-    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace })} onBack={vi.fn()} />));
-    await flush();
-    click('Load activity');
-    await flush();
-  };
-
-  it('draws a breakdown and a model row per model and effort level', async () => {
-    await render();
-    expect(container.textContent).toContain('Cumulative spend');
-    // Exact values, not rounded into the same number.
-    expect(container.textContent).toContain('$0.3000');
-    expect(container.textContent).toContain('$0.0500');
-    expect(container.textContent).toContain('openai-codex/gpt-5.6-terra');
-    expect(container.textContent).toContain('openai-codex/gpt-5.6-luna');
-    expect(container.textContent).toContain('high');
-    expect(container.textContent).toContain('low');
+describe('the selected activity', () => {
+  it('leaves out a delegated step\'s unrecorded model, and an owner charge names the owner model', async () => {
+    preferences.inspectorExpanded = 'm1,owner';
+    await open();
+    act(() => rows().find((row) => row.textContent?.includes('Implement the grid'))!.click());
+    const detail = () => container.querySelector('[aria-label="Selected activity"]')?.textContent ?? '';
+    expect(detail()).not.toContain('Model');
+    act(() => rows().find((row) => row.textContent?.includes('Usage'))!.click());
+    expect(detail()).toContain('anthropic/claude-fable-5-1');
+    expect(detail()).toContain('Input100');
   });
 
-  it('filters the timeline when an activity bar is chosen', async () => {
-    await render();
-    const bar = [...container.querySelectorAll('button')].find((el) => el.className === 'ar-bar-row' && el.textContent?.includes('workflow'));
-    if (!bar) throw new Error('no activity bar');
-    act(() => bar.click());
-    // The chart drives the timeline's filter rather than sitting beside it.
-    expect(preferences.inspectorActivities).toBe('workflow');
-
-    // The mock is not reactive, so returning to the view is how the stored
-    // filter is read back: the timeline is narrowed and the total says so.
-    act(() => root.unmount());
-    root = createRoot(container);
-    await render();
-    expect(container.textContent).toContain('filtered view:');
-    expect(container.textContent).toContain('1 of 2 rows');
+  it('says once that nothing was charged to a step, and leaves out what was not recorded', async () => {
+    const plan = node('plan', { label: 'Workflow plan', kind: 'workflow', costUsd: null, coverage: null });
+    await open(project(), actionsOver({ trace: vi.fn(async () => answer(froggerPage({ activity: activity([plan]) }))) }));
+    const detail = container.querySelector('[aria-label="Selected activity"]')?.textContent ?? '';
+    expect(detail).toContain('Costno charges recorded');
+    for (const fact of ['Kind', 'Model', 'Attributable', 'Inclusive', 'Coverage', 'Thinking', 'Tokens', 'Not recorded', 'unavailable']) expect(detail).not.toContain(fact);
   });
 
-  it('shows an operation its own cost and its inclusive cost separately', async () => {
-    await render();
-    expect(container.textContent).toContain('own cost');
-    expect(container.textContent).toContain('inclusive');
-    // The selected row is exclusive; the whole tree's exclusive sum is the same
-    // figure, so the panel's inclusive value is never added into a total.
-    expect(container.textContent).toContain('$0.3000');
-    expect(container.textContent).toContain('$0.3500');
+  it('names a failure in words, not only by colour', async () => {
+    preferences.inspectorExpanded = 'm1';
+    await open();
+    act(() => rows().find((row) => row.textContent?.includes('Evidence'))!.click());
+    expect(container.querySelector('.ar-state-chip')?.textContent).toBe('failed');
   });
+});
 
-  it('charts nothing and says so when no usage was priced', async () => {
-    const trace = vi.fn(async (_id: string, query: TraceRequest) => ({
-      ok: true, text: 'done', page: query.detail ? page([record(0), record(1)]) : page([]),
-    } as TraceOutcome));
-    act(() => root.render(<Inspector record={FIXTURES.build!} actions={actionsOver({ trace })} onBack={vi.fn()} />));
-    await flush();
-    click('Load activity');
-    await flush();
-    expect(container.textContent).toContain('nothing to chart');
-    // Not a line at zero dressed up as a measurement.
-    expect(container.textContent).not.toContain('Cumulative spend');
+describe('the charts', () => {
+  it('highlights the rows of the bar the reader picks', async () => {
+    await open();
+    act(() => [...container.querySelectorAll<HTMLButtonElement>('.ar-hbar')].find((bar) => bar.textContent?.includes('Research'))!.click());
+    expect(rows().filter((row) => row.dataset.hit === 'true').map((row) => row.querySelector('b')?.textContent)).toEqual(['What should the first minute teach?']);
   });
+});
 
-  it('still shows late worker activity and its usage after a Stop', async () => {
-    const trace = vi.fn(async (_id: string, query: TraceRequest) => ({
-      ok: true, text: 'done',
-      page: query.detail
-        ? page([record(0, { operationKind: 'workflow', costUsd: 0.22 })])
-        : page([], { summary: { ...page([]).summary, attributableUsd: 0.22 } }),
-    } as TraceOutcome));
-    const stopped = {
-      ...FIXTURES.build!,
-      paused: true,
-      runs: [{ id: 'run-stop', kind: 'initial' as const, objectiveId: null, startedAt: at(0), endedAt: null, outcome: 'stopped' as const }],
-    };
-    act(() => root.render(<Inspector record={stopped} actions={actionsOver({ trace })} onBack={vi.fn()} />));
+describe('project lifetime', () => {
+  it('opens a run from the runs table', async () => {
+    const lifetime = vi.fn(async (): Promise<LifetimeOutcome> => ({ ok: true, text: 'done', lifetime: {
+      runs: [{ id: 'run-1', label: 'Initial delivery', kind: 'initial', outcome: 'in-progress', open: true, recorded: true, attributableUsd: 4.6, linkedSharedUsd: 0, activeMs: 60_000, waitMs: 0, incomplete: false, spend: [] }],
+      sharedUsd: 0,
+      unassignedUsd: 0.4,
+    } }));
+    const actions = await open(project(), actionsOver({ lifetime }));
+    const scope = container.querySelector<HTMLSelectElement>('select[aria-label="Scope"]')!;
+    act(() => { scope.value = 'lifetime'; scope.dispatchEvent(new Event('change', { bubbles: true })); });
     await flush();
-    click('Load activity');
+    expect(text()).toContain('Unassigned$0.40');
+    const readsBefore = vi.mocked(actions.trace).mock.calls.length;
+    click('Open');
     await flush();
-
-    // The run never ended and the project is stopped, so the view says so rather
-    // than presenting a tidy, finished-looking total.
-    expect(container.textContent).toContain('Interrupted');
-    // The late worker's cost is still counted, not dropped because work stopped.
-    expect(container.textContent).toContain('$0.2200');
-    expect(container.textContent).toContain('op_0');
+    expect(vi.mocked(actions.trace).mock.calls.length).toBeGreaterThan(readsBefore);
+    expect(rowLabels()).toContain('Owner');
   });
 });

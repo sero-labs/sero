@@ -2,7 +2,7 @@ import { closeDeliveredObjectives } from './objective-completion';
 import type { RunJournal } from './run-journal';
 import { ensureResearchContext } from './research-context';
 import { setAccountingIncomplete } from '../shared/accounting';
-import { recordCharge, chargeRoomPlanning } from './project-usage';
+import { activeRise, chargeRoomPlanning, recordCharge, reportedActiveMs } from './project-usage';
 import path from 'node:path';
 import { roomWorkspace } from './execution-location';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -112,11 +112,14 @@ export async function observeResearchRooms(deps: ResearchRoomDeps, projectId: st
     const inspection = await getOrchestratorRoomRegistry()?.get(record.workspaceId)?.handle.inspect(room.id);
     let completed = false;
     let chargedDelta = 0;
+    let activeMs = 0;
     await deps.store.update(projectId, (fresh) => {
       const current = fresh.pendingResearch?.find((entry) => entry.id === pending.id);
       if (!current) return null;
       const delta = Math.max(0, room.costUsd - (current.chargedUsd ?? 0));
       chargedDelta = delta;
+      const time = activeRise(reportedActiveMs(room, Date.parse(deps.host.now())), current.countedActiveMs);
+      activeMs = time.rise;
       let next = charge(setAccountingIncomplete(fresh, `room:${room.id}`, room.usageIncomplete !== false), 'research', delta, deps.host.now());
       if (next.blockedReason?.startsWith(`Research Room ${room.id} is `) && ['ready', 'running', 'completed'].includes(room.status)) {
         const resumed = unblock(next, deps.host.now(), 'Room resumed', { kind: 'room', id: room.id, label: room.title }, next.blockedReason ?? undefined);
@@ -129,7 +132,7 @@ export async function observeResearchRooms(deps: ResearchRoomDeps, projectId: st
           research: [...next.research, { id: pending.id, roomId: room.id, models: inspection.models, question: pending.question, stoppingCondition: pending.stoppingCondition, result: inspection.result, costUsd: Math.max(room.costUsd, current.chargedUsd ?? 0), completedAt: deps.host.now() }],
         }, deps.host.now()), deps.host.now());
       }
-      next = { ...next, pendingResearch: next.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, chargedUsd: Math.max(room.costUsd, current.chargedUsd ?? 0), models: inspection?.models ?? entry.models } : entry) };
+      next = { ...next, pendingResearch: next.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, chargedUsd: Math.max(room.costUsd, current.chargedUsd ?? 0), countedActiveMs: time.counted, models: inspection?.models ?? entry.models } : entry) };
       if (['failed', 'cancelled', 'paused'].includes(room.status) || (room.status === 'completed' && inspection && !inspection.result?.trim())) {
         const reason = room.status === 'completed' ? `Research Room ${room.id} finished without saved findings. Open the Room to review its result.` : `Research Room ${room.id} is ${room.status}. Open the Room to review its next action.`;
         // The Room's title and the cause are both in hand here. Saving them is
@@ -148,7 +151,7 @@ export async function observeResearchRooms(deps: ResearchRoomDeps, projectId: st
       }
       return next;
     });
-    await recordCharge(deps, record, `room:${room.id}`, chargedDelta, 'aggregate', pending.project?.runId);
+    await recordCharge(deps, record, `room:${room.id}`, chargedDelta, 'aggregate', pending.project?.runId, { activeMs });
     if (completed) {
       // The finding is already recorded, so saving the report only adds the
       // reference a later contract points at.
