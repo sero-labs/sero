@@ -10,7 +10,7 @@
 
 ## 2. Make room in the files at the size limit
 
-- [ ] 2.1 Move the action handlers out of `P/extension/runtime/mcp-runtime.ts` into a `runtime-*.ts` module, and move the result formatting and argument parsing out of `P/extension/runtime/runtime-proxy.ts` into a `runtime-proxy-format.ts` module. Do not change behavior. Verify: both files are under 400 lines, `pnpm --filter @sero-ai/plugin-mcp test` passes, and `pnpm typecheck` passes.
+- [x] 2.1 Move the action handlers out of `P/extension/runtime/mcp-runtime.ts` into a `runtime-*.ts` module, and move the result formatting and argument parsing out of `P/extension/runtime/runtime-proxy.ts` into a `runtime-proxy-format.ts` module. Do not change behavior. Verify: both files are under 400 lines, `pnpm --filter @sero-ai/plugin-mcp test` passes, and `pnpm typecheck` passes.
 
 ## 3. SDK v2, era negotiation and diagnostics
 

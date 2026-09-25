@@ -1,5 +1,4 @@
 import type { McpServerEditorInput } from '../../shared/types';
-import { validateServerEditorInput } from '../../shared/types';
 import { ensureOAuthDir, hasOAuthTokens } from '../auth/storage';
 import { McpOAuthCoordinator } from '../auth/oauth-coordinator';
 import { areMetadataCacheServersEqual, readMetadataCache, removeMetadataCacheEntry, writeMetadataCache, type McpMetadataCacheDocument } from '../cache/metadata-cache';
@@ -9,7 +8,6 @@ import {
   hasAgentPluginMcpSourceEvents,
   withAgentPluginMcpSources,
 } from '../config/agent-plugin-source';
-import { setAgentPluginServerEnabled } from '../config/agent-plugin-client-state';
 import type { McpConfigDocument } from '../config/types';
 import { McpServerManager } from '../manager/server-manager';
 import { buildSnapshot, type RuntimeServerStatus } from '../state/snapshot';
@@ -31,9 +29,9 @@ import {
   KEEP_ALIVE_HEALTHCHECK_INTERVAL_MS, shouldAttemptAutoConnect,
 } from './runtime-lifecycle';
 import { writeState } from '../state/state-io';
-import { createToolResult, type ManagerAction, type ProxyAction, type ToolResult } from '../tools/types';
-import { readMcpConfigPair, withMcpServerEnabled, type McpConfigPair } from './runtime-config';
-import { buildServerConfig, mutationErrorResult } from './runtime-utils';
+import type { ManagerAction, ProxyAction, ToolResult } from '../tools/types';
+import { readMcpConfigPair, type McpConfigPair } from './runtime-config';
+import { removeServerAction, toggleServerAction, upsertServerAction } from './runtime-servers';
 import { executeManagerActionRoute } from './runtime-manager-router';
 import type { ManagerActionOptions, SyncedRuntimeState, SyncSnapshotOptions } from './runtime-types';
 import { McpUiSessionManager } from '../viewer/ui-session';
@@ -169,135 +167,20 @@ function createMcpRuntime(): McpRuntime {
   async function saveRawConfig(cwd: string | undefined, rawConfigInput?: string): Promise<ToolResult> {
     return saveRawConfigAction({ cwd, rawConfigInput, writeConfigAndSyncSnapshot });
   }
-  async function upsertServer(cwd: string | undefined, serverInput?: McpServerEditorInput): Promise<ToolResult> {
-    if (!serverInput) {
-      return createToolResult('Error: Server input is required.', { snapshotWritten: false });
-    }
-    const validationError = validateServerEditorInput(serverInput);
-    if (validationError) {
-      return createToolResult(`Error: ${validationError}`, { snapshotWritten: false });
-    }
-    try {
-      const configPair = await readMcpConfigPair();
-      const effectiveConfig = configPair.effectiveConfig;
-      const originalName = serverInput.originalServerName?.trim();
-      const nextName = serverInput.serverName.trim();
-      const managedServer = [originalName, nextName]
-        .filter((name): name is string => !!name)
-        .map((name) => effectiveConfig.mcpServers[name])
-        .find((server) => server?.managedByAgentPlugin);
-      if (managedServer?.managedByAgentPlugin) {
-        throw new Error(`Server "${managedServer.managedByAgentPlugin.serverName}" is managed by Agent Plugin ${managedServer.managedByAgentPlugin.pluginName}.`);
-      }
-      const synced = await mutateConfig(cwd, (config) => {
-        const nextServers = { ...config.mcpServers };
-        const hasRenameCollision = Boolean(
-          originalName && originalName !== nextName && nextServers[nextName],
-        );
-        const hasCreateCollision = Boolean(!originalName && nextServers[nextName]);
-        if (hasRenameCollision || hasCreateCollision) {
-          throw new Error(`A server named "${nextName}" already exists.`);
-        }
-        const existing = originalName ? nextServers[originalName] : undefined;
-        if (originalName && originalName !== nextName) {
-          delete nextServers[originalName];
-          runtimeStatuses.delete(originalName);
-        }
-        nextServers[nextName] = buildServerConfig(serverInput, existing);
-        config.mcpServers = nextServers;
-      }, undefined, configPair);
-      return createToolResult(`Saved MCP server "${serverInput.serverName.trim()}".`, {
-        snapshotWritten: true,
-        configPath: synced.configPath,
-        statePath: synced.statePath,
-        serverCount: synced.snapshot.summary.totalServers,
-      });
-    } catch (error) {
-      return mutationErrorResult(error);
-    }
+  const serverMutationContext = {
+    manager,
+    runtimeStatuses,
+    mutateConfig,
+    syncSnapshot,
+  };
+  function upsertServer(cwd: string | undefined, serverInput?: McpServerEditorInput): Promise<ToolResult> {
+    return upsertServerAction(serverMutationContext, cwd, serverInput);
   }
-  async function removeServer(cwd: string | undefined, serverName?: string): Promise<ToolResult> {
-    const normalizedServerName = serverName?.trim();
-    if (!normalizedServerName) {
-      return createToolResult('Error: Server name is required.', { snapshotWritten: false });
-    }
-    try {
-      const configPair = await readMcpConfigPair();
-      const effectiveConfig = configPair.effectiveConfig;
-      const managedServer = effectiveConfig.mcpServers[normalizedServerName];
-      if (managedServer?.managedByAgentPlugin) {
-        throw new Error(`Server "${managedServer.managedByAgentPlugin.serverName}" is managed by Agent Plugin ${managedServer.managedByAgentPlugin.pluginName}.`);
-      }
-      await manager.close(normalizedServerName);
-      runtimeStatuses.delete(normalizedServerName);
-      const synced = await mutateConfig(cwd, (config) => {
-        if (!config.mcpServers[normalizedServerName]) {
-          throw new Error(`Server "${normalizedServerName}" does not exist.`);
-        }
-        const nextServers = { ...config.mcpServers };
-        delete nextServers[normalizedServerName];
-        config.mcpServers = nextServers;
-      }, normalizedServerName, configPair);
-      return createToolResult(`Removed MCP server "${normalizedServerName}".`, {
-        snapshotWritten: true,
-        configPath: synced.configPath,
-        statePath: synced.statePath,
-        serverCount: synced.snapshot.summary.totalServers,
-      });
-    } catch (error) {
-      return mutationErrorResult(error);
-    }
+  function removeServer(cwd: string | undefined, serverName?: string): Promise<ToolResult> {
+    return removeServerAction(serverMutationContext, cwd, serverName);
   }
-  async function toggleServer(cwd: string | undefined, serverName: string | undefined, enabled: boolean): Promise<ToolResult> {
-    const normalizedServerName = serverName?.trim();
-    if (!normalizedServerName) {
-      return createToolResult('Error: Server name is required.', { snapshotWritten: false });
-    }
-    try {
-      const configPair = await readMcpConfigPair();
-      const effectiveConfig = configPair.effectiveConfig;
-      const managedServer = effectiveConfig.mcpServers[normalizedServerName];
-      if (managedServer?.managedByAgentPlugin) {
-        if (!enabled) {
-          await manager.close(normalizedServerName);
-          runtimeStatuses.delete(normalizedServerName);
-        }
-        await setAgentPluginServerEnabled(normalizedServerName, enabled);
-        const nextConfig = withMcpServerEnabled(effectiveConfig, normalizedServerName, enabled);
-        const synced = await syncSnapshot(cwd, { config: nextConfig });
-        return createToolResult(`${enabled ? 'Enabled' : 'Disabled'} managed MCP server "${managedServer.managedByAgentPlugin.serverName}".`, {
-          snapshotWritten: true,
-          configPath: synced.configPath,
-          statePath: synced.statePath,
-          serverCount: synced.snapshot.summary.totalServers,
-        });
-      }
-      if (!enabled) {
-        await manager.close(normalizedServerName);
-        runtimeStatuses.delete(normalizedServerName);
-      }
-      const synced = await mutateConfig(cwd, (config) => {
-        const current = config.mcpServers[normalizedServerName];
-        if (!current) {
-          throw new Error(`Server "${normalizedServerName}" does not exist.`);
-        }
-        config.mcpServers = {
-          ...config.mcpServers,
-          [normalizedServerName]: {
-            ...current,
-            enabled,
-          },
-        };
-      }, undefined, configPair);
-      return createToolResult(`${enabled ? 'Enabled' : 'Disabled'} MCP server "${normalizedServerName}".`, {
-        snapshotWritten: true,
-        configPath: synced.configPath,
-        statePath: synced.statePath,
-        serverCount: synced.snapshot.summary.totalServers,
-      });
-    } catch (error) {
-      return mutationErrorResult(error);
-    }
+  function toggleServer(cwd: string | undefined, serverName: string | undefined, enabled: boolean): Promise<ToolResult> {
+    return toggleServerAction(serverMutationContext, cwd, serverName, enabled);
   }
   async function connectServer(cwd: string | undefined, serverName: string | undefined, reconnect: boolean): Promise<ToolResult> {
     return connectServerAction({
