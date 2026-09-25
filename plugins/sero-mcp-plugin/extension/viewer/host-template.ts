@@ -55,33 +55,35 @@ export function buildViewerHostCspContent(): string {
   ].join('; ');
 }
 
-export function buildCspMetaContent(csp: UiResourceContent['meta']['csp']): string | undefined {
-  if (!csp) {
-    return undefined;
-  }
-
-  const directives = ["default-src 'none'"];
-  pushDirective(directives, 'script-src', csp.scriptDomains);
-  pushDirective(directives, 'style-src', csp.styleDomains);
-  pushDirective(directives, 'font-src', csp.fontDomains);
-  pushDirective(directives, 'img-src', csp.imgDomains);
-  pushDirective(directives, 'media-src', csp.mediaDomains);
-  pushDirective(directives, 'connect-src', csp.connectDomains);
-  pushDirective(directives, 'frame-src', csp.frameDomains);
-  pushDirective(directives, 'worker-src', csp.workerDomains);
-  pushDirective(directives, 'base-uri', csp.baseUriDomains);
-  return directives.join('; ');
+/**
+ * The CSP of the app frame. Without declared domains the app has no network
+ * access; declared domains open only their own directives. Inline script and
+ * style stay allowed, because an MCP app is usually one HTML document.
+ */
+export function buildAppCsp(csp: UiResourceContent['meta']['csp']): string {
+  const sources = (values: string[] | undefined, fallback: string) => {
+    const safe = (values ?? []).filter(isCspSource);
+    return safe.length > 0 ? safe.join(' ') : fallback;
+  };
+  const resources = sources(csp?.resourceDomains, '');
+  return [
+    "default-src 'none'",
+    `script-src 'unsafe-inline' ${resources}`,
+    `style-src 'unsafe-inline' ${resources}`,
+    `img-src data: blob: ${resources}`,
+    `font-src data: ${resources}`,
+    `media-src data: blob: ${resources}`,
+    `connect-src ${sources(csp?.connectDomains, "'none'")}`,
+    `frame-src ${sources(csp?.frameDomains, "'none'")}`,
+    `base-uri ${sources(csp?.baseUriDomains, "'none'")}`,
+    "object-src 'none'",
+    "form-action 'none'",
+  ].map((directive) => directive.trim()).join('; ');
 }
 
-export function applyCspMeta(html: string, cspContent: string | undefined): string {
-  if (!cspContent || /http-equiv=["']Content-Security-Policy["']/i.test(html)) {
-    return html;
-  }
-  const metaTag = `<meta http-equiv="Content-Security-Policy" content="${escapeHtmlAttribute(cspContent)}">`;
-  if (/<head[^>]*>/i.test(html)) {
-    return html.replace(/<head[^>]*>/i, (match) => `${match}\n${metaTag}`);
-  }
-  return `${metaTag}\n${html}`;
+/** A web origin, optionally with a wildcard subdomain. Anything else could change the policy. */
+function isCspSource(value: string): boolean {
+  return /^(https?|wss?):\/\/(\*\.)?[a-z0-9.-]+(:\d+)?$/i.test(value);
 }
 
 function buildHostContext(toolInfo: UiToolInfo | undefined): Record<string, unknown> {
@@ -103,13 +105,6 @@ function buildHostContext(toolInfo: UiToolInfo | undefined): Record<string, unkn
   };
 }
 
-function pushDirective(target: string[], name: string, values: string[] | undefined): void {
-  if (!values || values.length === 0) {
-    return;
-  }
-  target.push(`${name} ${values.join(' ')}`);
-}
-
 function safeInlineJson(value: unknown): string {
   return JSON.stringify(value)
     .replace(/</g, '\\u003c')
@@ -126,14 +121,6 @@ function escapeHtml(value: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-}
-
-function escapeHtmlAttribute(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

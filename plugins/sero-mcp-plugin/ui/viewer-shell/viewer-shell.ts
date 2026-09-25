@@ -15,6 +15,7 @@ const HOST_INFO = { name: 'Sero', version: '0.1.0' };
 
 /** Only the capabilities that the viewer server implements. */
 export const HOST_CAPABILITIES: McpUiHostCapabilities = {
+  openLinks: {},
   serverTools: {},
   serverResources: {},
 };
@@ -69,6 +70,7 @@ export async function startViewerShell(doc: Document = document, fetchImpl: Fetc
   bridge.onlistresourcetemplates = (params) => post('/proxy/resources/templates/list', params);
   bridge.onreadresource = (params) => post('/proxy/resources/read', params);
   bridge.onlistprompts = (params) => post('/proxy/prompts/list', params);
+  bridge.onopenlink = (params) => post('/proxy/ui/open-link', params);
   bridge.onsizechange = ({ height }) => {
     if (typeof height !== 'number') return;
     frame.style.height = `${height}px`;

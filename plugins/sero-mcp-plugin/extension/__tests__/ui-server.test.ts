@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { UiResourceMeta } from '../viewer/types';
 import { MAX_VIEWER_SESSIONS, McpUiServer, type UiSessionHandle } from '../viewer/ui-server';
 
 const servers: McpUiServer[] = [];
@@ -70,6 +71,47 @@ describe('ui-server', () => {
   });
 });
 
+describe('ui-server app isolation', () => {
+  it('gives an app without declared domains no network access', async () => {
+    const handle = await openViewer(createServer());
+
+    const csp = (await fetch(appUrl(handle))).headers.get('content-security-policy');
+
+    expect(csp).toContain("connect-src 'none'");
+    expect(csp).toContain("frame-src 'none'");
+    expect(csp).toContain("script-src 'unsafe-inline';");
+  });
+
+  it('opens only the declared domains and drops values that could change the policy', async () => {
+    const handle = await openViewer(createServer(), undefined, undefined, {
+      csp: { connectDomains: ['https://api.example.com', "'self'; script-src *"], resourceDomains: ['https://*.cdn.example.com'] },
+    });
+
+    const csp = (await fetch(appUrl(handle))).headers.get('content-security-policy');
+
+    expect(csp).toContain('connect-src https://api.example.com;');
+    expect(csp).toContain("script-src 'unsafe-inline' https://*.cdn.example.com;");
+  });
+
+  it('grants no requested permission by default', async () => {
+    const handle = await openViewer(createServer(), undefined, undefined, { permissions: { clipboardWrite: {} } });
+
+    const html = await (await fetch(handle.viewerUrl)).text();
+
+    expect(html).toContain('"allowAttribute":""');
+  });
+
+  it('reports a link as not opened when the user does not open it', async () => {
+    const onOpenLink = vi.fn(async () => false);
+    const handle = await openViewer(createServer(), undefined, undefined, {}, onOpenLink);
+
+    const body = await (await postProxy(handle, 'ui/open-link', { url: 'https://example.com' })).json();
+
+    expect(onOpenLink).toHaveBeenCalledWith('https://example.com');
+    expect(body).toEqual({ ok: true, result: { isError: true } });
+  });
+});
+
 describe('ui-server app proxy', () => {
   const tools = [
     { name: 'refresh' },
@@ -103,7 +145,13 @@ function createServer(manager = createManager()): McpUiServer {
   return server;
 }
 
-function openViewer(server: McpUiServer, onClose?: (reason: string) => void, excludeTools?: string[]): Promise<UiSessionHandle> {
+function openViewer(
+  server: McpUiServer,
+  onClose?: (reason: string) => void,
+  excludeTools?: string[],
+  meta: UiResourceMeta = {},
+  onOpenLink?: (url: string) => Promise<boolean>,
+): Promise<UiSessionHandle> {
   return server.open({
     serverName: 'demo',
     resourceUri: 'ui://demo/dashboard',
@@ -112,11 +160,18 @@ function openViewer(server: McpUiServer, onClose?: (reason: string) => void, exc
       uri: 'ui://demo/dashboard',
       html: '<html><body>demo</body></html>',
       mimeType: 'text/html;profile=mcp-app',
-      meta: {},
+      meta,
     },
     excludeTools,
+    onOpenLink,
     onClose,
   });
+}
+
+function appUrl(handle: UiSessionHandle): URL {
+  const url = new URL(handle.viewerUrl);
+  url.pathname = '/ui-app';
+  return url;
 }
 
 function postProxy(handle: UiSessionHandle, method: string, params: unknown): Promise<Response> {

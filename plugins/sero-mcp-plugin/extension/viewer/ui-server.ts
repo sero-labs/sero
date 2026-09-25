@@ -3,10 +3,10 @@ import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { buildAllowAttribute } from '@modelcontextprotocol/ext-apps/app-bridge';
+import { buildAllowAttribute, type McpUiResourcePermissions } from '@modelcontextprotocol/ext-apps/app-bridge';
 import type { McpServerManager } from '../manager/server-manager';
 import { VIEWER_SHELL_SCRIPT } from '../../shared/viewer-shell';
-import { applyCspMeta, buildCspMetaContent, buildHostHtmlTemplate, buildViewerHostCspContent } from './host-template';
+import { buildAppCsp, buildHostHtmlTemplate, buildViewerHostCspContent } from './host-template';
 import { callViewerTool, listAppTools, readViewerResource, toRecord } from './ui-proxy';
 import type { UiResourceContent, UiToolInfo } from './types';
 
@@ -24,6 +24,10 @@ export interface UiSessionOptions {
   toolResult?: Record<string, unknown>;
   /** Tools from the server config that the app must not see or call. */
   excludeTools?: string[];
+  /** Permissions for the frame `allow` attribute. The app gets none unless the user granted them. */
+  grantedPermissions?: McpUiResourcePermissions;
+  /** Asks the user before the app opens a link. Resolves true when the page was opened. */
+  onOpenLink?: (url: string) => Promise<boolean>;
   onUnauthorized?: (serverName: string, message: string) => Promise<void>;
   onUiMessage?: (params: Record<string, unknown>) => Promise<void> | void;
   onClose?: (reason: string) => void;
@@ -119,7 +123,7 @@ export class McpUiServer {
           sendHtml(response, buildHostHtmlTemplate({
             token: viewerId,
             title: session.title,
-            allowAttribute: buildAllowAttribute(session.resource.meta.permissions),
+            allowAttribute: buildAllowAttribute(session.grantedPermissions),
             toolArgs: session.toolArgs ?? {},
             toolResult: session.toolResult,
             toolInfo: session.toolInfo,
@@ -127,8 +131,7 @@ export class McpUiServer {
           return;
         }
         if (url.pathname === '/ui-app') {
-          const csp = buildCspMetaContent(session.resource.meta.csp);
-          sendHtml(response, applyCspMeta(session.resource.html, csp), csp);
+          sendHtml(response, session.resource.html, buildAppCsp(session.resource.meta.csp));
           return;
         }
         sendJson(response, 404, { ok: false, error: 'Not found' });
@@ -172,6 +175,11 @@ export class McpUiServer {
         return { resourceTemplates: [] };
       case '/proxy/prompts/list':
         return { prompts: [] };
+      case '/proxy/ui/open-link': {
+        const url = toRecord(params).url;
+        const opened = typeof url === 'string' && session.onOpenLink ? await session.onOpenLink(url) : false;
+        return { isError: !opened };
+      }
       case '/proxy/ui/message':
       case '/proxy/ui/context':
         await session.onUiMessage?.(toRecord(params));

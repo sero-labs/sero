@@ -63,3 +63,35 @@ export function askUser(
     bus.emit(USER_FEEDBACK_QUESTION_REQUEST_EVENT, pending);
   });
 }
+
+/** The URL as a web address, or null for any other scheme. */
+export function toWebUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Shows the full URL with Decline and Open page. The host opens the page only
+ * when the user picks Open page. Resolves null when the question is cancelled.
+ */
+export async function askToOpenPage(
+  webUrl: string,
+  options: { serverLabel: string; source: string; prompt?: string; signal?: AbortSignal },
+): Promise<'open' | 'decline' | null> {
+  const answers = await askUser([{
+    id: 'open-page',
+    label: `Open a page from ${options.serverLabel}?`,
+    prompt: [options.prompt, webUrl].filter(Boolean).join('\n\n'),
+    options: [
+      { value: 'decline', label: 'Decline', emphasis: 'primary' },
+      { value: 'open', label: 'Open page', openUrl: webUrl },
+    ],
+    allowOther: false,
+  }], { source: options.source, signal: options.signal, type: 'question' });
+  if (answers === null) return null;
+  return answers[0]?.value === 'open' ? 'open' : 'decline';
+}

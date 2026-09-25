@@ -47,6 +47,17 @@ describe('viewer shell', () => {
       body: JSON.stringify({ token: 'token-1', params: { name: 'refresh', arguments: {} } }),
     }));
   });
+
+  it('ignores a message from a window that is not the app frame', async () => {
+    const app = await startShell();
+    const replies: unknown[] = [];
+    shell?.frame.contentWindow?.addEventListener('message', (event) => replies.push(event.data));
+
+    window.dispatchEvent(new MessageEvent('message', { data: { jsonrpc: '2.0', id: 9, method: 'ping' }, source: window }));
+    await app.request({ id: 1, method: 'ping' });
+
+    expect(replies).toEqual([expect.objectContaining({ id: 1 })]);
+  });
 });
 
 function initializeParams() {

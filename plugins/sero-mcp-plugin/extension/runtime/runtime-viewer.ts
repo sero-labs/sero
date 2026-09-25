@@ -8,7 +8,8 @@ import type { McpServerManager } from '../manager/server-manager';
 import type { RuntimeServerStatus } from '../state/snapshot';
 import { createToolResult, type ToolResult } from '../tools/types';
 import type { UiResourceHandler } from '../viewer/ui-resource-handler';
-import type { McpUiServer } from '../viewer/ui-server';
+import type { McpUiServer, UiSessionOptions } from '../viewer/ui-server';
+import { askToOpenPage, canAskUser, toWebUrl } from '../elicitation/ask-user';
 import { reconcileConnection } from './runtime-connect';
 import { buildResourcesDisabledMessage, readServerResourceAction } from './runtime-resource';
 import type { SyncedRuntimeState } from './runtime-types';
@@ -56,10 +57,7 @@ export async function openViewerResourceAction(options: ViewerActionOptions): Pr
       resourceUri,
       title: resourceUri,
       resource,
-      excludeTools: ensured.config.mcpServers[ensured.serverName]?.excludeTools,
-      onUnauthorized: async (_serverName, message) => {
-        await handleUnauthorized(ensured, options, message);
-      },
+      ...sessionHooks(ensured, options, resourceUri),
     });
 
     return createToolResult(`Opened MCP UI resource "${resourceUri}" from "${ensured.serverName}".`, {
@@ -102,10 +100,7 @@ export async function openToolUiAction(options: ViewerActionOptions): Promise<To
       resource,
       toolInfo: tool ? { name: tool.name, description: tool.description, inputSchema: tool.inputSchema } : undefined,
       toolArgs: options.toolArguments,
-      excludeTools: ensured.config.mcpServers[ensured.serverName]?.excludeTools,
-      onUnauthorized: async (_serverName, message) => {
-        await handleUnauthorized(ensured, options, message);
-      },
+      ...sessionHooks(ensured, options, toolName || resourceUri),
     });
 
     return createToolResult(`Opened MCP tool UI for "${toolName || resourceUri}" from "${ensured.serverName}".`, {
@@ -218,6 +213,24 @@ async function ensureConnectedServer(
   }
 
   return { config: synced.config, serverName, snapshotWritten: true };
+}
+
+/** Session settings that come from the server config and the user, the same for every viewer. */
+function sessionHooks(ensured: EnsuredConnectedServer, options: ViewerActionOptions, appName: string): Pick<
+  UiSessionOptions, 'excludeTools' | 'onUnauthorized' | 'onOpenLink'
+> {
+  const serverLabel = ensured.serverName;
+  return {
+    excludeTools: ensured.config.mcpServers[serverLabel]?.excludeTools,
+    onUnauthorized: async (_serverName, message) => {
+      await handleUnauthorized(ensured, options, message);
+    },
+    onOpenLink: async (url) => {
+      const webUrl = toWebUrl(url);
+      if (!webUrl || !canAskUser()) return false;
+      return await askToOpenPage(webUrl, { serverLabel, source: `${serverLabel} · ${appName} app` }) === 'open';
+    },
+  };
 }
 
 async function handleUnauthorized(
