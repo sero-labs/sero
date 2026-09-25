@@ -53,7 +53,7 @@ describe('ui-server', () => {
 
     expect((await fetch(first.viewerUrl)).status).toBe(403);
     expect((await fetch(second.viewerUrl)).status).toBe(200);
-    expect((await postTools(second)).status).toBe(200);
+    expect((await postProxy(second, 'tools/list', {})).status).toBe(200);
   });
 
   it('closes the oldest session when the session limit is reached', async () => {
@@ -70,13 +70,40 @@ describe('ui-server', () => {
   });
 });
 
-function createServer(): McpUiServer {
-  const server = new McpUiServer(createManager() as never);
+describe('ui-server app proxy', () => {
+  const tools = [
+    { name: 'refresh' },
+    { name: 'app_only', _meta: { ui: { visibility: ['app'] } } },
+    { name: 'model_only', _meta: { ui: { visibility: ['model'] } } },
+    { name: 'excluded' },
+  ];
+
+  it('lists only the app tools of the owning server', async () => {
+    const handle = await openViewer(createServer(createManager(tools)), undefined, ['excluded']);
+
+    const body = await (await postProxy(handle, 'tools/list', {})).json() as { result: { tools: Array<{ name: string }> } };
+
+    expect(body.result.tools.map((tool) => tool.name)).toEqual(['refresh', 'app_only']);
+  });
+
+  it.each(['model_only', 'excluded', 'github_create_issue'])('blocks a call to %s and sends no request', async (name) => {
+    const manager = createManager(tools);
+    const handle = await openViewer(createServer(manager), undefined, ['excluded']);
+
+    const body = await (await postProxy(handle, 'tools/call', { name, arguments: {} })).json() as { result: unknown };
+
+    expect(body.result).toMatchObject({ isError: true, content: [{ text: `Blocked: demo has no app tool "${name}".` }] });
+    expect(manager.callTool).not.toHaveBeenCalled();
+  });
+});
+
+function createServer(manager = createManager()): McpUiServer {
+  const server = new McpUiServer(manager as never);
   servers.push(server);
   return server;
 }
 
-function openViewer(server: McpUiServer, onClose?: (reason: string) => void): Promise<UiSessionHandle> {
+function openViewer(server: McpUiServer, onClose?: (reason: string) => void, excludeTools?: string[]): Promise<UiSessionHandle> {
   return server.open({
     serverName: 'demo',
     resourceUri: 'ui://demo/dashboard',
@@ -87,21 +114,22 @@ function openViewer(server: McpUiServer, onClose?: (reason: string) => void): Pr
       mimeType: 'text/html;profile=mcp-app',
       meta: {},
     },
+    excludeTools,
     onClose,
   });
 }
 
-function postTools(handle: UiSessionHandle): Promise<Response> {
-  return fetch(new URL('/proxy/tools/list', handle.viewerUrl), {
+function postProxy(handle: UiSessionHandle, method: string, params: unknown): Promise<Response> {
+  return fetch(new URL(`/proxy/${method}`, handle.viewerUrl), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: handle.viewerId, params: {} }),
+    body: JSON.stringify({ token: handle.viewerId, params }),
   });
 }
 
-function createManager() {
+function createManager(tools: Array<{ name: string; _meta?: Record<string, unknown> }> = []) {
   return {
-    getConnection: vi.fn(() => ({ tools: [], resources: [] })),
+    getConnection: vi.fn(() => ({ tools, resources: [] })),
     callTool: vi.fn(async () => ({ isError: false, content: [{ type: 'text', text: 'ok' }] })),
     readResource: vi.fn(async () => ({ contents: [] })),
   };

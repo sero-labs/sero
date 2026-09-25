@@ -1,9 +1,23 @@
 import { UnauthorizedError } from '@modelcontextprotocol/client';
 import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/client';
 import type { McpServerManager } from '../manager/server-manager';
+import type { ManagedTool } from '../manager/types';
 import type { UiSessionOptions } from './ui-server';
 
 const LOST_AUTH_MESSAGE = 'This MCP UI session lost authentication. Re-authenticate the server in Sero and reopen the UI.';
+
+/**
+ * The tools that an app may see and call: tools of its own server that are
+ * visible to apps and not excluded in the server config. A tool without a
+ * visibility list is visible to the model and to apps.
+ */
+export function listAppTools(manager: McpServerManager, session: UiSessionOptions): ManagedTool[] {
+  const excluded = new Set(session.excludeTools ?? []);
+  return (manager.getConnection(session.serverName)?.tools ?? []).filter((tool) => {
+    const ui = toRecord(tool._meta?.ui);
+    return !excluded.has(tool.name) && (!Array.isArray(ui.visibility) || ui.visibility.includes('app'));
+  });
+}
 
 /** Tool and resource requests that an app sends through its viewer session. */
 export async function callViewerTool(manager: McpServerManager, session: UiSessionOptions, params: unknown): Promise<CallToolResult> {
@@ -12,6 +26,9 @@ export async function callViewerTool(manager: McpServerManager, session: UiSessi
   const toolArguments = isRecord(toolCall.arguments) ? toolCall.arguments : undefined;
   if (!toolName) {
     return createToolErrorResult('Tool name is required.');
+  }
+  if (!listAppTools(manager, session).some((tool) => tool.name === toolName)) {
+    return createToolErrorResult(`Blocked: ${session.serverName} has no app tool "${toolName}".`);
   }
 
   try {

@@ -56,6 +56,7 @@ export async function openViewerResourceAction(options: ViewerActionOptions): Pr
       resourceUri,
       title: resourceUri,
       resource,
+      excludeTools: ensured.config.mcpServers[ensured.serverName]?.excludeTools,
       onUnauthorized: async (_serverName, message) => {
         await handleUnauthorized(ensured, options, message);
       },
@@ -101,6 +102,7 @@ export async function openToolUiAction(options: ViewerActionOptions): Promise<To
       resource,
       toolInfo: tool ? { name: tool.name, description: tool.description, inputSchema: tool.inputSchema } : undefined,
       toolArgs: options.toolArguments,
+      excludeTools: ensured.config.mcpServers[ensured.serverName]?.excludeTools,
       onUnauthorized: async (_serverName, message) => {
         await handleUnauthorized(ensured, options, message);
       },

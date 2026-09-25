@@ -7,7 +7,7 @@ import { buildAllowAttribute } from '@modelcontextprotocol/ext-apps/app-bridge';
 import type { McpServerManager } from '../manager/server-manager';
 import { VIEWER_SHELL_SCRIPT } from '../../shared/viewer-shell';
 import { applyCspMeta, buildCspMetaContent, buildHostHtmlTemplate, buildViewerHostCspContent } from './host-template';
-import { callViewerTool, readViewerResource, toRecord } from './ui-proxy';
+import { callViewerTool, listAppTools, readViewerResource, toRecord } from './ui-proxy';
 import type { UiResourceContent, UiToolInfo } from './types';
 
 const MAX_BODY_SIZE = 2 * 1024 * 1024;
@@ -22,6 +22,8 @@ export interface UiSessionOptions {
   toolInfo?: UiToolInfo;
   toolArgs?: Record<string, unknown>;
   toolResult?: Record<string, unknown>;
+  /** Tools from the server config that the app must not see or call. */
+  excludeTools?: string[];
   onUnauthorized?: (serverName: string, message: string) => Promise<void>;
   onUiMessage?: (params: Record<string, unknown>) => Promise<void> | void;
   onClose?: (reason: string) => void;
@@ -161,7 +163,7 @@ export class McpUiServer {
       case '/proxy/tools/call':
         return callViewerTool(this.manager, session, params);
       case '/proxy/tools/list':
-        return { tools: connection?.tools ?? [] };
+        return { tools: listAppTools(this.manager, session) };
       case '/proxy/resources/list':
         return { resources: connection?.resources ?? [] };
       case '/proxy/resources/read':
