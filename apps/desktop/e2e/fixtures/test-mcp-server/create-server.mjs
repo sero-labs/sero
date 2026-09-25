@@ -10,7 +10,7 @@ const pluginRequire = createRequire(pluginPackagePath);
 /** Loads a package from the MCP plugin's dependencies. */
 export const load = (specifier) => import(pathToFileURL(pluginRequire.resolve(specifier)).href);
 
-const { McpServer } = await load('@modelcontextprotocol/server');
+const { McpServer, acceptedContent, inputRequired } = await load('@modelcontextprotocol/server');
 const z = await load('zod');
 
 export function createServer() {
@@ -22,6 +22,41 @@ export function createServer() {
   }, async ({ message }) => ({
     content: [{ type: 'text', text: `echo: ${message}` }]
   }));
+
+  // Asks for input over two rounds (2026-07-28 input_required): a company name, then a team.
+  server.registerTool('create_contact', {
+    description: 'Create a contact after two questions.',
+    inputSchema: {}
+  }, async (_args, ctx) => {
+    const responses = ctx.mcpReq.inputResponses;
+    const company = acceptedContent(responses, 'company');
+    if (company) {
+      return inputRequired({
+        inputRequests: {
+          team: inputRequired.elicit({
+            message: 'Which team owns the contact?',
+            requestedSchema: { type: 'object', properties: { team: { type: 'string', enum: ['emea', 'apac'] } }, required: ['team'] }
+          })
+        },
+        requestState: company.name
+      });
+    }
+    const team = acceptedContent(responses, 'team');
+    if (team) {
+      return { content: [{ type: 'text', text: `created: ${ctx.mcpReq.requestState()} / ${team.team}` }] };
+    }
+    if (responses && Object.keys(responses).length > 0) {
+      return { content: [{ type: 'text', text: 'not created' }] };
+    }
+    return inputRequired({
+      inputRequests: {
+        company: inputRequired.elicit({
+          message: 'Which company does the contact work for?',
+          requestedSchema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] }
+        })
+      }
+    });
+  });
 
   server.registerResource('noise-test', 'noise://test', {
     title: 'Noise Test',

@@ -162,6 +162,31 @@ test.describe.serial('MCP app and proxy contracts', () => {
     expect(read.text).toContain('deterministic noise fixture');
   });
 
+  test('answers a two-round server input request through the question channel', async () => {
+    const pendingQuestion = async () => {
+      await expect.poll(async () => (await page.evaluate(() => window.sero.userFeedback.getPending())).length).toBe(1);
+      const [question] = await page.evaluate(() => window.sero.userFeedback.getPending());
+      return question;
+    };
+    const answer = (id: string, questionId: string, value: string, wasCustom: boolean) => page.evaluate(
+      (response) => window.sero.userFeedback.answer(response),
+      { id, cancelled: false, answers: [{ questionId, value, label: value, wasCustom }] },
+    );
+
+    const call = invokeMcp('mcp', { action: 'call_tool', serverName, toolName: 'create_contact' });
+
+    const first = await pendingQuestion();
+    expect(first?.context?.source).toBe(`MCP · ${serverName} · create_contact`);
+    expect(first?.questions[0]?.options.map((option) => option.label)).toContain('Decline');
+    await answer(first!.id, 'name', 'Acme', true);
+
+    const second = await pendingQuestion();
+    expect(second?.questions[0]?.options.map((option) => option.value)).toEqual(['emea', 'apac', '__mcp_decline__']);
+    await answer(second!.id, 'team', 'emea', false);
+
+    expect((await call).text).toContain('created: Acme / emea');
+  });
+
   test('returns deterministic errors for missing MCP arguments', async () => {
     const missingQuery = await invokeMcp('mcp', { action: 'search' });
     expect(missingQuery.text).toContain('Error: Search query is required.');
