@@ -1,5 +1,5 @@
 import { getDefaultEnvironment, StdioClientTransport } from '@modelcontextprotocol/client/stdio';
-import { UnauthorizedError, Client, SSEClientTransport, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+import { UnauthorizedError, Client, SdkHttpError, SSEClientTransport, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/client';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -151,7 +151,7 @@ export class McpServerManager {
       : undefined;
 
     if (definition.portableTransport === 'sse') {
-      return this.connectSse(name, definition, url, requestInit);
+      return this.connectSse(name, definition, url, requestInit, authProvider);
     }
 
     const streamableClient = createMcpClient(`sero-mcp-${name}`);
@@ -163,12 +163,13 @@ export class McpServerManager {
       if (error instanceof UnauthorizedError) {
         return this.createDisconnectedConnection(name, 'needs-auth', 'Authentication is required before connecting.');
       }
-      if (definition.portableTransport === 'streamable-http') {
+      // Only a server without a Streamable HTTP endpoint gets the deprecated SSE fallback.
+      if (definition.portableTransport === 'streamable-http' || !isMissingEndpointError(error)) {
         return this.createErrorConnection(name, error);
       }
     }
 
-    return this.connectSse(name, definition, url, requestInit);
+    return this.connectSse(name, definition, url, requestInit, authProvider);
   }
 
   private async connectSse(
@@ -176,9 +177,10 @@ export class McpServerManager {
     definition: McpServerConfig,
     url: URL,
     requestInit: { headers?: Record<string, string>; redirect?: 'manual' } | undefined,
+    authProvider: McpOAuthProvider | undefined,
   ): Promise<ManagedConnection> {
     const sseClient = createMcpClient(`sero-mcp-${name}`);
-    const sseTransport = new SSEClientTransport(url, { requestInit });
+    const sseTransport = new SSEClientTransport(url, { requestInit, authProvider });
     try {
       return await this.openConnection(name, definition, sseClient, sseTransport, true);
     } catch (error) {
@@ -272,6 +274,18 @@ export class McpServerManager {
   private async safeClose(client: Client, transport: ManagedTransport): Promise<void> {
     await Promise.allSettled([client.close(), transport.close()]);
   }
+}
+
+/** True when the Streamable HTTP endpoint does not exist (HTTP 404 or 405), also when the SDK wraps the error. */
+function isMissingEndpointError(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current instanceof Error; depth += 1) {
+    if (current instanceof SdkHttpError) {
+      return current.status === 404 || current.status === 405;
+    }
+    current = current.cause;
+  }
+  return false;
 }
 
 function readProtocol(client: Client, deprecatedTransport: boolean, eraFromVerdict: boolean): ManagedConnectionProtocol {
