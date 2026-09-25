@@ -22,11 +22,15 @@ async function capabilitiesSeenByServer(features?: McpClientFeatures) {
 }
 
 describe('createMcpClient', () => {
-  it('declares no sampling, roots or extensions by default', async () => {
+  it('declares no sampling or roots', async () => {
     const capabilities = await capabilitiesSeenByServer();
     expect(capabilities).toBeDefined();
     expect(capabilities).not.toHaveProperty('sampling');
     expect(capabilities).not.toHaveProperty('roots');
+  });
+
+  it('declares no extension when every host feature is off', async () => {
+    const capabilities = await capabilitiesSeenByServer({ apps: false, tasks: false, skills: false });
     expect(capabilities).not.toHaveProperty('extensions');
   });
 
