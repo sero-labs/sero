@@ -228,6 +228,20 @@ Current behavior:
   - marks the server as `needs-auth`
   - guides the user back to the in-app auth flow
 
+### Issuer checks
+
+Sero follows the `2026-07-28` authorization rules through the v2 SDK:
+
+- The callback `state` is checked first. Then the full callback query goes to the SDK, which compares `iss` with the issuer of the authorization server metadata before it exchanges the code. A different `iss`, or a missing `iss` when the server declares `authorization_response_iss_parameter_supported`, stops the sign-in before any token request. Sero then shows a fixed message and never the callback's `error_description` or other text.
+- Tokens and client information are stored as the SDK gives them, with the SDK's `issuer` stamp, and the discovery state is stored in `discovery.json`. Tokens saved before the upgrade have no stamp; they keep working and get one on the next sign-in.
+- When the server's resource metadata starts to name another authorization server, the SDK does not send the stored tokens or client credentials there. The server becomes `needs-auth`, and the user signs in again.
+- The SDK refuses to send credentials to a token endpoint that uses neither TLS nor a loopback host.
+- For `403 insufficient_scope`, Sero keeps the SDK default (`onInsufficientScope: 'reauthorize'`): one authorization request for the wider scope, then one retry.
+
+### Client registration
+
+A client ID in the server's `oauth` config always wins. Otherwise Sero would use its Client ID Metadata Document URL (`CLIENT_METADATA_URL` in `oauth-provider.ts`) when the authorization server supports it; that URL is not published yet, so Sero uses Dynamic Client Registration. The registration is a native app with the loopback redirect `http://127.0.0.1:19876/mcp/oauth/callback`.
+
 ## Storage
 
 ### App config, state, and metadata cache
@@ -267,6 +281,7 @@ Per-server auth data is split into files such as:
 - `tokens.json`
 - `client.json`
 - `flow.json`
+- `discovery.json`
 
 ### Persistence rules
 
