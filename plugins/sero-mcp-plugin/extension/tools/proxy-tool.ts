@@ -35,6 +35,8 @@ type ToolWithCli = Parameters<ExtensionAPI['registerTool']>[0] & {
   cli: {
     summary: string;
     help: string;
+    /** A call can wait for the user to answer a server question, so the CLI bridge applies no timeout. */
+    interactive?: boolean;
     execute: (args: string[], ctx: CliContext) => Promise<CliResult>;
   };
 };
@@ -50,6 +52,7 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
     parameters: ProxyParams,
     cli: {
       summary: 'Preferred MCP surface for status, discovery, and live MCP reads/calls',
+      interactive: true,
       help: 'Use this tool first for MCP status/list/search/tools/resources/describe/call/read. If the user asks to use a server like context7/github directly, start here rather than mcp_manager. When the tool name or arguments are unclear, use tools/describe first; once known, call the tool directly. Live read/call actions auto-connect enabled servers when needed. Use mcp_manager only for MCP config/lifecycle/auth/viewer actions. CLI: sero mcp status | list | search <query> | tools <server> | resources <server> | read <server> <resourceUri> | describe <server> <tool> | call <server> <tool> [jsonArgs] | connect <server> | reconnect <server> | enable <server> | disable <server>. Action-style aliases are also accepted: list_tools, list_resources, describe_tool, call_tool, read_resource, connect_server, reconnect_server, enable_server, disable_server.',
       async execute(args: string[], ctx: CliContext) {
         const action = parseCliCommand(args);

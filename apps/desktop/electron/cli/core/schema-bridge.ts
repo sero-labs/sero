@@ -346,6 +346,8 @@ export interface CustomToolCliBridge {
   help?: string;
   group?: string;
   overrideBuiltin?: boolean;
+  /** The command can wait for the user, so the bridge applies no per-command timeout. */
+  interactive?: boolean;
   execute: (
     args: string[],
     context: CliCommandContext,
@@ -396,7 +398,7 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition, options?: 
     help: cliBridge?.help ?? help,
     source: 'app',
     group: cliBridge?.group ?? 'Apps',
-    interactive: options?.interactive,
+    interactive: options?.interactive || cliBridge?.interactive === true || undefined,
     timeoutMs: getBridgedToolTimeoutMs(toolName),
     params: props.map((prop) => ({
       name: prop.name,
