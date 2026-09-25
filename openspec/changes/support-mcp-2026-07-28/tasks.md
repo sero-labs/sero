@@ -46,7 +46,7 @@
 
 ## 6. OAuth conformance
 
-- [ ] 6.1 Store tokens and client information from the SDK field for field, including `issuer`, and add `saveDiscoveryState()` and `discoveryState()` backed by `discovery.json`. Verify: a unit test round-trips an `issuer` stamp and a discovery state, and loads a pre-upgrade `tokens.json` with no issuer.
+- [x] 6.1 Store tokens and client information from the SDK field for field, including `issuer`, and add `saveDiscoveryState()` and `discoveryState()` backed by `discovery.json`. Verify: a unit test round-trips an `issuer` stamp and a discovery state, and loads a pre-upgrade `tokens.json` with no issuer.
 - [ ] 6.2 Make `completeAuth` check `state` and then call `finishAuth(searchParams)`. On `IssuerMismatchError`, show a fixed message and never the callback `error*` text. Verify: `oauth-coordinator.test.ts` covers a mismatched `iss` (no token request), a missing `iss` when it is required, and a wrong `state`.
 - [ ] 6.3 Add the `clientMetadataUrl` constant (unset) and assert DCR metadata. Verify: a unit test with a mock authorization server asserts `application_type: "native"` in the registration body and no registration call when a configured client ID exists.
 - [ ] 6.4 Add a test in which the authorization server changes after authorization. Verify: the stored tokens are not sent to the new server and the status becomes `needs-auth`.

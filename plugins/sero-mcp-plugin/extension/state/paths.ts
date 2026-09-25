@@ -69,6 +69,10 @@ export function getMcpOAuthClientPath(serverName: string): string {
   return path.join(getMcpOAuthServerDir(serverName), 'client.json');
 }
 
+export function getMcpOAuthDiscoveryPath(serverName: string): string {
+  return path.join(getMcpOAuthServerDir(serverName), 'discovery.json');
+}
+
 export function getMcpOAuthFlowPath(serverName: string): string {
   return path.join(getMcpOAuthServerDir(serverName), 'flow.json');
 }

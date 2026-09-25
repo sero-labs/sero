@@ -1,28 +1,31 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import type { OAuthDiscoveryState, StoredOAuthClientInformation, StoredOAuthTokens } from '@modelcontextprotocol/client';
 import {
   getMcpOAuthClientPath,
   getMcpOAuthDir,
+  getMcpOAuthDiscoveryPath,
   getMcpOAuthFlowPath,
   getMcpOAuthServerDir,
   getMcpOAuthTokenPath,
 } from '../state/paths';
 
-export interface McpStoredTokens {
-  accessToken: string;
-  refreshToken?: string;
+/**
+ * Saved tokens: the SDK object field for field (including the `issuer`
+ * stamp), with `expires_in` replaced by an absolute expiry.
+ */
+export interface McpSavedTokens {
+  tokens: StoredOAuthTokens;
+  /** Epoch seconds when the access token expires. */
   expiresAt?: number;
-  scope?: string;
   serverUrl?: string;
   /** Random ID for this authorization. It partitions cached server data by account. */
   principalId?: string;
 }
 
-export interface McpStoredClientInfo {
-  clientId: string;
-  clientSecret?: string;
-  clientIdIssuedAt?: number;
-  clientSecretExpiresAt?: number;
+/** Saved client registration: the SDK object field for field, including the `issuer` stamp. */
+export interface McpSavedClientInfo {
+  client: StoredOAuthClientInformation;
   serverUrl?: string;
 }
 
@@ -58,26 +61,43 @@ async function readJsonFile(filePath: string): Promise<Record<string, unknown> |
   }
 }
 
-export async function readOAuthTokens(serverName: string, serverUrl?: string): Promise<McpStoredTokens | null> {
+function optionalString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function serverMatches(parsed: Record<string, unknown>, serverUrl?: string): boolean {
+  return !serverUrl || typeof parsed.serverUrl !== 'string' || parsed.serverUrl === serverUrl;
+}
+
+export async function readOAuthTokens(serverName: string, serverUrl?: string): Promise<McpSavedTokens | null> {
   const parsed = await readJsonFile(getMcpOAuthTokenPath(serverName));
-  if (!parsed || typeof parsed.accessToken !== 'string') {
-    return null;
-  }
-  if (serverUrl && typeof parsed.serverUrl === 'string' && parsed.serverUrl !== serverUrl) {
-    return null;
-  }
-  return {
-    accessToken: parsed.accessToken,
-    refreshToken: typeof parsed.refreshToken === 'string' ? parsed.refreshToken : undefined,
+  if (!parsed || !serverMatches(parsed, serverUrl)) return null;
+  const meta = {
     expiresAt: typeof parsed.expiresAt === 'number' ? parsed.expiresAt : undefined,
-    scope: typeof parsed.scope === 'string' ? parsed.scope : undefined,
-    serverUrl: typeof parsed.serverUrl === 'string' ? parsed.serverUrl : undefined,
-    principalId: typeof parsed.principalId === 'string' ? parsed.principalId : undefined,
+    serverUrl: optionalString(parsed.serverUrl),
+    principalId: optionalString(parsed.principalId),
+  };
+  if (isRecord(parsed.tokens) && typeof parsed.tokens.access_token === 'string') {
+    const { expires_in: _expiresIn, ...tokens } = parsed.tokens;
+    // Written by writeOAuthTokens from the SDK object, which the SDK validated.
+    return { ...meta, tokens: { ...tokens, access_token: parsed.tokens.access_token, token_type: optionalString(tokens.token_type) ?? 'Bearer' } };
+  }
+  // Format saved before the SDK v2 upgrade: camelCase fields and no issuer.
+  if (typeof parsed.accessToken !== 'string') return null;
+  return {
+    ...meta,
+    tokens: {
+      access_token: parsed.accessToken,
+      token_type: 'Bearer',
+      refresh_token: optionalString(parsed.refreshToken),
+      scope: optionalString(parsed.scope),
+    },
   };
 }
 
-export async function writeOAuthTokens(serverName: string, tokens: McpStoredTokens): Promise<void> {
-  await writeJsonFile(getMcpOAuthTokenPath(serverName), tokens);
+export async function writeOAuthTokens(serverName: string, saved: McpSavedTokens): Promise<void> {
+  const { expires_in: _expiresIn, ...tokens } = saved.tokens;
+  await writeJsonFile(getMcpOAuthTokenPath(serverName), { ...saved, tokens });
 }
 
 export async function hasOAuthTokens(serverName: string, serverUrl?: string): Promise<boolean> {
@@ -88,28 +108,29 @@ export async function clearOAuthTokens(serverName: string): Promise<void> {
   await fs.rm(getMcpOAuthTokenPath(serverName), { force: true });
 }
 
-export async function readOAuthClientInfo(
-  serverName: string,
-  serverUrl?: string,
-): Promise<McpStoredClientInfo | null> {
+export async function readOAuthClientInfo(serverName: string, serverUrl?: string): Promise<McpSavedClientInfo | null> {
   const parsed = await readJsonFile(getMcpOAuthClientPath(serverName));
-  if (!parsed || typeof parsed.clientId !== 'string') {
-    return null;
+  if (!parsed || !serverMatches(parsed, serverUrl)) return null;
+  const savedServerUrl = optionalString(parsed.serverUrl);
+  if (isRecord(parsed.client) && typeof parsed.client.client_id === 'string') {
+    // Written by writeOAuthClientInfo from the SDK object, which the SDK validated.
+    return { serverUrl: savedServerUrl, client: { ...parsed.client, client_id: parsed.client.client_id } };
   }
-  if (serverUrl && typeof parsed.serverUrl === 'string' && parsed.serverUrl !== serverUrl) {
-    return null;
-  }
+  // Format saved before the SDK v2 upgrade.
+  if (typeof parsed.clientId !== 'string') return null;
   return {
-    clientId: parsed.clientId,
-    clientSecret: typeof parsed.clientSecret === 'string' ? parsed.clientSecret : undefined,
-    clientIdIssuedAt: typeof parsed.clientIdIssuedAt === 'number' ? parsed.clientIdIssuedAt : undefined,
-    clientSecretExpiresAt: typeof parsed.clientSecretExpiresAt === 'number' ? parsed.clientSecretExpiresAt : undefined,
-    serverUrl: typeof parsed.serverUrl === 'string' ? parsed.serverUrl : undefined,
+    serverUrl: savedServerUrl,
+    client: {
+      client_id: parsed.clientId,
+      client_secret: optionalString(parsed.clientSecret),
+      client_id_issued_at: typeof parsed.clientIdIssuedAt === 'number' ? parsed.clientIdIssuedAt : undefined,
+      client_secret_expires_at: typeof parsed.clientSecretExpiresAt === 'number' ? parsed.clientSecretExpiresAt : undefined,
+    },
   };
 }
 
-export async function writeOAuthClientInfo(serverName: string, clientInfo: McpStoredClientInfo): Promise<void> {
-  await writeJsonFile(getMcpOAuthClientPath(serverName), clientInfo);
+export async function writeOAuthClientInfo(serverName: string, saved: McpSavedClientInfo): Promise<void> {
+  await writeJsonFile(getMcpOAuthClientPath(serverName), saved);
 }
 
 export async function clearOAuthClientInfo(serverName: string): Promise<void> {
@@ -138,6 +159,22 @@ export async function writeOAuthFlowState(serverName: string, flowState: McpStor
 
 export async function clearOAuthFlowState(serverName: string): Promise<void> {
   await fs.rm(getMcpOAuthFlowPath(serverName), { force: true });
+}
+
+export async function readOAuthDiscoveryState(serverName: string, serverUrl?: string): Promise<OAuthDiscoveryState | undefined> {
+  const parsed = await readJsonFile(getMcpOAuthDiscoveryPath(serverName));
+  if (!parsed || !serverMatches(parsed, serverUrl) || !isRecord(parsed.state)) return undefined;
+  if (typeof parsed.state.authorizationServerUrl !== 'string') return undefined;
+  // Written by writeOAuthDiscoveryState from the SDK's own discovery result.
+  return parsed.state as unknown as OAuthDiscoveryState;
+}
+
+export async function writeOAuthDiscoveryState(serverName: string, state: OAuthDiscoveryState, serverUrl: string): Promise<void> {
+  await writeJsonFile(getMcpOAuthDiscoveryPath(serverName), { serverUrl, state });
+}
+
+export async function clearOAuthDiscoveryState(serverName: string): Promise<void> {
+  await fs.rm(getMcpOAuthDiscoveryPath(serverName), { force: true });
 }
 
 export async function clearOAuthCredentials(serverName: string): Promise<void> {

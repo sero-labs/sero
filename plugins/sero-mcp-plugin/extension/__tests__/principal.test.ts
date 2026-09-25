@@ -1,10 +1,11 @@
-import { mkdtemp, readdir, readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { McpOAuthProvider } from '../auth/oauth-provider';
 import { resolvePrincipalId } from '../auth/principal';
-import { clearOAuthTokens, readOAuthTokens, writeOAuthTokens } from '../auth/storage';
+import { clearOAuthTokens, readOAuthTokens } from '../auth/storage';
+import { getMcpOAuthTokenPath } from '../state/paths';
 import type { McpServerConfig } from '../config/types';
 
 const URL = 'https://mcp.example.com/mcp';
@@ -39,12 +40,14 @@ describe('resolvePrincipalId', () => {
   });
 
   it('assigns a stable ID to tokens saved before principals existed', async () => {
-    await writeOAuthTokens('crm', { accessToken: 'old', serverUrl: URL });
+    const tokenPath = getMcpOAuthTokenPath('crm');
+    await mkdir(path.dirname(tokenPath), { recursive: true });
+    await writeFile(tokenPath, JSON.stringify({ accessToken: 'old', serverUrl: URL }));
     const assigned = await resolvePrincipalId('crm', OAUTH);
 
     expect(assigned).toMatch(/^oauth:/);
     expect(await resolvePrincipalId('crm', OAUTH)).toBe(assigned);
-    expect((await readOAuthTokens('crm', URL))?.accessToken).toBe('old');
+    expect((await readOAuthTokens('crm', URL))?.tokens.access_token).toBe('old');
   });
 
   it('drops the OAuth principal on sign-out', async () => {

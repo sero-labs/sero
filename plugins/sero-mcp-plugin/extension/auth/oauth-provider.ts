@@ -1,15 +1,24 @@
 import { randomUUID } from 'node:crypto';
-import type { OAuthClientProvider, OAuthClientInformation, OAuthClientInformationFull, OAuthClientMetadata, OAuthTokens } from '@modelcontextprotocol/client';
+import type {
+  OAuthClientMetadata,
+  OAuthClientProvider,
+  OAuthDiscoveryState,
+  StoredOAuthClientInformation,
+  StoredOAuthTokens,
+} from '@modelcontextprotocol/client';
 import type { McpOAuthConfig } from '../config/types';
 import {
   clearOAuthClientInfo,
   clearOAuthCredentials,
+  clearOAuthDiscoveryState,
   clearOAuthFlowState,
   clearOAuthTokens,
   readOAuthClientInfo,
+  readOAuthDiscoveryState,
   readOAuthFlowState,
   readOAuthTokens,
   writeOAuthClientInfo,
+  writeOAuthDiscoveryState,
   writeOAuthFlowState,
   writeOAuthTokens,
 } from './storage';
@@ -67,7 +76,7 @@ export class McpOAuthProvider implements OAuthClientProvider {
     };
   }
 
-  async clientInformation(): Promise<OAuthClientInformation | undefined> {
+  async clientInformation(): Promise<StoredOAuthClientInformation | undefined> {
     if (this.config.clientId) {
       return {
         client_id: this.config.clientId,
@@ -75,57 +84,45 @@ export class McpOAuthProvider implements OAuthClientProvider {
       };
     }
 
-    const clientInfo = await readOAuthClientInfo(this.serverName, this.serverUrl);
-    if (!clientInfo) {
+    const saved = await readOAuthClientInfo(this.serverName, this.serverUrl);
+    const expiresAt = saved?.client.client_secret_expires_at;
+    if (!saved || (expiresAt && expiresAt < Date.now() / 1000)) {
       return undefined;
     }
-    if (clientInfo.clientSecretExpiresAt && clientInfo.clientSecretExpiresAt < Date.now() / 1000) {
-      return undefined;
-    }
+    return saved.client;
+  }
 
+  async saveClientInformation(client: StoredOAuthClientInformation): Promise<void> {
+    await writeOAuthClientInfo(this.serverName, { client, serverUrl: this.serverUrl });
+  }
+
+  async tokens(): Promise<StoredOAuthTokens | undefined> {
+    const saved = await readOAuthTokens(this.serverName, this.serverUrl);
+    if (!saved) {
+      return undefined;
+    }
     return {
-      client_id: clientInfo.clientId,
-      client_secret: clientInfo.clientSecret,
+      ...saved.tokens,
+      expires_in: saved.expiresAt ? Math.max(0, Math.floor(saved.expiresAt - Date.now() / 1000)) : undefined,
     };
   }
 
-  async saveClientInformation(info: OAuthClientInformationFull): Promise<void> {
-    await writeOAuthClientInfo(this.serverName, {
-      clientId: info.client_id,
-      clientSecret: info.client_secret,
-      clientIdIssuedAt: info.client_id_issued_at,
-      clientSecretExpiresAt: info.client_secret_expires_at,
-      serverUrl: this.serverUrl,
-    });
-  }
-
-  async tokens(): Promise<OAuthTokens | undefined> {
-    const tokens = await readOAuthTokens(this.serverName, this.serverUrl);
-    if (!tokens) {
-      return undefined;
-    }
-
-    return {
-      access_token: tokens.accessToken,
-      token_type: 'Bearer',
-      refresh_token: tokens.refreshToken,
-      expires_in: tokens.expiresAt
-        ? Math.max(0, Math.floor(tokens.expiresAt - Date.now() / 1000))
-        : undefined,
-      scope: tokens.scope,
-    };
-  }
-
-  async saveTokens(tokens: OAuthTokens): Promise<void> {
+  async saveTokens(tokens: StoredOAuthTokens): Promise<void> {
     const previous = this.options.newAuthorization ? null : await readOAuthTokens(this.serverName, this.serverUrl);
     await writeOAuthTokens(this.serverName, {
-      principalId: previous?.principalId ?? randomUUID(),
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
+      tokens,
       expiresAt: tokens.expires_in ? Date.now() / 1000 + tokens.expires_in : undefined,
-      scope: tokens.scope,
       serverUrl: this.serverUrl,
+      principalId: previous?.principalId ?? randomUUID(),
     });
+  }
+
+  async saveDiscoveryState(state: OAuthDiscoveryState): Promise<void> {
+    await writeOAuthDiscoveryState(this.serverName, state, this.serverUrl);
+  }
+
+  async discoveryState(): Promise<OAuthDiscoveryState | undefined> {
+    return readOAuthDiscoveryState(this.serverName, this.serverUrl);
   }
 
   async redirectToAuthorization(authorizationUrl: URL): Promise<void> {
@@ -171,17 +168,24 @@ export class McpOAuthProvider implements OAuthClientProvider {
     return flowState.oauthState;
   }
 
-  async invalidateCredentials(type: 'all' | 'client' | 'tokens'): Promise<void> {
-    if (type === 'all') {
-      await clearOAuthCredentials(this.serverName);
-      return;
+  async invalidateCredentials(type: 'all' | 'client' | 'tokens' | 'verifier' | 'discovery'): Promise<void> {
+    switch (type) {
+      case 'all':
+        await clearOAuthCredentials(this.serverName);
+        return;
+      case 'client':
+        await clearOAuthClientInfo(this.serverName);
+        return;
+      case 'discovery':
+        await clearOAuthDiscoveryState(this.serverName);
+        return;
+      case 'verifier':
+        await clearOAuthFlowState(this.serverName);
+        return;
+      case 'tokens':
+        await clearOAuthTokens(this.serverName);
+        await clearOAuthFlowState(this.serverName);
     }
-    if (type === 'client') {
-      await clearOAuthClientInfo(this.serverName);
-      return;
-    }
-    await clearOAuthTokens(this.serverName);
-    await clearOAuthFlowState(this.serverName);
   }
 
   prepareTokenRequest(scope?: string): URLSearchParams | undefined {
