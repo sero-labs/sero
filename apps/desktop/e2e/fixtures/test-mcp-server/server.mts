@@ -6,11 +6,12 @@
 //   node server.mts --http [--port n]  Streamable HTTP, both eras; prints its URL on the first line
 // Only the HTTP mode serves MCP Tasks (see serveTasks below). POST /admin/offline
 // and /admin/online make its MCP endpoint fail and recover, for connection-loss tests.
+import { createHash } from 'node:crypto';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { RESOURCE_MIME_TYPE, registerAppResource, registerAppTool } from '@modelcontextprotocol/ext-apps/server';
 import { toNodeHandler } from '@modelcontextprotocol/node';
-import { acceptedContent, createMcpHandler, inputRequired, McpServer } from '@modelcontextprotocol/server';
+import { acceptedContent, createMcpHandler, inputRequired, McpServer, ProtocolError } from '@modelcontextprotocol/server';
 import { serveStdio, StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import { z } from 'zod';
 
@@ -93,10 +94,84 @@ function registerApps(server: McpServer): void {
 }
 
 const TASKS_EXTENSION = 'io.modelcontextprotocol/tasks';
+const SKILLS_EXTENSION = 'io.modelcontextprotocol/skills';
+
+// Skills over MCP (SEP-2640): one skill with a supporting file, and one dynamic skill.
+const SKILL_FILES: Record<string, string> = {
+  'skill://docs/release-notes/SKILL.md': [
+    '---',
+    'name: release-notes',
+    'description: Writes release notes from merged pull requests.',
+    '---',
+    '# Release notes',
+    '',
+    'Use templates/summary.md for the summary.',
+    'Run `git log --oneline` to list the changes.',
+    '',
+  ].join('\n'),
+  'skill://docs/release-notes/templates/summary.md': '## Summary\n\n- {change}\n',
+  'skill://docs/daily/SKILL.md': '---\nname: daily\ndescription: Builds the daily report from live data.\n---\n# Daily\n',
+};
+
+const skillResource = (uri: string) => {
+  const bytes = Buffer.from(SKILL_FILES[uri]!, 'utf8');
+  return { uri, digest: `sha256:${createHash('sha256').update(bytes).digest('hex')}`, size: bytes.length };
+};
+
+const SKILLS = [
+  {
+    uri: 'skill://docs/release-notes/SKILL.md',
+    frontmatter: { name: 'release-notes', description: 'Writes release notes from merged pull requests.' },
+    resources: [skillResource('skill://docs/release-notes/SKILL.md'), skillResource('skill://docs/release-notes/templates/summary.md')],
+  },
+  {
+    uri: 'skill://docs/daily/SKILL.md',
+    frontmatter: { name: 'daily', description: 'Builds the daily report from live data.' },
+    resources: 'dynamic' as const,
+  },
+];
+
+/** Answers the Skills methods, which the SDK server does not know. */
+function registerSkills(server: McpServer): void {
+  for (const uri of Object.keys(SKILL_FILES)) {
+    server.registerResource(uri, uri, { mimeType: 'text/markdown' }, async () => ({ contents: [{ uri, mimeType: 'text/markdown', text: SKILL_FILES[uri]! }] }));
+  }
+  server.server.fallbackRequestHandler = async (request) => {
+    const params = (request.params ?? {}) as { uri?: string };
+    if (request.method === 'skills/list') return { skills: SKILLS, ttlMs: 0, cacheScope: 'public' };
+    if (request.method === 'skills/get') {
+      const skill = SKILLS.find((entry) => entry.uri === params.uri);
+      if (!skill) throw new ProtocolError(-32602, `No skill is served at ${params.uri}`);
+      return { skill, ttlMs: 0, cacheScope: 'public' };
+    }
+    if (request.method === 'resources/directory/read') {
+      const prefix = `${params.uri}/`;
+      const names = new Map<string, boolean>();
+      for (const uri of Object.keys(SKILL_FILES).filter((file) => file.startsWith(prefix))) {
+        const rest = uri.slice(prefix.length);
+        names.set(rest.split('/')[0]!, rest.includes('/'));
+      }
+      if (names.size === 0) throw new ProtocolError(-32602, `${params.uri} is not a directory resource`);
+      return {
+        resources: [...names].map(([name, isDirectory]) => ({
+          uri: `${prefix}${name}`,
+          name,
+          mimeType: isDirectory ? 'inode/directory' : 'text/markdown',
+        })),
+      };
+    }
+    throw new ProtocolError(-32601, 'Method not found');
+  };
+}
 
 function createServer(options: { tasks?: boolean } = {}): McpServer {
   const server = new McpServer({ name: 'sero-e2e-mcp-fixture', version: '0.0.0' }, {
-    capabilities: options.tasks ? { extensions: { [TASKS_EXTENSION]: {} } } : {},
+    capabilities: {
+      extensions: {
+        [SKILLS_EXTENSION]: { directoryRead: true },
+        ...(options.tasks ? { [TASKS_EXTENSION]: {} } : {}),
+      },
+    },
   });
 
   // With a client that declares Tasks, serveTasks answers this call with a task.
@@ -173,6 +248,7 @@ function createServer(options: { tasks?: boolean } = {}): McpServer {
   }));
 
   registerApps(server);
+  registerSkills(server);
   return server;
 }
 
