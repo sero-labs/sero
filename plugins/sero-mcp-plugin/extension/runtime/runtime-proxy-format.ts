@@ -73,7 +73,7 @@ export function formatCallToolResult(serverName: string, tool: ManagedTool, resu
     sections.push(`Structured content:\n${structured}`);
   }
   if (uiResourceUri) {
-    sections.push(`This tool also advertises a UI resource: ${uiResourceUri}. Open it from the MCP app for the embedded UI experience.`);
+    sections.push(`This tool has an MCP app (${uiResourceUri}). When Sero can show the app, the user sees it with this tool call.`);
   }
   if (result.isError && tool.inputSchema) {
     sections.push(`Expected input schema:\n${formatUnknown(tool.inputSchema)}`);
