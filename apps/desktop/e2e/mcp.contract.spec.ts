@@ -6,7 +6,7 @@ import { createTempSeroHome, type TempSeroHome } from './helpers/seroHome';
 import type { SeroAppManifest } from '../src/types/ipc';
 
 const serverName = 'e2e-fixture';
-const serverPath = path.resolve(__dirname, 'fixtures/test-mcp-server/server.mjs');
+const serverPath = path.resolve(__dirname, 'fixtures/test-mcp-server/server.mts');
 
 let home: TempSeroHome;
 let app: ElectronApplication;

@@ -17,7 +17,7 @@ function createManager() {
 }
 
 async function startHttpFixture(): Promise<string> {
-  const child: ChildProcess = spawn(process.execPath, [path.join(FIXTURE_DIR, 'http-server.mjs')], { stdio: ['ignore', 'pipe', 'inherit'] });
+  const child: ChildProcess = spawn(process.execPath, [path.join(FIXTURE_DIR, 'server.mts'), '--http'], { stdio: ['ignore', 'pipe', 'inherit'] });
   cleanups.push(() => { child.kill(); });
   return new Promise((resolve, reject) => {
     child.once('error', reject);
@@ -30,7 +30,7 @@ describe('MCP server manager against the e2e fixture', () => {
     const connection = await createManager().connect('stdio', {
       transport: 'stdio',
       command: process.execPath,
-      args: [path.join(FIXTURE_DIR, 'server.mjs')],
+      args: [path.join(FIXTURE_DIR, 'server.mts')],
     });
 
     expect(connection.status).toBe('connected');
@@ -53,7 +53,7 @@ describe('MCP server manager against the e2e fixture', () => {
     const connection = await createManager().connect('legacy', {
       transport: 'stdio',
       command: process.execPath,
-      args: [path.join(FIXTURE_DIR, 'server.mjs'), '--legacy'],
+      args: [path.join(FIXTURE_DIR, 'server.mts'), '--legacy'],
     });
 
     expect(connection.status).toBe('connected');
@@ -73,7 +73,7 @@ describe('MCP server manager against the e2e fixture', () => {
     await manager.connect('fixture', {
       transport: 'stdio',
       command: process.execPath,
-      args: [path.join(FIXTURE_DIR, 'server.mjs'), ...extraArgs],
+      args: [path.join(FIXTURE_DIR, 'server.mts'), ...extraArgs],
     });
 
     await manager.callTool('fixture', 'reveal_tool', {});

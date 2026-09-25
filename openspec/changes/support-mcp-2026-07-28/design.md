@@ -40,7 +40,7 @@ See `proposal.md` for the reasons. This section gives the current state that sha
 ## Decisions
 
 ### D1. Replace the SDK with v2 packages and configure the client once
-Run the official codemod (`npx @modelcontextprotocol/codemod v1-to-v2`) in `P`, then fix what it marks. Dependencies: add `@modelcontextprotocol/client`. Add `@modelcontextprotocol/core` only if Sero imports a `*Schema` constant. Remove `@modelcontextprotocol/sdk`. Upgrade `@modelcontextprotocol/ext-apps` to `^2.0.1`. The e2e fixture needs `@modelcontextprotocol/server` and `@modelcontextprotocol/node` in `P` `devDependencies`, because the fixture resolves the SDK from the plugin's `package.json`. The workspace `zod` catalog (`^4.4.3`) already satisfies `^4.2.0`.
+Run the official codemod (`npx @modelcontextprotocol/codemod v1-to-v2`) in `P`, then fix what it marks. Dependencies: add `@modelcontextprotocol/client`. Add `@modelcontextprotocol/core` only if Sero imports a `*Schema` constant. Remove `@modelcontextprotocol/sdk`. Upgrade `@modelcontextprotocol/ext-apps` to `^2.0.1`. Plugin tests need `@modelcontextprotocol/server` and `@modelcontextprotocol/node` in `P` `devDependencies`. The e2e fixture is TypeScript that Node runs directly, so `D` gets the same two packages and `zod` as `devDependencies`. The workspace `zod` catalog (`^4.4.3`) already satisfies `^4.2.0`.
 
 One factory, `createMcpClient(serverName, features)`, builds every `Client` (connection, OAuth coordinator):
 - `versionNegotiation: { mode: 'auto', probe: { timeoutMs: 10_000 } }`
@@ -149,9 +149,9 @@ UI rules for the prototype and for the production UI:
 - Where the current surface already has this clutter and the change touches it, simplify it.
 
 ### D11. Test fixtures
-`D/e2e/fixtures/test-mcp-server/` gets:
+`D/e2e/fixtures/test-mcp-server/server.mts` is one TypeScript file that Node runs with type stripping. It has:
 - one server factory served in modern and legacy mode through `serveStdio` (both eras), with a `--legacy` flag that uses a plain `StdioServerTransport` (2025 only)
-- the same factory over HTTP through `createMcpHandler` and `toNodeHandler`
+- the same factory over HTTP through `createMcpHandler` and `toNodeHandler`, with an `--http` flag
 
 The factory adds:
 - a two-round `inputRequired` tool

@@ -89,6 +89,8 @@
     "@headless-tree/core": "^1.7.0",
     "@headless-tree/react": "^1.7.0",
     "@module-federation/enhanced": "2.8.0",
+    "@modelcontextprotocol/node": "^2.1.0",
+    "@modelcontextprotocol/server": "^2.1.0",
     "@module-federation/vite": "catalog:",
     "@monaco-editor/react": "^4.7.0",
     "@playwright/test": "^1.62.1",
@@ -127,6 +129,7 @@
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:",
+    "zod": "catalog:",
     "zustand": "catalog:"
   },
   "build": {
