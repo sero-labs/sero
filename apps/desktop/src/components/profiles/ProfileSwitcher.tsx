@@ -5,22 +5,23 @@
  * listing all profiles with switch/manage options. Switching triggers an
  * app restart.
  *
- * Always renders as long as profiles exist (even if activeProfile is
- * temporarily null during hydration).
+ * Always renders as long as the registry or on-disk discovery finds a profile
+ * (even if activeProfile is temporarily null during hydration).
  */
 
 import { useState } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@sero-ai/ui/components/ui/popover';
 import { User, Check, Plus, Loader2 } from 'lucide-react';
-import { removeProfile, switchProfile, useProfileStore } from '@/stores/profiles';
-import type { ProfileRemovalMode } from '@/types/profile';
+import { adoptProfile, removeProfile, switchProfile, useProfileStore } from '@/stores/profiles';
+import type { DiscoveredProfile, ProfileRemovalMode } from '@/types/profile';
 import { CreateProfileDialog } from './CreateProfileDialog';
 import { ProfileRemovalMenu } from './ProfileRemovalMenu';
 import { useProfileOperationState } from './useProfileOperationState';
 
 export function ProfileSwitcher() {
   const profiles = useProfileStore((s) => s.profiles);
+  const discoveredProfiles = useProfileStore((s) => s.discoveredProfiles);
   const activeProfile = useProfileStore((s) => s.activeProfile);
   const {
     isLoading,
@@ -33,12 +34,13 @@ export function ProfileSwitcher() {
   const [switching, setSwitching] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
 
-  // Don't render if there are no profiles at all
-  if (profiles.length === 0) return null;
+  // Render when either the registry or on-disk discovery finds a profile.
+  if (profiles.length === 0 && discoveredProfiles.length === 0) return null;
 
-  // Display name: active profile name, or first profile, or "Profile"
+  // Display name: active profile name, first profile, first candidate, "Profile"
   const displayName = activeProfile?.name
     ?? profiles.find((p) => p.isActive)?.name
+    ?? discoveredProfiles[0]?.name
     ?? 'Profile';
 
   const activeId = activeProfile?.id
@@ -61,6 +63,15 @@ export function ProfileSwitcher() {
       () => setRemoving(null),
     );
     setRemoving(null);
+  };
+
+  const handleOpen = async (profile: DiscoveredProfile) => {
+    setSwitching(profile.id);
+    await runProfileOperation(
+      () => adoptProfile(profile.path),
+      () => setSwitching(null),
+    );
+    // App restarts on success.
   };
 
   return (
@@ -94,11 +105,13 @@ export function ProfileSwitcher() {
           className="w-56 p-1"
         >
           <div className="flex flex-col">
-            <div className="px-2 py-1.5">
-              <p className="text-sm font-medium uppercase tracking-wider text-[var(--text-muted)]">
-                Profiles
-              </p>
-            </div>
+            {profiles.length > 0 && (
+              <div className="px-2 py-1.5">
+                <p className="text-sm font-medium uppercase tracking-wider text-[var(--text-muted)]">
+                  Profiles
+                </p>
+              </div>
+            )}
 
             {profiles.map((profile) => (
               <div key={profile.id} className="flex items-center rounded-md hover:bg-[var(--bg-elevated)]">
@@ -131,6 +144,35 @@ export function ProfileSwitcher() {
                 )}
               </div>
             ))}
+
+            {/* Unregistered candidates stay available while registered profiles
+                exist, so adopting one does not hide the rest. */}
+            {discoveredProfiles.length > 0 && (
+              <>
+                <div className="px-2 py-1.5">
+                  <p className="text-sm font-medium uppercase tracking-wider text-[var(--text-muted)]">
+                    Found on this computer
+                  </p>
+                </div>
+                {discoveredProfiles.map((profile) => (
+                  <button
+                    key={profile.path}
+                    type="button"
+                    title={profile.path}
+                    onClick={() => { void handleOpen(profile); }}
+                    disabled={switching !== null || removing !== null}
+                    className="flex min-w-0 flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-[var(--bg-elevated)] disabled:opacity-50"
+                  >
+                    <span className="w-full truncate text-xs text-[var(--text-secondary)]">
+                      {profile.name}
+                    </span>
+                    <span className="w-full truncate text-xs text-[var(--text-muted)]">
+                      {profile.path}
+                    </span>
+                  </button>
+                ))}
+              </>
+            )}
 
             <div className="my-1 h-px bg-[var(--border-default)]" />
 

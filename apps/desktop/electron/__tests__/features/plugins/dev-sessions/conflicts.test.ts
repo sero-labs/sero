@@ -1,4 +1,5 @@
 import path from 'path';
+import { SERO_AGENT_DIR } from '@electron/platform/env';
 import type { SeroAppManifest } from '@/types/ipc';
 import type { PluginDevSessionRecord } from '@electron/features/plugins/dev-sessions/types';
 import {
@@ -50,7 +51,7 @@ function createSession(overrides: Partial<PluginDevSessionRecord> = {}): PluginD
   };
 }
 
-const INSTALLED_PLUGIN_ROOT = path.join(process.env.HOME ?? '/Users/test', '.sero-ui', 'agent', 'plugins');
+const INSTALLED_PLUGIN_ROOT = path.join(SERO_AGENT_DIR, 'plugins');
 
 describe('plugin dev conflicts', () => {
   it('classifies built-in apps, installed plugins, and active dev sessions explicitly', () => {

@@ -56,6 +56,34 @@ Use the profile switcher in the title bar to choose another profile. Switching p
 
 If switching fails, the UI keeps the profile action visible and reports the restart-aware error. Relaunching Sero normally loads the active profile recorded in the registry.
 
+## Recovering profiles that are already on disk
+
+If `~/.sero-ui/profiles.json` is empty or was reset, Sero offers the profile
+folders that still exist instead of making you start over.
+
+- On the first-run screen, profiles found on this computer are listed above the
+  create-profile form with their folder path and when each was last modified.
+  Choose **Open** to register one at the folder it already occupies and restart
+  into it.
+- The profile switcher keeps listing profile folders that are not registered
+  yet, so opening one never hides the others.
+- Sero looks for these folders under `~/.sero-ui/profiles/`, at the Sero root
+  itself (`~/.sero-ui/`), and in the most recent `profiles.broken-*.json` backup
+  beside `profiles.json`.
+
+Nothing is copied or moved when you open a profile. Sero registers the folder
+where it already is.
+
+If the registry fails to load at startup, the recovery dialog offers **Keep
+existing profiles** first. That choice rebuilds the registry from the profiles
+the broken file still names and whose folders exist, and saves the broken file
+as a `profiles.broken-*.json` backup. Reset stays available when nothing can be
+kept.
+
+Permanent deletion is offered only for a folder that a Sero record marks as
+Sero-managed. A recovered folder whose ownership no record proves is kept and is
+never offered for deletion.
+
 ## Copying credentials and model preferences
 
 When you create a profile, Sero can copy credentials and model preferences from

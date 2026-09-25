@@ -13,7 +13,6 @@
  */
 
 import { mkdirSync, readFileSync, writeFileSync } from 'fs';
-import os from 'os';
 import path from 'path';
 
 import { migrateExistingInstall } from '@electron/features/profile/migration';
@@ -22,33 +21,17 @@ import {
   readRegistryLoadSync,
   readRegistrySync,
 } from '@electron/features/profile/manager';
+import {
+  resolveHostArtifactsRoot,
+  resolveSeroRoot,
+} from '@electron/features/profile/roots';
 import type { ProfileRegistry } from '@electron/features/profile/types';
 import type { ProfileRegistryStartupIssue } from '@electron/features/profile/recovery';
 
 // ── Fixed root — always ~/.sero-ui/ ─────────────────────────
 
-function resolveSeroFixedRoot(): string {
-  if (process.env.NODE_ENV === 'test' && process.env.SERO_FIXED_ROOT_OVERRIDE) {
-    return path.resolve(process.env.SERO_FIXED_ROOT_OVERRIDE);
-  }
-  if (process.env.SERO_HOME_OVERRIDE) {
-    return path.resolve(process.env.SERO_HOME_OVERRIDE);
-  }
-  return path.join(os.homedir(), '.sero-ui');
-}
-
 /** The fixed Sero root directory. profiles.json always lives here. */
-export const SERO_FIXED_ROOT = resolveSeroFixedRoot();
-
-function resolveHostArtifactsRoot(): string {
-  if (process.env.NODE_ENV === 'test' && process.env.SERO_FIXED_ROOT_OVERRIDE) {
-    return path.resolve(process.env.SERO_FIXED_ROOT_OVERRIDE);
-  }
-  if (process.env.SERO_HOST_ARTIFACTS_ROOT_OVERRIDE) {
-    return path.resolve(process.env.SERO_HOST_ARTIFACTS_ROOT_OVERRIDE);
-  }
-  return path.join(os.homedir(), '.sero-ui');
-}
+export const SERO_FIXED_ROOT = resolveSeroRoot();
 
 /** Machine-level host artifacts shared by all profiles and source-dev roots. */
 export const SERO_HOST_ARTIFACTS_ROOT = resolveHostArtifactsRoot();

@@ -1,4 +1,5 @@
 import path from 'path';
+import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SeroAppManifest } from '@/types/ipc';
 import type { PluginDevSessionRecord } from '@electron/features/plugins/dev-sessions/types';
@@ -56,7 +57,7 @@ function createSession(overrides: Partial<PluginDevSessionRecord> = {}): PluginD
   };
 }
 
-const INSTALLED_PLUGIN_ROOT = path.join(process.env.HOME ?? '/Users/test', '.sero-ui', 'agent', 'plugins');
+const INSTALLED_PLUGIN_ROOT = path.join(SERO_AGENT_DIR, 'plugins');
 
 describe('plugin install policy', () => {
   beforeEach(() => {

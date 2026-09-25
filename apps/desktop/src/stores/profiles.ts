@@ -7,9 +7,9 @@
  */
 
 import { create } from 'zustand';
-import type { ProfileInfo, ProfileRemovalMode } from '@/types/profile';
+import type { DiscoveredProfile, ProfileInfo, ProfileRemovalMode } from '@/types/profile';
 
-type ProfileOperation = 'create' | 'switch' | 'remove';
+type ProfileOperation = 'create' | 'switch' | 'remove' | 'adopt';
 
 const PROFILE_RESTART_HINT = 'If the action succeeds, Sero restarts automatically.';
 
@@ -18,7 +18,9 @@ function getProfileOperationError(operation: ProfileOperation, err: unknown): st
     ? 'Failed to create profile'
     : operation === 'switch'
       ? 'Failed to switch profile'
-      : 'Failed to remove profile';
+      : operation === 'adopt'
+        ? 'Failed to open profile'
+        : 'Failed to remove profile';
   const detail = err instanceof Error && err.message.trim().length > 0
     ? err.message.trim()
     : null;
@@ -31,6 +33,8 @@ function getProfileOperationError(operation: ProfileOperation, err: unknown): st
 interface ProfileState {
   /** All registered profiles. */
   profiles: ProfileInfo[];
+  /** Profiles found on disk that the registry does not reference. */
+  discoveredProfiles: DiscoveredProfile[];
   /** The currently active profile (null before hydration or if no profile). */
   activeProfile: ProfileInfo | null;
   /** True once profiles have been loaded from main process. */
@@ -44,6 +48,7 @@ interface ProfileState {
 
   // Actions
   setProfiles: (profiles: ProfileInfo[]) => void;
+  setDiscoveredProfiles: (profiles: DiscoveredProfile[]) => void;
   setActiveProfile: (profile: ProfileInfo | null) => void;
   setReady: (ready: boolean, hasActive: boolean) => void;
   setLoading: (loading: boolean) => void;
@@ -52,6 +57,7 @@ interface ProfileState {
 
 export const useProfileStore = create<ProfileState>((set) => ({
   profiles: [],
+  discoveredProfiles: [],
   activeProfile: null,
   ready: false,
   hasActiveProfile: false,
@@ -59,6 +65,7 @@ export const useProfileStore = create<ProfileState>((set) => ({
   error: null,
 
   setProfiles: (profiles) => set({ profiles }),
+  setDiscoveredProfiles: (discoveredProfiles) => set({ discoveredProfiles }),
   setActiveProfile: (profile) => set({ activeProfile: profile }),
   setReady: (ready, hasActive) => set({ ready, hasActiveProfile: hasActive }),
   setLoading: (isLoading) => set({ isLoading }),
@@ -73,21 +80,23 @@ export const useProfileStore = create<ProfileState>((set) => ({
  */
 export async function loadProfiles(): Promise<void> {
   try {
-    const [hasActive, profiles, active] = await Promise.all([
+    const [hasActive, profiles, active, discovered] = await Promise.all([
       window.sero.profiles.hasActive(),
       window.sero.profiles.list(),
       window.sero.profiles.getActive(),
+      window.sero.profiles.discover(),
     ]);
 
     useProfileStore.setState({
       profiles,
+      discoveredProfiles: discovered,
       activeProfile: active,
       hasActiveProfile: hasActive,
       ready: true,
     });
   } catch (err) {
     console.error('[profiles] Failed to load profiles:', err);
-    useProfileStore.setState({ ready: true, hasActiveProfile: false });
+    useProfileStore.setState({ ready: true, hasActiveProfile: false, discoveredProfiles: [] });
   }
 }
 
@@ -141,6 +150,20 @@ export async function switchProfile(id: string): Promise<void> {
     // App will restart — this line may not execute
   } catch (err) {
     failProfileOperation('switch', err);
+  }
+}
+
+/**
+ * Adopt a profile that already exists on disk, at the path it occupies.
+ * Triggers app restart so the adopted profile becomes active.
+ */
+export async function adoptProfile(path: string): Promise<void> {
+  useProfileStore.setState({ isLoading: true, error: null });
+  try {
+    await window.sero.profiles.adopt(path);
+    // App will restart — this line may not execute
+  } catch (err) {
+    failProfileOperation('adopt', err);
   }
 }
 

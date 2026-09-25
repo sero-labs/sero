@@ -7,12 +7,13 @@
 
 import { app, dialog, ipcMain } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
-import { profileManager } from '@electron/features/profile/manager';
+import { PROFILE_REGISTRY_PATH, profileManager } from '@electron/features/profile/manager';
+import { discoverProfiles } from '@electron/features/profile/discovery';
 import {
   containerCleanupService,
   readProfileWorkspaceIdentities,
 } from '@electron/features/workspace/runtime/container-cleanup';
-import { clearLoadedProfileEnvForRelaunch } from '@electron/platform/env';
+import { clearLoadedProfileEnvForRelaunch, SERO_FIXED_ROOT } from '@electron/platform/env';
 import {
   applyLegacyProviderDefaultsMigration,
   buildGlobalModelConfigState,
@@ -27,7 +28,7 @@ import { copyProfileDataSync, profileHasTransferableData } from '@electron/featu
 import { discoverApps } from '@electron/features/apps/discovery';
 import { disposeAgentNodeService } from '@electron/ipc/agent-node';
 
-import type { ProfileInfo, ProfileRemovalMode } from '@/types/profile';
+import type { DiscoveredProfile, ProfileInfo, ProfileRemovalMode } from '@/types/profile';
 import type { GlobalModelConfigInput, GlobalModelConfigState } from '@/types/ipc';
 
 function readSettingsForModelConfig(): Record<string, unknown> {
@@ -192,6 +193,31 @@ export function registerProfileHandlers(): void {
     (): ProfileInfo[] => {
       const all = profileManager.list();
       return all.filter((p) => profileHasTransferableData(p.path));
+    },
+  );
+
+  /** List profiles found on disk that the registry does not reference. */
+  ipcMain.handle(
+    IpcChannels.profiles.discover,
+    (): DiscoveredProfile[] => discoverProfiles({
+      seroRoot: SERO_FIXED_ROOT,
+      registryPath: PROFILE_REGISTRY_PATH,
+    }),
+  );
+
+  /**
+   * Adopt a profile that already exists on disk, then relaunch into it.
+   * Mirrors the switch path so env.ts picks up the adopted profile.
+   */
+  ipcMain.handle(
+    IpcChannels.profiles.adopt,
+    async (_e, path: string): Promise<void> => {
+      disposeAgentNodeService();
+      await profileManager.adopt(path);
+
+      clearLoadedProfileEnvForRelaunch();
+      app.relaunch();
+      app.exit(0);
     },
   );
 

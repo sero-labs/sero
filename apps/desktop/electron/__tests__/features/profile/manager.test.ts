@@ -4,10 +4,9 @@ import path from 'path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-describe('profile manager path validation', () => {
+describe('profile manager', () => {
   let tmpHome: string | null = null;
-  const originalHome = process.env.HOME;
-  const originalSeroHomeOverride = process.env.SERO_HOME_OVERRIDE;
+  const originalFixedRootOverride = process.env.SERO_FIXED_ROOT_OVERRIDE;
 
   async function importManager() {
     if (!tmpHome) {
@@ -15,18 +14,20 @@ describe('profile manager path validation', () => {
     }
 
     vi.resetModules();
-    process.env.HOME = tmpHome;
+    // State the root explicitly instead of inferring it from a swapped HOME.
+    // SERO_HOME_OVERRIDE stays unset so the first-profile default-root branch
+    // stays under test.
+    process.env.SERO_FIXED_ROOT_OVERRIDE = tmpHome;
     delete process.env.SERO_HOME_OVERRIDE;
     return import('@electron/features/profile/manager');
   }
 
   afterEach(async () => {
     vi.resetModules();
-    process.env.HOME = originalHome;
-    if (originalSeroHomeOverride === undefined) {
-      delete process.env.SERO_HOME_OVERRIDE;
+    if (originalFixedRootOverride === undefined) {
+      delete process.env.SERO_FIXED_ROOT_OVERRIDE;
     } else {
-      process.env.SERO_HOME_OVERRIDE = originalSeroHomeOverride;
+      process.env.SERO_FIXED_ROOT_OVERRIDE = originalFixedRootOverride;
     }
 
     if (tmpHome) {
@@ -43,8 +44,8 @@ describe('profile manager path validation', () => {
     const defaultProfile = await profileManager.create('Default');
     const workProfile = await profileManager.create('Work');
 
-    expect(defaultProfile.path).toBe(path.join(tmpHome, '.sero-ui'));
-    expect(workProfile.path).toBe(path.join(tmpHome, '.sero-ui', 'profiles', 'work'));
+    expect(defaultProfile.path).toBe(tmpHome);
+    expect(workProfile.path).toBe(path.join(tmpHome, 'profiles', 'work'));
   });
 
   it('uses SERO_HOME_OVERRIDE as the isolated profile registry root', async () => {
@@ -114,7 +115,7 @@ describe('profile manager path validation', () => {
     await profileManager.create('Work', path.join(tmpHome, 'profiles', 'work'));
 
     await expect(
-      profileManager.create('Default-ish', path.join(tmpHome, '.sero-ui')),
+      profileManager.create('Default-ish', tmpHome),
     ).rejects.toThrow('reserved for the first default profile');
   });
 });

@@ -6,6 +6,7 @@ import path from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { getCliRegistry, resetCliRegistryForTests } from '@electron/cli';
+import { SERO_FIXED_ROOT } from '@electron/platform/env';
 import { installCliSessionBridge } from '@electron/cli/bridges/session-bridge';
 import { CliRegistry, executeCliArgv } from '@electron/cli/core';
 import type { CliCommandContext } from '@electron/cli/core';
@@ -121,7 +122,7 @@ describe('host Sero CLI bridge', () => {
   it('prepends the managed Sero CLI bin and exports Sero context', () => {
     const env = addSeroCliEnv({ PATH: '/usr/bin' }, { workspaceId: 'ws-1', sessionId: 's-1' }, 'darwin');
 
-    expect(env.PATH?.split(path.delimiter)[0]).toMatch(/\.sero-ui\/bin$/);
+    expect(env.PATH?.split(path.delimiter)[0]).toBe(path.join(SERO_FIXED_ROOT, 'bin'));
     expect(env.SERO_WORKSPACE_ID).toBe('ws-1');
     expect(env.SERO_SESSION_ID).toBe('s-1');
     expect(env.PI_CODING_AGENT_DIR).toBe(env.SERO_AGENT_DIR);

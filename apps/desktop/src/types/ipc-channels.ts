@@ -437,6 +437,10 @@ export const IpcChannels = {
     markOnboardingDone: 'sero:profiles:mark-onboarding-done',
     /** List profiles that have transferable credentials/config (for import during creation). */
     listAuthSources: 'sero:profiles:list-auth-sources',
+    /** List profiles found on disk that the registry does not reference. */
+    discover: 'sero:profiles:discover',
+    /** Adopt a profile at its existing path (triggers app restart). Args: path. */
+    adopt: 'sero:profiles:adopt',
   },
   doctor: {
     /** Run a full doctor pass. Streams progress on `event`. Returns final report. */

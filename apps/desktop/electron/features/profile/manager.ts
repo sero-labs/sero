@@ -13,24 +13,15 @@
  *     module level — those are not yet initialised when this runs.
  */
 
-import { copyFileSync, existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { promises as fs } from 'fs';
-import os from 'os';
 import path from 'path';
 import { randomUUID } from 'crypto';
 
 import type { ProfileInfo, ProfileRemovalMode } from '@/types/profile';
 import type { ProfileEntry, ProfileRegistry } from './types';
-
-function resolveSeroRoot(): string {
-  if (process.env.NODE_ENV === 'test' && process.env.SERO_FIXED_ROOT_OVERRIDE) {
-    return path.resolve(process.env.SERO_FIXED_ROOT_OVERRIDE);
-  }
-  if (process.env.SERO_HOME_OVERRIDE) {
-    return path.resolve(process.env.SERO_HOME_OVERRIDE);
-  }
-  return path.join(os.homedir(), '.sero-ui');
-}
+import { discoverProfiles } from './discovery';
+import { resolveSeroRoot } from './roots';
 
 /** Fixed location for the profile registry — never changes. */
 const SERO_ROOT = resolveSeroRoot();
@@ -157,7 +148,7 @@ export function readRegistryLoadSync(): ProfileRegistryLoadResult {
 }
 
 /** Write registry synchronously. */
-function writeRegistrySync(registry: ProfileRegistry): void {
+export function writeRegistrySync(registry: ProfileRegistry): void {
   mkdirSync(SERO_ROOT, { recursive: true });
   writeFileSync(REGISTRY_PATH, JSON.stringify(registry, null, 2) + '\n', 'utf8');
 }
@@ -200,29 +191,6 @@ async function writeRegistryAsync(registry: ProfileRegistry): Promise<void> {
   const tmpFile = `${REGISTRY_PATH}.${process.pid}.tmp`;
   await fs.writeFile(tmpFile, JSON.stringify(registry, null, 2) + '\n', 'utf8');
   await fs.rename(tmpFile, REGISTRY_PATH);
-}
-
-export interface ProfileRegistryResetResult {
-  registryPath: string;
-  backupPath: string | null;
-}
-
-/**
- * Preserve a malformed profiles.json for inspection, then replace it with a
- * fresh empty registry so the app can recover on next launch.
- */
-export function backupAndResetRegistrySync(): ProfileRegistryResetResult {
-  mkdirSync(SERO_ROOT, { recursive: true });
-
-  let backupPath: string | null = null;
-  if (existsSync(REGISTRY_PATH)) {
-    const timestamp = new Date().toISOString().replace(/[.:]/g, '-');
-    backupPath = path.join(SERO_ROOT, `profiles.broken-${timestamp}.json`);
-    copyFileSync(REGISTRY_PATH, backupPath);
-  }
-
-  writeRegistrySync(emptyRegistry());
-  return { registryPath: REGISTRY_PATH, backupPath };
 }
 
 // ── ProfileManager ──────────────────────────────────────────
@@ -336,6 +304,55 @@ class ProfileManager {
     return entry;
   }
 
+  /**
+   * Adopt a profile that already exists on disk, registering it at its current
+   * path and making it active. Adopting never copies, moves, or rewrites
+   * profile data — the directory stays where it is.
+   *
+   * Identity and folder ownership come from disk discovery, never from the
+   * caller and never inferred from the path. A folder the registry never
+   * described keeps unknown ownership and stays ineligible for deletion.
+   *
+   * Throws when the path is already registered, or when discovery finds no
+   * recoverable profile there.
+   */
+  async adopt(profilePath: string): Promise<ProfileEntry> {
+    const resolvedPath = path.resolve(profilePath);
+
+    const alreadyRegistered = this.registry.profiles.find(
+      (existing) => path.resolve(existing.path) === resolvedPath,
+    );
+    if (alreadyRegistered) {
+      throw new Error(
+        `Profile path is already registered to "${alreadyRegistered.name}": ${resolvedPath}`,
+      );
+    }
+
+    const candidate = discoverProfiles({
+      seroRoot: SERO_ROOT,
+      registryPath: REGISTRY_PATH,
+    }).find((entry) => path.resolve(entry.path) === resolvedPath);
+    if (!candidate) {
+      throw new Error(`No recoverable profile exists at ${resolvedPath}`);
+    }
+
+    this.validateAdoptablePath(resolvedPath);
+
+    const entry: ProfileEntry = {
+      id: candidate.id,
+      name: candidate.name.trim(),
+      path: resolvedPath,
+      createdAt: new Date().toISOString(),
+      folderProvenance: candidate.folderProvenance,
+      onboarded: candidate.onboarded,
+    };
+
+    this.registry.profiles.push(entry);
+    this.registry.activeProfileId = entry.id;
+    await writeRegistryAsync(this.registry);
+    return entry;
+  }
+
   /** Set the active profile. Does NOT restart the app — caller must do that. */
   async setActive(id: string): Promise<void> {
     const profile = this.findById(id);
@@ -408,6 +425,40 @@ class ProfileManager {
       if (!candidateInsideExisting && !existingInsideCandidate) continue;
 
       if (candidateInsideExisting && isAllowedDefaultProfileContainment(existingPath, candidatePath)) {
+        continue;
+      }
+
+      throw new Error(
+        `Profile path overlaps with existing profile "${existing.name}" at ${existing.path}`,
+      );
+    }
+  }
+
+  /**
+   * Overlap rules for adoption. Unlike create(), the first profile's default
+   * root is not reserved: recovering it is the whole point, so it may be
+   * adopted alongside the managed children that live under it. Duplicate paths
+   * and unrelated overlaps are still rejected.
+   */
+  private validateAdoptablePath(candidatePath: string): void {
+    for (const existing of this.registry.profiles) {
+      const existingPath = path.resolve(existing.path);
+      if (existingPath === candidatePath) {
+        throw new Error(
+          `Profile path already belongs to profile "${existing.name}": ${candidatePath}`,
+        );
+      }
+
+      const candidateInsideExisting = isNestedPath(existingPath, candidatePath);
+      const existingInsideCandidate = isNestedPath(candidatePath, existingPath);
+      if (!candidateInsideExisting && !existingInsideCandidate) continue;
+
+      // The default root and its managed children are one profile family in
+      // either direction, so recovery works whichever profile opens first.
+      if (
+        isAllowedDefaultProfileContainment(existingPath, candidatePath)
+        || isAllowedDefaultProfileContainment(candidatePath, existingPath)
+      ) {
         continue;
       }
 

@@ -13,7 +13,7 @@ vi.mock('electron', () => ({
   ipcRenderer: mocks.ipcRenderer,
 }));
 
-import { agentBridge, workspaceBridge } from '@electron/preload/api/core';
+import { agentBridge, profilesBridge, workspaceBridge } from '@electron/preload/api/core';
 import { filetreeBridge, vcsBridge } from '@electron/preload/api/workbench';
 import { lspBridge } from '@electron/preload/editor/debug-lsp';
 import { pluginsBridge } from '@electron/preload/integrations/plugins';
@@ -216,6 +216,17 @@ describe('preload event bridge subscriptions', () => {
     expect(mocks.ipcRenderer.invoke).toHaveBeenCalledWith(IpcChannels.plugins.startDevSession, '/tmp/plugin-one');
     expect(mocks.ipcRenderer.invoke).toHaveBeenCalledWith(IpcChannels.plugins.refreshDevSession, 'dev_1');
     expect(mocks.ipcRenderer.invoke).toHaveBeenCalledWith(IpcChannels.plugins.stopDevSession, 'dev_1');
+  });
+
+  it('invokes profile discovery and adoption over the profiles IPC surface', async () => {
+    await profilesBridge.discover();
+    await profilesBridge.adopt('/tmp/sero-test/profiles/a');
+
+    expect(mocks.ipcRenderer.invoke).toHaveBeenCalledWith(IpcChannels.profiles.discover);
+    expect(mocks.ipcRenderer.invoke).toHaveBeenCalledWith(
+      IpcChannels.profiles.adopt,
+      '/tmp/sero-test/profiles/a',
+    );
   });
 
 });
