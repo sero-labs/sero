@@ -142,6 +142,12 @@ The change adds or alters these user-facing surfaces:
 
 Before production UI work starts, one interactive prototype, `apps/styleguide/public/prototypes/mcp-2026-07-28/`, shows these surfaces. It follows [`.agents/skills/sero-prototype/SKILL.md`](../../../.agents/skills/sero-prototype/SKILL.md) and is linked from `PrototypeArchive.tsx`. It starts from `tool-call-group-expanded.html` and `sero-agent-plugins-integration.html` and checks them against the current components. It also shows the product defaults that the user must confirm: remote skills disabled by default, input declined in headless sessions, and task delivery without a new turn. Production UI tasks (3.7, and the UI tasks in groups 8, 9 and 10 of `tasks.md`) follow the approved prototype. The protocol, cache and OAuth work has no UI dependency and can go in parallel.
 
+UI rules for the prototype and for the production UI:
+- No nested cards. Panels are plain sections with one heading, and rows in a list are separated by dividers, not boxes.
+- No labels, subheadings or descriptions that repeat what the control or heading already shows. A default state (for example a verified skill) gets no badge; only an exception gets one.
+- Explanations are one short sentence and appear only where the user must act or where something failed.
+- Where the current surface already has this clutter and the change touches it, simplify it.
+
 ### D11. Test fixtures
 `D/e2e/fixtures/test-mcp-server/` gets:
 - one server factory served in modern and legacy mode through `serveStdio` (both eras), with a `--legacy` flag that uses a plain `StdioServerTransport` (2025 only)

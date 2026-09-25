@@ -4,6 +4,34 @@
   const P = window.MCP_PROTO;
   const { S, enter } = P;
 
+  // Review notes show in the review panel, not in the product UI.
+  const NOTES = {
+    'app-loading': 'The app runs in a sandboxed frame on a separate local origin. With no declared domains, it has no network access.',
+    'app-rendered': 'Try the app buttons. Refresh calls a tool on sales. Copy table asks for a permission. Attach to issue calls another server.',
+    'app-tool-call': 'An app can call only the app tools of its own server.',
+    'app-refused': 'Sero blocks app calls to other servers and to hidden tools. It sends no request.',
+    'app-permission': 'The app gets a permission only after you choose for that app. Esc denies.',
+    'app-fallback': 'The text result stays when the app cannot load.',
+    'input-1': 'A server question opens User Feedback, like other multi-step questions. Sero goes back to the previous app after you answer. New: the line under the title shows who asks.',
+    'input-2': 'The server can ask again during the same tool call.',
+    'input-done': 'Sero went back to the previous app.',
+    'input-declined': 'Decline sends a decline to the server. The server decides what to do.',
+    'input-cancelled': 'Cancel stops the tool call.',
+    'task-running': 'The task continues after Sero restarts. It also shows in the MCP app under Tasks.',
+    'task-result': 'Default to confirm: the result goes into the chat, but it does not start a new agent turn.',
+    'skill-approval': 'Sero asks before bash or run_code runs while the agent follows a remote skill. Esc denies.',
+    'skill-allowed': 'Sero asks again after the server changes the skill.',
+    'skill-denied': 'The agent gets the block as a tool error.',
+    'server-modern': 'New: the Protocol, Extensions, Transport and Metadata cache rows. The current sign-in, tool runner and resource sections stay below them.',
+    'server-legacy': 'A legacy server connects with the 2025 handshake.',
+    'server-sse': 'Saved SSE servers still connect. The add-server form offers stdio and Streamable HTTP only.',
+    'server-failed': 'Sero does not show the error text from the sign-in reply, because an attacker can control it.',
+    'tasks-panel': 'Tasks from all chats, also from closed chats.',
+    'skills-off': 'Default to confirm: every remote skill starts off.',
+    'skills-on': 'The agent sees only the skills that are on.',
+    'skills-changed': 'A changed skill stays on, but it loses its approval to run code.',
+  };
+
   const CHAT_TITLES = { app: 'EMEA dashboard', input: 'New contact', task: 'Q3 report', skill: 'Release notes 2.4' };
 
   function chatFor(scenario) {
@@ -26,6 +54,7 @@
     for (const button of document.querySelectorAll('.state')) {
       button.setAttribute('aria-current', String(button.dataset.state === S.scenario));
     }
+    document.getElementById('state-note').textContent = NOTES[S.scenario] ?? '';
     if (focus) restoreFocus(focus);
   }
 
@@ -42,7 +71,7 @@
     enter(scenario);
     render(focus);
     const area = document.getElementById('app-area');
-    const open = area.querySelector('.server.open');
+    const open = area.querySelector('[data-act="server"][aria-expanded="true"]')?.closest('.item');
     if (open) open.scrollIntoView({ block: 'start' });
     else area.scrollTop = 0;
   }

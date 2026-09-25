@@ -34,23 +34,10 @@
   <div class="shell">
     <aside class="review" aria-label="Review guide">
       <h2>Review question</h2>
-      <p>Do these screens show MCP apps, server input requests, tasks and remote skills clearly enough to build them? Do you accept the three default settings below?</p>
+      <p>Are these screens clear enough to build? Do you accept the three defaults below?</p>
 
-      <h2>Defaults to confirm</h2>
-      <ul>
-        <li>Remote skills are off until you turn each one on.</li>
-        <li>When no person can answer (a headless session or the plain Pi CLI), Sero declines a server input request at once.</li>
-        <li>A task result is added to its chat. It does not start a new agent turn.</li>
-      </ul>
-
-      <h2>Changes to current UI</h2>
-      <ul>
-        <li>A tool result can show UI from the plugin that owns the tool. The MCP plugin uses this for MCP apps.</li>
-        <li>The User Feedback questionnaire shows who asks the question.</li>
-        <li>MCP server details show the protocol, extensions, cache, transport and the failed step.</li>
-        <li>The MCP app gets <b>Tasks</b> and <b>Remote skills</b> panels.</li>
-        <li>The add-server form lists stdio and Streamable HTTP only. Saved SSE servers still connect.</li>
-      </ul>
+      <h2>This state</h2>
+      <p id="state-note" aria-live="polite"></p>
 
       <h2 id="states-heading">States</h2>
       <nav aria-labelledby="states-heading">
@@ -94,7 +81,21 @@
           <li><button class="state" data-state="skills-changed">Remote skill changed</button></li>
         </ul>
       </nav>
-      <p class="review-note">Use Up and Down to move through the states. Dashed boxes like this one are review notes, not product UI.</p>
+
+      <h2>Defaults to confirm</h2>
+      <ul>
+        <li>Remote skills start off.</li>
+        <li>With no person to answer (headless or plain Pi CLI), Sero declines server questions at once.</li>
+        <li>A task result goes into its chat without a new agent turn.</li>
+      </ul>
+
+      <h2>Changes to current UI</h2>
+      <ul>
+        <li>A tool result can show UI from the plugin that owns the tool.</li>
+        <li>The questionnaire shows who asks.</li>
+        <li>Server details show protocol, extensions, transport and cache.</li>
+        <li>The MCP app gets Tasks and Remote skills.</li>
+      </ul>
     </aside>
 
     <main class="app-area" id="app-area" tabindex="-1" aria-label="App area"></main>
