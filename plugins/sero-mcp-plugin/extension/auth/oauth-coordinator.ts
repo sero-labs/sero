@@ -1,4 +1,5 @@
 import {
+  auth,
   AuthorizationServerMismatchError,
   IssuerMismatchError,
   StreamableHTTPClientTransport,
@@ -31,6 +32,7 @@ export class McpOAuthCoordinator {
       throw new Error(`Server "${serverName}" does not have an HTTP URL for OAuth authentication.`);
     }
 
+    const requestedScope = (await readOAuthFlowState(serverName))?.requestedScope;
     await this.cancelAuth(serverName);
     await clearOAuthFlowState(serverName);
 
@@ -48,6 +50,13 @@ export class McpOAuthCoordinator {
     let keepTransportOpen = false;
 
     try {
+      if (requestedScope) {
+        // A call needed a scope that the stored token lacks. The server can still accept that
+        // token for a connect, so ask for a new authorization with the scope instead.
+        const result = await auth(authProvider, { serverUrl, scope: requestedScope, forceReauthorization: true });
+        if (result === 'AUTHORIZED') return { status: 'authenticated' };
+        throw new UnauthorizedError('Authorization is required for the wider scope.');
+      }
       await client.connect(transport);
       return { status: 'authenticated' };
     } catch (error) {

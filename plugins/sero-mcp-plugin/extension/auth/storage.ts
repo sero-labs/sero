@@ -33,6 +33,8 @@ export interface McpStoredOAuthFlowState {
   oauthState?: string;
   codeVerifier?: string;
   serverUrl?: string;
+  /** The scope of the last authorization that the SDK asked for outside a sign-in, for example after 403 insufficient_scope. */
+  requestedScope?: string;
 }
 
 function isMissingFileError(error: unknown): boolean {
@@ -146,6 +148,7 @@ export async function readOAuthFlowState(serverName: string): Promise<McpStoredO
     oauthState: typeof parsed.oauthState === 'string' ? parsed.oauthState : undefined,
     codeVerifier: typeof parsed.codeVerifier === 'string' ? parsed.codeVerifier : undefined,
     serverUrl: typeof parsed.serverUrl === 'string' ? parsed.serverUrl : undefined,
+    requestedScope: typeof parsed.requestedScope === 'string' ? parsed.requestedScope : undefined,
   };
 }
 

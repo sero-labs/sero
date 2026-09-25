@@ -3,6 +3,7 @@ import { Client, SSEClientTransport, StreamableHTTPClientTransport } from '@mode
 import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/client';
 import { promises as fs } from 'node:fs';
 import { McpOAuthProvider } from '../auth/oauth-provider';
+import { writeOAuthFlowState } from '../auth/storage';
 import { resolvePrincipalId } from '../auth/principal';
 import { computeServerHash } from '../cache/metadata-cache';
 import type { McpFailurePhase } from '../../shared/types';
@@ -208,7 +209,12 @@ export class McpServerManager {
     const requestInit = buildRequestInit(definition, bearerToken);
     const authProvider = definition.auth === 'oauth'
       ? new McpOAuthProvider(name, definition.url!, definition.oauth || {}, {
-          onRedirect: async () => {},
+          // Outside a sign-in nobody can follow the redirect. Keep its scope, so the next
+          // sign-in asks for it, for example the wider scope after 403 insufficient_scope.
+          onRedirect: async (authorizationUrl) => {
+            const requestedScope = authorizationUrl.searchParams.get('scope');
+            if (requestedScope) await writeOAuthFlowState(name, { requestedScope, serverUrl: definition.url });
+          },
         })
       : undefined;
 

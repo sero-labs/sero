@@ -249,7 +249,7 @@ Sero follows the `2026-07-28` authorization rules through the v2 SDK:
 - Tokens and client information are stored as the SDK gives them, with the SDK's `issuer` stamp, and the discovery state is stored in `discovery.json`. Tokens saved before the upgrade have no stamp; they keep working and get one on the next sign-in.
 - When the server's resource metadata starts to name another authorization server, the SDK does not send the stored tokens or client credentials there. The server becomes `needs-auth`, and the user signs in again.
 - The SDK refuses to send credentials to a token endpoint that uses neither TLS nor a loopback host.
-- For `403 insufficient_scope`, Sero keeps the SDK default (`onInsufficientScope: 'reauthorize'`): one authorization request for the wider scope, then one retry.
+- For `403 insufficient_scope`, Sero keeps the SDK default (`onInsufficientScope: 'reauthorize'`): the SDK asks for a new authorization with the wider scope. Outside a sign-in nobody can follow that redirect, so Sero saves the scope in `flow.json`, and the call fails with `needs-auth`. The next sign-in then forces a new authorization for that scope, because the server can still accept the old token for a plain connect.
 
 ### Client registration
 
