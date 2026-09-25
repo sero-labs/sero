@@ -25,6 +25,12 @@ interface ViewerActionOptions {
   toolArguments?: Record<string, unknown>;
   viewerId?: string;
   sessionId?: string;
+  /**
+   * The chat session that actually made the call, from the extension context.
+   * The remote-skill read guard uses this, never `sessionId`, which names the
+   * session that app messages go to.
+   */
+  callerSessionId?: string;
   /** Refuses a read that a remote skill of another server would make. */
   crossServerReadError?: (sessionId: string | undefined, serverName: string) => string | null;
   toolResult?: Record<string, unknown>;
@@ -50,8 +56,12 @@ export async function openViewerResourceAction(options: ViewerActionOptions): Pr
     return createToolResult('Error: Resource URI is required.', { snapshotWritten: false });
   }
 
+  const refused = crossServerRefusal(options, options.serverName);
+  if (refused) return refused;
+
   if (!resourceUri.startsWith('ui://')) {
-    return readServerResourceAction(options);
+    // The shared read guards too. It needs the trusted caller session, not the app-message session.
+    return readServerResourceAction({ ...options, sessionId: options.callerSessionId });
   }
 
   const ensured = await ensureConnectedServer(options, { requireExposedResources: true });
@@ -89,6 +99,9 @@ export async function openViewerResourceAction(options: ViewerActionOptions): Pr
 }
 
 export async function openToolUiAction(options: ViewerActionOptions): Promise<ToolResult> {
+  const refused = crossServerRefusal(options, options.serverName);
+  if (refused) return refused;
+
   const ensured = await ensureConnectedServer(options);
   if ('errorResult' in ensured) {
     return ensured.errorResult;
@@ -242,6 +255,14 @@ function grantPermissions(
     appLabel: `${ensured.serverName} · ${appName} app`,
     choices: options.permissionChoices,
   });
+}
+
+/** The refusal when a remote skill would make this read on another server, or null. */
+function crossServerRefusal(options: ViewerActionOptions, serverName: string | undefined): ToolResult | null {
+  const name = serverName?.trim();
+  if (!name) return null;
+  const refusal = options.crossServerReadError?.(options.callerSessionId, name);
+  return refusal ? createToolResult(`Error: ${refusal}`, { isError: true }) : null;
 }
 
 /** Session settings that come from the server config and the user, the same for every viewer. */

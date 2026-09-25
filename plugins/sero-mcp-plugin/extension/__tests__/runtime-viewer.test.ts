@@ -88,6 +88,72 @@ describe('runtime-viewer', () => {
     expect(result.details.resourcePreview).toBeTruthy();
   });
 
+  it('refuses to open a UI resource while the session acts on a skill of another server', async () => {
+    const readUiResource = vi.fn();
+    const result = await openViewerResourceAction({
+      cwd: '/tmp/workspace',
+      serverName: 'demo',
+      resourceUri: 'ui://demo/dashboard',
+      callerSessionId: 'chat-1',
+      crossServerReadError: (sessionId, serverName) => `blocked ${sessionId} -> ${serverName}`,
+      manager: createManager({ status: 'connected', tools: [], resources: [] }) as never,
+      uiResourceHandler: { readUiResource } as never,
+      uiServer: { open: vi.fn(), close: vi.fn() } as never,
+      sessions: new SessionRegistry(),
+      permissionChoices: new Map(),
+      setRuntimeStatus: vi.fn(),
+      syncSnapshot: vi.fn(async () => createSyncedState()),
+    });
+
+    expect(readUiResource).not.toHaveBeenCalled();
+    expect(result.content[0]?.text).toContain('blocked chat-1 -> demo');
+  });
+
+  it('refuses to open a tool UI while the session acts on a skill of another server', async () => {
+    const readUiResource = vi.fn();
+    const result = await openToolUiAction({
+      cwd: '/tmp/workspace',
+      serverName: 'demo',
+      toolName: 'dashboard',
+      // The app-message session must not stand in for the caller in the guard.
+      sessionId: 'app-chat',
+      callerSessionId: 'chat-1',
+      crossServerReadError: (sessionId, serverName) => `blocked ${sessionId} -> ${serverName}`,
+      manager: createManager({ status: 'connected', tools: [], resources: [] }) as never,
+      uiResourceHandler: { readUiResource } as never,
+      uiServer: { open: vi.fn(), close: vi.fn() } as never,
+      sessions: new SessionRegistry(),
+      permissionChoices: new Map(),
+      setRuntimeStatus: vi.fn(),
+      syncSnapshot: vi.fn(async () => createSyncedState()),
+    });
+
+    expect(readUiResource).not.toHaveBeenCalled();
+    expect(result.content[0]?.text).toContain('blocked chat-1 -> demo');
+  });
+
+  it('passes the trusted caller session to the shared read for non-ui resources', async () => {
+    readServerResourceActionMock.mockResolvedValue(createToolResult('Loaded resource.'));
+
+    await openViewerResourceAction({
+      cwd: '/tmp/workspace',
+      serverName: 'demo',
+      resourceUri: 'file://README.md',
+      sessionId: 'app-chat',
+      callerSessionId: 'chat-1',
+      crossServerReadError: () => null,
+      manager: createManager({ status: 'connected', tools: [], resources: [] }) as never,
+      uiResourceHandler: { readUiResource: vi.fn() } as never,
+      uiServer: { open: vi.fn(), close: vi.fn() } as never,
+      sessions: new SessionRegistry(),
+      permissionChoices: new Map(),
+      setRuntimeStatus: vi.fn(),
+      syncSnapshot: vi.fn(async () => createSyncedState()),
+    });
+
+    expect(readServerResourceActionMock).toHaveBeenCalledWith(expect.objectContaining({ sessionId: 'chat-1' }));
+  });
+
   it('blocks direct ui-resource opens when resource exposure is disabled', async () => {
     const result = await openViewerResourceAction({
       cwd: '/tmp/workspace',

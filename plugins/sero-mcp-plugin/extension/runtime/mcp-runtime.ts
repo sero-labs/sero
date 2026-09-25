@@ -330,7 +330,7 @@ export function createMcpRuntime(): McpRuntime {
       cwd: options.cwd,
       serverName: options.serverName,
       resourceUri: options.resourceUri,
-      sessionId: options.callerSessionId,
+      callerSessionId: options.callerSessionId,
       crossServerReadError: (sessionId, serverName) => skills.crossServerReadError(sessionId, serverName),
       manager,
       uiResourceHandler,
@@ -349,6 +349,9 @@ export function createMcpRuntime(): McpRuntime {
       toolName: options.toolName,
       toolArguments: options.toolArguments,
       sessionId: options.sessionId,
+      // The read guard needs the trusted caller session, not the app-message session above.
+      callerSessionId: options.callerSessionId,
+      crossServerReadError: (sessionId, serverName) => skills.crossServerReadError(sessionId, serverName),
       toolResult: options.toolResult,
       manager,
       uiResourceHandler,
