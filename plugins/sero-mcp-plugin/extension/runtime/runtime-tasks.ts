@@ -5,6 +5,7 @@ import { createFileTaskStore, TERMINAL_TASK_STATUSES, type McpTaskRecord, type M
 import { McpTaskTracker } from '../tasks/task-tracker';
 import { createToolResult, type ToolResult } from '../tools/types';
 import type { SessionRegistry } from './app-messages';
+import type { McpTaskSummary } from '../../shared/tasks';
 
 export type TaskProxyAction = 'task_status' | 'task_wait' | 'task_cancel';
 
@@ -94,7 +95,7 @@ export function createRuntimeTasks(input: RuntimeTasksInput) {
 
 export type RuntimeTasks = ReturnType<typeof createRuntimeTasks>;
 
-export function toTaskSummary(record: McpTaskRecord) {
+export function toTaskSummary(record: McpTaskRecord): McpTaskSummary {
   return {
     taskId: record.taskId,
     serverName: record.serverName,

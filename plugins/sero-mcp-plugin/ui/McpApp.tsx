@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from '@sero-ai/ui/components/ui/a
 import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { cn } from '@sero-ai/ui/lib/utils';
-import { AlertCircle, FileJson, PlugZap, RefreshCw, Search, Server, ShieldCheck, Wrench } from 'lucide-react';
+import { AlertCircle, FileJson, ListChecks, PlugZap, RefreshCw, Search, Server, ShieldCheck, Wrench } from 'lucide-react';
 import type { McpAppState } from '../shared/types';
 import { createDefaultMcpState } from '../shared/types';
 import { McpRawConfigPanel } from './components/config/McpRawConfigPanel';
@@ -18,6 +18,9 @@ import { McpServerCrudPanel } from './components/servers/McpServerCrudPanel';
 import { useMcpBootstrap } from './hooks/useMcpBootstrap';
 import { useMcpDiagnostics } from './hooks/useMcpDiagnostics';
 import { useMcpRawConfig } from './hooks/useMcpRawConfig';
+import { useMcpTasks } from './hooks/useMcpTasks';
+import { McpTasksPanel } from './components/tasks/McpTasksPanel';
+import { ACTIVE_TASK_STATUSES } from '../shared/tasks';
 import './styles.css';
 
 // These panels own independent local workflows. Bootstrap, diagnostics, raw
@@ -36,6 +39,9 @@ export function McpApp() {
     return typeof params?.serverName === 'string' ? params.serverName : null;
   });
   const [searchOpen, setSearchOpen] = useState(false);
+  const [tasksOpen, setTasksOpen] = useState(false);
+  const tasks = useMcpTasks();
+  const activeTasks = tasks.tasks.filter((task) => ACTIVE_TASK_STATUSES.has(task.status)).length;
 
   useEffect(() => onAppLaunchParams<{ serverName?: unknown }>('mcp', (params) => {
     if (typeof params.serverName === 'string') setSelectedServerName(params.serverName);
@@ -69,6 +75,17 @@ export function McpApp() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant={tasksOpen ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setTasksOpen((open) => !open)}
+              aria-pressed={tasksOpen}
+            >
+              <ListChecks className="mr-2 size-4" />
+              Tasks
+              {activeTasks > 0 && <span className="ml-1.5 text-xs opacity-80">{activeTasks}</span>}
+            </Button>
             {state.servers.length > 0 && (
               <Button
                 type="button"
@@ -123,6 +140,14 @@ export function McpApp() {
           </Alert>
         )}
 
+        {tasksOpen && (
+          <McpTasksPanel
+            tasks={tasks.tasks}
+            error={tasks.error}
+            onCancel={(taskId) => void tasks.cancel(taskId)}
+            onDismiss={(taskId) => void tasks.dismiss(taskId)}
+          />
+        )}
         <McpDiagnosticsPanel state={diagnostics} />
         <McpRawConfigPanel state={rawConfig} />
         {searchOpen && state.servers.length > 0 && (
