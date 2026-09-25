@@ -9,6 +9,7 @@ export function buildHostHtmlTemplate(input: {
   toolArgs: Record<string, unknown>;
   toolResult?: Record<string, unknown>;
   toolInfo?: UiToolInfo;
+  chat: boolean;
 }): string {
   const config: ViewerShellConfig = {
     token: input.token,
@@ -16,6 +17,7 @@ export function buildHostHtmlTemplate(input: {
     toolArgs: input.toolArgs,
     toolResult: input.toolResult,
     hostContext: buildHostContext(input.toolInfo),
+    chat: input.chat,
   };
 
   return `<!doctype html>

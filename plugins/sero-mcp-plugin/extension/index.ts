@@ -9,12 +9,15 @@ const runtime = getMcpRuntime();
 
 export default function mcpExtension(pi: ExtensionAPI) {
   const releaseAgentPluginSource = configureAgentPluginMcpSource(pi.events);
+  let unregisterSession: (() => void) | undefined;
 
   pi.on('before_agent_start', async (event) => ({
     systemPrompt: event.systemPrompt + buildMcpPromptBlock(),
   }));
 
   pi.on('session_start', async (_event, ctx) => {
+    unregisterSession?.();
+    unregisterSession = runtime.registerSession(ctx.sessionManager.getSessionId(), (message, options) => pi.sendMessage(message, options));
     await runtime.handleSessionStart({ cwd: ctx.cwd }).catch((error) => {
       console.error('[mcp] Failed to bootstrap runtime on session start', error);
     });
@@ -22,6 +25,7 @@ export default function mcpExtension(pi: ExtensionAPI) {
 
   pi.on('session_shutdown', async () => {
     releaseAgentPluginSource();
+    unregisterSession?.();
     await runtime.handleSessionShutdown().catch((error) => {
       console.error('[mcp] Failed to shut down runtime cleanly', error);
     });

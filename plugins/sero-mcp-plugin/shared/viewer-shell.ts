@@ -6,6 +6,8 @@ export interface ViewerShellConfig {
   /** The tool result, when the app shows the result of a finished call. */
   toolResult?: Record<string, unknown>;
   hostContext: Record<string, unknown>;
+  /** True when the app is shown in a chat, so it can send messages and model context to that chat. */
+  chat: boolean;
 }
 
 export const VIEWER_SHELL_CONFIG_ID = 'sero-viewer-config';

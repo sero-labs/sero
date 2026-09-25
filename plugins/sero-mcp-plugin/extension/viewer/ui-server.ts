@@ -29,7 +29,8 @@ export interface UiSessionOptions {
   /** Asks the user before the app opens a link. Resolves true when the page was opened. */
   onOpenLink?: (url: string) => Promise<boolean>;
   onUnauthorized?: (serverName: string, message: string) => Promise<void>;
-  onUiMessage?: (params: Record<string, unknown>) => Promise<void> | void;
+  /** Set only when the app is shown in a chat. It delivers `ui/message` and `ui/update-model-context` there. */
+  onAppMessage?: (kind: 'message' | 'context', params: Record<string, unknown>) => void;
   onClose?: (reason: string) => void;
 }
 
@@ -127,6 +128,7 @@ export class McpUiServer {
             toolArgs: session.toolArgs ?? {},
             toolResult: session.toolResult,
             toolInfo: session.toolInfo,
+            chat: session.onAppMessage !== undefined,
           }), buildViewerHostCspContent());
           return;
         }
@@ -182,7 +184,8 @@ export class McpUiServer {
       }
       case '/proxy/ui/message':
       case '/proxy/ui/context':
-        await session.onUiMessage?.(toRecord(params));
+        if (!session.onAppMessage) throw new Error('This app is not shown in a chat.');
+        session.onAppMessage(pathname === '/proxy/ui/message' ? 'message' : 'context', toRecord(params));
         return {};
       default:
         return undefined;

@@ -37,11 +37,14 @@ import { executeManagerActionRoute } from './runtime-manager-router';
 import type { ManagerActionOptions, SyncedRuntimeState, SyncSnapshotOptions } from './runtime-types';
 import { UiResourceHandler } from '../viewer/ui-resource-handler';
 import { McpUiServer } from '../viewer/ui-server';
+import { SessionRegistry, type SessionSend } from './app-messages';
 
 export interface McpRuntime {
   handleSessionStart(ctx: { cwd: string }): Promise<void>;
   handleSessionSwitch(ctx: { cwd: string }): Promise<void>;
   handleSessionShutdown(): Promise<void>;
+  /** Lets MCP apps shown in this session send messages to it. Returns the unregister function. */
+  registerSession(sessionId: string, send: SessionSend): () => void;
   executeManagerAction(action: ManagerAction, options?: ManagerActionOptions): Promise<ToolResult>;
   executeProxyAction(action: ProxyAction, options?: {
     cwd?: string; query?: string; serverName?: string; toolName?: string; resourceUri?: string;
@@ -79,6 +82,7 @@ function createMcpRuntime(): McpRuntime {
   const runtimeStatuses = new Map<string, RuntimeServerStatus>();
   const uiResourceHandler = new UiResourceHandler(manager);
   const uiServer = new McpUiServer(manager);
+  const sessions = new SessionRegistry();
   const keepAliveScheduler = createKeepAliveScheduler({
     intervalMs: KEEP_ALIVE_HEALTHCHECK_INTERVAL_MS,
     isEnabled: () => sessionRefCount > 0,
@@ -274,6 +278,7 @@ function createMcpRuntime(): McpRuntime {
       manager,
       uiResourceHandler,
       uiServer,
+      sessions,
       setRuntimeStatus: (name, status) => runtimeStatuses.set(name, status),
       syncSnapshot,
     });
@@ -285,9 +290,11 @@ function createMcpRuntime(): McpRuntime {
       resourceUri: options.resourceUri,
       toolName: options.toolName,
       toolArguments: options.toolArguments,
+      sessionId: options.sessionId,
       manager,
       uiResourceHandler,
       uiServer,
+      sessions,
       setRuntimeStatus: (name, status) => runtimeStatuses.set(name, status),
       syncSnapshot,
     });
@@ -394,6 +401,7 @@ function createMcpRuntime(): McpRuntime {
     handleSessionStart,
     handleSessionSwitch,
     handleSessionShutdown,
+    registerSession: (sessionId, send) => sessions.register(sessionId, send),
     executeManagerAction,
     executeProxyAction,
   };

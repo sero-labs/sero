@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SyncedRuntimeState } from '../runtime/runtime-types';
 import { createToolResult } from '../tools/types';
+import { SessionRegistry } from '../runtime/app-messages';
 import { closeViewerAction, openToolUiAction, openViewerResourceAction } from '../runtime/runtime-viewer';
 
 const readServerResourceActionMock = vi.fn();
@@ -46,6 +47,7 @@ describe('runtime-viewer', () => {
       manager: manager as never,
       uiResourceHandler: uiResourceHandler as never,
       uiServer: uiServer as never,
+      sessions: new SessionRegistry(),
       setRuntimeStatus: vi.fn(),
       syncSnapshot: vi.fn(async () => createSyncedState()),
     });
@@ -75,6 +77,7 @@ describe('runtime-viewer', () => {
       manager: createManager({ status: 'connected', tools: [], resources: [] }) as never,
       uiResourceHandler: { readUiResource: vi.fn() } as never,
       uiServer: { open: vi.fn(), close: vi.fn() } as never,
+      sessions: new SessionRegistry(),
       setRuntimeStatus: vi.fn(),
       syncSnapshot: vi.fn(async () => createSyncedState()),
     });
@@ -91,6 +94,7 @@ describe('runtime-viewer', () => {
       manager: createManager({ status: 'connected', tools: [], resources: [] }) as never,
       uiResourceHandler: { readUiResource: vi.fn() } as never,
       uiServer: { open: vi.fn(), close: vi.fn() } as never,
+      sessions: new SessionRegistry(),
       setRuntimeStatus: vi.fn(),
       syncSnapshot: vi.fn(async () => createSyncedState({ exposeResources: false })),
     });
@@ -136,6 +140,7 @@ describe('runtime-viewer', () => {
       manager: manager as never,
       uiResourceHandler: uiResourceHandler as never,
       uiServer: uiServer as never,
+      sessions: new SessionRegistry(),
       setRuntimeStatus: vi.fn(),
       syncSnapshot: vi.fn(async () => createSyncedState()),
     });

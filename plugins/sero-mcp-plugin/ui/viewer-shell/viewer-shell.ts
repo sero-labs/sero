@@ -20,6 +20,12 @@ export const HOST_CAPABILITIES: McpUiHostCapabilities = {
   serverResources: {},
 };
 
+/** Added when the app is shown in a chat. */
+export const CHAT_CAPABILITIES: McpUiHostCapabilities = {
+  message: { text: {} },
+  updateModelContext: { text: {}, structuredContent: {} },
+};
+
 type Fetch = (input: string, init: RequestInit) => Promise<Response>;
 
 export interface ViewerShell {
@@ -56,7 +62,8 @@ export async function startViewerShell(doc: Document = document, fetchImpl: Fetc
   if (config.allowAttribute) frame.setAttribute('allow', config.allowAttribute);
   (doc.getElementById('app') ?? doc.body).append(frame);
 
-  const bridge = new AppBridge(null, HOST_INFO, HOST_CAPABILITIES, {
+  const capabilities = config.chat ? { ...HOST_CAPABILITIES, ...CHAT_CAPABILITIES } : HOST_CAPABILITIES;
+  const bridge = new AppBridge(null, HOST_INFO, capabilities, {
     hostContext: config.hostContext as McpUiHostContext,
   });
 
@@ -71,6 +78,16 @@ export async function startViewerShell(doc: Document = document, fetchImpl: Fetc
   bridge.onreadresource = (params) => post('/proxy/resources/read', params);
   bridge.onlistprompts = (params) => post('/proxy/prompts/list', params);
   bridge.onopenlink = (params) => post('/proxy/ui/open-link', params);
+  if (config.chat) {
+    bridge.onmessage = async (params) => {
+      await post('/proxy/ui/message', params);
+      return {};
+    };
+    bridge.onupdatemodelcontext = async (params) => {
+      await post('/proxy/ui/context', params);
+      return {};
+    };
+  }
   bridge.onsizechange = ({ height }) => {
     if (typeof height !== 'number') return;
     frame.style.height = `${height}px`;

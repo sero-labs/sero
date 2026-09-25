@@ -10,6 +10,7 @@ import { createToolResult, type ToolResult } from '../tools/types';
 import type { UiResourceHandler } from '../viewer/ui-resource-handler';
 import type { McpUiServer, UiSessionOptions } from '../viewer/ui-server';
 import { askToOpenPage, canAskUser, toWebUrl } from '../elicitation/ask-user';
+import { deliverAppMessage, type SessionRegistry } from './app-messages';
 import { reconcileConnection } from './runtime-connect';
 import { buildResourcesDisabledMessage, readServerResourceAction } from './runtime-resource';
 import type { SyncedRuntimeState } from './runtime-types';
@@ -21,6 +22,8 @@ interface ViewerActionOptions {
   toolName?: string;
   toolArguments?: Record<string, unknown>;
   viewerId?: string;
+  sessionId?: string;
+  sessions: SessionRegistry;
   manager: McpServerManager;
   uiResourceHandler: UiResourceHandler;
   uiServer: McpUiServer;
@@ -217,10 +220,13 @@ async function ensureConnectedServer(
 
 /** Session settings that come from the server config and the user, the same for every viewer. */
 function sessionHooks(ensured: EnsuredConnectedServer, options: ViewerActionOptions, appName: string): Pick<
-  UiSessionOptions, 'excludeTools' | 'onUnauthorized' | 'onOpenLink'
+  UiSessionOptions, 'excludeTools' | 'onUnauthorized' | 'onOpenLink' | 'onAppMessage'
 > {
   const serverLabel = ensured.serverName;
+  const appLabel = `${serverLabel} · ${appName} app`;
+  const send = options.sessions.get(options.sessionId);
   return {
+    onAppMessage: send ? (kind, params) => deliverAppMessage(send, appLabel, kind, params) : undefined,
     excludeTools: ensured.config.mcpServers[serverLabel]?.excludeTools,
     onUnauthorized: async (_serverName, message) => {
       await handleUnauthorized(ensured, options, message);
@@ -228,7 +234,7 @@ function sessionHooks(ensured: EnsuredConnectedServer, options: ViewerActionOpti
     onOpenLink: async (url) => {
       const webUrl = toWebUrl(url);
       if (!webUrl || !canAskUser()) return false;
-      return await askToOpenPage(webUrl, { serverLabel, source: `${serverLabel} · ${appName} app` }) === 'open';
+      return await askToOpenPage(webUrl, { serverLabel, source: appLabel }) === 'open';
     },
   };
 }

@@ -15,6 +15,8 @@ const ManagerParams = Type.Object({
   toolName: Type.Optional(Type.String({ description: 'Tool name for open_tool_ui (internal MCP UI flow), not for normal MCP tool execution.' })),
   toolArguments: Type.Optional(Type.Record(Type.String(), Type.Any(), { description: 'Structured tool arguments for open_tool_ui or other internal viewer/UI flows, not for normal MCP tool calls.' })),
   viewerId: Type.Optional(Type.String({ description: 'Viewer session ID for close_viewer.' })),
+  sessionId: Type.Optional(Type.String({ description: 'Chat session that shows the app, for open_tool_ui.' })),
+  toolCallId: Type.Optional(Type.String({ description: 'Tool call that the app shows, for open_tool_ui.' })),
   callbackUrl: Type.Optional(Type.String({ description: 'OAuth callback URL for complete_auth.' })),
   originalServerName: Type.Optional(Type.String({ description: 'Existing server name when renaming a server.' })),
   enabled: Type.Optional(Type.Boolean()),
@@ -46,6 +48,8 @@ export function registerMcpManagerTool(pi: ExtensionAPI, runtime: McpRuntime): v
         toolName?: string;
         toolArguments?: Record<string, unknown>;
         viewerId?: string;
+        sessionId?: string;
+        toolCallId?: string;
         callbackUrl?: string;
       };
       const actionText = typeof managerParams.action === 'string' ? managerParams.action.trim() : '';
@@ -65,6 +69,8 @@ export function registerMcpManagerTool(pi: ExtensionAPI, runtime: McpRuntime): v
         toolName: managerParams.toolName,
         toolArguments: managerParams.toolArguments,
         viewerId: managerParams.viewerId,
+        sessionId: managerParams.sessionId,
+        toolCallId: managerParams.toolCallId,
         callbackUrl: managerParams.callbackUrl,
         serverInput: action === 'upsert_server' ? toServerEditorInput(managerParams) : undefined,
       });

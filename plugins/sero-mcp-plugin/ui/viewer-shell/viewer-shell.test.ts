@@ -72,6 +72,7 @@ async function startShell(fetchImpl = vi.fn(async () => Response.json({ ok: true
     toolArgs: { region: 'EMEA' },
     toolResult: TOOL_RESULT,
     hostContext: { displayMode: 'inline' },
+    chat: false,
   };
   document.body.innerHTML = `<div id="app"></div><p id="status" hidden></p>
     <script type="application/json" id="${VIEWER_SHELL_CONFIG_ID}">${JSON.stringify(config)}</script>`;
