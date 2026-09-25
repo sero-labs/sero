@@ -1,11 +1,12 @@
-import { getToolUiResourceUri } from '@modelcontextprotocol/ext-apps/app-bridge';
+import { getToolUiResourceUri, isToolVisibilityAppOnly } from '@modelcontextprotocol/ext-apps/app-bridge';
 import type { CachedMcpResource, CachedMcpTool, McpMetadataCacheEntry } from '../cache/metadata-cache';
 import type { ManagedCacheHints } from './types';
 import type { ManagedResource, ManagedTool } from './types';
 
+/** The tools that the model sees. A tool with visibility ["app"] is only for the server's MCP app. */
 export function serializeTools(tools: ManagedTool[]): CachedMcpTool[] {
   return tools
-    .filter((tool) => !!tool?.name)
+    .filter((tool) => !!tool?.name && !isToolVisibilityAppOnly({ _meta: tool._meta }))
     .map((tool) => ({
       name: tool.name,
       description: tool.description,

@@ -300,6 +300,31 @@ describe('executeProxyAction', () => {
       });
     });
 
+    it('does not let the model call a tool that is only for the app', async () => {
+      const callTool = vi.fn();
+      const manager = {
+        getConnection: () => ({
+          name: 'github',
+          status: 'connected' as const,
+          tools: [{ name: 'refresh', inputSchema: { type: 'object' }, _meta: { ui: { resourceUri: 'ui://github/dashboard', visibility: ['app'] } } }],
+          resources: [],
+        }),
+        callTool,
+      } as unknown as McpServerManager;
+
+      const result = await executeProxyAction({
+        action: 'call_tool',
+        serverName: 'github',
+        toolName: 'refresh',
+        manager,
+        setRuntimeStatus: () => {},
+        syncSnapshot: async () => createSyncedState({ command: 'node', args: ['server.js'] }),
+      });
+
+      expect(result.content[0]?.text).toContain('Error: Tool "refresh" was not found on "github".');
+      expect(callTool).not.toHaveBeenCalled();
+    });
+
     it('leaves out a result above 256 KB', async () => {
       const result = await callDashboard('x'.repeat(256 * 1024));
 

@@ -1,4 +1,4 @@
-import { getToolUiResourceUri } from '@modelcontextprotocol/ext-apps/app-bridge';
+import { getToolUiResourceUri, isToolVisibilityAppOnly } from '@modelcontextprotocol/ext-apps/app-bridge';
 import { UnauthorizedError } from '@modelcontextprotocol/client';
 import {
   isMetadataCacheEntryFresh,
@@ -355,9 +355,11 @@ async function prepareToolCall(options: ProxyToolOptions): Promise<PreparedToolC
       { mode: 'call_tool', serverName, toolName },
     ) };
   }
-  const liveTool = connection.tools.find((tool) => tool.name === toolName);
+  // A tool with visibility ["app"] is for the server's MCP app only; the model never sees or calls it.
+  const modelTools = connection.tools.filter((tool) => !isToolVisibilityAppOnly({ _meta: tool._meta }));
+  const liveTool = modelTools.find((tool) => tool.name === toolName);
   if (!liveTool) {
-    const availableTools = connection.tools.map((tool) => tool.name).sort();
+    const availableTools = modelTools.map((tool) => tool.name).sort();
     return { result: createToolResult(
       `Error: Tool "${toolName}" was not found on "${serverName}". Available tools: ${availableTools.join(', ') || '(none)'}.`,
       { mode: 'call_tool', serverName, toolName, availableTools },
