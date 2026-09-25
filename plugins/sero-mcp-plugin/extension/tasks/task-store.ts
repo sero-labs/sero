@@ -1,7 +1,6 @@
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
 import type { SerializedTaskReference } from '@modelcontextprotocol/ext-tasks/client';
 import type { TaskId } from '@modelcontextprotocol/ext-tasks/core';
+import { createJsonFile } from '../state/json-file';
 import { getMcpTasksPath } from '../state/paths';
 
 export type McpTaskStatus =
@@ -54,59 +53,48 @@ export function isTaskExpired(record: McpTaskRecord, now = Date.now()): boolean 
   return record.retentionMs !== null && Date.parse(record.createdAt) + record.retentionMs < now;
 }
 
+interface TasksFile {
+  version: 1;
+  tasks: McpTaskRecord[];
+}
+
 /** Keeps task records in `tasks.json`. Writes are queued and atomic. */
 export function createFileTaskStore(filePath = getMcpTasksPath()): McpTaskStore {
-  let queue: Promise<unknown> = Promise.resolve();
-  const exclusive = <T>(operation: () => Promise<T>): Promise<T> => {
-    const next = queue.then(operation, operation);
-    queue = next.catch(() => undefined);
-    return next;
-  };
-
-  async function read(): Promise<McpTaskRecord[]> {
-    try {
-      const parsed: unknown = JSON.parse(await fs.readFile(filePath, 'utf8'));
-      const tasks = parsed && typeof parsed === 'object' ? Reflect.get(parsed, 'tasks') : undefined;
-      return Array.isArray(tasks) ? tasks.flatMap((value) => {
-        const record = readRecord(value);
+  const file = createJsonFile<TasksFile>(filePath, (value) => {
+    const tasks = value && typeof value === 'object' ? Reflect.get(value, 'tasks') : undefined;
+    return {
+      version: 1,
+      tasks: Array.isArray(tasks) ? tasks.flatMap((entry) => {
+        const record = readRecord(entry);
         return record ? [record] : [];
-      }) : [];
-    } catch {
-      return [];
-    }
-  }
-
-  async function write(records: McpTaskRecord[]): Promise<void> {
-    await fs.mkdir(path.dirname(filePath), { recursive: true });
-    const tmpPath = `${filePath}.tmp.${process.pid}.${Date.now()}`;
-    await fs.writeFile(tmpPath, JSON.stringify({ version: 1, tasks: records }, null, 2), 'utf8');
-    await fs.rename(tmpPath, filePath);
-  }
+      }) : [],
+    };
+  });
+  const records = async () => (await file.read()).tasks;
 
   return {
-    list: () => exclusive(read),
-    get: (taskId) => exclusive(async () => (await read()).find((record) => record.taskId === taskId)),
-    update: (taskId, change) => exclusive(async () => {
-      const records = await read();
-      const index = records.findIndex((record) => record.taskId === taskId);
-      const next = change(index >= 0 ? records[index] : undefined);
+    list: records,
+    get: async (taskId) => (await records()).find((record) => record.taskId === taskId),
+    update: (taskId, change) => file.update(({ tasks }) => {
+      const index = tasks.findIndex((record) => record.taskId === taskId);
+      const next = change(index >= 0 ? tasks[index] : undefined);
       if (!next) return undefined;
-      if (index >= 0) records[index] = next;
-      else records.push(next);
-      await write(records);
-      return next;
+      const updated = [...tasks];
+      if (index >= 0) updated[index] = next;
+      else updated.push(next);
+      return { value: { version: 1, tasks: updated }, result: next };
     }),
-    remove: (taskId) => exclusive(async () => {
-      const records = await read();
-      const remaining = records.filter((record) => record.taskId !== taskId);
-      if (remaining.length !== records.length) await write(remaining);
-    }),
-    prune: (now = Date.now()) => exclusive(async () => {
-      const records = await read();
-      const expired = records.filter((record) => isTaskExpired(record, now));
-      if (expired.length > 0) await write(records.filter((record) => !isTaskExpired(record, now)));
-      return expired;
-    }),
+    remove: async (taskId) => {
+      await file.update(({ tasks }) => {
+        const remaining = tasks.filter((record) => record.taskId !== taskId);
+        return remaining.length === tasks.length ? undefined : { value: { version: 1, tasks: remaining }, result: undefined };
+      });
+    },
+    prune: async (now = Date.now()) => (await file.update(({ tasks }) => {
+      const expired = tasks.filter((record) => isTaskExpired(record, now));
+      if (expired.length === 0) return undefined;
+      return { value: { version: 1, tasks: tasks.filter((record) => !isTaskExpired(record, now)) }, result: expired };
+    })) ?? [],
   };
 }
 

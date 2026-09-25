@@ -53,6 +53,10 @@ export function getMcpEraVerdictPath(): string {
   return path.join(getMcpAppDir(), 'era-verdicts.json');
 }
 
+export function getMcpSkillsPath(): string {
+  return path.join(getMcpAppDir(), 'skills.json');
+}
+
 export function getMcpTasksPath(): string {
   return path.join(getMcpAppDir(), 'tasks.json');
 }
