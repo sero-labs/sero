@@ -49,6 +49,8 @@ export interface LaunchOptions {
    * main-process global for in-test assertions.
    */
   mockRelaunch?: boolean;
+  /** Extra Electron command-line switches, for example a device scale factor for documentation captures. */
+  args?: string[];
 }
 
 /**
@@ -106,7 +108,7 @@ export async function launchSeroApp(
   let app: ElectronApplication;
   try {
     app = await electron.launch({
-      args: [desktopRoot],
+      args: [desktopRoot, ...(options.args ?? [])],
       cwd: desktopRoot,
       env,
     });

@@ -15,7 +15,7 @@ export interface DocsCapture {
   panel: () => ReturnType<Page['locator']>;
   shot: (name: string) => Promise<void>;
   shotPlan: (name: string, options?: { withToolbar?: boolean; wholeCard?: boolean }) => Promise<void>;
-  shotElement: (name: string, locator: ReturnType<Page['locator']>) => Promise<void>;
+  shotElement: (name: string, locator: ReturnType<Page['locator']>, options?: { pad?: number }) => Promise<void>;
   shotAbove: (name: string, marker: string, from?: ReturnType<Page['locator']>) => Promise<void>;
   scrollToTop: () => Promise<void>;
 }
@@ -118,13 +118,12 @@ export function createDocsCapture(page: Page, shotsDir: string): DocsCapture {
    * plan spine, because the question card was above the fold. Scrolling to the
    * subject and cropping to it makes the picture about the thing named.
    */
-  async function shotElement(name: string, locator: ReturnType<Page['locator']>): Promise<void> {
+  async function shotElement(name: string, locator: ReturnType<Page['locator']>, { pad = 20 } = {}): Promise<void> {
     await locator.scrollIntoViewIfNeeded();
     await page.waitForTimeout(400);
     const box = await locator.boundingBox();
     if (!box) throw new Error(`nothing to capture for ${name}`);
 
-    const pad = 20;
     // The shell's status bar carries the workspace path. A pane that fills the
     // window ends level with it, so the padded clip reaches into it.
     const chromeTop = await page.evaluate(

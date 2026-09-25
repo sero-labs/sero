@@ -6,6 +6,7 @@
 //   node server.mts --http [--port n]  Streamable HTTP, both eras; prints its URL on the first line
 // Only the HTTP mode serves MCP Tasks (see serveTasks below). POST /admin/offline
 // and /admin/online make its MCP endpoint fail and recover, for connection-loss tests.
+// Any mode takes --no-skills to leave out the Skills extension.
 import { createHash } from 'node:crypto';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -18,7 +19,12 @@ import { z } from 'zod';
 // A small MCP app without an SDK: it speaks the MCP Apps JSON-RPC over postMessage.
 // It shows the tool input and result, and its Refresh button calls an app-only tool.
 const DASHBOARD_APP = `<!doctype html>
-<html><body>
+<html><head><style>
+  body { margin: 0; padding: 16px; font: 14px system-ui, sans-serif; color: #e6e6e6; background: #1b1d22; }
+  #input { margin: 0 0 4px; font-size: 18px; font-weight: 600; }
+  #result, #refreshed { margin: 4px 0; color: #a8b0bd; }
+  button { margin-top: 8px; padding: 6px 12px; border: 1px solid #3a3f4a; border-radius: 6px; color: inherit; background: #262a31; font: inherit; }
+</style></head><body>
   <p id="input">waiting</p><p id="result"></p>
   <button id="refresh">Refresh</button><p id="refreshed"></p>
   <script>
@@ -164,11 +170,12 @@ function registerSkills(server: McpServer): void {
   };
 }
 
-function createServer(options: { tasks?: boolean } = {}): McpServer {
+function createServer(options: { tasks?: boolean; skills?: boolean } = {}): McpServer {
+  const skills = options.skills ?? true;
   const server = new McpServer({ name: 'sero-e2e-mcp-fixture', version: '0.0.0' }, {
     capabilities: {
       extensions: {
-        [SKILLS_EXTENSION]: { directoryRead: true },
+        ...(skills ? { [SKILLS_EXTENSION]: { directoryRead: true } } : {}),
         ...(options.tasks ? { [TASKS_EXTENSION]: {} } : {}),
       },
     },
@@ -248,7 +255,7 @@ function createServer(options: { tasks?: boolean } = {}): McpServer {
   }));
 
   registerApps(server);
-  registerSkills(server);
+  if (skills) registerSkills(server);
   return server;
 }
 
@@ -374,11 +381,13 @@ function serveTasks() {
 }
 
 const args = process.argv.slice(2);
+// --no-skills leaves out the Skills extension, so that only chosen servers offer skills.
+const skills = !args.includes('--no-skills');
 
 if (args.includes('--http')) {
   const portIndex = args.indexOf('--port');
   const port = portIndex >= 0 ? Number(args[portIndex + 1]) : 0;
-  const mcpHandler = toNodeHandler(createMcpHandler(() => createServer({ tasks: true })));
+  const mcpHandler = toNodeHandler(createMcpHandler(() => createServer({ tasks: true, skills })));
   const answerTask = serveTasks();
   let offline = false;
   const server = http.createServer((req, res) => {
@@ -407,7 +416,7 @@ if (args.includes('--http')) {
     process.stdout.write(`http://127.0.0.1:${(server.address() as AddressInfo).port}/mcp\n`);
   });
 } else if (args.includes('--legacy')) {
-  await createServer().connect(new StdioServerTransport());
+  await createServer({ skills }).connect(new StdioServerTransport());
 } else {
-  serveStdio(() => createServer());
+  serveStdio(() => createServer({ skills }));
 }
