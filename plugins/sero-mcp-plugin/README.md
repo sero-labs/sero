@@ -242,6 +242,18 @@ $SERO_HOME/apps/mcp/
   era-verdicts.json
 ```
 
+### Metadata cache
+
+`metadata-cache.json` (version 2) keeps the last known tool and resource list of each server, for offline display and for Agent Plugin CLI commands. Sero keeps one entry for each server, and an entry is used only when all of these match:
+
+- the server name and the config hash of the server entry
+- the principal: `anon` without auth, `bearer:<sha256 of the token>` for a bearer token, or `oauth:<random ID>` for an OAuth sign-in
+- the cache scope: a `private` entry is never shown for another principal; a `public` entry is
+
+Each entry also stores `expiresAt` from the server's `ttlMs`. A server that sends no TTL (a 2025 server) keeps its entry until it reports a change. A `2026-07-28` server without cache hints sends `ttlMs: 0`, so its entry is stale at once. Sero lists a connected server again when its entry has expired; while the TTL holds, the client answers from its response cache and sends no request. A `list_changed` notification lists the server again at once. The client response cache uses the same principal as its partition.
+
+Sero removes an entry when the server is removed or its config changes, and removes a private entry on sign-out. A bearer token is never written to disk; only its hash is. A version 1 file is read as stale and rewritten as version 2.
+
 ### OAuth credentials
 
 OAuth material lives under the active agent profile:
