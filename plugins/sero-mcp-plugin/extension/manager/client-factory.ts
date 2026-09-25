@@ -13,7 +13,7 @@ export interface McpClientFeatures {
   skills: boolean;
 }
 
-export const MCP_CLIENT_FEATURES: McpClientFeatures = { apps: true, tasks: false, skills: false };
+export const MCP_CLIENT_FEATURES: McpClientFeatures = { apps: true, tasks: true, skills: false };
 
 const PROBE_TIMEOUT_MS = 10_000;
 const MAX_INPUT_ROUNDS = 10;

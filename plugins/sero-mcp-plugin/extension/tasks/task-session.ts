@@ -112,6 +112,8 @@ export function createRawDispatch(transport: Transport): RawClientDispatch {
         reject(options.signal?.reason);
       }, { once: true });
     });
+    // An abort can end the reply while the send is still running; the await below still gets it.
+    reply.catch(() => undefined);
     try {
       // ext-tasks builds a JSON-RPC request without an ID; the ID here routes the reply back.
       await transport.send({ ...toJsonObject(request), jsonrpc: '2.0', id } as JSONRPCMessage);
