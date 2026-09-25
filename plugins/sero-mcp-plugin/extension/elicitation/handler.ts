@@ -9,21 +9,26 @@ import { findRequestContext, type McpRequestContext } from './request-context';
  * requests and the input rounds of modern `input_required` results.
  */
 export function createElicitationHandler(serverLabel: string) {
-  return async (request: ElicitRequest, ctx: ClientContext): Promise<ElicitResult> => {
-    if (!canAskUser()) return { action: 'decline' };
-    const params = request.params;
-    const context = findRequestContext(serverLabel);
-    const source = ['MCP', serverLabel, context.toolName].filter(Boolean).join(' · ');
-    if (params.mode === 'url') {
-      return answerUrlRequest(params, serverLabel, source, context, ctx.mcpReq.signal);
-    }
-    const answer = await answerFormRequest(params, serverLabel, (questions) => askUser(questions, {
-      source,
-      signal: ctx.mcpReq.signal,
-    }));
-    if (answer.notice) context.notify?.(answer.notice);
-    return answer.result;
-  };
+  return (request: ElicitRequest, ctx: ClientContext): Promise<ElicitResult> => (
+    answerElicitation(serverLabel, request.params, ctx.mcpReq.signal)
+  );
+}
+
+/** Answers one elicitation from a server. The Tasks path calls this too. */
+export async function answerElicitation(
+  serverLabel: string,
+  params: ElicitRequest['params'],
+  signal: AbortSignal,
+): Promise<ElicitResult> {
+  if (!canAskUser()) return { action: 'decline' };
+  const context = findRequestContext(serverLabel);
+  const source = ['MCP', serverLabel, context.toolName].filter(Boolean).join(' · ');
+  if (params.mode === 'url') {
+    return answerUrlRequest(params, serverLabel, source, context, signal);
+  }
+  const answer = await answerFormRequest(params, serverLabel, (questions) => askUser(questions, { source, signal }));
+  if (answer.notice) context.notify?.(answer.notice);
+  return answer.result;
 }
 
 async function answerUrlRequest(

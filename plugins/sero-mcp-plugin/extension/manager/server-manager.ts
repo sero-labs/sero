@@ -9,7 +9,8 @@ import { computeServerHash } from '../cache/metadata-cache';
 import type { McpFailurePhase } from '../../shared/types';
 import { resolveBearerTokenValue, type McpServerConfig } from '../config/types';
 import { runWithRequestContext } from '../elicitation/request-context';
-import { createMcpClient } from './client-factory';
+import { buildClientCapabilities, createMcpClient, MCP_CLIENT_FEATURES, type McpClientFeatures } from './client-factory';
+import { createTaskSession, startTaskSessionToolCall, type ToolCallStart } from '../tasks/task-session';
 import {
   buildRequestInit,
   isMissingEndpointError,
@@ -44,6 +45,7 @@ interface McpServerManagerOptions {
   eraVerdicts?: EraVerdictStore;
   /** Called after a server reported a changed tool or resource list and the connection holds the new list. */
   onInventoryChanged?: (serverName: string, connection: ManagedConnection) => void;
+  features?: McpClientFeatures;
 }
 
 export class McpServerManager {
@@ -52,8 +54,10 @@ export class McpServerManager {
   private readonly hasOAuthTokens: (serverName: string, serverUrl?: string) => Promise<boolean>;
   private readonly eraVerdicts: EraVerdictStore;
   private readonly onInventoryChanged: (serverName: string, connection: ManagedConnection) => void;
+  private readonly features: McpClientFeatures;
 
   constructor(options: McpServerManagerOptions = {}) {
+    this.features = options.features ?? MCP_CLIENT_FEATURES;
     this.hasOAuthTokens = options.hasOAuthTokens ?? (async () => false);
     this.eraVerdicts = options.eraVerdicts ?? createMemoryEraVerdictStore();
     this.onInventoryChanged = options.onInventoryChanged ?? (() => {});
@@ -141,10 +145,29 @@ export class McpServerManager {
     );
   }
 
+  /**
+   * Starts a model tool call. On a Tasks server the call can become a task;
+   * everywhere else it returns the result as `callTool` does.
+   */
+  async startToolCall(
+    name: string,
+    toolName: string,
+    toolArguments?: Record<string, unknown>,
+    options: McpCallOptions = {},
+  ): Promise<ToolCallStart> {
+    const session = this.connections.get(name)?.taskSession;
+    if (!session) return { kind: 'result', result: await this.callTool(name, toolName, toolArguments, options) };
+    return runWithRequestContext(
+      { serverLabel: name, toolName, notify: options.notify },
+      () => startTaskSessionToolCall(session, toolName, toolArguments, options.signal),
+    );
+  }
+
   async close(name: string): Promise<void> {
     const connection = this.connections.get(name);
     this.connections.delete(name);
     if (!connection) return;
+    await connection.taskSession?.close().catch(() => undefined);
     await Promise.allSettled([
       connection.client?.close() ?? Promise.resolve(),
       connection.transport?.close() ?? Promise.resolve(),
@@ -268,6 +291,7 @@ export class McpServerManager {
         this.onInventoryChanged(name, connection);
       };
     return createMcpClient(`sero-mcp-${name}`, {
+      features: this.features,
       serverLabel: name,
       cachePartition: principalId,
       listChanged: {
@@ -303,10 +327,22 @@ export class McpServerManager {
     } else {
       await this.eraVerdicts.clear(name);
     }
+    const taskSession = this.features.tasks
+      ? await createTaskSession({
+        client,
+        transport,
+        serverName: name,
+        configHash,
+        principalId,
+        clientName: `sero-mcp-${name}`,
+        clientCapabilities: buildClientCapabilities(this.features, true),
+      })
+      : undefined;
     return {
       ...this.createConnectedConnection(name, client, transport, tools, resources, protocol),
       principalId,
       cacheHints: mergeCacheHints(toolHints, resourceHints),
+      ...(taskSession ? { taskSession } : {}),
     };
   }
 

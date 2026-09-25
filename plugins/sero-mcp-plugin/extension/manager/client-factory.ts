@@ -21,7 +21,8 @@ const MAX_INPUT_ROUNDS = 10;
 export function buildClientCapabilities(features: McpClientFeatures, canElicit = false): ClientCapabilities {
   const extensions: NonNullable<ClientCapabilities['extensions']> = {};
   if (features.apps) extensions[MCP_APPS_EXTENSION] = { mimeTypes: [RESOURCE_MIME_TYPE] };
-  if (features.tasks) extensions[MCP_TASKS_EXTENSION] = {};
+  // Tasks is not declared here: ext-tasks declares it on each request that it sends, so a
+  // plain callTool (for example from an MCP app) never gets a task result it cannot read.
   if (features.skills) extensions[MCP_SKILLS_EXTENSION] = {};
   // Sero never declares the deprecated sampling or roots client features.
   return {

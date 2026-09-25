@@ -4,6 +4,8 @@
 //   node server.mts                    stdio, both protocol eras
 //   node server.mts --legacy           stdio, only the 2025 initialize handshake
 //   node server.mts --http [--port n]  Streamable HTTP, both eras; prints its URL on the first line
+// Only the HTTP mode serves MCP Tasks (see serveTasks below). POST /admin/offline
+// and /admin/online make its MCP endpoint fail and recover, for connection-loss tests.
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { RESOURCE_MIME_TYPE, registerAppResource, registerAppTool } from '@modelcontextprotocol/ext-apps/server';
@@ -90,8 +92,24 @@ function registerApps(server: McpServer): void {
   }));
 }
 
-function createServer(): McpServer {
-  const server = new McpServer({ name: 'sero-e2e-mcp-fixture', version: '0.0.0' });
+const TASKS_EXTENSION = 'io.modelcontextprotocol/tasks';
+
+function createServer(options: { tasks?: boolean } = {}): McpServer {
+  const server = new McpServer({ name: 'sero-e2e-mcp-fixture', version: '0.0.0' }, {
+    capabilities: options.tasks ? { extensions: { [TASKS_EXTENSION]: {} } } : {},
+  });
+
+  // With a client that declares Tasks, serveTasks answers this call with a task.
+  // Without Tasks, the report is ready at once.
+  server.registerTool('run_report', {
+    description: 'Build a report. It runs as a task when the client supports Tasks.',
+    inputSchema: {
+      plan: z.enum(['complete', 'fail', 'input', 'hold']).optional(),
+      region: z.string().optional(),
+      delayMs: z.number().optional(),
+      ttlMs: z.number().optional(),
+    },
+  }, async ({ region }) => ({ content: [{ type: 'text', text: `report ready: ${region ?? 'all'}` }] }));
 
   server.registerTool('echo', {
     description: 'Echo a deterministic message.',
@@ -158,17 +176,162 @@ function createServer(): McpServer {
   return server;
 }
 
+interface FixtureTask {
+  taskId: string;
+  status: 'working' | 'input_required' | 'completed' | 'failed' | 'cancelled';
+  plan: 'complete' | 'fail' | 'input' | 'hold';
+  region: string;
+  readyAt: number;
+  delayMs: number;
+  createdAt: string;
+  lastUpdatedAt: string;
+  ttlMs: number;
+  answer?: string;
+}
+
+interface JsonRpcRequest {
+  id?: string | number;
+  method?: string;
+  params?: Record<string, unknown>;
+}
+
+type TaskReply = { result: Record<string, unknown> } | { error: { code: number; message: string } };
+
+/**
+ * A small MCP Tasks server (2026-07-28 Tasks extension). The SDK server has no
+ * public Tasks API and refuses tasks/* methods on the modern era, so this layer
+ * answers them before the SDK handler. A task advances when it is read.
+ */
+function serveTasks() {
+  const tasks = new Map<string, FixtureTask>();
+  let counter = 0;
+
+  const view = (task: FixtureTask) => {
+    const base = {
+      taskId: task.taskId,
+      status: task.status,
+      createdAt: task.createdAt,
+      lastUpdatedAt: task.lastUpdatedAt,
+      ttlMs: task.ttlMs,
+      pollIntervalMs: 100,
+    };
+    if (task.status === 'completed') {
+      const text = task.answer === undefined ? `report ready: ${task.region}` : `report ready: ${task.region}, drafts: ${task.answer}`;
+      return { ...base, result: { resultType: 'complete', content: [{ type: 'text', text }] } };
+    }
+    if (task.status === 'failed') return { ...base, error: { code: -32000, message: 'The report failed.' } };
+    if (task.status === 'input_required') {
+      return {
+        ...base,
+        inputRequests: {
+          drafts: {
+            method: 'elicitation/create',
+            params: {
+              mode: 'form',
+              message: 'Include draft orders?',
+              requestedSchema: { type: 'object', properties: { drafts: { type: 'boolean' } }, required: ['drafts'] },
+            },
+          },
+        },
+      };
+    }
+    return base;
+  };
+
+  const advance = (task: FixtureTask) => {
+    if (task.status !== 'working' || task.plan === 'hold' || Date.now() < task.readyAt) return;
+    task.lastUpdatedAt = new Date().toISOString();
+    if (task.plan === 'fail') task.status = 'failed';
+    else if (task.plan === 'input' && task.answer === undefined) task.status = 'input_required';
+    else task.status = 'completed';
+  };
+
+  const clientDeclaresTasks = (params: Record<string, unknown> | undefined) => {
+    const meta = params?._meta as Record<string, unknown> | undefined;
+    const capabilities = meta?.['io.modelcontextprotocol/clientCapabilities'] as { extensions?: Record<string, unknown> } | undefined;
+    return capabilities?.extensions?.[TASKS_EXTENSION] !== undefined;
+  };
+
+  return (message: JsonRpcRequest): TaskReply | undefined => {
+    const params = message.params ?? {};
+    if (message.method === 'tools/call' && params.name === 'run_report' && clientDeclaresTasks(params)) {
+      const input = (params.arguments ?? {}) as { plan?: FixtureTask['plan']; region?: string; delayMs?: number; ttlMs?: number };
+      const now = new Date().toISOString();
+      const task: FixtureTask = {
+        taskId: `task-${++counter}`,
+        status: 'working',
+        plan: input.plan ?? 'complete',
+        region: input.region ?? 'all',
+        delayMs: input.delayMs ?? 1_500,
+        readyAt: Date.now() + (input.delayMs ?? 1_500),
+        createdAt: now,
+        lastUpdatedAt: now,
+        ttlMs: input.ttlMs ?? 600_000,
+      };
+      tasks.set(task.taskId, task);
+      const { result: _result, ...created } = view(task) as ReturnType<typeof view> & { result?: unknown };
+      return { result: { ...created, resultType: 'task' } };
+    }
+    if (typeof message.method !== 'string' || !message.method.startsWith('tasks/')) return undefined;
+    const task = tasks.get(String(params.taskId));
+    if (!task) return { error: { code: -32602, message: `Unknown task: ${String(params.taskId)}` } };
+    if (message.method === 'tasks/get') {
+      advance(task);
+      return { result: { ...view(task), resultType: 'complete' } };
+    }
+    if (message.method === 'tasks/update') {
+      const responses = params.inputResponses as Record<string, { action?: string; content?: { drafts?: boolean } }> | undefined;
+      const drafts = responses?.drafts;
+      task.answer = drafts?.action === 'accept' ? String(drafts.content?.drafts) : 'declined';
+      task.status = 'working';
+      task.readyAt = Date.now() + task.delayMs;
+      task.lastUpdatedAt = new Date().toISOString();
+      return { result: { resultType: 'complete' } };
+    }
+    if (message.method === 'tasks/cancel') {
+      task.status = 'cancelled';
+      task.lastUpdatedAt = new Date().toISOString();
+      return { result: { resultType: 'complete' } };
+    }
+    return { error: { code: -32601, message: 'Method not found' } };
+  };
+}
+
 const args = process.argv.slice(2);
 
 if (args.includes('--http')) {
   const portIndex = args.indexOf('--port');
   const port = portIndex >= 0 ? Number(args[portIndex + 1]) : 0;
-  const server = http.createServer(toNodeHandler(createMcpHandler(createServer)));
+  const mcpHandler = toNodeHandler(createMcpHandler(() => createServer({ tasks: true })));
+  const answerTask = serveTasks();
+  let offline = false;
+  const server = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', () => {
+      if (req.url === '/admin/offline' || req.url === '/admin/online') {
+        offline = req.url === '/admin/offline';
+        res.writeHead(204).end();
+        return;
+      }
+      if (offline) {
+        res.writeHead(503).end();
+        return;
+      }
+      const message = body ? JSON.parse(body) as JsonRpcRequest : undefined;
+      const reply = message ? answerTask(message) : undefined;
+      if (reply) {
+        res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ jsonrpc: '2.0', id: message?.id, ...reply }));
+        return;
+      }
+      void mcpHandler(req, res, message);
+    });
+  });
   server.listen(port, '127.0.0.1', () => {
     process.stdout.write(`http://127.0.0.1:${(server.address() as AddressInfo).port}/mcp\n`);
   });
 } else if (args.includes('--legacy')) {
   await createServer().connect(new StdioServerTransport());
 } else {
-  serveStdio(createServer);
+  serveStdio(() => createServer());
 }
