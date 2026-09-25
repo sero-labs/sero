@@ -206,7 +206,6 @@ svg { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; s
 .item-head { display: flex; width: 100%; align-items: center; gap: 8px; padding: 10px 14px; text-align: left; }
 .item-head:hover { background: var(--bg-elevated); }
 .item-head .chev { color: var(--text-muted); transition: transform .15s; }
-.item-head[aria-expanded="true"] { background: var(--bg-elevated); }
 .item-head[aria-expanded="true"] .chev { transform: rotate(90deg); }
 .item-head .item-meta { margin-left: auto; }
 .item-title { font-weight: 500; }
@@ -217,7 +216,8 @@ svg { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; s
 .item-row { display: flex; align-items: flex-start; gap: 12px; padding: 11px 14px; }
 .item-main { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .item-actions { display: flex; gap: 6px; }
-.item-body { display: grid; gap: 10px; padding: 4px 14px 14px 44px; background: var(--bg-elevated); }
+.item-body { display: grid; gap: 10px; padding: 2px 14px 14px 44px; }
+.inner-card { padding: 10px 12px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--bg-base); }
 .icon-tile { width: 28px; height: 28px; flex: none; display: inline-flex; align-items: center; justify-content: center; border-radius: 7px; background: var(--bg-overlay); color: var(--text-secondary); }
 .icon-tile.brand { background: var(--brand-primary-muted); color: var(--brand-primary); }
 .icon-tile.ok { background: var(--status-success-muted); color: var(--status-success); }

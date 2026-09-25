@@ -143,7 +143,7 @@ The change adds or alters these user-facing surfaces:
 Before production UI work starts, one interactive prototype, `apps/styleguide/public/prototypes/mcp-2026-07-28/`, shows these surfaces. It follows [`.agents/skills/sero-prototype/SKILL.md`](../../../.agents/skills/sero-prototype/SKILL.md) and is linked from `PrototypeArchive.tsx`. It starts from `tool-call-group-expanded.html` and `sero-agent-plugins-integration.html` and checks them against the current components. It also shows the product defaults that the user must confirm: remote skills disabled by default, input declined in headless sessions, and task delivery without a new turn. Production UI tasks (3.7, and the UI tasks in groups 8, 9 and 10 of `tasks.md`) follow the approved prototype. The protocol, cache and OAuth work has no UI dependency and can go in parallel.
 
 UI rules for the prototype and for the production UI:
-- Cards are fine, but only one level deep. A panel can be a card; the rows inside it are separated by dividers, not boxed in more cards.
+- Cards can nest one level: a card may hold cards, but those inner cards hold no more cards. Use the inner level only where it groups content, for example the details of an opened row.
 - No labels, subheadings or descriptions that repeat what the control or heading already shows. A default state (for example a verified skill) gets no badge; only an exception gets one.
 - Explanations are one short sentence and appear only where the user must act or where something failed.
 - Where the current surface already has this clutter and the change touches it, simplify it.

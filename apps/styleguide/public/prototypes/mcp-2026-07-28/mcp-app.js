@@ -34,7 +34,7 @@
     const extensions = server.extensions.length
       ? server.extensions.map((name) => `<span class="pill info">${name}</span>`).join(' ') : 'None';
     return `<div class="item-body">${alert}
-      <dl class="kv">
+      <dl class="kv inner-card">
         <dt>Protocol</dt><dd>${server.revision ?? 'Not connected'}${server.era === 'legacy' ? ', legacy handshake' : ''}</dd>
         <dt>Extensions</dt><dd>${extensions}</dd>
         <dt>Transport</dt><dd>${server.transportLabel}</dd>
