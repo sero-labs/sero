@@ -35,6 +35,13 @@ export interface McpOAuthProviderOptions {
   newAuthorization?: boolean;
 }
 
+/**
+ * URL of Sero's published Client ID Metadata Document. While it is unset,
+ * Sero registers with Dynamic Client Registration. A client ID in the server
+ * config takes precedence over both.
+ */
+export const CLIENT_METADATA_URL: string | undefined = undefined;
+
 export function getOAuthCallbackUrl(): string {
   return `http://127.0.0.1:${DEFAULT_OAUTH_CALLBACK_PORT}${OAUTH_CALLBACK_PATH}`;
 }
@@ -47,6 +54,8 @@ export class McpOAuthProvider implements OAuthClientProvider {
     private readonly callbacks: McpOAuthCallbacks,
     private readonly options: McpOAuthProviderOptions = {},
   ) {}
+
+  readonly clientMetadataUrl = CLIENT_METADATA_URL;
 
   private get usesClientCredentials(): boolean {
     return this.config.grantType === 'client_credentials';

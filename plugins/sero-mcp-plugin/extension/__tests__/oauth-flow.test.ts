@@ -69,3 +69,25 @@ describe('OAuth sign-in callback', () => {
     expect(tokenRequests()).toHaveLength(1);
   });
 });
+
+describe('OAuth client registration', () => {
+  it('registers as a native app when no client ID is configured', async () => {
+    await startSignIn();
+
+    const registration = server.requests.find((request) => request.path === '/register');
+    expect(registration).toBeDefined();
+    expect(JSON.parse(registration!.body)).toMatchObject({
+      application_type: 'native',
+      redirect_uris: ['http://127.0.0.1:19876/mcp/oauth/callback'],
+    });
+  });
+
+  it('uses a configured client ID and does not register', async () => {
+    const started = await coordinator.startAuth('crm', {
+      transport: 'http', url: server.url, auth: 'oauth', oauth: { clientId: 'configured-client' },
+    });
+
+    expect(new URL(started.authUrl!).searchParams.get('client_id')).toBe('configured-client');
+    expect(server.requests.some((request) => request.path === '/register')).toBe(false);
+  });
+});
