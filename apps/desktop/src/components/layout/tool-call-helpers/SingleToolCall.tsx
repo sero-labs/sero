@@ -14,6 +14,7 @@ import {
   toolStatusDot,
 } from '../ToolCallState';
 import { ToolDetailBody } from './ToolDetailBody';
+import { readToolResultView } from './ToolResultView';
 import { ToolImages } from './ToolImages';
 import { ToolFileLinks } from './ToolFileLinks';
 import { ToolSummaryText } from './ToolSummaryText';
@@ -31,7 +32,8 @@ export function SingleToolCall({
   const progressModel = buildToolProgressModel(tool);
   const isStreamingInput = !!tool.isStreamingInput;
   const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
-  const expanded = manualExpanded ?? (isRunning || isStreamingInput);
+  // A result with a plugin view opens, so the view shows in the chat like the text would.
+  const expanded = manualExpanded ?? (isRunning || isStreamingInput || readToolResultView(tool) !== null);
 
   const summary = useMemo(() => getCollapsedToolSummary(tool), [tool]);
   const effectiveToolName = useMemo(() => getEffectiveToolName(tool), [tool]);

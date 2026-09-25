@@ -8,6 +8,7 @@ import { describeToolCapture } from './tool-capture-details';
 import { ToolFileLinks } from './ToolFileLinks';
 import { ToolImages } from './ToolImages';
 import { ToolInputRows } from './ToolInputRows';
+import { ToolResultView } from './ToolResultView';
 
 /**
  * Flat detail for one tool call: arguments, live input or progress, media and
@@ -35,6 +36,8 @@ export function ToolDetailBody({
       ) : (
         <ToolInputRows input={tool.input} />
       )}
+
+      <ToolResultView tool={tool} />
 
       {progress ? <ToolCallProgress tool={tool} /> : null}
 

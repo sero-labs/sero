@@ -6,6 +6,7 @@ import type { ChatToolCallMessage } from '@/types/ipc';
 import { isToolLive } from '../ToolCallState';
 import { ToolDetailBody } from './ToolDetailBody';
 import { ToolRowHeader } from './ToolRowHeader';
+import { readToolResultView } from './ToolResultView';
 
 /**
  * Rows layout: every tool opens where it sits, so the shape of the turn stays
@@ -27,7 +28,7 @@ export function ToolRows({
   return (
     <div className="min-w-0">
       {tools.map((tool, index) => {
-        const isOpen = overrides[tool.id] ?? isToolLive(tool);
+        const isOpen = overrides[tool.id] ?? (isToolLive(tool) || readToolResultView(tool) !== null);
 
         return (
           <motion.div
