@@ -49,6 +49,10 @@ export function getMcpMetadataCachePath(): string {
   return path.join(getPiAgentDir(), 'mcp-cache.json');
 }
 
+export function getMcpEraVerdictPath(): string {
+  return path.join(getMcpAppDir(), 'era-verdicts.json');
+}
+
 export function getMcpOAuthDir(): string {
   return path.join(getPiAgentDir(), 'mcp-oauth');
 }

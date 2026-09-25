@@ -9,6 +9,7 @@ import {
   withAgentPluginMcpSources,
 } from '../config/agent-plugin-source';
 import type { McpConfigDocument } from '../config/types';
+import { createFileEraVerdictStore } from '../manager/era-verdicts';
 import { McpServerManager } from '../manager/server-manager';
 import { buildSnapshot, type RuntimeServerStatus } from '../state/snapshot';
 import { getMcpConfigPath, getMcpStatePath } from '../state/paths';
@@ -57,7 +58,7 @@ function createMcpRuntime(): McpRuntime {
   let sessionRefCount = 0;
   let lastState: SyncedRuntimeState | null = null;
   let operationQueue: Promise<void> = Promise.resolve();
-  const manager = new McpServerManager({ hasOAuthTokens });
+  const manager = new McpServerManager({ hasOAuthTokens, eraVerdicts: createFileEraVerdictStore() });
   const authCoordinator = new McpOAuthCoordinator();
   const runtimeStatuses = new Map<string, RuntimeServerStatus>();
   const uiResourceHandler = new UiResourceHandler(manager);

@@ -1,5 +1,5 @@
 import type { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
-import type { SSEClientTransport, StreamableHTTPClientTransport, Client } from '@modelcontextprotocol/client';
+import type { SSEClientTransport, StreamableHTTPClientTransport, Client, ProtocolEra } from '@modelcontextprotocol/client';
 
 export type ManagedTransport =
   | StdioClientTransport
@@ -21,6 +21,19 @@ export interface ManagedResource {
   _meta?: Record<string, unknown>;
 }
 
+/** What Sero negotiated with a connected server. */
+export interface ManagedConnectionProtocol {
+  era: ProtocolEra;
+  version: string | null;
+  /** Extension IDs that the server declares. */
+  extensions: string[];
+  serverVersion: { name: string; version: string } | null;
+  /** True when the connection uses the deprecated SSE transport. */
+  deprecatedTransport: boolean;
+  /** True when a saved legacy verdict skipped the server/discover probe. */
+  eraFromVerdict: boolean;
+}
+
 export interface ManagedConnection {
   name: string;
   client: Client | null;
@@ -31,4 +44,5 @@ export interface ManagedConnection {
   lastError?: string;
   lastConnectedAt?: string | null;
   lastFailedAt?: string | null;
+  protocol?: ManagedConnectionProtocol;
 }

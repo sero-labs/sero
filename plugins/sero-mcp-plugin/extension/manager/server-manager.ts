@@ -4,21 +4,26 @@ import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/c
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { McpOAuthProvider } from '../auth/oauth-provider';
+import { computeServerHash } from '../cache/metadata-cache';
 import { resolveBearerTokenValue, type McpServerConfig } from '../config/types';
 import { createMcpClient } from './client-factory';
-import type { ManagedConnection, ManagedResource, ManagedTool, ManagedTransport } from './types';
+import { createMemoryEraVerdictStore, type EraVerdictStore } from './era-verdicts';
+import type { ManagedConnection, ManagedConnectionProtocol, ManagedResource, ManagedTool, ManagedTransport } from './types';
 
 interface McpServerManagerOptions {
   hasOAuthTokens?: (serverName: string, serverUrl?: string) => Promise<boolean>;
+  eraVerdicts?: EraVerdictStore;
 }
 
 export class McpServerManager {
   private readonly connections = new Map<string, ManagedConnection>();
   private readonly connectPromises = new Map<string, Promise<ManagedConnection>>();
   private readonly hasOAuthTokens: (serverName: string, serverUrl?: string) => Promise<boolean>;
+  private readonly eraVerdicts: EraVerdictStore;
 
   constructor(options: McpServerManagerOptions = {}) {
     this.hasOAuthTokens = options.hasOAuthTokens ?? (async () => false);
+    this.eraVerdicts = options.eraVerdicts ?? createMemoryEraVerdictStore();
   }
 
   async connect(name: string, definition: McpServerConfig): Promise<ManagedConnection> {
@@ -43,8 +48,12 @@ export class McpServerManager {
     }
   }
 
-  async reconnect(name: string, definition: McpServerConfig): Promise<ManagedConnection> {
+  /** A manual reconnect passes `reprobe` so that a saved legacy verdict is dropped and the era is probed again. */
+  async reconnect(name: string, definition: McpServerConfig, options: { reprobe?: boolean } = {}): Promise<ManagedConnection> {
     await this.close(name);
+    if (options.reprobe) {
+      await this.eraVerdicts.clear(name);
+    }
     return this.connect(name, definition);
   }
 
@@ -121,12 +130,7 @@ export class McpServerManager {
     });
 
     try {
-      await client.connect(transport);
-      const [tools, resources] = await Promise.all([
-        this.fetchAllTools(client),
-        this.fetchAllResources(client),
-      ]);
-      return this.createConnectedConnection(name, client, transport, tools, resources);
+      return await this.openConnection(name, definition, client, transport);
     } catch (error) {
       await this.safeClose(client, transport);
       return this.createErrorConnection(name, error);
@@ -147,18 +151,13 @@ export class McpServerManager {
       : undefined;
 
     if (definition.portableTransport === 'sse') {
-      return this.connectSse(name, url, requestInit);
+      return this.connectSse(name, definition, url, requestInit);
     }
 
     const streamableClient = createMcpClient(`sero-mcp-${name}`);
     const streamableTransport = new StreamableHTTPClientTransport(url, { requestInit, authProvider });
     try {
-      await streamableClient.connect(streamableTransport);
-      const [tools, resources] = await Promise.all([
-        this.fetchAllTools(streamableClient),
-        this.fetchAllResources(streamableClient),
-      ]);
-      return this.createConnectedConnection(name, streamableClient, streamableTransport, tools, resources);
+      return await this.openConnection(name, definition, streamableClient, streamableTransport);
     } catch (error) {
       await this.safeClose(streamableClient, streamableTransport);
       if (error instanceof UnauthorizedError) {
@@ -169,27 +168,46 @@ export class McpServerManager {
       }
     }
 
-    return this.connectSse(name, url, requestInit);
+    return this.connectSse(name, definition, url, requestInit);
   }
 
   private async connectSse(
     name: string,
+    definition: McpServerConfig,
     url: URL,
     requestInit: { headers?: Record<string, string>; redirect?: 'manual' } | undefined,
   ): Promise<ManagedConnection> {
     const sseClient = createMcpClient(`sero-mcp-${name}`);
     const sseTransport = new SSEClientTransport(url, { requestInit });
     try {
-      await sseClient.connect(sseTransport);
-      const [tools, resources] = await Promise.all([
-        this.fetchAllTools(sseClient),
-        this.fetchAllResources(sseClient),
-      ]);
-      return this.createConnectedConnection(name, sseClient, sseTransport, tools, resources);
+      return await this.openConnection(name, definition, sseClient, sseTransport, true);
     } catch (error) {
       await this.safeClose(sseClient, sseTransport);
       return this.createErrorConnection(name, error);
     }
+  }
+
+  private async openConnection(
+    name: string,
+    definition: McpServerConfig,
+    client: Client,
+    transport: ManagedTransport,
+    deprecatedTransport = false,
+  ): Promise<ManagedConnection> {
+    const configHash = computeServerHash(definition);
+    const eraFromVerdict = await this.eraVerdicts.isLegacy(name, configHash);
+    await client.connect(transport, eraFromVerdict ? { prior: { kind: 'legacy' } } : undefined);
+    const [tools, resources] = await Promise.all([
+      this.fetchAllTools(client),
+      this.fetchAllResources(client),
+    ]);
+    const protocol = readProtocol(client, deprecatedTransport, eraFromVerdict);
+    if (protocol.era === 'legacy') {
+      await this.eraVerdicts.setLegacy(name, configHash);
+    } else {
+      await this.eraVerdicts.clear(name);
+    }
+    return this.createConnectedConnection(name, client, transport, tools, resources, protocol);
   }
 
   // Without a cursor, the v2 client walks every page and fills its response cache.
@@ -213,6 +231,7 @@ export class McpServerManager {
     transport: ManagedTransport,
     tools: ManagedTool[],
     resources: ManagedResource[],
+    protocol: ManagedConnectionProtocol,
   ): ManagedConnection {
     return {
       name,
@@ -220,6 +239,7 @@ export class McpServerManager {
       transport,
       tools,
       resources,
+      protocol,
       status: 'connected',
       lastConnectedAt: new Date().toISOString(),
       lastFailedAt: null,
@@ -252,6 +272,18 @@ export class McpServerManager {
   private async safeClose(client: Client, transport: ManagedTransport): Promise<void> {
     await Promise.allSettled([client.close(), transport.close()]);
   }
+}
+
+function readProtocol(client: Client, deprecatedTransport: boolean, eraFromVerdict: boolean): ManagedConnectionProtocol {
+  const serverVersion = client.getServerVersion();
+  return {
+    era: client.getProtocolEra() ?? 'legacy',
+    version: client.getNegotiatedProtocolVersion() ?? null,
+    extensions: Object.keys(client.getServerCapabilities()?.extensions ?? {}).sort(),
+    serverVersion: serverVersion ? { name: serverVersion.name, version: serverVersion.version } : null,
+    deprecatedTransport,
+    eraFromVerdict,
+  };
 }
 
 export function resolveEnv(env: Record<string, string> | undefined, literal: boolean): Record<string, string> | undefined {
