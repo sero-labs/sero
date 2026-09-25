@@ -13,6 +13,13 @@ See `proposal.md` for the reasons. This section gives the current state that sha
 - **User input.** The desktop already has a question and questionnaire surface on the global `__seroUserFeedbackBus` (`packages/common/src/user-feedback.ts`, `PendingQuestionCard.tsx`). Its questions support options, multi-select and free text (`allowOther`). `requestChoice` shows that when no renderer listens, `listenerCount === 0`.
 - **Skills.** Pi skills are file based. Sero composes them through `skillsOverride` hooks, for example `withAgentPluginSkills`. A Pi `Skill` needs a `filePath`, so a lazy remote skill does not fit that model without a fetch ahead of need.
 - **File size.** `mcp-runtime.ts` (496 lines) and `runtime-proxy.ts` (482 lines) are at the 500-line limit.
+- **Plugin rules.** [`.agents/skills/sero-plugin/SKILL.md`](../../../.agents/skills/sero-plugin/SKILL.md) applies to all plugin work in this change:
+  - `extension/` stays Pi-CLI safe.
+  - Plugin-specific logic and types stay in the plugin (`shared/`). Only neutral cross-plugin contracts go to `@sero-ai/common`.
+  - A plugin never gets a plugin-specific host bridge or IPC channel. The UI reaches plugin logic through plugin tools (`useAppTools`), and a new host seam must be a host-defined extension point or tool metadata.
+  - State is JSON and written atomically.
+- **Extension points.** Component contributions are typed in `packages/common/src/app-contributions.ts` and validated in `D/electron/features/apps/discovery/contributions.ts`. The renderer mounts them with `FederatedContributionMount`, which passes no per-mount props today. No extension point exists for the conversation.
+- **CLI timeout.** The desktop exempts only a hard-coded set of tools (`question`, `questionnaire`, `interview`) from the CLI bridge timeout (`INTERACTIVE_TOOLS` in `D/electron/cli/index.ts`). A tool's `cli` metadata (`CustomToolCliBridge`) has no interactive flag.
 - **SDK v2.** The v2 client (`@modelcontextprotocol/client` 2.1.0) implements the probe and its policy, the per-request envelope, the SEP-2243 headers, per-request cancellation, MRTR auto-fulfilment through the registered `elicitation/create` handler, the response cache (`cachePartition`), `subscriptions/listen` behind `listChanged`, and the OAuth opt-ins (`finishAuth(URLSearchParams)`, issuer stamps, `discoveryState()`, `clientMetadataUrl`, `onInsufficientScope`). `@modelcontextprotocol/ext-apps` 2.x needs the v2 SDK as a peer and keeps the 1.x wire protocol. `@modelcontextprotocol/ext-tasks` 0.1.0 gives task sessions with `serializeReference()`, `handoff()` and `resumeTask()`. No npm package exists for Skills. The stable spec is `specification/stable/skills.mdx` in `modelcontextprotocol/experimental-ext-skills` (SEP-2640, Final).
 
 ## Goals / Non-Goals
@@ -27,7 +34,7 @@ See `proposal.md` for the reasons. This section gives the current state that sha
 - No Sampling or Roots support, and no `logging/setLevel`.
 - No disk cache for remote skill files. Only an in-memory cache is kept, because the spec says hosts SHOULD cache, not MUST.
 - The unused `@modelcontextprotocol/sdk` declaration in `plugins/sero-web-plugin` stays. It has no source imports, and removing it is an unrelated edit.
-- No new desktop IPC channels. The design reuses `window.sero.appAgent.invokeTool` and the user-feedback bus.
+- No new desktop IPC channels and no MCP-specific desktop code. The host gets two neutral seams only (D3, D6). Everything else uses plugin tools (`useAppTools`, `window.sero.appAgent.invokeTool`) and the user-feedback bus.
 - No resource templates, prompts UI or completion support beyond what the cache rules need.
 
 ## Decisions
@@ -59,9 +66,11 @@ The SDK sends both modern `input_required` rounds and legacy server-to-client `e
 
 The server, tool and session context for the question comes from an `AsyncLocalStorage` scope that is set around each tool call, read and task input.
 
+Pi-CLI safety: the bus comes from `@sero-ai/common`, which the extension already imports. Under the plain Pi CLI no listener exists, so input requests are declined and approval prompts (D6, D8) are denied. Nothing in `extension/` imports desktop code.
+
 Alternative considered: a new JSON-schema form renderer in the desktop. This was rejected, because it adds four IPC and UI layers for field types that the questionnaire already covers.
 
-Tool calls and reads move out of the `runExclusive` queue after `ensureConnectedServer` finishes. Otherwise a pending question would block all MCP work. Connection changes stay in the queue. `mcp` joins `INTERACTIVE_TOOLS` in `D/electron/cli/index.ts`, so the CLI bridge timeout does not end a call while the user answers. Each MCP request keeps its own SDK timeout, and each round is a new request.
+Tool calls and reads move out of the `runExclusive` queue after `ensureConnectedServer` finishes. Otherwise a pending question would block all MCP work. Connection changes stay in the queue. To keep the CLI bridge timeout from ending a call while the user answers, `CustomToolCliBridge` gets an optional `interactive: boolean` flag. `bridgeTool()` honors it next to the existing `INTERACTIVE_TOOLS` set, and the `mcp` tool sets it in its own `cli` metadata. The host does not name the plugin. Each MCP request keeps its own SDK timeout, and each round is a new request.
 
 ### D4. Cache identity and TTL
 - **Principal ID.** Each server connection has a `principalId`. It is `anon` for no auth. For bearer auth it is `bearer:<sha256(token)>`, and the token itself is never stored. For OAuth it is a random ID that is created when a new authorization completes, stored in `tokens.json`, and removed on sign-out. The ID is passed as the SDK `cachePartition`. The SDK then applies `ttlMs` and `cacheScope` to the in-memory response cache.
@@ -82,9 +91,12 @@ Tool calls and reads move out of the `runExclusive` queue after `ensureConnected
 - **Host shell.** The hand-written bridge in `host-template.ts` is replaced by a small TypeScript entry that uses `AppBridge` and `PostMessageTransport` from `@modelcontextprotocol/ext-apps/app-bridge`. The plugin's Vite build bundles it, and `ui-server.ts` serves it. The shell sends `tool-input` and `tool-result`. It forwards `ui/message` and `ui/update-model-context` to the runtime, which delivers them into the owning session with `pi.sendMessage` and labels them with the app and server. It declares only the capabilities that Sero implements.
 - **App tool calls.** The proxy checks the owning server and filters `tools/list` to tools whose `_meta.ui.visibility` includes `app` and that are not in `excludeTools`. `tools/call` accepts only those tools.
 - **CSP and permissions.** When the resource declares no CSP domains, the app gets a default-deny CSP (no network). Requested permissions (the `allow` attribute) are granted only after a per-app choice on the bus. Links open only after the user confirms.
-- **Inline in chat.** `call_tool` adds `details.mcpApp = { serverName, toolName, uiResourceUri, arguments, result }` to its result. The result is capped at 256 KB. Above the cap, `result` is left out and the app gets only the input. A new renderer component under `D/src/components/layout/shell/tool-call-helpers/` detects `details.mcpApp` on a tool call. It calls `window.sero.appAgent.invokeTool('mcp_manager', …, 'open_tool_ui', { …, sessionId, toolCallId })` to get a viewer URL and renders the sandboxed iframe. If this fails, it shows a fallback line. The `McpAppToolResultDetails` type and its guard live in `@sero-ai/common`, so the desktop and the plugin share one contract, and that package gets a version bump. Viewer URLs are never persisted. After a restart, the component asks for a new session from the stored `details`.
+- **Inline in chat, through a new host extension point.** The host adds a component extension point `ui.chat.tool-result`:
+  - A tool result opts in with a neutral marker in its `details`: `seroToolResultView: { appId, contributionId }`. The marker type lives in `@sero-ai/common` next to the other contribution types, and that package gets a version bump.
+  - The host validates the contribution in `contributions.ts` like the other points. The tool-call detail view in `D/src/components/layout/shell/tool-call-helpers/` mounts the matching contribution with `FederatedContributionMount`, which gets an optional `componentProps` pass-through: `{ sessionId, toolCallId, details, isError }`. When no contribution matches, or the mount fails, the host shows the normal tool result only.
+- **MCP side.** `call_tool` adds the marker and a plugin-owned `details.mcpApp = { serverName, toolName, uiResourceUri, arguments, result }` (type in `P/shared/types.ts`). The result is capped at 256 KB. Above the cap, `result` is left out and the app gets only the input. The MCP plugin exposes an `McpToolResultApp` federated component for the point. The component calls `mcp_manager` `open_tool_ui` through `useAppTools()` with `{ …, sessionId, toolCallId }` to get a viewer URL, and renders the sandboxed iframe or a fallback line with the reason. Viewer URLs are never persisted. After a restart, the component asks for a new session from the stored `details`.
 
-Alternative considered: a generic "plugin tool-result renderer" extension point. This was rejected for now as a new abstraction. MCP is the only consumer.
+Alternative considered: an MCP-specific renderer and an `McpAppToolResultDetails` contract in the desktop. This was rejected because it breaks the plugin host-ownership rule. The extension point is the pattern the host already uses for plugin UI in host surfaces, and another plugin can use it later.
 
 ### D7. Tasks through `ext-tasks`, with Sero-owned durable records
 - **Task session.** Each connection whose server declares the Tasks extension gets a task session, `createTaskSessionFromClient(client, { endpointId })`. The `endpointId` is `createTaskSessionEndpointId('sero-mcp', { serverName, configHash, principalId })`. `call_tool` uses `session.callTool(name, args, { task: { preference: 'allow' } })`.
@@ -119,7 +131,17 @@ Alternative considered: materialize `SKILL.md` files into a cache folder and add
 ### D9. Diagnostics and state shape
 `McpServerSnapshot` adds `protocol: { era, version, extensions, deprecatedTransport } | null`, `failurePhase: … | null`, and `cache: { state: 'fresh' | 'stale' | 'none', expiresAt }`. `McpAppState` adds `tasks` and `remoteSkills` summaries. `McpServerDetailPanel` shows them. New UI panels (Tasks, Remote skills) go into new files. `mcp-runtime.ts` and `runtime-proxy.ts` are split before new actions are added (task, skill and cache actions go into their own `runtime-*.ts` modules), so that each file stays under 500 lines.
 
-### D10. Test fixtures
+### D10. Prototype before production UI
+The change adds or alters these user-facing surfaces:
+- the inline app in a tool call, with its fallback and permission consent
+- how an MCP input request looks in the question UI, over two rounds, with decline
+- the task status message in chat and the MCP app's Tasks panel
+- the Remote skills panel and the code-execution approval prompt
+- the protocol diagnostics on the server detail view
+
+Before production UI work starts, one interactive prototype, `apps/styleguide/public/prototypes/mcp-2026-07-28/`, shows these surfaces. It follows [`.agents/skills/sero-prototype/SKILL.md`](../../../.agents/skills/sero-prototype/SKILL.md) and is linked from `PrototypeArchive.tsx`. It starts from `tool-call-group-expanded.html` and `sero-agent-plugins-integration.html` and checks them against the current components. It also shows the product defaults that the user must confirm: remote skills disabled by default, input declined in headless sessions, and task delivery without a new turn. Production UI tasks (3.7, and the UI tasks in groups 8, 9 and 10 of `tasks.md`) follow the approved prototype. The protocol, cache and OAuth work has no UI dependency and can go in parallel.
+
+### D11. Test fixtures
 `D/e2e/fixtures/test-mcp-server/` gets:
 - one server factory served in modern and legacy mode through `serveStdio` (both eras), with a `--legacy` flag that uses a plain `StdioServerTransport` (2025 only)
 - the same factory over HTTP through `createMcpHandler` and `toNodeHandler`
@@ -146,10 +168,11 @@ Plugin unit tests use the in-process `createMcpHandler` fetch pattern from the S
 ## Migration Plan
 
 This change lands as a sequence of pull requests. Each one passes `pnpm typecheck`, the plugin tests and the MCP e2e specs.
-1. Protocol slice: SDK v2 swap and negotiation, diagnostics, elicitation, cache and OAuth (task groups 1–6). After this step, existing servers work as before and modern servers connect.
-2. MCP Apps (task group 7).
-3. Tasks (task group 8).
-4. Skills (task group 9), followed by the integration check (task group 10).
+0. Prototype (task group 1). This pull request adds only the styleguide prototype. The UI slices below wait for its approval.
+1. Protocol slice: SDK v2 swap and negotiation, diagnostics, elicitation, cache and OAuth (task groups 2–7). After this step, existing servers work as before and modern servers connect. Only task 3.7 waits for the prototype.
+2. MCP Apps (task group 8).
+3. Tasks (task group 9).
+4. Skills (task group 10), followed by the integration check (task group 11).
 
 Each slice includes its own tests and documentation.
 

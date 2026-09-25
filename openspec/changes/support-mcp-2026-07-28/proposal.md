@@ -38,8 +38,19 @@ None. No existing spec under `openspec/specs/` covers MCP.
 ## Impact
 
 - `plugins/sero-mcp-plugin`: `package.json`, `extension/manager/`, `extension/runtime/`, `extension/auth/`, `extension/cache/`, `extension/viewer/`, `extension/tools/`, `extension/state/`, `shared/types.ts`, `ui/`, `README.md` and tests.
-- Desktop: the conversation tool-result renderer and the typed host bridge used to show an MCP App inline and to show elicitation forms; the skill loading path, for remote skills.
+- Desktop host, with neutral seams only and no MCP-specific code: a new `ui.chat.tool-result` component extension point, so that a plugin can render UI for its own tool results in the conversation; and an `interactive` flag in a tool's `cli` metadata, so that a bridged tool that waits for the user is not ended by the CLI timeout.
+- `@sero-ai/common`: the contribution type for the new extension point. This is a published package, so it gets a version bump.
+- `apps/styleguide/public/prototypes/`: an interactive prototype of the new UI, for review before any production UI work.
 - `apps/desktop/e2e/fixtures/test-mcp-server/`: a fixture that serves both eras and the three extensions.
 - `apps/docs-site/docs/guide/mcp.md`: protocol negotiation, extensions, security and Skills.
 - Dependencies: remove `@modelcontextprotocol/sdk`; add `@modelcontextprotocol/client`, `@modelcontextprotocol/core` (if schemas are needed), `@modelcontextprotocol/ext-tasks`; upgrade `@modelcontextprotocol/ext-apps` to 2.x. `zod` must satisfy `^4.2.0`.
-- No published npm package changes unless the host bridge contract in `@sero-ai/app-runtime` changes. If it does, that package gets a version bump in the same pull request.
+- No other published npm package changes are expected.
+
+## References
+
+- Sero plugin rules (surfaces, Pi-safe extension, host ownership, CLI bridging, state, file limits): [`.agents/skills/sero-plugin/SKILL.md`](../../../.agents/skills/sero-plugin/SKILL.md), with [`references/api-and-widgets.md`](../../../.agents/skills/sero-plugin/references/api-and-widgets.md) and [`references/templates.md`](../../../.agents/skills/sero-plugin/references/templates.md).
+- Host extension points: [`apps/docs-site/docs/reference/plugin-extension-points.md`](../../../apps/docs-site/docs/reference/plugin-extension-points.md).
+- Prototype workflow for the UI changes: [`.agents/skills/sero-prototype/SKILL.md`](../../../.agents/skills/sero-prototype/SKILL.md).
+- Issue: https://github.com/sero-labs/sero/issues/359.
+- MCP TypeScript SDK v2 migration guides: [upgrade-to-v2.md](https://github.com/modelcontextprotocol/typescript-sdk/blob/main/docs/migration/upgrade-to-v2.md), [support-2026-07-28.md](https://github.com/modelcontextprotocol/typescript-sdk/blob/main/docs/migration/support-2026-07-28.md).
+- Skills extension specification (SEP-2640, Final): https://github.com/modelcontextprotocol/experimental-ext-skills/blob/main/specification/stable/skills.mdx.
