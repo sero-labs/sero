@@ -290,6 +290,9 @@ importers:
       '@headless-tree/react':
         specifier: ^1.7.0
         version: 1.7.0(@headless-tree/core@1.7.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@modelcontextprotocol/ext-apps':
+        specifier: ^2.0.1
+        version: 2.0.1(@modelcontextprotocol/client@2.1.0)(@modelcontextprotocol/core@2.1.0)(@modelcontextprotocol/server@2.1.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(zod@4.4.3)
       '@modelcontextprotocol/node':
         specifier: ^2.1.0
         version: 2.1.0(@modelcontextprotocol/server@2.1.0)(hono@4.13.1)

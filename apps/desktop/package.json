@@ -89,6 +89,7 @@
     "@headless-tree/core": "^1.7.0",
     "@headless-tree/react": "^1.7.0",
     "@module-federation/enhanced": "2.8.0",
+    "@modelcontextprotocol/ext-apps": "^2.0.1",
     "@modelcontextprotocol/node": "^2.1.0",
     "@modelcontextprotocol/server": "^2.1.0",
     "@module-federation/vite": "catalog:",
