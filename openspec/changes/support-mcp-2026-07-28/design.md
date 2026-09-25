@@ -185,8 +185,16 @@ Each slice includes its own tests and documentation.
 
 Stored data migrates forward only when it is read: the `metadata-cache.json` version increases to 2 and the old file is treated as stale, and tokens without an issuer are stamped again. The new files are `tasks.json`, `skills.json` and `discovery.json`. To roll back, revert the pull request. The old version ignores the new files and rebuilds the cache.
 
+## Prototype review
+
+On 2026-09-25 the user approved the prototype (`apps/styleguide/public/prototypes/mcp-2026-07-28/`, commit `c3a1042`). The approval covers the defaults that the prototype asked about:
+- Remote skills start off.
+- With no person to answer (a headless session or the plain Pi CLI), Sero declines a server input request at once.
+- A task result goes into its chat without a new agent turn.
+
+The production UI tasks (3.7, 4.7, 8.7, 8.8, 9.7 and 10.6) follow the prototype and the UI rules in D10.
+
 ## Open Questions
 
 - Sero does not publish a Client ID Metadata Document yet. Hosting one needs a stable HTTPS URL that Sero owns. Until that exists, the constant stays unset and DCR is used. The design does not change when the URL is added.
-- Should a completed task that is delivered to an idle originating session also start a new agent turn? The default in this change is no: the result appears as a visible message and the agent sees it on its next turn.
 - Should the official `ext-apps` and `ext-tasks` example servers be added to CI next to the fixture? This depends on whether they are published in a form that can run offline.
