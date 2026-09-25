@@ -58,6 +58,17 @@ export function createServer() {
     });
   });
 
+  // Registers one more tool, so that the server reports a changed tool list.
+  server.registerTool('reveal_tool', {
+    description: 'Add the hidden tool to the tool list.',
+    inputSchema: {}
+  }, async () => {
+    server.registerTool('hidden_tool', { description: 'Appears after reveal_tool.', inputSchema: {} }, async () => ({
+      content: [{ type: 'text', text: 'hidden' }]
+    }));
+    return { content: [{ type: 'text', text: 'revealed' }] };
+  });
+
   server.registerResource('noise-test', 'noise://test', {
     title: 'Noise Test',
     description: 'Deterministic test resource.',

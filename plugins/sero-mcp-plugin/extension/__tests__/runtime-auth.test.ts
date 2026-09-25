@@ -98,4 +98,27 @@ describe('clearServerAuthAction', () => {
     expect(setRuntimeStatus).toHaveBeenCalledWith('github', { authStatus: 'not-authenticated' });
     expect(result.details.authStatus).toBe('not-authenticated');
   });
+
+  it('removes the signed-out server private cache entry', async () => {
+    const config: McpConfigDocument = {
+      mcpServers: { github: { url: 'https://example.com/mcp', transport: 'http', auth: 'oauth' } },
+    };
+    const entry = { cachedAt: 1, configHash: 'hash', toolCount: 0, resourceCount: 0, tools: [], resources: [] };
+    const signedIn = createSyncedState(config, 'authenticated');
+    signedIn.metadataCache = { version: 2, servers: { github: { ...entry, cacheScope: 'private' }, docs: { ...entry, cacheScope: 'public' } } };
+    const syncSnapshot = vi.fn<(cwd?: string, options?: { metadataCache?: SyncedRuntimeState['metadataCache'] }) => Promise<SyncedRuntimeState>>()
+      .mockResolvedValueOnce(signedIn)
+      .mockResolvedValueOnce(createSyncedState(config, 'not-authenticated'));
+
+    await clearServerAuthAction({
+      cwd: '/tmp',
+      serverName: 'github',
+      authCoordinator: { cancelAuth: vi.fn(async () => {}) } as unknown as McpOAuthCoordinator,
+      manager: { close: vi.fn(async () => {}) } as unknown as McpServerManager,
+      setRuntimeStatus: vi.fn(),
+      syncSnapshot,
+    });
+
+    expect(Object.keys(syncSnapshot.mock.calls[1]?.[1]?.metadataCache?.servers ?? {})).toEqual(['docs']);
+  });
 });

@@ -41,6 +41,8 @@ export interface McpCallOptions {
 interface McpServerManagerOptions {
   hasOAuthTokens?: (serverName: string, serverUrl?: string) => Promise<boolean>;
   eraVerdicts?: EraVerdictStore;
+  /** Called after a server reported a changed tool or resource list and the connection holds the new list. */
+  onInventoryChanged?: (serverName: string, connection: ManagedConnection) => void;
 }
 
 export class McpServerManager {
@@ -48,10 +50,12 @@ export class McpServerManager {
   private readonly connectPromises = new Map<string, Promise<ManagedConnection>>();
   private readonly hasOAuthTokens: (serverName: string, serverUrl?: string) => Promise<boolean>;
   private readonly eraVerdicts: EraVerdictStore;
+  private readonly onInventoryChanged: (serverName: string, connection: ManagedConnection) => void;
 
   constructor(options: McpServerManagerOptions = {}) {
     this.hasOAuthTokens = options.hasOAuthTokens ?? (async () => false);
     this.eraVerdicts = options.eraVerdicts ?? createMemoryEraVerdictStore();
+    this.onInventoryChanged = options.onInventoryChanged ?? (() => {});
   }
 
   async connect(name: string, definition: McpServerConfig): Promise<ManagedConnection> {
@@ -159,7 +163,7 @@ export class McpServerManager {
     if (pluginData && definition.cwd && isPathInside(pluginData, definition.cwd)) {
       await fs.mkdir(definition.cwd, { recursive: true });
     }
-    const client = createMcpClient(`sero-mcp-${name}`, { serverLabel: name, cachePartition: principalId });
+    const client = this.createClient(name, principalId);
     const transport = new StdioClientTransport({
       command: definition.command!,
       args: definition.args ?? [],
@@ -194,7 +198,7 @@ export class McpServerManager {
       return this.connectSse(name, definition, principalId, url, requestInit, authProvider);
     }
 
-    const streamableClient = createMcpClient(`sero-mcp-${name}`, { serverLabel: name, cachePartition: principalId });
+    const streamableClient = this.createClient(name, principalId);
     const streamableTransport = new StreamableHTTPClientTransport(url, { requestInit, authProvider });
     try {
       return await this.openConnection(name, definition, principalId, streamableClient, streamableTransport);
@@ -220,7 +224,7 @@ export class McpServerManager {
     requestInit: { headers?: Record<string, string>; redirect?: 'manual' } | undefined,
     authProvider: McpOAuthProvider | undefined,
   ): Promise<ManagedConnection> {
-    const sseClient = createMcpClient(`sero-mcp-${name}`, { serverLabel: name, cachePartition: principalId });
+    const sseClient = this.createClient(name, principalId);
     const sseTransport = new SSEClientTransport(url, { requestInit, authProvider });
     try {
       return await this.openConnection(name, definition, principalId, sseClient, sseTransport, true);
@@ -228,6 +232,25 @@ export class McpServerManager {
       await this.safeClose(sseClient, sseTransport);
       return this.createErrorConnection(name, error);
     }
+  }
+
+  private createClient(name: string, principalId: string): Client {
+    // The client lists again after a change notification and passes the new items here.
+    const update = (apply: (connection: ManagedConnection, items: unknown[]) => void) =>
+      (error: Error | null, items: unknown[] | null) => {
+        const connection = this.connections.get(name);
+        if (error || !items || connection?.status !== 'connected') return;
+        apply(connection, items);
+        this.onInventoryChanged(name, connection);
+      };
+    return createMcpClient(`sero-mcp-${name}`, {
+      serverLabel: name,
+      cachePartition: principalId,
+      listChanged: {
+        tools: { onChanged: update((connection, items) => { connection.tools = normalizeTools(items); }) },
+        resources: { onChanged: update((connection, items) => { connection.resources = normalizeResources(items); }) },
+      },
+    });
   }
 
   private async openConnection(

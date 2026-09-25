@@ -59,7 +59,22 @@ function createMcpRuntime(): McpRuntime {
   let sessionRefCount = 0;
   let lastState: SyncedRuntimeState | null = null;
   let operationQueue: Promise<void> = Promise.resolve();
-  const manager = new McpServerManager({ hasOAuthTokens, eraVerdicts: createFileEraVerdictStore() });
+  const manager = new McpServerManager({
+    hasOAuthTokens,
+    eraVerdicts: createFileEraVerdictStore(),
+    onInventoryChanged: (serverName, connection) => {
+      void runExclusive(async () => {
+        const config = lastState?.config;
+        const serverConfig = config?.mcpServers[serverName];
+        if (!config || !serverConfig) return;
+        const { nextCache, runtimeStatus } = await reconcileConnection({
+          serverName, serverConfig, metadataCache: await readMetadataCache(), connection,
+        });
+        runtimeStatuses.set(serverName, runtimeStatus);
+        await syncSnapshot(lastKnownCwd || undefined, { config, metadataCache: nextCache });
+      }).catch((error) => console.error('[mcp] Failed to store a changed MCP inventory', error));
+    },
+  });
   const authCoordinator = new McpOAuthCoordinator();
   const runtimeStatuses = new Map<string, RuntimeServerStatus>();
   const uiResourceHandler = new UiResourceHandler(manager);

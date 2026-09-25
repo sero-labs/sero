@@ -1,5 +1,5 @@
 import { RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/app-bridge';
-import { Client, type ClientCapabilities } from '@modelcontextprotocol/client';
+import { Client, type ClientCapabilities, type ListChangedHandlers } from '@modelcontextprotocol/client';
 import { createElicitationHandler } from '../elicitation/handler';
 
 export const MCP_APPS_EXTENSION = 'io.modelcontextprotocol/ui';
@@ -36,16 +36,19 @@ export interface CreateMcpClientOptions {
   serverLabel?: string;
   /** Keeps cached responses apart per account. */
   cachePartition?: string;
+  /** Called with the new list after the server reports a change. */
+  listChanged?: ListChangedHandlers;
 }
 
 /** Builds every MCP client, so that negotiation and capabilities are set in one place. */
 export function createMcpClient(clientName: string, options: CreateMcpClientOptions = {}): Client {
-  const { features = MCP_CLIENT_FEATURES, serverLabel, cachePartition } = options;
+  const { features = MCP_CLIENT_FEATURES, serverLabel, cachePartition, listChanged } = options;
   const client = new Client({ name: clientName, version: '0.1.0' }, {
     capabilities: buildClientCapabilities(features, serverLabel !== undefined),
     versionNegotiation: { mode: 'auto', probe: { timeoutMs: PROBE_TIMEOUT_MS } },
     inputRequired: { maxRounds: MAX_INPUT_ROUNDS },
     ...(cachePartition ? { cachePartition } : {}),
+    ...(listChanged ? { listChanged } : {}),
   });
   if (serverLabel !== undefined) {
     client.setRequestHandler('elicitation/create', createElicitationHandler(serverLabel));

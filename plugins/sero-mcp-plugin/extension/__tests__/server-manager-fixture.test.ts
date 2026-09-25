@@ -60,4 +60,25 @@ describe('MCP server manager against the e2e fixture', () => {
     expect(connection.protocol?.era).toBe('legacy');
     expect(connection.tools.map((tool) => tool.name)).toContain('echo');
   });
+
+  it.each([
+    ['modern', []],
+    ['legacy', ['--legacy']],
+  ])('lists tools again after the %s fixture reports a change', async (_era, extraArgs) => {
+    const changed: string[][] = [];
+    const manager = new McpServerManager({
+      onInventoryChanged: (_name, connection) => changed.push(connection.tools.map((tool) => tool.name)),
+    });
+    cleanups.push(() => manager.closeAll());
+    await manager.connect('fixture', {
+      transport: 'stdio',
+      command: process.execPath,
+      args: [path.join(FIXTURE_DIR, 'server.mjs'), ...extraArgs],
+    });
+
+    await manager.callTool('fixture', 'reveal_tool', {});
+
+    await expect.poll(() => changed.at(-1) ?? [], { timeout: 5_000 }).toContain('hidden_tool');
+    expect(manager.getConnection('fixture')?.tools.map((tool) => tool.name)).toContain('hidden_tool');
+  });
 });
