@@ -86,7 +86,7 @@
 - [x] 9.7 After prototype approval (1.5), add a Tasks panel to the MCP app as the prototype shows, with `@sero-ai/ui` components and data from `mcp_manager` through `useAppTools()` (server, tool, status, age, result, cancel, dismiss), in new files. Verify: a UI test renders running, completed and blocked-principal tasks.
 - [x] 9.8 Add a task tool to the fixture and an e2e case that starts a task, restarts the app, and sees the result. Verify: the e2e case passes.
   - The e2e run found that a restarted app resumed tasks only after a chat session started, because app-agent tool calls do not start a session. The runtime now resumes stored tasks on first use of any MCP action as well.
-- [ ] 9.9 Document Tasks (status, restart behavior, cancel, retention) in `apps/docs-site/docs/guide/mcp.md`. Verify: the section is present.
+- [x] 9.9 Document Tasks (status, restart behavior, cancel, retention) in `apps/docs-site/docs/guide/mcp.md`. Verify: the section is present.
 
 ## 10. Skills over MCP
 

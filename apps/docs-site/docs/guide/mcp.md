@@ -55,6 +55,26 @@ When Sero cannot show an app, the tool call shows one line with the reason, for 
 
 The agent does not see tools that a server marks for its app only.
 
+## MCP tasks
+
+Some MCP servers run a long tool call as a task. The tool call then ends at once with a task ID, and the agent continues with other work. When the task ends, Sero adds its result to the chat that started it. The result does not start a new agent turn; the agent reads it with your next message. If that chat is closed, the result appears when you open the chat again.
+
+The agent can follow a task with these commands:
+
+- `sero mcp task status <id>` shows the current status.
+- `sero mcp task wait <id>` waits until the task ends.
+- `sero mcp task cancel <id>` stops the task on the server.
+
+Select **Tasks** in the MCP app to see every task. The button shows the number of active tasks. Each row shows the server and the tool, the status and the age. Select **Result** to see the result of a finished task, **Cancel** to stop a running task, or **Dismiss** to remove a finished task from the list. Dismiss removes the task only from Sero; the server keeps it.
+
+Sero keeps tasks when it restarts and continues to follow them. A task continues only while its server keeps it:
+
+- When the connection to the server is lost, the task shows **Disconnected**. Sero tries again after a short wait, and waits longer after each attempt, up to one minute.
+- When you sign in to the server with another account, the task shows **Cannot continue**. Sign in with the account that started the task.
+- The server sets how long it keeps a task. After that time, Sero removes the task from the list.
+
+A task can ask you a question while it runs. The question opens in **User Feedback**, like the other server questions below.
+
 ## Answer questions from a server
 
 Some MCP tools ask you for information while they run. When a server asks, Sero opens its questions in **User Feedback**. The line under **Questionnaire** shows who asks, for example `MCP · crm · create_contact`: the server name from your MCP settings and the tool that asks. Answer each question, then select **Submit All Answers**. A server can ask again during the same tool call. After you answer, Sero goes back to the app that you used before.

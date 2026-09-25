@@ -186,6 +186,18 @@ Isolation:
 
 The model inventory leaves out tools with visibility `["app"]`, and the `mcp` tool refuses to call them.
 
+### MCP Tasks
+
+Sero supports the 2026-07-28 Tasks extension (`io.modelcontextprotocol/tasks`) through `@modelcontextprotocol/ext-tasks`:
+
+- A modern connection whose server declares the extension gets a task session (`extension/tasks/task-session.ts`). Its endpoint ID comes from the server name, the config hash and the principal. Every model tool call on such a server goes through the session, and the server decides whether the call becomes a task. Input rounds go to the same handler as other server questions.
+- The SDK Client codecs reject 2026-07-28 task results, so task requests use a raw dispatch on the connected transport. The Client itself does not declare Tasks; ext-tasks declares it on each request it sends, so a plain `callTool` (for example from an MCP app) never gets a task result. Task replies get a one-second poll floor.
+- A task result is stored in `tasks.json` (`extension/tasks/task-store.ts`), handed off, and followed by the tracker (`extension/tasks/task-tracker.ts`). The tracker updates the record, retries after a lost connection (`disconnected`, backoff up to 60 s), and delivers the outcome to the origin chat session as an `mcp-task-result` message without a new turn. Outcomes for a closed session wait until it registers again.
+- On first use the runtime resumes stored tasks. A record of another principal becomes `blocked-principal`, and a record past its retention is removed.
+- `mcp` actions: `task_status`, `task_wait`, `task_cancel` (CLI `sero mcp task status|wait|cancel <id>`). `mcp_manager` actions: `list_tasks`, `cancel_task`, `dismiss_task`, `task_result`.
+
+Sero does not open a `subscriptions/listen` stream for task status. ext-tasks polls, and it also uses task notifications when they arrive.
+
 ### Tool runner
 
 The server detail view includes a basic MCP tool runner that can:
@@ -295,6 +307,8 @@ Per-server auth data is split into files such as:
 - `client.json`
 - `flow.json`
 - `discovery.json`
+
+Task records are in `$SERO_HOME/apps/mcp/tasks.json`.
 
 ### Persistence rules
 
