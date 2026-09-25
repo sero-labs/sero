@@ -142,6 +142,18 @@ The **Protocol** card on each server shows:
 - the metadata cache state
 - the failed step when a connection fails: discovery, legacy handshake, sign-in or extension setup
 
+## Server input requests
+
+A server can ask the user for input during a tool call or a resource read. Legacy servers send `elicitation/create`; `2026-07-28` servers return `input_required`, and Sero sends the call again with the answers and the unchanged `requestState`, for up to 10 rounds. Both go through one handler:
+
+- A form request becomes a User Feedback questionnaire with one question for each field. The source line names the server label and the tool. The first question has a **Decline** option. Server text is shown as plain text.
+- Sero checks each answer against the field schema and asks once more after a bad value. A form with a field type that Sero does not support is declined without being shown.
+- A URL request becomes one chat question with the full URL, **Decline** and **Open page**. Only `http` and `https` URLs are offered.
+- **Decline** sends `decline`, **Cancel** sends `cancel`, and an aborted tool call cancels the open question.
+- With no question UI (a headless session or the plain Pi CLI), Sero declines at once.
+
+The `mcp` tool sets `cli.interactive`, so the CLI bridge applies no timeout while the user answers. Tool calls and resource reads run outside the runtime queue, so a waiting question does not block other MCP actions.
+
 ## UI behavior
 
 ### Resources

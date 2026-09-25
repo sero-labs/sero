@@ -36,3 +36,18 @@ Open a server to see its **Protocol** card. The card shows the revision in use, 
 A server that uses the older SSE transport shows **SSE, deprecated**. Sero keeps it working, but you cannot add new SSE servers. Ask the server owner for a Streamable HTTP URL.
 
 Sero checks the protocol version again after you change a server. If the server owner upgrades the server, select **Reconnect**.
+
+## Answer questions from a server
+
+Some MCP tools ask you for information while they run. When a server asks, Sero opens its questions in **User Feedback**. The line under **Questionnaire** shows who asks, for example `MCP · crm · create_contact`: the server name from your MCP settings and the tool that asks. Answer each question, then select **Submit All Answers**. A server can ask again during the same tool call. After you answer, Sero goes back to the app that you used before.
+
+You have two ways to stop:
+
+- Select **Decline** on the first question to send no answers. The server gets a decline and decides what to do next, and the tool call continues.
+- Select **Cancel** to stop the tool call.
+
+If an answer does not fit the question, for example text where a number is required, Sero shows the reason and asks once more. After a second answer that does not fit, Sero declines for you.
+
+A server can also ask you to open a web page, for example to sign in or to pay. Sero shows this request in the chat with the full address. Select **Open page** to open it in your browser, or **Decline** to send no answer. Sero offers only `http` and `https` addresses.
+
+When no person can answer, for example in a headless session or the plain Pi CLI, Sero declines every server question at once.
