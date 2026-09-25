@@ -50,6 +50,8 @@ describe('content security policy', () => {
     };
 
     expect(respond('subFrame', 'http://127.0.0.1:4100/ui-app?session=abc')).toEqual({});
+    // Each MCP app frame uses its own `<label>.localhost` host, so it keeps its own policy too.
+    expect(respond('subFrame', 'http://a1b2c3d4e5f60718.localhost:4100/ui-app')).toEqual({});
     expect(respond('mainFrame', 'http://127.0.0.1:4100/')?.responseHeaders?.['Content-Security-Policy']?.[0]).toContain("script-src 'self'");
     expect(respond('subFrame', 'https://example.com/')?.responseHeaders?.['Content-Security-Policy']?.[0]).toContain("script-src 'self'");
   });

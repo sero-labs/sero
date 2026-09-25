@@ -144,13 +144,16 @@ export function buildContentSecurityPolicy(
  * server preview, keeps the CSP that its server sends. It runs on its own
  * origin, so the renderer policy does not protect the renderer there. It would
  * only replace the page's own policy, for example the no-network policy of an
- * MCP app, and block the page's inline scripts.
+ * MCP app, and block the page's inline scripts. The MCP viewer serves each app
+ * frame from its own `<label>.localhost` host, so names under `.localhost`
+ * count as loopback here.
  */
 export function keepsOwnContentSecurityPolicy(details: { resourceType?: string; url: string }): boolean {
   if (details.resourceType !== 'subFrame') return false;
   try {
     const { protocol, hostname } = new URL(details.url);
-    return protocol === 'http:' && (hostname === '127.0.0.1' || hostname === 'localhost');
+    return protocol === 'http:'
+      && (hostname === '127.0.0.1' || hostname === 'localhost' || hostname.endsWith('.localhost'));
   } catch {
     return false;
   }
