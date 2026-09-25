@@ -1,13 +1,15 @@
 import { getDefaultEnvironment, StdioClientTransport } from '@modelcontextprotocol/client/stdio';
-import { UnauthorizedError, Client, SdkHttpError, SSEClientTransport, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+import { Client, SdkHttpError, SSEClientTransport, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/client';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { McpOAuthProvider } from '../auth/oauth-provider';
 import { computeServerHash } from '../cache/metadata-cache';
+import type { McpFailurePhase } from '../../shared/types';
 import { resolveBearerTokenValue, type McpServerConfig } from '../config/types';
 import { createMcpClient } from './client-factory';
 import { createMemoryEraVerdictStore, type EraVerdictStore } from './era-verdicts';
+import { failurePhaseOf, isUnauthorizedError, McpConnectError } from './failure-phase';
 import type { ManagedConnection, ManagedConnectionProtocol, ManagedResource, ManagedTool, ManagedTransport } from './types';
 
 interface McpServerManagerOptions {
@@ -160,8 +162,8 @@ export class McpServerManager {
       return await this.openConnection(name, definition, streamableClient, streamableTransport);
     } catch (error) {
       await this.safeClose(streamableClient, streamableTransport);
-      if (error instanceof UnauthorizedError) {
-        return this.createDisconnectedConnection(name, 'needs-auth', 'Authentication is required before connecting.');
+      if (isUnauthorizedError(error)) {
+        return this.createDisconnectedConnection(name, 'needs-auth', 'Authentication is required before connecting.', 'auth');
       }
       // Only a server without a Streamable HTTP endpoint gets the deprecated SSE fallback.
       if (definition.portableTransport === 'streamable-http' || !isMissingEndpointError(error)) {
@@ -198,7 +200,12 @@ export class McpServerManager {
   ): Promise<ManagedConnection> {
     const configHash = computeServerHash(definition);
     const eraFromVerdict = await this.eraVerdicts.isLegacy(name, configHash);
-    await client.connect(transport, eraFromVerdict ? { prior: { kind: 'legacy' } } : undefined);
+    try {
+      await client.connect(transport, eraFromVerdict ? { prior: { kind: 'legacy' } } : undefined);
+    } catch (error) {
+      const legacyChosen = eraFromVerdict || client.getProtocolEra() === 'legacy';
+      throw new McpConnectError(failurePhaseOf(error, legacyChosen ? 'legacy-fallback' : 'discovery'), error);
+    }
     const [tools, resources] = await Promise.all([
       this.fetchAllTools(client),
       this.fetchAllResources(client),
@@ -252,6 +259,7 @@ export class McpServerManager {
     name: string,
     status: 'needs-auth' | 'error',
     lastError: string,
+    failurePhase?: McpFailurePhase,
   ): ManagedConnection {
     return {
       name,
@@ -261,6 +269,7 @@ export class McpServerManager {
       resources: [],
       status,
       lastError,
+      failurePhase,
       lastConnectedAt: null,
       lastFailedAt: new Date().toISOString(),
     };
@@ -268,7 +277,7 @@ export class McpServerManager {
 
   private createErrorConnection(name: string, error: unknown): ManagedConnection {
     const message = error instanceof Error ? error.message : String(error);
-    return this.createDisconnectedConnection(name, 'error', message);
+    return this.createDisconnectedConnection(name, 'error', message, failurePhaseOf(error, 'discovery'));
   }
 
   private async safeClose(client: Client, transport: ManagedTransport): Promise<void> {

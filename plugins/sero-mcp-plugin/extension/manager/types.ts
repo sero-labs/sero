@@ -1,4 +1,5 @@
 import type { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
+import type { McpFailurePhase } from '../../shared/types';
 import type { SSEClientTransport, StreamableHTTPClientTransport, Client, ProtocolEra } from '@modelcontextprotocol/client';
 
 export type ManagedTransport =
@@ -45,4 +46,5 @@ export interface ManagedConnection {
   lastConnectedAt?: string | null;
   lastFailedAt?: string | null;
   protocol?: ManagedConnectionProtocol;
+  failurePhase?: McpFailurePhase;
 }

@@ -66,6 +66,16 @@ describe('MCP server manager SSE fallback', () => {
     const connection = await createManager().connect('broken', { transport: 'http', url });
 
     expect(connection.status).toBe('error');
+    expect(connection.failurePhase).toBe('discovery');
+    expect(requests.some((request) => request.startsWith('GET'))).toBe(false);
+  });
+
+  it('reports an authorization failure and does not treat the server as legacy', async () => {
+    const { url, requests } = await startServer(401);
+    const connection = await createManager().connect('locked', { transport: 'http', url });
+
+    expect(connection.status).toBe('error');
+    expect(connection.failurePhase).toBe('auth');
     expect(requests.some((request) => request.startsWith('GET'))).toBe(false);
   });
 
