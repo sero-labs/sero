@@ -1,7 +1,11 @@
 import http, { type IncomingMessage, type ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { buildAllowAttribute } from '@modelcontextprotocol/ext-apps/app-bridge';
 import type { McpServerManager } from '../manager/server-manager';
+import { VIEWER_SHELL_SCRIPT } from '../../shared/viewer-shell';
 import { applyCspMeta, buildCspMetaContent, buildHostHtmlTemplate, buildViewerHostCspContent } from './host-template';
 import { callViewerTool, readViewerResource, toRecord } from './ui-proxy';
 import type { UiResourceContent, UiToolInfo } from './types';
@@ -17,6 +21,7 @@ export interface UiSessionOptions {
   resource: UiResourceContent;
   toolInfo?: UiToolInfo;
   toolArgs?: Record<string, unknown>;
+  toolResult?: Record<string, unknown>;
   onUnauthorized?: (serverName: string, message: string) => Promise<void>;
   onUiMessage?: (params: Record<string, unknown>) => Promise<void> | void;
   onClose?: (reason: string) => void;
@@ -96,6 +101,11 @@ export class McpUiServer {
       const method = request.method || 'GET';
       const url = new URL(request.url || '/', 'http://127.0.0.1');
 
+      if (method === 'GET' && url.pathname === `/${VIEWER_SHELL_SCRIPT}`) {
+        await sendShellScript(response);
+        return;
+      }
+
       if (method === 'GET') {
         const viewerId = url.searchParams.get('session') ?? '';
         const session = this.sessions.get(viewerId);
@@ -105,12 +115,11 @@ export class McpUiServer {
         }
         if (url.pathname === '/') {
           sendHtml(response, buildHostHtmlTemplate({
-            sessionId: viewerId,
-            serverName: session.serverName,
-            resourceUri: session.resourceUri,
+            token: viewerId,
             title: session.title,
             allowAttribute: buildAllowAttribute(session.resource.meta.permissions),
             toolArgs: session.toolArgs ?? {},
+            toolResult: session.toolResult,
             toolInfo: session.toolInfo,
           }), buildViewerHostCspContent());
           return;
@@ -169,6 +178,30 @@ export class McpUiServer {
         return undefined;
     }
   }
+}
+
+/**
+ * The plugin build writes the shell to dist/ui. From source the extension is in
+ * extension/viewer/; in a packaged plugin it is one bundle in extension/.
+ */
+function findShellScript(): string | null {
+  let dir = typeof __dirname === 'string' ? __dirname : process.cwd();
+  for (let depth = 0; depth < 4; depth += 1) {
+    const candidate = path.join(dir, 'dist', 'ui', VIEWER_SHELL_SCRIPT);
+    if (existsSync(candidate)) return candidate;
+    dir = path.dirname(dir);
+  }
+  return null;
+}
+
+async function sendShellScript(response: ServerResponse): Promise<void> {
+  const shellPath = findShellScript();
+  if (!shellPath) {
+    sendJson(response, 404, { ok: false, error: 'The MCP viewer shell is not built. Build the MCP plugin.' });
+    return;
+  }
+  response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-store' });
+  response.end(await readFile(shellPath));
 }
 
 async function readBody(request: IncomingMessage): Promise<unknown> {

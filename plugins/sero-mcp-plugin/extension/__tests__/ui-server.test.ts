@@ -8,17 +8,15 @@ afterEach(async () => {
 });
 
 describe('ui-server', () => {
-  it('serves the viewer shell with a CSP header and sandboxed bridge-only iframe', async () => {
+  it('serves the viewer page with a CSP that allows no inline script', async () => {
     const handle = await openViewer(createServer());
 
     const response = await fetch(handle.viewerUrl);
     const html = await response.text();
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('content-security-policy')).toContain("default-src 'none'");
-    expect(response.headers.get('content-security-policy')).toContain("frame-src 'self'");
-    expect(html).toContain("sandbox', 'allow-scripts allow-forms allow-popups allow-downloads'");
-    expect(html).not.toContain("sandbox', 'allow-scripts allow-same-origin");
+    expect(response.headers.get('content-security-policy')).toContain("script-src 'self';");
+    expect(html).toContain('<script type="module" src="/viewer-shell.js"></script>');
   });
 
   it('rejects host-page requests without the viewer session token', async () => {
