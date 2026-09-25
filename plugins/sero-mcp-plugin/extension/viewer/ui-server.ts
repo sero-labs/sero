@@ -1,8 +1,8 @@
 import http, { type IncomingMessage, type ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { buildAllowAttribute } from '@modelcontextprotocol/ext-apps/app-bridge';
-import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
-import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
+import { UnauthorizedError } from '@modelcontextprotocol/client';
+import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/client';
 import type { McpServerManager } from '../manager/server-manager';
 import { applyCspMeta, buildCspMetaContent, buildHostHtmlTemplate, buildViewerHostCspContent } from './host-template';
 import type { UiResourceContent, UiToolInfo } from './types';

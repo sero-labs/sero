@@ -1,6 +1,4 @@
-import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { UnauthorizedError, Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { McpServerConfig } from '../config/types';
 import { clearOAuthFlowState, readOAuthFlowState } from './storage';
 import { McpOAuthProvider } from './oauth-provider';

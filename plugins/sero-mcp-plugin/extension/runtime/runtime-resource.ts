@@ -1,5 +1,5 @@
-import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
-import type { ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
+import { UnauthorizedError } from '@modelcontextprotocol/client';
+import type { ReadResourceResult } from '@modelcontextprotocol/client';
 import type { McpResourcePreview } from '../../shared/types';
 import { readMetadataCache, type McpMetadataCacheDocument } from '../cache/metadata-cache';
 import {

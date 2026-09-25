@@ -1,5 +1,5 @@
 import { RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/app-bridge';
-import type { ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
+import type { ReadResourceResult } from '@modelcontextprotocol/client';
 import type { McpServerManager } from '../manager/server-manager';
 import type { UiResourceContent, UiResourceMeta } from './types';
 

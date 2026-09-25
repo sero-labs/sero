@@ -1,11 +1,8 @@
-import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
+import { getDefaultEnvironment, StdioClientTransport } from '@modelcontextprotocol/client/stdio';
+import { UnauthorizedError, Client, SSEClientTransport, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/client';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
-import { getDefaultEnvironment, StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
 import { McpOAuthProvider } from '../auth/oauth-provider';
 import { resolveBearerTokenValue, type McpServerConfig } from '../config/types';
 import type { ManagedConnection, ManagedResource, ManagedTool, ManagedTransport } from './types';

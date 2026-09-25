@@ -1,10 +1,4 @@
-import type { OAuthClientProvider } from '@modelcontextprotocol/sdk/client/auth.js';
-import type {
-  OAuthClientInformation,
-  OAuthClientInformationFull,
-  OAuthClientMetadata,
-  OAuthTokens,
-} from '@modelcontextprotocol/sdk/shared/auth.js';
+import type { OAuthClientProvider, OAuthClientInformation, OAuthClientInformationFull, OAuthClientMetadata, OAuthTokens } from '@modelcontextprotocol/client';
 import type { McpOAuthConfig } from '../config/types';
 import {
   clearOAuthClientInfo,

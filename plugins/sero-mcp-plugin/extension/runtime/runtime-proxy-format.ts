@@ -1,5 +1,5 @@
 import { getToolUiResourceUri } from '@modelcontextprotocol/ext-apps/app-bridge';
-import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { CallToolResult } from '@modelcontextprotocol/client';
 import type { ManagedTool } from '../manager/types';
 import { buildResourcesDisabledMessage } from './runtime-resource';
 import type { SyncedRuntimeState } from './runtime-types';

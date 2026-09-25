@@ -1,5 +1,5 @@
 import { getToolUiResourceUri } from '@modelcontextprotocol/ext-apps/app-bridge';
-import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
+import { UnauthorizedError } from '@modelcontextprotocol/client';
 import {
   isMetadataCacheEntryValid,
   readMetadataCache,
