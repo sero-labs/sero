@@ -23,7 +23,7 @@ afterEach(async () => {
 });
 
 function createServer() {
-  const server = new McpServer({ name: 'modern-fixture', version: '1.0.0' });
+  const server = new McpServer({ name: 'modern-fixture', version: '1.0.0' }, { cacheHints: { 'tools/list': { ttlMs: 300 } } });
   server.registerTool('echo', { inputSchema: { message: z.string() } }, async ({ message }) => ({
     content: [{ type: 'text', text: message }],
   }));
@@ -93,5 +93,20 @@ describe('MCP server manager on a modern HTTP server', () => {
 
     await expect(stopped).rejects.toThrow();
     await expect(kept).resolves.toMatchObject({ content: [{ type: 'text', text: 'second' }] });
+  });
+
+  it('lists tools again only after the server TTL ends', async () => {
+    const { url, requests } = await startServer();
+    const manager = await connect(url);
+    const listRequests = () => requests.filter((request) => request.body.method === 'tools/list').length;
+    const afterConnect = listRequests();
+    expect(manager.getConnection('modern')?.cacheHints).toEqual({ ttlMs: 300, scope: 'private' });
+
+    await manager.refreshInventory('modern');
+    expect(listRequests()).toBe(afterConnect);
+
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    await manager.refreshInventory('modern');
+    expect(listRequests()).toBe(afterConnect + 1);
   });
 });

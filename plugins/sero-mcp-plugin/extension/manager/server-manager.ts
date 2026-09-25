@@ -93,6 +93,24 @@ export class McpServerManager {
     return this.connections.get(name);
   }
 
+  /**
+   * Lists tools and resources again on a connected server. While the server's
+   * TTL holds, the client serves the lists from its cache and sends no request.
+   */
+  async refreshInventory(name: string): Promise<void> {
+    const connection = this.connections.get(name);
+    const client = connection?.client;
+    if (!connection || !client || connection.status !== 'connected') return;
+    const [{ tools, hints }, { resources, hints: resourceHints }] = await Promise.all([
+      this.fetchAllTools(client),
+      this.fetchAllResources(client),
+    ]);
+    connection.tools = tools;
+    connection.resources = resources;
+    connection.cacheHints = mergeCacheHints(hints, resourceHints);
+    this.onInventoryChanged(name, connection);
+  }
+
   async readResource(name: string, uri: string, options: McpCallOptions = {}): Promise<ReadResourceResult> {
     const connection = this.connections.get(name);
     if (!connection || connection.status !== 'connected' || !connection.client) {

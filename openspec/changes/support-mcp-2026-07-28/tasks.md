@@ -41,7 +41,7 @@
 - [x] 5.1 Add `principalId` resolution (`anon`, `bearer:<sha256>`, and an OAuth random ID stored in `tokens.json`, created on a new authorization and removed on sign-out), and pass it as `cachePartition`. Verify: a unit test asserts that a new authorization changes the ID and that a bearer token is never written to disk.
 - [x] 5.2 Move `metadata-cache.json` to `version: 2` with `principalId`, `cacheScope` and `expiresAt` for each entry and sorted server order. Treat a version 1 file as stale. Update the reader in `apps/desktop/electron/features/agent-plugins/cli.ts` to accept version 2. Verify: `metadata-cache.test.ts` covers TTL expiry, a private entry with another principal being ignored, and stable order. The agent-plugins CLI test still generates commands. Note: the desktop reader has no version check and reads only `servers[name].tools`, so it needed no change.
 - [x] 5.3 Register `listChanged` handlers that invalidate the entry and refresh the snapshot. Remove private entries on sign-out. Verify: a fixture test sends `tools/list_changed` and asserts that the next list makes a request. A sign-out test asserts that the entries are removed.
-- [ ] 5.4 Add a fixture test for `ttlMs`: a fresh entry makes no request, and an expired one makes a request. Verify: the test passes on the modern HTTP fixture.
+- [x] 5.4 Add a fixture test for `ttlMs`: a fresh entry makes no request, and an expired one makes a request. Verify: the test passes on the modern HTTP fixture.
 - [ ] 5.5 Document cache behavior and isolation in `P/README.md` → Storage. Verify: the section names the partition keys.
 
 ## 6. OAuth conformance

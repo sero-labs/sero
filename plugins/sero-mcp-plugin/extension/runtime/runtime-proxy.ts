@@ -1,6 +1,7 @@
 import { getToolUiResourceUri } from '@modelcontextprotocol/ext-apps/app-bridge';
 import { UnauthorizedError } from '@modelcontextprotocol/client';
 import {
+  isMetadataCacheEntryFresh,
   isMetadataCacheEntryValid,
   readMetadataCache,
   type McpMetadataCacheDocument,
@@ -384,9 +385,18 @@ async function ensureConnectedServer(
   await options.syncSnapshot(options.cwd, { config: synced.config, metadataCache: nextCache });
   return connection;
 }
+/** Lists a connected server again when its cached inventory has expired. */
+async function refreshIfExpired(serverName: string, synced: SyncedRuntimeState, manager: McpServerManager): Promise<void> {
+  const cachedEntry = synced.metadataCache.servers[serverName];
+  if (cachedEntry && !isMetadataCacheEntryFresh(cachedEntry)) {
+    await manager.refreshInventory(serverName).catch(() => undefined);
+  }
+}
+
 async function getToolInventory(serverName: string, synced: SyncedRuntimeState, manager: McpServerManager): Promise<ToolInventoryEntry[]> {
   const connection = manager.getConnection(serverName);
   if (connection?.status === 'connected') {
+    await refreshIfExpired(serverName, synced, manager);
     return serializeTools(connection.tools);
   }
   const serverConfig = synced.config.mcpServers[serverName];
@@ -404,6 +414,7 @@ async function getResourceInventory(serverName: string, synced: SyncedRuntimeSta
 
   const connection = manager.getConnection(serverName);
   if (connection?.status === 'connected') {
+    await refreshIfExpired(serverName, synced, manager);
     return serializeResources(connection.resources);
   }
 
