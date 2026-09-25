@@ -49,5 +49,6 @@ describe('MCP tasks across a runtime restart', () => {
     expect(send.mock.calls[0]?.[0]).toMatchObject({ customType: 'mcp-task-result', content: expect.stringContaining('report ready: APAC') });
     expect((await second.executeProxyAction('task_status', { taskId })).content[0]?.text).toContain('completed');
     await second.handleSessionShutdown();
-  });
+    // The task, the poll floor and two connects take about 5 s, which is the default test timeout.
+  }, 20_000);
 });
