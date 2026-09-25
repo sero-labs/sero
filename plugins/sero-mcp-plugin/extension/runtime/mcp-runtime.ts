@@ -46,6 +46,7 @@ export interface McpRuntime {
   executeProxyAction(action: ProxyAction, options?: {
     cwd?: string; query?: string; serverName?: string; toolName?: string; resourceUri?: string;
     toolArguments?: Record<string, unknown>; argumentsJson?: string; signal?: AbortSignal;
+    notify?: (text: string) => void;
   }): Promise<ToolResult>;
 }
 let runtimeSingleton: McpRuntime | null = null;
@@ -150,7 +151,7 @@ function createMcpRuntime(): McpRuntime {
       hasAttachedPi: hasAgentPluginMcpSourceEvents(),
     }));
   }
-  function executeProxyAction(action: ProxyAction, options: { cwd?: string; query?: string; serverName?: string; toolName?: string; resourceUri?: string; toolArguments?: Record<string, unknown>; argumentsJson?: string; signal?: AbortSignal; } = {}): Promise<ToolResult> {
+  function executeProxyAction(action: ProxyAction, options: { cwd?: string; query?: string; serverName?: string; toolName?: string; resourceUri?: string; toolArguments?: Record<string, unknown>; argumentsJson?: string; signal?: AbortSignal; notify?: (text: string) => void; } = {}): Promise<ToolResult> {
     return runExclusive(async () => executeProxyActionInternal({
       action,
       cwd: options.cwd,
@@ -161,6 +162,7 @@ function createMcpRuntime(): McpRuntime {
       toolArguments: options.toolArguments,
       argumentsJson: options.argumentsJson,
       signal: options.signal,
+      notify: options.notify,
       manager,
       setRuntimeStatus: (name, status) => runtimeStatuses.set(name, status),
       syncSnapshot,

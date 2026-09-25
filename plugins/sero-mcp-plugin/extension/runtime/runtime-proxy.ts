@@ -36,6 +36,8 @@ interface ProxyToolOptions {
   argumentsJson?: string;
   /** Stops only this request. */
   signal?: AbortSignal;
+  /** Shows a short message in the chat that made the call. */
+  notify?: (text: string) => void;
   manager: McpServerManager;
   setRuntimeStatus: (serverName: string, status: RuntimeServerStatus) => void;
   syncSnapshot: (
@@ -299,7 +301,7 @@ async function callServerTool(options: ProxyToolOptions, synced: SyncedRuntimeSt
     );
   }
   try {
-    const result = await options.manager.callTool(serverName, toolName, toolArguments, { signal: options.signal });
+    const result = await options.manager.callTool(serverName, toolName, toolArguments, { signal: options.signal, notify: options.notify });
     const text = formatCallToolResult(serverName, liveTool, result);
     return createToolResult(text, {
       mode: 'call_tool',

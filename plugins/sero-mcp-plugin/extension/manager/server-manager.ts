@@ -7,10 +7,18 @@ import { McpOAuthProvider } from '../auth/oauth-provider';
 import { computeServerHash } from '../cache/metadata-cache';
 import type { McpFailurePhase } from '../../shared/types';
 import { resolveBearerTokenValue, type McpServerConfig } from '../config/types';
+import { runWithRequestContext } from '../elicitation/request-context';
 import { createMcpClient } from './client-factory';
 import { createMemoryEraVerdictStore, type EraVerdictStore } from './era-verdicts';
 import { failurePhaseOf, isUnauthorizedError, McpConnectError } from './failure-phase';
 import type { ManagedConnection, ManagedConnectionProtocol, ManagedResource, ManagedTool, ManagedTransport } from './types';
+
+export interface McpCallOptions {
+  /** Stops only this request. */
+  signal?: AbortSignal;
+  /** Shows a short message in the chat that made the call. */
+  notify?: (text: string) => void;
+}
 
 interface McpServerManagerOptions {
   hasOAuthTokens?: (serverName: string, serverUrl?: string) => Promise<boolean>;
@@ -63,28 +71,33 @@ export class McpServerManager {
     return this.connections.get(name);
   }
 
-  async readResource(name: string, uri: string): Promise<ReadResourceResult> {
+  async readResource(name: string, uri: string, options: McpCallOptions = {}): Promise<ReadResourceResult> {
     const connection = this.connections.get(name);
     if (!connection || connection.status !== 'connected' || !connection.client) {
       throw new Error(`Server "${name}" is not connected.`);
     }
-    return connection.client.readResource({ uri });
+    const client = connection.client;
+    return runWithRequestContext(
+      { serverLabel: name, notify: options.notify },
+      () => client.readResource({ uri }, { signal: options.signal }),
+    );
   }
 
   async callTool(
     name: string,
     toolName: string,
     toolArguments?: Record<string, unknown>,
-    options: { signal?: AbortSignal } = {},
+    options: McpCallOptions = {},
   ): Promise<CallToolResult> {
     const connection = this.connections.get(name);
     if (!connection || connection.status !== 'connected' || !connection.client) {
       throw new Error(`Server "${name}" is not connected.`);
     }
-    return connection.client.callTool({
-      name: toolName,
-      arguments: toolArguments,
-    }, { signal: options.signal });
+    const client = connection.client;
+    return runWithRequestContext(
+      { serverLabel: name, toolName, notify: options.notify },
+      () => client.callTool({ name: toolName, arguments: toolArguments }, { signal: options.signal }),
+    );
   }
 
   async close(name: string): Promise<void> {
@@ -127,7 +140,7 @@ export class McpServerManager {
     if (pluginData && definition.cwd && isPathInside(pluginData, definition.cwd)) {
       await fs.mkdir(definition.cwd, { recursive: true });
     }
-    const client = createMcpClient(`sero-mcp-${name}`);
+    const client = createMcpClient(`sero-mcp-${name}`, { serverLabel: name });
     const transport = new StdioClientTransport({
       command: definition.command!,
       args: definition.args ?? [],
@@ -161,7 +174,7 @@ export class McpServerManager {
       return this.connectSse(name, definition, url, requestInit, authProvider);
     }
 
-    const streamableClient = createMcpClient(`sero-mcp-${name}`);
+    const streamableClient = createMcpClient(`sero-mcp-${name}`, { serverLabel: name });
     const streamableTransport = new StreamableHTTPClientTransport(url, { requestInit, authProvider });
     try {
       return await this.openConnection(name, definition, streamableClient, streamableTransport);
@@ -186,7 +199,7 @@ export class McpServerManager {
     requestInit: { headers?: Record<string, string>; redirect?: 'manual' } | undefined,
     authProvider: McpOAuthProvider | undefined,
   ): Promise<ManagedConnection> {
-    const sseClient = createMcpClient(`sero-mcp-${name}`);
+    const sseClient = createMcpClient(`sero-mcp-${name}`, { serverLabel: name });
     const sseTransport = new SSEClientTransport(url, { requestInit, authProvider });
     try {
       return await this.openConnection(name, definition, sseClient, sseTransport, true);

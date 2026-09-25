@@ -19,6 +19,7 @@ describe('registerMcpProxyTool CLI bridge', () => {
       resourceUri: undefined,
       toolArguments: undefined,
       argumentsJson: undefined,
+      notify: expect.any(Function),
     });
     expect(result).toEqual({ output: 'status ok', exitCode: 0 });
   });
@@ -37,6 +38,7 @@ describe('registerMcpProxyTool CLI bridge', () => {
       resourceUri: undefined,
       toolArguments: undefined,
       argumentsJson: undefined,
+      notify: expect.any(Function),
     });
     expect(result).toEqual({ output: 'tools ok', exitCode: 0 });
   });
@@ -55,6 +57,7 @@ describe('registerMcpProxyTool CLI bridge', () => {
       resourceUri: 'file://README.md',
       toolArguments: undefined,
       argumentsJson: undefined,
+      notify: expect.any(Function),
     });
     expect(result).toEqual({ output: 'resource ok', exitCode: 0 });
   });

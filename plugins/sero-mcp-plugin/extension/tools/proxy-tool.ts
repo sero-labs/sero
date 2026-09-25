@@ -40,6 +40,8 @@ type ToolWithCli = Parameters<ExtensionAPI['registerTool']>[0] & {
 };
 
 export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): void {
+  const notify = (text: string) => pi.sendMessage({ customType: 'mcp-notice', content: text, display: true }, { triggerTurn: false });
+
   const mcpTool: ToolWithCli = {
     name: 'mcp',
     label: 'MCP',
@@ -64,6 +66,7 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
               toolArguments: action.toolArguments,
               argumentsJson: action.argumentsJson,
               signal: ctx.invocation?.signal,
+              notify,
             })
           : await runtime.executeManagerAction(action.action, { cwd: ctx.cwd, serverName: action.serverName });
         const text = result.content[0]?.text ?? '';
@@ -99,6 +102,7 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
         toolArguments: proxyParams.toolArguments,
         argumentsJson: proxyParams.argumentsJson,
         signal,
+        notify,
       });
     },
   };

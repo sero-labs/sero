@@ -13,7 +13,7 @@ async function capabilitiesSeenByServer(features?: McpClientFeatures) {
   const server = new McpServer({ name: 'fixture', version: '1.0.0' });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await server.connect(serverTransport);
-  const client = createMcpClient('sero-mcp-test', features);
+  const client = createMcpClient('sero-mcp-test', { features });
   await client.connect(clientTransport);
   const capabilities = server.server.getClientCapabilities();
   await client.close();

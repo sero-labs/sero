@@ -1,5 +1,6 @@
 import { RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/app-bridge';
 import { Client, type ClientCapabilities } from '@modelcontextprotocol/client';
+import { createElicitationHandler } from '../elicitation/handler';
 
 export const MCP_APPS_EXTENSION = 'io.modelcontextprotocol/ui';
 export const MCP_TASKS_EXTENSION = 'io.modelcontextprotocol/tasks';
@@ -15,23 +16,36 @@ export interface McpClientFeatures {
 export const MCP_CLIENT_FEATURES: McpClientFeatures = { apps: false, tasks: false, skills: false };
 
 const PROBE_TIMEOUT_MS = 10_000;
+const MAX_INPUT_ROUNDS = 10;
 
-export function buildClientCapabilities(features: McpClientFeatures): ClientCapabilities {
+export function buildClientCapabilities(features: McpClientFeatures, canElicit = false): ClientCapabilities {
   const extensions: NonNullable<ClientCapabilities['extensions']> = {};
   if (features.apps) extensions[MCP_APPS_EXTENSION] = { mimeTypes: [RESOURCE_MIME_TYPE] };
   if (features.tasks) extensions[MCP_TASKS_EXTENSION] = {};
   if (features.skills) extensions[MCP_SKILLS_EXTENSION] = {};
   // Sero never declares the deprecated sampling or roots client features.
-  return Object.keys(extensions).length > 0 ? { extensions } : {};
+  return {
+    ...(canElicit ? { elicitation: { form: {} } } : {}),
+    ...(Object.keys(extensions).length > 0 ? { extensions } : {}),
+  };
+}
+
+export interface CreateMcpClientOptions {
+  features?: McpClientFeatures;
+  /** The host-assigned server label. With it, the client answers server input requests. */
+  serverLabel?: string;
 }
 
 /** Builds every MCP client, so that negotiation and capabilities are set in one place. */
-export function createMcpClient(
-  clientName: string,
-  features: McpClientFeatures = MCP_CLIENT_FEATURES,
-): Client {
-  return new Client({ name: clientName, version: '0.1.0' }, {
-    capabilities: buildClientCapabilities(features),
+export function createMcpClient(clientName: string, options: CreateMcpClientOptions = {}): Client {
+  const { features = MCP_CLIENT_FEATURES, serverLabel } = options;
+  const client = new Client({ name: clientName, version: '0.1.0' }, {
+    capabilities: buildClientCapabilities(features, serverLabel !== undefined),
     versionNegotiation: { mode: 'auto', probe: { timeoutMs: PROBE_TIMEOUT_MS } },
+    inputRequired: { maxRounds: MAX_INPUT_ROUNDS },
   });
+  if (serverLabel !== undefined) {
+    client.setRequestHandler('elicitation/create', createElicitationHandler(serverLabel));
+  }
+  return client;
 }
