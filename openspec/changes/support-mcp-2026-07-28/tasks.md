@@ -70,7 +70,7 @@
 - [x] 8.8 In the MCP plugin, make `call_tool` attach the `seroToolResultView` marker and a plugin-owned `details.mcpApp` (type in `P/shared/types.ts`, result capped at 256 KB). Declare the `McpToolResultApp` contribution in `package.json` and expose it in `vite.config.ts`. Build the component as the prototype shows: it gets a viewer URL from `mcp_manager` `open_tool_ui` through `useAppTools()` and renders the sandboxed iframe or a fallback line with the reason. Verify: `runtime-proxy.test.ts` asserts the marker, the details and the cap. A UI test covers render and fallback. No viewer URL appears in persisted state.
 - [x] 8.9 Add the fixture apps (one that calls a tool, and one that declares a CSP domain and a permission) with `@modelcontextprotocol/ext-apps/server` helpers, and an e2e case: a model-initiated call renders inline, the app's approved tool call succeeds, and an unsupported app shows the fallback. Verify: the e2e case passes.
   - The e2e case is `mcp-apps.workflow.spec.ts`. It runs a real `call_tool`, stores it in a session as the model's `sero-cli` call, and opens the session, so it needs no LLM. The run found that the renderer CSP header replaced the CSP of loopback frames; `csp.ts` now keeps the frame's own policy. The model does not see or call tools with visibility `["app"]`.
-- [ ] 8.10 Document MCP Apps (inline rendering, isolation, permissions, fallback) in `apps/docs-site/docs/guide/mcp.md` and `P/README.md` → Interactive MCP UIs. Verify: the sections are present.
+- [x] 8.10 Document MCP Apps (inline rendering, isolation, permissions, fallback) in `apps/docs-site/docs/guide/mcp.md` and `P/README.md` → Interactive MCP UIs. Verify: the sections are present.
 
 ## 9. MCP Tasks
 

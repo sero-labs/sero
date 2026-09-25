@@ -37,6 +37,24 @@ A server that uses the older SSE transport shows **SSE, deprecated**. Sero keeps
 
 Sero checks the protocol version again after you change a server. If the server owner upgrades the server, select **Reconnect**.
 
+## MCP apps in the chat
+
+Some MCP tools come with an app: a small interactive page from the server, such as a chart or a form. When the agent calls such a tool, the tool call in the chat shows the app between the input and the text result. The text result stays, so the agent and you see the same data.
+
+Sero keeps each app apart from Sero and from other servers:
+
+- The app runs in a sandboxed frame on a separate local address. It cannot read Sero data or other apps.
+- The app has no network access, unless the server declares the domains that it needs. Sero then allows only those domains.
+- The app can call only tools of its own server that the server marks for apps. Sero blocks other calls and shows the reason under the app.
+- Sero does not give an app access to the camera, the microphone, your location, or the clipboard.
+- When the app asks to open a web page, Sero shows the full address. Select **Open page** to open it in your browser, or **Decline**.
+
+An app can send a message to the chat. The message shows the server and the tool, for example `sales · show_dashboard app`, and the agent answers it. An app can also add context that the agent reads on its next turn.
+
+When Sero cannot show an app, the tool call shows one line with the reason, for example **App not shown**, and the text result stays. When you open an older session, Sero loads the app again from the stored call. If the tool result was larger than 256 KB, Sero does not store it, and the app gets only the input.
+
+The agent does not see tools that a server marks for its app only.
+
 ## Answer questions from a server
 
 Some MCP tools ask you for information while they run. When a server asks, Sero opens its questions in **User Feedback**. The line under **Questionnaire** shows who asks, for example `MCP · crm · create_contact`: the server name from your MCP settings and the tool that asks. Answer each question, then select **Submit All Answers**. A server can ask again during the same tool call. After you answer, Sero goes back to the app that you used before.

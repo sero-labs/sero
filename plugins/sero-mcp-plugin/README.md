@@ -164,14 +164,27 @@ The `mcp` tool sets `cli.interactive`, so the CLI bridge applies no timeout whil
 
 ### Interactive MCP UIs
 
-When a resource URI starts with `ui://`, or when a discovered tool advertises `_meta.ui.resourceUri`, the plugin launches an **interactive loopback viewer session** inside the dedicated viewer pane.
+When a resource URI starts with `ui://`, or a tool has `_meta.ui.resourceUri`, the plugin shows the MCP app in a viewer. The viewer shows in two places:
 
-That viewer host:
+- **In chat.** `call_tool` adds `seroToolResultView` and `details.mcpApp` (`serverName`, `toolName`, `uiResourceUri`, `arguments`, `result`) to the result of a tool with an app. The desktop mounts the plugin's `McpToolResultApp` component from the `ui.chat.tool-result` extension point in the tool-call details. The component calls `mcp_manager` `open_tool_ui` with the stored details, the chat session ID and the tool call ID. A result above 256 KB is not stored, and the app then gets only the input.
+- **In the MCP app.** The viewer pane opens resources and tool UIs from the server detail view.
 
-- runs entirely inside Sero
-- uses ephemeral localhost session URLs
-- speaks AppBridge-style JSON-RPC to the embedded MCP UI
-- keeps viewer session identifiers and URLs out of persisted app state
+One loopback server (`extension/viewer/ui-server.ts`) serves all viewers. Each viewer is a session with a random token. Above eight sessions, the oldest closes. `close_viewer` takes the viewer ID.
+
+The viewer page loads `dist/ui/viewer-shell.js`. The plugin's Vite build bundles it from `ui/viewer-shell/`. The shell connects the app frame through `AppBridge` and `PostMessageTransport` from `@modelcontextprotocol/ext-apps/app-bridge`. It accepts messages only from the app frame, and it declares only the host capabilities that the viewer server implements.
+
+Isolation:
+
+- The app frame keeps `sandbox` without `allow-same-origin`.
+- The app CSP allows no network access unless the resource declares domains in `_meta.ui.csp`. Only web origins are accepted.
+- The app gets no `allow` permissions.
+- `tools/list` and `tools/call` from the app reach only tools of the owning server whose `_meta.ui.visibility` includes `app` (or has no list) and that are not in `excludeTools`. A blocked call sends no request.
+- `ui/open-link` opens a page only after the user selects **Open page**.
+- The desktop keeps the CSP that the viewer server sends for loopback frames.
+
+`ui/message` reaches the owning chat session as a labeled follow-up that starts a turn. `ui/update-model-context` reaches it as hidden context for the next turn. Each session registers its `sendMessage` with the runtime on start. A viewer outside a chat does not declare these capabilities.
+
+The model inventory leaves out tools with visibility `["app"]`, and the `mcp` tool refuses to call them.
 
 ### Tool runner
 
