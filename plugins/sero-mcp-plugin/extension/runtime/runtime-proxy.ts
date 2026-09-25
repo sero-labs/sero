@@ -34,6 +34,8 @@ interface ProxyToolOptions {
   resourceUri?: string;
   toolArguments?: Record<string, unknown>;
   argumentsJson?: string;
+  /** Stops only this request. */
+  signal?: AbortSignal;
   manager: McpServerManager;
   setRuntimeStatus: (serverName: string, status: RuntimeServerStatus) => void;
   syncSnapshot: (
@@ -297,7 +299,7 @@ async function callServerTool(options: ProxyToolOptions, synced: SyncedRuntimeSt
     );
   }
   try {
-    const result = await options.manager.callTool(serverName, toolName, toolArguments);
+    const result = await options.manager.callTool(serverName, toolName, toolArguments, { signal: options.signal });
     const text = formatCallToolResult(serverName, liveTool, result);
     return createToolResult(text, {
       mode: 'call_tool',

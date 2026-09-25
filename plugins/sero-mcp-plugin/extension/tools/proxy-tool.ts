@@ -63,6 +63,7 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
               resourceUri: action.resourceUri,
               toolArguments: action.toolArguments,
               argumentsJson: action.argumentsJson,
+              signal: ctx.invocation?.signal,
             })
           : await runtime.executeManagerAction(action.action, { cwd: ctx.cwd, serverName: action.serverName });
         const text = result.content[0]?.text ?? '';
@@ -72,7 +73,7 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
         };
       },
     },
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       const proxyParams = params as {
         action?: McpToolAction;
         query?: string;
@@ -97,6 +98,7 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
         resourceUri: proxyParams.resourceUri,
         toolArguments: proxyParams.toolArguments,
         argumentsJson: proxyParams.argumentsJson,
+        signal,
       });
     },
   };

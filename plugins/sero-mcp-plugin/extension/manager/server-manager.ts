@@ -71,7 +71,12 @@ export class McpServerManager {
     return connection.client.readResource({ uri });
   }
 
-  async callTool(name: string, toolName: string, toolArguments?: Record<string, unknown>): Promise<CallToolResult> {
+  async callTool(
+    name: string,
+    toolName: string,
+    toolArguments?: Record<string, unknown>,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<CallToolResult> {
     const connection = this.connections.get(name);
     if (!connection || connection.status !== 'connected' || !connection.client) {
       throw new Error(`Server "${name}" is not connected.`);
@@ -79,7 +84,7 @@ export class McpServerManager {
     return connection.client.callTool({
       name: toolName,
       arguments: toolArguments,
-    });
+    }, { signal: options.signal });
   }
 
   async close(name: string): Promise<void> {

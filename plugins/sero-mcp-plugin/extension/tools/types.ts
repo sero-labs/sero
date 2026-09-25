@@ -35,6 +35,8 @@ export type CliResult = {
 
 export type CliContext = {
   cwd: string;
+  /** The desktop CLI bridge passes the invocation, with the signal that stops the command. */
+  invocation?: { signal?: AbortSignal };
 };
 
 export function isManagerAction(value: string): value is ManagerAction {

@@ -257,7 +257,7 @@ describe('executeProxyAction', () => {
     });
 
     const text = result.content[0]?.text ?? '';
-    expect(callTool).toHaveBeenCalledWith('github', 'search_docs', { query: 'auth' });
+    expect(callTool).toHaveBeenCalledWith('github', 'search_docs', { query: 'auth' }, { signal: undefined });
     expect(text).toContain('MCP tool result from github.search_docs');
     expect(text).toContain('Found 2 matching docs.');
     expect(text).toContain('Structured content:');
