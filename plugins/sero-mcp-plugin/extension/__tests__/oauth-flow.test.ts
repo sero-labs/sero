@@ -3,7 +3,9 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ISSUER_MISMATCH_MESSAGE, McpOAuthCoordinator } from '../auth/oauth-coordinator';
+import { hasOAuthTokens, readOAuthTokens } from '../auth/storage';
 import type { McpServerConfig } from '../config/types';
+import { McpServerManager } from '../manager/server-manager';
 import { startOAuthTestServer, type OAuthTestServer } from './helpers/oauth-server';
 
 let server: OAuthTestServer;
@@ -89,5 +91,27 @@ describe('OAuth client registration', () => {
 
     expect(new URL(started.authUrl!).searchParams.get('client_id')).toBe('configured-client');
     expect(server.requests.some((request) => request.path === '/register')).toBe(false);
+  });
+});
+
+describe('OAuth authorization server change', () => {
+  it('does not send stored credentials to a new authorization server and asks for sign-in', async () => {
+    const { callback } = await startSignIn();
+    await coordinator.completeAuth('crm', callback({ iss: server.issuer }));
+    expect((await readOAuthTokens('crm', server.url))?.tokens.issuer).toBe(server.issuer);
+    const other = await startOAuthTestServer();
+    try {
+      server.switchAuthorizationServer(other.issuer);
+      const manager = new McpServerManager({ hasOAuthTokens });
+
+      const connection = await manager.connect('crm', { transport: 'http', url: server.url, auth: 'oauth' });
+      await manager.closeAll();
+
+      expect(connection.status).toBe('needs-auth');
+      expect(other.requests.filter((request) => request.path === '/token' || request.path === '/register')).toHaveLength(0);
+      expect(other.requests.some((request) => request.body.includes('issued-token') || request.body.includes('registered-client'))).toBe(false);
+    } finally {
+      await other.close();
+    }
   });
 });
