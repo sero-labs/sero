@@ -133,7 +133,7 @@ export function McpServerCrudPanel({
               <div>
                 <div className="font-medium text-foreground">{title}</div>
                 <p className="text-base text-muted-foreground">
-                  Use a local command for stdio, or a URL for HTTP/SSE. Advanced options stay available after save.
+                  Use a local command for stdio, or a URL for Streamable HTTP.
                 </p>
               </div>
               <div className="flex gap-2">
