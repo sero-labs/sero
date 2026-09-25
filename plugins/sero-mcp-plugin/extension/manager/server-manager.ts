@@ -64,11 +64,10 @@ export class McpServerManager {
     if (!connection || connection.status !== 'connected' || !connection.client) {
       throw new Error(`Server "${name}" is not connected.`);
     }
-    const result = await connection.client.callTool({
+    return connection.client.callTool({
       name: toolName,
       arguments: toolArguments,
     });
-    return result as CallToolResult;
   }
 
   async close(name: string): Promise<void> {
@@ -192,34 +191,19 @@ export class McpServerManager {
     }
   }
 
+  // Without a cursor, the v2 client walks every page and fills its response cache.
   private async fetchAllTools(client: Client): Promise<ManagedTool[]> {
-    const tools: ManagedTool[] = [];
-    let cursor: string | undefined;
-
-    do {
-      const result = await client.listTools(cursor ? { cursor } : undefined);
-      tools.push(...normalizeTools(result.tools));
-      cursor = result.nextCursor;
-    } while (cursor);
-
-    return tools;
+    const result = await client.listTools();
+    return normalizeTools(result.tools);
   }
 
   private async fetchAllResources(client: Client): Promise<ManagedResource[]> {
-    const resources: ManagedResource[] = [];
-    let cursor: string | undefined;
-
     try {
-      do {
-        const result = await client.listResources(cursor ? { cursor } : undefined);
-        resources.push(...normalizeResources(result.resources));
-        cursor = result.nextCursor;
-      } while (cursor);
+      const result = await client.listResources();
+      return normalizeResources(result.resources);
     } catch {
       return [];
     }
-
-    return resources;
   }
 
   private createConnectedConnection(

@@ -47,7 +47,7 @@ export class UiResourceHandler {
 }
 
 function selectContent(result: ReadResourceResult, preferredUri: string): ResourceContentRecord {
-  const contents = (result.contents ?? []) as ResourceContentRecord[];
+  const contents: ResourceContentRecord[] = result.contents;
   if (contents.length === 0) {
     throw new Error(`No contents were returned for resource "${preferredUri}".`);
   }
