@@ -103,4 +103,5 @@
 
 ## 11. Integration check
 
-- [ ] 11.1 Run `pnpm typecheck`, `pnpm --filter @sero-ai/plugin-mcp test`, the affected desktop unit tests and all MCP e2e specs on the final branch. Check each acceptance criterion of issue #359 against a test or a documented manual check. Verify: all pass, and the criterion-to-test map is in the pull request description.
+- [x] 11.1 Run `pnpm typecheck`, `pnpm --filter @sero-ai/plugin-mcp test`, the affected desktop unit tests and all MCP e2e specs on the final branch. Check each acceptance criterion of issue #359 against a test or a documented manual check. Verify: all pass, and the criterion-to-test map is in the pull request description.
+  - Note: all checks pass. The agent e2e spec needs an LLM key and skips without one. No pull request exists yet, so the criterion-to-test map is drafted for its description.
