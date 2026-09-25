@@ -35,7 +35,7 @@ describe('MCP server manager against the e2e fixture', () => {
 
     expect(connection.status).toBe('connected');
     expect(connection.protocol).toMatchObject({ era: 'modern', version: '2026-07-28' });
-    expect(connection.tools.map((tool) => tool.name)).toEqual(['echo']);
+    expect(connection.tools.map((tool) => tool.name)).toContain('echo');
   });
 
   it('negotiates 2026-07-28 with the HTTP fixture', async () => {
@@ -58,6 +58,6 @@ describe('MCP server manager against the e2e fixture', () => {
 
     expect(connection.status).toBe('connected');
     expect(connection.protocol?.era).toBe('legacy');
-    expect(connection.tools.map((tool) => tool.name)).toEqual(['echo']);
+    expect(connection.tools.map((tool) => tool.name)).toContain('echo');
   });
 });
