@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from '@sero-ai/ui/components/ui/a
 import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { cn } from '@sero-ai/ui/lib/utils';
-import { AlertCircle, FileJson, ListChecks, PlugZap, RefreshCw, Search, Server, ShieldCheck, Wrench } from 'lucide-react';
+import { AlertCircle, BookOpen, FileJson, ListChecks, PlugZap, RefreshCw, Search, Server, ShieldCheck, Wrench } from 'lucide-react';
 import type { McpAppState } from '../shared/types';
 import { createDefaultMcpState } from '../shared/types';
 import { McpRawConfigPanel } from './components/config/McpRawConfigPanel';
@@ -20,6 +20,8 @@ import { useMcpDiagnostics } from './hooks/useMcpDiagnostics';
 import { useMcpRawConfig } from './hooks/useMcpRawConfig';
 import { useMcpTasks } from './hooks/useMcpTasks';
 import { McpTasksPanel } from './components/tasks/McpTasksPanel';
+import { McpRemoteSkillsPanel } from './components/skills/McpRemoteSkillsPanel';
+import { useMcpRemoteSkills } from './hooks/useMcpRemoteSkills';
 import { ACTIVE_TASK_STATUSES } from '../shared/tasks';
 import './styles.css';
 
@@ -39,7 +41,8 @@ export function McpApp() {
     return typeof params?.serverName === 'string' ? params.serverName : null;
   });
   const [searchOpen, setSearchOpen] = useState(false);
-  const [tasksOpen, setTasksOpen] = useState(false);
+  const [panel, setPanel] = useState<'tasks' | 'skills' | null>(null);
+  const togglePanel = (next: 'tasks' | 'skills') => setPanel((current) => (current === next ? null : next));
   const tasks = useMcpTasks();
   const activeTasks = tasks.tasks.filter((task) => ACTIVE_TASK_STATUSES.has(task.status)).length;
 
@@ -77,14 +80,24 @@ export function McpApp() {
           <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
-              variant={tasksOpen ? 'default' : 'outline'}
+              variant={panel === 'tasks' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setTasksOpen((open) => !open)}
-              aria-pressed={tasksOpen}
+              onClick={() => togglePanel('tasks')}
+              aria-pressed={panel === 'tasks'}
             >
               <ListChecks className="mr-2 size-4" />
               Tasks
               {activeTasks > 0 && <span className="ml-1.5 text-xs opacity-80">{activeTasks}</span>}
+            </Button>
+            <Button
+              type="button"
+              variant={panel === 'skills' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => togglePanel('skills')}
+              aria-pressed={panel === 'skills'}
+            >
+              <BookOpen className="mr-2 size-4" />
+              Remote skills
             </Button>
             {state.servers.length > 0 && (
               <Button
@@ -140,7 +153,8 @@ export function McpApp() {
           </Alert>
         )}
 
-        {tasksOpen && (
+        {panel === 'skills' && <RemoteSkillsSection />}
+        {panel === 'tasks' && (
           <McpTasksPanel
             tasks={tasks.tasks}
             error={tasks.error}
@@ -164,6 +178,19 @@ export function McpApp() {
         />
       </div>
     </div>
+  );
+}
+
+function RemoteSkillsSection() {
+  const skills = useMcpRemoteSkills();
+  return (
+    <McpRemoteSkillsPanel
+      skills={skills.skills}
+      error={skills.error}
+      refreshing={skills.refreshing}
+      onRefresh={() => void skills.refresh()}
+      onToggle={(skill, enabled) => void skills.setEnabled(skill, enabled)}
+    />
   );
 }
 
