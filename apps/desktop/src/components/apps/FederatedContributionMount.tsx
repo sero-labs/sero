@@ -15,6 +15,8 @@ interface FederatedContributionMountProps {
   loading: ReactNode;
   unavailable: ReactNode;
   missingWorkspace?: ReactNode;
+  /** Props for a point whose component needs host data, such as `ui.chat.tool-result`. */
+  componentProps?: object;
 }
 
 interface ContributionErrorBoundaryProps {
@@ -60,6 +62,7 @@ export function FederatedContributionMount({
   loading,
   unavailable,
   missingWorkspace = unavailable,
+  componentProps,
 }: FederatedContributionMountProps) {
   const { contextValue, status } = useAppRuntimeMount(manifest);
   const surfaceId = useId();
@@ -91,7 +94,7 @@ export function FederatedContributionMount({
             className="contents"
           >
             <Suspense fallback={loading}>
-              <LazyComponent />
+              <LazyComponent {...componentProps} />
             </Suspense>
           </div>
         </PluginStyleScope>

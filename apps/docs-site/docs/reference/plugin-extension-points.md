@@ -28,6 +28,7 @@ contribution a distinct identity.
 | `ui.explorer.view` | Component | `label?`, `icon?` | Explorer activity item and main view |
 | `ui.titlebar.control` | Component | None | Inline title-bar controls |
 | `ui.chat.model-extension` | Component | `models` | Action beside the chat model selector |
+| `ui.chat.tool-result` | Component | None | View in the details of a tool call |
 | `ui.admin.model-settings` | Component | `name`, `description?`, `icon?` | Admin Model subsection |
 | `ui.dashboard.widget` | Component | `name`, `defaultSize?`, `minSize?`, `maxSize?`, `description?`, `remote?` | Dashboard grid |
 | `workspace.create.option` | Control | `switch` control and `tool` action | Create New Workspace form |
@@ -50,6 +51,14 @@ A chat model-extension contribution must list at least one model. Each model
 needs a non-empty `provider`, `api`, and `modelId`. Sero mounts the component
 only when all three values match the selected model. It does not infer support
 for other models from a provider or model name.
+
+A chat tool-result contribution is shown only for a tool result that names it.
+The tool puts `seroToolResultView: { appId, contributionId }` in the result
+`details`. Sero then mounts the component in the tool-call details with the
+props `{ sessionId, toolCallId, details, isError }` (type
+`ChatToolResultViewProps` in `@sero-ai/common`). Sero keeps the normal result
+text. When no contribution matches, or the component fails, the user sees only
+the normal result.
 
 ## Component example
 

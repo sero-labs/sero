@@ -4,6 +4,7 @@ export type ComponentExtensionPointId =
   | 'ui.explorer.view'
   | 'ui.titlebar.control'
   | 'ui.chat.model-extension'
+  | 'ui.chat.tool-result'
   | 'ui.admin.model-settings'
   | 'ui.dashboard.widget';
 
@@ -38,6 +39,28 @@ export interface ChatModelExtensionContribution extends ComponentContributionBas
   models: Array<{ provider: string; api: string; modelId: string }>;
 }
 
+/**
+ * A view of a tool result in the chat tool-call details. Sero mounts it only
+ * for a result whose `details` carry a matching `seroToolResultView` marker.
+ */
+export interface ChatToolResultContribution extends ComponentContributionBase {
+  extensionPoint: 'ui.chat.tool-result';
+}
+
+/** Put this in a tool result's `details` to show the named `ui.chat.tool-result` component with the result. */
+export interface SeroToolResultViewMarker {
+  appId: string;
+  contributionId: string;
+}
+
+/** The props that Sero gives a `ui.chat.tool-result` component. */
+export interface ChatToolResultViewProps {
+  sessionId: string;
+  toolCallId: string;
+  details: Record<string, unknown>;
+  isError: boolean;
+}
+
 export interface AdminModelSettingsContribution extends ComponentContributionBase {
   extensionPoint: 'ui.admin.model-settings';
   name: string;
@@ -67,6 +90,7 @@ export type ComponentContribution =
   | ExplorerViewContribution
   | TitleBarControlContribution
   | ChatModelExtensionContribution
+  | ChatToolResultContribution
   | AdminModelSettingsContribution
   | DashboardWidgetContribution;
 
