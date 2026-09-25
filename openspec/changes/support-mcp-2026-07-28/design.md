@@ -84,7 +84,7 @@ Tool calls and reads move out of the `runExclusive` queue after `ensureConnected
 - `completeAuth` checks `state`, then calls `finishAuth(new URL(callbackUrl).searchParams)` so that the SDK reads `iss`. On `IssuerMismatchError`, the UI shows a fixed message and never the callback's `error*` values.
 - Tokens that were stored without an issuer continue to work, and the SDK stamps them again.
 - `clientMetadataUrl` is read from one constant. While that constant is unset, the flow uses DCR. The SDK already derives `application_type: 'native'` from the loopback redirect URI, and a test checks this.
-- `onInsufficientScope` stays `'reauthorize'`.
+- `onInsufficientScope` stays `'reauthorize'`. Outside a sign-in the runtime provider cannot follow the redirect, so it saves the requested scope, and the next sign-in forces a new authorization for it (added on 2026-09-25 after the step-up test showed that a plain connect accepted the old token).
 - Token endpoint TLS is enforced by the SDK and needs no Sero code.
 
 ### D6. MCP Apps: one viewer server, the official bridge, inline in chat
