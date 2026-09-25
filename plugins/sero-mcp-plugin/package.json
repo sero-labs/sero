@@ -30,7 +30,16 @@
       "stateFile": ".sero/apps/mcp/state.json",
       "ui": "./dist/ui/remoteEntry.js",
       "component": "McpApp",
-      "devPort": 5196
+      "devPort": 5196,
+      "contributes": {
+        "components": [
+          {
+            "id": "mcp-app",
+            "extensionPoint": "ui.chat.tool-result",
+            "component": "McpToolResultApp"
+          }
+        ]
+      }
     },
     "plugin": {
       "category": "developer-tools",
@@ -54,8 +63,9 @@
     }
   },
   "dependencies": {
-    "@modelcontextprotocol/ext-apps": "1.7.5",
-    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@modelcontextprotocol/client": "^2.1.0",
+    "@modelcontextprotocol/ext-apps": "^2.0.1",
+    "@modelcontextprotocol/ext-tasks": "0.1.0",
     "typebox": "catalog:",
     "zod": "catalog:"
   },
@@ -66,6 +76,8 @@
   },
   "devDependencies": {
     "@sero-ai/plugin-vite": "workspace:*",
+    "@modelcontextprotocol/node": "^2.1.0",
+    "@modelcontextprotocol/server": "^2.1.0",
     "@module-federation/vite": "catalog:",
     "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero-ai/common": "workspace:*",

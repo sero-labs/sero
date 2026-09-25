@@ -175,4 +175,26 @@ describe('QuestionnaireForm', () => {
       expect.objectContaining({ questionId: 'format_depth', value: 'full' }),
     ]);
   });
+
+  it('shows who asks when the question names a source', async () => {
+    await act(async () => {
+      root?.render(
+        <QuestionnaireForm
+          question={{ ...pendingQuestion, context: { source: 'MCP · crm · create_contact' } }}
+          onSubmit={onSubmit}
+          onCancel={onCancel}
+        />,
+      );
+    });
+
+    expect(container.textContent).toContain('MCP · crm · create_contact');
+  });
+
+  it('shows no source line when the question has no source', async () => {
+    await act(async () => {
+      root?.render(<QuestionnaireForm question={pendingQuestion} onSubmit={onSubmit} onCancel={onCancel} />);
+    });
+
+    expect(container.querySelector('h1')?.nextElementSibling?.tagName).not.toBe('P');
+  });
 });

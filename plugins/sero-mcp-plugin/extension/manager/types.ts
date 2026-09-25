@@ -1,7 +1,8 @@
-import type { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
-import type { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import type { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import type { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
+import type { McpFailurePhase } from '../../shared/types';
+import type { SSEClientTransport, StreamableHTTPClientTransport, Client, ProtocolEra } from '@modelcontextprotocol/client';
+import type { TaskEnabledSession } from '@modelcontextprotocol/ext-tasks/client';
+import type { SkillsClient } from '../skills/skills-client';
 
 export type ManagedTransport =
   | StdioClientTransport
@@ -23,6 +24,26 @@ export interface ManagedResource {
   _meta?: Record<string, unknown>;
 }
 
+/** What Sero negotiated with a connected server. */
+export interface ManagedConnectionProtocol {
+  era: ProtocolEra;
+  version: string | null;
+  /** Extension IDs that the server declares. */
+  extensions: string[];
+  serverVersion: { name: string; version: string } | null;
+  /** True when the connection uses the deprecated SSE transport. */
+  deprecatedTransport: boolean;
+  /** True when a saved legacy verdict skipped the server/discover probe. */
+  eraFromVerdict: boolean;
+}
+
+/** The server's cache hints from its last tool and resource listing. */
+export interface ManagedCacheHints {
+  /** The shortest `ttlMs` of the listings, or null when the server sent none. */
+  ttlMs: number | null;
+  scope: 'public' | 'private';
+}
+
 export interface ManagedConnection {
   name: string;
   client: Client | null;
@@ -33,4 +54,13 @@ export interface ManagedConnection {
   lastError?: string;
   lastConnectedAt?: string | null;
   lastFailedAt?: string | null;
+  protocol?: ManagedConnectionProtocol;
+  failurePhase?: McpFailurePhase;
+  /** The account that the connection uses: `anon`, `bearer:<sha256>` or `oauth:<id>`. */
+  principalId?: string;
+  cacheHints?: ManagedCacheHints;
+  /** Set when the server declares the Tasks extension and Sero's Tasks feature is on. */
+  taskSession?: TaskEnabledSession;
+  /** Set when the server declares the Skills extension and Sero's Skills feature is on. */
+  skills?: SkillsClient;
 }

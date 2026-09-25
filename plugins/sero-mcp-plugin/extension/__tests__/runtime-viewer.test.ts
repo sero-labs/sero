@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SyncedRuntimeState } from '../runtime/runtime-types';
 import { createToolResult } from '../tools/types';
+import { SessionRegistry } from '../runtime/app-messages';
 import { closeViewerAction, openToolUiAction, openViewerResourceAction } from '../runtime/runtime-viewer';
 
 const readServerResourceActionMock = vi.fn();
@@ -30,13 +31,12 @@ describe('runtime-viewer', () => {
         meta: {},
       })),
     };
-    const uiSessions = {
+    const uiServer = {
       open: vi.fn(async () => ({
-        sessionId: 'session-1',
+        viewerId: 'session-1',
         viewerUrl: 'http://127.0.0.1:43123/?session=session-1',
         serverName: 'demo',
         resourceUri: 'ui://demo/dashboard',
-        close: vi.fn(),
       })),
     };
 
@@ -46,15 +46,17 @@ describe('runtime-viewer', () => {
       resourceUri: 'ui://demo/dashboard',
       manager: manager as never,
       uiResourceHandler: uiResourceHandler as never,
-      uiSessions: uiSessions as never,
+      uiServer: uiServer as never,
+      sessions: new SessionRegistry(),
+      permissionChoices: new Map(),
       setRuntimeStatus: vi.fn(),
       syncSnapshot: vi.fn(async () => createSyncedState()),
     });
 
     expect(uiResourceHandler.readUiResource).toHaveBeenCalledWith('demo', 'ui://demo/dashboard');
-    expect(uiSessions.open).toHaveBeenCalled();
+    expect(uiServer.open).toHaveBeenCalled();
     expect(result.details.viewerUrl).toBe('http://127.0.0.1:43123/?session=session-1');
-    expect(result.details.sessionId).toBe('session-1');
+    expect(result.details.viewerId).toBe('session-1');
   });
 
   it('falls back to inline preview handling for non-ui resources', async () => {
@@ -75,13 +77,81 @@ describe('runtime-viewer', () => {
       resourceUri: 'file://README.md',
       manager: createManager({ status: 'connected', tools: [], resources: [] }) as never,
       uiResourceHandler: { readUiResource: vi.fn() } as never,
-      uiSessions: { open: vi.fn(), getActiveSession: vi.fn(), closeActive: vi.fn(async () => undefined) } as never,
+      uiServer: { open: vi.fn(), close: vi.fn() } as never,
+      sessions: new SessionRegistry(),
+      permissionChoices: new Map(),
       setRuntimeStatus: vi.fn(),
       syncSnapshot: vi.fn(async () => createSyncedState()),
     });
 
     expect(readServerResourceActionMock).toHaveBeenCalled();
     expect(result.details.resourcePreview).toBeTruthy();
+  });
+
+  it('refuses to open a UI resource while the session acts on a skill of another server', async () => {
+    const readUiResource = vi.fn();
+    const result = await openViewerResourceAction({
+      cwd: '/tmp/workspace',
+      serverName: 'demo',
+      resourceUri: 'ui://demo/dashboard',
+      callerSessionId: 'chat-1',
+      crossServerReadError: (sessionId, serverName) => `blocked ${sessionId} -> ${serverName}`,
+      manager: createManager({ status: 'connected', tools: [], resources: [] }) as never,
+      uiResourceHandler: { readUiResource } as never,
+      uiServer: { open: vi.fn(), close: vi.fn() } as never,
+      sessions: new SessionRegistry(),
+      permissionChoices: new Map(),
+      setRuntimeStatus: vi.fn(),
+      syncSnapshot: vi.fn(async () => createSyncedState()),
+    });
+
+    expect(readUiResource).not.toHaveBeenCalled();
+    expect(result.content[0]?.text).toContain('blocked chat-1 -> demo');
+  });
+
+  it('refuses to open a tool UI while the session acts on a skill of another server', async () => {
+    const readUiResource = vi.fn();
+    const result = await openToolUiAction({
+      cwd: '/tmp/workspace',
+      serverName: 'demo',
+      toolName: 'dashboard',
+      // The app-message session must not stand in for the caller in the guard.
+      sessionId: 'app-chat',
+      callerSessionId: 'chat-1',
+      crossServerReadError: (sessionId, serverName) => `blocked ${sessionId} -> ${serverName}`,
+      manager: createManager({ status: 'connected', tools: [], resources: [] }) as never,
+      uiResourceHandler: { readUiResource } as never,
+      uiServer: { open: vi.fn(), close: vi.fn() } as never,
+      sessions: new SessionRegistry(),
+      permissionChoices: new Map(),
+      setRuntimeStatus: vi.fn(),
+      syncSnapshot: vi.fn(async () => createSyncedState()),
+    });
+
+    expect(readUiResource).not.toHaveBeenCalled();
+    expect(result.content[0]?.text).toContain('blocked chat-1 -> demo');
+  });
+
+  it('passes the trusted caller session to the shared read for non-ui resources', async () => {
+    readServerResourceActionMock.mockResolvedValue(createToolResult('Loaded resource.'));
+
+    await openViewerResourceAction({
+      cwd: '/tmp/workspace',
+      serverName: 'demo',
+      resourceUri: 'file://README.md',
+      sessionId: 'app-chat',
+      callerSessionId: 'chat-1',
+      crossServerReadError: () => null,
+      manager: createManager({ status: 'connected', tools: [], resources: [] }) as never,
+      uiResourceHandler: { readUiResource: vi.fn() } as never,
+      uiServer: { open: vi.fn(), close: vi.fn() } as never,
+      sessions: new SessionRegistry(),
+      permissionChoices: new Map(),
+      setRuntimeStatus: vi.fn(),
+      syncSnapshot: vi.fn(async () => createSyncedState()),
+    });
+
+    expect(readServerResourceActionMock).toHaveBeenCalledWith(expect.objectContaining({ sessionId: 'chat-1' }));
   });
 
   it('blocks direct ui-resource opens when resource exposure is disabled', async () => {
@@ -91,7 +161,9 @@ describe('runtime-viewer', () => {
       resourceUri: 'ui://demo/dashboard',
       manager: createManager({ status: 'connected', tools: [], resources: [] }) as never,
       uiResourceHandler: { readUiResource: vi.fn() } as never,
-      uiSessions: { open: vi.fn(), getActiveSession: vi.fn(), closeActive: vi.fn(async () => undefined) } as never,
+      uiServer: { open: vi.fn(), close: vi.fn() } as never,
+      sessions: new SessionRegistry(),
+      permissionChoices: new Map(),
       setRuntimeStatus: vi.fn(),
       syncSnapshot: vi.fn(async () => createSyncedState({ exposeResources: false })),
     });
@@ -121,13 +193,12 @@ describe('runtime-viewer', () => {
         meta: {},
       })),
     };
-    const uiSessions = {
+    const uiServer = {
       open: vi.fn(async () => ({
-        sessionId: 'session-2',
+        viewerId: 'session-2',
         viewerUrl: 'http://127.0.0.1:43123/?session=session-2',
         serverName: 'demo',
         resourceUri: 'ui://demo/dashboard',
-        close: vi.fn(),
       })),
     };
 
@@ -137,7 +208,9 @@ describe('runtime-viewer', () => {
       toolName: 'dashboard',
       manager: manager as never,
       uiResourceHandler: uiResourceHandler as never,
-      uiSessions: uiSessions as never,
+      uiServer: uiServer as never,
+      sessions: new SessionRegistry(),
+      permissionChoices: new Map(),
       setRuntimeStatus: vi.fn(),
       syncSnapshot: vi.fn(async () => createSyncedState()),
     });
@@ -147,23 +220,12 @@ describe('runtime-viewer', () => {
     expect(result.details.viewerUrl).toBe('http://127.0.0.1:43123/?session=session-2');
   });
 
-  it('closes the active viewer session', async () => {
-    const closeActive = vi.fn(async () => undefined);
+  it('closes the viewer session it names', async () => {
+    const close = vi.fn(() => true);
 
-    const result = await closeViewerAction({
-      uiSessions: {
-        getActiveSession: () => ({
-          sessionId: 'session-3',
-          viewerUrl: 'http://127.0.0.1:43123/?session=session-3',
-          serverName: 'demo',
-          resourceUri: 'ui://demo/dashboard',
-          close: vi.fn(),
-        }),
-        closeActive,
-      } as never,
-    });
+    const result = closeViewerAction({ uiServer: { close } as never, viewerId: 'session-3' });
 
-    expect(closeActive).toHaveBeenCalledWith('closed-from-ui');
+    expect(close).toHaveBeenCalledWith('session-3', 'closed-from-ui');
     expect(result.details.sessionClosed).toBe(true);
   });
 });
@@ -209,7 +271,7 @@ function createSyncedState(overrides: { exposeResources?: boolean } = {}): Synce
     configPath: '/tmp/sero/apps/mcp/config.json',
     statePath: '/tmp/sero/apps/mcp/state.json',
     rawConfigUpdatedAt: '2026-04-20T00:00:00.000Z',
-    metadataCache: { version: 1, servers: {} },
+    metadataCache: { version: 2, servers: {} },
     config: {
       mcpServers: {
         demo: {

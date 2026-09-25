@@ -13,6 +13,12 @@ const MCP_TOOL_ACTIONS = [
   'describe_tool',
   'call_tool',
   'read_resource',
+  'task_status',
+  'task_wait',
+  'task_cancel',
+  'skill_load',
+  'skill_read',
+  'skill_ls',
   'connect',
   'reconnect',
 ] as const;
@@ -29,17 +35,24 @@ const ProxyParams = Type.Object({
   resourceUri: Type.Optional(Type.String({ description: 'Exact MCP resource URI for read_resource, usually taken from list_resources or known server docs/resource paths.' })),
   toolArguments: Type.Optional(Type.Record(Type.String(), Type.Any(), { description: 'Preferred way to pass call_tool arguments: a structured object matching the MCP tool schema.' })),
   argumentsJson: Type.Optional(Type.String({ description: 'Fallback for call_tool only: a valid JSON object string when structured toolArguments cannot be supplied. Example: {"query":"oauth"}.' })),
+  taskId: Type.Optional(Type.String({ description: 'Task ID from a call_tool result, for task_status, task_wait or task_cancel.' })),
+  skill: Type.Optional(Type.String({ description: 'Remote skill name, path or URI, for skill_load, skill_read or skill_ls.' })),
+  path: Type.Optional(Type.String({ description: 'File path inside the skill for skill_read, or a directory for skill_ls.' })),
 });
 
 type ToolWithCli = Parameters<ExtensionAPI['registerTool']>[0] & {
   cli: {
     summary: string;
     help: string;
+    /** A call can wait for the user to answer a server question, so the CLI bridge applies no timeout. */
+    interactive?: boolean;
     execute: (args: string[], ctx: CliContext) => Promise<CliResult>;
   };
 };
 
 export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): void {
+  const notify = (text: string) => pi.sendMessage({ customType: 'mcp-notice', content: text, display: true }, { triggerTurn: false });
+
   const mcpTool: ToolWithCli = {
     name: 'mcp',
     label: 'MCP',
@@ -48,7 +61,8 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
     parameters: ProxyParams,
     cli: {
       summary: 'Preferred MCP surface for status, discovery, and live MCP reads/calls',
-      help: 'Use this tool first for MCP status/list/search/tools/resources/describe/call/read. If the user asks to use a server like context7/github directly, start here rather than mcp_manager. When the tool name or arguments are unclear, use tools/describe first; once known, call the tool directly. Live read/call actions auto-connect enabled servers when needed. Use mcp_manager only for MCP config/lifecycle/auth/viewer actions. CLI: sero mcp status | list | search <query> | tools <server> | resources <server> | read <server> <resourceUri> | describe <server> <tool> | call <server> <tool> [jsonArgs] | connect <server> | reconnect <server> | enable <server> | disable <server>. Action-style aliases are also accepted: list_tools, list_resources, describe_tool, call_tool, read_resource, connect_server, reconnect_server, enable_server, disable_server.',
+      interactive: true,
+      help: 'Use this tool first for MCP status/list/search/tools/resources/describe/call/read. If the user asks to use a server like context7/github directly, start here rather than mcp_manager. When the tool name or arguments are unclear, use tools/describe first; once known, call the tool directly. Live read/call actions auto-connect enabled servers when needed. Use mcp_manager only for MCP config/lifecycle/auth/viewer actions. CLI: sero mcp status | list | search <query> | tools <server> | resources <server> | read <server> <resourceUri> | describe <server> <tool> | call <server> <tool> [jsonArgs] | task status|wait|cancel <taskId> | skill load <server> <skill> | skill read <server> <skill> <path> | skill ls <server> <skill> [dir] | connect <server> | reconnect <server> | enable <server> | disable <server>. Action-style aliases are also accepted: list_tools, list_resources, describe_tool, call_tool, read_resource, connect_server, reconnect_server, enable_server, disable_server.',
       async execute(args: string[], ctx: CliContext) {
         const action = parseCliCommand(args);
         if (action.kind === 'usage-error') {
@@ -63,6 +77,12 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
               resourceUri: action.resourceUri,
               toolArguments: action.toolArguments,
               argumentsJson: action.argumentsJson,
+              taskId: action.taskId,
+              skill: action.skill,
+              path: action.path,
+              signal: ctx.invocation?.signal,
+              sessionId: ctx.invocation?.sessionId ?? undefined,
+              notify,
             })
           : await runtime.executeManagerAction(action.action, { cwd: ctx.cwd, serverName: action.serverName });
         const text = result.content[0]?.text ?? '';
@@ -72,7 +92,7 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
         };
       },
     },
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+    async execute(toolCallId, params, signal, _onUpdate, ctx) {
       const proxyParams = params as {
         action?: McpToolAction;
         query?: string;
@@ -81,6 +101,9 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
         resourceUri?: string;
         toolArguments?: Record<string, unknown>;
         argumentsJson?: string;
+        taskId?: string;
+        skill?: string;
+        path?: string;
       };
       const action = proxyParams.action ?? 'status';
       if (action === 'connect' || action === 'reconnect') {
@@ -97,6 +120,13 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
         resourceUri: proxyParams.resourceUri,
         toolArguments: proxyParams.toolArguments,
         argumentsJson: proxyParams.argumentsJson,
+        taskId: proxyParams.taskId,
+        skill: proxyParams.skill,
+        path: proxyParams.path,
+        signal,
+        sessionId: ctx?.sessionManager.getSessionId(),
+        toolCallId,
+        notify,
       });
     },
   };
@@ -114,6 +144,9 @@ type CliCommand =
       resourceUri?: string;
       toolArguments?: Record<string, unknown>;
       argumentsJson?: string;
+      taskId?: string;
+      skill?: string;
+      path?: string;
     }
   | { kind: 'manager'; action: 'connect_server' | 'reconnect_server' | 'enable_server' | 'disable_server'; serverName: string }
   | { kind: 'usage-error'; message: string };
@@ -162,6 +195,22 @@ function parseCliCommand(args: string[]): CliCommand {
     return serverName && toolName
       ? { kind: 'proxy', action: 'call_tool', serverName, toolName, argumentsJson: argumentsJson || undefined }
       : { kind: 'usage-error', message: 'Usage: sero mcp call <server> <tool> [jsonArgs]' };
+  }
+  if (subcommand === 'task') {
+    const taskAction = ({ status: 'task_status', wait: 'task_wait', cancel: 'task_cancel' } as const)[args[1]?.trim().toLowerCase() ?? ''];
+    const taskId = args[2]?.trim();
+    return taskAction && taskId
+      ? { kind: 'proxy', action: taskAction, taskId }
+      : { kind: 'usage-error', message: 'Usage: sero mcp task status|wait|cancel <taskId>' };
+  }
+  if (subcommand === 'skill') {
+    const skillAction = ({ load: 'skill_load', read: 'skill_read', ls: 'skill_ls' } as const)[args[1]?.trim().toLowerCase() ?? ''];
+    const server = args[2]?.trim();
+    const skill = args[3]?.trim();
+    const filePath = args.slice(4).join(' ').trim() || undefined;
+    return skillAction && server && skill && (skillAction !== 'skill_read' || filePath)
+      ? { kind: 'proxy', action: skillAction, serverName: server, skill, path: filePath }
+      : { kind: 'usage-error', message: 'Usage: sero mcp skill load <server> <skill> | read <server> <skill> <path> | ls <server> <skill> [dir]' };
   }
   if (subcommand === 'connect') {
     return serverName

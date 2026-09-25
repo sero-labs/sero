@@ -1,79 +1,184 @@
 import http, { type IncomingMessage, type ServerResponse } from 'node:http';
-import { randomUUID } from 'node:crypto';
-import { buildAllowAttribute } from '@modelcontextprotocol/ext-apps/app-bridge';
-import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
-import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { buildAllowAttribute, type McpUiResourcePermissions } from '@modelcontextprotocol/ext-apps/app-bridge';
 import type { McpServerManager } from '../manager/server-manager';
-import { applyCspMeta, buildCspMetaContent, buildHostHtmlTemplate, buildViewerHostCspContent } from './host-template';
+import { VIEWER_SHELL_SCRIPT } from '../../shared/viewer-shell';
+import { buildAppCsp, buildHostHtmlTemplate, buildViewerHostCspContent } from './host-template';
+import { callViewerTool, listAppTools, readViewerResource, toRecord } from './ui-proxy';
 import type { UiResourceContent, UiToolInfo } from './types';
 
 const MAX_BODY_SIZE = 2 * 1024 * 1024;
+/** Chat can show many app results. Above this limit, the oldest viewer session closes. */
+export const MAX_VIEWER_SESSIONS = 8;
 
-interface JsonRpcRequest {
-  jsonrpc?: string;
-  id?: string | number | null;
-  method?: string;
-  params?: unknown;
-}
-
-interface PostBody {
-  token?: string;
-  params?: unknown;
-}
-
-export interface UiServerOptions {
+export interface UiSessionOptions {
   serverName: string;
   resourceUri: string;
   title: string;
   resource: UiResourceContent;
   toolInfo?: UiToolInfo;
   toolArgs?: Record<string, unknown>;
-  manager: McpServerManager;
+  toolResult?: Record<string, unknown>;
+  /** Tools from the server config that the app must not see or call. */
+  excludeTools?: string[];
+  /** Permissions for the frame `allow` attribute. The app gets none unless the user granted them. */
+  grantedPermissions?: McpUiResourcePermissions;
+  /** Asks the user before the app opens a link. Resolves true when the page was opened. */
+  onOpenLink?: (url: string) => Promise<boolean>;
   onUnauthorized?: (serverName: string, message: string) => Promise<void>;
-  onUiMessage?: (params: Record<string, unknown>) => Promise<void> | void;
+  /** Set only when the app is shown in a chat. It delivers `ui/message` and `ui/update-model-context` there. */
+  onAppMessage?: (kind: 'message' | 'context', params: Record<string, unknown>) => void;
   onClose?: (reason: string) => void;
 }
 
-export interface UiServerHandle {
-  sessionId: string;
+export interface UiSessionHandle {
+  viewerId: string;
+  /** The frame `allow` value for the granted permissions. A frame that embeds the viewer must pass it on. */
+  allowAttribute: string;
   viewerUrl: string;
+  /** The app frame URL. Its host is unique per app, so the frame keeps a real origin. */
+  appFrameUrl: string;
   serverName: string;
   resourceUri: string;
-  close: (reason?: string) => void;
 }
 
-export async function startUiServer(options: UiServerOptions): Promise<UiServerHandle> {
-  const sessionId = randomUUID();
-  let closed = false;
-  let closeReason = 'closed';
+/** A viewer session plus the per-app host that serves its frame. */
+interface ViewerSession extends UiSessionOptions {
+  /** The DNS label of the app frame host, for example `a1b2c3d4e5f60718.localhost`. */
+  appLabel: string;
+  appFrameUrl: string;
+}
 
-  const server = http.createServer(async (request, response) => {
+/**
+ * One loopback server for all MCP app viewers. Each viewer is a session with
+ * a random token; the token is in the page URL and in every proxy request.
+ * The app frame loads from its own `<label>.localhost` host, so it keeps a
+ * real origin without sharing one with the shell or with another app.
+ */
+export class McpUiServer {
+  private readonly sessions = new Map<string, ViewerSession>();
+  private listening: Promise<{ server: http.Server; port: number }> | null = null;
+  private port = 0;
+
+  constructor(private readonly manager: McpServerManager) {}
+
+  async open(options: UiSessionOptions): Promise<UiSessionHandle> {
+    const { port } = await this.start();
+    while (this.sessions.size >= MAX_VIEWER_SESSIONS) {
+      const oldest = this.sessions.keys().next().value;
+      if (oldest === undefined) break;
+      this.close(oldest, 'session-limit');
+    }
+    const viewerId = randomUUID();
+    // A separate host label per app: the frame gets its own origin, and the shell
+    // token is not in the app URL, so an app cannot load the shell origin.
+    const appLabel = randomBytes(8).toString('hex');
+    const appFrameUrl = `http://${appLabel}.localhost:${port}/ui-app`;
+    this.sessions.set(viewerId, { ...options, appLabel, appFrameUrl });
+    return {
+      viewerId,
+      allowAttribute: buildAllowAttribute(options.grantedPermissions),
+      viewerUrl: `http://127.0.0.1:${port}/?session=${encodeURIComponent(viewerId)}`,
+      appFrameUrl,
+      serverName: options.serverName,
+      resourceUri: options.resourceUri,
+    };
+  }
+
+  has(viewerId: string): boolean {
+    return this.sessions.has(viewerId);
+  }
+
+  close(viewerId: string, reason = 'closed'): boolean {
+    const session = this.sessions.get(viewerId);
+    if (!session) return false;
+    this.sessions.delete(viewerId);
+    session.onClose?.(reason);
+    return true;
+  }
+
+  closeForServer(serverName: string, reason = 'server-config-changed'): void {
+    for (const [viewerId, session] of this.sessions) {
+      if (session.serverName === serverName) this.close(viewerId, reason);
+    }
+  }
+
+  async closeAll(reason = 'closed'): Promise<void> {
+    for (const viewerId of [...this.sessions.keys()]) this.close(viewerId, reason);
+    const listening = this.listening;
+    this.listening = null;
+    if (!listening) return;
+    const { server } = await listening;
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+
+  private async start(): Promise<{ server: http.Server; port: number }> {
+    this.listening ??= listen(http.createServer((request, response) => {
+      void this.handle(request, response);
+    }));
+    const started = await this.listening;
+    this.port = started.port;
+    return started;
+  }
+
+  /** The session whose app frame host matches the request Host header. */
+  private appSessionFor(host: string | undefined): ViewerSession | undefined {
+    const name = (host ?? '').split(':')[0]?.toLowerCase() ?? '';
+    if (!name.endsWith('.localhost')) return undefined;
+    const label = name.slice(0, -'.localhost'.length);
+    for (const session of this.sessions.values()) {
+      if (session.appLabel === label) return session;
+    }
+    return undefined;
+  }
+
+  private async handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
     try {
       const method = request.method || 'GET';
-      const url = new URL(request.url || '/', `http://${request.headers.host || '127.0.0.1'}`);
+      const url = new URL(request.url || '/', 'http://127.0.0.1');
 
-      if (method === 'GET' && url.pathname === '/') {
-        if (!validateSessionQuery(url, sessionId, response)) return;
-        sendHtml(
-          response,
-          buildHostHtmlTemplate({
-            sessionId,
-            serverName: options.serverName,
-            resourceUri: options.resourceUri,
-            title: options.title,
-            allowAttribute: buildAllowAttribute(options.resource.meta.permissions),
-            toolArgs: options.toolArgs ?? {},
-            toolInfo: options.toolInfo,
-          }),
-          buildViewerHostCspContent(),
-        );
+      // An app frame host serves the app document and nothing else. The shell
+      // host below serves the shell, its script and the proxy routes.
+      const appSession = this.appSessionFor(request.headers.host);
+      if (appSession) {
+        if (method === 'GET' && url.pathname === '/ui-app') {
+          sendHtml(response, appSession.resource.html, buildAppCsp(appSession.resource.meta.csp));
+          return;
+        }
+        sendJson(response, 404, { ok: false, error: 'Not found' });
         return;
       }
 
-      if (method === 'GET' && url.pathname === '/ui-app') {
-        if (!validateSessionQuery(url, sessionId, response)) return;
-        const csp = buildCspMetaContent(options.resource.meta.csp);
-        sendHtml(response, applyCspMeta(options.resource.html, csp), csp);
+      if (method === 'GET' && url.pathname === `/${VIEWER_SHELL_SCRIPT}`) {
+        await sendShellScript(response);
+        return;
+      }
+
+      if (method === 'GET') {
+        const viewerId = url.searchParams.get('session') ?? '';
+        const session = this.sessions.get(viewerId);
+        if (!session) {
+          sendJson(response, 403, { ok: false, error: 'Invalid viewer session token' });
+          return;
+        }
+        if (url.pathname === '/') {
+          sendHtml(response, buildHostHtmlTemplate({
+            token: viewerId,
+            appFrameUrl: session.appFrameUrl,
+            title: session.title,
+            allowAttribute: buildAllowAttribute(session.grantedPermissions),
+            toolArgs: session.toolArgs ?? {},
+            toolResult: session.toolResult,
+            toolInfo: session.toolInfo,
+            chat: session.onAppMessage !== undefined,
+          }), buildViewerHostCspContent(`http://*.localhost:${this.port}`));
+          return;
+        }
+        sendJson(response, 404, { ok: false, error: 'Not found' });
         return;
       }
 
@@ -82,158 +187,81 @@ export async function startUiServer(options: UiServerOptions): Promise<UiServerH
         return;
       }
 
-      const body = await readBody(request);
-      if (!validateSessionBody(body, sessionId, response)) {
+      const body = toRecord(await readBody(request));
+      const session = typeof body.token === 'string' ? this.sessions.get(body.token) : undefined;
+      if (!session) {
+        sendJson(response, 403, { ok: false, error: 'Invalid viewer session token' });
         return;
       }
-
-      if (url.pathname === '/proxy/tools/call') {
-        sendJson(response, 200, {
-          ok: true,
-          result: await callViewerTool(options, body.params),
-        });
+      const result = await this.proxy(url.pathname, session, body.params);
+      if (result === undefined) {
+        sendJson(response, 404, { ok: false, error: 'Not found' });
         return;
       }
-
-      if (url.pathname === '/proxy/tools/list') {
-        sendJson(response, 200, {
-          ok: true,
-          result: { tools: options.manager.getConnection(options.serverName)?.tools ?? [] },
-        });
-        return;
-      }
-
-      if (url.pathname === '/proxy/resources/list') {
-        sendJson(response, 200, {
-          ok: true,
-          result: { resources: options.manager.getConnection(options.serverName)?.resources ?? [] },
-        });
-        return;
-      }
-
-      if (url.pathname === '/proxy/resources/read') {
-        sendJson(response, 200, {
-          ok: true,
-          result: await readViewerResource(options, body.params),
-        });
-        return;
-      }
-
-      if (url.pathname === '/proxy/resources/templates/list') {
-        sendJson(response, 200, {
-          ok: true,
-          result: { resourceTemplates: [] },
-        });
-        return;
-      }
-
-      if (url.pathname === '/proxy/prompts/list') {
-        sendJson(response, 200, {
-          ok: true,
-          result: { prompts: [] },
-        });
-        return;
-      }
-
-      if (url.pathname === '/proxy/ui/message' || url.pathname === '/proxy/ui/context') {
-        await options.onUiMessage?.(toRecord(body.params));
-        sendJson(response, 200, { ok: true, result: {} });
-        return;
-      }
-
-      sendJson(response, 404, { ok: false, error: 'Not found' });
+      sendJson(response, 200, { ok: true, result });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      sendJson(response, 500, { ok: false, error: message });
+      sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
     }
-  });
-
-  const port = await listen(server);
-  const viewerUrl = `http://127.0.0.1:${port}/?session=${encodeURIComponent(sessionId)}`;
-
-  const close = (reason = 'closed') => {
-    if (closed) {
-      return;
-    }
-    closed = true;
-    closeReason = reason;
-    server.close();
-  };
-
-  server.on('close', () => {
-    options.onClose?.(closeReason);
-  });
-
-  return {
-    sessionId,
-    viewerUrl,
-    serverName: options.serverName,
-    resourceUri: options.resourceUri,
-    close,
-  };
-}
-
-async function callViewerTool(options: UiServerOptions, params: unknown): Promise<CallToolResult> {
-  const toolCall = toRecord(params);
-  const toolName = typeof toolCall.name === 'string' ? toolCall.name.trim() : '';
-  const toolArguments = isRecord(toolCall.arguments) ? toolCall.arguments : undefined;
-  if (!toolName) {
-    return createToolErrorResult('Tool name is required.');
   }
 
-  try {
-    return await options.manager.callTool(options.serverName, toolName, toolArguments);
-  } catch (error) {
-    if (error instanceof UnauthorizedError) {
-      const message = error.message || 'Authentication is required.';
-      await options.onUnauthorized?.(options.serverName, message);
-      return createToolErrorResult('This MCP UI session lost authentication. Re-authenticate the server in Sero and reopen the UI.');
+  private async proxy(pathname: string, session: UiSessionOptions, params: unknown): Promise<unknown> {
+    const connection = this.manager.getConnection(session.serverName);
+    switch (pathname) {
+      case '/proxy/tools/call':
+        return callViewerTool(this.manager, session, params);
+      case '/proxy/tools/list':
+        return { tools: listAppTools(this.manager, session) };
+      case '/proxy/resources/list':
+        return { resources: connection?.resources ?? [] };
+      case '/proxy/resources/read':
+        return readViewerResource(this.manager, session, params);
+      case '/proxy/resources/templates/list':
+        return { resourceTemplates: [] };
+      case '/proxy/prompts/list':
+        return { prompts: [] };
+      case '/proxy/ui/open-link': {
+        const url = toRecord(params).url;
+        const opened = typeof url === 'string' && session.onOpenLink ? await session.onOpenLink(url) : false;
+        return { isError: !opened };
+      }
+      case '/proxy/ui/message':
+      case '/proxy/ui/context':
+        if (!session.onAppMessage) throw new Error('This app is not shown in a chat.');
+        session.onAppMessage(pathname === '/proxy/ui/message' ? 'message' : 'context', toRecord(params));
+        return {};
+      default:
+        return undefined;
     }
-
-    const message = error instanceof Error ? error.message : String(error);
-    return createToolErrorResult(message);
   }
 }
 
-async function readViewerResource(options: UiServerOptions, params: unknown): Promise<ReadResourceResult> {
-  const readRequest = toRecord(params);
-  const resourceUri = typeof readRequest.uri === 'string' ? readRequest.uri.trim() : '';
-  if (!resourceUri) {
-    throw new Error('Resource URI is required.');
+/**
+ * The plugin build writes the shell to dist/ui. From source the extension is in
+ * extension/viewer/; in a packaged plugin it is one bundle in extension/.
+ */
+function findShellScript(): string | null {
+  let dir = typeof __dirname === 'string' ? __dirname : process.cwd();
+  for (let depth = 0; depth < 4; depth += 1) {
+    const candidate = path.join(dir, 'dist', 'ui', VIEWER_SHELL_SCRIPT);
+    if (existsSync(candidate)) return candidate;
+    dir = path.dirname(dir);
   }
-
-  try {
-    return await options.manager.readResource(options.serverName, resourceUri);
-  } catch (error) {
-    if (error instanceof UnauthorizedError) {
-      const message = error.message || 'Authentication is required.';
-      await options.onUnauthorized?.(options.serverName, message);
-      throw new Error('This MCP UI session lost authentication. Re-authenticate the server in Sero and reopen the UI.');
-    }
-    throw error;
-  }
+  return null;
 }
 
-function validateSessionQuery(url: URL, sessionId: string, response: ServerResponse): boolean {
-  if (url.searchParams.get('session') === sessionId) {
-    return true;
+async function sendShellScript(response: ServerResponse): Promise<void> {
+  const shellPath = findShellScript();
+  if (!shellPath) {
+    sendJson(response, 404, { ok: false, error: 'The MCP viewer shell is not built. Build the MCP plugin.' });
+    return;
   }
-  sendJson(response, 403, { ok: false, error: 'Invalid viewer session token' });
-  return false;
-}
-
-function validateSessionBody(body: unknown, sessionId: string, response: ServerResponse): body is PostBody {
-  if (isRecord(body) && body.token === sessionId) {
-    return true;
-  }
-  sendJson(response, 403, { ok: false, error: 'Invalid viewer session token' });
-  return false;
+  response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-store' });
+  response.end(await readFile(shellPath));
 }
 
 async function readBody(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
   let size = 0;
-
   for await (const chunk of request) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     size += buffer.length;
@@ -242,12 +270,13 @@ async function readBody(request: IncomingMessage): Promise<unknown> {
     }
     chunks.push(buffer);
   }
-
   const bodyText = Buffer.concat(chunks).toString('utf8');
-  if (!bodyText.trim()) {
-    return {};
+  if (!bodyText.trim()) return {};
+  try {
+    return JSON.parse(bodyText);
+  } catch {
+    throw new Error('The request body is not valid JSON.');
   }
-  return JSON.parse(bodyText);
 }
 
 function sendHtml(response: ServerResponse, html: string, csp?: string): void {
@@ -267,22 +296,7 @@ function sendJson(response: ServerResponse, statusCode: number, body: Record<str
   response.end(JSON.stringify(body));
 }
 
-function createToolErrorResult(message: string): CallToolResult {
-  return {
-    isError: true,
-    content: [{ type: 'text', text: message }],
-  };
-}
-
-function toRecord(value: unknown): Record<string, unknown> {
-  return isRecord(value) ? value : {};
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object' && !Array.isArray(value);
-}
-
-function listen(server: http.Server): Promise<number> {
+function listen(server: http.Server): Promise<{ server: http.Server; port: number }> {
   return new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(0, '127.0.0.1', () => {
@@ -291,8 +305,9 @@ function listen(server: http.Server): Promise<number> {
         reject(new Error('Failed to determine MCP viewer port.'));
         return;
       }
-      resolve(address.port);
+      // An idle viewer server must not keep a Pi CLI process alive.
+      server.unref();
+      resolve({ server, port: address.port });
     });
   });
 }
-

@@ -32,6 +32,27 @@ export interface McpResourcePreview {
   truncated: boolean;
 }
 
+/** The step that failed, shown on the server detail view. */
+export type McpFailurePhase = 'discovery' | 'legacy-fallback' | 'auth' | 'extension' | 'app' | 'task' | 'skill';
+
+export interface McpProtocolSnapshot {
+  era: 'modern' | 'legacy';
+  version: string | null;
+  /** Extension IDs that the server declares. */
+  extensions: string[];
+  serverVersion: string | null;
+  deprecatedTransport: boolean;
+  /** True when a saved legacy verdict skipped the discovery probe. */
+  eraFromVerdict: boolean;
+}
+
+export interface McpCacheSnapshot {
+  state: 'none' | 'fresh' | 'stale';
+  cachedAt: string | null;
+  /** When the server's TTL ends. Null when the server gave no TTL. */
+  expiresAt?: string | null;
+}
+
 export interface McpServerSnapshot {
   serverName: string;
   enabled: boolean;
@@ -53,6 +74,9 @@ export interface McpServerSnapshot {
   lastError?: string;
   lastConnectedAt?: string | null;
   lastFailedAt?: string | null;
+  protocol?: McpProtocolSnapshot;
+  failurePhase?: McpFailurePhase;
+  cache?: McpCacheSnapshot;
   resources: McpResourceSummary[];
   uiTools: McpUiToolSummary[];
   source?: 'user' | 'agent-plugin';

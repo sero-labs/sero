@@ -1,6 +1,11 @@
-import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import {
+  auth,
+  AuthorizationServerMismatchError,
+  IssuerMismatchError,
+  StreamableHTTPClientTransport,
+  UnauthorizedError,
+} from '@modelcontextprotocol/client';
+import { createMcpClient } from '../manager/client-factory';
 import type { McpServerConfig } from '../config/types';
 import { clearOAuthFlowState, readOAuthFlowState } from './storage';
 import { McpOAuthProvider } from './oauth-provider';
@@ -27,6 +32,7 @@ export class McpOAuthCoordinator {
       throw new Error(`Server "${serverName}" does not have an HTTP URL for OAuth authentication.`);
     }
 
+    const requestedScope = (await readOAuthFlowState(serverName))?.requestedScope;
     await this.cancelAuth(serverName);
     await clearOAuthFlowState(serverName);
 
@@ -36,13 +42,21 @@ export class McpOAuthCoordinator {
       serverUrl,
       definition.oauth || {},
       { onRedirect: async (url) => { capturedAuthUrl = url.toString(); } },
+      { newAuthorization: true },
     );
 
     const transport = new StreamableHTTPClientTransport(new URL(serverUrl), { authProvider });
-    const client = new Client({ name: `sero-mcp-auth-${serverName}`, version: '0.1.0' });
+    const client = createMcpClient(`sero-mcp-auth-${serverName}`);
     let keepTransportOpen = false;
 
     try {
+      if (requestedScope) {
+        // A call needed a scope that the stored token lacks. The server can still accept that
+        // token for a connect, so ask for a new authorization with the scope instead.
+        const result = await auth(authProvider, { serverUrl, scope: requestedScope, forceReauthorization: true });
+        if (result === 'AUTHORIZED') return { status: 'authenticated' };
+        throw new UnauthorizedError('Authorization is required for the wider scope.');
+      }
       await client.connect(transport);
       return { status: 'authenticated' };
     } catch (error) {
@@ -78,7 +92,14 @@ export class McpOAuthCoordinator {
 
     const parsed = parseOAuthCallbackUrl(callbackUrl, session.expectedState);
     try {
-      await session.transport.finishAuth(parsed.code);
+      // The full query lets the SDK check `iss` against the expected issuer before the code exchange.
+      await session.transport.finishAuth(parsed.searchParams);
+    } catch (error) {
+      if (error instanceof IssuerMismatchError || error instanceof AuthorizationServerMismatchError) {
+        // The callback text may come from an attacker, so it is never shown.
+        throw new Error(ISSUER_MISMATCH_MESSAGE);
+      }
+      throw error;
     } finally {
       this.pendingSessions.delete(serverName);
       await clearOAuthFlowState(serverName);
@@ -100,7 +121,19 @@ export class McpOAuthCoordinator {
   }
 }
 
-export function parseOAuthCallbackUrl(callbackUrl: string, expectedState?: string): { code: string } {
+export const ISSUER_MISMATCH_MESSAGE = 'Sign-in stopped: the reply came from an unexpected authorization server. Sign in again.';
+
+// RFC 6749 section 4.1.2.1 error codes. Any other value is not shown.
+const KNOWN_OAUTH_ERRORS = new Set([
+  'invalid_request', 'unauthorized_client', 'access_denied', 'unsupported_response_type',
+  'invalid_scope', 'server_error', 'temporarily_unavailable',
+]);
+
+/**
+ * Checks the callback `state` first, then the `error` parameter. Only a known
+ * error code is shown; `error_description` and other callback text never are.
+ */
+export function parseOAuthCallbackUrl(callbackUrl: string, expectedState?: string): { code: string; searchParams: URLSearchParams } {
   let parsed: URL;
   try {
     parsed = new URL(callbackUrl);
@@ -108,9 +141,13 @@ export function parseOAuthCallbackUrl(callbackUrl: string, expectedState?: strin
     throw new Error('The OAuth callback URL was invalid.');
   }
 
+  if (expectedState && parsed.searchParams.get('state') !== expectedState) {
+    throw new Error('The OAuth callback state did not match the pending authorization request.');
+  }
+
   const error = parsed.searchParams.get('error');
   if (error) {
-    throw new Error(`OAuth authorization failed: ${error}`);
+    throw new Error(KNOWN_OAUTH_ERRORS.has(error) ? `OAuth authorization failed: ${error}` : 'OAuth authorization failed.');
   }
 
   const code = parsed.searchParams.get('code');
@@ -118,12 +155,5 @@ export function parseOAuthCallbackUrl(callbackUrl: string, expectedState?: strin
     throw new Error('The OAuth callback did not include an authorization code.');
   }
 
-  if (expectedState) {
-    const returnedState = parsed.searchParams.get('state');
-    if (returnedState !== expectedState) {
-      throw new Error('The OAuth callback state did not match the pending authorization request.');
-    }
-  }
-
-  return { code };
+  return { code, searchParams: parsed.searchParams };
 }

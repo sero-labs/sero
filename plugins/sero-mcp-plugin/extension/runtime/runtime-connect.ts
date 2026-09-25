@@ -6,7 +6,8 @@ import {
 } from '../cache/metadata-cache';
 import type { McpServerConfig } from '../config/types';
 import { buildMetadataCacheEntry } from '../manager/tool-metadata';
-import type { ManagedConnection } from '../manager/types';
+import type { ManagedConnection, ManagedConnectionProtocol } from '../manager/types';
+import type { McpProtocolSnapshot } from '../../shared/types';
 import type { RuntimeServerStatus } from '../state/snapshot';
 
 export async function reconcileConnection(options: {
@@ -25,6 +26,8 @@ export async function reconcileConnection(options: {
         configHash: computeServerHash(serverConfig),
         tools: connection.tools,
         resources: connection.resources,
+        principalId: connection.principalId,
+        cacheHints: connection.cacheHints,
       }),
     );
     await writeMetadataCache(nextCache);
@@ -35,6 +38,7 @@ export async function reconcileConnection(options: {
         authStatus: resolveConnectedAuthStatus(serverConfig),
         lastConnectedAt: connection.lastConnectedAt ?? new Date().toISOString(),
         lastFailedAt: null,
+        protocol: connection.protocol ? toProtocolSnapshot(connection.protocol) : undefined,
       },
     };
   }
@@ -47,6 +51,7 @@ export async function reconcileConnection(options: {
         connectionStatus: 'needs-auth',
         authStatus: 'not-authenticated',
         lastError: connection.lastError,
+        failurePhase: connection.failurePhase,
         lastConnectedAt: null,
         lastFailedAt: connection.lastFailedAt ?? new Date().toISOString(),
       },
@@ -60,6 +65,7 @@ export async function reconcileConnection(options: {
       connectionStatus: 'error',
       authStatus: serverConfig.auth ? 'error' : 'not-required',
       lastError: connection.lastError,
+      failurePhase: connection.failurePhase,
       lastConnectedAt: null,
       lastFailedAt: connection.lastFailedAt ?? new Date().toISOString(),
     },
@@ -98,4 +104,15 @@ function resolveConnectedAuthStatus(serverConfig: McpServerConfig) {
     return 'authenticated' as const;
   }
   return 'not-required' as const;
+}
+
+function toProtocolSnapshot(protocol: ManagedConnectionProtocol): McpProtocolSnapshot {
+  return {
+    era: protocol.era,
+    version: protocol.version,
+    extensions: protocol.extensions,
+    serverVersion: protocol.serverVersion ? `${protocol.serverVersion.name} ${protocol.serverVersion.version}` : null,
+    deprecatedTransport: protocol.deprecatedTransport,
+    eraFromVerdict: protocol.eraFromVerdict,
+  };
 }

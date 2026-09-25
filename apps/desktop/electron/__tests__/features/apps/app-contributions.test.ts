@@ -67,6 +67,22 @@ describe('app contribution parsing', () => {
     expect(parsed.diagnostics.map((entry) => entry.code)).toEqual(['invalid-contribution']);
   });
 
+  it('parses a chat tool-result view and ignores one without a component', () => {
+    const parsed = parseAppContributions({
+      contributes: {
+        components: [
+          { id: 'app-result', extensionPoint: 'ui.chat.tool-result', component: 'AppResult', label: 'dropped' },
+          { id: 'broken', extensionPoint: 'ui.chat.tool-result' },
+        ],
+      },
+    });
+
+    expect(parsed.contributions.components).toEqual([
+      { id: 'app-result', extensionPoint: 'ui.chat.tool-result', component: 'AppResult' },
+    ]);
+    expect(parsed.diagnostics.map((entry) => entry.code)).toEqual(['invalid-contribution']);
+  });
+
   it.each([
     { id: 'provider-settings', extensionPoint: 'ui.admin.model-settings', component: 'ProviderSettings' },
     { id: 'provider-settings', extensionPoint: 'ui.admin.model-settings', name: 'Example provider' },

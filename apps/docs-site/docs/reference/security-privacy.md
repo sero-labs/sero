@@ -167,6 +167,12 @@ These distinctions reduce accidental exposure and clarify intent. They do not
 replace careful handling of profile files, plugins, MCP servers, or gateway
 access.
 
+MCP servers can also send content that Sero shows to you or gives to the agent.
+Sero runs an MCP app in a sandboxed frame and asks you before the app gets the
+camera, the microphone, or the clipboard. Sero treats a remote MCP skill as
+untrusted content from its server: the skill gets no tools, and Sero asks you
+before code runs for it. See [MCP](/guide/mcp).
+
 ## Gateway and remote-control access
 
 The gateway is **off by default**. It only starts when explicitly enabled with

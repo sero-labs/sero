@@ -5,7 +5,7 @@ describe('parseOAuthCallbackUrl', () => {
   it('extracts the authorization code and validates state', () => {
     expect(
       parseOAuthCallbackUrl('http://127.0.0.1:19876/mcp/oauth/callback?code=abc123&state=expected', 'expected'),
-    ).toEqual({ code: 'abc123' });
+    ).toMatchObject({ code: 'abc123' });
   });
 
   it('throws when the callback contains an OAuth error', () => {

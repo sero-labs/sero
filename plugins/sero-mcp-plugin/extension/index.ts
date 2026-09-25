@@ -9,12 +9,18 @@ const runtime = getMcpRuntime();
 
 export default function mcpExtension(pi: ExtensionAPI) {
   const releaseAgentPluginSource = configureAgentPluginMcpSource(pi.events);
+  let unregisterSession: (() => void) | undefined;
 
   pi.on('before_agent_start', async (event) => ({
-    systemPrompt: event.systemPrompt + buildMcpPromptBlock(),
+    systemPrompt: event.systemPrompt + buildMcpPromptBlock() + await runtime.remoteSkillsPromptBlock().catch(() => ''),
   }));
 
+  // A remote skill must not make code run without the user's approval.
+  pi.on('tool_call', (event, ctx) => runtime.checkToolCall(ctx.sessionManager.getSessionId(), event.toolName));
+
   pi.on('session_start', async (_event, ctx) => {
+    unregisterSession?.();
+    unregisterSession = runtime.registerSession(ctx.sessionManager.getSessionId(), (message, options) => pi.sendMessage(message, options));
     await runtime.handleSessionStart({ cwd: ctx.cwd }).catch((error) => {
       console.error('[mcp] Failed to bootstrap runtime on session start', error);
     });
@@ -22,6 +28,7 @@ export default function mcpExtension(pi: ExtensionAPI) {
 
   pi.on('session_shutdown', async () => {
     releaseAgentPluginSource();
+    unregisterSession?.();
     await runtime.handleSessionShutdown().catch((error) => {
       console.error('[mcp] Failed to shut down runtime cleanly', error);
     });

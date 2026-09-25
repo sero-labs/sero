@@ -1,5 +1,5 @@
 import { RESOURCE_MIME_TYPE } from '@modelcontextprotocol/ext-apps/app-bridge';
-import type { ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
+import type { ReadResourceResult } from '@modelcontextprotocol/client';
 import type { McpServerManager } from '../manager/server-manager';
 import type { UiResourceContent, UiResourceMeta } from './types';
 
@@ -47,7 +47,7 @@ export class UiResourceHandler {
 }
 
 function selectContent(result: ReadResourceResult, preferredUri: string): ResourceContentRecord {
-  const contents = (result.contents ?? []) as ResourceContentRecord[];
+  const contents: ResourceContentRecord[] = result.contents;
   if (contents.length === 0) {
     throw new Error(`No contents were returned for resource "${preferredUri}".`);
   }

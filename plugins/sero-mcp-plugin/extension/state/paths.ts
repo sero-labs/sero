@@ -49,6 +49,18 @@ export function getMcpMetadataCachePath(): string {
   return path.join(getPiAgentDir(), 'mcp-cache.json');
 }
 
+export function getMcpEraVerdictPath(): string {
+  return path.join(getMcpAppDir(), 'era-verdicts.json');
+}
+
+export function getMcpSkillsPath(): string {
+  return path.join(getMcpAppDir(), 'skills.json');
+}
+
+export function getMcpTasksPath(): string {
+  return path.join(getMcpAppDir(), 'tasks.json');
+}
+
 export function getMcpOAuthDir(): string {
   return path.join(getPiAgentDir(), 'mcp-oauth');
 }
@@ -63,6 +75,10 @@ export function getMcpOAuthTokenPath(serverName: string): string {
 
 export function getMcpOAuthClientPath(serverName: string): string {
   return path.join(getMcpOAuthServerDir(serverName), 'client.json');
+}
+
+export function getMcpOAuthDiscoveryPath(serverName: string): string {
+  return path.join(getMcpOAuthServerDir(serverName), 'discovery.json');
 }
 
 export function getMcpOAuthFlowPath(serverName: string): string {

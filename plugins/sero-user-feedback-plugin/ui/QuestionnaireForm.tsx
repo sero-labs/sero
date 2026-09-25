@@ -149,6 +149,9 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
     >
       <div className="mb-4">
         <h1 className="text-lg font-semibold text-foreground">Questionnaire</h1>
+        {question.context?.source && (
+          <p className="mt-1 text-xs text-muted-foreground">{question.context.source}</p>
+        )}
         <div className="mt-2 flex items-center gap-1.5">
           {questions.map((item, index) => (
             <button type="button"

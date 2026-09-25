@@ -7,8 +7,12 @@ import type { ManagedConnection, ManagedTool } from '../manager/types';
 import type { McpServerManager } from '../manager/server-manager';
 import type { RuntimeServerStatus } from '../state/snapshot';
 import { createToolResult, type ToolResult } from '../tools/types';
-import type { McpUiSessionManager } from '../viewer/ui-session';
 import type { UiResourceHandler } from '../viewer/ui-resource-handler';
+import type { McpUiServer, UiSessionOptions } from '../viewer/ui-server';
+import { askToOpenPage, canAskUser, toWebUrl } from '../elicitation/ask-user';
+import { deliverAppMessage, type SessionRegistry } from './app-messages';
+import { chooseAppPermissions, type AppPermissionChoices } from '../viewer/app-permissions';
+import type { UiResourceContent } from '../viewer/types';
 import { reconcileConnection } from './runtime-connect';
 import { buildResourcesDisabledMessage, readServerResourceAction } from './runtime-resource';
 import type { SyncedRuntimeState } from './runtime-types';
@@ -19,9 +23,22 @@ interface ViewerActionOptions {
   resourceUri?: string;
   toolName?: string;
   toolArguments?: Record<string, unknown>;
+  viewerId?: string;
+  sessionId?: string;
+  /**
+   * The chat session that actually made the call, from the extension context.
+   * The remote-skill read guard uses this, never `sessionId`, which names the
+   * session that app messages go to.
+   */
+  callerSessionId?: string;
+  /** Refuses a read that a remote skill of another server would make. */
+  crossServerReadError?: (sessionId: string | undefined, serverName: string) => string | null;
+  toolResult?: Record<string, unknown>;
+  sessions: SessionRegistry;
+  permissionChoices: AppPermissionChoices;
   manager: McpServerManager;
   uiResourceHandler: UiResourceHandler;
-  uiSessions: McpUiSessionManager;
+  uiServer: McpUiServer;
   setRuntimeStatus: (serverName: string, status: RuntimeServerStatus) => void;
   syncSnapshot: (
     cwd?: string,
@@ -39,8 +56,12 @@ export async function openViewerResourceAction(options: ViewerActionOptions): Pr
     return createToolResult('Error: Resource URI is required.', { snapshotWritten: false });
   }
 
+  const refused = crossServerRefusal(options, options.serverName);
+  if (refused) return refused;
+
   if (!resourceUri.startsWith('ui://')) {
-    return readServerResourceAction(options);
+    // The shared read guards too. It needs the trusted caller session, not the app-message session.
+    return readServerResourceAction({ ...options, sessionId: options.callerSessionId });
   }
 
   const ensured = await ensureConnectedServer(options, { requireExposedResources: true });
@@ -50,23 +71,22 @@ export async function openViewerResourceAction(options: ViewerActionOptions): Pr
 
   try {
     const resource = await options.uiResourceHandler.readUiResource(ensured.serverName, resourceUri);
-    const session = await options.uiSessions.open({
+    const session = await options.uiServer.open({
       serverName: ensured.serverName,
       resourceUri,
       title: resourceUri,
       resource,
-      manager: options.manager,
-      onUnauthorized: async (_serverName, message) => {
-        await handleUnauthorized(ensured, options, message);
-      },
+      grantedPermissions: await grantPermissions(ensured, options, resourceUri, resourceUri, resource),
+      ...sessionHooks(ensured, options, resourceUri),
     });
 
     return createToolResult(`Opened MCP UI resource "${resourceUri}" from "${ensured.serverName}".`, {
       snapshotWritten: ensured.snapshotWritten,
       serverName: ensured.serverName,
       resourceUri,
-      sessionId: session.sessionId,
+      viewerId: session.viewerId,
       viewerUrl: session.viewerUrl,
+      allowAttribute: session.allowAttribute,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -79,6 +99,9 @@ export async function openViewerResourceAction(options: ViewerActionOptions): Pr
 }
 
 export async function openToolUiAction(options: ViewerActionOptions): Promise<ToolResult> {
+  const refused = crossServerRefusal(options, options.serverName);
+  if (refused) return refused;
+
   const ensured = await ensureConnectedServer(options);
   if ('errorResult' in ensured) {
     return ensured.errorResult;
@@ -94,17 +117,16 @@ export async function openToolUiAction(options: ViewerActionOptions): Promise<To
 
   try {
     const resource = await options.uiResourceHandler.readUiResource(ensured.serverName, resourceUri);
-    const session = await options.uiSessions.open({
+    const session = await options.uiServer.open({
       serverName: ensured.serverName,
       resourceUri,
       title: toolName || resourceUri,
       resource,
       toolInfo: tool ? { name: tool.name, description: tool.description, inputSchema: tool.inputSchema } : undefined,
       toolArgs: options.toolArguments,
-      manager: options.manager,
-      onUnauthorized: async (_serverName, message) => {
-        await handleUnauthorized(ensured, options, message);
-      },
+      toolResult: options.toolResult,
+      grantedPermissions: await grantPermissions(ensured, options, resourceUri, toolName || resourceUri, resource),
+      ...sessionHooks(ensured, options, toolName || resourceUri),
     });
 
     return createToolResult(`Opened MCP tool UI for "${toolName || resourceUri}" from "${ensured.serverName}".`, {
@@ -112,8 +134,9 @@ export async function openToolUiAction(options: ViewerActionOptions): Promise<To
       serverName: ensured.serverName,
       resourceUri,
       toolName: toolName || null,
-      sessionId: session.sessionId,
+      viewerId: session.viewerId,
       viewerUrl: session.viewerUrl,
+      allowAttribute: session.allowAttribute,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -122,21 +145,20 @@ export async function openToolUiAction(options: ViewerActionOptions): Promise<To
       serverName: ensured.serverName,
       resourceUri,
       toolName: toolName || null,
+      reason: message,
     });
   }
 }
 
-export async function closeViewerAction(options: Pick<ViewerActionOptions, 'uiSessions'>): Promise<ToolResult> {
-  const session = options.uiSessions.getActiveSession();
-  if (!session) {
-    return createToolResult('No MCP viewer session is currently active.', { sessionClosed: false });
+export function closeViewerAction(options: Pick<ViewerActionOptions, 'uiServer' | 'viewerId'>): ToolResult {
+  const viewerId = options.viewerId?.trim();
+  if (!viewerId) {
+    return createToolResult('Error: Viewer ID is required.', { sessionClosed: false });
   }
-
-  await options.uiSessions.closeActive('closed-from-ui');
-  return createToolResult(`Closed MCP viewer session for "${session.resourceUri}".`, {
-    sessionClosed: true,
-    sessionId: session.sessionId,
-    resourceUri: session.resourceUri,
+  const closed = options.uiServer.close(viewerId, 'closed-from-ui');
+  return createToolResult(closed ? 'Closed the MCP viewer session.' : 'The MCP viewer session is already closed.', {
+    sessionClosed: closed,
+    viewerId,
   });
 }
 
@@ -219,6 +241,49 @@ async function ensureConnectedServer(
   }
 
   return { config: synced.config, serverName, snapshotWritten: true };
+}
+
+function grantPermissions(
+  ensured: EnsuredConnectedServer,
+  options: ViewerActionOptions,
+  resourceUri: string,
+  appName: string,
+  resource: UiResourceContent,
+) {
+  return chooseAppPermissions(resource.meta.permissions, {
+    appKey: `${ensured.serverName}\n${resourceUri}`,
+    appLabel: `${ensured.serverName} · ${appName} app`,
+    choices: options.permissionChoices,
+  });
+}
+
+/** The refusal when a remote skill would make this read on another server, or null. */
+function crossServerRefusal(options: ViewerActionOptions, serverName: string | undefined): ToolResult | null {
+  const name = serverName?.trim();
+  if (!name) return null;
+  const refusal = options.crossServerReadError?.(options.callerSessionId, name);
+  return refusal ? createToolResult(`Error: ${refusal}`, { isError: true }) : null;
+}
+
+/** Session settings that come from the server config and the user, the same for every viewer. */
+function sessionHooks(ensured: EnsuredConnectedServer, options: ViewerActionOptions, appName: string): Pick<
+  UiSessionOptions, 'excludeTools' | 'onUnauthorized' | 'onOpenLink' | 'onAppMessage'
+> {
+  const serverLabel = ensured.serverName;
+  const appLabel = `${serverLabel} · ${appName} app`;
+  const send = options.sessions.get(options.sessionId);
+  return {
+    onAppMessage: send ? (kind, params) => deliverAppMessage(send, appLabel, kind, params) : undefined,
+    excludeTools: ensured.config.mcpServers[serverLabel]?.excludeTools,
+    onUnauthorized: async (_serverName, message) => {
+      await handleUnauthorized(ensured, options, message);
+    },
+    onOpenLink: async (url) => {
+      const webUrl = toWebUrl(url);
+      if (!webUrl || !canAskUser()) return false;
+      return await askToOpenPage(webUrl, { serverLabel, source: appLabel }) === 'open';
+    },
+  };
 }
 
 async function handleUnauthorized(

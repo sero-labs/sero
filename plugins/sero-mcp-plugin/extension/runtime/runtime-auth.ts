@@ -1,6 +1,6 @@
 import { clearOAuthCredentials } from '../auth/storage';
 import { McpOAuthCoordinator } from '../auth/oauth-coordinator';
-import { readMetadataCache, type McpMetadataCacheDocument } from '../cache/metadata-cache';
+import { removeMetadataCacheEntry, readMetadataCache, type McpMetadataCacheDocument } from '../cache/metadata-cache';
 import type { McpConfigDocument } from '../config/types';
 import { McpServerManager } from '../manager/server-manager';
 import type { RuntimeServerStatus } from '../state/snapshot';
@@ -177,7 +177,12 @@ export async function clearServerAuthAction(options: {
     clearOAuthCredentials(serverName),
   ]);
   options.setRuntimeStatus(serverName, { authStatus: 'not-authenticated' });
-  const nextState = await options.syncSnapshot(options.cwd, { config: synced.config });
+  // The signed-out account's private server data must not stay on disk.
+  const cachedEntry = synced.metadataCache.servers[serverName];
+  const metadataCache = cachedEntry && cachedEntry.cacheScope !== 'public'
+    ? removeMetadataCacheEntry(synced.metadataCache, serverName)
+    : synced.metadataCache;
+  const nextState = await options.syncSnapshot(options.cwd, { config: synced.config, metadataCache });
   return createToolResult(`Cleared saved authentication for MCP server "${serverName}".`, {
     snapshotWritten: true,
     serverName,

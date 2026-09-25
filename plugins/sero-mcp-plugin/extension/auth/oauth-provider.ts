@@ -1,20 +1,24 @@
-import type { OAuthClientProvider } from '@modelcontextprotocol/sdk/client/auth.js';
+import { randomUUID } from 'node:crypto';
 import type {
-  OAuthClientInformation,
-  OAuthClientInformationFull,
   OAuthClientMetadata,
-  OAuthTokens,
-} from '@modelcontextprotocol/sdk/shared/auth.js';
+  OAuthClientProvider,
+  OAuthDiscoveryState,
+  StoredOAuthClientInformation,
+  StoredOAuthTokens,
+} from '@modelcontextprotocol/client';
 import type { McpOAuthConfig } from '../config/types';
 import {
   clearOAuthClientInfo,
   clearOAuthCredentials,
+  clearOAuthDiscoveryState,
   clearOAuthFlowState,
   clearOAuthTokens,
   readOAuthClientInfo,
+  readOAuthDiscoveryState,
   readOAuthFlowState,
   readOAuthTokens,
   writeOAuthClientInfo,
+  writeOAuthDiscoveryState,
   writeOAuthFlowState,
   writeOAuthTokens,
 } from './storage';
@@ -26,6 +30,18 @@ export interface McpOAuthCallbacks {
   onRedirect: (url: URL) => void | Promise<void>;
 }
 
+export interface McpOAuthProviderOptions {
+  /** True for a sign-in flow: saved tokens then belong to a new principal. A token refresh keeps the principal. */
+  newAuthorization?: boolean;
+}
+
+/**
+ * URL of Sero's published Client ID Metadata Document. While it is unset,
+ * Sero registers with Dynamic Client Registration. A client ID in the server
+ * config takes precedence over both.
+ */
+export const CLIENT_METADATA_URL: string | undefined = undefined;
+
 export function getOAuthCallbackUrl(): string {
   return `http://127.0.0.1:${DEFAULT_OAUTH_CALLBACK_PORT}${OAUTH_CALLBACK_PATH}`;
 }
@@ -36,7 +52,10 @@ export class McpOAuthProvider implements OAuthClientProvider {
     private readonly serverUrl: string,
     private readonly config: McpOAuthConfig,
     private readonly callbacks: McpOAuthCallbacks,
+    private readonly options: McpOAuthProviderOptions = {},
   ) {}
+
+  readonly clientMetadataUrl = CLIENT_METADATA_URL;
 
   private get usesClientCredentials(): boolean {
     return this.config.grantType === 'client_credentials';
@@ -66,7 +85,7 @@ export class McpOAuthProvider implements OAuthClientProvider {
     };
   }
 
-  async clientInformation(): Promise<OAuthClientInformation | undefined> {
+  async clientInformation(): Promise<StoredOAuthClientInformation | undefined> {
     if (this.config.clientId) {
       return {
         client_id: this.config.clientId,
@@ -74,55 +93,45 @@ export class McpOAuthProvider implements OAuthClientProvider {
       };
     }
 
-    const clientInfo = await readOAuthClientInfo(this.serverName, this.serverUrl);
-    if (!clientInfo) {
+    const saved = await readOAuthClientInfo(this.serverName, this.serverUrl);
+    const expiresAt = saved?.client.client_secret_expires_at;
+    if (!saved || (expiresAt && expiresAt < Date.now() / 1000)) {
       return undefined;
     }
-    if (clientInfo.clientSecretExpiresAt && clientInfo.clientSecretExpiresAt < Date.now() / 1000) {
-      return undefined;
-    }
+    return saved.client;
+  }
 
+  async saveClientInformation(client: StoredOAuthClientInformation): Promise<void> {
+    await writeOAuthClientInfo(this.serverName, { client, serverUrl: this.serverUrl });
+  }
+
+  async tokens(): Promise<StoredOAuthTokens | undefined> {
+    const saved = await readOAuthTokens(this.serverName, this.serverUrl);
+    if (!saved) {
+      return undefined;
+    }
     return {
-      client_id: clientInfo.clientId,
-      client_secret: clientInfo.clientSecret,
+      ...saved.tokens,
+      expires_in: saved.expiresAt ? Math.max(0, Math.floor(saved.expiresAt - Date.now() / 1000)) : undefined,
     };
   }
 
-  async saveClientInformation(info: OAuthClientInformationFull): Promise<void> {
-    await writeOAuthClientInfo(this.serverName, {
-      clientId: info.client_id,
-      clientSecret: info.client_secret,
-      clientIdIssuedAt: info.client_id_issued_at,
-      clientSecretExpiresAt: info.client_secret_expires_at,
-      serverUrl: this.serverUrl,
-    });
-  }
-
-  async tokens(): Promise<OAuthTokens | undefined> {
-    const tokens = await readOAuthTokens(this.serverName, this.serverUrl);
-    if (!tokens) {
-      return undefined;
-    }
-
-    return {
-      access_token: tokens.accessToken,
-      token_type: 'Bearer',
-      refresh_token: tokens.refreshToken,
-      expires_in: tokens.expiresAt
-        ? Math.max(0, Math.floor(tokens.expiresAt - Date.now() / 1000))
-        : undefined,
-      scope: tokens.scope,
-    };
-  }
-
-  async saveTokens(tokens: OAuthTokens): Promise<void> {
+  async saveTokens(tokens: StoredOAuthTokens): Promise<void> {
+    const previous = this.options.newAuthorization ? null : await readOAuthTokens(this.serverName, this.serverUrl);
     await writeOAuthTokens(this.serverName, {
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
+      tokens,
       expiresAt: tokens.expires_in ? Date.now() / 1000 + tokens.expires_in : undefined,
-      scope: tokens.scope,
       serverUrl: this.serverUrl,
+      principalId: previous?.principalId ?? randomUUID(),
     });
+  }
+
+  async saveDiscoveryState(state: OAuthDiscoveryState): Promise<void> {
+    await writeOAuthDiscoveryState(this.serverName, state, this.serverUrl);
+  }
+
+  async discoveryState(): Promise<OAuthDiscoveryState | undefined> {
+    return readOAuthDiscoveryState(this.serverName, this.serverUrl);
   }
 
   async redirectToAuthorization(authorizationUrl: URL): Promise<void> {
@@ -150,35 +159,37 @@ export class McpOAuthProvider implements OAuthClientProvider {
     return flowState.codeVerifier;
   }
 
-  async saveState(state: string): Promise<void> {
-    await writeOAuthFlowState(this.serverName, {
-      oauthState: state,
-      serverUrl: this.serverUrl,
-    });
-  }
-
+  /** The SDK asks for the state once per sign-in. Sero creates it and keeps it to check the callback. */
   async state(): Promise<string> {
     if (this.usesClientCredentials) {
       throw new Error('state is not used for client_credentials flow');
     }
-    const flowState = await readOAuthFlowState(this.serverName);
-    if (!flowState?.oauthState) {
-      throw new Error(`No OAuth state saved for MCP server: ${this.serverName}`);
-    }
-    return flowState.oauthState;
+    const state = randomUUID();
+    await writeOAuthFlowState(this.serverName, {
+      oauthState: state,
+      serverUrl: this.serverUrl,
+    });
+    return state;
   }
 
-  async invalidateCredentials(type: 'all' | 'client' | 'tokens'): Promise<void> {
-    if (type === 'all') {
-      await clearOAuthCredentials(this.serverName);
-      return;
+  async invalidateCredentials(type: 'all' | 'client' | 'tokens' | 'verifier' | 'discovery'): Promise<void> {
+    switch (type) {
+      case 'all':
+        await clearOAuthCredentials(this.serverName);
+        return;
+      case 'client':
+        await clearOAuthClientInfo(this.serverName);
+        return;
+      case 'discovery':
+        await clearOAuthDiscoveryState(this.serverName);
+        return;
+      case 'verifier':
+        await clearOAuthFlowState(this.serverName);
+        return;
+      case 'tokens':
+        await clearOAuthTokens(this.serverName);
+        await clearOAuthFlowState(this.serverName);
     }
-    if (type === 'client') {
-      await clearOAuthClientInfo(this.serverName);
-      return;
-    }
-    await clearOAuthTokens(this.serverName);
-    await clearOAuthFlowState(this.serverName);
   }
 
   prepareTokenRequest(scope?: string): URLSearchParams | undefined {

@@ -85,9 +85,9 @@ Example raw config:
 }
 ```
 
-### HTTP / SSE servers
+### Streamable HTTP servers
 
-Use HTTP mode for remote MCP servers that expose an HTTP/SSE endpoint.
+Use HTTP mode for remote MCP servers that expose a Streamable HTTP endpoint.
 
 Typical fields:
 
@@ -112,9 +112,47 @@ Example raw config:
 }
 ```
 
+Sero uses the deprecated SSE transport only as a fallback: when the Streamable HTTP endpoint answers `404` or `405`, or when an Agent Plugin sets `portableTransport: "sse"`. Any other HTTP error fails the connection. A server that connects over SSE shows **SSE, deprecated** on its row. Saved SSE servers keep working without a config change.
+
 ### Raw config editing
 
 The MCP app also exposes a raw config editor for advanced edits. Validation errors are surfaced in-app before a broken config is accepted.
+
+## Protocol versions
+
+Sero supports MCP revision `2026-07-28` and the 2025 revisions. It picks the revision for each server when it connects:
+
+1. Sero sends `server/discover`. A server that answers it with `2026-07-28` connects in the modern era, with no `initialize` handshake.
+2. Any other answer selects the legacy era, and Sero connects with the 2025 `initialize` handshake.
+3. On stdio, the probe runs in a separate short-lived process, so the server process that Sero keeps never receives `server/discover`.
+
+An HTTP `401` or `403`, a `5xx` or a timeout never selects the legacy era. Sero reports it as a failure instead.
+
+After a server answers only the 2025 handshake, Sero saves a legacy verdict for that server and config hash in `era-verdicts.json`. The next connect skips the probe. **Reconnect** in the MCP app and any change to the server config drop the verdict, so the next connect probes again.
+
+In the modern era every request carries the protocol version, client identity and client capabilities in its `_meta` envelope, and HTTP requests carry the `MCP-Protocol-Version`, `Mcp-Method` and `Mcp-Name` headers. Sero declares an extension (MCP Apps, Tasks or Skills) only when its host support is on, and it never declares the deprecated sampling or roots features.
+
+### Protocol details on the server view
+
+The **Protocol** card on each server shows:
+
+- the negotiated revision, and whether the server uses the legacy handshake
+- the extensions that the server declares
+- the transport, with a notice when it is the deprecated SSE transport
+- the metadata cache state
+- the failed step when a connection fails: discovery, legacy handshake, sign-in or extension setup
+
+## Server input requests
+
+A server can ask the user for input during a tool call or a resource read. Legacy servers send `elicitation/create`; `2026-07-28` servers return `input_required`, and Sero sends the call again with the answers and the unchanged `requestState`, for up to 10 rounds. Both go through one handler:
+
+- A form request becomes a User Feedback questionnaire with one question for each field. The source line names the server label and the tool. The first question has a **Decline** option. Server text is shown as plain text.
+- Sero checks each answer against the field schema and asks once more after a bad value. A form with a field type that Sero does not support is declined without being shown.
+- A URL request becomes one chat question with the full URL, **Decline** and **Open page**. Only `http` and `https` URLs are offered.
+- **Decline** sends `decline`, **Cancel** sends `cancel`, and an aborted tool call cancels the open question.
+- With no question UI (a headless session or the plain Pi CLI), Sero declines at once.
+
+The `mcp` tool sets `cli.interactive`, so the CLI bridge applies no timeout while the user answers. Tool calls and resource reads run outside the runtime queue, so a waiting question does not block other MCP actions.
 
 ## UI behavior
 
@@ -126,14 +164,51 @@ The MCP app also exposes a raw config editor for advanced edits. Validation erro
 
 ### Interactive MCP UIs
 
-When a resource URI starts with `ui://`, or when a discovered tool advertises `_meta.ui.resourceUri`, the plugin launches an **interactive loopback viewer session** inside the dedicated viewer pane.
+When a resource URI starts with `ui://`, or a tool has `_meta.ui.resourceUri`, the plugin shows the MCP app in a viewer. The viewer shows in two places:
 
-That viewer host:
+- **In chat.** `call_tool` adds `seroToolResultView` and `details.mcpApp` (`serverName`, `toolName`, `uiResourceUri`, `arguments`, `result`) to the result of a tool with an app. The desktop mounts the plugin's `McpToolResultApp` component from the `ui.chat.tool-result` extension point in the tool-call details. The component calls `mcp_manager` `open_tool_ui` with the stored details, the chat session ID and the tool call ID. A result above 256 KB is not stored, and the app then gets only the input.
+- **In the MCP app.** The viewer pane opens resources and tool UIs from the server detail view.
 
-- runs entirely inside Sero
-- uses ephemeral localhost session URLs
-- speaks AppBridge-style JSON-RPC to the embedded MCP UI
-- keeps viewer session identifiers and URLs out of persisted app state
+One loopback server (`extension/viewer/ui-server.ts`) serves all viewers. Each viewer is a session with a random token. Above eight sessions, the oldest closes. `close_viewer` takes the viewer ID.
+
+The viewer page loads `dist/ui/viewer-shell.js`. The plugin's Vite build bundles it from `ui/viewer-shell/`. The shell connects the app frame through `AppBridge` and `PostMessageTransport` from `@modelcontextprotocol/ext-apps/app-bridge`. It accepts messages only from the app frame, and it declares only the host capabilities that the viewer server implements.
+
+Isolation:
+
+- The app frame keeps `sandbox` without `allow-same-origin`.
+- The app CSP allows no network access unless the resource declares domains in `_meta.ui.csp`. Only web origins are accepted.
+- Before the app loads, Sero asks once per app for the camera, microphone or clipboard permissions that the resource requests (`extension/viewer/app-permissions.ts`). **Deny** is the default, and the choice lasts until the runtime stops. Geolocation is never granted, because Sero's Electron session denies it. The frames that embed the viewer pass the granted `allow` value on.
+- `tools/list` and `tools/call` from the app reach only tools of the owning server whose `_meta.ui.visibility` includes `app` (or has no list) and that are not in `excludeTools`. A blocked call sends no request.
+- `ui/open-link` opens a page only after the user selects **Open page**.
+- The desktop keeps the CSP that the viewer server sends for loopback frames.
+
+`ui/message` reaches the owning chat session as a labeled follow-up that starts a turn. `ui/update-model-context` reaches it as hidden context for the next turn. Each session registers its `sendMessage` with the runtime on start. A viewer outside a chat does not declare these capabilities.
+
+The model inventory leaves out tools with visibility `["app"]`, and the `mcp` tool refuses to call them.
+
+### MCP Tasks
+
+Sero supports the 2026-07-28 Tasks extension (`io.modelcontextprotocol/tasks`) through `@modelcontextprotocol/ext-tasks`:
+
+- A modern connection whose server declares the extension gets a task session (`extension/tasks/task-session.ts`). Its endpoint ID comes from the server name, the config hash and the principal. Every model tool call on such a server goes through the session, and the server decides whether the call becomes a task. Input rounds go to the same handler as other server questions.
+- The SDK Client codecs reject 2026-07-28 task results, so task requests use a raw dispatch on the connected transport. The Client itself does not declare Tasks; ext-tasks declares it on each request it sends, so a plain `callTool` (for example from an MCP app) never gets a task result. Task replies get a one-second poll floor.
+- A task result is stored in `tasks.json` (`extension/tasks/task-store.ts`), handed off, and followed by the tracker (`extension/tasks/task-tracker.ts`). The tracker updates the record, retries after a lost connection (`disconnected`, backoff up to 60 s), and delivers the outcome to the origin chat session as an `mcp-task-result` message without a new turn. Outcomes for a closed session wait until it registers again.
+- On first use the runtime resumes stored tasks. A record of another principal becomes `blocked-principal`, and a record past its retention is removed.
+- `mcp` actions: `task_status`, `task_wait`, `task_cancel` (CLI `sero mcp task status|wait|cancel <id>`). `mcp_manager` actions: `list_tasks`, `cancel_task`, `dismiss_task`, `task_result`.
+
+Sero does not open a `subscriptions/listen` stream for task status. ext-tasks polls, and it also uses task notifications when they arrive.
+
+### Remote skills
+
+Sero supports the stable Skills extension (SEP-2640, `io.modelcontextprotocol/skills`). No SDK package exists for it, so `extension/skills/skills-client.ts` keeps small zod schemas for `skills/list`, `skills/get` and `resources/directory/read`.
+
+- On connect, the runtime lists the server's skills into `skills.json` (`extension/skills/skill-registry.ts`). It fetches no skill file. A new skill starts off; the user turns it on in the **Remote skills** panel.
+- Each skill has a manifest digest over its file list. An approval to run code is bound to that digest, so a changed file list revokes it and marks the skill **Changed**.
+- The prompt block lists only enabled skills, as `<server> / <name>` (the skill path when names collide). A remote skill never enters Pi's skill list.
+- `skill_load` checks the limits (512 files, 16 MiB), each file's size and SHA-256 digest, the frontmatter against the listed entry, and the Agent Skills name rules. It declines dynamic skills. Content goes to the model in an `<mcp-skill server=… uri=…>` block (`extension/skills/skill-loader.ts`).
+- From a load until the session ends, the session acts on the held entry. `skill_read` and `skill_ls` read only files in it.
+- While a session acts on a remote skill, the `tool_call` hook asks before `bash` or `run_code` runs, and blocks when nobody can answer. `allowed-tools` is ignored. A resource read on another server is blocked.
+- `mcp` actions: `skill_load`, `skill_read`, `skill_ls` (CLI `sero mcp skill load|read|ls`). `mcp_manager` actions: `list_skills`, `set_skill_enabled`, `refresh_skills`.
 
 ### Tool runner
 
@@ -162,6 +237,10 @@ sero mcp connect <server>
 sero mcp reconnect <server>
 sero mcp enable <server>
 sero mcp disable <server>
+sero mcp task status|wait|cancel <taskId>
+sero mcp skill load <server> <skill>
+sero mcp skill read <server> <skill> <path>
+sero mcp skill ls <server> <skill> [path]
 ```
 
 Examples:
@@ -190,6 +269,20 @@ Current behavior:
   - marks the server as `needs-auth`
   - guides the user back to the in-app auth flow
 
+### Issuer checks
+
+Sero follows the `2026-07-28` authorization rules through the v2 SDK:
+
+- The callback `state` is checked first. Then the full callback query goes to the SDK, which compares `iss` with the issuer of the authorization server metadata before it exchanges the code. A different `iss`, or a missing `iss` when the server declares `authorization_response_iss_parameter_supported`, stops the sign-in before any token request. Sero then shows a fixed message and never the callback's `error_description` or other text.
+- Tokens and client information are stored as the SDK gives them, with the SDK's `issuer` stamp, and the discovery state is stored in `discovery.json`. Tokens saved before the upgrade have no stamp; they keep working and get one on the next sign-in.
+- When the server's resource metadata starts to name another authorization server, the SDK does not send the stored tokens or client credentials there. The server becomes `needs-auth`, and the user signs in again.
+- The SDK refuses to send credentials to a token endpoint that uses neither TLS nor a loopback host.
+- For `403 insufficient_scope`, Sero keeps the SDK default (`onInsufficientScope: 'reauthorize'`): the SDK asks for a new authorization with the wider scope. Outside a sign-in nobody can follow that redirect, so Sero saves the scope in `flow.json`, and the call fails with `needs-auth`. The next sign-in then forces a new authorization for that scope, because the server can still accept the old token for a plain connect.
+
+### Client registration
+
+A client ID in the server's `oauth` config always wins. Otherwise Sero would use its Client ID Metadata Document URL (`CLIENT_METADATA_URL` in `oauth-provider.ts`) when the authorization server supports it; that URL is not published yet, so Sero uses Dynamic Client Registration. The registration is a native app with the loopback redirect `http://127.0.0.1:19876/mcp/oauth/callback`.
+
 ## Storage
 
 ### App config, state, and metadata cache
@@ -201,7 +294,20 @@ $SERO_HOME/apps/mcp/
   config.json
   state.json
   metadata-cache.json
+  era-verdicts.json
 ```
+
+### Metadata cache
+
+`metadata-cache.json` (version 2) keeps the last known tool and resource list of each server, for offline display and for Agent Plugin CLI commands. Sero keeps one entry for each server, and an entry is used only when all of these match:
+
+- the server name and the config hash of the server entry
+- the principal: `anon` without auth, `bearer:<sha256 of the token>` for a bearer token, or `oauth:<random ID>` for an OAuth sign-in
+- the cache scope: a `private` entry is never shown for another principal; a `public` entry is
+
+Each entry also stores `expiresAt` from the server's `ttlMs`. A server that sends no TTL (a 2025 server) keeps its entry until it reports a change. A `2026-07-28` server without cache hints sends `ttlMs: 0`, so its entry is stale at once. Sero lists a connected server again when its entry has expired; while the TTL holds, the client answers from its response cache and sends no request. A `list_changed` notification lists the server again at once. The client response cache uses the same principal as its partition.
+
+Sero removes an entry when the server is removed or its config changes, and removes a private entry on sign-out. A bearer token is never written to disk; only its hash is. A version 1 file is read as stale and rewritten as version 2.
 
 ### OAuth credentials
 
@@ -216,6 +322,9 @@ Per-server auth data is split into files such as:
 - `tokens.json`
 - `client.json`
 - `flow.json`
+- `discovery.json`
+
+Task records are in `$SERO_HOME/apps/mcp/tasks.json`. Remote skill entries, their on/off state and code approvals are in `$SERO_HOME/apps/mcp/skills.json`.
 
 ### Persistence rules
 

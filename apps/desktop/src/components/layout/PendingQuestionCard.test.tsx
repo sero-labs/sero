@@ -100,4 +100,76 @@ describe('PendingQuestionCard approval layout', () => {
     expect(code?.textContent).not.toContain('Dangerous command detected');
     expect(code?.textContent).not.toContain('Allow this command to run?');
   });
+
+  it('opens the link of an option before it sends the answer', async () => {
+    const openExternal = vi.fn(async () => undefined);
+    const answer = vi.fn(async () => undefined);
+    Reflect.set(window, 'sero', { shell: { openExternal } });
+    useUserFeedbackStore.setState({
+      answer,
+      pending: new Map([['open-1', {
+        id: 'open-1',
+        type: 'question',
+        toolCallId: 'call-2',
+        timestamp: new Date().toISOString(),
+        context: { source: 'MCP · billing · checkout' },
+        questions: [{
+          id: 'open-page',
+          label: 'Open a page from billing?',
+          prompt: 'https://pay.example.com/session/1',
+          options: [
+            { value: 'decline', label: 'Decline', emphasis: 'primary' },
+            { value: 'open', label: 'Open page', openUrl: 'https://pay.example.com/session/1' },
+          ],
+          allowOther: false,
+        }],
+      } satisfies UserFeedbackPendingQuestion]]),
+    });
+    await act(async () => {
+      root?.render(<PendingQuestionCard />);
+    });
+    const button = (label: string) => Array.from(container.querySelectorAll('button'))
+      .find((element) => element.textContent?.trim() === label);
+
+    await act(async () => { button('Open page')?.click(); });
+
+    expect(openExternal).toHaveBeenCalledWith('https://pay.example.com/session/1');
+    expect(answer).toHaveBeenCalledWith('open-1', [expect.objectContaining({ value: 'open' })]);
+    Reflect.deleteProperty(window, 'sero');
+  });
+
+  it('does not open a link for an option without one', async () => {
+    const openExternal = vi.fn(async () => undefined);
+    Reflect.set(window, 'sero', { shell: { openExternal } });
+    useUserFeedbackStore.setState({
+      answer: vi.fn(async () => undefined),
+      pending: new Map([['open-2', {
+        id: 'open-2',
+        type: 'question',
+        toolCallId: 'call-3',
+        timestamp: new Date().toISOString(),
+        context: { source: 'MCP · billing' },
+        questions: [{
+          id: 'open-page',
+          label: 'Open a page from billing?',
+          prompt: 'https://pay.example.com',
+          options: [
+            { value: 'decline', label: 'Decline', emphasis: 'primary' },
+            { value: 'open', label: 'Open page', openUrl: 'https://pay.example.com' },
+          ],
+          allowOther: false,
+        }],
+      } satisfies UserFeedbackPendingQuestion]]),
+    });
+    await act(async () => {
+      root?.render(<PendingQuestionCard />);
+    });
+
+    await act(async () => {
+      Array.from(container.querySelectorAll('button')).find((element) => element.textContent?.trim() === 'Decline')?.click();
+    });
+
+    expect(openExternal).not.toHaveBeenCalled();
+    Reflect.deleteProperty(window, 'sero');
+  });
 });

@@ -10,7 +10,8 @@ vi.mock('electron', () => ({
   },
 }));
 
-import { buildContentSecurityPolicy } from '@electron/platform/security/csp';
+import { session } from 'electron';
+import { buildContentSecurityPolicy, setupContentSecurityPolicy } from '@electron/platform/security/csp';
 
 describe('content security policy', () => {
   it('keeps production script sources tight while allowing only loopback viewer URLs', () => {
@@ -34,6 +35,25 @@ describe('content security policy', () => {
     expect(csp).not.toContain('frame-src http:');
     expect(csp).not.toContain('frame-src https:');
     expect(csp).not.toContain('child-src http:');
+  });
+
+  it('keeps the own policy of a loopback frame and sets the renderer policy on other responses', () => {
+    setupContentSecurityPolicy();
+    const listener = vi.mocked(session.defaultSession.webRequest.onHeadersReceived).mock.calls[0]?.[0] as unknown as (
+      details: { resourceType: string; url: string; responseHeaders: Record<string, string[]> },
+      callback: (response: { responseHeaders?: Record<string, string[]> }) => void,
+    ) => void;
+    const respond = (resourceType: string, url: string) => {
+      const callback = vi.fn();
+      listener({ resourceType, url, responseHeaders: { 'Content-Security-Policy': ["default-src 'none'"] } }, callback);
+      return callback.mock.calls[0]?.[0];
+    };
+
+    expect(respond('subFrame', 'http://127.0.0.1:4100/ui-app?session=abc')).toEqual({});
+    // Each MCP app frame uses its own `<label>.localhost` host, so it keeps its own policy too.
+    expect(respond('subFrame', 'http://a1b2c3d4e5f60718.localhost:4100/ui-app')).toEqual({});
+    expect(respond('mainFrame', 'http://127.0.0.1:4100/')?.responseHeaders?.['Content-Security-Policy']?.[0]).toContain("script-src 'self'");
+    expect(respond('subFrame', 'https://example.com/')?.responseHeaders?.['Content-Security-Policy']?.[0]).toContain("script-src 'self'");
   });
 
   it('preserves dev-time localhost and framed preview allowances', () => {

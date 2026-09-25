@@ -2,16 +2,22 @@ import type {
   McpAppState,
   McpAuthMode,
   McpAuthStatus,
+  McpCacheSnapshot,
   McpConnectionStatus,
+  McpFailurePhase,
+  McpProtocolSnapshot,
   McpResourceSummary,
   McpServerSnapshot,
   McpUiToolSummary,
 } from '../../shared/types';
+import { resolvePrincipalId } from '../auth/principal';
 import {
+  isMetadataCacheEntryFresh,
   isMetadataCacheEntryValid,
   type CachedMcpResource,
   type CachedMcpTool,
   type McpMetadataCacheDocument,
+  type McpMetadataCacheEntry,
 } from '../cache/metadata-cache';
 import {
   hasBearerTokenValue,
@@ -26,6 +32,8 @@ export interface RuntimeServerStatus {
   lastError?: string;
   lastConnectedAt?: string | null;
   lastFailedAt?: string | null;
+  protocol?: McpProtocolSnapshot;
+  failurePhase?: McpFailurePhase;
 }
 
 interface BuildSnapshotOptions {
@@ -79,7 +87,9 @@ async function createServerSnapshot(
   const runtimeStatus = options.runtimeStatuses?.get(serverName);
   const derivedAuthStatus = await resolveAuthStatus(serverName, serverConfig, options.hasOAuthTokens);
   const authStatus = runtimeStatus?.authStatus ?? derivedAuthStatus;
-  const metadata = getValidMetadata(serverName, serverConfig, options.metadataCache);
+  const cacheEntry = options.metadataCache.servers[serverName];
+  const principalId = await resolvePrincipalId(serverName, serverConfig);
+  const metadata = isMetadataCacheEntryValid(cacheEntry, serverConfig, principalId) ? cacheEntry : undefined;
   const uiTools = buildUiToolSummaries(metadata?.tools ?? []);
   const resources = buildResourceSummaries(metadata?.resources ?? [], serverConfig);
 
@@ -106,6 +116,9 @@ async function createServerSnapshot(
     lastError: runtimeStatus?.lastError,
     lastConnectedAt: runtimeStatus?.lastConnectedAt ?? null,
     lastFailedAt: runtimeStatus?.lastFailedAt ?? null,
+    protocol: runtimeStatus?.connectionStatus === 'connected' ? runtimeStatus.protocol : undefined,
+    failurePhase: runtimeStatus?.connectionStatus === 'connected' ? undefined : runtimeStatus?.failurePhase,
+    cache: describeCache(cacheEntry, metadata),
     resources,
     uiTools,
     source: serverConfig.managedByAgentPlugin ? 'agent-plugin' : 'user',
@@ -113,13 +126,13 @@ async function createServerSnapshot(
   };
 }
 
-function getValidMetadata(
-  serverName: string,
-  serverConfig: McpServerConfig,
-  metadataCache: McpMetadataCacheDocument,
-) {
-  const entry = metadataCache.servers[serverName];
-  return isMetadataCacheEntryValid(entry, serverConfig) ? entry : undefined;
+function describeCache(entry: McpMetadataCacheEntry | undefined, validEntry: McpMetadataCacheEntry | undefined): McpCacheSnapshot {
+  if (!entry) return { state: 'none', cachedAt: null };
+  return {
+    state: validEntry && isMetadataCacheEntryFresh(validEntry) ? 'fresh' : 'stale',
+    cachedAt: new Date(entry.cachedAt).toISOString(),
+    expiresAt: typeof entry.expiresAt === 'number' ? new Date(entry.expiresAt).toISOString() : null,
+  };
 }
 
 async function resolveAuthStatus(

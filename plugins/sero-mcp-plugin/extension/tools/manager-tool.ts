@@ -14,6 +14,12 @@ const ManagerParams = Type.Object({
   resourceUri: Type.Optional(Type.String({ description: 'Resource URI for internal viewer actions such as open_resource or open_tool_ui. For normal agent resource reads, use mcp instead.' })),
   toolName: Type.Optional(Type.String({ description: 'Tool name for open_tool_ui (internal MCP UI flow), not for normal MCP tool execution.' })),
   toolArguments: Type.Optional(Type.Record(Type.String(), Type.Any(), { description: 'Structured tool arguments for open_tool_ui or other internal viewer/UI flows, not for normal MCP tool calls.' })),
+  viewerId: Type.Optional(Type.String({ description: 'Viewer session ID for close_viewer.' })),
+  taskId: Type.Optional(Type.String({ description: 'MCP task ID for cancel_task, dismiss_task or task_result.' })),
+  skillUri: Type.Optional(Type.String({ description: 'SKILL.md URI of a remote skill, for set_skill_enabled.' })),
+  sessionId: Type.Optional(Type.String({ description: 'Chat session that shows the app, for open_tool_ui.' })),
+  toolCallId: Type.Optional(Type.String({ description: 'Tool call that the app shows, for open_tool_ui.' })),
+  toolResult: Type.Optional(Type.Record(Type.String(), Type.Any(), { description: 'Stored tool result that the app shows, for open_tool_ui.' })),
   callbackUrl: Type.Optional(Type.String({ description: 'OAuth callback URL for complete_auth.' })),
   originalServerName: Type.Optional(Type.String({ description: 'Existing server name when renaming a server.' })),
   enabled: Type.Optional(Type.Boolean()),
@@ -44,6 +50,12 @@ export function registerMcpManagerTool(pi: ExtensionAPI, runtime: McpRuntime): v
         resourceUri?: string;
         toolName?: string;
         toolArguments?: Record<string, unknown>;
+        viewerId?: string;
+        taskId?: string;
+        skillUri?: string;
+        sessionId?: string;
+        toolCallId?: string;
+        toolResult?: Record<string, unknown>;
         callbackUrl?: string;
       };
       const actionText = typeof managerParams.action === 'string' ? managerParams.action.trim() : '';
@@ -62,6 +74,15 @@ export function registerMcpManagerTool(pi: ExtensionAPI, runtime: McpRuntime): v
         resourceUri: managerParams.resourceUri,
         toolName: managerParams.toolName,
         toolArguments: managerParams.toolArguments,
+        viewerId: managerParams.viewerId,
+        taskId: managerParams.taskId,
+        skillUri: managerParams.skillUri,
+        enabled: managerParams.enabled,
+        sessionId: managerParams.sessionId,
+        // The guard reads the session from the extension context, not from the model's parameters.
+        callerSessionId: ctx?.sessionManager?.getSessionId(),
+        toolCallId: managerParams.toolCallId,
+        toolResult: managerParams.toolResult,
         callbackUrl: managerParams.callbackUrl,
         serverInput: action === 'upsert_server' ? toServerEditorInput(managerParams) : undefined,
       });

@@ -24,7 +24,7 @@ describe('buildSnapshot', () => {
       rawConfigUpdatedAt: null,
       config,
       metadataCache: {
-        version: 1,
+        version: 2,
         servers: {
           demo: {
             cachedAt: Date.now(),
@@ -70,7 +70,7 @@ describe('buildSnapshot', () => {
       rawConfigUpdatedAt: null,
       config,
       metadataCache: {
-        version: 1,
+        version: 2,
         servers: {
           demo: {
             cachedAt: Date.now(),
@@ -112,7 +112,7 @@ describe('buildSnapshot', () => {
         configPath: '/tmp/mcp.json',
         rawConfigUpdatedAt: null,
         config,
-        metadataCache: { version: 1, servers: {} },
+        metadataCache: { version: 2, servers: {} },
         hasOAuthTokens: async () => false,
       });
 
@@ -125,5 +125,44 @@ describe('buildSnapshot', () => {
         process.env.MCP_TEST_TOKEN = previousToken;
       }
     }
+  });
+
+  it('shows the negotiated protocol, the failed step and the cache state', async () => {
+    const modern: McpServerConfig = { transport: 'http', url: 'https://modern.example.com/mcp' };
+    const legacy: McpServerConfig = { command: 'node', args: ['legacy.js'] };
+    const locked: McpServerConfig = { transport: 'http', url: 'https://locked.example.com/mcp' };
+    const snapshot = await buildSnapshot({
+      configPath: '/tmp/mcp.json',
+      rawConfigUpdatedAt: null,
+      config: { mcpServers: { modern, legacy, locked } },
+      metadataCache: {
+        version: 2,
+        servers: {
+          modern: { cachedAt: 0, configHash: computeServerHash(modern), toolCount: 0, resourceCount: 0, tools: [], resources: [] },
+          legacy: { cachedAt: 0, configHash: 'old-hash', toolCount: 0, resourceCount: 0, tools: [], resources: [] },
+        },
+      },
+      hasOAuthTokens: async () => false,
+      runtimeStatuses: new Map([
+        ['modern', {
+          connectionStatus: 'connected',
+          protocol: { era: 'modern', version: '2026-07-28', extensions: ['io.modelcontextprotocol/ui'], serverVersion: 'demo 1.0.0', deprecatedTransport: false, eraFromVerdict: false },
+        }],
+        ['legacy', {
+          connectionStatus: 'connected',
+          protocol: { era: 'legacy', version: '2025-06-18', extensions: [], serverVersion: null, deprecatedTransport: false, eraFromVerdict: true },
+        }],
+        ['locked', { connectionStatus: 'error', lastError: 'Forbidden', failurePhase: 'auth' }],
+      ]),
+    });
+    const byName = Object.fromEntries(snapshot.servers.map((server) => [server.serverName, server]));
+
+    expect(byName.modern?.protocol).toMatchObject({ era: 'modern', version: '2026-07-28', extensions: ['io.modelcontextprotocol/ui'] });
+    expect(byName.modern?.cache).toEqual({ state: 'fresh', cachedAt: new Date(0).toISOString(), expiresAt: null });
+    expect(byName.legacy?.protocol).toMatchObject({ era: 'legacy', version: '2025-06-18', eraFromVerdict: true });
+    expect(byName.legacy?.cache?.state).toBe('stale');
+    expect(byName.locked?.failurePhase).toBe('auth');
+    expect(byName.locked?.protocol).toBeUndefined();
+    expect(byName.locked?.cache).toEqual({ state: 'none', cachedAt: null });
   });
 });

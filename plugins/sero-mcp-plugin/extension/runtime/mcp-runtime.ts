@@ -1,5 +1,5 @@
+import type { ToolCallEventResult } from '@earendil-works/pi-coding-agent';
 import type { McpServerEditorInput } from '../../shared/types';
-import { validateServerEditorInput } from '../../shared/types';
 import { ensureOAuthDir, hasOAuthTokens } from '../auth/storage';
 import { McpOAuthCoordinator } from '../auth/oauth-coordinator';
 import { areMetadataCacheServersEqual, readMetadataCache, removeMetadataCacheEntry, writeMetadataCache, type McpMetadataCacheDocument } from '../cache/metadata-cache';
@@ -9,8 +9,8 @@ import {
   hasAgentPluginMcpSourceEvents,
   withAgentPluginMcpSources,
 } from '../config/agent-plugin-source';
-import { setAgentPluginServerEnabled } from '../config/agent-plugin-client-state';
 import type { McpConfigDocument } from '../config/types';
+import { createFileEraVerdictStore } from '../manager/era-verdicts';
 import { McpServerManager } from '../manager/server-manager';
 import { buildSnapshot, type RuntimeServerStatus } from '../state/snapshot';
 import { getMcpConfigPath, getMcpStatePath } from '../state/paths';
@@ -32,47 +32,99 @@ import {
 } from './runtime-lifecycle';
 import { writeState } from '../state/state-io';
 import { createToolResult, type ManagerAction, type ProxyAction, type ToolResult } from '../tools/types';
-import { readMcpConfigPair, withMcpServerEnabled, type McpConfigPair } from './runtime-config';
-import { buildServerConfig, mutationErrorResult } from './runtime-utils';
+import { readMcpConfigPair, type McpConfigPair } from './runtime-config';
+import { removeServerAction, toggleServerAction, upsertServerAction } from './runtime-servers';
 import { executeManagerActionRoute } from './runtime-manager-router';
 import type { ManagerActionOptions, SyncedRuntimeState, SyncSnapshotOptions } from './runtime-types';
-import { McpUiSessionManager } from '../viewer/ui-session';
 import { UiResourceHandler } from '../viewer/ui-resource-handler';
+import { McpUiServer } from '../viewer/ui-server';
+import { SessionRegistry, type SessionSend } from './app-messages';
+import { createRuntimeTasks } from './runtime-tasks';
+import { createRuntimeSkills } from './runtime-skills';
+import type { AppPermissionChoices } from '../viewer/app-permissions';
 
+export interface ProxyActionOptions {
+  cwd?: string; query?: string; serverName?: string; toolName?: string; resourceUri?: string;
+  toolArguments?: Record<string, unknown>; argumentsJson?: string; signal?: AbortSignal;
+  notify?: (text: string) => void;
+  taskId?: string;
+  /** For the skill actions: the skill (name, path or URI) and a file or directory path. */
+  skill?: string;
+  path?: string;
+  /** The chat session and tool call that made a call_tool, so a task outcome can return there. */
+  sessionId?: string;
+  toolCallId?: string;
+}
 export interface McpRuntime {
   handleSessionStart(ctx: { cwd: string }): Promise<void>;
   handleSessionSwitch(ctx: { cwd: string }): Promise<void>;
   handleSessionShutdown(): Promise<void>;
+  /** Lets MCP apps shown in this session send messages to it. Returns the unregister function. */
+  registerSession(sessionId: string, send: SessionSend): () => void;
+  /** The "Remote MCP skills" prompt block for enabled skills. */
+  remoteSkillsPromptBlock(): Promise<string>;
+  /** Blocks a code tool while the session acts on a remote skill that the user has not approved. */
+  checkToolCall(sessionId: string, toolName: string): Promise<ToolCallEventResult | undefined>;
   executeManagerAction(action: ManagerAction, options?: ManagerActionOptions): Promise<ToolResult>;
-  executeProxyAction(action: ProxyAction, options?: {
-    cwd?: string; query?: string; serverName?: string; toolName?: string; resourceUri?: string;
-    toolArguments?: Record<string, unknown>; argumentsJson?: string;
-  }): Promise<ToolResult>;
+  executeProxyAction(action: ProxyAction, options?: ProxyActionOptions): Promise<ToolResult>;
 }
 let runtimeSingleton: McpRuntime | null = null;
 export function getMcpRuntime(): McpRuntime {
   runtimeSingleton ??= createMcpRuntime();
   return runtimeSingleton;
 }
-function createMcpRuntime(): McpRuntime {
+/** A new runtime. The extension uses the shared one from getMcpRuntime; tests create their own. */
+export function createMcpRuntime(): McpRuntime {
   let lastKnownCwd = '';
   let sessionRefCount = 0;
   let lastState: SyncedRuntimeState | null = null;
   let operationQueue: Promise<void> = Promise.resolve();
-  const manager = new McpServerManager({ hasOAuthTokens });
+  const manager = new McpServerManager({
+    hasOAuthTokens,
+    eraVerdicts: createFileEraVerdictStore(),
+    onConnected: (serverName, connection) => void skills.refreshServer(serverName, connection).catch(() => undefined),
+    onInventoryChanged: (serverName, connection) => {
+      void runExclusive(async () => {
+        const config = lastState?.config;
+        const serverConfig = config?.mcpServers[serverName];
+        if (!config || !serverConfig) return;
+        const { nextCache, runtimeStatus } = await reconcileConnection({
+          serverName, serverConfig, metadataCache: await readMetadataCache(), connection,
+        });
+        runtimeStatuses.set(serverName, runtimeStatus);
+        await syncSnapshot(lastKnownCwd || undefined, { config, metadataCache: nextCache });
+      }).catch((error) => console.error('[mcp] Failed to store a changed MCP inventory', error));
+    },
+  });
   const authCoordinator = new McpOAuthCoordinator();
   const runtimeStatuses = new Map<string, RuntimeServerStatus>();
   const uiResourceHandler = new UiResourceHandler(manager);
-  const uiSessions = new McpUiSessionManager();
+  const uiServer = new McpUiServer(manager);
+  const sessions = new SessionRegistry();
+  const permissionChoices: AppPermissionChoices = new Map();
+  const loadConfig = async () => lastState?.config ?? withAgentPluginMcpSources(await ensureConfigFile(getMcpConfigPath()));
+  const tasks = createRuntimeTasks({ manager, sessions, getConfig: loadConfig });
+  const skills = createRuntimeSkills({
+    manager,
+    connect: async (name) => {
+      const definition = (await loadConfig()).mcpServers[name];
+      return definition && definition.enabled !== false ? manager.connect(name, definition) : undefined;
+    },
+  });
+  let tasksStarted = false;
+  // Resumes stored tasks on first use: a chat session start, or an MCP app or tool action,
+  // which runs in an app agent without a session start. Resuming connects servers, so it runs outside the queue.
+  const ensureTasksStarted = () => {
+    if (tasksStarted) return;
+    tasksStarted = true;
+    void tasks.tracker.start().catch((error) => console.error('[mcp] Failed to resume MCP tasks', error));
+  };
   const keepAliveScheduler = createKeepAliveScheduler({
     intervalMs: KEEP_ALIVE_HEALTHCHECK_INTERVAL_MS,
     isEnabled: () => sessionRefCount > 0,
     onTick: async () => {
       await runExclusive(async () => {
-        const config = lastState?.config ?? await withAgentPluginMcpSources(
-          await ensureConfigFile(getMcpConfigPath()),
-        );
-        await reconcileManagedServers(lastKnownCwd, config, 'keep-alive');
+        await reconcileManagedServers(lastKnownCwd, await loadConfig(), 'keep-alive');
       });
     },
   });
@@ -97,6 +149,7 @@ function createMcpRuntime(): McpRuntime {
       const synced = await syncSnapshot(ctx.cwd);
       keepAliveScheduler.start();
       await reconcileManagedServers(ctx.cwd, synced.config, 'startup');
+      ensureTasksStarted();
     });
   }
   function handleSessionShutdown(): Promise<void> {
@@ -104,9 +157,11 @@ function createMcpRuntime(): McpRuntime {
       sessionRefCount = Math.max(0, sessionRefCount - 1);
       if (sessionRefCount === 0) {
         keepAliveScheduler.stop();
+        tasks.tracker.stopAll();
+        tasksStarted = false;
         await Promise.all([
           authCoordinator.cancelAll(),
-          uiSessions.closeActive('runtime-shutdown'),
+          uiServer.closeAll('runtime-shutdown'),
           manager.closeAll(),
         ]);
         runtimeStatuses.clear();
@@ -124,6 +179,7 @@ function createMcpRuntime(): McpRuntime {
     });
   }
   function executeManagerAction(action: ManagerAction, options: ManagerActionOptions = {}): Promise<ToolResult> {
+    ensureTasksStarted();
     return runExclusive(async () => executeManagerActionRoute({
       action,
       options,
@@ -139,10 +195,12 @@ function createMcpRuntime(): McpRuntime {
         complete_auth: () => completeServerAuth(options.cwd, options.serverName, options.callbackUrl),
         cancel_auth: () => cancelServerAuth(options.cwd, options.serverName),
         clear_auth: () => clearServerAuth(options.cwd, options.serverName),
-        read_resource: () => readServerResource(options.cwd, options.serverName, options.resourceUri),
+        read_resource: () => readServerResource(options),
         open_resource: () => openViewerResource(options),
         open_tool_ui: () => openToolUi(options),
-        close_viewer: () => closeViewer(),
+        close_viewer: async () => closeViewerAction({ uiServer, viewerId: options.viewerId }),
+        ...tasks.managerHandlers(options.taskId),
+        ...skills.managerHandlers(options),
       },
       syncSnapshot,
       reconcileManagedServers,
@@ -151,8 +209,16 @@ function createMcpRuntime(): McpRuntime {
       hasAttachedPi: hasAgentPluginMcpSourceEvents(),
     }));
   }
-  function executeProxyAction(action: ProxyAction, options: { cwd?: string; query?: string; serverName?: string; toolName?: string; resourceUri?: string; toolArguments?: Record<string, unknown>; argumentsJson?: string; } = {}): Promise<ToolResult> {
-    return runExclusive(async () => executeProxyActionInternal({
+  function executeProxyAction(action: ProxyAction, options: ProxyActionOptions = {}): Promise<ToolResult> {
+    ensureTasksStarted();
+    // Tool calls and resource reads queue only their connection work, so that a
+    // server question during a call does not block other MCP work.
+    if (action === 'task_status' || action === 'task_wait' || action === 'task_cancel') {
+      return tasks.proxyAction(action, options.taskId, options.signal);
+    }
+    if (action === 'skill_load' || action === 'skill_read' || action === 'skill_ls') return skills.proxyAction(action, options);
+    const queued = action !== 'call_tool' && action !== 'read_resource';
+    const run = () => executeProxyActionInternal({
       action,
       cwd: options.cwd,
       query: options.query,
@@ -161,143 +227,41 @@ function createMcpRuntime(): McpRuntime {
       resourceUri: options.resourceUri,
       toolArguments: options.toolArguments,
       argumentsJson: options.argumentsJson,
+      signal: options.signal,
+      notify: options.notify,
+      // runtime-resource.ts enforces the remote-skill cross-server guard at the shared read boundary.
+      sessionId: options.sessionId,
+      crossServerReadError: (sessionId, serverName) => skills.crossServerReadError(sessionId, serverName),
+      adoptTask: (execution, input) => tasks.tracker.adopt(execution, {
+        ...input,
+        principalId: manager.getConnection(input.serverName)?.principalId ?? 'anon',
+        originSessionId: options.sessionId,
+        toolCallId: options.toolCallId,
+      }),
+      exclusive: runExclusive,
       manager,
       setRuntimeStatus: (name, status) => runtimeStatuses.set(name, status),
       syncSnapshot,
-    }));
+    });
+    return queued ? runExclusive(run) : run();
   }
   async function saveRawConfig(cwd: string | undefined, rawConfigInput?: string): Promise<ToolResult> {
     return saveRawConfigAction({ cwd, rawConfigInput, writeConfigAndSyncSnapshot });
   }
-  async function upsertServer(cwd: string | undefined, serverInput?: McpServerEditorInput): Promise<ToolResult> {
-    if (!serverInput) {
-      return createToolResult('Error: Server input is required.', { snapshotWritten: false });
-    }
-    const validationError = validateServerEditorInput(serverInput);
-    if (validationError) {
-      return createToolResult(`Error: ${validationError}`, { snapshotWritten: false });
-    }
-    try {
-      const configPair = await readMcpConfigPair();
-      const effectiveConfig = configPair.effectiveConfig;
-      const originalName = serverInput.originalServerName?.trim();
-      const nextName = serverInput.serverName.trim();
-      const managedServer = [originalName, nextName]
-        .filter((name): name is string => !!name)
-        .map((name) => effectiveConfig.mcpServers[name])
-        .find((server) => server?.managedByAgentPlugin);
-      if (managedServer?.managedByAgentPlugin) {
-        throw new Error(`Server "${managedServer.managedByAgentPlugin.serverName}" is managed by Agent Plugin ${managedServer.managedByAgentPlugin.pluginName}.`);
-      }
-      const synced = await mutateConfig(cwd, (config) => {
-        const nextServers = { ...config.mcpServers };
-        const hasRenameCollision = Boolean(
-          originalName && originalName !== nextName && nextServers[nextName],
-        );
-        const hasCreateCollision = Boolean(!originalName && nextServers[nextName]);
-        if (hasRenameCollision || hasCreateCollision) {
-          throw new Error(`A server named "${nextName}" already exists.`);
-        }
-        const existing = originalName ? nextServers[originalName] : undefined;
-        if (originalName && originalName !== nextName) {
-          delete nextServers[originalName];
-          runtimeStatuses.delete(originalName);
-        }
-        nextServers[nextName] = buildServerConfig(serverInput, existing);
-        config.mcpServers = nextServers;
-      }, undefined, configPair);
-      return createToolResult(`Saved MCP server "${serverInput.serverName.trim()}".`, {
-        snapshotWritten: true,
-        configPath: synced.configPath,
-        statePath: synced.statePath,
-        serverCount: synced.snapshot.summary.totalServers,
-      });
-    } catch (error) {
-      return mutationErrorResult(error);
-    }
+  const serverMutationContext = {
+    manager,
+    runtimeStatuses,
+    mutateConfig,
+    syncSnapshot,
+  };
+  function upsertServer(cwd: string | undefined, serverInput?: McpServerEditorInput): Promise<ToolResult> {
+    return upsertServerAction(serverMutationContext, cwd, serverInput);
   }
-  async function removeServer(cwd: string | undefined, serverName?: string): Promise<ToolResult> {
-    const normalizedServerName = serverName?.trim();
-    if (!normalizedServerName) {
-      return createToolResult('Error: Server name is required.', { snapshotWritten: false });
-    }
-    try {
-      const configPair = await readMcpConfigPair();
-      const effectiveConfig = configPair.effectiveConfig;
-      const managedServer = effectiveConfig.mcpServers[normalizedServerName];
-      if (managedServer?.managedByAgentPlugin) {
-        throw new Error(`Server "${managedServer.managedByAgentPlugin.serverName}" is managed by Agent Plugin ${managedServer.managedByAgentPlugin.pluginName}.`);
-      }
-      await manager.close(normalizedServerName);
-      runtimeStatuses.delete(normalizedServerName);
-      const synced = await mutateConfig(cwd, (config) => {
-        if (!config.mcpServers[normalizedServerName]) {
-          throw new Error(`Server "${normalizedServerName}" does not exist.`);
-        }
-        const nextServers = { ...config.mcpServers };
-        delete nextServers[normalizedServerName];
-        config.mcpServers = nextServers;
-      }, normalizedServerName, configPair);
-      return createToolResult(`Removed MCP server "${normalizedServerName}".`, {
-        snapshotWritten: true,
-        configPath: synced.configPath,
-        statePath: synced.statePath,
-        serverCount: synced.snapshot.summary.totalServers,
-      });
-    } catch (error) {
-      return mutationErrorResult(error);
-    }
+  function removeServer(cwd: string | undefined, serverName?: string): Promise<ToolResult> {
+    return removeServerAction(serverMutationContext, cwd, serverName);
   }
-  async function toggleServer(cwd: string | undefined, serverName: string | undefined, enabled: boolean): Promise<ToolResult> {
-    const normalizedServerName = serverName?.trim();
-    if (!normalizedServerName) {
-      return createToolResult('Error: Server name is required.', { snapshotWritten: false });
-    }
-    try {
-      const configPair = await readMcpConfigPair();
-      const effectiveConfig = configPair.effectiveConfig;
-      const managedServer = effectiveConfig.mcpServers[normalizedServerName];
-      if (managedServer?.managedByAgentPlugin) {
-        if (!enabled) {
-          await manager.close(normalizedServerName);
-          runtimeStatuses.delete(normalizedServerName);
-        }
-        await setAgentPluginServerEnabled(normalizedServerName, enabled);
-        const nextConfig = withMcpServerEnabled(effectiveConfig, normalizedServerName, enabled);
-        const synced = await syncSnapshot(cwd, { config: nextConfig });
-        return createToolResult(`${enabled ? 'Enabled' : 'Disabled'} managed MCP server "${managedServer.managedByAgentPlugin.serverName}".`, {
-          snapshotWritten: true,
-          configPath: synced.configPath,
-          statePath: synced.statePath,
-          serverCount: synced.snapshot.summary.totalServers,
-        });
-      }
-      if (!enabled) {
-        await manager.close(normalizedServerName);
-        runtimeStatuses.delete(normalizedServerName);
-      }
-      const synced = await mutateConfig(cwd, (config) => {
-        const current = config.mcpServers[normalizedServerName];
-        if (!current) {
-          throw new Error(`Server "${normalizedServerName}" does not exist.`);
-        }
-        config.mcpServers = {
-          ...config.mcpServers,
-          [normalizedServerName]: {
-            ...current,
-            enabled,
-          },
-        };
-      }, undefined, configPair);
-      return createToolResult(`${enabled ? 'Enabled' : 'Disabled'} MCP server "${normalizedServerName}".`, {
-        snapshotWritten: true,
-        configPath: synced.configPath,
-        statePath: synced.statePath,
-        serverCount: synced.snapshot.summary.totalServers,
-      });
-    } catch (error) {
-      return mutationErrorResult(error);
-    }
+  function toggleServer(cwd: string | undefined, serverName: string | undefined, enabled: boolean): Promise<ToolResult> {
+    return toggleServerAction(serverMutationContext, cwd, serverName, enabled);
   }
   async function connectServer(cwd: string | undefined, serverName: string | undefined, reconnect: boolean): Promise<ToolResult> {
     return connectServerAction({
@@ -349,11 +313,13 @@ function createMcpRuntime(): McpRuntime {
       syncSnapshot,
     });
   }
-  async function readServerResource(cwd: string | undefined, serverName: string | undefined, resourceUri: string | undefined): Promise<ToolResult> {
+  async function readServerResource(options: ManagerActionOptions): Promise<ToolResult> {
     return readServerResourceAction({
-      cwd,
-      serverName,
-      resourceUri,
+      cwd: options.cwd,
+      serverName: options.serverName,
+      resourceUri: options.resourceUri,
+      sessionId: options.callerSessionId,
+      crossServerReadError: (sessionId, serverName) => skills.crossServerReadError(sessionId, serverName),
       manager,
       setRuntimeStatus: (name, status) => runtimeStatuses.set(name, status),
       syncSnapshot,
@@ -364,9 +330,13 @@ function createMcpRuntime(): McpRuntime {
       cwd: options.cwd,
       serverName: options.serverName,
       resourceUri: options.resourceUri,
+      callerSessionId: options.callerSessionId,
+      crossServerReadError: (sessionId, serverName) => skills.crossServerReadError(sessionId, serverName),
       manager,
       uiResourceHandler,
-      uiSessions,
+      uiServer,
+      sessions,
+      permissionChoices,
       setRuntimeStatus: (name, status) => runtimeStatuses.set(name, status),
       syncSnapshot,
     });
@@ -378,15 +348,19 @@ function createMcpRuntime(): McpRuntime {
       resourceUri: options.resourceUri,
       toolName: options.toolName,
       toolArguments: options.toolArguments,
+      sessionId: options.sessionId,
+      // The read guard needs the trusted caller session, not the app-message session above.
+      callerSessionId: options.callerSessionId,
+      crossServerReadError: (sessionId, serverName) => skills.crossServerReadError(sessionId, serverName),
+      toolResult: options.toolResult,
       manager,
       uiResourceHandler,
-      uiSessions,
+      uiServer,
+      sessions,
+      permissionChoices,
       setRuntimeStatus: (name, status) => runtimeStatuses.set(name, status),
       syncSnapshot,
     });
-  }
-  async function closeViewer(): Promise<ToolResult> {
-    return closeViewerAction({ uiSessions });
   }
   async function reconcileManagedServers(cwd: string | undefined, config: McpConfigDocument, mode: 'startup' | 'keep-alive'): Promise<SyncedRuntimeState | null> {
     const entries = mode === 'keep-alive'
@@ -443,7 +417,7 @@ function createMcpRuntime(): McpRuntime {
     let metadataCache = metadataCacheOverride ?? await readMetadataCache();
     const effectiveConfig = await withAgentPluginMcpSources(config);
     for (const serverName of getChangedServerNames(previousConfig, effectiveConfig)) {
-      await uiSessions.closeIfServerMatches(serverName);
+      uiServer.closeForServer(serverName);
       await manager.close(serverName);
       runtimeStatuses.delete(serverName);
       metadataCache = removeMetadataCacheEntry(metadataCache, serverName);
@@ -490,6 +464,16 @@ function createMcpRuntime(): McpRuntime {
     handleSessionStart,
     handleSessionSwitch,
     handleSessionShutdown,
+    registerSession: (sessionId, send) => {
+      const unregister = sessions.register(sessionId, send);
+      void tasks.tracker.deliverPending(sessionId).catch(() => undefined);
+      return () => {
+        unregister();
+        skills.windows.close(sessionId);
+      };
+    },
+    remoteSkillsPromptBlock: () => skills.promptBlock(),
+    checkToolCall: (sessionId, toolName) => skills.checkToolCall(sessionId, toolName),
     executeManagerAction,
     executeProxyAction,
   };

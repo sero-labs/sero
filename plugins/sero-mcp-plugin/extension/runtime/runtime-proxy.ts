@@ -1,7 +1,7 @@
-import { getToolUiResourceUri } from '@modelcontextprotocol/ext-apps/app-bridge';
-import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
-import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { getToolUiResourceUri, isToolVisibilityAppOnly } from '@modelcontextprotocol/ext-apps/app-bridge';
+import { UnauthorizedError } from '@modelcontextprotocol/client';
 import {
+  isMetadataCacheEntryFresh,
   isMetadataCacheEntryValid,
   readMetadataCache,
   type McpMetadataCacheDocument,
@@ -10,15 +10,28 @@ import {
   isResourceExposureEnabled,
   type McpConfigDocument,
 } from '../config/types';
+import { resolvePrincipalId } from '../auth/principal';
 import { serializeResources, serializeTools } from '../manager/tool-metadata';
 import { McpServerManager } from '../manager/server-manager';
 import type { ManagedConnection, ManagedTool } from '../manager/types';
 import type { RuntimeServerStatus } from '../state/snapshot';
 import { createToolResult, type ProxyAction, type ToolResult } from '../tools/types';
-import { buildResourcesDisabledMessage, readProxyResourceAction } from './runtime-resource';
+import { readProxyResourceAction } from './runtime-resource';
+import {
+  buildAuthRequiredMessage,
+  buildMcpAppResultDetails,
+  escapeRegex,
+  formatTaskStarted,
+  formatCallToolResult,
+  formatUnknown,
+  getMissingMetadataMessage,
+  parseToolArguments,
+} from './runtime-proxy-format';
 import { reconcileConnection } from './runtime-connect';
 import { formatServerList, formatStatusSummary } from './runtime-utils';
 import type { SyncedRuntimeState } from './runtime-types';
+import type { McpTaskRecord } from '../tasks/task-store';
+import type { TaskToolExecution } from '../tasks/task-session';
 interface ProxyToolOptions {
   cwd?: string;
   query?: string;
@@ -27,6 +40,21 @@ interface ProxyToolOptions {
   resourceUri?: string;
   toolArguments?: Record<string, unknown>;
   argumentsJson?: string;
+  /** Stops only this request. */
+  signal?: AbortSignal;
+  /** The chat session that asks for the read, for the remote-skill cross-server guard. */
+  sessionId?: string;
+  /** Refuses a read that a remote skill of another server would make. */
+  crossServerReadError?: (sessionId: string | undefined, serverName: string) => string | null;
+  /** Shows a short message in the chat that made the call. */
+  notify?: (text: string) => void;
+  /**
+   * Runs connection and state work in the runtime queue. Tool calls and
+   * resource reads run outside it, so that a server question does not block other MCP work.
+   */
+  exclusive?: <T>(operation: () => Promise<T>) => Promise<T>;
+  /** Takes over a call that the server runs as a task. Without it, a task call fails. */
+  adoptTask?: (execution: TaskToolExecution, input: { serverName: string; toolName: string }) => Promise<McpTaskRecord>;
   manager: McpServerManager;
   setRuntimeStatus: (serverName: string, status: RuntimeServerStatus) => void;
   syncSnapshot: (
@@ -50,6 +78,9 @@ interface ResourceInventoryEntry {
   description?: string;
 }
 export async function executeProxyAction(options: ProxyToolOptions & { action: ProxyAction }): Promise<ToolResult> {
+  // These two run their own queued setup and then call the server outside the queue.
+  if (options.action === 'call_tool') return callServerTool(options);
+  if (options.action === 'read_resource') return readProxyResourceAction(options);
   const synced = await options.syncSnapshot(options.cwd);
   switch (options.action) {
     case 'status':
@@ -70,10 +101,6 @@ export async function executeProxyAction(options: ProxyToolOptions & { action: P
       return listServerResources(options, synced);
     case 'describe_tool':
       return describeServerTool(options, synced);
-    case 'call_tool':
-      return callServerTool(options, synced);
-    case 'read_resource':
-      return readProxyResourceAction(options);
     default:
       return createToolResult('Error: Unsupported MCP proxy action.', { mode: 'unknown_action' });
   }
@@ -90,8 +117,8 @@ async function searchProxyInventory(options: ProxyToolOptions, synced: SyncedRun
   const matches: Array<Record<string, unknown>> = [];
   const servers = options.serverName?.trim() ? [options.serverName.trim()] : Object.keys(synced.config.mcpServers);
   for (const serverName of servers) {
-    const toolInventory = getToolInventory(serverName, synced, options.manager);
-    const resourceInventory = getResourceInventory(serverName, synced, options.manager);
+    const toolInventory = await getToolInventory(serverName, synced, options.manager);
+    const resourceInventory = await getResourceInventory(serverName, synced, options.manager);
     for (const tool of toolInventory) {
       if (pattern.test(tool.name) || pattern.test(tool.description ?? '')) {
         matches.push({
@@ -148,7 +175,7 @@ async function listServerTools(options: ProxyToolOptions, synced: SyncedRuntimeS
   if (!synced.config.mcpServers[serverName]) {
     return createToolResult(`Error: Server "${serverName}" does not exist.`, { mode: 'list_tools', serverName });
   }
-  const tools = getToolInventory(serverName, synced, options.manager);
+  const tools = await getToolInventory(serverName, synced, options.manager);
   if (tools.length === 0) {
     return createToolResult(getMissingMetadataMessage(serverName, synced), {
       mode: 'list_tools',
@@ -181,7 +208,7 @@ async function listServerResources(options: ProxyToolOptions, synced: SyncedRunt
   if (!synced.config.mcpServers[serverName]) {
     return createToolResult(`Error: Server "${serverName}" does not exist.`, { mode: 'list_resources', serverName });
   }
-  const resources = getResourceInventory(serverName, synced, options.manager);
+  const resources = await getResourceInventory(serverName, synced, options.manager);
   if (resources.length === 0) {
     return createToolResult(getMissingMetadataMessage(serverName, synced), {
       mode: 'list_resources',
@@ -219,7 +246,7 @@ async function describeServerTool(options: ProxyToolOptions, synced: SyncedRunti
   if (!synced.config.mcpServers[serverName]) {
     return createToolResult(`Error: Server "${serverName}" does not exist.`, { mode: 'describe_tool', serverName });
   }
-  const tool = getToolInventory(serverName, synced, options.manager).find((entry) => entry.name === toolName);
+  const tool = (await getToolInventory(serverName, synced, options.manager)).find((entry) => entry.name === toolName);
   if (!tool) {
     return createToolResult(
       `Error: Tool "${toolName}" was not found on "${serverName}". Use action="list_tools" to inspect the available tool names.`,
@@ -242,76 +269,53 @@ async function describeServerTool(options: ProxyToolOptions, synced: SyncedRunti
     uiResourceUri: tool.uiResourceUri ?? null,
   });
 }
-async function callServerTool(options: ProxyToolOptions, synced: SyncedRuntimeState): Promise<ToolResult> {
-  const serverName = options.serverName?.trim();
-  const toolName = options.toolName?.trim();
-  if (!serverName) {
-    return createToolResult('Error: Server name is required.', { mode: 'call_tool' });
-  }
-  if (!toolName) {
-    return createToolResult('Error: Tool name is required.', { mode: 'call_tool', serverName });
-  }
-  const serverConfig = synced.config.mcpServers[serverName];
-  if (!serverConfig) {
-    return createToolResult(`Error: Server "${serverName}" does not exist.`, { mode: 'call_tool', serverName, toolName });
-  }
-  if (serverConfig.enabled === false) {
-    return createToolResult(`Error: Server "${serverName}" is disabled. Enable it before calling tools.`, {
-      mode: 'call_tool',
-      serverName,
-      toolName,
-    });
-  }
-  const toolArguments = parseToolArguments(options.toolArguments, options.argumentsJson);
-  if (toolArguments instanceof Error) {
-    return createToolResult(`Error: ${toolArguments.message}`, { mode: 'call_tool', serverName, toolName });
-  }
-  const connection = await ensureConnectedServer(options, synced, serverName);
-  if (connection.status === 'needs-auth') {
-    return createToolResult(buildAuthRequiredMessage(serverName), {
-      mode: 'call_tool',
-      serverName,
-      toolName,
-      authRequired: true,
-    });
-  }
-  if (connection.status !== 'connected') {
-    return createToolResult(
-      `Error: Server "${serverName}" failed to connect before calling "${toolName}".${connection.lastError ? ` ${connection.lastError}` : ''}`,
-      { mode: 'call_tool', serverName, toolName },
-    );
-  }
-  const liveTool = connection.tools.find((tool) => tool.name === toolName);
-  if (!liveTool) {
-    const availableTools = connection.tools.map((tool) => tool.name).sort();
-    return createToolResult(
-      `Error: Tool "${toolName}" was not found on "${serverName}". Available tools: ${availableTools.join(', ') || '(none)'}.`,
-      { mode: 'call_tool', serverName, toolName, availableTools },
-    );
-  }
+type PreparedToolCall =
+  | { result: ToolResult }
+  | { serverName: string; toolName: string; toolArguments?: Record<string, unknown>; liveTool: ManagedTool; synced: SyncedRuntimeState };
+
+async function callServerTool(options: ProxyToolOptions): Promise<ToolResult> {
+  const exclusive = options.exclusive ?? ((operation) => operation());
+  const prepared = await exclusive(() => prepareToolCall(options));
+  if ('result' in prepared) return prepared.result;
+  const { serverName, toolName, toolArguments, liveTool, synced } = prepared;
   try {
-    const result = await options.manager.callTool(serverName, toolName, toolArguments);
+    const start = await options.manager.startToolCall(serverName, toolName, toolArguments, { signal: options.signal, notify: options.notify });
+    if (start.kind === 'task') {
+      if (!options.adoptTask) {
+        await start.execution.detach();
+        throw new Error('The server started a task, but this runtime cannot follow tasks.');
+      }
+      const record = await options.adoptTask(start.execution, { serverName, toolName });
+      return createToolResult(formatTaskStarted(record), { mode: 'call_tool', serverName, toolName, taskId: record.taskId });
+    }
+    const result = start.result;
     const text = formatCallToolResult(serverName, liveTool, result);
+    const uiResourceUri = getToolUiResourceUri({ _meta: liveTool._meta }) ?? null;
     return createToolResult(text, {
       mode: 'call_tool',
       serverName,
       toolName,
       isError: Boolean(result.isError),
       structuredContent: result.structuredContent ?? null,
-      uiResourceUri: getToolUiResourceUri({ _meta: liveTool._meta }) ?? null,
+      uiResourceUri,
+      ...(uiResourceUri
+        ? buildMcpAppResultDetails({ serverName, toolName, uiResourceUri, arguments: toolArguments ?? {}, result })
+        : {}),
     });
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       const message = error.message || 'Authentication is required.';
-      await options.manager.close(serverName);
-      options.setRuntimeStatus(serverName, {
-        connectionStatus: 'needs-auth',
-        authStatus: 'not-authenticated',
-        lastError: message,
-        lastConnectedAt: null,
-        lastFailedAt: new Date().toISOString(),
+      await exclusive(async () => {
+        await options.manager.close(serverName);
+        options.setRuntimeStatus(serverName, {
+          connectionStatus: 'needs-auth',
+          authStatus: 'not-authenticated',
+          lastError: message,
+          lastConnectedAt: null,
+          lastFailedAt: new Date().toISOString(),
+        });
+        await options.syncSnapshot(options.cwd, { config: synced.config });
       });
-      await options.syncSnapshot(options.cwd, { config: synced.config });
       return createToolResult(buildAuthRequiredMessage(serverName), {
         mode: 'call_tool',
         serverName,
@@ -328,6 +332,60 @@ async function callServerTool(options: ProxyToolOptions, synced: SyncedRuntimeSt
     });
   }
 }
+
+async function prepareToolCall(options: ProxyToolOptions): Promise<PreparedToolCall> {
+  const synced = await options.syncSnapshot(options.cwd);
+  const serverName = options.serverName?.trim();
+  const toolName = options.toolName?.trim();
+  if (!serverName) {
+    return { result: createToolResult('Error: Server name is required.', { mode: 'call_tool' }) };
+  }
+  if (!toolName) {
+    return { result: createToolResult('Error: Tool name is required.', { mode: 'call_tool', serverName }) };
+  }
+  const serverConfig = synced.config.mcpServers[serverName];
+  if (!serverConfig) {
+    return { result: createToolResult(`Error: Server "${serverName}" does not exist.`, { mode: 'call_tool', serverName, toolName }) };
+  }
+  if (serverConfig.enabled === false) {
+    return { result: createToolResult(`Error: Server "${serverName}" is disabled. Enable it before calling tools.`, {
+      mode: 'call_tool',
+      serverName,
+      toolName,
+    }) };
+  }
+  const toolArguments = parseToolArguments(options.toolArguments, options.argumentsJson);
+  if (toolArguments instanceof Error) {
+    return { result: createToolResult(`Error: ${toolArguments.message}`, { mode: 'call_tool', serverName, toolName }) };
+  }
+  const connection = await ensureConnectedServer(options, synced, serverName);
+  if (connection.status === 'needs-auth') {
+    return { result: createToolResult(buildAuthRequiredMessage(serverName), {
+      mode: 'call_tool',
+      serverName,
+      toolName,
+      authRequired: true,
+    }) };
+  }
+  if (connection.status !== 'connected') {
+    return { result: createToolResult(
+      `Error: Server "${serverName}" failed to connect before calling "${toolName}".${connection.lastError ? ` ${connection.lastError}` : ''}`,
+      { mode: 'call_tool', serverName, toolName },
+    ) };
+  }
+  // A tool with visibility ["app"] is for the server's MCP app only; the model never sees or calls it.
+  const modelTools = connection.tools.filter((tool) => !isToolVisibilityAppOnly({ _meta: tool._meta }));
+  const liveTool = modelTools.find((tool) => tool.name === toolName);
+  if (!liveTool) {
+    const availableTools = modelTools.map((tool) => tool.name).sort();
+    return { result: createToolResult(
+      `Error: Tool "${toolName}" was not found on "${serverName}". Available tools: ${availableTools.join(', ') || '(none)'}.`,
+      { mode: 'call_tool', serverName, toolName, availableTools },
+    ) };
+  }
+  return { serverName, toolName, toolArguments, liveTool, synced };
+}
+
 async function ensureConnectedServer(
   options: ProxyToolOptions,
   synced: SyncedRuntimeState,
@@ -352,19 +410,28 @@ async function ensureConnectedServer(
   await options.syncSnapshot(options.cwd, { config: synced.config, metadataCache: nextCache });
   return connection;
 }
-function getToolInventory(serverName: string, synced: SyncedRuntimeState, manager: McpServerManager): ToolInventoryEntry[] {
+/** Lists a connected server again when its cached inventory has expired. */
+async function refreshIfExpired(serverName: string, synced: SyncedRuntimeState, manager: McpServerManager): Promise<void> {
+  const cachedEntry = synced.metadataCache.servers[serverName];
+  if (cachedEntry && !isMetadataCacheEntryFresh(cachedEntry)) {
+    await manager.refreshInventory(serverName).catch(() => undefined);
+  }
+}
+
+async function getToolInventory(serverName: string, synced: SyncedRuntimeState, manager: McpServerManager): Promise<ToolInventoryEntry[]> {
   const connection = manager.getConnection(serverName);
   if (connection?.status === 'connected') {
+    await refreshIfExpired(serverName, synced, manager);
     return serializeTools(connection.tools);
   }
   const serverConfig = synced.config.mcpServers[serverName];
   const cachedEntry = serverConfig ? synced.metadataCache.servers[serverName] : undefined;
-  if (serverConfig && cachedEntry && isMetadataCacheEntryValid(cachedEntry, serverConfig)) {
+  if (serverConfig && isMetadataCacheEntryValid(cachedEntry, serverConfig, await resolvePrincipalId(serverName, serverConfig))) {
     return cachedEntry.tools;
   }
   return [];
 }
-function getResourceInventory(serverName: string, synced: SyncedRuntimeState, manager: McpServerManager): ResourceInventoryEntry[] {
+async function getResourceInventory(serverName: string, synced: SyncedRuntimeState, manager: McpServerManager): Promise<ResourceInventoryEntry[]> {
   const serverConfig = synced.config.mcpServers[serverName];
   if (!serverConfig || !isResourceExposureEnabled(serverConfig)) {
     return [];
@@ -372,111 +439,13 @@ function getResourceInventory(serverName: string, synced: SyncedRuntimeState, ma
 
   const connection = manager.getConnection(serverName);
   if (connection?.status === 'connected') {
+    await refreshIfExpired(serverName, synced, manager);
     return serializeResources(connection.resources);
   }
 
   const cachedEntry = synced.metadataCache.servers[serverName];
-  if (cachedEntry && isMetadataCacheEntryValid(cachedEntry, serverConfig)) {
+  if (isMetadataCacheEntryValid(cachedEntry, serverConfig, await resolvePrincipalId(serverName, serverConfig))) {
     return cachedEntry.resources;
   }
   return [];
-}
-function getMissingMetadataMessage(serverName: string, synced: SyncedRuntimeState): string {
-  const server = synced.snapshot.servers.find((entry) => entry.serverName === serverName);
-  if (server?.connectionStatus === 'needs-auth' || server?.authStatus === 'not-authenticated') {
-    return buildAuthRequiredMessage(serverName);
-  }
-  if (server?.exposeResources === false) {
-    return buildResourcesDisabledMessage(serverName);
-  }
-  return `No MCP metadata is cached for "${serverName}" yet. Connect or refresh this server in the MCP app first.`;
-}
-function buildAuthRequiredMessage(serverName: string): string {
-  return `Server "${serverName}" requires in-app authentication. Open the MCP app in Sero and authenticate there.`;
-}
-function parseToolArguments(
-  toolArguments: Record<string, unknown> | undefined,
-  argumentsJson: string | undefined,
-): Record<string, unknown> | undefined | Error {
-  if (toolArguments) {
-    return toolArguments;
-  }
-  const trimmed = argumentsJson?.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-  try {
-    const parsed = JSON.parse(trimmed) as unknown;
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return new Error('Tool arguments must be a JSON object.');
-    }
-    return parsed as Record<string, unknown>;
-  } catch {
-    return new Error('Tool arguments must be valid JSON.');
-  }
-}
-function formatCallToolResult(serverName: string, tool: ManagedTool, result: CallToolResult): string {
-  const lines = extractResultContentLines(result);
-  const text = lines.join('\n').trim();
-  const uiResourceUri = getToolUiResourceUri({ _meta: tool._meta });
-  const structured = formatStructuredContent(result.structuredContent);
-  const sections = [text || (result.isError ? 'Tool execution failed.' : '(empty result)')];
-  if (structured) {
-    sections.push(`Structured content:\n${structured}`);
-  }
-  if (uiResourceUri) {
-    sections.push(`This tool also advertises a UI resource: ${uiResourceUri}. Open it from the MCP app for the embedded UI experience.`);
-  }
-  if (result.isError && tool.inputSchema) {
-    sections.push(`Expected input schema:\n${formatUnknown(tool.inputSchema)}`);
-  }
-  const body = sections.join('\n\n');
-  return result.isError
-    ? `Error: MCP tool ${serverName}.${tool.name} failed.\n\n${body}`
-    : `MCP tool result from ${serverName}.${tool.name}:\n\n${body}`;
-}
-function extractResultContentLines(result: CallToolResult): string[] {
-  const contents = Array.isArray(result.content) ? result.content : [];
-  return contents.map((entry) => {
-    if (!entry || typeof entry !== 'object') {
-      return '[unknown MCP content]';
-    }
-    const block = entry as Record<string, unknown>;
-    if (block.type === 'text' && typeof block.text === 'string') {
-      return block.text;
-    }
-    if (block.type === 'image') {
-      return `[image content${typeof block.mimeType === 'string' ? `: ${block.mimeType}` : ''}]`;
-    }
-    if (block.type === 'audio') {
-      return `[audio content${typeof block.mimeType === 'string' ? `: ${block.mimeType}` : ''}]`;
-    }
-    if (block.type === 'resource' || block.type === 'resource_link') {
-      const resource = block.resource && typeof block.resource === 'object'
-        ? block.resource as Record<string, unknown>
-        : null;
-      const uri = typeof resource?.uri === 'string' ? resource.uri : '(unknown resource)';
-      return `[resource: ${uri}]`;
-    }
-    return `[${typeof block.type === 'string' ? block.type : 'unknown'} content]`;
-  });
-}
-function formatStructuredContent(value: unknown): string {
-  if (value === undefined) {
-    return '';
-  }
-  return formatUnknown(value);
-}
-function formatUnknown(value: unknown): string {
-  if (typeof value === 'string') {
-    return value;
-  }
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-}
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

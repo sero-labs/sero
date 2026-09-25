@@ -1,6 +1,6 @@
-import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
+import { UnauthorizedError } from '@modelcontextprotocol/client';
+import type { ReadResourceResult } from '@modelcontextprotocol/client';
 import { describe, expect, it, vi } from 'vitest';
-import type { ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
 import { createEmptyMetadataCache } from '../cache/metadata-cache';
 import type { McpConfigDocument } from '../config/types';
 import type { McpServerManager } from '../manager/server-manager';
@@ -143,6 +143,32 @@ describe('readServerResourceAction', () => {
     expect(readResource).not.toHaveBeenCalled();
     expect(result.content[0]?.text).toContain('Resource exposure is disabled');
     expect(result.details.resourceExposureEnabled).toBe(false);
+  });
+
+  it('refuses a cross-server read before it reaches the server', async () => {
+    const config: McpConfigDocument = { mcpServers: { demo: { command: 'node', args: ['server.js'] } } };
+    const synced = createSyncedState(config);
+    const readResource = vi.fn();
+
+    const result = await readServerResourceAction({
+      cwd: '/tmp',
+      serverName: 'demo',
+      resourceUri: 'file://README.md',
+      sessionId: 'chat-1',
+      crossServerReadError: (sessionId, serverName) => `blocked ${sessionId} -> ${serverName}`,
+      manager: {
+        getConnection: vi.fn(() => undefined),
+        connect: vi.fn(async () => {
+          throw new Error('connect should not be called');
+        }),
+        readResource,
+      } as unknown as McpServerManager,
+      setRuntimeStatus: vi.fn(),
+      syncSnapshot: async () => synced,
+    });
+
+    expect(readResource).not.toHaveBeenCalled();
+    expect(result.content[0]?.text).toContain('blocked chat-1 -> demo');
   });
 
   it('marks OAuth servers as needing auth again when a live resource read is unauthorized', async () => {

@@ -36,6 +36,20 @@ describe('CLI bridged command timeouts', () => {
     expect(getBridgedToolTimeoutMs('fetch_content')).toBe(300_000);
   });
 
+  it('marks a bridged tool interactive only when its cli metadata says so', () => {
+    const tool = (interactive?: boolean) => ({
+      name: 'plugin_tool',
+      label: 'Plugin Tool',
+      description: 'A plugin tool',
+      parameters: Type.Object({}),
+      execute: async () => ({ content: [{ type: 'text' as const, text: 'ok' }], details: null }),
+      cli: { interactive, execute: async () => ({ output: 'ok', exitCode: 0 }) },
+    });
+
+    expect(bridgeTool('plugin_tool', tool(true)).interactive).toBe(true);
+    expect(bridgeTool('plugin_tool', tool()).interactive).toBeFalsy();
+  });
+
   it('does not apply the implicit batch deadline to single tool commands', () => {
     const deadline = buildBatchDeadline('tool', undefined, true);
 

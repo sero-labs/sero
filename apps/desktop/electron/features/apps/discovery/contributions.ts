@@ -131,6 +131,7 @@ function parseComponent(
         icon: optionalString(value.icon),
       };
     case 'ui.titlebar.control':
+    case 'ui.chat.tool-result':
       return { ...base, extensionPoint };
     case 'ui.chat.model-extension': {
       const models = parseModelMatches(value.models);

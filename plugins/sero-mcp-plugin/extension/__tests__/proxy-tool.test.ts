@@ -19,6 +19,7 @@ describe('registerMcpProxyTool CLI bridge', () => {
       resourceUri: undefined,
       toolArguments: undefined,
       argumentsJson: undefined,
+      notify: expect.any(Function),
     });
     expect(result).toEqual({ output: 'status ok', exitCode: 0 });
   });
@@ -37,6 +38,7 @@ describe('registerMcpProxyTool CLI bridge', () => {
       resourceUri: undefined,
       toolArguments: undefined,
       argumentsJson: undefined,
+      notify: expect.any(Function),
     });
     expect(result).toEqual({ output: 'tools ok', exitCode: 0 });
   });
@@ -55,6 +57,7 @@ describe('registerMcpProxyTool CLI bridge', () => {
       resourceUri: 'file://README.md',
       toolArguments: undefined,
       argumentsJson: undefined,
+      notify: expect.any(Function),
     });
     expect(result).toEqual({ output: 'resource ok', exitCode: 0 });
   });
@@ -83,6 +86,47 @@ describe('registerMcpProxyTool CLI bridge', () => {
       serverName: 'github',
     });
     expect(result.content[0]?.text).toBe('connected');
+  });
+
+  it('routes sero mcp task commands with the chat session of the call', async () => {
+    const { tool, runtime } = registerTool();
+    runtime.executeProxyAction.mockResolvedValue(createToolResult('MCP task task-7: completed.'));
+
+    const result = await tool.cli.execute(['task', 'wait', 'task-7'], { cwd: '/tmp/ws', invocation: { sessionId: 'chat-1' } });
+
+    expect(runtime.executeProxyAction).toHaveBeenCalledWith('task_wait', expect.objectContaining({ taskId: 'task-7', sessionId: 'chat-1' }));
+    expect(result).toEqual({ output: 'MCP task task-7: completed.', exitCode: 0 });
+    expect(await tool.cli.execute(['task', 'pause', 'task-7'], { cwd: '/tmp/ws' })).toEqual({
+      output: 'Usage: sero mcp task status|wait|cancel <taskId>',
+      exitCode: 1,
+    });
+  });
+
+  it('routes sero mcp skill commands with the server, skill and path', async () => {
+    const { tool, runtime } = registerTool();
+    runtime.executeProxyAction.mockResolvedValue(createToolResult('skill text'));
+
+    await tool.cli.execute(['skill', 'load', 'docs', 'release-notes'], { cwd: '/tmp/ws', invocation: { sessionId: 'chat-1' } });
+    expect(runtime.executeProxyAction).toHaveBeenLastCalledWith('skill_load', expect.objectContaining({
+      serverName: 'docs', skill: 'release-notes', sessionId: 'chat-1',
+    }));
+    await tool.cli.execute(['skill', 'read', 'docs', 'release-notes', 'templates/summary.md'], { cwd: '/tmp/ws' });
+    expect(runtime.executeProxyAction).toHaveBeenLastCalledWith('skill_read', expect.objectContaining({ path: 'templates/summary.md' }));
+    await tool.cli.execute(['skill', 'ls', 'docs', 'release-notes'], { cwd: '/tmp/ws' });
+    expect(runtime.executeProxyAction).toHaveBeenLastCalledWith('skill_ls', expect.objectContaining({ skill: 'release-notes', path: undefined }));
+    expect((await tool.cli.execute(['skill', 'read', 'docs', 'release-notes'], { cwd: '/tmp/ws' })).exitCode).toBe(1);
+  });
+
+  it('passes the session and tool call of a direct call_tool, so a task outcome can return there', async () => {
+    const { tool, runtime } = registerTool();
+    runtime.executeProxyAction.mockResolvedValue(createToolResult('ok'));
+
+    await tool.execute('call-9', { action: 'call_tool', serverName: 'reports', toolName: 'run_report' }, null, () => undefined, {
+      cwd: '/tmp/ws',
+      sessionManager: { getSessionId: () => 'chat-1' },
+    });
+
+    expect(runtime.executeProxyAction).toHaveBeenCalledWith('call_tool', expect.objectContaining({ sessionId: 'chat-1', toolCallId: 'call-9' }));
   });
 
   it('returns a usage error without touching the runtime when required args are missing', async () => {
@@ -126,14 +170,14 @@ function registerTool() {
   return {
     tool: tool as {
       cli: {
-        execute: (args: string[], ctx: { cwd: string }) => Promise<{ output: string; exitCode: number }>;
+        execute: (args: string[], ctx: { cwd: string; invocation?: { sessionId?: string } }) => Promise<{ output: string; exitCode: number }>;
       };
       execute: (
         toolCallId: string,
         params: Record<string, unknown>,
         signal: AbortSignal | null,
         onUpdate: () => void,
-        ctx?: { cwd?: string },
+        ctx?: { cwd?: string; sessionManager?: { getSessionId: () => string } },
       ) => Promise<{ content: Array<{ type: 'text'; text: string }>; details: Record<string, unknown> }>;
     },
     runtime: {

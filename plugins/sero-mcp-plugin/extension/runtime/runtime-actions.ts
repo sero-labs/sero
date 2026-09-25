@@ -73,7 +73,7 @@ export async function connectServerAction(options: {
   const alreadyConnected = !options.reconnect && existingConnection?.status === 'connected';
   let connection: Awaited<ReturnType<McpServerManager['connect']>>;
   if (options.reconnect) {
-    connection = await options.manager.reconnect(normalizedServerName, serverConfig);
+    connection = await options.manager.reconnect(normalizedServerName, serverConfig, { reprobe: true });
   } else if (alreadyConnected && existingConnection) {
     connection = existingConnection;
   } else {

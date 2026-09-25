@@ -91,7 +91,11 @@ describe('McpApp', () => {
       await Promise.resolve();
     });
 
-    expect(runMock).toHaveBeenNthCalledWith(1, 'mcp_manager', { action: 'bootstrap' });
+    // The Tasks list refreshes on its own timer; this test is about the server state refresh.
+    const serverActions = () => runMock.mock.calls
+      .map(([, params]) => (params as { action: string }).action)
+      .filter((action) => action !== 'list_tasks');
+    expect(serverActions()).toEqual(['bootstrap']);
 
     await act(async () => {
       vi.advanceTimersByTime(30_000);
@@ -99,7 +103,7 @@ describe('McpApp', () => {
       await Promise.resolve();
     });
 
-    expect(runMock).toHaveBeenNthCalledWith(2, 'mcp_manager', { action: 'refresh' });
+    expect(serverActions()).toEqual(['bootstrap', 'refresh']);
   });
 
   it('shows the server panel and keeps search collapsed once servers exist', async () => {

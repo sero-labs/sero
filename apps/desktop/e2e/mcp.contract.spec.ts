@@ -6,7 +6,7 @@ import { createTempSeroHome, type TempSeroHome } from './helpers/seroHome';
 import type { SeroAppManifest } from '../src/types/ipc';
 
 const serverName = 'e2e-fixture';
-const serverPath = path.resolve(__dirname, 'fixtures/test-mcp-server/server.mjs');
+const serverPath = path.resolve(__dirname, 'fixtures/test-mcp-server/server.mts');
 
 let home: TempSeroHome;
 let app: ElectronApplication;
@@ -160,6 +160,51 @@ test.describe.serial('MCP app and proxy contracts', () => {
 
     const read = await invokeMcp('mcp', { action: 'read_resource', serverName, resourceUri: 'noise://test' });
     expect(read.text).toContain('deterministic noise fixture');
+  });
+
+  test('answers a two-round server input request through the question channel', async () => {
+    const pendingQuestion = async () => {
+      await expect.poll(async () => (await page.evaluate(() => window.sero.userFeedback.getPending())).length).toBe(1);
+      const [question] = await page.evaluate(() => window.sero.userFeedback.getPending());
+      return question;
+    };
+    const answer = (id: string, questionId: string, value: string, wasCustom: boolean) => page.evaluate(
+      (response) => window.sero.userFeedback.answer(response),
+      { id, cancelled: false, answers: [{ questionId, value, label: value, wasCustom }] },
+    );
+
+    const call = invokeMcp('mcp', { action: 'call_tool', serverName, toolName: 'create_contact' });
+
+    const first = await pendingQuestion();
+    expect(first?.context?.source).toBe(`MCP · ${serverName} · create_contact`);
+    expect(first?.questions[0]?.options.map((option) => option.label)).toContain('Decline');
+    await answer(first!.id, 'name', 'Acme', true);
+
+    const second = await pendingQuestion();
+    expect(second?.questions[0]?.options.map((option) => option.value)).toEqual(['emea', 'apac', '__mcp_decline__']);
+    await answer(second!.id, 'team', 'emea', false);
+
+    expect((await call).text).toContain('created: Acme / emea');
+  });
+
+  test('loads a remote skill that the user turned on, and reads its supporting file', async () => {
+    await invokeMcp('mcp_manager', { action: 'refresh_skills', serverName });
+    const listed = await invokeMcp('mcp_manager', { action: 'list_skills' });
+    const skills = listed.details.skills as Array<{ name: string; uri: string; enabled: boolean }>;
+    expect(skills.map((skill) => [skill.name, skill.enabled])).toEqual([['release-notes', false], ['daily', false]]);
+
+    const off = await invokeMcp('mcp', { action: 'skill_load', serverName, skill: 'release-notes' });
+    expect(off.text).toContain('is off');
+
+    await invokeMcp('mcp_manager', { action: 'set_skill_enabled', serverName, skillUri: skills[0]!.uri, enabled: true });
+    const loaded = await invokeMcp('mcp', { action: 'skill_load', serverName, skill: 'release-notes' });
+    expect(loaded.text).toContain(`<mcp-skill server="${serverName}" uri="skill://docs/release-notes/SKILL.md">`);
+    expect(loaded.text).toContain('# Release notes');
+
+    const file = await invokeMcp('mcp', { action: 'skill_read', serverName, skill: 'release-notes', path: 'templates/summary.md' });
+    expect(file.text).toContain('## Summary');
+    const listing = await invokeMcp('mcp', { action: 'skill_ls', serverName, skill: 'release-notes' });
+    expect(listing.text).toBe('SKILL.md\ntemplates/');
   });
 
   test('returns deterministic errors for missing MCP arguments', async () => {
