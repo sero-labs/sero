@@ -192,6 +192,10 @@ On 2026-09-25 the user approved the prototype (`apps/styleguide/public/prototype
 - With no person to answer (a headless session or the plain Pi CLI), Sero declines a server input request at once.
 - A task result goes into its chat without a new agent turn.
 
+Later decisions on the same day:
+- An MCP app that requests a permission gets it only after the user selects **Allow** in a question that Sero shows when the app opens (see task 8.4).
+- The new MCP UI keeps Sero's colour tokens, although `--text-muted` fails AA contrast. A token fix for all of Sero is a separate change.
+
 The production UI tasks (3.7, 4.7, 8.7, 8.8, 9.7 and 10.6) follow the prototype and the UI rules in D10.
 
 ## Open Questions

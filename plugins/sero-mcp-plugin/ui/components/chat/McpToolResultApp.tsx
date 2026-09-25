@@ -8,7 +8,7 @@ import '../../styles.css';
 
 type ViewerState =
   | { kind: 'loading' }
-  | { kind: 'ready'; viewerUrl: string }
+  | { kind: 'ready'; viewerUrl: string; allow: string }
   | { kind: 'failed'; reason: string };
 
 const MIN_HEIGHT = 120;
@@ -50,7 +50,8 @@ export default function McpToolResultApp({ sessionId, toolCallId, details }: Cha
       }
       viewerId = id;
       if (viewerUrl && !result.isError) {
-        setViewer({ kind: 'ready', viewerUrl });
+        const allow = typeof result.details?.allowAttribute === 'string' ? result.details.allowAttribute : '';
+        setViewer({ kind: 'ready', viewerUrl, allow });
       } else {
         const reason = typeof result.details?.reason === 'string' ? result.details.reason : result.text;
         setViewer({ kind: 'failed', reason });
@@ -100,6 +101,8 @@ export default function McpToolResultApp({ sessionId, toolCallId, details }: Cha
           ref={frameRef}
           title={`${app.serverName} ${app.toolName} app`}
           src={viewer.viewerUrl}
+          // Passes on the permissions that the user granted to the app, so its nested frame can use them.
+          allow={viewer.allow || undefined}
           // The loopback viewer page needs its own origin to reach its /proxy routes.
           // The app frame inside it stays sandboxed without allow-same-origin.
           sandbox="allow-same-origin allow-scripts allow-forms"

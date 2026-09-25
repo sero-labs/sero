@@ -46,7 +46,7 @@ Sero keeps each app apart from Sero and from other servers:
 - The app runs in a sandboxed frame on a separate local address. It cannot read Sero data or other apps.
 - The app has no network access, unless the server declares the domains that it needs. Sero then allows only those domains.
 - The app can call only tools of its own server that the server marks for apps. Sero blocks other calls and shows the reason under the app.
-- Sero does not give an app access to the camera, the microphone, your location, or the clipboard.
+- When an app needs the camera, the microphone, or the clipboard, Sero asks you before it shows the app. **Deny** is the default. Sero keeps your choice for that app until Sero restarts. Sero never gives an app your location.
 - When the app asks to open a web page, Sero shows the full address. Select **Open page** to open it in your browser, or **Decline**.
 
 An app can send a message to the chat. The message shows the server and the tool, for example `sales · show_dashboard app`, and the agent answers it. An app can also add context that the agent reads on its next turn.

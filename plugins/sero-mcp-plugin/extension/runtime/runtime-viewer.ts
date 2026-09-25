@@ -11,6 +11,8 @@ import type { UiResourceHandler } from '../viewer/ui-resource-handler';
 import type { McpUiServer, UiSessionOptions } from '../viewer/ui-server';
 import { askToOpenPage, canAskUser, toWebUrl } from '../elicitation/ask-user';
 import { deliverAppMessage, type SessionRegistry } from './app-messages';
+import { chooseAppPermissions, type AppPermissionChoices } from '../viewer/app-permissions';
+import type { UiResourceContent } from '../viewer/types';
 import { reconcileConnection } from './runtime-connect';
 import { buildResourcesDisabledMessage, readServerResourceAction } from './runtime-resource';
 import type { SyncedRuntimeState } from './runtime-types';
@@ -25,6 +27,7 @@ interface ViewerActionOptions {
   sessionId?: string;
   toolResult?: Record<string, unknown>;
   sessions: SessionRegistry;
+  permissionChoices: AppPermissionChoices;
   manager: McpServerManager;
   uiResourceHandler: UiResourceHandler;
   uiServer: McpUiServer;
@@ -61,6 +64,7 @@ export async function openViewerResourceAction(options: ViewerActionOptions): Pr
       resourceUri,
       title: resourceUri,
       resource,
+      grantedPermissions: await grantPermissions(ensured, options, resourceUri, resourceUri, resource),
       ...sessionHooks(ensured, options, resourceUri),
     });
 
@@ -70,6 +74,7 @@ export async function openViewerResourceAction(options: ViewerActionOptions): Pr
       resourceUri,
       viewerId: session.viewerId,
       viewerUrl: session.viewerUrl,
+      allowAttribute: session.allowAttribute,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -105,6 +110,7 @@ export async function openToolUiAction(options: ViewerActionOptions): Promise<To
       toolInfo: tool ? { name: tool.name, description: tool.description, inputSchema: tool.inputSchema } : undefined,
       toolArgs: options.toolArguments,
       toolResult: options.toolResult,
+      grantedPermissions: await grantPermissions(ensured, options, resourceUri, toolName || resourceUri, resource),
       ...sessionHooks(ensured, options, toolName || resourceUri),
     });
 
@@ -115,6 +121,7 @@ export async function openToolUiAction(options: ViewerActionOptions): Promise<To
       toolName: toolName || null,
       viewerId: session.viewerId,
       viewerUrl: session.viewerUrl,
+      allowAttribute: session.allowAttribute,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -219,6 +226,20 @@ async function ensureConnectedServer(
   }
 
   return { config: synced.config, serverName, snapshotWritten: true };
+}
+
+function grantPermissions(
+  ensured: EnsuredConnectedServer,
+  options: ViewerActionOptions,
+  resourceUri: string,
+  appName: string,
+  resource: UiResourceContent,
+) {
+  return chooseAppPermissions(resource.meta.permissions, {
+    appKey: `${ensured.serverName}\n${resourceUri}`,
+    appLabel: `${ensured.serverName} · ${appName} app`,
+    choices: options.permissionChoices,
+  });
 }
 
 /** Session settings that come from the server config and the user, the same for every viewer. */

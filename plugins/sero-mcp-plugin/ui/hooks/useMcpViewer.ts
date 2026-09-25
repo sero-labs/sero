@@ -13,6 +13,7 @@ export interface McpViewerPaneState {
 
 export interface McpViewerSession {
   viewerId: string;
+  allowAttribute: string;
   viewerUrl: string;
   resourceUri: string;
   kind: Exclude<McpViewerKind, 'auth'>;
@@ -119,6 +120,7 @@ export function useMcpViewer(): McpViewerState {
         viewerIdRef.current = viewerId;
         setSession({
           viewerId,
+          allowAttribute: typeof result.details?.allowAttribute === 'string' ? result.details.allowAttribute : '',
           viewerUrl,
           resourceUri,
           kind: nextKind,

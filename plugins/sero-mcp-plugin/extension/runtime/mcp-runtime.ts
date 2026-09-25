@@ -38,6 +38,7 @@ import type { ManagerActionOptions, SyncedRuntimeState, SyncSnapshotOptions } fr
 import { UiResourceHandler } from '../viewer/ui-resource-handler';
 import { McpUiServer } from '../viewer/ui-server';
 import { SessionRegistry, type SessionSend } from './app-messages';
+import type { AppPermissionChoices } from '../viewer/app-permissions';
 
 export interface McpRuntime {
   handleSessionStart(ctx: { cwd: string }): Promise<void>;
@@ -83,6 +84,7 @@ function createMcpRuntime(): McpRuntime {
   const uiResourceHandler = new UiResourceHandler(manager);
   const uiServer = new McpUiServer(manager);
   const sessions = new SessionRegistry();
+  const permissionChoices: AppPermissionChoices = new Map();
   const keepAliveScheduler = createKeepAliveScheduler({
     intervalMs: KEEP_ALIVE_HEALTHCHECK_INTERVAL_MS,
     isEnabled: () => sessionRefCount > 0,
@@ -279,6 +281,7 @@ function createMcpRuntime(): McpRuntime {
       uiResourceHandler,
       uiServer,
       sessions,
+      permissionChoices,
       setRuntimeStatus: (name, status) => runtimeStatuses.set(name, status),
       syncSnapshot,
     });
@@ -296,6 +299,7 @@ function createMcpRuntime(): McpRuntime {
       uiResourceHandler,
       uiServer,
       sessions,
+      permissionChoices,
       setRuntimeStatus: (name, status) => runtimeStatuses.set(name, status),
       syncSnapshot,
     });

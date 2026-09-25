@@ -34,6 +34,7 @@ describe('McpResourceViewer', () => {
           kind="resource"
           session={{
             viewerId: 'session-1',
+            allowAttribute: '',
             viewerUrl: 'http://127.0.0.1:43123/?session=session-1',
             resourceUri: 'ui://demo/dashboard',
             kind: 'resource',

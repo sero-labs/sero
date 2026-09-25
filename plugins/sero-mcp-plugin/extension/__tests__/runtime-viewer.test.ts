@@ -48,6 +48,7 @@ describe('runtime-viewer', () => {
       uiResourceHandler: uiResourceHandler as never,
       uiServer: uiServer as never,
       sessions: new SessionRegistry(),
+      permissionChoices: new Map(),
       setRuntimeStatus: vi.fn(),
       syncSnapshot: vi.fn(async () => createSyncedState()),
     });
@@ -78,6 +79,7 @@ describe('runtime-viewer', () => {
       uiResourceHandler: { readUiResource: vi.fn() } as never,
       uiServer: { open: vi.fn(), close: vi.fn() } as never,
       sessions: new SessionRegistry(),
+      permissionChoices: new Map(),
       setRuntimeStatus: vi.fn(),
       syncSnapshot: vi.fn(async () => createSyncedState()),
     });
@@ -95,6 +97,7 @@ describe('runtime-viewer', () => {
       uiResourceHandler: { readUiResource: vi.fn() } as never,
       uiServer: { open: vi.fn(), close: vi.fn() } as never,
       sessions: new SessionRegistry(),
+      permissionChoices: new Map(),
       setRuntimeStatus: vi.fn(),
       syncSnapshot: vi.fn(async () => createSyncedState({ exposeResources: false })),
     });
@@ -141,6 +144,7 @@ describe('runtime-viewer', () => {
       uiResourceHandler: uiResourceHandler as never,
       uiServer: uiServer as never,
       sessions: new SessionRegistry(),
+      permissionChoices: new Map(),
       setRuntimeStatus: vi.fn(),
       syncSnapshot: vi.fn(async () => createSyncedState()),
     });

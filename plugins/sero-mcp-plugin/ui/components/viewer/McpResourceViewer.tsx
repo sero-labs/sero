@@ -31,6 +31,7 @@ export function McpResourceViewer({
         <iframe
           title={session.resourceUri}
           src={session.viewerUrl}
+          allow={session.allowAttribute || undefined}
           // The localhost viewer shell needs same-origin access so its bridge
           // host can fetch its own /proxy/* endpoints. The nested MCP UI frame
           // inside that shell remains sandboxed without allow-same-origin.

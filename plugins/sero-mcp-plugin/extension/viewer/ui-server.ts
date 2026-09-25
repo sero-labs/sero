@@ -36,6 +36,8 @@ export interface UiSessionOptions {
 
 export interface UiSessionHandle {
   viewerId: string;
+  /** The frame `allow` value for the granted permissions. A frame that embeds the viewer must pass it on. */
+  allowAttribute: string;
   viewerUrl: string;
   serverName: string;
   resourceUri: string;
@@ -62,6 +64,7 @@ export class McpUiServer {
     this.sessions.set(viewerId, options);
     return {
       viewerId,
+      allowAttribute: buildAllowAttribute(options.grantedPermissions),
       viewerUrl: `http://127.0.0.1:${port}/?session=${encodeURIComponent(viewerId)}`,
       serverName: options.serverName,
       resourceUri: options.resourceUri,

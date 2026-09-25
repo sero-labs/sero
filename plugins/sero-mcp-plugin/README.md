@@ -177,7 +177,7 @@ Isolation:
 
 - The app frame keeps `sandbox` without `allow-same-origin`.
 - The app CSP allows no network access unless the resource declares domains in `_meta.ui.csp`. Only web origins are accepted.
-- The app gets no `allow` permissions.
+- Before the app loads, Sero asks once per app for the camera, microphone or clipboard permissions that the resource requests (`extension/viewer/app-permissions.ts`). **Deny** is the default, and the choice lasts until the runtime stops. Geolocation is never granted, because Sero's Electron session denies it. The frames that embed the viewer pass the granted `allow` value on.
 - `tools/list` and `tools/call` from the app reach only tools of the owning server whose `_meta.ui.visibility` includes `app` (or has no list) and that are not in `excludeTools`. A blocked call sends no request.
 - `ui/open-link` opens a page only after the user selects **Open page**.
 - The desktop keeps the CSP that the viewer server sends for loopback frames.

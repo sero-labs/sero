@@ -101,6 +101,22 @@ describe('ui-server app isolation', () => {
     expect(html).toContain('"allowAttribute":""');
   });
 
+  it('passes granted permissions to the app frame and to the embedding frame', async () => {
+    const server = createServer();
+    const handle = await server.open({
+      serverName: 'demo',
+      resourceUri: 'ui://demo/dashboard',
+      title: 'Demo dashboard',
+      resource: { uri: 'ui://demo/dashboard', html: '<html></html>', mimeType: 'text/html;profile=mcp-app', meta: {} },
+      grantedPermissions: { clipboardWrite: {} },
+    });
+
+    const html = await (await fetch(handle.viewerUrl)).text();
+
+    expect(handle.allowAttribute).toBe('clipboard-write');
+    expect(html).toContain('"allowAttribute":"clipboard-write"');
+  });
+
   it('reports a link as not opened when the user does not open it', async () => {
     const onOpenLink = vi.fn(async () => false);
     const handle = await openViewer(createServer(), undefined, undefined, {}, onOpenLink);

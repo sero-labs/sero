@@ -116,6 +116,25 @@ test('shows an MCP app inline for a model tool call, and the app calls its own t
   await expect(viewer.locator('#status')).toHaveText('App called refresh_dashboard');
 });
 
+test('asks before an app gets a permission, and passes an allowed one to the app frame', async () => {
+  await openRecordedToolCall('show_clipboard', {});
+
+  await expect.poll(async () => (await page.evaluate(() => window.sero.userFeedback.getPending())).length, { timeout: 20_000 }).toBe(1);
+  const [question] = await page.evaluate(() => window.sero.userFeedback.getPending());
+  expect(question?.context?.source).toBe(`${serverName} · show_clipboard app`);
+  expect(question?.questions[0]?.label).toBe('Allow the app to write to your clipboard?');
+  await page.evaluate((id) => window.sero.userFeedback.answer({
+    id,
+    cancelled: false,
+    answers: [{ questionId: 'app-permissions', value: 'allow', label: 'Allow', wasCustom: false }],
+  }), question!.id);
+
+  const viewerFrame = page.locator(layout.chatPanel).locator(`iframe[title="${serverName} show_clipboard app"]`);
+  await expect(viewerFrame).toHaveAttribute('allow', 'clipboard-write', { timeout: 20_000 });
+  await expect(page.frameLocator(`iframe[title="${serverName} show_clipboard app"]`).locator('iframe[title="MCP app"]'))
+    .toHaveAttribute('allow', 'clipboard-write');
+});
+
 test('keeps the text result and shows one line when Sero cannot show the app', async () => {
   await openRecordedToolCall('show_unsupported', {});
 
