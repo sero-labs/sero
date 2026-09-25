@@ -14,6 +14,8 @@ export interface McpStoredTokens {
   expiresAt?: number;
   scope?: string;
   serverUrl?: string;
+  /** Random ID for this authorization. It partitions cached server data by account. */
+  principalId?: string;
 }
 
 export interface McpStoredClientInfo {
@@ -70,6 +72,7 @@ export async function readOAuthTokens(serverName: string, serverUrl?: string): P
     expiresAt: typeof parsed.expiresAt === 'number' ? parsed.expiresAt : undefined,
     scope: typeof parsed.scope === 'string' ? parsed.scope : undefined,
     serverUrl: typeof parsed.serverUrl === 'string' ? parsed.serverUrl : undefined,
+    principalId: typeof parsed.principalId === 'string' ? parsed.principalId : undefined,
   };
 }
 

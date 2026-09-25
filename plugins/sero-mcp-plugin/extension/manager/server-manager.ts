@@ -4,6 +4,7 @@ import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/c
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { McpOAuthProvider } from '../auth/oauth-provider';
+import { resolvePrincipalId } from '../auth/principal';
 import { computeServerHash } from '../cache/metadata-cache';
 import type { McpFailurePhase } from '../../shared/types';
 import { resolveBearerTokenValue, type McpServerConfig } from '../config/types';
@@ -124,23 +125,24 @@ export class McpServerManager {
       return this.createDisconnectedConnection(name, 'needs-auth', 'Bearer authentication is configured but no token is available.');
     }
 
+    const principalId = await resolvePrincipalId(name, definition);
     if (definition.command) {
-      return this.connectStdio(name, definition);
+      return this.connectStdio(name, definition, principalId);
     }
 
     if (definition.url) {
-      return this.connectHttp(name, definition, bearerToken);
+      return this.connectHttp(name, definition, principalId, bearerToken);
     }
 
     return this.createDisconnectedConnection(name, 'error', 'Server has no command or URL.');
   }
 
-  private async connectStdio(name: string, definition: McpServerConfig): Promise<ManagedConnection> {
+  private async connectStdio(name: string, definition: McpServerConfig, principalId: string): Promise<ManagedConnection> {
     const pluginData = definition.env?.PLUGIN_DATA;
     if (pluginData && definition.cwd && isPathInside(pluginData, definition.cwd)) {
       await fs.mkdir(definition.cwd, { recursive: true });
     }
-    const client = createMcpClient(`sero-mcp-${name}`, { serverLabel: name });
+    const client = createMcpClient(`sero-mcp-${name}`, { serverLabel: name, cachePartition: principalId });
     const transport = new StdioClientTransport({
       command: definition.command!,
       args: definition.args ?? [],
@@ -150,7 +152,7 @@ export class McpServerManager {
     });
 
     try {
-      return await this.openConnection(name, definition, client, transport);
+      return await this.openConnection(name, definition, principalId, client, transport);
     } catch (error) {
       await this.safeClose(client, transport);
       return this.createErrorConnection(name, error);
@@ -160,6 +162,7 @@ export class McpServerManager {
   private async connectHttp(
     name: string,
     definition: McpServerConfig,
+    principalId: string,
     bearerToken?: string,
   ): Promise<ManagedConnection> {
     const url = new URL(definition.url!);
@@ -171,13 +174,13 @@ export class McpServerManager {
       : undefined;
 
     if (definition.portableTransport === 'sse') {
-      return this.connectSse(name, definition, url, requestInit, authProvider);
+      return this.connectSse(name, definition, principalId, url, requestInit, authProvider);
     }
 
-    const streamableClient = createMcpClient(`sero-mcp-${name}`, { serverLabel: name });
+    const streamableClient = createMcpClient(`sero-mcp-${name}`, { serverLabel: name, cachePartition: principalId });
     const streamableTransport = new StreamableHTTPClientTransport(url, { requestInit, authProvider });
     try {
-      return await this.openConnection(name, definition, streamableClient, streamableTransport);
+      return await this.openConnection(name, definition, principalId, streamableClient, streamableTransport);
     } catch (error) {
       await this.safeClose(streamableClient, streamableTransport);
       if (isUnauthorizedError(error)) {
@@ -189,20 +192,21 @@ export class McpServerManager {
       }
     }
 
-    return this.connectSse(name, definition, url, requestInit, authProvider);
+    return this.connectSse(name, definition, principalId, url, requestInit, authProvider);
   }
 
   private async connectSse(
     name: string,
     definition: McpServerConfig,
+    principalId: string,
     url: URL,
     requestInit: { headers?: Record<string, string>; redirect?: 'manual' } | undefined,
     authProvider: McpOAuthProvider | undefined,
   ): Promise<ManagedConnection> {
-    const sseClient = createMcpClient(`sero-mcp-${name}`, { serverLabel: name });
+    const sseClient = createMcpClient(`sero-mcp-${name}`, { serverLabel: name, cachePartition: principalId });
     const sseTransport = new SSEClientTransport(url, { requestInit, authProvider });
     try {
-      return await this.openConnection(name, definition, sseClient, sseTransport, true);
+      return await this.openConnection(name, definition, principalId, sseClient, sseTransport, true);
     } catch (error) {
       await this.safeClose(sseClient, sseTransport);
       return this.createErrorConnection(name, error);
@@ -212,6 +216,7 @@ export class McpServerManager {
   private async openConnection(
     name: string,
     definition: McpServerConfig,
+    principalId: string,
     client: Client,
     transport: ManagedTransport,
     deprecatedTransport = false,
@@ -234,7 +239,7 @@ export class McpServerManager {
     } else {
       await this.eraVerdicts.clear(name);
     }
-    return this.createConnectedConnection(name, client, transport, tools, resources, protocol);
+    return { ...this.createConnectedConnection(name, client, transport, tools, resources, protocol), principalId };
   }
 
   // Without a cursor, the v2 client walks every page and fills its response cache.

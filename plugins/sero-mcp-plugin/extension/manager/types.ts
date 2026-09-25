@@ -47,4 +47,6 @@ export interface ManagedConnection {
   lastFailedAt?: string | null;
   protocol?: ManagedConnectionProtocol;
   failurePhase?: McpFailurePhase;
+  /** The account that the connection uses: `anon`, `bearer:<sha256>` or `oauth:<id>`. */
+  principalId?: string;
 }

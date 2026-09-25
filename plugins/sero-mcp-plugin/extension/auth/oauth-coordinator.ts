@@ -35,6 +35,7 @@ export class McpOAuthCoordinator {
       serverUrl,
       definition.oauth || {},
       { onRedirect: async (url) => { capturedAuthUrl = url.toString(); } },
+      { newAuthorization: true },
     );
 
     const transport = new StreamableHTTPClientTransport(new URL(serverUrl), { authProvider });

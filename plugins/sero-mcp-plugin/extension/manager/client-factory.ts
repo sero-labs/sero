@@ -34,15 +34,18 @@ export interface CreateMcpClientOptions {
   features?: McpClientFeatures;
   /** The host-assigned server label. With it, the client answers server input requests. */
   serverLabel?: string;
+  /** Keeps cached responses apart per account. */
+  cachePartition?: string;
 }
 
 /** Builds every MCP client, so that negotiation and capabilities are set in one place. */
 export function createMcpClient(clientName: string, options: CreateMcpClientOptions = {}): Client {
-  const { features = MCP_CLIENT_FEATURES, serverLabel } = options;
+  const { features = MCP_CLIENT_FEATURES, serverLabel, cachePartition } = options;
   const client = new Client({ name: clientName, version: '0.1.0' }, {
     capabilities: buildClientCapabilities(features, serverLabel !== undefined),
     versionNegotiation: { mode: 'auto', probe: { timeoutMs: PROBE_TIMEOUT_MS } },
     inputRequired: { maxRounds: MAX_INPUT_ROUNDS },
+    ...(cachePartition ? { cachePartition } : {}),
   });
   if (serverLabel !== undefined) {
     client.setRequestHandler('elicitation/create', createElicitationHandler(serverLabel));

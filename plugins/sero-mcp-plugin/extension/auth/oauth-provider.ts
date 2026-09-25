@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { OAuthClientProvider, OAuthClientInformation, OAuthClientInformationFull, OAuthClientMetadata, OAuthTokens } from '@modelcontextprotocol/client';
 import type { McpOAuthConfig } from '../config/types';
 import {
@@ -20,6 +21,11 @@ export interface McpOAuthCallbacks {
   onRedirect: (url: URL) => void | Promise<void>;
 }
 
+export interface McpOAuthProviderOptions {
+  /** True for a sign-in flow: saved tokens then belong to a new principal. A token refresh keeps the principal. */
+  newAuthorization?: boolean;
+}
+
 export function getOAuthCallbackUrl(): string {
   return `http://127.0.0.1:${DEFAULT_OAUTH_CALLBACK_PORT}${OAUTH_CALLBACK_PATH}`;
 }
@@ -30,6 +36,7 @@ export class McpOAuthProvider implements OAuthClientProvider {
     private readonly serverUrl: string,
     private readonly config: McpOAuthConfig,
     private readonly callbacks: McpOAuthCallbacks,
+    private readonly options: McpOAuthProviderOptions = {},
   ) {}
 
   private get usesClientCredentials(): boolean {
@@ -110,7 +117,9 @@ export class McpOAuthProvider implements OAuthClientProvider {
   }
 
   async saveTokens(tokens: OAuthTokens): Promise<void> {
+    const previous = this.options.newAuthorization ? null : await readOAuthTokens(this.serverName, this.serverUrl);
     await writeOAuthTokens(this.serverName, {
+      principalId: previous?.principalId ?? randomUUID(),
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
       expiresAt: tokens.expires_in ? Date.now() / 1000 + tokens.expires_in : undefined,
