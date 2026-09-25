@@ -20,8 +20,8 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-async function writeSession(name: string, sessionId: string, cost: number): Promise<void> {
-  const now = Date.now();
+async function writeSession(name: string, sessionId: string, cost: number, atMs = Date.now()): Promise<void> {
+  const now = atMs;
   await writeFile(
     path.join(dir, 'agent', 'sessions', name),
     [
@@ -42,8 +42,11 @@ async function writeSession(name: string, sessionId: string, cost: number): Prom
 
 describe('runRefresh end-to-end', () => {
   it('scans sessions, writes state.json, and reuses the cache on the next run', async () => {
-    await writeSession('a.jsonl', 'sess-a', 1.5);
-    await writeSession('b.jsonl', 'sess-b', 0.5);
+    // Distinct timestamps: the cross-file dedup fingerprint is timestamp plus token count,
+    // so two sessions that share a millisecond and a token count would look like one.
+    const startedAt = Date.now();
+    await writeSession('a.jsonl', 'sess-a', 1.5, startedAt);
+    await writeSession('b.jsonl', 'sess-b', 0.5, startedAt + 1);
 
     const first = await runRefresh(true);
     expect(first.skipped).toBe(false);
