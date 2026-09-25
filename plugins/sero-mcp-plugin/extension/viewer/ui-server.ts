@@ -1,79 +1,126 @@
 import http, { type IncomingMessage, type ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { buildAllowAttribute } from '@modelcontextprotocol/ext-apps/app-bridge';
-import { UnauthorizedError } from '@modelcontextprotocol/client';
-import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/client';
 import type { McpServerManager } from '../manager/server-manager';
 import { applyCspMeta, buildCspMetaContent, buildHostHtmlTemplate, buildViewerHostCspContent } from './host-template';
+import { callViewerTool, readViewerResource, toRecord } from './ui-proxy';
 import type { UiResourceContent, UiToolInfo } from './types';
 
 const MAX_BODY_SIZE = 2 * 1024 * 1024;
+/** Chat can show many app results. Above this limit, the oldest viewer session closes. */
+export const MAX_VIEWER_SESSIONS = 8;
 
-interface JsonRpcRequest {
-  jsonrpc?: string;
-  id?: string | number | null;
-  method?: string;
-  params?: unknown;
-}
-
-interface PostBody {
-  token?: string;
-  params?: unknown;
-}
-
-export interface UiServerOptions {
+export interface UiSessionOptions {
   serverName: string;
   resourceUri: string;
   title: string;
   resource: UiResourceContent;
   toolInfo?: UiToolInfo;
   toolArgs?: Record<string, unknown>;
-  manager: McpServerManager;
   onUnauthorized?: (serverName: string, message: string) => Promise<void>;
   onUiMessage?: (params: Record<string, unknown>) => Promise<void> | void;
   onClose?: (reason: string) => void;
 }
 
-export interface UiServerHandle {
-  sessionId: string;
+export interface UiSessionHandle {
+  viewerId: string;
   viewerUrl: string;
   serverName: string;
   resourceUri: string;
-  close: (reason?: string) => void;
 }
 
-export async function startUiServer(options: UiServerOptions): Promise<UiServerHandle> {
-  const sessionId = randomUUID();
-  let closed = false;
-  let closeReason = 'closed';
+/**
+ * One loopback server for all MCP app viewers. Each viewer is a session with
+ * a random token; the token is in the page URL and in every proxy request.
+ */
+export class McpUiServer {
+  private readonly sessions = new Map<string, UiSessionOptions>();
+  private listening: Promise<{ server: http.Server; port: number }> | null = null;
 
-  const server = http.createServer(async (request, response) => {
+  constructor(private readonly manager: McpServerManager) {}
+
+  async open(options: UiSessionOptions): Promise<UiSessionHandle> {
+    const { port } = await this.start();
+    while (this.sessions.size >= MAX_VIEWER_SESSIONS) {
+      const oldest = this.sessions.keys().next().value;
+      if (oldest === undefined) break;
+      this.close(oldest, 'session-limit');
+    }
+    const viewerId = randomUUID();
+    this.sessions.set(viewerId, options);
+    return {
+      viewerId,
+      viewerUrl: `http://127.0.0.1:${port}/?session=${encodeURIComponent(viewerId)}`,
+      serverName: options.serverName,
+      resourceUri: options.resourceUri,
+    };
+  }
+
+  has(viewerId: string): boolean {
+    return this.sessions.has(viewerId);
+  }
+
+  close(viewerId: string, reason = 'closed'): boolean {
+    const session = this.sessions.get(viewerId);
+    if (!session) return false;
+    this.sessions.delete(viewerId);
+    session.onClose?.(reason);
+    return true;
+  }
+
+  closeForServer(serverName: string, reason = 'server-config-changed'): void {
+    for (const [viewerId, session] of this.sessions) {
+      if (session.serverName === serverName) this.close(viewerId, reason);
+    }
+  }
+
+  async closeAll(reason = 'closed'): Promise<void> {
+    for (const viewerId of [...this.sessions.keys()]) this.close(viewerId, reason);
+    const listening = this.listening;
+    this.listening = null;
+    if (!listening) return;
+    const { server } = await listening;
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+
+  private start(): Promise<{ server: http.Server; port: number }> {
+    this.listening ??= listen(http.createServer((request, response) => {
+      void this.handle(request, response);
+    }));
+    return this.listening;
+  }
+
+  private async handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
     try {
       const method = request.method || 'GET';
-      const url = new URL(request.url || '/', `http://${request.headers.host || '127.0.0.1'}`);
+      const url = new URL(request.url || '/', 'http://127.0.0.1');
 
-      if (method === 'GET' && url.pathname === '/') {
-        if (!validateSessionQuery(url, sessionId, response)) return;
-        sendHtml(
-          response,
-          buildHostHtmlTemplate({
-            sessionId,
-            serverName: options.serverName,
-            resourceUri: options.resourceUri,
-            title: options.title,
-            allowAttribute: buildAllowAttribute(options.resource.meta.permissions),
-            toolArgs: options.toolArgs ?? {},
-            toolInfo: options.toolInfo,
-          }),
-          buildViewerHostCspContent(),
-        );
-        return;
-      }
-
-      if (method === 'GET' && url.pathname === '/ui-app') {
-        if (!validateSessionQuery(url, sessionId, response)) return;
-        const csp = buildCspMetaContent(options.resource.meta.csp);
-        sendHtml(response, applyCspMeta(options.resource.html, csp), csp);
+      if (method === 'GET') {
+        const viewerId = url.searchParams.get('session') ?? '';
+        const session = this.sessions.get(viewerId);
+        if (!session) {
+          sendJson(response, 403, { ok: false, error: 'Invalid viewer session token' });
+          return;
+        }
+        if (url.pathname === '/') {
+          sendHtml(response, buildHostHtmlTemplate({
+            sessionId: viewerId,
+            serverName: session.serverName,
+            resourceUri: session.resourceUri,
+            title: session.title,
+            allowAttribute: buildAllowAttribute(session.resource.meta.permissions),
+            toolArgs: session.toolArgs ?? {},
+            toolInfo: session.toolInfo,
+          }), buildViewerHostCspContent());
+          return;
+        }
+        if (url.pathname === '/ui-app') {
+          const csp = buildCspMetaContent(session.resource.meta.csp);
+          sendHtml(response, applyCspMeta(session.resource.html, csp), csp);
+          return;
+        }
+        sendJson(response, 404, { ok: false, error: 'Not found' });
         return;
       }
 
@@ -82,158 +129,51 @@ export async function startUiServer(options: UiServerOptions): Promise<UiServerH
         return;
       }
 
-      const body = await readBody(request);
-      if (!validateSessionBody(body, sessionId, response)) {
+      const body = toRecord(await readBody(request));
+      const session = typeof body.token === 'string' ? this.sessions.get(body.token) : undefined;
+      if (!session) {
+        sendJson(response, 403, { ok: false, error: 'Invalid viewer session token' });
         return;
       }
-
-      if (url.pathname === '/proxy/tools/call') {
-        sendJson(response, 200, {
-          ok: true,
-          result: await callViewerTool(options, body.params),
-        });
+      const result = await this.proxy(url.pathname, session, body.params);
+      if (result === undefined) {
+        sendJson(response, 404, { ok: false, error: 'Not found' });
         return;
       }
-
-      if (url.pathname === '/proxy/tools/list') {
-        sendJson(response, 200, {
-          ok: true,
-          result: { tools: options.manager.getConnection(options.serverName)?.tools ?? [] },
-        });
-        return;
-      }
-
-      if (url.pathname === '/proxy/resources/list') {
-        sendJson(response, 200, {
-          ok: true,
-          result: { resources: options.manager.getConnection(options.serverName)?.resources ?? [] },
-        });
-        return;
-      }
-
-      if (url.pathname === '/proxy/resources/read') {
-        sendJson(response, 200, {
-          ok: true,
-          result: await readViewerResource(options, body.params),
-        });
-        return;
-      }
-
-      if (url.pathname === '/proxy/resources/templates/list') {
-        sendJson(response, 200, {
-          ok: true,
-          result: { resourceTemplates: [] },
-        });
-        return;
-      }
-
-      if (url.pathname === '/proxy/prompts/list') {
-        sendJson(response, 200, {
-          ok: true,
-          result: { prompts: [] },
-        });
-        return;
-      }
-
-      if (url.pathname === '/proxy/ui/message' || url.pathname === '/proxy/ui/context') {
-        await options.onUiMessage?.(toRecord(body.params));
-        sendJson(response, 200, { ok: true, result: {} });
-        return;
-      }
-
-      sendJson(response, 404, { ok: false, error: 'Not found' });
+      sendJson(response, 200, { ok: true, result });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      sendJson(response, 500, { ok: false, error: message });
+      sendJson(response, 500, { ok: false, error: error instanceof Error ? error.message : String(error) });
     }
-  });
+  }
 
-  const port = await listen(server);
-  const viewerUrl = `http://127.0.0.1:${port}/?session=${encodeURIComponent(sessionId)}`;
-
-  const close = (reason = 'closed') => {
-    if (closed) {
-      return;
+  private async proxy(pathname: string, session: UiSessionOptions, params: unknown): Promise<unknown> {
+    const connection = this.manager.getConnection(session.serverName);
+    switch (pathname) {
+      case '/proxy/tools/call':
+        return callViewerTool(this.manager, session, params);
+      case '/proxy/tools/list':
+        return { tools: connection?.tools ?? [] };
+      case '/proxy/resources/list':
+        return { resources: connection?.resources ?? [] };
+      case '/proxy/resources/read':
+        return readViewerResource(this.manager, session, params);
+      case '/proxy/resources/templates/list':
+        return { resourceTemplates: [] };
+      case '/proxy/prompts/list':
+        return { prompts: [] };
+      case '/proxy/ui/message':
+      case '/proxy/ui/context':
+        await session.onUiMessage?.(toRecord(params));
+        return {};
+      default:
+        return undefined;
     }
-    closed = true;
-    closeReason = reason;
-    server.close();
-  };
-
-  server.on('close', () => {
-    options.onClose?.(closeReason);
-  });
-
-  return {
-    sessionId,
-    viewerUrl,
-    serverName: options.serverName,
-    resourceUri: options.resourceUri,
-    close,
-  };
-}
-
-async function callViewerTool(options: UiServerOptions, params: unknown): Promise<CallToolResult> {
-  const toolCall = toRecord(params);
-  const toolName = typeof toolCall.name === 'string' ? toolCall.name.trim() : '';
-  const toolArguments = isRecord(toolCall.arguments) ? toolCall.arguments : undefined;
-  if (!toolName) {
-    return createToolErrorResult('Tool name is required.');
   }
-
-  try {
-    return await options.manager.callTool(options.serverName, toolName, toolArguments);
-  } catch (error) {
-    if (error instanceof UnauthorizedError) {
-      const message = error.message || 'Authentication is required.';
-      await options.onUnauthorized?.(options.serverName, message);
-      return createToolErrorResult('This MCP UI session lost authentication. Re-authenticate the server in Sero and reopen the UI.');
-    }
-
-    const message = error instanceof Error ? error.message : String(error);
-    return createToolErrorResult(message);
-  }
-}
-
-async function readViewerResource(options: UiServerOptions, params: unknown): Promise<ReadResourceResult> {
-  const readRequest = toRecord(params);
-  const resourceUri = typeof readRequest.uri === 'string' ? readRequest.uri.trim() : '';
-  if (!resourceUri) {
-    throw new Error('Resource URI is required.');
-  }
-
-  try {
-    return await options.manager.readResource(options.serverName, resourceUri);
-  } catch (error) {
-    if (error instanceof UnauthorizedError) {
-      const message = error.message || 'Authentication is required.';
-      await options.onUnauthorized?.(options.serverName, message);
-      throw new Error('This MCP UI session lost authentication. Re-authenticate the server in Sero and reopen the UI.');
-    }
-    throw error;
-  }
-}
-
-function validateSessionQuery(url: URL, sessionId: string, response: ServerResponse): boolean {
-  if (url.searchParams.get('session') === sessionId) {
-    return true;
-  }
-  sendJson(response, 403, { ok: false, error: 'Invalid viewer session token' });
-  return false;
-}
-
-function validateSessionBody(body: unknown, sessionId: string, response: ServerResponse): body is PostBody {
-  if (isRecord(body) && body.token === sessionId) {
-    return true;
-  }
-  sendJson(response, 403, { ok: false, error: 'Invalid viewer session token' });
-  return false;
 }
 
 async function readBody(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
   let size = 0;
-
   for await (const chunk of request) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     size += buffer.length;
@@ -242,12 +182,8 @@ async function readBody(request: IncomingMessage): Promise<unknown> {
     }
     chunks.push(buffer);
   }
-
   const bodyText = Buffer.concat(chunks).toString('utf8');
-  if (!bodyText.trim()) {
-    return {};
-  }
-  return JSON.parse(bodyText);
+  return bodyText.trim() ? JSON.parse(bodyText) : {};
 }
 
 function sendHtml(response: ServerResponse, html: string, csp?: string): void {
@@ -267,22 +203,7 @@ function sendJson(response: ServerResponse, statusCode: number, body: Record<str
   response.end(JSON.stringify(body));
 }
 
-function createToolErrorResult(message: string): CallToolResult {
-  return {
-    isError: true,
-    content: [{ type: 'text', text: message }],
-  };
-}
-
-function toRecord(value: unknown): Record<string, unknown> {
-  return isRecord(value) ? value : {};
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object' && !Array.isArray(value);
-}
-
-function listen(server: http.Server): Promise<number> {
+function listen(server: http.Server): Promise<{ server: http.Server; port: number }> {
   return new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(0, '127.0.0.1', () => {
@@ -291,8 +212,9 @@ function listen(server: http.Server): Promise<number> {
         reject(new Error('Failed to determine MCP viewer port.'));
         return;
       }
-      resolve(address.port);
+      // An idle viewer server must not keep a Pi CLI process alive.
+      server.unref();
+      resolve({ server, port: address.port });
     });
   });
 }
-

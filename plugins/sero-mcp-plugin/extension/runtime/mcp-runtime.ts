@@ -35,8 +35,8 @@ import { readMcpConfigPair, type McpConfigPair } from './runtime-config';
 import { removeServerAction, toggleServerAction, upsertServerAction } from './runtime-servers';
 import { executeManagerActionRoute } from './runtime-manager-router';
 import type { ManagerActionOptions, SyncedRuntimeState, SyncSnapshotOptions } from './runtime-types';
-import { McpUiSessionManager } from '../viewer/ui-session';
 import { UiResourceHandler } from '../viewer/ui-resource-handler';
+import { McpUiServer } from '../viewer/ui-server';
 
 export interface McpRuntime {
   handleSessionStart(ctx: { cwd: string }): Promise<void>;
@@ -78,7 +78,7 @@ function createMcpRuntime(): McpRuntime {
   const authCoordinator = new McpOAuthCoordinator();
   const runtimeStatuses = new Map<string, RuntimeServerStatus>();
   const uiResourceHandler = new UiResourceHandler(manager);
-  const uiSessions = new McpUiSessionManager();
+  const uiServer = new McpUiServer(manager);
   const keepAliveScheduler = createKeepAliveScheduler({
     intervalMs: KEEP_ALIVE_HEALTHCHECK_INTERVAL_MS,
     isEnabled: () => sessionRefCount > 0,
@@ -121,7 +121,7 @@ function createMcpRuntime(): McpRuntime {
         keepAliveScheduler.stop();
         await Promise.all([
           authCoordinator.cancelAll(),
-          uiSessions.closeActive('runtime-shutdown'),
+          uiServer.closeAll('runtime-shutdown'),
           manager.closeAll(),
         ]);
         runtimeStatuses.clear();
@@ -157,7 +157,7 @@ function createMcpRuntime(): McpRuntime {
         read_resource: () => readServerResource(options.cwd, options.serverName, options.resourceUri),
         open_resource: () => openViewerResource(options),
         open_tool_ui: () => openToolUi(options),
-        close_viewer: () => closeViewer(),
+        close_viewer: async () => closeViewerAction({ uiServer, viewerId: options.viewerId }),
       },
       syncSnapshot,
       reconcileManagedServers,
@@ -273,7 +273,7 @@ function createMcpRuntime(): McpRuntime {
       resourceUri: options.resourceUri,
       manager,
       uiResourceHandler,
-      uiSessions,
+      uiServer,
       setRuntimeStatus: (name, status) => runtimeStatuses.set(name, status),
       syncSnapshot,
     });
@@ -287,13 +287,10 @@ function createMcpRuntime(): McpRuntime {
       toolArguments: options.toolArguments,
       manager,
       uiResourceHandler,
-      uiSessions,
+      uiServer,
       setRuntimeStatus: (name, status) => runtimeStatuses.set(name, status),
       syncSnapshot,
     });
-  }
-  async function closeViewer(): Promise<ToolResult> {
-    return closeViewerAction({ uiSessions });
   }
   async function reconcileManagedServers(cwd: string | undefined, config: McpConfigDocument, mode: 'startup' | 'keep-alive'): Promise<SyncedRuntimeState | null> {
     const entries = mode === 'keep-alive'
@@ -350,7 +347,7 @@ function createMcpRuntime(): McpRuntime {
     let metadataCache = metadataCacheOverride ?? await readMetadataCache();
     const effectiveConfig = await withAgentPluginMcpSources(config);
     for (const serverName of getChangedServerNames(previousConfig, effectiveConfig)) {
-      await uiSessions.closeIfServerMatches(serverName);
+      uiServer.closeForServer(serverName);
       await manager.close(serverName);
       runtimeStatuses.delete(serverName);
       metadataCache = removeMetadataCacheEntry(metadataCache, serverName);

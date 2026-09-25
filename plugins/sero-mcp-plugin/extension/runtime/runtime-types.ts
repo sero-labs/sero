@@ -10,6 +10,7 @@ export interface ManagerActionOptions {
   resourceUri?: string;
   toolName?: string;
   toolArguments?: Record<string, unknown>;
+  viewerId?: string;
   callbackUrl?: string;
   serverInput?: McpServerEditorInput;
 }

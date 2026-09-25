@@ -12,7 +12,7 @@ export interface McpViewerPaneState {
 }
 
 export interface McpViewerSession {
-  sessionId: string;
+  viewerId: string;
   viewerUrl: string;
   resourceUri: string;
   kind: Exclude<McpViewerKind, 'auth'>;
@@ -48,6 +48,7 @@ export interface McpViewerState {
 export function useMcpViewer(): McpViewerState {
   const { run } = useAppTools();
   const requestIdRef = useRef(0);
+  const viewerIdRef = useRef<string | null>(null);
   const {
     loading: authLoading,
     error: authError,
@@ -66,7 +67,11 @@ export function useMcpViewer(): McpViewerState {
   const [resourceError, setResourceError] = useState<string | null>(null);
 
   const closeViewerSession = useCallback(async () => {
-    await run('mcp_manager', { action: 'close_viewer' });
+    const viewerId = viewerIdRef.current;
+    viewerIdRef.current = null;
+    if (viewerId) {
+      await run('mcp_manager', { action: 'close_viewer', viewerId });
+    }
   }, [run]);
 
   const openResource = useCallback(async (
@@ -100,16 +105,20 @@ export function useMcpViewer(): McpViewerState {
         toolArguments: options.toolArguments,
       });
       if (requestId !== requestIdRef.current) {
+        if (typeof result.details?.viewerId === 'string') {
+          void run('mcp_manager', { action: 'close_viewer', viewerId: result.details.viewerId }).catch(() => undefined);
+        }
         return;
       }
 
       const viewerUrl = typeof result.details?.viewerUrl === 'string' ? result.details.viewerUrl : null;
-      const sessionId = typeof result.details?.sessionId === 'string' ? result.details.sessionId : null;
+      const viewerId = typeof result.details?.viewerId === 'string' ? result.details.viewerId : null;
       const nextPreview = isMcpResourcePreview(result.details?.resourcePreview) ? result.details.resourcePreview : null;
 
-      if (viewerUrl && sessionId) {
+      if (viewerUrl && viewerId) {
+        viewerIdRef.current = viewerId;
         setSession({
-          sessionId,
+          viewerId,
           viewerUrl,
           resourceUri,
           kind: nextKind,

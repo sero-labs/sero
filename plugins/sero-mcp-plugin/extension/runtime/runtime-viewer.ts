@@ -7,8 +7,8 @@ import type { ManagedConnection, ManagedTool } from '../manager/types';
 import type { McpServerManager } from '../manager/server-manager';
 import type { RuntimeServerStatus } from '../state/snapshot';
 import { createToolResult, type ToolResult } from '../tools/types';
-import type { McpUiSessionManager } from '../viewer/ui-session';
 import type { UiResourceHandler } from '../viewer/ui-resource-handler';
+import type { McpUiServer } from '../viewer/ui-server';
 import { reconcileConnection } from './runtime-connect';
 import { buildResourcesDisabledMessage, readServerResourceAction } from './runtime-resource';
 import type { SyncedRuntimeState } from './runtime-types';
@@ -19,9 +19,10 @@ interface ViewerActionOptions {
   resourceUri?: string;
   toolName?: string;
   toolArguments?: Record<string, unknown>;
+  viewerId?: string;
   manager: McpServerManager;
   uiResourceHandler: UiResourceHandler;
-  uiSessions: McpUiSessionManager;
+  uiServer: McpUiServer;
   setRuntimeStatus: (serverName: string, status: RuntimeServerStatus) => void;
   syncSnapshot: (
     cwd?: string,
@@ -50,12 +51,11 @@ export async function openViewerResourceAction(options: ViewerActionOptions): Pr
 
   try {
     const resource = await options.uiResourceHandler.readUiResource(ensured.serverName, resourceUri);
-    const session = await options.uiSessions.open({
+    const session = await options.uiServer.open({
       serverName: ensured.serverName,
       resourceUri,
       title: resourceUri,
       resource,
-      manager: options.manager,
       onUnauthorized: async (_serverName, message) => {
         await handleUnauthorized(ensured, options, message);
       },
@@ -65,7 +65,7 @@ export async function openViewerResourceAction(options: ViewerActionOptions): Pr
       snapshotWritten: ensured.snapshotWritten,
       serverName: ensured.serverName,
       resourceUri,
-      sessionId: session.sessionId,
+      viewerId: session.viewerId,
       viewerUrl: session.viewerUrl,
     });
   } catch (error) {
@@ -94,14 +94,13 @@ export async function openToolUiAction(options: ViewerActionOptions): Promise<To
 
   try {
     const resource = await options.uiResourceHandler.readUiResource(ensured.serverName, resourceUri);
-    const session = await options.uiSessions.open({
+    const session = await options.uiServer.open({
       serverName: ensured.serverName,
       resourceUri,
       title: toolName || resourceUri,
       resource,
       toolInfo: tool ? { name: tool.name, description: tool.description, inputSchema: tool.inputSchema } : undefined,
       toolArgs: options.toolArguments,
-      manager: options.manager,
       onUnauthorized: async (_serverName, message) => {
         await handleUnauthorized(ensured, options, message);
       },
@@ -112,7 +111,7 @@ export async function openToolUiAction(options: ViewerActionOptions): Promise<To
       serverName: ensured.serverName,
       resourceUri,
       toolName: toolName || null,
-      sessionId: session.sessionId,
+      viewerId: session.viewerId,
       viewerUrl: session.viewerUrl,
     });
   } catch (error) {
@@ -126,17 +125,15 @@ export async function openToolUiAction(options: ViewerActionOptions): Promise<To
   }
 }
 
-export async function closeViewerAction(options: Pick<ViewerActionOptions, 'uiSessions'>): Promise<ToolResult> {
-  const session = options.uiSessions.getActiveSession();
-  if (!session) {
-    return createToolResult('No MCP viewer session is currently active.', { sessionClosed: false });
+export function closeViewerAction(options: Pick<ViewerActionOptions, 'uiServer' | 'viewerId'>): ToolResult {
+  const viewerId = options.viewerId?.trim();
+  if (!viewerId) {
+    return createToolResult('Error: Viewer ID is required.', { sessionClosed: false });
   }
-
-  await options.uiSessions.closeActive('closed-from-ui');
-  return createToolResult(`Closed MCP viewer session for "${session.resourceUri}".`, {
-    sessionClosed: true,
-    sessionId: session.sessionId,
-    resourceUri: session.resourceUri,
+  const closed = options.uiServer.close(viewerId, 'closed-from-ui');
+  return createToolResult(closed ? 'Closed the MCP viewer session.' : 'The MCP viewer session is already closed.', {
+    sessionClosed: closed,
+    viewerId,
   });
 }
 
