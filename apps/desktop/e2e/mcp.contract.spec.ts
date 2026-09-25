@@ -187,6 +187,26 @@ test.describe.serial('MCP app and proxy contracts', () => {
     expect((await call).text).toContain('created: Acme / emea');
   });
 
+  test('loads a remote skill that the user turned on, and reads its supporting file', async () => {
+    await invokeMcp('mcp_manager', { action: 'refresh_skills', serverName });
+    const listed = await invokeMcp('mcp_manager', { action: 'list_skills' });
+    const skills = listed.details.skills as Array<{ name: string; uri: string; enabled: boolean }>;
+    expect(skills.map((skill) => [skill.name, skill.enabled])).toEqual([['release-notes', false], ['daily', false]]);
+
+    const off = await invokeMcp('mcp', { action: 'skill_load', serverName, skill: 'release-notes' });
+    expect(off.text).toContain('is off');
+
+    await invokeMcp('mcp_manager', { action: 'set_skill_enabled', serverName, skillUri: skills[0]!.uri, enabled: true });
+    const loaded = await invokeMcp('mcp', { action: 'skill_load', serverName, skill: 'release-notes' });
+    expect(loaded.text).toContain(`<mcp-skill server="${serverName}" uri="skill://docs/release-notes/SKILL.md">`);
+    expect(loaded.text).toContain('# Release notes');
+
+    const file = await invokeMcp('mcp', { action: 'skill_read', serverName, skill: 'release-notes', path: 'templates/summary.md' });
+    expect(file.text).toContain('## Summary');
+    const listing = await invokeMcp('mcp', { action: 'skill_ls', serverName, skill: 'release-notes' });
+    expect(listing.text).toBe('SKILL.md\ntemplates/');
+  });
+
   test('returns deterministic errors for missing MCP arguments', async () => {
     const missingQuery = await invokeMcp('mcp', { action: 'search' });
     expect(missingQuery.text).toContain('Error: Search query is required.');
