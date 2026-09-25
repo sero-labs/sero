@@ -95,6 +95,13 @@ export function createMcpRuntime(): McpRuntime {
   const loadConfig = async () => lastState?.config ?? withAgentPluginMcpSources(await ensureConfigFile(getMcpConfigPath()));
   const tasks = createRuntimeTasks({ manager, sessions, getConfig: loadConfig });
   let tasksStarted = false;
+  // Resumes stored tasks on first use: a chat session start, or an MCP app or tool action,
+  // which runs in an app agent without a session start. Resuming connects servers, so it runs outside the queue.
+  const ensureTasksStarted = () => {
+    if (tasksStarted) return;
+    tasksStarted = true;
+    void tasks.tracker.start().catch((error) => console.error('[mcp] Failed to resume MCP tasks', error));
+  };
   const keepAliveScheduler = createKeepAliveScheduler({
     intervalMs: KEEP_ALIVE_HEALTHCHECK_INTERVAL_MS,
     isEnabled: () => sessionRefCount > 0,
@@ -125,11 +132,7 @@ export function createMcpRuntime(): McpRuntime {
       const synced = await syncSnapshot(ctx.cwd);
       keepAliveScheduler.start();
       await reconcileManagedServers(ctx.cwd, synced.config, 'startup');
-      if (!tasksStarted) {
-        tasksStarted = true;
-        // Resuming connects servers, so it runs outside the runtime queue.
-        void tasks.tracker.start().catch((error) => console.error('[mcp] Failed to resume MCP tasks', error));
-      }
+      ensureTasksStarted();
     });
   }
   function handleSessionShutdown(): Promise<void> {
@@ -159,6 +162,7 @@ export function createMcpRuntime(): McpRuntime {
     });
   }
   function executeManagerAction(action: ManagerAction, options: ManagerActionOptions = {}): Promise<ToolResult> {
+    ensureTasksStarted();
     return runExclusive(async () => executeManagerActionRoute({
       action,
       options,
@@ -188,6 +192,7 @@ export function createMcpRuntime(): McpRuntime {
     }));
   }
   function executeProxyAction(action: ProxyAction, options: ProxyActionOptions = {}): Promise<ToolResult> {
+    ensureTasksStarted();
     // Tool calls and resource reads queue only their connection work, so that a
     // server question during a call does not block other MCP work.
     if (action === 'task_status' || action === 'task_wait' || action === 'task_cancel') {
