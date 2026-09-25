@@ -8,6 +8,7 @@ import { AlertCircle, LifeBuoy, MonitorSmartphone, RefreshCw } from 'lucide-reac
 import type { McpServerSnapshot } from '../../../shared/types';
 import { useMcpViewer } from '../../hooks/useMcpViewer';
 import { McpServerAuthPanel } from './McpServerAuthPanel';
+import { McpServerProtocolCard } from './McpServerProtocol';
 import { McpServerToolRunnerPanel } from './McpServerToolRunnerPanel';
 import { McpViewerPane } from '../viewer/McpViewerPane';
 
@@ -37,6 +38,8 @@ export function McpServerDetailPanel({ server }: { server: McpServerSnapshot }) 
 
       <div className="grid gap-4 2xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.25fr)]">
         <section className="min-w-0 space-y-4">
+            <McpServerProtocolCard server={server} />
+
             <McpServerAuthPanel server={server} viewer={viewer} />
 
             <McpServerToolRunnerPanel

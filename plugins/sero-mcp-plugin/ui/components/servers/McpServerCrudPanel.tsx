@@ -19,6 +19,7 @@ import {
 } from '../../../shared/types';
 import { useMcpServerMutations } from '../../hooks/useMcpServerMutations';
 import { McpServerDetailPanel } from './McpServerDetailPanel';
+import { McpServerProtocolBadges } from './McpServerProtocol';
 
 const QUICK_PRESETS = [
   { label: 'Blank stdio', draft: createPresetDraft({ transport: 'stdio' }) },
@@ -291,9 +292,10 @@ export function McpServerCrudPanel({
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <StatusPill label={server.enabled ? 'enabled' : 'disabled'} tone={server.enabled ? 'default' : 'muted'} />
-                        <StatusPill label={server.connectionStatus} tone={server.connectionStatus === 'connected' ? 'success' : server.connectionStatus === 'needs-auth' ? 'warning' : 'muted'} />
-                        <StatusPill label={server.authStatus} tone={server.authStatus === 'authenticated' ? 'success' : server.authStatus === 'not-authenticated' ? 'warning' : 'muted'} />
+                        {server.enabled && <StatusPill label={server.connectionStatus} tone={server.connectionStatus === 'connected' ? 'success' : server.connectionStatus === 'needs-auth' ? 'warning' : 'muted'} />}
+                        {!server.enabled && <StatusPill label="disabled" tone="muted" />}
+                        {server.authStatus !== 'not-required' && <StatusPill label={server.authStatus} tone={server.authStatus === 'authenticated' ? 'success' : server.authStatus === 'not-authenticated' ? 'warning' : 'muted'} />}
+                        <McpServerProtocolBadges server={server} />
                       </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                         <span>Tools: <strong className="text-foreground">{server.toolCount}</strong></span>
