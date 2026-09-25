@@ -1,8 +1,22 @@
 import { getToolUiResourceUri } from '@modelcontextprotocol/ext-apps/app-bridge';
 import type { CallToolResult } from '@modelcontextprotocol/client';
 import type { ManagedTool } from '../manager/types';
+import { MCP_APP_RESULT_LIMIT_BYTES, MCP_APP_RESULT_VIEW, type McpAppResultDetails } from '../../shared/mcp-app';
 import { buildResourcesDisabledMessage } from './runtime-resource';
 import type { SyncedRuntimeState } from './runtime-types';
+
+/**
+ * The details that let the chat show a tool's MCP app with its result. The
+ * result is left out above the size limit, so the session file stays small.
+ */
+export function buildMcpAppResultDetails(input: Omit<McpAppResultDetails, 'result'> & { result: CallToolResult }): {
+  seroToolResultView: typeof MCP_APP_RESULT_VIEW;
+  mcpApp: McpAppResultDetails;
+} {
+  const { result, ...app } = input;
+  const fits = Buffer.byteLength(JSON.stringify(result)) <= MCP_APP_RESULT_LIMIT_BYTES;
+  return { seroToolResultView: MCP_APP_RESULT_VIEW, mcpApp: fits ? { ...app, result } : app };
+}
 
 export function getMissingMetadataMessage(serverName: string, synced: SyncedRuntimeState): string {
   const server = synced.snapshot.servers.find((entry) => entry.serverName === serverName);

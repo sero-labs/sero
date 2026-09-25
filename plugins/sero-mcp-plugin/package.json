@@ -30,7 +30,16 @@
       "stateFile": ".sero/apps/mcp/state.json",
       "ui": "./dist/ui/remoteEntry.js",
       "component": "McpApp",
-      "devPort": 5196
+      "devPort": 5196,
+      "contributes": {
+        "components": [
+          {
+            "id": "mcp-app",
+            "extensionPoint": "ui.chat.tool-result",
+            "component": "McpToolResultApp"
+          }
+        ]
+      }
     },
     "plugin": {
       "category": "developer-tools",

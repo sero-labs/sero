@@ -264,6 +264,54 @@ describe('executeProxyAction', () => {
     expect(result.details.structuredContent).toEqual({ count: 2 });
   });
 
+  describe('a tool with an MCP app', () => {
+    async function callDashboard(text: string) {
+      const synced = createSyncedState({ command: 'node', args: ['server.js'] });
+      const manager = {
+        getConnection: () => ({
+          name: 'github',
+          status: 'connected' as const,
+          tools: [{ name: 'open_dashboard', inputSchema: { type: 'object' }, _meta: { ui: { resourceUri: 'ui://github/dashboard' } } }],
+          resources: [],
+        }),
+        callTool: vi.fn(async () => ({ content: [{ type: 'text', text }] })),
+      } as unknown as McpServerManager;
+      return executeProxyAction({
+        action: 'call_tool',
+        serverName: 'github',
+        toolName: 'open_dashboard',
+        toolArguments: { repo: 'sero' },
+        manager,
+        setRuntimeStatus: () => {},
+        syncSnapshot: async () => synced,
+      });
+    }
+
+    it('names the MCP app view and keeps the input and result for it', async () => {
+      const result = await callDashboard('3 open issues');
+
+      expect(result.details.seroToolResultView).toEqual({ appId: 'mcp', contributionId: 'mcp-app' });
+      expect(result.details.mcpApp).toEqual({
+        serverName: 'github',
+        toolName: 'open_dashboard',
+        uiResourceUri: 'ui://github/dashboard',
+        arguments: { repo: 'sero' },
+        result: { content: [{ type: 'text', text: '3 open issues' }] },
+      });
+    });
+
+    it('leaves out a result above 256 KB', async () => {
+      const result = await callDashboard('x'.repeat(256 * 1024));
+
+      expect(result.details.mcpApp).toEqual({
+        serverName: 'github',
+        toolName: 'open_dashboard',
+        uiResourceUri: 'ui://github/dashboard',
+        arguments: { repo: 'sero' },
+      });
+    });
+  });
+
   it('returns in-app auth guidance when a tool call hits an OAuth-gated server', async () => {
     const serverConfig: McpServerConfig = {
       url: 'https://example.com/mcp',

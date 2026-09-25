@@ -14,6 +14,7 @@ export interface ManagerActionOptions {
   /** The chat session that shows an app, for open_tool_ui. */
   sessionId?: string;
   toolCallId?: string;
+  toolResult?: Record<string, unknown>;
   callbackUrl?: string;
   serverInput?: McpServerEditorInput;
 }

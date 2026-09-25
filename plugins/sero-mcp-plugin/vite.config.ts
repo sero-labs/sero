@@ -47,6 +47,7 @@ export default defineConfig({
       manifest: true,
       exposes: {
         './McpApp': './ui/McpApp.tsx',
+        './McpToolResultApp': './ui/components/chat/McpToolResultApp.tsx',
       },
       shared: {
         react: { singleton: true },

@@ -23,6 +23,7 @@ interface ViewerActionOptions {
   toolArguments?: Record<string, unknown>;
   viewerId?: string;
   sessionId?: string;
+  toolResult?: Record<string, unknown>;
   sessions: SessionRegistry;
   manager: McpServerManager;
   uiResourceHandler: UiResourceHandler;
@@ -103,6 +104,7 @@ export async function openToolUiAction(options: ViewerActionOptions): Promise<To
       resource,
       toolInfo: tool ? { name: tool.name, description: tool.description, inputSchema: tool.inputSchema } : undefined,
       toolArgs: options.toolArguments,
+      toolResult: options.toolResult,
       ...sessionHooks(ensured, options, toolName || resourceUri),
     });
 
@@ -121,6 +123,7 @@ export async function openToolUiAction(options: ViewerActionOptions): Promise<To
       serverName: ensured.serverName,
       resourceUri,
       toolName: toolName || null,
+      reason: message,
     });
   }
 }

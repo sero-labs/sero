@@ -291,6 +291,7 @@ function createMcpRuntime(): McpRuntime {
       toolName: options.toolName,
       toolArguments: options.toolArguments,
       sessionId: options.sessionId,
+      toolResult: options.toolResult,
       manager,
       uiResourceHandler,
       uiServer,

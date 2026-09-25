@@ -19,6 +19,7 @@ import { createToolResult, type ProxyAction, type ToolResult } from '../tools/ty
 import { readProxyResourceAction } from './runtime-resource';
 import {
   buildAuthRequiredMessage,
+  buildMcpAppResultDetails,
   escapeRegex,
   formatCallToolResult,
   formatUnknown,
@@ -271,13 +272,17 @@ async function callServerTool(options: ProxyToolOptions): Promise<ToolResult> {
   try {
     const result = await options.manager.callTool(serverName, toolName, toolArguments, { signal: options.signal, notify: options.notify });
     const text = formatCallToolResult(serverName, liveTool, result);
+    const uiResourceUri = getToolUiResourceUri({ _meta: liveTool._meta }) ?? null;
     return createToolResult(text, {
       mode: 'call_tool',
       serverName,
       toolName,
       isError: Boolean(result.isError),
       structuredContent: result.structuredContent ?? null,
-      uiResourceUri: getToolUiResourceUri({ _meta: liveTool._meta }) ?? null,
+      uiResourceUri,
+      ...(uiResourceUri
+        ? buildMcpAppResultDetails({ serverName, toolName, uiResourceUri, arguments: toolArguments ?? {}, result })
+        : {}),
     });
   } catch (error) {
     if (error instanceof UnauthorizedError) {

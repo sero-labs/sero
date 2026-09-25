@@ -36,11 +36,17 @@ export interface ViewerShell {
 export async function startViewerShell(doc: Document = document, fetchImpl: Fetch = fetch): Promise<ViewerShell> {
   const config = readConfig(doc);
   const status = doc.getElementById('status');
+  // Tell the embedding window the page height, so it can fit its frame to the app and status line.
+  const postHeight = () => {
+    const message: ViewerSizeMessage = { type: 'sero-mcp-viewer-size', height: doc.documentElement.scrollHeight };
+    doc.defaultView?.parent?.postMessage(message, '*');
+  };
   const setStatus = (text: string, isError = false) => {
     if (!status) return;
     status.textContent = text;
     status.hidden = !text;
     status.classList.toggle('error', isError);
+    postHeight();
   };
 
   const post = async <T>(path: string, params: unknown): Promise<T> => {
@@ -91,8 +97,7 @@ export async function startViewerShell(doc: Document = document, fetchImpl: Fetc
   bridge.onsizechange = ({ height }) => {
     if (typeof height !== 'number') return;
     frame.style.height = `${height}px`;
-    const message: ViewerSizeMessage = { type: 'sero-mcp-viewer-size', height };
-    doc.defaultView?.parent?.postMessage(message, '*');
+    postHeight();
   };
   bridge.oninitialized = () => {
     void bridge.sendToolInput({ arguments: config.toolArgs });
