@@ -182,7 +182,7 @@ export function McpServerCrudPanel({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="stdio">stdio</SelectItem>
-                    <SelectItem value="http">http / sse</SelectItem>
+                    <SelectItem value="http">Streamable HTTP</SelectItem>
                   </SelectContent>
                 </Select>
               </Field>

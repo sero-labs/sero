@@ -26,3 +26,13 @@ The manager shows the configured server set and its current status. A saved defi
 ![MCP manager](../assets/images/mcp-manager.jpg)
 
 MCP configuration can contain local paths, network addresses, and credentials. Treat it as sensitive profile configuration. See [Settings and Admin](/guide/settings-models-admin) for other profile settings and [Security / Privacy](/reference/security-privacy) for sharing guidance.
+
+## Protocol versions
+
+Sero supports MCP revision `2026-07-28` and the older 2025 revisions. When Sero connects to a server, it asks the server for `2026-07-28` first. If the server does not support it, Sero uses the 2025 handshake. You do not need to change a saved server.
+
+Open a server to see its **Protocol** card. The card shows the revision in use, the extensions that the server offers, the transport and the state of the cached tool list. When a connection fails, the card names the step that failed, for example **Sign-in failed**.
+
+A server that uses the older SSE transport shows **SSE, deprecated**. Sero keeps it working, but you cannot add new SSE servers. Ask the server owner for a Streamable HTTP URL.
+
+Sero checks the protocol version again after you change a server. If the server owner upgrades the server, select **Reconnect**.

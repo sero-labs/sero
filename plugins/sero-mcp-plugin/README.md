@@ -85,9 +85,9 @@ Example raw config:
 }
 ```
 
-### HTTP / SSE servers
+### Streamable HTTP servers
 
-Use HTTP mode for remote MCP servers that expose an HTTP/SSE endpoint.
+Use HTTP mode for remote MCP servers that expose a Streamable HTTP endpoint.
 
 Typical fields:
 
@@ -112,9 +112,35 @@ Example raw config:
 }
 ```
 
+Sero uses the deprecated SSE transport only as a fallback: when the Streamable HTTP endpoint answers `404` or `405`, or when an Agent Plugin sets `portableTransport: "sse"`. Any other HTTP error fails the connection. A server that connects over SSE shows **SSE, deprecated** on its row. Saved SSE servers keep working without a config change.
+
 ### Raw config editing
 
 The MCP app also exposes a raw config editor for advanced edits. Validation errors are surfaced in-app before a broken config is accepted.
+
+## Protocol versions
+
+Sero supports MCP revision `2026-07-28` and the 2025 revisions. It picks the revision for each server when it connects:
+
+1. Sero sends `server/discover`. A server that answers it with `2026-07-28` connects in the modern era, with no `initialize` handshake.
+2. Any other answer selects the legacy era, and Sero connects with the 2025 `initialize` handshake.
+3. On stdio, the probe runs in a separate short-lived process, so the server process that Sero keeps never receives `server/discover`.
+
+An HTTP `401` or `403`, a `5xx` or a timeout never selects the legacy era. Sero reports it as a failure instead.
+
+After a server answers only the 2025 handshake, Sero saves a legacy verdict for that server and config hash in `era-verdicts.json`. The next connect skips the probe. **Reconnect** in the MCP app and any change to the server config drop the verdict, so the next connect probes again.
+
+In the modern era every request carries the protocol version, client identity and client capabilities in its `_meta` envelope, and HTTP requests carry the `MCP-Protocol-Version`, `Mcp-Method` and `Mcp-Name` headers. Sero declares an extension (MCP Apps, Tasks or Skills) only when its host support is on, and it never declares the deprecated sampling or roots features.
+
+### Protocol details on the server view
+
+The **Protocol** card on each server shows:
+
+- the negotiated revision, and whether the server uses the legacy handshake
+- the extensions that the server declares
+- the transport, with a notice when it is the deprecated SSE transport
+- the metadata cache state
+- the failed step when a connection fails: discovery, legacy handshake, sign-in or extension setup
 
 ## UI behavior
 
@@ -201,6 +227,7 @@ $SERO_HOME/apps/mcp/
   config.json
   state.json
   metadata-cache.json
+  era-verdicts.json
 ```
 
 ### OAuth credentials
