@@ -11,7 +11,7 @@ import {
 } from '../config/types';
 import { serializeResources, serializeTools } from '../manager/tool-metadata';
 import { McpServerManager } from '../manager/server-manager';
-import type { ManagedConnection } from '../manager/types';
+import type { ManagedConnection, ManagedTool } from '../manager/types';
 import type { RuntimeServerStatus } from '../state/snapshot';
 import { createToolResult, type ProxyAction, type ToolResult } from '../tools/types';
 import { readProxyResourceAction } from './runtime-resource';
@@ -38,6 +38,11 @@ interface ProxyToolOptions {
   signal?: AbortSignal;
   /** Shows a short message in the chat that made the call. */
   notify?: (text: string) => void;
+  /**
+   * Runs connection and state work in the runtime queue. Tool calls and
+   * resource reads run outside it, so that a server question does not block other MCP work.
+   */
+  exclusive?: <T>(operation: () => Promise<T>) => Promise<T>;
   manager: McpServerManager;
   setRuntimeStatus: (serverName: string, status: RuntimeServerStatus) => void;
   syncSnapshot: (
@@ -61,6 +66,9 @@ interface ResourceInventoryEntry {
   description?: string;
 }
 export async function executeProxyAction(options: ProxyToolOptions & { action: ProxyAction }): Promise<ToolResult> {
+  // These two run their own queued setup and then call the server outside the queue.
+  if (options.action === 'call_tool') return callServerTool(options);
+  if (options.action === 'read_resource') return readProxyResourceAction(options);
   const synced = await options.syncSnapshot(options.cwd);
   switch (options.action) {
     case 'status':
@@ -81,10 +89,6 @@ export async function executeProxyAction(options: ProxyToolOptions & { action: P
       return listServerResources(options, synced);
     case 'describe_tool':
       return describeServerTool(options, synced);
-    case 'call_tool':
-      return callServerTool(options, synced);
-    case 'read_resource':
-      return readProxyResourceAction(options);
     default:
       return createToolResult('Error: Unsupported MCP proxy action.', { mode: 'unknown_action' });
   }
@@ -253,53 +257,15 @@ async function describeServerTool(options: ProxyToolOptions, synced: SyncedRunti
     uiResourceUri: tool.uiResourceUri ?? null,
   });
 }
-async function callServerTool(options: ProxyToolOptions, synced: SyncedRuntimeState): Promise<ToolResult> {
-  const serverName = options.serverName?.trim();
-  const toolName = options.toolName?.trim();
-  if (!serverName) {
-    return createToolResult('Error: Server name is required.', { mode: 'call_tool' });
-  }
-  if (!toolName) {
-    return createToolResult('Error: Tool name is required.', { mode: 'call_tool', serverName });
-  }
-  const serverConfig = synced.config.mcpServers[serverName];
-  if (!serverConfig) {
-    return createToolResult(`Error: Server "${serverName}" does not exist.`, { mode: 'call_tool', serverName, toolName });
-  }
-  if (serverConfig.enabled === false) {
-    return createToolResult(`Error: Server "${serverName}" is disabled. Enable it before calling tools.`, {
-      mode: 'call_tool',
-      serverName,
-      toolName,
-    });
-  }
-  const toolArguments = parseToolArguments(options.toolArguments, options.argumentsJson);
-  if (toolArguments instanceof Error) {
-    return createToolResult(`Error: ${toolArguments.message}`, { mode: 'call_tool', serverName, toolName });
-  }
-  const connection = await ensureConnectedServer(options, synced, serverName);
-  if (connection.status === 'needs-auth') {
-    return createToolResult(buildAuthRequiredMessage(serverName), {
-      mode: 'call_tool',
-      serverName,
-      toolName,
-      authRequired: true,
-    });
-  }
-  if (connection.status !== 'connected') {
-    return createToolResult(
-      `Error: Server "${serverName}" failed to connect before calling "${toolName}".${connection.lastError ? ` ${connection.lastError}` : ''}`,
-      { mode: 'call_tool', serverName, toolName },
-    );
-  }
-  const liveTool = connection.tools.find((tool) => tool.name === toolName);
-  if (!liveTool) {
-    const availableTools = connection.tools.map((tool) => tool.name).sort();
-    return createToolResult(
-      `Error: Tool "${toolName}" was not found on "${serverName}". Available tools: ${availableTools.join(', ') || '(none)'}.`,
-      { mode: 'call_tool', serverName, toolName, availableTools },
-    );
-  }
+type PreparedToolCall =
+  | { result: ToolResult }
+  | { serverName: string; toolName: string; toolArguments?: Record<string, unknown>; liveTool: ManagedTool; synced: SyncedRuntimeState };
+
+async function callServerTool(options: ProxyToolOptions): Promise<ToolResult> {
+  const exclusive = options.exclusive ?? ((operation) => operation());
+  const prepared = await exclusive(() => prepareToolCall(options));
+  if ('result' in prepared) return prepared.result;
+  const { serverName, toolName, toolArguments, liveTool, synced } = prepared;
   try {
     const result = await options.manager.callTool(serverName, toolName, toolArguments, { signal: options.signal, notify: options.notify });
     const text = formatCallToolResult(serverName, liveTool, result);
@@ -314,15 +280,17 @@ async function callServerTool(options: ProxyToolOptions, synced: SyncedRuntimeSt
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       const message = error.message || 'Authentication is required.';
-      await options.manager.close(serverName);
-      options.setRuntimeStatus(serverName, {
-        connectionStatus: 'needs-auth',
-        authStatus: 'not-authenticated',
-        lastError: message,
-        lastConnectedAt: null,
-        lastFailedAt: new Date().toISOString(),
+      await exclusive(async () => {
+        await options.manager.close(serverName);
+        options.setRuntimeStatus(serverName, {
+          connectionStatus: 'needs-auth',
+          authStatus: 'not-authenticated',
+          lastError: message,
+          lastConnectedAt: null,
+          lastFailedAt: new Date().toISOString(),
+        });
+        await options.syncSnapshot(options.cwd, { config: synced.config });
       });
-      await options.syncSnapshot(options.cwd, { config: synced.config });
       return createToolResult(buildAuthRequiredMessage(serverName), {
         mode: 'call_tool',
         serverName,
@@ -339,6 +307,58 @@ async function callServerTool(options: ProxyToolOptions, synced: SyncedRuntimeSt
     });
   }
 }
+
+async function prepareToolCall(options: ProxyToolOptions): Promise<PreparedToolCall> {
+  const synced = await options.syncSnapshot(options.cwd);
+  const serverName = options.serverName?.trim();
+  const toolName = options.toolName?.trim();
+  if (!serverName) {
+    return { result: createToolResult('Error: Server name is required.', { mode: 'call_tool' }) };
+  }
+  if (!toolName) {
+    return { result: createToolResult('Error: Tool name is required.', { mode: 'call_tool', serverName }) };
+  }
+  const serverConfig = synced.config.mcpServers[serverName];
+  if (!serverConfig) {
+    return { result: createToolResult(`Error: Server "${serverName}" does not exist.`, { mode: 'call_tool', serverName, toolName }) };
+  }
+  if (serverConfig.enabled === false) {
+    return { result: createToolResult(`Error: Server "${serverName}" is disabled. Enable it before calling tools.`, {
+      mode: 'call_tool',
+      serverName,
+      toolName,
+    }) };
+  }
+  const toolArguments = parseToolArguments(options.toolArguments, options.argumentsJson);
+  if (toolArguments instanceof Error) {
+    return { result: createToolResult(`Error: ${toolArguments.message}`, { mode: 'call_tool', serverName, toolName }) };
+  }
+  const connection = await ensureConnectedServer(options, synced, serverName);
+  if (connection.status === 'needs-auth') {
+    return { result: createToolResult(buildAuthRequiredMessage(serverName), {
+      mode: 'call_tool',
+      serverName,
+      toolName,
+      authRequired: true,
+    }) };
+  }
+  if (connection.status !== 'connected') {
+    return { result: createToolResult(
+      `Error: Server "${serverName}" failed to connect before calling "${toolName}".${connection.lastError ? ` ${connection.lastError}` : ''}`,
+      { mode: 'call_tool', serverName, toolName },
+    ) };
+  }
+  const liveTool = connection.tools.find((tool) => tool.name === toolName);
+  if (!liveTool) {
+    const availableTools = connection.tools.map((tool) => tool.name).sort();
+    return { result: createToolResult(
+      `Error: Tool "${toolName}" was not found on "${serverName}". Available tools: ${availableTools.join(', ') || '(none)'}.`,
+      { mode: 'call_tool', serverName, toolName, availableTools },
+    ) };
+  }
+  return { serverName, toolName, toolArguments, liveTool, synced };
+}
+
 async function ensureConnectedServer(
   options: ProxyToolOptions,
   synced: SyncedRuntimeState,

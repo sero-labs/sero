@@ -25,6 +25,13 @@ interface ResourceActionOptions {
   cwd?: string;
   serverName?: string;
   resourceUri?: string;
+  signal?: AbortSignal;
+  notify?: (text: string) => void;
+  /**
+   * Runs connection and state work in the runtime queue. The read itself runs
+   * outside it, so that a server question during the read does not block other MCP work.
+   */
+  exclusive?: <T>(operation: () => Promise<T>) => Promise<T>;
   manager: McpServerManager;
   setRuntimeStatus: (serverName: string, status: RuntimeServerStatus) => void;
   syncSnapshot: (
@@ -183,8 +190,74 @@ export function buildResourcesDisabledMessage(serverName: string): string {
   return `Resource exposure is disabled for "${serverName}". Enable \"Expose resources\" in the MCP app to list or read resources.`;
 }
 
-async function loadResourcePreview(options: ResourceActionOptions): Promise<
+type ResourceLoad =
   | { preview: McpResourcePreview; snapshotWritten: boolean }
+  | { errorResult: ToolResult };
+
+async function loadResourcePreview(options: ResourceActionOptions): Promise<ResourceLoad> {
+  const exclusive = options.exclusive ?? ((operation) => operation());
+  const prepared = await exclusive(() => prepareResourceRead(options));
+  if ('errorResult' in prepared) return prepared;
+  const { serverName, resourceUri, snapshotWritten, config } = prepared;
+
+  try {
+    const result = await options.manager.readResource(serverName, resourceUri, { signal: options.signal, notify: options.notify });
+    return {
+      preview: normalizeResourcePreview(serverName, resourceUri, result),
+      snapshotWritten,
+    };
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      const message = error.message || 'Authentication is required.';
+      await exclusive(async () => {
+        await options.manager.close(serverName);
+        options.setRuntimeStatus(serverName, {
+          connectionStatus: 'needs-auth',
+          authStatus: 'not-authenticated',
+          lastError: message,
+          lastConnectedAt: null,
+          lastFailedAt: new Date().toISOString(),
+        });
+        await options.syncSnapshot(options.cwd, { config });
+      });
+      return {
+        errorResult: createToolResult(buildAuthRequiredMessage(serverName), {
+          snapshotWritten: true,
+          serverName,
+          resourceUri,
+          authRequired: true,
+        }),
+      };
+    }
+
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      errorResult: createToolResult(`Error: Failed to read resource "${resourceUri}" from "${serverName}". ${message}`, {
+        snapshotWritten,
+        serverName,
+        resourceUri,
+      }),
+    };
+  }
+}
+
+function formatProxyResourcePreview(preview: McpResourcePreview): string {
+  const header = `MCP resource from ${preview.serverName}: ${preview.resolvedUri}`;
+  const metadata = `Kind: ${preview.previewKind}${preview.mimeType ? ` · ${preview.mimeType}` : ''}`;
+  if (preview.previewKind === 'image') {
+    return `${header}\n${metadata}\n\nThis resource is an image. Open it in the MCP app for the embedded visual preview.`;
+  }
+  if (preview.previewKind === 'binary') {
+    return `${header}\n${metadata}\n\nThis resource returned binary content that cannot be rendered inline by the bridged MCP proxy.`;
+  }
+
+  const body = preview.previewKind === 'html' ? preview.html ?? '' : preview.text ?? '(empty resource)';
+  const truncatedNote = preview.truncated ? '\n\nPreview truncated for proxy output.' : '';
+  return `${header}\n${metadata}\n\n${body}${truncatedNote}`;
+}
+
+async function prepareResourceRead(options: ResourceActionOptions): Promise<
+  | { serverName: string; resourceUri: string; snapshotWritten: boolean; config: McpConfigDocument }
   | { errorResult: ToolResult }
 > {
   const serverName = options.serverName?.trim();
@@ -252,56 +325,5 @@ async function loadResourcePreview(options: ResourceActionOptions): Promise<
     }
   }
 
-  try {
-    const result = await options.manager.readResource(serverName, resourceUri);
-    return {
-      preview: normalizeResourcePreview(serverName, resourceUri, result),
-      snapshotWritten,
-    };
-  } catch (error) {
-    if (error instanceof UnauthorizedError) {
-      const message = error.message || 'Authentication is required.';
-      await options.manager.close(serverName);
-      options.setRuntimeStatus(serverName, {
-        connectionStatus: 'needs-auth',
-        authStatus: 'not-authenticated',
-        lastError: message,
-        lastConnectedAt: null,
-        lastFailedAt: new Date().toISOString(),
-      });
-      await options.syncSnapshot(options.cwd, { config: synced.config });
-      return {
-        errorResult: createToolResult(buildAuthRequiredMessage(serverName), {
-          snapshotWritten: true,
-          serverName,
-          resourceUri,
-          authRequired: true,
-        }),
-      };
-    }
-
-    const message = error instanceof Error ? error.message : String(error);
-    return {
-      errorResult: createToolResult(`Error: Failed to read resource "${resourceUri}" from "${serverName}". ${message}`, {
-        snapshotWritten,
-        serverName,
-        resourceUri,
-      }),
-    };
-  }
-}
-
-function formatProxyResourcePreview(preview: McpResourcePreview): string {
-  const header = `MCP resource from ${preview.serverName}: ${preview.resolvedUri}`;
-  const metadata = `Kind: ${preview.previewKind}${preview.mimeType ? ` · ${preview.mimeType}` : ''}`;
-  if (preview.previewKind === 'image') {
-    return `${header}\n${metadata}\n\nThis resource is an image. Open it in the MCP app for the embedded visual preview.`;
-  }
-  if (preview.previewKind === 'binary') {
-    return `${header}\n${metadata}\n\nThis resource returned binary content that cannot be rendered inline by the bridged MCP proxy.`;
-  }
-
-  const body = preview.previewKind === 'html' ? preview.html ?? '' : preview.text ?? '(empty resource)';
-  const truncatedNote = preview.truncated ? '\n\nPreview truncated for proxy output.' : '';
-  return `${header}\n${metadata}\n\n${body}${truncatedNote}`;
+  return { serverName, resourceUri, snapshotWritten, config: synced.config };
 }

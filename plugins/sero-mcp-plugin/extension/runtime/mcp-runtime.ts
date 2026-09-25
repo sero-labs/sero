@@ -152,7 +152,10 @@ function createMcpRuntime(): McpRuntime {
     }));
   }
   function executeProxyAction(action: ProxyAction, options: { cwd?: string; query?: string; serverName?: string; toolName?: string; resourceUri?: string; toolArguments?: Record<string, unknown>; argumentsJson?: string; signal?: AbortSignal; notify?: (text: string) => void; } = {}): Promise<ToolResult> {
-    return runExclusive(async () => executeProxyActionInternal({
+    // Tool calls and resource reads queue only their connection work, so that a
+    // server question during a call does not block other MCP work.
+    const queued = action !== 'call_tool' && action !== 'read_resource';
+    const run = () => executeProxyActionInternal({
       action,
       cwd: options.cwd,
       query: options.query,
@@ -163,10 +166,12 @@ function createMcpRuntime(): McpRuntime {
       argumentsJson: options.argumentsJson,
       signal: options.signal,
       notify: options.notify,
+      exclusive: runExclusive,
       manager,
       setRuntimeStatus: (name, status) => runtimeStatuses.set(name, status),
       syncSnapshot,
-    }));
+    });
+    return queued ? runExclusive(run) : run();
   }
   async function saveRawConfig(cwd: string | undefined, rawConfigInput?: string): Promise<ToolResult> {
     return saveRawConfigAction({ cwd, rawConfigInput, writeConfigAndSyncSnapshot });
