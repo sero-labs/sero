@@ -140,6 +140,23 @@ export function buildContentSecurityPolicy(
 }
 
 /**
+ * A page in a frame from a loopback server, such as an MCP app viewer or a dev
+ * server preview, keeps the CSP that its server sends. It runs on its own
+ * origin, so the renderer policy does not protect the renderer there. It would
+ * only replace the page's own policy, for example the no-network policy of an
+ * MCP app, and block the page's inline scripts.
+ */
+export function keepsOwnContentSecurityPolicy(details: { resourceType?: string; url: string }): boolean {
+  if (details.resourceType !== 'subFrame') return false;
+  try {
+    const { protocol, hostname } = new URL(details.url);
+    return protocol === 'http:' && (hostname === '127.0.0.1' || hostname === 'localhost');
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Install the CSP header on the default session.
  * Call once after app.whenReady() and before creating windows.
  */
@@ -147,6 +164,10 @@ export function setupContentSecurityPolicy(): void {
   const csp = buildContentSecurityPolicy();
 
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    if (keepsOwnContentSecurityPolicy(details)) {
+      callback({});
+      return;
+    }
     callback({
       responseHeaders: {
         ...details.responseHeaders,
