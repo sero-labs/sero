@@ -79,6 +79,8 @@ export function registerMcpManagerTool(pi: ExtensionAPI, runtime: McpRuntime): v
         skillUri: managerParams.skillUri,
         enabled: managerParams.enabled,
         sessionId: managerParams.sessionId,
+        // The guard reads the session from the extension context, not from the model's parameters.
+        callerSessionId: ctx?.sessionManager?.getSessionId(),
         toolCallId: managerParams.toolCallId,
         toolResult: managerParams.toolResult,
         callbackUrl: managerParams.callbackUrl,

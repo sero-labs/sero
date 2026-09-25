@@ -42,6 +42,10 @@ interface ProxyToolOptions {
   argumentsJson?: string;
   /** Stops only this request. */
   signal?: AbortSignal;
+  /** The chat session that asks for the read, for the remote-skill cross-server guard. */
+  sessionId?: string;
+  /** Refuses a read that a remote skill of another server would make. */
+  crossServerReadError?: (sessionId: string | undefined, serverName: string) => string | null;
   /** Shows a short message in the chat that made the call. */
   notify?: (text: string) => void;
   /**

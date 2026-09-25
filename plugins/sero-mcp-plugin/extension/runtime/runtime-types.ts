@@ -17,6 +17,12 @@ export interface ManagerActionOptions {
   enabled?: boolean;
   /** The chat session that shows an app, for open_tool_ui. */
   sessionId?: string;
+  /**
+   * The chat session that actually made the call, from the extension context.
+   * Security checks such as the remote-skill read guard use this, never the
+   * model-supplied `sessionId`.
+   */
+  callerSessionId?: string;
   toolCallId?: string;
   toolResult?: Record<string, unknown>;
   callbackUrl?: string;

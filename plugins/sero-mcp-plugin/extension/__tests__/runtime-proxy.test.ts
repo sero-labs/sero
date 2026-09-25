@@ -208,6 +208,35 @@ describe('executeProxyAction', () => {
     expect(text).toContain('hello from MCP');
   });
 
+  it('refuses a read that a remote skill would make on another server', async () => {
+    const serverConfig: McpServerConfig = { command: 'node', args: ['server.js'] };
+    const synced = createSyncedState(serverConfig);
+    const readResource = vi.fn();
+    const result = await executeProxyAction({
+      action: 'read_resource',
+      serverName: 'github',
+      resourceUri: 'file://README.md',
+      sessionId: 'chat-1',
+      crossServerReadError: (sessionId, serverName) => `blocked ${sessionId} -> ${serverName}`,
+      manager: {
+        getConnection: () => ({
+          name: 'github',
+          client: null,
+          transport: null,
+          tools: [],
+          resources: [],
+          status: 'connected' as const,
+        }),
+        readResource,
+      } as unknown as McpServerManager,
+      setRuntimeStatus: () => {},
+      syncSnapshot: async () => synced,
+    });
+
+    expect(readResource).not.toHaveBeenCalled();
+    expect(result.content[0]?.text).toContain('blocked chat-1 -> github');
+  });
+
   it('describes a cached tool including its input schema', async () => {
     const serverConfig: McpServerConfig = { command: 'node', args: ['server.js'] };
     const synced = createSyncedState(serverConfig);

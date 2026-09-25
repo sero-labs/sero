@@ -25,6 +25,8 @@ interface ViewerActionOptions {
   toolArguments?: Record<string, unknown>;
   viewerId?: string;
   sessionId?: string;
+  /** Refuses a read that a remote skill of another server would make. */
+  crossServerReadError?: (sessionId: string | undefined, serverName: string) => string | null;
   toolResult?: Record<string, unknown>;
   sessions: SessionRegistry;
   permissionChoices: AppPermissionChoices;

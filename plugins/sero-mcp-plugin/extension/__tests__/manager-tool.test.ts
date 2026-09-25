@@ -33,6 +33,23 @@ describe('registerMcpManagerTool', () => {
     expect(result.content[0]?.text).toBe('status ok');
   });
 
+  it('uses the caller session from the extension context, not the model-supplied session', async () => {
+    const registerTool = vi.fn();
+    const executeManagerAction = vi.fn(async () => createToolResult('ok'));
+    registerMcpManagerTool({ registerTool } as unknown as ExtensionAPI, { executeManagerAction } as unknown as McpRuntime);
+    const tool = registerTool.mock.calls[0]?.[0];
+
+    await tool.execute('tool-call-1', { action: 'read_resource', serverName: 'demo', resourceUri: 'file://x', sessionId: 'spoofed' }, null, () => undefined, {
+      cwd: '/tmp/ws',
+      sessionManager: { getSessionId: () => 'chat-1' },
+    });
+
+    expect(executeManagerAction).toHaveBeenLastCalledWith('read_resource', expect.objectContaining({
+      sessionId: 'spoofed',
+      callerSessionId: 'chat-1',
+    }));
+  });
+
   it('routes the MCP task actions with the task ID', async () => {
     const registerTool = vi.fn();
     const executeManagerAction = vi.fn(async () => createToolResult('ok'));

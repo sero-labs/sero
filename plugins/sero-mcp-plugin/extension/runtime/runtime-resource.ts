@@ -27,6 +27,10 @@ interface ResourceActionOptions {
   resourceUri?: string;
   signal?: AbortSignal;
   notify?: (text: string) => void;
+  /** The chat session that asks for the read, for the remote-skill cross-server guard. */
+  sessionId?: string;
+  /** Refuses a read that a remote skill of another server would make. */
+  crossServerReadError?: (sessionId: string | undefined, serverName: string) => string | null;
   /**
    * Runs connection and state work in the runtime queue. The read itself runs
    * outside it, so that a server question during the read does not block other MCP work.
@@ -268,6 +272,10 @@ async function prepareResourceRead(options: ResourceActionOptions): Promise<
   if (!resourceUri) {
     return { errorResult: createToolResult('Error: Resource URI is required.', { snapshotWritten: false }) };
   }
+
+  // The shared read boundary: a remote skill must not read resources of another server.
+  const refusal = options.crossServerReadError?.(options.sessionId, serverName);
+  if (refusal) return { errorResult: createToolResult(`Error: ${refusal}`, { isError: true }) };
 
   const synced = await options.syncSnapshot(options.cwd);
   const serverConfig = synced.config.mcpServers[serverName];

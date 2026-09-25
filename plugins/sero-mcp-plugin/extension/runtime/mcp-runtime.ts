@@ -195,7 +195,7 @@ export function createMcpRuntime(): McpRuntime {
         complete_auth: () => completeServerAuth(options.cwd, options.serverName, options.callbackUrl),
         cancel_auth: () => cancelServerAuth(options.cwd, options.serverName),
         clear_auth: () => clearServerAuth(options.cwd, options.serverName),
-        read_resource: () => readServerResource(options.cwd, options.serverName, options.resourceUri),
+        read_resource: () => readServerResource(options),
         open_resource: () => openViewerResource(options),
         open_tool_ui: () => openToolUi(options),
         close_viewer: async () => closeViewerAction({ uiServer, viewerId: options.viewerId }),
@@ -217,8 +217,6 @@ export function createMcpRuntime(): McpRuntime {
       return tasks.proxyAction(action, options.taskId, options.signal);
     }
     if (action === 'skill_load' || action === 'skill_read' || action === 'skill_ls') return skills.proxyAction(action, options);
-    const readRefusal = action === 'read_resource' ? skills.crossServerReadError(options.sessionId, options.serverName ?? '') : null;
-    if (readRefusal) return Promise.resolve(createToolResult(`Error: ${readRefusal}`, { isError: true }));
     const queued = action !== 'call_tool' && action !== 'read_resource';
     const run = () => executeProxyActionInternal({
       action,
@@ -231,6 +229,9 @@ export function createMcpRuntime(): McpRuntime {
       argumentsJson: options.argumentsJson,
       signal: options.signal,
       notify: options.notify,
+      // runtime-resource.ts enforces the remote-skill cross-server guard at the shared read boundary.
+      sessionId: options.sessionId,
+      crossServerReadError: (sessionId, serverName) => skills.crossServerReadError(sessionId, serverName),
       adoptTask: (execution, input) => tasks.tracker.adopt(execution, {
         ...input,
         principalId: manager.getConnection(input.serverName)?.principalId ?? 'anon',
@@ -312,11 +313,13 @@ export function createMcpRuntime(): McpRuntime {
       syncSnapshot,
     });
   }
-  async function readServerResource(cwd: string | undefined, serverName: string | undefined, resourceUri: string | undefined): Promise<ToolResult> {
+  async function readServerResource(options: ManagerActionOptions): Promise<ToolResult> {
     return readServerResourceAction({
-      cwd,
-      serverName,
-      resourceUri,
+      cwd: options.cwd,
+      serverName: options.serverName,
+      resourceUri: options.resourceUri,
+      sessionId: options.callerSessionId,
+      crossServerReadError: (sessionId, serverName) => skills.crossServerReadError(sessionId, serverName),
       manager,
       setRuntimeStatus: (name, status) => runtimeStatuses.set(name, status),
       syncSnapshot,
@@ -327,6 +330,8 @@ export function createMcpRuntime(): McpRuntime {
       cwd: options.cwd,
       serverName: options.serverName,
       resourceUri: options.resourceUri,
+      sessionId: options.callerSessionId,
+      crossServerReadError: (sessionId, serverName) => skills.crossServerReadError(sessionId, serverName),
       manager,
       uiResourceHandler,
       uiServer,
