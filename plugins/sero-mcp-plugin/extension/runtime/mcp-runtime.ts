@@ -1,3 +1,4 @@
+import type { ToolCallEventResult } from '@earendil-works/pi-coding-agent';
 import type { McpServerEditorInput } from '../../shared/types';
 import { ensureOAuthDir, hasOAuthTokens } from '../auth/storage';
 import { McpOAuthCoordinator } from '../auth/oauth-coordinator';
@@ -30,7 +31,7 @@ import {
   KEEP_ALIVE_HEALTHCHECK_INTERVAL_MS, shouldAttemptAutoConnect,
 } from './runtime-lifecycle';
 import { writeState } from '../state/state-io';
-import type { ManagerAction, ProxyAction, ToolResult } from '../tools/types';
+import { createToolResult, type ManagerAction, type ProxyAction, type ToolResult } from '../tools/types';
 import { readMcpConfigPair, type McpConfigPair } from './runtime-config';
 import { removeServerAction, toggleServerAction, upsertServerAction } from './runtime-servers';
 import { executeManagerActionRoute } from './runtime-manager-router';
@@ -39,6 +40,7 @@ import { UiResourceHandler } from '../viewer/ui-resource-handler';
 import { McpUiServer } from '../viewer/ui-server';
 import { SessionRegistry, type SessionSend } from './app-messages';
 import { createRuntimeTasks } from './runtime-tasks';
+import { createRuntimeSkills } from './runtime-skills';
 import type { AppPermissionChoices } from '../viewer/app-permissions';
 
 export interface ProxyActionOptions {
@@ -46,6 +48,9 @@ export interface ProxyActionOptions {
   toolArguments?: Record<string, unknown>; argumentsJson?: string; signal?: AbortSignal;
   notify?: (text: string) => void;
   taskId?: string;
+  /** For the skill actions: the skill (name, path or URI) and a file or directory path. */
+  skill?: string;
+  path?: string;
   /** The chat session and tool call that made a call_tool, so a task outcome can return there. */
   sessionId?: string;
   toolCallId?: string;
@@ -56,6 +61,10 @@ export interface McpRuntime {
   handleSessionShutdown(): Promise<void>;
   /** Lets MCP apps shown in this session send messages to it. Returns the unregister function. */
   registerSession(sessionId: string, send: SessionSend): () => void;
+  /** The "Remote MCP skills" prompt block for enabled skills. */
+  remoteSkillsPromptBlock(): Promise<string>;
+  /** Blocks a code tool while the session acts on a remote skill that the user has not approved. */
+  checkToolCall(sessionId: string, toolName: string): Promise<ToolCallEventResult | undefined>;
   executeManagerAction(action: ManagerAction, options?: ManagerActionOptions): Promise<ToolResult>;
   executeProxyAction(action: ProxyAction, options?: ProxyActionOptions): Promise<ToolResult>;
 }
@@ -73,6 +82,7 @@ export function createMcpRuntime(): McpRuntime {
   const manager = new McpServerManager({
     hasOAuthTokens,
     eraVerdicts: createFileEraVerdictStore(),
+    onConnected: (serverName, connection) => void skills.refreshServer(serverName, connection).catch(() => undefined),
     onInventoryChanged: (serverName, connection) => {
       void runExclusive(async () => {
         const config = lastState?.config;
@@ -94,6 +104,13 @@ export function createMcpRuntime(): McpRuntime {
   const permissionChoices: AppPermissionChoices = new Map();
   const loadConfig = async () => lastState?.config ?? withAgentPluginMcpSources(await ensureConfigFile(getMcpConfigPath()));
   const tasks = createRuntimeTasks({ manager, sessions, getConfig: loadConfig });
+  const skills = createRuntimeSkills({
+    manager,
+    connect: async (name) => {
+      const definition = (await loadConfig()).mcpServers[name];
+      return definition && definition.enabled !== false ? manager.connect(name, definition) : undefined;
+    },
+  });
   let tasksStarted = false;
   // Resumes stored tasks on first use: a chat session start, or an MCP app or tool action,
   // which runs in an app agent without a session start. Resuming connects servers, so it runs outside the queue.
@@ -183,6 +200,7 @@ export function createMcpRuntime(): McpRuntime {
         open_tool_ui: () => openToolUi(options),
         close_viewer: async () => closeViewerAction({ uiServer, viewerId: options.viewerId }),
         ...tasks.managerHandlers(options.taskId),
+        ...skills.managerHandlers(options),
       },
       syncSnapshot,
       reconcileManagedServers,
@@ -198,6 +216,9 @@ export function createMcpRuntime(): McpRuntime {
     if (action === 'task_status' || action === 'task_wait' || action === 'task_cancel') {
       return tasks.proxyAction(action, options.taskId, options.signal);
     }
+    if (action === 'skill_load' || action === 'skill_read' || action === 'skill_ls') return skills.proxyAction(action, options);
+    const readRefusal = action === 'read_resource' ? skills.crossServerReadError(options.sessionId, options.serverName ?? '') : null;
+    if (readRefusal) return Promise.resolve(createToolResult(`Error: ${readRefusal}`, { isError: true }));
     const queued = action !== 'call_tool' && action !== 'read_resource';
     const run = () => executeProxyActionInternal({
       action,
@@ -438,8 +459,13 @@ export function createMcpRuntime(): McpRuntime {
     registerSession: (sessionId, send) => {
       const unregister = sessions.register(sessionId, send);
       void tasks.tracker.deliverPending(sessionId).catch(() => undefined);
-      return unregister;
+      return () => {
+        unregister();
+        skills.windows.close(sessionId);
+      };
     },
+    remoteSkillsPromptBlock: () => skills.promptBlock(),
+    checkToolCall: (sessionId, toolName) => skills.checkToolCall(sessionId, toolName),
     executeManagerAction,
     executeProxyAction,
   };

@@ -11,6 +11,7 @@ import { resolveBearerTokenValue, type McpServerConfig } from '../config/types';
 import { runWithRequestContext } from '../elicitation/request-context';
 import { buildClientCapabilities, createMcpClient, MCP_CLIENT_FEATURES, type McpClientFeatures } from './client-factory';
 import { createTaskSession, startTaskSessionToolCall, type ToolCallStart } from '../tasks/task-session';
+import { createSkillsClient } from '../skills/skills-client';
 import {
   buildRequestInit,
   isMissingEndpointError,
@@ -46,6 +47,8 @@ interface McpServerManagerOptions {
   /** Called after a server reported a changed tool or resource list and the connection holds the new list. */
   onInventoryChanged?: (serverName: string, connection: ManagedConnection) => void;
   features?: McpClientFeatures;
+  /** Called after each successful connect, for example to list the server's skills. */
+  onConnected?: (serverName: string, connection: ManagedConnection) => void;
 }
 
 export class McpServerManager {
@@ -55,9 +58,11 @@ export class McpServerManager {
   private readonly eraVerdicts: EraVerdictStore;
   private readonly onInventoryChanged: (serverName: string, connection: ManagedConnection) => void;
   private readonly features: McpClientFeatures;
+  private readonly onConnected: (serverName: string, connection: ManagedConnection) => void;
 
   constructor(options: McpServerManagerOptions = {}) {
     this.features = options.features ?? MCP_CLIENT_FEATURES;
+    this.onConnected = options.onConnected ?? (() => {});
     this.hasOAuthTokens = options.hasOAuthTokens ?? (async () => false);
     this.eraVerdicts = options.eraVerdicts ?? createMemoryEraVerdictStore();
     this.onInventoryChanged = options.onInventoryChanged ?? (() => {});
@@ -79,6 +84,7 @@ export class McpServerManager {
     try {
       const connection = await promise;
       this.connections.set(name, connection);
+      if (connection.status === 'connected') this.onConnected(name, connection);
       return connection;
     } finally {
       this.connectPromises.delete(name);
@@ -338,11 +344,13 @@ export class McpServerManager {
         clientCapabilities: buildClientCapabilities(this.features, true),
       })
       : undefined;
+    const skills = this.features.skills ? createSkillsClient(client) : undefined;
     return {
       ...this.createConnectedConnection(name, client, transport, tools, resources, protocol),
       principalId,
       cacheHints: mergeCacheHints(toolHints, resourceHints),
       ...(taskSession ? { taskSession } : {}),
+      ...(skills ? { skills } : {}),
     };
   }
 

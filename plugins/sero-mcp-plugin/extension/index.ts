@@ -12,8 +12,11 @@ export default function mcpExtension(pi: ExtensionAPI) {
   let unregisterSession: (() => void) | undefined;
 
   pi.on('before_agent_start', async (event) => ({
-    systemPrompt: event.systemPrompt + buildMcpPromptBlock(),
+    systemPrompt: event.systemPrompt + buildMcpPromptBlock() + await runtime.remoteSkillsPromptBlock().catch(() => ''),
   }));
+
+  // A remote skill must not make code run without the user's approval.
+  pi.on('tool_call', (event, ctx) => runtime.checkToolCall(ctx.sessionManager.getSessionId(), event.toolName));
 
   pi.on('session_start', async (_event, ctx) => {
     unregisterSession?.();

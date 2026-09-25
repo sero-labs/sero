@@ -22,12 +22,16 @@ export const MCP_MANAGER_ACTIONS = [
   'cancel_task',
   'dismiss_task',
   'task_result',
+  'list_skills',
+  'set_skill_enabled',
+  'refresh_skills',
 ] as const;
 
 export type ManagerAction = (typeof MCP_MANAGER_ACTIONS)[number] | 'status';
 export type ProxyAction =
   | 'status' | 'list' | 'search' | 'list_tools' | 'list_resources' | 'describe_tool' | 'call_tool' | 'read_resource'
-  | 'task_status' | 'task_wait' | 'task_cancel';
+  | 'task_status' | 'task_wait' | 'task_cancel'
+  | 'skill_load' | 'skill_read' | 'skill_ls';
 
 export type ToolResult = {
   content: Array<{ type: 'text'; text: string }>;

@@ -12,6 +12,9 @@ export interface ManagerActionOptions {
   toolArguments?: Record<string, unknown>;
   viewerId?: string;
   taskId?: string;
+  /** For set_skill_enabled: the skill's SKILL.md URI and the new state. */
+  skillUri?: string;
+  enabled?: boolean;
   /** The chat session that shows an app, for open_tool_ui. */
   sessionId?: string;
   toolCallId?: string;

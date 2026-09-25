@@ -2,6 +2,7 @@ import type { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import type { McpFailurePhase } from '../../shared/types';
 import type { SSEClientTransport, StreamableHTTPClientTransport, Client, ProtocolEra } from '@modelcontextprotocol/client';
 import type { TaskEnabledSession } from '@modelcontextprotocol/ext-tasks/client';
+import type { SkillsClient } from '../skills/skills-client';
 
 export type ManagedTransport =
   | StdioClientTransport
@@ -60,4 +61,6 @@ export interface ManagedConnection {
   cacheHints?: ManagedCacheHints;
   /** Set when the server declares the Tasks extension and Sero's Tasks feature is on. */
   taskSession?: TaskEnabledSession;
+  /** Set when the server declares the Skills extension and Sero's Skills feature is on. */
+  skills?: SkillsClient;
 }

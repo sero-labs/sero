@@ -102,6 +102,21 @@ describe('registerMcpProxyTool CLI bridge', () => {
     });
   });
 
+  it('routes sero mcp skill commands with the server, skill and path', async () => {
+    const { tool, runtime } = registerTool();
+    runtime.executeProxyAction.mockResolvedValue(createToolResult('skill text'));
+
+    await tool.cli.execute(['skill', 'load', 'docs', 'release-notes'], { cwd: '/tmp/ws', invocation: { sessionId: 'chat-1' } });
+    expect(runtime.executeProxyAction).toHaveBeenLastCalledWith('skill_load', expect.objectContaining({
+      serverName: 'docs', skill: 'release-notes', sessionId: 'chat-1',
+    }));
+    await tool.cli.execute(['skill', 'read', 'docs', 'release-notes', 'templates/summary.md'], { cwd: '/tmp/ws' });
+    expect(runtime.executeProxyAction).toHaveBeenLastCalledWith('skill_read', expect.objectContaining({ path: 'templates/summary.md' }));
+    await tool.cli.execute(['skill', 'ls', 'docs', 'release-notes'], { cwd: '/tmp/ws' });
+    expect(runtime.executeProxyAction).toHaveBeenLastCalledWith('skill_ls', expect.objectContaining({ skill: 'release-notes', path: undefined }));
+    expect((await tool.cli.execute(['skill', 'read', 'docs', 'release-notes'], { cwd: '/tmp/ws' })).exitCode).toBe(1);
+  });
+
   it('passes the session and tool call of a direct call_tool, so a task outcome can return there', async () => {
     const { tool, runtime } = registerTool();
     runtime.executeProxyAction.mockResolvedValue(createToolResult('ok'));
