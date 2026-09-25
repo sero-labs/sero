@@ -6,7 +6,7 @@ import type { ChatToolCallMessage } from '@/types/ipc';
 import { isToolLive } from '../ToolCallState';
 import { ToolDetailBody } from './ToolDetailBody';
 import { ToolRowHeader } from './ToolRowHeader';
-import { readToolResultView } from './ToolResultView';
+import { readToolResultView } from './read-tool-result-view';
 
 /**
  * Rows layout: every tool opens where it sits, so the shape of the turn stays

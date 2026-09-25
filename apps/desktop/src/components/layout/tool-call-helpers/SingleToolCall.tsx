@@ -14,7 +14,7 @@ import {
   toolStatusDot,
 } from '../ToolCallState';
 import { ToolDetailBody } from './ToolDetailBody';
-import { readToolResultView } from './ToolResultView';
+import { readToolResultView } from './read-tool-result-view';
 import { ToolImages } from './ToolImages';
 import { ToolFileLinks } from './ToolFileLinks';
 import { ToolSummaryText } from './ToolSummaryText';

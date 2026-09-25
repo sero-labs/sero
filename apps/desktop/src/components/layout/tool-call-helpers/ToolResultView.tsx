@@ -1,17 +1,9 @@
-import type { ChatToolResultViewProps, SeroToolResultViewMarker } from '@sero-ai/common';
+import type { ChatToolResultViewProps } from '@sero-ai/common';
 import { FederatedContributionMount } from '@/components/apps/FederatedContributionMount';
 import { useFocusedSessionId } from '@/stores/agent-selectors';
 import { getContributions, useAppStore } from '@/stores/app';
 import type { ChatToolCallMessage } from '@/types/ipc';
-
-/** The `seroToolResultView` marker of a finished tool result, if it has a valid one. */
-export function readToolResultView(tool: ChatToolCallMessage): SeroToolResultViewMarker | null {
-  if (tool.state !== 'completed' && tool.state !== 'error') return null;
-  const marker = tool.details?.seroToolResultView;
-  if (!marker || typeof marker !== 'object') return null;
-  const { appId, contributionId } = marker as Record<string, unknown>;
-  return typeof appId === 'string' && typeof contributionId === 'string' ? { appId, contributionId } : null;
-}
+import { readToolResultView } from './read-tool-result-view';
 
 /**
  * Mounts the `ui.chat.tool-result` component that a tool result names. It
