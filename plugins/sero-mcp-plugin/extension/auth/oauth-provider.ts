@@ -150,22 +150,17 @@ export class McpOAuthProvider implements OAuthClientProvider {
     return flowState.codeVerifier;
   }
 
-  async saveState(state: string): Promise<void> {
-    await writeOAuthFlowState(this.serverName, {
-      oauthState: state,
-      serverUrl: this.serverUrl,
-    });
-  }
-
+  /** The SDK asks for the state once per sign-in. Sero creates it and keeps it to check the callback. */
   async state(): Promise<string> {
     if (this.usesClientCredentials) {
       throw new Error('state is not used for client_credentials flow');
     }
-    const flowState = await readOAuthFlowState(this.serverName);
-    if (!flowState?.oauthState) {
-      throw new Error(`No OAuth state saved for MCP server: ${this.serverName}`);
-    }
-    return flowState.oauthState;
+    const state = randomUUID();
+    await writeOAuthFlowState(this.serverName, {
+      oauthState: state,
+      serverUrl: this.serverUrl,
+    });
+    return state;
   }
 
   async invalidateCredentials(type: 'all' | 'client' | 'tokens' | 'verifier' | 'discovery'): Promise<void> {
