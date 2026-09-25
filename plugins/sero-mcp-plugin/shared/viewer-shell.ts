@@ -1,6 +1,8 @@
 /** The viewer page puts this JSON in a script tag. The bundled shell reads it. */
 export interface ViewerShellConfig {
   token: string;
+  /** The absolute URL of the app frame. Its host is unique per app, so the frame keeps a real origin. */
+  appFrameUrl: string;
   allowAttribute: string;
   toolArgs: Record<string, unknown>;
   /** The tool result, when the app shows the result of a finished call. */

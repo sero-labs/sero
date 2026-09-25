@@ -1,5 +1,5 @@
 import http, { type IncomingMessage, type ServerResponse } from 'node:http';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -39,17 +39,29 @@ export interface UiSessionHandle {
   /** The frame `allow` value for the granted permissions. A frame that embeds the viewer must pass it on. */
   allowAttribute: string;
   viewerUrl: string;
+  /** The app frame URL. Its host is unique per app, so the frame keeps a real origin. */
+  appFrameUrl: string;
   serverName: string;
   resourceUri: string;
+}
+
+/** A viewer session plus the per-app host that serves its frame. */
+interface ViewerSession extends UiSessionOptions {
+  /** The DNS label of the app frame host, for example `a1b2c3d4e5f60718.localhost`. */
+  appLabel: string;
+  appFrameUrl: string;
 }
 
 /**
  * One loopback server for all MCP app viewers. Each viewer is a session with
  * a random token; the token is in the page URL and in every proxy request.
+ * The app frame loads from its own `<label>.localhost` host, so it keeps a
+ * real origin without sharing one with the shell or with another app.
  */
 export class McpUiServer {
-  private readonly sessions = new Map<string, UiSessionOptions>();
+  private readonly sessions = new Map<string, ViewerSession>();
   private listening: Promise<{ server: http.Server; port: number }> | null = null;
+  private port = 0;
 
   constructor(private readonly manager: McpServerManager) {}
 
@@ -61,11 +73,16 @@ export class McpUiServer {
       this.close(oldest, 'session-limit');
     }
     const viewerId = randomUUID();
-    this.sessions.set(viewerId, options);
+    // A separate host label per app: the frame gets its own origin, and the shell
+    // token is not in the app URL, so an app cannot load the shell origin.
+    const appLabel = randomBytes(8).toString('hex');
+    const appFrameUrl = `http://${appLabel}.localhost:${port}/ui-app`;
+    this.sessions.set(viewerId, { ...options, appLabel, appFrameUrl });
     return {
       viewerId,
       allowAttribute: buildAllowAttribute(options.grantedPermissions),
       viewerUrl: `http://127.0.0.1:${port}/?session=${encodeURIComponent(viewerId)}`,
+      appFrameUrl,
       serverName: options.serverName,
       resourceUri: options.resourceUri,
     };
@@ -99,17 +116,42 @@ export class McpUiServer {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 
-  private start(): Promise<{ server: http.Server; port: number }> {
+  private async start(): Promise<{ server: http.Server; port: number }> {
     this.listening ??= listen(http.createServer((request, response) => {
       void this.handle(request, response);
     }));
-    return this.listening;
+    const started = await this.listening;
+    this.port = started.port;
+    return started;
+  }
+
+  /** The session whose app frame host matches the request Host header. */
+  private appSessionFor(host: string | undefined): ViewerSession | undefined {
+    const name = (host ?? '').split(':')[0]?.toLowerCase() ?? '';
+    if (!name.endsWith('.localhost')) return undefined;
+    const label = name.slice(0, -'.localhost'.length);
+    for (const session of this.sessions.values()) {
+      if (session.appLabel === label) return session;
+    }
+    return undefined;
   }
 
   private async handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
     try {
       const method = request.method || 'GET';
       const url = new URL(request.url || '/', 'http://127.0.0.1');
+
+      // An app frame host serves the app document and nothing else. The shell
+      // host below serves the shell, its script and the proxy routes.
+      const appSession = this.appSessionFor(request.headers.host);
+      if (appSession) {
+        if (method === 'GET' && url.pathname === '/ui-app') {
+          sendHtml(response, appSession.resource.html, buildAppCsp(appSession.resource.meta.csp));
+          return;
+        }
+        sendJson(response, 404, { ok: false, error: 'Not found' });
+        return;
+      }
 
       if (method === 'GET' && url.pathname === `/${VIEWER_SHELL_SCRIPT}`) {
         await sendShellScript(response);
@@ -126,17 +168,14 @@ export class McpUiServer {
         if (url.pathname === '/') {
           sendHtml(response, buildHostHtmlTemplate({
             token: viewerId,
+            appFrameUrl: session.appFrameUrl,
             title: session.title,
             allowAttribute: buildAllowAttribute(session.grantedPermissions),
             toolArgs: session.toolArgs ?? {},
             toolResult: session.toolResult,
             toolInfo: session.toolInfo,
             chat: session.onAppMessage !== undefined,
-          }), buildViewerHostCspContent());
-          return;
-        }
-        if (url.pathname === '/ui-app') {
-          sendHtml(response, session.resource.html, buildAppCsp(session.resource.meta.csp));
+          }), buildViewerHostCspContent(`http://*.localhost:${this.port}`));
           return;
         }
         sendJson(response, 404, { ok: false, error: 'Not found' });
@@ -232,7 +271,12 @@ async function readBody(request: IncomingMessage): Promise<unknown> {
     chunks.push(buffer);
   }
   const bodyText = Buffer.concat(chunks).toString('utf8');
-  return bodyText.trim() ? JSON.parse(bodyText) : {};
+  if (!bodyText.trim()) return {};
+  try {
+    return JSON.parse(bodyText);
+  } catch {
+    throw new Error('The request body is not valid JSON.');
+  }
 }
 
 function sendHtml(response: ServerResponse, html: string, csp?: string): void {

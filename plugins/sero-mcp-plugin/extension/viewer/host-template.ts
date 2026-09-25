@@ -5,6 +5,7 @@ import type { UiResourceContent, UiToolInfo } from './types';
 export function buildHostHtmlTemplate(input: {
   title: string;
   token: string;
+  appFrameUrl: string;
   allowAttribute: string;
   toolArgs: Record<string, unknown>;
   toolResult?: Record<string, unknown>;
@@ -13,6 +14,7 @@ export function buildHostHtmlTemplate(input: {
 }): string {
   const config: ViewerShellConfig = {
     token: input.token,
+    appFrameUrl: input.appFrameUrl,
     allowAttribute: input.allowAttribute,
     toolArgs: input.toolArgs,
     toolResult: input.toolResult,
@@ -44,13 +46,13 @@ export function buildHostHtmlTemplate(input: {
 </html>`;
 }
 
-export function buildViewerHostCspContent(): string {
+export function buildViewerHostCspContent(appOrigin: string): string {
   return [
     "default-src 'none'",
     "script-src 'self'",
     "style-src 'unsafe-inline'",
     "connect-src 'self'",
-    "frame-src 'self'",
+    `frame-src 'self' ${appOrigin}`,
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'none'",

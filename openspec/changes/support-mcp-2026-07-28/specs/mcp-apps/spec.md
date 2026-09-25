@@ -61,6 +61,7 @@ Sero SHALL render each app in a sandboxed frame on an origin separate from the S
 #### Scenario: Permission request
 - **WHEN** an app requests microphone access
 - **THEN** Sero asks the user, and grants access only if the user agrees
+- **AND** the app can use the approved API from its own frame origin
 
 ### Requirement: No persisted viewer sessions
 Sero MUST NOT persist viewer session URLs, tokens or IDs. After a restart, an inline app SHALL render again from its stored tool call and result, or show the fallback.

@@ -17,7 +17,19 @@ describe('ui-server', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('content-security-policy')).toContain("script-src 'self';");
+    expect(response.headers.get('content-security-policy')).toContain("frame-src 'self' http://*.localhost:");
     expect(html).toContain('<script type="module" src="/viewer-shell.js"></script>');
+  });
+
+  it('serves the app document only on the app frame host', async () => {
+    const handle = await openViewer(createServer());
+
+    expect((await fetch(new URL(handle.appFrameUrl))).status).toBe(200);
+    // Even with a valid shell token, the shell host does not serve the app document.
+    const shellAppUrl = new URL('/ui-app', handle.viewerUrl);
+    shellAppUrl.searchParams.set('session', handle.viewerId);
+    expect((await fetch(shellAppUrl)).status).toBe(404);
+    expect(new URL(handle.appFrameUrl).origin).not.toBe(new URL(handle.viewerUrl).origin);
   });
 
   it('rejects host-page requests without the viewer session token', async () => {
@@ -185,9 +197,7 @@ function openViewer(
 }
 
 function appUrl(handle: UiSessionHandle): URL {
-  const url = new URL(handle.viewerUrl);
-  url.pathname = '/ui-app';
-  return url;
+  return new URL(handle.appFrameUrl);
 }
 
 function postProxy(handle: UiSessionHandle, method: string, params: unknown): Promise<Response> {

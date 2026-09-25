@@ -63,8 +63,11 @@ export async function startViewerShell(doc: Document = document, fetchImpl: Fetc
   const frame = doc.createElement('iframe');
   frame.title = 'MCP app';
   frame.referrerPolicy = 'no-referrer';
-  // No allow-same-origin: the app gets an opaque origin and can reach Sero only through the bridge.
-  frame.setAttribute('sandbox', 'allow-scripts allow-forms');
+  // allow-same-origin gives the app its own real origin (the per-app loopback
+  // host in the config), so APIs the user approved, such as camera and
+  // microphone, can work. That origin differs from this shell and from every
+  // other app, and the app URL carries no shell token.
+  frame.setAttribute('sandbox', 'allow-scripts allow-forms allow-same-origin');
   if (config.allowAttribute) frame.setAttribute('allow', config.allowAttribute);
   (doc.getElementById('app') ?? doc.body).append(frame);
 
@@ -105,7 +108,7 @@ export async function startViewerShell(doc: Document = document, fetchImpl: Fetc
   };
 
   // The app loads asynchronously, so the bridge listens before the app can send its first message.
-  frame.src = `/ui-app?session=${encodeURIComponent(config.token)}`;
+  frame.src = config.appFrameUrl;
   const appWindow = frame.contentWindow;
   if (!appWindow) throw new Error('The app frame has no window.');
   await bridge.connect(new PostMessageTransport(appWindow, appWindow));
@@ -115,7 +118,11 @@ export async function startViewerShell(doc: Document = document, fetchImpl: Fetc
 function readConfig(doc: Document): ViewerShellConfig {
   const text = doc.getElementById(VIEWER_SHELL_CONFIG_ID)?.textContent;
   if (!text) throw new Error('The viewer page has no configuration.');
-  return JSON.parse(text) as ViewerShellConfig;
+  try {
+    return JSON.parse(text) as ViewerShellConfig;
+  } catch {
+    throw new Error('The viewer page configuration is not valid JSON.');
+  }
 }
 
 function firstText(result: CallToolResult): string {

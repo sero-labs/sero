@@ -48,6 +48,13 @@ describe('viewer shell', () => {
     }));
   });
 
+  it('loads the app frame from its own origin and keeps that origin', async () => {
+    await startShell();
+
+    expect(shell?.frame.getAttribute('src')).toBe('http://app1234.localhost:43123/ui-app');
+    expect(shell?.frame.getAttribute('sandbox')).toBe('allow-scripts allow-forms allow-same-origin');
+  });
+
   it('ignores a message from a window that is not the app frame', async () => {
     const app = await startShell();
     const replies: unknown[] = [];
@@ -68,6 +75,7 @@ function initializeParams() {
 async function startShell(fetchImpl = vi.fn(async () => Response.json({ ok: true, result: {} }))) {
   const config: ViewerShellConfig = {
     token: 'token-1',
+    appFrameUrl: 'http://app1234.localhost:43123/ui-app',
     allowAttribute: '',
     toolArgs: { region: 'EMEA' },
     toolResult: TOOL_RESULT,
