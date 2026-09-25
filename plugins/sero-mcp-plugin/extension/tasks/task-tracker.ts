@@ -1,6 +1,6 @@
 import type { TaskEnabledSession, TaskOutcome, TaskView } from '@modelcontextprotocol/ext-tasks/client';
 import type { SessionRegistry } from '../runtime/app-messages';
-import { TERMINAL_TASK_STATUSES, type McpTaskRecord, type McpTaskStatus, type McpTaskStore } from './task-store';
+import { TERMINAL_TASK_STATUSES, localTaskId, type McpTaskRecord, type McpTaskStatus, type McpTaskStore } from './task-store';
 import { toCallToolResult, type TaskToolExecution } from './task-session';
 
 /** Waits after a lost connection before Sero tries a task again. */
@@ -49,8 +49,10 @@ export class McpTaskTracker {
     const now = new Date().toISOString();
     let record: McpTaskRecord | undefined;
     await execution.handoff(async (reference) => {
-      record = await this.options.store.update(reference.taskId, () => ({
-        taskId: reference.taskId,
+      // Two endpoints can return the same remote task id, so the record key is the local id.
+      const id = localTaskId(reference);
+      record = await this.options.store.update(id, () => ({
+        taskId: id,
         reference,
         ...input,
         status: 'working',
@@ -93,8 +95,9 @@ export class McpTaskTracker {
   async cancel(taskId: string): Promise<McpTaskRecord | undefined> {
     const record = await this.options.store.get(taskId);
     if (!record || TERMINAL_TASK_STATUSES.has(record.status)) return record;
-    const target = await this.options.getTarget(record.serverName, { reconnect: false });
-    if (!target) throw new Error(`Server "${record.serverName}" is not connected.`);
+    // The same ownership check as resumption: the cancel goes only to the endpoint that made the task.
+    const target = await this.ownedTarget(record, false);
+    if (!target) return this.options.store.get(taskId);
     await target.session.cancelTask(record.reference.taskId);
     this.stop(taskId);
     return this.finish(taskId, { status: 'cancelled' });
@@ -141,16 +144,28 @@ export class McpTaskTracker {
     });
   }
 
+  /**
+   * The connected target that owns the record, or undefined after Sero blocks
+   * the record because the server now uses another principal or endpoint. A
+   * record must never reach an endpoint other than the one that created it.
+   */
+  private async ownedTarget(record: McpTaskRecord, reconnect: boolean): Promise<TaskTarget | undefined> {
+    const target = await this.options.getTarget(record.serverName, { reconnect });
+    if (!target) throw new Error(`Server "${record.serverName}" is not connected.`);
+    const lastError = target.principalId !== record.principalId
+      ? 'The server now uses another account. Sign in with the account that started the task.'
+      : target.session.endpointId !== record.reference.endpointId
+        ? 'The server connection changed since the task started. Start the task again.'
+        : null;
+    if (!lastError) return target;
+    await this.setStatus(record.taskId, 'blocked-principal', { lastError });
+    return undefined;
+  }
+
   private async settle(record: McpTaskRecord, attempt: number, signal: AbortSignal): Promise<void> {
     try {
-      const target = await this.options.getTarget(record.serverName, { reconnect: attempt > 0 });
-      if (!target) throw new Error(`Server "${record.serverName}" is not connected.`);
-      if (target.principalId !== record.principalId) {
-        await this.setStatus(record.taskId, 'blocked-principal', {
-          lastError: 'The server now uses another account. Sign in with the account that started the task.',
-        });
-        return;
-      }
+      const target = await this.ownedTarget(record, attempt > 0);
+      if (!target) return;
       const execution = await target.session.resumeTask(record.reference, { signal });
       if (execution.kind !== 'task') throw new Error('The stored reference does not name a task.');
       const { outcome } = await execution.settle({

@@ -13,7 +13,7 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { McpServerManager } from '../manager/server-manager';
 import { SessionRegistry } from '../runtime/app-messages';
-import { createFileTaskStore, type McpTaskRecord } from '../tasks/task-store';
+import { createFileTaskStore, localTaskId, type McpTaskRecord } from '../tasks/task-store';
 import { McpTaskTracker } from '../tasks/task-tracker';
 import { startTaskFixture } from './helpers/task-fixture';
 
@@ -112,6 +112,32 @@ describe('MCP task tracker', () => {
     const record = await startTask({ plan: 'hold' });
 
     expect(await tracker.cancel(record.taskId)).toMatchObject({ status: 'cancelled' });
+  });
+
+  it('refuses to cancel a task that belongs to another principal', async () => {
+    const { tracker, store } = await setup();
+    await store.update('other-principal', () => storedRecord('other-principal', { principalId: 'old-user' }));
+
+    expect(await tracker.cancel('other-principal')).toMatchObject({ status: 'blocked-principal' });
+    expect(await store.get('other-principal')).toMatchObject({ status: 'blocked-principal' });
+  });
+
+  it('refuses to cancel a task whose endpoint has changed', async () => {
+    const { tracker, store } = await setup();
+    await store.update('other-endpoint', () => storedRecord('other-endpoint'));
+
+    // The stored record names a different endpoint than the live connection.
+    expect(await tracker.cancel('other-endpoint')).toMatchObject({ status: 'blocked-principal' });
+  });
+
+  it('stores a task under its endpoint-scoped local id, not the bare remote id', async () => {
+    const { tracker, startTask, store } = await setup();
+    const record = await startTask({ delayMs: 100 });
+
+    expect(record.taskId).not.toBe(record.reference.taskId);
+    expect(record.taskId).toBe(localTaskId(record.reference));
+    expect(await store.get(record.taskId)).toMatchObject({ taskId: record.taskId });
+    await tracker.wait(record.taskId);
   });
 
   it('asks the user through the question channel and sends the answer with update()', async () => {

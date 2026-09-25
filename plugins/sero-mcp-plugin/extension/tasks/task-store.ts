@@ -14,6 +14,11 @@ export type McpTaskStatus =
 
 /** A task that Sero follows after the tool call returned. Sero owns this record, not the server. */
 export interface McpTaskRecord {
+  /**
+   * Sero's local id for the task: the endpoint plus the server's task id. A
+   * remote task id can repeat across endpoints, so this scopes it. The remote
+   * id that requests to its server need stays in `reference.taskId`.
+   */
   taskId: string;
   reference: SerializedTaskReference;
   serverName: string;
@@ -39,6 +44,14 @@ export interface McpTaskRecord {
 
 export const TERMINAL_TASK_STATUSES: ReadonlySet<McpTaskStatus> = new Set(['completed', 'failed', 'cancelled']);
 
+/**
+ * The local id of a task record. The endpoint part (server, config and
+ * principal) keeps two endpoints that return the same remote task id apart.
+ */
+export function localTaskId(reference: SerializedTaskReference): string {
+  return `${reference.endpointId}#${reference.taskId}`;
+}
+
 export interface McpTaskStore {
   list(): Promise<McpTaskRecord[]>;
   get(taskId: string): Promise<McpTaskRecord | undefined>;
@@ -61,7 +74,7 @@ interface TasksFile {
 /** Keeps task records in `tasks.json`. Writes are queued and atomic. */
 export function createFileTaskStore(filePath = getMcpTasksPath()): McpTaskStore {
   const file = createJsonFile<TasksFile>(filePath, (value) => {
-    const tasks = value && typeof value === 'object' ? Reflect.get(value, 'tasks') : undefined;
+    const tasks = value && typeof value === 'object' && 'tasks' in value ? value.tasks : undefined;
     return {
       version: 1,
       tasks: Array.isArray(tasks) ? tasks.flatMap((entry) => {
