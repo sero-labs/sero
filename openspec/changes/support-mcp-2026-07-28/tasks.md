@@ -54,7 +54,7 @@
 
 ## 7. Protocol slice check
 
-- [ ] 7.1 Run `pnpm typecheck`, `pnpm --filter @sero-ai/plugin-mcp test` and the MCP e2e specs. Verify: all pass, and the result is noted in the pull request for groups 2–6.
+- [x] 7.1 Run `pnpm typecheck`, `pnpm --filter @sero-ai/plugin-mcp test` and the MCP e2e specs. Verify: all pass, and the result is noted in the pull request for groups 2–6. Result (2026-09-25): `pnpm typecheck` passed (29 tasks); MCP plugin 118/118 tests and user-feedback plugin 21/21 tests passed; `mcp.contract.spec.ts` 6/6 passed under Xvfb (same local launch setup as 3.11). No pull request exists yet, so the result is recorded here.
 
 ## 8. MCP Apps
 
