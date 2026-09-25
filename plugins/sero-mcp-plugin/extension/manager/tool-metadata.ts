@@ -1,5 +1,6 @@
 import { getToolUiResourceUri } from '@modelcontextprotocol/ext-apps/app-bridge';
 import type { CachedMcpResource, CachedMcpTool, McpMetadataCacheEntry } from '../cache/metadata-cache';
+import type { ManagedCacheHints } from './types';
 import type { ManagedResource, ManagedTool } from './types';
 
 export function serializeTools(tools: ManagedTool[]): CachedMcpTool[] {
@@ -27,12 +28,19 @@ export function buildMetadataCacheEntry(options: {
   configHash: string;
   tools: ManagedTool[];
   resources: ManagedResource[];
+  principalId?: string;
+  cacheHints?: ManagedCacheHints;
 }): McpMetadataCacheEntry {
   const serializedTools = serializeTools(options.tools);
   const serializedResources = serializeResources(options.resources);
+  const cachedAt = Date.now();
+  const ttlMs = options.cacheHints?.ttlMs;
   return {
-    cachedAt: Date.now(),
+    cachedAt,
     configHash: options.configHash,
+    principalId: options.principalId,
+    cacheScope: options.cacheHints?.scope ?? 'private',
+    expiresAt: typeof ttlMs === 'number' ? cachedAt + ttlMs : null,
     toolCount: serializedTools.length,
     resourceCount: serializedResources.length,
     tools: serializedTools,

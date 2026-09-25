@@ -35,6 +35,13 @@ export interface ManagedConnectionProtocol {
   eraFromVerdict: boolean;
 }
 
+/** The server's cache hints from its last tool and resource listing. */
+export interface ManagedCacheHints {
+  /** The shortest `ttlMs` of the listings, or null when the server sent none. */
+  ttlMs: number | null;
+  scope: 'public' | 'private';
+}
+
 export interface ManagedConnection {
   name: string;
   client: Client | null;
@@ -49,4 +56,5 @@ export interface ManagedConnection {
   failurePhase?: McpFailurePhase;
   /** The account that the connection uses: `anon`, `bearer:<sha256>` or `oauth:<id>`. */
   principalId?: string;
+  cacheHints?: ManagedCacheHints;
 }

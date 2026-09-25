@@ -9,6 +9,7 @@ import {
   isResourceExposureEnabled,
   type McpConfigDocument,
 } from '../config/types';
+import { resolvePrincipalId } from '../auth/principal';
 import { serializeResources, serializeTools } from '../manager/tool-metadata';
 import { McpServerManager } from '../manager/server-manager';
 import type { ManagedConnection, ManagedTool } from '../manager/types';
@@ -105,8 +106,8 @@ async function searchProxyInventory(options: ProxyToolOptions, synced: SyncedRun
   const matches: Array<Record<string, unknown>> = [];
   const servers = options.serverName?.trim() ? [options.serverName.trim()] : Object.keys(synced.config.mcpServers);
   for (const serverName of servers) {
-    const toolInventory = getToolInventory(serverName, synced, options.manager);
-    const resourceInventory = getResourceInventory(serverName, synced, options.manager);
+    const toolInventory = await getToolInventory(serverName, synced, options.manager);
+    const resourceInventory = await getResourceInventory(serverName, synced, options.manager);
     for (const tool of toolInventory) {
       if (pattern.test(tool.name) || pattern.test(tool.description ?? '')) {
         matches.push({
@@ -163,7 +164,7 @@ async function listServerTools(options: ProxyToolOptions, synced: SyncedRuntimeS
   if (!synced.config.mcpServers[serverName]) {
     return createToolResult(`Error: Server "${serverName}" does not exist.`, { mode: 'list_tools', serverName });
   }
-  const tools = getToolInventory(serverName, synced, options.manager);
+  const tools = await getToolInventory(serverName, synced, options.manager);
   if (tools.length === 0) {
     return createToolResult(getMissingMetadataMessage(serverName, synced), {
       mode: 'list_tools',
@@ -196,7 +197,7 @@ async function listServerResources(options: ProxyToolOptions, synced: SyncedRunt
   if (!synced.config.mcpServers[serverName]) {
     return createToolResult(`Error: Server "${serverName}" does not exist.`, { mode: 'list_resources', serverName });
   }
-  const resources = getResourceInventory(serverName, synced, options.manager);
+  const resources = await getResourceInventory(serverName, synced, options.manager);
   if (resources.length === 0) {
     return createToolResult(getMissingMetadataMessage(serverName, synced), {
       mode: 'list_resources',
@@ -234,7 +235,7 @@ async function describeServerTool(options: ProxyToolOptions, synced: SyncedRunti
   if (!synced.config.mcpServers[serverName]) {
     return createToolResult(`Error: Server "${serverName}" does not exist.`, { mode: 'describe_tool', serverName });
   }
-  const tool = getToolInventory(serverName, synced, options.manager).find((entry) => entry.name === toolName);
+  const tool = (await getToolInventory(serverName, synced, options.manager)).find((entry) => entry.name === toolName);
   if (!tool) {
     return createToolResult(
       `Error: Tool "${toolName}" was not found on "${serverName}". Use action="list_tools" to inspect the available tool names.`,
@@ -383,19 +384,19 @@ async function ensureConnectedServer(
   await options.syncSnapshot(options.cwd, { config: synced.config, metadataCache: nextCache });
   return connection;
 }
-function getToolInventory(serverName: string, synced: SyncedRuntimeState, manager: McpServerManager): ToolInventoryEntry[] {
+async function getToolInventory(serverName: string, synced: SyncedRuntimeState, manager: McpServerManager): Promise<ToolInventoryEntry[]> {
   const connection = manager.getConnection(serverName);
   if (connection?.status === 'connected') {
     return serializeTools(connection.tools);
   }
   const serverConfig = synced.config.mcpServers[serverName];
   const cachedEntry = serverConfig ? synced.metadataCache.servers[serverName] : undefined;
-  if (serverConfig && cachedEntry && isMetadataCacheEntryValid(cachedEntry, serverConfig)) {
+  if (serverConfig && isMetadataCacheEntryValid(cachedEntry, serverConfig, await resolvePrincipalId(serverName, serverConfig))) {
     return cachedEntry.tools;
   }
   return [];
 }
-function getResourceInventory(serverName: string, synced: SyncedRuntimeState, manager: McpServerManager): ResourceInventoryEntry[] {
+async function getResourceInventory(serverName: string, synced: SyncedRuntimeState, manager: McpServerManager): Promise<ResourceInventoryEntry[]> {
   const serverConfig = synced.config.mcpServers[serverName];
   if (!serverConfig || !isResourceExposureEnabled(serverConfig)) {
     return [];
@@ -407,7 +408,7 @@ function getResourceInventory(serverName: string, synced: SyncedRuntimeState, ma
   }
 
   const cachedEntry = synced.metadataCache.servers[serverName];
-  if (cachedEntry && isMetadataCacheEntryValid(cachedEntry, serverConfig)) {
+  if (isMetadataCacheEntryValid(cachedEntry, serverConfig, await resolvePrincipalId(serverName, serverConfig))) {
     return cachedEntry.resources;
   }
   return [];

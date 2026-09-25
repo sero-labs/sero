@@ -49,6 +49,8 @@ export interface McpProtocolSnapshot {
 export interface McpCacheSnapshot {
   state: 'none' | 'fresh' | 'stale';
   cachedAt: string | null;
+  /** When the server's TTL ends. Null when the server gave no TTL. */
+  expiresAt?: string | null;
 }
 
 export interface McpServerSnapshot {

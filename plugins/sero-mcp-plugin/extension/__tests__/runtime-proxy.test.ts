@@ -16,7 +16,7 @@ function createSyncedState(serverConfig: McpServerConfig): SyncedRuntimeState {
       },
     },
     metadataCache: {
-      version: 1,
+      version: 2,
       servers: {
         github: {
           cachedAt: Date.now(),

@@ -29,7 +29,7 @@ function createSyncedState(
     configPath: '/tmp/mcp.json',
     statePath: '/tmp/mcp-state.json',
     config,
-    metadataCache: { version: 1, servers: {} },
+    metadataCache: { version: 2, servers: {} },
     rawConfigUpdatedAt: null,
     snapshot: {
       initialized: true,
@@ -88,9 +88,9 @@ describe('connectServerAction', () => {
       },
     };
 
-    readMetadataCacheMock.mockResolvedValue({ version: 1, servers: {} });
+    readMetadataCacheMock.mockResolvedValue({ version: 2, servers: {} });
     reconcileConnectionMock.mockResolvedValue({
-      nextCache: { version: 1, servers: {} },
+      nextCache: { version: 2, servers: {} },
       runtimeStatus: {
         connectionStatus: 'connected',
         authStatus: 'not-required',

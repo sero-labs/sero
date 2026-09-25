@@ -10,7 +10,9 @@ import type {
   McpServerSnapshot,
   McpUiToolSummary,
 } from '../../shared/types';
+import { resolvePrincipalId } from '../auth/principal';
 import {
+  isMetadataCacheEntryFresh,
   isMetadataCacheEntryValid,
   type CachedMcpResource,
   type CachedMcpTool,
@@ -86,7 +88,8 @@ async function createServerSnapshot(
   const derivedAuthStatus = await resolveAuthStatus(serverName, serverConfig, options.hasOAuthTokens);
   const authStatus = runtimeStatus?.authStatus ?? derivedAuthStatus;
   const cacheEntry = options.metadataCache.servers[serverName];
-  const metadata = isMetadataCacheEntryValid(cacheEntry, serverConfig) ? cacheEntry : undefined;
+  const principalId = await resolvePrincipalId(serverName, serverConfig);
+  const metadata = isMetadataCacheEntryValid(cacheEntry, serverConfig, principalId) ? cacheEntry : undefined;
   const uiTools = buildUiToolSummaries(metadata?.tools ?? []);
   const resources = buildResourceSummaries(metadata?.resources ?? [], serverConfig);
 
@@ -125,7 +128,11 @@ async function createServerSnapshot(
 
 function describeCache(entry: McpMetadataCacheEntry | undefined, validEntry: McpMetadataCacheEntry | undefined): McpCacheSnapshot {
   if (!entry) return { state: 'none', cachedAt: null };
-  return { state: validEntry ? 'fresh' : 'stale', cachedAt: new Date(entry.cachedAt).toISOString() };
+  return {
+    state: validEntry && isMetadataCacheEntryFresh(validEntry) ? 'fresh' : 'stale',
+    cachedAt: new Date(entry.cachedAt).toISOString(),
+    expiresAt: typeof entry.expiresAt === 'number' ? new Date(entry.expiresAt).toISOString() : null,
+  };
 }
 
 async function resolveAuthStatus(

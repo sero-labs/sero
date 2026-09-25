@@ -26,6 +26,8 @@ export async function reconcileConnection(options: {
         configHash: computeServerHash(serverConfig),
         tools: connection.tools,
         resources: connection.resources,
+        principalId: connection.principalId,
+        cacheHints: connection.cacheHints,
       }),
     );
     await writeMetadataCache(nextCache);

@@ -17,9 +17,17 @@ export interface CachedMcpResource {
   description?: string;
 }
 
+export type McpCacheScope = 'public' | 'private';
+
 export interface McpMetadataCacheEntry {
   cachedAt: number;
   configHash: string;
+  /** The account that listed the entry. A private entry is not used for another account. */
+  principalId?: string;
+  /** From the server's `cacheScope`. Missing means private. */
+  cacheScope?: McpCacheScope;
+  /** Epoch ms from the server's `ttlMs`. Missing or null means no expiry. 0 means stale. */
+  expiresAt?: number | null;
   toolCount: number;
   resourceCount: number;
   tools: CachedMcpTool[];
@@ -27,12 +35,12 @@ export interface McpMetadataCacheEntry {
 }
 
 export interface McpMetadataCacheDocument {
-  version: 1;
+  version: 2;
   servers: Record<string, McpMetadataCacheEntry>;
 }
 
 export const DEFAULT_METADATA_CACHE: McpMetadataCacheDocument = {
-  version: 1,
+  version: 2,
   servers: {},
 };
 
@@ -44,11 +52,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
-function normalizeCacheEntry(raw: unknown): McpMetadataCacheEntry | null {
+function normalizeCacheEntry(raw: unknown, fromVersion1: boolean): McpMetadataCacheEntry | null {
   if (!isRecord(raw)) return null;
   return {
     cachedAt: typeof raw.cachedAt === 'number' ? raw.cachedAt : Date.now(),
     configHash: typeof raw.configHash === 'string' ? raw.configHash : '',
+    principalId: typeof raw.principalId === 'string' ? raw.principalId : undefined,
+    cacheScope: raw.cacheScope === 'public' ? 'public' : 'private',
+    // A version 1 file has no freshness data, so its entries are stale.
+    expiresAt: fromVersion1 ? 0 : typeof raw.expiresAt === 'number' ? raw.expiresAt : null,
     toolCount: typeof raw.toolCount === 'number' ? raw.toolCount : 0,
     resourceCount: typeof raw.resourceCount === 'number' ? raw.resourceCount : 0,
     tools: Array.isArray(raw.tools) ? raw.tools.filter(isRecord).map((tool) => ({
@@ -71,9 +83,10 @@ function normalizeCache(raw: unknown): McpMetadataCacheDocument {
   }
 
   const servers: Record<string, McpMetadataCacheEntry> = {};
+  const fromVersion1 = raw.version !== 2;
   if (isRecord(raw.servers)) {
     for (const [serverName, entry] of Object.entries(raw.servers)) {
-      const normalized = normalizeCacheEntry(entry);
+      const normalized = normalizeCacheEntry(entry, fromVersion1);
       if (normalized) {
         servers[serverName] = normalized;
       }
@@ -81,7 +94,7 @@ function normalizeCache(raw: unknown): McpMetadataCacheDocument {
   }
 
   return {
-    version: 1,
+    version: 2,
     servers,
   };
 }
@@ -104,7 +117,9 @@ export async function writeMetadataCache(
 ): Promise<void> {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   const tmpPath = `${filePath}.tmp.${Date.now()}`;
-  await fs.writeFile(tmpPath, JSON.stringify(cache, null, 2), 'utf8');
+  // Sorted server order keeps the file stable across writes.
+  const servers = Object.fromEntries(Object.entries(cache.servers).sort(([left], [right]) => left.localeCompare(right)));
+  await fs.writeFile(tmpPath, JSON.stringify({ ...cache, version: 2, servers }, null, 2), 'utf8');
   await fs.rename(tmpPath, filePath);
 }
 
@@ -127,11 +142,23 @@ export function computeServerHash(definition: McpServerConfig): string {
   return createHash('sha256').update(stableStringify(identity)).digest('hex');
 }
 
+/**
+ * True when the entry belongs to this config and may be shown to this account.
+ * With no `principalId` (the account is not known yet), only the config is checked.
+ */
 export function isMetadataCacheEntryValid(
   entry: McpMetadataCacheEntry | undefined,
   definition: McpServerConfig,
-): boolean {
-  return !!entry && entry.configHash === computeServerHash(definition);
+  principalId?: string,
+): entry is McpMetadataCacheEntry {
+  if (!entry || entry.configHash !== computeServerHash(definition)) return false;
+  const isPrivate = entry.cacheScope !== 'public';
+  return !(isPrivate && principalId && entry.principalId && entry.principalId !== principalId);
+}
+
+/** True until the server's TTL ends. An entry without a TTL stays fresh until the server reports a change. */
+export function isMetadataCacheEntryFresh(entry: McpMetadataCacheEntry, now = Date.now()): boolean {
+  return entry.expiresAt === undefined || entry.expiresAt === null || entry.expiresAt > now;
 }
 
 export function setMetadataCacheEntry(

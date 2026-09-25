@@ -91,6 +91,8 @@ export function McpServerProtocolCard({ server }: { server: McpServerSnapshot })
 
 function describeCache(cache: McpServerSnapshot['cache']): string {
   if (!cache || cache.state === 'none' || !cache.cachedAt) return 'Empty';
-  const time = new Date(cache.cachedAt).toLocaleString();
-  return cache.state === 'fresh' ? `Fresh, from ${time}` : `Stale, refreshed on next use`;
+  if (cache.state === 'stale') return 'Stale, refreshed on next use';
+  return cache.expiresAt
+    ? `Fresh until ${new Date(cache.expiresAt).toLocaleTimeString()}`
+    : 'Kept until the server reports a change';
 }

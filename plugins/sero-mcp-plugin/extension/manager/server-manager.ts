@@ -12,7 +12,14 @@ import { runWithRequestContext } from '../elicitation/request-context';
 import { createMcpClient } from './client-factory';
 import { createMemoryEraVerdictStore, type EraVerdictStore } from './era-verdicts';
 import { failurePhaseOf, isUnauthorizedError, McpConnectError } from './failure-phase';
-import type { ManagedConnection, ManagedConnectionProtocol, ManagedResource, ManagedTool, ManagedTransport } from './types';
+import type {
+  ManagedCacheHints,
+  ManagedConnection,
+  ManagedConnectionProtocol,
+  ManagedResource,
+  ManagedTool,
+  ManagedTransport,
+} from './types';
 
 export interface McpCallOptions {
   /** Stops only this request. */
@@ -229,7 +236,7 @@ export class McpServerManager {
       const legacyChosen = eraFromVerdict || client.getProtocolEra() === 'legacy';
       throw new McpConnectError(failurePhaseOf(error, legacyChosen ? 'legacy-fallback' : 'discovery'), error);
     }
-    const [tools, resources] = await Promise.all([
+    const [{ tools, hints: toolHints }, { resources, hints: resourceHints }] = await Promise.all([
       this.fetchAllTools(client),
       this.fetchAllResources(client),
     ]);
@@ -239,21 +246,25 @@ export class McpServerManager {
     } else {
       await this.eraVerdicts.clear(name);
     }
-    return { ...this.createConnectedConnection(name, client, transport, tools, resources, protocol), principalId };
+    return {
+      ...this.createConnectedConnection(name, client, transport, tools, resources, protocol),
+      principalId,
+      cacheHints: mergeCacheHints(toolHints, resourceHints),
+    };
   }
 
   // Without a cursor, the v2 client walks every page and fills its response cache.
-  private async fetchAllTools(client: Client): Promise<ManagedTool[]> {
+  private async fetchAllTools(client: Client): Promise<{ tools: ManagedTool[]; hints: ManagedCacheHints }> {
     const result = await client.listTools();
-    return normalizeTools(result.tools);
+    return { tools: normalizeTools(result.tools), hints: readCacheHints(result) };
   }
 
-  private async fetchAllResources(client: Client): Promise<ManagedResource[]> {
+  private async fetchAllResources(client: Client): Promise<{ resources: ManagedResource[]; hints: ManagedCacheHints | null }> {
     try {
       const result = await client.listResources();
-      return normalizeResources(result.resources);
+      return { resources: normalizeResources(result.resources), hints: readCacheHints(result) };
     } catch {
-      return [];
+      return { resources: [], hints: null };
     }
   }
 
@@ -318,6 +329,24 @@ function isMissingEndpointError(error: unknown): boolean {
     current = current.cause;
   }
   return false;
+}
+
+/** Reads the `ttlMs` and `cacheScope` hints that a 2026-07-28 server puts on a list result. */
+function readCacheHints(result: object): ManagedCacheHints {
+  const ttlMs: unknown = Reflect.get(result, 'ttlMs');
+  return {
+    ttlMs: typeof ttlMs === 'number' && ttlMs >= 0 ? ttlMs : null,
+    scope: Reflect.get(result, 'cacheScope') === 'public' ? 'public' : 'private',
+  };
+}
+
+function mergeCacheHints(tools: ManagedCacheHints, resources: ManagedCacheHints | null): ManagedCacheHints {
+  if (!resources) return tools;
+  const ttls = [tools.ttlMs, resources.ttlMs].filter((ttl): ttl is number => ttl !== null);
+  return {
+    ttlMs: ttls.length > 0 ? Math.min(...ttls) : null,
+    scope: tools.scope === 'public' && resources.scope === 'public' ? 'public' : 'private',
+  };
 }
 
 function readProtocol(client: Client, deprecatedTransport: boolean, eraFromVerdict: boolean): ManagedConnectionProtocol {

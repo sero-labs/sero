@@ -209,7 +209,7 @@ function createSyncedState(overrides: { exposeResources?: boolean } = {}): Synce
     configPath: '/tmp/sero/apps/mcp/config.json',
     statePath: '/tmp/sero/apps/mcp/state.json',
     rawConfigUpdatedAt: '2026-04-20T00:00:00.000Z',
-    metadataCache: { version: 1, servers: {} },
+    metadataCache: { version: 2, servers: {} },
     config: {
       mcpServers: {
         demo: {
