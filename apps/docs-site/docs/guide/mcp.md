@@ -75,6 +75,33 @@ Sero keeps tasks when it restarts and continues to follow them. A task continues
 
 A task can ask you a question while it runs. The question opens in **User Feedback**, like the other server questions below.
 
+## Skills from MCP servers
+
+An MCP server can offer skills: instructions and files that teach the agent a task. Sero supports the stable Skills extension (SEP-2640, extension ID `io.modelcontextprotocol/skills`).
+
+A remote skill starts off. Select **Remote skills** in the MCP app to see the skills of every connected server, and turn on the ones that you trust. The agent sees only the skills that you turned on. Each skill shows its server, for example `docs / release-notes`. When a server has two skills with the same name, the agent uses the skill path, for example `docs / team/release-notes`. Select the refresh button to get the skill lists again.
+
+The agent uses a remote skill with these commands:
+
+- `sero mcp skill load <server> <skill>` loads the skill.
+- `sero mcp skill read <server> <skill> <path>` reads a file of the skill.
+- `sero mcp skill ls <server> <skill> [path]` lists a folder of the skill, when the server supports it.
+
+Sero checks a skill before the agent reads it:
+
+- Each file must have the size and the SHA-256 digest that the server listed.
+- The `SKILL.md` frontmatter must be the same as the listed entry.
+- A skill can have at most 512 files and 16 MiB.
+- Sero does not load a dynamic skill, because it cannot check its content.
+
+When a check fails, Sero does not use the content and marks the skill **Changed**.
+
+Sero treats a remote skill as content from its server, not as a local skill:
+
+- The skill gets no tools. Sero ignores `allowed-tools`.
+- While the agent acts on a remote skill, Sero asks you before the agent runs a command or code. **Deny** is the default. Select **Allow for this skill** to keep your choice until the skill changes. When no person can answer, Sero blocks the command.
+- A skill from one server cannot read resources of another server.
+
 ## Answer questions from a server
 
 Some MCP tools ask you for information while they run. When a server asks, Sero opens its questions in **User Feedback**. The line under **Questionnaire** shows who asks, for example `MCP · crm · create_contact`: the server name from your MCP settings and the tool that asks. Answer each question, then select **Submit All Answers**. A server can ask again during the same tool call. After you answer, Sero goes back to the app that you used before.

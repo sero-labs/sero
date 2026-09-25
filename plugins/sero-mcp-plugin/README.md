@@ -198,6 +198,18 @@ Sero supports the 2026-07-28 Tasks extension (`io.modelcontextprotocol/tasks`) t
 
 Sero does not open a `subscriptions/listen` stream for task status. ext-tasks polls, and it also uses task notifications when they arrive.
 
+### Remote skills
+
+Sero supports the stable Skills extension (SEP-2640, `io.modelcontextprotocol/skills`). No SDK package exists for it, so `extension/skills/skills-client.ts` keeps small zod schemas for `skills/list`, `skills/get` and `resources/directory/read`.
+
+- On connect, the runtime lists the server's skills into `skills.json` (`extension/skills/skill-registry.ts`). It fetches no skill file. A new skill starts off; the user turns it on in the **Remote skills** panel.
+- Each skill has a manifest digest over its file list. An approval to run code is bound to that digest, so a changed file list revokes it and marks the skill **Changed**.
+- The prompt block lists only enabled skills, as `<server> / <name>` (the skill path when names collide). A remote skill never enters Pi's skill list.
+- `skill_load` checks the limits (512 files, 16 MiB), each file's size and SHA-256 digest, the frontmatter against the listed entry, and the Agent Skills name rules. It declines dynamic skills. Content goes to the model in an `<mcp-skill server=… uri=…>` block (`extension/skills/skill-loader.ts`).
+- From a load until the session ends, the session acts on the held entry. `skill_read` and `skill_ls` read only files in it.
+- While a session acts on a remote skill, the `tool_call` hook asks before `bash` or `run_code` runs, and blocks when nobody can answer. `allowed-tools` is ignored. A resource read on another server is blocked.
+- `mcp` actions: `skill_load`, `skill_read`, `skill_ls` (CLI `sero mcp skill load|read|ls`). `mcp_manager` actions: `list_skills`, `set_skill_enabled`, `refresh_skills`.
+
 ### Tool runner
 
 The server detail view includes a basic MCP tool runner that can:
@@ -225,6 +237,10 @@ sero mcp connect <server>
 sero mcp reconnect <server>
 sero mcp enable <server>
 sero mcp disable <server>
+sero mcp task status|wait|cancel <taskId>
+sero mcp skill load <server> <skill>
+sero mcp skill read <server> <skill> <path>
+sero mcp skill ls <server> <skill> [path]
 ```
 
 Examples:
@@ -308,7 +324,7 @@ Per-server auth data is split into files such as:
 - `flow.json`
 - `discovery.json`
 
-Task records are in `$SERO_HOME/apps/mcp/tasks.json`.
+Task records are in `$SERO_HOME/apps/mcp/tasks.json`. Remote skill entries, their on/off state and code approvals are in `$SERO_HOME/apps/mcp/skills.json`.
 
 ### Persistence rules
 

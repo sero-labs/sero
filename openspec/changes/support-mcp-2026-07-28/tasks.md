@@ -99,7 +99,7 @@
   - The gate asks with **Deny** (default) and **Allow for this skill**. The approval is saved for the skill's manifest digest. With nobody to ask, the call is blocked.
 - [x] 10.6 After prototype approval (1.5), add a Remote skills panel to the MCP app as the prototype shows, with `@sero-ai/ui` components and data from `mcp_manager` through `useAppTools()` (server, URI, trust state, enabled, last refresh, refresh action), in new files. Verify: a UI test renders enabled, disabled and changed skills.
 - [x] 10.7 Add a skills handler to the fixture and an e2e case: enable the skill, load it through `sero mcp skill load`, and read its supporting file. Verify: the e2e case passes.
-- [ ] 10.8 Document Skills over MCP (SEP-2640 stable, namespacing, approval and security) in `apps/docs-site/docs/guide/mcp.md`. Verify: the section is present and names the extension ID.
+- [x] 10.8 Document Skills over MCP (SEP-2640 stable, namespacing, approval and security) in `apps/docs-site/docs/guide/mcp.md`. Verify: the section is present and names the extension ID.
 
 ## 11. Integration check
 
