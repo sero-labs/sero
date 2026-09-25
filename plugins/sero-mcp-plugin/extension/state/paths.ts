@@ -53,6 +53,10 @@ export function getMcpEraVerdictPath(): string {
   return path.join(getMcpAppDir(), 'era-verdicts.json');
 }
 
+export function getMcpTasksPath(): string {
+  return path.join(getMcpAppDir(), 'tasks.json');
+}
+
 export function getMcpOAuthDir(): string {
   return path.join(getPiAgentDir(), 'mcp-oauth');
 }
