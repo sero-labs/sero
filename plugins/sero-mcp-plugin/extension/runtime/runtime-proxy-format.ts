@@ -1,6 +1,7 @@
 import { getToolUiResourceUri } from '@modelcontextprotocol/ext-apps/app-bridge';
 import type { CallToolResult } from '@modelcontextprotocol/client';
 import type { ManagedTool } from '../manager/types';
+import type { McpTaskRecord } from '../tasks/task-store';
 import { MCP_APP_RESULT_LIMIT_BYTES, MCP_APP_RESULT_VIEW, type McpAppResultDetails } from '../../shared/mcp-app';
 import { buildResourcesDisabledMessage } from './runtime-resource';
 import type { SyncedRuntimeState } from './runtime-types';
@@ -16,6 +17,16 @@ export function buildMcpAppResultDetails(input: Omit<McpAppResultDetails, 'resul
   const { result, ...app } = input;
   const fits = Buffer.byteLength(JSON.stringify(result)) <= MCP_APP_RESULT_LIMIT_BYTES;
   return { seroToolResultView: MCP_APP_RESULT_VIEW, mcpApp: fits ? { ...app, result } : app };
+}
+
+/** The call result for a task: the task ID and the commands to follow it. The outcome comes to the chat later. */
+export function formatTaskStarted(record: McpTaskRecord): string {
+  return [
+    `MCP tool ${record.serverName}.${record.toolName} runs as task ${record.taskId}. Sero sends the outcome to this chat when the task ends.`,
+    `Check it: sero mcp task status ${record.taskId}`,
+    `Wait for it: sero mcp task wait ${record.taskId}`,
+    `Cancel it: sero mcp task cancel ${record.taskId}`,
+  ].join('\n');
 }
 
 export function getMissingMetadataMessage(serverName: string, synced: SyncedRuntimeState): string {

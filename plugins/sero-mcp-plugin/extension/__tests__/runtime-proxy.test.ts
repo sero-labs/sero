@@ -5,6 +5,12 @@ import type { McpServerConfig } from '../config/types';
 import type { McpServerManager } from '../manager/server-manager';
 import { executeProxyAction } from '../runtime/runtime-proxy';
 import type { SyncedRuntimeState } from '../runtime/runtime-types';
+import type { McpTaskRecord } from '../tasks/task-store';
+
+/** A manager mock whose startToolCall returns the result of `call` at once, as for a server without Tasks. */
+function startWith(call: (...args: never[]) => Promise<unknown>) {
+  return vi.fn(async (...args: never[]) => ({ kind: 'result', result: await call(...args) }));
+}
 
 function createSyncedState(serverConfig: McpServerConfig): SyncedRuntimeState {
   return {
@@ -243,7 +249,7 @@ describe('executeProxyAction', () => {
         resources: [],
         status: 'connected' as const,
       }),
-      callTool,
+      startToolCall: startWith(callTool),
     } as unknown as McpServerManager;
 
     const result = await executeProxyAction({
@@ -264,6 +270,32 @@ describe('executeProxyAction', () => {
     expect(result.details.structuredContent).toEqual({ count: 2 });
   });
 
+  it('hands a task to the tracker and returns the task ID with the commands to follow it', async () => {
+    const execution = { kind: 'task' };
+    const manager = {
+      getConnection: () => ({
+        name: 'github', status: 'connected' as const, tools: [{ name: 'search_docs', inputSchema: { type: 'object' } }], resources: [],
+      }),
+      startToolCall: vi.fn(async () => ({ kind: 'task', execution })),
+    } as unknown as McpServerManager;
+    const adoptTask = vi.fn(async () => ({ taskId: 'task-7', serverName: 'github', toolName: 'search_docs' }) as McpTaskRecord);
+
+    const result = await executeProxyAction({
+      action: 'call_tool',
+      serverName: 'github',
+      toolName: 'search_docs',
+      manager,
+      adoptTask,
+      setRuntimeStatus: () => {},
+      syncSnapshot: async () => createSyncedState({ command: 'node', args: ['server.js'] }),
+    });
+
+    expect(adoptTask).toHaveBeenCalledWith(execution, { serverName: 'github', toolName: 'search_docs' });
+    expect(result.details.taskId).toBe('task-7');
+    expect(result.content[0]?.text).toContain('runs as task task-7');
+    expect(result.content[0]?.text).toContain('sero mcp task wait task-7');
+  });
+
   describe('a tool with an MCP app', () => {
     async function callDashboard(text: string) {
       const synced = createSyncedState({ command: 'node', args: ['server.js'] });
@@ -274,7 +306,7 @@ describe('executeProxyAction', () => {
           tools: [{ name: 'open_dashboard', inputSchema: { type: 'object' }, _meta: { ui: { resourceUri: 'ui://github/dashboard' } } }],
           resources: [],
         }),
-        callTool: vi.fn(async () => ({ content: [{ type: 'text', text }] })),
+        startToolCall: startWith(vi.fn(async () => ({ content: [{ type: 'text', text }] }))),
       } as unknown as McpServerManager;
       return executeProxyAction({
         action: 'call_tool',
@@ -309,7 +341,7 @@ describe('executeProxyAction', () => {
           tools: [{ name: 'refresh', inputSchema: { type: 'object' }, _meta: { ui: { resourceUri: 'ui://github/dashboard', visibility: ['app'] } } }],
           resources: [],
         }),
-        callTool,
+        startToolCall: startWith(callTool),
       } as unknown as McpServerManager;
 
       const result = await executeProxyAction({
@@ -389,7 +421,7 @@ describe('executeProxyAction', () => {
           resources: [],
           status: 'connected' as const,
         }),
-        callTool: vi.fn(async () => {
+        startToolCall: startWith(async () => {
           throw new UnauthorizedError('Expired token');
         }),
         close,

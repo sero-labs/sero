@@ -11,6 +11,7 @@ export interface ManagerActionOptions {
   toolName?: string;
   toolArguments?: Record<string, unknown>;
   viewerId?: string;
+  taskId?: string;
   /** The chat session that shows an app, for open_tool_ui. */
   sessionId?: string;
   toolCallId?: string;

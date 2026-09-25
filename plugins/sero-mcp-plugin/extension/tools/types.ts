@@ -18,10 +18,16 @@ export const MCP_MANAGER_ACTIONS = [
   'open_resource',
   'open_tool_ui',
   'close_viewer',
+  'list_tasks',
+  'cancel_task',
+  'dismiss_task',
+  'task_result',
 ] as const;
 
 export type ManagerAction = (typeof MCP_MANAGER_ACTIONS)[number] | 'status';
-export type ProxyAction = 'status' | 'list' | 'search' | 'list_tools' | 'list_resources' | 'describe_tool' | 'call_tool' | 'read_resource';
+export type ProxyAction =
+  | 'status' | 'list' | 'search' | 'list_tools' | 'list_resources' | 'describe_tool' | 'call_tool' | 'read_resource'
+  | 'task_status' | 'task_wait' | 'task_cancel';
 
 export type ToolResult = {
   content: Array<{ type: 'text'; text: string }>;
@@ -36,7 +42,7 @@ export type CliResult = {
 export type CliContext = {
   cwd: string;
   /** The desktop CLI bridge passes the invocation, with the signal that stops the command. */
-  invocation?: { signal?: AbortSignal };
+  invocation?: { signal?: AbortSignal; sessionId?: string | null };
 };
 
 export function isManagerAction(value: string): value is ManagerAction {

@@ -13,6 +13,9 @@ const MCP_TOOL_ACTIONS = [
   'describe_tool',
   'call_tool',
   'read_resource',
+  'task_status',
+  'task_wait',
+  'task_cancel',
   'connect',
   'reconnect',
 ] as const;
@@ -29,6 +32,7 @@ const ProxyParams = Type.Object({
   resourceUri: Type.Optional(Type.String({ description: 'Exact MCP resource URI for read_resource, usually taken from list_resources or known server docs/resource paths.' })),
   toolArguments: Type.Optional(Type.Record(Type.String(), Type.Any(), { description: 'Preferred way to pass call_tool arguments: a structured object matching the MCP tool schema.' })),
   argumentsJson: Type.Optional(Type.String({ description: 'Fallback for call_tool only: a valid JSON object string when structured toolArguments cannot be supplied. Example: {"query":"oauth"}.' })),
+  taskId: Type.Optional(Type.String({ description: 'Task ID from a call_tool result, for task_status, task_wait or task_cancel.' })),
 });
 
 type ToolWithCli = Parameters<ExtensionAPI['registerTool']>[0] & {
@@ -53,7 +57,7 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
     cli: {
       summary: 'Preferred MCP surface for status, discovery, and live MCP reads/calls',
       interactive: true,
-      help: 'Use this tool first for MCP status/list/search/tools/resources/describe/call/read. If the user asks to use a server like context7/github directly, start here rather than mcp_manager. When the tool name or arguments are unclear, use tools/describe first; once known, call the tool directly. Live read/call actions auto-connect enabled servers when needed. Use mcp_manager only for MCP config/lifecycle/auth/viewer actions. CLI: sero mcp status | list | search <query> | tools <server> | resources <server> | read <server> <resourceUri> | describe <server> <tool> | call <server> <tool> [jsonArgs] | connect <server> | reconnect <server> | enable <server> | disable <server>. Action-style aliases are also accepted: list_tools, list_resources, describe_tool, call_tool, read_resource, connect_server, reconnect_server, enable_server, disable_server.',
+      help: 'Use this tool first for MCP status/list/search/tools/resources/describe/call/read. If the user asks to use a server like context7/github directly, start here rather than mcp_manager. When the tool name or arguments are unclear, use tools/describe first; once known, call the tool directly. Live read/call actions auto-connect enabled servers when needed. Use mcp_manager only for MCP config/lifecycle/auth/viewer actions. CLI: sero mcp status | list | search <query> | tools <server> | resources <server> | read <server> <resourceUri> | describe <server> <tool> | call <server> <tool> [jsonArgs] | task status|wait|cancel <taskId> | connect <server> | reconnect <server> | enable <server> | disable <server>. Action-style aliases are also accepted: list_tools, list_resources, describe_tool, call_tool, read_resource, connect_server, reconnect_server, enable_server, disable_server.',
       async execute(args: string[], ctx: CliContext) {
         const action = parseCliCommand(args);
         if (action.kind === 'usage-error') {
@@ -68,7 +72,9 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
               resourceUri: action.resourceUri,
               toolArguments: action.toolArguments,
               argumentsJson: action.argumentsJson,
+              taskId: action.taskId,
               signal: ctx.invocation?.signal,
+              sessionId: ctx.invocation?.sessionId ?? undefined,
               notify,
             })
           : await runtime.executeManagerAction(action.action, { cwd: ctx.cwd, serverName: action.serverName });
@@ -79,7 +85,7 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
         };
       },
     },
-    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+    async execute(toolCallId, params, signal, _onUpdate, ctx) {
       const proxyParams = params as {
         action?: McpToolAction;
         query?: string;
@@ -88,6 +94,7 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
         resourceUri?: string;
         toolArguments?: Record<string, unknown>;
         argumentsJson?: string;
+        taskId?: string;
       };
       const action = proxyParams.action ?? 'status';
       if (action === 'connect' || action === 'reconnect') {
@@ -104,7 +111,10 @@ export function registerMcpProxyTool(pi: ExtensionAPI, runtime: McpRuntime): voi
         resourceUri: proxyParams.resourceUri,
         toolArguments: proxyParams.toolArguments,
         argumentsJson: proxyParams.argumentsJson,
+        taskId: proxyParams.taskId,
         signal,
+        sessionId: ctx?.sessionManager.getSessionId(),
+        toolCallId,
         notify,
       });
     },
@@ -123,6 +133,7 @@ type CliCommand =
       resourceUri?: string;
       toolArguments?: Record<string, unknown>;
       argumentsJson?: string;
+      taskId?: string;
     }
   | { kind: 'manager'; action: 'connect_server' | 'reconnect_server' | 'enable_server' | 'disable_server'; serverName: string }
   | { kind: 'usage-error'; message: string };
@@ -171,6 +182,13 @@ function parseCliCommand(args: string[]): CliCommand {
     return serverName && toolName
       ? { kind: 'proxy', action: 'call_tool', serverName, toolName, argumentsJson: argumentsJson || undefined }
       : { kind: 'usage-error', message: 'Usage: sero mcp call <server> <tool> [jsonArgs]' };
+  }
+  if (subcommand === 'task') {
+    const taskAction = ({ status: 'task_status', wait: 'task_wait', cancel: 'task_cancel' } as const)[args[1]?.trim().toLowerCase() ?? ''];
+    const taskId = args[2]?.trim();
+    return taskAction && taskId
+      ? { kind: 'proxy', action: taskAction, taskId }
+      : { kind: 'usage-error', message: 'Usage: sero mcp task status|wait|cancel <taskId>' };
   }
   if (subcommand === 'connect') {
     return serverName

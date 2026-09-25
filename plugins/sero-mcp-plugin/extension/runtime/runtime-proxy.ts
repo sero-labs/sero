@@ -21,6 +21,7 @@ import {
   buildAuthRequiredMessage,
   buildMcpAppResultDetails,
   escapeRegex,
+  formatTaskStarted,
   formatCallToolResult,
   formatUnknown,
   getMissingMetadataMessage,
@@ -29,6 +30,8 @@ import {
 import { reconcileConnection } from './runtime-connect';
 import { formatServerList, formatStatusSummary } from './runtime-utils';
 import type { SyncedRuntimeState } from './runtime-types';
+import type { McpTaskRecord } from '../tasks/task-store';
+import type { TaskToolExecution } from '../tasks/task-session';
 interface ProxyToolOptions {
   cwd?: string;
   query?: string;
@@ -46,6 +49,8 @@ interface ProxyToolOptions {
    * resource reads run outside it, so that a server question does not block other MCP work.
    */
   exclusive?: <T>(operation: () => Promise<T>) => Promise<T>;
+  /** Takes over a call that the server runs as a task. Without it, a task call fails. */
+  adoptTask?: (execution: TaskToolExecution, input: { serverName: string; toolName: string }) => Promise<McpTaskRecord>;
   manager: McpServerManager;
   setRuntimeStatus: (serverName: string, status: RuntimeServerStatus) => void;
   syncSnapshot: (
@@ -270,7 +275,16 @@ async function callServerTool(options: ProxyToolOptions): Promise<ToolResult> {
   if ('result' in prepared) return prepared.result;
   const { serverName, toolName, toolArguments, liveTool, synced } = prepared;
   try {
-    const result = await options.manager.callTool(serverName, toolName, toolArguments, { signal: options.signal, notify: options.notify });
+    const start = await options.manager.startToolCall(serverName, toolName, toolArguments, { signal: options.signal, notify: options.notify });
+    if (start.kind === 'task') {
+      if (!options.adoptTask) {
+        await start.execution.detach();
+        throw new Error('The server started a task, but this runtime cannot follow tasks.');
+      }
+      const record = await options.adoptTask(start.execution, { serverName, toolName });
+      return createToolResult(formatTaskStarted(record), { mode: 'call_tool', serverName, toolName, taskId: record.taskId });
+    }
+    const result = start.result;
     const text = formatCallToolResult(serverName, liveTool, result);
     const uiResourceUri = getToolUiResourceUri({ _meta: liveTool._meta }) ?? null;
     return createToolResult(text, {

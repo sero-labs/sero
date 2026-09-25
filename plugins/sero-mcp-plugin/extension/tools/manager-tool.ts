@@ -15,6 +15,7 @@ const ManagerParams = Type.Object({
   toolName: Type.Optional(Type.String({ description: 'Tool name for open_tool_ui (internal MCP UI flow), not for normal MCP tool execution.' })),
   toolArguments: Type.Optional(Type.Record(Type.String(), Type.Any(), { description: 'Structured tool arguments for open_tool_ui or other internal viewer/UI flows, not for normal MCP tool calls.' })),
   viewerId: Type.Optional(Type.String({ description: 'Viewer session ID for close_viewer.' })),
+  taskId: Type.Optional(Type.String({ description: 'MCP task ID for cancel_task, dismiss_task or task_result.' })),
   sessionId: Type.Optional(Type.String({ description: 'Chat session that shows the app, for open_tool_ui.' })),
   toolCallId: Type.Optional(Type.String({ description: 'Tool call that the app shows, for open_tool_ui.' })),
   toolResult: Type.Optional(Type.Record(Type.String(), Type.Any(), { description: 'Stored tool result that the app shows, for open_tool_ui.' })),
@@ -49,6 +50,7 @@ export function registerMcpManagerTool(pi: ExtensionAPI, runtime: McpRuntime): v
         toolName?: string;
         toolArguments?: Record<string, unknown>;
         viewerId?: string;
+        taskId?: string;
         sessionId?: string;
         toolCallId?: string;
         toolResult?: Record<string, unknown>;
@@ -71,6 +73,7 @@ export function registerMcpManagerTool(pi: ExtensionAPI, runtime: McpRuntime): v
         toolName: managerParams.toolName,
         toolArguments: managerParams.toolArguments,
         viewerId: managerParams.viewerId,
+        taskId: managerParams.taskId,
         sessionId: managerParams.sessionId,
         toolCallId: managerParams.toolCallId,
         toolResult: managerParams.toolResult,

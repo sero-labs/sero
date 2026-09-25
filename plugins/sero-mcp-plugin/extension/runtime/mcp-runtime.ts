@@ -38,8 +38,18 @@ import type { ManagerActionOptions, SyncedRuntimeState, SyncSnapshotOptions } fr
 import { UiResourceHandler } from '../viewer/ui-resource-handler';
 import { McpUiServer } from '../viewer/ui-server';
 import { SessionRegistry, type SessionSend } from './app-messages';
+import { createRuntimeTasks } from './runtime-tasks';
 import type { AppPermissionChoices } from '../viewer/app-permissions';
 
+export interface ProxyActionOptions {
+  cwd?: string; query?: string; serverName?: string; toolName?: string; resourceUri?: string;
+  toolArguments?: Record<string, unknown>; argumentsJson?: string; signal?: AbortSignal;
+  notify?: (text: string) => void;
+  taskId?: string;
+  /** The chat session and tool call that made a call_tool, so a task outcome can return there. */
+  sessionId?: string;
+  toolCallId?: string;
+}
 export interface McpRuntime {
   handleSessionStart(ctx: { cwd: string }): Promise<void>;
   handleSessionSwitch(ctx: { cwd: string }): Promise<void>;
@@ -47,18 +57,15 @@ export interface McpRuntime {
   /** Lets MCP apps shown in this session send messages to it. Returns the unregister function. */
   registerSession(sessionId: string, send: SessionSend): () => void;
   executeManagerAction(action: ManagerAction, options?: ManagerActionOptions): Promise<ToolResult>;
-  executeProxyAction(action: ProxyAction, options?: {
-    cwd?: string; query?: string; serverName?: string; toolName?: string; resourceUri?: string;
-    toolArguments?: Record<string, unknown>; argumentsJson?: string; signal?: AbortSignal;
-    notify?: (text: string) => void;
-  }): Promise<ToolResult>;
+  executeProxyAction(action: ProxyAction, options?: ProxyActionOptions): Promise<ToolResult>;
 }
 let runtimeSingleton: McpRuntime | null = null;
 export function getMcpRuntime(): McpRuntime {
   runtimeSingleton ??= createMcpRuntime();
   return runtimeSingleton;
 }
-function createMcpRuntime(): McpRuntime {
+/** A new runtime. The extension uses the shared one from getMcpRuntime; tests create their own. */
+export function createMcpRuntime(): McpRuntime {
   let lastKnownCwd = '';
   let sessionRefCount = 0;
   let lastState: SyncedRuntimeState | null = null;
@@ -85,15 +92,15 @@ function createMcpRuntime(): McpRuntime {
   const uiServer = new McpUiServer(manager);
   const sessions = new SessionRegistry();
   const permissionChoices: AppPermissionChoices = new Map();
+  const loadConfig = async () => lastState?.config ?? withAgentPluginMcpSources(await ensureConfigFile(getMcpConfigPath()));
+  const tasks = createRuntimeTasks({ manager, sessions, getConfig: loadConfig });
+  let tasksStarted = false;
   const keepAliveScheduler = createKeepAliveScheduler({
     intervalMs: KEEP_ALIVE_HEALTHCHECK_INTERVAL_MS,
     isEnabled: () => sessionRefCount > 0,
     onTick: async () => {
       await runExclusive(async () => {
-        const config = lastState?.config ?? await withAgentPluginMcpSources(
-          await ensureConfigFile(getMcpConfigPath()),
-        );
-        await reconcileManagedServers(lastKnownCwd, config, 'keep-alive');
+        await reconcileManagedServers(lastKnownCwd, await loadConfig(), 'keep-alive');
       });
     },
   });
@@ -118,6 +125,11 @@ function createMcpRuntime(): McpRuntime {
       const synced = await syncSnapshot(ctx.cwd);
       keepAliveScheduler.start();
       await reconcileManagedServers(ctx.cwd, synced.config, 'startup');
+      if (!tasksStarted) {
+        tasksStarted = true;
+        // Resuming connects servers, so it runs outside the runtime queue.
+        void tasks.tracker.start().catch((error) => console.error('[mcp] Failed to resume MCP tasks', error));
+      }
     });
   }
   function handleSessionShutdown(): Promise<void> {
@@ -125,6 +137,8 @@ function createMcpRuntime(): McpRuntime {
       sessionRefCount = Math.max(0, sessionRefCount - 1);
       if (sessionRefCount === 0) {
         keepAliveScheduler.stop();
+        tasks.tracker.stopAll();
+        tasksStarted = false;
         await Promise.all([
           authCoordinator.cancelAll(),
           uiServer.closeAll('runtime-shutdown'),
@@ -164,6 +178,7 @@ function createMcpRuntime(): McpRuntime {
         open_resource: () => openViewerResource(options),
         open_tool_ui: () => openToolUi(options),
         close_viewer: async () => closeViewerAction({ uiServer, viewerId: options.viewerId }),
+        ...tasks.managerHandlers(options.taskId),
       },
       syncSnapshot,
       reconcileManagedServers,
@@ -172,9 +187,12 @@ function createMcpRuntime(): McpRuntime {
       hasAttachedPi: hasAgentPluginMcpSourceEvents(),
     }));
   }
-  function executeProxyAction(action: ProxyAction, options: { cwd?: string; query?: string; serverName?: string; toolName?: string; resourceUri?: string; toolArguments?: Record<string, unknown>; argumentsJson?: string; signal?: AbortSignal; notify?: (text: string) => void; } = {}): Promise<ToolResult> {
+  function executeProxyAction(action: ProxyAction, options: ProxyActionOptions = {}): Promise<ToolResult> {
     // Tool calls and resource reads queue only their connection work, so that a
     // server question during a call does not block other MCP work.
+    if (action === 'task_status' || action === 'task_wait' || action === 'task_cancel') {
+      return tasks.proxyAction(action, options.taskId, options.signal);
+    }
     const queued = action !== 'call_tool' && action !== 'read_resource';
     const run = () => executeProxyActionInternal({
       action,
@@ -187,6 +205,12 @@ function createMcpRuntime(): McpRuntime {
       argumentsJson: options.argumentsJson,
       signal: options.signal,
       notify: options.notify,
+      adoptTask: (execution, input) => tasks.tracker.adopt(execution, {
+        ...input,
+        principalId: manager.getConnection(input.serverName)?.principalId ?? 'anon',
+        originSessionId: options.sessionId,
+        toolCallId: options.toolCallId,
+      }),
       exclusive: runExclusive,
       manager,
       setRuntimeStatus: (name, status) => runtimeStatuses.set(name, status),
@@ -406,7 +430,11 @@ function createMcpRuntime(): McpRuntime {
     handleSessionStart,
     handleSessionSwitch,
     handleSessionShutdown,
-    registerSession: (sessionId, send) => sessions.register(sessionId, send),
+    registerSession: (sessionId, send) => {
+      const unregister = sessions.register(sessionId, send);
+      void tasks.tracker.deliverPending(sessionId).catch(() => undefined);
+      return unregister;
+    },
     executeManagerAction,
     executeProxyAction,
   };
