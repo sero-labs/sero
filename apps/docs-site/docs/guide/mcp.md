@@ -1,29 +1,33 @@
 # MCP
 
-Use the MCP app to add, inspect, change, and remove MCP server definitions for the active profile. A definition can start a local command or connect to a remote service.
+An MCP (Model Context Protocol) server gives the agent more tools and data, for example access to an issue tracker or a database. Use the MCP app to add, inspect, change, and remove the MCP servers of the active profile. A server can be a local command that Sero starts, or a remote service that Sero connects to.
+
+Each server row shows the server status, for example **connected**, and the protocol revision in use.
 
 ![MCP overview](../assets/images/mcp.jpg)
 
 ## Add a server
 
 1. Open **MCP**.
-2. Select **Add server**.
+2. Select **Add server**. To start from a template, select a button next to **Start with**, for example **GitHub**.
 3. Enter a unique server name.
-4. Choose the transport and enter its command or URL.
-5. Add required arguments, headers, or environment variables.
-6. Select **Save server** and check its status.
+4. Choose the transport. For **stdio**, enter the command and one argument on each line. For **Streamable HTTP**, enter the server URL.
+5. If the server needs a sign-in, choose **oauth** or **bearer** in **Auth**. For **bearer**, enter the name of the environment variable that holds the token.
+6. Select **Save server**, then check that the server shows **connected**.
 
-For a local server, verify the executable and each argument before you save. For a remote server, use the authentication fields that its provider requires. Do not put a secret in a screenshot or support report.
+To add headers or environment variables, select **Raw config** and edit the server entry in the JSON.
 
-![MCP server](../assets/images/mcp-server.jpg)
+For a local server, verify the executable and each argument before you save. For a remote server, use the authentication method that its provider requires. Do not put a secret in a screenshot or support report.
+
+![Add MCP server form](../assets/images/mcp-server.jpg)
 
 ## Change or remove a server
 
-Open a server to review its complete definition. Save your changes after you update its transport, command, URL, or authentication values. Remove the server when you no longer want Sero to expose it to agent sessions.
+Select **Edit** to change the transport, command, URL, or authentication of a server, then select **Save server**. Select **Remove** when you no longer want Sero to expose the server to agent sessions. Select **Disable** to keep the definition but stop the server.
 
-The manager shows the configured server set and its current status. A saved definition does not prove that the command or remote service is available. Check the server status after each change.
+A saved definition does not prove that the command or remote service is available. Check the server status after each change. Select **Show details** to see the protocol, the tools, and the resources of a server. Use the tool runner in the details to run one tool with JSON input.
 
-![MCP manager](../assets/images/mcp-manager.jpg)
+![MCP server details](../assets/images/mcp-manager.jpg)
 
 MCP configuration can contain local paths, network addresses, and credentials. Treat it as sensitive profile configuration. See [Settings and Admin](/guide/settings-models-admin) for other profile settings and [Security / Privacy](/reference/security-privacy) for sharing guidance.
 
@@ -31,7 +35,9 @@ MCP configuration can contain local paths, network addresses, and credentials. T
 
 Sero supports MCP revision `2026-07-28` and the older 2025 revisions. When Sero connects to a server, it asks the server for `2026-07-28` first. If the server does not support it, Sero uses the 2025 handshake. You do not need to change a saved server.
 
-Open a server to see its **Protocol** card. The card shows the revision in use, the extensions that the server offers, the transport and the state of the cached tool list. When a connection fails, the card names the step that failed, for example **Sign-in failed**.
+Select **Show details** on a server to see its **Protocol** card. The card shows the revision in use, the extensions that the server offers, the transport, and the state of the metadata cache: the tool and resource list that Sero keeps. When a connection fails, the card names the step that failed, for example **Sign-in failed**.
+
+![Protocol card of an MCP server](../assets/images/mcp-protocol.jpg)
 
 A server that uses the older SSE transport shows **SSE, deprecated**. Sero keeps it working, but you cannot add new SSE servers. Ask the server owner for a Streamable HTTP URL.
 
@@ -41,6 +47,8 @@ Sero checks the protocol version again after you change a server. If the server 
 
 Some MCP tools come with an app: a small interactive page from the server, such as a chart or a form. When the agent calls such a tool, the tool call in the chat shows the app between the input and the text result. The text result stays, so the agent and you see the same data.
 
+![An MCP app in a tool call in the chat](../assets/images/mcp-app-chat.jpg)
+
 Sero keeps each app apart from Sero and from other servers:
 
 - The app runs in a sandboxed frame on a separate local address. It cannot read Sero data or other apps.
@@ -48,6 +56,8 @@ Sero keeps each app apart from Sero and from other servers:
 - The app can call only tools of its own server that the server marks for apps. Sero blocks other calls and shows the reason under the app.
 - When an app needs the camera, the microphone, or the clipboard, Sero asks you before it shows the app. **Deny** is the default. Sero keeps your choice for that app until Sero restarts. Sero never gives an app your location.
 - When the app asks to open a web page, Sero shows the full address. Select **Open page** to open it in your browser, or **Decline**.
+
+![Sero asks before an app writes to the clipboard](../assets/images/mcp-app-permission.jpg)
 
 An app can send a message to the chat. The message shows the server and the tool, for example `sales · show_dashboard app`, and the agent answers it. An app can also add context that the agent reads on its next turn.
 
@@ -67,6 +77,8 @@ The agent can follow a task with these commands:
 
 Select **Tasks** in the MCP app to see every task. The button shows the number of active tasks. Each row shows the server and the tool, the status and the age. Select **Result** to see the result of a finished task, **Cancel** to stop a running task, or **Dismiss** to remove a finished task from the list. Dismiss removes the task only from Sero; the server keeps it.
 
+![MCP tasks in the MCP app](../assets/images/mcp-tasks.jpg)
+
 Sero keeps tasks when it restarts and continues to follow them. A task continues only while its server keeps it:
 
 - When the connection to the server is lost, the task shows **Disconnected**. Sero tries again after a short wait, and waits longer after each attempt, up to one minute.
@@ -80,6 +92,8 @@ A task can ask you a question while it runs. The question opens in **User Feedba
 An MCP server can offer skills: instructions and files that teach the agent a task. Sero supports the stable Skills extension (SEP-2640, extension ID `io.modelcontextprotocol/skills`).
 
 A remote skill starts off. Select **Remote skills** in the MCP app to see the skills of every connected server, and turn on the ones that you trust. The agent sees only the skills that you turned on. Each skill shows its server, for example `docs / release-notes`. When a server has two skills with the same name, the agent uses the skill path, for example `docs / team/release-notes`. Select the refresh button to get the skill lists again.
+
+![Remote skills in the MCP app](../assets/images/mcp-remote-skills.jpg)
 
 The agent uses a remote skill with these commands:
 
@@ -105,6 +119,8 @@ Sero treats a remote skill as content from its server, not as a local skill:
 ## Answer questions from a server
 
 Some MCP tools ask you for information while they run. When a server asks, Sero opens its questions in **User Feedback**. The line under **Questionnaire** shows who asks, for example `MCP · crm · create_contact`: the server name from your MCP settings and the tool that asks. Answer each question, then select **Submit All Answers**. A server can ask again during the same tool call. After you answer, Sero goes back to the app that you used before.
+
+![A server question in User Feedback](../assets/images/mcp-server-question.jpg)
 
 You have two ways to stop:
 

@@ -38,3 +38,10 @@ Packaged artifacts are available from [GitHub Releases](https://github.com/sero-
 Exact filenames can change between releases. Packaged builds check for updates
 when they start and every six hours. They download an available update in the
 background and ask you to restart when it is ready.
+
+## MCP limitations
+
+Sero does not load a dynamic remote skill, because it cannot check the skill's
+content before the agent reads it. Sero does not open a subscription stream for
+MCP task status. It asks the server for the status at the interval that the
+server sets, and not more than once a second. See [MCP](/guide/mcp).

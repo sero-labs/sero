@@ -25,6 +25,8 @@ A questionnaire can use single-choice or multi-select questions. It can also all
 
 The app keeps multiple pending questionnaires and interviews in arrival order. After you submit or cancel the first form, it shows the next one.
 
+MCP servers ask their questions in the same questionnaire. See [Answer questions from a server](/guide/mcp#answer-questions-from-a-server).
+
 ![Interview me](../assets/images/user-feedback.jpg)
 
 ## Use an interview for a specification
@@ -53,5 +55,6 @@ Answers can contain private project decisions. Remove private text before you sh
 
 - [Agent Sessions and Context](/guide/agent-sessions-and-context)
 - [Plugins and Apps](/guide/plugins-and-apps)
+- [MCP](/guide/mcp)
 - [State and Folders](/reference/state-and-folders)
 - [Security / Privacy](/reference/security-privacy)
