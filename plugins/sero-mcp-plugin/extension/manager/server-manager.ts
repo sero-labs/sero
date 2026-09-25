@@ -5,6 +5,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { McpOAuthProvider } from '../auth/oauth-provider';
 import { resolveBearerTokenValue, type McpServerConfig } from '../config/types';
+import { createMcpClient } from './client-factory';
 import type { ManagedConnection, ManagedResource, ManagedTool, ManagedTransport } from './types';
 
 interface McpServerManagerOptions {
@@ -110,7 +111,7 @@ export class McpServerManager {
     if (pluginData && definition.cwd && isPathInside(pluginData, definition.cwd)) {
       await fs.mkdir(definition.cwd, { recursive: true });
     }
-    const client = new Client({ name: `sero-mcp-${name}`, version: '0.1.0' });
+    const client = createMcpClient(`sero-mcp-${name}`);
     const transport = new StdioClientTransport({
       command: definition.command!,
       args: definition.args ?? [],
@@ -149,7 +150,7 @@ export class McpServerManager {
       return this.connectSse(name, url, requestInit);
     }
 
-    const streamableClient = new Client({ name: `sero-mcp-${name}`, version: '0.1.0' });
+    const streamableClient = createMcpClient(`sero-mcp-${name}`);
     const streamableTransport = new StreamableHTTPClientTransport(url, { requestInit, authProvider });
     try {
       await streamableClient.connect(streamableTransport);
@@ -176,7 +177,7 @@ export class McpServerManager {
     url: URL,
     requestInit: { headers?: Record<string, string>; redirect?: 'manual' } | undefined,
   ): Promise<ManagedConnection> {
-    const sseClient = new Client({ name: `sero-mcp-${name}`, version: '0.1.0' });
+    const sseClient = createMcpClient(`sero-mcp-${name}`);
     const sseTransport = new SSEClientTransport(url, { requestInit });
     try {
       await sseClient.connect(sseTransport);

@@ -1,4 +1,5 @@
-import { UnauthorizedError, Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+import { UnauthorizedError, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+import { createMcpClient } from '../manager/client-factory';
 import type { McpServerConfig } from '../config/types';
 import { clearOAuthFlowState, readOAuthFlowState } from './storage';
 import { McpOAuthProvider } from './oauth-provider';
@@ -37,7 +38,7 @@ export class McpOAuthCoordinator {
     );
 
     const transport = new StreamableHTTPClientTransport(new URL(serverUrl), { authProvider });
-    const client = new Client({ name: `sero-mcp-auth-${serverName}`, version: '0.1.0' });
+    const client = createMcpClient(`sero-mcp-auth-${serverName}`);
     let keepTransportOpen = false;
 
     try {

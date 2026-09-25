@@ -44,7 +44,7 @@ Run the official codemod (`npx @modelcontextprotocol/codemod v1-to-v2`) in `P`, 
 
 One factory, `createMcpClient(serverName, features)`, builds every `Client` (connection, OAuth coordinator):
 - `versionNegotiation: { mode: 'auto', probe: { timeoutMs: 10_000 } }`
-- `capabilities.elicitation: { form: {}, url: {} }`. The extension capabilities for Apps, Tasks and Skills are added only when their host feature flag is on. This keeps the "advertise only when ready" rule in one place.
+- `capabilities.elicitation: { form: {}, url: {} }`, added together with the elicitation handler (D3). The extension capabilities for Apps, Tasks and Skills are added only when their host feature flag in `MCP_CLIENT_FEATURES` is on. Each flag turns on in the task group that finishes its host path (8, 9 and 10). This keeps the "advertise only when ready" rule in one place.
 - `inputRequired: { maxRounds: 10 }`, `cachePartition: principalId` (D4), `listChanged` handlers (D4)
 - One `elicitation/create` handler (D3)
 
