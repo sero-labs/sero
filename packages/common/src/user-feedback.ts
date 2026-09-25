@@ -14,6 +14,8 @@ export interface UserFeedbackQuestionOption {
   emphasis?: 'primary';
   exclusive?: boolean;
   subQuestion?: UserFeedbackQuestionItem;
+  /** When the user picks this option, the host opens this http(s) URL in the browser and then sends the answer. */
+  openUrl?: string;
 }
 
 export interface UserFeedbackQuestionContext {

@@ -25,7 +25,7 @@ export function buildClientCapabilities(features: McpClientFeatures, canElicit =
   if (features.skills) extensions[MCP_SKILLS_EXTENSION] = {};
   // Sero never declares the deprecated sampling or roots client features.
   return {
-    ...(canElicit ? { elicitation: { form: {} } } : {}),
+    ...(canElicit ? { elicitation: { form: {}, url: {} } } : {}),
     ...(Object.keys(extensions).length > 0 ? { extensions } : {}),
   };
 }

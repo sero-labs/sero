@@ -61,7 +61,7 @@ The SDK sends both modern `input_required` rounds and legacy server-to-client `e
 - The first question has an exclusive **Decline** option. A bus `cancelled` response means **cancel**.
 - `context.source` is `MCP · <server label> · <tool or task>`. All server text goes into plain-text `label` and `prompt` fields.
 - Answers are coerced to the schema types and checked in the plugin. When a value fails, the handler asks again once and then declines. A form with an unsupported field type is declined without being shown, and the user gets a notice with the reason.
-- URL mode is one question with **Open** and **Decline**. It shows the full URL. **Open** opens the URL through the host's external-link path.
+- URL mode is one chat question with **Decline** (the safe default) and **Open page**. It shows the full URL, and only `http` and `https` URLs are offered. The **Open page** option carries a neutral `openUrl` field (a new optional field on `UserFeedbackQuestionOption` in `@sero-ai/common`); when the user picks it, the host question card opens the URL through its checked external-link path and then sends the answer. The host has no MCP code. The user chose this on 2026-09-25.
 - When the bus has no listener (headless session), the handler declines at once.
 - A `questionnaire` opens the User Feedback app, and the host returns to the previous app after the answer. The `QuestionnaireForm` does not show `context.source` today, so it gets one source line under its title. This is a general change in the user-feedback plugin, not MCP code.
 

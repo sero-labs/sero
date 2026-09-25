@@ -162,8 +162,9 @@ function QuestionCardInner({ question }: { question: UserFeedbackPendingQuestion
   const remainingSeconds = useRemainingSeconds(question.expiresAt);
 
   const handleSelect = useCallback(
-    (opt: { value: string; label: string }, index: number) => {
+    (opt: { value: string; label: string; openUrl?: string }, index: number) => {
       if (!qId) return;
+      if (opt.openUrl) void window.sero.shell.openExternal(opt.openUrl).catch(() => undefined);
       const ans: UserFeedbackAnswer = {
         questionId: qId,
         value: opt.value,
@@ -340,7 +341,7 @@ function ContextualChoiceActions({
   onOpen,
 }: {
   question: UserFeedbackPendingQuestion;
-  onSelect: (option: { value: string; label: string }, index: number) => void;
+  onSelect: (option: { value: string; label: string; openUrl?: string }, index: number) => void;
   onOpen: () => void;
 }) {
   const options = question.questions[0]?.options ?? [];

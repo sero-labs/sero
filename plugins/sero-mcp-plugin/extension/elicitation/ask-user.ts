@@ -29,13 +29,13 @@ let counter = 0;
 /** Asks through the Sero question UI. Resolves with the answers, or `null` when cancelled. */
 export function askUser(
   questions: UserFeedbackQuestionItem[],
-  options: { source: string; signal?: AbortSignal },
+  options: { source: string; signal?: AbortSignal; type?: 'question' | 'questionnaire' },
 ): Promise<UserFeedbackAnswer[] | null> {
   const bus = getBus();
   const id = `mcp-input-${Date.now()}-${++counter}`;
   const pending: UserFeedbackPendingQuestion = {
     id,
-    type: 'questionnaire',
+    type: options.type ?? 'questionnaire',
     toolCallId: id,
     questions,
     timestamp: new Date().toISOString(),

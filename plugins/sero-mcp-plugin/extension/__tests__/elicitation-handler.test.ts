@@ -89,18 +89,22 @@ async function startModernServer() {
 }
 
 /** A legacy server whose tool sends elicitation/create and reports the action. */
-async function connectLegacyServer() {
+async function connectLegacyServer(pageUrl = 'https://pay.example.com/session/1') {
   const server = new McpServer({ name: 'legacy-crm', version: '1.0.0' });
   server.registerTool('rename', { inputSchema: z.object({}) }, async (_args, ctx) => {
     const result = await ctx.mcpReq.elicitInput({ mode: 'form', message: 'New name?', requestedSchema: NAME_FORM });
     return { content: [{ type: 'text', text: `${result.action}:${JSON.stringify(result.content ?? {})}` }] };
+  });
+  server.registerTool('pay', { inputSchema: z.object({}) }, async (_args, ctx) => {
+    const result = await ctx.mcpReq.elicitInput({ mode: 'url', message: 'Finish the payment.', url: pageUrl, elicitationId: 'pay-1' });
+    return { content: [{ type: 'text', text: result.action }] };
   });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await server.connect(serverTransport);
   const client = createMcpClient('sero-mcp-legacy', { serverLabel: 'legacy-crm' });
   await client.connect(clientTransport);
   cleanups.push(async () => { await client.close(); await server.close(); });
-  const call = () => runWithRequestContext({ serverLabel: 'legacy-crm', toolName: 'rename' }, () => client.callTool({ name: 'rename', arguments: {} }));
+  const call = (toolName = 'rename') => runWithRequestContext({ serverLabel: 'legacy-crm', toolName }, () => client.callTool({ name: toolName, arguments: {} }));
   return { client, call };
 }
 
@@ -145,5 +149,27 @@ describe('MCP input requests', () => {
     const { call } = await connectLegacyServer();
 
     expect(text(await call())).toBe('decline:{}');
+  });
+
+  it('shows the full URL of a page request and accepts when the user opens it', async () => {
+    const asked = answerWith(pick('open'));
+    const { call } = await connectLegacyServer();
+
+    expect(text(await call('pay'))).toBe('accept');
+    const question = asked[0]?.questions[0];
+    expect(asked[0]?.type).toBe('question');
+    expect(question?.prompt).toContain('https://pay.example.com/session/1');
+    expect(question?.options).toEqual([
+      { value: 'decline', label: 'Decline', emphasis: 'primary' },
+      { value: 'open', label: 'Open page', openUrl: 'https://pay.example.com/session/1' },
+    ]);
+  });
+
+  it('declines a page request that is not a web address without asking', async () => {
+    const asked = answerWith(pick('open'));
+    const { call } = await connectLegacyServer('file:///etc/passwd');
+
+    expect(text(await call('pay'))).toBe('decline');
+    expect(asked).toHaveLength(0);
   });
 });
