@@ -32,4 +32,16 @@ describe('registerMcpManagerTool', () => {
     });
     expect(result.content[0]?.text).toBe('status ok');
   });
+
+  it('routes the MCP task actions with the task ID', async () => {
+    const registerTool = vi.fn();
+    const executeManagerAction = vi.fn(async () => createToolResult('ok'));
+    registerMcpManagerTool({ registerTool } as unknown as ExtensionAPI, { executeManagerAction } as unknown as McpRuntime);
+    const tool = registerTool.mock.calls[0]?.[0];
+
+    for (const action of ['list_tasks', 'cancel_task', 'dismiss_task', 'task_result']) {
+      await tool.execute('tool-call-1', { action, taskId: 'task-7' }, null, () => undefined, { cwd: '/tmp/ws' });
+      expect(executeManagerAction).toHaveBeenLastCalledWith(action, expect.objectContaining({ taskId: 'task-7' }));
+    }
+  });
 });
