@@ -182,6 +182,31 @@
         "rules": [
           "react-doctor/no-pass-data-to-parent"
         ]
+      },
+      {
+        // Two viewer frames where the detector cannot see the sandbox that is
+        // already there. Everything else keeps the rule.
+        //
+        //  - `McpToolResultApp.tsx` embeds the loopback viewer page. That page
+        //    is Sero's own shell, not untrusted content, and its CSP is
+        //    `script-src 'self'` with `connect-src 'self'`, so the frame needs
+        //    `allow-same-origin` to load its script and call its own `/proxy`
+        //    routes. The untrusted MCP app is in the nested frame, which stays
+        //    `sandbox="allow-scripts allow-forms"` with no `allow-same-origin`.
+        //    The same outer-frame sandbox already ships in `McpResourceViewer.tsx`.
+        //  - `viewer-shell.ts` builds that nested frame with
+        //    `document.createElement("iframe")` and sets `sandbox` before it
+        //    adds the frame to the document, so the app never loads without a
+        //    sandbox. The rule reads the call, not the attribute that follows.
+        "files": [
+          "ui/components/chat/McpToolResultApp.tsx",
+          "ui/viewer-shell/viewer-shell.ts",
+          "plugins/sero-mcp-plugin/ui/components/chat/McpToolResultApp.tsx",
+          "plugins/sero-mcp-plugin/ui/viewer-shell/viewer-shell.ts"
+        ],
+        "rules": [
+          "react-doctor/iframe-missing-sandbox"
+        ]
       }
     ]
   }
