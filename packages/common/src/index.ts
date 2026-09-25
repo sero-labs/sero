@@ -39,34 +39,7 @@ export type {
   AppToolResult,
 } from './app-tools';
 
-export type {
-  AppExtensionPointId,
-  ComponentExtensionPointId,
-  ControlExtensionPointId,
-  ComponentContributionBase,
-  GlobalSearchPanelContribution,
-  ExplorerViewContribution,
-  TitleBarControlContribution,
-  ChatModelExtensionContribution,
-  ChatToolResultContribution,
-  SeroToolResultViewMarker,
-  ChatToolResultViewProps,
-  AdminModelSettingsContribution,
-  DashboardWidgetContribution,
-  ComponentContribution,
-  SwitchControlDefinition,
-  HostControlDefinition,
-  ToolContributionAction,
-  ContributionActionDefinition,
-  WorkspaceCreatedContributionContext,
-  WorkspaceCreationOptionContribution,
-  ControlContribution,
-  AppContribution,
-  AppContributions,
-  ContributionForExtensionPoint,
-  AppContributionDiagnosticCode,
-  AppContributionDiagnostic,
-} from './app-contributions';
+export type * from './app-contributions';
 
 export { WORKSPACE_COMMON_IGNORES } from './workspace-ignores';
 
