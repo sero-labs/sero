@@ -299,6 +299,10 @@ cd "$MONO_ROOT"
 HUSKY=0 pnpm_config_node_linker=hoisted pnpm_config_inject_workspace_packages=true \
   pnpm --filter @sero/desktop deploy --prod "$DEPLOY_DIR"
 cd "$PROJECT_DIR"
+# pnpm 12 deploy copies only the files `pnpm pack` would include, which skips
+# git-ignored build output. Stage the built app explicitly.
+rm -rf "$DEPLOY_DIR/dist"
+cp -R "$PROJECT_DIR/dist" "$DEPLOY_DIR/dist"
 
 # Rebuild native modules against Electron's ABI inside the deploy bundle. The
 # deployed copies come from the pnpm store with prebuilt/host-ABI binaries.

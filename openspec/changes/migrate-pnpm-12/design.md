@@ -129,6 +129,15 @@ pnpm 12.2.0+ no longer requires injection, but without it deploy binds peers
 differently and can fail with `ERR_PNPM_DEPLOY_AMBIGUOUS_PEER`. Keeping it keeps
 the proven bundle shape. Update the comment, which cites pnpm v10.
 
+pnpm 12 `deploy` copies only the files `pnpm pack` would include. With no
+`files` field that follows `.gitignore`, so `dist/` is dropped except the
+`main` entry, and the packaged app fails at start (`ERR_MODULE_NOT_FOUND` for a
+`dist/electron` chunk). pnpm 10 copied `dist/`. `build-release.sh` now copies
+`dist/` into the deploy folder after `pnpm deploy`. Rejected:
+`deployAllFiles`, which also copies untracked local files such as old
+`release/` output; and a `files` field, which must track every file the
+packaging config reads.
+
 ### 5. Container links the native binary
 
 After `npm ci --ignore-scripts`, `node_modules/@pnpm/exe.linux-<arch>/pnpm` is

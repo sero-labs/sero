@@ -21,7 +21,7 @@
 
 ## 4. Release packaging
 
-- [x] 4.1 In `build-release.sh`, rename `NPM_CONFIG_NODE_LINKER` to `pnpm_config_node_linker` and `NPM_CONFIG_INJECT_WORKSPACE_PACKAGES` to `pnpm_config_inject_workspace_packages`, and update the comment that cites pnpm v10. Verify: a local release build creates the deploy bundle, `partial-json` sits at `<deploy>/node_modules/partial-json`, and the packaged app starts.
+- [x] 4.1 In `build-release.sh`, rename `NPM_CONFIG_NODE_LINKER` to `pnpm_config_node_linker` and `NPM_CONFIG_INJECT_WORKSPACE_PACKAGES` to `pnpm_config_inject_workspace_packages`, and update the comment that cites pnpm v10. Copy `dist/` into the deploy folder after `pnpm deploy` (pnpm 12 skips git-ignored build output). Verify: a local release build creates the deploy bundle, `partial-json` sits at `<deploy>/node_modules/partial-json`, every `dist/electron` file is in `app.asar`, and the packaged app's `--doctor --quick --json` prints JSON.
 
 ## 5. CI workflows
 
@@ -41,4 +41,4 @@
 ## 8. Final checks
 
 - [x] 8.1 Run `pnpm typecheck`, `pnpm test`, and `node apps/desktop/scripts/runtime-tools/update-runtime-tools.mjs`. Verify: all pass.
-- [ ] 8.2 Write the PR description with the container behaviour change, the store-location result from 6.2, and a note to check the first Dependabot npm run after merge. Verify: the draft PR body links issue #490.
+- [x] 8.2 Write the PR description with the container behaviour change, the store-location result from 6.2, and a note to check the first Dependabot npm run after merge. Verify: the draft PR body links issue #490.
