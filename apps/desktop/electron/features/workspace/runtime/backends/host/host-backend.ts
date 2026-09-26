@@ -47,6 +47,7 @@ import type { HostRuntimeSubstrate } from './host-substrate';
 import { createHostSubstrate } from './host-substrate-factory';
 import { checkBrowserPackDoctor } from '../../browser-pack/doctor';
 import { HostDevServerManager } from './host-dev-server-manager';
+import { HostDevServerRecovery } from './host-dev-server-recovery';
 import { runHostDoctorChecks } from './host-doctor';
 import { createHostProcessAdapter } from './process/factory';
 import { createHostProcessEnv } from './host-env';
@@ -95,14 +96,16 @@ export class HostBackend implements RuntimeBackend {
     this.workspaceManager = options.workspaceManager;
     this.ensureSeroCliBridge = options.ensureSeroCliBridge;
     this.substrate = options.substrate ?? createHostSubstrate(options.hostWorkspacePath);
+    const processAdapter = createHostProcessAdapter({
+      platform: this.substrate.platform,
+      execFile: (input) => this.execFile(input),
+    });
     this.devServers = new HostDevServerManager({
       workspaceId: this.workspaceId,
       defaultCwd: this.runtimeWorkspacePath,
       spawn: (input) => this.spawn(input),
-      processAdapter: createHostProcessAdapter({
-        platform: this.substrate.platform,
-        execFile: (input) => this.execFile(input),
-      }),
+      processAdapter,
+      recovery: new HostDevServerRecovery(processAdapter),
     });
   }
 
@@ -338,7 +341,7 @@ export class HostBackend implements RuntimeBackend {
   }
 
   async unregisterDevServer(input: RuntimeDevServerStopInput): Promise<void> {
-    this.devServers.unregister(input);
+    await this.devServers.unregister(input);
   }
 
   async restartDevServer(input: RuntimeDevServerRestartInput): Promise<RuntimeDevServer> {
