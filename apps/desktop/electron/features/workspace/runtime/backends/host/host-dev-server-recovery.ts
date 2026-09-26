@@ -27,11 +27,14 @@ export class HostDevServerRecovery {
     this.directory = directory;
   }
 
-  async track(pids: number[]): Promise<string> {
+  async track(pids: number[]): Promise<string | null> {
     const owner = await this.identity(process.pid);
     if (!owner) throw new Error('Cannot identify the Sero process that owns this dev server.');
     const processes = await this.identities(pids);
-    if (processes.length === 0) throw new Error('Cannot identify the spawned dev server process.');
+    if (processes.length === 0) {
+      if (pids.some(isProcessAlive)) throw new Error('Cannot identify the spawned dev server process.');
+      return null;
+    }
     const id = randomUUID();
     await this.save(id, { owner, processes });
     return id;
@@ -59,7 +62,8 @@ export class HostDevServerRecovery {
       if (remaining.length > 0) await this.adapter.killPids('KILL', remaining.map((entry) => entry.pid));
     }
     if ((await this.liveProcesses(targets)).length === 0
-      && (await this.liveProcesses(record.processes)).length === 0) await this.forget(id);
+      && (await this.liveProcesses(record.processes)).length === 0
+      && !(await this.hasUnresolvedProcesses(record.processes))) await this.forget(id);
   }
 
   private async forget(id: string): Promise<void> {
@@ -93,6 +97,11 @@ export class HostDevServerRecovery {
     const entries = await Promise.all([...new Set(pids)].filter((pid) => Number.isInteger(pid) && pid > 0)
       .map((pid) => this.identity(pid)));
     return entries.filter((entry): entry is ProcessIdentity => entry !== null);
+  }
+
+  private async hasUnresolvedProcesses(entries: ProcessIdentity[]): Promise<boolean> {
+    const identities = await Promise.all(entries.map((entry) => this.adapter.processIdentity(entry.pid)));
+    return entries.some((entry, index) => identities[index] === null && isProcessAlive(entry.pid));
   }
 
   private async matches(entry: ProcessIdentity): Promise<boolean> {
@@ -134,9 +143,11 @@ export class HostDevServerRecovery {
 
 export async function reapHostDevServers(): Promise<void> {
   const adapter = createHostProcessAdapter({
-    execFile: async ({ program, args, timeoutMs }) => {
+    execFile: async ({ program, args, timeoutMs, env }) => {
       try {
-        const result = await execFileAsync(program, args, { timeout: timeoutMs });
+        const result = await execFileAsync(program, args, {
+          timeout: timeoutMs, env: { ...process.env, ...env },
+        });
         return { stdout: result.stdout, stderr: result.stderr, exitCode: 0 };
       } catch (error) {
         const result = error as { stdout?: string; stderr?: string; code?: number };

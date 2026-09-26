@@ -61,6 +61,37 @@ async function createRecovery(adapter: HostProcessAdapter): Promise<HostDevServe
 }
 
 describe('HostDevServerManager', () => {
+  it('keeps a recovery record when process identity lookup fails for a live process', async () => {
+    let lookupAvailable = true;
+    const adapter = createProcessAdapter({
+      processIdentity: vi.fn(async (pid) => lookupAvailable ? `start:${pid}` : null),
+    });
+    const recovery = await createRecovery(adapter);
+    const id = await recovery.track([process.pid]);
+    if (!id) throw new Error('Expected a recovery record for the live process.');
+
+    lookupAvailable = false;
+    await recovery.terminate(id);
+    expect(await readdir(temporaryDirectories[0])).toHaveLength(1);
+    expect(adapter.killPids).not.toHaveBeenCalled();
+  });
+
+  it('reports a quick process exit instead of a recovery identity error', async () => {
+    const adapter = createProcessAdapter({
+      processIdentity: vi.fn(async (pid) => pid === process.pid ? 'app-start' : null),
+    });
+    const recovery = await createRecovery(adapter);
+    const quickExit = createProcess(999_999_999);
+    quickExit.onExit.mockImplementation((listener) => {
+      queueMicrotask(() => listener({ exitCode: 1 }));
+      return vi.fn();
+    });
+    const manager = createManager({ processAdapter: adapter, recovery, spawn: vi.fn(async () => quickExit) });
+
+    await expect(manager.start({ command: 'exit 1', cwd: '/workspace' }))
+      .rejects.toThrow('Dev server exited before a listening port was detected with exit code 1.');
+  });
+
   it('reaps a server after its owner is killed, but not a reused pid or a foreign listener', async () => {
     const identities = new Map([[process.pid, 'app-start'], [1234, 'shell-start'], [2000, 'vite-start'], [9000, 'foreign-start']]);
     const adapter = createProcessAdapter({

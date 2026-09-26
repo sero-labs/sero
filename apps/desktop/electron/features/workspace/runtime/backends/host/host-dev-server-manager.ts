@@ -116,13 +116,15 @@ export class HostDevServerManager {
         if (!detectionPid) throw new Error('Dev server did not provide a process ID.');
         recoveryId = await this.recovery.track(uniqueNumbers([
           pid ?? detectionPid, detectionPid, ...await this.processAdapter.descendantPids(detectionPid),
-        ]));
+        ])) ?? undefined;
       }
       const detected = detectionPid ? await this.detectListeningPort(detectionPid, () => earlyExit === undefined) : null;
       if (!detected) {
         const exitBeforeCleanup = earlyExit;
-        if (recoveryId) await this.recovery?.terminate(recoveryId);
-        else await this.terminateProcess(process, detectionPid);
+        if (recoveryId) {
+          process.signal('SIGTERM');
+          await this.recovery?.terminate(recoveryId);
+        } else await this.terminateProcess(process, detectionPid);
         terminated = true;
         throw new Error(exitBeforeCleanup
           ? `Dev server exited before a listening port was detected${formatProcessExit(exitBeforeCleanup)}.`
@@ -169,8 +171,10 @@ export class HostDevServerManager {
     } catch (err) {
       unsubscribeExit();
       if (!terminated) {
-        if (recoveryId) await this.recovery?.terminate(recoveryId);
-        else await this.terminateProcess(process, detectionPid);
+        if (recoveryId) {
+          process.signal('SIGTERM');
+          await this.recovery?.terminate(recoveryId);
+        } else await this.terminateProcess(process, detectionPid);
       }
       throw err instanceof Error ? err : new Error(String(err));
     }
@@ -330,6 +334,7 @@ export class HostDevServerManager {
     // Other processes can listen on the same port on a different address. A spawned
     // server owns its process tree, not every listener on that port.
     if (server.recoveryId) {
+      server.process?.signal('SIGTERM');
       await this.recovery?.terminate(server.recoveryId);
       server.recoveryId = undefined;
     } else {

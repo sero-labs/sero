@@ -60,7 +60,8 @@ export class PosixHostProcessAdapter implements HostProcessAdapter {
 
   async processIdentity(pid: number): Promise<string | null> {
     const result = await this.execFile({
-      program: 'ps', args: ['-p', String(pid), '-o', 'lstart='], timeoutMs: 2_000,
+      program: 'ps', args: ['-p', String(pid), '-o', 'lstart='],
+      env: { LC_ALL: 'C', TZ: 'UTC' }, timeoutMs: 2_000,
     }).catch(() => null);
     return result?.exitCode === 0 ? result.stdout.trim() || null : null;
   }
