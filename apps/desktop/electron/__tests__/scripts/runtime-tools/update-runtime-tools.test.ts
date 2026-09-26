@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   assertNoAuditRegression,
+  assertWorkflowPnpmVersions,
   isReleaseEligible,
   macArm64FfmpegRevision,
   recordSecurityOverrides,
@@ -128,6 +129,28 @@ describe('runtime tool update policy', () => {
     await expect(validateRuntimePins({ pins })).resolves.toBeUndefined();
   });
 
+  it('rejects a CI pnpm setup step that drifts from the packaged pnpm', () => {
+    const workflow = (version: string) => [
+      'jobs:',
+      '  test:',
+      '    steps:',
+      `      - uses: pnpm/action-setup@v6.1.0`,
+      '        with:',
+      `          version: ${version}`,
+      '      - uses: actions/setup-node@v7',
+      '        with: { node-version: 22.19.0 }',
+      '  lint:',
+      '    steps:',
+      `      - uses: pnpm/action-setup@v6.1.0`,
+      '        with: { version: 12.5.1, run_install: false }',
+    ].join('\n');
+
+    expect(() => assertWorkflowPnpmVersions([{ file: 'test.yml', contents: workflow('12.5.1') }], '12.5.1'))
+      .not.toThrow();
+    expect(() => assertWorkflowPnpmVersions([{ file: 'test.yml', contents: workflow('12.6.0') }], '12.5.1'))
+      .toThrow('.github/workflows/test.yml:4 pnpm/action-setup version 12.6.0 does not match packaged pnpm 12.5.1');
+  });
+
   it('uses explicit macOS arm64 ffmpeg overrides and rejects ambiguous metadata', () => {
     expect(macArm64FfmpegRevision({ revision: '1000' })).toBe('1000');
     expect(macArm64FfmpegRevision({
@@ -154,11 +177,13 @@ describe('runtime tool update policy', () => {
 
   it('rejects a young pin without a recorded urgent-security reason', async () => {
     const pins = JSON.parse(await fs.readFile(path.join(desktopRoot, 'runtime-tools/pins.json'), 'utf8'));
-    pins.npm.playwright.releasedAt = '2026-08-24T11:00:00.000Z';
-    await expect(validateRuntimePins({ pins, now: new Date('2026-08-24T12:00:00.000Z') }))
+    // The other real pins must stay eligible, so the young release is relative to now.
+    const now = new Date();
+    pins.npm.playwright.releasedAt = new Date(now.getTime() - 3_600_000).toISOString();
+    await expect(validateRuntimePins({ pins, now }))
       .rejects.toThrow('has no recorded security override');
     pins.securityOverrides.push({ tool: 'playwright', version: pins.npm.playwright.version, reason: 'CVE-2026-1234 active exploitation' });
-    await expect(validateRuntimePins({ pins, now: new Date('2026-08-24T12:00:00.000Z') })).resolves.toBeUndefined();
+    await expect(validateRuntimePins({ pins, now })).resolves.toBeUndefined();
   });
 });
 

@@ -40,9 +40,9 @@
       ]
     },
     "pnpm": {
-      "version": "10.34.5",
-      "releasedAt": "2026-07-10T11:32:36.014Z",
-      "integrity": "sha512-pO4F8vc2WCVb1qiYWcBlpFwopX2u+uLIk6Fo7itzFow3uR6D5X6mdlStA/AwMXRkMOi84442LgQmBfuKvIAZLg==",
+      "version": "12.5.1",
+      "releasedAt": "2026-09-18T21:39:59.836Z",
+      "integrity": "sha512-4/MFvHhKK8ifWtO2E4iJRw+ujSr182thIW7JHCw9ZAiXdfneOKrDMQROpA8kXLDVZmOS399lgk4ZB+9qLGLeXw==",
       "routineUpdates": "minor",
       "usedBy": [
         "sero-node",

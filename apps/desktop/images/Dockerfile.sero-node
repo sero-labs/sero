@@ -72,12 +72,20 @@ RUN set -eux; \
     npm --version
 
 # Install npm runtime tools from a lockfile with exact package integrities.
+# pnpm 12 is a native program; the lockfile installs it in @pnpm/exe.linux-<arch>.
 COPY apps/desktop/runtime-tools/package.json apps/desktop/runtime-tools/package-lock.json /tmp/runtime-tools/
 RUN cd /tmp/runtime-tools && npm ci --ignore-scripts --omit=dev --workspaces=false && \
     mv /tmp/runtime-tools /opt/sero-runtime && \
     ln -sf /opt/sero-runtime/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
     ln -sf /opt/sero-runtime/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx && \
-    ln -sf /opt/sero-runtime/node_modules/pnpm/bin/pnpm.cjs /usr/local/bin/pnpm
+    case "$(dpkg --print-architecture)" in \
+      amd64) pnpm_arch=x64 ;; \
+      arm64) pnpm_arch=arm64 ;; \
+      *) echo "Unsupported architecture for pnpm: $(dpkg --print-architecture)" >&2; exit 1 ;; \
+    esac && \
+    pnpm_bin="/opt/sero-runtime/node_modules/@pnpm/exe.linux-${pnpm_arch}/pnpm" && \
+    test -x "$pnpm_bin" && \
+    ln -sf "$pnpm_bin" /usr/local/bin/pnpm
 
 # Configure Git defaults for non-interactive agent use.
 RUN git config --global user.name "Sero" && \

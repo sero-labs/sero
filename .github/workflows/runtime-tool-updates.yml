@@ -201,7 +201,7 @@ jobs:
           git fetch origin "$BRANCH:refs/remotes/origin/$BRANCH" || true
           git checkout -B "$BRANCH"
           git add \
-            .github/workflows/browser-pack-artifacts.yml \
+            .github/workflows \
             apps/desktop/images/Dockerfile.sero-node \
             apps/desktop/runtime-tools \
             apps/desktop/scripts/browser-pack/browser-pack-config.mjs
@@ -240,7 +240,7 @@ jobs:
           node "$runtime_root/agent-browser/bin/agent-browser.js" --version
           node "$runtime_root/playwright/cli.js" --version
           node "$runtime_root/npm/bin/npm-cli.js" --version
-          node "$runtime_root/pnpm/bin/pnpm.cjs" --version
+          "$runtime_root/@pnpm/exe.linux-$(node -p process.arch)/pnpm" --version
 
       - name: Build Linux browser pack
         if: steps.update.outputs.changed == 'true'

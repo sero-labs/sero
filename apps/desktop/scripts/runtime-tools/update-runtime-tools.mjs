@@ -18,7 +18,7 @@ const lockPath = path.join(desktopRoot, 'runtime-tools/package-lock.json');
 const dockerfilePath = path.join(desktopRoot, 'images/Dockerfile.sero-node');
 const browserConfigPath = path.join(desktopRoot, 'scripts/browser-pack/browser-pack-config.mjs');
 const browserWorkflowPath = path.resolve(desktopRoot, '../../.github/workflows/browser-pack-artifacts.yml');
-const rootPackagePath = path.resolve(desktopRoot, '../../package.json');
+const workflowsDir = path.resolve(desktopRoot, '../../.github/workflows');
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   main().catch((error) => {
@@ -162,7 +162,6 @@ function auditCounts(report) {
 export async function validateRuntimePins({ pins, now = new Date(), allowYoungPins = false }) {
   if (pins.policy?.minimumReleaseAgeDays !== 7) throw new Error('Runtime tools must wait exactly seven days');
   const packageJson = await readJson(packagePath);
-  const rootPackageJson = await readJson(rootPackagePath);
   const lock = await readJson(lockPath);
   for (const [name, pin] of Object.entries(pins.npm ?? {})) {
     if (packageJson.dependencies?.[name] !== pin.version) throw new Error(`${name} package input is not exactly ${pin.version}`);
@@ -174,9 +173,7 @@ export async function validateRuntimePins({ pins, now = new Date(), allowYoungPi
       throw new Error(`${name}@${pin.version} is younger than seven days and has no recorded security override`);
     }
   }
-  if (rootPackageJson.packageManager !== `pnpm@${pins.npm.pnpm.version}`) {
-    throw new Error(`Root packageManager does not match packaged pnpm ${pins.npm.pnpm.version}`);
-  }
+  assertWorkflowPnpmVersions(await readWorkflows(), pins.npm.pnpm.version);
   for (const [name, releasedAt] of Object.entries(pins.containerReleasedAt ?? {})) {
     const override = containerOverrideIdentity(pins, name);
     if (!allowYoungPins && !isReleaseEligible(releasedAt, now, 7) && !hasRecordedOverride(pins, override.tool, override.version)) {
@@ -197,6 +194,67 @@ export async function validateRuntimePins({ pins, now = new Date(), allowYoungPi
     ...Object.values(pins.container.nodeSha256),
   ]) {
     if (!dockerfile.includes(expected)) throw new Error(`Dockerfile does not consume exact pin ${expected}`);
+  }
+}
+
+// CI installs the packaged pnpm, so every pnpm/action-setup step must name its exact version.
+export function assertWorkflowPnpmVersions(workflows, version) {
+  let steps = 0;
+  for (const { file, contents } of workflows) {
+    for (const step of pnpmSetupSteps(contents)) {
+      steps += 1;
+      if (step.version !== version) {
+        throw new Error(`.github/workflows/${file}:${step.line} pnpm/action-setup version ${step.version ?? '(missing)'} does not match packaged pnpm ${version}`);
+      }
+    }
+  }
+  if (steps === 0) throw new Error('No pnpm/action-setup steps found in .github/workflows');
+}
+
+const PNPM_VERSION_PATTERN = /((?:^|[\s{,])version:\s*['"]?)([^\s,'"}]+)/;
+
+// Workflows are scanned line by line because this script runs with plain Node and no installed packages.
+function pnpmSetupSteps(contents) {
+  const lines = contents.split('\n');
+  const steps = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const match = lines[index].match(/^(\s*)(- )?uses: pnpm\/action-setup@/);
+    if (!match) continue;
+    const stepIndent = match[2] ? match[1].length : match[1].length - 2;
+    let end = index + 1;
+    while (end < lines.length && (lines[end].trim() === '' || indentOf(lines[end]) > stepIndent)) end += 1;
+    const offset = lines.slice(index, end).findIndex((line) => PNPM_VERSION_PATTERN.test(line));
+    const versionLine = offset === -1 ? undefined : index + offset;
+    steps.push({
+      line: index + 1,
+      versionLine,
+      version: versionLine === undefined ? undefined : lines[versionLine].match(PNPM_VERSION_PATTERN)[2],
+    });
+  }
+  return steps;
+}
+
+function indentOf(line) {
+  return line.length - line.trimStart().length;
+}
+
+async function readWorkflows() {
+  const files = (await fs.readdir(workflowsDir)).filter((file) => /\.ya?ml$/.test(file)).sort();
+  return Promise.all(files.map(async (file) => ({
+    file,
+    contents: await fs.readFile(path.join(workflowsDir, file), 'utf8'),
+  })));
+}
+
+async function updateWorkflowPnpmVersions(version) {
+  for (const { file, contents } of await readWorkflows()) {
+    const lines = contents.split('\n');
+    for (const step of pnpmSetupSteps(contents)) {
+      if (step.versionLine === undefined) throw new Error(`.github/workflows/${file}:${step.line} pnpm/action-setup has no version`);
+      lines[step.versionLine] = lines[step.versionLine].replace(PNPM_VERSION_PATTERN, `$1${version}`);
+    }
+    const next = lines.join('\n');
+    if (next !== contents) await fs.writeFile(path.join(workflowsDir, file), next);
   }
 }
 
@@ -233,7 +291,6 @@ export function recordSecurityOverrides(pins, updates, reason) {
 
 async function applyNpmUpdates(pins, updates) {
   const packageJson = await readJson(packagePath);
-  const rootPackageJson = await readJson(rootPackagePath);
   for (const update of updates) {
     packageJson.dependencies[update.key] = update.version;
     pins.npm[update.key] = {
@@ -244,10 +301,7 @@ async function applyNpmUpdates(pins, updates) {
     };
   }
   const pnpmUpdate = updates.find(({ key }) => key === 'pnpm');
-  if (pnpmUpdate) {
-    rootPackageJson.packageManager = `pnpm@${pnpmUpdate.version}`;
-    await writeJson(rootPackagePath, rootPackageJson);
-  }
+  if (pnpmUpdate) await updateWorkflowPnpmVersions(pnpmUpdate.version);
   await writeJson(packagePath, packageJson);
   run('npm', ['install', '--package-lock-only', '--ignore-scripts', '--workspaces=false'], path.dirname(packagePath));
   run('npm', ['audit', '--package-lock-only', '--ignore-scripts', '--workspaces=false', '--audit-level=critical'], path.dirname(packagePath));
