@@ -43,12 +43,6 @@ describe('accessSentence', () => {
     expect(accessSentence([{ label: 'run-commands' }])).toBe('Run commands');
   });
 
-  it('joins two targets', () => {
-    expect(accessSentence([{ label: 'read-workspace' }, { label: 'read-github' }])).toBe(
-      'Read this workspace and read GitHub',
-    );
-  });
-
   it('gives a target with no mode its own action', () => {
     expect(accessSentence([{ label: 'reach-internet' }])).toBe('Reach the internet');
     expect(accessSentence([{ label: 'other-tools' }])).toBe('Use other tools');

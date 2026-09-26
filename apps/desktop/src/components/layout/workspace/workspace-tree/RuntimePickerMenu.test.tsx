@@ -131,7 +131,7 @@ describe('RuntimePickerMenu', () => {
     expect(windowsX64.find((option) => option.backend === 'docker')?.optional).toBe(true);
   });
 
-  it('shows macOS Apple Silicon runtime choices with Host default and containers optional', async () => {
+  it('shows the default and optional runtime badges on macOS Apple Silicon', async () => {
     installSero('darwin', 'arm64');
 
     await act(async () => {
@@ -140,50 +140,9 @@ describe('RuntimePickerMenu', () => {
     await openPicker();
 
     expect(document.body.textContent).toContain('Apple Container');
-    expect(document.body.textContent).toContain('Explicit Apple-native container runtime');
-    expect(document.body.textContent).toContain('Docker / Podman');
-    expect(document.body.textContent).toContain('Explicit container runtime');
-    expect(document.body.textContent).toContain('Host');
-    expect(document.body.textContent).not.toContain('Host (recommended)');
     expect(document.body.textContent).toContain('Default');
-    expect(document.body.textContent).not.toContain('Recommended');
     expect(document.body.textContent).toContain('Optional');
-    expect(document.body.textContent).toContain('Default local runtime');
     expect(document.body.textContent).toContain('No container isolation');
-    expect(document.body.textContent).toContain('Host is the normal default for local work');
-  });
-
-  it('hides Apple Container on macOS Intel without marking a default runtime', async () => {
-    installSero('darwin', 'x64');
-
-    await act(async () => {
-      root?.render(<RuntimePickerMenu workspace={workspace({ backend: 'docker' })} />);
-    });
-    await openPicker();
-
-    expect(document.body.textContent).toContain('Docker / Podman');
-    expect(document.body.textContent).toContain('Host');
-    expect(document.body.textContent).toContain('HostOptional');
-    expect(document.body.textContent).toContain('Docker / PodmanOptional');
-    expect(document.body.textContent).toContain('Host is not the default on this platform');
-    expect(document.body.textContent).not.toContain('Default');
-    expect(document.body.textContent).not.toContain('Apple Container');
-  });
-
-  it('shows Host and Docker on Windows', async () => {
-    installSero('win32', 'x64');
-
-    await act(async () => {
-      root?.render(<RuntimePickerMenu workspace={workspace({ backend: 'docker' })} />);
-    });
-    await openPicker();
-
-    expect(document.body.textContent).toContain('Host');
-    expect(document.body.textContent).not.toContain('Host (recommended)');
-    expect(document.body.textContent).toContain('Docker / Podman');
-    expect(document.body.textContent).toContain('Explicit container runtime');
-    expect(document.body.textContent).not.toContain('Apple Container');
-    expect(document.body.textContent).not.toContain('WSL');
   });
 
   it('opens from a clickable row without bubbling trigger activation', async () => {

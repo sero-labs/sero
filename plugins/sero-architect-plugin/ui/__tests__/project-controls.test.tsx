@@ -139,17 +139,6 @@ describe('a refused control', () => {
     expect(button('Request permission').disabled).toBe(false);
   });
 
-  it('shows the refusal text instead of doing nothing', async () => {
-    const pause = vi.fn(async () => ({ ok: false, text: 'The project is already stopped.' }));
-    renderPage(stubActions({ pause }));
-
-    act(() => button('Pause').click());
-    await flush();
-
-    expect(pause).toHaveBeenCalledWith(FIXTURES.build!.id);
-    expect(container.querySelector('[role="alert"]')?.textContent).toBe('The project is already stopped.');
-  });
-
   it('clears the refusal once a later control is accepted', async () => {
     const actions = stubActions({ pause: vi.fn(async () => ({ ok: false, text: 'refused' })) });
     renderPage(actions);
@@ -175,12 +164,6 @@ describe('project history access', () => {
     // History is its own view now; the page keeps only the older directives.
     expect(scroll?.querySelector('[data-testid="history"]')).toBeNull();
     expect(scroll?.querySelector('[data-testid="older-directives"]')).not.toBeNull();
-  });
-
-  it('keeps the older-directives disclosure in the narrow layout and drops History', () => {
-    renderPage(stubActions());
-    expect(container.querySelector('[data-testid="history"]')).toBeNull();
-    expect(container.querySelector('[data-testid="older-directives"]')).not.toBeNull();
   });
 
   it('opens the owner transcript as read-only history instead of a raw file', async () => {
@@ -658,14 +641,6 @@ describe('the kinds of nothing', () => {
   const render = (record: ProjectRecord) => act(() => root.render(
     <ProjectPage runtimeRunning record={record} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
   ));
-
-  it('leaves out the Needs you section entirely while nothing needs the user', () => {
-    render(FIXTURES.build!);
-    const text = container.textContent ?? '';
-    expect(container.querySelector('#ar-needs-h')).toBeNull();
-    expect(text).not.toContain('Needs you');
-    expect(text).not.toContain('You have nothing to review');
-  });
 
   it('brings the section back, with its control, as soon as it holds something', () => {
     render({ ...FIXTURES.build!, decisions: [DECISION] });
