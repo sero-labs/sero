@@ -31,6 +31,8 @@ import { getMemoryInstructions } from './memory-instructions';
 const LEGACY_MESSAGE_TYPES = new Set(['memory-search-context', 'memory-context']);
 
 let cachedStatus: BootstrapStatus | null = null;
+/** Bumped on reset, so a check that spans a reset does not refill the cache. */
+let cacheGeneration = 0;
 
 /**
  * Only a finished setup is cached. Until then every turn re-checks the files,
@@ -39,13 +41,15 @@ let cachedStatus: BootstrapStatus | null = null;
  */
 async function getCachedBootstrapStatus(): Promise<BootstrapStatus> {
   if (cachedStatus) return cachedStatus;
+  const generation = cacheGeneration;
   const status = await checkBootstrapStatus();
-  if (!status.needsBootstrap) cachedStatus = status;
+  if (!status.needsBootstrap && generation === cacheGeneration) cachedStatus = status;
   return status;
 }
 
 export function resetBootstrapCache(): void {
   cachedStatus = null;
+  cacheGeneration += 1;
 }
 
 function formatToolParamsJson(value: unknown): string {
