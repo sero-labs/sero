@@ -15,7 +15,7 @@
 - [x] 3.1 In root `package.json`, remove `packageManager` and the `pnpm` field, and add `devEngines.packageManager` `{ "name": "pnpm", "version": ">=12.0.0 <13.0.0", "onFail": "ignore" }`. Verify: `jq` shows no `pnpm` or `packageManager` key.
 - [x] 3.2 In `pnpm-workspace.yaml`, add `overrides` with the 11 entries copied unchanged, and replace `onlyBuiltDependencies` with `allowBuilds`: the 5 approved packages `true`, the 18 packages listed in design.md `false`. Verify: `pnpm config list` under pnpm 12 prints no unrecognized-setting warning.
 - [x] 3.3 With the pinned pnpm 12, run `pnpm install` and review the `pnpm-lock.yaml` diff. Reject any package version change; allow only pnpm-format changes. Verify: the diff has no `packageManagerDependencies` and no changed `version:` of a package.
-- [ ] 3.4 From a clean clone, run `pnpm install --frozen-lockfile` with the pinned pnpm 12. Verify: exit 0, and no unreviewed-build, ignored-setting or unrecognized-setting output; `node_modules/.pnpm/node-pty@*` and `electron` are built; `pnpm dev` starts the desktop app with a working terminal.
+- [x] 3.4 From a clean clone, run `pnpm install --frozen-lockfile` with the pinned pnpm 12. Verify: exit 0, and no unreviewed-build, ignored-setting or unrecognized-setting output; `node_modules/.pnpm/node-pty@*` and `electron` are built; `pnpm dev` starts the desktop app with a working terminal.
 - [x] 3.5 Check every override in the resolved graph. Verify: for each override name, `pnpm why -r <name>` (or a lockfile search) shows only versions the override allows.
 - [x] 3.6 With a second pnpm 12 release (for example 12.6.0), run `pnpm install --frozen-lockfile`. Verify: it succeeds with that release and `git diff --exit-code pnpm-lock.yaml` passes.
 
@@ -31,7 +31,7 @@
 
 ## 6. sero-node image
 
-- [ ] 6.1 In `Dockerfile.sero-node`, link `/usr/local/bin/pnpm` to `/opt/sero-runtime/node_modules/@pnpm/exe.linux-<arch>/pnpm`, mapping `dpkg --print-architecture` to `x64` or `arm64`, and fail the build if that file is missing. Verify: `docker build` of `sero-node:latest` succeeds.
+- [x] 6.1 In `Dockerfile.sero-node`, link `/usr/local/bin/pnpm` to `/opt/sero-runtime/node_modules/@pnpm/exe.linux-<arch>/pnpm`, mapping `dpkg --print-architecture` to `x64` or `arm64`, and fail the build if that file is missing. Verify: `docker build` of `sero-node:latest` succeeds.
 - [ ] 6.2 Recreate the affected workspace containers. Verify: `pnpm --version` inside a container with no network prints the `pins.json` version, and `pnpm install` in a sample workspace completes; record where the pnpm store was created.
 
 ## 7. Contributor docs

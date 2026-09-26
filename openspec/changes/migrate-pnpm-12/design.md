@@ -159,9 +159,10 @@ Corepack instructions for an exact pin, but Decision 1 replaces the exact pin.
   fetches it (network needed). State this in the release notes.
 - [Container store location] → pnpm 12 creates the store at
   `<project>/node_modules/.pnpm-store` when it cannot hard link from the home
-  directory, for example with a bind-mounted project. Check where the store
-  lands during the container smoke test. Report it; do not change the store
-  setup in this change.
+  directory, for example with a bind-mounted project. Result (Apple
+  container, 2026-09-26): a bind-mounted `/workspace` install used
+  `/workspace/node_modules/.pnpm-store/v11`, so the store lives in the host
+  project. This change does not alter the store setup.
 - [Corepack cannot run pnpm 11 or 12] → Corepack (0.34 and 0.36) starts
   `bin/pnpm.cjs`, which pnpm 12 does not ship (nodejs/corepack#775). A machine
   with Corepack `pnpm` shims in Node's `bin` fails any `pnpm` call that a Node
