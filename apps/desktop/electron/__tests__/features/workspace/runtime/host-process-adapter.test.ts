@@ -62,6 +62,18 @@ describe('POSIX host process adapter parsers', () => {
 });
 
 describe('POSIX host process adapter', () => {
+  it('pins process start times to one time zone and locale for recovery', async () => {
+    const execFile = vi.fn<HostProcessExecFile>().mockResolvedValue(ok('Sat Sep 26 14:04:34 2026'));
+    const adapter = new PosixHostProcessAdapter(execFile);
+
+    await expect(adapter.processIdentity(1234)).resolves.toBe('Sat Sep 26 14:04:34 2026');
+    expect(execFile).toHaveBeenCalledWith(expect.objectContaining({
+      program: 'ps',
+      args: ['-p', '1234', '-o', 'lstart='],
+      env: { LC_ALL: 'C', TZ: 'UTC' },
+    }));
+  });
+
   it('intersects process IDs with TCP listeners instead of selecting unrelated servers', async () => {
     const execFile = vi.fn<HostProcessExecFile>().mockImplementation(async (input) => {
       if (input.program !== 'lsof') return fail();

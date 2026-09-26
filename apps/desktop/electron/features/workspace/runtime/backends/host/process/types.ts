@@ -9,6 +9,7 @@ export interface HostProcessAdapter {
   listeningPort(pids: number[]): Promise<number | null>;
   listenerPids(port: number): Promise<number[]>;
   killPids(signal: HostProcessSignal, pids: number[]): Promise<void>;
+  processIdentity(pid: number): Promise<string | null>;
 }
 
 export interface HostProcessAdapterOptions {

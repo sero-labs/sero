@@ -47,6 +47,16 @@ export class WindowsHostProcessAdapter implements HostProcessAdapter {
       .map((row) => row.pid));
   }
 
+  async processIdentity(pid: number): Promise<string | null> {
+    const result = await this.execFile({
+      program: 'powershell.exe',
+      args: ['-NoProfile', '-NonInteractive', '-Command',
+        `Get-CimInstance Win32_Process -Filter 'ProcessId = ${pid}' | Select-Object -ExpandProperty CreationDate | ForEach-Object { $_.ToUniversalTime().ToString('O') }`],
+      timeoutMs: 5_000,
+    }).catch(() => null);
+    return result?.exitCode === 0 ? result.stdout.trim() || null : null;
+  }
+
   async killPids(signal: HostProcessSignal, pids: number[]): Promise<void> {
     const uniquePids = uniqueNumbers(pids);
     if (uniquePids.length === 0) return;

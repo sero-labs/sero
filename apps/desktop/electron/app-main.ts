@@ -41,6 +41,7 @@ import {
 import { disposeAllAgentSessions } from './ipc/agent/core/agent';
 import { runStartupCaptureSweep } from './features/tool-capture/lifecycle';
 import { workspaceManager } from './features/workspace/manager';
+import { reapHostDevServers } from './features/workspace/runtime/backends/host/host-dev-server-recovery';
 import { setupExtProtocol, registerAllExtAssets } from './platform/protocols/ext-protocol';
 import { registerAllRemoteWidgets } from './features/gateway/server/remote-widgets';
 import { setupHostMediaProtocol } from './platform/protocols/host-media-protocol';
@@ -266,6 +267,9 @@ app.whenReady().then(async () => {
 
   // Init workspace registry + default workspaces before anything else
   await workspaceManager.init();
+  await reapHostDevServers().catch((error) => {
+    console.warn('[sero] Could not recover orphaned host dev servers:', error);
+  });
   void reconcileRegisteredProfileContainers(profileManager.list()).catch((error) => {
     console.warn('[sero] Container reconciliation could not complete:', error);
   });

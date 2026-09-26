@@ -14,6 +14,7 @@ import type {
 } from '../../types';
 import { RUNTIME_WORKSPACE_PATH } from '../../runtime-paths';
 import type { HostProcessAdapter } from './process/types';
+import type { HostDevServerRecovery } from './host-dev-server-recovery';
 
 export type HostDevServerDiagnosticCode = 'dev-server-port-detect-timeout';
 
@@ -31,6 +32,7 @@ export interface HostDevServerManagerOptions {
   defaultCwd?: string;
   spawn: SpawnProcess;
   processAdapter: HostProcessAdapter;
+  recovery?: HostDevServerRecovery;
   pollIntervalMs?: number;
   portDetectTimeoutMs?: number;
   terminateGraceMs?: number;
@@ -42,6 +44,7 @@ interface HostDevServerRecord extends RuntimeDevServer {
   executionPid?: number;
   process?: RuntimeProcess;
   onExitUnsubscribe?: () => void;
+  recoveryId?: string;
   diagnosticCode?: HostDevServerDiagnosticCode;
   /**
    * Tracks how this record entered the manager:
@@ -60,6 +63,7 @@ export class HostDevServerManager {
   private readonly workspaceId: string;
   private readonly spawn: SpawnProcess;
   private readonly processAdapter: HostProcessAdapter;
+  private readonly recovery?: HostDevServerRecovery;
   private readonly defaultCwd: string;
   private readonly pollIntervalMs: number;
   private readonly portDetectTimeoutMs: number;
@@ -70,6 +74,7 @@ export class HostDevServerManager {
     this.workspaceId = options.workspaceId;
     this.spawn = options.spawn;
     this.processAdapter = options.processAdapter;
+    this.recovery = options.recovery;
     this.defaultCwd = options.defaultCwd ?? RUNTIME_WORKSPACE_PATH;
     this.pollIntervalMs = options.pollIntervalMs ?? 100;
     this.portDetectTimeoutMs = options.portDetectTimeoutMs ?? 10_000;
@@ -97,6 +102,7 @@ export class HostDevServerManager {
     const pid = process.pid;
     const detectionPid = process.executionPid ?? process.pid;
     const baseId = `${this.workspaceId}:${input.scope ?? 'workspace'}:${input.cardId ?? 'root'}`;
+    let recoveryId: string | undefined;
 
     let terminated = false;
     let earlyExit: RuntimeProcessExit | undefined;
@@ -106,17 +112,34 @@ export class HostDevServerManager {
       if (recordId) this.markSpawnedServerFailed(recordId, exit);
     });
     try {
-      const port = detectionPid ? await this.detectListeningPort(detectionPid, () => earlyExit === undefined) : null;
-      if (!port) {
+      if (this.recovery) {
+        if (!detectionPid) throw new Error('Dev server did not provide a process ID.');
+        recoveryId = await this.recovery.track(uniqueNumbers([
+          pid ?? detectionPid, detectionPid, ...await this.processAdapter.descendantPids(detectionPid),
+        ])) ?? undefined;
+      }
+      const detected = detectionPid ? await this.detectListeningPort(detectionPid, () => earlyExit === undefined) : null;
+      if (!detected) {
         const exitBeforeCleanup = earlyExit;
-        await this.terminateProcess(process, detectionPid);
+        if (recoveryId) {
+          await this.recovery?.terminate(recoveryId);
+          process.signal('SIGTERM');
+        } else await this.terminateProcess(process, detectionPid);
         terminated = true;
         throw new Error(exitBeforeCleanup
           ? `Dev server exited before a listening port was detected${formatProcessExit(exitBeforeCleanup)}.`
           : 'No listening port was detected after starting the command.');
       }
+      const { port } = detected;
       const url = hostPreviewUrl(port);
       recordId = `${baseId}:${port}`;
+      const previous = this.servers.get(recordId);
+      if (previous?.origin === 'spawned' && previous.status !== 'stopped') {
+        previous.onExitUnsubscribe?.();
+        await this.terminateServer(previous, { forceKillListener: false });
+        previous.status = 'stopped';
+      }
+      if (recoveryId) await this.recovery?.update(recoveryId, detected.pids);
       const record: HostDevServerRecord = {
         id: recordId,
         port,
@@ -133,6 +156,7 @@ export class HostDevServerManager {
         executionPid: detectionPid,
         process,
         onExitUnsubscribe: unsubscribeExit,
+        recoveryId,
         origin: 'spawned',
       };
       this.servers.set(record.id, record);
@@ -146,7 +170,12 @@ export class HostDevServerManager {
       return toRuntimeServer(record);
     } catch (err) {
       unsubscribeExit();
-      if (!terminated) await this.terminateProcess(process, detectionPid);
+      if (!terminated) {
+        if (recoveryId) {
+          await this.recovery?.terminate(recoveryId);
+          process.signal('SIGTERM');
+        } else await this.terminateProcess(process, detectionPid);
+      }
       throw err instanceof Error ? err : new Error(String(err));
     }
   }
@@ -167,6 +196,10 @@ export class HostDevServerManager {
       status: 'running',
       origin: 'registered',
     };
+    const previous = this.servers.get(record.id);
+    if (previous?.origin === 'spawned' && previous.status !== 'stopped') {
+      throw new Error(`Cannot replace an owned dev server: ${record.id}`);
+    }
     this.servers.set(record.id, record);
     this.emitDevServerChange({
       type: 'registered',
@@ -194,10 +227,13 @@ export class HostDevServerManager {
     });
   }
 
-  unregister(input: RuntimeDevServerStopInput): void {
+  async unregister(input: RuntimeDevServerStopInput): Promise<void> {
     const server = this.servers.get(input.serverId);
     if (!server) throw new Error(`Dev server not found: ${input.serverId}`);
     server.onExitUnsubscribe?.();
+    if (server.origin === 'spawned' && server.status !== 'stopped') {
+      await this.terminateServer(server, { forceKillListener: false });
+    }
     this.servers.delete(input.serverId);
     this.emitDevServerChange({
       type: 'unregistered',
@@ -231,7 +267,7 @@ export class HostDevServerManager {
       scope: server.scope,
       cardId: server.cardId,
     });
-    if (restarted.id !== input.serverId && this.servers.has(input.serverId)) this.unregister(input);
+    if (restarted.id !== input.serverId && this.servers.has(input.serverId)) await this.unregister(input);
     return restarted;
   }
 
@@ -273,13 +309,13 @@ export class HostDevServerManager {
     return { url, targetPort: input.targetPort, backend: 'host' };
   }
 
-  private async detectListeningPort(rootPid: number, shouldContinue: () => boolean = () => true): Promise<number | null> {
+  private async detectListeningPort(rootPid: number, shouldContinue: () => boolean = () => true): Promise<{ port: number; pids: number[] } | null> {
     const startedAt = Date.now();
-    const poll = async (): Promise<number | null> => {
+    const poll = async (): Promise<{ port: number; pids: number[] } | null> => {
       if (Date.now() - startedAt >= this.portDetectTimeoutMs || !shouldContinue()) return null;
       const pids = [rootPid, ...await this.processAdapter.descendantPids(rootPid)];
       const port = await this.processAdapter.listeningPort(pids);
-      if (port) return port;
+      if (port) return { port, pids };
       await sleep(this.pollIntervalMs);
       return poll();
     };
@@ -297,8 +333,14 @@ export class HostDevServerManager {
     }
     // Other processes can listen on the same port on a different address. A spawned
     // server owns its process tree, not every listener on that port.
-    await this.terminateProcess(server.process, server.executionPid ?? server.pid,
-      server.origin === 'registered' ? server.port : undefined);
+    if (server.recoveryId) {
+      await this.recovery?.terminate(server.recoveryId);
+      server.process?.signal('SIGTERM');
+      server.recoveryId = undefined;
+    } else {
+      await this.terminateProcess(server.process, server.executionPid ?? server.pid,
+        server.origin === 'registered' ? server.port : undefined);
+    }
   }
 
   private async terminateProcess(process: RuntimeProcess | undefined, rootPid?: number, port?: number): Promise<void> {

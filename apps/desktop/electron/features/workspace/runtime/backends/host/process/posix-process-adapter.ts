@@ -58,6 +58,14 @@ export class PosixHostProcessAdapter implements HostProcessAdapter {
     return netstat?.exitCode === 0 ? parseSocketTablePids(netstat.stdout, port) : [];
   }
 
+  async processIdentity(pid: number): Promise<string | null> {
+    const result = await this.execFile({
+      program: 'ps', args: ['-p', String(pid), '-o', 'lstart='],
+      env: { LC_ALL: 'C', TZ: 'UTC' }, timeoutMs: 2_000,
+    }).catch(() => null);
+    return result?.exitCode === 0 ? result.stdout.trim() || null : null;
+  }
+
   async killPids(signal: HostProcessSignal, pids: number[]): Promise<void> {
     const uniquePids = uniqueNumbers(pids);
     if (uniquePids.length === 0) return;
