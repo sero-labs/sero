@@ -32,6 +32,6 @@ export async function reconcileRegisteredProfileContainers(
     profiles.map((profile) => profile.path),
   );
   if (result.pending > 0 || result.providerFailures > 0 || !result.registryComplete) {
-    console.warn('[container-cleanup] Reconciliation remains pending:', result);
+    console.warn(`[container-cleanup] Reconciliation remains pending: ${JSON.stringify(result)}`);
   }
 }

@@ -153,6 +153,26 @@ describe('persistent container cleanup', () => {
     expect(deleteOwned).not.toHaveBeenCalled();
   });
 
+  it('tries each pending deletion once per reconcile and logs one line when the service is down', async () => {
+    const cleanupStatePath = await statePath();
+    const workspaces = ['a', 'b', 'c'].map((id) => ({
+      profileId: 'old', workspaceId: id, workspacePath: `/profiles/old/workspaces/${id}`,
+    }));
+    await fs.writeFile(cleanupStatePath, JSON.stringify({
+      version: 1,
+      pending: workspaces.map((workspace) => ({ provider: 'docker', ...workspace, cancelWhenRegistered: true })),
+    }), 'utf8');
+    const deleteOwned = vi.fn(async () => { throw new Error('Cannot connect to Podman.\nError: connection refused'); });
+    const service = new ContainerCleanupService(cleanupStatePath, [provider('docker', deleteOwned)]);
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const result = await service.reconcile([], true);
+
+    expect(result.pending).toBe(3);
+    expect(deleteOwned).toHaveBeenCalledTimes(3);
+    expect(warning).toHaveBeenCalledTimes(1);
+  });
+
   it('repairs a corrupt cleanup state file', async () => {
     const cleanupStatePath = await statePath();
     await fs.writeFile(cleanupStatePath, '{broken', 'utf8');

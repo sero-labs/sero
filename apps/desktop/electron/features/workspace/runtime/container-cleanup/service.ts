@@ -108,10 +108,12 @@ export class ContainerCleanupService {
           }
         } catch (error) {
           result.providerFailures += 1;
-          console.warn(`[container-cleanup] Could not list ${provider.provider} containers:`, error);
+          console.warn(`[container-cleanup] Could not list ${provider.provider} containers: ${errorSummary(error)}`);
         }
       }
-      if (added) await this.writeState(state);
+      // Without new orphans, a second pass would only repeat the failures above.
+      if (!added) return result;
+      await this.writeState(state);
       const orphanResult = await this.retryState(state);
       return {
         pending: orphanResult.pending,
@@ -126,6 +128,9 @@ export class ContainerCleanupService {
   private async retryState(state: ContainerCleanupState): Promise<ReconciliationResult> {
     const result = { ...EMPTY_RESULT };
     const remaining: PendingContainerDeletion[] = [];
+    // One line per provider and cause, not a stack trace per container: an
+    // unavailable container service fails every entry the same way.
+    const failures = new Map<string, { provider: SeroContainerProvider; cause: string; count: number }>();
     for (const pending of state.pending) {
       const provider = this.providers.find((candidate) => candidate.provider === pending.provider);
       if (!provider) {
@@ -151,8 +156,18 @@ export class ContainerCleanupService {
       } catch (error) {
         remaining.push(pending);
         result.providerFailures += 1;
-        console.warn(`[container-cleanup] Could not delete ${pending.provider} container for ${pending.workspaceId}:`, error);
+        const cause = errorSummary(error);
+        const key = `${pending.provider}\0${cause}`;
+        const failure = failures.get(key) ?? { provider: pending.provider, cause, count: 0 };
+        failure.count += 1;
+        failures.set(key, failure);
       }
+    }
+    for (const { provider, cause, count } of failures.values()) {
+      console.warn(
+        `[container-cleanup] Could not delete ${count} ${provider} container${count === 1 ? '' : 's'}; `
+        + `they stay pending and retry later: ${cause}`,
+      );
     }
     state.pending = remaining;
     result.pending = remaining.length;
@@ -208,6 +223,12 @@ export class ContainerCleanupService {
     this.serial = next.then(() => undefined, () => undefined);
     return next;
   }
+}
+
+/** The first line of an error message, without the stack. */
+function errorSummary(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.split('\n', 1)[0]?.trim() || 'unknown error';
 }
 
 function hasCleanupStateShape(
