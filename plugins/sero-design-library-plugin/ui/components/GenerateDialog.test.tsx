@@ -42,23 +42,13 @@ async function chooseOperation(label: string) {
 }
 
 describe('fresh generation', () => {
-  it('shows only source-free operations and gives the prompt more space', () => {
+  it('offers only source-free operations without a reference', () => {
     renderDialog();
 
-    expect(screen.getByRole('heading', { name: 'Generate' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'Image' })).toBeDefined();
     expect(screen.getByRole('tab', { name: 'Video' })).toBeDefined();
     expect(screen.queryByRole('tab', { name: 'Restyle' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Upscale' })).toBeNull();
-    expect(screen.queryByText('Create from your description')).toBeNull();
-    expect(
-      screen.queryByText('The model behind each capability is a setting, not a choice made here.'),
-    ).toBeNull();
-    expect(screen.getByRole('tablist').className).not.toContain('border-b');
-    const imageTab = screen.getByRole('tab', { name: 'Image' });
-    expect(imageTab.className).toContain('after:bg-primary');
-    expect(document.getElementById(imageTab.getAttribute('aria-controls') ?? '')).not.toBeNull();
-    expect(screen.getByLabelText('Describe it').getAttribute('rows')).toBe('6');
   });
 });
 

@@ -77,6 +77,7 @@ containers.
 
 ## Tests
 - Run the closest existing checks first. Add only the smallest coverage needed for changed behavior that existing checks cannot prove, and tie each new test to an acceptance criterion.
-- Tautological tests considered harmfulw
-- Change-detector tests considered harmful.  
-- Do not create regression tests for bug fixes without a genuine gap in behavior testing.
+- Test consequential behavior and state through the lowest stable seam. Check nearby coverage before adding a test.
+- Do not pin incidental copy, DOM shape, classes, mock-call details, or fixture values. Keep exact checks when an approved wording, access, safety, accessibility, or data-loss contract requires them.
+- Avoid tautologies and source-text change detectors. A source or config check can protect a cross-artifact safety or version rule.
+- Do not create regression tests for bug fixes without a genuine gap in behavior testing. See [sero-unit-test](.agents/skills/sero-unit-test/SKILL.md) for examples.

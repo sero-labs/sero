@@ -78,15 +78,6 @@ describe('the Workflow settings line', () => {
     expect(values[6]).toBe('30 min');
   });
 
-  it('leaves the steps-at-a-time limit off the page while it still applies', () => {
-    const loop = workflow();
-    renderSettings(loop);
-    expect(host.textContent).not.toContain('concurrent');
-    expect(host.textContent).not.toContain('2 steps');
-    // The limit itself is untouched: runtime/limits.ts still reads it.
-    expect(loop.limits.maxConcurrentSteps).toBe(2);
-  });
-
   it('opens the context editor from the context value, not from a button beside it', () => {
     renderSettings(workflow({ contextOverrides: { systemPrompt: 'Be terse', disabledSkills: ['web'] } }));
     const cells = [...host.querySelectorAll('dd')];
@@ -137,12 +128,6 @@ describe('the Workflow settings line', () => {
     expect(labels).toEqual(['Runs in', 'Results to', 'Starts', 'Context', 'Spend', 'Attempts', 'Time']);
   });
 
-  it('shows no From value when the record names no project', () => {
-    renderSettings(workflow());
-
-    expect([...host.querySelectorAll('dt')].map((node) => node.textContent)).not.toContain('From');
-    expect(openSeroApp).not.toHaveBeenCalled();
-  });
 });
 
 describe('the Workflow state line', () => {

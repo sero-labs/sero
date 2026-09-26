@@ -207,15 +207,6 @@ describe('media models', () => {
       expect(screen.getByRole('button', { name: `How ${label} is used` }), label).toBeDefined();
     }
   });
-
-  it('explains where each model is used', async () => {
-    renderSettings();
-
-    await user.hover(screen.getByRole('button', { name: 'How Animate is used' }));
-    expect((await screen.findByRole('tooltip')).textContent).toContain(
-      'Used when a Design animates an existing image.',
-    );
-  });
 });
 
 describe('the per-run cap', () => {
