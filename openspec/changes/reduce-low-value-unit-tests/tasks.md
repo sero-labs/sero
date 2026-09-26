@@ -8,7 +8,7 @@
 
 - [x] 2.1 Check available agents and exact model IDs, then run one read-only smoke task on `deepseek-flash` with high effort if supported; verify it can read `AGENTS.md`, `git status`, and a named test and returns a useful file/line report before launching a wave.
 - [x] 2.2 Run four non-overlapping read-only pilot lanes across Orchestrator UI, another UI area, and a non-UI/control sample; cap each at about 30–50 flagged tests or 1,000 test lines and roughly ten minutes, and verify reports label each reviewed case `DELETE`, `KEEP`, or `UNSURE` with a reason. Save partial results if a lane times out.
-- [ ] 2.3 Directly inspect a sample of proposed deletions, every `UNSURE`, and every risk-tagged case; record accepted removals, false alarms, and stop-or-scale decision in `test-lessons.md` and the PR description. Verify no agent judgment alone becomes an edit instruction.
+- [x] 2.3 Directly inspect a sample of proposed deletions, every `UNSURE`, and every risk-tagged case; record accepted removals, false alarms, and stop-or-scale decision in `test-lessons.md` and the PR description. Verify no agent judgment alone becomes an edit instruction.
 
 ## 3. Prune in bounded batches
 
@@ -21,4 +21,4 @@
 
 - [x] 4.1 Update `test-lessons.md` with representative deleted tests, protected cases, and false alarms from completed batches; verify each proposed rule has a concrete example and the scratchpad is not a full verdict log.
 - [x] 4.2 Add only short, non-duplicated global test rules to `AGENTS.md`, and create `.agents/skills/sero-unit-test/SKILL.md` with the observed decision guide and concise good/bad examples; verify both preserve approved copy, accessibility, access, safety, and state contracts and do not contradict existing test guidance.
-- [ ] 4.3 Check the integrated diff, required typecheck, affected package tests, published-package version policy if any `packages/*` project was touched, and documentation impact; verify the PR is a draft with a clear removal summary and is left for the user's manual review before merge.
+- [x] 4.3 Check the integrated diff, required typecheck, affected package tests, published-package version policy if any `packages/*` project was touched, and documentation impact; verify the PR is a draft with a clear removal summary and is left for the user's manual review before merge.
