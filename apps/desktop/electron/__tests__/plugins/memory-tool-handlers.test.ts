@@ -4,10 +4,10 @@
  * The suite covers the former manual checks against the actual handler
  * functions with a real temporary filesystem. No LLM is needed.
  *
- * Covers: Tests 1, 2, 3, 4, 5, 6, 10 from the manual guide.
+ * Covers: Tests 1, 2, 3, 4, 5, 6 from the manual guide.
  */
 
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -17,7 +17,6 @@ import {
   handleWrite,
   handleReplace,
   handleRemove,
-  handleList,
   capacityError,
 } from '@plugins/sero-memory-plugin/extension/memory-tool';
 import {
@@ -71,7 +70,6 @@ beforeEach(async () => {
   // Clean memory files between tests
   await fs.rm(root, { recursive: true, force: true });
   await fs.mkdir(root, { recursive: true });
-  await fs.mkdir(path.join(root, 'memory', 'daily'), { recursive: true });
 });
 
 afterAll(async () => {
@@ -103,30 +101,26 @@ describe('Test 1 — Basic read/write', () => {
   it('reads with IDs when requested', async () => {
     await handleWrite(root, 'memory', 'Project uses Tailwind 4');
 
-    const result = await handleRead(root, 'memory', undefined, true);
+    const result = await handleRead(root, 'memory', true);
     const text = resultText(result);
     expect(text).toMatch(/mem-[a-f0-9]+/);
     expect(text).toMatch(/# Memory \[\d+% — \d+\/4000 chars\]/);
   });
 
-  it('lists files from an empty root', async () => {
-    const result = await handleList(root);
-    expect(resultText(result)).toBe('No memory files found.');
-  });
 });
 
 // ── Test 2: Type Tags ──────────────────────────────────────────
 
 describe('Test 2 — Type tags', () => {
   it('writes a decision entry with [decision] tag', async () => {
-    await handleWrite(root, 'memory', 'Chose Clerk for auth', undefined, undefined, 'decision');
+    await handleWrite(root, 'memory', 'Chose Clerk for auth', undefined, 'decision');
 
     const content = await readMemory();
     expect(content).toContain('§ [decision] Chose Clerk for auth');
   });
 
   it('writes a preference entry with [preference] tag', async () => {
-    await handleWrite(root, 'memory', 'Always use pnpm', undefined, undefined, 'preference');
+    await handleWrite(root, 'memory', 'Always use pnpm', undefined, 'preference');
 
     const content = await readMemory();
     expect(content).toContain('§ [preference] Always use pnpm');
@@ -258,7 +252,7 @@ describe('Test 6 — Capacity enforcement', () => {
     expect(usage.chars).toBeGreaterThan(usage.max);
     const err = capacityError('MEMORY.md', 'memory', content);
     expect(err).toBe(
-      `Error: MEMORY.md would exceed capacity (${usage.chars}/${usage.max} chars). Current usage: ${usage.percent}%. Replace, remove, or consolidate content before adding more.`,
+      `Error: MEMORY.md would exceed capacity (${usage.chars}/${usage.max} chars). Current usage: ${usage.percent}%. Replace or remove content before adding more.`,
     );
   });
 
@@ -282,41 +276,6 @@ describe('Test 6 — Capacity enforcement', () => {
   });
 });
 
-// ── Test 10: Daily Logs ────────────────────────────────────────
-
-describe('Test 10 — Daily logs', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date(2026, 3, 12, 12, 34, 56));
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it('writes to daily log with timestamp', async () => {
-    const result = await handleWrite(root, 'daily', 'Completed memory v2 testing');
-    expect(resultText(result)).toContain('Appended to');
-
-    const dailyPath = path.join(root, 'memory', 'daily', '2026-04-12.md');
-    const content = await fs.readFile(dailyPath, 'utf8');
-
-    expect(content).toContain('Completed memory v2 testing');
-    // Should have a timestamp comment
-    expect(content).toMatch(/<!-- \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} -->/);
-  });
-
-  it('appends multiple entries to the same daily log', async () => {
-    await handleWrite(root, 'daily', 'First entry');
-    await handleWrite(root, 'daily', 'Second entry');
-
-    const dailyPath = path.join(root, 'memory', 'daily', '2026-04-12.md');
-    const content = await fs.readFile(dailyPath, 'utf8');
-
-    expect(content).toContain('First entry');
-    expect(content).toContain('Second entry');
-  });
-});
 
 // ── Test 13: Legacy Format (partial) ───────────────────────────
 

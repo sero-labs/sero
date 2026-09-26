@@ -23,7 +23,7 @@ Built-in plugins can appear in app discovery or favorites. External plugins do n
 | Git | `@sero-ai/plugin-git` | [Guide](/guide/git-integration) | Visual Git workspace manager. |
 | Graphify | `@sero-ai/plugin-graphify` | [Docs](/plugins/graphify) | Local workspace and profile knowledge graphs. |
 | MCP | `@sero-ai/plugin-mcp` | [Guide](/guide/mcp) | MCP manager app; manifest bridges selected `mcp` tool behavior. |
-| Memory | `@sero-ai/plugin-memory` | [Guide](/guide/memory) | Persistent memory, identity/profile facts, and daily logs. |
+| Memory | `@sero-ai/plugin-memory` | [Guide](/guide/memory) | Agent identity, user profile, and long-term facts in every session. |
 | Search | `@sero-ai/plugin-fff` | [Docs](/plugins/search) | Indexed `find`/`grep`/`multi_grep` for agent sessions; extension only, `bridgeTools: false`. |
 | Orchestrator | `@sero-ai/plugin-orchestrator` | [Guide](/guide/orchestrator) | Workflows and Rooms. |
 | Output Optimizer | `@sero-ai/plugin-output-optimizer` | [Docs](/reference/output-optimizer) | Optional shell-output rewriting and compaction; disabled for a new profile. |

@@ -14,7 +14,6 @@ import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import { CONFIG_FILES } from '../../shared/types';
 import type { ConfigFile } from '../../shared/types';
 import { useConfigFile } from '../hooks/useConfigFile';
-import { MemoryLoggingSettingsCard } from './MemoryLoggingSettingsCard';
 import { RuntimeStateSettingsCard } from './RuntimeStateSettingsCard';
 
 interface ConfigPanelProps {
@@ -333,17 +332,7 @@ function ConfigEditor({
         ) : (
           <>
             {configKey === 'settings' ? (
-              <>
-                <RuntimeStateSettingsCard disabled={isReadOnly} />
-                {displayContent !== null ? (
-                  <MemoryLoggingSettingsCard
-                    rawSettings={displayContent}
-                    profilePath={profilePath}
-                    onChange={handleEdit}
-                    disabled={isReadOnly}
-                  />
-                ) : null}
-              </>
+              <RuntimeStateSettingsCard disabled={isReadOnly} />
             ) : null}
             <textarea aria-label="Config JSON"
               value={displayContent ?? ''}

@@ -13,7 +13,6 @@ import {
 import { cn } from '@sero-ai/ui/lib/utils';
 import { MessageAttachments } from './ChatAttachments';
 import { ThinkingBlock } from './ThinkingBlock';
-import { MemoryContextBlock } from './MemoryContextBlock';
 import { ResponseFeedback } from './ResponseFeedback';
 import { ThinkingIndicator } from './ChatPanelHelpers';
 import type { ChatMessage, ChatTurnUndoRef } from '@/types/ipc';
@@ -72,8 +71,6 @@ interface ChatMessageItemProps {
   message: ChatMessage;
   /** Whether to display thinking/reasoning blocks. */
   showThinking?: boolean;
-  /** Whether to display memory context blocks. */
-  showMemory?: boolean;
   onRestoreTurnUndo?: (turnUndo: ChatTurnUndoRef) => void;
   /** Session ID for feedback attribution. */
   sessionId?: string;
@@ -84,7 +81,6 @@ interface ChatMessageItemProps {
 export const ChatMessageItem = memo(function ChatMessageItem({
   message,
   showThinking,
-  showMemory,
   onRestoreTurnUndo,
   sessionId,
   previousUserText,
@@ -160,7 +156,6 @@ export const ChatMessageItem = memo(function ChatMessageItem({
     case 'assistant': {
       const isDone = !message.isStreaming;
       const hasContent = !!message.text?.trim();
-      const hasMemoryContext = !!(showMemory && message.memoryContext);
       const hasThinkingBlock = !!(showThinking && message.thinking);
       const showInlineThinkingIndicator = message.isStreaming
         && !hasContent
@@ -176,9 +171,6 @@ export const ChatMessageItem = memo(function ChatMessageItem({
         <Message from="assistant" className="group/msg flex-row items-start gap-2">
           {showAvatar ? <ChatAvatar kind="assistant" /> : null}
           <div className="flex min-w-0 flex-1 flex-col gap-2">
-            {hasMemoryContext ? (
-              <MemoryContextBlock context={message.memoryContext!} />
-            ) : null}
             {hasThinkingBlock ? (
               <ThinkingBlock
                 thinking={message.thinking!}

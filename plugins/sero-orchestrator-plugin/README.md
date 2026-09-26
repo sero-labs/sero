@@ -159,5 +159,4 @@ than promising a wake it cannot give.
 
 The chat banner and the Orchestrator Goals view are gated on the approved
 prototypes (`goal-mode-chat.html`, `goal-mode-orchestrator.html`). The runtime
-already emits a `goal-status` custom message for the host to intercept, on the
-`memory-context` precedent.
+already emits a `goal-status` custom message for the host to intercept.

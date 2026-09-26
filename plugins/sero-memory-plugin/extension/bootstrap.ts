@@ -1,17 +1,17 @@
 /**
  * Bootstrap — first-run setup for the memory system.
  *
- * On first run (no MEMORY.md), creates empty template files and
- * provides questionnaire definitions for the agent to ask the user.
- * The agent uses the `questionnaire` tool to collect answers, then
- * writes results to memory files via `sero memory write`.
+ * On first run, provides questionnaire definitions for the agent to ask the
+ * user. The agent uses the `questionnaire` tool to collect answers, then
+ * writes IDENTITY.md and USER.md via `sero memory write`. MEMORY.md starts
+ * empty and fills as the user asks the agent to remember things.
  */
 
 import type { QuestionnairePayload } from '../shared/types';
 
 import {
   resolveMemoryRoot,
-  ensureDirectories,
+  getIdentityPath,
   getMemoryPath,
   getUserPath,
   fileExists,
@@ -152,48 +152,6 @@ export const USER_QUESTIONS: QuestionnairePayload = {
   ],
 };
 
-export const MEMORY_QUESTIONS: QuestionnairePayload = {
-  questions: [
-    {
-      id: 'tech_knowledge',
-      label: 'Technical',
-      prompt: 'Any crucial technical knowledge to remember? (frameworks, patterns, configs)',
-      options: [
-        { value: 'none', label: 'Nothing specific right now', description: 'No key technical context to save yet', exclusive: true },
-        { value: 'repo-docs-source', label: 'The repo/docs are the source of truth', description: 'Read existing code and docs before guessing' },
-        { value: 'env-constraints', label: 'There are important environment/setup constraints', description: 'Config, platform, or setup details matter' },
-      ],
-      allowOther: true,
-      multiSelect: true,
-    },
-    {
-      id: 'explorer_prefs',
-      label: 'Explorer',
-      prompt: 'Any explorer preferences or conventions to remember?',
-      options: [
-        { value: 'none', label: 'No strong preference', description: 'Use whatever best fits the task', exclusive: true },
-        { value: 'functional', label: 'Prefer functional patterns over classes', description: 'Lean toward functions and composition' },
-        { value: 'oop', label: 'Prefer OOP / class-based', description: 'Class-oriented structure is welcome' },
-        { value: 'strong-types', label: 'Prefer strong typing / explicit types', description: 'Bias toward explicit type safety' },
-        { value: 'tests-first', label: 'Prefer tests or verification for changes', description: 'Validate behaviour when practical' },
-      ],
-      allowOther: true,
-      multiSelect: true,
-    },
-    {
-      id: 'projects',
-      label: 'Projects',
-      prompt: 'Any active projects or contexts the AI should know about?',
-      options: [
-        { value: 'none', label: 'Nothing specific right now', description: 'No active project context to store yet' },
-        { value: 'one-main-project', label: 'One main active project', description: 'There is a primary project to optimise around' },
-        { value: 'multiple-contexts', label: 'Multiple active projects / contexts', description: 'Expect task-switching across different areas' },
-      ],
-      allowOther: true,
-    },
-  ],
-};
-
 // ── Bootstrap logic ────────────────────────────────────────────
 
 export interface BootstrapStatus {
@@ -202,24 +160,24 @@ export interface BootstrapStatus {
 }
 
 /**
- * Check whether the memory system needs bootstrapping.
- * Creates directories if needed. Does NOT create any template files —
- * those are written by the agent after collecting questionnaire answers.
+ * Check whether the memory system needs bootstrapping. Setup is done once
+ * MEMORY.md exists (profiles from before onboarding stopped writing it) or
+ * both IDENTITY.md and USER.md exist.
  */
 export async function checkBootstrapStatus(): Promise<BootstrapStatus> {
   const root = resolveMemoryRoot();
-  await ensureDirectories(root);
 
-  const memoryPath = getMemoryPath(root);
-  const memoryExists = await fileExists(memoryPath);
+  const [memoryExists, identityExists, userExists] = await Promise.all([
+    fileExists(getMemoryPath(root)),
+    fileExists(getIdentityPath(root)),
+    fileExists(getUserPath(root)),
+  ]);
 
-  if (memoryExists) {
+  if (memoryExists || (identityExists && userExists)) {
     return { needsBootstrap: false, existingUserContent: null };
   }
 
-  // Check if USER.md already has content (common in existing setups)
-  const userPath = getUserPath(root);
-  const userContent = await readFile(userPath);
+  const userContent = await readFile(getUserPath(root));
   const hasUserContent = !!userContent?.trim();
 
   return {

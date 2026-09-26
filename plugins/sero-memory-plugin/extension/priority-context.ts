@@ -1,3 +1,10 @@
+/**
+ * Static memory context for the system prompt: IDENTITY.md, USER.md and
+ * MEMORY.md. Captured once per session so the system prompt stays
+ * byte-identical across turns and provider prompt caching keeps hitting.
+ * Mid-session memory writes appear in the next session.
+ */
+
 import {
   readFile,
   getIdentityPath,
@@ -6,15 +13,6 @@ import {
   getUserPath,
   statFile,
 } from './memory-manager';
-import { isQmdAvailable, searchRelevantMemories } from './qmd';
-import { formatRankedResults } from './retrieval';
-import {
-  buildFingerprint,
-  clearCache,
-  consumeCache,
-  mergeCachedResults,
-  storeTurnResults,
-} from './prefetch';
 import {
   formatMemoryEntry,
   formatShortTimestamp,
@@ -26,12 +24,9 @@ import {
   stripManagedFileMetadata,
   type MemoryEntry,
 } from './memory-format';
-import { recordHits, sortByScore } from './memory-scoring';
-import type { MemorySnapshotMode } from './memory-config';
 
 const BUDGET_IDENTITY = 1_000;
 const BUDGET_USER = 1_000;
-const BUDGET_SEARCH = 2_500;
 const BUDGET_MEMORY = 1_600;
 const BUDGET_TOTAL = 7_600;
 
@@ -145,45 +140,6 @@ async function buildUserSection(root: string): Promise<string> {
   });
 }
 
-async function buildSearchSection(prompt: string, sessionId?: string): Promise<string> {
-  const skipSearch = process.env.SERO_MEMORY_NO_SEARCH === '1';
-  if (skipSearch || !isQmdAvailable() || !prompt) return '';
-
-  const { formatted, results: freshResults } = await searchRelevantMemories(prompt);
-  const currentFingerprint = buildFingerprint(prompt);
-
-  let mergedFormatted = formatted;
-  if (sessionId) {
-    const cached = consumeCache(sessionId);
-    if (cached && freshResults.length > 0) {
-      const merged = mergeCachedResults(freshResults, cached, currentFingerprint, 3);
-      if (merged.length > freshResults.length) {
-        mergedFormatted = formatRankedResults(merged);
-      }
-    }
-    if (freshResults.length > 0) {
-      storeTurnResults(sessionId, prompt, freshResults, currentFingerprint);
-    }
-  }
-
-  if (!mergedFormatted.trim()) return '';
-
-  const truncated = truncateStart(`## Relevant memories (auto-retrieved)\n\n${mergedFormatted}`, BUDGET_SEARCH);
-
-  const memoryHitIds = freshResults.flatMap((r) => {
-    const text = r.content?.toString() ?? '';
-    const ids: string[] = [];
-    const regex = /<!-- id: (mem-[a-f0-9]+) -->/gi;
-    let match;
-    while ((match = regex.exec(text)) !== null) ids.push(match[1]!);
-    return ids;
-  });
-  if (memoryHitIds.length > 0) {
-    recordHits(memoryHitIds).catch(() => {});
-  }
-
-  return [truncated.text, truncated.notice ? `\n\n${truncated.notice}` : ''].join('').trim();
-}
 
 async function buildMemorySection(root: string): Promise<string> {
   const memoryPath = getMemoryPath(root);
@@ -192,8 +148,7 @@ async function buildMemorySection(root: string): Promise<string> {
 
   const memoryEntries = parseMemoryEntries(memoryContent);
   if (memoryEntries.length > 0) {
-    const scoredEntries = await sortByScore(memoryEntries);
-    const truncated = truncateMemoryByType(scoredEntries, BUDGET_MEMORY);
+    const truncated = truncateMemoryByType(memoryEntries, BUDGET_MEMORY);
     const stat = await statFile(memoryPath);
     const usage = getTargetUsage('memory', memoryContent);
     const updated = stat ? formatShortTimestamp(stat.mtime) : 'unknown';
@@ -230,94 +185,29 @@ async function getOrCreateFrozenSnapshot(root: string, sessionId: string): Promi
 
 export function clearPriorityContextCache(sessionId: string): void {
   frozenSnapshots.delete(sessionId);
-  clearCache(sessionId);
 }
 
 /**
- * Result of building priority context, split into three streams by mutation
- * cadence so the system prompt can stay byte-identical across turns (required
- * for provider-level prompt caching).
- *
- * - `staticContext` → system prompt. Identity, user, and long-term memory
- *   only. In `frozen` snapshot mode these are captured once per session.
- * - `searchContext` → per-turn message. QMD hits for the current prompt.
+ * Build the memory block for the system prompt. With a session id the
+ * sections are frozen for that session; without one they are read fresh.
  */
-export interface PriorityContextResult {
-  /** Static memory sections (IDENTITY, USER, MEMORY.md) for the system prompt. */
-  staticContext: string;
-  /** Dynamic QMD search results for the current prompt. Empty if no results or QMD unavailable. */
-  searchContext: string;
-}
+export async function buildPriorityContext(root: string, sessionId?: string): Promise<string> {
+  const snapshot = sessionId
+    ? await getOrCreateFrozenSnapshot(root, sessionId)
+    : {
+      identitySection: await buildIdentitySection(root),
+      userSection: await buildUserSection(root),
+      memorySection: await buildMemorySection(root),
+    };
 
-export interface BuildPriorityContextOptions {
-  /** When false, skip prompt-specific QMD retrieval entirely. */
-  includeSearch?: boolean;
-}
-
-/**
- * Build priority context with search results returned separately.
- *
- * Use this when you need to inject static context into the system prompt
- * and optionally send search results as a per-turn message.
- */
-export async function buildPriorityContextSplit(
-  root: string,
-  prompt: string,
-  sessionId?: string,
-  snapshotMode: MemorySnapshotMode = 'live',
-  options: BuildPriorityContextOptions = {},
-): Promise<PriorityContextResult> {
-  const staticSections: string[] = [];
+  const sections: string[] = [];
   let totalChars = 0;
-
-  function addSection(section: string): void {
-    if (!section.trim()) return;
-    if (totalChars + section.length > BUDGET_TOTAL) return;
-    staticSections.push(section);
+  for (const section of [snapshot.identitySection, snapshot.userSection, snapshot.memorySection]) {
+    if (!section.trim()) continue;
+    if (totalChars + section.length > BUDGET_TOTAL) continue;
+    sections.push(section);
     totalChars += section.length;
   }
 
-  const frozenSnapshot = snapshotMode === 'frozen' && sessionId
-    ? await getOrCreateFrozenSnapshot(root, sessionId)
-    : null;
-
-  addSection(frozenSnapshot?.identitySection ?? await buildIdentitySection(root));
-  addSection(frozenSnapshot?.userSection ?? await buildUserSection(root));
-  addSection(frozenSnapshot?.memorySection ?? await buildMemorySection(root));
-
-  const searchSection = options.includeSearch === false
-    ? ''
-    : await buildSearchSection(prompt, sessionId);
-
-  const staticContext = staticSections.length > 0
-    ? `\n\n## Memory\n\n${staticSections.join('\n\n---\n\n')}`
-    : '';
-
-  return { staticContext, searchContext: searchSection };
-}
-
-/**
- * Build the full priority context as a single string.
- * Combines static memory + search results.
- * Used by tests and as a debugging view; the runtime injection path uses
- * `buildPriorityContextSplit` directly so each stream goes to the right place.
- */
-export async function buildPriorityContext(
-  root: string,
-  prompt: string,
-  sessionId?: string,
-  snapshotMode: MemorySnapshotMode = 'frozen',
-): Promise<string> {
-  const { staticContext, searchContext } = await buildPriorityContextSplit(
-    root,
-    prompt,
-    sessionId,
-    snapshotMode,
-  );
-  const parts: string[] = [];
-  if (staticContext) parts.push(staticContext);
-  if (searchContext) {
-    parts.push(staticContext ? `---\n\n${searchContext}` : `\n\n## Memory\n\n${searchContext}`);
-  }
-  return parts.join('\n\n');
+  return sections.length > 0 ? `\n\n## Memory\n\n${sections.join('\n\n---\n\n')}` : '';
 }
