@@ -121,7 +121,11 @@ export function createGithubAdapter(
           if ((response.status === 403 || response.status === 429) && response.rateLimitResetMs) {
             rateLimitedUntilMs = Math.max(rateLimitedUntilMs, response.rateLimitResetMs);
           }
-          host.log(`github adapter: ${endpoint.id} poll failed (HTTP ${response.status})`);
+          // Log when failures start, not on every backed-off retry after that.
+          if (consecutiveFailures === 0) {
+            const reason = response.error ? `: ${response.error}` : '';
+            host.log(`github adapter: ${endpoint.id} poll failed in ${host.workspaceId} (HTTP ${response.status})${reason}`);
+          }
           continue;
         }
         if (response.etag) etags[endpoint.id] = response.etag;

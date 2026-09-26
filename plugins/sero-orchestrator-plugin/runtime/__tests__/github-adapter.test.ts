@@ -214,6 +214,20 @@ describe('backoff transitions', () => {
     expect(adapter.debug().consecutiveFailures).toBe(0);
   });
 
+  it('logs a failing poll with the gh reason once, not on every backed-off retry', async () => {
+    const host = createFakeHost();
+    const { adapter } = makeAdapter(host, [subscription('loop-1', 'pr-opened')]);
+    const noRemote = { stdout: '', stderr: 'no git remotes found\n', exitCode: 1 };
+
+    host.commandResults.push(noRemote, noRemote);
+    await adapter.pollOnce();
+    await adapter.pollOnce();
+
+    expect(adapter.debug().consecutiveFailures).toBe(2);
+    expect(host.logs).toHaveLength(1);
+    expect(host.logs[0]).toContain('no git remotes found');
+  });
+
   it('slows down when the rate-limit window runs low even on success', async () => {
     const host = createFakeHost();
     const { adapter } = makeAdapter(host, [subscription('loop-1', 'pr-opened')]);

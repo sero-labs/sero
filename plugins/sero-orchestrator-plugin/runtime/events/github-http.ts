@@ -21,6 +21,8 @@ export interface GhApiResponse {
   rateLimitResetMs?: number;
   /** Parsed JSON body (2xx with valid JSON only). */
   body?: unknown;
+  /** First line of `gh`'s stderr when the command failed before an HTTP exchange. */
+  error?: string;
 }
 
 const COMMAND_TIMEOUT_MS = 30_000;
@@ -54,6 +56,10 @@ export function parseGhApiOutput(stdout: string, stderr: string, exitCode: numbe
   }
 
   const response: GhApiResponse = { status };
+  if (status === 0) {
+    const reason = stderr.trim().split('\n', 1)[0];
+    if (reason) response.error = reason;
+  }
   if (headers.etag) response.etag = headers.etag;
   if (headers['x-ratelimit-remaining'] !== undefined) {
     response.rateLimitRemaining = Number(headers['x-ratelimit-remaining']);
