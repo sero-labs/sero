@@ -85,22 +85,32 @@ function AttentionIndicator({ workspaceId }: { workspaceId: string }) {
   // An Architect project has a page that says what it needs, so the icon opens
   // it. A Workflow or a Room has no such page to open from here.
   const { projectId } = attention;
+  const openProject = (event: React.SyntheticEvent) => {
+    event.stopPropagation();
+    openGlobalAppView(ARCHITECT_APP_ID, `projects/${projectId}`);
+  };
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         {projectId ? (
-          <button
-            type="button"
+          // A span, not a <button>: the icon sits inside the workspace row,
+          // which is itself a <button>, and HTML forbids nesting them.
+          <span
+            role="button"
+            tabIndex={0}
             aria-label={attention.sentence}
             data-testid={`workspace-attention-${workspaceId}`}
             className={cn(className, 'cursor-pointer transition-colors', stopped ? 'hover:bg-status-error/28' : 'hover:bg-status-warning/28')}
-            onClick={(event) => {
-              event.stopPropagation();
-              openGlobalAppView(ARCHITECT_APP_ID, `projects/${projectId}`);
+            onClick={openProject}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                openProject(event);
+              }
             }}
           >
             <Glyph className="size-2.5" />
-          </button>
+          </span>
         ) : (
           <span
             role="img"
