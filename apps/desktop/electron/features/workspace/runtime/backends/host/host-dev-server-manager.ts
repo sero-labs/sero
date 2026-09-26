@@ -122,8 +122,8 @@ export class HostDevServerManager {
       if (!detected) {
         const exitBeforeCleanup = earlyExit;
         if (recoveryId) {
-          process.signal('SIGTERM');
           await this.recovery?.terminate(recoveryId);
+          process.signal('SIGTERM');
         } else await this.terminateProcess(process, detectionPid);
         terminated = true;
         throw new Error(exitBeforeCleanup
@@ -172,8 +172,8 @@ export class HostDevServerManager {
       unsubscribeExit();
       if (!terminated) {
         if (recoveryId) {
-          process.signal('SIGTERM');
           await this.recovery?.terminate(recoveryId);
+          process.signal('SIGTERM');
         } else await this.terminateProcess(process, detectionPid);
       }
       throw err instanceof Error ? err : new Error(String(err));
@@ -334,8 +334,8 @@ export class HostDevServerManager {
     // Other processes can listen on the same port on a different address. A spawned
     // server owns its process tree, not every listener on that port.
     if (server.recoveryId) {
-      server.process?.signal('SIGTERM');
       await this.recovery?.terminate(server.recoveryId);
+      server.process?.signal('SIGTERM');
       server.recoveryId = undefined;
     } else {
       await this.terminateProcess(server.process, server.executionPid ?? server.pid,

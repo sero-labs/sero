@@ -76,6 +76,42 @@ describe('HostDevServerManager', () => {
     expect(adapter.killPids).not.toHaveBeenCalled();
   });
 
+  it('stops a child created after the initial snapshot when port detection times out', async () => {
+    const identities = new Map([[process.pid, 'app-start'], [1234, 'shell-start'], [2000, 'late-server']]);
+    let initialSnapshot = true;
+    let parentExited = false;
+    const adapter = createProcessAdapter({
+      descendantPids: vi.fn(async (pid) => {
+        if (pid !== 1234 || parentExited) return [];
+        if (initialSnapshot) {
+          initialSnapshot = false;
+          return [];
+        }
+        return [2000];
+      }),
+      listeningPort: vi.fn(async () => null),
+      processIdentity: vi.fn(async (pid) => identities.get(pid) ?? null),
+      killPids: vi.fn(async (_signal, pids) => {
+        for (const pid of pids) identities.delete(pid);
+        if (pids.includes(1234)) parentExited = true;
+      }),
+    });
+    const recovery = await createRecovery(adapter);
+    const shell = createProcess();
+    shell.signal.mockImplementation(() => {
+      parentExited = true;
+      identities.delete(1234);
+    });
+    const manager = createManager({
+      spawn: vi.fn(async () => shell), processAdapter: adapter, recovery, portDetectTimeoutMs: 5,
+    });
+
+    await expect(manager.start({ command: 'install && dev', cwd: '/workspace' }))
+      .rejects.toThrow('No listening port was detected');
+    expect(identities.has(2000)).toBe(false);
+    expect(await readdir(temporaryDirectories[0])).toEqual([]);
+  });
+
   it('reports a quick process exit instead of a recovery identity error', async () => {
     const adapter = createProcessAdapter({
       processIdentity: vi.fn(async (pid) => pid === process.pid ? 'app-start' : null),
