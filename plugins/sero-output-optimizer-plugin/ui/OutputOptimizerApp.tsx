@@ -105,7 +105,7 @@ export function OutputOptimizerApp() {
         </Alert>
       ) : null}
 
-      <Card>
+      <Card className="border-border/60">
         <CardContent className="flex flex-col gap-4 pt-4">
           <ToggleRow
             id="optimizer-enabled"
@@ -127,7 +127,7 @@ export function OutputOptimizerApp() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-border/60">
         <CardContent className="flex flex-col gap-3 pt-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex flex-col">
@@ -151,7 +151,7 @@ export function OutputOptimizerApp() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-border/60">
         <CardContent className="flex flex-col gap-3 pt-4">
           <span className="text-sm font-medium text-[var(--text-primary)]">Rewritten command classes</span>
           <p className="text-sm text-[var(--text-secondary)]">
@@ -171,7 +171,7 @@ export function OutputOptimizerApp() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-border/60">
         <CardContent className="flex flex-col gap-3 pt-4">
           <span className="text-sm font-medium text-[var(--text-primary)]">Session savings</span>
           <p className="text-sm text-[var(--text-secondary)]">
