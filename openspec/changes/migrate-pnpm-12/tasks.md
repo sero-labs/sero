@@ -26,8 +26,8 @@
 ## 5. CI workflows
 
 - [x] 5.1 Move all 14 `pnpm/action-setup` steps to v6.1.0 (tag `@v6.1.0`, or `@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0` where the file pins SHAs) and add `version: <pins.json version>`. Verify: the pin validator passes on the repo.
-- [ ] 5.2 Push the branch as a draft PR. Verify: Test, E2E contract, and E2E workflow jobs pass with `pnpm install --frozen-lockfile`, and the job logs print the pinned pnpm version.
-- [ ] 5.3 Run the release workflow's build path (or `pnpm release:beta:dry` plus the release job on a test tag if the owner approves). Verify: the release build and packaging steps pass.
+- [x] 5.2 Push the branch as a draft PR. Verify: Test, E2E contract, and E2E workflow jobs pass with `pnpm install --frozen-lockfile`, and the job logs print the pinned pnpm version. Result: Test passes with pnpm 12.5.1. E2E contract and E2E workflow fail the same way on `main` (#568); accepted by the owner.
+- [x] 5.3 Run the release workflow's build path (or `pnpm release:beta:dry` plus the release job on a test tag if the owner approves). Verify: the release build and packaging steps pass. Result: Linux x64 and arm64 release builds and smoke tests pass. The Windows `test:packaging` failure and the macOS notarization failure also happen on `main` (#568); accepted by the owner.
 
 ## 6. sero-node image
 
