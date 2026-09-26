@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { defineConfig } from 'vitest/config';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
@@ -17,6 +17,10 @@ export default defineConfig({
     // same machine, so each suite stays near a third of the available CPUs.
     maxWorkers: process.env.CI ? '75%' : '33%',
     setupFiles: ['test/vitest.setup.ts'],
+    // `test:packaging` runs with `--mode packaging` so the packaging checks fail
+    // when the staged plugins are missing. The mode replaces an inline
+    // `VAR=1 vitest` prefix, which cmd.exe cannot run on Windows.
+    env: mode === 'packaging' ? { SERO_REQUIRE_PACKAGED_PLUGINS: '1' } : {},
     projects: [
       {
         extends: true,
@@ -39,4 +43,4 @@ export default defineConfig({
       },
     ],
   },
-});
+}));
