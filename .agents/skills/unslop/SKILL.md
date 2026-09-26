@@ -1,6 +1,7 @@
 ---
 name: unslop
 description: Use by default for regular agent chat, conversation, explanations, and status reports. Use sero-humanize for Sero application content instead.
+disable-model-invocation: true
 ---
 
 # Unslop
