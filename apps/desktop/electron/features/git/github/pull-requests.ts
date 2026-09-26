@@ -234,8 +234,11 @@ function buildMergeArgs(
  */
 function warnGhReadFailure(op: string, err: unknown): void {
   const { stderr, message } = ghError(err);
-  const detail = (stderr || message).slice(0, 200);
+  const detail = (stderr || message).trim().slice(0, 200);
   const code = (err as { code?: string })?.code;
+  // A workspace that is not a git repo, or has no GitHub remote, has no
+  // PRs or issues. That is a normal state, not a failure worth a log line.
+  if (/no git remotes found|not a git repository|none of the git remotes configured/i.test(detail)) return;
   if (code === 'ENOENT') {
     console.warn(`[github] gh ${op}: gh CLI not found — returning empty list`);
   } else if (/auth|login|credentials|401|403/i.test(detail)) {

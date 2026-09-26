@@ -119,6 +119,23 @@ describe('listOpenPullRequests', () => {
     ghMock.mockResolvedValue({ stdout: 'not json', stderr: '' });
     expect(await listOpenPullRequests(gh)).toEqual([]);
   });
+
+  it('logs nothing for a workspace without a GitHub remote, but logs a real failure', async () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    ghMock.mockRejectedValueOnce({ stderr: 'no git remotes found\n', message: 'command failed' });
+    ghMock.mockRejectedValueOnce({
+      stderr: 'failed to run git: fatal: not a git repository (or any of the parent directories): .git\n',
+      message: 'command failed',
+    });
+    await listOpenPullRequests(gh);
+    await listOpenPullRequests(gh);
+    expect(warning).not.toHaveBeenCalled();
+
+    ghMock.mockRejectedValueOnce({ stderr: 'HTTP 502: Bad Gateway', message: 'command failed' });
+    await listOpenPullRequests(gh);
+    expect(warning).toHaveBeenCalledTimes(1);
+    warning.mockRestore();
+  });
 });
 
 describe('createPullRequest', () => {
