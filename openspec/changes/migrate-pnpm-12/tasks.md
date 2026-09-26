@@ -32,7 +32,7 @@
 ## 6. sero-node image
 
 - [x] 6.1 In `Dockerfile.sero-node`, link `/usr/local/bin/pnpm` to `/opt/sero-runtime/node_modules/@pnpm/exe.linux-<arch>/pnpm`, mapping `dpkg --print-architecture` to `x64` or `arm64`, and fail the build if that file is missing. Verify: `docker build` of `sero-node:latest` succeeds.
-- [ ] 6.2 Recreate the affected workspace containers. Verify: `pnpm --version` inside a container with no network prints the `pins.json` version, and `pnpm install` in a sample workspace completes; record where the pnpm store was created.
+- [x] 6.2 Recreate the affected workspace containers. Verify: `pnpm --version` inside a container with no network prints the `pins.json` version, and `pnpm install` in a sample workspace completes; record where the pnpm store was created.
 
 ## 7. Contributor docs
 
