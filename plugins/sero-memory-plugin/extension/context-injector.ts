@@ -32,9 +32,16 @@ const LEGACY_MESSAGE_TYPES = new Set(['memory-search-context', 'memory-context']
 
 let cachedStatus: BootstrapStatus | null = null;
 
+/**
+ * Only a finished setup is cached. Until then every turn re-checks the files,
+ * so a setup turn that is aborted or ends early cannot leave the onboarding
+ * instructions in place once the files exist.
+ */
 async function getCachedBootstrapStatus(): Promise<BootstrapStatus> {
-  if (!cachedStatus) cachedStatus = await checkBootstrapStatus();
-  return cachedStatus;
+  if (cachedStatus) return cachedStatus;
+  const status = await checkBootstrapStatus();
+  if (!status.needsBootstrap) cachedStatus = status;
+  return status;
 }
 
 export function resetBootstrapCache(): void {
@@ -109,13 +116,9 @@ export function registerContextInjection(pi: ExtensionAPI): void {
     };
   });
 
-  // Setup writes the profile files during a turn; re-check after it.
-  pi.on('agent_end', async () => {
-    if (cachedStatus?.needsBootstrap) resetBootstrapCache();
-  });
-
   pi.on('session_shutdown', async (_event, ctx) => {
     clearPriorityContextCache(ctx.sessionManager.getSessionId());
+    resetBootstrapCache();
   });
 
   pi.on('before_agent_start', async (event, ctx) => {

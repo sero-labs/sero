@@ -36,7 +36,7 @@ interface FrozenPrioritySnapshot {
   memorySection: string;
 }
 
-const frozenSnapshots = new Map<string, FrozenPrioritySnapshot>();
+const frozenSnapshots = new Map<string, Promise<FrozenPrioritySnapshot>>();
 
 function truncateStart(text: string, maxChars: number): { text: string; notice: string } {
   if (text.length <= maxChars) return { text, notice: '' };
@@ -170,16 +170,27 @@ async function buildMemorySection(root: string): Promise<string> {
   });
 }
 
-async function getOrCreateFrozenSnapshot(root: string, sessionId: string): Promise<FrozenPrioritySnapshot> {
-  const cached = frozenSnapshots.get(sessionId);
-  if (cached) return cached;
-
-  const snapshot: FrozenPrioritySnapshot = {
+async function buildSnapshot(root: string): Promise<FrozenPrioritySnapshot> {
+  return {
     identitySection: await buildIdentitySection(root),
     userSection: await buildUserSection(root),
     memorySection: await buildMemorySection(root),
   };
+}
+
+/**
+ * The build promise is stored before it resolves, so a clear during the build
+ * removes it and the finished build cannot re-insert a stale snapshot.
+ */
+function getOrCreateFrozenSnapshot(root: string, sessionId: string): Promise<FrozenPrioritySnapshot> {
+  const cached = frozenSnapshots.get(sessionId);
+  if (cached) return cached;
+
+  const snapshot = buildSnapshot(root);
   frozenSnapshots.set(sessionId, snapshot);
+  snapshot.catch(() => {
+    if (frozenSnapshots.get(sessionId) === snapshot) frozenSnapshots.delete(sessionId);
+  });
   return snapshot;
 }
 
@@ -194,11 +205,7 @@ export function clearPriorityContextCache(sessionId: string): void {
 export async function buildPriorityContext(root: string, sessionId?: string): Promise<string> {
   const snapshot = sessionId
     ? await getOrCreateFrozenSnapshot(root, sessionId)
-    : {
-      identitySection: await buildIdentitySection(root),
-      userSection: await buildUserSection(root),
-      memorySection: await buildMemorySection(root),
-    };
+    : await buildSnapshot(root);
 
   const sections: string[] = [];
   let totalChars = 0;

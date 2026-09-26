@@ -88,13 +88,13 @@ describe('context injector', () => {
     expect(result).toEqual({ messages: [kept] });
   });
 
-  it('switches from setup instructions to memory once setup finishes in a turn', async () => {
+  it('switches from setup instructions to memory once the setup files exist', async () => {
     mocks.checkBootstrapStatus.mockResolvedValueOnce({ needsBootstrap: true, existingUserContent: null });
     const handlers = createPiHarness();
     const beforeAgentStart = handlers.get('before_agent_start')!;
 
+    // No agent_end between turns: an aborted setup turn must not pin the instructions.
     const setupTurn = await beforeAgentStart({ prompt: 'hi', systemPrompt: 'base' }, ctx);
-    await handlers.get('agent_end')!({});
     const nextTurn = await beforeAgentStart({ prompt: 'next', systemPrompt: 'base' }, ctx);
 
     expect(setupTurn).toMatchObject({ systemPrompt: expect.stringContaining('Memory Setup Required') });

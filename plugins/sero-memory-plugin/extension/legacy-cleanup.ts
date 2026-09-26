@@ -20,8 +20,12 @@ interface CronStateFile {
   [key: string]: unknown;
 }
 
+/** Same resolution as the old plugin used when it wrote the job. */
 function resolveCronStatePath(): string {
-  const seroHome = process.env.SERO_HOME?.trim() || path.join(os.homedir(), '.sero-ui');
+  const envValue = process.env.SERO_HOME?.trim();
+  const seroHome = envValue && envValue !== 'undefined' && envValue !== 'null'
+    ? envValue
+    : path.join(os.homedir(), '.sero-ui');
   return path.join(seroHome, 'apps', 'cron', 'state.json');
 }
 
