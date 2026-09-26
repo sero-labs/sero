@@ -237,7 +237,7 @@ export default function memoryExtension(pi: ExtensionAPI): void {
   registerMemoryTool(pi);
   registerSearchTool(pi);
 
-  // ── Session lifecycle (handoff + exit summary) ─────────────
+  // ── Session lifecycle (handoff + exit transcript) ──────────
 
   registerSessionLifecycle(pi);
 

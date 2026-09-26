@@ -1,17 +1,14 @@
 /**
- * Session lifecycle hooks — compaction handoff and exit summary.
+ * Session lifecycle hooks — compaction handoff and exit transcript.
  *
  * - session_before_compact: auto-captures recent daily log context as a
  *   handoff entry in today's daily log.
  *   This survives context window resets.
  *
- * - session_shutdown: generates an LLM-powered session summary
- *   (decisions, lessons, notes, follow-ups) and appends it to the
- *   daily log. Uses reasoning_effort: low for cost control.
+ * - session_shutdown: saves the session transcript for recall.
  */
 
-import type { ExtensionAPI, SessionMessageEntry } from '@earendil-works/pi-coding-agent';
-import { convertToLlm, serializeConversation } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 import {
   resolveMemoryRoot,
@@ -23,19 +20,9 @@ import { nowTimestamp } from './memory-format';
 import { runQmdUpdateNow, clearUpdateTimer } from './qmd';
 import { error, errorDetails, info } from './logger';
 import { exportTranscriptForSession } from './session-transcripts';
-import { requestIsolatedCompletion } from '@sero-ai/extension-runtime';
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-
-// ── Constants ──────────────────────────────────────────────────
-
-const SUMMARY_MAX_CHARS = 80_000;
-const SUMMARY_SYSTEM_PROMPT = [
-  'You are a session recap assistant.',
-  'Read the conversation and extract key decisions, lessons learned, notes, and follow-ups.',
-  'Return ONLY markdown in the specified format, without any extra commentary.'
-].join('\n');
 
 // ── Helpers ────────────────────────────────────────────────────
 
@@ -48,32 +35,6 @@ async function appendToDaily(content: string): Promise<void> {
   const existing = await readFile(filePath);
   const separator = existing?.trim() ? '\n\n' : '';
   await fs.writeFile(filePath, (existing ?? '') + separator + content, 'utf-8');
-}
-
-function truncateText(text: string, maxChars: number): { text: string; truncated: boolean } {
-  if (text.length <= maxChars) return { text, truncated: false };
-  return { text: text.slice(-maxChars), truncated: true };
-}
-
-function buildSummaryFallback(error?: string): string {
-  const note = error ? `- Auto-summary unavailable: ${error}.` : '- Auto-summary unavailable.';
-  return [
-    '### Decisions', '- None.',
-    '### Lessons Learned', '- None.',
-    '### Notes', note,
-    '### Follow-ups', '- None.',
-  ].join('\n');
-}
-
-function buildSessionSummaryEntry(summary: string, sessionId: string, timestamp: string): string {
-  return [
-    `<!-- ${timestamp} -->`,
-    '<!-- source: daily-summary -->',
-    `<!-- session-id: ${sessionId} -->`,
-    '## Session Summary (auto)',
-    '',
-    summary,
-  ].join('\n');
 }
 
 function notifyTranscriptExportFailure(message: string, ctx: {
@@ -161,92 +122,27 @@ export function registerSessionLifecycle(pi: ExtensionAPI): void {
     await appendToDaily(handoff);
   });
 
-  // ── Exit summary ───────────────────────────────────────────
+  // ── Exit transcript ────────────────────────────────────────
+  // Only the transcript is saved at shutdown. An LLM exit summary used to run
+  // here too; it re-summarised unchanged sessions on every quit, spent a model
+  // call each time, and was cut off by the host's shutdown timeout.
 
   pi.on('session_shutdown', async (_event, ctx) => {
     const sessionId = ctx.sessionManager.getSessionId();
     info('session_shutdown_start', { sessionId });
 
     try {
-      const branch = ctx.sessionManager.getBranch();
-      const messageEntries = branch.filter(
-        (entry): entry is SessionMessageEntry => entry.type === 'message',
+      const transcript = await exportTranscriptForSession(ctx.sessionManager, 'session_shutdown');
+      if (transcript.changed) await runQmdUpdateNow();
+    } catch (err) {
+      error('session_transcript_export_failed', {
+        sessionId,
+        ...errorDetails(err),
+      });
+      notifyTranscriptExportFailure(
+        'Conversation recall could not save the latest session transcript before shutdown.',
+        ctx,
       );
-      if (messageEntries.length === 0) return;
-
-      let qmdDirty = false;
-      const messages = messageEntries.map((entry) => entry.message);
-
-      try {
-        const transcript = await exportTranscriptForSession(ctx.sessionManager, 'session_shutdown');
-        qmdDirty = qmdDirty || transcript.changed;
-      } catch (err) {
-        error('session_transcript_export_failed', {
-          sessionId,
-          ...errorDetails(err),
-        });
-        notifyTranscriptExportFailure(
-          'Conversation recall could not save the latest session transcript before shutdown.',
-          ctx,
-        );
-      }
-
-      if (ctx.model) {
-        try {
-          const llmMessages = convertToLlm(messages);
-          const conversationText = serializeConversation(llmMessages);
-          const { text: truncated, truncated: wasTruncated } = truncateText(
-            conversationText.trim(),
-            SUMMARY_MAX_CHARS,
-          );
-
-          if (truncated) {
-            const promptLines = [
-              'Review the conversation and extract important decisions, lessons learned, notes, and follow-ups for a daily log.',
-              'Return markdown only with these exact headings:',
-              '### Decisions',
-              '### Lessons Learned',
-              '### Notes',
-              '### Follow-ups',
-              'Use bullet points under each heading. If there is nothing, write "None.".',
-            ];
-            if (wasTruncated) {
-              promptLines.push(
-                `Note: Conversation was truncated to the most recent ${truncated.length} of ${conversationText.length} characters.`,
-              );
-            }
-            promptLines.push('', '<conversation>', truncated, '</conversation>');
-
-            const summaryText = await requestIsolatedCompletion(pi.events, {
-              cwd: ctx.cwd,
-              model: ctx.model,
-              prompt: promptLines.join('\n'),
-              systemPrompt: SUMMARY_SYSTEM_PROMPT,
-              thinkingLevel: 'low',
-              signal: ctx.signal,
-            });
-
-            const summary = summaryText || buildSummaryFallback('Summary was empty');
-            await appendToDaily(buildSessionSummaryEntry(summary, sessionId, nowTimestamp()));
-            qmdDirty = true;
-            info('session_summary_written', { sessionId });
-          }
-        } catch (err) {
-          const fallback = buildSummaryFallback(
-            err instanceof Error ? err.message : 'unknown error',
-          );
-          await appendToDaily(buildSessionSummaryEntry(fallback, sessionId, nowTimestamp())).catch(() => {});
-          qmdDirty = true;
-          error('session_summary_failed', {
-            sessionId,
-            ...errorDetails(err),
-          });
-        }
-      }
-
-      if (qmdDirty) {
-        await runQmdUpdateNow();
-      }
     } finally {
       clearUpdateTimer();
     }
