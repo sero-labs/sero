@@ -13,7 +13,7 @@
     "e2e:update": "playwright test --update-snapshots"
   },
   "dependencies": {
-    "@module-federation/enhanced": "2.8.0",
+    "@module-federation/enhanced": "2.9.0",
     "@sero-ai/app-runtime": "workspace:@sero-ai/app-runtime@*",
     "@sero-ai/common": "workspace:*",
     "@sero-ai/ui": "workspace:*",
