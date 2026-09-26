@@ -36,7 +36,7 @@ catalog:
   typescript: "^5.9.3"
   vite: "6.4.3"
   "@vitejs/plugin-react": "^4.7.0"
-  "@module-federation/vite": "1.19.1"
+  "@module-federation/vite": "1.21.6"
 
   # Types
   "@types/react": "^19.2.13"
@@ -50,7 +50,8 @@ catalog:
   "@earendil-works/pi-coding-agent": "0.84.2"
   "@earendil-works/pi-tui": "0.84.2"
 
-  # Zod (peer of @earendil-works/pi-* transitives: openai, @anthropic-ai/sdk, zod-to-json-schema)
+  # Zod is a peer of Pi SDK transitives: openai, @anthropic-ai/sdk,
+  # and zod-to-json-schema.
   zod: "^4.4.3"
 
   # Shared libraries
@@ -81,6 +82,3 @@ catalogs:
     react: "^19.2.8"
     react-dom: "^19.2.8"
     zod: ">=4.0.0"
-
-patchedDependencies:
-  "@module-federation/vite@1.19.1": patches/@module-federation__vite@1.19.1.patch
