@@ -32,6 +32,7 @@ concurrency:
 env:
   CI: true
   TURBO_TELEMETRY_DISABLED: 1
+  NODE_OPTIONS: --max-old-space-size=4096
   SERO_E2E_RUNTIME: ${{ inputs.runtime }}
 
 jobs:

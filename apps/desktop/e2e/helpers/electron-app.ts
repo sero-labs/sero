@@ -87,6 +87,9 @@ export async function launchSeroApp(
     ...(process.env as Record<string, string>),
     NODE_ENV: 'test',
     SERO_HOME_OVERRIDE: seroHome,
+    // Under NODE_ENV=test the main process refuses to resolve the real
+    // ~/.sero-ui for host artifacts, so keep them in the temp home too.
+    SERO_HOST_ARTIFACTS_ROOT_OVERRIDE: process.env.SERO_HOST_ARTIFACTS_ROOT_OVERRIDE ?? seroHome,
     SERO_E2E_RUNTIME: runtime,
   };
 

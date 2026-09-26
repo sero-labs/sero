@@ -13,15 +13,18 @@ const DESKTOP_ROOT = path.resolve(__dirname, '../..');
 export const E2E_DATA_ROOT = process.platform === 'win32'
   ? path.join(os.homedir(), '.sero-e2e')
   : path.join(DESKTOP_ROOT, '.sero-e2e');
+// Windows can keep Chromium profile files locked briefly after Electron exits;
+// rmSync retries EBUSY and EPERM with these options.
+const RM_OPTIONS = { recursive: true, force: true, maxRetries: 10, retryDelay: 200 } as const;
 const LEGACY_E2E_DATA_ROOTS = [
   path.join(DESKTOP_ROOT, '.sero-test-data'),
   path.join(DESKTOP_ROOT, '.sero-layout-test'),
 ];
 
 export function cleanupE2eDataRoot(): void {
-  fs.rmSync(E2E_DATA_ROOT, { recursive: true, force: true });
+  fs.rmSync(E2E_DATA_ROOT, RM_OPTIONS);
   for (const legacyRoot of LEGACY_E2E_DATA_ROOTS) {
-    fs.rmSync(legacyRoot, { recursive: true, force: true });
+    fs.rmSync(legacyRoot, RM_OPTIONS);
   }
 }
 
@@ -32,7 +35,7 @@ export function createTempSeroHome(): TempSeroHome {
     path: dir,
     activeProfileId: null,
     cleanup: () => {
-      fs.rmSync(dir, { recursive: true, force: true });
+      fs.rmSync(dir, RM_OPTIONS);
     },
   };
   return handle;

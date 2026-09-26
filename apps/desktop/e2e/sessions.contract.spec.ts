@@ -101,10 +101,10 @@ test.describe('sessions IPC contracts without public sessions.get', () => {
     const setup = await page.evaluate(async () => {
       const workspace = await window.sero.workspace.create('Session Open Contract');
       const session = await window.sero.sessions.create(workspace.id);
-      const messages = await window.sero.agent.open(session.id, session.path, workspace.id);
+      const opened = await window.sero.agent.open(session.id, session.path, workspace.id);
       await window.sero.agent.close(session.id);
       const listed = await window.sero.sessions.list(workspace.id);
-      return { workspace, session, messages, listed };
+      return { workspace, session, opened, listed };
     });
 
     try {
@@ -113,7 +113,7 @@ test.describe('sessions IPC contracts without public sessions.get', () => {
         path: expect.any(String),
         workspaceId: setup.workspace.id,
       }));
-      expect(setup.messages).toEqual([]);
+      expect(setup.opened).toEqual({ messages: [], olderCursor: null });
       expect(setup.listed).toEqual(expect.arrayContaining([
         expect.objectContaining({ id: setup.session.id, path: setup.session.path }),
       ]));
@@ -139,12 +139,12 @@ test.describe('sessions IPC contracts without public sessions.get', () => {
       const unsubscribeType = typeof unsubscribe;
 
       try {
-        const firstMessages = await window.sero.agent.open(first.id, first.path, workspace.id);
-        const secondMessages = await window.sero.agent.open(second.id, second.path, workspace.id);
+        const firstOpened = await window.sero.agent.open(first.id, first.path, workspace.id);
+        const secondOpened = await window.sero.agent.open(second.id, second.path, workspace.id);
         await window.sero.agent.close(first.id);
         await window.sero.agent.close(second.id);
         unsubscribe();
-        return { workspace, first, second, firstMessages, secondMessages, events, unsubscribeType };
+        return { workspace, first, second, firstOpened, secondOpened, events, unsubscribeType };
       } catch (error) {
         unsubscribe();
         throw error;
@@ -153,8 +153,8 @@ test.describe('sessions IPC contracts without public sessions.get', () => {
 
     try {
       expect(result.unsubscribeType).toBe('function');
-      expect(result.firstMessages).toEqual([]);
-      expect(result.secondMessages).toEqual([]);
+      expect(result.firstOpened).toEqual({ messages: [], olderCursor: null });
+      expect(result.secondOpened).toEqual({ messages: [], olderCursor: null });
 
       const allowedSessionIds = new Set([result.first.id, result.second.id]);
       for (const event of result.events) {
