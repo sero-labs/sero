@@ -10,7 +10,7 @@
     "preview": "rspress preview"
   },
   "devDependencies": {
-    "rspress": "^1.47.2",
-    "rspress-plugin-mermaid": "0.3.0"
+    "@rspress/core": "^2.0.22",
+    "rspress-plugin-mermaid": "^1.0.3"
   }
 }

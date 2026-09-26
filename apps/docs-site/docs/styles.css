@@ -118,7 +118,7 @@ body {
 }
 
 /* ── Nav ──────────────────────────────────────────────────────────────── */
-.rspress-nav {
+.rp-nav {
   height: var(--rp-nav-height) !important;
   border-bottom: 1px solid var(--sero-border) !important;
   background: var(--sero-nav-bg) !important;
@@ -135,8 +135,8 @@ body {
   filter: brightness(0) invert(1);
 }
 
-.rspress-nav-menu-item,
-.rspress-nav-menu-group-button {
+.rp-nav-menu__item,
+.rp-nav-menu__item__container {
   font-family: var(--sero-font) !important;
   font-size: 12.5px !important;
   font-weight: 500 !important;
@@ -144,7 +144,7 @@ body {
 }
 
 /* ── Sidebar ──────────────────────────────────────────────────────────── */
-.rspress-sidebar {
+.rp-doc-layout__sidebar {
   font-family: var(--sero-font) !important;
   font-size: 12.5px !important;
 }
@@ -263,15 +263,12 @@ body {
     display: block;
   }
 
-  body.sero-toc-hidden [class^="aside-container_"],
-  body.sero-toc-hidden [class*=" aside-container_"] {
+  body.sero-toc-hidden .rp-doc-layout__outline {
     display: none !important;
   }
 
-  body.sero-toc-hidden :is([class^="content_"] .rspress-doc,
-  [class*=" content_"] .rspress-doc,
-  [class^="content_"] .rspress-doc-footer,
-  [class*=" content_"] .rspress-doc-footer) {
+  body.sero-toc-hidden :is(.rp-doc-layout__doc-container .rspress-doc,
+  .rp-doc-layout__doc-container .rp-doc-footer) {
     max-width: min(100%, 1280px) !important;
   }
 }
@@ -287,37 +284,40 @@ body {
 
 /* ── Home page ────────────────────────────────────────────────────────── */
 /* Hero */
-section > div[style*="min-height"] {
-  min-height: calc(100dvh - var(--rp-nav-height)) !important;
+.rp-home-hero {
+  min-height: calc(50vh + 27px) !important;
+  max-width: 72rem !important;
+  margin: 0 auto !important;
+  padding: 2rem 4rem !important;
   overflow: hidden;
-  padding-bottom: 16px !important;
+  align-items: center !important;
+  z-index: 1 !important;
 }
 
-section > div[style*="min-height"] > div.pb-12 {
-  padding-bottom: 0 !important;
+/* Emerald hero glow — replaces the Rspress v2 blue/purple default. */
+.rp-home-background {
+  z-index: 0 !important;
+  top: calc(25vh - 174px) !important;
+  left: calc(50% + 320px) !important;
+  width: 720px !important;
+  height: 500px !important;
+  transform: translateX(-50%) !important;
+  border-radius: 100% !important;
+  filter: blur(80px) !important;
+  opacity: 0.27 !important;
+  background: conic-gradient(from 180deg, var(--sero-emerald) 0deg, transparent 180deg, #42d392 360deg) !important;
 }
 
-section > div[style*="min-height"] > div.pb-12 > div.relative {
-  padding: 1.25rem 2rem 0.75rem !important;
-}
-
-section div:has(> div > .rspress-home-hero-image) {
-  min-height: 34vh !important;
-  max-width: 1280px !important;
-  margin-top: 0 !important;
-}
-
-section div:has(> div > .rspress-home-hero-image) > div:first-child {
-  align-items: flex-start !important;
-  justify-content: center !important;
-  width: min(720px, 62vw) !important;
-  max-width: 720px !important;
+.rp-home-hero__container {
+  gap: 0 !important;
+  align-items: center !important;
   text-align: left !important;
 }
 
-section h1 { display: none !important; }
+/* The nav logo already names the site; keep the hero to the text line. */
+.rp-home-hero__title { display: none !important; }
 
-.rspress-home-hero-text {
+.rp-home-hero__subtitle {
   max-width: 720px !important;
   color: var(--sero-text) !important;
   font-family: var(--sero-font) !important;
@@ -329,7 +329,7 @@ section h1 { display: none !important; }
   white-space: nowrap;
 }
 
-.rspress-home-hero-tagline {
+.rp-home-hero__tagline {
   max-width: 720px !important;
   padding-top: 0.85rem !important;
   color: var(--sero-muted) !important;
@@ -340,13 +340,13 @@ section h1 { display: none !important; }
   text-align: left !important;
 }
 
-.rspress-home-hero-tagline + div {
+.rp-home-hero__actions {
   justify-content: flex-start !important;
   padding-top: 1rem !important;
   gap: 0.65rem !important;
 }
 
-.rspress-home-hero-tagline + div a {
+.rp-home-hero__action {
   font-family: var(--sero-font) !important;
   min-height: 2.5rem !important;
   padding: 0.5rem 1.2rem !important;
@@ -359,60 +359,88 @@ section h1 { display: none !important; }
   transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
 }
 
-.rspress-home-hero-tagline + div > div:first-child a {
+.rp-home-hero__action.rp-button--brand {
   border-color: transparent !important;
   background-color: var(--sero-emerald) !important;
   color: #fff !important;
 }
 
-.rspress-home-hero-tagline + div > div:not(:first-child) a {
+.rp-home-hero__action.rp-button--alt {
   border: 1px solid var(--sero-border-mid) !important;
   background-color: transparent !important;
   color: var(--sero-text) !important;
 }
 
-.rspress-home-hero-tagline + div > div:not(:first-child) a:hover {
+.rp-home-hero__action.rp-button--alt:hover {
   border-color: var(--sero-emerald) !important;
   color: var(--sero-emerald) !important;
 }
 
-.rspress-home-hero-image img {
+.rp-home-hero__image {
+  align-self: center !important;
+  justify-content: center;
+}
+
+.rp-home-hero__image img {
   width: min(280px, 24vw);
   max-height: 260px;
   object-fit: contain;
 }
 
 /* Feature cards */
-section div:has(> div > div > article.rspress-home-feature-card) {
+.rp-home-feature {
+  position: relative;
+  z-index: 1;
   display: grid !important;
   grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.96fr) minmax(0, 0.96fr);
   max-width: 1180px !important;
+  margin: 0 auto 2rem !important;
   gap: 10px;
   overflow: visible !important;
 }
 
-section div:has(> div > div > article.rspress-home-feature-card) > div {
+.rp-home-feature__item {
   width: auto !important;
   max-width: none !important;
 }
 
-.rspress-home-feature-card {
+.rp-home-feature__card {
   min-height: 100%;
   padding: 1rem 1.15rem !important;
   border: 1px solid var(--sero-border) !important;
   border-radius: 0 !important;
   background: var(--sero-bg-alt) !important;
-  box-shadow: none;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  overflow: visible;
   transition: border-color 150ms ease;
 }
 
-.rspress-home-feature-card:hover {
+.rp-home-feature__card:hover {
   border-color: var(--sero-emerald) !important;
 }
 
-.rspress-home-feature-icon { color: var(--sero-emerald) !important; }
+.rp-home-feature__title-wrapper {
+  align-items: center !important;
+  gap: 0.35rem !important;
+}
 
-.rspress-home-feature-title {
+.rp-home-feature__icon {
+  color: var(--sero-emerald) !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  min-width: 3rem !important;
+  min-height: 3rem !important;
+}
+
+.rp-home-feature__icon svg {
+  width: 3rem !important;
+  height: 3rem !important;
+}
+
+.rp-home-feature__title {
+  width: 100%;
   font-family: var(--sero-font) !important;
   color: var(--sero-text) !important;
   font-size: 14px !important;
@@ -421,7 +449,7 @@ section div:has(> div > div > article.rspress-home-feature-card) > div {
   text-align: center !important;
 }
 
-.rspress-home-feature-detail {
+.rp-home-feature__detail {
   font-family: var(--sero-font) !important;
   color: var(--sero-muted) !important;
   font-size: 12.5px !important;
@@ -434,26 +462,33 @@ section div:has(> div > div > article.rspress-home-feature-card) > div {
 @media (max-width: 760px) {
   :root { --rp-nav-height: 56px; }
 
-  section > div[style*="min-height"] { overflow: visible; }
-
   .rspress-logo { width: 56px; }
 
-  section div:has(> div > .rspress-home-hero-image) {
+  .rp-home-hero {
+    flex-direction: column-reverse;
+    align-items: center !important;
     min-height: auto !important;
+    margin: 0 auto !important;
+    padding: 1.5rem 1.25rem !important;
   }
 
-  section div:has(> div > .rspress-home-hero-image) > div:first-child {
+  .rp-home-hero__container {
     width: 100% !important;
     max-width: 100% !important;
+    align-items: center !important;
+    text-align: center !important;
   }
 
-  .rspress-home-hero-text {
+  .rp-home-hero__subtitle {
     font-size: clamp(1.8rem, 9vw, 2.8rem) !important;
     white-space: normal;
     text-wrap: balance;
+    text-align: center !important;
   }
 
-  section div:has(> div > div > article.rspress-home-feature-card) {
+  .rp-home-hero__tagline { text-align: center !important; }
+
+  .rp-home-feature {
     grid-template-columns: 1fr;
     padding-inline: 1rem;
   }

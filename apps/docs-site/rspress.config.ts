@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defineConfig } from 'rspress/config';
+import { defineConfig } from '@rspress/core';
 import mermaid from 'rspress-plugin-mermaid';
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
