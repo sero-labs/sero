@@ -152,7 +152,7 @@ For the exact beta support contract, see
 ### Run from source for development
 
 Developers and contributors can still run Sero from source. You need Node.js 22,
-pnpm 10, Git, and a platform covered by Support Scope.
+[pnpm 12](https://pnpm.io/installation), Git, and a platform covered by Support Scope.
 
 
 ```bash

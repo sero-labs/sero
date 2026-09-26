@@ -162,6 +162,13 @@ Corepack instructions for an exact pin, but Decision 1 replaces the exact pin.
   directory, for example with a bind-mounted project. Check where the store
   lands during the container smoke test. Report it; do not change the store
   setup in this change.
+- [Corepack cannot run pnpm 11 or 12] → Corepack (0.34 and 0.36) starts
+  `bin/pnpm.cjs`, which pnpm 12 does not ship (nodejs/corepack#775). A machine
+  with Corepack `pnpm` shims in Node's `bin` fails any `pnpm` call that a Node
+  process starts, such as the postinstall rebuild. The docs tell contributors
+  not to use Corepack; `corepack disable pnpm` removes the shims. pnpm 10's
+  `self-update` cannot reach 12 either (old native package name); use pnpm's
+  installer.
 - [Dependabot uses its own pnpm] → Check the first Dependabot npm run after
   merge and confirm it respects `pnpm-workspace.yaml` overrides.
 - [Updater bumps pnpm to a new 12.x] → Routine minor updates stay inside the

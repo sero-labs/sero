@@ -3,12 +3,46 @@ packages:
   - "packages/*"
   - "plugins/*"
 
-onlyBuiltDependencies:
-  - bun
-  - electron
-  - esbuild
-  - node-pty
-  - sharp
+# Security overrides. Keep each value unchanged unless the advisory changes.
+overrides:
+  keyv: "5.6.0"
+  cache-manager: "7.2.8"
+  cacheable-request: "7.0.4"
+  "@cacheable/utils": "2.4.1"
+  cacheable: "<2.5.1"
+  "@cacheable/memory": "<2.2.1"
+  "@cacheable/net": "<2.1.1"
+  "@cacheable/node-cache": "<3.1.2"
+  flat-cache: "<6.1.24"
+  file-entry-cache: "<11.1.6"
+  ecto: "<5.0.1"
+
+# Every dependency build script needs a decision: true runs it, false skips it.
+# The false entries are the scripts pnpm 10 skipped before this list existed.
+allowBuilds:
+  bun: true
+  electron: true
+  esbuild: true
+  node-pty: true
+  sharp: true
+  "@google/genai": false
+  "@parcel/watcher": false
+  "@playwright/browser-chromium": false
+  "@swc/core": false
+  better-sqlite3: false
+  core-js: false
+  electron-winstaller: false
+  koffi: false
+  msw: false
+  node-llama-cpp: false
+  onnxruntime-node: false
+  protobufjs: false
+  tree-sitter-go: false
+  tree-sitter-javascript: false
+  tree-sitter-python: false
+  tree-sitter-rust: false
+  tree-sitter-typescript: false
+  workerd: false
 
 # ── Default catalog ────────────────────────────────────────────
 # Single source of truth for shared dependency versions.

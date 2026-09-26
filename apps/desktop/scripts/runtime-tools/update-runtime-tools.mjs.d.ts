@@ -33,6 +33,11 @@ export function recordSecurityOverrides(
   reason?: string,
 ): void;
 
+export function assertWorkflowPnpmVersions(
+  workflows: Array<{ file: string; contents: string }>,
+  version: string,
+): void;
+
 export function validateRuntimePins(options: {
   pins: {
     policy?: { minimumReleaseAgeDays?: number };

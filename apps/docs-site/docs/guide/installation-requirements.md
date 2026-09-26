@@ -79,7 +79,7 @@ Skip this section if you installed the packaged desktop application and are not 
 Install:
 
 - **Node.js 22**
-- **pnpm 10**
+- **[pnpm 12](https://pnpm.io/installation)**
 - Git
 - the compiler tools for your OS if a dependency contains native code
 
