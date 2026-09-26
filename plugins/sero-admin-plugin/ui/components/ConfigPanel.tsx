@@ -5,7 +5,7 @@
  * JSON content in an editable textarea on the right. Supports save + reload.
  */
 
-import { useState, useEffect, useCallback, memo } from 'react';
+import { memo } from 'react';
 import { TriangleAlert } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { Button } from '@sero-ai/ui/components/ui/button';
@@ -13,8 +13,8 @@ import { Badge } from '@sero-ai/ui/components/ui/badge';
 import { ScrollArea } from '@sero-ai/ui/components/ui/scroll-area';
 import { CONFIG_FILES } from '../../shared/types';
 import type { ConfigFile } from '../../shared/types';
+import { useConfigDraft } from '../hooks/useConfigDraft';
 import { useConfigFile } from '../hooks/useConfigFile';
-import { MemoryLoggingSettingsCard } from './MemoryLoggingSettingsCard';
 import { RuntimeStateSettingsCard } from './RuntimeStateSettingsCard';
 
 interface ConfigPanelProps {
@@ -178,7 +178,129 @@ function SensitiveAuthGate({
   );
 }
 
+// ── Toolbar ────────────────────────────────────────────────
+
+function ConfigToolbar({
+  label,
+  isSensitive,
+  hasChanges,
+  saveDisabled,
+  saving,
+  onLock,
+  onReset,
+  onSave,
+  onReload,
+}: {
+  label: string;
+  isSensitive: boolean;
+  hasChanges: boolean;
+  saveDisabled: boolean;
+  saving: boolean;
+  onLock: () => void;
+  onReset: () => void;
+  onSave: () => void;
+  onReload: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between border-b border-border/30 px-4 py-2">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-medium text-foreground/80">{label}</span>
+        {isSensitive && (
+          <span className="inline-flex items-center gap-1 text-sm text-amber-400/70">
+            <TriangleAlert className="size-3" />
+            Contains sensitive data
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-1.5">
+        {isSensitive && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-sm text-amber-400/70"
+            onClick={onLock}
+          >
+            Lock
+          </Button>
+        )}
+        {hasChanges && (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-sm text-muted-foreground"
+              onClick={onReset}
+            >
+              Reset
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              className="h-6 bg-primary px-2.5 text-sm hover:bg-primary/90"
+              onClick={onSave}
+              disabled={saveDisabled}
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
+          </>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 px-2 text-sm text-muted-foreground"
+          onClick={onReload}
+        >
+          Reload
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // ── JSON Editor ────────────────────────────────────────────
+
+function ConfigEditorBody({
+  configKey,
+  content,
+  displayContent,
+  isReadOnly,
+  onEdit,
+}: {
+  configKey: string;
+  content: string | null;
+  displayContent: string | null;
+  isReadOnly: boolean;
+  onEdit: (value: string) => void;
+}) {
+  if (content === null) {
+    return (
+      <div className="flex h-full items-center justify-center py-16">
+        <p className="text-xs text-muted-foreground/50">File not found</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {configKey === 'settings' ? (
+        <RuntimeStateSettingsCard disabled={isReadOnly} />
+      ) : null}
+      <textarea aria-label="Config JSON"
+        value={displayContent ?? ''}
+        onChange={(e) => onEdit(e.target.value)}
+        readOnly={isReadOnly}
+        spellCheck={false}
+        className={cn(
+          'admin-editor w-full min-h-full resize-none bg-transparent',
+          'px-4 py-3 text-base leading-[1.6] text-foreground/90',
+          isReadOnly && 'opacity-60 cursor-default',
+        )}
+        // fieldSizing: 'content' is Chromium-only (Chrome 123+), fine for Electron
+        style={{ fieldSizing: 'content' } as React.CSSProperties}
+      />
+    </>
+  );
+}
 
 function ConfigEditor({
   profilePath,
@@ -190,56 +312,11 @@ function ConfigEditor({
   const { content, loading, error, saving, configFile, save, reload } =
     useConfigFile(profilePath, configKey);
 
-  const [editContent, setEditContent] = useState<string | null>(null);
-  const [parseError, setParseError] = useState<string | null>(null);
-  const [sensitiveUnlocked, setSensitiveUnlocked] = useState(false);
-
-  // Reset edit state AND re-lock sensitive files when switching configs
-  useEffect(() => {
-    setEditContent(null);
-    setParseError(null);
-    setSensitiveUnlocked(false);
-  }, [configKey]);
-
-  const displayContent = editContent ?? content;
-
   const isJsonFile = configFile?.relativePath.endsWith('.json') ?? true;
   const isSensitive = configFile?.sensitive ?? false;
   const isReadOnly = configFile?.readOnly ?? false;
 
-  const handleEdit = useCallback((value: string) => {
-    setEditContent(value);
-    // Validate JSON (skip for non-JSON files like .env)
-    if (isJsonFile) {
-      try {
-        JSON.parse(value);
-        setParseError(null);
-      } catch (err) {
-        setParseError(err instanceof Error ? err.message : 'Invalid JSON');
-      }
-    } else {
-      setParseError(null);
-    }
-  }, [isJsonFile]);
-
-  const handleSave = useCallback(async () => {
-    if (!editContent || parseError) return;
-    await save(editContent);
-    setEditContent(null);
-  }, [editContent, parseError, save]);
-
-  const handleReload = useCallback(async () => {
-    setEditContent(null);
-    setParseError(null);
-    await reload();
-  }, [reload]);
-
-  const handleReset = useCallback(() => {
-    setEditContent(null);
-    setParseError(null);
-  }, []);
-
-  const hasChanges = editContent !== null && editContent !== content;
+  const draft = useConfigDraft({ configKey, content, isJsonFile, save, reload });
 
   if (loading) {
     return (
@@ -250,116 +327,47 @@ function ConfigEditor({
   }
 
   // Gate sensitive files behind an explicit unlock
-  if (isSensitive && !sensitiveUnlocked) {
+  if (isSensitive && !draft.sensitiveUnlocked) {
     return (
       <SensitiveAuthGate
         label={configFile?.label ?? configKey}
-        onUnlock={() => setSensitiveUnlocked(true)}
+        onUnlock={() => draft.setSensitiveUnlocked(true)}
       />
     );
   }
 
+  const errorMessage = error || draft.parseError;
+
   return (
     <div className="admin-config-pane flex h-full flex-col">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between border-b border-border/30 px-4 py-2">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-foreground/80">
-            {configFile?.label ?? configKey}
-          </span>
-          {isSensitive && (
-            <span className="inline-flex items-center gap-1 text-sm text-amber-400/70">
-              <TriangleAlert className="size-3" />
-              Contains sensitive data
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1.5">
-          {isSensitive && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-sm text-amber-400/70"
-              onClick={() => setSensitiveUnlocked(false)}
-            >
-              Lock
-            </Button>
-          )}
-          {hasChanges && (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 px-2 text-sm text-muted-foreground"
-                onClick={handleReset}
-              >
-                Reset
-              </Button>
-              <Button
-                variant="default"
-                size="sm"
-                className="h-6 bg-primary px-2.5 text-sm hover:bg-primary/90"
-                onClick={handleSave}
-                disabled={!!parseError || saving || isReadOnly}
-              >
-                {saving ? 'Saving…' : 'Save'}
-              </Button>
-            </>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 px-2 text-sm text-muted-foreground"
-            onClick={handleReload}
-          >
-            Reload
-          </Button>
-        </div>
-      </div>
+      <ConfigToolbar
+        label={configFile?.label ?? configKey}
+        isSensitive={isSensitive}
+        hasChanges={draft.hasChanges}
+        saveDisabled={!!draft.parseError || saving || isReadOnly}
+        saving={saving}
+        onLock={() => draft.setSensitiveUnlocked(false)}
+        onReset={draft.handleReset}
+        onSave={draft.handleSave}
+        onReload={draft.handleReload}
+      />
 
       {/* Error bar */}
-      {(error || parseError) && (
+      {errorMessage && (
         <div className="border-b border-destructive/20 bg-destructive/5 px-4 py-1.5">
-          <p className="text-sm text-destructive">{error || parseError}</p>
+          <p className="text-sm text-destructive">{errorMessage}</p>
         </div>
       )}
 
       {/* Editor */}
       <ScrollArea className="min-h-0 flex-1 [&>[data-slot=scroll-area-viewport]>div]:!block">
-        {content === null ? (
-          <div className="flex h-full items-center justify-center py-16">
-            <p className="text-xs text-muted-foreground/50">File not found</p>
-          </div>
-        ) : (
-          <>
-            {configKey === 'settings' ? (
-              <>
-                <RuntimeStateSettingsCard disabled={isReadOnly} />
-                {displayContent !== null ? (
-                  <MemoryLoggingSettingsCard
-                    rawSettings={displayContent}
-                    profilePath={profilePath}
-                    onChange={handleEdit}
-                    disabled={isReadOnly}
-                  />
-                ) : null}
-              </>
-            ) : null}
-            <textarea aria-label="Config JSON"
-              value={displayContent ?? ''}
-              onChange={(e) => handleEdit(e.target.value)}
-              readOnly={isReadOnly}
-              spellCheck={false}
-              className={cn(
-                'admin-editor w-full min-h-full resize-none bg-transparent',
-                'px-4 py-3 text-base leading-[1.6] text-foreground/90',
-                isReadOnly && 'opacity-60 cursor-default',
-              )}
-              // fieldSizing: 'content' is Chromium-only (Chrome 123+), fine for Electron
-              style={{ fieldSizing: 'content' } as React.CSSProperties}
-            />
-          </>
-        )}
+        <ConfigEditorBody
+          configKey={configKey}
+          content={content}
+          displayContent={draft.displayContent}
+          isReadOnly={isReadOnly}
+          onEdit={draft.handleEdit}
+        />
       </ScrollArea>
     </div>
   );

@@ -98,13 +98,9 @@ describe('Tool bridge policy', () => {
     expect(result.extensions[0]!.tools.has('research')).toBe(true);
   });
 
-  it('bridges memory tools (existing behaviour)', () => {
-    const ext = makeExtResult([
-      makeTool('memory'),
-      makeTool('memory_search'),
-    ]);
+  it('bridges the memory tool (existing behaviour)', () => {
+    const ext = makeExtResult([makeTool('memory')]);
     const result = bridgeExtensionTools(ext);
     expect(result.extensions[0]!.tools.has('memory')).toBe(false);
-    expect(result.extensions[0]!.tools.has('memory_search')).toBe(false);
   });
 });

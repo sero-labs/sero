@@ -63,7 +63,7 @@ the installed app, download the latest DMG from the releases page, and reinstall
 If the latest release still fails, report the release filename and your macOS
 version. Do not bypass Gatekeeper or clear the quarantine attribute.
 
-## Terminals or memory features fail after install
+## Terminals or browser cookie import fail after install
 
 Interrupted installs and Electron ABI changes can leave native modules in the wrong state.
 
@@ -74,7 +74,7 @@ node scripts/rebuild-node-pty.mjs
 node scripts/rebuild-better-sqlite3.mjs
 ```
 
-Use the `node-pty` repair when terminals fail. Use the `better-sqlite3` repair when memory search or database-backed features fail.
+Use the `node-pty` repair when terminals fail. Use the `better-sqlite3` repair when the Web plugin cannot read browser cookies.
 
 If the repair still fails, include the command output and Doctor report in your issue.
 

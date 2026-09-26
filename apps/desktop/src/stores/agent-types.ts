@@ -43,8 +43,6 @@ export interface AgentState {
   focusedSessionId: string | null;
   /** Whether to display thinking/reasoning blocks in the chat. */
   showThinkingBlocks: boolean;
-  /** Whether to display memory context blocks in the chat. */
-  showMemoryBlocks: boolean;
   /** Open a session — creates an AgentSession in the main-process pool. */
   openSession: (
     sessionId: string,
@@ -76,8 +74,6 @@ export interface AgentState {
   fetchModelState: (sessionId: string) => Promise<void>;
   /** Toggle visibility of thinking/reasoning blocks. */
   toggleThinkingBlocks: () => void;
-  /** Toggle visibility of memory context blocks. */
-  toggleMemoryBlocks: () => void;
   /** Queue a session-scoped composer prefill. */
   setComposerPrefill: (sessionId: string, prefill: ChatComposerPrefill) => void;
   /** Clear a session-scoped composer prefill once the prompt area consumes it. */

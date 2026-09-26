@@ -31,12 +31,7 @@ async function createTestContext(): Promise<TestContext> {
     { id: 'mem-001', type: 'preference', text: 'TypeScript over JavaScript' },
   ]);
 
-  const { app, page } = await launchSeroApp({
-    seroHome,
-    env: {
-      SERO_MEMORY_NO_SEARCH: '1',
-    },
-  });
+  const { app, page } = await launchSeroApp({ seroHome });
   await expect.poll(async () => page.evaluate(() => {
     return typeof (window as any).sero?.agent?.open === 'function'
       && typeof (window as any).sero?.agent?.getContext === 'function';
@@ -125,13 +120,12 @@ async function emitBeforeAgentStart(
   }, { sessionId, prompt });
 }
 
-test.describe('Memory snapshot mode', () => {
-  test('frozen mode keeps long-term memory stable after a mid-session write', async () => {
+test.describe('Memory session snapshot', () => {
+  test('keeps long-term memory stable after a mid-session write', async () => {
     const ctx = await createTestContext();
 
     try {
       const session = await createAndOpenSession(ctx.page);
-      await runDirectCliPrompt(ctx.page, session.id, 'sero memory config --snapshot frozen');
 
       const firstPrompt = await emitBeforeAgentStart(ctx.app, session.id, 'Tell me a joke');
 
@@ -157,29 +151,21 @@ test.describe('Memory snapshot mode', () => {
     }
   });
 
-  test('live mode rebuilds long-term memory after a mid-session write', async () => {
+  test('shows a mid-session write to the next session', async () => {
     const ctx = await createTestContext();
 
     try {
       const session = await createAndOpenSession(ctx.page);
-      await runDirectCliPrompt(ctx.page, session.id, 'sero memory config --snapshot live');
-
-      const firstPrompt = await emitBeforeAgentStart(ctx.app, session.id, 'Tell me a joke');
-
       await runDirectCliPrompt(
         ctx.page,
         session.id,
         'sero memory write --target memory --type preference --content "Prefers concise PR descriptions"',
       );
 
-      const secondPrompt = await emitBeforeAgentStart(
-        ctx.app,
-        session.id,
-        'What do you remember about my preferences?',
-      );
+      const nextSession = await createAndOpenSession(ctx.page);
+      const nextPrompt = await emitBeforeAgentStart(ctx.app, nextSession.id, 'What do you remember?');
 
-      expect(secondPrompt).not.toBe(firstPrompt);
-      expect(secondPrompt).toContain('Prefers concise PR descriptions');
+      expect(nextPrompt).toContain('Prefers concise PR descriptions');
     } finally {
       await destroyTestContext(ctx);
     }

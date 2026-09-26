@@ -36,7 +36,7 @@ export function RemoteConversation({ location }: { location: Extract<SessionLoca
       <ConversationContent className="gap-2.5 p-3">
         {messages.length === 0 && !session.taskId ? <EmptyState message="Start a conversation" /> : groupedItems.map((item, index) => item.kind === 'tool-group'
           ? <ToolCallGroup key={item.id} tools={item.tools} isFinalized={isToolGroupFinalized(groupedItems, index)} />
-          : <ChatMessageItem key={item.message.id} message={item.message} showThinking={showThinkingBlocks} showMemory={false} sessionId={session.id} />)}
+          : <ChatMessageItem key={item.message.id} message={item.message} showThinking={showThinkingBlocks} sessionId={session.id} />)}
         {showThinking ? <ThinkingIndicator /> : null}
         <NodeArtifacts nodeId={node.id} sessionKey={useNodesStore.getState().activeLocationKey ?? ''} />
       </ConversationContent>

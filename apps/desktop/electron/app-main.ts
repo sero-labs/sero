@@ -76,7 +76,6 @@ import {
   ensureConfiguredModelFallbackChain,
   getDefaultModelFallbackChain,
 } from './shared/settings/model-fallback-chain';
-import { getDefaultMemoryLoggingSettings, ensureConfiguredMemoryLoggingSettings } from './shared/settings/memory-logging-settings';
 import {
   ensureHostSeroCliBridge,
   type HostSeroCliBridgeDependencies,
@@ -124,9 +123,6 @@ function bootstrapAgentDir(): void {
       sero: {
         modelFallbackChain: getDefaultModelFallbackChain(),
         modelTiers: {},
-        memory: {
-          logging: getDefaultMemoryLoggingSettings(),
-        },
       },
     };
     writeFileSync(settingsPath, JSON.stringify(defaults, null, 2) + '\n');
@@ -162,9 +158,6 @@ function ensureBuiltinPackages(): void {
   settings = fallbackSettings.settings;
   if (fallbackSettings.changed) changed = true;
 
-  const memoryLoggingSettings = ensureConfiguredMemoryLoggingSettings(settings);
-  settings = memoryLoggingSettings.settings;
-  if (memoryLoggingSettings.changed) changed = true;
   for (const p of workspacePackages) {
     const packagePath = path.resolve(p);
     const hasPackagePath = packages.some((entry) => {
