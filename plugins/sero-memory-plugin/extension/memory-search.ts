@@ -33,7 +33,8 @@ export async function searchEntries(
   if (entries.length === 0) return { results: [], mode: 'keyword' };
 
   const collections = locations.map((location) => (kind === 'recall' ? collectionsFor(location).recall : collectionsFor(location).all));
-  const vector = await vectorSearch(query, collections);
+  // The close-entry check runs inside the write queue (see `saveEntry`).
+  const vector = await vectorSearch(query, collections, { insideWrite: kind === 'close' });
   const results = entries
     .map((entry) => ({ entry, score: entryScore(entry.terms, query, vector.similarity.get(entry.id) ?? 0) }))
     .sort((a, b) => b.score - a.score || a.entry.id.localeCompare(b.entry.id));

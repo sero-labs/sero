@@ -20,36 +20,45 @@ export interface StoredSearchData {
 	urls?: ExtractedContent[];
 }
 
-const storedResults = new Map<string, StoredSearchData>();
+/**
+ * Results of every session in the process, with the workspace state file that
+ * owns each one. A session reads only its own workspace's results, and a
+ * history clear removes only them.
+ */
+const storedResults = new Map<string, { data: StoredSearchData; owner: string }>();
 
 export function generateId(): string {
 	return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
-export function storeResult(id: string, data: StoredSearchData): void {
+export function storeResult(id: string, data: StoredSearchData, owner: string): void {
 	const expired = Date.now() - CACHE_TTL_MS;
-	for (const [storedId, result] of storedResults) {
-		if (result.timestamp <= expired) storedResults.delete(storedId);
+	for (const [storedId, stored] of storedResults) {
+		if (stored.data.timestamp <= expired) storedResults.delete(storedId);
 	}
-	storedResults.set(id, data);
+	storedResults.set(id, { data, owner });
 }
 
-/**
- * `minTimestamp` is the caller's workspace history-clear time. It hides older
- * results without deleting them, because the store is shared by every session.
- */
-export function getResult(id: string, minTimestamp = 0): StoredSearchData | null {
-	const result = storedResults.get(id) ?? null;
-	if (!result) return null;
-	return result.timestamp > minTimestamp ? result : null;
+/** `minTimestamp` is the owner workspace's history-clear time; older results are hidden. */
+export function getResult(id: string, owner: string, minTimestamp = 0): StoredSearchData | null {
+	const stored = storedResults.get(id);
+	if (!stored || stored.owner !== owner) return null;
+	return stored.data.timestamp > minTimestamp ? stored.data : null;
 }
 
 export function getAllResults(): StoredSearchData[] {
-	return Array.from(storedResults.values());
+	return Array.from(storedResults.values(), (stored) => stored.data);
 }
 
 export function deleteResult(id: string): boolean {
 	return storedResults.delete(id);
+}
+
+/** Removes one workspace's results. Other workspaces' results stay. */
+export function clearResults(owner: string): void {
+	for (const [id, stored] of storedResults) {
+		if (stored.owner === owner) storedResults.delete(id);
+	}
 }
 
 function isValidStoredData(data: unknown): data is StoredSearchData {
@@ -64,14 +73,14 @@ function isValidStoredData(data: unknown): data is StoredSearchData {
 }
 
 /** Adds the session's recent results. The store is shared by every session, so nothing is cleared. */
-export function restoreFromSession(ctx: ExtensionContext, minTimestamp = 0): void {
+export function restoreFromSession(ctx: ExtensionContext, owner: string, minTimestamp = 0): void {
 	const now = Date.now();
 
 	for (const entry of ctx.sessionManager.getBranch()) {
 		if (entry.type === "custom" && entry.customType === "web-search-results") {
 			const data = entry.data;
 			if (isValidStoredData(data) && now - data.timestamp < CACHE_TTL_MS && data.timestamp > minTimestamp) {
-				storedResults.set(data.id, data);
+				storedResults.set(data.id, { data, owner });
 			}
 		}
 	}

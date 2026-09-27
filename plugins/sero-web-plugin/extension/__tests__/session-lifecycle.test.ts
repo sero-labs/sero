@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, it } from 'vitest';
 import webExtension from '../index';
-import { getResult, storeResult } from '../storage';
+import { clearResults, getResult, storeResult } from '../storage';
 
 type Handler = (event: unknown, ctx: unknown) => unknown;
 
@@ -32,13 +32,25 @@ describe('session lifecycle', () => {
     const ctx = { cwd, sessionManager: { getBranch: () => [] } };
     const chat = sessionCopy();
     await chat.get('session_start')!({}, ctx);
-    storeResult('chat-result', { id: 'chat-result', type: 'search', timestamp: Date.now(), queries: [] });
+    storeResult('chat-result', { id: 'chat-result', type: 'search', timestamp: Date.now(), queries: [] }, 'workspace-a');
 
     const subagent = sessionCopy();
     await subagent.get('session_start')!({}, ctx);
     await subagent.get('session_shutdown')!({}, ctx);
 
-    expect(getResult('chat-result')?.id).toBe('chat-result');
+    expect(getResult('chat-result', 'workspace-a')?.id).toBe('chat-result');
     await chat.get('session_shutdown')!({}, ctx);
+  });
+
+  it('clears one workspace\'s results and keeps them out of other workspaces', () => {
+    const now = Date.now();
+    storeResult('result-a', { id: 'result-a', type: 'search', timestamp: now, queries: [] }, 'workspace-a');
+    storeResult('result-b', { id: 'result-b', type: 'search', timestamp: now, queries: [] }, 'workspace-b');
+
+    expect(getResult('result-a', 'workspace-b')).toBeNull();
+    clearResults('workspace-a');
+
+    expect(getResult('result-a', 'workspace-a')).toBeNull();
+    expect(getResult('result-b', 'workspace-b')?.id).toBe('result-b');
   });
 });

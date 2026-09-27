@@ -86,8 +86,14 @@ function groupFrom(messages: ChatMessage[], from: number, out: GroupedChatSnapsh
         push({ kind: 'message', message }, i, i + 1);
         continue;
       }
+      // A refused memory change is a failed row of its own, so a collapsed group never hides it.
+      if (isMemoryRefusal(message)) {
+        flushTools();
+        push({ kind: 'tool-group', tools: [{ ...message, state: 'error', isError: true }], id: `tg-${message.id}` }, i, i + 1);
+        continue;
+      }
       if (toolBuffer.length === 0) toolStart = i;
-      toolBuffer.push(isMemoryRefusal(message) ? { ...message, state: 'error', isError: true } : message);
+      toolBuffer.push(message);
       toolEnd = i + 1;
       continue;
     }

@@ -123,7 +123,7 @@ export function registerFetchContentTool(pi: ExtensionAPI, deps: ToolDeps) {
 
 			const responseId = generateId();
 			const data: StoredSearchData = { id: responseId, type: "fetch", timestamp: Date.now(), urls: deps.stripThumbnails(fetchResults) };
-			storeResult(responseId, data);
+			storeResult(responseId, data, statePath);
 			pi.appendEntry("web-search-results", data);
 			deps.syncToState(data);
 
@@ -222,7 +222,7 @@ export function registerGetContentTool(pi: ExtensionAPI, getStatePath: () => str
 		async execute(_toolCallId, params): Promise<AgentToolResult<GetContentDetails>> {
 			const statePath = getStatePath();
 			const historyClearedAt = statePath ? (await readState(statePath)).historyClearedAt : 0;
-			const data = getResult(params.responseId, historyClearedAt);
+			const data = getResult(params.responseId, statePath, historyClearedAt);
 			if (!data) return { content: [{ type: "text", text: `Error: No stored results for "${params.responseId}"` }], details: { error: "Not found" } };
 
 			if (data.type === "search" && data.queries) {

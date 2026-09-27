@@ -145,6 +145,15 @@ describe('tidy-up', () => {
     expect(await findEntry([ws], 'mem-link0001')).not.toBeNull();
   });
 
+  it('keeps a workspace entry whose named file is a broken link', async () => {
+    await symlink(path.join(seroHome, 'nowhere.ts'), path.join(workspace, 'src', 'dangling.ts'));
+    await writeEntry(ws, entry('mem-dang0001', 'Settings are read from src/dangling.ts.'), 'on-match');
+
+    await runTidyIfDue(ws, deps(async () => plan({ action: 'remove', id: 'mem-dang0001', missingPath: 'src/dangling.ts', reason: 'missing' })));
+
+    expect(await findEntry([ws], 'mem-dang0001')).not.toBeNull();
+  });
+
   it('keeps a global entry that names a missing file', async () => {
     const global = globalLocation();
     await writeEntry(global, entry('mem-glob0001', 'Settings are read from src/config.ts.', { scope: 'global' }), 'on-match');

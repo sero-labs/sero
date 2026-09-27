@@ -109,6 +109,15 @@ describe('memory tool', () => {
     expect(await listEntries(globalLocation(), 'on-match')).toHaveLength(2);
   });
 
+  it('saves one entry when two sessions save the same fact at the same time', async () => {
+    const other = { ...ctx, sessionId: 'session-2' };
+
+    const results = await Promise.all([executeMemoryAction(ctx, pnpmMemory), executeMemoryAction(other, pnpmMemory)]);
+
+    expect(results.filter((result) => result.startsWith('Saved:'))).toHaveLength(1);
+    expect(await listEntries(globalLocation(), 'on-match')).toHaveLength(1);
+  });
+
   it('refuses a pin at the cap and lists the pinned set', async () => {
     const pinned: string[] = [];
     for (let index = 0; index < 10; index++) {

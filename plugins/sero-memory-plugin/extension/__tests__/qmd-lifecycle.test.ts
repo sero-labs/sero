@@ -12,8 +12,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const qmd = vi.hoisted(() => ({ createStore: vi.fn() }));
 vi.mock('@tobilu/qmd', () => ({ createStore: qmd.createStore }));
 
-import { acquireIndex, releaseIndex, warmUp } from '../qmd-index';
-import { memoryRegistry } from '../registry';
+import { globalLocation } from '../entry-store';
+import { acquireIndex, refreshIndex, releaseIndex, vectorSearch, warmUp } from '../qmd-index';
+import { enqueueWrite, memoryRegistry } from '../registry';
 
 function fakeStore() {
   return {
@@ -64,6 +65,21 @@ describe('shared search index lifecycle', () => {
 
     expect(store.close).toHaveBeenCalled();
     expect(memoryRegistry().qmd.store).toBeNull();
+  });
+
+  it('searches on keywords only while a memory write runs or after an index update failed', async () => {
+    const store = fakeStore();
+    qmd.createStore.mockResolvedValue(store);
+    await warmUp(workspace);
+    await vi.waitFor(() => expect(memoryRegistry().qmd.embeddingsReady && !memoryRegistry().qmd.embedding).toBe(true));
+    expect((await vectorSearch('pnpm', ['memory-global'])).mode).toBe('hybrid');
+
+    const during = await enqueueWrite(async () => (await vectorSearch('pnpm', ['memory-global'])).mode);
+    expect(during).toBe('keyword');
+
+    store.update.mockRejectedValueOnce(new Error('disk full'));
+    await enqueueWrite(() => refreshIndex(globalLocation()));
+    expect((await vectorSearch('pnpm', ['memory-global'])).mode).toBe('keyword');
   });
 
   it('tries to open the store again after a failed open', async () => {

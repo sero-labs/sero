@@ -6,7 +6,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { fetchAllContent, type ExtractedContent } from "./extract.js";
 import { clearCloneCache } from "./github-extract.js";
-import { generateId, storeResult, restoreFromSession, type QueryResultData, type StoredSearchData } from "./storage.js";
+import { clearResults, generateId, storeResult, restoreFromSession, type QueryResultData, type StoredSearchData } from "./storage.js";
 import { isExaAvailable } from "./exa.js";
 import { isPerplexityAvailable } from "./perplexity.js";
 import { isGeminiApiAvailable } from "./gemini-api.js";
@@ -96,15 +96,15 @@ export default function (pi: ExtensionAPI) {
 			timestamp: Date.now(),
 			urls: stripThumbnails(results),
 		};
-		storeResult(id, data);
+		storeResult(id, data, statePath);
 		pi.appendEntry("web-search-results", data);
 		syncToState(data);
 		return id;
 	}
 
-	// Cleared results stay in the shared store; `historyClearedAt` hides them from this workspace.
 	function clearRuntimeHistory(): void {
 		abortPendingFetches();
+		clearResults(statePath);
 	}
 
 	// ── Background fetch ──────────────────────────────────
@@ -120,7 +120,7 @@ export default function (pi: ExtensionAPI) {
 				if (!sessionActive || !pendingFetches.has(fetchId)) return;
 				if (await wasHistoryClearedSince(startedAt)) return;
 				const data: StoredSearchData = { id: fetchId, type: "fetch", timestamp: startedAt, urls: stripThumbnails(fetched) };
-				storeResult(fetchId, data);
+				storeResult(fetchId, data, statePath);
 				pi.appendEntry("web-search-results", data);
 				syncToState(data);
 				const ok = fetched.filter(f => !f.error).length;
@@ -140,7 +140,7 @@ export default function (pi: ExtensionAPI) {
 	function storeAndPublish(results: QueryResultData[]): string {
 		const id = generateId();
 		const data: StoredSearchData = { id, type: "search", timestamp: Date.now(), queries: results };
-		storeResult(id, data);
+		storeResult(id, data, statePath);
 		pi.appendEntry("web-search-results", data);
 		syncToState(data);
 		return id;
@@ -160,10 +160,10 @@ export default function (pi: ExtensionAPI) {
 
 		try {
 			const state = await readState(statePath);
-			restoreFromSession(ctx, state.historyClearedAt);
+			restoreFromSession(ctx, statePath, state.historyClearedAt);
 		} catch (err) {
 			logSyncError("readState", err);
-			restoreFromSession(ctx);
+			restoreFromSession(ctx, statePath);
 		}
 
 		const branch = ctx.sessionManager.getBranch() as Array<{ type: string; customType?: string; data?: unknown }>;

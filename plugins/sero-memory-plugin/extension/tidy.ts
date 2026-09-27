@@ -199,33 +199,22 @@ async function applyDecision(
 }
 
 /**
- * True only when the file is gone (ENOENT) and its nearest existing folder is
- * really inside the workspace, not reached through a link. Null when the check
- * itself failed, which is never evidence.
+ * True only when the file is gone: walking from the workspace root, a folder
+ * or the file itself does not exist (ENOENT) and no step before it is a link.
+ * Null when a link is on the way or a check fails, which is never evidence.
  */
 async function isMissingInWorkspace(workspaceRoot: string, filePath: string): Promise<boolean | null> {
-  try {
-    await fs.stat(filePath);
-    return false;
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') return null;
-  }
-  try {
-    const root = await fs.realpath(workspaceRoot);
-    let folder = path.dirname(filePath);
-    for (;;) {
-      try {
-        const real = await fs.realpath(folder);
-        const relative = path.relative(root, real);
-        return relative.startsWith('..') || path.isAbsolute(relative) ? null : true;
-      } catch (err) {
-        if ((err as NodeJS.ErrnoException).code !== 'ENOENT' || path.dirname(folder) === folder) return null;
-        folder = path.dirname(folder);
-      }
+  const root = path.resolve(workspaceRoot);
+  let current = root;
+  for (const part of path.relative(root, filePath).split(path.sep)) {
+    current = path.join(current, part);
+    try {
+      if ((await fs.lstat(current)).isSymbolicLink()) return null;
+    } catch (err) {
+      return (err as NodeJS.ErrnoException).code === 'ENOENT' ? true : null;
     }
-  } catch {
-    return null;
   }
+  return false;
 }
 
 async function runLocked(location: ScopeLocation, deps: TidyDeps, now: Date): Promise<TidyOutcome> {

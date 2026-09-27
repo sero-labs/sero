@@ -68,8 +68,23 @@ function ensureScope(store: QMDStore, location: ScopeLocation): Promise<void> {
     const names = collectionsFor(location);
     await ensureCollection(store, names.recall, entriesDir(location, 'on-match'), '*.md');
     await ensureCollection(store, names.all, path.join(location.root, 'entries'), '**/*.md');
-    await store.update({ collections: [names.recall, names.all] });
+    await updateCollections(store, location);
   });
+}
+
+/** Re-reads the scope's folders. A failed update keeps search on keywords for that scope. */
+async function updateCollections(store: QMDStore, location: ScopeLocation): Promise<void> {
+  const names = collectionsFor(location);
+  const stale = memoryRegistry().qmd.staleCollections;
+  try {
+    await store.update({ collections: [names.recall, names.all] });
+    stale.delete(names.recall);
+    stale.delete(names.all);
+  } catch (err) {
+    stale.add(names.recall);
+    stale.add(names.all);
+    throw err;
+  }
 }
 
 function openStore(): Promise<boolean> {
@@ -174,6 +189,7 @@ export async function releaseIndex(sessionId: string): Promise<void> {
   qmd.ready = null;
   qmd.embeddingsReady = false;
   qmd.workspaces.clear();
+  qmd.staleCollections.clear();
   await store?.close().catch(() => undefined);
 }
 
@@ -182,8 +198,7 @@ export async function refreshIndex(location: ScopeLocation): Promise<void> {
   const store = memoryRegistry().qmd.store;
   if (!store) return;
   try {
-    const names = collectionsFor(location);
-    await store.update({ collections: [names.recall, names.all] });
+    await updateCollections(store, location);
     scheduleEmbedding();
   } catch (err) {
     await error('qmd_update_failed', { root: location.root, ...errorDetails(err) });
@@ -204,12 +219,19 @@ export interface VectorOutcome {
  * Vector similarity of the query to the entries in `collections`. Returns
  * keyword mode, with no similarities, until the embedding model is ready.
  */
-export async function vectorSearch(query: string, collections: string[]): Promise<VectorOutcome> {
-  const qmd = memoryRegistry().qmd;
+export async function vectorSearch(query: string, collections: string[], options: { insideWrite?: boolean } = {}): Promise<VectorOutcome> {
+  const registry = memoryRegistry();
+  const qmd = registry.qmd;
   const similarity = new Map<string, number>();
   const store = qmd.store;
-  // While a pass runs, a new entry has no vector yet and would score below the hybrid threshold.
-  if (!store || !qmd.embeddingsReady || qmd.embedding || !query.trim()) return { similarity, mode: 'keyword' };
+  // A changed entry has no vector until its write, index update and embedding pass
+  // finish; it would score below the hybrid threshold. A caller inside the write
+  // queue runs before its own write, so only other work counts then.
+  const writing = registry.writesRunning > (options.insideWrite ? 1 : 0);
+  const stale = collections.some((collection) => qmd.staleCollections.has(collection));
+  if (!store || !qmd.embeddingsReady || qmd.embedding || writing || stale || !query.trim()) {
+    return { similarity, mode: 'keyword' };
+  }
   for (const collection of collections) {
     const results = await store.searchVector(query, { collection, limit: RESULTS_PER_QUERY });
     for (const result of results) {
