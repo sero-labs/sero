@@ -26,12 +26,15 @@ import type { Charter, Milestone, ProjectRecord } from '../shared/record';
 import { applyDelivery } from './delivery';
 import { projectWriter, usesProjectFiles } from './execution-location';
 import { performDispatch } from './dispatch-link';
+import { checkLinkedChange, executeOwnerOpenSpec, linkedChangePrompt } from './openspec-owner';
+import { missingEvidence } from './milestone-evidence';
+export { missingEvidence } from './milestone-evidence';
 import type { ArchitectHost } from './host';
 import { mutateRecord, type RecordStore } from './record-store';
 import type { TurnOutcomes } from './turn-outcomes';
 
 export interface OwnerServices {
-  research(record: ProjectRecord, request: { question: string; stoppingCondition: string; kind?: DispatchKind; access?: 'read-only' | 'edit-workspace' }): Promise<{ id: string }>;
+  research(record: ProjectRecord, request: { question: string; stoppingCondition: string; kind?: DispatchKind; access?: 'read-only' | 'edit-workspace'; openSpecChange?: string }): Promise<{ id: string }>;
   /** Starts a saved research entry again, after the user changed what it may do. */
   restartResearch(record: ProjectRecord, researchId: string): void;
   /**
@@ -54,7 +57,7 @@ export interface OwnerServices {
 }
 
 export interface OwnerActionsDeps {
-  host: Pick<ArchitectHost, 'now' | 'newId' | 'log'>;
+  host: Pick<ArchitectHost, 'now' | 'newId' | 'log'> & Partial<Pick<ArchitectHost, 'exec'>>;
   store: RecordStore;
   outcomes: TurnOutcomes;
   services: OwnerServices;
@@ -70,28 +73,6 @@ const ok = (text: string, details: Record<string, unknown> = {}): OwnerActionOut
 const refuse = (text: string): OwnerActionOutcome => ({ ok: false, text });
 
 const same = (a: string, b: string): boolean => path.resolve(a) === path.resolve(b);
-
-/** Why a milestone cannot close yet, in the owner's words. Empty means it can. */
-export function missingEvidence(milestone: Milestone): string[] {
-  const evidence = milestone.evidence;
-  if (!evidence) return ['no evidence run has happened'];
-  const missing: string[] = [];
-  if (evidence.stale) missing.push('the evidence is stale: files changed after it was taken, so it must be rerun');
-  if (!evidence.passed) missing.push('the evidence run did not pass');
-  if (evidence.filesChanged && evidence.diffSummary === null) missing.push('project files changed but no diff summary was recorded');
-  if (evidence.commands.length === 0) missing.push('no command was run');
-  for (const command of evidence.commands) {
-    if (command.exitCode !== 0) missing.push(`command "${command.command}" failed with exit code ${command.exitCode}`);
-  }
-  if (milestone.preview) {
-    if (!evidence.preview) missing.push(`the preview route ${milestone.preview.route} has no smoke check`);
-    else {
-      if (!evidence.preview.smokePassed) missing.push('the dev-server smoke check failed');
-      if (!evidence.preview.capturePath) missing.push('no capture was recorded for the preview');
-    }
-  }
-  return missing;
-}
 
 export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
   const { host, store, outcomes, services } = deps;
@@ -263,6 +244,10 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
       plan: input.plan?.trim() || null,
       previewRoute: input.previewRoute?.trim() || null,
     };
+    if (found.openSpecChange && edits.plan) {
+      const invalid = await checkLinkedChange(host, record, found);
+      if (invalid) return invalid;
+    }
     let approvalNote = '';
     const changed = await mutateRecord(store, record.id, (fresh) => {
       const current = fresh.milestones.find((m) => m.id === found.id);
@@ -324,9 +309,12 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     if (!mayWakeForWork(record)) return refuse(`The project is ${record.overlay}; no new research may start.`);
     // Only a Room can hold a shell. A single researcher reads; it does not run.
     if (input.needsCommands && input.kind !== 'room') return refuse('needsCommands requires kind: room. A single researcher cannot run commands.');
+    if (input.changeName && (!record.openSpecEnabled || !record.milestones.some((item) => item.openSpecChange === input.changeName))) return refuse('Name an OpenSpec change linked to this project.');
+    if (input.changeName && (input.kind !== 'room' || input.needsCommands)) return refuse('OpenSpec exploration requires a read-only Room.');
     const { id } = await services.research(record, {
       question,
       stoppingCondition,
+      ...(input.changeName ? { openSpecChange: input.changeName } : {}),
       ...(input.kind ? { kind: input.kind } : {}),
       ...(input.needsCommands ? { access: 'edit-workspace' as const } : {}),
     });
@@ -353,6 +341,11 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     }
     if (found.status === 'planned' && record.autonomy === 'milestones') {
       return refuse(`Milestone ${found.id} needs the user's approval of its plan first (autonomy is "milestones"). Write the plan and call sleep.`);
+    }
+    if (found.openSpecChange) {
+      if (input.kind !== 'workflow') return refuse('OpenSpec implementation runs as a Workflow in this proof of concept.');
+      const invalid = await checkLinkedChange(host, record, found);
+      if (invalid) return invalid;
     }
     const destination = input.destination ?? null;
     if (destination && record.phase !== 'release' && record.phase !== 'maintain') {
@@ -384,7 +377,8 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
         proposal: { kind: 'cap', capUsd },
       }, 'Spending beyond the cap needs the user\'s decision');
     }
-    await performDispatch(store, services, record, found, { kind: input.kind, prompt, destination, maxCostUsd }, now, true);
+    const objective = linkedChangePrompt(found, prompt);
+    await performDispatch(store, services, record, found, { kind: input.kind, prompt: objective, destination, maxCostUsd }, now, true);
     return ok(`Milestone ${found.id} is starting as ${input.kind}. Planning continues in the background. Do not dispatch it again. You are woken when it completes, blocks or asks a question; call sleep.`, {
       milestoneId: found.id, dispatchKind: input.kind,
     });
@@ -483,6 +477,8 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
       }
       case 'charter':
         return charter(record, input, now);
+      case 'openspec':
+        return executeOwnerOpenSpec(host, record, input);
       case 'milestone':
         return milestone(record, input, now);
       case 'research':

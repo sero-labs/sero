@@ -26,6 +26,7 @@ export interface ProjectControls {
   stop(): void;
   raiseCap(): void;
   setExecutionMode(next: ExecutionMode): void;
+  enableOpenSpec(): void;
   setAutonomy(next: AutonomySetting): void;
   openSession(): void;
   /** Opens the project model defaults view. */
@@ -69,6 +70,9 @@ export function ControlsMenu({ record, controls }: { record: ProjectRecord; cont
         <DropdownMenuItem onSelect={() => controls.setAutonomy(nextAutonomy(record.autonomy))} title={AUTONOMY_LABEL[record.autonomy]}>
           <SlidersHorizontal className="ar-i" />Autonomy: {record.autonomy}
         </DropdownMenuItem>
+        {!record.openSpecEnabled && record.phase === 'maintain' && record.executionMode === 'workspace' && (
+          <DropdownMenuItem onSelect={controls.enableOpenSpec}>Enable OpenSpec changes</DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={controls.openModels}>
           <Boxes className="ar-i" />Models…
@@ -83,7 +87,7 @@ export function ControlsMenu({ record, controls }: { record: ProjectRecord; cont
         <DropdownMenuItem disabled={Boolean(record.session.workingSince) || (record.executionMode !== undefined && record.session.turns > 0)} onSelect={() => controls.setExecutionMode('workspace')}>
           Workspace{record.executionMode === 'workspace' ? ' ✓' : ''}
         </DropdownMenuItem>
-        <DropdownMenuItem disabled={Boolean(record.session.workingSince) || (record.executionMode !== undefined && record.session.turns > 0)} onSelect={() => controls.setExecutionMode('worktree')}>
+        <DropdownMenuItem disabled={Boolean(record.openSpecEnabled || record.session.workingSince) || (record.executionMode !== undefined && record.session.turns > 0)} onSelect={() => controls.setExecutionMode('worktree')}>
           Worktree{record.executionMode === 'worktree' ? ' ✓' : ''}
         </DropdownMenuItem>
         <DropdownMenuSeparator />

@@ -41,6 +41,52 @@ async function setup() {
 }
 
 describe('project management', () => {
+  it('initialises OpenSpec only for an opted-in Workspace project', async () => {
+    const { host, store, actions } = await setup();
+    expect((await actions.create({ idea: 'x', folder: '~/projects/invalid', executionMode: 'worktree', openSpecEnabled: true })).ok).toBe(false);
+    expect(await store.list()).toHaveLength(0);
+    const outcome = await actions.create({ idea: 'A small tool.', folder: '~/projects/spec-project', openSpecEnabled: true });
+    expect(outcome.ok).toBe(true);
+    const record = (await store.list())[0]!;
+    expect(record.openSpecEnabled).toBe(true);
+    expect(record.executionMode).toBe('workspace');
+    expect(host.execCalls).toContainEqual({ file: 'node', args: [expect.stringMatching(/openspec\.js$/), 'init', '--tools', 'none', '--no-animation'], cwd: record.folder });
+    expect((await actions.setExecutionMode(record.id, 'worktree')).ok).toBe(false);
+    expect((await storeFor(host)).read(record.id)).resolves.toMatchObject({ openSpecEnabled: true });
+  });
+
+  it('creates a separate linked milestone for each later change and rejects ordinary projects', async () => {
+    const { host, store, actions, delivered } = await setup();
+    await store.write(buildingProject({ phase: 'maintain', openSpecEnabled: true, milestones: [] }));
+    const first = await actions.requestChange('proj_1', 'Add a keyboard shortcut');
+    const second = await actions.requestChange('proj_1', 'Add a search filter');
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    const record = (await store.read('proj_1'))!;
+    expect(record.milestones).toMatchObject([
+      { id: 'm1', title: 'Add a keyboard shortcut', status: 'planned', plan: null, openSpecChange: expect.stringMatching(/^architect-change-/) },
+      { id: 'm2', title: 'Add a search filter', status: 'planned', plan: null, openSpecChange: expect.stringMatching(/^architect-change-/) },
+    ]);
+    expect(record.milestones[0]!.openSpecChange).not.toBe(record.milestones[1]!.openSpecChange);
+    expect(host.execCalls.filter((call) => call.args.includes('new'))).toHaveLength(2);
+    await vi.waitFor(() => expect(delivered).toHaveLength(2));
+    await store.update('proj_1', (fresh) => ({ ...fresh, openSpecEnabled: false }));
+    expect((await actions.requestChange('proj_1', 'Third change')).ok).toBe(false);
+  });
+
+  it('enables an existing maintenance project without changing its initial milestones', async () => {
+    const { host, store, actions } = await setup();
+    const old = buildingProject({ phase: 'maintain', executionMode: 'workspace' });
+    await store.write(old);
+    expect((await actions.enableOpenSpec(old.id)).ok).toBe(true);
+    const saved = (await store.read(old.id))!;
+    expect(saved.openSpecEnabled).toBe(true);
+    expect(saved.milestones).toEqual(old.milestones);
+    expect(host.execCalls).toContainEqual({ file: 'node', args: [expect.stringMatching(/openspec\.js$/), 'init', '--tools', 'none', '--no-animation'], cwd: old.folder });
+    expect((await actions.requestChange(old.id, 'Add filtering')).ok).toBe(true);
+    expect((await store.read(old.id))!.milestones).toHaveLength(old.milestones.length + 1);
+  });
+
   it.each(['workspace', 'worktree'] as const)('saves %s before discovery and keeps it after restart and resume', async (executionMode) => {
     const { host, store, actions } = await setup();
     await actions.create({ idea: 'A small tool.', folder: '~/projects/placement', executionMode });

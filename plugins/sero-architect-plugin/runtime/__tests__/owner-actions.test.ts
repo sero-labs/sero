@@ -30,6 +30,30 @@ async function setup(recordOverrides = {}) {
 }
 
 describe('owner actions', () => {
+  it('requires completed OpenSpec artifacts before a linked milestone can be planned or applied', async () => {
+    const change = milestone('m3', { plan: null, openSpecChange: 'architect-change-1', status: 'approved' });
+    const { actions, host, services, store } = await setup({ phase: 'maintain', openSpecEnabled: true, milestones: [change] });
+    let complete = false;
+    const exec = vi.spyOn(host, 'exec').mockImplementation(async (_file, args) => ({
+      exitCode: 0, stderr: '', stdout: args.includes('status') ? JSON.stringify({ isPlanningComplete: complete }) : 'valid',
+    }));
+    const plan = { action: 'milestone' as const, projectId: 'proj_1', milestoneId: 'm3', plan: 'Implement the approved requirement.' };
+    expect(await actions.execute(owner, plan)).toMatchObject({ ok: false, text: expect.stringContaining('read-only Room') });
+    expect((await actions.execute(owner, { action: 'research', projectId: 'proj_1', changeName: 'architect-change-1', kind: 'room', question: 'Explore the request', stoppingCondition: 'Report findings' })).ok).toBe(true);
+    expect(services.research).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ openSpecChange: 'architect-change-1', kind: 'room' }));
+    await store.update('proj_1', (fresh) => ({ ...fresh, research: [{ id: 'res-1', openSpecChange: 'architect-change-1', roomId: 'room-1', question: 'Explore the request', stoppingCondition: 'Report findings', result: 'Use the existing API.', costUsd: 0, completedAt: T0 }] }));
+    expect(await actions.execute(owner, plan)).toMatchObject({ ok: false, text: expect.stringContaining('needs its proposal') });
+    expect(await actions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm3', kind: 'workflow', prompt: 'Implement it' }))
+      .toMatchObject({ ok: false, text: expect.stringContaining('needs its proposal') });
+    complete = true;
+    expect((await actions.execute(owner, plan)).ok).toBe(true);
+    expect((await actions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm3', kind: 'room', prompt: 'Implement it' })).ok).toBe(false);
+    expect((await actions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm3', kind: 'workflow', prompt: 'Implement it' })).ok).toBe(true);
+    await vi.waitFor(() => expect(services.dispatch).toHaveBeenCalledOnce());
+    expect(services.dispatch).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({ prompt: expect.stringContaining('openspec/changes/architect-change-1/') }));
+    expect(exec.mock.calls.filter(([, args]) => args.includes('validate')).length).toBeGreaterThan(0);
+  });
+
   it('dispatches an approved maintenance change while the read-only recurring triage subscription exists', async () => {
     const { actions, services, store, record } = await setup({ phase: 'maintain', milestones: [
       milestone('maintenance', { status: 'running', dispatch: { kind: 'workflow', id: 'loop-triage', workspaceId: 'ws-1', dispatchedAt: T0, chargedUsd: 0, destination: null } }),

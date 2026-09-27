@@ -15,6 +15,8 @@ export interface DirectivesProps {
 export interface DirectiveComposerProps {
   disabled: boolean;
   onSend(text: string): Promise<ActionOutcome>;
+  /** A flagged Architect project can turn this request into another OpenSpec change. */
+  onRequestChange?(text: string): Promise<ActionOutcome>;
   /**
    * Focused by "Tell Architect what to do next" in the project header. That
    * control is a way into this box, not a second way to send a directive.
@@ -49,19 +51,19 @@ export function Directives({ record }: DirectivesProps) {
   );
 }
 
-export function DirectiveComposer({ disabled: phaseDisabled, onSend, inputRef }: DirectiveComposerProps) {
+export function DirectiveComposer({ disabled: phaseDisabled, onSend, onRequestChange, inputRef }: DirectiveComposerProps) {
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const disabled = phaseDisabled || busy;
 
-  const send = async () => {
+  const send = async (submit: (text: string) => Promise<ActionOutcome>) => {
     const text = draft.trim();
     if (!text || busy) return;
     setBusy(true);
     setError(null);
     try {
-      const outcome = await onSend(text);
+      const outcome = await submit(text);
       if (outcome.ok) setDraft('');
       else setError(outcome.text);
     } finally {
@@ -75,7 +77,7 @@ export function DirectiveComposer({ disabled: phaseDisabled, onSend, inputRef }:
         className="ar-composer"
         onSubmit={(event) => {
           event.preventDefault();
-          void send();
+          void send(onSend);
         }}
       >
         <textarea
@@ -84,13 +86,14 @@ export function DirectiveComposer({ disabled: phaseDisabled, onSend, inputRef }:
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void send();
+            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) void send(onSend);
           }}
           placeholder="Send an instruction or update."
           aria-label="Directive"
           disabled={disabled}
         />
         <Button type="submit" size="sm" className="ar-btn ar-btn-primary" disabled={disabled || !draft.trim()}><Send className="ar-i" />Send</Button>
+        {onRequestChange && <Button type="button" size="sm" variant="outline" disabled={disabled || !draft.trim()} onClick={() => void send(onRequestChange)}>Start OpenSpec change</Button>}
       </form>
       {error && <p className="ar-error">{error}</p>}
     </div>

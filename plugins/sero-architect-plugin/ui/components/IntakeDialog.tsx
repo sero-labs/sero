@@ -38,6 +38,7 @@ export function IntakeDialog({ open, onClose, onCreate, defaultFolder, takenWork
   const [idea, setIdea] = useState('');
   const [mode, setMode] = useState<IntakeMode>(initialMode);
   const [executionMode, setExecutionMode] = useState<ExecutionMode>('workspace');
+  const [openSpecEnabled, setOpenSpecEnabled] = useState(false);
   const [models, setModels] = useState<ModelChoice[]>([]);
   const [name, setName] = useState('');
   const [location, setLocation] = useState(() => defaultFolder.replace(/\/+$/, ''));
@@ -85,6 +86,7 @@ export function IntakeDialog({ open, onClose, onCreate, defaultFolder, takenWork
       const input: CreateProjectInput = {
         idea: idea.trim(),
         executionMode,
+        openSpecEnabled,
         models,
         ...(mode === 'existing' ? { workspaceId } : { folder: folder.trim() }),
       };
@@ -175,9 +177,14 @@ export function IntakeDialog({ open, onClose, onCreate, defaultFolder, takenWork
             </div>
           )}
           <label className="ar-intake-switch">
-            <Switch checked={executionMode === 'worktree'} onCheckedChange={(on) => setExecutionMode(on ? 'worktree' : 'workspace')} disabled={busy} />
+            <Switch checked={executionMode === 'worktree'} onCheckedChange={(on) => setExecutionMode(on ? 'worktree' : 'workspace')} disabled={busy || openSpecEnabled} />
             <span>Use worktree</span>
           </label>
+          <label className="ar-intake-switch">
+            <Switch checked={openSpecEnabled} onCheckedChange={(on) => { setOpenSpecEnabled(on); if (on) setExecutionMode('workspace'); }} disabled={busy} />
+            <span>Use OpenSpec for coding changes</span>
+          </label>
+          {openSpecEnabled && <p className="ar-why">This proof of concept runs changes in the project workspace. You can request further changes after the first delivery.</p>}
           <IntakeModelOverrides choices={models} onChange={setModels} disabled={busy} />
           {error && <p role="alert" className="ar-error">{error}</p>}
           <div className="ar-foot">

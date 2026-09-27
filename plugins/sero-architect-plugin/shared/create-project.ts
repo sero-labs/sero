@@ -11,6 +11,7 @@ import type { ExecutionMode } from './record';
 export interface CreateProjectInput {
   idea: string;
   executionMode?: ExecutionMode;
+  openSpecEnabled?: boolean;
   models?: { tier: ModelTier; model: string; thinking?: ThinkingLevel }[];
   /** New folder: the folder the Architect creates. */
   folder?: string;

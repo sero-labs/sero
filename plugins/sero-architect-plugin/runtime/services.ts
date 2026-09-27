@@ -319,7 +319,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     },
 
     async research(record, request) {
-      const existing = record.pendingResearch?.find((entry) => entry.question === request.question && entry.stoppingCondition === request.stoppingCondition && entry.kind === request.kind && (entry.access ?? 'read-only') === (request.access ?? 'read-only'));
+      const existing = record.pendingResearch?.find((entry) => entry.question === request.question && entry.stoppingCondition === request.stoppingCondition && entry.kind === request.kind && entry.openSpecChange === request.openSpecChange && (entry.access ?? 'read-only') === (request.access ?? 'read-only'));
       if (existing) return { id: existing.id };
       executionMode(record);
       const pending: PendingResearch = { id: host.newId('res'), ...request, startedAt: host.now(), project: await services.resolveDispatchProject(record) };

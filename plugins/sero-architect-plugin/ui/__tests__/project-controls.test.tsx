@@ -66,7 +66,7 @@ function stubActions(overrides: Partial<ArchitectActions> = {}): ArchitectAction
   const ok = () => vi.fn(async () => OK);
   return {
     create: ok(), history: vi.fn(async () => ({ ...OK, entries: [] })), trace: vi.fn(async () => ({ ...OK, page: null })), lifetime: vi.fn(async () => ({ ...OK, lifetime: null })), pause: ok(), resume: ok(), retry: ok(), stop: ok(), remove: ok(), raiseCap: ok(),
-    setExecutionMode: ok(), setAutonomy: ok(), approveCharter: ok(), approveMilestone: ok(), answer: ok(), directive: ok(),
+    setExecutionMode: ok(), setAutonomy: ok(), approveCharter: ok(), approveMilestone: ok(), answer: ok(), directive: ok(), requestChange: ok(), enableOpenSpec: ok(),
     setModelDefault: ok(), clearModelDefault: ok(), refreshModelTiers: ok(),
     ...overrides,
   };
@@ -245,10 +245,23 @@ describe('raising the cap', () => {
 });
 
 describe('the pause and resume choice', () => {
+  it('offers OpenSpec on an existing maintenance Workspace project', () => {
+    const controls = {
+      pause: vi.fn(), resume: vi.fn(), stop: vi.fn(), raiseCap: vi.fn(),
+      setExecutionMode: vi.fn(), enableOpenSpec: vi.fn(), setAutonomy: vi.fn(), openSession: vi.fn(), remove: vi.fn(), openModels: vi.fn(), openInspector: vi.fn(), openHistory: vi.fn(),
+    };
+    const record = { ...FIXTURES.build!, phase: 'maintain' as const, executionMode: 'workspace' as const, openSpecEnabled: false };
+    act(() => root.render(<ControlsMenu record={record} controls={controls} />));
+    act(() => button('Enable OpenSpec changes').click());
+    expect(controls.enableOpenSpec).toHaveBeenCalledOnce();
+    act(() => root.render(<ControlsMenu record={{ ...record, openSpecEnabled: true }} controls={controls} />));
+    expect(container.textContent).not.toContain('Enable OpenSpec changes');
+  });
+
   it('offers Resume for paused or blocked projects, and Pause for a cap alone', () => {
     const controls = {
       pause: vi.fn(), resume: vi.fn(), stop: vi.fn(), raiseCap: vi.fn(),
-      setExecutionMode: vi.fn(), setAutonomy: vi.fn(), openSession: vi.fn(), remove: vi.fn(), openModels: vi.fn(), openInspector: vi.fn(), openHistory: vi.fn(),
+      setExecutionMode: vi.fn(), enableOpenSpec: vi.fn(), setAutonomy: vi.fn(), openSession: vi.fn(), remove: vi.fn(), openModels: vi.fn(), openInspector: vi.fn(), openHistory: vi.fn(),
     };
     act(() => root.render(<ControlsMenu record={{ ...FIXTURES.build!, paused: true }} controls={controls} />));
     expect(container.textContent).toContain('Resume');
@@ -268,7 +281,7 @@ describe('the pause and resume choice', () => {
     const openHistory = vi.fn();
     const controls = {
       pause: vi.fn(), resume: vi.fn(), stop: vi.fn(), raiseCap: vi.fn(),
-      setExecutionMode: vi.fn(), setAutonomy: vi.fn(), openSession: vi.fn(), remove: vi.fn(), openModels: vi.fn(), openInspector: vi.fn(), openHistory,
+      setExecutionMode: vi.fn(), enableOpenSpec: vi.fn(), setAutonomy: vi.fn(), openSession: vi.fn(), remove: vi.fn(), openModels: vi.fn(), openInspector: vi.fn(), openHistory,
     };
     act(() => root.render(<ControlsMenu record={FIXTURES.build!} controls={controls} />));
 
@@ -305,7 +318,7 @@ describe('creating a project', () => {
     act(() => { idea.form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
     await flush();
 
-    expect(onCreate).toHaveBeenCalledWith({ idea: 'A roguelike', folder: '~/Projects/x/game', executionMode, models: [] });
+    expect(onCreate).toHaveBeenCalledWith({ idea: 'A roguelike', folder: '~/Projects/x/game', executionMode, openSpecEnabled: false, models: [] });
     expect(onClose).not.toHaveBeenCalled();
   });
 
@@ -361,7 +374,7 @@ describe('creating a project', () => {
     act(() => { select.form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
     await flush();
 
-    expect(onCreate).toHaveBeenCalledWith({ idea: 'Add a JSON flag', executionMode: 'workspace', models: [], workspaceId: 'testrepo' });
+    expect(onCreate).toHaveBeenCalledWith({ idea: 'Add a JSON flag', executionMode: 'workspace', openSpecEnabled: false, models: [], workspaceId: 'testrepo' });
   });
 
   it('keeps the dialog open and shows the runtime refusal', async () => {

@@ -63,6 +63,7 @@ function useProjectPageControls(record: ProjectRecord, actions: ArchitectActions
     stop: () => { if (confirm(`Stop ${record.name}? Running work finishes on its own; the Architect is not woken again.`)) void report(actions.stop(id)); },
     raiseCap: () => { setNotice(null); setCapOpen(true); },
     setExecutionMode: (next) => void report(actions.setExecutionMode(id, next)),
+    enableOpenSpec: () => void report(actions.enableOpenSpec(id)),
     setAutonomy: (next: AutonomySetting) => void report(actions.setAutonomy(id, next)),
     openSession: () => {
       setHistoryOpen(true);
@@ -321,6 +322,7 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOp
           disabled={record.phase === 'intake'}
           inputRef={directiveRef}
           onSend={(text) => actions.directive(id, text)}
+          onRequestChange={record.openSpecEnabled && record.phase === 'maintain' ? (text) => actions.requestChange(id, text) : undefined}
         />
       </div>
       <SessionHistoryDialog

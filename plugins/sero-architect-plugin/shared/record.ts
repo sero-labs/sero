@@ -141,6 +141,8 @@ export interface Milestone {
   runId?: string;
   id: string;
   title: string;
+  /** An OpenSpec change in the project repository, owned by this milestone. */
+  openSpecChange?: string;
   status: MilestoneStatus;
   plan: string | null;
   /** A preview milestone must close with a smoke check and a capture. */
@@ -278,6 +280,8 @@ export interface OwnerSessionState {
 
 export interface ProjectRecord {
   version: 1;
+  /** Architect-level opt-in for later OpenSpec changes. */
+  openSpecEnabled?: boolean;
   /** Absent on older projects until the user saves the execution setting. */
   executionMode?: ExecutionMode;
   /** Admin selections shown before work approval; refreshed by the owner runtime. */
@@ -357,6 +361,7 @@ export interface BlockedWorkCause {
 
 export interface NewProjectInput {
   executionMode?: ExecutionMode;
+  openSpecEnabled?: boolean;
   id: string;
   name: string;
   idea: string;
@@ -369,6 +374,7 @@ export interface NewProjectInput {
 export function createProjectRecord(input: NewProjectInput): ProjectRecord {
   return {
     version: 1,
+    openSpecEnabled: input.openSpecEnabled ?? false,
     executionMode: input.executionMode ?? 'workspace',
     id: input.id,
     name: input.name,

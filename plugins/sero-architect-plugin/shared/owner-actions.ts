@@ -12,6 +12,7 @@ export const OWNER_ACTIONS = [
   'milestone',
   'decide',
   'research',
+  'openspec',
   'dispatch',
   'evidence',
   'status',
@@ -81,6 +82,10 @@ export interface OwnerActionInput {
   parks?: string[];
   /** research */
   stoppingCondition?: string;
+  /** openspec: read the official CLI instructions/status or validate a linked change. */
+  changeName?: string;
+  operation?: 'status' | 'instructions' | 'validate';
+  artifact?: 'proposal' | 'specs' | 'design' | 'tasks' | 'apply';
   /** research: the researchers must run commands (tests, builds). Requires `kind: 'room'`. */
   needsCommands?: boolean;
   /** dispatch */

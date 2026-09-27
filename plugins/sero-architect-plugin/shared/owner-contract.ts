@@ -28,6 +28,7 @@ function budgetLines(record: ProjectRecord): string[] {
 
 function milestoneLine(milestone: Milestone): string {
   const parts = [`- ${milestone.id} "${milestone.title}": ${milestone.status}`];
+  if (milestone.openSpecChange) parts.push(`OpenSpec change openspec/changes/${milestone.openSpecChange}`);
   if (milestone.dispatch) parts.push(`${milestone.dispatch.kind} ${milestone.dispatch.id}`);
   if (milestone.pendingDispatch) parts.push(`${milestone.pendingDispatch.kind} dispatch being prepared`);
   if (milestone.verification) parts.push(`verification ${milestone.verification}`);
@@ -169,7 +170,13 @@ function phaseInstruction(record: ProjectRecord): string[] {
     case 'release':
       return ['Keep working. Prepare the release: evidence for the release artifact, then the release itself. A delivery to an external destination needs a user decision first.'];
     case 'maintain':
-      return ['Keep working. Respond to the events that woke you, dispatch fixes as milestones, and verify them the same way as in build.'];
+      return record.openSpecEnabled ? [
+        'Keep working. Respond to events and requested OpenSpec changes. Each linked milestone is a separate, repeatable change in this project. Work on its saved change name, never infer one from chat history.',
+        'For a linked milestone without a plan: first explore its request with one read-only Room using the research action with kind room and --changeName set to its exact OpenSpec change name. Stop when the Room has compared options, identified requirements and named unresolved user choices. Do not ask the Room to implement or write spec files. If its research is pending, sleep. If findings already exist for this change, reuse them instead of creating a second Room.',
+        'After the Room returns, prepare proposal.md, capability specs, design.md and tasks.md in that existing change folder. Ask the architect openspec action for status and instructions per artifact, read the project files, and write the artifacts. Call openspec validate through the same tool. Put the approved requirements and acceptance criteria in the linked milestone plan, with the change path. Under milestone autonomy, wait for the user to approve that plan.',
+        'An approved linked milestone dispatches as a Workflow. Give it the change path and the accepted objective. The runtime checks planning completion and strict OpenSpec validation before dispatch. The Workflow implements the tasks and updates tasks.md. On completion, request evidence and compare the result with the spec before accepting the milestone. The next user request becomes a new linked milestone in this same project.',
+        'For other maintenance events, use the ordinary milestone, Workflow and Room rules.',
+      ] : ['Keep working. Respond to the events that woke you, dispatch fixes as milestones, and verify them the same way as in build.'];
   }
 }
 
