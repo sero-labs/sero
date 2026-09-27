@@ -55,7 +55,6 @@ Good prompts usually include:
 | Attachments | Add files/images/context supported by the current composer | Attachments may be sent to the model/provider used for the turn. |
 | Context editor | Adjust session system prompt, tools, skills, and presets | Treat this as session-scoped steering, not a global policy engine. |
 | Workspace snapshot | Insert workspace name/root, open editor tabs, and open browser tabs | It intentionally omits git diff/status and terminal history. |
-| Memory visibility toggle | Show/hide memory context blocks when present | Memory is selective and budgeted. Not all memories are sent. |
 | Thinking visibility toggle | Show/hide thinking blocks when exposed | Availability depends on model/provider behavior. |
 | Stop/abort | Stop the current turn | Use when the agent is going in the wrong direction or running too long. |
 | Queued follow-ups | Send another prompt after the current stream ends | Queue items can be removed before they are sent. |

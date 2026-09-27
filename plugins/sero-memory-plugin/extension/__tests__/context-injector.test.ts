@@ -3,23 +3,12 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 const mocks = vi.hoisted(() => ({
   checkBootstrapStatus: vi.fn(),
-  buildPriorityContextSplit: vi.fn(),
-  runPhase1Migration: vi.fn(),
-  runQmdUpdateNow: vi.fn(),
-  flushPendingStats: vi.fn(),
-  clearPriorityContextCache: vi.fn(),
-  clearMemoryPromptDebugState: vi.fn(),
-  logMemoryPromptAgentStart: vi.fn(),
-  logMemoryPromptBeforeAgentStart: vi.fn(),
-  sendMessage: vi.fn(),
-  info: vi.fn(),
-  error: vi.fn(),
+  buildPriorityContext: vi.fn(),
 }));
 
 vi.mock('../bootstrap', () => ({
   checkBootstrapStatus: mocks.checkBootstrapStatus,
   IDENTITY_QUESTIONS: [],
-  MEMORY_QUESTIONS: [],
   USER_QUESTIONS: [],
 }));
 
@@ -29,160 +18,86 @@ vi.mock('../memory-manager', () => ({
   resolveMemoryRoot: () => '/tmp/sero-memory-root',
 }));
 
-vi.mock('../memory-config', () => ({
-  getAutoRetrieveModeSync: () => 'off',
-  getMemorySnapshotModeSync: () => 'live',
-}));
-
 vi.mock('../priority-context', () => ({
-  buildPriorityContextSplit: mocks.buildPriorityContextSplit,
-  buildPriorityContext: vi.fn(),
-  clearPriorityContextCache: mocks.clearPriorityContextCache,
-}));
-
-vi.mock('../qmd', () => ({
-  isQmdAvailable: () => true,
-  runQmdUpdateNow: mocks.runQmdUpdateNow,
-}));
-
-vi.mock('../logger', () => ({
-  info: mocks.info,
-  error: mocks.error,
-  errorDetails: (error: unknown) => ({ message: error instanceof Error ? error.message : String(error) }),
-}));
-
-vi.mock('../migration', () => ({
-  runPhase1Migration: mocks.runPhase1Migration,
-}));
-
-vi.mock('../memory-scoring', () => ({
-  flushPendingStats: mocks.flushPendingStats,
+  buildPriorityContext: mocks.buildPriorityContext,
+  clearPriorityContextCache: vi.fn(),
 }));
 
 vi.mock('../memory-instructions', () => ({
   getMemoryInstructions: () => '\nMemory instructions',
 }));
 
-vi.mock('../prompt-debug', () => ({
-  clearMemoryPromptDebugState: mocks.clearMemoryPromptDebugState,
-  logMemoryPromptAgentStart: mocks.logMemoryPromptAgentStart,
-  logMemoryPromptBeforeAgentStart: mocks.logMemoryPromptBeforeAgentStart,
-}));
-
-import {
-  registerContextInjection,
-  resetBootstrapCache,
-} from '../context-injector';
-import {
-  clearPhase1MigrationState,
-  getPhase1MigrationState,
-  setPhase1MigrationState,
-} from '../phase1-migration-state';
+import { registerContextInjection, resetBootstrapCache } from '../context-injector';
 
 type RegisteredHandler = (event: unknown, ctx?: unknown) => unknown;
 
-function createPiHarness(): {
-  handlers: Map<string, RegisteredHandler>;
-  api: ExtensionAPI;
-} {
+function createPiHarness(): Map<string, RegisteredHandler> {
   const handlers = new Map<string, RegisteredHandler>();
   const api = {
     on: (event: string, handler: RegisteredHandler) => {
       handlers.set(event, handler);
     },
-    sendMessage: mocks.sendMessage,
-  } as Pick<ExtensionAPI, 'on' | 'sendMessage'> as ExtensionAPI;
-  return { handlers, api };
+  } as Pick<ExtensionAPI, 'on'> as ExtensionAPI;
+  registerContextInjection(api);
+  return handlers;
 }
 
-function createBeforeAgentStartContext(sessionId: string) {
-  return {
-    sessionManager: {
-      getSessionId: () => sessionId,
-    },
-  };
-}
+const ctx = { sessionManager: { getSessionId: () => 'session-1' } };
 
-describe('context injector phase-1 migration state', () => {
+describe('context injector', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetBootstrapCache();
-    clearPhase1MigrationState('session-entered');
-    clearPhase1MigrationState('session-fallback');
-    mocks.checkBootstrapStatus.mockResolvedValue({
-      needsBootstrap: false,
-      existingUserContent: null,
-    });
-    mocks.buildPriorityContextSplit.mockResolvedValue({
-      staticContext: 'Static memory context',
-      searchContext: '',
-    });
-    mocks.runPhase1Migration.mockResolvedValue({ changed: false, notes: [] });
+    mocks.checkBootstrapStatus.mockResolvedValue({ needsBootstrap: false, existingUserContent: null });
+    mocks.buildPriorityContext.mockResolvedValue('Static memory context');
   });
 
-  it('does not rerun phase-1 migration on first turn after session enter already checked it', async () => {
-    const { api, handlers } = createPiHarness();
-    registerContextInjection(api);
-    setPhase1MigrationState('session-entered', false);
+  it('adds the memory files and instructions to the system prompt', async () => {
+    const handlers = createPiHarness();
 
-    const beforeAgentStart = handlers.get('before_agent_start');
-    expect(beforeAgentStart).toBeDefined();
+    const result = await handlers.get('before_agent_start')!({ prompt: 'hello', systemPrompt: 'base' }, ctx);
 
-    const result = await beforeAgentStart!(
-      { prompt: 'hello', systemPrompt: 'base' },
-      createBeforeAgentStartContext('session-entered'),
-    );
-
-    expect(mocks.runPhase1Migration).not.toHaveBeenCalled();
     expect(result).toEqual({ systemPrompt: 'baseStatic memory context\nMemory instructions' });
   });
 
-  it('runs the fallback phase-1 migration once, then reuses the recorded state', async () => {
-    const { api, handlers } = createPiHarness();
-    registerContextInjection(api);
-
-    const beforeAgentStart = handlers.get('before_agent_start');
-    expect(beforeAgentStart).toBeDefined();
-
-    const firstResult = await beforeAgentStart!(
-      { prompt: 'first turn', systemPrompt: 'base' },
-      createBeforeAgentStartContext('session-fallback'),
-    );
-    const secondResult = await beforeAgentStart!(
-      { prompt: 'second turn', systemPrompt: 'base' },
-      createBeforeAgentStartContext('session-fallback'),
-    );
-
-    expect(mocks.runPhase1Migration).toHaveBeenCalledTimes(1);
-    expect(mocks.runQmdUpdateNow).not.toHaveBeenCalled();
-    expect(getPhase1MigrationState('session-fallback')).toEqual({
-      checked: true,
-      changed: false,
-    });
-    expect(firstResult).toEqual({ systemPrompt: 'baseStatic memory context\nMemory instructions' });
-    expect(secondResult).toEqual({ systemPrompt: 'baseStatic memory context\nMemory instructions' });
-  });
-
   it('adds caveman instructions when USER.md context enables caveman mode', async () => {
-    mocks.buildPriorityContextSplit.mockResolvedValue({
-      staticContext: '\n\n## Memory\n\n### USER.md\n\n# User\n\n- **Communication:** Caveman mode — compressed replies\n- **Caveman Mode:** full',
-      searchContext: '',
-    });
-
-    const { api, handlers } = createPiHarness();
-    registerContextInjection(api);
-    setPhase1MigrationState('session-caveman', false);
-
-    const beforeAgentStart = handlers.get('before_agent_start');
-    expect(beforeAgentStart).toBeDefined();
-
-    const result = await beforeAgentStart!(
-      { prompt: 'hello', systemPrompt: 'base' },
-      createBeforeAgentStartContext('session-caveman'),
+    mocks.buildPriorityContext.mockResolvedValue(
+      '\n\n## Memory\n\n### USER.md\n\n# User\n\n- **Communication:** Caveman mode — compressed replies\n- **Caveman Mode:** full',
     );
+    const handlers = createPiHarness();
+
+    const result = await handlers.get('before_agent_start')!({ prompt: 'hello', systemPrompt: 'base' }, ctx);
 
     expect(result).toMatchObject({
       systemPrompt: expect.stringContaining('IMPORTANT: Respond in Caveman mode'),
     });
+  });
+
+  it('keeps memory messages stored by older versions out of the model context', async () => {
+    const handlers = createPiHarness();
+    const kept = { role: 'user', content: 'hello' };
+
+    const result = await handlers.get('context')!({
+      messages: [
+        kept,
+        { role: 'custom', customType: 'memory-search-context', content: 'old search hits' },
+        { role: 'custom', customType: 'memory-context', content: 'old memory copy' },
+      ],
+    });
+
+    expect(result).toEqual({ messages: [kept] });
+  });
+
+  it('switches from setup instructions to memory once the setup files exist', async () => {
+    mocks.checkBootstrapStatus.mockResolvedValueOnce({ needsBootstrap: true, existingUserContent: null });
+    const handlers = createPiHarness();
+    const beforeAgentStart = handlers.get('before_agent_start')!;
+
+    // No agent_end between turns: an aborted setup turn must not pin the instructions.
+    const setupTurn = await beforeAgentStart({ prompt: 'hi', systemPrompt: 'base' }, ctx);
+    const nextTurn = await beforeAgentStart({ prompt: 'next', systemPrompt: 'base' }, ctx);
+
+    expect(setupTurn).toMatchObject({ systemPrompt: expect.stringContaining('Memory Setup Required') });
+    expect(nextTurn).toEqual({ systemPrompt: 'baseStatic memory context\nMemory instructions' });
   });
 });

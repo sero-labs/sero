@@ -68,18 +68,14 @@ describe('container memory file guard', () => {
     const protectedRoot = getProtectedMemoryRoot();
 
     expect(isProtectedMemoryPath(path.join(protectedRoot, 'MEMORY.md'))).toBe(true);
-    expect(isProtectedMemoryPath(path.join(protectedRoot, 'memory', 'daily', '2026-04-02.md'))).toBe(true);
-    expect(isProtectedMemoryPath(path.join(protectedRoot, 'memory', 'sessions', '2026-04-02-abcd1234.md'))).toBe(true);
 
     expect(isProtectedMemoryPath('/workspace/MEMORY.md')).toBe(false);
-    expect(isProtectedMemoryPath('/workspace/memory/sessions/notes.md')).toBe(false);
   });
 
   it('detects direct and cwd-based bash access to protected memory locations', () => {
     const protectedRoot = getProtectedMemoryRoot();
 
     expect(commandTouchesProtectedMemory(`grep -n notifications '${protectedRoot}/MEMORY.md'`)).toBe(true);
-    expect(commandTouchesProtectedMemory(`find '${protectedRoot}/memory/sessions' -type f`)).toBe(true);
     expect(commandTouchesProtectedMemory(`cd '${protectedRoot}' && cat *.md`)).toBe(true);
     expect(commandTouchesProtectedMemory('grep -n notifications /workspace/MEMORY.md')).toBe(false);
   });

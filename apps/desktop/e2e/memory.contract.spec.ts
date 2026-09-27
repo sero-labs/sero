@@ -113,48 +113,6 @@ test.describe('Memory - File Operations', () => {
   });
 });
 
-// ── Daily log structure ────────────────────────────────────────
-
-test.describe('Memory - Daily Logs', () => {
-  test('should create daily log directory', async () => {
-    await writeMemoryFile('daily/2026-04-01.md', '## Session notes\nDiscussed auth strategy.');
-    const content = await readMemoryFile('daily/2026-04-01.md');
-    expect(content).toContain('Discussed auth strategy');
-  });
-
-  test('should support multiple daily logs', async () => {
-    await writeMemoryFile('daily/2026-03-30.md', 'Day 1 notes');
-    await writeMemoryFile('daily/2026-03-31.md', 'Day 2 notes');
-    await writeMemoryFile('daily/2026-04-01.md', 'Day 3 notes');
-
-    for (const date of ['2026-03-30', '2026-03-31', '2026-04-01']) {
-      expect(await fileExists(`daily/${date}.md`)).toBe(true);
-    }
-  });
-});
-
-// ── Session transcript structure ───────────────────────────────
-
-test.describe('Memory - Session Transcripts', () => {
-  test('should create session transcript directory', async () => {
-    const transcript = [
-      '# Session 2026-04-01 (test-session-001)',
-      '',
-      '<!-- source: transcript -->',
-      '<!-- session-id: test-session-001 -->',
-      '',
-      '**User:** How do we set up auth?',
-      '',
-      '**Assistant:** We chose Clerk for authentication.',
-    ].join('\n');
-
-    await writeMemoryFile('sessions/2026-04-01-test-session-001.md', transcript);
-    const content = await readMemoryFile('sessions/2026-04-01-test-session-001.md');
-    expect(content).toContain('test-session-001');
-    expect(content).toContain('Clerk');
-  });
-});
-
 // ── Capacity format validation ─────────────────────────────────
 
 test.describe('Memory - Capacity', () => {

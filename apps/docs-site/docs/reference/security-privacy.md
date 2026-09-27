@@ -74,7 +74,7 @@ expose them elsewhere:
 - workspaces under `<SERO_HOME>/workspaces/`
 - global app state under `<SERO_HOME>/apps/`
 - installed plugins under `<SERO_HOME>/agent/plugins/`
-- memory files, daily logs, layout state, and debug output
+- memory files, layout state, and debug output
 
 ### Remote or networked when enabled
 

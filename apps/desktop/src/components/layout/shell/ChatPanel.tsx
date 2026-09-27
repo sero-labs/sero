@@ -109,7 +109,6 @@ function LocalChatPanel() {
   const sessionLabel = activeSession?.name || activeSession?.firstMessage;
 
   const showThinkingBlocks = useAgentStore((s) => s.showThinkingBlocks);
-  const showMemoryBlocks = useAgentStore((s) => s.showMemoryBlocks);
   const sendPrompt = useAgentStore((s) => s.sendPrompt);
   const loadOlderTurns = useAgentStore((s) => s.loadOlderTurns);
   const handleReachStart = useCallback(() => {
@@ -189,7 +188,6 @@ function LocalChatPanel() {
       <ChatMessageItem
         message={item.message}
         showThinking={showThinkingBlocks}
-        showMemory={showMemoryBlocks}
         onRestoreTurnUndo={stableRestoreHandler}
         sessionId={sessionId ?? undefined}
         previousUserText={previousUserTextAt(grouping, index)}
@@ -201,7 +199,6 @@ function LocalChatPanel() {
     grouping,
     sessionId,
     sessionLabel,
-    showMemoryBlocks,
     showThinkingBlocks,
     stableRestoreHandler,
   ]);

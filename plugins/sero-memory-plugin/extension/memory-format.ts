@@ -47,10 +47,6 @@ export function formatShortTimestamp(date: Date): string {
   return format(date, 'yyyy-MM-dd HH:mm');
 }
 
-export function localDateStr(date: Date): string {
-  return format(date, 'yyyy-MM-dd');
-}
-
 export function generateEntryId(): string {
   return `mem-${randomBytes(3).toString('hex')}`;
 }

@@ -222,7 +222,7 @@ export const features: Feature[] = [
 ];
 
 export const builtins = [
-	{ name: "Memory", desc: "Identity, profile, long-term facts, daily logs.", img: images.memory },
+	{ name: "Memory", desc: "Identity, profile, long-term facts.", img: images.memory },
 	{ name: "Rooms", desc: "A Room allows a team of Sero agents to work on a task", img: images.room },
 	{ name: "Web", desc: "Search, fetch, code lookup, bookmarks.", img: images.research },
 	{ name: "Git", desc: "Branches, staging, commits, diffs, history.", img: images.gitApp },

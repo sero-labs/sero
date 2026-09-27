@@ -95,10 +95,9 @@ Memory uses the global workspace:
 <SERO_HOME>/workspaces/global/MEMORY.md
 <SERO_HOME>/workspaces/global/IDENTITY.md
 <SERO_HOME>/workspaces/global/USER.md
-<SERO_HOME>/workspaces/global/memory/daily/YYYY-MM-DD.md
 ```
 
-Memory debug output is under `<SERO_HOME>/debug/memory/`. See [Memory](/guide/memory) for the user workflow.
+See [Memory](/guide/memory) for the user workflow.
 
 ## Logs and temporary files
 

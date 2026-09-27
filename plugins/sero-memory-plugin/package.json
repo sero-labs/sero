@@ -1,7 +1,7 @@
 {
   "name": "@sero-ai/plugin-memory",
   "version": "0.1.0",
-  "description": "Persistent memory system for Sero — long-term facts, identity, user profile, and daily logs",
+  "description": "Persistent memory for Sero — agent identity, user profile, and long-term facts",
   "keywords": [
     "pi-package"
   ],
@@ -16,7 +16,6 @@
     ]
   },
   "dependencies": {
-    "@tobilu/qmd": "^2.5.3",
     "date-fns": "^4.4.0",
     "typebox": "catalog:"
   },
@@ -39,14 +38,10 @@
       "category": "utilities",
       "tags": [
         "memory",
-        "identity",
-        "logs"
+        "identity"
       ],
       "minSeroVersion": "0.1.0",
       "bundleExtensions": true,
-      "extensionExternals": [
-        "@tobilu/qmd"
-      ],
       "preBuilt": false
     }
   }

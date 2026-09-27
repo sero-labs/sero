@@ -8,18 +8,7 @@ const PROTECTED_ROOT_FILES = new Set([
   'USER.md',
 ]);
 
-const PROTECTED_SUBDIRS = new Set([
-  'daily',
-  'sessions',
-]);
-
-const MANAGED_MEMORY_LABEL = [
-  'MEMORY.md',
-  'IDENTITY.md',
-  'USER.md',
-  'memory/daily/',
-  'memory/sessions/',
-].join(', ');
+const MANAGED_MEMORY_LABEL = [...PROTECTED_ROOT_FILES].join(', ');
 
 type ShellToken =
   | { type: 'word'; value: string }
@@ -75,14 +64,7 @@ export function isProtectedMemoryPath(filePath: string): boolean {
     const segments = relative.split('/').filter(Boolean);
     if (segments.length === 0) continue;
 
-    if (segments.length === 1) {
-      if (PROTECTED_ROOT_FILES.has(segments[0]!)) return true;
-      continue;
-    }
-
-    if (segments[0] === 'memory' && PROTECTED_SUBDIRS.has(segments[1]!)) {
-      return true;
-    }
+    if (segments.length === 1 && PROTECTED_ROOT_FILES.has(segments[0]!)) return true;
   }
 
   return false;
@@ -123,8 +105,6 @@ function getSpecificCommandAliases(rootAlias: string): string[] {
     `${rootAlias}/MEMORY.md`,
     `${rootAlias}/IDENTITY.md`,
     `${rootAlias}/USER.md`,
-    `${rootAlias}/memory/daily`,
-    `${rootAlias}/memory/sessions`,
   ];
 }
 
@@ -322,8 +302,7 @@ export function getProtectedMemoryAccessError(source: 'bash' | 'read' | 'write' 
 
   return [
     `${action} access to managed Sero memory files is blocked.`,
-    `Use the \`sero-cli\` tool with \`sero memory\` or \`sero memory_search\` instead of ${source}.`,
+    `Use the \`sero-cli\` tool with \`sero memory\` instead of ${source}.`,
     `Protected locations: ${MANAGED_MEMORY_LABEL}.`,
-    'If memory search is unavailable, report that limitation instead of bypassing the memory system with filesystem tools.',
   ].join(' ');
 }

@@ -4,9 +4,9 @@
  *
  * WHY THIS EXISTS:
  * Sero runs in Electron, which bundles its own Node.js with a specific module ABI.
- * better-sqlite3 is a native addon used by @tobilu/qmd (the memory search backend).
+ * better-sqlite3 is a native addon the Web plugin uses to read browser cookies.
  * A plain `npm rebuild` or `pnpm rebuild` compiles against system Node.js (wrong ABI),
- * producing ERR_DLOPEN_FAILED at runtime and silently disabling memory search.
+ * producing ERR_DLOPEN_FAILED at runtime and silently disabling cookie import.
  *
  * WHAT THIS DOES:
  * 1. Locates better-sqlite3 in the pnpm store
@@ -47,7 +47,6 @@ function compareVersion(a, b) {
 function findBetterSqlite3() {
   const runtimeLinks = [
     resolve(ROOT, 'plugins/sero-web-plugin/node_modules/better-sqlite3'),
-    resolve(ROOT, 'plugins/sero-memory-plugin/node_modules/better-sqlite3'),
     resolve(DESKTOP, 'node_modules/better-sqlite3'),
   ];
   for (const link of runtimeLinks) {
@@ -222,7 +221,7 @@ function rebuild(electronVersion, electronAbi) {
     console.log('\x1b[32m  ✓ better-sqlite3 rebuilt successfully.\x1b[0m');
     return true;
   } catch {
-    console.error('\x1b[31m  ✗ better-sqlite3 rebuild failed. Memory search (QMD) will not work.\x1b[0m');
+    console.error('\x1b[31m  ✗ better-sqlite3 rebuild failed. The Web plugin cannot read browser cookies.\x1b[0m');
     console.error(`    Run manually: pnpm --dir apps/desktop exec electron-rebuild -f --version "${electronVersion}" --force-abi "${electronAbi}" --module-dir "${ROOT}" --which-module better-sqlite3`);
     return false;
   }

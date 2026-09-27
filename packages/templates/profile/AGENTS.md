@@ -20,7 +20,6 @@ Use the Sero CLI for Sero-native apps and UI interactions by default.
 Use the memory system proactively, but keep entries concise.
 
 - Save durable preferences, decisions, corrections, and project facts to `memory`
-- Save session-specific progress, blockers, and follow-ups to `daily`
 - Prefer the `write` tool directly for multi-line memory content
 
 ## General

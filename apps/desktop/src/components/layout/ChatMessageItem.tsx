@@ -13,7 +13,6 @@ import {
 import { cn } from '@sero-ai/ui/lib/utils';
 import { MessageAttachments } from './ChatAttachments';
 import { ThinkingBlock } from './ThinkingBlock';
-import { MemoryContextBlock } from './MemoryContextBlock';
 import { ResponseFeedback } from './ResponseFeedback';
 import { ThinkingIndicator } from './ChatPanelHelpers';
 import type { ChatMessage, ChatTurnUndoRef } from '@/types/ipc';
@@ -68,12 +67,136 @@ function ChatAvatar({ kind }: { kind: 'user' | 'assistant' }) {
   );
 }
 
+type MessageOf<T extends ChatMessage['type']> = Extract<ChatMessage, { type: T }>;
+
+function GoalContinuationItem({ message }: { message: MessageOf<'goal-continuation'> }) {
+  const nextTurn = message.automaticTurns + 1;
+  const usage = message.maxAutomaticTurns === undefined
+    ? `${message.automaticTurns} automatic turns used`
+    : `${message.automaticTurns} of ${message.maxAutomaticTurns} automatic turns used`;
+  return (
+    <div className="flex items-center gap-2 py-1 text-xs text-[var(--text-muted)]" data-goal-continuation={message.goalId}>
+      <Target className="size-3.5 text-[var(--accent-primary)]" />
+      <span className="font-medium text-[var(--text-secondary)]">Goal · turn {nextTurn}</span>
+      <span>Continue toward the objective · {usage}</span>
+    </div>
+  );
+}
+
+function GoalStatusItem({ message }: { message: MessageOf<'goal-status'> }) {
+  return (
+    <div className="flex items-center gap-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/40 px-2.5 py-2 text-xs text-[var(--text-secondary)]">
+      <Target className="size-3.5 shrink-0 text-[var(--accent-primary)]" />
+      <span>{message.text}</span>
+    </div>
+  );
+}
+
+function UserMessageItem({
+  message,
+  onRestoreTurnUndo,
+}: {
+  message: MessageOf<'user'>;
+  onRestoreTurnUndo?: (turnUndo: ChatTurnUndoRef) => void;
+}) {
+  const turnUndo = message.turnUndo;
+  const canRestore = !!turnUndo && !!onRestoreTurnUndo;
+
+  return (
+    <Message from="user" className="group/msg">
+      <div className="ml-auto flex w-fit max-w-full items-start gap-2">
+        <div className="flex min-w-0 flex-col">
+          <div className="relative min-w-0">
+            <MessageContent
+              className={cn(
+                'group-[.is-user]:bg-[var(--bg-elevated)]',
+                canRestore && 'pr-8',
+              )}
+            >
+              <MessageResponse>{message.text}</MessageResponse>
+              {message.attachments?.length ? (
+                <MessageAttachments attachments={message.attachments} />
+              ) : null}
+            </MessageContent>
+
+            {canRestore && turnUndo && onRestoreTurnUndo ? (
+              <MessageActions className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/2">
+                <MessageAction
+                  tooltip="Undo this turn"
+                  label="Undo this turn"
+                  className="size-7 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-muted)] shadow-sm hover:text-[var(--text-primary)]"
+                  onClick={() => onRestoreTurnUndo(turnUndo)}
+                >
+                  <RotateCcw className="size-3.5" />
+                </MessageAction>
+              </MessageActions>
+            ) : null}
+          </div>
+          {message.text ? <UserCopyButton text={message.text} /> : null}
+        </div>
+        <ChatAvatar kind="user" />
+      </div>
+    </Message>
+  );
+}
+
+function AssistantMessageItem({
+  message,
+  showThinking,
+  sessionId,
+  previousUserText,
+}: {
+  message: MessageOf<'assistant'>;
+  showThinking?: boolean;
+  sessionId?: string;
+  previousUserText?: string;
+}) {
+  const isDone = !message.isStreaming;
+  const hasContent = !!message.text?.trim();
+  const hasThinkingBlock = !!(showThinking && message.thinking);
+  const showInlineThinkingIndicator = message.isStreaming
+    && !hasContent
+    && (!message.thinking || !showThinking);
+  const showFeedback = isDone && hasContent && !!sessionId;
+
+  // Truncate excerpts for storage (keep feedback entries lean).
+  const promptExcerpt = previousUserText?.slice(0, 300);
+  const responseExcerpt = message.text?.slice(0, 300);
+
+  return (
+    <Message from="assistant" className="group/msg flex-row items-start gap-2">
+      {hasContent ? <ChatAvatar kind="assistant" /> : null}
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        {hasThinkingBlock ? (
+          <ThinkingBlock
+            thinking={message.thinking!}
+            isStreaming={message.isStreaming && !hasContent}
+          />
+        ) : null}
+        {hasContent ? (
+          <MessageContent>
+            <MessageResponse>{message.text}</MessageResponse>
+          </MessageContent>
+        ) : null}
+        {showInlineThinkingIndicator ? <ThinkingIndicator /> : null}
+        {showFeedback ? (
+          <ResponseFeedback
+            messageId={message.id}
+            sessionId={sessionId}
+            promptExcerpt={promptExcerpt}
+            responseExcerpt={responseExcerpt}
+            responseText={message.text}
+          />
+        ) : null}
+      </div>
+    </Message>
+  );
+}
+
 interface ChatMessageItemProps {
   message: ChatMessage;
   /** Whether to display thinking/reasoning blocks. */
   showThinking?: boolean;
-  /** Whether to display memory context blocks. */
-  showMemory?: boolean;
   onRestoreTurnUndo?: (turnUndo: ChatTurnUndoRef) => void;
   /** Session ID for feedback attribution. */
   sessionId?: string;
@@ -84,127 +207,26 @@ interface ChatMessageItemProps {
 export const ChatMessageItem = memo(function ChatMessageItem({
   message,
   showThinking,
-  showMemory,
   onRestoreTurnUndo,
   sessionId,
   previousUserText,
 }: ChatMessageItemProps) {
   switch (message.type) {
-    case 'goal-state':
-      return null;
-
-    case 'goal-continuation': {
-      const nextTurn = message.automaticTurns + 1;
-      const usage = message.maxAutomaticTurns === undefined
-        ? `${message.automaticTurns} automatic turns used`
-        : `${message.automaticTurns} of ${message.maxAutomaticTurns} automatic turns used`;
-      return (
-        <div className="flex items-center gap-2 py-1 text-xs text-[var(--text-muted)]" data-goal-continuation={message.goalId}>
-          <Target className="size-3.5 text-[var(--accent-primary)]" />
-          <span className="font-medium text-[var(--text-secondary)]">Goal · turn {nextTurn}</span>
-          <span>Continue toward the objective · {usage}</span>
-        </div>
-      );
-    }
-
+    case 'goal-continuation':
+      return <GoalContinuationItem message={message} />;
     case 'goal-status':
+      return <GoalStatusItem message={message} />;
+    case 'user':
+      return <UserMessageItem message={message} onRestoreTurnUndo={onRestoreTurnUndo} />;
+    case 'assistant':
       return (
-        <div className="flex items-center gap-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/40 px-2.5 py-2 text-xs text-[var(--text-secondary)]">
-          <Target className="size-3.5 shrink-0 text-[var(--accent-primary)]" />
-          <span>{message.text}</span>
-        </div>
+        <AssistantMessageItem
+          message={message}
+          showThinking={showThinking}
+          sessionId={sessionId}
+          previousUserText={previousUserText}
+        />
       );
-
-    case 'user': {
-      const turnUndo = message.turnUndo;
-      const canRestore = !!turnUndo && !!onRestoreTurnUndo;
-
-      return (
-        <Message from="user" className="group/msg">
-          <div className="ml-auto flex w-fit max-w-full items-start gap-2">
-            <div className="flex min-w-0 flex-col">
-              <div className="relative min-w-0">
-                <MessageContent
-                  className={cn(
-                    'group-[.is-user]:bg-[var(--bg-elevated)]',
-                    canRestore && 'pr-8',
-                  )}
-                >
-                  <MessageResponse>{message.text}</MessageResponse>
-                  {message.attachments?.length ? (
-                    <MessageAttachments attachments={message.attachments} />
-                  ) : null}
-                </MessageContent>
-
-                {canRestore && turnUndo && onRestoreTurnUndo ? (
-                  <MessageActions className="absolute top-1/2 right-0 -translate-y-1/2 translate-x-1/2">
-                    <MessageAction
-                      tooltip="Undo this turn"
-                      label="Undo this turn"
-                      className="size-7 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-muted)] shadow-sm hover:text-[var(--text-primary)]"
-                      onClick={() => onRestoreTurnUndo(turnUndo)}
-                    >
-                      <RotateCcw className="size-3.5" />
-                    </MessageAction>
-                  </MessageActions>
-                ) : null}
-              </div>
-              {message.text ? <UserCopyButton text={message.text} /> : null}
-            </div>
-            <ChatAvatar kind="user" />
-          </div>
-        </Message>
-      );
-    }
-
-    case 'assistant': {
-      const isDone = !message.isStreaming;
-      const hasContent = !!message.text?.trim();
-      const hasMemoryContext = !!(showMemory && message.memoryContext);
-      const hasThinkingBlock = !!(showThinking && message.thinking);
-      const showInlineThinkingIndicator = message.isStreaming
-        && !hasContent
-        && (!message.thinking || !showThinking);
-      const showAvatar = hasContent;
-      const showFeedback = isDone && hasContent && !!sessionId;
-
-      // Truncate excerpts for storage (keep feedback entries lean).
-      const promptExcerpt = previousUserText?.slice(0, 300);
-      const responseExcerpt = message.text?.slice(0, 300);
-
-      return (
-        <Message from="assistant" className="group/msg flex-row items-start gap-2">
-          {showAvatar ? <ChatAvatar kind="assistant" /> : null}
-          <div className="flex min-w-0 flex-1 flex-col gap-2">
-            {hasMemoryContext ? (
-              <MemoryContextBlock context={message.memoryContext!} />
-            ) : null}
-            {hasThinkingBlock ? (
-              <ThinkingBlock
-                thinking={message.thinking!}
-                isStreaming={message.isStreaming && !hasContent}
-              />
-            ) : null}
-            {hasContent ? (
-              <MessageContent>
-                <MessageResponse>{message.text}</MessageResponse>
-              </MessageContent>
-            ) : null}
-            {showInlineThinkingIndicator ? <ThinkingIndicator /> : null}
-            {showFeedback ? (
-              <ResponseFeedback
-                messageId={message.id}
-                sessionId={sessionId}
-                promptExcerpt={promptExcerpt}
-                responseExcerpt={responseExcerpt}
-                responseText={message.text}
-              />
-            ) : null}
-          </div>
-        </Message>
-      );
-    }
-
     default:
       return null;
   }

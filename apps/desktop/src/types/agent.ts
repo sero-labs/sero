@@ -112,8 +112,6 @@ export interface ChatAssistantMessage {
   isStreaming: boolean;
   /** Accumulated thinking/reasoning text (only present when model uses reasoning). */
   thinking?: string;
-  /** Memory context injected for this turn (from the memory extension). */
-  memoryContext?: string;
 }
 
 export interface ChatToolCallMessage {
@@ -184,7 +182,6 @@ export type AgentStreamEvent =
   | { type: 'session_name'; sessionId: string; name: string }
   | { type: 'model_change'; sessionId: string; state: SessionModelState }
   | { type: 'resources_change'; sessionId: string; commands: SeroSlashCommandInfo[]; state: SessionModelState }
-  | { type: 'memory_context'; sessionId: string; context: string }
   | { type: 'error'; sessionId: string; error: string }
   | { type: 'container_starting'; sessionId: string; workspaceId: string }
   | { type: 'container_ready'; sessionId: string; workspaceId: string; ipAddress?: string }
