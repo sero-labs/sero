@@ -17,7 +17,7 @@ vi.mock('@tobilu/qmd', async (importOriginal) => {
     ...actual,
     createStore: async (...args: Parameters<typeof actual.createStore>) => {
       const store = await actual.createStore(...args);
-      return Object.assign(store, { embed: async () => undefined, searchVector: async () => [] });
+      return Object.assign(store, { embed: async () => ({ docsProcessed: 0, chunksEmbedded: 0, errors: 0, durationMs: 0 }), searchVector: async () => [] });
     },
   };
 });

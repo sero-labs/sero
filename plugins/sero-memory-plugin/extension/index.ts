@@ -49,7 +49,10 @@ export default function memoryExtension(pi: ExtensionAPI): void {
     if (!state.snapshot) {
       const built = buildSnapshot(workspaceOf(ctx));
       state.snapshot = built;
-      built.then((snapshot) => recordSnapshotMetric(sessionIdOf(ctx), snapshot.counts), () => undefined);
+      // A failed read is not kept, so the next turn tries again.
+      built.then((snapshot) => recordSnapshotMetric(sessionIdOf(ctx), snapshot.counts), () => {
+        if (state.snapshot === built) state.snapshot = null;
+      });
     }
     return state.snapshot;
   };

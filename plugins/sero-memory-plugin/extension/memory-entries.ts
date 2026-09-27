@@ -20,6 +20,7 @@ import {
   globalLocation,
   listEntries,
   moveEntry,
+  readTrashedEntry,
   restoreEntry,
   trashEntry,
   workspaceLocation,
@@ -120,9 +121,7 @@ function capMessage(scope: Scope, cap: number, pinned: StoredEntry[]): string {
   ].join('\n');
 }
 
-async function closeEntries(location: ScopeLocation, text: string, workspaceRoot: string): Promise<StoredEntry[]> {
-  // Keyword scoring works without the index; the vector half needs it warm.
-  await warmUp(workspaceRoot).catch(() => false);
+async function closeEntries(location: ScopeLocation, text: string): Promise<StoredEntry[]> {
   const { results, mode } = await searchEntries(text, [location], 'close');
   const threshold = recallThresholdFor(mode);
   return results.filter((result) => result.score >= threshold).slice(0, MAX_CLOSE_ENTRIES).map((result) => result.entry);
@@ -146,19 +145,22 @@ export async function saveEntry(ctx: EntryContext, input: SaveInput): Promise<st
   const scanned = scan(buildBody(input.content!, input.behaviour!));
   if (!scanned.ok) return scanned.message;
 
-  if (!input.distinct) {
-    const close = await closeEntries(location, `${input.content} ${input.terms}`, ctx.workspaceRoot);
-    if (close.length > 0) {
-      return [
-        'Not saved. These memories are close to the new one:',
-        ...close.map(describeEntry),
-        'If the new fact updates one of them, call `replace` with its id. If it is a different fact, save again with `distinct: true`.',
-      ].join('\n');
-    }
-  }
+  // Keyword scoring works without the index; the vector half needs it warm.
+  if (!input.distinct) await warmUp(ctx.workspaceRoot).catch(() => false);
 
   const today = todayStamp();
   return enqueueWrite(async () => {
+    // Checked in the queue, so a save from another session that lands first is seen.
+    if (!input.distinct) {
+      const close = await closeEntries(location, `${input.content} ${input.terms}`);
+      if (close.length > 0) {
+        return [
+          'Not saved. These memories are close to the new one:',
+          ...close.map(describeEntry),
+          'If the new fact updates one of them, call `replace` with its id. If it is a different fact, save again with `distinct: true`.',
+        ].join('\n');
+      }
+    }
     const cap = readMemorySettings().pinnedCaps[scope];
     const pinned = input.delivery === 'pinned' ? await pinnedCount(location) : [];
     const delivery: Delivery = input.delivery === 'pinned' && pinned.length >= cap ? 'on-match' : input.delivery as Delivery;
@@ -248,10 +250,18 @@ export async function restoreRemovedEntry(ctx: EntryContext, id: string | undefi
     const blocked = await guard(location, ctx.workspaceRoot);
     if (blocked) continue;
     const restored = await enqueueWrite(async () => {
+      const trashed = await readTrashedEntry(location, id);
+      if (!trashed) return null;
+      if (trashed.delivery === 'pinned') {
+        const cap = readMemorySettings().pinnedCaps[location.scope];
+        const pinned = await pinnedCount(location);
+        if (pinned.length >= cap) return `Not restored. ${capMessage(location.scope, cap, pinned)}`;
+      }
       const entry = await restoreEntry(location, id);
       if (entry) await refreshIndex(location);
       return entry;
     });
+    if (typeof restored === 'string') return restored;
     if (restored) {
       await recordMetric('restore', { session: ctx.sessionId, id, scope: restored.scope });
       return `Restored: ${describeEntry(restored)}`;
@@ -290,6 +300,10 @@ export async function unpinEntry(ctx: EntryContext, id: string | undefined): Pro
   return enqueueWrite(async () => {
     const current = await findEntry([location], found.id);
     if (!current) return `Error: no memory with id ${found.id}.`;
+    // Search finds an on-match entry by its terms; an older unsorted entry can have none.
+    if (current.terms.length === 0) {
+      return `Not unpinned: ${describeEntry(current)} has no search terms, so it would never be recalled. Call \`replace\` with terms first.`;
+    }
     const moved = await moveEntry(location, current, 'on-match');
     await refreshIndex(location);
     await recordMetric('unpin', { session: ctx.sessionId, id: moved.id, scope: moved.scope });

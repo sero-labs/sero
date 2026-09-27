@@ -6,7 +6,7 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { fetchAllContent, type ExtractedContent } from "./extract.js";
 import { clearCloneCache } from "./github-extract.js";
-import { clearResults, generateId, storeResult, restoreFromSession, type QueryResultData, type StoredSearchData } from "./storage.js";
+import { generateId, storeResult, restoreFromSession, type QueryResultData, type StoredSearchData } from "./storage.js";
 import { isExaAvailable } from "./exa.js";
 import { isPerplexityAvailable } from "./perplexity.js";
 import { isGeminiApiAvailable } from "./gemini-api.js";
@@ -102,9 +102,9 @@ export default function (pi: ExtensionAPI) {
 		return id;
 	}
 
+	// Cleared results stay in the shared store; `historyClearedAt` hides them from this workspace.
 	function clearRuntimeHistory(): void {
 		abortPendingFetches();
-		clearResults();
 	}
 
 	// ── Background fetch ──────────────────────────────────

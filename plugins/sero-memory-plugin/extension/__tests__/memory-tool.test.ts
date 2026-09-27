@@ -11,7 +11,7 @@ vi.mock('../qmd-index', async (importOriginal) => ({
   refreshIndex: vi.fn(async () => undefined),
 }));
 
-import { globalLocation, listEntries, workspaceLocation } from '../entry-store';
+import { globalLocation, listEntries, readTrashedEntry, workspaceLocation, writeEntry } from '../entry-store';
 import type { EntryContext, MemoryChange } from '../memory-entries';
 import { getIdentityPath, getUserPath, resolveMemoryRoot } from '../memory-manager';
 import { executeMemoryAction } from '../memory-tool';
@@ -146,6 +146,37 @@ describe('memory tool', () => {
 
     expect(await executeMemoryAction(ctx, { action: 'restore', id })).toMatch(/^Restored/);
     expect(await listEntries(workspaceLocation(ctx.workspaceRoot), 'pinned')).toEqual([before]);
+  });
+
+  it('keeps a removed pinned memory in the trash when the pinned set is full', async () => {
+    const workspace = workspaceLocation(ctx.workspaceRoot);
+    const id = idIn(await executeMemoryAction(ctx, { ...pnpmMemory, scope: 'workspace', delivery: 'pinned' }));
+    await executeMemoryAction(ctx, { action: 'remove', id, reason: 'r' });
+    for (let index = 0; index < 5; index++) {
+      await executeMemoryAction(ctx, { ...pnpmMemory, content: `Rule ${index}.`, terms: `rule${index}`, scope: 'workspace', delivery: 'pinned' });
+    }
+
+    expect(await executeMemoryAction(ctx, { action: 'restore', id })).toMatch(/^Not restored\. The workspace pinned set is full \(5\/5\)/);
+
+    expect(await listEntries(workspace, 'pinned')).toHaveLength(5);
+    expect(await readTrashedEntry(workspace, id)).not.toBeNull();
+  });
+
+  it('refuses to unpin an older memory that has no search terms', async () => {
+    await writeEntry(globalLocation(), {
+      id: 'mem-old00001', type: 'preference', scope: 'global', created: '2026-01-01', confirmed: '2026-01-01',
+      replaces: [], terms: [], body: 'Prefers short answers.',
+    }, 'unsorted');
+
+    expect(await executeMemoryAction(ctx, { action: 'unpin', id: 'mem-old00001' })).toMatch(/^Not unpinned/);
+    expect((await listEntries(globalLocation(), 'unsorted')).map((entry) => entry.id)).toEqual(['mem-old00001']);
+  });
+
+  it('fails a profile read that cannot read the file, instead of calling it empty', async () => {
+    // A folder in place of USER.md makes the read fail with an error other than "not found".
+    await mkdir(getUserPath(resolveMemoryRoot()), { recursive: true });
+
+    await expect(executeMemoryAction(ctx, { action: 'read', target: 'user' })).rejects.toThrow();
   });
 
   it('writes and reads profiles without entry fields', async () => {

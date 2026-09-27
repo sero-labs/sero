@@ -190,11 +190,41 @@ async function applyDecision(
     case 'remove': {
       const evidencePath = resolveEvidencePath(workspaceRoot, decision.missingPath);
       if (!evidencePath) return { applied: false, detail: 'the evidence is not a file path inside the workspace' };
-      const present = await fs.access(evidencePath).then(() => true, () => false);
-      if (present) return { applied: false, detail: `${decision.missingPath} exists` };
+      const missing = await isMissingInWorkspace(workspaceRoot, evidencePath);
+      if (missing !== true) return { applied: false, detail: missing === false ? `${decision.missingPath} exists` : `${decision.missingPath} could not be checked` };
       await trashEntry(location, read.get(decision.id)!.entry, `${decision.missingPath} does not exist in the workspace: ${decision.reason}`);
       return { applied: true, detail: `removed: ${decision.missingPath} does not exist` };
     }
+  }
+}
+
+/**
+ * True only when the file is gone (ENOENT) and its nearest existing folder is
+ * really inside the workspace, not reached through a link. Null when the check
+ * itself failed, which is never evidence.
+ */
+async function isMissingInWorkspace(workspaceRoot: string, filePath: string): Promise<boolean | null> {
+  try {
+    await fs.stat(filePath);
+    return false;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') return null;
+  }
+  try {
+    const root = await fs.realpath(workspaceRoot);
+    let folder = path.dirname(filePath);
+    for (;;) {
+      try {
+        const real = await fs.realpath(folder);
+        const relative = path.relative(root, real);
+        return relative.startsWith('..') || path.isAbsolute(relative) ? null : true;
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT' || path.dirname(folder) === folder) return null;
+        folder = path.dirname(folder);
+      }
+    }
+  } catch {
+    return null;
   }
 }
 

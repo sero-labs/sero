@@ -106,7 +106,13 @@ function scheduleEmbedding(): void {
       qmd.embedAgain = false;
       const store = qmd.store;
       if (!store) return;
-      await store.embed();
+      const result = await store.embed();
+      if (result.errors > 0) {
+        // An entry with no vector would score below the hybrid threshold; stay on keywords.
+        qmd.embeddingsReady = false;
+        await error('qmd_embed_failed', { errors: result.errors, failures: result.failures?.slice(0, 3) });
+        continue;
+      }
       // A first query embedding loads the model now, not during a user's turn.
       if (!qmd.embeddingsReady) await store.searchVector('memory', { limit: 1 });
       qmd.embeddingsReady = true;
@@ -128,7 +134,11 @@ export function warmUp(workspaceRoot: string): Promise<boolean> {
   let workspaceReady = qmd.workspaces.get(root);
   if (!workspaceReady) {
     workspaceReady = openStore().then(async (open) => {
-      if (!open || !qmd.store) return false;
+      if (!open || !qmd.store) {
+        // Not kept, so a later turn tries to open the store again.
+        qmd.workspaces.delete(root);
+        return false;
+      }
       await ensureScope(qmd.store, workspaceLocation(root));
       scheduleEmbedding();
       return true;
@@ -153,9 +163,13 @@ export async function releaseIndex(sessionId: string): Promise<void> {
   registry.consumers.delete(sessionId);
   if (registry.consumers.size > 0) return;
   const qmd = registry.qmd;
-  const store = qmd.store;
+  // Let an open, an indexing pass and an embedding pass finish, so none of them
+  // installs a store after it is closed.
+  await qmd.ready?.catch(() => false);
+  await Promise.all([...qmd.workspaces.values()]);
   await qmd.embedding?.catch(() => undefined);
   if (registry.consumers.size > 0) return;
+  const store = qmd.store;
   qmd.store = null;
   qmd.ready = null;
   qmd.embeddingsReady = false;
@@ -194,7 +208,8 @@ export async function vectorSearch(query: string, collections: string[]): Promis
   const qmd = memoryRegistry().qmd;
   const similarity = new Map<string, number>();
   const store = qmd.store;
-  if (!store || !qmd.embeddingsReady || !query.trim()) return { similarity, mode: 'keyword' };
+  // While a pass runs, a new entry has no vector yet and would score below the hybrid threshold.
+  if (!store || !qmd.embeddingsReady || qmd.embedding || !query.trim()) return { similarity, mode: 'keyword' };
   for (const collection of collections) {
     const results = await store.searchVector(query, { collection, limit: RESULTS_PER_QUERY });
     for (const result of results) {

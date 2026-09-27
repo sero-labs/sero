@@ -32,7 +32,11 @@ function parseArgs(argv) {
 }
 
 async function readEvents(dir, from, to) {
-  const names = await readdir(dir).catch(() => []);
+  // A missing folder means no metrics yet; any other error must not look like an empty report.
+  const names = await readdir(dir).catch((err) => {
+    if (err.code === 'ENOENT') return [];
+    throw err;
+  });
   const days = names
     .map((name) => FILE_RE.exec(name))
     .filter((match) => match && (!from || match[1] >= from) && (!to || match[1] <= to))

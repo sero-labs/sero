@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -132,6 +132,17 @@ describe('tidy-up', () => {
 
     expect((await listEntries(ws, 'on-match')).map((item) => item.id)).toEqual(['mem-here0001']);
     expect((await readTrashedEntry(ws, 'mem-gone0001'))?.evidence).toContain('src/old-config.ts does not exist');
+  });
+
+  it('keeps a workspace entry whose missing file is behind a link to outside the workspace', async () => {
+    const outside = path.join(seroHome, 'outside');
+    await mkdir(outside);
+    await symlink(outside, path.join(workspace, 'src', 'linked'));
+    await writeEntry(ws, entry('mem-link0001', 'Settings are read from src/linked/config.ts.'), 'on-match');
+
+    await runTidyIfDue(ws, deps(async () => plan({ action: 'remove', id: 'mem-link0001', missingPath: 'src/linked/config.ts', reason: 'missing' })));
+
+    expect(await findEntry([ws], 'mem-link0001')).not.toBeNull();
   });
 
   it('keeps a global entry that names a missing file', async () => {

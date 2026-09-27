@@ -433,9 +433,12 @@ async function performGracefulShutdown(): Promise<void> {
   console.log('[sero] Shutdown sync step done: file watchers');
   console.log('[sero] Shutdown sync step done: vcs manager');
 
+  // Sessions first: their session_shutdown handlers can still use the runtimes below.
   await Promise.allSettled([
     withShutdownTimeout('agent sessions', disposeAllAgentSessions),
     withShutdownTimeout('app sessions', disposeAllAppSessions),
+  ]);
+  await Promise.allSettled([
     withShutdownTimeout('app runtimes', () => appRuntimeManager.dispose()),
     withShutdownTimeout('plugin dev sessions', () => pluginDevSessionManager.dispose()),
     withShutdownTimeout(

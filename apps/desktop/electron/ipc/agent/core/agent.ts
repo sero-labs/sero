@@ -104,13 +104,26 @@ export async function reloadAllSessionResources(): Promise<void> {
 function sendEvent(event: AgentStreamEvent): void {
   emitAgentEvent(event);
 }
-async function closePoolEntry(sessionId: string): Promise<void> {
+/** Closes in progress, so a second close or a reopen waits for the first. */
+const closingSessions = new Map<string, Promise<void>>();
+
+function closePoolEntry(sessionId: string): Promise<void> {
+  const pending = closingSessions.get(sessionId);
+  if (pending) return pending;
   const entry = pool.get(sessionId);
-  if (!entry) return;
+  if (!entry) return Promise.resolve();
+  const closing = shutDownPoolEntry(sessionId, entry).finally(() => {
+    closingSessions.delete(sessionId);
+  });
+  closingSessions.set(sessionId, closing);
+  return closing;
+}
+
+async function shutDownPoolEntry(sessionId: string, entry: PoolEntry): Promise<void> {
   noteCliTurnEnd(sessionId);
 
-  // Fire session_shutdown so extensions (e.g. memory) can export transcripts
-  // and run cleanup. The SDK's dispose() does NOT fire this event.
+  // Fire session_shutdown so extensions can clean up. The SDK's dispose()
+  // does NOT fire this event.
   try {
     await emitSessionShutdown(entry.session);
   } catch (err) {
@@ -135,6 +148,8 @@ async function openSessionInternal(
   sessionPath: string,
   workspaceId: string,
 ): Promise<ChatHistoryPage> {
+  // A reopen during a close gets a new session, not the one being shut down.
+  await closingSessions.get(sessionId);
   const history = await openSessionInPool({
     pool,
     sessionId,

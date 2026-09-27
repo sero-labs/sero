@@ -309,6 +309,9 @@ export default class MemorySaveProvider implements ApiProvider {
       return { error: err instanceof Error ? err.message : String(err), metadata: { commands } };
     } finally {
       if (session) {
+        // A timed-out turn is still running; stop it before the profile it uses goes away.
+        await session.abort().catch(() => undefined);
+        if (!session.isIdle) await session.waitForIdle().catch(() => undefined);
         await session.extensionRunner?.emit({ type: 'session_shutdown', reason: 'quit' }).catch(() => undefined);
         session.dispose();
       }

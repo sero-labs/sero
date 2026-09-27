@@ -39,11 +39,13 @@ export function getUserPath(root: string): string {
   return path.join(root, 'USER.md');
 }
 
+/** Returns null only when the file does not exist; any other read error is thrown. */
 export async function readFile(filePath: string): Promise<string | null> {
   try {
     return await fs.readFile(filePath, 'utf-8');
-  } catch {
-    return null;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw err;
   }
 }
 

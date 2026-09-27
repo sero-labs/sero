@@ -40,9 +40,15 @@ export default function memorySave(_output: string, context: PromptfooContext) {
   const moments = context.config?.moments ?? context.test?.options?.config?.moments ?? [];
   const saved = context.providerResponse?.metadata?.saved ?? [];
 
-  const savedMoments = moments.filter((moment) => saved.some((entry) => matches(entry, moment)));
+  // One entry per moment: a second save of the same fact counts as noise.
+  const used = new Set<SavedEntry>();
+  const savedMoments = moments.filter((moment) => {
+    const entry = saved.find((candidate) => !used.has(candidate) && matches(candidate, moment));
+    if (entry) used.add(entry);
+    return Boolean(entry);
+  });
   const missedMoments = moments.filter((moment) => !savedMoments.includes(moment));
-  const noise = saved.filter((entry) => !moments.some((moment) => matches(entry, moment)));
+  const noise = saved.filter((entry) => !used.has(entry));
 
   const total = moments.length + noise.length;
   const lines = [

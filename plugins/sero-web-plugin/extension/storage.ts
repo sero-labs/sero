@@ -34,15 +34,11 @@ export function storeResult(id: string, data: StoredSearchData): void {
 	storedResults.set(id, data);
 }
 
-function pruneResults(minTimestamp: number): void {
-	if (minTimestamp <= 0) return;
-	for (const [id, result] of storedResults) {
-		if (result.timestamp <= minTimestamp) storedResults.delete(id);
-	}
-}
-
+/**
+ * `minTimestamp` is the caller's workspace history-clear time. It hides older
+ * results without deleting them, because the store is shared by every session.
+ */
 export function getResult(id: string, minTimestamp = 0): StoredSearchData | null {
-	pruneResults(minTimestamp);
 	const result = storedResults.get(id) ?? null;
 	if (!result) return null;
 	return result.timestamp > minTimestamp ? result : null;
@@ -54,10 +50,6 @@ export function getAllResults(): StoredSearchData[] {
 
 export function deleteResult(id: string): boolean {
 	return storedResults.delete(id);
-}
-
-export function clearResults(): void {
-	storedResults.clear();
 }
 
 function isValidStoredData(data: unknown): data is StoredSearchData {

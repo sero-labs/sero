@@ -105,6 +105,27 @@ describe('chat session lifecycle IPC', () => {
     expect(forkedFrom).toEqual([undefined, sourcePath, undefined]);
   });
 
+  it('sends session_shutdown once when a chat is closed twice, and reopens it as a new session', async () => {
+    let finishShutdown!: () => void;
+    const emit = vi.fn(() => new Promise<void>((resolve) => { finishShutdown = resolve; }));
+    const first = { extensionRunner: { emit }, dispose: vi.fn() };
+    openInto(first, join(root, 'a.jsonl'));
+    await handler(IpcChannels.agent.open)(EVENT, 'a', join(root, 'a.jsonl'), 'ws');
+
+    const closeOne = handler(IpcChannels.agent.close)(EVENT, 'a');
+    const closeTwo = handler(IpcChannels.agent.close)(EVENT, 'a');
+    const second = { dispose: vi.fn() };
+    openInto(second, join(root, 'a.jsonl'));
+    const reopen = handler(IpcChannels.agent.open)(EVENT, 'a', join(root, 'a.jsonl'), 'ws');
+    finishShutdown();
+    await Promise.all([closeOne, closeTwo, reopen]);
+
+    expect(emit).toHaveBeenCalledOnce();
+    expect(first.dispose).toHaveBeenCalledOnce();
+    expect(second.dispose).not.toHaveBeenCalled();
+    expect(mocks.openSessionInPool).toHaveBeenCalledTimes(2);
+  });
+
   it('reloads the live session, not only its resource loader', async () => {
     const session = { isIdle: true, reload: vi.fn(async () => undefined) };
     openInto(session, join(root, 'a.jsonl'));
