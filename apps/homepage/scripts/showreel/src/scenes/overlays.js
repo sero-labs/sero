@@ -79,7 +79,7 @@ function plugins(holder, { w, h, C }) {
 	const fresh = el("div", "mw-item fresh", side, "Weekly Planner <b>new</b>");
 	const main = el("div", "mw-main", win);
 	const hint = el("div", "mw-hint", main);
-	const ask = "make me a weekly planner app";
+	const ask = "I want a weekly planner for this project.";
 
 	const cards = CODE.map(([file, code], k) => {
 		const card = el("div", "codecard", holder);
@@ -96,10 +96,10 @@ function plugins(holder, { w, h, C }) {
 	Object.assign(planner.style, { width: `${PW}px`, left: `${0.62 * w - PW / 2}px`, top: `${0.2 * h}px` });
 
 	return (t) => {
-		const typed = Math.floor(ask.length * prog(t, C + 0.02, C + 0.3));
+		const typed = Math.floor(ask.length * prog(t, C + 0.02, C + 0.4));
 		const caret = Math.floor(t / (BEAT / 2)) % 2 ? "" : "▍";
-		hint.innerHTML = typed ? `<span class="ask">${ask.slice(0, typed)}</span><b>${caret}</b>` : "Ask Sero anything…";
-		hint.classList.toggle("sent", t > C + 0.36);
+		hint.innerHTML = typed ? `<b>&gt;</b> <span class="ask">${ask.slice(0, typed)}</span><b>${caret}</b>` : "Ask Sero anything…";
+		hint.classList.toggle("sent", t > C + 0.44);
 		const collapse = ease.inCubic(prog(t, C + 0.9, C + 1.08));
 		cards.forEach((c, k) => {
 			const p = ease.outExpo(prog(t, C + 0.2 + k * 0.1, C + 0.75 + k * 0.1));
@@ -240,8 +240,16 @@ function local(holder, { w, h, C }) {
 		edge("v", x0 + BW, y0, z, BH);
 	}
 	for (const [x, y] of [[x0, y0], [x0 + BW, y0], [x0, y0 + BH], [x0 + BW, y0 + BH]]) edge("d", x, y, zf, D);
-	const pills = ["host", "docker / podman", "apple container"].map((name, k) => ({ node: chip(holder, name, k === 2 ? "flame" : ""), x: 0.8 * w, y: (0.12 + k * 0.16) * h }));
+	const pills = ["host", "docker / podman", "apple container"].map((name, k) => ({ node: chip(holder, name, k === 2 ? "flame" : ""), x: (0.02 + k * 0.3) * w, y: -pad - 70 }));
 	const oss = chip(holder, "open source · apache-2.0");
+	// The Dev Servers popover: every project on :3000, each in its own runtime.
+	const servers = el("div", "servers", holder);
+	el("div", "sv-head", servers, "<i></i>Dev Servers <span>(3 running)</span>");
+	const rows = [
+		["Phoenix Studio", "vite", "53"],
+		["Atlas Design Tokens", "vite", "55"],
+		["harbor-api", "node", "54"],
+	].map(([name, kind, ip]) => el("div", "sv-row", servers, `<i></i><b>${name}</b><em>${kind}</em><small>:3000 · http://192.168.64.${ip}:3000</small>`));
 	return (t) => {
 		edges.forEach((e, k) => {
 			const p = ease.outCubic(prog(t, C + 0.22 + k * 0.035, C + 0.55 + k * 0.035));
@@ -250,8 +258,14 @@ function local(holder, { w, h, C }) {
 			e.node.style.transform = `translateZ(${e.z}px) ${turn} ${grow}`;
 			e.node.style.opacity = String(p > 0 ? 1 : 0);
 		});
-		pills.forEach((p, k) => popOut(p.node, t, C + 0.9 + k * (BEAT / 4), p.x, p.y, 160, 3));
-		popOut(oss, t, C + 1.3, 0.04 * w, 0.84 * h, 160, 3);
+		pills.forEach((p, k) => popOut(p.node, t, C + 0.94 + k * (BEAT / 4), p.x, p.y, zf, 3));
+		popOut(oss, t, C + 1.35, 0.04 * w, 0.84 * h, 160, 3);
+		popOut(servers, t, C + 0.4, 0.5 * w, 0.3 * h, 190, 4);
+		rows.forEach((row, k) => {
+			const r = ease.outExpo(prog(t, C + 0.55 + k * (BEAT / 2), C + 0.9 + k * (BEAT / 2)));
+			pose(row, `translateX(${(1 - r) * 40}px)`, r);
+			row.classList.toggle("up", t > C + 0.7 + k * (BEAT / 2));
+		});
 	};
 }
 

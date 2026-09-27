@@ -3,14 +3,15 @@
 import { phoenix } from "./brand.js";
 import { at, el, hash, pose, prog, timecode } from "./lib.js";
 
+// Section names follow the homepage's `§ 01 ── the_pain` heads.
 const SECTIONS = [
-	[0, "01 — spark"],
-	[at(2), "02 — burnout"],
-	[at(4), "03 — ignition"],
-	[at(5), "04 — grow"],
-	[at(6), "05 — capabilities"],
-	[at(12), "06 — the loop"],
-	[at(14), "07 — sero"],
+	[0, "§ 01 ── the_spark"],
+	[at(2), "§ 02 ── the_pain"],
+	[at(4), "§ 03 ── ignition"],
+	[at(5), "§ 04 ── grow_your_own"],
+	[at(6), "§ 05 ── what_it_can_do"],
+	[at(12), "§ 06 ── self_extension_loop"],
+	[at(14), "§ 07 ── make_it_yours"],
 ];
 const GLYPHS = "▚▞▙▟▓▒░/<>*#01";
 
@@ -19,7 +20,7 @@ export function scramble(text, p, seed = 0) {
 	const n = text.length;
 	return [...text]
 		.map((c, i) => {
-			if (c === " ") return " ";
+			if (c === " " || c === "─") return c;
 			if (p * (n + 6) > i + 6) return c;
 			if (p * (n + 6) < i) return "";
 			return GLYPHS[Math.floor(hash(seed + i * 7 + Math.floor(p * 40)) * GLYPHS.length)];
@@ -49,7 +50,7 @@ export function buildHud(stage) {
 	tc.style.fontVariantNumeric = "tabular-nums";
 	const bl = el("div", "slot", root);
 	Object.assign(bl.style, { left: `${inset + 38}px`, bottom: `${inset + 2}px` });
-	const section = el("span", "", bl);
+	const section = el("span", "sec", bl);
 	const br = el("div", "slot", root);
 	Object.assign(br.style, { right: `${inset + 38}px`, bottom: `${inset + 2}px` });
 	el("span", "", br, "1920×1080 · 60p · 128 bpm");
@@ -65,7 +66,7 @@ export function buildHud(stage) {
 			let i = 0;
 			while (i + 1 < SECTIONS.length && t >= SECTIONS[i + 1][0]) i++;
 			const [t0, text] = SECTIONS[i];
-			section.textContent = scramble(text, prog(t, t0, t0 + 0.4), i * 101);
+			section.textContent = scramble(text, prog(t, t0, t0 + 0.5), i * 101);
 		},
 	};
 }

@@ -17,11 +17,12 @@ const GRID = [
 	["graphify", "browser", "chat", "memory", "room"],
 	["agents", "plugins", "plan", "loom", "gallery"],
 ];
+// Receipts from the homepage's self-extension loop.
 const STATIONS = [
-	{ word: "ask", note: "say what you need", ang: -90 },
-	{ word: "build", note: "sero writes the plugin", ang: 0 },
-	{ word: "use", note: "live in the workspace", ang: 90 },
-	{ word: "grow", note: "improve it next week", ang: 180 },
+	{ word: "ask", note: "chat → describe the capability", ang: -90 },
+	{ word: "build", note: "plugins/weekly-planner/", ang: 0 },
+	{ word: "use", note: "sidebar.app: weekly-planner", ang: 90 },
+	{ word: "grow", note: "planner@0.2 → planner@0.3", ang: 180 },
 ];
 const R = 300;
 
@@ -57,13 +58,15 @@ function buildWall(root) {
 	}
 	wall.paths = paths.map((p, i) => ({ p, len: p.getTotalLength(), i }));
 	wall.scrim = el("div", "scrim", root);
-	const one = el("div", "wall-title", root);
-	Object.assign(one.style, { top: "410px", fontSize: "124px", fontWeight: "800" });
-	const shaped = el("div", "wall-title", root);
-	Object.assign(shaped.style, { top: "566px", fontSize: "54px", fontWeight: "400", color: "var(--ink-2)", letterSpacing: "-0.03em" });
-	wall.one = splitChars(el("span", "mask", one), "one workspace.");
-	wall.shaped = splitChars(el("span", "mask", shaped), "shaped around how you work.");
-	wall.titles = [one, shaped];
+	// The homepage hero line, typed like a terminal on the second row.
+	const build = el("div", "wall-title", root);
+	Object.assign(build.style, { top: "372px", fontSize: "120px", fontWeight: "700" });
+	const need = el("div", "wall-title accent", root);
+	Object.assign(need.style, { top: "512px", fontSize: "120px", fontWeight: "700" });
+	wall.build = splitChars(el("span", "mask", build), "build the agent");
+	wall.need = el("span", "", need);
+	wall.cursor = el("span", "cursor", need);
+	wall.titles = [build, need];
 }
 
 function drawWall(t) {
@@ -86,8 +89,12 @@ function drawWall(t) {
 		path.style.opacity = String(0.85 * draw);
 	}
 	pose(wall.scrim, "none", prog(t, WALL + 0.25, WALL + 0.6) * (1 - out));
-	revealChars(wall.one, t, WALL + 0.44, { stagger: 0.02, dur: 0.45 });
-	revealChars(wall.shaped, t, at(12, 2), { stagger: 0.012, dur: 0.4 });
+	revealChars(wall.build, t, WALL + 0.44, { stagger: 0.02, dur: 0.45 });
+	const need = "only_you_need";
+	const typed = Math.floor(need.length * prog(t, at(12, 2), at(12, 2) + 0.42));
+	wall.need.textContent = need.slice(0, typed);
+	const blink = Math.floor(t / (BEAT / 2)) % 2 === 0;
+	pose(wall.cursor, "none", t > at(12, 1.8) && (typed < need.length || blink) ? 1 : 0);
 	wall.titles.forEach((n, i) => {
 		const o = ease.inExpo(prog(t, LOOP - 0.3 + i * 0.04, LOOP + i * 0.04));
 		pose(n, `translateY(${-o * 180}px)`, 1 - o);
@@ -188,7 +195,9 @@ function buildEnd(root) {
 	const tag = el("div", "end-tag", end.card);
 	end.tagText = el("span", "", tag);
 	end.cursor = el("span", "cursor", tag);
-	end.foot = el("div", "end-foot", end.card, "<b>sero-ai.dev</b> &nbsp;·&nbsp; open source &nbsp;·&nbsp; local-first &nbsp;·&nbsp; macOS · Linux · Windows");
+	end.tag = el("div", "end-os", end.card, "<i></i>your personal agent OS");
+	end.rule = el("div", "end-rule", end.card);
+	end.foot = el("div", "end-foot", end.card, "<b>sero-ai.dev</b><span>open source · local-first · macOS · Linux · Windows</span>");
 }
 
 function drawEnd(t, ctx) {
@@ -220,6 +229,8 @@ function drawEnd(t, ctx) {
 	const blink = Math.floor(t / (BEAT / 2)) % 2 === 0;
 	pose(end.cursor, "none", t > END + 0.7 && (t < END + 1.4 || blink) ? 1 : 0);
 	const f = ease.outExpo(prog(t, END + 1.4, END + 2));
+	pose(end.tag, `translateY(${(1 - f) * 14}px)`, f);
+	pose(end.rule, `scaleX(${ease.outExpo(prog(t, END + 1.3, END + 2.1))})`, 1);
 	pose(end.foot, `translateY(${(1 - f) * 20}px)`, f);
 
 	flare(ctx, t, { t0: END, x: 960, y: 380, len: 1300, dur: 0.7, color: "180,255,220" });

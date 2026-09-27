@@ -147,6 +147,7 @@ canvas.fx { position: absolute; inset: 0; pointer-events: none; }
 .hud { font-size: 15px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(230, 227, 216, 0.55); }
 .hud .corner { position: absolute; width: 26px; height: 26px; border: 0 solid rgba(230, 227, 216, 0.4); }
 .hud .slot { position: absolute; display: flex; align-items: center; gap: 12px; white-space: nowrap; }
+.hud .sec { text-transform: none; letter-spacing: 0.06em; }
 .hud .rec { width: 9px; height: 9px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 10px #ef4444; }
 .hud svg.mini { height: 24px; width: auto; }
 .bar-top, .bar-bottom { position: absolute; left: 0; right: 0; background: #000; }
@@ -277,10 +278,10 @@ i.edge.v { width: 2px; transform-origin: 50% 0; }
 svg.traces { position: absolute; overflow: visible; filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.9)); }
 svg.traces path { fill: none; stroke: #34d399; stroke-width: 3; stroke-linecap: round; }
 svg.traces circle { fill: #d1fae5; }
-.scrim { position: absolute; inset: 0; background: radial-gradient(900px 420px at 50% 50%, rgba(8, 6, 12, 0.9), rgba(8, 6, 12, 0.55) 55%, transparent 80%); }
+.scrim { position: absolute; inset: 0; background: radial-gradient(1150px 520px at 50% 50%, rgba(8, 6, 12, 0.9), rgba(8, 6, 12, 0.55) 55%, transparent 80%); }
 .wall-title { position: absolute; left: 0; right: 0; text-align: center; white-space: nowrap; letter-spacing: -0.045em; line-height: 1; }
 .loop-label { position: absolute; font-size: 66px; font-weight: 700; letter-spacing: -0.04em; line-height: 1; white-space: nowrap; }
-.loop-label small { display: block; margin-top: 10px; font-size: 16px; font-weight: 400; letter-spacing: 0.14em; text-transform: uppercase; color: var(--mute); }
+.loop-label small { display: block; margin-top: 12px; font-size: 19px; font-weight: 400; letter-spacing: 0.01em; color: var(--mute); }
 svg.loop-ring { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: visible; }
 svg.loop-ring circle.track { fill: none; stroke: rgba(230, 227, 216, 0.16); stroke-width: 2; }
 svg.loop-ring line { stroke: rgba(230, 227, 216, 0.28); stroke-width: 2; }
@@ -293,5 +294,19 @@ svg.end-wordmark { position: absolute; left: 834px; top: 578px; height: 110px; w
 .end-sheen { position: absolute; left: 834px; top: 578px; width: 252px; height: 110px; background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.95) 50%, transparent 65%) no-repeat; background-size: 300% 100%; -webkit-mask: url("../../../../assets/logo-dark.svg") center / 100% 100% no-repeat; mix-blend-mode: plus-lighter; }
 .end-tag { position: absolute; left: 0; right: 0; top: 744px; text-align: center; font-size: 46px; font-weight: 500; letter-spacing: -0.03em; color: var(--ink); white-space: nowrap; }
 .end-tag .cursor { width: 0.5em; height: 0.8em; }
-.end-foot { position: absolute; left: 0; right: 0; top: 880px; text-align: center; font-size: 22px; letter-spacing: 0.08em; color: var(--mute); white-space: nowrap; }
+.end-os { position: absolute; left: 0; right: 0; top: 816px; display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 19px; letter-spacing: 0.06em; color: var(--mute); }
+.end-os i { width: 9px; height: 9px; background: var(--phos); box-shadow: 0 0 10px rgba(16, 185, 129, 0.8); }
+.end-rule { position: absolute; left: 150px; right: 150px; top: 874px; height: 1px; background: var(--rule-strong); }
+.end-foot { position: absolute; left: 150px; right: 150px; top: 896px; display: flex; justify-content: space-between; font-size: 21px; letter-spacing: 0.06em; color: var(--mute); white-space: nowrap; }
 .end-foot b { font-weight: 600; color: var(--ink); letter-spacing: 0.04em; }
+
+.servers { width: 470px; padding: 6px 0 10px; border-radius: 14px; background: rgba(17, 16, 22, 0.97); border: 1px solid rgba(230, 227, 216, 0.22); box-shadow: 0 0 40px rgba(16, 185, 129, 0.2), 0 30px 70px rgba(0, 0, 0, 0.65); }
+.sv-head { display: flex; align-items: center; gap: 12px; padding: 12px 20px 14px; font-size: 19px; border-bottom: 1px solid rgba(230, 227, 216, 0.1); }
+.sv-head i { width: 18px; height: 14px; border: 2px solid var(--mute); border-radius: 3px; }
+.sv-head span { color: var(--mute); }
+.sv-row { display: grid; grid-template-columns: 18px auto 1fr; column-gap: 12px; row-gap: 4px; align-items: center; padding: 12px 20px 4px; }
+.sv-row i { width: 11px; height: 11px; border-radius: 50%; background: #3a3642; }
+.sv-row.up i { background: #34d399; box-shadow: 0 0 12px #34d399; }
+.sv-row b { font-size: 18px; font-weight: 500; }
+.sv-row em { font-style: normal; font-size: 15px; color: var(--mute); }
+.sv-row small { grid-column: 2 / 4; font-size: 15px; color: var(--mute); }

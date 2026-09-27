@@ -14,7 +14,7 @@ const FEATURES = [
 	{ key: "plugins", label: "plugins", lines: ["it builds", "its own", "tools."], caption: "Ask for a plugin. Use it straight away.", shot: null, side: "right", enter: "flip" },
 	{ key: "graphify", label: "graphify", lines: ["it knows", "your code."], caption: "A local map of every repo, kept up to date.", shot: "graphify", side: "left", enter: "zoom" },
 	{ key: "rooms", label: "rooms", lines: ["it works", "as a team."], caption: "Rooms of specialist agents, run from one board.", shot: "room", side: "right", enter: "deal" },
-	{ key: "local", label: "local-first", lines: ["it runs", "on your", "machine."], caption: "macOS, Linux and Windows. Host, Docker or Apple Container.", shot: "chat", side: "left", enter: "iris" },
+	{ key: "local", label: "local-first", lines: ["it runs", "on your", "machine."], caption: "Isolated local runtimes. No more juggling ports.", shot: "chat", side: "left", enter: "iris" },
 ];
 const SCREEN_W = 1060;
 const MAX_H = 640;
@@ -98,7 +98,7 @@ function drawFeature(item, t, env) {
 	item.holder.style.transform = `translateZ(${z}px) rotateY(${ry}deg) rotateX(${rx}deg)`;
 	if (item.shot) sweep(item.shot.sheen, prog(t, item.C + 0.25, item.C + 1.05));
 
-	item.labelEl.textContent = scramble(`0${item.i + 1} / 06 — ${item.label}`, prog(t, item.C, item.C + 0.35), item.i * 31);
+	item.labelEl.textContent = scramble(`0${item.i + 1} / 06 · [${item.label}]`, prog(t, item.C, item.C + 0.35), item.i * 31);
 	item.lines.forEach((chars, k) => revealChars(chars, t, item.C + 0.06 + k * 0.08, { stagger: 0.018, dur: 0.45 }));
 	const c = ease.outExpo(prog(t, item.C + 0.3, item.C + 0.8));
 	pose(item.cap, `translateY(${(1 - c) * 24}px)`, c);
