@@ -44,6 +44,8 @@ import { collectCaptureIdsFromEntries, writeForkReferences } from '@electron/fea
 export { emitAgentEvent } from './agent-event-broadcast';
 const pool = new Map<string, PoolEntry>();
 const pendingResourceReloads = new Map<string, Promise<void>>();
+/** Forked session files not opened yet, mapped to the file they came from. */
+const pendingForks = new Map<string, string>();
 
 function toErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
@@ -133,14 +135,17 @@ async function openSessionInternal(
   sessionPath: string,
   workspaceId: string,
 ): Promise<ChatHistoryPage> {
-  return openSessionInPool({
+  const history = await openSessionInPool({
     pool,
     sessionId,
     sessionPath,
     workspaceId,
     sendEvent,
     closeExisting: closePoolEntry,
+    forkedFrom: pendingForks.get(sessionPath),
   });
+  pendingForks.delete(sessionPath);
+  return history;
 }
 
 export function registerAgentHandlers(): void {
@@ -270,7 +275,12 @@ export function registerAgentHandlers(): void {
     async (_event, sessionId: string): Promise<SeroSlashCommandInfo[]> => {
       const entry = pool.get(sessionId);
       if (!entry) return [];
-      await entry.loader.reload();
+      // `loader.reload()` alone leaves the live session on its old extension
+      // copies. `session.reload()` rebuilds them and sends them the
+      // `session_shutdown` and `session_start` (reason `reload`) events.
+      if (!entry.session.isIdle) await entry.session.waitForIdle();
+      if (pool.get(sessionId) !== entry) return [];
+      await entry.session.reload();
 
       const hidden = await readHiddenCommands(SERO_CONFIG_PATH);
       return buildCommandList(entry, hidden);
@@ -390,6 +400,7 @@ export function registerAgentHandlers(): void {
 
         return { newSessionPath, newSm, header, branch };
       });
+      pendingForks.set(fork.newSessionPath, entry.sessionPath);
 
       return {
         path: fork.newSessionPath,

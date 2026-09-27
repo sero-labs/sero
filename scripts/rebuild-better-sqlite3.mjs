@@ -44,24 +44,36 @@ function compareVersion(a, b) {
   return 0;
 }
 
-function findBetterSqlite3() {
-  const runtimeLinks = [
-    resolve(ROOT, 'plugins/sero-web-plugin/node_modules/better-sqlite3'),
-    resolve(ROOT, 'plugins/sero-memory-plugin/node_modules/better-sqlite3'),
-    resolve(DESKTOP, 'node_modules/better-sqlite3'),
-  ];
-  for (const link of runtimeLinks) {
-    if (existsSync(link)) return realpathSync(link);
+/**
+ * Every runtime copy of better-sqlite3, with the package that depends on it.
+ * The web plugin and QMD (the memory plugin's index) can resolve different
+ * versions, and each copy needs its own Electron build.
+ */
+function findBetterSqlite3Copies() {
+  const copies = new Map();
+  const add = (sqliteDir, moduleDir) => {
+    if (!existsSync(sqliteDir)) return;
+    const real = realpathSync(sqliteDir);
+    if (!copies.has(real)) copies.set(real, { dir: real, moduleDir });
+  };
+  add(resolve(ROOT, 'plugins/sero-web-plugin/node_modules/better-sqlite3'), resolve(ROOT, 'plugins/sero-web-plugin'));
+  add(resolve(DESKTOP, 'node_modules/better-sqlite3'), DESKTOP);
+  const qmdLink = resolve(ROOT, 'plugins/sero-memory-plugin/node_modules/@tobilu/qmd');
+  if (existsSync(qmdLink)) {
+    const qmdDir = realpathSync(qmdLink);
+    // pnpm places a package's dependencies next to it in the virtual store.
+    add(resolve(qmdDir, '..', '..', 'better-sqlite3'), qmdDir);
   }
+  if (copies.size > 0) return [...copies.values()];
 
-  if (!existsSync(PNPM_STORE)) return null;
+  if (!existsSync(PNPM_STORE)) return [];
   const entries = readdirSync(PNPM_STORE)
     .filter(e => e.startsWith('better-sqlite3@'))
     .map(entry => ({ entry, version: entry.slice('better-sqlite3@'.length).split('_')[0] }))
     .sort((a, b) => compareVersion(b.version, a.version));
-  if (entries.length === 0) return null;
+  if (entries.length === 0) return [];
   const pkgDir = resolve(PNPM_STORE, entries[0].entry, 'node_modules/better-sqlite3');
-  return existsSync(pkgDir) ? pkgDir : null;
+  return existsSync(pkgDir) ? [{ dir: pkgDir, moduleDir: ROOT }] : [];
 }
 
 // ── Locate Electron binary ────────────────────────────────────────────────────
@@ -212,18 +224,18 @@ function getElectronModulesAbi(electronBin) {
   return result.status === 0 ? result.stdout.trim() : null;
 }
 
-function rebuild(electronVersion, electronAbi) {
-  console.log(`\x1b[33m  → Rebuilding better-sqlite3 for Electron ${electronVersion} (ABI ${electronAbi})...\x1b[0m`);
+function rebuild(electronVersion, electronAbi, moduleDir) {
+  console.log(`\x1b[33m  → Rebuilding better-sqlite3 for Electron ${electronVersion} (ABI ${electronAbi}) in ${moduleDir}...\x1b[0m`);
   try {
     execSync(
-      `pnpm --dir "${DESKTOP}" exec electron-rebuild -f --version "${electronVersion}" --force-abi "${electronAbi}" --module-dir "${ROOT}" --which-module better-sqlite3`,
+      `pnpm --dir "${DESKTOP}" exec electron-rebuild -f --version "${electronVersion}" --force-abi "${electronAbi}" --module-dir "${moduleDir}" --which-module better-sqlite3`,
       { stdio: 'inherit', cwd: ROOT, timeout: 180_000 },
     );
     console.log('\x1b[32m  ✓ better-sqlite3 rebuilt successfully.\x1b[0m');
     return true;
   } catch {
     console.error('\x1b[31m  ✗ better-sqlite3 rebuild failed. Memory search (QMD) will not work.\x1b[0m');
-    console.error(`    Run manually: pnpm --dir apps/desktop exec electron-rebuild -f --version "${electronVersion}" --force-abi "${electronAbi}" --module-dir "${ROOT}" --which-module better-sqlite3`);
+    console.error(`    Run manually: pnpm --dir apps/desktop exec electron-rebuild -f --version "${electronVersion}" --force-abi "${electronAbi}" --module-dir "${moduleDir}" --which-module better-sqlite3`);
     return false;
   }
 }
@@ -238,8 +250,8 @@ function main() {
 
   console.log('[better-sqlite3] Checking native binary for Electron...');
 
-  const sqlite3Dir = findBetterSqlite3();
-  if (!sqlite3Dir) {
+  const copies = findBetterSqlite3Copies();
+  if (copies.length === 0) {
     console.log('[better-sqlite3] Not found in pnpm store — skipping.');
     process.exit(0);
   }
@@ -262,12 +274,13 @@ function main() {
     process.exit(1);
   }
 
-  if (testWithElectron(electronBin, sqlite3Dir)) {
+  const broken = copies.filter((copy) => !testWithElectron(electronBin, copy.dir));
+  if (broken.length === 0) {
     console.log(`\x1b[32m[better-sqlite3] ✓ Binary works with Electron ${electronVersion}.\x1b[0m`);
     process.exit(0);
   }
 
-  console.log(`\x1b[33m[better-sqlite3] ✗ Binary does not work with Electron ${electronVersion}.\x1b[0m`);
+  console.log(`\x1b[33m[better-sqlite3] ✗ ${broken.length} binary copy(ies) do not work with Electron ${electronVersion}.\x1b[0m`);
 
   let electronAbi = getElectronModulesAbi(electronBin);
   if (!electronAbi) {
@@ -279,17 +292,15 @@ function main() {
     process.exit(1);
   }
 
-  const ok = rebuild(electronVersion, electronAbi);
-  if (!ok) {
-    process.exit(1);
-  }
-
-  // Verify in a fresh process after rebuild
-  if (testWithElectron(electronBin, sqlite3Dir)) {
-    console.log('\x1b[32m[better-sqlite3] ✓ Verified: rebuild works.\x1b[0m');
-  } else {
-    console.error('\x1b[31m[better-sqlite3] ✗ Rebuild completed but binary still fails. Check output above.\x1b[0m');
-    process.exit(1);
+  for (const copy of broken) {
+    if (!rebuild(electronVersion, electronAbi, copy.moduleDir)) process.exit(1);
+    // Verify in a fresh process after rebuild
+    if (testWithElectron(electronBin, copy.dir)) {
+      console.log(`\x1b[32m[better-sqlite3] ✓ Verified: ${copy.dir} works.\x1b[0m`);
+    } else {
+      console.error(`\x1b[31m[better-sqlite3] ✗ Rebuild completed but ${copy.dir} still fails. Check output above.\x1b[0m`);
+      process.exit(1);
+    }
   }
 }
 

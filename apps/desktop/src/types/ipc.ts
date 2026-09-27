@@ -187,6 +187,8 @@ export type {
   ChatGoalStateMessage,
   ChatGoalContinuationMessage,
   ChatGoalStatusMessage,
+  ChatMemoryRecallMessage,
+  ChatRecalledMemory,
   AgentSettlement,
   AgentStreamEvent,
   ChatHistoryPage,

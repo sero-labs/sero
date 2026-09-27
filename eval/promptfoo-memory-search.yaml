@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+#
+# Offline memory search eval — NO LLM calls.
+#
+# Scores fixed queries against fixed memory entries with the memory plugin's
+# own search, and reports hit rate and false-hit rate for a range of recall
+# thresholds. The defaults come from this report: `recallThreshold` (0.6) for
+# hybrid search, `keywordRecallThreshold` (0.5) until the search model loads.
+#
+# Run: pnpm eval:memory-search
+# The hybrid provider needs the local embedding model (downloaded once).
+
+description: "Sero memory recall threshold"
+
+providers:
+  - id: file://./memorySearchProvider.ts
+    label: "Keyword"
+    config:
+      mode: keyword
+  - id: file://./memorySearchProvider.ts
+    label: "Hybrid"
+    config:
+      mode: hybrid
+
+prompts:
+  - "memory-search"
+
+tests:
+  - description: "Default threshold keeps hits high and false hits low"
+    assert:
+      - type: javascript
+        value: |
+          const meta = context.providerResponse?.metadata ?? {};
+          const threshold = meta.searchMode === 'hybrid' ? 0.6 : 0.5;
+          const row = (meta.rows ?? []).find((r) => Math.abs(r.threshold - threshold) < 1e-9);
+          if (!row) return { pass: false, score: 0, reason: `No row for the default threshold ${threshold}` };
+          const pass = row.hitRate >= 0.8 && row.falseHitRate <= 0.1;
+          return {
+            pass,
+            score: row.hitRate - row.falseHitRate,
+            reason: `${meta.searchMode} at ${threshold}: hit rate ${row.hitRate.toFixed(2)}, false-hit rate ${row.falseHitRate.toFixed(2)} (need >= 0.80 and <= 0.10)`,
+          };
+
+evaluateOptions:
+  maxConcurrency: 1

@@ -1,154 +1,179 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { parseMemoryEntries } from '../memory-format';
-import {
-  handleRead,
-  handleRemove,
-  handleReplace,
-  handleWrite,
-} from '../memory-tool';
-import * as logger from '../logger';
-import { getMemoryPath, getUserPath } from '../memory-manager';
+// The native index is not loaded in unit tests; search runs on keywords.
+vi.mock('../qmd-index', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../qmd-index')>(),
+  warmUp: vi.fn(async () => false),
+  refreshIndex: vi.fn(async () => undefined),
+}));
 
-function getText(result: Awaited<ReturnType<typeof handleWrite>>): string {
-  const firstBlock = result.content[0];
-  return firstBlock?.type === 'text' ? firstBlock.text : '';
+import { globalLocation, listEntries, workspaceLocation } from '../entry-store';
+import type { EntryContext, MemoryChange } from '../memory-entries';
+import { getIdentityPath, getUserPath, resolveMemoryRoot } from '../memory-manager';
+import { executeMemoryAction } from '../memory-tool';
+import { resolveMetricsPath } from '../metrics';
+import { memoryRegistry } from '../registry';
+
+const originalEnv = { SERO_HOME: process.env.SERO_HOME, PI_CODING_AGENT_DIR: process.env.PI_CODING_AGENT_DIR };
+
+const pnpmMemory = {
+  action: 'save' as const,
+  content: 'JS/TS projects use pnpm.',
+  behaviour: 'Run pnpm, never npm or yarn, to add or install packages.',
+  type: 'preference' as const,
+  scope: 'global' as const,
+  delivery: 'on-match' as const,
+  terms: 'pnpm, package manager, add dependency',
+};
+
+function idIn(result: string): string {
+  const id = /\[(mem-[a-z0-9-]+)/.exec(result)?.[1];
+  if (!id) throw new Error(`no id in: ${result}`);
+  return id;
 }
 
-describe('memory tool CRUD semantics', () => {
-  const originalEnv = {
-    SERO_HOME: process.env.SERO_HOME,
-    PI_CODING_AGENT_DIR: process.env.PI_CODING_AGENT_DIR,
-  };
+async function metricEvents(): Promise<Array<Record<string, unknown>>> {
+  const content = await readFile(resolveMetricsPath(), 'utf8').catch(() => '');
+  return content.trim().split('\n').filter(Boolean).map((line) => JSON.parse(line) as Record<string, unknown>);
+}
 
+describe('memory tool', () => {
   let seroHome = '';
-  let root = '';
+  let ctx: EntryContext;
 
   beforeEach(async () => {
     seroHome = await mkdtemp(path.join(os.tmpdir(), 'sero-memory-tool-'));
-    root = path.join(seroHome, 'workspaces', 'global');
     process.env.SERO_HOME = seroHome;
-    delete process.env.PI_CODING_AGENT_DIR;
+    process.env.PI_CODING_AGENT_DIR = path.join(seroHome, 'agent');
+    memoryRegistry().gitChecks.clear();
+    ctx = { sessionId: 'session-1', workspaceRoot: path.join(seroHome, 'project'), recalled: new Set() };
+    await mkdir(ctx.workspaceRoot);
   });
 
   afterEach(async () => {
-    vi.restoreAllMocks();
     process.env.SERO_HOME = originalEnv.SERO_HOME;
     process.env.PI_CODING_AGENT_DIR = originalEnv.PI_CODING_AGENT_DIR;
     await rm(seroHome, { recursive: true, force: true });
   });
 
-  it('preserves entry ids across replace/remove and blocks duplicate writes', async () => {
-    const firstWrite = await handleWrite(root, 'memory', 'Remember the staging server uses port 4173.');
-    expect(getText(firstWrite)).toBe('Appended to MEMORY.md');
+  it('reports each save, replace and remove for the chat line', async () => {
+    const changes: MemoryChange[] = [];
+    const tracked: EntryContext = { ...ctx, onChange: (change) => changes.push(change) };
 
-    const secondWrite = await handleWrite(root, 'memory', 'The release checklist lives in docs/releases.md.', 'append', undefined, 'decision');
-    expect(getText(secondWrite)).toBe('Appended to MEMORY.md');
+    const id = idIn(await executeMemoryAction(tracked, pnpmMemory));
+    await executeMemoryAction(tracked, { action: 'replace', id, content: 'JS/TS projects use bun.', behaviour: 'Run bun.' });
+    await executeMemoryAction(tracked, { action: 'list' });
+    await executeMemoryAction(tracked, { action: 'remove', id, reason: 'the user dropped bun' });
 
-    const memoryPath = getMemoryPath(root);
-    let entries = parseMemoryEntries(await readFile(memoryPath, 'utf8'));
-    expect(entries).toHaveLength(2);
-    const [firstEntry, secondEntry] = entries;
-
-    const duplicateWrite = await handleWrite(root, 'memory', firstEntry!.text);
-    expect(getText(duplicateWrite)).toContain(`Error: This content already exists in MEMORY.md (entry ${firstEntry!.id}).`);
-
-    const replaceResult = await handleReplace(root, 'memory', firstEntry!.id, 'Remember the staging server uses port 4273.');
-    expect(getText(replaceResult)).toBe(`Replaced entry ${firstEntry!.id} in MEMORY.md`);
-
-    entries = parseMemoryEntries(await readFile(memoryPath, 'utf8'));
-    expect(entries.map((entry) => entry.id)).toEqual([firstEntry!.id, secondEntry!.id]);
-    expect(entries[0]!.text).toBe('Remember the staging server uses port 4273.');
-    expect(entries[1]!.type).toBe('decision');
-
-    const removeResult = await handleRemove(root, 'memory', secondEntry!.id);
-    expect(getText(removeResult)).toBe(`Removed entry ${secondEntry!.id} from MEMORY.md.`);
-
-    entries = parseMemoryEntries(await readFile(memoryPath, 'utf8'));
-    expect(entries).toHaveLength(1);
-    expect(entries[0]!.id).toBe(firstEntry!.id);
-
-    const readWithIds = await handleRead(root, 'memory', undefined, true);
-    expect(getText(readWithIds)).toContain(`<!-- id: ${firstEntry!.id} -->`);
+    expect(changes).toEqual([
+      { action: 'save', id, fact: pnpmMemory.content },
+      { action: 'replace', id, fact: 'JS/TS projects use bun.' },
+      { action: 'remove', id, fact: 'JS/TS projects use bun.' },
+    ]);
   });
 
-  it('waits for its log write before a read resolves', async () => {
-    await handleWrite(root, 'memory', 'Remember the release date.');
+  it('reports no change for a refused save', async () => {
+    const changes: MemoryChange[] = [];
+    await executeMemoryAction({ ...ctx, onChange: (change) => changes.push(change) }, { action: 'save', content: 'Use pnpm.' });
+    expect(changes).toEqual([]);
+  });
 
-    let finishLogWrite: () => void = () => undefined;
-    const logWrite = new Promise<void>((resolve) => {
-      finishLogWrite = resolve;
+  it('rejects a save with missing fields and names them', async () => {
+    const result = await executeMemoryAction(ctx, { action: 'save', content: 'Use pnpm.', type: 'preference', scope: 'global' });
+
+    expect(result).toMatch(/^Error: memory not saved/);
+    expect(result).toContain('behaviour');
+    expect(result).toContain('delivery');
+    expect(result).toContain('terms');
+    expect(await listEntries(globalLocation(), 'on-match')).toEqual([]);
+  });
+
+  it('reports a close memory instead of saving, until replace or distinct', async () => {
+    const firstId = idIn(await executeMemoryAction(ctx, pnpmMemory));
+
+    const close = await executeMemoryAction(ctx, {
+      ...pnpmMemory,
+      content: 'Use pnpm for JS projects.',
+      terms: 'pnpm, package manager',
     });
-    const infoSpy = vi.spyOn(logger, 'info').mockReturnValueOnce(logWrite);
-    let readCompleted = false;
+    expect(close).toMatch(/^Not saved/);
+    expect(close).toContain(firstId);
+    expect(await listEntries(globalLocation(), 'on-match')).toHaveLength(1);
 
-    const readPromise = handleRead(root, 'memory').then((result) => {
-      readCompleted = true;
-      return result;
+    const distinct = await executeMemoryAction(ctx, { ...pnpmMemory, content: 'Use pnpm for JS projects.', distinct: true });
+    expect(distinct).toMatch(/^Saved:/);
+    expect(await listEntries(globalLocation(), 'on-match')).toHaveLength(2);
+  });
+
+  it('refuses a pin at the cap and lists the pinned set', async () => {
+    const pinned: string[] = [];
+    for (let index = 0; index < 10; index++) {
+      pinned.push(idIn(await executeMemoryAction(ctx, {
+        ...pnpmMemory,
+        content: `Rule number ${index}.`,
+        terms: `rule${index}`,
+        delivery: 'pinned',
+      })));
+    }
+    const extra = idIn(await executeMemoryAction(ctx, { ...pnpmMemory, terms: 'yarn' }));
+
+    const result = await executeMemoryAction(ctx, { action: 'pin', id: extra });
+
+    expect(result).toMatch(/^Not pinned\. The global pinned set is full \(10\/10\)/);
+    for (const id of pinned) expect(result).toContain(id);
+    expect((await listEntries(globalLocation(), 'on-match')).map((entry) => entry.id)).toEqual([extra]);
+  });
+
+  it('keeps an unpinned memory as on-match', async () => {
+    const id = idIn(await executeMemoryAction(ctx, { ...pnpmMemory, delivery: 'pinned' }));
+
+    expect(await executeMemoryAction(ctx, { action: 'unpin', id })).toMatch(/^Unpinned/);
+
+    expect(await listEntries(globalLocation(), 'pinned')).toEqual([]);
+    expect((await listEntries(globalLocation(), 'on-match')).map((entry) => entry.id)).toEqual([id]);
+  });
+
+  it('restores a removed memory with the same content, scope and delivery', async () => {
+    const id = idIn(await executeMemoryAction(ctx, { ...pnpmMemory, scope: 'workspace', delivery: 'pinned' }));
+    const [before] = await listEntries(workspaceLocation(ctx.workspaceRoot), 'pinned');
+
+    expect(await executeMemoryAction(ctx, { action: 'remove', id, reason: 'the user switched to npm' })).toMatch(/^Removed/);
+    expect(await listEntries(workspaceLocation(ctx.workspaceRoot), 'pinned')).toEqual([]);
+
+    expect(await executeMemoryAction(ctx, { action: 'restore', id })).toMatch(/^Restored/);
+    expect(await listEntries(workspaceLocation(ctx.workspaceRoot), 'pinned')).toEqual([before]);
+  });
+
+  it('writes and reads profiles without entry fields', async () => {
+    const written = await executeMemoryAction(ctx, {
+      action: 'write',
+      target: 'identity',
+      content: '# Identity\n\n- **Name:** Sero\n- **Style:** Direct & concise',
     });
+    expect(written).toMatch(/^Wrote IDENTITY\.md/);
+    expect(await readFile(getIdentityPath(resolveMemoryRoot()), 'utf8')).toContain('- **Style:** Direct & concise');
 
-    await vi.waitFor(() => expect(infoSpy).toHaveBeenCalledOnce());
-    expect(readCompleted).toBe(false);
-
-    finishLogWrite();
-    await expect(readPromise).resolves.toMatchObject({ content: expect.any(Array) });
+    await writeFile(getUserPath(resolveMemoryRoot()), '# User\n\n- **Name:** Sam\n');
+    expect(await executeMemoryAction(ctx, { action: 'read', target: 'user' })).toBe('# User\n\n- **Name:** Sam');
   });
 
-  it('enforces the MEMORY.md visible-capacity limit before writing', async () => {
-    const writeResult = await handleWrite(root, 'memory', 'x'.repeat(4_001));
+  it('records a miss when an on-match memory not recalled this session is replaced', async () => {
+    const onMatch = idIn(await executeMemoryAction(ctx, pnpmMemory));
+    const pinned = idIn(await executeMemoryAction(ctx, { ...pnpmMemory, terms: 'commits', content: 'Use conventional commits.', delivery: 'pinned' }));
+    const recalled = idIn(await executeMemoryAction(ctx, { ...pnpmMemory, terms: 'tabs', content: 'Indent with tabs.' }));
+    ctx = { ...ctx, recalled: new Set([recalled]) };
 
-    expect(getText(writeResult)).toMatch(
-      /^Error: MEMORY\.md would exceed capacity \(\d+\/4000 chars\)\. Current usage: 100%\. Replace, remove, or consolidate content before adding more\.$/,
-    );
+    for (const id of [onMatch, pinned, recalled]) {
+      expect(await executeMemoryAction(ctx, { action: 'replace', id, content: 'Updated fact.', behaviour: 'Do the updated thing.' }))
+        .toMatch(/^Saved:/);
+    }
 
-    const readResult = await handleRead(root, 'memory');
-    expect(getText(readResult)).toBe('MEMORY.md not found or empty.');
-  });
-
-  it('updates existing USER.md fields instead of appending conflicting profile lines', async () => {
-    await handleWrite(root, 'user', '# User\n\n- **Name:** Dan\n- **Communication:** Caveman mode — compressed replies\n- **Caveman Mode:** full', 'overwrite');
-
-    const updateResult = await handleWrite(
-      root,
-      'user',
-      'Communication: Normal concise style\nCaveman Mode: off',
-    );
-
-    expect(getText(updateResult)).toBe('Updated USER.md (Communication, Caveman Mode)');
-    const content = await readFile(getUserPath(root), 'utf8');
-    expect(content).toContain('- **Communication:** Normal concise style');
-    expect(content).toContain('- **Caveman Mode:** off');
-    expect(content).not.toContain('Caveman mode — compressed replies');
-    expect(content.match(/Communication:/g)).toHaveLength(1);
-  });
-
-  it('keeps unmatched USER.md content when merging profile field updates', async () => {
-    await handleWrite(root, 'user', '# User\n\n- **Communication:** Direct', 'overwrite');
-
-    const updateResult = await handleWrite(
-      root,
-      'user',
-      'Communication: direct, no waffle\nEmployer: Acme Corp\nPrefers Postgres over MySQL.',
-    );
-
-    expect(getText(updateResult)).toBe('Updated USER.md (Communication)');
-    const content = await readFile(getUserPath(root), 'utf8');
-    expect(content).toContain('- **Communication:** direct, no waffle');
-    expect(content).toContain('Employer: Acme Corp');
-    expect(content).toContain('Prefers Postgres over MySQL.');
-  });
-
-  it('still appends USER.md notes that are not field updates', async () => {
-    await handleWrite(root, 'user', '# User\n\n- **Name:** Dan', 'overwrite');
-
-    const appendResult = await handleWrite(root, 'user', 'Prefers short implementation notes.');
-
-    expect(getText(appendResult)).toBe('Appended to USER.md');
-    const content = await readFile(getUserPath(root), 'utf8');
-    expect(content).toContain('Prefers short implementation notes.');
+    const events = await metricEvents();
+    expect(events.filter((event) => event.event === 'miss').map((event) => event.id)).toEqual([onMatch]);
+    expect(events.filter((event) => event.event === 'pinned-break').map((event) => event.id)).toEqual([pinned]);
   });
 });

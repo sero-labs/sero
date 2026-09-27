@@ -89,16 +89,22 @@ Sero adds `.sero/` and `.sero-workspace.json` patterns to the clone's `.git/info
 
 ## Memory files
 
-Memory uses the global workspace:
+Global memory and the profiles use the global workspace. Workspace memory and
+the scratchpad use each workspace's `.sero/` folder:
 
 ```text
-<SERO_HOME>/workspaces/global/MEMORY.md
 <SERO_HOME>/workspaces/global/IDENTITY.md
 <SERO_HOME>/workspaces/global/USER.md
-<SERO_HOME>/workspaces/global/memory/daily/YYYY-MM-DD.md
+<SERO_HOME>/workspaces/global/memory/entries/{pinned,on-match,unsorted}/
+<SERO_HOME>/workspaces/global/memory/trash/
+<workspace>/.sero/apps/memory/entries/{pinned,on-match}/
+<workspace>/.sero/apps/memory/trash/
+<workspace>/.sero/apps/memory/scratchpad.md
 ```
 
-Memory debug output is under `<SERO_HOME>/debug/memory/`. See [Memory](/guide/memory) for the user workflow.
+A profile upgraded from an older version keeps its old memory as
+`MEMORY.md.v2-backup`. Memory error logs and metrics are under
+`<SERO_HOME>/debug/memory/`. See [Memory](/guide/memory) for the user workflow.
 
 ## Logs and temporary files
 

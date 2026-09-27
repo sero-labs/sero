@@ -102,3 +102,16 @@ describe('groupMessagesIncremental', () => {
     expectMatchesFullGrouping(replaced);
   });
 });
+
+describe('memory changes', () => {
+  it('draws a finished memory change outside the tool group, and keeps a refused one in it', () => {
+    const help = tool('sero-cli');
+    const saved = tool('sero-cli', { details: { exitCode: 0, memoryChange: { action: 'save', id: 'mem-1', fact: 'Use pnpm.' } } });
+    const refused = tool('sero-cli', { isError: true, state: 'error', details: { memoryChange: { action: 'save', id: 'mem-2', fact: 'x' } } });
+    const edit = tool('edit');
+
+    expect(groupMessages([user(), help, saved, edit, refused]).map((item) => (
+      item.kind === 'tool-group' ? item.tools.map((t) => t.id) : item.message.id
+    ))).toEqual([expect.any(String), [help.id], saved.id, [edit.id, refused.id]]);
+  });
+});

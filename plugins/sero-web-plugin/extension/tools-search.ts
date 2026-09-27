@@ -51,9 +51,9 @@ export function registerWebSearchTool(pi: ExtensionAPI, deps: ToolDeps) {
 			queries: Type.Optional(Type.Array(Type.String(), { description: "Multiple queries searched in sequence" })),
 			numResults: Type.Optional(Type.Number({ description: "Results per query (default: 5, max: 20)" })),
 			includeContent: Type.Optional(Type.Boolean({ description: "Fetch full page content (async)" })),
-			recencyFilter: Type.Optional(StringEnum(["day", "week", "month", "year"], { description: "Filter by recency" })),
+			recencyFilter: Type.Optional(StringEnum(["day", "week", "month", "year"] as const, { description: "Filter by recency" })),
 			domainFilter: Type.Optional(Type.Array(Type.String(), { description: "Limit to domains (prefix with - to exclude)" })),
-			provider: Type.Optional(StringEnum(["auto", "perplexity", "gemini", "exa"], { description: "Search provider (default: auto)" })),
+			provider: Type.Optional(StringEnum(["auto", "perplexity", "gemini", "exa"] as const, { description: "Search provider (default: auto)" })),
 		}),
 
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {

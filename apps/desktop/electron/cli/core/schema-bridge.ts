@@ -24,8 +24,6 @@ const TOOL_TIMEOUT_OVERRIDES_MS: Record<string, number> = {
   // Search providers already use internal 60s+ timeouts.
   web_search: 120_000,
   code_search: 90_000,
-  // Memory consolidation runs multiple LLM calls to extract entries from daily logs.
-  memory: 180_000,
 };
 
 const SCHEMA_PROP_TYPES = new Set<SchemaPropType>([

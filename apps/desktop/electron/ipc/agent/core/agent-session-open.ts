@@ -22,7 +22,6 @@ import {
   ensureInfra,
   subagentManager,
 } from '@electron/shared/infra/shared-infra';
-import { createSeroUIContext } from '@electron/features/apps/extensions/ui-context';
 import type { RuntimeBackendId } from '@electron/features/workspace/runtime/types';
 import { bridgeExtensionTools } from '@electron/cli';
 import { createSkillVisibilityOverride } from '@electron/features/apps/extensions/skill-visibility';
@@ -39,6 +38,7 @@ import { getBaseSystemPrompt } from './agent-helpers';
 import { readNewestTurns } from './agent-history-window';
 import { readPersistedContextOverrides, applyContextOverrides } from './agent-context-overrides';
 import { subscribeToSession } from './agent-subscription';
+import { sessionStartEventFor, startSessionExtensions } from './agent-session-events';
 
 export interface PoolEntry {
   session: AgentSession;
@@ -63,6 +63,8 @@ interface OpenSessionInPoolArgs {
   workspaceId: string;
   sendEvent: (event: AgentStreamEvent) => void;
   closeExisting?: (sessionId: string) => Promise<void>;
+  /** The source session file when this session was just forked from it. */
+  forkedFrom?: string;
 }
 
 function toErrorMessage(error: unknown, fallback: string): string {
@@ -80,6 +82,7 @@ export async function openSessionInPool({
   workspaceId,
   sendEvent,
   closeExisting,
+  forkedFrom,
 }: OpenSessionInPoolArgs): Promise<ChatHistoryPage> {
   const workspacePath = workspaceManager.getPath(workspaceId);
   if (!workspacePath) throw new Error(`Workspace not found: ${workspaceId}`);
@@ -167,6 +170,7 @@ export async function openSessionInPool({
   });
   await loader.reload();
 
+  const sessionManager = SessionManager.open(sessionPath, SERO_SESSION_DIR);
   const { session } = await createAgentSession({
     cwd: workspacePath,
     agentDir: SERO_AGENT_DIR,
@@ -174,13 +178,14 @@ export async function openSessionInPool({
     noTools: 'builtin',
     customTools: platformTools,
     resourceLoader: loader,
-    sessionManager: SessionManager.open(sessionPath, SERO_SESSION_DIR),
+    sessionManager,
     settingsManager: infra.settingsManager,
+    sessionStartEvent: sessionStartEventFor(sessionManager, forkedFrom),
   });
   runCode.bind(session.agent);
   preserveBashFailureStatus(session.agent);
 
-  session.extensionRunner?.setUIContext(createSeroUIContext());
+  await startSessionExtensions(session);
 
   const baseTools: ContextToolInfo[] = session.agent.state.tools.map((tool) => ({
     name: tool.name,

@@ -3,21 +3,23 @@ import path from 'node:path';
 
 import { appendRotatingLogLine } from './log-writer';
 import { getLocalDayRetentionCutoff, getLocalDayStamp, formatLocalTimestamp, parseLocalDayStamp } from './local-time';
-import { getMemoryLoggingSettingsSync } from './logger-settings';
 import { resolveMemoryDebugPath } from './state-paths';
 
-export type MemoryLogLevel = 'INFO' | 'WARN' | 'ERROR';
+/**
+ * Error log for the memory plugin. Only errors are written; evaluation data
+ * goes to the metrics file instead.
+ */
 
 const TAG = '[memory]';
 const DAILY_LOG_FILE_RE = /^\d{4}-\d{2}-\d{2}\.log(?:\.\d+)?$/;
+const MAX_BYTES_PER_FILE = 2 * 1024 * 1024;
+const MAX_FILES_PER_DAY = 3;
+const RETENTION_DAYS = 14;
+const MAX_PAYLOAD_CHARS = 4_096;
 let lastRetentionSweepKey: string | null = null;
 
 function resolveLogPath(date = new Date()): string {
   return resolveMemoryDebugPath(`${getLocalDayStamp(date)}.log`);
-}
-
-function resolveLogDir(): string {
-  return path.dirname(resolveLogPath());
 }
 
 function truncateText(text: string, maxChars: number): string {
@@ -26,10 +28,10 @@ function truncateText(text: string, maxChars: number): string {
   return `${text.slice(0, Math.max(0, maxChars - suffix.length))}${suffix}`;
 }
 
-function serializeData(data: Record<string, unknown> | undefined, maxPayloadChars: number): string {
+function serializeData(data: Record<string, unknown> | undefined): string {
   if (!data) return '';
   try {
-    return ` ${truncateText(JSON.stringify(data), maxPayloadChars)}`;
+    return ` ${truncateText(JSON.stringify(data), MAX_PAYLOAD_CHARS)}`;
   } catch {
     return ' {"serialization":"failed"}';
   }
@@ -37,76 +39,40 @@ function serializeData(data: Record<string, unknown> | undefined, maxPayloadChar
 
 export function errorDetails(error: unknown): Record<string, unknown> {
   if (error instanceof Error) {
-    return {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-    };
+    return { name: error.name, message: error.message, stack: error.stack };
   }
   return { error: String(error) };
 }
 
-export function getMemoryLogPath(): string {
-  return resolveLogPath();
-}
-
-export function getMemoryLogDirPath(): string {
-  return resolveLogDir();
-}
-
-async function pruneOldDailyLogs(retentionDays: number): Promise<void> {
-  if (retentionDays <= 0) return;
-
+async function pruneOldDailyLogs(): Promise<void> {
   const now = new Date();
-  const sweepDay = getLocalDayStamp(now);
-  const logDir = resolveLogDir();
-  const sweepKey = `${logDir}:${sweepDay}`;
+  const logDir = path.dirname(resolveLogPath(now));
+  const sweepKey = `${logDir}:${getLocalDayStamp(now)}`;
   if (lastRetentionSweepKey === sweepKey) return;
   lastRetentionSweepKey = sweepKey;
   const entries = await readdir(logDir, { withFileTypes: true }).catch(() => []);
-  const cutoff = getLocalDayRetentionCutoff(retentionDays, now);
+  const cutoff = getLocalDayRetentionCutoff(RETENTION_DAYS, now);
 
   await Promise.all(entries.map(async (entry) => {
     if (!entry.isFile() || !DAILY_LOG_FILE_RE.test(entry.name)) return;
-
-    const day = entry.name.slice(0, 10);
-    const parsed = parseLocalDayStamp(day);
+    const parsed = parseLocalDayStamp(entry.name.slice(0, 10));
     if (!parsed || parsed >= cutoff) return;
-
     await rm(path.join(logDir, entry.name), { force: true });
   }));
 }
 
-export function log(
-  level: MemoryLogLevel,
-  event: string,
-  data?: Record<string, unknown>,
-): Promise<void> {
+export function error(event: string, data?: Record<string, unknown>): Promise<void> {
   const now = new Date();
-  const ts = formatLocalTimestamp(now);
-  const settings = getMemoryLoggingSettingsSync();
-  const line = `${ts} [${level}] ${event}${serializeData(data, settings.maxPayloadChars)}`;
-  const consoleLine = `${TAG} ${line}`;
-
-  if (level === 'ERROR') {
-    console.error(consoleLine);
-  } else if (level === 'WARN') {
-    console.warn(consoleLine);
-  } else {
-    console.log(consoleLine);
-  }
+  const line = `${formatLocalTimestamp(now)} [ERROR] ${event}${serializeData(data)}`;
+  console.error(`${TAG} ${line}`);
 
   return appendRotatingLogLine({
     filePath: resolveLogPath(now),
     line: `${line}\n`,
-    maxBytes: settings.maxBytesPerFile,
-    maxFiles: settings.maxFilesPerDay,
+    maxBytes: MAX_BYTES_PER_FILE,
+    maxFiles: MAX_FILES_PER_DAY,
     warningKey: 'memory-plugin-log',
     warningMessage: '[memory] failed to persist memory log',
-    beforeAppend: async () => pruneOldDailyLogs(settings.retentionDays),
+    beforeAppend: pruneOldDailyLogs,
   });
 }
-
-export const info = (event: string, data?: Record<string, unknown>) => log('INFO', event, data);
-export const warn = (event: string, data?: Record<string, unknown>) => log('WARN', event, data);
-export const error = (event: string, data?: Record<string, unknown>) => log('ERROR', event, data);

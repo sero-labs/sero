@@ -112,6 +112,7 @@ If the old `MEMORY.md` exists and conversion has not finished, building the snap
 `before_agent_start` runs a hybrid search (keyword plus vector, no rerank) with the user's prompt over `memory-global` and the current workspace's collection.
 
 - Results below the score threshold are dropped. The threshold is a setting whose first value comes from the offline search test.
+- There are two thresholds, both settings set from the offline search test: 0.6 for hybrid search, and 0.5 until the search model has loaded. Before the model loads, search matches only the saved terms, and one matching term scores 0.5, so 0.6 would recall almost nothing (owner decision, 2026-09-27).
 - Entries already added in this session are dropped.
 - If anything remains, the handler returns one persistent `message` of type `memory-recall`. Pi appends it after the user's message in the same turn, so the model reads it with the request. Earlier recall messages are never removed.
 - The "already added" set is rebuilt at `session_start` from the recall messages in the session after the latest compaction. It is cleared at `session_compact`. After an app restart, a resumed session therefore does not add a memory twice.

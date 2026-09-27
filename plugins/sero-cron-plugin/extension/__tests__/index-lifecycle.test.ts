@@ -158,6 +158,8 @@ function createFakePi(): {
 }
 
 async function loadExtension() {
+  // A fresh process: the shared runtime lives on globalThis, not in the module.
+  delete (globalThis as Record<symbol, unknown>)[Symbol.for('@sero-ai/plugin-cron/runtime')];
   vi.resetModules();
   const mod = await import('../index');
   return mod.default;
@@ -207,6 +209,27 @@ describe('cron extension lifecycle', () => {
     expect(schedulerInstances[1].start.mock.calls[0]?.[3]).toEqual({
       lastTickMinute: minuteKey,
     });
+  }, LIFECYCLE_TEST_TIMEOUT_MS);
+
+  it('starts one scheduler when Pi evaluates the module again', async () => {
+    const cwd = '/workspace-a';
+    stateStore.set(statePathFor(cwd), defaultState({ autostart: true, jobs: [makeJob()] }));
+
+    const first = createFakePi();
+    (await loadExtension())(first.pi as never);
+    await first.handlers.session_start({}, { cwd });
+
+    // A resource reload or a session in another folder re-evaluates the module.
+    vi.resetModules();
+    const second = createFakePi();
+    (await import('../index')).default(second.pi as never);
+    await second.handlers.session_start({}, { cwd });
+
+    expect(schedulerInstances).toHaveLength(1);
+    await first.handlers.session_shutdown();
+    expect(schedulerInstances[0].stop).not.toHaveBeenCalled();
+    await second.handlers.session_shutdown();
+    expect(schedulerInstances[0].stop).toHaveBeenCalledTimes(1);
   }, LIFECYCLE_TEST_TIMEOUT_MS);
 
   it('keeps lastTickMinute isolated per workspace state file', async () => {

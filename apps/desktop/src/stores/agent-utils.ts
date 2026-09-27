@@ -137,14 +137,7 @@ export function applyBufferedDeltas(set: SetFn): void {
   });
 }
 
-// ── Pending memory context (per-session) ────────────────────────
-// Holds the memory context emitted before the assistant message starts,
-// so we can attach it to the next assistant message in that session.
-
-const pendingMemoryContext = new Map<string, string>();
-
 export function clearAgentSessionBuffers(sessionId: string): void {
-  pendingMemoryContext.delete(sessionId);
   // Tool input first: the delta clear cancels the pending frame only once every
   // buffer is empty.
   clearBufferedSessionToolInput(sessionId);
@@ -246,11 +239,6 @@ export function handleAgentStreamEvent(
       }));
       break;
 
-    case 'memory_context':
-      // Stash for the next assistant message in this session
-      pendingMemoryContext.set(sid, event.context);
-      break;
-
     case 'message_start':
       if (event.message.type === 'user') {
         set((state) => {
@@ -273,13 +261,7 @@ export function handleAgentStreamEvent(
         break;
       }
       {
-        // Attach any pending memory context to the new assistant message
-        let message = event.message;
-        const pending = pendingMemoryContext.get(sid);
-        if (pending && message.type === 'assistant') {
-          message = { ...message, memoryContext: pending };
-          pendingMemoryContext.delete(sid);
-        }
+        const message = event.message;
         set((state) => ({
           agents: {
             ...state.agents,

@@ -1,6 +1,3 @@
-import type { MemoryEntry } from './memory-format';
-import { normalizeWhitespace } from './memory-format';
-
 const INJECTION_PATTERNS: Array<{ regex: RegExp; reason: string }> = [
   { regex: /\bignore\s+previous\s+instructions\b/i, reason: 'prompt injection phrase detected' },
   { regex: /\bsystem:\s*you\s+are\s+now\b/i, reason: 'prompt injection phrase detected' },
@@ -26,38 +23,6 @@ export interface SecurityScanResult {
   content: string;
   reason?: string;
   warning?: string;
-}
-
-export interface DuplicateCheckResult {
-  exactMatch?: MemoryEntry;
-  nearMatch?: MemoryEntry;
-}
-
-function normalizeForDuplicateCheck(value: string): string {
-  return normalizeWhitespace(
-    value
-      .toLowerCase()
-      .replace(/<!--.*?-->/g, ' ')
-      .replace(/\b\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2}(?::\d{2})?)?\b/g, ' '),
-  );
-}
-
-function tokenize(value: string): Set<string> {
-  return new Set(
-    normalizeForDuplicateCheck(value)
-      .split(/[^a-z0-9]+/)
-      .filter((token) => token.length > 1),
-  );
-}
-
-function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
-  if (a.size === 0 || b.size === 0) return 0;
-  let intersection = 0;
-  for (const token of a) {
-    if (b.has(token)) intersection++;
-  }
-  const union = new Set([...a, ...b]).size;
-  return union === 0 ? 0 : intersection / union;
 }
 
 function hasForensicContext(value: string): boolean {
@@ -126,24 +91,4 @@ export function scanMemoryContent(content: string): SecurityScanResult {
   }
 
   return { action: 'allow', content };
-}
-
-export function checkForDuplicateEntries(entries: MemoryEntry[], candidateText: string): DuplicateCheckResult {
-  const normalizedCandidate = normalizeForDuplicateCheck(candidateText);
-  const candidateTokens = tokenize(candidateText);
-  let nearMatch: MemoryEntry | undefined;
-
-  for (const entry of entries) {
-    const normalizedEntry = normalizeForDuplicateCheck(entry.text);
-    if (normalizedEntry === normalizedCandidate) {
-      return { exactMatch: entry };
-    }
-
-    if (!nearMatch) {
-      const similarity = jaccardSimilarity(candidateTokens, tokenize(entry.text));
-      if (similarity >= 0.8) nearMatch = entry;
-    }
-  }
-
-  return { nearMatch };
 }

@@ -284,7 +284,7 @@ export async function applyPluginDevSessionRefreshEffects(options: {
   clearPluginBridgePolicyCache();
   clearPackageCompatibilityCache();
   invalidatePackageProviderManifestCache();
-  disposeAppSessionsForApp(options.appId);
+  await disposeAppSessionsForApp(options.appId);
   await reloadAllSessionResources();
   await appRuntimeManager.restartApp(options.appId);
 

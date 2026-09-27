@@ -55,7 +55,7 @@ export function registerPluginHandlers(): void {
     IpcChannels.plugins.install,
     async (_event, source: string): Promise<SeroAppManifest> => {
       const manifest = await installPlugin(source);
-      disposeAppSessionsForApp(manifest.id);
+      await disposeAppSessionsForApp(manifest.id);
       await appRuntimeManager.reconcile();
       broadcastPluginEvent({ type: 'installed', manifest });
       reloadAllSessionResources().catch((err) => {
@@ -69,7 +69,7 @@ export function registerPluginHandlers(): void {
     IpcChannels.plugins.uninstall,
     async (_event, pluginId: string): Promise<void> => {
       await uninstallPlugin(pluginId);
-      disposeAppSessionsForApp(pluginId);
+      await disposeAppSessionsForApp(pluginId);
       await appRuntimeManager.reconcile();
       broadcastPluginEvent({ type: 'uninstalled', pluginId });
       reloadAllSessionResources().catch((err) => {

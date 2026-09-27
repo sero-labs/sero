@@ -1,13 +1,14 @@
 {
   "name": "@sero-ai/plugin-memory",
   "version": "0.1.0",
-  "description": "Persistent memory system for Sero — long-term facts, identity, user profile, and daily logs",
+  "description": "Persistent memory for Sero chat sessions — identity, user profile, and curated memories",
   "keywords": [
     "pi-package"
   ],
   "scripts": {
     "test": "pnpm exec vitest run",
     "test:watch": "pnpm exec vitest",
+    "test:qmd": "node scripts/test-qmd.mjs",
     "typecheck": "tsc --noEmit -p extension/tsconfig.json"
   },
   "pi": {
@@ -40,7 +41,7 @@
       "tags": [
         "memory",
         "identity",
-        "logs"
+        "profile"
       ],
       "minSeroVersion": "0.1.0",
       "bundleExtensions": true,

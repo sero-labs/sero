@@ -23,6 +23,7 @@ const createAgentSession = vi.fn(async (_options: Record<string, unknown>) => ({
 }));
 
 vi.mock('@earendil-works/pi-coding-agent', () => ({
+  Theme: class {},
   createAgentSession: (options: Record<string, unknown>) => createAgentSession(options),
   SessionManager: {
     create: () => sessionManager,
@@ -35,21 +36,33 @@ const sessionManager = {
   getSessionFile: () => sessionFile,
   getSessionId: () => 'session-1',
   appendSessionInfo: () => undefined,
+  getEntries: () => [],
 };
 
 function fakeSession() {
-  // The real session carries an agent, and buildSession wraps its afterToolCall.
-  return { agent: {}, subscribe: () => () => undefined, dispose: () => undefined };
+  return trackedSession();
 }
 
-/** A session that records whether the host disposed it. */
+/**
+ * A session that records its extension lifecycle. The real session carries an
+ * agent, and buildSession wraps its afterToolCall.
+ */
 function trackedSession() {
   const tracked = {
     agent: {},
     subscribe: () => () => undefined,
-    disposed: false,
+    lifecycle: [] as string[],
+    get disposed() { return tracked.lifecycle.includes('dispose'); },
+    bindExtensions: async () => { tracked.lifecycle.push('session_start'); },
+    extensionRunner: {
+      emit: async (event: { type: string }) => {
+        await Promise.resolve();
+        tracked.lifecycle.push(event.type);
+      },
+    },
+    abort: async () => undefined,
     dispose: () => {
-      tracked.disposed = true;
+      tracked.lifecycle.push('dispose');
       return undefined;
     },
   };
@@ -207,6 +220,38 @@ describe('reopening while the grant is revoked', () => {
     // Revocation could not dispose a session that was not registered yet, so
     // `open` must dispose it rather than add it under a revoked grant.
     await expect(reopening).rejects.toThrow(/grant-revoked/);
-    expect(building.disposed).toBe(true);
+    expect(building.lifecycle).toEqual(['session_start', 'session_shutdown', 'dispose']);
+  });
+});
+
+describe('member session extension lifecycle', () => {
+  let built: Array<ReturnType<typeof trackedSession>> = [];
+
+  beforeEach(() => {
+    built = [];
+    createAgentSession.mockClear();
+    createAgentSession.mockImplementation(async () => {
+      const session = trackedSession();
+      built.push(session);
+      return { session };
+    });
+  });
+
+  it('starts extensions with the startup reason, and ends them before dispose', async () => {
+    const { host, created } = await hostWithGrant();
+
+    await host.dispose(created.handleId);
+
+    expect(createAgentSession.mock.calls[0]?.[0]?.sessionStartEvent)
+      .toEqual({ type: 'session_start', reason: 'startup' });
+    expect(built[0]?.lifecycle).toEqual(['session_start', 'session_shutdown', 'dispose']);
+  });
+
+  it('ends the extensions of every live session when the grant is revoked', async () => {
+    const { host, grantId } = await hostWithGrant();
+
+    await host.revokeGrant(grantId);
+
+    expect(built[0]?.lifecycle).toEqual(['session_start', 'session_shutdown', 'dispose']);
   });
 });

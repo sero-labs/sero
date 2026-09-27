@@ -27,6 +27,10 @@ export function generateId(): string {
 }
 
 export function storeResult(id: string, data: StoredSearchData): void {
+	const expired = Date.now() - CACHE_TTL_MS;
+	for (const [storedId, result] of storedResults) {
+		if (result.timestamp <= expired) storedResults.delete(storedId);
+	}
 	storedResults.set(id, data);
 }
 
@@ -67,8 +71,8 @@ function isValidStoredData(data: unknown): data is StoredSearchData {
 	return true;
 }
 
+/** Adds the session's recent results. The store is shared by every session, so nothing is cleared. */
 export function restoreFromSession(ctx: ExtensionContext, minTimestamp = 0): void {
-	storedResults.clear();
 	const now = Date.now();
 
 	for (const entry of ctx.sessionManager.getBranch()) {

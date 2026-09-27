@@ -7,7 +7,6 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { fetchAllContent, type ExtractedContent } from "./extract.js";
 import { clearCloneCache } from "./github-extract.js";
 import { clearResults, generateId, storeResult, restoreFromSession, type QueryResultData, type StoredSearchData } from "./storage.js";
-import { activityMonitor } from "./activity.js";
 import { isExaAvailable } from "./exa.js";
 import { isPerplexityAvailable } from "./perplexity.js";
 import { isGeminiApiAvailable } from "./gemini-api.js";
@@ -19,9 +18,8 @@ import { registerCodeSearchTool } from "./tools-code-search.js";
 import { registerBookmarkTool } from "./tools-bookmark.js";
 import { registerWebCommands } from "./commands.js";
 
-let statePath = "";
-let sessionActive = false;
-const pendingFetches = new Map<string, AbortController>();
+/** Sessions that have started and not ended. The clone cache is shared, so the last one removes it. */
+let liveSessions = 0;
 
 function stripThumbnails(results: ExtractedContent[]): ExtractedContent[] {
 	return results.map(({ thumbnail, frames, ...rest }) => rest);
@@ -37,17 +35,23 @@ function normalizeQueryList(rawList: unknown[]): string[] {
 	return normalized;
 }
 
-function abortPendingFetches(): void {
-	for (const controller of pendingFetches.values()) controller.abort();
-	pendingFetches.clear();
-}
-
 function logSyncError(context: string, err: unknown): void {
 	const msg = err instanceof Error ? err.message : String(err);
 	console.error(`[sero-web] ${context}: ${msg}`);
 }
 
 export default function (pi: ExtensionAPI) {
+	// Per session: every session in the app loads its own copy of this
+	// extension, and one session ending must not stop another one's fetches.
+	let statePath = "";
+	let sessionActive = false;
+	const pendingFetches = new Map<string, AbortController>();
+
+	function abortPendingFetches(): void {
+		for (const controller of pendingFetches.values()) controller.abort();
+		pendingFetches.clear();
+	}
+
 	// ── State path management ─────────────────────────────
 	// Ensure statePath is set from both session handlers AND tool ctx
 
@@ -146,10 +150,8 @@ export default function (pi: ExtensionAPI) {
 
 	async function handleSessionChange(ctx: ExtensionContext): Promise<void> {
 		abortPendingFetches();
-		clearCloneCache();
 		sessionActive = true;
 		ensureStatePath(ctx.cwd);
-		activityMonitor.clear();
 
 		if (!statePath) {
 			console.error("[sero-web] statePath not set after session change — ctx.cwd:", ctx.cwd);
@@ -179,14 +181,18 @@ export default function (pi: ExtensionAPI) {
 		})();
 	}
 
-	pi.on("session_start", async (_event, ctx) => { await handleSessionChange(ctx); });
+	pi.on("session_start", async (_event, ctx) => {
+		liveSessions += 1;
+		await handleSessionChange(ctx);
+	});
 	pi.on("session_tree", async (_event, ctx) => { await handleSessionChange(ctx); });
+	// The result store, clone cache and activity log are shared by every
+	// session, so a session ending releases only its own fetches.
 	pi.on("session_shutdown", () => {
 		sessionActive = false;
 		abortPendingFetches();
-		clearCloneCache();
-		clearResults();
-		activityMonitor.clear();
+		liveSessions = Math.max(0, liveSessions - 1);
+		if (liveSessions === 0) clearCloneCache();
 	});
 
 	// ── Register tools ────────────────────────────────────
@@ -217,11 +223,11 @@ export default function (pi: ExtensionAPI) {
 		handler: async () => {
 			const cookies = await isGeminiWebAvailable();
 			if (!cookies) {
-				pi.sendMessage({ customType: "google-account", content: [{ type: "text", text: "Gemini Web is unavailable. Sign into gemini.google.com in a supported Chromium-based browser to enable it." }], display: "tool", details: { available: false } }, { triggerTurn: false, deliverAs: "followUp" });
+				pi.sendMessage({ customType: "google-account", content: [{ type: "text", text: "Gemini Web is unavailable. Sign into gemini.google.com in a supported Chromium-based browser to enable it." }], display: true, details: { available: false } }, { triggerTurn: false, deliverAs: "followUp" });
 				return;
 			}
 			const email = await getActiveGoogleEmail(cookies);
-			pi.sendMessage({ customType: "google-account", content: [{ type: "text", text: email ? `Active Google account: ${email}` : "Gemini Web is available, but the active Google account could not be determined." }], display: "tool", details: { available: true, email: email ?? null } }, { triggerTurn: false, deliverAs: "followUp" });
+			pi.sendMessage({ customType: "google-account", content: [{ type: "text", text: email ? `Active Google account: ${email}` : "Gemini Web is available, but the active Google account could not be determined." }], display: true, details: { available: true, email: email ?? null } }, { triggerTurn: false, deliverAs: "followUp" });
 		},
 	});
 }

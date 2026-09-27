@@ -8,18 +8,29 @@ const PROTECTED_ROOT_FILES = new Set([
   'USER.md',
 ]);
 
+/** Folders under the global `memory/` directory. */
 const PROTECTED_SUBDIRS = new Set([
-  'daily',
-  'sessions',
+  'entries',
+  'trash',
+  '.conversion-tmp',
 ]);
+
+/** Every workspace keeps its memory entries and scratchpad here. */
+const WORKSPACE_MEMORY_DIR = '.sero/apps/memory';
 
 const MANAGED_MEMORY_LABEL = [
   'MEMORY.md',
   'IDENTITY.md',
   'USER.md',
-  'memory/daily/',
-  'memory/sessions/',
+  'memory/entries/',
+  'memory/trash/',
+  `${WORKSPACE_MEMORY_DIR}/`,
 ].join(', ');
+
+function isWorkspaceMemoryPath(normalizedPath: string): boolean {
+  return normalizedPath.endsWith(`/${WORKSPACE_MEMORY_DIR}`)
+    || normalizedPath.includes(`/${WORKSPACE_MEMORY_DIR}/`);
+}
 
 type ShellToken =
   | { type: 'word'; value: string }
@@ -64,6 +75,7 @@ function isProtectedMemoryCommandTarget(filePath: string): boolean {
 
 export function isProtectedMemoryPath(filePath: string): boolean {
   const normalizedPath = normalizePath(filePath);
+  if (isWorkspaceMemoryPath(normalizedPath)) return true;
 
   for (const root of getProtectedMemoryRoots()) {
     const relative = path.posix.relative(root, normalizedPath);
@@ -123,8 +135,8 @@ function getSpecificCommandAliases(rootAlias: string): string[] {
     `${rootAlias}/MEMORY.md`,
     `${rootAlias}/IDENTITY.md`,
     `${rootAlias}/USER.md`,
-    `${rootAlias}/memory/daily`,
-    `${rootAlias}/memory/sessions`,
+    `${rootAlias}/memory/entries`,
+    `${rootAlias}/memory/trash`,
   ];
 }
 
@@ -133,7 +145,8 @@ export function commandTouchesProtectedMemory(command: string): boolean {
   const rootAliases = getRootAliases();
   const specificAliases = rootAliases.flatMap((alias) => getSpecificCommandAliases(alias));
 
-  return specificAliases.some((alias) => normalized.includes(alias))
+  return normalized.includes(WORKSPACE_MEMORY_DIR)
+    || specificAliases.some((alias) => normalized.includes(alias))
     || rootAliases.some((alias) => commandMentionsPath(normalized, alias));
 }
 
@@ -322,8 +335,8 @@ export function getProtectedMemoryAccessError(source: 'bash' | 'read' | 'write' 
 
   return [
     `${action} access to managed Sero memory files is blocked.`,
-    `Use the \`sero-cli\` tool with \`sero memory\` or \`sero memory_search\` instead of ${source}.`,
+    `Use the \`sero-cli\` tool with \`sero memory\` or \`sero scratchpad\` instead of ${source}.`,
     `Protected locations: ${MANAGED_MEMORY_LABEL}.`,
-    'If memory search is unavailable, report that limitation instead of bypassing the memory system with filesystem tools.',
+    'If those commands are unavailable, report that limitation instead of bypassing the memory system with filesystem tools.',
   ].join(' ');
 }

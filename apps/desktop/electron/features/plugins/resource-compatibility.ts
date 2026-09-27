@@ -16,6 +16,7 @@ import {
 import { evaluatePluginCompatibility } from './compatibility';
 
 interface PluginPackageJson {
+  name?: unknown;
   sero?: {
     plugin?: unknown;
   };
@@ -23,6 +24,7 @@ interface PluginPackageJson {
 
 const packageRootCache = new Map<string, string | null>();
 const packageCompatibilityCache = new Map<string, PluginCompatibilityStatus | null>();
+const packageNameCache = new Map<string, string | null>();
 
 function findPackageRoot(resourcePath: string): string | null {
   const resolvedPath = path.resolve(resourcePath);
@@ -154,7 +156,27 @@ export function filterCompatiblePluginAgentsFiles(base: {
   };
 }
 
+/** The `name` of the nearest `package.json` above a resource, or null. */
+export function packageNameForResourcePath(resourcePath: string | undefined): string | null {
+  if (!resourcePath) return null;
+  const packageRoot = findPackageRoot(resourcePath);
+  if (!packageRoot) return null;
+  const cached = packageNameCache.get(packageRoot);
+  if (cached !== undefined) return cached;
+
+  let name: string | null = null;
+  try {
+    const pkg = JSON.parse(readFileSync(path.join(packageRoot, 'package.json'), 'utf8')) as PluginPackageJson;
+    name = typeof pkg.name === 'string' ? pkg.name : null;
+  } catch {
+    name = null;
+  }
+  packageNameCache.set(packageRoot, name);
+  return name;
+}
+
 export function clearPackageCompatibilityCache(): void {
   packageRootCache.clear();
   packageCompatibilityCache.clear();
+  packageNameCache.clear();
 }

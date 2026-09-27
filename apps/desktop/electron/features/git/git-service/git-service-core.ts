@@ -1,8 +1,6 @@
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
-
 import type { GitActionResult, GitAppState, GitManagerRequest, GitSyncMode } from '@sero-ai/common';
 import { createDefaultGitState } from '@sero-ai/common';
+import { ensureGitStateIgnored } from '@sero-ai/extension-runtime';
 import {
   getCommitCount,
   getCommits,
@@ -20,29 +18,6 @@ import { canUseQuickRefresh, createGitRefSnapshot, createQuickRefreshState } fro
 import { isDetachedHead, readMergeState } from './git-merge-state';
 import { runGitAsync } from './git-exec';
 import { readState, writeState } from './state-io';
-
-/**
- * Sero's own footprint inside a user's repository, kept out of their way.
- *
- * These are ours, not theirs: per-machine app state and the workspace's local
- * config. Left alone they show up as untracked changes and get swept into a
- * "stage all", so the user commits our bookkeeping into their project.
- *
- * Matched anywhere in the tree so nested workspaces (`repo/subdir/.sero/…`)
- * are covered too. Only `.sero/apps/git/` used to be listed, which meant any
- * *other* app writing state — the orchestrator, say — dragged the whole
- * `.sero/` directory back into the untracked list.
- *
- * This goes in `.git/info/exclude`, never the project's `.gitignore`: it is a
- * local preference, not a fact about the project, and it is not ours to commit.
- * It also only affects *untracked* files, so anyone who deliberately tracks
- * their `.sero-workspace.json` keeps it — git still reports changes to files it
- * already knows about.
- */
-const SERO_IGNORE_RULES = [
-  '**/.sero/',
-  '**/.sero-workspace.json',
-];
 
 export type GitRefreshScope = 'auto' | 'full';
 
@@ -66,39 +41,9 @@ export function err(message: string): GitActionResult {
   return { ok: false, message };
 }
 
-async function ensureGitStateIgnored(cwd: string): Promise<void> {
-  // `--git-path` rather than `--git-dir`: in a linked worktree the git dir is
-  // `.git/worktrees/<name>`, but the exclude file git actually reads lives in
-  // the shared parent. Joining it onto `--git-dir` would write a file in the
-  // worktree that git never looks at, so our own state would keep showing up
-  // as untracked changes there.
-  const excludePath = await runGitAsync(
-    ['rev-parse', '--git-path', 'info/exclude'],
-    cwd,
-    { allowFailure: true },
-  );
-  if (!excludePath) return;
-
-  const resolvedExcludePath = path.isAbsolute(excludePath)
-    ? excludePath
-    : path.join(cwd, excludePath);
-
-  let current = '';
-  try {
-    current = await fs.readFile(resolvedExcludePath, 'utf8');
-  } catch {
-    current = '';
-  }
-
-  const existingRules = new Set(
-    current.split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
-  );
-  const missing = SERO_IGNORE_RULES.filter((rule) => !existingRules.has(rule));
-  if (missing.length === 0) return;
-
-  const next = `${current.replace(/\s*$/, '')}${current.trim() ? '\n' : ''}${missing.join('\n')}\n`;
-  await fs.mkdir(path.dirname(resolvedExcludePath), { recursive: true });
-  await fs.writeFile(resolvedExcludePath, next, 'utf8');
+/** Git runner for the shared exclude helper, keeping this service's routing. */
+async function runGitForExclude(args: string[], cwd: string): Promise<string | null> {
+  return (await runGitAsync(args, cwd, { allowFailure: true })) || null;
 }
 
 async function createFullRefreshState(
@@ -157,7 +102,7 @@ export async function refreshGitState(
     return state;
   }
 
-  await ensureGitStateIgnored(cwd);
+  await ensureGitStateIgnored(cwd, runGitForExclude);
 
   // The previous state is read on every refresh, not just the quick path: a
   // merge's conflicted-path set is carried forward from it (see

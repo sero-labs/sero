@@ -16,8 +16,8 @@ describe('CLI prompt block', () => {
       execute,
     });
     registry.register({
-      name: 'memory_search',
-      summary: 'Search memory and transcripts',
+      name: 'scratchpad',
+      summary: 'Track open tasks',
       group: 'Apps',
       source: 'app',
       execute,
@@ -35,7 +35,7 @@ describe('CLI prompt block', () => {
     // Commands are grouped with summaries
     expect(prompt).toContain('Apps:');
     expect(prompt).toContain('memory — Manage long-term memory');
-    expect(prompt).toContain('memory_search — Search memory and transcripts');
+    expect(prompt).toContain('scratchpad — Track open tasks');
     expect(prompt).toContain('Builtin:');
     expect(prompt).toContain('workspace — Manage workspaces');
   });

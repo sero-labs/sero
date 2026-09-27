@@ -7,9 +7,11 @@
  * Tools: current_time, cron, reminder
  * Commands: /cron
  *
- * IMPORTANT: The scheduler is a MODULE-LEVEL singleton. The default export
- * may be called multiple times (once per Sero session), but only one
- * scheduler exists per process. This prevents double job execution.
+ * IMPORTANT: The scheduler is a PROCESS-WIDE singleton. The default export
+ * is called once per Sero session, and Pi evaluates this module again after a
+ * resource reload or when a session opens in another folder. The runtime lives
+ * on `globalThis`, so every module copy shares one scheduler. This prevents
+ * double job execution.
  */
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
@@ -22,7 +24,9 @@ import {
   registerReminderTool,
 } from './tools';
 
-const runtime = createCronRuntime();
+const RUNTIME_KEY = Symbol.for('@sero-ai/plugin-cron/runtime');
+type CronGlobal = typeof globalThis & { [RUNTIME_KEY]?: ReturnType<typeof createCronRuntime> };
+const runtime = (globalThis as CronGlobal)[RUNTIME_KEY] ??= createCronRuntime();
 
 export default function (pi: ExtensionAPI) {
   console.log('[cron] extension loaded');

@@ -212,6 +212,26 @@ describe('Goal custom-message projection', () => {
   });
 });
 
+describe('Memory recall projection', () => {
+  it('turns a recall message into one recall item with each memory, and hides one without memory data', () => {
+    const messages = convertSessionMessages([
+      {
+        role: 'custom',
+        customType: 'memory-recall',
+        content: 'Memories that may apply to this message (1):',
+        display: true,
+        details: { ids: ['mem-pnpm'], scores: [0.9], memories: [{ id: 'mem-pnpm', type: 'preference', fact: 'Use pnpm.', behaviour: 'Run pnpm.' }] },
+      },
+      { role: 'custom', customType: 'memory-recall', content: 'older recall text', display: true, details: { ids: ['mem-old'], scores: [0.8] } },
+    ] as never);
+
+    expect(messages).toMatchObject([
+      { type: 'memory-recall', memories: [{ id: 'mem-pnpm', type: 'preference', fact: 'Use pnpm.', behaviour: 'Run pnpm.' }] },
+    ]);
+    expect(JSON.stringify(messages)).not.toContain('older recall text');
+  });
+});
+
 describe('findLatestTurnUndo', () => {
   const branch = [
     { id: 'user-entry-1', type: 'message', message: { role: 'user', content: 'first' } },

@@ -1,275 +1,148 @@
 /**
- * Memory Extension — persistent memory for Sero with QMD semantic search.
+ * Memory Extension — long-term memory for Sero chat sessions.
  *
- * Stores long-term facts (MEMORY.md), agent identity (IDENTITY.md),
- * user profile (USER.md), and daily logs
- * in the global workspace. All files are git-tracked via Sero's
- * existing checkpoint system.
+ * The host loads this plugin only in chat sessions. Subagents, Architect,
+ * Rooms and app agents never get memory.
  *
- * QMD provides keyword, semantic, and hybrid search across all files.
- * Selective injection surfaces relevant past memories before each turn.
+ *   session_start       conversion, index warm-up, tidy-up, recall set rebuild
+ *   before_agent_start  session snapshot in the system prompt, on-match recall
+ *   session_compact     snapshot rebuild, recall set cleared
+ *   session_shutdown    release of the shared index
  *
- * Tools: memory (read/write/search/list), memory_search
- * Hooks: before_agent_start (context injection), session lifecycle
+ * Tools (bridged into sero-cli): memory, scratchpad.
  */
 
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
 import { requestIsolatedCompletion } from '@sero-ai/extension-runtime';
 
-import { checkBootstrapStatus } from './bootstrap';
-import { registerContextInjection, markBootstrapDone } from './context-injector';
-import {
-  clearPhase1MigrationState,
-  setPhase1MigrationState,
-} from './phase1-migration-state';
+import { buildBootstrapInstructions, checkBootstrapStatus } from './bootstrap';
+import { error, errorDetails } from './logger';
+import type { EntryContext } from './memory-entries';
 import { registerMemoryTool } from './memory-tool';
-import { registerSearchTool } from './search-tool';
-import { registerSessionLifecycle } from './session-lifecycle';
-import { registerActivityObserver } from './activity-observer';
-import { initQmd, runQmdUpdateNow } from './qmd';
-import { runPhase1Migration } from './migration';
-import { hasPendingStaleLogs, runMemoryConsolidationSafely } from './consolidation';
-import { error, errorDetails, getMemoryLogDirPath, getMemoryLogPath, info } from './logger';
-import {
-  describeAutoConsolidationCadence,
-  getAutoConsolidationCommand,
-  getAutoConsolidationCadenceSync,
-  markAutoConsolidationIntroShownSync,
-  shouldShowAutoConsolidationIntroSync,
-  syncAutoConsolidationCronJobSync,
-} from './automation-state';
-import {
-  getTranscriptExportDir,
-  markTranscriptRecallIntroShown,
-  shouldShowTranscriptRecallIntro,
-} from './transparency-state';
-import { startBackfillInBackground } from './session-transcripts';
+import { acquireIndex, releaseIndex } from './qmd-index';
+import { recallForTurn, recalledSinceCompaction } from './recall';
+import { registerScratchpadTool } from './scratchpad';
+import { buildSnapshot, recordSnapshotMetric, type Snapshot } from './snapshot';
+import { startTidyUp } from './tidy';
+
+interface SessionMemory {
+  /** Entries recalled since the latest compaction. */
+  recalled: Set<string>;
+  /** The system prompt addition, fixed until the next compaction. */
+  snapshot: Promise<Snapshot> | null;
+  awaitingBootstrapFollowUp: boolean;
+}
+
+function sessionIdOf(ctx: ExtensionContext): string {
+  return ctx.sessionManager.getSessionId();
+}
+
+/** The chat's workspace. A bridged tool call's `cwd` can be a subfolder, so the session's own folder is used. */
+function workspaceOf(ctx: ExtensionContext): string {
+  return ctx.sessionManager.getCwd();
+}
 
 export default function memoryExtension(pi: ExtensionAPI): void {
-  const complete = (request: Parameters<typeof requestIsolatedCompletion>[1]) =>
-    requestIsolatedCompletion(pi.events, request);
-  info('extension_loaded', { logPath: getMemoryLogPath() });
+  const state: SessionMemory = { recalled: new Set(), snapshot: null, awaitingBootstrapFollowUp: false };
 
-  let awaitingBootstrapFollowUp = false;
-
-  try {
-    const autoConsolidation = syncAutoConsolidationCronJobSync();
-    info('auto_consolidation_sync', { ...autoConsolidation });
-  } catch (err) {
-    error('auto_consolidation_sync_failed', errorDetails(err));
-  }
-
-  // ── Session start: bootstrap check + QMD init ──────────────
-
-  async function handleSessionEnter(source: 'session_start', ctx: ExtensionContext): Promise<void> {
-    const sessionId = ctx.sessionManager.getSessionId();
-    clearPhase1MigrationState(sessionId);
-
-    info('session_enter', {
-      source,
-      sessionFile: ctx.sessionManager.getSessionFile?.() ?? null,
-      cwd: ctx.cwd,
-      sessionId,
-    });
-
-    const status = await checkBootstrapStatus();
-    info('bootstrap_status', {
-      source,
-      needsBootstrap: status.needsBootstrap,
-      hasExistingUserContent: Boolean(status.existingUserContent),
-    });
-
-    awaitingBootstrapFollowUp = status.needsBootstrap;
-
-    if (status.needsBootstrap) {
-      pi.sendMessage(
-        {
-          customType: 'memory-bootstrap',
-          content: 'Memory system detected — starting setup.',
-          display: true,
-        },
-        { triggerTurn: false },
-      );
+  const snapshotFor = (ctx: ExtensionContext): Promise<Snapshot> => {
+    if (!state.snapshot) {
+      const built = buildSnapshot(workspaceOf(ctx));
+      state.snapshot = built;
+      built.then((snapshot) => recordSnapshotMetric(sessionIdOf(ctx), snapshot.counts), () => undefined);
     }
+    return state.snapshot;
+  };
 
-    let migrationChanged = false;
-    if (!status.needsBootstrap) {
-      const migration = await runPhase1Migration(ctx, complete);
-      migrationChanged = migration.changed;
-      setPhase1MigrationState(sessionId, migration.changed);
-      info('migration_result', {
-        source,
-        changed: migration.changed,
-        notes: migration.notes,
-      });
-    }
-
-    // Init QMD (detect → auto-install → setup collection)
-    const qmdReady = await initQmd();
-    info('qmd_init', { source, ready: qmdReady });
-    if (!qmdReady) {
-      // Non-fatal: core memory works without QMD
-      console.log('[memory] QMD not available — semantic search disabled');
-    } else if (migrationChanged) {
-      await runQmdUpdateNow();
-      info('qmd_update_triggered', { source, reason: 'migration_changed' });
-    }
-
-    // Start session transcript backfill in background (non-blocking)
-    if (qmdReady && !status.needsBootstrap) {
-      startBackfillInBackground();
-    }
-
-    // §3.1 session-start trigger: lightweight non-blocking consolidation
-    // Fires concurrently — does NOT block the first turn.
-    const cadence = getAutoConsolidationCadenceSync();
-    if (!status.needsBootstrap && cadence !== 'off') {
-      hasPendingStaleLogs(7).then(async (hasStale) => {
-        if (!hasStale) {
-          info('session_consolidation_skipped', { source, reason: 'no_stale_logs' });
-          return;
-        }
-        info('session_consolidation_triggered', { source });
-        try {
-          const result = await runMemoryConsolidationSafely(ctx, 'auto', complete);
-          info('session_consolidation_complete', {
-            source,
-            changed: result.changed,
-            addedEntries: result.addedEntries,
-            processedLogs: result.processedLogs,
-          });
-        } catch (err) {
-          // Non-fatal — cron and manual triggers remain as fallbacks
-          error('session_consolidation_failed', { source, ...errorDetails(err) });
-        }
-      }).catch((err) => {
-        error('session_consolidation_check_failed', { source, ...errorDetails(err) });
-      });
-    }
-
-    if (qmdReady && !status.needsBootstrap && await shouldShowTranscriptRecallIntro()) {
-      const transcriptDir = getTranscriptExportDir();
-      pi.sendMessage(
-        {
-          customType: 'memory-info',
-          content: [
-            'Conversation recall is enabled.',
-            '',
-            'Sero will keep searchable session transcripts up to date automatically.',
-            `Transcript exports live in \`${transcriptDir}\`.`,
-            'You usually do not need to manage these files yourself.',
-          ].join('\n'),
-          display: true,
-        },
-        { triggerTurn: false },
-      );
-      ctx.ui?.notify?.('Conversation recall enabled', 'info');
-      await markTranscriptRecallIntroShown();
-      info('transcript_recall_intro_shown', { source, transcriptDir });
-    }
-
-    if (!status.needsBootstrap && cadence !== 'off' && shouldShowAutoConsolidationIntroSync()) {
-      const cadenceLabel = describeAutoConsolidationCadence(cadence);
-      const command = getAutoConsolidationCommand();
-      pi.sendMessage(
-        {
-          customType: 'memory-info',
-          content: [
-            'Automatic memory consolidation is enabled.',
-            '',
-            `Current cadence: ${cadenceLabel}.`,
-            'Older daily logs will be distilled into `MEMORY.md` automatically.',
-            `The scheduled job runs \`${command}\` in the background.`,
-            'Change it with `sero memory consolidate --schedule daily|weekly|off`.',
-          ].join('\n'),
-          display: true,
-        },
-        { triggerTurn: false },
-      );
-      ctx.ui?.notify?.(`Automatic memory consolidation enabled (${cadence})`, 'info');
-      markAutoConsolidationIntroShownSync();
-      info('auto_consolidation_intro_shown', { source, cadence });
-    }
-  }
+  const entryContextOf = (ctx: ExtensionContext): EntryContext => ({
+    sessionId: sessionIdOf(ctx),
+    workspaceRoot: workspaceOf(ctx),
+    recalled: state.recalled,
+  });
 
   pi.on('session_start', async (_event, ctx) => {
     try {
-      await handleSessionEnter('session_start', ctx);
-    } catch (err) {
-      error('session_enter_failed', { source: 'session_start', ...errorDetails(err) });
-      throw err;
-    }
-  });
-
-  // ── Post-turn: detect bootstrap completion ─────────────────
-
-  pi.on('agent_end', async () => {
-    const status = await checkBootstrapStatus();
-    info('agent_end', {
-      needsBootstrap: status.needsBootstrap,
-      awaitingBootstrapFollowUp,
-    });
-
-    if (!status.needsBootstrap) {
-      markBootstrapDone();
-
-      if (awaitingBootstrapFollowUp) {
-        awaitingBootstrapFollowUp = false;
+      state.recalled = recalledSinceCompaction(ctx.sessionManager.getBranch());
+      state.snapshot = null;
+      const status = await checkBootstrapStatus();
+      state.awaitingBootstrapFollowUp = status.needsBootstrap;
+      if (status.needsBootstrap) {
         pi.sendMessage(
-          {
-            customType: '',
-            content: 'Memory is all set — what would you like to work on?',
-            display: true,
-          },
+          { customType: 'memory-bootstrap', content: 'Memory system detected — starting setup.', display: true },
           { triggerTurn: false },
         );
-        info('bootstrap_follow_up_sent', {});
+        return;
       }
+      void acquireIndex(sessionIdOf(ctx), workspaceOf(ctx));
+      // The snapshot waits for the one-time conversion; the tidy-up waits for the snapshot.
+      const snapshot = snapshotFor(ctx);
+      void snapshot.then(() => startTidyUp({
+        workspaceRoot: workspaceOf(ctx),
+        model: ctx.model,
+        complete: (request) => requestIsolatedCompletion(pi.events, request),
+      }), () => undefined);
+    } catch (err) {
+      await error('session_start_failed', errorDetails(err));
     }
   });
 
-  // ── Context injection (priority-ordered + selective search) ─
+  pi.on('before_agent_start', async (event, ctx) => {
+    const status = await checkBootstrapStatus();
+    if (status.needsBootstrap) {
+      return { systemPrompt: event.systemPrompt + buildBootstrapInstructions(status.existingUserContent) };
+    }
 
-  registerContextInjection(pi);
-
-  // ── Tools (all bridged into sero-cli via AD-020) ───────────
-
-  registerMemoryTool(pi);
-  registerSearchTool(pi);
-
-  // ── Session lifecycle (handoff + exit transcript) ──────────
-
-  registerSessionLifecycle(pi);
-
-  // ── Activity observer (auto-log significant work) ──────────
-
-  registerActivityObserver(pi);
-
-  // ── Slash commands ─────────────────────────────────────────
-
-  pi.registerCommand('memory', {
-    description: 'Show memory files or manage them (pass instructions inline)',
-    handler: async (args) => {
-      const instruction = args.trim();
-      if (instruction) {
-        pi.sendUserMessage(`Using the memory tool: ${instruction}`);
-      } else {
-        pi.sendUserMessage('List all memory files using the memory tool.');
-      }
-    },
+    const snapshot = await snapshotFor(ctx);
+    let message;
+    try {
+      // Waits for the index warm-up; without it, recall runs on keywords alone.
+      await acquireIndex(sessionIdOf(ctx), workspaceOf(ctx));
+      message = await recallForTurn({
+        sessionId: sessionIdOf(ctx),
+        prompt: event.prompt ?? '',
+        workspaceRoot: workspaceOf(ctx),
+        recalled: state.recalled,
+      });
+    } catch (err) {
+      // Recall is extra context. A failure must never block the turn.
+      await error('recall_failed', errorDetails(err));
+    }
+    return { systemPrompt: event.systemPrompt + snapshot.text, message };
   });
 
-  pi.registerCommand('memory-log', {
-    description: 'Show the memory plugin debug log path',
-    handler: async () => {
-      pi.sendMessage(
-        {
-          customType: 'memory-debug-log',
-          content: `Memory debug logs: \`${getMemoryLogDirPath()}\` (today: \`${getMemoryLogPath()}\`)`,
-          display: true,
-        },
-        { triggerTurn: false },
-      );
+  pi.on('session_compact', async (_event, ctx) => {
+    state.recalled.clear();
+    state.snapshot = null;
+    void snapshotFor(ctx);
+  });
+
+  pi.on('session_shutdown', async (event, ctx) => {
+    // A reload ends this copy, but the session goes on and acquires the index again at once.
+    if (event.reason === 'reload') return;
+    await releaseIndex(sessionIdOf(ctx));
+  });
+
+  pi.on('agent_end', async () => {
+    if (!state.awaitingBootstrapFollowUp) return;
+    const status = await checkBootstrapStatus();
+    if (status.needsBootstrap) return;
+    state.awaitingBootstrapFollowUp = false;
+    pi.sendMessage(
+      { customType: '', content: 'Memory is all set — what would you like to work on?', display: true },
+      { triggerTurn: false },
+    );
+  });
+
+  registerMemoryTool(pi, entryContextOf);
+  registerScratchpadTool(pi, (ctx) => ({ workspaceRoot: workspaceOf(ctx), sessionId: sessionIdOf(ctx) }));
+
+  pi.registerCommand('memory', {
+    description: 'Show memories or manage them (pass instructions inline)',
+    handler: async (args) => {
+      const instruction = args.trim();
+      pi.sendUserMessage(instruction
+        ? `Using the memory tool: ${instruction}`
+        : 'List all memories using the memory tool.');
     },
   });
 }
