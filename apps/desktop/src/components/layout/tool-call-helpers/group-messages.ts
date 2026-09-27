@@ -1,5 +1,5 @@
 import type { ChatMessage, ChatToolCallMessage } from '@/types/ipc';
-import { readMemoryChange } from './memory-change';
+import { isMemoryRefusal, readMemoryChange } from './memory-change';
 
 export type GroupedChatItem =
   | { kind: 'message'; message: ChatMessage }
@@ -87,7 +87,7 @@ function groupFrom(messages: ChatMessage[], from: number, out: GroupedChatSnapsh
         continue;
       }
       if (toolBuffer.length === 0) toolStart = i;
-      toolBuffer.push(message);
+      toolBuffer.push(isMemoryRefusal(message) ? { ...message, state: 'error', isError: true } : message);
       toolEnd = i + 1;
       continue;
     }

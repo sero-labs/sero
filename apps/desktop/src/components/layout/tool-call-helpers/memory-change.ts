@@ -11,6 +11,11 @@ function isChangeAction(value: unknown): value is MemoryChange['action'] {
   return value === 'save' || value === 'replace' || value === 'remove';
 }
 
+/** A save, replace or remove that the memory plugin refused. The chat shows it as a failed row. */
+export function isMemoryRefusal(tool: ChatToolCallMessage): boolean {
+  return tool.state === 'completed' && !tool.isError && tool.details?.memoryRefused === true;
+}
+
 /**
  * The memory change of a finished `sero memory` call, which the chat draws as
  * one line instead of a tool row (design D13). Any other call returns null.

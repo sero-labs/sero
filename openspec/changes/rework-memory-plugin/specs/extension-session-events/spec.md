@@ -27,7 +27,7 @@ When the host reloads a session's resources, the extensions that handle the sess
 - **THEN** each extension that handles the next turn has received `session_start` with reason `reload` before that turn
 
 ### Requirement: Session shutdown delivered to extensions
-The desktop host SHALL deliver `session_shutdown` to the extensions of every chat, plugin app agent, persistent and subagent session before the session is disposed, and SHALL wait for the extension handlers to finish. This SHALL also apply when a plugin is unloaded or refreshed and when the app quits.
+The desktop host SHALL deliver `session_shutdown` to the extensions of every chat, plugin app agent, persistent and subagent session before the session is disposed, and SHALL wait for the extension handlers to finish. This SHALL also apply when a plugin is unloaded or refreshed and when the app quits. At quit, the host SHALL close sessions before the runtimes they use, and SHALL wait for each shutdown step up to a time limit, so a handler that does not finish cannot stop the app from closing.
 
 #### Scenario: Plugin unloaded
 - **WHEN** a plugin with open app sessions is unloaded
@@ -35,7 +35,7 @@ The desktop host SHALL deliver `session_shutdown` to the extensions of every cha
 
 #### Scenario: App quits
 - **WHEN** the app quits with app sessions open
-- **THEN** their `session_shutdown` handlers finish before the process exits
+- **THEN** their `session_shutdown` handlers run before the app runtimes are disposed, and the host waits for them up to the shutdown time limit before the process exits
 
 #### Scenario: Subagent finishes
 - **WHEN** a subagent session completes, fails or is aborted

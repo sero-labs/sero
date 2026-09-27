@@ -129,8 +129,9 @@ export function registerMemoryTool(pi: ExtensionAPI, entryContextOf: (ctx: Exten
       try {
         let change: MemoryChange | undefined;
         const result = await executeMemoryAction({ ...entryContextOf(ctx), onChange: (value) => { change = value; } }, p);
-        // The chat draws a save, replace or remove as one line from this (design D13).
-        return { ...text(result), details: change ? { memoryChange: change } : {} };
+        // The chat draws a save, replace or remove as one line, and a refused one as a failed row (design D13).
+        const refused = !change && (p.action === 'save' || p.action === 'replace' || p.action === 'remove');
+        return { ...text(result), details: change ? { memoryChange: change } : refused ? { memoryRefused: true } : {} };
       } catch (err) {
         await error('memory_tool_failed', { action: p.action, ...errorDetails(err) });
         throw err;

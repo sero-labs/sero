@@ -114,4 +114,12 @@ describe('memory changes', () => {
       item.kind === 'tool-group' ? item.tools.map((t) => t.id) : item.message.id
     ))).toEqual([expect.any(String), [help.id], saved.id, [edit.id, refused.id]]);
   });
+
+  it('shows a save that memory refused as a failed row', () => {
+    const refused = tool('sero-cli', { details: { exitCode: 0, memoryRefused: true } });
+
+    const [, group] = groupMessages([user(), refused]);
+
+    expect(group.kind === 'tool-group' && group.tools[0]?.state).toBe('error');
+  });
 });
