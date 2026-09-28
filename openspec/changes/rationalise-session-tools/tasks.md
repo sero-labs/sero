@@ -28,7 +28,8 @@
 
 ## 5. Goal terminal tools
 
-- [ ] 5.1 List every session kind that can run `sero goal`. Record the list in design.md D4. Verify by reading the private registry contents for a Room member and the Architect.
+- [ ] 5.1 Add `sero.plugin.toolSessionKinds` to the bridge policy reader, and drop tools not declared for the session's kind in the chat bridge step, the subagent loader and the member bridge step, including when an allowlist names them (design D11). Verify with a unit test on a fixture plugin that a chat-only tool is missing from subagent and member sessions, a member-only tool is missing from chat, and an undeclared tool is in all three.
+- [ ] 5.1a Declare the Orchestrator's session kinds per design D11. Verify in the harness that the default subagent and a workflow step whose allowlist names `goal` have no goal or Rooms tools, that the Room member has `room` and no `goal`, and that chat has `goal` and `rooms` but not `room`.
 - [ ] 5.2 Deactivate the goal terminal tools at session start with no goal, activate them on goal start or reattach, and deactivate them on complete, block or park. Merge with user context overrides, and skip activation where an allowlist excludes them. Verify with orchestrator extension tests: no goal means no tools, a goal cycle adds and removes them, and a user-disabled tool stays disabled.
 
 ## 6. Prompt names only reachable tools
@@ -48,6 +49,9 @@
 
 - [ ] 8.1 Build `read`, `write` and `edit` through the workspace runtime in `createMemberRuntimeTools` when the allowlist has them. Verify that the harness Room member writes a file in a container workspace and sees it with `bash`.
 - [ ] 8.2 Confirm that no Architect or Orchestrator member flow calls a bridged slash command, then stop bridging slash commands into private registries. Verify that every command in the member CLI list passes the harness probe.
+- [ ] 8.3 Record each plugin tool's source package in the subagent tool catalogue. Verify with a unit test that a warmed catalogue entry for `web_search` names its package.
+- [ ] 8.4 Load the package behind every approved plugin tool into the member session, and log approved tools that cannot be provided (design D10). Verify in the harness that a Room member approved for `web_search` with network access runs a search through `sero-cli`, and that one approved for a tool whose plugin is removed opens with a log line naming it.
+- [ ] 8.5 Filter the member approval catalogue by `toolSessionKinds`. Verify with a clamp unit test that `goal`, `goals`, `rooms` and the goal terminal tools are dropped from a member proposal.
 
 ## 9. Profile AGENTS.md template
 

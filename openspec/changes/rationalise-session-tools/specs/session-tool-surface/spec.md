@@ -56,12 +56,67 @@ The goal terminal tools SHALL be active only while a goal is attached to the ses
 - **WHEN** the user disabled a tool in a session and a goal then starts
 - **THEN** that tool stays disabled
 
+### Requirement: Goals run only in chat sessions
+Only chat sessions SHALL be able to start a goal. Room member sessions MUST NOT be given the `goal` command or the goal terminal tools.
+
+#### Scenario: Room member command list
+- **WHEN** a Room member session starts
+- **THEN** its Sero CLI commands do not include `goal`, and its tool list does not include `goal_complete`, `goal_blocked` or `goal_wait`
+
+### Requirement: Subagents get no goal or Rooms tools
+Subagent and workflow step sessions MUST NOT be given `goal`, `goals`, `goal_complete`, `goal_blocked`, `goal_wait`, `room` or `rooms`, as direct tools or as Sero CLI commands, whatever their tool policy or allowlist.
+
+#### Scenario: Default subagent
+- **WHEN** a chat starts a subagent whose agent definition names no tools
+- **THEN** none of those tools or commands are in the subagent's tool list or CLI command list
+
+#### Scenario: Allowlist names a goal tool
+- **WHEN** a workflow step's allowlist includes `goal` or `rooms`
+- **THEN** the step session still does not have it
+
+### Requirement: Plugins declare which session kinds a tool is for
+A plugin SHALL be able to declare, per tool, the session kinds it is for: chat, subagent (including workflow steps) and member (Architect and Room members). The host MUST keep a declared tool out of every session kind not listed for it, as a direct tool and as a Sero CLI command. A tool with no declaration SHALL stay available to every kind.
+
+#### Scenario: Chat-only tool in a subagent
+- **WHEN** a plugin declares a tool for chat only and a subagent session loads that plugin
+- **THEN** the subagent does not have that tool, and a chat session still does
+
+#### Scenario: Member-only tool in chat
+- **WHEN** a plugin declares a tool for members only
+- **THEN** a chat session does not list it, and a Room member session does
+
+#### Scenario: Undeclared tool
+- **WHEN** a plugin tool has no session-kind declaration
+- **THEN** every session kind that loads the plugin gets it, as today
+
 ### Requirement: Member file tools use the workspace runtime
 In Architect and Room member sessions, the approved `read`, `write` and `edit` tools SHALL act on the same filesystem as the approved `bash` tool.
 
 #### Scenario: Container workspace member
 - **WHEN** a Room member in a container workspace writes a file with `write` and then lists it with `bash`
 - **THEN** `bash` sees the file
+
+### Requirement: Members get the tools they were approved for
+An Architect or Room member session SHALL get every tool its approval grants that the permission profile allows, including tools that come from plugins other than the one that owns the grant. The approval dialog MUST NOT offer a tool that a member session of that kind can never get. When an approved tool cannot be provided when the session opens, the host SHALL log its name.
+
+#### Scenario: Approved plugin tool
+- **WHEN** a Room member is approved for `web_search` with a network permission that allows it
+- **THEN** the member session can run a web search
+
+#### Scenario: Tool a member can never get
+- **WHEN** the approval dialog is built for a Room member
+- **THEN** it does not offer `goal`, `goals`, `rooms` or the goal terminal tools
+
+#### Scenario: Approved tool that is gone
+- **WHEN** a member session opens and an approved tool's plugin is no longer installed
+- **THEN** the session opens without that tool and the host log names it
+
+### Requirement: Room members get only the room command from the Orchestrator
+A Room member session SHALL get `room` and no other Orchestrator command.
+
+#### Scenario: Member command list
+- **WHEN** a Room member session starts
+- **THEN** its Orchestrator commands are exactly `room`
 
 ### Requirement: Private command sets hold only callable commands
 A session with its own private command set SHALL NOT list slash commands in it, because it cannot run them.

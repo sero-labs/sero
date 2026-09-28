@@ -14,6 +14,8 @@ A new chat session sends about 58,400 characters before the user types anything:
 - Move the `sero app` and `sero browser` usage tips out of the prompt into `sero help app` and `sero help browser`. Stop cutting command summaries mid-word.
 - Fix the profile `AGENTS.md` template: remove the deprecated `kanban` line, the nonexistent `register_dev_server` tool, and the memory advice that contradicts the memory rework.
 - Architect and Room member sessions: run `read`, `write` and `edit` through the workspace runtime, like `bash`. Stop bridging slash commands into private CLI registries, where they always fail.
+- Members get the plugin tools they were approved for, such as `web_search` or `git_manager`. Today the approval dialog offers them, but the member session never loads their plugins.
+- Plugins declare, per tool, which session kinds may have it (chat, subagent, member), and the host enforces it. Goals and Rooms control become chat-only, `room` becomes member-only, and a Room member's only Orchestrator command is `room`. Subagents and workflow steps get no goal or Rooms tools.
 - Add a contract test that opens each session kind in a fresh profile, uses a local stub model to call every tool and command the session is shown, and fails on any that cannot be called. Add a small paid check that a real model picks the moved commands.
 
 ## Capabilities

@@ -51,7 +51,7 @@ Defects found:
 
 **Non-Goals:**
 - A unified access model across grants, tool policies, allowlists and `noExtensions`. That stays with wayfinder #574.
-- Changing which capabilities an Architect or Room grant can approve, or the approval UI.
+- New permission profile settings or a redesigned approval UI. The dialog changes only by no longer offering tools a member can never get (D10).
 - Deleting skills or `AGENTS.md` content from existing profiles.
 - Stopping removed bundled skills from being re-copied at launch.
 - Giving cron jobs memory. If a job needs it later, that is a per-job option.
@@ -89,7 +89,31 @@ Alternative considered: collapsing `design_library_*` (6) and `graphify_*` (7) i
 
 ### D4. Goal terminal tools switch on with the goal
 
-The orchestrator plugin registers the three tools but removes them from the active set when a session starts with no goal. When a goal starts or reattaches, the plugin adds exactly those three names with `pi.setActiveTools([...pi.getActiveTools(), ...terminal])`. It removes them when the goal completes, blocks or parks. The existing `hiddenTerminalTools` pause stays as the guard for sessions where activation did not take. A goal can only start in a session that can run `sero goal`. Apply must list which session kinds can do that. Room members may be able to, because their private registry gets the Orchestrator's bridged tools and `goal` is one of them. Activation adds only the three terminal tools. In a session with an allowlist that does not name them, activation is skipped and the existing pause applies. So activation never widens an allowlist.
+The orchestrator plugin registers the three tools but removes them from the active set when a session starts with no goal. When a goal starts or reattaches, the plugin adds exactly those three names with `pi.setActiveTools([...pi.getActiveTools(), ...terminal])`. It removes them when the goal completes, blocks or parks. The existing `hiddenTerminalTools` pause stays as the guard for sessions where activation did not take. Activation adds only the three terminal tools. In a session with an allowlist that does not name them, activation is skipped and the existing pause applies. So activation never widens an allowlist.
+
+Goals run only in chat sessions (owner decision). See D11 for how the goal and Rooms tools are kept out of other session kinds.
+
+### D11. Plugins declare which session kinds a tool is for, and the host enforces it
+
+Owner decisions: Room members do not get `goal`. Subagents and workflow steps get no goal or Rooms tools.
+
+Today both leak:
+- A Room member's private registry gets every tool the Orchestrator bridges: `orchestrator`, `goal`, `goals`, `room`, `rooms` (`wiring.ts` bridges the grant-owning app's tools into `cliRegistry`).
+- A subagent run with the default `platformTools: 'all'` and no allowlist, which is what the chat `subagent` tool uses unless the agent definition names tools, gets every loaded plugin tool as a direct tool (`runner.ts:155`). The subagent loader has no bridge step and removes only the memory package (`resource-loader.ts:28`). Orchestrator workflow steps are already narrower, because `common.ts:127` gives background steps an allowlist of `DEFAULT_TOOLS` plus the planner's extras. The planner can still name `goal` or `rooms` as an extra.
+
+The captured chat also lists `room` ("Talk to the Room you are a member of"), but a chat session is never a Room member. So `room` belongs to members, not chat, and a flat chat-only list cannot say that.
+
+Mechanism: a new optional manifest field, `sero.plugin.toolSessionKinds: Record<string, Array<'chat' | 'subagent' | 'member'>>`, read by `features/plugins/bridge-policy.ts` next to `bridgeTools`. A tool with no entry is available to every kind, which is today's behaviour. The chat bridge step, the subagent loader and the member bridge step each drop tools not declared for their kind before the session sees them. An allowlist that names a dropped tool does not bring it back. The Orchestrator declares:
+
+- `goal`, `goals`, `goal_complete`, `goal_blocked`, `goal_wait`, `rooms`: `['chat']`
+- `room`: `['member']`
+- `orchestrator`: `['chat', 'subagent']`
+
+So a Room member's only Orchestrator command is `room` (owner decision). Its regular tools (`read`, `write`, `edit`, `bash`, search, and approved plugin tools, see D10) come from its approval and are unchanged.
+
+This extends the existing package-level `CHAT_ONLY_PACKAGES` rule down to single tools. The host never names a plugin tool, which `cli/index.ts` requires. It is also a first, narrow answer to #574's question "Should a plugin declare which agent kinds its tools are for?".
+
+Alternative considered: the Orchestrator plugin detects the session kind and skips registering the tools. Rejected, because a plugin has no reliable way to tell a subagent or member session from a chat today, and adding one is a larger host seam than a manifest list.
 
 The change must merge with user context overrides (`agent-context-overrides.ts:132,158`) instead of replacing them. A test covers a session where the user disabled a tool before the goal started.
 
@@ -138,6 +162,13 @@ Manual runs use `SERO_HOME_OVERRIDE=/Users/danielcarter/Documents/Dev/projects/s
 
 - `createMemberRuntimeTools` also builds `read`, `write` and `edit` through the runtime when the allowlist has them, so all file access goes to the same filesystem as `bash`.
 - `bridgeExtensionTools` with a private registry bridges tools only, not slash commands. Before removing them, apply checks that neither the Architect nor the Orchestrator plugin's member flows use a bridged slash command. They cannot today, because every such call fails.
+- Members get the tools they were approved for (owner decision). Today the approval dialog clamps against `getSubagentToolCatalog()` (`wiring.ts:51`), which holds every installed plugin's tools. The member session, though, loads only the grant-owning package and the search plugin (`wiring.ts:185`). So an approved `web_search`, `fetch_content` or `git_manager` matches nothing, and nothing reports it. The fix:
+  - The tool catalogue records each plugin tool's source package. Entries hold only a name and description today (`tool-catalog.ts`), and the warm session already knows each tool's source path.
+  - The member loader adds the package behind every approved plugin tool to `packages`. Those tools go through the member's own bridge step, so they become commands in its private registry, and the permission profile still filters them.
+  - The catalogue used for member approval leaves out tools whose `toolSessionKinds` (D11) exclude `member`, so the dialog cannot offer a tool the member would never get.
+  - An approved tool that still cannot be provided, for example because its plugin was uninstalled after approval, is logged by name when the session opens, next to the existing "permission profile removed" line.
+
+  Loading a plugin runs its extension code in the member session, including its `before_agent_start` hooks. D3's reachability rule already limits which of their prompt blocks appear.
 
 ## Risks / Trade-offs
 
