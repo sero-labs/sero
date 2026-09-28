@@ -210,12 +210,11 @@ describe('onboarding-launch-runtime', () => {
       .mockResolvedValueOnce({ id: 'welcome-session', path: '/tmp/welcome-session' });
     spies.agentOpen
       .mockResolvedValueOnce(createPage([]))
-      .mockResolvedValueOnce(createPage(createConversation('Memory bootstrap complete.')))
       .mockResolvedValueOnce(createPage([]))
       .mockResolvedValueOnce(createPage(createConversation('Welcome to Sero.')));
-    spies.onboardingGetState.mockResolvedValue(
-      createOnboardingState({ memoryBootstrapComplete: true }),
-    );
+    spies.onboardingGetState
+      .mockResolvedValueOnce(createOnboardingState())
+      .mockResolvedValueOnce(createOnboardingState({ memoryBootstrapComplete: true }));
 
     const result = await runWelcomeOnboardingFlow(deps, tiers);
 
@@ -241,6 +240,28 @@ describe('onboarding-launch-runtime', () => {
     expect(spies.focusSession).toHaveBeenCalledWith('welcome-session');
     expect(spies.setChatPanelOpen).toHaveBeenCalledWith(true);
     expect(spies.warn).not.toHaveBeenCalled();
+  });
+
+  it('resumes after profile files were written, without repeating the questionnaire', async () => {
+    const { deps, spies } = createDeps();
+    spies.createSession.mockResolvedValueOnce({ id: 'welcome-session', path: '/tmp/welcome-session' });
+    spies.agentOpen
+      .mockResolvedValueOnce(createPage([]))
+      .mockResolvedValueOnce(createPage(createConversation('Welcome to Sero.')));
+    spies.onboardingGetState.mockResolvedValue(createOnboardingState({ memoryBootstrapComplete: true }));
+
+    const result = await runWelcomeOnboardingFlow(deps, {
+      LOW: { provider: 'openai-codex', modelId: 'gpt-6-sol', thinkingLevel: 'low' },
+    });
+
+    expect(result).toEqual({ kind: 'finished' });
+    expect(spies.createSession).toHaveBeenCalledTimes(1);
+    expect(spies.agentPrompt).toHaveBeenCalledTimes(1);
+    expect(spies.agentPrompt).toHaveBeenCalledWith(
+      'welcome-session',
+      "The user just finished setting up their profile. Say hello, introduce yourself briefly, and let them know you're ready to help.",
+    );
+    expect(spies.deleteSession).not.toHaveBeenCalled();
   });
 
   it('returns refreshed auth recovery data when bootstrap hits an authentication error', async () => {

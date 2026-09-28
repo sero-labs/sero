@@ -5,6 +5,7 @@ import type {
   ChatAssistantMessage,
   ChatMessage,
   ChatGoalSnapshot,
+  ChatRecalledMemory,
   ChatToolCallMessage,
   ToolResultImage,
 } from '@/types/ipc';
@@ -36,6 +37,21 @@ function asGoalSnapshot(value: unknown): ChatGoalSnapshot | null {
     || !goal.progress
   ) return null;
   return goal as ChatGoalSnapshot;
+}
+
+function asRecalledMemories(value: unknown): ChatRecalledMemory[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item): ChatRecalledMemory[] => {
+    if (!item || typeof item !== 'object') return [];
+    const memory = item as Record<string, unknown>;
+    if (typeof memory.id !== 'string' || typeof memory.fact !== 'string') return [];
+    return [{
+      id: memory.id,
+      type: typeof memory.type === 'string' ? memory.type : '',
+      fact: memory.fact,
+      ...(typeof memory.behaviour === 'string' ? { behaviour: memory.behaviour } : {}),
+    }];
+  });
 }
 
 function customText(content: unknown): string {
@@ -72,6 +88,10 @@ export function projectCustomMessage(message: unknown): ChatMessage | null {
       ? { type: 'goal-continuation', id: nextId(), goalId, automaticTurns, maxAutomaticTurns }
       : null;
   }
+  if (customType === 'memory-recall') {
+    const memories = asRecalledMemories(details.memories);
+    return memories.length > 0 ? { type: 'memory-recall', id: nextId(), memories } : null;
+  }
   if (customType === 'goal-status') {
     const text = customText(msg.content).trim();
     return text ? { type: 'goal-status', id: nextId(), text, goal: goal ?? undefined } : null;
@@ -91,6 +111,8 @@ export function formatCustomMessage(message: unknown): string | null {
   if (!display) return null;
 
   const customType = String(msg.customType ?? '').trim();
+  // Recall shows only as its own line; an older one without memory data shows nothing.
+  if (customType === 'memory-recall') return null;
   const content = msg.content;
   const text = customText(content);
   const prefixed = customType ? `[${customType}] ${text}` : text;
@@ -267,6 +289,10 @@ export function convertSessionMessages(
 
       if (text) {
         result.push({ type: 'assistant', id: nextId(), text, isStreaming: false, thinking });
+      }
+      if (message.stopReason === 'error') {
+        const reason = message.errorMessage?.trim() || 'The model response failed.';
+        result.push({ type: 'assistant', id: nextId(), text: `_Assistant error: ${reason}_`, isStreaming: false });
       }
 
       const toolCalls = message.content.filter(

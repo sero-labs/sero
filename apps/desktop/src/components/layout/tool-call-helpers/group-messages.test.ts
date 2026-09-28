@@ -102,3 +102,26 @@ describe('groupMessagesIncremental', () => {
     expectMatchesFullGrouping(replaced);
   });
 });
+
+describe('memory changes', () => {
+  it('draws a finished memory change outside the tool group, and keeps a refused one in it', () => {
+    const help = tool('sero-cli');
+    const saved = tool('sero-cli', { details: { exitCode: 0, memoryChange: { action: 'save', id: 'mem-1', fact: 'Use pnpm.' } } });
+    const refused = tool('sero-cli', { isError: true, state: 'error', details: { memoryChange: { action: 'save', id: 'mem-2', fact: 'x' } } });
+    const edit = tool('edit');
+
+    expect(groupMessages([user(), help, saved, edit, refused]).map((item) => (
+      item.kind === 'tool-group' ? item.tools.map((t) => t.id) : item.message.id
+    ))).toEqual([expect.any(String), [help.id], saved.id, [edit.id, refused.id]]);
+  });
+
+  it('shows a save that memory refused as a failed row of its own', () => {
+    const help = tool('sero-cli');
+    const refused = tool('sero-cli', { details: { exitCode: 0, memoryRefused: true } });
+
+    const [, helpGroup, refusedGroup] = groupMessages([user(), help, refused]);
+
+    expect(helpGroup.kind === 'tool-group' && helpGroup.tools.map((t) => t.id)).toEqual([help.id]);
+    expect(refusedGroup.kind === 'tool-group' && refusedGroup.tools.map((t) => t.state)).toEqual(['error']);
+  });
+});

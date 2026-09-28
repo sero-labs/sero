@@ -17,7 +17,7 @@ plugin that exercises **every** surface a Sero plugin can ship.
 |---------|------|----------------------|
 | Manifest | `sero-notes-plugin/package.json` | Full `pi` + `sero.app` + `sero.plugin` manifest, `bridgeTools`, `requiredHostCapabilities`, canonical static widget contribution, runtime entry |
 | Shared types | `sero-notes-plugin/shared/types.ts` | JSON-serialisable state + `DEFAULT_STATE` |
-| Pi extension | `sero-notes-plugin/extension/index.ts` | `pi.registerTool` with `StringEnum`, atomic state writes, custom TUI render, bridged CLI metadata (`cli`), `pi.registerCommand`, `session_start` warm fallback |
+| Pi extension | `sero-notes-plugin/extension/index.ts` | `pi.registerTool` with `StringEnum`, atomic state writes, custom TUI render, bridged CLI metadata (`cli`), `pi.registerCommand`, `session_start` lifecycle handler |
 | Background runtime | `sero-notes-plugin/runtime/index.ts` | `AppRuntime` implementation against `@sero-ai/common` — startup reconcile, `handleStateChange`, `dispose` |
 | Web UI (main) | `sero-notes-plugin/ui/NotesApp.tsx` | `useAppState`, `useAppInfo`, `useAppTools`, `useAgentPrompt`, `useAI`, dynamic widget registration via `useWidgetRegistration` |
 | Dashboard widget | `sero-notes-plugin/ui/widgets/NotesWidget.tsx` | Manifest-declared widget, compact layout, `h-full` wrapper contract |

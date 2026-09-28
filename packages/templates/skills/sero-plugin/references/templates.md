@@ -453,7 +453,7 @@ const Params = Type.Object({
 export default function (pi: ExtensionAPI) {
   let statePath = '';
 
-  // Warm fallback state path from the current workspace cwd
+  // Fires once per session in every session kind; release anything started here on session_shutdown
   pi.on('session_start', async (_event, ctx) => {
     statePath = resolveStatePath(ctx.cwd);
   });
@@ -568,9 +568,9 @@ export default function (pi: ExtensionAPI) {
 
 **Key patterns:**
 - Use `StringEnum` (not `Type.Union`) for action enums — Google's API needs it
-- Resolve `statePath` from `ctx.cwd` in execute handlers (reliable) with session fallback
+- Resolve `statePath` from `ctx.cwd` in execute handlers (reliable), not from state captured at session start
 - Atomic writes always (temp -> rename)
-- `session_start` is useful for warm fallback state resolution; do not depend on `session_switch` unless your target SDK surface explicitly guarantees it
+- `session_start` is a lifecycle event. It fires once in every session kind that loads the extension (chat, subagent, app agent, persistent), with reason `startup`, `resume`, `fork` or `reload`. Pair anything it starts with `session_shutdown`, keep it idempotent (a reload ends the old extension copy and starts a new one), and keep it cheap (it runs for every subagent). Pi evaluates the extension module again after a resource reload or when a session opens in another folder, so module-level variables are not shared by every session: keep one-per-process state (a scheduler, a server pool, a shared index) on `globalThis` under a `Symbol.for('<your-package>/<name>')` key. Do not depend on `session_switch` unless your target SDK surface explicitly guarantees it
 - Keep `pi.registerCommand(...)` names distinct from bridged tool names unless you intentionally want to replace/shadow that CLI entry point
 - If you want a same-name slash shortcut for a bridged tool, prefer a prompt template declared in `pi.prompts`
 - If a bridged tool needs current-session side effects, depend on the execution context instead of capturing a registration-scoped `pi` object inside tool logic

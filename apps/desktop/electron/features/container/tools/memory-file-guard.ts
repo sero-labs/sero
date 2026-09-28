@@ -8,18 +8,29 @@ const PROTECTED_ROOT_FILES = new Set([
   'USER.md',
 ]);
 
+/** Folders under the global `memory/` directory. */
 const PROTECTED_SUBDIRS = new Set([
-  'daily',
-  'sessions',
+  'entries',
+  'trash',
+  '.conversion-tmp',
 ]);
+
+/** Every workspace keeps its memory entries and scratchpad here. */
+const WORKSPACE_MEMORY_DIR = '.sero/apps/memory';
 
 const MANAGED_MEMORY_LABEL = [
   'MEMORY.md',
   'IDENTITY.md',
   'USER.md',
-  'memory/daily/',
-  'memory/sessions/',
+  'memory/entries/',
+  'memory/trash/',
+  `${WORKSPACE_MEMORY_DIR}/`,
 ].join(', ');
+
+function isWorkspaceMemoryPath(normalizedPath: string): boolean {
+  return normalizedPath.endsWith(`/${WORKSPACE_MEMORY_DIR}`)
+    || normalizedPath.includes(`/${WORKSPACE_MEMORY_DIR}/`);
+}
 
 type ShellToken =
   | { type: 'word'; value: string }
@@ -64,6 +75,7 @@ function isProtectedMemoryCommandTarget(filePath: string): boolean {
 
 export function isProtectedMemoryPath(filePath: string): boolean {
   const normalizedPath = normalizePath(filePath);
+  if (isWorkspaceMemoryPath(normalizedPath)) return true;
 
   for (const root of getProtectedMemoryRoots()) {
     const relative = path.posix.relative(root, normalizedPath);
@@ -123,17 +135,42 @@ function getSpecificCommandAliases(rootAlias: string): string[] {
     `${rootAlias}/MEMORY.md`,
     `${rootAlias}/IDENTITY.md`,
     `${rootAlias}/USER.md`,
-    `${rootAlias}/memory/daily`,
-    `${rootAlias}/memory/sessions`,
+    `${rootAlias}/memory/entries`,
+    `${rootAlias}/memory/trash`,
   ];
+}
+
+/** The workspace memory folder as a path, not as part of a longer name such as `.sero/apps/memory-foo`. */
+const WORKSPACE_MEMORY_DIR_PATTERN = new RegExp(`(^|[^\\w.-])${escapeRegex(WORKSPACE_MEMORY_DIR)}(?=$|[^\\w.-])`);
+
+/** The words of each simple command in a shell command line. */
+function commandSegments(tokens: ShellToken[]): string[][] {
+  const segments: string[][] = [[]];
+  for (const token of tokens) {
+    if (token.type === 'operator') segments.push([]);
+    else segments[segments.length - 1]!.push(token.value);
+  }
+  return segments;
+}
+
+/**
+ * `git rm --cached` only removes files from the Git index. The memory plugin
+ * tells the agent to run it when Git tracks the workspace memory folder.
+ */
+function isGitUntrack(words: string[]): boolean {
+  const command = words.filter((word) => !isEnvAssignmentToken(word));
+  return command[0] === 'git' && command[1] === 'rm' && command.includes('--cached');
 }
 
 export function commandTouchesProtectedMemory(command: string): boolean {
   const normalized = command.replace(/\\/g, '/');
   const rootAliases = getRootAliases();
   const specificAliases = rootAliases.flatMap((alias) => getSpecificCommandAliases(alias));
+  const touchesWorkspaceMemory = commandSegments(tokenizeShellCommand(normalized)).some((words) =>
+    !isGitUntrack(words) && words.some((word) => WORKSPACE_MEMORY_DIR_PATTERN.test(word)));
 
-  return specificAliases.some((alias) => normalized.includes(alias))
+  return touchesWorkspaceMemory
+    || specificAliases.some((alias) => normalized.includes(alias))
     || rootAliases.some((alias) => commandMentionsPath(normalized, alias));
 }
 
@@ -260,51 +297,44 @@ function resolveCommandCandidatePath(token: string, cwd: string): string | null 
   return normalizePath(path.join(cwd, expanded));
 }
 
-function isCommandBoundary(token: ShellToken): boolean {
-  return token.type === 'operator';
-}
-
 export async function commandTouchesProtectedMemoryWithResolver(args: {
   command: string;
   basedir: string;
   resolvePath: (candidatePath: string) => Promise<string>;
 }): Promise<boolean> {
-  const tokens = tokenizeShellCommand(args.command);
   let currentDir = normalizePath(args.basedir);
-  let expectingCommand = true;
-  let awaitingCdTarget = false;
 
-  for (const token of tokens) {
-    if (isCommandBoundary(token)) {
-      expectingCommand = true;
-      awaitingCdTarget = false;
-      continue;
-    }
+  for (const words of commandSegments(tokenizeShellCommand(args.command))) {
+    if (isGitUntrack(words)) continue;
+    let expectingCommand = true;
+    let awaitingCdTarget = false;
 
-    const value = token.value.trim();
-    if (!value) continue;
+    for (const word of words) {
+      const value = word.trim();
+      if (!value) continue;
 
-    if (expectingCommand) {
-      if (isEnvAssignmentToken(value)) continue;
-      expectingCommand = false;
-      awaitingCdTarget = value === 'cd';
-      continue;
-    }
+      if (expectingCommand) {
+        if (isEnvAssignmentToken(value)) continue;
+        expectingCommand = false;
+        awaitingCdTarget = value === 'cd';
+        continue;
+      }
 
-    const candidatePath = resolveCommandCandidatePath(value, currentDir);
-    if (!candidatePath) {
-      awaitingCdTarget = false;
-      continue;
-    }
+      const candidatePath = resolveCommandCandidatePath(value, currentDir);
+      if (!candidatePath) {
+        awaitingCdTarget = false;
+        continue;
+      }
 
-    const resolvedPath = normalizePathForComparison(await args.resolvePath(candidatePath));
-    if (isProtectedMemoryCommandTarget(resolvedPath)) {
-      return true;
-    }
+      const resolvedPath = normalizePathForComparison(await args.resolvePath(candidatePath));
+      if (isProtectedMemoryCommandTarget(resolvedPath)) {
+        return true;
+      }
 
-    if (awaitingCdTarget) {
-      currentDir = resolvedPath;
-      awaitingCdTarget = false;
+      if (awaitingCdTarget) {
+        currentDir = resolvedPath;
+        awaitingCdTarget = false;
+      }
     }
   }
 
@@ -322,8 +352,8 @@ export function getProtectedMemoryAccessError(source: 'bash' | 'read' | 'write' 
 
   return [
     `${action} access to managed Sero memory files is blocked.`,
-    `Use the \`sero-cli\` tool with \`sero memory\` or \`sero memory_search\` instead of ${source}.`,
+    `Use the \`sero-cli\` tool with \`sero memory\` or \`sero scratchpad\` instead of ${source}.`,
     `Protected locations: ${MANAGED_MEMORY_LABEL}.`,
-    'If memory search is unavailable, report that limitation instead of bypassing the memory system with filesystem tools.',
+    'If those commands are unavailable, report that limitation instead of bypassing the memory system with filesystem tools.',
   ].join(' ');
 }

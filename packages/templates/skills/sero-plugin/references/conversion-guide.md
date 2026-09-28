@@ -86,6 +86,8 @@ declare `sero.plugin.requiredHostCapabilities: ["appAgent.invokeTool"]`.
 
 **Pattern — sync on session start:**
 
+`session_start` fires once in every session kind that loads the extension, including subagents, and again with reason `reload` after a resource reload. Keep the sync idempotent and cheap, and release anything it starts on `session_shutdown`.
+
 ```typescript
 pi.on('session_start', async (_event, ctx) => {
   statePath = resolveStatePath(ctx.cwd);

@@ -197,15 +197,6 @@ export function registerGitTurnUndoCapture(
     changedPaths.clear();
   }
 
-  pi.on('session_start', async () => {
-    try {
-      const sha = await vcsManager.getCurrentCommitSha(workspaceId);
-      entries.appendWorkspaceLink(sha);
-    } catch {
-      // Non-fatal: repo may initialize lazily on first action.
-    }
-  });
-
   pi.on('agent_start', async () => {
     resetTurnState();
     if (MIXED_EDIT_CHECKPOINT_POLICY !== 'require-manual-first') return;

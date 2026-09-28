@@ -62,11 +62,6 @@ type ToolResult = {
 export default function (pi: ExtensionAPI) {
   let cwd = '';
 
-  pi.on('session_start', async (_event, ctx) => {
-    cwd = ctx.cwd;
-    await getGitServiceBridge()?.syncState(ctx.cwd);
-  });
-
   pi.registerTool({
     name: 'git_manager',
     label: 'Git',

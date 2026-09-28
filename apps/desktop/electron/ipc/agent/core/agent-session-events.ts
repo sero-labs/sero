@@ -8,8 +8,46 @@
 import type {
   AgentSession,
   SessionBeforeSwitchEvent,
+  SessionManager,
   SessionShutdownEvent,
+  SessionStartEvent,
 } from '@earendil-works/pi-coding-agent';
+import { createSeroUIContext } from '@electron/features/apps/extensions/ui-context';
+
+/**
+ * The `session_start` event for a session about to open from `sessionManager`:
+ * `fork` when the host just forked it from `forkedFrom`, `resume` when the file
+ * already holds entries, and `startup` for a new session.
+ */
+export function sessionStartEventFor(
+  sessionManager: SessionManager,
+  forkedFrom?: string,
+): SessionStartEvent {
+  if (forkedFrom) return { type: 'session_start', reason: 'fork', previousSessionFile: forkedFrom };
+  return { type: 'session_start', reason: sessionManager.getEntries().length > 0 ? 'resume' : 'startup' };
+}
+
+/**
+ * Bind Sero's UI context and emit `session_start`. Pi emits the event only from
+ * `bindExtensions()`, and the binding resets any UI context set before it, so
+ * the UI context must go through here.
+ */
+export async function startSessionExtensions(session: AgentSession): Promise<void> {
+  await session.bindExtensions({ uiContext: createSeroUIContext() });
+}
+
+/**
+ * Emit `session_shutdown`, then dispose. A failing handler is logged and never
+ * blocks disposal.
+ */
+export async function shutdownAndDispose(session: AgentSession, label: string): Promise<void> {
+  try {
+    await emitSessionShutdown(session);
+  } catch (err) {
+    console.error(`[agent] session_shutdown failed for ${label}:`, err);
+  }
+  session.dispose();
+}
 
 /**
  * Emit `session_shutdown` via the session's extension runner.

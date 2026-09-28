@@ -1,0 +1,59 @@
+## Why
+
+The memory plugin writes a lot and gives the agent almost nothing back. Local profiles show 175 automatic session summaries, most of them "Summary was empty" or "None.", and daily logs of truncated bash commands. They also show 12 MB of markdown copies of Pi session files. Agents called `memory_search` 0 times. Automatic recall added 0 characters in 96 turns, because extensions never receive `session_start` (#570) and search is never set up. The only part that changes agent behaviour is the profile files in the system prompt. Durable facts are also at risk: a silent LLM condense step can rewrite `MEMORY.md`, and nine saved project decisions are gone from it with no record.
+
+The agent also fails to save what matters. In the most-used profile, 81 writes went to the daily log and 12 to `MEMORY.md`. Another profile had 1 write in 87 sessions. The memory instructions send summaries of finished work to the daily log. Nothing prompts a save when the user corrects the agent, states a preference or makes a decision.
+
+Useful memory holds important or surprising facts, such as preferences, corrections, decisions with a reason, and traps. It puts a fact into context only when the fact applies. This change rebuilds the plugin around that goal, measures whether it works, and fixes the host bug that stops session start work in every plugin.
+
+## What Changes
+
+- **BREAKING** Remove daily logs and the `daily` target, the activity observer, the compaction handoff, transcript export and backfill, consolidation and its cron job, the one-off format migration and its LLM condense step, and prompt debug logging. Existing `memory/daily/` and `memory/sessions/` files stay on disk. The plugin stops writing to them.
+- **BREAKING** Remove the `memory_search` tool and the `memory` tool's `search`, `consolidate` and `config` actions, and the `snapshot` and `auto_retrieve` settings. Conversation recall is out of scope. Pi session files already hold full conversations.
+- **BREAKING** Memory exists only in chat sessions. Subagents (including orchestrator workflow steps), Architect, Rooms and plugin app agents get no memory and no memory tools. They run on the instructions they are given, and a subagent gets its context from its parent. The host leaves the memory plugin out of subagent sessions. Today those sessions get the memory tools directly. Architect, Rooms and app agents already do not load the plugin.
+- Add clear save triggers and a strict save rule. The agent saves when the user corrects it, states a preference or makes a decision with a reason, and when it meets a surprise or a trap. It saves a memory only if a future session would behave worse without it and could not learn it from the code, git history or the current chat. Each entry states how it changes behaviour and uses the terms a future task would use. When a new fact conflicts with an entry, the agent replaces that entry instead of adding a second one.
+- Give every memory a **scope** and a **delivery mode**, which the model chooses when it saves:
+  - Scope: **global** (about the user, every workspace) or **workspace** (one project, stored under the workspace's `.sero/` folder).
+  - Delivery: **pinned** (always in the chat session's system prompt, capped by a setting that starts at 10 global and 5 workspace entries) or **on-match** (put into context only when search matches the current turn). When the pinned set is full, an entry moves to on-match. It is not deleted.
+- Keep `IDENTITY.md` and `USER.md` as the pinned profile. They do not count toward the pinned cap. The `memory` tool keeps its profile read and write, which onboarding and profile changes such as "be more concise" use.
+- Keep workspace memory out of git. The git plugin already writes the `.sero/` exclude rule at session start once `session_start` works. The first workspace-memory save in each app run also checks once: it adds the rule if it is missing, and it refuses the save if git tracks any file in the memory folder. If the check itself fails, the save is refused and nothing is stored, so the next save checks again. Later saves use a stored definitive result, so no turn or save repeats the check.
+- Rebuild on-match recall on QMD at entry level:
+  - Store each memory as its own indexed document, in folders that hold only curated entries. Use one QMD collection per scope, so each search covers only the global scope and the current workspace. The old daily and session files are never indexed.
+  - Search returns whole entries and leaves out pinned entries, which are already in the prompt.
+  - Each turn adds new matches above a score threshold as one message after the user's message. Each memory is added at most once per session, and earlier recall messages are never removed, which keeps the prompt cache valid. Compaction clears the "already added" list, because compaction can summarise earlier recall messages away. A message sent while the agent is still working (steering) gets no recall. The next new message does. This is an accepted limit.
+  - One QMD instance is shared across all chat sessions in the process.
+- Add a per-workspace scratchpad: a checklist of open items with no expiry. The open items are part of the session snapshot. When an item changes during a session, the scratchpad tool result shows the current list, so the snapshot and the prompt cache stay unchanged. A finished item leaves the prompt at the next session.
+- Rebuild the session snapshot (pinned entries and open scratchpad items) at compaction. Compaction already rewrites the start of the conversation, so the rebuild costs no extra cache, and changes made earlier in the session are not lost when their tool results are summarised away.
+- Add an automatic tidy-up with no user review. It runs in the background at chat session start when the last run for that scope was more than 7 days ago. It merges duplicates into one entry and removes an entry only with checkable evidence. Either the entry is replaced by a merged entry that the tidy-up writes first, or it is a workspace entry that names a file in its own workspace that no longer exists. A global entry is never removed because of a missing file. The model's opinion alone never removes an entry, and neither does age: an on-match entry not added to context in 60 days is only re-checked. When evidence is unclear, the entry stays. A decision is applied only if the entry has not changed since the tidy-up read it, so a correction made during the tidy-up is never overwritten. Every removal can be restored, and every change is logged with its evidence.
+- **BREAKING** Remove the chat memory-blocks toggle. Chat shows one compact, collapsed line when memories are recalled into a turn and when the agent saves a memory. The look is prototyped and approved before implementation.
+- **BREAKING** Remove onboarding step 3 ("Long-term Memory"). Its coding-preference question moves into the user profile step as a `Coding style` field in `USER.md`. The technical-knowledge and projects questions are dropped.
+- Add evaluation for both sides of memory:
+  - A save-recall test runs a fixed set of conversations with known save-worthy moments (a correction, a stated preference, a decision with a reason, a surprise) and reports which ones the agent saved, and which saves were noise.
+  - An offline search test reports hit rate and false-hit rate. It sets the first recall threshold.
+  - Live metrics record saves, injections, empty turns, latency, misses (a restated fact that was not injected), pinned-rule breaks, unpins, tidy-up changes and restores, and scratchpad use.
+  - Results are a baseline report, not a build gate.
+- Cut the plugin's logging to errors and evaluation metrics.
+- Fix the host so that `session_start` reaches extensions once for each new, resumed, reloaded and forked desktop session, without resetting the Sero UI context, and so that `session_shutdown` reaches them, and is awaited, when any session ends. This includes plugin unload, plugin refresh and app quit. A resource reload also sends the session events, so extensions do not lose `session_start` again after a reload. This replaces #570. Check every existing `session_start` handler that now starts to run, and fix the ones that need it.
+
+## Capabilities
+
+### New Capabilities
+
+- `memory`: what the agent saves in chat sessions, where memories live, how pinned and on-match memories reach context, the scratchpad, the automatic tidy-up, the conversion of existing memory, and the evaluation metrics.
+- `extension-session-events`: the host emits `session_start` with the correct reason and `session_shutdown` to extensions for every real desktop session, and keeps the Sero UI context set.
+
+### Modified Capabilities
+
+None. No existing spec covers memory or extension session events.
+
+## Impact
+
+- **Memory plugin** (`plugins/sero-memory-plugin/`): most modules are removed or rewritten. The `@tobilu/qmd` dependency stays and is shared once per process, following the fff plugin's `globalThis` registry pattern. QMD's embedding models stay in QMD's own per-machine cache (`~/.cache/qmd`), never in a profile. This is a stated exception to the `host.toolchains.sharedToolsDir` rule, because Pi extensions cannot reach that API. It is only available to background app runtimes.
+- **Host session creation**: `agent-session-open.ts`, `handlers/app-agent.ts`, `persistent-sessions/host.ts`, `subagent/runtime/runner.ts`. The subagent resource loader leaves out the memory plugin. The tool catalog probe in `subagent/runtime/tool-catalog.ts` must not start sessions.
+- **Handlers that start to run**: 11 in this repo (the cron, fff, git, graphify ×2, MCP, orchestrator, output-optimizer and web plugins, and `git-turn-undo-capture.ts`) and 16 in external plugin repos. The plugin template and skill describe `session_start` as a warm fallback, so their guidance needs checking too.
+- **Git exclude rule**: the `.sero/` exclude writer in `git-service-core.ts` moves into `@sero-ai/extension-runtime`, so the git app and the memory plugin share it.
+- **Desktop touchpoints**: the bridged CLI tool list, the container system prompt, the memory file guard (add workspace memory, drop `daily/` and `sessions/`), memory logging settings, and the chat memory-context display (`agent-subscription.ts`, `ChatPanelHelpers.tsx`, `ChatPromptArea.tsx`).
+- **Tests and docs**: the plugin tests, the desktop memory tests, the `memory` and `memory-snapshot` e2e contracts, and `apps/docs-site/docs/guide/memory.md`.
+- **Data**: existing `MEMORY.md` entries convert once, with no model call. The conversion covers every format the current parser reads, including prose under headings, and checks that every source fact is in the converted entries before it renames the original. Each converted entry gets an ID derived from its source text, so an interrupted conversion is retried from the start without creating duplicates. Every converted entry becomes global and stays in the prompt as an "unsorted" block that does not count toward the pinned cap, so no fact the agent sees today disappears. The session snapshot waits for the conversion. The first tidy-up sorts each entry into pinned or on-match. It runs at the first chat session start after the conversion, without the 7-day wait. The original file is kept unchanged as a backup. `IDENTITY.md` and `USER.md` keep their format. The existing QMD collection, which indexes the whole memory folder, is replaced. Existing daily and session files are left in place.
+- **Evaluation harness**: the save-recall and search evaluations reuse the promptfoo harness in `eval/` (`seroProvider.ts`) with their own configs. `pnpm eval:search` tests code search, not memory, and stays unchanged.
+- **Packages**: `@sero-ai/extension-runtime` gains the shared Git exclude helper, so its version is bumped. No other published package is expected to change.

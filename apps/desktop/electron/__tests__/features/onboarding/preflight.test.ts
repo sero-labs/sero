@@ -150,6 +150,31 @@ describe('onboarding preflight', () => {
     });
   });
 
+  it('finishes new memory setup when identity and user profiles exist without MEMORY.md', async () => {
+    mocks.access.mockImplementation(async (filePath: string) => {
+      if (filePath.endsWith('/IDENTITY.md')) return;
+      throw new Error('File not found');
+    });
+    expect((await getOnboardingState()).memoryBootstrapComplete).toBe(false);
+
+    mocks.access.mockImplementation(async (filePath: string) => {
+      if (filePath.endsWith('/IDENTITY.md') || filePath.endsWith('/USER.md')) return;
+      throw new Error('File not found');
+    });
+    expect((await getOnboardingState()).memoryBootstrapComplete).toBe(true);
+  });
+
+  it('treats a converted MEMORY.md as finished memory setup, like the memory plugin', async () => {
+    const backup = '/profile/workspaces/global/MEMORY.md.v2-backup';
+    mocks.readFile.mockImplementation(async (filePath: string) =>
+      filePath.endsWith('/state/memory/conversion.json') ? JSON.stringify({ backupPath: backup }) : '{}');
+    mocks.access.mockImplementation(async (filePath: string) => {
+      if (filePath === backup) return;
+      throw new Error('File not found');
+    });
+    expect((await getOnboardingState()).memoryBootstrapComplete).toBe(true);
+  });
+
   it('runs migration and unavailable-tier cleanup only in getOnboardingStateWithRepairs', async () => {
     const migratedSettings = { sero: { defaultProvider: 'openai' } };
     const cleanedSettings = { sero: { modelTiers: { LOW: { provider: 'openai', modelId: 'gpt-5.4' } } } };

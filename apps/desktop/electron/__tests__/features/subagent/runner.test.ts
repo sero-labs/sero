@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@earendil-works/pi-coding-agent', () => ({
+  Theme: class {},
   createAgentSession: mocks.createAgentSession,
   SessionManager: {
     inMemory: vi.fn((cwd: string) => ({ cwd })),
@@ -88,7 +89,16 @@ import type { RunnerDeps } from '@electron/features/subagent/runtime/runner';
 
 function createSession() {
   const activeTools = [{ name: 'read' }];
+  const lifecycle: string[] = [];
   return {
+    lifecycle,
+    bindExtensions: vi.fn(async () => { lifecycle.push('session_start'); }),
+    extensionRunner: {
+      emit: vi.fn(async (event: { type: string }) => {
+        await Promise.resolve();
+        lifecycle.push(event.type);
+      }),
+    },
     agent: { state: { tools: activeTools } },
     model: { id: 'claude-test-1', provider: 'anthropic' },
     setThinkingLevel: vi.fn(),
@@ -107,7 +117,7 @@ function createSession() {
       cost: 0,
     })),
     abort: vi.fn(),
-    dispose: vi.fn(),
+    dispose: vi.fn(() => { lifecycle.push('dispose'); }),
   };
 }
 
@@ -305,6 +315,27 @@ describe('runSubagent live output', () => {
     await runSubagent(config, createDeps());
 
     expect(deltas).toEqual(['weighing options…', 'final answer']);
+  });
+});
+
+describe('runSubagent extension lifecycle', () => {
+  it.each([
+    ['completes', (_session: ReturnType<typeof createSession>) => undefined],
+    ['fails', (session: ReturnType<typeof createSession>) => {
+      session.prompt.mockRejectedValueOnce(new Error('provider down'));
+    }],
+    ['is aborted', (session: ReturnType<typeof createSession>, controller?: AbortController) => {
+      session.prompt.mockImplementationOnce(async () => { controller?.abort(); });
+    }],
+  ] as const)('starts extensions, then finishes session_shutdown before disposal when the run %s', async (_case, arrange) => {
+    const controller = new AbortController();
+    const session = createSession();
+    arrange(session, controller);
+    mocks.createAgentSession.mockResolvedValueOnce({ session });
+
+    await runSubagent(createConfig(controller.signal), createDeps());
+
+    expect(session.lifecycle).toEqual(['session_start', 'session_shutdown', 'dispose']);
   });
 });
 

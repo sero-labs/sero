@@ -16,7 +16,3 @@ export function resolveMemoryStatePath(fileName: string): string {
 export function resolveMemoryDebugPath(fileName: string): string {
   return path.join(resolveSeroHome(), 'debug', 'memory', fileName);
 }
-
-export function getTranscriptExportDirPath(): string {
-  return path.join(resolveSeroHome(), 'workspaces', 'global', 'memory', 'sessions');
-}

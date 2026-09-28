@@ -16,7 +16,7 @@
  * and receives a plain string response (the LLM's text output).
  */
 
-import { app, ipcMain } from 'electron';
+import { ipcMain } from 'electron';
 import { promises as fs } from 'fs';
 import { randomUUID } from 'node:crypto';
 import {
@@ -32,7 +32,6 @@ import path from 'path';
 
 import { IpcChannels } from '@/types/ipc-channels';
 import { discoverApps } from '@electron/features/apps/discovery';
-import { createSeroUIContext } from '@electron/features/apps/extensions/ui-context';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { registerRtkHostCapability } from '@electron/features/rtk/host-capability';
 import { workspaceManager } from '@electron/features/workspace/manager';
@@ -40,6 +39,7 @@ import { runtimeManager } from '@electron/features/workspace/runtime/runtime-man
 import type { RuntimeBackend } from '@electron/features/workspace/runtime/types';
 import { ensureInfra } from '@electron/shared/infra/shared-infra';
 import { syncAppSessionModel } from '@electron/ipc/agent/core/app-agent-session-model-sync';
+import { shutdownAndDispose, startSessionExtensions } from '@electron/ipc/agent/core/agent-session-events';
 import { invokeAppSessionTool } from './app-agent-tools';
 import type { AppToolResult } from '@sero-ai/common';
 
@@ -185,9 +185,10 @@ async function getOrCreateAppSession(
     resourceLoader: loader,
     sessionManager: SessionManager.inMemory(wsPath, { id: sessionId }),
     settingsManager: infra.settingsManager,
+    sessionStartEvent: { type: 'session_start', reason: 'startup' },
   });
 
-  session.extensionRunner?.setUIContext(createSeroUIContext());
+  await startSessionExtensions(session);
 
   appPool.set(key, { session });
   return session;
@@ -208,21 +209,22 @@ export function getAppAgentSessions(): AgentSession[] {
   return [...appPool.values()].map((entry) => entry.session);
 }
 
-/** Dispose all in-memory app sessions for a specific app id. */
-export function disposeAppSessionsForApp(appId: string): void {
+/** Close all in-memory app sessions for a specific app id. */
+export async function disposeAppSessionsForApp(appId: string): Promise<void> {
+  const closing: Promise<void>[] = [];
   for (const [key, entry] of [...appPool.entries()]) {
     if (!key.startsWith(`${appId}:`)) continue;
-    entry.session.dispose();
     appPool.delete(key);
+    closing.push(shutdownAndDispose(entry.session, key));
   }
+  await Promise.all(closing);
 }
 
 /** Close all app sessions (app shutdown). */
-function disposeAllAppSessions(): void {
-  for (const [, entry] of appPool) {
-    entry.session.dispose();
-  }
+export async function disposeAllAppSessions(): Promise<void> {
+  const entries = [...appPool.entries()];
   appPool.clear();
+  await Promise.all(entries.map(([key, entry]) => shutdownAndDispose(entry.session, key)));
 }
 
 /**
@@ -339,8 +341,4 @@ export function registerAppAgentHandlers(): void {
       return invokeAppTool(appId, workspaceId, toolName, params);
     },
   );
-
-  app.on('before-quit', () => {
-    disposeAllAppSessions();
-  });
 }

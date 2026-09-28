@@ -87,9 +87,9 @@ function unsupportedCustom<T>(..._args: Parameters<ExtensionUIContext['custom']>
 /**
  * Create an ExtensionUIContext for Sero sessions.
  *
- * Call `session.extensionRunner?.setUIContext(createSeroUIContext())`
- * after creating the session so all extension event handlers and
- * command contexts receive a working `ctx.ui`.
+ * Bind it with `startSessionExtensions()` after creating the session, so
+ * all extension event handlers and command contexts receive a working
+ * `ctx.ui` and extensions receive `session_start`.
  */
 export function createSeroUIContext(): ExtensionUIContext {
   let editorFactory: ReturnType<ExtensionUIContext['getEditorComponent']>;

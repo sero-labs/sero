@@ -1,16 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  checkForDuplicateEntries,
-  scanMemoryContent,
-} from '@plugins/sero-memory-plugin/extension/memory-guards';
-import type { MemoryEntry } from '@plugins/sero-memory-plugin/extension/memory-format';
-
-// ── Helper ─────────────────────────────────────────────────────
-
-function makeEntry(text: string, id = 'mem-aaa000'): MemoryEntry {
-  return { id, hasId: true, type: 'fact', text, line: 0, raw: '' };
-}
+import { scanMemoryContent } from '@plugins/sero-memory-plugin/extension/memory-guards';
 
 // ── scanMemoryContent ──────────────────────────────────────────
 
@@ -132,55 +122,5 @@ describe('scanMemoryContent', () => {
     const result = scanMemoryContent(content);
     // Forensic context from blockquote → should sanitize, not block
     expect(result.action).toBe('sanitize');
-  });
-});
-
-// ── checkForDuplicateEntries ───────────────────────────────────
-
-describe('checkForDuplicateEntries', () => {
-  const entries: MemoryEntry[] = [
-    makeEntry('Project uses PostgreSQL 17', 'mem-001'),
-    makeEntry('Chose Clerk for authentication', 'mem-002'),
-    makeEntry('Deploy to fly.io with containers', 'mem-003'),
-  ];
-
-  it('returns exactMatch when normalized text matches', () => {
-    const result = checkForDuplicateEntries(entries, 'Project uses PostgreSQL 17');
-    expect(result.exactMatch).toBeTruthy();
-    expect(result.exactMatch!.id).toBe('mem-001');
-  });
-
-  it('ignores timestamp differences in normalization', () => {
-    // Plain ISO dates are stripped during normalization.
-    const entryWithTimestamp = [makeEntry('Set up CI on 2026-04-01 12:00:00', 'mem-010')];
-    const result = checkForDuplicateEntries(entryWithTimestamp, 'Set up CI on 2026-03-15 09:30:00');
-    expect(result.exactMatch).toMatchObject({ id: 'mem-010' });
-  });
-
-  it('returns nearMatch when Jaccard similarity ≥ 0.8', () => {
-    // "Project uses PostgreSQL 17" has tokens: {project, uses, postgresql, 17}
-    // Adding one token keeps overlap at 4/5 = 0.8 — exactly at threshold
-    const result = checkForDuplicateEntries(entries, 'Project uses PostgreSQL 17 updated');
-    expect(result.nearMatch).toBeTruthy();
-    expect(result.nearMatch!.id).toBe('mem-001');
-  });
-
-  it('returns no match for unrelated content', () => {
-    const result = checkForDuplicateEntries(entries, 'Frontend uses Next.js 15 with Turbopack');
-    expect(result.exactMatch).toBeUndefined();
-    expect(result.nearMatch).toBeUndefined();
-  });
-
-  it('returns no match when similarity is below 0.8 threshold', () => {
-    // Only partial overlap — should be under 0.8
-    const result = checkForDuplicateEntries(entries, 'PostgreSQL performance tuning and indexing strategies');
-    expect(result.exactMatch).toBeUndefined();
-    expect(result.nearMatch).toBeUndefined();
-  });
-
-  it('handles empty entry list', () => {
-    const result = checkForDuplicateEntries([], 'anything');
-    expect(result.exactMatch).toBeUndefined();
-    expect(result.nearMatch).toBeUndefined();
   });
 });

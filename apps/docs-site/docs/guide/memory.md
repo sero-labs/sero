@@ -1,234 +1,194 @@
 # Memory
 
-Sero Memory is a built-in plugin (`@sero-ai/plugin-memory`) that gives the agent
-durable context across sessions. It is meant for practical recall: preferences,
-project notes, identity/profile details, and daily work logs
-that help future conversations start with less repeated setup. See the [Plugin Catalog](/plugins/catalog)
-for the built-in plugin inventory.
+Sero Memory is a built-in plugin (`@sero-ai/plugin-memory`) that lets the chat
+agent keep important or surprising facts about you and your projects across
+sessions. A fact reaches the agent only when it applies, so memory changes
+behaviour without filling every turn with old context. See the
+[Plugin Catalog](/plugins/catalog) for the built-in plugin inventory.
 
-Treat memory as helpful context, not as perfect recall or a complete audit log.
+Treat memory as helpful context, not as perfect recall or an audit log.
 
-## What memory stores
+## Chat sessions only
 
-Memory stores markdown files in the active Sero profile's global workspace:
+Memory exists only in chat sessions. Subagents, orchestrator workflow steps,
+Architect and Rooms sessions, and plugin app agents get no memory in their
+prompt and no memory tools. When a chat starts a subagent, pass it the facts it
+needs in the task.
 
-- `MEMORY.md` — durable facts, decisions, preferences, lessons learned
-- `IDENTITY.md` — agent identity, behavior rules, communication style
-- `USER.md` — user profile details such as role, stack, and preferences
-- `memory/daily/YYYY-MM-DD.md` — append-only daily activity logs
+## What the agent sees
 
-Use synthetic, non-sensitive examples when testing memory. For example:
+At the start of a chat session, the agent's system prompt receives:
+
+- **Identity** — `IDENTITY.md`: the agent's name, style and behaviour rules.
+- **User** — `USER.md`: your role, stack, coding style and preferences.
+- **Pinned memories** — facts that apply to most tasks, for all workspaces and
+  for this workspace.
+- **Unsorted memories** — memories converted from an older Sero version that
+  the tidy-up has not sorted yet.
+- **Open scratchpad items** for this workspace.
+
+This part of the prompt stays the same for the whole session. A memory saved
+mid-session enters the prompt at the next session or after the session
+compacts.
+
+Other memories are **on-match**. Before each new message, Sero searches them
+with your message and adds the ones that apply to that turn, after your
+message. Each memory is added at most once per session between compactions. A
+message sent while the agent is still running does not trigger a search.
+
+In the chat, recalled memories show as one line, **Recalled N memories**, under
+your message. Select it to see each memory: the fact, its behaviour and its id.
+When the agent saves, replaces or removes a memory, the chat shows one line at
+that point, for example **Saved:** followed by the fact.
+
+## Memories
+
+Each memory has:
+
+| Field | Values |
+| --- | --- |
+| Type | `preference`, `decision`, `lesson` or `reference` |
+| Scope | `global` (every workspace) or `workspace` (only the workspace where it was saved) |
+| Delivery | `pinned` (always in the prompt) or `on-match` (added when a message matches) |
+| Behaviour | How the fact changes what the agent does |
+| Terms | The words a future task would use |
+
+Pinned memories have a cap for each scope: 10 global and 5 for each workspace.
+When a scope is full, a new pinned memory is saved as on-match, and a pin is
+refused with the current pinned list so the agent can unpin or replace one.
+
+### Saving
+
+Ask in chat, for example:
 
 ```text
-Remember that this demo project uses pnpm and prefers small focused PRs.
+Remember that this demo project uses pnpm, never npm.
 ```
 
-Avoid storing secrets, access tokens, private customer data, or anything you
-would not want included in local profile state or debug output.
+The agent also saves on its own when you correct it, state a preference, make
+a decision with a reason, or when something surprising happens. Before it
+writes a new memory, Sero checks for a close existing one in the same scope.
+The agent then replaces the old memory or confirms the new one is different.
 
-![Memory](../assets/images/memory.jpg)
-
-## How memory appears in chat
-
-Before an agent turn starts, the Memory plugin can add selected memory context
-to the agent's system prompt. This is selective, budgeted context — not every
-memory file and not every daily log is always included.
-
-At a high level:
-
-1. Core profile and long-term memory files can be included directly.
-2. When search support is available, relevant older logs or transcript-derived
-   entries may be retrieved and included.
-3. Daily logs are not pasted wholesale into every turn.
-
-When the renderer exposes memory context for a message, it may appear as a
-collapsed memory-context block in the chat UI. Use that as a debugging aid: it
-shows what context was attached to that turn, not everything Sero knows.
-
-```mermaid
-flowchart TD
-  Prompt[Current prompt] --> ContextBudget[Context selection]
-  Session[Session history] --> ContextBudget
-  MemoryFiles[Durable memory files] --> ContextBudget
-  Search[Relevant retrieved logs] --> ContextBudget
-
-  ContextBudget --> Agent[Agent turn]
-  Agent --> Response[Response]
-  Agent --> Updates{Memory update?}
-  Updates -->|Memory tool| MemoryFiles
-  Updates -->|"Daily/log hooks"| Daily[Daily logs]
-```
-
-![Memory selection and update workflow](../assets/generated/img10.jpg)
-
-![Memories in Chat](../assets/images/memory-chat.jpg)
-
-## Inspect and update memory
-
-The agent can use bridged CLI tools to read, write, list, and search memory.
-You can ask for these in chat, or use the command-shaped examples below when
-working in a Sero session.
-
-### List and read memory
+The agent uses the bridged `sero memory` command:
 
 ```bash
+sero memory save --content "Demo project uses pnpm." \
+  --behaviour "Run pnpm, never npm, to add or install packages." \
+  --type preference --scope workspace --delivery on-match \
+  --terms "pnpm, package manager, dependency"
 sero memory list
-sero memory read --target memory
-sero memory read --target user
+sero memory replace --id mem-1a2b3c4d --content "..." --behaviour "..." --terms "..."
+sero memory pin --id mem-1a2b3c4d
+sero memory unpin --id mem-1a2b3c4d
 ```
 
-Useful targets include `memory`, `identity`, `user`, and `daily`.
-
-### Add or update a durable note
-
-```bash
-sero memory write --target memory --content "Demo preference: keep release notes short and action-oriented."
-```
-
-By default, writes append. Overwriting managed memory files is possible through
-the tool, but should be used carefully because it replaces existing context.
-
-### Search memory
-
-For keyword-style search across memory files:
-
-```bash
-sero memory search --query "release notes"
-```
-
-For QMD-backed memory search, when available:
-
-```bash
-sero memory_search --query "how does this demo project handle releases" --mode keyword
-sero memory_search --query "release process preferences" --mode semantic
-```
-
-`memory_search` supports keyword, semantic, and deeper hybrid search modes in
-the technical implementation, but semantic/deep behavior depends on QMD being
-available and indexed for the current profile.
-
-## Slash commands
-
-The Memory plugin registers these slash commands:
-
-- `/memory` — ask the agent to list or manage memory with the memory tool
-- `/memory-log` — show the memory plugin debug log path
-
-Examples:
+### Forgetting
 
 ```text
-/memory list my memory files
-/memory-log
+Forget that this demo project uses pnpm.
 ```
 
-Slash commands run through the current agent session.
+`sero memory remove --id <id> --reason "..."` moves the memory to trash with
+its full content. `sero memory restore --id <id>` puts it back with the same
+scope and delivery.
 
-![Slash Commands](../assets/images/slash-commands.jpg)
+### Profiles
+
+The agent reads and rewrites the identity and user profiles with
+`sero memory read --target identity|user` and
+`sero memory write --target identity|user --content "..."`. A write replaces
+the whole profile, up to 2,000 characters. For example, ask the agent to be
+more concise from now on, and it updates the identity profile.
+
+## Scratchpad
+
+Each workspace has a checklist of open items with no expiry, for work that
+spans sessions:
+
+```bash
+sero scratchpad add --text "Migrate the auth tests"
+sero scratchpad done --item 1
+sero scratchpad list
+```
+
+Open items are in the prompt of every chat session in that workspace. A
+finished item leaves the prompt at the next session or compaction.
+
+## Tidy-up
+
+When a chat session starts, Sero runs a tidy-up in the background for each
+scope when the last one was more than 7 days ago, or when unsorted memories
+exist. It uses the chat's model and needs no review from you. It:
+
+- merges duplicates into one memory,
+- sorts unsorted memories into pinned or on-match, within the pinned caps,
+- removes a workspace memory only when a file it names inside that workspace no
+  longer exists.
+
+It never removes a memory because of age or opinion, and never removes a global
+memory because a file is missing. Every change is logged with its evidence, and
+every removed memory can be restored.
+
+## Upgrading from an older version
+
+On the first chat session after the update, Sero converts the old `MEMORY.md`
+once, without a model call. Each fact becomes a global, unsorted memory, so it
+stays in the prompt until the tidy-up sorts it. Sero checks that every fact was
+converted before it renames the file to `MEMORY.md.v2-backup`. If the check
+fails, `MEMORY.md` stays in place and its content stays in the prompt.
+
+Old daily logs and session transcripts are left on disk untouched. Sero no
+longer writes them, and they are not searched.
 
 ## Where the data lives
 
-Memory files live under the active profile's global workspace:
-
 ```text
-<SERO_HOME>/workspaces/global/MEMORY.md
 <SERO_HOME>/workspaces/global/IDENTITY.md
 <SERO_HOME>/workspaces/global/USER.md
-<SERO_HOME>/workspaces/global/memory/daily/YYYY-MM-DD.md
+<SERO_HOME>/workspaces/global/memory/entries/{pinned,on-match,unsorted}/
+<SERO_HOME>/workspaces/global/memory/trash/
+<workspace>/.sero/apps/memory/entries/{pinned,on-match}/
+<workspace>/.sero/apps/memory/trash/
+<workspace>/.sero/apps/memory/scratchpad.md
 ```
 
-Memory debug logs live under:
+Each memory is one markdown file. Agent tools cannot read or write these
+folders directly; the agent must use `sero memory` and `sero scratchpad`.
 
-```text
-<SERO_HOME>/debug/memory/
-```
+Workspace memory stays out of Git. Before the first workspace-memory write in
+each app run, Sero adds `.sero/` to the repository's local exclude rules. If
+Git already tracks a file in the workspace memory folder, Sero refuses
+workspace-memory writes and tells the agent why.
+
+The search index lives in `<agent dir>/cache/qmd/memory.sqlite`. The embedding
+model is shared by all profiles on the machine and loads in the background;
+until it is ready, search matches on the memory's terms only.
 
 `<SERO_HOME>` is profile-resolved. For the default profile it is usually
-`~/.sero-ui/`, but custom profiles can use another root. For the canonical
-storage map, see [State and Folders](/reference/state-and-folders).
+`~/.sero-ui/`. For the canonical storage map, see
+[State and Folders](/reference/state-and-folders).
 
 ## Privacy and safety
 
-Memory is local/profile-scoped Sero state, but it can still be sensitive:
+- Memory content may be sent to whichever model handles a turn, including the
+  tidy-up.
+- Do not store passwords, API keys, recovery codes, financial data or private
+  third-party data in memory. Sero blocks content that looks like a secret.
+- Before you share screenshots or profile folders, remove memory content that
+  should stay private.
 
-- Memory context may be sent to whichever model/provider is handling a turn.
-- Debug logs and screenshots can expose private facts if you include memory
-  content in support reports.
-- Profile folders can contain auth material, settings, workspaces, and app
-  state; treat them as sensitive local data.
-- Do not store passwords, API keys, recovery codes, financial data, or private
-  third-party data in memory.
+## Troubleshooting
 
-Before sharing logs or screenshots, redact names, paths, project details,
-credentials, and memory content that should remain private.
+### A fact was not used
 
-## Limits and troubleshooting
+Recall is selective. If a fact matters, mention it in the message, or ask the
+agent to list its memories. If the memory has weak terms, ask the agent to
+replace it with the words you would use.
 
-### Recall is selective
+### A fact is out of date
 
-Memory helps the agent recover useful context, but it is not guaranteed to
-remember every fact. If something matters for the current task, mention it in
-the prompt or ask the agent to inspect memory first.
-
-### QMD search may be unavailable
-
-Core memory tools still work without QMD. If QMD is unavailable, semantic search
-and selective retrieval degrade; keyword search and direct reads are the safer
-fallbacks.
-
-Try:
-
-```bash
-sero memory search --query "demo project"
-sero memory read --target memory
-```
-
-### Choose live or frozen snapshots
-
-Live mode reads the managed memory files again for each turn. Frozen mode takes
-one long-term memory snapshot for the session. Changes to those files do not
-enter the frozen context until you start another session.
-
-```bash
-sero memory config --snapshot live
-sero memory config --snapshot frozen
-```
-
-### Session transcripts are searchable local files
-
-Memory exports transcripts before a session switch, before a fork, and at
-shutdown. It also backfills earlier sessions in the background. The exports can
-contain user messages, assistant messages, and tool activity. They are stored
-under the active agent directory and can be returned by `memory_search`.
-
-Use `--scope sessions` to search only transcript exports. Treat these files as
-private. They do not provide a complete or immutable audit log.
-
-### Consolidation uses a model
-
-Consolidation extracts durable entries from daily logs and writes them to
-`MEMORY.md`. It requires an active model. You can run it now or set a schedule:
-
-```bash
-sero memory consolidate
-sero memory consolidate --schedule daily
-sero memory consolidate --schedule weekly
-sero memory consolidate --schedule off
-```
-
-Scheduled consolidation uses Scheduler state. Sero does not overwrite an
-unreadable Scheduler state file. Repair that file before you enable the job.
-
-### Memory context may not be visible
-
-The chat UI may show memory context as a collapsed block when available, but
-visibility is not the same as storage. If you do not see a memory block, use the
-tools to inspect stored memory directly.
-
-### Updates can duplicate or go stale
-
-Memory is markdown managed by tools and agent behavior. If a preference changes,
-ask the agent to update the old entry rather than append a contradictory one.
-For example:
+Ask the agent to replace it, for example:
 
 ```text
 Update memory: this demo project now uses npm instead of pnpm.
@@ -236,7 +196,6 @@ Update memory: this demo project now uses npm instead of pnpm.
 
 ## More detail
 
-This guide is the user-facing overview. The
+The
 [`sero-memory-plugin`](https://github.com/sero-labs/sero/tree/main/plugins/sero-memory-plugin)
-source contains implementation details for context budgets, QMD integration,
-lifecycle hooks, and file behaviour.
+source contains the implementation details.

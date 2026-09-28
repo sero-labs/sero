@@ -7,7 +7,7 @@
  * tool surface). Keeping one builder avoids the two drifting apart.
  */
 
-import { DefaultResourceLoader } from '@earendil-works/pi-coding-agent';
+import { DefaultResourceLoader, type LoadExtensionsResult } from '@earendil-works/pi-coding-agent';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import type { SharedInfra } from '@electron/shared/infra/shared-infra';
 import { createSubagentExtensionFactory } from './loader';
@@ -17,9 +17,25 @@ import {
   filterCompatiblePluginExtensions,
   filterCompatiblePluginPrompts,
   filterCompatiblePluginThemes,
+  packageNameForResourcePath,
 } from '@electron/features/plugins/resource-compatibility';
 import { restrictSearchToolOrigins } from '@electron/features/apps/extensions/search-plugin';
 import { createSubagentSkillOverride } from './skill-pipeline';
+
+/**
+ * Memory belongs to the user's chat. A subagent gets neither the memory tools
+ * nor the memory snapshot, whatever its tool policy.
+ */
+const CHAT_ONLY_PACKAGES = new Set(['@sero-ai/plugin-memory']);
+
+function withoutChatOnlyPlugins(base: LoadExtensionsResult): LoadExtensionsResult {
+  return {
+    ...base,
+    extensions: base.extensions.filter(
+      (extension) => !CHAT_ONLY_PACKAGES.has(packageNameForResourcePath(extension.resolvedPath) ?? ''),
+    ),
+  };
+}
 
 export interface SubagentResourceLoaderOptions {
   /** Working directory the child session runs from (may be a worktree). */
@@ -87,7 +103,7 @@ export function createSubagentResourceLoader(
     promptsOverride: filterCompatiblePluginPrompts,
     themesOverride: filterCompatiblePluginThemes,
     extensionsOverride: (base) => {
-      const compatible = filterCompatiblePluginExtensions(base);
+      const compatible = withoutChatOnlyPlugins(filterCompatiblePluginExtensions(base));
       return options.restrictSearchTools ? restrictSearchToolOrigins(compatible) : compatible;
     },
     agentsFilesOverride: filterCompatiblePluginAgentsFiles,

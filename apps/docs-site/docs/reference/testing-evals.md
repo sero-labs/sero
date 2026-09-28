@@ -14,6 +14,8 @@ pnpm test:ci
 pnpm eval:snapshot
 pnpm eval:search
 pnpm eval:file-tools
+pnpm eval:memory-save
+pnpm eval:memory-search
 pnpm eval
 pnpm eval:view
 ```
@@ -39,6 +41,8 @@ manual-only. No workflow runs `pnpm eval` or `pnpm eval:snapshot`.
 | `pnpm eval:snapshot` | `node eval/patch-drizzle.cjs && node scripts/run-promptfoo.mjs eval --config eval/promptfoo-snapshot.yaml --no-cache` | Fast prompt assembly/cache drift check | No live LLM calls; low/no provider cost. |
 | `pnpm eval:search` | `node eval/patch-drizzle.cjs && node scripts/run-promptfoo.mjs eval --config eval/promptfoo-search.yaml --no-cache` | Bash, FFF, Graphify, and combined search behavior, five runs per task and arm | Requires credentials and may cost money. |
 | `pnpm eval:file-tools` | `node eval/patch-drizzle.cjs && node scripts/run-promptfoo.mjs eval --config eval/promptfoo-file-tools.yaml --no-cache` | Runtime-backed file-edit behavior, batching metrics, and result feedback | Requires credentials and may cost money. |
+| `pnpm eval:memory-save` | `node eval/patch-drizzle.cjs && node scripts/run-promptfoo.mjs eval --config eval/promptfoo-memory-save.yaml --no-cache` | Memory save-recall report: saved, missed and noise saves | Requires credentials and may cost money. |
+| `pnpm eval:memory-search` | `node eval/patch-drizzle.cjs && node scripts/run-promptfoo.mjs eval --config eval/promptfoo-memory-search.yaml --no-cache` | Memory recall hit rate and false-hit rate per threshold | No LLM calls. Hybrid mode downloads the local embedding model once. |
 | `pnpm eval` | `node eval/patch-drizzle.cjs && node scripts/run-promptfoo.mjs eval` | Real agent behavior checks | Requires credentials and may cost money. |
 | `pnpm eval:view` | `node scripts/run-promptfoo.mjs view` | Inspect saved promptfoo results | No new model calls. |
 
@@ -82,6 +86,45 @@ runs, calls by tool name, result tokens, latency, and failures.
 `eval/seroProvider.test.ts` covers extension-loader isolation in the default and
 runtime modes.
 
+### Memory evals and metrics report
+
+The memory checks measure memory; none of them gates a build.
+
+- **Save-recall** (`eval/promptfoo-memory-save.yaml`, `eval/memorySaveProvider.ts`,
+  `eval/assertions/memorySave.ts`). The provider plays each test's
+  `conversation` in a real Pi session with the memory plugin and a
+  memory-only `sero-cli` tool. Turns are separated by a line that holds only
+  `---`. Each test lists moments, and each moment has marker words. A saved
+  entry that holds all the markers of a moment counts for that moment, one
+  entry per moment. Other entries, including a second save of the same fact,
+  count as noise. The assertion reason holds the report line:
+  `saved: … | missed: … | noise saves: …`. The model comes from the provider
+  `model` config. Use `deepseek/deepseek-v4-flash` with `DEEPSEEK_API_KEY`,
+  or `openai-codex/gpt-5.6-luna` on the OpenAI subscription.
+- **Offline search** (`eval/promptfoo-memory-search.yaml`,
+  `eval/memorySearchProvider.ts`, `eval/memory-search/`). The provider writes
+  the fixed entries in `eval/memory-search/fixture.json` to a temporary
+  profile and scores each fixture query with the plugin's own search. It
+  reports the hit rate and false-hit rate for a range of thresholds, in
+  keyword mode and hybrid mode. The test passes when the default threshold
+  keeps the hit rate at 0.8 or more and the false-hit rate at 0.1 or less.
+  The defaults, 0.6 for hybrid and 0.5 for keyword search, come from this
+  report.
+- **Live metrics report** (`scripts/memory-metrics-report.mjs`). The memory
+  plugin writes one `metrics-YYYY-MM-DD.jsonl` file per day to
+  `<SERO_HOME>/debug/memory/`. The script summarises them:
+
+  ```bash
+  node scripts/memory-metrics-report.mjs [--dir <path>] [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--json]
+  ```
+
+  A missing folder gives an empty report. Any other read error fails the
+  script.
+
+The memory plugin also has a test of the real search index under Electron's
+Node: run `pnpm --filter @sero-ai/plugin-memory test:qmd`. Plain `pnpm test`
+skips it.
+
 Set `SERO_EVAL_MODEL` to use a specific model in all arms. Use a canonical
 `provider/model` value, for example:
 
@@ -108,6 +151,8 @@ Auth/cost notes:
 | `eval/scenarios/cli-ops.yaml` | 4 | Real LLM | `sero-cli` use for todos, workspace info, batch commands, and VCS status. |
 | `eval/scenarios/search-tools.yaml` | 6 × 4 arms × 5 repeats | Real LLM | Task completion, tool choice, cross-workspace coverage, follow-up count, result size, and latency for Bash, FFF, Graphify, and their combination. |
 | `eval/scenarios/file-edits.yaml` | 7 | Real LLM (runtime file tools) | Independent changes, a block move, duplicate text, a stale match, failure recovery, whole-file replacement, and identifier renaming. |
+| `eval/promptfoo-memory-save.yaml` | 5 | Real LLM | Memory saves for a correction, a preference, a decision with a reason, a surprise, and a conversation with nothing to save. |
+| `eval/promptfoo-memory-search.yaml` | 1 × 2 modes | Offline | Memory recall hit rate and false-hit rate per threshold, in keyword and hybrid mode. |
 
 To add scenarios, create/edit a YAML file under `eval/scenarios/` and add it to the relevant promptfoo config.
 
@@ -123,6 +168,8 @@ To add scenarios, create/edit a YAML file under `eval/scenarios/` and add it to 
 | Tool-sequence assertion fails | Inspect `context.providerResponse.metadata.toolCalls` in the result viewer. |
 | Search eval uses FFF for the exhaustive case | Treat it as a contract failure; the model must use `bash` with `rg` when completeness matters. |
 | Graphify command appears in a Bash call | Treat it as a prompt or bridge failure; Graphify commands must use the `sero-cli` model tool. |
+| Memory save eval reports a miss or noise | Read the `saved`, `missed` and `noise saves` report line; the save rules are in the memory plugin's instructions. |
+| Memory search eval fails at the default threshold | Read the per-threshold rows; a scoring change moved hits below the threshold or false hits above it. |
 | LLM rubric fails | Read the output; rubrics are useful but can be noisy. |
 
 ## Relationship to other tests
@@ -133,6 +180,7 @@ To add scenarios, create/edit a YAML file under `eval/scenarios/` and add it to 
 | Agent file-editing behavior | `pnpm eval` | Exercises real tool use in isolated temp workspaces. |
 | Runtime file-tool behavior | `pnpm eval:file-tools` | Runs the runtime `edit` and `write` tools with batching metrics and diff feedback. |
 | Agent CLI usage patterns | `pnpm eval` | Checks that the agent prefers `sero-cli` in supported scenarios. |
+| Memory saves and recall | `pnpm eval:memory-save`, `pnpm eval:memory-search`, metrics report | Reports only; the metrics report measures real use. |
 | Search and graph behavior | `pnpm eval:search` | Compares task completion and tool choice; use the FFF plugin benchmark for model-free latency samples. |
 | Desktop startup/session wiring | desktop Vitest + Playwright CI | Not primarily an eval concern. |
 | Plugin/runtime bridge regressions | package tests + focused e2e | Better covered by targeted source tests. |

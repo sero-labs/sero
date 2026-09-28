@@ -1,7 +1,8 @@
 // tools-fetch.ts — fetch_content + get_search_content tool registrations.
 
 import path from "node:path";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ImageContent, TextContent } from "@earendil-works/pi-ai";
+import type { AgentToolResult, ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { fetchAllContent, type ExtractedContent } from "./extract.js";
@@ -10,6 +11,16 @@ import { readState, resolveWorkspaceRootFromStatePath, upsertDownload } from "./
 import { formatSeconds } from "./utils.js";
 
 import type { ToolDeps } from "./tools-search.js";
+
+/** Details of a get_search_content result: an error, or what was returned. */
+interface GetContentDetails {
+	error?: string;
+	query?: string;
+	resultCount?: number;
+	url?: string;
+	title?: string;
+	contentLength?: number;
+}
 
 const MAX_INLINE_CONTENT = 30000;
 const PROGRESS_UPDATE_INTERVAL_MS = 5000;
@@ -112,7 +123,7 @@ export function registerFetchContentTool(pi: ExtensionAPI, deps: ToolDeps) {
 
 			const responseId = generateId();
 			const data: StoredSearchData = { id: responseId, type: "fetch", timestamp: Date.now(), urls: deps.stripThumbnails(fetchResults) };
-			storeResult(responseId, data);
+			storeResult(responseId, data, statePath);
 			pi.appendEntry("web-search-results", data);
 			deps.syncToState(data);
 
@@ -126,7 +137,7 @@ export function registerFetchContentTool(pi: ExtensionAPI, deps: ToolDeps) {
 				let output = truncated ? result.content.slice(0, MAX_INLINE_CONTENT) + "\n\n[Content truncated...]" : result.content;
 				if (truncated) output += `\n\n---\nShowing ${MAX_INLINE_CONTENT} of ${fullLength} chars. Use get_search_content({ responseId: "${responseId}", urlIndex: 0 }) for full content.`;
 
-				const content: Array<{ type: string; text?: string; data?: string; mimeType?: string }> = [];
+				const content: Array<TextContent | ImageContent> = [];
 				if (result.frames?.length) {
 					for (const frame of result.frames) {
 						content.push({ type: "image", data: frame.data, mimeType: frame.mimeType });
@@ -208,10 +219,10 @@ export function registerGetContentTool(pi: ExtensionAPI, getStatePath: () => str
 			urlIndex: Type.Optional(Type.Number({ description: "Get content for URL at index" })),
 		}),
 
-		async execute(_toolCallId, params) {
+		async execute(_toolCallId, params): Promise<AgentToolResult<GetContentDetails>> {
 			const statePath = getStatePath();
 			const historyClearedAt = statePath ? (await readState(statePath)).historyClearedAt : 0;
-			const data = getResult(params.responseId, historyClearedAt);
+			const data = getResult(params.responseId, statePath, historyClearedAt);
 			if (!data) return { content: [{ type: "text", text: `Error: No stored results for "${params.responseId}"` }], details: { error: "Not found" } };
 
 			if (data.type === "search" && data.queries) {

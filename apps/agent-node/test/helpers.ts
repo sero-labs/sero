@@ -28,6 +28,20 @@ export async function awaitTurnEnd(store: SessionStore, contextId: string): Prom
   throw new Error(`turn for ${contextId} did not settle`);
 }
 
+/**
+ * Release a session's first run once it has started. The store creates the
+ * runner only when a message is sent, after a durable write, so a fixed timer
+ * can fire before `release` exists on a slow machine.
+ */
+export async function releaseWhenRunning(runners: Map<string, DeferredRunner>, id: string, value: string): Promise<void> {
+  for (let attempt = 0; attempt < 400; attempt += 1) {
+    const release = runners.get(id)?.release;
+    if (release) return release(value);
+    await Bun.sleep(5);
+  }
+  throw new Error(`runner for ${id} did not start`);
+}
+
 export class DeferredRunner implements SessionRunner {
   calls: string[] = [];
   behaviors: Array<"followUp" | "steer"> = [];

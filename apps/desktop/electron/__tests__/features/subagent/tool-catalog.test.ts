@@ -8,20 +8,33 @@ vi.mock('fs', () => ({
   writeFileSync: vi.fn(),
 }));
 vi.mock('@electron/platform/env', () => ({ SERO_AGENT_DIR: '/agent', SERO_HOME: '/tmp/sero-test' }));
+const probe = vi.hoisted(() => ({
+  bindExtensions: vi.fn(),
+  emit: vi.fn(),
+  dispose: vi.fn(),
+}));
 vi.mock('@earendil-works/pi-coding-agent', () => ({
-  createAgentSession: vi.fn(),
+  createAgentSession: vi.fn(async () => ({
+    session: {
+      bindExtensions: probe.bindExtensions,
+      extensionRunner: { emit: probe.emit },
+      getAllTools: () => [{ name: 'probe_tool', description: 'From the probe' }],
+      dispose: probe.dispose,
+    },
+  })),
   SessionManager: { inMemory: vi.fn() },
 }));
-vi.mock('@electron/shared/infra/ai-infra', () => ({ ensureAiInfra: vi.fn() }));
+vi.mock('@electron/shared/infra/ai-infra', () => ({ ensureAiInfra: vi.fn(async () => ({})) }));
 vi.mock('@electron/features/workspace/manager', () => ({ workspaceManager: {} }));
 vi.mock('@electron/features/subagent/runtime/resource-loader', () => ({
-  createSubagentResourceLoader: vi.fn(),
+  createSubagentResourceLoader: vi.fn(() => ({ reload: vi.fn(async () => undefined) })),
 }));
 
 import {
   STATIC_PLATFORM_TOOLS,
   getSubagentToolCatalog,
   recordRunToolCatalog,
+  warmSubagentToolCatalog,
 } from '@electron/features/subagent/runtime/tool-catalog';
 
 describe('subagent tool catalog', () => {
@@ -54,5 +67,15 @@ describe('subagent tool catalog', () => {
     const entries = getSubagentToolCatalog().filter((t) => t.name === 'web_search');
     expect(entries).toHaveLength(1);
     expect(entries[0].description).toBe('v2');
+  });
+
+  it('builds the catalog without starting the probe session\'s extensions', async () => {
+    await warmSubagentToolCatalog();
+
+    expect(getSubagentToolCatalog().map((t) => t.name)).toContain('probe_tool');
+    // Pi emits session_start only from bindExtensions(); the probe never runs a turn.
+    expect(probe.bindExtensions).not.toHaveBeenCalled();
+    expect(probe.emit).not.toHaveBeenCalled();
+    expect(probe.dispose).toHaveBeenCalledOnce();
   });
 });

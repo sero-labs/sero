@@ -113,7 +113,8 @@ test.describe('sessions IPC contracts without public sessions.get', () => {
         path: expect.any(String),
         workspaceId: setup.workspace.id,
       }));
-      expect(setup.opened).toEqual({ messages: [], olderCursor: null });
+      expect(setup.opened).toEqual(expect.objectContaining({ messages: expect.any(Array), olderCursor: null }));
+      expect(setup.opened.messages.some((message) => message.type === 'user')).toBe(false);
       expect(setup.listed).toEqual(expect.arrayContaining([
         expect.objectContaining({ id: setup.session.id, path: setup.session.path }),
       ]));
@@ -153,8 +154,10 @@ test.describe('sessions IPC contracts without public sessions.get', () => {
 
     try {
       expect(result.unsubscribeType).toBe('function');
-      expect(result.firstOpened).toEqual({ messages: [], olderCursor: null });
-      expect(result.secondOpened).toEqual({ messages: [], olderCursor: null });
+      for (const opened of [result.firstOpened, result.secondOpened]) {
+        expect(opened).toEqual(expect.objectContaining({ messages: expect.any(Array), olderCursor: null }));
+        expect(opened.messages.some((message) => message.type === 'user')).toBe(false);
+      }
 
       const allowedSessionIds = new Set([result.first.id, result.second.id]);
       for (const event of result.events) {

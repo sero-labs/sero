@@ -334,6 +334,7 @@ export async function executeCliBatch(
   let finalExitCode = 0;
   let richOutputFallback = false;
   const imagePaths: string[] = [];
+  let memoryRefused = false;
   let latestRichContent: CliContentBlock[] = [];
 
   for (let i = 0; i < lines.length; i++) {
@@ -407,6 +408,7 @@ export async function executeCliBatch(
       if (Array.isArray(paths)) {
         imagePaths.push(...paths.filter((value): value is string => typeof value === 'string'));
       }
+      if ((result.details as { memoryRefused?: unknown }).memoryRefused === true) memoryRefused = true;
     }
     const legacyContent = contentFromLegacyImageJson(result.output);
     const commandRichContent = Array.isArray(result.content)
@@ -447,7 +449,10 @@ export async function executeCliBatch(
     exitCode: finalExitCode,
     content: latestRichContent.length ? [{ type: 'text', text: output }, ...latestRichContent] : undefined,
     richOutputFallback,
-    ...(imagePaths.length ? { details: { imagePaths } } : {}),
+    // A refused memory change in a batch makes the whole call a failed row, so a collapsed group never hides it.
+    ...(imagePaths.length || memoryRefused
+      ? { details: { ...(imagePaths.length ? { imagePaths } : {}), ...(memoryRefused ? { memoryRefused } : {}) } }
+      : {}),
   };
 }
 

@@ -62,6 +62,20 @@ describe('built-in package settings cleanup', () => {
     expect(result.removedSources).toEqual([stale]);
   });
 
+  it('replaces stale copies of an extension-only built-in in either launch mode', () => {
+    const source = createExtensionPackage('workspace/plugins/sero-memory-plugin', '@sero-ai/plugin-memory');
+    const bundled = createExtensionPackage('Sero.app/Contents/Resources/app.asar/dist/electron/builtin/plugins/sero-memory-plugin', '@sero-ai/plugin-memory');
+    const unrelated = createExtensionPackage('custom/notes-plugin', '@example/notes');
+
+    const dev = removeStaleBuiltinPackages([bundled, source, unrelated], [source]);
+    expect(dev.packages).toEqual([source, unrelated]);
+    expect(dev.removedSources).toEqual([bundled]);
+
+    const installed = removeStaleBuiltinPackages([source, bundled, unrelated], [bundled]);
+    expect(installed.packages).toEqual([bundled, unrelated]);
+    expect(installed.removedSources).toEqual([source]);
+  });
+
   it('keeps unreadable sources', () => {
     const current = createPackage('workspace/plugins/sero-mcp-plugin', 'mcp');
     const unreadable = path.join(tempRoot, 'dist/electron/builtin/plugins/broken-plugin');
@@ -73,6 +87,13 @@ describe('built-in package settings cleanup', () => {
     expect(result).toEqual({ packages: [unreadable], changed: false, removedSources: [] });
   });
 });
+
+function createExtensionPackage(relativePath: string, name: string): string {
+  const packagePath = path.join(tempRoot, relativePath);
+  mkdirSync(packagePath, { recursive: true });
+  writeFileSync(path.join(packagePath, 'package.json'), JSON.stringify({ name, sero: { plugin: {} } }), 'utf8');
+  return packagePath;
+}
 
 function createPackage(relativePath: string, appId: string): string {
   const packagePath = path.join(tempRoot, relativePath);

@@ -1,4 +1,5 @@
 import type { ChatMessage, ChatToolCallMessage } from '@/types/ipc';
+import { isMemoryRefusal, readMemoryChange } from './memory-change';
 
 export type GroupedChatItem =
   | { kind: 'message'; message: ChatMessage }
@@ -79,6 +80,18 @@ function groupFrom(messages: ChatMessage[], from: number, out: GroupedChatSnapsh
 
     if (message.type === 'tool') {
       if (isSessionTitleToolCall(message)) continue;
+      // A finished memory change is one line of its own, outside the tool group.
+      if (readMemoryChange(message)) {
+        flushTools();
+        push({ kind: 'message', message }, i, i + 1);
+        continue;
+      }
+      // A refused memory change is a failed row of its own, so a collapsed group never hides it.
+      if (isMemoryRefusal(message)) {
+        flushTools();
+        push({ kind: 'tool-group', tools: [{ ...message, state: 'error', isError: true }], id: `tg-${message.id}` }, i, i + 1);
+        continue;
+      }
       if (toolBuffer.length === 0) toolStart = i;
       toolBuffer.push(message);
       toolEnd = i + 1;

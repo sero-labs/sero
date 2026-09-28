@@ -185,7 +185,8 @@ sero workspace mount-plugin /absolute/path/to/plugins/sero-<name>-plugin
 
 Key patterns:
 - Use `StringEnum` from `@earendil-works/pi-ai` for action enums (not `Type.Union`)
-- Resolve `statePath` from `ctx.cwd` inside `execute` handlers; use `session_start` only as a warm fallback
+- Resolve `statePath` from `ctx.cwd` inside `execute` handlers
+- `session_start` is a lifecycle event. It fires once in every session kind that loads the extension (chat, subagent, app agent, persistent), with reason `startup`, `resume`, `fork` or `reload`. Pair anything it starts with `session_shutdown`, keep it idempotent (a reload ends the old extension copy and starts a new one), and keep it cheap (it runs for every subagent). Pi evaluates the extension module again after a resource reload or when a session opens in another folder, so module-level variables are not shared by every session: keep one-per-process state (a scheduler, a server pool, a shared index) on `globalThis` under a `Symbol.for('<your-package>/<name>')` key.
 - Atomic writes only (temp → rename)
 - Keep tool output concise
 - Do not depend on `session_switch` unless your target SDK guarantees it

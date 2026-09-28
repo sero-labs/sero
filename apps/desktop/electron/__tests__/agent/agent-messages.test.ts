@@ -113,6 +113,20 @@ describe('agent turn-undo message mapping', () => {
   });
 });
 
+describe('model failures in session history', () => {
+  it('keeps a model error even when the assistant has no text', () => {
+    const messages = convertSessionMessages([
+      { role: 'user', content: 'set up my memory' },
+      { role: 'assistant', content: [], stopReason: 'error', errorMessage: 'The provider rejected this model.' },
+    ] as never);
+
+    expect(messages).toEqual([
+      expect.objectContaining({ type: 'user', text: 'set up my memory' }),
+      expect.objectContaining({ type: 'assistant', text: '_Assistant error: The provider rejected this model._' }),
+    ]);
+  });
+});
+
 describe('incomplete tool history', () => {
   it('reopens a tool call without a result as running', () => {
     const messages = convertSessionMessages([{
@@ -209,6 +223,26 @@ describe('Goal custom-message projection', () => {
     ]);
     expect(JSON.stringify(messages)).not.toContain('[goal-continuation]');
     expect(JSON.stringify(messages)).not.toContain('raw continuation instructions');
+  });
+});
+
+describe('Memory recall projection', () => {
+  it('turns a recall message into one recall item with each memory, and hides one without memory data', () => {
+    const messages = convertSessionMessages([
+      {
+        role: 'custom',
+        customType: 'memory-recall',
+        content: 'Memories that may apply to this message (1):',
+        display: true,
+        details: { ids: ['mem-pnpm'], scores: [0.9], memories: [{ id: 'mem-pnpm', type: 'preference', fact: 'Use pnpm.', behaviour: 'Run pnpm.' }] },
+      },
+      { role: 'custom', customType: 'memory-recall', content: 'older recall text', display: true, details: { ids: ['mem-old'], scores: [0.8] } },
+    ] as never);
+
+    expect(messages).toMatchObject([
+      { type: 'memory-recall', memories: [{ id: 'mem-pnpm', type: 'preference', fact: 'Use pnpm.', behaviour: 'Run pnpm.' }] },
+    ]);
+    expect(JSON.stringify(messages)).not.toContain('older recall text');
   });
 });
 

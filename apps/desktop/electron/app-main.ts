@@ -39,6 +39,7 @@ import {
   platformFrameOptions,
 } from './chrome';
 import { disposeAllAgentSessions } from './ipc/agent/core/agent';
+import { disposeAllAppSessions } from './ipc/agent/handlers/app-agent';
 import { runStartupCaptureSweep } from './features/tool-capture/lifecycle';
 import { workspaceManager } from './features/workspace/manager';
 import { reapHostDevServers } from './features/workspace/runtime/backends/host/host-dev-server-recovery';
@@ -76,7 +77,6 @@ import {
   ensureConfiguredModelFallbackChain,
   getDefaultModelFallbackChain,
 } from './shared/settings/model-fallback-chain';
-import { getDefaultMemoryLoggingSettings, ensureConfiguredMemoryLoggingSettings } from './shared/settings/memory-logging-settings';
 import {
   ensureHostSeroCliBridge,
   type HostSeroCliBridgeDependencies,
@@ -124,9 +124,6 @@ function bootstrapAgentDir(): void {
       sero: {
         modelFallbackChain: getDefaultModelFallbackChain(),
         modelTiers: {},
-        memory: {
-          logging: getDefaultMemoryLoggingSettings(),
-        },
       },
     };
     writeFileSync(settingsPath, JSON.stringify(defaults, null, 2) + '\n');
@@ -162,9 +159,6 @@ function ensureBuiltinPackages(): void {
   settings = fallbackSettings.settings;
   if (fallbackSettings.changed) changed = true;
 
-  const memoryLoggingSettings = ensureConfiguredMemoryLoggingSettings(settings);
-  settings = memoryLoggingSettings.settings;
-  if (memoryLoggingSettings.changed) changed = true;
   for (const p of workspacePackages) {
     const packagePath = path.resolve(p);
     const hasPackagePath = packages.some((entry) => {
@@ -439,8 +433,12 @@ async function performGracefulShutdown(): Promise<void> {
   console.log('[sero] Shutdown sync step done: file watchers');
   console.log('[sero] Shutdown sync step done: vcs manager');
 
+  // Sessions first: their session_shutdown handlers can still use the runtimes below.
   await Promise.allSettled([
     withShutdownTimeout('agent sessions', disposeAllAgentSessions),
+    withShutdownTimeout('app sessions', disposeAllAppSessions),
+  ]);
+  await Promise.allSettled([
     withShutdownTimeout('app runtimes', () => appRuntimeManager.dispose()),
     withShutdownTimeout('plugin dev sessions', () => pluginDevSessionManager.dispose()),
     withShutdownTimeout(

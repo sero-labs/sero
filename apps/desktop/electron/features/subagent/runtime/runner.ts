@@ -29,6 +29,7 @@ import { createSubagentResourceLoader } from './resource-loader';
 import { recordRunToolCatalog } from './tool-catalog';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { logRawEvent, logTurnContext } from '@electron/ipc/editor/debug';
+import { shutdownAndDispose, startSessionExtensions } from '@electron/ipc/agent/core/agent-session-events';
 import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import { parseModelField, resolveTierModel } from '@electron/shared/settings/resolve-tier-model';
 import { getModelTiers } from '@electron/shared/settings/model-tiers';
@@ -254,6 +255,8 @@ export async function runSubagent(
   }
 
   let session: Awaited<ReturnType<typeof createAgentSession>>['session'] | null = null;
+  // `session_shutdown` goes only to extensions that received `session_start`.
+  let extensionsStarted = false;
 
   // Stall timer state — hoisted above try so finally can access clearStallTimer
   let activeToolStallTimer: ReturnType<typeof setTimeout> | null = null;
@@ -277,6 +280,7 @@ export async function runSubagent(
       resourceLoader: loader,
       sessionManager: SessionManager.inMemory(sessionPath),
       settingsManager: infra.settingsManager,
+      sessionStartEvent: { type: 'session_start', reason: 'startup' },
     };
     const result = await createAgentSession(sessionOptions);
     session = result.session;
@@ -313,6 +317,10 @@ export async function runSubagent(
     } catch {
       // Fall back to default
     }
+
+    // After the model is set, so `session_start` handlers see the run's model.
+    await startSessionExtensions(session);
+    extensionsStarted = true;
 
     // Set up abort handler
     const abortHandler = () => {
@@ -469,7 +477,11 @@ export async function runSubagent(
     return { response: '', usage, modelId, providerId, error: errorMsg };
   } finally {
     clearStallTimer();
-    try { session?.dispose(); } catch { /* ignore */ }
+    if (session && extensionsStarted) {
+      try { await shutdownAndDispose(session, `subagent ${subagentSessionId}`); } catch { /* ignore */ }
+    } else if (session) {
+      try { session.dispose(); } catch { /* ignore */ }
+    }
   }
 }
 

@@ -18,7 +18,9 @@ export function removeStaleBuiltinPackages(
   currentPackagePaths: string[],
 ): BuiltinPackageCleanupResult {
   const currentSources = new Set(currentPackagePaths.map((packagePath) => path.resolve(packagePath)));
-  const currentAppIds = getCurrentBuiltinAppIds(currentPackagePaths);
+  const currentIdentities = currentPackagePaths.map(readSeroPackageIdentity);
+  const currentAppIds = new Set(currentIdentities.map((identity) => identity?.appId).filter((id): id is string => !!id));
+  const currentExtensionNames = new Set(currentIdentities.map((identity) => identity?.extensionName).filter((name): name is string => !!name));
   const removedSources: string[] = [];
 
   const nextPackages = packages.filter((entry) => {
@@ -28,8 +30,9 @@ export function removeStaleBuiltinPackages(
     const resolvedSource = path.resolve(source);
     if (currentSources.has(resolvedSource)) return true;
 
-    const sourceAppId = readSeroAppId(resolvedSource);
-    const shouldRemove = sourceAppId && currentAppIds.has(sourceAppId);
+    const identity = readSeroPackageIdentity(resolvedSource);
+    const shouldRemove = (identity?.appId && currentAppIds.has(identity.appId))
+      || (identity?.extensionName && currentExtensionNames.has(identity.extensionName));
     if (shouldRemove) {
       removedSources.push(source);
     }
@@ -47,19 +50,20 @@ export function removeStaleBuiltinPackages(
   };
 }
 
-function getCurrentBuiltinAppIds(packagePaths: string[]): Set<string> {
-  return new Set(packagePaths.map(readSeroAppId).filter((id): id is string => id !== null));
-}
-
-function readSeroAppId(packagePath: string): string | null {
+function readSeroPackageIdentity(packagePath: string): { appId: string | null; extensionName: string | null } | null {
   const packageJsonPath = path.join(packagePath, 'package.json');
   if (!existsSync(packageJsonPath)) return null;
 
   try {
     const pkgJson = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
-      sero?: { app?: { id?: unknown } };
+      name?: unknown;
+      sero?: { app?: { id?: unknown }; plugin?: unknown };
     };
-    return typeof pkgJson.sero?.app?.id === 'string' ? pkgJson.sero.app.id : null;
+    const appId = typeof pkgJson.sero?.app?.id === 'string' ? pkgJson.sero.app.id : null;
+    const extensionName = !appId && pkgJson.sero?.plugin && typeof pkgJson.name === 'string'
+      ? pkgJson.name
+      : null;
+    return { appId, extensionName };
   } catch {
     return null;
   }

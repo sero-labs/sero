@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Memory lines in chat</title>
+<style>
+:root{
+  /* Sero dark tokens, packages/ui/src/styles/globals.css */
+  --bg-base:#0a0a0b; --bg-surface:#111113; --bg-elevated:#18181b; --bg-overlay:#1f1f23;
+  --border-subtle:#27272a; --border-default:#3f3f46;
+  --text-primary:#fafafa; --text-secondary:#a1a1aa; --text-muted:#71717a;
+  --accent-primary:#c4b5fd; --brand-primary:#34d399;
+  --status-success:#22c55e; --status-error:#ef4444;
+  --status-error-border:rgba(239,68,68,.20); --status-error-faint:rgba(239,68,68,.03);
+  --font-sans:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --font-mono:"SFMono-Regular",ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{background:#050506;color-scheme:dark}
+body{margin:0;padding:48px 24px 120px;background:#050506;color:var(--text-primary);font-family:var(--font-sans)}
+h1,h2,p,ul{margin:0}
+ul{padding:0;list-style:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible{outline:2px solid var(--brand-primary);outline-offset:2px;border-radius:4px}
+code{font-family:var(--font-mono);font-size:12px;color:var(--text-secondary)}
+
+.doc{max-width:980px;margin:0 auto}
+h1{font-size:24px;font-weight:650;letter-spacing:-.03em}
+.lede{margin-top:10px;max-width:760px;color:var(--text-secondary);font-size:14px;line-height:1.65}
+.lede b{color:var(--text-primary);font-weight:560}
+h2{margin-top:44px;font-size:16px;font-weight:620}
+.note{margin:6px 0 14px;max-width:760px;color:var(--text-muted);font-size:13px;line-height:1.6}
+.rules{margin-top:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;max-width:980px}
+.rule{border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg-elevated);padding:10px 12px;font-size:13px;line-height:1.5;color:var(--text-secondary)}
+.rule b{display:block;margin-bottom:3px;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--brand-primary)}
+
+/* chat panel, matching ChatPanel density */
+.panel{max-width:760px;background:var(--bg-base);border:1px solid var(--border-subtle);border-radius:10px;overflow:hidden}
+.panel-top{height:38px;display:flex;align-items:center;padding:0 14px;border-bottom:1px solid var(--border-subtle);color:var(--text-muted);font-size:12px}
+.chat{padding:18px 20px;display:grid;gap:14px}
+.divider{display:flex;align-items:center;gap:10px;color:var(--text-muted);font-size:11px;letter-spacing:.07em;text-transform:uppercase}
+.divider::after{content:"";flex:1;height:1px;background:var(--border-subtle)}
+
+.user{display:flex;justify-content:flex-end;gap:8px}
+.bubble{max-width:80%;border-radius:12px;background:var(--bg-elevated);padding:9px 13px;font-size:14px;line-height:1.55;color:var(--text-primary)}
+.avatar{flex:0 0 auto;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:650}
+.avatar.you{background:var(--bg-overlay);color:var(--text-secondary)}
+.avatar.sero{background:rgba(52,211,153,.14);color:var(--brand-primary)}
+.assistant{display:flex;gap:8px;align-items:flex-start}
+.acol{min-width:0;flex:1;display:grid;gap:8px}
+.reply{font-size:14px;line-height:1.62;color:var(--text-primary)}
+.reply code{font-size:13px}
+
+/* ── the proposal: memory lines ─────────────────────────── */
+.mem{display:grid;gap:4px;justify-items:start;margin-left:32px}
+.mline{display:flex;align-items:flex-start;gap:8px;padding:4px 0;font-size:12px;line-height:18px;color:var(--text-muted);text-align:left;width:100%}
+button.mline{width:auto;padding:4px 6px 4px 0}
+button.mline:hover .mlabel{color:var(--text-primary)}
+.mline svg{flex:0 0 auto;margin-top:2px}
+.micon{color:var(--accent-primary)}
+.mchev{color:var(--text-muted);transition:transform .15s ease}
+.mline[aria-expanded="true"] .mchev{transform:rotate(90deg)}
+.mlabel{flex:0 0 auto;font-weight:560;color:var(--text-secondary)}
+.mtext{min-width:0;color:var(--text-muted)}
+.mline.removed .mtext{text-decoration:line-through;text-decoration-color:var(--border-default)}
+.mlist{justify-self:stretch;margin-left:6px;border-left:1px solid var(--border-subtle);padding:2px 0 4px 12px;display:grid;gap:8px}
+.mlist[hidden]{display:none}
+.mrow{display:grid;grid-template-columns:1fr auto;gap:2px 12px;font-size:12px;line-height:18px}
+.mfact{color:var(--text-secondary)}
+.mbeh{grid-column:1;color:var(--text-muted)}
+.mid{grid-row:1;grid-column:2;font-family:var(--font-mono);font-size:11px;color:var(--text-muted)}
+
+/* an ordinary tool row, SingleToolCall collapsed */
+.tool{border:1px solid var(--border-subtle);border-radius:8px;background:rgba(24,24,27,.5);display:flex;align-items:center;gap:10px;padding:8px 12px;font-size:14px}
+.tool.err{border-color:var(--status-error-border);background:var(--status-error-faint)}
+.tool .dot{width:6px;height:6px;border-radius:50%;background:var(--status-success);flex:0 0 auto}
+.tool.err .dot{background:var(--status-error)}
+.tool .tname{font-weight:560;color:var(--text-secondary);flex:0 0 auto}
+.tool .tsum{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted);font-size:13px}
+
+@media (prefers-reduced-motion:reduce){.mchev{transition:none}}
+@media (max-width:720px){body{padding:28px 12px 80px}.bubble{max-width:92%}}
+</style>
+</head>
+<body>
+<div class="doc">
+  <h1>Memory lines in chat</h1>
+  <p class="lede">
+    The review question: <b>how recall and saves show in the transcript</b> after the memory rework.
+    Recall is one line after your message. A change to memory is one line where the agent made it.
+    A turn with no memory work shows nothing. The <b>Memory</b> toggle in the composer and the
+    old "Memory (N sections)" card are removed.
+  </p>
+  <div class="rules">
+    <div class="rule"><b>One line each</b>Recall and each save, replace or remove use one line in the style of the goal-turn marker. No card.</div>
+    <div class="rule"><b>Recall opens</b>"Recalled N memories" opens to show each memory once: the fact, its behaviour and its id.</div>
+    <div class="rule"><b>Other commands stay tools</b><code>sero memory --help</code>, <code>list</code> and failed commands keep the normal tool row, because the agent acts on their output.</div>
+    <div class="rule"><b>Nothing when quiet</b>No recall and no save means no memory line at all.</div>
+  </div>
+
+  <h2>1 · The three turns</h2>
+  <p class="note">Click "Recalled 2 memories", or Tab to it and press Enter or Space. Escape closes it.</p>
+
+  <div class="panel">
+    <div class="panel-top">Session · deploy-docs</div>
+    <div class="chat">
+
+      <div class="divider">Recall turn</div>
+      <div class="user"><div class="bubble">Add a deploy step for the docs site.</div><span class="avatar you" aria-hidden="true">D</span></div>
+      <div class="mem">
+        <button type="button" class="mline" aria-expanded="false" aria-controls="recall-1" data-recall>
+          <svg class="mchev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+          <svg class="micon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 18V5"/><path d="M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4"/><path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5"/><path d="M17.997 5.125a4 4 0 0 1 2.526 5.77"/><path d="M18 18a4 4 0 0 0 2-7.464"/><path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517"/><path d="M6 18a4 4 0 0 1-2-7.464"/><path d="M6.003 5.125a4 4 0 0 0-2.526 5.77"/></svg>
+          <span class="mlabel">Recalled 2 memories</span>
+        </button>
+        <ul class="mlist" id="recall-1" hidden>
+          <li class="mrow"><span class="mfact">Side projects deploy with fly.io, never Heroku.</span><span class="mbeh">Behaviour: suggest fly.io; do not add a Procfile or Heroku steps.</span><span class="mid">mem-f14f9b7d</span></li>
+          <li class="mrow"><span class="mfact">The docs site builds with <code>pnpm --filter docs-site build</code>.</span><span class="mbeh">Behaviour: use this command in deploy and CI steps.</span><span class="mid">mem-2a91c0e4</span></li>
+        </ul>
+      </div>
+      <div class="assistant"><span class="avatar sero" aria-hidden="true">S</span>
+        <div class="acol">
+          <div class="tool"><span class="dot" aria-hidden="true"></span><span class="tname">edit</span><span class="tsum">.github/workflows/docs.yml</span></div>
+          <p class="reply">Added a <code>deploy-docs</code> job. It builds with <code>pnpm --filter docs-site build</code> and deploys with <code>flyctl deploy</code>.</p>
+        </div>
+      </div>
+
+      <div class="divider">Save turn</div>
+      <div class="user"><div class="bubble">No, use the staging app first. We always deploy docs to staging before production, because the search index needs a check.</div><span class="avatar you" aria-hidden="true">D</span></div>
+      <div class="assistant"><span class="avatar sero" aria-hidden="true">S</span>
+        <div class="acol">
+          <div class="tool"><span class="dot" aria-hidden="true"></span><span class="tname">sero-cli</span><span class="tsum">sero memory --help</span></div>
+          <div class="mline">
+            <svg class="micon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 18V5"/><path d="M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4"/><path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5"/><path d="M17.997 5.125a4 4 0 0 1 2.526 5.77"/><path d="M18 18a4 4 0 0 0 2-7.464"/><path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517"/><path d="M6 18a4 4 0 0 1-2-7.464"/><path d="M6.003 5.125a4 4 0 0 0-2.526 5.77"/></svg>
+            <span class="mlabel">Saved:</span>
+            <span class="mtext">Docs deploy to staging before production, because the search index needs a check.</span>
+          </div>
+          <div class="tool"><span class="dot" aria-hidden="true"></span><span class="tname">edit</span><span class="tsum">.github/workflows/docs.yml</span></div>
+          <p class="reply">The job now deploys to <code>docs-staging</code> first and waits for approval before production.</p>
+        </div>
+      </div>
+
+      <div class="divider">Quiet turn</div>
+      <div class="user"><div class="bubble">Thanks. How long does the build take now?</div><span class="avatar you" aria-hidden="true">D</span></div>
+      <div class="assistant"><span class="avatar sero" aria-hidden="true">S</span>
+        <div class="acol"><p class="reply">About 40 seconds on the last three runs.</p></div>
+      </div>
+
+    </div>
+  </div>
+
+  <h2>2 · Replace, remove and a refused save</h2>
+  <p class="note">
+    Replace and remove use the same line with their own verb. A save that the memory tool refuses
+    (here, a close memory exists) stays a normal tool row with the error style. The agent then
+    replaces the close memory, which shows as one line.
+  </p>
+  <div class="panel">
+    <div class="panel-top">Session · deploy-docs</div>
+    <div class="chat">
+      <div class="user"><div class="bubble">We moved the docs to Render. Forget fly.io for docs, and note the new host.</div><span class="avatar you" aria-hidden="true">D</span></div>
+      <div class="assistant"><span class="avatar sero" aria-hidden="true">S</span>
+        <div class="acol">
+          <div class="tool err"><span class="dot" aria-hidden="true"></span><span class="tname">sero-cli</span><span class="tsum">sero memory save --content "Docs deploy with Render." · close to mem-f14f9b7d</span></div>
+          <div class="mline">
+            <svg class="micon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 18V5"/><path d="M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4"/><path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5"/><path d="M17.997 5.125a4 4 0 0 1 2.526 5.77"/><path d="M18 18a4 4 0 0 0 2-7.464"/><path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517"/><path d="M6 18a4 4 0 0 1-2-7.464"/><path d="M6.003 5.125a4 4 0 0 0-2.526 5.77"/></svg>
+            <span class="mlabel">Replaced:</span>
+            <span class="mtext">Side projects deploy with fly.io; the docs site deploys with Render.</span>
+          </div>
+          <p class="reply">Updated. Docs now use Render; other side projects still use fly.io.</p>
+        </div>
+      </div>
+      <div class="user"><div class="bubble">Forget the staging rule too, we dropped staging.</div><span class="avatar you" aria-hidden="true">D</span></div>
+      <div class="assistant"><span class="avatar sero" aria-hidden="true">S</span>
+        <div class="acol">
+          <div class="mline removed">
+            <svg class="micon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 18V5"/><path d="M15 13a4.17 4.17 0 0 1-3-4 4.17 4.17 0 0 1-3 4"/><path d="M17.598 6.5A3 3 0 1 0 12 5a3 3 0 1 0-5.598 1.5"/><path d="M17.997 5.125a4 4 0 0 1 2.526 5.77"/><path d="M18 18a4 4 0 0 0 2-7.464"/><path d="M19.967 17.483A4 4 0 1 1 12 18a4 4 0 1 1-7.967-.517"/><path d="M6 18a4 4 0 0 1-2-7.464"/><path d="M6.003 5.125a4 4 0 0 0-2.526 5.77"/></svg>
+            <span class="mlabel">Removed:</span>
+            <span class="mtext">Docs deploy to staging before production, because the search index needs a check.</span>
+          </div>
+          <p class="reply">Removed. It is in the memory trash if you need it again.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+for (const button of document.querySelectorAll('[data-recall]')) {
+  const list = document.getElementById(button.getAttribute('aria-controls'));
+  const set = (open) => { button.setAttribute('aria-expanded', String(open)); list.hidden = !open; };
+  button.addEventListener('click', () => set(button.getAttribute('aria-expanded') !== 'true'));
+  button.addEventListener('keydown', (event) => { if (event.key === 'Escape') set(false); });
+}
+</script>
+</body>
+</html>

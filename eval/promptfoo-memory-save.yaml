@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+#
+# Save-recall eval — MAKES LLM CALLS.
+#
+# Plays fixed conversations in a real Pi session with the memory plugin, then
+# reports which save-worthy moments the agent saved, which it missed, and which
+# saves were noise. The report does not gate the build. Each test's assertion
+# reason holds the report line: `promptfoo view`, or the `--output` JSON at
+# results[].gradingResult.componentResults[].reason.
+#
+# Run: DEEPSEEK_API_KEY=... pnpm eval:memory-save
+# Models: DeepSeek flash, or openai-codex/gpt-5.6-luna on the OpenAI
+# subscription. Do not point it at other models.
+# Turns in `conversation` are separated by a line that holds only `---`.
+
+description: "Sero memory save-recall"
+
+providers:
+  - id: file://./memorySaveProvider.ts
+    label: "DeepSeek flash"
+    config:
+      model: deepseek/deepseek-v4-flash
+
+prompts:
+  - "memory-save"
+
+tests:
+  - description: "Correction"
+    vars:
+      conversation: |
+        How do I add zod as a dependency to this project? Just tell me the command.
+        ---
+        No, that's wrong. This repo uses pnpm, never npm — npm breaks the workspace lockfile.
+    assert:
+      - type: javascript
+        value: file://./assertions/memorySave.ts
+        config:
+          moments:
+            - name: correction
+              markers: [pnpm]
+
+  - description: "Stated preference"
+    vars:
+      conversation: |
+        Can you explain what a TypeScript type guard is, in two sentences?
+        ---
+        Thanks. By the way, whenever you show me code, use British English in comments and names — colour, behaviour, initialise.
+    assert:
+      - type: javascript
+        value: file://./assertions/memorySave.ts
+        config:
+          moments:
+            - name: preference
+              markers: [british]
+
+  - description: "Decision with a reason"
+    vars:
+      conversation: |
+        We need a queue for background jobs in this project. What are the usual options?
+        ---
+        We'll go with BullMQ, not a Postgres-backed queue, because we already run Redis in production and the team knows it.
+    assert:
+      - type: javascript
+        value: file://./assertions/memorySave.ts
+        config:
+          moments:
+            - name: decision
+              markers: [bullmq]
+
+  - description: "Surprise"
+    vars:
+      conversation: |
+        I ran `pnpm build` in this project and it crashed with "JavaScript heap out of memory" even though the machine has 32 GB.
+        ---
+        Setting NODE_OPTIONS=--max-old-space-size=8192 fixed it. Odd that the default heap is not enough here.
+    assert:
+      - type: javascript
+        value: file://./assertions/memorySave.ts
+        config:
+          moments:
+            - name: surprise
+              markers: [max-old-space-size]
+
+  - description: "Nothing save-worthy"
+    vars:
+      conversation: |
+        What is 17 multiplied by 23?
+        ---
+        Thanks. And roughly how many miles is 5 kilometres?
+    assert:
+      - type: javascript
+        value: file://./assertions/memorySave.ts
+        config:
+          moments: []
+
+evaluateOptions:
+  maxConcurrency: 1

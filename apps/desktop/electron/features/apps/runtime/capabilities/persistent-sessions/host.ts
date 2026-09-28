@@ -12,6 +12,11 @@
  */
 
 import { SessionManager, createAgentSession } from '@earendil-works/pi-coding-agent';
+import {
+  sessionStartEventFor,
+  shutdownAndDispose,
+  startSessionExtensions,
+} from '@electron/ipc/agent/core/agent-session-events';
 import type { CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
 import type { ExtensionRuntimeContent } from '@sero-ai/common';
 import type {
@@ -129,7 +134,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
     for (const entry of this.live.forGrant(grantId)) {
       await entry.session.abort().catch(() => undefined);
       this.live.remove(entry.handleId);
-      entry.session.dispose();
+      await shutdownAndDispose(entry.session, `persistent session ${entry.handleId}`);
     }
     this.deps.grantStore.clearLive(grantId);
   }
@@ -167,7 +172,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
       if (!commit.ok) {
         // Revocation won the race. The session exists but is unauthorised, so
         // it must not survive — the store cannot dispose it, only we can.
-        session.dispose();
+        await shutdownAndDispose(session, 'persistent session (revoked during create)');
         throw new Error('Cannot create session: grant-revoked.');
       }
 
@@ -212,7 +217,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
         // Revocation won the race while this session was being built. It could
         // not dispose a session that was not registered yet, so disposing it is
         // ours to do — same rule as `create`.
-        session.dispose();
+        await shutdownAndDispose(session, 'persistent session (revoked during open)');
         throw new Error('Cannot open session: grant-revoked.');
       }
       const sessionId = sessionManager.getSessionId();
@@ -284,7 +289,7 @@ export class PersistentSessionHost implements PersistentSessionsApi {
     if (!entry) return;
     // Closes the live session. The file and the subject binding both survive —
     // that is what lets a member be reopened, and its history stay readable.
-    entry.session.dispose();
+    await shutdownAndDispose(entry.session, `persistent session ${handleId}`);
     this.deps.grantStore.releaseLive(entry.grantId, handleId);
   }
 
@@ -356,8 +361,10 @@ export class PersistentSessionHost implements PersistentSessionsApi {
       // make the profile decorative.
       noTools: 'builtin',
       tools: inputs.tools,
+      sessionStartEvent: sessionStartEventFor(sessionManager),
     });
     preserveBashFailureStatus(session.agent);
+    await startSessionExtensions(session);
     return session;
   }
 

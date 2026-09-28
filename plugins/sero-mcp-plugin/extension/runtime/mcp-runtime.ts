@@ -68,10 +68,15 @@ export interface McpRuntime {
   executeManagerAction(action: ManagerAction, options?: ManagerActionOptions): Promise<ToolResult>;
   executeProxyAction(action: ProxyAction, options?: ProxyActionOptions): Promise<ToolResult>;
 }
-let runtimeSingleton: McpRuntime | null = null;
+/**
+ * One runtime per process, on `globalThis`: Pi evaluates the extension module
+ * again after a resource reload or when a session opens in another folder, and
+ * a module-level singleton would start a second set of MCP servers.
+ */
+const RUNTIME_KEY = Symbol.for('@sero-ai/plugin-mcp/runtime');
+type McpGlobal = typeof globalThis & { [RUNTIME_KEY]?: McpRuntime };
 export function getMcpRuntime(): McpRuntime {
-  runtimeSingleton ??= createMcpRuntime();
-  return runtimeSingleton;
+  return (globalThis as McpGlobal)[RUNTIME_KEY] ??= createMcpRuntime();
 }
 /** A new runtime. The extension uses the shared one from getMcpRuntime; tests create their own. */
 export function createMcpRuntime(): McpRuntime {

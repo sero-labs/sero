@@ -38,12 +38,15 @@ import {
   unregisterSessionViewer,
 } from './agent-event-broadcast';
 import { openSessionInPool, type PoolEntry } from './agent-session-open';
+import { reloadWithContextOverrides } from './agent-context-overrides';
 import { publishSessionFork } from '@electron/features/tool-capture/lifecycle';
 import { collectCaptureIdsFromEntries, writeForkReferences } from '@electron/features/tool-capture/fork-references';
 
 export { emitAgentEvent } from './agent-event-broadcast';
 const pool = new Map<string, PoolEntry>();
 const pendingResourceReloads = new Map<string, Promise<void>>();
+/** Forked session files not opened yet, mapped to the file they came from. */
+const pendingForks = new Map<string, string>();
 
 function toErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
@@ -71,7 +74,7 @@ export async function reloadAllSessionResources(): Promise<void> {
           .then(async () => {
             if (pool.get(sessionId) !== entry) return undefined;
             const currentHidden = await readHiddenCommands(SERO_CONFIG_PATH);
-            await entry.session.reload();
+            await reloadWithContextOverrides(entry);
             sendEvent({
               type: 'resources_change',
               sessionId,
@@ -90,7 +93,7 @@ export async function reloadAllSessionResources(): Promise<void> {
       }
       return undefined;
     }
-    await entry.session.reload();
+    await reloadWithContextOverrides(entry);
     sendEvent({
       type: 'resources_change',
       sessionId,
@@ -102,13 +105,26 @@ export async function reloadAllSessionResources(): Promise<void> {
 function sendEvent(event: AgentStreamEvent): void {
   emitAgentEvent(event);
 }
-async function closePoolEntry(sessionId: string): Promise<void> {
+/** Closes in progress, so a second close or a reopen waits for the first. */
+const closingSessions = new Map<string, Promise<void>>();
+
+function closePoolEntry(sessionId: string): Promise<void> {
+  const pending = closingSessions.get(sessionId);
+  if (pending) return pending;
   const entry = pool.get(sessionId);
-  if (!entry) return;
+  if (!entry) return Promise.resolve();
+  const closing = shutDownPoolEntry(sessionId, entry).finally(() => {
+    closingSessions.delete(sessionId);
+  });
+  closingSessions.set(sessionId, closing);
+  return closing;
+}
+
+async function shutDownPoolEntry(sessionId: string, entry: PoolEntry): Promise<void> {
   noteCliTurnEnd(sessionId);
 
-  // Fire session_shutdown so extensions (e.g. memory) can export transcripts
-  // and run cleanup. The SDK's dispose() does NOT fire this event.
+  // Fire session_shutdown so extensions can clean up. The SDK's dispose()
+  // does NOT fire this event.
   try {
     await emitSessionShutdown(entry.session);
   } catch (err) {
@@ -133,14 +149,19 @@ async function openSessionInternal(
   sessionPath: string,
   workspaceId: string,
 ): Promise<ChatHistoryPage> {
-  return openSessionInPool({
+  // A reopen during a close gets a new session, not the one being shut down.
+  await closingSessions.get(sessionId);
+  const history = await openSessionInPool({
     pool,
     sessionId,
     sessionPath,
     workspaceId,
     sendEvent,
     closeExisting: closePoolEntry,
+    forkedFrom: pendingForks.get(sessionPath),
   });
+  pendingForks.delete(sessionPath);
+  return history;
 }
 
 export function registerAgentHandlers(): void {
@@ -270,7 +291,13 @@ export function registerAgentHandlers(): void {
     async (_event, sessionId: string): Promise<SeroSlashCommandInfo[]> => {
       const entry = pool.get(sessionId);
       if (!entry) return [];
-      await entry.loader.reload();
+      // `loader.reload()` alone leaves the live session on its old extension
+      // copies. `session.reload()` rebuilds them and sends them the
+      // `session_shutdown` and `session_start` (reason `reload`) events.
+      // The saved context overrides are applied again after it.
+      if (!entry.session.isIdle) await entry.session.waitForIdle();
+      if (pool.get(sessionId) !== entry) return [];
+      await reloadWithContextOverrides(entry);
 
       const hidden = await readHiddenCommands(SERO_CONFIG_PATH);
       return buildCommandList(entry, hidden);
@@ -390,6 +417,7 @@ export function registerAgentHandlers(): void {
 
         return { newSessionPath, newSm, header, branch };
       });
+      pendingForks.set(fork.newSessionPath, entry.sessionPath);
 
       return {
         path: fork.newSessionPath,

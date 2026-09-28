@@ -26,7 +26,8 @@ export type ChatMessage =
   | ChatToolCallMessage
   | ChatGoalStateMessage
   | ChatGoalContinuationMessage
-  | ChatGoalStatusMessage;
+  | ChatGoalStatusMessage
+  | ChatMemoryRecallMessage;
 
 export type ChatGoalStatus = 'active' | 'waiting' | 'paused' | 'blocked' | 'limited' | 'complete';
 export type ChatGoalPauseReason = 'user' | 'abort' | 'no-progress' | 'restore' | 'tool-policy';
@@ -64,6 +65,21 @@ export interface ChatGoalContinuationMessage {
   goalId: string;
   automaticTurns: number;
   maxAutomaticTurns?: number;
+}
+
+/** One memory the memory plugin added to a turn. */
+export interface ChatRecalledMemory {
+  id: string;
+  type: string;
+  fact: string;
+  behaviour?: string;
+}
+
+/** The memories recalled for the user's message, shown as one "Recalled N memories" line. */
+export interface ChatMemoryRecallMessage {
+  type: 'memory-recall';
+  id: string;
+  memories: ChatRecalledMemory[];
 }
 
 export interface ChatGoalStatusMessage {
@@ -112,8 +128,6 @@ export interface ChatAssistantMessage {
   isStreaming: boolean;
   /** Accumulated thinking/reasoning text (only present when model uses reasoning). */
   thinking?: string;
-  /** Memory context injected for this turn (from the memory extension). */
-  memoryContext?: string;
 }
 
 export interface ChatToolCallMessage {
@@ -184,7 +198,6 @@ export type AgentStreamEvent =
   | { type: 'session_name'; sessionId: string; name: string }
   | { type: 'model_change'; sessionId: string; state: SessionModelState }
   | { type: 'resources_change'; sessionId: string; commands: SeroSlashCommandInfo[]; state: SessionModelState }
-  | { type: 'memory_context'; sessionId: string; context: string }
   | { type: 'error'; sessionId: string; error: string }
   | { type: 'container_starting'; sessionId: string; workspaceId: string }
   | { type: 'container_ready'; sessionId: string; workspaceId: string; ipAddress?: string }
