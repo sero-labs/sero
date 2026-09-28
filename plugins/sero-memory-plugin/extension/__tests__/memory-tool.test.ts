@@ -109,6 +109,18 @@ describe('memory tool', () => {
     expect(await listEntries(globalLocation(), 'on-match')).toHaveLength(2);
   });
 
+  it('saves a different fact that shares only one term, on keywords alone', async () => {
+    await executeMemoryAction(ctx, pnpmMemory);
+
+    const result = await executeMemoryAction(ctx, {
+      ...pnpmMemory,
+      content: 'Commit the pnpm lockfile with every dependency change.',
+      behaviour: 'Stage pnpm-lock.yaml with package.json.',
+      terms: 'pnpm, lockfile',
+    });
+    expect(result).toMatch(/^Saved:/);
+  });
+
   it('saves one entry when two sessions save the same fact at the same time', async () => {
     const other = { ...ctx, sessionId: 'session-2' };
 

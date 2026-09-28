@@ -255,6 +255,8 @@ export async function runSubagent(
   }
 
   let session: Awaited<ReturnType<typeof createAgentSession>>['session'] | null = null;
+  // `session_shutdown` goes only to extensions that received `session_start`.
+  let extensionsStarted = false;
 
   // Stall timer state — hoisted above try so finally can access clearStallTimer
   let activeToolStallTimer: ReturnType<typeof setTimeout> | null = null;
@@ -318,6 +320,7 @@ export async function runSubagent(
 
     // After the model is set, so `session_start` handlers see the run's model.
     await startSessionExtensions(session);
+    extensionsStarted = true;
 
     // Set up abort handler
     const abortHandler = () => {
@@ -474,8 +477,10 @@ export async function runSubagent(
     return { response: '', usage, modelId, providerId, error: errorMsg };
   } finally {
     clearStallTimer();
-    if (session) {
+    if (session && extensionsStarted) {
       try { await shutdownAndDispose(session, `subagent ${subagentSessionId}`); } catch { /* ignore */ }
+    } else if (session) {
+      try { session.dispose(); } catch { /* ignore */ }
     }
   }
 }

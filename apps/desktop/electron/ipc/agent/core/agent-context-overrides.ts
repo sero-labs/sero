@@ -1,6 +1,7 @@
 import type { AgentSession } from '@earendil-works/pi-coding-agent';
 import type { ContextOverrides, ContextToolInfo } from '@/types/ipc';
 import {
+  getBaseSystemPrompt,
   rewriteSessionManagerFile,
   setBaseSystemPrompt,
   stripDisabledSkills,
@@ -143,4 +144,23 @@ export function applyContextOverrides(
   entry.contextOverrides = normalized;
 
   return normalized;
+}
+
+/**
+ * `session.reload()` turns every extension tool on and rebuilds the system
+ * prompt. Read the new base tools and prompt, then apply the saved overrides
+ * again, so a reload never brings back a tool or prompt part the user removed.
+ */
+export async function reloadWithContextOverrides(entry: ContextOverrideSessionState): Promise<void> {
+  const previousTools = entry.baseTools.map((tool) => tool.name);
+  await entry.session.reload();
+  // A disabled built-in tool is not active after the reload, but it is still a base tool.
+  entry.session.setActiveToolsByName([...new Set([...previousTools, ...entry.session.getActiveToolNames()])]);
+  entry.baseTools = entry.session.agent.state.tools.map((tool) => ({
+    name: tool.name,
+    label: (tool as { label?: string }).label,
+    description: tool.description,
+  }));
+  entry.baseSystemPrompt = getBaseSystemPrompt(entry.session) ?? entry.session.agent.state.systemPrompt ?? '';
+  if (entry.contextOverrides) applyContextOverrides(entry, entry.contextOverrides);
 }

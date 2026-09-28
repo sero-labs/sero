@@ -7,6 +7,7 @@ import { getRuntimeCapabilities } from '@electron/features/workspace/runtime/cap
 import { createBash, createEdit, createRead, createWrite } from '@electron/features/container/tools/tools-coding';
 import {
   commandTouchesProtectedMemory,
+  commandTouchesProtectedMemoryWithResolver,
   getProtectedMemoryRoot,
   getProtectedMemoryAccessError,
   isProtectedMemoryPath,
@@ -86,6 +87,21 @@ describe('container memory file guard', () => {
     expect(commandTouchesProtectedMemory('cat .sero/apps/memory/scratchpad.md')).toBe(true);
     expect(commandTouchesProtectedMemory(`cd '${protectedRoot}' && cat *.md`)).toBe(true);
     expect(commandTouchesProtectedMemory('grep -n notifications /workspace/MEMORY.md')).toBe(false);
+  });
+
+  it('allows the untrack fix the memory plugin names, and nothing else in the same command line', async () => {
+    const untrack = 'git rm -r --cached .sero/apps/memory';
+    const resolve = (command: string) => commandTouchesProtectedMemoryWithResolver({
+      command,
+      basedir: '/projects/app',
+      resolvePath: async (candidatePath) => candidatePath,
+    });
+
+    expect(commandTouchesProtectedMemory(untrack)).toBe(false);
+    expect(await resolve(untrack)).toBe(false);
+    expect(commandTouchesProtectedMemory(`${untrack} && cat .sero/apps/memory/scratchpad.md`)).toBe(true);
+    expect(await resolve(`${untrack} && cat .sero/apps/memory/scratchpad.md`)).toBe(true);
+    expect(commandTouchesProtectedMemory("rg -n x '.sero/apps/memory-notes'")).toBe(false);
   });
 
   it('blocks read/write/edit tool calls against protected memory files', async () => {

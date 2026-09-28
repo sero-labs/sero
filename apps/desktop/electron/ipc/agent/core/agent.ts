@@ -38,6 +38,7 @@ import {
   unregisterSessionViewer,
 } from './agent-event-broadcast';
 import { openSessionInPool, type PoolEntry } from './agent-session-open';
+import { reloadWithContextOverrides } from './agent-context-overrides';
 import { publishSessionFork } from '@electron/features/tool-capture/lifecycle';
 import { collectCaptureIdsFromEntries, writeForkReferences } from '@electron/features/tool-capture/fork-references';
 
@@ -73,7 +74,7 @@ export async function reloadAllSessionResources(): Promise<void> {
           .then(async () => {
             if (pool.get(sessionId) !== entry) return undefined;
             const currentHidden = await readHiddenCommands(SERO_CONFIG_PATH);
-            await entry.session.reload();
+            await reloadWithContextOverrides(entry);
             sendEvent({
               type: 'resources_change',
               sessionId,
@@ -92,7 +93,7 @@ export async function reloadAllSessionResources(): Promise<void> {
       }
       return undefined;
     }
-    await entry.session.reload();
+    await reloadWithContextOverrides(entry);
     sendEvent({
       type: 'resources_change',
       sessionId,
@@ -293,9 +294,10 @@ export function registerAgentHandlers(): void {
       // `loader.reload()` alone leaves the live session on its old extension
       // copies. `session.reload()` rebuilds them and sends them the
       // `session_shutdown` and `session_start` (reason `reload`) events.
+      // The saved context overrides are applied again after it.
       if (!entry.session.isIdle) await entry.session.waitForIdle();
       if (pool.get(sessionId) !== entry) return [];
-      await entry.session.reload();
+      await reloadWithContextOverrides(entry);
 
       const hidden = await readHiddenCommands(SERO_CONFIG_PATH);
       return buildCommandList(entry, hidden);

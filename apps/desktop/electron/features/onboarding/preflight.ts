@@ -51,13 +51,29 @@ function formatTierLabel(tier: ModelTier): string {
   return 'High';
 }
 
+/**
+ * The memory plugin renames an old MEMORY.md to a backup and records its path
+ * in its conversion state. Same rule as the plugin's `hasConvertedLegacyMemory`.
+ */
+async function hasConvertedLegacyMemory(profilePath: string): Promise<boolean> {
+  try {
+    const state = JSON.parse(await readFile(path.join(profilePath, 'state', 'memory', 'conversion.json'), 'utf8')) as { backupPath?: unknown };
+    if (typeof state.backupPath !== 'string' || !state.backupPath) return false;
+    await access(state.backupPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Same rule as the memory plugin's `checkBootstrapStatus`. */
 async function hasCompletedMemoryBootstrap(profilePath: string): Promise<boolean> {
   const root = path.join(profilePath, 'workspaces', 'global');
   const [hasLegacyMemory, hasIdentity, hasUser] = await Promise.all(
     ['MEMORY.md', 'IDENTITY.md', 'USER.md'].map((file) =>
       access(path.join(root, file)).then(() => true, () => false)),
   );
-  return hasLegacyMemory || (hasIdentity && hasUser);
+  return hasLegacyMemory || (hasIdentity && hasUser) || hasConvertedLegacyMemory(profilePath);
 }
 
 function formatProviderNames(providerIds: string[], providerHealth: OnboardingState['providerHealth']): string {

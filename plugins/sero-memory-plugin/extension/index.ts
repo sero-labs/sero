@@ -98,8 +98,9 @@ export default function memoryExtension(pi: ExtensionAPI): void {
     const snapshot = await snapshotFor(ctx);
     let message;
     try {
-      // Waits for the index warm-up; without it, recall runs on keywords alone.
-      await acquireIndex(sessionIdOf(ctx), workspaceOf(ctx));
+      // Never waits for the index: a slow or stuck warm-up must not block the turn.
+      // Until the index and its embeddings are ready, recall runs on keywords alone.
+      void acquireIndex(sessionIdOf(ctx), workspaceOf(ctx));
       message = await recallForTurn({
         sessionId: sessionIdOf(ctx),
         prompt: event.prompt ?? '',

@@ -1,10 +1,11 @@
 /**
  * The automatic tidy-up (design D9). It runs in the background at chat session
  * start, for each scope whose last run was more than 7 days ago or that has
- * unsorted entries, with no user review. It is safe with nobody watching:
+ * unsorted entries no run has seen, with no user review. It is safe with nobody watching:
  *
  *   - one run per scope at a time, across sessions (state lock)
  *   - one isolated completion; invalid output changes nothing
+ *   - a workspace that Git would commit memory in is never sent to the model
  *   - merges write the new entry before the originals move to trash
  *   - a removal needs a missing file named by a workspace entry in its own workspace
  *   - a decision is dropped if an entry changed after the tidy-up read it
@@ -33,6 +34,7 @@ import {
 } from './entry-store';
 import { guardWorkspaceWrite } from './git-guard';
 import { error, errorDetails } from './logger';
+import { scanMemoryContent } from './memory-guards';
 import { readMemorySettings } from './memory-settings';
 import { recordMetric, resolveMetricsPath } from './metrics';
 import { collectionsFor, refreshIndex } from './qmd-index';
@@ -62,6 +64,8 @@ export type TidyOutcome = 'not-due' | 'busy' | 'ran' | 'failed';
 
 interface TidyState {
   lastRun?: string;
+  /** Unsorted entries the last run sent to the model. They wait for the next interval. */
+  unsortedSeen?: string[];
 }
 
 function stateKey(location: ScopeLocation): string {
@@ -85,10 +89,23 @@ async function readTidyState(location: ScopeLocation): Promise<TidyState> {
 }
 
 async function isDue(location: ScopeLocation, now: Date): Promise<boolean> {
-  if (location.scope === 'global' && (await listEntries(location, 'unsorted')).length > 0) return true;
-  const { lastRun } = await readTidyState(location);
+  const { lastRun, unsortedSeen } = await readTidyState(location);
+  if (location.scope === 'global') {
+    // An entry the model kept unsorted, or a rejected sort, must not start a paid run at every session start.
+    const seen = new Set(unsortedSeen ?? []);
+    if ((await listEntries(location, 'unsorted')).some((entry) => !seen.has(entry.id))) return true;
+  }
   if (lastRun && now.getTime() - Date.parse(lastRun) <= TIDY_INTERVAL_MS) return false;
   return (await listAllEntries(location)).length > 0;
+}
+
+async function recordRun(location: ScopeLocation, now: Date, sent: StoredEntry[]): Promise<void> {
+  const state: TidyState = {
+    lastRun: now.toISOString(),
+    unsortedSeen: sent.filter((entry) => entry.delivery === 'unsorted').map((entry) => entry.id),
+  };
+  await fs.mkdir(path.dirname(tidyStatePath(location)), { recursive: true });
+  await fs.writeFile(tidyStatePath(location), JSON.stringify(state), 'utf8');
 }
 
 async function logChange(location: ScopeLocation, record: Record<string, unknown>): Promise<void> {
@@ -171,7 +188,11 @@ async function applyDecision(
       return { applied: true, detail: `sorted to ${delivery}` };
     }
     case 'merge': {
-      const delivery = decision.merged.delivery === 'pinned' && await pinnedNow() >= pinnedCap ? 'on-match' : decision.merged.delivery;
+      const scanned = scanMemoryContent(decision.merged.body);
+      if (scanned.action === 'block') return { applied: false, detail: `the merged text matches a blocked pattern (${scanned.reason ?? 'security pattern'})` };
+      // The pinned originals leave the pinned set when the merge applies.
+      const pinnedOriginals = decision.ids.filter((id) => read.get(id)!.entry.delivery === 'pinned').length;
+      const delivery = decision.merged.delivery === 'pinned' && await pinnedNow() - pinnedOriginals >= pinnedCap ? 'on-match' : decision.merged.delivery;
       const today = todayStamp();
       const merged = await writeEntry(location, {
         id: newEntryId(),
@@ -181,7 +202,7 @@ async function applyDecision(
         confirmed: today,
         replaces: decision.ids,
         terms: decision.merged.terms,
-        body: decision.merged.body,
+        body: scanned.content,
       }, delivery);
       // Written first: the originals move to trash only once the merged entry exists.
       for (const id of decision.ids) {
@@ -221,6 +242,14 @@ async function isMissingInWorkspace(workspaceRoot: string, filePath: string): Pr
 
 async function runLocked(location: ScopeLocation, deps: TidyDeps, now: Date): Promise<TidyOutcome> {
   if (!(await isDue(location, now))) return 'not-due';
+  // Before the model call: a blocked workspace must not pay for a completion it cannot apply.
+  if (location.scope === 'workspace') {
+    const guard = await guardWorkspaceWrite(deps.workspaceRoot);
+    if (!guard.ok) {
+      await logChange(location, { decision: 'blocked', applied: false, reason: guard.reason });
+      return 'failed';
+    }
+  }
   const entries = await listAllEntries(location);
   const read = new Map<string, { entry: StoredEntry; hash: string }>();
   for (const entry of entries) {
@@ -244,18 +273,12 @@ async function runLocked(location: ScopeLocation, deps: TidyDeps, now: Date): Pr
     plan = validatePlan(output, views, location.scope, workspaceRoot);
   } catch (err) {
     await logChange(location, { decision: 'invalid-output', applied: false, reason: err instanceof Error ? err.message : String(err) });
+    // Recorded as a run, so invalid output does not repeat the paid call at every session start.
+    await recordRun(location, now, [...read.values()].map(({ entry }) => entry));
     return 'failed';
   }
   for (const rejected of plan.rejected) {
     await logChange(location, { decision: 'rejected', applied: false, reason: rejected.reason, proposal: rejected.decision });
-  }
-
-  if (location.scope === 'workspace') {
-    const guard = await guardWorkspaceWrite(deps.workspaceRoot);
-    if (!guard.ok) {
-      await logChange(location, { decision: 'blocked', applied: false, reason: guard.reason });
-      return 'failed';
-    }
   }
 
   await enqueueWrite(async () => {
@@ -273,8 +296,7 @@ async function runLocked(location: ScopeLocation, deps: TidyDeps, now: Date): Pr
     await refreshIndex(location);
   });
 
-  await fs.mkdir(path.dirname(tidyStatePath(location)), { recursive: true });
-  await fs.writeFile(tidyStatePath(location), JSON.stringify({ lastRun: now.toISOString() } satisfies TidyState), 'utf8');
+  await recordRun(location, now, [...read.values()].map(({ entry }) => entry));
   return 'ran';
 }
 

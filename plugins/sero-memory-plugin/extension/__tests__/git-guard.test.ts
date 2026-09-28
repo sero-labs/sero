@@ -64,6 +64,18 @@ describe('workspace memory Git guard', () => {
     expect(await guardWorkspaceWrite(root, flaky)).toEqual({ ok: true });
   });
 
+  it('without a git binary, allows a workspace with no .git folder and refuses one with it', async () => {
+    const noGit: GitRunner = async () => ({ code: -1, stdout: '', stderr: 'spawn git ENOENT', missing: true });
+
+    expect(await guardWorkspaceWrite(root, noGit)).toEqual({ ok: true });
+
+    memoryRegistry().gitChecks.clear();
+    await mkdir(path.join(root, '.git'));
+    const refused = await guardWorkspaceWrite(root, noGit);
+    expect(refused.ok).toBe(false);
+    expect(memoryRegistry().gitChecks.has(root)).toBe(false);
+  });
+
   it('does not run Git again after a definitive result', async () => {
     git(['init', '-q'], root);
     const counted = vi.fn(runGit);

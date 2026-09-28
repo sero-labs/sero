@@ -99,6 +99,25 @@ describe('CLI bridge rich output', () => {
     });
   });
 
+  it('marks a multi-command batch with a refused memory change, so the chat shows it as a failed row', async () => {
+    const registry = new CliRegistry();
+    registry.register({
+      name: 'memory',
+      summary: 'Memory',
+      execute: async () => ({ output: 'Not saved.', exitCode: 0, details: { memoryRefused: true } }),
+    });
+    registry.register({
+      name: 'echo',
+      summary: 'Echo',
+      execute: async () => ({ output: 'done', exitCode: 0 }),
+    });
+
+    const tool = createSeroCliTool(registry, 'ws-1', 'session-1');
+    const result = await tool.execute('tool-1', { command: 'memory\necho' }, undefined, undefined, { cwd: '/tmp/ws-1' } as never);
+
+    expect(result.details).toMatchObject({ memoryRefused: true });
+  });
+
   it('keeps only the latest image blocks for multi-command batches with multiple rich outputs', async () => {
     const registry = new CliRegistry();
     registry.register({

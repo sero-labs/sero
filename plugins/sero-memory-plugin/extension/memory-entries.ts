@@ -35,6 +35,7 @@ import { recordMetric } from './metrics';
 import { searchEntries } from './memory-search';
 import { refreshIndex, warmUp } from './qmd-index';
 import { enqueueWrite } from './registry';
+import { combineScores, TERM_WEIGHT } from './search-score';
 
 export interface EntryContext {
   sessionId: string;
@@ -121,9 +122,15 @@ function capMessage(scope: Scope, cap: number, pinned: StoredEntry[]): string {
   ].join('\n');
 }
 
+/**
+ * On keywords alone, one shared term is enough for recall but says little about
+ * a duplicate. The close-entry check needs two shared terms.
+ */
+const CLOSE_KEYWORD_THRESHOLD = combineScores([TERM_WEIGHT, TERM_WEIGHT]);
+
 async function closeEntries(location: ScopeLocation, text: string): Promise<StoredEntry[]> {
   const { results, mode } = await searchEntries(text, [location], 'close');
-  const threshold = recallThresholdFor(mode);
+  const threshold = mode === 'keyword' ? Math.max(recallThresholdFor(mode), CLOSE_KEYWORD_THRESHOLD) : recallThresholdFor(mode);
   return results.filter((result) => result.score >= threshold).slice(0, MAX_CLOSE_ENTRIES).map((result) => result.entry);
 }
 

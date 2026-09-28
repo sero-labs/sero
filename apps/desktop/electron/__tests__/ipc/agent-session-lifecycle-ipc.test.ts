@@ -35,6 +35,10 @@ vi.mock('@electron/ipc/agent/core/agent-helpers', () => ({
   buildModelState: vi.fn(),
   buildCommandList: vi.fn(() => []),
   readHiddenCommands: vi.fn(async () => new Set()),
+  getBaseSystemPrompt: vi.fn(() => 'BASE'),
+  setBaseSystemPrompt: vi.fn(),
+  stripDisabledSkills: (prompt: string) => prompt,
+  rewriteSessionManagerFile: vi.fn(),
 }));
 vi.mock('@electron/ipc/agent/core/agent-checkpoint', () => ({ registerAgentCheckpointHandlers: vi.fn() }));
 vi.mock('@electron/ipc/agent/core/agent-model-context', () => ({ registerAgentModelContextHandlers: vi.fn() }));
@@ -61,13 +65,13 @@ function handler(channel: string): (...args: unknown[]) => Promise<unknown> {
 }
 
 /** Puts a session into the pool the way a real open does. */
-function openInto(session: Record<string, unknown>, sessionPath: string) {
+function openInto(session: Record<string, unknown>, sessionPath: string, entry: Record<string, unknown> = {}) {
   mocks.openSessionInPool.mockImplementationOnce(async (args: {
     pool: Map<string, unknown>;
     sessionId: string;
     workspaceId: string;
   }) => {
-    args.pool.set(args.sessionId, { session, sessionPath, workspaceId: args.workspaceId, unsubscribe: vi.fn() });
+    args.pool.set(args.sessionId, { session, sessionPath, workspaceId: args.workspaceId, unsubscribe: vi.fn(), ...entry });
     return { turns: [] };
   });
 }
@@ -126,13 +130,27 @@ describe('chat session lifecycle IPC', () => {
     expect(mocks.openSessionInPool).toHaveBeenCalledTimes(2);
   });
 
-  it('reloads the live session, not only its resource loader', async () => {
-    const session = { isIdle: true, reload: vi.fn(async () => undefined) };
-    openInto(session, join(root, 'a.jsonl'));
+  it('reloads the live session, not only its resource loader, and keeps the tools the user turned off', async () => {
+    const allTools = [{ name: 'read' }, { name: 'web' }];
+    const state = { tools: [allTools[0]!], systemPrompt: 'BASE' };
+    const session = {
+      isIdle: true,
+      agent: { state },
+      // Pi's reload turns every extension tool on again.
+      reload: vi.fn(async () => { state.tools = allTools; }),
+      getActiveToolNames: () => state.tools.map((tool) => tool.name),
+      setActiveToolsByName: (names: string[]) => { state.tools = allTools.filter((tool) => names.includes(tool.name)); },
+    };
+    openInto(session, join(root, 'a.jsonl'), {
+      baseTools: allTools,
+      baseSystemPrompt: 'BASE',
+      contextOverrides: { disabledTools: ['web'] },
+    });
     await handler(IpcChannels.agent.open)(EVENT, 'a', join(root, 'a.jsonl'), 'ws');
 
     await handler(IpcChannels.agent.reloadResources)(EVENT, 'a');
 
     expect(session.reload).toHaveBeenCalledOnce();
+    expect(session.getActiveToolNames()).toEqual(['read']);
   });
 });

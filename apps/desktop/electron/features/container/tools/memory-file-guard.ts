@@ -140,12 +140,36 @@ function getSpecificCommandAliases(rootAlias: string): string[] {
   ];
 }
 
+/** The workspace memory folder as a path, not as part of a longer name such as `.sero/apps/memory-foo`. */
+const WORKSPACE_MEMORY_DIR_PATTERN = new RegExp(`(^|[^\\w.-])${escapeRegex(WORKSPACE_MEMORY_DIR)}(?=$|[^\\w.-])`);
+
+/** The words of each simple command in a shell command line. */
+function commandSegments(tokens: ShellToken[]): string[][] {
+  const segments: string[][] = [[]];
+  for (const token of tokens) {
+    if (token.type === 'operator') segments.push([]);
+    else segments[segments.length - 1]!.push(token.value);
+  }
+  return segments;
+}
+
+/**
+ * `git rm --cached` only removes files from the Git index. The memory plugin
+ * tells the agent to run it when Git tracks the workspace memory folder.
+ */
+function isGitUntrack(words: string[]): boolean {
+  const command = words.filter((word) => !isEnvAssignmentToken(word));
+  return command[0] === 'git' && command[1] === 'rm' && command.includes('--cached');
+}
+
 export function commandTouchesProtectedMemory(command: string): boolean {
   const normalized = command.replace(/\\/g, '/');
   const rootAliases = getRootAliases();
   const specificAliases = rootAliases.flatMap((alias) => getSpecificCommandAliases(alias));
+  const touchesWorkspaceMemory = commandSegments(tokenizeShellCommand(normalized)).some((words) =>
+    !isGitUntrack(words) && words.some((word) => WORKSPACE_MEMORY_DIR_PATTERN.test(word)));
 
-  return normalized.includes(WORKSPACE_MEMORY_DIR)
+  return touchesWorkspaceMemory
     || specificAliases.some((alias) => normalized.includes(alias))
     || rootAliases.some((alias) => commandMentionsPath(normalized, alias));
 }
@@ -273,51 +297,44 @@ function resolveCommandCandidatePath(token: string, cwd: string): string | null 
   return normalizePath(path.join(cwd, expanded));
 }
 
-function isCommandBoundary(token: ShellToken): boolean {
-  return token.type === 'operator';
-}
-
 export async function commandTouchesProtectedMemoryWithResolver(args: {
   command: string;
   basedir: string;
   resolvePath: (candidatePath: string) => Promise<string>;
 }): Promise<boolean> {
-  const tokens = tokenizeShellCommand(args.command);
   let currentDir = normalizePath(args.basedir);
-  let expectingCommand = true;
-  let awaitingCdTarget = false;
 
-  for (const token of tokens) {
-    if (isCommandBoundary(token)) {
-      expectingCommand = true;
-      awaitingCdTarget = false;
-      continue;
-    }
+  for (const words of commandSegments(tokenizeShellCommand(args.command))) {
+    if (isGitUntrack(words)) continue;
+    let expectingCommand = true;
+    let awaitingCdTarget = false;
 
-    const value = token.value.trim();
-    if (!value) continue;
+    for (const word of words) {
+      const value = word.trim();
+      if (!value) continue;
 
-    if (expectingCommand) {
-      if (isEnvAssignmentToken(value)) continue;
-      expectingCommand = false;
-      awaitingCdTarget = value === 'cd';
-      continue;
-    }
+      if (expectingCommand) {
+        if (isEnvAssignmentToken(value)) continue;
+        expectingCommand = false;
+        awaitingCdTarget = value === 'cd';
+        continue;
+      }
 
-    const candidatePath = resolveCommandCandidatePath(value, currentDir);
-    if (!candidatePath) {
-      awaitingCdTarget = false;
-      continue;
-    }
+      const candidatePath = resolveCommandCandidatePath(value, currentDir);
+      if (!candidatePath) {
+        awaitingCdTarget = false;
+        continue;
+      }
 
-    const resolvedPath = normalizePathForComparison(await args.resolvePath(candidatePath));
-    if (isProtectedMemoryCommandTarget(resolvedPath)) {
-      return true;
-    }
+      const resolvedPath = normalizePathForComparison(await args.resolvePath(candidatePath));
+      if (isProtectedMemoryCommandTarget(resolvedPath)) {
+        return true;
+      }
 
-    if (awaitingCdTarget) {
-      currentDir = resolvedPath;
-      awaitingCdTarget = false;
+      if (awaitingCdTarget) {
+        currentDir = resolvedPath;
+        awaitingCdTarget = false;
+      }
     }
   }
 
