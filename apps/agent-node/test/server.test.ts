@@ -20,7 +20,7 @@ import { SessionStore } from "../src/sessions.ts";
 import { route } from "../src/server.ts";
 import { ensureState, identityFingerprint } from "../src/state.ts";
 import type { TaskTransition } from "../src/types.ts";
-import { DeferredRunner, runnerFactory, temporaryState } from "./helpers.ts";
+import { DeferredRunner, releaseWhenRunning, runnerFactory, temporaryState } from "./helpers.ts";
 
 async function fixture() {
   const temp = await temporaryState();
@@ -148,8 +148,9 @@ describe("wire contracts", () => {
       expect(current.runners.get(session.id)?.calls).toEqual(["run", "steer"]);
       expect(JSON.stringify(await (await rpc(current, "CancelTask", { id: task.taskId })).json())).toContain("TASK_STATE_CANCELED");
       const other = await current.services.sessions.create({ model: "test/model", workspace: "send" });
-      setTimeout(() => current.runners.get(other.id)?.release?.("done"), 10);
+      const released = releaseWhenRunning(current.runners, other.id, "done");
       expect(JSON.stringify(await (await rpc(current, "SendMessage", { message: { contextId: other.id, parts: [{ text: "hello" }] } })).json())).toContain("TASK_STATE_COMPLETED");
+      await released;
       for (const legacy of ["message/send", "message/stream", "tasks/get", "tasks/cancel", "tasks/resubscribe"]) {
         expect(await (await rpc(current, legacy, {})).json(), legacy).toMatchObject({ error: { message: "MethodNotFound" } });
       }
@@ -164,10 +165,11 @@ describe("wire contracts", () => {
       let idleAllowed = false;
       const getTask = current.services.sessions.getTask.bind(current.services.sessions);
       current.services.sessions.getTask = async (taskId) => { taskReads += 1; return getTask(taskId); };
-      setTimeout(() => current.runners.get(session.id)?.release?.("done"), 10);
+      const released = releaseWhenRunning(current.runners, session.id, "done");
 
       const response = await rpc(current, "SendMessage", { message: { contextId: session.id, parts: [{ text: "hello" }] } }, () => { idleAllowed = true; });
 
+      await released;
       expect(JSON.stringify(await response.json())).toContain("TASK_STATE_COMPLETED");
       expect(taskReads).toBe(0);
       expect(idleAllowed).toBe(true);
@@ -229,8 +231,9 @@ describe("wire contracts", () => {
       expect((await subscription.next()).value?.payload?.$case).toBe("task");
       expect((await client.cancelTask({ tenant: "sero", id: taskId, metadata: undefined })).status?.state).toBe(TaskState.TASK_STATE_CANCELED);
       const other = await current.services.sessions.create({ model: "test/model", workspace: "sdk-send" });
-      setTimeout(() => current.runners.get(other.id)?.release?.("done"), 10);
+      const released = releaseWhenRunning(current.runners, other.id, "done");
       const sent = await client.sendMessage({ ...request, message: { ...request.message, messageId: crypto.randomUUID(), contextId: other.id } });
+      await released;
       expect("status" in sent && sent.status?.state).toBe(3);
       await stream.return();
       await subscription.return();
