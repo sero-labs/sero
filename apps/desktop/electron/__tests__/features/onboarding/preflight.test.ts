@@ -150,6 +150,20 @@ describe('onboarding preflight', () => {
     });
   });
 
+  it('finishes new memory setup when identity and user profiles exist without MEMORY.md', async () => {
+    mocks.access.mockImplementation(async (filePath: string) => {
+      if (filePath.endsWith('/IDENTITY.md')) return;
+      throw new Error('File not found');
+    });
+    expect((await getOnboardingState()).memoryBootstrapComplete).toBe(false);
+
+    mocks.access.mockImplementation(async (filePath: string) => {
+      if (filePath.endsWith('/IDENTITY.md') || filePath.endsWith('/USER.md')) return;
+      throw new Error('File not found');
+    });
+    expect((await getOnboardingState()).memoryBootstrapComplete).toBe(true);
+  });
+
   it('runs migration and unavailable-tier cleanup only in getOnboardingStateWithRepairs', async () => {
     const migratedSettings = { sero: { defaultProvider: 'openai' } };
     const cleanedSettings = { sero: { modelTiers: { LOW: { provider: 'openai', modelId: 'gpt-5.4' } } } };

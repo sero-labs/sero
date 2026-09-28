@@ -52,13 +52,12 @@ function formatTierLabel(tier: ModelTier): string {
 }
 
 async function hasCompletedMemoryBootstrap(profilePath: string): Promise<boolean> {
-  const memoryPath = path.join(profilePath, 'workspaces', 'global', 'MEMORY.md');
-  try {
-    await access(memoryPath);
-    return true;
-  } catch {
-    return false;
-  }
+  const root = path.join(profilePath, 'workspaces', 'global');
+  const [hasLegacyMemory, hasIdentity, hasUser] = await Promise.all(
+    ['MEMORY.md', 'IDENTITY.md', 'USER.md'].map((file) =>
+      access(path.join(root, file)).then(() => true, () => false)),
+  );
+  return hasLegacyMemory || (hasIdentity && hasUser);
 }
 
 function formatProviderNames(providerIds: string[], providerHealth: OnboardingState['providerHealth']): string {

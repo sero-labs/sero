@@ -8,7 +8,7 @@
  * selection - with `leadingOptions`; the same query filters both.
  */
 
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   type SharedAvailableModelGroup,
   type SharedModelInfo,
@@ -101,6 +101,11 @@ export function AvailableModelPicker<
   // the provider beside the input narrows it, and a popup sized to the input
   // would clip every model name to fit the leftover space.
   const anchorRef = useRef<HTMLDivElement>(null);
+  const [dialogContainer, setDialogContainer] = useState<HTMLElement | null>(null);
+  const attachAnchor = useCallback((element: HTMLDivElement | null) => {
+    anchorRef.current = element;
+    setDialogContainer(element?.closest<HTMLElement>('[data-slot="dialog-content"]') ?? null);
+  }, []);
 
   return (
     <Combobox
@@ -114,7 +119,7 @@ export function AvailableModelPicker<
       filter={filter}
       inline={false}
     >
-      <div ref={anchorRef} className={cn('w-full', className)}>
+      <div ref={attachAnchor} className={cn('w-full', className)}>
         <ComboboxInput
           className="w-full"
           placeholder={searchPlaceholder ?? placeholder}
@@ -137,7 +142,7 @@ export function AvailableModelPicker<
         </ComboboxInput>
       </div>
 
-      <ComboboxContent anchor={anchorRef}>
+      <ComboboxContent anchor={anchorRef} portalContainer={dialogContainer}>
         <ComboboxEmpty>{groups.length === 0 ? noModelsLabel : emptyLabel}</ComboboxEmpty>
         <ComboboxList>
           {(option: ModelPickerOption) => (

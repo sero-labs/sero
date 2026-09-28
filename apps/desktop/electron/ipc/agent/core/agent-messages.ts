@@ -290,6 +290,10 @@ export function convertSessionMessages(
       if (text) {
         result.push({ type: 'assistant', id: nextId(), text, isStreaming: false, thinking });
       }
+      if (message.stopReason === 'error') {
+        const reason = message.errorMessage?.trim() || 'The model response failed.';
+        result.push({ type: 'assistant', id: nextId(), text: `_Assistant error: ${reason}_`, isStreaming: false });
+      }
 
       const toolCalls = message.content.filter(
         (content): content is { type: 'toolCall'; id: string; name: string; arguments: Record<string, unknown> } =>

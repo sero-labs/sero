@@ -155,29 +155,29 @@ export async function runWelcomeOnboardingFlow(
   let memoryBootstrapComplete = false;
 
   try {
-    const temp = await createAndRunSession(deps, {
-      tiers,
-      thinkingLevel: 'low',
-      prompt: WELCOME_PROMPT,
-      tierOrder: LOW_FIRST_TIER_ORDER,
-    });
-    tempSessionId = temp.sessionId;
-    tempSessionPath = temp.sessionPath;
+    memoryBootstrapComplete = (await deps.onboarding.getState()).memoryBootstrapComplete;
+    if (!memoryBootstrapComplete) {
+      const temp = await createAndRunSession(deps, {
+        tiers,
+        thinkingLevel: 'low',
+        prompt: WELCOME_PROMPT,
+        tierOrder: LOW_FIRST_TIER_ORDER,
+      });
+      tempSessionId = temp.sessionId;
+      tempSessionPath = temp.sessionPath;
 
-    const tempFailure = await getLatestTurnFailure(deps, tempSessionId, tempSessionPath);
-    if (tempFailure) {
-      throw new Error(tempFailure);
+      const refreshedState = await deps.onboarding.getState();
+      if (!refreshedState.memoryBootstrapComplete) {
+        const tempFailure = await getLatestTurnFailure(deps, tempSessionId, tempSessionPath);
+        if (tempFailure) throw new Error(tempFailure);
+        throw new Error(MEMORY_BOOTSTRAP_ERROR);
+      }
+      memoryBootstrapComplete = true;
+
+      await teardownSession(deps, tempSessionId, tempSessionPath);
+      tempSessionId = null;
+      tempSessionPath = null;
     }
-
-    const refreshedState = await deps.onboarding.getState();
-    if (!refreshedState.memoryBootstrapComplete) {
-      throw new Error(MEMORY_BOOTSTRAP_ERROR);
-    }
-    memoryBootstrapComplete = true;
-
-    await teardownSession(deps, tempSessionId, tempSessionPath);
-    tempSessionId = null;
-    tempSessionPath = null;
 
     const welcome = await createAndRunSession(deps, {
       name: 'Welcome',

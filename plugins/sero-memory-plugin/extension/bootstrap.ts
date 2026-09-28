@@ -175,14 +175,13 @@ export interface BootstrapStatus {
 }
 
 /**
- * Onboarding is needed only for a profile with no identity and no memory from
- * the old plugin (a `MEMORY.md`, or the backup the conversion left).
+ * Onboarding is needed until both profile files exist, unless an older memory
+ * file (or its conversion backup) already marks the profile as set up.
  */
 export async function checkBootstrapStatus(): Promise<BootstrapStatus> {
   const root = resolveMemoryRoot();
-  const onboarded = await fileExists(getIdentityPath(root))
-    || await fileExists(getMemoryPath(root))
-    || await hasConvertedLegacyMemory();
+  const profileComplete = await fileExists(getIdentityPath(root)) && await fileExists(getUserPath(root));
+  const onboarded = profileComplete || await fileExists(getMemoryPath(root)) || await hasConvertedLegacyMemory();
   if (onboarded) return { needsBootstrap: false, existingUserContent: null };
 
   // USER.md often exists already in older setups.
@@ -205,6 +204,8 @@ export function buildBootstrapInstructions(existingUserContent: string | null): 
 
 The memory system is not yet initialised. You MUST set it up now before doing anything else.
 Use the \`questionnaire\` tool to ask the user two rounds of questions, then write the answers to the profile files.${userNote}
+
+Use \`sero memory read --target identity\` or \`sero memory read --target user\` to check a profile file. Do not use filesystem tools to read IDENTITY.md, USER.md, MEMORY.md or other managed memory files; Sero blocks that access.
 
 The questionnaire UI supports step-based multiple-choice forms, multi-select questions, and option-specific \`subQuestion\` choices. For any question that already includes predefined \`options\`, preserve those options exactly so the user gets clickable choices. Do NOT rewrite option-based questions into free-form chat. Only rely on custom text when none of the provided options fit.
 

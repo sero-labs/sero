@@ -13,7 +13,7 @@ vi.mock('../qmd-index', async (importOriginal) => ({
   refreshIndex: vi.fn(async () => undefined),
 }));
 
-import { getIdentityPath, getMemoryPath, resolveMemoryRoot } from '../memory-manager';
+import { getIdentityPath, getMemoryPath, getUserPath, resolveMemoryRoot } from '../memory-manager';
 import { releaseIndex } from '../qmd-index';
 import { RECALL_MESSAGE_TYPE } from '../recall';
 import { memoryRegistry } from '../registry';
@@ -45,6 +45,7 @@ describe('memory in a chat session', () => {
     memoryRegistry().gitChecks.clear();
     await mkdir(resolveMemoryRoot(), { recursive: true });
     await writeFile(getIdentityPath(resolveMemoryRoot()), '# Identity\n\n- **Name:** Sero\n');
+    await writeFile(getUserPath(resolveMemoryRoot()), '# User\n');
   });
 
   afterEach(async () => {

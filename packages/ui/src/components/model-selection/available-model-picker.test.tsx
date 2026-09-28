@@ -139,8 +139,9 @@ describe('AvailableModelPicker', () => {
   };
   const Picker = AvailableModelPicker as unknown as (props: PickerProps) => React.ReactElement;
 
-  function render(props: PickerProps) {
+  function render(props: PickerProps, insideDialog = false) {
     host = document.createElement('div');
+    if (insideDialog) host.setAttribute('data-slot', 'dialog-content');
     document.body.appendChild(host);
     root = createRoot(host);
     act(() => root!.render(<Picker {...props} />));
@@ -197,6 +198,21 @@ describe('AvailableModelPicker', () => {
 
     const chosen = rows().find((row) => (row.textContent ?? '').includes('Claude Fable 5'));
     expect(chosen?.getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('keeps options inside a dialog so they can receive mouse clicks', async () => {
+    const onChange = vi.fn();
+    const container = render({ groups: GROUPS, value: '', onChange }, true);
+    await openList(container);
+
+    const option = rows().find((row) => row.textContent?.includes('GPT-6 Astra'));
+    expect(option).toBeDefined();
+    expect(container.contains(option!)).toBe(true);
+    await act(async () => {
+      option!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(onChange).toHaveBeenCalledWith('openai-codex/gpt-6-astra');
   });
 
   it('narrows the rows to the typed provider', async () => {

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildBootstrapInstructions, checkBootstrapStatus, USER_QUESTIONS } from '../bootstrap';
 import { conversionPaths } from '../conversion';
-import { getIdentityPath, getMemoryPath, resolveMemoryRoot } from '../memory-manager';
+import { getIdentityPath, getMemoryPath, getUserPath, resolveMemoryRoot } from '../memory-manager';
 
 const originalSeroHome = process.env.SERO_HOME;
 
@@ -51,10 +51,13 @@ describe('bootstrap status', () => {
     await rm(seroHome, { recursive: true, force: true });
   });
 
-  it('needs onboarding only for a profile with no identity and no old memory', async () => {
+  it('keeps onboarding active until both profile files exist', async () => {
     expect((await checkBootstrapStatus()).needsBootstrap).toBe(true);
 
     await writeFile(getIdentityPath(resolveMemoryRoot()), '# Identity\n');
+    expect((await checkBootstrapStatus()).needsBootstrap).toBe(true);
+
+    await writeFile(getUserPath(resolveMemoryRoot()), '# User\n');
     expect((await checkBootstrapStatus()).needsBootstrap).toBe(false);
   });
 

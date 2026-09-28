@@ -113,6 +113,20 @@ describe('agent turn-undo message mapping', () => {
   });
 });
 
+describe('model failures in session history', () => {
+  it('keeps a model error even when the assistant has no text', () => {
+    const messages = convertSessionMessages([
+      { role: 'user', content: 'set up my memory' },
+      { role: 'assistant', content: [], stopReason: 'error', errorMessage: 'The provider rejected this model.' },
+    ] as never);
+
+    expect(messages).toEqual([
+      expect.objectContaining({ type: 'user', text: 'set up my memory' }),
+      expect.objectContaining({ type: 'assistant', text: '_Assistant error: The provider rejected this model._' }),
+    ]);
+  });
+});
+
 describe('incomplete tool history', () => {
   it('reopens a tool call without a result as running', () => {
     const messages = convertSessionMessages([{
