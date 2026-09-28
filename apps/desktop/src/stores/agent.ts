@@ -24,6 +24,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
   composerPrefills: {},
   focusedSessionId: null,
   showThinkingBlocks: false,
+  showMemoryBlocks: false,
 
   openSession: async (sessionId, sessionPath, workspaceId, runtimeBackend) => {
     notifyPreviousSessionSwitch(get().focusedSessionId, sessionId);
@@ -319,6 +320,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   toggleThinkingBlocks: () => set((s) => ({ showThinkingBlocks: !s.showThinkingBlocks })),
 
+  toggleMemoryBlocks: () => set((s) => ({ showMemoryBlocks: !s.showMemoryBlocks })),
 
   setComposerPrefill: (sessionId, prefill) =>
     set((s) => ({

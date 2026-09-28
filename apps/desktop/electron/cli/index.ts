@@ -112,6 +112,7 @@ const CORE_TOOLS_TO_BRIDGE = new Set([
   'daily_quote',
   'weight',
   'memory',
+  'memory_search',
   // Media & services
   'generate_image',
   'starling',

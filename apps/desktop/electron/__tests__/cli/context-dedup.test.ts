@@ -47,6 +47,9 @@ describe('System prompt deduplication — memory instructions', () => {
   it('memory-instructions.ts is the single source of truth for memory rules', () => {
     // The canonical rules MUST be in memory-instructions.ts
     expect(memoryInstructions).toContain('## Memory System');
+    expect(memoryInstructions).toContain('### Retrieval');
+    expect(memoryInstructions).toContain('### Storage');
+    expect(memoryInstructions).toContain('sero memory_search');
     expect(memoryInstructions).toContain('sero memory write');
   });
 
@@ -86,6 +89,7 @@ describe('System prompt deduplication — memory instructions', () => {
     // memory-instructions.ts lists them
     expect(memoryInstructions).toContain('MEMORY.md');
     expect(memoryInstructions).toContain('IDENTITY.md');
+    expect(memoryInstructions).toContain('memory/daily/');
 
     // CLI block should not list them
     expect(cliBlock).not.toContain('MEMORY.md');

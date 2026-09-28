@@ -43,6 +43,7 @@ vi.mock('./ChatAttachments', () => ({
   MessageAttachments: () => null,
 }));
 vi.mock('./ThinkingBlock', () => ({ ThinkingBlock: () => null }));
+vi.mock('./MemoryContextBlock', () => ({ MemoryContextBlock: () => null }));
 vi.mock('./ResponseFeedback', () => ({ ResponseFeedback: () => null }));
 
 import { ChatMessageItem } from './ChatMessageItem';

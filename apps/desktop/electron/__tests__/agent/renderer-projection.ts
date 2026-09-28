@@ -53,6 +53,7 @@ export function createRendererHarness(sessionId: string): RendererHarness {
     composerPrefills: {},
     focusedSessionId: null,
     showThinkingBlocks: true,
+    showMemoryBlocks: true,
   } as unknown as AgentState;
 
   const set = (updater: (current: AgentState) => AgentState | Partial<AgentState>) => {
