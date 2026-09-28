@@ -10,8 +10,8 @@ Sero monorepo unless you port its complete manifest to published dependencies:
 Use this index to find the smallest relevant example.
 
 For an external repository, use the maintained
-[Kanban starter](https://github.com/sero-labs/sero-kanban-plugin) and its
-[setup guide](https://github.com/sero-labs/sero-kanban-plugin/blob/main/README.md).
+[Signal Desk plugin](https://github.com/sero-labs/sero-signal-desk-plugin) and its
+[setup guide](https://github.com/sero-labs/sero-signal-desk-plugin/blob/main/README.md).
 
 | Task | File |
 | --- | --- |

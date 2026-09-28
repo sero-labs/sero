@@ -36,7 +36,6 @@ Built-in plugins can appear in app discovery or favorites. External plugins do n
 | Plugin | Package | Status | Source | Docs | Requirements and scope |
 | --- | --- | --- | --- | --- | --- |
 | Google | `@sero-ai/plugin-google` | External | `git:https://github.com/sero-labs/sero-google-plugin.git` | [Docs](/plugins/google) | Gmail and Calendar through `gogcli`; OAuth credentials required. |
-| Kanban | `@sero-ai/plugin-kanban` | Deprecated | `git:https://github.com/sero-labs/sero-kanban-plugin.git` | [Docs](/plugins/kanban) | Development board with Git workflow actions. |
 | Notes | `@sero-ai/plugin-notes` | External | `git:https://github.com/sero-labs/sero-notes-plugin.git` | [Docs](/plugins/notes) | Global note-taking app and tool. |
 | Todo | `@sero-ai/todo-plugin` | External | `git:https://github.com/sero-labs/sero-todo-plugin.git` | [Docs](/plugins/todo) | Task app and Pi extension. |
 | Research | `@sero-ai/plugin-research` | External | `git:https://github.com/sero-labs/sero-research-plugin.git` | [Docs](/plugins/research) | Multi-agent research orchestration. |

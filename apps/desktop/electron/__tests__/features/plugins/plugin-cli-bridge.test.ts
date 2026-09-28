@@ -92,32 +92,32 @@ describe('plugin CLI bridging', () => {
     expect(getCliRegistry().get('plugin_all_default')).toBeTruthy();
   });
 
-  it('bridges kanban when the plugin manifest explicitly owns the CLI bridge', async () => {
-    const pluginDir = path.join(tmpDir, 'plugin-kanban');
+  it('bridges a plugin tool when the plugin manifest explicitly owns the CLI bridge', async () => {
+    const pluginDir = path.join(tmpDir, 'plugin-signal-desk');
     const extensionPath = path.join(pluginDir, 'extension', 'index.js');
     await mkdir(path.dirname(extensionPath), { recursive: true });
     await writeFile(extensionPath, 'export default {}\n', 'utf8');
     await writeFile(
       path.join(pluginDir, 'package.json'),
       JSON.stringify({
-        name: '@test/plugin-kanban',
+        name: '@test/plugin-signal-desk',
         version: '1.0.0',
         sero: {
           plugin: {
             category: 'productivity',
             tags: [],
-            bridgeTools: ['kanban'],
+            bridgeTools: ['signal_desk'],
           },
         },
       }, null, 2),
       'utf8',
     );
 
-    const base = createLoadExtensionsResult(extensionPath, ['kanban']);
+    const base = createLoadExtensionsResult(extensionPath, ['signal_desk']);
     bridgeExtensionTools(base);
 
-    expect(base.extensions[0]?.tools.has('kanban')).toBe(false);
-    expect(getCliRegistry().get('kanban')).toBeTruthy();
+    expect(base.extensions[0]?.tools.has('signal_desk')).toBe(false);
+    expect(getCliRegistry().get('signal_desk')).toBeTruthy();
   });
 
   it('does not bridge plugin tools when sero.plugin.bridgeTools is false', async () => {

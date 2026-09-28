@@ -22,7 +22,7 @@ import os from 'os';
 let tmpDir: string;
 
 beforeEach(async () => {
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'kanban-verify-'));
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'workspace-verify-'));
 });
 
 afterEach(async () => {

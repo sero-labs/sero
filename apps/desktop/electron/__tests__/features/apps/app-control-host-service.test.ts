@@ -53,11 +53,11 @@ describe('appControlHostService', () => {
     mocks.executeJavaScript
       .mockResolvedValueOnce(true)
       .mockResolvedValueOnce('explorer')
-      .mockResolvedValueOnce('kanban')
+      .mockResolvedValueOnce('signal-desk')
       .mockResolvedValueOnce({ x: 0, y: 0, width: 320, height: 180 });
 
     const { appControlHostService } = await import('@electron/features/apps/app-control/host-service');
-    const opened = await appControlHostService.openAndWait('kanban', {
+    const opened = await appControlHostService.openAndWait('signal-desk', {
       requireVisiblePanel: true,
       pollMs: 0,
       timeoutMs: 100,
@@ -66,7 +66,7 @@ describe('appControlHostService', () => {
     expect(opened).toBe(true);
     expect(mocks.executeJavaScript).toHaveBeenNthCalledWith(
       1,
-      'window.__appControl?.openApp("kanban", undefined) ?? false',
+      'window.__appControl?.openApp("signal-desk", undefined) ?? false',
     );
     expect(mocks.executeJavaScript).toHaveBeenNthCalledWith(
       4,

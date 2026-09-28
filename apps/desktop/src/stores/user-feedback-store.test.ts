@@ -115,11 +115,11 @@ describe('useUserFeedbackStore', () => {
   function setApps(userFeedbackManifest: SeroAppManifest | null = null) {
     useAppStore.setState({
       ...initialAppState,
-      activeApp: 'kanban',
+      activeApp: 'signal-desk',
       pendingApp: null,
       apps: [
         createApp('explorer', 'Explorer', { builtin: true }),
-        createApp('kanban', 'Kanban'),
+        createApp('signal-desk', 'Signal Desk'),
         createApp('userfeedback', 'User Feedback', { manifest: userFeedbackManifest }),
       ],
     }, true);
@@ -186,11 +186,11 @@ describe('useUserFeedbackStore', () => {
     emitQuestion(createQuestion('questionnaire-1'));
 
     expect(useAppStore.getState().activeApp).toBe('userfeedback');
-    expect(useUserFeedbackStore.getState().returnApp).toBe('kanban');
+    expect(useUserFeedbackStore.getState().returnApp).toBe('signal-desk');
 
     emitAnswered('questionnaire-1');
 
-    expect(useAppStore.getState().activeApp).toBe('kanban');
+    expect(useAppStore.getState().activeApp).toBe('signal-desk');
     expect(useAppStore.getState().pendingApp).toBeNull();
     expect(useUserFeedbackStore.getState().returnApp).toBeNull();
     expect(useUserFeedbackStore.getState().pending.size).toBe(0);
@@ -203,12 +203,12 @@ describe('useUserFeedbackStore', () => {
     emitAnswered('questionnaire-1');
 
     expect(useAppStore.getState().activeApp).toBe('userfeedback');
-    expect(useUserFeedbackStore.getState().returnApp).toBe('kanban');
+    expect(useUserFeedbackStore.getState().returnApp).toBe('signal-desk');
     expect(useUserFeedbackStore.getState().pending.size).toBe(1);
 
     emitCancel('interview-1');
 
-    expect(useAppStore.getState().activeApp).toBe('kanban');
+    expect(useAppStore.getState().activeApp).toBe('signal-desk');
     expect(useUserFeedbackStore.getState().returnApp).toBeNull();
     expect(useUserFeedbackStore.getState().pending.size).toBe(0);
   });
@@ -235,19 +235,19 @@ describe('useUserFeedbackStore', () => {
 
     emitQuestion(createQuestion('questionnaire-1'));
 
-    expect(useAppStore.getState().activeApp).toBe('kanban');
+    expect(useAppStore.getState().activeApp).toBe('signal-desk');
     expect(useAppStore.getState().pendingApp).toBe('userfeedback');
 
     emitAnswered('questionnaire-1');
 
-    expect(useAppStore.getState().activeApp).toBe('kanban');
+    expect(useAppStore.getState().activeApp).toBe('signal-desk');
     expect(useAppStore.getState().pendingApp).toBeNull();
     expect(useUserFeedbackStore.getState().returnApp).toBeNull();
 
     federationMocks.resolve();
     await federationMocks.wait();
 
-    expect(useAppStore.getState().activeApp).toBe('kanban');
+    expect(useAppStore.getState().activeApp).toBe('signal-desk');
     expect(useAppStore.getState().pendingApp).toBeNull();
   });
 });

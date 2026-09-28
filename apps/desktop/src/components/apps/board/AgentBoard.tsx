@@ -1,5 +1,5 @@
 /**
- * Agent Board - profile-wide kanban of all agent work across workspaces.
+ * Agent Board - profile-wide board of all agent work across workspaces.
  * Four columns: Backlog · Active ·
  * Needs Attention · Finished. Reads are push-only (watched files + agent
  * events); the columns recompute on state change, never on a timer.

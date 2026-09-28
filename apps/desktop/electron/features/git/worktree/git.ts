@@ -304,6 +304,6 @@ async function ensureGitignore(worktreePath: string): Promise<void> {
   if (missing.length === 0) return;
 
   const separator = existing && !existing.endsWith('\n') ? '\n' : '';
-  const additions = `${separator}# Auto-added by kanban orchestrator\n${missing.join('\n')}\n`;
+  const additions = `${separator}# Auto-added by Sero\n${missing.join('\n')}\n`;
   await fs.writeFile(gitignorePath, existing + additions, 'utf8');
 }

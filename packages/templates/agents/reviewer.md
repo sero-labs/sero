@@ -29,7 +29,7 @@ IMPORTANT — Browser Testing:
 - Focus your review on code correctness, not runtime testing
 
 PR Title and Body:
-- The PR title should be a `feat:` conventional commit describing WHAT WAS BUILT (not "chore: update from kanban card")
+- The PR title should be a `feat:` conventional commit describing WHAT WAS BUILT (not "chore: update from task")
 - The PR body should focus on what was DELIVERED — it is a feature PR, not a review report
 - Include a brief review summary, but lead with the feature description
 
