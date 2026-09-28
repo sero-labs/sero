@@ -8,6 +8,8 @@ Use Sero evals when you need a structured signal about prompt assembly or agent 
 | --- | --- | --- |
 | `pnpm eval:snapshot` | Prompt assembly and cache drift checks | No live model calls. |
 | `pnpm eval:file-tools` | Runtime file-edit behavior and batching metrics | Requires credentials and may cost money. |
+| `pnpm eval:memory-save` | Whether the agent saves the right memories in a conversation | Requires credentials and may cost money. |
+| `pnpm eval:memory-search` | Memory recall hit rate and false-hit rate per threshold | No LLM calls. Hybrid mode uses the local embedding model. |
 | `pnpm eval` | Full promptfoo eval against real providers | Requires credentials and may cost money. |
 | `pnpm eval:view` | Inspect saved promptfoo results | No new model calls. |
 
@@ -40,6 +42,33 @@ Run them before releases, after model or SDK upgrades, or when you change agent
 behavior. Current GitHub workflows do not run `pnpm eval` or
 `pnpm eval:snapshot`.
 
+## Memory evals and report
+
+The memory checks are reports, not build gates. Use them when you change the
+memory instructions, the save rules, recall scoring or the recall thresholds.
+
+```bash
+DEEPSEEK_API_KEY=... pnpm eval:memory-save
+pnpm eval:memory-search
+node scripts/memory-metrics-report.mjs
+```
+
+- `pnpm eval:memory-save` plays fixed conversations in a real session with
+  the memory plugin. Each conversation has known save-worthy moments: a
+  correction, a preference, a decision with a reason, a surprise, and one
+  conversation with nothing to save. The report lists the moments the agent
+  saved, the moments it missed, and saves that were noise. Use DeepSeek flash
+  or `openai-codex/gpt-5.6-luna` on the OpenAI subscription.
+- `pnpm eval:memory-search` scores fixed queries against fixed memories with
+  the plugin's own search. It reports the hit rate and false-hit rate for a
+  range of thresholds, in keyword mode and in hybrid mode. The recall
+  thresholds in the memory settings come from this report.
+- `node scripts/memory-metrics-report.mjs` summarises the live metrics that
+  the memory plugin writes during normal use: saves, recalls, empty turns,
+  misses, pinned-rule breaks, tidy-up changes and restores. It reads
+  `<SERO_HOME>/debug/memory/`. Add `--from` and `--to` (`YYYY-MM-DD`) for a
+  date range, `--dir` for another folder, or `--json` for machine output.
+
 ## Inspect results
 
 ```bash
@@ -57,6 +86,8 @@ This opens Promptfoo's local result viewer so you can compare pass/fail history,
 | `eval/scenarios/coding-tasks.yaml` | Real LLM | React/TypeScript generation, null-safety fixes, utility generation. |
 | `eval/scenarios/cli-ops.yaml` | Real LLM | Agent preference for `sero-cli`, workspace info, batch commands, VCS status. |
 | `eval/scenarios/file-edits.yaml` | Real LLM (runtime file tools) | Targeted edits, a block move, ambiguous text, failure recovery, and whole-file replacement. |
+| `eval/promptfoo-memory-save.yaml` | Real LLM | Memory saves for a correction, a preference, a decision, a surprise, and a conversation with nothing to save. |
+| `eval/promptfoo-memory-search.yaml` | Offline | Memory recall hit rate and false-hit rate at each threshold, in keyword and hybrid mode. |
 
 ## Interpreting failures
 
@@ -65,6 +96,8 @@ This opens Promptfoo's local result viewer so you can compare pass/fail history,
 - **Prompt grew too much** — remove accidental verbosity or update the baseline only for intentional growth.
 - **Real eval tool sequence failed** — inspect tool metadata; the agent may have used raw tools instead of the expected platform tool.
 - **LLM rubric failed** — read the output before assuming product code is broken; rubrics can be noisy.
+- **Memory save eval reports a miss or noise** — read the saved entries in the report; the save rules live in the memory plugin's instructions.
+- **Memory search eval fails at the default threshold** — a scoring change moved hits below the threshold or false hits above it; re-read the report rows before you change a threshold.
 - **Auth/provider failure** — check `ANTHROPIC_API_KEY` or profile auth state.
 
 ## Related docs
