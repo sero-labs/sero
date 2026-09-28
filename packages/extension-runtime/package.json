@@ -33,7 +33,7 @@
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "tsx": "^4.23.12"
+    "tsx": "^4.23.15"
   },
   "peerDependenciesMeta": {
     "@earendil-works/pi-agent-core": {
