@@ -1,7 +1,21 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+// session_start writes the state file in the background, after it reads the
+// browser's cookie store, and does not wait. Those writes would race the temp
+// folder cleanup, and this test is about the in-memory result store.
+vi.mock('../state-sync.js', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../state-sync.js')>(),
+  syncFromSession: vi.fn(async () => undefined),
+  updateProviderInfo: vi.fn(async () => undefined),
+}));
+vi.mock('../gemini-web.js', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../gemini-web.js')>(),
+  isGeminiWebAvailable: vi.fn(async () => null),
+}));
+
 import webExtension from '../index';
 import { clearResults, getResult, storeResult } from '../storage';
 
