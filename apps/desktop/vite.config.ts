@@ -12,7 +12,7 @@ const isDev = process.env.NODE_ENV !== 'production';
 // SERO_DEV_PLUGINS controls which plugin remotes get dev servers (HMR, live reload).
 // Unset / ""     → no plugins run in dev mode (all use pre-built bundles)
 // "all"          → every plugin runs in dev mode
-// "admin,kanban" → only listed plugins run in dev mode
+// "admin,research" → only listed plugins run in dev mode
 // Keep in sync with the equivalent filter in electron/app-discovery.ts (Electron main process).
 const devPluginsEnv = process.env.SERO_DEV_PLUGINS?.trim();
 const devPluginsFilter: Set<string> | 'all' =

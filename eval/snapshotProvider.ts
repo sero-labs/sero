@@ -229,7 +229,7 @@ Use \`sero-cli\` for Sero platform actions instead of asking the user to do them
 ${sections.join('\n')}
 
 Run \`sero help <command>\` for details. Chain multiple commands (one per line).
-**Before calling any command that takes JSON parameters (e.g. \`question\`, \`questionnaire\`, \`interview\`, \`kanban\`), run \`sero help <command>\` first to check the exact schema.**
+**Before calling any command that takes JSON parameters (e.g. \`question\`, \`questionnaire\`, \`interview\`), run \`sero help <command>\` first to check the exact schema.**
 
 For \`sero app\`: run \`sero help app\` first. Use \`app click <selector>\` or \`app click --x <n> --y <n>\` (coordinates relative to the active app screenshot). \`app type\` only works for text inputs/contenteditable. No \`app press\` command — use coordinate clicks.
 `;
@@ -314,7 +314,6 @@ export default class SnapshotProvider implements ApiProvider {
         { name: 'notes', summary: 'Manage notes', group: 'Apps' },
         { name: 'memory', summary: 'Long-term memory', group: 'Apps' },
         { name: 'scratchpad', summary: 'Workspace scratchpad', group: 'Apps' },
-        { name: 'kanban', summary: 'Kanban board', group: 'Apps' },
         { name: 'cron', summary: 'Scheduled tasks', group: 'Apps' },
         { name: 'reminder', summary: 'Set reminders', group: 'Apps' },
         { name: 'current_time', summary: 'Current time', group: 'Apps' },

@@ -201,7 +201,7 @@ test('intake creates the workspace, the grant is approved, and the owner receive
     .not.toBeNull();
   const commands = (/\[persistent-sessions\] owner commands: ([^\n]*)/.exec(mainLog)?.[1] ?? '').split(' (from')[0]!.split(',').map((c) => c.trim());
   expect(commands).toContain('architect');
-  for (const foreign of ['orchestrator', 'rooms', 'room', 'goal', 'goals', 'kanban', 'notes', 'todo']) {
+  for (const foreign of ['orchestrator', 'rooms', 'room', 'goal', 'goals', 'notes', 'todo']) {
     expect(commands).not.toContain(foreign);
   }
 

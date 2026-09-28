@@ -8,7 +8,7 @@ plugin that exercises **every** surface a Sero plugin can ship.
 > and catalog-managed shared versions — so it drops into
 > `plugins/sero-<name>-plugin/` and typechecks immediately after `pnpm install`.
 > For **external** plugins that consume published `@sero-ai/*` packages instead, use
-> [`sero-kanban-plugin`](https://github.com/sero-labs/sero-kanban-plugin)
+> [`sero-signal-desk-plugin`](https://github.com/sero-labs/sero-signal-desk-plugin)
 > as the reference and read `apps/docs-site/docs/reference/plugin-quickstart.md`.
 
 ## File map

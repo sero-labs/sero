@@ -17,12 +17,11 @@ The `/todos` command shows the list in chat. Task changes in the app and agent u
 <workspace>/.sero/apps/todo/state.json
 ```
 
-Todo does not create calendar reminders, schedules, Git issues, or Kanban cards. Clearing completed tasks removes them from Todo state. Keep a separate record if you need task history.
+Todo does not create calendar reminders, schedules, or Git issues. Clearing completed tasks removes them from Todo state. Keep a separate record if you need task history.
 
 If tasks appear to be missing, confirm that you opened the expected workspace. Do not copy `state.json` into a different workspace while Sero is writing to it.
 
 ## Related docs
 
-- [Kanban Plugin](/plugins/kanban)
 - [Plugin Catalog](/plugins/catalog)
 - [Security / Privacy](/reference/security-privacy)

@@ -47,7 +47,6 @@ describe('CLI prompt block', () => {
     expect(prompt).toContain('sero help <command>');
     expect(prompt).toContain('JSON parameters');
     expect(prompt).toContain('exact schema');
-    expect(prompt).not.toContain('`kanban`');
   });
 
   it('includes direct app interaction guidance', () => {

@@ -37,10 +37,10 @@ describe('CLI session runtime bridge', () => {
     });
 
     const registry = new CliRegistry();
-    registry.register(bridgeTool('kanban', {
-      name: 'kanban',
-      label: 'Kanban',
-      description: 'Manage the kanban board.',
+    registry.register(bridgeTool('signal_desk', {
+      name: 'signal_desk',
+      label: 'Signal Desk',
+      description: 'Manage the signal desk feed.',
       parameters: Type.Object({ action: Type.String() }),
       execute: async (_toolCallId, _params, _signal, _onUpdate, ctx) => {
         const runtime = (ctx as ExtensionContext & { sessionRuntime?: CliSessionRuntime }).sessionRuntime;
@@ -55,7 +55,7 @@ describe('CLI session runtime bridge', () => {
     const tool = createSeroCliTool(registry, 'ws-1', 'session-1');
     const result = await tool.execute(
       'tool-1',
-      { command: 'kanban brainstorm' },
+      { command: 'signal_desk brainstorm' },
       undefined,
       undefined,
       { cwd: '/tmp/ws-1' } as never,
@@ -88,19 +88,19 @@ describe('CLI session runtime bridge', () => {
     });
 
     const registry = new CliRegistry();
-    registry.register(bridgeTool('kanban', {
-      name: 'kanban',
-      label: 'Kanban',
-      description: 'Manage the kanban board.',
+    registry.register(bridgeTool('signal_desk', {
+      name: 'signal_desk',
+      label: 'Signal Desk',
+      description: 'Manage the signal desk feed.',
       parameters: Type.Object({ action: Type.String() }),
       execute: async (_toolCallId, _params, _signal, _onUpdate, ctx) => {
         const runtime = (ctx as ExtensionContext & { sessionRuntime?: CliSessionRuntime }).sessionRuntime;
         await runtime?.sendMessage(
           {
-            customType: 'kanban-status',
+            customType: 'signal-desk-status',
             content: 'Retrospective queued',
             display: true,
-            details: { source: 'kanban' },
+            details: { source: 'signal_desk' },
           },
           { triggerTurn: false, deliverAs: 'followUp' },
         );
@@ -114,7 +114,7 @@ describe('CLI session runtime bridge', () => {
     const tool = createSeroCliTool(registry, 'ws-1', 'session-1');
     await tool.execute(
       'tool-1',
-      { command: 'kanban retrospective' },
+      { command: 'signal_desk retrospective' },
       undefined,
       undefined,
       { cwd: '/tmp/ws-1' } as never,
@@ -122,10 +122,10 @@ describe('CLI session runtime bridge', () => {
 
     expect(sendCustomMessage).toHaveBeenCalledWith(
       {
-        customType: 'kanban-status',
+        customType: 'signal-desk-status',
         content: 'Retrospective queued',
         display: true,
-        details: { source: 'kanban' },
+        details: { source: 'signal_desk' },
       },
       { triggerTurn: false, deliverAs: 'followUp' },
     );

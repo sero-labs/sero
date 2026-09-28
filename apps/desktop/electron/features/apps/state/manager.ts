@@ -62,7 +62,7 @@ export class AppStateManager {
 
   /**
    * Register a listener for file change events (from fs.watch).
-   * Used by the kanban orchestrator to react to state changes
+   * Used by plugin runtimes and bridges to react to state changes
    * from ANY source (extension direct writes, IPC writes, etc.).
    */
   onFileChange(listener: ChangeListener): () => void {
@@ -340,7 +340,7 @@ export class AppStateManager {
 
   private pushChange(filePath: string, data: unknown, etag: string | null): void {
     broadcastToWindows(IpcChannels.appState.change, filePath, data, etag);
-    // Notify registered listeners (e.g. kanban orchestrator)
+    // Notify registered listeners (e.g. plugin runtimes)
     for (const listener of this.changeListeners) {
       try {
         listener(filePath, data, etag);

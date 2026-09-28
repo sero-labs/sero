@@ -18,7 +18,7 @@ describe('extractStatusPath', () => {
 
 describe('isIgnoredWorkspaceStatusPath', () => {
   it('ignores Sero orchestration state paths', () => {
-    expect(isIgnoredWorkspaceStatusPath('.sero/apps/kanban/state.json')).toBe(true);
+    expect(isIgnoredWorkspaceStatusPath('.sero/apps/signal-desk/state.json')).toBe(true);
     expect(isIgnoredWorkspaceStatusPath('.sero/worktrees/card-3/src/App.tsx')).toBe(true);
   });
 
@@ -83,7 +83,7 @@ describe('syncWorkspaceRootToDefaultBranch', () => {
     expect(result).toMatchObject({ synced: true, branch: 'main', headChanged: false });
   });
 
-  it('skips sync when non-kanban workspace files are dirty', async () => {
+  it('skips sync when other workspace files are dirty', async () => {
     const commands: string[] = [];
     const runner = {
       async run(_workspacePath: string, args: string[]) {

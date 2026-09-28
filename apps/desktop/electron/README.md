@@ -7,7 +7,7 @@ electron/
 ├── main.ts        # Electron main-process entrypoint
 ├── preload.ts     # Thin renderer bridge entrypoint
 ├── platform/      # Electron/runtime/bootstrap/security/protocol concerns
-├── features/      # Product domains (workspace, apps, container, gateway, kanban, etc.)
+├── features/      # Product domains (workspace, apps, container, gateway, etc.)
 ├── shared/        # Cross-feature helpers and infra singletons
 ├── ipc/           # Main-process IPC adapters grouped by domain
 ├── preload/       # Preload bridge modules grouped by domain

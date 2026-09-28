@@ -331,7 +331,7 @@ export class WorktreeManager {
   }
 
   /**
-   * List all active kanban worktrees in a workspace.
+   * List all active card worktrees in a workspace.
    */
   async list(workspacePath: string): Promise<WorktreeInfo[]> {
     try {
@@ -349,7 +349,7 @@ export class WorktreeManager {
 
         if (!wtPath || !branch) continue;
 
-        // Only include our kanban worktrees
+        // Only include worktrees this manager created
         const dirName = path.basename(wtPath);
         if (!dirName.startsWith('card-')) continue;
 

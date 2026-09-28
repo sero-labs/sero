@@ -1,8 +1,8 @@
 # Plugin Quickstart
 
 Build an external plugin from the maintained
-[Kanban starter](https://github.com/sero-labs/sero-kanban-plugin). Follow its
-[setup and install guide](https://github.com/sero-labs/sero-kanban-plugin/blob/main/README.md).
+[Signal Desk plugin](https://github.com/sero-labs/sero-signal-desk-plugin). Follow its
+[setup and install guide](https://github.com/sero-labs/sero-signal-desk-plugin/blob/main/README.md).
 Its manifest uses published dependencies and can run outside this monorepo.
 
 The Notes example includes a React UI, a Pi extension, shared state, a
@@ -15,7 +15,7 @@ The example is for a plugin inside the Sero monorepo:
 - [`packages/templates/skills/sero-plugin/example/sero-notes-plugin/`](https://github.com/sero-labs/sero/tree/main/packages/templates/skills/sero-plugin/example/sero-notes-plugin)
 - [example file map and instructions](https://github.com/sero-labs/sero/blob/main/packages/templates/skills/sero-plugin/example/README.md)
 
-For a separate repository, start with Kanban. Use Notes only when you need its
+For a separate repository, start with Signal Desk. Use Notes only when you need its
 additional surfaces. At the time of this documentation, `@sero-ai/app-runtime`
 is `0.4.0` and `@sero-ai/plugin-vite` is `0.1.1`. Check the npm registry before
 you select versions for a new plugin.

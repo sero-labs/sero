@@ -48,12 +48,12 @@ describe('Tool bridge policy', () => {
     resetCliRegistryForTests();
   });
 
-  it('does not bridge kanban without plugin manifest policy', () => {
-    const ext = makeExtResult([makeTool('kanban')]);
+  it('does not bridge a plugin tool without plugin manifest policy', () => {
+    const ext = makeExtResult([makeTool('signal_desk')]);
     const result = bridgeExtensionTools(ext);
 
-    expect(result.extensions[0]!.tools.has('kanban')).toBe(true);
-    expect(getCliRegistry().get('kanban')).toBeFalsy();
+    expect(result.extensions[0]!.tools.has('signal_desk')).toBe(true);
+    expect(getCliRegistry().get('signal_desk')).toBeFalsy();
   });
 
   it('bridges create_agent tool (moved to CORE_TOOLS_TO_BRIDGE)', () => {

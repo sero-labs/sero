@@ -101,12 +101,12 @@ describe('workspace clone action', () => {
     useWorkspaceStore.setState({ activeWorkspaceId: 'existing' });
     useAppStore.setState({
       ...initialAppState,
-      activeApp: 'kanban',
-      apps: [{ id: 'kanban', label: 'Kanban', icon: 'box', builtin: false, manifest: null }],
-      appViewIds: { kanban: { 'new-repo': 'board/card-1' } },
+      activeApp: 'signal-desk',
+      apps: [{ id: 'signal-desk', label: 'Signal Desk', icon: 'box', builtin: false, manifest: null }],
+      appViewIds: { 'signal-desk': { 'new-repo': 'board/card-1' } },
     }, true);
     useNavigationStore.setState({
-      entries: [{ appId: 'kanban', viewId: 'board/card-0', workspaceId: 'existing' }],
+      entries: [{ appId: 'signal-desk', viewId: 'board/card-0', workspaceId: 'existing' }],
       index: 0,
     });
 
@@ -115,8 +115,8 @@ describe('workspace clone action', () => {
     // The active app stays open, so one Back must reach the page it left.
     expect(useNavigationStore.getState()).toMatchObject({
       entries: [
-        { appId: 'kanban', viewId: 'board/card-0', workspaceId: 'existing' },
-        { appId: 'kanban', viewId: 'board/card-1', workspaceId: 'new-repo' },
+        { appId: 'signal-desk', viewId: 'board/card-0', workspaceId: 'existing' },
+        { appId: 'signal-desk', viewId: 'board/card-1', workspaceId: 'new-repo' },
       ],
       index: 1,
     });

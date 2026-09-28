@@ -26,11 +26,11 @@ describe('openApp', () => {
   beforeEach(() => {
     useAppStore.setState({
       ...initialAppState,
-      activeApp: 'kanban',
+      activeApp: 'signal-desk',
       pendingApp: null,
       apps: [
         createApp('explorer', 'Explorer', true),
-        createApp('kanban', 'Kanban'),
+        createApp('signal-desk', 'Signal Desk'),
         createApp('todo', 'Todo'),
         createApp('userfeedback', 'User Feedback'),
       ],
@@ -57,7 +57,7 @@ describe('openApp', () => {
     openApp('userfeedback');
 
     expect(useAppStore.getState().activeApp).toBe('userfeedback');
-    expect(useUserFeedbackStore.getState().returnApp).toBe('kanban');
+    expect(useUserFeedbackStore.getState().returnApp).toBe('signal-desk');
   });
 
   it('prefers the in-flight app switch as the return target', () => {
@@ -115,32 +115,32 @@ describe('openApp', () => {
   });
 
   it('uses the first published app view to complete its history entry', () => {
-    useNavigationStore.setState({ entries: [{ appId: 'kanban' }], index: 0 });
+    useNavigationStore.setState({ entries: [{ appId: 'signal-desk' }], index: 0 });
 
-    useAppStore.getState().setAppView('kanban', 'global', 'board/card-1');
+    useAppStore.getState().setAppView('signal-desk', 'global', 'board/card-1');
 
     expect(useNavigationStore.getState()).toMatchObject({
-      entries: [{ appId: 'kanban', viewId: 'board/card-1' }],
+      entries: [{ appId: 'signal-desk', viewId: 'board/card-1' }],
       index: 0,
     });
   });
 
   it('moves back between views inside the active app', () => {
     useAppStore.setState({
-      appViewIds: { kanban: { global: 'board/card-2' } },
+      appViewIds: { 'signal-desk': { global: 'board/card-2' } },
     });
     useNavigationStore.setState({
       entries: [
-        { appId: 'kanban', viewId: 'board/card-1' },
-        { appId: 'kanban', viewId: 'board/card-2' },
+        { appId: 'signal-desk', viewId: 'board/card-1' },
+        { appId: 'signal-desk', viewId: 'board/card-2' },
       ],
       index: 1,
     });
 
     navigateBack();
 
-    expect(useAppStore.getState().activeApp).toBe('kanban');
-    expect(useAppStore.getState().appViewIds.kanban?.global).toBe('board/card-1');
+    expect(useAppStore.getState().activeApp).toBe('signal-desk');
+    expect(useAppStore.getState().appViewIds['signal-desk']?.global).toBe('board/card-1');
     expect(useNavigationStore.getState().index).toBe(0);
   });
 
@@ -157,16 +157,16 @@ describe('openApp', () => {
 
   it('replaces history for secondary app selections', () => {
     useNavigationStore.setState({
-      entries: [{ appId: 'kanban', viewId: 'rooms/room-1' }],
+      entries: [{ appId: 'signal-desk', viewId: 'rooms/room-1' }],
       index: 0,
     });
 
-    useAppStore.getState().setAppView('kanban', 'global', 'rooms/room-1?member=member-2', {
+    useAppStore.getState().setAppView('signal-desk', 'global', 'rooms/room-1?member=member-2', {
       replaceHistory: true,
     });
 
     expect(useNavigationStore.getState()).toMatchObject({
-      entries: [{ appId: 'kanban', viewId: 'rooms/room-1?member=member-2' }],
+      entries: [{ appId: 'signal-desk', viewId: 'rooms/room-1?member=member-2' }],
       index: 0,
     });
   });
@@ -180,12 +180,12 @@ describe('openApp', () => {
       ],
     });
     useAppStore.setState({
-      appViewIds: { kanban: { 'workspace-2': 'rooms/room-2' } },
+      appViewIds: { 'signal-desk': { 'workspace-2': 'rooms/room-2' } },
     });
     useNavigationStore.setState({
       entries: [
-        { appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-1' },
-        { appId: 'kanban', viewId: 'rooms/room-2', workspaceId: 'workspace-2' },
+        { appId: 'signal-desk', viewId: 'rooms/room-1', workspaceId: 'workspace-1' },
+        { appId: 'signal-desk', viewId: 'rooms/room-2', workspaceId: 'workspace-2' },
       ],
       index: 1,
     });
@@ -196,8 +196,8 @@ describe('openApp', () => {
     expect(useWorkspaceStore.getState().activeWorkspaceId).toBe('workspace-1');
     expect(useNavigationStore.getState()).toMatchObject({
       entries: [
-        { appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-1' },
-        { appId: 'kanban', viewId: 'rooms/room-2', workspaceId: 'workspace-2' },
+        { appId: 'signal-desk', viewId: 'rooms/room-1', workspaceId: 'workspace-1' },
+        { appId: 'signal-desk', viewId: 'rooms/room-2', workspaceId: 'workspace-2' },
       ],
       index: 0,
     });
@@ -206,8 +206,8 @@ describe('openApp', () => {
     switchWorkspace('workspace-2');
     expect(useNavigationStore.getState()).toMatchObject({
       entries: [
-        { appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-1' },
-        { appId: 'kanban', viewId: 'rooms/room-2', workspaceId: 'workspace-2' },
+        { appId: 'signal-desk', viewId: 'rooms/room-1', workspaceId: 'workspace-1' },
+        { appId: 'signal-desk', viewId: 'rooms/room-2', workspaceId: 'workspace-2' },
       ],
       index: 1,
     });
@@ -216,10 +216,10 @@ describe('openApp', () => {
   it('records the app page in the new workspace as a step when the workspace switches', () => {
     useWorkspaceStore.setState({ activeWorkspaceId: 'workspace-1' });
     useAppStore.setState({
-      appViewIds: { kanban: { 'workspace-2': 'rooms/room-2' } },
+      appViewIds: { 'signal-desk': { 'workspace-2': 'rooms/room-2' } },
     });
     useNavigationStore.setState({
-      entries: [{ appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-1' }],
+      entries: [{ appId: 'signal-desk', viewId: 'rooms/room-1', workspaceId: 'workspace-1' }],
       index: 0,
     });
 
@@ -228,8 +228,8 @@ describe('openApp', () => {
     expect(useWorkspaceStore.getState().activeWorkspaceId).toBe('workspace-2');
     expect(useNavigationStore.getState()).toMatchObject({
       entries: [
-        { appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-1' },
-        { appId: 'kanban', viewId: 'rooms/room-2', workspaceId: 'workspace-2' },
+        { appId: 'signal-desk', viewId: 'rooms/room-1', workspaceId: 'workspace-1' },
+        { appId: 'signal-desk', viewId: 'rooms/room-2', workspaceId: 'workspace-2' },
       ],
       index: 1,
     });
@@ -238,14 +238,14 @@ describe('openApp', () => {
   it('does nothing when the workspace is already active', () => {
     useWorkspaceStore.setState({ activeWorkspaceId: 'workspace-2' });
     useNavigationStore.setState({
-      entries: [{ appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-2' }],
+      entries: [{ appId: 'signal-desk', viewId: 'rooms/room-1', workspaceId: 'workspace-2' }],
       index: 0,
     });
 
     switchWorkspace('workspace-2');
 
     expect(useNavigationStore.getState()).toMatchObject({
-      entries: [{ appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-2' }],
+      entries: [{ appId: 'signal-desk', viewId: 'rooms/room-1', workspaceId: 'workspace-2' }],
       index: 0,
     });
   });
@@ -253,19 +253,19 @@ describe('openApp', () => {
   it('records a step when a same-app open moves to another workspace', () => {
     useWorkspaceStore.setState({ activeWorkspaceId: 'workspace-1' });
     useAppStore.setState({
-      appViewIds: { kanban: { 'workspace-2': 'rooms/room-2' } },
+      appViewIds: { 'signal-desk': { 'workspace-2': 'rooms/room-2' } },
     });
     useNavigationStore.setState({
-      entries: [{ appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-1' }],
+      entries: [{ appId: 'signal-desk', viewId: 'rooms/room-1', workspaceId: 'workspace-1' }],
       index: 0,
     });
 
-    selectWorkspaceForApp('kanban', 'workspace-2');
+    selectWorkspaceForApp('signal-desk', 'workspace-2');
 
     expect(useNavigationStore.getState()).toMatchObject({
       entries: [
-        { appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-1' },
-        { appId: 'kanban', viewId: 'rooms/room-2', workspaceId: 'workspace-2' },
+        { appId: 'signal-desk', viewId: 'rooms/room-1', workspaceId: 'workspace-1' },
+        { appId: 'signal-desk', viewId: 'rooms/room-2', workspaceId: 'workspace-2' },
       ],
       index: 1,
     });
@@ -274,10 +274,10 @@ describe('openApp', () => {
   it('leaves the step to the app open when a different app is about to open', () => {
     useWorkspaceStore.setState({ activeWorkspaceId: 'workspace-1' });
     useAppStore.setState({
-      appViewIds: { kanban: { 'workspace-2': 'rooms/room-2' } },
+      appViewIds: { 'signal-desk': { 'workspace-2': 'rooms/room-2' } },
     });
     useNavigationStore.setState({
-      entries: [{ appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-1' }],
+      entries: [{ appId: 'signal-desk', viewId: 'rooms/room-1', workspaceId: 'workspace-1' }],
       index: 0,
     });
 
@@ -286,7 +286,7 @@ describe('openApp', () => {
     // The workspace moved, but the app being left is not recorded again.
     expect(useWorkspaceStore.getState().activeWorkspaceId).toBe('workspace-2');
     expect(useNavigationStore.getState()).toMatchObject({
-      entries: [{ appId: 'kanban', viewId: 'rooms/room-1', workspaceId: 'workspace-1' }],
+      entries: [{ appId: 'signal-desk', viewId: 'rooms/room-1', workspaceId: 'workspace-1' }],
       index: 0,
     });
   });

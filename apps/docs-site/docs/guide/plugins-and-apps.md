@@ -16,7 +16,7 @@ The local plugin management view shows installed development plugins and their a
 
 ![Local Plugin Management](../assets/images/local-plugin-preview.jpg)
 
-Plugin apps can provide focused work surfaces. The following group shows a plugin app, its Kanban views, and image generation.
+Plugin apps can provide focused work surfaces. The following group shows the agent board, design generation, and a plugin app.
 
 ![Agent board](../assets/images/agent-board.jpg)
 

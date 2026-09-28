@@ -283,7 +283,7 @@ Verify:
 | `plugins/sero-admin-plugin/` | Multiple panels, settings, dashboard surfaces |
 | `plugins/sero-web-plugin/` | Converting an existing Pi extension |
 | `plugins/sero-cron-plugin/` | Background jobs, command-oriented plugins |
-| `../plugins/sero-kanban-plugin/` | External plugin with background runtime + tool-driven UI + widgets |
+| `../plugins/sero-signal-desk-plugin/` | External plugin with background runtime + tool-driven UI + bridged CLI tool |
 
 ## Related skills
 

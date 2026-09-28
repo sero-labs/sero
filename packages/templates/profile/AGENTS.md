@@ -24,7 +24,7 @@ Use the memory system proactively, but keep entries concise.
 - Prefer the `write` tool directly for multi-line memory content
 
 ## General
-Ask before using the `sero-plugin` skill for app/plugin work. Do not run `kanban` in the global workspace; create a new container workspace instead.
+Ask before using the `sero-plugin` skill for app/plugin work.
 
 ## Creating a Sero App
 

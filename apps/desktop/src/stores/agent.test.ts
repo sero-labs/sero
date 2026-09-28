@@ -82,7 +82,7 @@ describe('useAgentStore', () => {
       );
       await useAgentStore.getState().sendPrompt(
         'session-1',
-        'Using the kanban tool: brainstorm',
+        'Using the signal_desk tool: brainstorm',
       );
     })();
 
@@ -98,7 +98,7 @@ describe('useAgentStore', () => {
     expect(prompt).toHaveBeenCalledTimes(1);
     expect(prompt).toHaveBeenCalledWith(
       'session-1',
-      'Using the kanban tool: brainstorm',
+      'Using the signal_desk tool: brainstorm',
       undefined,
       expect.any(String),
     );
@@ -108,7 +108,7 @@ describe('useAgentStore', () => {
     expect(agent?.messages).toEqual([
       expect.objectContaining({
         type: 'user',
-        text: 'Using the kanban tool: brainstorm',
+        text: 'Using the signal_desk tool: brainstorm',
       }),
     ]);
   });

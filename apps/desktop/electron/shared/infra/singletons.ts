@@ -82,7 +82,7 @@ export { subagentManager, appRuntimeManager, pluginDevSessionManager };
  * referenced workspace's directory is then mounted read-write.
  *
  * Pass `opts.isolated` to force full isolation even when references
- * exist (used by kanban subagents).
+ * exist.
  */
 export async function buildContainerConfig(
   workspaceId: string,
