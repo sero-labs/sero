@@ -31,7 +31,7 @@ export interface MergedEntryDraft {
 
 export type TidyDecision =
   | { action: 'keep' | 'recheck'; id: string; reason: string }
-  | { action: 'sort'; id: string; delivery: 'pinned' | 'on-match'; reason: string }
+  | { action: 'sort'; id: string; delivery: 'pinned' | 'on-match'; terms: string[]; reason: string }
   | { action: 'merge'; ids: string[]; merged: MergedEntryDraft; reason: string }
   | { action: 'remove'; id: string; missingPath: string; reason: string };
 
@@ -51,8 +51,8 @@ export const TIDY_SYSTEM_PROMPT = [
   'Return {"decisions": [...]} with one object per decision:',
   '- {"action":"keep","id":"…","reason":"…"} — the memory is fine as it is.',
   '- {"action":"recheck","id":"…","reason":"…"} — for a memory marked recheck that is still valid.',
-  '- {"action":"sort","id":"…","delivery":"pinned"|"on-match","reason":"…"} — only for a memory in "unsorted". pinned is for rules that apply to most tasks; on-match is for facts that apply only to some tasks.',
-  '- {"action":"merge","ids":["…","…"],"merged":{"type":"preference|decision|lesson|reference","body":"…","terms":["…"],"delivery":"pinned"|"on-match"},"reason":"…"} — two or more memories say the same thing, or a newer one supersedes an older one. The merged body keeps every fact still true and says how it changes behaviour; for a superseded fact, keep the newer one.',
+  '- {"action":"sort","id":"…","delivery":"pinned"|"on-match","terms":["…"],"reason":"…"} — only for a memory in "unsorted". Supply search terms a future task would use, even if pinned. pinned is for rules that apply to most tasks; on-match is for facts that apply only to some tasks.',
+  '- {"action":"merge","ids":["…","…"],"merged":{"type":"preference|decision|lesson|reference","body":"…","terms":["…"],"delivery":"pinned"|"on-match"},"reason":"…"} — two or more memories say the same thing, or a newer one supersedes an older one. Supply search terms a future task would use. The merged body keeps every fact still true and says how it changes behaviour; for a superseded fact, keep the newer one.',
   '- {"action":"remove","id":"…","missingPath":"…","reason":"…"} — only for a workspace memory that names a file path in its own text, when that file is the whole point of the memory. Give the path exactly as the memory writes it. The code removes the memory only if that file does not exist in the workspace.',
   '',
   'Rules:',
@@ -72,13 +72,20 @@ export function buildTidyPrompt(scope: Scope, entries: TidyEntryView[], pinnedCa
   ].filter((line) => line !== '').join('\n');
 }
 
-function extractJson(output: string): unknown {
+function extractJson(output: string): { decisions: unknown[] } {
   const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(output);
   const candidate = (fenced?.[1] ?? output).trim();
   const start = candidate.indexOf('{');
   const end = candidate.lastIndexOf('}');
   if (start < 0 || end <= start) throw new Error('no JSON object in the output');
-  return JSON.parse(candidate.slice(start, end + 1));
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(candidate.slice(start, end + 1));
+  } catch {
+    throw new Error('invalid JSON in the output');
+  }
+  if (!isRecord(parsed) || !Array.isArray(parsed.decisions)) throw new Error('output has no decisions array');
+  return { decisions: parsed.decisions };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -91,6 +98,11 @@ function isDelivery(value: unknown): value is 'pinned' | 'on-match' {
 
 function stringList(value: unknown): string[] | null {
   return Array.isArray(value) && value.every((item) => typeof item === 'string') ? value as string[] : null;
+}
+
+function searchTerms(value: unknown): string[] | null {
+  const terms = stringList(value)?.map((term) => term.trim()).filter((term) => term.length >= 2);
+  return terms?.length ? terms : null;
 }
 
 /**
@@ -115,7 +127,6 @@ export function resolveEvidencePath(workspaceRoot: string, missingPath: string):
  */
 export function validatePlan(output: string, entries: Map<string, TidyEntryView>, scope: Scope, workspaceRoot?: string): ValidatedPlan {
   const parsed = extractJson(output);
-  if (!isRecord(parsed) || !Array.isArray(parsed.decisions)) throw new Error('output has no decisions array');
 
   const decisions: TidyDecision[] = [];
   const rejected: RejectedDecision[] = [];
@@ -147,16 +158,20 @@ export function validatePlan(output: string, entries: Map<string, TidyEntryView>
       case 'recheck':
         decisions.push({ action: raw.action, id: ids[0]!, reason });
         break;
-      case 'sort':
+      case 'sort': {
         if (entries.get(ids[0]!)!.delivery !== 'unsorted') { reject(raw, 'only unsorted memories are sorted'); continue; }
         if (!isDelivery(raw.delivery)) { reject(raw, 'delivery must be pinned or on-match'); continue; }
-        decisions.push({ action: 'sort', id: ids[0]!, delivery: raw.delivery, reason });
+        const terms = searchTerms(raw.terms);
+        if (!terms) { reject(raw, 'sorting needs search terms'); continue; }
+        decisions.push({ action: 'sort', id: ids[0]!, delivery: raw.delivery, terms, reason });
         break;
+      }
       case 'merge': {
         const merged = raw.merged;
         if (ids.length < 2 || new Set(ids).size !== ids.length) { reject(raw, 'a merge needs two or more different memories'); continue; }
+        const terms = isRecord(merged) ? searchTerms(merged.terms) : null;
         if (!isRecord(merged) || typeof merged.body !== 'string' || !merged.body.trim()
-          || !(ENTRY_TYPES as readonly unknown[]).includes(merged.type) || !stringList(merged.terms)
+          || !(ENTRY_TYPES as readonly unknown[]).includes(merged.type) || !terms
           || !isDelivery(merged.delivery)) {
           reject(raw, 'the merged memory is not complete');
           continue;
@@ -164,7 +179,7 @@ export function validatePlan(output: string, entries: Map<string, TidyEntryView>
         decisions.push({
           action: 'merge',
           ids,
-          merged: { type: merged.type as EntryType, body: merged.body.trim(), terms: stringList(merged.terms)!, delivery: merged.delivery },
+          merged: { type: merged.type as EntryType, body: merged.body.trim(), terms, delivery: merged.delivery },
           reason,
         });
         break;

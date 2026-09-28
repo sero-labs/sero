@@ -165,7 +165,9 @@ async function applyDecision(
       return { applied: true, detail: 'no change' };
     case 'sort': {
       const delivery = decision.delivery === 'pinned' && await pinnedNow() >= pinnedCap ? 'on-match' : decision.delivery;
-      await moveEntry(location, read.get(decision.id)!.entry, delivery);
+      const original = read.get(decision.id)!.entry;
+      const updated = await writeEntry(location, { ...original, terms: decision.terms }, original.delivery);
+      await moveEntry(location, updated, delivery);
       return { applied: true, detail: `sorted to ${delivery}` };
     }
     case 'merge': {

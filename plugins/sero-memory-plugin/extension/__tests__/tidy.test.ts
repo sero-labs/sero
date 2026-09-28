@@ -40,6 +40,7 @@ import {
   type ScopeLocation,
 } from '../entry-store';
 import { memoryRegistry } from '../registry';
+import { keywordScore } from '../search-score';
 import { runTidyIfDue, tidyLogPath, type TidyDeps } from '../tidy';
 
 const originalEnv = { SERO_HOME: process.env.SERO_HOME, PI_CODING_AGENT_DIR: process.env.PI_CODING_AGENT_DIR };
@@ -199,6 +200,21 @@ describe('tidy-up', () => {
     expect(order).toEqual([`write ${merged!.id}`, 'trash mem-aaaa0001', 'trash mem-bbbb0001']);
   });
 
+  it('keeps originals when a merge has no usable search terms', async () => {
+    await writeEntry(ws, entry('mem-aaaa0001', 'Use pnpm.'), 'on-match');
+    await writeEntry(ws, entry('mem-bbbb0001', 'Always use pnpm, not npm.'), 'on-match');
+
+    await runTidyIfDue(ws, deps(async () => plan({
+      action: 'merge',
+      ids: ['mem-aaaa0001', 'mem-bbbb0001'],
+      merged: { type: 'preference', body: 'Use pnpm, never npm.', terms: [], delivery: 'on-match' },
+      reason: 'same fact',
+    })));
+
+    expect((await listAllEntries(ws)).map((item) => item.id).sort()).toEqual(['mem-aaaa0001', 'mem-bbbb0001']);
+    expect(await readTrashedEntry(ws, 'mem-aaaa0001')).toBeNull();
+  });
+
   it('changes nothing when the output is not valid', async () => {
     const global = globalLocation();
     await writeEntry(global, entry('mem-unso0001', 'Prefer tabs.', { scope: 'global', terms: [] }), 'unsorted');
@@ -247,12 +263,26 @@ describe('tidy-up', () => {
     await writeEntry(global, entry('mem-sort0002', 'Answer in British English.', { scope: 'global', terms: [] }), 'unsorted');
 
     await runTidyIfDue(global, deps(async () => plan(
-      { action: 'sort', id: 'mem-sort0001', delivery: 'pinned', reason: 'applies to most tasks' },
-      { action: 'sort', id: 'mem-sort0002', delivery: 'pinned', reason: 'applies to most tasks' },
+      { action: 'sort', id: 'mem-sort0001', delivery: 'pinned', terms: ['tabs'], reason: 'applies to most tasks' },
+      { action: 'sort', id: 'mem-sort0002', delivery: 'pinned', terms: ['British English'], reason: 'applies to most tasks' },
     )));
 
     expect((await listEntries(global, 'pinned')).map((item) => item.id)).toEqual(['mem-sort0001']);
-    expect((await listEntries(global, 'on-match')).map((item) => item.id)).toEqual(['mem-sort0002']);
+    const [onMatch] = await listEntries(global, 'on-match');
+    expect(onMatch?.id).toBe('mem-sort0002');
+    expect(keywordScore(onMatch?.terms ?? [], 'Answer in British English')).toBeGreaterThan(0);
     expect(await listEntries(global, 'unsorted')).toEqual([]);
+  });
+
+  it('keeps unsorted entries when sorting has no search terms', async () => {
+    const global = globalLocation();
+    await writeEntry(global, entry('mem-sort0001', 'Prefer tabs.', { scope: 'global', terms: [] }), 'unsorted');
+
+    await runTidyIfDue(global, deps(async () => plan(
+      { action: 'sort', id: 'mem-sort0001', delivery: 'on-match', reason: 'applies to some tasks' },
+    )));
+
+    expect((await listEntries(global, 'unsorted')).map((item) => item.id)).toEqual(['mem-sort0001']);
+    expect(await listEntries(global, 'on-match')).toEqual([]);
   });
 });
