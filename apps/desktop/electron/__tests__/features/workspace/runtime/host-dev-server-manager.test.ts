@@ -8,7 +8,15 @@ import { HostDevServerRecovery } from '@electron/features/workspace/runtime/back
 import type { HostProcessAdapter } from '@electron/features/workspace/runtime/backends/host/process/types';
 import type { RuntimeProcessInput, RuntimeProcess } from '@electron/features/workspace/runtime/types';
 
-function createProcess(pid = 1234, executionPid?: number) {
+// The recovery code asks the operating system whether a pid is alive, and it keeps a record
+// while one is. A made-up pid like 1234 can belong to a real process on a busy CI runner, so
+// these are above any pid an operating system hands out.
+const SHELL_PID = 999_000_001;
+const SERVER_PID = 999_000_002;
+const FOREIGN_PID = 999_000_003;
+const NEXT_SERVER_PID = 999_000_004;
+
+function createProcess(pid = SHELL_PID, executionPid?: number) {
   return {
     pid,
     executionPid,
@@ -77,30 +85,30 @@ describe('HostDevServerManager', () => {
   });
 
   it('stops a child created after the initial snapshot when port detection times out', async () => {
-    const identities = new Map([[process.pid, 'app-start'], [1234, 'shell-start'], [2000, 'late-server']]);
+    const identities = new Map([[process.pid, 'app-start'], [SHELL_PID, 'shell-start'], [SERVER_PID, 'late-server']]);
     let initialSnapshot = true;
     let parentExited = false;
     const adapter = createProcessAdapter({
       descendantPids: vi.fn(async (pid) => {
-        if (pid !== 1234 || parentExited) return [];
+        if (pid !== SHELL_PID || parentExited) return [];
         if (initialSnapshot) {
           initialSnapshot = false;
           return [];
         }
-        return [2000];
+        return [SERVER_PID];
       }),
       listeningPort: vi.fn(async () => null),
       processIdentity: vi.fn(async (pid) => identities.get(pid) ?? null),
       killPids: vi.fn(async (_signal, pids) => {
         for (const pid of pids) identities.delete(pid);
-        if (pids.includes(1234)) parentExited = true;
+        if (pids.includes(SHELL_PID)) parentExited = true;
       }),
     });
     const recovery = await createRecovery(adapter);
     const shell = createProcess();
     shell.signal.mockImplementation(() => {
       parentExited = true;
-      identities.delete(1234);
+      identities.delete(SHELL_PID);
     });
     const manager = createManager({
       spawn: vi.fn(async () => shell), processAdapter: adapter, recovery, portDetectTimeoutMs: 5,
@@ -108,7 +116,7 @@ describe('HostDevServerManager', () => {
 
     await expect(manager.start({ command: 'install && dev', cwd: '/workspace' }))
       .rejects.toThrow('No listening port was detected');
-    expect(identities.has(2000)).toBe(false);
+    expect(identities.has(SERVER_PID)).toBe(false);
     expect(await readdir(temporaryDirectories[0])).toEqual([]);
   });
 
@@ -129,10 +137,10 @@ describe('HostDevServerManager', () => {
   });
 
   it('reaps a server after its owner is killed, but not a reused pid or a foreign listener', async () => {
-    const identities = new Map([[process.pid, 'app-start'], [1234, 'shell-start'], [2000, 'vite-start'], [9000, 'foreign-start']]);
+    const identities = new Map([[process.pid, 'app-start'], [SHELL_PID, 'shell-start'], [SERVER_PID, 'vite-start'], [FOREIGN_PID, 'foreign-start']]);
     const adapter = createProcessAdapter({
-      descendantPids: vi.fn(async (pid) => pid === 1234 ? [2000] : []),
-      listenerPids: vi.fn(async () => [2000, 9000]),
+      descendantPids: vi.fn(async (pid) => pid === SHELL_PID ? [SERVER_PID] : []),
+      listenerPids: vi.fn(async () => [SERVER_PID, FOREIGN_PID]),
       processIdentity: vi.fn(async (pid) => identities.get(pid) ?? null),
       killPids: vi.fn(async (_signal, pids) => {
         for (const pid of pids) identities.delete(pid);
@@ -146,16 +154,16 @@ describe('HostDevServerManager', () => {
     expect(adapter.killPids).not.toHaveBeenCalled();
 
     identities.set(process.pid, 'new-app-start');
-    identities.set(1234, 'reused-shell-pid');
+    identities.set(SHELL_PID, 'reused-shell-pid');
     await new HostDevServerRecovery(adapter, temporaryDirectories[0]).reapOrphans();
-    expect(adapter.killPids).toHaveBeenCalledWith('TERM', [2000]);
-    expect(identities.has(9000)).toBe(true);
-    expect(identities.get(1234)).toBe('reused-shell-pid');
+    expect(adapter.killPids).toHaveBeenCalledWith('TERM', [SERVER_PID]);
+    expect(identities.has(FOREIGN_PID)).toBe(true);
+    expect(identities.get(SHELL_PID)).toBe('reused-shell-pid');
     expect(await readdir(temporaryDirectories[0])).toEqual([]);
   });
 
   it('terminates an owned server before unregistering or replacing its record', async () => {
-    const identities = new Map([[process.pid, 'app-start'], [1234, 'server-start']]);
+    const identities = new Map([[process.pid, 'app-start'], [SHELL_PID, 'server-start']]);
     const adapter = createProcessAdapter({
       processIdentity: vi.fn(async (pid) => identities.get(pid) ?? null),
       killPids: vi.fn(async (_signal, pids) => {
@@ -168,17 +176,17 @@ describe('HostDevServerManager', () => {
 
     expect(() => manager.register({ command: 'foreign', cwd: '/workspace', port: first.port })).toThrow('Cannot replace an owned dev server');
     await manager.unregister({ serverId: first.id });
-    expect(adapter.killPids).toHaveBeenCalledWith('TERM', [1234]);
+    expect(adapter.killPids).toHaveBeenCalledWith('TERM', [SHELL_PID]);
     expect(manager.list()).toEqual([]);
     expect(await readdir(temporaryDirectories[0])).toEqual([]);
   });
   it.each(['stop', 'restart', 'dispose'] as const)('%s preserves unrelated listeners on the same port', async (action) => {
     let parentExited = false;
-    const process = createProcess(1234);
+    const process = createProcess(SHELL_PID);
     process.signal.mockImplementation(() => { parentExited = true; });
     const processAdapter = createProcessAdapter({
-      descendantPids: vi.fn(async () => parentExited ? [] : [2000]),
-      listenerPids: vi.fn(async () => [2000, 9000]),
+      descendantPids: vi.fn(async () => parentExited ? [] : [SERVER_PID]),
+      listenerPids: vi.fn(async () => [SERVER_PID, FOREIGN_PID]),
     });
     const manager = createManager({ spawn: vi.fn(async () => process), processAdapter });
     const server = await manager.start({ command: 'pnpm dev', cwd: '/workspace' });
@@ -186,13 +194,13 @@ describe('HostDevServerManager', () => {
     if (action === 'dispose') await manager.dispose();
     else await manager[action]({ serverId: server.id });
 
-    expect(processAdapter.killPids).toHaveBeenCalledWith('TERM', [1234, 2000]);
-    expect(processAdapter.killPids).toHaveBeenCalledWith('KILL', [1234, 2000]);
+    expect(processAdapter.killPids).toHaveBeenCalledWith('TERM', [SHELL_PID, SERVER_PID]);
+    expect(processAdapter.killPids).toHaveBeenCalledWith('KILL', [SHELL_PID, SERVER_PID]);
     expect(processAdapter.listenerPids).not.toHaveBeenCalled();
   });
 
   it('terminates the old owner when a different command takes the same server ID', async () => {
-    const identities = new Map([[process.pid, 'app-start'], [1234, 'old-server'], [5678, 'new-server']]);
+    const identities = new Map([[process.pid, 'app-start'], [SHELL_PID, 'old-server'], [NEXT_SERVER_PID, 'new-server']]);
     const adapter = createProcessAdapter({
       processIdentity: vi.fn(async (pid) => identities.get(pid) ?? null),
       killPids: vi.fn(async (_signal, pids) => {
@@ -200,37 +208,37 @@ describe('HostDevServerManager', () => {
       }),
     });
     const recovery = await createRecovery(adapter);
-    const spawn = vi.fn().mockResolvedValueOnce(createProcess(1234)).mockResolvedValueOnce(createProcess(5678));
+    const spawn = vi.fn().mockResolvedValueOnce(createProcess(SHELL_PID)).mockResolvedValueOnce(createProcess(NEXT_SERVER_PID));
     const manager = createManager({ processAdapter: adapter, spawn, recovery });
     await manager.start({ command: 'pnpm dev', cwd: '/workspace' });
     await manager.start({ command: 'npm run dev', cwd: '/workspace' });
 
-    expect(identities.has(1234)).toBe(false);
-    expect(manager.list()).toEqual([expect.objectContaining({ command: 'npm run dev', pid: 5678 })]);
+    expect(identities.has(SHELL_PID)).toBe(false);
+    expect(manager.list()).toEqual([expect.objectContaining({ command: 'npm run dev', pid: NEXT_SERVER_PID })]);
     expect(await readdir(temporaryDirectories[0])).toHaveLength(1);
   });
 
   it('stops an orphaned listener before replacing a failed server record', async () => {
-    const identities = new Map([[process.pid, 'app-start'], [1234, 'old-shell'], [2000, 'old-listener'], [5678, 'new-server']]);
+    const identities = new Map([[process.pid, 'app-start'], [SHELL_PID, 'old-shell'], [SERVER_PID, 'old-listener'], [NEXT_SERVER_PID, 'new-server']]);
     const adapter = createProcessAdapter({
-      descendantPids: vi.fn(async (pid) => pid === 1234 && identities.has(1234) ? [2000] : []),
+      descendantPids: vi.fn(async (pid) => pid === SHELL_PID && identities.has(SHELL_PID) ? [SERVER_PID] : []),
       processIdentity: vi.fn(async (pid) => identities.get(pid) ?? null),
       killPids: vi.fn(async (_signal, pids) => {
         for (const pid of pids) identities.delete(pid);
       }),
     });
     const recovery = await createRecovery(adapter);
-    const oldProcess = createProcess(1234);
-    const spawn = vi.fn().mockResolvedValueOnce(oldProcess).mockResolvedValueOnce(createProcess(5678));
+    const oldProcess = createProcess(SHELL_PID);
+    const spawn = vi.fn().mockResolvedValueOnce(oldProcess).mockResolvedValueOnce(createProcess(NEXT_SERVER_PID));
     const manager = createManager({ processAdapter: adapter, spawn, recovery });
     const input = { command: 'pnpm dev', cwd: '/workspace' };
     await manager.start(input);
-    identities.delete(1234);
+    identities.delete(SHELL_PID);
     oldProcess.onExit.mock.calls[0][0]({ exitCode: 1 });
     await manager.start(input);
 
-    expect(identities.has(2000)).toBe(false);
-    expect(manager.list()).toEqual([expect.objectContaining({ pid: 5678, status: 'running' })]);
+    expect(identities.has(SERVER_PID)).toBe(false);
+    expect(manager.list()).toEqual([expect.objectContaining({ pid: NEXT_SERVER_PID, status: 'running' })]);
   });
 
   it('shares concurrent preview starts and reuses the running server', async () => {
@@ -281,8 +289,8 @@ describe('HostDevServerManager', () => {
     const server = await manager.start({ command: 'pnpm dev', cwd: '/workspace' });
 
     expect(spawn).toHaveBeenCalledWith({ command: 'pnpm dev', cwd: '/workspace', stdio: 'pipe' });
-    expect(processAdapter.descendantPids).toHaveBeenCalledWith(1234);
-    expect(processAdapter.listeningPort).toHaveBeenCalledWith([1234]);
+    expect(processAdapter.descendantPids).toHaveBeenCalledWith(SHELL_PID);
+    expect(processAdapter.listeningPort).toHaveBeenCalledWith([SHELL_PID]);
     expect(server).toMatchObject({
       id: 'workspace-a:workspace:root:5173',
       port: 5173,
@@ -306,28 +314,28 @@ describe('HostDevServerManager', () => {
 
   it('uses the injected process adapter for process discovery and termination', async () => {
     const processAdapter = createProcessAdapter({
-      descendantPids: vi.fn(async () => [2000]),
+      descendantPids: vi.fn(async () => [SERVER_PID]),
       listeningPort: vi.fn(async () => 5173),
       listenerPids: vi.fn(async () => [3000]),
       killPids: vi.fn(async () => undefined),
     });
-    const process = createProcess(1234);
+    const process = createProcess(SHELL_PID);
     const manager = createManager({ spawn: vi.fn(async () => process), processAdapter });
 
     const server = await manager.start({ command: 'pnpm dev', cwd: '/workspace' });
     await manager.stop({ serverId: server.id });
 
-    expect(processAdapter.descendantPids).toHaveBeenCalledWith(1234);
-    expect(processAdapter.listeningPort).toHaveBeenCalledWith([1234, 2000]);
+    expect(processAdapter.descendantPids).toHaveBeenCalledWith(SHELL_PID);
+    expect(processAdapter.listeningPort).toHaveBeenCalledWith([SHELL_PID, SERVER_PID]);
     expect(processAdapter.listenerPids).not.toHaveBeenCalled();
-    expect(processAdapter.killPids).toHaveBeenCalledWith('TERM', [1234, 2000]);
-    expect(processAdapter.killPids).toHaveBeenCalledWith('KILL', [1234, 2000]);
+    expect(processAdapter.killPids).toHaveBeenCalledWith('TERM', [SHELL_PID, SERVER_PID]);
+    expect(processAdapter.killPids).toHaveBeenCalledWith('KILL', [SHELL_PID, SERVER_PID]);
   });
 
   it('kills owned descendants when stopping a host dev server', async () => {
-    const process = createProcess(1234);
+    const process = createProcess(SHELL_PID);
     const processAdapter = createProcessAdapter({
-      descendantPids: vi.fn(async () => [2000]),
+      descendantPids: vi.fn(async () => [SERVER_PID]),
       listenerPids: vi.fn(async () => [3000]),
     });
     const manager = createManager({ spawn: vi.fn(async () => process), processAdapter });
@@ -336,8 +344,8 @@ describe('HostDevServerManager', () => {
     await manager.stop({ serverId: server.id });
 
     expect(process.signal).toHaveBeenCalledWith('SIGTERM');
-    expect(processAdapter.killPids).toHaveBeenCalledWith('TERM', [1234, 2000]);
-    expect(processAdapter.killPids).toHaveBeenCalledWith('KILL', [1234, 2000]);
+    expect(processAdapter.killPids).toHaveBeenCalledWith('TERM', [SHELL_PID, SERVER_PID]);
+    expect(processAdapter.killPids).toHaveBeenCalledWith('KILL', [SHELL_PID, SERVER_PID]);
   });
 
   it('preserves dev-server metadata on restart', async () => {
@@ -395,14 +403,14 @@ describe('HostDevServerManager', () => {
       .mockResolvedValue(createProcess());
     const processAdapter = createProcessAdapter({
       listeningPort: vi.fn(async () => 4321),
-      listenerPids: vi.fn(async () => [9000]),
+      listenerPids: vi.fn(async () => [FOREIGN_PID]),
     });
     const manager = createManager({ spawn, processAdapter });
 
     const server = manager.register({ command: 'pnpm dev', cwd: '/workspace', port: 4321 });
     await manager.restart({ serverId: server.id });
 
-    expect(processAdapter.killPids).toHaveBeenCalledWith('TERM', [9000]);
+    expect(processAdapter.killPids).toHaveBeenCalledWith('TERM', [FOREIGN_PID]);
     expect(spawn).toHaveBeenCalledTimes(1);
   });
 
