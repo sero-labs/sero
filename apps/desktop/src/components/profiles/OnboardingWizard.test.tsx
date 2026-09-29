@@ -67,7 +67,6 @@ function createLaunchState(overrides: Partial<OnboardingLaunchState> = {}): Onbo
     handleLoginComplete: vi.fn(),
     handleContinue: vi.fn().mockResolvedValue(undefined),
     handleErrorBack: vi.fn(),
-    dismissReadyScreen: vi.fn(),
     ...overrides,
   };
 }
@@ -204,6 +203,23 @@ describe('OnboardingWizard', () => {
     const dialog = document.querySelector('[data-slot="dialog-content"]');
     expect(dialog?.className).toContain('max-h-[calc(100vh-2rem)]');
     expect(dialog?.className).toContain('overflow-y-auto');
+  });
+
+  it('keeps the defaults step open when Escape is pressed', async () => {
+    mockUseOnboardingLaunch.mockReturnValue(createLaunchState());
+
+    await act(async () => {
+      root?.render(<OnboardingWizard />);
+    });
+
+    expect(document.querySelector('[data-slot="dialog-close"]')).toBeNull();
+
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+
+    expect(document.querySelector('[data-slot="dialog-content"]')?.getAttribute('data-state')).toBe('open');
+    expect(document.body.textContent).toContain('Choose your defaults');
   });
 
   it.each([

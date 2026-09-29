@@ -12,6 +12,7 @@ import { Card } from '@sero-ai/ui/components/ui/card';
 import { cn } from '@sero-ai/ui/lib/utils';
 
 import {
+  canSubmitQuestionnaire,
   flattenQuestionnaireAnswers,
   getQuestionAnswers,
   hasQuestionAnswerDeep,
@@ -36,10 +37,160 @@ interface Props {
   onCancel: (id: string) => void;
 }
 
+function getActionHint(
+  isReview: boolean,
+  hasUnresolvedQuestions: boolean,
+  allAnswered: boolean,
+  currentQuestionAnswered: boolean,
+  advanceLabel: string,
+): { message: string; positive: boolean } {
+  if (isReview) {
+    if (hasUnresolvedQuestions) {
+      return { message: 'Answer or skip the remaining questions before you submit.', positive: false };
+    }
+    return allAnswered
+      ? { message: 'Everything looks good, submit when ready.', positive: true }
+      : { message: 'Review your skipped questions before you submit.', positive: false };
+  }
+
+  return currentQuestionAnswered
+    ? { message: `${advanceLabel} is ready when you want to continue.`, positive: true }
+    : { message: 'Pick an answer, or use Skip if you want to leave this question unanswered.', positive: false };
+}
+
+function QuestionnaireStepTabs({
+  questions,
+  answers,
+  currentStep,
+  onGoToStep,
+}: {
+  questions: UserFeedbackQuestionItem[];
+  answers: AnswerMap;
+  currentStep: number;
+  onGoToStep: (step: number) => void;
+}) {
+  const isReview = currentStep === questions.length;
+  const allAnswered = questions.every((item) => hasQuestionAnswerDeep(answers, item));
+
+  return (
+    <div className="mt-2 flex items-center gap-1.5">
+      {questions.map((item, index) => (
+        <button type="button"
+          key={item.id}
+          onClick={() => onGoToStep(index)}
+          className={cn(
+            'flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
+            index === currentStep && !isReview
+              ? hasQuestionAnswerDeep(answers, item)
+                ? 'bg-emerald-500 text-white'
+                : 'bg-amber-500 text-white'
+              : hasQuestionAnswerDeep(answers, item)
+                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                : 'bg-secondary text-muted-foreground',
+          )}
+        >
+          {hasQuestionAnswerDeep(answers, item) ? <Check className="size-3" /> : index + 1} {item.label}
+        </button>
+      ))}
+      <button type="button"
+        onClick={() => onGoToStep(questions.length)}
+        className={cn(
+          'rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
+          isReview
+            ? allAnswered
+              ? 'bg-emerald-500 text-white'
+              : 'bg-amber-500 text-white'
+            : allAnswered
+              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+              : 'bg-secondary text-muted-foreground',
+        )}
+      >
+        Review
+      </button>
+    </div>
+  );
+}
+
+function QuestionnaireNavigation({
+  hint,
+  currentStep,
+  currentQuestionAnswered,
+  isReview,
+  advanceLabel,
+  onCancel,
+  onBack,
+  onSkip,
+  onNext,
+}: {
+  hint: { message: string; positive: boolean };
+  currentStep: number;
+  currentQuestionAnswered: boolean;
+  isReview: boolean;
+  advanceLabel: string;
+  onCancel: () => void;
+  onBack: () => void;
+  onSkip: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="mt-3 border-t border-border/60 pt-3">
+      <p
+        className={cn(
+          'mb-2 min-h-5 text-xs transition-colors',
+          hint.positive
+            ? 'text-emerald-700 dark:text-emerald-400'
+            : 'text-amber-700 dark:text-amber-300',
+        )}
+      >
+        {hint.message}
+      </p>
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" size="sm" onClick={onCancel}>
+          Cancel
+        </Button>
+        <div className="flex gap-2">
+          {currentStep > 0 && (
+            <Button variant="secondary" size="sm" onClick={onBack}>
+              Back
+            </Button>
+          )}
+          {!isReview && (
+            <>
+              <Button
+                variant={currentQuestionAnswered ? 'ghost' : 'secondary'}
+                size="sm"
+                onClick={onSkip}
+                className={cn(
+                  !currentQuestionAnswered &&
+                    'border border-amber-500/30 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 hover:text-amber-800 dark:text-amber-300 dark:hover:bg-amber-500/15',
+                )}
+              >
+                Skip
+              </Button>
+              <Button
+                variant={currentQuestionAnswered ? 'default' : 'secondary'}
+                size="sm"
+                onClick={onNext}
+                disabled={!currentQuestionAnswered}
+                className={cn(
+                  currentQuestionAnswered && 'bg-emerald-600 text-white hover:bg-emerald-700',
+                )}
+              >
+                {advanceLabel}
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
   const questions = question.questions;
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<AnswerMap>(new Map());
+  const [skippedQuestionIds, setSkippedQuestionIds] = useState<ReadonlySet<string>>(new Set());
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,18 +199,21 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
 
   const isReview = currentStep === questions.length;
   const allAnswered = questions.every((item) => hasQuestionAnswerDeep(answers, item));
+  const hasUnresolvedQuestions = questions.some(
+    (item) => !hasQuestionAnswerDeep(answers, item) && !skippedQuestionIds.has(item.id),
+  );
   const currentQuestion = questions[currentStep] as UserFeedbackQuestionItem | undefined;
   const currentQuestionAnswered = currentQuestion
     ? hasQuestionAnswerDeep(answers, currentQuestion)
     : false;
   const advanceLabel = currentStep < questions.length - 1 ? 'Next' : 'Review';
-  const actionHint = isReview
-    ? allAnswered
-      ? 'Everything looks good, submit when ready.'
-      : 'Some questions are still skipped, edit anything in amber or submit your partial answers.'
-    : currentQuestionAnswered
-      ? `${advanceLabel} is ready when you want to continue.`
-      : 'Pick an answer, or use Skip if you want to leave this question unanswered.';
+  const actionHint = getActionHint(
+    isReview,
+    hasUnresolvedQuestions,
+    allAnswered,
+    currentQuestionAnswered,
+    advanceLabel,
+  );
 
   const clearQuestionTree = useCallback((next: AnswerMap, questionItem: UserFeedbackQuestionItem): AnswerMap => {
     const cleaned = new Map(next);
@@ -73,6 +227,23 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
   const goToNextStep = useCallback(() => {
     setCurrentStep((previous) => previous + 1);
   }, []);
+
+  const clearSkip = useCallback((questionId: string) => {
+    setSkippedQuestionIds((previous) => {
+      if (!previous.has(questionId)) return previous;
+      const next = new Set(previous);
+      next.delete(questionId);
+      return next;
+    });
+  }, []);
+
+  const handleSkip = useCallback(() => {
+    if (currentQuestion && !currentQuestionAnswered) {
+      setAnswers((previous) => clearQuestionTree(previous, currentQuestion));
+      setSkippedQuestionIds((previous) => new Set(previous).add(currentQuestion.id));
+    }
+    goToNextStep();
+  }, [clearQuestionTree, currentQuestion, currentQuestionAnswered, goToNextStep]);
 
   const handleSelectOption = useCallback(
     (questionItem: UserFeedbackQuestionItem, option: UserFeedbackQuestionOption, index: number) => {
@@ -102,12 +273,15 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
         }
         return cleaned;
       });
+      if (currentQuestion) {
+        clearSkip(currentQuestion.id);
+      }
 
       if (isCurrentQuestion && questionItem.multiSelect !== true && !option.subQuestion) {
         goToNextStep();
       }
     },
-    [answers, clearQuestionTree, currentQuestion?.id, goToNextStep],
+    [answers, clearQuestionTree, clearSkip, currentQuestion, goToNextStep],
   );
 
   const handleCustomSubmit = useCallback((questionItem: UserFeedbackQuestionItem, text: string) => {
@@ -123,11 +297,14 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
       }
       return next;
     });
+    if (currentQuestion) {
+      clearSkip(currentQuestion.id);
+    }
 
     if (currentQuestion?.id === questionItem.id && questionItem.multiSelect !== true) {
       goToNextStep();
     }
-  }, [clearQuestionTree, currentQuestion?.id, goToNextStep]);
+  }, [clearQuestionTree, clearSkip, currentQuestion, goToNextStep]);
 
   const handleRemoveCustom = useCallback((questionItem: UserFeedbackQuestionItem) => {
     setAnswers((previous) => updateQuestionAnswers(
@@ -138,8 +315,9 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
   }, []);
 
   const handleSubmit = useCallback(() => {
+    if (hasUnresolvedQuestions || !canSubmitQuestionnaire(questions, answers)) return;
     onSubmit(question.id, flattenQuestionnaireAnswers(questions, answers));
-  }, [answers, onSubmit, question.id, questions]);
+  }, [answers, hasUnresolvedQuestions, onSubmit, question.id, questions]);
 
   return (
     <div
@@ -152,41 +330,12 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
         {question.context?.source && (
           <p className="mt-1 text-xs text-muted-foreground">{question.context.source}</p>
         )}
-        <div className="mt-2 flex items-center gap-1.5">
-          {questions.map((item, index) => (
-            <button type="button"
-              key={item.id}
-              onClick={() => setCurrentStep(index)}
-              className={cn(
-                'flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
-                index === currentStep && !isReview
-                  ? hasQuestionAnswerDeep(answers, item)
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-amber-500 text-white'
-                  : hasQuestionAnswerDeep(answers, item)
-                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
-                    : 'bg-secondary text-muted-foreground',
-              )}
-            >
-              {hasQuestionAnswerDeep(answers, item) ? <Check className="size-3" /> : index + 1} {item.label}
-            </button>
-          ))}
-          <button type="button"
-            onClick={() => setCurrentStep(questions.length)}
-            className={cn(
-              'rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
-              isReview
-                ? allAnswered
-                  ? 'bg-emerald-500 text-white'
-                  : 'bg-amber-500 text-white'
-                : allAnswered
-                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
-                  : 'bg-secondary text-muted-foreground',
-            )}
-          >
-            Review
-          </button>
-        </div>
+        <QuestionnaireStepTabs
+          questions={questions}
+          answers={answers}
+          currentStep={currentStep}
+          onGoToStep={setCurrentStep}
+        />
       </div>
 
       <Card className="flex-1 gap-0 overflow-y-auto p-4 shadow-none">
@@ -194,6 +343,7 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
           <QuestionnaireReviewStep
             questions={questions}
             answers={answers}
+            skippedQuestionIds={skippedQuestionIds}
             onSubmit={handleSubmit}
             onGoToStep={setCurrentStep}
           />
@@ -208,65 +358,17 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
         ) : null}
       </Card>
 
-      <div className="mt-3 border-t border-border/60 pt-3">
-        <p
-          className={cn(
-            'mb-2 min-h-5 text-xs transition-colors',
-            isReview
-              ? allAnswered
-                ? 'text-emerald-700 dark:text-emerald-400'
-                : 'text-amber-700 dark:text-amber-300'
-              : currentQuestionAnswered
-                ? 'text-emerald-700 dark:text-emerald-400'
-                : 'text-amber-700 dark:text-amber-300',
-          )}
-        >
-          {actionHint}
-        </p>
-        <div className="flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={() => onCancel(question.id)}>
-            Cancel
-          </Button>
-          <div className="flex gap-2">
-            {currentStep > 0 && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setCurrentStep(currentStep - 1)}
-              >
-                Back
-              </Button>
-            )}
-            {!isReview && (
-              <>
-                <Button
-                  variant={currentQuestionAnswered ? 'ghost' : 'secondary'}
-                  size="sm"
-                  onClick={() => setCurrentStep(currentStep + 1)}
-                  className={cn(
-                    !currentQuestionAnswered &&
-                      'border border-amber-500/30 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 hover:text-amber-800 dark:text-amber-300 dark:hover:bg-amber-500/15',
-                  )}
-                >
-                  Skip
-                </Button>
-                <Button
-                  variant={currentQuestionAnswered ? 'default' : 'secondary'}
-                  size="sm"
-                  onClick={goToNextStep}
-                  disabled={!currentQuestionAnswered}
-                  className={cn(
-                    currentQuestionAnswered &&
-                      'bg-emerald-600 text-white hover:bg-emerald-700',
-                  )}
-                >
-                  {advanceLabel}
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
+      <QuestionnaireNavigation
+        hint={actionHint}
+        currentStep={currentStep}
+        currentQuestionAnswered={currentQuestionAnswered}
+        isReview={isReview}
+        advanceLabel={advanceLabel}
+        onCancel={() => onCancel(question.id)}
+        onBack={() => setCurrentStep(currentStep - 1)}
+        onSkip={handleSkip}
+        onNext={goToNextStep}
+      />
     </div>
   );
 }

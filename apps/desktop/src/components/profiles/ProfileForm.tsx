@@ -117,10 +117,10 @@ export function ProfileForm({
             type="button"
             onClick={handlePickFolder}
             disabled={isLoading}
-            className="flex flex-1 items-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 text-left text-xs transition-colors hover:border-[var(--border-default)] disabled:opacity-50"
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 text-left text-xs transition-colors hover:border-[var(--border-default)] disabled:opacity-50"
           >
             <Folder className="size-3.5 shrink-0 text-[var(--text-muted)]" />
-            <span className={customPath ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}>
+            <span title={customPath ?? undefined} className={`min-w-0 truncate ${customPath ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>
               {customPath ? customPath : 'Default location'}
             </span>
           </button>

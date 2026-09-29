@@ -12,14 +12,17 @@ export function buildHelpText(
   question: QuestionItem | undefined,
   hasSubmitTab: boolean,
 ): string {
+  if (!question && hasSubmitTab) {
+    return ' Tab/←→ navigate • Enter submit • Esc cancel';
+  }
   if (question?.multiSelect) {
     return hasSubmitTab
-      ? ' Tab/←→ navigate • ↑↓ select • Enter/Space toggle • Esc cancel'
+      ? ' Tab/←→ navigate • ↑↓ select • Enter/Space toggle • S skip • Esc cancel'
       : ' ↑↓ navigate • Enter/Space toggle • Esc cancel';
   }
 
   return hasSubmitTab
-    ? ' Tab/←→ navigate • ↑↓ select • Enter confirm • Esc cancel'
+    ? ' Tab/←→ navigate • ↑↓ select • Enter confirm • S skip • Esc cancel'
     : ' ↑↓ navigate • Enter select • Esc cancel';
 }
 
@@ -27,6 +30,7 @@ export function renderTabBar(
   questions: QuestionItem[],
   currentTab: number,
   answers: AnswerMap,
+  skippedQuestionIds: ReadonlySet<string>,
   canSubmit: boolean,
   theme: Theme,
 ): string {
@@ -34,9 +38,10 @@ export function renderTabBar(
   for (let index = 0; index < questions.length; index++) {
     const isActive = index === currentTab;
     const isAnswered = (answers.get(questions[index].id)?.length ?? 0) > 0;
+    const isSkipped = skippedQuestionIds.has(questions[index].id) && !isAnswered;
     const label = questions[index].label;
-    const box = isAnswered ? '■' : '□';
-    const color = isAnswered ? 'success' : 'muted';
+    const box = isAnswered ? '■' : isSkipped ? '–' : '□';
+    const color = isAnswered ? 'success' : isSkipped ? 'warning' : 'muted';
     const text = ` ${box} ${label} `;
     parts.push(
       isActive
@@ -107,6 +112,7 @@ export function renderOptionsList(
 export function renderSubmitTab(
   questions: QuestionItem[],
   answers: AnswerMap,
+  skippedQuestionIds: ReadonlySet<string>,
   canSubmit: boolean,
   theme: Theme,
   addLine: (line: string) => void,
@@ -127,9 +133,8 @@ export function renderSubmitTab(
       continue;
     }
 
-    addLine(
-      `${theme.fg('muted', ` ${question.label}: `)}${theme.fg('warning', 'Skipped')}`,
-    );
+    const status = skippedQuestionIds.has(question.id) ? 'Skipped' : 'Unanswered';
+    addLine(`${theme.fg('muted', ` ${question.label}: `)}${theme.fg('warning', status)}`);
   }
 
   addLine('');
@@ -139,10 +144,10 @@ export function renderSubmitTab(
   }
 
   const missing = questions
-    .filter((question) => (answers.get(question.id)?.length ?? 0) === 0)
+    .filter((question) => (answers.get(question.id)?.length ?? 0) === 0 && !skippedQuestionIds.has(question.id))
     .map((question) => question.label)
     .join(', ');
-  addLine(theme.fg('warning', ` Unanswered: ${missing}`));
+  addLine(theme.fg('warning', missing ? ` Answer or skip: ${missing}` : ' Answer at least one question to submit'));
 }
 
 export function addTruncatedLine(

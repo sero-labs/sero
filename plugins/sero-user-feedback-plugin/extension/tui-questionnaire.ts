@@ -49,6 +49,7 @@ export async function askQuestionnaireTUI(
     let inputQuestionId: string | null = null;
     let cachedLines: string[] | undefined;
     let answers: AnswerMap = new Map();
+    const skippedQuestionIds = new Set<string>();
 
     const editorTheme: EditorTheme = {
       borderColor: (style) => theme.fg('accent', style),
@@ -94,7 +95,9 @@ export async function askQuestionnaireTUI(
     }
 
     function canSubmit(): boolean {
-      return canSubmitQuestionnaire(questions, answers);
+      return canSubmitQuestionnaire(questions, answers) && questions.every(
+        (question) => hasQuestionAnswer(answers, question.id) || skippedQuestionIds.has(question.id),
+      );
     }
 
     function advanceAfterAnswer() {
@@ -127,6 +130,7 @@ export async function askQuestionnaireTUI(
         getQuestionAnswers(answers, question.id),
       );
       setQuestionAnswers(question.id, nextAnswers);
+      skippedQuestionIds.delete(question.id);
       if (question.multiSelect !== true) {
         advanceAfterAnswer();
         return;
@@ -141,6 +145,7 @@ export async function askQuestionnaireTUI(
         text,
       );
       setQuestionAnswers(question.id, nextAnswers);
+      skippedQuestionIds.delete(question.id);
       if (question.multiSelect !== true) {
         advanceAfterAnswer();
         return;
@@ -204,6 +209,13 @@ export async function askQuestionnaireTUI(
         return;
       }
 
+      if (hasSubmitTab && question && data.toLowerCase() === 's') {
+        setQuestionAnswers(question.id, []);
+        skippedQuestionIds.add(question.id);
+        advanceAfterAnswer();
+        return;
+      }
+
       if (matchesKey(data, Key.up)) {
         optionIndex = Math.max(0, optionIndex - 1);
         refresh();
@@ -243,7 +255,7 @@ export async function askQuestionnaireTUI(
       addLine(theme.fg('accent', '─'.repeat(width)));
 
       if (hasSubmitTab) {
-        addLine(` ${renderTabBar(questions, currentTab, answers, canSubmit(), theme)}`);
+        addLine(` ${renderTabBar(questions, currentTab, answers, skippedQuestionIds, canSubmit(), theme)}`);
         lines.push('');
       }
 
@@ -267,7 +279,7 @@ export async function askQuestionnaireTUI(
         lines.push('');
         addLine(theme.fg('dim', ' Enter to submit • Esc to cancel'));
       } else if (hasSubmitTab && currentTab === questions.length) {
-        renderSubmitTab(questions, answers, canSubmit(), theme, addLine);
+        renderSubmitTab(questions, answers, skippedQuestionIds, canSubmit(), theme, addLine);
       } else if (question) {
         addLine(theme.fg('text', ` ${question.prompt}`));
         lines.push('');

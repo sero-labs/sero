@@ -111,6 +111,8 @@ export function formatCustomMessage(message: unknown): string | null {
   if (!display) return null;
 
   const customType = String(msg.customType ?? '').trim();
+  // Older sessions stored a startup notice that added no setup information.
+  if (customType === 'memory-bootstrap') return null;
   // Recall shows only as its own line; an older one without memory data shows nothing.
   if (customType === 'memory-recall') return null;
   const content = msg.content;

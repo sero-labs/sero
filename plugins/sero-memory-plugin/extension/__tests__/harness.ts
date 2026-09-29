@@ -16,6 +16,7 @@ export interface BranchEntry {
 }
 
 export interface SessionHarness {
+  sentMessageTypes: string[];
   start(): Promise<void>;
   /** Plays `before_agent_start` for a new user message and returns what the extension added. */
   prompt(text: string): Promise<{ systemPrompt: string; message?: { customType: string; content: string; details?: unknown } }>;
@@ -33,6 +34,7 @@ export function createSession(options: {
 }): SessionHarness {
   const handlers = new Map<string, Handler[]>();
   const tools = new Map<string, { execute: (...args: unknown[]) => Promise<{ content: Array<{ text: string }> }> }>();
+  const sentMessageTypes: string[] = [];
   const api = {
     on: (event: string, handler: Handler) => {
       handlers.set(event, [...(handlers.get(event) ?? []), handler]);
@@ -42,7 +44,7 @@ export function createSession(options: {
     },
     getActiveTools: () => options.activeTools ?? ['sero-cli'],
     registerCommand: () => undefined,
-    sendMessage: () => undefined,
+    sendMessage: (message: { customType: string }) => { sentMessageTypes.push(message.customType); },
     sendUserMessage: () => undefined,
     events: { on: () => () => undefined, emit: () => undefined },
   } as unknown as ExtensionAPI;
@@ -65,6 +67,7 @@ export function createSession(options: {
   };
 
   return {
+    sentMessageTypes,
     start: async () => { await emit('session_start', { reason: 'startup' }); },
     prompt: async (text) => {
       const result = await emit('before_agent_start', { prompt: text, systemPrompt: 'BASE' }) as {

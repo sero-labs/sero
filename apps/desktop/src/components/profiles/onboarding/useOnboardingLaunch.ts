@@ -28,7 +28,6 @@ export interface OnboardingLaunchState {
   handleLoginComplete: () => void;
   handleContinue: (config: GlobalModelConfigInput) => Promise<void>;
   handleErrorBack: () => void;
-  dismissReadyScreen: () => void;
 }
 
 export function useOnboardingLaunch(): OnboardingLaunchState {
@@ -161,10 +160,6 @@ export function useOnboardingLaunch(): OnboardingLaunchState {
     setUiPhase(deriveUiPhase(onboardingState));
   }, [onboardingState, syncOnboardingState]);
 
-  const dismissReadyScreen = useCallback(() => {
-    setUiPhase('done');
-  }, []);
-
   return {
     uiPhase,
     onboardingState,
@@ -179,6 +174,5 @@ export function useOnboardingLaunch(): OnboardingLaunchState {
     handleLoginComplete,
     handleContinue,
     handleErrorBack,
-    dismissReadyScreen,
   };
 }

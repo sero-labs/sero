@@ -14,6 +14,7 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { Text } from '@earendil-works/pi-tui';
 import { Type } from 'typebox';
+import { Value } from 'typebox/value';
 
 import type { QuestionItem, QuestionAnswer } from '../shared/types';
 import { nextQuestionId, askQuestion, hasSeroIPCBridge } from './ipc-bridge';
@@ -37,9 +38,9 @@ const QuestionParams = Type.Object({
 });
 
 const SubQuestionSchema = Type.Object({
-  id: Type.String({ description: 'Unique identifier for this sub-question' }),
+  id: Type.String({ description: 'Unique identifier for this sub-question', pattern: '\\S' }),
   label: Type.Optional(Type.String({ description: 'Short label for the nested choice' })),
-  prompt: Type.String({ description: 'The nested question text to display' }),
+  prompt: Type.String({ description: 'The nested question text to display', pattern: '\\S' }),
   options: Type.Array(OptionSchema, { description: 'Available nested options' }),
   allowOther: Type.Optional(Type.Boolean({ description: 'Allow custom text input (default: true)' })),
   multiSelect: Type.Optional(Type.Boolean({ description: 'Allow selecting multiple nested options (default: false)' })),
@@ -54,16 +55,16 @@ const QuestionnaireOptionSchema = Type.Object({
 });
 
 const QuestionnaireQuestionSchema = Type.Object({
-  id: Type.String({ description: 'Unique identifier for this question' }),
+  id: Type.String({ description: 'Unique identifier for this question', pattern: '\\S' }),
   label: Type.Optional(Type.String({ description: 'Short label for tab/step (defaults to Q1, Q2)' })),
-  prompt: Type.String({ description: 'The full question text to display' }),
+  prompt: Type.String({ description: 'The full question text to display', pattern: '\\S' }),
   options: Type.Array(QuestionnaireOptionSchema, { description: 'Available options' }),
   allowOther: Type.Optional(Type.Boolean({ description: 'Allow custom text input (default: true)' })),
   multiSelect: Type.Optional(Type.Boolean({ description: 'Allow selecting multiple options for this question (default: false)' })),
 });
 
 const QuestionnaireParams = Type.Object({
-  questions: Type.Array(QuestionnaireQuestionSchema, { description: 'Questions to ask' }),
+  questions: Type.Array(QuestionnaireQuestionSchema, { description: 'Questions to ask', minItems: 1 }),
 });
 
 // ── Extension entry point ──────────────────────────────────────
@@ -187,9 +188,12 @@ function registerQuestionnaireTool(pi: ExtensionAPI) {
     parameters: QuestionnaireParams,
 
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
-      if (params.questions.length === 0) {
+      if (!Value.Check(QuestionnaireParams, params)) {
         return {
-          content: [{ type: 'text', text: 'Error: No questions provided' }],
+          content: [{
+            type: 'text',
+            text: 'Error: Each question needs an id, prompt, and options array. Pass the array directly to sero questionnaire, for example: sero questionnaire \'[{"id":"name","prompt":"What is your name?","options":[]}]\'',
+          }],
           details: { questions: [], answers: [], cancelled: true },
         };
       }
@@ -241,6 +245,7 @@ function registerQuestionnaireTool(pi: ExtensionAPI) {
         cancelled?: boolean;
         questions?: QuestionItem[];
         answers?: QuestionAnswer[];
+        skippedQuestionIds?: string[];
       } | undefined;
       if (!details || details.cancelled) {
         return new Text(theme.fg('warning', 'Cancelled'), 0, 0);
@@ -248,6 +253,12 @@ function registerQuestionnaireTool(pi: ExtensionAPI) {
       const lines = formatGroupedAnswerLines(details.questions ?? [], details.answers ?? []).map((line) =>
         `${theme.fg('success', '✓ ')}${theme.fg('accent', line.questionLabel)}: ${line.answerText}`,
       );
+      const skippedIds = new Set(details.skippedQuestionIds ?? []);
+      for (const question of details.questions ?? []) {
+        if (skippedIds.has(question.id)) {
+          lines.push(`${theme.fg('muted', '– ')}${question.label}: skipped by user`);
+        }
+      }
       return new Text(lines.join('\n'), 0, 0);
     },
   });
@@ -317,6 +328,11 @@ function flattenQuestions(questions: QuestionItem[]): QuestionItem[] {
   ]);
 }
 
+function getSkippedQuestions(questions: QuestionItem[], answers: QuestionAnswer[]): QuestionItem[] {
+  const answeredIds = new Set(answers.map((answer) => answer.questionId));
+  return questions.filter((question) => !answeredIds.has(question.id));
+}
+
 function formatAnswerText(answer: QuestionAnswer): string {
   if (answer.wasCustom) {
     return `user wrote: ${answer.label}`;
@@ -376,9 +392,14 @@ function buildQuestionnaireResult(
   const answerLines = formatGroupedAnswerLines(questions, answers).map(
     (line) => `${line.questionLabel}: ${line.answerText}`,
   );
+  const skippedQuestions = getSkippedQuestions(questions, answers);
+  const skippedLines = skippedQuestions.map((question) => `${question.label}: skipped by user`);
+  if (skippedLines.length > 0) {
+    skippedLines.push('Do not ask skipped questions again.');
+  }
 
   return {
-    content: [{ type: 'text' as const, text: answerLines.join('\n') }],
-    details: { questions, answers, cancelled: false },
+    content: [{ type: 'text' as const, text: [...answerLines, ...skippedLines].join('\n') }],
+    details: { questions, answers, skippedQuestionIds: skippedQuestions.map((question) => question.id), cancelled: false },
   };
 }
