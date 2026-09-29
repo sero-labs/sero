@@ -61,3 +61,31 @@ export {
   type SeededWorkflowProfile,
   type LaunchWorkflowAppOptions,
 } from './workflow';
+export {
+  startStubModel,
+  seedStubProvider,
+  STUB_MODEL_ID,
+  STUB_PROVIDER_ID,
+  type StubModelServer,
+  type StubReply,
+  type StubRequest,
+} from './stub-model';
+export {
+  CLI_PROBES,
+  DEFECT_KINDS,
+  EXISTS_ONLY_TOOLS,
+  HELP_ONLY_COMMANDS,
+  PROBE_EDIT_FILE,
+  PROBE_FILE,
+  PROBE_WRITE_FILE,
+  SUBAGENT_TASK,
+  TOOL_PROBES,
+  classifyResult,
+  cliCommandsListed,
+  startProbeStub,
+  type ProbeKind,
+  type ProbeOutcome,
+  type ProbeStub,
+  type ProbedSession,
+  type ScriptedCall,
+} from './session-probe';

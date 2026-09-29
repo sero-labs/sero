@@ -21,11 +21,13 @@ import { extractResponse, extractToolArgsSummary } from './session-output';
 import type { SharedInfra } from '@electron/shared/infra/shared-infra';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { createRuntimeTools } from '@electron/features/container/tools';
+import { containerPromptState, type ContainerPromptState } from '@electron/features/container/tools/container-prompt-state';
 import { createRunCodeController } from '@electron/features/code-mode';
 import { preserveBashFailureStatus } from '@electron/features/tool-capture/bash-result-error-status';
 import { SEARCH_TOOL_NAMES } from '@electron/features/apps/extensions/search-plugin';
 import { WORKSPACE_DIR } from '@electron/features/container/tools/tool-schemas';
-import { createSubagentResourceLoader } from './resource-loader';
+import { clearBridgedExtensionSessionStateForSession } from '@electron/cli';
+import { createSubagentResourceLoader, shouldBridgePluginTools } from './resource-loader';
 import { recordRunToolCatalog } from './tool-catalog';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import { logRawEvent, logTurnContext } from '@electron/ipc/editor/debug';
@@ -203,6 +205,7 @@ export async function runSubagent(
 
   const policy = config.platformTools ?? 'all';
   let platformTools: ToolDefinition[] = [];
+  let containerState: ContainerPromptState | undefined;
   if (policy !== 'none') {
     const runtime = await runtimeManager.getRuntime(workspaceId);
     try {
@@ -216,6 +219,7 @@ export async function runSubagent(
         error: `${runtime.backend} runtime failed to start for workspace ${workspaceId}: ${message}`,
       };
     }
+    containerState = containerPromptState(runtime);
     platformTools = filterPlatformTools(
       await createRuntimeTools(runtime, subagentSessionId, containerCwd),
       policy,
@@ -243,10 +247,12 @@ export async function runSubagent(
     sessionId: subagentSessionId,
     settingsManager: infra.settingsManager,
     containerCwd,
+    containerState,
     systemPromptOverride: config.systemPromptOverride,
     appendSystemPrompt: appendSystemPrompt.length > 0 ? appendSystemPrompt : undefined,
     disabledSkills: config.disabledSkills,
     restrictSearchTools: policy === 'readOnly',
+    bridgePluginTools: shouldBridgePluginTools(policy, config.tools, disabledTools),
   });
   await loader.reload();
 
@@ -477,6 +483,7 @@ export async function runSubagent(
     return { response: '', usage, modelId, providerId, error: errorMsg };
   } finally {
     clearStallTimer();
+    clearBridgedExtensionSessionStateForSession(subagentSessionId);
     if (session && extensionsStarted) {
       try { await shutdownAndDispose(session, `subagent ${subagentSessionId}`); } catch { /* ignore */ }
     } else if (session) {

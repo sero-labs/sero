@@ -25,12 +25,12 @@ vi.mock('@electron/platform/env', () => ({
 
 import { buildContainerPromptBlock, buildHostPromptBlock } from '@electron/features/container/tools/system-prompt';
 import { buildCliPromptBlock } from '@electron/cli';
+import { removePiDocsSection } from '@electron/features/pi-docs/strip-pi-docs-section';
 import {
   BashParams,
   ReadParams,
   WriteParams,
   EditParams,
-  BrowserParams,
 } from '@electron/features/container/tools/tool-schemas';
 
 // ── Token estimation ────────────────────────────────────────
@@ -149,7 +149,6 @@ const CORE_TOOLS = [
   { name: 'read', description: 'Read the contents of a file. Supports text files and images. Output is truncated to 2000 lines or 50KB. Use offset/limit for large files.', parameters: ReadParams },
   { name: 'write', description: "Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories.", parameters: WriteParams },
   { name: 'edit', description: 'Edit a file by replacing exact text. The oldText must match exactly (including whitespace). Use this for precise, surgical edits.', parameters: EditParams },
-  { name: 'automation_browser', description: 'Control a hidden Chromium automation browser inside the runtime for testing web UIs. Do not use for visible Browser panel or user screen recordings. Actions: launch, navigate, click, type, press_key, screenshot, scroll, evaluate, get_text, wait, close.', parameters: BrowserParams },
   { name: 'sero-cli', description: 'Execute Sero platform commands. Run `sero help` for commands. Supports multi-line input to chain commands.', parameters: { type: 'object', properties: { command: { type: 'string' }, timeout: { type: 'number' } }, required: ['command'] } },
 ];
 
@@ -165,9 +164,11 @@ describe('Token Baseline Benchmark', () => {
   }
 
   it('SDK base prompt', () => {
-    const prompt = buildSdkBasePrompt();
+    // The Sero extension removes Pi's docs section; the runtime block replaces it with one line.
+    const prompt = removePiDocsSection(buildSdkBasePrompt());
     const tokens = measure('sdk_base_prompt', prompt);
-    expect(tokens).toBeLessThan(700);
+    expect(prompt).not.toContain('Pi documentation');
+    expect(tokens).toBeLessThan(450);
   });
 
   it('AGENTS.md (global workspace)', () => {
@@ -191,18 +192,21 @@ describe('Token Baseline Benchmark', () => {
   it('Container system prompt block', () => {
     const block = buildContainerPromptBlock('test-workspace', '192.168.64.2');
     const tokens = measure('container_block', block);
-    expect(tokens).toBeLessThan(2_650);
-    expect(block).toContain('Pi/Sero self-building documentation');
-    expect(block).toContain('/tmp/sero-host-artifacts/shared/pi-docs/docs');
+    expect(tokens).toBeLessThan(1_100);
+    expect(block).toContain('Ubuntu 24.04');
+    expect(block).toContain('Pi docs: `/tmp/sero-host-artifacts/shared/pi-docs`');
+    expect(block).not.toContain('node:22-slim');
   });
 
   it('Host system prompt block', () => {
     const block = buildHostPromptBlock('test-workspace', '/Users/me/workspace', { platform: 'darwin' });
     const tokens = measure('host_block', block);
-    expect(tokens).toBeLessThan(850);
+    expect(tokens).toBeLessThan(600);
     expect(block).toContain('Do NOT hard-code PATH prefixes');
-    expect(block).toContain('@types/react');
-    expect(block).toContain('self-building documentation fallback');
+    expect(block).toContain('sero devserver register');
+    expect(block).toContain('Pi docs: `/tmp/sero-host-artifacts/shared/pi-docs`');
+    expect(block).not.toContain('localhost:5173');
+    expect(buildHostPromptBlock('w', '/w', { devBuild: true })).toContain('localhost:5173');
   });
 
   it('CLI prompt block', () => {
@@ -229,9 +233,9 @@ describe('Token Baseline Benchmark', () => {
     components['tool_schemas'] = { chars: 0, tokens: totalTokens };
     components['tool_schemas_breakdown'] = { chars: 0, tokens: 0, ...perTool } as any;
 
-    // 6 tools should cost less than 4,000 tokens
-    expect(totalTokens).toBeLessThan(4_000);
-    expect(CORE_TOOLS).toHaveLength(6);
+    // automation_browser is a `sero-cli` command in chat, so five tools remain.
+    expect(totalTokens).toBeLessThan(2_000);
+    expect(CORE_TOOLS).toHaveLength(5);
   });
 
   it('TOTAL stays within budget', () => {

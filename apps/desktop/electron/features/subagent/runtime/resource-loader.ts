@@ -8,8 +8,10 @@
  */
 
 import { DefaultResourceLoader, type LoadExtensionsResult } from '@earendil-works/pi-coding-agent';
+import type { PlatformToolPolicy } from '../core/types';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import type { SharedInfra } from '@electron/shared/infra/shared-infra';
+import type { ContainerPromptState } from '@electron/features/container/tools/container-prompt-state';
 import { createSubagentExtensionFactory } from './loader';
 import { SERO_AGENT_DIR } from '@electron/platform/env';
 import {
@@ -19,6 +21,8 @@ import {
   filterCompatiblePluginThemes,
   packageNameForResourcePath,
 } from '@electron/features/plugins/resource-compatibility';
+import { bridgeExtensionTools } from '@electron/cli';
+import { dropToolsNotForSessionKind } from '@electron/features/plugins/bridge-policy';
 import { restrictSearchToolOrigins } from '@electron/features/apps/extensions/search-plugin';
 import { createSubagentSkillOverride } from './skill-pipeline';
 
@@ -45,6 +49,8 @@ export interface SubagentResourceLoaderOptions {
   sessionId: string;
   settingsManager: SharedInfra['settingsManager'];
   containerCwd?: string;
+  /** Set when the child session runs in a container workspace. */
+  containerState?: ContainerPromptState;
   /**
    * User context override: replaces the base Sero system prompt. `undefined`
    * means "no override" (an empty string still replaces the base).
@@ -60,6 +66,14 @@ export interface SubagentResourceLoaderOptions {
   disabledSkills?: string[];
   /** Keep conventional search names only when the built-in FFF plugin registered them. */
   restrictSearchTools?: boolean;
+  /**
+   * Reach plugin tools as `sero-cli` commands, the way a chat does, so their
+   * schemas stay out of the session's start-up. Set only when the session has
+   * `sero-cli` and no allowlist, because an allowlist approves tools by name.
+   */
+  bridgePluginTools?: boolean;
+  /** Keep tools that their plugin declares for other kinds of session. Only the catalogue enumeration sets this. */
+  keepToolsForOtherSessionKinds?: boolean;
 }
 
 /**
@@ -81,7 +95,7 @@ export function createSubagentResourceLoader(
         options.workspaceManager,
         options.workspaceId,
         options.sessionId,
-        undefined,
+        options.containerState,
         options.containerCwd,
       ),
     ],
@@ -103,9 +117,24 @@ export function createSubagentResourceLoader(
     promptsOverride: filterCompatiblePluginPrompts,
     themesOverride: filterCompatiblePluginThemes,
     extensionsOverride: (base) => {
-      const compatible = withoutChatOnlyPlugins(filterCompatiblePluginExtensions(base));
-      return options.restrictSearchTools ? restrictSearchToolOrigins(compatible) : compatible;
+      const withoutChatOnly = withoutChatOnlyPlugins(filterCompatiblePluginExtensions(base));
+      const compatible = options.keepToolsForOtherSessionKinds
+        ? withoutChatOnly
+        : dropToolsNotForSessionKind(withoutChatOnly, 'subagent');
+      const bridged = options.bridgePluginTools
+        ? bridgeExtensionTools(compatible, { sessionId: options.sessionId })
+        : compatible;
+      return options.restrictSearchTools ? restrictSearchToolOrigins(bridged) : bridged;
     },
     agentsFilesOverride: filterCompatiblePluginAgentsFiles,
   });
+}
+
+/** Whether a subagent run reaches its plugin tools through `sero-cli` instead of as direct tools. */
+export function shouldBridgePluginTools(
+  policy: PlatformToolPolicy,
+  allowlist: string[] | undefined,
+  disabledTools: ReadonlySet<string>,
+): boolean {
+  return policy === 'all' && !(allowlist && allowlist.length > 0) && !disabledTools.has('sero-cli');
 }

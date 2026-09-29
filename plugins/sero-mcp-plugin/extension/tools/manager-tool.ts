@@ -41,6 +41,8 @@ export function registerMcpManagerTool(pi: ExtensionAPI, runtime: McpRuntime): v
     label: 'MCP Internal Manager',
     description:
       'Internal MCP management surface. Reserve this for MCP server administration, auth, diagnostics, or viewer/UI actions. DO NOT use it for normal MCP docs lookup, discovery, resource reads, or tool execution—even if a similarly named internal action exists here. If the user says things like "use context7/github MCP to do X", use `mcp`, not `mcp_manager`. Avoid preflight thrash: do not start with `mcp_manager` status/get_raw_config/get_diagnostics unless the user is actually asking to set up or debug MCP.',
+    // The sero-cli command list shows this line, so it says when to use the command.
+    ...{ cli: { summary: 'MCP (Model Context Protocol) servers give Sero extra tools and data: add, remove, connect or authenticate servers, and read MCP config or diagnostics' } },
     parameters: ManagerParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const managerParams = params as Partial<McpServerEditorInput> & {

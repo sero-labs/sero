@@ -168,7 +168,10 @@ Tabs are workspace-owned and loaded lazily through the browser panel. Explicit t
 Sero bridges selected extension tools and commands into `sero-cli` so agents use one command surface.
 
 - Core tools such as `todo`, `memory`, `question`, `cron`, `git_manager`, and others are allowlisted.
-- Plugin packages can opt into bridging with `sero.plugin.bridgeTools` metadata.
+- A plugin bridges all its tools by default. `sero.plugin.bridgeTools` narrows that to a list of tool names, or turns it off with `false`.
+- A bridged tool is a `sero` command and not a direct tool, so its schema does not load at the start of every session. `design_library_assets`, `design_library_settings` and `mcp_manager` work this way. In chat, `automation_browser` does too. Run `sero help <command>` for its arguments.
+- A tool declares which kinds of session may have it with `sero.plugin.toolSessionKinds`, for example `{ "goal": ["chat"], "room": ["member"] }`. The kinds are `chat`, `subagent` and `member` (Architect and Room members). A tool with no entry is for every kind. The host does not load a tool into a session of another kind.
+- The goal tools `goal_complete`, `goal_blocked` and `goal_wait` are active only while a goal runs.
 - `research` is explicitly not bridged.
 - Admin tooling is intentionally not agent-accessible through this bridge.
 - Session-owned bridged commands are visible only for the matching active session scope.

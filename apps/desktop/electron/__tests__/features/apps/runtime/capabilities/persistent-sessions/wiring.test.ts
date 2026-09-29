@@ -7,6 +7,13 @@ import { createMemberRuntimeTools } from '@electron/features/apps/runtime/capabi
 
 const fakes = vi.hoisted(() => ({
   choices: [] as { body: string }[],
+  catalogFor: vi.fn(() => [
+    { name: 'read' },
+    { name: 'bash' },
+    { name: 'gh' },
+    { name: 'git_manager' },
+    { name: 'sero-cli' },
+  ]),
 }));
 
 vi.mock('@electron/shared/infra/ai-infra', () => ({
@@ -35,13 +42,12 @@ vi.mock('@electron/features/workspace/manager', () => ({
 
 vi.mock('@electron/features/subagent/runtime/tool-catalog', () => ({
   warmSubagentToolCatalog: async () => undefined,
-  getSubagentToolCatalog: () => [
-    { name: 'read' },
-    { name: 'bash' },
-    { name: 'gh' },
-    { name: 'git_manager' },
-    { name: 'sero-cli' },
-  ],
+  getToolCatalogFor: fakes.catalogFor,
+  getToolPackagePath: () => undefined,
+}));
+
+vi.mock('@electron/features/workspace/runtime/runtime-manager', () => ({
+  runtimeManager: { getRuntime: async () => ({ backend: 'host', workspaceId: 'ws-1' }) },
 }));
 
 vi.mock('@electron/ipc/agent/handlers/subagent-context', () => ({
@@ -152,6 +158,16 @@ describe('persistent session wiring', () => {
 
     expect(decision?.approved.subjects.implementer.allowedCwds).toEqual(['/workspace/app']);
     expect(fakes.choices[0].body).toContain('/other-workspace/app');
+  });
+
+  it('offers a member only the tools in the member catalogue', async () => {
+    const proposal = skillBearingProposal();
+    proposal.subjects.implementer.allowedTools = ['read', 'goal', 'rooms', 'goal_complete'];
+
+    const decision = await clampAndApprove('ws-1', proposal);
+
+    expect(fakes.catalogFor).toHaveBeenCalledWith('member');
+    expect(decision?.approved.subjects.implementer.allowedTools).toEqual(['read']);
   });
 
   it('removes tools the approved permission profile cannot provide', async () => {

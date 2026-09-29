@@ -54,12 +54,19 @@ describe('persistent member runtime tools', () => {
     const tools = await createMemberRuntimeTools('ws-1', ['read', 'automation_browser']);
     expect(runtimeManager.getRuntime).toHaveBeenLastCalledWith('ws-1');
     expect(runtime.ensure).toHaveBeenCalledOnce();
-    expect(tools.map((tool) => tool.name)).toEqual(['automation_browser']);
+    expect(tools.map((tool) => tool.name)).toEqual(['read', 'automation_browser']);
+  });
+
+  it('runs approved file tools through the workspace runtime, like bash', async () => {
+    const runtime = fakeRuntime('docker', { backend: 'docker', status: 'ready', message: 'ready', checks: [] });
+    vi.mocked(runtimeManager.getRuntime).mockResolvedValue(runtime);
+    const tools = await createMemberRuntimeTools('ws-1', ['read', 'write', 'edit']);
+    expect(tools.map((tool) => tool.name)).toEqual(['read', 'write', 'edit']);
   });
 
   it('does not start a runtime when the permission profile excludes network access', async () => {
     vi.mocked(runtimeManager.getRuntime).mockClear();
-    const { allowed } = applyPermissionProfile(['read', 'bash', 'automation_browser'], {
+    const { allowed } = applyPermissionProfile(['bash', 'automation_browser'], {
       filesystem: 'read', commands: 'none', network: 'none', vcs: 'read',
     });
     expect(await createMemberRuntimeTools('ws-1', allowed)).toEqual([]);

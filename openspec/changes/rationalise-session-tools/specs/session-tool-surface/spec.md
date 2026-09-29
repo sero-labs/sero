@@ -74,6 +74,17 @@ Subagent and workflow step sessions MUST NOT be given `goal`, `goals`, `goal_com
 - **WHEN** a workflow step's allowlist includes `goal` or `rooms`
 - **THEN** the step session still does not have it
 
+### Requirement: A default subagent reaches plugin tools through Sero CLI
+A subagent or workflow step session that has `sero-cli` and no tool allowlist SHALL reach plugin tools as Sero CLI commands, as a chat does, and MUST NOT have them as direct tools. A session with an allowlist keeps each named tool as a direct tool, because an allowlist approves tools by name.
+
+#### Scenario: Default subagent tool list
+- **WHEN** a chat starts a subagent whose agent definition names no tools
+- **THEN** its direct tools are the core file, search, shell and code tools plus `sero-cli`, and plugin tools such as `web_search` and `git_manager` are Sero CLI commands
+
+#### Scenario: Subagent with an allowlist
+- **WHEN** a subagent's allowlist names `web_search`
+- **THEN** `web_search` is a direct tool in that session
+
 ### Requirement: Plugins declare which session kinds a tool is for
 A plugin SHALL be able to declare, per tool, the session kinds it is for: chat, subagent (including workflow steps) and member (Architect and Room members). The host MUST keep a declared tool out of every session kind not listed for it, as a direct tool and as a Sero CLI command. A tool with no declaration SHALL stay available to every kind.
 

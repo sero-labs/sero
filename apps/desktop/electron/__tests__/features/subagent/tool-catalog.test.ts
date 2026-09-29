@@ -7,6 +7,12 @@ vi.mock('fs', () => ({
   readFileSync: vi.fn(() => { throw new Error('no cache'); }),
   writeFileSync: vi.fn(),
 }));
+vi.mock('@electron/features/plugins/resource-compatibility', () => ({
+  packageRootForResourcePath: (resourcePath: string) => resourcePath.split('/extension/')[0] ?? null,
+}));
+vi.mock('@electron/features/plugins/bridge-policy', () => ({
+  isToolForSessionKind: (_path: string, name: string, kind: string) => !(name === 'goal' && kind === 'member'),
+}));
 vi.mock('@electron/platform/env', () => ({ SERO_AGENT_DIR: '/agent', SERO_HOME: '/tmp/sero-test' }));
 const probe = vi.hoisted(() => ({
   bindExtensions: vi.fn(),
@@ -18,7 +24,11 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
     session: {
       bindExtensions: probe.bindExtensions,
       extensionRunner: { emit: probe.emit },
-      getAllTools: () => [{ name: 'probe_tool', description: 'From the probe' }],
+      getAllTools: () => [{
+        name: 'probe_tool',
+        description: 'From the probe',
+        sourceInfo: { path: '/plugins/probe/extension/index.js' },
+      }],
       dispose: probe.dispose,
     },
   })),
@@ -33,6 +43,8 @@ vi.mock('@electron/features/subagent/runtime/resource-loader', () => ({
 import {
   STATIC_PLATFORM_TOOLS,
   getSubagentToolCatalog,
+  getToolCatalogFor,
+  getToolPackagePath,
   recordRunToolCatalog,
   warmSubagentToolCatalog,
 } from '@electron/features/subagent/runtime/tool-catalog';
@@ -48,8 +60,8 @@ describe('subagent tool catalog', () => {
 
   it('unions a real run\'s tools in by name, without duplicates', () => {
     recordRunToolCatalog([
-      { name: 'web_search', description: 'Search the web' },
-      { name: 'orchestrator', description: 'Run orchestrator loops' },
+      { name: 'web_search', description: 'Search the web', sourceInfo: { path: '/plugins/web/extension/index.js' } },
+      { name: 'orchestrator', description: 'Run orchestrator loops', sourceInfo: { path: '/plugins/orch/extension/index.js' } },
     ] as never);
 
     const catalog = getSubagentToolCatalog();
@@ -61,8 +73,9 @@ describe('subagent tool catalog', () => {
   });
 
   it('updates the description when the same tool name is recorded again', () => {
-    recordRunToolCatalog([{ name: 'web_search', description: 'v1' }] as never);
-    recordRunToolCatalog([{ name: 'web_search', description: 'v2' }] as never);
+    const sourceInfo = { path: '/plugins/web/extension/index.js' };
+    recordRunToolCatalog([{ name: 'web_search', description: 'v1', sourceInfo }] as never);
+    recordRunToolCatalog([{ name: 'web_search', description: 'v2', sourceInfo }] as never);
 
     const entries = getSubagentToolCatalog().filter((t) => t.name === 'web_search');
     expect(entries).toHaveLength(1);
@@ -77,5 +90,23 @@ describe('subagent tool catalog', () => {
     expect(probe.bindExtensions).not.toHaveBeenCalled();
     expect(probe.emit).not.toHaveBeenCalled();
     expect(probe.dispose).toHaveBeenCalledOnce();
+  });
+
+  it('names the package that registers each plugin tool', () => {
+    recordRunToolCatalog([
+      { name: 'web_search', description: 'Search the web', sourceInfo: { path: '/plugins/web/extension/index.js' } },
+    ] as never);
+
+    expect(getToolPackagePath('web_search')).toBe('/plugins/web');
+    expect(getToolPackagePath('bash')).toBeUndefined();
+  });
+
+  it('leaves a tool out of the catalogue for a session kind its plugin excludes', () => {
+    recordRunToolCatalog([
+      { name: 'goal', description: 'Goals', sourceInfo: { path: '/plugins/orch/extension/index.js' } },
+    ] as never);
+
+    expect(getToolCatalogFor('chat').map((tool) => tool.name)).toContain('goal');
+    expect(getToolCatalogFor('member').map((tool) => tool.name)).not.toContain('goal');
   });
 });

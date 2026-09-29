@@ -64,6 +64,13 @@ describe('System prompt deduplication — memory instructions', () => {
     expect(agentsTemplate).not.toContain('### Writing habits');
   });
 
+  it('AGENTS.md template names only tools that exist and agrees with the memory rules', () => {
+    expect(agentsTemplate).not.toContain('kanban');
+    expect(agentsTemplate).not.toContain('register_dev_server');
+    expect(agentsTemplate).not.toContain('`daily`');
+    expect(agentsTemplate).not.toContain('`write` tool');
+  });
+
   it('CLI prompt block does NOT duplicate memory routing rules', () => {
     expect(cliBlock).not.toContain('High-priority routing');
     expect(cliBlock).not.toContain('Sero memory system files and history');
@@ -72,14 +79,9 @@ describe('System prompt deduplication — memory instructions', () => {
     expect(cliBlock).not.toContain('memory_search');
   });
 
-  it('container prompt block uses a brief memory reference, not full rules', () => {
-    // Should reference the Memory System section, not restate it
-    expect(containerBlock).toContain('Memory System section');
-    // Should NOT contain the full instruction block
-    expect(containerBlock).not.toContain('Direct file access bypasses IDs, timestamps');
-    expect(containerBlock).not.toContain('search indexing is unavailable');
-    // Should still mention the tools concisely
-    expect(containerBlock).toContain('sero memory');
+  it('container prompt block leaves memory to the memory block', () => {
+    expect(containerBlock).not.toContain('Memory System');
+    expect(containerBlock).not.toContain('sero memory');
   });
 
 });

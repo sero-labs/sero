@@ -64,7 +64,9 @@ preload/IPC channels). Declare the host seams you actually use in
 App tools are bridged into the single `sero-cli` tool — always use `pi.registerTool()`.
 
 - Plugins bridge all tools to `sero <tool> ...` by default
-- `sero.plugin.bridgeTools`: omit/`true` = bridge all, `false` = none, `string[]` = selected tool names
+- `sero.plugin.bridgeTools`: omit/`true` = bridge all, `false` = none, `string[]` = selected tool names. A bridged tool is reached as a `sero` command, so its schema stays out of every session's start-up. List a tool here when the agent uses it only now and then
+- `sero.plugin.toolSessionKinds`: `{ "<tool>": ["chat" | "subagent" | "member"] }` limits a tool to those kinds of session. A tool with no entry is for every kind
+- A tool's `description` and `cli.summary` must say what the tool or service is, not only its one job. The agent cannot assume it knows your plugin
 - Custom CLI help / summary / raw-args parsing goes on the tool's `cli` field
 - `cli.overrideBuiltin: true` only when intentionally replacing a builtin command
 - Never register app tools as `customTools` in `createAgentSession()`

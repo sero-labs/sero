@@ -10,7 +10,8 @@ import { StringEnum } from '@earendil-works/pi-ai';
 import { Type } from 'typebox';
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
 import type { Goal, GoalLimits, GoalOutcome } from '../shared/goal-types';
-import { assertGoalContract, hiddenTerminalTools, type GoalTurnStarter } from './goal-loop';
+import { assertGoalContract, type GoalTurnStarter } from './goal-loop';
+import { hiddenTerminalTools, type TerminalToolSwitch } from './goal-terminal-switch';
 import { resolveGoalCaller, toolFailure, toolResult, type ToolResult } from './goal-session';
 
 export const GOAL_ACTIONS = ['start', 'status', 'pause', 'resume', 'stop', 'list', 'set_limits'] as const;
@@ -183,7 +184,11 @@ function needsKickoff(action: GoalAction): boolean {
   return action === 'start' || action === 'resume';
 }
 
-export function registerGoalCommands(pi: ExtensionAPI, startTurn: GoalTurnStarter): void {
+export function registerGoalCommands(
+  pi: ExtensionAPI,
+  startTurn: GoalTurnStarter,
+  terminalTools: TerminalToolSwitch,
+): void {
   pi.registerTool({
     name: 'goal',
     label: 'Goal',
@@ -192,7 +197,7 @@ export function registerGoalCommands(pi: ExtensionAPI, startTurn: GoalTurnStarte
       'A goal keeps the session working after each turn settles, inside a turn, token, cost and time budget.',
     parameters: GoalToolParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const result = await executeGoalTool(params as GoalToolParamsShape, ctx, () => pi.getActiveTools());
+      const result = await executeGoalTool(params as GoalToolParamsShape, ctx, () => terminalTools.reachableTools());
       const goal = result.details.goal as Goal | undefined;
       if (goal) assertGoalContract(pi, goal);
       // No kickoff here: this call runs inside a turn, and the loop continues
@@ -209,7 +214,7 @@ export function registerGoalCommands(pi: ExtensionAPI, startTurn: GoalTurnStarte
         ctx?.ui?.notify(parsed.error, 'error');
         return;
       }
-      const result = await executeGoalTool(parsed, ctx, () => pi.getActiveTools());
+      const result = await executeGoalTool(parsed, ctx, () => terminalTools.reachableTools());
       const goal = result.details.goal as Goal | undefined;
       if (goal) assertGoalContract(pi, goal);
       ctx?.ui?.notify(result.text, result.details.ok === false ? 'error' : 'info');

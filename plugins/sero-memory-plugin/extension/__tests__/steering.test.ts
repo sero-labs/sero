@@ -13,6 +13,7 @@ import { fauxAssistantMessage, fauxProvider } from '@earendil-works/pi-ai/provid
 import {
   createAgentSession,
   DefaultResourceLoader,
+  defineTool,
   ModelRegistry,
   ModelRuntime,
   SessionManager,
@@ -21,6 +22,7 @@ import {
   type ExtensionError,
 } from '@earendil-works/pi-coding-agent';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Type } from 'typebox';
 
 // The native index is not loaded in unit tests; search runs on keywords.
 vi.mock('../qmd-index', async (importOriginal) => ({
@@ -113,7 +115,15 @@ describe('steering during a turn', () => {
       agentDir,
       modelRuntime,
       model,
-      tools: [],
+      // Memory adds its prompt only to a session that can run `sero memory`.
+      tools: ['sero-cli'],
+      customTools: [defineTool({
+        name: 'sero-cli',
+        label: 'sero-cli',
+        description: 'stub',
+        parameters: Type.Object({}),
+        execute: async () => ({ content: [{ type: 'text', text: '' }], details: null }),
+      })],
       resourceLoader,
       sessionManager: SessionManager.inMemory(workspace),
       settingsManager,

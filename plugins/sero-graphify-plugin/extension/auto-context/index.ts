@@ -83,6 +83,8 @@ export function registerAutoContext(
     await syncGraphContextProjectState(graphContextState, paths, ctx.cwd);
 
     if (!graphContextState.graphExists) return;
+    // The hint names `sero-cli` commands, which a session without that tool cannot run.
+    if (!pi.getActiveTools().includes('sero-cli')) return;
     if (graphContextState.reportContextInjected) return;
 
     const event = _event as BeforeAgentStartEvent;

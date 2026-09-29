@@ -16,9 +16,10 @@
 import path from 'path';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
-import type { ContainerState } from '@electron/features/container';
+import type { ContainerPromptState } from '@electron/features/container/tools/container-prompt-state';
 import type { RuntimeBackend } from '@electron/features/workspace/runtime/types';
 import type { WorkspaceAccessRootsResult } from '@sero-ai/common';
+import { removePiDocsSection } from '@electron/features/pi-docs/strip-pi-docs-section';
 import { registerSharedIsolatedCompletionHost } from '@electron/shared/infra/isolated-completion-host';
 import { registerAgentPluginHostCapability } from '@electron/features/agent-plugins/host-capability';
 import { registerRtkHostCapability } from '@electron/features/rtk/host-capability';
@@ -39,7 +40,7 @@ import type { SubagentManager } from '@electron/features/subagent';
  *
  * @param wsManager - The workspace manager (has composite state)
  * @param currentWorkspaceId - The workspace this session belongs to
- * @param containerState - Container state if workspace has a running container
+ * @param containerState - Set when the session runs in a container workspace
  */
 export interface SeroExtensionOptions {
   subagentManager?: SubagentManager;
@@ -49,6 +50,8 @@ export interface SeroExtensionOptions {
   hostRuntime?: {
     workspacePath: string;
     platform?: NodeJS.Platform;
+    /** True in a source build, where Sero's own renderer is on localhost:5173. */
+    devBuild?: boolean;
   };
   /**
    * The session's runtime. Required for host capabilities that must probe or
@@ -61,7 +64,7 @@ export function createSeroExtensionFactory(
   wsManager: WorkspaceManager,
   currentWorkspaceId: string,
   _sessionId: string,
-  containerState?: ContainerState,
+  containerState?: ContainerPromptState,
   options?: SeroExtensionOptions,
 ) {
   return (pi: ExtensionAPI) => {
@@ -75,16 +78,22 @@ export function createSeroExtensionFactory(
 
     pi.on('before_agent_start', async (event) => {
       let systemPrompt = event.systemPrompt;
-      systemPrompt += buildCliPromptBlock(
-        // The session's own registry, when it has one. Listing the shared
-        // commands to a session that cannot run them teaches it to try.
-        options?.cliRegistry,
-        {
-          workspaceId: currentWorkspaceId,
-          sessionId: _sessionId,
-        },
-        { includeSessionTitleInstruction: !options?.cliRegistry },
-      );
+      // A session that lacks the `sero-cli` tool cannot run any command in the block.
+      if (pi.getActiveTools().includes('sero-cli')) {
+        systemPrompt += buildCliPromptBlock(
+          // The session's own registry, when it has one. Listing the shared
+          // commands to a session that cannot run them teaches it to try.
+          options?.cliRegistry,
+          {
+            workspaceId: currentWorkspaceId,
+            sessionId: _sessionId,
+          },
+          { includeSessionTitleInstruction: !options?.cliRegistry },
+        );
+      }
+
+      // The runtime block, when there is one, gives the Pi docs location once.
+      if (containerState || options?.hostRuntime) systemPrompt = removePiDocsSection(systemPrompt);
 
       // Inject container environment context if workspace is containerised
       if (containerState) {
@@ -96,7 +105,7 @@ export function createSeroExtensionFactory(
         systemPrompt += buildHostPromptBlock(
           currentWorkspaceId,
           options.hostRuntime.workspacePath,
-          { platform: options.hostRuntime.platform },
+          { platform: options.hostRuntime.platform, devBuild: options.hostRuntime.devBuild },
         );
       }
 

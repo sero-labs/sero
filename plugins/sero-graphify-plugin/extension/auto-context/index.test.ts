@@ -11,10 +11,11 @@ const FIXTURE = path.join(__dirname, '..', '..', 'shared', 'query-engine', 'fixt
 
 type HookHandler = (event: unknown, ctx: { cwd: string }) => Promise<unknown>;
 
-function createPiStub() {
+function createPiStub(activeTools: string[] = ['sero-cli']) {
   const handlers = new Map<string, HookHandler>();
   const pi = {
     registerTool: vi.fn(),
+    getActiveTools: () => activeTools,
     on: vi.fn((event: string, handler: HookHandler) => {
       handlers.set(event, handler);
     }),
@@ -57,8 +58,8 @@ async function makeEnv(options: HomeOptions = {}) {
   return { cwd, paths };
 }
 
-function register(paths: GraphifyPaths) {
-  const { pi, handlers } = createPiStub();
+function register(paths: GraphifyPaths, activeTools?: string[]) {
+  const { pi, handlers } = createPiStub(activeTools);
   const registration = registerAutoContext(pi as never, paths);
   return { handlers, registration };
 }
@@ -94,6 +95,13 @@ describe('session orientation', () => {
     const second = await handlers.get('before_agent_start')?.({ systemPrompt: 'p' }, { cwd });
     expect(first).toBeDefined();
     expect(second).toBeUndefined();
+  });
+
+  it('adds no hint to a session that has no sero-cli tool to run it with', async () => {
+    const { cwd, paths } = await makeEnv({ graph: true });
+    const { handlers } = register(paths, ['read', 'bash']);
+    await handlers.get('session_start')?.({}, { cwd });
+    expect(await handlers.get('before_agent_start')?.({ systemPrompt: 'p' }, { cwd })).toBeUndefined();
   });
 
   it('stays idle when no graph exists', async () => {

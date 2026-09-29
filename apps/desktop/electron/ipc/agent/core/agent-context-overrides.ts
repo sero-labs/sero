@@ -125,9 +125,11 @@ export function applyContextOverrides(
   );
 
   const disabledTools = new Set(normalized?.disabledTools ?? []);
-  const activeToolNames = entry.baseTools
-    .map((tool) => tool.name)
-    .filter((name) => !disabledTools.has(name));
+  const baseToolNames = entry.baseTools.map((tool) => tool.name);
+  // A tool an extension switched on after start-up, such as the goal terminal
+  // tools, is not a base tool. Resetting to the base set would switch it off.
+  const switchedOn = entry.session.getActiveToolNames().filter((name) => !baseToolNames.includes(name));
+  const activeToolNames = [...baseToolNames, ...switchedOn].filter((name) => !disabledTools.has(name));
 
   entry.session.setActiveToolsByName(activeToolNames);
 

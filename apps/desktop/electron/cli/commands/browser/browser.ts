@@ -256,7 +256,11 @@ export function registerBrowserCliCommands(registry: CliRegistry): void {
       'Tabs in a workspace share a persistent session partition (cookies/logins\n' +
       'isolated per workspace). Tabs only appear in `list` once their view has\n' +
       'been loaded — persisted tabs are loaded lazily when the user opens the\n' +
-      'Browser panel.',
+      'Browser panel.\n\n' +
+      'Tips:\n' +
+      '- Use goto unless a new tab is needed.\n' +
+      '- To record a browser page: browser show; app record start; do the actions; wait 3-5s;\n' +
+      '  then run app record stop as its own command.',
     source: 'ipc',
     group: 'Builtin',
     execute: handleBrowser,

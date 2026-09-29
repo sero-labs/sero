@@ -22,6 +22,8 @@ import type { ContextToolInfo } from '@sero-ai/common';
 import { ensureAiInfra } from '@electron/shared/infra/ai-infra';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { SERO_AGENT_DIR, SERO_HOME } from '@electron/platform/env';
+import { isToolForSessionKind, type ToolSessionKind } from '@electron/features/plugins/bridge-policy';
+import { packageRootForResourcePath } from '@electron/features/plugins/resource-compatibility';
 import { createSubagentResourceLoader } from './resource-loader';
 
 /**
@@ -37,6 +39,9 @@ export const STATIC_PLATFORM_TOOLS: ContextToolInfo[] = [
   { name: 'sero-cli', description: 'Run Sero workspace commands' },
   { name: 'automation_browser', description: 'Drive an automation browser (when available)' },
 ];
+
+/** Tool name -> the plugin package that registers it. Filled from real sessions, never persisted. */
+const toolPackages = new Map<string, string>();
 
 // name -> ContextToolInfo, seeded with the platform baseline.
 const catalog = new Map<string, ContextToolInfo>(
@@ -81,9 +86,25 @@ function merge(tools: ContextToolInfo[]): boolean {
   return changed;
 }
 
-/** The published catalog (always a superset of the platform baseline). */
+/** The plugin package that registers this tool, or undefined for a platform tool. */
+export function getToolPackagePath(toolName: string): string | undefined {
+  return toolPackages.get(toolName);
+}
+
+/**
+ * The published catalog for one kind of session (always a superset of the
+ * platform baseline). A tool whose plugin does not declare it for that kind is
+ * left out, so no approval offers a tool the session would never get.
+ */
+export function getToolCatalogFor(kind: ToolSessionKind): ContextToolInfo[] {
+  return [...catalog.values()].filter((tool) => {
+    const packagePath = toolPackages.get(tool.name);
+    return !packagePath || isToolForSessionKind(path.join(packagePath, 'package.json'), tool.name, kind);
+  });
+}
+
 export function getSubagentToolCatalog(): ContextToolInfo[] {
-  return [...catalog.values()];
+  return getToolCatalogFor('subagent');
 }
 
 /**
@@ -91,6 +112,10 @@ export function getSubagentToolCatalog(): ContextToolInfo[] {
  * the runner calls this once per run with `session.getAllTools()`.
  */
 export function recordRunToolCatalog(tools: ToolInfo[]): void {
+  for (const tool of tools) {
+    const packagePath = packageRootForResourcePath(tool.sourceInfo.path);
+    if (packagePath) toolPackages.set(tool.name, packagePath);
+  }
   if (merge(tools.map((tool) => ({ name: tool.name, description: tool.description })))) persist();
 }
 
@@ -114,6 +139,9 @@ export async function warmSubagentToolCatalog(): Promise<void> {
       workspaceId: 'catalog-warmup',
       sessionId: 'subagent-tool-catalog',
       settingsManager: infra.settingsManager,
+      // The catalogue holds every tool with its package. Each consumer then
+      // filters it for the kind of session it serves.
+      keepToolsForOtherSessionKinds: true,
     });
     await loader.reload();
     const result = await createAgentSession({

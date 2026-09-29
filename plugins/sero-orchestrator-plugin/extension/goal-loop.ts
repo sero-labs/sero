@@ -26,7 +26,6 @@
 import { createHash } from 'node:crypto';
 import type { AgentMessage } from '@earendil-works/pi-agent-core';
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
-import { GOAL_TERMINAL_TOOLS } from '../shared/goal-defaults';
 import {
   buildGoalContinuation,
   buildGoalContract,
@@ -37,6 +36,7 @@ import {
 import type { Goal, GoalVerdict } from '../shared/goal-types';
 import { normalizeTurnText } from '../shared/goal-fingerprint';
 import { resolveGoalCaller, type GoalCaller } from './goal-session';
+import { hiddenTerminalTools, type TerminalToolSwitch } from './goal-terminal-switch';
 
 /**
  * Starts a turn for a goal that is active but idle. `registerGoalLoop` owns the
@@ -110,16 +110,7 @@ function verdictText(verdict: Exclude<GoalVerdict, { kind: 'continue' }>): strin
   }
 }
 
-/**
- * D07: goal mode never widens what the agent may do, and it never runs without
- * a way to stop. A tool policy that hides a terminal tool makes the goal
- * unstoppable, so the goal pauses instead of the policy being widened.
- */
-export function hiddenTerminalTools(activeTools: string[]): string[] {
-  return GOAL_TERMINAL_TOOLS.filter((name) => !activeTools.includes(name));
-}
-
-export function registerGoalLoop(pi: ExtensionAPI): GoalTurnStarter {
+export function registerGoalLoop(pi: ExtensionAPI, terminalTools: TerminalToolSwitch): GoalTurnStarter {
   let turn = emptyTurn();
   let boundaryOpen = false;
   // True while the turn now starting is one this loop asked for. Only such
@@ -142,6 +133,7 @@ export function registerGoalLoop(pi: ExtensionAPI): GoalTurnStarter {
 
   /** Drives one turn for the goal, and books it to the goal's budget. */
   const startTurn: GoalTurnStarter = (goal) => {
+    terminalTools.set(true);
     continuationQueued = true;
     queuedGoalId = goal.id;
     pi.sendMessage(
@@ -209,10 +201,12 @@ export function registerGoalLoop(pi: ExtensionAPI): GoalTurnStarter {
   });
 
   pi.on('session_start', async (_event, ctx) => {
+    terminalTools.claim();
     const caller = rememberCaller(ctx);
     if (!caller) return;
     const goal = await caller.runtime.reattach(caller.sessionPath);
     if (!goal) return;
+    terminalTools.set(goal.status === 'active');
     const hidden = hiddenTerminalTools(pi.getActiveTools());
     if (hidden.length > 0 && goal.status === 'active') {
       const paused = await caller.runtime.pause(
@@ -243,6 +237,7 @@ export function registerGoalLoop(pi: ExtensionAPI): GoalTurnStarter {
       const fallback = lastCaller;
       if (!fallback) return;
       const goal = await fallback.runtime.forSession(fallback.sessionPath);
+      terminalTools.set(goal?.status === 'active');
       if (!goal || goal.status !== 'active' || (settledGoalId && goal.id !== settledGoalId)) return;
       await fallback.runtime.recordSettledTurn({
         goalId: settledGoalId ?? goal.id,
@@ -265,6 +260,9 @@ export function registerGoalLoop(pi: ExtensionAPI): GoalTurnStarter {
       return;
     }
     const goal = await caller.runtime.forSession(caller.sessionPath);
+    // A terminal tool inside the turn may have completed, blocked or parked the
+    // goal, and the tools go with it.
+    terminalTools.set(goal?.status === 'active');
     // The goal that owned this turn, which is not always the live one: a
     // terminal tool inside the turn can have completed, blocked, parked,
     // paused or stopped it before it settled.

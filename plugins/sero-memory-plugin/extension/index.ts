@@ -90,6 +90,9 @@ export default function memoryExtension(pi: ExtensionAPI): void {
   });
 
   pi.on('before_agent_start', async (event, ctx) => {
+    // Memory is read and written with `sero memory`. A session with no
+    // `sero-cli` tool, such as a cron job, has no way to use it.
+    if (!pi.getActiveTools().includes('sero-cli')) return;
     const status = await checkBootstrapStatus();
     if (status.needsBootstrap) {
       return { systemPrompt: event.systemPrompt + buildBootstrapInstructions(status.existingUserContent) };

@@ -14,7 +14,7 @@ vi.mock('@electron/features/container/tools/system-prompt', () => ({
 }));
 
 vi.mock('@electron/cli', () => ({
-  buildCliPromptBlock: vi.fn(() => ''),
+  buildCliPromptBlock: vi.fn(() => '\n## Sero CLI'),
 }));
 
 vi.mock('@electron/ipc/editor/debug', () => ({
@@ -40,5 +40,23 @@ describe('subagent extension loader', () => {
     factory(pi);
 
     expect(mocks.registerSharedIsolatedCompletionHost).toHaveBeenCalledWith(events);
+  });
+
+  /** The `before_agent_start` handler a session gets, run with the tools that are active in it. */
+  async function startPrompt(activeTools: string[]): Promise<string> {
+    let handler: ((event: { systemPrompt: string }) => Promise<{ systemPrompt: string } | undefined>) | undefined;
+    const pi = {
+      events: { on: vi.fn() },
+      on: vi.fn((name: string, fn: typeof handler) => { if (name === 'before_agent_start') handler = fn; }),
+      getActiveTools: () => activeTools,
+    } as unknown as ExtensionAPI;
+    createSubagentExtensionFactory({} as Parameters<typeof createSubagentExtensionFactory>[0], 'workspace-1', 'session-1')(pi);
+    const result = await handler?.({ systemPrompt: 'base' });
+    return result?.systemPrompt ?? 'base';
+  }
+
+  it('adds the Sero CLI block only when the session has sero-cli', async () => {
+    expect(await startPrompt(['read', 'sero-cli'])).toContain('## Sero CLI');
+    expect(await startPrompt(['read'])).toBe('base');
   });
 });

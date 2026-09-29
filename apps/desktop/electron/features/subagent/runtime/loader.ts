@@ -14,9 +14,10 @@
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
-import type { ContainerState } from '@electron/features/container/core/types';
+import type { ContainerPromptState } from '@electron/features/container/tools/container-prompt-state';
 import { buildContainerPromptBlock } from '@electron/features/container/tools/system-prompt';
 import { buildCliPromptBlock } from '@electron/cli';
+import { removePiDocsSection } from '@electron/features/pi-docs/strip-pi-docs-section';
 import { logProviderRequest } from '@electron/ipc/editor/debug';
 import { notify } from '@electron/features/notifications/feed';
 import type { NotificationType } from '@electron/features/notifications/types';
@@ -33,7 +34,7 @@ export function createSubagentExtensionFactory(
   _wsManager: WorkspaceManager,
   currentWorkspaceId: string,
   _sessionId: string,
-  containerState?: ContainerState,
+  containerState?: ContainerPromptState,
   containerCwd?: string,
 ) {
   return (pi: ExtensionAPI) => {
@@ -43,12 +44,17 @@ export function createSubagentExtensionFactory(
     // ── System prompt injection (CLI + container) ─────────────
     pi.on('before_agent_start', async (event) => {
       let systemPrompt = event.systemPrompt;
-      systemPrompt += buildCliPromptBlock(undefined, {
-        workspaceId: currentWorkspaceId,
-        sessionId: _sessionId,
-      });
+      // A subagent whose tool policy leaves out `sero-cli` cannot run these commands.
+      if (pi.getActiveTools().includes('sero-cli')) {
+        systemPrompt += buildCliPromptBlock(undefined, {
+          workspaceId: currentWorkspaceId,
+          sessionId: _sessionId,
+        });
+      }
 
       if (containerState) {
+        // The container block gives the Pi docs location once.
+        systemPrompt = removePiDocsSection(systemPrompt);
         systemPrompt += buildContainerPromptBlock(
           currentWorkspaceId,
           containerState.ipAddress,
