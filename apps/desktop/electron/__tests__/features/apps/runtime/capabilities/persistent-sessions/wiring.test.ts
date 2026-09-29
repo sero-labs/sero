@@ -3,6 +3,8 @@ import type { PersistentSessionGrantProposal } from '@sero-ai/common';
 import { Type } from 'typebox';
 import { createManifest } from '../../manager.fixtures';
 import { createPersistentSessionsApi } from '@electron/features/apps/runtime/capabilities/persistent-sessions/index';
+import { bridgeExtensionTools, createPrivateCliRegistry } from '@electron/cli';
+import { createMemberResourceLoader } from '@electron/features/apps/runtime/capabilities/persistent-sessions/resource-profile';
 import { createMemberRuntimeTools } from '@electron/features/apps/runtime/capabilities/persistent-sessions/member-runtime-tools';
 
 const fakes = vi.hoisted(() => ({
@@ -108,6 +110,31 @@ describe('persistent session wiring', () => {
   beforeEach(() => {
     fakes.choices = [];
     fakes.backend = 'host';
+  });
+
+  it('logs an approved tool that no loaded plugin provides, by name', async () => {
+    vi.mocked(createPrivateCliRegistry).mockReturnValue({ list: () => [] } as never);
+    vi.mocked(bridgeExtensionTools).mockReturnValue({ extensions: [], errors: [] } as never);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await installPersistentSessions({
+      manifest: createManifest('orchestrator'), workspace: { id: 'global', path: '/global' }, stateFilePath: '/state.json',
+    });
+    const wiring = vi.mocked(createPersistentSessionsApi).mock.calls.at(-1)?.[0];
+    if (!wiring) throw new Error('Session capability was not installed');
+    const policy = skillBearingProposal().subjects.implementer;
+    policy.allowedTools = ['read', 'web_search', 'sero-cli'];
+    policy.permissionProfile = { filesystem: 'read', commands: 'none', network: 'fetch', vcs: 'read' };
+    await wiring.buildSessionInputs({
+      grantId: 'grant-1', subject: 'investigator', workspaceId: 'ws-1', cwd: '/workspace',
+      tools: policy.allowedTools, skills: [], systemPromptAdditions: [], policy,
+    });
+
+    // The loaded plugins give the member no `web_search`, as when its plugin was removed.
+    const { bridgeExtensions } = vi.mocked(createMemberResourceLoader).mock.calls.at(-1)![0];
+    bridgeExtensions?.({ extensions: [], errors: [], runtime: {} } as never);
+
+    expect(warn.mock.calls.flat().join('\n')).toMatch(/investigator approved tools not provided: .*web_search/);
+    warn.mockRestore();
   });
 
   it('gives a container member the runtime path of its working folder, not the host path', async () => {

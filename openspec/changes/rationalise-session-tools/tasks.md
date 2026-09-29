@@ -50,7 +50,7 @@
 - [x] 8.1 Build `read`, `write` and `edit` through the workspace runtime in `createMemberRuntimeTools` when the allowlist has them. Verify that the harness Room member writes a file in a container workspace and sees it with `bash`.
 - [x] 8.2 Confirm that no Architect or Orchestrator member flow calls a bridged slash command, then stop bridging slash commands into private registries. Verify that every command in the member CLI list passes the harness probe.
 - [x] 8.3 Record each plugin tool's source package in the subagent tool catalogue. Verify with a unit test that a warmed catalogue entry for `web_search` names its package.
-- [ ] 8.4 Load the package behind every approved plugin tool into the member session, and log approved tools that cannot be provided (design D10). Verify in the harness that a Room member approved for `web_search` with network access runs a search through `sero-cli`, and that one approved for a tool whose plugin is removed opens with a log line naming it.
+- [x] 8.4 Load the package behind every approved plugin tool into the member session, and log approved tools that cannot be provided (design D10). Verify in the harness that a Room member approved for `web_search` with network access runs a search through `sero-cli`, and that one approved for a tool whose plugin is removed opens with a log line naming it.
 - [x] 8.5 Filter the member approval catalogue by `toolSessionKinds`. Verify with a clamp unit test that `goal`, `goals`, `rooms` and the goal terminal tools are dropped from a member proposal.
 
 ## 9. Profile AGENTS.md template
