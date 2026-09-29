@@ -7,7 +7,8 @@ declare module '@earendil-works/pi-coding-agent' {
     /**
      * Sero-specific CLI bridge metadata used to expose selected extension tools
      * as `sero <command>` commands. This is runtime metadata owned by Sero.
+     * Without `execute`, only `summary` applies and the generic bridge runs the tool.
      */
-    cli?: CustomToolCliBridge;
+    cli?: Partial<CustomToolCliBridge>;
   }
 }

@@ -13,6 +13,7 @@ import {
   extractPluginCompatibilityRequirements,
   hasPluginDeclaration,
 } from '@electron/features/apps/discovery/plugin-meta';
+import { dropUserGlobalAgentSkills } from '@electron/features/skills/user-global-agent-skills';
 import { evaluatePluginCompatibility } from './compatibility';
 
 interface PluginPackageJson {
@@ -46,6 +47,11 @@ function findPackageRoot(resourcePath: string): string | null {
     }
     current = parent;
   }
+}
+
+/** The directory of the package that holds a resource file, or null outside any package. */
+export function packageRootForResourcePath(resourcePath: string): string | null {
+  return findPackageRoot(resourcePath);
 }
 
 function readPackageCompatibility(packageRoot: string): PluginCompatibilityStatus | null {
@@ -113,10 +119,10 @@ export function filterCompatiblePluginSkills(base: {
   skills: Skill[];
   diagnostics: ResourceDiagnostic[];
 } {
-  return {
+  return dropUserGlobalAgentSkills({
     ...base,
     skills: filterItemsByCompatibility(base.skills, (skill) => skill.filePath),
-  };
+  });
 }
 
 export function filterCompatiblePluginPrompts(base: {

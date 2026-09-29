@@ -51,6 +51,8 @@
         "appControl.capture"
       ],
       "bridgeTools": [
+        "design_library_assets",
+        "design_library_settings",
         "design_library_items",
         "design_library_analysis",
         "design_library_designs",

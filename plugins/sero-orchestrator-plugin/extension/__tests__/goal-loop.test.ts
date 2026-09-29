@@ -18,11 +18,14 @@ import { SessionDrivers } from '../../runtime/session-drivers';
 import { createFakeHost } from '../../runtime/__tests__/fake-host';
 import { GOAL_CONTINUATION_MESSAGE_TYPE, GOAL_CONTRACT_MESSAGE_TYPE } from '../../shared/goal-contract';
 import { registerGoalCommands } from '../goal-commands';
-import { fingerprintTurn, hiddenTerminalTools, registerGoalLoop, summarizeTurn } from '../goal-loop';
+import { fingerprintTurn, registerGoalLoop, summarizeTurn } from '../goal-loop';
+import { createTerminalToolSwitch, hiddenTerminalTools, type TerminalToolSwitch } from '../goal-terminal-switch';
 import { registerGoalTerminalTools } from '../goal-tools';
 
 const WORKSPACE = '/work/repo';
 const SESSION = '/sessions/chat-1.jsonl';
+
+const TERMINAL_TOOLS = ['goal_complete', 'goal_blocked', 'goal_wait'];
 
 type Handler = (event: unknown, ctx: ExtensionContext) => unknown;
 
@@ -37,6 +40,9 @@ type RegisteredCommand = Parameters<ExtensionAPI['registerCommand']>[1];
 
 interface FakePi {
   pi: ExtensionAPI;
+  terminals: TerminalToolSwitch;
+  /** The tool names Pi holds active right now. */
+  activeTools: () => string[];
   fire: (event: string, payload?: unknown, ctx?: ExtensionContext) => Promise<void>;
   /** Runs a registered slash command the way Pi does: it is never a prompt. */
   runCommand: (name: string, args: string) => Promise<void>;
@@ -44,7 +50,8 @@ interface FakePi {
   sent: SentMessage[];
 }
 
-function fakePi(): FakePi {
+function fakePi(initialTools: string[] = [...TERMINAL_TOOLS]): FakePi {
+  let active = initialTools;
   const handlers = new Map<string, Handler>();
   const commands = new Map<string, RegisteredCommand>();
   const tools = new Map<string, RegisteredTool>();
@@ -58,15 +65,20 @@ function fakePi(): FakePi {
         ...(message.customType === GOAL_CONTRACT_MESSAGE_TYPE ? { details: message.details } : {}),
       });
     },
-    getActiveTools: () => ['goal_complete', 'goal_blocked', 'goal_wait'],
+    getActiveTools: () => active,
+    setActiveTools: (names: string[]) => {
+      active = names;
+    },
     registerCommand: (name: string, command: RegisteredCommand) => commands.set(name, command),
     registerTool: (tool: RegisteredTool) => tools.set(tool.name, tool),
   } as Pick<
     ExtensionAPI,
-    'on' | 'sendMessage' | 'getActiveTools' | 'registerCommand' | 'registerTool'
+    'on' | 'sendMessage' | 'getActiveTools' | 'setActiveTools' | 'registerCommand' | 'registerTool'
   > as ExtensionAPI;
   return {
     pi: stub,
+    terminals: createTerminalToolSwitch(stub),
+    activeTools: () => active,
     sent,
     fire: async (event, payload, ctx) => {
       await handlers.get(event)?.(payload, ctx ?? context());
@@ -148,8 +160,8 @@ async function settleTurn(
 
 describe('the settled-boundary continuation', () => {
   it('charges every sub-run before one settled boundary as one Goal turn', async () => {
-    const { pi, fire, sent } = fakePi();
-    const startTurn = registerGoalLoop(pi);
+    const { pi, terminals, fire, sent } = fakePi();
+    const startTurn = registerGoalLoop(pi, terminals);
     const started = await runtime.start({
       sessionPath: SESSION,
       objective: 'finish the migration',
@@ -174,8 +186,8 @@ describe('the settled-boundary continuation', () => {
   });
 
   it('continues the session when a goal is active and nothing is queued', async () => {
-    const { pi, fire, sent } = fakePi();
-    registerGoalLoop(pi);
+    const { pi, terminals, fire, sent } = fakePi();
+    registerGoalLoop(pi, terminals);
     await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
 
     await settleTurn(fire, 'I made a start.');
@@ -186,8 +198,8 @@ describe('the settled-boundary continuation', () => {
   });
 
   it('cancels the continuation when the user has a message queued', async () => {
-    const { pi, fire, sent } = fakePi();
-    registerGoalLoop(pi);
+    const { pi, terminals, fire, sent } = fakePi();
+    registerGoalLoop(pi, terminals);
     await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
 
     await settleTurn(fire, 'I made a start.', { pending: true });
@@ -197,8 +209,8 @@ describe('the settled-boundary continuation', () => {
   });
 
   it('charges the automatic turn the user queued a message over', async () => {
-    const { pi, runCommand, fire, sent } = fakePi();
-    registerGoalCommands(pi, registerGoalLoop(pi));
+    const { pi, terminals, runCommand, fire, sent } = fakePi();
+    registerGoalCommands(pi, registerGoalLoop(pi, terminals), terminals);
     // The command starts the first turn, so the turn that settles is the goal's.
     await runCommand('goal', 'finish the migration');
     sent.length = 0;
@@ -215,8 +227,8 @@ describe('the settled-boundary continuation', () => {
   });
 
   it('charges the automatic turn that was cancelled before pausing', async () => {
-    const { pi, runCommand, fire } = fakePi();
-    registerGoalCommands(pi, registerGoalLoop(pi));
+    const { pi, terminals, runCommand, fire } = fakePi();
+    registerGoalCommands(pi, registerGoalLoop(pi, terminals), terminals);
     await runCommand('goal', 'finish the migration');
 
     await settleTurn(fire, 'stopping there.', { aborted: true });
@@ -228,8 +240,8 @@ describe('the settled-boundary continuation', () => {
   });
 
   it('pauses the goal when the turn was cancelled', async () => {
-    const { pi, fire, sent } = fakePi();
-    registerGoalLoop(pi);
+    const { pi, terminals, fire, sent } = fakePi();
+    registerGoalLoop(pi, terminals);
     await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
 
     await settleTurn(fire, 'stopping there.', { aborted: true });
@@ -241,8 +253,8 @@ describe('the settled-boundary continuation', () => {
   });
 
   it('pauses an active Goal when its runtime cannot resolve at settlement', async () => {
-    const { pi, fire, sent } = fakePi();
-    const startTurn = registerGoalLoop(pi);
+    const { pi, terminals, fire, sent } = fakePi();
+    const startTurn = registerGoalLoop(pi, terminals);
     const started = await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
     startTurn(started.goal!);
     sent.length = 0;
@@ -261,8 +273,8 @@ describe('the settled-boundary continuation', () => {
   });
 
   it('charges the turn it started and not the user turn that opened the goal', async () => {
-    const { pi, fire } = fakePi();
-    registerGoalLoop(pi);
+    const { pi, terminals, fire } = fakePi();
+    registerGoalLoop(pi, terminals);
     await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
 
     // The user's own turn settles first: it is not the goal's.
@@ -275,8 +287,8 @@ describe('the settled-boundary continuation', () => {
   });
 
   it('charges the automatic turn that parked the goal with a terminal tool', async () => {
-    const { pi, runCommand, runTool, fire } = fakePi();
-    registerGoalCommands(pi, registerGoalLoop(pi));
+    const { pi, terminals, runCommand, runTool, fire } = fakePi();
+    registerGoalCommands(pi, registerGoalLoop(pi, terminals), terminals);
     registerGoalTerminalTools(pi);
     await runCommand('goal', 'finish the migration');
     const started = await runtime.forSession(SESSION);
@@ -296,8 +308,8 @@ describe('the settled-boundary continuation', () => {
   });
 
   it('charges the automatic turn that reported the goal complete', async () => {
-    const { pi, runCommand, runTool, fire, sent } = fakePi();
-    registerGoalCommands(pi, registerGoalLoop(pi));
+    const { pi, terminals, runCommand, runTool, fire, sent } = fakePi();
+    registerGoalCommands(pi, registerGoalLoop(pi, terminals), terminals);
     registerGoalTerminalTools(pi);
     await runCommand('goal', 'finish the migration');
     const started = await runtime.forSession(SESSION);
@@ -317,8 +329,8 @@ describe('the settled-boundary continuation', () => {
   });
 
   it('does nothing in a session with no goal', async () => {
-    const { pi, fire, sent } = fakePi();
-    registerGoalLoop(pi);
+    const { pi, terminals, fire, sent } = fakePi();
+    registerGoalLoop(pi, terminals);
 
     await settleTurn(fire, 'just a normal answer.');
 
@@ -374,8 +386,8 @@ describe('starting the first turn', () => {
    * paper and the session sits idle.
    */
   it('drives a turn when the slash command starts a goal in an idle session', async () => {
-    const { pi, runCommand, sent, fire } = fakePi();
-    registerGoalCommands(pi, registerGoalLoop(pi));
+    const { pi, terminals, runCommand, sent, fire } = fakePi();
+    registerGoalCommands(pi, registerGoalLoop(pi, terminals), terminals);
 
     await runCommand('goal', 'finish the migration');
 
@@ -390,8 +402,8 @@ describe('starting the first turn', () => {
   });
 
   it('drives a turn when the slash command resumes a paused goal', async () => {
-    const { pi, runCommand, sent } = fakePi();
-    registerGoalCommands(pi, registerGoalLoop(pi));
+    const { pi, terminals, runCommand, sent } = fakePi();
+    registerGoalCommands(pi, registerGoalLoop(pi, terminals), terminals);
     const started = await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
     await runtime.pause(started.goal!.id, 'user', 'the user paused the goal');
     sent.length = 0;
@@ -402,8 +414,8 @@ describe('starting the first turn', () => {
   });
 
   it('does not drive a turn for a command that only reports', async () => {
-    const { pi, runCommand, sent } = fakePi();
-    registerGoalCommands(pi, registerGoalLoop(pi));
+    const { pi, terminals, runCommand, sent } = fakePi();
+    registerGoalCommands(pi, registerGoalLoop(pi, terminals), terminals);
     await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
     sent.length = 0;
 
@@ -413,8 +425,8 @@ describe('starting the first turn', () => {
   });
 
   it('does not drive a session another driver took while Sero was closed', async () => {
-    const { pi, fire, sent } = fakePi();
-    registerGoalLoop(pi);
+    const { pi, terminals, fire, sent } = fakePi();
+    registerGoalLoop(pi, terminals);
     const started = await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
     // Sero restarts: the record survives, the claim it held does not.
     await runtime.reconcile();
@@ -429,8 +441,8 @@ describe('starting the first turn', () => {
   });
 
   it('drives a turn for a goal that was still active when Sero restarted', async () => {
-    const { pi, fire, sent } = fakePi();
-    registerGoalLoop(pi);
+    const { pi, terminals, fire, sent } = fakePi();
+    registerGoalLoop(pi, terminals);
     await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
     // The record outlives the process; the session id from it does not.
     await runtime.reconcile();
@@ -444,8 +456,8 @@ describe('starting the first turn', () => {
   });
 
   it('leaves a restored goal that is not active alone', async () => {
-    const { pi, fire, sent } = fakePi();
-    registerGoalLoop(pi);
+    const { pi, terminals, fire, sent } = fakePi();
+    registerGoalLoop(pi, terminals);
     const started = await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
     await runtime.pause(started.goal!.id, 'user', 'the user paused the goal');
 
@@ -457,8 +469,8 @@ describe('starting the first turn', () => {
 
 describe('keeping the contract true', () => {
   it('re-states the contract after compaction rewrote the conversation', async () => {
-    const { pi, fire, sent } = fakePi();
-    registerGoalLoop(pi);
+    const { pi, terminals, fire, sent } = fakePi();
+    registerGoalLoop(pi, terminals);
     await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
 
     await settleTurn(fire, 'first pass.');
@@ -472,8 +484,8 @@ describe('keeping the contract true', () => {
   });
 
   it('re-states the paused contract when the turn was cancelled', async () => {
-    const { pi, fire, sent } = fakePi();
-    registerGoalLoop(pi);
+    const { pi, terminals, fire, sent } = fakePi();
+    registerGoalLoop(pi, terminals);
     await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
 
     await settleTurn(fire, 'stopping there.', { aborted: true });
@@ -482,8 +494,8 @@ describe('keeping the contract true', () => {
   });
 
   it('re-states the contract after a terminal report ends the goal', async () => {
-    const { pi, runTool, sent } = fakePi();
-    registerGoalLoop(pi);
+    const { pi, terminals, runTool, sent } = fakePi();
+    registerGoalLoop(pi, terminals);
     registerGoalTerminalTools(pi);
     const started = await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
 
@@ -494,5 +506,131 @@ describe('keeping the contract true', () => {
     // read from the workspace list.
     const recorded = (await runtime.list()).find((goal) => goal.id === started.goal!.id);
     expect(recorded?.status).toBe('complete');
+  });
+});
+
+describe('goal terminal tools follow the goal', () => {
+  const others = ['read', 'bash'];
+
+  it('holds the terminal tools back while no goal is attached', async () => {
+    const { pi, terminals, fire, activeTools } = fakePi([...others, ...TERMINAL_TOOLS]);
+    registerGoalLoop(pi, terminals);
+
+    await fire('session_start');
+
+    expect(activeTools()).toEqual(others);
+  });
+
+  it('adds them for a goal and removes them when a terminal report ends it', async () => {
+    const { pi, terminals, fire, runCommand, runTool, activeTools } = fakePi([...others, ...TERMINAL_TOOLS]);
+    registerGoalCommands(pi, registerGoalLoop(pi, terminals), terminals);
+    registerGoalTerminalTools(pi);
+    await fire('session_start');
+
+    await runCommand('goal', 'finish the migration');
+    expect(activeTools()).toEqual([...others, ...TERMINAL_TOOLS]);
+
+    const goal = await runtime.forSession(SESSION);
+    await runTool('goal_complete', { goal_id: goal!.id, evidence: 'the suite passes' });
+    await settleTurn(fire, 'done');
+    expect(activeTools()).toEqual(others);
+  });
+
+  it('adds them for a goal restored when the session reopens', async () => {
+    const { pi, terminals, fire, activeTools } = fakePi([...others, ...TERMINAL_TOOLS]);
+    registerGoalLoop(pi, terminals);
+    await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
+    await runtime.reconcile();
+
+    await fire('session_start');
+
+    expect(activeTools()).toEqual([...others, ...TERMINAL_TOOLS]);
+  });
+
+  it('keeps a terminal tool the user disables mid-goal disabled', () => {
+    const { pi, terminals, activeTools } = fakePi([...others, ...TERMINAL_TOOLS]);
+    terminals.claim();
+    terminals.set(true);
+    pi.setActiveTools(activeTools().filter((name) => name !== 'goal_wait'));
+
+    terminals.set(true);
+
+    expect(activeTools()).not.toContain('goal_wait');
+    // The next goal starts from the full set again.
+    terminals.set(false);
+    terminals.set(true);
+    expect(activeTools()).toEqual([...others, ...TERMINAL_TOOLS]);
+  });
+
+  it('pauses a goal instead of continuing it when the user turns a terminal tool off mid-goal', async () => {
+    const { pi, terminals, fire, activeTools, sent } = fakePi([...others, ...TERMINAL_TOOLS]);
+    registerGoalLoop(pi, terminals);
+    await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
+    await runtime.reconcile();
+    await fire('session_start');
+    pi.setActiveTools(activeTools().filter((name) => name !== 'goal_complete'));
+    const sentBefore = sent.length;
+
+    await settleTurn(fire, 'I made a start.');
+
+    expect((await runtime.forSession(SESSION))?.status).toBe('paused');
+    expect(sent.slice(sentBefore).some((message) => message.customType === GOAL_CONTINUATION_MESSAGE_TYPE)).toBe(false);
+    expect(activeTools()).toEqual(others);
+  });
+
+  it('keeps a tool the user disabled disabled when the goal starts', async () => {
+    const { pi, terminals, fire, runCommand, activeTools } = fakePi(['read', ...TERMINAL_TOOLS]);
+    registerGoalCommands(pi, registerGoalLoop(pi, terminals), terminals);
+    await fire('session_start');
+
+    await runCommand('goal', 'finish the migration');
+
+    expect(activeTools()).not.toContain('bash');
+    expect(activeTools()).toEqual(['read', ...TERMINAL_TOOLS]);
+  });
+
+  it('removes them when a turn limit ends the goal', async () => {
+    const { pi, terminals, fire, activeTools } = fakePi([...others, ...TERMINAL_TOOLS]);
+    const startTurn = registerGoalLoop(pi, terminals);
+    await fire('session_start');
+    const started = await runtime.start({
+      sessionPath: SESSION,
+      objective: 'finish the migration',
+      criteria: [],
+      limits: { maxAttemptsTotal: 1 },
+    });
+    startTurn(started.goal!);
+    expect(activeTools()).toEqual([...others, ...TERMINAL_TOOLS]);
+
+    await fire('agent_start');
+    await fire('agent_end', { messages: assistantTurn('first pass') });
+    await fire('agent_settled');
+
+    expect((await runtime.forSession(SESSION))?.status).toBe('limited');
+    expect(activeTools()).toEqual(others);
+  });
+
+  it('adds them at once for a goal started by the tool, and removes them when it is stopped', async () => {
+    const { pi, terminals, fire, runTool, runCommand, activeTools } = fakePi([...others, ...TERMINAL_TOOLS]);
+    registerGoalCommands(pi, registerGoalLoop(pi, terminals), terminals);
+    await fire('session_start');
+
+    await runTool('goal', { action: 'start', objective: 'finish the migration' });
+    expect(activeTools()).toEqual([...others, ...TERMINAL_TOOLS]);
+
+    await runCommand('goal', 'stop');
+    expect(activeTools()).toEqual(others);
+  });
+
+  it('never adds them to a session whose tool policy excludes them', async () => {
+    const { pi, terminals, fire, activeTools } = fakePi(['read']);
+    registerGoalLoop(pi, terminals);
+    await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
+    await runtime.reconcile();
+
+    await fire('session_start');
+
+    expect(activeTools()).toEqual(['read']);
+    expect((await runtime.forSession(SESSION))?.status).toBe('paused');
   });
 });

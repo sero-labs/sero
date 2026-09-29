@@ -3,10 +3,20 @@ import type { PersistentSessionGrantProposal } from '@sero-ai/common';
 import { Type } from 'typebox';
 import { createManifest } from '../../manager.fixtures';
 import { createPersistentSessionsApi } from '@electron/features/apps/runtime/capabilities/persistent-sessions/index';
+import { bridgeExtensionTools, createPrivateCliRegistry } from '@electron/cli';
+import { createMemberResourceLoader } from '@electron/features/apps/runtime/capabilities/persistent-sessions/resource-profile';
 import { createMemberRuntimeTools } from '@electron/features/apps/runtime/capabilities/persistent-sessions/member-runtime-tools';
 
 const fakes = vi.hoisted(() => ({
+  backend: 'host' as string,
   choices: [] as { body: string }[],
+  catalogFor: vi.fn(() => [
+    { name: 'read' },
+    { name: 'bash' },
+    { name: 'gh' },
+    { name: 'git_manager' },
+    { name: 'sero-cli' },
+  ]),
 }));
 
 vi.mock('@electron/shared/infra/ai-infra', () => ({
@@ -30,18 +40,18 @@ vi.mock('@electron/features/workspace/manager', () => ({
       { id: 'ws-1', path: '/workspace' },
       { id: 'ws-2', path: '/other-workspace' },
     ],
+    getPath: (id: string) => (id === 'ws-1' ? '/Users/me/project' : undefined),
   },
 }));
 
 vi.mock('@electron/features/subagent/runtime/tool-catalog', () => ({
   warmSubagentToolCatalog: async () => undefined,
-  getSubagentToolCatalog: () => [
-    { name: 'read' },
-    { name: 'bash' },
-    { name: 'gh' },
-    { name: 'git_manager' },
-    { name: 'sero-cli' },
-  ],
+  getToolCatalogFor: fakes.catalogFor,
+  getToolPackagePath: () => undefined,
+}));
+
+vi.mock('@electron/features/workspace/runtime/runtime-manager', () => ({
+  runtimeManager: { getRuntime: async () => ({ backend: fakes.backend, workspaceId: 'ws-1' }) },
 }));
 
 vi.mock('@electron/ipc/agent/handlers/subagent-context', () => ({
@@ -99,6 +109,47 @@ function skillBearingProposal(): PersistentSessionGrantProposal {
 describe('persistent session wiring', () => {
   beforeEach(() => {
     fakes.choices = [];
+    fakes.backend = 'host';
+  });
+
+  it('logs an approved tool that no loaded plugin provides, by name', async () => {
+    vi.mocked(createPrivateCliRegistry).mockReturnValue({ list: () => [] } as never);
+    vi.mocked(bridgeExtensionTools).mockReturnValue({ extensions: [], errors: [] } as never);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await installPersistentSessions({
+      manifest: createManifest('orchestrator'), workspace: { id: 'global', path: '/global' }, stateFilePath: '/state.json',
+    });
+    const wiring = vi.mocked(createPersistentSessionsApi).mock.calls.at(-1)?.[0];
+    if (!wiring) throw new Error('Session capability was not installed');
+    const policy = skillBearingProposal().subjects.implementer;
+    policy.allowedTools = ['read', 'web_search', 'sero-cli'];
+    policy.permissionProfile = { filesystem: 'read', commands: 'none', network: 'fetch', vcs: 'read' };
+    await wiring.buildSessionInputs({
+      grantId: 'grant-1', subject: 'investigator', workspaceId: 'ws-1', cwd: '/workspace',
+      tools: policy.allowedTools, skills: [], systemPromptAdditions: [], policy,
+    });
+
+    // The loaded plugins give the member no `web_search`, as when its plugin was removed.
+    const { bridgeExtensions } = vi.mocked(createMemberResourceLoader).mock.calls.at(-1)![0];
+    bridgeExtensions?.({ extensions: [], errors: [], runtime: {} } as never);
+
+    expect(warn.mock.calls.flat().join('\n')).toMatch(/investigator approved tools not provided: .*web_search/);
+    warn.mockRestore();
+  });
+
+  it('gives a container member the runtime path of its working folder, not the host path', async () => {
+    fakes.backend = 'docker';
+    await installPersistentSessions({
+      manifest: createManifest('orchestrator'), workspace: { id: 'global', path: '/global' }, stateFilePath: '/state.json',
+    });
+    const wiring = vi.mocked(createPersistentSessionsApi).mock.calls.at(-1)?.[0];
+    if (!wiring) throw new Error('Session capability was not installed');
+    const policy = skillBearingProposal().subjects.implementer;
+    await wiring.buildSessionInputs({
+      grantId: 'grant-1', subject: 'investigator', workspaceId: 'ws-1', cwd: '/Users/me/project/packages/app',
+      tools: ['read'], skills: [], systemPromptAdditions: [], policy,
+    });
+    expect(vi.mocked(createMemberRuntimeTools).mock.calls.at(-1)?.[2]).toBe('/workspace/packages/app');
   });
 
   it.each(['none', 'all'] as const)('hands runtime tools to Pi after applying commands: %s', async (commands) => {
@@ -152,6 +203,16 @@ describe('persistent session wiring', () => {
 
     expect(decision?.approved.subjects.implementer.allowedCwds).toEqual(['/workspace/app']);
     expect(fakes.choices[0].body).toContain('/other-workspace/app');
+  });
+
+  it('offers a member only the tools in the member catalogue', async () => {
+    const proposal = skillBearingProposal();
+    proposal.subjects.implementer.allowedTools = ['read', 'goal', 'rooms', 'goal_complete'];
+
+    const decision = await clampAndApprove('ws-1', proposal);
+
+    expect(fakes.catalogFor).toHaveBeenCalledWith('member');
+    expect(decision?.approved.subjects.implementer.allowedTools).toEqual(['read']);
   });
 
   it('removes tools the approved permission profile cannot provide', async () => {

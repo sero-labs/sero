@@ -131,6 +131,8 @@ export function registerSettingsTool(
     name: 'design_library_settings',
     label: 'Design Library Settings',
     description: 'Read and update Design Library settings, or schedule an index repair.',
+    // The sero-cli command list shows this line, so it says when to use the command.
+    ...{ cli: { summary: 'Design Library (Sero\'s visual reference library and creative workbench): read or change its settings, such as models, recipes, view options and the provider key' } },
     parameters: Type.Object({
       action: StringEnum(ACTIONS, { description: 'Which settings operation to perform' }),
       role: Type.Optional(StringEnum(MODEL_ROLES, { description: 'Which model to set' })),

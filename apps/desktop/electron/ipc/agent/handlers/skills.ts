@@ -19,6 +19,7 @@ import { reloadAllSessionResources } from '../core/agent';
 import { ensureInfra, applyRuntimeSettings, SERO_CONFIG_PATH } from '@electron/shared/infra/shared-infra';
 import { withDisabledModelSkills } from '@sero-ai/common';
 import { withAgentPluginSkills } from '@electron/features/agent-plugins/skills';
+import { dropUserGlobalAgentSkills } from '@electron/features/skills/user-global-agent-skills';
 import { approveSkillWrite } from '@electron/features/skills/write-approvals';
 import {
   deleteSkillFile,
@@ -62,7 +63,7 @@ export function registerSkillHandlers(): void {
         noExtensions: true,
         noPromptTemplates: true,
         noThemes: true,
-        skillsOverride: withAgentPluginSkills,
+        skillsOverride: (base) => dropUserGlobalAgentSkills(withAgentPluginSkills(base)),
       });
       await loader.reload();
 

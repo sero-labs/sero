@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { CliRegistry } from '@electron/cli/core';
-import { buildCliPromptBlock } from '@electron/cli';
+import { buildCliPromptBlock, getCliRegistry } from '@electron/cli';
 
 describe('CLI prompt block', () => {
   it('lists commands with summaries grouped by source', () => {
@@ -49,13 +49,18 @@ describe('CLI prompt block', () => {
     expect(prompt).toContain('exact schema');
   });
 
-  it('includes direct app interaction guidance', () => {
-    const registry = new CliRegistry();
+  it('points at command help for app control and keeps the usage tips there', () => {
+    const registry = getCliRegistry();
     const prompt = buildCliPromptBlock(registry);
+    const appHelp = registry.get('app')?.help ?? '';
+    const browserHelp = registry.get('browser')?.help ?? '';
 
-    expect(prompt).toContain('sero app screenshot');
-    expect(prompt).toContain('appstate');
-    expect(prompt).toContain('app click');
+    expect(prompt).toContain('sero help app');
+    expect(prompt).toContain('sero help browser');
+    expect(prompt).not.toContain('appstate is JSON state only');
+    expect(appHelp).toContain('appstate is JSON state only');
+    expect(appHelp).toContain('app click');
+    expect(browserHelp).toContain('app record stop');
   });
 
   it('instructs the agent to create a concise title once when enabled', () => {

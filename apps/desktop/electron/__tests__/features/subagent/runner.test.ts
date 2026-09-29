@@ -27,8 +27,16 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
   },
 }));
 
+vi.mock('@electron/cli', () => ({
+  bridgeExtensionTools: vi.fn((base: unknown) => base),
+  clearBridgedExtensionSessionStateForSession: vi.fn(),
+}));
 vi.mock('@electron/features/container/tools', () => ({
   createRuntimeTools: mocks.createRuntimeTools,
+}));
+
+vi.mock('@electron/features/container/tools/container-prompt-state', () => ({
+  containerPromptState: () => undefined,
 }));
 
 vi.mock('@electron/features/code-mode', () => ({
