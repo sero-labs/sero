@@ -24,6 +24,8 @@ const TOOL_TIMEOUT_OVERRIDES_MS: Record<string, number> = {
   // Search providers already use internal 60s+ timeouts.
   web_search: 120_000,
   code_search: 90_000,
+  // Launch, navigation waits and recording stop each run for tens of seconds.
+  automation_browser: 120_000,
 };
 
 const SCHEMA_PROP_TYPES = new Set<SchemaPropType>([
@@ -51,6 +53,8 @@ export interface SchemaProp {
   enumValues?: string[];
   /** For array types: the raw JSON Schema of the items element. */
   itemsSchema?: Record<string, unknown>;
+  /** The schema declares no type (`Type.Unknown`), so the value may be JSON. */
+  untyped?: boolean;
 }
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
@@ -125,6 +129,7 @@ export function extractSchemaProps(schema: Record<string, unknown>): SchemaProp[
       required: required.has(name),
       enumValues: extractEnumValues(resolved),
       itemsSchema,
+      untyped: typeof resolved.type !== 'string' || undefined,
     });
   }
 
@@ -149,7 +154,7 @@ function coerceValue(value: string | true, prop: SchemaProp): unknown {
     return value === 'true' || value === '1';
   }
   // Array/object params: try JSON.parse so complex tools can pass structured data
-  if (prop.type === 'array' || prop.type === 'object') {
+  if (prop.type === 'array' || prop.type === 'object' || prop.untyped) {
     if (typeof value === 'string') {
       try { return JSON.parse(value); } catch { return value; }
     }
@@ -353,13 +358,23 @@ export interface CustomToolCliBridge {
   ) => Promise<CliResult>;
 }
 
-type CliToolDefinition = ToolDefinition & {
-  cli?: CustomToolCliBridge;
-};
+/** A tool definition as Sero reads it: `cli` may hold only a summary. */
+type CliToolDefinition = ToolDefinition & { cli?: Partial<CustomToolCliBridge> };
 
 export function getCustomToolCliBridge(toolDef: ToolDefinition): CustomToolCliBridge | undefined {
   const cli = (toolDef as CliToolDefinition).cli;
-  return cli && typeof cli.execute === 'function' ? cli : undefined;
+  return cli && typeof cli.execute === 'function' ? { ...cli, execute: cli.execute } : undefined;
+}
+
+const SUMMARY_MAX_CHARS = 100;
+
+/** The first sentence of a description, cut at a word boundary within the limit. */
+export function summarizeDescription(description: string, fallback: string): string {
+  const sentence = description.split(/\.\s/)[0]?.replace(/\.$/, '').trim() ?? '';
+  if (sentence.length <= SUMMARY_MAX_CHARS) return sentence || fallback;
+  if (/\s/.test(sentence[SUMMARY_MAX_CHARS] ?? '')) return sentence.slice(0, SUMMARY_MAX_CHARS);
+  const cut = sentence.slice(0, SUMMARY_MAX_CHARS);
+  return cut.slice(0, cut.lastIndexOf(' ') > 0 ? cut.lastIndexOf(' ') : SUMMARY_MAX_CHARS);
 }
 
 function normalizeCliResult(result: CliResult): CliResult {
@@ -386,13 +401,15 @@ export interface BridgeToolOptions {
 
 export function bridgeTool(toolName: string, toolDef: ToolDefinition, options?: BridgeToolOptions): CliCommand {
   const props = extractSchemaProps(toolDef.parameters as Record<string, unknown>);
-  const summary = (toolDef.description ?? '').split(/\.\s/)[0]?.slice(0, 80) ?? toolName;
+  const summary = summarizeDescription(toolDef.description ?? '', toolName);
   const help = generateHelp(toolName, toolDef.description ?? toolName, props);
   const cliBridge = getCustomToolCliBridge(toolDef);
+  // A tool can set only a summary in `cli` and still use the generic bridge.
+  const declaredSummary = (toolDef as CliToolDefinition).cli?.summary;
 
   return {
     name: toolName,
-    summary: cliBridge?.summary ?? summary,
+    summary: cliBridge?.summary ?? declaredSummary ?? summary,
     help: cliBridge?.help ?? help,
     source: 'app',
     group: cliBridge?.group ?? 'Apps',

@@ -1,3 +1,4 @@
+import { app } from 'electron';
 import {
   createAgentSession,
   DefaultResourceLoader,
@@ -13,6 +14,7 @@ import type {
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import { createRuntimeTools } from '@electron/features/container/tools';
+import { containerPromptState } from '@electron/features/container/tools/container-prompt-state';
 import { createRunCodeController } from '@electron/features/code-mode';
 import { preserveBashFailureStatus } from '@electron/features/tool-capture/bash-result-error-status';
 import { createSeroExtensionFactory } from '@electron/features/apps/extensions/create-sero-extension';
@@ -24,6 +26,7 @@ import {
 } from '@electron/shared/infra/shared-infra';
 import type { RuntimeBackendId } from '@electron/features/workspace/runtime/types';
 import { bridgeExtensionTools } from '@electron/cli';
+import { dropToolsNotForSessionKind } from '@electron/features/plugins/bridge-policy';
 import { createSkillVisibilityOverride } from '@electron/features/apps/extensions/skill-visibility';
 import {
   filterCompatiblePluginAgentsFiles,
@@ -66,6 +69,8 @@ interface OpenSessionInPoolArgs {
   /** The source session file when this session was just forked from it. */
   forkedFrom?: string;
 }
+
+const AUTOMATION_BROWSER_TOOL = 'automation_browser';
 
 function toErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
@@ -126,14 +131,18 @@ export async function openSessionInPool({
     throw new Error(`${runtime.backend} runtime failed to start for workspace ${workspaceId}: ${message}`);
   }
 
-  const [platformTools, globalAgentsFile] = await Promise.all([
+  const [runtimeTools, globalAgentsFile] = await Promise.all([
     createRuntimeTools(runtime, sessionId),
     readGlobalAgentsMd(workspaceId),
   ]);
+  // Chat reaches the automation browser as a `sero-cli` command, which keeps its
+  // large schema out of every request.
+  const platformTools = runtimeTools.filter((tool) => tool.name !== AUTOMATION_BROWSER_TOOL);
+  const cliSessionTools = runtimeTools.filter((tool) => tool.name === AUTOMATION_BROWSER_TOOL);
   const runCode = createRunCodeController();
   platformTools.push(runCode.tool);
   const hostRuntimeOptions = runtime.backend === 'host'
-    ? { workspacePath, platform: process.platform }
+    ? { workspacePath, platform: process.platform, devBuild: !app.isPackaged }
     : undefined;
 
   const skillVisibilityOverride = createSkillVisibilityOverride(infra.settingsManager);
@@ -142,7 +151,7 @@ export async function openSessionInPool({
     agentDir: SERO_AGENT_DIR,
     settingsManager: infra.settingsManager,
     extensionFactories: [
-      createSeroExtensionFactory(workspaceManager, workspaceId, sessionId, undefined, {
+      createSeroExtensionFactory(workspaceManager, workspaceId, sessionId, containerPromptState(runtime), {
         subagentManager,
         enableAgentManagementTools: true,
         hostRuntime: hostRuntimeOptions,
@@ -154,7 +163,10 @@ export async function openSessionInPool({
     ),
     promptsOverride: filterCompatiblePluginPrompts,
     themesOverride: filterCompatiblePluginThemes,
-    extensionsOverride: (base) => bridgeExtensionTools(filterCompatiblePluginExtensions(base), { sessionId }),
+    extensionsOverride: (base) => bridgeExtensionTools(
+      dropToolsNotForSessionKind(filterCompatiblePluginExtensions(base), 'chat'),
+      { sessionId, sessionTools: cliSessionTools },
+    ),
     agentsFilesOverride: (discovered: { agentsFiles: Array<{ path: string; content: string }> }) => {
       const withGlobalAgents = globalAgentsFile
         ? {

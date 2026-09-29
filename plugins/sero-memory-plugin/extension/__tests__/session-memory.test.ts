@@ -54,6 +54,13 @@ describe('memory in a chat session', () => {
     await rm(seroHome, { recursive: true, force: true });
   });
 
+  it('adds nothing to a session that has no sero-cli tool to use memory with', async () => {
+    const session = createSession({ sessionId: 'cron-1', cwd: workspace, activeTools: ['read', 'bash'] });
+    await session.start();
+
+    expect(await session.prompt('hello')).toBeUndefined();
+  });
+
   describe('snapshot', () => {
     it('keeps the system prompt byte-identical across turns after a save', async () => {
       const session = createSession({ sessionId: 's1', cwd: workspace });

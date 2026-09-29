@@ -194,6 +194,8 @@ export function registerAssetTool(pi: ExtensionAPI, paths: DesignLibraryPaths): 
     label: 'Design Library Assets',
     description:
       'Import images into the Design Library and read stored item images. Import runs as begin → chunk (base64, 512 KiB max each) → complete.',
+    // The sero-cli command list shows this line, so it says when to use the command.
+    ...{ cli: { summary: 'Design Library (Sero\'s visual reference library and creative workbench): import images into it, or read a stored item image' } },
     parameters: Type.Object({
       action: StringEnum(ACTIONS, { description: 'Which asset operation to perform' }),
       uploadId: Type.Optional(Type.String({ description: 'Returned by `begin`; required by chunk/complete/abort' })),

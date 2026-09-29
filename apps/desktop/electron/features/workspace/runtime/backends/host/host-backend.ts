@@ -3,6 +3,7 @@ import path from 'path';
 import { promisify } from 'util';
 
 import { TerminalManager } from '@electron/features/container/terminal';
+import { SHARED_PI_DOCS_DIR } from '@electron/features/pi-docs/shared-pi-docs';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { getRuntimeCapabilities } from '../../capabilities';
 import { RUNTIME_WORKSPACE_PATH, isRuntimeWorkspacePath, toHostWorkspacePath, toRuntimeWorkspacePath } from '../../runtime-paths';
@@ -245,7 +246,7 @@ export class HostBackend implements RuntimeBackend {
   }
 
   async readFile(input: RuntimeReadFileInput): Promise<RuntimeFileReadResult> {
-    const content = await this.substrate.readFile((await this.resolveHostPath(input.path)).hostPath);
+    const content = await this.substrate.readFile((await this.resolveHostReadPath(input.path)).hostPath);
     if (input.binary) return { content: content.toString('base64'), encoding: 'base64' };
     const encoding = input.encoding ?? 'utf8';
     return { content: content.toString(encoding), encoding };
@@ -259,7 +260,7 @@ export class HostBackend implements RuntimeBackend {
   }
 
   async listFiles(input: RuntimeListFilesInput): Promise<RuntimeDirectoryEntry[]> {
-    const resolution = await this.resolveHostPath(input.path);
+    const resolution = await this.resolveHostReadPath(input.path);
     const entries: RuntimeDirectoryEntry[] = [];
     await this.collectEntries(
       resolution.rootHostPath,
@@ -391,6 +392,30 @@ export class HostBackend implements RuntimeBackend {
       rootHostPath: canonicalRoot,
       returnHostPaths: false,
     };
+  }
+
+  /**
+   * Like `resolveHostPath`, and also lets a session read the shared Pi docs, which the system
+   * prompt points at. Nothing outside the workspace roots may be written.
+   */
+  private async resolveHostReadPath(runtimePath: string): Promise<HostPathResolution> {
+    try {
+      return await this.resolveHostPath(runtimePath);
+    } catch (error) {
+      if (!isHostAbsolutePath(runtimePath)) throw error;
+      try {
+        const inDocs = await this.substrate.resolvePathInsideRoot(runtimePath, SHARED_PI_DOCS_DIR);
+        if (!inDocs) throw error;
+        return {
+          hostPath: inDocs,
+          rootHostPath: await this.resolvePathInsideRoot(SHARED_PI_DOCS_DIR, SHARED_PI_DOCS_DIR, runtimePath),
+          returnHostPaths: true,
+        };
+      } catch {
+        // The docs folder is missing or the path is elsewhere: the first refusal stands.
+        throw error;
+      }
+    }
   }
 
   private async findAllowedHostRoot(hostPath: string): Promise<Omit<HostPathResolution, 'returnHostPaths'> | null> {

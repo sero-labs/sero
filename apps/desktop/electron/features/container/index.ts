@@ -311,6 +311,11 @@ export class ContainerManager {
     return args;
   }
 
+  /** The address `ensure` last saw for this workspace's container, if the backend has one. */
+  getIpAddress(workspaceId: string): string | undefined {
+    return this.containerIps.get(workspaceId);
+  }
+
   async inspect(workspaceId: string): Promise<ContainerState> {
     return inspectContainer(workspaceId, this.containers);
   }

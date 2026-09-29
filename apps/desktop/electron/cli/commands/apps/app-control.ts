@@ -103,7 +103,21 @@ export function registerAppControlCliCommands(registry: CliRegistry): void {
       '  sero app record and sero app screenshot.\n\n' +
       'App matching accepts visible names as well as ids (for example, Calculator → calc).\n\n' +
       'Click/type/scroll/select/hover auto-capture a screenshot after the action.\n' +
-      'Inspect returns JSON and skips the post-action screenshot.',
+      'Inspect returns JSON and skips the post-action screenshot.\n\n' +
+      'Tips:\n' +
+      '- Screenshot apps directly: sero app screenshot --app "<name or id>" [--save <path>]\n' +
+      '- Names resolve too (Calculator → calc); use sero app list only if ambiguous.\n' +
+      '- Prefer selector/ref/text UI control over coordinate guessing: app inspect, app snapshot,\n' +
+      '  app visible --text "...", app scroll-to --text "...".\n' +
+      '- For nested panels use app scroll --selector <sel> --y <px> or\n' +
+      '  app scroll --at-x <n> --at-y <n> --y <px>. Scroll output reports the actual container and\n' +
+      '  the before/after scroll position.\n' +
+      '- Scope duplicated text with --within <selector>, and use\n' +
+      '  app screenshot-around --text "..." --within <selector> --save <path> for evidence captures.\n' +
+      '- Use app scroll-containers to find scrollable panels and\n' +
+      '  app screenshot --selector <sel> --full for long containers.\n' +
+      '- appstate is JSON state only, not UI automation.\n' +
+      '- Use app click <selector> or app click --x <n> --y <n>; there is no app press.',
     execute: handleApp,
   });
 }

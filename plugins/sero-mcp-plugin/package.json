@@ -56,7 +56,8 @@
         "tool.cli"
       ],
       "bridgeTools": [
-        "mcp"
+        "mcp",
+        "mcp_manager"
       ],
       "bundleExtensions": true,
       "preBuilt": false

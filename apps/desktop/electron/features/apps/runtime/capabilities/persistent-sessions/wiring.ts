@@ -12,18 +12,24 @@
  */
 
 import { modelKey, type PersistentSessionGrantProposal, type PersistentSessionsApi } from '@sero-ai/common';
-import type { CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
+import { existsSync, realpathSync } from 'fs';
+import type { CreateAgentSessionOptions, LoadExtensionsResult } from '@earendil-works/pi-coding-agent';
 
 import { ensureAiInfra } from '@electron/shared/infra/ai-infra';
 import { requestChoice } from '@electron/platform/desktop/request-choice';
 import { bridgeExtensionTools, createPrivateCliRegistry, createWorkspaceCliTool } from '@electron/cli';
+import { dropToolsNotForSessionKind } from '@electron/features/plugins/bridge-policy';
 import { createSeroExtensionFactory } from '@electron/features/apps/extensions/create-sero-extension';
 import {
   restrictSearchToolOrigins,
   searchPluginPackages,
 } from '@electron/features/apps/extensions/search-plugin';
 import { workspaceManager } from '@electron/features/workspace/manager';
-import { getSubagentToolCatalog, warmSubagentToolCatalog } from '@electron/features/subagent/runtime/tool-catalog';
+import { toRuntimeCwd } from '@electron/features/workspace/runtime/runtime-paths';
+import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
+import { containerPromptState } from '@electron/features/container/tools/container-prompt-state';
+import { getToolCatalogFor, getToolPackagePath, warmSubagentToolCatalog } from '@electron/features/subagent/runtime/tool-catalog';
+import { packageRootForResourcePath } from '@electron/features/plugins/resource-compatibility';
 import { getRoomSkillCatalog } from '@electron/ipc/agent/handlers/subagent-context';
 
 import { clampProposal, describeGrantAuthority } from './clamp';
@@ -48,7 +54,8 @@ export async function clampAndApprove(
   const [models, workspaces, toolCatalog, skills] = await Promise.all([
     modelRuntime.getAvailable(),
     workspaceManager.list(),
-    warmSubagentToolCatalog().then(() => getSubagentToolCatalog()),
+    // A tool that no member session of this kind can get is not offered.
+    warmSubagentToolCatalog().then(() => getToolCatalogFor('member')),
     getRoomSkillCatalog(workspaceId),
   ]);
 
@@ -116,6 +123,41 @@ export async function clampAndApprove(
   return { approvalId: `approval_${Date.now().toString(36)}`, approved: clamped };
 }
 
+/** The plugin packages, beyond `basePackages`, that register an approved tool. */
+function approvedToolPackages(allowedTools: string[], basePackages: string[]): string[] {
+  // A plugin removed since the catalogue was built is reported as not provided.
+  const candidates = new Set(
+    allowedTools.flatMap((name) => {
+      const packagePath = getToolPackagePath(name);
+      return packagePath && existsSync(packagePath) ? [packagePath] : [];
+    }),
+  );
+  if (candidates.size === 0) return [];
+  const known = new Set(basePackages.map((packagePath) => realpathSync(packagePath)));
+  return [...candidates].filter((packagePath) => !known.has(realpathSync(packagePath)));
+}
+
+/**
+ * A plugin loaded only for its approved tools keeps just those tools. The rest
+ * of its tools were never approved for this member.
+ */
+function keepApprovedTools(
+  base: LoadExtensionsResult,
+  allowedTools: string[],
+  approvedPackages: string[],
+): LoadExtensionsResult {
+  const roots = new Set(approvedPackages.map((packagePath) => realpathSync(packagePath)));
+  for (const extension of base.extensions) {
+    const root = packageRootForResourcePath(extension.resolvedPath);
+    if (!root || !roots.has(realpathSync(root))) continue;
+    for (const name of [...extension.tools.keys()]) {
+      if (!allowedTools.includes(name)) extension.tools.delete(name);
+    }
+    extension.commands.clear();
+  }
+  return base;
+}
+
 /**
  * Returns the capability, or null when this app is not a permitted bundled
  * plugin. A null return is the enforcement — the runtime simply has no method
@@ -163,6 +205,19 @@ export async function installPersistentSessions(
       // any Room approval describes, and a member with no Room command to run
       // WILL go looking for another way to talk.
       const cliRegistry = createPrivateCliRegistry();
+      const memberRuntime = await runtimeManager.getRuntime(input.workspaceId);
+      const memberContainerState = containerPromptState(memberRuntime);
+      // The runtime tools run where the runtime runs. In a container that is not the host path.
+      const hostWorkspacePath = workspaceManager.getPath(input.workspaceId);
+      const toolCwd = memberRuntime.backend === 'host' || !hostWorkspacePath
+        ? input.cwd
+        : toRuntimeCwd(hostWorkspacePath, input.cwd);
+      const runtimeTools = await createMemberRuntimeTools(input.workspaceId, allowed, toolCwd, cliScopeId);
+      // The grant-owning app and the search plugin always load. Any other plugin
+      // loads only because an approved tool comes from it, and only that tool
+      // is kept from it.
+      const basePackages = [target.manifest.packagePath, ...searchPluginPackages()];
+      const approvedPackages = approvedToolPackages(allowed, basePackages);
       return {
         tools: allowed,
         modelRuntime: infra.modelRuntime,
@@ -172,7 +227,7 @@ export async function installPersistentSessions(
         // single Room command (AD-020).
         customTools: [
           createWorkspaceCliTool(input.workspaceId, cliScopeId, cliRegistry),
-          ...await createMemberRuntimeTools(input.workspaceId, allowed, input.cwd, cliScopeId),
+          ...runtimeTools,
         ],
         resourceLoader: await createMemberResourceLoader({
           cwd: input.cwd,
@@ -185,9 +240,9 @@ export async function installPersistentSessions(
           // search tools are read-only and the permission profile still gates
           // them, so a member approved for `filesystem: 'read'` can find a file
           // instead of guessing its path; a member approved for none cannot.
-          packages: [target.manifest.packagePath, ...searchPluginPackages()],
+          packages: [...basePackages, ...approvedPackages],
           extensionFactories: [
-            createSeroExtensionFactory(workspaceManager, input.workspaceId, cliScopeId, undefined, {
+            createSeroExtensionFactory(workspaceManager, input.workspaceId, cliScopeId, memberContainerState, {
               // No agent-management tools: a Room member must not be able to
               // spawn agents outside the roster the user approved.
               enableAgentManagementTools: false,
@@ -199,7 +254,17 @@ export async function installPersistentSessions(
             // FFF and could otherwise replace an approved search name with a
             // different implementation, regardless of its permission profile.
             const restricted = restrictSearchToolOrigins(base);
-            const bridged = bridgeExtensionTools(restricted, { sessionId: cliScopeId, registry: cliRegistry });
+            const forMember = dropToolsNotForSessionKind(keepApprovedTools(restricted, allowed, approvedPackages), 'member');
+            const provided = new Set([
+              'sero-cli',
+              ...runtimeTools.map((tool) => tool.name),
+              ...forMember.extensions.flatMap((extension) => [...extension.tools.keys()]),
+            ]);
+            const missing = allowed.filter((name) => !provided.has(name));
+            if (missing.length > 0) {
+              console.warn(`[persistent-sessions] ${input.subject} approved tools not provided: ${missing.join(', ')}`);
+            }
+            const bridged = bridgeExtensionTools(forMember, { sessionId: cliScopeId, registry: cliRegistry });
             // The one line that says whether the member can talk at all. A Room
             // whose members hold no `room` command looks like a Room that has
             // nothing to say, so the commands and any extension that failed to

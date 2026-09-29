@@ -15,6 +15,7 @@ import { registerRoomAppTool } from './room-app';
 import { registerGoalCommands } from './goal-commands';
 import { registerGoalLoop } from './goal-loop';
 import { registerGoalTerminalTools } from './goal-tools';
+import { createTerminalToolSwitch } from './goal-terminal-switch';
 import { registerGoalAppTool } from './goal-app';
 
 export default function orchestratorExtension(pi: ExtensionAPI): void {
@@ -51,8 +52,9 @@ export default function orchestratorExtension(pi: ExtensionAPI): void {
   registerRoomAppTool(pi);
   // The loop owns turn accounting, so it hands the command surface the starter
   // that books a kickoff turn to the goal.
-  const startGoalTurn = registerGoalLoop(pi);
-  registerGoalCommands(pi, startGoalTurn);
+  const terminalTools = createTerminalToolSwitch(pi);
+  const startGoalTurn = registerGoalLoop(pi, terminalTools);
+  registerGoalCommands(pi, startGoalTurn, terminalTools);
   registerGoalTerminalTools(pi);
   registerGoalAppTool(pi);
 }

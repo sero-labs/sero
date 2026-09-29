@@ -125,9 +125,18 @@ export function applyContextOverrides(
   );
 
   const disabledTools = new Set(normalized?.disabledTools ?? []);
-  const activeToolNames = entry.baseTools
-    .map((tool) => tool.name)
-    .filter((name) => !disabledTools.has(name));
+  const baseToolNames = entry.baseTools.map((tool) => tool.name);
+  const currentlyActive = new Set(entry.session.getActiveToolNames());
+  const previouslyDisabled = new Set(entry.contextOverrides?.disabledTools ?? []);
+  // A tool an extension switched on after start-up, such as the goal terminal
+  // tools, is not a base tool. Resetting to the base set would switch it off.
+  const switchedOn = [...currentlyActive].filter((name) => !baseToolNames.includes(name));
+  // A base tool that is off now was turned off either by an earlier override, which this call
+  // may undo, or by an extension, which it must not: the goal terminal tools that were on when
+  // the chat opened are off again once the goal ends.
+  const activeToolNames = [...baseToolNames, ...switchedOn].filter(
+    (name) => !disabledTools.has(name) && (currentlyActive.has(name) || previouslyDisabled.has(name)),
+  );
 
   entry.session.setActiveToolsByName(activeToolNames);
 

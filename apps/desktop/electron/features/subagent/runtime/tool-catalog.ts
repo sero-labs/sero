@@ -12,7 +12,7 @@
  */
 
 import path from 'path';
-import { readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import {
   createAgentSession,
   SessionManager,
@@ -22,6 +22,8 @@ import type { ContextToolInfo } from '@sero-ai/common';
 import { ensureAiInfra } from '@electron/shared/infra/ai-infra';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { SERO_AGENT_DIR, SERO_HOME } from '@electron/platform/env';
+import { isToolForSessionKind, onPluginBridgePolicyCleared, type ToolSessionKind } from '@electron/features/plugins/bridge-policy';
+import { packageRootForResourcePath } from '@electron/features/plugins/resource-compatibility';
 import { createSubagentResourceLoader } from './resource-loader';
 
 /**
@@ -38,6 +40,12 @@ export const STATIC_PLATFORM_TOOLS: ContextToolInfo[] = [
   { name: 'automation_browser', description: 'Drive an automation browser (when available)' },
 ];
 
+/** Tool name -> the plugin package that registers it. Filled from real sessions and saved with the cache. */
+const toolPackages = new Map<string, string>();
+
+/** Tool names a real session has reported since this process started. The saved cache alone does not count. */
+const seenThisProcess = new Set<string>();
+
 // name -> ContextToolInfo, seeded with the platform baseline.
 const catalog = new Map<string, ContextToolInfo>(
   STATIC_PLATFORM_TOOLS.map((tool) => [tool.name, tool]),
@@ -47,9 +55,17 @@ function cachePath(): string {
   return path.join(SERO_HOME, 'subagent-tools.json');
 }
 
+/** The cache holds each plugin tool's package. A cache without `version` has none, so it is ignored. */
+const CACHE_VERSION = 2;
+
+interface PersistedTool extends ContextToolInfo {
+  packagePath?: string;
+}
+
 function persist(): void {
   try {
-    writeFileSync(cachePath(), JSON.stringify({ tools: [...catalog.values()] }, null, 2));
+    const tools: PersistedTool[] = [...catalog.values()].map((tool) => ({ ...tool, packagePath: toolPackages.get(tool.name) }));
+    writeFileSync(cachePath(), JSON.stringify({ version: CACHE_VERSION, tools }, null, 2));
   } catch (err) {
     console.warn('[subagent-tools] persist failed:', err);
   }
@@ -57,9 +73,14 @@ function persist(): void {
 
 function loadPersisted(): void {
   try {
-    const parsed = JSON.parse(readFileSync(cachePath(), 'utf8')) as { tools?: ContextToolInfo[] };
+    const parsed = JSON.parse(readFileSync(cachePath(), 'utf8')) as { version?: number; tools?: PersistedTool[] };
+    if (parsed.version !== CACHE_VERSION) return;
     for (const tool of parsed.tools ?? []) {
-      if (tool?.name) catalog.set(tool.name, { name: tool.name, description: tool.description });
+      if (!tool?.name) continue;
+      // A plugin that was uninstalled leaves a tool no session can load. Drop it.
+      if (tool.packagePath && !existsSync(path.join(tool.packagePath, 'package.json'))) continue;
+      catalog.set(tool.name, { name: tool.name, description: tool.description });
+      if (tool.packagePath) toolPackages.set(tool.name, tool.packagePath);
     }
   } catch {
     // No cache yet — the baseline + startup enumeration fill it in.
@@ -81,9 +102,30 @@ function merge(tools: ContextToolInfo[]): boolean {
   return changed;
 }
 
-/** The published catalog (always a superset of the platform baseline). */
+/** The plugin package that registers this tool, or undefined for a platform tool. */
+export function getToolPackagePath(toolName: string): string | undefined {
+  return toolPackages.get(toolName);
+}
+
+/**
+ * The published catalog for one kind of session (always a superset of the
+ * platform baseline). A tool whose plugin does not declare it for that kind is
+ * left out, so no approval offers a tool the session would never get. A member
+ * is approved for a tool by name and fails to start without it, so a plugin tool
+ * counts for a member only when a real session has reported it in this process,
+ * which drops a tool that an updated plugin removed or renamed.
+ */
+export function getToolCatalogFor(kind: ToolSessionKind): ContextToolInfo[] {
+  return [...catalog.values()].filter((tool) => {
+    const packagePath = toolPackages.get(tool.name);
+    if (!packagePath) return true;
+    if (kind === 'member' && !seenThisProcess.has(tool.name)) return false;
+    return isToolForSessionKind(path.join(packagePath, 'package.json'), tool.name, kind);
+  });
+}
+
 export function getSubagentToolCatalog(): ContextToolInfo[] {
-  return [...catalog.values()];
+  return getToolCatalogFor('subagent');
 }
 
 /**
@@ -91,10 +133,22 @@ export function getSubagentToolCatalog(): ContextToolInfo[] {
  * the runner calls this once per run with `session.getAllTools()`.
  */
 export function recordRunToolCatalog(tools: ToolInfo[]): void {
+  for (const tool of tools) {
+    seenThisProcess.add(tool.name);
+    const packagePath = packageRootForResourcePath(tool.sourceInfo.path);
+    if (packagePath) toolPackages.set(tool.name, packagePath);
+  }
   if (merge(tools.map((tool) => ({ name: tool.name, description: tool.description })))) persist();
 }
 
 let warmed = false;
+
+// A plugin that was replaced may have renamed or dropped a tool. Forget what this process
+// has seen, so the next warm-up enumerates the plugins as they are now.
+onPluginBridgePolicyCleared(() => {
+  seenThisProcess.clear();
+  warmed = false;
+});
 
 /**
  * Publish the catalog from a throwaway enumeration session. No container is
@@ -114,6 +168,9 @@ export async function warmSubagentToolCatalog(): Promise<void> {
       workspaceId: 'catalog-warmup',
       sessionId: 'subagent-tool-catalog',
       settingsManager: infra.settingsManager,
+      // The catalogue holds every tool with its package. Each consumer then
+      // filters it for the kind of session it serves.
+      keepToolsForOtherSessionKinds: true,
     });
     await loader.reload();
     const result = await createAgentSession({

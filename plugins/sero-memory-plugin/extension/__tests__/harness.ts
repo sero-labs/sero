@@ -24,7 +24,13 @@ export interface SessionHarness {
   tool(name: string, params: Record<string, unknown>): Promise<string>;
 }
 
-export function createSession(options: { sessionId: string; cwd: string; branch?: BranchEntry[] }): SessionHarness {
+export function createSession(options: {
+  sessionId: string;
+  cwd: string;
+  branch?: BranchEntry[];
+  /** The tools the session has active. A chat has `sero-cli`; a cron job does not. */
+  activeTools?: string[];
+}): SessionHarness {
   const handlers = new Map<string, Handler[]>();
   const tools = new Map<string, { execute: (...args: unknown[]) => Promise<{ content: Array<{ text: string }> }> }>();
   const api = {
@@ -34,6 +40,7 @@ export function createSession(options: { sessionId: string; cwd: string; branch?
     registerTool: (tool: { name: string; execute: (...args: unknown[]) => Promise<{ content: Array<{ text: string }> }> }) => {
       tools.set(tool.name, tool);
     },
+    getActiveTools: () => options.activeTools ?? ['sero-cli'],
     registerCommand: () => undefined,
     sendMessage: () => undefined,
     sendUserMessage: () => undefined,

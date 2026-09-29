@@ -222,7 +222,7 @@ async function launchBrowser(
 export function createAgentBrowser(runtime: RuntimeBackend, workspaceId: string, resolveRuntime: BrowserAutomationRuntimeResolver = resolveBrowserAutomationRuntime): ToolDefinition {
   let automationRuntime: { adapter: BrowserRuntimeAdapter; executablePath: string | null } | null = null;
 
-  return {
+  const browserTool: ToolDefinition & { cli: { summary: string } } = {
     name: 'automation_browser',
     label: 'automation_browser',
     description:
@@ -232,6 +232,8 @@ export function createAgentBrowser(runtime: RuntimeBackend, workspaceId: string,
       'Use automation_browser only when you specifically need runtime/headless browser automation evidence. ' +
       'Use launch first, then navigate/click/type/snapshot/screenshot/get_text/wait, and close when done. ' +
       'Click selector accepts CSS selectors or text=<visible text>; snapshot refs like [ref=e123] are not DOM selectors.',
+    // Chat reaches this tool as a `sero-cli` command, and its list shows this line.
+    cli: { summary: 'Hidden headless browser for testing a web page or app you are building (not the visible Browser panel): launch, navigate, click, screenshot, close' },
     parameters: BrowserParams,
     execute: async (
       _toolCallId: string,
@@ -446,4 +448,5 @@ export function createAgentBrowser(runtime: RuntimeBackend, workspaceId: string,
       }
     },
   };
+  return browserTool;
 }

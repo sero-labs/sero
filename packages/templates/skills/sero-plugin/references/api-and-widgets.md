@@ -408,6 +408,7 @@ for a new plugin.
 | `bundleExtensions` | Build-time hint for built-in release packaging. When `true`, Sero packages compiled JS `pi.extensions` instead of raw extension source. |
 | `extensionExternals` | Packages to keep external when bundling Pi extension entrypoints. Use for native, large, or runtime-loaded extension dependencies that must remain in `node_modules`. |
 | `bridgeTools` | `true` (default/omit), `false`, or `string[]` of tool names |
+| `toolSessionKinds` | Optional map of tool name to the session kinds that may have it: `chat`, `subagent`, `member`. A tool with no entry is for every kind |
 
 Common capability rules:
 - Declare `appAgent.invokeTool` when UI/runtime code uses `useAppTools()` or `window.sero.appAgent.invokeTool(...)`

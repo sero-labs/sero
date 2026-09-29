@@ -1,4 +1,4 @@
-import type { LoadExtensionsResult } from '@earendil-works/pi-coding-agent';
+import type { LoadExtensionsResult, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import {
   registerAppControlCliCommands,
   registerAppStateCliCommands,
@@ -32,6 +32,8 @@ import { clearPluginBridgePolicyCache, getPluginBridgePolicy } from '../features
 import { buildAgentPluginCliCommands } from '../features/agent-plugins/cli';
 
 let registry: CliRegistry | null = null;
+
+const SESSION_TOOLS_OWNER_PATH = 'sero:session-runtime-tools';
 
 /** @internal Test helper: reset the singleton registry between tests. */
 export function resetCliRegistryForTests(): void {
@@ -212,12 +214,24 @@ const BUILTIN_COMMANDS = new Set([
  * 1. Finds tools allowed by the core allowlist or plugin manifest policy,
  *    wraps each into a CLI command, and removes it from the extension tool list.
  * 2. Finds extension commands (slash commands) NOT in BUILTIN_COMMANDS,
- *    wraps each into a CLI command so the agent can invoke them.
+ *    wraps each into a CLI command so the agent can invoke them. A session
+ *    with its own registry, or one that sets `bridgeCommands: false`, gets
+ *    none, because it cannot run them.
  *    Commands stay registered in extensions (user can still type /plan).
  */
 export function bridgeExtensionTools(
   base: LoadExtensionsResult,
-  options?: { sessionId?: string; registry?: CliRegistry },
+  options?: {
+    sessionId?: string;
+    registry?: CliRegistry;
+    /** Runtime tools this session reaches as commands rather than as direct tools. */
+    sessionTools?: ToolDefinition[];
+    /**
+     * Whether to bridge slash commands too. A session with no live chat entry
+     * cannot run one, so it turns this off. Defaults to true.
+     */
+    bridgeCommands?: boolean;
+  },
 ): LoadExtensionsResult {
   const reg = options?.registry ?? getCliRegistry();
   const sessionCommands: CliCommand[] = [];
@@ -266,8 +280,10 @@ export function bridgeExtensionTools(
       ext.tools.delete(name);
     }
 
-    // Bridge commands → CLI (keeps in extension for user slash commands)
-    for (const [name, registered] of ext.commands) {
+    // Bridge commands → CLI (keeps in extension for user slash commands).
+    // A session with its own registry has no chat pool entry to run a slash
+    // command in, so every one it listed would fail. Its tools are bridged above.
+    for (const [name, registered] of options?.registry || options?.bridgeCommands === false ? [] : ext.commands) {
       if (BUILTIN_COMMANDS.has(name) || bridgedToolNames.has(name)) continue;
       const existing = reg.get(name, owner ? { sessionId: options?.sessionId } : undefined);
       if (existing && existing.source !== 'app') continue;
@@ -282,6 +298,14 @@ export function bridgeExtensionTools(
   }
 
   if (options?.sessionId) {
+    const owner: CliAppCommandOwner = {
+      kind: 'session-extension',
+      sessionId: options.sessionId,
+      extensionPath: SESSION_TOOLS_OWNER_PATH,
+    };
+    for (const tool of options.sessionTools ?? []) {
+      sessionCommands.push({ ...bridgeTool(tool.name, tool), owner });
+    }
     reg.replaceAppCommandsForSession(options.sessionId, sessionCommands);
   }
 
@@ -342,16 +366,6 @@ ${sections.join('\n')}
 Run \`sero help <command>\` for details. Chain multiple commands (one per line).
 **Before calling any command that takes JSON parameters (e.g. \`question\`, \`questionnaire\`, \`interview\`), run \`sero help <command>\` first to check the exact schema.**
 ${sessionTitleBlock}
-For \`sero app\`, skip help for common flows.
-- Screenshot apps directly: \`sero app screenshot --app "<name or id>" [--save <path>]\`
-- Names resolve too (\`Calculator\` → \`calc\`); use \`sero app list\` only if ambiguous.
-- Prefer selector/ref/text UI control over coordinate guessing: \`app inspect\`, \`app snapshot\`, \`app visible --text "..."\`, \`app scroll-to --text "..."\`.
-- For nested panels, use \`app scroll --selector <sel> --y <px>\` or \`app scroll --at-x <n> --at-y <n> --y <px>\`; scroll output reports the actual container and before/after scroll position.
-- Scope duplicated text with \`--within <selector>\` and use \`app screenshot-around --text "..." --within <selector> --save <path>\` for evidence captures.
-- Use \`app scroll-containers\` to find scrollable panels and \`app screenshot --selector <sel> --full\` for long containers.
-- \`appstate\` is JSON state only, not UI automation.
-- Use \`app click <selector>\` or \`app click --x <n> --y <n>\`; no \`app press\`.
-
-Browser pages: use \`sero browser\`, not \`sero app screenshot --app web\` (\`web\` is separate). Record: \`browser show\`; \`app record start\`; actions; wait 3-5s; separate \`app record stop\`. Use \`browser goto\` unless a new tab is needed.
+For app control and browser pages, run \`sero help app\` or \`sero help browser\` first.
 `;
 }
