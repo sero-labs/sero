@@ -416,9 +416,6 @@ export type {
   AgentModelIPC,
   AgentSummaryIPC,
   AgentFileDataIPC,
-  SkillCatalogueEntryIPC,
-  SkillCatalogueIPC,
-  SkillScopeIPC,
   SkillSummaryIPC,
   SkillFileDataIPC,
   PromptTemplateSummaryIPC,
@@ -467,6 +464,7 @@ export type {
   SeroEditorBridge,
   SeroWebHostBridge,
 } from './admin-bridge';
+export type { SkillCatalogueEntryIPC, SkillCatalogueIPC, SkillScopeIPC } from './admin-bridge-skills';
 
 export {
   AUTO_EDITOR_THEME_ID,

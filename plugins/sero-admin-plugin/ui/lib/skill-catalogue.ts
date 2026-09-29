@@ -37,6 +37,8 @@ export function skillsInView(skills: readonly SkillEntry[], workspace: string): 
 }
 
 export function statusOf(skill: SkillEntry, inView: readonly SkillEntry[], workspace: string): SkillStatus | null {
+  // A skill outside the view is not part of the comparison, whatever its name.
+  if (!inView.includes(skill)) return null;
   const same = inView.filter((other) => other.name === skill.name);
   if (same.length < 2) return null;
   const others = same.filter((other) => other !== skill);

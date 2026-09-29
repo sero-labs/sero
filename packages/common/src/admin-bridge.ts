@@ -1,5 +1,6 @@
 import type { ThinkingLevel, ModelValidationWarning } from './model-selection';
 import type { SeroAgentPluginsBridge } from './agent-plugins';
+import type { SkillCatalogueIPC } from './admin-bridge-skills';
 import type { PluginDevSessionIPC } from './plugin-dev';
 import type { InstalledPlugin, PluginChangeEventIPC } from './plugins';
 import type {
@@ -83,24 +84,6 @@ export interface SkillSummaryIPC {
   description: string;
   filePath: string;
   source: 'user' | 'project' | 'path';
-}
-
-export type SkillScopeIPC = 'user' | 'plugin' | 'project';
-
-export interface SkillCatalogueEntryIPC {
-  name: string;
-  description: string;
-  filePath: string;
-  scope: SkillScopeIPC;
-  /** `user`, the plugin's short name, or the workspace id for a project skill. */
-  origin: string;
-  disableModelInvocation: boolean;
-}
-
-export interface SkillCatalogueIPC {
-  skills: SkillCatalogueEntryIPC[];
-  /** Workspaces with at least one project skill. */
-  projects: Array<{ id: string; name: string }>;
 }
 
 export interface SkillFileDataIPC {

@@ -7,7 +7,7 @@
  * selected immediately after creation.
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import type { SkillFileData } from '../components/types';
 import type { SkillEntry } from '../lib/skill-catalogue';
 import { getSero } from './host';
@@ -62,19 +62,26 @@ export function useSkillCrud(
     }
   }, [onError]);
 
+  // A read that finishes after a newer selection must not fill the editor with the older skill.
+  const latestRead = useRef(0);
+
   const select = useCallback(async (filePath: string) => {
+    const read = ++latestRead.current;
+    setSelected(filePath);
+    setIsNew(false);
+    setEditing(null);
     try {
-      setSelected(filePath);
-      setIsNew(false);
       const data = await getSero().skills.readSkill(filePath);
-      setEditing(data);
+      if (read === latestRead.current) setEditing(data);
     } catch (err) {
+      if (read !== latestRead.current) return;
       const name = filePath.split('/').at(-2) ?? filePath;
       onError(`Failed to load skill '${name}'`);
     }
   }, [onError]);
 
   const startNew = useCallback(() => {
+    latestRead.current += 1;
     setSelected(null);
     setIsNew(true);
     setEditing({ ...NEW_SKILL, extraFrontmatter: {} });

@@ -24,19 +24,29 @@ interface SkillsSectionProps {
   onSelect: (filePath: string) => void;
 }
 
+/**
+ * The editor shows only a skill that the list shows, and only once its own file
+ * has loaded. Filtering to another project hides the selected skill's editor with it.
+ */
+function shownEditor(crud: SkillCrud, view: SkillView) {
+  const entry = crud.selectedEntry && view.inView.includes(crud.selectedEntry) ? crud.selectedEntry : null;
+  const loaded = entry !== null && crud.editing?.filePath === entry.filePath;
+  return { entry, editing: crud.isNew || loaded ? crud.editing : null };
+}
+
 export function SkillsSection({ crud, view, visibility, loading, error, saving, onSelect }: SkillsSectionProps) {
-  const entry = crud.selectedEntry;
-  const status = entry && !crud.isNew ? view.statusFor(entry) : null;
+  const { entry, editing } = shownEditor(crud, view);
+  const existing = crud.isNew ? null : entry;
+  const status = existing ? view.statusFor(existing) : null;
   const workspaceName = view.workspace === ALL_PROJECTS
     ? 'this project'
     : view.projectNames.get(view.workspace) ?? 'this project';
-  const showVisibility = Boolean(crud.editing && !crud.isNew && entry);
 
   const changeVisibility = useCallback(
     (visible: boolean) => {
-      if (crud.editing) visibility.setSkillEnabled(crud.editing.name, visible);
+      if (editing) visibility.setSkillEnabled(editing.name, visible);
     },
-    [crud.editing, visibility],
+    [editing, visibility],
   );
 
   return (
@@ -49,18 +59,18 @@ export function SkillsSection({ crud, view, visibility, loading, error, saving, 
       onRefresh={crud.refresh}
       onNew={crud.startNew}
       list={<SkillList view={view} projects={crud.projects} selected={crud.selected} onSelect={onSelect} />}
-      editor={crud.editing ? (
+      editor={editing ? (
         <SkillEditor
-          data={crud.editing}
+          data={editing}
           isNew={crud.isNew}
           saving={saving}
-          entry={crud.isNew ? null : entry}
+          entry={existing}
           originName={entry ? originName(entry, view.projectNames) : 'Yours'}
           duplicate={status ? duplicateNote(status, workspaceName, view.projectNames) : null}
           notUsed={status?.kind === 'loses'}
-          visibleToModel={showVisibility && entry ? !entry.disableModelInvocation && !visibility.isHiddenByUser(entry.name) : undefined}
+          visibleToModel={existing ? !existing.disableModelInvocation && !visibility.isHiddenByUser(existing.name) : undefined}
           lockedHidden={entry?.disableModelInvocation}
-          onVisibilityChange={showVisibility ? changeVisibility : undefined}
+          onVisibilityChange={existing ? changeVisibility : undefined}
           onSave={crud.save}
           onDelete={crud.remove}
           onChange={crud.setEditing}

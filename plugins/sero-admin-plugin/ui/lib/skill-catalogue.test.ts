@@ -38,6 +38,12 @@ describe('which skill a chat uses when names repeat', () => {
     expect(statusOf(mine, [mine], ALL_PROJECTS)).toBeNull();
   });
 
+  it('does not compare a skill that the view hides', () => {
+    // Project Site is hidden while Sero is chosen, so its copy is not "unused" there.
+    const view = skillsInView(all, 'sero');
+    expect(statusOf(otherProjectCopy, view, 'sero')).toBeNull();
+  });
+
   it('hides other projects skills when one project is chosen', () => {
     expect(skillsInView(all, 'sero')).not.toContain(otherProjectCopy);
   });

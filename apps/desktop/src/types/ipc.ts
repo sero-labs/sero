@@ -397,16 +397,7 @@ export type {
   SubagentEvent,
 } from './subagent';
 
-export type {
-  SkillSource,
-  SkillSummary,
-  AvailableSkillSummary,
-  SkillScope,
-  SkillCatalogue,
-  SkillCatalogueEntry,
-  SkillCatalogueProject,
-  SkillFileData,
-} from './skills';
+export type * from './skills';
 export type { PromptTemplateSummary, PromptTemplateFileData } from './prompts';
 
 // ── GitHub Repo Creation ────────────────────────────────────────

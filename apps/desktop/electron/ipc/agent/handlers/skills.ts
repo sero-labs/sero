@@ -8,6 +8,7 @@
  * setting, and the session hot reload after a write or a delete.
  */
 
+import path from 'node:path';
 import { ipcMain } from 'electron';
 import {
   DefaultResourceLoader,
@@ -47,7 +48,7 @@ function reloadSessions(): void {
   );
 }
 
-/** The skills Sero loads outside any project: the profile's and the plugins'. */
+/** The skills Sero loads outside any project (the profile's and the plugins'), and what it dropped. */
 async function loadAvailableSkills() {
   const infra = await ensureInfra();
   infra.settingsManager.reload();
@@ -62,13 +63,34 @@ async function loadAvailableSkills() {
     skillsOverride: (base) => dropUserGlobalAgentSkills(withAgentPluginSkills(base)),
   });
   await loader.reload();
-  return loader.getSkills().skills;
+  return loader.getSkills();
 }
 
-/** Folders whose skills the Skills page may read and write: the profile's and each project's. */
-async function editableSkillRoots(): Promise<string[]> {
+/**
+ * Folders whose skills the Skills page may read and write: the profile's and each
+ * project's. A project's folder is `strict`, so a symlink inside it cannot lead out.
+ */
+async function editableSkillRoots(): Promise<{ roots: string[]; strict: string[] }> {
   const workspaces = await workspaceManager.list();
-  return [SKILLS_DIR, ...workspaces.map((workspace) => projectSkillsDir(workspace.path))];
+  const strict = workspaces.map((workspace) => projectSkillsDir(workspace.path));
+  return { roots: [SKILLS_DIR, ...strict], strict };
+}
+
+/**
+ * Read a skill. A plugin's skill lives in the plugin's folder, outside every
+ * editable root, so it is read when the catalogue lists that exact file. Writes and
+ * deletes never take that route.
+ */
+async function readCatalogued(filePath: string): Promise<SkillFileData> {
+  const { roots, strict } = await editableSkillRoots();
+  try {
+    return await readSkillFile(filePath, roots, strict);
+  } catch (error) {
+    const { skills } = buildSkillCatalogue(await loadAvailableSkills(), []);
+    const listed = skills.some((skill) => path.resolve(skill.filePath) === path.resolve(filePath));
+    if (!listed) throw error;
+    return readSkillFile(filePath, [path.dirname(filePath)]);
+  }
 }
 
 export function registerSkillHandlers(): void {
@@ -80,7 +102,7 @@ export function registerSkillHandlers(): void {
   ipcMain.handle(
     IpcChannels.skills.listAvailableSkills,
     async (): Promise<AvailableSkillSummary[]> => {
-      const skills = await loadAvailableSkills();
+      const { skills } = await loadAvailableSkills();
       return skills
         .map((skill) => ({
           name: skill.name,
@@ -116,7 +138,7 @@ export function registerSkillHandlers(): void {
   /** Read a skill by its absolute filePath (returned by listSkills or listCatalogue). */
   ipcMain.handle(
     IpcChannels.skills.readSkill,
-    async (_e, filePath: string): Promise<SkillFileData> => readSkillFile(filePath, await editableSkillRoots()),
+    async (_e, filePath: string): Promise<SkillFileData> => readCatalogued(filePath),
   );
 
   /**
@@ -126,7 +148,8 @@ export function registerSkillHandlers(): void {
   ipcMain.handle(
     IpcChannels.skills.writeSkill,
     async (_e, data: SkillFileData): Promise<string> => {
-      const targetPath = await writeSkillFile(data, await editableSkillRoots());
+      const { roots, strict } = await editableSkillRoots();
+      const targetPath = await writeSkillFile(data, roots, strict);
       reloadSessions();
       return targetPath;
     },
