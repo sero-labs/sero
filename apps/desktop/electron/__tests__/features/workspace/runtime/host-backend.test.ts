@@ -4,6 +4,7 @@ import path from 'path';
 import type { ChildProcess } from 'child_process';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { HostBackend } from '@electron/features/workspace/runtime/backends/host/host-backend';
+import { SHARED_PI_DOCS_DIR } from '@electron/features/pi-docs/shared-pi-docs';
 import type { HostRuntimeSubstrate } from '@electron/features/workspace/runtime/backends/host/host-substrate';
 
 const tempDirs: string[] = [];
@@ -169,6 +170,24 @@ describe('HostBackend', () => {
       } else {
         process.env.PI_CODING_AGENT_DIR = originalAgentDir;
       }
+    }
+  });
+
+  it('lets a session read the shared Pi docs the prompt points at, but not write there', async () => {
+    const { backend } = await createBackend();
+    await mkdir(SHARED_PI_DOCS_DIR, { recursive: true });
+    const readme = path.join(SHARED_PI_DOCS_DIR, 'README.md');
+    await writeFile(readme, '# Pi docs');
+    try {
+      await expect(backend.readFile({ path: readme })).resolves.toEqual({ content: '# Pi docs', encoding: 'utf8' });
+      await expect(backend.readFile({ path: `${SHARED_PI_DOCS_DIR}-sibling/README.md` })).rejects.toThrow(
+        'Host path must be inside a workspace root',
+      );
+      await expect(backend.writeFile({ path: readme, content: 'changed' })).rejects.toThrow(
+        'Host path must be inside a workspace root',
+      );
+    } finally {
+      await rm(SHARED_PI_DOCS_DIR, { recursive: true, force: true });
     }
   });
 

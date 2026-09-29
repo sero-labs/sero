@@ -118,6 +118,8 @@ function defects(session: ProbedSession): string[] {
 function expectOnePiDocsPointer(session: ProbedSession): void {
   const pointers = (session.system.match(/Pi docs:/g)?.length ?? 0) + (session.system.match(/Pi documentation \(read only when/g)?.length ?? 0);
   expect(pointers).toBe(1);
+  // The pointer is only worth having if the session can read what it points at. A failed read is a defect.
+  expect(session.outcomes.map((outcome) => outcome.label), 'the session never tried to read the Pi docs').toContain('read the Pi docs');
 }
 
 function recordSize(kind: string, session: ProbedSession): void {

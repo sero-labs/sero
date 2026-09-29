@@ -38,7 +38,7 @@ A new profile SHALL receive the bundled skills without the taste skill pack, and
 - **THEN** those skill folders are unchanged
 
 ### Requirement: One Pi documentation pointer
-A session's system prompt SHALL give the Pi documentation location exactly once, as a path that session's tools can read: the shared copy on the host, or its mounted path in a container. A host Room member keeps Pi's own docs section, which names Pi's installed package, and the `pi-docs` skill accepts either form.
+A session's system prompt SHALL give the Pi documentation location exactly once, as a path that session's tools can read: the shared copy on the host, or its mounted path in a container.
 
 #### Scenario: Host chat
 - **WHEN** a host workspace chat session starts

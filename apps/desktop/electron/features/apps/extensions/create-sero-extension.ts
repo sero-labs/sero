@@ -23,6 +23,7 @@ import { removePiDocsSection } from '@electron/features/pi-docs/strip-pi-docs-se
 import { registerSharedIsolatedCompletionHost } from '@electron/shared/infra/isolated-completion-host';
 import { registerAgentPluginHostCapability } from '@electron/features/agent-plugins/host-capability';
 import { registerRtkHostCapability } from '@electron/features/rtk/host-capability';
+import { withHostPiDocsPointer } from '@electron/features/pi-docs/host-pointer';
 import { buildContainerPromptBlock, buildHostPromptBlock } from '@electron/features/container/tools/system-prompt';
 import { listWorkspaceAccessRoots } from '@electron/features/workspace/access-roots';
 import { registerSeroBuiltinCommands } from './commands';
@@ -109,6 +110,10 @@ export function createSeroExtensionFactory(
           options.hostRuntime.workspacePath,
           { platform: options.hostRuntime.platform, devBuild: options.hostRuntime.devBuild, cliReachable },
         );
+      } else {
+        // An Architect owner or a host Room member has no runtime block, and Pi's own docs
+        // section names a folder its file tools cannot read.
+        systemPrompt = withHostPiDocsPointer(systemPrompt);
       }
 
       // Inject subagent guidance for main sessions

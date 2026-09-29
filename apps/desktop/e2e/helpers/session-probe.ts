@@ -99,6 +99,7 @@ export type ProbeKind =
   | 'no-session'
   | 'schema'
   | 'unseen-write'
+  | 'unseen-docs'
   | 'other-error'
   | 'unexpected-error'
   | 'no-result'
@@ -110,7 +111,7 @@ export type ProbeKind =
  * had none, where an error is the expected answer, so it does not count.
  */
 export const DEFECT_KINDS: ProbeKind[] = [
-  'unknown-tool', 'unknown-command', 'no-session', 'schema', 'unseen-write', 'unexpected-error', 'no-result', 'no-probe',
+  'unknown-tool', 'unknown-command', 'no-session', 'schema', 'unseen-write', 'unseen-docs', 'unexpected-error', 'no-result', 'no-probe',
 ];
 
 export interface ProbeOutcome {
@@ -130,6 +131,16 @@ export function classifyResult(text: string): Exclude<ProbeKind, 'no-probe'> {
   if (/validation failed|must have required property|invalid arguments/i.test(text)) return 'schema';
   if (/^\s*(error|usage)\b/i.test(text)) return 'other-error';
   return 'callable';
+}
+
+/**
+ * Where the system prompt says the Pi docs README is: the `Pi docs:` line of a runtime block, or
+ * the `Main documentation` line of Pi's own section. Null when the prompt names neither.
+ */
+export function piDocsReadmeFrom(system: string): string | null {
+  const root = /Pi docs: `([^`]+)`/.exec(system)?.[1];
+  if (root) return `${root}/README.md`;
+  return /- Main documentation: (\S+)/.exec(system)?.[1] ?? null;
 }
 
 /** The command names in the `## Sero CLI` block of a system prompt, in listed order. */
@@ -164,6 +175,8 @@ interface PlannedCall {
   command?: string;
   /** A validation error still counts as found. */
   existsOnly?: boolean;
+  /** Reads the Pi docs README the prompt names. What comes back must be the file. */
+  piDocs?: boolean;
   arguments: Record<string, unknown>;
 }
 
@@ -197,6 +210,14 @@ function planCalls(request: StubRequest): { calls: PlannedCall[]; unprobed: Prob
       existsOnly: !TOOL_PROBES[tool.name] && tool.name !== 'write',
     });
   }
+  // A session that is told where the Pi docs are must be able to read them with its own tools.
+  const readme = piDocsReadmeFrom(request.system);
+  const toolNames = request.tools.map((tool) => tool.name);
+  if (readme && toolNames.includes('read')) {
+    calls.push({ id: 'probe-docs', tool: 'read', arguments: { path: readme }, piDocs: true });
+  } else if (readme && toolNames.includes('bash')) {
+    calls.push({ id: 'probe-docs', tool: 'bash', arguments: { command: `cat '${readme}'` }, piDocs: true });
+  }
   return { calls, unprobed };
 }
 
@@ -205,6 +226,7 @@ function planCalls(request: StubRequest): { calls: PlannedCall[]; unprobed: Prob
  * validation error or any other error. A call with valid arguments must run.
  */
 function outcomeKind(call: PlannedCall, text: string): ProbeKind {
+  if (call.piDocs) return text.trim().length > 200 && !/enoent|no such file|not found|^\s*error/i.test(text.slice(0, 200)) ? 'callable' : 'unseen-docs';
   const kind = classifyResult(text);
   if (!call.existsOnly) return kind === 'other-error' ? 'unexpected-error' : kind;
   return kind === 'schema' ? 'callable' : kind;
@@ -303,7 +325,7 @@ export async function startProbeStub(
       }
       for (const call of calls) {
         const message = request.messages.find((candidate) => candidate.role === 'tool' && candidate.toolCallId === call.id);
-        const label = call.command ? `sero-cli: ${call.command}` : call.tool;
+        const label = call.piDocs ? 'read the Pi docs' : call.command ? `sero-cli: ${call.command}` : call.tool;
         // A call the session never answered is a defect, even when the other calls returned.
         if (!message) {
           session.outcomes.push({ label, tool: call.tool, command: call.command, kind: 'no-result', detail: 'no result came back' });

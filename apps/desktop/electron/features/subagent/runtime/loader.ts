@@ -18,7 +18,7 @@ import type { ContainerPromptState } from '@electron/features/container/tools/co
 import { buildContainerPromptBlock } from '@electron/features/container/tools/system-prompt';
 import { buildCliPromptBlock } from '@electron/cli';
 import { removePiDocsSection } from '@electron/features/pi-docs/strip-pi-docs-section';
-import { getHostPiDocsPaths } from '@electron/features/pi-docs/shared-pi-docs';
+import { withHostPiDocsPointer } from '@electron/features/pi-docs/host-pointer';
 import { logProviderRequest } from '@electron/ipc/editor/debug';
 import { notify } from '@electron/features/notifications/feed';
 import type { NotificationType } from '@electron/features/notifications/types';
@@ -63,10 +63,8 @@ export function createSubagentExtensionFactory(
           { currentWorkingDir: containerCwd, cliReachable, shellReachable: pi.getActiveTools().includes('bash') },
         );
       } else {
-        // A host subagent may run on a custom prompt with no Pi section at all, so
-        // the one pointer to the docs, the way a container subagent has it, is ours.
-        systemPrompt = removePiDocsSection(systemPrompt);
-        systemPrompt += `\n\nPi docs: \`${getHostPiDocsPaths().root}\``;
+        // A host subagent may run on a custom prompt with no Pi section at all.
+        systemPrompt = withHostPiDocsPointer(systemPrompt);
       }
 
       if (systemPrompt !== event.systemPrompt) {
