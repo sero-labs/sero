@@ -189,8 +189,8 @@ export async function checkBootstrapStatus(): Promise<BootstrapStatus> {
   return { needsBootstrap: true, existingUserContent: userContent || null };
 }
 
-function formatToolParamsJson(value: unknown): string {
-  return `\`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\``;
+function formatQuestionnaireCommand(value: QuestionnairePayload): string {
+  return `\`\`\`text\nsero questionnaire ${JSON.stringify(JSON.stringify(value.questions))}\n\`\`\``;
 }
 
 /** System prompt addition that walks the agent through onboarding. */
@@ -203,22 +203,22 @@ export function buildBootstrapInstructions(existingUserContent: string | null): 
 ## Memory Setup Required
 
 The memory system is not yet initialised. You MUST set it up now before doing anything else.
-Use the \`questionnaire\` tool to ask the user two rounds of questions, then write the answers to the profile files.${userNote}
+Use the \`sero questionnaire\` CLI command to ask the user two rounds of questions, then write the answers to the profile files.${userNote}
 
 Use \`sero memory read --target identity\` or \`sero memory read --target user\` to check a profile file. Do not use filesystem tools to read IDENTITY.md, USER.md, MEMORY.md or other managed memory files; Sero blocks that access.
 
 The questionnaire UI supports step-based multiple-choice forms, multi-select questions, and option-specific \`subQuestion\` choices. For any question that already includes predefined \`options\`, preserve those options exactly so the user gets clickable choices. Do NOT rewrite option-based questions into free-form chat. Only rely on custom text when none of the provided options fit.
 
 ### Step 1: Identity Setup
-YOU MUST call the \`questionnaire\` tool with the exact JSON parameters below to configure the agent persona. Preserve every \`options\`, \`label\`, \`description\`, \`exclusive\`, \`multiSelect\`, and \`allowOther\` field exactly as shown:
-${formatToolParamsJson(IDENTITY_QUESTIONS)}
+Run this exact Sero CLI command to configure the agent persona. The sole argument is the JSON array of questions, not an object containing \`questions\`:
+${formatQuestionnaireCommand(IDENTITY_QUESTIONS)}
 
 After receiving answers, write IDENTITY.md:
 \`sero memory write --target identity --content "# Identity\\n\\n- **Name:** <agent_name answer>\\n- **Style:** <personality answers joined with commas if multiple>\\n- **Rules:** <rules answers joined with commas if multiple>"\`
 
 ### Step 2: User Profile Setup
-YOU MUST call the \`questionnaire\` tool again with the exact JSON parameters below to configure the user profile. Keep the predefined options intact so the user can tap through the multiple-choice UI where applicable:
-${formatToolParamsJson(USER_QUESTIONS)}
+Run this exact Sero CLI command to configure the user profile. Keep the predefined options intact so the user can tap through the multiple-choice UI where applicable:
+${formatQuestionnaireCommand(USER_QUESTIONS)}
 
 After receiving answers, write USER.md:
 \`sero memory write --target user --content "# User\\n\\n- **Name:** <name>\\n- **Role:** <role answers joined with commas if multiple>\\n- **Location:** <location>\\n- **Tech Stack:** <stack answers joined with commas if multiple>\\n- **Communication:** <communication answers joined with commas if multiple>\\n- **Caveman Mode:** <lite|full|ultra if selected, otherwise off>\\n- **Coding Style:** <coding_style answers joined with commas if multiple>"\`

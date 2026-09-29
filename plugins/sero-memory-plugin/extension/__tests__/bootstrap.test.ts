@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { tokenizeCliInput } from '../../../../apps/desktop/electron/cli/core/parser';
 import { buildBootstrapInstructions, checkBootstrapStatus, USER_QUESTIONS } from '../bootstrap';
 import { conversionPaths } from '../conversion';
 import { getIdentityPath, getMemoryPath, getUserPath, resolveMemoryRoot } from '../memory-manager';
@@ -34,6 +35,25 @@ describe('memory bootstrap questions', () => {
     expect(instructions).toContain('**Coding Style:** <coding_style answers');
     expect(instructions).not.toContain('--target memory');
     expect(instructions).not.toContain('### Step 3');
+  });
+
+  it('passes question arrays to the Sero CLI without a parameter-object wrapper', () => {
+    const instructions = buildBootstrapInstructions(null);
+    const commands = instructions.match(/^sero questionnaire .+$/gm) ?? [];
+
+    expect(commands).toHaveLength(2);
+    for (const command of commands) {
+      const argv = tokenizeCliInput(command);
+      expect(argv.slice(0, 2)).toEqual(['sero', 'questionnaire']);
+      expect(argv).toHaveLength(3);
+      const questions = JSON.parse(argv[2]!) as Array<Record<string, unknown>>;
+      expect(questions.length).toBeGreaterThan(0);
+      expect(questions.every((question) =>
+        typeof question.id === 'string'
+        && typeof question.prompt === 'string'
+        && Array.isArray(question.options),
+      )).toBe(true);
+    }
   });
 });
 
