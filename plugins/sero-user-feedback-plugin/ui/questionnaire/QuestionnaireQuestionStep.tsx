@@ -87,7 +87,7 @@ function QuestionBlock({
               <button type="button"
                 onClick={() => onSelectOption(question, option, index)}
                 className={cn(
-                  'flex w-full items-start gap-3 rounded-md border px-3 py-2.5 text-left transition-colors duration-200 active:scale-[0.99]',
+                  'flex w-full items-start gap-3 rounded-md border px-3 py-2.5 text-left transition-colors duration-200',
                   isSelected
                     ? 'border-emerald-500/40 bg-emerald-500/5'
                     : 'border-transparent hover:border-border hover:bg-secondary',
