@@ -46,4 +46,22 @@ describe('dropUserGlobalAgentSkills', () => {
     expect(result.skills).toEqual([]);
     fs.rmSync(root, { recursive: true, force: true });
   });
+
+  it('keeps a skill loaded from its own folder when ~/.agents/skills is a link to that folder', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'user-global-skills-'));
+    const home = path.join(root, 'home');
+    const profileSkills = path.join(root, 'profile', 'skills');
+    fs.mkdirSync(path.join(profileSkills, 'pi-docs'), { recursive: true });
+    fs.writeFileSync(path.join(profileSkills, 'pi-docs', 'SKILL.md'), '# pi docs');
+    fs.mkdirSync(path.join(home, '.agents'), { recursive: true });
+    fs.symlinkSync(profileSkills, path.join(home, '.agents', 'skills'));
+    vi.spyOn(os, 'homedir').mockReturnValue(home);
+
+    const direct = skillAt('pi-docs', path.join(profileSkills, 'pi-docs', 'SKILL.md'));
+    const throughLink = skillAt('pi-docs-alias', path.join(home, '.agents', 'skills', 'pi-docs', 'SKILL.md'));
+    const result = dropUserGlobalAgentSkills({ skills: [direct, throughLink], diagnostics: [] });
+
+    expect(result.skills.map((skill) => skill.name)).toEqual(['pi-docs']);
+    fs.rmSync(root, { recursive: true, force: true });
+  });
 });

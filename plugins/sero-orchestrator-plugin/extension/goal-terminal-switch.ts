@@ -18,7 +18,7 @@ export interface TerminalToolSwitch {
   claim(): void;
   /** Turn the terminal tools on for a goal that is running, or off when none is. */
   set(on: boolean): void;
-  /** The session's tools as a goal must see them: held-back terminal tools count as reachable. */
+  /** The session's tools as a goal must see them: held-back terminal tools count as reachable until they are turned on. */
   reachableTools(): string[];
 }
 
@@ -54,7 +54,8 @@ export function createTerminalToolSwitch(pi: ExtensionAPI): TerminalToolSwitch {
     },
     reachableTools() {
       const active = pi.getActiveTools();
-      return claimed ? [...active, ...GOAL_TERMINAL_TOOLS] : active;
+      // While they are on, what is active is the truth, so a tool the user turned off shows as missing.
+      return claimed && !on ? [...active, ...GOAL_TERMINAL_TOOLS] : active;
     },
   };
 }

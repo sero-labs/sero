@@ -43,6 +43,9 @@ export const STATIC_PLATFORM_TOOLS: ContextToolInfo[] = [
 /** Tool name -> the plugin package that registers it. Filled from real sessions and saved with the cache. */
 const toolPackages = new Map<string, string>();
 
+/** Tool names a real session has reported since this process started. The saved cache alone does not count. */
+const seenThisProcess = new Set<string>();
+
 // name -> ContextToolInfo, seeded with the platform baseline.
 const catalog = new Map<string, ContextToolInfo>(
   STATIC_PLATFORM_TOOLS.map((tool) => [tool.name, tool]),
@@ -107,12 +110,17 @@ export function getToolPackagePath(toolName: string): string | undefined {
 /**
  * The published catalog for one kind of session (always a superset of the
  * platform baseline). A tool whose plugin does not declare it for that kind is
- * left out, so no approval offers a tool the session would never get.
+ * left out, so no approval offers a tool the session would never get. A member
+ * is approved for a tool by name and fails to start without it, so a plugin tool
+ * counts for a member only when a real session has reported it in this process,
+ * which drops a tool that an updated plugin removed or renamed.
  */
 export function getToolCatalogFor(kind: ToolSessionKind): ContextToolInfo[] {
   return [...catalog.values()].filter((tool) => {
     const packagePath = toolPackages.get(tool.name);
-    return !packagePath || isToolForSessionKind(path.join(packagePath, 'package.json'), tool.name, kind);
+    if (!packagePath) return true;
+    if (kind === 'member' && !seenThisProcess.has(tool.name)) return false;
+    return isToolForSessionKind(path.join(packagePath, 'package.json'), tool.name, kind);
   });
 }
 
@@ -126,6 +134,7 @@ export function getSubagentToolCatalog(): ContextToolInfo[] {
  */
 export function recordRunToolCatalog(tools: ToolInfo[]): void {
   for (const tool of tools) {
+    seenThisProcess.add(tool.name);
     const packagePath = packageRootForResourcePath(tool.sourceInfo.path);
     if (packagePath) toolPackages.set(tool.name, packagePath);
   }

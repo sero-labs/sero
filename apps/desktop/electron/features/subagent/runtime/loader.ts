@@ -18,6 +18,7 @@ import type { ContainerPromptState } from '@electron/features/container/tools/co
 import { buildContainerPromptBlock } from '@electron/features/container/tools/system-prompt';
 import { buildCliPromptBlock } from '@electron/cli';
 import { removePiDocsSection } from '@electron/features/pi-docs/strip-pi-docs-section';
+import { getHostPiDocsPaths } from '@electron/features/pi-docs/shared-pi-docs';
 import { logProviderRequest } from '@electron/ipc/editor/debug';
 import { notify } from '@electron/features/notifications/feed';
 import type { NotificationType } from '@electron/features/notifications/types';
@@ -47,12 +48,10 @@ export function createSubagentExtensionFactory(
       // A subagent whose tool policy leaves out `sero-cli` cannot run these commands.
       const cliReachable = pi.getActiveTools().includes('sero-cli');
       if (cliReachable) {
-        systemPrompt += buildCliPromptBlock(
-          undefined,
-          { workspaceId: currentWorkspaceId, sessionId: _sessionId },
-          // A subagent has no chat to title, so `set-title` would fail for it.
-          { omitCommands: ['set-title'] },
-        );
+        systemPrompt += buildCliPromptBlock(undefined, {
+          workspaceId: currentWorkspaceId,
+          sessionId: _sessionId,
+        });
       }
 
       if (containerState) {
@@ -61,8 +60,13 @@ export function createSubagentExtensionFactory(
         systemPrompt += buildContainerPromptBlock(
           currentWorkspaceId,
           containerState.ipAddress,
-          { currentWorkingDir: containerCwd, cliReachable },
+          { currentWorkingDir: containerCwd, cliReachable, shellReachable: pi.getActiveTools().includes('bash') },
         );
+      } else {
+        // A host subagent may run on a custom prompt with no Pi section at all, so
+        // the one pointer to the docs, the way a container subagent has it, is ours.
+        systemPrompt = removePiDocsSection(systemPrompt);
+        systemPrompt += `\n\nPi docs: \`${getHostPiDocsPaths().root}\``;
       }
 
       if (systemPrompt !== event.systemPrompt) {

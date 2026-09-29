@@ -317,6 +317,22 @@ export function registerGoalLoop(pi: ExtensionAPI, terminalTools: TerminalToolSw
       return;
     }
 
+    // A terminal tool the user turned off mid-goal leaves a goal that could not be stopped.
+    const hidden = hiddenTerminalTools(terminalTools.reachableTools());
+    if (hidden.length > 0) {
+      const paused = await caller.runtime.pause(
+        goal.id,
+        'tool-policy',
+        `this session cannot call ${hidden.join(', ')}, so the goal could not be stopped`,
+      );
+      terminalTools.set(false);
+      if (paused.goal) {
+        assertGoalContract(pi, paused.goal);
+        announce(pi, paused.goal, `Goal paused because this session can no longer call ${hidden.join(', ')}. Turn the tool back on, then resume it with /goal resume.`);
+      }
+      return;
+    }
+
     // A queued user message cancels the continuation rather than racing it. The
     // user's turn drives the session next, and the goal picks up when it settles.
     if (ctx.hasPendingMessages()) return;

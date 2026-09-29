@@ -11,14 +11,19 @@
  * is named, so a new tool cannot join a session unprobed.
  */
 
+import { createHash } from 'node:crypto';
 import { STUB_MODEL_ID, STUB_PROVIDER_ID, startStubModel, type StubModelServer, type StubReply, type StubRequest } from './stub-model';
 
 /** A file the probes read and edit. The spec creates it in the workspace. */
 export const PROBE_FILE = 'probe-read.txt';
-/** The file the `write` probe creates, and the `bash` follow-up reads back. */
-export const PROBE_WRITE_FILE = 'probe-write.txt';
-/** What the `write` probe puts in that file. Only a real write can put it in front of the read-back. */
-export const PROBE_WRITE_CONTENT = 'sero-probe-write-marker';
+/**
+ * The file the `write` probe creates and the `bash` follow-up reads back, and what it puts in
+ * the file. Each probed session gets its own, so one session's write cannot satisfy another's read-back.
+ */
+export function writeProbeFor(sessionKey: string): { file: string; content: string } {
+  const tag = createHash('sha1').update(sessionKey).digest('hex').slice(0, 8);
+  return { file: `probe-write-${tag}.txt`, content: `sero-probe-write-marker-${tag}` };
+}
 export const PROBE_EDIT_FILE = 'probe-edit.txt';
 /** The task text that marks a session as the one a `subagent` call started. */
 export const SUBAGENT_TASK = 'probe-subagent';
@@ -26,7 +31,6 @@ export const SUBAGENT_TASK = 'probe-subagent';
 /** Read-only or harmless arguments for each direct tool. `sero-cli` is probed per command. */
 export const TOOL_PROBES: Record<string, Record<string, unknown>> = {
   read: { path: PROBE_FILE },
-  write: { path: PROBE_WRITE_FILE, content: PROBE_WRITE_CONTENT },
   edit: { path: PROBE_EDIT_FILE, edits: [{ oldText: 'alpha', newText: 'alpha2' }] },
   bash: { command: 'echo probe' },
   find: { pattern: 'probe' },
@@ -68,6 +72,7 @@ export const CLI_PROBES: Record<string, string> = {
   mcp: 'mcp status',
   orchestrator: 'orchestrator --action list',
   usage: 'usage summary',
+  session: 'session info',
   browser: 'browser list',
   workspace: 'workspace list',
   devserver: 'devserver list',
@@ -83,7 +88,7 @@ export const HELP_ONLY_COMMANDS = [
   'fetch_content', 'get_search_content', 'git_manager', 'goals', 'graphify_configure', 'graphify_explain',
   'graphify_index', 'graphify_path', 'graphify_query', 'graphify_search', 'interview', 'mcp_manager',
   'memory', 'output_optimizer', 'question', 'questionnaire', 'reminder', 'room', 'rooms', 'scratchpad',
-  'web_bookmark', 'web_search', 'artifacts', 'session', 'editor', 'terminal', 'git', 'vcs',
+  'web_bookmark', 'web_search', 'artifacts', 'editor', 'terminal', 'git', 'vcs',
   'automation_browser',
 ];
 
@@ -177,7 +182,10 @@ function planCalls(request: StubRequest): { calls: PlannedCall[]; unprobed: Prob
       }
       continue;
     }
-    const probe = TOOL_PROBES[tool.name] ?? (EXISTS_ONLY_TOOLS.includes(tool.name) ? {} : undefined);
+    const written = writeProbeFor(firstUserText(request));
+    const probe = tool.name === 'write'
+      ? { path: written.file, content: written.content }
+      : TOOL_PROBES[tool.name] ?? (EXISTS_ONLY_TOOLS.includes(tool.name) ? {} : undefined);
     if (!probe) {
       unprobed.push({ label: tool.name, tool: tool.name, kind: 'no-probe', detail: 'no probe entry' });
       continue;
@@ -186,7 +194,7 @@ function planCalls(request: StubRequest): { calls: PlannedCall[]; unprobed: Prob
       id: `probe-tool-${tool.name}`,
       tool: tool.name,
       arguments: probe,
-      existsOnly: !TOOL_PROBES[tool.name],
+      existsOnly: !TOOL_PROBES[tool.name] && tool.name !== 'write',
     });
   }
   return { calls, unprobed };
@@ -256,7 +264,7 @@ export async function startProbeStub(
       const scripted = scripts[key];
       const { calls, unprobed } = scripted
         ? {
-            calls: scripted.map((call, index): PlannedCall => ({ id: `script-${index}`, tool: call.tool, command: `script-${index}`, arguments: call.arguments, existsOnly: true })),
+            calls: scripted.map((call, index): PlannedCall => ({ id: `script-${index}`, tool: call.tool, command: `script-${index}`, arguments: call.arguments })),
             unprobed: [],
           }
         : planCalls(request);
@@ -280,12 +288,13 @@ export async function startProbeStub(
     if (session && !session.done) {
       if (session.readBackPending) {
         // The follow-up: a file the session wrote must be there for its own shell.
+        const written = writeProbeFor(key);
         const readBack = request.messages.find((message) => message.role === 'tool' && message.toolCallId === READ_BACK_ID);
         if (!readBack) return { text: 'probe finished' };
         session.outcomes.push({
           label: 'write then bash',
           tool: 'bash',
-          kind: readBack.text.includes(PROBE_WRITE_CONTENT) && !/no such file/i.test(readBack.text) ? 'callable' : 'unseen-write',
+          kind: readBack.text.includes(written.content) && !/no such file/i.test(readBack.text) ? 'callable' : 'unseen-write',
           detail: readBack.text.slice(0, 200),
         });
         session.readBackPending = false;
@@ -311,7 +320,7 @@ export async function startProbeStub(
       }
       if (session.tools.includes('write') && session.tools.includes('bash') && !scripts[key]) {
         session.readBackPending = true;
-        return { toolCalls: [{ id: READ_BACK_ID, name: 'bash', arguments: { command: `cat ${PROBE_WRITE_FILE}` } }] };
+        return { toolCalls: [{ id: READ_BACK_ID, name: 'bash', arguments: { command: `cat ${writeProbeFor(key).file}` } }] };
       }
       session.done = true;
     }

@@ -13,6 +13,10 @@ vi.mock('@electron/features/container/tools/system-prompt', () => ({
   buildContainerPromptBlock: vi.fn(() => ''),
 }));
 
+vi.mock('@electron/features/pi-docs/shared-pi-docs', () => ({
+  getHostPiDocsPaths: () => ({ root: '/shared/pi-docs' }),
+}));
+
 vi.mock('@electron/cli', () => ({
   buildCliPromptBlock: vi.fn(() => '\n## Sero CLI'),
 }));
@@ -55,14 +59,14 @@ describe('subagent extension loader', () => {
     return result?.systemPrompt ?? 'base';
   }
 
-  it('leaves set-title out of the CLI block, because a subagent has no chat to title', async () => {
-    const { buildCliPromptBlock } = await import('@electron/cli');
-    await startPrompt(['read', 'sero-cli']);
-    expect(vi.mocked(buildCliPromptBlock).mock.calls.at(-1)?.[2]).toMatchObject({ omitCommands: ['set-title'] });
-  });
-
   it('adds the Sero CLI block only when the session has sero-cli', async () => {
     expect(await startPrompt(['read', 'sero-cli'])).toContain('## Sero CLI');
-    expect(await startPrompt(['read'])).toBe('base');
+    expect(await startPrompt(['read'])).not.toContain('## Sero CLI');
+  });
+
+  it('gives a host subagent one Pi docs pointer, which the pi-docs skill reads', async () => {
+    const prompt = await startPrompt(['read']);
+    expect(prompt.match(/Pi docs:/g)).toHaveLength(1);
+    expect(prompt).toContain('Pi docs: `/shared/pi-docs`');
   });
 });

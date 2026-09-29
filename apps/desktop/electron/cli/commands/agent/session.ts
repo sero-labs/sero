@@ -84,6 +84,7 @@ export function registerSessionCliCommands(registry: CliRegistry): void {
     help: 'set-title — Set a short session title (maximum 48 characters)\n\nUsage: sero set-title [--if-unnamed] <text>\n',
     source: 'builtin',
     group: 'Builtin',
+    chatOnly: true,
     execute: handleSetTitle,
   });
 }

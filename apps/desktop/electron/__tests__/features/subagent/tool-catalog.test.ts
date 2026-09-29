@@ -137,6 +137,24 @@ describe('subagent tool catalog', () => {
       expect(names).not.toContain('removed_tool');
     });
 
+    it('offers a member only the plugin tools a real session reported in this process', async () => {
+      fsFake.existsSync.mockImplementation(() => true);
+      vi.resetModules();
+      fsFake.readFileSync.mockImplementation(() => JSON.stringify({
+        version: 2,
+        tools: [{ name: 'renamed_away', description: 'Old name', packagePath: '/plugins/kept' }],
+      }));
+      const mod = await import('@electron/features/subagent/runtime/tool-catalog');
+      fsFake.readFileSync.mockImplementation(() => { throw new Error('no cache'); });
+      mod.recordRunToolCatalog([
+        { name: 'new_name', description: 'Current', sourceInfo: { path: '/plugins/kept/extension/index.js' } },
+      ] as never);
+
+      const member = mod.getToolCatalogFor('member').map((tool) => tool.name);
+      expect(member).toContain('new_name');
+      expect(member).not.toContain('renamed_away');
+    });
+
     it('ignores a cache that does not say which package each tool came from', async () => {
       const names = await loadCatalogWith({ tools: [{ name: 'legacy_tool', description: 'Old' }] });
       expect(names).not.toContain('legacy_tool');

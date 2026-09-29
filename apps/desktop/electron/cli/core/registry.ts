@@ -54,6 +54,15 @@ function resolveScopedSessionId(scope?: CliRegistryScope): string | null | undef
   }
 }
 
+/** A session id the chat pool does not know belongs to something that is not a chat. */
+function isNotAChat(sessionId: string): boolean {
+  try {
+    return getCliSessionBridge().getSessionEntry(sessionId) === undefined;
+  } catch {
+    return false;
+  }
+}
+
 export class CliRegistry {
   private commands = new Map<string, CliCommand>();
   private agentPluginCommands = new Map<string, CliCommand>();
@@ -136,6 +145,9 @@ export class CliRegistry {
   private buildVisibleCommands(scope?: CliRegistryScope): Map<string, CliCommand> {
     const visible = new Map([...this.commands, ...this.agentPluginCommands]);
     const scopedSessionId = resolveScopedSessionId(scope);
+    if (scope?.sessionId && isNotAChat(scope.sessionId)) {
+      for (const [name, command] of visible) if (command.chatOnly) visible.delete(name);
+    }
 
     for (const ownerCommands of this.appOwnerCommands.values()) {
       if (scope && ownerCommands.owner.sessionId !== scopedSessionId) {

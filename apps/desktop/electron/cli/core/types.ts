@@ -92,6 +92,8 @@ export interface CliCommand {
   owner?: CliAppCommandOwner;
   group?: string;
   hidden?: boolean;
+  /** Needs a chat to act on. A session with no chat behind it, such as a subagent, is not shown it. */
+  chatOnly?: boolean;
   /** Optional per-command timeout override for non-terminal invocations. */
   timeoutMs?: number;
   /**

@@ -252,6 +252,11 @@ test.describe.serial('chat session', () => {
     expect(defects(session)).toEqual([]);
     // A file the chat writes is there for its own shell.
     expect(session.outcomes.map((outcome) => outcome.label)).toContain('write then bash');
+    // A live chat knows itself. "No active agent session." is a normal reply only for a session that is not a chat.
+    const info = session.outcomes.find((outcome) => outcome.label === 'sero-cli: session');
+    expect(info?.detail).toContain('Session ID:');
+    // A chat is offered the title command that a subagent is not.
+    expect(session.commands).toContain('set-title');
   });
 
   test('the harness sees what the app reports for the same session', async () => {

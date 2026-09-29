@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { classifyResult, cliCommandsListed, startProbeStub, type ProbeStub } from '../session-probe';
+import { classifyResult, cliCommandsListed, startProbeStub, writeProbeFor, type ProbeStub } from '../session-probe';
 
 const CLI_BLOCK = `
 
@@ -94,7 +94,7 @@ describe('session probe', () => {
     await post(stub, withResults, tools);
     await post(stub, [
       ...withResults,
-      { role: 'tool', tool_call_id: 'probe-read-back', content: 'cat: probe-write.txt: No such file or directory' },
+      { role: 'tool', tool_call_id: 'probe-read-back', content: `cat: ${writeProbeFor('probe').file}: No such file or directory` },
     ], tools);
 
     const outcomes = stub.sessions.get('probe')?.outcomes ?? [];
@@ -110,5 +110,10 @@ describe('session probe', () => {
     await post(stub, [...messages, { role: 'tool', tool_call_id: 'probe-tool-find', content: 'Error: search index is missing' }], tools);
 
     expect(stub.sessions.get('probe')?.outcomes[0]?.kind).toBe('unexpected-error');
+  });
+
+  it('gives each session its own write file and marker', () => {
+    expect(writeProbeFor('chat').file).not.toBe(writeProbeFor('cron').file);
+    expect(writeProbeFor('chat').content).not.toBe(writeProbeFor('cron').content);
   });
 });

@@ -17,7 +17,7 @@ import { getHostPiDocsPaths, getRuntimePiDocsPaths } from '@electron/features/pi
 export function buildContainerPromptBlock(
   workspaceId: string,
   containerIp?: string,
-  opts?: { currentWorkingDir?: string; cliReachable?: boolean },
+  opts?: { currentWorkingDir?: string; cliReachable?: boolean; shellReachable?: boolean },
 ): string {
   const currentWorkingDir = opts?.currentWorkingDir ?? '/workspace';
   const cwdNote = currentWorkingDir === '/workspace'
@@ -26,9 +26,23 @@ export function buildContainerPromptBlock(
   const piDocs = getRuntimePiDocsPaths();
   // A session with no `sero-cli` cannot run the commands this block would name.
   const cliReachable = opts?.cliReachable ?? true;
+  // A read-only subagent has no `bash`, so it cannot start or check a server.
+  const shellReachable = opts?.shellReachable ?? true;
   const serverAddress = containerIp
     ? `- Reach a server at the container IP (${containerIp}), not localhost.\n`
     : '';
+  const shellGuidance = shellReachable ? `**Dev servers**
+- Bind servers to \`0.0.0.0\`, not localhost or 127.0.0.1. Vite: \`npx vite --host 0.0.0.0 --port 3000\`. Next.js: \`next dev -H 0.0.0.0 -p 3000\`. Express: \`.listen(3000, '0.0.0.0')\`.
+${serverAddress}- The bash tool output shows the server URLs it detected. Tell the user the exact URL shown there.
+- Check that a server is running before you say it is.
+${cliReachable ? '- Once a server is listening, register it with \`sero devserver register\` so it appears in the Dev Servers UI.\n' : ''}
+**Background processes**
+Each bash call runs in its own \`sh -c\` shell.
+- Start anything that must outlive the command with \`setsid\` and redirect its output to a log file, for example \`setsid sh -c 'cd ${currentWorkingDir}/myapp && npx vite --host 0.0.0.0 --port 3000 > /tmp/vite.log 2>&1 &'\`.
+- Check startup with \`ss -tlnp | grep <port>\`. If it failed, read the log.
+- Never use a bare \`command &\` without \`setsid\`, and never \`kill -9 -1\`. Stop a server with \`pkill -f ...\` or \`kill <PID>\`.
+${cliReachable ? '- The user may have terminal sessions open in this container. After you start a server, run \`sero terminal read\` to check its output and fix errors.\n' : ''}
+` : '';
 
   return `
 
@@ -41,18 +55,7 @@ Prefer relative paths and keep work in the current working directory unless the 
 If this session is in a git worktree subdirectory, do NOT reset yourself with \`cd /workspace\` before making changes.
 Other open workspaces are mounted at their original host paths. Use those paths only for a different workspace${cliReachable ? ', and run \`sero workspace access-roots --json\` for the exact roots this session may read' : ''}.
 
-**Dev servers**
-- Bind servers to \`0.0.0.0\`, not localhost or 127.0.0.1. Vite: \`npx vite --host 0.0.0.0 --port 3000\`. Next.js: \`next dev -H 0.0.0.0 -p 3000\`. Express: \`.listen(3000, '0.0.0.0')\`.
-${serverAddress}- The bash tool output shows the server URLs it detected. Tell the user the exact URL shown there.
-- Check that a server is running before you say it is.
-${cliReachable ? '- Once a server is listening, register it with \`sero devserver register\` so it appears in the Dev Servers UI.\n' : ''}
-**Background processes**
-Each bash call runs in its own \`sh -c\` shell.
-- Start anything that must outlive the command with \`setsid\` and redirect its output to a log file, for example \`setsid sh -c 'cd ${currentWorkingDir}/myapp && npx vite --host 0.0.0.0 --port 3000 > /tmp/vite.log 2>&1 &'\`.
-- Check startup with \`ss -tlnp | grep <port>\`. If it failed, read the log.
-- Never use a bare \`command &\` without \`setsid\`, and never \`kill -9 -1\`. Stop a server with \`pkill -f ...\` or \`kill <PID>\`.
-${cliReachable ? '- The user may have terminal sessions open in this container. After you start a server, run \`sero terminal read\` to check its output and fix errors.\n' : ''}
-Host-side Sero logs are mounted read-only under \`/workspace/.sero/logs\`. Start with \`/workspace/.sero/logs/README.md\`.
+${shellGuidance}Host-side Sero logs are mounted read-only under \`/workspace/.sero/logs\`. Start with \`/workspace/.sero/logs/README.md\`.
 Pi docs: \`${piDocs.root}\``;
 }
 

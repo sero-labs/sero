@@ -562,6 +562,22 @@ describe('goal terminal tools follow the goal', () => {
     expect(activeTools()).toEqual([...others, ...TERMINAL_TOOLS]);
   });
 
+  it('pauses a goal instead of continuing it when the user turns a terminal tool off mid-goal', async () => {
+    const { pi, terminals, fire, activeTools, sent } = fakePi([...others, ...TERMINAL_TOOLS]);
+    registerGoalLoop(pi, terminals);
+    await runtime.start({ sessionPath: SESSION, objective: 'finish the migration', criteria: [] });
+    await runtime.reconcile();
+    await fire('session_start');
+    pi.setActiveTools(activeTools().filter((name) => name !== 'goal_complete'));
+    const sentBefore = sent.length;
+
+    await settleTurn(fire, 'I made a start.');
+
+    expect((await runtime.forSession(SESSION))?.status).toBe('paused');
+    expect(sent.slice(sentBefore).some((message) => message.customType === GOAL_CONTINUATION_MESSAGE_TYPE)).toBe(false);
+    expect(activeTools()).toEqual(others);
+  });
+
   it('keeps a tool the user disabled disabled when the goal starts', async () => {
     const { pi, terminals, fire, runCommand, activeTools } = fakePi(['read', ...TERMINAL_TOOLS]);
     registerGoalCommands(pi, registerGoalLoop(pi, terminals), terminals);

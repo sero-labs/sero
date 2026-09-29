@@ -217,6 +217,12 @@ describe('Token Baseline Benchmark', () => {
     for (const block of blocks) expect(block).not.toMatch(/`sero \w+/);
   });
 
+  it('names no bash guidance in a container block for a session with no shell', () => {
+    const block = buildContainerPromptBlock('w', '192.168.64.2', { shellReachable: false });
+    expect(block).not.toMatch(/bash|setsid/);
+    expect(buildContainerPromptBlock('w', '192.168.64.2')).toContain('**Background processes**');
+  });
+
   it('CLI prompt block', () => {
     const block = buildCliPromptBlock();
     const tokens = measure('cli_block', block);

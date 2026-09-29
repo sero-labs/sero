@@ -30,4 +30,27 @@ describe('applyContextOverrides', () => {
 
     expect(active).toEqual(['read', 'goal_complete']);
   });
+
+  it('does not bring back a tool an extension switched off, but undoes what an earlier override disabled', () => {
+    // goal_complete was on when the chat opened, so it is a base tool. The goal has ended since.
+    let active = ['read'];
+    const session = {
+      getActiveToolNames: () => active,
+      setActiveToolsByName: (names: string[]) => { active = names; },
+    } as Pick<AgentSession, 'getActiveToolNames' | 'setActiveToolsByName'> as AgentSession;
+    const entry = {
+      session,
+      baseSystemPrompt: 'BASE',
+      baseTools: [{ name: 'read' }, { name: 'bash' }, { name: 'goal_complete' }],
+      contextOverrides: { disabledTools: ['bash'] },
+    };
+
+    // The user changes an unrelated setting: goal_complete stays off, and bash is still disabled.
+    applyContextOverrides(entry, { disabledTools: ['bash'], disabledSkills: ['x'] });
+    expect(active).toEqual(['read']);
+
+    // The user turns bash back on: it returns.
+    applyContextOverrides(entry, { disabledSkills: ['x'] });
+    expect(active).toEqual(['read', 'bash']);
+  });
 });
