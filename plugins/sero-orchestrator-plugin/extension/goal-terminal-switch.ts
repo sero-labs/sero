@@ -34,19 +34,23 @@ export function hiddenTerminalTools(activeTools: string[]): string[] {
 export function createTerminalToolSwitch(pi: ExtensionAPI): TerminalToolSwitch {
   const isTerminal = (name: string) => (GOAL_TERMINAL_TOOLS as readonly string[]).includes(name);
   let claimed = false;
+  let on = false;
 
   return {
     claim() {
       const active = pi.getActiveTools();
       claimed = hiddenTerminalTools(active).length === 0;
+      on = false;
       if (claimed) pi.setActiveTools(active.filter((name) => !isTerminal(name)));
     },
-    set(on) {
+    set(next) {
       if (!claimed) return;
+      // Adding the tools only when they turn on keeps a tool the user disables mid-goal disabled.
+      if (next === on) return;
+      on = next;
       const active = pi.getActiveTools();
       const others = active.filter((name) => !isTerminal(name));
-      const next = on ? [...others, ...GOAL_TERMINAL_TOOLS] : others;
-      if (next.length !== active.length) pi.setActiveTools(next);
+      pi.setActiveTools(next ? [...others, ...GOAL_TERMINAL_TOOLS] : others);
     },
     reachableTools() {
       const active = pi.getActiveTools();

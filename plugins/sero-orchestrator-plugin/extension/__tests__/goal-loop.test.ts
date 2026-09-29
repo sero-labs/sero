@@ -547,6 +547,21 @@ describe('goal terminal tools follow the goal', () => {
     expect(activeTools()).toEqual([...others, ...TERMINAL_TOOLS]);
   });
 
+  it('keeps a terminal tool the user disables mid-goal disabled', () => {
+    const { pi, terminals, activeTools } = fakePi([...others, ...TERMINAL_TOOLS]);
+    terminals.claim();
+    terminals.set(true);
+    pi.setActiveTools(activeTools().filter((name) => name !== 'goal_wait'));
+
+    terminals.set(true);
+
+    expect(activeTools()).not.toContain('goal_wait');
+    // The next goal starts from the full set again.
+    terminals.set(false);
+    terminals.set(true);
+    expect(activeTools()).toEqual([...others, ...TERMINAL_TOOLS]);
+  });
+
   it('keeps a tool the user disabled disabled when the goal starts', async () => {
     const { pi, terminals, fire, runCommand, activeTools } = fakePi(['read', ...TERMINAL_TOOLS]);
     registerGoalCommands(pi, registerGoalLoop(pi, terminals), terminals);
