@@ -64,22 +64,6 @@ export function getQuestionStatuses(
   return statuses;
 }
 
-/** Groups a flat answer list by question id, for callers without an answer map. */
-export function groupAnswersByQuestionId(
-  answers: readonly QuestionAnswer[],
-): AnswerMap {
-  const grouped: AnswerMap = new Map();
-  for (const answer of answers) {
-    const existing = grouped.get(answer.questionId);
-    if (existing) {
-      existing.push(answer);
-      continue;
-    }
-    grouped.set(answer.questionId, [answer]);
-  }
-  return grouped;
-}
-
 export function getCustomAnswer(
   answers: QuestionAnswer[],
 ): QuestionAnswer | undefined {

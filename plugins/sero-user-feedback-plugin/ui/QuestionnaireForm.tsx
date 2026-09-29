@@ -62,16 +62,17 @@ function getActionHint(
 function QuestionnaireStepTabs({
   questions,
   statuses,
+  allAnswered,
   currentStep,
   onGoToStep,
 }: {
   questions: UserFeedbackQuestionItem[];
   statuses: ReadonlyMap<string, QuestionStatus>;
+  allAnswered: boolean;
   currentStep: number;
   onGoToStep: (step: number) => void;
 }) {
   const isReview = currentStep === questions.length;
-  const allAnswered = questions.every((item) => statuses.get(item.id) === 'answered');
 
   return (
     <div className="mt-2 flex items-center gap-1.5">
@@ -341,6 +342,7 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
         <QuestionnaireStepTabs
           questions={questions}
           statuses={questionStatuses}
+          allAnswered={allAnswered}
           currentStep={currentStep}
           onGoToStep={setCurrentStep}
         />

@@ -13,8 +13,7 @@
  */
 
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
-import type { TSchema } from 'typebox';
-import { Value } from 'typebox/value';
+import { validateToolArguments } from '@earendil-works/pi-ai';
 import type { CliCommand, CliCommandContext, CliContentBlock, CliResult } from './types';
 import { buildCommandContext, buildToolContext } from './bridge-context';
 import { extractContent, extractText } from './tool-result';
@@ -410,18 +409,24 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition, options?: 
 
         const params = schemaToParams(props, args);
         const activeToolDef = getBridgedExtensionTool(toolName, ctx)?.definition ?? toolDef;
-        // Validate once here so every bridged tool rejects malformed CLI JSON
-        // instead of each tool hand-rolling its own parameter check.
-        const parameters = activeToolDef.parameters as TSchema | undefined;
-        if (parameters && !Value.Check(parameters, params)) {
-          return {
-            output: `ERROR: Invalid arguments for ${toolName}. Run \`sero ${toolName} --help\` for the expected shape.`,
-            exitCode: 1,
-          };
+        // Mirror Pi's own tool-call path: run the tool's prepareArguments shim,
+        // then validate and coerce. CLI calls reach execute with the same
+        // arguments as agent calls, and one rule covers every bridged tool.
+        const prepared = activeToolDef.prepareArguments
+          ? activeToolDef.prepareArguments(params)
+          : params;
+        if (!isRecord(prepared)) {
+          return { output: `ERROR: ${toolName} expects one object argument.`, exitCode: 1 };
         }
+        const toolArguments: Record<string, unknown> = validateToolArguments(activeToolDef, {
+          type: 'toolCall',
+          id: 'cli-bridge',
+          name: toolName,
+          arguments: prepared,
+        });
         const result = await activeToolDef.execute(
           'cli-bridge',
-          params,
+          toolArguments,
           ctx.invocation.signal,
           onUpdate,
           await buildToolContext(ctx),

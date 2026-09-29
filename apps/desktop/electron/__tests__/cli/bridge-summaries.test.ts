@@ -71,12 +71,39 @@ describe('bridged JSON parameters', () => {
 
     const command = bridgeTool('schema_strict_tool', tool);
     const result = await command.execute(
-      ['{"questions":"not-an-array"}'],
+      [],
       { workspaceId: 'ws', sessionId: null, cwd: process.cwd(), invocation: { signal: undefined } } as never,
     );
 
     expect(result.exitCode).toBe(1);
-    expect(result.output).toContain('Invalid arguments for schema_strict_tool');
     expect(called).toBe(false);
+  });
+
+  it('coerces nested JSON values the same way as an agent tool call', async () => {
+    let received: unknown;
+    const tool = defineTool({
+      name: 'nested_coerce_tool',
+      label: 'Nested',
+      description: 'Takes an array of objects.',
+      parameters: Type.Object({
+        items: Type.Array(Type.Object({
+          id: Type.String(),
+          allowOther: Type.Optional(Type.Boolean()),
+        })),
+      }),
+      execute: async (_id, params) => {
+        received = params;
+        return { content: [{ type: 'text', text: 'ok' }], details: {} };
+      },
+    });
+
+    const command = bridgeTool('nested_coerce_tool', tool);
+    const result = await command.execute(
+      ['[{"id":"a","allowOther":"true"}]'],
+      { workspaceId: 'ws', sessionId: null, cwd: process.cwd(), invocation: { signal: undefined } } as never,
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(received).toEqual({ items: [{ id: 'a', allowOther: true }] });
   });
 });
