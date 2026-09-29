@@ -1,4 +1,5 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { trackSessionCliSurface } from '@sero-ai/common';
 import { buildMcpPromptBlock } from './prompt';
 import { getMcpRuntime } from './runtime/mcp-runtime';
 import { registerMcpManagerTool } from './tools/manager-tool';
@@ -10,12 +11,15 @@ const runtime = getMcpRuntime();
 export default function mcpExtension(pi: ExtensionAPI) {
   const releaseAgentPluginSource = configureAgentPluginMcpSource(pi.events);
   let unregisterSession: (() => void) | undefined;
+  const cliSurface = trackSessionCliSurface(pi.events);
 
   pi.on('before_agent_start', async (event) => {
     // The block teaches `sero mcp`. A session with no `sero-cli` tool cannot run it,
-    // and a session that has `mcp` as a direct tool needs no command for it.
+    // a session that has `mcp` as a direct tool needs no command for it, and a
+    // session whose registry hid the command (a restricted subagent) cannot run it.
     if (!pi.getActiveTools().includes('sero-cli')) return;
     if (pi.getAllTools().some((tool) => tool.name === 'mcp')) return;
+    if (!cliSurface.has('mcp')) return;
     return {
       systemPrompt: event.systemPrompt + buildMcpPromptBlock() + await runtime.remoteSkillsPromptBlock().catch(() => ''),
     };

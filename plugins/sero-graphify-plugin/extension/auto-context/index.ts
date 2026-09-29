@@ -1,4 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
+import { trackSessionCliSurface } from '@sero-ai/common';
 import type { GraphifyPaths } from '../../shared/paths';
 import { readStateFile } from '../../shared/state-io';
 import type { AutoContextSettings } from '../../shared/types';
@@ -64,9 +65,15 @@ function buildIntentAugmentation(
 }
 
 /** Whether the session reaches Graphify as `sero-cli` commands, not as direct tools. */
-function reachesGraphifyThroughCli(pi: ExtensionAPI): boolean {
+function reachesGraphifyThroughCli(
+  pi: ExtensionAPI,
+  cliSurface: { has: (command: string) => boolean },
+): boolean {
   if (!pi.getActiveTools().includes('sero-cli')) return false;
-  return !pi.getAllTools().some((tool) => tool.name === 'graphify_query');
+  if (pi.getAllTools().some((tool) => tool.name === 'graphify_query')) return false;
+  // A restricted subagent can name `sero-cli` while its registry hides the
+  // Graphify commands, so the hint would name a command it cannot run.
+  return cliSurface.has('graphify_query');
 }
 
 /**
@@ -80,6 +87,7 @@ export function registerAutoContext(
 ): AutoContextRegistration {
   const graphContextState = createGraphContextState();
   const settings = (): Promise<AutoContextSettings> => loadAutoContextSettings(paths.stateFile);
+  const cliSurface = trackSessionCliSurface(pi.events);
 
   pi.on('session_start', async (_event: unknown, ctx: ExtensionContext) => {
     await resetGraphContextSessionState(graphContextState, paths, ctx.cwd);
@@ -91,7 +99,7 @@ export function registerAutoContext(
     if (!graphContextState.graphExists) return;
     // The hint names `sero-cli` commands. A session without that tool cannot run them,
     // and a session that has the Graphify tools directly needs no command for them.
-    if (!reachesGraphifyThroughCli(pi)) return;
+    if (!reachesGraphifyThroughCli(pi, cliSurface)) return;
     if (graphContextState.reportContextInjected) return;
 
     const event = _event as BeforeAgentStartEvent;
@@ -184,7 +192,7 @@ export function registerAutoContext(
     }
 
     // Fall back to intent-aware hint, which names a command the session must be able to run.
-    if (!augmentText && reachesGraphifyThroughCli(pi)) {
+    if (!augmentText && reachesGraphifyThroughCli(pi, cliSurface)) {
       augmentText = buildIntentAugmentation(intent, graphContextState);
     }
 

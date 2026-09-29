@@ -27,7 +27,8 @@ import { withHostPiDocsPointer } from '@electron/features/pi-docs/host-pointer';
 import { buildContainerPromptBlock, buildHostPromptBlock } from '@electron/features/container/tools/system-prompt';
 import { listWorkspaceAccessRoots } from '@electron/features/workspace/access-roots';
 import { registerSeroBuiltinCommands } from './commands';
-import { buildCliPromptBlock, type CliRegistry } from '@electron/cli';
+import { buildCliPromptBlock, getCliRegistry, type CliRegistry } from '@electron/cli';
+import { announceSessionCliSurface } from '@electron/cli/session-surface';
 import { registerGitCheckpointFeatures } from './git-checkpoints';
 import { notify } from '@electron/features/notifications/feed';
 import type { NotificationType } from '@electron/features/notifications/types';
@@ -128,6 +129,11 @@ export function createSeroExtensionFactory(
 
     pi.on('before_provider_request', async (event) => {
       logProviderRequest(_sessionId, event.payload);
+    });
+
+    // Tell plugin prompt blocks which commands this session can actually run.
+    pi.on('session_start', () => {
+      announceSessionCliSurface(pi.events, currentWorkspaceId, _sessionId, options?.cliRegistry ?? getCliRegistry());
     });
 
     // ── sero:notify — shared notification bus ───────────────────
