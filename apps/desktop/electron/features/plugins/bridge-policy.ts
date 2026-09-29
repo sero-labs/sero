@@ -97,8 +97,16 @@ export function getPluginBridgePolicy(extensionPath: string): PluginBridgePolicy
   }
 }
 
+const clearListeners = new Set<() => void>();
+
+/** Run `listener` whenever a plugin is installed, replaced, removed or refreshed. */
+export function onPluginBridgePolicyCleared(listener: () => void): void {
+  clearListeners.add(listener);
+}
+
 export function clearPluginBridgePolicyCache(): void {
   policyCache.clear();
+  for (const listener of clearListeners) listener();
 }
 
 /** Whether the plugin behind `extensionPath` allows this tool in this kind of session. */

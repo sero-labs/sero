@@ -64,4 +64,21 @@ describe('dropUserGlobalAgentSkills', () => {
     expect(result.skills.map((skill) => skill.name)).toEqual(['pi-docs']);
     fs.rmSync(root, { recursive: true, force: true });
   });
+
+  it('keeps a skill loaded from its own folder when ~/.agents is a link to the folder that holds it', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'user-global-skills-'));
+    const home = path.join(root, 'home');
+    const agentDir = path.join(root, 'profile', 'agent');
+    fs.mkdirSync(path.join(agentDir, 'skills', 'pi-docs'), { recursive: true });
+    fs.writeFileSync(path.join(agentDir, 'skills', 'pi-docs', 'SKILL.md'), '# pi docs');
+    fs.mkdirSync(home, { recursive: true });
+    fs.symlinkSync(agentDir, path.join(home, '.agents'));
+    vi.spyOn(os, 'homedir').mockReturnValue(home);
+
+    const direct = skillAt('pi-docs', path.join(agentDir, 'skills', 'pi-docs', 'SKILL.md'));
+    const result = dropUserGlobalAgentSkills({ skills: [direct], diagnostics: [] });
+
+    expect(result.skills.map((skill) => skill.name)).toEqual(['pi-docs']);
+    fs.rmSync(root, { recursive: true, force: true });
+  });
 });

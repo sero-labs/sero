@@ -15,8 +15,10 @@ vi.mock('fs', () => ({
 vi.mock('@electron/features/plugins/resource-compatibility', () => ({
   packageRootForResourcePath: (resourcePath: string) => resourcePath.split('/extension/')[0] ?? null,
 }));
+const policy = vi.hoisted(() => ({ listeners: [] as Array<() => void> }));
 vi.mock('@electron/features/plugins/bridge-policy', () => ({
   isToolForSessionKind: (_path: string, name: string, kind: string) => !(name === 'goal' && kind === 'member'),
+  onPluginBridgePolicyCleared: (listener: () => void) => { policy.listeners.push(listener); },
 }));
 vi.mock('@electron/platform/env', () => ({ SERO_AGENT_DIR: '/agent', SERO_HOME: '/tmp/sero-test' }));
 const probe = vi.hoisted(() => ({
@@ -153,6 +155,21 @@ describe('subagent tool catalog', () => {
       const member = mod.getToolCatalogFor('member').map((tool) => tool.name);
       expect(member).toContain('new_name');
       expect(member).not.toContain('renamed_away');
+    });
+
+    it('forgets what a member may be offered when a plugin is replaced, until the next warm-up', async () => {
+      fsFake.existsSync.mockImplementation(() => true);
+      vi.resetModules();
+      policy.listeners.length = 0;
+      const mod = await import('@electron/features/subagent/runtime/tool-catalog');
+      mod.recordRunToolCatalog([
+        { name: 'old_name', description: 'Before the upgrade', sourceInfo: { path: '/plugins/kept/extension/index.js' } },
+      ] as never);
+      expect(mod.getToolCatalogFor('member').map((tool) => tool.name)).toContain('old_name');
+
+      for (const listener of policy.listeners) listener();
+
+      expect(mod.getToolCatalogFor('member').map((tool) => tool.name)).not.toContain('old_name');
     });
 
     it('ignores a cache that does not say which package each tool came from', async () => {

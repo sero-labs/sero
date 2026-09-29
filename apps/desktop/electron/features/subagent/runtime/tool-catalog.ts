@@ -22,7 +22,7 @@ import type { ContextToolInfo } from '@sero-ai/common';
 import { ensureAiInfra } from '@electron/shared/infra/ai-infra';
 import { workspaceManager } from '@electron/features/workspace/manager';
 import { SERO_AGENT_DIR, SERO_HOME } from '@electron/platform/env';
-import { isToolForSessionKind, type ToolSessionKind } from '@electron/features/plugins/bridge-policy';
+import { isToolForSessionKind, onPluginBridgePolicyCleared, type ToolSessionKind } from '@electron/features/plugins/bridge-policy';
 import { packageRootForResourcePath } from '@electron/features/plugins/resource-compatibility';
 import { createSubagentResourceLoader } from './resource-loader';
 
@@ -142,6 +142,13 @@ export function recordRunToolCatalog(tools: ToolInfo[]): void {
 }
 
 let warmed = false;
+
+// A plugin that was replaced may have renamed or dropped a tool. Forget what this process
+// has seen, so the next warm-up enumerates the plugins as they are now.
+onPluginBridgePolicyCleared(() => {
+  seenThisProcess.clear();
+  warmed = false;
+});
 
 /**
  * Publish the catalog from a throwaway enumeration session. No container is
