@@ -2,9 +2,13 @@
  * Local event source adapters (spec 12 Phase 3): the filesystem watcher and
  * the loopback webhook listener. Real I/O — a temp directory and an ephemeral
  * 127.0.0.1 port — kept small and self-cleaning.
+ *
+ * Only the fs adapter's debounce runs on a fake clock: the test waits for the
+ * real OS event that reaches the watcher, then closes the batch window itself,
+ * instead of racing CPU load for the window (the source of issue #583).
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -14,6 +18,50 @@ import { createWebhookAdapter, type WebhookAdapterState } from '../events/webhoo
 import { readAdapterState, writeAdapterState } from '../events/adapter-state';
 import type { EventSourceAdapter, EventSubscription } from '../events/types';
 import { createFakeHost, type FakeHost } from './fake-host';
+
+/**
+ * Records the real fs.watch events the adapter's listener receives, so a test
+ * can wait for the OS instead of sleeping through the debounce window.
+ */
+const fsEvents = vi.hoisted(() => {
+  let received: string[] = [];
+  let waiters: Array<() => void> = [];
+  return {
+    reset(): void {
+      received = [];
+      waiters = [];
+    },
+    notify(filename: string | null): void {
+      if (filename) received.push(filename);
+      const pending = waiters;
+      waiters = [];
+      for (const resolve of pending) resolve();
+    },
+    /** Resolves once the watcher has been handed a real event for `name`. */
+    async waitFor(name: string): Promise<void> {
+      while (!received.includes(name)) {
+        await new Promise<void>((resolve) => waiters.push(resolve));
+      }
+    },
+    /** Resolves once the watcher has been handed any real event. */
+    async waitForAny(): Promise<void> {
+      while (received.length === 0) {
+        await new Promise<void>((resolve) => waiters.push(resolve));
+      }
+    },
+  };
+});
+
+/** Call-through wrapper: the real watcher runs, tests only observe its events. */
+vi.mock('node:fs', async () => {
+  const actual = await vi.importActual<typeof import('node:fs')>('node:fs');
+  const watch = ((dir: string, opts: unknown, listener: (e: string, f: string | Buffer | null) => void) =>
+    actual.watch(dir, opts as never, (event, filename) => {
+      listener(event, filename);
+      fsEvents.notify(filename === null ? null : filename.toString());
+    })) as typeof actual.watch;
+  return { ...actual, watch, default: { ...actual, watch } };
+});
 
 const SUBSCRIPTION: EventSubscription = { loopId: 'loop-1', eventSource: 'fs:changed' };
 
@@ -54,10 +102,14 @@ describe('fs adapter', () => {
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), 'sero-fs-adapter-'));
     host = createFakeHost({ workspacePath: dir });
+    fsEvents.reset();
+    // Only the debounce timer is faked; Date and file I/O stay real.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
   });
 
   afterEach(async () => {
     adapter?.dispose();
+    vi.useRealTimers();
     await rm(dir, { recursive: true, force: true });
   });
 
@@ -75,12 +127,16 @@ describe('fs adapter', () => {
 
     await writeFile(join(dir, 'a.txt'), 'one');
     await writeFile(join(dir, 'b.txt'), 'two');
-    await waitFor(() => events.length > 0);
+    // Wait for the real OS events; the debounce cannot close the window before
+    // both changes are pending, so the batch no longer depends on CPU load.
+    await fsEvents.waitFor('a.txt');
+    await fsEvents.waitFor('b.txt');
+    await vi.advanceTimersByTimeAsync(50);
 
+    expect(events).toHaveLength(1);
     expect(events[0].source).toBe('fs:changed');
     const paths = events[0].payload.paths as string[];
-    expect(paths).toContain('a.txt');
-    expect(paths).toContain('b.txt');
+    expect(paths).toEqual(['a.txt', 'b.txt']);
     expect(events[0].payload.count).toBe(paths.length);
   });
 
@@ -91,7 +147,8 @@ describe('fs adapter', () => {
 
     await mkdir(join(dir, '.git'), { recursive: true });
     await writeFile(join(dir, '.git', 'HEAD'), 'ref');
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    await fsEvents.waitForAny();
+    await vi.advanceTimersByTimeAsync(50);
     expect(events).toEqual([]);
   });
 
@@ -102,7 +159,7 @@ describe('fs adapter', () => {
     adapter.sync([]);
 
     await writeFile(join(dir, 'after-stop.txt'), 'x');
-    await new Promise((resolve) => setTimeout(resolve, 250));
+    await vi.advanceTimersByTimeAsync(50);
     expect(events).toEqual([]);
     expect(host.logs.some((l) => l.includes('stopped'))).toBe(true);
   });
