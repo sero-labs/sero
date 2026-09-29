@@ -47,10 +47,12 @@ export function createSubagentExtensionFactory(
       // A subagent whose tool policy leaves out `sero-cli` cannot run these commands.
       const cliReachable = pi.getActiveTools().includes('sero-cli');
       if (cliReachable) {
-        systemPrompt += buildCliPromptBlock(undefined, {
-          workspaceId: currentWorkspaceId,
-          sessionId: _sessionId,
-        });
+        systemPrompt += buildCliPromptBlock(
+          undefined,
+          { workspaceId: currentWorkspaceId, sessionId: _sessionId },
+          // A subagent has no chat to title, so `set-title` would fail for it.
+          { omitCommands: ['set-title'] },
+        );
       }
 
       if (containerState) {

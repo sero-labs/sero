@@ -55,6 +55,12 @@ describe('subagent extension loader', () => {
     return result?.systemPrompt ?? 'base';
   }
 
+  it('leaves set-title out of the CLI block, because a subagent has no chat to title', async () => {
+    const { buildCliPromptBlock } = await import('@electron/cli');
+    await startPrompt(['read', 'sero-cli']);
+    expect(vi.mocked(buildCliPromptBlock).mock.calls.at(-1)?.[2]).toMatchObject({ omitCommands: ['set-title'] });
+  });
+
   it('adds the Sero CLI block only when the session has sero-cli', async () => {
     expect(await startPrompt(['read', 'sero-cli'])).toContain('## Sero CLI');
     expect(await startPrompt(['read'])).toBe('base');

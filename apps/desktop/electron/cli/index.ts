@@ -323,9 +323,10 @@ export function bridgeExtensionTools(
 export function buildCliPromptBlock(
   reg: CliRegistry = getCliRegistry(),
   scope?: { workspaceId?: string; sessionId?: string | null },
-  options?: { includeSessionTitleInstruction?: boolean },
+  options?: { includeSessionTitleInstruction?: boolean; omitCommands?: readonly string[] },
 ): string {
-  const commands = reg.list(scope).filter((c) => !c.hidden && c.name !== 'help');
+  const omitted = new Set(options?.omitCommands ?? []);
+  const commands = reg.list(scope).filter((c) => !c.hidden && c.name !== 'help' && !omitted.has(c.name));
 
   // Group commands and include per-command summaries
   const grouped = new Map<string, Array<{ name: string; summary: string }>>();

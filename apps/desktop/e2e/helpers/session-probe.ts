@@ -71,6 +71,8 @@ export const CLI_PROBES: Record<string, string> = {
   browser: 'browser list',
   workspace: 'workspace list',
   devserver: 'devserver list',
+  // Sets the probe session's own title. A session with no chat behind it cannot.
+  'set-title': 'set-title --if-unnamed Probe session',
 };
 
 /** Commands probed with `help <name>` because running them changes something or needs a user. */
@@ -81,7 +83,7 @@ export const HELP_ONLY_COMMANDS = [
   'fetch_content', 'get_search_content', 'git_manager', 'goals', 'graphify_configure', 'graphify_explain',
   'graphify_index', 'graphify_path', 'graphify_query', 'graphify_search', 'interview', 'mcp_manager',
   'memory', 'output_optimizer', 'question', 'questionnaire', 'reminder', 'room', 'rooms', 'scratchpad',
-  'web_bookmark', 'web_search', 'artifacts', 'session', 'set-title', 'editor', 'terminal', 'git', 'vcs',
+  'web_bookmark', 'web_search', 'artifacts', 'session', 'editor', 'terminal', 'git', 'vcs',
   'automation_browser',
 ];
 
