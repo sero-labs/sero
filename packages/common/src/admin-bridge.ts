@@ -1,5 +1,6 @@
 import type { ThinkingLevel, ModelValidationWarning } from './model-selection';
 import type { SeroAgentPluginsBridge } from './agent-plugins';
+import type { SkillCatalogueIPC } from './admin-bridge-skills';
 import type { PluginDevSessionIPC } from './plugin-dev';
 import type { InstalledPlugin, PluginChangeEventIPC } from './plugins';
 import type {
@@ -390,6 +391,8 @@ export interface SeroSkillsBridge {
   listAvailableSkills(): Promise<AvailableSkillInfo[]>;
   setDisabledModelSkills(skillNames: string[]): Promise<void>;
   listSkills(): Promise<SkillSummaryIPC[]>;
+  /** Every skill a chat could load, from the profile, plugins and each project's `.agents/skills`. */
+  listCatalogue(): Promise<SkillCatalogueIPC>;
   readSkill(filePath: string): Promise<SkillFileDataIPC>;
   writeSkill(data: SkillFileDataIPC): Promise<string>;
   /**

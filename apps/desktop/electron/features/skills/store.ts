@@ -14,6 +14,7 @@
  * arbitrarily nested (e.g. `tavily-ai-skills/skills/tavily/search/SKILL.md`).
  */
 
+import { realpathSync } from 'fs';
 import { readFile, writeFile, mkdir, rm, rename } from 'fs/promises';
 import path from 'path';
 import { stringify } from 'yaml';
@@ -39,12 +40,51 @@ export function toSkillSource(sourceInfo: SourceInfo): SkillSource {
   return 'path';
 }
 
-/** Guards against path traversal: a target must live under SKILLS_DIR. */
-export function validateSkillPath(filePath: string): void {
+/** The real path of `target`, or of its nearest existing parent with the rest appended. */
+function realPathOrNearest(target: string): string {
+  const missing: string[] = [];
+  let current = path.resolve(target);
+  for (;;) {
+    try {
+      return path.join(realpathSync(current), ...missing.reverse());
+    } catch {
+      const parent = path.dirname(current);
+      if (parent === current) return path.resolve(target);
+      missing.push(path.basename(current));
+      current = parent;
+    }
+  }
+}
+
+const isInside = (target: string, root: string): boolean =>
+  target === root || target.startsWith(root + path.sep);
+
+/** True when `target`, with every symlink resolved, sits inside `root`, also resolved. */
+export function resolvesInside(target: string, root: string): boolean {
+  return isInside(realPathOrNearest(target), realPathOrNearest(root));
+}
+
+/**
+ * Guards against path traversal: a target must live under one of the allowed
+ * roots. The profile's SKILLS_DIR is the default. The Skills page also passes
+ * the `.agents/skills` folder of each project, so a project skill can be edited.
+ *
+ * A project folder belongs to a repo that may have come from anyone, so those
+ * roots are also `strict`: a symlink inside them must not lead outside. The
+ * profile's own folder is the user's, and people do link skills into it.
+ */
+export function validateSkillPath(
+  filePath: string,
+  roots: readonly string[] = [SKILLS_DIR],
+  strictRoots: readonly string[] = [],
+): void {
   const resolved = path.resolve(filePath);
-  const root = path.resolve(SKILLS_DIR);
-  if (!resolved.startsWith(root + path.sep) && resolved !== root) {
-    throw new Error(`Skill path must be under ${SKILLS_DIR}`);
+  const root = roots.map((dir) => path.resolve(dir)).find((dir) => isInside(resolved, dir));
+  if (!root) {
+    throw new Error(`Skill path must be under ${roots.join(' or ')}`);
+  }
+  if (strictRoots.some((dir) => path.resolve(dir) === root) && !resolvesInside(resolved, root)) {
+    throw new Error(`Skill path must not leave ${root}`);
   }
 }
 
@@ -89,8 +129,12 @@ export function listUserSkills(): SkillSummary[] {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export async function readSkillFile(filePath: string): Promise<SkillFileData> {
-  validateSkillPath(filePath);
+export async function readSkillFile(
+  filePath: string,
+  roots?: readonly string[],
+  strictRoots?: readonly string[],
+): Promise<SkillFileData> {
+  validateSkillPath(filePath, roots, strictRoots);
   const raw = await readFile(filePath, 'utf-8');
   const { frontmatter, body } = parseFrontmatter<SkillFrontmatter>(raw);
 
@@ -112,11 +156,15 @@ export async function readSkillFile(filePath: string): Promise<SkillFileData> {
  *
  * The write is atomic (temp file + rename) so a reader never sees half a skill.
  */
-export async function writeSkillFile(data: SkillFileData): Promise<string> {
+export async function writeSkillFile(
+  data: SkillFileData,
+  roots?: readonly string[],
+  strictRoots?: readonly string[],
+): Promise<string> {
   let targetPath: string;
 
   if (data.filePath) {
-    validateSkillPath(data.filePath);
+    validateSkillPath(data.filePath, roots, strictRoots);
     targetPath = data.filePath;
   } else {
     if (!VALID_SKILL_NAME.test(data.name)) {

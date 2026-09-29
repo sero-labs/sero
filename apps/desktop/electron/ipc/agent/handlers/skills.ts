@@ -8,6 +8,7 @@
  * setting, and the session hot reload after a write or a delete.
  */
 
+import path from 'node:path';
 import { ipcMain } from 'electron';
 import {
   DefaultResourceLoader,
@@ -18,6 +19,9 @@ import { appStateManager } from '@electron/features/apps/state/manager';
 import { reloadAllSessionResources } from '../core/agent';
 import { ensureInfra, applyRuntimeSettings, SERO_CONFIG_PATH } from '@electron/shared/infra/shared-infra';
 import { withDisabledModelSkills } from '@sero-ai/common';
+import { workspaceManager } from '@electron/features/workspace/manager';
+import { buildSkillCatalogue, projectSkillsRoot } from '@electron/features/skills/catalogue';
+import { SKILLS_DIR } from '@electron/features/skills/store';
 import { withAgentPluginSkills } from '@electron/features/agent-plugins/skills';
 import { dropUserGlobalAgentSkills } from '@electron/features/skills/user-global-agent-skills';
 import { approveSkillWrite } from '@electron/features/skills/write-approvals';
@@ -28,7 +32,7 @@ import {
   toSkillSource,
   writeSkillFile,
 } from '@electron/features/skills/store';
-import type { SkillSummary, AvailableSkillSummary, SkillFileData } from '@/types/skills';
+import type { SkillSummary, AvailableSkillSummary, SkillCatalogue, SkillFileData } from '@/types/skills';
 
 async function refreshRuntimeSettings(): Promise<void> {
   const infra = await ensureInfra();
@@ -44,6 +48,51 @@ function reloadSessions(): void {
   );
 }
 
+/** The skills Sero loads outside any project (the profile's and the plugins'), and what it dropped. */
+async function loadAvailableSkills() {
+  const infra = await ensureInfra();
+  infra.settingsManager.reload();
+
+  const loader = new DefaultResourceLoader({
+    cwd: SERO_HOME,
+    agentDir: SERO_AGENT_DIR,
+    settingsManager: infra.settingsManager,
+    noExtensions: true,
+    noPromptTemplates: true,
+    noThemes: true,
+    skillsOverride: (base) => dropUserGlobalAgentSkills(withAgentPluginSkills(base)),
+  });
+  await loader.reload();
+  return loader.getSkills();
+}
+
+/**
+ * Folders whose skills the Skills page may read and write: the profile's and each
+ * project's. A project's folder is `strict`, so a symlink inside it cannot lead out.
+ */
+async function editableSkillRoots(): Promise<{ roots: string[]; strict: string[] }> {
+  const workspaces = await workspaceManager.list();
+  const strict = workspaces.flatMap((workspace) => projectSkillsRoot(workspace.path) ?? []);
+  return { roots: [SKILLS_DIR, ...strict], strict };
+}
+
+/**
+ * Read a skill. A plugin's skill lives in the plugin's folder, outside every
+ * editable root, so it is read when the catalogue lists that exact file. Writes and
+ * deletes never take that route.
+ */
+async function readCatalogued(filePath: string): Promise<SkillFileData> {
+  const { roots, strict } = await editableSkillRoots();
+  try {
+    return await readSkillFile(filePath, roots, strict);
+  } catch (error) {
+    const { skills } = buildSkillCatalogue(await loadAvailableSkills(), []);
+    const listed = skills.some((skill) => path.resolve(skill.filePath) === path.resolve(filePath));
+    if (!listed) throw error;
+    return readSkillFile(filePath, [path.dirname(filePath)]);
+  }
+}
+
 export function registerSkillHandlers(): void {
   ipcMain.handle(
     IpcChannels.skills.listSkills,
@@ -53,21 +102,7 @@ export function registerSkillHandlers(): void {
   ipcMain.handle(
     IpcChannels.skills.listAvailableSkills,
     async (): Promise<AvailableSkillSummary[]> => {
-      const infra = await ensureInfra();
-      infra.settingsManager.reload();
-
-      const loader = new DefaultResourceLoader({
-        cwd: SERO_HOME,
-        agentDir: SERO_AGENT_DIR,
-        settingsManager: infra.settingsManager,
-        noExtensions: true,
-        noPromptTemplates: true,
-        noThemes: true,
-        skillsOverride: (base) => dropUserGlobalAgentSkills(withAgentPluginSkills(base)),
-      });
-      await loader.reload();
-
-      const { skills } = loader.getSkills();
+      const { skills } = await loadAvailableSkills();
       return skills
         .map((skill) => ({
           name: skill.name,
@@ -77,6 +112,12 @@ export function registerSkillHandlers(): void {
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
     },
+  );
+
+  ipcMain.handle(
+    IpcChannels.skills.listCatalogue,
+    async (): Promise<SkillCatalogue> =>
+      buildSkillCatalogue(await loadAvailableSkills(), await workspaceManager.list()),
   );
 
   ipcMain.handle(
@@ -94,10 +135,10 @@ export function registerSkillHandlers(): void {
     },
   );
 
-  /** Read a skill by its absolute filePath (returned by listSkills). */
+  /** Read a skill by its absolute filePath (returned by listSkills or listCatalogue). */
   ipcMain.handle(
     IpcChannels.skills.readSkill,
-    async (_e, filePath: string): Promise<SkillFileData> => readSkillFile(filePath),
+    async (_e, filePath: string): Promise<SkillFileData> => readCatalogued(filePath),
   );
 
   /**
@@ -107,7 +148,8 @@ export function registerSkillHandlers(): void {
   ipcMain.handle(
     IpcChannels.skills.writeSkill,
     async (_e, data: SkillFileData): Promise<string> => {
-      const targetPath = await writeSkillFile(data);
+      const { roots, strict } = await editableSkillRoots();
+      const targetPath = await writeSkillFile(data, roots, strict);
       reloadSessions();
       return targetPath;
     },

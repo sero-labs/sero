@@ -9,6 +9,8 @@ import { Button } from '@sero-ai/ui/components/ui/button';
 interface ResourceSectionProps {
   label: string;
   count: number;
+  /** Replaces the default "N skills" text, for a list that counts more than its total. */
+  countText?: string;
   loading: boolean;
   error: string | null;
   onRefresh: () => void;
@@ -20,6 +22,7 @@ interface ResourceSectionProps {
 export function ResourceSection({
   label,
   count,
+  countText,
   loading,
   error,
   onRefresh,
@@ -32,7 +35,7 @@ export function ResourceSection({
       <div className="flex w-[260px] shrink-0 flex-col border-r border-border/30">
         <div className="flex items-center gap-2 border-b border-border/30 px-3 py-1.5">
           <span className="flex-1 text-xs text-muted-foreground">
-            {count} {label.toLowerCase()}{count !== 1 ? 's' : ''}
+            {countText ?? `${count} ${label.toLowerCase()}${count !== 1 ? 's' : ''}`}
           </span>
           <Button variant="ghost" size="icon-sm" onClick={onRefresh} title="Refresh">
             <RefreshCw className="size-3" />

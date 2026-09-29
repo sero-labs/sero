@@ -16,7 +16,9 @@ A session's system prompt SHALL mention a tool or Sero CLI command only if that 
 - **THEN** its system prompt does not tell it to use `sero memory`, `sero mcp` or any other Sero CLI command
 
 ### Requirement: User-global agent skills are not loaded
-Sessions SHALL NOT load skills from the user-global `~/.agents/skills` folder. Skills from a project's own `.agents/skills` folders SHALL still load. The Skills UI SHALL NOT list skills from the user-global folder. It lists the profile's skills and does not know a project, so it does not list a project's own `.agents/skills`.
+Sessions SHALL NOT load skills from the user-global `~/.agents/skills` folder. Skills from a project's own `.agents/skills` folders SHALL still load. The Skills UI SHALL NOT list skills from the user-global folder. It SHALL list the profile's skills, plugin skills, and the `.agents/skills` skills of each workspace, grouped by where they come from. A project skill SHALL be editable and a plugin skill SHALL be read only.
+
+When two skills share a name, Pi keeps the first one it loads: a project skill, then a profile skill, then a plugin skill. The Skills UI SHALL mark the skill that a chat does not use as not used, and SHALL disable its model visibility switch, because that setting is stored by name. When it shows every project at once, no copy wins, so it SHALL say that the name is used in more than one place.
 
 #### Scenario: Skill in the user-global folder
 - **WHEN** `~/.agents/skills/example/SKILL.md` exists and a session starts
@@ -25,6 +27,11 @@ Sessions SHALL NOT load skills from the user-global `~/.agents/skills` folder. S
 #### Scenario: Skill in a project folder
 - **WHEN** a workspace's project contains `.agents/skills/example/SKILL.md` and is trusted
 - **THEN** `example` is in the session's skills
+- **AND** `example` is in the Skills UI, in a group named for that project
+
+#### Scenario: Same name in a project and in the profile
+- **WHEN** a project and the profile both have a skill named `commit-message`, and the Skills UI shows that project
+- **THEN** the project's skill is used, and the profile's skill is marked not used
 
 ### Requirement: Bundled skills
 A new profile SHALL receive the bundled skills without the taste skill pack, and SHALL receive a `pi-docs` skill that explains how to read the Pi documentation. Upgrading Sero MUST NOT delete skills that already exist in a profile.

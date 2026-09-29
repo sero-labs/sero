@@ -14,6 +14,8 @@ interface UseSkillVisibilityResult {
   saving: boolean;
   error: string | null;
   setSkillEnabled: (name: string, enabled: boolean) => void;
+  /** The setting is stored by name, so it also covers project skills the available list does not include. */
+  isHiddenByUser: (name: string) => boolean;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -119,12 +121,15 @@ export function useSkillVisibility(profilePath: string | null): UseSkillVisibili
     }),
   ), [availableSkills, disabledSkillNames]);
 
+  const isHiddenByUser = useCallback((name: string) => disabledSkillNames.has(name), [disabledSkillNames]);
+
   return {
     skills,
     loading,
     saving,
     error,
     setSkillEnabled,
+    isHiddenByUser,
   };
 }
 
