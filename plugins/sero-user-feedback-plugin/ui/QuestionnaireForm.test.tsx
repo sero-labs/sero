@@ -113,6 +113,59 @@ describe('QuestionnaireForm', () => {
     expect(onCancel).not.toHaveBeenCalled();
   });
 
+  it('does not submit unanswered questions without an explicit skip', async () => {
+    const sixQuestions: UserFeedbackPendingQuestion = {
+      ...pendingQuestion,
+      questions: Array.from({ length: 6 }, (_, index) => ({
+        id: `q${index + 1}`,
+        label: `Question ${index + 1}`,
+        prompt: `Question ${index + 1}?`,
+        allowOther: false,
+        options: [{ value: `answer-${index + 1}`, label: `Answer ${index + 1}` }],
+      })),
+    };
+
+    await act(async () => {
+      root?.render(<QuestionnaireForm question={sixQuestions} onSubmit={onSubmit} onCancel={onCancel} />);
+    });
+
+    for (let index = 1; index <= 3; index += 1) {
+      await act(async () => {
+        clickButton(container, `Answer ${index}`);
+      });
+    }
+
+    await act(async () => {
+      clickButton(container, 'Review');
+    });
+
+    expect(findButton(container, 'Submit All Answers').disabled).toBe(true);
+
+    await act(async () => {
+      clickButton(container, 'Submit All Answers');
+    });
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    for (let index = 4; index <= 6; index += 1) {
+      await act(async () => {
+        clickButton(container, `Question ${index}`);
+      });
+      await act(async () => {
+        clickButton(container, 'Skip');
+      });
+    }
+
+    expect(findButton(container, 'Submit All Answers').disabled).toBe(false);
+    await act(async () => {
+      clickButton(container, 'Submit All Answers');
+    });
+    expect(onSubmit).toHaveBeenCalledWith('pending-1', [
+      expect.objectContaining({ questionId: 'q1' }),
+      expect.objectContaining({ questionId: 'q2' }),
+      expect.objectContaining({ questionId: 'q3' }),
+    ]);
+  });
+
   it('reveals an option sub-question inline when that option is selected', async () => {
     const nestedQuestion: UserFeedbackPendingQuestion = {
       ...pendingQuestion,
