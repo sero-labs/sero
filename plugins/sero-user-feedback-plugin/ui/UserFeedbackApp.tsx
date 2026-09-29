@@ -104,6 +104,7 @@ export function UserFeedbackApp() {
       pending.type === 'interview' ? InterviewForm : QuestionnaireForm;
     return (
       <FormComponent
+        key={pending.id}
         question={pending}
         onSubmit={handleSubmit}
         onCancel={handleCancel}

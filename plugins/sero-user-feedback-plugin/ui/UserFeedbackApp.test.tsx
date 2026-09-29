@@ -95,4 +95,51 @@ describe('UserFeedbackApp', () => {
 
     expect(container.textContent).toContain('When the agent needs your input, a form will appear here.');
   });
+
+  it('starts a newly queued questionnaire at its first question', async () => {
+    const firstQuestionnaire: UserFeedbackPendingQuestion = {
+      ...pendingQuestion,
+      questions: [
+        ...pendingQuestion.questions,
+        { id: 'q2', label: 'Q2', prompt: 'Second question', options: [], allowOther: true },
+        { id: 'q3', label: 'Q3', prompt: 'Third question', options: [], allowOther: true },
+        { id: 'q4', label: 'Q4', prompt: 'Fourth question', options: [], allowOther: true },
+      ],
+    };
+    const nextQuestionnaire: UserFeedbackPendingQuestion = {
+      ...pendingQuestion,
+      id: 'pending-2',
+      questions: [{ id: 'name', label: 'Name', prompt: 'What is your name?', options: [], allowOther: true }],
+    };
+    let receiveQuestion: ((question: UserFeedbackPendingQuestion) => void) | undefined;
+    userFeedback.getPending = vi.fn().mockResolvedValue([firstQuestionnaire]);
+    userFeedback.onQuestion = vi.fn((handler) => {
+      receiveQuestion = handler;
+      return () => undefined;
+    });
+
+    await act(async () => {
+      root?.render(<UserFeedbackApp />);
+      await flushPromises();
+    });
+
+    const fourthStep = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Q4'),
+    );
+    expect(fourthStep).toBeInstanceOf(HTMLButtonElement);
+    await act(async () => {
+      fourthStep?.click();
+    });
+    expect(container.textContent).toContain('Fourth question');
+
+    await act(async () => {
+      receiveQuestion?.(nextQuestionnaire);
+      window.dispatchEvent(new CustomEvent('sero:user-feedback:answered', {
+        detail: { id: firstQuestionnaire.id },
+      }));
+    });
+
+    expect(container.textContent).toContain('What is your name?');
+    expect(container.textContent).not.toContain('Fourth question');
+  });
 });
