@@ -120,6 +120,20 @@ describe('the provider key', () => {
   });
 });
 
+describe('a write that the runtime has not applied yet', () => {
+  it('shows in the next read, and a second write keeps it', async () => {
+    await call({ action: 'set-generation', variantCount: 2 });
+
+    expect(textOf(await call({ action: 'read' }))).toContain('Default variants: 2');
+
+    await call({ action: 'set-generation', revisionBehaviour: 'retain' });
+
+    const read = textOf(await call({ action: 'read' }));
+    expect(read).toContain('Default variants: 2');
+    expect(read).toContain('Revision behaviour: retain');
+  });
+});
+
 describe('media settings', () => {
   it('returns provider-neutral model choices', async () => {
     expect((await call({ action: 'list-media-models' })).details).toMatchObject({
