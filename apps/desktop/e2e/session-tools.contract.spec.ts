@@ -227,10 +227,17 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  await closeSeroApp(app);
-  await stub.server.close();
-  home.cleanup();
-  fs.rmSync(workspaceDir, { recursive: true, force: true });
+  // Setup can fail before any of these exist. Each step runs whatever the ones before it did.
+  try {
+    if (app) await closeSeroApp(app);
+  } finally {
+    try {
+      await stub?.server.close();
+    } finally {
+      home?.cleanup();
+      if (workspaceDir) fs.rmSync(workspaceDir, { recursive: true, force: true });
+    }
+  }
 });
 
 test.describe.serial('chat session', () => {
@@ -336,6 +343,10 @@ test.describe.serial('member session (Architect owner)', () => {
     const folder = path.join(home.path, 'architect-projects', `probe-${Date.now()}`);
     const created = await architect<{ ok: boolean; text: string; projectId?: string }>('create', { idea: 'A tiny probe project.', folder });
     expect(created.ok, created.text).toBe(true);
+    // The owner works in the project folder, so the read and edit probes need their files there.
+    fs.mkdirSync(folder, { recursive: true });
+    fs.writeFileSync(path.join(folder, PROBE_FILE), 'probe\n');
+    fs.writeFileSync(path.join(folder, PROBE_EDIT_FILE), 'alpha\n');
     // Resume asks for the owner session's grant and waits for the answer, so the call and the click overlap.
     const resuming = architect<{ ok: boolean; text: string }>('resume', created.projectId);
     const allow = page.getByRole('button', { name: 'Allow' }).first();

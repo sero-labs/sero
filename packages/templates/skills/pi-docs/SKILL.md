@@ -10,9 +10,11 @@ description: >
 
 # Pi documentation
 
-The docs root is on the `Pi docs:` line of the environment section in the
-system prompt. Use that path as given. Do not look for the docs in
-`node_modules`.
+The system prompt names the docs root. In a workspace session it is on the
+`Pi docs:` line of the environment section. A session that has no such line has
+Pi's own section instead, where `Main documentation` gives the path of
+`README.md`, and the docs root is the folder that holds it. Use that path as
+given. Do not look for the docs in `node_modules`.
 
 - **Main documentation:** `<docs root>/README.md`
 - **Additional docs:** `<docs root>/docs`

@@ -63,6 +63,12 @@ function buildIntentAugmentation(
   );
 }
 
+/** Whether the session reaches Graphify as `sero-cli` commands, not as direct tools. */
+function reachesGraphifyThroughCli(pi: ExtensionAPI): boolean {
+  if (!pi.getActiveTools().includes('sero-cli')) return false;
+  return !pi.getAllTools().some((tool) => tool.name === 'graphify_query');
+}
+
 /**
  * Register Graphify auto-context hooks. Fully idle when no graph exists;
  * failures degrade to no injection — never errors a session.
@@ -83,8 +89,9 @@ export function registerAutoContext(
     await syncGraphContextProjectState(graphContextState, paths, ctx.cwd);
 
     if (!graphContextState.graphExists) return;
-    // The hint names `sero-cli` commands, which a session without that tool cannot run.
-    if (!pi.getActiveTools().includes('sero-cli')) return;
+    // The hint names `sero-cli` commands. A session without that tool cannot run them,
+    // and a session that has the Graphify tools directly needs no command for them.
+    if (!reachesGraphifyThroughCli(pi)) return;
     if (graphContextState.reportContextInjected) return;
 
     const event = _event as BeforeAgentStartEvent;
@@ -176,8 +183,8 @@ export function registerAutoContext(
       }
     }
 
-    // Fall back to intent-aware hint
-    if (!augmentText) {
+    // Fall back to intent-aware hint, which names a command the session must be able to run.
+    if (!augmentText && reachesGraphifyThroughCli(pi)) {
       augmentText = buildIntentAugmentation(intent, graphContextState);
     }
 

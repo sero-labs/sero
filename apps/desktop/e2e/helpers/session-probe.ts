@@ -17,6 +17,8 @@ import { STUB_MODEL_ID, STUB_PROVIDER_ID, startStubModel, type StubModelServer, 
 export const PROBE_FILE = 'probe-read.txt';
 /** The file the `write` probe creates, and the `bash` follow-up reads back. */
 export const PROBE_WRITE_FILE = 'probe-write.txt';
+/** What the `write` probe puts in that file. Only a real write can put it in front of the read-back. */
+export const PROBE_WRITE_CONTENT = 'sero-probe-write-marker';
 export const PROBE_EDIT_FILE = 'probe-edit.txt';
 /** The task text that marks a session as the one a `subagent` call started. */
 export const SUBAGENT_TASK = 'probe-subagent';
@@ -24,7 +26,7 @@ export const SUBAGENT_TASK = 'probe-subagent';
 /** Read-only or harmless arguments for each direct tool. `sero-cli` is probed per command. */
 export const TOOL_PROBES: Record<string, Record<string, unknown>> = {
   read: { path: PROBE_FILE },
-  write: { path: PROBE_WRITE_FILE, content: 'probe' },
+  write: { path: PROBE_WRITE_FILE, content: PROBE_WRITE_CONTENT },
   edit: { path: PROBE_EDIT_FILE, edits: [{ oldText: 'alpha', newText: 'alpha2' }] },
   bash: { command: 'echo probe' },
   find: { pattern: 'probe' },
@@ -91,10 +93,18 @@ export type ProbeKind =
   | 'schema'
   | 'unseen-write'
   | 'other-error'
+  | 'unexpected-error'
+  | 'no-result'
   | 'no-probe';
 
-/** The kinds that mean the session was shown something it cannot call. */
-export const DEFECT_KINDS: ProbeKind[] = ['unknown-tool', 'unknown-command', 'no-session', 'schema', 'unseen-write', 'no-probe'];
+/**
+ * The kinds that mean the session was shown something it cannot call. An `unexpected-error` is a
+ * failure of a call that had valid arguments. `other-error` is the same text from a call that
+ * had none, where an error is the expected answer, so it does not count.
+ */
+export const DEFECT_KINDS: ProbeKind[] = [
+  'unknown-tool', 'unknown-command', 'no-session', 'schema', 'unseen-write', 'unexpected-error', 'no-result', 'no-probe',
+];
 
 export interface ProbeOutcome {
   /** `read`, or `sero-cli: app list`. */
@@ -108,7 +118,8 @@ export interface ProbeOutcome {
 export function classifyResult(text: string): Exclude<ProbeKind, 'no-probe'> {
   if (/tool\s+\S+\s+not found|unknown tool/i.test(text)) return 'unknown-tool';
   if (/unknown command/i.test(text)) return 'unknown-command';
-  if (/requires an active agent session|no active agent session/i.test(text)) return 'no-session';
+  // `sero session info` answers "No active agent session." as a normal reply, which is not this.
+  if (/requires an active agent session/i.test(text)) return 'no-session';
   if (/validation failed|must have required property|invalid arguments/i.test(text)) return 'schema';
   if (/^\s*(error|usage)\b/i.test(text)) return 'other-error';
   return 'callable';
@@ -124,9 +135,18 @@ export function cliCommandsListed(system: string): string[] {
   return [...block.matchAll(/^ {2}(\S+) — /gm)].map((match) => match[1]!);
 }
 
+/**
+ * Commands that block on a person, or change the user's desktop, when they run
+ * with no arguments. They get `help` only, and the run output reports that.
+ */
+export const NEVER_RUN_BARE = ['question', 'questionnaire', 'interview', 'terminal', 'editor', 'automation_browser'];
+
 function commandLine(name: string): string | null {
   if (CLI_PROBES[name]) return CLI_PROBES[name];
-  return HELP_ONLY_COMMANDS.includes(name) ? `help ${name}` : null;
+  if (!HELP_ONLY_COMMANDS.includes(name)) return null;
+  // `help` proves the command is registered. Running it bare, as a second line, reaches its
+  // handler, which is where a command that needs a live chat session says so.
+  return NEVER_RUN_BARE.includes(name) ? `help ${name}` : `help ${name}\n${name}`;
 }
 
 const READ_BACK_ID = 'probe-read-back';
@@ -151,7 +171,7 @@ function planCalls(request: StubRequest): { calls: PlannedCall[]; unprobed: Prob
           unprobed.push({ label: `sero-cli: ${name}`, tool: 'sero-cli', command: name, kind: 'no-probe', detail: 'no probe entry' });
           continue;
         }
-        calls.push({ id: `probe-cli-${name}`, tool: 'sero-cli', command: name, arguments: { command: line } });
+        calls.push({ id: `probe-cli-${name}`, tool: 'sero-cli', command: name, existsOnly: line.includes('\n'), arguments: { command: line } });
       }
       continue;
     }
@@ -168,6 +188,16 @@ function planCalls(request: StubRequest): { calls: PlannedCall[]; unprobed: Prob
     });
   }
   return { calls, unprobed };
+}
+
+/**
+ * A call with no arguments to run (`existsOnly`) proves the tool exists when it answers with a
+ * validation error or any other error. A call with valid arguments must run.
+ */
+function outcomeKind(call: PlannedCall, text: string): ProbeKind {
+  const kind = classifyResult(text);
+  if (!call.existsOnly) return kind === 'other-error' ? 'unexpected-error' : kind;
+  return kind === 'schema' ? 'callable' : kind;
 }
 
 /** What one session showed the stub, and what its calls returned. */
@@ -253,22 +283,26 @@ export async function startProbeStub(
         session.outcomes.push({
           label: 'write then bash',
           tool: 'bash',
-          kind: readBack.text.includes('probe') ? 'callable' : 'unseen-write',
+          kind: readBack.text.includes(PROBE_WRITE_CONTENT) && !/no such file/i.test(readBack.text) ? 'callable' : 'unseen-write',
           detail: readBack.text.slice(0, 200),
         });
         session.readBackPending = false;
         session.done = true;
         return { text: 'probe finished' };
       }
-      for (const message of request.messages) {
-        if (message.role !== 'tool') continue;
-        const call = calls.find((candidate) => candidate.id === message.toolCallId);
-        if (!call) continue;
+      for (const call of calls) {
+        const message = request.messages.find((candidate) => candidate.role === 'tool' && candidate.toolCallId === call.id);
+        const label = call.command ? `sero-cli: ${call.command}` : call.tool;
+        // A call the session never answered is a defect, even when the other calls returned.
+        if (!message) {
+          session.outcomes.push({ label, tool: call.tool, command: call.command, kind: 'no-result', detail: 'no result came back' });
+          continue;
+        }
         session.outcomes.push({
-          label: call.command ? `sero-cli: ${call.command}` : call.tool,
+          label,
           tool: call.tool,
           command: call.command,
-          kind: call.existsOnly && classifyResult(message.text) === 'schema' ? 'callable' : classifyResult(message.text),
+          kind: outcomeKind(call, message.text),
           // A scripted call's caller reads the whole result.
           detail: message.text.slice(0, scripts[key] ? 4_000 : 200),
         });

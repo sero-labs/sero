@@ -12,8 +12,10 @@ export default function mcpExtension(pi: ExtensionAPI) {
   let unregisterSession: (() => void) | undefined;
 
   pi.on('before_agent_start', async (event) => {
-    // MCP is reached with `sero mcp`. A session with no `sero-cli` tool cannot run it.
+    // The block teaches `sero mcp`. A session with no `sero-cli` tool cannot run it,
+    // and a session that has `mcp` as a direct tool needs no command for it.
     if (!pi.getActiveTools().includes('sero-cli')) return;
+    if (pi.getAllTools().some((tool) => tool.name === 'mcp')) return;
     return {
       systemPrompt: event.systemPrompt + buildMcpPromptBlock() + await runtime.remoteSkillsPromptBlock().catch(() => ''),
     };

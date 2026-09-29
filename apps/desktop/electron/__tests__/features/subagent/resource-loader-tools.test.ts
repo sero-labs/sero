@@ -22,6 +22,7 @@ async function writePlugin(root: string, tools: string[], toolSessionKinds: Reco
   await fs.writeFile(path.join(packageRoot, 'index.ts'), [
     'export default function (pi: any) {',
     ...tools.map((tool) => `  pi.registerTool({ name: '${tool}', label: '${tool}', description: '${tool}', parameters: { type: 'object', properties: {} }, execute: async () => ({ content: [] }) });`),
+    "  pi.registerCommand('slash_probe', { description: 'a slash command', handler: async () => undefined });",
     '}',
   ].join('\n'));
   return packageRoot;
@@ -73,9 +74,14 @@ describe('subagent resource loader tools', () => {
     expect(tools).toContain('web_lookup');
   });
 
-  it('reaches plugin tools as commands when asked to bridge', async () => {
+  it('reaches plugin tools as commands when asked to bridge, and leaves slash commands out', async () => {
     const tools = await loadedTools(true);
     expect(tools).not.toContain('goal');
     expect(tools).not.toContain('web_lookup');
+    // A subagent has no chat session behind it, so a slash command listed for it could not run.
+    const { getCliRegistry } = await import('@electron/cli');
+    const commands = getCliRegistry().list({ workspaceId: 'ws-1', sessionId: 'subagent-tools-1' }).map((command) => command.name);
+    expect(commands).toContain('web_lookup');
+    expect(commands).not.toContain('slash_probe');
   });
 });

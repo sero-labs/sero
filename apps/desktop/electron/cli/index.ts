@@ -215,7 +215,8 @@ const BUILTIN_COMMANDS = new Set([
  *    wraps each into a CLI command, and removes it from the extension tool list.
  * 2. Finds extension commands (slash commands) NOT in BUILTIN_COMMANDS,
  *    wraps each into a CLI command so the agent can invoke them. A session
- *    with its own registry gets none, because it cannot run them.
+ *    with its own registry, or one that sets `bridgeCommands: false`, gets
+ *    none, because it cannot run them.
  *    Commands stay registered in extensions (user can still type /plan).
  */
 export function bridgeExtensionTools(
@@ -225,6 +226,11 @@ export function bridgeExtensionTools(
     registry?: CliRegistry;
     /** Runtime tools this session reaches as commands rather than as direct tools. */
     sessionTools?: ToolDefinition[];
+    /**
+     * Whether to bridge slash commands too. A session with no live chat entry
+     * cannot run one, so it turns this off. Defaults to true.
+     */
+    bridgeCommands?: boolean;
   },
 ): LoadExtensionsResult {
   const reg = options?.registry ?? getCliRegistry();
@@ -277,7 +283,7 @@ export function bridgeExtensionTools(
     // Bridge commands → CLI (keeps in extension for user slash commands).
     // A session with its own registry has no chat pool entry to run a slash
     // command in, so every one it listed would fail. Its tools are bridged above.
-    for (const [name, registered] of options?.registry ? [] : ext.commands) {
+    for (const [name, registered] of options?.registry || options?.bridgeCommands === false ? [] : ext.commands) {
       if (BUILTIN_COMMANDS.has(name) || bridgedToolNames.has(name)) continue;
       const existing = reg.get(name, owner ? { sessionId: options?.sessionId } : undefined);
       if (existing && existing.source !== 'app') continue;

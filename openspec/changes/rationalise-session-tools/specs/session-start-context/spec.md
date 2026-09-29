@@ -16,7 +16,7 @@ A session's system prompt SHALL mention a tool or Sero CLI command only if that 
 - **THEN** its system prompt does not tell it to use `sero memory`, `sero mcp` or any other Sero CLI command
 
 ### Requirement: User-global agent skills are not loaded
-Sessions SHALL NOT load skills from the user-global `~/.agents/skills` folder. Skills from a project's own `.agents/skills` folders SHALL still load. The Skills UI SHALL list the same skills the agent is given.
+Sessions SHALL NOT load skills from the user-global `~/.agents/skills` folder. Skills from a project's own `.agents/skills` folders SHALL still load. The Skills UI SHALL NOT list skills from the user-global folder. It lists the profile's skills and does not know a project, so it does not list a project's own `.agents/skills`.
 
 #### Scenario: Skill in the user-global folder
 - **WHEN** `~/.agents/skills/example/SKILL.md` exists and a session starts

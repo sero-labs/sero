@@ -209,6 +209,14 @@ describe('Token Baseline Benchmark', () => {
     expect(buildHostPromptBlock('w', '/w', { devBuild: true })).toContain('localhost:5173');
   });
 
+  it('names no sero command in a runtime block for a session that cannot run one', () => {
+    const blocks = [
+      buildContainerPromptBlock('w', '192.168.64.2', { cliReachable: false }),
+      buildHostPromptBlock('w', '/w', { cliReachable: false }),
+    ];
+    for (const block of blocks) expect(block).not.toMatch(/`sero \w+/);
+  });
+
   it('CLI prompt block', () => {
     const block = buildCliPromptBlock();
     const tokens = measure('cli_block', block);

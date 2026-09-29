@@ -558,6 +558,39 @@ describe('goal terminal tools follow the goal', () => {
     expect(activeTools()).toEqual(['read', ...TERMINAL_TOOLS]);
   });
 
+  it('removes them when a turn limit ends the goal', async () => {
+    const { pi, terminals, fire, activeTools } = fakePi([...others, ...TERMINAL_TOOLS]);
+    const startTurn = registerGoalLoop(pi, terminals);
+    await fire('session_start');
+    const started = await runtime.start({
+      sessionPath: SESSION,
+      objective: 'finish the migration',
+      criteria: [],
+      limits: { maxAttemptsTotal: 1 },
+    });
+    startTurn(started.goal!);
+    expect(activeTools()).toEqual([...others, ...TERMINAL_TOOLS]);
+
+    await fire('agent_start');
+    await fire('agent_end', { messages: assistantTurn('first pass') });
+    await fire('agent_settled');
+
+    expect((await runtime.forSession(SESSION))?.status).toBe('limited');
+    expect(activeTools()).toEqual(others);
+  });
+
+  it('adds them at once for a goal started by the tool, and removes them when it is stopped', async () => {
+    const { pi, terminals, fire, runTool, runCommand, activeTools } = fakePi([...others, ...TERMINAL_TOOLS]);
+    registerGoalCommands(pi, registerGoalLoop(pi, terminals), terminals);
+    await fire('session_start');
+
+    await runTool('goal', { action: 'start', objective: 'finish the migration' });
+    expect(activeTools()).toEqual([...others, ...TERMINAL_TOOLS]);
+
+    await runCommand('goal', 'stop');
+    expect(activeTools()).toEqual(others);
+  });
+
   it('never adds them to a session whose tool policy excludes them', async () => {
     const { pi, terminals, fire, activeTools } = fakePi(['read']);
     registerGoalLoop(pi, terminals);

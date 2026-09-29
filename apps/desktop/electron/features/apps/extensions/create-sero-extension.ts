@@ -79,7 +79,8 @@ export function createSeroExtensionFactory(
     pi.on('before_agent_start', async (event) => {
       let systemPrompt = event.systemPrompt;
       // A session that lacks the `sero-cli` tool cannot run any command in the block.
-      if (pi.getActiveTools().includes('sero-cli')) {
+      const cliReachable = pi.getActiveTools().includes('sero-cli');
+      if (cliReachable) {
         systemPrompt += buildCliPromptBlock(
           // The session's own registry, when it has one. Listing the shared
           // commands to a session that cannot run them teaches it to try.
@@ -100,12 +101,13 @@ export function createSeroExtensionFactory(
         systemPrompt += buildContainerPromptBlock(
           currentWorkspaceId,
           containerState.ipAddress,
+          { cliReachable },
         );
       } else if (options?.hostRuntime) {
         systemPrompt += buildHostPromptBlock(
           currentWorkspaceId,
           options.hostRuntime.workspacePath,
-          { platform: options.hostRuntime.platform, devBuild: options.hostRuntime.devBuild },
+          { platform: options.hostRuntime.platform, devBuild: options.hostRuntime.devBuild, cliReachable },
         );
       }
 

@@ -122,7 +122,8 @@ export function createSubagentResourceLoader(
         ? withoutChatOnly
         : dropToolsNotForSessionKind(withoutChatOnly, 'subagent');
       const bridged = options.bridgePluginTools
-        ? bridgeExtensionTools(compatible, { sessionId: options.sessionId })
+        // A subagent has no chat session behind it, so a slash command could not run.
+        ? bridgeExtensionTools(compatible, { sessionId: options.sessionId, bridgeCommands: false })
         : compatible;
       return options.restrictSearchTools ? restrictSearchToolOrigins(bridged) : bridged;
     },

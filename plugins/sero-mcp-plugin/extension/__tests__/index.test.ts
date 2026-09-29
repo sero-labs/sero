@@ -24,6 +24,7 @@ describe('mcp extension registration', () => {
       registerTool,
       on,
       getActiveTools: () => ['sero-cli'],
+      getAllTools: () => [],
     } as unknown as ExtensionAPI;
 
     mcpExtension(pi);
@@ -47,6 +48,23 @@ describe('mcp extension registration', () => {
       registerTool: vi.fn(),
       on,
       getActiveTools: () => ['read', 'bash'],
+    } as unknown as ExtensionAPI;
+
+    mcpExtension(pi);
+
+    const beforeAgentStart = on.mock.calls.find(([eventName]) => eventName === 'before_agent_start')?.[1] as
+      (event: { systemPrompt: string }) => Promise<unknown>;
+
+    expect(await beforeAgentStart({ systemPrompt: 'BASE' })).toBeUndefined();
+  });
+
+  it('adds no MCP guidance to a session that has the mcp tool directly', async () => {
+    const on = vi.fn();
+    const pi = {
+      registerTool: vi.fn(),
+      on,
+      getActiveTools: () => ['sero-cli', 'mcp'],
+      getAllTools: () => [{ name: 'mcp' }],
     } as unknown as ExtensionAPI;
 
     mcpExtension(pi);

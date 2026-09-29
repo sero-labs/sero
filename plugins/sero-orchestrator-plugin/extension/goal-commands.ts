@@ -200,6 +200,9 @@ export function registerGoalCommands(
       const result = await executeGoalTool(params as GoalToolParamsShape, ctx, () => terminalTools.reachableTools());
       const goal = result.details.goal as Goal | undefined;
       if (goal) assertGoalContract(pi, goal);
+      // The terminal tools follow the goal's status now, not at the next settled
+      // boundary: a goal started here can be finished by the rest of this turn.
+      if (goal) terminalTools.set(goal.status === 'active');
       // No kickoff here: this call runs inside a turn, and the loop continues
       // the goal from that turn's settled boundary.
       return result;
@@ -217,6 +220,8 @@ export function registerGoalCommands(
       const result = await executeGoalTool(parsed, ctx, () => terminalTools.reachableTools());
       const goal = result.details.goal as Goal | undefined;
       if (goal) assertGoalContract(pi, goal);
+      // A stop or pause outside a turn must take the terminal tools away too.
+      if (goal) terminalTools.set(goal.status === 'active');
       ctx?.ui?.notify(result.text, result.details.ok === false ? 'error' : 'info');
       // A command runs outside a turn. Pi consumes the command instead of
       // sending it as a prompt, so a goal made active here would sit idle with

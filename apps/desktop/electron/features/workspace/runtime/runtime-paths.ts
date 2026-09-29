@@ -1,3 +1,4 @@
+import fs from 'fs';
 import path from 'path';
 
 export const RUNTIME_WORKSPACE_PATH = '/workspace';
@@ -25,6 +26,28 @@ export function toRuntimeWorkspacePath(
     return null;
   }
   return path.posix.join(RUNTIME_WORKSPACE_PATH, ...relativePath.split(path.sep));
+}
+
+/**
+ * The path a runtime tool uses for a host directory. A directory inside the workspace is
+ * under `/workspace`. Any other directory is where the runtime mounts it, at its own path.
+ */
+export function toRuntimeCwd(hostWorkspacePath: string, hostCwd: string): string {
+  // A folder is often named by its real path while the workspace is registered by a link to it
+  // (`/var` and `/private/var` on macOS), so try the workspace's real path as well.
+  for (const root of new Set([hostWorkspacePath, realpathOrSelf(hostWorkspacePath)])) {
+    const inside = toRuntimeWorkspacePath(root, hostCwd);
+    if (inside) return inside;
+  }
+  return toRuntimeIdentityMountPath(hostCwd);
+}
+
+function realpathOrSelf(target: string): string {
+  try {
+    return fs.realpathSync(target);
+  } catch {
+    return target;
+  }
 }
 
 export function toHostWorkspacePath(

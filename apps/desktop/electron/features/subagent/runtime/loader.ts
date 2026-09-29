@@ -45,7 +45,8 @@ export function createSubagentExtensionFactory(
     pi.on('before_agent_start', async (event) => {
       let systemPrompt = event.systemPrompt;
       // A subagent whose tool policy leaves out `sero-cli` cannot run these commands.
-      if (pi.getActiveTools().includes('sero-cli')) {
+      const cliReachable = pi.getActiveTools().includes('sero-cli');
+      if (cliReachable) {
         systemPrompt += buildCliPromptBlock(undefined, {
           workspaceId: currentWorkspaceId,
           sessionId: _sessionId,
@@ -58,7 +59,7 @@ export function createSubagentExtensionFactory(
         systemPrompt += buildContainerPromptBlock(
           currentWorkspaceId,
           containerState.ipAddress,
-          { currentWorkingDir: containerCwd },
+          { currentWorkingDir: containerCwd, cliReachable },
         );
       }
 

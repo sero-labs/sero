@@ -6,6 +6,7 @@ import { createPersistentSessionsApi } from '@electron/features/apps/runtime/cap
 import { createMemberRuntimeTools } from '@electron/features/apps/runtime/capabilities/persistent-sessions/member-runtime-tools';
 
 const fakes = vi.hoisted(() => ({
+  backend: 'host' as string,
   choices: [] as { body: string }[],
   catalogFor: vi.fn(() => [
     { name: 'read' },
@@ -37,6 +38,7 @@ vi.mock('@electron/features/workspace/manager', () => ({
       { id: 'ws-1', path: '/workspace' },
       { id: 'ws-2', path: '/other-workspace' },
     ],
+    getPath: (id: string) => (id === 'ws-1' ? '/Users/me/project' : undefined),
   },
 }));
 
@@ -47,7 +49,7 @@ vi.mock('@electron/features/subagent/runtime/tool-catalog', () => ({
 }));
 
 vi.mock('@electron/features/workspace/runtime/runtime-manager', () => ({
-  runtimeManager: { getRuntime: async () => ({ backend: 'host', workspaceId: 'ws-1' }) },
+  runtimeManager: { getRuntime: async () => ({ backend: fakes.backend, workspaceId: 'ws-1' }) },
 }));
 
 vi.mock('@electron/ipc/agent/handlers/subagent-context', () => ({
@@ -105,6 +107,22 @@ function skillBearingProposal(): PersistentSessionGrantProposal {
 describe('persistent session wiring', () => {
   beforeEach(() => {
     fakes.choices = [];
+    fakes.backend = 'host';
+  });
+
+  it('gives a container member the runtime path of its working folder, not the host path', async () => {
+    fakes.backend = 'docker';
+    await installPersistentSessions({
+      manifest: createManifest('orchestrator'), workspace: { id: 'global', path: '/global' }, stateFilePath: '/state.json',
+    });
+    const wiring = vi.mocked(createPersistentSessionsApi).mock.calls.at(-1)?.[0];
+    if (!wiring) throw new Error('Session capability was not installed');
+    const policy = skillBearingProposal().subjects.implementer;
+    await wiring.buildSessionInputs({
+      grantId: 'grant-1', subject: 'investigator', workspaceId: 'ws-1', cwd: '/Users/me/project/packages/app',
+      tools: ['read'], skills: [], systemPromptAdditions: [], policy,
+    });
+    expect(vi.mocked(createMemberRuntimeTools).mock.calls.at(-1)?.[2]).toBe('/workspace/packages/app');
   });
 
   it.each(['none', 'all'] as const)('hands runtime tools to Pi after applying commands: %s', async (commands) => {

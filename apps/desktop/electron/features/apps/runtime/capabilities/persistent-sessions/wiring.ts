@@ -25,6 +25,7 @@ import {
   searchPluginPackages,
 } from '@electron/features/apps/extensions/search-plugin';
 import { workspaceManager } from '@electron/features/workspace/manager';
+import { toRuntimeCwd } from '@electron/features/workspace/runtime/runtime-paths';
 import { runtimeManager } from '@electron/features/workspace/runtime/runtime-manager';
 import { containerPromptState } from '@electron/features/container/tools/container-prompt-state';
 import { getToolCatalogFor, getToolPackagePath, warmSubagentToolCatalog } from '@electron/features/subagent/runtime/tool-catalog';
@@ -204,8 +205,14 @@ export async function installPersistentSessions(
       // any Room approval describes, and a member with no Room command to run
       // WILL go looking for another way to talk.
       const cliRegistry = createPrivateCliRegistry();
-      const memberContainerState = containerPromptState(await runtimeManager.getRuntime(input.workspaceId));
-      const runtimeTools = await createMemberRuntimeTools(input.workspaceId, allowed, input.cwd, cliScopeId);
+      const memberRuntime = await runtimeManager.getRuntime(input.workspaceId);
+      const memberContainerState = containerPromptState(memberRuntime);
+      // The runtime tools run where the runtime runs. In a container that is not the host path.
+      const hostWorkspacePath = workspaceManager.getPath(input.workspaceId);
+      const toolCwd = memberRuntime.backend === 'host' || !hostWorkspacePath
+        ? input.cwd
+        : toRuntimeCwd(hostWorkspacePath, input.cwd);
+      const runtimeTools = await createMemberRuntimeTools(input.workspaceId, allowed, toolCwd, cliScopeId);
       // The grant-owning app and the search plugin always load. Any other plugin
       // loads only because an approved tool comes from it, and only that tool
       // is kept from it.

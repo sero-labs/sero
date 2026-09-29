@@ -3,8 +3,13 @@ import { describe, expect, it, vi } from 'vitest';
 // The catalog module reads/writes a cache file and pulls in infra/SDK at import
 // for its startup enumeration. None of that is needed to exercise the in-memory
 // store, so stub it all out.
+const fsFake = vi.hoisted(() => ({
+  readFileSync: vi.fn((): string => { throw new Error('no cache'); }),
+  existsSync: vi.fn((_path: string) => true),
+}));
 vi.mock('fs', () => ({
-  readFileSync: vi.fn(() => { throw new Error('no cache'); }),
+  readFileSync: fsFake.readFileSync,
+  existsSync: fsFake.existsSync,
   writeFileSync: vi.fn(),
 }));
 vi.mock('@electron/features/plugins/resource-compatibility', () => ({
@@ -108,5 +113,33 @@ describe('subagent tool catalog', () => {
 
     expect(getToolCatalogFor('chat').map((tool) => tool.name)).toContain('goal');
     expect(getToolCatalogFor('member').map((tool) => tool.name)).not.toContain('goal');
+  });
+
+  describe('the saved cache', () => {
+    async function loadCatalogWith(cache: unknown) {
+      vi.resetModules();
+      fsFake.readFileSync.mockImplementation(() => JSON.stringify(cache));
+      const mod = await import('@electron/features/subagent/runtime/tool-catalog');
+      fsFake.readFileSync.mockImplementation(() => { throw new Error('no cache'); });
+      return mod.getToolCatalogFor('subagent').map((tool) => tool.name);
+    }
+
+    it('drops a plugin tool whose package is gone', async () => {
+      fsFake.existsSync.mockImplementation((file) => !file.startsWith('/plugins/removed/'));
+      const names = await loadCatalogWith({
+        version: 2,
+        tools: [
+          { name: 'kept_tool', description: 'Kept', packagePath: '/plugins/kept' },
+          { name: 'removed_tool', description: 'Gone', packagePath: '/plugins/removed' },
+        ],
+      });
+      expect(names).toContain('kept_tool');
+      expect(names).not.toContain('removed_tool');
+    });
+
+    it('ignores a cache that does not say which package each tool came from', async () => {
+      const names = await loadCatalogWith({ tools: [{ name: 'legacy_tool', description: 'Old' }] });
+      expect(names).not.toContain('legacy_tool');
+    });
   });
 });

@@ -17,13 +17,15 @@ import { getHostPiDocsPaths, getRuntimePiDocsPaths } from '@electron/features/pi
 export function buildContainerPromptBlock(
   workspaceId: string,
   containerIp?: string,
-  opts?: { currentWorkingDir?: string },
+  opts?: { currentWorkingDir?: string; cliReachable?: boolean },
 ): string {
   const currentWorkingDir = opts?.currentWorkingDir ?? '/workspace';
   const cwdNote = currentWorkingDir === '/workspace'
     ? 'Your current working directory is also /workspace.'
     : `Your current working directory for this session is ${currentWorkingDir}.`;
   const piDocs = getRuntimePiDocsPaths();
+  // A session with no `sero-cli` cannot run the commands this block would name.
+  const cliReachable = opts?.cliReachable ?? true;
   const serverAddress = containerIp
     ? `- Reach a server at the container IP (${containerIp}), not localhost.\n`
     : '';
@@ -37,21 +39,19 @@ Workspace root: /workspace.
 ${cwdNote}
 Prefer relative paths and keep work in the current working directory unless the task needs another location.
 If this session is in a git worktree subdirectory, do NOT reset yourself with \`cd /workspace\` before making changes.
-Other open workspaces are mounted at their original host paths. Use those paths only for a different workspace, and run \`sero workspace access-roots --json\` for the exact roots this session may read.
+Other open workspaces are mounted at their original host paths. Use those paths only for a different workspace${cliReachable ? ', and run \`sero workspace access-roots --json\` for the exact roots this session may read' : ''}.
 
 **Dev servers**
 - Bind servers to \`0.0.0.0\`, not localhost or 127.0.0.1. Vite: \`npx vite --host 0.0.0.0 --port 3000\`. Next.js: \`next dev -H 0.0.0.0 -p 3000\`. Express: \`.listen(3000, '0.0.0.0')\`.
 ${serverAddress}- The bash tool output shows the server URLs it detected. Tell the user the exact URL shown there.
 - Check that a server is running before you say it is.
-- Once a server is listening, register it with \`sero devserver register\` so it appears in the Dev Servers UI.
-
+${cliReachable ? '- Once a server is listening, register it with \`sero devserver register\` so it appears in the Dev Servers UI.\n' : ''}
 **Background processes**
 Each bash call runs in its own \`sh -c\` shell.
 - Start anything that must outlive the command with \`setsid\` and redirect its output to a log file, for example \`setsid sh -c 'cd ${currentWorkingDir}/myapp && npx vite --host 0.0.0.0 --port 3000 > /tmp/vite.log 2>&1 &'\`.
 - Check startup with \`ss -tlnp | grep <port>\`. If it failed, read the log.
 - Never use a bare \`command &\` without \`setsid\`, and never \`kill -9 -1\`. Stop a server with \`pkill -f ...\` or \`kill <PID>\`.
-- The user may have terminal sessions open in this container. After you start a server, run \`sero terminal read\` to check its output and fix errors.
-
+${cliReachable ? '- The user may have terminal sessions open in this container. After you start a server, run \`sero terminal read\` to check its output and fix errors.\n' : ''}
 Host-side Sero logs are mounted read-only under \`/workspace/.sero/logs\`. Start with \`/workspace/.sero/logs/README.md\`.
 Pi docs: \`${piDocs.root}\``;
 }
@@ -59,10 +59,11 @@ Pi docs: \`${piDocs.root}\``;
 export function buildHostPromptBlock(
   workspaceId: string,
   workspacePath: string,
-  opts?: { platform?: NodeJS.Platform; devBuild?: boolean },
+  opts?: { platform?: NodeJS.Platform; devBuild?: boolean; cliReachable?: boolean },
 ): string {
   const platform = opts?.platform ?? process.platform;
   const piDocs = getHostPiDocsPaths();
+  const cliReachable = opts?.cliReachable ?? true;
   // In a source build, Sero's own renderer answers on this port.
   const rendererNote = opts?.devBuild
     ? '\n- `localhost:5173` is often Sero\'s own renderer. Do not register it for a user preview unless that is the app you started.'
@@ -74,12 +75,11 @@ export function buildHostPromptBlock(
 You are operating on the host runtime for workspace "${workspaceId}".
 Workspace root: ${workspacePath}.
 Use relative paths from the workspace root unless the task needs another workspace.
-Run \`sero workspace access-roots --json\` for the bounded list of additional roots, folder mounts, linked plugins, or referenced workspaces.
-Do NOT hard-code PATH prefixes like \`PATH=/usr/local/bin:/opt/homebrew/...:$PATH\`. Sero already prepares managed Node, npm, pnpm, git and bash on PATH for tool calls.
+${cliReachable ? 'Run \`sero workspace access-roots --json\` for the bounded list of additional roots, folder mounts, linked plugins, or referenced workspaces.\n' : ''}Do NOT hard-code PATH prefixes like \`PATH=/usr/local/bin:/opt/homebrew/...:$PATH\`. Sero already prepares managed Node, npm, pnpm, git and bash on PATH for tool calls.
 
 **Dev servers**
 - Use the actual URL the server prints. If Vite says \`Port 5173 is in use\` and moves to another port, register and report the new port.
-- Once a server is listening, register it with \`sero devserver register\`.${rendererNote}
+${cliReachable ? '- Once a server is listening, register it with \`sero devserver register\`.' : ''}${rendererNote}
 
 Host platform: ${platform}.
 Pi docs: \`${piDocs.root}\``;

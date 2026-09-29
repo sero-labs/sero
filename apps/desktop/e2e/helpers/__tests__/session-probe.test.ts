@@ -64,4 +64,51 @@ describe('session probe', () => {
       .toEqual(['sero-cli: totally_new_command']);
     expect(session?.outcomes.find((outcome) => outcome.label === 'sero-cli: workspace')?.kind).toBe('callable');
   });
+
+  it('fails a call that got no result, even when another call did', async () => {
+    stub = await startProbeStub();
+    const tools = [{ type: 'function', function: { name: 'sero-cli', description: 'cli', parameters: {} } }];
+    const messages = [{ role: 'system', content: CLI_BLOCK }, { role: 'user', content: 'probe' }];
+
+    await post(stub, messages, tools);
+    await post(stub, [
+      ...messages,
+      { role: 'tool', tool_call_id: 'probe-cli-workspace', content: 'Workspaces: one' },
+    ], tools);
+
+    const outcomes = stub.sessions.get('probe')?.outcomes ?? [];
+    expect(outcomes.find((outcome) => outcome.label === 'sero-cli: design_library_items')?.kind).toBe('no-result');
+  });
+
+  it('fails a write whose file the shell cannot read back', async () => {
+    stub = await startProbeStub();
+    const tools = ['write', 'bash'].map((name) => ({ type: 'function', function: { name, description: name, parameters: {} } }));
+    const messages = [{ role: 'user', content: 'probe' }];
+
+    await post(stub, messages, tools);
+    const withResults = [
+      ...messages,
+      { role: 'tool', tool_call_id: 'probe-tool-write', content: 'Wrote 23 bytes' },
+      { role: 'tool', tool_call_id: 'probe-tool-bash', content: 'probe' },
+    ];
+    await post(stub, withResults, tools);
+    await post(stub, [
+      ...withResults,
+      { role: 'tool', tool_call_id: 'probe-read-back', content: 'cat: probe-write.txt: No such file or directory' },
+    ], tools);
+
+    const outcomes = stub.sessions.get('probe')?.outcomes ?? [];
+    expect(outcomes.find((outcome) => outcome.label === 'write then bash')?.kind).toBe('unseen-write');
+  });
+
+  it('fails a call with valid arguments that returns an error', async () => {
+    stub = await startProbeStub();
+    const tools = [{ type: 'function', function: { name: 'find', description: 'find', parameters: {} } }];
+    const messages = [{ role: 'user', content: 'probe' }];
+
+    await post(stub, messages, tools);
+    await post(stub, [...messages, { role: 'tool', tool_call_id: 'probe-tool-find', content: 'Error: search index is missing' }], tools);
+
+    expect(stub.sessions.get('probe')?.outcomes[0]?.kind).toBe('unexpected-error');
+  });
 });

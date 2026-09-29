@@ -253,6 +253,7 @@ export function registerGoalLoop(pi: ExtensionAPI, terminalTools: TerminalToolSw
         'restore',
         'the Goal runtime became unavailable at the settled boundary',
       );
+      terminalTools.set(false);
       if (paused.goal) {
         assertGoalContract(pi, paused.goal);
         announce(pi, paused.goal, 'Goal paused because its runtime became unavailable. Reopen the workspace, then resume it.');
@@ -296,6 +297,8 @@ export function registerGoalLoop(pi: ExtensionAPI, terminalTools: TerminalToolSw
     // A budget or a no-progress hold outranks the two rules below: the goal has
     // already left `active`, with a reason worth more than "paused".
     if (verdict.kind !== 'continue') {
+      // The goal has left `active`, so the terminal tools go with it.
+      terminalTools.set(false);
       if (verdict.goal) {
         assertGoalContract(pi, verdict.goal);
         announce(pi, verdict.goal, verdictText(verdict));
@@ -306,6 +309,7 @@ export function registerGoalLoop(pi: ExtensionAPI, terminalTools: TerminalToolSw
     if (settledTurn.aborted) {
       // Escape or cancel. Pause immediately and never poke a paused goal.
       const paused = await caller.runtime.pause(goal.id, 'abort', 'the turn was cancelled');
+      terminalTools.set(false);
       if (paused.goal) {
         assertGoalContract(pi, paused.goal);
         announce(pi, paused.goal, 'Goal paused because the turn was cancelled. Resume it with /goal resume.');
