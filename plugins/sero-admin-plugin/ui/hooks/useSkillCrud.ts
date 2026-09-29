@@ -88,10 +88,13 @@ export function useSkillCrud(
   }, []);
 
   const save = useCallback(async (data: SkillFileData) => {
+    // If the user picks another skill while the write runs, the result must not replace that editor.
+    const token = latestRead.current;
     setSaving(true);
     try {
       const filePath = await getSero().skills.writeSkill(data);
       await refresh();
+      if (token !== latestRead.current) return;
       setSelected(filePath);
       setIsNew(false);
       setEditing({ ...data, filePath });
@@ -103,9 +106,12 @@ export function useSkillCrud(
   }, [onError, setSaving, refresh]);
 
   const remove = useCallback(async (filePath: string) => {
+    const token = latestRead.current;
     try {
       await getSero().skills.deleteSkill(filePath);
-      if (selected === filePath) {
+      // Clear the editor only if the deleted skill is still the one selected.
+      if (selected === filePath && token === latestRead.current) {
+        latestRead.current += 1;
         setSelected(null);
         setEditing(null);
         setIsNew(false);

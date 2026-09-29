@@ -59,6 +59,11 @@ function realPathOrNearest(target: string): string {
 const isInside = (target: string, root: string): boolean =>
   target === root || target.startsWith(root + path.sep);
 
+/** True when `target`, with every symlink resolved, sits inside `root`, also resolved. */
+export function resolvesInside(target: string, root: string): boolean {
+  return isInside(realPathOrNearest(target), realPathOrNearest(root));
+}
+
 /**
  * Guards against path traversal: a target must live under one of the allowed
  * roots. The profile's SKILLS_DIR is the default. The Skills page also passes
@@ -78,8 +83,7 @@ export function validateSkillPath(
   if (!root) {
     throw new Error(`Skill path must be under ${roots.join(' or ')}`);
   }
-  if (strictRoots.some((dir) => path.resolve(dir) === root)
-    && !isInside(realPathOrNearest(resolved), realPathOrNearest(root))) {
+  if (strictRoots.some((dir) => path.resolve(dir) === root) && !resolvesInside(resolved, root)) {
     throw new Error(`Skill path must not leave ${root}`);
   }
 }

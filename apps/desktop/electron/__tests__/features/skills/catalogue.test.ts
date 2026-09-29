@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { ResourceDiagnostic, Skill } from '@earendil-works/pi-coding-agent';
 
-import { buildSkillCatalogue, pluginLabel, projectSkillsDir } from '@electron/features/skills/catalogue';
+import { buildSkillCatalogue, pluginLabel, projectSkillsDir, projectSkillsRoot } from '@electron/features/skills/catalogue';
 import { validateSkillPath } from '@electron/features/skills/store';
 
 const roots: string[] = [];
@@ -139,5 +139,22 @@ describe('skill paths the Skills page may write', () => {
     expect(() => validateSkillPath(path.join(skillsDir, 'real', 'SKILL.md'), [skillsDir], [skillsDir])).not.toThrow();
     // A new file under a real folder that does not exist yet stays inside.
     expect(() => validateSkillPath(path.join(skillsDir, 'new', 'SKILL.md'), [skillsDir], [skillsDir])).not.toThrow();
+  });
+
+  it('refuses a project whose skills folder is itself a symlink out of the project', () => {
+    const project = mkdtempSync(path.join(tmpdir(), 'skills-catalogue-'));
+    const outside = mkdtempSync(path.join(tmpdir(), 'skills-outside-'));
+    roots.push(project, outside);
+    mkdirSync(path.join(outside, 'stolen'));
+    writeFileSync(path.join(outside, 'stolen', 'SKILL.md'), '---\nname: stolen\ndescription: x\n---\nbody\n');
+    mkdirSync(path.join(project, '.agents'));
+    symlinkSync(outside, projectSkillsDir(project));
+
+    expect(projectSkillsRoot(project)).toBeNull();
+    // It is not listed either, so the page never offers the outside file.
+    expect(buildSkillCatalogue({ skills: [], diagnostics: [] }, [{ id: 'a', name: 'Site', path: project }]).skills).toEqual([]);
+    // A link to a folder inside the project is fine.
+    const inside = workspaceWithSkill('deploy');
+    expect(projectSkillsRoot(inside)).toBe(projectSkillsDir(inside));
   });
 });

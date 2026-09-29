@@ -29,6 +29,8 @@ describe('useSkillCrud selection', () => {
   let crud: SkillCrud;
   let readSkill: ReturnType<typeof vi.fn>;
   const onError = vi.fn();
+  let writeSkill: ReturnType<typeof vi.fn>;
+  let deleteSkill: ReturnType<typeof vi.fn>;
 
   function Probe() {
     crud = useSkillCrud(onError, () => {});
@@ -38,8 +40,10 @@ describe('useSkillCrud selection', () => {
   beforeEach(async () => {
     onError.mockClear();
     readSkill = vi.fn();
+    writeSkill = vi.fn();
+    deleteSkill = vi.fn(async () => {});
     (window as Window & { sero?: unknown }).sero = {
-      skills: { readSkill, listCatalogue: async () => ({ skills: [], projects: [] }) },
+      skills: { readSkill, writeSkill, deleteSkill, listCatalogue: async () => ({ skills: [], projects: [] }) },
     };
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -85,5 +89,31 @@ describe('useSkillCrud selection', () => {
     await act(async () => { await crud.select('/skills/b/SKILL.md'); });
     expect(crud.editing).toBeNull();
     expect(onError).toHaveBeenCalledWith("Failed to load skill 'b'");
+  });
+
+  it('keeps the editor of a newer selection when an earlier save finishes', async () => {
+    readSkill.mockResolvedValueOnce(file('a')).mockResolvedValueOnce(file('b'));
+    const write = deferred<string>();
+    writeSkill.mockReturnValueOnce(write.promise);
+    await act(async () => { await crud.select('/skills/a/SKILL.md'); });
+    let saving!: Promise<void>;
+    await act(async () => { saving = crud.save(file('a')); });
+    await act(async () => { await crud.select('/skills/b/SKILL.md'); });
+    await act(async () => { write.resolve('/skills/a/SKILL.md'); await saving; });
+    expect(crud.selected).toBe('/skills/b/SKILL.md');
+    expect(crud.editing?.name).toBe('b');
+  });
+
+  it('keeps a newer selection when an earlier delete finishes', async () => {
+    readSkill.mockResolvedValueOnce(file('a')).mockResolvedValueOnce(file('b'));
+    const gone = deferred<void>();
+    deleteSkill.mockReturnValueOnce(gone.promise);
+    await act(async () => { await crud.select('/skills/a/SKILL.md'); });
+    let removing!: Promise<void>;
+    await act(async () => { removing = crud.remove('/skills/a/SKILL.md'); });
+    await act(async () => { await crud.select('/skills/b/SKILL.md'); });
+    await act(async () => { gone.resolve(); await removing; });
+    expect(crud.selected).toBe('/skills/b/SKILL.md');
+    expect(crud.editing?.name).toBe('b');
   });
 });

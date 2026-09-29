@@ -21,7 +21,7 @@ import {
   type SourceInfo,
 } from '@earendil-works/pi-coding-agent';
 
-import { SKILLS_DIR } from '@electron/features/skills/store';
+import { resolvesInside, SKILLS_DIR } from '@electron/features/skills/store';
 import type { SkillCatalogue, SkillCatalogueEntry, SkillCatalogueProject } from '@/types/skills';
 
 export interface CatalogueWorkspace {
@@ -33,6 +33,16 @@ export interface CatalogueWorkspace {
 /** The folder Pi reads a project's own skills from. */
 export function projectSkillsDir(workspacePath: string): string {
   return path.join(workspacePath, '.agents', 'skills');
+}
+
+/**
+ * A project's skills folder, or null when a symlink in `.agents` or `.agents/skills`
+ * leads out of the project. The repo may have come from anyone, so that folder is
+ * neither listed nor opened.
+ */
+export function projectSkillsRoot(workspacePath: string): string | null {
+  const dir = projectSkillsDir(workspacePath);
+  return resolvesInside(dir, workspacePath) ? dir : null;
 }
 
 const tidy = (folder: string): string => folder.replace(/^sero-/, '').replace(/-plugin$/, '') || folder;
@@ -125,8 +135,8 @@ export function buildSkillCatalogue(available: LoadedSkills, workspaces: readonl
 
   const projects: SkillCatalogueProject[] = [];
   for (const workspace of workspaces) {
-    const dir = projectSkillsDir(workspace.path);
-    if (!existsSync(dir)) continue;
+    const dir = projectSkillsRoot(workspace.path);
+    if (!dir || !existsSync(dir)) continue;
     const found = loadSkillsFromDir({ dir, source: 'project' }).skills;
     if (found.length === 0) continue;
     projects.push({ id: workspace.id, name: workspace.name });

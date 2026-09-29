@@ -20,7 +20,7 @@ import { reloadAllSessionResources } from '../core/agent';
 import { ensureInfra, applyRuntimeSettings, SERO_CONFIG_PATH } from '@electron/shared/infra/shared-infra';
 import { withDisabledModelSkills } from '@sero-ai/common';
 import { workspaceManager } from '@electron/features/workspace/manager';
-import { buildSkillCatalogue, projectSkillsDir } from '@electron/features/skills/catalogue';
+import { buildSkillCatalogue, projectSkillsRoot } from '@electron/features/skills/catalogue';
 import { SKILLS_DIR } from '@electron/features/skills/store';
 import { withAgentPluginSkills } from '@electron/features/agent-plugins/skills';
 import { dropUserGlobalAgentSkills } from '@electron/features/skills/user-global-agent-skills';
@@ -72,7 +72,7 @@ async function loadAvailableSkills() {
  */
 async function editableSkillRoots(): Promise<{ roots: string[]; strict: string[] }> {
   const workspaces = await workspaceManager.list();
-  const strict = workspaces.map((workspace) => projectSkillsDir(workspace.path));
+  const strict = workspaces.flatMap((workspace) => projectSkillsRoot(workspace.path) ?? []);
   return { roots: [SKILLS_DIR, ...strict], strict };
 }
 
