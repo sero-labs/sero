@@ -75,4 +75,30 @@ describe('questionnaire tool', () => {
       expect.any(AbortSignal),
     );
   });
+
+  it('reports omitted answers as user skips to the agent', async () => {
+    bridge.askQuestion.mockResolvedValue({
+      answers: [{ questionId: 'name', value: 'Sam', label: 'Sam', wasCustom: true }],
+      cancelled: false,
+    });
+
+    const result = await questionnaire.execute(
+      'call-3', {
+        questions: [
+          { id: 'name', label: 'Name', prompt: 'What is your name?', options: [] },
+          { id: 'stack', label: 'Tech Stack', prompt: 'Which stacks?', options: [] },
+          { id: 'style', label: 'Coding Style', prompt: 'Which style?', options: [] },
+        ],
+      }, new AbortController().signal, () => {},
+      { hasUI: false } as Parameters<typeof questionnaire.execute>[4],
+    );
+
+    const text = result.content.find((item) => item.type === 'text')?.text;
+    expect(text).toContain('Tech Stack: skipped by user');
+    expect(text).toContain('Coding Style: skipped by user');
+    expect(text).toContain('Do not ask skipped questions again');
+    expect(result.details).toEqual(expect.objectContaining({
+      skippedQuestionIds: ['stack', 'style'],
+    }));
+  });
 });

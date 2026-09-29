@@ -226,11 +226,12 @@ After receiving answers, write USER.md:
 If the user selected caveman mode but the level answer is unavailable, write \`full\` for \`Caveman Mode\`.
 
 ### Important
-- Run each questionnaire step in order — don't skip steps.
+- Run the identity questionnaire, then the user-profile questionnaire.
 - Use the exact tool parameters shown above.
 - Prefer the predefined multiple-choice options whenever they fit; \`allowOther\` is only the fallback for custom answers.
 - For any \`multiSelect\` question, preserve all selected human-readable answers when writing the profile files.
 - When writing the profile files, use the human-readable answer text the user selected or typed.
+- If a questionnaire result says "skipped by user", respect that choice. Do not ask the skipped question again during setup. Omit its field from the profile file.
 - Do not save long-term memories during setup.
 - After writing both files, confirm to the user that memory is set up.
 - Be friendly and natural between steps — this is a first-time experience.`;

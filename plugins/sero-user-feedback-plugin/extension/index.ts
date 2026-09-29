@@ -245,6 +245,7 @@ function registerQuestionnaireTool(pi: ExtensionAPI) {
         cancelled?: boolean;
         questions?: QuestionItem[];
         answers?: QuestionAnswer[];
+        skippedQuestionIds?: string[];
       } | undefined;
       if (!details || details.cancelled) {
         return new Text(theme.fg('warning', 'Cancelled'), 0, 0);
@@ -252,6 +253,12 @@ function registerQuestionnaireTool(pi: ExtensionAPI) {
       const lines = formatGroupedAnswerLines(details.questions ?? [], details.answers ?? []).map((line) =>
         `${theme.fg('success', '✓ ')}${theme.fg('accent', line.questionLabel)}: ${line.answerText}`,
       );
+      const skippedIds = new Set(details.skippedQuestionIds ?? []);
+      for (const question of details.questions ?? []) {
+        if (skippedIds.has(question.id)) {
+          lines.push(`${theme.fg('muted', '– ')}${question.label}: skipped by user`);
+        }
+      }
       return new Text(lines.join('\n'), 0, 0);
     },
   });
@@ -321,6 +328,11 @@ function flattenQuestions(questions: QuestionItem[]): QuestionItem[] {
   ]);
 }
 
+function getSkippedQuestions(questions: QuestionItem[], answers: QuestionAnswer[]): QuestionItem[] {
+  const answeredIds = new Set(answers.map((answer) => answer.questionId));
+  return questions.filter((question) => !answeredIds.has(question.id));
+}
+
 function formatAnswerText(answer: QuestionAnswer): string {
   if (answer.wasCustom) {
     return `user wrote: ${answer.label}`;
@@ -380,9 +392,14 @@ function buildQuestionnaireResult(
   const answerLines = formatGroupedAnswerLines(questions, answers).map(
     (line) => `${line.questionLabel}: ${line.answerText}`,
   );
+  const skippedQuestions = getSkippedQuestions(questions, answers);
+  const skippedLines = skippedQuestions.map((question) => `${question.label}: skipped by user`);
+  if (skippedLines.length > 0) {
+    skippedLines.push('Do not ask skipped questions again.');
+  }
 
   return {
-    content: [{ type: 'text' as const, text: answerLines.join('\n') }],
-    details: { questions, answers, cancelled: false },
+    content: [{ type: 'text' as const, text: [...answerLines, ...skippedLines].join('\n') }],
+    details: { questions, answers, skippedQuestionIds: skippedQuestions.map((question) => question.id), cancelled: false },
   };
 }
