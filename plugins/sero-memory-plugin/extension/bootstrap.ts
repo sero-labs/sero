@@ -227,7 +227,7 @@ If the user selected caveman mode but the level answer is unavailable, write \`f
 
 ### Important
 - Run the identity questionnaire, then the user-profile questionnaire.
-- Use the exact tool parameters shown above.
+- Use the exact CLI commands shown above.
 - Prefer the predefined multiple-choice options whenever they fit; \`allowOther\` is only the fallback for custom answers.
 - For any \`multiSelect\` question, preserve all selected human-readable answers when writing the profile files.
 - When writing the profile files, use the human-readable answer text the user selected or typed.

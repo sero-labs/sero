@@ -83,7 +83,7 @@ export function QuestionnaireReviewStep({
                   Edit
                 </button>
               </div>
-              {questionAnswers.length > 0 ? (
+              {questionAnswers.length > 0 && (
                 <div className="mt-2 space-y-1 text-base text-emerald-700 dark:text-emerald-400">
                   {questionAnswers.map((answer, answerIndex) => (
                     <p key={`${question.id}-${answer.value}-${answerIndex}`}>
@@ -91,7 +91,8 @@ export function QuestionnaireReviewStep({
                     </p>
                   ))}
                 </div>
-              ) : (
+              )}
+              {isUnanswered && (
                 <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
                   {isSkipped ? 'Skipped' : 'Needs an answer or Skip'}
                 </p>

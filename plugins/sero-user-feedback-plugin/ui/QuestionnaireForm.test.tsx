@@ -212,6 +212,17 @@ describe('QuestionnaireForm', () => {
     expect(container.textContent).toContain('How much detail should the custom format include?');
 
     await act(async () => {
+      clickButton(container, 'Review');
+    });
+
+    expect(container.textContent).toContain('Needs an answer or Skip');
+    expect(findButton(container, 'Submit All Answers').disabled).toBe(true);
+
+    await act(async () => {
+      clickButton(container, 'Delivery');
+    });
+
+    await act(async () => {
       clickButton(container, 'Full');
     });
 
@@ -226,6 +237,38 @@ describe('QuestionnaireForm', () => {
     expect(onSubmit).toHaveBeenCalledWith('pending-1', [
       expect.objectContaining({ questionId: 'delivery', value: 'customized' }),
       expect.objectContaining({ questionId: 'format_depth', value: 'full' }),
+    ]);
+  });
+
+  it('does not send a partial parent answer when its follow-up is skipped', async () => {
+    const nestedQuestion: UserFeedbackPendingQuestion = {
+      ...pendingQuestion,
+      questions: [
+        pendingQuestion.questions[0]!,
+        {
+          id: 'delivery', label: 'Delivery', prompt: 'How should this be delivered?',
+          allowOther: false, multiSelect: true,
+          options: [{
+            value: 'customized', label: 'Custom format',
+            subQuestion: {
+              id: 'depth', label: 'Depth', prompt: 'How much detail?',
+              allowOther: false, options: [{ value: 'full', label: 'Full' }],
+            },
+          }],
+        },
+      ],
+    };
+
+    await act(async () => {
+      root?.render(<QuestionnaireForm question={nestedQuestion} onSubmit={onSubmit} onCancel={onCancel} />);
+    });
+    await act(async () => { clickButton(container, 'Ship it'); });
+    await act(async () => { clickButton(container, 'Custom format'); });
+    await act(async () => { clickButton(container, 'Skip'); });
+    await act(async () => { clickButton(container, 'Submit All Answers'); });
+
+    expect(onSubmit).toHaveBeenCalledWith('pending-1', [
+      expect.objectContaining({ questionId: 'q1', value: 'ship' }),
     ]);
   });
 

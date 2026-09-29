@@ -228,12 +228,22 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
     setCurrentStep((previous) => previous + 1);
   }, []);
 
+  const clearSkip = useCallback((questionId: string) => {
+    setSkippedQuestionIds((previous) => {
+      if (!previous.has(questionId)) return previous;
+      const next = new Set(previous);
+      next.delete(questionId);
+      return next;
+    });
+  }, []);
+
   const handleSkip = useCallback(() => {
     if (currentQuestion && !currentQuestionAnswered) {
+      setAnswers((previous) => clearQuestionTree(previous, currentQuestion));
       setSkippedQuestionIds((previous) => new Set(previous).add(currentQuestion.id));
     }
     goToNextStep();
-  }, [currentQuestion, currentQuestionAnswered, goToNextStep]);
+  }, [clearQuestionTree, currentQuestion, currentQuestionAnswered, goToNextStep]);
 
   const handleSelectOption = useCallback(
     (questionItem: UserFeedbackQuestionItem, option: UserFeedbackQuestionOption, index: number) => {
@@ -264,18 +274,14 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
         return cleaned;
       });
       if (currentQuestion) {
-        setSkippedQuestionIds((previous) => {
-          const next = new Set(previous);
-          next.delete(currentQuestion.id);
-          return next;
-        });
+        clearSkip(currentQuestion.id);
       }
 
       if (isCurrentQuestion && questionItem.multiSelect !== true && !option.subQuestion) {
         goToNextStep();
       }
     },
-    [answers, clearQuestionTree, currentQuestion, goToNextStep],
+    [answers, clearQuestionTree, clearSkip, currentQuestion, goToNextStep],
   );
 
   const handleCustomSubmit = useCallback((questionItem: UserFeedbackQuestionItem, text: string) => {
@@ -292,17 +298,13 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
       return next;
     });
     if (currentQuestion) {
-      setSkippedQuestionIds((previous) => {
-        const next = new Set(previous);
-        next.delete(currentQuestion.id);
-        return next;
-      });
+      clearSkip(currentQuestion.id);
     }
 
     if (currentQuestion?.id === questionItem.id && questionItem.multiSelect !== true) {
       goToNextStep();
     }
-  }, [clearQuestionTree, currentQuestion, goToNextStep]);
+  }, [clearQuestionTree, clearSkip, currentQuestion, goToNextStep]);
 
   const handleRemoveCustom = useCallback((questionItem: UserFeedbackQuestionItem) => {
     setAnswers((previous) => updateQuestionAnswers(
