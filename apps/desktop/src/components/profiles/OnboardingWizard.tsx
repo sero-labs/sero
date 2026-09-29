@@ -41,7 +41,6 @@ export function OnboardingWizard() {
     handleLoginComplete,
     handleContinue,
     handleErrorBack,
-    dismissReadyScreen,
   } = useOnboardingLaunch();
   const hasPendingUserInput = useUserFeedbackStore((state) => state.pending.size > 0);
   const isLaunchingDialogVisible = useLaunchingDialogVisibility(uiPhase, hasPendingUserInput);
@@ -74,15 +73,13 @@ export function OnboardingWizard() {
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={uiPhase === 'ready'}
-        onOpenChange={(open) => {
-          if (!open) {
-            dismissReadyScreen();
-          }
-        }}
-      >
-        <DialogContent className="max-h-[calc(100vh-2rem)] max-w-2xl overflow-y-auto" onInteractOutside={(event) => event.preventDefault()}>
+      <Dialog open={uiPhase === 'ready'} onOpenChange={() => {}}>
+        <DialogContent
+          className="max-h-[calc(100vh-2rem)] max-w-2xl overflow-y-auto"
+          showCloseButton={false}
+          onEscapeKeyDown={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+        >
           <div className="space-y-4">
             <OnboardingLogo />
             {readyRecommendation ? (
