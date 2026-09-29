@@ -28,6 +28,33 @@ export interface AvailableSkillSummary {
   disableModelInvocation: boolean;
 }
 
+/** Where a catalogue skill comes from: the profile, a plugin, or a project's `.agents/skills`. */
+export type SkillScope = 'user' | 'plugin' | 'project';
+
+/** One skill on the Skills page, with the place it was found. */
+export interface SkillCatalogueEntry {
+  name: string;
+  description: string;
+  /** Absolute path to the SKILL.md file. */
+  filePath: string;
+  scope: SkillScope;
+  /** `user` for the profile, the plugin's short name, or the workspace id for a project. */
+  origin: string;
+  /** True when the skill itself disables automatic model invocation. */
+  disableModelInvocation: boolean;
+}
+
+/** A workspace that has at least one skill in its `.agents/skills`. */
+export interface SkillCatalogueProject {
+  id: string;
+  name: string;
+}
+
+export interface SkillCatalogue {
+  skills: SkillCatalogueEntry[];
+  projects: SkillCatalogueProject[];
+}
+
 /**
  * Full skill data for editing (frontmatter + body from SKILL.md).
  *

@@ -337,6 +337,7 @@ export const IpcChannels = {
   skills: {
     listSkills: 'sero:skills:list',
     listAvailableSkills: 'sero:skills:list-available',
+    listCatalogue: 'sero:skills:list-catalogue',
     setDisabledModelSkills: 'sero:skills:set-disabled-model-skills',
     readSkill: 'sero:skills:read',
     writeSkill: 'sero:skills:write',

@@ -68,7 +68,7 @@ The context editor is for session-level instructions and available capabilities.
 - tool selection where supported
 - skills and presets where available
 
-Sessions load skills from Sero's own skill folders, from installed plugins, and from a project's `.agents/skills` folder. They do not load the user-global `~/.agents/skills` folder, which other agent tools write to. The Skills page lists the skills in your profile. It does not list a project's `.agents/skills`, but a chat in that project still loads them.
+Sessions load skills from Sero's own skill folders, from installed plugins, and from a project's `.agents/skills` folder. They do not load the user-global `~/.agents/skills` folder, which other agent tools write to. The Skills page lists your profile's skills, plugin skills, and the `.agents/skills` skills of each project, in collapsible groups. You can edit your own skills and a project's skills. Plugin skills are read only. If two skills share a name, a chat uses the project's skill first, then yours, then the plugin's. The page marks the skill that is not used.
 
 Use it for durable guidance within a session, such as “prefer documentation-only edits” or “ask before destructive Git operations.” Do not rely on it to override every future model decision. Re-state important constraints in the prompt when the risk is high.
 

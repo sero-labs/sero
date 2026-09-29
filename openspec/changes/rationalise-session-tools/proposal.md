@@ -5,7 +5,7 @@ A new chat session sends about 58,400 characters before the user types anything:
 ## What Changes
 
 - Remove the bundled taste skill pack (12 skills under `packages/templates/skills/taste/`). Existing profiles keep their copies.
-- Stop loading skills from the user-global `~/.agents/skills` folder, which another tool's skill installer owns. Project `.agents/skills` folders still load. The Skills UI does not list them either.
+- Stop loading skills from the user-global `~/.agents/skills` folder, which another tool's skill installer owns. Project `.agents/skills` folders still load. The Skills UI does not list the user-global folder either. It lists the profile's skills, plugin skills and every project's own skills.
 - Move `design_library_assets`, `design_library_settings`, `mcp_manager` and, in chat sessions, `automation_browser` behind `sero-cli`. Each moved command gets a summary that says when to use it.
 - Activate the goal terminal tools (`goal_complete`, `goal_blocked`, `goal_wait`) only while a goal is attached to the session.
 - A session's prompt names only tools and commands that session can call: the Sero CLI block needs the `sero-cli` tool, and plugin blocks (memory, MCP, graphify) need their command or tool.

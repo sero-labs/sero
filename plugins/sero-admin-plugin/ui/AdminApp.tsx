@@ -20,6 +20,7 @@ import { useAgentCrud } from './hooks/useAgentCrud';
 import { usePromptCrud } from './hooks/usePromptCrud';
 import { useSkillCrud } from './hooks/useSkillCrud';
 import { useSkillVisibility } from './hooks/useSkillVisibility';
+import { useSkillView } from './hooks/useSkillView';
 import { AgentEditor } from './components/AgentEditor';
 import { AgentList } from './components/AgentList';
 import { ConfigPanel } from './components/ConfigPanel';
@@ -32,8 +33,7 @@ import { PromptEditor } from './components/PromptEditor';
 import { PromptList } from './components/PromptList';
 import { ResourceSection } from './components/ResourceSection';
 import { SessionBrowser } from './components/SessionBrowser';
-import { SkillEditor } from './components/SkillEditor';
-import { SkillList } from './components/SkillList';
+import { SkillsSection } from './components/SkillsSection';
 import './styles.css';
 
 interface AdminLaunchParams extends Record<string, unknown> {
@@ -105,6 +105,7 @@ export function AdminApp() {
   const selectedModelSettingsKey = launchParams.modelSettingsKey ?? state.lastModelSettings;
   const selectedSessionId = state.lastSessionFile;
   const skillVisibility = useSkillVisibility(profilePath);
+  const skillView = useSkillView(skillCrud.skills, skillCrud.projects);
 
   useEffect(() => {
     return onAppLaunchParams<AdminLaunchParams>('admin', (params) => {
@@ -202,18 +203,6 @@ export function AdminApp() {
     updateState((prev) => ({ ...prev, lastPrompt: filePath }));
   }, [selectPrompt, updateState]);
 
-  const getSkillVisibility = useCallback((skillName: string) => {
-    const row = skillVisibility.skills.find((skill) => skill.name === skillName);
-    return {
-      visibleToModel: row?.visibleToModel ?? true,
-      lockedHidden: row?.lockedHidden ?? false,
-    };
-  }, [skillVisibility.skills]);
-
-  const handleSkillVisibilityChange = useCallback((skillName: string, visible: boolean) => {
-    skillVisibility.setSkillEnabled(skillName, visible);
-  }, [skillVisibility]);
-
   if (profilesLoading) {
     return (
       <div className="flex h-full items-center justify-center bg-background">
@@ -253,46 +242,18 @@ export function AdminApp() {
           />
         );
 
-      case 'skills': {
-        const visibility = skillCrud.editing && !skillCrud.isNew
-          ? getSkillVisibility(skillCrud.editing.name)
-          : null;
+      case 'skills':
         return (
-          <ResourceSection
-            label="Skill"
-            count={skillCrud.skills.length}
+          <SkillsSection
+            crud={skillCrud}
+            view={skillView}
+            visibility={skillVisibility}
             loading={resourceLoading}
             error={error}
-            onRefresh={skillCrud.refresh}
-            onNew={skillCrud.startNew}
-            list={
-              <SkillList
-                skills={skillCrud.skills}
-                selected={skillCrud.selected}
-                onSelect={handleSkillSelect}
-              />
-            }
-            editor={skillCrud.editing ? (
-              <SkillEditor
-                data={skillCrud.editing}
-                isNew={skillCrud.isNew}
-                saving={saving}
-                source={skillCrud.selectedSource}
-                visibleToModel={visibility?.visibleToModel}
-                lockedHidden={visibility?.lockedHidden}
-                onVisibilityChange={
-                  visibility
-                    ? (visible) => handleSkillVisibilityChange(skillCrud.editing!.name, visible)
-                    : undefined
-                }
-                onSave={skillCrud.save}
-                onDelete={skillCrud.remove}
-                onChange={skillCrud.setEditing}
-              />
-            ) : null}
+            saving={saving}
+            onSelect={handleSkillSelect}
           />
         );
-      }
 
       case 'prompts':
         return (

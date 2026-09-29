@@ -85,6 +85,24 @@ export interface SkillSummaryIPC {
   source: 'user' | 'project' | 'path';
 }
 
+export type SkillScopeIPC = 'user' | 'plugin' | 'project';
+
+export interface SkillCatalogueEntryIPC {
+  name: string;
+  description: string;
+  filePath: string;
+  scope: SkillScopeIPC;
+  /** `user`, the plugin's short name, or the workspace id for a project skill. */
+  origin: string;
+  disableModelInvocation: boolean;
+}
+
+export interface SkillCatalogueIPC {
+  skills: SkillCatalogueEntryIPC[];
+  /** Workspaces with at least one project skill. */
+  projects: Array<{ id: string; name: string }>;
+}
+
 export interface SkillFileDataIPC {
   name: string;
   description: string;
@@ -390,6 +408,8 @@ export interface SeroSkillsBridge {
   listAvailableSkills(): Promise<AvailableSkillInfo[]>;
   setDisabledModelSkills(skillNames: string[]): Promise<void>;
   listSkills(): Promise<SkillSummaryIPC[]>;
+  /** Every skill a chat could load, from the profile, plugins and each project's `.agents/skills`. */
+  listCatalogue(): Promise<SkillCatalogueIPC>;
   readSkill(filePath: string): Promise<SkillFileDataIPC>;
   writeSkill(data: SkillFileDataIPC): Promise<string>;
   /**

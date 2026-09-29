@@ -7,13 +7,15 @@
 
 import { ipcRenderer } from 'electron';
 import { IpcChannels } from '@/types/ipc-channels';
-import type { SkillSummary, AvailableSkillSummary, SkillFileData } from '@/types/skills';
+import type { SkillSummary, AvailableSkillSummary, SkillCatalogue, SkillFileData } from '@/types/skills';
 
 export const skillsBridge = {
   listSkills: (): Promise<SkillSummary[]> =>
     ipcRenderer.invoke(IpcChannels.skills.listSkills),
   listAvailableSkills: (): Promise<AvailableSkillSummary[]> =>
     ipcRenderer.invoke(IpcChannels.skills.listAvailableSkills),
+  listCatalogue: (): Promise<SkillCatalogue> =>
+    ipcRenderer.invoke(IpcChannels.skills.listCatalogue),
   setDisabledModelSkills: (skillNames: string[]): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.skills.setDisabledModelSkills, skillNames),
   readSkill: (filePath: string): Promise<SkillFileData> =>

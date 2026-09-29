@@ -4,17 +4,25 @@
  */
 
 import { useCallback } from 'react';
-import { Save, Trash2 } from 'lucide-react';
-import { Button } from '@sero-ai/ui/components/ui/button';
-import { Switch } from '@sero-ai/ui/components/ui/switch';
 import { cn } from '@sero-ai/ui/lib/utils';
-import type { SkillFileData, SkillSource } from './types';
+import type { SkillFileData } from './types';
+import type { SkillEntry } from '../lib/skill-catalogue';
+import { SkillEditorHeader } from './SkillEditorHeader';
+import { SkillNotes } from './SkillNotes';
+import { SkillVisibilityRow } from './SkillVisibilityRow';
 
 interface SkillEditorProps {
   data: SkillFileData;
   isNew: boolean;
   saving: boolean;
-  source: SkillSource | null;
+  /** The catalogue entry of the selected skill. Null for a new skill, which is always yours. */
+  entry: SkillEntry | null;
+  /** Where the skill comes from, for the badge and notes: Yours, a plugin name or a project name. */
+  originName: string;
+  /** Set when another skill with the same name is involved. */
+  duplicate: { lead: string; text: string } | null;
+  /** True when a same-name skill wins, so this one is never loaded. */
+  notUsed: boolean;
   visibleToModel?: boolean;
   lockedHidden?: boolean;
   onVisibilityChange?: (visible: boolean) => void;
@@ -26,7 +34,7 @@ interface SkillEditorProps {
 const NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
 
 export function SkillEditor({
-  data, isNew, saving, source,
+  data, isNew, saving, entry, originName, duplicate, notUsed,
   visibleToModel, lockedHidden, onVisibilityChange,
   onSave, onDelete, onChange,
 }: SkillEditorProps) {
@@ -36,7 +44,9 @@ export function SkillEditor({
   );
 
   const canSave = data.name.length > 0 && NAME_RE.test(data.name) && data.body.length > 0;
-  const canDelete = !isNew && data.filePath && source === 'user';
+  const scope = entry?.scope ?? 'user';
+  // A plugin's skill belongs to the plugin. A project's skill is a file in that project.
+  const editable = scope !== 'plugin';
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,36 +55,17 @@ export function SkillEditor({
 
   return (
     <form onSubmit={handleSave} className="flex flex-1 flex-col min-h-0">
-      <div className="flex items-center gap-2 border-b border-border px-4 py-2">
-        <span className="flex-1 text-base font-medium text-foreground truncate">
-          {isNew ? 'New Skill' : data.name}
-        </span>
-        {source && source !== 'user' && (
-          <span className="rounded bg-muted px-1.5 py-0.5 text-sm text-muted-foreground">
-            {source}
-          </span>
-        )}
-        {canDelete && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="text-destructive hover:text-destructive"
-            onClick={() => onDelete(data.filePath!)}
-          >
-            <Trash2 className="size-3.5" />
-            Delete
-          </Button>
-        )}
-        <Button type="submit" size="sm" disabled={!canSave || saving}>
-          {saving ? 'Saving...' : (
-            <>
-              <Save className="size-3.5" />
-              Save
-            </>
-          )}
-        </Button>
-      </div>
+      <SkillEditorHeader
+        title={isNew ? 'New Skill' : data.name}
+        scope={scope}
+        originName={originName}
+        saving={saving}
+        canSave={canSave}
+        deletePath={!isNew && scope === 'user' ? data.filePath : undefined}
+        onDelete={onDelete}
+      />
+
+      <SkillNotes scope={scope} originName={originName} duplicate={duplicate} />
 
       <div className="grid grid-cols-2 gap-3 border-b border-border px-4 py-3">
         <Field label="Name" hint="lowercase, hyphens only">
@@ -93,32 +84,21 @@ export function SkillEditor({
             type="text"
             value={data.description}
             onChange={(e) => update({ description: e.target.value })}
+            readOnly={!editable}
             placeholder="What this skill does"
             className={fieldClass}
           />
         </Field>
       </div>
 
-      {/* Visibility toggle, only for existing, non-new skills */}
       {!isNew && onVisibilityChange !== undefined && visibleToModel !== undefined && (
-        <div className="flex items-center justify-between border-b border-border/50 px-4 py-2.5">
-          <div className="space-y-0.5">
-            <p className="text-xs font-medium text-foreground/85">Model Visibility</p>
-            <p className="text-sm text-muted-foreground/60">
-              {lockedHidden
-                ? 'This skill requires explicit invocation'
-                : visibleToModel
-                  ? 'Model can invoke this skill automatically'
-                  : 'Hidden, use /skill:name to invoke'}
-            </p>
-          </div>
-          <Switch
-            checked={visibleToModel}
-            disabled={lockedHidden}
-            onCheckedChange={onVisibilityChange}
-            aria-label={`Toggle model visibility for ${data.name}`}
-          />
-        </div>
+        <SkillVisibilityRow
+          name={data.name}
+          visibleToModel={visibleToModel}
+          lockedHidden={lockedHidden ?? false}
+          notUsed={notUsed}
+          onChange={onVisibilityChange}
+        />
       )}
 
       <div className="flex flex-1 flex-col min-h-0 px-4 py-3">
@@ -129,6 +109,7 @@ export function SkillEditor({
           id="skill-body"
           value={data.body}
           onChange={(e) => update({ body: e.target.value })}
+          readOnly={!editable}
           placeholder="# My Skill&#10;&#10;Instructions for the agent when this skill is active..."
           className={cn(
             'flex-1 min-h-0 resize-none rounded-md border border-input bg-background',

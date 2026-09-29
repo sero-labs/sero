@@ -39,12 +39,19 @@ export function toSkillSource(sourceInfo: SourceInfo): SkillSource {
   return 'path';
 }
 
-/** Guards against path traversal: a target must live under SKILLS_DIR. */
-export function validateSkillPath(filePath: string): void {
+/**
+ * Guards against path traversal: a target must live under one of the allowed
+ * roots. The profile's SKILLS_DIR is the default. The Skills page also passes
+ * the `.agents/skills` folder of each project, so a project skill can be edited.
+ */
+export function validateSkillPath(filePath: string, roots: readonly string[] = [SKILLS_DIR]): void {
   const resolved = path.resolve(filePath);
-  const root = path.resolve(SKILLS_DIR);
-  if (!resolved.startsWith(root + path.sep) && resolved !== root) {
-    throw new Error(`Skill path must be under ${SKILLS_DIR}`);
+  const inside = roots.some((dir) => {
+    const root = path.resolve(dir);
+    return resolved.startsWith(root + path.sep) || resolved === root;
+  });
+  if (!inside) {
+    throw new Error(`Skill path must be under ${roots.join(' or ')}`);
   }
 }
 
@@ -89,8 +96,8 @@ export function listUserSkills(): SkillSummary[] {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export async function readSkillFile(filePath: string): Promise<SkillFileData> {
-  validateSkillPath(filePath);
+export async function readSkillFile(filePath: string, roots?: readonly string[]): Promise<SkillFileData> {
+  validateSkillPath(filePath, roots);
   const raw = await readFile(filePath, 'utf-8');
   const { frontmatter, body } = parseFrontmatter<SkillFrontmatter>(raw);
 
@@ -112,11 +119,11 @@ export async function readSkillFile(filePath: string): Promise<SkillFileData> {
  *
  * The write is atomic (temp file + rename) so a reader never sees half a skill.
  */
-export async function writeSkillFile(data: SkillFileData): Promise<string> {
+export async function writeSkillFile(data: SkillFileData, roots?: readonly string[]): Promise<string> {
   let targetPath: string;
 
   if (data.filePath) {
-    validateSkillPath(data.filePath);
+    validateSkillPath(data.filePath, roots);
     targetPath = data.filePath;
   } else {
     if (!VALID_SKILL_NAME.test(data.name)) {
