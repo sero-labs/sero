@@ -163,6 +163,7 @@ export type {
 export {
   SESSION_CLI_SURFACE_EVENT,
   trackSessionCliSurface,
+  canRunSeroCommand,
 } from './session-runtime';
 
 export {

@@ -1,5 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
-import { trackSessionCliSurface } from '@sero-ai/common';
+import { canRunSeroCommand, trackSessionCliSurface } from '@sero-ai/common';
 import type { GraphifyPaths } from '../../shared/paths';
 import { readStateFile } from '../../shared/state-io';
 import type { AutoContextSettings } from '../../shared/types';
@@ -64,17 +64,17 @@ function buildIntentAugmentation(
   );
 }
 
-/** Whether the session reaches Graphify as `sero-cli` commands, not as direct tools. */
-function reachesGraphifyThroughCli(
-  pi: ExtensionAPI,
-  cliSurface: { has: (command: string) => boolean },
-): boolean {
-  if (!pi.getActiveTools().includes('sero-cli')) return false;
-  if (pi.getAllTools().some((tool) => tool.name === 'graphify_query')) return false;
-  // A restricted subagent can name `sero-cli` while its registry hides the
-  // Graphify commands, so the hint would name a command it cannot run.
-  return cliSurface.has('graphify_query');
-}
+/**
+ * Every command the session orientation and the system prompt name. The block
+ * is shown only when the session can run all of them, so it never points at a
+ * command a member or a restricted subagent was not given.
+ */
+const ORIENTATION_COMMANDS = [
+  'graphify_query',
+  'graphify_path',
+  'graphify_explain',
+  'graphify_search',
+] as const;
 
 /**
  * Register Graphify auto-context hooks. Fully idle when no graph exists;
@@ -99,7 +99,7 @@ export function registerAutoContext(
     if (!graphContextState.graphExists) return;
     // The hint names `sero-cli` commands. A session without that tool cannot run them,
     // and a session that has the Graphify tools directly needs no command for them.
-    if (!reachesGraphifyThroughCli(pi, cliSurface)) return;
+    if (!canRunSeroCommand(pi, cliSurface, ...ORIENTATION_COMMANDS)) return;
     if (graphContextState.reportContextInjected) return;
 
     const event = _event as BeforeAgentStartEvent;
@@ -192,7 +192,7 @@ export function registerAutoContext(
     }
 
     // Fall back to intent-aware hint, which names a command the session must be able to run.
-    if (!augmentText && reachesGraphifyThroughCli(pi, cliSurface)) {
+    if (!augmentText && canRunSeroCommand(pi, cliSurface, 'graphify_query')) {
       augmentText = buildIntentAugmentation(intent, graphContextState);
     }
 

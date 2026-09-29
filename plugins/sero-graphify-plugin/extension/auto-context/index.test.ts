@@ -133,6 +133,16 @@ describe('session orientation', () => {
     expect(await handlers.get('before_agent_start')?.({ systemPrompt: 'p' }, { cwd })).toBeUndefined();
   });
 
+  it('adds no orientation when the registry hides some of the named commands', async () => {
+    const { cwd, paths } = await makeEnv({ graph: true });
+    const { handlers, announceSurface } = register(paths);
+    // The orientation names query, path, explain and search. A member approved
+    // for `graphify_query` only must not be told to run the other three.
+    announceSurface(['sero-cli', 'graphify_query']);
+    await handlers.get('session_start')?.({}, { cwd });
+    expect(await handlers.get('before_agent_start')?.({ systemPrompt: 'p' }, { cwd })).toBeUndefined();
+  });
+
   it('stays idle when no graph exists', async () => {
     const { cwd, paths } = await makeEnv({});
     const { handlers } = register(paths);
@@ -177,6 +187,19 @@ describe('tool-result augmentation', () => {
     await handlers.get('session_start')?.({}, { cwd });
 
     expect(await handlers.get('tool_result')?.(grepEvent('auth flow'), { cwd })).toBeUndefined();
+  });
+
+  it('keeps the query hint when graphify_query is the only Graphify command', async () => {
+    const { cwd, paths } = await makeEnv({ graph: true });
+    const { handlers, announceSurface } = register(paths);
+    // The augmentation names only `graphify_query`, so it survives a registry
+    // that hid the other Graphify commands.
+    announceSurface(['sero-cli', 'graphify_query']);
+    await handlers.get('session_start')?.({}, { cwd });
+
+    const result = await handlers.get('tool_result')?.(grepEvent('auth flow'), { cwd });
+    expect(result).toBeDefined();
+    expect((result as { content: Array<{ text?: string }> }).content.at(-1)?.text).toContain('graphify_query');
   });
 
   it('dedupes identical events', async () => {

@@ -35,6 +35,33 @@ export function trackSessionCliSurface(
   return { has: (command) => commands === null || commands.has(command) };
 }
 
+/** The part of the extension tool surface `canRunSeroCommand` reads. */
+interface SeroCommandToolSurface {
+  getActiveTools(): readonly string[];
+  getAllTools(): ReadonlyArray<{ name: string }>;
+}
+
+/**
+ * Whether a session can run every named Sero CLI command.
+ *
+ * A prompt block names one or more commands. This keeps it from naming a
+ * command the session cannot run: the session must have `sero-cli`, none of
+ * the names may be a direct tool, and the announced surface must list them
+ * all. A session that never announced a surface stays optimistic, so a plugin
+ * hint is only suppressed when the host said the command is hidden.
+ */
+export function canRunSeroCommand(
+  pi: SeroCommandToolSurface,
+  surface: { has: (command: string) => boolean },
+  ...commands: string[]
+): boolean {
+  if (commands.length === 0) return false;
+  if (!pi.getActiveTools().includes('sero-cli')) return false;
+  // A command the session also has as a direct tool needs no prompt line.
+  if (commands.some((command) => pi.getAllTools().some((tool) => tool.name === command))) return false;
+  return commands.every((command) => surface.has(command));
+}
+
 export interface ExtensionRuntimeTextContent {
   type: 'text';
   text: string;

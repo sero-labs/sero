@@ -99,4 +99,28 @@ describe('mcp extension registration', () => {
 
     expect(await beforeAgentStart({ systemPrompt: 'BASE' })).toBeUndefined();
   });
+
+  it('adds no MCP guidance when the registry hides one of the two commands', async () => {
+    const on = vi.fn();
+    const eventHandlers = new Map<string, (data: unknown) => void>();
+    const pi = {
+      registerTool: vi.fn(),
+      on,
+      getActiveTools: () => ['sero-cli'],
+      getAllTools: () => [],
+      events: {
+        on: (channel: string, handler: (data: unknown) => void) => { eventHandlers.set(channel, handler); },
+      },
+    } as unknown as ExtensionAPI;
+
+    mcpExtension(pi);
+    // The block teaches both `sero mcp` and `sero mcp_manager`. A member can be
+    // approved for one and not the other, so the block must check both.
+    eventHandlers.get(SESSION_CLI_SURFACE_EVENT)?.({ commands: ['sero-cli', 'mcp'] });
+
+    const beforeAgentStart = on.mock.calls.find(([eventName]) => eventName === 'before_agent_start')?.[1] as
+      (event: { systemPrompt: string }) => Promise<unknown>;
+
+    expect(await beforeAgentStart({ systemPrompt: 'BASE' })).toBeUndefined();
+  });
 });
