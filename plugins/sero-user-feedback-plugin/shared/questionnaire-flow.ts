@@ -36,6 +36,34 @@ export function hasQuestionAnswerDeep(
   ));
 }
 
+/**
+ * How a question stands once the user is done with it: answered, explicitly
+ * skipped, or still waiting for one of the two.
+ */
+export type QuestionStatus = 'answered' | 'skipped' | 'unresolved';
+
+export function getQuestionStatus(
+  answers: ReadonlyMap<string, QuestionAnswer[]>,
+  question: QuestionItem,
+  skippedQuestionIds: ReadonlySet<string>,
+): QuestionStatus {
+  if (hasQuestionAnswerDeep(answers, question)) return 'answered';
+  return skippedQuestionIds.has(question.id) ? 'skipped' : 'unresolved';
+}
+
+/** Status of every question, keyed by question id. */
+export function getQuestionStatuses(
+  questions: QuestionItem[],
+  answers: ReadonlyMap<string, QuestionAnswer[]>,
+  skippedQuestionIds: ReadonlySet<string>,
+): Map<string, QuestionStatus> {
+  const statuses = new Map<string, QuestionStatus>();
+  for (const question of questions) {
+    statuses.set(question.id, getQuestionStatus(answers, question, skippedQuestionIds));
+  }
+  return statuses;
+}
+
 export function getCustomAnswer(
   answers: QuestionAnswer[],
 ): QuestionAnswer | undefined {

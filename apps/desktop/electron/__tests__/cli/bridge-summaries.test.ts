@@ -55,4 +55,55 @@ describe('bridged JSON parameters', () => {
     expect(result.exitCode).toBe(0);
     expect(received).toEqual({ toolArguments: { repo: 'sero' }, view: { scope: 'all' } });
   });
+
+  it('rejects arguments that do not match the tool schema before execution', async () => {
+    let called = false;
+    const tool = defineTool({
+      name: 'schema_strict_tool',
+      label: 'Strict',
+      description: 'Takes an array of questions.',
+      parameters: Type.Object({ questions: Type.Array(Type.String()) }),
+      execute: async () => {
+        called = true;
+        return { content: [{ type: 'text', text: 'ok' }], details: {} };
+      },
+    });
+
+    const command = bridgeTool('schema_strict_tool', tool);
+    const result = await command.execute(
+      [],
+      { workspaceId: 'ws', sessionId: null, cwd: process.cwd(), invocation: { signal: undefined } } as never,
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(called).toBe(false);
+  });
+
+  it('coerces nested JSON values the same way as an agent tool call', async () => {
+    let received: unknown;
+    const tool = defineTool({
+      name: 'nested_coerce_tool',
+      label: 'Nested',
+      description: 'Takes an array of objects.',
+      parameters: Type.Object({
+        items: Type.Array(Type.Object({
+          id: Type.String(),
+          allowOther: Type.Optional(Type.Boolean()),
+        })),
+      }),
+      execute: async (_id, params) => {
+        received = params;
+        return { content: [{ type: 'text', text: 'ok' }], details: {} };
+      },
+    });
+
+    const command = bridgeTool('nested_coerce_tool', tool);
+    const result = await command.execute(
+      ['[{"id":"a","allowOther":"true"}]'],
+      { workspaceId: 'ws', sessionId: null, cwd: process.cwd(), invocation: { signal: undefined } } as never,
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(received).toEqual({ items: [{ id: 'a', allowOther: true }] });
+  });
 });

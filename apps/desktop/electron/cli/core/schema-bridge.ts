@@ -13,8 +13,10 @@
  */
 
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
+import { validateToolArguments } from '@earendil-works/pi-ai';
 import type { CliCommand, CliCommandContext, CliContentBlock, CliResult } from './types';
 import { buildCommandContext, buildToolContext } from './bridge-context';
+import { extractContent, extractText } from './tool-result';
 import { getBridgedExtensionCommand, getBridgedExtensionTool } from '../bridges/extension-session-bridge';
 import { parseFlags } from '../lib/utils';
 
@@ -144,7 +146,15 @@ export function getCliParamType(type: SchemaPropType): 'string' | 'number' | 'bo
 
 // ── Arg parsing (schema-driven) ─────────────────────────────
 
-function coerceValue(value: string | true, prop: SchemaProp): unknown {
+/** One CLI argument after coercion, before it joins a tool's params object. */
+export type CliArgValue =
+  | string
+  | number
+  | boolean
+  | readonly unknown[]
+  | Record<string, unknown>;
+
+function coerceValue(value: string | true, prop: SchemaProp): CliArgValue {
   if (value === true) return true;
   if (prop.type === 'number' || prop.type === 'integer') {
     const n = Number(value);
@@ -311,37 +321,6 @@ export function generateHelp(
   return lines.join('\n');
 }
 
-// ── Tool result extraction ──────────────────────────────────
-
-function extractContent(result: unknown): CliContentBlock[] {
-  const content = (result as { content?: unknown })?.content;
-  if (!Array.isArray(content)) return [];
-
-  return content.flatMap((block): CliContentBlock[] => {
-    if (!block || typeof block !== 'object') return [];
-    if ((block as { type?: string }).type === 'text' && typeof (block as { text?: unknown }).text === 'string') {
-      return [{ type: 'text', text: (block as { text: string }).text }];
-    }
-    if ((block as { type?: string }).type === 'image' && typeof (block as { data?: unknown }).data === 'string') {
-      return [{
-        type: 'image',
-        data: (block as { data: string }).data,
-        mimeType: typeof (block as { mimeType?: unknown }).mimeType === 'string'
-          ? (block as { mimeType: string }).mimeType
-          : 'image/png',
-      }];
-    }
-    return [];
-  });
-}
-
-function extractText(content: CliContentBlock[]): string {
-  return content
-    .filter((entry): entry is { type: 'text'; text: string } => entry.type === 'text')
-    .map((entry) => entry.text)
-    .join('\n');
-}
-
 // ── Bridge a ToolDefinition into a CliCommand ───────────────
 
 export interface CustomToolCliBridge {
@@ -430,9 +409,24 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition, options?: 
 
         const params = schemaToParams(props, args);
         const activeToolDef = getBridgedExtensionTool(toolName, ctx)?.definition ?? toolDef;
+        // Mirror Pi's own tool-call path: run the tool's prepareArguments shim,
+        // then validate and coerce. CLI calls reach execute with the same
+        // arguments as agent calls, and one rule covers every bridged tool.
+        const prepared = activeToolDef.prepareArguments
+          ? activeToolDef.prepareArguments(params)
+          : params;
+        if (!isRecord(prepared)) {
+          return { output: `ERROR: ${toolName} expects one object argument.`, exitCode: 1 };
+        }
+        const toolArguments: Record<string, unknown> = validateToolArguments(activeToolDef, {
+          type: 'toolCall',
+          id: 'cli-bridge',
+          name: toolName,
+          arguments: prepared,
+        });
         const result = await activeToolDef.execute(
           'cli-bridge',
-          params,
+          toolArguments,
           ctx.invocation.signal,
           onUpdate,
           await buildToolContext(ctx),

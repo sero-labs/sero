@@ -4,6 +4,7 @@ import {
   canSubmitQuestionnaire,
   flattenQuestionnaireAnswers,
   formatQuestionnaireAnswerLabel,
+  getQuestionStatuses,
   hasQuestionAnswerDeep,
   selectQuestionOption,
   submitCustomQuestionAnswer,
@@ -35,6 +36,42 @@ const multiQuestion: QuestionItem = {
 };
 
 describe('questionnaire flow helpers', () => {
+  it('classifies answered, skipped and unresolved questions from one status pass', () => {
+    const nestedQuestion: QuestionItem = {
+      id: 'q3',
+      label: 'Question 3',
+      prompt: 'Choose a format',
+      allowOther: true,
+      options: [
+        {
+          value: 'custom',
+          label: 'Custom format',
+          subQuestion: {
+            id: 'q3-depth',
+            label: 'Depth',
+            prompt: 'How deep?',
+            allowOther: false,
+            options: [{ value: 'deep', label: 'Deep' }],
+          },
+        },
+      ],
+    };
+    const answers = new Map<string, QuestionAnswer[]>([
+      [singleQuestion.id, [{ questionId: singleQuestion.id, value: 'one', label: 'One', wasCustom: false, index: 1 }]],
+      [nestedQuestion.id, [{ questionId: nestedQuestion.id, value: 'custom', label: 'Custom format', wasCustom: false, index: 1 }]],
+    ]);
+
+    const statuses = getQuestionStatuses(
+      [singleQuestion, multiQuestion, nestedQuestion],
+      answers,
+      new Set([multiQuestion.id]),
+    );
+
+    expect(statuses.get(singleQuestion.id)).toBe('answered');
+    expect(statuses.get(multiQuestion.id)).toBe('skipped');
+    expect(statuses.get(nestedQuestion.id)).toBe('unresolved');
+  });
+
   it('allows questionnaire submission once any answer exists and preserves question order', () => {
     const answers = new Map<string, QuestionAnswer[]>([
       [multiQuestion.id, [{ questionId: multiQuestion.id, value: 'beta', label: 'Beta', wasCustom: false, index: 2 }]],
