@@ -2,7 +2,7 @@
 
 - [ ] 1.1 Start Sero with `SERO_HOME_OVERRIDE=/Users/danielcarter/Documents/Dev/projects/sero/temp/profiles/session-tools pnpm dev:isolated`, finish onboarding, and create one host workspace and one container workspace. Verify that `temp/profiles/session-tools/profiles.json` exists and that both workspaces open.
 - [x] 1.2 Capture `window.sero.agent.getContext(sessionId)` for a host chat and a container chat, and save each to `temp/profiles/session-tools/baseline/<kind>.json`. Verify each file records the system prompt length, the tool list and the tool schema length.
-- [ ] 1.3 Record the baseline table (chars for each prompt block and tool) in the PR description. Verify it lists the numbers for both workspaces.
+- [x] 1.3 Record the baseline table (chars for each prompt block and tool) in the PR description. Verify it lists the numbers for both workspaces.
 
 ## 2. Callability harness
 
@@ -60,7 +60,7 @@
 ## 10. Measure and check in Sero
 
 - [x] 10.1 Run `e2e/session-tools.contract.spec.ts` for all kinds. Verify it is green.
-- [ ] 10.2 Update `__tests__/agent/token-baseline.test.ts` for the new blocks. Verify that the chat start-up in the harness output is at or below 32,000 chars on a fresh profile, and record before and after for each kind in the PR description.
+- [x] 10.2 Update `__tests__/agent/token-baseline.test.ts` for the new blocks. Verify that the chat start-up in the harness output is at or below 32,000 chars on a fresh profile, and record before and after for each kind in the PR description.
 - [x] 10.3 Add `e2e/session-tools.agent.spec.ts` with the four plain-language requests from design D8 on the cheap LLM mode (`openai/gpt-5.6-luna`). Run it once and verify that the model picks each moved command and reads the `pi-docs` skill for the Pi question.
 - [ ] 10.4 Manual pass in Sero in the `temp/profiles/session-tools` profile, on a host and a container workspace. Ask a chat to use the Pi docs and confirm it loads the `pi-docs` skill and reads the README. Ask for an MCP server list and a Design Library setting change and confirm it uses `sero-cli`. Start and finish a goal and confirm the terminal tools appear only during it. Import an image in the Design Library UI. Record the results in the PR description.
 - [x] 10.5 Update `apps/docs-site/docs/reference/sero-cli.md` and the plugin `bridgeTools` guidance (bridge by default; say that `~/.agents/skills` is not loaded). Verify the docs site builds.
