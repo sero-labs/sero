@@ -17,7 +17,7 @@ import { MEDIA_CAPABILITIES, type MediaCapability } from '../../shared/media';
 import type { DesignLibraryPaths } from '../../shared/paths';
 import type { DesignLibrarySettings, PromptRecipe } from '../../shared/settings';
 import { MAX_CALLS_PER_RUN } from '../../shared/settings';
-import { appendRequest, readJsonFile, readState, writeJsonFile } from '../../shared/state-io';
+import { appendRequest, pendingRequests, readJsonFile, readState, writeJsonFile } from '../../shared/state-io';
 import type { ViewPatch } from '../../shared/types';
 import { createFalMediaModelCatalog } from '../fal-media-model-catalog';
 import { failure, text, type ToolResult } from './result';
@@ -108,6 +108,20 @@ function renderSettings(
   return text(lines.join('\n'), { settings, indexRepair });
 }
 
+/**
+ * A write only queues a request. The runtime applies it a moment later. Reading
+ * `state.settings` alone would return the old value right after a write, and a
+ * second write would build its patch on the old value and drop the first change.
+ * So both start from the settings with the queued patches applied, in the same
+ * shallow merge the runtime uses.
+ */
+function settingsWithPendingPatches(state: Awaited<ReturnType<typeof readState>>): DesignLibrarySettings {
+  return pendingRequests(state).reduce(
+    (settings, request) => (request.body.kind === 'settings.update' ? { ...settings, ...request.body.patch } : settings),
+    state.settings,
+  );
+}
+
 export function registerSettingsTool(
   pi: ExtensionAPI,
   paths: DesignLibraryPaths,
@@ -152,7 +166,7 @@ export function registerSettingsTool(
     }),
     async execute(_toolCallId, params, signal): Promise<ToolResult> {
       const state = await readState(paths);
-      const settings = state.settings;
+      const settings = settingsWithPendingPatches(state);
 
       switch (params.action) {
         case 'read':
