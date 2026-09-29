@@ -51,7 +51,7 @@ function llmConfig() {
  * Asks one plain question in a fresh chat and stops the turn as soon as the model starts the call
  * that matches. What the check needs is which command the model picks, not how long it then talks.
  */
-async function ask(request: string, target: { tool: string; pattern: string }): Promise<{ matched: boolean; calls: string[] }> {
+async function ask(request: string, target: { tool: string; pattern: string; minOutput?: number }): Promise<{ matched: boolean; calls: string[] }> {
   const session = await page.evaluate(async ({ id }) => {
     const created = await window.sero.sessions.create(id);
     await window.sero.agent.open(created.id, created.path, id);
@@ -66,10 +66,13 @@ async function ask(request: string, target: { tool: string; pattern: string }): 
     if (lowest && lowest !== state?.thinkingLevel) await window.sero.agent.setThinkingLevel(id, lowest);
   }, session.id);
 
-  return page.evaluate(({ id, text, tool, pattern, timeoutMs }) => new Promise<{ matched: boolean; calls: string[] }>((resolve) => {
+  return page.evaluate(({ id, text, tool, pattern, minOutput, timeoutMs }) => new Promise<{ matched: boolean; calls: string[] }>((resolve) => {
     const calls: string[] = [];
     const seen: Record<string, number> = {};
     const matcher = new RegExp(pattern);
+    const toolMatcher = new RegExp(`^(${tool})$`);
+    // With `minOutput`, a matching call counts only when its result comes back as a real answer.
+    const watching = new Set<string>();
     let unsubscribe: (() => void) | undefined;
     const finish = (matched: boolean) => {
       window.clearTimeout(timer);
@@ -84,12 +87,19 @@ async function ask(request: string, target: { tool: string; pattern: string }): 
       if (event.type === 'tool_start') {
         const call = JSON.stringify(event.tool);
         calls.push(call.slice(0, 300));
-        if (event.tool.toolName === tool && matcher.test(call)) finish(true);
+        if (toolMatcher.test(event.tool.toolName) && matcher.test(call)) {
+          if (minOutput === undefined) finish(true);
+          else watching.add(event.tool.toolCallId);
+        }
+      }
+      if (event.type === 'tool_end' && watching.has(event.toolCallId)) {
+        calls.push(`result ${event.isError ? 'error' : 'ok'} (${event.output?.length ?? 0} chars): ${(event.output ?? '').slice(0, 120)}`);
+        if (!event.isError && (event.output?.length ?? 0) >= (minOutput ?? 0)) finish(true);
       }
       if (event.type === 'agent_end' || event.type === 'error') finish(false);
     });
     window.sero.agent.prompt(id, text, undefined, `e2e-${Date.now()}`).catch(() => finish(false));
-  }), { id: session.id, text: request, tool: target.tool, pattern: target.pattern, timeoutMs: 240_000 });
+  }), { id: session.id, text: request, tool: target.tool, pattern: target.pattern, minOutput: target.minOutput, timeoutMs: 240_000 });
 }
 
 test.beforeAll(async () => {
@@ -146,8 +156,11 @@ test('a hidden browser request goes to the browser command', async () => {
   expect(matched, `no browser command in:\n${calls.join('\n')}`).toBe(true);
 });
 
-test('a Pi docs question reads the pi-docs skill', async () => {
+test('a Pi docs question reaches the docs, and the read works', async () => {
   test.setTimeout(360_000);
-  const { matched, calls } = await ask('Where are the Pi coding agent documentation files, and what does its main README say it is? Read it before you answer.', { tool: 'read', pattern: 'pi-docs' });
-  expect(matched, `pi-docs skill was not read in:\n${calls.join('\n')}`).toBe(true);
+  const { matched, calls } = await ask(
+    'How does a Pi extension register a custom tool? Read the Pi documentation itself before you answer.',
+    { tool: 'read|bash', pattern: 'shared/pi-docs|pi-coding-agent', minOutput: 200 },
+  );
+  expect(matched, `the Pi docs were not read successfully in:\n${calls.join('\n')}`).toBe(true);
 });
