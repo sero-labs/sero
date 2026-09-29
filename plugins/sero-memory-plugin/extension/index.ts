@@ -69,13 +69,7 @@ export default function memoryExtension(pi: ExtensionAPI): void {
       state.snapshot = null;
       const status = await checkBootstrapStatus();
       state.awaitingBootstrapFollowUp = status.needsBootstrap;
-      if (status.needsBootstrap) {
-        pi.sendMessage(
-          { customType: 'memory-bootstrap', content: 'Memory system detected — starting setup.', display: true },
-          { triggerTurn: false },
-        );
-        return;
-      }
+      if (status.needsBootstrap) return;
       void acquireIndex(sessionIdOf(ctx), workspaceOf(ctx));
       // The snapshot waits for the one-time conversion; the tidy-up waits for the snapshot.
       const snapshot = snapshotFor(ctx);

@@ -8,6 +8,7 @@ import { tokenizeCliInput } from '../../../../apps/desktop/electron/cli/core/par
 import { buildBootstrapInstructions, checkBootstrapStatus, USER_QUESTIONS } from '../bootstrap';
 import { conversionPaths } from '../conversion';
 import { getIdentityPath, getMemoryPath, getUserPath, resolveMemoryRoot } from '../memory-manager';
+import { createSession } from './harness';
 
 const originalSeroHome = process.env.SERO_HOME;
 
@@ -79,6 +80,15 @@ describe('bootstrap status', () => {
 
     await writeFile(getUserPath(resolveMemoryRoot()), '# User\n');
     expect((await checkBootstrapStatus()).needsBootstrap).toBe(false);
+  });
+
+  it('starts onboarding without adding a status message to chat', async () => {
+    const session = createSession({ sessionId: 'bootstrap-test', cwd: seroHome });
+
+    await session.start();
+
+    expect(session.sentMessageTypes).toEqual([]);
+    expect((await session.prompt('Set up memory')).systemPrompt).toContain('Memory Setup Required');
   });
 
   it('does not onboard a profile whose old MEMORY.md was converted', async () => {

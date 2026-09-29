@@ -4,7 +4,25 @@ import {
   buildTurnUndoMapByTurn,
   convertSessionMessages,
   findLatestTurnUndo,
+  formatCustomMessage,
 } from '@electron/ipc/agent/core/agent-messages';
+
+describe('memory bootstrap notices', () => {
+  it('hides notices already saved in chat history and live custom messages', () => {
+    const notice = {
+      role: 'custom',
+      customType: 'memory-bootstrap',
+      content: 'Memory system detected — starting setup.',
+      display: true,
+    };
+
+    expect(formatCustomMessage(notice)).toBeNull();
+    expect(convertSessionMessages([
+      notice,
+      { role: 'assistant', content: [{ type: 'text', text: 'Welcome.' }] },
+    ] as never)).toMatchObject([{ type: 'assistant', text: 'Welcome.' }]);
+  });
+});
 
 describe('agent turn-undo message mapping', () => {
   it('attaches turn-undo refs to the same user turn they undo', () => {
