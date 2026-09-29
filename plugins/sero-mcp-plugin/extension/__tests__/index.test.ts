@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { SESSION_CLI_SURFACE_EVENT } from '@sero-ai/common';
 import mcpExtension from '../index';
 
 describe('mcp extension registration', () => {
@@ -68,6 +69,54 @@ describe('mcp extension registration', () => {
     } as unknown as ExtensionAPI;
 
     mcpExtension(pi);
+
+    const beforeAgentStart = on.mock.calls.find(([eventName]) => eventName === 'before_agent_start')?.[1] as
+      (event: { systemPrompt: string }) => Promise<unknown>;
+
+    expect(await beforeAgentStart({ systemPrompt: 'BASE' })).toBeUndefined();
+  });
+
+  it('adds no MCP guidance when the session registry hides the mcp command', async () => {
+    const on = vi.fn();
+    const eventHandlers = new Map<string, (data: unknown) => void>();
+    const pi = {
+      registerTool: vi.fn(),
+      on,
+      getActiveTools: () => ['sero-cli'],
+      getAllTools: () => [],
+      events: {
+        on: (channel: string, handler: (data: unknown) => void) => { eventHandlers.set(channel, handler); },
+      },
+    } as unknown as ExtensionAPI;
+
+    mcpExtension(pi);
+    // A restricted subagent names `sero-cli` but the allowlist keeps `mcp` out
+    // of its registry, so the hint would name a command it cannot run.
+    eventHandlers.get(SESSION_CLI_SURFACE_EVENT)?.({ commands: ['read', 'bash', 'sero-cli'] });
+
+    const beforeAgentStart = on.mock.calls.find(([eventName]) => eventName === 'before_agent_start')?.[1] as
+      (event: { systemPrompt: string }) => Promise<unknown>;
+
+    expect(await beforeAgentStart({ systemPrompt: 'BASE' })).toBeUndefined();
+  });
+
+  it('adds no MCP guidance when the registry hides one of the two commands', async () => {
+    const on = vi.fn();
+    const eventHandlers = new Map<string, (data: unknown) => void>();
+    const pi = {
+      registerTool: vi.fn(),
+      on,
+      getActiveTools: () => ['sero-cli'],
+      getAllTools: () => [],
+      events: {
+        on: (channel: string, handler: (data: unknown) => void) => { eventHandlers.set(channel, handler); },
+      },
+    } as unknown as ExtensionAPI;
+
+    mcpExtension(pi);
+    // The block teaches both `sero mcp` and `sero mcp_manager`. A member can be
+    // approved for one and not the other, so the block must check both.
+    eventHandlers.get(SESSION_CLI_SURFACE_EVENT)?.({ commands: ['sero-cli', 'mcp'] });
 
     const beforeAgentStart = on.mock.calls.find(([eventName]) => eventName === 'before_agent_start')?.[1] as
       (event: { systemPrompt: string }) => Promise<unknown>;

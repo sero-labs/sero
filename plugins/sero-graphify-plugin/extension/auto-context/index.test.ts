@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { SESSION_CLI_SURFACE_EVENT } from '@sero-ai/common';
 import { mkdtemp, mkdir, writeFile, copyFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -10,9 +11,11 @@ import { CURRENT_INDEX_MODE_VERSION, DEFAULT_STATE, type GraphifyState } from '.
 const FIXTURE = path.join(__dirname, '..', '..', 'shared', 'query-engine', 'fixtures', 'small-graph.json');
 
 type HookHandler = (event: unknown, ctx: { cwd: string }) => Promise<unknown>;
+type EventHandler = (data: unknown) => void;
 
 function createPiStub(activeTools: string[] = ['sero-cli'], allTools: string[] = []) {
   const handlers = new Map<string, HookHandler>();
+  const eventHandlers = new Map<string, EventHandler>();
   const pi = {
     registerTool: vi.fn(),
     getActiveTools: () => activeTools,
@@ -20,8 +23,16 @@ function createPiStub(activeTools: string[] = ['sero-cli'], allTools: string[] =
     on: vi.fn((event: string, handler: HookHandler) => {
       handlers.set(event, handler);
     }),
+    events: {
+      on: (channel: string, handler: EventHandler) => {
+        eventHandlers.set(channel, handler);
+      },
+    },
   };
-  return { pi, handlers };
+  const announceSurface = (commands: string[]) => {
+    eventHandlers.get(SESSION_CLI_SURFACE_EVENT)?.({ commands });
+  };
+  return { pi, handlers, announceSurface };
 }
 
 interface HomeOptions {
@@ -60,9 +71,9 @@ async function makeEnv(options: HomeOptions = {}) {
 }
 
 function register(paths: GraphifyPaths, activeTools?: string[], allTools?: string[]) {
-  const { pi, handlers } = createPiStub(activeTools, allTools);
+  const { pi, handlers, announceSurface } = createPiStub(activeTools, allTools);
   const registration = registerAutoContext(pi as never, paths);
-  return { handlers, registration };
+  return { handlers, registration, announceSurface };
 }
 
 const grepEvent = (pattern: string, lineCount = 12) => ({
@@ -112,6 +123,26 @@ describe('session orientation', () => {
     expect(await handlers.get('before_agent_start')?.({ systemPrompt: 'p' }, { cwd })).toBeUndefined();
   });
 
+  it('adds no command hint when the session registry hides the Graphify commands', async () => {
+    const { cwd, paths } = await makeEnv({ graph: true });
+    const { handlers, announceSurface } = register(paths);
+    // A restricted subagent names `sero-cli` but the allowlist keeps the
+    // Graphify commands out of its registry.
+    announceSurface(['read', 'bash', 'sero-cli']);
+    await handlers.get('session_start')?.({}, { cwd });
+    expect(await handlers.get('before_agent_start')?.({ systemPrompt: 'p' }, { cwd })).toBeUndefined();
+  });
+
+  it('adds no orientation when the registry hides some of the named commands', async () => {
+    const { cwd, paths } = await makeEnv({ graph: true });
+    const { handlers, announceSurface } = register(paths);
+    // The orientation names query, path, explain and search. A member approved
+    // for `graphify_query` only must not be told to run the other three.
+    announceSurface(['sero-cli', 'graphify_query']);
+    await handlers.get('session_start')?.({}, { cwd });
+    expect(await handlers.get('before_agent_start')?.({ systemPrompt: 'p' }, { cwd })).toBeUndefined();
+  });
+
   it('stays idle when no graph exists', async () => {
     const { cwd, paths } = await makeEnv({});
     const { handlers } = register(paths);
@@ -147,6 +178,28 @@ describe('tool-result augmentation', () => {
     expect(content.at(-1)?.text).toContain('[Graphify]');
     expect(content.at(-1)?.text).toContain('graphify_query');
     expect(content.at(-1)?.text).toContain('`sero-cli` model tool');
+  });
+
+  it('adds no command hint to broad results when the registry hides the Graphify commands', async () => {
+    const { cwd, paths } = await makeEnv({ graph: true });
+    const { handlers, announceSurface } = register(paths);
+    announceSurface(['read', 'bash', 'sero-cli']);
+    await handlers.get('session_start')?.({}, { cwd });
+
+    expect(await handlers.get('tool_result')?.(grepEvent('auth flow'), { cwd })).toBeUndefined();
+  });
+
+  it('keeps the query hint when graphify_query is the only Graphify command', async () => {
+    const { cwd, paths } = await makeEnv({ graph: true });
+    const { handlers, announceSurface } = register(paths);
+    // The augmentation names only `graphify_query`, so it survives a registry
+    // that hid the other Graphify commands.
+    announceSurface(['sero-cli', 'graphify_query']);
+    await handlers.get('session_start')?.({}, { cwd });
+
+    const result = await handlers.get('tool_result')?.(grepEvent('auth flow'), { cwd });
+    expect(result).toBeDefined();
+    expect((result as { content: Array<{ text?: string }> }).content.at(-1)?.text).toContain('graphify_query');
   });
 
   it('dedupes identical events', async () => {

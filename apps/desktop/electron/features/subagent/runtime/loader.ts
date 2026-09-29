@@ -16,7 +16,8 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import type { ContainerPromptState } from '@electron/features/container/tools/container-prompt-state';
 import { buildContainerPromptBlock } from '@electron/features/container/tools/system-prompt';
-import { buildCliPromptBlock } from '@electron/cli';
+import { buildCliPromptBlock, getCliRegistry } from '@electron/cli';
+import { announceSessionCliSurface } from '@electron/cli/session-surface';
 import { removePiDocsSection } from '@electron/features/pi-docs/strip-pi-docs-section';
 import { withHostPiDocsPointer } from '@electron/features/pi-docs/host-pointer';
 import { logProviderRequest } from '@electron/ipc/editor/debug';
@@ -74,6 +75,12 @@ export function createSubagentExtensionFactory(
 
     pi.on('before_provider_request', async (event) => {
       logProviderRequest(_sessionId, event.payload);
+    });
+
+    // Tell plugin prompt blocks which commands this session can actually run.
+    // A restricted subagent reaches plugin tools only when they were bridged.
+    pi.on('session_start', () => {
+      announceSessionCliSurface(pi.events, currentWorkspaceId, _sessionId, getCliRegistry());
     });
 
     // ── sero:notify — shared notification bus ─────────────────
