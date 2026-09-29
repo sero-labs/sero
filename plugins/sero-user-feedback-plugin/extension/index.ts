@@ -17,6 +17,10 @@ import { Type } from 'typebox';
 import { Value } from 'typebox/value';
 
 import type { QuestionItem, QuestionAnswer } from '../shared/types';
+import {
+  getQuestionStatus,
+  groupAnswersByQuestionId,
+} from '../shared/questionnaire-flow';
 import { nextQuestionId, askQuestion, hasSeroIPCBridge } from './ipc-bridge';
 import { askQuestionTUI } from './tui-question';
 import { askQuestionnaireTUI } from './tui-questionnaire';
@@ -328,9 +332,13 @@ function flattenQuestions(questions: QuestionItem[]): QuestionItem[] {
   ]);
 }
 
+const NO_SKIPPED_QUESTIONS: ReadonlySet<string> = new Set();
+
 function getSkippedQuestions(questions: QuestionItem[], answers: QuestionAnswer[]): QuestionItem[] {
-  const answeredIds = new Set(answers.map((answer) => answer.questionId));
-  return questions.filter((question) => !answeredIds.has(question.id));
+  const answerMap = groupAnswersByQuestionId(answers);
+  return questions.filter((question) => (
+    getQuestionStatus(answerMap, question, NO_SKIPPED_QUESTIONS) !== 'answered'
+  ));
 }
 
 function formatAnswerText(answer: QuestionAnswer): string {

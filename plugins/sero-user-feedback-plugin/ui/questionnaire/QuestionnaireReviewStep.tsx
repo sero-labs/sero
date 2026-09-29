@@ -5,7 +5,7 @@ import {
   canSubmitQuestionnaire,
   flattenQuestionnaireAnswers,
   formatQuestionnaireAnswerLabel,
-  hasQuestionAnswerDeep,
+  type QuestionStatus,
 } from '../../shared/questionnaire-flow';
 import type {
   UserFeedbackAnswer,
@@ -15,7 +15,7 @@ import type {
 interface QuestionnaireReviewStepProps {
   questions: UserFeedbackQuestionItem[];
   answers: ReadonlyMap<string, UserFeedbackAnswer[]>;
-  skippedQuestionIds: ReadonlySet<string>;
+  statuses: ReadonlyMap<string, QuestionStatus>;
   onSubmit: () => void;
   onGoToStep: (index: number) => void;
 }
@@ -23,16 +23,13 @@ interface QuestionnaireReviewStepProps {
 export function QuestionnaireReviewStep({
   questions,
   answers,
-  skippedQuestionIds,
+  statuses,
   onSubmit,
   onGoToStep,
 }: QuestionnaireReviewStepProps) {
-  const skippedCount = questions.filter((question) => (
-    !hasQuestionAnswerDeep(answers, question) && skippedQuestionIds.has(question.id)
-  )).length;
-  const unresolvedCount = questions.filter((question) => (
-    !hasQuestionAnswerDeep(answers, question) && !skippedQuestionIds.has(question.id)
-  )).length;
+  const statusList = questions.map((question) => statuses.get(question.id));
+  const skippedCount = statusList.filter((status) => status === 'skipped').length;
+  const unresolvedCount = statusList.filter((status) => status === 'unresolved').length;
 
   return (
     <div>
@@ -53,9 +50,9 @@ export function QuestionnaireReviewStep({
       </p>
       <div className="space-y-3">
         {questions.map((question, index) => {
+          const questionStatus = statuses.get(question.id);
           const questionAnswers = flattenQuestionnaireAnswers([question], answers);
-          const isUnanswered = !hasQuestionAnswerDeep(answers, question);
-          const isSkipped = isUnanswered && skippedQuestionIds.has(question.id);
+          const isUnanswered = questionStatus !== 'answered';
           return (
             <div
               key={question.id}
@@ -94,7 +91,7 @@ export function QuestionnaireReviewStep({
               )}
               {isUnanswered && (
                 <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
-                  {isSkipped ? 'Skipped' : 'Needs an answer or Skip'}
+                  {questionStatus === 'skipped' ? 'Skipped' : 'Needs an answer or Skip'}
                 </p>
               )}
             </div>

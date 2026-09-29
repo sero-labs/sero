@@ -55,4 +55,28 @@ describe('bridged JSON parameters', () => {
     expect(result.exitCode).toBe(0);
     expect(received).toEqual({ toolArguments: { repo: 'sero' }, view: { scope: 'all' } });
   });
+
+  it('rejects arguments that do not match the tool schema before execution', async () => {
+    let called = false;
+    const tool = defineTool({
+      name: 'schema_strict_tool',
+      label: 'Strict',
+      description: 'Takes an array of questions.',
+      parameters: Type.Object({ questions: Type.Array(Type.String()) }),
+      execute: async () => {
+        called = true;
+        return { content: [{ type: 'text', text: 'ok' }], details: {} };
+      },
+    });
+
+    const command = bridgeTool('schema_strict_tool', tool);
+    const result = await command.execute(
+      ['{"questions":"not-an-array"}'],
+      { workspaceId: 'ws', sessionId: null, cwd: process.cwd(), invocation: { signal: undefined } } as never,
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toContain('Invalid arguments for schema_strict_tool');
+    expect(called).toBe(false);
+  });
 });

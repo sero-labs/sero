@@ -5,7 +5,6 @@
  * The renderer only manages transient UI states like launching and recovery.
  */
 
-import { Dialog, DialogContent } from '@sero-ai/ui/components/ui/dialog';
 import seroLogoDarkUrl from '@assets/logo-dark.svg';
 import { AuthLoginDialog } from '@/components/layout/auth/AuthLoginDialog';
 import { useUserFeedbackStore } from '@/stores/user-feedback-store';
@@ -15,6 +14,7 @@ import {
   LaunchingScreen,
   OnboardingSetupScreen,
 } from './onboarding/OnboardingViews';
+import { NonDismissibleDialog } from './onboarding/NonDismissibleDialog';
 import { useLaunchingDialogVisibility } from './onboarding/useLaunchingDialogVisibility';
 import { useOnboardingLaunch } from './onboarding/useOnboardingLaunch';
 
@@ -60,81 +60,59 @@ export function OnboardingWizard() {
 
   return (
     <>
-      <Dialog open={isLaunchingDialogVisible} onOpenChange={() => {}}>
-        <DialogContent
-          className="max-w-md"
-          showCloseButton={false}
-          onInteractOutside={(event) => event.preventDefault()}
-        >
-          <div className="space-y-5">
-            <OnboardingLogo />
-            <LaunchingScreen statusMessage={launchStatusMessage} />
-          </div>
-        </DialogContent>
-      </Dialog>
+      <NonDismissibleDialog open={isLaunchingDialogVisible} className="max-w-md">
+        <div className="space-y-5">
+          <OnboardingLogo />
+          <LaunchingScreen statusMessage={launchStatusMessage} />
+        </div>
+      </NonDismissibleDialog>
 
-      <Dialog open={uiPhase === 'ready'} onOpenChange={() => {}}>
-        <DialogContent
-          className="max-h-[calc(100vh-2rem)] max-w-2xl overflow-y-auto"
-          showCloseButton={false}
-          onEscapeKeyDown={(event) => event.preventDefault()}
-          onInteractOutside={(event) => event.preventDefault()}
-        >
-          <div className="space-y-4">
-            <OnboardingLogo />
-            {readyRecommendation ? (
-              <OnboardingSetupScreen
-                key={`${readyRecommendation.preferredProvider ?? 'provider'}:${JSON.stringify(readyRecommendation.tiers)}`}
-                recommendation={readyRecommendation}
-                availableModelGroups={onboardingState.availableModelGroups}
-                providerHealth={onboardingState.providerHealth}
-                warnings={onboardingState.warnings.filter((warning) => warning.code !== 'no_usable_models')}
-                containerRuntime={onboardingState.containerRuntime}
-                launchNotice={launchStatusMessage}
-                continueDisabled={isContinuing}
-                onContinue={(config) => void handleContinue(config)}
-                onOpenProviders={() => openProviders()}
-                onReconnectProvider={openProviders}
-              />
-            ) : null}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={uiPhase === 'auth'} onOpenChange={() => {}}>
-        <DialogContent
-          className="max-w-md"
-          showCloseButton={false}
-          onInteractOutside={(event) => event.preventDefault()}
-        >
-          <div className="space-y-4">
-            <OnboardingLogo />
-            <AuthScreen
+      <NonDismissibleDialog
+        open={uiPhase === 'ready'}
+        className="max-h-[calc(100vh-2rem)] max-w-2xl overflow-y-auto"
+      >
+        <div className="space-y-4">
+          <OnboardingLogo />
+          {readyRecommendation ? (
+            <OnboardingSetupScreen
+              key={`${readyRecommendation.preferredProvider ?? 'provider'}:${JSON.stringify(readyRecommendation.tiers)}`}
+              recommendation={readyRecommendation}
+              availableModelGroups={onboardingState.availableModelGroups}
               providerHealth={onboardingState.providerHealth}
+              warnings={onboardingState.warnings.filter((warning) => warning.code !== 'no_usable_models')}
+              containerRuntime={onboardingState.containerRuntime}
               launchNotice={launchStatusMessage}
+              continueDisabled={isContinuing}
+              onContinue={(config) => void handleContinue(config)}
               onOpenProviders={() => openProviders()}
               onReconnectProvider={openProviders}
             />
-          </div>
-        </DialogContent>
-      </Dialog>
+          ) : null}
+        </div>
+      </NonDismissibleDialog>
 
-      <Dialog open={uiPhase === 'error'} onOpenChange={() => {}}>
-        <DialogContent
-          className="max-w-md"
-          showCloseButton={false}
-          onInteractOutside={(event) => event.preventDefault()}
-        >
-          <div className="space-y-5">
-            <OnboardingLogo />
-            <ErrorScreen
-              message={errorMessage}
-              onRetry={() => void syncOnboardingState({ preserveLaunchMessage: true })}
-              onBack={handleErrorBack}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
+      <NonDismissibleDialog open={uiPhase === 'auth'} className="max-w-md">
+        <div className="space-y-4">
+          <OnboardingLogo />
+          <AuthScreen
+            providerHealth={onboardingState.providerHealth}
+            launchNotice={launchStatusMessage}
+            onOpenProviders={() => openProviders()}
+            onReconnectProvider={openProviders}
+          />
+        </div>
+      </NonDismissibleDialog>
+
+      <NonDismissibleDialog open={uiPhase === 'error'} className="max-w-md">
+        <div className="space-y-5">
+          <OnboardingLogo />
+          <ErrorScreen
+            message={errorMessage}
+            onRetry={() => void syncOnboardingState({ preserveLaunchMessage: true })}
+            onBack={handleErrorBack}
+          />
+        </div>
+      </NonDismissibleDialog>
 
       <AuthLoginDialog
         open={showLoginDialog}

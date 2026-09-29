@@ -5,7 +5,7 @@
  * review summary, and submit/cancel actions.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check } from 'lucide-react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Card } from '@sero-ai/ui/components/ui/card';
@@ -15,12 +15,13 @@ import {
   canSubmitQuestionnaire,
   flattenQuestionnaireAnswers,
   getQuestionAnswers,
-  hasQuestionAnswerDeep,
+  getQuestionStatuses,
   removeCustomQuestionAnswer,
   selectQuestionOption,
   submitCustomQuestionAnswer,
   updateQuestionAnswers,
   type AnswerMap,
+  type QuestionStatus,
 } from '../shared/questionnaire-flow';
 import type {
   UserFeedbackAnswer,
@@ -60,38 +61,41 @@ function getActionHint(
 
 function QuestionnaireStepTabs({
   questions,
-  answers,
+  statuses,
   currentStep,
   onGoToStep,
 }: {
   questions: UserFeedbackQuestionItem[];
-  answers: AnswerMap;
+  statuses: ReadonlyMap<string, QuestionStatus>;
   currentStep: number;
   onGoToStep: (step: number) => void;
 }) {
   const isReview = currentStep === questions.length;
-  const allAnswered = questions.every((item) => hasQuestionAnswerDeep(answers, item));
+  const allAnswered = questions.every((item) => statuses.get(item.id) === 'answered');
 
   return (
     <div className="mt-2 flex items-center gap-1.5">
-      {questions.map((item, index) => (
-        <button type="button"
-          key={item.id}
-          onClick={() => onGoToStep(index)}
-          className={cn(
-            'flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
-            index === currentStep && !isReview
-              ? hasQuestionAnswerDeep(answers, item)
-                ? 'bg-emerald-500 text-white'
-                : 'bg-amber-500 text-white'
-              : hasQuestionAnswerDeep(answers, item)
-                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
-                : 'bg-secondary text-muted-foreground',
-          )}
-        >
-          {hasQuestionAnswerDeep(answers, item) ? <Check className="size-3" /> : index + 1} {item.label}
-        </button>
-      ))}
+      {questions.map((item, index) => {
+        const isAnswered = statuses.get(item.id) === 'answered';
+        return (
+          <button type="button"
+            key={item.id}
+            onClick={() => onGoToStep(index)}
+            className={cn(
+              'flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
+              index === currentStep && !isReview
+                ? isAnswered
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-amber-500 text-white'
+                : isAnswered
+                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                  : 'bg-secondary text-muted-foreground',
+            )}
+          >
+            {isAnswered ? <Check className="size-3" /> : index + 1} {item.label}
+          </button>
+        );
+      })}
       <button type="button"
         onClick={() => onGoToStep(questions.length)}
         className={cn(
@@ -198,13 +202,17 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
   }, []);
 
   const isReview = currentStep === questions.length;
-  const allAnswered = questions.every((item) => hasQuestionAnswerDeep(answers, item));
+  const questionStatuses = useMemo(
+    () => getQuestionStatuses(questions, answers, skippedQuestionIds),
+    [answers, questions, skippedQuestionIds],
+  );
+  const allAnswered = questions.every((item) => questionStatuses.get(item.id) === 'answered');
   const hasUnresolvedQuestions = questions.some(
-    (item) => !hasQuestionAnswerDeep(answers, item) && !skippedQuestionIds.has(item.id),
+    (item) => questionStatuses.get(item.id) === 'unresolved',
   );
   const currentQuestion = questions[currentStep] as UserFeedbackQuestionItem | undefined;
   const currentQuestionAnswered = currentQuestion
-    ? hasQuestionAnswerDeep(answers, currentQuestion)
+    ? questionStatuses.get(currentQuestion.id) === 'answered'
     : false;
   const advanceLabel = currentStep < questions.length - 1 ? 'Next' : 'Review';
   const actionHint = getActionHint(
@@ -332,7 +340,7 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
         )}
         <QuestionnaireStepTabs
           questions={questions}
-          answers={answers}
+          statuses={questionStatuses}
           currentStep={currentStep}
           onGoToStep={setCurrentStep}
         />
@@ -343,7 +351,7 @@ export function QuestionnaireForm({ question, onSubmit, onCancel }: Props) {
           <QuestionnaireReviewStep
             questions={questions}
             answers={answers}
-            skippedQuestionIds={skippedQuestionIds}
+            statuses={questionStatuses}
             onSubmit={handleSubmit}
             onGoToStep={setCurrentStep}
           />

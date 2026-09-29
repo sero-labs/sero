@@ -13,8 +13,11 @@
  */
 
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
+import type { TSchema } from 'typebox';
+import { Value } from 'typebox/value';
 import type { CliCommand, CliCommandContext, CliContentBlock, CliResult } from './types';
 import { buildCommandContext, buildToolContext } from './bridge-context';
+import { extractContent, extractText } from './tool-result';
 import { getBridgedExtensionCommand, getBridgedExtensionTool } from '../bridges/extension-session-bridge';
 import { parseFlags } from '../lib/utils';
 
@@ -144,7 +147,15 @@ export function getCliParamType(type: SchemaPropType): 'string' | 'number' | 'bo
 
 // ── Arg parsing (schema-driven) ─────────────────────────────
 
-function coerceValue(value: string | true, prop: SchemaProp): unknown {
+/** One CLI argument after coercion, before it joins a tool's params object. */
+export type CliArgValue =
+  | string
+  | number
+  | boolean
+  | readonly unknown[]
+  | Record<string, unknown>;
+
+function coerceValue(value: string | true, prop: SchemaProp): CliArgValue {
   if (value === true) return true;
   if (prop.type === 'number' || prop.type === 'integer') {
     const n = Number(value);
@@ -311,37 +322,6 @@ export function generateHelp(
   return lines.join('\n');
 }
 
-// ── Tool result extraction ──────────────────────────────────
-
-function extractContent(result: unknown): CliContentBlock[] {
-  const content = (result as { content?: unknown })?.content;
-  if (!Array.isArray(content)) return [];
-
-  return content.flatMap((block): CliContentBlock[] => {
-    if (!block || typeof block !== 'object') return [];
-    if ((block as { type?: string }).type === 'text' && typeof (block as { text?: unknown }).text === 'string') {
-      return [{ type: 'text', text: (block as { text: string }).text }];
-    }
-    if ((block as { type?: string }).type === 'image' && typeof (block as { data?: unknown }).data === 'string') {
-      return [{
-        type: 'image',
-        data: (block as { data: string }).data,
-        mimeType: typeof (block as { mimeType?: unknown }).mimeType === 'string'
-          ? (block as { mimeType: string }).mimeType
-          : 'image/png',
-      }];
-    }
-    return [];
-  });
-}
-
-function extractText(content: CliContentBlock[]): string {
-  return content
-    .filter((entry): entry is { type: 'text'; text: string } => entry.type === 'text')
-    .map((entry) => entry.text)
-    .join('\n');
-}
-
 // ── Bridge a ToolDefinition into a CliCommand ───────────────
 
 export interface CustomToolCliBridge {
@@ -430,6 +410,15 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition, options?: 
 
         const params = schemaToParams(props, args);
         const activeToolDef = getBridgedExtensionTool(toolName, ctx)?.definition ?? toolDef;
+        // Validate once here so every bridged tool rejects malformed CLI JSON
+        // instead of each tool hand-rolling its own parameter check.
+        const parameters = activeToolDef.parameters as TSchema | undefined;
+        if (parameters && !Value.Check(parameters, params)) {
+          return {
+            output: `ERROR: Invalid arguments for ${toolName}. Run \`sero ${toolName} --help\` for the expected shape.`,
+            exitCode: 1,
+          };
+        }
         const result = await activeToolDef.execute(
           'cli-bridge',
           params,
