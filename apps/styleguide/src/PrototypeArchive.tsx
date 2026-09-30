@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@sero
 import { ExternalLink, FileCode2, Image, type LucideIcon } from 'lucide-react';
 
 const interactivePrototypes = [
+  ['Live agent progress on steps, Room members and chat (issue 581)', 'live-agent-progress.html'],
   ['Skills page — all skill sources, two list designs', 'skills-page-all-sources/index.html'],
   ['Memory rework — recall and save lines in chat', 'memory-chat-lines.html'],
   ['MCP 2026-07-28: apps, input requests, tasks and remote skills (issue 359)', 'mcp-2026-07-28/index.html'],
