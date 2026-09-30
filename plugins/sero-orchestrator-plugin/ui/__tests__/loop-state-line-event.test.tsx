@@ -11,10 +11,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LoopStateLine } from '../components/LoopStateLine';
 import type { Loop } from '../../shared/types';
 
-const notices = vi.hoisted(() => ({ current: null as { kind: string; runId: string; loopId?: string; label?: string } | null }));
+const notices = vi.hoisted(() => ({
+  current: null as { kind: string; runId: string; loopId?: string; requestId?: string; roomId?: string; label?: string } | null,
+}));
 
 vi.mock('../lib/use-live-call', () => ({
-  useLiveCallNotice: () => notices.current,
+  // Mirrors the real hook: a match that names a Workflow takes only its own call.
+  useLiveCall: (match: { kind: string; loopId?: string; requestId?: string; roomId?: string }) => {
+    const notice = notices.current;
+    if (!notice || notice.kind !== match.kind) return undefined;
+    if (match.loopId !== undefined && notice.loopId !== match.loopId) return undefined;
+    if (match.requestId !== undefined && notice.requestId !== match.requestId) return undefined;
+    if (match.roomId !== undefined && notice.roomId !== match.roomId) return undefined;
+    return notice;
+  },
   useLiveCallRunId: (kind: string) => (notices.current?.kind === kind ? notices.current.runId : undefined),
 }));
 

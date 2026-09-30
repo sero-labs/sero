@@ -97,6 +97,22 @@ describe('app runtime UI events', () => {
     expect(eventsFor(0)).toHaveLength(0);
   });
 
+  it('keeps delivering while any other view still holds the same topic', async () => {
+    // A Workflow page's top bar and its Refine plan both follow the running
+    // call. The first of them to unmount must not stop the other's delivery.
+    await subscribe(0, 'app-a', 'ws-1', 'call');
+    await subscribe(0, 'app-a', 'ws-1', 'call');
+    await handler(IpcChannels.appRuntime.unsubscribe)({ sender: makeSender(1) }, 'app-a', 'ws-1', 'call');
+
+    emitAppRuntimeEvent('app-a', 'ws-1', 'call', { runId: 'run-1' });
+    expect(eventsFor(0)).toHaveLength(1);
+
+    // The last holder releasing does stop it.
+    await handler(IpcChannels.appRuntime.unsubscribe)({ sender: makeSender(1) }, 'app-a', 'ws-1', 'call');
+    emitAppRuntimeEvent('app-a', 'ws-1', 'call', { runId: 'run-2' });
+    expect(eventsFor(0)).toHaveLength(1);
+  });
+
   it('stops delivery after unsubscribe', async () => {
     await subscribe(0, 'app-a', 'ws-1', 'members');
     await handler(IpcChannels.appRuntime.unsubscribe)(

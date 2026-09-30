@@ -27,7 +27,7 @@ import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 import { LoaderCircle } from 'lucide-react';
 import type { Loop, SkillDraft } from '../../shared/types';
 import { useWatchedJson } from '../lib/use-watched-json';
-import { useLiveCallNotice } from '../lib/use-live-call';
+import { useLiveCall } from '../lib/use-live-call';
 import { LiveCallPopover } from './LiveCallPopover';
 import { approveSkillWrite } from '../lib/skill-approval';
 
@@ -127,8 +127,7 @@ export function SkillDraftControl({
   const watched = useWatchedJson<{ body: string }>(pending?.bodyRef ?? null, { body: '' });
   // The running extraction pass comes from the runtime, which is the only side
   // that knows its tracker run id.
-  const notice = useLiveCallNotice();
-  const preparing = notice && notice.kind === 'skill' && notice.loopId === loop.id ? notice : undefined;
+  const preparing = useLiveCall({ kind: 'skill', loopId: loop.id });
 
   const extract = async () => {
     dispatch({ kind: 'extracting' });

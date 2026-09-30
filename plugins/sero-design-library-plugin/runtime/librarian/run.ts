@@ -1,3 +1,4 @@
+import { createRunIdCapture } from '@sero-ai/common';
 import type { AppRuntimeHost, AppRuntimeSubagentRunParams } from '@sero-ai/common';
 
 import type { LibrarianAnalysis } from '../../shared/librarian';
@@ -44,6 +45,9 @@ export async function runLibrarian(
   const startedAt = Date.now();
   const imageTool = createReferenceImageTool(context.host, context.paths, item);
 
+  // The run's own first observation carries the tracker run id; later records
+  // carry the subagent session's id, which the tracker does not know.
+  const captureRunId = createRunIdCapture();
   const params: AppRuntimeSubagentRunParams = {
     task: buildAnalysisTask(),
     // The run needs a named agent or an inline system prompt; without one it is
@@ -72,7 +76,10 @@ export async function runLibrarian(
     ...(modelSelectionIsEmpty(context.model) ? {} : { model: context.model.modelId }),
     // The host reports the run id on the first observation, before the run waits
     // for a slot, so the job can be watched from the start.
-    onObservation: (observation) => context.onRunId?.(observation.identities.operationId),
+    onObservation: (observation) => {
+      const runId = captureRunId(observation);
+      if (runId) context.onRunId?.(runId);
+    },
   };
 
   const result = await context.host.subagents.runStructured(params);

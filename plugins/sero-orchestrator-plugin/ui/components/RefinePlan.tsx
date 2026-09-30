@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 import { Sparkles, Wand2 } from 'lucide-react';
-import { useLiveCallNotice } from '../lib/use-live-call';
+import { useLiveCall } from '../lib/use-live-call';
 import { LiveCallPopover } from './LiveCallPopover';
 
 interface RefinePlanProps {
@@ -46,10 +46,7 @@ export function RefinePlan({ busy, planRevision, onRefine, loopId }: RefinePlanP
   const trimmed = prompt.trim();
   // The rewriting pass comes from the runtime, which is the only side that
   // knows its tracker run id.
-  const notice = useLiveCallNotice();
-  const refining = notice && notice.kind === 'refine' && (loopId === undefined || notice.loopId === loopId)
-    ? notice
-    : undefined;
+  const refining = useLiveCall({ kind: 'refine', loopId });
 
   // Resolved during render rather than in an effect: both signals are props, so
   // there is nothing to synchronise with the outside world.

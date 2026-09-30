@@ -17,7 +17,7 @@ import { CatalogBrowser } from '../components/CatalogBrowser';
 // The running call arrives from the app's own runtime; how it gets there is the
 // hook's own test. Here it says one planner call is in flight.
 vi.mock('../lib/use-live-call', () => ({
-  useLiveCallNotice: () => ({ kind: 'planner', runId: 'run-plan-1' }),
+  useLiveCall: () => ({ kind: 'planner', runId: 'run-plan-1' }),
   useLiveCallRunId: (kind: string) => (kind === 'planner' ? 'run-plan-1' : undefined),
 }));
 

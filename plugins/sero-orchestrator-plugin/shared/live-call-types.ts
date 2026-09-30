@@ -39,11 +39,36 @@ export interface LiveCall {
  *
  * A wait the UI shows — a planner, a Room being designed — may have no record
  * the UI can read yet, so the runtime pushes the call to its views instead.
- * `null` says nothing is running.
  */
 export interface LiveCallNotice extends LiveCall {
   /** The Workflow the call belongs to, when one exists yet. */
   loopId?: string;
   /** The Room planning request the call belongs to. */
   requestId?: string;
+  /** The Room being adjusted, when the call belongs to one. */
+  roomId?: string;
+}
+
+/**
+ * What identifies one running call.
+ *
+ * A view looks up the call it is waiting on by this, and an ended update names
+ * only its own call — so one Workflow's reflection finishing cannot clear
+ * another Workflow's stop-condition check.
+ */
+export interface LiveCallIdentity {
+  loopId?: string;
+  requestId?: string;
+  roomId?: string;
+  runId?: string;
+}
+
+/** One change to the calls running in this app. */
+export type LiveCallUpdate =
+  | { status: 'running'; call: LiveCallNotice }
+  | { status: 'ended'; identity: LiveCallIdentity };
+
+/** The key one call is held under. Every notice carries at least one field. */
+export function liveCallKey(identity: LiveCallIdentity): string {
+  return identity.loopId ?? identity.requestId ?? identity.roomId ?? identity.runId ?? '';
 }

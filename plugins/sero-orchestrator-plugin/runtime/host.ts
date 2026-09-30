@@ -32,7 +32,7 @@ import type {
   CatalogRepoContents,
   CatalogRepoRef,
 } from '../shared/catalog-types';
-import type { LibraryEntry, LibraryIndex, LibraryVersion, LiveCallNotice, OrchestratorState } from '../shared/types';
+import type { LibraryEntry, LibraryIndex, LibraryVersion, LiveCallUpdate, OrchestratorState } from '../shared/types';
 import type { RoomMemberLiveNotice } from '../shared/room-live-types';
 
 export interface ActiveSessionInfo {
@@ -198,11 +198,13 @@ export interface OrchestratorHost {
   /** Absolute directory that holds state.json and the artifacts/ subtree. */
   readonly stateDir: string;
   /**
-   * Tell this app's own views which one-answer call is running now, so a view
-   * can offer the eye on the wait it is showing. `null` says nothing is
-   * running. Optional: nothing is persisted, and a host without it still works.
+   * Tell this app's own views about a change to the one-answer calls running
+   * now, so a view can offer the eye on the wait it is showing. A `running`
+   * update carries the call; an `ended` update names only its own call, so one
+   * Workflow's call finishing cannot clear another's view. Optional: nothing is
+   * persisted, and a host without it still works.
    */
-  notifyLiveCall?(notice: LiveCallNotice | null): void;
+  notifyLiveCall?(update: LiveCallUpdate): void;
   /**
    * Push one member's live turn to this app's own views while a Watch view
    * holds a lease. Nothing is persisted, and callers push only while watched.

@@ -27,6 +27,7 @@ import type { RoomCoordinator } from './room-coordinator';
 import { readRoomArtifact, type RoomArtifactReadOutcome } from './room-app-artifacts';
 import { createRoomLiveActions, type RoomLiveActions, type RoomLiveContext } from './room-app-live';
 import { limitsForOrigin, presetSeed, type PrepareRoomInput, type PrepareRoomOutcome } from './room-app-planning';
+import { announceLiveCall, announceLiveCallEnded } from '../live-call';
 import type { RoomMessageDraft } from './room-messages';
 import { mergeUsage, reportedUsage } from '../../shared/usage';
 
@@ -212,11 +213,11 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
         onUsage: (usage) => store.updatePendingPlanning(requestId, usage),
         onRunId: (runId) => {
           void store.markPendingPlanningRun(requestId, runId);
-          host.notifyLiveCall?.({ kind: 'planner', runId, requestId });
+          announceLiveCall(host, { kind: 'planner', runId, requestId });
         },
       });
-      // The wait is over however the planner answered.
-      host.notifyLiveCall?.(null);
+      // The wait is over however the planner answered — and only this one.
+      announceLiveCallEnded(host, { requestId });
       if (!plan.ok) {
         const usage = reportedUsage(await store.readPendingPlanning(requestId));
         return plan.needsInput
@@ -271,15 +272,14 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
 
       const selection = applyProjectSnapshot(record.definition.projectContext?.modelSnapshot, undefined);
       const reportRun = (runId: string) => {
-        const notice: LiveCallNotice = { kind: 'adjust', runId };
-        host.notifyLiveCall?.(notice);
+        announceLiveCall(host, { kind: 'adjust', runId, roomId });
         return store.updateRoom(roomId, (current) => ({
           ...current,
           runtime: { ...current.runtime, liveCall: { kind: 'adjust' as const, runId } },
         }));
       };
       const clearRun = () => {
-        host.notifyLiveCall?.(null);
+        announceLiveCallEnded(host, { roomId });
         return store.updateRoom(roomId, (current) => {
           if (!current.runtime.liveCall) return current;
           const { liveCall: _dropped, ...runtime } = current.runtime;

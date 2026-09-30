@@ -9,7 +9,7 @@
  */
 
 import type { OrchestratorHost } from './host';
-import type { LiveCall, LiveCallKind, LiveCallNotice, LoopRuntimeState } from '../shared/types';
+import type { LiveCall, LiveCallIdentity, LiveCallKind, LiveCallNotice, LoopRuntimeState } from '../shared/types';
 
 /** Where a running call is recorded on the loop's runtime. */
 export interface LiveCallTarget {
@@ -41,13 +41,14 @@ export function markLiveCall(host: OrchestratorHost, target: LiveCallTarget, run
     ...(target.stepId ? { stepId: target.stepId } : {}),
     ...(target.label ? { label: target.label } : {}),
   };
-  host.notifyLiveCall?.({ ...call, loopId: target.loopId });
+  host.notifyLiveCall?.({ status: 'running', call: { ...call, loopId: target.loopId } });
   return mapLoop(host, target.loopId, (runtime) => ({ ...runtime, liveCall: call }));
 }
 
 /** Drop the mark. Nothing shows a live call for this loop until one marks it again. */
 export function clearLiveCall(host: OrchestratorHost, loopId: string): Promise<void> {
-  host.notifyLiveCall?.(null);
+  // Names its own call: a concurrent call in another Workflow must keep its view.
+  host.notifyLiveCall?.({ status: 'ended', identity: { loopId } });
   return mapLoop(host, loopId, (runtime) => {
     if (!runtime.liveCall) return runtime;
     const { liveCall: _dropped, ...rest } = runtime;
@@ -55,7 +56,12 @@ export function clearLiveCall(host: OrchestratorHost, loopId: string): Promise<v
   });
 }
 
-/** Mark and clear a call that is not recorded on a loop's runtime. */
-export function announceLiveCall(host: OrchestratorHost, notice: LiveCallNotice | null): void {
-  host.notifyLiveCall?.(notice);
+/** Tell the views a call started. Used by the paths with no loop runtime. */
+export function announceLiveCall(host: OrchestratorHost, call: LiveCallNotice): void {
+  host.notifyLiveCall?.({ status: 'running', call });
+}
+
+/** Tell the views one call ended, naming only that call. */
+export function announceLiveCallEnded(host: OrchestratorHost, identity: LiveCallIdentity): void {
+  host.notifyLiveCall?.({ status: 'ended', identity });
 }

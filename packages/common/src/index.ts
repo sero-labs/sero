@@ -319,6 +319,7 @@ export type {
 
 export {
   SDK_OBSERVATION_GAPS,
+  createRunIdCapture,
   toObservationUsage,
   isMetadataOnly,
 } from './run-observations';

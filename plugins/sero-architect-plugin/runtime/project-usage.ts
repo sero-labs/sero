@@ -1,3 +1,4 @@
+import { createRunIdCapture } from '@sero-ai/common';
 import type { AppRuntimeSubagentResult, AppRuntimeSubagentRunParams, ObservationUsage, OrchestratorBoardRoomView, OrchestratorUsageView } from '@sero-ai/common';
 import { setAccountingIncomplete } from '../shared/accounting';
 import { charge } from '../shared/lifecycle';
@@ -131,13 +132,14 @@ export async function runProjectModel(deps: UsageDeps, record: ProjectRecord, op
   };
   // Direct research runs as one agent, so the project page can follow it only if
   // the run id is saved on the pending entry while it runs.
-  let markedRunId: string | undefined;
+  // The run's own first observation carries the tracker run id; every later
+  // record carries the subagent session's id, which the tracker does not know.
+  const captureRunId = createRunIdCapture();
   const noteRunId = (observation: Parameters<NonNullable<AppRuntimeSubagentRunParams['onObservation']>>[0]) => {
     params.onObservation?.(observation);
     if (operation.kind !== 'research') return;
-    const runId = observation.identities.operationId;
-    if (!runId || runId === markedRunId) return;
-    markedRunId = runId;
+    const runId = captureRunId(observation);
+    if (!runId) return;
     writes = writes.then(async () => {
       await deps.store.update(record.id, (fresh) => ({
         ...fresh,

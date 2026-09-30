@@ -1,3 +1,4 @@
+import { createRunIdCapture } from '@sero-ai/common';
 import type { UsageSummary } from '../shared/types';
 import { mergeCumulativeUsage, mergeUsage, usageDelta } from '../shared/usage';
 import type { ModelRunParams, ModelRunResult, ModelRunUsage, OrchestratorHost } from './host';
@@ -33,10 +34,12 @@ export async function runTrackedModel(
   await sink?.({ startedCalls: 1 });
   let latest: UsageSummary | undefined;
   let writes = Promise.resolve();
-  let markedRunId: string | undefined;
   // The mark is written from a sync observation callback, so its write is held
   // here and awaited before the clear — the clear can never overtake it.
   let liveCallWrite = Promise.resolve();
+  // The run's own first observation carries the tracker run id. Later records
+  // are the subagent session's and carry a different id, so the id is taken once.
+  const captureRunId = createRunIdCapture();
   const report = (usage: UsageSummary) => {
     const next = mergeCumulativeUsage(latest, usage)!;
     const delta = usageDelta(latest, next);
@@ -47,12 +50,9 @@ export async function runTrackedModel(
   try {
     const result = await host.runStructured({
       ...params,
-      // The host reports the tracker run id on the first observation, before the
-      // run waits for a pool slot.
       onObservation: (record) => {
-        const runId = record.identities.operationId;
-        if (runId && runId !== markedRunId) {
-          markedRunId = runId;
+        const runId = captureRunId(record);
+        if (runId) {
           if (watch?.loop) liveCallWrite = markLiveCall(host, watch.loop, runId);
           watch?.onRunId?.(runId);
         }

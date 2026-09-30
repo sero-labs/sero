@@ -268,7 +268,7 @@ export type {
 // ── Runtime state ───────────────────────────────────────────
 
 import type { LiveCall } from './live-call-types';
-export type { LiveCall, LiveCallKind, LiveCallNotice } from './live-call-types';
+export type { LiveCall, LiveCallIdentity, LiveCallKind, LiveCallNotice, LiveCallUpdate } from './live-call-types';
 
 export interface LoopRuntimeState {
   parentSessionId: string;

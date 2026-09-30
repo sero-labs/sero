@@ -203,14 +203,22 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     },
     async runStructured(params) {
       this.modelCalls.push(params);
-      // The real host reports the run's identity before it waits for a pool slot.
+      // The real host reports the run's own identity before it waits for a pool
+      // slot, and every later record comes from the subagent session and carries
+      // THAT session's id instead (runner.ts). A consumer that keeps the latest
+      // id therefore ends up watching an id the tracker does not know.
       params.onObservation?.({
         kind: 'operation-start',
         identities: { operationId: `run-${this.modelCalls.length}` },
         startedAt: this.now(),
       });
-      // A synchronous updateState call has already applied, so the loops below
-      // show the live call exactly as the running call recorded it.
+      params.onObservation?.({
+        kind: 'turn-start',
+        identities: { operationId: `subagent-session-${this.modelCalls.length}` },
+        startedAt: this.now(),
+      });
+      // Sampled AFTER both records, so a consumer that keeps the latest id is
+      // caught: the mark must still name the run, not the session.
       this.liveCallDuringRun.push(...this.state.loops.map((loop) => loop.runtime.liveCall));
       let result = this.modelResponses.shift() ?? { response: '', error: 'no scripted model response' };
       // Simulate in-session repair: while the caller rejects the reply, consume

@@ -24,7 +24,7 @@ import { LoopStateLine } from './LoopStateLine';
 import { LibrarySaveControl } from './LibrarySaveControl';
 import { SkillDraftControl } from './SkillDraftControl';
 import { LiveCallPopover } from './LiveCallPopover';
-import { useLiveCallNotice } from '../lib/use-live-call';
+import { useLiveCall } from '../lib/use-live-call';
 import { LibraryLinkBadge } from './LibraryLinkBadge';
 import { LibraryLinkSection } from './LibraryLinkSection';
 import { LiveActivityStrip } from './LiveActivityStrip';
@@ -162,8 +162,7 @@ function LoopTopRow({ loop, busy, onAction, onDispatch, onBack, linkStatus, canR
 }) {
   // The top bar's own waits: a reflection or a skill pass runs while the reader
   // stays on this screen, so the button names the work and offers the eye.
-  const notice = useLiveCallNotice();
-  const reflecting = notice && notice.kind === 'reflect' && notice.loopId === loop.id ? notice : undefined;
+  const reflecting = useLiveCall({ kind: 'reflect', loopId: loop.id });
   const pendingInput = loop.runtime.pendingInput?.questions.length ?? 0;
   const pendingSuggestions = (loop.suggestions ?? []).filter((s) => s.status === 'pending').length;
   return (

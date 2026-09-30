@@ -12,7 +12,7 @@
 
 import type { GithubSourceHealth, LoopSummary, Loop, WebhookSourceHealth } from '../../shared/types';
 import { stateLineFacts } from '../lib/loop-state-line';
-import { useLiveCallNotice } from '../lib/use-live-call';
+import { useLiveCall } from '../lib/use-live-call';
 import { ActivityWord } from './ActivityWord';
 import { LiveCallPopover } from './LiveCallPopover';
 
@@ -35,8 +35,7 @@ export function LoopStateLine({
   // A newly arrived event is checked before the Workflow decides anything, and
   // the state line is where the reader is already looking. It names the event,
   // so the wait says what it is about rather than only that something runs.
-  const notice = useLiveCallNotice();
-  const checking = notice && notice.kind === 'event' && notice.loopId === loop.id ? notice : undefined;
+  const checking = useLiveCall({ kind: 'event', loopId: loop.id });
   if (!facts && !checking) return null;
   return (
     <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-room-text3">

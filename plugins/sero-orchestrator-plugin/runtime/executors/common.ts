@@ -5,7 +5,7 @@
  * command, or approval layer is added (D-02, FR-19).
  */
 
-import { isModelTier } from '@sero-ai/common';
+import { createRunIdCapture, isModelTier } from '@sero-ai/common';
 import type { Loop, LoopStepDefinition, Observation, StepAttempt, StepOutcome, UsageSummary } from '../../shared/types';
 import { DEFAULT_TOOLS } from '../../shared/constants';
 import type { StepRunInput } from '../engine-types';
@@ -136,6 +136,7 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
   // the run waits for a pool slot, so the step can follow its worker's output
   // from the start. The attempt keeps the id for the rest of its life.
   let workerRunId: string | undefined;
+  const captureRunId = createRunIdCapture();
   const queueSnapshot = (attempt: StepAttempt, note: string): void => {
     progress = progress
       .then(async () => { await input.onAttempt?.(attempt); })
@@ -166,8 +167,10 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
     timeoutMs: remainingMs !== undefined && Number.isFinite(remainingMs) ? Math.max(1, remainingMs) : undefined,
     repair: outcomeRepair(loop, step),
     onObservation: (record) => {
-      const runId = record.identities.operationId;
-      if (!runId || runId === workerRunId) return;
+      // The run's own first observation carries the tracker run id; later records
+      // carry the subagent session's id, which the tracker does not know.
+      const runId = captureRunId(record);
+      if (!runId) return;
       workerRunId = runId;
       queueSnapshot({ ...pendingAttempt, workerRunId }, `Could not save the run id for ${pendingAttempt.id}`);
     },

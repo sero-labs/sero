@@ -1,4 +1,5 @@
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
+import { createRunIdCapture } from '@sero-ai/common';
 import type { AppRuntimeHost, AppRuntimeSubagentRunParams } from '@sero-ai/common';
 
 import { baselineTweakProblem } from '../../shared/baseline-tweaks';
@@ -150,6 +151,9 @@ export async function runGeneration(
     ...(revision === undefined ? {} : { revision }),
   });
 
+  // The run's own first observation carries the tracker run id; later records
+  // carry the subagent session's id, which the tracker does not know.
+  const captureRunId = createRunIdCapture();
   const params: AppRuntimeSubagentRunParams = {
     task,
     systemPrompt: buildGenerationSystemPrompt(),
@@ -183,7 +187,10 @@ export async function runGeneration(
     ...params,
     // The host reports the run id on the first observation, so the job waiting
     // on this run can be watched from the start.
-    onObservation: (observation) => context.onRunId?.(observation.identities.operationId),
+    onObservation: (observation) => {
+      const runId = captureRunId(observation);
+      if (runId) context.onRunId?.(runId);
+    },
   });
 
   if (context.signal.aborted || result.error?.startsWith('Aborted')) return { status: 'cancelled' };
