@@ -102,6 +102,61 @@ export interface SeroContextPresetsBridge {
   save(presets: ContextPreset[]): Promise<void>;
 }
 
+/**
+ * A running agent, as a plugin view needs it.
+ * A structural subset of the desktop `SubagentEntry`, so the two fit without
+ * this package depending on the desktop app's types.
+ */
+export interface SubagentLiveEntry {
+  id: string;
+  agentName: string;
+  status: string;
+  /** The session that started this agent — what a view matches its own work against. */
+  parentSessionId: string;
+  startedAt: number;
+  liveOutput: string;
+  toolActivity: Array<{ toolName: string; argsSummary: string; running: boolean }>;
+}
+
+/** One subagent event, as a view needs it. */
+export interface SubagentLiveEvent {
+  type: string;
+  id?: string;
+  text?: string;
+  activity?: Array<{ toolName: string; argsSummary: string; running: boolean }>;
+  /** Present on `subagent_start`, so a view can add the run without re-reading. */
+  entry?: SubagentLiveEntry;
+}
+
+export interface SeroSubagentBridge {
+  /** Every run this workspace knows about, for matching by parent session. */
+  snapshot(workspaceId: string): Promise<SubagentLiveEntry[]>;
+  /** Show this window a run's live text and tool activity. */
+  watch(runId: string): Promise<void>;
+  /** Release one watch for a run. */
+  unwatch(runId: string): Promise<void>;
+  /** Subscribe to the subagent event stream. Returns the unsubscribe function. */
+  onEvent(callback: (event: SubagentLiveEvent) => void): () => void;
+}
+
+/**
+ * A runtime-to-UI event, scoped to one app in one workspace.
+ * Mirrors `AppRuntimeEvent` in the desktop IPC types.
+ */
+export interface AppRuntimeUiEvent<T = unknown> {
+  appId: string;
+  workspaceId: string;
+  topic: string;
+  payload: T;
+}
+
+export interface SeroAppRuntimeUiBridge {
+  /** Subscribe to this app's runtime events. Returns the unsubscribe function. */
+  onEvent(callback: (event: AppRuntimeUiEvent) => void): () => void;
+  subscribe(appId: string, workspaceId: string, topic: string): Promise<void>;
+  unsubscribe(appId: string, workspaceId: string, topic: string): Promise<void>;
+}
+
 export interface SeroBridge {
   appState: SeroWindowAppStateBridge;
   appAgent: SeroAppAgentBridge;
@@ -111,6 +166,9 @@ export interface SeroBridge {
   models?: SeroModelsBridge;
   subagentContext?: SeroSubagentContextBridge;
   contextPresets?: SeroContextPresetsBridge;
+  appRuntime?: SeroAppRuntimeUiBridge;
+  /** Present on hosts that can report live subagent runs. */
+  subagent?: SeroSubagentBridge;
 }
 
 function isSeroBridge(value: unknown): value is SeroBridge {
@@ -124,7 +182,9 @@ function isSeroBridge(value: unknown): value is SeroBridge {
  * Get the Sero preload bridge. Throws if not running inside the Sero shell.
  */
 export function getSeroApi(): SeroBridge {
-  const sero: unknown = Reflect.get(window, 'sero');
+  // The full `window.sero` type belongs to the Sero shell, not this package.
+  const shell = globalThis as { sero?: unknown };
+  const sero = shell.sero;
   if (!isSeroBridge(sero)) {
     throw new Error('[app-runtime] window.sero not available — must run inside Sero shell');
   }

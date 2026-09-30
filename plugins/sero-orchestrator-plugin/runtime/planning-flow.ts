@@ -57,6 +57,7 @@ export async function runPlanningFlow(host: OrchestratorHost, draft: Loop, args:
   ]);
 
   const outcome = await planLoop(host, {
+    loopId: draft.id,
     prompt: args.prompt,
     parentSessionId: draft.runtime.parentSessionId,
     useManagedWorktree: draft.workspace.useManagedWorktree,

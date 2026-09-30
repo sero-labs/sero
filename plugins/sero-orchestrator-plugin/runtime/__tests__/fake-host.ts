@@ -19,7 +19,7 @@ import { OFFICIAL_CATALOG_KEY, OFFICIAL_CATALOG_URL } from '../../shared/catalog
 import { createFakePersistentSessions, type FakePersistentSessions } from './fake-persistent-sessions';
 import type { CatalogRepoContents, CatalogRepoRef } from '../../shared/catalog-types';
 import { DEFAULT_LIBRARY_INDEX, DEFAULT_STATE } from '../../shared/defaults';
-import type { LibraryEntry, LibraryIndex, LibraryVersion, OrchestratorState } from '../../shared/types';
+import type { LibraryEntry, LibraryIndex, LibraryVersion, LiveCall, OrchestratorState } from '../../shared/types';
 import type {
   ActiveSessionInfo,
   ChoiceRequest,
@@ -110,6 +110,12 @@ export interface FakeHost extends OrchestratorHost {
   persistentSessions: FakePersistentSessions;
   /** Same: the gated user-skill capability, recording what a runtime asked to write. */
   skills: FakeSkills;
+  /**
+   * Each loop's live call as it stood when the host reported the run id, one
+   * snapshot per runStructured call. Proves a one-answer call is recorded while
+   * it runs, not only after it returns.
+   */
+  liveCallDuringRun: (LiveCall | undefined)[];
 }
 
 export interface FakeSkills {
@@ -187,6 +193,7 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     catalogContents: new Map<string, CatalogRepoContents>(),
     persistentSessions: createFakePersistentSessions(),
     skills: createFakeSkills(),
+    liveCallDuringRun: [],
 
     async readState() {
       return structuredClone(this.state);
@@ -196,6 +203,15 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     },
     async runStructured(params) {
       this.modelCalls.push(params);
+      // The real host reports the run's identity before it waits for a pool slot.
+      params.onObservation?.({
+        kind: 'operation-start',
+        identities: { operationId: `run-${this.modelCalls.length}` },
+        startedAt: this.now(),
+      });
+      // A synchronous updateState call has already applied, so the loops below
+      // show the live call exactly as the running call recorded it.
+      this.liveCallDuringRun.push(...this.state.loops.map((loop) => loop.runtime.liveCall));
       let result = this.modelResponses.shift() ?? { response: '', error: 'no scripted model response' };
       // Simulate in-session repair: while the caller rejects the reply, consume
       // the next scripted response (the same session would re-prompt here).

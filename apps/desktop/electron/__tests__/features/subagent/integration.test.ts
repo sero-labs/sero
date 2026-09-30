@@ -252,4 +252,43 @@ describe('SubagentManager integration', () => {
 
     expect(events).toEqual(['start', 'end']);
   });
+
+  it('carries the tool call id from single, parallel and chain runs onto the entry', async () => {
+    mockRunSubagent
+      .mockResolvedValueOnce(makeResult('single'))
+      .mockResolvedValueOnce(makeResult('parallel a'))
+      .mockResolvedValueOnce(makeResult('parallel b'))
+      .mockResolvedValueOnce(makeResult('chain'))
+      .mockResolvedValueOnce(makeResult('chain 2'));
+
+    const manager = new SubagentManager();
+    manager.setDeps(makeMockDeps());
+
+    const entries: Array<{ id: string; toolCallId?: string }> = [];
+    manager.tracker.on('subagent_start', (entry) => {
+      entries.push({ id: entry.id, toolCallId: entry.toolCallId });
+    });
+
+    await manager.runSingle({
+      agent: 'scout', task: 'Scan',
+      parentSessionId: 's1', workspaceId: 'ws-1', toolCallId: 'call-single',
+    });
+    await manager.runParallel({
+      tasks: [{ agent: 'scout', task: 'A' }, { agent: 'scout', task: 'B' }],
+      parentSessionId: 's1', workspaceId: 'ws-1', toolCallId: 'call-parallel',
+    });
+    await manager.runChain({
+      chain: [{ agent: 'scout', task: 'A' }, { agent: 'scout', task: 'B' }],
+      parentSessionId: 's1', workspaceId: 'ws-1', toolCallId: 'call-chain',
+    });
+
+    expect(entries.map((entry) => entry.toolCallId)).toEqual([
+      'call-single',
+      'call-parallel',
+      'call-parallel',
+      'call-chain',
+      'call-chain',
+    ]);
+    expect(manager.tracker.get(entries[0].id)?.toolCallId).toBe('call-single');
+  });
 });

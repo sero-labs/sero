@@ -50,6 +50,15 @@ export async function markRunning(paths: DesignLibraryPaths, jobId: string): Pro
   }));
 }
 
+/**
+ * Record the model run this job is making, so a pending tile can watch it.
+ * Written once per run; a later one replaces it, because only the newest run
+ * can still be streaming.
+ */
+export async function markRunId(paths: DesignLibraryPaths, jobId: string, runId: string): Promise<void> {
+  await mutateJob(paths, jobId, (job) => (job.runId === runId ? job : { ...job, runId }));
+}
+
 export async function markSucceeded(paths: DesignLibraryPaths, jobId: string): Promise<void> {
   await mutateJob(paths, jobId, (job) => ({
     ...job,

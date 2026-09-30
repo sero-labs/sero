@@ -13,6 +13,10 @@ import type { AppRuntimeGitApi } from './app-runtime-git';
 import type { AppRuntimeNotificationsApi } from './app-runtime-notifications';
 import type { PersistentSessionsApi } from './app-runtime-persistent-sessions';
 import type { AppRuntimeSubagentsApi } from './app-runtime-subagents';
+import type { AppRuntimeUiApi } from './app-runtime-ui';
+
+// Split into app-runtime-ui.ts (500-LOC limit); re-exported for existing imports.
+export type { AppRuntimeUiApi } from './app-runtime-ui';
 
 // The git surface lives in ./app-runtime-git; re-exported here so existing
 // imports from '@sero-ai/common' (via this module) keep resolving unchanged.
@@ -68,27 +72,16 @@ export interface AppRuntimeStateApi {
   globalDir(namespace: string): Promise<{ path: string }>;
 }
 
-export interface AppRuntimeNativeBuildFallbackAction {
-  type: 'show-install-instructions' | 'switch-workspace-runtime' | 'setup-container-runtime' | 'retry';
-  label: string;
-  backend?: 'apple-container' | 'docker';
-}
+import type {
+  AppRuntimeNativeBuildFallbackAction,
+  AppRuntimeNativeBuildToolsRequiredMetadata,
+} from './app-runtime-build-tools';
 
-export interface AppRuntimeNativeBuildToolsRequiredMetadata {
-  code: 'NATIVE_BUILD_TOOLS_REQUIRED';
-  title: string;
-  message: string;
-  installInstructions: string[];
-  actions: AppRuntimeNativeBuildFallbackAction[];
-  seroInstallable: false;
-  failure: {
-    kind: string;
-    platform: string;
-    command: string;
-    executable?: string;
-    evidence: string;
-  };
-}
+// Split into app-runtime-build-tools.ts (500-LOC limit); re-exported for existing imports.
+export type {
+  AppRuntimeNativeBuildFallbackAction,
+  AppRuntimeNativeBuildToolsRequiredMetadata,
+} from './app-runtime-build-tools';
 
 export interface AppRuntimeCommandResult {
   stdout: string;
@@ -448,6 +441,7 @@ export interface AppRuntimeSkillsApi {
 
 export interface AppRuntimeHost {
   appState: AppRuntimeStateApi;
+  ui: AppRuntimeUiApi;
   subagents: AppRuntimeSubagentsApi;
   workspace: AppRuntimeWorkspaceApi;
   verification: AppRuntimeVerificationApi;

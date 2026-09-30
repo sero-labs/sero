@@ -14,6 +14,7 @@ import { guardLabel } from '../lib/guard-label';
 import { STEP_STATUS_STYLE } from '../lib/status-style';
 import { PlanMapCard, PlanMapStageFrame } from './PlanMapCard';
 import { PlannerWait } from './PlannerWait';
+import { useLiveCallRunId } from '../lib/use-live-call';
 
 interface PlanMapProps {
   loop: Loop;
@@ -233,5 +234,7 @@ function SelectedStep({ loop, step }: { loop: Loop; step: LoopStepDefinition }) 
 }
 
 export function PlanMapSkeleton() {
-  return <PlannerWait title="Planning this Workflow" />;
+  // Planning a Workflow has no record the UI can read yet, so the running call
+  // arrives from this app's own runtime.
+  return <PlannerWait title="Planning this Workflow" runId={useLiveCallRunId('planner')} />;
 }

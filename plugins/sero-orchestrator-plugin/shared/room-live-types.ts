@@ -14,6 +14,17 @@ export interface LiveToolCall {
   startedAt: string;
 }
 
+/**
+ * One member's live view, pushed to the Watch view while its lease is held.
+ *
+ * Transient by construction: it is a picture of the current turn, never Room
+ * state, and it is dropped when the lease ends.
+ */
+export interface RoomMemberLiveNotice {
+  roomId: string;
+  snapshot: MemberLiveSnapshot;
+}
+
 /** What the UI reads on mount, before any event arrives. */
 export interface MemberLiveSnapshot {
   roomId: string;

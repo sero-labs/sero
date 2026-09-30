@@ -66,7 +66,7 @@ export function RoomBriefPreview() {
 
 /** Frame 2: designing the team. */
 export function RoomPlanningPreview() {
-  return <RoomPreparing title="Designing your team" />;
+  return <RoomPreparing title="Designing your team" kind="planner" />;
 }
 
 /** Frame 3: the proposal, with the planning cost beside Start room. */

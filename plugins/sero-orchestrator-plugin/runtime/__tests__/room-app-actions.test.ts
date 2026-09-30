@@ -425,3 +425,48 @@ it('uses the project snapshot for paid Room planning and member choices', async 
     expect(call.task).not.toContain('global-model');
   }
 });
+
+describe('a Room call can be watched where it is waited on', () => {
+  it('keeps the planning run id on the pending entry while the planner runs', async () => {
+    host.availableModels = [{
+      provider: 'anthropic', displayName: 'Anthropic', logo: '',
+      models: [{ provider: 'anthropic', modelId: 'sonnet', name: 'Sonnet', reasoning: true }],
+    }];
+    // A reply the planner rejects leaves the pending entry in place, so the
+    // record stays readable after the call — the same record a live block watches.
+    host.modelResponses.push({ response: 'not a room plan' });
+
+    const outcome = await app.prepare({
+      problem: 'the app crashes',
+      requestId: 'req-watch',
+      limits: { access: 'read-only' },
+    });
+    expect(outcome.ok).toBe(false);
+
+    const pending = await store.readPendingPlanning('req-watch');
+    // The rejected reply triggers one repair pass, so the newest call's id is
+    // the one left to watch — and it survives the usage reports that follow it.
+    expect(pending?.runId).toBe('run-2');
+    expect(pending?.costUsd ?? 0).toBeGreaterThanOrEqual(0);
+  });
+
+  it('records the adjustment run id on the Room while it runs, then clears it', async () => {
+    const roomId = await draftRoom();
+    host.modelResponses.push({ response: 'not a room blueprint' });
+
+    const seen: Array<{ kind: string; runId: string } | undefined> = [];
+    const updateRoom = store.updateRoom.bind(store);
+    store.updateRoom = async (id, updater) => {
+      await updateRoom(id, (current) => {
+        const next = updater(current);
+        seen.push(next.runtime.liveCall);
+        return next;
+      });
+    };
+
+    await app.adjust(roomId, 'Use fewer agents.');
+
+    expect(seen).toContainEqual({ kind: 'adjust', runId: 'run-1' });
+    expect((await store.readRoom(roomId))?.runtime.liveCall).toBeUndefined();
+  });
+});

@@ -83,6 +83,7 @@ export async function evaluateEventCondition(
     parentSessionId: loop.runtime.parentSessionId,
     model: 'LOW',
     onUsage: options?.onUsage,
+    live: { loopId: loop.id, kind: 'event', label: event.summary },
   });
   if (!result.ok) throw new Error(result.errors[0] ?? 'could not evaluate the event condition');
   return result.value!.matches;

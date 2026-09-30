@@ -48,6 +48,7 @@ import {
   type RoomState,
 } from './room-state';
 import { createRoomTimeline } from './room-timeline';
+import { createPendingPlanningStore, type PendingPlanning } from './pending-planning';
 
 /** What a `transact` decision produced: the record to persist, and its answer. */
 export interface RoomTransaction<T> {
@@ -130,10 +131,15 @@ export interface RoomStore {
   applyRetention(roomId: string): Promise<void>;
   /** Removes `rooms/<roomId>/` entirely. Session files and the grant are the coordinator's (D-12). */
   deleteRoom(roomId: string): Promise<void>;
-  readPendingPlanning(requestId: string): Promise<UsageSummary | undefined>;
+  readPendingPlanning(requestId: string): Promise<PendingPlanning | undefined>;
   updatePendingPlanning(requestId: string, usage: UsageSummary): Promise<void>;
-  consumePendingPlanning(requestId: string): Promise<UsageSummary | undefined>;
+  /** Records the planning call's run id, so its live block can open on it. */
+  markPendingPlanningRun(requestId: string, runId: string): Promise<void>;
+  consumePendingPlanning(requestId: string): Promise<PendingPlanning | undefined>;
 }
+
+// Split into pending-planning.ts (500-LOC limit).
+export type { PendingPlanning } from './pending-planning';
 
 function requireRoom(state: RoomState, roomId: string): RoomRecord {
   const record = state.rooms.find((room) => room.definition.id === roomId);
@@ -148,11 +154,11 @@ export function createRoomStore(
   const paths = createRoomPaths(path.dirname(ctx.stateFilePath));
   const messages = createMessageLog(ctx.host.appState, paths);
   const timeline = createRoomTimeline(paths, retention);
+  const pendingPlanning = createPendingPlanningStore(ctx.host.appState, paths.planning, serialize);
 
   let cache: RoomState | null = null;
   let loadPromise: Promise<RoomState> | null = null;
   let tail: Promise<unknown> = Promise.resolve();
-  let pendingPlanning: Record<string, UsageSummary> | null = null;
 
   const readJson = <T>(file: string) => ctx.host.appState.read<T>(file);
   // Atomic write that also triggers the file watcher the UI subscribes to.
@@ -164,19 +170,6 @@ export function createRoomStore(
     loadPromise ??= persistence.load();
     cache = await loadPromise;
     return cache;
-  }
-
-  async function ensurePendingPlanning(): Promise<Record<string, UsageSummary>> {
-    if (pendingPlanning) return pendingPlanning;
-    const loaded = await ctx.host.appState.read<Record<string, UsageSummary>>(paths.planning);
-    pendingPlanning ??= Object.assign(Object.create(null) as Record<string, UsageSummary>, loaded ?? {});
-    return pendingPlanning;
-  }
-
-  async function writePendingPlanning(next: Record<string, UsageSummary>): Promise<void> {
-    Object.setPrototypeOf(next, null);
-    await ctx.host.appState.update(paths.planning, () => next);
-    pendingPlanning = next;
   }
 
   // Serialize writes; a failure does not poison the queue for later writes.
@@ -456,25 +449,9 @@ export function createRoomStore(
         await commit(prev, { ...prev, rooms });
       }),
 
-    readPendingPlanning: (requestId) => serialize(async () => {
-      const pending = await ensurePendingPlanning();
-      return pending[requestId] ? structuredClone(pending[requestId]) : undefined;
-    }),
-
-    updatePendingPlanning: (requestId, usage) => serialize(async () => {
-      const pending = await ensurePendingPlanning();
-      await writePendingPlanning({ ...pending, [requestId]: mergeUsage(pending[requestId], usage) ?? {} });
-    }),
-
-    consumePendingPlanning: (requestId) => serialize(async () => {
-      const pending = await ensurePendingPlanning();
-      const usage = pending[requestId];
-      if (usage) {
-        const next = { ...pending };
-        delete next[requestId];
-        await writePendingPlanning(next);
-      }
-      return usage ? structuredClone(usage) : undefined;
-    }),
+    readPendingPlanning: (requestId) => pendingPlanning.read(requestId),
+    updatePendingPlanning: (requestId, usage) => pendingPlanning.update(requestId, usage),
+    markPendingPlanningRun: (requestId, runId) => pendingPlanning.markRun(requestId, runId),
+    consumePendingPlanning: (requestId) => pendingPlanning.consume(requestId),
   };
 }

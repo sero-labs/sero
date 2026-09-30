@@ -68,7 +68,7 @@ export function RoomCreateFlow({ busy, dispatch, onStarted, onCancel }: RoomCrea
     setStage({ name: 'brief' });
   };
 
-  if (stage.name === 'planning') return <RoomPreparing title="Designing your team" />;
+  if (stage.name === 'planning') return <RoomPreparing title="Designing your team" kind="planner" />;
 
   if (stage.name === 'proposal') {
     return (

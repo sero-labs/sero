@@ -132,6 +132,15 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
   await input.onAttempt?.(pendingAttempt);
   let latestUsage: ModelRunResult['usage'];
   let progress = Promise.resolve();
+  // The host reports the tracker run id on the run's first observation, before
+  // the run waits for a pool slot, so the step can follow its worker's output
+  // from the start. The attempt keeps the id for the rest of its life.
+  let workerRunId: string | undefined;
+  const queueSnapshot = (attempt: StepAttempt, note: string): void => {
+    progress = progress
+      .then(async () => { await input.onAttempt?.(attempt); })
+      .catch((error: unknown) => host.log(`${note}: ${String(error)}`));
+  };
   // Match active-session execution: the Workflow owns its wall-clock budget.
   // Omit the override for uncapped runs so the normal agent settings still apply.
   const remainingMs = loop.limits.maxWallClockMs === undefined ? undefined
@@ -156,11 +165,18 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
     signal,
     timeoutMs: remainingMs !== undefined && Number.isFinite(remainingMs) ? Math.max(1, remainingMs) : undefined,
     repair: outcomeRepair(loop, step),
+    onObservation: (record) => {
+      const runId = record.identities.operationId;
+      if (!runId || runId === workerRunId) return;
+      workerRunId = runId;
+      queueSnapshot({ ...pendingAttempt, workerRunId }, `Could not save the run id for ${pendingAttempt.id}`);
+    },
     onUsage: (usage) => {
       latestUsage = { ...usage };
-      const snapshot = { ...pendingAttempt, usage: { ...usage, incomplete: true } };
-      progress = progress.then(async () => { await input.onAttempt?.(snapshot); })
-        .catch((error: unknown) => host.log(`Could not save usage for ${pendingAttempt.id}: ${String(error)}`));
+      queueSnapshot(
+        { ...pendingAttempt, workerRunId, usage: { ...usage, incomplete: true } },
+        `Could not save usage for ${pendingAttempt.id}`,
+      );
     },
   }).catch((error: unknown): ModelRunResult => ({
     response: '',
@@ -194,6 +210,7 @@ export async function runStepAttempt(input: StepRunInput, options: RunStepOption
     workspace,
     model: result.modelId,
     agentFallback,
+    workerRunId,
     outputPath: stored.artifactRef,
     observations: [observation],
     usage: {

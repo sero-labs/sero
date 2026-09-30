@@ -32,6 +32,8 @@ export interface SingleRunParams {
   systemPrompt?: string;
   parentSessionId: string;
   workspaceId: string;
+  /** Id of the `subagent` tool call that started this run, when one did. */
+  toolCallId?: string;
   /** Override the working directory (e.g. for git worktree execution). */
   cwd?: string;
   /** Restrict to own workspace only — no cross-workspace mounts in container. */
@@ -167,6 +169,7 @@ export async function executeSingleRun(options: ExecuteSingleRunOptions): Promis
     parentSessionId,
     workspaceId,
     mode: 'single',
+    toolCallId: params.toolCallId,
     usage: { ...EMPTY_USAGE },
     model: resolved.model,
     toolActivity: [],

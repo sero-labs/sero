@@ -12,23 +12,48 @@
  * behaves identically (NFR-017).
  */
 
+import { use } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { cn } from '@sero-ai/ui/lib/utils';
+import { AppContext } from '@sero-ai/app-runtime';
+import type { SubagentLiveEntry } from '@sero-ai/app-runtime';
 import type { MemberLiveSnapshot } from '../../shared/room-live-types';
 import type { RoomMember } from '../../shared/room-types';
 import { formatCost, formatElapsed, formatTimer } from '../lib/format';
+import { useMemberLastReplies, type RoomFeedDispatch } from '../lib/use-room-feed';
+import { useRoomChildren } from '../lib/use-room-children';
 import { memberGlyph } from '../lib/member-glyph';
 import { memberPaneText } from '../lib/room-view';
 import { Face, LivePill } from './room-kit';
 
 interface RoomWatchProps {
+  roomId: string;
   memberIds: string[];
   members: Map<string, RoomMember>;
   live: Map<string, MemberLiveSnapshot>;
+  dispatch: RoomFeedDispatch;
   onOpen: (memberId: string) => void;
 }
 
-export function RoomWatch({ memberIds, members, live, onOpen }: RoomWatchProps) {
+export function RoomWatch({ roomId, memberIds, members, live, dispatch, onOpen }: RoomWatchProps) {
+  // Child agents belong to this workspace. Read from the context rather than a
+  // prop, so a caller that has no workspace id does not have to invent one.
+  const workspaceId = use(AppContext)?.workspaceId ?? null;
+  // A tile that is not streaming shows the end of its own last reply, read from
+  // the session file once per status change.
+  const resting = memberIds
+    .filter((memberId) => live.get(memberId)?.turnId == null)
+    .map((memberId) => ({ id: memberId, status: members.get(memberId)?.status ?? '' }));
+  const lastReplies = useMemberLastReplies(roomId, resting, dispatch);
+
+  // A member that delegates shows what its child agents are doing. Children are
+  // matched on the member's own session id.
+  const sessionIds: string[] = [];
+  for (const memberId of memberIds) {
+    const sessionId = members.get(memberId)?.session.sessionId;
+    if (sessionId) sessionIds.push(sessionId);
+  }
+  const children = useRoomChildren(workspaceId, sessionIds);
   return (
     <div
       aria-label="What every member is doing"
@@ -36,14 +61,17 @@ export function RoomWatch({ memberIds, members, live, onOpen }: RoomWatchProps) 
     >
       {memberIds.map((memberId) => {
         const member = members.get(memberId);
-        return member ? (
+        if (!member) return null;
+        return (
           <WatchPane
             key={memberId}
             member={member}
             snapshot={live.get(memberId) ?? null}
+            lastReply={lastReplies.get(memberId) ?? null}
+            children={children.get(member.session.sessionId ?? '') ?? []}
             onOpen={() => onOpen(memberId)}
           />
-        ) : null;
+        );
       })}
     </div>
   );
@@ -78,14 +106,19 @@ function paneNow(member: RoomMember, snapshot: MemberLiveSnapshot | null): { ico
 function WatchPane({
   member,
   snapshot,
+  lastReply,
+  children,
   onOpen,
 }: {
   member: RoomMember;
   snapshot: MemberLiveSnapshot | null;
+  lastReply: string | null;
+  children: SubagentLiveEntry[];
   onOpen: () => void;
 }) {
   const midTurn = snapshot?.turnId != null;
   const now = paneNow(member, snapshot);
+  const body = memberPaneText(snapshot, lastReply);
 
   return (
     <section
@@ -110,12 +143,26 @@ function WatchPane({
         <span className="room-mono-micro shrink-0 text-room-text4">{now.elapsed}</span>
       </div>
 
-      {/* The stream clips at the tile, faded at the bottom — never grows it. */}
-      <div className="relative min-h-0 flex-1 overflow-hidden px-3 py-2.5 after:absolute after:inset-x-0 after:bottom-0 after:h-[26px] after:bg-linear-to-b after:from-transparent after:to-room-surface">
-        <p className={cn('text-[11px] leading-[1.6] whitespace-pre-wrap', midTurn ? 'text-room-text3' : 'text-room-text4')}>
-          {memberPaneText(member.status, snapshot)}
-        </p>
-      </div>
+      {/* The stream clips at the tile, faded at the bottom — never grows it.
+          A member that delegated lists its child agents here instead. */}
+      {children.length > 0 ? (
+        <div className="grid min-h-0 flex-1 content-start gap-1.5 overflow-hidden px-3 py-2.5">
+          <span className="room-mono-micro text-room-text4">
+            {children.length} agent{children.length === 1 ? '' : 's'}
+          </span>
+          {children.map((child) => (
+            <ChildRow key={child.id} child={child} />
+          ))}
+        </div>
+      ) : (
+        <div className="relative min-h-0 flex-1 overflow-hidden px-3 py-2.5 after:absolute after:inset-x-0 after:bottom-0 after:h-[26px] after:bg-linear-to-b after:from-transparent after:to-room-surface">
+          {body && (
+            <p className={cn('text-[11px] leading-[1.6] whitespace-pre-wrap', midTurn ? 'text-room-text3' : 'text-room-text4')}>
+              {body}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="room-mono-micro flex shrink-0 items-center gap-2 border-t border-room-line px-3 py-2 text-room-text4">
         {formatCost(member.usage.costUsd)} · {member.usage.turns} {member.usage.turns === 1 ? 'turn' : 'turns'}
@@ -124,5 +171,21 @@ function WatchPane({
         </Button>
       </div>
     </section>
+  );
+}
+
+/**
+ * One child agent of a member: its name, what it does now, and how long it has
+ * been running.
+ */
+function ChildRow({ child }: { child: SubagentLiveEntry }) {
+  const tool = child.toolActivity.filter((item) => item.running).at(-1);
+  const what = tool ? `${tool.toolName} ${tool.argsSummary}`.trim() : 'writing its answer';
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <span className="shrink-0 text-[11px] font-medium text-room-text2">{child.agentName}</span>
+      <span className="room-tabular min-w-0 flex-1 truncate text-[10px] text-room-text3">{what}</span>
+      <span className="room-mono-micro shrink-0 text-room-text4">{formatTimer(Date.now() - child.startedAt)}</span>
+    </div>
   );
 }

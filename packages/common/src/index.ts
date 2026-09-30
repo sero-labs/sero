@@ -109,6 +109,7 @@ export type {
   AppRuntimeSkillWrite,
   AppRuntimeSkillWriteResult,
   AppRuntimeSkillsApi,
+  AppRuntimeUiApi,
   AppRuntimeHost,
   AppRuntimeContext,
   AppRuntime,

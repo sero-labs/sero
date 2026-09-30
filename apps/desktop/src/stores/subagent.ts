@@ -5,6 +5,7 @@
  * snapshot hydration for mount-time recovery.
  */
 
+import { useEffect, useMemo } from 'react';
 import { create } from 'zustand';
 import type {
   SubagentEntry,
@@ -70,6 +71,54 @@ interface SubagentState {
 
   /** Initialize IPC event listeners. Returns cleanup function. */
   initListeners(): () => void;
+}
+
+/** How many views are asking for the store, so the listeners start once. */
+let storeRefs = 0;
+let listeningFor: string | null = null;
+let stopListening: (() => void) | null = null;
+
+/**
+ * Hydrate the store and start listening, once per workspace while a view asks.
+ *
+ * The chat's live blocks are why the store exists now: the Explorer panel that
+ * used to start it is gone, and a chat with no running `subagent` call must not
+ * keep an IPC listener open.
+ */
+export function useEnsureSubagentStore(workspaceId: string | null): void {
+  useEffect(() => {
+    if (!workspaceId) return;
+    storeRefs += 1;
+    if (listeningFor !== workspaceId || !stopListening) {
+      stopListening?.();
+      listeningFor = workspaceId;
+      stopListening = useSubagentStore.getState().initListeners();
+      void useSubagentStore.getState().hydrate(workspaceId);
+    }
+    return () => {
+      storeRefs -= 1;
+      if (storeRefs > 0) return;
+      stopListening?.();
+      stopListening = null;
+      listeningFor = null;
+    };
+  }, [workspaceId]);
+}
+
+/**
+ * The runs one `subagent` tool call started, oldest first.
+ *
+ * Matched by the tool call id the run carries, so a parallel or chained call
+ * shows exactly its own agents and never another call's.
+ */
+export function useSubagentRuns(toolCallId: string | undefined): SubagentEntry[] {
+  const entries = useSubagentStore((state) => state.entries);
+  return useMemo(() => {
+    if (!toolCallId) return [];
+    return Object.values(entries)
+      .filter((entry) => entry.toolCallId === toolCallId)
+      .sort((a, b) => a.startedAt - b.startedAt);
+  }, [entries, toolCallId]);
 }
 
 export const useSubagentStore = create<SubagentState>((set) => ({

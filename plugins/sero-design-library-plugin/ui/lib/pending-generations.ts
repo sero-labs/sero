@@ -15,6 +15,11 @@ export interface PendingGeneration {
   slotId: string;
   status: JobSummary['status'];
   error: string | undefined;
+  /**
+   * The model run behind this tile, while one runs. A media-only generation has
+   * no model call, so its tile has nothing to watch and keeps its spinner.
+   */
+  runId: string | undefined;
 }
 
 /** Jobs generating into the Library, in the order they were asked for. */
@@ -33,5 +38,6 @@ export function pendingGenerations(jobs: JobSummary[]): PendingGeneration[] {
       slotId: job.target.kind === 'library' ? job.target.slotId : job.id,
       status: job.status,
       error: job.error,
+      runId: job.runId,
     }));
 }

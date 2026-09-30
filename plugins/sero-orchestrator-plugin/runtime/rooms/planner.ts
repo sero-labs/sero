@@ -85,6 +85,8 @@ export interface RoomPlanRequest {
   thinking?: string;
   signal?: AbortSignal;
   onUsage?: (usage: UsageSummary) => void | Promise<void>;
+  /** The planning call's run id, for the pending planning entry to watch. */
+  onRunId?: (runId: string) => void;
 }
 
 export type RoomPlanOutcome =
@@ -314,6 +316,7 @@ export async function planRoom(host: OrchestratorHost, request: RoomPlanRequest)
     thinking: request.thinking,
     signal: request.signal,
     onUsage: request.onUsage,
+    onRunId: request.onRunId,
   });
 
   if (!result.ok || !result.value) {

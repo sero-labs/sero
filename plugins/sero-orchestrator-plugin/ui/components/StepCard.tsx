@@ -14,8 +14,8 @@
 
 import { Fragment, useState } from 'react';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
-import { Button } from '@sero-ai/ui/components/ui/button';
-import { ChevronDown, RefreshCw, SlidersHorizontal } from 'lucide-react';
+import { SubagentLiveBlock } from '@sero-ai/ui';
+import { ChevronDown, Eye, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import type { AppModelGroup } from '@sero-ai/app-runtime';
 import type { ContextAgentInfo, ContextToolInfo } from '@sero-ai/common';
 import type { Loop, LoopStepDefinition, StepRuntimeState } from '../../shared/types';
@@ -24,6 +24,7 @@ import { splitFileRefs } from '../lib/file-refs';
 import { stepMarks, stepStateLabel } from '../lib/step-detail';
 import { StepStatusPill } from './StatusBadge';
 import { fanOutSummaryLabel, type FanOutView } from '../lib/fan-out-summary';
+import { stepLiveView } from '../lib/step-live';
 import { WorkspaceFileLink } from './WorkspaceFileLink';
 import { StepModelControl } from './StepModelControl';
 import { StepToolsControl } from './StepToolsControl';
@@ -112,11 +113,21 @@ const ICON_BUTTON = 'grid size-6 shrink-0 place-items-center rounded-[5px] text-
 export function StepCard({ step, number, loop, numberOf, showNumber = true, state, groups, toolCatalog, agentCatalog, onSetModel, onSetTools, onSetAgent, onRetry, fanOut }: StepCardProps) {
   const [tuning, setTuning] = useState(false);
   const [open, setOpen] = useState(false);
+  // Closed until the person asks for it: a running step shows its state word
+  // and nothing else until they open the live view.
+  const [watching, setWatching] = useState(false);
   const stateLabel = stepStateLabel(loop, step, state?.status);
   const notTaken = stateLabel === 'Not taken';
   const isProblem = !!state && PROBLEM_STATUSES.has(state.status);
   const tint = state ? STEP_STATUS_STYLE[state.status].tint : '';
   const canTune = step.execution.type !== 'active-session';
+  // An active-session step runs in the chat, which already shows its work, so
+  // it offers no control here.
+  const live = canTune ? stepLiveView(loop, step.id, state?.status) : undefined;
+  const liveItems = canTune
+    ? (fanOut?.items ?? []).filter((item) => item.status === 'running' && item.runId)
+    : [];
+  const canWatch = !!live || liveItems.length > 0;
 
   return (
     <div className={`orc-step flex flex-col${notTaken ? ' orc-step-dim' : ''}${tint ? ` ${tint}` : ''}`}>
@@ -128,18 +139,40 @@ export function StepCard({ step, number, loop, numberOf, showNumber = true, stat
         canTune={canTune}
         tuning={tuning}
         open={open}
+        canWatch={canWatch}
+        watching={watching}
         onTune={() => setTuning((t) => !t)}
         onOpen={() => setOpen((o) => !o)}
+        onWatch={() => setWatching((w) => !w)}
+        onRetry={onRetry}
       />
+
+      {watching && liveItems.length > 0 && (
+        <div className="mt-2 flex flex-col gap-2">
+          {liveItems.map((item) => (
+            <SubagentLiveBlock key={item.key} runId={item.runId!} agentName={item.key} />
+          ))}
+        </div>
+      )}
+
+      {watching && liveItems.length === 0 && live && (
+        <SubagentLiveBlock className="mt-2" runId={live.runId} quietLabel={live.quietLabel} />
+      )}
 
       {fanOut && <div className="mt-2"><FanOutActivations view={fanOut} /></div>}
 
-      {state?.outcome && (
+      {state?.outcome && (isProblem ? (
+        // A failed step states its reason as one line under the title. A label
+        // column would put the reason behind a word the reader does not need.
+        <p className="mt-1.5 text-xs leading-relaxed text-destructive">
+          <WithFileRefs text={state.outcome.summary} workspaceId={loop.workspaceId} />
+        </p>
+      ) : (
         <dl className="orc-kv mt-2.5">
           <dt>Result</dt>
-          <dd className={isProblem ? 'text-destructive' : 'text-room-text'}><WithFileRefs text={state.outcome.summary} workspaceId={loop.workspaceId} /></dd>
+          <dd className="text-room-text"><WithFileRefs text={state.outcome.summary} workspaceId={loop.workspaceId} /></dd>
         </dl>
-      )}
+      ))}
 
       {open && (
         <div className="mt-2.5 border-t border-room-line pt-2.5">
@@ -154,12 +187,6 @@ export function StepCard({ step, number, loop, numberOf, showNumber = true, stat
         </div>
       )}
 
-      {onRetry && (
-        <Button size="xs" variant="outline" className="mt-2 self-start" onClick={onRetry} title="Reset this step and run the Workflow from here (keeps finished work)">
-          <RefreshCw className="mr-1 h-3.5 w-3.5" /> Retry step
-        </Button>
-      )}
-
       {canTune && tuning && (
         <StepTune step={step} groups={groups} toolCatalog={toolCatalog} agentCatalog={agentCatalog} onSetModel={onSetModel} onSetTools={onSetTools} onSetAgent={onSetAgent} />
       )}
@@ -167,8 +194,8 @@ export function StepCard({ step, number, loop, numberOf, showNumber = true, stat
   );
 }
 
-/** The title row: number, title, state word, then Tune and the chevron. */
-function StepHeader({ step, number, stateLabel, badgeTone, canTune, tuning, open, onTune, onOpen }: {
+/** The title row: number, title, state word, then Retry, Tune, the eye and the chevron. */
+function StepHeader({ step, number, stateLabel, badgeTone, canTune, tuning, open, canWatch, watching, onTune, onOpen, onWatch, onRetry }: {
   step: LoopStepDefinition;
   /** Null when the spine rail shows the number instead. */
   number: number | null;
@@ -177,8 +204,12 @@ function StepHeader({ step, number, stateLabel, badgeTone, canTune, tuning, open
   canTune: boolean;
   tuning: boolean;
   open: boolean;
+  canWatch: boolean;
+  watching: boolean;
   onTune: () => void;
   onOpen: () => void;
+  onWatch: () => void;
+  onRetry?: () => void;
 }) {
   return (
     <div className="flex items-center gap-[9px]">
@@ -192,6 +223,29 @@ function StepHeader({ step, number, stateLabel, badgeTone, canTune, tuning, open
       >
         {stateLabel}
       </Badge>
+      {/* Retry sits beside the state word, as the drawing sets it. */}
+      {onRetry && (
+        <button
+          type="button"
+          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-room-line px-2 py-1 text-xs text-room-text hover:bg-room-overlay"
+          onClick={onRetry}
+          title="Reset this step and run the Workflow from here (keeps finished work)"
+        >
+          <RefreshCw className="size-3" /> Retry
+        </button>
+      )}
+      {canWatch && (
+        <button
+          type="button"
+          className={`${ICON_BUTTON}${watching ? ' bg-room-overlay text-room-text' : ''}`}
+          onClick={onWatch}
+          aria-expanded={watching}
+          aria-label={`Watch the agent for ${step.title}`}
+          title="Watch the agent"
+        >
+          <Eye className="size-3.5" />
+        </button>
+      )}
       {canTune && (
         <button
           type="button"

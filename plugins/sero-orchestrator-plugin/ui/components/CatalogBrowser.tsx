@@ -18,6 +18,8 @@ import {
   DialogTitle,
 } from '@sero-ai/ui/components/ui/dialog';
 import { Input } from '@sero-ai/ui/components/ui/input';
+import { PlannerWait } from './PlannerWait';
+import { useLiveCallRunId } from '../lib/use-live-call';
 import type { CatalogRepoContents, CatalogRepoRef } from '../../shared/catalog-types';
 import type { LibraryIndex } from '../../shared/types';
 import { installState } from '../lib/catalog-summary';
@@ -54,6 +56,8 @@ export function CatalogBrowser({ busy, libraryIndex, dispatch, onOpenLoop, onSho
   const [shown, setShown] = useState(PAGE);
   const [addOpen, setAddOpen] = useState(false);
   const [addUrl, setAddUrl] = useState('');
+  const [installing, setInstalling] = useState(false);
+  const plannerRunId = useLiveCallRunId('planner');
 
   const apply = (details: CatalogDetails | null) => {
     if (!details || details.ok === false) return;
@@ -103,8 +107,16 @@ export function CatalogBrowser({ busy, libraryIndex, dispatch, onOpenLoop, onSho
   };
 
   const installEntry = async (repoKey: string, slug: string) => {
-    const details = (await dispatch({ action: 'catalog_install', repoKey, slug })) as CatalogDetails | null;
-    if (details && details.ok !== false && details.loop?.id) onOpenLoop(details.loop.id);
+    // Installing adapts the catalog definition to this workspace, which is a
+    // planner call: it reports nothing until it answers, so the screen shows
+    // the planner wait rather than a disabled Install button.
+    setInstalling(true);
+    try {
+      const details = (await dispatch({ action: 'catalog_install', repoKey, slug })) as CatalogDetails | null;
+      if (details && details.ok !== false && details.loop?.id) onOpenLoop(details.loop.id);
+    } finally {
+      setInstalling(false);
+    }
   };
 
   const rows = useMemo(() => {
@@ -117,6 +129,10 @@ export function CatalogBrowser({ busy, libraryIndex, dispatch, onOpenLoop, onSho
   }, [contents, query]);
   const hiddenCount = contents.reduce((n, c) => n + c.problems.length, 0);
   const visible = rows.slice(0, shown);
+
+  if (installing) {
+    return <PlannerWait title="Planning this Workflow" runId={plannerRunId} />;
+  }
 
   return (
     <div className="flex flex-col gap-3">

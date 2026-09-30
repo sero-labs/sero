@@ -7,6 +7,8 @@
  */
 
 import type { HumanQuestion } from '../../shared/human-input-types';
+import type { LiveCallNotice } from '../../shared/types';
+import { useLiveCallRunId } from '../lib/use-live-call';
 import { NoteBlock } from './room-kit';
 import { PlannerWait } from './PlannerWait';
 
@@ -16,8 +18,8 @@ import { PlannerWait } from './PlannerWait';
  * the real time since the request — never a step list, a bar or a countdown
  * (prototype screen 2).
  */
-export function RoomPreparing({ title }: { title: string }) {
-  return <PlannerWait title={title} />;
+export function RoomPreparing({ title, kind }: { title: string; kind: LiveCallNotice['kind'] }) {
+  return <PlannerWait title={title} runId={useLiveCallRunId(kind)} />;
 }
 
 /** What the planner asked, so the user can answer it rather than read a failure. */

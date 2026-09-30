@@ -82,6 +82,7 @@ export const llmEvaluator: OutcomeEvaluator = {
       buildRepair: buildEvaluateRepair,
       parentSessionId: loop.runtime.parentSessionId,
       onUsage,
+      live: { loopId: loop.id, kind: 'evaluator', stepId: step.id },
     });
     if (result.responses.length > 0) {
       await host.writeArtifact(`${loopArtifactDir(loop.id)}/evaluation/${attempt.id}.txt`, joinResponses(result.responses));
@@ -183,12 +184,21 @@ function parseDecision(value: unknown): ParseResult<ParsedDecision> {
   const parsed: ParsedDecision = { decision: kind, reason: typeof value.reason === 'string' ? value.reason : '' };
 
   if (kind === 'revise-step') {
-    if (!isRecord(value.revisedStep)) errors.push('"revise-step" requires "revisedStep" (a full step definition).');
-    else parsed.revisedStep = value.revisedStep as unknown as LoopStepDefinition;
+    if (!isRecord(value.revisedStep)) {
+      errors.push('"revise-step" requires "revisedStep" (a full step definition).');
+    } else {
+      // SAFETY: the plan validator checks this step's shape before the decision
+      // is applied, so the record check above is all that belongs here.
+      parsed.revisedStep = value.revisedStep as unknown as LoopStepDefinition;
+    }
   }
   if (kind === 'revise-plan') {
-    if (!isRecord(value.revisedPlan)) errors.push('"revise-plan" requires "revisedPlan" (a full LoopPlan).');
-    else parsed.revisedPlan = value.revisedPlan as unknown as LoopPlan;
+    if (!isRecord(value.revisedPlan)) {
+      errors.push('"revise-plan" requires "revisedPlan" (a full LoopPlan).');
+    } else {
+      // SAFETY: as above — validateLoopPlan checks the plan before it is applied.
+      parsed.revisedPlan = value.revisedPlan as unknown as LoopPlan;
+    }
   }
   if (kind === 'accept-step') {
     const outcome = parseStepOutcomeStrict(value.acceptedOutcome);
@@ -209,6 +219,7 @@ export const llmDecider: RecoveryDecider = {
       buildRepair: buildRecoveryRepair,
       parentSessionId: loop.runtime.parentSessionId,
       onUsage,
+      live: { loopId: loop.id, kind: 'recovery', stepId: step.id },
     });
     const modelResponsePath = result.responses.length
       ? await host.writeArtifact(`${loopArtifactDir(loop.id)}/recovery/${attempt.id}.txt`, joinResponses(result.responses))
@@ -280,9 +291,12 @@ function parseRevision(value: unknown): ParseResult<RevisionResult> {
   if (!isRecord(value.plan)) {
     errors.push('"plan" must be a full LoopPlan object.');
   } else {
+    // SAFETY: validateLoopPlan is the runtime check this cast defers to.
     errors.push(...validateLoopPlan(value.plan as unknown as LoopPlan));
   }
   if (errors.length > 0) return { ok: false, errors };
+  // SAFETY: validateLoopPlan accepted the plan just above, and both fields were
+  // checked before that.
   return { ok: true, value: { goal: (value.goal as string).trim(), plan: value.plan as unknown as LoopPlan } };
 }
 
@@ -294,6 +308,7 @@ export async function proposeRevisedPlan(host: OrchestratorHost, loop: Loop, pro
     buildRepair: buildRevisionRepair,
     parentSessionId: loop.runtime.parentSessionId,
     onUsage,
+    live: { loopId: loop.id, kind: 'refine' },
   });
   const modelResponsePath = result.responses.length
     ? await host.writeArtifact(`${loopArtifactDir(loop.id)}/revision/${host.newId('rev')}.txt`, joinResponses(result.responses))

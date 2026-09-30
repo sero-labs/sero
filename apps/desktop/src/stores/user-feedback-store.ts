@@ -90,8 +90,8 @@ export const useUserFeedbackStore = create<UserFeedbackState>((set, get) => {
     if (removed) maybeRestoreReturnApp();
   };
 
-  // Ref-counted IPC subscription so multiple callers (App root, ChatPanel,
-  // OrchestrationPanel) share a single set of listeners. The real listeners are
+  // Ref-counted IPC subscription so multiple callers (App root, ChatPanel)
+  // share a single set of listeners. The real listeners are
   // created on the first init and torn down when the last caller unsubscribes;
   // the always-mounted App-root caller keeps them alive for the app's lifetime.
   let listenerRefCount = 0;

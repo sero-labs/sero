@@ -34,25 +34,22 @@ export function defaultRoomView(status: RoomStatus): RoomView {
 }
 
 /**
- * What a Watch pane says when there is no live text — which is most of the time
- * for most members, and each reason is a different thing for the user to know.
- * A stale last line shown as though it were live is the one thing it must never
- * do.
+ * What a Watch pane shows in its body.
+ *
+ * A member that is writing shows its live text. A member that is waiting or
+ * finished shows the END of its last reply, dimmed — the drawing asks for the
+ * member's own words, not a sentence about its status, and a fixed line in
+ * place of a reply is what the drawing forbids.
+ *
+ * Text is only ever read from a turn in flight. The buffer keeps text after a
+ * turn ends, and showing that as live would dress a finished turn as a running
+ * one; the reply comes from the session file instead.
  */
-export function memberPaneText(status: MemberStatus, snapshot: MemberLiveSnapshot | null): string {
-  // Only WHILE a turn is in flight. The text is retained after the turn ends,
-  // and showing it then would be a finished turn dressed as a live one — the
-  // session file already carries it, and the transcript reads it from there.
+export function memberPaneText(snapshot: MemberLiveSnapshot | null, lastReply: string | null): string {
   if (snapshot?.turnId && snapshot.text) return snapshot.text;
-  if (status === 'waiting') {
-    return 'Its turn ended when it asked its question, so nothing is streaming and no turn is held. It picks up in the same session the moment a reply lands.';
-  }
-  if (status === 'retired' || status === 'completed') {
-    return 'Its session is closed but kept. Open it to read everything it did.';
-  }
+  if (lastReply) return lastReply;
   if (snapshot?.turnId) return 'Working. The turn has produced no text yet.';
-  if (snapshot?.lastTurnStatus) return `Its last turn ${snapshot.lastTurnStatus}. Open its session to read it.`;
-  return 'Nothing is streaming from this member right now.';
+  return '';
 }
 
 export interface SessionTurn {

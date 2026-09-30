@@ -55,6 +55,8 @@ export interface GenerationRunContext {
   mediaCallsRemaining?: number;
   /** Persist a short status line for the Design surface. */
   onProgress?(message: string): void;
+  /** The run's tracker id, so the job waiting on it can open a live block. */
+  onRunId?(runId: string): void;
 }
 
 /**
@@ -177,7 +179,12 @@ export async function runGeneration(
   };
 
   context.onProgress?.('Planning the design…');
-  const result = await context.host.subagents.runStructured(params);
+  const result = await context.host.subagents.runStructured({
+    ...params,
+    // The host reports the run id on the first observation, so the job waiting
+    // on this run can be watched from the start.
+    onObservation: (observation) => context.onRunId?.(observation.identities.operationId),
+  });
 
   if (context.signal.aborted || result.error?.startsWith('Aborted')) return { status: 'cancelled' };
   if (result.error) return { status: 'failed', reason: result.error };

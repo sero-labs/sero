@@ -209,8 +209,26 @@ export interface RoomStopReason {
   at: string;
 }
 
+/**
+ * A one-answer Room call shown while it runs.
+ *
+ * Deliberately its own shape rather than the Workflow `LiveCall`: the Room and
+ * Workflow records share no field that only one mode uses.
+ */
+export interface RoomLiveCall {
+  /** `plan` while a Room is designed, `adjust` while it is rethought. */
+  kind: 'plan' | 'adjust';
+  /** The tracker run id of the call, for the host live watch. */
+  runId: string;
+}
+
 export interface RoomRuntimeState {
   status: RoomStatus;
+  /**
+   * The one-answer call running now while the Room is planned or adjusted, so a
+   * view can open a live block on it. Cleared when the call returns.
+   */
+  liveCall?: RoomLiveCall;
   /** Finish request held until running turns have recorded their final usage. */
   completion?: { summary: string; receipt?: DeliveryReceipt };
   startedAt: string | null;

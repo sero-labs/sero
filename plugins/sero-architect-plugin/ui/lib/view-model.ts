@@ -233,6 +233,9 @@ export function projectActivity(record: ProjectRecord): string {
   if (record.preparingMaintenance) return 'Preparing the maintenance Workflow';
   const research = record.pendingResearch?.find((entry) => entry.kind);
   if (research) return research.roomId ? 'A Room is working on a project task' : research.workflowId ? 'A Workflow is working on a project question' : 'Preparing research or review';
+  // Research run directly as one agent has no Room or Workflow behind it, and
+  // it is the only thing on the page while it runs.
+  if (record.pendingResearch?.some((entry) => entry.kind === undefined)) return 'Researching a project question';
   const pending = record.milestones.find((milestone) => milestone.pendingDispatch);
   if (pending) return `Starting ${pending.title}. Waiting for the workflow to respond.`;
   const running = record.milestones.filter((milestone) => milestone.status === 'running');

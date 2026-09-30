@@ -37,6 +37,8 @@ export interface JobIndexEntry {
   createdAt: number;
   completedAt?: number;
   error?: string;
+  /** The run making the model call this job stands for, while it runs. */
+  runId?: string;
 }
 
 export type DesignIndexEntry = DesignSummary;

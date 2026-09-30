@@ -62,6 +62,8 @@ export interface AdjustRoomRequest {
   thinking?: string;
   signal?: AbortSignal;
   onUsage?: (usage: UsageSummary) => void | Promise<void>;
+  /** The adjustment call's run id, recorded on the Room while it runs. */
+  onRunId?: (runId: string) => void;
 }
 
 export type AdjustRoomOutcome =
@@ -227,6 +229,7 @@ export async function adjustRoom(host: OrchestratorHost, request: AdjustRoomRequ
     signal: request.signal,
     maxRepairs: 1,
     onUsage: request.onUsage,
+    onRunId: request.onRunId,
   });
 
   if (!result.ok || !result.value) {

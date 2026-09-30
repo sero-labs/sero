@@ -24,7 +24,7 @@ import {
   type RevisionNaming,
 } from './revision-files';
 import { mutateVariant, readDesign } from '../design-store';
-import { markCancelled, markFailed, markRunning, markSucceeded } from '../jobs';
+import { markCancelled, markFailed, markRunId, markRunning, markSucceeded } from '../jobs';
 import { mutateJob, readJob } from '../store';
 import { createGenerationMediaProgressReporter, createGenerationProgressReporter } from './progress';
 import { collectReferenceLanguage, runGeneration } from './run';
@@ -43,13 +43,9 @@ import { collectReferenceLanguage, runGeneration } from './run';
  */
 
 const MAX_CONCURRENT = 2;
-export interface VariantQueueContext {
-  host: AppRuntimeHost;
-  paths: DesignLibraryPaths;
-  workspaceId: string;
-  sessionId: string;
-  onError(message: string, error: unknown): void;
-}
+// Split into queue-types.ts (500-LOC limit).
+export type { VariantQueueContext } from './queue-types';
+import type { VariantQueueContext } from './queue-types';
 
 interface InFlight {
   controller: AbortController;
@@ -266,6 +262,8 @@ export class VariantQueue {
         mediaTools: media.tools,
         mediaCallsRemaining: media.budget.callsRemaining,
         onProgress: progress.report,
+        // Written on the job so a pending tile can follow this run.
+        onRunId: (runId) => void markRunId(paths, jobId, runId),
       },
       revise ?? undefined,
     );

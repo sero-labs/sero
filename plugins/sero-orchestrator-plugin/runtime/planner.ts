@@ -21,6 +21,11 @@ import { mergeUsage } from '../shared/usage';
 import type { ModelRunResult } from './host';
 
 export interface PlanRequest {
+  /**
+   * The draft loop being planned, so its runtime can carry the running call.
+   * Omitted when no loop record exists yet — nothing is then recorded.
+   */
+  loopId?: string;
   prompt: string;
   parentSessionId: string;
   /** The loop's workspace isolation, so the planner adds the right placement rules. */
@@ -80,7 +85,7 @@ async function runPlanning(host: OrchestratorHost, req: PlanRequest, task: strin
     parentSessionId: req.parentSessionId,
     platformTools: 'none',
     signal: req.signal,
-  }, req.onUsage);
+  }, req.onUsage, req.loopId ? { loop: { loopId: req.loopId, kind: 'planner' } } : undefined);
 }
 
 function usageOf(result: ModelRunResult): UsageSummary {

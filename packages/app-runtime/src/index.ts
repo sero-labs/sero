@@ -31,6 +31,7 @@ export { useAvailableModels, type UseAvailableModelsResult } from './use-availab
 export { useSubagentContext, type UseSubagentContextResult } from './use-subagent-context';
 export { useContextPresets, type UseContextPresetsResult } from './use-context-presets';
 export { useTheme, type UseThemeResult } from './use-theme';
+export { useAppRuntimeEvents } from './use-app-runtime-events';
 export { getSeroApi } from './sero-bridge';
 export {
   openSeroApp,
@@ -41,6 +42,11 @@ export {
   onAppLaunchParams,
 } from './app-launch';
 export type { AppModelInfo, AppModelGroup } from './sero-bridge';
+export type {
+  SeroSubagentBridge,
+  SubagentLiveEntry,
+  SubagentLiveEvent,
+} from './sero-bridge';
 export type { AppToolContentBlock, AppToolImageContent, AppToolResult, AppToolTextContent } from '@sero-ai/common';
 export { registerWidget, getRuntimeWidgets, onWidgetRegistryChange } from './widget-registry';
 export type { RuntimeWidget } from './widget-registry';

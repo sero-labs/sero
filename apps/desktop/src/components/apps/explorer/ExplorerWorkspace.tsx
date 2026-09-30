@@ -194,7 +194,6 @@ export function ExplorerWorkspace() {
           sidebarOpen={showSidebar}
           terminalOpen={terminalOpen}
           onPanelClick={handlePanelClick}
-          workspaceId={workspaceId}
         />
 
         <ResizablePanelGroup
@@ -223,7 +222,6 @@ export function ExplorerWorkspace() {
                 {showSidebar && (
                   <ExplorerSidebar
                     activePanel={resolvedActivePanel}
-                    workspaceId={workspaceId}
                     fileTreeProps={{
                       workspaceId,
                       roots,

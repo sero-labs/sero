@@ -14,6 +14,7 @@ import { extractJson } from './schema';
 import type { UsageSummary } from '../shared/types';
 import { aggregateUsage } from '../shared/usage';
 import { runTrackedModel } from './usage-tracking';
+import type { LiveCallTarget } from './live-call';
 
 export type ParseResult<T> =
   | { ok: true; value: T }
@@ -59,6 +60,16 @@ export interface StructuredCallSpec<T> {
   cwd?: string;
   /** Receives deltas from cumulative SDK snapshots while the operation runs. */
   onUsage?: (usage: UsageSummary) => void | Promise<void>;
+  /**
+   * Record the call on this loop's runtime while it runs, so a view can open a
+   * live block on the reply as the model writes it.
+   */
+  live?: LiveCallTarget;
+  /**
+   * The run id, for a caller that keeps its own record instead of a loop's
+   * (a Room's pending planning entry, or a Room being adjusted).
+   */
+  onRunId?: (runId: string) => void;
 }
 
 export interface StructuredCallResult<T> {
@@ -96,7 +107,7 @@ export async function runStructuredJson<T>(
       platformTools: spec.platformTools ?? 'none',
       cwd: spec.cwd,
       signal: spec.signal,
-    }, spec.onUsage);
+    }, spec.onUsage, { loop: spec.live, onRunId: spec.onRunId });
     const callUsage = { ...(result.usage ?? {}), ...(!result.usage || result.error ? { incomplete: true } : {}) };
     calls.push(callUsage);
     const usage = aggregateUsage(calls.map((usage) => ({ usage })));

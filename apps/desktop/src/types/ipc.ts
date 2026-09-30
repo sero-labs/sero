@@ -398,6 +398,7 @@ export type {
 } from './subagent';
 
 export type * from './skills';
+export type * from './app-runtime-events';
 export type { PromptTemplateSummary, PromptTemplateFileData } from './prompts';
 
 // ── GitHub Repo Creation ────────────────────────────────────────

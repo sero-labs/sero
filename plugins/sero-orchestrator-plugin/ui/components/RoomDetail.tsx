@@ -250,9 +250,11 @@ export function RoomDetail({
           />
         ) : shownView === 'watch' ? (
           <RoomWatch
+            roomId={room.definition.id}
             memberIds={room.memberIds}
             members={members}
             live={live}
+            dispatch={dispatch}
             onOpen={selectMember}
           />
           ) : (

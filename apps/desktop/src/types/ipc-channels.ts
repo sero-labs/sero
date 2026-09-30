@@ -134,6 +134,14 @@ export const IpcChannels = {
     newAppDetected: 'sero:apps:new-app-detected',
   },
   appAgent: appAgentIpcChannels,
+  appRuntime: {
+    /** Event pushed from an app runtime to its own views. */
+    event: 'sero:app-runtime:event',
+    /** Declare that this window shows an app's topic in a workspace. */
+    subscribe: 'sero:app-runtime:subscribe',
+    /** Release a subscription held by this window. */
+    unsubscribe: 'sero:app-runtime:unsubscribe',
+  },
   webApp: {
     /** Run a direct Web app action for a workspace. */
     run: 'sero:web-app:run',
@@ -326,6 +334,10 @@ export const IpcChannels = {
   net: netIpcChannels,
   subagent: {
     event: 'sero:subagent:event',
+    /** Declare that this window shows a run's live text and tool activity. */
+    watch: 'sero:subagent:watch',
+    /** Release a watch held by this window. */
+    unwatch: 'sero:subagent:unwatch',
     listAgents: 'sero:subagent:list-agents',
     snapshot: 'sero:subagent:snapshot',
     abort: 'sero:subagent:abort',

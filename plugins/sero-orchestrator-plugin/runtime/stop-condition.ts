@@ -110,6 +110,7 @@ export async function evaluateStopCondition(
     signal: args.signal,
     maxRepairs: 2,
     onUsage: args.onUsage,
+    live: { loopId: loop.id, kind: 'stop' },
   });
   if (!result.ok || !result.value) {
     host.log(`stop-condition evaluation failed for ${loop.id}: ${result.errors.join('; ')}`);

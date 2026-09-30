@@ -192,6 +192,7 @@ export async function proposeImprovements(host: OrchestratorHost, loop: Loop, hi
     buildRepair: buildReflectRepair,
     parentSessionId: loop.runtime.parentSessionId,
     onUsage,
+    live: { loopId: loop.id, kind: 'reflect' },
   });
   if (result.responses.length) {
     await host.writeArtifact(`${loopArtifactDir(loop.id)}/reflection/${host.newId('refl')}.txt`, joinResponses(result.responses));

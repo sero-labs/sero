@@ -12,6 +12,9 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@sero-ai/app-runtime', () => ({
+  // This control listens to the app's own runtime; the tests render it
+  // directly, so the listener is inert.
+  useAppRuntimeEvents: () => {},
   getSeroApi: () => ({
     appState: {
       onChange: () => () => {},

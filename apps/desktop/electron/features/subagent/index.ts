@@ -138,6 +138,8 @@ export class SubagentManager {
     timeoutMs?: number;
     parentSessionId: string;
     workspaceId: string;
+    /** Id of the `subagent` tool call that started these runs, when one did. */
+    toolCallId?: string;
     /** Restrict to own workspace only — no cross-workspace mounts in container. */
     isolated?: boolean;
     onUpdate?: (text: string) => void;
@@ -158,7 +160,8 @@ export class SubagentManager {
           id: runId, agentName: agent.name, taskPreview: t.task.slice(0, 200),
           status: 'running', startedAt: Date.now(), completedAt: null, durationMs: null,
           parentSessionId: params.parentSessionId, workspaceId: params.workspaceId,
-          mode: 'parallel', usage: { ...EMPTY_USAGE }, model: resolved.model,
+          mode: 'parallel', toolCallId: params.toolCallId,
+          usage: { ...EMPTY_USAGE }, model: resolved.model,
           toolActivity: [], liveOutput: '',
         };
 
@@ -219,6 +222,8 @@ export class SubagentManager {
     timeoutMs?: number;
     parentSessionId: string;
     workspaceId: string;
+    /** Id of the `subagent` tool call that started these runs, when one did. */
+    toolCallId?: string;
     onUpdate?: (text: string) => void;
   }): Promise<string> {
     if (!this.deps) throw new Error('SubagentManager not initialized');
@@ -242,7 +247,8 @@ export class SubagentManager {
         id: runId, agentName: agent.name, taskPreview: task.slice(0, 200),
         status: 'running', startedAt: Date.now(), completedAt: null, durationMs: null,
         parentSessionId: params.parentSessionId, workspaceId: params.workspaceId,
-        mode: 'chain', chainStep: step, usage: { ...EMPTY_USAGE }, model: resolved.model,
+        mode: 'chain', chainStep: step, toolCallId: params.toolCallId,
+        usage: { ...EMPTY_USAGE }, model: resolved.model,
         toolActivity: [], liveOutput: '',
       };
 
