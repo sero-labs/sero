@@ -25,6 +25,7 @@ If you need the exact platform or runtime support contract, use [Support Scope](
 - [Models and Providers](/guide/models-and-providers) — configure provider auth, health states, model tiers, and recovery.
 - [Local LLMs with LM Studio](/guide/local-llms-lm-studio) — connect local OpenAI-compatible model servers.
 - [Agent Sessions and Context](/guide/agent-sessions-and-context) — manage composer controls, context, snapshots, steering, and queues.
+- [Code Mode](/guide/code-mode): combine tool calls and process their results in a short program.
 - [Subagents](/guide/subagents) — delegate work to specialist agents and review their results.
 - [Memory](/guide/memory) — use durable context and memory tools.
 - [Scheduler and Reminders](/guide/scheduler-reminders) — create recurring jobs, reminders, and notifications.
