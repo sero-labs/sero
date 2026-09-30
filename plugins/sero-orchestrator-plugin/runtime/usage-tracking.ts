@@ -77,7 +77,7 @@ export async function runTrackedModel(
   } finally {
     if (watch?.loop) {
       await liveCallWrite;
-      await clearLiveCall(host, watch.loop.loopId);
+      await clearLiveCall(host, watch.loop.loopId, watch.loop.kind);
     }
   }
 }

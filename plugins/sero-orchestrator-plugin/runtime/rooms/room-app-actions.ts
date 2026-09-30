@@ -217,7 +217,7 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
         },
       });
       // The wait is over however the planner answered — and only this one.
-      announceLiveCallEnded(host, { requestId });
+      announceLiveCallEnded(host, { kind: 'planner', requestId });
       if (!plan.ok) {
         const usage = reportedUsage(await store.readPendingPlanning(requestId));
         return plan.needsInput
@@ -279,7 +279,7 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
         }));
       };
       const clearRun = () => {
-        announceLiveCallEnded(host, { roomId });
+        announceLiveCallEnded(host, { kind: 'adjust', roomId });
         return store.updateRoom(roomId, (current) => {
           if (!current.runtime.liveCall) return current;
           const { liveCall: _dropped, ...runtime } = current.runtime;

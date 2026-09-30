@@ -278,11 +278,7 @@ export interface LoopRuntimeState {
   activeRunId?: string;
   /** This session's proof that a run is reporting — see runtime/live-run.ts. */
   liveRun?: import('@sero-ai/common').LiveRunMark;
-  /**
-   * The one-answer Orchestrator call running now, if any — see
-   * runtime/live-call.ts. Set when the call starts, cleared when it returns, so
-   * a view can open a live block on the call it is waiting for.
-   */
+  /** The one-answer call running now — see runtime/live-call.ts. */
   liveCall?: LiveCall;
   dueAgain?: boolean;
   /** A dirty-workspace run delayed by the user. Blocks runs until this durable timestamp. */

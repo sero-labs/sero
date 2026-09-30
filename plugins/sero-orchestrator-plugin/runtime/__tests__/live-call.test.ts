@@ -49,7 +49,7 @@ describe('live call on the loop runtime', () => {
     await markLiveCall(host, { loopId: loop.id, kind: 'planner' }, 'run-7');
     expect(liveCallOf(host, loop.id)).toEqual({ kind: 'planner', runId: 'run-7' });
 
-    await clearLiveCall(host, loop.id);
+    await clearLiveCall(host, loop.id, 'planner');
     expect(liveCallOf(host, loop.id)).toBeUndefined();
   });
 

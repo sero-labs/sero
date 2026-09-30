@@ -46,9 +46,10 @@ export function markLiveCall(host: OrchestratorHost, target: LiveCallTarget, run
 }
 
 /** Drop the mark. Nothing shows a live call for this loop until one marks it again. */
-export function clearLiveCall(host: OrchestratorHost, loopId: string): Promise<void> {
-  // Names its own call: a concurrent call in another Workflow must keep its view.
-  host.notifyLiveCall?.({ status: 'ended', identity: { loopId } });
+export function clearLiveCall(host: OrchestratorHost, loopId: string, kind: LiveCallKind): Promise<void> {
+  // Names its own call — kind included — so a concurrent call in another
+  // Workflow, or another kind of call in this one, keeps its view.
+  host.notifyLiveCall?.({ status: 'ended', identity: { kind, loopId } });
   return mapLoop(host, loopId, (runtime) => {
     if (!runtime.liveCall) return runtime;
     const { liveCall: _dropped, ...rest } = runtime;

@@ -62,12 +62,28 @@ describe('a running one-answer call, by identity', () => {
     expect(seen?.runId).toBe('run-a');
 
     // The other Workflow's call finishing must not clear this view.
-    deliver({ status: 'ended', identity: { loopId: 'loop-b' } });
+    deliver({ status: 'ended', identity: { kind: 'reflect', loopId: 'loop-b' } });
     expect(seen?.runId).toBe('run-a');
 
-    // Its own call ending does clear it.
-    deliver({ status: 'ended', identity: { loopId: 'loop-a' } });
+    // Its own call ending does clear it. An ended update names its kind too, so
+    // it can only ever remove the call it belongs to.
+    deliver({ status: 'ended', identity: { kind: 'reflect', loopId: 'loop-a' } });
     expect(seen).toBeUndefined();
+  });
+
+  it('keeps a reflection and a stop check apart in the same Workflow', async () => {
+    // One Workflow can be reflecting while its stop condition is checked. They
+    // are two calls: the second must not overwrite the first, and the first
+    // ending must not clear the second.
+    await act(async () => root.render(<Probe loopId="loop-a" kind="reflect" />));
+
+    deliver({ status: 'running', call: { kind: 'reflect', runId: 'run-reflect', loopId: 'loop-a' } });
+    deliver({ status: 'running', call: { kind: 'stop', runId: 'run-stop', loopId: 'loop-a' } });
+    expect(seen?.runId).toBe('run-reflect');
+
+    // The stop check ending names its own kind, so the reflection survives.
+    deliver({ status: 'ended', identity: { kind: 'stop', loopId: 'loop-a' } });
+    expect(seen?.runId).toBe('run-reflect');
   });
 
   it('ignores a call of another kind for the same Workflow', async () => {

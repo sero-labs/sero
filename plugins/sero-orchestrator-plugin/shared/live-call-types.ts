@@ -57,6 +57,11 @@ export interface LiveCallNotice extends LiveCall {
  * another Workflow's stop-condition check.
  */
 export interface LiveCallIdentity {
+  /**
+   * The kind is part of the identity: one Workflow can be reflecting while a
+   * stop check runs, and those are two calls, not one.
+   */
+  kind: LiveCallKind;
   loopId?: string;
   requestId?: string;
   roomId?: string;
@@ -68,7 +73,8 @@ export type LiveCallUpdate =
   | { status: 'running'; call: LiveCallNotice }
   | { status: 'ended'; identity: LiveCallIdentity };
 
-/** The key one call is held under. Every notice carries at least one field. */
+/** The key one call is held under: its kind, then the record it belongs to. */
 export function liveCallKey(identity: LiveCallIdentity): string {
-  return identity.loopId ?? identity.requestId ?? identity.roomId ?? identity.runId ?? '';
+  const owner = identity.loopId ?? identity.requestId ?? identity.roomId ?? identity.runId ?? '';
+  return `${identity.kind}\u0000${owner}`;
 }

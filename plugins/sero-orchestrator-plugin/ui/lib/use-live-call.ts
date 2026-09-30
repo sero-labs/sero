@@ -23,11 +23,6 @@ import type {
   LiveCallUpdate,
 } from '../../shared/types';
 
-/** What a view is waiting for: a kind, and the identity it belongs to. */
-export interface LiveCallMatch extends LiveCallIdentity {
-  kind: LiveCallKind;
-}
-
 /** Every call running in this app, keyed by identity. */
 function useLiveCalls(): Map<string, LiveCallNotice> {
   const [running, setRunning] = useState<Map<string, LiveCallNotice>>(new Map());
@@ -52,8 +47,8 @@ function useLiveCalls(): Map<string, LiveCallNotice> {
  * that has no record yet needs (planning a brand-new Workflow, installing from
  * the Catalog). A match that names an identity takes only its own call.
  */
-export function useLiveCall(match: LiveCallMatch | LiveCallKind): LiveCallNotice | undefined {
-  const wanted: LiveCallMatch = typeof match === 'string' ? { kind: match } : match;
+export function useLiveCall(match: LiveCallIdentity | LiveCallKind): LiveCallNotice | undefined {
+  const wanted: LiveCallIdentity = typeof match === 'string' ? { kind: match } : match;
   const running = useLiveCalls();
 
   for (const call of running.values()) {
@@ -68,6 +63,6 @@ export function useLiveCall(match: LiveCallMatch | LiveCallKind): LiveCallNotice
 }
 
 /** The run to watch for the call a view is waiting on, or undefined. */
-export function useLiveCallRunId(match: LiveCallMatch | LiveCallKind): string | undefined {
+export function useLiveCallRunId(match: LiveCallIdentity | LiveCallKind): string | undefined {
   return useLiveCall(match)?.runId;
 }
