@@ -14,7 +14,7 @@
 
 import { Fragment, useState } from 'react';
 import { Badge } from '@sero-ai/ui/components/ui/badge';
-import { SubagentLiveBlock } from '@sero-ai/ui';
+import { SubagentLiveBlock } from '@sero-ai/ui/components/live-agent/live-block';
 import { ChevronDown, Eye, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import type { AppModelGroup } from '@sero-ai/app-runtime';
 import type { ContextAgentInfo, ContextToolInfo } from '@sero-ai/common';

@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { SubagentLiveBlock } from '@sero-ai/ui';
+import { SubagentLiveBlock } from '@sero-ai/ui/components/live-agent/live-block';
 import { Eye } from 'lucide-react';
 
 export function LiveCallPopover({ runId, label, busy = false }: {

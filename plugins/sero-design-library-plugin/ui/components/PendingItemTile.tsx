@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Button, SubagentLiveBlock } from '@sero-ai/ui';
+import { Button } from '@sero-ai/ui/components/ui/button';
+import { SubagentLiveBlock } from '@sero-ai/ui/components/live-agent/live-block';
 import { AlertTriangle, Eye, Loader2 } from 'lucide-react';
 
 import type { PendingGeneration } from '../lib/pending-generations';
