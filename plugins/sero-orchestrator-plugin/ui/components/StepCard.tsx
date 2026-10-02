@@ -18,7 +18,7 @@ import { SubagentLiveBlock } from '@sero-ai/ui';
 import { ChevronDown, Eye, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import type { AppModelGroup } from '@sero-ai/app-runtime';
 import type { ContextAgentInfo, ContextToolInfo } from '@sero-ai/common';
-import type { Loop, LoopStepDefinition, StepRuntimeState } from '../../shared/types';
+import type { Loop, LoopRun, LoopStepDefinition, StepRuntimeState } from '../../shared/types';
 import { STEP_STATUS_STYLE } from '../lib/status-style';
 import { splitFileRefs } from '../lib/file-refs';
 import { stepMarks, stepStateLabel } from '../lib/step-detail';
@@ -53,6 +53,11 @@ export interface StepCardProps {
   onRetry?: () => void;
   /** The latest run's fan-out activations of this step (fan-out steps only). */
   fanOut?: FanOutView;
+  /**
+   * The Workflow's run in flight, which the caller watches. The stripped
+   * `loop.json` carries no run history, so the step cannot look it up itself.
+   */
+  activeRun?: LoopRun | null;
 }
 
 /**
@@ -110,7 +115,7 @@ function WithFileRefs({ text, workspaceId }: { text: string; workspaceId: string
 /** The two icon buttons in the step header, as the drawing sets them. */
 const ICON_BUTTON = 'grid size-6 shrink-0 place-items-center rounded-[5px] text-room-text3 hover:bg-room-overlay hover:text-room-text';
 
-export function StepCard({ step, number, loop, numberOf, showNumber = true, state, groups, toolCatalog, agentCatalog, onSetModel, onSetTools, onSetAgent, onRetry, fanOut }: StepCardProps) {
+export function StepCard({ step, number, loop, numberOf, showNumber = true, state, groups, toolCatalog, agentCatalog, onSetModel, onSetTools, onSetAgent, onRetry, fanOut, activeRun }: StepCardProps) {
   const [tuning, setTuning] = useState(false);
   const [open, setOpen] = useState(false);
   // Closed until the person asks for it: a running step shows its state word
@@ -123,7 +128,7 @@ export function StepCard({ step, number, loop, numberOf, showNumber = true, stat
   const canTune = step.execution.type !== 'active-session';
   // An active-session step runs in the chat, which already shows its work, so
   // it offers no control here.
-  const live = canTune ? stepLiveView(loop, step.id, state?.status) : undefined;
+  const live = canTune ? stepLiveView(loop, activeRun ?? null, step.id, state?.status) : undefined;
   const liveItems = canTune
     ? (fanOut?.items ?? []).filter((item) => item.status === 'running' && item.runId)
     : [];

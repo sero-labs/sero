@@ -120,6 +120,7 @@ export function normalizeJobIndexEntry(value: unknown): JobIndexEntry | null {
     createdAt: record.createdAt,
     ...(record.completedAt === undefined ? {} : { completedAt: record.completedAt }),
     ...(typeof entry.error === 'string' ? { error: entry.error } : {}),
+    ...(record.runId === undefined ? {} : { runId: record.runId }),
   };
 }
 

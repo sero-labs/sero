@@ -7,6 +7,7 @@ import type {
   LibraryIndex,
   Loop,
   LoopSummary,
+  LoopRun,
   OrchestratorAction,
   RunIndex,
   WebhookSourceHealth,
@@ -72,6 +73,12 @@ interface LoopDetailProps {
  */
 export function LoopDetail({ loop, summary, busy, onAction, onDispatch, stateDir, libraryDir, libraryIndex, onBack }: LoopDetailProps) {
   const runIndex = useWatchedJson<RunIndex>(`${stateDir}/loops/${loop.id}/runs/index.json`, DEFAULT_RUN_INDEX);
+  // The run in flight lives in its own file, written as it changes; `loop.json`
+  // deliberately drops run history, so a step cannot read it from the loop.
+  const activeRun = useWatchedJson<LoopRun | null>(
+    loop.runtime.activeRunId ? `${stateDir}/loops/${loop.id}/runs/${loop.runtime.activeRunId}.json` : null,
+    null,
+  );
   // Source health for the state line: the event adapters persist these small
   // state files; the line shows them only when the loop uses the source.
   const githubHealth = useWatchedJson<GithubSourceHealth | null>(`${stateDir}/events/github.json`, null);
@@ -126,6 +133,7 @@ export function LoopDetail({ loop, summary, busy, onAction, onDispatch, stateDir
             key={`${loop.id}:${loop.status === 'draft' ? 'draft' : 'live'}`}
             loop={loop}
             onAction={onAction}
+            activeRun={activeRun}
           />
           {REFINABLE.has(loop.status) && (
             <RefinePlan key={loop.id} busy={busy} planRevision={loop.plan.revision} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} loopId={loop.id} />

@@ -107,15 +107,21 @@ function loopWith(spec: StepSpec): Loop {
   };
 }
 
-function render(loop: Loop) {
+function render(loop: Loop, activeRun: LoopRun | null = loop.runs[0] ?? null) {
+  // Production persists `loop.json` with its run history stripped
+  // (`stripLoopForPersist`), so the step is handed the run rather than reading
+  // it from the loop. Building the fixture the same way is the point of this
+  // test: a step that searched `loop.runs` had no live view at all.
+  const persisted: Loop = { ...loop, runs: [] };
   act(() => root.render(
     <StepCard
-      step={loop.plan.steps[0]}
+      step={persisted.plan.steps[0]}
       number={1}
-      loop={loop}
-      numberOf={new Map([[loop.plan.steps[0].id, 1]])}
-      state={loop.runtime.stepStates[loop.plan.steps[0].id]}
-      fanOut={fanOutView(loop.runs, loop.plan.steps[0].id)}
+      loop={persisted}
+      numberOf={new Map([[persisted.plan.steps[0].id, 1]])}
+      state={persisted.runtime.stepStates[persisted.plan.steps[0].id]}
+      activeRun={activeRun}
+      fanOut={fanOutView(activeRun ? [activeRun] : [], persisted.plan.steps[0].id)}
       groups={[]}
       toolCatalog={[]}
       agentCatalog={[]}
@@ -156,6 +162,24 @@ describe('a running step offers its live view', () => {
 
     expect(eye()?.getAttribute('aria-expanded')).toBe('true');
     expect(blocks()).toHaveLength(1);
+  });
+
+  it('takes the run it is handed, and never the loop’s own run list', async () => {
+    // The defect this pins: a step that searched `loop.runs` found an empty list
+    // in production, so every running step lost its live view. Handing the run
+    // in works; leaving it out must not fall back to the loop's list.
+    const loop = loopWith({
+      id: 'step-1',
+      title: 'Repair the levels',
+      attempts: [attempt({ id: 'attempt-1', stepId: 'step-1', workerRunId: 'run-worker-1' })],
+    });
+
+    render(loop, null);
+    expect(eye()).toBeNull();
+
+    // Same loop, same run in `loop.runs`, but this time handed over.
+    render(loop, loop.runs[0]);
+    expect(eye()).not.toBeNull();
   });
 
   it('offers no control on a step that runs in the chat session', () => {
@@ -244,6 +268,7 @@ describe('a failed step', () => {
         loop={loop}
         numberOf={new Map([['step-1', 1]])}
         state={loop.runtime.stepStates['step-1']}
+        activeRun={loop.runs[0] ?? null}
         groups={[]}
         toolCatalog={[]}
         agentCatalog={[]}

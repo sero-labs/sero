@@ -3,8 +3,8 @@
 import { describe, expect, it } from 'vitest';
 import { RunEngine } from '../run-engine';
 import { LoopLocks } from '../locks';
-import type { EngineDeps, RecoveryDecider } from '../engine-types';
-import type { FanOutAggregate, LoopPlan, StepOutcome } from '../../shared/types';
+import type { EngineDeps, RecoveryDecider, StepRunInput } from '../engine-types';
+import type { FanOutAggregate, LoopPlan, StepAttempt, StepOutcome } from '../../shared/types';
 import { createFakeHost, type FakeHost } from './fake-host';
 import { seedActiveLoop } from './fixtures';
 import { fakeDecider, fakeExecutor, type OutcomeSpec } from './engine-fakes';
@@ -145,6 +145,60 @@ describe('fan-out engine integration', () => {
     expect(executor.calls.filter((id) => id === 'scout')).toHaveLength(5);
     expect(maxInFlight).toBe(2);
     expect(loopOf(host).runtime.stepStates.combine.status).toBe('succeeded');
+  });
+
+  it('records an item’s attempt id while the item still runs', async () => {
+    // A live view joins a running fan-out item to its worker through the
+    // activation's attemptIds. The wave settles its activations only when every
+    // item finished, so an id written then is too late: the tile has nothing to
+    // watch for the whole time the item works.
+    const host = createFakeHost();
+    seedActiveLoop(host, fanOutPlan());
+    const duringRun: Array<{ activationId: string; hadId: boolean }> = [];
+
+    const executor = {
+      async run(input: StepRunInput): Promise<StepAttempt> {
+        // The upstream step must record the collection, or there is no fan-out
+        // to observe at all.
+        if (input.step.id === 'identify') {
+          return {
+            id: 'identify-a1', stepId: input.step.id, attemptNumber: 1,
+            parentSessionId: input.parentSessionId, executionType: 'background-agent',
+            status: 'completed', outcome: IDENTIFIED, observations: [],
+            startedAt: host.now(), endedAt: host.now(),
+          };
+        }
+        const attemptId = `${input.step.id}-${input.fanOut?.key ?? 'plain'}-a1`;
+        await input.onAttempt?.({
+          id: attemptId,
+          stepId: input.step.id,
+          attemptNumber: 1,
+          parentSessionId: input.parentSessionId,
+          executionType: 'background-agent',
+          status: 'running',
+          observations: [],
+          startedAt: host.now(),
+          ...(input.fanOut ? { activationId: input.fanOut.activationId } : {}),
+        });
+        if (input.fanOut) {
+          const activation = loopOf(host).runs[0]?.stepActivations?.find((a) => a.id === input.fanOut!.activationId);
+          duringRun.push({ activationId: input.fanOut.activationId, hadId: activation?.attemptIds.includes(attemptId) ?? false });
+        }
+        return {
+          id: attemptId, stepId: input.step.id, attemptNumber: 1,
+          parentSessionId: input.parentSessionId, executionType: 'background-agent',
+          status: 'completed', outcome: SUCCESS, observations: [],
+          startedAt: host.now(), endedAt: host.now(),
+          ...(input.fanOut ? { activationId: input.fanOut.activationId } : {}),
+        };
+      },
+    };
+
+    const engine = new RunEngine(host, deps({ executor }));
+    await engine.run('loop-1');
+
+    expect(duringRun).toHaveLength(3);
+    expect(duringRun.every((entry) => entry.hadId)).toBe(true);
   });
 
   it('recovery retry re-runs only the failed activation, preserving succeeded siblings', async () => {
