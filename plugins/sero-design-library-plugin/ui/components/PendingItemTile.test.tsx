@@ -20,7 +20,7 @@ describe('the tile', () => {
   it('fills the grid row like a completed reference card', () => {
     const { container } = render(
       <PendingItemTile
-        generation={{ jobId: 'j1', slotId: 's1', status: 'running', error: undefined }}
+        generation={{ jobId: 'j1', slotId: 's1', status: 'running', error: undefined, runId: undefined }}
         onDismiss={vi.fn()}
       />,
     );
@@ -32,15 +32,39 @@ describe('the tile', () => {
   it('says something is coming, and announces it', () => {
     render(
       <PendingItemTile
-        generation={{ jobId: 'j1', slotId: 's1', status: 'running', error: undefined }}
+        generation={{ jobId: 'j1', slotId: 's1', status: 'running', error: undefined, runId: undefined }}
         onDismiss={vi.fn()}
       />,
     );
 
     const message = screen.getByText('Generating a new reference…');
     expect(message.getAttribute('aria-live')).toBe('polite');
-    // Nothing to press: cancelling mid-call would not refund it.
+    // Nothing to press while no model run is behind it: a media-only generation
+    // has nothing to watch, and cancelling mid-call would not refund it.
     expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('offers the eye while a model run is behind the tile, and restores the spinner when closed', async () => {
+    render(
+      <PendingItemTile
+        generation={{ jobId: 'j1', slotId: 's1', status: 'running', error: undefined, runId: 'run-gen-1' }}
+        onDismiss={vi.fn()}
+      />,
+    );
+
+    const eye = screen.getByRole('button', { name: 'Watch the agent for this reference' });
+    expect(eye.getAttribute('aria-expanded')).toBe('false');
+    expect(document.querySelector('[data-slot="live-block"]')).toBeNull();
+
+    await userEvent.click(eye);
+    expect(eye.getAttribute('aria-expanded')).toBe('true');
+    expect(document.querySelector('[data-slot="live-block"]')).not.toBeNull();
+    expect(screen.queryByText('Generating a new reference…')).toBeNull();
+
+    await userEvent.click(eye);
+    expect(eye.getAttribute('aria-expanded')).toBe('false');
+    expect(document.querySelector('[data-slot="live-block"]')).toBeNull();
+    expect(screen.getByText('Generating a new reference…')).toBeDefined();
   });
 
   it('reports a failure and can be got rid of', async () => {
@@ -52,6 +76,7 @@ describe('the tile', () => {
           slotId: 's1',
           status: 'failed',
           error: 'The provider is rate limiting.',
+          runId: undefined,
         }}
         onDismiss={onDismiss}
       />,
@@ -67,7 +92,7 @@ describe('the tile', () => {
   it('still says something when the failure carried no message', () => {
     render(
       <PendingItemTile
-        generation={{ jobId: 'j1', slotId: 's1', status: 'failed', error: undefined }}
+        generation={{ jobId: 'j1', slotId: 's1', status: 'failed', error: undefined, runId: undefined }}
         onDismiss={vi.fn()}
       />,
     );

@@ -18,8 +18,7 @@ session open while switching between Explorer, Dashboard, and other apps.
 
 Explorer itself is split into three main regions:
 
-- **Sidebar** — workspace navigation panels such as files, source control, and
-  orchestration.
+- **Sidebar** — workspace navigation panels such as files and source control.
 - **Main area** — editor tabs, file previews, browser/preview tabs, and diff
   views.
 - **Terminal panel** — workspace terminal tabs at the bottom of Explorer.

@@ -9,7 +9,9 @@ review, testing, or implementation tracks.
 1. Start in a normal workspace chat session.
 2. Ask for delegation explicitly, for example: “Use the scout subagent to map this folder before editing.”
 3. Keep each delegated task narrow and file-scoped.
-4. Watch subagent activity/results in the chat or orchestration panel when visible.
+4. Watch subagent activity where the work started: a chat subagent call, a
+   Workflow step, a Room member's tile, or a research card. Open the eye on a
+   running step or call to follow that agent's output live.
 5. Review the final main-agent answer before accepting file changes.
 
 Subagents are helpful for parallel investigation, but they are not a replacement for reviewing diffs, tests, or source-control state.

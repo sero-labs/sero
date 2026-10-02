@@ -71,28 +71,28 @@ describe('which view a Room opens on', () => {
 
 describe('what a Watch pane says', () => {
   it('shows the live text while the turn is in flight', () => {
-    expect(memberPaneText('working', snapshot({ turnId: 't-1', text: 'editing session.ts' }))).toBe('editing session.ts');
+    expect(memberPaneText(snapshot({ turnId: 't-1', text: 'editing session.ts' }), null)).toBe('editing session.ts');
   });
 
-  it('stops showing it once the turn ends, rather than dressing it as live', () => {
-    // The text is retained until the next turn starts; the finished turn is
-    // read from the session file instead.
-    expect(memberPaneText('idle', snapshot({ turnId: null, text: 'editing session.ts', lastTurnStatus: 'completed' })))
-      .toContain('last turn completed');
+  it('shows the member’s own last reply once the turn ends, not the retained live text', () => {
+    // The buffer keeps the text after a turn ends; showing that as live would
+    // dress a finished turn as a running one, so the reply comes from the file.
+    const ended = snapshot({ turnId: null, text: 'editing session.ts', lastTurnStatus: 'completed' });
+    expect(memberPaneText(ended, 'I checked the schema and it already allows null.')).toBe('I checked the schema and it already allows null.');
   });
 
-  it('explains a waiting member rather than leaving its last line up as live', () => {
-    // The distinction the whole view rests on: waiting is free, not stuck.
-    expect(memberPaneText('waiting', snapshot({ text: '' }))).toContain('no turn is held');
+  it('shows the last reply for a waiting member rather than a sentence about waiting', () => {
+    expect(memberPaneText(snapshot({ text: '' }), 'Which environment should I target?')).toBe('Which environment should I target?');
   });
 
-  it('says a retired member is readable, and that an unwatched one is simply quiet', () => {
-    expect(memberPaneText('retired', null)).toContain('closed but kept');
-    expect(memberPaneText('idle', null)).toContain('Nothing is streaming');
+  it('says nothing when there is no reply to show', () => {
+    // The drawing forbids a fixed sentence in place of a reply.
+    expect(memberPaneText(null, null)).toBe('');
+    expect(memberPaneText(snapshot({ text: '' }), '')).toBe('');
   });
 
   it('says a turn is under way before it has produced text', () => {
-    expect(memberPaneText('working', snapshot({ turnId: 'turn-3' }))).toContain('no text yet');
+    expect(memberPaneText(snapshot({ turnId: 'turn-3' }), null)).toContain('no text yet');
   });
 });
 

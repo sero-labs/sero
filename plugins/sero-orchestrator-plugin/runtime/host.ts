@@ -23,6 +23,7 @@ import type {
   ExtensionRuntimeMessage,
   AppRuntimeSkillsApi,
   PersistentSessionsApi,
+  ObservationRecord,
   SharedAvailableModelGroup,
 } from '@sero-ai/common';
 import type {
@@ -31,7 +32,8 @@ import type {
   CatalogRepoContents,
   CatalogRepoRef,
 } from '../shared/catalog-types';
-import type { LibraryEntry, LibraryIndex, LibraryVersion, OrchestratorState } from '../shared/types';
+import type { LibraryEntry, LibraryIndex, LibraryVersion, LiveCallUpdate, OrchestratorState } from '../shared/types';
+import type { RoomMemberLiveNotice } from '../shared/room-live-types';
 
 export interface ActiveSessionInfo {
   sessionId: string;
@@ -104,6 +106,12 @@ export interface ModelRunParams {
   repair?: AppRuntimeSubagentRepair;
   onUpdate?: (text: string) => void;
   onUsage?: (usage: ModelRunUsage) => void;
+  /**
+   * Metadata-only observations for this run. The first record carries the
+   * tracker run id as `identities.operationId`, so a caller can follow the
+   * run's live output before it ends.
+   */
+  onObservation?: (record: ObservationRecord) => void;
 }
 
 export interface ModelRunUsage {
@@ -189,6 +197,19 @@ export interface OrchestratorHost {
   readonly workspacePath: string;
   /** Absolute directory that holds state.json and the artifacts/ subtree. */
   readonly stateDir: string;
+  /**
+   * Tell this app's own views about a change to the one-answer calls running
+   * now, so a view can offer the eye on the wait it is showing. A `running`
+   * update carries the call; an `ended` update names only its own call, so one
+   * Workflow's call finishing cannot clear another's view. Optional: nothing is
+   * persisted, and a host without it still works.
+   */
+  notifyLiveCall?(update: LiveCallUpdate): void;
+  /**
+   * Push one member's live turn to this app's own views while a Watch view
+   * holds a lease. Nothing is persisted, and callers push only while watched.
+   */
+  notifyRoomLive?(notice: RoomMemberLiveNotice): void;
 
   // ── State persistence (authoritative state file) ──────────
   readState(): Promise<OrchestratorState | null>;

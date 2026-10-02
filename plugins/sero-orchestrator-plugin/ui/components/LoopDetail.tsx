@@ -1,12 +1,13 @@
 import { memo } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Card } from '@sero-ai/ui/components/ui/card';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, LoaderCircle } from 'lucide-react';
 import type {
   GithubSourceHealth,
   LibraryIndex,
   Loop,
   LoopSummary,
+  LoopRun,
   OrchestratorAction,
   RunIndex,
   WebhookSourceHealth,
@@ -23,6 +24,8 @@ import { LoopResult } from './LoopResult';
 import { LoopStateLine } from './LoopStateLine';
 import { LibrarySaveControl } from './LibrarySaveControl';
 import { SkillDraftControl } from './SkillDraftControl';
+import { LiveCallPopover } from './LiveCallPopover';
+import { useLiveCall } from '../lib/use-live-call';
 import { LibraryLinkBadge } from './LibraryLinkBadge';
 import { LibraryLinkSection } from './LibraryLinkSection';
 import { LiveActivityStrip } from './LiveActivityStrip';
@@ -70,6 +73,12 @@ interface LoopDetailProps {
  */
 export function LoopDetail({ loop, summary, busy, onAction, onDispatch, stateDir, libraryDir, libraryIndex, onBack }: LoopDetailProps) {
   const runIndex = useWatchedJson<RunIndex>(`${stateDir}/loops/${loop.id}/runs/index.json`, DEFAULT_RUN_INDEX);
+  // The run in flight lives in its own file, written as it changes; `loop.json`
+  // deliberately drops run history, so a step cannot read it from the loop.
+  const activeRun = useWatchedJson<LoopRun | null>(
+    loop.runtime.activeRunId ? `${stateDir}/loops/${loop.id}/runs/${loop.runtime.activeRunId}.json` : null,
+    null,
+  );
   // Source health for the state line: the event adapters persist these small
   // state files; the line shows them only when the loop uses the source.
   const githubHealth = useWatchedJson<GithubSourceHealth | null>(`${stateDir}/events/github.json`, null);
@@ -124,9 +133,10 @@ export function LoopDetail({ loop, summary, busy, onAction, onDispatch, stateDir
             key={`${loop.id}:${loop.status === 'draft' ? 'draft' : 'live'}`}
             loop={loop}
             onAction={onAction}
+            activeRun={activeRun}
           />
           {REFINABLE.has(loop.status) && (
-            <RefinePlan key={loop.id} busy={busy} planRevision={loop.plan.revision} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} />
+            <RefinePlan key={loop.id} busy={busy} planRevision={loop.plan.revision} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} loopId={loop.id} />
           )}
         </section>
 
@@ -158,6 +168,9 @@ function LoopTopRow({ loop, busy, onAction, onDispatch, onBack, linkStatus, canR
   canReflect: boolean;
   canExtractSkill: boolean;
 }) {
+  // The top bar's own waits: a reflection or a skill pass runs while the reader
+  // stays on this screen, so the button names the work and offers the eye.
+  const reflecting = useLiveCall({ kind: 'reflect', loopId: loop.id });
   const pendingInput = loop.runtime.pendingInput?.questions.length ?? 0;
   const pendingSuggestions = (loop.suggestions ?? []).filter((s) => s.status === 'pending').length;
   return (
@@ -180,16 +193,20 @@ function LoopTopRow({ loop, busy, onAction, onDispatch, onBack, linkStatus, canR
         {linkStatus && <LibraryLinkBadge loop={loop} status={linkStatus} busy={busy} onAction={onAction} />}
         <LibrarySaveControl loop={loop} busy={busy} onAction={onAction} />
         {canReflect && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-room-text3"
-            disabled={busy}
-            onClick={() => onAction({ kind: 'reflect', loopId: loop.id })}
-            title="Learn from past runs and suggest improvements"
-          >
-            Reflect
-          </Button>
+          <span className="inline-flex items-center gap-1.5">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-room-text3"
+              disabled={busy || reflecting !== undefined}
+              onClick={() => onAction({ kind: 'reflect', loopId: loop.id })}
+              title="Learn from past runs and suggest improvements"
+            >
+              {reflecting && <LoaderCircle className="mr-1 h-3.5 w-3.5 animate-spin" />}
+              {reflecting ? 'Reflecting…' : 'Reflect'}
+            </Button>
+            {reflecting && <LiveCallPopover runId={reflecting.runId} label="Reflecting…" busy />}
+          </span>
         )}
         {canExtractSkill && <SkillDraftControl loop={loop} busy={busy} onDispatch={onDispatch} />}
         <LoopControls loop={loop} busy={busy} onAction={onAction} />

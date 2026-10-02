@@ -1,5 +1,5 @@
 import { useAvailableModels, useSubagentContext } from '@sero-ai/app-runtime';
-import type { Loop, LoopStepDefinition, OrchestratorAction } from '../../shared/types';
+import type { Loop, LoopRun, LoopStepDefinition, OrchestratorAction } from '../../shared/types';
 import { Card } from '@sero-ai/ui/components/ui/card';
 import { GitBranch, Users } from 'lucide-react';
 import { isStuckOnAttempts, RECOVERABLE_STEP_STATUSES } from '../../shared/recovery';
@@ -11,6 +11,8 @@ import { StepCard } from './StepCard';
 interface PlanViewProps {
   loop: Loop;
   onAction: (action: OrchestratorAction) => void;
+  /** The run in flight, watched by the caller: `loop.json` carries no runs. */
+  activeRun?: LoopRun | null;
 }
 
 /** Where a level sits on a loop that goes back: its end, its start, or in between. */
@@ -59,7 +61,7 @@ function loopRails(loop: Loop, stages: PlanStage[]): Map<number, LoopRail> {
  * group; a level whose steps carry branch guards is boxed as a branch (one path
  * taken). The plan is LLM-authored — copy must not imply a fixed workflow.
  */
-export function PlanView({ loop, onAction }: PlanViewProps) {
+export function PlanView({ loop, onAction, activeRun }: PlanViewProps) {
   const { plan, runtime } = loop;
   const { groups } = useAvailableModels();
   const { context } = useSubagentContext(loop.workspaceId);
@@ -112,7 +114,8 @@ export function PlanView({ loop, onAction }: PlanViewProps) {
       onSetTools={setStepTools}
       onSetAgent={setStepAgent}
       onRetry={onRetryFor(step)}
-      fanOut={step.fanOut ? fanOutView(loop.runs, step.id) : undefined}
+      activeRun={activeRun}
+      fanOut={step.fanOut ? fanOutView(activeRun ? [activeRun] : [], step.id) : undefined}
     />
   );
 

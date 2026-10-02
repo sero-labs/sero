@@ -27,6 +27,8 @@ import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 import { LoaderCircle } from 'lucide-react';
 import type { Loop, SkillDraft } from '../../shared/types';
 import { useWatchedJson } from '../lib/use-watched-json';
+import { useLiveCall } from '../lib/use-live-call';
+import { LiveCallPopover } from './LiveCallPopover';
 import { approveSkillWrite } from '../lib/skill-approval';
 
 interface ExtractDetails {
@@ -123,6 +125,9 @@ export function SkillDraftControl({
   // The draft body is a colocated JSON artifact, so a pending draft can be
   // reopened after a reload without re-running the pass.
   const watched = useWatchedJson<{ body: string }>(pending?.bodyRef ?? null, { body: '' });
+  // The running extraction pass comes from the runtime, which is the only side
+  // that knows its tracker run id.
+  const preparing = useLiveCall({ kind: 'skill', loopId: loop.id });
 
   const extract = async () => {
     dispatch({ kind: 'extracting' });
@@ -172,20 +177,23 @@ export function SkillDraftControl({
 
   return (
     <>
-      <Button
-        size="sm"
-        variant="ghost"
-        className="text-room-text3"
-        // A pending draft opens from its artifact, so the button waits for it
-        // rather than opening the review with an empty SKILL.md.
-        disabled={busy || extracting || (!!pending && !watched.body)}
-        onClick={() => (pending ? dispatch({ kind: 'review', draft: pending, body: watched.body }) : void extract())}
-        title={pending ? 'Review the drafted skill' : 'Draft a reusable skill from what this Workflow proved works'}
-      >
-        {extracting && <LoaderCircle className="mr-1 h-3.5 w-3.5 animate-spin" />}
-        {extracting ? 'Preparing skill…' : pending ? 'Review skill' : 'Skill'}
-        {loop.skillLink && !pending && <span className="ml-1 text-sm font-medium">{loop.skillLink.name}</span>}
-      </Button>
+      <span className="inline-flex items-center gap-1.5">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-room-text3"
+          // A pending draft opens from its artifact, so the button waits for it
+          // rather than opening the review with an empty SKILL.md.
+          disabled={busy || extracting || (!!pending && !watched.body)}
+          onClick={() => (pending ? dispatch({ kind: 'review', draft: pending, body: watched.body }) : void extract())}
+          title={pending ? 'Review the drafted skill' : 'Draft a reusable skill from what this Workflow proved works'}
+        >
+          {extracting && <LoaderCircle className="mr-1 h-3.5 w-3.5 animate-spin" />}
+          {extracting ? 'Preparing skill…' : pending ? 'Review skill' : 'Skill'}
+          {loop.skillLink && !pending && <span className="ml-1 text-sm font-medium">{loop.skillLink.name}</span>}
+        </Button>
+        {preparing && <LiveCallPopover runId={preparing.runId} label="Preparing skill…" busy />}
+      </span>
 
       {declined && <span className="text-xs text-muted-foreground">Nothing durable to teach yet — {declined}</span>}
 

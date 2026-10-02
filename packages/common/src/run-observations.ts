@@ -228,3 +228,31 @@ export function isMetadataOnly(record: ObservationRecord): boolean {
   ]);
   return Object.keys(usage).every((key) => usageKeys.has(key));
 }
+
+/**
+ * Follow the tracker run id a run reports, so a caller can watch that run.
+ *
+ * The host reports the run's own tracker id on the FIRST observation of a
+ * `runStructured` call — the record the run emits before it waits for a slot.
+ * Every later record of the same call is emitted by the subagent session and
+ * carries THAT session's id, which the tracker does not know: a watch on it is
+ * accepted and then sends nothing, so a live view built from it stays empty.
+ *
+ * Taking the first id, once, is therefore the whole job. Read it here instead of
+ * reading `identities.operationId` per call site — the difference between the
+ * two ids is invisible at a glance and gets it wrong silently.
+ *
+ * Returns the run id on the call where it becomes known, and undefined on every
+ * later record. A caller that ignores the return value is still correct, because
+ * the id is only ever taken once.
+ */
+export function createRunIdCapture(): (record: ObservationRecord) => string | undefined {
+  let captured: string | undefined;
+  return (record) => {
+    if (captured) return undefined;
+    const id = record.identities.operationId;
+    if (!id) return undefined;
+    captured = id;
+    return id;
+  };
+}

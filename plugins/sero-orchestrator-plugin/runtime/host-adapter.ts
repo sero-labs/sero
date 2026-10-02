@@ -11,6 +11,8 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { AppRuntimeContext } from '@sero-ai/common';
 import type { OrchestratorHost } from './host';
+import type { LiveCallUpdate } from '../shared/types';
+import type { RoomMemberLiveNotice } from '../shared/room-live-types';
 import { createCatalogStore } from './catalog-store';
 import { createLoopStore } from './loop-store';
 import { createLibraryStore } from './library-store';
@@ -38,6 +40,19 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
     workspacePath: ctx.workspacePath,
     stateDir,
 
+    // A wait the UI shows may have no record it can read yet (a Room being
+    // designed, a Workflow being planned for the first time), so the running
+    // call is pushed to this app's views instead. Nothing is persisted.
+    notifyLiveCall: (update: LiveCallUpdate) => {
+      ctx.host.ui.emit('orchestrator-live-call', update);
+    },
+
+    // A Room tile has to show the current turn as it arrives; the Room record
+    // only changes at its own boundaries, so it cannot carry that.
+    notifyRoomLive: (notice: RoomMemberLiveNotice) => {
+      ctx.host.ui.emit('orchestrator-room-live', notice);
+    },
+
     readState: () => store.readState(),
     updateState: (updater) => store.updateState(updater),
 
@@ -62,6 +77,7 @@ export function createOrchestratorHost(ctx: AppRuntimeContext): OrchestratorHost
         repair: params.repair,
         onUpdate: params.onUpdate,
         onUsage: params.onUsage,
+        onObservation: params.onObservation,
       }),
 
     listAvailableModels: () => ctx.host.models.list(),

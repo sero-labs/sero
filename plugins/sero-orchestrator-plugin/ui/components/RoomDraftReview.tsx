@@ -97,7 +97,7 @@ export function RoomDraftReview({
     onLeave();
   };
 
-  if (rethinking) return <RoomPreparing title="Rethinking your team" />;
+  if (rethinking) return <RoomPreparing title="Rethinking your team" kind="adjust" />;
 
   if (!room) {
     return (

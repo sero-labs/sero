@@ -169,6 +169,7 @@ export async function extractTriggers(
     signal: args.signal,
     maxRepairs: 2,
     onUsage: args.onUsage,
+    live: args.loopId ? { loopId: args.loopId, kind: 'trigger' } : undefined,
   });
   if (!result.ok || !result.value) {
     host.log(`trigger extraction returned nothing usable: ${result.errors.join('; ')}`);

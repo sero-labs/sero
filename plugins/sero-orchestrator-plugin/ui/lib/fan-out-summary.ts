@@ -10,6 +10,11 @@ export interface FanOutItemView {
   key: string;
   status: StepStatus;
   summary?: string;
+  /**
+   * The running item's worker run, for its live block. Absent once the item
+   * stops running, which is when its block stops watching.
+   */
+  runId?: string;
 }
 
 export interface FanOutView {
@@ -29,11 +34,17 @@ function displayStatus(status: StepActivationStatus): StepStatus {
 /** The newest run's fan-out activations for a step; undefined before any expansion. */
 export function fanOutView(runs: LoopRun[], stepId: string): FanOutView | undefined {
   for (let i = runs.length - 1; i >= 0; i -= 1) {
-    const activations = (runs[i].stepActivations ?? []).filter((a) => a.stepId === stepId && a.fanOut);
+    const run = runs[i];
+    const activations = (run.stepActivations ?? []).filter((a) => a.stepId === stepId && a.fanOut);
     if (activations.length === 0) continue;
     const items = activations
       .toSorted((a, b) => (a.fanOut!.index) - (b.fanOut!.index))
-      .map((a) => ({ key: a.fanOut!.key, status: displayStatus(a.status), summary: a.outcome?.summary }));
+      .map((a) => ({
+        key: a.fanOut!.key,
+        status: displayStatus(a.status),
+        summary: a.outcome?.summary,
+        runId: runningItemRunId(run, a.attemptIds),
+      }));
     const count = (status: StepStatus) => items.filter((item) => item.status === status).length;
     return {
       total: items.length,
@@ -45,6 +56,16 @@ export function fanOutView(runs: LoopRun[], stepId: string): FanOutView | undefi
     };
   }
   return undefined;
+}
+
+/** The worker run of an activation's still-running attempt, if it has one. */
+function runningItemRunId(run: LoopRun, attemptIds: readonly string[]): string | undefined {
+  // A set, not the array: every attempt is tested against the same ids.
+  const ids = new Set(attemptIds);
+  const attempt = run.stepAttempts.find(
+    (entry) => entry.status === 'running' && ids.has(entry.id),
+  );
+  return attempt?.workerRunId;
 }
 
 /** Compact headline, e.g. "3 of 3 succeeded" or "2 of 5 succeeded · 1 failed · 2 running". */

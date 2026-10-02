@@ -5,7 +5,7 @@ import type { DesignLibraryPaths } from '../shared/paths';
 import type { ItemRecord, JobRecord } from '../shared/records';
 import { readState } from '../shared/state-io';
 import { runLibrarian } from './librarian/run';
-import { markCancelled, markFailed, markRunning, markSucceeded } from './jobs';
+import { markCancelled, markFailed, markRunId, markRunning, markSucceeded } from './jobs';
 import { mutateItem, readItem, readJob } from './store';
 
 /**
@@ -200,6 +200,8 @@ export class AnalysisQueue {
       parentSessionId: this.context.sessionId,
       model: state.settings.librarianModel,
       signal: controller.signal,
+      // Written on the job so the pending tile can follow the run.
+      onRunId: (runId) => void markRunId(paths, jobId, runId),
     });
 
     if (outcome.status === 'cancelled') {

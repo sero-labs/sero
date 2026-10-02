@@ -23,6 +23,10 @@ export const subagentBridge = {
       ipcRenderer.removeListener(IpcChannels.subagent.event, handler);
     };
   },
+  watch: (runId: string): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.subagent.watch, runId),
+  unwatch: (runId: string): Promise<void> =>
+    ipcRenderer.invoke(IpcChannels.subagent.unwatch, runId),
   listAgents: (): Promise<SubagentAgentSummary[]> =>
     ipcRenderer.invoke(IpcChannels.subagent.listAgents),
   snapshot: (workspaceId: string): Promise<SubagentEntry[]> =>

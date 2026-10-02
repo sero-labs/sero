@@ -48,6 +48,7 @@ export function projectJob(job: JobRecord): JobIndexEntry {
     createdAt: job.createdAt,
     ...(job.completedAt === undefined ? {} : { completedAt: job.completedAt }),
     ...(job.error === undefined ? {} : { error: job.error }),
+    ...(job.runId === undefined ? {} : { runId: job.runId }),
   };
 }
 

@@ -19,13 +19,15 @@ import { roomPlannerSessionId } from '../../shared/ids';
 import type { RoomTimelineEvent } from '../../shared/room-message-types';
 import { TERMINAL_ROOM_STATUSES, type MemberStatus, type RoomStatus } from '../../shared/room-types';
 import { findRoomTemplate } from '../../shared/room-templates';
-import { adjustRoom } from './adjust';
+import type { LiveCallNotice } from '../../shared/types';
+import { adjustRoom, type AdjustRoomOutcome } from './adjust';
 import { planRoom } from './planner';
 import { buildRoomRecord } from './room-actions';
 import type { RoomCoordinator } from './room-coordinator';
 import { readRoomArtifact, type RoomArtifactReadOutcome } from './room-app-artifacts';
 import { createRoomLiveActions, type RoomLiveActions, type RoomLiveContext } from './room-app-live';
 import { limitsForOrigin, presetSeed, type PrepareRoomInput, type PrepareRoomOutcome } from './room-app-planning';
+import { announceLiveCall, announceLiveCallEnded } from '../live-call';
 import type { RoomMessageDraft } from './room-messages';
 import { mergeUsage, reportedUsage } from '../../shared/usage';
 
@@ -209,7 +211,13 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
         clarifications: input.clarifications,
         preset: template ? presetSeed(template) : undefined,
         onUsage: (usage) => store.updatePendingPlanning(requestId, usage),
+        onRunId: (runId) => {
+          void store.markPendingPlanningRun(requestId, runId);
+          announceLiveCall(host, { kind: 'planner', runId, requestId });
+        },
       });
+      // The wait is over however the planner answered — and only this one.
+      announceLiveCallEnded(host, { kind: 'planner', requestId });
       if (!plan.ok) {
         const usage = reportedUsage(await store.readPendingPlanning(requestId));
         return plan.needsInput
@@ -263,25 +271,46 @@ export function createRoomAppActions(ctx: RoomAppActionsContext): RoomAppActions
       }
 
       const selection = applyProjectSnapshot(record.definition.projectContext?.modelSnapshot, undefined);
-      const outcome = await adjustRoom(host, {
-        model: selection.model, thinking: selection.thinking,
-        blueprint: record.definition.blueprint,
-        instruction: asked,
-        parentSessionId: roomPlannerSessionId(workspaceId),
-        // The approved envelope is the ceiling. An adjustment can move within
-        // it and never above it, whatever the instruction asks for.
-        envelope: record.definition.envelope,
-        onUsage: (usage) => store.updateRoom(roomId, (current) => ({
+      const reportRun = (runId: string) => {
+        announceLiveCall(host, { kind: 'adjust', runId, roomId });
+        return store.updateRoom(roomId, (current) => ({
           ...current,
-          runtime: { ...current.runtime, planningUsage: mergeUsage(current.runtime.planningUsage, usage),
-            usage: { ...current.runtime.usage,
-              costUsd: current.runtime.usage.costUsd + (usage.costUsd ?? 0),
-              inputTokens: current.runtime.usage.inputTokens + (usage.inputTokens ?? 0),
-              outputTokens: current.runtime.usage.outputTokens + (usage.outputTokens ?? 0),
+          runtime: { ...current.runtime, liveCall: { kind: 'adjust' as const, runId } },
+        }));
+      };
+      const clearRun = () => {
+        announceLiveCallEnded(host, { kind: 'adjust', roomId });
+        return store.updateRoom(roomId, (current) => {
+          if (!current.runtime.liveCall) return current;
+          const { liveCall: _dropped, ...runtime } = current.runtime;
+          return { ...current, runtime };
+        });
+      };
+      let outcome: AdjustRoomOutcome;
+      try {
+        outcome = await adjustRoom(host, {
+          model: selection.model, thinking: selection.thinking,
+          blueprint: record.definition.blueprint,
+          instruction: asked,
+          parentSessionId: roomPlannerSessionId(workspaceId),
+          // The approved envelope is the ceiling. An adjustment can move within
+          // it and never above it, whatever the instruction asks for.
+          envelope: record.definition.envelope,
+          onRunId: reportRun,
+          onUsage: (usage) => store.updateRoom(roomId, (current) => ({
+            ...current,
+            runtime: { ...current.runtime, planningUsage: mergeUsage(current.runtime.planningUsage, usage),
+              usage: { ...current.runtime.usage,
+                costUsd: current.runtime.usage.costUsd + (usage.costUsd ?? 0),
+                inputTokens: current.runtime.usage.inputTokens + (usage.inputTokens ?? 0),
+                outputTokens: current.runtime.usage.outputTokens + (usage.outputTokens ?? 0),
+              },
             },
-          },
-        })),
-      });
+          })),
+        });
+      } finally {
+        await clearRun();
+      }
       if (!outcome.ok) {
         await store.transact(roomId, null, (current) => ({
           record: current.runtime.status === 'adjusting'

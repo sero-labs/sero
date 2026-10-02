@@ -17,7 +17,8 @@ import type {
   SubagentAgentSummary,
   SubagentAgentFile,
 } from '@/types/ipc';
-import { broadcastToWindows } from '../lib/window-broadcast';
+import { broadcastToWindows, sendToWindows } from '../lib/window-broadcast';
+import { PerRunThrottle, SubagentWatchRegistry } from './live-watch';
 
 const AGENTS_DIR = path.join(SERO_AGENT_DIR, 'agents');
 const MAX_RENDERER_TEXT_CHARS = 20_000;
@@ -63,51 +64,52 @@ function sanitizeEntry(entry: SubagentEntry): SubagentEntry {
   };
 }
 
-function sendToAllWindows(channel: string, ...args: unknown[]): void {
-  broadcastToWindows(channel, ...args);
+function sendEvent(event: SubagentEvent): void {
+  broadcastToWindows(IpcChannels.subagent.event, event);
 }
 
-function sendEvent(event: SubagentEvent): void {
-  sendToAllWindows(IpcChannels.subagent.event, event);
+function sendEventToWindows(webContentsIds: ReadonlySet<number>, event: SubagentEvent): void {
+  sendToWindows(webContentsIds, IpcChannels.subagent.event, event);
 }
+
+/** Windows that show each run. Live events go only to these. */
+const watchRegistry = new SubagentWatchRegistry();
+
+/** Windows whose destruction handler is already attached. */
+const cleanupBoundWindows = new Set<number>();
 
 /**
- * Simple throttle — call at most once every `ms` milliseconds.
- * Trailing call is guaranteed if there are queued invocations.
+ * Throttled senders for high-frequency events. Each run keeps its own timer,
+ * so a busy run cannot starve a quiet one.
  */
-function createThrottle<T extends (...args: never[]) => void>(fn: T, ms: number): T {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  let lastArgs: Parameters<T> | null = null;
-
-  const throttled = (...args: Parameters<T>) => {
-    lastArgs = args;
-    if (timer) return;
-    fn(...args);
-    lastArgs = null;
-    timer = setTimeout(() => {
-      timer = null;
-      if (lastArgs) fn(...lastArgs);
-      lastArgs = null;
-    }, ms);
-  };
-
-  return throttled as T;
-}
-
-// Throttled senders for high-frequency events
-const sendToolActivity = createThrottle(
-  (id: string, activity: SubagentToolActivity[]) => {
-    sendEvent({ type: 'subagent_tool_activity', id, activity });
+const sendToolActivity = new PerRunThrottle<SubagentToolActivity[]>(
+  (id, activity) => {
+    const watchers = watchRegistry.watchers(id);
+    if (watchers.length === 0) return;
+    sendEventToWindows(new Set(watchers), { type: 'subagent_tool_activity', id, activity });
   },
   150,
 );
 
-const sendLiveOutput = createThrottle(
-  (id: string, text: string) => {
-    sendEvent({ type: 'subagent_live_output', id, text });
+const sendLiveOutput = new PerRunThrottle<string>(
+  (id, text) => {
+    const watchers = watchRegistry.watchers(id);
+    if (watchers.length === 0) return;
+    sendEventToWindows(new Set(watchers), { type: 'subagent_live_output', id, text });
   },
   200,
 );
+
+/** Forget a window's watches when it closes. */
+function bindWindowCleanup(webContents: Electron.WebContents): void {
+  const id = webContents.id;
+  if (cleanupBoundWindows.has(id)) return;
+  cleanupBoundWindows.add(id);
+  webContents.once('destroyed', () => {
+    cleanupBoundWindows.delete(id);
+    watchRegistry.dropWindow(id);
+  });
+}
 
 /**
  * Register all subagent IPC handlers.
@@ -125,14 +127,21 @@ export function registerSubagentHandlers(): void {
   });
 
   subagentManager.tracker.on('subagent_tool_activity', (id: string, activity: SubagentToolActivity[]) => {
-    sendToolActivity(id, sanitizeToolActivity(activity));
+    if (!watchRegistry.isWatched(id)) return;
+    sendToolActivity.push(id, sanitizeToolActivity(activity));
   });
 
   subagentManager.tracker.on('subagent_live_output', (id: string, text: string) => {
-    sendLiveOutput(id, truncateTail(text, MAX_RENDERER_TEXT_CHARS) ?? '');
+    if (!watchRegistry.isWatched(id)) return;
+    sendLiveOutput.push(id, truncateTail(text, MAX_RENDERER_TEXT_CHARS) ?? '');
   });
 
   subagentManager.tracker.on('subagent_end', (entry: SubagentEntry) => {
+    // The run is over: drop its held frames and the watches that fed them.
+    sendLiveOutput.clear(entry.id);
+    sendToolActivity.clear(entry.id);
+    watchRegistry.dropRun(entry.id);
+
     const rendererEntry = sanitizeEntry(entry);
     sendEvent({
       type: 'subagent_end',
@@ -169,6 +178,47 @@ export function registerSubagentHandlers(): void {
     IpcChannels.subagent.snapshot,
     async (_e, workspaceId: string): Promise<SubagentEntry[]> => {
       return subagentManager.snapshot(workspaceId).map(sanitizeEntry);
+    },
+  );
+
+  // ── Live watch ─────────────────────────────────────────────
+
+  ipcMain.handle(
+    IpcChannels.subagent.watch,
+    async (event, runId: string): Promise<void> => {
+      bindWindowCleanup(event.sender);
+      watchRegistry.watch(event.sender.id, runId);
+
+      // Show where the run is now. Text sent while no watch was open is not replayed.
+      const entry = subagentManager.tracker.get(runId);
+      if (!entry) return;
+      const oneWindow = new Set([event.sender.id]);
+      const liveText = truncateTail(entry.liveOutput, MAX_RENDERER_TEXT_CHARS);
+      if (liveText) {
+        sendEventToWindows(oneWindow, {
+          type: 'subagent_live_output',
+          id: runId,
+          text: liveText,
+        });
+      }
+      if (entry.toolActivity.length > 0) {
+        sendEventToWindows(oneWindow, {
+          type: 'subagent_tool_activity',
+          id: runId,
+          activity: sanitizeToolActivity(entry.toolActivity),
+        });
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannels.subagent.unwatch,
+    async (event, runId: string): Promise<void> => {
+      watchRegistry.unwatch(event.sender.id, runId);
+      if (watchRegistry.isWatched(runId)) return;
+      // No view shows this run: drop the renderer-bound buffer.
+      sendLiveOutput.clear(runId);
+      sendToolActivity.clear(runId);
     },
   );
 

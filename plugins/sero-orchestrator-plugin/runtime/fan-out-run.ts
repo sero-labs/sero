@@ -11,7 +11,7 @@
 import type { Loop, LoopRun, LoopStepDefinition, Observation, StepActivation, StepAttempt, StepOutcome } from '../shared/types';
 import type { EngineDeps } from './engine-types';
 import type { OrchestratorHost } from './host';
-import { recordActivationAttempt } from './activations';
+import { recordActivationAttempt, recordActivationAttemptStart } from './activations';
 import { buildFanOutAggregate, expandFanOut, fanOutActivations, fanOutJoinOutcome, runnableFanOutActivations } from './fan-out';
 import { checkManagementLimits, remainingAttemptBudget, type LimitCheck } from './limits';
 import { replaceRun, resolveOutcome, upsertAttempt } from './run-engine-helpers';
@@ -87,6 +87,12 @@ export async function runFanOutStep(input: FanOutRunInput): Promise<FanOutRunRes
   const onAttempt = (attempt: StepAttempt): Promise<void> => {
     progress = progress.then(async () => {
       run = { ...run, stepAttempts: upsertAttempt(run.stepAttempts, attempt) };
+      // A wave settles its activations only when every item in it finished, so
+      // record the id now: a live view joins a running item to its worker
+      // through this id, and without it the item has none until the wave ends.
+      if (attempt.activationId) {
+        run = recordActivationAttemptStart(run, attempt.activationId, attempt.id);
+      }
       loop = await commit(syncRun(loop, run));
     });
     return progress;

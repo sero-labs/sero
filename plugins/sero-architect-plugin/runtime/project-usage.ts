@@ -1,3 +1,4 @@
+import { createRunIdCapture } from '@sero-ai/common';
 import type { AppRuntimeSubagentResult, AppRuntimeSubagentRunParams, ObservationUsage, OrchestratorBoardRoomView, OrchestratorUsageView } from '@sero-ai/common';
 import { setAccountingIncomplete } from '../shared/accounting';
 import { charge } from '../shared/lifecycle';
@@ -129,7 +130,29 @@ export async function runProjectModel(deps: UsageDeps, record: ProjectRecord, op
         parentOperationId ? { parentOperationId } : {});
     });
   };
-  const result = await deps.host.runStructured({ ...params, onUsage: (usage) => { params.onUsage?.(usage); report(usage); } })
+  // Direct research runs as one agent, so the project page can follow it only if
+  // the run id is saved on the pending entry while it runs.
+  // The run's own first observation carries the tracker run id; every later
+  // record carries the subagent session's id, which the tracker does not know.
+  const captureRunId = createRunIdCapture();
+  const noteRunId = (observation: Parameters<NonNullable<AppRuntimeSubagentRunParams['onObservation']>>[0]) => {
+    params.onObservation?.(observation);
+    if (operation.kind !== 'research') return;
+    const runId = captureRunId(observation);
+    if (!runId) return;
+    writes = writes.then(async () => {
+      await deps.store.update(record.id, (fresh) => ({
+        ...fresh,
+        pendingResearch: fresh.pendingResearch?.map((entry) => entry.id === operation.id ? { ...entry, runId } : entry),
+      }));
+    });
+  };
+
+  const result = await deps.host.runStructured({
+    ...params,
+    onObservation: noteRunId,
+    onUsage: (usage) => { params.onUsage?.(usage); report(usage); },
+  })
     .catch((error: unknown): AppRuntimeSubagentResult => ({ response: '', error: error instanceof Error ? error.message : String(error) }));
   if (result.usage) report(result.usage);
   await writes;

@@ -19,7 +19,7 @@ import { OFFICIAL_CATALOG_KEY, OFFICIAL_CATALOG_URL } from '../../shared/catalog
 import { createFakePersistentSessions, type FakePersistentSessions } from './fake-persistent-sessions';
 import type { CatalogRepoContents, CatalogRepoRef } from '../../shared/catalog-types';
 import { DEFAULT_LIBRARY_INDEX, DEFAULT_STATE } from '../../shared/defaults';
-import type { LibraryEntry, LibraryIndex, LibraryVersion, OrchestratorState } from '../../shared/types';
+import type { LibraryEntry, LibraryIndex, LibraryVersion, LiveCall, OrchestratorState } from '../../shared/types';
 import type {
   ActiveSessionInfo,
   ChoiceRequest,
@@ -110,6 +110,12 @@ export interface FakeHost extends OrchestratorHost {
   persistentSessions: FakePersistentSessions;
   /** Same: the gated user-skill capability, recording what a runtime asked to write. */
   skills: FakeSkills;
+  /**
+   * Each loop's live call as it stood when the host reported the run id, one
+   * snapshot per runStructured call. Proves a one-answer call is recorded while
+   * it runs, not only after it returns.
+   */
+  liveCallDuringRun: (LiveCall | undefined)[];
 }
 
 export interface FakeSkills {
@@ -187,6 +193,7 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     catalogContents: new Map<string, CatalogRepoContents>(),
     persistentSessions: createFakePersistentSessions(),
     skills: createFakeSkills(),
+    liveCallDuringRun: [],
 
     async readState() {
       return structuredClone(this.state);
@@ -196,6 +203,23 @@ export function createFakeHost(options: FakeHostOptions = {}): FakeHost {
     },
     async runStructured(params) {
       this.modelCalls.push(params);
+      // The real host reports the run's own identity before it waits for a pool
+      // slot, and every later record comes from the subagent session and carries
+      // THAT session's id instead (runner.ts). A consumer that keeps the latest
+      // id therefore ends up watching an id the tracker does not know.
+      params.onObservation?.({
+        kind: 'operation-start',
+        identities: { operationId: `run-${this.modelCalls.length}` },
+        startedAt: this.now(),
+      });
+      params.onObservation?.({
+        kind: 'turn-start',
+        identities: { operationId: `subagent-session-${this.modelCalls.length}` },
+        startedAt: this.now(),
+      });
+      // Sampled AFTER both records, so a consumer that keeps the latest id is
+      // caught: the mark must still name the run, not the session.
+      this.liveCallDuringRun.push(...this.state.loops.map((loop) => loop.runtime.liveCall));
       let result = this.modelResponses.shift() ?? { response: '', error: 'no scripted model response' };
       // Simulate in-session repair: while the caller rejects the reply, consume
       // the next scripted response (the same session would re-prompt here).

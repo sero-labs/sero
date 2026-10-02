@@ -37,6 +37,8 @@ export interface JobIndexEntry {
   createdAt: number;
   completedAt?: number;
   error?: string;
+  /** The run making the model call this job stands for, while it runs. */
+  runId?: string;
 }
 
 export type DesignIndexEntry = DesignSummary;
@@ -118,6 +120,7 @@ export function normalizeJobIndexEntry(value: unknown): JobIndexEntry | null {
     createdAt: record.createdAt,
     ...(record.completedAt === undefined ? {} : { completedAt: record.completedAt }),
     ...(typeof entry.error === 'string' ? { error: entry.error } : {}),
+    ...(record.runId === undefined ? {} : { runId: record.runId }),
   };
 }
 

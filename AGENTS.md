@@ -76,6 +76,7 @@ containers.
 - Treat new abstractions, compatibility paths, infrastructure, or unrelated edits as signals to stop and recheck the plan against those bounds.
 
 ## Tests
+- Only run tests prior to commit or after fixing all issues, don't run unnecessarily
 - Run the closest existing checks first. Add only the smallest coverage needed for changed behavior that existing checks cannot prove, and tie each new test to an acceptance criterion.
 - Test consequential behavior and state through the lowest stable seam. Check nearby coverage before adding a test.
 - Do not pin incidental copy, DOM shape, classes, mock-call details, or fixture values. Keep exact checks when an approved wording, access, safety, accessibility, or data-loss contract requires them.

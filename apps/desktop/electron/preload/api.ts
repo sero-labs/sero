@@ -14,6 +14,7 @@ import {
 } from './platform/host-services';
 import { debugBridge, lspBridge } from './editor/debug-lsp';
 import { subagentBridge } from './agent/subagent';
+import { appRuntimeBridge } from './apps/app-runtime-events';
 import { skillsBridge } from './agent/skills';
 import { promptsBridge } from './agent/prompts';
 import { modelsBridge } from './agent/models';
@@ -65,6 +66,7 @@ export const seroPreloadApi = {
   appState: appStateBridge,
   apps: appsBridge,
   appAgent: appAgentBridge,
+  appRuntime: appRuntimeBridge,
   webApp: webAppBridge,
   browser: browserBridge,
   appControl: appControlBridge,

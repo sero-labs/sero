@@ -25,6 +25,12 @@ describe('resolveExplorerPanelId', () => {
   it('keeps an ambiguous legacy app id unchanged', () => {
     expect(resolveExplorerPanelId('notes', contributions)).toBe('notes');
   });
+
+  it('opens a saved Orchestration panel on Explorer, because that view is gone', () => {
+    // The id is not left alone: an unknown id is kept for a plugin that is
+    // merely absent, so the Explorer would report a missing view forever.
+    expect(resolveExplorerPanelId('orchestration', contributions)).toBe('explorer');
+  });
 });
 
 describe('explorerPanelAppId', () => {

@@ -77,6 +77,8 @@ export interface SubagentEntry {
   workspaceId: string;
   mode: SubagentMode;
   chainStep?: number;
+  /** Id of the `subagent` tool call that started this run, when one did. */
+  toolCallId?: string;
   usage: SubagentUsage;
   model: string | null;
   toolActivity: SubagentToolActivity[];

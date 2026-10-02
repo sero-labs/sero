@@ -267,6 +267,9 @@ export type {
 
 // ── Runtime state ───────────────────────────────────────────
 
+import type { LiveCall } from './live-call-types';
+export type { LiveCall, LiveCallIdentity, LiveCallKind, LiveCallNotice, LiveCallUpdate } from './live-call-types';
+
 export interface LoopRuntimeState {
   parentSessionId: string;
   variables: Record<string, unknown>;
@@ -275,6 +278,8 @@ export interface LoopRuntimeState {
   activeRunId?: string;
   /** This session's proof that a run is reporting — see runtime/live-run.ts. */
   liveRun?: import('@sero-ai/common').LiveRunMark;
+  /** The one-answer call running now — see runtime/live-call.ts. */
+  liveCall?: LiveCall;
   dueAgain?: boolean;
   /** A dirty-workspace run delayed by the user. Blocks runs until this durable timestamp. */
   snoozedUntil?: string;
@@ -357,17 +362,9 @@ export interface StepRuntimeState {
   outcome?: StepOutcome;
   updatedAt: string;
 }
-
-// ── Limits ──────────────────────────────────────────────────
-
-export interface LoopLimits {
-  maxAttemptsPerStep?: number;
-  maxAttemptsTotal?: number;
-  maxConcurrentSteps?: number;
-  maxWallClockMs?: number;
-  maxTotalTokens?: number;
-  maxCostUsd?: number;
-}
+// Split into limit-types.ts (500-LOC limit); re-exported for existing imports.
+import type { LoopLimits } from './limit-types';
+export type { LoopLimits } from './limit-types';
 
 // ── Run, attempt, outcome ───────────────────────────────────
 

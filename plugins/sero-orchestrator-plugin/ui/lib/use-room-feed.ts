@@ -15,8 +15,9 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useAppRuntimeEvents } from '@sero-ai/app-runtime';
 import type { PersistentSessionContextUsage, PersistentSessionHistoryEntry } from '@sero-ai/common';
-import type { MemberLiveSnapshot } from '../../shared/room-live-types';
+import type { MemberLiveSnapshot, RoomMemberLiveNotice } from '../../shared/room-live-types';
 import type { RoomTimelineEvent } from '../../shared/room-message-types';
 import { mergeHistory } from './room-view';
 
@@ -71,6 +72,19 @@ export function useRoomLive(
 ): Map<string, MemberLiveSnapshot> {
   const [live, setLive] = useState<Map<string, MemberLiveSnapshot>>(new Map());
 
+  // Streaming: while the Watch view holds its lease the runtime pushes each
+  // member's current turn, so a tile updates as the text arrives instead of
+  // waiting for the Room record to change. Nothing arrives for another Room,
+  // and nothing arrives at all once the lease is released.
+  useAppRuntimeEvents<RoomMemberLiveNotice>('orchestrator-room-live', (notice) => {
+    if (!notice || notice.roomId !== roomId) return;
+    setLive((current) => {
+      const next = new Map(current);
+      next.set(notice.snapshot.memberId, notice.snapshot);
+      return next;
+    });
+  });
+
   useEffect(() => {
     if (!roomId || !active) {
       setLive(new Map());
@@ -97,6 +111,62 @@ export function useRoomLive(
   }, [roomId, active, dispatch]);
 
   return live;
+}
+
+/** The end of a reply, as a tile shows it: the newest assistant text, tail only. */
+function replyTail(entries: PersistentSessionHistoryEntry[]): string {
+  for (const entry of entries) {
+    if (entry.role !== 'assistant') continue;
+    const text = entry.text.trim();
+    if (text) return text.length > 400 ? `…${text.slice(-400)}` : text;
+  }
+  return '';
+}
+
+/**
+ * The end of each resting member's last reply, by member id.
+ *
+ * A tile for a member that is waiting or finished shows the member's own last
+ * words rather than a sentence about its status. The reply lives in the session
+ * FILE, so it survives disposal and retirement, and it is read again only when a
+ * member's status changes — never while that member is mid-turn, whose live text
+ * the tile already has.
+ */
+export function useMemberLastReplies(
+  roomId: string | null,
+  wanted: ReadonlyArray<{ id: string; status: string }>,
+  dispatch: RoomFeedDispatch,
+): Map<string, string> {
+  const [replies, setReplies] = useState<Map<string, { status: string; text: string }>>(new Map());
+  const key = wanted.map((entry) => `${entry.id}:${entry.status}`).join('\u0000');
+
+  useEffect(() => {
+    if (!roomId) return;
+    let current = true;
+    void Promise.all(wanted.map(async (entry) => {
+      const details = await dispatch({ action: 'history', roomId, memberId: entry.id });
+      return { id: entry.id, status: entry.status, text: replyTail(details?.entries ?? []) };
+    })).then((results) => {
+      if (!current) return;
+      setReplies((previous) => {
+        const next = new Map(previous);
+        for (const result of results) next.set(result.id, { status: result.status, text: result.text });
+        return next;
+      });
+    });
+    return () => {
+      current = false;
+    };
+    // Re-read when a member's status moves, not on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId, key, dispatch]);
+
+  const texts = new Map<string, string>();
+  for (const entry of wanted) {
+    const found = replies.get(entry.id);
+    if (found && found.status === entry.status) texts.set(entry.id, found.text);
+  }
+  return texts;
 }
 
 export interface MemberHistory {

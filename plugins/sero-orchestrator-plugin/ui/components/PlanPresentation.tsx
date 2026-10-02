@@ -3,7 +3,7 @@ import { useAppPreferences } from '@sero-ai/app-runtime';
 import { ChevronRight } from 'lucide-react';
 import { Slider } from '@sero-ai/ui/components/ui/slider';
 import { ToggleGroup, ToggleGroupItem } from '@sero-ai/ui/components/ui/toggle-group';
-import type { Loop, OrchestratorAction } from '../../shared/types';
+import type { Loop, LoopRun, OrchestratorAction } from '../../shared/types';
 import {
   clampStepsPerRow,
   PLAN_MAP_STEPS_PER_ROW_MAX,
@@ -17,6 +17,8 @@ type PlanPresentationMode = 'map' | 'details';
 interface PlanPresentationProps {
   loop: Loop;
   onAction: (action: OrchestratorAction) => void;
+  /** The run in flight, watched by the caller: `loop.json` carries no runs. */
+  activeRun?: LoopRun | null;
 }
 
 function resolveMode(value: unknown, loop: Loop): PlanPresentationMode {
@@ -69,7 +71,7 @@ function ObjectiveRow({ loop }: { loop: Loop }) {
   );
 }
 
-export function PlanPresentation({ loop, onAction }: PlanPresentationProps) {
+export function PlanPresentation({ loop, onAction, activeRun }: PlanPresentationProps) {
   const { values: profilePreferences, set: setProfilePreference } = useAppPreferences();
   const sliderLabelId = useId();
   const stepsPerRow = clampStepsPerRow(profilePreferences.planStepsPerRow);
@@ -117,7 +119,7 @@ export function PlanPresentation({ loop, onAction }: PlanPresentationProps) {
 
       {mode === 'map'
         ? <PlanMap loop={loop} stepsPerRow={stepsPerRow} />
-        : <PlanView loop={loop} onAction={onAction} />}
+        : <PlanView loop={loop} onAction={onAction} activeRun={activeRun} />}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { backgroundAgentExecutor } from '../executors/background-agent';
 import { modelExecutor } from '../executors/model';
 import { buildStepTask, parseStepOutcome, parseStepOutcomeStrict, STEP_SYSTEM_PROMPT } from '../executors/prompt';
 import type { StepRunInput } from '../engine-types';
-import type { Loop, LoopPlan, LoopRun, ResolvedWorkspaceContext, StepOutcome } from '../../shared/types';
+import type { Loop, LoopPlan, LoopRun, ResolvedWorkspaceContext, StepAttempt, StepOutcome } from '../../shared/types';
 import { createFakeHost, type FakeHost } from './fake-host';
 import { oneStepPlan, sequentialPlan, seedActiveLoop } from './fixtures';
 import { DEFAULT_TOOLS } from '../../shared/constants';
@@ -537,5 +537,26 @@ describe('retry handoff', () => {
     expect(task).toContain('finish only the missing or failed work');
     loop.runtime.stepStates[step.id].lastAttemptId = undefined;
     expect(buildStepTask(loop, step)).not.toContain('RECOVERING PREVIOUS ATTEMPT');
+  });
+});
+
+describe('a step attempt follows its worker run', () => {
+  it('holds the tracker run id already while the step is running', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    host.modelResponses.push({ response: outcome({ status: 'succeeded', summary: 'done' }) });
+
+    const reported: StepAttempt[] = [];
+    const attempt = await modelExecutor.run({
+      ...inputFor(host, loop, 'step-1'),
+      onAttempt: async (next) => { reported.push(next); },
+    });
+
+    // The id arrives on the run's first observation, so the running attempt
+    // saved mid-flight already carries it — that is what a live block watches.
+    const running = reported.filter((entry) => entry.status === 'running' && entry.workerRunId);
+    expect(running.length).toBeGreaterThan(0);
+    expect(running.every((entry) => entry.workerRunId === 'run-1')).toBe(true);
+    expect(attempt.workerRunId).toBe('run-1');
   });
 });

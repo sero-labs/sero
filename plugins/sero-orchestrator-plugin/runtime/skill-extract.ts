@@ -198,7 +198,14 @@ export function writeDraftBody(host: OrchestratorHost, loopId: string, body: str
 export async function readDraftBody(host: OrchestratorHost, ref: string): Promise<string> {
   const raw = await host.readArtifact(ref);
   if (!raw) return '';
-  const parsed: unknown = JSON.parse(raw);
+  // A draft artifact that is not our JSON envelope yields no body, exactly like
+  // a missing one — one bad file must not fail the extraction pass.
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return '';
+  }
   return isRecord(parsed) && typeof parsed.body === 'string' ? parsed.body : '';
 }
 
@@ -222,6 +229,7 @@ export async function proposeSkill(
     platformTools: 'readOnly',
     cwd: loop.runtime.workspace.resolved?.cwd ?? host.workspacePath,
     onUsage,
+    live: { loopId: loop.id, kind: 'skill' },
   });
 
   if (result.responses.length) {

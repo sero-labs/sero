@@ -104,7 +104,7 @@ export function CreateLoopWizard({ busy, stateDir, onCreate, onAction, onOpenLoo
             </Card>
           )}
           <PlanPresentation loop={loop} onAction={onAction} />
-          <RefinePlan busy={busy} planRevision={loop.plan.revision} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} />
+          <RefinePlan busy={busy} planRevision={loop.plan.revision} onRefine={(prompt) => onAction({ kind: 'revise', loopId: loop.id, prompt })} loopId={loop.id} />
           <div className="flex items-center gap-2.5">
             {/* What planning this Workflow cost — the loop's saved planning usage. */}
             {loop.planningUsage?.costUsd !== undefined && (

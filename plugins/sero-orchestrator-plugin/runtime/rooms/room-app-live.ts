@@ -18,6 +18,7 @@ import type { MemberLiveSnapshot } from '../../shared/room-live-types';
 import type { OrchestratorHost } from '../host';
 import type { RoomObservation } from './room-observation';
 import type { RoomStore } from './room-store';
+import { createMemberLiveBroadcast } from './room-live-broadcast';
 
 /**
  * How long a Watch view's retention demand outlives its last read.
@@ -72,12 +73,17 @@ export interface RoomLiveActions {
 }
 
 export function createRoomLiveActions({ host, store, observation, sessions }: RoomLiveContext): RoomLiveActions {
-  /** Open Watch views, by Room. The listener is empty on purpose — demand is the point. */
+  /** Open Watch views, by Room. Hold the lease for as long as the view asks. */
   const leases = new Map<string, { release: () => void; readAt: number }>();
+  // One timer per member, so a busy member's text cannot starve a quiet one's.
+  const broadcast = createMemberLiveBroadcast((notice) => host.notifyRoomLive?.(notice));
 
   function releaseLease(roomId: string): void {
     leases.get(roomId)?.release();
     leases.delete(roomId);
+    // Nothing is watching: drop every held frame rather than leaving one to
+    // arrive after the view closed.
+    if (leases.size === 0) broadcast.clear();
   }
 
   function holdLease(roomId: string): void {
@@ -91,7 +97,13 @@ export function createRoomLiveActions({ host, store, observation, sessions }: Ro
       existing.readAt = now;
       return;
     }
-    leases.set(roomId, { release: observation.watchRoom(roomId, () => undefined), readAt: now });
+    // While this lease is held, each member's current turn is pushed to the
+    // app's own views, so a tile streams without waiting for a Room write.
+    const listener = (event: { memberId: string }) => {
+      const snapshot = observation.snapshotMember(event.memberId);
+      if (snapshot) broadcast.push(snapshot);
+    };
+    leases.set(roomId, { release: observation.watchRoom(roomId, listener), readAt: now });
   }
 
   return {

@@ -12,7 +12,9 @@
 
 import type { GithubSourceHealth, LoopSummary, Loop, WebhookSourceHealth } from '../../shared/types';
 import { stateLineFacts } from '../lib/loop-state-line';
+import { useLiveCall } from '../lib/use-live-call';
 import { ActivityWord } from './ActivityWord';
+import { LiveCallPopover } from './LiveCallPopover';
 
 export function LoopStateLine({
   loop,
@@ -30,14 +32,24 @@ export function LoopStateLine({
   webhookHealth?: WebhookSourceHealth | null;
 }) {
   const facts = stateLineFacts(loop, summary, runCount, githubHealth, webhookHealth);
-  if (!facts) return null;
+  // A newly arrived event is checked before the Workflow decides anything, and
+  // the state line is where the reader is already looking. It names the event,
+  // so the wait says what it is about rather than only that something runs.
+  const checking = useLiveCall({ kind: 'event', loopId: loop.id });
+  if (!facts && !checking) return null;
   return (
     <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-room-text3">
-      {facts.activity && <ActivityWord {...facts.activity} />}
-      {facts.queued && <span>{facts.queued}</span>}
-      {facts.health.map((chip) => (
+      {facts?.activity && <ActivityWord {...facts.activity} />}
+      {facts?.queued && <span>{facts.queued}</span>}
+      {facts?.health.map((chip) => (
         <span key={chip.key}>{chip.label}</span>
       ))}
+      {checking && (
+        <span className="flex items-center gap-1.5">
+          <span>checking a new event: {checking.label}</span>
+          <LiveCallPopover runId={checking.runId} label={`checking a new event: ${checking.label ?? ''}`} busy />
+        </span>
+      )}
     </p>
   );
 }

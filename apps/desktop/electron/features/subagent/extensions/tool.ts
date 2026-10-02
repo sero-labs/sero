@@ -66,19 +66,19 @@ export function registerSubagentTool(
       'parallel (tasks array), chain (sequential with {previous} placeholder).',
     parameters: SubagentParams,
 
-    async execute(_toolCallId, params, _signal, onUpdate: AgentToolUpdateCallback | undefined, _ctx): Promise<AgentToolResult<undefined>> {
+    async execute(toolCallId, params, _signal, onUpdate: AgentToolUpdateCallback | undefined, _ctx): Promise<AgentToolResult<undefined>> {
       // Wrap the SDK's onUpdate callback into a simple text callback for our helpers
       const textUpdate: OnUpdate = onUpdate
         ? (text: string) => onUpdate({ content: [{ type: 'text' as const, text }], details: undefined })
         : undefined;
       // Mode detection
       if (params.tasks && Array.isArray(params.tasks)) {
-        return executeParallel(manager, params, parentSessionId, workspaceId, textUpdate);
+        return executeParallel(manager, params, parentSessionId, workspaceId, textUpdate, toolCallId);
       }
       if (params.chain && Array.isArray(params.chain)) {
-        return executeChain(manager, params, parentSessionId, workspaceId, textUpdate);
+        return executeChain(manager, params, parentSessionId, workspaceId, textUpdate, toolCallId);
       }
-      return executeSingle(manager, params, parentSessionId, workspaceId, textUpdate);
+      return executeSingle(manager, params, parentSessionId, workspaceId, textUpdate, toolCallId);
     },
   });
 }
@@ -92,6 +92,7 @@ async function executeSingle(
   parentSessionId: string,
   workspaceId: string,
   onUpdate: OnUpdate,
+  toolCallId?: string,
 ): Promise<ToolResult> {
   const task = p.task as string | undefined;
   const agent = p.agent as string | undefined;
@@ -113,6 +114,7 @@ async function executeSingle(
     systemPrompt,
     parentSessionId,
     workspaceId,
+    toolCallId,
     onUpdate,
   });
 
@@ -125,6 +127,7 @@ async function executeParallel(
   parentSessionId: string,
   workspaceId: string,
   onUpdate: OnUpdate,
+  toolCallId?: string,
 ): Promise<ToolResult> {
   const tasks = p.tasks as Array<{ agent: string; task: string; model?: string; thinking?: string; timeoutMs?: number }>;
 
@@ -135,6 +138,7 @@ async function executeParallel(
     timeoutMs: p.timeoutMs as number | undefined,
     parentSessionId,
     workspaceId,
+    toolCallId,
     onUpdate,
   });
 
@@ -147,6 +151,7 @@ async function executeChain(
   parentSessionId: string,
   workspaceId: string,
   onUpdate: OnUpdate,
+  toolCallId?: string,
 ): Promise<ToolResult> {
   const chain = p.chain as Array<{ agent: string; task: string; model?: string; thinking?: string; timeoutMs?: number }>;
 
@@ -157,6 +162,7 @@ async function executeChain(
     timeoutMs: p.timeoutMs as number | undefined,
     parentSessionId,
     workspaceId,
+    toolCallId,
     onUpdate,
   });
 

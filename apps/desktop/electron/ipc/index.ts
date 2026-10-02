@@ -18,6 +18,7 @@ import { registerBrowserHandlers } from './apps/browser';
 import { registerVoiceHandlers } from './agent/handlers/voice';
 import { registerShellHandlers } from './platform/system/shell';import { registerWindowHandlers } from './platform/system/window';
 import { registerAppStateHandlers } from './apps/app-state';
+import { registerAppRuntimeEventHandlers } from './apps/app-runtime-events';
 import { registerAppsHandlers } from './apps/apps';
 import { registerAuthHandlers } from './platform/auth/auth';
 import { registerContainerHandlers } from './container/container';
@@ -70,6 +71,7 @@ export function registerAllIpcHandlers(): void {
   registerToolCaptureHandlers();
   registerWindowHandlers();
   registerAppStateHandlers();
+  registerAppRuntimeEventHandlers();
   registerAppsHandlers();
   registerAuthHandlers();
   registerContainerHandlers();

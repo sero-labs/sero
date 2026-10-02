@@ -17,7 +17,12 @@ import { LoopSettingsLine } from '../components/LoopSettingsLine';
 import { LoopStateLine } from '../components/LoopStateLine';
 
 const { openSeroApp } = vi.hoisted(() => ({ openSeroApp: vi.fn(async () => true) }));
-vi.mock('@sero-ai/app-runtime', () => ({ openSeroApp }));
+vi.mock('@sero-ai/app-runtime', () => ({
+  openSeroApp,
+  // The state line listens to the app's own runtime; these tests render it
+  // directly, so the listener is inert.
+  useAppRuntimeEvents: () => {},
+}));
 
 const NOW = '2026-09-20T10:00:00.000Z';
 

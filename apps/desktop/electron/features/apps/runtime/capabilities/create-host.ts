@@ -64,6 +64,7 @@ import { validateRuntimeCustomTools } from './custom-tools';
 import { getProviderApiKey } from './provider-credentials';
 import { createMediaHost } from './media';
 import { createSessionHost } from './session-host';
+import { emitAppRuntimeEvent } from '@electron/ipc/apps/app-runtime-events';
 import type { AppRuntimeTarget, AppRuntimeHost } from '../types';
 
 const worktreeManager = new WorktreeManager();
@@ -114,6 +115,11 @@ export function createAppRuntimeHost(target: AppRuntimeTarget): AppRuntimeHost {
         const dir = path.join(SERO_HOME, 'apps', namespace);
         await mkdir(dir, { recursive: true });
         return { path: dir };
+      },
+    },
+    ui: {
+      emit: (topic, payload) => {
+        emitAppRuntimeEvent(target.manifest.id, target.workspace.id, topic, payload);
       },
     },
     subagents: {

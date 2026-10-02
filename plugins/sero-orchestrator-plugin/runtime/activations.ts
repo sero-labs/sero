@@ -99,6 +99,28 @@ export function startActivations(
   return { loop: currentLoop, run: { ...run, stepActivations: activations }, activationIds: ids };
 }
 
+/**
+ * Add a running attempt's id to its activation, without settling it.
+ *
+ * A fan-out wave settles its activations only after every item in it finished,
+ * so without this an item that is still working has no attempt id for a live
+ * view to join it to. Called when the attempt starts; the settled record still
+ * comes from `recordActivationAttempt`.
+ */
+export function recordActivationAttemptStart(
+  run: LoopRun,
+  activationId: string,
+  attemptId: string,
+): LoopRun {
+  const activations = [...(run.stepActivations ?? [])];
+  const index = activations.findIndex((activation) => activation.id === activationId);
+  if (index === -1) return run;
+  const activation = activations[index];
+  if (activation.attemptIds.includes(attemptId)) return run;
+  activations[index] = { ...activation, attemptIds: [...activation.attemptIds, attemptId] };
+  return { ...run, stepActivations: activations };
+}
+
 /** Appends one attempt and either finishes or parks its activation. */
 export function recordActivationAttempt(
   run: LoopRun,

@@ -83,5 +83,9 @@ export * from "./components/ui/tree";
 export * from "./components/dashboard";
 export type { DashboardComponentCatalogEntry } from "./components/dashboard/catalog";
 
+// ── Live Agent Progress ──
+// The shared live block for a running agent.
+export * from "./components/live-agent";
+
 export { PluginStyleScope, type PluginStyleScopeProps } from './plugin-style-scope';
 export { usePluginPortalContainer } from './plugin-style-scope-context';

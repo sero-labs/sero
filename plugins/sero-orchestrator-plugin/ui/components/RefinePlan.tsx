@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 import { Sparkles, Wand2 } from 'lucide-react';
+import { useLiveCall } from '../lib/use-live-call';
+import { LiveCallPopover } from './LiveCallPopover';
 
 interface RefinePlanProps {
   busy: boolean;
@@ -12,6 +14,8 @@ interface RefinePlanProps {
   planRevision: number;
   /** Sends the refinement request to the coordinator's revise action. */
   onRefine: (prompt: string) => void;
+  /** The Workflow being refined, so the wait watches the right run. */
+  loopId?: string;
 }
 
 /**
@@ -35,11 +39,14 @@ interface Pending {
  * people read the screen as frozen and killed a run that was working — so the
  * request stays visible while it runs, and the outcome is stated when it lands.
  */
-export function RefinePlan({ busy, planRevision, onRefine }: RefinePlanProps) {
+export function RefinePlan({ busy, planRevision, onRefine, loopId }: RefinePlanProps) {
   const [prompt, setPrompt] = useState('');
   const [pending, setPending] = useState<Pending | null>(null);
   const [outcome, setOutcome] = useState<'updated' | 'unchanged' | null>(null);
   const trimmed = prompt.trim();
+  // The rewriting pass comes from the runtime, which is the only side that
+  // knows its tracker run id.
+  const refining = useLiveCall({ kind: 'refine', loopId });
 
   // Resolved during render rather than in an effect: both signals are props, so
   // there is nothing to synchronise with the outside world.
@@ -82,6 +89,7 @@ export function RefinePlan({ busy, planRevision, onRefine }: RefinePlanProps) {
           <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <Sparkles className="h-3.5 w-3.5 animate-pulse text-sky-400" />
             The AI is rewriting the plan…
+            {refining && <LiveCallPopover runId={refining.runId} label="Rewriting the plan" busy />}
           </span>
         )}
         {!pending && outcome === 'updated' && (

@@ -9,10 +9,20 @@
 
 export const BUILTIN_EXPLORER_PANELS = [
   'explorer',
-  'orchestration',
   'browser',
   'terminal',
 ] as const;
+
+/**
+ * Panels that no longer exist, and what a saved id for one opens instead.
+ *
+ * A removed id must not fall through as an unknown panel: an unknown id is kept
+ * for a plugin that is merely absent, so the Explorer would show "missing" for a
+ * view that is never coming back.
+ */
+const REMOVED_EXPLORER_PANELS: Record<string, BuiltinExplorerPanel> = {
+  orchestration: 'explorer',
+};
 
 export type BuiltinExplorerPanel = (typeof BUILTIN_EXPLORER_PANELS)[number];
 
@@ -36,6 +46,9 @@ export function resolveExplorerPanelId(
   panel: ExplorerPanel,
   contributions: ExplorerContributionIdentity[],
 ): ExplorerPanel {
+  const replaced = REMOVED_EXPLORER_PANELS[panel];
+  if (replaced) return replaced;
+
   let legacyMatch: string | undefined;
   for (const contribution of contributions) {
     if (contribution.key === panel) return panel;

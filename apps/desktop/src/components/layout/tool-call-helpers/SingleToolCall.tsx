@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@sero-ai/ui/lib/utils';
+import { SubagentLiveBlock } from '@sero-ai/ui';
 import type { ChatToolCallMessage } from '@/types/ipc';
+import { useEnsureSubagentStore, useSubagentRuns } from '@/stores/subagent';
 import {
   ToolCallProgress,
   buildToolProgressModel,
@@ -37,6 +39,13 @@ export function SingleToolCall({
 
   const summary = useMemo(() => getCollapsedToolSummary(tool), [tool]);
   const effectiveToolName = useMemo(() => getEffectiveToolName(tool), [tool]);
+
+  // While a `subagent` call runs, its agents stream here rather than in the
+  // call's text: one block per agent, matched by this call's own id. When the
+  // call ends the normal input and output come back.
+  const isSubagentCall = effectiveToolName === 'subagent';
+  useEnsureSubagentStore(isSubagentCall ? workspaceId : null);
+  const runs = useSubagentRuns(isSubagentCall && isRunning ? tool.toolCallId : undefined);
 
   return (
     <motion.div
@@ -116,7 +125,15 @@ export function SingleToolCall({
             className="overflow-hidden"
           >
             <div className="border-t border-[var(--border-subtle)] px-3 py-2.5">
-              <ToolDetailBody tool={tool} workspaceId={workspaceId} />
+              {runs.length > 0 ? (
+                <div className="flex flex-col gap-2">
+                  {runs.map((run) => (
+                    <SubagentLiveBlock key={run.id} runId={run.id} agentName={run.agentName} />
+                  ))}
+                </div>
+              ) : (
+                <ToolDetailBody tool={tool} workspaceId={workspaceId} />
+              )}
             </div>
           </motion.div>
         ) : null}

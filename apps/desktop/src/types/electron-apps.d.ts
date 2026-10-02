@@ -14,6 +14,7 @@ import type {
   AppPanelRect,
   AppRecordingResult,
   AppRecordingStatus,
+  AppRuntimeEvent,
 } from './ipc';
 import type {
   AppToolResult,
@@ -40,6 +41,18 @@ interface SeroAppStateAPI {
   unwatch(filePath: string): Promise<void>;
   /** Subscribe to state file change events. Returns unsubscribe. */
   onChange(callback: (filePath: string, data: unknown, etag: string | null) => void): () => void;
+}
+
+interface SeroAppRuntimeAPI {
+  /**
+   * Subscribe to events this app's runtime emits. The callback receives only
+   * events for the app, workspace and topic it subscribed to.
+   */
+  onEvent(callback: (event: AppRuntimeEvent) => void): () => void;
+  /** Show this window an app's topic in one workspace. */
+  subscribe(appId: string, workspaceId: string, topic: string): Promise<void>;
+  /** Release one subscription. */
+  unsubscribe(appId: string, workspaceId: string, topic: string): Promise<void>;
 }
 
 interface SeroAppsAPI {

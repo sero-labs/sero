@@ -261,6 +261,12 @@ export interface JobRecord {
   completedAt?: number;
   attempts: number;
   error?: string;
+  /**
+   * The tracker run of the model call this job is making, while it makes it.
+   * Set when the run reports itself, so a pending tile can open a live block on
+   * what the agent writes now. Absent for work with no model call behind it.
+   */
+  runId?: string;
   /** Set by a cancel request; the run checks it and aborts. */
   cancelRequested?: boolean;
   /**
@@ -376,6 +382,9 @@ export function normalizeJobRecord(value: unknown): JobRecord | null {
     attempts: typeof value.attempts === 'number' ? value.attempts : 0,
     ...(typeof value.error === 'string' ? { error: value.error } : {}),
     ...(value.cancelRequested === true ? { cancelRequested: true } : {}),
+    // The model run behind this job, kept so a pending tile can open its live
+    // view. Dropping it here is what made the tile show only a spinner.
+    ...(typeof value.runId === 'string' && value.runId !== '' ? { runId: value.runId } : {}),
     ...(media === undefined ? {} : { media }),
     ...(typeof value.mediaCallsUsed === 'number' && value.mediaCallsUsed > 0
       ? { mediaCallsUsed: value.mediaCallsUsed }
