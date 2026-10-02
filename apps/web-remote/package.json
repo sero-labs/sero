@@ -21,7 +21,7 @@
     "@streamdown/code": "^1.1.0",
     "@streamdown/math": "^1.0.2",
     "@streamdown/mermaid": "^1.0.2",
-    "lucide-react": "^1.28.0",
+    "lucide-react": "^1.48.0",
     "react": "catalog:",
     "react-dom": "catalog:",
     "streamdown": "catalog:",
@@ -29,7 +29,7 @@
   },
   "devDependencies": {
     "@module-federation/vite": "catalog:",
-    "@playwright/test": "1.62.1",
+    "@playwright/test": "1.63.0",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
