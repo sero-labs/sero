@@ -34,11 +34,14 @@ export function useRoomChildren(
   const parentKey = parentSessionIds.join('\u0000');
 
   useEffect(() => {
-    if (!workspaceId || parentSessionIds.length === 0) return;
+    if (!workspaceId || parentKey.length === 0) return;
     const bridge = subagentBridge();
     if (!bridge) return;
 
-    const mine = new Set(parentSessionIds);
+    // The joined key, not the array, is what this effect reads: a caller
+    // rebuilds the array every render, while the key is the same string for as
+    // long as the same sessions are watched.
+    const mine = new Set(parentKey.split('\u0000'));
     const watched = new Set<string>();
     let current = true;
 

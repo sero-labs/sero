@@ -210,6 +210,42 @@
         "rules": [
           "react-doctor/iframe-missing-sandbox"
         ]
+      },
+      {
+        // The detector finds the `.watch` registration but not the release that
+        // already exists for it, and the rule's own guidance names this shape as
+        // a false positive: a registration made from an observer callback whose
+        // returned teardown stops the whole thing.
+        //
+        // `useRoomChildren` returns a cleanup that calls `unsubscribe()` for the
+        // event feed and `bridge.unwatch(id)` for every id in `watched`, so no
+        // run stays watched after the view closes. The matcher reads the
+        // returned function but not the loop inside it, so `unwatch` is missed.
+        // Scoped to this one file: it has a single effect and a single watched
+        // set, so a real leak here would still have nowhere to hide.
+        "files": [
+          "ui/lib/use-room-children.ts",
+          "plugins/sero-orchestrator-plugin/ui/lib/use-room-children.ts"
+        ],
+        "rules": [
+          "react-doctor/effect-needs-cleanup"
+        ]
+      },
+      {
+        // The detector reads `bridge.subscribe(appId, workspaceId, topic)` as a
+        // listener registration whose handler is its second argument, so it
+        // reports that the `workspaceId` listener is re-added when the handler
+        // changes. It is a topic subscription: the second argument names the
+        // workspace, and the handler is already held in a ref and read as
+        // `handlerRef.current(...)` — the fix this rule asks for. Re-running the
+        // effect when `appId`, `workspaceId` or `topic` changes is the intent.
+        "files": [
+          "src/use-app-runtime-events.ts",
+          "packages/app-runtime/src/use-app-runtime-events.ts"
+        ],
+        "rules": [
+          "react-doctor/advanced-event-handler-refs"
+        ]
       }
     ]
   }

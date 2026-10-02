@@ -18,13 +18,13 @@ import { SubagentLiveBlock } from '@sero-ai/ui/components/live-agent/live-block'
 import { ChevronDown, Eye, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import type { AppModelGroup } from '@sero-ai/app-runtime';
 import type { ContextAgentInfo, ContextToolInfo } from '@sero-ai/common';
-import type { Loop, LoopRun, LoopStepDefinition, StepRuntimeState } from '../../shared/types';
+import type { Loop, LoopRun, LoopStepDefinition, StepRuntimeState, StepStatus } from '../../shared/types';
 import { STEP_STATUS_STYLE } from '../lib/status-style';
 import { splitFileRefs } from '../lib/file-refs';
 import { stepMarks, stepStateLabel } from '../lib/step-detail';
 import { StepStatusPill } from './StatusBadge';
-import { fanOutSummaryLabel, type FanOutView } from '../lib/fan-out-summary';
-import { stepLiveView } from '../lib/step-live';
+import { fanOutSummaryLabel, type FanOutItemView, type FanOutView } from '../lib/fan-out-summary';
+import { stepLiveView, type StepLiveView } from '../lib/step-live';
 import { WorkspaceFileLink } from './WorkspaceFileLink';
 import { StepModelControl } from './StepModelControl';
 import { StepToolsControl } from './StepToolsControl';
@@ -115,6 +115,88 @@ function WithFileRefs({ text, workspaceId }: { text: string; workspaceId: string
 /** The two icon buttons in the step header, as the drawing sets them. */
 const ICON_BUTTON = 'grid size-6 shrink-0 place-items-center rounded-[5px] text-room-text3 hover:bg-room-overlay hover:text-room-text';
 
+/** The card's own classes: dimmed when the step was not taken, tinted by state. */
+function cardClass(notTaken: boolean, tint: string): string {
+  const dim = notTaken ? ' orc-step-dim' : '';
+  const tone = tint ? ` ${tint}` : '';
+  return `orc-step flex flex-col${dim}${tone}`;
+}
+
+/** The badge's tone: the state's colour, muted for a step that was not taken. */
+function stepBadgeTone(state: StepRuntimeState | undefined, notTaken: boolean): string {
+  if (!state || notTaken) return 'text-muted-foreground';
+  return STEP_STATUS_STYLE[state.status].badge;
+}
+
+/**
+ * One run for the step's own work, or nothing.
+ *
+ * An active-session step runs in the chat, which already shows that work, so it
+ * offers no control here.
+ */
+function stepLive(
+  canTune: boolean,
+  loop: Loop,
+  activeRun: LoopRun | null | undefined,
+  stepId: string,
+  status: StepStatus | undefined,
+): StepLiveView | undefined {
+  if (!canTune) return undefined;
+  return stepLiveView(loop, activeRun ?? null, stepId, status);
+}
+
+/** The fan-out items still worth watching, or none when the step cannot expand. */
+function watchableItems(canTune: boolean, fanOut: FanOutView | undefined): FanOutItemView[] {
+  if (!canTune) return [];
+  return (fanOut?.items ?? []).filter((item) => item.status === 'running' && item.runId);
+}
+
+/**
+ * The live blocks a running step shows: one per running fan-out item when the
+ * step expands into many, otherwise the one block for the step's own work.
+ */
+function StepLiveBlocks({ watching, items, live }: {
+  watching: boolean;
+  items: readonly FanOutItemView[];
+  live: StepLiveView | undefined;
+}) {
+  if (!watching) return null;
+  if (items.length > 0) {
+    return (
+      <div className="mt-2 flex flex-col gap-2">
+        {items.map((item) => (
+          <SubagentLiveBlock key={item.key} runId={item.runId!} agentName={item.key} />
+        ))}
+      </div>
+    );
+  }
+  if (!live) return null;
+  return <SubagentLiveBlock className="mt-2" runId={live.runId} quietLabel={live.quietLabel} />;
+}
+
+/** What a finished step produced. */
+function StepOutcome({ outcome, isProblem, workspaceId }: {
+  outcome: { summary: string };
+  isProblem: boolean;
+  workspaceId: string;
+}) {
+  if (isProblem) {
+    // A failed step states its reason as one line under the title. A label
+    // column would put the reason behind a word the reader does not need.
+    return (
+      <p className="mt-1.5 text-xs leading-relaxed text-destructive">
+        <WithFileRefs text={outcome.summary} workspaceId={workspaceId} />
+      </p>
+    );
+  }
+  return (
+    <dl className="orc-kv mt-2.5">
+      <dt>Result</dt>
+      <dd className="text-room-text"><WithFileRefs text={outcome.summary} workspaceId={workspaceId} /></dd>
+    </dl>
+  );
+}
+
 export function StepCard({ step, number, loop, numberOf, showNumber = true, state, groups, toolCatalog, agentCatalog, onSetModel, onSetTools, onSetAgent, onRetry, fanOut, activeRun }: StepCardProps) {
   const [tuning, setTuning] = useState(false);
   const [open, setOpen] = useState(false);
@@ -126,21 +208,17 @@ export function StepCard({ step, number, loop, numberOf, showNumber = true, stat
   const isProblem = !!state && PROBLEM_STATUSES.has(state.status);
   const tint = state ? STEP_STATUS_STYLE[state.status].tint : '';
   const canTune = step.execution.type !== 'active-session';
-  // An active-session step runs in the chat, which already shows its work, so
-  // it offers no control here.
-  const live = canTune ? stepLiveView(loop, activeRun ?? null, step.id, state?.status) : undefined;
-  const liveItems = canTune
-    ? (fanOut?.items ?? []).filter((item) => item.status === 'running' && item.runId)
-    : [];
+  const live = stepLive(canTune, loop, activeRun, step.id, state?.status);
+  const liveItems = watchableItems(canTune, fanOut);
   const canWatch = !!live || liveItems.length > 0;
 
   return (
-    <div className={`orc-step flex flex-col${notTaken ? ' orc-step-dim' : ''}${tint ? ` ${tint}` : ''}`}>
+    <div className={cardClass(notTaken, tint)}>
       <StepHeader
         step={step}
         number={showNumber ? number : null}
         stateLabel={stateLabel}
-        badgeTone={state && !notTaken ? STEP_STATUS_STYLE[state.status].badge : 'text-muted-foreground'}
+        badgeTone={stepBadgeTone(state, notTaken)}
         canTune={canTune}
         tuning={tuning}
         open={open}
@@ -152,32 +230,13 @@ export function StepCard({ step, number, loop, numberOf, showNumber = true, stat
         onRetry={onRetry}
       />
 
-      {watching && liveItems.length > 0 && (
-        <div className="mt-2 flex flex-col gap-2">
-          {liveItems.map((item) => (
-            <SubagentLiveBlock key={item.key} runId={item.runId!} agentName={item.key} />
-          ))}
-        </div>
-      )}
-
-      {watching && liveItems.length === 0 && live && (
-        <SubagentLiveBlock className="mt-2" runId={live.runId} quietLabel={live.quietLabel} />
-      )}
+      <StepLiveBlocks watching={watching} items={liveItems} live={live} />
 
       {fanOut && <div className="mt-2"><FanOutActivations view={fanOut} /></div>}
 
-      {state?.outcome && (isProblem ? (
-        // A failed step states its reason as one line under the title. A label
-        // column would put the reason behind a word the reader does not need.
-        <p className="mt-1.5 text-xs leading-relaxed text-destructive">
-          <WithFileRefs text={state.outcome.summary} workspaceId={loop.workspaceId} />
-        </p>
-      ) : (
-        <dl className="orc-kv mt-2.5">
-          <dt>Result</dt>
-          <dd className="text-room-text"><WithFileRefs text={state.outcome.summary} workspaceId={loop.workspaceId} /></dd>
-        </dl>
-      ))}
+      {state?.outcome && (
+        <StepOutcome outcome={state.outcome} isProblem={isProblem} workspaceId={loop.workspaceId} />
+      )}
 
       {open && (
         <div className="mt-2.5 border-t border-room-line pt-2.5">

@@ -60,8 +60,10 @@ export function fanOutView(runs: LoopRun[], stepId: string): FanOutView | undefi
 
 /** The worker run of an activation's still-running attempt, if it has one. */
 function runningItemRunId(run: LoopRun, attemptIds: readonly string[]): string | undefined {
+  // A set, not the array: every attempt is tested against the same ids.
+  const ids = new Set(attemptIds);
   const attempt = run.stepAttempts.find(
-    (entry) => entry.status === 'running' && attemptIds.includes(entry.id),
+    (entry) => entry.status === 'running' && ids.has(entry.id),
   );
   return attempt?.workerRunId;
 }

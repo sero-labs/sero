@@ -42,13 +42,16 @@ export function LiveCallPopover({ runId, label, busy = false }: {
         <Eye className="size-3.5" />
       </button>
       {open && (
-        <div
-          role="dialog"
+        // A non-modal `<dialog>`, declared open: it keeps the anchored position
+        // the row needs while giving screen readers the dialog semantics they
+        // would otherwise be told about by hand.
+        <dialog
+          open
           aria-label={`${label} live reply`}
-          className="absolute right-0 top-full z-50 mt-1 w-[30rem] max-w-[70vw]"
+          className="absolute left-auto right-0 top-full z-50 m-0 mt-1 w-[30rem] max-w-[70vw] border-0 bg-transparent p-0"
         >
           <SubagentLiveBlock runId={runId} monospace className={busy ? 'opacity-90' : undefined} />
-        </div>
+        </dialog>
       )}
     </span>
   );

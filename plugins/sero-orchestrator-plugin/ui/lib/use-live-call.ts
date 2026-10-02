@@ -47,17 +47,22 @@ function useLiveCalls(): Map<string, LiveCallNotice> {
  * that has no record yet needs (planning a brand-new Workflow, installing from
  * the Catalog). A match that names an identity takes only its own call.
  */
+/** Whether a running call is the one a view asked for. */
+function matchesIdentity(call: LiveCallIdentity, wanted: LiveCallIdentity): boolean {
+  if (call.kind !== wanted.kind) return false;
+  if (wanted.loopId !== undefined && call.loopId !== wanted.loopId) return false;
+  if (wanted.requestId !== undefined && call.requestId !== wanted.requestId) return false;
+  if (wanted.roomId !== undefined && call.roomId !== wanted.roomId) return false;
+  if (wanted.runId !== undefined && call.runId !== wanted.runId) return false;
+  return true;
+}
+
 export function useLiveCall(match: LiveCallIdentity | LiveCallKind): LiveCallNotice | undefined {
   const wanted: LiveCallIdentity = typeof match === 'string' ? { kind: match } : match;
   const running = useLiveCalls();
 
   for (const call of running.values()) {
-    if (call.kind !== wanted.kind) continue;
-    if (wanted.loopId !== undefined && call.loopId !== wanted.loopId) continue;
-    if (wanted.requestId !== undefined && call.requestId !== wanted.requestId) continue;
-    if (wanted.roomId !== undefined && call.roomId !== wanted.roomId) continue;
-    if (wanted.runId !== undefined && call.runId !== wanted.runId) continue;
-    return call;
+    if (matchesIdentity(call, wanted)) return call;
   }
   return undefined;
 }

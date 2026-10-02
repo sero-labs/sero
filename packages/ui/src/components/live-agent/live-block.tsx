@@ -73,8 +73,10 @@ export function LiveBlock({
   className,
   ...props
 }: LiveBlockProps) {
-  const fallbackStart = React.useRef(Date.now());
-  const started = startedAt ?? fallbackStart.current;
+  // Lazy, so the fallback start is the moment this block first appeared and is
+  // not recomputed — and thrown away — on every later render.
+  const [fallbackStart] = React.useState(() => Date.now());
+  const started = startedAt ?? fallbackStart;
   const elapsed = useElapsedLabel(started);
   const now = nowLine(quietLabel, activity);
 
