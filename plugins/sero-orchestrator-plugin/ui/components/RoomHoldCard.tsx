@@ -17,6 +17,7 @@ import { relativeTime } from '@sero-ai/common';
 import type { RoomStopReason } from '../../shared/room-types';
 import type { RoomControls } from '../lib/room-controls';
 import { holdText, type HoldMember } from '../lib/room-hold';
+import { RoomResumeControl, type RoomResumeTime } from './RoomResumeControl';
 
 interface RoomHoldCardProps {
   /** Why the runtime stopped starting turns, when it did. */
@@ -27,11 +28,12 @@ interface RoomHoldCardProps {
   controls: RoomControls;
   busy: boolean;
   onMessage: () => void;
-  onResume: () => void;
+  onResume: (maxMinutes?: number) => void;
   onStop: () => void;
+  resumeTime?: RoomResumeTime;
 }
 
-export function RoomHoldCard({ stopReason, members, controls, busy, onMessage, onResume, onStop }: RoomHoldCardProps) {
+export function RoomHoldCard({ stopReason, members, controls, busy, onMessage, onResume, onStop, resumeTime }: RoomHoldCardProps) {
   if (!stopReason && members.length === 0) return null;
 
   const { eyebrow, headline, since, note } = holdText(stopReason, members);
@@ -51,7 +53,7 @@ export function RoomHoldCard({ stopReason, members, controls, busy, onMessage, o
 
       {members.length > 0 && <HoldMembersFold members={members} />}
 
-      <HoldControls controls={controls} busy={busy} onMessage={onMessage} onResume={onResume} onStop={onStop} />
+      <HoldControls controls={controls} busy={busy} onMessage={onMessage} onResume={onResume} onStop={onStop} resumeTime={resumeTime} />
     </section>
   );
 }
@@ -73,12 +75,12 @@ function HoldMembersFold({ members }: { members: HoldMember[] }) {
   );
 }
 
-function HoldControls({ controls, busy, onMessage, onResume, onStop }: Pick<RoomHoldCardProps, 'controls' | 'busy' | 'onMessage' | 'onResume' | 'onStop'>) {
+function HoldControls({ controls, busy, onMessage, onResume, onStop, resumeTime }: Pick<RoomHoldCardProps, 'controls' | 'busy' | 'onMessage' | 'onResume' | 'onStop' | 'resumeTime'>) {
   if (!controls.message && !controls.resume && !controls.stop) return null;
   return (
-    <div className="mt-1 flex flex-wrap gap-2">
+    <div className="mt-1 flex flex-wrap items-end gap-2">
       {controls.message && <Button size="sm" disabled={busy} onClick={onMessage}>Message the team</Button>}
-      {controls.resume && <Button size="sm" variant="outline" disabled={busy} onClick={onResume}>Resume</Button>}
+      {controls.resume && <RoomResumeControl time={resumeTime} busy={busy} onResume={onResume} />}
       {controls.stop && (
         <Button size="sm" variant="ghost" disabled={busy} className="text-destructive" onClick={onStop}>
           Stop the Room

@@ -112,9 +112,57 @@ describe('the hold card', () => {
 
   it('names a stop nobody asked about from the runtime kind', () => {
     renderCard({ stopReason: { kind: 'limit-reached', detail: 'Cost limit of $2.00 reached.', at: AT }, members: [] });
-    expect(host.querySelector('h3')?.textContent).toBe('The Room reached a limit you set');
-    expect(host.textContent).toContain('Stopped at your limit');
+    expect(host.textContent).toContain('Cost limit of $2.00 reached.');
+    expect(host.textContent).not.toContain('you set');
     expect(host.querySelector('details')).toBeNull();
+  });
+
+  it('lets the user extend an expired time budget before resuming the same Room', async () => {
+    const onResume = vi.fn();
+    renderCard({
+      members: [], stopReason: { kind: 'limit-reached', detail: 'Time limit reached.', at: AT },
+      resumeTime: { usedMs: 35 * 60_000, limitMs: 15 * 60_000 }, onResume,
+    });
+    const input = host.querySelector<HTMLInputElement>('input[type="number"]')!;
+    expect(input.labels?.[0]?.textContent).toBe('Total time (minutes)');
+    expect(onResume).not.toHaveBeenCalled();
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '60');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const button = [...host.querySelectorAll('button')].find((node) => node.textContent === 'Add time and resume');
+    await act(async () => button?.click());
+    expect(onResume).toHaveBeenCalledWith(60);
+  });
+
+  it.each(['', '15', '35', '35.5'])('does not send an invalid new total (%s)', async (value) => {
+    const onResume = vi.fn();
+    renderCard({ resumeTime: { usedMs: 35 * 60_000, limitMs: 15 * 60_000 }, onResume });
+    const input = host.querySelector<HTMLInputElement>('input[type="number"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(host.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(true);
+    await act(async () => host.querySelector('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+    expect(onResume).not.toHaveBeenCalled();
+  });
+
+  it('does not submit a time extension while a Room action is busy', () => {
+    const onResume = vi.fn();
+    renderCard({ resumeTime: { usedMs: 35 * 60_000, limitMs: 15 * 60_000 }, busy: true, onResume });
+    expect(host.querySelector<HTMLInputElement>('input')?.disabled).toBe(true);
+    act(() => host.querySelector('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+    expect(onResume).not.toHaveBeenCalled();
+  });
+
+  it('resumes within the existing time budget without sending a new limit', () => {
+    const onResume = vi.fn();
+    renderCard({ resumeTime: { usedMs: 5 * 60_000, limitMs: 15 * 60_000 }, onResume });
+    expect(host.querySelector('input')).toBeNull();
+    const button = [...host.querySelectorAll('button')].find((node) => node.textContent === 'Resume');
+    act(() => button?.click());
+    expect(onResume).toHaveBeenCalledWith();
   });
 
   it('renders nothing when the Room is neither stopped nor asked anything', () => {

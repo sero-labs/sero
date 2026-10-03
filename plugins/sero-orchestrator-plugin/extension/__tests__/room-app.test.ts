@@ -95,6 +95,13 @@ describe('the rooms tool', () => {
     });
   });
 
+  it('passes an explicit resume total in minutes to the existing Room, as milliseconds', async () => {
+    const { app, calls } = stubApp();
+    const result = await runTool({ action: 'resume', roomId: 'room-existing', maxMinutes: 60 }, app);
+    expect(result.details.ok).toBe(true);
+    expect(calls).toEqual([{ method: 'resume', args: ['room-existing', 60 * 60_000] }]);
+  });
+
   it('refuses malformed clarifications rather than planning without them', async () => {
     const { app, calls } = stubApp();
     const result = await runTool({ action: 'prepare', problem: 'x', clarificationsJson: '[{"prompt":"a"}]' }, app);

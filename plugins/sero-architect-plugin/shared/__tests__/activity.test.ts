@@ -48,6 +48,46 @@ function dispatch(overrides: Partial<NonNullable<Milestone['dispatch']>> = {}) {
   };
 }
 
+describe('research activity before milestones exist', () => {
+  const pending = { id: 'res-1', question: 'Which audio graph?', stoppingCondition: 'A cited answer.', startedAt: T0 };
+  const reportedAt = '2026-09-19T10:04:00.000Z';
+
+  it.each(['room', 'workflow', undefined] as const)('shows observed %s research as working', (kind) => {
+    const record = project({ phase: 'discovery', milestones: [], pendingResearch: [{
+      ...pending, kind, observedLiveAt: reportedAt,
+      ...(kind === 'room' ? { roomId: 'room-1' } : kind === 'workflow' ? { workflowId: 'loop-1' } : { runId: 'run-1' }),
+    }] });
+    const activity = projectActivity(record, RUNNING_SESSION);
+    expect(activity.state).toBe('working');
+    expect(activity.ownerAt).toBe(reportedAt);
+    expect(activity.ownerSuffix).toBe('Architect idle');
+  });
+
+  it.each([undefined, T0])('does not claim a saved Room is live without a report from this session (%s)', (observedLiveAt) => {
+    const record = project({ phase: 'discovery', milestones: [], pendingResearch: [{ ...pending, kind: 'room', roomId: 'room-1', observedLiveAt }] });
+    expect(projectActivity(record, RUNNING_SESSION).state).toBe('last-known');
+  });
+
+  it('does not claim research is live when the runtime is off', () => {
+    const record = project({ pendingResearch: [{ ...pending, kind: 'room', roomId: 'room-1', observedLiveAt: reportedAt }] });
+    expect(projectActivity(record, ARCHITECT_OFF).state).toBe('last-known');
+  });
+
+  it('shows preparation before research has a linked run', () => {
+    const activity = projectActivity(project({ pendingResearch: [{ ...pending, kind: 'room' }] }), RUNNING_SESSION);
+    expect(activity.state).toBe('idle');
+    expect(activity.headline).not.toBe('Nothing is running');
+  });
+
+  it('shows live research before a milestone with only a stale report', () => {
+    const record = project({
+      milestones: [milestone({ dispatch: dispatch({ observedLiveAt: T0 }) })],
+      pendingResearch: [{ ...pending, kind: 'room', roomId: 'room-1', observedLiveAt: reportedAt }],
+    });
+    expect(projectActivity(record, RUNNING_SESSION).state).toBe('working');
+  });
+});
+
 describe('projectActivity', () => {
   it('reads a dispatch this session watched report as working', () => {
     const record = project({

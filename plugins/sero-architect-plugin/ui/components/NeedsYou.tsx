@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@sero-ai/ui';
+import { MessageResponse } from '@sero-ai/ui/ai-elements/message';
 import { Check } from 'lucide-react';
 
 import type { Decision, Milestone, ProjectRecord } from '../../shared/record';
@@ -76,15 +77,20 @@ export function CharterCard({ record, actions }: { record: ProjectRecord; action
   return (
     <article className="ar-card" aria-label="Charter approval">
       <h3 className="ar-q">Approve the charter</h3>
-      <ModelChoices record={record} />
-      {record.brief && <p className="ar-brief">{record.brief}</p>}
       <div className="ar-terms">
         <div className="ar-term"><span className="ar-k">Cost cap</span><span className="ar-v ar-mono">{usd(charter.capUsd)}</span></div>
         <div className="ar-term"><span className="ar-k">Milestones</span><span className="ar-v">{charter.milestoneIds.length}, in the rail below</span></div>
         <div className="ar-term"><span className="ar-k">Autonomy</span><span className="ar-v">{AUTONOMY_LABEL[charter.autonomy]}</span></div>
         <div className="ar-term"><span className="ar-k">Always asks you</span><span className="ar-v">Charter changes, external delivery, spend over cap</span></div>
       </div>
-      {charter.escalationPolicy && <p className="ar-plan">{charter.escalationPolicy}</p>}
+      {record.brief && <MessageResponse mode="static" className="ar-document">{record.brief}</MessageResponse>}
+      {charter.escalationPolicy && (
+        <section className="ar-approval-policy" aria-label="When Architect asks you">
+          <h4 className="text-sm font-semibold">When Architect asks you</h4>
+          <MessageResponse mode="static" className="ar-document">{charter.escalationPolicy}</MessageResponse>
+        </section>
+      )}
+      <ModelChoices record={record} />
       <div className="ar-dfoot">
         <span className="ar-why">Want to change it? Send a directive below.</span>
         <Button size="sm" className="ar-btn ar-btn-solid" disabled={busy} onClick={() => void submit(actions.approveCharter)}>
@@ -101,7 +107,7 @@ export function MilestoneApprovalCard({ milestone, actions, record }: { mileston
   return (
     <article className="ar-card" aria-label="Milestone plan approval">
       <h3 className="ar-q">Approve the plan for {milestone.title}</h3>
-      {milestone.plan && <p className="ar-plan">{milestone.plan}</p>}
+      {milestone.plan && <MessageResponse mode="static" className="ar-document">{milestone.plan}</MessageResponse>}
       <ModelChoices record={record} />
       <div className="ar-dfoot">
         <span className="ar-why">Approve this plan to let Architect start the milestone.</span>

@@ -36,6 +36,8 @@ export function buildOwnerPromptAdditions(record: ProjectRecord): string[] {
     '',
     'Rules:',
     '- Choose a Room when collaboration helps: discovery, research, planning, implementation, adversarial review or another project task. Choose a Workflow for a sequence of executable steps. Make this choice per task, at any project phase; research can run either kind before a charter or independently of an implementation milestone.',
+    '- Write the brief, milestone plans and escalation policy in Markdown, with short paragraphs, descriptive headings and lists for steps or choices. These fields are rendered directly for the user, not as an internal research dump.',
+    '- Keep the brief focused on what will be built, what is out of scope, the recommended approach, unresolved choices and how it will be checked. Link to the research artifact for API detail, source ledgers and file-by-file design instead of copying them into the brief. Keep every approval-relevant limit, exception and unresolved choice visible.',
     '- Raise a decision when only the user can answer. Give a recommendation and a consequence for every option.',
     '- Never claim a milestone is done. Ask for evidence, and accept it only when the runtime reports it passed.',
     '- Match evidence to the product. CLI, library and other non-browser milestones use commands without previewRoute or --route. Browser milestones add a preview route and require a rendered capture.',

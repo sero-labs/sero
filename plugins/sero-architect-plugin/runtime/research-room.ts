@@ -6,12 +6,13 @@ import { activeRise, chargeRoomPlanning, recordCharge, reportedActiveMs } from '
 import path from 'node:path';
 import { roomWorkspace } from './execution-location';
 import { setTimeout as delay } from 'node:timers/promises';
-import { createOrchestratorRoom, getOrchestratorRoomRegistry, ORCHESTRATOR_ROOM_INDEX_FILE, type OrchestratorBoardRoomView } from '@sero-ai/common';
+import { createOrchestratorRoom, getOrchestratorRoomRegistry, isLive, ORCHESTRATOR_ROOM_INDEX_FILE, type OrchestratorBoardRoomView } from '@sero-ai/common';
 import { block, charge, settle, unblock } from '../shared/lifecycle';
 import type { PendingResearch, ProjectRecord } from '../shared/record';
 import type { WakeEvent } from '../shared/wake';
 import type { ArchitectHost } from './host';
 import type { RecordStore } from './record-store';
+import { SESSION_STARTED_AT } from './session-state';
 import { attachResearchArtifact } from './research-artifact';
 import { roomModelLimits } from './model-selection';
 import { hasOpenResearchAccessDecision, raiseResearchAccessDecision, researchBlockCause } from './research-access';
@@ -134,7 +135,8 @@ export async function observeResearchRooms(deps: ResearchRoomDeps, projectId: st
           research: [...next.research, { id: pending.id, roomId: room.id, models: inspection.models, question: pending.question, stoppingCondition: pending.stoppingCondition, result: inspection.result, costUsd: Math.max(room.costUsd, current.chargedUsd ?? 0), completedAt: deps.host.now(), ...(pending.openSpecChange ? { openSpecChange: pending.openSpecChange } : {}) }],
         }, deps.host.now()), deps.host.now());
       }
-      next = { ...next, pendingResearch: next.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, chargedUsd: Math.max(room.costUsd, current.chargedUsd ?? 0), countedActiveMs: time.counted, models: inspection?.models ?? entry.models } : entry) };
+      next = { ...next, pendingResearch: next.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, chargedUsd: Math.max(room.costUsd, current.chargedUsd ?? 0), countedActiveMs: time.counted, models: inspection?.models ?? entry.models,
+        observedLiveAt: room.status === 'running' && isLive(room.liveRun, SESSION_STARTED_AT) ? deps.host.now() : undefined } : entry) };
       if (['failed', 'cancelled', 'paused'].includes(room.status) || (room.status === 'completed' && inspection && !inspection.result?.trim())) {
         const reason = room.status === 'completed' ? `Research Room ${room.id} finished without saved findings. Open the Room to review its result.` : `Research Room ${room.id} is ${room.status}. Open the Room to review its next action.`;
         // The Room's title and the cause are both in hand here. Saving them is

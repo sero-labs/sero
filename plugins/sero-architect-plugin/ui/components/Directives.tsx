@@ -24,7 +24,7 @@ export interface DirectiveComposerProps {
   inputRef?: RefObject<HTMLTextAreaElement | null>;
 }
 
-/** The latest directive and its reply. Older ones live in the side column. */
+/** The latest directive and its reply. Saved directives are unchanged. */
 export function Directives({ record }: DirectivesProps) {
   const { latest } = directiveThread(record);
 

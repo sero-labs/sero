@@ -3,6 +3,7 @@ import { type ProjectRecord } from '../../shared/record';
 import type { ArchitectHost } from '../host';
 import { ArchitectRuntime } from '../index';
 import { createRecordStore } from '../record-store';
+import { reconcileProjects } from '../reconcile';
 import { orchestratorIndexFiles } from '../dispatch-watch';
 import { createRequestChangeAction } from '../request-change';
 import { createWakeGate } from '../wake-gate';
@@ -165,6 +166,18 @@ describe('restart reconciliation', () => {
 });
 
 describe('the runtime flag and stale liveness', () => {
+  it('clears saved research liveness at restart without losing the Room link', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const record = buildingProject({ pendingResearch: [{
+      id: 'res-1', kind: 'room', roomId: 'room-existing', question: 'q', stoppingCondition: 's', startedAt: T0, observedLiveAt: T0,
+    }] });
+    await store.write(record);
+    await reconcileProjects(store, host);
+    const saved = (await store.read(record.id))?.pendingResearch?.[0];
+    expect(saved?.observedLiveAt).toBeUndefined();
+    expect(saved?.roomId).toBe('room-existing');
+  });
   it('drops an observed-liveness stamp from an earlier session at startup', async () => {
     const host = await fakeHost();
     const record = buildingProject({ milestones: [milestone('m1', {

@@ -14,6 +14,7 @@
 import { useState } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { TERMINAL_ROOM_STATUSES, type RoomSummary } from '../../shared/room-types';
+import { elapsedActiveMs } from '../../shared/room-active-time';
 import { useRoom } from '../lib/use-room-index';
 import { memberNames, useRoomMembers } from '../lib/use-room-members';
 import { defaultRoomView, roomSignal, type RoomView } from '../lib/room-view';
@@ -185,13 +186,15 @@ export function RoomDetail({
           wrote, and the three things the user can do about it. The header
           carries none of those three while this is on screen. */}
       <RoomHoldCard
+        key={roomId}
         stopReason={room.runtime.stopReason}
         members={needsUser}
         controls={controls}
         busy={busy}
         onMessage={() => setComposing({ memberIds: [] })}
-        onResume={() => send('resume')}
+        onResume={(maxMinutes) => send('resume', { maxMinutes })}
         onStop={() => send('cancel')}
+        resumeTime={{ usedMs: elapsedActiveMs(room.runtime, Date.now()), limitMs: room.definition.envelope.maxWallClockMs }}
       />
 
       {approvals.length > 0 && summary && (

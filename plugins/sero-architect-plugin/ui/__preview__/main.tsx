@@ -88,11 +88,8 @@ const runtimeRunning = params.get('runtime') !== 'off';
  * open.
  */
 function usePreviewDisclosures(): Disclosures {
-  const [olderOpen, setOlderOpen] = useState(false);
   const [openedNotes, setOpenedNotes] = useState<ReadonlySet<string>>(new Set());
   return {
-    olderOpen,
-    setOlderOpen,
     folds: {
       opened: openedNotes,
       toggle: (key: string) => setOpenedNotes((current) => {

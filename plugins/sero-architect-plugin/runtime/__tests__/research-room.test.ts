@@ -4,6 +4,7 @@ import { ORCHESTRATOR_ROOM_REGISTRY_GLOBAL_KEY, type OrchestratorBoardRoomView, 
 import { buildOwnerContract } from '../../shared/owner-contract';
 import { createServices } from '../services';
 import { observeResearchRooms } from '../research-room';
+import { SESSION_STARTED_AT } from '../session-state';
 import { buildingProject, cleanupHosts, fakeHost, storeFor, T0 } from './helpers';
 
 afterEach(async () => {
@@ -61,6 +62,30 @@ describe('discovery through a Room', () => {
     expect(finished.milestones).toEqual([]);
     expect(wake).toHaveBeenCalledTimes(1);
   });
+});
+
+it('sets research liveness only from a live Room report, and clears it when the Room stops reporting or pauses', async () => {
+  const host = await fakeHost();
+  const now = new Date(Date.parse(SESSION_STARTED_AT) + 1000).toISOString();
+  host.now = () => now;
+  const store = await storeFor(host);
+  const record = buildingProject({ phase: 'discovery', charter: null, milestones: [], pendingResearch: [{
+    id: 'res-live', kind: 'room', roomId: 'room-live', question: 'q', stoppingCondition: 's', startedAt: T0,
+  }] });
+  await store.write(record);
+  const room: OrchestratorBoardRoomView = {
+    id: 'room-live', title: 'Research', status: 'running', memberCount: 2, activeMemberCount: 1,
+    costUsd: 0, maxCostUsd: 5, startedAt: T0, updatedAt: now, attentionCount: 0, deliveredAt: null, deliveryRef: null,
+    liveRun: { runId: 'room-live', startedAt: T0, reportedAt: now },
+  };
+  const deps = { host, store, wake: vi.fn() };
+  await observeResearchRooms(deps, record.id, [room]);
+  expect((await store.read(record.id))?.pendingResearch?.[0]?.observedLiveAt).toBe(now);
+  await observeResearchRooms(deps, record.id, [{ ...room, liveRun: undefined }]);
+  expect((await store.read(record.id))?.pendingResearch?.[0]?.observedLiveAt).toBeUndefined();
+  await observeResearchRooms(deps, record.id, [room]);
+  await observeResearchRooms(deps, record.id, [{ ...room, status: 'paused' }]);
+  expect((await store.read(record.id))?.pendingResearch?.[0]?.observedLiveAt).toBeUndefined();
 });
 
 describe('what a research Room may do', () => {

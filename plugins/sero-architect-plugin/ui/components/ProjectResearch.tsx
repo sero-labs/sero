@@ -57,9 +57,8 @@ function DirectResearch({ question, stoppingCondition, runId, startedAt }: {
 
 /** The card's action or wait line: a finished entry, a running one, or a wait. */
 function ResearchStatus({ entry, record }: { entry: PendingResearch | ResearchResult; record: ProjectRecord }) {
-  if ('result' in entry) {
-    // A Room or Workflow research can be opened; direct research has no room to open.
-    if (!record.workspaceId || (!entry.roomId && !entry.workflowId)) return null;
+  // Linked work can be opened while pending, after it stops, and after it reports.
+  if (record.workspaceId && (entry.roomId || entry.workflowId)) {
     const id = (entry.roomId ?? entry.workflowId)!;
     return (
       <Button
@@ -70,6 +69,7 @@ function ResearchStatus({ entry, record }: { entry: PendingResearch | ResearchRe
       </Button>
     );
   }
+  if ('result' in entry) return null;
   // Research run directly as one agent shows its own wait, once the run reports.
   if (entry.kind === undefined && entry.runId) {
     return (

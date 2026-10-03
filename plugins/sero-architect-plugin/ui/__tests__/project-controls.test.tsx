@@ -161,9 +161,9 @@ describe('project history access', () => {
     expect(scroll).not.toBeNull();
     expect(composer).not.toBeNull();
     expect(scroll?.contains(composer)).toBe(false);
-    // History is its own view now; the page keeps only the older directives.
+    // History is its own view; older directives no longer take a side column.
     expect(scroll?.querySelector('[data-testid="history"]')).toBeNull();
-    expect(scroll?.querySelector('[data-testid="older-directives"]')).not.toBeNull();
+    expect(scroll?.querySelector('[data-testid="older-directives"]')).toBeNull();
   });
 
   it('opens the owner transcript as read-only history instead of a raw file', async () => {

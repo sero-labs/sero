@@ -37,6 +37,24 @@ describe('reported working time', () => {
 });
 
 describe('project model accounting', () => {
+  it.each([false, true])('keeps direct research visible but marks it live only after work starts, then clears liveness on exit (fails: %s)', async (fails) => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const record = buildingProject({ pendingResearch: [{ id: 'r1', question: 'q', stoppingCondition: 'answer', startedAt: T0 }] });
+    await store.write(record);
+    host.runStructured = async (request) => {
+      request.onObservation?.({ kind: 'operation-start', identities: { operationId: 'tracker-run' }, startedAt: T0 });
+      await vi.waitFor(async () => expect((await store.read(record.id))?.pendingResearch?.[0]?.runId).toBe('tracker-run'));
+      expect((await store.read(record.id))?.pendingResearch?.[0]?.observedLiveAt).toBeUndefined();
+      request.onObservation?.({ kind: 'turn-start', identities: { operationId: 'session-id' }, startedAt: T0 });
+      await vi.waitFor(async () => expect((await store.read(record.id))?.pendingResearch?.[0]?.observedLiveAt).toBeDefined());
+      expect((await store.read(record.id))?.pendingResearch?.[0]?.runId).toBe('tracker-run');
+      if (fails) throw new Error('Lost response');
+      return { response: 'done', usage: usage(0) };
+    };
+    await runProjectModel({ host, store }, record, { kind: 'research', id: 'r1' }, params);
+    expect((await store.read(record.id))?.pendingResearch?.[0]?.observedLiveAt).toBeUndefined();
+  });
   it('persists live research spend, deduplicates cumulative reports and retains prior attempt cost', async () => {
     const host = await fakeHost();
     const store = await storeFor(host);

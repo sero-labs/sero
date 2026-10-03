@@ -6,12 +6,13 @@ import { setAccountingIncomplete } from '../shared/accounting';
 import path from 'node:path';
 import { workflowWorkspace } from './execution-location';
 import { setTimeout as delay } from 'node:timers/promises';
-import { getOrchestratorRegistry, requestOrchestratorAction, ORCHESTRATOR_INDEX_FILE, type OrchestratorBoardLoopView } from '@sero-ai/common';
+import { getOrchestratorRegistry, isLive, requestOrchestratorAction, ORCHESTRATOR_INDEX_FILE, type OrchestratorBoardLoopView } from '@sero-ai/common';
 import { block, charge, settle, unblock } from '../shared/lifecycle';
 import type { PendingResearch, ProjectRecord } from '../shared/record';
 import type { WakeEvent } from '../shared/wake';
 import type { ArchitectHost } from './host';
 import type { RecordStore } from './record-store';
+import { SESSION_STARTED_AT } from './session-state';
 import { attachResearchArtifact } from './research-artifact';
 
 interface ResearchWorkflowDeps {
@@ -114,7 +115,8 @@ export async function observeResearchWorkflows(deps: ResearchWorkflowDeps, proje
           research: [...next.research, { id: pending.id, workflowId: loop.id, question: pending.question, stoppingCondition: pending.stoppingCondition, result, costUsd, completedAt: deps.host.now() }],
         }, deps.host.now()), deps.host.now());
       }
-      next = { ...next, pendingResearch: next.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, chargedUsd: costUsd, countedActiveMs: time.counted } : entry) };
+      next = { ...next, pendingResearch: next.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, chargedUsd: costUsd, countedActiveMs: time.counted,
+        observedLiveAt: loop.status === 'active' && isLive(loop.liveRun, SESSION_STARTED_AT) ? deps.host.now() : undefined } : entry) };
       if (loop.status === 'blocked') {
         const reason = `Research Workflow ${loop.id} is blocked. Open it to review the next action.`;
         const held = block(next, deps.host.now(), reason);

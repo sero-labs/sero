@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 
 import { DECISION, FIXTURES } from '../__preview__/fixture';
-import { DecisionCard, NeedsYou } from '../components/NeedsYou';
+import { CharterCard, DecisionCard, MilestoneApprovalCard, NeedsYou } from '../components/NeedsYou';
 
 vi.mock('@sero-ai/ui', () => ({
   Button: ({ children, ...props }: { children: ReactNode } & React.ButtonHTMLAttributes<HTMLButtonElement>) => (
@@ -61,6 +61,39 @@ describe('the decision card', () => {
 
     expect(answer).toHaveBeenCalledWith('d7', 'webgl', 'Fog matters for the demo.');
     expect(container.querySelector('.ar-error')?.textContent).toBe('Decision d7 is already answered.');
+  });
+});
+
+describe('readable approval plans', () => {
+  it('renders the brief and approval rules as Markdown without changing approval', async () => {
+    const approveCharter = vi.fn(async () => ({ ok: false, text: 'Approval was refused.' }));
+    const record = {
+      ...FIXTURES.charter!,
+      brief: '## Goal\n\nBuild a small synth.\n\n## Choices\n\n- Keep the $5 cap.\n- Use `AudioContext`.\n\n[Evidence](https://developer.mozilla.org/en-US/docs/Web/API/AudioContext)',
+      charter: { ...FIXTURES.charter!.charter!, capUsd: 5, escalationPolicy: '- Ask before external delivery.\n- Ask before spending more than $5.' },
+    };
+    act(() => root.render(<CharterCard record={record} actions={{ answer: vi.fn(), approveCharter, approveMilestone: vi.fn() }} />));
+
+    expect([...container.querySelectorAll('h2')].map((node) => node.textContent)).toEqual(['Goal', 'Choices']);
+    expect(container.querySelector('code')?.textContent).toBe('AudioContext');
+    expect(container.textContent).toContain('Evidence');
+    expect([...container.querySelectorAll('li')].map((node) => node.textContent)).toContain('Ask before spending more than $5.');
+    expect(container.textContent).toContain('$5');
+
+    const approve = [...container.querySelectorAll('button')].find((node) => node.textContent?.includes('Approve charter'))!;
+    act(() => approve.click());
+    await flush();
+    expect(approveCharter).toHaveBeenCalledOnce();
+    expect(container.textContent).toContain('Approval was refused.');
+    expect(record.charter.approvedAt).toBeNull();
+  });
+
+  it('renders milestone steps and checks as Markdown', () => {
+    const record = FIXTURES.charter!;
+    const milestone = { ...record.milestones[0]!, plan: '## Steps\n\n1. Build the core.\n2. Run `pnpm test`.\n\n## Checks\n\n- All tests must pass.' };
+    act(() => root.render(<MilestoneApprovalCard record={record} milestone={milestone} actions={{ answer: vi.fn(), approveCharter: vi.fn(), approveMilestone: vi.fn() }} />));
+    expect(container.querySelector('ol')?.textContent).toContain('Run pnpm test.');
+    expect(container.querySelector('ul')?.textContent).toContain('All tests must pass.');
   });
 });
 

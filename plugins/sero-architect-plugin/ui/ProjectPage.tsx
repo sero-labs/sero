@@ -14,7 +14,6 @@ import { ProjectResearch } from './components/ProjectResearch';
 import { RepairCard } from './components/RepairCard';
 import { ProjectPreview } from './components/ProjectPreview';
 import { RetryWorkflowControl } from './components/RetryWorkflowControl';
-import { SideColumn } from './components/SideColumn';
 import { SessionHistoryDialog } from './components/SessionHistoryDialog';
 import { StateLine, type HeaderAction } from './components/StateLine';
 import { TopBar, type ProjectControls } from './components/TopBar';
@@ -285,7 +284,7 @@ function ProjectStateHeader({ record, actions, onNotice, headerActions, runtimeR
   return <StateLine record={record} home={null} actions={headerActions} form={form} runtimeRunning={runtimeRunning} />;
 }
 
-export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOpenModels, onOpenInspector, onOpenHistory, focusMilestoneId, confirm, runtimeRunning, permissionPending = false }: ProjectPageProps) {
+export function ProjectPage({ record, actions, narrow, onBack, onOpenModels, onOpenInspector, onOpenHistory, focusMilestoneId, confirm, runtimeRunning, permissionPending = false }: ProjectPageProps) {
   const id = record.id;
   const page = useProjectPageControls(record, actions, onBack, confirm, onOpenModels, onOpenInspector, onOpenHistory);
   const directiveRef = useRef<HTMLTextAreaElement>(null);
@@ -321,7 +320,6 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOp
           />
           <div className="ar-sections" data-narrow={narrow ? 1 : 0}>
             <ProjectMainColumn record={record} actions={actions} needsActions={page.needsActions} permissionPending={permissionPending} onNotice={page.setNotice} focusMilestoneId={focusMilestoneId} />
-            <SideColumn record={record} disclosures={disclosures} />
           </div>
         </div>
       </div>

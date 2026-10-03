@@ -72,6 +72,27 @@ function dispatchWord(milestone: Milestone): string {
   return milestone.dispatch?.kind === 'room' ? 'Room' : 'Workflow';
 }
 
+/** Research is visible before there are any implementation milestones. */
+function researchActivity(record: ProjectRecord, sessionStartedAt: string, runtimeRunning: boolean): ProjectActivity | null {
+  const pending = record.pendingResearch ?? [];
+  const live = runtimeRunning ? pending.find((entry) => isLive(entry.observedLiveAt
+    ? { runId: entry.runId ?? entry.roomId ?? entry.workflowId ?? entry.id, startedAt: entry.startedAt, reportedAt: entry.observedLiveAt }
+    : undefined, sessionStartedAt)) : undefined;
+  const entry = live ?? pending[0];
+  if (!entry) return null;
+  const name = entry.kind === 'room' ? 'Room' : entry.kind === 'workflow' ? 'Workflow' : 'research agent';
+  if (live) return {
+    state: 'working', headline: 'Researching a project question',
+    owner: entry.kind ? `${name} is running` : 'Research agent is running', ownerAt: live.observedLiveAt,
+  };
+  if (entry.roomId || entry.workflowId || entry.runId || !runtimeRunning) return {
+    state: 'last-known', headline: 'Last known: researching a project question',
+    owner: `No live report from the ${name}`,
+    ownerAt: entry.observedLiveAt ?? entry.startedAt, lastReportAt: entry.observedLiveAt ?? entry.startedAt,
+  };
+  return { state: 'idle', headline: 'Preparing research', owner: `Architect is preparing the ${entry.kind ? name : 'research task'}` };
+}
+
 /**
  * The project's activity.
  *
@@ -203,6 +224,9 @@ export function projectActivity(
       ownerSuffix: suffix,
     };
   }
+
+  const research = researchActivity(record, sessionStartedAt, runtimeRunning);
+  if (research) return { ...research, ownerSuffix: suffix };
 
   if (current?.dispatch) {
     const at = current.dispatch.lastRunAt ?? current.dispatch.dispatchedAt;

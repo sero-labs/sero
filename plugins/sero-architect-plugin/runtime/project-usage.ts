@@ -139,11 +139,13 @@ export async function runProjectModel(deps: UsageDeps, record: ProjectRecord, op
     params.onObservation?.(observation);
     if (operation.kind !== 'research') return;
     const runId = captureRunId(observation);
-    if (!runId) return;
+    const live = ['turn-start', 'request-start', 'tool-start'].includes(observation.kind);
+    if (!runId && !live) return;
     writes = writes.then(async () => {
       await deps.store.update(record.id, (fresh) => ({
         ...fresh,
-        pendingResearch: fresh.pendingResearch?.map((entry) => entry.id === operation.id ? { ...entry, runId } : entry),
+        pendingResearch: fresh.pendingResearch?.map((entry) => entry.id === operation.id
+          ? { ...entry, ...(runId ? { runId } : {}), ...(live ? { observedLiveAt: deps.host.now() } : {}) } : entry),
       }));
     });
   };
@@ -156,7 +158,12 @@ export async function runProjectModel(deps: UsageDeps, record: ProjectRecord, op
     .catch((error: unknown): AppRuntimeSubagentResult => ({ response: '', error: error instanceof Error ? error.message : String(error) }));
   if (result.usage) report(result.usage);
   await writes;
-  await deps.store.update(record.id, (fresh) => setAccountingIncomplete(fresh, source, !!result.error || result.usage?.costUsd === undefined || !!result.usage.incomplete));
+  await deps.store.update(record.id, (fresh) => {
+    const next = setAccountingIncomplete(fresh, source, !!result.error || result.usage?.costUsd === undefined || !!result.usage.incomplete);
+    return operation.kind === 'research'
+      ? { ...next, pendingResearch: next.pendingResearch?.map((entry) => entry.id === operation.id ? { ...entry, observedLiveAt: undefined } : entry) }
+      : next;
+  });
   return { ...result, recordedCostUsd };
 }
 

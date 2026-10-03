@@ -1,6 +1,5 @@
 import { openSeroApp, useAppPreferences } from '@sero-ai/app-runtime';
 
-import type { DisclosureState } from '../components/SideColumn';
 import type { RailRow } from './view-model';
 import type { TraceFilters } from './activity-tree';
 import { ACTIVITY_GROUPS, type ActivityGroup } from './trace';
@@ -11,16 +10,14 @@ export interface HistoryFolds {
   toggle(key: string): void;
 }
 
-/** The layout preferences the project page and the History view read. */
-export type Disclosures = DisclosureState & { folds: HistoryFolds };
+/** The History view's layout preferences. */
+export interface Disclosures { folds: HistoryFolds }
 
 /** Layout preferences live in the host layout service, keyed by this app. Never browser storage. */
 export function useDisclosures(): Disclosures {
   const { values, set } = useAppPreferences();
   const opened = list(values.historyFolded);
   return {
-    olderOpen: values.olderOpen === true,
-    setOlderOpen: (open) => set('olderOpen', open),
     folds: {
       opened: new Set(opened),
       toggle: (key) => set('historyFolded', joined(opened.includes(key)

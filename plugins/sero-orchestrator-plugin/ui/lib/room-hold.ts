@@ -8,7 +8,7 @@ import type { RoomStopReason } from '../../shared/room-types';
 /** What each stop means to the user, in their terms. */
 const EXPLANATION: Record<RoomStopReason['kind'], { title: string; note: string }> = {
   'limit-reached': {
-    title: 'The Room reached a limit you set',
+    title: 'The Room reached its limit',
     note: 'Nothing more will be spent. Everything finished so far is kept.',
   },
   'no-progress': {
@@ -47,7 +47,7 @@ const EXPLANATION: Record<RoomStopReason['kind'], { title: string; note: string 
 
 /** Who the Room is waiting on, above the headline. */
 const EYEBROW: Record<RoomStopReason['kind'], string> = {
-  'limit-reached': 'Stopped at your limit',
+  'limit-reached': 'Stopped at a limit',
   'no-progress': 'Stopped',
   deadlock: 'Stopped',
   'conductor-failed': 'Stopped',

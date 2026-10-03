@@ -25,6 +25,8 @@ export interface PendingResearch {
   attempts?: number;
   chargedUsd?: number;
   countedActiveMs?: number;
+  /** This runtime observed a live research report; cleared on stop and restart. */
+  observedLiveAt?: string;
   /**
    * The tracker run of the one agent this research runs as, saved while it runs
    * so the project page can show its live block. Absent for a Room or Workflow,

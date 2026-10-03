@@ -1,4 +1,5 @@
 @import "@sero-ai/ui/styles/plugin.css";
+@import "@sero-ai/ui/styles/ai-elements.css";
 
 /* REQUIRED: scan plugin-local UI files so external remotes emit the utility
    classes they use instead of accidentally depending on host CSS. */
@@ -167,8 +168,7 @@
 .ar-reported p { color: var(--ar-text-2); font-size: 12.5px; line-height: 1.6; }
 
 /* sections */
-.ar-sections { margin-top: 22px; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 22px; align-items: start; }
-.ar-sections[data-narrow="1"] { grid-template-columns: minmax(0, 1fr); }
+.ar-sections { margin-top: 22px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; align-items: start; }
 .ar-col { display: grid; gap: 22px; min-width: 0; }
 .ar-sec-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; color: var(--ar-text-3); font-size: 11px; font-weight: 650; letter-spacing: .07em; text-transform: uppercase; }
 .ar-sec-head .ar-n { font: 10px var(--font-mono); color: var(--ar-text-3); letter-spacing: 0; }
@@ -200,7 +200,22 @@
 .ar-note-in:focus { border-color: var(--ar-line-strong); outline: 0; }
 .ar-parks { margin-top: 10px; font-size: 11px; color: var(--ar-text-3); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .ar-parks code { font: 11px var(--font-mono); color: var(--ar-text-2); }
-.ar-brief { margin-top: 8px; color: var(--ar-text-2); font-size: 13px; line-height: 1.55; white-space: pre-wrap; }
+.ar-document { height: auto; margin-top: 20px; max-width: 85ch; color: var(--ar-text-2); line-height: 1.7; overflow-wrap: anywhere; }
+.ar-document > * + * { margin-top: 12px; }
+.ar-document :is(h1, h2, h3, h4) { margin-top: 24px; margin-bottom: 8px; color: var(--text-primary); font-weight: 600; }
+.ar-document > :first-child { margin-top: 0; }
+.ar-document h1 { @apply text-lg; }
+.ar-document h2 { @apply text-base; }
+.ar-document :is(h3, h4) { @apply text-sm; }
+.ar-document :is(ul, ol) { padding-left: 22px; }
+.ar-document ul { list-style-type: disc; }
+.ar-document ol { list-style-type: decimal; }
+.ar-document li + li { margin-top: 6px; }
+.ar-document a { color: var(--ar-brand); text-decoration: underline; }
+.ar-document pre { max-width: 100%; overflow-x: auto; }
+.ar-document code { font-family: var(--font-mono); }
+.ar-approval-policy { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--ar-line); }
+.ar-approval-policy .ar-document { margin-top: 8px; }
 .ar-terms { margin-top: 14px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .ar-term { padding: 10px 12px; border: 1px solid var(--ar-line); border-radius: 8px; background: var(--bg-base); display: grid; gap: 3px; }
 .ar-term .ar-k { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--ar-text-3); font-weight: 600; }
@@ -285,9 +300,6 @@
 .ar-tl li:first-child { border-top: 0; padding-top: 0; }
 .ar-tl .ar-t { font: 10px var(--font-mono); color: var(--ar-text-3); padding-top: 3px; }
 .ar-tl b { color: var(--text-primary); font-weight: 560; text-transform: capitalize; }
-.ar-older { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
-.ar-older li { display: grid; gap: 2px; font-size: 12px; color: var(--ar-text-3); }
-.ar-older li b { color: var(--ar-text-2); font-weight: 500; }
 
 /* limited banner */
 .ar-limit { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: 14px 18px; border: 1px solid var(--status-error-border); border-radius: 10px; background: var(--status-error-muted); }
