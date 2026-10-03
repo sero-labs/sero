@@ -55,7 +55,7 @@ export const CONFIG_FILES: ConfigFile[] = [
     key: 'settings',
     label: 'Settings',
     relativePath: 'agent/settings.json',
-    description: 'Default model, provider, thinking level, packages, skill visibility, and memory logging policy',
+    description: 'Default model, provider, thinking level, packages, and skill visibility',
   },
   {
     key: 'auth',
