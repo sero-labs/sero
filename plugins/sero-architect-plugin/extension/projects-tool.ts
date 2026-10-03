@@ -23,6 +23,8 @@ export const PROJECT_ACTIONS = [
   'history',
   'trace',
   'create',
+  'request_change',
+  'enable_openspec',
   'pause',
   'resume',
   'repair',
@@ -49,6 +51,7 @@ export const ProjectsToolParams = Type.Object({
   action: StringEnum(PROJECT_ACTIONS, { description: `One of: ${PROJECT_ACTIONS.join(', ')}` }),
   projectId: Type.Optional(Type.String({ description: 'Project ID. Required for every action except list and create' })),
   idea: Type.Optional(Type.String({ description: 'create: the idea, in the user\'s own words' })),
+  openSpecEnabled: Type.Optional(Type.Boolean({ description: 'create: enable the OpenSpec proof of concept for this Architect project' })),
   folder: Type.Optional(Type.String({ description: 'create: the new folder to build in, under the home directory. Not used when workspaceId is given' })),
   workspaceId: Type.Optional(Type.String({ description: 'create: an existing registered workspace to work in, instead of a new folder' })),
   capUsd: Type.Optional(Type.Number({ description: 'raise_cap: the project cap; retry: an explicitly approved new total Workflow cap in USD' })),
@@ -67,7 +70,7 @@ export const ProjectsToolParams = Type.Object({
   decisionId: Type.Optional(Type.String({ description: 'answer: the decision id' })),
   optionId: Type.Optional(Type.String({ description: 'answer: the chosen option id' })),
   note: Type.Optional(Type.String({ description: 'answer: an optional note for the owner' })),
-  text: Type.Optional(Type.String({ description: 'directive: what to tell the owner' })),
+  text: Type.Optional(Type.String({ description: 'directive: what to tell the owner; request_change: the next change to make' })),
   cursor: Type.Optional(Type.String({ description: 'history: cursor for an older page' })),
   runId: Type.Optional(Type.String({ description: 'trace: the run id, shared for project-scoped activity, or lifetime for every run (default shared)' })),
   afterSeq: Type.Optional(Type.Number({ description: 'trace: continue a detail page after this sequence' })),
@@ -81,6 +84,7 @@ export interface ProjectsToolParamsShape {
   action: (typeof PROJECT_ACTIONS)[number];
   projectId?: string;
   idea?: string;
+  openSpecEnabled?: boolean;
   folder?: string;
   workspaceId?: string;
   capUsd?: number;
@@ -211,6 +215,7 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
       const outcome = await actions.create({
         idea: params.idea ?? '',
         executionMode: params.executionMode,
+        openSpecEnabled: params.openSpecEnabled,
         models: params.models,
         ...(params.folder !== undefined ? { folder: params.folder } : {}),
         ...(params.workspaceId !== undefined ? { workspaceId: params.workspaceId } : {}),
@@ -305,6 +310,18 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
       const missing = need(id, 'projectId') ?? need(params.text, 'text');
       if (missing) return result(false, missing);
       const outcome = await actions.directive(id, params.text ?? '');
+      return result(outcome.ok, outcome.text);
+    }
+    case 'request_change': {
+      const missing = need(id, 'projectId') ?? need(params.text, 'text');
+      if (missing) return result(false, missing);
+      const outcome = await actions.requestChange(id, params.text ?? '');
+      return result(outcome.ok, outcome.text);
+    }
+    case 'enable_openspec': {
+      const missing = need(id, 'projectId');
+      if (missing) return result(false, missing);
+      const outcome = await actions.enableOpenSpec(id);
       return result(outcome.ok, outcome.text);
     }
   }

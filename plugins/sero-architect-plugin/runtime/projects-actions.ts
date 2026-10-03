@@ -6,7 +6,6 @@
  */
 
 import { chooseOwnerModel } from './owner-session';
-
 import { type ModelTier, type PersistentSessionHistoryPage, type SharedModelTierSettings } from '@sero-ai/common';
 
 import { advancePhase, approveCharter, block, pause, resume, setAutonomy, setCap, settle, unblock } from '../shared/lifecycle';
@@ -32,6 +31,9 @@ import type { RunJournal } from './run-journal';
 import { queryLifetime, type LifetimeAnswer } from './trace-lifetime';
 import { queryTrace, type TraceAnswer, type TraceQuery } from './trace-query';
 import { closeActiveRun, ensureInitialRun } from './run-lifecycle';
+import { ensureOpenSpec } from './openspec';
+import { createRequestChangeAction } from './request-change';
+import { createEnableOpenSpecAction } from './enable-openspec';
 import { closeDeliveredObjectives } from './objective-completion';
 import { answerResearchAccess, restartsResearch } from './research-access';
 import { applyDecisionProposal } from './decision-proposals';
@@ -39,7 +41,6 @@ import type { WakeScheduler } from './wake-scheduler';
 import type { DispatchWatch } from './dispatch-watch';
 
 export const STOP_REASON = 'stopped by the user';
-
 /**
  * Feedback after a model change. It names the revision new work will use and
  * how many existing dispatches keep the earlier one, so the user can see which
@@ -59,7 +60,6 @@ export interface ProjectsActionsDeps {
 export type ProjectsOutcome = { ok: true; text: string; projectId?: string } | { ok: false; text: string };
 
 /** One tier default a caller asks to save. */
-
 export interface ProjectsActions {
   preview(projectId: string): Promise<ProjectsOutcome & { url?: string }>;
   repair(projectId: string, workflowId?: string): Promise<RepairOutcome>;
@@ -74,6 +74,8 @@ export interface ProjectsActions {
   /** Project-lifetime totals: each run's summary and the shared activity, with no detail pages. */
   lifetime(projectId: string, knownSpendUsd?: number): Promise<LifetimeAnswer | null>;
   create(input: CreateProjectInput): Promise<ProjectsOutcome>;
+  requestChange(projectId: string, description: string): Promise<ProjectsOutcome>;
+  enableOpenSpec(projectId: string): Promise<ProjectsOutcome>;
   pause(projectId: string): Promise<ProjectsOutcome>;
   resume(projectId: string): Promise<ProjectsOutcome>;
   retry(projectId: string, milestoneId: string, maxCostUsd?: number): Promise<ProjectsOutcome>;
@@ -95,8 +97,6 @@ export interface ProjectsActions {
 
 const ok = (text: string, projectId?: string): ProjectsOutcome => ({ ok: true, text, projectId });
 const refuse = (text: string): ProjectsOutcome => ({ ok: false, text });
-
-
 export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsActions {
   const { host, store, sessions, scheduler, watch, services } = deps;
   const claimWorkspace = createWorkspaceClaim(host, store);
@@ -124,6 +124,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
     try {
       const init = await host.exec('git', ['init'], record.folder);
       if (init.exitCode !== 0) throw new Error(`git init failed: ${init.stderr.trim() || init.stdout.trim()}`);
+      if (record.openSpecEnabled) await ensureOpenSpec(host, record.folder);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       await store.update(record.id, (fresh) => {
@@ -202,11 +203,12 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
     async create(input) {
       const idea = input.idea.trim();
       if (!idea) return refuse('The idea is required.');
+      if (input.openSpecEnabled && input.executionMode === 'worktree') return refuse('The OpenSpec proof of concept requires Workspace execution.');
       const resolved = await resolveIntakePlacement(input, { host, store });
       if (!resolved.ok) return refuse(resolved.error);
       const { name, folder, workspaceId } = resolved.placement;
 
-      let record = createProjectRecord({ id: host.newId('proj'), name, idea, folder, workspaceId, executionMode: input.executionMode, now: host.now() });
+      let record = createProjectRecord({ id: host.newId('proj'), name, idea, folder, workspaceId, executionMode: input.executionMode, openSpecEnabled: input.openSpecEnabled, now: host.now() });
       // Overrides chosen at intake are checked against the catalogue the same
       // way a later change is, so the first wake never resolves a model that
       // does not exist.
@@ -229,9 +231,13 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       return ok(`Project ${record.id} "${name}" created in ${outcome.record.folder}. Permission is needed to run the Architect.`, record.id);
     },
 
+    requestChange: createRequestChangeAction({ host, store, scheduler, journal: deps.journal }),
+    enableOpenSpec: createEnableOpenSpecAction(host, store),
+
     async setExecutionMode(projectId, mode) {
       const saved = await mutateRecord(store, projectId, (record) => {
         if (record.executionMode === mode) return { record };
+        if (record.openSpecEnabled && mode === 'worktree') return { error: 'The OpenSpec proof of concept requires Workspace execution.' };
         if (record.session.workingSince || (record.executionMode !== undefined && record.session.turns > 0)) {
           return { error: 'Execution location is fixed once the project starts.' };
         }

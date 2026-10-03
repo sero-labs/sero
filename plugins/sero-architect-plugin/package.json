@@ -55,6 +55,7 @@
     }
   },
   "dependencies": {
+    "@fission-ai/openspec": "1.13.2",
     "@sero-ai/extension-runtime": "workspace:*",
     "typebox": "catalog:"
   },

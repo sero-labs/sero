@@ -64,7 +64,9 @@ export async function startResearchRoom(deps: ResearchRoomDeps, snapshot: Projec
         : '';
       const result = await createOrchestratorRoom(snapshot.workspaceId, {
         project, requestId: `${record.id}:${pending.id}`,
-        mandate: `Collaborate on the requested project task.\nUser idea: ${record.idea}\nQuestion: ${pending.question}\nStop when: ${pending.stoppingCondition}\nWork together to investigate the question, challenge assumptions and produce concrete findings with evidence and unresolved user decisions.${commands} Do not implement the product.`,
+        mandate: pending.openSpecChange
+          ? `Explore OpenSpec change ${pending.openSpecChange} in this project. Read the existing openspec/ specs and the relevant code. Investigate the request, compare viable approaches, challenge assumptions and identify concrete requirements, acceptance scenarios, design choices, risks and unresolved user decisions. Report findings to Architect for openspec/changes/${pending.openSpecChange}/. Question: ${pending.question}\nStop when: ${pending.stoppingCondition}\nDo not implement, edit files or write OpenSpec artifacts. This is an investigation, not an implementation run.`
+          : `Collaborate on the requested project task.\nUser idea: ${record.idea}\nQuestion: ${pending.question}\nStop when: ${pending.stoppingCondition}\nWork together to investigate the question, challenge assumptions and produce concrete findings with evidence and unresolved user decisions.${commands} Do not implement the product.`,
         // Commands need isolation whatever the project's own mode: in Workspace
         // mode an editing member would otherwise run in the shared working tree.
         limits: { ...await roomModelLimits(deps.host, project.modelSnapshot), ...roomWorkspace(record), ...(access === 'edit-workspace' ? { executionMode: 'worktree' as const } : {}), maxCostUsd: Math.min(5, remaining), maxWallClockMs: 15 * 60_000, maxMembers: 3, access, deliveryDestination: 'workspace-files' },
@@ -129,7 +131,7 @@ export async function observeResearchRooms(deps: ResearchRoomDeps, projectId: st
         completed = true;
         return closeDeliveredObjectives(settle({ ...next, stateLine: 'Room findings are ready for the Architect.',
           pendingResearch: next.pendingResearch?.filter((entry) => entry.id !== pending.id),
-          research: [...next.research, { id: pending.id, roomId: room.id, models: inspection.models, question: pending.question, stoppingCondition: pending.stoppingCondition, result: inspection.result, costUsd: Math.max(room.costUsd, current.chargedUsd ?? 0), completedAt: deps.host.now() }],
+          research: [...next.research, { id: pending.id, roomId: room.id, models: inspection.models, question: pending.question, stoppingCondition: pending.stoppingCondition, result: inspection.result, costUsd: Math.max(room.costUsd, current.chargedUsd ?? 0), completedAt: deps.host.now(), ...(pending.openSpecChange ? { openSpecChange: pending.openSpecChange } : {}) }],
         }, deps.host.now()), deps.host.now());
       }
       next = { ...next, pendingResearch: next.pendingResearch?.map((entry) => entry.id === pending.id ? { ...entry, chargedUsd: Math.max(room.costUsd, current.chargedUsd ?? 0), countedActiveMs: time.counted, models: inspection?.models ?? entry.models } : entry) };

@@ -31,7 +31,8 @@ export function plannedWorkRemains(record: ProjectRecord): boolean {
   if (record.milestones.some((m) => m.id !== MAINTENANCE_MILESTONE_ID && (m.status === 'running' || m.pendingDispatch))) return false;
   return record.milestones.some((m) =>
     m.status === 'approved'
-    || (m.status === 'planned' && record.autonomy !== 'milestones')
+    || (m.status === 'planned' && (record.autonomy !== 'milestones'
+      || (m.openSpecChange && !m.plan && !record.pendingResearch?.some((entry) => entry.openSpecChange === m.openSpecChange))))
     || (m.status === 'verifying' && m.evidence?.passed === true && !m.evidence.stale),
   );
 }

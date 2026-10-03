@@ -72,6 +72,7 @@ export function MilestoneRail({ record, onOpenDispatch, focusMilestoneId }: Mile
             <div className="ar-node"><span className="ar-dot" data-dot={dot} /></div>
             <div className="ar-ms-text">
               <b>{milestone.title}</b>
+              {milestone.openSpecChange && <span>OpenSpec: openspec/changes/{milestone.openSpecChange}</span>}
               {sub && <span>{sub}</span>}
               {ladder !== null && <Ladder level={ladder} />}
               {milestone.evidence && <Evidence evidence={milestone.evidence} projectId={record.id} />}

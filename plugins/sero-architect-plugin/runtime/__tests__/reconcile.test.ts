@@ -4,7 +4,10 @@ import type { ArchitectHost } from '../host';
 import { ArchitectRuntime } from '../index';
 import { createRecordStore } from '../record-store';
 import { orchestratorIndexFiles } from '../dispatch-watch';
-import { buildingProject, cleanupHosts, fakeHost, milestone, T0, type FakeHost } from './helpers';
+import { createRequestChangeAction } from '../request-change';
+import { createWakeGate } from '../wake-gate';
+import { createWakeScheduler } from '../wake-scheduler';
+import { buildingProject, cleanupHosts, fakeHost, milestone, storeFor, T0, type FakeHost } from './helpers';
 
 afterEach(cleanupHosts);
 
@@ -22,6 +25,44 @@ const overBudget = (): ProjectRecord => ({
 });
 
 describe('restart reconciliation', () => {
+  it('recovers an OpenSpec request before exploration starts and supplies the full request', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    const record = buildingProject({ phase: 'maintain', openSpecEnabled: true, milestones: [], history: [] });
+    await store.write(record);
+    const scheduler = createWakeScheduler({ gate: createWakeGate(), log: host.log, deliver: async () => {} });
+    const request = 'Add a keyboard shortcut. '.repeat(6) + 'Keep all existing shortcuts working.';
+    const outcome = await createRequestChangeAction({ host, store, scheduler })(record.id, request);
+    expect(outcome.ok).toBe(true);
+
+    const runtime = new ArchitectRuntime(host, {});
+    try {
+      host.sessions.onTurn = async () => { await runtime.owner?.execute({ sessionPath: host.sessions.sessionPath, cwd: record.folder }, { action: 'sleep', projectId: record.id }); };
+      await runtime.start();
+      await runtime.scheduler?.idle(record.id);
+      expect(host.sessions.prompts).toHaveLength(1);
+      expect(host.sessions.prompts[0]?.content).toContain(request);
+      const saved = await runtime.records()?.read(record.id);
+      expect(saved?.milestones.filter((item) => item.openSpecChange)).toHaveLength(1);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it('leaves a linked change waiting for plan approval instead of waking it after restart', async () => {
+    const host = await fakeHost();
+    await seed(host, buildingProject({ phase: 'maintain', openSpecEnabled: true, history: [],
+      milestones: [milestone('m1', { openSpecChange: 'approved-scope', status: 'planned', plan: 'Implement the accepted requirement.' })] }));
+    const runtime = new ArchitectRuntime(host, {});
+    try {
+      await runtime.start();
+      await runtime.scheduler?.idle('proj_1');
+      expect(host.sessions.prompts).toHaveLength(0);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it('continues watching existing work while the owner is blocked after restart', async () => {
     const host = await fakeHost();
     const record = buildingProject({ overlay: 'blocked', blockedReason: 'Needs review', milestones: [milestone('m1', {

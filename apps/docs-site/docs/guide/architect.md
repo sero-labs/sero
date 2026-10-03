@@ -37,6 +37,13 @@ approve.
 3. Give a folder inside your home directory. An empty or new folder is best.
 4. Select **Create project**.
 
+For an experimental OpenSpec path, turn on **Use OpenSpec for coding changes**
+at creation. This project flag initialises `openspec/` in the selected folder.
+The proof of concept uses **Workspace** execution. The first build still uses
+the ordinary Architect charter and milestones; the flag applies to later
+change requests in maintenance. For an existing Workspace project already in
+maintenance, use **Enable OpenSpec changes** in the project controls menu.
+
 ![Architect setting up a new project](../assets/images/architect-intake.png)
 
 Architect creates the folder, runs `git init`, registers the folder as a Sero
@@ -56,6 +63,33 @@ phase and never moves back.
 | `build` | Milestones run one at a time. Each closes only on evidence. | Approve milestone plans and answer decisions. |
 | `release` | The last milestone is delivered, for example as a pull request. | Approve delivery outside the workspace. |
 | `maintain` | A maintenance Workflow listens to issues, CI failures and a weekly review. | Answer the decisions it raises. |
+
+### Request later changes with OpenSpec
+
+In an OpenSpec enabled project that has reached `maintain`, type a request in
+the project page composer and select **Start OpenSpec change**. Repeat this for
+each later change. The `architect_projects` tool also accepts
+`action: "request_change"`, `projectId` and `text`. A normal directive remains
+available for instructions that are not a new coding change.
+
+Architect creates a separate `openspec/changes/<name>/` scaffold and a linked
+milestone for each request. It sends the question to a read only Room to
+investigate the codebase, options, requirements and unresolved choices. The
+Room reports findings to Architect; it does not edit the implementation.
+Architect then writes the proposal, capability specs, design and tasks in that
+change folder, following the OpenSpec CLI's artifact instructions. The runtime
+requires completed planning artifacts and strict CLI validation before the
+milestone can be planned or dispatched. With the default `milestones` autonomy,
+you approve its plan on the project page.
+
+The approved milestone goes to a Workflow with the change path in its prompt.
+The Workflow implements the tasks and updates `tasks.md`; Architect runs its
+usual evidence checks and compares the result with the requirements before
+accepting it. The next request creates another change in the same project.
+The PoC leaves completed changes in place for inspection and does not archive
+or sync them into the project's durable OpenSpec specs automatically. The
+Room reproduces the investigation part of `/opsx:explore` within Sero; it is
+not an interactive OpenSpec command session.
 
 An overlay describes a stop or wait during a phase. It does not add a phase:
 

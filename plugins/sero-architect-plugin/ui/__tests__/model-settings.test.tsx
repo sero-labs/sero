@@ -53,7 +53,7 @@ function actionsOver(overrides: Partial<ArchitectActions> = {}): ArchitectAction
     lifetime: vi.fn(async () => ({ ok: true, text: 'done', lifetime: null })),
     pause: ok(), resume: ok(), retry: ok(), stop: ok(), remove: ok(), raiseCap: ok(),
     setExecutionMode: ok(), setAutonomy: ok(), approveCharter: ok(), approveMilestone: ok(),
-    answer: ok(), directive: ok(), setModelDefault: ok(), clearModelDefault: ok(),
+    answer: ok(), directive: ok(), requestChange: ok(), enableOpenSpec: ok(), setModelDefault: ok(), clearModelDefault: ok(),
     refreshModelTiers: vi.fn(async () => ({ ok: true, text: 'done' })),
     ...overrides,
   };

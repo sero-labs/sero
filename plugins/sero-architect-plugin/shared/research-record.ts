@@ -11,6 +11,7 @@
 import type { OrchestratorProjectContext } from '@sero-ai/common';
 
 export interface PendingResearch {
+  openSpecChange?: string;
   project?: OrchestratorProjectContext;
   kind?: 'room' | 'workflow';
   /**
@@ -46,6 +47,7 @@ export interface PendingEvidence {
 }
 
 export interface ResearchResult {
+  openSpecChange?: string;
   roomId?: string;
   workflowId?: string;
   models?: { name: string; model: string; thinking: string }[];

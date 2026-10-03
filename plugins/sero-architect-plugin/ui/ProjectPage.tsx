@@ -63,6 +63,7 @@ function useProjectPageControls(record: ProjectRecord, actions: ArchitectActions
     stop: () => { if (confirm(`Stop ${record.name}? Running work finishes on its own; the Architect is not woken again.`)) void report(actions.stop(id)); },
     raiseCap: () => { setNotice(null); setCapOpen(true); },
     setExecutionMode: (next) => void report(actions.setExecutionMode(id, next)),
+    enableOpenSpec: () => void report(actions.enableOpenSpec(id)),
     setAutonomy: (next: AutonomySetting) => void report(actions.setAutonomy(id, next)),
     openSession: () => {
       setHistoryOpen(true);
@@ -227,16 +228,15 @@ function cappedWorkflow(record: ProjectRecord): Milestone | undefined {
   );
 }
 
-export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOpenModels, onOpenInspector, onOpenHistory, focusMilestoneId, confirm, runtimeRunning, permissionPending = false }: ProjectPageProps) {
+/** The state header and the control that recovers its cap or Workflow. */
+function ProjectStateHeader({ record, actions, onNotice, headerActions, runtimeRunning }: {
+  record: ProjectRecord;
+  actions: ArchitectActions;
+  onNotice(notice: string | null): void;
+  headerActions: HeaderAction[];
+  runtimeRunning: boolean;
+}) {
   const id = record.id;
-  const page = useProjectPageControls(record, actions, onBack, confirm, onOpenModels, onOpenInspector, onOpenHistory);
-  // Focusing a node is an external side effect, so it is a ref and a call, not
-  // derived state. The header's "Tell Architect what to do next" runs it.
-  const directiveRef = useRef<HTMLTextAreaElement>(null);
-  // Focusing the box scrolls it into view on its own, so there is nothing else
-  // to do here.
-  const focusDirective = useCallback(() => directiveRef.current?.focus(), []);
-  const headerActions = useHeaderActions(record, runtimeRunning, focusDirective);
   // At the cap the header carries the field, because raising it needs a number
   // rather than a confirmation. The same action stays in the project menu.
   const atCap = record.overlay === 'limited' && record.budget.capUsd !== null;
@@ -270,18 +270,27 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOp
   const stoppedWorkflow = record.milestones.find(
     (item) => item.dispatch?.failure && item.dispatch.costLimitUsd === undefined,
   );
-  let headerForm: ReactNode;
+  let form: ReactNode;
   if (capForm) {
-    headerForm = <CapInput {...capForm} onError={page.setNotice} onDone={() => page.setNotice(null)} />;
+    form = <CapInput {...capForm} onError={onNotice} onDone={() => onNotice(null)} />;
   } else if (stoppedWorkflow) {
-    headerForm = (
+    form = (
       <RetryWorkflowControl
         label={stoppedWorkflow.dispatch?.retryStepId ? 'Retry step' : 'Restart the Workflow'}
         retry={() => actions.retry(id, stoppedWorkflow.id)}
-        onError={page.setNotice}
+        onError={onNotice}
       />
     );
   }
+  return <StateLine record={record} home={null} actions={headerActions} form={form} runtimeRunning={runtimeRunning} />;
+}
+
+export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOpenModels, onOpenInspector, onOpenHistory, focusMilestoneId, confirm, runtimeRunning, permissionPending = false }: ProjectPageProps) {
+  const id = record.id;
+  const page = useProjectPageControls(record, actions, onBack, confirm, onOpenModels, onOpenInspector, onOpenHistory);
+  const directiveRef = useRef<HTMLTextAreaElement>(null);
+  const focusDirective = useCallback(() => directiveRef.current?.focus(), []);
+  const headerActions = useHeaderActions(record, runtimeRunning, focusDirective);
 
   return (
     <>
@@ -303,11 +312,11 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOp
               )}
             </div>
           )}
-          <StateLine
+          <ProjectStateHeader
             record={record}
-            home={null}
-            actions={headerActions}
-            form={headerForm}
+            actions={actions}
+            onNotice={page.setNotice}
+            headerActions={headerActions}
             runtimeRunning={runtimeRunning}
           />
           <div className="ar-sections" data-narrow={narrow ? 1 : 0}>
@@ -321,6 +330,7 @@ export function ProjectPage({ record, actions, narrow, disclosures, onBack, onOp
           disabled={record.phase === 'intake'}
           inputRef={directiveRef}
           onSend={(text) => actions.directive(id, text)}
+          onRequestChange={record.openSpecEnabled && record.phase === 'maintain' ? (text) => actions.requestChange(id, text) : undefined}
         />
       </div>
       <SessionHistoryDialog

@@ -51,6 +51,9 @@ export const OwnerToolParams = Type.Object({
   reason: Type.Optional(Type.String({ description: 'decide: why the user must answer this' })),
   parks: Type.Optional(Type.String({ description: 'decide: milestone ids to park, comma-separated' })),
   stoppingCondition: Type.Optional(Type.String({ description: 'research: when the researcher should stop' })),
+  changeName: Type.Optional(Type.String({ description: 'openspec/research: the OpenSpec change linked to a milestone; research requires a read-only Room' })),
+  operation: Type.Optional(StringEnum(['status', 'instructions', 'validate'] as const, { description: 'openspec: official CLI operation' })),
+  artifact: Type.Optional(StringEnum(['proposal', 'specs', 'design', 'tasks', 'apply'] as const, { description: 'openspec instructions: artifact to prepare' })),
   needsCommands: Type.Optional(Type.Boolean({ description: 'research, kind room only: true when the question can only be answered by running commands such as tests or builds. The Room then gets edit-workspace access, each member in its own worktree' })),
   kind: Type.Optional(StringEnum(DISPATCH_KINDS, { description: 'dispatch/research: room for investigation, solution planning or adversarial review by specialists; workflow for a structured execution flow toward an accepted objective; omitted research uses one researcher' })),
   prompt: Type.Optional(Type.String({ description: 'dispatch: the objective, the approved constraints and the acceptance criteria. The Workflow or Room plans its own execution; do not supply a step-by-step plan' })),
@@ -85,6 +88,9 @@ export interface OwnerToolParamsShape {
   reason?: string;
   parks?: string;
   stoppingCondition?: string;
+  changeName?: string;
+  operation?: 'status' | 'instructions' | 'validate';
+  artifact?: 'proposal' | 'specs' | 'design' | 'tasks' | 'apply';
   needsCommands?: boolean;
   kind?: (typeof DISPATCH_KINDS)[number];
   prompt?: string;
@@ -144,6 +150,9 @@ export function buildOwnerActionInput(params: OwnerToolParamsShape): OwnerAction
     reason: params.reason,
     parks: params.parks?.split(',').map((id) => id.trim()).filter(Boolean),
     stoppingCondition: params.stoppingCondition,
+    changeName: params.changeName,
+    operation: params.operation,
+    artifact: params.artifact,
     needsCommands: params.needsCommands,
     kind: params.kind,
     prompt: params.prompt,

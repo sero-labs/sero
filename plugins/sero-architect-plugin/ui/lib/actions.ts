@@ -103,6 +103,8 @@ function readHistoryEntries(result: AppToolResult): SessionHistoryEntry[] {
 
 export interface ArchitectActions {
   create(input: CreateProjectInput): Promise<ActionOutcome>;
+  requestChange(projectId: string, text: string): Promise<ActionOutcome>;
+  enableOpenSpec(projectId: string): Promise<ActionOutcome>;
   history(projectId: string): Promise<SessionHistoryOutcome>;
   trace(projectId: string, query: TraceRequest): Promise<TraceOutcome>;
   lifetime(projectId: string, knownSpendUsd: number): Promise<LifetimeOutcome>;
@@ -147,6 +149,7 @@ export function useArchitectActions(): ArchitectActions {
         action: 'create',
         idea: input.idea,
         executionMode: input.executionMode ?? 'workspace',
+        openSpecEnabled: input.openSpecEnabled ?? false,
         ...(input.models && input.models.length > 0 ? { models: input.models } : {}),
         ...(input.workspaceId ? { workspaceId: input.workspaceId } : input.folder ? { folder: input.folder } : {}),
       }),
@@ -198,6 +201,8 @@ export function useArchitectActions(): ArchitectActions {
       answer: (projectId, decisionId, optionId, note) =>
         call({ action: 'answer', projectId, decisionId, optionId, ...(note.trim() ? { note: note.trim() } : {}) }),
       directive: (projectId, text) => call({ action: 'directive', projectId, text }),
+      requestChange: (projectId, text) => call({ action: 'request_change', projectId, text }),
+      enableOpenSpec: (projectId) => call({ action: 'enable_openspec', projectId }),
     }),
     [call, run],
   );
