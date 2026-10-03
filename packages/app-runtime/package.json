@@ -1,6 +1,6 @@
 {
   "name": "@sero-ai/app-runtime",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Hooks for Sero federated app modules — useAppState, useAppInfo, useAgentPrompt, useAppTools",
   "type": "module",
   "main": "./src/index.ts",
@@ -21,7 +21,7 @@
     "access": "public"
   },
   "peerDependencies": {
-    "@sero-ai/common": ">=0.13.0",
+    "@sero-ai/common": ">=0.23.0",
     "react": "^19.2.4"
   },
   "devDependencies": {

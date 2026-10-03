@@ -83,6 +83,8 @@ export interface SubagentEntry {
   model: string | null;
   toolActivity: SubagentToolActivity[];
   liveOutput: string;
+  /** True when the newest live text is the model's reasoning, not its answer. */
+  liveReasoning?: boolean;
   responsePreview?: string;
   fullResponse?: string;
   error?: string;
@@ -93,7 +95,7 @@ export type SubagentEvent =
   | { type: 'subagent_start'; entry: SubagentEntry }
   | { type: 'subagent_progress'; id: string; usage: Partial<SubagentUsage> }
   | { type: 'subagent_tool_activity'; id: string; activity: SubagentToolActivity[] }
-  | { type: 'subagent_live_output'; id: string; text: string }
+  | { type: 'subagent_live_output'; id: string; text: string; reasoning?: boolean }
   | {
       type: 'subagent_end';
       id: string;

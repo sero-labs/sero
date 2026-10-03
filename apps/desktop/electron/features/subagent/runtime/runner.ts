@@ -414,7 +414,7 @@ export async function runSubagent(
           (ame?.type === 'text_delta' || ame?.type === 'thinking_delta') &&
           typeof ame.delta === 'string'
         ) {
-          onTextDelta?.(ame.delta);
+          onTextDelta?.(ame.delta, ame.type === 'thinking_delta');
         }
       }
 

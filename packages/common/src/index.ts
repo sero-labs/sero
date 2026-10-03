@@ -119,6 +119,8 @@ export type {
 export type {
   PersistentSessionPermissionProfile,
   PersistentSessionSubjectPolicy,
+  PersistentSessionDelegationProposal,
+  PersistentSessionDelegationPolicy,
   PersistentSessionGrantProposal,
   PersistentSessionGrantHandle,
   PersistentSessionOperation,
@@ -128,6 +130,7 @@ export type {
   PersistentSessionUsage,
   PersistentSessionEvent,
   PersistentSessionHistoryPage,
+  PersistentSessionLiveSnapshot,
   PersistentSessionHistoryEntry,
   PersistentSessionsApi,
 } from './app-runtime-persistent-sessions';
@@ -353,6 +356,9 @@ export type {
   ActivityTone,
   LiveRunMark,
 } from './activity-state';
+
+// Work feedback is one self-contained contract, so its whole surface is exported.
+export * from './work-feedback';
 
 export { ARCHITECT_APP_ID } from './architect-contract';
 export type {

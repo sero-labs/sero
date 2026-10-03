@@ -57,6 +57,38 @@ export interface PersistentSessionSubjectPolicy {
 }
 
 /**
+ * Authority one approval may pass on to linked grants.
+ *
+ * A grant proposal that carries this asks the user to approve, in the same
+ * dialog, what later grants for the same owner and scope may hold. The host
+ * clamps it like any proposal, stores it as an immutable policy and returns its
+ * id. It bounds permitted execution only: it names no team and no workflow.
+ */
+export interface PersistentSessionDelegationProposal {
+  /**
+   * Apps whose grant proposals may name the stored policy. Each must itself
+   * pass the bundled-plugin gate; the host drops any that does not.
+   */
+  delegateAppIds: string[];
+  /**
+   * The most authority a linked subject may hold, per role. A linked subject is
+   * accepted only when it fits inside one role, and it keeps its own narrower
+   * policy: a read-only subject stays read-only when another role may edit.
+   */
+  roles: Record<string, PersistentSessionSubjectPolicy>;
+  /** Across every grant issued under the policy, not per grant. */
+  maxLiveSessions: number;
+  maxTotalSessions: number;
+}
+
+/** The clamped policy the host stored, so the caller can record what was approved. */
+export interface PersistentSessionDelegationPolicy extends PersistentSessionDelegationProposal {
+  policyId: string;
+  workspaceId: string;
+  issuedAt: string;
+}
+
+/**
  * What a runtime ASKS for. This is an input to a user approval, never a source
  * of authority: the host clamps it to current user authority and the real
  * workspace capability catalogue, has the user approve the clamped set, and
@@ -73,6 +105,15 @@ export interface PersistentSessionGrantProposal {
   maxTotalSessions: number;
   /** Shown to the user at approval time. Plain language, no secrets. */
   reason: string;
+  /** Asks this approval to also cover linked grants. See the type. */
+  delegation?: PersistentSessionDelegationProposal;
+  /**
+   * Names a stored delegation policy. When the clamped proposal fits inside it,
+   * the host records the grant without another approval and binds the grant to
+   * the policy. A proposal that does not fit is approved by the user as usual.
+   * A revoked policy refuses the grant.
+   */
+  delegationPolicyId?: string;
 }
 
 /** The host-issued grant. A runtime only ever holds `grantId`. */
@@ -83,6 +124,10 @@ export interface PersistentSessionGrantHandle {
   maxLiveSessions: number;
   maxTotalSessions: number;
   issuedAt: string;
+  /** Present when the approved proposal carried a delegation. */
+  delegation?: PersistentSessionDelegationPolicy;
+  /** Present when the grant was issued under a stored policy, without a dialog. */
+  delegatedByPolicyId?: string;
 }
 
 export type PersistentSessionOperation = 'create' | 'open';
@@ -163,6 +208,30 @@ export type PersistentSessionEvent =
   | { type: 'turn_end'; turnId: string; status: 'completed' | 'aborted' | 'error'; errorMessage?: string; at: string }
   | { type: 'compacted'; at: string };
 
+/**
+ * Where a live session's current turn stands. Kept by the host while the turn
+ * runs, whether or not anything watches, so a view opened late starts from the
+ * text already written instead of from nothing. Bounded, transient and cleared
+ * when the turn ends: the finished reply is in the session history.
+ *
+ * It holds answer text and tool labels, so it is for the app that holds the
+ * handle. Reasoning text is never in it.
+ */
+export interface PersistentSessionLiveSnapshot {
+  /** The turn in flight, or null between turns. */
+  turnId: string | null;
+  /** The newest text of this turn's answer, cut from the front when long. */
+  text: string;
+  truncated: boolean;
+  /** The model request open now. */
+  request: { requestId: string | null; model?: string; startedAt: string } | null;
+  /** The tool running now. */
+  tool: { toolName: string; summary: string; callId: string | null; startedAt: string } | null;
+  /** Counts up with every change, so a reader can order two snapshots. */
+  revision: number;
+  updatedAt: string | null;
+}
+
 /** One page of a session's history, read from the Pi session file on demand. */
 export interface PersistentSessionHistoryPage {
   entries: PersistentSessionHistoryEntry[];
@@ -190,6 +259,11 @@ export interface PersistentSessionsApi {
   revokeGrant(grantId: string): Promise<void>;
   /** Revokes the grant, then removes its transcripts and durable metadata. Idempotent. */
   deleteGrant(grantId: string): Promise<void>;
+  /**
+   * Revokes a delegation policy this app was issued, and every grant issued
+   * under it, on the same rules as `revokeGrant`. Idempotent.
+   */
+  revokeDelegationPolicy(policyId: string): Promise<void>;
 
   create(request: PersistentSessionRequest): Promise<PersistentSessionHandle>;
   open(request: PersistentSessionRequest): Promise<PersistentSessionHandle>;
@@ -199,6 +273,12 @@ export interface PersistentSessionsApi {
   abort(handleId: string): Promise<void>;
   /** Live stream. Transient view state — the host persists none of it. */
   subscribe(handleId: string, cb: (event: PersistentSessionEvent) => void): () => void;
+  /**
+   * The current turn so far. A caller that subscribes first and reads this
+   * second misses nothing: the snapshot covers what was sent before the
+   * subscription. Null when the handle is not live.
+   */
+  liveSnapshot(handleId: string): PersistentSessionLiveSnapshot | null;
   compact(handleId: string): Promise<void>;
   getContextUsage(handleId: string): Promise<PersistentSessionContextUsage>;
   getSessionUsage(handleId: string): Promise<PersistentSessionUsage>;

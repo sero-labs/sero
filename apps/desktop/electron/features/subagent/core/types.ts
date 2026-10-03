@@ -144,8 +144,8 @@ export interface RunnerConfig {
   onProgress?: (usage: Partial<SubagentUsage>) => void;
   /** Tool activity callback (tool start/end). */
   onToolActivity?: (toolName: string, argsSummary: string, running: boolean) => void;
-  /** Live text output callback (text deltas). */
-  onTextDelta?: (delta: string) => void;
+  /** Live text output callback (text deltas). `reasoning` is true for a thinking delta. */
+  onTextDelta?: (delta: string, reasoning: boolean) => void;
   /** Chat-level update callback (status lines). */
   onUpdate?: (text: string) => void;
   /** Extra run-scoped tools to expose to the subagent session. */

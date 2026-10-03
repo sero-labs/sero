@@ -83,6 +83,7 @@ vi.mock('@electron/features/apps/runtime/capabilities/persistent-sessions/member
 }));
 
 import { clampAndApprove, installPersistentSessions } from '@electron/features/apps/runtime/capabilities/persistent-sessions/wiring';
+import type { StoredDelegationPolicy } from '@electron/features/apps/runtime/capabilities/persistent-sessions/grant-store';
 
 function skillBearingProposal(): PersistentSessionGrantProposal {
   return {
@@ -105,6 +106,50 @@ function skillBearingProposal(): PersistentSessionGrantProposal {
     reason: 'Start a skill-bearing Room member.',
   };
 }
+
+describe('linked grants under a delegation policy', () => {
+  const stored = (overrides: Partial<StoredDelegationPolicy> = {}): StoredDelegationPolicy => ({
+    policyId: 'policy-1',
+    appId: 'architect',
+    owner: 'architect',
+    scope: 'proj-1',
+    workspaceId: 'ws-1',
+    delegateAppIds: ['orchestrator'],
+    roles: { builder: skillBearingProposal().subjects.implementer },
+    maxLiveSessions: 2,
+    maxTotalSessions: 4,
+    approvalId: 'approval-1',
+    status: 'active',
+    issuedAt: '2026-08-14T00:00:00.000Z',
+    createdSessions: 0,
+    ...overrides,
+  });
+
+  beforeEach(() => { fakes.choices = []; });
+
+  it('records a contained Room grant without asking again', async () => {
+    const decision = await clampAndApprove('ws-1', skillBearingProposal(), { policy: stored(), callerAppId: 'orchestrator' });
+
+    expect(fakes.choices).toHaveLength(0);
+    expect(decision).toMatchObject({ approvalId: 'approval-1', delegatedByPolicyId: 'policy-1' });
+  });
+
+  it('asks the user when the Room wants a tool the policy does not hold', async () => {
+    const wider = skillBearingProposal();
+    wider.subjects.implementer.allowedTools = ['read', 'bash'];
+    const decision = await clampAndApprove('ws-1', wider, { policy: stored(), callerAppId: 'orchestrator' });
+
+    expect(fakes.choices).toHaveLength(1);
+    expect(decision?.delegatedByPolicyId).toBeUndefined();
+  });
+
+  it('keeps today\'s dialog for a Room that names no policy', async () => {
+    const decision = await clampAndApprove('ws-1', skillBearingProposal());
+
+    expect(fakes.choices).toHaveLength(1);
+    expect(decision?.delegatedByPolicyId).toBeUndefined();
+  });
+});
 
 describe('persistent session wiring', () => {
   beforeEach(() => {

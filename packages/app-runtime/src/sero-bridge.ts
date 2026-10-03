@@ -123,6 +123,8 @@ export interface SubagentLiveEvent {
   type: string;
   id?: string;
   text?: string;
+  /** True on live output whose newest text is the model's reasoning. */
+  reasoning?: boolean;
   activity?: Array<{ toolName: string; argsSummary: string; running: boolean }>;
   /** Present on `subagent_start`, so a view can add the run without re-reading. */
   entry?: SubagentLiveEntry;

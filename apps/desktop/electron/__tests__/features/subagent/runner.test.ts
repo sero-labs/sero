@@ -316,13 +316,17 @@ describe('runSubagent live output', () => {
     ]);
     mocks.createAgentSession.mockImplementationOnce(async () => ({ session }));
 
-    const deltas: string[] = [];
+    const deltas: { delta: string; reasoning: boolean }[] = [];
     const config = createConfig(new AbortController().signal);
-    config.onTextDelta = (delta) => deltas.push(delta);
+    config.onTextDelta = (delta, reasoning) => deltas.push({ delta, reasoning });
 
     await runSubagent(config, createDeps());
 
-    expect(deltas).toEqual(['weighing options…', 'final answer']);
+    // Reasoning stays in the live output and is marked, so a view can say so.
+    expect(deltas).toEqual([
+      { delta: 'weighing options…', reasoning: true },
+      { delta: 'final answer', reasoning: false },
+    ]);
   });
 });
 

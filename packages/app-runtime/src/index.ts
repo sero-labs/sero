@@ -51,3 +51,6 @@ export type { AppToolContentBlock, AppToolImageContent, AppToolResult, AppToolTe
 export { registerWidget, getRuntimeWidgets, onWidgetRegistryChange } from './widget-registry';
 export type { RuntimeWidget } from './widget-registry';
 export { useWidgetRegistration } from './use-widget-registration';
+
+export { foldWorkFeedback, useWorkFeedback } from './use-work-feedback';
+export type { WorkFeedbackSource, WorkFeedbackView } from './use-work-feedback';

@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AgentSession } from '@earendil-works/pi-coding-agent';
 import type { PersistentSessionEvent } from '@sero-ai/common';
 
-import { LiveSessionRegistry } from '@electron/features/apps/runtime/capabilities/persistent-sessions/live-sessions';
+import { LiveSessionRegistry, MAX_PARTIAL_CHARS } from '@electron/features/apps/runtime/capabilities/persistent-sessions/live-sessions';
 
 /** A session that emits exactly what the test tells it to. */
 function fakeSession(): { session: AgentSession; emit: (event: unknown) => void } {
@@ -240,5 +240,74 @@ describe('LiveSessionRegistry request and call identities', () => {
     emit({ type: 'compaction_end', aborted: true });
 
     expect(seen).toEqual([{ type: 'compacted', at: expect.any(String) }]);
+  });
+});
+
+describe('LiveSessionRegistry current-turn partial', () => {
+  /** A session nobody watches, the case a late view starts from. */
+  function unwatched() {
+    const registry = new LiveSessionRegistry();
+    const { session, emit } = fakeSession();
+    registry.add({ handleId: 'psh_1', grantId: 'grant_1', subject: 'conductor', sessionId: 'session-1', sessionPath: '/s.jsonl', session });
+    return { registry, emit, partial: () => registry.get('psh_1')!.partial };
+  }
+  const text = (delta: string) => ({ type: 'message_update', assistantMessageEvent: { type: 'text_delta', delta } });
+
+  it('keeps the text and the open call of a turn nobody watches', () => {
+    const { registry, emit, partial } = unwatched();
+    registry.beginTurn('psh_1', 'turn-1');
+    emit({ type: 'agent_start' });
+    emit({ type: 'message_start', message: { id: 'msg-1' } });
+    emit(text('Fixing '));
+    emit(text('the greeting.'));
+
+    expect(partial()).toMatchObject({ turnId: 'turn-1', text: 'Fixing the greeting.', truncated: false, tool: null });
+    expect(partial().request).toMatchObject({ requestId: 'msg-1', model: 'anthropic/claude-test' });
+
+    emit({ type: 'message_end', message: { id: 'msg-1' } });
+    emit({ type: 'tool_execution_start', toolCallId: 'c1', toolName: 'bash', args: { command: 'npm test' } });
+    expect(partial().request).toBeNull();
+    expect(partial().tool).toMatchObject({ toolName: 'bash', summary: 'npm test', callId: 'c1' });
+  });
+
+  it('never holds reasoning text', () => {
+    const { registry, emit, partial } = unwatched();
+    registry.beginTurn('psh_1', 'turn-1');
+    emit({ type: 'agent_start' });
+    emit({ type: 'message_update', assistantMessageEvent: { type: 'thinking_delta', delta: 'maybe the name is empty' } });
+    expect(partial().text).toBe('');
+  });
+
+  it('keeps only the newest text when a turn writes more than the bound', () => {
+    const { registry, emit, partial } = unwatched();
+    registry.beginTurn('psh_1', 'turn-1');
+    emit({ type: 'agent_start' });
+    emit(text('a'.repeat(MAX_PARTIAL_CHARS)));
+    emit(text('END'));
+    expect(partial().text).toHaveLength(MAX_PARTIAL_CHARS);
+    expect(partial().text.endsWith('END')).toBe(true);
+    expect(partial().truncated).toBe(true);
+  });
+
+  it('clears the text when the turn ends and starts the next turn empty', () => {
+    const { registry, emit, partial } = unwatched();
+    registry.beginTurn('psh_1', 'turn-1');
+    emit({ type: 'agent_start' });
+    emit(text('first reply'));
+    const during = partial().revision;
+    emit({ type: 'agent_end', messages: [] });
+    expect(partial()).toMatchObject({ turnId: null, text: '', request: null, tool: null });
+
+    registry.beginTurn('psh_1', 'turn-2');
+    emit({ type: 'agent_start' });
+    expect(partial()).toMatchObject({ turnId: 'turn-2', text: '' });
+    // A reader can tell the new turn's snapshot from the old one.
+    expect(partial().revision).toBeGreaterThan(during);
+  });
+
+  it('goes with the session when it is disposed', () => {
+    const { registry } = unwatched();
+    registry.remove('psh_1');
+    expect(registry.get('psh_1')).toBeNull();
   });
 });

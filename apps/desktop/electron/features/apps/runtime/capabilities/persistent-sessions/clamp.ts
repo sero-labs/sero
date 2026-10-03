@@ -16,10 +16,12 @@ import { realpathSync } from 'fs';
 import path from 'path';
 
 import type {
+  PersistentSessionDelegationProposal,
   PersistentSessionGrantProposal,
   PersistentSessionPermissionProfile,
   PersistentSessionSubjectPolicy,
 } from '@sero-ai/common';
+import { PERSISTENT_SESSION_BUILTIN_APPS } from './builtin-gate';
 import { applyPermissionProfile } from './permission-tools';
 
 /** Host maxima. A caller may ask for less; it can never obtain more. */
@@ -56,14 +58,14 @@ export interface ClampedProposal {
   notes: ClampNote[];
 }
 
-const PERMISSION_ORDER = {
+export const PERMISSION_ORDER = {
   filesystem: ['none', 'read', 'write'],
   commands: ['none', 'readOnly', 'all'],
   network: ['none', 'fetch'],
   vcs: ['none', 'read', 'commit', 'push'],
 } as const satisfies Record<keyof PersistentSessionPermissionProfile, readonly string[]>;
 
-function canonical(target: string): string {
+export function canonical(target: string): string {
   try {
     return realpathSync(target);
   } catch {
@@ -71,7 +73,7 @@ function canonical(target: string): string {
   }
 }
 
-function isInside(child: string, parent: string): boolean {
+export function isInside(child: string, parent: string): boolean {
   const relative = path.relative(parent, child);
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
@@ -148,6 +150,30 @@ function clampSubject(
 }
 
 /**
+ * Clamps the authority a proposal asks to pass on. Each role is clamped as a
+ * subject is, so a policy can never hold more than a direct grant could, and
+ * the session bounds take the same host maxima.
+ */
+function clampDelegation(
+  delegation: PersistentSessionDelegationProposal,
+  inputs: ClampInputs,
+  notes: ClampNote[],
+): PersistentSessionDelegationProposal {
+  const delegates = [...new Set(delegation.delegateAppIds)];
+  const allowed = delegates.filter((appId) => Object.hasOwn(PERSISTENT_SESSION_BUILTIN_APPS, appId));
+  const droppedApps = delegates.filter((appId) => !allowed.includes(appId));
+  if (droppedApps.length > 0) notes.push({ subject: 'delegation', field: 'delegateAppIds', dropped: droppedApps });
+  return {
+    delegateAppIds: allowed,
+    roles: Object.fromEntries(
+      Object.entries(delegation.roles).map(([role, policy]) => [role, clampSubject(`role ${role}`, policy, inputs, notes)]),
+    ),
+    maxLiveSessions: Math.min(Math.max(1, delegation.maxLiveSessions), PERSISTENT_SESSION_CAPS.maxLiveSessions),
+    maxTotalSessions: Math.min(Math.max(1, delegation.maxTotalSessions), PERSISTENT_SESSION_CAPS.maxTotalSessions),
+  };
+}
+
+/**
  * Snapshots and clamps. The snapshot matters: approval is asynchronous, and the
  * caller runs in the same process — without a deep copy taken on entry it could
  * mutate its own proposal object while the approval dialog is open, and the host
@@ -176,6 +202,8 @@ export function clampProposal(
       maxLiveSessions: Math.min(Math.max(1, snapshot.maxLiveSessions), PERSISTENT_SESSION_CAPS.maxLiveSessions),
       maxTotalSessions: Math.min(Math.max(1, snapshot.maxTotalSessions), PERSISTENT_SESSION_CAPS.maxTotalSessions),
       reason: String(snapshot.reason ?? '').slice(0, 500),
+      ...(snapshot.delegation ? { delegation: clampDelegation(snapshot.delegation, inputs, notes) } : {}),
+      ...(typeof snapshot.delegationPolicyId === 'string' ? { delegationPolicyId: snapshot.delegationPolicyId } : {}),
     },
     notes,
   };
@@ -186,7 +214,7 @@ export function clampProposal(
  * dialog. The user has to be shown the authority they are approving — a dialog
  * that says only "3 agents" is consent to a number, not to a capability.
  */
-export function describeGrantAuthority(proposal: PersistentSessionGrantProposal): string[] {
+export function describeGrantAuthority(proposal: Pick<PersistentSessionGrantProposal, 'subjects'>): string[] {
   const policies = Object.values(proposal.subjects);
   const union = <K extends 'allowedTools' | 'allowedSkills'>(field: K): string[] =>
     [...new Set(policies.flatMap((policy) => policy[field]))].sort();

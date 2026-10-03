@@ -27,96 +27,33 @@
  * persisted live count would leak on a crash and wedge the grant forever.
  */
 
-import { existsSync, readdirSync, realpathSync, rmSync } from 'fs';
-import { join, relative, resolve } from 'path';
+import { existsSync, readdirSync, rmSync } from 'fs';
+import { join } from 'path';
 
-/** Containment after symlink resolution, compared segment-wise. */
-function isInsideDir(child: string, parent: string): boolean {
-  const canonical = (target: string) => {
-    try {
-      return realpathSync(target);
-    } catch {
-      return resolve(target);
-    }
-  };
-  const rel = relative(canonical(parent), canonical(child));
-  return rel !== '' && !rel.startsWith('..') && !rel.includes('..');
-}
+import type { PersistentSessionGrantProposal } from '@sero-ai/common';
 
-import type {
-  PersistentSessionGrantProposal,
-  PersistentSessionSubjectPolicy,
-} from '@sero-ai/common';
+import {
+  isInsideDir,
+  type CommitResult,
+  type GrantStoreDeps,
+  type ReserveResult,
+  type StoredDelegationPolicy,
+  type StoredGrant,
+} from './grant-store-types';
 
-export interface StoredGrant {
-  grantId: string;
-  appId: string;
-  owner: string;
-  scope: string;
-  workspaceId: string;
-  /** Absolute directory every session file must resolve inside. */
-  sessionDir: string;
-  subjects: Record<string, PersistentSessionSubjectPolicy>;
-  maxLiveSessions: number;
-  maxTotalSessions: number;
-  /** Host-owned reference to the approval this grant was issued from. */
-  approvalId: string;
-  status: 'active' | 'revoked';
-  issuedAt: string;
-  revokedAt?: string;
-  /** Immutable subject → session path bindings, written at create. */
-  sessionPaths: Record<string, string>;
-  /** Lifetime count of successfully created sessions. Persists. */
-  createdSessions: number;
-  /**
-   * Reservations written before construction and cleared after it. The subject
-   * is recorded so a rollback knows exactly which binding it created — without
-   * it, reconciliation has to guess by matching paths.
-   */
-  pending: Record<string, { subject: string; startedAt: string }>;
-}
-
-export interface GrantStatePersistence {
-  read(): Promise<Record<string, StoredGrant> | null>;
-  write(grants: Record<string, StoredGrant>): Promise<void>;
-}
-
-export type ReserveResult =
-  | { ok: true; reservationId: string }
-  | {
-      ok: false;
-      reason:
-        | 'grant-not-found'
-        | 'grant-revoked'
-        | 'live-limit'
-        | 'total-limit'
-        | 'subject-already-bound'
-        | 'subject-already-open';
-    };
-
-/**
- * A commit can lose a race with revocation. When it does the session was
- * already constructed, so the caller MUST dispose it — the store cannot, and a
- * silently kept session would outlive the grant that authorised it.
- */
-export type CommitResult = { ok: true } | { ok: false; reason: 'grant-revoked'; disposeRequired: true };
-
-export interface GrantStoreDeps {
-  persistence: GrantStatePersistence;
-  now(): string;
-  newId(prefix: string): string;
-  /** Injected so restart reconciliation is testable without a real filesystem. */
-  sessionFileExists?(sessionPath: string): boolean;
-  /** Removes an orphaned session file left by a construction that never committed. */
-  removeSessionFile?(sessionPath: string): void;
-  /** Session files currently in a grant's directory. Injected for tests. */
-  listSessionFiles?(sessionDir: string): string[];
-  /** Removes a revoked grant's complete session directory. */
-  removeSessionDir?(sessionDir: string): void;
-}
+export type {
+  CommitResult,
+  GrantStatePersistence,
+  GrantStoreDeps,
+  ReserveResult,
+  StoredDelegationPolicy,
+  StoredGrant,
+} from './grant-store-types';
 
 export class GrantStore {
   private grants: Record<string, StoredGrant> = {};
+  private policies: Record<string, StoredDelegationPolicy> = {};
+  private readonly revocationListeners = new Set<(grantId: string) => void>();
   /** Live handles per grant. In memory only, by design. */
   private readonly live = new Map<string, Set<string>>();
   /** Subjects with a live session, so a second concurrent open is refused. */
@@ -157,9 +94,17 @@ export class GrantStore {
   async initialize(): Promise<void> {
     if (this.loaded) return;
     this.grants = (await this.deps.persistence.read()) ?? {};
+    this.policies = (await this.deps.persistence.readPolicies?.()) ?? {};
 
     let changed = false;
     for (const grant of Object.values(this.grants)) {
+      // A policy is revoked write-first, before its grants. A crash between the
+      // two leaves an active grant under a revoked policy, which ends here.
+      if (grant.delegatedBy && grant.status === 'active' && this.policies[grant.delegatedBy.policyId]?.status !== 'active') {
+        grant.status = 'revoked';
+        grant.revokedAt = this.deps.now();
+        changed = true;
+      }
       // ALWAYS roll back. A commit deletes its own reservation, so a surviving
       // pending record means construction did not complete. Since the binding is
       // written only at commit, rollback is just dropping the reservation.
@@ -198,8 +143,13 @@ export class GrantStore {
     sessionDirFor: (grantId: string) => string,
     approvalId: string,
     approved: PersistentSessionGrantProposal,
+    delegatedByPolicyId?: string,
   ): Promise<StoredGrant> {
     return this.serialize(async () => {
+      // Checked under the lock: a policy revoked while the proposal was being
+      // clamped must not issue one more grant.
+      const policy = delegatedByPolicyId ? this.policies[delegatedByPolicyId] : undefined;
+      if (delegatedByPolicyId && policy?.status !== 'active') throw new Error('delegation-policy-revoked');
       const grantId = this.deps.newId('grant');
       const grant: StoredGrant = {
         grantId,
@@ -221,6 +171,7 @@ export class GrantStore {
         sessionPaths: {},
         createdSessions: 0,
         pending: {},
+        ...(policy ? { delegatedBy: { policyId: policy.policyId, approvalId: policy.approvalId } } : {}),
       };
       this.grants[grant.grantId] = grant;
       await this.deps.persistence.write(this.grants);
@@ -253,6 +204,9 @@ export class GrantStore {
       if (grant.createdSessions + pendingCount >= grant.maxTotalSessions) {
         return { ok: false as const, reason: 'total-limit' as const };
       }
+
+      const policyRefusal = this.policyRefusal(grant);
+      if (policyRefusal) return { ok: false as const, reason: policyRefusal };
 
       // A subject's binding is IMMUTABLE. A bound subject must `open`, never
       // `create` — otherwise it would orphan its first session and own two.
@@ -321,6 +275,11 @@ export class GrantStore {
       grant.createdSessions += 1;
       this.trackLive(grantId, handleId, reservation.subject);
       await this.deps.persistence.write(this.grants);
+      const policy = grant.delegatedBy ? this.policies[grant.delegatedBy.policyId] : undefined;
+      if (policy) {
+        policy.createdSessions += 1;
+        await this.deps.persistence.writePolicies?.(this.policies);
+      }
       return { ok: true as const };
     });
   }
@@ -358,6 +317,8 @@ export class GrantStore {
       if (liveCount + Object.keys(grant.pending).length >= grant.maxLiveSessions) {
         return { ok: false as const, reason: 'live-limit' as const };
       }
+      const policyRefusal = this.policyRefusal(grant, 'live');
+      if (policyRefusal) return { ok: false as const, reason: policyRefusal };
       this.trackLive(grantId, handleId, subject);
       return { ok: true as const, reservationId: handleId };
     });
@@ -420,6 +381,90 @@ export class GrantStore {
       await this.deps.persistence.write(this.grants);
       return grant;
     });
+  }
+
+  getPolicy(policyId: string): StoredDelegationPolicy | null {
+    return this.policies[policyId] ?? null;
+  }
+
+  /** Stores the clamped delegation of an approved proposal as an immutable policy. */
+  async issuePolicy(appId: string, approvalId: string, approved: PersistentSessionGrantProposal): Promise<StoredDelegationPolicy | null> {
+    const delegation = approved.delegation;
+    if (!delegation) return null;
+    return this.serialize(async () => {
+      const policy: StoredDelegationPolicy = {
+        policyId: this.deps.newId('policy'),
+        appId,
+        owner: approved.owner,
+        scope: approved.scope,
+        workspaceId: approved.workspaceId,
+        delegateAppIds: [...delegation.delegateAppIds],
+        // DEEP COPY, for the reason `issue` gives.
+        roles: structuredClone(delegation.roles),
+        maxLiveSessions: delegation.maxLiveSessions,
+        maxTotalSessions: delegation.maxTotalSessions,
+        approvalId,
+        status: 'active',
+        issuedAt: this.deps.now(),
+        createdSessions: 0,
+      };
+      this.policies[policy.policyId] = policy;
+      await this.deps.persistence.writePolicies?.(this.policies);
+      return policy;
+    });
+  }
+
+  /**
+   * Why a policy-issued grant may not take one more session, or null. The
+   * bounds are the policy's, counted across every grant issued under it, so two
+   * Rooms that start together cannot each take the whole allowance.
+   */
+  private policyRefusal(grant: StoredGrant, only?: 'live'): 'grant-revoked' | 'live-limit' | 'total-limit' | null {
+    if (!grant.delegatedBy) return null;
+    const policy = this.policies[grant.delegatedBy.policyId];
+    if (policy?.status !== 'active') return 'grant-revoked';
+    const siblings = Object.values(this.grants).filter((other) => other.delegatedBy?.policyId === policy.policyId);
+    const pending = siblings.reduce((sum, other) => sum + Object.keys(other.pending).length, 0);
+    const live = siblings.reduce((sum, other) => sum + (this.live.get(other.grantId)?.size ?? 0), 0);
+    if (live + pending >= policy.maxLiveSessions) return 'live-limit';
+    if (only !== 'live' && policy.createdSessions + pending >= policy.maxTotalSessions) return 'total-limit';
+    return null;
+  }
+
+  /**
+   * Revokes a policy and every grant issued under it. Write-first, policy
+   * before grants: a crash between the two leaves grants that `initialize`
+   * revokes and that `policyRefusal` already denies. Returns the grants this
+   * call revoked, so each host can tear down the sessions it holds.
+   */
+  async markPolicyRevoked(policyId: string): Promise<string[]> {
+    return this.serialize(async () => {
+      const policy = this.policies[policyId];
+      if (!policy) return [];
+      if (policy.status !== 'revoked') {
+        policy.status = 'revoked';
+        policy.revokedAt = this.deps.now();
+        await this.deps.persistence.writePolicies?.(this.policies);
+      }
+      const revoked = Object.values(this.grants)
+        .filter((grant) => grant.delegatedBy?.policyId === policyId && grant.status === 'active');
+      for (const grant of revoked) {
+        grant.status = 'revoked';
+        grant.revokedAt = this.deps.now();
+      }
+      if (revoked.length > 0) await this.deps.persistence.write(this.grants);
+      return revoked.map((grant) => grant.grantId);
+    });
+  }
+
+  /** A host instance listens so it can tear down sessions of a grant another instance revoked. */
+  onGrantRevoked(listener: (grantId: string) => void): () => void {
+    this.revocationListeners.add(listener);
+    return () => { this.revocationListeners.delete(listener); };
+  }
+
+  notifyRevoked(grantId: string): void {
+    for (const listener of this.revocationListeners) listener(grantId);
   }
 
   /** Deletes only revoked authority. Revocation must be durable before retention cleanup. */

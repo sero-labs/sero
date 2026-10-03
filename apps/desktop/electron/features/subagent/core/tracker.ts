@@ -105,9 +105,11 @@ export class SubagentTracker {
   }
 
   /** Append to live output text. */
-  appendLiveOutput(id: string, delta: string): void {
+  appendLiveOutput(id: string, delta: string, reasoning = false): void {
     const entry = this.entries.get(id);
     if (!entry) return;
+    // The newest text is what a live view shows, so the mark follows it.
+    entry.liveReasoning = reasoning;
     entry.liveOutput = truncateTail(entry.liveOutput + delta, MAX_LIVE_OUTPUT_CHARS);
     // Only emit periodically — throttled in the IPC layer
     this.emitter.emit('subagent_live_output', id, entry.liveOutput);

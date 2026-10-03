@@ -56,7 +56,10 @@ export type {
   OrchestratorRegistryEntryView,
   OrchestratorRoomCreateLimits,
   OrchestratorRoomCreateRequest,
+  OrchestratorRoomControlResult,
   OrchestratorRoomCreateResult,
+  OrchestratorRoomHold,
+  OrchestratorRoomInspection,
   OrchestratorRoomHandle,
   OrchestratorRoomRegistryEntryView,
 } from './orchestrator-registry';

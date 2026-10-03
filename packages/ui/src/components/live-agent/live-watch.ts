@@ -11,6 +11,8 @@ export interface SubagentLiveEvent {
   type: string;
   id?: string;
   text?: string;
+  /** True when the newest live text is the model's reasoning. */
+  reasoning?: boolean;
   activity?: Array<{ toolName: string; argsSummary: string; running: boolean }>;
 }
 
@@ -30,6 +32,8 @@ export interface SubagentLiveBridge {
 export interface LiveAgentSnapshot {
   /** Text the agent wrote, newest last. */
   text: string;
+  /** True when the newest text is the model's reasoning, not its answer. */
+  reasoning?: boolean;
   /** The tool running now, or null while the agent writes its answer. */
   tool: { toolName: string; argsSummary: string } | null;
   /** When the current line started, for the elapsed timer. */
@@ -86,6 +90,7 @@ export function openSubagentLiveWatch(
   onSnapshot: (snapshot: LiveAgentSnapshot) => void,
 ): () => void {
   let text = '';
+  let reasoning = false;
   let tool: LiveAgentSnapshot['tool'] = null;
   let startedAt = Date.now();
   let closed = false;
@@ -101,11 +106,12 @@ export function openSubagentLiveWatch(
       tool = next;
     } else if (event.type === 'subagent_live_output') {
       text = event.text ?? '';
+      reasoning = event.reasoning === true;
     } else {
       return;
     }
 
-    onSnapshot({ text, tool, startedAt });
+    onSnapshot({ text, tool, startedAt, ...(reasoning ? { reasoning } : {}) });
   });
 
   void bridge.watch(runId);

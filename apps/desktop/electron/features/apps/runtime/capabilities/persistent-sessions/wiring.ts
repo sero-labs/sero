@@ -33,6 +33,7 @@ import { packageRootForResourcePath } from '@electron/features/plugins/resource-
 import { getRoomSkillCatalog } from '@electron/ipc/agent/handlers/subagent-context';
 
 import { clampProposal, describeGrantAuthority } from './clamp';
+import { fitsDelegationPolicy, type DelegationLink } from './delegation-policy';
 import { applyPermissionProfile } from './permission-tools';
 import { createMemberRuntimeTools } from './member-runtime-tools';
 import { createMemberResourceLoader } from './resource-profile';
@@ -49,7 +50,8 @@ import type { AppRuntimeTarget } from '../../types';
 export async function clampAndApprove(
   workspaceId: string,
   proposal: PersistentSessionGrantProposal,
-): Promise<{ approvalId: string; approved: PersistentSessionGrantProposal } | null> {
+  link?: DelegationLink,
+): Promise<{ approvalId: string; approved: PersistentSessionGrantProposal; delegatedByPolicyId?: string } | null> {
   const { modelRuntime } = await ensureAiInfra();
   const [models, workspaces, toolCatalog, skills] = await Promise.all([
     modelRuntime.getAvailable(),
@@ -87,7 +89,30 @@ export async function clampAndApprove(
     permissionCeiling: { filesystem: 'write', commands: 'all', network: 'fetch', vcs: 'push' },
   });
 
+  // A linked proposal inside a stored policy is access the user already
+  // approved, so it is recorded without another dialog. The check runs on the
+  // CLAMPED proposal against the policy the host stored. Anything that does
+  // not fit takes the dialog below, like every other grant.
+  if (link) {
+    const fit = fitsDelegationPolicy(clamped, link);
+    if (fit.ok) {
+      // A grant issued under a policy passes nothing further on.
+      const { delegation: _dropped, ...approved } = clamped;
+      return { approvalId: link.policy.approvalId, approved, delegatedByPolicyId: link.policy.policyId };
+    }
+    console.warn(`[persistent-sessions] policy ${link.policy.policyId} does not cover this grant: ${fit.reason}`);
+  }
+
   const authority = describeGrantAuthority(clamped);
+  const delegation = clamped.delegation;
+  // The same consent rule as above: each role is shown as authority, in words.
+  const delegationLines = delegation && delegation.delegateAppIds.length > 0 ? [
+    '',
+    'Agents it starts later can do this without another question:',
+    ...Object.entries(delegation.roles).map(([role, policy]) =>
+      `• ${role}: ${describeGrantAuthority({ subjects: { [role]: policy } }).join('; ') || 'nothing'}`),
+    `Up to ${delegation.maxLiveSessions} of them at once, ${delegation.maxTotalSessions} in total.`,
+  ] : [];
   const memberCount = Object.keys(clamped.subjects).length;
   const droppedNote = notes.length > 0
     ? `\n\nNot available under this approval, so removed: ${notes.map((note) => note.dropped.join(', ')).join('; ')}`
@@ -104,6 +129,7 @@ export async function clampAndApprove(
       '',
       'They will be able to:',
       ...authority.map((line) => `• ${line}`),
+      ...delegationLines,
     ].join('\n') + droppedNote,
     choices: [
       { id: 'allow', label: 'Allow' },
@@ -120,7 +146,9 @@ export async function clampAndApprove(
   if (choice.timedOut) throw new Error('nobody answered the request to allow agent sessions');
   if (choice.choiceId !== 'allow') return null;
 
-  return { approvalId: `approval_${Date.now().toString(36)}`, approved: clamped };
+  // The dialog approved this grant alone, so the named policy does not bind it.
+  const { delegationPolicyId: _unused, ...approved } = clamped;
+  return { approvalId: `approval_${Date.now().toString(36)}`, approved };
 }
 
 /** The plugin packages, beyond `basePackages`, that register an approved tool. */
@@ -173,7 +201,7 @@ export async function installPersistentSessions(
     // The proposal's workspace, not the runtime instance's: a profile-global
     // runtime (the Architect) runs under the synthetic `global` workspace and
     // proposes sessions for a real project workspace.
-    approveGrant: (proposal) => clampAndApprove(proposal.workspaceId, proposal),
+    approveGrant: (proposal, link) => clampAndApprove(proposal.workspaceId, proposal, link),
     resolveModel: async (modelId): Promise<CreateAgentSessionOptions['model']> => {
       const { modelRuntime } = await ensureAiInfra();
       const model = (await modelRuntime.getAvailable())
