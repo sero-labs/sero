@@ -9,7 +9,7 @@ import { PlanMap, PlanMapSkeleton } from '../components/PlanMap';
 import type { PlanMapStepsPerRow } from '../lib/plan-map-layout';
 import { previewLoop } from './fixture';
 import { HomePreview, RoomsPreview, WorkflowsListPreview } from './activity-fixture';
-import { RoomHoldPreview, WorkflowPagePreview } from './act-on-it-fixture';
+import { RoomHoldPreview, RoomTimeLimitPreview, WorkflowPagePreview } from './act-on-it-fixture';
 import { LoopEndingPreview, MemberInfoPreview, RoomResultPreview } from './read-the-outcome-fixture';
 import { AttemptHistoryPreview, RoomActivityPreview } from './history-comparison-fixture';
 import { CatalogPreview, RoomBriefPreview, RoomPlanningPreview, RoomProposalPreview } from './start-something-fixture';
@@ -51,7 +51,7 @@ export const PREVIEWS: Preview[] = [
   {
     id: 'home',
     title: 'Home · status line, then what needs you',
-    note: 'The status line is derived by the same rule as the list, so it cannot say "0 active" over an active Workflow. Three suggested changes to one Workflow group under its name.',
+    note: 'The status line is derived by the same rule as the list, so it cannot say "0 active" over an active Workflow, and it names the current work. Three suggested changes to one Workflow group under its name.',
     width: 1160,
     render: () => <HomePreview />,
   },
@@ -77,9 +77,16 @@ export const PREVIEWS: Preview[] = [
     render: () => <RoomHoldPreview />,
   },
   {
+    id: 'room-time-limit',
+    title: 'A Room at its time limit · one Add time button',
+    note: 'The hold names the stop and offers Add time. The button opens a separate dialog with the time used, the limit, the unchanged spend cap and a larger total.',
+    width: 1160,
+    render: () => <RoomTimeLimitPreview />,
+  },
+  {
     id: 'rooms',
     title: 'Rooms · what each Room waits for',
-    note: 'The row says what it waits for and for how long, and keeps its member avatars.',
+    note: 'The row says what it waits for and for how long, and keeps its member avatars. It also shows working, a quiet model request, last known, a pause that drains, a time-limit stop and a delivered Room, each from observed facts. Example data.',
     width: 1160,
     render: () => <RoomsPreview />,
   },

@@ -56,6 +56,30 @@ export function formatRelative(iso?: string): string {
   return `${Math.round(hr / 24)}d ago`;
 }
 
+/**
+ * How long ago, to the second while it is recent: "8s ago", "1 min ago",
+ * "3h ago". A list row that says "just now" for a minute cannot show that a
+ * quiet request is still being observed.
+ */
+export function formatAgo(iso: string | null | undefined, nowMs: number): string {
+  if (!iso) return '';
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+  const sec = Math.max(0, Math.round((nowMs - then) / 1000));
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min} min ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  return `${Math.floor(hr / 24)}d ago`;
+}
+
+/** Whole minutes of working time: "12 min", "<1 min". Never rounded up to a figure not yet reached. */
+export function formatMinutes(ms: number): string {
+  const whole = Math.floor(ms / 60_000);
+  return whole < 1 ? '<1 min' : `${whole} min`;
+}
+
 /** Compact human duration: "820 ms", "4.2s", "1m 20s", "2h 5m". */
 export function formatDuration(ms?: number): string {
   if (ms === undefined || ms < 0) return '—';

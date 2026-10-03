@@ -7,6 +7,7 @@
  */
 
 import { useWorkActivity } from '../lib/use-work-activity';
+import { useNow } from '../lib/use-now';
 import { useMemo, useState } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Input } from '@sero-ai/ui/components/ui/input';
@@ -16,7 +17,7 @@ import { DEFAULT_LIBRARY_INDEX } from '../../shared/defaults';
 import { WORKFLOWS_LABEL } from '../../shared/labels';
 import type { LibraryIndex, LoopSummary } from '../../shared/types';
 import { formatCost, formatRelative } from '../lib/format';
-import { loopActivity } from '../lib/loop-activity';
+import { loopActivity, loopFacts } from '../lib/loop-activity';
 import { ActivityWord } from './ActivityWord';
 import { ListRow } from './ListRow';
 import { NeedsPill } from './NeedsPill';
@@ -41,7 +42,6 @@ function hasUpdate(loop: LoopSummary, index: LibraryIndex): boolean {
   return !!entry && entry.latestVersion > link.version;
 }
 
-/** The right-hand facts: when it last ran, how many runs, how many steps, spend. */
 /** The middle column: when it ran and how big it is. Money stands alone right. */
 function rowMeta(loop: LoopSummary): string {
   const parts: string[] = [];
@@ -71,6 +71,8 @@ export function WorkflowsList({
   const session = useMemo(() => sessionStartedAt(), []);
   // Re-read when a row's status moves. Everything between arrives as a push.
   const work = useWorkActivity(loops.map((entry) => `${entry.id}:${entry.status}`).join('|'));
+  // A duration on screen needs a tick; with no step working, nothing runs.
+  const now = useNow([...work.values()].some((summary) => summary.activeCount > 0));
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -106,8 +108,9 @@ export function WorkflowsList({
           </p>
         )}
         {visible.map((loop) => {
-          const activity = loopActivity(loop, session, work.get(loop.id));
+          const activity = loopActivity(loop, session, work.get(loop.id), now);
           const ask = rowAsk(loop);
+          const facts = loopFacts(activity, rowMeta(loop));
           return (
             <ListRow
               key={loop.id}
@@ -123,8 +126,8 @@ export function WorkflowsList({
               }
               middle={
                 ask !== null
-                  ? <span className="flex flex-col items-start gap-1.5"><NeedsPill>{ask}</NeedsPill><span>{rowMeta(loop)}</span></span>
-                  : rowMeta(loop)
+                  ? <span className="flex flex-col items-start gap-1.5"><NeedsPill>{ask}</NeedsPill><span>{facts}</span></span>
+                  : facts
               }
               money={loop.usage?.costUsd != null ? formatCost(loop.usage.costUsd) : ''}
               onClick={() => onSelect(loop.id)}

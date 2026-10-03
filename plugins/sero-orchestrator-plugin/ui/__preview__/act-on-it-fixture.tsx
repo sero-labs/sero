@@ -158,3 +158,47 @@ export function RoomHoldPreview() {
     </div>
   );
 }
+
+/** The same Room stopped at its time limit: one Add time button, and a separate dialog behind it. */
+const LIMIT_ROOM: PersistedRoom = {
+  ...ROOM,
+  runtime: {
+    ...ROOM.runtime,
+    status: 'paused',
+    activeMs: 60 * 60_000,
+    stopReason: { kind: 'limit-reached', detail: 'Active time reached the 60 min limit.', at: days(0) },
+  },
+} as PersistedRoom;
+
+export function RoomTimeLimitPreview() {
+  return (
+    <div className="flex flex-col border border-room-line">
+      <RoomTopBar
+        room={LIMIT_ROOM}
+        view="timeline"
+        busy={false}
+        panelOpen={false}
+        holding
+        onTogglePanel={() => undefined}
+        onBack={() => undefined}
+        onView={() => undefined}
+        onMessage={() => undefined}
+        onPause={() => undefined}
+        onResume={() => undefined}
+        onStop={() => undefined}
+        onDelete={() => undefined}
+      />
+      <RoomHoldCard
+        stopReason={LIMIT_ROOM.runtime.stopReason}
+        members={[]}
+        controls={{ message: true, resume: true, stop: true }}
+        busy={false}
+        onMessage={() => undefined}
+        onResume={() => undefined}
+        onStop={() => undefined}
+        time={{ title: LIMIT_ROOM.definition.title, usedMs: 60 * 60_000, limitMs: 60 * 60_000, maxCostUsd: 2 }}
+        onAddTime={async () => ({ ok: true })}
+      />
+    </div>
+  );
+}

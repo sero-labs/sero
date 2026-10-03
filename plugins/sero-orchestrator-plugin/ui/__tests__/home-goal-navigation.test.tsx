@@ -14,6 +14,8 @@ vi.mock('lucide-react', async (importOriginal) => ({
 vi.mock('@sero-ai/app-runtime', () => ({
   useAppInfo: () => ({ appId: 'orchestrator', workspaceId: 'ws-1', workspacePath: '/repos/ws-1' }),
 }));
+// Home follows work feedback; this test is about Goal navigation, so none arrives.
+vi.mock('../lib/use-work-activity', () => ({ useWorkActivity: () => new Map() }));
 vi.mock('@sero-ai/ui/components/ui/input', () => ({ Input: () => <input /> }));
 vi.mock('../components/AttentionQueue', () => ({ AttentionQueue: () => null }));
 vi.mock('../components/LoopsOverview', () => ({ LoopsOverview: () => null }));

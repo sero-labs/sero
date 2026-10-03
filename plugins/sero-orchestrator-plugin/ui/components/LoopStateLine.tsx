@@ -10,9 +10,11 @@
  * anything.
  */
 
+import type { FeedbackSummary } from '@sero-ai/common';
 import type { GithubSourceHealth, LoopSummary, Loop, WebhookSourceHealth } from '../../shared/types';
 import { stateLineFacts } from '../lib/loop-state-line';
 import { useLiveCall } from '../lib/use-live-call';
+import { useNow } from '../lib/use-now';
 import { ActivityWord } from './ActivityWord';
 import { LiveCallPopover } from './LiveCallPopover';
 
@@ -22,6 +24,7 @@ export function LoopStateLine({
   runCount = 0,
   githubHealth = null,
   webhookHealth = null,
+  feedback,
 }: {
   loop: Loop;
   /** The watched index entry. Null while the index has not caught up with a new Workflow. */
@@ -30,8 +33,12 @@ export function LoopStateLine({
   runCount?: number;
   githubHealth?: GithubSourceHealth | null;
   webhookHealth?: WebhookSourceHealth | null;
+  /** What the Workflow's steps report now, the same facts its list row prints. */
+  feedback?: FeedbackSummary;
 }) {
-  const facts = stateLineFacts(loop, summary, runCount, githubHealth, webhookHealth);
+  // A duration on screen needs a tick; with no step working, nothing runs.
+  const now = useNow((feedback?.activeCount ?? 0) > 0);
+  const facts = stateLineFacts(loop, summary, runCount, githubHealth, webhookHealth, feedback, now);
   // A newly arrived event is checked before the Workflow decides anything, and
   // the state line is where the reader is already looking. It names the event,
   // so the wait says what it is about rather than only that something runs.

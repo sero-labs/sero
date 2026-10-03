@@ -178,6 +178,7 @@ export function toRoomSummary(record: RoomRecord): RoomSummary {
     costUsd: record.runtime.usage.costUsd,
     usageIncomplete: record.runtime.usage.incomplete !== false || !!reportedUsage(record.runtime.planningUsage)?.incomplete,
     maxCostUsd: record.definition.envelope.maxCostUsd,
+    maxWallClockMs: record.definition.envelope.maxWallClockMs,
     ...(record.runtime.activeMs !== undefined ? { activeMs: record.runtime.activeMs, activeSince: record.runtime.activeSince ?? null } : {}),
     ...(record.runtime.activeUncertainMs ? { activeUncertainMs: record.runtime.activeUncertainMs } : {}),
     ...(record.runtime.activeSeeded ? { activeSeeded: true } : {}),

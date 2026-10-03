@@ -77,7 +77,7 @@ export interface RoomObservationDeps {
 export interface RoomObservation {
   /** Starts observing a live session. Called when a member's session opens. */
   /** `who` names the member and its project for feedback. Neither is guessed when absent. */
-  attach(roomId: string, memberId: string, handleId: string, who?: { label?: string; projectId?: string }): () => void;
+  attach(roomId: string, memberId: string, handleId: string, who?: { label?: string; projectId?: string; sessionId?: string }): () => void;
   /** Stops observing and drops the transient state. The session file is untouched. */
   detach(memberId: string): void;
   watchMember(memberId: string, listener: RoomLiveListener): () => void;
@@ -254,7 +254,7 @@ export function createRoomObservation(deps: RoomObservationDeps): RoomObservatio
           key: feedbackKey(roomId, memberId),
           kind: 'room-member',
           owner: who?.label ?? memberId,
-          scope: { ...deps.feedback.scope, workId: roomId, memberId, ...(who?.projectId ? { projectId: who.projectId } : {}) },
+          scope: { ...deps.feedback.scope, workId: roomId, memberId, ...(who?.projectId ? { projectId: who.projectId } : {}), ...(who?.sessionId ? { sessionId: who.sessionId } : {}) },
         })
         : null;
 

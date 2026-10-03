@@ -23,6 +23,8 @@ import { mergeHistory } from './room-view';
 
 interface FeedDetails {
   ok?: boolean;
+  /** The tool's own words when an action did not work. */
+  error?: string;
   events?: RoomTimelineEvent[];
   snapshots?: MemberLiveSnapshot[];
   entries?: PersistentSessionHistoryEntry[];

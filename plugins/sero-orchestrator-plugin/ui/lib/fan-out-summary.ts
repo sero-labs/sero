@@ -15,6 +15,8 @@ export interface FanOutItemView {
    * stops running, which is when its block stops watching.
    */
   runId?: string;
+  /** The running item's attempt, which its own request and tool state is reported under. */
+  attemptId?: string;
 }
 
 export interface FanOutView {
@@ -43,7 +45,7 @@ export function fanOutView(runs: LoopRun[], stepId: string): FanOutView | undefi
         key: a.fanOut!.key,
         status: displayStatus(a.status),
         summary: a.outcome?.summary,
-        runId: runningItemRunId(run, a.attemptIds),
+        ...runningItemAttempt(run, a.attemptIds),
       }));
     const count = (status: StepStatus) => items.filter((item) => item.status === status).length;
     return {
@@ -58,14 +60,17 @@ export function fanOutView(runs: LoopRun[], stepId: string): FanOutView | undefi
   return undefined;
 }
 
-/** The worker run of an activation's still-running attempt, if it has one. */
-function runningItemRunId(run: LoopRun, attemptIds: readonly string[]): string | undefined {
+/** The worker run and the id of an activation's still-running attempt, if it has one. */
+function runningItemAttempt(run: LoopRun, attemptIds: readonly string[]): Pick<FanOutItemView, 'runId' | 'attemptId'> {
   // A set, not the array: every attempt is tested against the same ids.
   const ids = new Set(attemptIds);
   const attempt = run.stepAttempts.find(
     (entry) => entry.status === 'running' && ids.has(entry.id),
   );
-  return attempt?.workerRunId;
+  return {
+    ...(attempt?.workerRunId ? { runId: attempt.workerRunId } : {}),
+    ...(attempt ? { attemptId: attempt.id } : {}),
+  };
 }
 
 /** Compact headline, e.g. "3 of 3 succeeded" or "2 of 5 succeeded · 1 failed · 2 running". */

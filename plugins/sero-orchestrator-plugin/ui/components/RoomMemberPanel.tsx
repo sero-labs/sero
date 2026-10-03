@@ -12,7 +12,7 @@
  * while the member is still working.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Textarea } from '@sero-ai/ui/components/ui/textarea';
 import { cn } from '@sero-ai/ui/lib/utils';
@@ -22,7 +22,9 @@ import type { RoomMember } from '../../shared/room-types';
 import { formatClock, formatCost, formatTimer } from '../lib/format';
 import { memberGlyph } from '../lib/member-glyph';
 import { MEMBER_TAB_LABEL, type MemberTab } from '../lib/member-tabs';
+import { quietNow } from '../lib/live-facts';
 import { toSessionTurns } from '../lib/room-view';
+import { WorkViewContext } from '../lib/use-work-activity';
 import { useMemberContext, useMemberHistory, type RoomFeedDispatch } from '../lib/use-room-feed';
 import {
   MemberCompletedOutcome,
@@ -101,10 +103,14 @@ export function RoomMemberPanel({
     requestAnimationFrame(() => document.getElementById(`turn-${member.id}-${index}`)?.scrollIntoView({ block: 'start' }));
   };
 
+  const { byMember, epoch } = useContext(WorkViewContext);
+  // With no tool open, a quiet model request is named with its measured wait;
+  // with nothing known the line says only that a turn is in progress.
+  const quiet = live?.turnId ? quietNow(byMember.get(member.id), epoch, !!live.text, Date.now()) : null;
   const liveNow = live?.toolInFlight
     ? `turn ${member.usage.turns} · ${live.toolInFlight.toolName} ${live.toolInFlight.summary} · running ${formatTimer(Date.now() - new Date(live.toolInFlight.startedAt).getTime())}`
     : live?.turnId
-      ? `turn ${member.usage.turns} · thinking — no tool running`
+      ? `turn ${member.usage.turns} · ${quiet ? `${quiet.what}${quiet.ms === null ? '' : ` · ${formatTimer(quiet.ms)}`}` : 'in a turn'}`
       : member.statusDetail;
 
   return (

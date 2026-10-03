@@ -29,6 +29,8 @@ function member(id: string, displayName: string, statusDetail: string): HoldMemb
 const MORGAN = member('m-1', 'Morgan', 'Assisted recovery merge could not be attempted: the harness rejected git merge --ff-only.');
 const RILEY = member('m-2', 'Riley', 'System-directed recovery is blocked in the Riley worktree: clean status confirmed.');
 
+const EXPIRED = { title: 'Build the synth', usedMs: 35 * 60_000, limitMs: 15 * 60_000, maxCostUsd: 2 };
+
 const AWAITING: RoomStopReason = {
   kind: 'awaiting-user',
   detail: 'Two members asked for the saved snapshot to be applied through the harness.',
@@ -117,48 +119,26 @@ describe('the hold card', () => {
     expect(host.querySelector('details')).toBeNull();
   });
 
-  it('lets the user extend an expired time budget before resuming the same Room', async () => {
-    const onResume = vi.fn();
+  it('offers Add time for an expired budget in place of Resume, with no inline form', () => {
     renderCard({
       members: [], stopReason: { kind: 'limit-reached', detail: 'Time limit reached.', at: AT },
-      resumeTime: { usedMs: 35 * 60_000, limitMs: 15 * 60_000 }, onResume,
+      time: EXPIRED, onAddTime: async () => ({ ok: true }),
     });
-    const input = host.querySelector<HTMLInputElement>('input[type="number"]')!;
-    expect(input.labels?.[0]?.textContent).toBe('Total time (minutes)');
-    expect(onResume).not.toHaveBeenCalled();
-    await act(async () => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '60');
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-    const button = [...host.querySelectorAll('button')].find((node) => node.textContent === 'Add time and resume');
-    await act(async () => button?.click());
-    expect(onResume).toHaveBeenCalledWith(60);
+    const labels = [...host.querySelectorAll('button')].map((node) => node.textContent);
+    expect(labels).toContain('Add time…');
+    expect(labels).not.toContain('Resume');
+    expect(host.querySelector('input')).toBeNull();
   });
 
-  it.each(['', '15', '35', '35.5'])('does not send an invalid new total (%s)', async (value) => {
-    const onResume = vi.fn();
-    renderCard({ resumeTime: { usedMs: 35 * 60_000, limitMs: 15 * 60_000 }, onResume });
-    const input = host.querySelector<HTMLInputElement>('input[type="number"]')!;
-    await act(async () => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value);
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-    expect(host.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(true);
-    await act(async () => host.querySelector('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
-    expect(onResume).not.toHaveBeenCalled();
-  });
-
-  it('does not submit a time extension while a Room action is busy', () => {
-    const onResume = vi.fn();
-    renderCard({ resumeTime: { usedMs: 35 * 60_000, limitMs: 15 * 60_000 }, busy: true, onResume });
-    expect(host.querySelector<HTMLInputElement>('input')?.disabled).toBe(true);
-    act(() => host.querySelector('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
-    expect(onResume).not.toHaveBeenCalled();
+  it('does not offer to add time while a Room action is busy', () => {
+    renderCard({ time: EXPIRED, onAddTime: async () => ({ ok: true }), busy: true });
+    const button = [...host.querySelectorAll('button')].find((node) => node.textContent === 'Add time…');
+    expect(button?.disabled).toBe(true);
   });
 
   it('resumes within the existing time budget without sending a new limit', () => {
     const onResume = vi.fn();
-    renderCard({ resumeTime: { usedMs: 5 * 60_000, limitMs: 15 * 60_000 }, onResume });
+    renderCard({ time: { ...EXPIRED, usedMs: 5 * 60_000 }, onAddTime: async () => ({ ok: true }), onResume });
     expect(host.querySelector('input')).toBeNull();
     const button = [...host.querySelectorAll('button')].find((node) => node.textContent === 'Resume');
     act(() => button?.click());

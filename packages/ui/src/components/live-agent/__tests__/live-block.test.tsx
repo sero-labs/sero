@@ -57,11 +57,36 @@ describe("LiveBlock", () => {
     expect(html).toContain("The status filter already derives its list.");
   });
 
-  it("says it is writing its answer when no tool runs", () => {
+  it("claims nothing about the agent when no tool runs and no request wait is known", () => {
     const html = renderToStaticMarkup(<LiveBlock text="Thinking." startedAt={startedAt} />);
 
-    expect(html).toContain("writing its answer");
+    expect(html).not.toContain("writing");
+    expect(html).not.toContain("waiting for the model");
     expect(html).toContain("Thinking.");
+  });
+
+  it("names a quiet model request with its measured duration", () => {
+    const html = renderToStaticMarkup(
+      <LiveBlock requestWait={{ since: Date.now() - 47_000 }} text="" startedAt={Date.now() - 300_000} />,
+    );
+
+    expect(html).toContain("waiting for the model");
+    expect(html).toContain("0:47");
+  });
+
+  it("shows no duration for a request wait the source did not time", () => {
+    const html = renderToStaticMarkup(<LiveBlock requestWait={{ since: null }} text="" startedAt={startedAt} />);
+
+    expect(html).toContain("waiting for the model");
+    expect(html).not.toContain("0:0");
+  });
+
+  it("labels reasoning text as reasoning", () => {
+    const reasoning = renderToStaticMarkup(<LiveBlock reasoning text="Weighing the options." startedAt={startedAt} />);
+    const answer = renderToStaticMarkup(<LiveBlock text="Done." startedAt={startedAt} />);
+
+    expect(reasoning).toContain("Reasoning");
+    expect(answer).not.toContain("Reasoning");
   });
 
   it("shows a quiet line in place of the tool line", () => {
@@ -70,7 +95,6 @@ describe("LiveBlock", () => {
     );
 
     expect(html).toContain("checking the result");
-    expect(html).not.toContain("writing its answer");
   });
 
   it("names the agent only when told to", () => {

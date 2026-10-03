@@ -155,6 +155,34 @@ export interface OrchestratorRoomHandle {
    * that keeps none.
    */
   feedback?(): Promise<FeedbackSnapshotReply>;
+  /**
+   * Opens one observer's watch on a Room and returns where each member's turn
+   * stands now. Later changes are pushed on `ORCHESTRATOR_ROOM_LIVE_TOPIC` in
+   * the Room's workspace. The caller checks first that the Room is its own.
+   */
+  watch?(roomId: string, observerId: string): Promise<OrchestratorRoomMemberLive[]>;
+  /** Ends that observer's watch. Other observers and the Room are not affected. */
+  unwatch?(roomId: string, observerId: string): Promise<void>;
+}
+
+/** The topic a Room's live member turns are pushed on while a watch is open. */
+export const ORCHESTRATOR_ROOM_LIVE_TOPIC = 'orchestrator-room-live';
+/** The topic the Orchestrator pushes work feedback on. */
+export const ORCHESTRATOR_FEEDBACK_TOPIC = 'orchestrator-feedback';
+
+/** One member's current turn, as a Watch view shows it. Transient, never saved. */
+export interface OrchestratorRoomMemberLive {
+  roomId: string;
+  memberId: string;
+  turnId: string | null;
+  text: string;
+  truncated: boolean;
+  toolInFlight: { toolName: string; summary: string; startedAt: string } | null;
+  lastTurnStatus: 'completed' | 'aborted' | 'error' | null;
+  watching: boolean;
+  updatedAt: string;
+  /** Counts up with every change. A reader keeps the higher one. */
+  revision: number;
 }
 
 export interface OrchestratorRoomRegistryEntryView {

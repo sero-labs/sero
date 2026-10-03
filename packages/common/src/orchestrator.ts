@@ -13,6 +13,8 @@ export {
 export {
   ORCHESTRATOR_REGISTRY_GLOBAL_KEY,
   ORCHESTRATOR_ROOM_REGISTRY_GLOBAL_KEY,
+  ORCHESTRATOR_ROOM_LIVE_TOPIC,
+  ORCHESTRATOR_FEEDBACK_TOPIC,
   getOrchestratorRegistry,
   getOrchestratorRoomRegistry,
   requestOrchestratorAction,
@@ -60,6 +62,7 @@ export type {
   OrchestratorRoomCreateResult,
   OrchestratorRoomHold,
   OrchestratorRoomInspection,
+  OrchestratorRoomMemberLive,
   OrchestratorRoomHandle,
   OrchestratorRoomRegistryEntryView,
 } from './orchestrator-registry';

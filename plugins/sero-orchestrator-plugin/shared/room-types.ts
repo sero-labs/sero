@@ -395,6 +395,11 @@ export interface RoomSummary extends OrchestratorBoardRoomView {
   activeMemberCount: number;
   costUsd: number;
   maxCostUsd: number;
+  /**
+   * The Room's total active-time limit, so a row can say `12 min of 30 min
+   * active` beside the header's figure. Absent in an index written before it.
+   */
+  maxWallClockMs?: number;
   startedAt: string | null;
   updatedAt: string;
   /** The user's problem, for list-row subtitles. */

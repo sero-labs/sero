@@ -24,7 +24,7 @@
 
 import type { ActivityState } from './activity-state';
 import type { PersistentSessionEvent } from './app-runtime-persistent-sessions';
-import type { ObservationOperationKind, ObservationOutcome, ObservationRecord } from './run-observations';
+import { createRunIdCapture, type ObservationOperationKind, type ObservationOutcome, type ObservationRecord } from './run-observations';
 
 /** The identities that exist for this producer. An absent one is unknown, never guessed. */
 export interface WorkFeedbackScope {
@@ -70,6 +70,12 @@ export interface WorkFeedback {
   terminal: { outcome: ObservationOutcome; at: string | null } | null;
   usage?: { costUsd?: number; incomplete: boolean };
   limits?: { maxCostUsd?: number; maxActiveMs?: number };
+  /**
+   * The host tracker id of a structured run, once the run reported it. A view
+   * the user opens can watch that run's live output with it. It is an id, and
+   * carries no output.
+   */
+  watchRunId?: string;
 }
 
 export type WorkFeedbackEvent =
@@ -81,6 +87,8 @@ export type WorkFeedbackEvent =
   /** Output was written. Carries no text. */
   | { type: 'output'; at: string | null }
   | { type: 'usage'; costUsd?: number; incomplete: boolean }
+  /** The structured run named its tracker id. */
+  | { type: 'run-id'; runId: string }
   /** The turn ended and the producer stays, as a persistent session does. */
   | { type: 'turn-end'; at: string | null }
   /** The work ended for good. */
@@ -156,6 +164,8 @@ export function createFeedbackProducer(init: WorkFeedbackInit, epoch: string, ne
         return { ...activity };
       case 'output':
         return { attached: true, ...activity };
+      case 'run-id':
+        return { watchRunId: event.runId };
       case 'usage':
         return { usage: { ...(event.costUsd !== undefined ? { costUsd: event.costUsd } : {}), incomplete: event.incomplete } };
       case 'turn-end':
@@ -367,8 +377,13 @@ export interface RunFeedback {
  */
 export function openRunFeedback(projection: FeedbackProjection, init: WorkFeedbackInit): RunFeedback {
   const producer = projection.open(init);
+  // The run's own first record carries the tracker id. Later records carry the
+  // subagent session's id, which a watch cannot use.
+  const captureRunId = createRunIdCapture();
   return {
     onObservation(record) {
+      const runId = captureRunId(record);
+      if (runId) producer.observe({ type: 'run-id', runId });
       const event = feedbackEventFromObservation(record);
       // The call's end is the caller's to report: an `operation-end` from a
       // repair pass must not end the run it belongs to.

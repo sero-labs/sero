@@ -12,7 +12,7 @@
  * behaves identically (NFR-017).
  */
 
-import { use } from 'react';
+import { use, useContext } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { cn } from '@sero-ai/ui/lib/utils';
 import { AppContext } from '@sero-ai/app-runtime';
@@ -24,6 +24,10 @@ import { useMemberLastReplies, type RoomFeedDispatch } from '../lib/use-room-fee
 import { useRoomChildren } from '../lib/use-room-children';
 import { memberGlyph } from '../lib/member-glyph';
 import { memberPaneText } from '../lib/room-view';
+import { quietNow } from '../lib/live-facts';
+import { useNow } from '../lib/use-now';
+import { WorkViewContext } from '../lib/use-work-activity';
+import type { WorkFeedback } from '@sero-ai/common';
 import { Face, LivePill } from './room-kit';
 
 interface RoomWatchProps {
@@ -54,6 +58,10 @@ export function RoomWatch({ roomId, memberIds, members, live, dispatch, onOpen }
     if (sessionId) sessionIds.push(sessionId);
   }
   const children = useRoomChildren(workspaceId, sessionIds);
+  // What each member waits on, from the same feedback the Rooms list reads.
+  const { byMember, epoch } = useContext(WorkViewContext);
+  // A timer on screen needs a tick; with no turn in flight, nothing runs.
+  const now = useNow(memberIds.some((memberId) => live.get(memberId)?.turnId != null));
   return (
     <div
       aria-label="What every member is doing"
@@ -67,6 +75,9 @@ export function RoomWatch({ roomId, memberIds, members, live, dispatch, onOpen }
             key={memberId}
             member={member}
             snapshot={live.get(memberId) ?? null}
+            feedback={byMember.get(memberId)}
+            epoch={epoch}
+            now={now}
             lastReply={lastReplies.get(memberId) ?? null}
             children={children.get(member.session.sessionId ?? '') ?? []}
             onOpen={() => onOpen(memberId)}
@@ -89,16 +100,28 @@ function panePill(member: RoomMember, midTurn: boolean) {
 }
 
 /** The current-tool strip's icon + line: what is happening this second. */
-function paneNow(member: RoomMember, snapshot: MemberLiveSnapshot | null): { icon: string; what: string; elapsed: string } {
+function paneNow(
+  member: RoomMember,
+  snapshot: MemberLiveSnapshot | null,
+  feedback: WorkFeedback | undefined,
+  epoch: string | null,
+  now: number,
+): { icon: string; what: string; elapsed: string } {
   const tool = snapshot?.toolInFlight;
   if (tool) {
     return {
       icon: '⌨',
       what: `${tool.toolName} ${tool.summary}`.trim(),
-      elapsed: formatTimer(Date.now() - new Date(tool.startedAt).getTime()),
+      elapsed: formatTimer(now - new Date(tool.startedAt).getTime()),
     };
   }
-  if (snapshot?.turnId) return { icon: '✎', what: 'thinking — no tool running', elapsed: '—' };
+  if (snapshot?.turnId) {
+    // No tool is open. A quiet model request is named with its measured wait;
+    // with nothing known the tile says only that a turn is in progress.
+    const quiet = quietNow(feedback, epoch, !!snapshot.text, now);
+    if (quiet) return { icon: '◷', what: quiet.what, elapsed: quiet.ms === null ? '—' : formatTimer(quiet.ms) };
+    return { icon: '✎', what: 'In a turn', elapsed: '—' };
+  }
   if (member.status === 'completed' || member.status === 'retired') return { icon: '✓', what: member.statusDetail, elapsed: '—' };
   return { icon: '◷', what: member.statusDetail, elapsed: '—' };
 }
@@ -106,18 +129,24 @@ function paneNow(member: RoomMember, snapshot: MemberLiveSnapshot | null): { ico
 function WatchPane({
   member,
   snapshot,
+  feedback,
+  epoch,
+  now: clock,
   lastReply,
   children,
   onOpen,
 }: {
   member: RoomMember;
   snapshot: MemberLiveSnapshot | null;
+  feedback: WorkFeedback | undefined;
+  epoch: string | null;
+  now: number;
   lastReply: string | null;
   children: SubagentLiveEntry[];
   onOpen: () => void;
 }) {
   const midTurn = snapshot?.turnId != null;
-  const now = paneNow(member, snapshot);
+  const now = paneNow(member, snapshot, feedback, epoch, clock);
   const body = memberPaneText(snapshot, lastReply);
 
   return (
@@ -151,7 +180,7 @@ function WatchPane({
             {children.length} agent{children.length === 1 ? '' : 's'}
           </span>
           {children.map((child) => (
-            <ChildRow key={child.id} child={child} />
+            <ChildRow key={child.id} child={child} now={clock} />
           ))}
         </div>
       ) : (
@@ -178,14 +207,15 @@ function WatchPane({
  * One child agent of a member: its name, what it does now, and how long it has
  * been running.
  */
-function ChildRow({ child }: { child: SubagentLiveEntry }) {
+function ChildRow({ child, now }: { child: SubagentLiveEntry; now: number }) {
   const tool = child.toolActivity.filter((item) => item.running).at(-1);
-  const what = tool ? `${tool.toolName} ${tool.argsSummary}`.trim() : 'writing its answer';
+  // A child with no tool open is not described: nothing here knows what it waits on.
+  const what = tool ? `${tool.toolName} ${tool.argsSummary}`.trim() : '';
   return (
     <div className="flex min-w-0 items-center gap-2">
       <span className="shrink-0 text-[11px] font-medium text-room-text2">{child.agentName}</span>
       <span className="room-tabular min-w-0 flex-1 truncate text-[10px] text-room-text3">{what}</span>
-      <span className="room-mono-micro shrink-0 text-room-text4">{formatTimer(Date.now() - child.startedAt)}</span>
+      <span className="room-mono-micro shrink-0 text-room-text4">{formatTimer(now - child.startedAt)}</span>
     </div>
   );
 }

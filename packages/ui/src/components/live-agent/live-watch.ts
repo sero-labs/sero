@@ -34,7 +34,7 @@ export interface LiveAgentSnapshot {
   text: string;
   /** True when the newest text is the model's reasoning, not its answer. */
   reasoning?: boolean;
-  /** The tool running now, or null while the agent writes its answer. */
+  /** The tool running now, or null while no tool runs. */
   tool: { toolName: string; argsSummary: string } | null;
   /** When the current line started, for the elapsed timer. */
   startedAt: number;

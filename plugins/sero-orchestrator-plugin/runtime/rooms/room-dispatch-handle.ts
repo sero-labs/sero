@@ -19,7 +19,7 @@ interface PendingRoomCreate {
 
 type ControlOutcome = { ok: true } | { ok: false; error: string };
 
-export function createRoomDispatchHandle(app: Pick<RoomAppActions, 'prepare' | 'start' | 'inspect' | 'pause' | 'resume' | 'cancel'> & Partial<Pick<RoomAppActions, 'feedback'>>): OrchestratorRoomHandle {
+export function createRoomDispatchHandle(app: Pick<RoomAppActions, 'prepare' | 'start' | 'inspect' | 'pause' | 'resume' | 'cancel'> & Partial<Pick<RoomAppActions, 'feedback' | 'watch' | 'unwatch'>>): OrchestratorRoomHandle {
   const pending = new Map<string, PendingRoomCreate>();
   // The status is read back after the action, so the caller is told what the
   // Room is now, not what it was asked to become.
@@ -48,6 +48,10 @@ export function createRoomDispatchHandle(app: Pick<RoomAppActions, 'prepare' | '
   return {
     inspect: (roomId) => app.inspect(roomId),
     ...(app.feedback ? { feedback: () => app.feedback!() } : {}),
+    ...(app.watch && app.unwatch ? {
+      watch: (roomId: string, observerId: string) => app.watch!(roomId, observerId),
+      unwatch: (roomId: string, observerId: string) => app.unwatch!(roomId, observerId),
+    } : {}),
     pause: (roomId) => control(roomId, () => app.pause(roomId)),
     resume: (roomId, options) => control(roomId, () => app.resume(roomId, options?.maxWallClockMs)),
     cancel: (roomId) => control(roomId, () => app.cancel(roomId)),

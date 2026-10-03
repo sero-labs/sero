@@ -37,6 +37,7 @@ import { ARCHITECT_APP_ID } from '@sero-ai/common';
 import { TERMINAL_ROOM_STATUSES, type PersistedRoom, type RoomStatus } from '../../shared/room-types';
 import { activeTimeNote, elapsedActiveMs } from '../../shared/room-active-time';
 import { roomControls, type RoomControls } from '../lib/room-controls';
+import type { RoomActivity } from '../lib/room-activity';
 import type { RoomView } from '../lib/room-view';
 import { ROOM_STATUS_STYLE } from '../lib/status-style';
 import { formatCost, formatDuration, formatElapsed } from '../lib/format';
@@ -85,6 +86,12 @@ interface RoomTopBarProps {
    * or on itself.
    */
   waitingForYou?: boolean;
+  /**
+   * The Room's activity from the same helper its list row uses, so the page
+   * names the same current work and the same freshness. Absent until the index
+   * has caught up.
+   */
+  activity?: RoomActivity | null;
   onTogglePanel: () => void;
   onBack: () => void;
   onView: (view: RoomView) => void;
@@ -103,6 +110,7 @@ export function RoomTopBar({
   holding,
   controls = roomControls(room.runtime),
   waitingForYou = false,
+  activity = null,
   onTogglePanel,
   onBack,
   onView,
@@ -118,6 +126,8 @@ export function RoomTopBar({
   const timeNote = activeTimeNote(runtime);
   const running = runtime.status === 'running';
   const finished = TERMINAL_ROOM_STATUSES.includes(runtime.status);
+  // The current work or wait and how fresh it is: the row's own words.
+  const liveFacts = finished ? '' : [activity?.work, activity?.freshness].filter(Boolean).join(' · ');
 
   const views: Array<{ id: RoomView; label: string }> = [
     ...(finished ? [{ id: 'result' as const, label: 'Result' }] : []),
@@ -134,8 +144,12 @@ export function RoomTopBar({
         {definition.title}
       </h2>
       <Pill tone={waitingForYou ? 'warn' : STATUS_PILL_TONE[runtime.status]}>
-        {ROOM_STATUS_STYLE[runtime.status].label}{waitingForYou ? ' · waiting for you' : ''}
+        {/* A saved running status is not a live Room: lost contact reads Last known. */}
+        {activity?.state === 'last-known' ? activity.word : ROOM_STATUS_STYLE[runtime.status].label}{waitingForYou ? ' · waiting for you' : ''}
       </Pill>
+      {liveFacts && (
+        <span className="min-w-0 truncate text-[11.5px] text-room-text3 @max-[820px]/panel:hidden">{liveFacts}</span>
+      )}
       {/* Names the project that opened the Room, whether or not the Room is on hold. */}
       {project && (
         <button
