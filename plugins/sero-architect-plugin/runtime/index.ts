@@ -13,6 +13,8 @@ import { retryMilestone } from './work-recovery-actions';
 import { createOwnerActions, type OwnerActions, type OwnerServices } from './owner-actions';
 import { OwnerSessions } from './owner-session';
 import { createProjectsActions, type ProjectsActions } from './projects-actions';
+import { ARCHITECT_OWNER_LIVE_TOPIC } from '../shared/feedback';
+import { createWorkWatch, type WorkWatch } from './work-watch';
 import { createRecordStore, type RecordStore } from './record-store';
 import { reconcileProjects } from './reconcile';
 import { ensureInitialRun } from './run-lifecycle';
@@ -49,6 +51,7 @@ export class ArchitectRuntime implements AppRuntime {
   private registered: ArchitectRegistryEntry | null = null;
   private watch: DispatchWatch | null = null;
   private sessions: OwnerSessions | null = null;
+  private workWatch: WorkWatch | null = null;
   private services: OwnerServices | null = null;
   readonly gate: WakeGate = createWakeGate();
   scheduler: WakeScheduler | null = null;
@@ -92,7 +95,15 @@ export class ArchitectRuntime implements AppRuntime {
     const spans = createSpanRecorder({ journal, now: () => this.host.now(), log: (message) => this.host.log(message) });
     this.store = store;
     const outcomes = createTurnOutcomes();
-    const sessions = new OwnerSessions({ host: this.host, store, outcomes, journal, spans });
+    const workWatch = createWorkWatch({
+      sessions: () => this.host.persistentSessions,
+      ownerHandle: (projectId) => this.sessions?.liveHandle(projectId),
+      read: (projectId) => store.read(projectId),
+      emit: (notice) => this.host.emitUi(ARCHITECT_OWNER_LIVE_TOPIC, notice),
+      now: () => Date.now(),
+    });
+    this.workWatch = workWatch;
+    const sessions = new OwnerSessions({ host: this.host, store, outcomes, journal, spans, onHandle: (projectId) => workWatch.ownerChanged(projectId) });
     this.sessions = sessions;
     const scheduler = createWakeScheduler({
       gate: this.gate,
@@ -118,7 +129,7 @@ export class ArchitectRuntime implements AppRuntime {
     const services = createServices({ host: this.host, store, wake, spans, journal });
     this.services = services;
     this.owner = createOwnerActions({ host: this.host, store, outcomes, services });
-    this.projects = createProjectsActions({ host: this.host, store, sessions, scheduler, watch, services, journal });
+    this.projects = createProjectsActions({ host: this.host, store, sessions, scheduler, watch, services, journal, workWatch });
     this.registered = { owner: this.owner, projects: this.projects };
     registerArchitectRuntime(this.registered);
 
@@ -230,6 +241,7 @@ export class ArchitectRuntime implements AppRuntime {
     await this.markRuntime(false);
     if (this.registered) unregisterArchitectRuntime(this.registered);
     this.watch?.dispose();
+    this.workWatch?.dispose();
     await this.sessions?.disposeAll();
     this.store = null;
   }

@@ -1,7 +1,7 @@
 import { use, useCallback } from 'react';
 import { AppContext, useWorkFeedback } from '@sero-ai/app-runtime';
-import type { FeedbackSummary } from '@sero-ai/common';
-import { ARCHITECT_FEEDBACK_TOPIC, feedbackByProject, ORCHESTRATOR_APP_ID, ORCHESTRATOR_FEEDBACK_TOPIC, projectFeedback } from '../../shared/feedback';
+import type { FeedbackSummary, WorkFeedback } from '@sero-ai/common';
+import { ARCHITECT_FEEDBACK_TOPIC, feedbackByProject, ofProject, ORCHESTRATOR_APP_ID, ORCHESTRATOR_FEEDBACK_TOPIC, projectFeedback } from '../../shared/feedback';
 import type { ArchitectIndexEntry } from '../../shared/types';
 import type { ProjectRecord } from '../../shared/record';
 import type { ArchitectActions } from './actions';
@@ -26,6 +26,19 @@ export function useProjectFeedback(record: ProjectRecord, actions: Pick<Architec
   ].join('|');
   const view = useWorkFeedback(sources, read, signal);
   return projectFeedback(view.snapshots.values(), projectId, view.epoch);
+}
+
+/** Each producer working for the project, the owner included, for the Work view. */
+export function useProjectWork(record: ProjectRecord, actions: Pick<ArchitectActions, 'feedback'>): { epoch: string | null; work: WorkFeedback[] } {
+  const context = use(AppContext);
+  const projectId = record.id;
+  const read = useCallback(() => actions.feedback(projectId), [actions, projectId]);
+  const sources = context?.appId && context.workspaceId ? [
+    { appId: context.appId, workspaceId: context.workspaceId, topic: ARCHITECT_FEEDBACK_TOPIC },
+    ...(record.workspaceId ? [{ appId: ORCHESTRATOR_APP_ID, workspaceId: record.workspaceId, topic: ORCHESTRATOR_FEEDBACK_TOPIC }] : []),
+  ] : [];
+  const view = useWorkFeedback(sources, read, `${record.updatedAt}`);
+  return { epoch: view.epoch, work: [...view.snapshots.values()].filter(ofProject(projectId)) };
 }
 
 /**

@@ -193,6 +193,7 @@ export async function fakeHost(options: { workspaces?: FakeHost['workspaces']; s
     pathExists: async (filePath) => host.existingPaths.has(filePath),
     notify: (message) => { host.notices.push(message); },
     feedback: createFeedbackProjection(FEEDBACK_EPOCH),
+    emitUi: () => undefined,
     now: () => host.clock.shift() ?? T0,
     newId: (prefix) => `${prefix}_${++ids}`,
     log: (message) => { host.logs.push(message); },

@@ -15,13 +15,6 @@ export interface ProjectsListProps {
   onNewProject(): void;
 }
 
-/** "build · 1 of 2 milestones accepted". A count, never a percentage. */
-function progressLine(entry: ArchitectIndexEntry): string {
-  const { accepted, total } = entry.milestones;
-  const work = total === 0 ? 'no milestones yet' : `${accepted} of ${total} milestones accepted`;
-  return `${entry.phase} · ${work}`;
-}
-
 function ProjectRow({ entry, onOpen }: { entry: ArchitectIndexEntry; onOpen(id: string): void }) {
   const tone = spendTone(entry.spentUsd, entry.capUsd);
   return (
@@ -32,7 +25,7 @@ function ProjectRow({ entry, onOpen }: { entry: ArchitectIndexEntry; onOpen(id: 
       data-state={entry.activity.state}
       onClick={() => onOpen(entry.id)}
     >
-      <span className="ar-prow-name">{entry.name}<small>{progressLine(entry)}</small></span>
+      <span className="ar-prow-name">{entry.name}{entry.flow !== 'agreement' && <small>charter flow · deprecated</small>}</span>
       <span className="ar-prow-state"><ActivityLines activity={entry.activity} /></span>
       <span className="ar-prow-needs-action">{entry.activity.action ?? 'Nothing'}</span>
       <span className="ar-prow-spend">
@@ -58,7 +51,7 @@ export function ProjectsList({ projects, runtime, needsOnly, onOpen, onNewProjec
       {projects.length === 0 ? (
         <div className="ar-empty">
           <h3>No projects yet</h3>
-          <p>Give Architect an idea and a folder. It researches the project, proposes a charter with a cost cap, then builds it milestone by milestone. It asks you when it needs a decision.</p>
+          <p>Tell Architect what you want and set a start cap. It plans, builds and checks the work inside that cap. It asks you when it needs a decision.</p>
           <Button size="sm" className="ar-btn ar-btn-solid" onClick={onNewProject}><Plus className="ar-i" />New project</Button>
         </div>
       ) : (

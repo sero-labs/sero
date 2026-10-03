@@ -190,6 +190,21 @@ describe('projectActivity', () => {
     expect(activity.owner).toBe('Maintenance Workflow paused with the project');
   });
 
+  it('says a paused project is still finishing the turns in flight, and counts them', () => {
+    const feedback = (activeCount: number) => ({ activeCount, current: [], lastActivityAt: null, contactObservedAt: null });
+    const paused = project({ paused: true });
+
+    expect(projectActivity(paused, { ...RUNNING_SESSION, feedback: feedback(1) }).owner).toBe('1 turn is still finishing');
+    expect(projectActivity(paused, { ...RUNNING_SESSION, feedback: feedback(3) }).owner).toBe('3 turns are still finishing');
+    expect(projectActivity(paused, RUNNING_SESSION).owner).toBe('Nothing runs until you resume');
+  });
+
+  it('reads an agreement whose start is not approved as not started, with Review access', () => {
+    const record = project({ agreement: { revision: 1, capUsd: 5, proposedAt: T0, approvedAt: null, authority: null } });
+
+    expect(projectActivity(record, RUNNING_SESSION)).toMatchObject({ state: 'idle', headline: 'Not started', action: 'Review access' });
+  });
+
   it('reads an armed maintenance Workflow as waiting for a trigger', () => {
     const record = project({
       phase: 'maintain',

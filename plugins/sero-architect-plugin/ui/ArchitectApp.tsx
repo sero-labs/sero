@@ -14,10 +14,11 @@ import { ProjectsList } from './components/ProjectsList';
 import { TopBar } from './components/TopBar';
 import { Quiet } from './components/Pill';
 import { useArchitectActions, type ArchitectActions } from './lib/actions';
-import { useArchitectView, type ArchitectView } from './lib/navigation';
+import { useArchitectView, type ArchitectView, type WorkTab } from './lib/navigation';
 import { useProjectRecord } from './lib/use-project-record';
-import { openDispatch, useDisclosures } from './lib/page-helpers';
+import { openDispatch, useDisclosures, type Disclosures } from './lib/page-helpers';
 import { ProjectPage } from './ProjectPage';
+import { WorkPage } from './WorkPage';
 import './styles.css';
 
 /** Below this width the side column folds under the main column, as the prototype's 960 frame does. */
@@ -87,7 +88,8 @@ export function ArchitectApp() {
   const openModels = useCallback((id: string) => navigate({ mode: 'models', projectId: id }), [navigate]);
   const openInspector = useCallback((id: string) => navigate({ mode: 'inspector', projectId: id }), [navigate]);
   const openHistory = useCallback((id: string) => navigate({ mode: 'history', projectId: id }), [navigate]);
-  const openEvidence = useCallback((id: string, milestoneId: string) => navigate({ mode: 'project', projectId: id, focusMilestoneId: milestoneId }), [navigate]);
+  const openEvidence = useCallback((id: string, milestoneId: string) => navigate({ mode: 'work', projectId: id, tab: 'evidence', focusMilestoneId: milestoneId }), [navigate]);
+  const openWork = useCallback((id: string, tab: WorkTab) => navigate({ mode: 'work', projectId: id, tab }), [navigate]);
   const openIntake = useCallback(() => navigate({ mode: 'list', intake: true }), [navigate]);
   const closeIntake = useCallback(() => navigate({ mode: 'list' }), [navigate]);
   const back = useCallback(() => navigate({ mode: 'list' }), [navigate]);
@@ -102,7 +104,7 @@ export function ArchitectApp() {
   return (
     <div className="ar-app" ref={attach}>
       {projectId && record ? (
-        <ProjectView mode={view.mode} focusMilestoneId={view.mode === 'project' ? view.focusMilestoneId : undefined} onProject={() => openProject(record.id)} onOpenEvidence={(milestoneId) => openEvidence(record.id, milestoneId)} record={record} runtimeRunning={index.runtime?.running !== false} actions={actions} permissionPending={permissionProjectId === projectId} narrow={narrow} disclosures={disclosures} onBack={back} onOpenModels={() => openModels(projectId)} onOpenInspector={() => openInspector(projectId)} onOpenHistory={() => openHistory(projectId)} confirm={confirm} />
+        <ProjectView view={view} onOpenWork={(tab) => openWork(record.id, tab)} onProject={() => openProject(record.id)} onOpenEvidence={(milestoneId) => openEvidence(record.id, milestoneId)} record={record} runtimeRunning={index.runtime?.running !== false} actions={actions} permissionPending={permissionProjectId === projectId} disclosures={disclosures} onBack={back} onOpenModels={() => openModels(projectId)} onOpenInspector={() => openInspector(projectId)} onOpenHistory={() => openHistory(projectId)} confirm={confirm} />
       ) : projectId && !gone ? (
         <>
           <TopBar record={null} controls={null} onBack={back} onNewProject={openIntake} />
@@ -121,16 +123,17 @@ export function ArchitectApp() {
   );
 }
 
-function ProjectView({ mode, focusMilestoneId, onProject, onOpenEvidence, ...props }: ComponentProps<typeof ProjectPage> & {
-  mode: ArchitectView['mode'];
-  focusMilestoneId?: string;
+function ProjectView({ view, onProject, onOpenEvidence, disclosures, ...props }: ComponentProps<typeof ProjectPage> & {
+  view: ArchitectView;
+  disclosures: Disclosures;
   onProject(): void;
   onOpenEvidence(milestoneId: string): void;
 }) {
-  if (mode === 'models') return <ModelSettings record={props.record} actions={props.actions} runtimeRunning={props.runtimeRunning} onBack={onProject} />;
-  if (mode === 'inspector') return <Inspector record={props.record} actions={props.actions} onBack={onProject} />;
-  if (mode === 'history') return <HistoryView record={props.record} onBack={onProject} onOpenDispatch={openDispatch} onOpenEvidence={onOpenEvidence} folds={props.disclosures.folds} />;
-  return <ProjectPage {...props} focusMilestoneId={focusMilestoneId} />;
+  if (view.mode === 'models') return <ModelSettings record={props.record} actions={props.actions} runtimeRunning={props.runtimeRunning} onBack={onProject} />;
+  if (view.mode === 'inspector') return <Inspector record={props.record} actions={props.actions} onBack={onProject} />;
+  if (view.mode === 'history') return <HistoryView record={props.record} onBack={onProject} onOpenDispatch={openDispatch} onOpenEvidence={onOpenEvidence} folds={disclosures.folds} />;
+  if (view.mode === 'work') return <WorkPage record={props.record} actions={props.actions} runtimeRunning={props.runtimeRunning} tab={view.tab} focusMilestoneId={view.focusMilestoneId} onTab={props.onOpenWork} onBack={props.onBack} onProject={onProject} onOpenHistory={props.onOpenHistory} />;
+  return <ProjectPage {...props} />;
 }
 
 export default ArchitectApp;

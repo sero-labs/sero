@@ -64,6 +64,8 @@ export interface ArchitectHost {
    * in memory and pushed to the app's views; nothing is written to a record.
    */
   feedback: FeedbackProjection;
+  /** Pushes a transient notice to this app's open views. Nothing is saved. */
+  emitUi(topic: string, payload: unknown): void;
   now(): string;
   newId(prefix: string): string;
   log(message: string): void;
@@ -153,6 +155,7 @@ export function createArchitectHost(ctx: AppRuntimeContext): ArchitectHost {
     pathExists,
     notify: (message, type) => host.notifications.notify({ message, type, source: 'Architect' }),
     feedback: createFeedbackProjection(sessionStartedAt(), (snapshot) => host.ui.emit(ARCHITECT_FEEDBACK_TOPIC, snapshot)),
+    emitUi: (topic, payload) => host.ui.emit(topic, payload),
     now: () => new Date().toISOString(),
     newId: (prefix) => `${prefix}_${Math.random().toString(36).slice(2, 10)}`,
     log: (message) => console.log(`[architect] ${message}`),

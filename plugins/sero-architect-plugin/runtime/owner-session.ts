@@ -143,6 +143,8 @@ export interface OwnerSessionDeps {
   host: ArchitectHost;
   store: RecordStore;
   outcomes: TurnOutcomes;
+  /** Told when a project's owner session opens or closes, so an open watch follows it. */
+  onHandle?: (projectId: string) => void;
 }
 
 export const OWNER_TURN_TIMEOUT_MS = 10 * 60_000;
@@ -176,6 +178,11 @@ export class OwnerSessions {
   private readonly tokenMarks = new Map<string, TokenCounters>();
 
   constructor(private readonly deps: OwnerSessionDeps) {}
+
+  /** The open owner session of a project, if one is open now. */
+  liveHandle(projectId: string): string | undefined {
+    return this.live.get(projectId);
+  }
 
   private api(): PersistentSessionsApi {
     const api = this.deps.host.persistentSessions;
@@ -259,6 +266,7 @@ export class OwnerSessions {
       ? await api.open(ownerSessionRequest(record, 'open'))
       : await api.create(ownerSessionRequest(record, 'create'));
     this.live.set(record.id, handle.handleId);
+    this.deps.onHandle?.(record.id);
     const next = await this.deps.store.update(record.id, (fresh) => ({
       ...fresh,
       session: { ...fresh.session, sessionId: handle.sessionId, sessionPath: handle.sessionPath },
@@ -453,6 +461,7 @@ export class OwnerSessions {
     const handleId = this.live.get(projectId);
     if (!handleId) return;
     this.live.delete(projectId);
+    this.deps.onHandle?.(projectId);
     await this.api().dispose(handleId);
   }
 

@@ -89,7 +89,14 @@ describe('the projects list', () => {
     expect(text).toContain('Workflow');
     expect(text).toContain('Architect idle');
     expect(text).toContain('Retry the step');
-    expect(text).toContain('build · 1 of 2 milestones accepted');
+  });
+
+  it('marks a charter-flow row as deprecated and leaves an agreement row unmarked', () => {
+    render([entry({ id: 'old', name: 'OldCharter' }), entry({ id: 'new', name: 'NewAgreement', flow: 'agreement' })]);
+
+    const [charter, agreement] = [...container.querySelectorAll('.ar-prow')];
+    expect(charter.textContent).toContain('charter flow · deprecated');
+    expect(agreement.textContent).not.toContain('charter flow');
   });
 
   it('keeps the record id off the row', () => {

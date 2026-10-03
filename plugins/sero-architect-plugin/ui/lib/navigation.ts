@@ -7,10 +7,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { consumeAppLaunchParams, onAppLaunchParams, useAppNavigation } from '@sero-ai/app-runtime';
 
+export const WORK_TABS = ['live', 'plan', 'research', 'evidence'] as const;
+export type WorkTab = (typeof WORK_TABS)[number];
+
 export type ArchitectView =
   | { mode: 'list'; intake?: boolean }
-  /** The project page, optionally focused on one milestone's evidence. */
-  | { mode: 'project'; projectId: string; focusMilestoneId?: string }
+  | { mode: 'project'; projectId: string }
+  /** The work behind the overview, optionally on one milestone's evidence. */
+  | { mode: 'work'; projectId: string; tab: WorkTab; focusMilestoneId?: string }
   /** The project's History, opened from the project controls menu. */
   | { mode: 'history'; projectId: string }
   /** Project model defaults, opened from the project controls menu. */
@@ -24,11 +28,8 @@ interface ArchitectLaunchParams extends Record<string, unknown> {
 }
 
 export function viewId(view: ArchitectView): string {
-  if (view.mode === 'project') {
-    return view.focusMilestoneId
-      ? `projects/${view.projectId}/milestone/${view.focusMilestoneId}`
-      : `projects/${view.projectId}`;
-  }
+  if (view.mode === 'project') return `projects/${view.projectId}`;
+  if (view.mode === 'work') return `projects/${view.projectId}/work/${view.tab}${view.focusMilestoneId ? `/${view.focusMilestoneId}` : ''}`;
   if (view.mode === 'history') return `projects/${view.projectId}/history`;
   if (view.mode === 'models') return `projects/${view.projectId}/models`;
   if (view.mode === 'inspector') return `projects/${view.projectId}/inspector`;
@@ -37,14 +38,17 @@ export function viewId(view: ArchitectView): string {
 
 export function parseViewId(id: string | undefined): ArchitectView | null {
   if (!id) return null;
-  const [section, rest, sub, focus] = id.split('/');
+  const [section, rest, sub, focus, extra] = id.split('/');
   if (section !== 'projects') return null;
   if (!rest) return { mode: 'list' };
   if (rest === 'new') return { mode: 'list', intake: true };
   if (sub === 'history') return { mode: 'history', projectId: rest };
   if (sub === 'models') return { mode: 'models', projectId: rest };
   if (sub === 'inspector') return { mode: 'inspector', projectId: rest };
-  if (sub === 'milestone' && focus) return { mode: 'project', projectId: rest, focusMilestoneId: focus };
+  if (sub === 'work') {
+    const tab = WORK_TABS.find((item) => item === focus) ?? 'live';
+    return { mode: 'work', projectId: rest, tab, ...(tab === 'evidence' && extra ? { focusMilestoneId: extra } : {}) };
+  }
   return { mode: 'project', projectId: rest };
 }
 

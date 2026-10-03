@@ -40,6 +40,7 @@ import { closeDeliveredObjectives } from './objective-completion';
 import { answerResearchAccess, restartsResearch } from './research-access';
 import { applyDecisionProposal } from './decision-proposals';
 import type { WakeScheduler } from './wake-scheduler';
+import type { WorkWatch } from './work-watch';
 import type { DispatchWatch } from './dispatch-watch';
 
 export const STOP_REASON = 'stopped by the user';
@@ -57,6 +58,8 @@ export interface ProjectsActionsDeps {
   services: OwnerServices;
   /** Detailed run journals, removed with the project on the explicit deletion path. */
   journal?: RunJournal;
+  /** Live watch of the owner and linked Rooms. Absent in tests that never watch. */
+  workWatch?: WorkWatch;
 }
 
 export type ProjectsOutcome = { ok: true; text: string; projectId?: string } | { ok: false; text: string };
@@ -75,6 +78,8 @@ export interface ProjectsActions {
   trace(projectId: string, query?: Omit<TraceQuery, 'projectId'>): Promise<TraceAnswer | null>;
   /** What the project's own and linked work is doing now. Metadata only. */
   feedback(projectId?: string): Promise<FeedbackSnapshotReply>;
+  /** The live watch a Work view opens and closes. Null when this runtime has none. */
+  workWatch: WorkWatch | null;
   /** Project-lifetime totals: each run's summary and the shared activity, with no detail pages. */
   lifetime(projectId: string, knownSpendUsd?: number): Promise<LifetimeAnswer | null>;
   create(input: CreateProjectInput): Promise<ProjectsOutcome>;
@@ -119,6 +124,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
 
     show: read,
     feedback: (projectId) => projectId ? readProjectFeedback(deps, projectId) : readAllProjectFeedback(deps),
+    workWatch: deps.workWatch ?? null,
 
     preview: (projectId) => previewProject(recovery, projectId),
     repair: (projectId, workflowId) => repairProject(recovery, projectId, workflowId),

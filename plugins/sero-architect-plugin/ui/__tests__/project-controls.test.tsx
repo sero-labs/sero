@@ -77,7 +77,11 @@ function stubActions(overrides: Partial<ArchitectActions> = {}): ArchitectAction
   };
 }
 
-const disclosures = { olderOpen: false, setOlderOpen: vi.fn(), folds: { opened: new Set<string>(), toggle: vi.fn() } };
+/** An agreement project whose start the user has not approved yet. */
+const UNAPPROVED: ProjectRecord = {
+  ...FIXTURES.intake!,
+  agreement: { revision: 1, capUsd: 5, proposedAt: '2026-09-07T09:00:00.000Z', approvedAt: null, authority: null },
+};
 
 let container: HTMLDivElement;
 let root: Root;
@@ -107,7 +111,7 @@ function button(label: string): HTMLButtonElement {
 
 function renderPage(actions: ArchitectActions, onBack = vi.fn()) {
   act(() => root.render(
-    <ProjectPage runtimeRunning record={FIXTURES.build!} actions={actions} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={onBack} confirm={() => true} />,
+    <ProjectPage runtimeRunning record={FIXTURES.build!} actions={actions} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={onBack} confirm={() => true} />,
   ));
   return onBack;
 }
@@ -115,7 +119,7 @@ function renderPage(actions: ArchitectActions, onBack = vi.fn()) {
 it('labels legacy cost as incomplete through the ring hint without changing the shown spend', () => {
   const base = FIXTURES.build!;
   const record = { ...base, budget: { ...base.budget, spentUsd: 12.34, incomplete: undefined } };
-  act(() => root.render(<StateLine runtimeRunning record={record} home={null} />));
+  act(() => root.render(<StateLine runtimeRunning record={record} />));
   expect(container.textContent).toContain('$12.34');
   // The spend line stays a spend line: no coverage wording is added to the page.
   expect(container.textContent).not.toContain('cost incomplete');
@@ -123,7 +127,7 @@ it('labels legacy cost as incomplete through the ring hint without changing the 
   expect(incomplete?.getAttribute('aria-label')).toContain('Cost incomplete.');
   expect(incomplete?.getAttribute('title')).toContain('lower bound');
 
-  act(() => root.render(<StateLine runtimeRunning record={{ ...record, budget: { ...record.budget, incomplete: false } }} home={null} />));
+  act(() => root.render(<StateLine runtimeRunning record={{ ...record, budget: { ...record.budget, incomplete: false } }} />));
   expect(container.textContent).toContain('$12.34');
   const complete = container.querySelector('[role="img"]');
   expect(complete?.getAttribute('aria-label')).not.toContain('Cost incomplete.');
@@ -131,17 +135,28 @@ it('labels legacy cost as incomplete through the ring hint without changing the 
 });
 
 describe('a refused control', () => {
-  it('offers permission retry on an existing intake project and shows request errors', async () => {
+  it('offers Review access on an unapproved agreement project, runs resume, and shows a refusal', async () => {
     const resume = vi.fn(async () => ({ ok: false, text: 'Permission request was not answered.' }));
-    const record = { ...FIXTURES.build!, phase: 'intake' as const, blockedReason: 'Permission not approved' };
     act(() => root.render(
-      <ProjectPage runtimeRunning record={record} actions={stubActions({ resume })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+      <ProjectPage runtimeRunning record={UNAPPROVED} actions={stubActions({ resume })} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
-    act(() => button('Request permission').click());
+    // Nothing has started: no way into the work, and no note can be sent yet.
+    expect(container.textContent).not.toContain('Watch work');
+    expect(container.querySelector<HTMLTextAreaElement>('textarea[aria-label="Note to Architect"]')?.disabled).toBe(true);
+
+    act(() => button('Review access').click());
     await flush();
-    expect(resume).toHaveBeenCalledWith(record.id);
+    expect(resume).toHaveBeenCalledWith(UNAPPROVED.id);
     expect(container.querySelector('[role="alert"]')?.textContent).toBe('Permission request was not answered.');
-    expect(button('Request permission').disabled).toBe(false);
+    expect(button('Review access').disabled).toBe(false);
+  });
+
+  it('offers no second Review access while the host question is already open', () => {
+    act(() => root.render(
+      <ProjectPage permissionPending runtimeRunning record={UNAPPROVED} actions={stubActions()} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+    ));
+    expect(container.textContent).toContain('Not started');
+    expect([...container.querySelectorAll('button')].some((el) => el.textContent?.includes('Review access'))).toBe(false);
   });
 
   it('clears the refusal once a later control is accepted', async () => {
@@ -226,7 +241,7 @@ describe('raising the cap', () => {
     vi.stubGlobal('prompt', prompt);
     const record = { ...FIXTURES.build!, budget: { ...FIXTURES.build!.budget, capUsd: 0.5 } };
     act(() => root.render(
-      <ProjectPage runtimeRunning record={record} actions={stubActions({ raiseCap })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+      <ProjectPage runtimeRunning record={record} actions={stubActions({ raiseCap })} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
 
     act(() => button('Raise cap').click());
@@ -323,7 +338,7 @@ describe('creating a project', () => {
     act(() => { idea.form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
     await flush();
 
-    expect(onCreate).toHaveBeenCalledWith({ idea: 'A roguelike', folder: '~/Projects/x/game', executionMode, openSpecEnabled: false, models: [] });
+    expect(onCreate).toHaveBeenCalledWith({ idea: 'A roguelike', capUsd: 5, folder: '~/Projects/x/game', executionMode, openSpecEnabled: false, models: [] });
     expect(onClose).not.toHaveBeenCalled();
   });
 
@@ -379,7 +394,7 @@ describe('creating a project', () => {
     act(() => { select.form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
     await flush();
 
-    expect(onCreate).toHaveBeenCalledWith({ idea: 'Add a JSON flag', executionMode: 'workspace', openSpecEnabled: false, models: [], workspaceId: 'testrepo' });
+    expect(onCreate).toHaveBeenCalledWith({ idea: 'Add a JSON flag', capUsd: 5, executionMode: 'workspace', openSpecEnabled: false, models: [], workspaceId: 'testrepo' });
   });
 
   it('keeps the dialog open and shows the runtime refusal', async () => {
@@ -402,6 +417,41 @@ describe('creating a project', () => {
 
     expect(container.querySelector('[role="alert"]')?.textContent).toContain('already exists');
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('names the first missing field when Continue is pressed, and creates nothing', async () => {
+    const onCreate = vi.fn(async () => OK);
+    act(() => root.render(<IntakeDialog open onClose={vi.fn()} onCreate={onCreate} defaultFolder="~/Projects/x" takenWorkspaceIds={[]} />));
+    const form = container.querySelector<HTMLFormElement>('#ar-idea')!.form!;
+    const type = (selector: string, value: string, proto: typeof HTMLInputElement | typeof HTMLTextAreaElement = HTMLInputElement) => act(() => {
+      const field = container.querySelector<HTMLInputElement | HTMLTextAreaElement>(selector)!;
+      Object.getOwnPropertyDescriptor(proto.prototype, 'value')?.set?.call(field, value);
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const submit = async () => {
+      act(() => { form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
+      await flush();
+      return container.querySelector('[role="alert"]')?.textContent;
+    };
+
+    expect(button('Continue').disabled).toBe(false);
+    expect(await submit()).toBe('Tell Architect what you want.');
+    type('#ar-idea', 'A roguelike', HTMLTextAreaElement);
+    expect(await submit()).toBe('Enter a folder name.');
+    type('#ar-name', 'game');
+    type('#ar-cap', '');
+    expect(await submit()).toBe('Enter a start cap.');
+    expect(onCreate).not.toHaveBeenCalled();
+
+    act(() => [...container.querySelectorAll('button')].find((el) => el.textContent === 'Existing workspace')?.click());
+    await flush();
+    type('#ar-cap', '7');
+    expect(await submit()).toBe('Choose a workspace.');
+    expect(onCreate).not.toHaveBeenCalled();
+
+    act(() => [...container.querySelectorAll('button')].find((el) => el.textContent === 'New folder')?.click());
+    expect(await submit()).toBeUndefined();
+    expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({ idea: 'A roguelike', capUsd: 7 }));
   });
 
   it('keeps the model overrides folded until asked, then shows one row per tier', () => {
@@ -429,24 +479,34 @@ describe('the top of a project', () => {
     };
   }
 
-  it('leads with the state in plain words and lifts Retry step into the header', async () => {
+  it('heads the page with the request, then the state, and lifts Retry step into the header', async () => {
     const retry = vi.fn(async () => OK);
     const record = stoppedProject();
 
     act(() => root.render(
-      <ProjectPage runtimeRunning record={record} actions={stubActions({ retry })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+      <ProjectPage runtimeRunning record={record} actions={stubActions({ retry })} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
 
-    const heading = container.querySelector('.ar-sentence');
-    expect(heading?.textContent).toContain(`${record.milestones[0].title} stopped`);
-    // The header's own retry, above the rail, starting the same retry.
-    const headerRetry = container.querySelector('.ar-stateline button');
+    // With no Architect outcome sentence yet, the heading is the request itself.
+    expect(container.querySelector('h2')?.textContent).toBe(record.idea);
+    const header = container.querySelector('[aria-label="Project state"]')!;
+    expect(header.textContent).toContain(`${record.milestones[0].title} stopped`);
+    // The recovery control comes first in the header's button row.
+    const headerRetry = header.querySelector('button');
     expect(headerRetry?.textContent).toBe('Retry step');
 
     act(() => (headerRetry as HTMLButtonElement).click());
     await flush();
 
     expect(retry).toHaveBeenCalledWith(record.id, record.milestones[0].id);
+  });
+
+  it('heads the page with the Architect outcome sentence when it has written one', () => {
+    const record = { ...FIXTURES.build!, overview: { outcome: { text: 'A shareable roguelike.', at: '2026-09-07T09:00:00.000Z' } } };
+    act(() => root.render(
+      <ProjectPage runtimeRunning record={record} actions={stubActions()} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+    ));
+    expect(container.querySelector('h2')?.textContent).toBe('A shareable roguelike.');
   });
 
   it('puts the new-cap field beside the sentence when the spend cap stopped the project', () => {
@@ -457,7 +517,7 @@ describe('the top of a project', () => {
     const record = { ...base, budget: { ...base.budget, spentUsd: base.budget.capUsd ?? 0 } };
 
     act(() => root.render(
-      <ProjectPage runtimeRunning record={record} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+      <ProjectPage runtimeRunning record={record} actions={stubActions()} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
 
     const field = container.querySelector('.ar-stateline #ar-header-cap-in');
@@ -473,7 +533,7 @@ describe('the top of a project', () => {
     const raiseCap = vi.fn(async () => OK);
 
     act(() => root.render(
-      <ProjectPage runtimeRunning record={record} actions={stubActions({ raiseCap })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+      <ProjectPage runtimeRunning record={record} actions={stubActions({ raiseCap })} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
 
     const form = container.querySelector('.ar-stateline form.ar-cap') as HTMLFormElement | null;
@@ -503,7 +563,7 @@ describe('the top of a project', () => {
     const retry = vi.fn(async () => OK);
 
     act(() => root.render(
-      <ProjectPage runtimeRunning record={record} actions={stubActions({ retry })} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+      <ProjectPage runtimeRunning record={record} actions={stubActions({ retry })} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
 
     expect(container.querySelector('#ar-header-wf-cap-in')).not.toBeNull();
@@ -521,39 +581,36 @@ describe('the top of a project', () => {
     const record = stoppedProject();
 
     act(() => root.render(
-      <ProjectPage runtimeRunning record={record} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+      <ProjectPage runtimeRunning record={record} actions={stubActions()} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
 
-    const header = container.querySelector('.ar-stateline')!;
-    // The cause rides the activity line beside the state glyph — one line, the
-    // shape the drawing shows — and is not repeated as a second line below it.
-    expect(header.querySelector('.ar-stateline-who')?.textContent).toContain('Interrupted work');
-    expect(header.querySelector('.ar-stateline-why')).toBeNull();
-    const occurrences = (header.textContent ?? '').split('Interrupted work').length - 1;
-    expect(occurrences).toBe(1);
-    // Nor is it filed as the Architect's own report, which is a different fact.
-    expect(header.querySelector('.ar-reported')?.textContent).not.toContain('Interrupted work');
+    const header = container.querySelector('[aria-label="Project state"]')!;
+    expect((header.textContent ?? '').split('Interrupted work').length - 1).toBe(1);
   });
 
-  it('shows no header button when nothing needs the user', () => {
-    act(() => root.render(
-      <ProjectPage runtimeRunning record={FIXTURES.build!} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
-    ));
-
-    expect(container.querySelector('.ar-stateline button')).toBeNull();
-  });
-
-  it('keeps the Architect sentence complete behind a disclosure, and out of the heading', () => {
+  it('keeps the Architect report off the overview', () => {
     const record = stoppedProject();
 
     act(() => root.render(
-      <ProjectPage runtimeRunning record={record} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+      <ProjectPage runtimeRunning record={record} actions={stubActions()} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
     ));
 
-    const reported = container.querySelector('.ar-reported');
-    expect(reported?.querySelector('summary')?.textContent).toContain('What Architect reported');
-    expect(reported?.textContent).toContain(record.stateLine);
-    expect(container.querySelector('.ar-sentence')?.textContent).not.toContain(record.stateLine);
+    expect(container.textContent).not.toContain(record.stateLine);
+  });
+
+  it('leads to the work once it has started, and says which flow a charter project is on', () => {
+    const onOpenWork = vi.fn();
+    act(() => root.render(
+      <ProjectPage runtimeRunning record={FIXTURES.build!} actions={stubActions()} onOpenWork={onOpenWork} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+    ));
+    expect(container.textContent).toContain('This project uses the charter flow. The charter flow is deprecated.');
+    expect(container.textContent).toContain('budget');
+
+    act(() => button('Watch work').click());
+    expect(onOpenWork).toHaveBeenLastCalledWith('live');
+    // The build fixture has checked milestones, so Evidence is offered too.
+    act(() => button('Evidence').click());
+    expect(onOpenWork).toHaveBeenLastCalledWith('evidence');
   });
 });
 
@@ -592,7 +649,7 @@ describe('a project stopped on delegated work', () => {
   });
 
   const render = (record: ReturnType<typeof cancelledRoom>) => act(() => root.render(
-    <ProjectPage runtimeRunning record={record} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+    <ProjectPage runtimeRunning record={record} actions={stubActions()} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
   ));
 
   it('keeps the autonomy setting out of the header and in the project menu', () => {
@@ -614,21 +671,21 @@ describe('a project stopped on delegated work', () => {
 
   it('offers opening the Room and telling the Architect what to do next', () => {
     render(cancelledRoom());
-    const labels = [...container.querySelectorAll('.ar-stateline button')].map((node) => node.textContent);
-    expect(labels).toEqual(['Open Room', 'Tell Architect what to do next']);
+    const labels = [...container.querySelectorAll('[aria-label="Project state"] button')].map((node) => node.textContent);
+    expect(labels.slice(0, 2)).toEqual(['Open Room', 'Tell Architect what to do next']);
   });
 
   it('puts the cursor in the existing directive box rather than opening another', () => {
     render(cancelledRoom());
-    const tell = [...container.querySelectorAll<HTMLButtonElement>('.ar-stateline button')]
+    const tell = [...container.querySelectorAll<HTMLButtonElement>('[aria-label="Project state"] button')]
       .find((node) => node.textContent === 'Tell Architect what to do next');
-    const composers = container.querySelectorAll('textarea[aria-label="Directive"]');
+    const composers = container.querySelectorAll('textarea[aria-label="Note to Architect"]');
     expect(composers).toHaveLength(1);
 
     act(() => tell?.click());
     expect(document.activeElement).toBe(composers[0]);
     // Still one box: the control is a way in, not a second way to send.
-    expect(container.querySelectorAll('textarea[aria-label="Directive"]')).toHaveLength(1);
+    expect(container.querySelectorAll('textarea[aria-label="Note to Architect"]')).toHaveLength(1);
   });
 });
 
@@ -657,23 +714,15 @@ describe('the kinds of nothing', () => {
   });
 
   const render = (record: ProjectRecord) => act(() => root.render(
-    <ProjectPage runtimeRunning record={record} actions={stubActions()} narrow disclosures={disclosures} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+    <ProjectPage runtimeRunning record={record} actions={stubActions()} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
   ));
 
-  it('brings the section back, with its control, as soon as it holds something', () => {
+  it('shows the decision card as soon as a decision is open', () => {
     render({ ...FIXTURES.build!, decisions: [DECISION] });
-    expect(container.querySelector('#ar-needs-h')).not.toBeNull();
     expect(container.querySelector('[aria-label="Decision"]')).not.toBeNull();
-    expect(container.textContent).toContain(DECISION.question);
-  });
-
-  it('says what produces milestones once, in the section header', () => {
-    const noMilestones = { ...FIXTURES.build!, milestones: [], charter: null, research: [] };
-    render(noMilestones);
-    const text = container.textContent ?? '';
-    expect(text).toContain('the charter names them, after research');
-    expect(text).not.toContain('The charter will name the milestones.');
-    expect(text).not.toContain('none yet');
+    // The question is on its card once. The header only counts the questions.
+    expect(container.textContent?.split(DECISION.question).length).toBe(2);
+    expect(container.querySelector('[aria-label="Project state"]')?.textContent).toContain('Needs you · One question');
   });
 
   it('gives colour only to the fault, with several sections empty', () => {

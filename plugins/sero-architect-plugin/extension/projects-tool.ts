@@ -12,6 +12,7 @@ import { Type } from 'typebox';
 import { CONTROL_OPERATIONS, type ControlOperation } from '../runtime/linked-work';
 import { resolveArchitectRuntime } from '../runtime/registry';
 import type { ModelDefaultInput } from '../runtime/model-default-actions';
+import type { ProjectsActions } from '../runtime/projects-actions';
 import type { TraceQuery } from '../runtime/trace-query';
 import { AUTONOMY_SETTINGS } from '../shared/charter-shape';
 import { EXECUTION_MODES, type ExecutionMode, type ProjectRecord } from '../shared/record';
@@ -24,6 +25,10 @@ export const PROJECT_ACTIONS = [
   'history',
   'trace',
   'feedback',
+  'watch_owner',
+  'unwatch_owner',
+  'watch_room',
+  'unwatch_room',
   'create',
   'request_change',
   'enable_openspec',
@@ -81,6 +86,8 @@ export const ProjectsToolParams = Type.Object({
   detail: Type.Optional(Type.Boolean({ description: 'trace: include record metadata. Off by default, so a summary request receives no records' })),
   knownSpendUsd: Type.Optional(Type.Number({ description: 'trace: the project spend to reconcile the run total against' })),
   workflowId: Type.Optional(Type.String({ description: 'repair: existing workflow selected by the user' })),
+  roomId: Type.Optional(Type.String({ description: 'watch_room/unwatch_room: a Room this project started' })),
+  observerId: Type.Optional(Type.String({ description: 'watch_*/unwatch_*: the id of the open view that holds the watch' })),
   workId: Type.Optional(Type.String({ description: 'control: the milestone id or research id whose Room or Workflow is controlled' })),
   operation: Type.Optional(StringEnum(CONTROL_OPERATIONS, { description: 'control: pause, resume, retry or cancel' })),
   maxMinutes: Type.Optional(Type.Number({ description: 'control resume: a larger total working-time limit in minutes for a Room that used its time' })),
@@ -89,6 +96,8 @@ export const ProjectsToolParams = Type.Object({
 export interface ProjectsToolParamsShape {
   action: (typeof PROJECT_ACTIONS)[number];
   projectId?: string;
+  roomId?: string;
+  observerId?: string;
   idea?: string;
   openSpecEnabled?: boolean;
   folder?: string;
@@ -204,6 +213,11 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
       const feedback = await actions.feedback(id || undefined);
       return result(true, `${feedback.snapshots.length} work item(s) reported.`, { ...(id ? { projectId: id } : {}), feedback });
     }
+    case 'watch_owner':
+    case 'unwatch_owner':
+    case 'watch_room':
+    case 'unwatch_room':
+      return watchAction(actions, params.action, id, params.roomId ?? '', params.observerId ?? '');
     case 'trace': {
       const missing = need(id, 'projectId');
       if (missing) return result(false, missing);
@@ -378,4 +392,28 @@ export function registerProjectsTool(pi: ExtensionAPI): void {
     },
   };
   pi.registerTool(tool);
+}
+
+/**
+ * The live watch a Work view holds while it is open. It returns where the turn
+ * stands now; later changes are pushed to the view. Only a view calls these.
+ */
+async function watchAction(actions: ProjectsActions, action: string, projectId: string, roomId: string, observerId: string): Promise<ToolResult> {
+  const watch = actions.workWatch;
+  if (!watch) return result(false, 'Live watch is not available in this runtime.');
+  if (!projectId || !observerId) return result(false, `${action} needs projectId and observerId.`);
+  if (action === 'watch_owner') return result(true, 'Watching Architect.', { ownerLive: watch.watchOwner(projectId, observerId) });
+  if (action === 'unwatch_owner') {
+    watch.unwatchOwner(projectId, observerId);
+    return result(true, 'Stopped watching Architect.');
+  }
+  if (!roomId) return result(false, `${action} needs roomId.`);
+  if (action === 'unwatch_room') {
+    await watch.unwatchRoom(projectId, roomId, observerId);
+    return result(true, 'Stopped watching the Room.');
+  }
+  const members = await watch.watchRoom(projectId, roomId, observerId);
+  return members
+    ? result(true, `Watching ${members.length} member(s).`, { roomId, members })
+    : result(false, 'This Room cannot be watched from this project now.');
 }

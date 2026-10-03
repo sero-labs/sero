@@ -6,12 +6,12 @@ import { projectRecordPath } from '../lib/use-project-record';
 import { needsYouTotal, widgetMeta } from '../lib/widget-model';
 
 describe('navigation', () => {
-  it('round-trips the list, the intake dialog and a project page through host history', () => {
+  it('round-trips the list, the intake dialog, a project page and a work tab through host history', () => {
     for (const view of [
       { mode: 'list' as const },
       { mode: 'list' as const, intake: true },
       { mode: 'project' as const, projectId: 'hollow-depths' },
-      { mode: 'project' as const, projectId: 'hollow-depths', focusMilestoneId: 'm4' },
+      { mode: 'work' as const, projectId: 'hollow-depths', tab: 'live' as const },
       { mode: 'history' as const, projectId: 'hollow-depths' },
       { mode: 'models' as const, projectId: 'hollow-depths' },
       { mode: 'inspector' as const, projectId: 'hollow-depths' },
@@ -21,11 +21,14 @@ describe('navigation', () => {
     expect(parseViewId('elsewhere/1')).toBeNull();
   });
 
-  it('encodes History as its own view and a milestone focus on the project page', () => {
+  it('encodes History and each Work tab as their own views, with a milestone focus on Evidence', () => {
     expect(viewId({ mode: 'history', projectId: 'hollow-depths' })).toBe('projects/hollow-depths/history');
     expect(parseViewId('projects/hollow-depths/history')).toEqual({ mode: 'history', projectId: 'hollow-depths' });
-    expect(viewId({ mode: 'project', projectId: 'hollow-depths', focusMilestoneId: 'm4' })).toBe('projects/hollow-depths/milestone/m4');
-    expect(parseViewId('projects/hollow-depths/milestone/m4')).toEqual({ mode: 'project', projectId: 'hollow-depths', focusMilestoneId: 'm4' });
+    expect(viewId({ mode: 'work', projectId: 'hollow-depths', tab: 'evidence', focusMilestoneId: 'm4' })).toBe('projects/hollow-depths/work/evidence/m4');
+    expect(parseViewId('projects/hollow-depths/work/evidence/m4')).toEqual({ mode: 'work', projectId: 'hollow-depths', tab: 'evidence', focusMilestoneId: 'm4' });
+    expect(parseViewId('projects/hollow-depths/work/plan')).toEqual({ mode: 'work', projectId: 'hollow-depths', tab: 'plan' });
+    // A tab this build does not know opens Live instead of a blank page.
+    expect(parseViewId('projects/hollow-depths/work/other')).toEqual({ mode: 'work', projectId: 'hollow-depths', tab: 'live' });
   });
 
   it('finds the record beside the index the runtime writes', () => {

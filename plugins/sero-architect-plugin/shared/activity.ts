@@ -8,6 +8,7 @@
 // Times stay as timestamps. The index is written once and read for days, so a
 // rendered "5 days ago" inside it would freeze; the UI formats them at render.
 
+import { agreementApproved, hasAgreement } from './agreement';
 import { isLive, type ActivityState, type FeedbackSummary } from '@sero-ai/common';
 import type { Milestone, ProjectRecord } from './record';
 import { openDecisions } from './record';
@@ -118,6 +119,12 @@ export function projectActivity(
     (m) => m.dispatch?.kind === 'room' && m.status === 'running' && m.dispatch.failure,
   );
 
+  // Nothing paid starts before the user approves the start. The control that
+  // raises the approval again sits beside this line.
+  if (hasAgreement(record) && !agreementApproved(record)) {
+    return { state: 'idle', headline: 'Not started', owner: 'Access is not approved', action: 'Review access' };
+  }
+
   if (record.budget.capUsd !== null && record.budget.spentUsd >= record.budget.capUsd) {
     return {
       state: 'stopped',
@@ -197,10 +204,14 @@ export function projectActivity(
 
   if (record.paused) {
     const armed = maint?.dispatch;
+    // A pause lets the turns in flight finish. Until they do, the line says so.
+    const finishing = runtimeRunning ? feedback?.activeCount ?? 0 : 0;
     return {
       state: 'paused',
       headline: 'Paused by you',
-      owner: armed
+      owner: finishing > 0
+        ? (finishing === 1 ? '1 turn is still finishing' : `${finishing} turns are still finishing`)
+        : armed
         ? 'Maintenance Workflow paused with the project'
         : 'Nothing runs until you resume',
       ownerAt: armed?.lastRunAt,
@@ -257,11 +268,18 @@ export function projectActivity(
     if (counts.total > 0 && counts.accepted === counts.total) {
       return {
         state: 'complete',
-        headline: `${counts.accepted} of ${counts.total} milestones accepted`,
+        headline: hasAgreement(record) ? 'Delivered' : `${counts.accepted} of ${counts.total} milestones accepted`,
         owner: 'Nothing is running',
         ownerSuffix: suffix,
       };
     }
+  }
+
+  // The Architect's own turn, with nothing delegated yet. The mark is from this
+  // session, so a turn that an earlier session left open does not read as work.
+  const turnSince = record.session.workingSince;
+  if (runtimeRunning && turnSince && turnSince >= sessionStartedAt) {
+    return { state: 'working', headline: 'Architect is working', owner: 'Its turn started', ownerAt: turnSince };
   }
 
   return {

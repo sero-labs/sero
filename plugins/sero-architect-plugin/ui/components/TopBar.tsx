@@ -104,9 +104,13 @@ export interface TopBarProps {
   onNewProject(): void;
   /** Only the list supplies this; a project page has no rows to filter. */
   needsYou?: NeedsYouToggle;
+  /** A page under the project, named after it in the trail. */
+  leaf?: string;
+  /** Returns to the project overview from that page. */
+  onProject?(): void;
 }
 
-export function TopBar({ record, controls, onBack, onNewProject, needsYou }: TopBarProps) {
+export function TopBar({ record, controls, onBack, onNewProject, needsYou, leaf, onProject }: TopBarProps) {
   return (
     <div className="ar-top">
       <div className="ar-brand"><span className="ar-brand-mark"><Compass className="ar-i" /></span>Architect</div>
@@ -114,7 +118,13 @@ export function TopBar({ record, controls, onBack, onNewProject, needsYou }: Top
         <div className="ar-crumb">
           <button type="button" className="ar-back" onClick={onBack} aria-label="Back to projects"><ArrowLeft className="ar-i" />Projects</button>
           <ChevronRight className="ar-i" />
-          <span className="ar-leaf">{record.name}</span>
+          {leaf && onProject ? (
+            <>
+              <button type="button" className="ar-back" onClick={onProject}>{record.name}</button>
+              <ChevronRight className="ar-i" />
+              <span className="ar-leaf">{leaf}</span>
+            </>
+          ) : <span className="ar-leaf">{record.name}</span>}
         </div>
       )}
       <div className="ar-top-actions">

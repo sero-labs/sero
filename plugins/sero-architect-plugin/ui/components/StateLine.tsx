@@ -1,39 +1,26 @@
 import type { ReactNode } from "react";
 import type { ProjectRecord } from "../../shared/record";
-import {
-  PHASES,
-  headerSentences,
-  homeRelative,
-  money,
-  spendRatio,
-  spendTone,
-} from "../lib/format";
+import { money, spendRatio, spendTone } from "../lib/format";
 import { Button } from "@sero-ai/ui";
-import { relativeTime, sessionStartedAt, type FeedbackSummary } from "@sero-ai/common";
-import { milestoneCounts, projectActivity } from "../../shared/activity";
-import { ActivityGlyphIcon } from "./ActivityWord";
+import { sessionStartedAt, type FeedbackSummary } from "@sero-ai/common";
+import { projectActivity } from "../../shared/activity";
+import { hasAgreement } from "../../shared/agreement";
+import { needsYouItems } from "../lib/view-model";
+import { ActivityLines } from "./ActivityWord";
 
 const CIRCUMFERENCE = 2 * Math.PI * 28;
-
-type HostShell = { showItemInFolder(path: string): Promise<void> };
-
-/**
- * The host's shell bridge, when the page runs inside Sero. Despite its name,
- * `showItemInFolder` opens the folder itself in Finder (the host calls
- * `shell.openPath`), so the project folder opens rather than its parent.
- */
-function hostShell(): HostShell | undefined {
-  return (window as Window & { sero?: { shell?: HostShell } }).sero?.shell;
-}
 
 export function SpendRing({
   spentUsd,
   capUsd,
   incomplete = false,
+  capLabel = "budget",
 }: {
   spentUsd: number;
   capUsd: number | null;
   incomplete?: boolean;
+  /** What the cap is called: the start cap of an agreement, or a charter budget. */
+  capLabel?: string;
 }) {
   if (capUsd === null) {
     return (
@@ -70,7 +57,7 @@ export function SpendRing({
       </svg>
       <div className="ar-ring-num">
         <b>{money(spentUsd)}</b>
-        <span>spent of {money(capUsd)} budget</span>
+        <span>spent of {money(capUsd)} {capLabel}</span>
       </div>
     </div>
   );
@@ -84,29 +71,22 @@ export interface HeaderAction {
 }
 
 /**
- * The top of a project: the state in plain words, the same activity line the
- * list shows, and the controls that fix it beside that sentence.
+ * The top of a project: what the user asked for, what is happening now, the
+ * controls that fix it, and the ways into the work behind it.
  *
- * The controls are here because the thing that stopped the work and the thing
- * that fixes it belong together: the cap strip used to be two cards further
- * down, under a heading that said nothing needed the user. Everything offered
- * here also exists where it did before, so nothing is only reachable from the
- * header.
- *
- * The Architect's own sentence is complete under "What Architect reported". It
- * used to be the heading, which is how a paragraph the owner wrote to itself
- * became the first thing the user read.
+ * It stays this short whatever the project holds. The plan, the reports, the
+ * research and the checks are one click away in the Work view, so a long plan
+ * never makes this page longer.
  */
 export function StateLine({
   record,
-  home,
   actions,
   form,
   runtimeRunning,
   feedback,
+  links,
 }: {
   record: ProjectRecord;
-  home: string | null;
   /** What this state asks the user to do. Empty when it asks nothing. */
   actions?: readonly HeaderAction[];
   /** A control that needs a value before it can run, such as the new cap. */
@@ -115,14 +95,24 @@ export function StateLine({
   runtimeRunning: boolean;
   /** What the project's delegated work reports now. Absent on a list row. */
   feedback?: FeedbackSummary | null;
+  /** The ways into the work behind this line: the preview, Watch work, Evidence. */
+  links?: ReactNode;
 }) {
-  const current = PHASES.indexOf(record.phase);
   const unlinked = record.blockedReason?.startsWith(
     "dispatch state could not be confirmed after restart:",
   );
   const activity = projectActivity(record, { sessionStartedAt: sessionStartedAt(), runtimeRunning, feedback });
-  const lines = headerSentences(activity);
-  const counts = milestoneCounts(record);
+  const agreed = hasAgreement(record);
+  // The question is on its card right under this line, so the line counts the
+  // questions instead of printing one of them twice.
+  const questions = needsYouItems(record).filter((item) => item.kind === 'decision').length;
+  const shown = activity.state === 'waiting-for-you' && questions > 0
+    ? { ...activity, headline: questions === 1 ? 'Needs you · One question' : `Needs you · ${questions} questions` }
+    : activity;
+  // The Architect's own short sentences. They are display only: the state above
+  // them comes from the record and from what the work reports.
+  const delivered = record.overview?.result?.text;
+  const next = delivered ?? record.overview?.objective?.text;
   return (
     <section
       className="ar-stateline"
@@ -130,34 +120,25 @@ export function StateLine({
       aria-label="Project state"
     >
       <div className="ar-stateline-main">
-        <h3 className="ar-sentence">{activity.headline}</h3>
-        {/* The drawing puts a third line between the heading and this one,
-            naming the work again. The record holds that only inside the
-            headline, so the chip rides the owner sentence instead of printing
-            the same words twice. */}
-        <p className="ar-stateline-who">
-          <ActivityGlyphIcon state={activity.state} />
-          <span>{lines.owner}</span>
-        </p>
-        {/* Why the work stopped, when the record saved a cause. It used to sit
-            among the project's history entries, so the page said a Room was
-            cancelled without ever saying why. */}
-        {lines.reason && <p className="ar-stateline-why">{lines.reason}</p>}
-        {(form || (actions && actions.length > 0)) && (
-          <div className="ar-act-row">
-            {form}
-            {actions?.map((item) => (
-              <Button
-                key={item.label}
-                size="sm"
-                className={`ar-btn ar-btn-sm ${item.primary ? 'ar-btn-solid' : ''} ar-act-btn`}
-                onClick={item.run}
-              >
-                {item.label}
-              </Button>
-            ))}
-          </div>
-        )}
+        <h2 className="ar-sentence ar-goal">{record.overview?.outcome?.text ?? record.idea}</h2>
+        {!agreed && <p className="ar-limits">This project uses the charter flow. The charter flow is deprecated.</p>}
+        <ActivityLines activity={shown} />
+        {activity.reason && <p className="ar-stateline-why">{activity.reason}</p>}
+        <div className="ar-act-row">
+          {form}
+          {actions?.map((item) => (
+            <Button
+              key={item.label}
+              size="sm"
+              className={`ar-btn ar-btn-sm ${item.primary ? 'ar-btn-solid' : ''} ar-act-btn`}
+              onClick={item.run}
+            >
+              {item.label}
+            </Button>
+          ))}
+          {links}
+        </div>
+        {next && <p className="ar-next">{next}</p>}
         {record.blockedReason && unlinked && (
           <div role="alert">
             <p className="ar-why">
@@ -171,54 +152,13 @@ export function StateLine({
             </details>
           </div>
         )}
-        <div className="ar-spine" aria-hidden="true">
-          {PHASES.map((phase, index) => (
-            <div
-              key={phase}
-              className="ar-phase"
-              data-state={
-                index < current
-                  ? "done"
-                  : index === current
-                    ? "current"
-                    : "todo"
-              }
-            >
-              {index === current && record.overlay ? `${phase} · ${record.overlay}` : phase}
-            </div>
-          ))}
-        </div>
-        <div className="ar-meta">
-          <span>
-            {counts.total === 0
-              ? "no milestones yet"
-              : `${counts.accepted} of ${counts.total} milestones accepted`}
-          </span>
-          <FolderLink folder={record.folder} label={homeRelative(record.folder, home)} />
-        </div>
-        {record.stateLine && (
-          <details className="ar-reported">
-            <summary>What Architect reported, in its own words<span className="ar-when">{relativeTime(record.updatedAt)}</span></summary>
-            <p>{record.stateLine}</p>
-          </details>
-        )}
       </div>
       <SpendRing
         spentUsd={record.budget.spentUsd}
         capUsd={record.budget.capUsd}
         incomplete={record.budget.incomplete !== false}
+        capLabel={agreed ? "start cap" : "budget"}
       />
     </section>
-  );
-}
-
-/** The project folder. It opens in Finder when the host can open it. */
-function FolderLink({ folder, label }: { folder: string; label: string }) {
-  const shell = hostShell();
-  if (!shell) return <code>{label}</code>;
-  return (
-    <button type="button" className="ar-folder" title="Open in Finder" onClick={() => void shell.showItemInFolder(folder)}>
-      <code>{label}</code>
-    </button>
   );
 }

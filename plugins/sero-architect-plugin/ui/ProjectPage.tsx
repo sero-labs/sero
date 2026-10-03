@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@sero-ai/ui';
+import { ChevronRight, ExternalLink, Eye } from 'lucide-react';
 
 import { sessionStartedAt, type FeedbackSummary } from '@sero-ai/common';
 import { useProjectFeedback } from './lib/use-project-feedback';
@@ -8,17 +9,17 @@ import type { AutonomySetting, Milestone, ProjectRecord } from '../shared/record
 import type { ActionOutcome, ArchitectActions, SessionHistoryEntry } from './lib/actions';
 import { openDispatch, type Disclosures } from './lib/page-helpers';
 import { CapInput, type CapInputProps } from './components/CapInput';
-import { DirectiveComposer, Directives } from './components/Directives';
-import { MilestoneRail } from './components/MilestoneRail';
+import { DirectiveComposer } from './components/Directives';
 import { NeedsYou } from './components/NeedsYou';
-import { ProjectResearch } from './components/ProjectResearch';
 import { RepairCard } from './components/RepairCard';
-import { ProjectPreview } from './components/ProjectPreview';
+import { PreviewFrame } from './components/PreviewFrame';
+import { useProjectPreview } from './lib/use-project-preview';
+import { agreementApproved, hasAgreement } from '../shared/agreement';
+import type { WorkTab } from './lib/navigation';
 import { RetryWorkflowControl } from './components/RetryWorkflowControl';
 import { SessionHistoryDialog } from './components/SessionHistoryDialog';
 import { StateLine, type HeaderAction } from './components/StateLine';
 import { TopBar, type ProjectControls } from './components/TopBar';
-import { Quiet, SectionHead } from './components/Pill';
 
 export interface ProjectPageProps {
   permissionPending?: boolean;
@@ -26,8 +27,6 @@ export interface ProjectPageProps {
   /** Whether the Architect runtime is running in this session. */
   runtimeRunning: boolean;
   actions: ArchitectActions;
-  narrow: boolean;
-  disclosures: Disclosures;
   onBack(): void;
   /** Opens the project model defaults view. */
   onOpenModels(): void;
@@ -35,8 +34,8 @@ export interface ProjectPageProps {
   onOpenInspector(): void;
   /** Opens the project's History view. */
   onOpenHistory(): void;
-  /** The milestone whose evidence opens on arrival, from a History link. */
-  focusMilestoneId?: string;
+  /** Opens the work behind the overview, on one of its tabs. */
+  onOpenWork(tab: WorkTab): void;
   /** Called before a destructive control runs; returns false to cancel. */
   confirm(message: string): boolean;
 }
@@ -103,70 +102,6 @@ function useProjectPageControls(record: ProjectRecord, actions: ArchitectActions
   };
 }
 
-function IntakeSetup({ record, actions, permissionPending, onNotice }: {
-  record: ProjectRecord;
-  actions: ArchitectActions;
-  permissionPending: boolean;
-  onNotice(notice: string | null): void;
-}) {
-  const [settingUp, setSettingUp] = useState(false);
-  const continueSetup = async () => {
-    if (settingUp || permissionPending) return;
-    setSettingUp(true);
-    onNotice(null);
-    try {
-      const outcome = await actions.resume(record.id);
-      if (!outcome.ok) onNotice(outcome.text);
-    } catch (error) {
-      onNotice(error instanceof Error ? error.message : String(error));
-    } finally {
-      setSettingUp(false);
-    }
-  };
-  return (
-    <section>
-      <SectionHead title="Setting up" count={record.blockedReason ? 'waiting' : 'in progress'} />
-      <Quiet>{record.blockedReason ?? 'Allow the Architect to run in this workspace to start planning your project.'}</Quiet>
-      <Button className="mt-3" disabled={settingUp || permissionPending} onClick={() => void continueSetup()}>
-        {settingUp || permissionPending ? 'Waiting for permission…' : record.workspaceId ? 'Request permission' : 'Retry setup'}
-      </Button>
-    </section>
-  );
-}
-
-function ProjectMainColumn({ record, actions, needsActions, permissionPending, onNotice, focusMilestoneId }: {
-  record: ProjectRecord;
-  actions: ArchitectActions;
-  needsActions: ReturnType<typeof useProjectPageControls>['needsActions'];
-  permissionPending: boolean;
-  onNotice(notice: string | null): void;
-  focusMilestoneId?: string;
-}) {
-  const id = record.id;
-  return (
-    <div className="ar-col">
-      {record.phase === 'intake' ? (
-        <IntakeSetup record={record} actions={actions} permissionPending={permissionPending} onNotice={onNotice} />
-      ) : (
-        <>
-          <NeedsYou record={record} actions={needsActions} />
-          {record.blockedReason && record.milestones.some((item) => item.pendingDispatch) && <RepairCard projectId={id} />}
-        </>
-      )}
-      <ProjectResearch record={record} />
-      <MilestoneRail record={record} onOpenDispatch={openDispatch} focusMilestoneId={focusMilestoneId} />
-      {record.phase !== 'intake' && <ProjectPreview projectId={id} />}
-      {record.phase === 'intake' && (
-        <section>
-          <SectionHead title="Idea" count="verbatim" />
-          <div className="ar-card"><p className="ar-idea">{record.idea}</p></div>
-        </section>
-      )}
-      <Directives record={record} />
-    </div>
-  );
-}
-
 /**
  * What the header offers, and what each control runs.
  *
@@ -180,8 +115,13 @@ function useHeaderActions(
   runtimeRunning: boolean,
   focusDirective: () => void,
   feedback: FeedbackSummary | null,
+  reviewAccess: (() => void) | null,
 ): HeaderAction[] {
   const activity = projectActivity(record, { sessionStartedAt: sessionStartedAt(), runtimeRunning, feedback });
+
+  // The start approval is the host's own question. This raises it again; while
+  // it is already on screen there is nothing to press.
+  if (activity.action === 'Review access') return reviewAccess ? [{ label: 'Review access', primary: true, run: reviewAccess }] : [];
 
   // A cap is not a button: it needs a number, so the header carries the field
   // instead and this returns nothing for it.
@@ -230,7 +170,8 @@ function cappedWorkflow(record: ProjectRecord): Milestone | undefined {
 }
 
 /** The state header and the control that recovers its cap or Workflow. */
-function ProjectStateHeader({ record, actions, onNotice, headerActions, runtimeRunning, feedback }: {
+function ProjectStateHeader({ record, actions, onNotice, headerActions, runtimeRunning, feedback, links }: {
+  links: ReactNode;
   feedback: FeedbackSummary | null;
   record: ProjectRecord;
   actions: ArchitectActions;
@@ -284,16 +225,29 @@ function ProjectStateHeader({ record, actions, onNotice, headerActions, runtimeR
       />
     );
   }
-  return <StateLine record={record} home={null} actions={headerActions} form={form} runtimeRunning={runtimeRunning} feedback={feedback} />;
+  return <StateLine record={record} actions={headerActions} form={form} runtimeRunning={runtimeRunning} feedback={feedback} links={links} />;
 }
 
-export function ProjectPage({ record, actions, narrow, onBack, onOpenModels, onOpenInspector, onOpenHistory, focusMilestoneId, confirm, runtimeRunning, permissionPending = false }: ProjectPageProps) {
+export function ProjectPage({ record, actions, onBack, onOpenModels, onOpenInspector, onOpenHistory, onOpenWork, confirm, runtimeRunning, permissionPending = false }: ProjectPageProps) {
   const id = record.id;
   const page = useProjectPageControls(record, actions, onBack, confirm, onOpenModels, onOpenInspector, onOpenHistory);
   const directiveRef = useRef<HTMLTextAreaElement>(null);
   const focusDirective = useCallback(() => directiveRef.current?.focus(), []);
   const feedback = useProjectFeedback(record, actions);
-  const headerActions = useHeaderActions(record, runtimeRunning, focusDirective, feedback);
+  const headerActions = useHeaderActions(record, runtimeRunning, focusDirective, feedback, permissionPending ? null : page.controls.resume);
+  const preview = useProjectPreview(id);
+  // Before the start is approved there is no work to watch and nothing to note.
+  const started = !hasAgreement(record) ? record.phase !== 'intake' : agreementApproved(record);
+  const checked = record.milestones.some((milestone) => milestone.evidence);
+  const links = started && (
+    <>
+      <Button size="sm" variant="outline" className="ar-btn" disabled={preview.busy} onClick={() => void preview.open()}>
+        <ExternalLink className="ar-i" />{preview.busy ? 'Starting preview…' : 'Open preview'}
+      </Button>
+      <Button size="sm" variant="outline" className="ar-btn" onClick={() => onOpenWork('live')}><Eye className="ar-i" />Watch work</Button>
+      {checked && <button type="button" className="ar-btn-link" onClick={() => onOpenWork('evidence')}>Evidence<ChevronRight className="ar-i" /></button>}
+    </>
+  );
 
   return (
     <>
@@ -322,15 +276,18 @@ export function ProjectPage({ record, actions, narrow, onBack, onOpenModels, onO
             headerActions={headerActions}
             runtimeRunning={runtimeRunning}
             feedback={feedback}
+            links={links}
           />
-          <div className="ar-sections" data-narrow={narrow ? 1 : 0}>
-            <ProjectMainColumn record={record} actions={actions} needsActions={page.needsActions} permissionPending={permissionPending} onNotice={page.setNotice} focusMilestoneId={focusMilestoneId} />
-          </div>
+          {preview.error && <p role="alert" className="ar-error">{preview.error}</p>}
+          {preview.url && <PreviewFrame url={preview.url} />}
+          {started && <NeedsYou record={record} actions={page.needsActions} onOpenWork={onOpenWork} />}
+          {record.blockedReason && record.milestones.some((item) => item.pendingDispatch) && <RepairCard projectId={id} />}
         </div>
       </div>
       <div className="ar-dock">
+        {record.overview?.acknowledgement && <p className="ar-ack" role="status">{record.overview.acknowledgement.text}</p>}
         <DirectiveComposer
-          disabled={record.phase === 'intake'}
+          disabled={!started}
           inputRef={directiveRef}
           onSend={(text) => actions.directive(id, text)}
           onRequestChange={record.openSpecEnabled && record.phase === 'maintain' ? (text) => actions.requestChange(id, text) : undefined}

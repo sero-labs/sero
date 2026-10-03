@@ -24,6 +24,8 @@ export interface MilestoneRailProps {
   onOpenDispatch(link: NonNullable<RailRow['link']>): void;
   /** A milestone whose evidence scrolls into view and opens on arrival. */
   focusMilestoneId?: string;
+  /** Off where the checks have their own place, so each is shown once. */
+  showEvidence?: boolean;
 }
 
 function ResearchRuns({ record }: { record: ProjectRecord }) {
@@ -40,7 +42,7 @@ function ResearchRuns({ record }: { record: ProjectRecord }) {
   );
 }
 
-export function MilestoneRail({ record, onOpenDispatch, focusMilestoneId }: MilestoneRailProps) {
+export function MilestoneRail({ record, onOpenDispatch, focusMilestoneId, showEvidence = true }: MilestoneRailProps) {
   const rows = railRows(record);
   const focusRef = useRef<HTMLDivElement>(null);
   // Scrolling and opening the evidence are external DOM effects: the record is
@@ -75,7 +77,7 @@ export function MilestoneRail({ record, onOpenDispatch, focusMilestoneId }: Mile
               {milestone.openSpecChange && <span>OpenSpec: openspec/changes/{milestone.openSpecChange}</span>}
               {sub && <span>{sub}</span>}
               {ladder !== null && <Ladder level={ladder} />}
-              {milestone.evidence && <Evidence evidence={milestone.evidence} projectId={record.id} />}
+              {showEvidence && milestone.evidence && <Evidence evidence={milestone.evidence} projectId={record.id} />}
             </div>
             <div className="ar-ms-right">
               <span className="ar-kind">{link?.kind ?? (milestone.id === 'maintenance' ? 'workflow' : '')}</span>
