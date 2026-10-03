@@ -22,8 +22,8 @@ export const GOAL_CONTINUATION_MESSAGE_TYPE = 'goal-continuation';
 
 /**
  * Custom message type carrying one goal state change. The host intercepts this
- * type to render the chat banner, on the `memory-context` precedent; until that
- * interception exists it is still the honest record of what the goal did.
+ * type to render the chat banner; until that interception exists it is still the
+ * honest record of what the goal did.
  */
 export const GOAL_STATUS_MESSAGE_TYPE = 'goal-status';
 
