@@ -86,6 +86,27 @@ describe('a Room row', () => {
     expect(host.querySelectorAll('img')).toHaveLength(2);
   });
 
+  it('shows the same working time as the Room header, not the time since it started', () => {
+    // Started nine days ago, worked twelve minutes: the header reads 12m.
+    const worked = { ...waitingRoom(), activeMs: 12 * 60_000, activeSince: null } as RoomSummary;
+
+    act(() => {
+      root.render(<RoomsOverview rooms={[worked]} onOpenRoom={() => {}} onNew={() => {}} />);
+    });
+
+    expect(host.textContent).toContain('2 members · 12m');
+  });
+
+  it('says when the figure was recorded before working time was tracked', () => {
+    const seeded = { ...waitingRoom(), activeMs: 40 * 60_000, activeSince: null, activeSeeded: true } as RoomSummary;
+
+    act(() => {
+      root.render(<RoomsOverview rooms={[seeded]} onOpenRoom={() => {}} onNew={() => {}} />);
+    });
+
+    expect(host.textContent).toContain('40m (before tracking)');
+  });
+
   it('does not call a Room working from a saved running status alone', () => {
     const stale = { ...waitingRoom(), status: 'running', attention: undefined, attentionCount: 0 } as RoomSummary;
 

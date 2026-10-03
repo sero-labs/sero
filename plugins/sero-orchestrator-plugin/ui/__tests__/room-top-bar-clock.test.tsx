@@ -102,6 +102,14 @@ describe('RoomTopBar clock', () => {
     expect(container.querySelector('[aria-label^="Time used:"]')?.getAttribute('aria-label')).toBe('Time used: 12m');
   });
 
+  it('keeps time lost to an unexpected shutdown out of the figure and says so', async () => {
+    const room = pausedRoom();
+    await render({ ...room, runtime: { ...room.runtime, activeUncertainMs: MINUTE } });
+    const label = container.querySelector('[aria-label^="Time used:"]')?.getAttribute('aria-label');
+    expect(label).toContain('Time used: 12m.');
+    expect(label).toContain('Up to 1 min');
+  });
+
   it('offers Delete Room from the ⋯ menu, not beside the view controls, and still asks', async () => {
     const room = pausedRoom();
     const finished = { ...room, runtime: { ...room.runtime, status: 'completed' } } as PersistedRoom;

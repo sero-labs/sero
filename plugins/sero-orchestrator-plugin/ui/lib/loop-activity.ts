@@ -15,6 +15,7 @@ import {
   type ActivityDetail,
   type ActivityState,
 } from '@sero-ai/common';
+import type { FeedbackSummary } from '@sero-ai/common';
 import type { LoopSummary } from '../../shared/types';
 import { formatRelative } from './format';
 
@@ -84,8 +85,9 @@ export function armedTriggerWords(loop: LoopSummary): string | undefined {
  * a live mark. A saved active run with no mark falls to `last-known`, which is
  * the fault this change exists to fix.
  */
-export function loopActivity(loop: LoopSummary, sessionStartedAt: string): LoopActivity {
-  const live = isLive(loop.liveRun, sessionStartedAt);
+/** `feedback` is what the Workflow's steps and calls report now. */
+export function loopActivity(loop: LoopSummary, sessionStartedAt: string, feedback?: FeedbackSummary): LoopActivity {
+  const live = isLive(loop.liveRun, sessionStartedAt) || (feedback?.activeCount ?? 0) > 0;
   const ran = loop.lastRunAt ? formatRelative(loop.lastRunAt) : undefined;
 
   const steps = loop.progress;

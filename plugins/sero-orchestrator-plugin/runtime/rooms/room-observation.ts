@@ -27,10 +27,13 @@
  * capability, and it outlives the live session (D-34).
  */
 
+import { feedbackEventFromSession } from '@sero-ai/common';
 import type {
+  FeedbackProjection,
   PersistentSessionEvent,
   PersistentSessionHistoryPage,
   PersistentSessionsApi,
+  WorkFeedbackScope,
 } from '@sero-ai/common';
 
 import type { LiveToolCall, MemberLiveSnapshot } from '../../shared/room-live-types';
@@ -51,7 +54,17 @@ export type { LiveToolCall, MemberLiveSnapshot };
 export type RoomLiveListener = (event: RoomLiveEvent) => void;
 
 export interface RoomObservationDeps {
-  sessions: Pick<PersistentSessionsApi, 'subscribe' | 'readHistory'>;
+  /**
+   * `liveSnapshot` is the host's own record of the turn in flight. It is what
+   * a view opened late starts from, because this module keeps no text while
+   * nobody watches.
+   */
+  sessions: Pick<PersistentSessionsApi, 'subscribe' | 'readHistory'> & Partial<Pick<PersistentSessionsApi, 'liveSnapshot'>>;
+  /**
+   * Where each member's metadata goes: request and tool state, no text. It is
+   * fed whether or not a Watch view is open, so a list can follow the Room.
+   */
+  feedback?: { projection: FeedbackProjection; scope: Pick<WorkFeedbackScope, 'appId' | 'workspaceId'> };
   /**
    * Turn lifecycle for the scheduler. Fires for turn start, turn end and
    * compaction whether or not anybody is watching — scheduling must not depend
@@ -63,7 +76,8 @@ export interface RoomObservationDeps {
 
 export interface RoomObservation {
   /** Starts observing a live session. Called when a member's session opens. */
-  attach(roomId: string, memberId: string, handleId: string): () => void;
+  /** `who` names the member and its project for feedback. Neither is guessed when absent. */
+  attach(roomId: string, memberId: string, handleId: string, who?: { label?: string; projectId?: string }): () => void;
   /** Stops observing and drops the transient state. The session file is untouched. */
   detach(memberId: string): void;
   watchMember(memberId: string, listener: RoomLiveListener): () => void;
@@ -90,7 +104,7 @@ interface MemberChannel {
   snapshot: MemberLiveSnapshot;
 }
 
-function emptySnapshot(roomId: string, memberId: string, at: string): MemberLiveSnapshot {
+function emptySnapshot(roomId: string, memberId: string, at: string, revision: number): MemberLiveSnapshot {
   return {
     roomId,
     memberId,
@@ -101,6 +115,7 @@ function emptySnapshot(roomId: string, memberId: string, at: string): MemberLive
     lastTurnStatus: null,
     watching: false,
     updatedAt: at,
+    revision,
   };
 }
 
@@ -108,6 +123,29 @@ export function createRoomObservation(deps: RoomObservationDeps): RoomObservatio
   const channels = new Map<string, MemberChannel>();
   const memberWatchers = new Map<string, Set<RoomLiveListener>>();
   const roomWatchers = new Map<string, Set<RoomLiveListener>>();
+  // Starts from the clock, so a runtime that restarts under an open view still
+  // sorts after the snapshots that view already holds.
+  let revision = Date.parse(deps.now()) || 0;
+  const feedbackKey = (roomId: string, memberId: string): string => `member:${roomId}:${memberId}`;
+
+  /**
+   * Starts a newly watched member from the turn it is already in. The host
+   * kept that turn's text while nothing here did, so the view shows it at once
+   * instead of waiting for the next token. Nothing is replayed: this is where
+   * the turn stands now.
+   */
+  function seed(channel: MemberChannel): void {
+    const partial = deps.sessions.liveSnapshot?.(channel.handleId);
+    if (!partial?.turnId) return;
+    const { snapshot } = channel;
+    snapshot.turnId = partial.turnId;
+    snapshot.text = partial.text;
+    snapshot.truncated = partial.truncated;
+    snapshot.toolInFlight = partial.tool
+      ? { toolName: partial.tool.toolName, summary: partial.tool.summary, startedAt: partial.tool.startedAt }
+      : null;
+    snapshot.revision = ++revision;
+  }
 
   const watchersOf = (map: Map<string, Set<RoomLiveListener>>, key: string): Set<RoomLiveListener> => {
     const existing = map.get(key);
@@ -147,6 +185,7 @@ export function createRoomObservation(deps: RoomObservationDeps): RoomObservatio
     const watched = isWatched(channel.roomId, snapshot.memberId);
     snapshot.watching = watched;
     snapshot.updatedAt = deps.now();
+    snapshot.revision = ++revision;
 
     switch (event.type) {
       case 'turn_start':
@@ -184,13 +223,17 @@ export function createRoomObservation(deps: RoomObservationDeps): RoomObservatio
     const channel = channels.get(memberId);
     if (!channel) return;
     channel.unsubscribe();
+    // The session is gone without a reported end, so its feedback stops
+    // claiming contact and keeps what was last seen.
+    const key = feedbackKey(channel.roomId, memberId);
+    deps.feedback?.projection.lose((entry) => entry.key === key);
     // The snapshot goes with the session. A disposed member's last live line is
     // not its state — the UI falls back to history, which is the file.
     channels.delete(memberId);
   }
 
   return {
-    attach(roomId, memberId, handleId) {
+    attach(roomId, memberId, handleId, who) {
       const open = channels.get(memberId);
       if (open?.handleId === handleId) return () => detach(memberId);
       // A reopened session gets a new handle; the old subscription would keep
@@ -201,14 +244,25 @@ export function createRoomObservation(deps: RoomObservationDeps): RoomObservatio
         roomId,
         handleId,
         unsubscribe: () => undefined,
-        snapshot: emptySnapshot(roomId, memberId, deps.now()),
+        snapshot: emptySnapshot(roomId, memberId, deps.now(), ++revision),
       };
       channel.snapshot.watching = isWatched(roomId, memberId);
       channels.set(memberId, channel);
+      if (channel.snapshot.watching) seed(channel);
+      const producer = deps.feedback
+        ? deps.feedback.projection.open({
+          key: feedbackKey(roomId, memberId),
+          kind: 'room-member',
+          owner: who?.label ?? memberId,
+          scope: { ...deps.feedback.scope, workId: roomId, memberId, ...(who?.projectId ? { projectId: who.projectId } : {}) },
+        })
+        : null;
 
       channel.unsubscribe = deps.sessions.subscribe(handleId, (event: PersistentSessionEvent) => {
         const live: RoomLiveEvent = { ...event, roomId, memberId };
         apply(channel, live);
+        const fact = feedbackEventFromSession(event, channel.snapshot.updatedAt);
+        if (fact) producer?.observe(fact);
         if (live.type !== 'text' && live.type !== 'tool_start' && live.type !== 'tool_end') {
           deps.onLifecycle?.(live);
         }
@@ -224,7 +278,10 @@ export function createRoomObservation(deps: RoomObservationDeps): RoomObservatio
       const watchers = watchersOf(memberWatchers, memberId);
       watchers.add(listener);
       const channel = channels.get(memberId);
-      if (channel) channel.snapshot.watching = true;
+      if (channel && !channel.snapshot.watching) {
+        channel.snapshot.watching = true;
+        seed(channel);
+      }
       return () => {
         watchers.delete(listener);
         if (watchers.size === 0) memberWatchers.delete(memberId);
@@ -242,7 +299,9 @@ export function createRoomObservation(deps: RoomObservationDeps): RoomObservatio
       const watchers = watchersOf(roomWatchers, roomId);
       watchers.add(listener);
       for (const channel of channels.values()) {
-        if (channel.roomId === roomId) channel.snapshot.watching = true;
+        if (channel.roomId !== roomId || channel.snapshot.watching) continue;
+        channel.snapshot.watching = true;
+        seed(channel);
       }
       return () => {
         watchers.delete(listener);

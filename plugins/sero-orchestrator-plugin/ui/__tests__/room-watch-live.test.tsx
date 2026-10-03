@@ -53,6 +53,7 @@ function snapshot(overrides: Partial<MemberLiveSnapshot> & { memberId: string })
     lastTurnStatus: null,
     watching: true,
     updatedAt: '2026-09-10T12:00:00.000Z',
+    revision: 1,
     ...overrides,
   };
 }

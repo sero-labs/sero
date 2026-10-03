@@ -5,11 +5,13 @@
  * "Show more" (paginate, don't scroll).
  */
 
+import { useWorkActivity } from '../lib/use-work-activity';
 import { useMemo, useState } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Users } from 'lucide-react';
 import { sessionStartedAt } from '@sero-ai/common';
 import type { RoomStatus, RoomSummary } from '../../shared/room-types';
+import { activeTimeNote, elapsedActiveMs } from '../../shared/room-active-time';
 import { formatCost, formatElapsed, formatRelative } from '../lib/format';
 import { ROOM_DOT } from '../lib/list-row-status';
 import { roomActivity, type RoomActivity } from '../lib/room-activity';
@@ -40,14 +42,14 @@ interface RoomsOverviewProps {
   onNew: () => void;
 }
 
-/** `2 members · 15 min of work` — who is in it and how long they worked. */
+/** `2 members · 15m` — who is in it and how long they worked. */
 function roomWho(room: RoomSummary): string {
   const members = `${room.memberCount} member${room.memberCount === 1 ? '' : 's'}`;
-  const end = room.status === 'running' || room.status === 'completing' ? Date.now() : Date.parse(room.updatedAt);
-  // Wall-clock between its first and last report. It is not time spent working,
-  // which nothing records, so the row does not claim it is.
-  const elapsed = room.startedAt ? formatElapsed(end - Date.parse(room.startedAt)) : formatRelative(room.updatedAt);
-  return `${members} · ${elapsed}`;
+  if (!room.startedAt) return `${members} · ${formatRelative(room.updatedAt)}`;
+  // The same working time the Room header and its time limit use.
+  const note = activeTimeNote(room);
+  const elapsed = formatElapsed(elapsedActiveMs({ ...room, endedAt: null }, Date.now()));
+  return `${members} · ${elapsed}${note ? ` (${note.short})` : ''}`;
 }
 
 /** `$0.31 of $2.00` — spend alone on the right, as the drawing puts it. */
@@ -74,6 +76,8 @@ function roomLine(activity: RoomActivity): string {
 export function RoomsOverview({ rooms, onOpenRoom, onNew }: RoomsOverviewProps) {
   const [shown, setShown] = useState(PAGE);
   const session = useMemo(() => sessionStartedAt(), []);
+  // Re-read when a row's status moves. Everything between arrives as a push.
+  const work = useWorkActivity(rooms.map((entry) => `${entry.id}:${entry.status}`).join('|'));
   const sorted = useMemo(() => {
     const rank = new Map(STATUS_ORDER.map((status, i) => [status, i]));
     return rooms.toSorted((a, b) =>
@@ -86,7 +90,7 @@ export function RoomsOverview({ rooms, onOpenRoom, onNew }: RoomsOverviewProps) 
     <div className="flex flex-col">
       <SectionHead count={rooms.length}>Rooms</SectionHead>
       {sorted.slice(0, shown).map((room) => {
-        const activity = roomActivity(room, session);
+        const activity = roomActivity(room, session, work.get(room.id));
         return (
         <ListRow
           key={room.id}

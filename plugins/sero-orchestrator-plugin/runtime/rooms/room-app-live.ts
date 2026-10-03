@@ -9,26 +9,32 @@
  */
 
 import type {
+  FeedbackSnapshotReply,
   PersistentSessionContextUsage,
   PersistentSessionHistoryPage,
   PersistentSessionsApi,
 } from '@sero-ai/common';
 
 import type { MemberLiveSnapshot } from '../../shared/room-live-types';
+import type { LiveCallNotice } from '../../shared/types';
 import type { OrchestratorHost } from '../host';
 import type { RoomObservation } from './room-observation';
 import type { RoomStore } from './room-store';
 import { createMemberLiveBroadcast } from './room-live-broadcast';
 
 /**
- * How long a Watch view's retention demand outlives its last read.
+ * How long one observer's demand outlives its last read.
  *
- * A renderer that reloads or crashes cannot release its own lease, so a lease
- * is dropped once it goes quiet. Expiry is evaluated on the next read by ANY
- * panel rather than on a timer: an abandoned lease costs one capped turn buffer
- * per live member until then, which is the same bound the module already keeps.
+ * A renderer that reloads or crashes cannot release its own lease, so an
+ * observer is dropped once it goes quiet. An open view renews well inside this
+ * window. Expiry is checked on every read and on every member event, so an
+ * abandoned observer goes the next time its Room has something to send, and
+ * the runtime keeps no timer for it.
  */
-const WATCH_LEASE_MS = 5 * 60_000;
+export const WATCH_LEASE_MS = 5 * 60_000;
+
+/** The observer a caller is when it names none. One per Room, as before. */
+const SOLE_OBSERVER = 'default';
 
 export interface RoomLiveContext {
   host: OrchestratorHost;
@@ -49,9 +55,21 @@ export interface RoomLiveActions {
    * asks again whenever the Room record changes, so the view is driven by the
    * Room's own writes rather than by a timer.
    */
-  watch(roomId: string): Promise<MemberLiveSnapshot[]>;
-  /** Drops the retention demand. Called when the Watch view closes. */
-  unwatch(roomId: string): Promise<void>;
+  watch(roomId: string, observerId?: string): Promise<MemberLiveSnapshot[]>;
+  /**
+   * Ends one observer's demand. Another view on the same Room keeps its own,
+   * and the Room stops retaining text only when the last one goes. The Room
+   * itself keeps running either way.
+   */
+  unwatch(roomId: string, observerId?: string): Promise<void>;
+  /**
+   * What this workspace's work is doing now, as bounded metadata: no text and
+   * no tool payload. A list reads it without opening a watch, then follows the
+   * pushed updates.
+   */
+  feedback(): Promise<FeedbackSnapshotReply>;
+  /** The one-answer calls running now, for a view that opened after one started. */
+  liveCalls(): Promise<LiveCallNotice[]>;
   /**
    * A page of one member's own history, newest first.
    *
@@ -73,8 +91,8 @@ export interface RoomLiveActions {
 }
 
 export function createRoomLiveActions({ host, store, observation, sessions }: RoomLiveContext): RoomLiveActions {
-  /** Open Watch views, by Room. Hold the lease for as long as the view asks. */
-  const leases = new Map<string, { release: () => void; readAt: number }>();
+  /** Open Watch views, by Room, each with the observers that hold it open. */
+  const leases = new Map<string, { release: () => void; observers: Map<string, number> }>();
   // One timer per member, so a busy member's text cannot starve a quiet one's.
   const broadcast = createMemberLiveBroadcast((notice) => host.notifyRoomLive?.(notice));
 
@@ -86,35 +104,57 @@ export function createRoomLiveActions({ host, store, observation, sessions }: Ro
     if (leases.size === 0) broadcast.clear();
   }
 
-  function holdLease(roomId: string): void {
+  /** Drops the observers that stopped renewing. True when the Room still has one. */
+  function expire(roomId: string, now: number): boolean {
+    const lease = leases.get(roomId);
+    if (!lease) return false;
+    for (const [observerId, readAt] of lease.observers) {
+      if (now - readAt > WATCH_LEASE_MS) lease.observers.delete(observerId);
+    }
+    if (lease.observers.size > 0) return true;
+    releaseLease(roomId);
+    return false;
+  }
+
+  function holdLease(roomId: string, observerId: string): void {
     if (!observation) return;
     const now = Date.parse(host.now());
-    for (const [held, lease] of leases) {
-      if (held !== roomId && now - lease.readAt > WATCH_LEASE_MS) releaseLease(held);
-    }
+    for (const held of [...leases.keys()]) expire(held, now);
     const existing = leases.get(roomId);
     if (existing) {
-      existing.readAt = now;
+      existing.observers.set(observerId, now);
       return;
     }
     // While this lease is held, each member's current turn is pushed to the
     // app's own views, so a tile streams without waiting for a Room write.
     const listener = (event: { memberId: string }) => {
+      if (!expire(roomId, Date.parse(host.now()))) return;
       const snapshot = observation.snapshotMember(event.memberId);
       if (snapshot) broadcast.push(snapshot);
     };
-    leases.set(roomId, { release: observation.watchRoom(roomId, listener), readAt: now });
+    leases.set(roomId, { release: observation.watchRoom(roomId, listener), observers: new Map([[observerId, now]]) });
   }
 
   return {
-    async watch(roomId) {
+    async watch(roomId, observerId = SOLE_OBSERVER) {
       if (!observation) return [];
-      holdLease(roomId);
+      holdLease(roomId, observerId);
       return observation.snapshotRoom(roomId);
     },
 
-    async unwatch(roomId) {
-      releaseLease(roomId);
+    async unwatch(roomId, observerId = SOLE_OBSERVER) {
+      const lease = leases.get(roomId);
+      if (!lease) return;
+      lease.observers.delete(observerId);
+      if (lease.observers.size === 0) releaseLease(roomId);
+    },
+
+    async feedback() {
+      return host.feedback?.reply() ?? { epoch: '', snapshots: [] };
+    },
+
+    async liveCalls() {
+      return host.liveCalls?.() ?? [];
     },
 
     async history(roomId, memberId, options) {

@@ -179,6 +179,8 @@ export function toRoomSummary(record: RoomRecord): RoomSummary {
     usageIncomplete: record.runtime.usage.incomplete !== false || !!reportedUsage(record.runtime.planningUsage)?.incomplete,
     maxCostUsd: record.definition.envelope.maxCostUsd,
     ...(record.runtime.activeMs !== undefined ? { activeMs: record.runtime.activeMs, activeSince: record.runtime.activeSince ?? null } : {}),
+    ...(record.runtime.activeUncertainMs ? { activeUncertainMs: record.runtime.activeUncertainMs } : {}),
+    ...(record.runtime.activeSeeded ? { activeSeeded: true } : {}),
     startedAt,
     updatedAt: record.definition.updatedAt,
     problemStatement: record.definition.problemStatement,

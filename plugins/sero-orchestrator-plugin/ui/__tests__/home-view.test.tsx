@@ -23,7 +23,12 @@ vi.mock('@sero-ai/ui/components/ui/input', () => ({
   Input: (props: React.InputHTMLAttributes<HTMLInputElement>) => <input {...props} />,
 }));
 
-vi.mock('@sero-ai/app-runtime', () => ({
+vi.mock('@sero-ai/app-runtime', async () => ({
+  // The lists follow work feedback through the real hook; with no app context
+  // it subscribes to nothing and stays empty.
+  AppContext: (await vi.importActual<typeof import('@sero-ai/app-runtime')>('@sero-ai/app-runtime')).AppContext,
+  useWorkFeedback: (await vi.importActual<typeof import('@sero-ai/app-runtime')>('@sero-ai/app-runtime')).useWorkFeedback,
+  useAppTools: () => ({ run: vi.fn(async () => ({ text: '', details: null })) }),
   useAppInfo: () => ({ appId: 'orchestrator', workspaceId: 'ws-1', workspacePath: '/repos/reading-tracker-resilience-01' }),
 }));
 

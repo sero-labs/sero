@@ -35,7 +35,7 @@ import { ArrowLeft, MessageSquare, MoreHorizontal, Trash2 } from 'lucide-react';
 import { openSeroApp } from '@sero-ai/app-runtime';
 import { ARCHITECT_APP_ID } from '@sero-ai/common';
 import { TERMINAL_ROOM_STATUSES, type PersistedRoom, type RoomStatus } from '../../shared/room-types';
-import { elapsedActiveMs } from '../../shared/room-active-time';
+import { activeTimeNote, elapsedActiveMs } from '../../shared/room-active-time';
 import { roomControls, type RoomControls } from '../lib/room-controls';
 import type { RoomView } from '../lib/room-view';
 import { ROOM_STATUS_STYLE } from '../lib/status-style';
@@ -115,6 +115,7 @@ export function RoomTopBar({
   const { runtime, definition } = room;
   const project = definition.projectContext?.projectName ? definition.projectContext : null;
   const elapsedMs = runtime.startedAt ? elapsedActiveMs(runtime, Date.now()) : 0;
+  const timeNote = activeTimeNote(runtime);
   const running = runtime.status === 'running';
   const finished = TERMINAL_ROOM_STATUSES.includes(runtime.status);
 
@@ -148,7 +149,11 @@ export function RoomTopBar({
       <span aria-hidden className="h-[18px] w-px shrink-0 bg-room-line @max-[820px]/panel:hidden" />
 
       <Meter
-        value={<span aria-label={`Time used: ${formatElapsed(elapsedMs)}`}>{formatElapsed(elapsedMs)}</span>}
+        value={
+          <span aria-label={`Time used: ${formatElapsed(elapsedMs)}${timeNote ? `. ${timeNote.full}` : ''}`} title={timeNote?.full}>
+            {formatElapsed(elapsedMs)}{timeNote ? ` (${timeNote.short})` : ''}
+          </span>
+        }
         of={formatDuration(definition.envelope.maxWallClockMs)}
         pct={(elapsedMs / definition.envelope.maxWallClockMs) * 100}
         className="@max-[820px]/panel:hidden"

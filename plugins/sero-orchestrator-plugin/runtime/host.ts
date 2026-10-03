@@ -32,7 +32,8 @@ import type {
   CatalogRepoContents,
   CatalogRepoRef,
 } from '../shared/catalog-types';
-import type { LibraryEntry, LibraryIndex, LibraryVersion, LiveCallUpdate, OrchestratorState } from '../shared/types';
+import type { FeedbackProjection, WorkFeedbackInit, WorkFeedbackScope } from '@sero-ai/common';
+import type { LibraryEntry, LibraryIndex, LibraryVersion, LiveCallNotice, LiveCallUpdate, OrchestratorState } from '../shared/types';
 import type { RoomMemberLiveNotice } from '../shared/room-live-types';
 
 export interface ActiveSessionInfo {
@@ -112,7 +113,15 @@ export interface ModelRunParams {
    * run's live output before it ends.
    */
   onObservation?: (record: ObservationRecord) => void;
+  /**
+   * Names this run for the feedback lists and overviews read. The host fills in
+   * the app and the workspace. Without it the run reports no feedback.
+   */
+  feedback?: RunFeedbackInit;
 }
+
+/** What a caller says about its run: who works, on what, and under which identities. */
+export type RunFeedbackInit = Omit<WorkFeedbackInit, 'scope'> & { scope?: Omit<WorkFeedbackScope, 'appId' | 'workspaceId'> };
 
 export interface ModelRunUsage {
   incomplete?: boolean;
@@ -206,10 +215,21 @@ export interface OrchestratorHost {
    */
   notifyLiveCall?(update: LiveCallUpdate): void;
   /**
+   * The one-answer calls running now. A view that opens after a call started
+   * reads this once, because the start was announced before it listened.
+   */
+  liveCalls?(): LiveCallNotice[];
+  /**
    * Push one member's live turn to this app's own views while a Watch view
    * holds a lease. Nothing is persisted, and callers push only while watched.
    */
   notifyRoomLive?(notice: RoomMemberLiveNotice): void;
+  /**
+   * What this workspace's work is doing now, as bounded metadata. Kept in
+   * memory for the life of the runtime and pushed to the app's views on every
+   * change. Optional so a host without it still runs.
+   */
+  feedback?: FeedbackProjection;
 
   // ── State persistence (authoritative state file) ──────────
   readState(): Promise<OrchestratorState | null>;

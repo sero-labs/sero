@@ -560,3 +560,22 @@ describe('a step attempt follows its worker run', () => {
     expect(attempt.workerRunId).toBe('run-1');
   });
 });
+
+describe('a step attempt reports feedback under its own identity', () => {
+  it('names the Workflow, the run and the attempt, so parallel attempts stay apart', async () => {
+    const host = createFakeHost();
+    const loop = seedActiveLoop(host, oneStepPlan().plan);
+    host.modelResponses.push({ response: outcome({ status: 'succeeded', summary: 'done' }) });
+
+    const attempt = await modelExecutor.run(inputFor(host, loop, 'step-1'));
+
+    const feedback = host.modelCalls[0].feedback;
+    expect(feedback).toMatchObject({
+      key: `attempt:${attempt.id}`,
+      kind: 'workflow-attempt',
+      scope: { workId: loop.id, attemptId: attempt.id },
+    });
+    // The subject is the step's title, set by the runtime, not text an agent wrote.
+    expect(feedback?.subject).toBe(loop.plan?.steps[0].title);
+  });
+});

@@ -26,10 +26,14 @@ interface StubObservation {
   /** Rooms whose demand was released, in order. */
   released: string[];
   historyReads: { grantId: string; memberId: string }[];
+  /** Sends a member event to the Room's lease, as the observation would. */
+  memberEvent(roomId: string): void;
 }
 
 function stubObservation(): StubObservation {
+  const listeners = new Map<string, () => void>();
   const stub: StubObservation = {
+    memberEvent: (roomId) => listeners.get(roomId)?.(),
     watched: [],
     released: [],
     historyReads: [],
@@ -37,9 +41,10 @@ function stubObservation(): StubObservation {
       attach: () => () => undefined,
       detach: () => undefined,
       watchMember: () => () => undefined,
-      watchRoom(roomId) {
+      watchRoom(roomId, listener) {
         stub.watched.push(roomId);
-        return () => stub.released.push(roomId);
+        listeners.set(roomId, () => listener({ type: 'text', text: 'x', roomId, memberId: 'lead' }));
+        return () => { listeners.delete(roomId); stub.released.push(roomId); };
       },
       snapshotMember: () => null,
       snapshotRoom: (roomId) => [
@@ -53,6 +58,7 @@ function stubObservation(): StubObservation {
           lastTurnStatus: null,
           watching: true,
           updatedAt: '2026-01-01T00:00:00.000Z',
+          revision: 1,
         },
       ],
       async readMemberHistory(grantId, memberId) {
@@ -131,6 +137,48 @@ describe('watching a Room', () => {
 
     expect(stub.released).toEqual([first]);
     expect(stub.watched).toEqual([first, second]);
+  });
+
+  it('keeps a Room watched for the second view when the first one closes', async () => {
+    const roomId = await grantedRoom();
+    await app.watch(roomId, 'view-a');
+    await app.watch(roomId, 'view-b');
+    expect(stub.watched).toEqual([roomId]);
+
+    await app.unwatch(roomId, 'view-a');
+    expect(stub.released).toEqual([]);
+
+    await app.unwatch(roomId, 'view-b');
+    expect(stub.released).toEqual([roomId]);
+  });
+
+  it('drops an abandoned view when its Room next reports, with no other read', async () => {
+    const roomId = await grantedRoom();
+    await app.watch(roomId, 'view-a');
+
+    host.clockMs += 4 * 60_000;
+    stub.memberEvent(roomId);
+    expect(stub.released).toEqual([]);
+
+    host.clockMs += 2 * 60_000;
+    stub.memberEvent(roomId);
+    expect(stub.released).toEqual([roomId]);
+  });
+
+  it('keeps a view that renews and drops only the one that stopped', async () => {
+    const roomId = await grantedRoom();
+    await app.watch(roomId, 'abandoned');
+    await app.watch(roomId, 'open');
+
+    host.clockMs += 4 * 60_000;
+    await app.watch(roomId, 'open');
+    host.clockMs += 2 * 60_000;
+    stub.memberEvent(roomId);
+    expect(stub.released).toEqual([]);
+
+    // Only the renewing view is left, so its close releases the Room.
+    await app.unwatch(roomId, 'open');
+    expect(stub.released).toEqual([roomId]);
   });
 
   it('answers with nothing rather than failing when the host cannot observe', async () => {

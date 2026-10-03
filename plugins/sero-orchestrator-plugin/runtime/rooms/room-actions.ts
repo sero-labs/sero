@@ -33,6 +33,8 @@ export interface CreateRoomRequest {
   problemStatement: string;
   /** Project/run attribution from a typed dispatch handle. Retention only. */
   project?: import('@sero-ai/common').OrchestratorProjectContext;
+  /** A host-stored approval the Room names when it asks for its grant. */
+  delegationPolicyId?: string;
   /** Already planned, validated and clamped (planner.ts / adjust.ts). */
   blueprint: RoomBlueprint;
   /** Computed from the same blueprint. Never planner-authored. */
@@ -68,6 +70,7 @@ export function buildRoomRecord(host: OrchestratorHost, request: CreateRoomReque
       title: request.blueprint.title,
       ...(request.requestId ? { creationRequestId: request.requestId } : {}),
       ...(request.project ? { projectContext: request.project } : {}),
+      ...(request.delegationPolicyId ? { delegationPolicyId: request.delegationPolicyId } : {}),
       problemStatement: request.problemStatement,
       blueprint: request.blueprint,
       proposal: request.proposal,

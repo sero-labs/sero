@@ -27,6 +27,7 @@ function snapshot(memberId: string, text: string): MemberLiveSnapshot {
     lastTurnStatus: null,
     watching: true,
     updatedAt: '2026-09-10T12:00:00.000Z',
+    revision: 1,
   };
 }
 

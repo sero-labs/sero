@@ -8,7 +8,7 @@
  * session tools gets an id back, or the reason there is none.
  */
 
-import type { OrchestratorRoomCreateRequest, OrchestratorRoomCreateResult, OrchestratorRoomHandle } from '@sero-ai/common';
+import type { OrchestratorRoomControlResult, OrchestratorRoomCreateRequest, OrchestratorRoomCreateResult, OrchestratorRoomHandle } from '@sero-ai/common';
 import type { RoomAppActions } from './room-app-actions';
 
 /** A pending Room create, keyed by requestId, alongside what it was asked for. */
@@ -17,10 +17,20 @@ interface PendingRoomCreate {
   fingerprint: { mandate: string; projectId?: string; runId?: string };
 }
 
-export function createRoomDispatchHandle(app: Pick<RoomAppActions, 'prepare' | 'start' | 'inspect'>): OrchestratorRoomHandle {
+type ControlOutcome = { ok: true } | { ok: false; error: string };
+
+export function createRoomDispatchHandle(app: Pick<RoomAppActions, 'prepare' | 'start' | 'inspect' | 'pause' | 'resume' | 'cancel'> & Partial<Pick<RoomAppActions, 'feedback'>>): OrchestratorRoomHandle {
   const pending = new Map<string, PendingRoomCreate>();
+  // The status is read back after the action, so the caller is told what the
+  // Room is now, not what it was asked to become.
+  const control = async (roomId: string, act: () => Promise<ControlOutcome>): Promise<OrchestratorRoomControlResult> => {
+    const outcome = await act();
+    const status = (await app.inspect(roomId))?.status ?? null;
+    if (!outcome.ok) return { ok: false, error: outcome.error, status };
+    return status ? { ok: true, status } : { ok: false, error: `Room not found: ${roomId}`, status: null };
+  };
   const create = async (request: OrchestratorRoomCreateRequest): Promise<OrchestratorRoomCreateResult> => {
-      const planned = await app.prepare({ problem: request.mandate, limits: request.limits, requestId: request.requestId, project: request.project });
+      const planned = await app.prepare({ problem: request.mandate, limits: request.limits, requestId: request.requestId, project: request.project, delegationPolicyId: request.delegationPolicyId });
       if (!planned.ok) {
         if (planned.needsInput) {
           const questions = planned.questions.map((question) => question.prompt);
@@ -37,6 +47,10 @@ export function createRoomDispatchHandle(app: Pick<RoomAppActions, 'prepare' | '
   };
   return {
     inspect: (roomId) => app.inspect(roomId),
+    ...(app.feedback ? { feedback: () => app.feedback!() } : {}),
+    pause: (roomId) => control(roomId, () => app.pause(roomId)),
+    resume: (roomId, options) => control(roomId, () => app.resume(roomId, options?.maxWallClockMs)),
+    cancel: (roomId) => control(roomId, () => app.cancel(roomId)),
     create(request) {
       if (!request.requestId) return create(request);
       const key = request.requestId;

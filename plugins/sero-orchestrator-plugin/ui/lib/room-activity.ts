@@ -12,6 +12,7 @@ import {
   isLive,
   type ActivityDetail,
   type ActivityState,
+  type FeedbackSummary,
 } from '@sero-ai/common';
 import type { RoomSummary } from '../../shared/room-types';
 import { formatRelative } from './format';
@@ -47,7 +48,8 @@ function askedOf(room: RoomSummary): { action: string; at?: string } | undefined
   return undefined;
 }
 
-export function roomActivity(room: RoomSummary, sessionStartedAt: string): RoomActivity {
+/** `feedback` is what the Room's members report now. A member in a turn is observed work. */
+export function roomActivity(room: RoomSummary, sessionStartedAt: string, feedback?: FeedbackSummary): RoomActivity {
   const resolve = (state: ActivityState, detail: ActivityDetail = {}, waitingFor?: string, action?: string): RoomActivity => {
     const nextStep = activityNextStep(state, detail);
     if (nextStep === null) {
@@ -80,7 +82,7 @@ export function roomActivity(room: RoomSummary, sessionStartedAt: string): RoomA
     return resolve('waiting-for-you', { action: asked.action }, asked.at ? formatRelative(asked.at) : undefined, asked.action);
   }
   if (room.status === 'paused' || room.status === 'pausing') return resolve('paused');
-  if (isLive(room.liveRun, sessionStartedAt)) return resolve('working');
+  if (isLive(room.liveRun, sessionStartedAt) || (feedback?.activeCount ?? 0) > 0) return resolve('working');
   if (room.status === 'running' || room.status === 'starting' || room.status === 'completing') {
     return resolve('last-known', { lastReport: formatRelative(room.updatedAt) });
   }

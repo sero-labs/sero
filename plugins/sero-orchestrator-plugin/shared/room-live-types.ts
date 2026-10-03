@@ -41,4 +41,10 @@ export interface MemberLiveSnapshot {
   /** Whether text is being retained right now, so the UI never shows a stale line as live. */
   watching: boolean;
   updatedAt: string;
+  /**
+   * Counts up with every change in this runtime, across members. A view keeps
+   * the higher one, so a reply that arrives after a newer push cannot roll the
+   * tile back to an earlier turn.
+   */
+  revision: number;
 }

@@ -6,6 +6,7 @@
  * own page, so nothing here says "Select a Workflow from the list."
  */
 
+import { useWorkActivity } from '../lib/use-work-activity';
 import { useMemo, useState } from 'react';
 import { Button } from '@sero-ai/ui/components/ui/button';
 import { Input } from '@sero-ai/ui/components/ui/input';
@@ -68,6 +69,8 @@ export function WorkflowsList({
 }: WorkflowsListProps) {
   const [shown, setShown] = useState(PAGE);
   const session = useMemo(() => sessionStartedAt(), []);
+  // Re-read when a row's status moves. Everything between arrives as a push.
+  const work = useWorkActivity(loops.map((entry) => `${entry.id}:${entry.status}`).join('|'));
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -103,7 +106,7 @@ export function WorkflowsList({
           </p>
         )}
         {visible.map((loop) => {
-          const activity = loopActivity(loop, session);
+          const activity = loopActivity(loop, session, work.get(loop.id));
           const ask = rowAsk(loop);
           return (
             <ListRow

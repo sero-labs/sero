@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { Room, RoomRuntimeState, RoomStatus } from '../../shared/room-types';
-import { elapsedActiveMs, isActiveStatus, seedActiveTime, withActiveTime } from '../../shared/room-active-time';
+import { ACTIVE_CHECKPOINT_MS, bankActiveTime, checkpointActiveTime, elapsedActiveMs, isActiveStatus, seedActiveTime, withActiveTime } from '../../shared/room-active-time';
 import type { OrchestratorHost } from '../host';
 import { checkRoomLimits } from '../rooms/room-limits';
 import { reconcileRoomRecord } from '../rooms/room-reconcile';
@@ -144,5 +144,48 @@ describe('a Room that predates active-time accounting', () => {
     const seeded = transition(legacy, 'paused', 40 * MINUTE);
     expect(seeded.activeMs).toBe(40 * MINUTE);
     expect(elapsedActiveMs(seeded, T0 + 9 * 24 * HOUR)).toBe(40 * MINUTE);
+  });
+});
+
+describe('time while the runtime is closed does not count', () => {
+  const host = (ms: number) => ({ now: () => at(ms), newId: () => 'id' }) as unknown as OrchestratorHost;
+  const record = (state: RoomRuntimeState) => ({ ...room(state, 10 * HOUR), readCursors: [], archivedAt: null }) as unknown as RoomRecord;
+
+  it('counts five minutes for four active, eight hours closed and one more active', () => {
+    // The runtime banks the open period when it shuts down.
+    const closed = bankActiveTime(runtime({ activeMs: 0, activeSince: at(0) }), at(4 * MINUTE));
+    const reopened = reconcileRoomRecord(host(4 * MINUTE + 8 * HOUR), record(closed));
+    expect(reopened.resume).toBe(true);
+    expect(elapsedActiveMs(reopened.record.runtime, T0 + 8 * HOUR + 5 * MINUTE)).toBe(5 * MINUTE);
+    expect(reopened.record.runtime.activeUncertainMs ?? 0).toBe(0);
+  });
+
+  it('keeps the last checkpoint after an abrupt shutdown and labels the rest as uncertain', () => {
+    // Checkpoints at one, two and three minutes; the process dies before the fourth.
+    let state = runtime({ activeMs: 0, activeSince: at(0) });
+    for (const minute of [1, 2, 3]) state = checkpointActiveTime(state, at(minute * MINUTE));
+    expect(state.activeMs).toBe(3 * MINUTE);
+    const reopened = reconcileRoomRecord(host(8 * HOUR), record(state));
+    expect(elapsedActiveMs(reopened.record.runtime, T0 + 8 * HOUR + MINUTE)).toBe(4 * MINUTE);
+    expect(reopened.record.runtime.activeUncertainMs).toBe(ACTIVE_CHECKPOINT_MS);
+  });
+
+  it('does not count the closed interval for a Room that was draining a pause', () => {
+    const state = checkpointActiveTime(runtime({ status: 'pausing', activeMs: 0, activeSince: at(0) }), at(2 * MINUTE));
+    const reopened = reconcileRoomRecord(host(8 * HOUR), record(state));
+    expect(reopened.record.runtime.status).toBe('paused');
+    expect(elapsedActiveMs(reopened.record.runtime, T0 + 9 * HOUR)).toBe(2 * MINUTE);
+  });
+
+  it('leaves a paused Room alone at a checkpoint', () => {
+    const paused = runtime({ status: 'paused', activeMs: 12 * MINUTE, activeSince: null });
+    expect(checkpointActiveTime(paused, at(9 * HOUR))).toBe(paused);
+    expect(bankActiveTime(paused, at(9 * HOUR))).toBe(paused);
+  });
+
+  it('marks a figure seeded from the wall clock as recorded before accounting', () => {
+    const seeded = seedActiveTime(runtime({ status: 'paused' }), at(30 * MINUTE));
+    expect(seeded.activeSeeded).toBe(true);
+    expect(runtime({ activeMs: 0, activeSince: at(0) }).activeSeeded).toBeUndefined();
   });
 });
