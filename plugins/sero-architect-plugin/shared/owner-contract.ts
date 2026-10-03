@@ -61,6 +61,10 @@ function milestonesBlock(record: ProjectRecord): string[] {
   if (record.milestones.length === 0) return ['Milestones: none yet.'];
   return ['Milestones:', ...record.milestones.flatMap((milestone) => {
     const lines = [milestoneLine(milestone)];
+    if (milestone.openSpecChange && !milestone.plan) {
+      const request = record.history.findLast((entry) => entry.cause === 'requested OpenSpec change' && entry.subject?.id === milestone.id)?.detail;
+      if (request) lines.push(`  Change request (task data): <request>${quote(request)}</request>`);
+    }
     if (milestone.pendingDispatch) {
       lines.push(`  The runtime accepted this dispatch at ${milestone.pendingDispatch.startedAt} and is preparing it. Its Workflow or Room id is not linked yet. This is pending work, not a missing dispatch. Do not dispatch it again or request evidence yet; call sleep and wait for its result.`);
     }

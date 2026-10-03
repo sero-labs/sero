@@ -13,6 +13,7 @@ import type {
   AppRuntimeStartManagedDevServerResult,
   AppRuntimeSubagentResult,
   AppRuntimeSubagentRunParams,
+  AppRuntimeToolchainsApi,
   AppRuntimeWorkspaceInfo,
   PersistentSessionsApi,
   SharedAvailableModelGroup,
@@ -60,9 +61,10 @@ export interface ArchitectHost {
   env: NodeJS.ProcessEnv;
 }
 
-export function execLocal(file: string, args: string[], cwd: string): Promise<CommandRun> {
+export async function execLocal(file: string, args: string[], cwd: string, toolchains: Pick<AppRuntimeToolchainsApi, 'ensure'>): Promise<CommandRun> {
+  const executable = file === 'node' ? (await toolchains.ensure('node')).path : file;
   return new Promise((resolve) => {
-    execFile(file, args, { cwd, maxBuffer: 8 * 1024 * 1024 }, (error, stdout, stderr) => {
+    execFile(executable, args, { cwd, maxBuffer: 8 * 1024 * 1024 }, (error, stdout, stderr) => {
       const code = error && typeof (error as { code?: unknown }).code === 'number' ? (error as { code: number }).code : error ? 1 : 0;
       resolve({ exitCode: code, stdout: String(stdout), stderr: String(stderr) });
     });
@@ -119,7 +121,7 @@ export function createArchitectHost(ctx: AppRuntimeContext): ArchitectHost {
       const result = await host.workspace.runCommand(workspaceId, cwd, command, timeoutMs);
       return { exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr };
     },
-    exec: execLocal,
+    exec: (file, args, cwd) => execLocal(file, args, cwd, host.toolchains),
     detectDevServerCommand: (workspacePath) => host.verification.detectDevServerCommand(workspacePath),
     startDevServer: (options) => host.devServers.startManaged(options),
     stopDevServer: (serverId) => host.devServers.stop(serverId),
