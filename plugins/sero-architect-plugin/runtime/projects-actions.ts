@@ -6,14 +6,17 @@
  */
 
 import { chooseOwnerModel } from './owner-session';
-import { type ModelTier, type PersistentSessionHistoryPage, type SharedModelTierSettings } from '@sero-ai/common';
+import { type FeedbackSnapshotReply, type ModelTier, type PersistentSessionHistoryPage, type SharedModelTierSettings } from '@sero-ai/common';
+import { readAllProjectFeedback, readProjectFeedback } from './project-feedback';
 
 import { advancePhase, approveCharter, block, pause, resume, setAutonomy, setCap, settle, unblock } from '../shared/lifecycle';
+import { agreementApproved, delegationPolicyId, hasAgreement } from '../shared/agreement';
 import { activityOptions } from './session-state';
 import { createProjectRecord, toIndexEntry, type AutonomySetting, type ExecutionMode, type DecisionProposal, type Milestone, type ProjectRecord } from '../shared/record';
 import type { CreateProjectInput } from '../shared/create-project';
 import { resolveIntakePlacement } from './intake-placement';
-import { createWorkspaceClaim } from './workspace-claim';
+import { createIntake } from './intake';
+import { controlLinkedWork, holdProjectWork, releaseProjectWork, type ControlOperation, type LinkedWorkDeps } from './linked-work';
 import type { DispatchDestination } from '../shared/owner-actions';
 import { disarmMaintenance, rearmMaintenance } from './maintenance-arming';
 import type { RepairOutcome } from './repair-dispatch';
@@ -31,7 +34,6 @@ import type { RunJournal } from './run-journal';
 import { queryLifetime, type LifetimeAnswer } from './trace-lifetime';
 import { queryTrace, type TraceAnswer, type TraceQuery } from './trace-query';
 import { closeActiveRun, ensureInitialRun } from './run-lifecycle';
-import { ensureOpenSpec } from './openspec';
 import { createRequestChangeAction } from './request-change';
 import { createEnableOpenSpecAction } from './enable-openspec';
 import { closeDeliveredObjectives } from './objective-completion';
@@ -71,6 +73,8 @@ export interface ProjectsActions {
    * page showing a summary never receives records it did not request.
    */
   trace(projectId: string, query?: Omit<TraceQuery, 'projectId'>): Promise<TraceAnswer | null>;
+  /** What the project's own and linked work is doing now. Metadata only. */
+  feedback(projectId?: string): Promise<FeedbackSnapshotReply>;
   /** Project-lifetime totals: each run's summary and the shared activity, with no detail pages. */
   lifetime(projectId: string, knownSpendUsd?: number): Promise<LifetimeAnswer | null>;
   create(input: CreateProjectInput): Promise<ProjectsOutcome>;
@@ -80,6 +84,8 @@ export interface ProjectsActions {
   resume(projectId: string): Promise<ProjectsOutcome>;
   retry(projectId: string, milestoneId: string, maxCostUsd?: number): Promise<ProjectsOutcome>;
   stop(projectId: string): Promise<ProjectsOutcome>;
+  /** Pauses, resumes, retries or cancels a Room or Workflow this project started. */
+  control(projectId: string, target: string, operation: ControlOperation, limits?: { maxMinutes?: number; maxCostUsd?: number }): Promise<ProjectsOutcome>;
   raiseCap(projectId: string, capUsd: number): Promise<ProjectsOutcome>;
   setExecutionMode(projectId: string, mode: ExecutionMode): Promise<ProjectsOutcome>;
   setAutonomy(projectId: string, autonomy: AutonomySetting): Promise<ProjectsOutcome>;
@@ -99,71 +105,12 @@ const ok = (text: string, projectId?: string): ProjectsOutcome => ({ ok: true, t
 const refuse = (text: string): ProjectsOutcome => ({ ok: false, text });
 export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsActions {
   const { host, store, sessions, scheduler, watch, services } = deps;
-  const claimWorkspace = createWorkspaceClaim(host, store);
-
-
-  /**
-   * Intake, re-entrant: does whatever the record still lacks (workspace, grant,
-   * phase) and nothing it already has, so create, resume and a restart all take
-   * the same path and an interruption is never permanent.
-   */
-  const advanceIntake = async (start: ProjectRecord, requestPermission = true): Promise<{ ok: true; record: ProjectRecord } | { ok: false; error: string }> => {
-    let record = start;
-    if (!record.workspaceId) {
-      try {
-        record = await claimWorkspace(record.id);
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : String(error);
-        await store.update(record.id, (fresh) => {
-          const blocked = block(fresh, host.now(), `the workspace could not be created: ${reason}`);
-          return blocked.ok ? blocked.record : null;
-        });
-        return { ok: false, error: reason };
-      }
-    }
-    try {
-      const init = await host.exec('git', ['init'], record.folder);
-      if (init.exitCode !== 0) throw new Error(`git init failed: ${init.stderr.trim() || init.stdout.trim()}`);
-      if (record.openSpecEnabled) await ensureOpenSpec(host, record.folder);
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      await store.update(record.id, (fresh) => {
-        const blocked = block(fresh, host.now(), reason);
-        return blocked.ok ? { ...blocked.record, stateLine: 'Project setup failed. Retry to continue.' } : null;
-      });
-      return { ok: false, error: reason };
-    }
-    if (!requestPermission) return { ok: true, record };
-    if (!record.session.grantId) {
-      record = await sessions.requestGrant(record);
-      if (record.blockedReason) return { ok: true, record };
-    }
-    if (record.phase === 'intake') {
-      let failure = '';
-      const advanced = await store.update(record.id, (fresh) => {
-        const result = advancePhase({ ...fresh, stateLine: 'Discovering the project.' }, 'discovery', host.now(), 'workspace registered and owner grant approved');
-        if (result.ok) return result.record;
-        failure = result.error;
-        return null;
-      });
-      if (!advanced) return { ok: false, error: failure || `No project ${record.id}.` };
-      record = advanced;
-      // The initial run covers setup through initial delivery, so it opens before
-      // discovery's first model call. Idempotent: a re-entered discovery keeps it.
-      if (deps.journal) {
-        await ensureInitialRun({ store, journal: deps.journal }, record.id, host.now()).catch((error: unknown) => {
-          host.log(`could not open the initial run for ${record.id}: ${error instanceof Error ? error.message : String(error)}`);
-        });
-      }
-    }
-    await watch.track(record);
-    scheduler.request(record.id, { kind: 'quiet', at: host.now(), items: ['intake finished; discovery starts'] });
-    return { ok: true, record };
-  };
+  const advanceIntake = createIntake({ host, store, sessions, scheduler, watch, journal: deps.journal });
 
   const read = async (projectId: string): Promise<ProjectRecord | null> => store.read(projectId);
 
   const recovery = { host, store, services, watch };
+  const linked: LinkedWorkDeps = { store, retryWorkflow: (projectId, milestoneId, maxCostUsd) => retryMilestone(recovery, projectId, milestoneId, maxCostUsd) };
 
   return {
     async list() {
@@ -171,6 +118,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
     },
 
     show: read,
+    feedback: (projectId) => projectId ? readProjectFeedback(deps, projectId) : readAllProjectFeedback(deps),
 
     preview: (projectId) => previewProject(recovery, projectId),
     repair: (projectId, workflowId) => repairProject(recovery, projectId, workflowId),
@@ -204,11 +152,12 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       const idea = input.idea.trim();
       if (!idea) return refuse('The idea is required.');
       if (input.openSpecEnabled && input.executionMode === 'worktree') return refuse('The OpenSpec proof of concept requires Workspace execution.');
+      if (input.capUsd !== undefined && !(Number.isFinite(input.capUsd) && input.capUsd > 0)) return refuse('The start cap must be a positive amount in USD.');
       const resolved = await resolveIntakePlacement(input, { host, store });
       if (!resolved.ok) return refuse(resolved.error);
       const { name, folder, workspaceId } = resolved.placement;
 
-      let record = createProjectRecord({ id: host.newId('proj'), name, idea, folder, workspaceId, executionMode: input.executionMode, openSpecEnabled: input.openSpecEnabled, now: host.now() });
+      let record = createProjectRecord({ id: host.newId('proj'), name, idea, folder, workspaceId, executionMode: input.executionMode, openSpecEnabled: input.openSpecEnabled, capUsd: input.capUsd, now: host.now() });
       // Overrides chosen at intake are checked against the catalogue the same
       // way a later change is, so the first wake never resolves a model that
       // does not exist.
@@ -256,6 +205,12 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       // Pausing the project pauses what it runs on a trigger. Work already in
       // flight is left alone, which is what pause has always promised.
       const disarmed = await disarmMaintenance(store, paused.record);
+      // Under an agreement the pause reaches the Rooms the project started.
+      // A project on the charter flow keeps its owner-only pause.
+      if (hasAgreement(paused.record)) {
+        const held = await holdProjectWork(linked, paused.record);
+        return ok(`Project ${projectId} paused. No new work starts until resume.${held.note}${disarmed.note}`);
+      }
       return ok(`Project ${projectId} paused. Running work continues; the owner is not woken until resume.${disarmed.note}`);
     },
 
@@ -280,6 +235,12 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       });
       if (!resumed.ok) return refuse(resumed.error);
       const rearmed = await rearmMaintenance(store, resumed.record);
+      if (hasAgreement(resumed.record)) {
+        // Results that landed while the project was stopped are read first, so
+        // a Room that finished is not resumed.
+        await watch.flush();
+        rearmed.note += (await releaseProjectWork(linked, (await store.read(projectId)) ?? resumed.record)).note;
+      }
       let next = (await store.read(projectId)) ?? resumed.record;
       const selected = await chooseOwnerModel(host, next);
       if (next.session.grantId && (next.session.model !== selected.model || next.session.thinking !== selected.thinking)) {
@@ -287,11 +248,11 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
         next = await sessions.requestGrant(next);
         if (next.blockedReason) return refuse(next.blockedReason);
       }
-      if (next.phase === 'intake' || !next.session.grantId) {
+      if (next.phase === 'intake' || !next.session.grantId || (hasAgreement(next) && !agreementApproved(next))) {
         const outcome = await advanceIntake(next);
         if (!outcome.ok) return refuse(outcome.error);
         if (outcome.record.blockedReason) return refuse(outcome.record.blockedReason);
-        return ok(`Project ${projectId} resumed. Discovery starts.${rearmed.note}`);
+        return ok(`Project ${projectId} resumed. ${outcome.record.phase === 'build' ? 'Work' : 'Discovery'} starts.${rearmed.note}`);
       }
       // Discovery may have been entered without its run if that second write
       // failed. Idempotent: a project that has one keeps it.
@@ -321,6 +282,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       if (!stopped.ok) return refuse(stopped.error);
       scheduler.forget(projectId);
       await sessions.dispose(projectId);
+      const held = hasAgreement(stopped.record) ? await holdProjectWork(linked, stopped.record) : null;
       // A Stop is not completion: the run ends as stopped, and any work that is
       // still in flight keeps its identity so its late usage stays attributable.
       if (deps.journal) {
@@ -328,7 +290,15 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
           host.log(`could not close the active run for ${projectId}: ${error instanceof Error ? error.message : String(error)}`);
         });
       }
+      if (held) return ok(`Project ${projectId} stopped. The owner session is closed and no new work starts.${held.note}`);
       return ok(`Project ${projectId} stopped. Running work continues under its own limits; the owner session is closed.`);
+    },
+
+    async control(projectId, target, operation, limits = {}) {
+      const record = await read(projectId);
+      if (!record) return refuse(`No project ${projectId}.`);
+      const outcome = await controlLinkedWork(linked, record, { target, operation, ...limits, by: 'user' });
+      return outcome.ok ? ok(outcome.text) : refuse(outcome.text);
     },
 
     async raiseCap(projectId, capUsd) {
@@ -439,7 +409,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       if (!answered.ok) return refuse(answered.error);
       if (proposal && optionId === 'apply') {
         try {
-          await applyDecisionProposal({ store, services }, answered.record, proposal, now);
+          await applyDecisionProposal({ store, services, linked }, answered.record, proposal, now);
         } catch (error) {
           const reason = error instanceof Error ? error.message : String(error);
           await store.update(projectId, (fresh) => {
@@ -483,6 +453,13 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
       if (record.session.grantId && host.persistentSessions) {
         await host.persistentSessions.deleteGrant(record.session.grantId).catch((error: unknown) => {
           host.log(`could not delete grant ${record.session.grantId}: ${error instanceof Error ? error.message : String(error)}`);
+        });
+      }
+      // The access the project passed on ends with it, and so do the grants under it.
+      const policyId = delegationPolicyId(record);
+      if (policyId && host.persistentSessions) {
+        await host.persistentSessions.revokeDelegationPolicy(policyId).catch((error: unknown) => {
+          host.log(`could not revoke delegation policy ${policyId}: ${error instanceof Error ? error.message : String(error)}`);
         });
       }
       await store.remove(projectId);

@@ -10,6 +10,8 @@
 
 import { closeDeliveredObjectives } from './objective-completion';
 import { closeRun } from '../shared/runs';
+import { hasAgreement } from '../shared/agreement';
+import { unaccountedRequirements } from '../shared/evidence-binding';
 import { advancePhase } from '../shared/lifecycle';
 import type { Milestone, ProjectRecord } from '../shared/record';
 
@@ -36,6 +38,19 @@ export function applyDelivery(record: ProjectRecord, milestone: Milestone, now: 
     ...record,
     milestones: record.milestones.map((m) => (m.id === delivered.id ? delivered : m)),
   };
+  // The user's requirements are accounted for before delivery is reported:
+  // each is proved by accepted, current evidence, or its gap is stated.
+  const open = unaccountedRequirements(next);
+  if (open.length > 0 && (next.phase === 'release' || next.phase === 'build')) {
+    items.push(`the result has a receipt, but delivery is not complete: ${open.map((criterion) => `criterion ${criterion.id}`).join(', ')} ${open.length === 1 ? 'is' : 'are'} stated by the user and ${open.length === 1 ? 'has' : 'have'} no accepted current evidence. Run evidence that names ${open.length === 1 ? 'it' : 'them'} with --criteria, or state the gap with the working action`);
+    return { record: closeDeliveredObjectives(next, now), items };
+  }
+  // An agreement has no separate release step. When its delivery lands in
+  // build and nothing else is open, the status passes through release here.
+  if (hasAgreement(next) && next.phase === 'build' && next.milestones.every((m) => m.status === 'done')) {
+    const released = advancePhase(next, 'release', now, 'every milestone accepted and the result delivered');
+    if (released.ok) next = released.record;
+  }
   if (next.phase === 'release') {
     const advanced = advancePhase({ ...next, stateLine: 'Released. Maintaining.' }, 'maintain', now, `release delivered at ${milestone.receipt}`);
     if (advanced.ok) {
@@ -47,4 +62,15 @@ export function applyDelivery(record: ProjectRecord, milestone: Milestone, now: 
   }
   next = closeDeliveredObjectives(next, now);
   return { record: next, items };
+}
+
+/**
+ * Finishes a delivery that waited on the account of the user's requirements.
+ * The receipt landed earlier; what was missing was proof, or a stated gap, for
+ * something the user asked. Called after each change that can supply it.
+ */
+export function settleDelivery(record: ProjectRecord, now: string): DeliveryOutcome {
+  if (!hasAgreement(record) || (record.phase !== 'build' && record.phase !== 'release')) return { record, items: [] };
+  const delivered = record.milestones.find((milestone) => milestone.verification === 'delivered' && milestone.receipt);
+  return delivered ? applyDelivery(record, delivered, now) : { record, items: [] };
 }

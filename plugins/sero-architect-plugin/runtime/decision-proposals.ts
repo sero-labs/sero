@@ -7,12 +7,14 @@ import type { DispatchDestination } from '../shared/owner-actions';
 import { mayDispatch, setCap, settle } from '../shared/lifecycle';
 import type { DecisionProposal, ProjectRecord } from '../shared/record';
 import { performDispatch } from './dispatch-link';
+import { controlLinkedWork, type LinkedWorkDeps } from './linked-work';
 import type { OwnerServices } from './owner-actions';
 import type { RecordStore } from './record-store';
 
 interface ProposalDeps {
   store: RecordStore;
   services: OwnerServices;
+  linked: LinkedWorkDeps;
 }
 
 /** Applies a charter-change proposal the user accepted. Their acceptance is the approval. */
@@ -78,6 +80,17 @@ export async function applyDecisionProposal(deps: ProposalDeps, record: ProjectR
         kind: proposal.dispatchKind, prompt: proposal.prompt, destination: proposal.destination as DispatchDestination, maxCostUsd: null,
       }, now);
       return dispatched;
+    }
+    case 'room-time': {
+      // The user approved the time, so the resume runs with their authority.
+      const resumed = await controlLinkedWork(deps.linked, record, { target: proposal.target, operation: 'resume', maxMinutes: proposal.maxMinutes, by: 'user' });
+      if (!resumed.ok) throw new Error(resumed.text);
+      return (await deps.store.read(record.id)) ?? record;
+    }
+    case 'workflow-budget': {
+      const retried = await deps.linked.retryWorkflow(record.id, proposal.milestoneId, proposal.maxCostUsd);
+      if (!retried.ok) throw new Error(retried.text);
+      return (await deps.store.read(record.id)) ?? record;
     }
     case 'research-access':
       // Answered by its own options, never by `apply`.

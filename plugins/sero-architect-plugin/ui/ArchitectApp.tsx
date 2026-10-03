@@ -8,6 +8,8 @@ import { IntakeDialog } from './components/IntakeDialog';
 import { Inspector } from './components/Inspector';
 import { HistoryView } from './components/HistoryView';
 import { ModelSettings } from './components/ModelSettings';
+import { observedActivity } from '../shared/feedback';
+import { useProjectsFeedback } from './lib/use-project-feedback';
 import { ProjectsList } from './components/ProjectsList';
 import { TopBar } from './components/TopBar';
 import { Quiet } from './components/Pill';
@@ -74,6 +76,9 @@ export function ArchitectApp() {
   // The filter lives here because its control is in the top bar and the rows it
   // hides are in the list.
   const [needsOnly, setNeedsOnly] = useState(false);
+  // Rows read what their work reports now, without loading a project record.
+  const work = useProjectsFeedback(index.projects, actions);
+  const projects = index.projects.map((entry) => ({ ...entry, activity: observedActivity(entry.activity, work.get(entry.id)) }));
   const needsYouCount = index.projects.filter((entry) => entry.activity.action).length;
   // One Architect project per workspace, so a linked workspace cannot be chosen again.
   const takenWorkspaceIds = index.projects.map((entry) => entry.workspaceId).filter((id): id is string => id !== null);
@@ -107,7 +112,7 @@ export function ArchitectApp() {
         <>
           <TopBar record={null} controls={null} onBack={back} onNewProject={openIntake} needsYou={{ count: needsYouCount, on: needsOnly, toggle: () => setNeedsOnly((was) => !was) }} />
           <div className="ar-scroll">
-            <ProjectsList projects={index.projects} runtime={index.runtime} needsOnly={needsOnly} onOpen={openProject} onNewProject={openIntake} />
+            <ProjectsList projects={projects} runtime={index.runtime} needsOnly={needsOnly} onOpen={openProject} onNewProject={openIntake} />
           </div>
           <IntakeDialog open={view.mode === 'list' && view.intake === true} onClose={closeIntake} onCreate={create} defaultFolder="~/Projects/" takenWorkspaceIds={takenWorkspaceIds} />
         </>

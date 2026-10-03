@@ -10,7 +10,11 @@ import path from 'node:path';
 
 import type { OrchestratorProjectContext } from '@sero-ai/common';
 
-import { parseCharter, toMilestone } from '../shared/charter-shape';import { parseDecision, toDecision } from '../shared/decision-shape';
+import { toMilestone } from '../shared/charter-shape';
+import { parseDecision, toDecision } from '../shared/decision-shape';
+import { hasAgreement } from '../shared/agreement';
+import { availableUsd } from '../shared/budget';
+import { bindEvidence, reopenSuperseded } from '../shared/evidence-binding';
 import { advancePhase, appendHistory, block, mayDispatch, mayWakeForWork, settle } from '../shared/lifecycle';
 import { quote } from '../shared/owner-contract';
 import {
@@ -22,12 +26,18 @@ import {
   type OwnerActionOutcome,
   type OwnerCallerSignals,
 } from '../shared/owner-actions';
-import type { Charter, Milestone, ProjectRecord } from '../shared/record';
-import { applyDelivery } from './delivery';
+import type { Milestone, ProjectRecord } from '../shared/record';
+import { applyDelivery, settleDelivery } from './delivery';
 import { projectWriter, usesProjectFiles } from './execution-location';
 import { performDispatch } from './dispatch-link';
 import { checkLinkedChange, executeOwnerOpenSpec, linkedChangePrompt } from './openspec-owner';
 import { missingEvidence } from './milestone-evidence';
+import { proposeCharter } from './owner-charter';
+import { ownerControl } from './owner-control';
+import { retryMilestone } from './work-recovery-actions';
+import type { LinkedWorkDeps } from './linked-work';
+import { writeSummary } from './owner-summary';
+import { reviseWorking } from './owner-working';
 export { missingEvidence } from './milestone-evidence';
 import type { ArchitectHost } from './host';
 import { mutateRecord, type RecordStore } from './record-store';
@@ -49,7 +59,7 @@ export interface OwnerServices {
   ): Promise<{ id: string; workspaceId: string; baseCommit: string; chargedUsd?: number; start?(): Promise<void> }>;
   /** Creates the maintenance Workflow for a project entering maintain. Idempotent per project. */
   maintenance(record: ProjectRecord): Promise<ProjectRecord>;
-  evidence(record: ProjectRecord, milestone: Milestone, request: { commands: string[]; route: string | null }): Promise<void>;
+  evidence(record: ProjectRecord, milestone: Milestone, request: { commands: string[]; route: string | null; criteria?: string[] }): Promise<void>;
   /** Restarts background operations that were durable before the previous process stopped. */
   recoverPending(record: ProjectRecord): void;
   /** True when files changed since the evidence was taken. The runtime marks it stale and reruns it. */
@@ -76,6 +86,7 @@ const same = (a: string, b: string): boolean => path.resolve(a) === path.resolve
 
 export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
   const { host, store, outcomes, services } = deps;
+  const linked: LinkedWorkDeps = { store, retryWorkflow: (projectId, milestoneId, maxCostUsd) => retryMilestone({ store }, projectId, milestoneId, maxCostUsd) };
 
   const owns = async (signals: OwnerCallerSignals): Promise<ProjectRecord | null> => {
     if (!signals.sessionPath) return null;
@@ -92,6 +103,16 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     ...record,
     milestones: record.milestones.map((m) => (m.id === milestone.id ? milestone : m)),
   });
+
+  /** A delivered project gets its maintenance Workflow. A failure is logged, never fatal. */
+  const startMaintenance = async (delivered: ProjectRecord): Promise<void> => {
+    if (delivered.phase !== 'maintain' || delivered.overlay !== null) return;
+    try {
+      await services.maintenance(delivered);
+    } catch (error) {
+      host.log(`maintenance Workflow for ${delivered.id} could not be created after release: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
 
   const unansweredDirective = (record: ProjectRecord) => record.directives.find((d) => d.reply === null);
   const directiveReminder = (directive: ProjectRecord['directives'][number]) =>
@@ -114,55 +135,6 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     ));
     outcomes.declare(record.id, 'decide');
     return ok(`${lead}, so it is recorded as decision ${decision.id}. Nothing was started or sent; this wake is over.`, { decisionId: decision.id });
-  }
-
-  async function charter(record: ProjectRecord, input: OwnerActionInput, now: string): Promise<OwnerActionOutcome> {
-    const parsed = parseCharter(input);
-    if (!parsed.ok) return refuse(parsed.error);
-    const { draft } = parsed;
-    const milestones = draft.milestones.map((m, index) => toMilestone(m, `m${index + 1}`));
-    const proposed: Charter = {
-      milestoneIds: milestones.map((m) => m.id),
-      escalationPolicy: draft.escalationPolicy,
-      autonomy: draft.autonomy,
-      capUsd: draft.capUsd,
-      proposedAt: now,
-      approvedAt: null,
-    };
-    if (record.charter?.approvedAt) {
-      // Forced escalation: an approved charter changes only by a user decision.
-      const decision = toDecision(
-        {
-          question: 'The owner proposes a change to the approved charter. Apply it?',
-          options: [
-            { id: 'apply', label: 'Apply the new charter', consequence: `The charter changes to ${milestones.length} milestone(s) with a $${draft.capUsd} cap and autonomy "${draft.autonomy}".` },
-            { id: 'keep', label: 'Keep the current charter', consequence: 'Nothing changes; the owner continues under the approved charter.' },
-          ],
-          recommendation: 'apply',
-          reason: 'the owner asked to change an approved charter',
-          dependsOn: [],
-        },
-        host.newId('dec'),
-        now,
-        { kind: 'charter', charter: proposed, milestones },
-      );
-      await store.update(record.id, (fresh) => appendHistory({ ...fresh, decisions: [...fresh.decisions, decision] }, now, `decision ${decision.id} raised: charter change proposed`));
-      outcomes.declare(record.id, 'decide');
-      return ok(`The charter is already approved, so the change is recorded as decision ${decision.id} for the user to answer. Nothing was applied.`, { decisionId: decision.id });
-    }
-    if (record.phase !== 'discovery' && record.phase !== 'charter') {
-      return refuse(`A charter is proposed during discovery, and the project is in ${record.phase}.`);
-    }
-    const applied = await mutateRecord(store, record.id, (fresh) => {
-      const proposal: ProjectRecord = { ...fresh, charter: proposed, milestones, stateLine: 'Charter proposed. Waiting for your approval.' };
-      if (proposal.phase !== 'discovery') return { record: appendHistory(proposal, now, 'the owner proposed a revised charter') };
-      const advanced = advancePhase(proposal, 'charter', now, 'the owner proposed the charter');
-      return advanced.ok ? { record: advanced.record } : { error: advanced.error };
-    });
-    if (!applied.ok) return refuse(applied.error);
-    return ok(`Charter proposed with ${milestones.length} milestone(s) and a $${draft.capUsd} cap. The user must approve it before any work starts; call sleep.`, {
-      milestoneIds: proposed.milestoneIds,
-    });
   }
 
   async function milestone(record: ProjectRecord, input: OwnerActionInput, now: string): Promise<OwnerActionOutcome> {
@@ -209,7 +181,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
         if (!current) return { error: `Milestone "${found.id}" is not on this project.` };
         if (current.status === 'done') return { error: `Milestone ${current.id} is already done.` };
         if (fresh.pendingEvidence?.some((pending) => pending.milestoneId === current.id)) return { error: `Evidence for ${current.id} is still running.` };
-        const missing = missingEvidence(current);
+        const missing = missingEvidence(current, fresh);
         if (current.status !== 'verifying' || missing.length > 0) {
           const reasons = missing.length > 0 ? missing : [`the milestone is ${current.status}, not verifying`];
           return { error: `Milestone ${current.id} cannot close. Missing: ${reasons.join('; ')}. Ask for an evidence run and wait for it to pass.` };
@@ -217,7 +189,9 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
         const accepted: Milestone = { ...current, status: 'done', verification: 'accepted' };
         let next = appendHistory({ ...replace(fresh, accepted), stateLine: `Completed: ${current.title}.` }, now, 'accepted on passed evidence', { kind: 'milestone', id: current.id, label: current.title });
         // The receipt usually lands before acceptance, so delivery is settled here too.
-        const delivery = applyDelivery(next, accepted, now);
+        // This acceptance can also be the proof an earlier delivery waited for.
+        const own = applyDelivery(next, accepted, now);
+        const delivery = own.items.length > 0 ? own : settleDelivery(own.record, now);
         next = delivery.record;
         if (delivery.items.length > 0) note = ' The release receipt is already recorded, so the release is delivered and maintain starts.';
         if (next.phase === 'build' && next.milestones.every((m) => m.status === 'done')) {
@@ -230,13 +204,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
         return { record: next };
       });
       if (!closed.ok) return refuse(closed.error);
-      if (closed.record.phase === 'maintain' && closed.record.overlay === null) {
-        try {
-          await services.maintenance(closed.record);
-        } catch (error) {
-          host.log(`maintenance Workflow for ${record.id} could not be created after release: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      }
+      await startMaintenance(closed.record);
       return ok(`Milestone ${found.id} is done: accepted on evidence checked at ${found.evidence?.commit ?? 'unknown commit'}.${note}`);
     }
     const edits = {
@@ -261,7 +229,10 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
       approvalNote = fresh.autonomy === 'milestones' && updated.status === 'planned' && updated.plan
         ? ' The plan waits for the user\'s approval before it can dispatch.'
         : '';
-      return { record: settle(replace(fresh, updated), now) };
+      // A new preview target is a new thing to prove, even when no file moved.
+      const reopened = reopenSuperseded(replace(fresh, updated));
+      if (reopened.reopened.length > 0) approvalNote += ' The preview target changed, so its earlier evidence no longer accepts it: run evidence again.';
+      return { record: settle(reopened.record, now) };
     });
     if (!changed.ok) return refuse(changed.error);
     return ok(`Milestone ${found.id} updated.${approvalNote}`);
@@ -348,10 +319,13 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
       if (invalid) return invalid;
     }
     const destination = input.destination ?? null;
-    if (destination && record.phase !== 'release' && record.phase !== 'maintain') {
+    // The charter flow delivers in its release phase. An agreement has no fixed
+    // step for it: the owner delivers when the work is ready.
+    if (destination && !hasAgreement(record) && record.phase !== 'release' && record.phase !== 'maintain') {
       return refuse(`A delivery destination belongs to a release; the project is in ${record.phase}.`);
     }
-    const remaining = record.budget.capUsd === null ? null : record.budget.capUsd - record.budget.spentUsd;
+    // Free to start: the cap less what was spent and what running work holds.
+    const remaining = availableUsd(record);
     const maxCostUsd = input.maxCostUsd ?? null;
     // Two forced escalations, checked here whatever the autonomy setting says.
     if (destination && (EXTERNAL_DESTINATIONS as readonly string[]).includes(destination)) {
@@ -400,7 +374,12 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     if (!found.dispatch || (found.status !== 'done' && (found.status !== 'verifying' || found.verification !== 'reported'))) {
       return refuse(`Milestone ${found.id} needs a linked dispatch that reported completion before evidence can run.`);
     }
-    await services.evidence(record, found, { commands, route: input.route?.trim() || found.preview?.route || null });
+    const route = input.route?.trim() || found.preview?.route || null;
+    const criteria = input.criteria ?? [];
+    // Checked here so the owner is told at once which id it got wrong.
+    const binding = hasAgreement(record) ? bindEvidence(record, found, criteria, route) : null;
+    if (typeof binding === 'string') return refuse(binding);
+    await services.evidence(record, found, { commands, route, ...(criteria.length > 0 ? { criteria } : {}) });
     return ok(`Evidence run started for milestone ${found.id}: ${commands.length} command(s)${found.preview || input.route ? ' and the preview smoke check' : ''}. You are woken with the result; call sleep.`);
   }
 
@@ -476,7 +455,14 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
         return decide(record, input, now);
       }
       case 'charter':
-        return charter(record, input, now);
+        return proposeCharter({ host, store, outcomes }, record, input, now);
+      case 'working': {
+        const { record: saved, ...outcome } = await reviseWorking({ store }, record, input, now);
+        if (saved?.phase === 'maintain' && record.phase !== 'maintain') await startMaintenance(saved);
+        return outcome;
+      }
+      case 'summary':
+        return writeSummary(store, record, input, now);
       case 'openspec':
         return executeOwnerOpenSpec(host, record, input);
       case 'milestone':
@@ -485,6 +471,8 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
         return research(record, input);
       case 'dispatch':
         return dispatch(record, input, now);
+      case 'control':
+        return ownerControl(linked, record, input, (draft, lead) => escalate(record, now, draft, lead));
       case 'evidence':
         return evidence(record, input);
     }

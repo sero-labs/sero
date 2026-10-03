@@ -48,7 +48,11 @@ vi.mock('@sero-ai/ui', async () => {
 
 vi.mock('@sero-ai/ui/model-selection/available-model-picker', async () => await import('./model-picker-stand-in'));
 
-vi.mock('@sero-ai/app-runtime', () => ({
+vi.mock('@sero-ai/app-runtime', async () => ({
+  // The page follows work feedback through the real hook; with no app context
+  // it subscribes to nothing and stays empty.
+  AppContext: (await vi.importActual<typeof import('@sero-ai/app-runtime')>('@sero-ai/app-runtime')).AppContext,
+  useWorkFeedback: (await vi.importActual<typeof import('@sero-ai/app-runtime')>('@sero-ai/app-runtime')).useWorkFeedback,
   useAppTools: () => ({ run: vi.fn(async () => ({ text: 'Preview ready', details: { ok: true, url: 'http://localhost:3000' } })) }),
   openSeroApp: vi.fn(async () => true),
   openSeroFile: vi.fn(async () => true),
@@ -65,6 +69,7 @@ const OK: ActionOutcome = { ok: true, text: 'done' };
 function stubActions(overrides: Partial<ArchitectActions> = {}): ArchitectActions {
   const ok = () => vi.fn(async () => OK);
   return {
+    feedback: vi.fn(async () => null),
     create: ok(), history: vi.fn(async () => ({ ...OK, entries: [] })), trace: vi.fn(async () => ({ ...OK, page: null })), lifetime: vi.fn(async () => ({ ...OK, lifetime: null })), pause: ok(), resume: ok(), retry: ok(), stop: ok(), remove: ok(), raiseCap: ok(),
     setExecutionMode: ok(), setAutonomy: ok(), approveCharter: ok(), approveMilestone: ok(), answer: ok(), directive: ok(), requestChange: ok(), enableOpenSpec: ok(),
     setModelDefault: ok(), clearModelDefault: ok(), refreshModelTiers: ok(),

@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@sero-ai/ui';
 
-import { sessionStartedAt } from '@sero-ai/common';
+import { sessionStartedAt, type FeedbackSummary } from '@sero-ai/common';
+import { useProjectFeedback } from './lib/use-project-feedback';
 import { projectActivity } from '../shared/activity';
 import type { AutonomySetting, Milestone, ProjectRecord } from '../shared/record';
 import type { ActionOutcome, ArchitectActions, SessionHistoryEntry } from './lib/actions';
@@ -178,8 +179,9 @@ function useHeaderActions(
   record: ProjectRecord,
   runtimeRunning: boolean,
   focusDirective: () => void,
+  feedback: FeedbackSummary | null,
 ): HeaderAction[] {
-  const activity = projectActivity(record, { sessionStartedAt: sessionStartedAt(), runtimeRunning });
+  const activity = projectActivity(record, { sessionStartedAt: sessionStartedAt(), runtimeRunning, feedback });
 
   // A cap is not a button: it needs a number, so the header carries the field
   // instead and this returns nothing for it.
@@ -228,7 +230,8 @@ function cappedWorkflow(record: ProjectRecord): Milestone | undefined {
 }
 
 /** The state header and the control that recovers its cap or Workflow. */
-function ProjectStateHeader({ record, actions, onNotice, headerActions, runtimeRunning }: {
+function ProjectStateHeader({ record, actions, onNotice, headerActions, runtimeRunning, feedback }: {
+  feedback: FeedbackSummary | null;
   record: ProjectRecord;
   actions: ArchitectActions;
   onNotice(notice: string | null): void;
@@ -281,7 +284,7 @@ function ProjectStateHeader({ record, actions, onNotice, headerActions, runtimeR
       />
     );
   }
-  return <StateLine record={record} home={null} actions={headerActions} form={form} runtimeRunning={runtimeRunning} />;
+  return <StateLine record={record} home={null} actions={headerActions} form={form} runtimeRunning={runtimeRunning} feedback={feedback} />;
 }
 
 export function ProjectPage({ record, actions, narrow, onBack, onOpenModels, onOpenInspector, onOpenHistory, focusMilestoneId, confirm, runtimeRunning, permissionPending = false }: ProjectPageProps) {
@@ -289,7 +292,8 @@ export function ProjectPage({ record, actions, narrow, onBack, onOpenModels, onO
   const page = useProjectPageControls(record, actions, onBack, confirm, onOpenModels, onOpenInspector, onOpenHistory);
   const directiveRef = useRef<HTMLTextAreaElement>(null);
   const focusDirective = useCallback(() => directiveRef.current?.focus(), []);
-  const headerActions = useHeaderActions(record, runtimeRunning, focusDirective);
+  const feedback = useProjectFeedback(record, actions);
+  const headerActions = useHeaderActions(record, runtimeRunning, focusDirective, feedback);
 
   return (
     <>
@@ -317,6 +321,7 @@ export function ProjectPage({ record, actions, narrow, onBack, onOpenModels, onO
             onNotice={page.setNotice}
             headerActions={headerActions}
             runtimeRunning={runtimeRunning}
+            feedback={feedback}
           />
           <div className="ar-sections" data-narrow={narrow ? 1 : 0}>
             <ProjectMainColumn record={record} actions={actions} needsActions={page.needsActions} permissionPending={permissionPending} onNotice={page.setNotice} focusMilestoneId={focusMilestoneId} />

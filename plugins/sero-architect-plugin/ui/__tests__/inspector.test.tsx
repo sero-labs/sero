@@ -69,6 +69,7 @@ const answer = (page: TracePage): TraceOutcome => ({ ok: true, text: 'done', pag
 function actionsOver(overrides: Partial<ArchitectActions> = {}): ArchitectActions {
   const ok = () => vi.fn(async () => ({ ok: true, text: 'done' }));
   return {
+    feedback: vi.fn(async () => null),
     create: ok(), history: vi.fn(async () => ({ ok: true, text: 'done', entries: [] })),
     trace: vi.fn(async (_id: string, _query: TraceRequest) => answer(froggerPage())),
     lifetime: vi.fn(async (): Promise<LifetimeOutcome> => ({ ok: true, text: 'done', lifetime: null })),

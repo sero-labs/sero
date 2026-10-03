@@ -5,7 +5,7 @@ import { buildOwnerContract } from '../../shared/owner-contract';
 import { createServices } from '../services';
 import { observeResearchRooms } from '../research-room';
 import { SESSION_STARTED_AT } from '../session-state';
-import { buildingProject, cleanupHosts, fakeHost, storeFor, T0 } from './helpers';
+import { buildingProject, cleanupHosts, fakeHost, roomHandle, storeFor, T0 } from './helpers';
 
 afterEach(async () => {
   delete (globalThis as Record<string, unknown>)[ORCHESTRATOR_ROOM_REGISTRY_GLOBAL_KEY];
@@ -24,10 +24,10 @@ describe('discovery through a Room', () => {
     const requests: OrchestratorRoomCreateRequest[] = [];
     let status: OrchestratorBoardRoomView['status'] = 'running';
     const models = [{ name: 'Researcher', model: 'anthropic/claude-fable-5-1', thinking: 'medium' }];
-    const handle: OrchestratorRoomHandle = {
+    const handle = roomHandle({
       create: async (request) => { requests.push(request); return { ok: true, roomId: 'room-1' }; },
       inspect: async () => ({ status, models, result: status === 'completed' ? 'Use a local database. First deliver creating and retaining one book. Ask whether sharing is needed.' : null }),
-    };
+    });
     (globalThis as Record<string, unknown>)[ORCHESTRATOR_ROOM_REGISTRY_GLOBAL_KEY] = new Map([['ws-1', { handle }]]);
     const wake = vi.fn();
     const deps = { host, store, wake, journal };
@@ -89,7 +89,8 @@ it('sets research liveness only from a live Room report, and clears it when the 
 });
 
 describe('what a research Room may do', () => {
-  function registry(handle: OrchestratorRoomHandle) {
+  function registry(overrides: Partial<OrchestratorRoomHandle>) {
+    const handle = roomHandle(overrides);
     (globalThis as Record<string, unknown>)[ORCHESTRATOR_ROOM_REGISTRY_GLOBAL_KEY] = new Map([['ws-1', { handle }]]);
   }
 
@@ -232,10 +233,10 @@ describe('a research Room that ends without reporting', () => {
           }]
         : [],
     });
-    const handle: OrchestratorRoomHandle = {
+    const handle = roomHandle({
       create: async () => ({ ok: true, roomId: 'room-9' }),
       inspect: async () => ({ status, models: [], result: null }),
-    };
+    });
     (globalThis as Record<string, unknown>)[ORCHESTRATOR_ROOM_REGISTRY_GLOBAL_KEY] = new Map([['ws-1', { handle }]]);
     const room: OrchestratorBoardRoomView = {
       id: 'room-9', title: 'Import Dashboard Discovery', status, memberCount: 2, activeMemberCount: 0,
@@ -284,10 +285,10 @@ describe('a research Room that ends without reporting', () => {
     const pending = { id: 'res-1', question: 'q', stoppingCondition: 's', startedAt: T0, kind: 'room' as const, roomId: 'room-9' };
     const reason = 'Research Room room-9 is cancelled. Open the Room to review its next action.';
     await store.write({ ...record, pendingResearch: [pending], blockedReason: reason });
-    const handle: OrchestratorRoomHandle = {
+    const handle = roomHandle({
       create: async () => ({ ok: true, roomId: 'room-9' }),
       inspect: async () => ({ status: 'running', models: [], result: null }),
-    };
+    });
     (globalThis as Record<string, unknown>)[ORCHESTRATOR_ROOM_REGISTRY_GLOBAL_KEY] = new Map([['ws-1', { handle }]]);
     const room: OrchestratorBoardRoomView = {
       id: 'room-9', title: 'Import Dashboard Discovery', status: 'running', memberCount: 2, activeMemberCount: 2,

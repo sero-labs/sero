@@ -8,6 +8,8 @@ import { normalizeIndex } from '../shared/types';
 import type { WakeEvent } from '../shared/wake';
 import { createDispatchWatch, type DispatchWatch } from './dispatch-watch';
 import { createArchitectHost, type ArchitectHost } from './host';
+import { releaseProjectWork } from './linked-work';
+import { retryMilestone } from './work-recovery-actions';
 import { createOwnerActions, type OwnerActions, type OwnerServices } from './owner-actions';
 import { OwnerSessions } from './owner-session';
 import { createProjectsActions, type ProjectsActions } from './projects-actions';
@@ -106,6 +108,10 @@ export class ArchitectRuntime implements AppRuntime {
       journal,
       openMaintenanceRun: async (projectId, objectiveId) => {
         await openMaintenanceRun({ store, journal }, projectId, { objectiveId }, this.host.now(), `run-${objectiveId}`);
+      },
+      releaseHeld: async (projectId) => {
+        const record = await store.read(projectId);
+        if (record) await releaseProjectWork({ store, retryWorkflow: (id, milestoneId, maxCostUsd) => retryMilestone({ store }, id, milestoneId, maxCostUsd) }, record);
       },
     });
     this.watch = watch;

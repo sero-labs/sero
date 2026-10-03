@@ -8,7 +8,7 @@
 // Times stay as timestamps. The index is written once and read for days, so a
 // rendered "5 days ago" inside it would freeze; the UI formats them at render.
 
-import { isLive, type ActivityState } from '@sero-ai/common';
+import { isLive, type ActivityState, type FeedbackSummary } from '@sero-ai/common';
 import type { Milestone, ProjectRecord } from './record';
 import { openDecisions } from './record';
 import { MAINTENANCE_MILESTONE_ID } from './maintenance';
@@ -73,17 +73,19 @@ function dispatchWord(milestone: Milestone): string {
 }
 
 /** Research is visible before there are any implementation milestones. */
-function researchActivity(record: ProjectRecord, sessionStartedAt: string, runtimeRunning: boolean): ProjectActivity | null {
+function researchActivity(record: ProjectRecord, sessionStartedAt: string, runtimeRunning: boolean, feedback?: FeedbackSummary | null): ProjectActivity | null {
   const pending = record.pendingResearch ?? [];
-  const live = runtimeRunning ? pending.find((entry) => isLive(entry.observedLiveAt
+  const marked = runtimeRunning ? pending.find((entry) => isLive(entry.observedLiveAt
     ? { runId: entry.runId ?? entry.roomId ?? entry.workflowId ?? entry.id, startedAt: entry.startedAt, reportedAt: entry.observedLiveAt }
     : undefined, sessionStartedAt)) : undefined;
+  // A producer attached now is observed work even before a record write says so.
+  const live = marked ?? (runtimeRunning && (feedback?.activeCount ?? 0) > 0 ? pending[0] : undefined);
   const entry = live ?? pending[0];
   if (!entry) return null;
   const name = entry.kind === 'room' ? 'Room' : entry.kind === 'workflow' ? 'Workflow' : 'research agent';
   if (live) return {
     state: 'working', headline: 'Researching a project question',
-    owner: entry.kind ? `${name} is running` : 'Research agent is running', ownerAt: live.observedLiveAt,
+    owner: entry.kind ? `${name} is running` : 'Research agent is running', ownerAt: live.observedLiveAt ?? feedback?.lastActivityAt ?? undefined,
   };
   if (entry.roomId || entry.workflowId || entry.runId || !runtimeRunning) return {
     state: 'last-known', headline: 'Last known: researching a project question',
@@ -103,9 +105,9 @@ function researchActivity(record: ProjectRecord, sessionStartedAt: string, runti
  */
 export function projectActivity(
   record: ProjectRecord,
-  options: { sessionStartedAt: string; runtimeRunning: boolean },
+  options: { sessionStartedAt: string; runtimeRunning: boolean; feedback?: FeedbackSummary | null },
 ): ProjectActivity {
-  const { sessionStartedAt, runtimeRunning } = options;
+  const { sessionStartedAt, runtimeRunning, feedback } = options;
   const suffix = ownerSuffix(record, runtimeRunning);
   const maint = maintenance(record);
   const current = currentMilestone(record);
@@ -208,24 +210,24 @@ export function projectActivity(
 
   // Nobody updates the liveness mark while the Architect runtime is off, so a
   // mark it wrote earlier in this session cannot prove a run is reporting now.
-  const live = runtimeRunning && current?.dispatch && isLive(
+  const live = runtimeRunning && current?.dispatch && (isLive(
     current.dispatch.observedLiveAt
       ? { runId: current.dispatch.runId ?? current.dispatch.id, startedAt: current.dispatch.dispatchedAt, reportedAt: current.dispatch.observedLiveAt }
       : undefined,
     sessionStartedAt,
-  );
+  ) || (feedback?.activeCount ?? 0) > 0);
 
   if (current?.dispatch && live) {
     return {
       state: 'working',
       headline: `Working on ${current.title}`,
       owner: `${dispatchWord(current)} is running`,
-      ownerAt: current.dispatch.observedLiveAt,
+      ownerAt: current.dispatch.observedLiveAt ?? feedback?.lastActivityAt ?? undefined,
       ownerSuffix: suffix,
     };
   }
 
-  const research = researchActivity(record, sessionStartedAt, runtimeRunning);
+  const research = researchActivity(record, sessionStartedAt, runtimeRunning, feedback);
   if (research) return { ...research, ownerSuffix: suffix };
 
   if (current?.dispatch) {

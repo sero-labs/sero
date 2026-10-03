@@ -6,7 +6,7 @@
 import { useCallback, useMemo } from 'react';
 import { useAppTools } from '@sero-ai/app-runtime';
 import type { AppToolResult } from '@sero-ai/app-runtime';
-import { MODEL_TIERS, THINKING_LEVELS, type ModelTier, type SharedModelTierEntry, type SharedModelTierSettings, type ThinkingLevel } from '@sero-ai/common';
+import { MODEL_TIERS, THINKING_LEVELS, type ModelTier, type SharedModelTierEntry, type SharedModelTierSettings, type ThinkingLevel, type FeedbackSnapshotReply } from '@sero-ai/common';
 
 import type { AutonomySetting, ExecutionMode } from '../../shared/record';
 import type { CreateProjectInput } from '../../shared/create-project';
@@ -107,6 +107,8 @@ export interface ArchitectActions {
   enableOpenSpec(projectId: string): Promise<ActionOutcome>;
   history(projectId: string): Promise<SessionHistoryOutcome>;
   trace(projectId: string, query: TraceRequest): Promise<TraceOutcome>;
+  /** What the project's work is doing now, as bounded metadata. Null when it cannot be read. */
+  feedback(projectId?: string): Promise<FeedbackSnapshotReply | null>;
   lifetime(projectId: string, knownSpendUsd: number): Promise<LifetimeOutcome>;
   pause(projectId: string): Promise<ActionOutcome>;
   resume(projectId: string): Promise<ActionOutcome>;
@@ -167,6 +169,14 @@ export function useArchitectActions(): ArchitectActions {
           return { ...toOutcome(result), page: readTracePage(result) };
         } catch (error) {
           return { ok: false, text: error instanceof Error ? error.message : String(error), page: null };
+        }
+      },
+      feedback: async (projectId) => {
+        try {
+          const result = await run(PROJECTS_TOOL, { action: 'feedback', ...(projectId ? { projectId } : {}) });
+          return (result.details as { feedback?: FeedbackSnapshotReply } | undefined)?.feedback ?? null;
+        } catch {
+          return null;
         }
       },
       lifetime: async (projectId, knownSpendUsd) => {

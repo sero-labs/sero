@@ -3,6 +3,7 @@
 
 import { ACTIVITY_STATES, type ActivityState } from '@sero-ai/common';
 import type { ProjectActivity } from './activity';
+import { OVERVIEW_FIELDS, OVERVIEW_LIMITS, type OverviewField } from './agreement';
 
 export const ARCHITECT_APP_ID = 'architect';
 
@@ -35,6 +36,14 @@ export interface ArchitectIndexEntry {
   /** Open decisions and approvals waiting on the user. */
   needsYou: number;
   updatedAt: string;
+  /**
+   * Which flow the project runs under. `charter` is the deprecated flow of a
+   * project made before delivery agreements. Absent on an older index row,
+   * which reads as `charter`.
+   */
+  flow?: 'agreement' | 'charter';
+  /** The Architect's short sentences for a row. Never a source of state. */
+  overview?: Partial<Record<OverviewField, string>>;
 }
 
 export interface ArchitectIndex {
@@ -76,7 +85,19 @@ function normalizeEntry(value: unknown): ArchitectIndexEntry | null {
     capUsd: typeof value.capUsd === 'number' && Number.isFinite(value.capUsd) ? value.capUsd : null,
     needsYou: typeof value.needsYou === 'number' && Number.isFinite(value.needsYou) ? value.needsYou : 0,
     updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : '',
+    flow: value.flow === 'agreement' ? 'agreement' : 'charter',
+    ...normalizeOverview(value.overview),
   };
+}
+
+/** Keeps only known fields that are inside their limit, so a row can never grow. */
+function normalizeOverview(value: unknown): Pick<ArchitectIndexEntry, 'overview'> {
+  if (!isRecord(value)) return {};
+  const kept = OVERVIEW_FIELDS.flatMap((field) => {
+    const text = value[field];
+    return typeof text === 'string' && text.length <= OVERVIEW_LIMITS[field] ? [[field, text] as const] : [];
+  });
+  return kept.length > 0 ? { overview: Object.fromEntries(kept) } : {};
 }
 
 function normalizeCounts(value: unknown): { accepted: number; total: number } {

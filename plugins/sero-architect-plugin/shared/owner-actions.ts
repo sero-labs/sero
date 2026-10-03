@@ -4,16 +4,20 @@
  * <name> --projectId <id> ...` through the CLI bridge.
  */
 
+import type { OverviewField, SummarySource } from './agreement';
 import type { AutonomySetting } from './record';
 
 export const OWNER_ACTIONS = [
   'brief',
   'charter',
+  'working',
+  'summary',
   'milestone',
   'decide',
   'research',
   'openspec',
   'dispatch',
+  'control',
   'evidence',
   'status',
   'reply',
@@ -72,6 +76,17 @@ export interface OwnerActionInput {
   escalationPolicy?: string;
   autonomy?: AutonomySetting;
   capUsd?: number;
+  /** working: what the work must achieve, and how. A field left out keeps its value. */
+  objective?: string;
+  approach?: string;
+  /** working: JSON `["..."]`. */
+  assumptionsJson?: string;
+  /** working: JSON `[{"id":"c1","text":"...","userStated":true}]`. */
+  criteriaJson?: string;
+  /** summary: which overview sentence, and the work it is about. */
+  field?: OverviewField;
+  sourceKind?: SummarySource['kind'];
+  sourceId?: string;
   /** decide */
   question?: string;
   /** decide: JSON `[{"id":"a","label":"...","consequence":"..."}]`. */
@@ -84,7 +99,11 @@ export interface OwnerActionInput {
   stoppingCondition?: string;
   /** openspec: read the official CLI instructions/status or validate a linked change. */
   changeName?: string;
-  operation?: 'status' | 'instructions' | 'validate';
+  operation?: 'status' | 'instructions' | 'validate' | 'pause' | 'resume' | 'retry' | 'cancel';
+  /** control: the milestone id or research id whose linked work is controlled. */
+  target?: string;
+  /** control resume: a new total working-time limit, which the user must approve. */
+  maxMinutes?: number;
   artifact?: 'proposal' | 'specs' | 'design' | 'tasks' | 'apply';
   /** research: the researchers must run commands (tests, builds). Requires `kind: 'room'`. */
   needsCommands?: boolean;
@@ -95,6 +114,8 @@ export interface OwnerActionInput {
   destination?: DispatchDestination;
   /** dispatch: what the run may spend. More than the remaining budget becomes a decision. */
   maxCostUsd?: number;
+  /** evidence: the ids of the working criteria this check covers. */
+  criteria?: string[];
   /** evidence: the commands to run, one per entry. */
   commands?: string[];
   route?: string;

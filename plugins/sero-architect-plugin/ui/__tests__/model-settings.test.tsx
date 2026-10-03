@@ -48,6 +48,7 @@ vi.mock('@sero-ai/ui/model-selection/available-model-picker', async () => await 
 function actionsOver(overrides: Partial<ArchitectActions> = {}): ArchitectActions {
   const ok = () => vi.fn(async (): Promise<ActionOutcome> => ({ ok: true, text: 'done' }));
   return {
+    feedback: vi.fn(async () => null),
     create: ok(), history: vi.fn(async () => ({ ok: true, text: 'done', entries: [] })),
     trace: vi.fn(async () => ({ ok: true, text: 'done', page: null })),
     lifetime: vi.fn(async () => ({ ok: true, text: 'done', lifetime: null })),

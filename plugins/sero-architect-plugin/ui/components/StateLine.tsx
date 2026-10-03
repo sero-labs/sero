@@ -9,7 +9,7 @@ import {
   spendTone,
 } from "../lib/format";
 import { Button } from "@sero-ai/ui";
-import { relativeTime, sessionStartedAt } from "@sero-ai/common";
+import { relativeTime, sessionStartedAt, type FeedbackSummary } from "@sero-ai/common";
 import { milestoneCounts, projectActivity } from "../../shared/activity";
 import { ActivityGlyphIcon } from "./ActivityWord";
 
@@ -103,6 +103,7 @@ export function StateLine({
   actions,
   form,
   runtimeRunning,
+  feedback,
 }: {
   record: ProjectRecord;
   home: string | null;
@@ -112,12 +113,14 @@ export function StateLine({
   form?: ReactNode;
   /** Whether the Architect runtime is running in this session. */
   runtimeRunning: boolean;
+  /** What the project's delegated work reports now. Absent on a list row. */
+  feedback?: FeedbackSummary | null;
 }) {
   const current = PHASES.indexOf(record.phase);
   const unlinked = record.blockedReason?.startsWith(
     "dispatch state could not be confirmed after restart:",
   );
-  const activity = projectActivity(record, { sessionStartedAt: sessionStartedAt(), runtimeRunning });
+  const activity = projectActivity(record, { sessionStartedAt: sessionStartedAt(), runtimeRunning, feedback });
   const lines = headerSentences(activity);
   const counts = milestoneCounts(record);
   return (

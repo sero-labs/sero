@@ -9,9 +9,10 @@ import type { RunJournal } from './run-journal';
  * record, and the contract is sent again when the session compacts mid-turn.
  */
 
-import type { ModelTier } from '@sero-ai/common';
+import { ARCHITECT_APP_ID, feedbackEventFromSession, type ModelTier } from '@sero-ai/common';
 import { type PersistentSessionGrantProposal, type PersistentSessionRequest, type PersistentSessionSubjectPolicy, type PersistentSessionsApi } from '@sero-ai/common';
 
+import type { AgreementAuthority } from '../shared/agreement';
 import { block, charge } from '../shared/lifecycle';
 import type { ModelConfigSource } from '../shared/model-config';
 import { setAccountingIncomplete } from '../shared/accounting';
@@ -19,6 +20,7 @@ import { buildOwnerContract } from '../shared/owner-contract';
 import { buildOwnerPromptAdditions } from '../shared/owner-protocol';
 import type { ProjectRecord } from '../shared/record';
 import type { WakeEvent } from '../shared/wake';
+import { delegationProposal } from './delegation';
 import type { ArchitectHost } from './host';
 import { projectModelSource, resolveOwnerSelection, type SelectionSource } from './model-resolution';
 import type { RecordStore } from './record-store';
@@ -94,6 +96,21 @@ export function ownerGrantProposal(record: ProjectRecord, choice: OwnerModelChoi
     maxLiveSessions: 1,
     maxTotalSessions: 1,
     reason: `Run the owner agent for the Architect project "${record.name}" using ${choice.model} with ${choice.thinking} thinking in ${record.folder}.`,
+  };
+}
+
+/**
+ * The start approval of an agreement project: the owner grant plus the access
+ * the project may pass on to the Rooms it starts. One dialog, so the user
+ * approves the whole start once. Asked again only while no authority is stored.
+ */
+async function startProposal(host: ArchitectHost, record: ProjectRecord, choice: OwnerModelChoice): Promise<PersistentSessionGrantProposal> {
+  const proposal = ownerGrantProposal(record, choice);
+  if (!record.agreement || record.agreement.authority !== null) return proposal;
+  return {
+    ...proposal,
+    delegation: await delegationProposal(host, record),
+    reason: `Start the Architect project "${record.name}" in ${record.folder} with a $${record.agreement.capUsd} start cap. The Architect runs on ${choice.model}. It may start agents with the access below without asking again.`,
   };
 }
 
@@ -175,23 +192,44 @@ export class OwnerSessions {
     const modelTiers = await this.deps.host.modelTiers();
     // Asking the user is slow, so the answer is written afterwards, on the
     // record as it stands then.
-    let granted: { grantId: string; tools: string[]; choice: OwnerModelChoice } | null = null;
+    let granted: { grantId: string; tools: string[]; choice: OwnerModelChoice; authority: AgreementAuthority | null } | null = null;
     let refusal = '';
     try {
       const choice = await chooseOwnerModel(this.deps.host, record);
-      const handle = await this.api().requestGrant(ownerGrantProposal(record, choice));
+      const proposal = await startProposal(this.deps.host, record, choice);
+      const handle = await this.api().requestGrant(proposal);
       const subject = handle.subjects[OWNER_SUBJECT];
-      granted = { grantId: handle.grantId, tools: subject ? [...subject.allowedTools] : [...OWNER_TOOLS], choice };
+      const policy = handle.delegation;
+      // A start that asked to pass access on and got no stored policy back is
+      // not an approved start. Saying it was would let work run with no envelope.
+      if (proposal.delegation && !policy) throw new Error('the host did not store the access this project may pass on');
+      const authority = policy ? { policyId: policy.policyId, workspaceId: policy.workspaceId, roles: policy.roles, maxLiveSessions: policy.maxLiveSessions, maxTotalSessions: policy.maxTotalSessions } : null;
+      granted = { grantId: handle.grantId, tools: subject ? [...subject.allowedTools] : [...OWNER_TOOLS], choice, authority };
     } catch (error) {
       refusal = error instanceof Error ? error.message : String(error);
     }
     const next = await this.deps.store.update(record.id, (fresh) => {
       if (!granted) {
-        const blocked = block(fresh, now, `Permission to run the Architect was not approved: ${refusal}`);
-        return blocked.ok ? { ...blocked.record, stateLine: 'Permission was not approved. Request permission to try again.' } : fresh;
+        // The refusal is kept on the agreement, and the project stays reopenable.
+        const refused = fresh.agreement && fresh.agreement.authority === null ? { ...fresh, agreement: { ...fresh.agreement, refusedAt: now } } : fresh;
+        const blocked = block(refused, now, `Permission to run the Architect was not approved: ${refusal}`);
+        return blocked.ok ? { ...blocked.record, stateLine: 'Permission was not approved. Request permission to try again.' } : refused;
       }
+      const started = granted.authority && fresh.agreement ? {
+        agreement: {
+          ...fresh.agreement,
+          // A second approval, after the first authority was revoked, is a new revision.
+          revision: fresh.agreement.approvedAt ? fresh.agreement.revision + 1 : fresh.agreement.revision,
+          approvedAt: now,
+          authority: granted.authority,
+          refusedAt: null,
+        },
+        // The cap the user set at intake becomes the budget cap with the approval.
+        budget: { ...fresh.budget, capUsd: fresh.budget.capUsd ?? fresh.agreement.capUsd },
+      } : {};
       return {
         ...fresh,
+        ...started,
         modelTiers,
         session: {
           ...fresh.session,
@@ -206,7 +244,7 @@ export class OwnerSessions {
           modelSource: granted.choice.source,
           modelOutranks: granted.choice.outranks ?? null,
         },
-        history: [...fresh.history, { at: now, phase: fresh.phase, overlay: fresh.overlay, cause: 'the user approved the owner session grant' }],
+        history: [...fresh.history, { at: now, phase: fresh.phase, overlay: fresh.overlay, cause: started.agreement ? `you approved the start: access and a $${started.agreement.capUsd} cap` : 'the user approved the owner session grant' }],
       };
     });
     return next ?? record;
@@ -304,7 +342,15 @@ export class OwnerSessions {
       })().finally(() => { usageRead = undefined; });
       return usageRead;
     };
+    // The owner's request and tool state, for the project views. No text.
+    const feedbackKey = `owner:${opened.id}`;
+    const feedback = this.deps.host.feedback.open({
+      key: feedbackKey, kind: 'owner-wake', owner: 'Architect', subject: opened.name,
+      scope: { appId: ARCHITECT_APP_ID, workspaceId: opened.workspaceId, projectId: opened.id },
+    });
     const unsubscribe = api.subscribe(handleId, (event) => {
+      const fact = feedbackEventFromSession(event, this.deps.host.now());
+      if (fact) feedback.observe(fact);
       if (event.type === 'compacted') {
         // The contract must survive compaction; steering re-asserts it mid-turn.
         void api.steer(handleId, contract).catch((error: unknown) => {
@@ -360,6 +406,8 @@ export class OwnerSessions {
       if (timeout) clearTimeout(timeout);
       this.waiting.delete(opened.id);
       unsubscribe();
+      // A turn that was stopped or timed out reported no end of its own.
+      this.deps.host.feedback.lose((entry) => entry.key === feedbackKey);
       await this.deps.store.update(opened.id, (fresh) => ({
         ...fresh,
         session: { ...fresh.session, workingSince: null },

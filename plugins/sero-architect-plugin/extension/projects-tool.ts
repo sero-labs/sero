@@ -9,6 +9,7 @@ import type { ExtensionAPI, ExtensionContext, ToolDefinition } from '@earendil-w
 import { Text } from '@earendil-works/pi-tui';
 import { Type } from 'typebox';
 
+import { CONTROL_OPERATIONS, type ControlOperation } from '../runtime/linked-work';
 import { resolveArchitectRuntime } from '../runtime/registry';
 import type { ModelDefaultInput } from '../runtime/model-default-actions';
 import type { TraceQuery } from '../runtime/trace-query';
@@ -22,6 +23,7 @@ export const PROJECT_ACTIONS = [
   'show',
   'history',
   'trace',
+  'feedback',
   'create',
   'request_change',
   'enable_openspec',
@@ -31,6 +33,7 @@ export const PROJECT_ACTIONS = [
   'retry',
   'preview',
   'stop',
+  'control',
   'raise_cap',
   'set_autonomy',
   'set_execution_mode',
@@ -54,7 +57,7 @@ export const ProjectsToolParams = Type.Object({
   openSpecEnabled: Type.Optional(Type.Boolean({ description: 'create: enable the OpenSpec proof of concept for this Architect project' })),
   folder: Type.Optional(Type.String({ description: 'create: the new folder to build in, under the home directory. Not used when workspaceId is given' })),
   workspaceId: Type.Optional(Type.String({ description: 'create: an existing registered workspace to work in, instead of a new folder' })),
-  capUsd: Type.Optional(Type.Number({ description: 'raise_cap: the project cap; retry: an explicitly approved new total Workflow cap in USD' })),
+  capUsd: Type.Optional(Type.Number({ description: 'create: the start cap in USD the user set; with it the user approves the start once and no charter is proposed. raise_cap: the project cap; retry: an explicitly approved new total Workflow cap in USD' })),
   executionMode: Type.Optional(StringEnum(EXECUTION_MODES, { description: 'create/set_execution_mode: workspace or worktree; new projects default to workspace' })),
   models: Type.Optional(Type.Array(Type.Object({
     tier: StringEnum(MODEL_TIERS),
@@ -78,6 +81,9 @@ export const ProjectsToolParams = Type.Object({
   detail: Type.Optional(Type.Boolean({ description: 'trace: include record metadata. Off by default, so a summary request receives no records' })),
   knownSpendUsd: Type.Optional(Type.Number({ description: 'trace: the project spend to reconcile the run total against' })),
   workflowId: Type.Optional(Type.String({ description: 'repair: existing workflow selected by the user' })),
+  workId: Type.Optional(Type.String({ description: 'control: the milestone id or research id whose Room or Workflow is controlled' })),
+  operation: Type.Optional(StringEnum(CONTROL_OPERATIONS, { description: 'control: pause, resume, retry or cancel' })),
+  maxMinutes: Type.Optional(Type.Number({ description: 'control resume: a larger total working-time limit in minutes for a Room that used its time' })),
 });
 
 export interface ProjectsToolParamsShape {
@@ -102,6 +108,9 @@ export interface ProjectsToolParamsShape {
   text?: string;
   cursor?: string;
   workflowId?: string;
+  workId?: string;
+  operation?: ControlOperation;
+  maxMinutes?: number;
   /** Trace query. `detail` is opt-in, so a summary request reads no records. */
   runId?: string;
   afterSeq?: number;
@@ -133,6 +142,19 @@ export function formatIndex(projects: ArchitectIndexEntry[]): string {
     .join('\n');
 }
 
+/** The authority the project runs under: its agreement, or the charter of the deprecated flow. */
+function agreementLine(record: ProjectRecord): string {
+  const { agreement, charter } = record;
+  if (agreement) {
+    const state = agreement.approvedAt && agreement.authority
+      ? `approved ${agreement.approvedAt} (revision ${agreement.revision})`
+      : agreement.refusedAt ? 'not approved; resume to ask again' : 'waiting for the start approval';
+    return `Agreement: $${agreement.capUsd} start cap, ${state}`;
+  }
+  const state = charter ? `${charter.approvedAt ? 'approved' : 'waiting for approval'} (autonomy ${charter.autonomy})` : 'none yet';
+  return `Charter: ${state}. This project uses the charter flow, which is deprecated.`;
+}
+
 function formatRecord(record: ProjectRecord): string {
   const open = record.decisions.filter((d) => d.answer === null);
   return [
@@ -141,7 +163,8 @@ function formatRecord(record: ProjectRecord): string {
     `Folder: ${record.folder}`,
     `Execution location: ${record.executionMode ?? 'choose in project settings'}`,
     `Budget: $${record.budget.spentUsd.toFixed(2)} spent${record.budget.capUsd === null ? ', no cap yet' : ` of $${record.budget.capUsd}`}`,
-    record.charter ? `Charter: ${record.charter.approvedAt ? 'approved' : 'waiting for approval'} (autonomy ${record.charter.autonomy})` : 'Charter: none yet',
+    agreementLine(record),
+    ...(record.working ? [`Working objective (revision ${record.working.revision}): ${record.working.objective}`] : []),
     ...record.milestones.map((m) => `- ${m.id} ${m.title}: ${m.status}${m.dispatch ? ` (${m.dispatch.kind} ${m.dispatch.id})` : ''}`),
     ...open.map((d) => `Decision ${d.id}: ${d.question} [${d.options.map((o) => `${o.id}: ${o.label}`).join('; ')}] recommended ${d.recommendation}`),
     ...record.directives.filter((d) => d.reply === null).map((d) => `Directive ${d.id} awaits a reply`),
@@ -175,6 +198,11 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
       return page
         ? result(true, `Read ${page.entries.length} owner-session history entries.`, { entries: page.entries, olderCursor: page.olderCursor })
         : result(false, `Project ${id} has no readable owner session.`);
+    }
+    case 'feedback': {
+      // With no project named it answers for every project, which is what a list reads.
+      const feedback = await actions.feedback(id || undefined);
+      return result(true, `${feedback.snapshots.length} work item(s) reported.`, { ...(id ? { projectId: id } : {}), feedback });
     }
     case 'trace': {
       const missing = need(id, 'projectId');
@@ -217,6 +245,7 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
         executionMode: params.executionMode,
         openSpecEnabled: params.openSpecEnabled,
         models: params.models,
+        ...(params.capUsd !== undefined ? { capUsd: params.capUsd } : {}),
         ...(params.folder !== undefined ? { folder: params.folder } : {}),
         ...(params.workspaceId !== undefined ? { workspaceId: params.workspaceId } : {}),
       });
@@ -247,6 +276,12 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
       const missing = need(id, 'projectId');
       if (missing) return result(false, missing);
       const outcome = await actions[params.action](id);
+      return result(outcome.ok, outcome.text);
+    }
+    case 'control': {
+      const missing = need(id, 'projectId') ?? need(params.workId, 'workId') ?? need(params.operation, 'operation');
+      if (missing || !params.operation) return result(false, missing ?? 'operation is required.');
+      const outcome = await actions.control(id, params.workId ?? '', params.operation, { maxMinutes: params.maxMinutes, maxCostUsd: params.capUsd });
       return result(outcome.ok, outcome.text);
     }
     case 'raise_cap': {

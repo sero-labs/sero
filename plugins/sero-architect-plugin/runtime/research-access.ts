@@ -100,6 +100,13 @@ export function answerResearchAccess(record: ProjectRecord, researchId: string, 
   };
 }
 
+/**
+ * Widens a research entry to command access without a decision. Only for a
+ * project whose approved start already covers commands: asking again for access
+ * the user approved is the repeat prompt the agreement removes.
+ */
+export const widenResearchAccess = (record: ProjectRecord, researchId: string): ProjectRecord => answerResearchAccess(record, researchId, ALLOW_COMMANDS.id);
+
 /** Whether an answer needs the research started again. */
 export const restartsResearch = (optionId: string): boolean => optionId === ALLOW_COMMANDS.id;
 

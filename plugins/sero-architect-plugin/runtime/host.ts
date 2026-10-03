@@ -20,6 +20,8 @@ import type {
   SharedModelTierSettings,
 } from '@sero-ai/common';
 
+import { createFeedbackProjection, sessionStartedAt, type FeedbackProjection } from '@sero-ai/common';
+import { ARCHITECT_FEEDBACK_TOPIC } from '../shared/feedback';
 import type { ArchitectIndex } from '../shared/types';
 
 export interface CommandRun {
@@ -41,6 +43,8 @@ export interface ArchitectHost {
   modelTiers(): Promise<SharedModelTierSettings>;
   listModels(): Promise<SharedAvailableModelGroup[]>;
   runStructured(params: AppRuntimeSubagentRunParams): Promise<AppRuntimeSubagentResult>;
+  /** The tool and skill names a delegated worker in this workspace can be given. */
+  listWorkerCapabilities(workspaceId: string): Promise<{ tools: string[]; skills: string[] }>;
   /** One shell command through the workspace runtime, with its real exit code. */
   runCommand(workspaceId: string, cwd: string, command: string, timeoutMs?: number): Promise<CommandRun>;
   /** A local binary (git) in a directory, outside any workspace runtime. */
@@ -55,6 +59,11 @@ export interface ArchitectHost {
   /** Whether any file or directory is already at the path. Safe for directories. */
   pathExists(filePath: string): Promise<boolean>;
   notify(message: string, type: 'info' | 'warning' | 'error'): void;
+  /**
+   * What the owner and direct research are doing now, as bounded metadata. Kept
+   * in memory and pushed to the app's views; nothing is written to a record.
+   */
+  feedback: FeedbackProjection;
   now(): string;
   newId(prefix: string): string;
   log(message: string): void;
@@ -117,6 +126,10 @@ export function createArchitectHost(ctx: AppRuntimeContext): ArchitectHost {
     modelTiers: () => host.models.tiers(),
     listModels: () => host.models.list(),
     runStructured: (params) => host.subagents.runStructured(params),
+    listWorkerCapabilities: async (workspaceId) => {
+      const [tools, skills] = await Promise.all([host.subagents.listToolCatalog(workspaceId), host.subagents.listSkillCatalog(workspaceId)]);
+      return { tools: tools.map((tool) => tool.name), skills: skills.map((skill) => skill.name) };
+    },
     runCommand: async (workspaceId, cwd, command, timeoutMs) => {
       const result = await host.workspace.runCommand(workspaceId, cwd, command, timeoutMs);
       return { exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr };
@@ -139,6 +152,7 @@ export function createArchitectHost(ctx: AppRuntimeContext): ArchitectHost {
     fileInfo: fileInfoOf,
     pathExists,
     notify: (message, type) => host.notifications.notify({ message, type, source: 'Architect' }),
+    feedback: createFeedbackProjection(sessionStartedAt(), (snapshot) => host.ui.emit(ARCHITECT_FEEDBACK_TOPIC, snapshot)),
     now: () => new Date().toISOString(),
     newId: (prefix) => `${prefix}_${Math.random().toString(36).slice(2, 10)}`,
     log: (message) => console.log(`[architect] ${message}`),

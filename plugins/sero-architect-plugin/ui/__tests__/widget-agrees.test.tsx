@@ -35,7 +35,12 @@ const lastKnown: ArchitectIndexEntry = {
 
 const index: ArchitectIndex = { version: 1, projects: [lastKnown], runtime: { running: false, startedAt: '2026-09-19T10:00:00.000Z' } };
 
-vi.mock('@sero-ai/app-runtime', () => ({
+vi.mock('@sero-ai/app-runtime', async () => ({
+  // The widget follows work feedback through the real hook; with no app
+  // context it subscribes to nothing, so the rows show the saved state.
+  AppContext: (await vi.importActual<typeof import('@sero-ai/app-runtime')>('@sero-ai/app-runtime')).AppContext,
+  useWorkFeedback: (await vi.importActual<typeof import('@sero-ai/app-runtime')>('@sero-ai/app-runtime')).useWorkFeedback,
+  useAppTools: () => ({ run: vi.fn(async () => ({ text: '', details: null })) }),
   useAppState: () => [index, () => {}, true],
   openSeroApp: () => {},
 }));

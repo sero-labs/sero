@@ -6,6 +6,7 @@
 
 import { randomUUID } from 'node:crypto';
 
+import { allocateStart } from '../shared/budget';
 import { block, mayDispatch, settle, unblock } from '../shared/lifecycle';
 import { projectWriter, usesProjectFiles } from './execution-location';
 import type { OrchestratorProjectContext } from '@sero-ai/common';
@@ -66,16 +67,25 @@ export async function performDispatch(
   const intent = { kind: request.kind, destination: request.destination, startedAt: now, project,
     ...(request.kind === 'workflow' ? { request: { id: randomUUID(), prompt: scopedRequest.prompt, maxCostUsd: request.maxCostUsd } } : {}),
   };
+  let refusal = '';
   const prepared = await store.update(record.id, (fresh) => {
     const current = fresh.milestones.find((item) => item.id === milestone.id);
     if (!current || current.dispatch || current.pendingDispatch) return null;
     if (usesProjectFiles(fresh, request) && (fresh.pendingEvidence?.length || projectWriter(fresh, milestone.id))) return null;
+    // Sized in the write that reserves the dispatch, so a second start that
+    // lands beside this one is measured against what this one left free.
+    const allocation = allocateStart(fresh, request.maxCostUsd);
+    if (!allocation.ok) {
+      refusal = allocation.error;
+      return null;
+    }
+    const reserved = allocation.allocatedUsd === undefined ? intent : { ...intent, allocatedUsd: allocation.allocatedUsd };
     const milestones = fresh.milestones.map((item) =>
-      item.id === milestone.id ? { ...item, pendingDispatch: intent } : item,
+      item.id === milestone.id ? { ...item, pendingDispatch: reserved } : item,
     );
     return settle({ ...fresh, milestones, stateLine: `Preparing ${milestone.title}.` }, now);
   });
-  if (!prepared) throw new Error(`Milestone ${milestone.id} could not reserve its dispatch.`);
+  if (!prepared) throw new Error(refusal || `Milestone ${milestone.id} could not reserve its dispatch.`);
   const preparedMilestone = prepared.milestones.find((item) => item.id === milestone.id);
   if (!preparedMilestone) throw new Error(`Milestone ${milestone.id} is no longer on this project.`);
 
@@ -160,6 +170,7 @@ async function linkDispatch(
       chargedUsd: link.chargedUsd ?? 0,
       destination: request.destination,
       baseCommit: link.baseCommit,
+      ...(preparedMilestone.pendingDispatch?.allocatedUsd !== undefined ? { allocatedUsd: preparedMilestone.pendingDispatch.allocatedUsd } : {}),
       ...(request.project?.runId ? { runId: request.project.runId } : {}),
     },
   };
