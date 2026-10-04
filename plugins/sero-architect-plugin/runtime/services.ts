@@ -226,6 +226,9 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     const binding = record.pendingEvidence?.find((pending) => pending.milestoneId === milestoneId)?.binding;
     const evidence: EvidenceRecord = { commit, fingerprint, checkedAt: host.now(), commands: ran, diffSummary, filesChanged, preview, passed, stale: false, ...(binding ? { binding } : {}) };
     let superseded: string[] = [];
+    const failedCommand = ran.find((c) => c.exitCode !== 0);
+    const failedBecause = failedCommand ? `"${failedCommand.command}" exited ${failedCommand.exitCode}.`
+      : preview?.failure ?? (preview && !preview.capturePath ? 'The preview gave no capture.' : 'The preview check did not pass.');
     await store.update(projectId, (fresh) => {
       const current = fresh.milestones.find((m) => m.id === milestoneId) ?? milestone;
       // A criterion or the preview target changed while the check ran: the
@@ -240,7 +243,8 @@ export function createServices(deps: ServicesDeps): OwnerServices {
       };
       const next = settle({
         ...replaceMilestone(fresh, verified),
-        stateLine: `${passed ? 'Checks passed' : 'Checks failed'}: ${current.title}.`,
+        // A failure names its cause, so the page does not say "failed" and stop there.
+        stateLine: passed ? `Checks passed: ${current.title}.` : `Checks failed: ${current.title}. ${failedBecause} The Architect has the reason and decides the next step.`,
         pendingEvidence: (fresh.pendingEvidence ?? []).filter((pending) => pending.milestoneId !== milestoneId),
       }, host.now());
       if (current.status !== 'done' || passed) return next;

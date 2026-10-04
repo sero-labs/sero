@@ -323,6 +323,8 @@ describe('runtime services', () => {
     const first = (await store.read('proj_1'))?.milestones[0];
     expect(first?.evidence).toMatchObject({ passed: false, preview: { route: '/', smokePassed: false, capturePath: null, failure: expect.stringContaining('No dev server command was detected') } });
     expect(wakes[0]?.items[0]).toContain('Add a dev script');
+    // The page gets the reason too, not only the word "failed".
+    expect((await store.read('proj_1'))?.stateLine).toContain('No dev server command was detected');
 
     const plain = buildingProject({ milestones: [milestone('m1', { status: 'verifying' })] });
     await store.write(plain);
