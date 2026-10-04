@@ -130,12 +130,14 @@ test('an undone turn stays undone after the session is reopened', async () => {
   expect(await reopen(session)).toBe(afterUndo.messages.length);
 });
 
-test('a cleared session stays empty after it is reopened', async () => {
+test('a cleared session stays empty and keeps its model after it is reopened', async () => {
   const session = await newSession();
   await turn(session.id, 'hello');
   await page.evaluate((id) => window.sero.agent.clearSession(id), session.id);
 
   expect(await reopen(session)).toBe(0);
+  const state = await page.evaluate((id) => window.sero.agent.getModelState(id), session.id);
+  expect(`${state?.model.provider}/${state?.model.modelId}`).toBe(`${STUB_PROVIDER_ID}/${STUB_MODEL_ID}`);
 });
 
 test('after a fork, the parent session still writes to its own file', async () => {

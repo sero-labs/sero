@@ -371,6 +371,11 @@ export function registerAgentHandlers(): void {
         throw new Error('Clear was cancelled by an extension');
       }
       entry.pendingTurnUndoUserMessageId = null;
+      // The model and thinking entries are on the branch the clear left. Write the settings in
+      // use to the cleared branch, so a reopened session does not go back to earlier ones.
+      const { model, thinkingLevel } = entry.session;
+      if (model) sm.appendModelChange(model.provider, model.id);
+      sm.appendThinkingLevelChange(thinkingLevel);
       persistSessionLeaf(entry.session);
 
       const page = readNewestTurns(entry.session, entry.workspaceId);
