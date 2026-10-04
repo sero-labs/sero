@@ -24,6 +24,8 @@ const SERO_UI_THEME_COLORS: Record<ThemeColor, string> = {
   dim: '#4b5563',
   text: '#f9fafb',
   thinkingText: '#d1d5db',
+  scrollbarTrack: '#1f1f1f',
+  scrollbarThumb: '#4b5563',
   searchMatchText: '#f9fafb',
   userMessageText: '#f9fafb',
   customMessageText: '#f9fafb',

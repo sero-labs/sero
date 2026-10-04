@@ -89,6 +89,8 @@ export function createPiRunnerFactory(paths: StatePaths): SessionRunnerFactory {
       cwd, agentDir: paths.root, modelRuntime: runtime,
       resourceLoaderOptions: { extensionFactories: [{ name: "sero-node", hidden: true, factory: extension }] },
     });
+    // Cache warming sends model requests nobody asked for. The node keeps it off, as the desktop does.
+    if (services.settingsManager.getCacheWarmingMode() !== "off") services.settingsManager.setCacheWarmingMode("off");
     const created = await createAgentSessionFromServices({
       services, model, thinkingLevel, sessionManager: manager, tools: ["read", "write", "edit", "bash", "grep", "find"],
     });

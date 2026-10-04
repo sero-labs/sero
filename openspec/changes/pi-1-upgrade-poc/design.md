@@ -59,9 +59,11 @@ Pin the four catalog entries to `1.0.2` and keep the peer range as it is. The lo
 
 ### D3. The prompt override moves to `before_agent_start`
 
-The Sero host extension (`create-sero-extension.ts`) already handles `before_agent_start`. When a session has a prompt override or disabled skills, the handler returns `{ systemPrompt }`, built from `event.systemPrompt`. The context editor reads the base prompt from the public `session.systemPrompt` getter.
+The Sero host extension (`create-sero-extension.ts`) already handles `before_agent_start`. When a session has a prompt override or disabled skills, the handler returns `{ systemPrompt }`. The context editor reads the base prompt from the public `session.systemPrompt` getter, which holds no run-time change while the session is idle.
 
-The host extension is the first factory, so plugin handlers that append their blocks run after it and see the override. That is the order Sero has today.
+Pi loads inline extension factories after file and package extensions, so the host handler runs last. Plugin handlers have already appended their blocks to the base prompt when it runs. The handler therefore replaces only the base part: it takes the base prompt from `session.systemPrompt`, and when the current prompt starts with it, it swaps that prefix for the override and keeps the rest. The result is the override, then the plugin blocks, then the Sero blocks, which is the order `main` produces. If an earlier extension rewrote the base prompt, the prefix cannot be found, and the override replaces the whole prompt with a warning in the log.
+
+The first draft of this decision assumed that the host extension runs first. The apply run showed that it does not: a handler that replaced the whole prompt dropped the plugin blocks.
 
 Alternatives rejected:
 - Write `_baseSystemPromptOptions`. It is another private reach and it is structured, so it does not fit a free-text override.
@@ -78,7 +80,7 @@ This removes two of the three private reaches in the adapter. It also means cand
 
 ### D5. Keep the model write and the file rewrite until they are proven unnecessary
 
-`agent.state.model` is still a plain writable field, so `setRuntimeSessionModel` stays. `_rewriteFile` still exists. The upgrade branch tests whether `appendCustomEntry` now reaches the file without it, and removes the call only if the test shows that. Update the adapter's version constant to 1.0.2.
+`agent.state.model` is still a plain writable field, so `setRuntimeSessionModel` stays. `_rewriteFile` still exists. The upgrade branch tests whether `appendCustomEntry` now reaches the file without it, and removes the call only if the test shows that. Update the adapter's version constant to 1.0.2. The test showed that the call is not needed, so it is removed, and the version constant went with the warning code that used it.
 
 ### D6. Cache warming is off in the upgrade branch
 
@@ -139,5 +141,5 @@ Each pull request description holds its part of the compatibility matrix (item, 
 
 ## Open Questions
 
-- Does `appendCustomEntry` persist without `_rewriteFile` in 1.0.2? Task 3.4 answers it and decides whether the last private call goes.
+- Answered by task 3.4: `appendCustomEntry` persists without `_rewriteFile`. Sero writes the session header when it creates a session, so the file exists and Pi appends to it at once. The call is removed. The model write is the only private reach left.
 - Do `usage` entries need a line in the usage plugin's totals? It matters only if cache warming is adopted.

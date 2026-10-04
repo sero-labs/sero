@@ -126,7 +126,10 @@ describe('shared custom provider propagation', () => {
       })).resolves.toBe('isolated');
 
       expect(sessions.every((session) => session.modelRuntime === runtime)).toBe(true);
-      expect(sessions.map((session) => session.messages.length)).toEqual([2, 2, 2]);
+      // Pi keeps the system prompt as the first message of the transcript.
+      expect(sessions.map((session) => session.messages.map((message) => message.role))).toEqual(
+        Array.from({ length: 3 }, () => ['system', 'user', 'assistant']),
+      );
       expect(sessions.every((session) => session.getAllTools().length === 0)).toBe(true);
       expect(extensionLoads).toBe(3);
       expect(observedRequests).toHaveLength(4);

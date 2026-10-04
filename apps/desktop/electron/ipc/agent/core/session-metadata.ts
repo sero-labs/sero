@@ -75,6 +75,8 @@ async function scanSessionFile(filePath: string, modified: Date): Promise<Sessio
     header ??= sessionHeaderFromEntry(entry);
     if (entry.type === 'session_info' && typeof entry.name === 'string') name = entry.name;
     if (entry.type !== 'message' || !isRecord(entry.message)) continue;
+    // Pi records the system prompt as a message entry. It is not part of the conversation.
+    if (entry.message.role === 'system') continue;
 
     messageCount += 1;
     if (!firstMessage && entry.message.role === 'user') {

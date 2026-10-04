@@ -2,7 +2,7 @@ import {
   fauxAssistantMessage,
   fauxProvider,
 } from '@earendil-works/pi-ai/providers/faux';
-import { InMemoryCredentialStore } from '@earendil-works/pi-ai';
+import { getCurrentSystemPrompt, getCurrentTools, InMemoryCredentialStore } from '@earendil-works/pi-ai';
 import {
   AgentSession,
   createEventBus,
@@ -79,8 +79,8 @@ describe('isolated completion service', () => {
       await writeFile(path.join(cwd, '.pi', 'APPEND_SYSTEM.md'), contamination);
       faux.setResponses([
         (context, options) => {
-          observedSystemPrompt = context.systemPrompt ?? '';
-          observedTools = context.tools;
+          observedSystemPrompt = getCurrentSystemPrompt(context.messages);
+          observedTools = getCurrentTools(context.messages);
           observedReasoning = (options as { reasoning?: unknown } | undefined)?.reasoning;
           return fauxAssistantMessage('isolated response');
         },

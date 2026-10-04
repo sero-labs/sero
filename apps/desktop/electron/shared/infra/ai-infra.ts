@@ -20,6 +20,16 @@ export interface SharedInfra {
   model: Model<Api> | null;
 }
 
+/**
+ * Pi warms a model's prompt cache with extra requests unless the profile's
+ * global settings say "off". Sero has not chosen to pay for those requests, so
+ * the profile says "off". Every session that uses this agent directory reads
+ * the same setting, including the ones that build their own settings manager.
+ */
+export function keepCacheWarmingOff(settingsManager: Pick<SettingsManager, 'getCacheWarmingMode' | 'setCacheWarmingMode'>): void {
+  if (settingsManager.getCacheWarmingMode() !== 'off') settingsManager.setCacheWarmingMode('off');
+}
+
 /** Initialize only the AI SDK state, without starting application services. */
 export async function ensureAiInfra(): Promise<SharedInfra> {
   if (infra) return infra;
@@ -39,6 +49,7 @@ export async function ensureAiInfra(): Promise<SharedInfra> {
     if (!settingsManager.getDefaultThinkingLevel()) {
       settingsManager.setDefaultThinkingLevel('high');
     }
+    keepCacheWarmingOff(settingsManager);
     infra = {
       modelRuntime,
       modelRegistry,

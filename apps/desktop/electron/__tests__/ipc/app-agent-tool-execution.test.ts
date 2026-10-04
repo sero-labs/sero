@@ -14,7 +14,7 @@ describe('invokeAppSessionTool', () => {
     const session = {
       extensionRunner: {
         getToolDefinition: vi.fn(() => ({ execute })),
-        createContext: vi.fn(() => toolContext),
+        createToolContext: vi.fn(() => toolContext),
       },
     } as unknown as AgentSession;
 
@@ -39,7 +39,7 @@ describe('invokeAppSessionTool', () => {
     const session = {
       extensionRunner: {
         getToolDefinition: vi.fn(() => undefined),
-        createContext: vi.fn(),
+        createToolContext: vi.fn(),
       },
     } as unknown as AgentSession;
 

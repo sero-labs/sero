@@ -1,5 +1,5 @@
 import type { AgentSession } from '@earendil-works/pi-coding-agent';
-import type { ImageContent } from '@earendil-works/pi-ai';
+import type { ImageContent, ToolCall } from '@earendil-works/pi-ai';
 import type {
   ChatAttachment,
   ChatAssistantMessage,
@@ -298,8 +298,7 @@ export function convertSessionMessages(
       }
 
       const toolCalls = message.content.filter(
-        (content): content is { type: 'toolCall'; id: string; name: string; arguments: Record<string, unknown> } =>
-          content.type === 'toolCall',
+        (content): content is ToolCall => content.type === 'toolCall',
       );
       for (const toolCall of toolCalls) {
         if (toolCall.name === 'set_session_title') continue;

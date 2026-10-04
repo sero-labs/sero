@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AssistantMessage, ToolCall } from '@earendil-works/pi-ai';
+import type { AssistantMessage, JsonObject, ToolCall } from '@earendil-works/pi-ai';
 
 import { ToolInputStreams } from '@electron/ipc/agent/core/tool-input-stream';
 
@@ -19,7 +19,7 @@ function message(...blocks: Array<Partial<ToolCall>>): AssistantMessage {
   } as AssistantMessage;
 }
 
-function toolCall(args: Record<string, unknown>, id = 'call-1', name = 'write'): ToolCall {
+function toolCall(args: JsonObject, id = 'call-1', name = 'write'): ToolCall {
   return { type: 'toolCall', id, name, arguments: args };
 }
 

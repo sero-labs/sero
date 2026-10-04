@@ -130,7 +130,7 @@ export function logTurnContext(sessionId: string, session: AgentSession): void {
       name: state.model?.name ?? 'unknown',
     },
     thinkingLevel: state.thinkingLevel,
-    systemPrompt: state.systemPrompt,
+    systemPrompt: session.systemPrompt,
     tools,
     messageCount: state.messages.length,
     messages: state.messages,

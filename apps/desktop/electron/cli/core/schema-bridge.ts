@@ -14,6 +14,7 @@
 
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { validateToolArguments } from '@earendil-works/pi-ai';
+import { isJsonObject } from '@electron/shared/lib/json-value';
 import type { CliCommand, CliCommandContext, CliContentBlock, CliResult } from './types';
 import { buildCommandContext, buildToolContext } from './bridge-context';
 import { extractContent, extractText } from './tool-result';
@@ -415,7 +416,7 @@ export function bridgeTool(toolName: string, toolDef: ToolDefinition, options?: 
         const prepared = activeToolDef.prepareArguments
           ? activeToolDef.prepareArguments(params)
           : params;
-        if (!isRecord(prepared)) {
+        if (!isJsonObject(prepared)) {
           return { output: `ERROR: ${toolName} expects one object argument.`, exitCode: 1 };
         }
         const toolArguments: Record<string, unknown> = validateToolArguments(activeToolDef, {

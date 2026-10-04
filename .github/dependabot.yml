@@ -33,9 +33,6 @@ updates:
       # in-repo plugins, and every external plugin together, bump
       # SERO_PLUGIN_RUNTIME_ABI, and republish. See the public Plugins reference.
       - dependency-name: "@module-federation/*"
-      # Pi SDK moves to 1.x in its own migration PR. Skip the 0.x steps; each one
-      # changes types and tests. Remove this entry in that PR.
-      - dependency-name: "@earendil-works/*"
       # bun 1.4 changes the Bun.serve types that apps/agent-node uses, and
       # @pierre/diffs 1.5 changes the diff viewer generics in the git plugin.
       # Bump each with the code change it needs, then remove its entry.

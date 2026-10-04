@@ -3,6 +3,7 @@ import {
   SessionManager,
   type ExtensionCommandContext,
   type ExtensionContext,
+  type ExtensionToolContext,
 } from '@earendil-works/pi-coding-agent';
 
 import { createSeroUIContext } from '@electron/features/apps/extensions/ui-context';
@@ -11,7 +12,7 @@ import type { CliCommandContext, CliSessionRuntime } from './types';
 import type { CliSessionEntry } from '../bridges/session-bridge';
 import { getCliSessionBridge } from '../bridges/session-bridge';
 
-export type SeroBridgedToolContext = ExtensionContext & {
+export type SeroBridgedToolContext = ExtensionToolContext & {
   sessionRuntime?: CliSessionRuntime;
 };
 
@@ -118,10 +119,23 @@ export async function buildToolContext(ctx: CliCommandContext): Promise<SeroBrid
       : await createFallbackExtensionContext(ctx.cwd);
 
   return {
+    // A bridged tool runs outside a model tool call, so it has no nested-call
+    // route unless the calling tool's own context supplies one.
+    tools: [],
+    executeTool: nestedToolUnavailable,
     ...baseContext,
     sessionRuntime: ctx.sessionRuntime,
   };
 }
+
+const nestedToolUnavailable: ExtensionToolContext['executeTool'] = async (name) => ({
+  toolCall: { type: 'toolCall', id: 'cli-bridge/0', name, arguments: {} },
+  result: {
+    content: [{ type: 'text', text: `Tool '${name}' cannot be called from a bridged Sero CLI command.` }],
+    details: undefined,
+  },
+  isError: true,
+});
 
 export async function buildCommandContext(
   commandName: string,

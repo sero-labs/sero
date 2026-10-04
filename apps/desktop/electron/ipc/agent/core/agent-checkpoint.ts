@@ -139,8 +139,7 @@ async function restoreLegacyCheckpoint(
   const branchTargetId = findLegacyTurnUndoEntryId(entry.session, changeId);
   if (branchTargetId) {
     entry.session.sessionManager.branch(branchTargetId);
-    const ctx = entry.session.sessionManager.buildSessionContext();
-    entry.session.agent.state.messages = ctx.messages;
+    entry.session.refreshContext();
   } else {
     console.warn(`[checkpoint] No session entry for changeId=${changeId} — VCS-only restore`);
   }

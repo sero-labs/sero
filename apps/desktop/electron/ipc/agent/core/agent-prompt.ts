@@ -6,6 +6,7 @@ import {
 import type {
   AssistantMessage,
   ImageContent,
+  JsonObject,
   Message,
   TextContent,
   ToolResultMessage,
@@ -24,6 +25,7 @@ import { getCliRegistry } from '@electron/cli';
 import type { CliContentBlock } from '@electron/cli/core';
 import { createSeroCliTool, prepareCliImageContent, splitCommandLines } from '@electron/cli/core';
 import { workspaceManager } from '@electron/shared/infra/shared-infra';
+import { toJsonObject } from '@electron/shared/lib/json-value';
 import { createSeroUIContext } from '@electron/features/apps/extensions/ui-context';
 import { attachmentsToImages, nextId } from './agent-helpers';
 
@@ -195,7 +197,7 @@ export function buildDirectCliExtensionContext(
         entry.session.compact(options?.customInstructions),
       );
     },
-    getSystemPrompt: () => entry.session.agent.state.systemPrompt ?? '',
+    getSystemPrompt: () => entry.session.systemPrompt,
   };
 }
 
@@ -310,8 +312,9 @@ function createDirectCliToolExecutor(
 }
 
 function appendMessage(session: AgentSession, message: Message): void {
-  session.agent.state.messages.push(message);
+  // The session file is the source of the next request. The session re-reads it here.
   session.sessionManager.appendMessage(message);
+  session.refreshContext();
 }
 
 function createUserMessage(text: string): UserMessage {
@@ -325,7 +328,7 @@ function createUserMessage(text: string): UserMessage {
 function createToolCallAssistantMessage(
   session: AgentSession,
   toolCallId: string,
-  input: Record<string, unknown>,
+  input: JsonObject,
 ): AssistantMessage {
   const currentModel = session.model;
   return {
@@ -345,13 +348,13 @@ function createToolResultMessage(
   content: Array<TextContent | ImageContent>,
   details: Record<string, unknown> | null,
   isError: boolean,
-): ToolResultMessage<Record<string, unknown> | null> {
+): ToolResultMessage<JsonObject | null> {
   return {
     role: 'toolResult',
     toolCallId,
     toolName: 'sero-cli',
     content,
-    details,
+    details: toJsonObject(details),
     isError,
     timestamp: Date.now(),
   };

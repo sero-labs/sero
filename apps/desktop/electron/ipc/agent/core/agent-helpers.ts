@@ -24,12 +24,7 @@ export {
   formatCustomMessage,
   projectCustomMessage,
 } from './agent-messages';
-export {
-  getBaseSystemPrompt,
-  rewriteSessionManagerFile,
-  setBaseSystemPrompt,
-  setRuntimeSessionModel,
-} from './sdk-private-adapter';
+export { setRuntimeSessionModel } from './sdk-private-adapter';
 
 // ── Validation ───────────────────────────────────────────────
 
@@ -153,13 +148,4 @@ export function buildCommandList(entry: PoolEntryRef, hidden?: Set<string>): Ser
 
 // ── Context override helpers ────────────────────────────────
 
-/**
- * Strip disabled skills from the `<available_skills>` section of a system
- * prompt. Each skill is wrapped in `<skill><name>…</name>…</skill>`.
- */
-export function stripDisabledSkills(prompt: string, disabled: Set<string>): string {
-  return prompt.replace(
-    /<skill>\s*\n\s*<name>([^<]+)<\/name>[\s\S]*?<\/skill>/g,
-    (match, name: string) => (disabled.has(name.trim()) ? '' : match),
-  );
-}
+export { stripDisabledSkills } from '@electron/features/apps/extensions/session-prompt-override';
