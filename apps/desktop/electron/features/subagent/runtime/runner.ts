@@ -18,6 +18,7 @@ import { randomUUID } from 'node:crypto';
 import type { RunnerConfig, RunResult, SubagentUsage, PlatformToolPolicy } from '../core/types';
 import { observationForEvent, repairAttemptObservation, type ObservationContext } from './session-observation';
 import { extractResponse, extractToolArgsSummary } from './session-output';
+import { createAbortGrace, settleOrGiveUp } from './abort-grace';
 import type { SharedInfra } from '@electron/shared/infra/shared-infra';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { createRuntimeTools } from '@electron/features/container/tools';
@@ -264,9 +265,9 @@ export async function runSubagent(
   // `session_shutdown` goes only to extensions that received `session_start`.
   let extensionsStarted = false;
 
-  // Stall timer state — hoisted above try so finally can access clearStallTimer
   let activeToolStallTimer: ReturnType<typeof setTimeout> | null = null;
   let stopReason: string | undefined;
+  const grace = createAbortGrace();
   const usage: SubagentUsage = { ...EMPTY_USAGE };
 
   function clearStallTimer(): void {
@@ -328,9 +329,10 @@ export async function runSubagent(
     await startSessionExtensions(session);
     extensionsStarted = true;
 
-    // Set up abort handler
+    // A stop from the caller. The grace limit applies to it like any other abort.
     const abortHandler = () => {
       try { session?.abort(); } catch { /* ignore */ }
+      grace.start();
     };
     signal.addEventListener('abort', abortHandler, { once: true });
     if (signal.aborted) {
@@ -342,12 +344,12 @@ export async function runSubagent(
     const timeoutId = setTimeout(() => {
       stopReason = `Timed out after ${Math.round(resolved.timeoutMs / 1000)}s`;
       try { session?.abort(); } catch { /* ignore */ }
+      grace.start();
     }, resolved.timeoutMs);
 
     // Track usage, tool activity, live output + debug logging
     const { onToolActivity, onTextDelta, onUpdate: onStatusUpdate } = config;
-    // ── Per-tool stall detection ──────────────────────────────
-    // If a single tool call runs longer than toolStallTimeoutMs, abort.
+    // Per-tool stall detection: a single tool call that runs longer than toolStallTimeoutMs is aborted.
     const toolStallMs = resolved.toolStallTimeoutMs ?? 120_000;
 
     function startStallTimer(toolName: string): void {
@@ -359,6 +361,7 @@ export async function runSubagent(
         console.warn(`[subagent/runner] ${stallMsg}`);
         onStatusUpdate?.(`⚠️ ${stallMsg}`);
         try { session?.abort(); } catch { /* ignore */ }
+        grace.start();
       }, toolStallMs);
     }
 
@@ -385,7 +388,6 @@ export async function runSubagent(
       if (event.type === 'turn_start' && session) {
         logTurnContext(subagentSessionId, session);
       }
-
 
       // Tool execution events → tool activity feed + stall detection + observation
       if (event.type === 'tool_execution_start') {
@@ -426,7 +428,7 @@ export async function runSubagent(
     });
 
     // Send the task and wait for completion
-    await session.prompt(task);
+    await settleOrGiveUp(session.prompt(task), grace);
 
     // Publish the run's resolved tool surface to the shared catalog (the planner
     // and loop context editor read it). Best-effort — never blocks the run.
@@ -450,7 +452,7 @@ export async function runSubagent(
         // A repair pass is its own observable attempt: it costs a request and
         // must not be folded into the first reply's timing.
         observe?.(repairAttemptObservation(i + 1, observationContext, 'start', new Date().toISOString()));
-        await session.prompt(followUp);
+        await settleOrGiveUp(session.prompt(followUp), grace);
         response = extractResponse(session.messages);
         observe?.(repairAttemptObservation(i + 1, observationContext, 'end', new Date().toISOString()));
       }
@@ -483,6 +485,7 @@ export async function runSubagent(
     return { response: '', usage, modelId, providerId, error: errorMsg };
   } finally {
     clearStallTimer();
+    grace.clear();
     clearBridgedExtensionSessionStateForSession(subagentSessionId);
     if (session && extensionsStarted) {
       try { await shutdownAndDispose(session, `subagent ${subagentSessionId}`); } catch { /* ignore */ }
