@@ -135,7 +135,7 @@ export function LiveBlock({
       </div>
       <div
         className={cn(
-          "flex max-h-16 flex-col justify-end overflow-hidden px-2.5 py-2",
+          "flex max-h-32 flex-col justify-end overflow-hidden px-2.5 py-2",
           monospace
             ? "font-mono text-xs break-all text-[var(--text-muted)]"
             : "text-xs leading-relaxed text-[var(--text-muted)]",

@@ -228,7 +228,7 @@ test('a short goal with a start cap is delivered, and the work is visible while 
   test.setTimeout((MAX_MINUTES + 10) * 60_000);
   const startedAt = Date.now();
   const name = `pocket-synth-${startedAt}`;
-  const seen = { liveRows: 0, liveText: 0, decisionsAnswered: 0, hostPrompts: 0, states: new Set<string>() };
+  const seen = { liveRows: 0, liveText: 0, decisionsAnswered: 0, hostPrompts: 0, orchestratorOpenMs: null as number | null, states: new Set<string>() };
 
   // ── Intake: the goal, the place and the start cap. Nothing else is asked. ──
   await page.evaluate(() => (window as unknown as { __appControl?: { openApp(id: string): void } }).__appControl?.openApp('architect'));
@@ -339,6 +339,18 @@ test('a short goal with a start cap is delivered, and the work is visible while 
           if (text.replace(/\s+/g, '').length > 20) seen.liveText += 1;
           if (seen.liveRows <= 12) await shot(`live-${String(seen.liveRows).padStart(2, '0')}`);
         }
+        // One press on the link to the running Workflow or Room opens the Orchestrator.
+        const openLink = page.getByRole('button', { name: /^Open (Workflow|Room)/ }).first();
+        if (seen.orchestratorOpenMs === null && await openLink.isVisible().catch(() => false)) {
+          const pressed = Date.now();
+          await openLink.click({ timeout: 10_000 });
+          const active = () => page.evaluate(() => (window as unknown as { __appControl?: { getActive(): string } }).__appControl?.getActive());
+          const opened = await expect.poll(active, { timeout: 30_000, intervals: [100] }).toBe('orchestrator').then(() => true, () => false);
+          seen.orchestratorOpenMs = opened ? Date.now() - pressed : -1;
+          console.log(`[delivery] one press on the Orchestrator link: ${opened ? `opened in ${seen.orchestratorOpenMs} ms` : 'did not open in 30 s'}`);
+          await page.evaluate(() => (window as unknown as { __appControl?: { openApp(id: string): void } }).__appControl?.openApp('architect'));
+          await page.locator('.ar-app').waitFor({ timeout: 30_000 }).catch(() => undefined);
+        }
         // The trail's own link back to the overview. The sidebar has a workspace of the same name.
         await backToOverview(name);
       }
@@ -388,7 +400,7 @@ test('a short goal with a start cap is delivered, and the work is visible while 
     stateLine: record.stateLine,
     decisions: record.decisions.map((decision) => ({ question: decision.question, answered: decision.answer?.optionId ?? null })),
     userActions: { hostPrompts: seen.hostPrompts, decisionsAnswered: seen.decisionsAnswered, notesSent: 0 },
-    watch: { timesRowsWereLive: seen.liveRows, timesLiveTextWasShown: seen.liveText },
+    watch: { timesRowsWereLive: seen.liveRows, timesLiveTextWasShown: seen.liveText, orchestratorOpenMs: seen.orchestratorOpenMs },
     statesSeen: [...seen.states],
     finalOverview,
     files: fs.existsSync(record.folder) ? fs.readdirSync(record.folder).filter((entry) => !entry.startsWith('.')) : [],
