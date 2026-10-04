@@ -289,6 +289,22 @@ describe('projectActivity', () => {
 
     expect(milestoneCounts(record)).toEqual({ accepted: 1, total: 2 });
   });
+
+  it('counts a milestone set aside when its Room stopped as accepted, but never as evidence', () => {
+    const delivered = milestone({ id: 'm1', status: 'done', verification: 'delivered', receipt: 'pr-1' });
+    const aside = milestone({ id: 'm2', status: 'parked', parkedBy: null, parkedFrom: 'approved' });
+    const agreement = { revision: 1, capUsd: 5, proposedAt: T0, approvedAt: T0, authority: { policyId: 'policy-1', workspaceId: 'ws-1', roles: {}, maxLiveSessions: 8, maxTotalSessions: 64 } };
+    const record = project({ phase: 'maintain', agreement, milestones: [delivered, aside] });
+
+    // Set aside is closed work, so it no longer holds the plan open.
+    expect(milestoneCounts(record)).toEqual({ accepted: 2, total: 2 });
+    expect(projectActivity(record, RUNNING_SESSION)).toMatchObject({ state: 'complete', headline: '1 of 2 delivered, 1 set aside' });
+
+    // A plan of nothing but set-aside work proves nothing, so it is not delivered.
+    const abandoned = project({ phase: 'maintain', agreement, milestones: [aside] });
+    expect(milestoneCounts(abandoned)).toEqual({ accepted: 1, total: 1 });
+    expect(projectActivity(abandoned, RUNNING_SESSION).state).not.toBe('complete');
+  });
 });
 
 /**

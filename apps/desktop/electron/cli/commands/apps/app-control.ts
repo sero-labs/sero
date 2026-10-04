@@ -47,7 +47,7 @@ async function handleApp(args: string[], ctx: CliCommandContext) {
     case 'snapshot': return handleSnapshot(rest);
     case 'scroll-containers': return handleScrollContainers(rest);
     case 'record': return handleRecord(rest, ctx);
-    case 'preview': return handlePreview(rest);
+    case 'preview': return handlePreview(rest, ctx);
     default:
       return fail('Usage: sero app <list|open|active|info|screenshot|screenshot-around|click|type|scroll|scroll-to|select|hover|inspect|get-text|visible|snapshot|scroll-containers|record|preview>');
   }
@@ -99,8 +99,12 @@ export function registerAppControlCliCommands(registry: CliRegistry): void {
       '  After final browser navigation, wait 3-5s and run record stop separately.\n\n' +
       'Dev Server Preview (in-app):\n' +
       '  sero app preview <url>               Open URL in editor panel\n' +
+      '  sero app preview <url> --headless    Capture it with no view change\n' +
+      '  sero app preview <url> --headless --save <path>\n' +
       '  Renders the dev server inside Sero so it can be captured by\n' +
-      '  sero app record and sero app screenshot.\n\n' +
+      '  sero app record and sero app screenshot. --headless loads it in a\n' +
+      '  hidden window instead: the visible app does not change, and the\n' +
+      '  command returns the image and saves it with --save.\n\n' +
       'App matching accepts visible names as well as ids (for example, Calculator → calc).\n\n' +
       'Click/type/scroll/select/hover auto-capture a screenshot after the action.\n' +
       'Inspect returns JSON and skips the post-action screenshot.\n\n' +

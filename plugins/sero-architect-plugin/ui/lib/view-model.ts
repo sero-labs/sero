@@ -3,6 +3,7 @@
  * show. Nothing here touches the bridge, so every rule has a unit test.
  */
 
+import { isSetAside } from '../../shared/activity';
 import type {
   Decision,
   Directive,
@@ -93,6 +94,7 @@ function subLine(milestone: Milestone, record: ProjectRecord): string | null {
     const decision = record.decisions.find((d) => d.id === milestone.parkedBy);
     return decision ? `Waiting for your answer: ${decision.question}` : 'Waiting for your answer';
   }
+  if (isSetAside(milestone)) return 'Its Room stopped before it reported. Dispatch it again if the work is still needed.';
   if (isSubscription(milestone)) {
     // One item, the nearest fact: the next fire when the schedule is known, else the last run.
     if (milestone.dispatch?.nextRunAt) return `Next run ${shortTime(milestone.dispatch.nextRunAt)}`;
@@ -113,7 +115,7 @@ export function railRows(record: ProjectRecord): RailRow[] {
   return record.milestones.map((milestone) => ({
     milestone,
     dot: DOT[milestone.status],
-    label: milestone.dispatch?.failure ? 'interrupted' : milestone.status === 'done' ? 'accepted' : isSubscription(milestone) ? 'watching' : milestone.status,
+    label: milestone.dispatch?.failure ? 'interrupted' : isSetAside(milestone) ? 'set aside' : milestone.status === 'done' ? 'accepted' : isSubscription(milestone) ? 'watching' : milestone.status,
     tone: milestone.dispatch?.failure ? 'warn' : TONE[milestone.status],
     sub: subLine(milestone, record),
     ladder: ladderLevel(milestone.verification),
@@ -123,8 +125,9 @@ export function railRows(record: ProjectRecord): RailRow[] {
   }));
 }
 
+/** Milestones the reader may count as closed: accepted on evidence, or set aside when a Room stopped. */
 export function acceptedCount(record: ProjectRecord): number {
-  return record.milestones.filter((milestone) => milestone.status === 'done').length;
+  return record.milestones.filter((milestone) => milestone.status === 'done' || isSetAside(milestone)).length;
 }
 
 export interface EvidenceCheck {

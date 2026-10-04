@@ -419,4 +419,37 @@ describe('runtime services', () => {
       await new Promise<void>((resolve) => { server.close(() => resolve()); });
     }
   });
+
+  it.each([true, false])('judges the saved image when the capture run was stopped at its limit (rendered=%s)', async (rendered) => {
+    const preview = milestone('m1', { status: 'verifying', preview: { route: '/' } });
+    const project = buildingProject({ milestones: [preview] });
+    const { host, store, services, wakes } = await setup(project);
+    const server = createServer((_request, response) => { response.end('ok'); });
+    await new Promise<void>((resolve) => { server.listen(0, '127.0.0.1', resolve); });
+    const tasks: string[] = [];
+    try {
+      host.detectDevServerCommand = async () => 'pnpm dev';
+      host.startDevServer = async () => ({ url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, serverId: 'srv-1' });
+      host.fileInfo = async () => ({ mtimeMs: Date.now(), size: 100, head: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]) });
+      host.runStructured = async (params) => {
+        tasks.push(params.task ?? '');
+        return tasks.length === 1
+          ? { response: '', error: 'Timed out after 180s' }
+          : { response: JSON.stringify({ rendered, summary: rendered ? 'Game map and player visible' : 'Explorer file error, not the game' }) };
+      };
+      await services.evidence(project, preview, { commands: ['pnpm test'], route: '/' });
+      await waitFor(() => wakes.length > 0);
+    } finally {
+      await new Promise<void>((resolve) => { server.close(() => resolve()); });
+    }
+    // Two calls: the capture, then one that only reads what it saved. The
+    // stopped run is not repeated, because the image is already on disk.
+    expect(tasks).toHaveLength(2);
+    expect(tasks[0]).toContain('sero app preview');
+    expect(tasks[1]).not.toContain('sero app preview');
+    const evidence = (await store.read(project.id))?.milestones[0]?.evidence;
+    expect(evidence?.passed).toBe(rendered);
+    if (rendered) expect(evidence?.preview?.capturePath).toMatch(/\.png$/);
+    else expect(evidence?.preview?.failure).toContain('Explorer file error');
+  });
 });

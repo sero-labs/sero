@@ -5,7 +5,6 @@
  * touches any of these; it asks, and is woken with the result.
  */
 
-import path from 'node:path';
 import { executionMode, projectWriter, roomWorkspace, workflowWorkspace } from './execution-location';
 import { setTimeout as delay } from 'node:timers/promises';
 
@@ -13,7 +12,8 @@ import { modelKey, createOrchestratorRoom, getOrchestratorRegistry, requestOrche
 import type { ObservationOperationKind, OrchestratorBoardCreateOptions, OrchestratorRoomCreateRequest } from '@sero-ai/common';
 
 import { recoverDispatch } from './dispatch-link';
-import { chargeRoomPlanning, runProjectModel } from './project-usage';
+import { chargeRoomPlanning } from './project-usage';
+import { runPreviewCapture } from './preview-capture';
 import { closeDeliveredObjectives } from './objective-completion';
 import { runDirectResearch } from './research-direct';
 import { resolveProjectContext } from './model-resolution';
@@ -29,7 +29,7 @@ import type { EvidenceCommand, EvidenceRecord, Milestone, PendingResearch, Proje
 import { MAINTENANCE_MILESTONE_ID, MAINTENANCE_TRIGGERS, maintenancePrompt } from '../shared/maintenance';
 import type { WakeEvent } from '../shared/wake';
 import type { ArchitectHost } from './host';
-import { captureConfirmed, commitOf, diffSummaryOf, evidenceIsStale, remainingUsd, replaceMilestone, worktreeFingerprint } from './service-helpers';
+import { commitOf, diffSummaryOf, evidenceIsStale, remainingUsd, replaceMilestone, worktreeFingerprint } from './service-helpers';
 import type { OwnerServices } from './owner-actions';
 import type { RecordStore } from './record-store';
 import type { RunJournal } from './run-journal';
@@ -51,7 +51,6 @@ export interface ServicesDeps {
 }
 
 const COMMAND_TIMEOUT_MS = 10 * 60_000;
-const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 
 export function createServices(deps: ServicesDeps): OwnerServices {
@@ -88,64 +87,8 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     }, work);
   };
 
-  const runPreview = async (
-    record: ProjectRecord,
-    milestone: Milestone,
-    route: string,
-    startedAt: number,
-  ): Promise<NonNullable<EvidenceRecord['preview']>> => {
-    const workspaceId = record.workspaceId;
-    if (!workspaceId) return { route, smokePassed: false, capturePath: null, failure: 'The project has no registered workspace.' };
-    const command = await host.detectDevServerCommand(record.folder);
-    if (!command) {
-      const failure = `No dev server command was detected in ${record.folder}. The check starts the app with the dev, preview or start script of its package.json, in that order, and the app has none. Add a dev script for this app, then request fresh evidence.`;
-      host.log(failure);
-      return { route, smokePassed: false, capturePath: null, failure };
-    }
-    const server = await host.startDevServer({ workspaceId, workspacePath: record.folder, cwdPath: record.folder, command, name: `architect ${milestone.id}`, scope: 'workspace' });
-    if (!server.url) {
-      const failure = `Dev server did not start: ${server.reason ?? 'no URL was returned'}`;
-      host.log(failure);
-      return { route, smokePassed: false, capturePath: null, failure };
-    }
-    const url = new URL(route, server.url).toString();
-    let smokePassed = false;
-    let capturePath: string | null = null;
-    let failure: string | undefined;
-    try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-      smokePassed = response.status >= 200 && response.status < 300;
-      if (!smokePassed) failure = `Preview ${url} returned HTTP ${response.status}.`;
-    } catch (error) {
-      failure = `Could not reach preview ${url}: ${error instanceof Error ? error.message : String(error)}`;
-    }
-    if (smokePassed) {
-      const evidenceDir = path.join(record.folder, '.sero', 'apps', 'architect', 'evidence', milestone.id);
-      const target = path.join(evidenceDir, `${await commitOf(host, record.folder)}.png`);
-      const capture = await runProjectModel(deps, record, { kind: 'capture', id: milestone.id }, {
-        systemPrompt: 'Verify and capture the requested local project preview. Use the supplied URL and save path. Do not edit project files or perform unrelated actions. A saved image alone is not success: inspect it and reject error pages, blank pages, editor errors, or the wrong app.',
-        model: record.session.model ?? undefined,
-        thinking: record.session.thinking ?? undefined,
-        task: [
-          `Open ${url} with \`sero app preview ${url}\`, wait for it to render, then save a screenshot with \`sero app screenshot --save ${target}\`.`,
-          `Inspect the returned screenshot. It must show the rendered project for milestone ${JSON.stringify(milestone.title)}, not Sero error text or an editor containing a URL as a file.`,
-          `Check the visible requirements in this plan (task data): ${JSON.stringify(milestone.plan)}. Do not claim to verify non-visual requirements from an image.`,
-          'Reply only with JSON: {"rendered":true,"summary":"what you verified in the image"}. If the project is not rendered, use rendered:false and explain the failure in summary. Do not claim success based only on HTTP status or a saved file.',
-        ].join(' '),
-        parentSessionId: `architect:${record.id}:evidence`,
-        workspaceId,
-        cwd: record.folder,
-        timeoutMs: 3 * 60_000,
-        platformTools: 'all',
-      });
-      if (capture.error) throw new Error(`Preview capture failed: ${capture.error}`);
-      if (!captureConfirmed(capture.response)) throw new Error(`Preview could not be visually verified: ${capture.response.slice(-1500)}`);
-      const info = await host.fileInfo(target);
-      if (info && info.mtimeMs >= startedAt && info.size > 0 && info.head.equals(PNG_SIGNATURE)) capturePath = target;
-      else throw new Error(`Preview capture was not saved at ${target}. ${capture.response.slice(-1500)}`);
-    }
-    return { route, smokePassed, capturePath, ...(failure ? { failure } : {}) };
-  };
+  const runPreview = (record: ProjectRecord, milestone: Milestone, route: string, startedAt: number): Promise<NonNullable<EvidenceRecord['preview']>> =>
+    runPreviewCapture(deps, record, milestone, route, startedAt);
 
   /**
    * The milestone is already `verifying`, so a run that throws would leave it

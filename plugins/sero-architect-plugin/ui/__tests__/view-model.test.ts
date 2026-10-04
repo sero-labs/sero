@@ -50,6 +50,17 @@ describe('the milestone rail', () => {
     expect(acceptedCount(FIXTURES.decision!)).toBe(2);
   });
 
+  it('counts a milestone set aside by a stopped Room as closed, and says so on its row', () => {
+    const base = FIXTURES.decision!;
+    const record = { ...base, milestones: base.milestones.map((m) => (m.id === 'm4' ? { ...m, parkedBy: null } : m)) };
+
+    const row = railRows(record).find((r) => r.milestone.id === 'm4');
+    expect(row?.label).toBe('set aside');
+    expect(row?.sub).toBe('Its Room stopped before it reported. Dispatch it again if the work is still needed.');
+    // Set aside is closed work, so the rail stops counting it as still open.
+    expect(acceptedCount(record)).toBe(3);
+  });
+
   it('shows the maintenance subscription as watching, with only its next run', () => {
     const base = FIXTURES.maintain!;
     const record = {
