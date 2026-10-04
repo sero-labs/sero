@@ -8,6 +8,7 @@
  */
 
 import { afterEach, describe, expect, it } from 'vitest';
+import { projectActivity } from '../../shared/activity';
 import { provenBy, unaccountedRequirements } from '../../shared/evidence-binding';
 import type { EvidenceRecord, Milestone, ProjectRecord } from '../../shared/record';
 import { applyDelivery } from '../delivery';
@@ -158,6 +159,17 @@ describe('delivery accounts for what the user asked', () => {
     expect(outcome.record.phase).toBe('maintain');
     // The gap stays on the record for the user to read.
     expect(outcome.record.working?.criteria[1]?.gap).toBe('Not checked: no offline test exists yet.');
+  });
+
+  it('delivers although a milestone was set aside, and the overview says both', () => {
+    const aside = milestone('m9', { status: 'parked', parkedBy: null, parkedFrom: 'approved' });
+    const record = agreedProject({ working: working([c1]), milestones: [delivered, aside] });
+    const outcome = applyDelivery(record, record.milestones[0]!, T0);
+    expect(outcome.record.phase).toBe('maintain');
+    expect(projectActivity(outcome.record, { sessionStartedAt: T0, runtimeRunning: true }).headline).toBe('1 of 2 delivered, 1 set aside');
+    // A milestone that waits for the user's answer is open work, so nothing is delivered.
+    const waiting = agreedProject({ working: working([c1]), milestones: [delivered, { ...aside, parkedBy: 'dec-1' }] });
+    expect(applyDelivery(waiting, waiting.milestones[0]!, T0).record.phase).toBe('build');
   });
 
   it('removes what the overview said about work in progress once the result is delivered', () => {

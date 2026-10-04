@@ -104,9 +104,26 @@ function researchActivity(record: ProjectRecord, sessionStartedAt: string, runti
  * armed. `working` comes last of the run states because it is the only one that
  * has to be earned with an observed report.
  */
+/** A milestone the Architect set aside when its Room was cancelled. No decision holds it. */
+export function isSetAside(milestone: Milestone): boolean {
+  return milestone.status === 'parked' && !milestone.parkedBy;
+}
+
+function setAsideCount(record: ProjectRecord): number {
+  return record.milestones.filter((m) => m.id !== MAINTENANCE_MILESTONE_ID && isSetAside(m)).length;
+}
+
+/** Every milestone is accepted, or set aside with at least one accepted. */
 function deliveredAll(record: ProjectRecord): boolean {
   const counts = milestoneCounts(record);
-  return counts.total > 0 && counts.accepted === counts.total;
+  return counts.accepted > 0 && counts.accepted + setAsideCount(record) === counts.total;
+}
+
+/** "Delivered", or both facts when part of the plan was set aside. */
+function deliveredHeadline(record: ProjectRecord): string {
+  const counts = milestoneCounts(record);
+  const aside = setAsideCount(record);
+  return aside > 0 ? `${counts.accepted} of ${counts.total} delivered, ${aside} set aside` : 'Delivered';
 }
 
 export function projectActivity(
@@ -284,7 +301,7 @@ export function projectActivity(
   if (hasAgreement(record) && record.phase === 'maintain' && deliveredAll(record)) {
     return {
       state: 'complete',
-      headline: 'Delivered',
+      headline: deliveredHeadline(record),
       owner: maint?.dispatch ? 'Maintenance is waiting for a trigger' : 'Nothing is running',
       ownerAt: maint?.dispatch?.lastRunAt,
       ownerSuffix: suffix,
@@ -303,11 +320,11 @@ export function projectActivity(
 
   const counts = milestoneCounts(record);
   if (record.phase === 'maintain' || record.phase === 'release') {
-    if (counts.total > 0 && counts.accepted === counts.total) {
+    if (deliveredAll(record)) {
       return {
         state: 'complete',
         // Accepted work in release is not delivered yet: the release step has still to land.
-        headline: hasAgreement(record) && record.phase === 'maintain' ? 'Delivered' : `${counts.accepted} of ${counts.total} milestones accepted`,
+        headline: hasAgreement(record) && record.phase === 'maintain' ? deliveredHeadline(record) : `${counts.accepted} of ${counts.total} milestones accepted`,
         owner: 'Nothing is running',
         ownerSuffix: suffix,
       };

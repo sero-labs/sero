@@ -10,6 +10,7 @@
 
 import { closeDeliveredObjectives } from './objective-completion';
 import { closeRun } from '../shared/runs';
+import { isSetAside } from '../shared/activity';
 import { hasAgreement } from '../shared/agreement';
 import { unaccountedRequirements } from '../shared/evidence-binding';
 import { advancePhase } from '../shared/lifecycle';
@@ -47,7 +48,8 @@ export function applyDelivery(record: ProjectRecord, milestone: Milestone, now: 
   }
   // An agreement has no separate release step. When its delivery lands in
   // build and nothing else is open, the status passes through release here.
-  if (hasAgreement(next) && next.phase === 'build' && next.milestones.every((m) => m.status === 'done')) {
+  // A milestone set aside with its cancelled Room is not open work.
+  if (hasAgreement(next) && next.phase === 'build' && next.milestones.some((m) => m.status === 'done') && next.milestones.every((m) => m.status === 'done' || isSetAside(m))) {
     const released = advancePhase(next, 'release', now, 'every milestone accepted and the result delivered');
     if (released.ok) next = released.record;
   }
