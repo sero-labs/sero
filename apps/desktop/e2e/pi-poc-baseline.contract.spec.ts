@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { test, expect, type ElectronApplication, type Page } from '@playwright/test';
+import { _electron as electron, test, expect, type ElectronApplication, type Page } from '@playwright/test';
 import {
   closeSeroApp,
   createTempSeroHome,
@@ -44,6 +44,15 @@ function respond(request: StubRequest): StubReply {
   const write = /write:(\w+)/.exec(text);
   if (last?.role === 'user' && write && !text.includes('<conversation>')) {
     return { toolCalls: [{ id: `call_${write[1]}`, name: 'write', arguments: { path: 'poc.txt', content: `${write[1]}\n` } }] };
+  }
+  if (last?.role === 'user' && text.startsWith('runcode:')) {
+    return { toolCalls: [{ id: 'call_run_code', name: 'run_code', arguments: { code: "const file = await tools.read({ path: 'README.md' }); return file.text.trim().toUpperCase();" } }] };
+  }
+  if (last?.role === 'user' && text.startsWith('sleep:')) {
+    return { toolCalls: [{ id: 'call_sleep', name: 'bash', arguments: { command: 'sleep 20' } }] };
+  }
+  if (last?.role === 'user' && text.startsWith('big:')) {
+    return { toolCalls: [{ id: 'call_big', name: 'bash', arguments: { command: "head -c 24000 /dev/zero | tr '\\0' 'x'" } }] };
   }
   if (!request.tools.length) return { text: 'POC_SUMMARY the user wrote poc.txt twice and undid the second write.' };
   return { text: `reply to "${text.slice(0, 40)}". ${FILLER}` };
@@ -111,6 +120,30 @@ test.beforeAll(async () => {
   git('commit', '-m', 'initial');
   const profile = seedWorkflowProfile(home, { profilePath: path.join(home.path, '.sero-ui', 'profiles', 'workflow-test') });
   profilePath = profile.path;
+  if (MODE === 'packaged') {
+    // The packaged app, not the built source tree. POC_APP is the path of the executable inside the bundle.
+    const executablePath = process.env.POC_APP;
+    if (!executablePath) throw new Error('Set POC_APP to the packaged executable.');
+    seedStubProvider(profile.path, stub.baseUrl);
+    const env: Record<string, string> = {
+      ...(process.env as Record<string, string>),
+      NODE_ENV: 'test',
+      SERO_HOME_OVERRIDE: profile.path,
+      SERO_HOST_ARTIFACTS_ROOT_OVERRIDE: profile.path,
+      HOME: home.path,
+      USERPROFILE: home.path,
+      SERO_FIXED_ROOT_OVERRIDE: path.join(home.path, '.sero-ui'),
+    };
+    for (const key of [...getLlmCredentialEnvKeys(), 'ELECTRON_RUN_AS_NODE']) delete env[key];
+    app = await electron.launch({ executablePath, env });
+    page = await app.firstWindow();
+    await page.waitForLoadState('domcontentloaded');
+    for (const stream of [app.process().stdout, app.process().stderr]) stream?.on('data', (chunk: Buffer) => { mainLog += chunk.toString(); });
+    await waitForShell(page);
+    const packagedWorkspace = await page.evaluate(({ folder }) => window.sero.workspace.addFolder(folder, 'Pi POC'), { folder: workspaceDir });
+    workspaceId = packagedWorkspace.id;
+    return;
+  }
   ({ app, page } = await launchSeroApp({
     seroHome: profile.path,
     runtime: 'host',
@@ -129,8 +162,15 @@ test.beforeAll(async () => {
       seedStubProvider(seroHome, stub.baseUrl);
       fs.writeFileSync(
         path.join(seroHome, 'agent', 'settings.json'),
-        JSON.stringify({ compaction: { enabled: true, keepRecentTokens: 50 } }, null, 2),
+        JSON.stringify({ compaction: MODE === 'lifecycle' ? { enabled: true, reserveTokens: 500, keepRecentTokens: 200 } : { enabled: true, keepRecentTokens: 50 } }, null, 2),
       );
+      if (MODE === 'lifecycle') {
+        // A small context window, so one large tool result passes the compaction threshold.
+        const modelsPath = path.join(seroHome, 'agent', 'models.json');
+        const models = JSON.parse(fs.readFileSync(modelsPath, 'utf8')) as { providers: Record<string, { models: Array<{ contextWindow: number }> }> };
+        models.providers[STUB_PROVIDER_ID].models[0].contextWindow = 4_000;
+        fs.writeFileSync(modelsPath, JSON.stringify(models, null, 2));
+      }
     },
   }));
   for (const stream of [app.process().stdout, app.process().stderr]) stream?.on('data', (chunk: Buffer) => { mainLog += chunk.toString(); });
@@ -287,4 +327,146 @@ test('an override set before the first message is on disk when the session is re
   expect(stub.requests[afterReset].system).toContain('You are an expert coding assistant');
   expect(stub.requests[afterReset].tools.map((tool) => tool.name)).toContain(DISABLED_TOOL);
   write(`reopen-${LABEL}.json`, { entries: onDisk.map((entry) => entry.customType ?? entry.type), resetSystemStart: stub.requests[afterReset].system.slice(0, 120) });
+});
+
+test('session actions change the next request as expected', async () => {
+  test.skip(MODE !== 'actions');
+  const created = await page.evaluate(async ({ id, provider, model }) => {
+    const session = await window.sero.sessions.create(id);
+    await window.sero.agent.open(session.id, session.path, id);
+    await window.sero.agent.setModel(session.id, provider, model);
+    return session;
+  }, { id: workspaceId, provider: STUB_PROVIDER_ID, model: STUB_MODEL_ID });
+  const rows: Record<string, unknown> = {};
+  const requestAfter = async (prompt: string) => {
+    const before = stub.requests.length;
+    await turn(created.id, prompt);
+    const request = stub.requests[before];
+    return {
+      system: request.system,
+      tools: request.tools.map((tool) => tool.name),
+      messages: request.messages.map((message) => `${message.role}: ${message.text.slice(0, 50)}${message.toolCalls.map((call) => ` [${call.name}]`).join('')}`),
+    };
+  };
+
+  // Legacy restore. An old session marks its checkpoints with a `git-checkpoint` entry.
+  const first = await turn(created.id, 'write:one');
+  const snapshotId = first.turnUndo?.snapshotId;
+  if (!snapshotId) throw new Error('The first turn offered no undo point.');
+  await app.evaluate((_electron, { id, changeId }) => {
+    const getEntry = (globalThis as Record<string, unknown>).__seroTestGetAgentPoolEntry as
+      (sessionId: string) => { session: { sessionManager: { appendCustomEntry(type: string, data: unknown): string } } } | undefined;
+    getEntry(id)?.session.sessionManager.appendCustomEntry('git-checkpoint', { changeId });
+  }, { id: created.id, changeId: snapshotId });
+  await turn(created.id, 'write:two');
+  await page.evaluate(({ id, changeId }) => window.sero.agent.restoreToCheckpoint(id, changeId), { id: created.id, changeId: snapshotId });
+  const afterRestore = await requestAfter('after legacy restore');
+  // The snapshot is the one taken before the first turn, so the file it wrote is gone again.
+  rows.legacyRestore = { fileExists: fs.existsSync(path.join(workspaceDir, 'poc.txt')), messages: afterRestore.messages };
+  expect(afterRestore.messages.join('\n')).toContain('write:one');
+  expect(afterRestore.messages.join('\n')).not.toContain('write:two');
+
+  // Direct message insertion: a `sero` prompt runs the command and writes three messages, with no model call.
+  const beforeDirect = stub.requests.length;
+  await turn(created.id, 'sero help');
+  expect(stub.requests.length).toBe(beforeDirect);
+  const afterDirect = await requestAfter('after direct command');
+  rows.directInsertion = { messages: afterDirect.messages.slice(-5) };
+  expect(afterDirect.messages.slice(-4, -1).map((message) => message.split(':')[0])).toEqual(['user', 'assistant', 'tool']);
+  expect(afterDirect.messages.at(-4)).toContain('sero help');
+
+  // Extension reload keeps the override and the disabled tool.
+  await page.evaluate(({ id, prompt, tool }) => window.sero.agent.setContextOverrides(id, { systemPrompt: prompt, disabledTools: [tool] }), { id: created.id, prompt: OVERRIDE_PROMPT, tool: DISABLED_TOOL });
+  await page.evaluate((id) => window.sero.agent.reloadResources(id), created.id);
+  const afterReload = await requestAfter('after reload');
+  rows.extensionReload = { systemStart: afterReload.system.slice(0, 80), tools: afterReload.tools };
+  expect(afterReload.system.startsWith('POC_OVERRIDE_MARK')).toBe(true);
+  expect(afterReload.system).toContain('## Sero CLI');
+  expect(afterReload.tools).not.toContain(DISABLED_TOOL);
+
+  // Clear starts the conversation again.
+  await page.evaluate((id) => window.sero.agent.clearSession(id), created.id);
+  const afterClear = await requestAfter('after clear');
+  rows.clear = { messages: afterClear.messages, systemStart: afterClear.system.slice(0, 80), tools: afterClear.tools };
+  expect(afterClear.messages).toEqual(['user: after clear']);
+
+  write(`actions-${LABEL}.json`, rows);
+});
+
+test('cancelling a tool and compacting in the middle of a turn', async () => {
+  test.skip(MODE !== 'lifecycle');
+  const created = await page.evaluate(async ({ id, provider, model }) => {
+    const session = await window.sero.sessions.create(id);
+    await window.sero.agent.open(session.id, session.path, id);
+    await window.sero.agent.setModel(session.id, provider, model);
+    return session;
+  }, { id: workspaceId, provider: STUB_PROVIDER_ID, model: STUB_MODEL_ID });
+  const shape = (request: StubRequest | undefined) => request?.messages.map((message) => `${message.role}: ${message.text.slice(0, 40)}${message.toolCalls.map((call) => ` [${call.name}]`).join('')}`);
+  const rows: Record<string, unknown> = {};
+
+  // Cancel while `bash` runs.
+  const cancelled = await page.evaluate(({ id }) => new Promise<{ events: string[]; outcome: string | null; ms: number }>((resolve, reject) => {
+    const events: string[] = [];
+    const startedAt = Date.now();
+    const fail = window.setTimeout(() => { off(); reject(new Error(`No agent_end. Events: ${events.join(', ')}`)); }, 40_000);
+    const off = window.sero.agent.onEvent((event: AgentStreamEvent) => {
+      if (event.sessionId !== id) return;
+      events.push(event.type === 'tool_end' ? `tool_end(error=${String(event.isError)})` : event.type === 'error' ? `error(${event.error.slice(0, 160)})` : event.type);
+      if (event.type === 'tool_start') void window.sero.agent.abort(id);
+      if (event.type === 'agent_end') {
+        window.clearTimeout(fail);
+        off();
+        resolve({ events, outcome: event.outcome ?? null, ms: Date.now() - startedAt });
+      }
+    });
+    window.sero.agent.prompt(id, 'sleep: run a long command', undefined, `poc-${Date.now()}`).catch(reject);
+  }), { id: created.id });
+  write(`lifecycle-${LABEL}.json`, { cancelled });
+  const beforeNext = stub.requests.length;
+  await turn(created.id, 'after cancel');
+  rows.cancel = { ...cancelled, nextRequest: shape(stub.requests[beforeNext]) };
+  write(`lifecycle-${LABEL}.json`, rows);
+  // The abort reaches the tool: the turn ends long before the 20 second sleep does.
+  expect(cancelled.ms).toBeLessThan(15_000);
+
+  // One large tool result passes the compaction threshold before the model answers it.
+  const beforeBig = stub.requests.length;
+  const big = await turn(created.id, 'big: print a long line');
+  rows.autoCompaction = {
+    events: big.events,
+    requests: stub.requests.slice(beforeBig).map((request) => ({ tools: request.tools.length, messages: shape(request) })),
+    fileEntries: fs.readFileSync(created.path, 'utf8').split('\n').filter(Boolean).map((line) => {
+      const entry = JSON.parse(line) as { type: string; customType?: string; message?: { role?: string } };
+      return entry.customType ?? entry.message?.role ?? entry.type;
+    }),
+  };
+  const history = await page.evaluate(({ id, file, ws }) => window.sero.agent.open(id, file, ws), { id: created.id, file: created.path, ws: workspaceId });
+  rows.historyAfter = history.messages.map((message) => message.type);
+  write(`lifecycle-${LABEL}.json`, rows);
+});
+
+test('the packaged app runs a chat turn with a run_code call', async () => {
+  test.skip(MODE !== 'packaged');
+  const created = await page.evaluate(async ({ id, provider, model }) => {
+    const session = await window.sero.sessions.create(id);
+    await window.sero.agent.open(session.id, session.path, id);
+    await window.sero.agent.setModel(session.id, provider, model);
+    return session;
+  }, { id: workspaceId, provider: STUB_PROVIDER_ID, model: STUB_MODEL_ID });
+  const before = stub.requests.length;
+  const result = await turn(created.id, 'runcode: read the readme');
+  const first = stub.requests[before];
+  const second = stub.requests[before + 1];
+  const toolResult = second.messages.find((message) => message.role === 'tool')?.text ?? '';
+  write(`packaged-${LABEL}.json`, {
+    isPackaged: await app.evaluate(({ app: electronApp }) => electronApp.isPackaged),
+    version: await app.evaluate(({ app: electronApp }) => electronApp.getVersion()),
+    events: result.events,
+    tools: first.tools.map((tool) => tool.name),
+    pluginBlocks: ['## MCP usage', '## Memory', '## Sero CLI'].filter((heading) => first.system.includes(heading)),
+    toolResult: toolResult.slice(0, 200),
+  });
+  expect(toolResult).toContain('POC');
+  // A plugin's extension is a source file that Pi loads through jiti. Its prompt block proves it loaded.
+  expect(first.system).toContain('## MCP usage');
 });

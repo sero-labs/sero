@@ -13,7 +13,7 @@
 ## 3. Compatibility fixes
 
 - [x] 3.1 Move the prompt override to the host extension's `before_agent_start` handler and read the base prompt from `session.systemPrompt` (design D3). Remove `getBaseSystemPrompt` and `setBaseSystemPrompt` from the adapter. Verify with the existing context override tests, and in the temp profile that an edited prompt reaches the model request and a reset restores the base prompt.
-- [ ] 3.2 Replace the message assignment in the legacy checkpoint restore and the push in `agent-prompt.ts` with `SessionManager` writes followed by `session.refreshContext()` (design D4). Verify `agent-checkpoint.test.ts` and `direct-cli-prompt.test.ts` pass, and that the next request after a legacy restore holds only the restored branch.
+- [x] 3.2 Replace the message assignment in the legacy checkpoint restore and the push in `agent-prompt.ts` with `SessionManager` writes followed by `session.refreshContext()` (design D4). Verify `agent-checkpoint.test.ts` and `direct-cli-prompt.test.ts` pass, and that the next request after a legacy restore holds only the restored branch.
 - [x] 3.3 Fix tool definitions that fail the JSON-compatible `details` rule or have no parameter schema, in desktop, packages and in-repo plugins, without casts. Verify the typecheck errors from 2.2 in this group are gone. If a plugin needs a data shape change, stop and ask.
 - [x] 3.4 Test whether `appendCustomEntry` reaches the session file without `_rewriteFile`. If it does, remove `rewriteSessionManagerFile`. Set the adapter's version constant to 1.0.2. Verify by reopening a session after an override change with no other message in between.
 - [x] 3.5 Adapt the custom providers in `shared/providers/` and the provider manifest code to `TranscriptContext`. Verify `custom-provider-propagation.test.ts` and `isolated-completion.test.ts` pass with an Alibaba-style custom provider.
@@ -24,16 +24,16 @@
 ## 4. Behaviour checks on the upgrade branch
 
 - [x] 4.1 Open the session copies from 1.2 on the upgrade branch. Verify each opens, shows the same messages, and keeps its prompt override and disabled tool.
-- [ ] 4.2 In the temp profile, exercise direct message insertion, undo, legacy restore, fork, clear, manual compaction, extension reload and branch navigation. Verify each one against the request the stub model receives, and record one matrix row for each.
-- [ ] 4.3 Check lifecycle and streaming: `agent_settled` ordering in the orchestrator goal loop, streamed tool arguments in the chat card, cancellation mid-tool, and auto-compaction between a tool result and the next response. Verify with `agent-session-events.test.ts`, `session-lifecycle.test.ts` and the orchestrator extension tests, and record any SDK event that differs from 0.84.2.
-- [ ] 4.4 Run the Sero MCP plugin on the upgrade branch. Verify `e2e/mcp.contract.spec.ts` passes after a build, that no session registers a Pi `mcp` extension, and that the session tool list holds no second MCP tool surface.
-- [ ] 4.5 Build the packaged app. Unset `ELECTRON_RUN_AS_NODE` and verify `--doctor --quick --json` reports healthy, that a chat turn with a `run_code` call completes, and that a plugin extension loads through jiti.
+- [x] 4.2 In the temp profile, exercise direct message insertion, undo, legacy restore, fork, clear, manual compaction, extension reload and branch navigation. Verify each one against the request the stub model receives, and record one matrix row for each.
+- [x] 4.3 Check lifecycle and streaming: `agent_settled` ordering in the orchestrator goal loop, streamed tool arguments in the chat card, cancellation mid-tool, and auto-compaction between a tool result and the next response. Verify with `agent-session-events.test.ts`, `session-lifecycle.test.ts` and the orchestrator extension tests, and record any SDK event that differs from 0.84.2.
+- [x] 4.4 Run the Sero MCP plugin on the upgrade branch. Verify `e2e/mcp.contract.spec.ts` passes after a build, that no session registers a Pi `mcp` extension, and that the session tool list holds no second MCP tool surface.
+- [x] 4.5 Build the packaged app. Unset `ELECTRON_RUN_AS_NODE` and verify `--doctor --quick --json` reports healthy, that a chat turn with a `run_code` call completes, and that a plugin extension loads through jiti.
 - [ ] 4.6 List what external plugin repositories would meet, from a read of their tool definitions and provider code. Verify the list is in the pull request description. Do not change those repositories.
 
 ## 5. Upgrade pull request
 
-- [ ] 5.1 Run the closest existing checks after a build: the desktop unit tests for `agent/`, `features/code-mode/`, `features/subagent/` and `container/`, plus `e2e/session-tools.contract.spec.ts`, `e2e/agent-ipc.contract.spec.ts` and `e2e/memory.contract.spec.ts`. Verify all pass, or record each failure with its cause.
-- [ ] 5.2 If the branch changed source in `@sero-ai/common` or `@sero-ai/extension-runtime`, bump that package's version. Verify with `git diff --stat main` on `packages/`.
+- [x] 5.1 Run the closest existing checks after a build: the desktop unit tests for `agent/`, `features/code-mode/`, `features/subagent/` and `container/`, plus `e2e/session-tools.contract.spec.ts`, `e2e/agent-ipc.contract.spec.ts` and `e2e/memory.contract.spec.ts`. Verify all pass, or record each failure with its cause.
+- [x] 5.2 If the branch changed source in `@sero-ai/common` or `@sero-ai/extension-runtime`, bump that package's version. Verify with `git diff --stat main` on `packages/`.
 - [ ] 5.3 Open a draft pull request for `poc/pi-1-upgrade` with the compatibility matrix: one row for each item, with the break, the fix or open risk, and the command that shows it. Verify every checkbox of candidate 1 in issue #594 maps to a row.
 
 ## 6. Native Code Mode (branch `poc/pi-1-native-features`, stacked)
