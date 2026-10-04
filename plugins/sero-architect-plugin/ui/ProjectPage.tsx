@@ -23,6 +23,8 @@ import { TopBar, type ProjectControls } from './components/TopBar';
 
 export interface ProjectPageProps {
   permissionPending?: boolean;
+  /** Why the start that followed intake did not happen, until a later action replaces it. */
+  startRefusal?: string | null;
   record: ProjectRecord;
   /** Whether the Architect runtime is running in this session. */
   runtimeRunning: boolean;
@@ -228,18 +230,10 @@ function ProjectStateHeader({ record, actions, onNotice, headerActions, runtimeR
   return <StateLine record={record} actions={headerActions} form={form} runtimeRunning={runtimeRunning} feedback={feedback} links={links} />;
 }
 
-export function ProjectPage({ record, actions, onBack, onOpenModels, onOpenInspector, onOpenHistory, onOpenWork, confirm, runtimeRunning, permissionPending = false }: ProjectPageProps) {
-  const id = record.id;
-  const page = useProjectPageControls(record, actions, onBack, confirm, onOpenModels, onOpenInspector, onOpenHistory);
-  const directiveRef = useRef<HTMLTextAreaElement>(null);
-  const focusDirective = useCallback(() => directiveRef.current?.focus(), []);
-  const feedback = useProjectFeedback(record, actions);
-  const headerActions = useHeaderActions(record, runtimeRunning, focusDirective, feedback, permissionPending ? null : page.controls.resume);
-  const preview = useProjectPreview(id);
-  // Before the start is approved there is no work to watch and nothing to note.
-  const started = !hasAgreement(record) ? record.phase !== 'intake' : agreementApproved(record);
+/** The ways into the work behind the overview: the preview, the live work and the checks. */
+function OverviewLinks({ record, preview, onOpenWork }: { record: ProjectRecord; preview: ReturnType<typeof useProjectPreview>; onOpenWork(tab: WorkTab): void }) {
   const checked = record.milestones.some((milestone) => milestone.evidence);
-  const links = started && (
+  return (
     <>
       <Button size="sm" variant="outline" className="ar-btn" disabled={preview.busy} onClick={() => void preview.open()}>
         <ExternalLink className="ar-i" />{preview.busy ? 'Starting preview…' : 'Open preview'}
@@ -248,15 +242,30 @@ export function ProjectPage({ record, actions, onBack, onOpenModels, onOpenInspe
       {checked && <button type="button" className="ar-btn-link" onClick={() => onOpenWork('evidence')}>Evidence<ChevronRight className="ar-i" /></button>}
     </>
   );
+}
+
+export function ProjectPage({ record, actions, onBack, onOpenModels, onOpenInspector, onOpenHistory, onOpenWork, confirm, runtimeRunning, permissionPending = false, startRefusal = null }: ProjectPageProps) {
+  const id = record.id;
+  const page = useProjectPageControls(record, actions, onBack, confirm, onOpenModels, onOpenInspector, onOpenHistory);
+  const directiveRef = useRef<HTMLTextAreaElement>(null);
+  const focusDirective = useCallback(() => directiveRef.current?.focus(), []);
+  const feedback = useProjectFeedback(record, actions);
+  const headerActions = useHeaderActions(record, runtimeRunning, focusDirective, feedback, permissionPending ? null : page.controls.resume);
+  // A refused start is shown until the project starts or a later action says something newer.
+  const notice = page.notice ?? (hasAgreement(record) && !agreementApproved(record) ? startRefusal : null);
+  const preview = useProjectPreview(id);
+  // Before the start is approved there is no work to watch and nothing to note.
+  const started = !hasAgreement(record) ? record.phase !== 'intake' : agreementApproved(record);
+  const links = started && <OverviewLinks record={record} preview={preview} onOpenWork={onOpenWork} />;
 
   return (
     <>
       <TopBar record={record} controls={page.controls} onBack={onBack} onNewProject={() => undefined} />
       <div className="ar-scroll">
         <div className="ar-body">
-          {((page.notice !== null && page.notice !== record.blockedReason) || page.capOpen) && (
+          {((notice !== null && notice !== record.blockedReason) || page.capOpen) && (
             <div className="ar-notice">
-              {page.notice !== null && page.notice !== record.blockedReason && <p role="alert">{page.notice}</p>}
+              {notice !== null && notice !== record.blockedReason && <p role="alert">{notice}</p>}
               {page.capOpen && (
                 <CapInput
                   cap={record.budget.capUsd}

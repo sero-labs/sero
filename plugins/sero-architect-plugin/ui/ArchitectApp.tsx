@@ -43,6 +43,8 @@ function useNarrow(): [boolean, (node: HTMLDivElement | null) => void] {
 
 function useCreateProject(actions: ArchitectActions, navigate: (view: ArchitectView) => void) {
   const [permissionProjectId, setPermissionProjectId] = useState<string | null>(null);
+  // Why the first start did not happen. Without it the new project only reads "Not started".
+  const [refusal, setRefusal] = useState<{ projectId: string; text: string } | null>(null);
   const create = useCallback(async (input: CreateProjectInput) => {
     const outcome = await actions.create(input);
     // One navigation closes the dialog and opens the new project: the dialog must not navigate too.
@@ -52,7 +54,10 @@ function useCreateProject(actions: ArchitectActions, navigate: (view: ArchitectV
       navigate(outcome.projectId ? { mode: 'project', projectId: outcome.projectId } : { mode: 'list' });
       await new Promise<void>((resolve) => setTimeout(resolve, 0));
       try {
-        if (outcome.projectId) await actions.resume(outcome.projectId);
+        if (outcome.projectId) {
+          const started = await actions.resume(outcome.projectId);
+          setRefusal(started.ok ? null : { projectId: outcome.projectId, text: started.text });
+        }
       } finally {
         setPermissionProjectId(null);
       }
@@ -60,7 +65,7 @@ function useCreateProject(actions: ArchitectActions, navigate: (view: ArchitectV
     return outcome;
   }, [actions, navigate]);
 
-  return { create, permissionProjectId };
+  return { create, permissionProjectId, refusal };
 }
 
 export function ArchitectApp() {
@@ -95,7 +100,7 @@ export function ArchitectApp() {
   const back = useCallback(() => navigate({ mode: 'list' }), [navigate]);
   const confirm = useCallback((message: string) => window.confirm(message), []);
 
-  const { create, permissionProjectId } = useCreateProject(actions, navigate);
+  const { create, permissionProjectId, refusal } = useCreateProject(actions, navigate);
 
   // A deleted project's page falls back to the list once the index no longer lists it.
   const listed = index.projects.some((entry) => entry.id === projectId);
@@ -104,7 +109,7 @@ export function ArchitectApp() {
   return (
     <div className="ar-app" ref={attach}>
       {projectId && record ? (
-        <ProjectView view={view} onOpenWork={(tab) => openWork(record.id, tab)} onProject={() => openProject(record.id)} onOpenEvidence={(milestoneId) => openEvidence(record.id, milestoneId)} record={record} runtimeRunning={index.runtime?.running !== false} actions={actions} permissionPending={permissionProjectId === projectId} disclosures={disclosures} onBack={back} onOpenModels={() => openModels(projectId)} onOpenInspector={() => openInspector(projectId)} onOpenHistory={() => openHistory(projectId)} confirm={confirm} />
+        <ProjectView view={view} onOpenWork={(tab) => openWork(record.id, tab)} onProject={() => openProject(record.id)} onOpenEvidence={(milestoneId) => openEvidence(record.id, milestoneId)} record={record} runtimeRunning={index.runtime?.running !== false} actions={actions} permissionPending={permissionProjectId === projectId} startRefusal={refusal?.projectId === projectId ? refusal.text : null} disclosures={disclosures} onBack={back} onOpenModels={() => openModels(projectId)} onOpenInspector={() => openInspector(projectId)} onOpenHistory={() => openHistory(projectId)} confirm={confirm} />
       ) : projectId && !gone ? (
         <>
           <TopBar record={null} controls={null} onBack={back} onNewProject={openIntake} />

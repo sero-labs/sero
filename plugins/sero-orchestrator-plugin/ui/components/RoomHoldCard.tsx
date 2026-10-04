@@ -18,7 +18,8 @@ import { relativeTime } from '@sero-ai/common';
 import type { RoomStopReason } from '../../shared/room-types';
 import type { ResumeOutcome, RoomControls } from '../lib/room-controls';
 import { holdText, type HoldMember } from '../lib/room-hold';
-import { RoomTimeDialog, type RoomTimeLimit } from './RoomTimeDialog';
+import { RoomTimeDialog } from './RoomTimeDialog';
+import { type RoomTimeLimit } from '../lib/room-time';
 
 interface RoomHoldCardProps {
   /** Why the runtime stopped starting turns, when it did. */

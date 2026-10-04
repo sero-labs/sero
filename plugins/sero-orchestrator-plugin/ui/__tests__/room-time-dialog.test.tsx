@@ -9,7 +9,8 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RoomHoldCard } from '../components/RoomHoldCard';
-import { RoomTimeDialog, minutesToExceed } from '../components/RoomTimeDialog';
+import { RoomTimeDialog } from '../components/RoomTimeDialog';
+import { minutesToExceed } from '../lib/room-time';
 import { addRoomTime, shownStopReason, type ResumeOutcome } from '../lib/room-controls';
 
 const AT = '2026-09-11T09:00:00.000Z';

@@ -161,3 +161,14 @@ The chat banner and the Orchestrator Goals view are gated on the approved
 prototypes (`goal-mode-chat.html`, `goal-mode-orchestrator.html`). The runtime
 already emits a `goal-status` custom message for the host to intercept, on the
 `memory-context` precedent.
+
+## Live work
+
+The runtime keeps one bounded `WorkFeedback` snapshot per Workflow attempt,
+model call and Room member, and pushes it on `orchestrator-feedback`. Rows,
+Home, the Workflow page and the Room page read these snapshots through
+`ui/lib/live-facts.ts`, so one wait is worded one way everywhere. A Room counts
+only working time: the time is banked at a checkpoint and on shutdown, and a
+restart closes the open period instead of counting the time Sero was off. A
+Room that used its time is resumed from the "Add time" dialog with a larger
+total. Its spend cap does not change.

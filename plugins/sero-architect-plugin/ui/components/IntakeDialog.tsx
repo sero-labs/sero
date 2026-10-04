@@ -138,6 +138,8 @@ export function IntakeDialog({ open, onClose, onCreate, defaultFolder, takenWork
         </DialogHeader>
         <form
           className="ar-intake-form"
+          // A message about a field goes when the user edits any field.
+          onChange={() => setError(null)}
           onSubmit={(event) => {
             event.preventDefault();
             void submit();

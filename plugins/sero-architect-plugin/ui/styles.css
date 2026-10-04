@@ -314,6 +314,8 @@
 /* intake */
 .ar-dialog { width: 560px; max-width: 92vw; display: grid; gap: 16px; }
 .ar-dialog p { color: var(--ar-text-3); font-size: 12px; line-height: 1.55; }
+/* A dialog's own paragraph rule is more specific than `.ar-error`, which left a refusal grey. */
+.ar-dialog .ar-error { color: var(--ar-err); }
 .ar-field { display: grid; gap: 6px; }
 .ar-field label { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--ar-text-3); }
 .ar-field textarea { min-height: 120px; resize: vertical; padding: 11px 12px; border: 1px solid var(--ar-line-strong); border-radius: 8px; background: var(--bg-base); color: var(--text-primary); font-size: 13px; line-height: 1.5; font-family: inherit; }

@@ -3,52 +3,10 @@ import { feedbackActivity, feedbackWaitMs, type WorkFeedback } from '@sero-ai/co
 import { LiveBlock, SubagentLiveBlock } from '@sero-ai/ui';
 import { ExternalLink, Eye } from 'lucide-react';
 
-import { ARCHITECT_APP_ID } from '@sero-ai/common';
 import type { ProjectRecord } from '../../shared/record';
 import { openDispatch } from '../lib/page-helpers';
+import { workGroups } from '../lib/work-groups';
 import { useLinkedMemberLive, useOwnerLive } from '../lib/use-work-watch';
-
-interface WorkGroup {
-  key: string;
-  /** "Room · Build the synth". The Architect's own work has no heading link. */
-  title: string;
-  link: { kind: 'room' | 'workflow'; id: string; workspaceId: string } | null;
-  rows: WorkFeedback[];
-}
-
-/** The name the record gave a Room or Workflow. Never read from a live title. */
-function linkedTitle(record: ProjectRecord, id: string): string | null {
-  const milestone = record.milestones.find((item) => item.dispatch?.id === id);
-  if (milestone) return milestone.title;
-  const research = [...(record.pendingResearch ?? []), ...record.research].find((entry) => entry.roomId === id || entry.workflowId === id);
-  return research?.question ?? null;
-}
-
-/** Work that has not ended, grouped by the Room or Workflow it runs in. */
-export function workGroups(record: ProjectRecord, work: readonly WorkFeedback[]): WorkGroup[] {
-  const groups = new Map<string, WorkGroup>();
-  for (const entry of work.filter((item) => !item.terminal)) {
-    const own = entry.scope.appId === ARCHITECT_APP_ID;
-    const id = entry.scope.workId ?? '';
-    const kind = entry.kind === 'room-member' ? 'room' : 'workflow';
-    const key = own || !id ? 'architect' : `${kind}:${id}`;
-    const group = groups.get(key) ?? {
-      key,
-      title: key === 'architect' ? 'Architect' : `${kind === 'room' ? 'Room' : 'Workflow'}${linkedTitle(record, id) ? ` · ${linkedTitle(record, id)}` : ''}`,
-      link: key === 'architect' || !record.workspaceId ? null : { kind, id, workspaceId: record.workspaceId },
-      rows: [],
-    };
-    group.rows.push(entry);
-    groups.set(key, group);
-  }
-  // A child follows the work that started it, when the producer named one.
-  for (const group of groups.values()) {
-    const children = group.rows.filter((row) => row.scope.parentKey && group.rows.some((parent) => parent.key === row.scope.parentKey));
-    const parents = group.rows.filter((row) => !children.includes(row));
-    group.rows = parents.flatMap((parent) => [parent, ...children.filter((child) => child.scope.parentKey === parent.key)]);
-  }
-  return [...groups.values()].sort((a, b) => (a.key === 'architect' ? -1 : b.key === 'architect' ? 1 : a.title.localeCompare(b.title)));
-}
 
 function clock(ms: number): string {
   const seconds = Math.floor(ms / 1000);

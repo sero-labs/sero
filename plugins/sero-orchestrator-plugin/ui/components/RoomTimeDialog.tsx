@@ -20,28 +20,13 @@ import {
 import { Input } from '@sero-ai/ui/components/ui/input';
 import { formatCost, formatMinutes } from '../lib/format';
 import type { ResumeOutcome } from '../lib/room-controls';
-
-const MINUTE_MS = 60_000;
-
-/** What the dialog needs to know about the Room's time and spend. */
-export interface RoomTimeLimit {
-  title: string;
-  /** Active time used: the figure the header and the limit use. */
-  usedMs: number;
-  limitMs: number;
-  maxCostUsd: number;
-}
+import { MINUTE_MS, minutesToExceed, type RoomTimeLimit } from '../lib/room-time';
 
 interface RoomTimeDialogProps {
   time: RoomTimeLimit;
   /** Resumes the same Room with this new total in minutes. */
   onApprove: (totalMinutes: number) => Promise<ResumeOutcome>;
   onClose: () => void;
-}
-
-/** The new total must be more than this many minutes: the limit, or the time used if that is more. */
-export function minutesToExceed(time: Pick<RoomTimeLimit, 'usedMs' | 'limitMs'>): number {
-  return Math.max(Math.ceil(time.limitMs / MINUTE_MS), Math.floor(time.usedMs / MINUTE_MS));
 }
 
 export function RoomTimeDialog({ time, onApprove, onClose }: RoomTimeDialogProps) {
@@ -58,12 +43,15 @@ export function RoomTimeDialog({ time, onApprove, onClose }: RoomTimeDialogProps
     if (!valid || pending) return;
     setPending(true);
     setFailure(null);
-    const outcome = await onApprove(value);
-    // A resumed Room closes this dialog with its hold; only a failure stays.
-    if (outcome.ok) onClose();
-    else {
+    try {
+      const outcome = await onApprove(value);
+      // A resumed Room closes this dialog with its hold; only a failure stays.
+      if (outcome.ok) onClose();
+      else setFailure(outcome.error);
+    } catch (error) {
+      setFailure(error instanceof Error ? error.message : String(error));
+    } finally {
       setPending(false);
-      setFailure(outcome.error);
     }
   };
 

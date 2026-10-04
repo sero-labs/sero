@@ -69,6 +69,17 @@ Orchestrator pauses the work when it needs:
 - more time or a higher cost limit;
 - help after something failed.
 
+A Room has a limit on its working time. Only the time its members work counts:
+time while Sero is closed, or while the Room waits for you, does not. When a
+Room uses its time, it stops with its work kept. Select **Add time…**, enter a
+larger total and select **Approve and resume**. The same Room continues, and its
+spend cap does not change.
+
+Each row and page shows what the work does now: the step or the member, the
+tool it runs, or "waiting for the model" with the time when a model request is
+slow. If Sero cannot confirm that the work is live in this session, the row says
+"Last known".
+
 You can close Orchestrator while the work continues. **Home** shows questions
 and approvals that need your attention. Sero notifies you when the work finishes
 or cannot continue.

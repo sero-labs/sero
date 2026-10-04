@@ -152,6 +152,8 @@ export function useArchitectActions(): ArchitectActions {
         idea: input.idea,
         executionMode: input.executionMode ?? 'workspace',
         openSpecEnabled: input.openSpecEnabled ?? false,
+        // With a start cap the project runs under a delivery agreement.
+        ...(input.capUsd !== undefined ? { capUsd: input.capUsd } : {}),
         ...(input.models && input.models.length > 0 ? { models: input.models } : {}),
         ...(input.workspaceId ? { workspaceId: input.workspaceId } : input.folder ? { folder: input.folder } : {}),
       }),

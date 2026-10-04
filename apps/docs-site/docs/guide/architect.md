@@ -1,8 +1,8 @@
 # Architect
 
-Sero Architect manages work across a product instead of one task. Give it an
-idea and a folder. It researches the idea, proposes a charter with milestones
-and a cost cap, then builds each milestone through Workflows and Rooms.
+Sero Architect manages work across a product instead of one task. Give it a
+request and a start cap. It plans the work, builds it through Workflows and
+Rooms, and checks the result inside that cap.
 Architect checks the result before it moves on to release and maintenance. It
 asks for your input when it needs a decision.
 
@@ -32,10 +32,26 @@ approve.
 ## Create a project
 
 1. Open **Architect** from the app bar and select **New project**.
-2. Write the idea in your own words. Architect keeps the text exactly as you
-   wrote it and never edits it.
-3. Give a folder inside your home directory. An empty or new folder is best.
-4. Select **Create project**.
+2. Under **What do you want?**, write the request in your own words. Architect
+   keeps the text exactly as you wrote it. You do not need a plan, a team or a
+   quality level: Architect chooses the agents and the steps.
+3. Choose **New folder** and give a name and a location inside your home
+   directory, or choose **Existing workspace** and select one. A workspace that
+   already has an Architect project, and the Global workspace, cannot be chosen.
+4. Set the **Start cap ($)**. Research, building, checks and repairs all use
+   this one budget. Architect cannot spend more without your approval.
+5. Select **Continue**. Sero then shows its own approval prompt with the access
+   the project asks for. Paid work starts only after you allow it.
+
+If you do not allow the access, the project stays **Not started**. Select
+**Review access** on the project page to see the prompt again.
+
+A project made this way runs under a delivery agreement: it continues on its
+own inside the cap and the access you approved, and it asks you only when a
+decision is yours to make. A project made before this change runs on the
+**charter flow**, which is deprecated. It keeps its saved charter and its
+approvals, and it is marked "charter flow · deprecated" on the list and on its
+page. Sero does not convert it.
 
 For an experimental OpenSpec path, turn on **Use OpenSpec for coding changes**
 at creation. This project flag initialises `openspec/` in the selected folder.
@@ -101,21 +117,38 @@ An overlay describes a stop or wait during a phase. It does not add a phase:
 
 ## The project page
 
-The project page has four sections:
+The project page is short on purpose. It has:
 
-1. **State** shows one sentence from Architect, the phase, any overlay, and
-   spend against the cap.
-2. **Needs you** contains open decisions and approvals. Each decision card shows the
-   question, the options with their consequences, the reason it was raised,
-   and the recommended option already selected. Select **Answer** to submit
-   your choice. If nothing is needed, the section stays small.
-3. **Milestones** has one row per milestone with its status and, when work is
-   running, one **Open in Orchestrator** link to the Workflow or Room. Evidence
-   for a closed milestone sits behind a disclosure.
-4. **Directive** lets you send Architect a short message and shows its latest
-   reply. Architect handles a directive before other updates.
+1. **The goal**, in one sentence.
+2. **What is happening now**: the state, the work in progress, and when the
+   work last reported. A model request that is slow shows as "waiting for the
+   model" with its time, so a quiet project does not look stopped. If Sero
+   cannot confirm that work is live in this session, the page says "Last known"
+   and never "Working".
+3. **The controls for this state**: for example **Review access**, a new cap,
+   or **Retry step**. Beside them are **Open preview**, **Watch work** and
+   **Evidence**.
+4. **Spend** against the start cap.
+5. **Decisions that need you.** Each card shows the question, the reason, the
+   options with their effects, and the recommended option already selected.
+   Select **Answer** to submit your choice.
+6. **A note box** at the foot of the page. Send Architect a short note at any
+   time. Its answer shows above the box. Current work continues.
 
-![Architect project page with a charter waiting for approval](../assets/images/architect-charter.png)
+## The Work view
+
+**Watch work** opens the work behind the project page. It has four tabs:
+
+- **Live** lists each agent that works now, grouped by its Room or Workflow,
+  with the tool it runs or the model request it waits for. Select the eye
+  button on a row to read what that agent writes at this moment. The text is
+  sent only while the row is open. **Open Room** and **Open Workflow** open the
+  same work in Orchestrator.
+- **Plan** shows your request as written, the working plan and its acceptance
+  criteria, each step with its state, Architect's last report and every note
+  you sent with its answer.
+- **Research** shows each research question and its findings.
+- **Evidence** shows the checks that ran for each step.
 
 History is its own view, opened from the project controls menu (⋯). Older
 directives stay behind a disclosure in the side column. The page never shows an

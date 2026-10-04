@@ -136,6 +136,20 @@ that has no identity for an event writes null rather than inferring one, so a
 consumer can tell a missing fact from a measured one. Raw prompts, reasoning and
 tool payloads are not part of the contract.
 
+Live work is reported as bounded metadata, apart from its text. Each producer
+(an owner turn, a research run, a Workflow attempt, a Room member) keeps one
+`WorkFeedback` snapshot in memory: who it is, the request or tool it holds open
+and since when, when it last made progress, and its terminal state. A runtime
+pushes snapshots on its feedback topic and answers one read for the current
+set, so a list, a widget and an overview show the same facts without opening a
+transcript. A snapshot carries the runtime session that wrote it. A view treats
+one from another session as last known, never as working. Output text is a
+separate, leased watch: a view asks for it, renews it while it is open, and the
+runtime forwards the bounded current-turn text only while a lease is current.
+Architect reads the feedback of linked Workflows and Rooms from the Orchestrator
+runtime of the project's workspace, and may watch only a Room that its own
+record links.
+
 Architect delegates through Orchestrator rather than around it. It resolves each
 tier's model before planning and sends the result as closed project context
 (`OrchestratorProjectContext`) with the creation request. Orchestrator keeps that

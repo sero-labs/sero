@@ -15,7 +15,7 @@ import { FIXTURES } from '../__preview__/fixture';
 import type { ArchitectActions } from '../lib/actions';
 import type { WorkTab } from '../lib/navigation';
 import type { ProjectRecord } from '../../shared/record';
-import { workGroups } from '../components/WorkLive';
+import { workGroups } from '../lib/work-groups';
 import { WorkPage } from '../WorkPage';
 
 const EPOCH = '2026-10-03T09:00:00.000Z';

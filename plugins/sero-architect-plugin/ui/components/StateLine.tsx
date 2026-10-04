@@ -155,7 +155,8 @@ export function StateLine({
       </div>
       <SpendRing
         spentUsd={record.budget.spentUsd}
-        capUsd={record.budget.capUsd}
+        // Before the start is approved the cap is the one the user set at intake.
+        capUsd={record.budget.capUsd ?? record.agreement?.capUsd ?? null}
         incomplete={record.budget.incomplete !== false}
         capLabel={agreed ? "start cap" : "budget"}
       />
