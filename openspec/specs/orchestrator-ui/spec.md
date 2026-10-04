@@ -116,7 +116,7 @@ Where a Workflow starts from events, the settings line SHALL name the events und
 
 ### Requirement: A step shows its title, its state and its result
 
-Each step in the Workflow plan's detail view SHALL show its title, its state in words and its result. The step's instruction and its expected result SHALL be behind a disclosure on the step. The model, the agent and the tools SHALL open from one control on the step, and SHALL be shown on the step itself only where the user has changed them from the default. An agent instruction MUST NOT be used as a step's heading.
+Each step in the Workflow plan's detail view SHALL show its title, its state in words and its result. The step's instruction and its expected result SHALL be behind a disclosure on the step. The model, the agent and the tools SHALL open from one control on the step, and SHALL be shown on the step itself only where the user has changed them from the default. An agent instruction MUST NOT be used as a step's heading. A running step SHALL offer its live view as `live-agent-watch` sets out. A failed step SHALL carry Retry in its header beside its state, and SHALL state its error as one line under its title with no label column.
 
 #### Scenario: A finished step
 
@@ -127,6 +127,11 @@ Each step in the Workflow plan's detail view SHALL show its title, its state in 
 
 - **WHEN** the user has changed one step's model and left its agent and tools at the default
 - **THEN** that step shows the changed model, and its agent and tools stay behind the control
+
+#### Scenario: A failed step
+
+- **WHEN** a step timed out while `pnpm build` was running
+- **THEN** its header shows Failed and Retry, and one line under the title says it timed out while `pnpm build` was running
 
 ### Requirement: A step on a route that was not chosen says so
 
@@ -504,9 +509,12 @@ room." and no longer than that about spend or creation.
 ### Requirement: A planner wait shows a spinner and the real elapsed time
 
 While a planner has not answered, a screen SHALL show a spinner and the time since
-the request was made. It MUST NOT show a step list, a progress bar, a percentage
-complete, or a countdown. This applies to designing a Room, rethinking a Room, and
-generating a Workflow's plan.
+the request was made, with the eye control beside the time. The eye control SHALL
+open the planner's live block under the time, as `live-agent-watch` sets out. The
+screen MUST NOT show a step list, a progress bar, a percentage complete, or a
+countdown. This applies to designing a Room, rethinking a Room, generating a
+Workflow's plan, installing a Workflow from the Catalog and planning again after the
+user answers the planner's questions.
 
 #### Scenario: Designing a Room
 
@@ -517,6 +525,16 @@ generating a Workflow's plan.
 
 - **WHEN** the Workflow planner has not answered
 - **THEN** the screen shows a spinner and the elapsed time, and no placeholder step boxes
+
+#### Scenario: Watching the planner
+
+- **WHEN** the user opens the eye control on a planner wait
+- **THEN** the screen shows the file the planner reads or `writing its answer`, and its reply as it is written
+
+#### Scenario: Installing from the Catalog
+
+- **WHEN** the user installs a Workflow from the Catalog
+- **THEN** the planner wait is shown until the planner answers, not only a disabled Install button
 
 ### Requirement: A Room's proposal shows what designing it cost
 
@@ -600,7 +618,9 @@ the entry's limitations, its required tools and its example output.
 The Room brief, the planner wait, the Room proposal and the Catalog SHALL match the
 approved drawing at
 `apps/styleguide/public/prototypes/agent-workspace-ux-audit/5-start-something.html`.
-They MUST NOT show an element the drawing does not have, and they SHALL use the
+The planner wait's eye control and live block SHALL match
+`apps/styleguide/public/prototypes/live-agent-progress.html`.
+They MUST NOT show an element the drawings do not have, and they SHALL use the
 drawn glyph shapes rather than generic icons. Type sizes, spacing and radii SHALL
 come from the theme's scale so that a theme change carries through, and MUST NOT be
 fixed pixel values.

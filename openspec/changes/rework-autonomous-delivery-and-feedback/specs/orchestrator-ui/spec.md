@@ -70,7 +70,7 @@ A Room row SHALL show its name, shared activity state, actual current work or wa
 
 ### Requirement: A step shows its title, its state and its result
 
-Each Workflow step in detail SHALL show its title, shared activity state and available result. During execution it SHALL also show a short actual request/tool/wait summary, observation freshness and access to its authorized live view, including separate fan-out items and children. Instruction and expected result SHALL stay in detail disclosures. Model, agent and tools SHALL open from one control and appear on the step only when overridden. Instructions MUST NOT become headings and stale previous-turn replies MUST NOT be presented as current output.
+Each Workflow step in detail SHALL show its title, shared activity state and available result. During execution it SHALL also show a short actual request/tool/wait summary, observation freshness and access to its authorized live view, including separate fan-out items and children. Instruction and expected result SHALL stay in detail disclosures. Model, agent and tools SHALL open from one control and appear on the step only when overridden. Instructions MUST NOT become headings and stale previous-turn replies MUST NOT be presented as current output. A failed step SHALL carry Retry in its header beside its state, and SHALL state its error as one line under its title with no label column.
 
 #### Scenario: A finished step
 - **WHEN** a step finishes
@@ -83,6 +83,10 @@ Each Workflow step in detail SHALL show its title, shared activity state and ava
 #### Scenario: Quiet fan-out
 - **WHEN** two items are waiting on model requests
 - **THEN** each shows its own observed wait and available live view before the parent step completes
+
+#### Scenario: A failed step
+- **WHEN** a step timed out while `pnpm build` was running
+- **THEN** its header shows Failed and Retry, and one line under the title says it timed out while `pnpm build` was running
 
 ### Requirement: A Room states its hold once, with its actions once
 
