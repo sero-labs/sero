@@ -39,3 +39,38 @@ export async function settleOrGiveUp(prompt: Promise<unknown>, grace: AbortGrace
   prompt.catch(() => undefined);
   await Promise.race([prompt, grace.expired]);
 }
+
+export interface ToolStallWatch {
+  start(callId: string, toolName: string): void;
+  end(callId: string): void;
+  /** Stops every timer. Called when a turn ends and when the run ends. */
+  clear(): void;
+}
+
+/**
+ * One stall timer for each tool call that is open.
+ *
+ * A reply can hold several tool calls, and they run at the same time. With one
+ * shared timer, the end of a quick call cleared the timer of a call that was
+ * still running, and a command that never returned was no longer watched.
+ */
+export function createToolStallWatch(stallMs: number, onStall: (toolName: string) => void): ToolStallWatch {
+  const timers = new Map<string, ReturnType<typeof setTimeout>>();
+  const end = (callId: string): void => {
+    const timer = timers.get(callId);
+    if (timer) clearTimeout(timer);
+    timers.delete(callId);
+  };
+  return {
+    start(callId, toolName) {
+      end(callId);
+      if (stallMs <= 0) return; // disabled
+      timers.set(callId, setTimeout(() => { timers.delete(callId); onStall(toolName); }, stallMs));
+    },
+    end,
+    clear() {
+      for (const timer of timers.values()) clearTimeout(timer);
+      timers.clear();
+    },
+  };
+}

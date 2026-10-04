@@ -133,6 +133,8 @@ export function createBash(runtime: RuntimeBackend, containerCwd?: string, sessi
         cwd,
         timeoutMs,
         env: sessionId ? { SERO_SESSION_ID: sessionId } : undefined,
+        // A stop from the session ends the command, not only the wait for it.
+        signal,
         outputSink: {
           write: (stream, chunk) => capture.write(stream, chunk),
           close: () => {},

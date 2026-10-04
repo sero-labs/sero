@@ -58,6 +58,7 @@ interface ExecOptions {
   injectGitAuth?: boolean;
   /** Stream output instead of buffering it. See `RuntimeExecOutputSink`. */
   outputSink?: RuntimeExecOutputSink;
+  signal?: AbortSignal;
 }
 
 export class ContainerManager {
@@ -244,7 +245,7 @@ export class ContainerManager {
     const timeout = timeoutMs ?? 120_000;
 
     if (options?.outputSink) {
-      const outcome = await runStreamingExec({ program: CONTAINER_BIN, args, timeoutMs: timeout, sink: options.outputSink });
+      const outcome = await runStreamingExec({ program: CONTAINER_BIN, args, timeoutMs: timeout, sink: options.outputSink, signal: options.signal });
       return { stdout: '', stderr: outcome.errorMessage ?? '', exitCode: outcome.exitCode };
     }
 

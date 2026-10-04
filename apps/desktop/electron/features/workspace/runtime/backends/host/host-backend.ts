@@ -151,7 +151,7 @@ export class HostBackend implements RuntimeBackend {
       env: await createHostProcessEnv(this.workspaceId, input.env, this.substrate.platform),
     });
     if (input.outputSink) {
-      return runStreamingShellExec({ shell: rendered, timeoutMs: input.timeoutMs ?? 120_000, sink: input.outputSink });
+      return runStreamingShellExec({ shell: rendered, timeoutMs: input.timeoutMs ?? 120_000, sink: input.outputSink, signal: input.signal });
     }
     try {
       const { stdout, stderr } = await execFileAsync(rendered.program, rendered.args, {

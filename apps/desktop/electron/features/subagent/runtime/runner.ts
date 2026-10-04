@@ -18,7 +18,7 @@ import { randomUUID } from 'node:crypto';
 import type { RunnerConfig, RunResult, SubagentUsage, PlatformToolPolicy } from '../core/types';
 import { observationForEvent, repairAttemptObservation, type ObservationContext } from './session-observation';
 import { extractResponse, extractToolArgsSummary } from './session-output';
-import { createAbortGrace, settleOrGiveUp } from './abort-grace';
+import { createAbortGrace, createToolStallWatch, settleOrGiveUp, type ToolStallWatch } from './abort-grace';
 import type { SharedInfra } from '@electron/shared/infra/shared-infra';
 import type { WorkspaceManager } from '@electron/features/workspace/manager';
 import { createRuntimeTools } from '@electron/features/container/tools';
@@ -265,17 +265,11 @@ export async function runSubagent(
   // `session_shutdown` goes only to extensions that received `session_start`.
   let extensionsStarted = false;
 
-  let activeToolStallTimer: ReturnType<typeof setTimeout> | null = null;
+  // Hoisted above try so finally can stop the timers.
+  let stalls: ToolStallWatch | null = null;
   let stopReason: string | undefined;
   const grace = createAbortGrace();
   const usage: SubagentUsage = { ...EMPTY_USAGE };
-
-  function clearStallTimer(): void {
-    if (activeToolStallTimer) {
-      clearTimeout(activeToolStallTimer);
-      activeToolStallTimer = null;
-    }
-  }
 
   try {
     const sessionOptions: CreateAgentSessionOptions = {
@@ -352,18 +346,16 @@ export async function runSubagent(
     // Per-tool stall detection: a single tool call that runs longer than toolStallTimeoutMs is aborted.
     const toolStallMs = resolved.toolStallTimeoutMs ?? 120_000;
 
-    function startStallTimer(toolName: string): void {
-      clearStallTimer();
-      if (toolStallMs <= 0) return; // disabled
-      activeToolStallTimer = setTimeout(() => {
-        const stallMsg = `Tool '${toolName}' stalled after ${Math.round(toolStallMs / 1000)}s — auto-aborting`;
-        stopReason = stallMsg;
-        console.warn(`[subagent/runner] ${stallMsg}`);
-        onStatusUpdate?.(`⚠️ ${stallMsg}`);
-        try { session?.abort(); } catch { /* ignore */ }
-        grace.start();
-      }, toolStallMs);
-    }
+    stalls = createToolStallWatch(toolStallMs, (toolName) => {
+      const stallMsg = `Tool '${toolName}' stalled after ${Math.round(toolStallMs / 1000)}s — auto-aborting`;
+      stopReason = stallMsg;
+      console.warn(`[subagent/runner] ${stallMsg}`);
+      onStatusUpdate?.(`⚠️ ${stallMsg}`);
+      try { session?.abort(); } catch { /* ignore */ }
+      grace.start();
+    });
+    // Calls in one reply run at the same time, so each is timed under its own id.
+    const callIdOf = (event: Record<string, unknown>): string => String(event.toolCallId ?? event.toolName ?? 'unknown');
 
     // Observation identities stay distinct: the run is the session here, a turn
     // is one prompt and its reply, a request is one model call, and a tool call
@@ -396,13 +388,13 @@ export async function runSubagent(
         const summary = extractToolArgsSummary(toolName, args);
         onToolActivity?.(toolName, summary, true);
         onStatusUpdate?.(`  📂 ${toolName}: ${summary}`);
-        startStallTimer(toolName);
+        stalls?.start(callIdOf(event), toolName);
       }
 
       if (event.type === 'tool_execution_end') {
         const toolName = (event.toolName as string) ?? 'unknown';
         onToolActivity?.(toolName, '', false);
-        clearStallTimer();
+        stalls?.end(callIdOf(event));
       }
 
       // Text + reasoning deltas → live output stream. Reasoning is forwarded
@@ -421,7 +413,7 @@ export async function runSubagent(
       }
 
       if (event.type === 'turn_end' || event.type === 'agent_end') {
-        clearStallTimer();
+        stalls?.clear();
         readSessionUsage(session, usage);
         onProgress?.(usage);
       }
@@ -459,7 +451,7 @@ export async function runSubagent(
     }
 
     clearTimeout(timeoutId);
-    clearStallTimer();
+    stalls?.clear();
     signal.removeEventListener('abort', abortHandler);
     unsub();
 
@@ -484,7 +476,7 @@ export async function runSubagent(
 
     return { response: '', usage, modelId, providerId, error: errorMsg };
   } finally {
-    clearStallTimer();
+    stalls?.clear();
     grace.clear();
     clearBridgedExtensionSessionStateForSession(subagentSessionId);
     if (session && extensionsStarted) {

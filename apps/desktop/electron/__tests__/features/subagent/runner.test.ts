@@ -413,6 +413,34 @@ describe('runSubagent abort handling', () => {
     }
   });
 
+  it('still stops a stalled tool when a second tool call ends beside it', async () => {
+    vi.useFakeTimers();
+    try {
+      const session = createSession();
+      mocks.createAgentSession.mockResolvedValueOnce({ session });
+      const config = createConfig(new AbortController().signal);
+      config.resolved.timeoutMs = 600_000;
+      config.resolved.toolStallTimeoutMs = 50;
+      // Two calls in one reply: a shell command that never returns, and a quick read.
+      session.prompt.mockImplementation(() => {
+        const emit = session.subscribe.mock.calls.at(-1)?.[0];
+        emit?.({ type: 'tool_execution_start', toolCallId: 'call-1', toolName: 'bash', args: {} });
+        emit?.({ type: 'tool_execution_start', toolCallId: 'call-2', toolName: 'read', args: {} });
+        emit?.({ type: 'tool_execution_end', toolCallId: 'call-2', toolName: 'read' });
+        return new Promise<void>(() => {});
+      });
+
+      const run = runSubagent(config, createDeps());
+      await vi.advanceTimersByTimeAsync(50);
+      expect(session.abort).toHaveBeenCalledOnce();
+      await vi.advanceTimersByTimeAsync(ABORT_GRACE_MS);
+
+      expect((await run).error).toContain("Tool 'bash' stalled");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('returns before creating a session when setup is aborted', async () => {
     const controller = new AbortController();
     mocks.reloadResources.mockImplementationOnce(async () => {

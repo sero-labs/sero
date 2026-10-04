@@ -118,6 +118,8 @@ export interface RuntimeExecInput {
   isolated?: boolean;
   /** Stream output instead of buffering it. See `RuntimeExecOutputSink`. */
   outputSink?: RuntimeExecOutputSink;
+  /** Stops a streamed command and what it started. Buffered commands rely on `timeoutMs`. */
+  signal?: AbortSignal;
 }
 
 export interface RuntimeExecFileInput {

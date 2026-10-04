@@ -132,6 +132,7 @@ export async function streamDocker(
   args: string[],
   options: DockerRunOptions,
   sink: RuntimeExecOutputSink,
+  signal?: AbortSignal,
 ): Promise<DockerCommandResult> {
   const command = resolveDockerCommand(options.env);
   const outcome = await runStreamingExec({
@@ -141,6 +142,7 @@ export async function streamDocker(
     env: command.env,
     timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     sink,
+    signal,
   });
   return { stdout: '', stderr: outcome.errorMessage ?? '', exitCode: outcome.exitCode };
 }
