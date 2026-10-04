@@ -125,8 +125,7 @@ function evidenceAccepted(record: ProjectRecord): number {
  * delivered, because nothing was ever accepted.
  */
 function deliveredAll(record: ProjectRecord): boolean {
-  const counts = milestoneCounts(record);
-  return evidenceAccepted(record) > 0 && counts.accepted === counts.total;
+  return evidenceAccepted(record) > 0 && everyMilestoneClosed(record);
 }
 
 /** "Delivered", or both facts when part of the plan was set aside. */
@@ -134,6 +133,15 @@ function deliveredHeadline(record: ProjectRecord): string {
   const counts = milestoneCounts(record);
   const aside = setAsideCount(record);
   return aside > 0 ? `${counts.accepted - aside} of ${counts.total} delivered, ${aside} set aside` : 'Delivered';
+}
+
+/**
+ * True when nothing on the plan is still open: every milestone is done, or set
+ * aside because its Room stopped. Shared by the paths that can close the last
+ * open milestone, so the phase does not depend on which of them ran last.
+ */
+export function everyMilestoneClosed(record: ProjectRecord): boolean {
+  return record.milestones.every((m) => m.id === MAINTENANCE_MILESTONE_ID || m.status === 'done' || isSetAside(m));
 }
 
 export function projectActivity(

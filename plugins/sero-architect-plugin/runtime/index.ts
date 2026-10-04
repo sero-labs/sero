@@ -122,7 +122,7 @@ export class ArchitectRuntime implements AppRuntime {
       },
       releaseHeld: async (projectId) => {
         const record = await store.read(projectId);
-        if (record) await releaseProjectWork({ store, retryWorkflow: (id, milestoneId, maxCostUsd) => retryMilestone({ store }, id, milestoneId, maxCostUsd) }, record);
+        if (record) await releaseProjectWork({ store, now: () => this.host.now(), retryWorkflow: (id, milestoneId, maxCostUsd) => retryMilestone({ store }, id, milestoneId, maxCostUsd) }, record);
       },
     });
     this.watch = watch;

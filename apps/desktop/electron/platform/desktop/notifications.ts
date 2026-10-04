@@ -13,7 +13,9 @@
  *   Set style to "Alerts" for notifications that stay until dismissed.
  */
 
-import { BrowserWindow, Notification } from 'electron';
+import { Notification } from 'electron';
+
+import { appWindow } from '@electron/shared/auxiliary-window';
 
 export type NotificationType = 'info' | 'warning' | 'error';
 
@@ -99,7 +101,8 @@ export function showNotification(
  * happened.
  */
 export function focusMainWindow(): void {
-  const win = BrowserWindow.getAllWindows()[0];
+  // A hidden capture window must never be brought forward as if it were Sero.
+  const win = appWindow();
   if (!win) return;
   if (win.isMinimized()) win.restore();
   win.show();

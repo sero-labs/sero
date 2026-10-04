@@ -9,10 +9,14 @@
  * only has to answer, not render inside Sero's UI.
  *
  * The window holds content Sero does not own, so it is locked down the same way
- * an embedded webview is: no node, no preload, a sandbox, and no child windows.
+ * an embedded webview is: no node, no preload, a sandbox, no child windows, no
+ * dialogs, no downloads, and no permissions. It is also marked auxiliary, so no
+ * other part of the process can mistake it for the Sero window.
  */
 
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, type Session } from 'electron';
+
+import { markAuxiliaryWindow } from '@electron/shared/auxiliary-window';
 
 /**
  * A dev server that never finishes loading must not hold the caller open. This
@@ -29,6 +33,8 @@ const CAPTURE_HEIGHT = 800;
  * capture should show.
  */
 const PAINT_SETTLE_MS = 500;
+/** Chromium's net error for a navigation that another navigation replaced. */
+const ERR_ABORTED = -3;
 
 export interface HeadlessCaptureResult {
   ok: boolean;
@@ -48,6 +54,66 @@ export function isCapturableUrl(raw: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** Sessions already locked down. The partition is shared by capture windows. */
+const guardedSessions = new WeakSet<Session>();
+
+function guardSession(session: Session): void {
+  if (guardedSessions.has(session)) return;
+  guardedSessions.add(session);
+  // The capture partition is used by capture windows alone, so denying every
+  // permission cannot affect anything else. A hidden window that a project page
+  // can ask for the camera or the clipboard must not be granted one silently.
+  // A preview that truly needs a device fails the capture instead.
+  session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+  session.setPermissionCheckHandler(() => false);
+  // A download from a window the user cannot see would open a save dialog that
+  // nobody can answer, and would write a file Sero never asked for.
+  session.on('will-download', (event) => event.preventDefault());
+}
+
+/**
+ * Loads the URL and resolves when the document that ends up loaded is ready.
+ *
+ * A page that redirects during load aborts its first navigation, and Electron
+ * reports that abort through `loadURL` and `did-fail-load`. That is not a
+ * capture failure: the navigation that replaced it finishes by itself, and its
+ * `did-finish-load` is what this waits for.
+ */
+function loadUntilReady(win: BrowserWindow, url: string): Promise<void> {
+  const contents = win.webContents;
+  return new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const finish = (error?: Error): void => {
+      if (settled) return;
+      settled = true;
+      contents.off('did-finish-load', onLoaded);
+      contents.off('did-fail-load', onFailed);
+      if (error) reject(error);
+      else resolve();
+    };
+    const onLoaded = (): void => finish();
+    const onFailed = (
+      _event: unknown,
+      code: number,
+      description: string,
+      _url: string,
+      isMainFrame: boolean,
+    ): void => {
+      if (!isMainFrame || code === ERR_ABORTED) return;
+      finish(new Error(`${description} (${code})`));
+    };
+    contents.on('did-finish-load', onLoaded);
+    contents.on('did-fail-load', onFailed);
+    win.loadURL(url).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      // A redirect or a second navigation aborted this one; its own load ends
+      // the wait. Any other rejection is the failure to report.
+      if (message.includes('ERR_ABORTED')) return;
+      finish(error instanceof Error ? error : new Error(message));
+    });
+  });
 }
 
 /**
@@ -85,26 +151,30 @@ export async function captureUrlHeadless(
         // A hidden window is throttled unless asked not to be, and a throttled
         // renderer may never paint.
         backgroundThrottling: false,
+        // `alert()` during load would open a native box and hold the capture
+        // until its limit. Nothing a page shows in a dialog is wanted here.
+        disableDialogs: true,
         // In memory only: the capture reads and writes none of the user's
         // session data, and nothing it loads leaves a cookie behind.
         partition: 'sero-preview-capture',
       },
     });
-    win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-    // The capture partition is used by this window alone, so denying every
-    // permission cannot affect anything else. A hidden window that a project
-    // page can ask for the camera or the clipboard must not be granted one
-    // silently. A preview that truly needs a device fails the capture instead.
-    win.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
-    win.webContents.session.setPermissionCheckHandler(() => false);
-    // The page may route itself anywhere on its own server; it may not leave
-    // the web for a local scheme.
-    win.webContents.on('will-navigate', (event, target) => {
-      if (!isCapturableUrl(target)) event.preventDefault();
-    });
+    // Before it loads, so no lookup can see it as the Sero window.
+    markAuxiliaryWindow(win);
+    const contents = win.webContents;
+    guardSession(contents.session);
+    contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    // A server redirect and a subframe navigation are navigations too. Only the
+    // web is allowed, so a 302 to a local scheme, or an iframe that navigates
+    // to one, cannot reach a handler on the user's machine.
+    const blockNonWeb = (event: { preventDefault: () => void; url: string }): void => {
+      if (!isCapturableUrl(event.url)) event.preventDefault();
+    };
+    contents.on('will-frame-navigate', blockNonWeb);
+    contents.on('will-redirect', blockNonWeb);
     const window = win;
     const loadAndCapture = async (): Promise<HeadlessCaptureResult> => {
-      await window.loadURL(raw);
+      await loadUntilReady(window, raw);
       await new Promise((resolve) => { setTimeout(resolve, PAINT_SETTLE_MS); });
       const image = await window.webContents.capturePage();
       if (image.isEmpty()) return { ok: false, error: `The capture of ${raw} was an empty image.` };

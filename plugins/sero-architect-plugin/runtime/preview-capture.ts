@@ -28,9 +28,12 @@ export interface PreviewCaptureDeps {
 const CAPTURE_TIMEOUT_MS = 3 * 60_000;
 /**
  * A second look at an image that is already on disk. Nothing is loaded or
- * navigated, so this only has to cover a model call and a file read.
+ * navigated, but the limit still covers the run's session setup, the image read
+ * and the verdict at the project's thinking level, so it is not short.
  */
-const INSPECT_TIMEOUT_MS = 60_000;
+const INSPECT_TIMEOUT_MS = 2 * 60_000;
+/** The run's own time limit, as `runStructured` reports it. */
+const RUN_TIME_LIMIT = /^Timed out after \d+s/;
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 const CAPTURE_RULES = 'Verify and capture the requested local project preview. Use the supplied URL and save path. Do not edit project files or perform unrelated actions. A saved image alone is not success: inspect it and reject error pages, blank pages, editor errors, or the wrong app.';
@@ -88,7 +91,9 @@ export async function runPreviewCapture(
       model,
       thinking,
       task: [
-        `Capture the URL with \`sero app preview ${url} --headless --save ${target}\`. It loads in a hidden window and returns the image; do not open the visible preview, because that would move the user off their page.`,
+        // Quoted: a project folder with a space, or a route with `&`, must reach
+        // the capture intact instead of being split or backgrounded by the shell.
+        `Capture the URL with \`sero app preview '${url}' --headless --save '${target}'\`. It loads in a hidden window and returns the image; do not open the visible preview, because that would move the user off their page.`,
         `Inspect the returned image. ${expected}`,
         plan,
         VERDICT_RULES,
@@ -104,10 +109,11 @@ export async function runPreviewCapture(
       if (!captureConfirmed(capture.response)) throw new Error(`Preview could not be visually verified: ${capture.response.slice(-1500)}`);
       if (!saved) throw new Error(`Preview capture was not saved at ${target}. ${capture.response.slice(-1500)}`);
       capturePath = target;
-    } else if (saved) {
-      // The run was stopped before it could look at what it saved. The file
-      // proves only that bytes were written, so one bounded call reads it.
-      // Visual verification still decides; only the browser work is skipped.
+    } else if (saved && RUN_TIME_LIMIT.test(capture.error)) {
+      // The run reached its own time limit after it saved the image, so the
+      // image is the part that completed. The file proves only that bytes were
+      // written, so one bounded call reads it. Visual verification still
+      // decides; only the browser work is skipped.
       const verdict = await runProjectModel(deps, record, { kind: 'capture', id: milestone.id }, {
         systemPrompt: INSPECT_RULES,
         model,
@@ -128,7 +134,9 @@ export async function runPreviewCapture(
       if (!captureConfirmed(verdict.response)) throw new Error(`Preview could not be visually verified: ${verdict.response.slice(-1500)}`);
       capturePath = target;
     } else {
-      throw new Error(`Preview capture failed: ${capture.error}`);
+      // A stop, a provider error or a refusal is not a reason to spend again.
+      const file = saved ? ` A screenshot was saved at ${target} and was not used.` : '';
+      throw new Error(`Preview capture failed: ${capture.error}.${file}`);
     }
   }
   return { route, smokePassed, capturePath, ...(failure ? { failure } : {}) };

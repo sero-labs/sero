@@ -14,7 +14,8 @@
 
 import { getOrchestratorRoomRegistry, requestOrchestratorAction, type OrchestratorRoomInspection } from '@sero-ai/common';
 
-import { mayWakeForWork } from '../shared/lifecycle';
+import { everyMilestoneClosed } from '../shared/activity';
+import { advancePhase, mayWakeForWork } from '../shared/lifecycle';
 import type { Milestone, ProjectRecord } from '../shared/record';
 import type { RecordStore } from './record-store';
 
@@ -51,6 +52,8 @@ export interface ControlOutcome {
 
 export interface LinkedWorkDeps {
   store: RecordStore;
+  /** The clock, so a phase change this module makes carries a real time. */
+  now(): string;
   /** Continues an interrupted milestone Workflow through the existing retry action. */
   retryWorkflow(projectId: string, milestoneId: string, maxCostUsd?: number): Promise<{ ok: boolean; text: string }>;
 }
@@ -98,16 +101,24 @@ async function markHeld(store: RecordStore, projectId: string, linked: Linked, h
 /**
  * A milestone whose Room was cancelled or failed is set aside: it is no longer
  * running, so it stops holding the project folder and the activity line stops
- * naming it. No decision parks it, so the owner may dispatch it again.
+ * naming it. No decision parks it, so the owner may dispatch it again. When it
+ * was the last open milestone, the project reaches release here as well: the
+ * accept path may have run earlier, while this one was still working.
  */
-async function setAside(store: RecordStore, projectId: string, linked: Linked): Promise<string> {
+async function setAside(deps: LinkedWorkDeps, record: ProjectRecord, linked: Linked): Promise<string> {
   if (linked.source.kind !== 'milestone') return '';
-  await store.update(projectId, (fresh) => ({
-    ...fresh,
-    milestones: fresh.milestones.map((item) => item.id === linked.source.id && item.dispatch?.id === linked.id && item.status === 'running'
-      ? { ...item, status: 'parked' as const, parkedBy: null, parkedByDecisions: [], parkedFrom: 'approved' as const }
-      : item),
-  }));
+  const now = deps.now();
+  await deps.store.update(record.id, (fresh) => {
+    const aside = {
+      ...fresh,
+      milestones: fresh.milestones.map((item) => item.id === linked.source.id && item.dispatch?.id === linked.id && item.status === 'running'
+        ? { ...item, status: 'parked' as const, parkedBy: null, parkedByDecisions: [], parkedFrom: 'approved' as const }
+        : item),
+    };
+    if (!everyMilestoneClosed(aside)) return aside;
+    const released = advancePhase(aside, 'release', now, 'every milestone accepted or set aside; release starts');
+    return released.ok ? released.record : aside;
+  });
   return ` Milestone ${linked.source.id} is set aside and no longer holds the project folder. Dispatch it again if the work is still needed.`;
 }
 
@@ -127,7 +138,7 @@ async function controlRoom(deps: LinkedWorkDeps, record: ProjectRecord, linked: 
   // A Room that already ended without a result cannot be cancelled twice. Its
   // milestone is released here, with no question to the user.
   if (request.operation === 'cancel' && (room.status === 'cancelled' || room.status === 'failed')) {
-    return { ok: true, status: room.status, text: `Room ${linked.id} is already ${room.status}.${await setAside(deps.store, record.id, linked)}` };
+    return { ok: true, status: room.status, text: `Room ${linked.id} is already ${room.status}.${await setAside(deps, record, linked)}` };
   }
   // Already paused by another hand: it is left as it is, and not claimed.
   if (request.operation === 'pause' && (room.status === 'paused' || room.status === 'pausing')) return { ok: true, status: room.status, text: `Room ${linked.id} is already paused.` };
@@ -143,7 +154,7 @@ async function controlRoom(deps: LinkedWorkDeps, record: ProjectRecord, linked: 
     }
     return { ok: true, status: result.status, text: request.operation === 'pause'
       ? `Room ${linked.id} is ${result.status}. No new turn starts; a turn in flight finishes.`
-      : `Room ${linked.id} is ${result.status}.${await setAside(deps.store, record.id, linked)}` };
+      : `Room ${linked.id} is ${result.status}.${await setAside(deps, record, linked)}` };
   }
   // A Room still finishing its turns cannot resume yet. It is resumed when it
   // settles: see `hasSettledHeldRoom`.

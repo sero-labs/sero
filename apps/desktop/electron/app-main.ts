@@ -68,6 +68,7 @@ import {
 } from './shared/infra/shared-infra';
 import { startGateway, stopGateway } from './ipc/gateway/gateway';
 import { shouldAutoStartGateway } from '@electron/shared/settings/gateway-settings';
+import { appWindows, closeAuxiliaryWindows } from '@electron/shared/auxiliary-window';
 import { setupContentSecurityPolicy } from './platform/security/csp';
 import { enablePlainTextFallback } from './shared/lib/safe-storage-backend';
 import { setupMainWindowSecurity } from './platform/security/window-security';
@@ -234,6 +235,9 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+    // A capture left running must not keep the process alive after the user
+    // closed Sero, and its window would delay `window-all-closed` by up to 30s.
+    closeAuxiliaryWindows();
   });
 }
 
@@ -370,7 +374,9 @@ app.on('window-all-closed', () => {
 });
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
+  // A hidden capture window is not a window the user can see, so it must not
+  // stand in for the app window here.
+  if (appWindows().length === 0) {
     createWindow();
   }
 });

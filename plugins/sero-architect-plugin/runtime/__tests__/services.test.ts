@@ -452,4 +452,34 @@ describe('runtime services', () => {
     if (rendered) expect(evidence?.preview?.capturePath).toMatch(/\.png$/);
     else expect(evidence?.preview?.failure).toContain('Explorer file error');
   });
+
+  it('does not spend on a second run when the capture stopped for any other reason', async () => {
+    const preview = milestone('m1', { status: 'verifying', preview: { route: '/' } });
+    const project = buildingProject({ milestones: [preview] });
+    const { host, store, services, wakes } = await setup(project);
+    const server = createServer((_request, response) => { response.end('ok'); });
+    await new Promise<void>((resolve) => { server.listen(0, '127.0.0.1', resolve); });
+    const tasks: string[] = [];
+    try {
+      host.detectDevServerCommand = async () => 'pnpm dev';
+      host.startDevServer = async () => ({ url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, serverId: 'srv-1' });
+      host.fileInfo = async () => ({ mtimeMs: Date.now(), size: 100, head: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]) });
+      // A stop, a provider error or a cap: none of these is the run's time limit,
+      // so the work is over and only the cause is reported.
+      host.runStructured = async (params) => {
+        tasks.push(params.task ?? '');
+        return { response: '', error: 'The project was stopped' };
+      };
+      await services.evidence(project, preview, { commands: ['pnpm test'], route: '/' });
+      await waitFor(() => wakes.length > 0);
+    } finally {
+      await new Promise<void>((resolve) => { server.close(() => resolve()); });
+    }
+    expect(tasks).toHaveLength(1);
+    const evidence = (await store.read(project.id))?.milestones[0]?.evidence;
+    expect(evidence?.passed).toBe(false);
+    expect(evidence?.preview?.failure).toContain('The project was stopped');
+    // The saved image is named, so the owner does not have to read the runtime to find it.
+    expect(evidence?.preview?.failure).toContain('A screenshot was saved at');
+  });
 });

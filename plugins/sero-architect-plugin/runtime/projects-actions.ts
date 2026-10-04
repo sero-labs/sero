@@ -117,7 +117,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
   const read = async (projectId: string): Promise<ProjectRecord | null> => store.read(projectId);
 
   const recovery = { host, store, services, watch };
-  const linked: LinkedWorkDeps = { store, retryWorkflow: (projectId, milestoneId, maxCostUsd) => retryMilestone(recovery, projectId, milestoneId, maxCostUsd) };
+  const linked: LinkedWorkDeps = { store, now: () => host.now(), retryWorkflow: (projectId, milestoneId, maxCostUsd) => retryMilestone(recovery, projectId, milestoneId, maxCostUsd) };
 
   return {
     async list() {

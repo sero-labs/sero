@@ -46,9 +46,15 @@ export async function handleInfo(args: string[]) {
 
 export async function handlePreview(args: string[], ctx: CliCommandContext) {
   const { positionals, flags } = parseFlags(args);
-  const url = positionals[0] ?? requireFlagString(flags, 'url');
+  const headless = flags.get('headless');
+  // `parseFlags` gives a bare flag the token after it, so `--headless <url>`
+  // arrives as the flag's own value and leaves no positional. Both orders work.
+  const url = positionals[0] ?? requireFlagString(flags, 'url') ?? (typeof headless === 'string' ? headless : null);
   if (!url) return fail('Usage: sero app preview <url>\n  e.g. sero app preview http://192.168.64.5:3000\n  sero app preview <url> --headless --save <path> captures it without changing the visible app');
-  if (flags.has('headless')) return handleHeadlessPreview(url, flags, ctx);
+  if (flags.has('save') && !flags.has('headless')) {
+    return fail('--save belongs to --headless. The visible preview is captured with sero app screenshot.');
+  }
+  if (headless !== undefined) return handleHeadlessPreview(url, flags, ctx);
   const success = await appControlHostService.openDevPreview(url);
   return success
     ? ok(`Dev server preview opened in editor: ${url}\nThe preview is now capturable via \`sero app record\` and \`sero app screenshot\`.`)
@@ -62,6 +68,9 @@ export async function handlePreview(args: string[], ctx: CliCommandContext) {
  */
 async function handleHeadlessPreview(url: string, flags: ReturnType<typeof parseFlags>['flags'], ctx: CliCommandContext): Promise<CliResult> {
   const savePath = requireFlagString(flags, 'save');
+  // A bare `--save` means a file was promised and none was named. Succeeding
+  // without one would only move the failure into the caller's next step.
+  if (flags.has('save') && !savePath) return fail('--save needs a path: --save <path>');
   const capture = await captureUrlHeadless(url);
   if (!capture.ok || !capture.base64 || !capture.url) {
     return fail(`Headless preview failed: ${capture.error ?? 'no image was returned'}`);

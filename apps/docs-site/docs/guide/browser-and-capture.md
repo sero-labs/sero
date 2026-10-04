@@ -76,8 +76,11 @@ Use the visible browser for normal preview and page-reading workflows. Use `sero
 `sero app preview <url> --headless` needs no app panel and no active app. It loads the URL in a hidden 1280×800 window, waits for it to paint, and returns the PNG; `--save <path>` also writes it to disk. Nothing the user sees changes.
 
 ```bash
-sero app preview http://localhost:5173 --headless --save ~/evidence/home.png
+sero app preview 'http://localhost:5173' --headless --save '~/evidence/home.png'
 ```
+
+Quote the URL and the path: a project folder with a space, or a route with `&`
+in it, is split or backgrounded by the shell without them.
 
 This is the form to use when a check needs an image rather than for a person to look at the page. It is bounded: a dev server that does not answer in 30 seconds fails the capture instead of holding the caller. Only `http:` and `https:` URLs are accepted, the window is sandboxed with no Node access, and it uses its own in-memory session, so it carries none of the user's cookies.
 
