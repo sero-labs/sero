@@ -14,7 +14,10 @@
  *     npx playwright test e2e/autonomous-delivery.agent.spec.ts --project=agent
  *
  * Optional: SERO_DELIVERY_MODEL (default deepseek/deepseek-flash:high),
- * SERO_DELIVERY_CAP (USD, default 5), SERO_DELIVERY_MINUTES (default 60).
+ * SERO_DELIVERY_CAP (USD, default 5), SERO_DELIVERY_MINUTES (default 60),
+ * SERO_DELIVERY_GOAL (a smaller request makes a shorter run) and
+ * SERO_DELIVERY_QUIET_MINUTES (default 8): the run ends when the project record
+ * has not changed for that long, so a frozen run costs minutes, not the hour.
  * Results are written to e2e/screenshots/autonomous-delivery/.
  */
 
@@ -32,7 +35,8 @@ const MAX_MINUTES = Number(process.env.SERO_DELIVERY_MINUTES ?? '60');
 const SHOTS = path.resolve(__dirname, 'screenshots', 'autonomous-delivery');
 /** Workspaces must sit under the real home directory. The folder is kept after the run. */
 const PROJECTS_ROOT = path.join(os.homedir(), '.sero-e2e-delivery');
-const GOAL = 'A small browser synth I can play with my computer keyboard. One octave on the A to K keys, a waveform switch, attack and release, volume, and a visualizer.';
+const QUIET_MINUTES = Number(process.env.SERO_DELIVERY_QUIET_MINUTES ?? '8');
+const GOAL = process.env.SERO_DELIVERY_GOAL ?? 'A small browser synth I can play with my computer keyboard. One octave on the A to K keys, a waveform switch, attack and release, volume, and a visualizer.';
 
 interface DeliveryRecord {
   id: string;
@@ -275,9 +279,21 @@ test('a short goal with a start cap is delivered, and the work is visible while 
   const deadline = startedAt + MAX_MINUTES * 60_000;
   let tick = 0;
   let awaySince: number | null = null;
+  let lastState = '';
+  let changedAt = Date.now();
+  let frozenFor = 0;
   while (Date.now() < deadline) {
     const record = read();
     if (delivered(record)) break;
+    const stateNow = JSON.stringify(record);
+    if (stateNow !== lastState) {
+      lastState = stateNow;
+      changedAt = Date.now();
+    } else if (Date.now() - changedAt > QUIET_MINUTES * 60_000) {
+      frozenFor = Math.round((Date.now() - changedAt) / 60_000);
+      console.log(`[delivery] the record did not change for ${frozenFor} min; the run is ended as frozen`);
+      break;
+    }
     if (record.blockedReason || record.overlay === 'limited') break;
     seen.hostPrompts += await approvePrompts();
     // A preview check shows the app in Explorer to capture it. The user lets it
@@ -354,6 +370,7 @@ test('a short goal with a start cap is delivered, and the work is visible while 
     delivered: delivered(record),
     phase: record.phase,
     blockedReason: record.blockedReason,
+    frozenMinutes: frozenFor,
     minutes: Number(((Date.now() - startedAt) / 60_000).toFixed(1)),
     capUsd: record.budget.capUsd,
     spentUsd: record.budget.spentUsd,
