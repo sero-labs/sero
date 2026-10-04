@@ -137,11 +137,24 @@ function deliveredHeadline(record: ProjectRecord): string {
 
 /**
  * True when nothing on the plan is still open: every milestone is done, or set
- * aside because its Room stopped. Shared by the paths that can close the last
- * open milestone, so the phase does not depend on which of them ran last.
+ * aside because its Room stopped.
  */
-export function everyMilestoneClosed(record: ProjectRecord): boolean {
+function everyMilestoneClosed(record: ProjectRecord): boolean {
   return record.milestones.every((m) => m.id === MAINTENANCE_MILESTONE_ID || m.status === 'done' || isSetAside(m));
+}
+
+/**
+ * True when a build has finished its plan: every milestone is closed, and at
+ * least one of them was accepted on evidence.
+ *
+ * Shared by the three paths that can close the last open milestone, so the
+ * phase does not depend on which of them ran last. The accepted milestone is
+ * required: a plan of nothing but set-aside work delivered nothing, and moving
+ * it to release would ask the owner to prepare a release with no accepted work.
+ */
+export function planIsFinished(record: ProjectRecord): boolean {
+  const counted = record.milestones.filter((m) => m.id !== MAINTENANCE_MILESTONE_ID);
+  return counted.some((m) => m.status === 'done') && counted.every((m) => m.status === 'done' || isSetAside(m));
 }
 
 export function projectActivity(

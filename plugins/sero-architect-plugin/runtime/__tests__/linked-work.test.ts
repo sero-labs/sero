@@ -123,11 +123,27 @@ describe('the owner controls linked work', () => {
     // release the project. Closing m2 has to release it here instead.
     expect((await store.read('proj_1'))!.phase).toBe('build');
 
-    expect(await ownerActions.execute(owner, control('cancel', 'm2'))).toMatchObject({ ok: true });
+    const cancel = await ownerActions.execute(owner, control('cancel', 'm2'));
+    expect(cancel).toMatchObject({ ok: true });
 
     const record = (await store.read('proj_1'))!;
     expect(record.milestones[1]).toMatchObject({ status: 'parked', parkedBy: null });
     expect(record.phase).toBe('release');
+    // The answer says the phase changed, so the owner knows to prepare a release.
+    expect(cancel.text).toContain('the project is in release');
+  });
+
+  it('keeps the project in build when the only milestone is set aside, because nothing was accepted', async () => {
+    fakeRooms({ 'room-1': {} });
+    const { ownerActions, store } = await setup(agreedProject({ milestones: [roomMilestone('m1', 'room-1')] }));
+    expect((await store.read('proj_1'))!.phase).toBe('build');
+
+    expect(await ownerActions.execute(owner, control('cancel', 'm1'))).toMatchObject({ ok: true });
+
+    const record = (await store.read('proj_1'))!;
+    expect(record.milestones[0]).toMatchObject({ status: 'parked', parkedBy: null });
+    // Nothing was accepted on evidence, so there is no release to prepare.
+    expect(record.phase).toBe('build');
   });
 
   it('recovers its own paused Room as the same Room, and reports the state it is in', async () => {

@@ -31,6 +31,7 @@ interface FakeWindow {
       setPermissionRequestHandler: ReturnType<typeof vi.fn>;
       setPermissionCheckHandler: ReturnType<typeof vi.fn>;
       on: ReturnType<typeof vi.fn>;
+      off: ReturnType<typeof vi.fn>;
     };
   };
   isDestroyed: ReturnType<typeof vi.fn>;
@@ -71,6 +72,7 @@ function fakeWindow(options: {
         setPermissionRequestHandler: vi.fn(),
         setPermissionCheckHandler: vi.fn(),
         on: vi.fn(),
+        off: vi.fn(),
       },
     },
     isDestroyed: vi.fn(() => false),
@@ -210,6 +212,37 @@ describe('headless preview capture', () => {
     expect(result).toMatchObject({ ok: false, error: expect.stringContaining('NAME_NOT_RESOLVED') });
     expect(win.webContents.capturePage).not.toHaveBeenCalled();
     expect(win.destroy).toHaveBeenCalled();
+  });
+
+  it('fails at once when a redirect leaves the web, rather than waiting for the limit', async () => {
+    const win = fakeWindow({ load: () => new Promise<void>(() => undefined) });
+    useWindow(win);
+    const pending = captureUrlHeadless('http://127.0.0.1:5173');
+    // Sero blocks the navigation, so no load will ever finish.
+    listenerOf(win, 'will-redirect')?.({ preventDefault: vi.fn(), url: 'vscode://file/etc/hosts' });
+
+    const result = await pending;
+
+    expect(result).toMatchObject({ ok: false, error: expect.stringContaining('vscode://file/etc/hosts') });
+    expect(result.error).not.toContain('Timed out');
+    expect(win.webContents.capturePage).not.toHaveBeenCalled();
+    expect(win.destroy).toHaveBeenCalled();
+  });
+
+  it('fails at once when the page starts a download, and stops watching afterwards', async () => {
+    const win = fakeWindow({ load: () => new Promise<void>(() => undefined) });
+    useWindow(win);
+    const pending = captureUrlHeadless('http://127.0.0.1:5173');
+    const download = win.webContents.session.on.mock.calls.find((call) => call[0] === 'will-download')?.[1] as (event: { preventDefault: () => void }) => void;
+    const event = { preventDefault: vi.fn() };
+    download(event);
+
+    const result = await pending;
+
+    expect(event.preventDefault).toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: false, error: expect.stringContaining('download') });
+    // The listener is per capture, so a session shared by later captures keeps none.
+    expect(win.webContents.session.off).toHaveBeenCalledWith('will-download', download);
   });
 
   it('fails when the page never finishes loading, and closes the window', async () => {

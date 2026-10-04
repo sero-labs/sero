@@ -40,6 +40,15 @@ const CAPTURE_RULES = 'Verify and capture the requested local project preview. U
 const VERDICT_RULES = 'Reply only with JSON: {"rendered":true,"summary":"what you verified in the image"}. If the project is not rendered, use rendered:false and explain the failure in summary. Do not claim success based only on HTTP status or a saved file.';
 const INSPECT_RULES = 'Judge a screenshot that was already saved from a local project preview. Read the named image file. Do not load or navigate any URL, do not edit project files, and do not perform unrelated actions. A saved image alone is not success: reject error pages, blank pages, editor errors, or the wrong app.';
 
+/**
+ * Quotes a value for a POSIX shell. Spaces, `&` and an apostrophe all survive:
+ * inside single quotes nothing is special, and an apostrophe is closed out and
+ * re-opened, which is the only way to put one inside them.
+ */
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
 /** A fresh, non-empty PNG at the target path: the only file a capture may leave. */
 async function savedCapture(host: ArchitectHost, target: string, startedAt: number): Promise<boolean> {
   const info = await host.fileInfo(target);
@@ -93,7 +102,7 @@ export async function runPreviewCapture(
       task: [
         // Quoted: a project folder with a space, or a route with `&`, must reach
         // the capture intact instead of being split or backgrounded by the shell.
-        `Capture the URL with \`sero app preview '${url}' --headless --save '${target}'\`. It loads in a hidden window and returns the image; do not open the visible preview, because that would move the user off their page.`,
+        `Capture the URL with \`sero app preview ${shellQuote(url)} --headless --save ${shellQuote(target)}\`. It loads in a hidden window and returns the image; do not open the visible preview, because that would move the user off their page.`,
         `Inspect the returned image. ${expected}`,
         plan,
         VERDICT_RULES,

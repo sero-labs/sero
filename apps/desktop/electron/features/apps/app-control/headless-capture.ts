@@ -56,7 +56,9 @@ export function isCapturableUrl(raw: string): boolean {
   }
 }
 
-/** Sessions already locked down. The partition is shared by capture windows. */
+/**
+ * Sessions already locked down. The partition is shared by capture windows.
+ */
 const guardedSessions = new WeakSet<Session>();
 
 function guardSession(session: Session): void {
@@ -68,9 +70,6 @@ function guardSession(session: Session): void {
   // A preview that truly needs a device fails the capture instead.
   session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   session.setPermissionCheckHandler(() => false);
-  // A download from a window the user cannot see would open a save dialog that
-  // nobody can answer, and would write a file Sero never asked for.
-  session.on('will-download', (event) => event.preventDefault());
 }
 
 /**
@@ -80,8 +79,15 @@ function guardSession(session: Session): void {
  * reports that abort through `loadURL` and `did-fail-load`. That is not a
  * capture failure: the navigation that replaced it finishes by itself, and its
  * `did-finish-load` is what this waits for.
+ *
+ * `endNow` is called with the reason when Sero itself stops the load, so a
+ * blocked navigation fails with its cause instead of the caller's time limit.
  */
-function loadUntilReady(win: BrowserWindow, url: string): Promise<void> {
+function loadUntilReady(
+  win: BrowserWindow,
+  url: string,
+  endNow: (reject: (error: Error) => void) => void,
+): Promise<void> {
   const contents = win.webContents;
   return new Promise<void>((resolve, reject) => {
     let settled = false;
@@ -90,6 +96,7 @@ function loadUntilReady(win: BrowserWindow, url: string): Promise<void> {
       settled = true;
       contents.off('did-finish-load', onLoaded);
       contents.off('did-fail-load', onFailed);
+      endNow(() => undefined);
       if (error) reject(error);
       else resolve();
     };
@@ -106,6 +113,7 @@ function loadUntilReady(win: BrowserWindow, url: string): Promise<void> {
     };
     contents.on('did-finish-load', onLoaded);
     contents.on('did-fail-load', onFailed);
+    endNow(finish);
     win.loadURL(url).catch((error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
       // A redirect or a second navigation aborted this one; its own load ends
@@ -133,6 +141,7 @@ export async function captureUrlHeadless(
   const timeoutMs = options.timeoutMs ?? HEADLESS_CAPTURE_TIMEOUT_MS;
   let win: BrowserWindow | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let stopWatchingDownloads: (() => void) | undefined;
   try {
     win = new BrowserWindow({
       show: false,
@@ -164,17 +173,31 @@ export async function captureUrlHeadless(
     const contents = win.webContents;
     guardSession(contents.session);
     contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    // Set while a load is waiting, so a navigation Sero itself stops ends the
+    // wait with its cause instead of leaving the caller to its time limit.
+    let failLoad: ((error: Error) => void) | undefined;
     // A server redirect and a subframe navigation are navigations too. Only the
-    // web is allowed, so a 302 to a local scheme, or an iframe that navigates
-    // to one, cannot reach a handler on the user's machine.
+    // web is allowed, so a 302 to a local scheme, or an iframe that navigates to
+    // one, cannot reach a handler on the user's machine.
     const blockNonWeb = (event: { preventDefault: () => void; url: string }): void => {
-      if (!isCapturableUrl(event.url)) event.preventDefault();
+      if (isCapturableUrl(event.url)) return;
+      event.preventDefault();
+      failLoad?.(new Error(`The page tried to load ${event.url}, which is not http or https.`));
     };
     contents.on('will-frame-navigate', blockNonWeb);
     contents.on('will-redirect', blockNonWeb);
+    // A download from a window the user cannot see would open a save dialog that
+    // nobody can answer, and would write a file Sero never asked for. It also
+    // aborts the load, so the capture ends here with its cause.
+    const onDownload = (event: { preventDefault: () => void }): void => {
+      event.preventDefault();
+      failLoad?.(new Error('The page started a download, which a hidden capture does not allow.'));
+    };
+    contents.session.on('will-download', onDownload);
+    stopWatchingDownloads = () => { contents.session.off('will-download', onDownload); };
     const window = win;
     const loadAndCapture = async (): Promise<HeadlessCaptureResult> => {
-      await loadUntilReady(window, raw);
+      await loadUntilReady(window, raw, (reject) => { failLoad = reject; });
       await new Promise((resolve) => { setTimeout(resolve, PAINT_SETTLE_MS); });
       const image = await window.webContents.capturePage();
       if (image.isEmpty()) return { ok: false, error: `The capture of ${raw} was an empty image.` };
@@ -192,6 +215,7 @@ export async function captureUrlHeadless(
     return await Promise.race([capture, expired]);
   } finally {
     if (timer) clearTimeout(timer);
+    stopWatchingDownloads?.();
     if (win && !win.isDestroyed()) win.destroy();
   }
 }

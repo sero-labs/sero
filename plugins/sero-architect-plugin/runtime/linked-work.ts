@@ -14,7 +14,7 @@
 
 import { getOrchestratorRoomRegistry, requestOrchestratorAction, type OrchestratorRoomInspection } from '@sero-ai/common';
 
-import { everyMilestoneClosed } from '../shared/activity';
+import { planIsFinished } from '../shared/activity';
 import { advancePhase, mayWakeForWork } from '../shared/lifecycle';
 import type { Milestone, ProjectRecord } from '../shared/record';
 import type { RecordStore } from './record-store';
@@ -108,6 +108,7 @@ async function markHeld(store: RecordStore, projectId: string, linked: Linked, h
 async function setAside(deps: LinkedWorkDeps, record: ProjectRecord, linked: Linked): Promise<string> {
   if (linked.source.kind !== 'milestone') return '';
   const now = deps.now();
+  let movedToRelease = false;
   await deps.store.update(record.id, (fresh) => {
     const aside = {
       ...fresh,
@@ -115,11 +116,12 @@ async function setAside(deps: LinkedWorkDeps, record: ProjectRecord, linked: Lin
         ? { ...item, status: 'parked' as const, parkedBy: null, parkedByDecisions: [], parkedFrom: 'approved' as const }
         : item),
     };
-    if (!everyMilestoneClosed(aside)) return aside;
+    if (!planIsFinished(aside)) return aside;
     const released = advancePhase(aside, 'release', now, 'every milestone accepted or set aside; release starts');
+    movedToRelease = released.ok;
     return released.ok ? released.record : aside;
   });
-  return ` Milestone ${linked.source.id} is set aside and no longer holds the project folder. Dispatch it again if the work is still needed.`;
+  return ` Milestone ${linked.source.id} is set aside and no longer holds the project folder. Dispatch it again if the work is still needed.${movedToRelease ? ' Every milestone is now closed, so the project is in release.' : ''}`;
 }
 
 const timeUsedUp = (room: OrchestratorRoomInspection): boolean =>

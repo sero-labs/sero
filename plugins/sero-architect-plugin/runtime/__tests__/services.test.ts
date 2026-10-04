@@ -482,4 +482,30 @@ describe('runtime services', () => {
     // The saved image is named, so the owner does not have to read the runtime to find it.
     expect(evidence?.preview?.failure).toContain('A screenshot was saved at');
   });
+
+  it('quotes the capture command, so a folder with an apostrophe survives the shell', async () => {
+    const folder = "/home/dan/it's project";
+    const preview = milestone('m1', { status: 'verifying', preview: { route: '/' } });
+    const project = buildingProject({ folder, milestones: [preview] });
+    const { host, services, wakes } = await setup(project);
+    const server = createServer((_request, response) => { response.end('ok'); });
+    await new Promise<void>((resolve) => { server.listen(0, '127.0.0.1', resolve); });
+    const tasks: string[] = [];
+    try {
+      host.detectDevServerCommand = async () => 'pnpm dev';
+      host.startDevServer = async () => ({ url: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, serverId: 'srv-1' });
+      host.fileInfo = async () => ({ mtimeMs: Date.now(), size: 100, head: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]) });
+      host.runStructured = async (params) => {
+        tasks.push(params.task ?? '');
+        return { response: JSON.stringify({ rendered: true, summary: 'Game map and player visible' }) };
+      };
+      await services.evidence(project, preview, { commands: ['pnpm test'], route: '/' });
+      await waitFor(() => wakes.length > 0);
+    } finally {
+      await new Promise<void>((resolve) => { server.close(() => resolve()); });
+    }
+    // An apostrophe is closed out and re-opened, which is the only way to keep
+    // the whole path in one shell word.
+    expect(tasks[0]).toContain("--save '/home/dan/it'\\''s project/.sero/apps/architect/evidence/m1/");
+  });
 });

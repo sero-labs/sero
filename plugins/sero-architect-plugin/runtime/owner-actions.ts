@@ -10,7 +10,7 @@ import path from 'node:path';
 
 import type { OrchestratorProjectContext } from '@sero-ai/common';
 
-import { everyMilestoneClosed } from '../shared/activity';
+import { planIsFinished } from '../shared/activity';
 import { toMilestone } from '../shared/charter-shape';
 import { parseDecision, toDecision } from '../shared/decision-shape';
 import { hasAgreement } from '../shared/agreement';
@@ -197,7 +197,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
         const delivery = own.items.length > 0 ? own : settleDelivery(own.record, now);
         next = delivery.record;
         if (delivery.items.length > 0) note = ' The release receipt is already recorded, so the release is delivered and maintain starts.';
-        if (next.phase === 'build' && everyMilestoneClosed(next)) {
+        if (next.phase === 'build' && planIsFinished(next)) {
           const released = advancePhase({ ...next, stateLine: 'Every milestone is done. Preparing the release.' }, 'release', now, 'every milestone accepted; release starts');
           if (released.ok) {
             next = released.record;
