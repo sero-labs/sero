@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   createRuntimeTools: vi.fn(async () => []),
   getRuntime: vi.fn(),
   bindRunCode: vi.fn(),
+  clearBridgedState: vi.fn(),
   // Captures the last DefaultResourceLoader constructor options (e.g. skillsOverride).
   lastLoaderOptions: null as Record<string, unknown> | null,
 }));
@@ -29,7 +30,7 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
 
 vi.mock('@electron/cli', () => ({
   bridgeExtensionTools: vi.fn((base: unknown) => base),
-  clearBridgedExtensionSessionStateForSession: vi.fn(),
+  clearBridgedExtensionSessionStateForSession: mocks.clearBridgedState,
 }));
 vi.mock('@electron/features/container/tools', () => ({
   createRuntimeTools: mocks.createRuntimeTools,
@@ -90,8 +91,9 @@ vi.mock('@electron/shared/settings/model-tiers', () => ({
   getModelTiers: vi.fn(() => ({})),
 }));
 
-import { parseModelField } from '@electron/shared/settings/resolve-tier-model';
-import { resolveSubagentPaths, runSubagent } from '@electron/features/subagent/runtime/runner';
+import { parseModelField, resolveTierModel } from '@electron/shared/settings/resolve-tier-model';
+import { resolveSubagentPaths } from '@electron/features/subagent/runtime/session-policy';
+import { runSubagent } from '@electron/features/subagent/runtime/runner';
 import { ABORT_GRACE_MS } from '@electron/features/subagent/runtime/abort-grace';
 import type { RunnerConfig } from '@electron/features/subagent/core/types';
 import type { RunnerDeps } from '@electron/features/subagent/runtime/runner';
@@ -110,6 +112,7 @@ function createSession() {
     },
     agent: { state: { tools: activeTools } },
     model: { id: 'claude-test-1', provider: 'anthropic' },
+    setModel: vi.fn(async () => {}),
     setThinkingLevel: vi.fn(),
     subscribe: vi.fn((_listener?: (event: Record<string, unknown>) => void) => vi.fn()),
     prompt: vi.fn(async () => {}),
@@ -469,6 +472,170 @@ describe('runSubagent abort handling', () => {
     expect(session.abort).toHaveBeenCalledTimes(1);
     expect(session.prompt).not.toHaveBeenCalled();
     expect(session.dispose).toHaveBeenCalledTimes(1);
+    // A stop during session creation must not pay for the model switch or the
+    // extension start.
+    expect(session.setModel).not.toHaveBeenCalled();
+    expect(session.bindExtensions).not.toHaveBeenCalled();
+  });
+
+  it('ends the run when the session is never created', async () => {
+    vi.useFakeTimers();
+    try {
+      const config = createConfig(new AbortController().signal);
+      config.resolved.timeoutMs = 100;
+      // `createAgentSession` never returns, so setup never finishes.
+      mocks.createAgentSession.mockImplementationOnce(() => new Promise(() => {}));
+
+      const run = runSubagent(config, createDeps());
+      await vi.advanceTimersByTimeAsync(100 + ABORT_GRACE_MS);
+
+      expect((await run).error).toContain('Timed out');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('ends the run when the selected model never resolves', async () => {
+    vi.useFakeTimers();
+    try {
+      const session = createSession();
+      // The model lookup resolves, but `setModel` never does.
+      session.setModel = vi.fn(() => new Promise<void>(() => {}));
+      mocks.createAgentSession.mockResolvedValueOnce({ session });
+      vi.mocked(parseModelField).mockReturnValueOnce({ prefer: 'anthropic/claude-test-1', fallbacks: [] });
+      vi.mocked(resolveTierModel).mockReturnValueOnce({ provider: 'anthropic', modelId: 'claude-test-1' });
+      const deps = createDeps();
+      vi.mocked(deps.infra.modelRegistry.find).mockReturnValue({ id: 'claude-test-1', provider: 'anthropic' } as never);
+      const config = createConfig(new AbortController().signal);
+      config.resolved.timeoutMs = 100;
+
+      const run = runSubagent(config, deps);
+      await vi.advanceTimersByTimeAsync(100 + ABORT_GRACE_MS);
+      const result = await run;
+
+      expect(result.error).toContain('Timed out');
+      expect(result.modelId).toBe('claude-test-1');
+      expect(result.providerId).toBe('anthropic');
+      expect(session.abort).toHaveBeenCalledOnce();
+      expect(session.dispose).toHaveBeenCalledOnce();
+      expect(session.prompt).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('ends the run when the workspace runtime never starts', async () => {
+    vi.useFakeTimers();
+    try {
+      mocks.getRuntime.mockResolvedValueOnce({
+        backend: 'docker',
+        ensure: vi.fn(() => new Promise<void>(() => {})),
+      });
+      const config = createConfig(new AbortController().signal);
+      config.platformTools = 'all';
+      config.resolved.timeoutMs = 100;
+
+      const run = runSubagent(config, createDeps());
+      await vi.advanceTimersByTimeAsync(100 + ABORT_GRACE_MS);
+
+      expect((await run).error).toContain('Timed out');
+      expect(mocks.createAgentSession).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('ends the run when the resource loader never reloads', async () => {
+    vi.useFakeTimers();
+    try {
+      mocks.reloadResources.mockImplementationOnce(() => new Promise(() => {}));
+      const config = createConfig(new AbortController().signal);
+      config.resolved.timeoutMs = 100;
+
+      const run = runSubagent(config, createDeps());
+      await vi.advanceTimersByTimeAsync(100 + ABORT_GRACE_MS);
+
+      expect((await run).error).toContain('Timed out');
+      expect(mocks.createAgentSession).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shuts down extensions that started before a stalled extension start', async () => {
+    vi.useFakeTimers();
+    try {
+      const session = createSession();
+      // One extension never finishes `session_start`, so the start never returns.
+      session.bindExtensions = vi.fn(() => new Promise<void>(() => {}));
+      mocks.createAgentSession.mockResolvedValueOnce({ session });
+      const config = createConfig(new AbortController().signal);
+      config.resolved.timeoutMs = 100;
+
+      const run = runSubagent(config, createDeps());
+      await vi.advanceTimersByTimeAsync(100 + ABORT_GRACE_MS);
+      const result = await run;
+
+      expect(result.error).toContain('Timed out');
+      // The extensions that did receive `session_start` must receive
+      // `session_shutdown` before the session is disposed.
+      expect(session.lifecycle).toEqual(['session_shutdown', 'dispose']);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('disposes a session that appears after the run gave up', async () => {
+    vi.useFakeTimers();
+    try {
+      const session = createSession();
+      let lateResolve: () => void = () => {};
+      const late = new Promise<void>((resolve) => { lateResolve = resolve; });
+      mocks.createAgentSession.mockImplementationOnce(async () => {
+        await late;
+        return { session };
+      });
+      const config = createConfig(new AbortController().signal);
+      config.resolved.timeoutMs = 100;
+
+      const run = runSubagent(config, createDeps());
+      await vi.advanceTimersByTimeAsync(100 + ABORT_GRACE_MS);
+      expect((await run).error).toContain('Timed out');
+      expect(session.dispose).not.toHaveBeenCalled();
+
+      lateResolve();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(session.dispose).toHaveBeenCalledOnce();
+      expect(session.bindExtensions).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('clears bridged state when the loader finishes after the run gave up', async () => {
+    vi.useFakeTimers();
+    try {
+      let lateResolve: () => void = () => {};
+      const late = new Promise<void>((resolve) => { lateResolve = resolve; });
+      mocks.reloadResources.mockImplementationOnce(async () => { await late; });
+      const config = createConfig(new AbortController().signal);
+      config.resolved.timeoutMs = 100;
+
+      const run = runSubagent(config, createDeps());
+      await vi.advanceTimersByTimeAsync(100 + ABORT_GRACE_MS);
+      expect((await run).error).toContain('Timed out');
+      expect(mocks.clearBridgedState).toHaveBeenCalledTimes(1);
+
+      lateResolve();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // The late reload can register bridged state for a session that never
+      // existed, so it must be cleared after the reload finishes.
+      expect(mocks.clearBridgedState).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

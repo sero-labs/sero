@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 
-import { filterPlatformTools, sessionToolOptions } from '@electron/features/subagent/runtime/runner';
+import { filterPlatformTools, sessionToolOptions } from '@electron/features/subagent/runtime/session-policy';
 
 function tool(name: string): ToolDefinition {
   return {

@@ -136,7 +136,7 @@ export function StateLine({
               {item.label}
             </Button>
           ))}
-          <div className="mt-2">{links}</div>
+          {links}
         </div>
         {next && <p className="ar-next">{next}</p>}
         {record.blockedReason && unlinked && (
