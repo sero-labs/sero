@@ -9,7 +9,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { AppRuntimeContext } from '@sero-ai/common';
@@ -35,7 +35,11 @@ function makeCtx(): AppRuntimeContext {
       if (failWrite(file)) throw new Error(`the disk went away: ${file}`);
       const current = existsSync(file) ? JSON.parse(await readFile(file, 'utf8')) : null;
       await mkdir(path.dirname(file), { recursive: true });
-      await writeFile(file, JSON.stringify(updater(current)), 'utf8');
+      // The real host replaces a state file in one step. A plain write empties
+      // the file first, and a read that lands in that gap parses nothing.
+      const next = `${file}.${process.hrtime.bigint()}.tmp`;
+      await writeFile(next, JSON.stringify(updater(current)), 'utf8');
+      await rename(next, file);
     },
   };
   return { stateFilePath: path.join(dir, 'state.json'), host: { appState } } as unknown as AppRuntimeContext;
