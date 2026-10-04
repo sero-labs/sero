@@ -1,10 +1,14 @@
 import { stringifyJson, ok, fail, parseFlags, requireFlagString } from '@electron/cli/lib/utils';
+import type { CliCommandContext, CliResult } from '@electron/cli/core/types';
 import { appControlHostService } from '@electron/features/apps/app-control/host-service';
+import { captureUrlHeadless } from '@electron/features/apps/app-control/headless-capture';
 import {
   isResolvedAppResult,
   listApps,
+  okWithImage,
   openResolvedApp,
   resolveApp,
+  saveScreenshot,
 } from './app-control-shared';
 
 export async function handleList() {
@@ -40,12 +44,44 @@ export async function handleInfo(args: string[]) {
   return ok(stringifyJson(info ?? match));
 }
 
-export async function handlePreview(args: string[]) {
+export async function handlePreview(args: string[], ctx: CliCommandContext) {
   const { positionals, flags } = parseFlags(args);
-  const url = positionals[0] ?? requireFlagString(flags, 'url');
-  if (!url) return fail('Usage: sero app preview <url>\n  e.g. sero app preview http://192.168.64.5:3000');
+  const headless = flags.get('headless');
+  // `parseFlags` gives a bare flag the token after it, so `--headless <url>`
+  // arrives as the flag's own value and leaves no positional. Both orders work.
+  const url = positionals[0] ?? requireFlagString(flags, 'url') ?? (typeof headless === 'string' ? headless : null);
+  if (!url) return fail('Usage: sero app preview <url>\n  e.g. sero app preview http://192.168.64.5:3000\n  sero app preview <url> --headless --save <path> captures it without changing the visible app');
+  if (flags.has('save') && !flags.has('headless')) {
+    return fail('--save belongs to --headless. The visible preview is captured with sero app screenshot.');
+  }
+  if (headless !== undefined) return handleHeadlessPreview(url, flags, ctx);
   const success = await appControlHostService.openDevPreview(url);
   return success
     ? ok(`Dev server preview opened in editor: ${url}\nThe preview is now capturable via \`sero app record\` and \`sero app screenshot\`.`)
     : fail('Failed to open dev server preview.');
+}
+
+/**
+ * Captures the URL in a hidden window, so the caller gets an image without the
+ * user's view being moved to Explorer. The image comes back as a content block
+ * whether or not a file was asked for, so a caller can look at what it saved.
+ */
+async function handleHeadlessPreview(url: string, flags: ReturnType<typeof parseFlags>['flags'], ctx: CliCommandContext): Promise<CliResult> {
+  const savePath = requireFlagString(flags, 'save');
+  // A bare `--save` means a file was promised and none was named. Succeeding
+  // without one would only move the failure into the caller's next step.
+  if (flags.has('save') && !savePath) return fail('--save needs a path: --save <path>');
+  const capture = await captureUrlHeadless(url);
+  if (!capture.ok || !capture.base64 || !capture.url) {
+    return fail(`Headless preview failed: ${capture.error ?? 'no image was returned'}`);
+  }
+  const description = `Headless capture of ${capture.url}. The visible app did not change.`;
+  if (!savePath) return okWithImage(description, capture.base64, 'image/png');
+  const absPath = await saveScreenshot(capture.base64, savePath, ctx);
+  return okWithImage(
+    `${description}\nSaved PNG: ${absPath} (${Math.round(capture.base64.length * 0.75 / 1024)}KB). Returned image may be optimized for API.`,
+    capture.base64,
+    'image/png',
+    { savedPath: absPath },
+  );
 }

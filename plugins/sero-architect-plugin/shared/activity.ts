@@ -35,10 +35,10 @@ export interface ProjectActivity {
   lastReportAt?: string;
 }
 
-/** Milestones the verification gate accepted, and how many there are in total. */
+/** Milestones the verification gate accepted, or set aside, and how many there are in total. */
 export function milestoneCounts(record: ProjectRecord): { accepted: number; total: number } {
   const counted = record.milestones.filter((m) => m.id !== MAINTENANCE_MILESTONE_ID);
-  const accepted = counted.filter((m) => m.verification === 'accepted' || m.verification === 'delivered').length;
+  const accepted = counted.filter((m) => m.verification === 'accepted' || m.verification === 'delivered' || isSetAside(m)).length;
   return { accepted, total: counted.length };
 }
 
@@ -113,17 +113,48 @@ function setAsideCount(record: ProjectRecord): number {
   return record.milestones.filter((m) => m.id !== MAINTENANCE_MILESTONE_ID && isSetAside(m)).length;
 }
 
-/** Every milestone is accepted, or set aside with at least one accepted. */
+/** Milestones the gate accepted on passed evidence. A set-aside milestone proves nothing. */
+function evidenceAccepted(record: ProjectRecord): number {
+  return record.milestones.filter((m) => m.id !== MAINTENANCE_MILESTONE_ID && (m.verification === 'accepted' || m.verification === 'delivered')).length;
+}
+
+/**
+ * Every milestone is closed, and at least one of them on passed evidence. A
+ * milestone set aside when its Room stopped is closed, so it does not hold a
+ * project open for ever; a project of nothing but set-aside work is not
+ * delivered, because nothing was ever accepted.
+ */
 function deliveredAll(record: ProjectRecord): boolean {
-  const counts = milestoneCounts(record);
-  return counts.accepted > 0 && counts.accepted + setAsideCount(record) === counts.total;
+  return evidenceAccepted(record) > 0 && everyMilestoneClosed(record);
 }
 
 /** "Delivered", or both facts when part of the plan was set aside. */
 function deliveredHeadline(record: ProjectRecord): string {
   const counts = milestoneCounts(record);
   const aside = setAsideCount(record);
-  return aside > 0 ? `${counts.accepted} of ${counts.total} delivered, ${aside} set aside` : 'Delivered';
+  return aside > 0 ? `${counts.accepted - aside} of ${counts.total} delivered, ${aside} set aside` : 'Delivered';
+}
+
+/**
+ * True when nothing on the plan is still open: every milestone is done, or set
+ * aside because its Room stopped.
+ */
+function everyMilestoneClosed(record: ProjectRecord): boolean {
+  return record.milestones.every((m) => m.id === MAINTENANCE_MILESTONE_ID || m.status === 'done' || isSetAside(m));
+}
+
+/**
+ * True when a build has finished its plan: every milestone is closed, and at
+ * least one of them was accepted on evidence.
+ *
+ * Shared by the three paths that can close the last open milestone, so the
+ * phase does not depend on which of them ran last. The accepted milestone is
+ * required: a plan of nothing but set-aside work delivered nothing, and moving
+ * it to release would ask the owner to prepare a release with no accepted work.
+ */
+export function planIsFinished(record: ProjectRecord): boolean {
+  const counted = record.milestones.filter((m) => m.id !== MAINTENANCE_MILESTONE_ID);
+  return counted.some((m) => m.status === 'done') && counted.every((m) => m.status === 'done' || isSetAside(m));
 }
 
 export function projectActivity(

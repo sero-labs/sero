@@ -1,4 +1,4 @@
-import { BrowserWindow } from 'electron';
+import { appWindow } from '@electron/shared/auxiliary-window';
 import { browserViewManager } from '@electron/features/browser/view-manager';
 import { captureRegion } from '@electron/shared/media/capture';
 import { encodeFramesToMp4 } from '@electron/shared/media/video-encoder';
@@ -52,18 +52,16 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function getMainWindow(): BrowserWindow | null {
-  return BrowserWindow.getAllWindows()[0] ?? null;
-}
-
 async function execRenderer<T>(code: string): Promise<T> {
-  const win = getMainWindow();
+  // Never the first window in the list: a hidden capture window is not Sero, and
+  // running app-control JavaScript in it would drive an untrusted page.
+  const win = appWindow();
   if (!win) throw new Error('No main window available');
   return win.webContents.executeJavaScript(code) as Promise<T>;
 }
 
 async function captureRect(rect: AppPanelRect): Promise<string | null> {
-  const win = getMainWindow();
+  const win = appWindow();
   if (!win) return null;
   return captureRegion(win, rect);
 }

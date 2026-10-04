@@ -13,6 +13,8 @@
 
 import { app, BrowserWindow, dialog } from 'electron';
 import { autoUpdater } from 'electron-updater';
+
+import { appWindow } from '@electron/shared/auxiliary-window';
 import { IpcChannels } from '@/types/ipc-channels';
 import type { UpdaterStatusEvent } from '@/types/ipc';
 
@@ -40,7 +42,7 @@ export function getUpdaterStatus(): UpdaterStatusEvent {
 // is downloading. The renderer indicator only shows for in-flight updates, so
 // "up to date" and error results surface as a native dialog.
 function notifyManualResult(kind: 'up-to-date' | 'error', detail?: string): void {
-  const parent = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null;
+  const parent = BrowserWindow.getFocusedWindow() ?? appWindow() ?? null;
   const options =
     kind === 'up-to-date'
       ? {

@@ -160,8 +160,9 @@ event log and never streams agent output. To read the owner's session, select
 A milestone is complete only when Architect has checked it. The owner cannot
 mark a milestone done by saying so. Architect runs the project's check
 commands, reads the git diff, and for a milestone with a preview route it
-starts the dev server, loads the route and saves a screenshot. The result is
-recorded on the milestone as one of four states:
+starts the dev server, loads the route in a hidden window and saves a
+screenshot. The capture does not change what the user is looking at. The result
+is recorded on the milestone as one of four states:
 
 | State | Meaning |
 | --- | --- |

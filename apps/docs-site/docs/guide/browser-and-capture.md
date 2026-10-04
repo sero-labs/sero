@@ -69,7 +69,22 @@ Important behavior:
 - `get-text` and `screenshot` default to the active tab in the current workspace
 - tabs appear in `list` only after their browser view is loaded
 
-Use the visible browser for normal preview and page-reading workflows. Use `sero app preview` when you specifically need the preview inside the app panel for app screenshot/record capture.
+Use the visible browser for normal preview and page-reading workflows. Use `sero app preview` when you specifically need the preview inside the app panel for app screenshot/record capture. That form switches the active app to Explorer, so the user leaves whatever page they were on.
+
+## Headless capture
+
+`sero app preview <url> --headless` needs no app panel and no active app. It loads the URL in a hidden 1280×800 window, waits for it to paint, and returns the PNG; `--save <path>` also writes it to disk. Nothing the user sees changes.
+
+```bash
+sero app preview 'http://localhost:5173' --headless --save "$HOME/evidence/home.png"
+```
+
+Quote the URL and the path: a project folder with a space, or a route with `&`
+in it, is split or backgrounded by the shell without them. Keep `$HOME` in
+double quotes, or use an absolute path: single quotes stop the shell expanding
+it, and a relative path is resolved from the current directory.
+
+This is the form to use when a check needs an image rather than for a person to look at the page. It is bounded: a dev server that does not answer in 30 seconds fails the capture instead of holding the caller. Only `http:` and `https:` URLs are accepted, the window is sandboxed with no Node access, and it uses its own in-memory session, so it carries none of the user's cookies.
 
 ## App navigation and screenshots
 

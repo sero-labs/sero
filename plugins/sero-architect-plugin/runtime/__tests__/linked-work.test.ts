@@ -115,6 +115,37 @@ describe('the owner controls linked work', () => {
     expect(again.ok).toBe(true);
   });
 
+  it('releases the project when the last open milestone is set aside', async () => {
+    fakeRooms({ 'room-2': {} });
+    const delivered = milestone('m1', { status: 'done', verification: 'accepted' });
+    const { ownerActions, store } = await setup(agreedProject({ milestones: [delivered, roomMilestone('m2', 'room-2')] }));
+    // m1 was accepted while m2 was still working, so that accept could not
+    // release the project. Closing m2 has to release it here instead.
+    expect((await store.read('proj_1'))!.phase).toBe('build');
+
+    const cancel = await ownerActions.execute(owner, control('cancel', 'm2'));
+    expect(cancel).toMatchObject({ ok: true });
+
+    const record = (await store.read('proj_1'))!;
+    expect(record.milestones[1]).toMatchObject({ status: 'parked', parkedBy: null });
+    expect(record.phase).toBe('release');
+    // The answer says the phase changed, so the owner knows to prepare a release.
+    expect(cancel.text).toContain('the project is in release');
+  });
+
+  it('keeps the project in build when the only milestone is set aside, because nothing was accepted', async () => {
+    fakeRooms({ 'room-1': {} });
+    const { ownerActions, store } = await setup(agreedProject({ milestones: [roomMilestone('m1', 'room-1')] }));
+    expect((await store.read('proj_1'))!.phase).toBe('build');
+
+    expect(await ownerActions.execute(owner, control('cancel', 'm1'))).toMatchObject({ ok: true });
+
+    const record = (await store.read('proj_1'))!;
+    expect(record.milestones[0]).toMatchObject({ status: 'parked', parkedBy: null });
+    // Nothing was accepted on evidence, so there is no release to prepare.
+    expect(record.phase).toBe('build');
+  });
+
   it('recovers its own paused Room as the same Room, and reports the state it is in', async () => {
     const { calls } = fakeRooms({ 'room-1': {} });
     const { ownerActions, store } = await setup(agreedProject({ milestones: [roomMilestone('m1', 'room-1')] }));
@@ -209,7 +240,7 @@ describe('a project pause under an agreement', () => {
     // The turn ends. The Room index reports it paused, and the release runs.
     rooms.set('room-1', { ...rooms.get('room-1')!, status: 'paused', hold: { kind: 'user-paused', detail: 'Paused.' } });
     expect(hasSettledHeldRoom(draining, [{ id: 'room-1', status: 'paused' }])).toBe(true);
-    await releaseProjectWork({ store, retryWorkflow: async () => ({ ok: false, text: 'not used' }) }, draining);
+    await releaseProjectWork({ store, now: () => T0, retryWorkflow: async () => ({ ok: false, text: 'not used' }) }, draining);
     expect(calls).toEqual(['resume room-1']);
     expect((await store.read('proj_1'))!.milestones[0]!.dispatch?.heldBy).toBeUndefined();
   });
