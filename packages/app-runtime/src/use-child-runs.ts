@@ -33,6 +33,9 @@ export function useChildRuns(
   const [entries, setEntries] = useState<SubagentLiveEntry[]>([]);
   const parentKey = parentSessionIds.join('\u0000');
 
+  // The cleanup below ends the listener and every run watch; the rule does not
+  // follow the unwatch calls inside the loop over `watched`.
+  // react-doctor-disable-next-line react-doctor/effect-needs-cleanup
   useEffect(() => {
     if (!workspaceId || parentKey.length === 0) return;
     const bridge = subagentBridge();
