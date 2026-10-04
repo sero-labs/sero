@@ -153,6 +153,8 @@ export interface OwnerTurnResult {
   record: ProjectRecord;
   status: 'completed' | 'aborted' | 'error';
   declared: OutcomeKind | null;
+  /** The turn passed its time limit for the first time: the caller wakes the owner once more. */
+  retry?: boolean;
 }
 
 export class OwnerSessions {
@@ -176,6 +178,8 @@ export class OwnerSessions {
    * charge carries no tokens rather than the whole session's count.
    */
   private readonly tokenMarks = new Map<string, TokenCounters>();
+  /** Projects whose last turn passed the time limit. A second one in a row blocks. */
+  private readonly overran = new Set<string>();
 
   constructor(private readonly deps: OwnerSessionDeps) {}
 
@@ -378,6 +382,7 @@ export class OwnerSessions {
     let status: OwnerTurnResult['status'];
     let failure = 'The Architect turn failed. Open the session log for details, then resume to retry.';
     let timeout: ReturnType<typeof setTimeout> | undefined;
+    let timedOut = false;
     let finished = false;
     try {
       await this.deps.store.update(opened.id, (fresh) => ({
@@ -401,6 +406,7 @@ export class OwnerSessions {
       };
       status = await Promise.race([turn(), new Promise<never>((_resolve, reject) => {
         timeout = setTimeout(() => {
+          timedOut = true;
           reject(new Error('The owner turn exceeded 10 minutes and was stopped. Existing work is preserved. Resume the project to continue.'));
           void api.abort(handleId).catch((error: unknown) => this.deps.host.log(`Could not abort timed-out owner: ${String(error)}`));
         }, OWNER_TURN_TIMEOUT_MS);
@@ -436,17 +442,21 @@ export class OwnerSessions {
         ...(status === 'error' ? { error: failure } : {}),
       }).catch((error: unknown) => this.deps.host.log(`owner wake end was not recorded: ${String(error)}`));
     }
+    // One turn over the limit is tried again; the project blocks on the second.
+    const retry = timedOut && !this.overran.has(opened.id);
+    if (retry) this.overran.add(opened.id);
+    else this.overran.delete(opened.id);
     const next = await this.deps.store.update(opened.id, (fresh) => {
       let updated = status === 'completed' ? applyTurnOutcome(fresh, declared, now)
         : { ...fresh, session: { ...fresh.session, turns: fresh.session.turns + 1 } };
-      if (status === 'error') {
+      if (status === 'error' && !retry) {
         const stopped = block(updated, now, failure);
         if (stopped.ok) updated = { ...stopped.record, stateLine: failure };
       }
       updated = { ...updated, session: { ...updated.session, lastWakeAt: now, lastWakeKind: wake.kind } };
       return updated;
     });
-    return { record: next ?? opened, status, declared };
+    return { record: next ?? opened, status, declared, ...(retry ? { retry } : {}) };
   }
 
   async dispose(projectId: string): Promise<void> {

@@ -306,7 +306,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     if (!mayDispatch(record)) {
       return refuse(record.overlay ? `The project is ${record.overlay}; no new dispatch may start.` : `Dispatch happens during build or maintain, and the project is in ${record.phase}.`);
     }
-    if (found.status === 'parked') return refuse(`Milestone ${found.id} is parked by decision ${found.parkedBy}; it cannot dispatch until the user answers.`);
+    if (found.status === 'parked' && found.parkedBy) return refuse(`Milestone ${found.id} is parked by decision ${found.parkedBy}; it cannot dispatch until the user answers.`);
     if (found.status === 'running' || found.status === 'verifying' || found.status === 'done') {
       return refuse(`Milestone ${found.id} is ${found.status}; only a planned or approved milestone dispatches.`);
     }
@@ -370,7 +370,7 @@ export function createOwnerActions(deps: OwnerActionsDeps): OwnerActions {
     const commands = (input.commands ?? []).map((c) => c.trim()).filter(Boolean);
     if (record.pendingEvidence?.some((pending) => pending.milestoneId === found.id)) return ok(`Evidence for ${found.id} is already running. No duplicate check was started. Call sleep.`);
     if (commands.length === 0) return refuse('commands is required: at least one command for the runtime to run.');
-    if (found.status === 'parked') return refuse(`Milestone ${found.id} is parked by decision ${found.parkedBy}.`);
+    if (found.status === 'parked') return refuse(found.parkedBy ? `Milestone ${found.id} is parked by decision ${found.parkedBy}.` : `Milestone ${found.id} is set aside: its Room was cancelled. Dispatch it again first.`);
     if (!found.dispatch || (found.status !== 'done' && (found.status !== 'verifying' || found.verification !== 'reported'))) {
       return refuse(`Milestone ${found.id} needs a linked dispatch that reported completion before evidence can run.`);
     }

@@ -50,7 +50,7 @@ function maintenance(record: ProjectRecord): Milestone | undefined {
 function currentMilestone(record: ProjectRecord): Milestone | undefined {
   const working = record.milestones.find((m) => m.id !== MAINTENANCE_MILESTONE_ID && (m.status === 'running' || m.status === 'verifying'));
   if (working) return working;
-  return record.milestones.find((m) => m.id !== MAINTENANCE_MILESTONE_ID && m.dispatch?.failure);
+  return record.milestones.find((m) => m.id !== MAINTENANCE_MILESTONE_ID && m.status !== 'parked' && m.dispatch?.failure);
 }
 
 /** What the owner itself is doing, for the end of the second line. */

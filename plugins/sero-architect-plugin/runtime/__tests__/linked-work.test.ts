@@ -101,6 +101,20 @@ describe('the owner controls linked work', () => {
     expect(calls).toEqual([]);
   });
 
+  it('sets aside the milestone of a Room that was cancelled, with no question to the user', async () => {
+    fakeRooms({ 'room-1': { status: 'cancelled' }, 'room-2': {} });
+    const { ownerActions, store } = await setup(agreedProject({ milestones: [roomMilestone('m1', 'room-1'), roomMilestone('m2', 'room-2'), milestone('m3', { status: 'approved' })] }));
+    // m1's Room ended already; m2's Room is cancelled by this call.
+    for (const target of ['m1', 'm2']) expect(await ownerActions.execute(owner, control('cancel', target))).toMatchObject({ ok: true, details: { status: 'cancelled' } });
+
+    const record = (await store.read('proj_1'))!;
+    expect(record.milestones.slice(0, 2).map((item) => [item.status, item.parkedBy])).toEqual([['parked', null], ['parked', null]]);
+    expect(record.decisions).toEqual([]);
+    // The project folder is free again, and the same milestone may run again.
+    const again = await ownerActions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm1', kind: 'room', prompt: 'Review the result.' });
+    expect(again.ok).toBe(true);
+  });
+
   it('recovers its own paused Room as the same Room, and reports the state it is in', async () => {
     const { calls } = fakeRooms({ 'room-1': {} });
     const { ownerActions, store } = await setup(agreedProject({ milestones: [roomMilestone('m1', 'room-1')] }));

@@ -222,6 +222,9 @@ export class ArchitectRuntime implements AppRuntime {
     }
     const result = await sessions.runTurn(record, wake);
     const after = result.record;
+    if (result.retry && mayWakeForWork(after)) {
+      this.scheduler?.request(projectId, { kind: 'quiet', at: this.host.now(), items: ['your last turn passed its 10 minute limit and was stopped; the record holds what was done, so continue from it in shorter steps'] });
+    }
     if (result.declared === 'sleep' && wake.kind !== 'quiet' && mayWakeForWork(after) && plannedWorkRemains(after)) {
       this.scheduler?.request(projectId, { kind: 'quiet', at: this.host.now(), items: ['nothing is running and planned work remains'] });
     }

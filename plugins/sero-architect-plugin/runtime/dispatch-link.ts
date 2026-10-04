@@ -70,7 +70,8 @@ export async function performDispatch(
   let refusal = '';
   const prepared = await store.update(record.id, (fresh) => {
     const current = fresh.milestones.find((item) => item.id === milestone.id);
-    if (!current || current.dispatch || current.pendingDispatch) return null;
+    // A set-aside milestone keeps the link to its cancelled Room until it runs again.
+    if (!current || (current.dispatch && current.status !== 'parked') || current.pendingDispatch) return null;
     if (usesProjectFiles(fresh, request) && (fresh.pendingEvidence?.length || projectWriter(fresh, milestone.id))) return null;
     // Sized in the write that reserves the dispatch, so a second start that
     // lands beside this one is measured against what this one left free.
@@ -162,6 +163,7 @@ async function linkDispatch(
     status: 'running',
     verification: null,
     pendingDispatch: undefined,
+    parkedFrom: null,
     dispatch: {
       kind: request.kind,
       id: link.id,

@@ -95,6 +95,22 @@ async function markHeld(store: RecordStore, projectId: string, linked: Linked, h
     : { ...fresh, pendingResearch: fresh.pendingResearch?.map((entry) => entry.id === linked.source.id ? { ...entry, heldBy } : entry) });
 }
 
+/**
+ * A milestone whose Room was cancelled or failed is set aside: it is no longer
+ * running, so it stops holding the project folder and the activity line stops
+ * naming it. No decision parks it, so the owner may dispatch it again.
+ */
+async function setAside(store: RecordStore, projectId: string, linked: Linked): Promise<string> {
+  if (linked.source.kind !== 'milestone') return '';
+  await store.update(projectId, (fresh) => ({
+    ...fresh,
+    milestones: fresh.milestones.map((item) => item.id === linked.source.id && item.dispatch?.id === linked.id && item.status === 'running'
+      ? { ...item, status: 'parked' as const, parkedBy: null, parkedByDecisions: [], parkedFrom: 'approved' as const }
+      : item),
+  }));
+  return ` Milestone ${linked.source.id} is set aside and no longer holds the project folder. Dispatch it again if the work is still needed.`;
+}
+
 const timeUsedUp = (room: OrchestratorRoomInspection): boolean =>
   room.maxWallClockMs !== undefined && room.activeMs !== undefined && room.activeMs >= room.maxWallClockMs;
 
@@ -107,6 +123,11 @@ async function controlRoom(deps: LinkedWorkDeps, record: ProjectRecord, linked: 
   if (room.status === 'completed') {
     if (linked.heldBy) await markHeld(deps.store, record.id, linked, undefined);
     return { ok: true, status: room.status, text: `Room ${linked.id} already completed, so nothing was changed.${room.result ? ` Its result: ${room.result}` : ''}` };
+  }
+  // A Room that already ended without a result cannot be cancelled twice. Its
+  // milestone is released here, with no question to the user.
+  if (request.operation === 'cancel' && (room.status === 'cancelled' || room.status === 'failed')) {
+    return { ok: true, status: room.status, text: `Room ${linked.id} is already ${room.status}.${await setAside(deps.store, record.id, linked)}` };
   }
   // Already paused by another hand: it is left as it is, and not claimed.
   if (request.operation === 'pause' && (room.status === 'paused' || room.status === 'pausing')) return { ok: true, status: room.status, text: `Room ${linked.id} is already paused.` };
@@ -122,7 +143,7 @@ async function controlRoom(deps: LinkedWorkDeps, record: ProjectRecord, linked: 
     }
     return { ok: true, status: result.status, text: request.operation === 'pause'
       ? `Room ${linked.id} is ${result.status}. No new turn starts; a turn in flight finishes.`
-      : `Room ${linked.id} is ${result.status}.` };
+      : `Room ${linked.id} is ${result.status}.${await setAside(deps.store, record.id, linked)}` };
   }
   // A Room still finishing its turns cannot resume yet. It is resumed when it
   // settles: see `hasSettledHeldRoom`.
