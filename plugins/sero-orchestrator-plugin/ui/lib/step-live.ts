@@ -63,16 +63,27 @@ export function runningAttemptId(activeRun: LoopRun | null | undefined, stepId: 
   return activeRun?.stepAttempts.find((entry) => entry.stepId === stepId && entry.status === 'running')?.id;
 }
 
+/** A call or a silence shorter than this is not named: the line would change several times a second. */
+export const STEADY_MS = 10_000;
+
 /**
- * What a running step or fan-out item reports now, in the words its list row
- * uses: the open call with its measured wait, then how fresh the observation is.
+ * What a running step or fan-out item reports now. Short model requests and
+ * tool calls come and go too fast to read, so the line says `Working` and stays
+ * still. It names the open call, and how long ago the last activity was, only
+ * once either has lasted `STEADY_MS`: that is when the fact is worth a look.
  * Null when no producer reported this attempt, so an older host adds nothing.
  */
 export function attemptLine(feedback: WorkFeedback | undefined, epoch: string | null, nowMs: number): string | null {
   if (!feedback || !epoch) return null;
   const state = feedbackActivity(feedback, epoch);
   if (state === 'working') {
-    return [waitLine(feedback.wait, nowMs), freshness(feedback, state, nowMs)].filter(Boolean).join(' · ') || null;
+    const since = feedback.wait?.since ? Date.parse(feedback.wait.since) : Number.NaN;
+    const last = feedback.lastActivityAt ? Date.parse(feedback.lastActivityAt) : Number.NaN;
+    const facts = [
+      nowMs - since >= STEADY_MS ? waitLine(feedback.wait, nowMs) : null,
+      nowMs - last >= STEADY_MS ? freshness(feedback, state, nowMs) : null,
+    ].filter(Boolean);
+    return facts.length > 0 ? facts.join(' · ') : 'Working';
   }
   return state === 'last-known' ? ['Last known', freshness(feedback, state, nowMs)].filter(Boolean).join(' · ') : null;
 }

@@ -11,6 +11,7 @@ import type { LoopSummary } from '../../shared/types';
 import { loopActivity, loopFacts } from '../lib/loop-activity';
 import { quietNow, waitLine } from '../lib/live-facts';
 import { roomActivity } from '../lib/room-activity';
+import { attemptLine } from '../lib/step-live';
 
 const SESSION = '2026-10-03T09:00:00.000Z';
 const NOW = Date.parse('2026-10-03T10:00:00.000Z');
@@ -49,6 +50,17 @@ describe('an open call in words', () => {
     expect(waitLine({ kind: 'tool', toolName: 'bash', since: ago(12) }, NOW)).toBe('bash · 0:12');
     expect(waitLine({ kind: 'tool', toolName: null, since: null }, NOW)).toBe('running a tool');
     expect(waitLine(null, NOW)).toBeNull();
+  });
+
+  it('keeps a running step\'s line still, and names a call only once it has lasted', () => {
+    const at = (wait: WorkFeedback['wait'], last: number) => ({ epoch: 'e1', attached: true, terminal: null, wait, lastActivityAt: ago(last), contactObservedAt: ago(1) }) as WorkFeedback;
+    // Short requests and tools change several times a second. The line does not follow them.
+    expect(attemptLine(at({ kind: 'request', since: ago(1) }, 1), 'e1', NOW)).toBe('Working');
+    expect(attemptLine(at({ kind: 'tool', toolName: 'read', since: ago(0) }, 2), 'e1', NOW)).toBe('Working');
+    expect(attemptLine(at(null, 3), 'e1', NOW)).toBe('Working');
+    // A call that stays open is the fact a reader needs.
+    expect(attemptLine(at({ kind: 'tool', toolName: 'bash', since: ago(45) }, 45), 'e1', NOW)).toBe('bash · 0:45 · Last activity 45s ago');
+    expect(attemptLine(at({ kind: 'request', since: ago(20) }, 2), 'e1', NOW)).toBe('waiting for the model · 0:20');
   });
 
   it('calls a request quiet only while no text arrived, and says nothing for work that is not attached', () => {
