@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { ipcMain } from 'electron';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { IpcChannels } from '@/types/ipc-channels';
@@ -405,9 +406,12 @@ export function registerAgentHandlers(): void {
       // concurrent deletion sweep can therefore never miss a committed fork.
       const fork = await publishSessionFork(async () => {
         // `createBranchedSession` moves the manager it is called on to the new file. Call it
-        // on a second manager, so the open session keeps writing to its own file.
-        const newSessionPath = SessionManager.open(entry.sessionPath, SERO_SESSION_DIR)
-          .createBranchedSession(leafId);
+        // on a second manager, so the open session keeps writing to its own file. A session
+        // with no assistant message has no file yet, so only its own manager holds its entries.
+        const forkSource = existsSync(entry.sessionPath)
+          ? SessionManager.open(entry.sessionPath, SERO_SESSION_DIR)
+          : sm;
+        const newSessionPath = forkSource.createBranchedSession(leafId);
         if (!newSessionPath) throw new Error('Failed to create forked session file');
 
         // Read metadata from the new session file (not fabricated timestamps)
