@@ -160,3 +160,18 @@ const SESSION_LEAF_CUSTOM_TYPE = 'sero-session-leaf';
 export function persistSessionLeaf(session: AgentSession): void {
   session.sessionManager.appendCustomEntry(SESSION_LEAF_CUSTOM_TYPE, null);
 }
+
+/**
+ * Pi restores the tool list from the transcript when it moves to another entry. Sero's context
+ * editor owns the tool list, so keep the list the session had before the move. Without this an
+ * undo to an earlier turn turns a tool the user disabled back on.
+ */
+export async function navigateTreeKeepingTools(
+  session: AgentSession,
+  ...args: Parameters<AgentSession['navigateTree']>
+): ReturnType<AgentSession['navigateTree']> {
+  const activeToolNames = session.getActiveToolNames();
+  const result = await session.navigateTree(...args);
+  if (!result.cancelled) session.setActiveToolsByName(activeToolNames);
+  return result;
+}

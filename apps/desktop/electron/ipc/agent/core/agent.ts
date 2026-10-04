@@ -16,6 +16,7 @@ import {
   buildModelState,
   buildCommandList,
   readHiddenCommands,
+  navigateTreeKeepingTools,
   persistSessionLeaf,
 } from './agent-helpers';
 import { readNewestTurns, readTurnsBefore } from './agent-history-window';
@@ -367,7 +368,7 @@ export function registerAgentHandlers(): void {
       // (a user message with parentId=null) causes the SDK to call
       // resetLeaf(), fully clearing the conversation context.
       const rootId = branch[0].id;
-      const result = await entry.session.navigateTree(rootId, { summarize: false });
+      const result = await navigateTreeKeepingTools(entry.session, rootId, { summarize: false });
       if (result.cancelled) {
         throw new Error('Clear was cancelled by an extension');
       }

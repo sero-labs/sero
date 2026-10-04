@@ -42,6 +42,8 @@ describe('undoToTurn', () => {
       session: {
         agent: { state: { isStreaming: false } },
         navigateTree,
+        getActiveToolNames: () => [],
+        setActiveToolsByName: () => undefined,
         sessionManager: {
           getBranch: () => [],
           appendCustomEntry: () => 'leaf-marker',
@@ -102,6 +104,8 @@ describe('undoToTurn', () => {
       session: {
         agent: { state: { isStreaming: false } },
         navigateTree,
+        getActiveToolNames: () => [],
+        setActiveToolsByName: () => undefined,
         sessionManager: {
           getBranch: () => [],
           appendCustomEntry: () => 'leaf-marker',
@@ -148,6 +152,8 @@ describe('undoToTurn', () => {
       session: {
         agent: { state: { isStreaming: false } },
         navigateTree,
+        getActiveToolNames: () => [],
+        setActiveToolsByName: () => undefined,
         sessionManager: {
           getBranch: () => [],
           appendCustomEntry: () => 'leaf-marker',

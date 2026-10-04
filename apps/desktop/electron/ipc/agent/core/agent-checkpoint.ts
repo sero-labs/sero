@@ -7,7 +7,7 @@ import type { AgentSession } from '@earendil-works/pi-coding-agent';
 
 import { IpcChannels } from '@/types/ipc-channels';
 import type { AgentStreamEvent, ChatHistoryPage, ChatTurnUndoRef } from '@/types/ipc';
-import { findLegacyTurnUndoEntryId, nextId, persistSessionLeaf } from './agent-helpers';
+import { findLegacyTurnUndoEntryId, navigateTreeKeepingTools, nextId, persistSessionLeaf } from './agent-helpers';
 import { readNewestTurns } from './agent-history-window';
 import { vcsManager } from '@electron/shared/infra/shared-infra';
 import { gitWorkspaceStateManager } from '@electron/features/apps/git-app/manager';
@@ -56,7 +56,7 @@ async function rollbackTreeNavigation(
   if (!previousLeafId || previousLeafId === targetUserEntryId) return;
 
   try {
-    const rollback = await entry.session.navigateTree(previousLeafId, {
+    const rollback = await navigateTreeKeepingTools(entry.session, previousLeafId, {
       summarize: false,
     });
     if (rollback.cancelled) {
@@ -87,7 +87,7 @@ export async function undoToTurn({
   );
 
   const previousLeafId = entry.session.sessionManager.getLeafId?.() ?? null;
-  const result = await entry.session.navigateTree(turnUndo.targetUserEntryId, {
+  const result = await navigateTreeKeepingTools(entry.session, turnUndo.targetUserEntryId, {
     summarize: false,
   });
   if (result.cancelled) {
