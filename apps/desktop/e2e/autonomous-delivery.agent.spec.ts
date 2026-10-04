@@ -228,12 +228,17 @@ test('a short goal with a start cap is delivered, and the work is visible while 
     if (delivered(record)) break;
     if (record.blockedReason || record.overlay === 'limited') break;
     seen.hostPrompts += await approvePrompts();
+    // The user keeps the Architect page open. If something else took the view, come back to it.
+    if (!(await page.locator('.ar-app').isVisible().catch(() => false))) {
+      await page.evaluate(() => (window as unknown as { __appControl?: { openApp(id: string): void } }).__appControl?.openApp('architect'));
+      await page.waitForTimeout(1_000);
+    }
 
     // A decision keeps its recommended option selected. Answering it is the user's choice, not a hint.
     const answer = page.getByRole('button', { name: 'Answer', exact: true }).first();
     if (await answer.isVisible().catch(() => false)) {
       await shot(`decision-${seen.decisionsAnswered + 1}`);
-      await answer.click().catch(() => undefined);
+      await answer.click({ timeout: 10_000 }).catch(() => undefined);
       seen.decisionsAnswered += 1;
     }
 
@@ -248,19 +253,20 @@ test('a short goal with a start cap is delivered, and the work is visible while 
     if (tick % 6 === 3) {
       const watch = page.getByRole('button', { name: 'Watch work' });
       if (await watch.isVisible().catch(() => false)) {
-        await watch.click();
+        await watch.click({ timeout: 10_000 }).catch(() => undefined);
         await page.waitForTimeout(1_500);
         const eyes = page.getByRole('button', { name: /^Watch / });
         const rows = await eyes.count().catch(() => 0);
         if (rows > 0) {
           seen.liveRows += 1;
-          await eyes.first().click().catch(() => undefined);
+          await eyes.first().click({ timeout: 10_000 }).catch(() => undefined);
           await page.waitForTimeout(4_000);
           const text = await page.locator('[data-slot="live-block"]').first().innerText().catch(() => '');
           if (text.replace(/\s+/g, '').length > 20) seen.liveText += 1;
-          if (seen.liveRows <= 3) await shot(`live-${seen.liveRows}`);
+          if (seen.liveRows <= 12) await shot(`live-${String(seen.liveRows).padStart(2, '0')}`);
         }
-        await page.getByRole('button', { name }).first().click().catch(() => undefined);
+        // The trail's own link back to the overview. The sidebar has a workspace of the same name.
+        await page.locator('.ar-crumb').getByRole('button', { name }).click({ timeout: 10_000 }).catch(() => undefined);
       }
     }
     if (tick % 12 === 0) await shot(`overview-${String(tick).padStart(3, '0')}`);
@@ -270,10 +276,17 @@ test('a short goal with a start cap is delivered, and the work is visible while 
 
   // ── What happened, as the record and the screen say it. ──
   const record = read();
+  if (!(await page.locator('.ar-app').isVisible().catch(() => false))) {
+    await page.evaluate(() => (window as unknown as { __appControl?: { openApp(id: string): void } }).__appControl?.openApp('architect'));
+  }
+  const crumb = page.locator('.ar-crumb').getByRole('button', { name });
+  if (await crumb.isVisible().catch(() => false)) await crumb.click({ timeout: 10_000 }).catch(() => undefined);
+  await expect(page.locator('.ar-stateline')).toBeVisible({ timeout: 30_000 });
+  const finalOverview = (await page.locator('.ar-stateline').innerText()).replace(/\s+/g, ' ').trim();
   await shot('90-final-overview');
-  for (const tab of ['Watch work'] as const) await page.getByRole('button', { name: tab }).click().catch(() => undefined);
+  for (const tab of ['Watch work'] as const) await page.getByRole('button', { name: tab }).click({ timeout: 10_000 }).catch(() => undefined);
   for (const tab of ['Plan', 'Research', 'Evidence'] as const) {
-    await page.getByRole('tab', { name: tab }).click().catch(() => undefined);
+    await page.getByRole('tab', { name: tab }).click({ timeout: 10_000 }).catch(() => undefined);
     await page.waitForTimeout(800);
     await shot(`91-work-${tab.toLowerCase()}`);
   }
@@ -299,6 +312,7 @@ test('a short goal with a start cap is delivered, and the work is visible while 
     userActions: { hostPrompts: seen.hostPrompts, decisionsAnswered: seen.decisionsAnswered, notesSent: 0 },
     watch: { timesRowsWereLive: seen.liveRows, timesLiveTextWasShown: seen.liveText },
     statesSeen: [...seen.states],
+    finalOverview,
     files: fs.existsSync(record.folder) ? fs.readdirSync(record.folder).filter((entry) => !entry.startsWith('.')) : [],
   };
   fs.writeFileSync(path.join(SHOTS, 'result.json'), `${JSON.stringify(result, null, 2)}\n`);
