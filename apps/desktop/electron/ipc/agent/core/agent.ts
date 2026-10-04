@@ -15,6 +15,7 @@ import {
   buildModelState,
   buildCommandList,
   readHiddenCommands,
+  persistSessionLeaf,
 } from './agent-helpers';
 import { readNewestTurns, readTurnsBefore } from './agent-history-window';
 import { handlePromptInput, handleSteerInput } from './agent-prompt';
@@ -370,6 +371,7 @@ export function registerAgentHandlers(): void {
         throw new Error('Clear was cancelled by an extension');
       }
       entry.pendingTurnUndoUserMessageId = null;
+      persistSessionLeaf(entry.session);
 
       const page = readNewestTurns(entry.session, entry.workspaceId);
       sendEvent({ type: 'messages_loaded', sessionId, ...page });
@@ -397,7 +399,10 @@ export function registerAgentHandlers(): void {
       // written, then the inherited capture references are published. A
       // concurrent deletion sweep can therefore never miss a committed fork.
       const fork = await publishSessionFork(async () => {
-        const newSessionPath = sm.createBranchedSession(leafId);
+        // `createBranchedSession` moves the manager it is called on to the new file. Call it
+        // on a second manager, so the open session keeps writing to its own file.
+        const newSessionPath = SessionManager.open(entry.sessionPath, SERO_SESSION_DIR)
+          .createBranchedSession(leafId);
         if (!newSessionPath) throw new Error('Failed to create forked session file');
 
         // Read metadata from the new session file (not fabricated timestamps)

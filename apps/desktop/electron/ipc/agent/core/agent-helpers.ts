@@ -163,3 +163,14 @@ export function stripDisabledSkills(prompt: string, disabled: Set<string>): stri
     (match, name: string) => (disabled.has(name.trim()) ? '' : match),
   );
 }
+
+const SESSION_LEAF_CUSTOM_TYPE = 'sero-session-leaf';
+
+/**
+ * A session opens on the last entry in its file. A move to an earlier entry writes nothing,
+ * so after an undo, a restore or a clear, append a marker at the new position. Without it a
+ * reopened session shows the turns the user removed.
+ */
+export function persistSessionLeaf(session: AgentSession): void {
+  session.sessionManager.appendCustomEntry(SESSION_LEAF_CUSTOM_TYPE, null);
+}

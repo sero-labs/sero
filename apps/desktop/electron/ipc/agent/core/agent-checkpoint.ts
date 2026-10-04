@@ -7,7 +7,7 @@ import type { AgentSession } from '@earendil-works/pi-coding-agent';
 
 import { IpcChannels } from '@/types/ipc-channels';
 import type { AgentStreamEvent, ChatHistoryPage, ChatTurnUndoRef } from '@/types/ipc';
-import { findLegacyTurnUndoEntryId, nextId } from './agent-helpers';
+import { findLegacyTurnUndoEntryId, nextId, persistSessionLeaf } from './agent-helpers';
 import { readNewestTurns } from './agent-history-window';
 import { vcsManager } from '@electron/shared/infra/shared-infra';
 import { gitWorkspaceStateManager } from '@electron/features/apps/git-app/manager';
@@ -101,6 +101,7 @@ export async function undoToTurn({
     throw error;
   }
   gitWorkspaceStateManager.invalidateWorkspace(entry.workspaceId, 'turn-undo:restore', { delayMs: 0 });
+  persistSessionLeaf(entry.session);
 
   entry.pendingTurnUndoUserMessageId = null;
   const chatMessages = rebuildMessages(entry, sessionId, sendEvent);
@@ -139,6 +140,7 @@ async function restoreLegacyCheckpoint(
   const branchTargetId = findLegacyTurnUndoEntryId(entry.session, changeId);
   if (branchTargetId) {
     entry.session.sessionManager.branch(branchTargetId);
+    persistSessionLeaf(entry.session);
     const ctx = entry.session.sessionManager.buildSessionContext();
     entry.session.agent.state.messages = ctx.messages;
   } else {

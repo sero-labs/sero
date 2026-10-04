@@ -315,8 +315,11 @@ export class SessionStore {
 
   async #transition(task: TaskTransition, status: TaskStatus, message?: string): Promise<void> {
     task.status = status; task.updatedAt = new Date().toISOString(); task.message = message;
-    await appendFile(this.#taskPath(task.contextId), `${JSON.stringify(task)}\n`, { mode: 0o600 });
-    this.events.emit(`task:${task.taskId}`, { type: "task", data: { ...task } });
+    // Copy before the write. Another transition can change the task while this one waits,
+    // and the event must carry the state that this transition wrote.
+    const written = { ...task };
+    await appendFile(this.#taskPath(task.contextId), `${JSON.stringify(written)}\n`, { mode: 0o600 });
+    this.events.emit(`task:${task.taskId}`, { type: "task", data: written });
   }
 
   async #readLines<T>(path: string): Promise<T[]> {
