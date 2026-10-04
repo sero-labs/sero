@@ -350,11 +350,15 @@ test('a short goal with a start cap is delivered, and the work is visible while 
 
   // ── What happened, as the record and the screen say it. ──
   const record = read();
-  if (!(await page.locator('.ar-app').isVisible().catch(() => false))) {
-    await page.evaluate(() => (window as unknown as { __appControl?: { openApp(id: string): void } }).__appControl?.openApp('architect'));
-  }
-  await backToOverview(name);
-  await expect(page.locator('.ar-stateline')).toBeVisible({ timeout: 30_000 });
+  // A preview check can take the view at the moment the run ends, and can take
+  // it again. Go back to the overview until it stays.
+  await expect.poll(async () => {
+    if (!(await page.locator('.ar-app').isVisible().catch(() => false))) {
+      await page.evaluate(() => (window as unknown as { __appControl?: { openApp(id: string): void } }).__appControl?.openApp('architect'));
+    }
+    await backToOverview(name);
+    return page.locator('.ar-stateline').isVisible().catch(() => false);
+  }, { timeout: 120_000, intervals: [5_000], message: 'the overview did not show after the run ended' }).toBe(true);
   const finalOverview = (await page.locator('.ar-stateline').innerText()).replace(/\s+/g, ' ').trim();
   await shot('90-final-overview');
   for (const tab of ['Watch work'] as const) await page.getByRole('button', { name: tab }).click({ timeout: 10_000 }).catch(() => undefined);
