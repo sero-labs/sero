@@ -320,6 +320,24 @@ describe('owner actions', () => {
     expect((await store.read('proj_1'))?.milestones[0]?.pendingDispatch?.request).toMatchObject({ prompt: expect.stringContaining('Task from the owner:\nBuild the grid'), id: expect.any(String) });
   });
 
+  it('hands a Room that could not start back to the owner, and does not block the project', async () => {
+    const { actions, store, services } = await setup(buildingProject({ milestones: [milestone('m1', { status: 'approved' })] }));
+    const told: string[] = [];
+    services.startFailed = (_projectId, item) => { told.push(item); };
+    vi.mocked(services.dispatch).mockRejectedValue(new Error('members[2].tools: Tomas is read-only, so it cannot use the command tool bash.'));
+    const request = { action: 'dispatch' as const, projectId: 'proj_1', milestoneId: 'm1', kind: 'room' as const, prompt: 'Review the result' };
+    expect((await actions.execute(owner, request)).ok).toBe(true);
+    await vi.waitFor(() => expect(told.join(' ')).toContain('cannot use the command tool bash'));
+    const record = (await store.read('proj_1'))!;
+    expect(record.blockedReason).toBeNull();
+    // The milestone is free, so the corrected request starts.
+    expect(record.milestones[0]).toMatchObject({ status: 'approved', dispatch: null });
+    expect(record.milestones[0]?.pendingDispatch).toBeUndefined();
+    vi.mocked(services.dispatch).mockResolvedValue({ id: 'room_2', workspaceId: 'ws-1', baseCommit: 'base-1' });
+    expect((await actions.execute(owner, request)).ok).toBe(true);
+    await vi.waitFor(async () => expect((await store.read('proj_1'))?.milestones[0]?.dispatch?.id).toBe('room_2'));
+  });
+
   it('turns an external delivery into a decision before anything is sent', async () => {
     const { actions, store, services, outcomes } = await setup(buildingProject({ phase: 'release', milestones: [milestone('m1', { status: 'approved' })] }));
     const outcome = await actions.execute(owner, { action: 'dispatch', projectId: 'proj_1', milestoneId: 'm1', kind: 'workflow', prompt: 'Announce it', destination: 'chat-post' });

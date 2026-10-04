@@ -45,6 +45,8 @@ import type { TurnOutcomes } from './turn-outcomes';
 
 export interface OwnerServices {
   research(record: ProjectRecord, request: { question: string; stoppingCondition: string; kind?: DispatchKind; access?: 'read-only' | 'edit-workspace'; openSpecChange?: string }): Promise<{ id: string }>;
+  /** Wakes the owner with the reason a dispatch could not start. Absent means the project blocks. */
+  startFailed?(projectId: string, item: string): void;
   /** Starts a saved research entry again, after the user changed what it may do. */
   restartResearch(record: ProjectRecord, researchId: string): void;
   /**

@@ -458,6 +458,7 @@ export function createServices(deps: ServicesDeps): OwnerServices {
     },
 
     evidenceIsStale: (record, milestone) => evidenceIsStale(host, record, milestone),
+    startFailed: (projectId, item) => deps.wake(projectId, { kind: 'dispatch-blocked', at: host.now(), items: [item] }),
 
     async evidence(record, milestone, request) {
       const startedAt = Date.now();

@@ -94,6 +94,14 @@ export async function performDispatch(
   if (!background) return completion;
   void completion.catch(async (error: unknown) => {
     const reason = `Could not start ${milestone.title}: ${error instanceof Error ? error.message : String(error)}`;
+    // A start that left nothing to recover is the owner's to correct: it made
+    // the request, so it gets the reason and the milestone back. A Workflow
+    // request that is saved may have started, so that one still blocks.
+    const current = (await store.read(record.id))?.milestones.find((item) => item.id === milestone.id);
+    if (services.startFailed && current && !current.pendingDispatch && current.status !== 'running') {
+      services.startFailed(record.id, `milestone ${milestone.id} did not start, and nothing is running for it: ${reason}. Correct the request and dispatch it again, do the work another way, or call blocked if you cannot go on`);
+      return;
+    }
     await store.update(record.id, (fresh) => {
       const stopped = block(fresh, new Date().toISOString(), reason);
       return stopped.ok ? { ...stopped.record, stateLine: reason } : null;
