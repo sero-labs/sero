@@ -320,7 +320,7 @@
     answer: () => {
       const sc = scenarioOf(project());
       const id = document.querySelector('input[name="decision"]:checked').value;
-      setScenario(project().id === 'reading' ? 'legacy' : 'working', `Answer saved: ${sc.decision.options.find((option) => option.id === id).label}.`);
+      setScenario(project().id === 'reading' ? 'legacy' : 'working', `Answer saved: ${sc.decision.options.find((option) => option.id === id)?.label ?? id}.`);
     },
     charter: () => setScenario('working'),
     orchestrator: () => { document.querySelector('[aria-labelledby="orchestrator-h"]').focus(); return 'keep'; },
@@ -356,7 +356,7 @@
     const d = S.dialog;
     if (d.kind === 'intake') {
       const f = d.form;
-      const name = f.mode === 'existing' ? workspaces.find((item) => item.id === f.workspace).name : f.name.trim();
+      const name = f.mode === 'existing' ? workspaces.find((item) => item.id === f.workspace)?.name ?? '' : f.name.trim();
       const id = `p${S.projects.length}`;
       scenarios[id] = { ...scenarios[key], label: null, goal: f.idea.trim(), limits: '', cap: Number(f.cap) };
       S.projects.push({ id, name, scenario: id, form: f });

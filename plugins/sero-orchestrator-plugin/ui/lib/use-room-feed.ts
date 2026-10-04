@@ -123,6 +123,9 @@ export function useRoomLive(
         if (current && details?.snapshots) merge(roomId, details.snapshots);
       });
     };
+    // `read` calls a runtime tool to hold the watch lease. It hands no state to
+    // a parent component.
+    // react-doctor-disable-next-line react-doctor/no-pass-live-state-to-parent
     read();
     // The lease is renewed while the view is open. A view that reloads or
     // crashes stops renewing, and the runtime then drops its demand.

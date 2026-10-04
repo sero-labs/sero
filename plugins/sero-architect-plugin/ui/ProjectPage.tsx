@@ -141,8 +141,11 @@ function useHeaderActions(
     ];
   }
 
-  if (!activity.action) return [];
+  return activity.action ? recoveryActions(record, activity.action, reviewAccess) : [];
+}
 
+/** The control for a project that stopped and names what recovers it. */
+function recoveryActions(record: ProjectRecord, action: string, reviewAccess: (() => void) | null): HeaderAction[] {
   // A stopped dispatch's recovery is the header's OWN control, not a button
   // here. A cap needs a field to type in, and no cap needs the busy state and
   // the refusal — neither of which a bare action can show. `ProjectPage`
@@ -154,7 +157,7 @@ function useHeaderActions(
   if (record.blockedReason) return reviewAccess ? [{ label: 'Resume', primary: true, run: reviewAccess }] : [];
 
   const room = record.milestones.find((milestone) => milestone.dispatch?.kind === 'room' && milestone.dispatch.failure);
-  if (activity.action === 'Open the Room to answer' && room?.dispatch) {
+  if (action === 'Open the Room to answer' && room?.dispatch) {
     const { kind, id, workspaceId } = room.dispatch;
     return [{ label: 'Open Room to answer', primary: true, run: () => openDispatch({ kind, id, workspaceId }) }];
   }
@@ -248,6 +251,30 @@ function OverviewLinks({ record, preview, onOpenWork }: { record: ProjectRecord;
   );
 }
 
+/** Before the start is approved there is no work to watch and nothing to note. */
+const hasStarted = (record: ProjectRecord): boolean => !hasAgreement(record) ? record.phase !== 'intake' : agreementApproved(record);
+
+/** What the last action said, and the cap field while it is open. The block reason has its own place. */
+function PageNotice({ record, actions, notice, page }: { record: ProjectRecord; actions: ProjectPageProps['actions']; notice: string | null; page: ReturnType<typeof useProjectPageControls> }) {
+  const text = notice !== null && notice !== record.blockedReason ? notice : null;
+  if (text === null && !page.capOpen) return null;
+  return (
+    <div className="ar-notice">
+      {text !== null && <p role="alert">{text}</p>}
+      {page.capOpen && (
+        <CapInput
+          cap={record.budget.capUsd}
+          inputId="ar-raise-cap-in"
+          submitLabel="Raise cap"
+          onRaise={(capUsd) => actions.raiseCap(record.id, capUsd)}
+          onError={page.setNotice}
+          onDone={() => page.setCapOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
 export function ProjectPage({ record, actions, onBack, onOpenModels, onOpenInspector, onOpenHistory, onOpenWork, confirm, runtimeRunning, permissionPending = false, startRefusal = null }: ProjectPageProps) {
   const id = record.id;
   const page = useProjectPageControls(record, actions, onBack, confirm, onOpenModels, onOpenInspector, onOpenHistory);
@@ -258,8 +285,7 @@ export function ProjectPage({ record, actions, onBack, onOpenModels, onOpenInspe
   // A refused start is shown until the project starts or a later action says something newer.
   const notice = page.notice ?? (hasAgreement(record) && !agreementApproved(record) ? startRefusal : null);
   const preview = useProjectPreview(id);
-  // Before the start is approved there is no work to watch and nothing to note.
-  const started = !hasAgreement(record) ? record.phase !== 'intake' : agreementApproved(record);
+  const started = hasStarted(record);
   const links = started && <OverviewLinks record={record} preview={preview} onOpenWork={onOpenWork} />;
 
   return (
@@ -267,21 +293,7 @@ export function ProjectPage({ record, actions, onBack, onOpenModels, onOpenInspe
       <TopBar record={record} controls={page.controls} onBack={onBack} onNewProject={() => undefined} />
       <div className="ar-scroll">
         <div className="ar-body">
-          {((notice !== null && notice !== record.blockedReason) || page.capOpen) && (
-            <div className="ar-notice">
-              {notice !== null && notice !== record.blockedReason && <p role="alert">{notice}</p>}
-              {page.capOpen && (
-                <CapInput
-                  cap={record.budget.capUsd}
-                  inputId="ar-raise-cap-in"
-                  submitLabel="Raise cap"
-                  onRaise={(capUsd) => actions.raiseCap(id, capUsd)}
-                  onError={page.setNotice}
-                  onDone={() => page.setCapOpen(false)}
-                />
-              )}
-            </div>
-          )}
+          <PageNotice record={record} actions={actions} notice={notice} page={page} />
           <ProjectStateHeader
             record={record}
             actions={actions}

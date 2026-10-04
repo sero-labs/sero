@@ -29,10 +29,10 @@ export interface EvidenceBinding {
 
 /** Snapshots what a check covers at the moment it is requested. A string is the refusal. */
 export function bindEvidence(record: ProjectRecord, milestone: Milestone, criteriaIds: string[], route: string | null): EvidenceBinding | string {
-  const known = record.working?.criteria ?? [];
+  const known = new Map((record.working?.criteria ?? []).map((item) => [item.id, item]));
   const criteria: EvidenceBinding['criteria'] = [];
   for (const id of new Set(criteriaIds)) {
-    const criterion = known.find((item) => item.id === id);
+    const criterion = known.get(id);
     if (!criterion) return `Criterion "${id}" is not in the working interpretation. Name the ids this check covers, or record the criterion first with the working action.`;
     criteria.push({ id: criterion.id, text: criterion.text });
   }

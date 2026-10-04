@@ -61,6 +61,9 @@ export function useLinkedMemberLive(projectId: string, workspaceId: string | nul
   const [observerId] = useState(newObserverId);
   const [held, setHeld] = useState<OrchestratorRoomMemberLive | null>(null);
 
+  // The listener is added once per watched member. `run` is stable, and the
+  // other dependencies name the member, so a change of any is a new subscription.
+  // react-doctor-disable-next-line react-doctor/advanced-event-handler-refs
   useEffect(() => {
     if (!active || !workspaceId) return;
     let current = true;

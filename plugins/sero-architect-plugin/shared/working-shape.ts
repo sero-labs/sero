@@ -90,8 +90,9 @@ export function parseWorking(input: WorkingInput, current: WorkingInterpretation
 
   // What the user stated stays. The owner may reword it or add checks for it;
   // dropping it, or relabelling it as its own idea, is the user's decision.
+  const proposed = new Map(criteria.map((criterion) => [criterion.id, criterion]));
   for (const kept of current?.criteria.filter((criterion) => criterion.userStated) ?? []) {
-    const next = criteria.find((criterion) => criterion.id === kept.id);
+    const next = proposed.get(kept.id);
     if (!next || !next.userStated) {
       return fail(`Criterion ${kept.id} was stated by the user. You may reword it, but you may not remove it or mark it as your own. If it cannot be met, raise a decision with decide and say what the gap is.`);
     }
