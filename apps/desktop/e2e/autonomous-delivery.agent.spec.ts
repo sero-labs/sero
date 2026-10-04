@@ -179,11 +179,37 @@ test.beforeAll(async () => {
   await expect.poll(listIds, { timeout: 120_000, intervals: [3_000], message: `${MODEL} is not in the model catalogue of this profile` }).toContain(MODEL.split(':')[0]);
 });
 
+/** Keeps the project records and every session log, so a run that fails can be read afterwards. */
+function keepState(): void {
+  const out = path.join(SHOTS, 'state');
+  fs.rmSync(out, { recursive: true, force: true });
+  const stack = [home.path];
+  while (stack.length > 0) {
+    const dir = stack.pop()!;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const file = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name !== 'node_modules' && !entry.name.startsWith('.git')) stack.push(file);
+        continue;
+      }
+      const record = dir.endsWith(path.join('architect', 'projects')) && entry.name.endsWith('.json');
+      if (!record && !entry.name.endsWith('.jsonl')) continue;
+      const target = path.join(out, path.relative(home.path, file));
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.copyFileSync(file, target);
+    }
+  }
+}
+
 test.afterAll(async () => {
   try {
     if (app) await closeSeroApp(app);
   } finally {
-    home?.cleanup();
+    try {
+      if (home) keepState();
+    } finally {
+      home?.cleanup();
+    }
   }
 });
 
@@ -241,15 +267,20 @@ test('a short goal with a start cap is delivered, and the work is visible while 
   // ── Follow the run. The user's part is prompts and recommended answers only. ──
   const deadline = startedAt + MAX_MINUTES * 60_000;
   let tick = 0;
+  let awaySince: number | null = null;
   while (Date.now() < deadline) {
     const record = read();
     if (delivered(record)) break;
     if (record.blockedReason || record.overlay === 'limited') break;
     seen.hostPrompts += await approvePrompts();
-    // The user keeps the Architect page open. If something else took the view, come back to it.
-    if (!(await page.locator('.ar-app').isVisible().catch(() => false))) {
+    // A preview check shows the app in Explorer to capture it. The user lets it
+    // finish, and goes back to the Architect page only when the view stays away.
+    if (await page.locator('.ar-app').isVisible().catch(() => false)) awaySince = null;
+    else if (awaySince === null) awaySince = Date.now();
+    else if (Date.now() - awaySince > 45_000) {
       await page.evaluate(() => (window as unknown as { __appControl?: { openApp(id: string): void } }).__appControl?.openApp('architect'));
       await page.waitForTimeout(1_000);
+      awaySince = null;
     }
 
     await backToOverview(name);

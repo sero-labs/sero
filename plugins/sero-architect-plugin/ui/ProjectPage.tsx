@@ -149,6 +149,10 @@ function useHeaderActions(
   // renders it in the `form` slot; this returns nothing so it appears once.
   if (record.milestones.some((milestone) => milestone.dispatch?.failure)) return [];
 
+  // The Architect stopped and says to resume. The control it names is here, not
+  // only in the menu.
+  if (record.blockedReason) return reviewAccess ? [{ label: 'Resume', primary: true, run: reviewAccess }] : [];
+
   const room = record.milestones.find((milestone) => milestone.dispatch?.kind === 'room' && milestone.dispatch.failure);
   if (activity.action === 'Open the Room to answer' && room?.dispatch) {
     const { kind, id, workspaceId } = room.dispatch;

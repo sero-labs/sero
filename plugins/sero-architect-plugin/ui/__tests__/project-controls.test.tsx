@@ -151,6 +151,17 @@ describe('a refused control', () => {
     expect(button('Review access').disabled).toBe(false);
   });
 
+  it('offers Resume on the page when the Architect stopped and says to resume', async () => {
+    const resume = vi.fn(async () => ({ ok: true, text: '' }));
+    const stopped = { ...UNAPPROVED, agreement: { ...UNAPPROVED.agreement!, approvedAt: UNAPPROVED.createdAt }, blockedReason: 'The owner turn exceeded 10 minutes and was stopped.' };
+    act(() => root.render(
+      <ProjectPage runtimeRunning record={stopped} actions={stubActions({ resume })} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
+    ));
+    act(() => button('Resume').click());
+    await flush();
+    expect(resume).toHaveBeenCalledWith(stopped.id);
+  });
+
   it('offers no second Review access while the host question is already open', () => {
     act(() => root.render(
       <ProjectPage permissionPending runtimeRunning record={UNAPPROVED} actions={stubActions()} onOpenWork={() => undefined} onOpenModels={() => undefined} onOpenInspector={() => undefined} onOpenHistory={() => undefined} onBack={vi.fn()} confirm={() => true} />,
