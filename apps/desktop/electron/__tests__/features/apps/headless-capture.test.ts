@@ -23,6 +23,7 @@ type Emit = (event: string, ...args: unknown[]) => void;
 interface FakeWindow {
   loadURL: ReturnType<typeof vi.fn>;
   webContents: {
+    id: number;
     setWindowOpenHandler: ReturnType<typeof vi.fn>;
     on: ReturnType<typeof vi.fn>;
     off: ReturnType<typeof vi.fn>;
@@ -62,6 +63,7 @@ function fakeWindow(options: {
       setTimeout(() => { emit('did-finish-load', {}); resolve(); }, 1);
     }))),
     webContents: {
+      id: 1,
       setWindowOpenHandler: vi.fn(),
       on,
       off,
@@ -146,14 +148,15 @@ describe('headless preview capture', () => {
     const openHandler = win.webContents.setWindowOpenHandler.mock.calls[0]?.[0] as () => { action: string };
     expect(openHandler()).toEqual({ action: 'deny' });
 
-    // Both a frame navigation and a server redirect are navigations.
+    // Both a frame navigation and a server redirect are navigations. Both carry
+    // the frame they happen in, which decides what a blocked one costs.
     for (const event of ['will-frame-navigate', 'will-redirect']) {
       const listener = listenerOf(win, event);
       expect(listener, event).toBeDefined();
-      const blocked = { preventDefault: vi.fn(), url: 'file:///etc/passwd' };
+      const blocked = { preventDefault: vi.fn(), url: 'file:///etc/passwd', isMainFrame: true };
       listener?.(blocked);
       expect(blocked.preventDefault, event).toHaveBeenCalled();
-      const allowed = { preventDefault: vi.fn(), url: 'http://127.0.0.1:5173/play' };
+      const allowed = { preventDefault: vi.fn(), url: 'http://127.0.0.1:5173/play', isMainFrame: true };
       listener?.(allowed);
       expect(allowed.preventDefault, event).not.toHaveBeenCalled();
     }
@@ -169,10 +172,10 @@ describe('headless preview capture', () => {
     expect(check()).toBe(false);
 
     // A download would open a save dialog nobody can see.
-    const download = win.webContents.session.on.mock.calls.find((call) => call[0] === 'will-download')?.[1] as (event: { preventDefault: () => void }) => void;
+    const download = win.webContents.session.on.mock.calls.find((call) => call[0] === 'will-download')?.[1] as (event: { preventDefault: () => void }, item: unknown, source: { id: number }) => void;
     expect(download).toBeDefined();
     const downloadEvent = { preventDefault: vi.fn() };
-    download(downloadEvent);
+    download(downloadEvent, {}, win.webContents);
     expect(downloadEvent.preventDefault).toHaveBeenCalled();
   });
 
@@ -214,12 +217,12 @@ describe('headless preview capture', () => {
     expect(win.destroy).toHaveBeenCalled();
   });
 
-  it('fails at once when a redirect leaves the web, rather than waiting for the limit', async () => {
+  it('fails at once when the main frame leaves the web, rather than waiting for the limit', async () => {
     const win = fakeWindow({ load: () => new Promise<void>(() => undefined) });
     useWindow(win);
     const pending = captureUrlHeadless('http://127.0.0.1:5173');
     // Sero blocks the navigation, so no load will ever finish.
-    listenerOf(win, 'will-redirect')?.({ preventDefault: vi.fn(), url: 'vscode://file/etc/hosts' });
+    listenerOf(win, 'will-redirect')?.({ preventDefault: vi.fn(), url: 'vscode://file/etc/hosts', isMainFrame: true });
 
     const result = await pending;
 
@@ -229,13 +232,36 @@ describe('headless preview capture', () => {
     expect(win.destroy).toHaveBeenCalled();
   });
 
+  it('blocks a subframe without failing a page that renders', async () => {
+    const win = fakeWindow();
+    useWindow(win);
+    const pending = captureUrlHeadless('http://127.0.0.1:5173');
+    const navigate = listenerOf(win, 'will-frame-navigate');
+
+    // A page that builds a frame from a blob or an empty document renders fine.
+    const blob = { preventDefault: vi.fn(), url: 'blob:http://127.0.0.1:5173/6f2a', isMainFrame: false };
+    navigate?.(blob);
+    expect(blob.preventDefault).not.toHaveBeenCalled();
+    const blank = { preventDefault: vi.fn(), url: 'about:blank', isMainFrame: false };
+    navigate?.(blank);
+    expect(blank.preventDefault).not.toHaveBeenCalled();
+
+    // A frame that reaches for a local scheme is blocked, and nothing more.
+    const local = { preventDefault: vi.fn(), url: 'file:///etc/passwd', isMainFrame: false };
+    navigate?.(local);
+    expect(local.preventDefault).toHaveBeenCalled();
+
+    const result = await pending;
+    expect(result.ok).toBe(true);
+  });
+
   it('fails at once when the page starts a download, and stops watching afterwards', async () => {
     const win = fakeWindow({ load: () => new Promise<void>(() => undefined) });
     useWindow(win);
     const pending = captureUrlHeadless('http://127.0.0.1:5173');
-    const download = win.webContents.session.on.mock.calls.find((call) => call[0] === 'will-download')?.[1] as (event: { preventDefault: () => void }) => void;
+    const download = win.webContents.session.on.mock.calls.find((call) => call[0] === 'will-download')?.[1] as (event: { preventDefault: () => void }, item: unknown, source: { id: number }) => void;
     const event = { preventDefault: vi.fn() };
-    download(event);
+    download(event, {}, win.webContents);
 
     const result = await pending;
 
@@ -243,6 +269,18 @@ describe('headless preview capture', () => {
     expect(result).toMatchObject({ ok: false, error: expect.stringContaining('download') });
     // The listener is per capture, so a session shared by later captures keeps none.
     expect(win.webContents.session.off).toHaveBeenCalledWith('will-download', download);
+  });
+
+  it('ignores a download started by another capture window', async () => {
+    const win = fakeWindow();
+    useWindow(win);
+    await captureUrlHeadless('http://127.0.0.1:5173');
+    const download = win.webContents.session.on.mock.calls.find((call) => call[0] === 'will-download')?.[1] as (event: { preventDefault: () => void }, item: unknown, source: { id: number }) => void;
+
+    const event = { preventDefault: vi.fn() };
+    download(event, {}, { id: 99 });
+
+    expect(event.preventDefault).not.toHaveBeenCalled();
   });
 
   it('fails when the page never finishes loading, and closes the window', async () => {

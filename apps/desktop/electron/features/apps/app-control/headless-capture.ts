@@ -57,6 +57,20 @@ export function isCapturableUrl(raw: string): boolean {
 }
 
 /**
+ * Schemes that stay inside the renderer. A frame built from a `blob:` URL or
+ * from `about:blank` reaches neither the OS nor the disk, and a page that
+ * builds one renders correctly, so a subframe may use them.
+ */
+function isInertUrl(raw: string): boolean {
+  try {
+    const parsed = new URL(raw);
+    return parsed.protocol === 'about:' || parsed.protocol === 'blob:' || parsed.protocol === 'data:';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Sessions already locked down. The partition is shared by capture windows.
  */
 const guardedSessions = new WeakSet<Session>();
@@ -176,20 +190,27 @@ export async function captureUrlHeadless(
     // Set while a load is waiting, so a navigation Sero itself stops ends the
     // wait with its cause instead of leaving the caller to its time limit.
     let failLoad: ((error: Error) => void) | undefined;
-    // A server redirect and a subframe navigation are navigations too. Only the
-    // web is allowed, so a 302 to a local scheme, or an iframe that navigates to
-    // one, cannot reach a handler on the user's machine.
-    const blockNonWeb = (event: { preventDefault: () => void; url: string }): void => {
+    // A server redirect, a subframe navigation and a `window.location` change
+    // are navigations too. The main frame stays on the web the capture asked
+    // for; a subframe may also use an inert scheme.
+    const blockNavigation = (event: { preventDefault: () => void; url: string; isMainFrame: boolean }): void => {
       if (isCapturableUrl(event.url)) return;
+      if (!event.isMainFrame && isInertUrl(event.url)) return;
       event.preventDefault();
-      failLoad?.(new Error(`The page tried to load ${event.url}, which is not http or https.`));
+      // Blocking the frame is enough for a subframe. Only the main frame leaving
+      // the web ends the capture, because the main frame is what is verified.
+      if (event.isMainFrame) failLoad?.(new Error(`The page tried to load ${event.url}, which is not http or https.`));
     };
-    contents.on('will-frame-navigate', blockNonWeb);
-    contents.on('will-redirect', blockNonWeb);
+    contents.on('will-frame-navigate', blockNavigation);
+    contents.on('will-redirect', blockNavigation);
     // A download from a window the user cannot see would open a save dialog that
     // nobody can answer, and would write a file Sero never asked for. It also
-    // aborts the load, so the capture ends here with its cause.
-    const onDownload = (event: { preventDefault: () => void }): void => {
+    // aborts the load, so the capture ends here with its cause. The listener is
+    // on the session every capture window shares, so it acts on this window's
+    // own download only: another capture must not fail because of this one.
+    const contentsId = contents.id;
+    const onDownload = (event: { preventDefault: () => void }, _item: unknown, source: { id: number }): void => {
+      if (source.id !== contentsId) return;
       event.preventDefault();
       failLoad?.(new Error('The page started a download, which a hidden capture does not allow.'));
     };
