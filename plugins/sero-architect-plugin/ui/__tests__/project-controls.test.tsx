@@ -48,12 +48,16 @@ vi.mock('@sero-ai/ui', async () => {
 
 vi.mock('@sero-ai/ui/model-selection/available-model-picker', async () => await import('./model-picker-stand-in'));
 
+const previewExists = vi.hoisted(() => ({ value: true }));
+
 vi.mock('@sero-ai/app-runtime', async () => ({
   // The page follows work feedback through the real hook; with no app context
   // it subscribes to nothing and stays empty.
   AppContext: (await vi.importActual<typeof import('@sero-ai/app-runtime')>('@sero-ai/app-runtime')).AppContext,
   useWorkFeedback: (await vi.importActual<typeof import('@sero-ai/app-runtime')>('@sero-ai/app-runtime')).useWorkFeedback,
-  useAppTools: () => ({ run: vi.fn(async () => ({ text: 'Preview ready', details: { ok: true, url: 'http://localhost:3000' } })) }),
+  useAppTools: () => ({ run: vi.fn(async (_tool: string, params: { action?: string }) => params.action === 'preview_available' && !previewExists.value
+    ? { text: 'No preview command was found in the project workspace.', details: { ok: false } }
+    : { text: 'Preview ready', details: { ok: true, url: 'http://localhost:3000' } }) }),
   openSeroApp: vi.fn(async () => true),
   openSeroFile: vi.fn(async () => true),
   useAppPreferences: () => ({ values: {}, set: vi.fn() }),
@@ -214,8 +218,22 @@ describe('project history access', () => {
   });
 });
 
+it('offers no preview while the project has nothing to preview', async () => {
+  previewExists.value = false;
+  try {
+    renderPage(stubActions());
+    await flush();
+    expect(Array.from(container.querySelectorAll('button')).some((item) => item.textContent?.includes('Open preview'))).toBe(false);
+    // The other way into the work stays.
+    expect(button('Watch work')).toBeTruthy();
+  } finally {
+    previewExists.value = true;
+  }
+});
+
 it('sandboxes the project preview without granting same-origin access', async () => {
   renderPage(stubActions());
+  await flush();
   act(() => button('Open preview').click());
   await flush();
 

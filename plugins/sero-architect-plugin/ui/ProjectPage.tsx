@@ -13,7 +13,7 @@ import { DirectiveComposer } from './components/Directives';
 import { NeedsYou } from './components/NeedsYou';
 import { RepairCard } from './components/RepairCard';
 import { PreviewFrame } from './components/PreviewFrame';
-import { useProjectPreview } from './lib/use-project-preview';
+import { usePreviewAvailable, useProjectPreview } from './lib/use-project-preview';
 import { agreementApproved, hasAgreement } from '../shared/agreement';
 import type { WorkTab } from './lib/navigation';
 import { RetryWorkflowControl } from './components/RetryWorkflowControl';
@@ -240,11 +240,15 @@ function ProjectStateHeader({ record, actions, onNotice, headerActions, runtimeR
 /** The ways into the work behind the overview: the preview, the live work and the checks. */
 function OverviewLinks({ record, preview, onOpenWork }: { record: ProjectRecord; preview: ReturnType<typeof useProjectPreview>; onOpenWork(tab: WorkTab): void }) {
   const checked = record.milestones.some((milestone) => milestone.evidence);
+  // Finished work is what adds a preview, so the question is asked again when a milestone changes state.
+  const hasPreview = usePreviewAvailable(record.id, record.milestones.map((milestone) => milestone.status).join(','));
   return (
     <>
-      <Button size="sm" variant="outline" className="ar-btn" disabled={preview.busy} onClick={() => void preview.open()}>
-        <ExternalLink className="ar-i" />{preview.busy ? 'Starting preview…' : 'Open preview'}
-      </Button>
+      {hasPreview && (
+        <Button size="sm" variant="outline" className="ar-btn" disabled={preview.busy} onClick={() => void preview.open()}>
+          <ExternalLink className="ar-i" />{preview.busy ? 'Starting preview…' : 'Open preview'}
+        </Button>
+      )}
       <Button size="sm" variant="outline" className="ar-btn" onClick={() => onOpenWork('live')}><Eye className="ar-i" />Watch work</Button>
       {checked && <button type="button" className="ar-btn-link" onClick={() => onOpenWork('evidence')}>Evidence<ChevronRight className="ar-i" /></button>}
     </>

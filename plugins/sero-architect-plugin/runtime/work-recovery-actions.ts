@@ -27,12 +27,21 @@ export interface WorkRecoveryDeps {
 const refuse = (text: string): ProjectsOutcome => ({ ok: false, text });
 const ok = (text: string): ProjectsOutcome => ({ ok: true, text });
 
+const NO_PREVIEW = 'No preview command was found in the project workspace.';
+
+/** Whether the project has a preview to open. It reads the workspace and starts nothing. */
+export async function previewAvailable(deps: WorkRecoveryDeps, projectId: string): Promise<ProjectsOutcome> {
+  const record = await deps.store.read(projectId);
+  if (!record?.workspaceId) return refuse('This project has no workspace.');
+  return (await deps.host.detectDevServerCommand(record.folder)) ? ok('The project has a preview.') : refuse(NO_PREVIEW);
+}
+
 /** Starts the project's dev server so the user can look at it. */
 export async function previewProject(deps: WorkRecoveryDeps, projectId: string): Promise<ProjectsOutcome & { url?: string }> {
   const record = await deps.store.read(projectId);
   if (!record?.workspaceId) return refuse('This project has no workspace.');
   const command = await deps.host.detectDevServerCommand(record.folder);
-  if (!command) return refuse('No preview command was found in the project workspace.');
+  if (!command) return refuse(NO_PREVIEW);
   const server = await deps.host.startDevServer({ workspaceId: record.workspaceId,
     workspacePath: record.folder, cwdPath: record.folder, command, name: record.name, scope: 'workspace' });
   return server.url ? { ok: true, text: 'Project preview is running.', url: server.url }

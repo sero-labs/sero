@@ -23,7 +23,7 @@ import type { RepairOutcome } from './repair-dispatch';
 import { clearModelDefaultAction, parseModelEntry, refreshModelTiersAction, setModelDefaultAction, type ModelDefaultInput } from './model-default-actions';
 import { validateEntry } from './model-resolution';
 import { setProjectTierOverride } from '../shared/model-config';
-import { previewProject, repairProject, retryMilestone } from './work-recovery-actions';
+import { previewAvailable, previewProject, repairProject, retryMilestone } from './work-recovery-actions';
 import type { OwnerServices } from './owner-actions';
 import type { ArchitectIndexEntry } from '../shared/types';
 import type { ArchitectHost } from './host';
@@ -67,6 +67,8 @@ export type ProjectsOutcome = { ok: true; text: string; projectId?: string } | {
 /** One tier default a caller asks to save. */
 export interface ProjectsActions {
   preview(projectId: string): Promise<ProjectsOutcome & { url?: string }>;
+  /** Whether the project has a preview to open. Starts nothing. */
+  previewAvailable(projectId: string): Promise<ProjectsOutcome>;
   repair(projectId: string, workflowId?: string): Promise<RepairOutcome>;
   list(): Promise<ArchitectIndexEntry[]>;
   show(projectId: string): Promise<ProjectRecord | null>;
@@ -127,6 +129,7 @@ export function createProjectsActions(deps: ProjectsActionsDeps): ProjectsAction
     workWatch: deps.workWatch ?? null,
 
     preview: (projectId) => previewProject(recovery, projectId),
+    previewAvailable: (projectId) => previewAvailable(recovery, projectId),
     repair: (projectId, workflowId) => repairProject(recovery, projectId, workflowId),
     retry: (projectId, milestoneId, maxCostUsd) => retryMilestone(recovery, projectId, milestoneId, maxCostUsd),
 

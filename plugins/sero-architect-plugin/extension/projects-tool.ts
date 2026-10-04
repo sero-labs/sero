@@ -37,6 +37,7 @@ export const PROJECT_ACTIONS = [
   'repair',
   'retry',
   'preview',
+  'preview_available',
   'stop',
   'control',
   'raise_cap',
@@ -270,6 +271,12 @@ export async function executeProjectsTool(params: ProjectsToolParamsShape, ctx?:
       if (missing) return result(false, missing);
       const outcome = await actions.preview(id);
       return result(outcome.ok, outcome.text, { url: outcome.url });
+    }
+    case 'preview_available': {
+      const missing = need(id, 'projectId');
+      if (missing) return result(false, missing);
+      const outcome = await actions.previewAvailable(id);
+      return result(outcome.ok, outcome.text);
     }
     case 'retry': {
       const missing = need(id, 'projectId') ?? need(params.milestoneId, 'milestoneId');
