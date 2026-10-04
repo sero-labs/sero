@@ -110,6 +110,23 @@ describe('what a research Room may do', () => {
     expect(requests[0].mandate).toContain('Do not implement the product.');
   });
 
+  it('hands a refused Room plan back to the owner and does not block the project', async () => {
+    const host = await fakeHost();
+    const store = await storeFor(host);
+    await store.write(buildingProject({ phase: 'discovery', charter: null, milestones: [] }));
+    registry({
+      create: async () => ({ ok: false, error: 'members[0].tools: Iris is read-only, so it cannot use the command tool bash.' }),
+      inspect: async () => ({ status: 'running', models: [], result: null }),
+    });
+    const wake = vi.fn();
+    const services = createServices({ host, store, wake });
+    await services.research((await store.read('proj_1'))!, { question: 'Does the suite pass?', stoppingCondition: 'a verdict', kind: 'room', access: 'edit-workspace' });
+    await vi.waitFor(() => expect(wake).toHaveBeenCalledWith('proj_1', expect.objectContaining({ kind: 'dispatch-blocked', items: [expect.stringContaining('cannot use the command tool bash')] })));
+    const record = (await store.read('proj_1'))!;
+    expect(record.blockedReason).toBeNull();
+    expect(record.pendingResearch ?? []).toEqual([]);
+  });
+
   it('turns a planner question into a decision the user can answer, once, instead of blocking the project', async () => {
     const host = await fakeHost();
     const store = await storeFor(host);
