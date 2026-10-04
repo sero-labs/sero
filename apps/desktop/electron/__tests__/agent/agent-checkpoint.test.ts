@@ -44,6 +44,7 @@ describe('undoToTurn', () => {
         navigateTree,
         sessionManager: {
           getBranch: () => [],
+          appendCustomEntry: () => 'leaf-marker',
           getLeafId: () => 'leaf-before-undo',
         },
         messages: [],
@@ -103,6 +104,7 @@ describe('undoToTurn', () => {
         navigateTree,
         sessionManager: {
           getBranch: () => [],
+          appendCustomEntry: () => 'leaf-marker',
           getLeafId: () => 'leaf-before-undo',
         },
         messages: [],
@@ -148,6 +150,7 @@ describe('undoToTurn', () => {
         navigateTree,
         sessionManager: {
           getBranch: () => [],
+          appendCustomEntry: () => 'leaf-marker',
           getLeafId: () => 'leaf-before-undo',
         },
         messages: [],

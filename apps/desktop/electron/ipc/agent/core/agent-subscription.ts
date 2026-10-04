@@ -52,6 +52,9 @@ export function subscribeToSession(
   // reset at every message boundary.
   const toolInputStreams = new ToolInputStreams();
   let finalAssistant: Pick<AssistantMessage, 'stopReason' | 'errorMessage'> | null = null;
+  // True when the run was aborted before its last message ended. A request that starts after
+  // the abort fails with stop reason `error`, so the stop reason alone does not show a cancel.
+  let abortedRun = false;
 
   return session.subscribe((event) => {
     const entry = getEntry();
@@ -67,6 +70,7 @@ export function subscribeToSession(
     switch (event.type) {
       case 'agent_start':
         finalAssistant = null;
+        abortedRun = false;
         sendEvent({ type: 'agent_start', sessionId });
         break;
 
@@ -95,7 +99,7 @@ export function subscribeToSession(
         break;
 
       case 'agent_settled': {
-        const outcome = finalAssistant?.stopReason === 'aborted'
+        const outcome = finalAssistant?.stopReason === 'aborted' || abortedRun
           ? 'cancelled'
           : finalAssistant?.stopReason === 'error'
             ? 'error'
@@ -227,6 +231,7 @@ export function subscribeToSession(
             stopReason: event.message.stopReason,
             errorMessage: event.message.errorMessage,
           };
+          abortedRun = entry.session.agent.signal?.aborted === true;
           const textParts = event.message.content.filter(
             (c): c is { type: 'text'; text: string } => c.type === 'text',
           );
